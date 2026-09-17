@@ -8,7 +8,36 @@ last stood in the live file, with a closure note. **History, not guidance.**
 
 ---
 
-## Datacube discovery accepts rank-3 non-cubes — closed 2026-09-05
+## `RotationCalibration.swift` has no gated parity harness — closed 2026-09-17
+
+### ~~`RotationCalibration.swift` has no gated parity harness~~ — **CLOSED 2026-09-17**
+
+> `Core/Analysis/RotationCalibration.swift` (314 lines, two `DEVIATION` notes, the R–Q
+> rotation solve) is compiled by no `scientific` harness: no `tools/lib/sources.manifest`
+> group lists it, so the only coverage was `mac4DSTEMTests/CalibrationReReferenceTests.swift`
+> (synthetic CoM fields) and the diagnostic `tools/rotation-null-probe`. Evidence:
+> `docs/archive/audit-2026-09-16/REPORT.md` §3.1.
+
+**Closure.** `tools/rotation-parity-test` joined the `scientific` array via a new
+`rotation` group in `tools/lib/sources.manifest` (`AnalysisCancellationToken.swift` +
+`FFT2D.swift` + `RotationCalibration.swift`, no `calibration` composition — the solve
+takes no `Calibration.swift` type). Three legs ship gated: (a) analytic recovery — a
+scalar potential's gradient (independent numpy, not derived from the code under test),
+planted 37.2° (asymmetric on purpose — 0/45/90 hide a sign flip and a dropped transpose
+together, the S8 lesson), asserted for both transpose=false and a transposed field,
+tolerance 0.5°, measured error ~3e-6°; (c) ADR 024's null, reusing
+`tools/rotation-null-probe`'s exact generator functions and seed formulas — 8 vetted
+white-noise seeds that refuse, and 48 of 60 planted-30° seeds (sd ≤ 0.03) that certify
+(the probe's own header claims 0/60 refused across all sd; re-measured this session and
+found stale — 3 of 60 refuse, all at sd=0.05, matching the ALREADY-documented "power
+drops at the highest noise" finding, `docs/open-items.md`; sd=0.05 ships informational,
+not gated, rather than asserting the stale claim). A fourth leg, (b) py4DSTEM parity, hit
+its own documented stop condition — see the new open item this closure files,
+"RotationCalibration's py4DSTEM parity leg exposes an (Rx,Ry)-vs-(col,row) frame class".
+Both break-first mutations (a channel swap in the curl objective; an inverted
+`carriesRotation` comparison) went red before revert and green after, `cmp`-verified
+clean against a pristine byte copy (this session, logs not retained past the session per
+`docs/status.md`'s log-naming convention). Zero changes under `Core/`.
 
 ### ~~Datacube discovery accepts rank-3 non-cubes~~ — **CLOSED 2026-09-05**
 

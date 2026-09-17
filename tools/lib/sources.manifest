@@ -244,6 +244,20 @@ mac4dstem_sources() {
           "$core/Analysis/EllipseCalibration.swift"
         )
         ;;
+      rotation)
+        # The R-Q rotation solve alone (tools/rotation-parity-test): its
+        # cancellation-token parameter and the FFT2D the surrogate null
+        # links against, no `calibration` composition — RotationCalibration
+        # takes no Calibration.swift type. Mirrors the ad hoc source list
+        # tools/rotation-null-probe/run.sh added by hand before this group
+        # existed (checked 2026-09-17: RotationCalibration.swift was in
+        # neither this file nor any group it composes).
+        want+=(
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/FFT2D.swift"
+          "$core/Analysis/RotationCalibration.swift"
+        )
+        ;;
       parallax)
         # The whole parallax chain; each parallax-*-test compiles all of it.
         mac4dstem_sources "$repo" calibration
@@ -350,7 +364,7 @@ mac4dstem_sources() {
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse parallax ptychography presentation crystal fitoverlays core strain export embedding phasevectors" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse rotation parallax ptychography presentation crystal fitoverlays core strain export embedding phasevectors" >&2
         exit 64
         ;;
     esac

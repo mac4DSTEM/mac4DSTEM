@@ -275,17 +275,21 @@ Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
 
 ## Verification debt — added 2026-09-08
 
-### `RotationCalibration.swift` has no gated parity harness — found by the 2026-09-16 audit
-`Core/Analysis/RotationCalibration.swift` (314 lines, two `DEVIATION` notes,
-the R–Q rotation solve) is compiled by no `scientific` harness: no
-`tools/lib/sources.manifest` group lists it, so the only coverage is
-`mac4DSTEMTests/CalibrationReReferenceTests.swift` (synthetic CoM fields) and
-the diagnostic `tools/rotation-null-probe`. Evidence:
-`docs/archive/audit-2026-09-16/REPORT.md` §3.1 (the 11 Core files with zero
-harness coverage; the other ten are readers, ML, presentation or workflow).
-Trap: a py4DSTEM port whose parity is asserted by nothing is exactly the class
-the 2026-09-09 review found in `PtychographyPreparation`. Owner: the session
-that next touches rotation; before any refactor there, not after.
+### RotationCalibration's py4DSTEM parity leg exposes an (Rx,Ry)-vs-(col,row) frame class — Gate D, added 2026-09-17
+`tools/rotation-parity-test` (new gated harness; closes "`RotationCalibration.swift`
+has no gated parity harness", `docs/archive/closed-items-2026-09.md`) transcribes
+py4DSTEM's curl grid search from the pinned source (`phase_base_class.py`'s
+"Transpose unknown, rotation unknown" branch) and runs it on the same field Swift
+fits. They disagree: on a planted 37.2° field, Swift returns (−37.2°, transpose=false),
+the numpy transcription under the natural `(Rx,Ry)` = (row, col) axis reading returns
+(+37.2°, transpose=true) — same magnitude, flipped sign and transpose, the signature
+of a coordinate-frame difference, not a numerical bug. Not diagnosed: which side (if
+either) is wrong, or whether `(Rx,Ry)` means (row,col) or (col,row) in py4DSTEM's own
+storage. Trap: do not resolve this by tuning the numpy reference until it agrees with
+Swift — that is fitting the fixture to the code under test. Owner: `/diagnose`, before
+any change to `RotationCalibration.swift`; the harness ships with this leg informational
+(not gated), the source-contract assertion is what gates today.
+
 
 ### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
 The `macos-26` runner carries Xcode 26.6, and its type checker times out on

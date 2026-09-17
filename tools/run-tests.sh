@@ -96,6 +96,7 @@ scientific=(
   singleslice-ptychography-test result-presentation-test
   scientific-bundle-test
   disk-detector
+  rotation-parity-test
 )
 campaign=(
   parallax-preprocessing-test parallax-alignment-test parallax-aberration-test
