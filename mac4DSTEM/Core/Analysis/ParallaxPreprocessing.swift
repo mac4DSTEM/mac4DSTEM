@@ -322,6 +322,15 @@ package nonisolated enum ParallaxPreprocessor {
                           * calibration.reciprocalSamplingInvAngstrom)
             )
         }
+        // DEVIATION from py4DSTEM `Parallax._probe_angles = _kxy * _wavelength`
+        // (parallax.py:478), which is RADIANS: we store MILLIRADIANS
+        // (× wavelengthAngstrom × 1_000) so `maximumProbeAngleMrad` (:170) and the
+        // preprocessing summary read straight in mrad. Every science consumer
+        // divides by 1_000 back to radians first — ParallaxDepthSectioning.swift
+        // (angleRow/angleColumn, :189-190) and ParallaxAberrationFitting.swift
+        // (rowAngle/columnAngle :154-155, initialU/initialV :387-388). The parity
+        // fixture matches with the same × 1e3
+        // (tools/parallax-preprocessing-test/reference.py:68).
         let probeAngles = reciprocalVectors.map {
             ParallaxVector(
                 qx: $0.qx * Float(calibration.wavelengthAngstrom * 1_000),

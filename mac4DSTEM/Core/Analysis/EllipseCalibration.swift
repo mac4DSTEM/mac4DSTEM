@@ -478,6 +478,15 @@ package nonisolated enum EllipseCalibration {
         let backgroundLower = minimum - 2 * dynamicRange
         let backgroundUpper = maximum + 2 * dynamicRange
 
+        // DEVIATION: py4DSTEM `fit_ellipse_amorphous_ring`
+        // (process/calibration/ellipse.py:189-199) seeds absolute intensities
+        // I0=max(data), I1=max(data*mask), c=min(data), and derives its start
+        // geometry from a radial integral (a circle a=b=R, theta=0). This port
+        // runs *after* the conic fit, so it seeds (a,b,theta) from `initial`
+        // rather than a radial-integral R, and uses baseline-subtracted,
+        // annulus-restricted amplitudes: I0=globalMax-annularMin,
+        // I1=annularMax-annularMin, c=annularMin. Same model and residual, only
+        // the LM start point differs; the effect on convergence is unmeasured.
         // [I0,I1,sigma0,sigma1,sigma2,c,x0,y0,a,b,theta]
         var parameters = [
             max(0, globalMaximum - minimum), dynamicRange,

@@ -32,88 +32,74 @@ and final exit 0). Item closed.
 ## Deviation-note audit 2026-09-17 — added 2026-09-17
 
 Read-only fan-out over 43 Core/ ported sources (CLAUDE.md hard rule: port deviations get
-an inline `DEVIATION` note). Most files were already consistent or already documented;
-these five undocumented gaps survived independent verification against the pinned
-py4DSTEM source before being recorded here. Two files got a class-a note inline instead
-(a pre-existing same-file justification already existed, just untagged): `DiskDetection.swift`
-(`relativeReferenceMinimumRadiusPx`'s spatial exclusion) and `OrientationMatcher.swift`
-(the single-pass distinct-runner-up filter), plus `ProbeKernel.swift` (the vacuum-mask
-cosine shoulder) and `StrainMapping.swift` (`robustReferenceIndices`'s MAD rejection).
+an inline `DEVIATION` note). Two files got a class-a note inline where a same-file
+justification already existed untagged (`DiskDetection.swift`, `OrientationMatcher.swift`),
+plus `ProbeKernel.swift` and `StrainMapping.swift`. Five class-b gaps were found. **Four were
+pure documentation gaps and got their inline `DEVIATION` note 2026-09-17** (each verified
+against source, re-checked by an independent refuter): `EllipseCalibration.fitAmorphousRing`
+(LM start point differs), `ParallaxPreprocessing` probe angles (milliradian storage, converted
+back to radians in every science consumer), `OrientationPlan` per-ring mean (py4DSTEM's is
+commented out AND coarser — a whole-image mean, not per-ring), `ScatteringFactors` (no
+`units="VA"` branch). The fifth is a behaviour deviation, not a doc gap, and stays open:
 
-### Parallax default bin schedule skips py4DSTEM's second pass at the minimum bin
-`ParallaxAligner.defaultBinSchedule` (`ParallaxAlignment.swift:152-165`) reproduces
-`bin_vals = 2 ** arange(bin_min, bin_max)[::-1]` from `Parallax.reconstruct`
-(`parallax.py:1274-1276`) but drops the next step: `if num_iter_at_min_bin > 1: bin_vals =
-hstack((bin_vals, repeat(bin_vals[-1], num_iter_at_min_bin - 1)))` (`parallax.py:1278-1281`),
-where `num_iter_at_min_bin` defaults to **2**. py4DSTEM's default schedule therefore runs the
-finest bin level twice (e.g. diameter 7 → `[4,2,1,1]`); this port's schedule runs it once
-(`[4,2,1]`), so `ParallaxAlignmentResult.isComplete` fires one refinement pass early — this
-moves the converged shift/error values. No `numIterAtMinBin` knob exists anywhere in the
-port (grepped Core/App/docs). **Science, Gate D before any fix.** Owner: unclaimed.
+### Parallax default bin schedule runs the finest bin once; py4DSTEM's runs it twice — Gate D diagnosed 2026-09-17, fix owed
+`ParallaxAligner.defaultBinSchedule` (`ParallaxAlignment.swift:152-166`) returns e.g. `[4,2,1]`
+for a diameter-5 disk; py4DSTEM's `reconstruct` default (`num_iter_at_min_bin=2`,
+`parallax.py:1141,1278-1281`) appends one repeat of the finest bin → `[4,2,1,1]`. **Refuting
+observation:** were the port matched, `isComplete` (`:74`, `completedBins == alignmentSchedule`)
+would fire only after a second bin-1 pass and `errorHistory` would hold two bin-1 entries — it
+holds one, and no `numIterAtMinBin` knob exists anywhere (grepped). The second pass is a real
+iteration, not a no-op: py4DSTEM rebuilds `G_ref` from the updated `recon_BF` and appends another
+error entry. Every downstream product gates on `isComplete` (`ParallaxAberrationFitting:134`,
+`AberrationCorrection:82`, `SubpixelReconstruction:96`, `DepthSectioning:99`), so all compute one
+refinement pass short. **Predicted:** a small additional shift refinement toward py4DSTEM's
+converged state — direction not reversal, magnitude a property of the dataset (measure, don't
+infer). **Experiment (harness only, no Core fix):** py4DSTEM-dev is vendored and the 9-image
+stack is generated in-process, so run py4DSTEM's `BFReconstruction.reconstruct(reset=True)`
+head-to-head against the port driven over `[4,2,1]`, reporting max-abs `totalShifts`/`alignedBF`/
+final-error diffs. **Trap:** `tools/parallax-alignment-test/reference.py:354-357` hard-codes the
+schedule WITHOUT the repeat, so the green test agrees with the port by construction and cannot
+catch this — add the `num_iter_at_min_bin` hstack to its contract list. **Science, Gate D before
+any `ParallaxAlignment` change.** Owner: unclaimed.
 
-### `fitAmorphousRing`'s parameter initialization diverges from py4DSTEM, undocumented
-`EllipseCalibration.swift:482-493`'s 11-parameter init uses dynamic-range-based
-`I0=(globalMax-annularMin)`/`I1=(annularMax-annularMin)` and the initial conic's `(a,b,theta)`;
-py4DSTEM's `fit_ellipse_amorphous_ring` (`ellipse.py:189-199`) uses absolute `I0=max(data)`,
-`I1=max(data*mask)`, and a radial-integral-derived `R`. Structurally this port also requires a
-pre-fitted conic ellipse where py4DSTEM's function can run standalone. Affects convergence,
-not measured. Owner: unclaimed.
+## T1 [0 -4 1]: the not-indexed pairs are one real Friedel family rejected on tolerance — measured 2026-09-17, Gate D on the origin residual owed
 
-### Parallax probe angles are stored in milliradians, not radians like py4DSTEM
-`ParallaxPreprocessing.swift:325-330` computes `probeAngles = kq * wavelengthAngstrom * 1000`;
-py4DSTEM's `Parallax._probe_angles = kxy * wavelength` (`parallax.py:478`, radians). Intentional
-— `ParallaxDepthSectioning.swift` divides by 1000 to convert back, and the test fixture
-(`tools/parallax-preprocessing-test/reference.py:68`) does the same conversion — but no
-`DEVIATION` note says so. Owner: unclaimed.
+The earlier question — "do the two observed T1 spots form a Friedel pair, or two different-length
+families 0.454/0.479?" — is **resolved by direct measurement** (independently refuted). Three ways:
 
-### `OrientationPlan`'s polar image subtracts a per-ring mean; py4DSTEM's is commented out
-`OrientationPlan.swift:276-283` subtracts each radial ring's mean before normalization.
-py4DSTEM's equivalent (`crystal_ACOM.py:854`, `:1146`) is present but commented out in both
-places it could run. The Swift choice looks intentional (header at :237-240 explains removing
-the DC term) but is unmeasured against py4DSTEM's disabled default. Owner: unclaimed.
+1. **The reference** (`PhaseReferenceLibrary.build` output for `Thronsen.t1` at `[0,-4,1]`, groups
+   by `|g|` within 0.001 Å⁻¹): **0.0575, 0.2334, 0.4546, 0.4668, 0.4703, 0.4933, 0.700, 0.703,
+   0.733, 0.753, 0.788 Å⁻¹.** The extra groups (0.0575, 0.4546, 0.4703) are `l=4k±1` near-ZOLZ
+   reflections the flat-Ewald slab admits ONLY because this is a long c-axis cell — `1/|r_uvw|` =
+   0.041 < the 0.05 slab (`PhaseReferenceLibrary.swift:454-465` flags exactly this), projected to
+   reduced lengths. So the reference is OVER-complete near 0.45-0.49 (four candidate lengths where
+   crystallography has two). Does not match `thronsen.swift`'s unpinned header (0.233…0.679).
+2. **The real data** (`tools/thronsen-dataset` subsample, shipped defaults): T1 positions mostly
+   leave exactly 2 survivors after matrix removal (52.1 % of 6358); all 252 marked "not indexed"
+   failed at eligibility (100 % "nothing-cleared", 0 % "cliff-refused").
+3. **The survivors' geometry** (new read-only `phase-map-probe` block, same data): at the 252
+   not-indexed T1 positions the two survivors are **one `|q| ≈ 0.462–0.470 Å⁻¹` family** — the
+   {200}-type ZOLZ reflection (independent `docs/archive/v3/t1-zolz-2026-09-17.py`: exact {200}
+   `|g|=0.4668`, ±pair
+   (2,0,0)@18.6°/(−2,0,0)@198.6°), NOT two families 0.454/0.479; within-pair lengths agree to
+   ≤ 0.006. They ARE a Friedel pair but sit **2.5–5.2° off antiparallel** (`|u+v|` = 0.021–0.043,
+   all just over the 0.02 pair radius), so `containsFriedelPair` returns false, the floor stays 3,
+   and 2 survivors can never clear it. **So: one real 0.467 Friedel pair, the reference length is
+   correct (do NOT change the T1 reference), and the rejection is a tolerance, not crystallography.**
+   Consistent with the 59 % recall the floor-2 exception already buys — centred pairs pass, these
+   marginal ones fall just outside.
 
-### `ScatteringFactors.electronScatteringFactor` omits py4DSTEM's "VA" units option
-py4DSTEM's `electron_scattering_factor(Z, gsq, units="A"|"VA")` (`single_atom_scatter.py:29-48`)
-supports Angstrom and Volt-Angstrom³ output; the "A" formula the app uses is byte-identical.
-Swift's version (`ScatteringFactors.swift:239-247`) has no `units` parameter — "VA" is simply
-absent, not wrong. Crystal.swift's own header already states the app's convention is "A" only,
-so this is a minor, low-priority documentation gap, not a live defect. Owner: unclaimed.
-
-## T1 [0 -4 1] reference measured — added 2026-09-17, STOPS at a crystallography decision
-
-`docs/status.md`'s handoff said the [0 -4 1] projection "predicts 0.233 and 0.367 Å⁻¹
-reflections the data does not show" — the framing this item's own brief flagged as itself
-a confident-wrong observation, so it was re-measured rather than trusted. **Measured, two
-ways:**
-
-1. **The reference itself**, read directly off `PhaseReferenceLibrary.build`'s own output
-   for `Thronsen.t1` at zone axis `[0,-4,1]` (not a reimplementation — the exact entry the
-   matcher uses), grouped by `|g|` within 0.001 Å⁻¹, kMax 0.8: **0.0575, 0.2334, 0.4546,
-   0.4668, 0.4703, 0.4933, 0.7001, 0.7025, 0.7333, 0.7527, 0.7880 Å⁻¹.** This does not
-   match `tools/phase-map-probe/thronsen.swift`'s own header comment ("0.233, 0.367, 0.467,
-   0.493, 0.679") — there is no group near 0.367 in the entry the code actually builds, and
-   0.679 is off by ~0.02-0.024 from the nearest measured group (0.700/0.703). The header
-   comment is itself unpinned prose, not a value read from the code; it may predate a
-   library-construction change. **0.454 sits 0.0006 Å⁻¹ from the measured 0.4546** —
-   effectively exact — and **0.479 sits 0.009-0.014 Å⁻¹ from three separate measured groups**
-   (0.4703, 0.4668, 0.4933) — all comfortably inside `pairRadiusInvAngstrom` (0.02). The
-   reference does not predict absent reflections near the ground truth; if anything it is
-   OVER-complete there — four distinct candidate lengths cluster where the data shows two.
-2. **The real data** (`tools/thronsen-dataset/run.sh probe`, the local stride-3 subsample,
-   shipped defaults): T1 truth positions mostly detect exactly 2 survivors after matrix
-   removal (52.1 % of 6358), and every one of the 252 T1 positions marked "not indexed"
-   failed because **nothing cleared any candidate's guard at all** (100 % "nothing-cleared",
-   0 % "cliff-refused") — not a mean-distance refusal, an eligibility refusal.
-
-**What this measurement does NOT resolve, and is not this item's job to:** whether the
-observed 2-reflection pattern at T1 positions forms a Friedel pair (u, −u) under this
-projection — if it does not, `minimumVectors`/`matchedFloor`'s default-3 floor (not the
-Friedel-pair exception's 2) applies, which two detected reflections alone cannot clear
-regardless of how close the reference sits. That is a crystallographic reading of the P6/mmm
-structure's ZOLZ reflections at this projection, owed to the owner. **STOP here — never ship
-a changed reference without that reading.** Owner: which two (or more) of the four measured
-groups near 0.45-0.49 the observed data's 0.454/0.479 correspond to, and whether they are a
-Friedel pair at `[0,-4,1]`.
+**Gate D, not established:** the CAUSE of the off-antiparallel residual and the fix. The probe's
+single global origin (0.363 px off centre) explains at most `|u+v|` ≤ 0.014 — below the measured
+0.021–0.043, which imply per-position shifts of 0.5–1.1 px (per-position beam wander OR per-peak
+sub-pixel noise, not distinguished). Crucially the probe used ONE global origin and never applied
+the app's per-position origin collapse (`BraggVectors.calibrated(with:referenceOrigin:)`, from
+`OriginCalibration`/`DiskDetection` fitted origins) — so these 252 may be partly a probe artifact
+the app already removes. **Decisive experiment before any fix:** re-run the T1 not-indexed positions
+with per-position fitted origins; measure (a) does `|u+v|` collapse below 0.02, (b) does `classify`
+label them T1 with score < the shipped 0.015 cliff. Loosening the pair floor alone is NOT the fix —
+even at floor 2 the 0.015 `notIndexedAboveInvAngstrom` cliff blocks ~1/3 (`|u+v|`/2 > 0.015),
+recovering at most ~half on marginal matches. Owner: assign the per-position-origin experiment.
 
 ## resultexport-split, prepared and parked — added 2026-09-17
 

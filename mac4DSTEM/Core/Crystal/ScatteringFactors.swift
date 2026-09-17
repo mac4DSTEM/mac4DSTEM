@@ -237,6 +237,13 @@ package nonisolated enum ScatteringFactors {
 
     /// Electron scattering factor f_e(Z, g^2), g^2 in A^-2, or nil for an
     /// element outside the table - callers must fail loudly, not silently.
+    /// DEVIATION from py4DSTEM `single_atom_scatter.electron_scattering_factor`
+    /// (process/utils/single_atom_scatter.py:29): upstream takes a
+    /// `units="A"|"VA"` argument and, for "VA", scales f_e by
+    /// h²/(2π·mₑ·qₑ)·1e18 to return volt-Å³. Only the "A" branch is ported —
+    /// the bare sum returned here — matching the app's Å-only structure-factor
+    /// convention (Crystal.swift header, ScatteringFactors.swift line 10). The
+    /// "VA" option is absent, not wrong; the "A" formula is byte-identical.
     package static func electronScatteringFactor(z: Int, gSquared: Double) -> Double? {
         guard let p = table[z] else { return nil }
         var fe = 0.0

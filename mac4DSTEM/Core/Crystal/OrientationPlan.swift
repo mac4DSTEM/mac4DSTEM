@@ -275,6 +275,16 @@ package nonisolated struct OrientationPlan {
         }
         if azimBlurBins > 0 { blurAzimuthal(&img, geo: geo, sigmaBins: azimBlurBins) }
         // Per-ring mean subtraction.
+        // DEVIATION: py4DSTEM leaves this mean IN by default. Its two mean-
+        // subtraction lines — crystal_ACOM.py:854 (orientation_ref) and :1146
+        // (im_polar) — are both commented out, so its reference and query polar
+        // images keep their DC term through the L2 norm (matched below by
+        // normalizeUnit). This port instead removes each ring's mean here,
+        // zeroing the DC bin of every ring's azimuthal FFT before correlation.
+        // py4DSTEM's disabled line is also a single whole-image mean (np.mean
+        // over the full 2-D slice), coarser than the per-ring mean used here.
+        // Deliberate (see header, :237-240) but UNMEASURED against py4DSTEM's
+        // mean-retaining default.
         for r in 0..<geo.nRadial {
             let base = r * geo.nAzimuthal
             var mean: Float = 0

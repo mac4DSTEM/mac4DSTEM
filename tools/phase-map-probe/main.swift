@@ -882,6 +882,72 @@ enum Probe {
                       + [0.10, 0.25, 0.50, 0.75, 0.90].map(q).joined(separator: " "))
             }
 
+            // ---- Are the T1 not-indexed survivors a Friedel pair? (owner
+            // question, docs/open-items.md "T1 [0 -4 1] reference measured") ----
+            // The matcher's floor drops from 3 to 2 ONLY when the surviving
+            // experimental vectors hold u and −u within the pair radius
+            // (containsFriedelPair). With ~2 survivors at T1 that is the whole
+            // difference between "can index" and "can never". Recompute the
+            // SHIPPED survivors at every not-indexed position and ask directly —
+            // read-only, no science number moves.
+            // CAVEAT: this uses the probe's single GLOBAL origin and does NOT
+            // apply per-position origin collapse (BraggVectors.calibrated(with:
+            // referenceOrigin:)), so an off-antiparallel |u+v| seen here may be a
+            // global-origin artifact — the per-position-origin re-run is the
+            // Gate D owed (docs/open-items.md, T1 entry).
+            do {
+                let scratch = PhaseVectorMatcher.Scratch(capacity: 64)
+                let matrixEntry = map.matrixEntryIndex >= 0 ? library.entries[map.matrixEntryIndex] : nil
+                let t1PhaseIndex = map.phaseNames.firstIndex(of: "T1") ?? -1
+                let t1Entries = library.entries.indices.filter {
+                    Int(library.entries[$0].phaseIndex) == t1PhaseIndex
+                }
+                print(String(format: "\n  Friedel-pair test on SHIPPED not-indexed survivors (pair radius %.4f Å⁻¹, T1 entries: %d):",
+                             matchSettings.pairRadiusInvAngstrom, t1Entries.count))
+                for theirs in [3, 1, 2] {   // T1 first, then θ′ variants for contrast
+                    var nTotal = 0, nPair = 0, nPairAndT1Match = 0
+                    var survCounts: [Int] = []
+                    var examples: [String] = []
+                    for (index, result) in map.results.enumerated()
+                    where thronsen.labels[index] == theirs && result.verdict == .notIndexed {
+                        let vectors = PhaseVectorMatcher.experimentalVectors(
+                            peaks: peaks[index], originX: originX, originY: originY,
+                            invAngstromPerPixel: qPerPixel,
+                            directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                            maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                        let surviving = vectors.filter { u in
+                            guard let m = matrixEntry else { return true }
+                            return !m.vectors.contains { simd_distance($0.q, u) <= matchSettings.matrixToleranceInvAngstrom }
+                        }
+                        nTotal += 1
+                        survCounts.append(surviving.count)
+                        let isPair = PhaseVectorMatcher.containsFriedelPair(
+                            surviving, radius: matchSettings.pairRadiusInvAngstrom)
+                        if isPair {
+                            nPair += 1
+                            let best = t1Entries.compactMap {
+                                PhaseVectorMatcher.score(
+                                    vectors: surviving, against: library.entries[$0],
+                                    pairRadius: matchSettings.pairRadiusInvAngstrom,
+                                    scratch: scratch)?.matched }.max() ?? 0
+                            if best >= 2 { nPairAndT1Match += 1 }
+                        }
+                        if theirs == 3 && examples.count < 8 && surviving.count >= 2 {
+                            let desc = surviving.prefix(4).map {
+                                String(format: "(%+.3f,%+.3f)|q|=%.3f", $0.x, $0.y, simd_length($0)) }
+                                .joined(separator: " ")
+                            examples.append("      n=\(surviving.count) pair=\(isPair)  \(desc)")
+                        }
+                    }
+                    guard nTotal > 0 else { continue }
+                    let medSurv = survCounts.sorted()[survCounts.count / 2]
+                    print(String(format: "  %-14@ n=%5d  median survivors=%d  hold ±pair: %5d (%3.0f%%)  of those a T1 entry matches ≥2: %d",
+                                 name(theirs) as NSString, nTotal, medSurv, nPair,
+                                 100 * Double(nPair) / Double(nTotal), nPairAndT1Match))
+                    for e in examples { print(e) }
+                }
+            }
+
             // How much evidence stands behind a MATRIX verdict? (2026-09-16.)
             // `.matrix` is returned by two mechanisms — too little survived
             // removal, or the matrix won the challenge — but the distinction
