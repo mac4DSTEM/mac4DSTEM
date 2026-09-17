@@ -34,6 +34,7 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 - On-screen verification may be claimed only when it actually drove the app and is sure — name the build, say what was clicked, what was seen; otherwise it is stated as unverified on screen.
 - Docs are part of done: update `docs/status.md` and `docs/open-items.md` in the same commit as the code, net negative markdown lines or say why, and run `tools/sync-agents-md.sh` after editing this file.
 - Commit freely: land work as coherent commits with the gate numbers in the message. Pushing stays the owner's — ask before any push.
+- **`main` only** (owner directive 2026-09-17): no feature or worktree branches, local or remote; every change lands as a commit on `main`. The one-time cleanup back to a single branch is `docs/archive/git-cleanup-2026-09-17.md`.
 - Decisions are a file in `docs/decisions/` plus a row in `docs/decisions.md`; the pre-2026-09-16 log is verbatim in `docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`.
 - What code already enforces: `run-tests.sh core` holds the layering; `run-tests.sh inventory` holds the UI contract greps, harness manifest, tools classification, NOTICE hashes, AGENTS sync and the size report.
 
