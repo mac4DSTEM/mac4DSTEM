@@ -114,6 +114,7 @@ enum Probe {
         var maxPeaks: Int?
         var matrixFallback: Double?
         var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
+        var completenessGuard = false   // item K: PhaseVectorSettings.completenessAwareCrossPhaseRanking, off-by-default candidate
         var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
         // 2026-09-15 evening: what ARE the surviving spots at correctly-labelled
         // edge-on positions whose winner sits near 22°/67° to the matrix, not at
@@ -142,6 +143,8 @@ enum Probe {
                 referenceOutsidePx = Float(args[index + 1]); index += 2
             } else if args[index] == "--truth", index + 1 < args.count {
                 truthPath = args[index + 1]; index += 2
+            } else if args[index] == "--completeness-guard" {
+                completenessGuard = true; index += 1
             } else if args[index] == "--noise-floor" {
                 noiseFloor = true; index += 1
             } else if args[index] == "--or" {
@@ -187,6 +190,10 @@ enum Probe {
         referenceSettings.inPlaneStepDeg = 2
 
         var matchSettings = PhaseVectorSettings()   // `var`: the reach and the floor are set below
+        if completenessGuard {
+            matchSettings.completenessAwareCrossPhaseRanking = true
+            print("matching: cross-phase ranking is completeness-aware (shipped: mean distance alone)")
+        }
         if let minMatched {
             matchSettings.minimumMatchedVectors = minMatched
             print("matching: minimumMatchedVectors \(minMatched) (shipped 3)")

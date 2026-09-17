@@ -131,13 +131,31 @@ zone axes a ⟨110⟩Al beam DOES present is a crystallographic question nobody 
 answered here; until it is, the UI lets the user type one and the method
 refuses when it is wrong, which is the correct behaviour but not the answer.
 
-### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12, the cliff moved 2026-09-15
+### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12, the cliff moved 2026-09-15, a candidate built 2026-09-17
 
 What remains a caution: the best entry per phase is still chosen by mean distance alone,
 so a sparse precise match outranks a dense one — **across phases too** (Gate B 2026-09-15:
 a two-vector match at 0.004 beats a ten-vector match of another phase at 0.012) — a count-
 aware score is not built, and the pair floor makes two-vector matches admissible.
 Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
+
+**A candidate built and measured, 2026-09-17, PARKED — Gate D + the owner's refuter
+still owed before any merge.** `PhaseVectorSettings.completenessAwareCrossPhaseRanking`
+(off by default) reranks the cross-phase winner in `classify` step 3 by matched count
+first, mean distance as the tiebreak only — the same rule `fitMatrixOrientation` already
+uses for candidate zone axes in this same file. Mechanism isolated and unit-tested
+directly (`PhaseVectorMatcher.crossPhaseWinsOver`, `PhaseVectorMatchingTests.swift`,
+broken-first): with the flag on, a hand-built (2 matched, 0.004 Å⁻¹) vs (10 matched,
+0.012 Å⁻¹) pair correctly flips winner. **Measured on the one dataset with ground
+truth** (`tools/phase-map-probe --truth`, new `--completeness-guard` flag): the demo
+cube's confusion matrix is **byte-identical with the flag on or off** (Matrix 97.0 %,
+indexed 204 positions, every recall row 100 %) — this dataset does not contain a
+position where two candidate phases both clear their eligibility guards with the
+loser matching more vectors, so it can prove no regression but cannot yet prove an
+improvement. Thronsen is not a valid second measurement here: its T1 reference is
+already known wrong in detail (`docs/status.md` handoff), which confounds any
+before/after comparison of a DIFFERENT knob. Owner: Gate D on real data that exercises
+the trap, then a refuter, before this ever ships true.
 
 ### A stale DerivedData test bundle fakes both a pass and a surviving mutation — added 2026-09-12
 

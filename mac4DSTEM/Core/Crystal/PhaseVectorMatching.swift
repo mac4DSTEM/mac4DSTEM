@@ -166,6 +166,21 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// default.
     package var orientationRelationshipToleranceDeg: Double = 10
 
+    /// OFF BY DEFAULT (audit 3.2 row — cross-phase-completeness-guard,
+    /// `docs/open-items.md`, "the best entry per phase is still chosen by
+    /// mean distance alone"). When true, the CROSS-phase winner in
+    /// `classify` step 3 is ranked the same way `fitMatrixOrientation`
+    /// already ranks candidate zone axes in this same file — by matched
+    /// count first, mean distance only as the tiebreak — instead of by mean
+    /// distance alone. Measured, not shipped: a two-vector Friedel pair at
+    /// 0.004 Å⁻¹ beating a ten-vector match of another phase at 0.012 Å⁻¹
+    /// is the observed case (Gate B, 2026-09-15) this exists to close, but
+    /// it moves a per-position verdict and has not cleared Gate D + a
+    /// refuter on real data. Measure on `tools/phase-map-probe --truth`
+    /// before flipping it (the demo cube; Thronsen is confounded by the
+    /// unfixed T1 reference, `docs/open-items.md`).
+    package var completenessAwareCrossPhaseRanking = false
+
     package nonisolated init() {}
 }
 
@@ -755,6 +770,22 @@ package nonisolated enum PhaseVectorMatcher {
         return best
     }
 
+    /// True when `a` outranks `b` as the cross-phase winner. Shipped
+    /// (`completenessAware: false`): mean distance alone, ascending —
+    /// `a.score < b.score`. Candidate (`completenessAware: true`): matched
+    /// count first, descending, mean distance only as the tiebreak — the
+    /// same rule `fitMatrixOrientation` already uses above for candidate
+    /// zone axes. Extracted from `classify`'s sort so it is testable without
+    /// a crystal library: `PhaseVectorSettings.completenessAwareCrossPhaseRanking`'s
+    /// own doc comment has the measurement and the open item.
+    package static func crossPhaseWinsOver(
+        _ a: (matched: Int, score: Double), _ b: (matched: Int, score: Double),
+        completenessAware: Bool
+    ) -> Bool {
+        guard completenessAware else { return a.score < b.score }
+        return a.matched != b.matched ? a.matched > b.matched : a.score < b.score
+    }
+
     // MARK: One pattern
 
     /// Classify one pattern's already-calibrated vectors.
@@ -847,7 +878,12 @@ package nonisolated enum PhaseVectorMatcher {
             return result
         }
 
-        let ranked = bestPerPhase.sorted { $0.value.score < $1.value.score }
+        let ranked = bestPerPhase.sorted {
+            crossPhaseWinsOver(
+                (matched: $0.value.matched, score: $0.value.score),
+                (matched: $1.value.matched, score: $1.value.score),
+                completenessAware: settings.completenessAwareCrossPhaseRanking)
+        }
         let winner = ranked[0]
         result.score = Float(winner.value.score)
         result.matchedCount = Int32(winner.value.matched)

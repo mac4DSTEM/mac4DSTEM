@@ -1030,6 +1030,60 @@ final class PhaseVectorMatchingTests: XCTestCase {
         try PhaseReferenceLibrary.build(phases: [matrixAluminium(), candidateBeta()],
                                         settings: coarseSettings())
     }
+
+    // MARK: - Item K: cross-phase-completeness-guard (off by default)
+
+    /// `PhaseVectorMatcher.crossPhaseWinsOver` in isolation -- the exact
+    /// scenario `docs/open-items.md` measured (Gate B, 2026-09-15): a
+    /// 2-vector match at 0.004 Å⁻¹ against a 10-vector match of another
+    /// phase at 0.012 Å⁻¹. Shipped (mean distance alone) picks the sparse
+    /// match; the completeness-aware candidate picks the dense one.
+    ///
+    /// Mutation this catches: the `completenessAware` guard deleted (the
+    /// candidate rule would then always apply, changing shipped behavior),
+    /// or `matched != matched` compared with `<` instead of `>` (the dense
+    /// match would lose to the sparse one even with the guard on).
+    func testCrossPhaseWinsOverPicksTheSparseMatchByDefaultAndTheDenseMatchWithTheGuard() {
+        let sparsePrecise = (matched: 2, score: 0.004)
+        let denseImprecise = (matched: 10, score: 0.012)
+
+        XCTAssertTrue(
+            PhaseVectorMatcher.crossPhaseWinsOver(sparsePrecise, denseImprecise, completenessAware: false),
+            "shipped default (mean distance alone): the sparse, precise match must still win")
+        XCTAssertFalse(
+            PhaseVectorMatcher.crossPhaseWinsOver(denseImprecise, sparsePrecise, completenessAware: false),
+            "the ordering must be antisymmetric: the dense match cannot ALSO outrank the sparse one")
+
+        XCTAssertTrue(
+            PhaseVectorMatcher.crossPhaseWinsOver(denseImprecise, sparsePrecise, completenessAware: true),
+            "completeness-aware (off by default): the dense match must win when the flag is on")
+        XCTAssertFalse(
+            PhaseVectorMatcher.crossPhaseWinsOver(sparsePrecise, denseImprecise, completenessAware: true),
+            "and the sparse match must no longer outrank it")
+    }
+
+    /// Equal matched counts always fall back to mean distance, with the
+    /// guard on or off -- the tiebreak, not a separate rule. Mutation: the
+    /// tiebreak branch skipped when `completenessAware` is true (an equal
+    /// matched count would then order arbitrarily by dictionary iteration).
+    func testCrossPhaseWinsOverTiesOnMatchedCountFallToMeanDistanceEitherWay() {
+        let lowerDistance = (matched: 5, score: 0.006)
+        let higherDistance = (matched: 5, score: 0.009)
+        for completenessAware in [false, true] {
+            XCTAssertTrue(
+                PhaseVectorMatcher.crossPhaseWinsOver(
+                    lowerDistance, higherDistance, completenessAware: completenessAware),
+                "completenessAware=\(completenessAware): equal matched counts must still prefer the closer mean")
+        }
+    }
+
+    /// `completenessAwareCrossPhaseRanking` ships off -- the item's own
+    /// requirement ("moves a per-position verdict... measure and propose,
+    /// never merge"). If this ever reads true, `classify` is silently using
+    /// the unmeasured candidate ranking on every real dataset.
+    func testCompletenessAwareCrossPhaseRankingShipsOff() {
+        XCTAssertFalse(PhaseVectorSettings().completenessAwareCrossPhaseRanking)
+    }
 }
 
 /// The presentation layer of the phase map, and the one piece of ACOM
