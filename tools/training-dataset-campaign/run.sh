@@ -1,6 +1,16 @@
 #!/bin/zsh
 set -euo pipefail
 
+# Runs the full load-to-export pipeline (discovery, calibration, DPC/iDPC, Bragg detection, strain,
+# ACOM, ptychography, EMD export, most of Core/Analysis and Core/Data) on the checked-in real training
+# datasets; verify_py4dstem.py checks py4DSTEM can read the exported sidecars, and parity_py4dstem.py
+# recomputes strain and full-scan ACOM from the app's own exported Bragg vectors with py4DSTEM to
+# record agreement. Run as tools/training-dataset-campaign/run.sh [data.h5 ...] (defaults to every
+# References/training_dataset/*.h5, each needing a manifest.json entry). Listed in the diagnostic
+# array of tools/run-tests.sh, so no run-tests.sh mode gates it; run by hand. Pass condition: not one
+# exit code - report.json records each stage pass/fail, and the two py4DSTEM scripts each exit
+# non-zero on their own assert/tolerance failure.
+
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-training-dataset-campaign.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT

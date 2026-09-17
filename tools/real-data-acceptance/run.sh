@@ -1,5 +1,13 @@
 #!/bin/zsh
 set -euo pipefail
+# Runs Core/Analysis/DiskDetection.swift's DiskDetector and Core/Analysis/VirtualDetector.swift's
+# VirtualDetector.tiledImage (via Core/Data/H5Reader.swift) on the checked-in real training datasets;
+# compare.py checks disk counts, probe radius, virtual-image min/max/mean/checksum, and elapsed time
+# against golden values pinned in expected.json - mac4DSTEM's own prior measurements, not a py4DSTEM
+# comparison. Run with no arguments: tools/real-data-acceptance/run.sh (SKIPs, exit 0, with no .h5
+# files present). Not in the scientific/campaign/diagnostic/owner_only/retired/support arrays; runs
+# only under tools/run-tests.sh all. Pass condition: compare.py exits non-zero on any field outside
+# tolerance or over the 15 s budget; otherwise prints PASS per dataset.
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # Check the comparator before the app. compare.py is what turns this harness's

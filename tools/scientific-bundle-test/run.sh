@@ -1,5 +1,13 @@
 #!/bin/zsh
 set -euo pipefail
+# The Swift harness writes a strain+orientation ScalarResultMap bundle through
+# Core/Data/BraggVectorEMDWriter.swift's BraggVectorEMDWriter.writeScientificBundle, checking the
+# write is atomic and a cancelled write leaves no destination file; verify.py then reopens the bundle
+# with py4DSTEM's own py4DSTEM.read()/h5py to confirm the EMD structure, calibration, and per-map
+# metadata round-trip. Run with no arguments: tools/scientific-bundle-test/run.sh. Listed in the
+# scientific array of tools/run-tests.sh, so it runs under tools/run-tests.sh scientific (and all).
+# Pass condition: main.swift throws (non-zero exit) on any unmet require(); verify.py's bare assert
+# statements raise on mismatch; success prints PASS: atomic coherent bundle and cancellation recovery.
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-scientific-bundle-test.XXXXXX")"

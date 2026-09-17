@@ -1,6 +1,16 @@
 #!/bin/zsh
 set -euo pipefail
 
+# reference.py source-locks py4DSTEM's Parallax.preprocess default path (BF
+# mask, k-vectors, probe angles, edge window) in process/phase/parallax.py
+# and the electron-wavelength formula in process/utils/utils.py; the Swift
+# harness runs Core/Analysis/ParallaxPreprocessing.swift's
+# ParallaxPreprocessor.run against a synthetic FourDDataSource, checking
+# rejection on missing calibration, a stack memory ceiling, and cancellation.
+# Run with no arguments: tools/parallax-preprocessing-test/run.sh. Listed in
+# both the `scientific` and `campaign` arrays of tools/run-tests.sh (and `all`).
+# Pass condition: final line "parallax-preprocessing-test: all passed".
+
 cd "$(dirname "$0")"
 REPO="$(cd ../.. && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-parallax-preprocessing-test.XXXXXX")"
