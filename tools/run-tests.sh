@@ -136,6 +136,28 @@ inventory() {
   # 6 MB model and two copies of a 4 MB dylib, and a public repo's history is
   # not rewritten. Any tracked file over 1 MiB must be named, with its reason,
   # in tools/large-files.allow; anything else fails here.
+  # Handoff cap (owner, 2026-09-18): status.md's handoff is a table, not a
+  # narrative — it had reached 1 576 words and nobody could see the state
+  # through it. Words between "## Handoff" and the next "## ".
+  echo "== status.md handoff"
+  local handoff_words
+  handoff_words=$(awk '/^## Handoff/{f=1; next} /^## /{f=0} f' "$ROOT/docs/status.md" | wc -w | tr -d ' ')
+  if (( handoff_words > 450 )); then
+    printf "  %-36s %7s  OVER the 450-word cap — move narrative to docs/archive/\n" "handoff words" "$handoff_words"; rc=1
+  else
+    printf "  %-36s %7s  (cap 450)\n" "handoff words" "$handoff_words"
+  fi
+  # Unvalidated stays labelled (owner, 2026-09-18): the phase-mapping badge
+  # and the export key are load-bearing; a session that drops either would
+  # ship an unvalidated map as science.
+  echo "== unvalidated products stay labelled"
+  if grep -q 'Label("Unvalidated' "$ROOT/mac4DSTEM/UI/PhaseMappingSettings.swift" \
+     && grep -q '"validation": "none"' "$ROOT/mac4DSTEM/App/AppState+PhaseMapping.swift"; then
+    echo "  phase mapping: badge and validation:\"none\" key present"
+  else
+    echo "  phase mapping: the Unvalidated badge or the validation:\"none\" key is GONE"; rc=1
+  fi
+
   echo "== tracked files over 1 MiB"
   local big allow_file="$ROOT/tools/large-files.allow"
   while IFS= read -r big; do

@@ -35,6 +35,8 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 - Docs are part of done: update `docs/status.md` and `docs/open-items.md` in the same commit as the code, net negative markdown lines or say why, and run `tools/sync-agents-md.sh` after editing this file.
 - Commit freely: land work as coherent commits with the gate numbers in the message. Pushing stays the owner's — ask before any push.
 - **`main` only** (owner directive 2026-09-17): no feature or worktree branches, local or remote; every change lands as a commit on `main`. The one-time cleanup back to a single branch is `docs/archive/git-cleanup-2026-09-17.md`.
+- **Drive before more surface** (owner, 2026-09-18): no new on-screen surface lands while the "Unverified on screen" row of `docs/status.md` is non-empty; the owner's drive empties it first. `inventory` caps the handoff at 450 words so it stays a table.
+- **Unvalidated stays labelled** (owner, 2026-09-18): phase mapping, and any product that self-reports `validation:"none"`, ships badged unvalidated and is never called validated in a release note or doc until it passes on one dataset with truth; `inventory` greps the badge and the key.
 - Decisions are a file in `docs/decisions/` plus a row in `docs/decisions.md`; the pre-2026-09-16 log is verbatim in `docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`.
 - What code already enforces: `run-tests.sh core` holds the layering; `run-tests.sh inventory` holds the UI contract greps, harness manifest, tools classification, NOTICE hashes, AGENTS sync and the size report.
 
