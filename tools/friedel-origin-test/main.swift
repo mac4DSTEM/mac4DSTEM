@@ -27,6 +27,9 @@ func fail(_ message: String) -> Never {
 struct Fixture: Decodable {
     let height: Int
     let width: Int
+    let beamstopDP: [Float]
+    let beamstopMask: [Bool]
+    let beamstopCount: Int
     let plantedRow: Double
     let plantedCol: Double
     let cleanPattern: [Float]
@@ -97,6 +100,27 @@ guard maskedParity < parityTolerance else {
 }
 print("PASS: masked (beamstop) Friedel origin (\(masked.row), \(masked.col)) — recovery "
       + "\(maskedRecovery) px, py4DSTEM parity \(maskedParity) px")
+
+// MARK: - Beamstop mask parity (BeamstopMask vs py4DSTEM/scipy get_beamstop_mask)
+
+let swiftMask = BeamstopMask.mask(meanDP: fixture.beamstopDP, height: fixture.height, width: fixture.width)
+guard swiftMask.count == fixture.beamstopMask.count else {
+    fail("beamstop mask length \(swiftMask.count) != \(fixture.beamstopMask.count)")
+}
+var disagreements = 0
+for i in 0..<swiftMask.count where swiftMask[i] != fixture.beamstopMask[i] { disagreements += 1 }
+guard disagreements == 0 else {
+    fail("beamstop mask parity: \(disagreements) of \(swiftMask.count) pixels differ from "
+         + "py4DSTEM/scipy get_beamstop_mask (expected pixel-identical)")
+}
+let swiftCount = swiftMask.reduce(0) { $0 + ($1 ? 1 : 0) }
+guard swiftCount == fixture.beamstopCount else {
+    fail("beamstop mask count \(swiftCount) != py4DSTEM \(fixture.beamstopCount)")
+}
+print("PASS: beamstop mask pixel-identical to py4DSTEM/scipy get_beamstop_mask "
+      + "(\(swiftCount) of \(swiftMask.count) px flagged). This synthetic isolates the threshold, "
+      + "the pattern-region fill, and the dilation; the dim-region fill (step 2) is verified against "
+      + "scipy on the real Au_ref cube (see reference.py's synthetic_mean_dp docstring).")
 
 // A beamstop that occludes the direct beam is exactly where the centre-of-mass
 // origin fails and this method earns its place: assert the masked origin is not

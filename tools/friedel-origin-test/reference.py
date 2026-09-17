@@ -29,12 +29,30 @@ import json
 from pathlib import Path
 
 import numpy as np
+from scipy.ndimage import binary_fill_holes, distance_transform_edt
 
 ROOT = Path(__file__).resolve().parents[2]
 PY4DSTEM_ORIGIN = ROOT / "References/py4DSTEM-dev/py4DSTEM/process/calibration/origin.py"
+PY4DSTEM_DATACUBE = ROOT / "References/py4DSTEM-dev/py4DSTEM/datacube/datacube.py"
 
 
 def assert_source_contract() -> None:
+    datacube = PY4DSTEM_DATACUBE.read_text()
+    for expression in [
+        # DataCube.get_beamstop_mask — the exact steps BeamstopMask.swift ports.
+        "int_sort = np.sort(im.ravel())",
+        "intensity_threshold = int_sort[ind]",
+        "mask_beamstop = im >= intensity_threshold",
+        "mask_beamstop = np.logical_not(binary_fill_holes(np.logical_not(mask_beamstop)))",
+        "mask_beamstop = binary_fill_holes(mask_beamstop)",
+        "mask_beamstop = distance_transform_edt(mask_beamstop) < distance_edge",
+    ]:
+        if expression not in datacube:
+            raise RuntimeError(
+                f"py4DSTEM get_beamstop_mask contract changed: {expression!r} "
+                "no longer found in datacube.py — re-read the current source "
+                "before trusting BeamstopMask.swift"
+            )
     source = PY4DSTEM_ORIGIN.read_text()
     required = [
         # The zero-pad to double size (both axes, appended).
@@ -115,6 +133,48 @@ def centrosymmetric_pattern(H: int, W: int, cx: float, cy: float) -> np.ndarray:
     return pattern.astype(np.float32)
 
 
+def beamstop_mask(im: np.ndarray, threshold: float = 0.25,
+                  distance_edge: float = 2.0, include_edges: bool = True) -> np.ndarray:
+    """Single-image transcription of DataCube.get_beamstop_mask (mean-DP path,
+    sigma=0, scale_radial=None), using the SAME scipy morphology py4DSTEM does —
+    so this is the truth, not a re-derivation. Returns True under the beamstop.
+    """
+    int_sort = np.sort(im.ravel())
+    ind = int(np.round(np.clip(int_sort.shape[0] * threshold, 0, int_sort.shape[0])))
+    intensity_threshold = int_sort[min(ind, int_sort.shape[0] - 1)]
+    mask_beamstop = im >= intensity_threshold
+    mask_beamstop = np.logical_not(binary_fill_holes(np.logical_not(mask_beamstop)))
+    mask_beamstop = binary_fill_holes(mask_beamstop)
+    if include_edges:
+        mask_beamstop[0, :] = False
+        mask_beamstop[:, 0] = False
+        mask_beamstop[-1, :] = False
+        mask_beamstop[:, -1] = False
+    return distance_transform_edt(mask_beamstop) < distance_edge
+
+
+def synthetic_mean_dp(H: int, W: int) -> np.ndarray:
+    """A morphology-exercising intensity image for the beamstop-mask leg (this
+    tests get_beamstop_mask, not Friedel recovery — the clean/masked legs cover
+    that). A bright centre dimming smoothly outward, a vertical beamstop bar, and
+    a dark hole enclosed by the bright centre. This isolates three of the four
+    steps: a mutation to the percentile threshold, to the pattern-region
+    fill-holes (step 3), or to the distance-transform dilation disagrees with
+    scipy here. The fourth step — the dim-region fill-holes (step 2) — does not
+    isolate on a small synthetic (its effect is swallowed by the 2 px dilation),
+    but it IS exercised: BeamstopMask.swift is verified pixel-identical to scipy
+    on the real Au_ref beamstop cube (1453 px), where step 2 moves 3 px and step
+    3 moves 157 (this session's diagnostic, not a committed cube)."""
+    yy, xx = np.meshgrid(np.arange(H, dtype=np.float64), np.arange(W, dtype=np.float64), indexing="ij")
+    r = np.sqrt((yy - H / 2) ** 2 + (xx - W / 2) ** 2)
+    dp = 1000.0 * np.exp(-(r**2) / 30.0) + 25.0
+    dp *= np.exp(-r / 50.0)                                  # smooth dim falloff, no rings
+    dp[:, W // 2 - 1:W // 2 + 1] = 2.0                       # vertical beamstop bar
+    dp[H // 2 - 4, W // 2 + 5] = 2.0                         # dark hole in the bright centre (step 3)
+    dp[H // 2 - 5, W // 2 + 5] = 2.0
+    return dp.astype(np.float32)
+
+
 def main() -> None:
     assert_source_contract()
 
@@ -133,11 +193,18 @@ def main() -> None:
     masked_qx, masked_qy = friedel_origin(masked.astype(np.float64),
                                           mask.astype(np.float64))
 
+    # Beamstop-mask leg: a synthetic mean DP and py4DSTEM/scipy's mask of it.
+    bs_dp = synthetic_mean_dp(H, W)
+    bs_mask = beamstop_mask(bs_dp.astype(np.float64))   # True = beamstop
+
     print(
         json.dumps(
             {
                 "height": H,
                 "width": W,
+                "beamstopDP": bs_dp.ravel().astype(np.float32).tolist(),
+                "beamstopMask": bs_mask.ravel().astype(bool).tolist(),
+                "beamstopCount": int(bs_mask.sum()),
                 "plantedRow": cx,
                 "plantedCol": cy,
                 "cleanPattern": clean.ravel().astype(np.float32).tolist(),

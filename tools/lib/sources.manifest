@@ -259,13 +259,15 @@ mac4dstem_sources() {
         )
         ;;
       friedel)
-        # The Friedel-symmetry origin finder alone (tools/friedel-origin-test):
-        # FriedelOrigin takes no Calibration.swift type, only FFT2D (which links
-        # against AnalysisCancellationToken, same as the rotation group above).
+        # The Friedel-symmetry origin finder and its beamstop-mask generator
+        # (tools/friedel-origin-test). FriedelOrigin needs FFT2D (which links
+        # against AnalysisCancellationToken, same as the rotation group above);
+        # BeamstopMask is pure array morphology, no extra dependency.
         want+=(
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/FFT2D.swift"
           "$core/Analysis/FriedelOrigin.swift"
+          "$core/Analysis/BeamstopMask.swift"
         )
         ;;
       parallax)
