@@ -20,6 +20,9 @@ exactly that until the owner's drive says otherwise.
   both proven bit-identical to the serial code.
 - **Repository.** One branch, `main`; a pre-push hook that builds the app
   target; a size guard on tracked files; `SECURITY.md`.
+- **AppState split, step one.** Calibration and phase-contrast orchestration
+  moved verbatim into their own files (AppState.swift 5476 → 4699 lines);
+  no logic changed, 17 members widened from `private` for the move.
 
 ## v3.0.0 — 2026-09-11
 
