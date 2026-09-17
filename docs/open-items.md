@@ -15,22 +15,18 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
-## v3.1 origin validity mask — Core disclosure landed 2026-09-17; D4 + step-3 owed
+## v3.1 origin validity mask landed 2026-09-17 (disclosure); D4 + step-3 owed
 
-`OriginMaps.originValidity: [Bool]?` now carries the per-position `kept` mask the robust trim
-already computed and dropped (`TrimmedFit.kept`), populated at the two `OriginCalibration`
-trimmed-fit constructors. **Disclosure only, no fitted number moves** (unit 693/0/2=695, core +
-inventory exit 0; break-first M1 init / M2 bridge / M3 both production carries, each red-then-green;
-a 4-lens adversarial pass caught the first tests exercising only the init — closed with two
-Metal-driven production-path tests in `ProbeSizeTests` + one tautology removed). Sidecar wire type
-`PixelOriginMaps` untouched (D3 deferred, plan §8), so a restored session reads `nil`. **Owed:**
-- **D4, on screen:** no validity overlay/count is built — **unverified on screen**; owner drives.
-- **Step-3 "earns its place":** the claim (a clustered exclusion the mask shows where the scalar
-  fraction cannot — ties to origin-fit hole (c)) is unmeasured; needs `Particle_1…bin8` (gitignored,
-  absent here) or a synthetic clustered-vs-scattered pair.
-- **D1/D2 at defaults, overrule on sight:** `[Bool]?` aligned to `fittedX/Y`; `false` = interpolated
-  not measured. The three re-reference transforms drop the mask exactly as they drop `excludedFraction`
-  (confirmed consistent). ADR 033, `docs/v3.1-calibration-preregistration.md`.
+`OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position `kept` mask
+(previously only the scalar `excludedFraction` survived). Disclosure only, no fitted number
+moves; wire type `PixelOriginMaps` untouched (D3 deferred), so a restored session reads `nil`.
+Gates, break-first, and the adversarial review that caught a production-carry test gap: ADR 033,
+`docs/v3.1-calibration-preregistration.md`. **Owed:**
+- **D4, on screen:** no validity overlay/count built — **unverified on screen**; owner drives.
+- **Step-3 "earns its place":** unmeasured (a clustered exclusion the mask reveals where the scalar
+  cannot — origin-fit hole (c)); needs `Particle_1…bin8` (absent here) or a synthetic pair.
+- **D1/D2 at defaults, overrule on sight:** `[Bool]?` aligned to `fittedX/Y`; `false` = interpolated,
+  not measured; the re-reference transforms drop it with `excludedFraction`.
 
 ## Owner drive 2026-09-17 — added 2026-09-17
 
