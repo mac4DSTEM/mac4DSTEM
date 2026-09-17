@@ -131,4 +131,42 @@ final class CalibrationDisclosureTests: XCTestCase {
         XCTAssertEqual(session.readiness.items[0].status, .missing)
         XCTAssertFalse(session.hasAnyCalibrationValue)
     }
+
+    // MARK: - Origin validity mask (v3.1, ADR 033)
+
+    /// The mechanical carry: `OriginMaps.init` must STORE the mask it is handed,
+    /// verbatim. This pins the initializer assignment ONLY — break-first M1
+    /// (`self.originValidity = nil` in the init, `Calibration.swift`) turns it
+    /// red. It deliberately does NOT claim to cover the two production
+    /// constructors in `OriginCalibration` (tiledRun/run) — those are Metal-bound
+    /// and pinned end-to-end in `ProbeSizeTests`
+    /// (`testTiledRunCarriesTheOriginValidityMask`,
+    /// `testResidentCubeRunCarriesTheOriginValidityMask`), where reverting the
+    /// `originValidity: fitted.kept` lines actually goes red.
+    func testOriginMapsStoresTheValidityMaskVerbatim() throws {
+        let mask = [true, false, true, true, false, true]
+        let maps = OriginMaps(
+            width: 3, height: 2, measuredX: nil, measuredY: nil,
+            fittedX: [Float](repeating: 0, count: 6), fittedY: [Float](repeating: 0, count: 6),
+            originValidity: mask)
+        XCTAssertEqual(maps.originValidity, mask)
+    }
+
+    /// The nil contract: an imported / file / session origin has no trim history,
+    /// so the mask is `nil` — not an invented all-`true` array — exactly as
+    /// `excludedFraction` is `nil` there. Both entry points: the direct
+    /// constructor default and the py4DSTEM `appOriginMaps` bridge. Break-first M2
+    /// (the bridge invents an all-`true` mask) turns the bridge assertion red.
+    func testAnImportedOriginCarriesNoValidityMask() throws {
+        let direct = OriginMaps(
+            width: 2, height: 2, measuredX: nil, measuredY: nil,
+            fittedX: [1, 1, 1, 1], fittedY: [2, 2, 2, 2])
+        XCTAssertNil(direct.originValidity, "no trim history → no mask")
+        XCTAssertNil(direct.excludedFraction, "precondition: this is the no-trim path")
+
+        let pixel = PixelOriginMaps(
+            shape: [2, 2], fittedQX: [1, 1, 1, 1], fittedQY: [2, 2, 2, 2])
+        let bridged = try XCTUnwrap(pixel.appOriginMaps(width: 2, height: 2))
+        XCTAssertNil(bridged.originValidity, "the import bridge invents no mask")
+    }
 }

@@ -221,6 +221,66 @@ final class ProbeSizeTests: XCTestCase {
             "run(cube:)'s radius must come from the MEAN pattern"
         )
     }
+
+    // MARK: - Origin validity mask carried by the production path (v3.1, ADR 033)
+
+    /// The actual behavioural change of the validity-mask increment is the
+    /// PRODUCTION carry — `tiledRun` passing `originValidity: fitted.kept` onto
+    /// `OriginMaps` (`OriginCalibration.swift`). Reverting that line to the init
+    /// default (feature dead on every real fit) must go red HERE — a manual
+    /// `OriginMaps(originValidity:)` in a disclosure test cannot see it. The
+    /// fixture displaces the beam at three known scan positions so the robust
+    /// origin trim excludes exactly them; the product must both mark those
+    /// positions invalid and equal an independent recompute of the trim on the
+    /// pipeline's own measured origins (so this is a faithfulness check, not the
+    /// tautology of comparing a value to itself).
+    func testTiledRunCarriesTheOriginValidityMask() async throws {
+        let source = DisplacedBeamFourDDataSource()
+        let d = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: d)
+        guard let fit = try await OriginCalibration.tiledRun(
+            data: data, descriptor: d, fitFunction: .plane
+        ) else { return XCTFail("tiledRun returned nil") }
+
+        let mask = try XCTUnwrap(fit.origin.originValidity,
+                                 "the production carry dropped the validity mask")
+        XCTAssertEqual(mask.count, d.ry * d.rx)
+        for i in DisplacedBeamFourDDataSource.displacedIndices {
+            XCTAssertFalse(mask[i], "the trim must exclude displaced position \(i)")
+        }
+        XCTAssertEqual(mask.filter { $0 }.count,
+                       d.ry * d.rx - DisplacedBeamFourDDataSource.displacedIndices.count,
+                       "only the three displaced positions are excluded")
+        // Faithful carry, not a tautology: the mask came off the Metal pipeline;
+        // this recompute is an independent trim on the pipeline's own measured
+        // origins, and must reproduce it exactly.
+        let mx = try XCTUnwrap(fit.origin.measuredX)
+        let my = try XCTUnwrap(fit.origin.measuredY)
+        let recompute = OriginCalibration.fitOriginTrimmed(
+            measuredX: mx, measuredY: my, width: d.rx, height: d.ry, fitFunction: .plane)
+        XCTAssertEqual(mask, recompute.kept,
+                       "the product's mask must equal the trim's kept set")
+    }
+
+    /// The resident-cube variant `run(cube:)` has no production callers (see
+    /// `testResidentCubeRunMeasuresTheProbeOnTheMeanPattern`), so its own
+    /// `originValidity: fitted.kept` line needs its own pin or a mutation
+    /// reverting only it survives every gate.
+    func testResidentCubeRunCarriesTheOriginValidityMask() async throws {
+        let source = DisplacedBeamFourDDataSource()
+        let d = try await source.discoverPrimaryDataset()
+        let cube = await source.fullCube()
+        let buffer = try XCTUnwrap(MetalEngine.shared.device.makeBuffer(
+            bytes: cube, length: cube.count * MemoryLayout<Float>.stride))
+        guard let fit = try OriginCalibration.run(cube: buffer, descriptor: d) else {
+            return XCTFail("run(cube:) returned nil")
+        }
+        let mask = try XCTUnwrap(fit.origin.originValidity,
+                                 "run(cube:) dropped the validity mask")
+        for i in DisplacedBeamFourDDataSource.displacedIndices {
+            XCTAssertFalse(mask[i], "the trim must exclude displaced position \(i)")
+        }
+    }
 }
 
 /// 4x4 scan of a 64x64 detector: an identical central beam at every position,
@@ -262,6 +322,59 @@ private actor SatelliteFourDDataSource: FourDDataSource {
     /// The whole cube, for tests that hand it to the resident-cube pipeline.
     func fullCube() -> [Float] { cube }
 
+    func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        view.pattern(fromFullCube: cube, ry: ry, rx: rx)
+    }
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        view.scanRow(fromFullCube: cube, ry: ry)
+    }
+    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+        view.scanTile(fromFullCube: cube, yRange: yRange)
+    }
+    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+    func pixelCalibration() -> PixelCalibration? { nil }
+}
+
+/// 6x6 scan of a 64x64 detector: a clean central beam at every position EXCEPT
+/// three, where the beam sits ~20 px away so the robust origin trim excludes
+/// exactly them. Lets a test see the per-position validity mask carry the RIGHT
+/// positions, not merely a non-nil array. // v3.1 ADR 033
+private actor DisplacedBeamFourDDataSource: FourDDataSource {
+    static let descriptor = DatasetDescriptor(
+        filePath: "/tmp/displaced.h5", datasetPath: "/data",
+        shape: [6, 6, 64, 64], dtypeDescription: "float32", chunkShape: nil
+    )
+    /// Row-major scan indices whose beam is displaced: (0,0), (3,2), (5,5).
+    static let displacedIndices = [0, 20, 35]
+    private let cube: [Float]
+
+    init() {
+        let d = Self.descriptor
+        let q = d.qx
+        func draw(into dp: inout [Float], cx: Double, cy: Double,
+                  radius: Double, intensity: Float) {
+            for y in 0..<q { for x in 0..<q {
+                let dx = Double(x) - cx, dy = Double(y) - cy
+                if dx * dx + dy * dy <= radius * radius {
+                    dp[y * q + x] = max(dp[y * q + x], intensity)
+                }
+            } }
+        }
+        var centred = [Float](repeating: 0, count: q * q)
+        draw(into: &centred, cx: 31.5, cy: 31.5, radius: 4, intensity: 100)
+        var displaced = [Float](repeating: 0, count: q * q)
+        draw(into: &displaced, cx: 46, cy: 46, radius: 4, intensity: 100)
+        var all: [Float] = []
+        all.reserveCapacity(d.ry * d.rx * q * q)
+        for i in 0..<(d.ry * d.rx) {
+            all.append(contentsOf: Self.displacedIndices.contains(i) ? displaced : centred)
+        }
+        cube = all
+    }
+
+    func fullCube() -> [Float] { cube }
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
     nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
     func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {

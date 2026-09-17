@@ -541,7 +541,8 @@ package nonisolated enum OriginCalibration {
                        measuredX: measuredX, measuredY: measuredY,
                        fittedX: fitted.fittedX, fittedY: fitted.fittedY,
                        excludedFraction: fitted.excludedFraction,
-                       robustResidual: fitted.keptResidual),
+                       robustResidual: fitted.keptResidual,
+                       originValidity: fitted.kept),
             statistics.maxDP, statistics.meanDP
         )
     }
@@ -595,7 +596,8 @@ package nonisolated enum OriginCalibration {
                               measuredX: mx, measuredY: my,
                               fittedX: fitted.fittedX, fittedY: fitted.fittedY,
                               excludedFraction: fitted.excludedFraction,
-                              robustResidual: fitted.keptResidual)
+                              robustResidual: fitted.keptResidual,
+                              originValidity: fitted.kept)
         return (r, maps, maxDP, meanDP)
     }
 }

@@ -465,6 +465,24 @@ package nonisolated struct OriginMaps: Sendable {
     /// gate reads this one deliberately — see `originFitIsSane`. // v2 S13
     package var robustResidual: Float?
 
+    /// Per-position validity of the fitted origin: `true` where the robust trim
+    /// KEPT this scan position's measurement, `false` where it excluded it as an
+    /// outlier (the fitted origin is then interpolated from the surface the kept
+    /// positions define — every position still has a fitted value). This is
+    /// exactly `OriginCalibration.TrimmedFit.kept`, so `excludedFraction` is
+    /// `1 - trueCount / count` of it: the two are carried together and must not
+    /// disagree.
+    ///
+    /// `nil` under the same contract as `excludedFraction` (v3.1, ADR 033): an
+    /// imported py4DSTEM map, a file/session origin, or a re-referenced map has
+    /// no trim history, and inventing an all-`true` mask would claim a
+    /// robustness nobody performed. Disclosure only - no analysis gates on it;
+    /// it turns the admit-with-fraction decision (2026-08-28,
+    /// `q-calibration-design.md` §6a) from a scalar into the spatial map that
+    /// origin-fit hole (c) needs. Not yet written to the sidecar - the wire
+    /// format is the owner's (plan §8), so a restored session reads `nil`.
+    package var originValidity: [Bool]?
+
     /// RMS of measured minus fitted origins, over EVERY scan position.
     package var rmsResidual: Float? {
         guard let measuredX, let measuredY,
@@ -493,7 +511,7 @@ package nonisolated struct OriginMaps: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil) {
+    package nonisolated init(width: Int, height: Int, measuredX: [Float]?, measuredY: [Float]?, fittedX: [Float], fittedY: [Float], excludedFraction: Float? = nil, robustResidual: Float? = nil, originValidity: [Bool]? = nil) {
         self.width = width
         self.height = height
         self.measuredX = measuredX
@@ -502,6 +520,7 @@ package nonisolated struct OriginMaps: Sendable {
         self.fittedY = fittedY
         self.excludedFraction = excludedFraction
         self.robustResidual = robustResidual
+        self.originValidity = originValidity
     }
 }
 
