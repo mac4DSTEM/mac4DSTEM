@@ -1,6 +1,6 @@
 #!/bin/zsh
 # tools/disk-detector/scan-bench/run.sh — DIAGNOSTIC (owner-local data, never gated): the ceiling of
-# docs/v3-plan.md §3a measured from Swift on the runtime that ships — Core ML at 256 px (C7 session 3,
+# docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a) measured from Swift on the runtime that ships — Core ML at 256 px (C7 session 3,
 # 2026-09-08; the Core AI version of this bench stays on `ml/disk-detector`).
 #   run.sh dump  --bullseye <h5> --ingredients <npz> --out <dir> [--stride 4]
 #   run.sh bench <dump dir> [<asset.mlpackage>]     default asset: the shipped Models/DiskDetector package

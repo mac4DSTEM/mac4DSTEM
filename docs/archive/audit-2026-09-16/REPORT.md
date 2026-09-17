@@ -1,5 +1,7 @@
 # Audit report — docs and code, 2026-09-16
 
+Companion: [`phase-b-report.md`](phase-b-report.md) — the hygiene slice's own report (rows 1, 2, 3, 10).
+
 Read-only audit of `a960665` (`ai-analysis`). Nothing outside `docs/audit/` was
 touched. Six Sonnet agents produced the inputs; this file is the synthesis.
 Numbers are from this audit's own runs, named by file below.

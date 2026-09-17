@@ -102,7 +102,7 @@ final class LearnedDiskDetectorGateBTests: XCTestCase {
     // MARK: R3b — the frame rule, the window grid and the merge, pure functions (no Core ML needed)
 
     /// `windowOverlap`/`windowOrigins`/`mergeWindows` never touch the model. Checked against the
-    /// formula in docs/v3-plan.md §3a and the 2026-09-08 decision: `overlap = max(2·⌈r⌉+2, 24)`;
+    /// formula in docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a) and the 2026-09-08 decision: `overlap = max(2·⌈r⌉+2, 24)`;
     /// `q < 256` is ONE window at `simulate.fit_offset` (padding, possibly negative, never clamped),
     /// `q == 256` is origin 0, `q > 256` is `n = ⌈(q−overlap)/(256−overlap)⌉ ≥ 2` windows spread evenly
     /// across `0...(q−256)`.

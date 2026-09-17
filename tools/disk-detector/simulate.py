@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """simulate.py — synthetic 4D-STEM diffraction patterns with known disk centres.
 
-Step 1 of docs/v3-plan.md §3a (learned disk detector). Pure numpy + scipy so it
+Step 1 of docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a) (learned disk detector). Pure numpy + scipy so it
 imports in BOTH the pinned py4DSTEM environment (fixture verification) and the
 detector's own PyTorch environment (training). Never ships in the app.
 

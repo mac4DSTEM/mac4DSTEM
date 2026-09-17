@@ -1,6 +1,6 @@
 //
 //  LearnedDetection.swift
-//  Role: C7 session 2's seam (docs/v3-plan.md §3a, docs/development-process.md
+//  Role: C7 session 2's seam (docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), docs/archive/development-process-2026-08-31.md
 //        §7) — the one owner of the learned-vs-classical detector option, the
 //        learned pick threshold, the probe image the learned path needs, the
 //        loaded `LearnedDiskDetector`, and the two runs a disagreement map

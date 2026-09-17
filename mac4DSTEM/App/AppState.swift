@@ -122,7 +122,7 @@ final class AppState {
     private(set) var datasetPreview: DatasetPreview?
     private var openURL: URL?
     @ObservationIgnored private var pendingRecovery: DatasetRecoveryRecord?
-    /// S1's seam (docs/development-process.md §7): the one owner of where this
+    /// S1's seam (docs/archive/development-process-2026-08-31.md §7): the one owner of where this
     /// dataset's session sidecar is and whether the app may read it. Replaces a
     /// bare `scopedSessionSidecarURL` that eight call sites derived around in
     /// two different ways — see `Session/SessionSidecarLocator.swift`.
@@ -181,33 +181,33 @@ final class AppState {
     var datasets: [DatasetDescriptor] = []
 
     /// The recents list and its location labels. S3's seam
-    /// (docs/development-process.md §7) — see `Session/RecentDatasets.swift`.
+    /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/RecentDatasets.swift`.
     /// Views read `recents.…`; no forwarding properties. // v2 S3
     let recents = RecentDatasets()
     /// The session's recipe — which analyses ran, with which parameters. S5's
-    /// seam (docs/development-process.md §7) — see `Session/SessionReplay.swift`.
+    /// seam (docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionReplay.swift`.
     /// No forwarding properties. // v2 S5
     let replay = SessionReplay()
     /// The state of the unattended promote run — S6's seam
-    /// (docs/development-process.md §7) — see `Session/ReplayRun.swift`.
+    /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/ReplayRun.swift`.
     /// Views read `replayRun.…`; no forwarding properties. // v2 S6
     let replayRun = ReplayRun()
     /// The session's "may I?" policy gates — S7's seam
-    /// (docs/development-process.md §7) — see `Session/SessionGates.swift`.
+    /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionGates.swift`.
     /// Views read `gates.…`; no forwarding properties. // v2 S7
     let gates = SessionGates()
     /// The strain product and its run controls — S8's seam
-    /// (docs/development-process.md §7) — see `Session/StrainProduct.swift`.
+    /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/StrainProduct.swift`.
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
     let phaseMapping = PhaseMappingProduct()
     /// The last reciprocal-pixel calibration attempt — S13's seam
-    /// (docs/development-process.md §7) — see `Session/QCalibrationRun.swift`.
+    /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
     let qCalibration = QCalibrationRun()
     /// What happened this session, for the output strip — the 2026-09-04
-    /// seam (docs/development-process.md §7) — see `App/ActivityLog.swift`.
+    /// seam (docs/archive/development-process-2026-08-31.md §7) — see `App/ActivityLog.swift`.
     /// Views read `activityLog.messages`; no forwarding properties.
     let activityLog = ActivityLog()
 
@@ -4826,7 +4826,7 @@ final class AppState {
 
     /// Publish where the last neural-net and the last classical full-scan run
     /// on this dataset disagree, peak against peak, as a scan map (C7 session
-    /// 3; docs/v3-plan.md §3a — "a product like any other"). Runs nothing and
+    /// 3; docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a) — "a product like any other"). Runs nothing and
     /// records no recipe step: both inputs are completed results held by
     /// `learnedDetection`, which clears them on dataset activation, so the pair
     /// is always one dataset's; a replay reproduces it by re-running both.

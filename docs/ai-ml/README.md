@@ -13,11 +13,11 @@ not separately approved feature commitments.
 ## 1. Where this brief fits
 
 - [Status](../status.md) remains the authority for current work and next steps.
-- [v3 plan](../v3-plan.md) owns the overall sequence and the existing disk
+- [roadmap](../../ROADMAP.md) owns the overall sequence and the existing disk
   detector pre-registration (§3a). Its overnight verdict was subsequently
   corrected in status; do not read that historical verdict as acceptance.
 - [Open items](../open-items.md) owns unresolved defects and verification debt.
-- [Development process](../development-process.md), [architecture](../architecture.md),
+- [Development process](../archive/development-process-2026-08-31.md), [architecture](../architecture.md),
   and [decisions](../decisions.md) retain their existing roles.
 - This folder owns the cross-feature AI product brief and, when work starts,
   focused feature specifications. It is not another live status table.
@@ -206,7 +206,7 @@ does not imply a top-level source folder containing every layer.
 |---|---|---|
 | `docs/ai-ml/README.md` | This brief and future specification index | Created for this request |
 | `docs/ai-ml/<feature>.md` | One active feature's scope, inputs, state owner, validation and decisions | Create only when that feature starts; the first attempt's real-space route is superseded and archived at `docs/archive/v3/precipitates-real-space-route-2026-09-07.md`, current design is `docs/v3-precipitate-classification.md` |
-| `docs/v3-plan.md` | Cross-feature sequence and existing disk-detector pre-registration | Existing; link rather than duplicate |
+| `ROADMAP.md` | Cross-feature sequence and existing disk-detector pre-registration | Existing; link rather than duplicate |
 | `docs/status.md`, `docs/open-items.md`, `docs/decisions.md` | Live progress, defects/debt, durable decisions respectively | Existing authorities |
 | `docs/archive/` | Completed investigation and superseded evidence narratives | Existing |
 | `tools/disk-detector/` and future task-specific tooling | Python simulation, training, export and checks | Detector tooling exists; shared utilities only after demonstrated reuse |

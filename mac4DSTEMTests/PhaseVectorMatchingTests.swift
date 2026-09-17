@@ -160,7 +160,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
     /// what makes the refusal meaningful for a library that WOULD be expensive;
     /// this test pins the refusal and its numbers, which is what it can see.
     /// Saying so beats keeping an assertion that cannot fail — this repo has
-    /// shipped one of those before (`docs/development-process.md`, the L4
+    /// shipped one of those before (`docs/archive/development-process-2026-08-31.md`, the L4
     /// control that everyone believed had teeth).
     func testOversizedLibraryIsRefusedWithTheNumbersThatExplainIt() throws {
         var settings = coarseSettings()

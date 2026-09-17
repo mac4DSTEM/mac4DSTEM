@@ -1,4 +1,4 @@
-# XcodeBuildMCP workflow selection for this repo (docs/development-process.md §2).
+# XcodeBuildMCP workflow selection for this repo (docs/archive/development-process-2026-08-31.md §2).
 # This is a macOS app: the default simulator workflow is dead weight here.
 # Keep this list lean on purpose — every enabled workflow adds tools that
 # compete for an agent's attention.

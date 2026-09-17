@@ -4,7 +4,7 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The navigation/selection seam (S22c; `docs/development-process.md` §7 —
+/// The navigation/selection seam (S22c; `docs/archive/development-process-2026-08-31.md` §7 —
 /// one seam per stage, extracted at a green boundary). Owns which workspace
 /// and task the user is in and which panes are visible: pure view-state, no
 /// science. `AppState` holds it as `navigation` without forwarding

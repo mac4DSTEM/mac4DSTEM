@@ -4,7 +4,7 @@
 //        memory — the requested mode, whether it is actually held, how large it
 //        is, and the preload's measured progress.
 //
-//  WHY THIS IS ITS OWN TYPE (docs/development-process.md §7, decided
+//  WHY THIS IS ITS OWN TYPE (docs/archive/development-process-2026-08-31.md §7, decided
 //  2026-08-17). Every L-stage that touches `AppState` extracts one seam. L2
 //  *adds* this state, so it lands here rather than becoming four more
 //  properties on a facade that 172 stored properties already share.

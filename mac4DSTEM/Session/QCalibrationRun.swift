@@ -5,7 +5,7 @@
 //        was. One owner, so the number the user sees and the caveat attached to
 //        it cannot come from two places.
 //
-//  This is S13's `AppState` seam (docs/development-process.md §7), taken under
+//  This is S13's `AppState` seam (docs/archive/development-process-2026-08-31.md §7), taken under
 //  rule 1: state the stage is ADDING goes into its own type from the start,
 //  which is the free case — the alternative is adding four more properties to
 //  the facade and then extracting something unrelated to pay the same debt.

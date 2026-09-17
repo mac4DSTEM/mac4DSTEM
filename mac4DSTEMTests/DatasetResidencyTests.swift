@@ -5,7 +5,7 @@ import DSTEMSession
 
 /// Pins `DatasetResidency` — the state L2 adds, extracted into its own type
 /// rather than added to the `AppState` facade
-/// (`docs/development-process.md` §7).
+/// (`docs/archive/development-process-2026-08-31.md` §7).
 ///
 /// The property every test here defends is the same one: **the published flags
 /// describe the buffer, never the request.** A `DatasetResidency` that says

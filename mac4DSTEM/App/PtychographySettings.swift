@@ -4,7 +4,7 @@ import DSTEMCore
 #endif
 
 /// The single-slice ptychography input-settings seam (audit 3.2 row 5;
-/// `docs/development-process.md` §7 — one seam per session, extracted at a
+/// `docs/archive/development-process-2026-08-31.md` §7 — one seam per session, extracted at a
 /// green boundary). Owns the reconstruction's input controls only — pure
 /// view-state driving `SingleslicePtychographyOptions`, no science and no
 /// result. `AppState` holds it as `ptychography` without forwarding

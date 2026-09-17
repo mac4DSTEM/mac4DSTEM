@@ -4,7 +4,7 @@
 //        analyses as they run, adopted from the sidecar on restore, handed to
 //        the writer on every save.
 //
-//  This is v2 S5's `AppState` seam (docs/development-process.md §7): the state
+//  This is v2 S5's `AppState` seam (docs/archive/development-process-2026-08-31.md §7): the state
 //  the stage ADDS, in its own `@Observable` type that `AppState` holds — the
 //  `DatasetResidency` / `PendingLoad` precedent, no forwarding properties.
 //  The serialized format lives in `Core/Data/SessionReplayRecord.swift`; this

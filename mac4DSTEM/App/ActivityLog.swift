@@ -3,7 +3,7 @@
 //  Role: The session's rolling record of what happened, shown in the output
 //        strip along the bottom of the science panes.
 //
-//  An `AppState` seam (docs/development-process.md §7), extracted 2026-09-04
+//  An `AppState` seam (docs/archive/development-process-2026-08-31.md §7), extracted 2026-09-04
 //  under CLAUDE.md's rule that a session touching `AppState` moves one
 //  responsibility out of it. It sits in App/ rather than Session/ for the
 //  same reason `WorkspaceNavigation` does: it is view-state with no science

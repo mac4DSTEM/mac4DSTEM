@@ -6,7 +6,7 @@
 #
 # Two firsts, both deliberate:
 #   - the source list comes from tools/lib/sources.manifest, not from a
-#     hand-written list in this file (docs/development-process.md §1);
+#     hand-written list in this file (docs/archive/development-process-2026-08-31.md §1);
 #   - the harness compiles with the APP's actor-isolation flags, closing the
 #     blind spot recorded on 2026-08-18 where every tools/ harness validated
 #     different isolation semantics from the app.

@@ -4,7 +4,7 @@
 //        the persisted store behind it, and the location labels that tell
 //        same-named entries apart.
 //
-//  WHY THIS IS ITS OWN TYPE (docs/development-process.md §7). S3 touches
+//  WHY THIS IS ITS OWN TYPE (docs/archive/development-process-2026-08-31.md §7). S3 touches
 //  `AppState`, so it extracts one seam at a green test boundary. This is the
 //  cheapest true seam on S3's path: the list is real state with real
 //  transitions (remember, remove, bookmark refresh, the cap at eight), it is

@@ -1,6 +1,6 @@
 //
 //  LearnedDiskDetector.swift
-//  The learned disk-candidate stage (docs/v3-plan.md §3a, step 4; C7, 2026-09-08).
+//  The learned disk-candidate stage (docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), step 4; C7, 2026-09-08).
 //
 //  A candidate stage, never a measurement: the net paints a disk-centre heatmap on
 //  three channels (log-normalised pattern, the probe, the classical cross-correlation),

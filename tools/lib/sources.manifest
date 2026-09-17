@@ -34,7 +34,7 @@
 # tools/strain-frame-test (v2 S8) source this file today. The hand-listing
 # runners are exactly as exposed to the 2026-08-17 failure as they were before
 # it existed. This file does not fix that breakage until they migrate
-# (docs/development-process.md §1: when next touched), and saying otherwise
+# (docs/archive/development-process-2026-08-31.md §1: when next touched), and saying otherwise
 # would be a claim a reader cannot reproduce.
 #
 # GROUPS ARE DEPENDENCY-CLOSED. Asking for `analysis` gets the readers and the

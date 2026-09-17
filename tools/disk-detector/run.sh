@@ -1,5 +1,5 @@
 #!/bin/zsh
-# tools/disk-detector/run.sh — the learned disk detector's tooling (docs/v3-plan.md §3a).
+# tools/disk-detector/run.sh — the learned disk detector's tooling (docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a)).
 #
 #   run.sh [fixture]   default, GATED (run-tests.sh scientific): the committed synthetic fixture only.
 #                      Fast, no network, no real data. Proves (1) simulate.py's kernel/correlation port

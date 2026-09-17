@@ -1,4 +1,4 @@
-// scan-bench — the ceiling of docs/v3-plan.md §3a, measured on the same cube from Swift, on Core ML
+// scan-bench — the ceiling of docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), measured on the same cube from Swift, on Core ML
 // (C7 session 3, 2026-09-08; the Core AI version stays on `ml/disk-detector`).
 //
 // (1) The app's classical scan path: DiskDetection.detectAll (one CPU detector per core) on the dumped

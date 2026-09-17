@@ -4,7 +4,7 @@
 //        the reader could push into its own I/O, and what the move into that
 //        frame cost the calibration.
 //
-//  THIS IS THE STAGE'S `AppState` SEAM (docs/development-process.md §7, binding
+//  THIS IS THE STAGE'S `AppState` SEAM (docs/archive/development-process-2026-08-31.md §7, binding
 //  since 2026-08-17). It follows L2's precedent — `App/DatasetResidency.swift` —
 //  and for the same reason: the cheapest true seam is state the stage is adding,
 //  so it starts owned rather than being prised out of a 188-property facade

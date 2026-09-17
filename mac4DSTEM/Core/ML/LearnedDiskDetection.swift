@@ -3,7 +3,7 @@
 //  Role: The learned candidate stage's disagreement diagnostics (position-
 //        matched, C7 session 3) and its
 //        full-scan streaming orchestration (Core ML, the macOS 14 floor —
-//        C7 2026-09-08; docs/v3-plan.md §3a, step 4 slice 2).
+//        C7 2026-09-08; docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), step 4 slice 2).
 //
 
 import Foundation

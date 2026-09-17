@@ -3,7 +3,7 @@
 //  Role: A dataset that has been opened far enough to look at, but not yet
 //        committed to a load — the state L5's configurator edits.
 //
-//  This is the stage's `AppState` seam (docs/development-process.md §7): the
+//  This is the stage's `AppState` seam (docs/archive/development-process-2026-08-31.md §7): the
 //  state L5 *adds*, in its own `@Observable` type that `AppState` holds, no
 //  forwarding properties. Same precedent as `App/DatasetResidency.swift` (L2)
 //  and `App/LoadedView.swift` (L3/L4). v2 S4 keeps the rule: the single-DP

@@ -3,7 +3,7 @@
 //  Role: The live state of one unattended promote run — which step is
 //        executing, what each step's outcome was, and the summary a user
 //        reads the next morning. v2 S6's `AppState` seam
-//        (docs/development-process.md §7): the state the stage ADDS, in its
+//        (docs/archive/development-process-2026-08-31.md §7): the state the stage ADDS, in its
 //        own `@Observable` type that `AppState` holds — the
 //        `DatasetResidency` / `SessionReplay` precedent, no forwarding
 //        properties.

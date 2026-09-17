@@ -5,7 +5,7 @@
 //        to claim. A gate that exists once cannot be derived differently at two
 //        call sites.
 //
-//  This is S7's `AppState` seam (docs/development-process.md §7), and like S1's
+//  This is S7's `AppState` seam (docs/archive/development-process-2026-08-31.md §7), and like S1's
 //  it is the seam the session's own defect earned: physical iDPC decided "may I
 //  use the origin fit quantitatively?" from `hasFittedOrigin` alone
 //  (`AppState.idpcPhysicalCalibration`), while Q calibration decided the same

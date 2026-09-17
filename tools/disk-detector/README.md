@@ -5,7 +5,7 @@ On `main` since 2026-09-08: the Python tooling, the 128-px fixture (C6) and, sin
 `Core/ML/LearnedDiskDetector` behind it, and `scan-bench/` on Core ML (C7 session 3; the Core AI
 version stays on `ml/disk-detector`).
 
-`docs/v3-plan.md` §3a. Python that never ships: a simulator with known disk
+`docs/archive/v3/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a). Python that never ships: a simulator with known disk
 centres, a plain-conv U-Net trainer, exports to Core ML (`.mlpackage`, the
 shipping route since C7) and Core AI (`.aimodel`), the export checks, and a
 committed synthetic fixture. The app gets one asset and one inference class;
@@ -190,7 +190,7 @@ matches to the drawn centres (fixture) and to `find_Bragg_disks` at the
 2026-09-05 settings (real cubes), and saves PNGs of disagreeing patterns.
 
 **Numbers (2026-09-07, `References/training_runs/disk-detector-2026-09-06/`,
-the full account is `docs/v3-plan.md` §3a "Step 3 — evidence").** run1: 9 500
+the full account is `docs/archive/v3/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a) "Step 3 — evidence").** run1: 9 500
 steps in 80 min, best validation loss 0.0526, validation recall@2 px 0.80,
 fixture recall 1.000; run2 (a 55-min anneal from run1, the checkpoint of
 record, asset `0df112f4f593…`): validation loss 0.0473, recall 0.82, ANE
@@ -303,7 +303,7 @@ disks at ~3.7 px, below the trained range: widen `zoom` and retrain, don't
 extrapolate); a new probe family (`load_ingredients`'s three-probe mix gets
 a fourth); a larger input (256 px, about four times the pixels, so roughly four times the Neural Engine cost (an estimate, not a measurement) — a new `S`, a new net,
 new assets, not a drop-in); or the owner's confirmed/rejected patterns from
-the app (step 5, `docs/v3-plan.md` §3a) — fine-tune with `--resume`.
+the app (step 5, `docs/archive/v3/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a)) — fine-tune with `--resume`.
 
 ### Recipe
 

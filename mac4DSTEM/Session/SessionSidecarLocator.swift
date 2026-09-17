@@ -4,7 +4,7 @@
 //        read it?" — the derived sibling path, the security-scoped bookmark
 //        that grants access to it, and the scoped URL currently held open.
 //
-//  This is S1's `AppState` seam (docs/development-process.md §7), and it is the
+//  This is S1's `AppState` seam (docs/archive/development-process-2026-08-31.md §7), and it is the
 //  seam this session earned rather than a convenient one: the defect S1 fixes is
 //  literally that the same question was answered in two different ways.
 //
