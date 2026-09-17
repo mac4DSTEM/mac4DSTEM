@@ -82,6 +82,7 @@ scientific=(
   virtual-detector-residency
   resident-cropped-view
   disk-detection-test embedding-pca-parity disk-correlation-parity peak-overlay-test fit-overlay-test
+  phase-vector-matching
   acom-orientation-test acom-matching-test acom-convention-test parity-metric-test cif-symmetry-test
   ws2-crystal-test
   idpc-test cancellation-test
@@ -95,6 +96,7 @@ scientific=(
   singleslice-ptychography-test result-presentation-test
   scientific-bundle-test
   disk-detector
+  rotation-parity-test
 )
 campaign=(
   parallax-preprocessing-test parallax-alignment-test parallax-aberration-test
@@ -110,7 +112,8 @@ campaign=(
 diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
   training-dataset-campaign review-record-check precipitate-handcount
-  phase-discrimination-probe)
+  phase-discrimination-probe phase-map-probe demo-dataset rotation-null-probe
+  hdf5-race-probe thronsen-dataset)
 owner_only=()
 retired=()
 support=(lib release crystal-structures)
@@ -177,9 +180,12 @@ inventory() {
   printf "  %-36s %7s\n" "UI/ Swift lines" "$(cat "$ROOT"/mac4DSTEM/UI/*.swift | wc -l | tr -d ' ')"
   printf "  %-36s %7s\n" "unit-test lines" "$(swift_lines "$ROOT/mac4DSTEMTests")"
   printf "  %-36s %7s\n" "tools/ Swift lines" "$(swift_lines "$ROOT/tools")"
-  printf "  %-36s %7s\n" "live markdown lines" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/CHANGELOG.md "$ROOT"/ROADMAP.md "$ROOT"/docs/*.md)"
+  # docs/decisions/ joined the live set on 2026-09-16 (one ADR per decision;
+  # the pre-consolidation log is verbatim in the archive). A folder outside
+  # this glob would be growth the gate cannot see.
+  printf "  %-36s %7s\n" "live markdown lines" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/CHANGELOG.md "$ROOT"/ROADMAP.md "$ROOT"/docs/*.md "$ROOT"/docs/decisions/*.md)"
   printf "  %-36s %7s\n" "archive markdown lines" "$(find "$ROOT/docs/archive" -name '*.md' -exec cat {} + | wc -l | tr -d ' ')"
-  printf "  %-36s %7s\n" "cold-start set (CLAUDE+status+plan+open-items)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/status.md "$ROOT"/docs/v3-plan.md "$ROOT"/docs/open-items.md)"
+  printf "  %-36s %7s\n" "cold-start set (CLAUDE+status+ROADMAP+open-items)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/status.md "$ROOT"/ROADMAP.md "$ROOT"/docs/open-items.md)"
   echo "== app files over 800 lines"
   find "$ROOT/mac4DSTEM" -name '*.swift' -exec wc -l {} + | awk -v r="$ROOT/" '$1 > 800 && $2 != "total" { sub(r, "", $2); printf "  %6d %s\n", $1, $2 }' | sort -rn
   # Candidates only — a build is the proof. 2026-09-02: a reviewer's "no
@@ -205,8 +211,8 @@ inventory() {
     echo "  ^ custom bar or opacity wash in the chrome (presentation contract rule 3)"; rc=1
   fi
   # Rule 4 (2026-09-03): no fixed frames except the science. A numeric
-  # `.frame(...)` in the chrome must come from `FormPolicy`/`WindowPolicy`
-  # (FormControls.swift); the panes, overlays and plots are exempt.
+  # `.frame(...)` in the chrome must come from `LayoutPolicy.swift`; the
+  # panes, overlays and plots are exempt.
   if grep -nE '\.frame\([^)]*: *[0-9]' "$ROOT"/mac4DSTEM/UI/*.swift \
        | grep -vE 'ImagePanes|PaneOverlays|HistogramView|ResultsWorkspace|LoadConfigurator|LayoutPolicy' \
        | grep -vE 'LayoutPolicy\.|cropPane|// science'; then
@@ -291,7 +297,7 @@ inventory() {
   # a past version, and `scratchpad/` is gitignored by design.
   local -a truth_docs=("$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/NOTICE "$ROOT"/CONTRIBUTING.md)
   local d dp
-  for d in "$ROOT"/docs/*.md; do
+  for d in "$ROOT"/docs/*.md "$ROOT"/docs/decisions/*.md; do
     case "$d" in *plan*.md|*design*.md) ;; *) truth_docs+=("$d");; esac
   done
   # Two families: rooted at the repo, and rooted at the app source directory —
@@ -314,7 +320,7 @@ inventory() {
     # word in general — the process doc uses it generically.
     # ...and only positive ones: "Nothing is uncommitted" is the opposite claim
     # and is true on a clean tree. It red-lined this gate on 2026-09-09.
-    if grep -nEi '(held|still|stays?|remains?|is|are) uncommitted' "$ROOT"/CLAUDE.md "$ROOT"/docs/*.md | grep -viE 'was (still )?uncommitted|at the time|(nothing|none|no [a-z]+) (is|are|remains?) uncommitted'; then
+    if grep -nEi '(held|still|stays?|remains?|is|are) uncommitted' "$ROOT"/CLAUDE.md "$ROOT"/docs/*.md "$ROOT"/docs/decisions/*.md | grep -viE 'was (still )?uncommitted|at the time|(nothing|none|no [a-z]+) (is|are|remains?) uncommitted'; then
       echo "  ^ live docs claim uncommitted work on a clean tree"; rc=1
     fi
   fi

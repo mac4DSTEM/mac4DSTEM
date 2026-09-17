@@ -33,14 +33,14 @@ Done means the repo tells the next reader the truth. In order:
 3. If the session changed what the app draws: say so, and state the work as
    unverified on screen until the owner has driven it.
 4. Update the step's row in `docs/status.md` (state, commit, what deviated)
-   and the dated gate table. One paragraph in `docs/decisions.md` if a
-   decision was made.
+   and the dated gate table. A new file in `docs/decisions/` and a row in
+   `docs/decisions.md` if a decision was made.
 5. Update `docs/open-items.md` — add, amend, or delete. Closed items move
    to `docs/archive/` immediately (§1 discipline); the file is loaded by
    every session, so its length taxes all of them.
    **Write findings, not narratives** — the file's own header carries the
    format rule adopted 2026-08-28: what is wrong, the evidence, the trap, the
-   owner, the live residual; ≤ 20 lines. Refuted hypotheses and the story of
+   owner, the live residual; ≤ 12 lines (the file's own rule, and CLAUDE.md's). Refuted hypotheses and the story of
    how the diagnosis converged go to the dated archive with a pointer.
    **Run `tools/run-tests.sh inventory` and paste its output into the
    closeout message.** It must exit 0 (every `tools/` runner classified, no
@@ -54,17 +54,22 @@ Done means the repo tells the next reader the truth. In order:
    up calling a claim unreproduced that S19 had reproduced.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
-7. Republish the owner's living v2 board (owner request, 2026-08-26):
-   artifact `https://claude.ai/code/artifact/02ef433e-3888-4afc-9292-aba62912e5d9`
-   ("mac4DSTEM v2 Board"). Update the session rail, workstream fractions,
+7. Republish the owner's living v2 board (owner request, 2026-08-26): the
+   artifact titled **"mac4DSTEM v2 Board"**. Do not hardcode its address —
+   the URL form changed on 2026-09-15 and a stale form would fork a second
+   board, which is the failure this step exists to prevent. Find it with the
+   Artifact tool's `action: "list"`, match the title, and pass that row's
+   URL as `url` on publish. Update the session rail, workstream fractions,
    the dated test-claim table, and the what's-next queue from
-   `docs/status.md` (its table, gate table and handoff) — same honesty bar as the docs: every number
-   dated to its own run. From a fresh conversation, pass that address as
-   the Artifact tool's `url` (publishing without it forks a new artifact).
+   `docs/status.md` (its table, gate table and handoff) — same honesty bar
+   as the docs: every number dated to its own run.
 8. One sentence on the skills themselves: did any skill misfire, get
    ignored, or fail to trigger when its moment came? Skills are repo files —
    if one needs reshaping, edit it now and it ships with this session's
    commit. Friction nobody records is friction the next session repeats.
-9. Do not commit unless the user asked. If they did: linear `main`,
-   descriptive message, and the docs updated in the same commit as the code
-   they describe.
+9. **Commit** (rule changed by the owner 2026-09-16; this step used to say
+   "do not commit unless the user asked"). Land the work as coherent commits
+   with the gate numbers in the message, and the docs in the same commit as
+   the code they describe. **Pushing is still the owner's** — ask if it should
+   go out. `main` is linear by preference, not by rule, since the 2026-09-16
+   merge split put a cherry-pick on it.

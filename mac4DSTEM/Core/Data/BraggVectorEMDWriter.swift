@@ -1,290 +1,6 @@
 import Darwin
 import Foundation
 
-/// One scalar real-space result persisted as a py4DSTEM `RealSlice`.
-/// Pixels use app row-major `[y][x]`, which is the same memory order as
-/// py4DSTEM's real-space `[R_Nx,R_Ny]` convention established by H5Reader.
-package nonisolated struct ScalarResultMap: Sendable {
-    package static let legacyEMDName = "result_map"
-    /// v2 DPC-angle unit repair: old sidecars stored normalized turns while
-    /// claiming `rad`. New maps name their encoding so the reader can migrate
-    /// only the legacy absence, without guessing about future representations.
-    package static let dpcAngleEncodingKey = "dpc_angle_encoding"
-    package static let dpcAngleRadiansEncoding = "radians"
-    package static let dpcAngleTurnsEncoding = "normalized_turns"
-
-    package let width: Int
-    package let height: Int
-    package let pixels: [Float]
-    package let kind: String
-    package let displayName: String
-    package let valueUnits: String
-    package let pixelSizeRow: Double?
-    package let pixelSizeColumn: Double?
-    package let pixelUnits: String?
-    package let provenance: [String: String]
-
-    package init(width: Int, height: Int, pixels: [Float], kind: String,
-         displayName: String, valueUnits: String,
-         pixelSizeRow: Double? = nil, pixelSizeColumn: Double? = nil,
-         pixelUnits: String? = nil, provenance: [String: String] = [:]) {
-        self.width = width
-        self.height = height
-        self.pixels = pixels
-        self.kind = kind
-        self.displayName = displayName
-        self.valueUnits = valueUnits
-        self.pixelSizeRow = pixelSizeRow
-        self.pixelSizeColumn = pixelSizeColumn
-        self.pixelUnits = pixelUnits
-        self.provenance = provenance
-    }
-}
-
-/// One pre-colored scan-shaped scientific result (for example DPC direction
-/// or cubic IPF-Z), persisted losslessly as uint8 `[height,width,RGBA]`.
-package nonisolated struct RGBAResultMap: Sendable {
-    package let width: Int
-    package let height: Int
-    package let rgba: [UInt8]
-    package let kind: String
-    package let displayName: String
-    package let valueUnits: String
-    package let pixelSizeRow: Double?
-    package let pixelSizeColumn: Double?
-    package let pixelUnits: String?
-    package let provenance: [String: String]
-
-    package init(
-        width: Int, height: Int, rgba: [UInt8], kind: String,
-        displayName: String, valueUnits: String,
-        pixelSizeRow: Double? = nil, pixelSizeColumn: Double? = nil,
-        pixelUnits: String? = nil, provenance: [String: String] = [:]
-    ) {
-        self.width = width
-        self.height = height
-        self.rgba = rgba
-        self.kind = kind
-        self.displayName = displayName
-        self.valueUnits = valueUnits
-        self.pixelSizeRow = pixelSizeRow
-        self.pixelSizeColumn = pixelSizeColumn
-        self.pixelUnits = pixelUnits
-        self.provenance = provenance
-    }
-}
-
-package nonisolated enum SessionResultStorage: String, Sendable {
-    case scalarFloat32 = "scalar_f32"
-    case rgba8 = "rgba8"
-}
-
-/// Lightweight on-disk map metadata used by the session inventory. The `id`
-/// is the stable HDF5 node name, not a user-visible label.
-package nonisolated struct SessionResultDescriptor: Identifiable, Sendable, Equatable {
-    package let id: String
-    package let kind: String
-    package let displayName: String
-    package let valueUnits: String
-    package let width: Int
-    package let height: Int
-    package let storage: SessionResultStorage
-    package let pixelSizeRow: Double?
-    package let pixelSizeColumn: Double?
-    package let pixelUnits: String?
-    package let provenance: [String: String]
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(id: String, kind: String, displayName: String, valueUnits: String, width: Int, height: Int, storage: SessionResultStorage, pixelSizeRow: Double?, pixelSizeColumn: Double?, pixelUnits: String?, provenance: [String: String]) {
-        self.id = id
-        self.kind = kind
-        self.displayName = displayName
-        self.valueUnits = valueUnits
-        self.width = width
-        self.height = height
-        self.storage = storage
-        self.pixelSizeRow = pixelSizeRow
-        self.pixelSizeColumn = pixelSizeColumn
-        self.pixelUnits = pixelUnits
-        self.provenance = provenance
-    }
-}
-
-package nonisolated struct SessionSidecarInventory: Sendable, Equatable {
-    package static let empty = SessionSidecarInventory(
-        hasSidecar: false, hasBraggVectors: false, hasCalibration: false,
-        results: [], currentResultID: nil
-    )
-
-    package let hasSidecar: Bool
-    package let hasBraggVectors: Bool
-    package let hasCalibration: Bool
-    package let results: [SessionResultDescriptor]
-    package let currentResultID: String?
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(hasSidecar: Bool, hasBraggVectors: Bool, hasCalibration: Bool, results: [SessionResultDescriptor], currentResultID: String?) {
-        self.hasSidecar = hasSidecar
-        self.hasBraggVectors = hasBraggVectors
-        self.hasCalibration = hasCalibration
-        self.results = results
-        self.currentResultID = currentResultID
-    }
-}
-
-package nonisolated struct SessionSidecarSnapshot: Sendable {
-    package let inventory: SessionSidecarInventory
-    package let calibration: PixelCalibration?
-    package let currentResult: ScalarResultMap?
-    package let currentRGBAResult: RGBAResultMap?
-    /// The view these products were computed under. **Nil means full extent**,
-    /// not "unknown": a sidecar written before L6 recorded no specification
-    /// because there was none to record.
-    ///
-    /// Reopening re-applies this to the SOURCE file. It is never used to
-    /// re-derive from reduced data — the source is what is reopened, and the
-    /// specification is applied to it again, which is the whole reason a crop is
-    /// a view rather than a new dataset (docs/v2-scope.md §6.1).
-    package var loadSpecification: LoadSpecification? = nil
-    /// The recorded analysis pipeline, when the sidecar carries one.
-    /// **Nil means "no recipe was recorded"** — absence is absence, never an
-    /// empty-but-asserted record (the `?? .fullExtent` lesson). // v2 S5
-    package var replayRecord: SessionReplayRecord? = nil
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, replayRecord: SessionReplayRecord? = nil) {
-        self.inventory = inventory
-        self.calibration = calibration
-        self.currentResult = currentResult
-        self.currentRGBAResult = currentRGBAResult
-        self.loadSpecification = loadSpecification
-        self.replayRecord = replayRecord
-    }
-}
-
-/// Bounded preprocessing applied while streaming a source datacube into a
-/// canonical py4DSTEM EMD file. Ranges use app/HDF5 order `[Ry,Rx]` and Q
-/// binning sums non-overlapping detector blocks, matching py4DSTEM's count-
-/// preserving diffraction binning semantics.
-package nonisolated struct CalibratedDataCubeExportOptions: Sendable, Equatable {
-    package let scanY: Range<Int>
-    package let scanX: Range<Int>
-    package let qBin: Int
-    package let tileRows: Int
-
-    package init(scanY: Range<Int>, scanX: Range<Int>, qBin: Int = 1, tileRows: Int = 1) {
-        self.scanY = scanY
-        self.scanX = scanX
-        self.qBin = qBin
-        self.tileRows = tileRows
-    }
-}
-
-package nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
-    package let shape: [Int]
-    package let discardedQRows: Int
-    package let discardedQColumns: Int
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(shape: [Int], discardedQRows: Int, discardedQColumns: Int) {
-        self.shape = shape
-        self.discardedQRows = discardedQRows
-        self.discardedQColumns = discardedQColumns
-    }
-}
-
-/// How an exported reduced DataCube was derived from its source — the
-/// "traceable to file + specification" half of the release claim, stamped as
-/// a JSON attribute on the exported file (v2 S10). Deliberately NOT a
-/// `LoadSpecification`: that type means "reopen the source this way" and is
-/// bounded by the app's bin vocabulary (2/4/8), while a derivation composes
-/// the view's bin with the export's (their product can be 16+) and means
-/// only "this is where these pixels came from". Offsets are in SOURCE
-/// pixels; extents are the exported file's own shape; `detectorBin` is the
-/// TOTAL source→file factor. The file NAME travels, never the path — a
-/// screenshot-able attribute must not leak the filesystem (the status-line
-/// lesson, docs/open-items.md).
-package nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
-    package var schema: Int = 1
-    package var sourceFile: String?
-    package var scanOffsetY: Int
-    package var scanOffsetX: Int
-    package var scanHeight: Int
-    package var scanWidth: Int
-    package var detectorOffsetY: Int
-    package var detectorOffsetX: Int
-    package var detectorBin: Int
-    package var detectorHeight: Int
-    package var detectorWidth: Int
-
-    package enum CodingKeys: String, CodingKey {
-        case schema
-        case sourceFile = "source_file"
-        case scanOffsetY = "scan_offset_y"
-        case scanOffsetX = "scan_offset_x"
-        case scanHeight = "scan_height"
-        case scanWidth = "scan_width"
-        case detectorOffsetY = "detector_offset_y"
-        case detectorOffsetX = "detector_offset_x"
-        case detectorBin = "detector_bin"
-        case detectorHeight = "detector_height"
-        case detectorWidth = "detector_width"
-    }
-
-    /// Compose the view's reduction with the export's. Exact by the floor
-    /// identity `floor(floor(n/a)/b) == floor(n/(a·b))`: the view trims its
-    /// detector to a multiple of its bin off the END of each axis, the export
-    /// trims the view the same way, so the composition is one crop at the
-    /// view's offsets with the total bin — no intermediate state survives.
-    /// Scan composition is pure selection: offsets add.
-    package static func compose(view: LoadView,
-                        options: CalibratedDataCubeExportOptions,
-                        outputShape: [Int],
-                        sourceFileName: String?) -> DataCubeDerivation {
-        let specification = view.specification
-        let scanCrop = specification.scanCrop
-        let detectorCrop = view.readDetectorCrop
-        return DataCubeDerivation(
-            sourceFile: sourceFileName,
-            scanOffsetY: (scanCrop?.yOffset ?? 0) + options.scanY.lowerBound,
-            scanOffsetX: (scanCrop?.xOffset ?? 0) + options.scanX.lowerBound,
-            scanHeight: outputShape[0],
-            scanWidth: outputShape[1],
-            detectorOffsetY: detectorCrop?.yOffset ?? 0,
-            detectorOffsetX: detectorCrop?.xOffset ?? 0,
-            detectorBin: specification.detectorBin * options.qBin,
-            detectorHeight: outputShape[2],
-            detectorWidth: outputShape[3]
-        )
-    }
-
-    /// Deterministic JSON, same conventions as the other stamped records.
-    package var jsonString: String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        // try? OK (v2 S7 audit): all stored properties are Ints and an
-        // optional String — nothing here can fail to encode, and nil falls
-        // through to "write no attribute".
-        guard let data = try? encoder.encode(self) else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(schema: Int = 1, sourceFile: String? = nil, scanOffsetY: Int, scanOffsetX: Int, scanHeight: Int, scanWidth: Int, detectorOffsetY: Int, detectorOffsetX: Int, detectorBin: Int, detectorHeight: Int, detectorWidth: Int) {
-        self.schema = schema
-        self.sourceFile = sourceFile
-        self.scanOffsetY = scanOffsetY
-        self.scanOffsetX = scanOffsetX
-        self.scanHeight = scanHeight
-        self.scanWidth = scanWidth
-        self.detectorOffsetY = detectorOffsetY
-        self.detectorOffsetX = detectorOffsetX
-        self.detectorBin = detectorBin
-        self.detectorHeight = detectorHeight
-        self.detectorWidth = detectorWidth
-    }
-}
-
 /// Writes the detected peak grid as a py4DSTEM 0.14 / EMD 1.0 BraggVectors
 /// sidecar. The source dataset is never opened for writing. Publication is an
 /// atomic rename of a completed sibling temporary file, so cancellation or an
@@ -403,6 +119,7 @@ package nonisolated enum BraggVectorEMDWriter {
         maps: [ScalarResultMap], calibration: PixelCalibration, to destination: URL,
         cancellation: AnalysisCancellationToken? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard !maps.isEmpty else {
             throw WriterError.invalidDimensions("a scientific bundle needs at least one field")
         }
@@ -486,6 +203,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         try validate(vectors: vectors, qWidth: qWidth, qHeight: qHeight)
         try publish(vectors: vectors, map: nil, rgbaMap: nil,
                     qWidth: qWidth, qHeight: qHeight,
@@ -564,7 +282,7 @@ package nonisolated enum BraggVectorEMDWriter {
             if !published { try? fm.removeItem(at: temporary) }
             if let scratchDirectory { try? fm.removeItem(at: scratchDirectory) }
         }
-        let h5 = try HDF5WriteLibrary.load()
+        let h5 = try HDF5Serial.run { try HDF5WriteLibrary.load() }   // H5open is an API call too
         try await writeCalibratedDataCubeFile(
             at: temporary, source: source, view: view,
             calibration: try transformedCalibration(calibration, descriptor: descriptor,
@@ -602,6 +320,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard map.width > 0, map.height > 0,
               map.pixels.count == map.width * map.height,
               map.pixelSizeRow == nil
@@ -639,6 +358,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard map.width > 0, map.height > 0,
               map.rgba.count == map.width * map.height * 4 else {
             throw WriterError.invalidDimensions("the RGBA result map is inconsistent")
@@ -677,6 +397,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard qWidth > 0, qHeight > 0 else {
             throw WriterError.invalidDimensions("the diffraction shape must be positive")
         }
@@ -707,6 +428,7 @@ package nonisolated enum BraggVectorEMDWriter {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) throws {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard qWidth > 0, qHeight > 0,
               FileManager.default.fileExists(atPath: destination.path) else {
             throw WriterError.invalidDimensions("the session sidecar does not exist")
@@ -753,6 +475,7 @@ package nonisolated enum BraggVectorEMDWriter {
         from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> SessionSidecarSnapshot {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard FileManager.default.fileExists(atPath: url.path) else {
             return SessionSidecarSnapshot(
                 inventory: .empty, calibration: nil, currentResult: nil,
@@ -850,6 +573,7 @@ package nonisolated enum BraggVectorEMDWriter {
         id: String, from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> ScalarResultMap? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
@@ -874,6 +598,7 @@ package nonisolated enum BraggVectorEMDWriter {
         id: String, from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> RGBAResultMap? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
@@ -902,6 +627,7 @@ package nonisolated enum BraggVectorEMDWriter {
     /// `SessionSidecarSnapshot`: this attribute is read on dataset
     /// activation only, never alongside a result restore.
     package static func loadDiskCentreLabelsJSON(from url: URL) throws -> String? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         let h5 = try HDF5WriteLibrary.load()
         let fileID = url.path.withCString {
@@ -1525,11 +1251,18 @@ package nonisolated enum BraggVectorEMDWriter {
         hdf5 h5: HDF5WriteLibrary
     ) async throws {
         let descriptor = view.descriptor
+        // The setup below creates handles the tile loop uses, so it cannot be
+        // one closure under `HDF5Serial.run`; the lock is taken explicitly
+        // here and released before the loop's first `await` on the source.
+        // Every handle is closed under the lock again at exit.
+        HDF5Serial.acquire()
+        var setupLocked = true
+        defer { if setupLocked { HDF5Serial.release() } }
         let fileID = url.path.withCString {
             h5.h5fcreate($0, h5FileTruncate, h5DefaultProperty, h5DefaultProperty)
         }
         guard fileID >= 0 else { throw WriterError.hdf5("creating the calibrated datacube") }
-        defer { _ = h5.h5fclose(fileID) }
+        defer { HDF5Serial.run { _ = h5.h5fclose(fileID) } }
 
         try writeStringAttribute("emd_group_type", value: "file", on: fileID, hdf5: h5)
         try writeScalarAttribute("version_major", value: Int32(1), type: h5.nativeInt,
@@ -1541,7 +1274,7 @@ package nonisolated enum BraggVectorEMDWriter {
         try writeStringAttribute("authoring_user", value: "", on: fileID, hdf5: h5)
 
         let root = try createGroup("datacube_root", in: fileID, hdf5: h5)
-        defer { _ = h5.h5gclose(root) }
+        defer { HDF5Serial.run { _ = h5.h5gclose(root) } }
         try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
         // Provenance the reduced file carries about itself (v2 S10): where its
         // pixels came from, and the recipe of the analyses run on this data —
@@ -1556,7 +1289,7 @@ package nonisolated enum BraggVectorEMDWriter {
             try writeStringAttribute(replayRecordAttribute, value: json, on: root, hdf5: h5)
         }
         let cube = try createGroup("datacube", in: root, hdf5: h5)
-        defer { _ = h5.h5gclose(cube) }
+        defer { HDF5Serial.run { _ = h5.h5gclose(cube) } }
         try writeNodeAttributes(groupType: "array", pythonClass: "DataCube", on: cube, hdf5: h5)
 
         let dimensions = outputShape.map(hsize_t.init)
@@ -1564,10 +1297,10 @@ package nonisolated enum BraggVectorEMDWriter {
             h5.h5screateSimple(4, $0.baseAddress, nil)
         }
         guard fileSpace >= 0 else { throw WriterError.hdf5("creating the datacube dataspace") }
-        defer { _ = h5.h5sclose(fileSpace) }
+        defer { HDF5Serial.run { _ = h5.h5sclose(fileSpace) } }
         let creation = h5.h5pcreate(h5.datasetCreatePropertyClass)
         guard creation >= 0 else { throw WriterError.hdf5("creating the chunk property list") }
-        defer { _ = h5.h5pclose(creation) }
+        defer { HDF5Serial.run { _ = h5.h5pclose(creation) } }
         let chunk = [hsize_t(1), hsize_t(1), dimensions[2], dimensions[3]]
         guard chunk.withUnsafeBufferPointer({
             h5.h5psetChunk(creation, 4, $0.baseAddress)
@@ -1577,7 +1310,7 @@ package nonisolated enum BraggVectorEMDWriter {
                           creation, h5DefaultProperty)
         }
         guard dataset >= 0 else { throw WriterError.hdf5("creating the datacube dataset") }
-        defer { _ = h5.h5dclose(dataset) }
+        defer { HDF5Serial.run { _ = h5.h5dclose(dataset) } }
         try writeStringAttribute("units", value: "pixel intensity", on: dataset, hdf5: h5)
 
         let rStep = calibration.rSize ?? 1
@@ -1596,6 +1329,8 @@ package nonisolated enum BraggVectorEMDWriter {
         try writeDoubleVectorDataset("dim3", values: linearDimension(count: outputShape[3], step: qStep), name: "Qy",
                                      units: qUnits, in: cube, hdf5: h5)
         try writeCalibration(calibration, targetPath: "/datacube", in: root, hdf5: h5)
+        HDF5Serial.release()
+        setupLocked = false
 
         let outQY = outputShape[2], outQX = outputShape[3]
         let sourcePatternCount = descriptor.qy * descriptor.qx
@@ -1626,29 +1361,34 @@ package nonisolated enum BraggVectorEMDWriter {
                 }
             }
 
-            let targetSpace = h5.h5dgetSpace(dataset)
-            guard targetSpace >= 0 else { throw WriterError.hdf5("opening the output dataspace") }
-            defer { _ = h5.h5sclose(targetSpace) }
-            let start = [hsize_t(sourceY - options.scanY.lowerBound), 0, 0, 0]
-            let count = [hsize_t(endY - sourceY), hsize_t(options.scanX.count),
-                         hsize_t(outQY), hsize_t(outQX)]
-            let selected = start.withUnsafeBufferPointer { starts in
-                count.withUnsafeBufferPointer { counts in
-                    h5.h5sselectHyperslab(targetSpace, h5SelectSet, starts.baseAddress,
-                                          nil, counts.baseAddress, nil)
+            // One tile's write is one operation under the lock; the read of
+            // the next tile from the source actor happens outside it.
+            do {
+                HDF5Serial.acquire(); defer { HDF5Serial.release() }
+                let targetSpace = h5.h5dgetSpace(dataset)
+                guard targetSpace >= 0 else { throw WriterError.hdf5("opening the output dataspace") }
+                defer { _ = h5.h5sclose(targetSpace) }
+                let start = [hsize_t(sourceY - options.scanY.lowerBound), 0, 0, 0]
+                let count = [hsize_t(endY - sourceY), hsize_t(options.scanX.count),
+                             hsize_t(outQY), hsize_t(outQX)]
+                let selected = start.withUnsafeBufferPointer { starts in
+                    count.withUnsafeBufferPointer { counts in
+                        h5.h5sselectHyperslab(targetSpace, h5SelectSet, starts.baseAddress,
+                                              nil, counts.baseAddress, nil)
+                    }
                 }
+                guard selected >= 0 else { throw WriterError.hdf5("selecting the output tile") }
+                let memorySpace = count.withUnsafeBufferPointer {
+                    h5.h5screateSimple(4, $0.baseAddress, nil)
+                }
+                guard memorySpace >= 0 else { throw WriterError.hdf5("creating the output tile dataspace") }
+                let wrote = output.withUnsafeBytes {
+                    h5.h5dwrite(dataset, h5.nativeFloat, memorySpace, targetSpace,
+                                h5DefaultProperty, $0.baseAddress)
+                }
+                _ = h5.h5sclose(memorySpace)
+                guard wrote >= 0 else { throw WriterError.hdf5("writing the output tile") }
             }
-            guard selected >= 0 else { throw WriterError.hdf5("selecting the output tile") }
-            let memorySpace = count.withUnsafeBufferPointer {
-                h5.h5screateSimple(4, $0.baseAddress, nil)
-            }
-            guard memorySpace >= 0 else { throw WriterError.hdf5("creating the output tile dataspace") }
-            let wrote = output.withUnsafeBytes {
-                h5.h5dwrite(dataset, h5.nativeFloat, memorySpace, targetSpace,
-                            h5DefaultProperty, $0.baseAddress)
-            }
-            _ = h5.h5sclose(memorySpace)
-            guard wrote >= 0 else { throw WriterError.hdf5("writing the output tile") }
             sourceY = endY
             progress?(Double(sourceY - options.scanY.lowerBound) / Double(options.scanY.count))
         }

@@ -244,6 +244,20 @@ mac4dstem_sources() {
           "$core/Analysis/EllipseCalibration.swift"
         )
         ;;
+      rotation)
+        # The R-Q rotation solve alone (tools/rotation-parity-test): its
+        # cancellation-token parameter and the FFT2D the surrogate null
+        # links against, no `calibration` composition — RotationCalibration
+        # takes no Calibration.swift type. Mirrors the ad hoc source list
+        # tools/rotation-null-probe/run.sh added by hand before this group
+        # existed (checked 2026-09-17: RotationCalibration.swift was in
+        # neither this file nor any group it composes).
+        want+=(
+          "$core/Compute/AnalysisCancellationToken.swift"
+          "$core/Compute/FFT2D.swift"
+          "$core/Analysis/RotationCalibration.swift"
+        )
+        ;;
       parallax)
         # The whole parallax chain; each parallax-*-test compiles all of it.
         mac4dstem_sources "$repo" calibration
@@ -297,6 +311,17 @@ mac4dstem_sources() {
           "$core/Crystal/CIFImport.swift"
         )
         ;;
+      phasevectors)
+        # Vector-matched phase mapping: the reference library and the matcher,
+        # on top of the ACOM stack they compose (phase-vector-matching).
+        mac4dstem_sources "$repo" acom
+        want+=(
+          "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Crystal/PhaseReferenceLibrary.swift"
+          "$core/Crystal/PhaseVectorMatching.swift"
+          "$core/Crystal/PhaseMapPresentation.swift"
+        )
+        ;;
       fitoverlays)
         # The fitted-overlay geometry over ACOM and strain (fit-overlay-test).
         mac4dstem_sources "$repo" acom strain
@@ -334,12 +359,13 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/HDF5Types.swift"
           "$core/Data/H5Reader.swift"
+          "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
         )
         ;;
       *)
         echo "sources.manifest: unknown group '$group'" >&2
-        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse parallax ptychography presentation crystal fitoverlays core strain export embedding" >&2
+        echo "  known: data calibration readers cube analysis dpc acom qcalibration detection replay ellipse rotation parallax ptychography presentation crystal fitoverlays core strain export embedding phasevectors" >&2
         exit 64
         ;;
     esac

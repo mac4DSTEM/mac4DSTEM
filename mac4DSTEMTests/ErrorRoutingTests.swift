@@ -22,14 +22,64 @@ final class ErrorRoutingTests: XCTestCase {
     func testSessionLevelFailureStillPresentsModally() {
         let state = AppState()
         state.present(SimpleError("The file could not be read."))
-        XCTAssertEqual(state.errorMessage, "The file could not be read.",
-                       "A session-level failure keeps the window-modal alert")
+        // Not exact equality since 2026-09-17: `present` now routes through
+        // `errorDetail`, which prefixes the domain and code (see
+        // `testPresentSurfacesDomainCodeAndUnderlyingCauseInTheModal`) — the
+        // human summary must still be there, verbatim, inside it.
+        XCTAssertTrue(state.errorMessage?.contains("The file could not be read.") == true,
+                      "A session-level failure keeps the window-modal alert: \(state.errorMessage ?? "nil")")
         XCTAssertTrue(state.statusText.contains("The file could not be read."))
     }
 
     /// A data-source failure surfacing through a compute catch block
     /// (corrupted or vanished file mid-scan) invalidates the session and must
     /// escalate to the modal path even when routed via presentComputeFailure.
+    /// The "could not remember access" reports name the failure, not just its
+    /// human summary. 2026-09-17: a code-signature abort surfaced only as "The
+    /// file couldn't be opened"; domain, code and the underlying error (where
+    /// the real -67034 lived) must all survive. (`AppState.errorDetail`.)
+    func testErrorDetailNamesDomainCodeAndUnderlyingCause() {
+        let underlying = NSError(domain: NSOSStatusErrorDomain, code: -67034)
+        let error = NSError(
+            domain: NSCocoaErrorDomain, code: 256,
+            userInfo: [
+                NSLocalizedDescriptionKey: "The file couldn\u{2019}t be opened.",
+                NSUnderlyingErrorKey: underlying,
+            ])
+        let detail = AppState.errorDetail(error)
+        XCTAssertTrue(detail.contains(NSCocoaErrorDomain), "the error domain must be named: \(detail)")
+        XCTAssertTrue(detail.contains("256"), "the error code must be named: \(detail)")
+        XCTAssertTrue(detail.contains("-67034"),
+                      "the underlying code, the real cause, must survive: \(detail)")
+        XCTAssertTrue(detail.contains("couldn\u{2019}t be opened"),
+                      "the human summary stays too: \(detail)")
+    }
+
+    /// `present(_:)` itself must route through `errorDetail`, not just some
+    /// caller that happens to. `testErrorDetailNamesDomainCodeAndUnderlyingCause`
+    /// pins the helper in isolation; this pins the actual modal-presentation
+    /// call site every session-level failure goes through, so a future
+    /// refactor of `present` cannot quietly drop back to bare
+    /// `localizedDescription` without a test noticing.
+    func testPresentSurfacesDomainCodeAndUnderlyingCauseInTheModal() {
+        let underlying = NSError(domain: NSOSStatusErrorDomain, code: -67034)
+        let error = NSError(
+            domain: NSCocoaErrorDomain, code: 256,
+            userInfo: [
+                NSLocalizedDescriptionKey: "The file couldn\u{2019}t be opened.",
+                NSUnderlyingErrorKey: underlying,
+            ])
+        let state = AppState()
+        state.present(error)
+        let modal = try? XCTUnwrap(state.errorMessage)
+        XCTAssertTrue(modal?.contains(NSCocoaErrorDomain) == true,
+                      "the modal must name the error domain: \(modal ?? "nil")")
+        XCTAssertTrue(modal?.contains("-67034") == true,
+                      "the modal must carry the underlying cause: \(modal ?? "nil")")
+        XCTAssertTrue(state.statusText.contains("-67034"),
+                      "the status bar echo must carry it too: \(state.statusText)")
+    }
+
     func testDataSourceFailureEscalatesToModal() {
         let state = AppState()
         state.presentComputeFailure(H5Error.readFailed("/data"))

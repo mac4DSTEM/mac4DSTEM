@@ -35,8 +35,31 @@ enum LayoutPolicy {
     /// Science: the rotation-curve diagnostic plot.
     static let diagnosticPlotHeight: CGFloat = 90
 
+    /// The status bar's elapsed-and-ETA readout slot, reserved.
+    ///
+    /// Nothing inside a split's hosted content may repeatedly change its own
+    /// minimum size — that loop crashed the app on a real dataset, 2026-09-04
+    /// (`open-items.md`, the constraint-loop entry), and a ticking string is
+    /// the easiest way to do it by accident. So the line is laid out at a
+    /// width that never moves and truncates inside it.
+    ///
+    /// **116, measured 2026-09-12, not chosen.** The widest string
+    /// `OperationMetricsFormat.line` can produce is "5999:59 · ETA 5999:59"
+    /// at 113.59 pt in the strip's own 10 pt `caption2` monospaced-digit font
+    /// — a hundred hours in both fields. It replaces a 190 pt reservation that
+    /// was sized for a throughput token no longer printed, and which spent
+    /// most of its width blank: during a DATASET LOAD `activeOperationMetrics`
+    /// is nil outright, so 190 pt of the strip was guaranteed empty beside a
+    /// loading column that has its own spinner.
+    static let operationReadoutWidth: CGFloat = 116
+
     /// About six digits. A numeric field is never as wide as its row.
     static let numericFieldWidth: CGFloat = 72
+
+    /// A colour key square, beside a legend row or a phase in a list. Square
+    /// and small on purpose: it identifies a colour, it is not a preview, and
+    /// growing it with the column would make the list read as a palette.
+    static let legendSwatch: CGFloat = 12
 
     /// A ceiling, not a size: a thumbnail grows with its column and stops
     /// here, so a square preview in a wide inspector is bounded by the
@@ -62,26 +85,15 @@ enum LayoutPolicy {
     /// An inline progress bar beside its status text.
     static let inlineProgressWidth: CGFloat = 110
 
-    /// The status bar's percentage label, reserved. Same failure mode as
-    /// `operationMetricsWidth` beside it: an unbounded `Text` wraps its own
-    /// digit onto a second line the instant the row gets tight (observed
-    /// during a run, screenshot `a5-running.png`), which is a container
-    /// changing shape under a live tick — the constraint-loop family, one
-    /// digit smaller. Sized to the widest string `Int(progress * 100)` can
-    /// produce, "100 %", measured in the same font by
-    /// `StatusBarMetricsTests`.
-    static let progressPercentWidth: CGFloat = 36
-
-    /// The status bar's elapsed/throughput/ETA slot, reserved.
-    ///
-    /// Nothing inside a split's hosted content may repeatedly change its own
-    /// minimum size — that loop crashed the app on a real dataset, 2026-09-04
-    /// (`open-items.md`, the constraint-loop entry), and a ticking string is
-    /// the easiest way to do it by accident. So the line is laid out at a
-    /// width that never moves and truncates inside it. The number is the
-    /// widest line the formatter can actually produce, measured in the same
-    /// font by `StatusBarMetricsTests`, plus a little air.
-    static let operationMetricsWidth: CGFloat = 190
+    // `progressPercentWidth` (36 pt) was here and is DELETED, 2026-09-12 —
+    // with the label it reserved. A numeric percentage beside a progress bar
+    // is the same fact drawn twice: `ProgressView` has no percentage API,
+    // `NSProgressIndicator` has none, the HIG never asks for one, and this
+    // app's own loading card a screen away already draws a determinate bar
+    // with no numeral. The number now reaches VoiceOver on the bar's
+    // `.accessibilityValue`, where it is useful and cannot wrap.
+    // `operationMetricsWidth` (190 pt) is replaced by `operationReadoutWidth`
+    // (116) above, re-measured after throughput left the line.
 
     /// The grabbable width of a thin divider, centred on the drawn line. A
     /// 1 pt zone put the drag on the focus ring (owner finding (c),
@@ -150,6 +162,11 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
 /// from here.
 enum OperationMetricsFormat {
     /// Seconds as "53 s" below a minute, "2:35" above it.
+    ///
+    /// Above an hour it keeps counting minutes rather than growing an hours
+    /// field: "119:59", not "1:59:59". The slot beside it is a constant, and a
+    /// format that grows a field is a format whose width is not bounded by the
+    /// sweep that measures it.
     static func duration(_ seconds: TimeInterval) -> String {
         let total = max(0, Int(seconds.rounded()))
         return total >= 60
@@ -167,15 +184,32 @@ enum OperationMetricsFormat {
         String(format: "%.1f %@", rate, throughputUnit(for: operation))
     }
 
-    /// The status bar's single line. Elapsed is always real; a rate the run
-    /// has not measured yet and an ETA it cannot yet estimate are absent
-    /// rather than printed as zero, because a zeroed rate reads as a stall
-    /// and an invented ETA is a number the user will plan around.
+    /// The status bar's single line: elapsed, and an ETA once the run can
+    /// estimate one. Elapsed is always real; an ETA it cannot yet estimate is
+    /// absent rather than invented, because an invented ETA is a number the
+    /// user will plan around.
+    ///
+    /// **THROUGHPUT IS NOT HERE, from 2026-09-12, and that narrows a decision
+    /// the owner made on 2026-09-04** ("the numbers belong beside the progress
+    /// bar, not only one tab away", `decisions.md`). Three things forced it and
+    /// they are stated rather than assumed. Apple's own chrome carries no
+    /// units-per-second anywhere — that is Activity Monitor's register, and the
+    /// HIG asks only for "a description that provides additional context".
+    /// It is the longest token in the line by far: the widest string this
+    /// formatter could produce WITH it measured 180.9 pt, against 113.6
+    /// without, so it alone was most of a 190 pt reservation in a strip the
+    /// owner has now called cluttered. And it is derivable at a glance from
+    /// the bar and the elapsed time beside it, which the two numbers kept here
+    /// are not derivable from anything.
+    ///
+    /// `for operation:` is KEPT although this function no longer reads it.
+    /// `throughputUnit(for:)` is still the inspector's, and the three tests
+    /// that pin this wording pin a surface the status bar actually draws;
+    /// dropping the parameter would repoint them at a formatter only the
+    /// inspector calls.
     static func line(_ metrics: AnalysisOperationMetrics, for operation: String?) -> String {
+        _ = operation
         var parts = [duration(metrics.elapsed)]
-        if let rate = metrics.unitsPerSecond {
-            parts.append(throughput(rate, for: operation))
-        }
         if let eta = metrics.eta {
             parts.append("ETA " + duration(eta))
         }

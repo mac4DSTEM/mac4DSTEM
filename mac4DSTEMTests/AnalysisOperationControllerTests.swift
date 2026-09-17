@@ -54,4 +54,22 @@ final class AnalysisOperationControllerTests: XCTestCase {
         XCTAssertTrue(replacement.isCancelled)
         XCTAssertFalse(controller.isCurrent(replacement))
     }
+
+    /// `metrics(progress:at:)` clamps elapsed to 0 when `date` (or a
+    /// backward-jumping clock) precedes the operation's start —
+    /// `OperationCenter.metrics(at:)` passes an externally-supplied `Date`
+    /// straight through, so this is reachable, not academic. No existing
+    /// test ever calls `at:` or moves time backward.
+    func testMetricsClampsElapsedWhenClockLooksBackward() {
+        let start = Date(timeIntervalSinceReferenceDate: 500)
+        let controller = AnalysisOperationController(now: { start })
+        _ = controller.begin(name: "rewind", totalUnits: 10)
+
+        let earlier = start.addingTimeInterval(-5)
+        let metrics = controller.metrics(progress: 0.5, at: earlier)
+
+        XCTAssertEqual(metrics?.elapsed, 0)
+        XCTAssertNil(metrics?.unitsPerSecond)
+        XCTAssertNil(metrics?.eta)
+    }
 }

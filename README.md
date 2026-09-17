@@ -74,21 +74,10 @@ and reopening. Where a measurement is not quantitatively supported, it says so.
 
 ## Verification
 
-Every number here is quoted from the run that produced it.
-
-- `tools/run-tests.sh all` — **exit 0**: 458 passed / 0 failed / 0 skipped and
-  44 harnesses including `real-data-acceptance` and `package-test`
-  (2026-09-04, the tree after the v2.5.1 build, read from the gate's own exit
-  line). v2.5.0 the same day could only claim `unit` (457/0/0) and
-  `package-test`; its `all` exited 1 on the sidecar defect v2.5.1 fixed.
-- `tools/package-test/run.sh` — **exit 0** (2026-09-04): nested signatures,
-  entitlements, embedded HDF5, and the version and macOS floor derived from
-  the project.
-- The shipped `mac4DSTEM-2.5.1.dmg` (6 157 051 bytes) is signed and notarized
-  (app and image both), stapled, and `spctl`-accepted as `Notarized Developer
-  ID`; the app inside declares `LSMinimumSystemVersion 14.0`, checked by
-  mounting it. SHA-256
-  `302822063df22399d0fc4a8810fca6a55e53379df34ec4a37a0e0a738b8031af`.
+Every number behind a release — gate exit status and counts, DMG hash,
+notarization and staple details — is quoted from the run that produced it in
+[`docs/releasing.md`](docs/releasing.md) § Releases, with the full history in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 The badge covers four jobs on every push: unit, scientific, the repository's own
 `inventory` review, and `core`, which fails the moment `Core/` reaches up into

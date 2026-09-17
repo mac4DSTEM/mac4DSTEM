@@ -216,6 +216,66 @@ package nonisolated final class OrientationMatcher {
         )
     }
 
+    /// The experimental polar image for one pattern, after exactly the
+    /// deposition, blur, per-ring mean subtraction and normalisation the
+    /// matcher uses. DIAGNOSTIC: the score is an inner product over this
+    /// picture and a template's, and until 2026-09-15 nothing could look at
+    /// either, which is why nine hypotheses about the score were guesses.
+    package func experimentalPolarImage(peaks: [BraggPeak], originX: Float,
+                                        originY: Float,
+                                        invAngstromPerPixel: Double) -> [Float]? {
+        var spots: [(r: Double, azim: Double, weight: Double)] = []
+        let power = plan.intensityPower
+        for p in peaks {
+            let dx = Double(p.x - originX), dy = Double(p.y - originY)
+            let r = (dx * dx + dy * dy).squareRoot() * invAngstromPerPixel
+            let intensity = Double(max(p.intensity, 0))
+            spots.append((r: r, azim: atan2(dy, dx),
+                          weight: power == 1 ? intensity : pow(intensity, power)))
+        }
+        guard !spots.isEmpty else { return nil }
+        var polar = OrientationPlan.buildPolar(
+            spots: spots, geometry: geo, azimBlurBins: 1.5,
+            radialKernelInvAngstrom: plan.radialKernelInvAngstrom)
+        OrientationPlan.normalizeUnit(&polar)
+        return polar
+    }
+
+    /// Every template's score for one pattern, in bank order. DIAGNOSTIC:
+    /// `match` reduces these to a winner and a runner-up, which is all the app
+    /// needs, and all a caller could see until 2026-09-15 — so seven
+    /// hypotheses about why the winner is sometimes the wrong zone axis were
+    /// tested without anyone measuring how far apart the candidates are.
+    package func templateScores(peaks: [BraggPeak], originX: Float, originY: Float,
+                                invAngstromPerPixel: Double) -> [Float] {
+        guard prepareExperimentalFFT(
+            peaks: peaks, originX: originX, originY: originY,
+            invAngstromPerPixel: invAngstromPerPixel
+        ) else { return [] }
+        let na = geo.nAzimuthal, nr = geo.nRadial
+        let invScale = 1 / Float(na)
+        var out = [Float](repeating: 0, count: plan.count)
+        for t in 0..<plan.count {
+            let templateOffset = t * nr * na
+            var corr = [Float](repeating: 0, count: na)
+            var corrI = [Float](repeating: 0, count: na)
+            for r in 0..<nr {
+                for a in 0..<na {
+                    let i = templateOffset + r * na + a
+                    let er = expRe[r * na + a], ei = expIm[r * na + a]
+                    let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
+                    corr[a] += er * tr + ei * ti
+                    corrI[a] += er * ti - ei * tr
+                }
+            }
+            fft.transform(re: &corr, im: &corrI, forward: false)
+            var localBest: Float = -.greatestFiniteMagnitude
+            for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
+            out[t] = localBest * invScale
+        }
+        return out
+    }
+
     /// Prepare a copy for a Metal batch. The CPU and GPU paths therefore share
     /// exactly the same polar deposition, normalization, and forward FFT.
     package func experimentalFFT(peaks: [BraggPeak], originX: Float, originY: Float,
@@ -275,10 +335,14 @@ package nonisolated final class OrientationMatcher {
 /// median 0.010 on clean synthetic patterns, and still only ~0.03 with the
 /// bank thinned to 8.5° spacing — so it is not merely a density artefact.
 ///
-/// py4DSTEM's `match_single_pattern` handles this by zeroing the correlation
-/// within `min_angle_between_matches_deg` of an already-taken match before
-/// searching for the next (`crystal_ACOM.py`, the `min_angle_between_matches_deg`
-/// block). This is the same rule, applied to the runner-up.
+/// DEVIATION from py4DSTEM: `match_single_pattern` (`crystal_ACOM.py`, the
+/// `min_angle_between_matches_deg` block) handles this by zeroing the
+/// correlation within `min_angle_between_matches_deg` of an already-taken
+/// match before searching for the next candidate, each time it picks one.
+/// This applies the same distinctness rule once, to the runner-up alone
+/// (single-pass over the already-computed scores, filtering by angle rather
+/// than re-correlating) — cheaper because this caller only ever wants a
+/// winner and one runner-up, never py4DSTEM's full ranked list.
 package nonisolated func selectOrientation(
     zoneAxes: [SIMD3<Double>], scores: [Float], bins: [UInt32],
     distinctOrientationRad: Double

@@ -107,6 +107,172 @@ for qx in range(overlap_case["height"]):
         overlap_case["pixels"][index] += profile_value(qx, qy, second)
 
 
+def spot_pattern(name, height, width, qx0, qy0, rings, inner, outer,
+                 sigma=2.2, halo=None, background=0.0, expect="fit", why="",
+                 expectAnyway="fit", whyAnyway="", ellipse=None):
+    """A pattern built from DISCRETE Bragg disks, optionally on an amorphous halo.
+
+    `rings` is a list of (radius_px, start_deg, count) — each entry places
+    `count` spots evenly around the circle from `start_deg`, and every spot is
+    paired with its -g partner, so the pattern carries the 2-fold symmetry a
+    real one does. Each ring is CIRCULAR unless `ellipse` is given: there is
+    no detector distortion in any of these by construction, so any ellipse a
+    fit reports here is a statement about the arrangement of the diffracting
+    grains.
+
+    `ellipse`, when given, is (a_over_b, theta): each ring's spots are placed
+    on an actual elliptical ring — b = radius, a = radius * a_over_b — using
+    the same (a,b,theta) conic convention `ring()`/`profile_value()` use, so
+    this is a LEGITIMATE detector distortion, not a grain artefact.
+
+    `halo` is (radius_px, sigma_px, intensity) for a continuous amorphous ring
+    underneath — the legitimate nanocrystalline case, where the ellipse fit is
+    exactly right and must NOT be refused.
+
+    `expect`/`why` are the default-path (`acceptSparseCoverage: false`)
+    expectation; `expectAnyway`/`whyAnyway` are for the anyway path.
+    """
+    a_over_b, theta = ellipse if ellipse is not None else (1.0, 0.0)
+    sin_t, cos_t = math.sin(theta), math.cos(theta)
+    spots = []
+    for radius, start_deg, count in rings:
+        b = radius
+        a = radius * a_over_b
+        for index in range(count):
+            phi = math.radians(start_deg + index * 360.0 / count)
+            # (u,v) on the ellipse in its own frame, then rotated by theta —
+            # exactly the inverse of the (A,B,C) conic `ring()` builds.
+            u, v = a * math.cos(phi), b * math.sin(phi)
+            sx = u * cos_t - v * sin_t
+            sy = u * sin_t + v * cos_t
+            spots.append((sx, sy))
+            spots.append((-sx, -sy))
+    values = []
+    for qx in range(height):
+        for qy in range(width):
+            dx, dy = qx - qx0, qy - qy0
+            total = background
+            if halo is not None:
+                hr, hs, hi = halo
+                dr = math.hypot(dx, dy) - hr
+                total += hi * math.exp(-(dr * dr) / (2 * hs * hs))
+            for sx, sy in spots:
+                d2 = (dx - sx) ** 2 + (dy - sy) ** 2
+                if d2 < 36 * sigma * sigma:
+                    total += math.exp(-d2 / (2 * sigma * sigma))
+            values.append(total)
+    first_radius = rings[0][0] if rings else 0.0
+    return {
+        "name": name, "height": height, "width": width,
+        "centerQX": qx0, "centerQY": qy0,
+        "innerRadius": inner, "outerRadius": outer,
+        "expect": expect, "why": why,
+        "expectAnyway": expectAnyway, "whyAnyway": whyAnyway,
+        "a": first_radius * a_over_b, "b": first_radius, "theta": theta,
+        "pixels": values,
+    }
+
+
+# The demo cube's own radii in detector pixels (Al {200} at 41.2 px and {220}
+# at 58.2 px on a 0.012 A^-1 pixel). Grain counts 3 -> 18: Gate B measured the
+# azimuthal-contrast guard firing at 3 and going silent by 6, so the sweep is
+# the fixture, not one case.
+def grains_at(n):
+    rings = []
+    for index in range(n):
+        radius = [41.2, 58.2, 36.6][index % 3]
+        rings.append((radius, 12.0 + index * 180.0 / n, 2))
+    return rings
+
+
+spot_cases = [
+    # THE DEFECT: three grains at three radii in one annulus, on a detector
+    # with no distortion in it. One ellipse threads through them and reports
+    # a/b = 1.685. It must be refused — anyway or not: three radii are more
+    # than one ring apart, which is exactly what the anyway path's one-ring
+    # check exists to catch.
+    spot_pattern("grains_3_one_annulus", 128, 128, 63.5, 63.5, grains_at(3), 30, 70,
+                 expect="refuse", why="3 radii, 12 of 36 bins: the fit reports a/b 1.685",
+                 expectAnyway="refuse",
+                 whyAnyway="three radii (36.6/41.2/58.2 px), more than one ring apart"),
+    # Degenerate but LUCKY: the answer it would give is right, and it is still
+    # refused, because nothing in the data says which it is. The cost is
+    # recorded here rather than discovered later. Anyway is no rescue either:
+    # it is the same three radii as above, just repeated.
+    spot_pattern("grains_6_one_annulus", 128, 128, 63.5, 63.5, grains_at(6), 30, 70,
+                 expect="refuse", why="24 of 36 bins; a/b would be 1.000, but undecidable",
+                 expectAnyway="refuse", whyAnyway="same three radii, repeated"),
+    # Enough azimuths to decide: it fits, and the answer must be isotropic.
+    # Anyway changes nothing here — 36 of 36 bins makes the flag inert.
+    spot_pattern("grains_12_one_annulus", 128, 128, 63.5, 63.5, grains_at(12), 30, 70,
+                 expect="fit", why="36 of 36 bins",
+                 expectAnyway="fit", whyAnyway="36 of 36 bins: flag inert"),
+    # LEGITIMATE, and the two cases every previous attempt lacked. A coarse
+    # polycrystal's Debye-Scherrer ring is spots at ONE |g|, and py4DSTEM's own
+    # fit_ellipse_1D is documented for "a Bragg vector map"; a nanocrystalline
+    # halo carrying sharp reflections is the intermediate case. The fit is
+    # right on both and must not be refused.
+    # LEGITIMATE and the case every earlier attempt lacked: a coarse
+    # polycrystal's Debye-Scherrer ring is spots at ONE |g|, and py4DSTEM's own
+    # fit_ellipse_1D is documented for "a Bragg vector map".
+    spot_pattern("spotty_single_ring", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 9)], 30, 52, expect="fit", why="one radius, full coverage",
+                 expectAnyway="fit", whyAnyway="full coverage: flag inert"),
+    # The nanocrystalline case at four spot-to-halo ratios. This is the one
+    # Gate B says a refusal must not take: the halo is continuous, its radius
+    # is the detector's answer, and the fit gets it right. The ratio decides
+    # whether the halo survives the strong-sample threshold at all.
+    # A halo 50x fainter than the spots on it never reaches the strong-sample
+    # threshold, so only the spots are seen and the fit is refused on 8 bins —
+    # that is SHIPPED behaviour, unchanged by the bound above, and it is here
+    # so a reader does not attribute it to the bound. Anyway does not rescue
+    # it either: 8 bins is below the restored hard floor of 12.
+    spot_pattern("halo_spots_50to1", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 4)], 30, 52, halo=(41.2, 3.0, 0.02), background=0.001,
+                 expect="refuse", why="halo below the strong-sample threshold: 8 bins",
+                 expectAnyway="refuse",
+                 whyAnyway="8 bins is below the hard floor of 12 even anyway"),
+    # Bring the halo within a factor of two of the spots and it is a ring
+    # again: full coverage, and the fit must find the detector isotropic.
+    spot_pattern("halo_spots_2to1", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 4)], 30, 52, halo=(41.2, 3.0, 0.50), background=0.001,
+                 expect="fit", why="continuous halo, 36 bins",
+                 expectAnyway="fit", whyAnyway="continuous halo, 36 bins: flag inert"),
+    # THE COST, stated: a legitimate single-radius ring at six azimuths is
+    # refused by default, because it is the same measurement as
+    # grains_3_one_annulus and nothing in it says which. THE ANYWAY PATH is
+    # exactly for this case: the caller asserts "one ring", the fit proceeds,
+    # and it is MARKED sparseCoverage rather than trusted silently.
+    spot_pattern("spotty_ring_6_azimuths", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 6)], 30, 52,
+                 expect="refuse", why="legitimate, but 12 bins cannot decide five parameters",
+                 expectAnyway="fit",
+                 whyAnyway="one radius, 12 bins: fits anyway, marked sparse"),
+    # THE ANYWAY PATH ON A REAL DISTORTED DETECTOR. Same six-azimuth sparsity
+    # as spotty_ring_6_azimuths, but this time the ring truly is an ellipse
+    # (6% ellipticity — inside the 1.10 one-ring bound and the caller's to
+    # answer for). Proves the anyway path measures the DETECTOR when the
+    # caller is right, not just that it declines to measure the grains.
+    spot_pattern("sparse_ring_6_azimuths_elliptic", 128, 128, 63.5, 63.5,
+                 [(41.2, 7.0, 6)], 30, 52, ellipse=(1.06, 0.42),
+                 expect="refuse", why="legitimate, but 12 bins cannot decide five parameters",
+                 expectAnyway="fit",
+                 whyAnyway="one real ring, 6% ellipticity: inside the 1.10 bound"),
+    # THE BLIND SPOT, found by Gate B 2026-09-15 and recorded rather than
+    # hidden: two rings 25% apart at the SAME six azimuths. The one-ring check
+    # reads between sectors, and here every occupied sector holds both radii,
+    # so the per-sector means blend to ~48.5 px and the fit is accepted,
+    # marked, isotropic — and at a radius that is neither ring's. No cheap
+    # statistic separates this from one ring of large disks (a disk's radial
+    # width is a similar fraction of its radius). It is the price of the
+    # click: the caller asserted one ring, and the annulus held two.
+    spot_pattern("overlap_bins_2radii", 128, 128, 63.5, 63.5,
+                 [(40.0, 7.0, 6), (50.0, 7.0, 6)], 30, 60,
+                 expect="refuse", why="12 bins cannot decide five parameters",
+                 expectAnyway="fit",
+                 whyAnyway="ACCEPTED AND WRONG: two radii in every sector blend past the check"),
+]
+
 json.dump({
     "cases": [
         ring("non_square_rotated", 72, 110, 34.5, 58.25, 24, 17, 0.42, 1.1),
@@ -117,5 +283,6 @@ json.dump({
         profile_case("noisy_asymmetric", 68, 94, profile_two, 10, 28, noisy=True),
     ],
     "overlapCase": overlap_case,
+    "spotCases": spot_cases,
 }, fp=__import__("sys").stdout, separators=(",", ":"))
 print()

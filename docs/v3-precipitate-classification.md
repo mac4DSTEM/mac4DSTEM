@@ -1,7 +1,7 @@
 # Pre-registration — precipitate density by diffraction classification
 
 Registered 2026-09-11, owner approved in chat. Written before the code, per
-`v3-plan.md` §6. This **supersedes the route `v3-plan.md`:64 specifies**
+`ROADMAP.md` § "How a v3 feature is done". This **supersedes the route `ROADMAP.md` § "Beyond py4DSTEM" specifies**
 ("per-object, real-space segmentation"), and supersedes the §1.5 design
 session, which was skipped when the AI port reversed the 2026-09-08 "leave"
 decision.
@@ -67,7 +67,7 @@ objects on the class map.
    registration existed: `docs/ai-ml/README.md` §5, "Thickness and the path to
    number density" — PACBED-based foil-thickness estimation, then volumetric =
    count ÷ (area-weighted thickness × area). That design was **not lost and
-   never coded**; it was marked a v1 non-goal in `precipitates.md`:15 and is
+   never coded**; it was marked a v1 non-goal in `docs/archive/v3/precipitates-real-space-route-2026-09-07.md` (line 17) and is
    unbuilt on both branches (no Swift file on either side mentions thickness).
    It is out of scope here only because thickness is its own feature with its
    own validation — §5 is explicit that thickness needs a stated material,
@@ -146,56 +146,15 @@ claim.** `References/py4DSTEM-dev/py4DSTEM/process/classification/` ships
 
 ## 5. Decisions owed to the owner
 
-1. **PCA or NMF. SETTLED 2026-09-11: keep PCA for now** (owner). NMF stays a
-   named comparison, not a prerequisite: it is physically righter for
-   intensities (a pattern is a non-negative SUM of contributions, and NMF models
-   exactly that, while a negative PCA coefficient means "subtract this pattern",
-   which photon counts cannot do) and its components look like indexable
-   patterns rather than signed difference-patterns. Against it: NMF is a
-   non-convex optimisation with a random start, so two runs differ unless
-   seeded, and it has no explained-variance equivalent to justify a component
-   count. PCA is deterministic, fast, already gated.
-2. **REFUTED 2026-09-11 AS PRE-REGISTERED — per-position template matching does
-   not work, measured before the importer work was paid for.** Full record:
-   [`archive/v3/phase-discrimination-2026-09-11.md`](archive/v3/phase-discrimination-2026-09-11.md);
-   reproduce with `tools/phase-discrimination-probe/run.sh`.
-   - **The mixing flip is at f = 0.60**, against a pre-registered ceiling of
-     0.30. The matrix wins until the precipitate supplies 60 % of the pattern.
-   - **Worse: the score picks the wrong phase.** On a pattern containing only
-     aluminium, **gold fcc scores 0.98758 against aluminium's 0.97949** —
-     contrast −0.008. A bare argmax over phases returns the wrong one,
-     confidently.
-   - **Why: a sampling limit, not a bug.** The polar template has `nRadial` bins
-     over `kMax`; at defaults one bin is 0.05 Å⁻¹, and Al–Au (111) differ by
-     0.0030 Å⁻¹ — **6 % of one bin**. Al–Cu differ by 103 % of a bin and are
-     correctly separated (0.500). Phases closer than one bin are the same
-     pattern to this score.
+1. **PCA or NMF.** Recorded in
+   [`docs/decisions/018-ai-pipeline-on-main.md`](decisions/018-ai-pipeline-on-main.md):
+   PCA stays over NMF for now.
+2. **Per-position template matching is refuted; density is measured by
+   classifying patterns instead, template-matched and material-general, with
+   clustering as the fallback.** Recorded in
+   [`docs/decisions/019-precipitates-by-classification.md`](decisions/019-precipitates-by-classification.md).
 
-   **This does not condemn shipped ACOM** — it matches orientation for a phase
-   the user chose, is single-phase by design, and no shipped number is wrong.
-   It condemns building phase identification on a bare `bestScore` argmax.
-
-   **What survives, and none of it is measured yet:** the discriminating signal
-   must come from what is NOT matrix — score only the reflections unique to the
-   candidate phase (β″'s superlattice reflections sit at r ≈ 9-10 px where Al's
-   first ring is ~18 px, many bins apart), or score the difference from a matrix
-   reference, or require a contrast margin over the runner-up rather than a bare
-   argmax. And the radial sampling must resolve the phases at all, which is a
-   settable parameter nobody has costed.
-
-   **Consequence the owner should see: the unsupervised clustering step he
-   called "slop" is back in play**, because the class-average difference
-   pattern, not the per-position pattern, is where the signal survives.
-
-   The superseded approval, kept for the record — **template-matched, and
-   material-general** (owner: "yes
-   that is a great idea! make it scientifically more reliable, and more
-   versatile for different samples not just al"). The class identity comes from
-   matching an imported CIF, never from a hardcoded Al-Mg-Si assumption — which
-   also discharges `docs/ai-ml/README.md` §2's standing requirement to "derive
-   everything from the data, not from Al-Si-Mg-specific constants".
-
-   **This is MULTI-PHASE IDENTIFICATION**, which `v3-plan.md`:20 already ranks
+   **This is MULTI-PHASE IDENTIFICATION**, which `ROADMAP.md`'s parity-themes table already ranks
    immediately before precipitates ("multi-phase → precipitates → EDX"). Two
    blockers, both measured 2026-09-11:
    - `Core/Crystal/OrientationMatcher.swift:324` hardcodes `phaseID: 0`. The
@@ -218,29 +177,15 @@ claim.** `References/py4DSTEM-dev/py4DSTEM/process/classification/` ships
    `OrientationMatcher.swift:319` (`symmetry.reduce`, which runs AFTER the argmax
    at :287-290). So `.identity` costs sampling density, not correctness. Since
    precipitate phase labelling does not wait for monoclinic point groups, and
-   `v3-plan.md`:22's "multi-phase needs point-group coverage" applies to the
+   `ROADMAP.md`'s decided item 2 ("multi-phase needs point-group coverage") applies to the
    orientation half only. It also does not need grain segmentation: the plan
    pairs those for polycrystal work, and a precipitate is not a grain.
 
-   The superseded alternative, and the owner's objection that killed it: unsupervised clustering returns unlabelled groups
-   that a human must interpret, which is soft. Template matching against an
-   imported β″ CIF returns a labelled class with a score, and the app already
-   owns the engine (`Core/Crystal/*`, what ACOM runs on). **Recommendation:
-   template-matched, clustering as the fallback for what templates do not
-   explain.** Needs from the owner: a β″ CIF, or agreement to fetch one.
-3. **The ridge filter.** Owner, 2026-09-11: "maybe it has to go, or come back
-   later — maybe we were too fast and didn't think it through." A third option
-   exists and was not visible when the question was first put: **it is
-   fixable**. `PrecipitateSegmentation.swift:389` computes both Hessian
-   curvatures and then keeps only the most negative one
-   (`max(0, -lambdaMin)`) — so a round blob, curved downward in EVERY
-   direction, scores at least as high as a needle. It is not measuring
-   elongation at all; it measures "is this a bump". That is why its own
-   pre-registered baseline came out a tie with both arms reporting every round
-   particle. Elongation selectivity requires COMPARING the two curvatures.
-   Proposal: do not retire it on a tie it lost for a correctable reason. Park
-   it; if the classification route wins §4.4 it is moot, and if it loses, fix
-   the eigenvalue comparison and re-run the baseline.
+   Needs from the owner: a β″ CIF, or agreement to fetch one.
+3. **The ridge filter.** Recorded in
+   [`docs/decisions/018-ai-pipeline-on-main.md`](decisions/018-ai-pipeline-on-main.md):
+   parked, not retired — it is fixable, and it lost its own pre-registered
+   baseline on a tie for a correctable reason.
 4. **Per-object results — storage AND presentation.** Still open from §1.5. A
    per-object list has no home in a per-scan-position data model, and `clear()`
    drops it on dataset change with nothing written, so a save/reopen loses every

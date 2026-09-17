@@ -146,10 +146,10 @@ private struct SingleslicePtychographySection: View {
     @SceneStorage("phase.settings.ptychographyAdvanced.isExpanded") private var showsAdvanced = false
 
     var body: some View {
-        @Bindable var appState = appState
-        let isGradientDescent = appState.ptychographyMethod == .gradientDescent
+        @Bindable var ptychography = appState.ptychography
+        let isGradientDescent = ptychography.method == .gradientDescent
         Section("Single-slice ptychography") {
-            Picker("Method", selection: $appState.ptychographyMethod) {
+            Picker("Method", selection: $ptychography.method) {
                 ForEach(SingleslicePtychographyMethod.allCases) { method in
                     Text(method.rawValue).tag(method)
                 }
@@ -163,12 +163,12 @@ private struct SingleslicePtychographySection: View {
                 .singleslicePtychography,
                 readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
             ))
-            .help("Runs the CPU exact-shape, full-batch py4DSTEM \(appState.ptychographyMethod.rawValue) reference engine.")
+            .help("Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine.")
             DisclosureGroup("Advanced ptychography", isExpanded: $showsAdvanced) {
             LabeledContent("Iterations") {
                 NumericField(
                     "Iterations",
-                    value: $appState.ptychographyIterations,
+                    value: $ptychography.iterations,
                     format: .number
                 )
             }
@@ -176,49 +176,49 @@ private struct SingleslicePtychographySection: View {
                 NumericField(
                     isGradientDescent ? "Step" : "DM/AP α",
                     value: isGradientDescent
-                        ? $appState.ptychographyStepSize
-                        : $appState.ptychographyProjectionParameter,
+                        ? $ptychography.stepSize
+                        : $ptychography.projectionParameter,
                     format: .number.precision(.fractionLength(0...3))
                 )
             }
             LabeledContent("Norm min") {
                 NumericField(
                     "Norm min",
-                    value: $appState.ptychographyNormalizationMinimum,
+                    value: $ptychography.normalizationMinimum,
                     format: .number.precision(.fractionLength(0...3))
                 )
             }
-            Toggle("Fix probe", isOn: $appState.ptychographyFixProbe)
+            Toggle("Fix probe", isOn: $ptychography.fixProbe)
             Toggle(
                 "Limit object transmission to 1",
-                isOn: $appState.ptychographyConstrainObjectAmplitude
+                isOn: $ptychography.constrainObjectAmplitude
             )
             Toggle(
                 "Pure-phase object",
-                isOn: $appState.ptychographyPurePhaseObject
+                isOn: $ptychography.purePhaseObject
             )
             .help("Sets reconstructed object amplitude to one after every iteration.")
-            if !appState.ptychographyFixProbe {
+            if !ptychography.fixProbe {
                 Toggle(
                     "Recenter probe each iteration",
-                    isOn: $appState.ptychographyFixProbeCenterOfMass
+                    isOn: $ptychography.fixProbeCenterOfMass
                 )
                 Toggle(
                     "Constrain probe support",
-                    isOn: $appState.ptychographyConstrainProbeAmplitude
+                    isOn: $ptychography.constrainProbeAmplitude
                 )
-                if appState.ptychographyConstrainProbeAmplitude {
+                if ptychography.constrainProbeAmplitude {
                     LabeledContent("Support radius") {
                         NumericField(
                             "Support radius",
-                            value: $appState.ptychographyProbeAmplitudeRadius,
+                            value: $ptychography.probeAmplitudeRadius,
                             format: .number.precision(.fractionLength(0...3))
                         )
                     }
                     LabeledContent("Edge width") {
                         NumericField(
                             "Edge width",
-                            value: $appState.ptychographyProbeAmplitudeWidth,
+                            value: $ptychography.probeAmplitudeWidth,
                             format: .number.precision(.fractionLength(0...3))
                         )
                     }

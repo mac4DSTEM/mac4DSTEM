@@ -691,6 +691,14 @@ package nonisolated enum StrainMapping {
         return fitLattice(inliers) ?? initial
     }
 
+    /// DEVIATION from py4DSTEM: `get_reference_g1g2` (process/strain/latticevectors.py)
+    /// takes the plain component-wise median of every position inside the caller's
+    /// mask. This is called first, and discards candidates whose fitted (g1, g2)
+    /// deviate from that median by more than a MAD-derived threshold (falling back
+    /// to the full candidate set when fewer than half of the candidates survive) —
+    /// the robust reference rejects distorted positions, per this file's own header
+    /// above, so a strained or mis-indexed sub-region inside the reference mask
+    /// cannot pull the reference lattice off the bulk.
     private nonisolated static func robustReferenceIndices(
         candidates: [Int],
         g1x: [Float], g1y: [Float], g2x: [Float], g2y: [Float]

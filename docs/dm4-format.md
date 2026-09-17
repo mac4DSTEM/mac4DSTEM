@@ -215,7 +215,9 @@ with py4DSTEM is not validation here.
 
 **3D "TitanX":** `(N_scan,Qy,Qx)`; recover `Rx/Ry` from `4D STEM Tags.Scan
 shape X/Y`. py4DSTEM also rolls the data by −2 pixels along axis 1 (a TitanX
-artefact); **this app does not** — an unported step, recorded here. **2D**
+artefact); **this app does not** — an unported step, with an inline
+`DEVIATION` note at `DM4Reader.swift` since 2026-09-16 (it was recorded
+only here before, which CLAUDE.md's deviation rule does not allow). **2D**
 is an image, not a datacube.
 
 **Selection heuristic (replicate):** pick the first object whose `squeeze(shape).ndim > 2`

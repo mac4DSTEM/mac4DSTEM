@@ -386,6 +386,23 @@ private struct AdvancedDiskDetectionSection: View {
             }
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
+            // Decision 3 of 2026-09-15 (Thronsen step 3): on a pattern whose
+            // direct beam saturates, "0.5 % of the maximum" is 0.5 % of a
+            // plateau. The reference can exclude the beam; 0 keeps py4DSTEM's
+            // rule and nothing shipped moves.
+            Stepper(
+                value: floatBinding(appState, \.relativeReferenceMinimumRadiusPx, in: 0...Float(detectorMinimum)),
+                in: 0...Float(detectorMinimum),
+                step: 1
+            ) {
+                Text(String(
+                    format: "%@  %.0f px",
+                    DiskDetectionParameterID.relativeReferenceMinimumRadius.title,
+                    appState.diskParams.relativeReferenceMinimumRadiusPx
+                ))
+            }
+            .help(DiskDetectionParameterID.relativeReferenceMinimumRadius.explanation)
+
             Stepper(
                 value: floatBinding(appState, \.minPeakSpacing, in: 0...Float(detectorMinimum)),
                 in: 0...Float(detectorMinimum),
@@ -727,6 +744,15 @@ private struct ACOMSections: View {
             Text(appState.acomSession.quality.detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // The app's only measured figure for how well it orients, so a
+            // user reads it before trusting a zone axis to the degree. Planted
+            // aluminium patterns, 2026-09-15 (`tools/acom-groundtruth`); no
+            // other phase has been measured. Static on purpose: a number with
+            // its date and its scope, not a promise.
+            Text("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .help("136 planted patterns across nine zone axes and two azimuthal bins of in-plane rotation (tools/acom-groundtruth/orientation-accuracy.py, 2026-09-15). The angles are the total error against the planted axis; the bank's own sampling accounts for at most 0.8° of the 13.6°, and the rest is the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin — the mechanism is recorded in docs/open-items.md.")
 
             scopeControls
 

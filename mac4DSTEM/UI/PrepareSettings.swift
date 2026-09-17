@@ -29,6 +29,10 @@ struct PrepareSettings: View {
     // returning to Prepare does not reopen a wall of py4DSTEM kwargs.
     @SceneStorage("prepare.settings.advancedCorrection.isExpanded") private var showsDiagnostics = false
     @SceneStorage("prepare.settings.ellipseCorrection.isExpanded") private var showsEllipse = false
+    /// Destructive, so it asks first — the same pattern as "Reset Recommended
+    /// Settings" and "Reset Alignment". Plain `@State`: a half-open dialog is
+    /// not worth remembering across a window.
+    @State private var showsClearConfirmation = false
 
     /// core-data-05 (S22a ride-along): the excluded-fraction disclosure obeys
     /// the shared policy floor, not the retired 0.5% — readiness and the
@@ -110,6 +114,40 @@ struct PrepareSettings: View {
                 )
                 .accessibilityIdentifier("calibration.acceleratingVoltage")
             }
+
+            // The open item this closes: a measured calibration could not be
+            // taken back in the app — a wrong ellipse fit or a mistyped scale
+            // meant reloading the file. Offered only when there is something
+            // to remove, as "Reset Alignment" and "Restore Fitted Origin" are:
+            // a control that would do nothing is not a control.
+            if session.hasAnyCalibrationValue {
+                Button {
+                    showsClearConfirmation = true
+                } label: {
+                    Label("Clear Calibration", systemImage: "xmark.circle")
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.clear")
+                .help("Returns every calibration above to Not set, without reloading the file.")
+            }
+        }
+        .confirmationDialog(
+            "Clear all calibration values?",
+            isPresented: $showsClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear Calibration", role: .destructive) {
+                appState.clearCalibration()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Origin & probe, ellipse distortion, R–Q rotation and the Q and R "
+               + "pixel scales all go back to Not set, whether they were measured "
+               + "here or came from the file. The accelerating voltage stays, and "
+               + "the data is not reloaded. The orientation map and any parallax "
+               + "alignment are discarded because they were computed against these "
+               + "values; strain and phase maps are kept, and should be rerun after "
+               + "you recalibrate.")
         }
 
         // Diagnostic and fitting controls that supplement the single readiness
@@ -223,6 +261,23 @@ struct PrepareSettings: View {
             .disabled(appState.isBusy)
             .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
 
+            // Offered only while the last fit was refused for coverage between
+            // the sparse floor and the degeneracy bound — a "fit anyway" retry
+            // could succeed on the caller's assertion that the annulus holds
+            // one ring (`CalibrationSession.refuseEllipseFit`, 2026-09-15).
+            if let offeredBins = session.ellipseFitAnywayOffer {
+                Button {
+                    Task { await appState.calibrateEllipse(acceptSparseCoverage: true) }
+                } label: {
+                    Label("Fit Anyway", systemImage: "exclamationmark.triangle")
+                }
+                .disabled(appState.isBusy)
+                .help("Only \(offeredBins) of 36 sectors carry ring signal, so an ellipse is underdetermined: spots from a few grains fit one as well as a distorted detector does. Fit anyway only if this annulus holds exactly one ring. The result is marked “Fit anyway” and is used by strain and ACOM.")
+                Text("Refused: ring signal in \(offeredBins) of 36 sectors. Fit Anyway accepts it if the annulus holds one ring.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if calibration.hasEllipse,
                let a = calibration.ellipseA,
                let b = calibration.ellipseB,
@@ -232,6 +287,11 @@ struct PrepareSettings: View {
                     value: String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
                 )
                 .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
+                if session.provenance.ellipse == .fitAnyway {
+                    Text("Fitted anyway on \(session.lastEllipseFit?.occupiedAngularBins ?? 0)/36 sectors — rests on your assertion that the annulus held one ring.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if let fit = session.lastEllipseFit {
                     LabeledContent("Model", value: fit.model.rawValue)
                     LabeledContent(
@@ -264,9 +324,12 @@ struct PrepareSettings: View {
     /// followed by its warning and its action.
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
+        // Ready and green, EXCEPT "fit anyway": the value is used same as any
+        // other, but the assertion behind it is the user's, not the fit's.
+        let isWarning = item.status == .ready(.fitAnyway)
         LabeledContent {
             Text(item.status.displayName)
-                .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
+                .foregroundStyle(item.status.isReady && !isWarning ? Color.secondary : Color.orange)
                 .fixedSize()
         } label: {
             Label {
@@ -303,74 +366,9 @@ struct PrepareSettings: View {
         if !item.status.isReady || Self.shouldShowManualScaleEditor(
             for: item.kind, status: item.status
         ) {
-            readinessAction(for: item.kind, status: item.status)
-        }
-    }
-
-    @ViewBuilder
-    private func readinessAction(for kind: CalibrationReadinessKind, status: CalibrationReadinessStatus) -> some View {
-        switch kind {
-        case .originProbe:
-            Button("Measure Origin & Probe") {
-                Task { await appState.calibrateOrigin() }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.originProbe")
-        case .ellipse:
-            Button("Fit Detector Ellipse") {
-                Task { await appState.calibrateEllipse() }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.ellipse")
-        case .rotation:
-            Button("Measure R–Q Rotation") {
-                Task { await appState.calibrateRotation() }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.rotation")
-        case .qScale:
-            if appState.hasCurrentBraggVectors, let model = appState.resolvedACOMModel {
-                Button("Calibrate from Selected Material") {
-                    Task { await appState.calibrateQFromCrystal() }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(appState.isBusy)
-                .accessibilityIdentifier("calibration.action.qCrystal")
-                .help("Selected ACOM phase model: \(model.displayName)")
-                manualScaleRows(
-                    value: appState.manualQPixelSize,
-                    units: appState.manualQPixelUnits,
-                    unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
-                    identifier: "calibration.action.qManual",
-                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: "Or enter the reciprocal pixel size by hand."),
-                    onChange: appState.setManualQPixelSize,
-                    onUnitChange: appState.setManualQPixelUnits
-                )
-            } else {
-                // Why the crystal route is unavailable is guidance about a
-                // path you cannot take yet: on hover and in the hint.
-                manualScaleRows(
-                    value: appState.manualQPixelSize,
-                    units: appState.manualQPixelUnits,
-                    unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
-                    identifier: "calibration.action.qManual",
-                    help: PrepareSettings.manualScaleHelp(status: status, otherwise: qScaleUnavailableReason),
-                    onChange: appState.setManualQPixelSize,
-                    onUnitChange: appState.setManualQPixelUnits
-                )
-            }
-        case .rScale:
-            // R scale is the one calibration with no measurement path in the
-            // app; the field is the only control offered, and the sentence
-            // is on hover.
-            manualScaleRows(
-                value: appState.manualRPixelSize,
-                units: appState.manualRPixelUnits,
-                unitOptions: CalibrationUnitConversion.editableRealUnits,
-                identifier: "calibration.action.rManual",
-                help: PrepareSettings.manualScaleHelp(status: status, otherwise: "R pixel scale cannot be measured from the data — enter it from the acquisition parameters."),
-                onChange: appState.setManualRPixelSize,
-                onUnitChange: appState.setManualRPixelUnits
+            CalibrationReadinessRow.action(
+                appState: appState, kind: item.kind, status: item.status,
+                qScaleUnavailableReason: qScaleUnavailableReason
             )
         }
     }
@@ -448,34 +446,6 @@ struct PrepareSettings: View {
         } else {
             return "Choose a phase model to calibrate Q from a known crystal."
         }
-    }
-
-    /// The manual scale as two rows — the value, then its unit per pixel —
-    /// because value, unit menu and suffix together do not fit the column's
-    /// minimum width.
-    @ViewBuilder
-    private func manualScaleRows(
-        value: Double?, units: String, unitOptions: [String], identifier: String,
-        help: String,
-        onChange: @escaping (Double) -> Void,
-        onUnitChange: @escaping (String) -> Void
-    ) -> some View {
-        LabeledContent("Manual") {
-            NumericField(
-                "Manual scale",
-                value: Binding(get: { value ?? 0 }, set: onChange),
-                format: .number.precision(.fractionLength(0...6))
-            )
-            .accessibilityIdentifier(identifier)
-        }
-        .help(help)
-        .accessibilityHint(help)
-        Picker("Unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
-            ForEach(unitOptions, id: \.self) { unit in
-                Text(unit).tag(unit)
-            }
-        }
-        .accessibilityIdentifier(identifier + ".units")
     }
 }
 

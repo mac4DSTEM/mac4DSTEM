@@ -1,6 +1,6 @@
 # Q-calibration design — S12
 
-**Written 2026-08-28.** S12 is a **Plan** session (`docs/v2-release.md` §8): it
+**Written 2026-08-28.** S12 is a **Plan** session (`docs/archive/v2/v2-release.md` §8): it
 runs experiments and produces a design; it changes no app code. Its output is
 this file, and the release owner reviews it before S13 implements anything.
 
@@ -401,7 +401,7 @@ convention with a one-line comment, and do not dignify it as a defect.
 
 ## 5. What S13 should build, in order
 
-S13 is **Gate B** (`docs/v2-release.md` §8): a separate agent briefed to refute,
+S13 is **Gate B** (`docs/archive/v2/v2-release.md` §8): a separate agent briefed to refute,
 plus a `tools/` fixture whose negative controls name the line they break.
 
 1. **Robust origin fit.** Iteratively-trimmed plane refit (§1.2). This is the

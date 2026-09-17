@@ -168,8 +168,11 @@ package nonisolated struct ProbeKernel: Sendable {
         let (ri, ro) = trenchRadii ?? (radius, 2 * radius)
         guard ro > ri else { return nil }
 
-        // A cosine shoulder from r to 2r is the native lightweight analogue
-        // of Probe.from_vacuum_data's threshold/dilation distance mask.
+        // DEVIATION from py4DSTEM `Probe.from_vacuum_data` (braggvectors/probe.py):
+        // masking here is a cosine shoulder from r to 2r centered on the
+        // supplied origin, not from_vacuum_data's intensity threshold +
+        // binary expansion + binary opening mask. A cosine shoulder from r to
+        // 2r is the native lightweight analogue of that mask.
         var centered = [Float](repeating: 0, count: py * px)
         let rowFloor = Int(floor(-originY))
         let colFloor = Int(floor(-originX))

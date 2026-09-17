@@ -52,6 +52,13 @@ package enum CalibrationValueProvenance: String, Equatable, Sendable {
     case measuredInApp = "Measured in app"
     case manual = "Manual"
     case mixed = "Mixed sources"
+    /// Set only on the ellipse, only by `CalibrationSession.applyEllipseFit`,
+    /// when the user accepted a fit below the angular-coverage degeneracy
+    /// bound (`EllipseCalibration`'s "anyway" path, 2026-09-15) on their own
+    /// assertion that the annulus holds one ring. It is ready — the value is
+    /// used by strain and ACOM exactly like any other ellipse — and shown as
+    /// a warning, because the assertion is the user's, not the fit's.
+    case fitAnyway = "Fitted anyway on sparse ring coverage"
 
     /// The short state word a readiness row shows (v2.5 step 4b).
     package var stateLabel: String {
@@ -61,6 +68,7 @@ package enum CalibrationValueProvenance: String, Equatable, Sendable {
         case .measuredInApp: "Measured"
         case .manual: "Manual"
         case .mixed: "Mixed"
+        case .fitAnyway: "Fit anyway"
         }
     }
 }

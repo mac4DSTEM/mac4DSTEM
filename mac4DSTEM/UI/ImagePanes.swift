@@ -1179,6 +1179,8 @@ struct RealSpacePane: View {
             "Prepare the parallax preview to begin reconstruction"
         case .diffractionGroups:
             "Run Group Patterns to sort scan positions by diffraction similarity"
+        case .phaseMapping:
+            "Add phases and run Map Phases after detecting Bragg disks"
         }
     }
 }

@@ -92,21 +92,57 @@ final class ProductWorkflowTests: XCTestCase {
 
     // MARK: - The sixth room (owner, 2026-09-11)
 
-    /// `AI Analysis` exists, carries exactly one task, and that task is routed
-    /// only here. `testEveryAnalysisHasOneProductWorkspace` above already
-    /// guarantees every mode is routed to exactly one area; this pins WHICH,
-    /// so moving diffraction grouping into another room is a deliberate edit
-    /// rather than a silent one.
-    func testAIAnalysisOwnsDiffractionGroupingAndNothingElse() {
-        XCTAssertEqual(WorkspaceArea.aiAnalysis.analysisModes, [.diffractionGroups])
+    /// `AI Analysis` carries exactly its two tasks, in this order, and both
+    /// are routed only here. `testEveryAnalysisHasOneProductWorkspace` above
+    /// already guarantees every mode is routed to exactly one area; this pins
+    /// WHICH, so moving either into another room is a deliberate edit rather
+    /// than a silent one.
+    ///
+    /// The ORDER is pinned too, because `defaultAnalysisMode` is
+    /// `analysisModes.first` and that is where ⌘-5 lands: grouping needs only
+    /// the cube, phase mapping needs Bragg vectors, so opening the room on
+    /// phase mapping would greet a freshly loaded dataset with a refusal.
+    func testAIAnalysisOwnsItsTwoTasksAndNothingElse() {
+        XCTAssertEqual(WorkspaceArea.aiAnalysis.analysisModes,
+                       [.diffractionGroups, .phaseMapping])
         XCTAssertEqual(AnalysisMode.diffractionGroups.workspaceArea, .aiAnalysis)
+        XCTAssertEqual(AnalysisMode.phaseMapping.workspaceArea, .aiAnalysis)
         XCTAssertEqual(WorkspaceArea.aiAnalysis.defaultAnalysisMode, .diffractionGroups)
         for area in WorkspaceArea.allCases where area != .aiAnalysis {
-            XCTAssertFalse(
-                area.analysisModes.contains(.diffractionGroups),
-                "\(area.title) must not also claim diffraction grouping"
-            )
+            for mode in [AnalysisMode.diffractionGroups, .phaseMapping] {
+                XCTAssertFalse(
+                    area.analysisModes.contains(mode),
+                    "\(area.title) must not also claim \(mode.rawValue)"
+                )
+            }
         }
+    }
+
+    /// Phase mapping matches the peaks disk detection finds and looks for none
+    /// of its own, so it must carry the Bragg prerequisite. Without this the
+    /// task would offer an enabled button on a dataset with no peaks, run, and
+    /// report an empty map as a result.
+    func testPhaseMappingRequiresBraggVectors() {
+        XCTAssertEqual(AnalysisMode.phaseMapping.prerequisiteFamily, .requiresBraggVectors)
+        let unmet = ProductWorkflow.prerequisiteItems(
+            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: false))
+        XCTAssertEqual(unmet.map(\.id), ["braggVectors"])
+        XCTAssertEqual(unmet.first?.isSatisfied, false)
+        let met = ProductWorkflow.prerequisiteItems(
+            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: true))
+        XCTAssertEqual(met.first?.isSatisfied, true)
+    }
+
+    /// The task states that it is unvalidated wherever guidance is shown.
+    /// Not decoration: this method has never been scored against an external
+    /// ground truth in this app (`docs/v3-vector-matching-plan.md` step 3), and
+    /// a phase fraction read off the map is not a measurement until it has.
+    func testPhaseMappingGuidanceSaysItIsUnvalidated() {
+        let guidance = ProductWorkflow.guidance(
+            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: true))
+        XCTAssertFalse(guidance.isEmpty)
+        XCTAssertTrue(guidance.contains { $0.lowercased().contains("unvalidated") },
+                      "guidance is \(guidance)")
     }
 
     /// Grouping needs the cube and nothing else — no origin, no R–Q rotation,
@@ -970,6 +1006,40 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(map.component(.indexed).pixels[0], 1)
         XCTAssertTrue(map.component(.indexed).pixels[1].isNaN)
     }
+
+    /// `ProductComparison.compatibility`'s dimension guard (width AND height)
+    /// has no test today — only "Value units differ" is pinned by message,
+    /// and domain-differs is pinned only indirectly through `difference`
+    /// returning nil. A width-only or height-only mismatch currently falls
+    /// through to this guard correctly, but nothing would notice if either
+    /// half of the conjunction were dropped: the pair would be reported
+    /// `.compatible` and `difference` would then walk pixel arrays whose
+    /// geometry silently disagrees.
+    func testCompatibilityRejectsMismatchedWidthOrHeightBeforeOtherChecks() throws {
+        func product(width: Int, height: Int) -> DisplayedProduct {
+            DisplayedProduct(
+                kind: "strain", displayName: "strain",
+                payload: .scalar(FloatImage(width: width, height: height,
+                                            pixels: [Float](repeating: 1, count: width * height))),
+                domain: .scan,
+                sampling: ProductSampling(row: 1, column: 1, units: "nm"),
+                valueUnits: "strain", quantitativeStatus: .quantitative
+            )
+        }
+        XCTAssertEqual(
+            ProductComparison.compatibility(product(width: 2, height: 1), product(width: 3, height: 1)),
+            .incompatible("Pixel dimensions differ."),
+            "width-only mismatch must be caught by the dimensions guard"
+        )
+        XCTAssertEqual(
+            ProductComparison.compatibility(product(width: 2, height: 1), product(width: 2, height: 2)),
+            .incompatible("Pixel dimensions differ."),
+            "height-only mismatch must be caught by the dimensions guard"
+        )
+        XCTAssertNil(ProductComparison.difference(
+            product(width: 2, height: 1), product(width: 3, height: 1)
+        ), "difference must refuse mismatched geometry rather than mis-zip the pixel arrays")
+    }
 }
 
 // MARK: - v2.5 step 5a negative controls (docs/v2.5-plan.md §10f)
@@ -1062,12 +1132,55 @@ final class PhaseSplitTests: XCTestCase {
     func testSwitchingPhaseTaskNeverClearsAnotherTasksState() {
         let state = AppState()
         state.changeMode(.singleslicePtychography)
-        let other = SingleslicePtychographyMethod.allCases.first { $0 != state.ptychographyMethod }!
-        state.ptychographyMethod = other
+        let other = SingleslicePtychographyMethod.allCases.first { $0 != state.ptychography.method }!
+        state.ptychography.method = other
         state.changeMode(.ptychography)
-        XCTAssertEqual(state.ptychographyMethod, other)
+        XCTAssertEqual(state.ptychography.method, other)
         state.changeMode(.dpc)
         state.changeMode(.singleslicePtychography)
-        XCTAssertEqual(state.ptychographyMethod, other)
+        XCTAssertEqual(state.ptychography.method, other)
+    }
+
+    /// The seam's own contract (`App/PtychographySettings.swift`'s header):
+    /// `AppState` holds it as `ptychography` without forwarding properties —
+    /// the same contract `StrainProductTests.testAppStateHoldsTheSeamWithoutForwardingProperties`
+    /// pins for `strain`.
+    func testAppStateHoldsThePtychographySeamWithoutForwardingProperties() {
+        // @Observable underscores stored properties, so strip the prefix
+        // before matching — without this the filter can never match and the
+        // test is vacuous.
+        let names = Mirror(reflecting: AppState()).children.compactMap { child in
+            child.label.map { $0.hasPrefix("_") ? String($0.dropFirst()) : $0 }
+        }
+        XCTAssertTrue(names.contains("ptychography"), "the facade holds the seam")
+        let forwarded = names.filter { $0.hasPrefix("ptychography") && $0 != "ptychography" }
+        XCTAssertTrue(
+            forwarded.isEmpty,
+            "no ptychography* stored property may shadow the seam: \(forwarded)"
+        )
+    }
+
+    /// Settings survive a dataset reopen; only the published result is
+    /// cleared (`AppState.activate` nils `singleslicePtychography` and
+    /// leaves `ptychography` untouched — pre-existing behavior, unchanged by
+    /// the seam extraction). `openDemoFixture` drives the same `activate`
+    /// path the file-open pipeline does, with no disk I/O. This is the
+    /// seam's save/reopen contract: `ptychography` is a stable `let`
+    /// reference constructed once with `AppState` itself, never recreated by
+    /// a dataset change — a regression that reconstructed it fresh on each
+    /// `activate` would silently discard the user's edited settings on
+    /// every reopen, and this is the test that would catch it.
+    func testPtychographySettingsSurviveADatasetReopen() async throws {
+        let state = AppState()
+        await state.openDemoFixture()
+        state.ptychography.iterations = 42
+        state.ptychography.method = .differenceMapAlternatingProjections
+        state.ptychography.stepSize = 0.75
+
+        await state.openDemoFixture()
+
+        XCTAssertEqual(state.ptychography.iterations, 42)
+        XCTAssertEqual(state.ptychography.method, .differenceMapAlternatingProjections)
+        XCTAssertEqual(state.ptychography.stepSize, 0.75)
     }
 }

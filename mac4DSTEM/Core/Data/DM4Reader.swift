@@ -600,6 +600,21 @@ package actor DM4Reader: FourDDataSource {
                 }
             } else if dims.count == 3 {
                 // (N_scan, Qy, Qx); recover scan shape from tags.
+                //
+                // DEVIATION from py4DSTEM, deliberate and unported: for this
+                // 3D "TitanX" layout py4DSTEM rolls the data by −2 pixels
+                // along axis 1, correcting a TitanX detector artefact. This
+                // reader does not. The consequence is stated rather than
+                // hidden: on a file that really carries that artefact, every
+                // q-vector read here sits 2 px from where py4DSTEM would put
+                // it, which is a calibration-scale shift, not a rounding one.
+                // It is unported because no TitanX file has been available to
+                // measure it on, and rolling every 3D file by −2 px on the
+                // strength of a comment would silently corrupt the ones that
+                // do not need it. `docs/dm4-format.md` §3.3 carries the
+                // record; the note is here because CLAUDE.md requires a
+                // deviation to be readable at the code, not only in a doc
+                // (added 2026-09-16 — the note was missing, the doc was not).
                 guard let scanX = scanShape("Scan shape X"),
                       let scanY = scanShape("Scan shape Y") else { continue }
                 shape = [scanY, scanX, dims[1], dims[0]]

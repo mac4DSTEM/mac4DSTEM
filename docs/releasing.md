@@ -8,7 +8,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 ## Release contract
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
-- Version/build: `3.0.0` / `6`, shipped 2026-09-11. Previously `2.5.1` / `5` (2026-09-04; v2.5.0 was `2.5` / `4` the same day, build 3 its superseded 2026-09-03 artefact). A driven bug cuts v3.0.x, a landed science number v3.1.0. v2.0.0 was named 2026-09-02, never built, superseded by v2.5.0
+- Version/build: `3.0.0` / `6`, shipped 2026-09-11. Previously `2.5.1` / `5` (2026-09-04; v2.5.0 was `2.5` / `4` the same day, build 3 its superseded 2026-09-03 artefact). A driven bug cuts v3.0.x, a landed science number v3.1.0 (`docs/decisions/007-versioning-and-release-naming.md`). v2.0.0 was named 2026-09-02, never built, superseded by v2.5.0
 - Minimum system: **macOS 14** (`MACOSX_DEPLOYMENT_TARGET = 14.0`,
   `Package.swift: .macOS(.v14)`, lowered from 26 on 2026-09-04 —
   `decisions.md`). Published as the requirement it is; development and testing
@@ -35,6 +35,18 @@ notary-service credentials. Those secrets do not belong in the repository.
   `/opt/homebrew/Cellar/hdf5/2.1.1/lib/plugin`. Neither affects linking or
   signing; the second means that on a machine which happens to have that path,
   HDF5 would search it for filter plugins. `NOTICE` records the binaries' hashes
+
+## Releases
+
+| Version | State | Evidence |
+|---|---|---|
+| v1.0.0 | shipped 2026-08-06, signed and notarized | `CHANGELOG.md` |
+| v2.0.0 | named 2026-09-02, never built, superseded by v2.5.0; a local tag exists on this machine and was never pushed, and none will be (C0 (4), `decisions.md` 2026-09-07) | `CHANGELOG.md` |
+| v3.0.0 | **released 2026-09-11**, version/build 3.0.0 / 6 — the learned disk detector, the flat/file probe kernel, and the first build that is arm64 alone. Built from `3c4b82c` with `Developer ID Application: Paul Lobpreis (3B8SMSSAX4)`; app notarization `e9a64b93-c63f-462f-a423-fa2ef56eeb31`, DMG `5205d722-712c-4c5a-bbbc-35d117dbb0f7`, both **Accepted** and stapled, `spctl` accepted on both, `source=Notarized Developer ID`. DMG SHA-256 `cf2259a3016db7d32f9805db724b358cf23b153bab2d547839dcd9e9bd651b89`, **5 030 916 bytes** — *smaller* than v2.5.1's 6 157 051 because the Intel slice is gone. Verified by mounting the image: the app inside is `arm64` alone across the executable and all three embedded dylibs, 3.0.0 (6), `LSMinimumSystemVersion 14.0`, `LICENSE` and `NOTICE` both present, stapled ticket validates. **Record the post-staple hash, not the one `make-dmg.sh` prints** — stapling rewrites the image, and the pre-staple hash was `95b53779…fb1e`. Gated on `all` exit 0 (46 harnesses, 573/0/2 = 575) and `inventory` exit 0 on the same tree. Known limitations are stated in `CHANGELOG.md` rather than left to be found | `CHANGELOG.md` |
+| v2.5.1 | released 2026-09-04, version/build 2.5.1 / 5 — macOS floor down to 14 and the sidecar-reader fix. Artefact built from `a9a0437`; app notarization `fb693c50`, DMG `f3d05e79`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `30282206…31af`, 6 157 051 bytes; the app inside the image declares `LSMinimumSystemVersion 14.0`, verified by mounting it. First release able to claim `run-tests.sh all` exit 0 (458/0/0, 44 harnesses). v2.5.0's artefact cannot launch below macOS 26, so this is the build that reaches older systems | `CHANGELOG.md` |
+| v2.5.0 | released 2026-09-04, version/build 2.5 / 4 — the first shipped build of the SwiftUI rebuild. Gated on `unit` (457/0/0) + `package-test`, both exit 0; **`run-tests.sh all` was attempted and exited 1** on a pre-existing sidecar defect (`open-items.md`), and the notes say so. Artefact: built from `3c0a3eb`, app notarization `af7cc0f4`, DMG notarization `f4aa1d12`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `d55821a1…4c75`, 6 074 038 bytes. Build 3 (`df80e8e`) is superseded, kept as `mac4DSTEM-2.5-build3-superseded.dmg` | `CHANGELOG.md` |
+
+The release night of 2026-09-04 (plan, two self-corrections, artefact provenance) is [`archive/v2/release-2026-09-04.md`](archive/v2/release-2026-09-04.md).
 
 ## Before using credentials
 

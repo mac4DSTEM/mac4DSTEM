@@ -243,7 +243,7 @@ package enum ReplayRecordFrameMap {
                  "min_relative_intensity", "relative_to_peak", "max_peaks",
                  "kernel_source", "kernel_mode", "kernel_probe_path",
                  "detector_class", "learned_threshold", "learned_model_sha256": .invariant
-            case "sigma_dp", "sigma_cc", "min_peak_spacing": .length
+            case "sigma_dp", "sigma_cc", "min_peak_spacing", "relative_reference_minimum_radius_px": .length
             case "edge_boundary": .lengthInt
             case "min_absolute_intensity": .absoluteIntensity
             default: nil
@@ -757,6 +757,14 @@ package enum ReplayPlanner {
             params.minAbsoluteIntensity = minAbs
             params.minRelativeIntensity = minRel
             params.relativeToPeak = relativeTo
+            // Absent on every sidecar before 2026-09-15, and 0 is that
+            // rule (the brightest maximum anywhere), so absence replays.
+            if let raw = p["relative_reference_minimum_radius_px"] {
+                guard let radius = finiteFloat(raw), radius >= 0 else {
+                    return refused(step, key: "relative_reference_minimum_radius_px", value: raw)
+                }
+                params.relativeReferenceMinimumRadiusPx = radius
+            }
             params.minPeakSpacing = spacing
             params.edgeBoundary = edge
             params.maxNumPeaks = maxPeaks

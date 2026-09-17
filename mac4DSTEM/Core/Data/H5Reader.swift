@@ -271,6 +271,8 @@ package actor H5Reader: FourDDataSource {
     ]
 
     package init(path: String) throws {
+        // Every entry into the library under `HDF5Serial` (HDF5Types.swift).
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         let hdf5 = try HDF5Library.load()
         _ = hdf5.h5esetAuto2(h5DefaultProperty, nil, nil)
         let id = path.withCString { hdf5.h5fopen($0, h5ReadOnly, h5DefaultProperty) }
@@ -282,11 +284,13 @@ package actor H5Reader: FourDDataSource {
 
     deinit {
         if fileID >= 0 {
+            HDF5Serial.acquire(); defer { HDF5Serial.release() }
             _ = hdf5.h5fclose(fileID)
         }
     }
 
     package func discoverPrimaryDataset() throws -> DatasetDescriptor {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         silenceAutomaticErrors()
         let sidecarRoot = "/" + SessionSidecarFormat.rootGroupName
         let attribute = SessionSidecarFormat.schemaAttribute
@@ -449,6 +453,7 @@ package actor H5Reader: FourDDataSource {
     /// two match, slices-first. Nothing under the session sidecar root is a
     /// probe. Order: shallowest path first, then alphabetical.
     package func probeCandidates(detectorQY qy: Int, detectorQX qx: Int) throws -> [ProbeCandidate] {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         silenceAutomaticErrors()
         let collector = H5LinkCollector()
         let unmanaged = Unmanaged.passUnretained(collector)
@@ -479,6 +484,7 @@ package actor H5Reader: FourDDataSource {
     /// is read as float; for a (qy, qx, N) stack every pixel's first slice is
     /// taken, for an (N, qy, qx) stack the first qy·qx values are.
     package func readProbe(_ candidate: ProbeCandidate) throws -> [Float] {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         silenceAutomaticErrors()
         guard let dims = datasetDimensions(candidate.path), dims.count == 2 || dims.count == 3,
               candidate.slicesFirst
@@ -528,6 +534,7 @@ package actor H5Reader: FourDDataSource {
     }
 
     package func describe(path: String) throws -> DatasetDescriptor {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         silenceAutomaticErrors()
         let datasetID = path.withCString { hdf5.h5dopen2(fileID, $0, h5DefaultProperty) }
         guard datasetID >= 0 else { throw H5Error.datasetOpenFailed(path) }
@@ -725,6 +732,7 @@ package actor H5Reader: FourDDataSource {
     }
 
     package func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard ry >= 0, ry < view.descriptor.ry, rx >= 0, rx < view.descriptor.rx else {
             throw H5Error.readFailed("scan position (\(ry), \(rx)) is outside the loaded view")
         }
@@ -736,6 +744,7 @@ package actor H5Reader: FourDDataSource {
     /// flattened as [Rx * Qy * Qx]. This remains a useful compatibility
     /// primitive; bounded whole-scan consumers prefer `readScanTile`.
     package func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard ry >= 0, ry < view.descriptor.ry else {
             throw H5Error.readFailed("scan row \(ry) is outside the loaded view")
         }
@@ -745,6 +754,7 @@ package actor H5Reader: FourDDataSource {
 
     package func readScanTile(_ view: LoadView,
                       yRange: Range<Int>) throws -> FourDScanTile {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard yRange.lowerBound >= 0, yRange.upperBound <= view.descriptor.ry,
               !yRange.isEmpty else {
             throw H5Error.readFailed("invalid scan tile \(yRange)")
@@ -766,6 +776,7 @@ package actor H5Reader: FourDDataSource {
     ///     units from the dataset attribute) — generic EMD/HyperSpy fallback.
     /// Otherwise nil → manual entry in the Calibration section.
     package func pixelCalibration() -> PixelCalibration? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         silenceAutomaticErrors()
         guard let dsPath = lastDatasetPath else { return nil }
         let components = dsPath.split(separator: "/").map(String.init)
@@ -1019,6 +1030,7 @@ package actor H5Reader: FourDDataSource {
     }
 
     package func readDoubleAttribute(_ name: String, onObjectPath path: String = "/") -> Double? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
         silenceAutomaticErrors()
         let objectID = path.withCString { hdf5.h5oopen(fileID, $0, h5DefaultProperty) }
         guard objectID >= 0 else { return nil }

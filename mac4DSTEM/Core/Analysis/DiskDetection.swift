@@ -90,6 +90,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
     case minimumAbsoluteIntensity = "min_absolute_intensity"
     case minimumRelativeIntensity = "min_relative_intensity"
     case relativeReferencePeak = "relative_to_peak"
+    case relativeReferenceMinimumRadius = "relative_reference_minimum_radius_px"
     case minimumPeakSpacing = "min_peak_spacing_px"
     case edgeBoundary = "edge_boundary_px"
     case maximumPeaks = "max_num_peaks"
@@ -104,6 +105,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
         case .minimumAbsoluteIntensity: "Minimum absolute"
         case .minimumRelativeIntensity: "Minimum relative"
         case .relativeReferencePeak: "Reference peak"
+        case .relativeReferenceMinimumRadius: "Reference outside"
         case .minimumPeakSpacing: "Minimum spacing"
         case .edgeBoundary: "Edge exclusion"
         case .maximumPeaks: "Maximum peaks"
@@ -128,6 +130,8 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
             "Minimum peak intensity as a fraction of the selected ranked reference peak. Zero disables the filter."
         case .relativeReferencePeak:
             "Intensity rank used by the relative filter. The UI calls the brightest candidate #1; the py4DSTEM-compatible stored parameter uses zero-based index 0."
+        case .relativeReferenceMinimumRadius:
+            "The relative filter's reference is the brightest candidate at least this many pixels from the brightest one, so a saturated direct beam does not set the scale wherever it sits. A flat plateau has maxima all over it: set at least its diameter. 0 keeps py4DSTEM's rule: the brightest candidate anywhere."
         case .minimumPeakSpacing:
             "Minimum center-to-center separation in detector pixels. When candidates are closer, the brighter one is retained."
         case .edgeBoundary:
@@ -147,7 +151,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
         case .minimumRelativeIntensity: 0...1
         case .maximumPeaks: 1...500
         case .minimumAbsoluteIntensity, .subpixel, .relativeReferencePeak,
-             .minimumPeakSpacing, .edgeBoundary: nil
+             .minimumPeakSpacing, .edgeBoundary, .relativeReferenceMinimumRadius: nil
         }
     }
 
@@ -158,7 +162,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
         case .upsampleFactor: 4
         case .minimumRelativeIntensity: 0.001
         case .maximumPeaks, .relativeReferencePeak, .minimumPeakSpacing,
-             .edgeBoundary: 1
+             .edgeBoundary, .relativeReferenceMinimumRadius: 1
         case .minimumAbsoluteIntensity, .subpixel: nil
         }
     }
@@ -332,6 +336,19 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     package var minAbsoluteIntensity: Float = 0
     package var minRelativeIntensity: Float = 0.005
     package var relativeToPeak: Int = 0
+    /// The reference the relative threshold is measured against is the
+    /// brightest maximum at least this far from the brightest one, in
+    /// detector pixels — from the direct beam wherever descan put it, not
+    /// from the array centre; 0 keeps py4DSTEM's rule (the brightest
+    /// anywhere, which is the direct beam). A saturated plateau is a field
+    /// of tied maxima and "the brightest" is one point on it, so the radius
+    /// should cover the plateau's diameter, the bound on how far apart two
+    /// of its maxima can be (measured 2026-09-15 on a 12-px plateau: 6.5 px). MEASURED (Thronsen step 3, 2026-09-15):
+    /// their preprocessed patterns carry a saturated direct-beam plateau, so
+    /// "0.5 % of the maximum" was 0.5 % of a plateau and the T1 reflections
+    /// at 1–5 % of it were kept only at 0.2 %; against the brightest Bragg
+    /// peak instead, the same fraction means the same thing on every pattern.
+    package var relativeReferenceMinimumRadiusPx: Float = 0
     package var minPeakSpacing: Float = 60
     package var edgeBoundary: Int = 20
     package var maxNumPeaks: Int = 70
@@ -469,6 +486,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
             DiskDetectionParameterID.minimumAbsoluteIntensity.rawValue: String(minAbsoluteIntensity),
             DiskDetectionParameterID.minimumRelativeIntensity.rawValue: String(minRelativeIntensity),
             DiskDetectionParameterID.relativeReferencePeak.rawValue: String(relativeToPeak),
+            DiskDetectionParameterID.relativeReferenceMinimumRadius.rawValue: String(relativeReferenceMinimumRadiusPx),
             DiskDetectionParameterID.minimumPeakSpacing.rawValue: String(minPeakSpacing),
             DiskDetectionParameterID.edgeBoundary.rawValue: String(edgeBoundary),
             DiskDetectionParameterID.maximumPeaks.rawValue: String(maxNumPeaks),
@@ -496,6 +514,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
             "min_absolute_intensity": String(minAbsoluteIntensity),
             "min_relative_intensity": String(minRelativeIntensity),
             "relative_to_peak": String(relativeToPeak),
+            "relative_reference_minimum_radius_px": String(relativeReferenceMinimumRadiusPx),
             "min_peak_spacing": String(minPeakSpacing),
             "edge_boundary": String(edgeBoundary),
             "max_peaks": String(maxNumPeaks),
@@ -895,8 +914,33 @@ package nonisolated final class DiskDetector {
         let afterAbsoluteThresholdCount = found.count
         var relativeReferenceIntensity: Float?
         var relativeReferenceWasAvailable = p.minRelativeIntensity == 0
-        if p.minRelativeIntensity > 0, found.count > p.relativeToPeak {
-            let ref = found[p.relativeToPeak].intensity
+        // DEVIATION from py4DSTEM `filter_2D_maxima` (preprocess/utils.py):
+        // that function always takes `maxima["intensity"][relativeToPeak]` —
+        // the n-th brightest maximum overall, no spatial exclusion. This adds
+        // an optional radius (`relativeReferenceMinimumRadiusPx`, 0 keeps
+        // py4DSTEM's rule) excluding candidates near the brightest maximum
+        // before picking the reference. The reference: the `relativeToPeak`-th
+        // brightest maximum, taken among those at least
+        // `relativeReferenceMinimumRadiusPx` from the BRIGHTEST maximum when
+        // that is set. The brightest is the direct beam in any pattern that
+        // needs this rule, wherever descan put it; the array centre is not
+        // (Gate B 2026-09-15: measured from the centre, a descanned beam
+        // stayed the reference and low-angle spots near the centre lost their
+        // eligibility). MEASURED (Thronsen step 3, 2026-09-15): a saturated
+        // direct-beam plateau makes "0.5% of the maximum" mean "0.5% of the
+        // plateau", not of a single peak — against the brightest Bragg peak
+        // outside the plateau instead, the same fraction means the same thing
+        // on every pattern (plateau radius measured 6.5 px on a 12-px plateau).
+        let references: [BraggPeak]
+        if p.relativeReferenceMinimumRadiusPx > 0, let beam = found.first {
+            references = found.filter {
+                hypot($0.x - beam.x, $0.y - beam.y) >= p.relativeReferenceMinimumRadiusPx
+            }
+        } else {
+            references = found
+        }
+        if p.minRelativeIntensity > 0, references.count > p.relativeToPeak {
+            let ref = references[p.relativeToPeak].intensity
             relativeReferenceIntensity = ref
             relativeReferenceWasAvailable = true
             found.removeAll { $0.intensity / ref < p.minRelativeIntensity }

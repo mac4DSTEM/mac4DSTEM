@@ -247,7 +247,7 @@ package final class DiskCentreLabelStore {
         } catch let error as LabelError {
             throw error
         } catch {
-            throw LabelError.malformed(error.localizedDescription)
+            throw LabelError.malformed(sessionErrorDetail(error))
         }
     }
 

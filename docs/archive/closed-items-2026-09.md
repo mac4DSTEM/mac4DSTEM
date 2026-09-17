@@ -8,7 +8,94 @@ last stood in the live file, with a closure note. **History, not guidance.**
 
 ---
 
-## Datacube discovery accepts rank-3 non-cubes — closed 2026-09-05
+## Three Swift 6 isolation warnings in `App/AppState+PhaseMapping.swift` — closed 2026-09-17
+
+### ~~Three Swift 6 isolation warnings in `App/AppState+PhaseMapping.swift`~~ — **CLOSED 2026-09-17**
+
+> A cold `xcodebuild build` printed three warnings: line 112 `reference to captured var
+> 'self' in concurrently-executing code`, lines 127 and 328 `main actor-isolated property
+> 'invAngstromPerPixel' cannot be accessed from outside of the actor`.
+
+**Closure.** Reproduced first with a fresh cold build to a scratch `-derivedDataPath`
+(`build-itemB-cold.log`, exit 0, all three warnings present at the exact lines).
+Mechanism, not guessed: `ACOMScaleSemantics` (`Session/ACOMWorkflow.swift`) is
+MainActor-isolated by the module's default isolation despite being `Sendable`, so
+`scale.invAngstromPerPixel` read inside `Task.detached` crosses the actor boundary —
+fixed by extracting the `Double` on the main actor before the detach, the same
+"byte-identical value, not the isolated carrier" pattern `AppState.swift:4698`'s disk-
+detection progress closure already uses for `learnedRef`/`learnedThreshold`. The
+`self`-capture warning at line 112 was the SAME closure missing the explicit
+`[weak self]` the working twin at `AppState.swift:4700` puts on its own nested `Task`
+— without it, the inner `Task { @MainActor in }` implicitly re-captures the outer
+closure's weak `self` rather than taking its own; adding `[weak self]` to the inner
+closure (matching the twin exactly) closed it. Neither Gate D trigger applies: no
+scientific number moves, and the mechanism was proven by the compiler's own diagnostic
+plus a working in-repo precedent, not inferred. `runPhaseMapping` and
+`findMatrixZoneAxis` both fixed, three sites. A fresh build afterwards
+(`build-itemB-after.log`) shows zero warnings anywhere in `mac4DSTEM/`, not only the
+three named ones. `run-tests.sh unit` exit 0 the same tree (`unit-itemB.log`).
+
+---
+
+## Audit refactor list row 8, `axisDelta` — closed 2026-09-17
+
+### ~~`axisDelta` duplicated in `CrystalModel.swift` and `CIFImport.swift`~~ — **CLOSED 2026-09-17**
+
+> Byte-identical minimum-image-separation bodies in both files (audit
+> `docs/archive/audit-2026-09-16/REPORT.md` §3.2 row 8, one of 13 identical-body groups).
+
+**Closure.** Consolidated to one `package nonisolated func axisDelta` in `Crystal.swift`
+(the shared foundation file both already build on), called unqualified from both sites —
+no manifest edit needed, both files were already co-listed in the `crystal` group. Scope
+was `axisDelta` only: `nextPow2` (FFT1D/FFT2D) stays separate on purpose (merging it would
+force FFT1D into roughly five dependency-closed manifest groups — the silent-compile-break
+`tools/lib/sources.manifest` exists to prevent); the five `median` bodies stay separate per
+ADR 015. Pure identical-body extraction, no behavior change, so Gate B is recorded rather
+than run as a full adversarial review — the refuter note: neither call site had any
+existing test coverage of `axisDelta`'s minimum-image wraparound before this session, on
+either the two harnesses that compile it (`cif-symmetry-test`, `acom-orientation-test`,
+both re-run green, `itemC-cif-symmetry.log`/`itemC-acom-orientation.log`) or the unit
+suite — a mutation deleting the `d > 0.5` correction survived both harnesses untouched.
+New `mac4DSTEMTests/CrystalMathTests.swift` closes that gap directly on the consolidated
+function plus one integration test through `CrystalModel.shortestCloseContact` (whose own
+prefilter depends on the wraparound to find a real close contact across a cell boundary,
+not just a synthetic one). Break-first: the same mutation failed both new tests
+(`crystalmath-mutation.log`, exit 65) before revert, `cmp`-clean green after
+(`crystalmath-baseline.log`). `run-tests.sh unit` exit 0 on the tree with items B and C
+both landed (`unit-BC-final.log`).
+
+---
+
+## `RotationCalibration.swift` has no gated parity harness — closed 2026-09-17
+
+### ~~`RotationCalibration.swift` has no gated parity harness~~ — **CLOSED 2026-09-17**
+
+> `Core/Analysis/RotationCalibration.swift` (314 lines, two `DEVIATION` notes, the R–Q
+> rotation solve) is compiled by no `scientific` harness: no `tools/lib/sources.manifest`
+> group lists it, so the only coverage was `mac4DSTEMTests/CalibrationReReferenceTests.swift`
+> (synthetic CoM fields) and the diagnostic `tools/rotation-null-probe`. Evidence:
+> `docs/archive/audit-2026-09-16/REPORT.md` §3.1.
+
+**Closure.** `tools/rotation-parity-test` joined the `scientific` array via a new
+`rotation` group in `tools/lib/sources.manifest` (`AnalysisCancellationToken.swift` +
+`FFT2D.swift` + `RotationCalibration.swift`, no `calibration` composition — the solve
+takes no `Calibration.swift` type). Three legs ship gated: (a) analytic recovery — a
+scalar potential's gradient (independent numpy, not derived from the code under test),
+planted 37.2° (asymmetric on purpose — 0/45/90 hide a sign flip and a dropped transpose
+together, the S8 lesson), asserted for both transpose=false and a transposed field,
+tolerance 0.5°, measured error ~3e-6°; (c) ADR 024's null, reusing
+`tools/rotation-null-probe`'s exact generator functions and seed formulas — 8 vetted
+white-noise seeds that refuse, and 48 of 60 planted-30° seeds (sd ≤ 0.03) that certify
+(the probe's own header claims 0/60 refused across all sd; re-measured this session and
+found stale — 3 of 60 refuse, all at sd=0.05, matching the ALREADY-documented "power
+drops at the highest noise" finding, `docs/open-items.md`; sd=0.05 ships informational,
+not gated, rather than asserting the stale claim). A fourth leg, (b) py4DSTEM parity, hit
+its own documented stop condition — see the new open item this closure files,
+"RotationCalibration's py4DSTEM parity leg exposes an (Rx,Ry)-vs-(col,row) frame class".
+Both break-first mutations (a channel swap in the curl objective; an inverted
+`carriesRotation` comparison) went red before revert and green after, `cmp`-verified
+clean against a pristine byte copy (this session, logs not retained past the session per
+`docs/status.md`'s log-naming convention). Zero changes under `Core/`.
 
 ### ~~Datacube discovery accepts rank-3 non-cubes~~ — **CLOSED 2026-09-05**
 
@@ -597,3 +684,508 @@ path, and an unreachable guard with no fixture is one nobody can prove works.
 a `-Inf` pixel still produces a full result with finite, non-negative explained
 variance, so the guard has not over-fired and turned working datasets into
 refusals.
+
+## The phase-mapping gate shares its in-plane frame with the code — closed 2026-09-14
+
+### ~~The phase-mapping gate shares its in-plane frame with the code~~ — **CLOSED 2026-09-14**
+
+**Verification debt.** `tools/phase-vector-matching` generates its synthetic
+patterns through `ACOMOrientation.detectorBasis`, the same call
+`PhaseReferenceLibrary.projectedVectors` makes — so a handedness flip there
+(`simd_cross(e1, n)` for `simd_cross(n, e1)`) mirrors both sides and **all 27
+checks stay green**, measured by Gate B 2026-09-12. This is the L3 trap. An
+x/y swap or a y flip on the experimental side alone IS caught (P2 falls to
+31.8 %); only the shared frame is blind. `tools/acom-convention-test` builds
+its own frame from a seed and does cover it, but nothing links the two gates
+except this entry. Remedy: generate Part B's peaks from a harness-built frame,
+as acom-convention-test does — β″ [010] is a chiral net, so P2 would then pin
+the handedness.
+
+**Closure.** `tools/phase-vector-matching` now projects Part B's peaks through `harnessFrame`, a seeded right-handed pair built the way `acom-convention-test` builds its own, and A4 compares the two projections up to one rotation per zone. Under the handedness mutation named above, A4 (worst |Δq| 2.209 Å⁻¹) and P2 (32.4 % labelled β″) went red; the unmutated tree passes 27/27. The link between the two gates is now code in both.
+
+## `Crystal.reflections` under-tiles oblique monoclinic cells — closed 2026-09-14
+
+### ~~`Crystal.reflections` under-tiles oblique monoclinic cells~~ — **CLOSED 2026-09-14**
+
+**Science, Gate D owed.** `numTile = ceil(kMax / kMin)` with kMin the shortest
+of ten reciprocal test directions, but the true bound is `|h| ≤ kMax·a`. For a
+b-unique monoclinic, kMin ≤ a* = 1/(a sin β), so the tiling can fall short and
+reflections are **silently missing**. Measured by Gate B on a β″-shaped cell
+(a = 15.16, b = 4.05, c = 6.74): β = 105.3° (the shipped β″) loses **0** at
+either kMax; β = 110° loses 6 at kMax 1.6; β = 115° loses 48; β = 125° loses
+198. Pre-existing `Crystal` code, but phase mapping is the first feature to
+drive it with arbitrary imported cells — which its own header says is the case
+it exists for. Not urgent: β″ itself is unaffected.
+
+**Closure.** Gate D 2026-09-14: the diagnosis (the shortest reciprocal direction can be longer than 1/|aᵢ|, so `ceil(kMax/kMin)` is not a bound on the index) predicted that a superset check would find misses at β = 115° and 125° and none for fcc Al or the shipped β″; `testReflectionsCoverEveryLatticePointInsideKMaxOnObliqueCells` went red on the old code and green with the per-axis bound `ceil(kMax·|aᵢ|)`, which is exact because h = g·a₁. Al (282) and β″ (3458 at tolerance 1e-9) sets are unchanged. py4DSTEM carries the same bound; the fix is an inline `DEVIATION`. Red again under the reverted bound on 2026-09-14 (mutation run).
+
+## The embedding suite says almost nothing about `coordinates` — closed 2026-09-14
+
+### ~~The embedding suite says almost nothing about `coordinates`~~ — **CLOSED 2026-09-14**
+Same Gate B. `coordinates` is the array BOTH exported quantities (cosine
+similarity, k-means groups) are built from, and
+`grep -n "\.coordinates" mac4DSTEMTests/DiffractionEmbeddingTests.swift`
+returns exactly ONE line: an `allSatisfy(\.isFinite)` check. Two mutations
+leave all 7 tests green while moving every exported number: dropping the
+mean-centring in the projection (PC1 score moves 77 %; cosine similarity
+-0.5946 → -0.0406) and reversing the projection column order (the column an
+export labels "PC1" carries PC8). The k-means and cosine tests are invariant
+under an additive offset, a column permutation and a uniform scale, which is
+why both sail through. Fix: `testPublishedBasisAreEigenpairsOfTheMeanCentred‐
+Covariance` already owns an independent `referenceBinnedVector` — assert
+`coordinates[p*k+c] == dot(referenceBinnedVector(p) - mean, basis[c])` for
+several (p, c). Proof obligation: BOTH mutations must go red, not just the
+mean-centring one.
+
+**Closure.** `testPublishedBasisAreEigenpairsOfTheMeanCentredCovariance` now asserts `coordinates[p·k + c] == (x_p − mean)·basis[c]` at every seventh position and every component against its own `referenceBinnedVector`. Both named mutations were run on 2026-09-14 and both turned it red (see `docs/status.md`).
+
+## The grouping fallback name uses the requested k, the product the actual one — closed 2026-09-14
+
+### ~~The grouping fallback name uses the requested k, the product the actual one~~ — **CLOSED 2026-09-14**
+`Support/ResultMetadata.swift` names diffraction groups from
+`lastRunSettings?.groups ?? settings.groups`; `AppState+DiffractionGroups`
+publishes with `result.groupCount`, which `DiffractionEmbedding.compute`
+clamps to the position count. The two differ only when k exceeded the scan,
+and only if the fallback is reached with no published product — no such path
+was found by reading, so this may be dead. Outside the 2026-09-14 audit's
+scope; left for the session that touches that file.
+
+**Closure.** `Support/ResultMetadata.swift` now names the fallback from `result?.groupCount` first, the same number the publish path uses, with the requested k only when no result exists. Compiled by the targeted runs of 2026-09-14; no test, because no path reaching the fallback with a stale result was found.
+
+## Phase mapping has never been driven — closed 2026-09-14
+
+### ~~Phase mapping has never been driven~~ — **CLOSED 2026-09-14**
+
+**Verification debt.** The owner drove it on `060_STEM SI_…bin_4` (Xcode 27
+build of `fc32140`). Seen and right: a phase from a CIF; Find Matrix Zone
+Axis returning the ⟨110⟩ family tied at 38 % after "Scale to This Detector"
+(the probe measured 39 %); the resolution line 0.44 · 0.44 · 0.22 px and its
+warning; a run of β″ [001] against Al ⟨110⟩ giving matrix 2 099, β″ 27, not
+indexed 106 774 with the hatch, the legend as the phase list, the Evidence line
+following the cursor, and "unvalidated" in both places. **One defect, fixed
+on the branch, unseen since:** the zone-axis field kept "0 0 1" after the fit
+wrote [0 −1 1] into the slot (`f78122e`). **One observation, not fixed:**
+before scaling, the fit returned a ⟨112⟩ family at 8 % — chance level at a
+0.44 px tolerance (39 % × 0.19) — and the panel presented it like any other
+answer; the zone-axis fit has no chance floor of its own. Still to see: ⌘5
+landing on grouping; a phase from the built-in menu; remove-and-re-add
+marking the run stale; the fixed field following the fit.
+
+**Closure.** The owner drove the rest the same afternoon on the rebuilt `f78122e`: aluminium from the built-in menu, β″ from the CIF at [010], the fitted axis showing in the field, a run of β″ [010] against Al ⟨110⟩ (matrix 2 099, β″ 280 = 0.3 % against a 3.9 % chance level, not indexed 106 521), Show Match Distance, remove-and-re-add reading stale, and ⌘5 landing on grouping. What the drive found and did not fix is the chance-floor entry that replaces this one.
+
+---
+
+## A second matrix grain is labelled as a candidate phase — closed 2026-09-14
+
+**Closure:** Fixed by `classify` step 5, the matrix challenge, with the rotation derived per position. Gated by Part E of `tools/phase-vector-matching`. Three remedies were refuted on the way and are recorded inside. What stays live is only the presentation residual.
+
+### A second matrix grain is labelled as a candidate phase — FIXED 2026-09-14
+**Science. Gate D done, Gate B done and two of its findings fixed.** With Al
+[001] the matrix and β″ [010] + β″ [001] candidates, the demo cube's Al [011]
+grain — 2 250 positions of pure aluminium — came back **100 % β″ [001]**,
+because nothing asked whether the MATRIX explains the surviving vectors. β″
+[001] covers 10 of the 16 [011]Al reflections at 0.0059 Å⁻¹; Al [011] covers
+all 16 at 0.0000 and was never in the competition. Fix: `classify` step 5, the
+matrix offered every low-index orientation with the in-plane rotation derived
+at the position. Measured at shipped defaults (`tools/phase-map-probe --truth`,
+`probe-rework-20260914.log`): grain B 100 % → **0 %**; end-on 96/96 and needles
+108/108 unchanged; grain A matrix 99.0 %; indexed total exactly the 204 planted
+precipitate positions. Gated by `tools/phase-vector-matching` Part E, whose C1a
+reproduces the defect so C1b cannot be vacuous.
+**Three refutations, all paid:** the first remedy took one rotation per axis
+from `fitZoneAxis`, a whole-scan fit that carried [-1 1 0] at 100° where the
+grain needs 130° and matched nothing. The second seeded rotations on the three
+LONGEST vectors — backwards, because spurious maxima sit farther out than real
+reflections: three of them took the catch rate 100 % → 0 %, now gated as C2.
+The third required only "at least as many" matched vectors, which let a
+49-axis search steal **26.5 % of three-vector precipitates** at 0.004 Å⁻¹ of
+jitter; "strictly more" makes a fully explained precipitate impossible to erase
+by construction, gated as C3 (0 of 500).
+**Residual:** a `.matrix` verdict from the challenge is drawn the same grey as
+one by exclusion, and the map's phase counts cannot separate them; the
+evidence line now distinguishes them but nothing else does. The matrix fraction
+on the demo cube moves 51 % → 74 % because of it.
+
+---
+
+## R–Q rotation reported "Measured" from pure shot noise — closed 2026-09-15
+
+**Closure:** Fixed by a permutation null in `RotationCalibration.solve`: shuffle the scan positions, rerun the grid, refuse unless the real curve beats every shuffle. Neither the angle nor the coin-flip `transposeQR` is written on a refusal.
+
+**REOPENED THE SAME DAY.** Gate B measured the null to be a test of whether the
+field is spatially WHITE, not whether it carries a rotation: a rotation-free
+field with any spatial correlation — which probe overlap alone produces — is
+certified 60–80 % of the time, the verdict is seed-conditional, and four
+mutations survive including one that deletes the guard entirely. The narrowed
+item is live again in [`../open-items.md`](../open-items.md), "The rotation null
+is a whiteness test, not a rotation test". This closure stands only for the
+specific failure it names: pure shot noise.
+
+### R–Q rotation reported "Measured" from pure shot noise — FIXED 2026-09-15
+**Science, Gate D done, no fix. Diagnosis survived an independent refuter that
+corrected two of its numbers.** On the demo cube, built with the axes aligned,
+Measure R–Q Rotation reported **−67.5°** and the row read "Measured".
+`RotationCalibration.solve` minimises the mean |curl| of the CoM field, which
+is meaningful only for a near-phase object — its own header says so. The demo
+cube is Bragg disks on a flat background and has no potential, so there is
+nothing for the objective to find.
+**Established, and it is stronger than "the curve is flat":**
+- The measured CoM field IS Poisson shot noise. Predicted from the counts
+  themselves: sd 0.01023/0.01020 px; measured 0.01046/0.00968 (ratio 1.02/0.95).
+- **A theorem, not a fit.** Writing the rotated curl as
+  `sinθ·div + cosθ·curl` of the unrotated field, over statistically independent
+  scan positions var(div) = var(curl) and cov(div, curl) ≡ 0 for ANY
+  per-position covariance, so `E[objective(θ)]` is exactly θ-independent. No
+  mechanism can produce a preferred angle here, whatever the noise anisotropy.
+- The winning curve's depth is `(max − min)/mean` = **0.0134**, which sits at
+  the **40th percentile of a noise-only null** (300 realisations: mean 0.0161,
+  p95 0.0299). Under that null the argmin is uniform over the half circle and
+  the transpose flag is a **51.7 % coin flip** — and `transposeQR` is written
+  with provenance `.measuredInApp` and consumed by strain, ACOM and DPC.
+- The 0.1° refinement digit is **float32 round-off**: over −69…−67 the float32
+  objective spans 1×10⁻⁵ relative, the accumulation floor of 9 604 `Float`
+  adds. float64 picks −67.6, a sequential float32 sum −68.0, the app −67.5.
+- The **divergence** variant, which the app also exposes, returns **−82.0° with
+  transpose TRUE** on the same field. Two objectives, incompatible answers.
+**Refuted along the way:** the per-position origin map cannot explain it (the
+fitted plane's total variation across the scan is 3×10⁻⁵ px, and re-solving
+with it subtracted is identical); no grain-boundary mechanism exists (the
+recipe-mean field is 0.05 % of the variance, and the boundaries are
+axis-aligned, so a step would pull toward 0°/90°); and **the quadrant spread of
+151° proves little** — the noise-only null's p90 is 151.1°, and a genuine field
+still scatters 65°, so split-half disagreement is a weak test in both
+directions and must not headline this.
+**FIXED 2026-09-15 with a permutation null, which is the one test that needs no
+constant.** `solve` now shuffles the scan positions of the CoM field fifteen
+times — carrying each position's (cx, cy) together, so only the spatial
+arrangement is destroyed — reruns the same grid, and reports the winning
+curve's depth against those fifteen. `carriesRotation` requires the real depth
+to beat **every** shuffle; `refusalMessage` carries the sentence, so the
+refusal and the test that produces it cannot drift. Deterministic by a fixed
+seed: a refusal that flickers is worse than none. AppState writes neither the
+angle nor `transposeQR` when it refuses, which was the sharper half — the flag
+was a 51.7 % coin flip and strain, ACOM and DPC consume it.
+**Measured on the demo cube with the shipped rule and seed:** real depth
+0.01341 against shuffled depths 0.00854–0.02472, so it **refuses**, which is
+correct. Three tests, three mutations, each red: the null deleted, the null
+compared against the shuffles' mean instead of all of them, and the comparison
+inverted (which refuses a planted 30° rotation and is the failure that would
+matter most).
+**What this does NOT claim, and the code says so too.** It cannot certify a
+measurement. A thick or strongly diffracting specimen gives a deep, sharp,
+reproducible minimum at an angle that need not be the detector rotation. It
+catches one failure — no signal at all — which is the one that reached the
+owner. **Unverified on screen.**
+
+---
+
+## ACOM omits py4DSTEM's `power_radial` — closed 2026-09-15
+
+**Closure:** Measured and settled: py4DSTEM's own default is worse here (25.53° of excess orientation error against the port's 18.79°, summed over 8 axes) and breaks ⟨100⟩. The omission is kept, now as an explicit parameter with a `DEVIATION` note carrying the numbers.
+
+### ACOM omits py4DSTEM's `power_radial` — MEASURED 2026-09-15, omission kept
+**Was: "untested materiality — apparatus exists but the measurement has not
+been made." It has now been made, and the omission is right.** py4DSTEM
+multiplies each template spot by its shell radius to `power_radial`, default
+**1.0** (`crystal_ACOM.py:32`, applied at :810/:818); this port omitted the
+factor, which is 0. Measured over 136 planted patterns with
+`tools/acom-groundtruth/orientation-accuracy.py`, as excess orientation error
+beyond the bank's own sampling floor, summed over 8 zone axes:
+
+| `power_radial` | 0 (shipped) | 0.5 | 1.0 (py4DSTEM) | 2.0 |
+|---|---|---|---|---|
+| total excess | **18.79°** | 20.45° | 25.53° | 29.09° |
+
+Their default is worse, and it breaks ⟨100⟩, which this port recovers exactly
+(0.00° → 2.20°). The factor now exists as a parameter defaulting to 0 with an
+inline `DEVIATION` note carrying these numbers, so the choice is documented
+rather than accidental — CLAUDE.md requires the note, and the note now cites a
+measurement instead of an opinion. **Parity here would be parity with a worse
+answer.** Nothing shipped changed: the default reproduces every previous run.
+
+---
+
+## The ellipse fit measures a 10 % ellipse on an isotropic detector — closed 2026-09-15
+
+**Closure:** The refusal stands as the default; the flag the owner asked for landed behind an explicit "Fit Anyway" button (`decisions.md` 2026-09-15). `fit1D(acceptSparseCoverage:)` fits between 12 and 29 of 36 sectors, marks the result `sparseCoverage`, and refuses several rings in one annulus by a per-sector radius bound of 10 % about the fitted centre; `CalibrationSession.applyEllipseFit` stamps `CalibrationValueProvenance.fitAnyway`. Gated by `tools/ellipse-calibration-test` (anyway loop, a 6 % elliptic sparse ring recovered to 0.07 px, the off-centre seed check) and four `RotationSignificanceTests`. Gate B: five mutations, two caught by the fixture, one (seed centre) caught by a check added for it, one (unweighted mean) surviving and recorded, one provably equivalent; one confirmed blind spot recorded as the cost fixture `overlap_bins_2radii`. Residuals live in `../open-items.md`.
+
+### The ellipse fit measures a 10 % ellipse on an isotropic detector — REFUSED 2026-09-14, flag owed
+**Science, Gate D done by the owner's experiment; refusal landed on his
+decision ("refuse it for now, add the flag later").** The fit reported
+a = 43.68, b = 39.72 on a detector isotropic by construction, and everything
+downstream followed. **Four statistics were measured and three refuted:**
+- *Azimuthal contrast* (90th-percentile bin over median) — shipped, reverted,
+  then refuted again by a new fixture: a LEGITIMATE six-azimuth ring whose fit
+  is exactly right reads 81, against the defect's 2 777. No bar separates them.
+- *The fit's own `normalizedResidual`* — inverted: the legitimate spotty ring
+  reads 0.149 and the defect 0.082.
+- *Radial multiplicity* on the fitted ellipse — blind, because the ellipse the
+  defect produces threads the three radii so every sample sits on it (1.000).
+**Why none of them works, and it is not a missing idea:** a three-grain
+annulus and a legitimate six-azimuth ring occupy the same 12 of 36 bins and
+differ in nothing a statistic can read — only in the answer. An ellipse has
+five free parameters; spots at a dozen azimuths determine it no better than
+the three radii they lie on. They are the same measurement.
+**So the guard is a degeneracy bound**, not a separation: `fit1D`'s coverage
+requirement goes from a third of the azimuthal bins to five sixths. Measured
+across a fixture sweep now in `tools/ellipse-calibration-test` (7 new gated
+checks, every pattern circular by construction so a reported a/b is a defect):
+3 grains refused (it was reporting a/b 1.685), 6 grains refused (its answer
+would have been right — the stated cost), 12 grains fitted isotropic, a
+9-azimuth spotty single ring fitted isotropic, a nanocrystalline halo fitted
+isotropic. Marked `DEVIATION`: py4DSTEM's `fit_ellipse_1D` has no guard at all
+and answers degeneracy with `constrain_degenerate_ellipse` instead.
+**OWED: THE FLAG, and this is what it has to answer** (owner, 2026-09-14:
+"refuse it for now, add the flag later"). A sparse legitimate ring — one
+radius, too few azimuths — is now refused outright, and he wants it fitted and
+marked instead. The pieces:
+- **Where the refusal is:** `EllipseCalibration.fit1D`, the
+  `occupiedCount >= angularBinCount * 5 / 6` guard. A flag path fits anyway
+  below that bound and marks the result; it does not weaken the bound for the
+  multi-radius case, which must stay refused (`grains_3_one_annulus`).
+- **What carries the mark:** `EllipseCalibrationFit` has no field for it, and
+  `CalibrationValueProvenance` (`Core/Data/Calibration.swift:49`) is what the
+  Prepare row's status word comes from. A fourth status beside Measured /
+  Manual / From file is the smallest shape that reaches the user.
+- **The decision a session may not make alone:** whether the flag REPLACES the
+  refusal for a single-radius annulus, or sits behind an explicit "fit anyway"
+  after one. The first is silent, the second is a click. Ask before building.
+- **Gate:** Gate D applies. A flagged ellipse becomes usable downstream, so the
+  change decides whether degenerate distortion reaches strain and ACOM —
+  that moves a scientific number even though the fit itself is unchanged.
+- **The fixture already exists:** `spotty_ring_6_azimuths` is the legitimate
+  case (expect `refuse` today, expect flag-and-fit after), and
+  `grains_3_one_annulus` is the control that must stay refused.
+
+---
+
+## The rotation null is a whiteness test — narrowed again 2026-09-15 night
+
+**Closure of THIS entry only:** the shuffle null it describes was replaced the same night by a phase-randomised surrogate null (Gate D, `tools/rotation-null-probe` before/after). What the new null still cannot do is the live entry in [`../open-items.md`](../open-items.md). The text below is the morning's Gate B record, kept for its measurements — note that the probe later reproduced its claim but not its rates.
+
+### The rotation null is a whiteness test, not a rotation test — Gate B 2026-09-15
+**Science, live. The guard shipped, Gate B narrowed it, and "FIXED" was wrong.**
+`RotationCalibration.solve`'s permutation null catches the failure that reached
+the owner — a spatially WHITE centre-of-mass field reported as "Measured
+−67.5°" — and refuses no genuine rotation (0 of 60 at every noise level through
+sd 0.05, and the cost is invisible: 0.12 s at 100 × 100). What it does not do:
+- **A rotation-free field with spatial structure is certified.** Box-smoothed
+  noise at a correlation length of two scan pixels beats all fifteen shuffles
+  60–80 % of the time, and **probe overlap alone produces that correlation** on
+  ordinary data. A per-row descan drift and a specimen edge were each certified
+  6 of 6 at 6–20× the shuffled depth, with arbitrary angles.
+- **Passing implies nothing about accuracy.** A planted 30° at noise sd 0.03 is
+  certified 60 of 60 while 9 are more than 5° out and one is 61° out.
+- **The verdict is seed-conditional.** Fifteen shuffles with "beat every one" is
+  a rank test at a 1-in-16 design rate; the unit suite's own noise fixture is
+  certified under **50 of 200 seeds**, and the demo cube's refusal (depth
+  0.01341 inside shuffled 0.00854–0.02472) is the same lottery. A real fix
+  needs a statistic, not a rank.
+**Gate B left four mutations alive. ALL FOUR ARE SETTLED (2026-09-15).**
+Deleting the guard left the whole suite green, because every test lived in Core
+and none constructed a session; the decision moved to
+`CalibrationSession.applyRotation(_:)`, testable without a dataset, and
+`AppState` shrank by three lines. `shuffleCount` 15 → 6 and taking the LOSING
+transpose curve's depth are both pinned now, the second recomputed in the test
+from the curves the result already carries. A refusal that also CLEARS — what
+the old sentence wrongly claimed — is pinned too. The fourth was not a defect
+but an unfounded claim: shuffling `cx` and `cy` independently barely moves the
+certification rate (7 of 60 against 3 of 60), so the comment calling the
+pairing load-bearing is corrected rather than pinned.
+**Fixed the same day:** the refusal sentence claimed "the rotation is left as
+Not set", which the code never establishes — it declines to write and never
+clears, so an earlier fit, a session restore, a manual entry or a value from
+the file survives while strain, ACOM and DPC keep consuming it. Now "not
+updated", pinned by a test.
+**Also owed:** the refusal is a 264-character sentence routed to `statusText`
+alone, not an alert, and the diagnostics panel still says "the marker is the
+chosen minimum" beside an angle that was deliberately not written
+(`UI/WorkspaceInspector.swift:722`). **Unverified on screen.**
+**The Gate B numbers above came from a scratch probe that was never checked
+in. `tools/rotation-null-probe` (diagnostic, 2026-09-15 night) is the
+instrument now, with its own generators, and it does NOT reproduce all of
+them** (`rotation-probe-final-20260915.log`): white noise sd 0.010 at 40 × 40
+certifies **10 of 200**, the 1-in-16 design rate, not 50; 3 × 3 box-smoothed
+noise certifies **19 of 60 at 40 × 40 and 26 of 60 at 100 × 100** (32–43 %,
+not 60–80 %); a per-row drift spanning 0.05 px over noise sd 0.010 is
+certified **0 of 6** (depth 0.4–0.9× the shuffles), so the recorded 6 of 6 at
+6–20× used a larger drift than the entry states; a 0.05 px specimen edge is
+certified **6 of 6** at 1.4–2.1×; planted 30° at sd 0.03 is certified 60 of
+60 with 8 over 5° and one 63.7° out; 0 of 60 real rotations refused. The
+qualitative claim stands — structure without rotation is certified, and a
+certified angle can be 60° out — and the rates in the bullets above are the
+scratch probe's, superseded by the harness's where they differ.
+
+---
+
+## The zone-axis fit's chance floor does not mark the case it was built for — narrowed 2026-09-15 night
+
+**Closure:** the case is marked now, by a second null (the sweep's own median) rather than by a threshold on the disc model; the Gate D record and residuals are the live entry in [`../open-items.md`](../open-items.md). The 2026-09-14 text follows.
+
+### The zone-axis fit's chance floor does not mark the case it was built for — added 2026-09-14
+**Known, scoped, partly addressed.** `ZoneAxisFit` now carries
+`chanceMatchedVectors` from the same `chanceMatchFraction` the matcher's guard
+uses, and the panel marks a row "at chance". **It does not mark the ⟨112⟩ at
+8 % that motivated it.** Measured by Gate B at the app's default reference
+settings: aluminium's ⟨112⟩ entries carry 12-16 reference vectors, not the 48
+the cap allows, so the expectation is 0.37-1.3 % and 8 % clears five times it.
+The mark fires only while each pattern's second-largest |u| stays under about
+0.55-0.63 Å⁻¹, and Al {220} alone is at 0.699. Reproduced on an owner-like
+sample: ⟨211⟩ explained 2.32 % against 0.369 % chance, ratio 6.29, no mark.
+**A second measured limit:** the uniform-disc model is well calibrated on
+vectors drawn uniformly over the disc (14 matched of 1 379 against 11.4
+expected) and understates chance about sixfold for vectors confined to the
+radii the references occupy (63 of 1 408 against 10.7) — which is what real
+spurious peaks look like. Both numbers are asserted in
+`ZoneAxisFitTests.testAFitOnRandomVectorsIsAtChanceAndAPlantedOneIsNot`, so a
+reader reproduces them by running that class. What the change bought is the
+number itself, reported instead of absent. The threshold that would catch the
+owner's case is not established: Gate D owed.
+
+---
+
+## HDF5 is entered from two unserialised paths — closed 2026-09-15 late night
+
+**Closure:** one process-wide recursive lock around every logical HDF5 operation (`HDF5Serial`), released across the export's awaits; `tools/hdf5-race-probe` goes from SIGBUS on the first attempt to three completions of three. The residuals are the live entry in [`../open-items.md`](../open-items.md). The sharpened 2026-09-15 text follows.
+
+### HDF5 is entered from two unserialised paths, and a second window is not the worst of it — sharpened 2026-09-15
+**Known, a latent crash, unowned.** Reviewed by reading 2026-09-15; the earlier
+framing ("two dataset windows") understates it and points the owner at a guard
+that would not fix it.
+**What serialises HDF5 today: two mechanisms, neither global.** `H5Reader` is a
+`package actor` (`Core/Data/H5Reader.swift:254`), so it serialises calls to ONE
+INSTANCE. `BraggVectorEMDWriter` is a `nonisolated enum`
+(`Core/Data/BraggVectorEMDWriter.swift:292`) whose every static method is
+nonisolated and whose HDF5 handle comes from a **separate type with its own
+`dlopen`** (`HDF5WriteLibrary`, `:2605`, `:2769`). Nothing guards the writer at
+all. Both resolve to the same process image.
+**So a SINGLE window can race it.** `AppState` runs `loadSession` on
+`Task.detached` (`AppState.swift:1423`, `:2797`) — nonisolated writer code on a
+background thread — while `preloadResidentCube` (`:2671`) is driving
+`reader.readScanTile` on the reader actor. That is the 2026-08-19 crash
+(`EXC_BAD_ACCESS` in `H5SL_search`, reproduced under lldb within a few dozen
+iterations), and **the cheap guard the owner was offered — refuse a second
+load, or disable ⌘N — does not address it.** Two windows make it likelier, not
+possible.
+**Thread-safety is not established programmatically.** `H5is_library_threadsafe`
+is called nowhere; `NOTICE:60-69` records the binary's provenance and SHA-256
+but says nothing about threading. The `Threadsafety: OFF` conclusion rests on
+one `nm` inspection and a two-thread probe from 2026-08-19 that was never
+checked in. That absence is itself a finding: nothing would notice if a future
+Homebrew rebuild changed it either way.
+**The fix is named in the code twice, independently** —
+`App/mac4DSTEMApp.swift:64` and `mac4DSTEMTests/DatasetLoadCancellationTests.swift:141`
+both say "the real fix is one actor owning the library handle". Structurally
+that means collapsing `HDF5Library` and `HDF5WriteLibrary` behind one
+process-wide actor every reader instance and every writer static routes
+through. It cannot live on `AppState` (C5). It is a real refactor of the load
+path, not an afternoon.
+**The race is reproducible now (2026-09-15 late night):**
+`tools/hdf5-race-probe` (diagnostic, classified 2026-09-15)
+reads the demo cube through `H5Reader` while a detached task calls
+`BraggVectorEMDWriter.loadInventory` on a copied sidecar — serial completes
+200 and 200, concurrent dies with SIGBUS inside the first twenty
+(`hdf5-race-20260915.log`). It is the instrument the refactor fails against.
+**Nothing else would catch a regression.** `ConcurrentOpenRefusalTests`
+(`DatasetLoadCancellationTests.swift:127`) tests the reentrancy guard against a
+nonexistent path and never touches libhdf5, and says so itself at `:138`;
+`DatasetResidencyTests` uses a fake actor. The lldb repro exists in no runnable
+form. **Owner:** this is the largest live crash risk in the app and the cheap
+guard does not close it.
+
+## Closed at the 2026-09-16 consolidation
+
+### The zone-axis sweep marks a wrong axis against its own median — Gate D 2026-09-15 night, residuals — closed part
+
+**Science, narrowed.** Gate D found why the disc-chance floor could never mark
+the owner's ⟨112⟩ at 8 %: on a real crystal a wrong axis explains 11–25 % of
+the vectors through SHARED reflections, not chance — measured on planted
+⟨110⟩, ⟨112⟩ and ⟨001⟩ aluminium at 2° steps with 30 % of spots missing,
+0.004 Å⁻¹ jitter and three spurious peaks per pattern, where every one of
+the 49 axes cleared five times disc chance and the median wrong axis sat at
+11–16 % (`chance/run1.log`). So `ZoneAxisFit` carries a second null, the
+sweep's median explained fraction: true families sat at 4.8–6.8× it, wrong
+families at 0.7–1.6×, the bar is 2×, and a row under it reads "no better
+than a wrong axis". The disc rule stays for vectors pointing nowhere (sweep
+median ~0.5 %, where the median is no null). Pinned by
+`testAWrongAxisThatSharesReflectionsIsMarkedBelowTheSweep`, whose control
+asserts the defect (⟨112⟩ clears disc chance) beside the fix.
+**Trap paid, recorded here because it faked a surviving mutation:** the
+filtered `xcodebuild test` runs used to check this test never DISCOVERED it
+(22 cases both times, the new name absent — the stale-bundle trap above),
+so the bar-to-1 mutation "survived" a test that had not run; the mutation
+was demonstrated instead on a scratch harness with the same generator
+(27 of 43 wrong axes clear a bar of 1, 0 clear 2, `chance/`), and the fresh
+`unit` gate is what discovers the test.
+**Gate B (2026-09-15 late night) narrowed it and found the gap that mattered:**
+- **"Find Matrix Zone Axis" wrote the winner into the phase model regardless
+  of either null** — the marks were presentational only. Now a winner that is
+  informative by neither rule is shown and not written, with the reason.
+- **The bar is not a clean separator for every truth.** ⟨111⟩, ⟨012⟩, ⟨210⟩
+  plants: true 2.7–2.8×, worst wrong 1.0–2.0×. A ⟨122⟩ plant: true 2.8× and
+  the ⟨100⟩ family 2.7–2.9×, sometimes above the truth — both rows read as
+  informative and the tie caption is the honest thing. A two-grain scan left
+  both true families at 5×; degradation to 92 % missing never made the sweep
+  rule bind before the disc rule.
+- **Fewer than five axes had no median** — with two, the ratio saturated at
+  1; unreachable from the app (the sweep is always all 49) and now inert
+  below five, pinned by `testATinySweepHasNoMedianNull`. The four mutations
+  of the rule are each killed by the sweep test's own assertions; the gated
+  `phase-vector-matching` harness never constructs a `ZoneAxisFit`.
+
+*The residual stays live in `docs/open-items.md`.*
+
+### HDF5 runs under one lock now — what that costs and what is still open — fixed 2026-09-15 late night — closed part
+
+**Known, a crash closed, a cost accepted.** Every logical HDF5 operation —
+each `H5Reader` public method, its open and close, and every
+`BraggVectorEMDWriter` entry point — takes `HDF5Serial` (HDF5Types.swift), a
+process-wide recursive lock: the thread-safe HDF5 build done from outside,
+around operations instead of API calls. The tile-streaming export releases
+it before each `await` on the source actor and re-takes it per tile, so the
+one path that nests reader inside writer cannot deadlock on it. Instrument:
+`tools/hdf5-race-probe` — before, serial 200/200 and concurrent SIGBUS in
+the first twenty; after, concurrent **3 of 3 complete** (`hdf5-race-after-
+20260915.log`). No Gate D (the cause is the probe's reproducing
+observation). **Gate B ran and found the claim "every call" false as
+shipped:** `loadResultMap(id:)` and `loadRGBAResultMap(id:)` open the file
+themselves, took nothing, and a probe variant driving them crashed
+concurrently on the first attempt (SIGSEGV) while the inventory path — the
+only one the probe drove — completed. Both are locked now, so is the
+export's own `HDF5WriteLibrary.load()` (`H5open` is an API call too), the
+probe alternates all three entry points (`hdf5-race-after2-20260915.log`,
+3 of 3), and the audit rule is written on the lock: every
+`HDF5WriteLibrary.load()` / `HDF5Library.load()` site sits under it. The
+refuter also found `HDF5Serial` inheriting the project's main-actor default
+(a Swift 6 error in waiting) — now `nonisolated`; no lock held across an
+await; no deadlock path; no measurable cost (2.39 s → 2.28 s serial).
+
+*The residual stays live in `docs/open-items.md`.*
+
+### Origin-fit gate has two unresolved holes (2026-09-05) — closed part
+
+(a) closed 2026-09-05: `probeSize` refuses (nil, `probeNotMeasurable`) when
+no finite pixel is above zero or no mass clears the threshold; non-finite
+pixels are skipped at every step; the median matches `np.median` for even n
+(`ProbeSizeTests`; the refuter's +inf escape closed, two mutants caught).
+
+*The residual stays live in `docs/open-items.md`.*
+
+### The sidecar reader has D003's missing guard too — not fixed (2026-09-09) — closed part
+
+Left alone deliberately: the owner scoped this
+session to D002 and D003 only.
+
+*The residual stays live in `docs/open-items.md`.*
+
+### Manual Q and R pixel scale cannot be corrected once entered — fixed in code, drive owed (2026-09-04) — closed part
+
+**Code fix 2026-09-05** (second cut; the first locked a restored
+session value and an imported Q, and committed two red tests against
+itself): `PrepareSettings.shouldShowManualScaleEditor` keeps R editable
+always and Q editable for every provenance except measured-in-app, with the
+hover text naming the value an entry replaces; Prepare and ExportSheet share
+it, three unit tests pin it.
+
+*The residual stays live in `docs/open-items.md`.*
+

@@ -50,7 +50,37 @@ final class ActivityLogTests: XCTestCase {
 
     // MARK: - What it records, and what it refuses
 
+    /// Extended 2026-09-12 with the FUNNEL half of the rule.
+    ///
+    /// The old rule was "a message ending in %", which forced every operation
+    /// to append a percentage to its status line purely to be filtered — the
+    /// same fact the progress bar beside it already drew — and did not even
+    /// work: `SystemMonitor.scanProgressStatus` ends in "GB", so a whole-cube
+    /// pass wrote a line here every tick and buried the run's real events
+    /// (seen in the owner's screenshot, 2026-09-12). The status string in the
+    /// second half below is that exact shape.
+    ///
+    /// Mutation: `updateCancellableOperation` writing `statusText` directly
+    /// again instead of `showReadout`.
     func testProgressSpamAndEmptyMessagesNeverReachTheLog() {
+        let appState = AppState()
+        let token = appState.beginCancellableOperation(
+            "Virtual detector", status: "Computing virtual detector…", totalUnits: 50)
+        let afterStart = appState.activityLog.messages.count
+        XCTAssertGreaterThan(afterStart, 0, "beginning an operation IS an event")
+        for i in 1...50 {
+            appState.updateCancellableOperation(
+                token, progress: Double(i) / 50,
+                status: "Computing virtual detector… \(i) / 50 patterns · 1.54 GB of 1.66 GB")
+        }
+        XCTAssertEqual(
+            appState.activityLog.messages.count, afterStart,
+            "progress reached the log: 50 ticks wrote "
+            + "\(appState.activityLog.messages.count - afterStart) lines")
+        // The status LINE still shows it — suppression is about the log only.
+        XCTAssertTrue(appState.statusText.hasSuffix("1.66 GB"), appState.statusText)
+        appState.finishCancellableOperation(token)
+
         let log = ActivityLog(now: { Date(timeIntervalSinceReferenceDate: 0) })
         log.record("")
         log.record("Detecting disks… 42 %")
@@ -115,6 +145,41 @@ final class ActivityLogTests: XCTestCase {
         XCTAssertTrue(log.messages[1].hasPrefix(stamp(now)))
         XCTAssertNotEqual(String(log.messages[0].prefix(8)), String(log.messages[1].prefix(8)))
     }
+
+    /// A READOUT IS NOT AN EVENT, and before 2026-09-12 the log could not tell
+    /// the difference. Every click on the scan image wrote
+    /// "Pattern x 154, y 152 from <filename>" through `statusText`, the
+    /// consecutive-repeat rule never fired because the coordinates differ
+    /// every time, and on a 330 × 330 scan there are 108 900 of them against a
+    /// 300-line capacity — so moving the cursor evicted the run's real events
+    /// from the record kept to explain them. Observed in the owner's own
+    /// screenshot.
+    ///
+    /// Mutation: `suppressNextRecord` never reset, or read without being
+    /// consumed. Either one makes the flag leak into the write after it, and
+    /// the first real event following a click would vanish instead.
+    func testAReadoutReachesTheStatusLineAndNotTheLog() {
+        let log = ActivityLog(now: { Date(timeIntervalSince1970: 0) })
+        log.record("Disks ✓ 802 752 peaks")
+        XCTAssertEqual(log.messages.count, 1)
+
+        log.suppressNextRecordOnce()
+        log.record("Pattern x 154, y 152")
+        XCTAssertEqual(log.messages.count, 1, "a readout was recorded as an event")
+
+        // Consumed: the very next write is an event again.
+        log.record("Pattern x 96, y 80")
+        XCTAssertEqual(log.messages.count, 2,
+                       "the suppression leaked into the write after it")
+        XCTAssertTrue(log.messages.last?.hasSuffix("Pattern x 96, y 80") ?? false)
+
+        // And suppressing then recording nothing must not arm the next write.
+        log.suppressNextRecordOnce()
+        log.record("")
+        log.record("Phase map: β″ 1, matrix 0")
+        XCTAssertEqual(log.messages.count, 3,
+                       "an empty suppressed write left the flag armed")
+    }
 }
 
 /// Set from `withObservationTracking`'s `onChange`, which runs off the main
@@ -126,4 +191,5 @@ nonisolated final class ObservationFlag: @unchecked Sendable {
         get { lock.lock(); defer { lock.unlock() }; return value }
         set { lock.lock(); defer { lock.unlock() }; value = newValue }
     }
+
 }

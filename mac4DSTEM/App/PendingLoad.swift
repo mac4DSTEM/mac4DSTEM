@@ -202,7 +202,7 @@ final class PendingLoad: Identifiable {
                 return
             } catch {
                 guard !Task.isCancelled else { return }
-                self.singleDPFailure = error.localizedDescription
+                self.singleDPFailure = AppState.errorDetail(error)
             }
         }
     }
@@ -362,7 +362,7 @@ final class PendingLoad: Identifiable {
         } catch let error as LoadSpecificationError {
             return error.errorDescription
         } catch {
-            return error.localizedDescription
+            return AppState.errorDetail(error)
         }
     }
 }

@@ -524,3 +524,353 @@ final class CalibrationReReferenceTests: XCTestCase {
         XCTAssertEqual(outcome.calibration.recordedOriginY, 6)
     }
 }
+
+/// The permutation null on the R–Q rotation fit (2026-09-14/15). Gate D record:
+/// `docs/open-items.md`, "R–Q rotation reports Measured from a field that is
+/// pure shot noise". The app told the owner it had measured −67.5° on a cube
+/// built with the axes aligned; the field it fitted was Poisson noise.
+final class RotationSignificanceTests: XCTestCase {
+
+    /// A field with a genuine rotation must still be measured. Mutation this
+    /// names: a null that is too strict, or `carriesRotation` inverted — either
+    /// one would refuse every real dataset, which is worse than the defect.
+    func testARealRotationIsStillMeasured() throws {
+        let planted = 30.0 * Double.pi / 180
+        let field = Self.phaseObjectField(width: 40, height: 40, rotatedBy: planted)
+        let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+        XCTAssertTrue(result.carriesRotation,
+                      "a planted 30° rotation on a phase-object field was refused: "
+                      + "depth \(result.depth), shuffled max \(result.shuffledDepths.max() ?? 0)")
+        XCTAssertNil(result.refusalMessage)
+        // and it is the right angle, up to the method's own 180° ambiguity
+        let deg = Double(result.rotationRad) * 180 / .pi
+        let error = min(abs(deg + 30), abs(deg + 30 - 180), abs(deg + 30 + 180))
+        XCTAssertLessThan(error, 2.0, "recovered \(deg)°, expected −30° (mod 180)")
+    }
+
+    /// Mutation this names: deleting the null, or comparing against the mean of
+    /// the shuffles rather than all of them. Either restores the defect.
+    func testAFieldOfPureNoiseIsRefused() throws {
+        let field = Self.noiseField(width: 40, height: 40)
+        let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+        XCTAssertFalse(result.carriesRotation,
+                       "a field of pure noise was reported as a rotation: depth "
+                       + "\(result.depth), shuffled max \(result.shuffledDepths.max() ?? 0)")
+        let refusal = try XCTUnwrap(result.refusalMessage)
+        XCTAssertTrue(refusal.contains("surrogates with the same spectrum"),
+                      "the refusal must name the null it lost to — the surrogate, not the "
+                      + "shuffle the 2026-09-15 drive still read on screen: \(refusal)")
+        // Gate B, 2026-09-15: the sentence used to claim "the rotation is left
+        // as Not set", which the code never establishes — it declines to write
+        // and never clears. A refusal that misdescribes the state it leaves is
+        // worse than none, so the wording is pinned here.
+        XCTAssertTrue(refusal.contains("not updated"),
+                      "the refusal must not claim to have cleared anything: \(refusal)")
+        XCTAssertFalse(refusal.contains("Not set"),
+                       "the refusal claims a state the code does not establish")
+    }
+
+    /// THE FAILURE GATE B FOUND, pinned (2026-09-15 night). A rotation-free
+    /// field with spatial structure — white noise smoothed by a 7 × 7 box,
+    /// longer than probe overlap produces — was certified 65 % of the time by
+    /// the shuffle null (`tools/rotation-null-probe`, box 7). The
+    /// phase-randomised surrogate null keeps the field's correlation length,
+    /// so structure alone no longer beats it. Six fixed seeds, each a
+    /// deterministic refusal under the new null (seed 16 was certified — the
+    /// 1-in-16 lottery the entry records — and was swapped for 17; the rate
+    /// claim lives in the probe, this pins six fields). Under the old null the
+    /// same six seeds were scanned and four of them certified, so restoring
+    /// the shuffle turns this red.
+    func testAStructuredRotationFreeFieldIsRefused() throws {
+        for seed in [11, 12, 13, 14, 15, 17] as [UInt64] {
+            let field = Self.smoothedNoiseField(width: 40, height: 40, radius: 3, seed: seed)
+            let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+            XCTAssertFalse(result.carriesRotation,
+                           "seed \(seed): a rotation-free field with a 7-px correlation length "
+                           + "was certified: depth \(result.depth), null max "
+                           + "\(result.shuffledDepths.max() ?? 0)")
+        }
+    }
+
+    /// The surrogate must be a REAL field: Gate B (2026-09-15 night) dropped
+    /// the Hermitian pairing so each bin got an independent phase, and every
+    /// pinned test stayed green because the noiseless planted rotation's
+    /// depth dwarfs even a garbage null — while the probe's noisy planted
+    /// rotation fell from 60 of 60 certified to 16. Three seeds at sd 0.03:
+    /// under that mutation the chance that all three certify is about 2 %.
+    func testANoisyPlantedRotationIsStillCertified() throws {
+        for seed in [3, 4, 5] as [UInt64] {
+            let field = Self.noisyPhaseObjectField(width: 40, height: 40, rotatedBy: 30 * .pi / 180,
+                                                   noiseSd: 0.03, seed: seed)
+            let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+            XCTAssertTrue(result.carriesRotation,
+                          "seed \(seed): a planted 30° under sd 0.03 was refused: depth "
+                          + "\(result.depth), null max \(result.shuffledDepths.max() ?? 0)")
+        }
+    }
+
+    /// The null must not move between runs. A refusal that flickers is worse
+    /// than none, because the user cannot tell which answer to believe.
+    func testTheNullIsDeterministic() throws {
+        let field = Self.noiseField(width: 32, height: 32)
+        let first = try XCTUnwrap(RotationCalibration.solve(com: field, width: 32, height: 32))
+        let second = try XCTUnwrap(RotationCalibration.solve(com: field, width: 32, height: 32))
+        XCTAssertEqual(first.shuffledDepths, second.shuffledDepths,
+                       "the permutation null is not reproducible")
+        XCTAssertEqual(first.carriesRotation, second.carriesRotation)
+    }
+
+    /// The three mutations Gate B left alive on 2026-09-15, pinned here.
+    /// None is about the science; each is about a claim the code makes that
+    /// nothing checked.
+    func testTheNullReportsFifteenShufflesOfTheWinningCurve() throws {
+        let field = Self.noiseField(width: 40, height: 40)
+        let result = try XCTUnwrap(RotationCalibration.solve(com: field, width: 40, height: 40))
+
+        // (1) `shuffleCount` 15 → 6 was green. Fifteen is a 1-in-16 design
+        // rate; six is 1-in-7, more than double the false-certification rate,
+        // and nothing noticed.
+        XCTAssertEqual(result.shuffledDepths.count, 15,
+                       "the null's size is what sets its false-certification rate")
+
+        // (2) `depth` is the WINNING curve's, not the losing one's — taking the
+        // loser was green, and the comment arguing for the winner was the only
+        // thing saying so. Recomputed here from the curves the result carries.
+        func depth(_ c: [Float]) -> Float {
+            guard let lo = c.min(), let hi = c.max() else { return .nan }
+            let mean = c.reduce(0, +) / Float(c.count)
+            return mean != 0 ? (hi - lo) / abs(mean) : .nan
+        }
+        let winning = result.transpose ? result.objectiveCurveTransposed : result.objectiveCurve
+        let losing = result.transpose ? result.objectiveCurve : result.objectiveCurveTransposed
+        XCTAssertEqual(result.depth, depth(winning), accuracy: 1e-6,
+                       "depth was not measured on the curve the answer came from")
+        // and the two must differ, or the assertion above is vacuous
+        XCTAssertNotEqual(depth(winning), depth(losing), accuracy: 1e-9)
+    }
+
+    /// THE MUTATION THIS CLOSES, and it is the one that mattered: Gate B
+    /// deleted the guard from `AppState.calibrateRotation` and the entire
+    /// suite stayed green, because every test lived in Core and none
+    /// constructed a session. The line deciding whether a refused rotation
+    /// reaches strain, ACOM and DPC was the line nothing covered.
+    func testARefusedFitWritesNothingAndAKeptOneWrites() {
+        let session = CalibrationSession()
+
+        // A fit the field does not support: nothing may be written.
+        let refused = Self.result(depth: .nan, shuffled: [])
+        let message = session.applyRotation(refused)
+        XCTAssertNotNil(message, "a refused fit was accepted")
+        XCTAssertNil(session.calibration.rotationRad)
+        XCTAssertNil(session.calibration.transposeQR)
+        XCTAssertNil(session.provenance.rotation)
+
+        // One it does: angle, transpose and provenance all land together.
+        let kept = Self.result(depth: 1.0, shuffled: [0.1, 0.2])
+        XCTAssertNil(session.applyRotation(kept), "a good fit was refused")
+        XCTAssertEqual(session.calibration.rotationRad, kept.rotationRad)
+        XCTAssertEqual(session.calibration.transposeQR, kept.transpose)
+        XCTAssertEqual(session.provenance.rotation, .measuredInApp)
+    }
+
+    /// `applyEllipseFit`/`refuseEllipseFit`: the ellipse's version of the two
+    /// tests above, at the same boundary and for the same reason (Gate B,
+    /// 2026-09-15) — the "fit anyway" decision lives in `CalibrationSession`
+    /// precisely so a test can reach it without an `AppState`.
+    func testAFullCoverageEllipseFitIsMeasuredInApp() {
+        let session = CalibrationSession()
+        let fit = Self.ellipseFit(sparseCoverage: false, occupiedAngularBins: 34)
+        session.applyEllipseFit(fit)
+
+        XCTAssertEqual(session.calibration.ellipseA, fit.a)
+        XCTAssertEqual(session.calibration.ellipseB, fit.b)
+        XCTAssertEqual(session.calibration.ellipseTheta, fit.theta)
+        XCTAssertEqual(session.provenance.ellipse, .measuredInApp)
+        let item = session.readiness.items.first { $0.kind == .ellipse }
+        XCTAssertEqual(item?.status, .ready(.measuredInApp))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+    }
+
+    func testASparseEllipseFitIsMarkedFitAnywayAndReady() {
+        let session = CalibrationSession()
+        let fit = Self.ellipseFit(sparseCoverage: true, occupiedAngularBins: 20)
+        session.applyEllipseFit(fit)
+
+        XCTAssertEqual(session.provenance.ellipse, .fitAnyway)
+        XCTAssertEqual(session.provenance.ellipse?.stateLabel, "Fit anyway")
+        let item = session.readiness.items.first { $0.kind == .ellipse }
+        XCTAssertEqual(item?.status, .ready(.fitAnyway))
+        XCTAssertEqual(item?.status.isReady, true)
+        XCTAssertEqual(item?.status.displayName, "Fit anyway")
+        XCTAssertEqual(session.lastEllipseFit, fit)
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+    }
+
+    /// The offer exists ONLY in the band a retry could rescue: below the
+    /// sparse floor `fit1D` refuses outright regardless of `acceptSparseCoverage`,
+    /// and at/above the degeneracy bound the original call would not have been
+    /// refused for coverage in the first place — belt and braces on that last
+    /// one, since it should be unreachable from the fitter itself.
+    func testACoverageRefusalOffersFitAnywayOnlyBetweenTheFloorAndTheBound() {
+        let session = CalibrationSession()
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(12))
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 12)
+        XCTAssertFalse(session.calibration.hasEllipse)
+        XCTAssertNil(session.provenance.ellipse)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(29))
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 29)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(8))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(30))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.moreThanOneRing(minRadius: 36.6, maxRadius: 58.2))
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.invalidEllipse)
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+
+        // Moving the annulus retires the offer: the caption named the old one.
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(18))
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 18)
+        session.ellipseFitOuterRadius += 5
+        XCTAssertNil(session.ellipseFitAnywayOffer, "a changed annulus kept a stale offer")
+    }
+
+    func testARefusalLeavesAnEarlierEllipseStandingAndASuccessClearsTheOffer() {
+        let session = CalibrationSession()
+        let full = Self.ellipseFit(sparseCoverage: false, occupiedAngularBins: 34)
+        session.applyEllipseFit(full)
+
+        session.refuseEllipseFit(EllipseCalibration.FitError.insufficientAngularCoverage(12))
+        XCTAssertEqual(session.calibration.ellipseA, full.a,
+                       "the refusal cleared an ellipse it only meant to decline")
+        XCTAssertEqual(session.provenance.ellipse, .measuredInApp)
+        XCTAssertEqual(session.ellipseFitAnywayOffer, 12)
+
+        let sparse = Self.ellipseFit(sparseCoverage: true, occupiedAngularBins: 20)
+        session.applyEllipseFit(sparse)
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+        XCTAssertEqual(session.provenance.ellipse, .fitAnyway)
+
+        session.clear()
+        XCTAssertNil(session.ellipseFitAnywayOffer)
+        XCTAssertNil(session.lastEllipseFit)
+        XCTAssertFalse(session.calibration.hasEllipse)
+    }
+
+    private static func ellipseFit(sparseCoverage: Bool, occupiedAngularBins: Int) -> EllipseCalibrationFit {
+        EllipseCalibrationFit(
+            centerQX: 12, centerQY: 11, a: 43.68, b: 39.72, theta: 0.4,
+            normalizedResidual: 0.08, conicResidual: 0.08,
+            sampleCount: 900, occupiedAngularBins: occupiedAngularBins,
+            model: .conic, profile: nil, profileFallbackReason: nil,
+            sparseCoverage: sparseCoverage
+        )
+    }
+
+    /// And the behaviour the refusal sentence had to be corrected to describe:
+    /// a refusal declines to write, it does NOT clear. An earlier value stands,
+    /// which is why the message says "not updated" rather than "Not set".
+    func testARefusalLeavesAnEarlierRotationStanding() {
+        let session = CalibrationSession()
+        XCTAssertNil(session.applyRotation(Self.result(depth: 1.0, shuffled: [0.1])))
+        let kept = session.calibration.rotationRad
+
+        let message = session.applyRotation(Self.result(depth: .nan, shuffled: []))
+        XCTAssertNotNil(message)
+        XCTAssertEqual(session.calibration.rotationRad, kept,
+                       "the refusal cleared a rotation it only meant to decline")
+        XCTAssertEqual(session.provenance.rotation, .measuredInApp,
+                       "the refusal changed the provenance of a value it did not touch")
+        XCTAssertTrue(try XCTUnwrap(message).contains("not updated"),
+                      "the sentence must describe what actually happened")
+    }
+
+    private static func result(depth: Float,
+                               shuffled: [Float]) -> RotationCalibration.Result {
+        RotationCalibration.Result(
+            rotationRad: 0.5236, transpose: true, objective: 0.01,
+            anglesDeg: [0], objectiveCurve: [0.01], objectiveCurveTransposed: [0.02],
+            depth: depth, shuffledDepths: shuffled)
+    }
+
+    // MARK: Fixtures
+
+    /// The gradient of a smooth scalar potential, rotated — what the method is
+    /// built for. Interleaved (x, y) per scan position, as `solve` expects.
+    private static func phaseObjectField(width: Int, height: Int,
+                                         rotatedBy theta: Double) -> [Float] {
+        var out = [Float](repeating: 0, count: width * height * 2)
+        let c = cos(theta), s = sin(theta)
+        for y in 0..<height {
+            for x in 0..<width {
+                // ∂/∂x and ∂/∂y of sin(x/6)·cos(y/5), analytically.
+                let gx = cos(Double(x) / 6) * cos(Double(y) / 5) / 6
+                let gy = -sin(Double(x) / 6) * sin(Double(y) / 5) / 5
+                let i = (y * width + x) * 2
+                out[i] = Float(c * gx - s * gy)
+                out[i + 1] = Float(s * gx + c * gy)
+            }
+        }
+        return out
+    }
+
+    /// The phase-object gradient field with white noise of `noiseSd` on both
+    /// channels, seeded.
+    private static func noisyPhaseObjectField(width: Int, height: Int, rotatedBy theta: Double,
+                                              noiseSd: Double, seed: UInt64) -> [Float] {
+        var state: UInt64 = 0xB16B00B5DEADBEEF &+ seed &* 0x9E3779B97F4A7C15
+        func next() -> Double {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            return Double((state &* 2685821657736338717) >> 11) / Double(UInt64(1) << 53)
+        }
+        func gauss() -> Double { sqrt(-2 * log(max(1e-12, next()))) * cos(2 * .pi * next()) }
+        var out = phaseObjectField(width: width, height: height, rotatedBy: theta)
+        for i in out.indices { out[i] += Float(gauss() * noiseSd) }
+        return out
+    }
+
+    /// White noise (sd ≈ 0.010 px) smoothed by a (2·radius + 1)² box, each
+    /// channel independently: spatial structure with no rotation in it.
+    private static func smoothedNoiseField(width: Int, height: Int, radius: Int, seed: UInt64) -> [Float] {
+        var state: UInt64 = 0xC0FFEE0000000000 &+ seed &* 0x9E3779B97F4A7C15
+        func next() -> Float {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            let u = Double((state &* 2685821657736338717) >> 11) / Double(UInt64(1) << 53)
+            return Float((u - 0.5) * 0.035)
+        }
+        let white = (0..<(width * height * 2)).map { _ in next() }
+        var out = [Float](repeating: 0, count: white.count)
+        for y in 0..<height {
+            for x in 0..<width {
+                var sx: Float = 0, sy: Float = 0, count: Float = 0
+                for dy in -radius...radius where y + dy >= 0 && y + dy < height {
+                    for dx in -radius...radius where x + dx >= 0 && x + dx < width {
+                        let i = ((y + dy) * width + (x + dx)) * 2
+                        sx += white[i]; sy += white[i + 1]; count += 1
+                    }
+                }
+                out[(y * width + x) * 2] = sx / count
+                out[(y * width + x) * 2 + 1] = sy / count
+            }
+        }
+        return out
+    }
+
+    /// Deterministic white noise at the scale the demo cube actually showed
+    /// (sd ≈ 0.010 detector pixels), with no spatial structure at all.
+    private static func noiseField(width: Int, height: Int) -> [Float] {
+        var state: UInt64 = 0xDEADBEEF12345678
+        func next() -> Float {
+            state ^= state >> 12; state ^= state << 25; state ^= state >> 27
+            let u = Double((state &* 2685821657736338717) >> 11) / Double(UInt64(1) << 53)
+            return Float((u - 0.5) * 0.02)
+        }
+        return (0..<(width * height * 2)).map { _ in next() }
+    }
+}

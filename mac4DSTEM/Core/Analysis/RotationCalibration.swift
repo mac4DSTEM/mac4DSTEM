@@ -40,15 +40,83 @@ package enum RotationCalibration {
         package let anglesDeg: [Float]
         package let objectiveCurve: [Float]
         package let objectiveCurveTransposed: [Float]
+        /// Depth of the WINNING curve, `(max − min) / mean`. Not pooled across
+        /// the two transpose curves: the answer came from one of them, and
+        /// pooling reports a contrast the fit never saw.
+        package let depth: Float
+        /// The same depth, measured on scan-position-shuffled copies of the
+        /// same field. Shuffling destroys the spatial arrangement and keeps
+        /// the noise level, the dose and the scan size — so a field with
+        /// spatial structure beats these and a spatially WHITE field does not.
+        ///
+        /// That is the honest statement of what the null tests, and it is
+        /// narrower than "does this carry a rotation". Gate B, 2026-09-15:
+        /// box-smoothed noise with NO rotation at a correlation length of two
+        /// scan pixels beats all fifteen shuffles 60–80 % of the time, and
+        /// probe overlap alone produces that correlation on ordinary data.
+        package let shuffledDepths: [Float]
+
+        /// Did this field carry a rotation at all?
+        ///
+        /// A permutation test rather than a threshold, because the number a
+        /// threshold would need is not a constant: measured 2026-09-14, the
+        /// depth of a pure-noise field runs 0.016 at a 100 × 100 scan and
+        /// 0.089 at 20 × 20, and varies 13-fold with the signal's spatial
+        /// frequency at fixed signal-to-noise. The shuffle carries the
+        /// dataset's own scale with it and needs no constant to defend.
+        ///
+        /// WHAT THIS CANNOT DO, measured rather than guessed (Gate B,
+        /// 2026-09-15). It catches one failure: that the field is spatially
+        /// WHITE, which on 2026-09-14 was reported to the owner as
+        /// "Measured −67.5°" from pure Poisson shot noise. It does NOT:
+        /// - catch a rotation-free field that merely has structure — a
+        ///   per-row descan drift and a specimen edge were both certified
+        ///   6 of 6, at 6–20× the shuffled depth, with arbitrary angles;
+        /// - imply the angle is accurate. Planted 30° plus noise at sd 0.03
+        ///   is certified 60 of 60 while 9 of those are more than 5° out and
+        ///   one is 61° out.
+        /// It does not refuse real rotations: 0 of 60 at every noise level
+        /// through sd 0.05.
+        ///
+        /// AND THE VERDICT IS SEED-CONDITIONAL. Fifteen shuffles with
+        /// "beat every one" is a rank test at a 1-in-16 design rate; the
+        /// unit suite's own noise fixture is certified under 50 of 200 seeds.
+        /// A deeper fix needs a statistic, not a rank.
+        package var carriesRotation: Bool {
+            guard depth.isFinite, !shuffledDepths.isEmpty else { return false }
+            return shuffledDepths.allSatisfy { depth > $0 }
+        }
+
+        /// Why this fit may not be written, or nil when it may. The sentence
+        /// lives here rather than in the caller so the refusal and the test
+        /// that produces it cannot drift apart.
+        package var refusalMessage: String? {
+            guard !carriesRotation else { return nil }
+            // "not updated", NOT "left as Not set": this declines to write and
+            // never clears, so a rotation already there — from an earlier fit,
+            // a session sidecar, the file, or typed by hand — survives, and
+            // strain, ACOM and DPC go on using it. Gate B found the original
+            // sentence claiming a state the code does not establish.
+            // "surrogates", not "shuffling": the null changed on 2026-09-15
+            // night and the sentence did not, and the drive of 2026-09-15
+            // read the stale word on screen.
+            return "This scan's centre-of-mass field carries no rotation its own "
+                + "structure does not explain: surrogates with the same spectrum and "
+                + "random phases fit it as well, so there is nothing here for a "
+                + "curl-based fit to lock onto. The rotation is not updated. Try a "
+                + "thicker or more amorphous region, or a larger scan."
+        }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-        package nonisolated init(rotationRad: Float, transpose: Bool, objective: Float, anglesDeg: [Float], objectiveCurve: [Float], objectiveCurveTransposed: [Float]) {
+        package nonisolated init(rotationRad: Float, transpose: Bool, objective: Float, anglesDeg: [Float], objectiveCurve: [Float], objectiveCurveTransposed: [Float], depth: Float = .nan, shuffledDepths: [Float] = []) {
             self.rotationRad = rotationRad
             self.transpose = transpose
             self.objective = objective
             self.anglesDeg = anglesDeg
             self.objectiveCurve = objectiveCurve
             self.objectiveCurveTransposed = objectiveCurveTransposed
+            self.depth = depth
+            self.shuffledDepths = shuffledDepths
         }
     }
 
@@ -138,11 +206,109 @@ package enum RotationCalibration {
             }
         }
 
+        // THE NULL (rebuilt 2026-09-15 night, Gate D). Phase-randomised
+        // SURROGATES of each channel, not a shuffle of the positions.
+        //
+        // The shuffle null shipped on 2026-09-15 morning was calibrated for
+        // exchangeable samples: it destroys the spatial arrangement, so a
+        // rotation-free field with any spatial correlation — which probe
+        // overlap alone produces — beat it far more often than its 1-in-16
+        // design rate. Measured with `tools/rotation-null-probe` before this
+        // change: box-smoothed noise certified 15 % (box 1, white), 32 %
+        // (box 3), 52 % (box 5), 65 % (box 7) — the rate rising with the
+        // correlation length is the diagnosis's own prediction, met.
+        //
+        // What a rotation IS, to this objective: a fixed phase relation
+        // between the two channels (cx = ∂φ/∂x, cy = ∂φ/∂y, up to the
+        // rotation being measured). A surrogate that keeps each channel's
+        // amplitude spectrum — hence its correlation length, its anisotropy,
+        // its mean — and randomises the phases independently per channel
+        // keeps everything the null should keep and destroys exactly that
+        // relation. The rank test over fifteen of them is then exact by
+        // construction (Theiler et al. 1992), whatever the field's structure.
+        //
+        // What it deliberately cannot do: a field whose rotation is carried
+        // by ONE channel alone (a 1-D specimen, or a descan ramp in one axis)
+        // has no cross-channel relation to destroy, so it is refused — and
+        // that is right, because a drift and a striped phase object are the
+        // same field. A two-channel step edge (both channels stepping at the
+        // same place) IS a rotated gradient and stays certified; no method
+        // that reads the field alone can tell it from a rotation.
+        //
+        // Deterministic by a fixed seed: a refusal that flickers between runs
+        // is worse than no refusal at all. Hermitian pairs get opposite
+        // phases so the inverse transform stays real; self-conjugate bins
+        // (DC, Nyquist) keep theirs. Gate B (2026-09-15 night) applied the
+        // unpaired variant: the probe's noisy planted rotation fell from
+        // 60 of 60 certified to 16, which is what the sd-0.03 unit test
+        // pins. Box-7 smoothing on a 40-px field still certifies 10 of 60
+        // because the field is not periodic and the surrogate is; the same
+        // field wrapped periodically certifies 5 of 60.
+        //
+        // DEVIATION: py4DSTEM's `_solve_for_center_of_mass_relative_rotation`
+        // (phase_base_class.py) has no significance test at all — it returns
+        // the grid-search optimum whatever the field. The refusal mechanism
+        // from the shuffle null of 2026-09-15 morning onwards is this port's
+        // own, because the owner was handed "Measured −67.5°" from shot
+        // noise and no downstream consumer could tell.
+        func depth(_ c: [Float]) -> Float {
+            guard let lo = c.min(), let hi = c.max(), !c.isEmpty else { return .nan }
+            let mean = c.reduce(0, +) / Float(c.count)
+            return mean != 0 ? (hi - lo) / abs(mean) : .nan
+        }
+        let winningDepth = depth(transpose ? curveT : curve)
+        var rng: UInt64 = 0x9E3779B97F4A7C15
+        func nextUnit() -> Float {
+            rng ^= rng >> 12; rng ^= rng << 25; rng ^= rng >> 27
+            return Float(Double((rng &* 2685821657736338717) >> 11) / Double(UInt64(1) << 53))
+        }
+        var shuffledDepths: [Float] = []
+        let shuffleCount = 15
+        shuffledDepths.reserveCapacity(shuffleCount)
+        let originalCX = cx, originalCY = cy
+        // No FFT plan (Accelerate could not allocate one) leaves the null
+        // empty, and `carriesRotation` refuses on an empty null: a fit that
+        // cannot be tested is not written.
+        if let fft = FFT2D(nx: width, ny: height) {
+            func surrogate(_ channel: [Float]) -> [Float] {
+                var re = channel
+                var im = [Float](repeating: 0, count: n)
+                fft.transform(re: &re, im: &im, forward: true)
+                for k in 0..<n {
+                    let kx = k % width, ky = k / width
+                    let partner = ((height - ky) % height) * width + ((width - kx) % width)
+                    if partner < k { continue }          // rotated with its pair already
+                    if partner == k { continue }         // self-conjugate: keep the phase
+                    let phi = nextUnit() * 2 * .pi
+                    let c = cos(phi), sn = sin(phi)
+                    let r0 = re[k], i0 = im[k]
+                    re[k] = r0 * c - i0 * sn; im[k] = r0 * sn + i0 * c
+                    let r1 = re[partner], i1 = im[partner]
+                    re[partner] = r1 * c + i1 * sn; im[partner] = -r1 * sn + i1 * c
+                }
+                fft.transform(re: &re, im: &im, forward: false, scaleInverse: true)
+                return re
+            }
+            for _ in 0..<shuffleCount {
+                if cancellation?.isCancelled == true { return nil }
+                cx = surrogate(originalCX)
+                cy = surrogate(originalCY)
+                let shuffledCurve = anglesDeg.map { objective(thetaRad: $0 * .pi / 180, transpose: false) }
+                let shuffledCurveT = anglesDeg.map { objective(thetaRad: $0 * .pi / 180, transpose: true) }
+                let s0 = best(shuffledCurve), sT = best(shuffledCurveT)
+                let takeTransposed = maximizeDivergence ? sT.val > s0.val : sT.val < s0.val
+                shuffledDepths.append(depth(takeTransposed ? shuffledCurveT : shuffledCurve))
+            }
+        }
+        cx = originalCX; cy = originalCY
+
         return Result(rotationRad: bestDeg * .pi / 180,
                       transpose: transpose,
                       objective: bestVal,
                       anglesDeg: anglesDeg,
                       objectiveCurve: curve,
-                      objectiveCurveTransposed: curveT)
+                      objectiveCurveTransposed: curveT,
+                      depth: winningDepth,
+                      shuffledDepths: shuffledDepths)
     }
 }

@@ -201,6 +201,7 @@ final class AppState {
     /// Views read `strain.…`; no forwarding properties. // v2 S8
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
+    let phaseMapping = PhaseMappingProduct()
     /// The last reciprocal-pixel calibration attempt — S13's seam
     /// (docs/development-process.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
@@ -331,18 +332,7 @@ final class AppState {
     private(set) var parallaxSubpixel: ParallaxSubpixelResult?
     private(set) var parallaxDepth: ParallaxDepthResult?
     private(set) var singleslicePtychography: SingleslicePtychographyResult?
-    var ptychographyIterations = 8
-    var ptychographyMethod: SingleslicePtychographyMethod = .gradientDescent
-    var ptychographyStepSize: Float = 0.5
-    var ptychographyProjectionParameter: Float = 1
-    var ptychographyNormalizationMinimum: Float = 1
-    var ptychographyFixProbe = false
-    var ptychographyConstrainObjectAmplitude = false
-    var ptychographyPurePhaseObject = false
-    var ptychographyFixProbeCenterOfMass = false
-    var ptychographyConstrainProbeAmplitude = false
-    var ptychographyProbeAmplitudeRadius: Float = 0.5
-    var ptychographyProbeAmplitudeWidth: Float = 0.05
+    let ptychography = PtychographySettings()
     var parallaxKDEUpsampleFactor: Double = 0
     var parallaxKDESigmaPixels: Double = 0.125
     var parallaxKDELowpass = false
@@ -487,12 +477,6 @@ final class AppState {
     /// the UI always names the backend that will actually execute.
     var effectiveACOMBackend: ACOMMatchingBackend {
         acomSession.backend == .automatic ? .cpu : acomSession.backend
-    }
-
-    var acomBackendSummary: String {
-        acomSession.backend == .automatic
-            ? "Automatic · \(effectiveACOMBackend.rawValue)"
-            : effectiveACOMBackend.rawValue
     }
 
     private var acomScanSelection: ACOMScanSelection {
@@ -727,7 +711,7 @@ final class AppState {
         switch navigation.analysisMode {
         case .disks: .detector
         case .ptychography, .singleslicePtychography: .reconstruction
-        case .virtualDetector, .dpc, .strain, .acom, .diffractionGroups: .scan
+        case .virtualDetector, .dpc, .strain, .acom, .diffractionGroups, .phaseMapping: .scan
         }
     }
 
@@ -765,13 +749,7 @@ final class AppState {
     }
 
     var selectedEulerText: String? {
-        guard let map = acomSession.orientationMap,
-              selectedScan.x >= 0, selectedScan.x < map.width,
-              selectedScan.y >= 0, selectedScan.y < map.height else { return nil }
-        let result = map[selectedScan.x, selectedScan.y]
-        guard result.templateIndex >= 0 else { return nil }
-        let degrees = result.euler.degrees
-        return String(format: "%.1f°, %.1f°, %.1f°", degrees.0, degrees.1, degrees.2)
+        acomSession.orientationMap?.eulerText(x: selectedScan.x, y: selectedScan.y)
     }
 
     /// Whether the real-space ROI must be drawn on the scan image.
@@ -1214,7 +1192,7 @@ final class AppState {
         _ token: AnalysisCancellationToken, progress fraction: Double, status: String
     ) {
         guard operationCenter.update(token, progress: fraction) else { return }
-        statusText = status
+        showReadout(status)   // progress is a readout; see ActivityLog.record
         // While the dataset is still opening, this operation IS the load: mirror
         // its measured progress into the welcome card rather than leaving that
         // card parked on its last named stage while work is visibly happening.
@@ -1372,7 +1350,10 @@ final class AppState {
                 await upsampleParallaxBF()
             }
         case .aiAnalysis:
-            await runDiffractionGroups()
+            switch navigation.analysisMode {
+            case .phaseMapping: await runPhaseMapping()
+            default: await runDiffractionGroups()
+            }
         case .results:
             break
         }
@@ -1535,8 +1516,8 @@ final class AppState {
                         if accessed { url.stopAccessingSecurityScopedResource() }
                         return
                     }
-                    pending.previewFailure = error.localizedDescription
-                    statusText = "Preview unavailable: \(error.localizedDescription)"
+                    pending.previewFailure = Self.errorDetail(error)
+                    statusText = "Preview unavailable: \(Self.errorDetail(error))"
                 }
                 pending.fetchDefaultSingleDP()
                 pendingLoad = pending
@@ -2110,7 +2091,7 @@ final class AppState {
             )
             WorkspaceRecoveryStore.saveRecovery(recoveryRecord!)
         } catch {
-            statusText = "Loaded data, but recent-file access could not be remembered: \(error.localizedDescription)"
+            statusText = "Loaded data, but recent-file access could not be remembered: \(Self.errorDetail(error))"
         }
     }
 
@@ -2200,8 +2181,8 @@ final class AppState {
     /// write): raises the window-modal "Something went wrong" alert in
     /// addition to the status bar + log.
     func present(_ error: Error) {
-        errorMessage = error.localizedDescription
-        statusText = "Error: \(error.localizedDescription)"
+        errorMessage = Self.errorDetail(error)
+        statusText = "Error: \(Self.errorDetail(error))"
     }
 
     /// Recoverable compute failure (an analysis step that did not converge or
@@ -2217,7 +2198,7 @@ final class AppState {
             present(error)
             return
         }
-        statusText = "Error: \(error.localizedDescription)"
+        statusText = "Error: \(Self.errorDetail(error))"
     }
 
     private func openFileAsync(url: URL) async {
@@ -2352,7 +2333,7 @@ final class AppState {
         patternDisplayRangeHi = 1
         patternGamma = 1
         lastRotationResult = nil
-        calibrationSession.lastEllipseFit = nil
+        calibrationSession.lastEllipseFit = nil   // before activate suspends (GB3)
         parallaxPreprocess = nil
         parallaxAlignment = nil
         singleslicePtychography = nil
@@ -2390,25 +2371,16 @@ final class AppState {
         } else {
             calibrationSession.acceleratingVoltage = nil
         }
-        // The strain product dies BEFORE the calibration reset, not with the
-        // other scan-indexed products further down: `activate` suspends on
-        // reader awaits between here and those clears, the export menu item is
-        // reachable during a suspension, and `currentResultPersistenceMetadata`
-        // derives the strain frame keys from the LIVE calibration — so an
-        // uncleared map would export the previous dataset's scan-frame pixels
-        // under this reset's "rotation not calibrated" claim (Gate B finding 3,
-        // 2026-08-25).
+        // Strain dies BEFORE the calibration reset: `activate` suspends on reader
+        // awaits in between, the export menu is reachable during a suspension, and
+        // the strain frame keys come from the LIVE calibration — an uncleared map
+        // would export the previous dataset's scan-frame pixels under this reset's
+        // "rotation not calibrated" claim (Gate B finding 3, 2026-08-25). The group
+        // and phase maps are scan-indexed for the same reason.
         strain.clear()
-        // Same reasoning again: a group map is scan-indexed, so dataset A's
-        // groups must not survive into dataset B's Results slot.
         diffractionGroups.clear()
-        // Same reasoning as `strain.clear()` above, one layer simpler: a Q
-        // estimate and its self-check verdict describe dataset A's shells and
-        // must not survive into dataset B's panel. // v2 S13
-        qCalibration.clear()
-        calibrationSession.calibration = Calibration()
-        calibrationSession.provenance = CalibrationProvenance()
-        clearSupersededFittedOrigin()
+        phaseMapping.clear()
+        clearCalibration()
         // A DM4 whose axis units cannot be trusted opens WITHOUT its pixel
         // sizes, and the reason goes to the log — the status line is what the
         // log records — so the empty readiness rows are explained, not mute.
@@ -2554,7 +2526,7 @@ final class AppState {
             }
         } catch {
             if labelsEpoch == datasetEpoch {
-                statusText = "Could not restore disk-centre labels: \(error.localizedDescription)"
+                statusText = "Could not restore disk-centre labels: \(Self.errorDetail(error))"
             }
         }
         braggVectors = nil
@@ -2663,7 +2635,7 @@ final class AppState {
         case .success(let preview): datasetPreview = preview
         case .failure(let error):
             if !(error is CancellationError) {
-                statusText = "Preview unavailable: \(error.localizedDescription)"
+                statusText = "Preview unavailable: \(Self.errorDetail(error))"
             }
         }
     }
@@ -2728,13 +2700,7 @@ final class AppState {
         descriptor = nil
         datasets = []
         datasetPreview = nil
-        calibrationSession.calibration = Calibration()
-        calibrationSession.provenance = CalibrationProvenance()
-        // Every path that resets the calibration resets the Q run with it: an
-        // estimate outlives the dataset it describes otherwise. The two are
-        // adjacent here on purpose, so a third reset path is hard to add
-        // without noticing. // v2 S13
-        qCalibration.clear()
+        clearCalibration()
         // A cancelled open must not be remembered — the release owner's call,
         // 2026-08-18: you cancelled because it was the wrong file, so promoting
         // it to the top of Recents is precisely backwards. `openFileAsync` also
@@ -2843,9 +2809,9 @@ final class AppState {
             // opens as a dataset with no results and no reason
             // (Gate B-lite F7). // v2 S5
             sessionSidecar.noteUnreadable(
-                "Could not restore \(url.lastPathComponent): \(error.localizedDescription)"
+                "Could not restore \(url.lastPathComponent): \(Self.errorDetail(error))"
             )
-            statusText = "Could not restore \(url.lastPathComponent): \(error.localizedDescription)"
+            statusText = "Could not restore \(url.lastPathComponent): \(Self.errorDetail(error))"
             return nil
         }
     }
@@ -2988,7 +2954,7 @@ final class AppState {
     }
 
     private func loadCurrentPattern() async {
-        guard let descriptor, let fourD else { return }
+        guard descriptor != nil, let fourD else { return }
 
         do {
             let epoch = datasetEpoch
@@ -2996,7 +2962,7 @@ final class AppState {
             guard epoch == datasetEpoch else { return }
             currentPattern = pattern
             patternVersion &+= 1
-            statusText = "Pattern x \(selectedScan.x), y \(selectedScan.y) from \(descriptor.fileName)"
+            showReadout("Pattern x \(selectedScan.x), y \(selectedScan.y)")   // a readout, not an event
             await detectCurrentPattern()
         } catch {
             present(error)
@@ -3027,8 +2993,8 @@ final class AppState {
             if singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
         case .acom:
             if acomSession.orientationMap != nil { applyACOMDisplay() }
-        case .diffractionGroups:
-            break   // whole-scan PCA + k-means is explicit, never the default action
+        case .diffractionGroups, .phaseMapping:
+            break   // a whole-scan run is explicit, never the default action
         }
     }
 
@@ -3086,6 +3052,19 @@ final class AppState {
     private func clearSupersededFittedOrigin() {
         supersededFittedOrigin = nil
         canRestoreFittedOrigin = false
+    }
+
+    /// The ONE path that resets the calibration — activation, a cancelled load,
+    /// Prepare's Clear Calibration; a reset spelled out elsewhere is the mistake
+    /// this prevents (v2 S13). NOT `datasetEpoch` (the cube is unchanged) and not
+    /// the strain/phase maps, which are left to rerun — but it DOES discard the
+    /// orientation map and parallax, and the confirmation dialog says so.
+    func clearCalibration() {
+        calibrationSession.clear()
+        qCalibration.clear()
+        clearSupersededFittedOrigin()
+        parallaxPreprocess = nil; parallaxAlignment = nil
+        acomSession.invalidateResult()
     }
 
     /// Undo a manual center that displaced fitted origin maps: reinstate the
@@ -3516,7 +3495,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Preparing virtual-BF stack… \(Int(fraction * 100)) %"
+                        status: "Preparing virtual-BF stack…"
                     )
                 }
             }
@@ -3591,7 +3570,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Aligning bin \(bin) virtual-BF groups… \(Int(fraction * 100)) %"
+                        status: "Aligning bin \(bin) virtual-BF groups…"
                     )
                 }
             }
@@ -3692,7 +3671,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Upsampling aligned virtual-BF images… \(Int(fraction * 100)) %"
+                        status: "Upsampling aligned virtual-BF images…"
                     )
                 }
             }
@@ -3766,7 +3745,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction,
-                        status: "Computing depth planes… \(Int(fraction * 100)) %"
+                        status: "Computing depth planes…"
                     )
                 }
             }
@@ -3815,7 +3794,7 @@ final class AppState {
         let epoch = datasetEpoch
         let token = beginCancellableOperation(
             "Single-slice ptychography", status: "Preparing diffraction amplitudes…",
-            totalUnits: descriptor.ry + max(1, ptychographyIterations)
+            totalUnits: descriptor.ry + max(1, ptychography.iterations)
         )
         defer { finishCancellableOperation(token) }
         do {
@@ -3823,7 +3802,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: fraction * 0.3,
-                        status: "Preparing diffraction amplitudes… \(Int(fraction * 100)) %"
+                        status: "Preparing diffraction amplitudes…"
                     )
                 }
             }
@@ -3833,23 +3812,23 @@ final class AppState {
                 progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
-            options.method = ptychographyMethod
-            options.iterations = ptychographyIterations
-            options.stepSize = ptychographyStepSize
-            options.projectionParameter = ptychographyProjectionParameter
-            options.normalizationMinimum = ptychographyNormalizationMinimum
-            options.fixProbe = ptychographyFixProbe
-            options.constrainObjectAmplitude = ptychographyConstrainObjectAmplitude
-            options.purePhaseObject = ptychographyPurePhaseObject
-            options.fixProbeCenterOfMass = ptychographyFixProbeCenterOfMass
-            options.constrainProbeAmplitude = ptychographyConstrainProbeAmplitude
-            options.probeAmplitudeRelativeRadius = ptychographyProbeAmplitudeRadius
-            options.probeAmplitudeRelativeWidth = ptychographyProbeAmplitudeWidth
+            options.method = ptychography.method
+            options.iterations = ptychography.iterations
+            options.stepSize = ptychography.stepSize
+            options.projectionParameter = ptychography.projectionParameter
+            options.normalizationMinimum = ptychography.normalizationMinimum
+            options.fixProbe = ptychography.fixProbe
+            options.constrainObjectAmplitude = ptychography.constrainObjectAmplitude
+            options.purePhaseObject = ptychography.purePhaseObject
+            options.fixProbeCenterOfMass = ptychography.fixProbeCenterOfMass
+            options.constrainProbeAmplitude = ptychography.constrainProbeAmplitude
+            options.probeAmplitudeRelativeRadius = ptychography.probeAmplitudeRadius
+            options.probeAmplitudeRelativeWidth = ptychography.probeAmplitudeWidth
             let reconstructProgress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
                         token, progress: 0.3 + fraction * 0.7,
-                        status: "Reconstructing object/probe… \(Int(fraction * 100)) %"
+                        status: "Reconstructing object/probe…"
                     )
                 }
             }
@@ -4006,7 +3985,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     guard let self, self.isCurrentOperation(cancellation) else { return }
                     self.progress = fraction
-                    self.statusText = "Computing DP mean/max… \(Int(fraction * 100)) %"
+                    self.statusText = "Computing DP mean/max…"
                 }
             }
             let (maxDP, meanDP) = statistics
@@ -4047,7 +4026,7 @@ final class AppState {
                 Task { @MainActor [weak self] in
                     guard let self, self.isCurrentOperation(cancellation) else { return }
                     self.progress = fraction
-                    self.statusText = "Calibrating origin… \(Int(fraction * 100)) %"
+                    self.statusText = "Calibrating origin…"
                 }
             }
             guard epoch == datasetEpoch else { return }
@@ -4089,7 +4068,7 @@ final class AppState {
     /// when one is visible, otherwise from the scan-mean diffraction pattern.
     /// The fitter owns the qx=row/qy=column convention; this method performs
     /// the single app x/y swap at its boundary.
-    func calibrateEllipse() async {
+    func calibrateEllipse(acceptSparseCoverage: Bool = false) async {
         guard let descriptor else { return }
         let detectorPattern: DiffractionPattern
         let sourceName: String
@@ -4142,18 +4121,14 @@ final class AppState {
                 try EllipseCalibration.fitBestAvailable(
                     pattern: detectorPattern,
                     centerQX: centerQX, centerQY: centerQY,
-                    innerRadius: inner, outerRadius: outer
+                    innerRadius: inner, outerRadius: outer, acceptSparseCoverage: acceptSparseCoverage
                 )
             }.value
             guard epoch == datasetEpoch, !cancellation.isCancelled else {
                 statusText = "Ellipse calibration cancelled"
                 return
             }
-            calibrationSession.calibration.ellipseA = fit.a
-            calibrationSession.calibration.ellipseB = fit.b
-            calibrationSession.calibration.ellipseTheta = fit.theta
-            calibrationSession.provenance.ellipse = .measuredInApp
-            calibrationSession.lastEllipseFit = fit
+            calibrationSession.applyEllipseFit(fit)
             progress = 1
 
             // A displayed Bragg map can be reprojected immediately because
@@ -4162,15 +4137,17 @@ final class AppState {
             if navigation.analysisMode == .disks, let vectors = braggVectors {
                 showBraggMap(vectors, descriptor: descriptor)
             }
-            statusText = String(
-                format: "Ellipse ✓  %@ · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
-                fit.model.rawValue,
-                fit.a, fit.b, fit.theta * 180 / .pi,
-                fit.normalizedResidual, sourceName
-            )
+            statusText = fit.sparseCoverage
+                ? String(format: "Ellipse fitted anyway on %d/36 sectors · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@) — marked Fit anyway",
+                         fit.occupiedAngularBins, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
+                : String(format: "Ellipse ✓  %@ · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
+                         fit.model.rawValue, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
         } catch {
             if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }
-            else { presentComputeFailure(error) }
+            else {
+                calibrationSession.refuseEllipseFit(error)
+                presentComputeFailure(error)
+            }
         }
     }
 
@@ -4212,9 +4189,9 @@ final class AppState {
                 presentComputeFailure(SimpleError("Scan is too small for rotation calibration (need at least 3 × 3 positions)."))
                 return
             }
-            calibrationSession.calibration.rotationRad = result.rotationRad
-            calibrationSession.calibration.transposeQR = result.transpose
-            calibrationSession.provenance.rotation = .measuredInApp
+            if calibrationSession.applyRotation(result) != nil {   // the full refusal is in Rotation diagnostics
+                lastRotationResult = result; presentComputeFailure(SimpleError("R–Q rotation not updated: the field does not beat its own null. The reason is under Rotation diagnostics in the inspector.")); return
+            }
             parallaxPreprocess = nil
             parallaxAlignment = nil
             lastRotationResult = result
@@ -4715,7 +4692,7 @@ final class AppState {
                           self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
                     self.progress = fraction
-                    self.statusText = "\(statusPrefix) \(Int(fraction * 100)) %"
+                    self.showReadout(statusPrefix)   // the bar draws the fraction
                 }
             }
             switch detectorClass {
@@ -4848,7 +4825,7 @@ final class AppState {
     /// Raw peaks remain the source of truth; analysis calibration is derived
     /// on demand so imported or newly fitted origin/ellipse values immediately
     /// affect Bragg maps, strain, and ACOM without re-running detection.
-    private func calibratedBraggVectors(
+    func calibratedBraggVectors(          // internal since 2026-09-12: AppState+PhaseMapping
         _ vectors: BraggVectors,
         descriptor d: DatasetDescriptor,
         positions: [Int]? = nil
@@ -5329,9 +5306,8 @@ final class AppState {
                     guard let self,
                           self.isCurrentOperation(cancellation),
                           !cancellation.isCancelled else { return }
-                    let shown = max(self.progress ?? 0, fraction)
-                    self.progress = shown
-                    self.statusText = "\(operationName)… \(Int(shown * 100)) %"
+                    self.progress = max(self.progress ?? 0, fraction)
+                    self.showReadout("\(operationName)…")   // the bar draws the fraction
                 }
             }
         }.value
