@@ -336,7 +336,7 @@ struct ColormapChip<Chip: View>: View {
                appState.acomSession.display == .ipfZ, appState.acomSession.orientationMap != nil {
                 // v2.5 step 7 (plan §3 item 2): the IPF map's confidence gate
                 // lives with the map's colours. Nil = automatic (10th percentile).
-                let effective = appState.acomEffectiveReliabilityThreshold ?? 0
+                let effective = appState.acomSession.effectiveReliabilityThreshold ?? 0
                 let kept = appState.acomSession.orientationMap?
                     .fractionOfMatchedPositions(withReliabilityAtLeast: effective)
                 Section("Confidence gate") {

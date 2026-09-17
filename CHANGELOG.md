@@ -28,6 +28,14 @@ exactly that until the owner's drive says otherwise.
   AppState into `Session/PhaseContrastProduct.swift` (no forwarding
   properties); AppState.swift 4699 → 4656 lines, net −11 access widenings
   (reverses all of step one's). No logic changed. Unverified on screen.
+- **AppState seam 2: ACOM leftovers into `ACOMSession`.** The 17 remaining
+  `acom*` properties/methods moved into the existing `ACOMSession` owner
+  where they were pure ACOM state, or stayed as AppState orchestration where
+  they genuinely combine dataset/calibration state with `acomSession`;
+  `calibrateQFromCrystal`, `generateOrientationPlan`, `runACOM` and
+  `applyACOMDisplay` moved to `App/AppState+ACOM.swift`. AppState.swift
+  4656 → 4230 lines, 3 access widenings. No logic changed. Unverified on
+  screen.
 
 ## v3.0.0 — 2026-09-11
 

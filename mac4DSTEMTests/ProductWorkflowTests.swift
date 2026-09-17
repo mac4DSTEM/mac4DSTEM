@@ -819,7 +819,7 @@ final class ProductWorkflowTests: XCTestCase {
         state.acomSession.modelSelection = .library("not_a_model")
         XCTAssertTrue(state.productWorkflowReadiness.hasACOMMaterial)
         XCTAssertFalse(state.productWorkflowReadiness.hasSupportedACOMMaterial)
-        XCTAssertNotNil(state.acomModelSelectionIssue)
+        XCTAssertNotNil(state.acomSession.modelSelectionIssue)
 
         state.acomSession.modelSelection = .library("au_fcc")
         XCTAssertTrue(state.productWorkflowReadiness.hasSupportedACOMMaterial)

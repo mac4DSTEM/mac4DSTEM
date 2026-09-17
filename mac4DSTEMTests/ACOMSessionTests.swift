@@ -103,4 +103,90 @@ final class ACOMSessionTests: XCTestCase {
         state.acomSession.scope = .preview
         XCTAssertFalse(state.acomSession.regionSelectionActive)
     }
+
+    // MARK: - Seam 2 (docs/appstate-seams-plan.md): the properties moved off
+    // `AppState.swift` — measured throughput, the effective backend, the
+    // parameterized scan selection, the model-selection refusal text, and the
+    // effective reliability gate. All are pure functions of this session's
+    // own state (no `didSet`, so there is no new observer to pin here — the
+    // plan's "one observer effect" clause is conditional on one existing).
+
+    func testConstructionDefaultsForTheMovedProperties() {
+        let session = ACOMSession()
+        XCTAssertNil(session.lastMeasuredTemplateCount)
+        XCTAssertNil(session.lastMeasuredBackend)
+        XCTAssertEqual(session.effectiveBackend, .cpu,
+                        "automatic resolves to the real-data-verified CPU backend")
+        XCTAssertEqual(session.primaryActionTitle, "Preview Orientation")
+        XCTAssertNotNil(session.modelSelectionIssue, "no phase model is chosen yet")
+        XCTAssertNil(session.effectiveReliabilityThreshold,
+                      "no override and no map to derive the 10th percentile from")
+    }
+
+    /// `scanSelection` is the parameterized form of the old `acomScanSelection`
+    /// computed property — `selectedX`/`selectedY` stand in for
+    /// `AppState.selectedScan.x/y`, the one input this session does not hold.
+    func testScanSelectionMirrorsTheOldComputedPropertyForEachScope() {
+        let session = ACOMSession()
+        session.regionRadius = 10
+
+        session.scope = .preview
+        XCTAssertEqual(session.scanSelection(selectedX: 5, selectedY: 7), .preview(maxDimension: 32))
+
+        session.scope = .fullScan
+        XCTAssertEqual(session.scanSelection(selectedX: 5, selectedY: 7), .full)
+
+        session.scope = .selectedRegion
+        XCTAssertEqual(
+            session.scanSelection(selectedX: 5, selectedY: 7),
+            .square(centerX: 5, centerY: 7, radius: 10)
+        )
+    }
+
+    /// The CPU baseline branch: no prior measurement, `.automatic` resolves
+    /// to `.cpu`, so the 1,150 pos/s @ 400-template baseline applies, scaled
+    /// by today's template count (`.best` = 400, so unscaled).
+    func testEstimatedDurationUsesTheCPUBaselineWithNoPriorMeasurement() {
+        let session = ACOMSession()
+        session.quality = .best   // 400 templates — matches the baseline exactly
+        let duration = try! XCTUnwrap(session.estimatedDuration(forPositions: 1_150))
+        XCTAssertEqual(duration, 1.0, accuracy: 1e-9)
+    }
+
+    /// The measured branch: a prior run's throughput is rescaled by the ratio
+    /// of measured to current template count, only when the measured backend
+    /// still matches the effective one.
+    func testEstimatedDurationRescalesAPriorMeasurementByTemplateCount() {
+        let session = ACOMSession()
+        session.quality = .balanced   // 200 templates
+        session.lastPositionsPerSecond = 500
+        session.lastMeasuredTemplateCount = 100
+        session.lastMeasuredBackend = .cpu   // == effectiveBackend (.automatic → .cpu)
+        // throughput = 500 * 100/200 = 250 pos/s
+        let duration = try! XCTUnwrap(session.estimatedDuration(forPositions: 250))
+        XCTAssertEqual(duration, 1.0, accuracy: 1e-9)
+    }
+
+    /// Off the CPU baseline (Metal, unmeasured) the estimate is withheld
+    /// rather than guessed — the estimate is only ever offered once grounded.
+    func testEstimatedDurationIsNilOffTheCPUBaselineWithNoMeasurement() {
+        let session = ACOMSession()
+        session.backend = .metal
+        XCTAssertNil(session.estimatedDuration(forPositions: 1_000))
+    }
+
+    func testModelSelectionIssueNamesTheImportedModelAsGoneWhenItIsNoLongerInThisSessionsList() {
+        let session = ACOMSession()
+        session.modelSelection = .imported("does_not_exist")
+        let issue = try! XCTUnwrap(session.modelSelectionIssue)
+        XCTAssertTrue(issue.contains("no longer available"), issue)
+    }
+
+    /// Nil override falls through to the map's own 10th-percentile threshold;
+    /// an explicit override always wins.
+    func testEffectiveReliabilityThresholdPrefersAnExplicitOverride() {
+        let session = ACOMSession()
+        session.reliabilityThreshold = 0.75
+        XCTAssertEqual(session.effectiveReliabilityThreshold, 0.75)
+    }
 }

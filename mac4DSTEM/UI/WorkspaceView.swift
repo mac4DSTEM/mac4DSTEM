@@ -276,7 +276,7 @@ struct PrimaryActionButton: View {
             switch appState.navigation.analysisMode {
             case .disks: "Detect All Disks"
             case .strain: "Compute Strain"
-            case .acom: appState.acomPrimaryActionTitle
+            case .acom: appState.acomSession.primaryActionTitle
             default: nil
             }
         case .reconstruct:

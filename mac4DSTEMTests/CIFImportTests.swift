@@ -203,7 +203,7 @@ final class CIFImportTests: XCTestCase {
         )
         XCTAssertNotNil(
             model.orientationMappingIssue,
-            "the refusal must carry a reason for acomModelSelectionIssue to surface"
+            "the refusal must carry a reason for ACOMSession.modelSelectionIssue to surface"
         )
         // And the half that makes admitting it worthwhile at all: phase
         // identification needs reflections, and gets them.

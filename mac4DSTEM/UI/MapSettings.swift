@@ -747,7 +747,7 @@ private struct ACOMSections: View {
                 }
             }
 
-            if let reason = appState.acomModelSelectionIssue {
+            if let reason = appState.acomSession.modelSelectionIssue {
                 Label(reason, systemImage: "nosign")
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -893,7 +893,7 @@ private struct ACOMSections: View {
                 Text(backend.rawValue).tag(backend)
             }
         }
-        LabeledContent("Will use", value: appState.effectiveACOMBackend.rawValue)
+        LabeledContent("Will use", value: appState.acomSession.effectiveBackend.rawValue)
         if appState.acomSession.backend == .automatic {
             Text("Automatic currently uses the real-data-verified Accelerate CPU backend.")
                 .font(.caption)

@@ -209,7 +209,7 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     package var supportsOrientationMapping: Bool { symmetry != .identity }
 
     /// Why orientation mapping is unavailable, or nil when it is available.
-    /// `AppState.acomModelSelectionIssue` surfaces this so ACOM refuses with a
+    /// `ACOMSession.modelSelectionIssue` surfaces this so ACOM refuses with a
     /// reason rather than silently offering nothing.
     package var orientationMappingIssue: String? {
         supportsOrientationMapping ? nil

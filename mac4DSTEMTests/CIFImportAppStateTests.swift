@@ -78,7 +78,7 @@ final class CIFImportAppStateTests: XCTestCase {
         let resolved = try XCTUnwrap(state.resolvedACOMModel)
         XCTAssertEqual(resolved.id, imported.id)
         XCTAssertEqual(resolved.displayName, imported.displayName)
-        XCTAssertNil(state.acomModelSelectionIssue)
+        XCTAssertNil(state.acomSession.modelSelectionIssue)
         XCTAssertTrue(state.productWorkflowReadiness.hasSupportedACOMMaterial)
     }
 
@@ -131,7 +131,7 @@ final class CIFImportAppStateTests: XCTestCase {
             "ACOM must not accept a model whose orientation it cannot reduce"
         )
         let issue = try XCTUnwrap(
-            state.acomModelSelectionIssue,
+            state.acomSession.modelSelectionIssue,
             "and it must say why, rather than silently offering nothing"
         )
         XCTAssertTrue(
@@ -178,7 +178,7 @@ final class CIFImportAppStateTests: XCTestCase {
 
     /// If a selection ever does reference an imported model that is no
     /// longer in this run's list (the defensive branch in
-    /// `acomModelSelectionIssue`), the UI must explicitly say so rather than
+    /// `ACOMSession.modelSelectionIssue`), the UI must explicitly say so rather than
     /// resolving to nil with no explanation or silently falling back to a
     /// different phase model.
     func testSelectionReferencingAMissingImportedModelExplicitlyReportsRatherThanFallingBackSilently() {
@@ -186,7 +186,7 @@ final class CIFImportAppStateTests: XCTestCase {
         state.acomSession.modelSelection = .imported("imported_does_not_exist")
 
         XCTAssertNil(state.resolvedACOMModel)
-        let issue = state.acomModelSelectionIssue
+        let issue = state.acomSession.modelSelectionIssue
         XCTAssertNotNil(issue)
         XCTAssertTrue(issue?.contains("no longer available") == true, "\(issue ?? "nil")")
     }
