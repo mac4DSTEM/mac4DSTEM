@@ -914,13 +914,23 @@ package nonisolated final class DiskDetector {
         let afterAbsoluteThresholdCount = found.count
         var relativeReferenceIntensity: Float?
         var relativeReferenceWasAvailable = p.minRelativeIntensity == 0
-        // The reference: the `relativeToPeak`-th brightest maximum, taken
-        // among those at least `relativeReferenceMinimumRadiusPx` from the
-        // BRIGHTEST maximum when that is set. The brightest is the direct
-        // beam in any pattern that needs this rule, wherever descan put it;
-        // the array centre is not (Gate B 2026-09-15: measured from the
-        // centre, a descanned beam stayed the reference and low-angle spots
-        // near the centre lost their eligibility).
+        // DEVIATION from py4DSTEM `filter_2D_maxima` (preprocess/utils.py):
+        // that function always takes `maxima["intensity"][relativeToPeak]` —
+        // the n-th brightest maximum overall, no spatial exclusion. This adds
+        // an optional radius (`relativeReferenceMinimumRadiusPx`, 0 keeps
+        // py4DSTEM's rule) excluding candidates near the brightest maximum
+        // before picking the reference. The reference: the `relativeToPeak`-th
+        // brightest maximum, taken among those at least
+        // `relativeReferenceMinimumRadiusPx` from the BRIGHTEST maximum when
+        // that is set. The brightest is the direct beam in any pattern that
+        // needs this rule, wherever descan put it; the array centre is not
+        // (Gate B 2026-09-15: measured from the centre, a descanned beam
+        // stayed the reference and low-angle spots near the centre lost their
+        // eligibility). MEASURED (Thronsen step 3, 2026-09-15): a saturated
+        // direct-beam plateau makes "0.5% of the maximum" mean "0.5% of the
+        // plateau", not of a single peak — against the brightest Bragg peak
+        // outside the plateau instead, the same fraction means the same thing
+        // on every pattern (plateau radius measured 6.5 px on a 12-px plateau).
         let references: [BraggPeak]
         if p.relativeReferenceMinimumRadiusPx > 0, let beam = found.first {
             references = found.filter {

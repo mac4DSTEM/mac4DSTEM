@@ -335,10 +335,14 @@ package nonisolated final class OrientationMatcher {
 /// median 0.010 on clean synthetic patterns, and still only ~0.03 with the
 /// bank thinned to 8.5° spacing — so it is not merely a density artefact.
 ///
-/// py4DSTEM's `match_single_pattern` handles this by zeroing the correlation
-/// within `min_angle_between_matches_deg` of an already-taken match before
-/// searching for the next (`crystal_ACOM.py`, the `min_angle_between_matches_deg`
-/// block). This is the same rule, applied to the runner-up.
+/// DEVIATION from py4DSTEM: `match_single_pattern` (`crystal_ACOM.py`, the
+/// `min_angle_between_matches_deg` block) handles this by zeroing the
+/// correlation within `min_angle_between_matches_deg` of an already-taken
+/// match before searching for the next candidate, each time it picks one.
+/// This applies the same distinctness rule once, to the runner-up alone
+/// (single-pass over the already-computed scores, filtering by angle rather
+/// than re-correlating) — cheaper because this caller only ever wants a
+/// winner and one runner-up, never py4DSTEM's full ranked list.
 package nonisolated func selectOrientation(
     zoneAxes: [SIMD3<Double>], scores: [Float], bins: [UInt32],
     distinctOrientationRad: Double

@@ -29,6 +29,56 @@ messages. Test `ErrorRoutingTests.testErrorDetailNamesDomainCodeAndUnderlyingCau
 (bare `localizedDescription` → red on domain/code/underlying, `bf2-mut-20260917.log` exit 65; real
 and final exit 0). Item closed.
 
+## Deviation-note audit 2026-09-17 — added 2026-09-17
+
+Read-only fan-out over 43 Core/ ported sources (CLAUDE.md hard rule: port deviations get
+an inline `DEVIATION` note). Most files were already consistent or already documented;
+these five undocumented gaps survived independent verification against the pinned
+py4DSTEM source before being recorded here. Two files got a class-a note inline instead
+(a pre-existing same-file justification already existed, just untagged): `DiskDetection.swift`
+(`relativeReferenceMinimumRadiusPx`'s spatial exclusion) and `OrientationMatcher.swift`
+(the single-pass distinct-runner-up filter), plus `ProbeKernel.swift` (the vacuum-mask
+cosine shoulder) and `StrainMapping.swift` (`robustReferenceIndices`'s MAD rejection).
+
+### Parallax default bin schedule skips py4DSTEM's second pass at the minimum bin
+`ParallaxAligner.defaultBinSchedule` (`ParallaxAlignment.swift:152-165`) reproduces
+`bin_vals = 2 ** arange(bin_min, bin_max)[::-1]` from `Parallax.reconstruct`
+(`parallax.py:1274-1276`) but drops the next step: `if num_iter_at_min_bin > 1: bin_vals =
+hstack((bin_vals, repeat(bin_vals[-1], num_iter_at_min_bin - 1)))` (`parallax.py:1278-1281`),
+where `num_iter_at_min_bin` defaults to **2**. py4DSTEM's default schedule therefore runs the
+finest bin level twice (e.g. diameter 7 → `[4,2,1,1]`); this port's schedule runs it once
+(`[4,2,1]`), so `ParallaxAlignmentResult.isComplete` fires one refinement pass early — this
+moves the converged shift/error values. No `numIterAtMinBin` knob exists anywhere in the
+port (grepped Core/App/docs). **Science, Gate D before any fix.** Owner: unclaimed.
+
+### `fitAmorphousRing`'s parameter initialization diverges from py4DSTEM, undocumented
+`EllipseCalibration.swift:482-493`'s 11-parameter init uses dynamic-range-based
+`I0=(globalMax-annularMin)`/`I1=(annularMax-annularMin)` and the initial conic's `(a,b,theta)`;
+py4DSTEM's `fit_ellipse_amorphous_ring` (`ellipse.py:189-199`) uses absolute `I0=max(data)`,
+`I1=max(data*mask)`, and a radial-integral-derived `R`. Structurally this port also requires a
+pre-fitted conic ellipse where py4DSTEM's function can run standalone. Affects convergence,
+not measured. Owner: unclaimed.
+
+### Parallax probe angles are stored in milliradians, not radians like py4DSTEM
+`ParallaxPreprocessing.swift:325-330` computes `probeAngles = kq * wavelengthAngstrom * 1000`;
+py4DSTEM's `Parallax._probe_angles = kxy * wavelength` (`parallax.py:478`, radians). Intentional
+— `ParallaxDepthSectioning.swift` divides by 1000 to convert back, and the test fixture
+(`tools/parallax-preprocessing-test/reference.py:68`) does the same conversion — but no
+`DEVIATION` note says so. Owner: unclaimed.
+
+### `OrientationPlan`'s polar image subtracts a per-ring mean; py4DSTEM's is commented out
+`OrientationPlan.swift:276-283` subtracts each radial ring's mean before normalization.
+py4DSTEM's equivalent (`crystal_ACOM.py:854`, `:1146`) is present but commented out in both
+places it could run. The Swift choice looks intentional (header at :237-240 explains removing
+the DC term) but is unmeasured against py4DSTEM's disabled default. Owner: unclaimed.
+
+### `ScatteringFactors.electronScatteringFactor` omits py4DSTEM's "VA" units option
+py4DSTEM's `electron_scattering_factor(Z, gsq, units="A"|"VA")` (`single_atom_scatter.py:29-48`)
+supports Angstrom and Volt-Angstrom³ output; the "A" formula the app uses is byte-identical.
+Swift's version (`ScatteringFactors.swift:239-247`) has no `units` parameter — "VA" is simply
+absent, not wrong. Crystal.swift's own header already states the app's convention is "A" only,
+so this is a minor, low-priority documentation gap, not a live defect. Owner: unclaimed.
+
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
 ### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
