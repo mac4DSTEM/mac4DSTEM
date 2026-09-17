@@ -1006,6 +1006,40 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(map.component(.indexed).pixels[0], 1)
         XCTAssertTrue(map.component(.indexed).pixels[1].isNaN)
     }
+
+    /// `ProductComparison.compatibility`'s dimension guard (width AND height)
+    /// has no test today — only "Value units differ" is pinned by message,
+    /// and domain-differs is pinned only indirectly through `difference`
+    /// returning nil. A width-only or height-only mismatch currently falls
+    /// through to this guard correctly, but nothing would notice if either
+    /// half of the conjunction were dropped: the pair would be reported
+    /// `.compatible` and `difference` would then walk pixel arrays whose
+    /// geometry silently disagrees.
+    func testCompatibilityRejectsMismatchedWidthOrHeightBeforeOtherChecks() throws {
+        func product(width: Int, height: Int) -> DisplayedProduct {
+            DisplayedProduct(
+                kind: "strain", displayName: "strain",
+                payload: .scalar(FloatImage(width: width, height: height,
+                                            pixels: [Float](repeating: 1, count: width * height))),
+                domain: .scan,
+                sampling: ProductSampling(row: 1, column: 1, units: "nm"),
+                valueUnits: "strain", quantitativeStatus: .quantitative
+            )
+        }
+        XCTAssertEqual(
+            ProductComparison.compatibility(product(width: 2, height: 1), product(width: 3, height: 1)),
+            .incompatible("Pixel dimensions differ."),
+            "width-only mismatch must be caught by the dimensions guard"
+        )
+        XCTAssertEqual(
+            ProductComparison.compatibility(product(width: 2, height: 1), product(width: 2, height: 2)),
+            .incompatible("Pixel dimensions differ."),
+            "height-only mismatch must be caught by the dimensions guard"
+        )
+        XCTAssertNil(ProductComparison.difference(
+            product(width: 2, height: 1), product(width: 3, height: 1)
+        ), "difference must refuse mismatched geometry rather than mis-zip the pixel arrays")
+    }
 }
 
 // MARK: - v2.5 step 5a negative controls (docs/v2.5-plan.md §10f)

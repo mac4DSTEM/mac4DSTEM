@@ -249,4 +249,29 @@ final class LoadConfigurationTests: XCTestCase {
             workingSetSize: 8_000_000_000, maximumBufferLength: 4_000_000_000
         ))
     }
+
+    // MARK: - Non-4D source
+
+    func testANonFourDSourceIsRefusedRatherThanCroppedToANegativeOffset() {
+        // A descriptor whose shape isn't rank 4 — e.g. one caught mid-discovery
+        // before H5Reader's rank-3 promotion runs — reports ry/rx/qy/qx as 0
+        // (DatasetDescriptor.is4D gates them). scanCrop/detectorCrop must refuse
+        // on that zero extent via the `limitHeight > 0, limitWidth > 0` guard,
+        // not trust it: trusting it clamps to `limitHeight - 1 == -1` and hands
+        // back a crop at a negative offset instead of nil.
+        let notYetFourD = DatasetDescriptor(
+            filePath: "/tmp/mid-discovery.h5", datasetPath: "/data",
+            shape: [60, 40, 128], dtypeDescription: "uint16", chunkShape: nil
+        )
+        XCTAssertFalse(notYetFourD.is4D)
+
+        XCTAssertNil(LoadConfiguration.scanCrop(
+            from: DragRectangle(startX: 1, startY: 1, endX: 5, endY: 5),
+            strideY: 1, strideX: 1, source: notYetFourD
+        ))
+        XCTAssertNil(LoadConfiguration.detectorCrop(
+            from: DragRectangle(startX: 1, startY: 1, endX: 5, endY: 5),
+            source: notYetFourD
+        ))
+    }
 }

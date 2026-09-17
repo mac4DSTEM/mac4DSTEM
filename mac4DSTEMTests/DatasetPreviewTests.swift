@@ -166,4 +166,46 @@ final class DatasetPreviewTests: XCTestCase {
             // expected
         }
     }
+
+    // MARK: `make` refuses to build a preview from an invalid descriptor
+
+    /// The guard at the top of `make` is the only thing standing between a
+    /// non-4D descriptor and building a preview from a shape that has no
+    /// scan/detector axes at all. Nothing upstream rejects this input, and no
+    /// existing test ever hands `make` anything but the valid demo descriptor.
+    func testMakeThrowsOnANonFourDDescriptor() async throws {
+        let (data, _) = try await demo()
+        let notFourD = DatasetDescriptor(
+            filePath: "/tmp/x.h5", datasetPath: "/data",
+            shape: [200, 200, 128], dtypeDescription: "float32", chunkShape: nil
+        )
+        do {
+            _ = try await DatasetPreviewBuilder.make(
+                data: data, descriptor: notFourD, byteBudget: 4096
+            )
+            XCTFail("a non-4D descriptor produced a preview instead of throwing")
+        } catch FourDError.allocationFailed {
+            // expected
+        }
+    }
+
+    /// A 4D descriptor with zero scan rows is just as invalid as a non-4D
+    /// one, and must be rejected by the same guard — not by `stride` quietly
+    /// handing back a degenerate (1, 1) step that `make` then samples nothing
+    /// with and returns as if it were a real, if tiny, preview.
+    func testMakeThrowsOnAFourDDescriptorWithNoScanPositions() async throws {
+        let (data, _) = try await demo()
+        let emptyScan = DatasetDescriptor(
+            filePath: "/tmp/x.h5", datasetPath: "/data",
+            shape: [0, 200, 64, 64], dtypeDescription: "float32", chunkShape: nil
+        )
+        do {
+            _ = try await DatasetPreviewBuilder.make(
+                data: data, descriptor: emptyScan, byteBudget: 4096
+            )
+            XCTFail("a zero-row descriptor produced a preview instead of throwing")
+        } catch FourDError.allocationFailed {
+            // expected
+        }
+    }
 }

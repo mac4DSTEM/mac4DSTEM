@@ -149,6 +149,17 @@ mutation that survives on an incremental build is not evidence until it survives
 clean one.
 Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
 
+**A related trap, found 2026-09-17: a new test appended "at the end of the file" can land
+in the WRONG class.** `ProductWorkflowTests.swift` holds three `XCTestCase` classes
+(`ProductWorkflowTests`, `TaskReadinessTests`, `PhaseSplitTests` — file-scoped grouping, not
+one class per file). A test inserted before the file's final `}` landed inside
+`PhaseSplitTests`, not `ProductWorkflowTests` where its subject matter belonged; `-only-
+testing:mac4DSTEMTests/ProductWorkflowTests/<name>` then reported **"TEST SUCCEEDED" having
+run zero test cases** — no "Test case … passed" line at all, silently green. The rule this
+buys: `grep -n "^final class\|XCTestCase"` the target file before inserting near "the end",
+and after adding a test, grep the run log for the test's own name, not just the exit code —
+a suite that starts and reports success without ever naming your test ran nothing.
+
 ### The ellipse "Fit anyway" mark: what it does not yet do — added 2026-09-15
 
 **Known, scoped.** The flag the owner asked for landed 2026-09-15 behind an explicit "Fit
