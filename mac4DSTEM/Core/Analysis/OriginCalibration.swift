@@ -74,6 +74,14 @@ package nonisolated enum OriginMethod: String, Sendable, CaseIterable, Codable {
     }
 }
 
+/// Base pointers into the output origin field and the tile's pixels, wrapped so
+/// the `concurrentPerform` closure can capture them; each worker writes disjoint
+/// output indices and only reads the pixels. // v3.1 Friedel speed
+private struct FriedelSlots: @unchecked Sendable {
+    let out: UnsafeMutablePointer<Float>
+    let px: UnsafePointer<Float>
+}
+
 package nonisolated enum OriginCalibration {
 
     // MARK: - Probe size (py4DSTEM get_probe_size)
@@ -613,25 +621,47 @@ package nonisolated enum OriginCalibration {
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) async throws -> [Float] {
+        // The beamstop mask is identical for every pattern, so precompute its
+        // transforms ONCE and share one FFT plan (safe across concurrent workers
+        // — each transform owns its buffers); then run each tile's patterns in
+        // parallel across the cores. Before this, a full scan did ~8 FFTs per
+        // pattern on ONE core, two of them rebuilding the same mask. // v3.1 speed
+        guard let fft = FFT2D(nx: 2 * d.qx, ny: 2 * d.qy) else {
+            throw OriginCalibrationError.probeNotMeasurable
+        }
+        let prepared = FriedelOrigin.prepareBeamstop(mask: mask, height: d.qy, width: d.qx, fft: fft)
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
-        let patternSize = d.qy * d.qx
-        var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
+        let patternSize = d.qy * d.qx, rx = d.rx, qy = d.qy, qx = d.qx
+        var output = [Float](repeating: 0, count: d.ry * rx * 2)
         let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
             $0..<min(d.ry, $0 + rowsPerTile)
         }
+        let cores = max(1, ProcessInfo.processInfo.activeProcessorCount)
         for range in ranges {
             guard cancellation?.isCancelled != true else { throw CancellationError() }
             let tile = try await data.scanTile(yRange: range)
-            for localRow in 0..<range.count {
-                let ry = range.lowerBound + localRow
-                for rx in 0..<d.rx {
-                    let base = (localRow * tile.scanWidth + rx) * patternSize
-                    let pattern = Array(tile.pixels[base..<base + patternSize])
-                    let index = (ry * d.rx + rx) * 2
-                    if let origin = FriedelOrigin.origin(pattern: pattern, height: d.qy,
-                                                         width: d.qx, mask: mask) {
-                        output[index] = origin.col       // measured X = detector column
-                        output[index + 1] = origin.row   // measured Y = detector row
+            let scanWidth = tile.scanWidth
+            let localRows = range.count
+            let rowBase = range.lowerBound * rx
+            let workers = max(1, min(cores, localRows))
+            output.withUnsafeMutableBufferPointer { outBuf in
+                tile.pixels.withUnsafeBufferPointer { pxBuf in
+                    let slots = FriedelSlots(out: outBuf.baseAddress!, px: pxBuf.baseAddress!)
+                    DispatchQueue.concurrentPerform(iterations: workers) { w in
+                        for localRow in stride(from: w, to: localRows, by: workers) {
+                            if cancellation?.isCancelled == true { break }
+                            for rxIdx in 0..<rx {
+                                let src = (localRow * scanWidth + rxIdx) * patternSize
+                                let pattern = Array(UnsafeBufferPointer(start: slots.px + src,
+                                                                        count: patternSize))
+                                if let origin = FriedelOrigin.origin(pattern: pattern, height: qy,
+                                                                     width: qx, prepared: prepared, fft: fft) {
+                                    let gi = (rowBase + localRow * rx + rxIdx) * 2
+                                    slots.out[gi] = origin.col       // measured X = detector column
+                                    slots.out[gi + 1] = origin.row   // measured Y = detector row
+                                }
+                            }
+                        }
                     }
                 }
             }

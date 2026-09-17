@@ -44,32 +44,69 @@ package nonisolated enum FriedelOrigin {
         let padH = 2 * height, padW = 2 * width
         guard let fft = FFT2D(nx: padW, ny: padH) else { return nil }
 
-        // The correlation surface `cc`, real, on the doubled grid.
         let cc: [Float]
         if let mask {
             guard mask.count == height * width else { return nil }
-            guard let surface = maskedCorrelation(pattern: pattern, mask: mask,
-                                                  height: height, width: width, fft: fft)
-            else { return nil }
-            cc = surface
+            let prepared = prepareBeamstop(mask: mask, height: height, width: width, fft: fft)
+            cc = maskedCorrelation(pattern: pattern, height: height, width: width,
+                                   prepared: prepared, fft: fft)
         } else {
             cc = plainCorrelation(pattern: pattern, height: height, width: width, fft: fft)
         }
+        return peak(cc, height: height, width: width)
+    }
 
-        // Peak, then a parabolic subpixel refinement along each axis.
-        var peak = 0
+    /// The mask-dependent transforms, precomputed ONCE for a whole scan — the
+    /// beamstop mask is the same for every pattern, so rebuilding `maskPad`, `M`
+    /// and `IFFT2(M²)` per pattern (two of the eight FFTs) was pure waste. Feed
+    /// this to `origin(pattern:height:width:prepared:fft:)`. // v3.1 speed
+    package struct PreparedBeamstop: Sendable {
+        fileprivate let maskPad: [Float]
+        fileprivate let mRe: [Float], mIm: [Float]            // M = FFT2(maskPad)
+        fileprivate let ifftM2Re: [Float], ifftM2Im: [Float]  // IFFT2(M²)
+    }
+
+    package static func prepareBeamstop(mask: [Bool], height: Int, width: Int,
+                                        fft: FFT2D) -> PreparedBeamstop {
+        let padW = 2 * width, n = 2 * height * padW
+        var maskPad = [Float](repeating: 1, count: n)
+        for row in 0..<height {
+            for col in 0..<width { maskPad[row * padW + col] = mask[row * width + col] ? 1 : 0 }
+        }
+        var mRe = maskPad, mIm = [Float](repeating: 0, count: n)
+        fft.transform(re: &mRe, im: &mIm, forward: true)      // M
+        var m2Re = mRe, m2Im = mIm
+        squareInPlace(&m2Re, &m2Im)
+        fft.transform(re: &m2Re, im: &m2Im, forward: false)   // IFFT2(M²)
+        return PreparedBeamstop(maskPad: maskPad, mRe: mRe, mIm: mIm,
+                                ifftM2Re: m2Re, ifftM2Im: m2Im)
+    }
+
+    /// One pattern's origin from a precomputed beamstop and a SHARED `FFT2D`
+    /// (`FFT2D(nx: 2*width, ny: 2*height)`) — the full-scan fast path. `FFT2D` is
+    /// safe to share across concurrent workers: each call owns its own buffers. // v3.1
+    package static func origin(pattern: [Float], height: Int, width: Int,
+                               prepared: PreparedBeamstop, fft: FFT2D) -> (row: Float, col: Float)? {
+        guard height > 0, width > 0, pattern.count == height * width else { return nil }
+        let cc = maskedCorrelation(pattern: pattern, height: height, width: width,
+                                   prepared: prepared, fft: fft)
+        return peak(cc, height: height, width: width)
+    }
+
+    /// Argmax of the correlation surface + a parabolic subpixel refinement,
+    /// folded to the pattern frame (the peak sits at twice the origin).
+    private static func peak(_ cc: [Float], height: Int, width: Int) -> (row: Float, col: Float) {
+        let padH = 2 * height, padW = 2 * width
+        var peakIndex = 0
         var peakValue = cc[0]
-        for index in 1..<cc.count where cc[index] > peakValue { peakValue = cc[index]; peak = index }
-        let row = peak / padW, col = peak % padW
-
+        for index in 1..<cc.count where cc[index] > peakValue { peakValue = cc[index]; peakIndex = index }
+        let row = peakIndex / padW, col = peakIndex % padW
         func at(_ r: Int, _ c: Int) -> Float {
             cc[((r % padH + padH) % padH) * padW + ((c % padW + padW) % padW)]
         }
         let centre = at(row, col)
         let dRow = subpixel(minus: at(row - 1, col), centre: centre, plus: at(row + 1, col))
         let dCol = subpixel(minus: at(row, col - 1), centre: centre, plus: at(row, col + 1))
-
-        // Correlation peak sits at twice the origin; fold back into the pattern.
         let originRow = ((Float(row) + dRow) / 2).truncatingRemainder(dividingBy: Float(height))
         let originCol = ((Float(col) + dCol) / 2).truncatingRemainder(dividingBy: Float(width))
         return (originRow, originCol)
@@ -99,52 +136,31 @@ package nonisolated enum FriedelOrigin {
 
     // MARK: - Beamstop: py4DSTEM's three-term masked cross-correlation
     //
-    //   term1 = Re( IFFT2(FFT2(im)^2) · IFFT2(M^2) )
-    //   term2 = Re( IFFT2(FFT2(im^2) · M) )
-    //   term3 = Re( IFFT2(FFT2(im · maskPad)) )
+    //   term1 = Re( IFFT2(FFT2(im)^2) · IFFT2(M^2) )   [IFFT2(M^2) precomputed]
+    //   term2 = Re( IFFT2(FFT2(im^2) · M) )            [M precomputed]
+    //   term3 = Re( IFFT2(FFT2(im · maskPad)) )        [maskPad precomputed]
     //   cc    = (term1 - term3) / (term2 - term3)
-    //
-    // where `maskPad` is the mask padded with 1.0 (py4DSTEM `constant_values=1`)
-    // and `M = FFT2(maskPad)`.
 
-    private static func maskedCorrelation(pattern: [Float], mask: [Bool],
-                                          height: Int, width: Int, fft: FFT2D) -> [Float]? {
-        let padH = 2 * height, padW = 2 * width
-        let n = padH * padW
+    private static func maskedCorrelation(pattern: [Float], height: Int, width: Int,
+                                          prepared: PreparedBeamstop, fft: FFT2D) -> [Float] {
+        let padW = 2 * width, n = 2 * height * padW
 
-        // maskPad: mask value inside the pattern window, 1.0 in the padding.
-        var maskPad = [Float](repeating: 1, count: n)
-        for row in 0..<height {
-            for col in 0..<width {
-                maskPad[row * padW + col] = mask[row * width + col] ? 1 : 0
-            }
-        }
-
-        // M = FFT2(maskPad); M^2 then IFFT2 -> ifftM2 (complex).
-        var mRe = maskPad
-        var mIm = [Float](repeating: 0, count: n)
-        fft.transform(re: &mRe, im: &mIm, forward: true)
-        var m2Re = mRe, m2Im = mIm
-        squareInPlace(&m2Re, &m2Im)               // M^2
-        fft.transform(re: &m2Re, im: &m2Im, forward: false)   // ifftM2 (complex)
-
-        // A = IFFT2(FFT2(im)^2) (complex); term1 = Re(A · ifftM2).
+        // A = IFFT2(FFT2(im)^2); term1 = Re(A · ifftM2).
         var aRe = zeroPadded(pattern, height: height, width: width)
         var aIm = [Float](repeating: 0, count: n)
         fft.transform(re: &aRe, im: &aIm, forward: true)
-        squareInPlace(&aRe, &aIm)                 // FFT2(im)^2
-        fft.transform(re: &aRe, im: &aIm, forward: false)     // A (complex)
+        squareInPlace(&aRe, &aIm)
+        fft.transform(re: &aRe, im: &aIm, forward: false)
 
-        // term2 = Re(IFFT2(FFT2(im^2) · M)). FFT2(im^2) is the transform of the
-        // padded squared pattern.
+        // term2 = Re(IFFT2(FFT2(im^2) · M)).
         var sqRe = zeroPaddedSquared(pattern, height: height, width: width)
         var sqIm = [Float](repeating: 0, count: n)
-        fft.transform(re: &sqRe, im: &sqIm, forward: true)    // FFT2(im^2)
+        fft.transform(re: &sqRe, im: &sqIm, forward: true)
         var t2Re = [Float](repeating: 0, count: n)
         var t2Im = [Float](repeating: 0, count: n)
         for i in 0..<n {
-            t2Re[i] = sqRe[i] * mRe[i] - sqIm[i] * mIm[i]     // · M
-            t2Im[i] = sqRe[i] * mIm[i] + sqIm[i] * mRe[i]
+            t2Re[i] = sqRe[i] * prepared.mRe[i] - sqIm[i] * prepared.mIm[i]
+            t2Im[i] = sqRe[i] * prepared.mIm[i] + sqIm[i] * prepared.mRe[i]
         }
         fft.transform(re: &t2Re, im: &t2Im, forward: false)
 
@@ -153,17 +169,16 @@ package nonisolated enum FriedelOrigin {
         for row in 0..<height {
             for col in 0..<width {
                 let idx = row * padW + col
-                imMask[idx] = pattern[row * width + col] * maskPad[idx]
+                imMask[idx] = pattern[row * width + col] * prepared.maskPad[idx]
             }
         }
         var t3Im = [Float](repeating: 0, count: n)
         fft.transform(re: &imMask, im: &t3Im, forward: true)
-        fft.transform(re: &imMask, im: &t3Im, forward: false)  // term3 real part in imMask
+        fft.transform(re: &imMask, im: &t3Im, forward: false)
 
         var cc = [Float](repeating: 0, count: n)
         for i in 0..<n {
-            // term1 = Re(A · ifftM2)
-            let term1 = aRe[i] * m2Re[i] - aIm[i] * m2Im[i]
+            let term1 = aRe[i] * prepared.ifftM2Re[i] - aIm[i] * prepared.ifftM2Im[i]
             let denominator = t2Re[i] - imMask[i]
             cc[i] = denominator == 0 ? 0 : (term1 - imMask[i]) / denominator
         }
