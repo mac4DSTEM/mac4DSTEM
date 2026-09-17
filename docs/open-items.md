@@ -102,6 +102,14 @@ detection precision on weak reflections. Remaining levers, each its own Gate D: 
 rising Al-false-positive and 0.015-cliff cost), or accept a detection-limited T1 recall. Owner:
 which lever, if any.
 
+**py4DSTEM head-to-head, run 2026-09-17** ([`archive/v3/py4dstem-t1-comparison-2026-09-17.md`](archive/v3/py4dstem-t1-comparison-2026-09-17.md)):
+fed py4DSTEM's own ACOM + `CrystalPhase` NNLS the SAME detected peaks, it labels **100 % of T1
+positions Al** (T1-dominant 0 %, even where mac4DSTEM indexes T1). Verified real: T1's reference is
+correct, ACOM finds ~the right orientation, and T1 explains every peak (6/6) vs Al's 4 — but
+py4DSTEM's intensity-weighted residual prefers Al (7.4 vs 9.5) because it never removes the matrix and
+the strong Al {200} reflections carry ~all the intensity. A confident mislabel where mac4DSTEM abstains
+— it validates the matrix-removal + position-based design, not a lever to adopt.
+
 ## resultexport-split, prepared and parked — added 2026-09-17
 
 Audit 3.2 row 6 (`docs/archive/audit-2026-09-16/REPORT.md`): `Support/ResultExport.swift`

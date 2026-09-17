@@ -115,6 +115,7 @@ enum Probe {
         var matrixFallback: Double?
         var noiseFloor = false      // the noise-floor experiment (Gate D record: docs/open-items.md, step 3); only with --thronsen
         var t1OriginExperiment = false   // Gate D (docs/open-items.md, T1 entry): re-run the not-indexed T1 positions with a PER-POSITION direct-beam origin; only with --thronsen
+        var dumpPeaksPath: String?   // export the calibrated experimental peaks (qx,qy,intensity Å⁻¹) + truth + verdict per position, for a py4DSTEM head-to-head; only with --thronsen
         var completenessGuard = false   // item K: PhaseVectorSettings.completenessAwareCrossPhaseRanking, off-by-default candidate
         var orientationRelationship = false   // 2026-09-15: constrain candidates to their listed in-plane angles
         // 2026-09-15 evening: what ARE the surviving spots at correctly-labelled
@@ -150,6 +151,8 @@ enum Probe {
                 noiseFloor = true; index += 1
             } else if args[index] == "--t1-origin-experiment" {
                 t1OriginExperiment = true; index += 1
+            } else if args[index] == "--dump-peaks", index + 1 < args.count {
+                dumpPeaksPath = args[index + 1]; index += 2
             } else if args[index] == "--or" {
                 orientationRelationship = true; index += 1
             } else if args[index] == "--dump-edge-on" {
@@ -592,6 +595,42 @@ enum Probe {
                 print("  truth has \(thronsen.labels.count) positions, the map has "
                       + "\(map.results.count) — refusing to score a mismatch")
                 exit(1)
+            }
+            // --dump-peaks: the SAME calibrated experimental peaks the matcher
+            // sees (origin subtracted, direct beam + reach removed) with their
+            // intensities, plus truth and this run's verdict — for feeding
+            // py4DSTEM's own phase method the identical input (method, not
+            // detection, is the variable).
+            if let dumpPeaksPath {
+                let dbR = matchSettings.directBeamRadiusInvAngstrom
+                let reach = matchSettings.maximumVectorInvAngstrom
+                var lines: [String] = []
+                lines.reserveCapacity(map.results.count)
+                for (index, result) in map.results.enumerated() {
+                    let row = index / cols.count, col = index % cols.count
+                    var pts: [String] = []
+                    for p in peaks[index] {
+                        let qx = (Double(p.x) - Double(originX)) * qPerPixel
+                        let qy = (Double(p.y) - Double(originY)) * qPerPixel
+                        let len = (qx * qx + qy * qy).squareRoot()
+                        guard len.isFinite, len > dbR, reach <= 0 || len < reach else { continue }
+                        pts.append(String(format: "[%.6f,%.6f,%.4f]", qx, qy, Double(p.intensity)))
+                    }
+                    let verdict: String
+                    var phase = -1
+                    switch result.verdict {
+                    case .matrix: verdict = "matrix"; phase = Int(result.phaseIndex)
+                    case .indexed: verdict = "indexed"; phase = Int(result.phaseIndex)
+                    case .notIndexed: verdict = "notIndexed"
+                    case .noData: verdict = "noData"
+                    }
+                    lines.append("{\"i\":\(index),\"row\":\(row),\"col\":\(col),\"truth\":\(thronsen.labels[index]),\"verdict\":\"\(verdict)\",\"phase\":\(phase),\"peaks\":[\(pts.joined(separator: ","))]}")
+                }
+                let names = map.phaseNames.map { "\"\($0)\"" }.joined(separator: ",")
+                let header = "{\"qPerPixel\":\(qPerPixel),\"originX\":\(originX),\"originY\":\(originY),\"scanRows\":\(rows.count),\"scanCols\":\(cols.count),\"directBeamRadius\":\(dbR),\"reach\":\(reach),\"phaseNames\":[\(names)],\"positions\":[\n"
+                let json = header + lines.joined(separator: ",\n") + "\n]}\n"
+                try? json.write(toFile: dumpPeaksPath, atomically: true, encoding: .utf8)
+                print("\n  --dump-peaks: wrote \(map.results.count) positions to \(dumpPeaksPath)")
             }
             var table: [Int: [Int: Int]] = [:]
             var mislabelled = 0
