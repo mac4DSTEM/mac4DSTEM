@@ -34,6 +34,20 @@ Everything under `tools/` resolves its own toolchain via
 harnesses also need a Python with NumPy and py4DSTEM installed; set
 `PYTHON=/path/to/python` if it is not discovered.
 
+## Pushing
+
+All work lands directly on `main`; there are no feature branches (owner
+directive, 2026-09-17). Install the pre-push hook once per clone so a push
+that CI would reject never leaves the Mac — it runs the inventory gate and an
+app-target build into `build/prepush/`, never into the bundle you may be
+running:
+
+```sh
+git config core.hooksPath tools/hooks
+```
+
+To push once without it (a full disk, an emergency): `touch .git/skip-prepush`.
+
 ## Where code goes
 
 The Xcode project uses synchronized folder groups, so **placement is

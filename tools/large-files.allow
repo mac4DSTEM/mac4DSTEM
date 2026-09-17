@@ -1,0 +1,4 @@
+# Tracked files larger than 1 MiB must be listed here with a reason; the
+# inventory gate fails on any other. Path, then the reason after a tab.
+libhdf5.dylib	redistributed HDF5 runtime; no rebuild path yet (open-items.md)
+docs/images/strain-map-workspace.png	README screenshot

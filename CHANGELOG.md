@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — v3.1 Calibration foundation, on `main` since 2026-09-17
+
+Written as it lands, so the cut does not reconstruct it. Every item below
+passed the unit, core and inventory gates; "unverified on screen" means
+exactly that until the owner's drive says otherwise.
+
+- **Origin validity mask.** The robust origin fit now keeps the positions it
+  excluded (`OriginMaps.originValidity`), and Prepare shows "N of M
+  positions". No fitted number moved. The spatial overlay is still owed.
+- **Beamstop-tolerant origin.** `get_origin_friedel` and `get_beamstop_mask`
+  ported (parity ~1e-6 px; mask pixel-identical to scipy on the Au_ref cube),
+  behind a Prepare "Origin method" picker — additive, the default is unchanged.
+  Unverified on screen.
+- **Vacuum probe from a separate scan.** MapSettings "Vacuum Scan…" imports a
+  vacuum cube and builds the probe kernel from its mean pattern; refuses a
+  detector mismatch. Unverified on screen.
+- **Speed.** Friedel full-scan and the R–Q rotation solve run across cores;
+  both proven bit-identical to the serial code.
+- **Repository.** One branch, `main`; a pre-push hook that builds the app
+  target; a size guard on tracked files; `SECURITY.md`.
+
 ## v3.0.0 — 2026-09-11
 
 The first release with a machine-learned feature, and the first major version
@@ -465,7 +486,7 @@ current reproducible figures are in [`README.md`](README.md).)* Parity is
 measured against py4DSTEM 0.14.19 on a four-dataset training set, with records
 in `References/parity_records/`.
 
-A separate on-screen QC playthrough (`tools/ui-qc-playthrough/run.sh`, since
+A separate on-screen QC playthrough (the `ui-qc-playthrough` tool, retired 2026-08-17, since
 removed) drove the real app through the canonical py4DSTEM pipelines and logs every number it
 reads from the app's own controls. Its last full run was green on all four
 datasets.

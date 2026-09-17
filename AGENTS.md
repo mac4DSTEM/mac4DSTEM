@@ -52,4 +52,5 @@ is not loaded here: do not assume a fact is remembered.
 xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
 tools/run-tests.sh unit | scientific | all | inventory | core | benchmark | campaign   # inventory = the repo's own review
 tools/free-space.sh                                     # exit-69 remedy
+git config core.hooksPath tools/hooks                   # once per clone: pre-push runs inventory + an app build
 ```

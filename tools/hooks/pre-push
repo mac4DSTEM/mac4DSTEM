@@ -1,0 +1,45 @@
+#!/bin/zsh
+# pre-push — refuse a push that CI would reject, before it leaves the Mac.
+#
+# Why: main is the only branch and it is unprotected, so the only guard is
+# what runs here. On 2026-09-17 a Core file that compiled in the SwiftPM
+# package but not in the app target was pushed red; the local `core` gate
+# cannot see target membership, only an app build can.
+#
+# What runs (to a log under build/prepush/, never to the app bundle you may
+# be running — a scratch DerivedData, see docs "never build under the
+# running app"):
+#   1. tools/run-tests.sh inventory        (seconds: layout, manifest, sizes)
+#   2. xcodebuild build of the app target  (incremental after the first run)
+# A build that cannot run (no disk) fails the push and says so; a gate that
+# passes when it could not run is worse than none.
+#
+# Install once per clone:   git config core.hooksPath tools/hooks
+# Skip ONCE (GitHub Desktop cannot pass --no-verify):
+#   touch .git/skip-prepush      — consumed by the next push, then gone.
+set -u
+ROOT="$(/usr/bin/git rev-parse --show-toplevel)" || exit 1
+if [[ -f "$ROOT/.git/skip-prepush" ]]; then
+  rm -f "$ROOT/.git/skip-prepush"
+  echo "pre-push: skipped once (.git/skip-prepush consumed)"
+  exit 0
+fi
+LOGDIR="$ROOT/build/prepush"; mkdir -p "$LOGDIR"
+LOG="$LOGDIR/prepush-$(date +%Y%m%d-%H%M%S).log"
+free_gb=$(df -Pg "$ROOT" | awk 'NR==2 {print $4}')
+if (( free_gb < 4 )); then
+  echo "pre-push: REFUSED — ${free_gb} GB free, the app build needs 4. Run tools/free-space.sh, or touch .git/skip-prepush to push once without the gate."
+  exit 1
+fi
+echo "pre-push: inventory + app build → $LOG"
+if ! "$ROOT/tools/run-tests.sh" inventory > "$LOG" 2>&1; then
+  echo "pre-push: REFUSED — inventory gate failed; see $LOG"; tail -5 "$LOG"; exit 1
+fi
+if ! /usr/bin/xcodebuild -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
+     -destination 'platform=macOS' -derivedDataPath "$LOGDIR/DerivedData" \
+     CODE_SIGNING_ALLOWED=NO -quiet build >> "$LOG" 2>&1; then
+  echo "pre-push: REFUSED — the app target does not build; see $LOG"
+  grep -E 'error:' "$LOG" | head -5; exit 1
+fi
+echo "pre-push: OK (inventory exit 0, app target builds)"
+exit 0

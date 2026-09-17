@@ -105,7 +105,7 @@ campaign=(
   sidecar-result-test result-presentation-test
 )
 
-# Inventory — the repo's own review, run at every closeout (docs/v3-plan.md
+# Inventory — the repo's own review, run at every closeout (ROADMAP.md, formerly docs/v3-plan.md
 # §2 numbers). Every tools/ directory must be in exactly one list below; the
 # gated ones are `scientific` plus the two `all` extras. Diagnostic runners
 # never gate: they need machine-local data. Exits 1 on an unclassified or
@@ -117,7 +117,7 @@ diagnostic=(acom-groundtruth bragg-spacing-probe origin-fit-diagnostics
   hdf5-race-probe thronsen-dataset)
 owner_only=()
 retired=()
-support=(lib release crystal-structures)
+support=(lib release crystal-structures hooks)
 
 inventory() {
   local rc=0 name f
@@ -131,6 +131,21 @@ inventory() {
     name="$(basename "$f")"
     (( ${all[(Ie)$name]} )) || { echo "  UNCLASSIFIED $name"; rc=1; }
   done
+
+  # Large tracked files (added 2026-09-18): history already carries a removed
+  # 6 MB model and two copies of a 4 MB dylib, and a public repo's history is
+  # not rewritten. Any tracked file over 1 MiB must be named, with its reason,
+  # in tools/large-files.allow; anything else fails here.
+  echo "== tracked files over 1 MiB"
+  local big allow_file="$ROOT/tools/large-files.allow"
+  while IFS= read -r big; do
+    [[ -z "$big" ]] && continue
+    if grep -q "^${big}	" "$allow_file" 2>/dev/null; then
+      printf "  %-56s allowed\n" "$big"
+    else
+      printf "  %-56s NOT IN tools/large-files.allow\n" "$big"; rc=1
+    fi
+  done < <(git -C "$ROOT" ls-files -z | xargs -0 stat -f '%z %N' | awk '$1 > 1048576 {print $2}')
 
   swift_lines() { find "$@" \( -name '*.swift' -o -name '*.metal' \) -exec cat {} + | wc -l | tr -d ' '; }
   md_lines() { cat "$@" | wc -l | tr -d ' '; }
