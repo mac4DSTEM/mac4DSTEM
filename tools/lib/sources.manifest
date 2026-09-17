@@ -206,6 +206,8 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/FFT1D.swift"
           "$core/Analysis/OriginCalibration.swift"
+          "$core/Analysis/FriedelOrigin.swift"
+          "$core/Analysis/BeamstopMask.swift"
           "$core/Analysis/QCalibration.swift"
           "$core/Analysis/OrientationResult.swift"
           "$core/Crystal/ScatteringFactors.swift"

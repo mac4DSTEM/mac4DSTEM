@@ -39,6 +39,26 @@ package enum OriginCalibrationError: LocalizedError, Equatable {
     }
 }
 
+/// How per-position beam origins are measured before the smooth fit. // v3.1
+package nonisolated enum OriginMethod: String, Sendable, CaseIterable, Codable {
+    /// The classical centre-of-mass measurement on the GPU (py4DSTEM
+    /// `get_origin`). Fast, the default, and what every existing calibration used.
+    case centreOfMass
+    /// Friedel-symmetry self-correlation (py4DSTEM `get_origin_friedel`) with an
+    /// auto-generated beamstop mask (`get_beamstop_mask`), for data whose direct
+    /// beam is occluded by a beamstop — the case the centre of mass cannot serve.
+    /// CPU, opt-in, and slower (an FFT per pattern); recover the origin where the
+    /// classical path would be pulled by the stop's shadow.
+    case friedel
+
+    package var label: String {
+        switch self {
+        case .centreOfMass: return "Centre of mass"
+        case .friedel: return "Friedel (beamstop-tolerant)"
+        }
+    }
+}
+
 package nonisolated enum OriginCalibration {
 
     // MARK: - Probe size (py4DSTEM get_probe_size)
@@ -482,6 +502,7 @@ package nonisolated enum OriginCalibration {
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         fitFunction: OriginFitFunction = .plane,
+        originMethod: OriginMethod = .centreOfMass,
         rscale: Float = 1.2,
         maximumTileRows: Int? = nil,
         cancellation: AnalysisCancellationToken? = nil,
@@ -517,11 +538,26 @@ package nonisolated enum OriginCalibration {
         let originProgress: (@Sendable (Double) -> Void) = { fraction in
             progress?(0.35 + 0.55 * fraction)
         }
-        let measured = try await VirtualDetector.tiledMeasuredOrigins(
-            data: data, descriptor: d, probeRadius: radius, rscale: rscale,
-            maximumTileRows: maximumTileRows, cancellation: cancellation,
-            progress: originProgress
-        )
+        let measured: [Float]
+        switch originMethod {
+        case .centreOfMass:
+            measured = try await VirtualDetector.tiledMeasuredOrigins(
+                data: data, descriptor: d, probeRadius: radius, rscale: rscale,
+                maximumTileRows: maximumTileRows, cancellation: cancellation,
+                progress: originProgress
+            )
+        case .friedel:
+            // Auto-generate the beamstop mask from the mean DP (py4DSTEM
+            // get_beamstop_mask; true = beamstop) and invert it for
+            // get_origin_friedel (which wants true in the pattern).
+            let patternMask = BeamstopMask.mask(meanDP: statistics.meanDP, height: d.qy, width: d.qx)
+                .map { !$0 }
+            measured = try await friedelMeasuredOrigins(
+                data: data, descriptor: d, mask: patternMask,
+                maximumTileRows: maximumTileRows, cancellation: cancellation,
+                progress: originProgress
+            )
+        }
         guard cancellation?.isCancelled != true else { return nil }
         let count = d.ry * d.rx
         var measuredX = [Float](repeating: 0, count: count)
@@ -545,6 +581,48 @@ package nonisolated enum OriginCalibration {
                        originValidity: fitted.kept),
             statistics.maxDP, statistics.meanDP
         )
+    }
+
+    /// Per-position origins by Friedel self-correlation (py4DSTEM
+    /// `get_origin_friedel`), the CPU analogue of `VirtualDetector.tiledMeasuredOrigins`.
+    /// Returns interleaved `[x0, y0, …]` in the SAME convention that path does —
+    /// `x0` is the detector column, `y0` the detector row — so it feeds
+    /// `fitOriginTrimmed` identically. `mask` is `true` in the pattern (already
+    /// inverted from `BeamstopMask`). One FFT set per pattern, so this is slower
+    /// than the GPU path; it is opt-in for beamstop data.
+    private nonisolated static func friedelMeasuredOrigins(
+        data: FourDArray,
+        descriptor d: DatasetDescriptor,
+        mask: [Bool],
+        maximumTileRows: Int?,
+        cancellation: AnalysisCancellationToken?,
+        progress: (@Sendable (Double) -> Void)?
+    ) async throws -> [Float] {
+        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
+        let patternSize = d.qy * d.qx
+        var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
+        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
+            $0..<min(d.ry, $0 + rowsPerTile)
+        }
+        for range in ranges {
+            guard cancellation?.isCancelled != true else { throw CancellationError() }
+            let tile = try await data.scanTile(yRange: range)
+            for localRow in 0..<range.count {
+                let ry = range.lowerBound + localRow
+                for rx in 0..<d.rx {
+                    let base = (localRow * tile.scanWidth + rx) * patternSize
+                    let pattern = Array(tile.pixels[base..<base + patternSize])
+                    let index = (ry * d.rx + rx) * 2
+                    if let origin = FriedelOrigin.origin(pattern: pattern, height: d.qy,
+                                                         width: d.qx, mask: mask) {
+                        output[index] = origin.col       // measured X = detector column
+                        output[index + 1] = origin.row   // measured Y = detector row
+                    }
+                }
+            }
+            progress?(Double(range.upperBound) / Double(d.ry))
+        }
+        return output
     }
 
     /// Full origin calibration on a resident cube:

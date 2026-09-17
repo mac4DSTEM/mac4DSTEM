@@ -192,6 +192,15 @@ struct PrepareSettings: View {
                     Text(fit.rawValue).tag(fit)
                 }
             }
+            Picker("Origin method", selection: $session.originMethod) {
+                ForEach(OriginMethod.allCases, id: \.self) { method in
+                    Text(method.label).tag(method)
+                }
+            }
+            .help("Centre of mass is the fast default. Friedel finds the beam through a "
+                + "beamstop by the pattern's own symmetry, auto-masking the stop (py4DSTEM "
+                + "get_origin_friedel + get_beamstop_mask). Slower — an FFT per pattern — and "
+                + "opt-in for data whose direct beam is occluded.")
             Button {
                 Task { await appState.calibrateOrigin() }
             } label: {

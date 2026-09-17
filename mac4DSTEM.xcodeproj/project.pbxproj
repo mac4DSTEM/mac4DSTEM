@@ -60,12 +60,14 @@
 		300000000000000000000001 /* Exceptions for "mac4DSTEM" folder in "mac4DSTEM" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/Analysis/BeamstopMask.swift,
 				Core/Analysis/DatasetPreview.swift,
 				Core/Analysis/DiffractionEmbedding.swift,
 				Core/Analysis/DiskDetection.swift,
 				Core/Analysis/DPC.swift,
 				Core/Analysis/EllipseCalibration.swift,
 				Core/Analysis/FitOverlays.swift,
+				Core/Analysis/FriedelOrigin.swift,
 				Core/Analysis/OrientationResult.swift,
 				Core/Analysis/OriginCalibration.swift,
 				Core/Analysis/ParallaxAberrationCorrection.swift,

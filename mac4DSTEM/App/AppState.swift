@@ -4016,11 +4016,12 @@ final class AppState {
         defer { finishCancellableOperation(cancellation) }
 
         let fitFn = calibrationSession.originFitFunction
+        let method = calibrationSession.originMethod
         let d = descriptor
         do {
             let epoch = datasetEpoch
             let result = try await OriginCalibration.tiledRun(
-                data: fourD, descriptor: d, fitFunction: fitFn,
+                data: fourD, descriptor: d, fitFunction: fitFn, originMethod: method,
                 cancellation: cancellation
             ) { [weak self] fraction in
                 Task { @MainActor [weak self] in

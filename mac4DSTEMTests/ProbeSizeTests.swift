@@ -281,6 +281,33 @@ final class ProbeSizeTests: XCTestCase {
             XCTAssertFalse(mask[i], "the trim must exclude displaced position \(i)")
         }
     }
+
+    // MARK: - Friedel origin method end-to-end (v3.1)
+
+    /// The whole Friedel path through `tiledRun`: mean DP → `BeamstopMask` →
+    /// per-position `get_origin_friedel` → fit. The cube's patterns are
+    /// centrosymmetric about an ASYMMETRIC origin (col 27, row 35), so a row/col
+    /// swap in the CPU loop is caught; the fit must land on it, and the classical
+    /// centre-of-mass method must agree on the same cube (so it is not merely
+    /// self-consistent).
+    func testFriedelOriginMethodRecoversAKnownAsymmetricOrigin() async throws {
+        let source = FriedelCentrosymmetricSource()
+        let d = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: d)
+        guard let fit = try await OriginCalibration.tiledRun(
+            data: data, descriptor: d, fitFunction: .plane, originMethod: .friedel
+        ) else { return XCTFail("tiledRun(.friedel) returned nil") }
+        XCTAssertEqual(fit.origin.fittedX[0], FriedelCentrosymmetricSource.originCol, accuracy: 0.6,
+                       "Friedel origin X (detector column)")
+        XCTAssertEqual(fit.origin.fittedY[0], FriedelCentrosymmetricSource.originRow, accuracy: 0.6,
+                       "Friedel origin Y (detector row)")
+        guard let com = try await OriginCalibration.tiledRun(
+            data: data, descriptor: d, fitFunction: .plane, originMethod: .centreOfMass
+        ) else { return XCTFail("tiledRun(.centreOfMass) returned nil") }
+        XCTAssertEqual(fit.origin.fittedX[0], com.origin.fittedX[0], accuracy: 1.0,
+                       "Friedel and centre-of-mass must agree on this centrosymmetric cube")
+        XCTAssertEqual(fit.origin.fittedY[0], com.origin.fittedY[0], accuracy: 1.0)
+    }
 }
 
 /// 4x4 scan of a 64x64 detector: an identical central beam at every position,
@@ -397,6 +424,59 @@ private actor ZeroFourDDataSource: FourDDataSource {
         shape: [2, 2, 16, 16], dtypeDescription: "float32", chunkShape: nil
     )
     private let cube = [Float](repeating: 0, count: 2 * 2 * 16 * 16)
+
+    func fullCube() -> [Float] { cube }
+    func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        view.pattern(fromFullCube: cube, ry: ry, rx: rx)
+    }
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        view.scanRow(fromFullCube: cube, ry: ry)
+    }
+    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+        view.scanTile(fromFullCube: cube, yRange: yRange)
+    }
+    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+    func pixelCalibration() -> PixelCalibration? { nil }
+}
+
+/// 4x4 scan of a 64x64 detector: every pattern identical and centrosymmetric
+/// about an asymmetric origin (col 27, row 35) — a central Gaussian beam plus
+/// three Friedel-paired disks. The Friedel origin method must recover that
+/// centre; the asymmetry (col != row) makes a row/col swap fail. // v3.1
+private actor FriedelCentrosymmetricSource: FourDDataSource {
+    static let originCol: Float = 27.0
+    static let originRow: Float = 35.0
+    static let descriptor = DatasetDescriptor(
+        filePath: "/tmp/friedel.h5", datasetPath: "/data",
+        shape: [4, 4, 64, 64], dtypeDescription: "float32", chunkShape: nil
+    )
+    private let cube: [Float]
+
+    init() {
+        let d = Self.descriptor
+        let q = d.qx
+        func gaussian(into dp: inout [Float], col: Double, row: Double, amp: Float, sigma: Double) {
+            for y in 0..<q {
+                for x in 0..<q {
+                    let dx = Double(x) - col, dy = Double(y) - row
+                    dp[y * q + x] += amp * Float(exp(-(dx * dx + dy * dy) / (2 * sigma * sigma)))
+                }
+            }
+        }
+        var pat = [Float](repeating: 0, count: q * q)
+        let c = Double(Self.originCol), r = Double(Self.originRow)
+        gaussian(into: &pat, col: c, row: r, amp: 1000, sigma: 2.2)               // central beam
+        for (u, v, a) in [(6.0, 3.0, 400.0), (-2.0, 8.0, 260.0), (9.0, -5.0, 180.0)] {
+            gaussian(into: &pat, col: c + u, row: r + v, amp: Float(a), sigma: 1.8)   // Friedel pair
+            gaussian(into: &pat, col: c - u, row: r - v, amp: Float(a), sigma: 1.8)
+        }
+        var all: [Float] = []
+        all.reserveCapacity(d.ry * d.rx * q * q)
+        for _ in 0..<(d.ry * d.rx) { all.append(contentsOf: pat) }
+        cube = all
+    }
 
     func fullCube() -> [Float] { cube }
     func discoverPrimaryDataset() throws -> DatasetDescriptor { Self.descriptor }

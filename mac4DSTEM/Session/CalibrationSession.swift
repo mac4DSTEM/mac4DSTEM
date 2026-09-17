@@ -19,6 +19,9 @@ package final class CalibrationSession {
     package var provenance = CalibrationProvenance()
     package var acceleratingVoltage: Double?
     package var originFitFunction: OriginFitFunction = .plane
+    /// How per-position origins are measured before the smooth fit. `.friedel`
+    /// is the beamstop-tolerant path (`get_origin_friedel`), opt-in. // v3.1
+    package var originMethod: OriginMethod = .centreOfMass
     // Moving the annulus retires a standing "Fit Anyway" offer: its caption
     // names the sectors of the annulus that was refused, not this one (Gate B,
     // 2026-09-15).
