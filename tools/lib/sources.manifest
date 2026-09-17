@@ -359,6 +359,7 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/HDF5Types.swift"
           "$core/Data/H5Reader.swift"
+          "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
         )
         ;;

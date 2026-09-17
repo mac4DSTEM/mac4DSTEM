@@ -163,6 +163,56 @@ cross-file call requires it, full unit + the four harnesses + inventory each ste
 each step needs its own Gate B refuter, not a self-review. Owner: assign a session, or
 authorize continuing here with a refuter available.
 
+## braggvector-emd-writer-split, prepared and parked — added 2026-09-17
+
+Audit 3.2 row 7. `Core/Data/BraggVectorEMDWriter.swift` (2 890 lines) is the actual EMD/HDF5
+wire format — high science risk, "a byte moved is a file py4DSTEM misreads." One
+zero-behavior-risk step landed; the writer logic itself (the `H5Fcreate`/`H5Dwrite` calls)
+is untouched.
+
+**Landed:** `Core/Data/BraggVectorEMDTypes.swift` — the pure data-model types the export
+pipeline passes around (`ScalarResultMap`, `RGBAResultMap`, `SessionResultStorage`,
+`SessionResultDescriptor`, `SessionSidecarInventory`, `SessionSidecarSnapshot`,
+`CalibratedDataCubeExportOptions`, `CalibratedDataCubeExportSummary`, `DataCubeDerivation`
+including its `compose`/`jsonString`). No HDF5 call anywhere in this range — every type is a
+value type with no I/O. Verified: `diff` against the pristine pre-split backup on the exact
+extracted range, exit 0 — truly byte-identical, no access-level changes needed this time
+(everything here was already `package`, visible cross-file without modification). Wired into
+**both** places CLAUDE.md's hard rule and this item's own text name: `tools/lib/sources.manifest`'s
+`export` group (alongside `BraggVectorEMDWriter.swift`) and `project.pbxproj`'s
+`PBXFileSystemSynchronizedBuildFileExceptionSet` membership list for the `mac4DSTEM` target
+(the "2026-08-17 silent-drop class" this item's brief named by name — a Core/ file absent from
+that second list compiles into the SPM package but silently NOT into the app target). Both
+build paths verified separately: the app build (`itemJ-build1.log`, exit 0) and
+`tools/run-tests.sh core` — `swift build` of the DSTEMCore/DSTEMSession packages, the OTHER
+path that would have silently diverged from a missed manifest entry (`itemJ-core.log`, exit 0).
+
+**All six harnesses that compile this file pass** (this time a real check, unlike
+`resultexport-split`'s first step — these six DO exercise `BraggVectorEMDWriter.swift`):
+bragg-export-test, preprocessing-export-test, reduced-export-test, scientific-bundle-test
+(the four named in this item's brief), plus sidecar-result-test and sidecar-error-detail-test
+(`itemJ-parity-harnesses.log`, all six `EXIT=0`) — several of which assert an actual py4DSTEM
+h5py round-trip read of the written file, which is the strongest evidence a pure code move
+changed nothing: the bytes on disk are unreachable from a relocated type declaration in the
+first place, but the harnesses confirm it anyway rather than resting on that argument alone.
+unit 689/0/2=691, inventory exit 0 (`unit-itemJ-final.log`, `inv-itemJ.log`).
+
+**NOT attempted — the writer itself, left for the owner's session with Gate B support:** the
+`BraggVectorEMDWriter` enum's actual read/write functions (starting where this extraction
+stopped, `Core/Data/BraggVectorEMDWriter.swift:4` post-split). Splitting BY DATASET KIND per
+this item's own instruction needs: (a) identifying which functions write which EMD dataset
+(BraggVectors peaks, calibration, the reduced DataCube, the scientific bundle's `RealSlice`
+maps — read the file's own `// MARK:`-equivalent structure, which this session did not yet
+map function-by-function); (b) **keeping every new extension file `nonisolated`** — this
+item's own explicit warning: "default isolation is MainActor; a lost `nonisolated` is a real
+off-main-HDF5 defect only the app build catches," not something `swift build`/`tools/run-tests.sh
+core` would catch (bare `swiftc`/SPM default to nonisolated already, so only the app target's
+`MainActor`-by-default build proves the annotation is doing real work — verify with a cold app
+build specifically, not just `core`); (c) the SAME pbxproj + manifest wiring this step just
+demonstrated, repeated per new file; (d) `h5diff` the written sidecar before/after, byte-identical,
+per this item's own suggested verification, on top of the harnesses' py4DSTEM round-trip checks.
+Owner: assign a session with Gate B support, or authorize continuing here with a refuter.
+
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
 ### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
@@ -946,9 +996,9 @@ reopen test, both broken-first; `docs/status.md`). Still open otherwise, in the 
 order: a shared harness helper (row 4, Gate B on the helper — a shared `fail` can green
 46 harnesses at once), the NEXT `AppState` seam (row 5 continues — one per session),
 `Support/ResultExport.swift` and `Core/Data/BraggVectorEMDWriter.swift` splits only with
-byte-identical output evidence and a refuter (rows 6–7 — **row 6 started 2026-09-17**, see
-"resultexport-split, prepared and parked" below), and the >1 000-line harness mains
-(row 12).
+byte-identical output evidence and a refuter (rows 6–7 — **both started 2026-09-17**, see
+"resultexport-split, prepared and parked" and "braggvector-emd-writer-split, prepared and
+parked" below), and the >1 000-line harness mains (row 12).
 **Row 9 is a do-not:** five different `median` bodies in Core stay separate
 until a Gate D shows they should agree (ADR 015). Evidence and blast radii:
 `docs/archive/audit-2026-09-16/REPORT.md` §3.2. Owner: whoever picks a row.

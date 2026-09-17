@@ -101,6 +101,7 @@
 				Core/Crystal/PhaseReferenceLibrary.swift,
 				Core/Crystal/PhaseVectorMatching.swift,
 				Core/Crystal/ScatteringFactors.swift,
+				Core/Data/BraggVectorEMDTypes.swift,
 				Core/Data/BraggVectorEMDWriter.swift,
 				Core/Data/Calibration.swift,
 				Core/Data/CalibrationReReference.swift,
