@@ -28,6 +28,17 @@ package enum OriginCalibrationError: LocalizedError, Equatable {
     /// The pattern the probe radius is measured on has no finite intensity
     /// above zero (or no mass above threshold): there is no disk to size.
     case probeNotMeasurable
+    /// A vacuum scan chosen for the probe has a different detector size than the
+    /// loaded dataset, so its mean pattern cannot serve as that dataset's probe. // v3.1
+    case detectorMismatch(vacuum: (qx: Int, qy: Int), target: (qx: Int, qy: Int))
+
+    package static func == (lhs: OriginCalibrationError, rhs: OriginCalibrationError) -> Bool {
+        switch (lhs, rhs) {
+        case (.probeNotMeasurable, .probeNotMeasurable): return true
+        case let (.detectorMismatch(a, b), .detectorMismatch(c, d)): return a == c && b == d
+        default: return false
+        }
+    }
 
     package var errorDescription: String? {
         switch self {
@@ -35,6 +46,10 @@ package enum OriginCalibrationError: LocalizedError, Equatable {
             return "The mean diffraction pattern has no finite intensity above zero, so no probe "
                 + "radius can be measured. Check the dataset, the crop and the detector region "
                 + "before calibrating the origin."
+        case let .detectorMismatch(vacuum, target):
+            return "The vacuum scan's detector is \(vacuum.qx)×\(vacuum.qy), but the loaded dataset's "
+                + "is \(target.qx)×\(target.qy). A separate vacuum probe must be acquired on the same "
+                + "detector as the data it calibrates."
         }
     }
 }
@@ -623,6 +638,38 @@ package nonisolated enum OriginCalibration {
             progress?(Double(range.upperBound) / Double(d.ry))
         }
         return output
+    }
+
+    /// Build a probe kernel from a SEPARATE vacuum scan — the fix for a sample
+    /// with no vacuum region in frame (py4DSTEM's `Probe.from_vacuum_data`
+    /// shape, but the vacuum is its own file): the vacuum scan's MEAN
+    /// diffraction pattern is the probe. Refuses when the vacuum detector
+    /// differs from the dataset it will calibrate. Returns the kernel plus the
+    /// mean DP and measured size so the caller can record the probe reference. // v3.1
+    package nonisolated static func vacuumProbeKernel(
+        vacuum: FourDArray,
+        vacuumDescriptor v: DatasetDescriptor,
+        targetDescriptor t: DatasetDescriptor,
+        mode: ProbeKernelMode = .flat,
+        probePath: String? = nil,
+        cancellation: AnalysisCancellationToken? = nil
+    ) async throws -> (kernel: ProbeKernel, meanDP: [Float], radius: Float, centreX: Float, centreY: Float) {
+        guard v.qy == t.qy, v.qx == t.qx else {
+            throw OriginCalibrationError.detectorMismatch(vacuum: (v.qx, v.qy), target: (t.qx, t.qy))
+        }
+        let statistics = try await VirtualDetector.tiledDPStatistics(
+            data: vacuum, descriptor: v, cancellation: cancellation)
+        guard let size = probeSize(dp: statistics.meanDP, qy: v.qy, qx: v.qx) else {
+            throw OriginCalibrationError.probeNotMeasurable
+        }
+        let pattern = DiffractionPattern(qy: v.qy, qx: v.qx, pixels: statistics.meanDP)
+        guard let kernel = ProbeKernel.measured(
+            pattern: pattern, originX: size.x0, originY: size.y0, radius: size.r,
+            mode: mode, source: .vacuumScan, probePath: probePath
+        ) else {
+            throw OriginCalibrationError.probeNotMeasurable
+        }
+        return (kernel, statistics.meanDP, size.r, size.x0, size.y0)
     }
 
     /// Full origin calibration on a resident cube:

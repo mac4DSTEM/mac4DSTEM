@@ -47,8 +47,11 @@ no shipped number moves, a unit gate. **Landed 2026-09-17:** item 1 (mask + D4
 count + step-3 measured); the CoM centre in `probeSize` **diagnosed and parked**
 (marginal, two-sided); and **`get_origin_friedel`'s Core algorithm ported**
 (`FriedelOrigin.swift`, beamstop-tolerant, opt-in/additive) with a gated parity
-harness at ~1e-6 px against py4DSTEM — its app wiring is the follow-on. Then the
-vacuum probe from a separate scan (largest, its own pre-registration). Full registration:
+harness at ~1e-6 px against py4DSTEM, `get_beamstop_mask` ported (pixel-identical to
+scipy on the real Au_ref beamstop cube) and **wired as an origin-method picker**; and
+the **vacuum probe from a separate scan** (a "Vacuum Scan…" probe source). **All four
+Calibration-foundation items landed 2026-09-17** (item 2 parked as marginal); the UI
+additions are unverified on screen. Full registration:
 [`docs/v3.1-calibration-preregistration.md`](docs/v3.1-calibration-preregistration.md),
 decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-v3.1-origin-validity-mask.md).
 

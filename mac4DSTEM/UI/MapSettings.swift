@@ -53,6 +53,12 @@ private struct DiskDetectionRows: View {
     /// reads structured probes small (Gate B, 2026-09-05 — the trench default
     /// rebuilt the failing bullseye kernel on the first click).
     @State private var measuredKernelMode: ProbeKernelMode = .flat
+    @State private var showVacuumImporter = false
+
+    private var datasetTypes: [UTType] {
+        ["h5", "hdf5", "emd", "dm4", "dm3", "mib", "raw", "xml"]
+            .compactMap { UTType(filenameExtension: $0) }
+    }
 
     var body: some View {
         @Bindable var learned = appState.learnedDetection
@@ -90,6 +96,29 @@ private struct DiskDetectionRows: View {
         .disabled(appState.isBusy)
         .accessibilityIdentifier("disk.generateFileProbeKernel")
         .help("Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none.")
+
+        Button {
+            showVacuumImporter = true
+        } label: {
+            Label("Vacuum Scan…", systemImage: "square.stack.3d.up")
+        }
+        .disabled(appState.isBusy || !appState.hasDataset)
+        .accessibilityIdentifier("disk.generateVacuumProbeKernel")
+        .help("Build the kernel from a SEPARATE vacuum scan file — the fix for a sample with no vacuum region in frame. Its mean pattern is the probe; it must be on the same detector as the loaded data.")
+        .fileImporter(
+            isPresented: $showVacuumImporter,
+            allowedContentTypes: datasetTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    Task { await appState.generateVacuumProbeKernel(fromScan: url, mode: measuredKernelMode) }
+                }
+            case .failure(let error):
+                appState.present(error)
+            }
+        }
 
         if let kernel = appState.probeKernel {
             LabeledContent(

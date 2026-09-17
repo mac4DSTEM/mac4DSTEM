@@ -712,6 +712,11 @@ package enum ReplayPlanner {
                 // could replay; it does not yet — the executor builds no
                 // kernel. Refused rather than substituted (2026-09-05).
                 return .failure(ReplayRefusal(reason: "it detected disks with the file's own probe image as the kernel (\(p["kernel_probe_path"] ?? "")), which the replay does not rebuild yet — choose Use File's Probe on the promoted view, then run detection by hand"))
+            case "measured_vacuum_scan":
+                // The probe came from a SEPARATE vacuum scan the recipe cannot
+                // carry (only its file name, kernel_probe_path). Refused rather
+                // than substituted, like the vacuum-ROI case. // v3.1
+                return .failure(ReplayRefusal(reason: "it detected disks with a probe measured from a separate vacuum scan (\(p["kernel_probe_path"] ?? "")), which the recipe cannot carry — load that vacuum scan as the probe on the promoted view, then run detection by hand"))
             default:
                 return refused(step, key: "kernel_source", value: p["kernel_source"])
             }

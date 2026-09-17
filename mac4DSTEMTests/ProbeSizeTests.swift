@@ -308,6 +308,37 @@ final class ProbeSizeTests: XCTestCase {
                        "Friedel and centre-of-mass must agree on this centrosymmetric cube")
         XCTAssertEqual(fit.origin.fittedY[0], com.origin.fittedY[0], accuracy: 1.0)
     }
+
+    // MARK: - Vacuum probe from a separate scan (v3.1 item 4)
+
+    /// The separate-vacuum-scan probe path: a vacuum cube's mean pattern becomes
+    /// the probe kernel (source `.vacuumScan`), and a vacuum on a different
+    /// detector than the dataset it would calibrate is refused rather than
+    /// silently used on the wrong grid.
+    func testVacuumProbeKernelBuildsFromASeparateScanAndRefusesAMismatch() async throws {
+        let vacuum = SatelliteFourDDataSource()               // a beam on a 64x64 detector
+        let vDesc = try await vacuum.discoverPrimaryDataset()
+        let vData = FourDArray(reader: vacuum, descriptor: vDesc)
+
+        let result = try await OriginCalibration.vacuumProbeKernel(
+            vacuum: vData, vacuumDescriptor: vDesc, targetDescriptor: vDesc, mode: .flat,
+            probePath: "vacuum.h5")
+        XCTAssertEqual(result.kernel.source, .vacuumScan, "the kernel records where it came from")
+        XCTAssertEqual(result.kernel.probePath, "vacuum.h5")
+        XCTAssertGreaterThan(result.radius, 2, "the vacuum beam has a measurable radius")
+
+        // A vacuum on a different detector than the target must refuse.
+        let mismatched = DatasetDescriptor(
+            filePath: "/tmp/target.h5", datasetPath: "/data",
+            shape: [4, 4, 32, 32], dtypeDescription: "float32", chunkShape: nil)
+        do {
+            _ = try await OriginCalibration.vacuumProbeKernel(
+                vacuum: vData, vacuumDescriptor: vDesc, targetDescriptor: mismatched, mode: .flat)
+            XCTFail("a vacuum on a 64x64 detector must not serve a 32x32 dataset")
+        } catch let error as OriginCalibrationError {
+            guard case .detectorMismatch = error else { return XCTFail("wrong error: \(error)") }
+        }
+    }
 }
 
 /// 4x4 scan of a 64x64 detector: an identical central beam at every position,

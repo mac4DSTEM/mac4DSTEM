@@ -33,12 +33,14 @@ package nonisolated enum ProbeKernelSource: String, Sendable {
     case synthetic = "Synthetic"
     case measured = "Measured ROI"
     case fileProbe = "File probe"
+    case vacuumScan = "Vacuum scan"
 
     package var provenanceID: String {
         switch self {
         case .synthetic: "synthetic"
         case .measured: "measured_roi"
         case .fileProbe: "measured_file_probe"
+        case .vacuumScan: "measured_vacuum_scan"
         }
     }
 }

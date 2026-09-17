@@ -4559,6 +4559,36 @@ final class AppState {
         await detectCurrentPattern()
     }
 
+    /// Build the kernel from a SEPARATE vacuum scan file — the fix for a sample
+    /// with no vacuum region in frame (the MgO disk-radius finding). The vacuum
+    /// scan's mean pattern is the probe; `OriginCalibration.vacuumProbeKernel`
+    /// refuses if its detector differs from the loaded dataset's. // v3.1
+    func generateVacuumProbeKernel(fromScan url: URL, mode: ProbeKernelMode = .flat) async {
+        guard let descriptor else { return }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let reader = try await Self.makeReader(for: url)
+            let vacuumDescriptor = try await reader.discoverPrimaryDataset()
+            let vacuumData = FourDArray(reader: reader, descriptor: vacuumDescriptor)
+            let result = try await OriginCalibration.vacuumProbeKernel(
+                vacuum: vacuumData, vacuumDescriptor: vacuumDescriptor,
+                targetDescriptor: descriptor, mode: mode, probePath: url.lastPathComponent
+            )
+            probeKernel = result.kernel
+            let pattern = DiffractionPattern(qy: vacuumDescriptor.qy, qx: vacuumDescriptor.qx,
+                                             pixels: result.meanDP)
+            learnedDetection.probeReference = .init(
+                pattern: pattern, centreX: result.centreX, centreY: result.centreY,
+                radius: result.radius, source: .vacuumScan)
+            statusText = String(format: "Vacuum probe kernel ✓  r = %.1f px from %@, %@",
+                                result.radius, url.lastPathComponent, mode.rawValue.lowercased())
+            await detectCurrentPattern()
+        } catch {
+            presentComputeFailure(error)
+        }
+    }
+
     // Same coalescing contract as the live virtual-detector drag: at most one
     // detection in flight; parameter changes during a slider drag mark work
     // pending instead of piling up detached detections that only get
