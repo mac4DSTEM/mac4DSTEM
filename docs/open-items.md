@@ -15,16 +15,19 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
-## v3.1 origin validity mask landed 2026-09-17 (disclosure); D4 + step-3 owed
+## v3.1 origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay + clustered case owed
 
 `OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position `kept` mask
 (previously only the scalar `excludedFraction` survived). Disclosure only, no fitted number
 moves; wire type `PixelOriginMaps` untouched (D3 deferred), so a restored session reads `nil`.
 Gates, break-first, and the adversarial review that caught a production-carry test gap: ADR 033,
 `docs/v3.1-calibration-preregistration.md`. **Owed:**
-- **D4, on screen:** no validity overlay/count built — **unverified on screen**; owner drives.
-- **Step-3 "earns its place":** unmeasured (a clustered exclusion the mask reveals where the scalar
-  cannot — origin-fit hole (c)); needs `Particle_1…bin8` (absent here) or a synthetic pair.
+- **D4 count landed** (`PrepareSettings.positionsUsedValue`, unit-tested M4) — **unverified on
+  screen**. The spatial **validity overlay** (origin fit over the scan grid, excluded positions
+  greyed via `DisplayedProduct.validityMask`) is a larger follow-on, not built.
+- **Step-3 PASSED** (`trim-sweep`, 4 cubes, shipped default): excluded 0.6–15.7 %, `maxGap` 1–5 —
+  Si-SiGe (15.7 %, scattered) vs sim_Au (10.6 %, `maxGap 5`, clustered) exclude alike but differ
+  spatially, which the scalar cannot see and the mask can (hole (c)). Dramatic clusters still synthetic.
 - **D1/D2 at defaults, overrule on sight:** `[Bool]?` aligned to `fittedX/Y`; `false` = interpolated,
   not measured; the re-reference transforms drop it with `excludedFraction`.
 

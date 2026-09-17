@@ -42,6 +42,24 @@ struct PrepareSettings: View {
         excluded > Calibration.excludedFractionDisclosureFloor
     }
 
+    /// The "Positions used" value. When the origin fit's per-position validity
+    /// mask is present it shows the absolute count — "142 of 150 positions" —
+    /// which localises the disclosure the scalar cannot; a restored session
+    /// carries no mask (not persisted, D3) and falls back to the percentage.
+    /// Mirrors `WorkspaceInspector.validityLabel`'s "N of M positions" wording
+    /// so the count reads identically across the app. // v3.1 ADR 033
+    static func positionsUsedValue(excludedFraction excluded: Float, validity: [Bool]?) -> String {
+        let excludedPercent = Double(excluded) * 100
+        if let validity, !validity.isEmpty {
+            let total = validity.count
+            let kept = validity.reduce(0) { $0 + ($1 ? 1 : 0) }
+            return String(format: "%d of %d positions (%.0f%% excluded as outliers)",
+                          kept, total, excludedPercent)
+        }
+        return String(format: "%.0f%% (%.0f%% excluded as outliers)",
+                      (1 - Double(excluded)) * 100, excludedPercent)
+    }
+
     /// Manual Q/R editing stays reachable after the value becomes ready, for
     /// every provenance but one. R has no measurement path in this app. Q's
     /// imported value is exactly the one worth overriding — py4DSTEM's own DM
@@ -198,12 +216,13 @@ struct PrepareSettings: View {
             // The excluded fraction, where the reader who sees the number
             // sees it (2026-08-28): "2.19 px over 73% of positions" is a
             // different claim from "2.19 px over all of them".
-            if let excluded = calibration.origin?.excludedFraction,
+            if let origin = calibration.origin,
+               let excluded = origin.excludedFraction,
                Self.disclosesExcludedFraction(excluded) {
                 LabeledContent(
                     "Positions used",
-                    value: String(format: "%.0f%% (%.0f%% excluded as outliers)",
-                                  Double(1 - excluded) * 100, Double(excluded) * 100)
+                    value: Self.positionsUsedValue(excludedFraction: excluded,
+                                                   validity: origin.originValidity)
                 )
                 .help("The origin fit is robust: scan positions whose measured origin sits far "
                     + "from the fitted surface are excluded and the surface refitted. Excluding "

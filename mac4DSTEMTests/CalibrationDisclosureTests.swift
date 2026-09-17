@@ -169,4 +169,20 @@ final class CalibrationDisclosureTests: XCTestCase {
         let bridged = try XCTUnwrap(pixel.appOriginMaps(width: 2, height: 2))
         XCTAssertNil(bridged.originValidity, "the import bridge invents no mask")
     }
+
+    /// D4 (ADR 033): the Prepare "Positions used" row shows the absolute count
+    /// when the mask is present, and falls back to the percentage when a restored
+    /// session carries no mask (D3, not persisted). Break-first: reverting the row
+    /// to the percentage-only string drops the "N of M" count and fails the first
+    /// assertion.
+    func testPositionsUsedValueShowsTheCountWhenTheMaskIsPresent() {
+        let mask = [true, true, false, true, true, true, false, true, true, true] // 8 of 10
+        XCTAssertEqual(
+            PrepareSettings.positionsUsedValue(excludedFraction: 0.2, validity: mask),
+            "8 of 10 positions (20% excluded as outliers)")
+        // Restored session, no mask: percentage only, and never the "N of M" form.
+        let fallback = PrepareSettings.positionsUsedValue(excludedFraction: 0.2, validity: nil)
+        XCTAssertEqual(fallback, "80% (20% excluded as outliers)")
+        XCTAssertFalse(fallback.contains(" of "))
+    }
 }
