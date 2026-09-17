@@ -282,11 +282,11 @@ struct PrimaryActionButton: View {
         case .reconstruct:
             if appState.navigation.analysisMode == .dpc { "Run DPC" }
             else if appState.navigation.analysisMode == .singleslicePtychography { "Reconstruct Object" }
-            else if appState.parallaxPreprocess == nil { "Prepare Preview" }
-            else if appState.parallaxAlignment?.isComplete != true { "Align Next Level" }
-            else if appState.parallaxHigherOrderFit == nil { "Fit Aberrations" }
-            else if appState.parallaxCorrection == nil { "Correct Phase" }
-            else if appState.parallaxSubpixel == nil { "Upsample BF" }
+            else if appState.phaseContrast.parallaxPreprocess == nil { "Prepare Preview" }
+            else if appState.phaseContrast.parallaxAlignment?.isComplete != true { "Align Next Level" }
+            else if appState.phaseContrast.parallaxHigherOrderFit == nil { "Fit Aberrations" }
+            else if appState.phaseContrast.parallaxCorrection == nil { "Correct Phase" }
+            else if appState.phaseContrast.parallaxSubpixel == nil { "Upsample BF" }
             // C4(a): every parallax stage is complete — readiness is already
             // shown by the stage checklist's own checkmarks
             // (`ParallaxStageSections`), so the toolbar offers no button

@@ -6,7 +6,7 @@
 //  This is a FILE-PLACEMENT move out of `ResultExport.swift` (2026-09-11), not
 //  the consolidation it superficially resembles. It stays an `extension
 //  AppState` and its body is unchanged, because it reads `virtualShape`,
-//  `dpcDisplay`, `strain.component`, `acomSession`, `parallaxDepth` and more —
+//  `dpcDisplay`, `strain.component`, `acomSession`, `phaseContrast.parallaxDepth` and more —
 //  so it cannot join the `extension AnalysisMode` tables in
 //  `App/ProductWorkflow.swift` the way `AnalysisMode` itself did at step 1.
 //
@@ -127,7 +127,7 @@ extension AppState {
         case .disks:
             return ("bragg_vector_map", "Bragg vector map", "log_intensity")
         case .ptychography, .singleslicePtychography:
-            switch parallaxResultProduct {
+            switch phaseContrast.parallaxResultProduct {
             case .correctedPhase:
                 return ("parallax_corrected_phase", "Parallax corrected phase",
                         "arbitrary_phase")
@@ -141,7 +141,7 @@ extension AppState {
                 return ("parallax_preprocess", "Parallax incoherent BF preview",
                         "normalized_intensity")
             case .depth:
-                let depth = parallaxDepth?.depthsAngstrom[parallaxDepthSelectedIndex] ?? 0
+                let depth = phaseContrast.parallaxDepth?.depthsAngstrom[phaseContrast.parallaxDepthSelectedIndex] ?? 0
                 return ("parallax_depth", String(format: "Parallax depth %.1f Å", depth),
                         "arbitrary_phase")
             case .iterativePhase:

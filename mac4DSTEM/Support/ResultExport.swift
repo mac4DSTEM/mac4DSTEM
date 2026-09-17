@@ -929,25 +929,25 @@ extension AppState {
 
     func applySelectedSavedControls() {
         guard let plan = selectedSavedControlRehydration else { return }
-        if let value = plan.kdeUpsampleFactor { parallaxKDEUpsampleFactor = value }
-        if let value = plan.kdeSigmaPixels { parallaxKDESigmaPixels = value }
-        if let value = plan.kdeLanczosOrder { parallaxKDELanczosOrder = value }
+        if let value = plan.kdeUpsampleFactor { phaseContrast.parallaxKDEUpsampleFactor = value }
+        if let value = plan.kdeSigmaPixels { phaseContrast.parallaxKDESigmaPixels = value }
+        if let value = plan.kdeLanczosOrder { phaseContrast.parallaxKDELanczosOrder = value }
         if let value = plan.positionIterations {
-            parallaxPositionCorrectionIterations = value
+            phaseContrast.parallaxPositionCorrectionIterations = value
         }
-        if let value = plan.kdeLowpass { parallaxKDELowpass = value }
-        if let value = plan.qLowpassInvAngstrom { parallaxQLowpassInvAngstrom = value }
-        if let value = plan.qHighpassInvAngstrom { parallaxQHighpassInvAngstrom = value }
+        if let value = plan.kdeLowpass { phaseContrast.parallaxKDELowpass = value }
+        if let value = plan.qLowpassInvAngstrom { phaseContrast.parallaxQLowpassInvAngstrom = value }
+        if let value = plan.qHighpassInvAngstrom { phaseContrast.parallaxQHighpassInvAngstrom = value }
         if let value = plan.depthAngstrom {
-            parallaxDepthStartAngstrom = value
-            parallaxDepthEndAngstrom = value
-            parallaxDepthPlaneCount = 1
+            phaseContrast.parallaxDepthStartAngstrom = value
+            phaseContrast.parallaxDepthEndAngstrom = value
+            phaseContrast.parallaxDepthPlaneCount = 1
         }
-        if let value = plan.depthUseFullFit { parallaxDepthUseFullFit = value }
+        if let value = plan.depthUseFullFit { phaseContrast.parallaxDepthUseFullFit = value }
         if let value = plan.depthInformationLimit {
-            parallaxDepthInformationLimit = value
+            phaseContrast.parallaxDepthInformationLimit = value
         }
-        if let value = plan.depthInformationPower { parallaxDepthInformationPower = value }
+        if let value = plan.depthInformationPower { phaseContrast.parallaxDepthInformationPower = value }
         if let value = plan.ptychographyIterations { ptychography.iterations = value }
         if let value = plan.ptychographyMethod {
             switch value {
@@ -1458,19 +1458,19 @@ extension AppState {
                 calibrationSession.calibration.rPixelUnits, ["analysis_mode": navigation.analysisMode.rawValue]
             )
         }
-        switch parallaxResultProduct {
+        switch phaseContrast.parallaxResultProduct {
         case .preprocess:
-            let sampling = parallaxPreprocess?.calibration.scanSamplingAngstrom
+            let sampling = phaseContrast.parallaxPreprocess?.calibration.scanSamplingAngstrom
             return (sampling, sampling, "A", ["source_product": "parallax_preprocess"])
         case .alignment:
-            let sampling = parallaxPreprocess?.calibration.scanSamplingAngstrom
+            let sampling = phaseContrast.parallaxPreprocess?.calibration.scanSamplingAngstrom
             return (sampling, sampling, "A", [
                 "source_product": "parallax_alignment",
-                "levels": parallaxAlignment?.completedBins.map(String.init)
+                "levels": phaseContrast.parallaxAlignment?.completedBins.map(String.init)
                     .joined(separator: ",") ?? "",
             ])
         case .subpixel:
-            guard let result = parallaxSubpixel else { return (nil, nil, nil, [:]) }
+            guard let result = phaseContrast.parallaxSubpixel else { return (nil, nil, nil, [:]) }
             return (result.outputSamplingAngstrom, result.outputSamplingAngstrom, "A", [
                 "source_product": "parallax_subpixel_bf",
                 "upsample_factor": String(result.upsampleFactor),
@@ -1480,7 +1480,7 @@ extension AppState {
                 "sinc_lowpass": String(result.lowpassFilter),
             ])
         case .correctedPhase:
-            guard let result = parallaxCorrection else { return (nil, nil, nil, [:]) }
+            guard let result = phaseContrast.parallaxCorrection else { return (nil, nil, nil, [:]) }
             let lowpass = result.qLowpassInvAngstrom.map { String($0) } ?? "off"
             let highpass = result.qHighpassInvAngstrom.map { String($0) } ?? "off"
             let provenance: [String: String] = [
@@ -1491,15 +1491,15 @@ extension AppState {
             ]
             return (result.samplingAngstrom, result.samplingAngstrom, "A", provenance)
         case .depth:
-            guard let result = parallaxDepth,
-                  result.depthsAngstrom.indices.contains(parallaxDepthSelectedIndex) else {
+            guard let result = phaseContrast.parallaxDepth,
+                  result.depthsAngstrom.indices.contains(phaseContrast.parallaxDepthSelectedIndex) else {
                 return (nil, nil, nil, [:])
             }
             let informationLimit = result.informationLimitInvAngstrom
                 .map { String($0) } ?? "off"
             let provenance: [String: String] = [
                 "source_product": "parallax_depth",
-                "depth_angstrom": String(result.depthsAngstrom[parallaxDepthSelectedIndex]),
+                "depth_angstrom": String(result.depthsAngstrom[phaseContrast.parallaxDepthSelectedIndex]),
                 "full_fit": String(result.usedFullFit),
                 "information_limit_inv_a": informationLimit,
                 "information_power": String(result.informationPower),
@@ -1507,11 +1507,11 @@ extension AppState {
             return (result.samplingAngstrom, result.samplingAngstrom, "A", provenance)
         case .iterativePhase, .iterativeAmplitude,
              .iterativeProbePhase, .iterativeProbeAmplitude:
-            guard let result = singleslicePtychography else {
+            guard let result = phaseContrast.singleslicePtychography else {
                 return (nil, nil, nil, [:])
             }
             let sourceProduct: String
-            switch parallaxResultProduct {
+            switch phaseContrast.parallaxResultProduct {
             case .iterativePhase: sourceProduct = "ptychography_object_phase"
             case .iterativeAmplitude: sourceProduct = "ptychography_object_amplitude"
             case .iterativeProbePhase: sourceProduct = "ptychography_probe_phase"

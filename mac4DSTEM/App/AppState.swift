@@ -44,19 +44,9 @@ enum DPCDisplayMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
-    case preprocess = "Preprocessed BF"
-    case alignment = "Aligned BF"
-    case subpixel = "Subpixel BF"
-    case correctedPhase = "Corrected phase"
-    case depth = "Depth plane"
-    case iterativePhase = "Ptychography phase"
-    case iterativeAmplitude = "Ptychography amplitude"
-    case iterativeProbePhase = "Probe phase"
-    case iterativeProbeAmplitude = "Probe amplitude"
-
-    var id: String { rawValue }
-}
+// `ParallaxResultProduct` moved to `Session/PhaseContrastProduct.swift` (seam
+// 1, docs/appstate-seams-plan.md): a Session-layer owner cannot reference a
+// type defined in App/, so it moved with the state that uses it.
 
 /// Which image pane the user is currently operating on. Determines which ROI
 /// tools the left panel shows and where interactions are routed.
@@ -326,43 +316,11 @@ final class AppState {
     /// v2.5 step 4a: calibration state lives in `CalibrationSession`. Every
     /// reader goes there directly; the forwarders went in 7c slice 5b.
     let calibrationSession = CalibrationSession()
-    var parallaxPreprocess: ParallaxPreprocessResult?
-    var parallaxAberrationFit: ParallaxAberrationFitResult?
-    var parallaxCorrection: ParallaxAberrationCorrectionResult?
-    var parallaxSubpixel: ParallaxSubpixelResult?
-    var parallaxDepth: ParallaxDepthResult?
-    var singleslicePtychography: SingleslicePtychographyResult?
+    /// Seam 1 (docs/appstate-seams-plan.md): the Parallax and single-slice
+    /// ptychography products and their run controls. Every reader goes
+    /// there directly; there are no forwarding properties.
+    let phaseContrast = PhaseContrastProduct()
     let ptychography = PtychographySettings()
-    var parallaxKDEUpsampleFactor: Double = 0
-    var parallaxKDESigmaPixels: Double = 0.125
-    var parallaxKDELowpass = false
-    var parallaxKDELanczosOrder = 0
-    var parallaxPositionCorrectionIterations = 0
-    var parallaxPositionCorrectionCheckerboard = false
-    var parallaxDepthStartAngstrom: Double = -256
-    var parallaxDepthEndAngstrom: Double = 256
-    var parallaxDepthPlaneCount = 33
-    var parallaxDepthUseFullFit = true
-    var parallaxDepthInformationLimit: Double = 0
-    var parallaxDepthInformationPower: Double = 1
-    var parallaxDepthSelectedIndex = 0
-    var parallaxResultProduct: ParallaxResultProduct = .preprocess
-    var parallaxHigherOrderFit: ParallaxHigherOrderAberrationFitResult? {
-        didSet {
-            parallaxCorrection = nil
-            parallaxDepth = nil
-        }
-    }
-    var parallaxQLowpassInvAngstrom: Double = 0
-    var parallaxQHighpassInvAngstrom: Double = 0
-    var parallaxAlignment: ParallaxAlignmentResult? {
-        didSet {
-            parallaxAberrationFit = nil
-            parallaxHigherOrderFit = nil
-            parallaxSubpixel = nil
-            parallaxDepth = nil
-        }
-    }
     /// Full rotation-calibration result (objective curves) for the
     /// diagnostics plot in the inspector.
     var lastRotationResult: RotationCalibration.Result?
@@ -1338,15 +1296,15 @@ final class AppState {
                 await runCurrentAnalysis()
             } else if navigation.analysisMode == .singleslicePtychography {
                 await runSingleslicePtychography()   // v2.5 step 7a: its own task
-            } else if parallaxPreprocess == nil {
+            } else if phaseContrast.parallaxPreprocess == nil {
                 await prepareParallaxPreview()
-            } else if parallaxAlignment?.isComplete != true {
+            } else if phaseContrast.parallaxAlignment?.isComplete != true {
                 await alignParallaxNextLevel()
-            } else if parallaxHigherOrderFit == nil {
+            } else if phaseContrast.parallaxHigherOrderFit == nil {
                 fitParallaxAberrations()
-            } else if parallaxCorrection == nil {
+            } else if phaseContrast.parallaxCorrection == nil {
                 await correctParallaxPhase()
-            } else if parallaxSubpixel == nil {
+            } else if phaseContrast.parallaxSubpixel == nil {
                 await upsampleParallaxBF()
             }
         case .aiAnalysis:
@@ -2334,10 +2292,10 @@ final class AppState {
         patternGamma = 1
         lastRotationResult = nil
         calibrationSession.lastEllipseFit = nil   // before activate suspends (GB3)
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
-        singleslicePtychography = nil
-        parallaxResultProduct = .preprocess
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
+        phaseContrast.singleslicePtychography = nil
+        phaseContrast.parallaxResultProduct = .preprocess
         // THE VIEW'S detector, not the source's. These four are lengths and a
         // position in DETECTOR PIXELS, and a binned or cropped view has fewer
         // of them.
@@ -2987,10 +2945,10 @@ final class AppState {
             // just re-show it if already computed.
             if strain.map != nil { applyStrainDisplay() }
         case .ptychography:
-            if parallaxAlignment != nil { showParallaxProduct(.alignment) }
-            else if parallaxPreprocess != nil { showParallaxProduct(.preprocess) }
+            if phaseContrast.parallaxAlignment != nil { showParallaxProduct(.alignment) }
+            else if phaseContrast.parallaxPreprocess != nil { showParallaxProduct(.preprocess) }
         case .singleslicePtychography:
-            if singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
+            if phaseContrast.singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
         case .acom:
             if acomSession.orientationMap != nil { applyACOMDisplay() }
         case .diffractionGroups, .phaseMapping:
@@ -3063,7 +3021,7 @@ final class AppState {
         calibrationSession.clear()
         qCalibration.clear()
         clearSupersededFittedOrigin()
-        parallaxPreprocess = nil; parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil; phaseContrast.parallaxAlignment = nil
         acomSession.invalidateResult()
     }
 
@@ -3079,8 +3037,8 @@ final class AppState {
             aperture.centerX = mean.x
             aperture.centerY = mean.y
         }
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         statusText = "Fitted origin restored — \(superseded.provenance.displayName)"
         scheduleLiveVirtualDetector()
     }
@@ -3112,8 +3070,8 @@ final class AppState {
             calibrationSession.calibration.recordedOriginX = nil
             calibrationSession.calibration.recordedOriginY = nil
             calibrationSession.calibration.originProvenance = .manual
-            parallaxPreprocess = nil
-            parallaxAlignment = nil
+            phaseContrast.parallaxPreprocess = nil
+            phaseContrast.parallaxAlignment = nil
         }
         aperture = newAperture
         scheduleLiveVirtualDetector()
@@ -3149,8 +3107,8 @@ final class AppState {
     }
 
     func setManualQPixelSize(_ value: Double) {
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         if value.isFinite && value > 0 {
             calibrationSession.calibration.qPixelSize = value
             // A manual number is entered beside a physical-unit picker. If the
@@ -3170,8 +3128,8 @@ final class AppState {
         guard let canonical =
                 CalibrationUnitConversion.canonicalEditableReciprocalUnit(units)
         else { return }
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         calibrationSession.calibration.qPixelUnits = canonical
         if calibrationSession.calibration.qPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
             calibrationSession.provenance.qScale = .manual
@@ -3180,8 +3138,8 @@ final class AppState {
     }
 
     func setManualRPixelSize(_ value: Double) {
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         if value.isFinite && value > 0 {
             calibrationSession.calibration.rPixelSize = value
             calibrationSession.calibration.rPixelUnits = manualRPixelUnits
@@ -3195,8 +3153,8 @@ final class AppState {
     func setManualRPixelUnits(_ units: String) {
         guard let canonical = CalibrationUnitConversion.canonicalEditableRealUnit(units)
         else { return }
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         calibrationSession.calibration.rPixelUnits = canonical
         if calibrationSession.calibration.rPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
             calibrationSession.provenance.rScale = .manual
@@ -3204,8 +3162,8 @@ final class AppState {
     }
 
     func setManualAcceleratingVoltage(_ value: Double) {
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         calibrationSession.acceleratingVoltage = value.isFinite && value > 0 ? value : nil
         if CalibrationUnitConversion.normalized(calibrationSession.calibration.qPixelUnits) == "mrad" {
             acomSession.invalidateResult()
@@ -3536,8 +3494,8 @@ final class AppState {
         if rotation > .pi { rotation -= 2 * .pi }
         calibrationSession.calibration.rotationRad = rotation
         calibrationSession.provenance.rotation = .manual
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         // Same rule as `calibrateRotation`: the flip stands either way, but a
         // refused re-derivation keeps its own message on the status bar.
         // The strain tensor is mathematically invariant under a 180° flip
@@ -4413,8 +4371,8 @@ final class AppState {
         calibrationSession.calibration.qPixelUnits = "Å⁻¹"
         calibrationSession.provenance.qScale = .measuredInApp
         acomSession.invalidateResult()
-        parallaxPreprocess = nil
-        parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        phaseContrast.parallaxAlignment = nil
         var status = String(
             format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %d positions",
             estimate.invAngstromPerPixel, estimate.observedRadiusPixels,

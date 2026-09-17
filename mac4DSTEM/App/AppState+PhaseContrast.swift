@@ -58,8 +58,8 @@ extension AppState {
             )
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
-            parallaxPreprocess = result
-            parallaxAlignment = nil
+            phaseContrast.parallaxPreprocess = result
+            phaseContrast.parallaxAlignment = nil
             showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0
@@ -86,7 +86,7 @@ extension AppState {
     /// correlation. The last completed level remains published until the next
     /// one succeeds and passes the operation/dataset publication guards.
     func alignParallaxNextLevel() async {
-        guard let preprocessing = parallaxPreprocess else {
+        guard let preprocessing = phaseContrast.parallaxPreprocess else {
             presentComputeFailure(SimpleError("Prepare the parallax preview before alignment."))
             return
         }
@@ -97,13 +97,13 @@ extension AppState {
             presentComputeFailure(SimpleError("The bright-field mask cannot form an alignment level."))
             return
         }
-        let completed = parallaxAlignment?.completedBins ?? []
+        let completed = phaseContrast.parallaxAlignment?.completedBins ?? []
         guard completed.count < schedule.count else {
             presentComputeFailure(ParallaxAligner.AlignmentError.alignmentComplete)
             return
         }
         let bin = schedule[completed.count]
-        guard parallaxAlignment == nil
+        guard phaseContrast.parallaxAlignment == nil
                 || Array(schedule.prefix(completed.count)) == completed else {
             presentComputeFailure(SimpleError("Reset the stale parallax alignment before continuing."))
             return
@@ -129,7 +129,7 @@ extension AppState {
             }
             var options = ParallaxAlignmentOptions()
             options.upsampleFactor = 8
-            let prior = parallaxAlignment
+            let prior = phaseContrast.parallaxAlignment
             let result = try await Task.detached(priority: .userInitiated) {
                 try ParallaxAligner.alignNextLevel(
                     preprocessing: preprocessing, previous: prior, options: options,
@@ -138,7 +138,7 @@ extension AppState {
             }.value
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
-            parallaxAlignment = result
+            phaseContrast.parallaxAlignment = result
             showParallaxProduct(.alignment)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0
@@ -163,8 +163,8 @@ extension AppState {
     }
 
     func resetParallaxAlignment() {
-        guard !isBusy, parallaxPreprocess != nil else { return }
-        parallaxAlignment = nil
+        guard !isBusy, phaseContrast.parallaxPreprocess != nil else { return }
+        phaseContrast.parallaxAlignment = nil
         showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
         resultGamma = 1
         displayRangeLo = 0
@@ -174,8 +174,8 @@ extension AppState {
     }
 
     func fitParallaxAberrations() {
-        guard let preprocessing = parallaxPreprocess,
-              let alignment = parallaxAlignment else {
+        guard let preprocessing = phaseContrast.parallaxPreprocess,
+              let alignment = phaseContrast.parallaxAlignment else {
             presentComputeFailure(SimpleError("Complete parallax preprocessing and alignment first."))
             return
         }
@@ -183,8 +183,8 @@ extension AppState {
             let result = try ParallaxAberrationFitter.fitHigherOrder(
                 preprocessing: preprocessing, alignment: alignment
             )
-            parallaxAberrationFit = result.lowOrder
-            parallaxHigherOrderFit = result
+            phaseContrast.parallaxAberrationFit = result.lowOrder
+            phaseContrast.parallaxHigherOrderFit = result
             statusText = String(
                 format: "Recursive aberration fit ✓  %d terms · rotation %.2f° · RMS %.4f Å → %.4f Å",
                 result.terms.count,
@@ -198,8 +198,8 @@ extension AppState {
     }
 
     func upsampleParallaxBF() async {
-        guard let preprocessing = parallaxPreprocess,
-              let alignment = parallaxAlignment, alignment.isComplete else {
+        guard let preprocessing = phaseContrast.parallaxPreprocess,
+              let alignment = phaseContrast.parallaxAlignment, alignment.isComplete else {
             presentComputeFailure(SimpleError("Complete parallax alignment before KDE upsampling."))
             return
         }
@@ -211,15 +211,15 @@ extension AppState {
         defer { finishCancellableOperation(token) }
         do {
             var options = ParallaxSubpixelOptions()
-            options.upsampleFactor = parallaxKDEUpsampleFactor > 0
-                ? parallaxKDEUpsampleFactor : nil
-            options.kdeSigmaPixels = parallaxKDESigmaPixels
-            options.lowpassFilter = parallaxKDELowpass
-            options.lanczosOrder = parallaxKDELanczosOrder > 0
-                ? parallaxKDELanczosOrder : nil
-            options.positionCorrectionIterations = parallaxPositionCorrectionIterations > 0
-                ? parallaxPositionCorrectionIterations : nil
-            options.positionCorrectionCheckerboard = parallaxPositionCorrectionCheckerboard
+            options.upsampleFactor = phaseContrast.parallaxKDEUpsampleFactor > 0
+                ? phaseContrast.parallaxKDEUpsampleFactor : nil
+            options.kdeSigmaPixels = phaseContrast.parallaxKDESigmaPixels
+            options.lowpassFilter = phaseContrast.parallaxKDELowpass
+            options.lanczosOrder = phaseContrast.parallaxKDELanczosOrder > 0
+                ? phaseContrast.parallaxKDELanczosOrder : nil
+            options.positionCorrectionIterations = phaseContrast.parallaxPositionCorrectionIterations > 0
+                ? phaseContrast.parallaxPositionCorrectionIterations : nil
+            options.positionCorrectionCheckerboard = phaseContrast.parallaxPositionCorrectionCheckerboard
             let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     self?.updateCancellableOperation(
@@ -236,7 +236,7 @@ extension AppState {
             }.value
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
-            parallaxSubpixel = result
+            phaseContrast.parallaxSubpixel = result
             showParallaxProduct(.subpixel)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0
@@ -259,34 +259,34 @@ extension AppState {
     }
 
     func computeParallaxDepthSections() async {
-        guard let preprocessing = parallaxPreprocess,
-              let alignment = parallaxAlignment,
-              let fit = parallaxHigherOrderFit else {
+        guard let preprocessing = phaseContrast.parallaxPreprocess,
+              let alignment = phaseContrast.parallaxAlignment,
+              let fit = phaseContrast.parallaxHigherOrderFit else {
             presentComputeFailure(SimpleError("Fit parallax aberrations before depth sectioning."))
             return
         }
-        guard parallaxDepthPlaneCount > 0, parallaxDepthPlaneCount <= 257,
-              parallaxDepthStartAngstrom.isFinite,
-              parallaxDepthEndAngstrom.isFinite else {
+        guard phaseContrast.parallaxDepthPlaneCount > 0, phaseContrast.parallaxDepthPlaneCount <= 257,
+              phaseContrast.parallaxDepthStartAngstrom.isFinite,
+              phaseContrast.parallaxDepthEndAngstrom.isFinite else {
             presentComputeFailure(SimpleError("Use 1–257 finite parallax depth planes."))
             return
         }
         let depths: [Double]
-        if parallaxDepthPlaneCount == 1 {
-            depths = [parallaxDepthStartAngstrom]
+        if phaseContrast.parallaxDepthPlaneCount == 1 {
+            depths = [phaseContrast.parallaxDepthStartAngstrom]
         } else {
-            depths = (0..<parallaxDepthPlaneCount).map { index in
-                parallaxDepthStartAngstrom
-                    + (parallaxDepthEndAngstrom - parallaxDepthStartAngstrom)
-                    * Double(index) / Double(parallaxDepthPlaneCount - 1)
+            depths = (0..<phaseContrast.parallaxDepthPlaneCount).map { index in
+                phaseContrast.parallaxDepthStartAngstrom
+                    + (phaseContrast.parallaxDepthEndAngstrom - phaseContrast.parallaxDepthStartAngstrom)
+                    * Double(index) / Double(phaseContrast.parallaxDepthPlaneCount - 1)
             }
         }
         var options = ParallaxDepthOptions()
         options.depthsAngstrom = depths
-        options.useFullFit = parallaxDepthUseFullFit
-        options.informationLimitInvAngstrom = parallaxDepthInformationLimit > 0
-            ? parallaxDepthInformationLimit : nil
-        options.informationPower = parallaxDepthInformationPower
+        options.useFullFit = phaseContrast.parallaxDepthUseFullFit
+        options.informationLimitInvAngstrom = phaseContrast.parallaxDepthInformationLimit > 0
+            ? phaseContrast.parallaxDepthInformationLimit : nil
+        options.informationPower = phaseContrast.parallaxDepthInformationPower
         let epoch = datasetEpoch
         let token = beginCancellableOperation(
             "Parallax depth sectioning", status: "Computing depth planes…",
@@ -310,8 +310,8 @@ extension AppState {
             }.value
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
-            parallaxDepth = result
-            parallaxDepthSelectedIndex = depths.indices.min {
+            phaseContrast.parallaxDepth = result
+            phaseContrast.parallaxDepthSelectedIndex = depths.indices.min {
                 abs(depths[$0]) < abs(depths[$1])
             } ?? 0
             showParallaxProduct(.depth)
@@ -393,7 +393,7 @@ extension AppState {
             }.value
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
-            singleslicePtychography = result
+            phaseContrast.singleslicePtychography = result
             showParallaxProduct(.iterativePhase)
             statusText = String(
                 format: "Single-slice ptychography ✓  %@ · %d iterations · error %.6f",
@@ -412,14 +412,14 @@ extension AppState {
     var availableParallaxProducts: [ParallaxResultProduct] {
         ParallaxResultProduct.allCases.filter {
             switch $0 {
-            case .preprocess: parallaxPreprocess != nil
-            case .alignment: parallaxAlignment != nil
-            case .subpixel: parallaxSubpixel != nil
-            case .correctedPhase: parallaxCorrection != nil
-            case .depth: parallaxDepth != nil
+            case .preprocess: phaseContrast.parallaxPreprocess != nil
+            case .alignment: phaseContrast.parallaxAlignment != nil
+            case .subpixel: phaseContrast.parallaxSubpixel != nil
+            case .correctedPhase: phaseContrast.parallaxCorrection != nil
+            case .depth: phaseContrast.parallaxDepth != nil
             case .iterativePhase, .iterativeAmplitude,
                  .iterativeProbePhase, .iterativeProbeAmplitude:
-                singleslicePtychography != nil
+                phaseContrast.singleslicePtychography != nil
             }
         }
     }
@@ -431,36 +431,36 @@ extension AppState {
         let kind: String, name: String, units: String
         switch product {
         case .preprocess:
-            image = parallaxPreprocess?.previewImage
+            image = phaseContrast.parallaxPreprocess?.previewImage
             (kind, name, units) = ("parallax_preprocess", "Parallax incoherent BF preview", "normalized_intensity")
         case .alignment:
-            image = parallaxAlignment?.previewImage
+            image = phaseContrast.parallaxAlignment?.previewImage
             (kind, name, units) = ("parallax_alignment", "Parallax aligned BF", "normalized_intensity")
         case .subpixel:
-            image = parallaxSubpixel?.croppedBF
+            image = phaseContrast.parallaxSubpixel?.croppedBF
             (kind, name, units) = ("parallax_subpixel_bf", "Parallax subpixel BF", "normalized_intensity")
         case .correctedPhase:
-            image = parallaxCorrection?.correctedPhase
+            image = phaseContrast.parallaxCorrection?.correctedPhase
             (kind, name, units) = ("parallax_corrected_phase", "Parallax corrected phase", "arbitrary_phase")
         case .depth:
-            image = parallaxDepth?.croppedPlane(at: parallaxDepthSelectedIndex)
-            let depth = parallaxDepth?.depthsAngstrom[parallaxDepthSelectedIndex] ?? 0
+            image = phaseContrast.parallaxDepth?.croppedPlane(at: phaseContrast.parallaxDepthSelectedIndex)
+            let depth = phaseContrast.parallaxDepth?.depthsAngstrom[phaseContrast.parallaxDepthSelectedIndex] ?? 0
             (kind, name, units) = ("parallax_depth", String(format: "Parallax depth %.1f Å", depth), "arbitrary_phase")
         case .iterativePhase:
-            image = singleslicePtychography?.objectPhase()
+            image = phaseContrast.singleslicePtychography?.objectPhase()
             (kind, name, units) = ("ptychography_object_phase", "Ptychography object phase", "rad")
         case .iterativeAmplitude:
-            image = singleslicePtychography?.objectAmplitude()
+            image = phaseContrast.singleslicePtychography?.objectAmplitude()
             (kind, name, units) = ("ptychography_object_amplitude", "Ptychography object amplitude", "dimensionless")
         case .iterativeProbePhase:
-            image = singleslicePtychography?.probePhase()
+            image = phaseContrast.singleslicePtychography?.probePhase()
             (kind, name, units) = ("ptychography_probe_phase", "Ptychography probe phase", "rad")
         case .iterativeProbeAmplitude:
-            image = singleslicePtychography?.probeAmplitude()
+            image = phaseContrast.singleslicePtychography?.probeAmplitude()
             (kind, name, units) = ("ptychography_probe_amplitude", "Ptychography probe amplitude", "dimensionless")
         }
         guard let image else { return }
-        parallaxResultProduct = product
+        phaseContrast.parallaxResultProduct = product
         resultGamma = 1
         displayRangeLo = 0
         displayRangeHi = 1
@@ -468,17 +468,17 @@ extension AppState {
     }
 
     func selectParallaxDepthPlane(_ index: Int) {
-        guard let depth = parallaxDepth, depth.depthsAngstrom.indices.contains(index) else {
+        guard let depth = phaseContrast.parallaxDepth, depth.depthsAngstrom.indices.contains(index) else {
             return
         }
-        parallaxDepthSelectedIndex = index
+        phaseContrast.parallaxDepthSelectedIndex = index
         showParallaxProduct(.depth)
     }
 
     func correctParallaxPhase() async {
-        guard let preprocessing = parallaxPreprocess,
-              let alignment = parallaxAlignment,
-              let fit = parallaxHigherOrderFit else {
+        guard let preprocessing = phaseContrast.parallaxPreprocess,
+              let alignment = phaseContrast.parallaxAlignment,
+              let fit = phaseContrast.parallaxHigherOrderFit else {
             presentComputeFailure(SimpleError("Fit parallax aberrations before phase correction."))
             return
         }
@@ -490,10 +490,10 @@ extension AppState {
         defer { finishCancellableOperation(token) }
         do {
             var options = ParallaxAberrationCorrectionOptions()
-            options.qLowpassInvAngstrom = parallaxQLowpassInvAngstrom != 0
-                ? parallaxQLowpassInvAngstrom : nil
-            options.qHighpassInvAngstrom = parallaxQHighpassInvAngstrom != 0
-                ? parallaxQHighpassInvAngstrom : nil
+            options.qLowpassInvAngstrom = phaseContrast.parallaxQLowpassInvAngstrom != 0
+                ? phaseContrast.parallaxQLowpassInvAngstrom : nil
+            options.qHighpassInvAngstrom = phaseContrast.parallaxQHighpassInvAngstrom != 0
+                ? phaseContrast.parallaxQHighpassInvAngstrom : nil
             let result = try await Task.detached(priority: .userInitiated) {
                 try ParallaxAberrationCorrector.correct(
                     preprocessing: preprocessing, alignment: alignment,
@@ -502,7 +502,7 @@ extension AppState {
             }.value
             guard isCurrentOperation(token), datasetEpoch == epoch,
                   !token.isCancelled else { return }
-            parallaxCorrection = result
+            phaseContrast.parallaxCorrection = result
             showParallaxProduct(.correctedPhase)   // v2.5 step 3e: one publish site
             resultGamma = 1
             displayRangeLo = 0

@@ -248,6 +248,11 @@ private struct ParallaxStageSections: View {
 
     var body: some View {
         @Bindable var appState = appState
+        // `phaseContrast` is a `let` on AppState (seam 1, no forwarding
+        // properties), so a chained `$phaseContrast.…` binding has
+        // no writable key path; bind the owner itself, as `PhaseSettings`
+        // already does for `appState.ptychography` below.
+        @Bindable var phaseContrast = appState.phaseContrast
         stageSection(1, "Prepare preview") {
             Button {
                 Task { await appState.prepareParallaxPreview() }
@@ -271,12 +276,12 @@ private struct ParallaxStageSections: View {
             }
             .disabled(
                 appState.isBusy
-                    || appState.parallaxPreprocess == nil
-                    || appState.parallaxAlignment?.isComplete == true
+                    || appState.phaseContrast.parallaxPreprocess == nil
+                    || appState.phaseContrast.parallaxAlignment?.isComplete == true
             )
             .help("Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation.")
 
-            if appState.parallaxAlignment != nil {
+            if appState.phaseContrast.parallaxAlignment != nil {
                 Button("Reset Alignment") {
                     showsResetAlignmentConfirmation = true
                 }
@@ -292,14 +297,14 @@ private struct ParallaxStageSections: View {
             }
             .disabled(
                 appState.isBusy
-                    || appState.parallaxAlignment?.isComplete != true
+                    || appState.phaseContrast.parallaxAlignment?.isComplete != true
             )
             .help("Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration.")
-            if appState.parallaxHigherOrderFit != nil {
+            if appState.phaseContrast.parallaxHigherOrderFit != nil {
                 LabeledContent("Low-pass") {
                     NumericField(
                         "Low-pass",
-                        value: $appState.parallaxQLowpassInvAngstrom,
+                        value: $phaseContrast.parallaxQLowpassInvAngstrom,
                         format: .number.precision(.fractionLength(0...4)),
                         unit: "Å⁻¹"
                     )
@@ -307,7 +312,7 @@ private struct ParallaxStageSections: View {
                 LabeledContent("High-pass") {
                     NumericField(
                         "High-pass",
-                        value: $appState.parallaxQHighpassInvAngstrom,
+                        value: $phaseContrast.parallaxQHighpassInvAngstrom,
                         format: .number.precision(.fractionLength(0...4)),
                         unit: "Å⁻¹"
                     )
@@ -322,11 +327,11 @@ private struct ParallaxStageSections: View {
             }
         }
         stageSection(4, "Inspect or reconstruct products") {
-            if appState.parallaxAlignment?.isComplete == true {
+            if appState.phaseContrast.parallaxAlignment?.isComplete == true {
                 LabeledContent("KDE σ") {
                     NumericField(
                         "KDE σ",
-                        value: $appState.parallaxKDESigmaPixels,
+                        value: $phaseContrast.parallaxKDESigmaPixels,
                         format: .number.precision(.fractionLength(0...3)),
                         unit: "px"
                     )
@@ -335,29 +340,29 @@ private struct ParallaxStageSections: View {
                     LabeledContent("Auto factor") {
                         NumericField(
                             "Auto factor",
-                            value: $appState.parallaxKDEUpsampleFactor,
+                            value: $phaseContrast.parallaxKDEUpsampleFactor,
                             format: .number.precision(.fractionLength(0...3))
                         )
                     }
                     LabeledContent("Lanczos (0=off)") {
                         NumericField(
                             "Lanczos (0=off)",
-                            value: $appState.parallaxKDELanczosOrder,
+                            value: $phaseContrast.parallaxKDELanczosOrder,
                             format: .number
                         )
                     }
                     LabeledContent("Position iters") {
                         NumericField(
                             "Position iters",
-                            value: $appState.parallaxPositionCorrectionIterations,
+                            value: $phaseContrast.parallaxPositionCorrectionIterations,
                             format: .number
                         )
                     }
-                    Toggle("Sinc low-pass", isOn: $appState.parallaxKDELowpass)
-                    if appState.parallaxPositionCorrectionIterations > 0 {
+                    Toggle("Sinc low-pass", isOn: $phaseContrast.parallaxKDELowpass)
+                    if appState.phaseContrast.parallaxPositionCorrectionIterations > 0 {
                         Toggle(
                             "Checkerboard position steps",
-                            isOn: $appState.parallaxPositionCorrectionCheckerboard
+                            isOn: $phaseContrast.parallaxPositionCorrectionCheckerboard
                         )
                     }
                 }
@@ -369,11 +374,11 @@ private struct ParallaxStageSections: View {
                 .disabled(appState.isBusy)
                 .help("Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels.")
             }
-            if appState.parallaxHigherOrderFit != nil {
+            if appState.phaseContrast.parallaxHigherOrderFit != nil {
                 LabeledContent("Depth start") {
                     NumericField(
                         "Depth start",
-                        value: $appState.parallaxDepthStartAngstrom,
+                        value: $phaseContrast.parallaxDepthStartAngstrom,
                         format: .number.precision(.fractionLength(0...1)),
                         unit: "Å"
                     )
@@ -381,7 +386,7 @@ private struct ParallaxStageSections: View {
                 LabeledContent("Depth end") {
                     NumericField(
                         "Depth end",
-                        value: $appState.parallaxDepthEndAngstrom,
+                        value: $phaseContrast.parallaxDepthEndAngstrom,
                         format: .number.precision(.fractionLength(0...1)),
                         unit: "Å"
                     )
@@ -389,7 +394,7 @@ private struct ParallaxStageSections: View {
                 LabeledContent("Info limit") {
                     NumericField(
                         "Info limit",
-                        value: $appState.parallaxDepthInformationLimit,
+                        value: $phaseContrast.parallaxDepthInformationLimit,
                         format: .number.precision(.fractionLength(0...4)),
                         unit: "Å⁻¹"
                     )
@@ -398,18 +403,18 @@ private struct ParallaxStageSections: View {
                     LabeledContent("Planes") {
                         NumericField(
                             "Planes",
-                            value: $appState.parallaxDepthPlaneCount,
+                            value: $phaseContrast.parallaxDepthPlaneCount,
                             format: .number
                         )
                     }
                     LabeledContent("Power") {
                         NumericField(
                             "Power",
-                            value: $appState.parallaxDepthInformationPower,
+                            value: $phaseContrast.parallaxDepthInformationPower,
                             format: .number.precision(.fractionLength(0...2))
                         )
                     }
-                    Toggle("Use full fitted CTF", isOn: $appState.parallaxDepthUseFullFit)
+                    Toggle("Use full fitted CTF", isOn: $phaseContrast.parallaxDepthUseFullFit)
                 }
                 Button {
                     Task { await appState.computeParallaxDepthSections() }
@@ -466,11 +471,11 @@ private struct ParallaxStageSections: View {
 
     private func stageIsComplete(_ number: Int) -> Bool {
         switch number {
-        case 1: appState.parallaxPreprocess != nil
-        case 2: appState.parallaxAlignment?.isComplete == true
-        case 3: appState.parallaxCorrection != nil
+        case 1: appState.phaseContrast.parallaxPreprocess != nil
+        case 2: appState.phaseContrast.parallaxAlignment?.isComplete == true
+        case 3: appState.phaseContrast.parallaxCorrection != nil
         default:
-            appState.singleslicePtychography != nil || appState.parallaxSubpixel != nil
+            appState.phaseContrast.singleslicePtychography != nil || appState.phaseContrast.parallaxSubpixel != nil
         }
     }
 
@@ -494,7 +499,7 @@ private struct ParallaxProductSection: View {
                 Picker(
                     "Displayed product",
                     selection: Binding(
-                        get: { appState.parallaxResultProduct },
+                        get: { appState.phaseContrast.parallaxResultProduct },
                         set: appState.showParallaxProduct
                     )
                 ) {
@@ -502,11 +507,11 @@ private struct ParallaxProductSection: View {
                         Text(product.rawValue).tag(product)
                     }
                 }
-                if let depth = appState.parallaxDepth {
+                if let depth = appState.phaseContrast.parallaxDepth {
                     Picker(
                         "Depth plane",
                         selection: Binding(
-                            get: { appState.parallaxDepthSelectedIndex },
+                            get: { appState.phaseContrast.parallaxDepthSelectedIndex },
                             set: appState.selectParallaxDepthPlane
                         )
                     ) {
@@ -516,7 +521,7 @@ private struct ParallaxProductSection: View {
                         }
                     }
                 }
-                if let iterative = appState.singleslicePtychography {
+                if let iterative = appState.phaseContrast.singleslicePtychography {
                     LabeledContent(
                         "Ptychography",
                         value: "\(iterative.errorHistory.count) iterations"
@@ -539,7 +544,7 @@ private struct ParallaxRunDetailsSection: View {
     @SceneStorage("phase.settings.runDetails.isExpanded") private var showsRunDetails = false
 
     var body: some View {
-        if let preview = appState.parallaxPreprocess {
+        if let preview = appState.phaseContrast.parallaxPreprocess {
             Section {
                 DisclosureGroup("Run details", isExpanded: $showsRunDetails) {
                 LabeledContent("BF detector pixels",
@@ -564,7 +569,7 @@ private struct ParallaxRunDetailsSection: View {
                     "Initial mismatch",
                     value: String(format: "%.4f", preview.initialError)
                 )
-                if let alignment = appState.parallaxAlignment {
+                if let alignment = appState.phaseContrast.parallaxAlignment {
                     ParallaxAlignmentDetails(alignment: alignment)
                 }
             }
@@ -636,7 +641,7 @@ private struct ParallaxAlignmentDetails: View {
              : "Continue with the next bin; cancellation retains this completed level.")
             .font(.caption)
             .foregroundStyle(.secondary)
-        if let fit = appState.parallaxAberrationFit {
+        if let fit = appState.phaseContrast.parallaxAberrationFit {
             LabeledContent(
                 "Fitted rotation",
                 value: String(format: "%.2f°", fit.rotationRad * 180 / .pi)
@@ -667,7 +672,7 @@ private struct ParallaxFitDetails: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        if let higher = appState.parallaxHigherOrderFit {
+        if let higher = appState.phaseContrast.parallaxHigherOrderFit {
             LabeledContent(
                 "Higher-order fit",
                 value: "\(higher.terms.count) terms · \(higher.fitMethod.rawValue)"
@@ -687,7 +692,7 @@ private struct ParallaxFitDetails: View {
             .foregroundStyle(.secondary)
             .textSelection(.enabled)
         }
-        if let correction = appState.parallaxCorrection {
+        if let correction = appState.phaseContrast.parallaxCorrection {
             LabeledContent(
                 "Phase correction",
                 value: correction.usedFullFit
@@ -695,7 +700,7 @@ private struct ParallaxFitDetails: View {
                     : "C1 fallback · DC removed"
             )
         }
-        if let subpixel = appState.parallaxSubpixel {
+        if let subpixel = appState.phaseContrast.parallaxSubpixel {
             LabeledContent(
                 "KDE reconstruction",
                 value: String(

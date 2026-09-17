@@ -243,3 +243,4 @@ Each is its own session brief; paste the quoted line into a fresh session.
 | Date | Seam | Commit | Gates (log names) | Widenings | Stop reason, if any |
 |---|---|---|---|---|---|
 | 2026-09-18 | 0 — placement split of Calibration/PhaseContrast | a0ffb2a | build 0; unit 696/0/2=698 (`unit-split-20260918.log`); inventory 0 | 17 | — |
+| 2026-09-18 | 1 — `PhaseContrastProduct` | (pending, this commit) | build 0; unit 701/0/2=703 (`unit-seam1-20260918.log`, +5 over step 0); inventory 0 (`inventory-seam1-20260918.log`) | −11 (net; reverses step 0's 11) | — |

@@ -92,8 +92,8 @@ extension AppState {
             refreshDiskDefaultsForMeasuredProbe()
             calibrationSession.calibration.origin = result.origin
             clearSupersededFittedOrigin()
-            parallaxPreprocess = nil
-            parallaxAlignment = nil
+            phaseContrast.parallaxPreprocess = nil
+            phaseContrast.parallaxAlignment = nil
             meanPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: result.meanDP)
             maxPattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: result.maxDP)
             patternVersion &+= 1
@@ -243,8 +243,8 @@ extension AppState {
             if calibrationSession.applyRotation(result) != nil {   // the full refusal is in Rotation diagnostics
                 lastRotationResult = result; presentComputeFailure(SimpleError("R–Q rotation not updated: the field does not beat its own null. The reason is under Rotation diagnostics in the inspector.")); return
             }
-            parallaxPreprocess = nil
-            parallaxAlignment = nil
+            phaseContrast.parallaxPreprocess = nil
+            phaseContrast.parallaxAlignment = nil
             lastRotationResult = result
             // A cached CoM field must not show a stale rotation — and if the
             // re-derivation itself refuses (iDPC), its message must not be

@@ -23,6 +23,11 @@ exactly that until the owner's drive says otherwise.
 - **AppState split, step one.** Calibration and phase-contrast orchestration
   moved verbatim into their own files (AppState.swift 5476 → 4699 lines);
   no logic changed, 17 members widened from `private` for the move.
+- **AppState seam 1: `PhaseContrastProduct`.** The 24 Parallax/single-slice-
+  ptychography properties, with their two `didSet` observers, moved off
+  AppState into `Session/PhaseContrastProduct.swift` (no forwarding
+  properties); AppState.swift 4699 → 4656 lines, net −11 access widenings
+  (reverses all of step one's). No logic changed. Unverified on screen.
 
 ## v3.0.0 — 2026-09-11
 
