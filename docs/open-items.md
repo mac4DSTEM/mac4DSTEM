@@ -79,6 +79,42 @@ Swift's version (`ScatteringFactors.swift:239-247`) has no `units` parameter —
 absent, not wrong. Crystal.swift's own header already states the app's convention is "A" only,
 so this is a minor, low-priority documentation gap, not a live defect. Owner: unclaimed.
 
+## T1 [0 -4 1] reference measured — added 2026-09-17, STOPS at a crystallography decision
+
+`docs/status.md`'s handoff said the [0 -4 1] projection "predicts 0.233 and 0.367 Å⁻¹
+reflections the data does not show" — the framing this item's own brief flagged as itself
+a confident-wrong observation, so it was re-measured rather than trusted. **Measured, two
+ways:**
+
+1. **The reference itself**, read directly off `PhaseReferenceLibrary.build`'s own output
+   for `Thronsen.t1` at zone axis `[0,-4,1]` (not a reimplementation — the exact entry the
+   matcher uses), grouped by `|g|` within 0.001 Å⁻¹, kMax 0.8: **0.0575, 0.2334, 0.4546,
+   0.4668, 0.4703, 0.4933, 0.7001, 0.7025, 0.7333, 0.7527, 0.7880 Å⁻¹.** This does not
+   match `tools/phase-map-probe/thronsen.swift`'s own header comment ("0.233, 0.367, 0.467,
+   0.493, 0.679") — there is no group near 0.367 in the entry the code actually builds, and
+   0.679 is off by ~0.02-0.024 from the nearest measured group (0.700/0.703). The header
+   comment is itself unpinned prose, not a value read from the code; it may predate a
+   library-construction change. **0.454 sits 0.0006 Å⁻¹ from the measured 0.4546** —
+   effectively exact — and **0.479 sits 0.009-0.014 Å⁻¹ from three separate measured groups**
+   (0.4703, 0.4668, 0.4933) — all comfortably inside `pairRadiusInvAngstrom` (0.02). The
+   reference does not predict absent reflections near the ground truth; if anything it is
+   OVER-complete there — four distinct candidate lengths cluster where the data shows two.
+2. **The real data** (`tools/thronsen-dataset/run.sh probe`, the local stride-3 subsample,
+   shipped defaults): T1 truth positions mostly detect exactly 2 survivors after matrix
+   removal (52.1 % of 6358), and every one of the 252 T1 positions marked "not indexed"
+   failed because **nothing cleared any candidate's guard at all** (100 % "nothing-cleared",
+   0 % "cliff-refused") — not a mean-distance refusal, an eligibility refusal.
+
+**What this measurement does NOT resolve, and is not this item's job to:** whether the
+observed 2-reflection pattern at T1 positions forms a Friedel pair (u, −u) under this
+projection — if it does not, `minimumVectors`/`matchedFloor`'s default-3 floor (not the
+Friedel-pair exception's 2) applies, which two detected reflections alone cannot clear
+regardless of how close the reference sits. That is a crystallographic reading of the P6/mmm
+structure's ZOLZ reflections at this projection, owed to the owner. **STOP here — never ship
+a changed reference without that reading.** Owner: which two (or more) of the four measured
+groups near 0.45-0.49 the observed data's 0.454/0.479 correspond to, and whether they are a
+Friedel pair at `[0,-4,1]`.
+
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
 
 ### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
