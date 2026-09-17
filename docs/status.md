@@ -48,6 +48,6 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 ## Owed to the owner
 
-- Git cleanup 2026-09-17: push `main`; delete `ml/disk-detector` locally and on GitHub, `origin/ai-analysis`, and the last stash — commands in [`archive/git-cleanup-2026-09-17.md`](archive/git-cleanup-2026-09-17.md).
+- Git cleanup 2026-09-17 done ([`archive/git-cleanup-2026-09-17.md`](archive/git-cleanup-2026-09-17.md)): one branch everywhere, no stashes. Only the push of `main` is owed.
 - The §10g decisions and plan §8 (sidecar wire format). C8's engines question was settled 2026-09-08: leave (`decisions.md`).
 - Four session-4 choices to overrule on sight, and the C4 slices 1-2 drive — both carried in [`archive/v3/v3.0.0-closeout-2026-09-11.md`](archive/v3/v3.0.0-closeout-2026-09-11.md).

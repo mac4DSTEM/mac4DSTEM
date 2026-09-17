@@ -111,5 +111,5 @@ $ git tag
 v1.0.0 v2.0.0 v2.5.0 v2.5.1 v3.0.0 
 ```
 
-Left for the owner: local `ml/disk-detector`, `origin/ai-analysis`, `origin/ml/disk-detector`, one stash. After those, `git branch` shows only `main`, `git branch -r` only `origin/HEAD` and `origin/main`, and `git stash list` is empty.
+The owner ran the local delete, the stash drop and both remote deletions the same evening; `git fetch --prune` then left `git branch` = `main`, `git branch -r` = `origin/HEAD`, `origin/main`, and an empty stash list. Only the push of `main` remained.
 
