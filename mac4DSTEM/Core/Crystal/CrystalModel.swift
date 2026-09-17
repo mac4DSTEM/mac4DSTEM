@@ -162,12 +162,6 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
             return height > 0 ? min(0.5, limit / height) : 0.5
         }
 
-        func axisDelta(_ x: Double, _ y: Double) -> Double {
-            var d = abs(x - y).truncatingRemainder(dividingBy: 1)
-            if d > 0.5 { d = 1 - d }
-            return d
-        }
-
         var best = Double.infinity
         for i in 0..<sites.count {
             for j in (i + 1)..<sites.count {

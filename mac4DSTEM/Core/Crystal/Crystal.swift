@@ -23,6 +23,16 @@
 import Foundation
 import simd
 
+/// Minimum-image separation along one fractional axis, in [0, 0.5]. Shared by
+/// `CrystalModel.shortestCloseContact` and `CIFImport`'s symmetry-operator
+/// deduplication — identical bodies until 2026-09-17 (audit
+/// `docs/archive/audit-2026-09-16/REPORT.md` §3.2 row 8), consolidated here.
+package nonisolated func axisDelta(_ x: Double, _ y: Double) -> Double {
+    var d = abs(x - y).truncatingRemainder(dividingBy: 1)
+    if d > 0.5 { d = 1 - d }
+    return d
+}
+
 /// One atom in the unit cell.
 package nonisolated struct AtomSite: Sendable {
     package var z: Int                       // atomic number

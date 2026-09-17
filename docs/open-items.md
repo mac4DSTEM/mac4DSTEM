@@ -771,12 +771,16 @@ row by identifier. The old app had the same collision. Owner: unclaimed.
 ## Code hygiene
 
 ### The audit's refactor list, rows 4–13, is the open hygiene queue — 2026-09-16
-Rows 1–3 and 10 landed in `e415929`. Still open, in the audit's order:
-a shared harness helper (row 4, Gate B on the helper — a shared `fail` can
-green 46 harnesses at once), one `AppState` seam per session (row 5),
-`Support/ResultExport.swift` and `Core/Data/BraggVectorEMDWriter.swift` splits
-only with byte-identical output evidence and a refuter (rows 6–7), the small
-identical Core helpers (row 8), and the >1 000-line harness mains (row 12).
+Rows 1–3 and 10 landed in `e415929`. **Row 8's `axisDelta` pair closed 2026-09-17**
+(`CrystalModel.swift`/`CIFImport.swift`, full record `docs/archive/closed-items-2026-09.md`)
+— `nextPow2`, `positiveModulo`, `wrapped`, `checkCancellation`, `finiteDouble` and
+`admits` are still open within that row, deliberately: `nextPow2` was excluded on purpose
+(merging FFT1D/FFT2D forces FFT1D into ~5 dependency-closed manifest groups, the silent-
+compile-break the manifest guards). Still open otherwise, in the audit's order: a shared
+harness helper (row 4, Gate B on the helper — a shared `fail` can green 46 harnesses at
+once), one `AppState` seam per session (row 5), `Support/ResultExport.swift` and
+`Core/Data/BraggVectorEMDWriter.swift` splits only with byte-identical output evidence and
+a refuter (rows 6–7), and the >1 000-line harness mains (row 12).
 **Row 9 is a do-not:** five different `median` bodies in Core stay separate
 until a Gate D shows they should agree (ADR 015). Evidence and blast radii:
 `docs/archive/audit-2026-09-16/REPORT.md` §3.2. Owner: whoever picks a row.

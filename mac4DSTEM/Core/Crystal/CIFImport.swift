@@ -738,13 +738,6 @@ package nonisolated enum CIFImport {
         abs(row.x) * halfStep.x + abs(row.y) * halfStep.y + abs(row.z) * halfStep.z
     }
 
-    /// Minimum-image separation along one fractional axis, in [0, 0.5].
-    private static func axisDelta(_ x: Double, _ y: Double) -> Double {
-        var d = abs(x - y).truncatingRemainder(dividingBy: 1)
-        if d > 0.5 { d = 1 - d }
-        return d
-    }
-
     /// Real-space separation (Å) of two fractional positions, minimum image
     /// over the 27 neighbouring cells so the cell's skew is respected.
     private static func realDistance(

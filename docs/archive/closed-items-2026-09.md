@@ -37,6 +37,35 @@ three named ones. `run-tests.sh unit` exit 0 the same tree (`unit-itemB.log`).
 
 ---
 
+## Audit refactor list row 8, `axisDelta` — closed 2026-09-17
+
+### ~~`axisDelta` duplicated in `CrystalModel.swift` and `CIFImport.swift`~~ — **CLOSED 2026-09-17**
+
+> Byte-identical minimum-image-separation bodies in both files (audit
+> `docs/archive/audit-2026-09-16/REPORT.md` §3.2 row 8, one of 13 identical-body groups).
+
+**Closure.** Consolidated to one `package nonisolated func axisDelta` in `Crystal.swift`
+(the shared foundation file both already build on), called unqualified from both sites —
+no manifest edit needed, both files were already co-listed in the `crystal` group. Scope
+was `axisDelta` only: `nextPow2` (FFT1D/FFT2D) stays separate on purpose (merging it would
+force FFT1D into roughly five dependency-closed manifest groups — the silent-compile-break
+`tools/lib/sources.manifest` exists to prevent); the five `median` bodies stay separate per
+ADR 015. Pure identical-body extraction, no behavior change, so Gate B is recorded rather
+than run as a full adversarial review — the refuter note: neither call site had any
+existing test coverage of `axisDelta`'s minimum-image wraparound before this session, on
+either the two harnesses that compile it (`cif-symmetry-test`, `acom-orientation-test`,
+both re-run green, `itemC-cif-symmetry.log`/`itemC-acom-orientation.log`) or the unit
+suite — a mutation deleting the `d > 0.5` correction survived both harnesses untouched.
+New `mac4DSTEMTests/CrystalMathTests.swift` closes that gap directly on the consolidated
+function plus one integration test through `CrystalModel.shortestCloseContact` (whose own
+prefilter depends on the wraparound to find a real close contact across a cell boundary,
+not just a synthetic one). Break-first: the same mutation failed both new tests
+(`crystalmath-mutation.log`, exit 65) before revert, `cmp`-clean green after
+(`crystalmath-baseline.log`). `run-tests.sh unit` exit 0 on the tree with items B and C
+both landed (`unit-BC-final.log`).
+
+---
+
 ## `RotationCalibration.swift` has no gated parity harness — closed 2026-09-17
 
 ### ~~`RotationCalibration.swift` has no gated parity harness~~ — **CLOSED 2026-09-17**
