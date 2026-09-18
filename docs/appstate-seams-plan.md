@@ -246,4 +246,24 @@ Each is its own session brief; paste the quoted line into a fresh session.
 | 2026-09-18 | 1 — `PhaseContrastProduct` | 8fbac48 | build 0; unit 701/0/2=703 (`unit-seam1-20260918.log`, +5 over step 0); inventory 0 (`inventory-seam1-20260918.log`) | −11 (net; reverses step 0's 11) | — |
 | 2026-09-18 | 2 — ACOM leftovers into `ACOMSession` | 5972e8f | build 0; unit 708/0/2=710 (`unit-seam2-20260918.log`, +7 over seam 1); inventory 0 (`inventory-seam2-20260918.log`) | 3 (`applyACOMDisplay`, `recordReplayStep`, `promoteIPFZDisplayIfDefault`, all private→internal for the new call sites) | — |
 | 2026-09-18 | 3 — `DiskDetectionProduct` | 3f2f909 | build 0; unit 715/0/2=717 (`unit-seam3-20260918.log`, +7 over seam 2); inventory 0 (`inventory-seam3-20260918.log`) | 5 (at the cap: `currentDiskDiagnostics`, `braggVectors`, `completedDiskSummary` widened for the new extension file; `liveDetectionRequest` private→internal; `Self.makeReader` private static→static) | — |
-| 2026-09-18 | 4 — `DPCProduct` (last unattended seam) | (pending, this commit) | build 0; unit 720/0/2=722 (`unit-seam4-20260918.log`, +5 over seam 3); inventory 0 (`inventory-seam4-20260918.log`) | 1 (`comField` private→internal for `AppState+DPC.swift`) | — |
+| 2026-09-18 | 4 — `DPCProduct` (last unattended seam) | 4ffa5ca | build 0; unit 720/0/2=722 (`unit-seam4-20260918.log`, +5 over seam 3); inventory 0 (`inventory-seam4-20260918.log`) | 1 (`comField` private→internal for `AppState+DPC.swift`) | — |
+
+### Overnight run summary, 2026-09-18
+
+All four unattended seams (1–4) ran sequentially in one session, one Sonnet
+subagent per seam, orchestrator on Sonnet 5 in auto mode, per "Models and
+tokens" above. Every seam's build/unit/inventory gates were re-run by the
+orchestrator itself (never trusted from the subagent's own report alone)
+and landed green on the first attempt — no seam hit a stop condition, so
+none was restored from its scratchpad backup. `AppState.swift`:
+4699 → 4656 (seam 1) → 4230 (seam 2) → 3819 (seam 3) → 3676 (seam 4) lines,
+a 1023-line reduction across the night, on top of step 0's 5476 → 4699.
+Four commits: `8fbac48`, `5972e8f`, `3f2f909`, `4ffa5ca`. Unit count grew
+696 → 701 → 708 → 715 → 720 passed (24 new tests total, one new owner test
+file per seam), every delta reconciled against `func test` in source in the
+same session that ran the gate. Subagent token spend: seam 1 ≈247k, seam 2
+≈234k, seam 3 ≈265k (over the ~150k aim, under the 250k hard stop — the
+subagent finished cleanly rather than stopping mid-work, since it crossed
+the threshold only at its final verification pass), seam 4 ≈226k. Nothing
+pushed. Seams 5–7 (display, dataset, load pipeline) are attended,
+owner-present sessions; their quoted prompts are above.
