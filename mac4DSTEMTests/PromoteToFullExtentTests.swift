@@ -33,14 +33,14 @@ final class PromoteToFullExtentTests: XCTestCase {
 
         XCTAssertTrue(state.loadedView.isFullExtent,
                       "Promotion must remove the specification entirely")
-        XCTAssertEqual(state.descriptor?.shape, state.datasets.first?.shape,
+        XCTAssertEqual(state.descriptor?.shape, state.datasetSession.datasets.first?.shape,
                        "The promoted view must be the source's own extent")
         XCTAssertTrue(state.hasDataset, "Promotion must end with a usable dataset")
         // The postconditions the first draft left unpinned (Gate A sweep):
         // without these, deleting promote's trailing finishDatasetLoading()
         // (loading card parked forever) or its runCurrentAnalysis() call
         // (empty result panes) left this suite green.
-        XCTAssertFalse(state.isLoadingDataset,
+        XCTAssertFalse(state.datasetSession.isLoading,
                        "A finished promote must dismiss the loading card")
         XCTAssertNotNil(state.resultPresentation.resultImage,
                         "The whole-cube pass must have run against the promoted view")

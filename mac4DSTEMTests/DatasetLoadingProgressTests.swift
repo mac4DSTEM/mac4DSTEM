@@ -111,7 +111,7 @@ final class DatasetLoadingProgressTests: XCTestCase {
     /// progress must reach the loading card.
     func testOperationProgressReachesTheLoadingCardWhileOpening() {
         let state = AppState()
-        state.isLoadingDataset = true
+        state.datasetSession.beginLoading("Opening…")
         let token = state.beginCancellableOperation(
             "Virtual detector", status: "Scanning patterns 0 / 144", totalUnits: 144
         )
@@ -120,24 +120,24 @@ final class DatasetLoadingProgressTests: XCTestCase {
         state.updateCancellableOperation(
             token, progress: 0.25, status: "Scanning patterns 36 / 144"
         )
-        XCTAssertEqual(state.datasetLoadingProgress ?? -1, 0.25, accuracy: 1e-12)
-        XCTAssertEqual(state.datasetLoadingStatus, "Scanning patterns 36 / 144")
+        XCTAssertEqual(state.datasetSession.loadingProgress ?? -1, 0.25, accuracy: 1e-12)
+        XCTAssertEqual(state.datasetSession.loadingStatus, "Scanning patterns 36 / 144")
     }
 
     /// The mirror is one-directional and scoped: ordinary analysis work run
     /// long after a dataset opened must not resurrect the loading card.
     func testOperationProgressDoesNotLeakIntoTheCardWhenNotLoading() {
         let state = AppState()
-        XCTAssertFalse(state.isLoadingDataset)
+        XCTAssertFalse(state.datasetSession.isLoading)
         let token = state.beginCancellableOperation(
             "Virtual detector", status: "Computing…", totalUnits: 144
         )
         defer { state.finishCancellableOperation(token) }
 
         state.updateCancellableOperation(token, progress: 0.5, status: "Computing…")
-        XCTAssertNil(state.datasetLoadingProgress)
-        XCTAssertNil(state.datasetLoadingStatus)
-        XCTAssertFalse(state.isLoadingDataset)
+        XCTAssertNil(state.datasetSession.loadingProgress)
+        XCTAssertNil(state.datasetSession.loadingStatus)
+        XCTAssertFalse(state.datasetSession.isLoading)
     }
 
     // MARK: Opening leaves no stale loading state
@@ -151,9 +151,9 @@ final class DatasetLoadingProgressTests: XCTestCase {
             "The initial analysis must run as part of opening — if it does not, "
             + "there is nothing for the measured phase to report"
         )
-        XCTAssertFalse(state.isLoadingDataset)
-        XCTAssertNil(state.datasetLoadingProgress)
-        XCTAssertNil(state.datasetLoadingStatus)
+        XCTAssertFalse(state.datasetSession.isLoading)
+        XCTAssertNil(state.datasetSession.loadingProgress)
+        XCTAssertNil(state.datasetSession.loadingStatus)
     }
 }
 

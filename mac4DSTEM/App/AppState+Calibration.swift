@@ -19,7 +19,7 @@ extension AppState {
     /// get_dp_max) so the Mean/Max display modes work without running the
     /// full origin calibration.
     func computeDPStatistics() async {
-        guard let fourD, let descriptor else { return }
+        guard let fourD = datasetSession.fourD, let descriptor else { return }
         let cancellation = beginCancellableOperation(
             "DP statistics", status: "Computing DP mean/max…",
             totalUnits: descriptor.rx * descriptor.ry
@@ -28,7 +28,7 @@ extension AppState {
 
         let d = descriptor
         do {
-            let epoch = datasetEpoch
+            let epoch = datasetSession.epoch
             let statistics = try await VirtualDetector.tiledDPStatistics(
                 data: fourD, descriptor: d, cancellation: cancellation
             ) { [weak self] fraction in
@@ -39,7 +39,7 @@ extension AppState {
                 }
             }
             let (maxDP, meanDP) = statistics
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             if cancellation.isCancelled {
                 statusText = "DP statistics cancelled"
                 return
@@ -58,7 +58,7 @@ extension AppState {
     /// probe size → per-pattern beam position → smooth fit. Also fills the
     /// mean/max pattern display modes as a side effect.
     func calibrateOrigin() async {
-        guard let fourD, let descriptor else { return }
+        guard let fourD = datasetSession.fourD, let descriptor else { return }
         let cancellation = beginCancellableOperation(
             "Origin calibration", status: "Calibrating origin…",
             totalUnits: descriptor.rx * descriptor.ry
@@ -69,7 +69,7 @@ extension AppState {
         let method = calibrationSession.originMethod
         let d = descriptor
         do {
-            let epoch = datasetEpoch
+            let epoch = datasetSession.epoch
             let result = try await OriginCalibration.tiledRun(
                 data: fourD, descriptor: d, fitFunction: fitFn, originMethod: method,
                 cancellation: cancellation
@@ -80,7 +80,7 @@ extension AppState {
                     self.statusText = "Calibrating origin…"
                 }
             }
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             if cancellation.isCancelled {
                 statusText = "Origin calibration cancelled"
                 return
@@ -162,7 +162,7 @@ extension AppState {
         let centerQY = Double(aperture.centerX)
         let inner = calibrationSession.ellipseFitInnerRadius
         let outer = calibrationSession.ellipseFitOuterRadius
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let cancellation = beginCancellableOperation(
             "Ellipse calibration", status: "Fitting detector ellipse…", totalUnits: 1
         )
@@ -175,7 +175,7 @@ extension AppState {
                     innerRadius: inner, outerRadius: outer, acceptSparseCoverage: acceptSparseCoverage
                 )
             }.value
-            guard epoch == datasetEpoch, !cancellation.isCancelled else {
+            guard epoch == datasetSession.epoch, !cancellation.isCancelled else {
                 statusText = "Ellipse calibration cancelled"
                 return
             }
@@ -221,7 +221,7 @@ extension AppState {
 
         let d = descriptor
         do {
-            let epoch = datasetEpoch
+            let epoch = datasetSession.epoch
             guard let com = try await computeCoMField(cancellation: cancellation) else {
                 if cancellation.isCancelled { statusText = "R–Q rotation cancelled" }
                 return
@@ -231,7 +231,7 @@ extension AppState {
                                           maximizeDivergence: maximizeDivergence,
                                           cancellation: cancellation)
             }.value
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             if cancellation.isCancelled {
                 statusText = "R–Q rotation cancelled"
                 return
@@ -270,7 +270,7 @@ extension AppState {
         cancellation: AnalysisCancellationToken? = nil
     ) async throws -> [Float]? {
         guard cancellation?.isCancelled != true else { return nil }
-        guard let fourD, let descriptor else { return nil }
+        guard let fourD = datasetSession.fourD, let descriptor else { return nil }
         let origins = calibrationSession.calibration.origin?.interleavedFitted
         let center = calibrationSession.calibration.referenceOrigin(  // v2 S13: one derivation
             detectorQX: descriptor.qx, detectorQY: descriptor.qy,

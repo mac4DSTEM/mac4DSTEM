@@ -34,7 +34,7 @@ struct WorkspaceView: View {
     private let dividerGrab: CGFloat = 5
 
     private var showsLog: Bool {
-        appState.navigation.showLogPane && appState.hasDataset && !appState.isLoadingDataset
+        appState.navigation.showLogPane && appState.hasDataset && !appState.datasetSession.isLoading
     }
 
     var body: some View {
@@ -54,7 +54,7 @@ struct WorkspaceView: View {
 
     @ViewBuilder
     private var content: some View {
-        if appState.isLoadingDataset {
+        if appState.datasetSession.isLoading {
             loadingState
         } else if !appState.hasDataset {
             WelcomeWorkspace()
@@ -91,20 +91,20 @@ struct WorkspaceView: View {
                 .font(.headline)
             // Two lines: the measured phase reports patterns AND bytes, and
             // middle-truncating would cut them.
-            Text(appState.datasetLoadingStatus ?? "Opening dataset…")
+            Text(appState.datasetSession.loadingStatus ?? "Opening dataset…")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .truncationMode(.middle)
             // A determinate bar only where the denominator is real:
-            // `datasetLoadingProgress` is nil during phases whose duration is
+            // `datasetSession.loadingProgress` is nil during phases whose duration is
             // not known, and a fake bar there would be a lie about the wait.
-            if let progress = appState.datasetLoadingProgress {
+            if let progress = appState.datasetSession.loadingProgress {
                 ProgressView(value: progress)
                     .accessibilityValue("\(Int(progress * 100)) percent")
             }
-            if appState.canCancelDatasetLoad {
+            if appState.datasetSession.canCancelLoad {
                 Button("Cancel") { appState.cancelDatasetLoad() }
                     .accessibilityIdentifier("welcome.cancelDatasetLoad")
                     .accessibilityHint("Stops loading this dataset and returns to the welcome screen")
@@ -219,7 +219,7 @@ struct PrimaryActionButton: View {
         // The header only ever existed while a dataset was open and settled;
         // the toolbar item follows the same rule, so the load's own progress
         // (centre column) is never shadowed by a second bar up here.
-        if appState.hasDataset && !appState.isLoadingDataset {
+        if appState.hasDataset && !appState.datasetSession.isLoading {
             if appState.isBusy {
                 operationProgress
             } else if let actionTitle = primaryActionTitle {
@@ -587,7 +587,7 @@ struct StatusBar: View {
                 // answer to it.
             }
 
-            if appState.hasDataset && !appState.isLoadingDataset {
+            if appState.hasDataset && !appState.datasetSession.isLoading {
                 // A system toggle draws its own on-state, so the strip needs
                 // no tint of its own. The toolbar's Show/Hide Output item is
                 // the second door onto the same flag.
@@ -618,7 +618,7 @@ struct StatusBar: View {
     /// because that pass is cancellable and this is the only visible control
     /// that stops it.
     private var showsOperationProgress: Bool {
-        appState.isBusy && (!appState.isLoadingDataset || appState.activeOperation != nil)
+        appState.isBusy && (!appState.datasetSession.isLoading || appState.activeOperation != nil)
     }
 
     /// Elapsed, and an ETA once the run can estimate one, beside the bar they
@@ -768,7 +768,7 @@ struct SaveResultButton: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        if appState.hasDataset, !appState.isLoadingDataset,
+        if appState.hasDataset, !appState.datasetSession.isLoading,
            appState.displayedProduct != nil,
            appState.navigation.workspaceArea != .results {
             Button {

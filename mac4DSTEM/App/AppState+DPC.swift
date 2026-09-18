@@ -39,9 +39,9 @@ extension AppState {
         defer { finishCancellableOperation(cancellation) }
 
         do {
-            let epoch = datasetEpoch
+            let epoch = datasetSession.epoch
             let field = try await computeCoMField(cancellation: cancellation)
-            guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
+            guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
             if cancellation.isCancelled {
                 statusText = "DPC cancelled"
                 return .cancelled

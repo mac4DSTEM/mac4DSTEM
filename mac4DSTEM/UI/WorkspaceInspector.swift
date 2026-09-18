@@ -230,7 +230,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var previewSection: some View {
-        if let preview = appState.datasetPreview {
+        if let preview = appState.datasetSession.preview {
             Section("Preview") {
                 // INVARIANT I4: a sampled preview is not a result. The
                 // summary states the stride and is drawn FIRST, above the
@@ -335,11 +335,11 @@ private struct DatasetInfoSections: View {
         Text(label).font(.caption2).foregroundStyle(.secondary)
         MetalImageView(
             pixels: pixels, width: width, height: height,
-            // `datasetPreview` is written exactly once per open, so the
+            // `datasetSession.preview` is written exactly once per open, so the
             // dataset epoch IS this image's version — it changes precisely
             // when the preview does, including a same-shape swap, and it is
             // O(1) in a body that re-evaluates on every AppState change.
-            contentVersion: appState.datasetEpoch,
+            contentVersion: appState.datasetSession.epoch,
             colormap: colormap
         )
         .aspectRatio(
@@ -421,7 +421,7 @@ private struct DatasetActionSections: View {
                     Button("Reopen at Full Extent") {
                         Task { await appState.promoteAndReplayRecipe() }
                     }
-                    .disabled(appState.isBusy || appState.isLoadingDataset || appState.replayRun.isRunning)
+                    .disabled(appState.isBusy || appState.datasetSession.isLoading || appState.replayRun.isRunning)
                     .accessibilityIdentifier("inspector.promoteToFullExtent")
                     // The price of the button it sits under. C4(c) emptied Info
                     // of actions but left this sentence and a SECOND
@@ -431,7 +431,7 @@ private struct DatasetActionSections: View {
                     // configurator prices the same cube through
                     // `displayByteString`, UI's only byte formatter, so the two
                     // surfaces a user compares cannot render it differently.
-                    if let source = appState.loadView?.source {
+                    if let source = appState.datasetSession.loadView?.source {
                         Text("Reloads the whole cube — "
                              + displayByteString(source.byteCountAsFloat32)
                              + " as float32. Analyses re-run against the full dataset.")

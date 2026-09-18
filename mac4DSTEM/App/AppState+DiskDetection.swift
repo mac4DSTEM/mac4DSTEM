@@ -95,7 +95,7 @@ extension AppState {
     /// that image, as `get_probe_kernel_flat` does with `origin=None`. The
     /// first candidate on the detector grid is used; the status names it.
     func generateFileProbeKernel(mode: ProbeKernelMode = .flat) async {
-        guard let descriptor, let reader else { return }
+        guard let descriptor, let reader = datasetSession.reader else { return }
         let candidates: [ProbeCandidate]
         do {
             candidates = try await reader.probeCandidates(detectorQY: descriptor.qy, detectorQX: descriptor.qx)
@@ -206,10 +206,10 @@ extension AppState {
             currentDiskDiagnostics = nil
             return
         }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         // Detector-picker overlay: the net's own candidates are the rings (no classical funnel).
         if let peaks = await learnedDetection.livePeaks(pattern: pattern, params: params) {
-            guard epoch == datasetEpoch, request == liveDetectionRequest,
+            guard epoch == datasetSession.epoch, request == liveDetectionRequest,
                   navigation.analysisMode == .disks else { return }
             currentPeaks = peaks; currentDiskDiagnostics = nil
             return
@@ -221,7 +221,7 @@ extension AppState {
                 pattern: pattern.pixels, params: params
             )
         }.value
-        guard epoch == datasetEpoch,
+        guard epoch == datasetSession.epoch,
               request == liveDetectionRequest,
               navigation.analysisMode == .disks else { return }
         currentPeaks = result?.peaks ?? []
@@ -232,7 +232,7 @@ extension AppState {
     /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
     @discardableResult
     func runDiskDetection(replaying: Bool = false) async -> AnalysisRunOutcome {
-        guard let fourD, let descriptor else { return .failed("No dataset is loaded") }
+        guard let fourD = datasetSession.fourD, let descriptor else { return .failed("No dataset is loaded") }
         if probeKernel == nil { await generateProbeKernel() }
         guard let kernel = probeKernel else {
             return .failed("No probe kernel could be generated")
@@ -275,7 +275,7 @@ extension AppState {
         // returned nil for everything, and the guard below then attributed a
         // NAS tile-read failure to "its FFT plan" — the error-attribution
         // defect this session exists to fix. // v2 S7
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let vectors: BraggVectors?
         do {
             // P1 (Gate D, 2026-09-01): run the full-scan detection OFF the
@@ -322,7 +322,7 @@ extension AppState {
                 }.value
             }
         } catch {
-            guard datasetEpoch == epoch else { return .failed("The dataset changed during the run") }
+            guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
             if cancellation.isCancelled {
                 statusText = resultPresentation.braggVectors == nil
                     ? "Disk detection cancelled — no peaks were published"
@@ -332,7 +332,7 @@ extension AppState {
             presentComputeFailure(error)
             return .failed(error.localizedDescription)
         }
-        guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
+        guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
                 // `DiskDetection.detectAll` returns nil on cancellation — never
                 // a partial `BraggVectors` — so nothing here is a half-finished

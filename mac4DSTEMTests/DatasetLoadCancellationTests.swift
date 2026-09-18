@@ -26,15 +26,15 @@ final class DatasetLoadCancellationTests: XCTestCase {
 
     func testTheAffordanceIsOfferedOnlyWhileALoadIsRunning() async {
         let state = AppState()
-        XCTAssertFalse(state.canCancelDatasetLoad,
+        XCTAssertFalse(state.datasetSession.canCancelLoad,
                        "nothing is loading, so there is nothing to cancel")
-        XCTAssertFalse(state.isLoadingDataset)
+        XCTAssertFalse(state.datasetSession.isLoading)
 
         // After a completed load the offer is withdrawn — a Cancel that lingers
         // on a finished open would cancel nothing and say otherwise.
         let loaded = await loadedState()
         XCTAssertTrue(loaded.hasDataset)
-        XCTAssertFalse(loaded.canCancelDatasetLoad)
+        XCTAssertFalse(loaded.datasetSession.canCancelLoad)
     }
 
     func testCancellingWhenNothingIsLoadingDoesNothing() async {
@@ -79,8 +79,8 @@ final class DatasetLoadCancellationTests: XCTestCase {
         // whether the app looks loaded.
         XCTAssertFalse(state.hasDataset)
         XCTAssertNil(state.descriptor)
-        XCTAssertTrue(state.datasets.isEmpty)
-        XCTAssertNil(state.datasetPreview)
+        XCTAssertTrue(state.datasetSession.datasets.isEmpty)
+        XCTAssertNil(state.datasetSession.preview)
 
         // A discarded load is not remembered — the release owner's call.
         XCTAssertEqual(state.recents.entries.map(\.id), recentsBefore)
@@ -149,7 +149,7 @@ final class ConcurrentOpenRefusalTests: XCTestCase {
 
     func testASecondOpenIsRefusedWhileOneIsInFlight() {
         let state = AppState()
-        state.isLoadingDataset = true
+        state.datasetSession.beginLoading("Opening…")
         let before = state.statusText
 
         state.openFile(url: URL(fileURLWithPath: "/nonexistent/second.h5"))
@@ -162,7 +162,7 @@ final class ConcurrentOpenRefusalTests: XCTestCase {
 
     func testAnOpenIsAllowedWhenNothingIsLoading() {
         let state = AppState()
-        XCTAssertFalse(state.isLoadingDataset)
+        XCTAssertFalse(state.datasetSession.isLoading)
         let before = state.statusText
 
         state.openFile(url: URL(fileURLWithPath: "/nonexistent/first.h5"))

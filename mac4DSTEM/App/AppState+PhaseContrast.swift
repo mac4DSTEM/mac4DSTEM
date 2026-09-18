@@ -22,7 +22,8 @@ extension AppState {
     func prepareParallaxPreview() async {
         // The view the array actually reads, not a descriptor assembled beside
         // it: a crop and the shape it produces must travel together.
-        guard let source = reader, let fourD, let descriptor else { return }
+        guard let source = datasetSession.reader,
+              let fourD = datasetSession.fourD, let descriptor else { return }
         let view = fourD.view
         let physical: ParallaxPhysicalCalibration
         do {
@@ -37,7 +38,7 @@ extension AppState {
             return
         }
 
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax preprocessing", status: "Preparing virtual-BF stack…",
             totalUnits: descriptor.ry * 2
@@ -56,7 +57,7 @@ extension AppState {
                 source: source, view: view, calibration: physical,
                 cancellation: token, progress: progressUpdate
             )
-            guard isCurrentOperation(token), datasetEpoch == epoch,
+            guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxPreprocess = result
             phaseContrast.parallaxAlignment = nil
@@ -77,7 +78,7 @@ extension AppState {
             guard isCurrentOperation(token) else { return }
             statusText = "Parallax preprocessing cancelled"
         } catch {
-            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
             presentComputeFailure(error)
         }
     }
@@ -111,7 +112,7 @@ extension AppState {
         let groups = ParallaxAligner.groups(
             detectorIndices: preprocessing.detectorIndices, alignmentBin: bin
         )
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax alignment bin \(bin)",
             status: "Aligning bin \(bin) virtual-BF groups…",
@@ -136,7 +137,7 @@ extension AppState {
                     cancellation: token, progress: progressUpdate
                 )
             }.value
-            guard isCurrentOperation(token), datasetEpoch == epoch,
+            guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxAlignment = result
             showParallaxProduct(.alignment)   // v2.5 step 3e: one publish site
@@ -157,7 +158,7 @@ extension AppState {
             guard isCurrentOperation(token) else { return }
             statusText = "Parallax alignment bin \(bin) cancelled; last completed level retained"
         } catch {
-            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
             presentComputeFailure(error)
         }
     }
@@ -203,7 +204,7 @@ extension AppState {
             presentComputeFailure(SimpleError("Complete parallax alignment before KDE upsampling."))
             return
         }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax KDE", status: "Upsampling aligned virtual-BF images…",
             totalUnits: preprocessing.brightFieldPixelCount
@@ -234,7 +235,7 @@ extension AppState {
                     options: options, cancellation: token, progress: progressUpdate
                 )
             }.value
-            guard isCurrentOperation(token), datasetEpoch == epoch,
+            guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxSubpixel = result
             showParallaxProduct(.subpixel)   // v2.5 step 3e: one publish site
@@ -253,7 +254,7 @@ extension AppState {
             guard isCurrentOperation(token) else { return }
             statusText = "Parallax KDE cancelled; aligned result retained"
         } catch {
-            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
             presentComputeFailure(error)
         }
     }
@@ -287,7 +288,7 @@ extension AppState {
         options.informationLimitInvAngstrom = phaseContrast.parallaxDepthInformationLimit > 0
             ? phaseContrast.parallaxDepthInformationLimit : nil
         options.informationPower = phaseContrast.parallaxDepthInformationPower
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax depth sectioning", status: "Computing depth planes…",
             totalUnits: depths.count
@@ -308,7 +309,7 @@ extension AppState {
                     options: options, cancellation: token, progress: progressUpdate
                 )
             }.value
-            guard isCurrentOperation(token), datasetEpoch == epoch,
+            guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxDepth = result
             phaseContrast.parallaxDepthSelectedIndex = depths.indices.min {
@@ -320,7 +321,7 @@ extension AppState {
             guard isCurrentOperation(token) else { return }
             statusText = "Parallax depth sectioning cancelled; prior products retained"
         } catch {
-            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
             presentComputeFailure(error)
         }
     }
@@ -328,7 +329,8 @@ extension AppState {
     func runSingleslicePtychography() async {
         // As in `prepareParallaxPreview`: take the view from the array, so the
         // reader is told where the shape it is given sits in the file.
-        guard let source = reader, let fourD, let descriptor else {
+        guard let source = datasetSession.reader,
+              let fourD = datasetSession.fourD, let descriptor else {
             presentComputeFailure(SimpleError("Open a 4D dataset before ptychographic reconstruction."))
             return
         }
@@ -344,7 +346,7 @@ extension AppState {
             presentComputeFailure(error)
             return
         }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Single-slice ptychography", status: "Preparing diffraction amplitudes…",
             totalUnits: descriptor.ry + max(1, ptychography.iterations)
@@ -391,7 +393,7 @@ extension AppState {
                     progress: reconstructProgress
                 )
             }.value
-            guard isCurrentOperation(token), datasetEpoch == epoch,
+            guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.singleslicePtychography = result
             showParallaxProduct(.iterativePhase)
@@ -404,7 +406,7 @@ extension AppState {
             guard isCurrentOperation(token) else { return }
             statusText = "Single-slice ptychography cancelled; prior result retained"
         } catch {
-            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
             presentComputeFailure(error)
         }
     }
@@ -482,7 +484,7 @@ extension AppState {
             presentComputeFailure(SimpleError("Fit parallax aberrations before phase correction."))
             return
         }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax phase correction", status: "Applying aberration CTF…",
             totalUnits: alignment.stackHeight
@@ -500,7 +502,7 @@ extension AppState {
                     fit: fit, options: options, cancellation: token
                 )
             }.value
-            guard isCurrentOperation(token), datasetEpoch == epoch,
+            guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxCorrection = result
             showParallaxProduct(.correctedPhase)   // v2.5 step 3e: one publish site
@@ -513,7 +515,7 @@ extension AppState {
             guard isCurrentOperation(token) else { return }
             statusText = "Parallax phase correction cancelled; fit retained"
         } catch {
-            guard isCurrentOperation(token), datasetEpoch == epoch else { return }
+            guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
             presentComputeFailure(error)
         }
     }

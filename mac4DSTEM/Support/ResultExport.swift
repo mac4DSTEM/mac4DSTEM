@@ -36,7 +36,7 @@ extension AppState {
         // (view-frame) calibration are in the same frame by construction, and
         // the writer refuses the mismatches it can detect; see
         // `writeCalibratedDataCube`.
-        guard let descriptor, let view = loadView,
+        guard let descriptor, let view = datasetSession.loadView,
               let source = currentDataSourceForExport() else {
             present(SimpleError("No 4D dataset is open."))
             return
@@ -79,7 +79,7 @@ extension AppState {
             currentSpecification: loadedView.specification,
             exportBin: options.qBin
         )
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Preprocessing export", status: "Writing calibrated DataCube…",
             totalUnits: options.scanY.count * options.scanX.count
@@ -106,7 +106,7 @@ extension AppState {
                         progress: progressUpdate
                     )
                 }.value
-                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 let dropped = summary.discardedQRows + summary.discardedQColumns
                 var suffix = dropped == 0
                     ? ""
@@ -122,7 +122,7 @@ extension AppState {
                 guard self.isCurrentOperation(token) else { return }
                 self.statusText = "Calibrated DataCube export cancelled"
             } catch {
-                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 self.present(error)
             }
         }
@@ -724,7 +724,7 @@ extension AppState {
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
         let pixelCalibration = sessionPixelCalibration(descriptor: descriptor)
         let vectors = resultPresentation.braggVectors
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Session sidecar", status: "Saving \(metadata.displayName)…"
         )
@@ -766,11 +766,11 @@ extension AppState {
                         )
                     }
                 }.value
-                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
-                    self.isCurrentOperation(token) && self.datasetEpoch == epoch
+                    self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
                 }
-                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 // The published target now exists and can back a bookmark.
                 self.statusText = inventoryRefreshError.map {
                     "Saved \(metadata.displayName), but Results could not be refreshed: \($0)"
@@ -792,14 +792,14 @@ extension AppState {
     func selectSavedSessionResult(_ saved: SessionResultDescriptor) async {
         guard let descriptor else { return }
         let url = sessionSidecar.location(for: descriptor)
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         do {
             switch saved.storage {
             case .scalarFloat32:
                 let map = try await Task.detached(priority: .utility) {
                     try BraggVectorEMDWriter.loadResultMap(id: saved.id, from: url)
                 }.value
-                guard epoch == datasetEpoch, let map else { return }
+                guard epoch == datasetSession.epoch, let map else { return }
                 publishRestoredProduct(   // v2.5 step 3b-6
                     kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
                     payload: .scalar(FloatImage(width: map.width, height: map.height, pixels: map.pixels)),
@@ -809,7 +809,7 @@ extension AppState {
                 let map = try await Task.detached(priority: .utility) {
                     try BraggVectorEMDWriter.loadRGBAResultMap(id: saved.id, from: url)
                 }.value
-                guard epoch == datasetEpoch, let map else { return }
+                guard epoch == datasetSession.epoch, let map else { return }
                 publishRestoredProduct(   // v2.5 step 3b-6
                     kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
                     payload: .rgba(RGBAImage(width: map.width, height: map.height, rgba: map.rgba)),
@@ -826,7 +826,7 @@ extension AppState {
             resultPresentation.bumpResultVersion()
             statusText = "Viewed saved \(saved.displayName) ← \(url.lastPathComponent)"
         } catch {
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             present(error)
         }
     }
@@ -836,7 +836,7 @@ extension AppState {
     func loadSavedSessionResult(_ saved: SessionResultDescriptor, into slot: ComparisonSlot) async {
         guard let descriptor else { return }
         let url = sessionSidecar.location(for: descriptor)
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         do {
             let product: DisplayedProduct?
             switch saved.storage {
@@ -885,14 +885,14 @@ extension AppState {
                     provenance: map.provenance
                 )
             }
-            guard epoch == datasetEpoch, let product else { return }
+            guard epoch == datasetSession.epoch, let product else { return }
             switch slot {
             case .a: comparisonProductA = product
             case .b: comparisonProductB = product
             }
             statusText = "Loaded \(saved.displayName) into comparison \(slot == .a ? "A" : "B")"
         } catch {
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             present(error)
         }
     }
@@ -996,7 +996,7 @@ extension AppState {
         }
         let url = sessionSidecar.location(for: descriptor)
         let calibration = sessionPixelCalibration(descriptor: descriptor)
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Session result removal", status: "Removing \(saved.displayName)…"
         )
@@ -1014,11 +1014,11 @@ extension AppState {
                     cancellation: token
                 )
             }.value
-            guard isCurrentOperation(token), epoch == datasetEpoch else { return }
+            guard isCurrentOperation(token), epoch == datasetSession.epoch else { return }
             let inventory = try await Task.detached(priority: .utility) {
                 try BraggVectorEMDWriter.loadInventory(from: url)
             }.value
-            guard isCurrentOperation(token), epoch == datasetEpoch else { return }
+            guard isCurrentOperation(token), epoch == datasetSession.epoch else { return }
             sessionInventory = inventory
             if let currentID = inventory.currentResultID,
                let current = inventory.results.first(where: { $0.id == currentID }) {
@@ -1032,7 +1032,7 @@ extension AppState {
             guard isCurrentOperation(token) else { return }
             statusText = "Session result removal cancelled"
         } catch {
-            guard isCurrentOperation(token), epoch == datasetEpoch else { return }
+            guard isCurrentOperation(token), epoch == datasetSession.epoch else { return }
             present(error)
         }
     }
@@ -1148,10 +1148,10 @@ extension AppState {
         // from the seam — re-read it from the NEW location so a failed copy
         // shows an empty section rather than the old file's results under the
         // new file's name (a tree describing a file that does not exist).
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let isCurrent = { self.datasetEpoch == epoch && self.sessionSidecar.location(for: descriptor) == url }
+            let isCurrent = { self.datasetSession.epoch == epoch && self.sessionSidecar.location(for: descriptor) == url }
             let inventoryRefreshError = await self.refreshSessionInventory(from: url, isCurrent: isCurrent)
             guard isCurrent() else { return }
             if let inventoryRefreshError {
@@ -1178,7 +1178,7 @@ extension AppState {
         }
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
         let snapshot = sessionPixelCalibration(descriptor: descriptor)
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         // The view these values were calibrated in. A calibration measured on a
         // binned cube is in that cube's detector pixels, so saving it without
         // saying which view it came from would make it unreadable later — the
@@ -1212,11 +1212,11 @@ extension AppState {
                         cancellation: token
                     )
                 }.value
-                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
-                    self.isCurrentOperation(token) && self.datasetEpoch == epoch
+                    self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
                 }
-                guard self.isCurrentOperation(token), self.datasetEpoch == epoch else { return }
+                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 self.statusText = inventoryRefreshError.map {
                     "Saved calibration, but Results could not be refreshed: \($0)"
                 } ?? "Saved calibration → \(url.lastPathComponent)"

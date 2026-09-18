@@ -77,10 +77,10 @@ final class TB1StallProbeTests: XCTestCase {
         var lastStatus = ""
         while Date() < deadline {
             lastStatus = state.statusText
-            if state.hasDataset, !state.isLoadingDataset { break }
+            if state.hasDataset, !state.datasetSession.isLoading { break }
             try await Task.sleep(nanoseconds: 200_000_000)
         }
-        XCTAssertTrue(state.hasDataset && !state.isLoadingDataset,
+        XCTAssertTrue(state.hasDataset && !state.datasetSession.isLoading,
                       "Open did not complete in 180 s — last status: \(lastStatus)")
         // The probe asserts the OPEN, and only the open. It used to also
         // require `sidecarRestoreFailure == .doesNotFit`, which held only

@@ -65,10 +65,10 @@ private struct DatasetCommands: Commands {
             // (`docs/open-items.md`, 2026-09-11).
             Button("New Dataset Window") { openWindow(id: "dataset") }
                 .keyboardShortcut("n", modifiers: .command)
-                .disabled(appState?.isLoadingDataset ?? false)
+                .disabled(appState?.datasetSession.isLoading ?? false)
             Button("Open Dataset…") { appState?.requestOpenDataset() }
                 .keyboardShortcut("o", modifiers: .command)
-                .disabled(appState == nil || appState?.isLoadingDataset == true)
+                .disabled(appState == nil || appState?.datasetSession.isLoading == true)
             if let recovery = appState?.recoveryRecord {
                 Button("Reopen \(recoveryName(recovery))") { appState?.reopenLastDataset() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])

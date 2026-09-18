@@ -23,7 +23,7 @@ extension AppState {
     /// publish the group-index map. No dataset means nothing to embed.
     @discardableResult
     func runDiffractionGroups() async -> AnalysisRunOutcome {
-        guard let (fourD, descriptor) = cubeAndDescriptor else { return .failed("No dataset is loaded") }
+        guard let (fourD, descriptor) = datasetSession.cubeAndDescriptor else { return .failed("No dataset is loaded") }
         let totalPatterns = descriptor.rx * descriptor.ry
         let settings = diffractionGroups.settings
         let cancellation = beginCancellableOperation(
@@ -31,7 +31,7 @@ extension AppState {
             totalUnits: totalPatterns
         )
         defer { finishCancellableOperation(cancellation) }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
 
         // Hopped to the main actor exactly like runVirtualDetector's
         // progressUpdate: DiffractionEmbedding.compute calls this from its
@@ -68,7 +68,7 @@ extension AppState {
                 statusText = "Diffraction groups cancelled"
                 return .cancelled
             }
-            guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
+            guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
             diffractionGroups.publish(result, ranWith: settings)
 
             let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100

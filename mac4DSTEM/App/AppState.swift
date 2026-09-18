@@ -66,24 +66,10 @@ enum AnalysisRunOutcome: Equatable {
 
 @Observable
 final class AppState {
-    var reader: (any FourDDataSource)?
-    var fourD: FourDArray?
-
-    /// The loaded view — the source descriptor, the load specification, and the
-    /// descriptor derived from both. Read-only, and deliberately not the array:
-    /// every consumer that hands a shape to a reader needs the pairing, and
-    /// exposing them separately is what let three readers ignore the descriptor.
-    var loadView: LoadView? { fourD?.view }
-
-    /// The cube and the descriptor it must be read with, TOGETHER — never
-    /// separately, for the reason `loadView` above gives. The alternative was
-    /// widening `fourD` to `private(set)`, which is net-zero lines and exactly
-    /// what that comment forbids. `AppState+DiffractionGroups` is the only
-    /// consumer outside this file.
-    var cubeAndDescriptor: (FourDArray, DatasetDescriptor)? {
-        guard let fourD, let descriptor else { return nil }
-        return (fourD, descriptor)
-    }
+    /// Seam 6 (docs/appstate-seams-plan.md): the live reader/array pair,
+    /// dataset list, preview, loading state and stale-publish epoch. Readers go
+    /// directly to the owner; AppState has no forwarding properties.
+    let datasetSession = DatasetSession()
 
     /// Whether the open cube is held in memory, and the preload's progress.
     /// Owned by its own type, with no forwarding properties on `AppState` —
@@ -94,14 +80,8 @@ final class AppState {
     /// into that frame cost. Stage L3's seam — see `Session/LoadedView.swift`.
     let loadedView = LoadedView()
 
-    /// A strided sample of the open dataset, built during the open so there is
-    /// something real on screen before the first whole-cube pass.
-    /// **Not a result** (invariant I4). It is deliberately its own type, which
-    /// no product, export or session path accepts, and every view that draws it
-    /// must show `summary` — which states the stride.
-    private(set) var datasetPreview: DatasetPreview?
     private var openURL: URL?
-    @ObservationIgnored private var pendingRecovery: DatasetRecoveryRecord?
+    @ObservationIgnored var pendingRecovery: DatasetRecoveryRecord?
     /// S1's seam (docs/archive/development-process-2026-08-31.md §7): the one owner of where this
     /// dataset's session sidecar is and whether the app may read it. Replaces a
     /// bare `scopedSessionSidecarURL` that eight call sites derived around in
@@ -174,8 +154,6 @@ final class AppState {
         }
     }
 
-    var datasets: [DatasetDescriptor] = []
-
     /// The recents list and its location labels. S3's seam
     /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/RecentDatasets.swift`.
     /// Views read `recents.…`; no forwarding properties. // v2 S3
@@ -234,11 +212,11 @@ final class AppState {
                                   parameters: [String: String],
                                   invalidating downstream: [String] = [],
                                   replaying: Bool) {
-        guard !isLoadingDataset, !replaying else { return }
+        guard !datasetSession.isLoading, !replaying else { return }
         replay.record(kind: kind, parameters: parameters, invalidating: downstream,
                       under: ReplayParameterFrame.of(loadedView.specification))
     }
-    private(set) var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
+    var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
     var selectedScan = ScanPos(x: 0, y: 0)
 
@@ -882,12 +860,6 @@ final class AppState {
             strainSignature: strain.currentReplaySignature, acomSignature: acomSignature)
     }
 
-    /// Increments whenever a (new) dataset is activated. Long-running detached
-    /// analyses capture the epoch at launch and drop their results if it has
-    /// moved on — otherwise work from a previous file could land in the state
-    /// of the current one.
-    private(set) var datasetEpoch = 0
-
     // The result-value cache moved to `resultPresentation` with the result
     // controls. The diffraction cache stays here with the CBED state.
     @ObservationIgnored private var patternValueRangeCache:
@@ -952,55 +924,10 @@ final class AppState {
         get { operationCenter.progress }
         set { operationCenter.progress = newValue }
     }
-    /// Dataset opening is deliberately tracked separately from analysis work:
-    /// automatic first-result generation can update `statusText` before loading
-    /// has visibly finished, which made the file-open progress disappear into a
-    /// generic operation indicator.
-    /// `datasetLoadingProgress` is **nil during phases whose duration is not
-    /// knowable** (opening the file, parsing metadata, reading a sidecar). Those
-    /// get a named spinner instead of an invented percentage — a bar that steps
-    /// through fabricated waypoints is less honest than one that admits it does
-    /// not know, and the fabricated version was what made the old load look like
-    /// it jumped in blocks and then stalled. See `docs/load-pipeline-plan.md`
-    /// (stage L1, invariant I5).
-    var datasetLoadingProgress: Double?
-    var datasetLoadingStatus: String?
-    /// True for the whole open, including the first whole-cube pass — not
-    /// derived from `datasetLoadingProgress`, which is legitimately nil while an
-    /// unmeasurable phase runs.
-    var isLoadingDataset: Bool = false
-
-    /// Cancels the open in progress. Non-nil exactly while a dataset load is
-    /// running, which is what the Cancel affordance binds its visibility to.
-    /// **Why an open needs this at all** (release owner, 2026-08-18): picking
-    /// the wrong file left quitting the app as the only exit, and the open is
-    /// the longest uninterruptible wait in the product — worst on the slow
-    /// network source the welcome screen already warns about. Every analysis
-    /// operation could already be cancelled; the open could not.
-    private(set) var datasetLoadCancellation: AnalysisCancellationToken?
-
-    /// True while a cancellation has been requested but the load has not yet
-    /// unwound. The button uses it to stop offering a second cancel.
-    private(set) var isCancellingDatasetLoad = false
-
-    var canCancelDatasetLoad: Bool {
-        isLoadingDataset && datasetLoadCancellation != nil && !isCancellingDatasetLoad
-    }
-
     /// Cooperative: it asks, and the load unwinds at its next checkpoint.
     func cancelDatasetLoad() {
-        guard let token = datasetLoadCancellation, !isCancellingDatasetLoad else { return }
-        isCancellingDatasetLoad = true
-        token.cancel()
-        datasetLoadingProgress = nil
-        datasetLoadingStatus = "Cancelling…"
+        guard datasetSession.requestCancellation() else { return }
         statusText = "Cancelling…"
-    }
-
-    /// True once cancellation has been requested. Checked at every stage
-    /// boundary of the open.
-    private var datasetLoadWasCancelled: Bool {
-        datasetLoadCancellation?.isCancelled == true
     }
     /// Short label and unit budget for the performance panel.
     var activeOperation: String? { operationCenter.activeOperation }
@@ -1039,9 +966,8 @@ final class AppState {
         // While the dataset is still opening, this operation IS the load: mirror
         // its measured progress into the welcome card rather than leaving that
         // card parked on its last named stage while work is visibly happening.
-        if isLoadingDataset {
-            datasetLoadingProgress = progress
-            datasetLoadingStatus = status
+        if datasetSession.isLoading {
+            datasetSession.mirrorOperationProgress(progress, status)
         }
     }
 
@@ -1118,7 +1044,7 @@ final class AppState {
     /// Narrow handoff used by the export workflow without exposing the mutable
     /// reader slot to views. The returned value is an actor and remains safe to
     /// use from the detached preprocessing task.
-    func currentDataSourceForExport() -> (any FourDDataSource)? { reader }
+    func currentDataSourceForExport() -> (any FourDDataSource)? { datasetSession.reader }
 
     func changeMode(_ mode: AnalysisMode) {
         // v2.5 step 3c: the published product survives a task switch on its
@@ -1190,7 +1116,7 @@ final class AppState {
 
     /// One load at a time: the bundled HDF5 is not thread-safe (`ConcurrentOpenRefusalTests`).
     func openFile(url: URL) {
-        if isLoadingDataset { statusText = "Already opening a dataset — wait for that one to finish, or cancel it."; return }
+        if datasetSession.isLoading { statusText = "Already opening a dataset — wait for that one to finish, or cancel it."; return }
         Task { await openFileAsync(url: url) }
     }
 
@@ -1301,7 +1227,7 @@ final class AppState {
     func openFileForConfiguration(url: URL) {
         Task {
             beginDatasetLoading("Opening \(url.lastPathComponent)…")
-            defer { if isLoadingDataset { finishDatasetLoading() } }
+            defer { if datasetSession.isLoading { finishDatasetLoading() } }
             let accessed = url.startAccessingSecurityScopedResource()
             do {
                 let reader = try await Self.makeReader(for: url)
@@ -1312,7 +1238,7 @@ final class AppState {
                     present(H5Error.unsupportedRank(source.shape.count))
                     return
                 }
-                if datasetLoadWasCancelled {
+                if datasetSession.loadWasCancelled {
                     if accessed { url.stopAccessingSecurityScopedResource() }
                     return
                 }
@@ -1323,18 +1249,18 @@ final class AppState {
                     accessedSecurityScope: accessed,
                     fileByteCount: size?.intValue
                 )
-                let pendingEpoch = datasetEpoch
+                let pendingEpoch = datasetSession.epoch
                 // Sample the full source through the pending array's shared cache.
                 // Both open paths report determinate progress for the same epoch.
                 beginDatasetLoadingStage("Sampling a preview…")
                 let previewResult = await PendingLoad.makePreview(
                     data: pending.data, descriptor: source,
-                    cancellation: datasetLoadCancellation,
+                    cancellation: datasetSession.loadCancellation,
                     progress: previewProgressHandler(
                         rows: DatasetPreviewBuilder.sampledRowCount(for: source), epoch: pendingEpoch
                     )
                 )
-                guard datasetEpoch == pendingEpoch, !datasetLoadWasCancelled else {
+                guard datasetSession.epoch == pendingEpoch, !datasetSession.loadWasCancelled else {
                     if accessed { url.stopAccessingSecurityScopedResource() }
                     return
                 }
@@ -1363,8 +1289,8 @@ final class AppState {
     private func previewProgressHandler(rows: Int, epoch: Int) -> @Sendable (Double) -> Void {
         { [weak self] fraction in
             Task { @MainActor [weak self] in
-                guard let self, self.datasetEpoch == epoch,
-                      self.isLoadingDataset else { return }
+                guard let self, self.datasetSession.epoch == epoch,
+                      self.datasetSession.isLoading else { return }
                 let done = min(rows, max(0, Int((fraction * Double(rows)).rounded())))
                 self.reportDatasetLoadingProgress(
                     fraction, "Sampling a preview · row \(done) of \(rows)"
@@ -1388,8 +1314,7 @@ final class AppState {
             beginDatasetLoading("Opening \(pending.source.datasetPath)…")
             if let openURL { openURL.stopAccessingSecurityScopedResource() }
             openURL = pending.accessedSecurityScope ? pending.url : nil
-            reader = pending.reader
-            datasets = [pending.source]
+            datasetSession.prepare(reader: pending.reader, datasets: [pending.source])
             // This path changes the open dataset WITHOUT `openFileAsync`, so
             // it must drop the previous dataset's restore-failure flag itself
             // — Gate B found the flag surviving a configurator commit and
@@ -1403,13 +1328,13 @@ final class AppState {
                 specification: pending.configuration.specification,
                 runInitialAnalysis: false
             )
-            if datasetLoadWasCancelled || !hasDataset {
+            if datasetSession.loadWasCancelled || !hasDataset {
                 await discardPartialLoad()
                 finishDatasetLoading()
                 return
             }
             await runCurrentAnalysis()
-            if datasetLoadWasCancelled {
+            if datasetSession.loadWasCancelled {
                 await discardPartialLoad()
                 finishDatasetLoading()
                 return
@@ -1428,9 +1353,9 @@ final class AppState {
     /// The reader and the security scope are the ones the rehearsal already
     /// holds, so this is `commitPendingLoad`'s shape with the one
     /// specification the configurator never needs to validate.
-    /// The source is `loadView`'s own — the descriptor the loaded view
+    /// The source is `datasetSession.loadView`'s own — the descriptor the loaded view
     /// declares it was cut from — never `datasets.first`. The two are equal on
-    /// every shipped path, but the button's caption prices `loadView`'s
+    /// every shipped path, but the button's caption prices `datasetSession.loadView`'s
     /// source, and Gate A found the pairing unpinned: the moment a
     /// multi-dataset path can carry a specification, `datasets.first` reopens
     /// the wrong cube while the caption describes the right one. A LoadView
@@ -1459,7 +1384,7 @@ final class AppState {
         // would otherwise stand, and its frame tag with it. // v2 S6
         let recipeBeforePromote = replay.record
         let frameBeforePromote = replay.parameterFrame
-        // `!isLoadingDataset` is the reentrancy gate. Without it the only
+        // `!datasetSession.isLoading` is the reentrancy gate. Without it the only
         // protections were the button's `.disabled` (which cannot see a load
         // that starts after the click renders) and an ordering accident —
         // `activate` resets `loadedView` before its first suspension, so a
@@ -1467,7 +1392,8 @@ final class AppState {
         // not a contract; a second `beginDatasetLoading` would replace the
         // shared cancellation token and Cancel would stop only the newer
         // load. Gate A review, 2026-08-19.
-        guard !isLoadingDataset, let reader, let source = loadView?.source,
+        guard !datasetSession.isLoading, let reader = datasetSession.reader,
+              let source = datasetSession.loadView?.source,
               !loadedView.isFullExtent else { return }
         // The recipe survives EVERY exit, not only success: `activate` resets
         // it and may re-adopt the sidecar's OLDER copy before a cancel is
@@ -1487,7 +1413,7 @@ final class AppState {
             specification: .fullExtent,
             runInitialAnalysis: false
         )
-        if datasetLoadWasCancelled || !hasDataset {
+        if datasetSession.loadWasCancelled || !hasDataset {
             await discardPartialLoad()
             finishDatasetLoading()
             return
@@ -1506,7 +1432,7 @@ final class AppState {
         }
         if runReestablishingAnalysis {
             await runCurrentAnalysis()
-            if datasetLoadWasCancelled {
+            if datasetSession.loadWasCancelled {
                 await discardPartialLoad()
                 finishDatasetLoading()
                 return
@@ -1538,7 +1464,7 @@ final class AppState {
         }
         // Replay is the promote's tail only — on an already-full-extent view
         // there is nothing this button's gesture means.
-        guard !loadedView.isFullExtent, !isLoadingDataset else { return }
+        guard !loadedView.isFullExtent, !datasetSession.isLoading else { return }
         // The plan is PURE, so every certain refusal is known before the
         // expensive reopen is paid for. A recipe whose FIRST step already
         // refuses will replay nothing — run the ordinary re-establishing
@@ -1572,7 +1498,7 @@ final class AppState {
         // refused or cancelled promote leaves the rehearsal (or nothing)
         // loaded, and running the recipe against it would be the promote
         // run's summary lying about which view the numbers describe.
-        guard hasDataset, loadedView.isFullExtent, !isLoadingDataset else {
+        guard hasDataset, loadedView.isFullExtent, !datasetSession.isLoading else {
             replayRun.finish(haltReason: "the reopen did not complete, so nothing was replayed — the recipe is unchanged")
             statusText = "Promote run stopped — the reopen did not complete; nothing was replayed"
             return
@@ -1586,10 +1512,10 @@ final class AppState {
     /// reached" in the summary. `replayRun.begin` already ran — the caller
     /// holds the keep-awake assertion from before the reopen.
     private func executeReplay(planned: [PlannedReplayStep]) async {
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         var haltReason: String?
         for (index, step) in planned.enumerated() {
-            guard datasetEpoch == epoch, !isLoadingDataset else {
+            guard datasetSession.epoch == epoch, !datasetSession.isLoading else {
                 haltReason = "the dataset changed while the promote run was executing"
                 break
             }
@@ -1605,7 +1531,7 @@ final class AppState {
                     replayRun.conclude(step: index, outcome: .refused(reason: reason))
                     haltReason = "\(step.title) could not be replayed: \(reason)"
                 case .ran(let outcome):
-                    if datasetEpoch != epoch {
+                    if datasetSession.epoch != epoch {
                         replayRun.conclude(step: index, outcome: .failed(
                             reason: "the dataset changed while this step was executing"))
                         haltReason = "the dataset changed while the promote run was executing"
@@ -1815,13 +1741,12 @@ final class AppState {
         gates.clearSidecarRestoreFailure()
         beginDatasetLoading("Opening demo dataset…")
         defer {
-            if isLoadingDataset { finishDatasetLoading() }
+            if datasetSession.isLoading { finishDatasetLoading() }
         }
         do {
             beginDatasetLoadingStage("Reading file structure of the demo dataset…")
             let descriptor = try await source.discoverPrimaryDataset()
-            reader = source
-            datasets = [descriptor]
+            datasetSession.prepare(reader: source, datasets: [descriptor])
             openURL = nil
             await activate(descriptor: descriptor, reader: source,
                            specification: specification)
@@ -1834,8 +1759,8 @@ final class AppState {
             // failing one — a spec that fits the demo does not fail), and the
             // file-path comparison catches a previous real dataset that
             // happened to share the requested spec. Gate A review, 2026-08-19.
-            guard loadView?.specification == specification,
-                  self.descriptor?.filePath == datasets.first?.filePath else { return }
+            guard datasetSession.loadView?.specification == specification,
+                  self.descriptor?.filePath == datasetSession.datasets.first?.filePath else { return }
             finishDatasetLoading()
             acomSession.display = .ipfZ
             // S22c wording: the steps are Prepare / Imaging / Bragg / Phase /
@@ -1844,33 +1769,6 @@ final class AppState {
             statusText = "Demo ready — follow Prepare → Imaging → Strain & ACOM (Bragg disks first) → Results; each task lists anything it still needs"
         } catch {
             present(error)
-        }
-    }
-
-    func openRecent(_ recent: RecentDataset) {
-        do {
-            let resolved = try WorkspaceRecoveryStore.resolve(recent.bookmark)
-            if recoveryRecord?.datasetID == recent.id { pendingRecovery = recoveryRecord }
-            if resolved.stale { refreshStoredBookmark(for: resolved.url, id: recent.id) }
-            openFile(url: resolved.url)
-        } catch {
-            // Two different facts, two different fates (Gate D second
-            // reader, 2026-08-25): a volume that is merely NOT MOUNTED keeps
-            // its entry — deleting it would destroy the only place the NAS
-            // path is shown, for a dataset that is fine — while a genuinely
-            // dead bookmark is still removed as before. `.withoutMounting`
-            // (the same day's fix) is what makes the unmounted case reach
-            // this catch fast instead of freezing the UI ~30 s per click.
-            if let volume = WorkspaceRecoveryStore.unmountedVolumeName(
-                forBookmark: recent.bookmark
-            ) {
-                present(SimpleError(
-                    "The volume “\(volume)” is not mounted. Connect it in Finder, then open the dataset again."
-                ))
-            } else {
-                recents.remove(id: recent.id)
-                present(SimpleError("This recent dataset is no longer accessible. Open it again to renew permission."))
-            }
         }
     }
 
@@ -1893,77 +1791,8 @@ final class AppState {
         openRecent(recent)
     }
 
-    func reopenLastDataset() {
-        guard let recoveryRecord,
-              let recent = recents.entry(withID: recoveryRecord.datasetID) else {
-            present(SimpleError("No recoverable dataset is available.")); return
-        }
-        openRecent(recent)
-    }
-
-    func removeRecent(_ recent: RecentDataset) {
-        recents.remove(id: recent.id)
-        if recoveryRecord?.datasetID == recent.id {
-            recoveryRecord = nil
-            WorkspaceRecoveryStore.clearRecovery()
-        }
-    }
-
-    private func rememberOpenedDataset(_ url: URL) {
-        do {
-            let bookmark = try WorkspaceRecoveryStore.bookmark(for: url)
-            let id = url.standardizedFileURL.path
-            recents.remember(RecentDataset(id: id, displayName: url.lastPathComponent,
-                                           bookmark: bookmark, lastOpened: Date()))
-            recoveryRecord = DatasetRecoveryRecord(
-                datasetID: id, bookmark: bookmark,
-                selectedX: selectedScan.x, selectedY: selectedScan.y,
-                analysisMode: navigation.analysisMode.rawValue, updated: Date(),
-                loadSpecification: loadedView.specification
-            )
-            WorkspaceRecoveryStore.saveRecovery(recoveryRecord!)
-        } catch {
-            statusText = "Loaded data, but recent-file access could not be remembered: \(Self.errorDetail(error))"
-        }
-    }
-
-    private func refreshStoredBookmark(for url: URL, id: String) {
-        guard let bookmark = try? WorkspaceRecoveryStore.bookmark(for: url) else { return }
-        recents.updateBookmark(bookmark, forID: id)
-    }
-
-    private func persistRecoveryPosition() {
-        guard descriptor != nil, var record = recoveryRecord else { return }
-        record.selectedX = selectedScan.x
-        record.selectedY = selectedScan.y
-        record.analysisMode = navigation.analysisMode.rawValue
-        record.updated = Date()
-        // Every stamp restates the frame, so a position persisted after a
-        // promote is knowably full-extent, not silently reinterpreted by the
-        // next crop-restoring relaunch. // v2 S5
-        record.loadSpecification = loadedView.specification
-        recoveryRecord = record
-        WorkspaceRecoveryStore.saveRecovery(record)
-    }
-
-    func selectDataset(_ descriptor: DatasetDescriptor) {
-        guard let reader else { return }
-        Task {
-            // Bracketed as a load, the way openFileAsync does it. `activate`
-            // preloads the resident cube, and the preload's progress callback is
-            // gated on `isLoadingDataset` — so without this bracket, switching
-            // to a multi-gigabyte dataset set statusText to "Loaded …" with the
-            // bar at 1.0 and then read the whole cube in complete silence. That
-            // is #36's stall reintroduced one layer down, in the one path L1's
-            // reordering did not cover. Found by adversarial review 2026-08-17.
-            beginDatasetLoading("Opening \(descriptor.datasetPath)…")
-            await activate(descriptor: descriptor, reader: reader)
-            finishDatasetLoading()
-        }
-    }
-
     func openManualPath(_ datasetPath: String) {
-        guard let reader else {
+        guard let reader = datasetSession.reader else {
             present(SimpleError("Open a file before entering a dataset path."))
             return
         }
@@ -1978,12 +1807,10 @@ final class AppState {
                     return
                 }
                 let descriptor = try await h5.describe(path: datasetPath)
-                if !datasets.contains(where: { $0.datasetPath == descriptor.datasetPath }) {
-                    datasets.append(descriptor)
-                }
+                datasetSession.addDatasetIfNeeded(descriptor)
                 // Bracketed for the same reason as `selectDataset` above: every
                 // stage line, the preview sampling and the resident preload are
-                // gated on `isLoadingDataset`, so without this the whole open
+                // gated on `datasetSession.isLoading`, so without this the whole open
                 // runs in silence while `activate` reports "Loaded …" with the
                 // bar at 1.0 — #36's stall, one layer down.
                 // **Unreachable today**: nothing calls `openManualPath`. Fixed
@@ -2037,7 +1864,7 @@ final class AppState {
         beginDatasetLoading("Opening \(url.lastPathComponent)…")
         errorMessage = nil
         defer {
-            if isLoadingDataset { finishDatasetLoading() }
+            if datasetSession.isLoading { finishDatasetLoading() }
         }
 
         let previousOpenURL = openURL
@@ -2047,7 +1874,7 @@ final class AppState {
             let reader = try await Self.makeReader(for: url)
             beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
             let descriptor = try await reader.discoverPrimaryDataset()
-            if datasetLoadWasCancelled {
+            if datasetSession.loadWasCancelled {
                 if accessed { url.stopAccessingSecurityScopedResource() }
                 await discardPartialLoad()
                 finishDatasetLoading()
@@ -2061,8 +1888,7 @@ final class AppState {
             // never outlive the dataset it describes. // v2 S7
             gates.clearSidecarRestoreFailure()
             openURL = accessed ? url : nil
-            self.reader = reader
-            datasets = [descriptor]
+            datasetSession.prepare(reader: reader, datasets: [descriptor])
             let recorded = await recordedLoadSpecification(
                 forSourcePath: url.path, source: descriptor
             )
@@ -2071,7 +1897,7 @@ final class AppState {
                 specification: recorded ?? .fullExtent,
                 runInitialAnalysis: false
             )
-            if datasetLoadWasCancelled || !hasDataset {
+            if datasetSession.loadWasCancelled || !hasDataset {
                 // `activate` unwinds itself on cancellation; this catches the
                 // case where it did, and stops the open continuing into an
                 // analysis of a dataset that is no longer there.
@@ -2085,7 +1911,7 @@ final class AppState {
             // what left the bar parked at its last stage and then vanishing
             // into a generic operation indicator.
             await runCurrentAnalysis()
-            if datasetLoadWasCancelled {
+            if datasetSession.loadWasCancelled {
                 await discardPartialLoad()
                 finishDatasetLoading()
                 return
@@ -2102,7 +1928,7 @@ final class AppState {
         }
     }
 
-    private func activate(
+    func activate(
         descriptor sourceDescriptor: DatasetDescriptor,
         reader: any FourDDataSource,
         specification: LoadSpecification = .fullExtent,
@@ -2117,7 +1943,7 @@ final class AppState {
         // independently prevents any non-cooperative GPU result from landing.
         operationCenter.reset()
         if !isBusy { progress = nil }
-        datasetEpoch &+= 1
+        datasetSession.beginActivation()
         beginDatasetLoadingStage("Reading calibration metadata…")
         // ONE view, built once and shared: the array reads through it, the
         // calibration is re-referenced into it, and `loadedView` records it. The
@@ -2136,7 +1962,7 @@ final class AppState {
             return
         }
         self.descriptor = view.descriptor
-        fourD = FourDArray(reader: reader, view: view)
+        datasetSession.install(reader: reader, view: view)
 
         // EVERYTHING BELOW USES THE VIEW, and the parameter is deliberately
         // named `sourceDescriptor` so that reaching for the file's own extent is
@@ -2156,7 +1982,7 @@ final class AppState {
         residency.reset()
         loadedView.reset()
         sessionLoadSpecification = nil
-        datasetPreview = nil
+        datasetSession.publishPreview(nil)
         selectedScan = ScanPos(x: 0, y: 0)
         resultPresentation.displayRangeLo = 0
         resultPresentation.displayRangeHi = 1
@@ -2349,15 +2175,15 @@ final class AppState {
         // restore below gets — never a modal, never a refusal.
         diskCentreLabels.reset(filePath: descriptor.filePath, datasetPath: descriptor.datasetPath)
         let labelsURL = sessionSidecar.location(for: descriptor)
-        let labelsEpoch = datasetEpoch
+        let labelsEpoch = datasetSession.epoch
         do {
             if let json = try await Task.detached(priority: .utility, operation: {
                 try BraggVectorEMDWriter.loadDiskCentreLabelsJSON(from: labelsURL)
-            }).value, labelsEpoch == datasetEpoch {
+            }).value, labelsEpoch == datasetSession.epoch {
                 try diskCentreLabels.load(from: Data(json.utf8), expecting: descriptor.filePath)
             }
         } catch {
-            if labelsEpoch == datasetEpoch {
+            if labelsEpoch == datasetSession.epoch {
                 statusText = "Could not restore disk-centre labels: \(Self.errorDetail(error))"
             }
         }
@@ -2422,7 +2248,7 @@ final class AppState {
         }
         pendingRecovery = nil
 
-        if datasetLoadWasCancelled { await discardPartialLoad(); return }
+        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
         beginDatasetLoadingStage("Checking for a saved session…")
         let sessionSnapshot = await loadSessionSnapshot(for: descriptor)
         beginDatasetLoadingStage("Loading first diffraction pattern…")
@@ -2430,7 +2256,7 @@ final class AppState {
         if let sessionSnapshot {
             restoreSessionResult(from: sessionSnapshot, for: descriptor)
         }
-        if isLoadingDataset {
+        if datasetSession.isLoading {
             // statusText is about to be driven by the measured whole-cube pass;
             // don't flash a finished-looking bar in the performance panel first.
             beginDatasetLoadingStage("Preparing workspace…")
@@ -2438,11 +2264,11 @@ final class AppState {
             statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
             progress = 1
         }
-        if datasetLoadWasCancelled { await discardPartialLoad(); return }
+        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
         await buildDatasetPreview()
-        if datasetLoadWasCancelled { await discardPartialLoad(); return }
+        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
         await preloadResidentCube()
-        if datasetLoadWasCancelled { await discardPartialLoad(); return }
+        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
         if runInitialAnalysis {
             await runCurrentAnalysis()
         }
@@ -2453,18 +2279,18 @@ final class AppState {
     /// so the wait is roughly the same on a 64² and a 512² detector.
     /// Failure is not fatal; the status strip records why it was unavailable.
     private func buildDatasetPreview() async {
-        guard let fourD, let d = descriptor, d.is4D else { return }
-        let epoch = datasetEpoch
+        guard let fourD = datasetSession.fourD, let d = descriptor, d.is4D else { return }
+        let epoch = datasetSession.epoch
         beginDatasetLoadingStage("Sampling a preview…")
         let previewResult = await PendingLoad.makePreview(
-            data: fourD, descriptor: d, cancellation: datasetLoadCancellation,
+            data: fourD, descriptor: d, cancellation: datasetSession.loadCancellation,
             progress: previewProgressHandler(
                 rows: DatasetPreviewBuilder.sampledRowCount(for: d), epoch: epoch
             )
         )
-        guard datasetEpoch == epoch else { return }
+        guard datasetSession.epoch == epoch else { return }
         switch previewResult {
-        case .success(let preview): datasetPreview = preview
+        case .success(let preview): datasetSession.publishPreview(preview)
         case .failure(let error):
             if !(error is CancellationError) {
                 statusText = "Preview unavailable: \(Self.errorDetail(error))"
@@ -2484,11 +2310,11 @@ final class AppState {
     /// always — the shipped default request is `.streamed` (`.automatic` was
     /// dropped, v2 S3), and nothing in the UI requests `.resident` yet.
     private func preloadResidentCube() async {
-        guard let fourD, let d = descriptor else { return }
+        guard let fourD = datasetSession.fourD, let d = descriptor else { return }
         let totalPatterns = d.ry * d.rx
         guard totalPatterns > 0 else { return }
-        await residency.preload(fourD, cancellation: datasetLoadCancellation) { [weak self] fraction in
-            guard let self, self.isLoadingDataset else { return }
+        await residency.preload(fourD, cancellation: datasetSession.loadCancellation) { [weak self] fraction in
+            guard let self, self.datasetSession.isLoading else { return }
             let processed = min(
                 totalPatterns, max(0, Int((fraction * Double(totalPatterns)).rounded()))
             )
@@ -2505,7 +2331,7 @@ final class AppState {
     /// Give the cube's memory back. Streaming resumes on the next pass, with
     /// identical numbers — the parity harness asserts exactly that.
     func releaseResidentCube() async {
-        await residency.release(fourD)
+        await residency.release(datasetSession.fourD)
     }
 
     /// Unwind a cancelled open back to the welcome screen.
@@ -2524,14 +2350,12 @@ final class AppState {
     /// that could not call it would be testing the button instead of the
     /// property.
     func discardPartialLoad() async {
-        if let fourD { await residency.release(fourD) }
+        if let fourD = datasetSession.fourD { await residency.release(fourD) }
         residency.reset()
         loadedView.reset()
-        fourD = nil
-        reader = nil
+        datasetSession.clearReaderAndArray()
         descriptor = nil
-        datasets = []
-        datasetPreview = nil
+        datasetSession.clearDatasetListAndPreview()
         clearCalibration()
         // A cancelled open must not be remembered — the release owner's call,
         // 2026-08-18: you cancelled because it was the wrong file, so promoting
@@ -2544,50 +2368,40 @@ final class AppState {
         }
         sessionSidecar.release()
         gates.clearSidecarRestoreFailure() // paired with release() // v2 S7
-        datasetEpoch &+= 1
+        datasetSession.advanceEpochAfterDiscard()
         operationCenter.reset()
         statusText = "Load cancelled"
     }
 
-    private func beginDatasetLoading(_ status: String) {
-        isLoadingDataset = true
-        datasetLoadCancellation = AnalysisCancellationToken()
-        isCancellingDatasetLoad = false
+    func beginDatasetLoading(_ status: String) {
+        datasetSession.beginLoading(status)
         operationCenter.setBusy(true)
         progress = nil
-        datasetLoadingProgress = nil
-        datasetLoadingStatus = status
         statusText = status
     }
 
-    private func finishDatasetLoading() {
-        isLoadingDataset = false
-        datasetLoadCancellation = nil
-        isCancellingDatasetLoad = false
+    func finishDatasetLoading() {
+        datasetSession.finishLoading()
         operationCenter.setBusy(false)
         progress = nil
-        datasetLoadingProgress = nil
-        datasetLoadingStatus = nil
     }
 
     /// A named phase with no knowable denominator: spinner, no percentage.
     /// Deliberately does **not** fabricate a fraction — see the
-    /// `datasetLoadingProgress` doc comment.
+    /// `datasetSession.loadingProgress` doc comment.
     private func beginDatasetLoadingStage(_ status: String) {
-        guard isLoadingDataset else { return }
-        datasetLoadingProgress = nil
+        guard datasetSession.isLoading else { return }
+        datasetSession.beginLoadingStage(status)
         if activeOperation == nil { progress = nil }
-        datasetLoadingStatus = status
         statusText = status
     }
 
     /// A measured phase: `fraction` must come from work actually completed,
     /// never from an estimate of how far through the open we probably are.
     private func reportDatasetLoadingProgress(_ fraction: Double, _ status: String) {
-        guard isLoadingDataset else { return }
+        guard datasetSession.isLoading else { return }
         let clipped = min(1, max(0, fraction))
-        datasetLoadingProgress = clipped
-        datasetLoadingStatus = status
+        datasetSession.reportLoadingProgress(clipped, status)
         if activeOperation == nil { progress = clipped }
         statusText = status
     }
@@ -2607,12 +2421,12 @@ final class AppState {
         }
         let url = sessionSidecar.location(for: descriptor)
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         do {
             let snapshot = try await Task.detached(priority: .utility) {
                 try BraggVectorEMDWriter.loadSession(from: url)
             }.value
-            guard epoch == datasetEpoch else { return nil }
+            guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
             sessionLoadSpecification = snapshot.loadSpecification ?? .fullExtent
             // A colleague's recipe becomes this session's starting point, so
@@ -2633,7 +2447,7 @@ final class AppState {
             }
             return snapshot
         } catch {
-            guard epoch == datasetEpoch else { return nil }
+            guard epoch == datasetSession.epoch else { return nil }
             // The DURABLE channel, not only `statusText` — S1 measured
             // `statusText` set here being overwritten within the same
             // `activate` (three times). The minimum-reader refusal in
@@ -2676,7 +2490,7 @@ final class AppState {
         // live state instead would re-reference file-carried fields a second
         // time — the double-application caught in this fix's own review.
         guard let translated = SessionCalibrationTranslation.translate(
-            saved: saved, policy: framePolicy, view: loadView, descriptor: descriptor
+            saved: saved, policy: framePolicy, view: datasetSession.loadView, descriptor: descriptor
         ) else {
             // Unreachable by construction: a non-identity policy implies a
             // reduced loaded view, which only exists with a live LoadView.
@@ -2786,12 +2600,12 @@ final class AppState {
     }
 
     func loadCurrentPattern() async {
-        guard descriptor != nil, let fourD else { return }
+        guard descriptor != nil, let fourD = datasetSession.fourD else { return }
 
         do {
-            let epoch = datasetEpoch
+            let epoch = datasetSession.epoch
             let pattern = try await fourD.pattern(ry: selectedScan.y, rx: selectedScan.x)
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             currentPattern = pattern
             patternVersion &+= 1
             showReadout("Pattern x \(selectedScan.x), y \(selectedScan.y)")   // a readout, not an event
@@ -2817,7 +2631,7 @@ final class AppState {
 
     /// The ONE path that resets the calibration — activation, a cancelled load,
     /// Prepare's Clear Calibration; a reset spelled out elsewhere is the mistake
-    /// this prevents (v2 S13). NOT `datasetEpoch` (the cube is unchanged) and not
+    /// this prevents (v2 S13). NOT `datasetSession.epoch` (the cube is unchanged) and not
     /// the strain/phase maps, which are left to rerun — but it DOES discard the
     /// orientation map and parallax, and the confirmation dialog says so.
     func clearCalibration() {
@@ -3089,7 +2903,7 @@ final class AppState {
         let referenceMask = strain.referenceMode == .selectedRegion
             ? realSpaceRegionMask(descriptor) : nil
         let initialBasis = strain.manualInitialBasis
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let map = await Task.detached(priority: .userInitiated) {
             StrainMapping.compute(bragg: calibrated.vectors,
                                   originX: origin.x, originY: origin.y,
@@ -3097,7 +2911,7 @@ final class AppState {
                                   initialBasis: initialBasis,
                                   cancellation: cancellation)
         }.value
-        guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
+        guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
             statusText = "Strain mapping cancelled"
             return .cancelled

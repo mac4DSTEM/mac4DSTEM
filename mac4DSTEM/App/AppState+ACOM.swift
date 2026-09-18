@@ -78,7 +78,7 @@ extension AppState {
         }
         let modelRevision = model.revisionID
         let calibrated = calibratedBraggVectors(rawBragg, descriptor: descriptor)
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let probeRadiusPixels = calibrationSession.calibration.probeRadius.map(Double.init)
         let estimate = await Task.detached(priority: .userInitiated) {
             // DISTINCT shell lengths. `Crystal.reflections` returns every
@@ -101,7 +101,7 @@ extension AppState {
                 probeRadiusPixels: probeRadiusPixels
             )
         }.value
-        guard epoch == datasetEpoch,
+        guard epoch == datasetSession.epoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
         guard let estimate else {
             let reason = "Could not identify a non-central first Bragg shell."
@@ -158,7 +158,7 @@ extension AppState {
                 + " — structure factors would be wrong."))
             return
         }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         // Without the beam energy the plan falls back to a flat Ewald sphere,
         // which makes every template exactly π-periodic in azimuth and leaves
         // the in-plane angle determined only modulo 180°. Pass the wavelength
@@ -173,7 +173,7 @@ extension AppState {
                                      wavelengthAngstrom: planWavelength,
                                      cancellation: cancellation)
         }.value
-        guard epoch == datasetEpoch,
+        guard epoch == datasetSession.epoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
         if cancellation.isCancelled {
             statusText = "Orientation-plan generation cancelled"
@@ -254,7 +254,7 @@ extension AppState {
         )
         let modelRevision = model.revisionID
         let backend = acomSession.effectiveBackend
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         let map = await Task.detached(priority: .userInitiated) { [self] in
             OrientationMatching.matchAll(bragg: calibrated.vectors, plan: plan,
                                          originX: origin.x, originY: origin.y,
@@ -271,7 +271,7 @@ extension AppState {
                 }
             }
         }.value
-        guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
+        guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
             acomSession.lastEndToEndDuration = Date().timeIntervalSince(actionStarted)
             statusText = "ACOM matching cancelled"

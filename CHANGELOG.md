@@ -27,12 +27,8 @@ exactly that until the owner's drive says otherwise.
   moved to feature owners; their cross-owner orchestration moved to focused
   extensions. AppState.swift 4699 → 3676; details and gates are retained in
   `docs/appstate-seams-plan.md`. All four were later owner-driven with seam 5.
-- **AppState seam 5: `ResultPresentation`.** Shared product, display controls,
-  derived caches, Bragg vectors and virtual-detector presentation moved to one
-  owner; cross-owner orchestration moved to `AppState+ResultPresentation.swift`.
-  AppState.swift 3676 → 3240 lines. Version-bump order is unchanged and pinned
-  by seven new tests. Unit 727/0/2 plus rotation/strain-frame parity passed;
-  the owner drove `sim_Au` across the workspaces and reported normal handling.
+- **AppState seam 5: `ResultPresentation`.** Shared product/display state moved to one owner and cross-owner orchestration to `AppState+ResultPresentation.swift`; AppState.swift 3676 → 3240. Seven tests pin version bumps; unit 727/0/2 and rotation/strain-frame parity passed; the owner drove `sim_Au` normally.
+- **AppState seam 6: `DatasetSession`.** Reader/array, datasets, preview, loading state and stale-publish epoch moved to one owner and lifecycle orchestration to `AppState+DatasetSession.swift`; AppState.swift 3240 → 3054. Five tests pin ownership/epoch; unit 732/0/2 passed; the owner drove open → switch dataset → reopen ignoring sidecar normally.
 
 ## v3.0.0 — 2026-09-11
 

@@ -49,13 +49,13 @@ extension AppState {
     /// the primary scientific result remains usable without the convenience.
     func ensureScanNavigator() async {
         guard scanNavigationImage == nil,
-              let fourD, let descriptor else { return }
+              let fourD = datasetSession.fourD, let descriptor else { return }
         let d = descriptor
         let qRadius = Float(min(d.qx, d.qy)) / 2
         let center = calibrationSession.calibration.meanOrigin
             ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
         do {
-            let epoch = datasetEpoch
+            let epoch = datasetSession.epoch
             let image = try await VirtualDetector.tiledImage(
                 data: fourD, descriptor: d,
                 shape: .annulus(
@@ -63,7 +63,7 @@ extension AppState {
                     inner: 0.25 * qRadius, outer: 0.55 * qRadius
                 )
             )
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             scanNavigationImage = image
             bumpScanNavigationVersion()
         } catch {
@@ -140,22 +140,23 @@ extension AppState {
 
     /// Sum the patterns over the current real-space region into the CBED pane.
     private func computeVirtualDiffraction() async {
-        guard let fourD, let d = descriptor, realSpaceShape != .point else { return }
+        guard let fourD = datasetSession.fourD, let d = descriptor,
+              realSpaceShape != .point else { return }
         let region = DetectorShape.realSpaceRegion(
             shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
         do {
             let pattern = try await VirtualDetector.tiledDiffraction(
                 data: fourD, descriptor: d, region: region
             )
-            guard epoch == datasetEpoch else { return }
+            guard epoch == datasetSession.epoch else { return }
             resultPresentation.setVirtualDiffractionPattern(pattern)
             patternVersion &+= 1
             await detectCurrentPattern()
         } catch is CancellationError {
             // Cancellation during a drag is expected.
         } catch {
-            if epoch == datasetEpoch { presentComputeFailure(error) }
+            if epoch == datasetSession.epoch { presentComputeFailure(error) }
         }
     }
 
@@ -188,9 +189,11 @@ extension AppState {
     /// interactive call sites ignore both. // v2 S6
     @discardableResult
     func runVirtualDetector(quiet: Bool = false, replaying: Bool = false) async -> AnalysisRunOutcome {
-        guard let fourD, let descriptor else { return .failed("No dataset is loaded") }
+        guard let fourD = datasetSession.fourD, let descriptor else {
+            return .failed("No dataset is loaded")
+        }
         let totalPatterns = descriptor.rx * descriptor.ry
-        let scanVerb = isLoadingDataset ? "Scanning patterns" : "Computing virtual detector…"
+        let scanVerb = datasetSession.isLoading ? "Scanning patterns" : "Computing virtual detector…"
         let cancellation = quiet ? nil : beginCancellableOperation(
             "Virtual detector",
             status: SystemMonitor.scanProgressStatus(
@@ -207,7 +210,7 @@ extension AppState {
         let d = descriptor
         let maximumTileRows = virtualDetectorProgressTileRows(for: d)
         do {
-            let epoch = datasetEpoch
+            let epoch = datasetSession.epoch
             if cancellation?.isCancelled == true {
                 statusText = "Virtual detector cancelled"
                 return .cancelled
@@ -265,7 +268,7 @@ extension AppState {
                     maximumTileRows: maximumTileRows,
                     cancellation: cancellation, progress: progressUpdate)
             }
-            guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
+            guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
             if cancellation?.isCancelled == true {
                 statusText = "Virtual detector cancelled"
                 return .cancelled

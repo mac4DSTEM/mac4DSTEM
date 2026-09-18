@@ -113,7 +113,7 @@ extension AppState {
             totalUnits: calibrated.vectors.peaks.count
         )
         defer { finishCancellableOperation(cancellation) }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
 
         let progress: @Sendable (Double) -> Void = { [weak self] fraction in
             Task { @MainActor [weak self] in
@@ -137,7 +137,7 @@ extension AppState {
             )
         }.value
 
-        guard epoch == datasetEpoch else {
+        guard epoch == datasetSession.epoch else {
             return .failed("The dataset changed while phase mapping was running.")
         }
         guard let map = result else { return .cancelled }
@@ -329,7 +329,7 @@ extension AppState {
             "Matrix zone axis",
             status: "Fitting \(slot.model.displayName) against every low-index zone axis…")
         defer { finishCancellableOperation(cancellation) }
-        let epoch = datasetEpoch
+        let epoch = datasetSession.epoch
 
         let fits = await Task.detached(priority: .userInitiated) {
             PhaseVectorMatcher.fitZoneAxis(
@@ -345,7 +345,7 @@ extension AppState {
         // of a dataset that is no longer open is not a fit for this one, and
         // the phase list is editable while the sweep runs, so the slot at
         // `matrixIndex` must still be the phase that was fitted.
-        guard epoch == datasetEpoch else {
+        guard epoch == datasetSession.epoch else {
             return .failed("The dataset changed while the zone axis was being fitted.")
         }
         guard let winner = fits.first else {

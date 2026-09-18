@@ -248,14 +248,16 @@ Each is its own session brief; paste the quoted line into a fresh session.
 | 2026-09-18 | 3 — `DiskDetectionProduct` | 3f2f909 | build 0; unit 715/0/2=717 (`unit-seam3-20260918.log`, +7 over seam 2); inventory 0 (`inventory-seam3-20260918.log`) | 5 (at the cap: `currentDiskDiagnostics`, `braggVectors`, `completedDiskSummary` widened for the new extension file; `liveDetectionRequest` private→internal; `Self.makeReader` private static→static) | — |
 | 2026-09-18 | 4 — `DPCProduct` (last unattended seam) | 4ffa5ca | build 0; unit 720/0/2=722 (`unit-seam4-20260918.log`, +5 over seam 3); inventory 0 (`inventory-seam4-20260918.log`) | 1 (`comField` private→internal for `AppState+DPC.swift`) | — |
 | 2026-09-18 | 5 — `ResultPresentation` | this commit | build 0; unit 727/0/2=729 (`unit-seam5-retry-20260918.log`, +7); rotation parity 0; strain-frame 0; owner drive passed; inventory 0 (`inventory-seam5-final-20260918.log`) | 2 (`loadCurrentPattern`, `scheduleLiveVirtualDetector`) | — |
+| 2026-09-18 | 6 — `DatasetSession` | this commit | build 0 (`build-final.log`); unit 732/0/2=734 (`unit-seam6-20260918.log`, +5); targeted owner/replay/cdhash tests 0 (`targeted-final.log`); inventory 0 (`inventory-seam6-final-20260918.log`); owner drive passed | 7 (`pendingRecovery`, `recoveryRecord`, `activate`, `beginDatasetLoading`, `finishDatasetLoading`, `rememberOpenedDataset`, `persistRecoveryPosition`) | — |
 
 ### Seam 5 decisions and simplification ledger
 
-- A new `ResultPresentation` owner wraps the immutable `DisplayedProduct` value;
-  its two caches remain private ignored derivations, not semantic state.
-- Existing result-version bump order and count remain exact. The scattered
-  manual bump protocol is fragile; replace it later with one standard
-  invalidation API, only under behavior-preserving tests.
+- A new `ResultPresentation` wraps immutable `DisplayedProduct`; its caches remain private ignored derivations. Existing result-version bump order/count remain exact; replace the fragile scattered protocol later with one tested invalidation API.
+
+### Seam 6 decisions
+
+- `DatasetSession`, not `LoadedView`, owns reader/array; `LoadedView` records the applied view and calibration effects. The owner advances the epoch at the pre-seam point before view validation, then installs the pair synchronously before suspension.
+- Seven relocated lifecycle bodies have an empty normalized diff (`lifecycle-body.diff`, exit 0); five production mutations made all five owner tests red before clean-green. The required decision/mutation record and changelog are offset by trimming older live prose.
 
 ### Overnight run summary, 2026-09-18
 
