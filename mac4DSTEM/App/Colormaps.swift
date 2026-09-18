@@ -5,27 +5,6 @@ import DSTEMSession
 #endif
 import Foundation
 
-enum ColormapKind: String, CaseIterable, Identifiable {
-    case viridis
-    case inferno
-    case gray
-    case rdbu
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .viridis: return "Viridis"
-        case .inferno: return "Inferno"
-        case .gray: return "Gray"
-        case .rdbu: return "RdBu (diverging)"
-        }
-    }
-
-    /// Diverging maps are meant for symmetric data such as strain or DPC.
-    var isDiverging: Bool { self == .rdbu }
-}
-
 enum Colormaps {
     /// Returns RGBA bytes for the requested colormap.
     static func lutRGBA(_ kind: ColormapKind, count: Int = 256) -> [UInt8] {

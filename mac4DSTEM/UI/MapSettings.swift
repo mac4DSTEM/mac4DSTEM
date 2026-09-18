@@ -227,7 +227,7 @@ private struct DiskDetectionRows: View {
                 .font(.caption)
                 .foregroundStyle(.orange)
                 .help("Run Detect All Disks again before using the new settings for strain or ACOM.")
-        } else if let count = appState.braggPeakCount {
+        } else if let count = appState.resultPresentation.braggPeakCount {
             LabeledContent("Peaks found", value: "\(count)")
             if let summary = appState.completedDiskSummary {
                 // Warnings come FIRST. They sat after the two count rows until

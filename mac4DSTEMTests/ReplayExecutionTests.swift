@@ -30,7 +30,7 @@ final class ReplayExecutionTests: XCTestCase {
         await state.openDemoFixture(specification: croppedSpec)
         XCTAssertFalse(state.loadedView.isFullExtent, "precondition: rehearsing on a crop")
 
-        state.virtualShape = .annulus
+        state.resultPresentation.virtualShape = .annulus
         state.aperture = Aperture(centerX: 30, centerY: 29, inner: 2, outer: 9)
         await state.runVirtualDetector()
         XCTAssertEqual(state.replay.record.steps.map(\.kind), ["virtual_detector"],
@@ -39,7 +39,7 @@ final class ReplayExecutionTests: XCTestCase {
         // Drift the live state after recording: replay must run the RECIPE's
         // parameters, not whatever the session last touched.
         state.aperture = Aperture(centerX: 10, centerY: 10, inner: 0, outer: 25)
-        state.virtualShape = .circle
+        state.resultPresentation.virtualShape = .circle
 
         await state.promoteAndReplayRecipe()
 
@@ -53,8 +53,8 @@ final class ReplayExecutionTests: XCTestCase {
         XCTAssertEqual(state.aperture,
                        Aperture(centerX: 30, centerY: 29, inner: 2, outer: 9),
                        "Replay must apply the recorded aperture, not the drifted live one")
-        XCTAssertEqual(state.virtualShape, .annulus)
-        XCTAssertNotNil(state.resultImage, "The replayed analysis must have published")
+        XCTAssertEqual(state.resultPresentation.virtualShape, .annulus)
+        XCTAssertNotNil(state.resultPresentation.resultImage, "The replayed analysis must have published")
         XCTAssertTrue(state.statusText.contains("Promote run finished"),
                       "statusText was: \(state.statusText)")
     }
@@ -69,7 +69,7 @@ final class ReplayExecutionTests: XCTestCase {
         XCTAssertTrue(state.loadedView.isFullExtent)
         XCTAssertEqual(state.replayRun.phase, .idle,
                        "No recipe, no run — the summary section must not appear")
-        XCTAssertNotNil(state.resultImage,
+        XCTAssertNotNil(state.resultPresentation.resultImage,
                         "The re-establishing pass must run when nothing will replay")
     }
 
@@ -103,7 +103,7 @@ final class ReplayExecutionTests: XCTestCase {
         // aperture, so a result on screen is expected and correct.
         XCTAssertNotEqual(state.aperture.outer, 9,
                           "The recipe's step after the halt must not have applied its parameters")
-        XCTAssertNotNil(state.resultImage,
+        XCTAssertNotNil(state.resultPresentation.resultImage,
                         "A promote whose replay was refused up front still re-establishes the current analysis")
         XCTAssertTrue(state.statusText.contains("Promote run halted"),
                       "statusText was: \(state.statusText)")
@@ -237,7 +237,7 @@ final class ReplayExecutionTests: XCTestCase {
         XCTAssertEqual(state.aperture, Aperture(centerX: 32.5, centerY: 32.5,
                                                 inner: 0, outer: 12),
                        "The replayed aperture is the rehearsal's, re-expressed in source pixels")
-        XCTAssertNotNil(state.resultImage, "The replayed step published")
+        XCTAssertNotNil(state.resultPresentation.resultImage, "The replayed step published")
         XCTAssertNotNil(state.replayRun.frameNote,
                         "The morning summary must say the parameters were re-referenced")
         // The RECIPE keeps its rehearsal (view-frame) values — replay maps at

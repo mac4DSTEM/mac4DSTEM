@@ -21,7 +21,7 @@ final class SessionReplayAppStateTests: XCTestCase {
         // save (Gate B-lite F1) — the load-in-flight guard suppresses it.
         let state = AppState()
         await state.openDemoFixture()
-        XCTAssertNotNil(state.resultImage,
+        XCTAssertNotNil(state.resultPresentation.resultImage,
                         "The initial analysis must have run for this test to mean anything")
         XCTAssertTrue(state.replay.record.isEmpty,
                       "Merely opening a file must never mutate its recipe")

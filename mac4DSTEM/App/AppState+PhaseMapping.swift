@@ -73,7 +73,7 @@ extension AppState {
     func runPhaseMapping() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
         if let refusal = phaseMapping.runRefusal { return .failed(refusal) }
-        guard let rawVectors = braggVectors else {
+        guard let rawVectors = resultPresentation.braggVectors else {
             return .failed("Detect Bragg disks first — phase mapping matches the "
                            + "peaks disk detection finds, it does not find its own.")
         }
@@ -309,7 +309,7 @@ extension AppState {
         guard let matrixIndex = phaseMapping.phases.firstIndex(where: \.isMatrix) else {
             return .failed("Mark one phase as the matrix first.")
         }
-        guard let rawVectors = braggVectors else {
+        guard let rawVectors = resultPresentation.braggVectors else {
             return .failed("Detect Bragg disks first — this fits the axis to the "
                            + "peaks disk detection found.")
         }

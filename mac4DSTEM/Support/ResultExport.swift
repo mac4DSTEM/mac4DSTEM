@@ -217,11 +217,11 @@ extension AppState {
         case .rgba(let rgba):
             source = (rgba.rgba, rgba.width, rgba.height)
         case .scalar(let image):
-            let norm = image.normalized(symmetric: resultColormap.isDiverging)
+            let norm = image.normalized(symmetric: resultPresentation.resultColormap.isDiverging)
             masksNoData = norm.contains { $0 < 0 }
-            let bytes = Self.applyColormap(norm, colormap: resultColormap,
-                                           lo: displayRangeLo, hi: displayRangeHi,
-                                           gamma: resultGamma)
+            let bytes = Self.applyColormap(norm, colormap: resultPresentation.resultColormap,
+                                           lo: resultPresentation.displayRangeLo, hi: resultPresentation.displayRangeHi,
+                                           gamma: resultPresentation.resultGamma)
             source = (bytes, image.width, image.height)
         }
         // The publication figure is "as displayed", so it applies the display
@@ -253,7 +253,7 @@ extension AppState {
             image: withScale, title: currentResultDisplayName,
             caption: publicationCaption,
             valueRange: resultDisplayedValueRange,
-            valueUnits: currentResultValueUnits, colormap: resultColormap,
+            valueUnits: currentResultValueUnits, colormap: resultPresentation.resultColormap,
             masksNoData: masksNoData
         )
         // The FULL provenance record travels in the PNG metadata beside the
@@ -659,16 +659,16 @@ extension AppState {
     /// Panel-free construction seam: export tests exercise the exact scalar
     /// payload handed to the sidecar writer, including its units and encoding.
     func currentScalarResultMapForPersistence() -> ScalarResultMap? {
-        guard let image = resultImage else { return nil }
+        guard let image = resultPresentation.resultImage else { return nil }
         // v2.5 step 3b-8: the sidecar map is built from the product when one is
         // published (always, now); the chain below is the pre-product path.
         let metadata: (kind: String, displayName: String, valueUnits: String) =
-            publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
+            resultPresentation.product.map { ($0.kind, $0.displayName, $0.valueUnits) }
             ?? currentScalarResultMetadata
         let persistence: (
             row: Double?, column: Double?, units: String?, provenance: [String: String]
         )
-        if publishedProduct != nil {
+        if resultPresentation.product != nil {
             persistence = currentResultPersistenceMetadata
         } else {
             persistence = currentResultPersistenceMetadata
@@ -699,12 +699,12 @@ extension AppState {
         let scalarMap: ScalarResultMap?
         let rgbaMap: RGBAResultMap?
         let metadata: (kind: String, displayName: String, valueUnits: String) =
-            publishedProduct.map { ($0.kind, $0.displayName, $0.valueUnits) }
+            resultPresentation.product.map { ($0.kind, $0.displayName, $0.valueUnits) }
             ?? currentScalarResultMetadata
         if let map = currentScalarResultMapForPersistence() {
             scalarMap = map
             rgbaMap = nil
-        } else if let image = resultRGBA,
+        } else if let image = resultPresentation.resultRGBA,
                   image.width == descriptor.rx, image.height == descriptor.ry {
             let persistence = currentResultPersistenceMetadata
             scalarMap = nil
@@ -723,7 +723,7 @@ extension AppState {
         }
         guard let url = writableSessionSidecarURL(for: descriptor) else { return }
         let pixelCalibration = sessionPixelCalibration(descriptor: descriptor)
-        let vectors = braggVectors
+        let vectors = resultPresentation.braggVectors
         let epoch = datasetEpoch
         let token = beginCancellableOperation(
             "Session sidecar", status: "Saving \(metadata.displayName)…"
@@ -823,7 +823,7 @@ extension AppState {
                 results: sessionInventory.results,
                 currentResultID: saved.id
             )
-            resultVersion &+= 1
+            resultPresentation.bumpResultVersion()
             statusText = "Viewed saved \(saved.displayName) ← \(url.lastPathComponent)"
         } catch {
             guard epoch == datasetEpoch else { return }
@@ -918,7 +918,7 @@ extension AppState {
     /// the sidecar. This does not imply that its transient analysis arrays are
     /// resident or recoverable.
     var selectedSavedControlRehydration: SessionControlRehydration? {
-        guard let product = publishedProduct, product.origin == .restoredFromSidecar else {
+        guard let product = resultPresentation.product, product.origin == .restoredFromSidecar else {
             return nil
         }
         let plan = SessionControlRehydration.parse(
@@ -1024,8 +1024,8 @@ extension AppState {
                let current = inventory.results.first(where: { $0.id == currentID }) {
                 await selectSavedSessionResult(current)
             } else {
-                publishedProduct = nil
-                resultVersion &+= 1
+                resultPresentation.replaceProduct(nil)
+                resultPresentation.bumpResultVersion()
             }
             statusText = "Removed \(saved.displayName) from \(url.lastPathComponent)"
         } catch BraggVectorEMDWriter.WriterError.cancelled {
@@ -1447,7 +1447,7 @@ extension AppState {
                               "source_product": "bragg_vector_map", "coordinate_space": "reciprocal"]
             // C7: the detector's identity travels with the map; the Model row shows the same hash.
             for key in ["detector_class", "learned_threshold", "learned_model_sha256"] {
-                provenance[key] = braggVectors?.detectionProvenance[key]
+                provenance[key] = resultPresentation.braggVectors?.detectionProvenance[key]
             }
             let q = calibrationSession.calibration
             return (q.qPixelSize, q.qPixelSize, q.qPixelUnits, provenance)
@@ -1545,15 +1545,15 @@ extension AppState {
     }
 
     var currentResultValueUnits: String {
-        publishedProduct?.valueUnits ?? currentScalarResultMetadata.valueUnits
+        resultPresentation.product?.valueUnits ?? currentScalarResultMetadata.valueUnits
     }
 
     var currentResultDisplayName: String {
-        publishedProduct?.displayName ?? currentScalarResultMetadata.displayName
+        resultPresentation.product?.displayName ?? currentScalarResultMetadata.displayName
     }
 
     var currentResultKind: String {
-        publishedProduct?.kind ?? currentScalarResultMetadata.kind
+        resultPresentation.product?.kind ?? currentScalarResultMetadata.kind
     }
 
     var currentResultPersistenceMetadata:
@@ -1561,13 +1561,13 @@ extension AppState {
         // v2.5 step 3b-7: the published product is the source; the legacy
         // chain below serves nothing once every site publishes (it does) and
         // goes with deletion condition 1.
-        if let product = publishedProduct {
+        if let product = resultPresentation.product {
             var provenance = product.provenance
             provenance["display_domain"] = product.domain.rawValue
             if provenance["quantitative_status"] == nil {
                 provenance["quantitative_status"] = product.quantitativeStatus.rawValue
             }
-            if publishedProduct?.origin != .restoredFromSidecar,
+            if resultPresentation.product?.origin != .restoredFromSidecar,
                product.kind == "dpc_angle", product.valueUnits == "rad",
                provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
                 provenance[ScalarResultMap.dpcAngleEncodingKey] =
@@ -1583,7 +1583,7 @@ extension AppState {
                 for: currentResultKind, units: currentResultValueUnits
             ).rawValue
         }
-        if publishedProduct?.origin != .restoredFromSidecar,
+        if resultPresentation.product?.origin != .restoredFromSidecar,
            navigation.analysisMode == .dpc, dpc.dpcDisplay == .angle,
            currentResultKind == "dpc_angle", currentResultValueUnits == "rad",
            provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {

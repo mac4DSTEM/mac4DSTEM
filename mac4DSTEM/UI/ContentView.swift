@@ -75,7 +75,7 @@ struct ContentView: View {
             openedInspectorOnce = true
             appState.navigation.showInspectorPane = true
         }
-        .onChange(of: appState.virtualShape) { appState.commitApertureChange() }
+        .onChange(of: appState.resultPresentation.virtualShape) { appState.commitApertureChange() }
         .onChange(of: appState.realSpaceShape) { appState.updateRealSpaceRegion() }
         .onChange(of: appState.realSpaceRadius) { appState.updateRealSpaceRegion() }
         .onChange(of: appState.openDatasetRequest) { showImporter = true }

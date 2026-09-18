@@ -304,8 +304,9 @@ struct ColormapChip<Chip: View>: View {
     @ViewBuilder
     private var popoverContent: some View {
         @Bindable var appState = appState
+        @Bindable var resultPresentation = appState.resultPresentation
         let selection = pane == .diffraction
-            ? $appState.patternColormap : $appState.resultColormap
+            ? $appState.patternColormap : $resultPresentation.resultColormap
         Form {
             Section("Colormap") {
                 ForEach(ColormapKind.allCases) { kind in

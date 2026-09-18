@@ -109,8 +109,8 @@ final class ProductStatusNegativeControlTests: XCTestCase {
         XCTAssertEqual(product.quantitativeStatus, .relative)
         XCTAssertEqual(product.valueUnits, "intensity")
         // And a write through the legacy field drops the published product.
-        app.publishedProduct = nil
-        XCTAssertNil(app.publishedProduct)
+        app.resultPresentation.replaceProduct(nil)
+        XCTAssertNil(app.resultPresentation.product)
     }
 
     func testDPCDisplayModesPublishTheirOwnProduct() async throws {
@@ -118,18 +118,19 @@ final class ProductStatusNegativeControlTests: XCTestCase {
         await app.openDemoFixture(calibrated: true)
         app.navigation.analysisMode = .dpc
         _ = await app.runDPC()
-        guard app.resultImage != nil || app.resultRGBA != nil else {
+        guard app.resultPresentation.resultImage != nil
+                || app.resultPresentation.resultRGBA != nil else {
             throw XCTSkip("DPC produced no result on the demo fixture")
         }
-        let first = try XCTUnwrap(app.publishedProduct)
+        let first = try XCTUnwrap(app.resultPresentation.product)
         XCTAssertTrue(first.kind.hasPrefix("dpc") || first.kind.hasPrefix("idpc"), first.kind)
         app.dpc.dpcDisplay = .angle
-        let angle = try XCTUnwrap(app.publishedProduct)
+        let angle = try XCTUnwrap(app.resultPresentation.product)
         XCTAssertEqual(angle.kind, "dpc_angle")
         XCTAssertEqual(angle.valueUnits, "rad")
         XCTAssertEqual(angle.quantitativeStatus, .quantitative)
         app.dpc.dpcDisplay = .colorWheel
-        let wheel = try XCTUnwrap(app.publishedProduct)
+        let wheel = try XCTUnwrap(app.resultPresentation.product)
         XCTAssertEqual(wheel.quantitativeStatus, .categorical)
         if case .rgba = wheel.payload {} else { XCTFail("colour wheel is an RGBA product") }
     }
@@ -229,4 +230,3 @@ final class ACOMSessionForwardingTests: XCTestCase {
         XCTAssertEqual(state.acomSession.scope, .fullScan)
     }
 }
-

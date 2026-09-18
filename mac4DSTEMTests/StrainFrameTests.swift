@@ -180,7 +180,7 @@ final class StrainFrameTests: XCTestCase {
         state.calibrationSession.calibration.rotationRad = rotation
         state.showComputedProduct(.strain)
 
-        let image = try XCTUnwrap(state.resultImage)
+        let image = try XCTUnwrap(state.resultPresentation.resultImage)
         let expected = map.presented(
             in: .scan(rotationRad: rotation, transposed: false)
         ).component(.exx)
@@ -230,7 +230,7 @@ final class StrainFrameTests: XCTestCase {
         state.calibrationSession.calibration.transposeQR = true
         state.showComputedProduct(.strain)
 
-        let image = try XCTUnwrap(state.resultImage)
+        let image = try XCTUnwrap(state.resultPresentation.resultImage)
         let expected = map.presented(
             in: .scan(rotationRad: rotation, transposed: true)
         ).component(.exx)
@@ -260,7 +260,7 @@ final class StrainFrameTests: XCTestCase {
         XCTAssertNil(state.calibrationSession.calibration.rotationRad)
         state.showComputedProduct(.strain)
 
-        let image = try XCTUnwrap(state.resultImage)
+        let image = try XCTUnwrap(state.resultPresentation.resultImage)
         let expected = map.component(.exx)
         for i in 0..<expected.pixels.count where map.mask[i] {
             XCTAssertEqual(image.pixels[i], expected.pixels[i], accuracy: 0)
@@ -288,11 +288,11 @@ final class StrainFrameTests: XCTestCase {
         state.strain.publish(try XCTUnwrap(Self.syntheticStrainMap()))
         state.calibrationSession.calibration.rotationRad = .pi / 2
         state.showComputedProduct(.strain)
-        let before = state.resultVersion
+        let before = state.resultPresentation.resultVersion
 
         state.flipRotation180()
 
-        XCTAssertGreaterThan(state.resultVersion, before,
+        XCTAssertGreaterThan(state.resultPresentation.resultVersion, before,
                              "a rotation change must reach the strain display")
     }
 

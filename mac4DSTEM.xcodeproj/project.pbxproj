@@ -140,6 +140,7 @@
 				Session/PhaseMappingProduct.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
+				Session/ResultPresentation.swift,
 				Session/ReplayPlan.swift,
 				Session/ReplayRun.swift,
 				Session/SessionCalibrationFramePolicy.swift,

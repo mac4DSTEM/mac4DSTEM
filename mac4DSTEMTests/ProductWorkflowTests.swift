@@ -479,8 +479,8 @@ final class ProductWorkflowTests: XCTestCase {
         await state.openDemoFixture(calibrated: false)
         state.navigation.analysisMode = .disks
         await state.runDiskDetection()
-        XCTAssertNotNil(state.braggVectors, "Demo disk detection published no Bragg vectors")
-        let provenance = try XCTUnwrap(state.publishedProduct).provenance
+        XCTAssertNotNil(state.resultPresentation.braggVectors, "Demo disk detection published no Bragg vectors")
+        let provenance = try XCTUnwrap(state.resultPresentation.product).provenance
         XCTAssertEqual(provenance["source_product"], "bragg_vector_map")
         XCTAssertEqual(provenance["detector_class"], "classical")
         XCTAssertNil(provenance["learned_model_sha256"], "a classical map names no model")
@@ -563,8 +563,8 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(state.displayedResultKind, "acom_region_reference")
         XCTAssertEqual(state.displayedResultPixelMetadata.units, "nm")
 
-        XCTAssertEqual(state.resultImage?.width, 256)
-        XCTAssertEqual(state.resultImage?.height, 256)
+        XCTAssertEqual(state.resultPresentation.resultImage?.width, 256)
+        XCTAssertEqual(state.resultPresentation.resultImage?.height, 256)
         XCTAssertEqual(state.currentResultKind, "bragg_vector_map")
         XCTAssertEqual(state.currentResultPersistenceMetadata.units, "Å⁻¹")
     }

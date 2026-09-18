@@ -90,7 +90,7 @@ struct DiffractionPane: View {
     private var roiSumBadge: some View {
         if appState.patternDisplayMode == .current,
            appState.realSpaceShape != .point,
-           appState.virtualDiffractionPattern != nil {
+           appState.resultPresentation.virtualDiffractionPattern != nil {
             Text("ROI sum")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.orange)
@@ -200,7 +200,7 @@ struct DiffractionPane: View {
                     if appState.navigation.analysisMode == .virtualDetector {
                         ApertureOverlay(
                             aperture: appState.aperture,
-                            shape: appState.virtualShape,
+                            shape: appState.resultPresentation.virtualShape,
                             patternWidth: qx, patternHeight: qy,
                             onEdited: { appState.updateAperture($0) },
                             onCommit: { appState.commitApertureChange() }
@@ -503,12 +503,13 @@ struct RealSpacePane: View {
     @ViewBuilder
     private var compactControls: some View {
         @Bindable var appState = appState
+        @Bindable var resultPresentation = appState.resultPresentation
         let hasQuality = appState.displayedProduct?.qualityFields.isEmpty == false
         let isScan = appState.displayedProduct?.domain == .scan
         if hasQuality || isScan {
             Menu {
                 if hasQuality {
-                    Toggle("Inspect quality field", isOn: $appState.inspectQualityField)
+                    Toggle("Inspect quality field", isOn: $resultPresentation.inspectQualityField)
                 }
                 if isScan {
                     Picker("View orientation — display only",
@@ -654,16 +655,16 @@ struct RealSpacePane: View {
     /// when the displayed result carries no quality field.
     @ViewBuilder
     private var qualityToggle: some View {
-        @Bindable var appState = appState
+        @Bindable var resultPresentation = appState.resultPresentation
         if appState.displayedProduct?.qualityFields.isEmpty == false {
-            Toggle(isOn: $appState.inspectQualityField) {
-                Image(systemName: appState.inspectQualityField
+            Toggle(isOn: $resultPresentation.inspectQualityField) {
+                Image(systemName: appState.resultPresentation.inspectQualityField
                       ? "exclamationmark.magnifyingglass" : "checkmark.seal")
             }
             .toggleStyle(.button)
             .controlSize(.small)
             .help("Inspect the quality field paired with this result (display only — exports and saved products are unchanged)")
-            .accessibilityLabel(appState.inspectQualityField
+            .accessibilityLabel(appState.resultPresentation.inspectQualityField
                 ? "Showing quality field; toggle to show the result"
                 : "Inspect the quality field paired with this result")
             .accessibilityIdentifier("result.qualityToggle")

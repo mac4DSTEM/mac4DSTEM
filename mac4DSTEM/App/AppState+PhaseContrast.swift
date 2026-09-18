@@ -61,10 +61,10 @@ extension AppState {
             phaseContrast.parallaxPreprocess = result
             phaseContrast.parallaxAlignment = nil
             showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
-            resultGamma = 1
-            displayRangeLo = 0
-            displayRangeHi = 1
-            resultVersion &+= 1
+            resultPresentation.resultGamma = 1
+            resultPresentation.displayRangeLo = 0
+            resultPresentation.displayRangeHi = 1
+            resultPresentation.bumpResultVersion()
             Task { await ensureScanNavigator() }
             statusText = String(
                 format: "Parallax preprocessing ✓  %d BF pixels · λ %.5f Å · %.2f mrad max · error %.4f",
@@ -140,10 +140,10 @@ extension AppState {
                   !token.isCancelled else { return }
             phaseContrast.parallaxAlignment = result
             showParallaxProduct(.alignment)   // v2.5 step 3e: one publish site
-            resultGamma = 1
-            displayRangeLo = 0
-            displayRangeHi = 1
-            resultVersion &+= 1
+            resultPresentation.resultGamma = 1
+            resultPresentation.displayRangeLo = 0
+            resultPresentation.displayRangeHi = 1
+            resultPresentation.bumpResultVersion()
             statusText = String(
                 format: "Parallax alignment ✓  level %d/%d · bin %d · %d groups · %.2f px max shift · error %.4f → %.4f%@",
                 result.completedBins.count, result.alignmentSchedule.count,
@@ -166,10 +166,10 @@ extension AppState {
         guard !isBusy, phaseContrast.parallaxPreprocess != nil else { return }
         phaseContrast.parallaxAlignment = nil
         showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
-        resultGamma = 1
-        displayRangeLo = 0
-        displayRangeHi = 1
-        resultVersion &+= 1
+        resultPresentation.resultGamma = 1
+        resultPresentation.displayRangeLo = 0
+        resultPresentation.displayRangeHi = 1
+        resultPresentation.bumpResultVersion()
         statusText = "Parallax alignment reset to the preprocessed preview"
     }
 
@@ -238,10 +238,10 @@ extension AppState {
                   !token.isCancelled else { return }
             phaseContrast.parallaxSubpixel = result
             showParallaxProduct(.subpixel)   // v2.5 step 3e: one publish site
-            resultGamma = 1
-            displayRangeLo = 0
-            displayRangeHi = 1
-            resultVersion &+= 1
+            resultPresentation.resultGamma = 1
+            resultPresentation.displayRangeLo = 0
+            resultPresentation.displayRangeHi = 1
+            resultPresentation.bumpResultVersion()
             statusText = String(
                 format: "Parallax KDE ✓  ×%.2f · %.4f Å/px · %d × %d%@",
                 result.upsampleFactor, result.outputSamplingAngstrom,
@@ -461,9 +461,9 @@ extension AppState {
         }
         guard let image else { return }
         phaseContrast.parallaxResultProduct = product
-        resultGamma = 1
-        displayRangeLo = 0
-        displayRangeHi = 1
+        resultPresentation.resultGamma = 1
+        resultPresentation.displayRangeLo = 0
+        resultPresentation.displayRangeHi = 1
         publishProduct(kind: kind, displayName: name, valueUnits: units, payload: .scalar(image))
     }
 
@@ -504,10 +504,10 @@ extension AppState {
                   !token.isCancelled else { return }
             phaseContrast.parallaxCorrection = result
             showParallaxProduct(.correctedPhase)   // v2.5 step 3e: one publish site
-            resultGamma = 1
-            displayRangeLo = 0
-            displayRangeHi = 1
-            resultVersion &+= 1
+            resultPresentation.resultGamma = 1
+            resultPresentation.displayRangeLo = 0
+            resultPresentation.displayRangeHi = 1
+            resultPresentation.bumpResultVersion()
             statusText = "Parallax phase correction ✓  full fitted CTF · DC removed"
         } catch ParallaxAberrationCorrector.CorrectionError.cancelled {
             guard isCurrentOperation(token) else { return }

@@ -185,7 +185,7 @@ struct WorkspaceSidebar: View {
     /// record — it survives the slot being replaced and resets with the dataset.
     private func taskHasProduct(_ mode: AnalysisMode) -> Bool {
         switch mode {
-        case .disks: appState.braggVectors != nil
+        case .disks: appState.resultPresentation.braggVectors != nil
         case .strain: appState.strain.map != nil
         case .acom: appState.acomSession.hasOrientationMap
         case .virtualDetector:

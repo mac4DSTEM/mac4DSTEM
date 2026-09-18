@@ -141,14 +141,14 @@ final class DatasetPreviewTests: XCTestCase {
     func testBuildingAPreviewPublishesNoResult() async throws {
         let state = AppState()
         await state.openDemoFixture()
-        let before = state.resultImage?.pixels
+        let before = state.resultPresentation.resultImage?.pixels
 
         let (data, descriptor) = try await demo()
         _ = try await DatasetPreviewBuilder.make(
             data: data, descriptor: descriptor, byteBudget: 4096
         )
 
-        XCTAssertEqual(state.resultImage?.pixels, before,
+        XCTAssertEqual(state.resultPresentation.resultImage?.pixels, before,
                        "a preview changed the published result")
     }
 

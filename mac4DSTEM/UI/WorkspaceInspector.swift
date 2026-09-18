@@ -305,7 +305,7 @@ private struct DatasetInfoSections: View {
                 let noun = PatternSourceLabel.noun(
                     mode: appState.patternDisplayMode,
                     roiSummed: appState.realSpaceShape != .point
-                        && appState.virtualDiffractionPattern != nil)
+                        && appState.resultPresentation.virtualDiffractionPattern != nil)
                 inspectorRow("\(noun) min", String(format: "%.3g", lowerBound))
                 inspectorRow("\(noun) max", String(format: "%.3g", upperBound))
             }
@@ -366,14 +366,15 @@ private struct DisplaySettingsSections: View {
 
     @ViewBuilder
     private var realSpaceHistogramSection: some View {
-        if let image = appState.resultImage {
+        if let image = appState.resultPresentation.resultImage {
             Section("Histogram (real space)") {
-                HistogramView(pixels: image.pixels, version: appState.resultVersion,
-                             rangeLo: Bindable(appState).displayRangeLo,
-                             rangeHi: Bindable(appState).displayRangeHi)
+                let resultPresentation = Bindable(appState.resultPresentation)
+                HistogramView(pixels: image.pixels, version: appState.resultPresentation.resultVersion,
+                             rangeLo: resultPresentation.displayRangeLo,
+                             rangeHi: resultPresentation.displayRangeHi)
                 Text("Drag the handles to clip which intensities map into the image.")
                     .font(.caption2).foregroundStyle(.tertiary)
-                gammaControl("Gamma", value: Bindable(appState).resultGamma)
+                gammaControl("Gamma", value: resultPresentation.resultGamma)
             }
         }
     }
@@ -565,7 +566,7 @@ private struct SessionProductsSections: View {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
             let disksState = ProductWorkflow.productState(
-                for: .disks, hasProduct: appState.braggVectors != nil,
+                for: .disks, hasProduct: appState.resultPresentation.braggVectors != nil,
                 recordedStep: appState.recordedReplayStep(for: .disks),
                 currentSignature: appState.currentReplaySignature(for: .disks))
             product(
@@ -573,7 +574,7 @@ private struct SessionProductsSections: View {
                 state: disksState,
                 detail: disksState.staleReason != nil
                     ? "settings changed · rerun"
-                    : appState.braggPeakCount.map { "\($0) peaks" }
+                    : appState.resultPresentation.braggPeakCount.map { "\($0) peaks" }
             )
             // Clickable when retained: these are held in memory
             // simultaneously, so bringing one back needs no recompute. Their
@@ -996,4 +997,3 @@ private func inspectorRow(_ label: String, _ value: String, mono: Bool = false) 
             .textSelection(.enabled)
     }
 }
-

@@ -15,6 +15,7 @@ struct ImagingSettings: View {
 
     var body: some View {
         @Bindable var appState = appState
+        @Bindable var resultPresentation = appState.resultPresentation
 
         Group {
         Section {
@@ -39,7 +40,7 @@ struct ImagingSettings: View {
 
         if appState.activePane == .diffraction {
             Section("Detector → real space") {
-                Picker("Shape", selection: $appState.virtualShape) {
+                Picker("Shape", selection: $resultPresentation.virtualShape) {
                     ForEach(VirtualShapeMode.allCases) { shape in
                         Image(systemName: Self.symbol(shape))
                             .accessibilityLabel(shape.rawValue)

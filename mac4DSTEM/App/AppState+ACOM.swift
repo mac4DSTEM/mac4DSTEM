@@ -52,7 +52,7 @@ extension AppState {
         // origin is wasted work, so naming the origin first is the more useful
         // order. No dataset loaded means an empty `Calibration`, which has no
         // residual to judge and falls through to the guards below.
-        guard let descriptor, let rawBragg = braggVectors else {
+        guard let descriptor, let rawBragg = resultPresentation.braggVectors else {
             presentComputeFailure(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
             return
         }
@@ -199,7 +199,7 @@ extension AppState {
             presentComputeFailure(SimpleError(reason))
             return .failed(reason)
         }
-        guard let descriptor, let bragg = braggVectors else {
+        guard let descriptor, let bragg = resultPresentation.braggVectors else {
             let reason = "Detect Bragg disks first (Disks mode), then run ACOM."
             presentComputeFailure(SimpleError(reason))
             return .failed(reason)
@@ -335,7 +335,7 @@ extension AppState {
     /// `promoteIPFZDisplayIfDefault`'s caller — all outside this file now.
     func applyACOMDisplay() {
         guard let map = acomSession.orientationMap, navigation.analysisMode == .acom else { return }
-        resultColormap = .viridis
+        resultPresentation.resultColormap = .viridis
         let payload: ProductPayload
         let baseKind: String
         switch acomSession.display {
@@ -371,14 +371,14 @@ extension AppState {
             ],
             overlays: [ProductOverlayDescriptor(
                 kind: "matched_template", provenance: "selected ACOM orientation template")])
-        if !gateProvenance.isEmpty, let product = publishedProduct {
-            publishedProduct = DisplayedProduct(
+        if !gateProvenance.isEmpty, let product = resultPresentation.product {
+            resultPresentation.replaceProduct(DisplayedProduct(
                 origin: product.origin, kind: product.kind, displayName: product.displayName,
                 payload: product.payload, domain: product.domain, validityMask: product.validityMask,
                 qualityFields: product.qualityFields, sampling: product.sampling,
                 valueUnits: product.valueUnits, quantitativeStatus: product.quantitativeStatus,
                 provenance: product.provenance.merging(gateProvenance) { _, gate in gate },
-                overlays: product.overlays)
+                overlays: product.overlays))
         }
     }
 }

@@ -72,7 +72,7 @@ struct PhaseMappingSections: View {
                 } label: {
                     Label("Find Matrix Zone Axis", systemImage: "scope")
                 }
-                .disabled(appState.isBusy || appState.braggVectors == nil)
+                .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil)
                 .accessibilityIdentifier("phaseMapping.findZoneAxis")
 
                 // A percentage alone cannot be read: at a tight tolerance an
@@ -208,7 +208,7 @@ struct PhaseMappingSections: View {
                 Label(refusal, systemImage: "nosign")
                     .font(.caption)
                     .foregroundStyle(.orange)
-            } else if appState.braggVectors == nil {
+            } else if appState.resultPresentation.braggVectors == nil {
                 Label("Detect Bragg disks first — this matches the peaks disk "
                       + "detection finds, it does not find its own.",
                       systemImage: "nosign")
@@ -221,7 +221,7 @@ struct PhaseMappingSections: View {
                 Label("Map Phases", systemImage: "square.grid.3x3.topleft.filled")
             }
             .disabled(appState.isBusy || product.runRefusal != nil
-                      || appState.braggVectors == nil)
+                      || appState.resultPresentation.braggVectors == nil)
             .accessibilityIdentifier("phaseMapping.run")
         }
 

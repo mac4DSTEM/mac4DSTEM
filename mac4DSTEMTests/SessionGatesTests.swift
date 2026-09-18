@@ -208,7 +208,7 @@ final class SessionGatesTests: XCTestCase {
 
         state.navigation.analysisMode = .virtualDetector
         await state.runVirtualDetector()
-        XCTAssertNotNil(state.resultImage, "The virtual image is the result being saved")
+        XCTAssertNotNil(state.resultPresentation.resultImage, "The virtual image is the result being saved")
 
         // Save once WITHOUT the flag so removal has something to refuse over.
         state.saveCurrentResultToSessionSidecar()

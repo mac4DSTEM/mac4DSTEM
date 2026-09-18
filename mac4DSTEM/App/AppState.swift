@@ -150,8 +150,8 @@ final class AppState {
         acomSession.onDisplayChange = { [weak self] in self?.applyACOMDisplay() }
         acomSession.onResultInvalidated = { [weak self] in
             guard let self, navigation.analysisMode == .acom else { return }
-            publishedProduct = nil
-            resultVersion &+= 1
+            resultPresentation.replaceProduct(nil)
+            resultPresentation.bumpResultVersion()
         }
         navigation.onModeChange = { [weak self] in
             self?.persistRecoveryPosition()
@@ -198,6 +198,10 @@ final class AppState {
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
     let phaseMapping = PhaseMappingProduct()
+    /// Seam 5 (docs/appstate-seams-plan.md): the retained product, result
+    /// controls and their derived caches. Views read `resultPresentation.…`;
+    /// cross-owner combiners are placed in `AppState+ResultPresentation.swift`.
+    let resultPresentation = ResultPresentation()
     /// The last reciprocal-pixel calibration attempt — S13's seam
     /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
@@ -239,22 +243,6 @@ final class AppState {
     var selectedScan = ScanPos(x: 0, y: 0)
 
     var currentPattern: DiffractionPattern?
-    /// v2.5 step 3f: the pixels live in `publishedProduct`; these two are
-    /// read-only views of its payload for the readers not yet on the product.
-    /// Deletion condition: zero readers.
-    var resultImage: FloatImage? {
-        if case .scalar(let image)? = publishedProduct?.payload { return image } else { return nil }
-    }
-    var resultRGBA: RGBAImage? {
-        if case .rgba(let rgba)? = publishedProduct?.payload { return rgba } else { return nil }
-    }
-
-    /// v2.5 step 3 (2026-09-03): the one authoritative result value — the
-    /// only storage for result pixels since 3c. Set by every compute and
-    /// restore site; `displayedProduct` returns it. `restoredResult*` stays
-    /// until the product carries its own restored-from marker.
-    var publishedProduct: DisplayedProduct?
-
     /// v2.5 step 3b-6: a result restored from the sidecar is published as the
     /// product value straight from the map's own metadata — the status and
     /// domain recorded at save time, never re-inferred from strings.
@@ -266,11 +254,11 @@ final class AppState {
         let domain = provenance["display_domain"].flatMap(ProductDomain.init) ?? activeResultDomain
         let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: kind, units: valueUnits)
-        publishedProduct = DisplayedProduct(
+        resultPresentation.replaceProduct(DisplayedProduct(
             origin: .restoredFromSidecar,
             kind: kind, displayName: displayName, payload: payload, domain: domain,
             sampling: ProductSampling(row: pixelSizeRow, column: pixelSizeColumn, units: pixelUnits),
-            valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance)
+            valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance))
     }
 
     /// v2.5 step 3e: a compute site publishes its product with ITS OWN
@@ -291,13 +279,12 @@ final class AppState {
         let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: kind, units: valueUnits)
         provenance["quantitative_status"] = status.rawValue
-        publishedProduct = DisplayedProduct(
+        resultPresentation.publish(DisplayedProduct(
             kind: kind, displayName: displayName, payload: payload, domain: domain,
             validityMask: validityMask, qualityFields: qualityFields,
             sampling: ProductSampling(row: persisted.row, column: persisted.column, units: persisted.units),
             valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance,
-            overlays: overlays)
-        resultVersion &+= 1
+            overlays: overlays))
     }
 
     /// Last structural scan-space image available for positioning regions.
@@ -305,7 +292,8 @@ final class AppState {
     /// region must not replace the Bragg map/result that can still be saved.
     var scanNavigationImage: FloatImage?
     private(set) var scanNavigationVersion = 0
-    /// Set only while `resultImage` is the scalar map restored from the stable
+    func bumpScanNavigationVersion() { scanNavigationVersion &+= 1 }
+    /// Set only while `resultPresentation.resultImage` is the scalar map restored from the stable
     /// session sidecar. New scientific results clear it at publication.
     /// Read-only inventory of supported objects in the stable companion file.
     var sessionInventory: SessionSidecarInventory = .empty
@@ -333,7 +321,6 @@ final class AppState {
     /// diagnostics plot in the inspector.
     var lastRotationResult: RotationCalibration.Result?
     var patternVersion = 0
-    var resultVersion = 0
 
     // DPC: cached CoM shift field so display-mode switches don't re-run the
     // GPU. Widened from `private` (seam 4, docs/appstate-seams-plan.md):
@@ -344,16 +331,14 @@ final class AppState {
     // Disk detection state. `diskParams` and its pure size-aware defaulting
     // moved to `diskDetection` (seam 3, docs/appstate-seams-plan.md); these
     // stay because they read AppState-only or another owner's state
-    // (`descriptor`, `probeKernel`, `calibrationSession`, `braggVectors`)
-    // that cannot move with it. `currentDiskDiagnostics`/`braggVectors`/
+    // (`descriptor`, `probeKernel`, `calibrationSession`, `resultPresentation.braggVectors`)
+    // that cannot move with it. `currentDiskDiagnostics`/`resultPresentation.braggVectors`/
     // `completedDiskSummary` widen from `private(set)` and
     // `liveDetectionRequest` from `private` — all four are now set/mutated
     // from `App/AppState+DiskDetection.swift`, a different file.
     var probeKernel: ProbeKernel?
     var currentPeaks: [BraggPeak] = []
     var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
-    var braggPeakCount: Int?
-    var braggVectors: BraggVectors?
     var completedDiskSummary: DiskDetectionScanSummary?
     @ObservationIgnored var liveDetectionRequest: UInt64 = 0
     /// Seam 3 (docs/appstate-seams-plan.md): the disk-detection run controls'
@@ -420,13 +405,13 @@ final class AppState {
     /// analysis must not silently imply that newly previewed settings
     /// produced them. C4(b): now also catches kernel/learned-detector drift.
     var diskDetectionSettingsAreStale: Bool {
-        guard braggVectors != nil else { return false }
+        guard resultPresentation.braggVectors != nil else { return false }
         return ProductWorkflow.stalenessVerdict(recordedStep: recordedReplayStep(for: .disks),
             currentSignature: currentReplaySignature(for: .disks), hasProduct: true) != .current
     }
 
     var hasCurrentBraggVectors: Bool {
-        braggVectors != nil && !diskDetectionSettingsAreStale
+        resultPresentation.braggVectors != nil && !diskDetectionSettingsAreStale
     }
 
     /// ACOM state, plan and map live in `ACOMSession` (v2.5 step 6a); the
@@ -516,11 +501,11 @@ final class AppState {
     }
 
     var displayedResultImage: FloatImage? {
-        showsACOMRegionReference ? scanNavigationImage : resultImage
+        showsACOMRegionReference ? scanNavigationImage : resultPresentation.resultImage
     }
 
     var displayedResultRGBA: RGBAImage? {
-        showsACOMRegionReference ? nil : resultRGBA
+        showsACOMRegionReference ? nil : resultPresentation.resultRGBA
     }
 
     var displayedResultName: String {
@@ -538,23 +523,23 @@ final class AppState {
     }
 
     var displayedResultColormap: ColormapKind {
-        showsACOMRegionReference ? .viridis : resultColormap
+        showsACOMRegionReference ? .viridis : resultPresentation.resultColormap
     }
 
     var displayedResultRangeLo: Float {
-        showsACOMRegionReference ? 0 : displayRangeLo
+        showsACOMRegionReference ? 0 : resultPresentation.displayRangeLo
     }
 
     var displayedResultRangeHi: Float {
-        showsACOMRegionReference ? 1 : displayRangeHi
+        showsACOMRegionReference ? 1 : resultPresentation.displayRangeHi
     }
 
     var displayedResultGamma: Float {
-        showsACOMRegionReference ? 1 : resultGamma
+        showsACOMRegionReference ? 1 : resultPresentation.resultGamma
     }
 
     var displayedResultVersion: Int {
-        showsACOMRegionReference ? scanNavigationVersion : resultVersion
+        showsACOMRegionReference ? scanNavigationVersion : resultPresentation.resultVersion
     }
 
     var displayedResultPixelMetadata:
@@ -586,9 +571,9 @@ final class AppState {
         }
         // A product published by its compute site is authoritative; the
         // legacy assembly below serves the analyses not yet migrated.
-        if let product = publishedProduct { return product }
-        guard let payload: ProductPayload = resultImage.map(ProductPayload.scalar)
-                ?? resultRGBA.map(ProductPayload.rgba) else { return nil }
+        if let product = resultPresentation.product { return product }
+        guard let payload: ProductPayload = resultPresentation.resultImage.map(ProductPayload.scalar)
+                ?? resultPresentation.resultRGBA.map(ProductPayload.rgba) else { return nil }
         let metadata = currentResultPersistenceMetadata
         let domain = activeResultDomain
         let status = metadata.provenance["quantitative_status"]
@@ -668,16 +653,10 @@ final class AppState {
         return .relative
     }
 
-    /// Viewer-level quality inspection: shows the displayed product's paired
-    /// quality field (strain ↔ fit residual, ACOM ↔ reliability) in the result
-    /// viewer without touching the retained product, exports, or persistence.
-    var inspectQualityField = false
-
     /// The quality field currently shown instead of the scientific map, when
     /// inspection is on and the displayed product carries one.
     var displayedQualityField: ProductQualityField? {
-        guard inspectQualityField else { return nil }
-        return displayedProduct?.qualityFields.first
+        resultPresentation.qualityField(for: displayedProduct)
     }
 
     var selectedEulerText: String? {
@@ -809,13 +788,11 @@ final class AppState {
     }
 
     var aperture = Aperture()
-    var virtualShape: VirtualShapeMode = .annulus
 
     // Active pane + real-space region (virtual diffraction).
     var activePane: ActivePane = .diffraction
     var realSpaceShape: RegionShape = .point
     var realSpaceRadius: Float = 6            // scan px half-extent / radius
-    var virtualDiffractionPattern: DiffractionPattern?
     /// Seam 4 (docs/appstate-seams-plan.md): the DPC display choice's one
     /// owner, `dpc.dpcDisplay` (its `didSet` is now `dpc`'s own
     /// `onDisplayChange` hook, wired in `init()`). Every reader goes there
@@ -832,9 +809,6 @@ final class AppState {
     var patternScaleUnit: PatternScaleUnit = .reciprocal
     /// mrad labelling needs both a physical Q calibration and the voltage.
     var patternScaleMradAvailable: Bool { dpcMilliradiansPerDetectorPixel != nil }
-    var resultColormap: ColormapKind = .viridis {
-        didSet { resultVersion &+= 1 }
-    }
     var logScale = true {
         didSet { patternVersion &+= 1 }
     }
@@ -902,7 +876,7 @@ final class AppState {
         let acomSignature = ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved(
             model: resolvedACOMModel, scale: acomScaleSemantics.invAngstromPerPixel,
             backend: acomSession.effectiveBackend.rawValue, scope: acomSession.scope, quality: acomSession.quality)
-        return ProductWorkflow.currentReplaySignature(for: mode, virtualDetectorShape: virtualShape.rawValue, aperture: aperture,
+        return ProductWorkflow.currentReplaySignature(for: mode, virtualDetectorShape: resultPresentation.virtualShape.rawValue, aperture: aperture,
             dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
             diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
             strainSignature: strain.currentReplaySignature, acomSignature: acomSignature)
@@ -914,53 +888,21 @@ final class AppState {
     /// of the current one.
     private(set) var datasetEpoch = 0
 
-    /// Display contrast window for the real-space result, as fractions of the
-    /// normalized [0,1] intensity range (driven by the histogram range slider,
-    /// applied in the fragment shader).
-    var displayRangeLo: Float = 0
-    var displayRangeHi: Float = 1
-    var resultGamma: Float = 1
-
-    // Base-range caches: SwiftUI re-evaluates these colorbar endpoints far
-    // more often than content changes, and the base scan is O(pixels). Keyed
-    // on the same version counters as the normalized-pixel caches; the cheap
-    // contrast-window arithmetic stays per-access so slider drags never
-    // rescan the image.
-    @ObservationIgnored private var resultValueRangeCache:
-        (version: Int, regionReference: Bool, symmetric: Bool,
-         low: Double, high: Double)?
+    // The result-value cache moved to `resultPresentation` with the result
+    // controls. The diffraction cache stays here with the CBED state.
     @ObservationIgnored private var patternValueRangeCache:
         (version: Int, log: Bool, low: Double, high: Double)?
 
     /// Raw-value endpoints currently assigned to the scalar result colorbar.
     var resultDisplayedValueRange: (low: Double, high: Double)? {
-        guard let image = displayedResultImage else { return nil }
-        let version = displayedResultVersion
-        let regionReference = showsACOMRegionReference
-        let symmetric = displayedResultColormap.isDiverging
-        let baseLow: Double
-        let baseHigh: Double
-        if let c = resultValueRangeCache, c.version == version,
-           c.regionReference == regionReference, c.symmetric == symmetric {
-            baseLow = c.low
-            baseHigh = c.high
-        } else {
-            let (rawLow, rawHigh) = image.minMax
-            guard rawLow.isFinite, rawHigh.isFinite else { return nil }
-            if symmetric {
-                let magnitude = Double(max(abs(rawLow), abs(rawHigh)))
-                baseLow = -magnitude
-                baseHigh = magnitude
-            } else {
-                baseLow = Double(rawLow)
-                baseHigh = Double(rawHigh)
-            }
-            resultValueRangeCache = (version, regionReference, symmetric,
-                                     baseLow, baseHigh)
-        }
-        let span = baseHigh - baseLow
-        return (baseLow + span * Double(displayedResultRangeLo),
-                baseLow + span * Double(displayedResultRangeHi))
+        resultPresentation.displayedValueRange(
+            image: displayedResultImage,
+            version: displayedResultVersion,
+            regionReference: showsACOMRegionReference,
+            colormap: displayedResultColormap,
+            rangeLo: displayedResultRangeLo,
+            rangeHi: displayedResultRangeHi
+        )
     }
 
     /// Raw-value endpoints of the quality field currently being inspected, for
@@ -1108,13 +1050,9 @@ final class AppState {
         statusText = "Cancelling \(name)…"
     }
 
-    // Normalized-pixel caches: SwiftUI re-evaluates view bodies far more often
-    // than content changes, and normalization is O(pixels) + an allocation.
-    // Keyed on the version counters, so texture and cache invalidate together.
+    // The result normalization caches moved to `resultPresentation`; the CBED
+    // cache stays here with the diffraction-pattern state.
     @ObservationIgnored private var patternNormCache: (version: Int, log: Bool, pixels: [Float])?
-    @ObservationIgnored private var resultNormCache:
-        (version: Int, regionReference: Bool, symmetric: Bool,
-         pixels: [Float], hasInvalid: Bool)?
 
     /// Display-normalized pixels of `displayedPattern`, cached per patternVersion.
     func normalizedPatternPixels() -> [Float] {
@@ -1130,42 +1068,32 @@ final class AppState {
     /// Display-normalized pixels of the active analysis canvas, cached per
     /// scientific-result or region-reference version.
     func normalizedResultPixels() -> [Float] {
-        guard let image = displayedResultImage else { return [] }
-        let regionReference = showsACOMRegionReference
-        let version = displayedResultVersion
-        let symmetric = displayedResultColormap.isDiverging
-        if let c = resultNormCache, c.version == version,
-           c.regionReference == regionReference, c.symmetric == symmetric {
-            return c.pixels
-        }
-        let pixels = image.normalized(symmetric: symmetric)
-        let hasInvalid = pixels.contains { $0 < 0 }
-        resultNormCache = (version, regionReference, symmetric, pixels, hasInvalid)
-        return pixels
+        resultPresentation.normalizedResultPixels(
+            image: displayedResultImage,
+            version: displayedResultVersion,
+            regionReference: showsACOMRegionReference,
+            colormap: displayedResultColormap
+        )
     }
-
-    @ObservationIgnored private var qualityNormCache: (version: Int, name: String, pixels: [Float])?
 
     /// Display-normalized pixels of the quality field currently being
     /// inspected, cached per (result version, field name) — mirrors
     /// `normalizedResultPixels()`.
     func normalizedQualityPixels() -> [Float] {
-        guard let field = displayedQualityField else { return [] }
-        let version = displayedResultVersion
-        if let c = qualityNormCache, c.version == version, c.name == field.name {
-            return c.pixels
-        }
-        let pixels = field.image.normalized(symmetric: false)
-        qualityNormCache = (version, field.name, pixels)
-        return pixels
+        resultPresentation.normalizedQualityPixels(
+            field: displayedQualityField, version: displayedResultVersion
+        )
     }
 
     /// True when the displayed scalar result contains masked (no-data) pixels,
     /// which render as neutral gray. Drives the colorbar's masked swatch.
     func displayedResultHasMaskedPixels() -> Bool {
-        guard displayedResultImage != nil else { return false }
-        _ = normalizedResultPixels()
-        return resultNormCache?.hasInvalid ?? false
+        resultPresentation.displayedResultHasMaskedPixels(
+            image: displayedResultImage,
+            version: displayedResultVersion,
+            regionReference: showsACOMRegionReference,
+            colormap: displayedResultColormap
+        )
     }
 
     var displayedPattern: DiffractionPattern? {
@@ -1175,7 +1103,7 @@ final class AppState {
         // while their tab stayed selected was wrong. Point already behaved
         // this way; Rectangle/Circle now match it.
         if patternDisplayMode == .current,
-           realSpaceShape != .point, let vd = virtualDiffractionPattern { return vd }
+           realSpaceShape != .point, let vd = resultPresentation.virtualDiffractionPattern { return vd }
         switch patternDisplayMode {
         case .current: return currentPattern
         case .mean: return meanPattern ?? currentPattern
@@ -1733,7 +1661,7 @@ final class AppState {
     private func executeReplayStep(_ plan: ReplayStepPlan) async -> ReplayStepExecution {
         switch plan {
         case .virtualDetector(let shape, let recordedAperture):
-            virtualShape = shape
+            resultPresentation.virtualShape = shape
             aperture = recordedAperture
             if let reason = replayRefusal(for: .virtualDetector) { return .refused(reason) }
             return .ran(await runVirtualDetector(replaying: true))
@@ -2230,9 +2158,9 @@ final class AppState {
         sessionLoadSpecification = nil
         datasetPreview = nil
         selectedScan = ScanPos(x: 0, y: 0)
-        displayRangeLo = 0
-        displayRangeHi = 1
-        resultGamma = 1
+        resultPresentation.displayRangeLo = 0
+        resultPresentation.displayRangeHi = 1
+        resultPresentation.resultGamma = 1
         patternDisplayRangeLo = 0
         patternDisplayRangeHi = 1
         patternGamma = 1
@@ -2393,7 +2321,7 @@ final class AppState {
         patternDisplayMode = .current
         meanPattern = nil
         maxPattern = nil
-        publishedProduct = nil
+        resultPresentation.replaceProduct(nil)
         scanNavigationImage = nil
         scanNavigationVersion = 0
         sessionInventory = .empty
@@ -2411,7 +2339,7 @@ final class AppState {
         // Viewer-level inspection state belongs to the product being inspected,
         // not to the app. Left set, it carried a previous dataset's "show me the
         // fit residual instead" into a fresh file.
-        inspectQualityField = false
+        resultPresentation.inspectQualityField = false
         comField = nil
         probeKernel = nil
         learnedDetection.clear()
@@ -2433,9 +2361,9 @@ final class AppState {
                 statusText = "Could not restore disk-centre labels: \(Self.errorDetail(error))"
             }
         }
-        braggVectors = nil
+        resultPresentation.setBraggVectors(nil)
         completedDiskSummary = nil
-        braggPeakCount = nil
+        resultPresentation.setBraggPeakCount(nil)
         currentPeaks = []
         currentDiskDiagnostics = nil
         // L3 step 3 — "a real-space crop makes existing scan-indexed results
@@ -2456,7 +2384,7 @@ final class AppState {
         realSpaceDisplayMirrored = false
         activePane = .diffraction
         realSpaceShape = .point
-        virtualDiffractionPattern = nil
+        resultPresentation.setVirtualDiffractionPattern(nil)
         realSpaceRadius = Float(max(3, min(descriptor.rx, descriptor.ry) / 12))
         navigation.workspaceArea = .prepare
 
@@ -2853,11 +2781,11 @@ final class AppState {
         } else {
             return
         }
-        resultVersion &+= 1
-        statusText = "Restored \(publishedProduct?.displayName ?? "result") ← \(url.lastPathComponent)"
+        resultPresentation.bumpResultVersion()
+        statusText = "Restored \(resultPresentation.product?.displayName ?? "result") ← \(url.lastPathComponent)"
     }
 
-    private func loadCurrentPattern() async {
+    func loadCurrentPattern() async {
         guard descriptor != nil, let fourD else { return }
 
         do {
@@ -2873,77 +2801,6 @@ final class AppState {
         }
     }
 
-    // MARK: - Analyses
-
-    /// Run the lightweight/default action for the current mode. Expensive
-    /// whole-scan workflows remain explicit buttons in their tool sections.
-    func runCurrentAnalysis() async {
-        switch navigation.analysisMode {
-        case .virtualDetector: await runVirtualDetector()
-        case .dpc:             await runDPC()
-        case .disks:
-            // Live overlay on the current pattern; the full-scan pass is
-            // explicit (Detect All Disks) because it's expensive.
-            await detectCurrentPattern()
-            if let bv = braggVectors, let d = descriptor { showBraggMap(bv, descriptor: d) }
-        case .strain:
-            // Strain is computed explicitly (needs a disk-detection pass);
-            // just re-show it if already computed.
-            if strain.map != nil { applyStrainDisplay() }
-        case .ptychography:
-            if phaseContrast.parallaxAlignment != nil { showParallaxProduct(.alignment) }
-            else if phaseContrast.parallaxPreprocess != nil { showParallaxProduct(.preprocess) }
-        case .singleslicePtychography:
-            if phaseContrast.singleslicePtychography != nil { showParallaxProduct(.iterativePhase) }
-        case .acom:
-            if acomSession.orientationMap != nil { applyACOMDisplay() }
-        case .diffractionGroups, .phaseMapping:
-            break   // a whole-scan run is explicit, never the default action
-        }
-    }
-
-    /// Ensure ACOM region selection has a real-space canvas even when a
-    /// recovered session opened directly into Map and never formed a virtual
-    /// image. A quiet ADF image gives structural contrast without replacing the
-    /// retained scientific result.
-    /// Quietly build persistent real-space context used for region selection
-    /// and for detector/reconstruction products. Failure is non-fatal because
-    /// the primary scientific result remains usable without the convenience.
-    func ensureScanNavigator() async {
-        guard scanNavigationImage == nil,
-              let fourD, let descriptor else { return }
-        let d = descriptor
-        let qRadius = Float(min(d.qx, d.qy)) / 2
-        let center = calibrationSession.calibration.meanOrigin
-            ?? (x: Float(d.qx) / 2, y: Float(d.qy) / 2)
-        do {
-            let epoch = datasetEpoch
-            let image = try await VirtualDetector.tiledImage(
-                data: fourD, descriptor: d,
-                shape: .annulus(
-                    centerX: center.x, centerY: center.y,
-                    inner: 0.25 * qRadius, outer: 0.55 * qRadius
-                )
-            )
-            guard epoch == datasetEpoch else { return }
-            scanNavigationImage = image
-            scanNavigationVersion &+= 1
-        } catch {
-            // Region selection can still use steppers if the reference image
-            // cannot be formed; do not turn a navigation convenience into a
-            // blocker for an otherwise valid ACOM run.
-        }
-    }
-
-    // Coalescing flags for live drag: at most one GPU pass / pattern load in
-    // flight; the latest state is recomputed when it finishes (drop frames in
-    // between so drags stay smooth without piling up work).
-    @ObservationIgnored private var vdInFlight = false
-    @ObservationIgnored private var vdPending = false
-    @ObservationIgnored private var patternInFlight = false
-    @ObservationIgnored private var patternPending = false
-    @ObservationIgnored private var vdiffInFlight = false
-    @ObservationIgnored private var vdiffPending = false
 
     /// Fitted origin maps displaced by a manual aperture-center drag. Kept
     /// out of `calibration` so export honesty holds (a manual center never
@@ -3116,90 +2973,6 @@ final class AppState {
         }
     }
 
-    private func scheduleLiveVirtualDetector() {
-        guard navigation.analysisMode == .virtualDetector else { return }
-        if vdInFlight { vdPending = true; return }
-        vdInFlight = true
-        Task {
-            await runVirtualDetector(quiet: true)
-            vdInFlight = false
-            if vdPending { vdPending = false; scheduleLiveVirtualDetector() }
-        }
-    }
-
-    func commitApertureChange() {
-        guard navigation.analysisMode == .virtualDetector else { return }
-        Task { await runVirtualDetector() }   // final pass, with status
-    }
-
-    /// Live scan-position scrub (drag in the real-space image). A point ROI
-    /// streams the single pattern; a region ROI streams the summed pattern.
-    func scrubTo(x: Int, y: Int) {
-        guard let d = descriptor else { return }
-        if navigation.analysisMode == .acom, acomSession.scope == .selectedRegion {
-            acomSession.regionSelectionActive = true
-        }
-        let clamped = ScanPos(x: min(max(0, x), d.rx - 1), y: min(max(0, y), d.ry - 1))
-        if clamped != selectedScan { selectedScan = clamped }
-        if realSpaceShape == .point {
-            scheduleLoadPattern()
-        } else {
-            scheduleVirtualDiffraction()
-        }
-    }
-
-    /// Re-run whichever real-space product matches the current region shape
-    /// (called when the shape or radius changes).
-    func updateRealSpaceRegion() {
-        if realSpaceShape == .point {
-            virtualDiffractionPattern = nil
-            patternVersion &+= 1
-            scheduleLoadPattern()
-        } else {
-            scheduleVirtualDiffraction()
-        }
-    }
-
-    private func scheduleLoadPattern() {
-        if patternInFlight { patternPending = true; return }
-        patternInFlight = true
-        Task {
-            await loadCurrentPattern()
-            patternInFlight = false
-            if patternPending { patternPending = false; scheduleLoadPattern() }
-        }
-    }
-
-    private func scheduleVirtualDiffraction() {
-        if vdiffInFlight { vdiffPending = true; return }
-        vdiffInFlight = true
-        Task {
-            await computeVirtualDiffraction()
-            vdiffInFlight = false
-            if vdiffPending { vdiffPending = false; scheduleVirtualDiffraction() }
-        }
-    }
-
-    /// Sum the patterns over the current real-space region into the CBED pane.
-    private func computeVirtualDiffraction() async {
-        guard let fourD, let d = descriptor, realSpaceShape != .point else { return }
-        let region = DetectorShape.realSpaceRegion(
-            shape: realSpaceShape, radius: realSpaceRadius, scanX: selectedScan.x, scanY: selectedScan.y)
-        let epoch = datasetEpoch
-        do {
-            let pattern = try await VirtualDetector.tiledDiffraction(
-                data: fourD, descriptor: d, region: region
-            )
-            guard epoch == datasetEpoch else { return }
-            virtualDiffractionPattern = pattern
-            patternVersion &+= 1
-            await detectCurrentPattern()
-        } catch is CancellationError {
-            // Cancellation during a drag is expected.
-        } catch {
-            if epoch == datasetEpoch { presentComputeFailure(error) }
-        }
-    }
 
     /// Boolean scan mask sharing the point/rectangle/circle semantics of the
     /// visible real-space ROI. Used as the unstrained strain reference.
@@ -3212,158 +2985,6 @@ final class AppState {
         return VirtualDetector.makeMask(shape: shape, qy: d.ry, qx: d.rx).map { $0 != 0 }
     }
 
-    /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
-    func applyDetectorPreset(_ preset: DetectorPreset) {
-        guard let descriptor else { return }
-        let qMax = Float(min(descriptor.qx, descriptor.qy)) / 2
-        if let radii = preset.radii(maxRadius: qMax) {
-            aperture.inner = radii.inner
-            aperture.outer = radii.outer
-            virtualShape = preset == .brightField ? .circle : .annulus
-        }
-        if navigation.analysisMode != .virtualDetector { navigation.analysisMode = .virtualDetector }
-        Task { await runVirtualDetector() }
-    }
-
-    private func virtualDetectorProgressTileRows(for descriptor: DatasetDescriptor) -> Int {
-        let bytesPerScanRow = descriptor.rx * descriptor.qy * descriptor.qx * MemoryLayout<Float>.stride
-        let targetBytes = 16 * 1024 * 1024
-        return max(1, min(descriptor.ry, targetBytes / max(1, bytesPerScanRow)))
-    }
-
-    /// Virtual-detector imaging over the whole cube. The annulus uses the
-    /// analytic fast path; rectangle/point use the general mask kernel. The
-    /// blocking GPU call is pushed off the main actor.
-    /// Returns the typed run verdict — `.published` exactly on the path that
-    /// records the recipe step. `replaying` marks a replay-initiated run,
-    /// whose recording is suppressed. S6's executor is the consumer;
-    /// interactive call sites ignore both. // v2 S6
-    @discardableResult
-    func runVirtualDetector(quiet: Bool = false, replaying: Bool = false) async -> AnalysisRunOutcome {
-        guard let fourD, let descriptor else { return .failed("No dataset is loaded") }
-        let totalPatterns = descriptor.rx * descriptor.ry
-        let scanVerb = isLoadingDataset ? "Scanning patterns" : "Computing virtual detector…"
-        let cancellation = quiet ? nil : beginCancellableOperation(
-            "Virtual detector",
-            status: SystemMonitor.scanProgressStatus(
-                scanVerb, processed: 0, total: totalPatterns, descriptor: descriptor
-            ),
-            totalUnits: totalPatterns
-        )
-        defer {
-            if let cancellation { finishCancellableOperation(cancellation) }
-        }
-
-        let ap = aperture
-        let shapeMode = virtualShape
-        let d = descriptor
-        let maximumTileRows = virtualDetectorProgressTileRows(for: d)
-        do {
-            let epoch = datasetEpoch
-            if cancellation?.isCancelled == true {
-                statusText = "Virtual detector cancelled"
-                return .cancelled
-            }
-            let progressUpdate: (@Sendable (Double) -> Void)?
-            if let token = cancellation {
-                progressUpdate = { @Sendable [weak self] fraction in
-                    Task { @MainActor [weak self] in
-                        guard let self, self.isCurrentOperation(token) else { return }
-                        let clipped = min(1, max(0, fraction))
-                        let processed = min(totalPatterns, max(0, Int((clipped * Double(totalPatterns)).rounded())))
-                        self.updateCancellableOperation(
-                            token,
-                            progress: clipped,
-                            status: SystemMonitor.scanProgressStatus(
-                                scanVerb, processed: processed,
-                                total: totalPatterns, descriptor: d
-                            )
-                        )
-                    }
-                }
-            } else {
-                progressUpdate = nil
-            }
-            let image: FloatImage
-            switch shapeMode {
-            case .circle:
-                image = try await VirtualDetector.tiledImage(
-                    data: fourD, descriptor: d,
-                    shape: .circle(centerX: ap.centerX, centerY: ap.centerY,
-                                   radius: ap.outer),
-                    maximumTileRows: maximumTileRows,
-                    cancellation: cancellation, progress: progressUpdate)
-            case .annulus:
-                image = try await VirtualDetector.tiledRun(
-                    data: fourD, descriptor: d, aperture: ap,
-                    maximumTileRows: maximumTileRows,
-                    cancellation: cancellation, progress: progressUpdate)
-            case .rectangle:
-                let half = Int(ap.outer.rounded())
-                image = try await VirtualDetector.tiledImage(
-                    data: fourD, descriptor: d,
-                    shape: .rectangle(
-                        xMin: Int(ap.centerX.rounded()) - half,
-                        xMax: Int(ap.centerX.rounded()) + half,
-                        yMin: Int(ap.centerY.rounded()) - half,
-                        yMax: Int(ap.centerY.rounded()) + half),
-                    maximumTileRows: maximumTileRows,
-                    cancellation: cancellation, progress: progressUpdate)
-            case .point:
-                image = try await VirtualDetector.tiledImage(
-                    data: fourD, descriptor: d,
-                    shape: .point(x: Int(ap.centerX.rounded()),
-                                  y: Int(ap.centerY.rounded())),
-                    maximumTileRows: maximumTileRows,
-                    cancellation: cancellation, progress: progressUpdate)
-            }
-            guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
-            if cancellation?.isCancelled == true {
-                statusText = "Virtual detector cancelled"
-                return .cancelled
-            }
-            resultColormap = .viridis
-            scanNavigationImage = image
-            scanNavigationVersion &+= 1
-            resultVersion &+= 1
-            // The product value — kind, name, units and status decided HERE,
-            // by the site that computed the pixels, not re-derived later from
-            // strings (v2.5 step 3). Mirrors `currentScalarResultMetadata`'s
-            // `.virtualDetector` case until that switch is deleted.
-            publishedProduct = DisplayedProduct(
-                kind: "virtual_\(shapeMode.rawValue.lowercased())",
-                displayName: "Virtual detector · \(shapeMode.rawValue)",
-                payload: .scalar(image), domain: .scan,
-                sampling: ProductSampling(
-                    row: calibrationSession.calibration.rPixelSize, column: calibrationSession.calibration.rPixelSize,
-                    units: calibrationSession.calibration.rPixelUnits),
-                valueUnits: "intensity", quantitativeStatus: .relative,
-                // The persistence provenance (aperture etc.) plus this site's own keys.
-                provenance: currentResultPersistenceMetadata.provenance.merging(
-                    ["display_domain": "scan", "quantitative_status": "relative",
-                     "virtual_shape": shapeMode.rawValue]) { _, site in site })
-            if !quiet {
-                statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
-            }
-            // The recipe step, recorded at the SUCCESS publish and nowhere
-            // earlier — a cancelled or failed run is not part of the pipeline.
-            // (An earlier comment here claimed the automatic pass on open
-            // "counts too" — refuted: it runs with defaults and would
-            // overwrite an adopted recipe; `recordReplayStep` suppresses it.)
-            // // v2 S5
-            recordReplayStep(kind: "virtual_detector",
-                              parameters: Aperture.replayParameters(shape: shapeMode.rawValue, aperture: ap),
-                              replaying: replaying)
-            return .published
-        } catch {
-            if cancellation?.isCancelled == true {
-                statusText = "Virtual detector cancelled"
-                return .cancelled
-            }
-            if !quiet { presentComputeFailure(error) }
-            return .failed(error.localizedDescription)
-        }
-    }
 
     // MARK: - Calibration and phase contrast: AppState+Calibration.swift, AppState+PhaseContrast.swift (moved 2026-09-18)
 
@@ -3452,7 +3073,7 @@ final class AppState {
             presentComputeFailure(SimpleError(reason))
             return .failed(reason)
         }
-        guard let bragg = braggVectors else {
+        guard let bragg = resultPresentation.braggVectors else {
             let reason = "Run disk detection first — strain mapping needs detected Bragg peaks."
             presentComputeFailure(SimpleError(reason))
             return .failed(reason)
@@ -3550,7 +3171,7 @@ final class AppState {
             "resolved_g1_x": String(map.refG1.x), "resolved_g1_y": String(map.refG1.y),
             "resolved_g2_x": String(map.refG2.x), "resolved_g2_y": String(map.refG2.y),
         ], replaying: replaying)
-        resultColormap = .rdbu   // diverging map without recoloring the CBED pane
+        resultPresentation.resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
         statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",
                             map.indexedFraction * 100,
@@ -3593,63 +3214,6 @@ final class AppState {
     /// pins. The navigation/restored overrides are cleared first, because the
     /// user is now asking for a specific product rather than carrying the
     /// previous one along.
-    func showComputedProduct(_ product: ComputedProduct) {
-        inspectQualityField = false
-        switch product {
-        case .strain:
-            guard strain.map != nil else { return }
-            navigation.analysisMode = .strain
-            navigation.workspaceArea = .map
-            applyStrainDisplay()
-        case .orientation:
-            guard acomSession.hasOrientationMap else { return }
-            navigation.analysisMode = .acom
-            navigation.workspaceArea = .map
-            applyACOMDisplay()
-        }
-    }
-
-    /// The frame strain is presented in right now, derived from the CURRENT
-    /// calibration on every read (the `applyDPCDisplay` pattern) — a later
-    /// rotation calibration changes what is shown, never silently desyncs
-    /// from it. // v2 S8
-    var strainPresentationFrame: StrainPresentationFrame {
-        .resolve(rotationRad: calibrationSession.calibration.rotationRad,
-                 transposeQR: calibrationSession.calibration.transposeQR)
-    }
-
-    /// Show the selected strain component, expressed in the presentation
-    /// frame; masked positions remain NaN and render with the explicit
-    /// no-data color, never as neutral zero strain.
-    /// The one publish site for the strain product (v2.5 step 3e, condition 2).
-    func applyStrainDisplay() {
-        guard let map = strain.map, navigation.analysisMode == .strain else { return }
-        resultColormap = (strain.component == .residual || strain.component == .indexed)
-            ? .viridis : .rdbu
-        let kind: String, units: String
-        switch strain.component {
-        case .exx:      (kind, units) = ("strain_exx", "strain")
-        case .eyy:      (kind, units) = ("strain_eyy", "strain")
-        case .exy:      (kind, units) = ("strain_exy", "strain")
-        case .theta:    (kind, units) = ("strain_theta", "rad")
-        case .residual: (kind, units) = ("strain_fit_residual", "detector_px")
-        case .indexed:  (kind, units) = ("strain_indexed", "boolean")
-        }
-        publishProduct(
-            kind: kind, displayName: "Strain · \(strain.component.rawValue)", valueUnits: units,
-            payload: .scalar(map.presented(in: strainPresentationFrame).component(strain.component)),
-            validityMask: map.mask,
-            qualityFields: [
-                ProductQualityField(
-                    name: "fit residual", units: "detector_px",
-                    image: FloatImage(width: map.width, height: map.height, pixels: map.localResidualPixels)),
-                ProductQualityField(
-                    name: "indexed", units: "boolean",
-                    image: FloatImage(width: map.width, height: map.height, pixels: map.mask.map { $0 ? 1 : 0 })),
-            ],
-            overlays: [ProductOverlayDescriptor(
-                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit")])
-    }
 
     // MARK: - Fit-verification overlays (diffraction pane)
 
@@ -3666,7 +3230,7 @@ final class AppState {
             descriptor: descriptor, selectedX: selectedScan.x, selectedY: selectedScan.y,
             calibration: calibrationSession.calibration,
             ellipseFit: calibrationSession.lastEllipseFit,
-            braggVectors: braggVectors, strainMap: strain.map,
+            braggVectors: resultPresentation.braggVectors, strainMap: strain.map,
             orientationPlan: acomSession.orientationPlan,
             orientationMap: acomSession.orientationMap,
             hasOrientationMap: acomSession.hasOrientationMap,

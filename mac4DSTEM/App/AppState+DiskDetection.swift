@@ -9,10 +9,10 @@
 //        `diskParams` moved into `Session/DiskDetectionProduct.swift` in the
 //        same seam — the two reads of it here are renamed to
 //        `diskDetection.diskParams`; everything else (`probeKernel`,
-//        `currentPeaks`, `currentDiskDiagnostics`, `braggVectors`,
-//        `braggPeakCount`, `completedDiskSummary`, `liveDetectionRequest`)
+//        `currentPeaks`, `currentDiskDiagnostics`, `resultPresentation.braggVectors`,
+//        `resultPresentation.braggPeakCount`, `completedDiskSummary`, `liveDetectionRequest`)
 //        stays AppState's per the plan and keeps its pre-seam name — three of
-//        those (`currentDiskDiagnostics`, `braggVectors`,
+//        those (`currentDiskDiagnostics`, `resultPresentation.braggVectors`,
 //        `completedDiskSummary`) widen from `private(set)` to a plain `var`
 //        so this file can set them, and `liveDetectionRequest` and
 //        `Self.makeReader` widen from `private` to `internal` for the same
@@ -324,7 +324,7 @@ extension AppState {
         } catch {
             guard datasetEpoch == epoch else { return .failed("The dataset changed during the run") }
             if cancellation.isCancelled {
-                statusText = braggVectors == nil
+                statusText = resultPresentation.braggVectors == nil
                     ? "Disk detection cancelled — no peaks were published"
                     : "Disk detection cancelled; the previous full-scan peaks are still shown"
                 return .cancelled
@@ -341,7 +341,7 @@ extension AppState {
                 // "it showed a Bragg vector map regardless" the release owner
             // reported (backlog #34). Every other cancellable step in this
             // file already names what it retained; this one did not.
-            statusText = braggVectors == nil
+            statusText = resultPresentation.braggVectors == nil
                 ? "Disk detection cancelled — no peaks were published"
                 : "Disk detection cancelled; the previous full-scan peaks are still shown"
             return .cancelled
@@ -353,7 +353,7 @@ extension AppState {
             presentComputeFailure(SimpleError(reason))
             return .failed(reason)
         }
-        braggVectors = vectors
+        resultPresentation.setBraggVectors(vectors)
         learnedDetection.record(vectors, as: detectorClass)
         // Recipe step (v2 S5): the canonical example of why the record exists
         // separately from per-result controls — detection's own product
@@ -370,7 +370,7 @@ extension AppState {
         completedDiskSummary = DiskDetectionScanSummary(
             vectors: vectors, maximumPeaks: params.maxNumPeaks, parameters: params
         )
-        braggPeakCount = vectors.totalPeakCount
+        resultPresentation.setBraggPeakCount(vectors.totalPeakCount)
         showBraggMap(vectors, descriptor: d)
         if vectors.totalPeakCount == 0 {
             // An empty result is a dead end unless it points at the
@@ -390,7 +390,7 @@ extension AppState {
     func showBraggMap(_ vectors: BraggVectors, descriptor d: DatasetDescriptor) {
         let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
         let bvm = calibrated.map(qy: d.qy, qx: d.qx)
-        resultColormap = .viridis
+        resultPresentation.resultColormap = .viridis
         publishProduct(   // v2.5 step 3e: its own label
             kind: "bragg_vector_map", displayName: "Bragg vector map", valueUnits: "log_intensity",
             payload: .scalar(FloatImage(width: bvm.width, height: bvm.height,
@@ -415,7 +415,7 @@ extension AppState {
         ) else {
             return .failed("The classical and neural-net runs do not share a scan shape")
         }
-        resultColormap = .viridis
+        resultPresentation.resultColormap = .viridis
         // The mode's own metadata describes the current Bragg vectors; the
         // product overrides what differs (domain, source, both classes, the
         // compared learned run's identity, the statistics).

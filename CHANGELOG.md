@@ -23,41 +23,16 @@ exactly that until the owner's drive says otherwise.
 - **AppState split, step one.** Calibration and phase-contrast orchestration
   moved verbatim into their own files (AppState.swift 5476 → 4699 lines);
   no logic changed, 17 members widened from `private` for the move.
-- **AppState seam 1: `PhaseContrastProduct`.** The 24 Parallax/single-slice-
-  ptychography properties, with their two `didSet` observers, moved off
-  AppState into `Session/PhaseContrastProduct.swift` (no forwarding
-  properties); AppState.swift 4699 → 4656 lines, net −11 access widenings
-  (reverses all of step one's). No logic changed. Unverified on screen.
-- **AppState seam 2: ACOM leftovers into `ACOMSession`.** The 17 remaining
-  `acom*` properties/methods moved into the existing `ACOMSession` owner
-  where they were pure ACOM state, or stayed as AppState orchestration where
-  they genuinely combine dataset/calibration state with `acomSession`;
-  `calibrateQFromCrystal`, `generateOrientationPlan`, `runACOM` and
-  `applyACOMDisplay` moved to `App/AppState+ACOM.swift`. AppState.swift
-  4656 → 4230 lines, 3 access widenings. No logic changed. Unverified on
-  screen.
-- **AppState seam 3: `DiskDetectionProduct`.** `diskParams` and its pure-
-  construction logic moved to the new owner (`Session/DiskDetectionProduct.swift`);
-  the `didSet` that used to re-run live detection is now an
-  `onParamsChange` hook AppState installs once, the same shape as seam 1's
-  `onPresentationChange`. The probe-kernel generators and detection
-  functions (`detectCurrentPattern`, `performLiveDetection`,
-  `runDiskDetection`, `showBraggMap`, `runDiskDisagreement`,
-  `calibratedBraggVectors`) placed in `App/AppState+DiskDetection.swift` —
-  they read `probeKernel`/`braggVectors`, which stay on AppState until seam
-  5. AppState.swift 4230 → 3819 lines, 5 access widenings (the seam's cap).
-  No logic changed. Unverified on screen.
-- **AppState seam 4: `DPCProduct`, the last unattended seam of the night.**
-  `dpcDisplay` and its `DPCDisplayMode` enum moved to the new owner
-  (`Session/DPCProduct.swift`); the `didSet` is now an `onDisplayChange`
-  hook. `dpcMilliradiansPerDetectorPixel` stayed on AppState (pure
-  `calibrationSession` derivation, no owner-state dependency). `runDPC`,
-  `flipRotation180`, `applyDPCDisplay` placed in `App/AppState+DPC.swift`;
-  `computeCoMField` untouched, shared with R–Q rotation as before.
-  AppState.swift 3819 → 3676 lines, 1 access widening. No logic changed.
-  Unverified on screen. **All four unattended seams (1–4) landed this
-  night**, AppState.swift 4699 → 3676; seams 5–7 are attended morning
-  sessions.
+- **AppState seams 1–4.** Phase contrast, ACOM, disk detection and DPC state
+  moved to feature owners; their cross-owner orchestration moved to focused
+  extensions. AppState.swift 4699 → 3676; details and gates are retained in
+  `docs/appstate-seams-plan.md`. All four were later owner-driven with seam 5.
+- **AppState seam 5: `ResultPresentation`.** Shared product, display controls,
+  derived caches, Bragg vectors and virtual-detector presentation moved to one
+  owner; cross-owner orchestration moved to `AppState+ResultPresentation.swift`.
+  AppState.swift 3676 → 3240 lines. Version-bump order is unchanged and pinned
+  by seven new tests. Unit 727/0/2 plus rotation/strain-frame parity passed;
+  the owner drove `sim_Au` across the workspaces and reported normal handling.
 
 ## v3.0.0 — 2026-09-11
 

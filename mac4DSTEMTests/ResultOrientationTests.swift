@@ -191,7 +191,7 @@ final class ResultOrientationTests: XCTestCase {
         XCTAssertTrue(state.effectiveRealSpaceDisplayMirrored)
         XCTAssertFalse(state.realSpaceDisplayIsDefault)
 
-        state.publishedProduct = nil
+        state.resultPresentation.replaceProduct(nil)
         XCTAssertNotEqual(state.displayedProduct?.domain, .scan)
         XCTAssertEqual(
             state.effectiveRealSpaceDisplayOrientation, .identity,

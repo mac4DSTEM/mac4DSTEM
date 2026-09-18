@@ -123,7 +123,7 @@ extension AppState {
         guard let descriptor else { return }
         let detectorPattern: DiffractionPattern
         let sourceName: String
-        if navigation.analysisMode == .disks, let vectors = braggVectors {
+        if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors {
             // The displayed Bragg map is log-scaled for display and already
             // carries any active ellipse correction. The intensity-weighted
             // fit needs the measured evidence instead: raw peak intensities,
@@ -185,7 +185,7 @@ extension AppState {
             // A displayed Bragg map can be reprojected immediately because
             // raw peak storage remains unchanged. Strain/ACOM are deliberately
             // not relabeled; users rerun those quantitative analyses.
-            if navigation.analysisMode == .disks, let vectors = braggVectors {
+            if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors {
                 showBraggMap(vectors, descriptor: descriptor)
             }
             statusText = fit.sparseCoverage

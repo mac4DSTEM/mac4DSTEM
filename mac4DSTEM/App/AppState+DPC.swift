@@ -132,11 +132,11 @@ extension AppState {
         let kind: String, name: String, units: String
         switch dpc.dpcDisplay {
         case .magnitude:
-            resultColormap = .viridis
+            resultPresentation.resultColormap = .viridis
             payload = .scalar(DPC.magnitudeImage(com: com, width: d.rx, height: d.ry))
             (kind, name, units) = ("dpc_magnitude", "DPC magnitude", "detector_px")
         case .magnitudeMrad:
-            resultColormap = .viridis
+            resultPresentation.resultColormap = .viridis
             if let scale = dpcMilliradiansPerDetectorPixel {
                 payload = .scalar(DPC.physicalMagnitudeImage(
                     com: com, width: d.rx, height: d.ry, milliradiansPerPixel: scale))
@@ -146,15 +146,15 @@ extension AppState {
                 (kind, name, units) = ("dpc_magnitude", "DPC magnitude", "detector_px")
             }
         case .angle:
-            resultColormap = .viridis
+            resultPresentation.resultColormap = .viridis
             payload = .scalar(DPC.angleImage(com: com, width: d.rx, height: d.ry))
             (kind, name, units) = ("dpc_angle", "DPC angle", "rad")
         case .colorWheel:
-            resultColormap = .viridis
+            resultPresentation.resultColormap = .viridis
             payload = .rgba(DPC.colorWheelRGBA(com: com, width: d.rx, height: d.ry))
             (kind, name, units) = ("dpc_color", "DPC color wheel", "rgba")
         case .idpc:
-            resultColormap = .rdbu
+            resultPresentation.resultColormap = .rdbu
             // `integrateIDPC` now throws instead of returning a zero image
             // (v2 S7): a failed integration must leave NO image on screen —
             // neither a fabricated flat map nor the previous display's
@@ -172,8 +172,8 @@ extension AppState {
                     (kind, name, units) = ("idpc_qualitative", "iDPC (qualitative)", "detector_px_scan_px")
                 }
             } catch {
-                publishedProduct = nil
-                resultVersion &+= 1
+                resultPresentation.replaceProduct(nil)
+                resultPresentation.bumpResultVersion()
                 presentComputeFailure(error)
                 return error.localizedDescription
             }

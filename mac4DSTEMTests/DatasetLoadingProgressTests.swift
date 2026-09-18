@@ -147,7 +147,7 @@ final class DatasetLoadingProgressTests: XCTestCase {
         await state.openDemoFixture()
 
         XCTAssertNotNil(
-            state.resultImage,
+            state.resultPresentation.resultImage,
             "The initial analysis must run as part of opening — if it does not, "
             + "there is nothing for the measured phase to report"
         )

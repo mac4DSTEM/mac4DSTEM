@@ -47,7 +47,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
         state.navigation.analysisMode = .disks
         await state.runDiskDetection()
 
-        let vectors = try XCTUnwrap(state.braggVectors,
+        let vectors = try XCTUnwrap(state.resultPresentation.braggVectors,
                                     "Demo disk detection published no Bragg vectors")
         XCTAssertGreaterThan(vectors.totalPeakCount, 0)
         XCTAssertNil(state.calibrationSession.calibration.qPixelSize,

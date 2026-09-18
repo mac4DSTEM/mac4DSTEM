@@ -74,6 +74,118 @@ final class ResultPresentationTests: XCTestCase {
     }
 }
 
+/// AppState seams plan, seam 5: the mutable presentation around an immutable
+/// `DisplayedProduct` has one owner. These pin the three owner decisions made
+/// with the release owner: a wrapper rather than mutating `DisplayedProduct`,
+/// caches as private derivation, and the existing manual version-bump order
+/// preserved until a separately diagnosed simplification.
+@MainActor
+final class ResultPresentationSeamTests: XCTestCase {
+    private func product(pixels: [Float] = [1]) -> DisplayedProduct {
+        DisplayedProduct(
+            kind: "test", displayName: "Test",
+            payload: .scalar(FloatImage(width: pixels.count, height: 1, pixels: pixels)),
+            domain: .scan,
+            sampling: ProductSampling(row: 1, column: 1, units: "px"),
+            valueUnits: "intensity", quantitativeStatus: .relative
+        )
+    }
+
+    func testConstructionKeepsThePreSeamDefaults() {
+        let presentation = ResultPresentation()
+
+        XCTAssertNil(presentation.product)
+        XCTAssertEqual(presentation.resultVersion, 0)
+        XCTAssertEqual(presentation.resultColormap, .viridis)
+        XCTAssertEqual(presentation.displayRangeLo, 0)
+        XCTAssertEqual(presentation.displayRangeHi, 1)
+        XCTAssertEqual(presentation.resultGamma, 1)
+        XCTAssertFalse(presentation.inspectQualityField)
+        XCTAssertEqual(presentation.virtualShape, .annulus)
+        XCTAssertNil(presentation.braggVectors)
+        XCTAssertNil(presentation.virtualDiffractionPattern)
+    }
+
+    func testNormalPublicationStoresTheProductAndBumpsExactlyOnce() {
+        let presentation = ResultPresentation()
+
+        presentation.publish(product())
+
+        XCTAssertEqual(presentation.product?.kind, "test")
+        XCTAssertEqual(presentation.resultVersion, 1)
+    }
+
+    func testColormapAssignmentBumpsExactlyOnceIncludingSameValueWrites() {
+        let presentation = ResultPresentation()
+
+        presentation.resultColormap = .rdbu
+        XCTAssertEqual(presentation.resultVersion, 1)
+
+        presentation.resultColormap = .rdbu
+        XCTAssertEqual(presentation.resultVersion, 2)
+    }
+
+    func testReplacementAndExplicitInvalidationPreserveLegacyOrdering() {
+        let presentation = ResultPresentation()
+
+        presentation.replaceProduct(product())
+        XCTAssertEqual(presentation.resultVersion, 0,
+                       "legacy restore/virtual-detector call sites own the bump order")
+
+        presentation.bumpResultVersion()
+        XCTAssertEqual(presentation.resultVersion, 1)
+    }
+
+    func testDerivedNormalizationCacheKeysOnThePresentationVersion() {
+        let presentation = ResultPresentation()
+        let first = product(pixels: [0, 1, 2])
+        presentation.publish(first)
+        let firstPixels = presentation.normalizedResultPixels(
+            image: presentation.resultImage, version: presentation.resultVersion,
+            regionReference: false, colormap: presentation.resultColormap
+        )
+
+        presentation.replaceProduct(product(pixels: [0, 1, 4]))
+        presentation.bumpResultVersion()
+        let secondPixels = presentation.normalizedResultPixels(
+            image: presentation.resultImage, version: presentation.resultVersion,
+            regionReference: false, colormap: presentation.resultColormap
+        )
+
+        XCTAssertEqual(firstPixels, [0, 0.5, 1])
+        XCTAssertEqual(secondPixels, [0, 0.25, 1])
+        XCTAssertEqual(presentation.resultVersion, 2)
+    }
+
+    func testAppStateHoldsTheOwnerWithoutStoredPresentationShadows() {
+        let state = AppState()
+        let names = Mirror(reflecting: state).children.compactMap { child in
+            child.label.map { $0.hasPrefix("_") ? String($0.dropFirst()) : $0 }
+        }
+        XCTAssertTrue(names.contains("resultPresentation"))
+        let moved = Set([
+            "publishedProduct", "resultVersion", "resultColormap",
+            "displayRangeLo", "displayRangeHi", "resultGamma",
+            "inspectQualityField", "braggVectors", "braggPeakCount",
+            "virtualShape", "virtualDiffractionPattern",
+        ])
+        XCTAssertTrue(moved.isDisjoint(with: names),
+                      "AppState still stores presentation shadows: \(moved.intersection(names))")
+    }
+
+    func testAppStatePublicationUsesTheOwnerAndKeepsTheVersionContract() {
+        let state = AppState()
+
+        state.publishProduct(
+            kind: "test", displayName: "Test", valueUnits: "intensity",
+            payload: .scalar(FloatImage(width: 1, height: 1, pixels: [1]))
+        )
+
+        XCTAssertEqual(state.resultPresentation.product?.kind, "test")
+        XCTAssertEqual(state.resultPresentation.resultVersion, 1)
+    }
+}
+
 /// Backlog #28. Strain and orientation are retained simultaneously; only the
 /// displayed product was ever single-valued. These pin the explicit switch and
 /// the export that used to drop whichever family was not in front.
@@ -86,8 +198,8 @@ final class ComputedProductSwitchTests: XCTestCase {
         // Must be inert rather than crash or publish an empty product.
         state.showComputedProduct(.strain)
         state.showComputedProduct(.orientation)
-        XCTAssertNil(state.resultImage)
-        XCTAssertNil(state.resultRGBA)
+        XCTAssertNil(state.resultPresentation.resultImage)
+        XCTAssertNil(state.resultPresentation.resultRGBA)
     }
 
     func testAnEmptyBundleIsNilRatherThanAnEmptyArray() {

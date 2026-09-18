@@ -102,12 +102,12 @@ final class StrainProductTests: XCTestCase {
         let state = AppState()
         state.strain.publish(try syntheticMap())
         state.showComputedProduct(.strain)
-        let before = state.resultVersion
+        let before = state.resultPresentation.resultVersion
 
         state.strain.component = .eyy
 
-        XCTAssertGreaterThan(state.resultVersion, before)
-        let image = try XCTUnwrap(state.resultImage)
+        XCTAssertGreaterThan(state.resultPresentation.resultVersion, before)
+        let image = try XCTUnwrap(state.resultPresentation.resultImage)
         let expected = try syntheticMap().component(.eyy)
         for i in 0..<expected.pixels.count where !expected.pixels[i].isNaN {
             XCTAssertEqual(image.pixels[i], expected.pixels[i], accuracy: 1e-6)

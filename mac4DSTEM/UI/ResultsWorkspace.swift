@@ -16,7 +16,7 @@ struct ResultsWorkspace: View {
     @Environment(AppState.self) private var appState
 
     private var hasVisibleResult: Bool {
-        appState.resultImage != nil || appState.resultRGBA != nil
+        appState.resultPresentation.resultImage != nil || appState.resultPresentation.resultRGBA != nil
     }
 
     var body: some View {
@@ -64,9 +64,9 @@ struct ResultsWorkspace: View {
                 Text(appState.currentResultDisplayName)
                     .font(.headline)
                 HStack(spacing: 8) {
-                    if let image = appState.resultImage {
+                    if let image = appState.resultPresentation.resultImage {
                         Text("\(image.width) × \(image.height)")
-                    } else if let image = appState.resultRGBA {
+                    } else if let image = appState.resultPresentation.resultRGBA {
                         Text("\(image.width) × \(image.height)")
                     }
                     Text(appState.currentResultValueUnits)

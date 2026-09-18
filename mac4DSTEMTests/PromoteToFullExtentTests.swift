@@ -42,7 +42,7 @@ final class PromoteToFullExtentTests: XCTestCase {
         // (empty result panes) left this suite green.
         XCTAssertFalse(state.isLoadingDataset,
                        "A finished promote must dismiss the loading card")
-        XCTAssertNotNil(state.resultImage,
+        XCTAssertNotNil(state.resultPresentation.resultImage,
                         "The whole-cube pass must have run against the promoted view")
     }
 

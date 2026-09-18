@@ -77,7 +77,8 @@ private struct DatasetCommands: Commands {
         CommandGroup(replacing: .importExport) {
             Button("Export Result Image…") { appState?.exportResultImage() }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
-                .disabled(appState?.resultImage == nil && appState?.resultRGBA == nil)
+                .disabled(appState?.resultPresentation.resultImage == nil
+                          && appState?.resultPresentation.resultRGBA == nil)
             Button("Export Diffraction Pattern…") { appState?.exportDiffractionImage() }
                 .keyboardShortcut("e", modifiers: [.command, .option])
                 .disabled(appState?.displayedPattern == nil)
@@ -113,7 +114,8 @@ private struct DatasetCommands: Commands {
             Button("Save Current Result to Session Sidecar") {
                 appState?.saveCurrentResultToSessionSidecar()
             }
-            .disabled((appState?.resultImage == nil && appState?.resultRGBA == nil)
+            .disabled((appState?.resultPresentation.resultImage == nil
+                       && appState?.resultPresentation.resultRGBA == nil)
                       || appState?.isBusy == true
                       || appState?.gates.mayWriteSidecar != true)
             Button("Save Calibration to Session Sidecar") {

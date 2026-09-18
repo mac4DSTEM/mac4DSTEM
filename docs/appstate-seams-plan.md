@@ -247,6 +247,15 @@ Each is its own session brief; paste the quoted line into a fresh session.
 | 2026-09-18 | 2 — ACOM leftovers into `ACOMSession` | 5972e8f | build 0; unit 708/0/2=710 (`unit-seam2-20260918.log`, +7 over seam 1); inventory 0 (`inventory-seam2-20260918.log`) | 3 (`applyACOMDisplay`, `recordReplayStep`, `promoteIPFZDisplayIfDefault`, all private→internal for the new call sites) | — |
 | 2026-09-18 | 3 — `DiskDetectionProduct` | 3f2f909 | build 0; unit 715/0/2=717 (`unit-seam3-20260918.log`, +7 over seam 2); inventory 0 (`inventory-seam3-20260918.log`) | 5 (at the cap: `currentDiskDiagnostics`, `braggVectors`, `completedDiskSummary` widened for the new extension file; `liveDetectionRequest` private→internal; `Self.makeReader` private static→static) | — |
 | 2026-09-18 | 4 — `DPCProduct` (last unattended seam) | 4ffa5ca | build 0; unit 720/0/2=722 (`unit-seam4-20260918.log`, +5 over seam 3); inventory 0 (`inventory-seam4-20260918.log`) | 1 (`comField` private→internal for `AppState+DPC.swift`) | — |
+| 2026-09-18 | 5 — `ResultPresentation` | this commit | build 0; unit 727/0/2=729 (`unit-seam5-retry-20260918.log`, +7); rotation parity 0; strain-frame 0; owner drive passed; inventory 0 (`inventory-seam5-final-20260918.log`) | 2 (`loadCurrentPattern`, `scheduleLiveVirtualDetector`) | — |
+
+### Seam 5 decisions and simplification ledger
+
+- A new `ResultPresentation` owner wraps the immutable `DisplayedProduct` value;
+  its two caches remain private ignored derivations, not semantic state.
+- Existing result-version bump order and count remain exact. The scattered
+  manual bump protocol is fragile; replace it later with one standard
+  invalidation API, only under behavior-preserving tests.
 
 ### Overnight run summary, 2026-09-18
 

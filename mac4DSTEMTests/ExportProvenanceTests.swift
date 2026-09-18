@@ -113,7 +113,7 @@ final class ExportProvenanceTests: XCTestCase {
         await state.openDemoFixture(calibrated: true, specification: cropped)
         state.navigation.analysisMode = .virtualDetector
         await state.runVirtualDetector()
-        XCTAssertNotNil(state.resultImage)
+        XCTAssertNotNil(state.resultPresentation.resultImage)
 
         let record = state.exportedImageProvenanceRecord()
         XCTAssertEqual(record["title"] as? String, state.currentResultDisplayName)
