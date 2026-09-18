@@ -36,6 +36,17 @@ exactly that until the owner's drive says otherwise.
   `applyACOMDisplay` moved to `App/AppState+ACOM.swift`. AppState.swift
   4656 → 4230 lines, 3 access widenings. No logic changed. Unverified on
   screen.
+- **AppState seam 3: `DiskDetectionProduct`.** `diskParams` and its pure-
+  construction logic moved to the new owner (`Session/DiskDetectionProduct.swift`);
+  the `didSet` that used to re-run live detection is now an
+  `onParamsChange` hook AppState installs once, the same shape as seam 1's
+  `onPresentationChange`. The probe-kernel generators and detection
+  functions (`detectCurrentPattern`, `performLiveDetection`,
+  `runDiskDetection`, `showBraggMap`, `runDiskDisagreement`,
+  `calibratedBraggVectors`) placed in `App/AppState+DiskDetection.swift` —
+  they read `probeKernel`/`braggVectors`, which stay on AppState until seam
+  5. AppState.swift 4230 → 3819 lines, 5 access widenings (the seam's cap).
+  No logic changed. Unverified on screen.
 
 ## v3.0.0 — 2026-09-11
 

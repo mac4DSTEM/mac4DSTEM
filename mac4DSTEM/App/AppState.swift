@@ -166,6 +166,14 @@ final class AppState {
         navigation.onModeChange = { [weak self] in
             self?.persistRecoveryPosition()
         }
+        // Seam 3 (docs/appstate-seams-plan.md): the live overlay needs
+        // `probeKernel`/`navigation`/`displayedPattern`, none of which
+        // `diskDetection` holds — same hook shape as `strain
+        // .onPresentationChange` above. Body unchanged from the pre-seam
+        // `diskParams` `didSet`.
+        diskDetection.onParamsChange = { [weak self] in
+            Task { await self?.detectCurrentPattern() }
+        }
     }
 
     var datasets: [DatasetDescriptor] = []
@@ -332,27 +340,35 @@ final class AppState {
     // DPC: cached CoM shift field so display-mode switches don't re-run the GPU.
     @ObservationIgnored private var comField: [Float]?
 
-    // Disk detection state.
+    // Disk detection state. `diskParams` and its pure size-aware defaulting
+    // moved to `diskDetection` (seam 3, docs/appstate-seams-plan.md); these
+    // stay because they read AppState-only or another owner's state
+    // (`descriptor`, `probeKernel`, `calibrationSession`, `braggVectors`)
+    // that cannot move with it. `currentDiskDiagnostics`/`braggVectors`/
+    // `completedDiskSummary` widen from `private(set)` and
+    // `liveDetectionRequest` from `private` — all four are now set/mutated
+    // from `App/AppState+DiskDetection.swift`, a different file.
     var probeKernel: ProbeKernel?
     var currentPeaks: [BraggPeak] = []
-    private(set) var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
+    var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
     var braggPeakCount: Int?
-    private(set) var braggVectors: BraggVectors?
-    private(set) var completedDiskSummary: DiskDetectionScanSummary?
-    @ObservationIgnored private var liveDetectionRequest: UInt64 = 0
-    var diskParams = DiskDetectionParams() {
-        didSet { Task { await detectCurrentPattern() } }   // live overlay tracks params
-    }
+    var braggVectors: BraggVectors?
+    var completedDiskSummary: DiskDetectionScanSummary?
+    @ObservationIgnored var liveDetectionRequest: UInt64 = 0
+    /// Seam 3 (docs/appstate-seams-plan.md): the disk-detection run controls'
+    /// one owner. Every reader goes there directly; there are no forwarding
+    /// properties.
+    let diskDetection = DiskDetectionProduct()
 
     /// Return every detector control to the same size-aware defaults used
     /// when this dataset was opened — now including the fitted probe radius if
     /// one has been measured since, which is what makes the minimum-spacing
-    /// default physically meaningful.
+    /// default physically meaningful. The pure construction is
+    /// `diskDetection.reset(qy:qx:probeRadius:)`; this wrapper resolves the
+    /// AppState-only inputs the owner cannot read itself.
     func resetDiskDetectionParams() {
         guard let descriptor else { return }
-        diskParams = .detectorAdapted(
-            qy: descriptor.qy, qx: descriptor.qx, probeRadius: fittedProbeRadius
-        )
+        diskDetection.reset(qy: descriptor.qy, qx: descriptor.qx, probeRadius: fittedProbeRadius)
     }
 
     /// The probe radius to scale detector defaults with: the generated
@@ -375,16 +391,11 @@ final class AppState {
     /// user who raises Maximum peaks (a natural response to a doubled yield)
     /// or nudges any unrelated control would then be pinned to the
     /// detector-scaled spacing permanently, with nothing on screen saying why.
+    /// The pure guard/compare/assign is `diskDetection.refreshForMeasuredProbe
+    /// (qy:qx:probeRadius:)`; this wrapper resolves the AppState-only inputs.
     func refreshDiskDefaultsForMeasuredProbe() {
-        guard let descriptor, let radius = fittedProbeRadius,
-              radius.isFinite, radius > 0 else { return }
-        let placeholder = DiskDetectionParams.detectorAdapted(
-            qy: descriptor.qy, qx: descriptor.qx, probeRadius: nil
-        )
-        guard diskParams.minPeakSpacing == placeholder.minPeakSpacing else { return }
-        diskParams.minPeakSpacing = DiskDetectionParams.detectorAdapted(
-            qy: descriptor.qy, qx: descriptor.qx, probeRadius: radius
-        ).minPeakSpacing
+        guard let descriptor else { return }
+        diskDetection.refreshForMeasuredProbe(qy: descriptor.qy, qx: descriptor.qx, probeRadius: fittedProbeRadius)
     }
 
     var diskDetectionContext: DiskDetectionContext? {
@@ -397,7 +408,7 @@ final class AppState {
 
     var diskDetectionValidationIssues: [DiskDetectionValidationIssue] {
         guard let context = diskDetectionContext else { return [] }
-        return diskParams.validationIssues(in: context)
+        return diskDetection.diskParams.validationIssues(in: context)
     }
 
     var diskDetectionConfigurationIsValid: Bool {
@@ -890,7 +901,7 @@ final class AppState {
             backend: acomSession.effectiveBackend.rawValue, scope: acomSession.scope, quality: acomSession.quality)
         return ProductWorkflow.currentReplaySignature(for: mode, virtualDetectorShape: virtualShape.rawValue, aperture: aperture,
             dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
-            diskParams: diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
+            diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
             strainSignature: strain.currentReplaySignature, acomSignature: acomSignature)
     }
 
@@ -1741,7 +1752,7 @@ final class AppState {
             return .ran(await runDPC(replaying: true))
 
         case .diskDetection(let params, let detector):
-            diskParams = params
+            diskDetection.diskParams = params
             if let reason = await learnedDetection.replayRefusal(for: detector) { return .refused(reason) }
             if let reason = replayRefusal(for: .disks) { return .refused(reason) }
             return .ran(await runDiskDetection(replaying: true))
@@ -1815,7 +1826,10 @@ final class AppState {
 
     /// The reader for a URL, by extension. Extracted so the configured open and
     /// the direct open cannot drift apart on which formats they accept.
-    private static func makeReader(for url: URL) async throws -> any FourDDataSource {
+    /// Widened from `private` (seam 3, docs/appstate-seams-plan.md):
+    /// `App/AppState+DiskDetection.swift`'s `generateVacuumProbeKernel` calls
+    /// it from outside this file.
+    static func makeReader(for url: URL) async throws -> any FourDDataSource {
         switch url.pathExtension.lowercased() {
         case "dm4", "dm3": return try await DM4Reader(path: url.path)
         case "mib": return try MIBReader(path: url.path)
@@ -2448,7 +2462,7 @@ final class AppState {
         // Origin calibration still gets a probe-scaled minimum spacing. Read
         // after `probeKernel = nil` above, so this cannot pick up the previous
         // dataset's kernel radius.
-        diskParams = .detectorAdapted(
+        diskDetection.diskParams = .detectorAdapted(
             qy: descriptor.qy, qx: descriptor.qx, probeRadius: fittedProbeRadius
         )
 
@@ -3564,431 +3578,6 @@ final class AppState {
             reciprocalPixelSize: calibrationSession.calibration.qPixelSize,
             reciprocalPixelUnits: calibrationSession.calibration.qPixelUnits,
             voltageKV: calibrationSession.acceleratingVoltage
-        )
-    }
-
-    // MARK: - Disk detection
-
-    /// Runs origin calibration if the radius is unknown; nil on failure.
-    /// Shared by the two generators below that need a calibrated radius.
-    private func ensureProbeRadius() async -> Float? {
-        if calibrationSession.calibration.probeRadius == nil { await calibrateOrigin() }
-        return calibrationSession.calibration.probeRadius
-    }
-
-    /// Build the synthetic probe kernel from the calibrated probe radius,
-    /// running origin calibration first if needed.
-    func generateProbeKernel() async {
-        guard let descriptor else { return }
-        guard let radius = await ensureProbeRadius() else { return }
-
-        guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
-            presentComputeFailure(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
-            return
-        }
-        probeKernel = kernel
-        // The learned path needs the full probe IMAGE; draw one (no measured pattern here).
-        let origin = calibrationSession.calibration.referenceOrigin(
-            detectorQX: descriptor.qx, detectorQY: descriptor.qy, apertureCentre: (x: aperture.centerX, y: aperture.centerY)).point
-        learnedDetection.probeReference = .init(
-            pattern: LearnedDetectionSession.syntheticProbe(qy: descriptor.qy, qx: descriptor.qx, centre: (x: origin.x, y: origin.y), radius: radius),
-            centreX: origin.x, centreY: origin.y, radius: radius, source: .synthetic)
-        statusText = String(format: "Probe kernel ✓  r = %.1f px, trench %.0f–%.0f px",
-                            radius, kernel.trenchRadii.inner, kernel.trenchRadii.outer)
-        await detectCurrentPattern()
-    }
-
-    /// Build a measured kernel from the CBED currently displayed. With a
-    /// rectangle/circle real-space ROI this is its summed vacuum pattern;
-    /// normalization makes sum versus mean immaterial.
-    func generateMeasuredProbeKernel(mode: ProbeKernelMode = .sigmoidTrench) async {
-        guard let d = descriptor, let pattern = displayedPattern else { return }
-        guard let radius = await ensureProbeRadius() else { return }
-        let origin = calibrationSession.calibration.referenceOrigin(  // v2 S13: one derivation
-            detectorQX: d.qx, detectorQY: d.qy,
-            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
-        ).point
-        guard let kernel = ProbeKernel.measured(
-            pattern: pattern, originX: origin.x, originY: origin.y, radius: radius, mode: mode
-        ) else {
-            presentComputeFailure(SimpleError("The current CBED/ROI did not contain a usable measured probe."))
-            return
-        }
-        probeKernel = kernel
-        learnedDetection.probeReference = .init(pattern: pattern, centreX: origin.x, centreY: origin.y, radius: radius, source: .measured)
-        statusText = String(
-            format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI, %@", radius,
-            mode.rawValue.lowercased()
-        )
-        await detectCurrentPattern()
-    }
-
-    /// Build the kernel from a probe image the FILE carries (py4DSTEM's
-    /// `probe` / `probe_template`), the way the bullseye tutorial does. The
-    /// probe's own centre and radius come from the probe-size estimator on
-    /// that image, as `get_probe_kernel_flat` does with `origin=None`. The
-    /// first candidate on the detector grid is used; the status names it.
-    func generateFileProbeKernel(mode: ProbeKernelMode = .flat) async {
-        guard let descriptor, let reader else { return }
-        let candidates: [ProbeCandidate]
-        do {
-            candidates = try await reader.probeCandidates(detectorQY: descriptor.qy, detectorQX: descriptor.qx)
-        } catch {
-            presentComputeFailure(error)
-            return
-        }
-        guard let candidate = candidates.first else {
-            presentComputeFailure(SimpleError("This file carries no probe image on the \(descriptor.qx) × \(descriptor.qy) detector grid — use a vacuum CBED / ROI instead."))
-            return
-        }
-        let pattern: DiffractionPattern
-        do {
-            pattern = DiffractionPattern(qy: candidate.qy, qx: candidate.qx, pixels: try await reader.readProbe(candidate))
-        } catch {
-            presentComputeFailure(error)
-            return
-        }
-        guard let size = OriginCalibration.probeSize(dp: pattern.pixels, qy: pattern.qy, qx: pattern.qx) else {
-            presentComputeFailure(SimpleError("The probe image at \(candidate.path) has no measurable disk."))
-            return
-        }
-        guard let kernel = ProbeKernel.measured(
-            pattern: pattern, originX: size.x0, originY: size.y0, radius: size.r,
-            mode: mode, source: .fileProbe, probePath: candidate.path
-        ) else {
-            presentComputeFailure(SimpleError("The probe image at \(candidate.path) did not yield a usable kernel."))
-            return
-        }
-        probeKernel = kernel
-        learnedDetection.probeReference = .init(pattern: pattern, centreX: size.x0, centreY: size.y0, radius: size.r, source: .fileProbe)
-        let others = candidates.count > 1 ? " (\(candidates.count - 1) more in the file)" : ""
-        statusText = String(
-            format: "File probe kernel ✓  r = %.1f px, %@, from %@%@", size.r,
-            mode.rawValue.lowercased(), candidate.path, others
-        )
-        await detectCurrentPattern()
-    }
-
-    /// Build the kernel from a SEPARATE vacuum scan file — the fix for a sample
-    /// with no vacuum region in frame (the MgO disk-radius finding). The vacuum
-    /// scan's mean pattern is the probe; `OriginCalibration.vacuumProbeKernel`
-    /// refuses if its detector differs from the loaded dataset's. // v3.1
-    func generateVacuumProbeKernel(fromScan url: URL, mode: ProbeKernelMode = .flat) async {
-        guard let descriptor else { return }
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-        do {
-            let reader = try await Self.makeReader(for: url)
-            let vacuumDescriptor = try await reader.discoverPrimaryDataset()
-            let vacuumData = FourDArray(reader: reader, descriptor: vacuumDescriptor)
-            let result = try await OriginCalibration.vacuumProbeKernel(
-                vacuum: vacuumData, vacuumDescriptor: vacuumDescriptor,
-                targetDescriptor: descriptor, mode: mode, probePath: url.lastPathComponent
-            )
-            probeKernel = result.kernel
-            let pattern = DiffractionPattern(qy: vacuumDescriptor.qy, qx: vacuumDescriptor.qx,
-                                             pixels: result.meanDP)
-            learnedDetection.probeReference = .init(
-                pattern: pattern, centreX: result.centreX, centreY: result.centreY,
-                radius: result.radius, source: .vacuumScan)
-            statusText = String(format: "Vacuum probe kernel ✓  r = %.1f px from %@, %@",
-                                result.radius, url.lastPathComponent, mode.rawValue.lowercased())
-            await detectCurrentPattern()
-        } catch {
-            presentComputeFailure(error)
-        }
-    }
-
-    // Same coalescing contract as the live virtual-detector drag: at most one
-    // detection in flight; parameter changes during a slider drag mark work
-    // pending instead of piling up detached detections that only get
-    // discarded by the request counter after running to completion.
-    @ObservationIgnored private var liveDetectionInFlight = false
-    @ObservationIgnored private var liveDetectionPending = false
-
-    /// Live overlay: detect disks in the currently displayed pattern only.
-    func detectCurrentPattern() async {
-        if liveDetectionInFlight {
-            liveDetectionPending = true
-            return
-        }
-        liveDetectionInFlight = true
-        await performLiveDetection()
-        liveDetectionInFlight = false
-        if liveDetectionPending {
-            liveDetectionPending = false
-            Task { await detectCurrentPattern() }
-        }
-    }
-
-    /// One live-detection pass over the latest displayed pattern/parameters.
-    private func performLiveDetection() async {
-        liveDetectionRequest &+= 1
-        let request = liveDetectionRequest
-        guard navigation.analysisMode == .disks, let kernel = probeKernel,
-              let pattern = displayedPattern else {
-            if !currentPeaks.isEmpty { currentPeaks = [] }
-            currentDiskDiagnostics = nil
-            return
-        }
-        let params = diskParams
-        let context = DiskDetectionContext(
-            qy: pattern.qy, qx: pattern.qx, probeRadius: kernel.probeRadius
-        )
-        guard !params.validationIssues(in: context).contains(where: {
-            $0.severity == .error
-        }) else {
-            currentPeaks = []
-            currentDiskDiagnostics = nil
-            return
-        }
-        let epoch = datasetEpoch
-        // Detector-picker overlay: the net's own candidates are the rings (no classical funnel).
-        if let peaks = await learnedDetection.livePeaks(pattern: pattern, params: params) {
-            guard epoch == datasetEpoch, request == liveDetectionRequest,
-                  navigation.analysisMode == .disks else { return }
-            currentPeaks = peaks; currentDiskDiagnostics = nil
-            return
-        }
-        let result = await Task.detached(priority: .userInitiated) {
-            () -> DiskDetectionPatternResult? in
-            guard let detector = DiskDetector(kernel: kernel) else { return nil }
-            return detector.detectWithDiagnostics(
-                pattern: pattern.pixels, params: params
-            )
-        }.value
-        guard epoch == datasetEpoch,
-              request == liveDetectionRequest,
-              navigation.analysisMode == .disks else { return }
-        currentPeaks = result?.peaks ?? []
-        currentDiskDiagnostics = result?.diagnostics
-    }
-
-    /// Full-scan detection → BraggVectors + Bragg vector map.
-    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
-    @discardableResult
-    func runDiskDetection(replaying: Bool = false) async -> AnalysisRunOutcome {
-        guard let fourD, let descriptor else { return .failed("No dataset is loaded") }
-        if probeKernel == nil { await generateProbeKernel() }
-        guard let kernel = probeKernel else {
-            return .failed("No probe kernel could be generated")
-        }
-
-        let params = diskParams
-        let context = DiskDetectionContext(
-            qy: descriptor.qy, qx: descriptor.qx, probeRadius: kernel.probeRadius
-        )
-        let errors = params.validationIssues(in: context).filter {
-            $0.severity == .error
-        }
-        guard errors.isEmpty else {
-            let reason = "Disk-detection settings are invalid: "
-                + errors.map(\.message).joined(separator: " ")
-            presentComputeFailure(SimpleError(reason))
-            return .failed(reason)
-        }
-
-        // Prepare the learned asset (first use only) before the cancellable operation begins.
-        let detectorClass = learnedDetection.detectorClass
-        let statusPrefix = detectorClass == .learned ? "Detecting Bragg disks (neural net)…" : "Detecting Bragg disks…"
-        var preparedLearned: LearnedDiskDetector?
-        if detectorClass == .learned {
-            statusText = "Preparing the neural-net detector…"
-            switch await learnedDetection.prepareForRun() {
-            case .failure(let reason): presentComputeFailure(SimpleError(reason)); return .failed(reason)
-            case .success(let loaded): preparedLearned = loaded
-            }
-        }
-
-        let cancellation = beginCancellableOperation(
-            "Disk detection", status: statusPrefix, totalUnits: descriptor.rx * descriptor.ry
-        )
-        defer { finishCancellableOperation(cancellation) }
-
-        let d = descriptor
-        // `detectAll` now throws a `FullScanError` naming what failed and
-        // where; nil means cancelled and nothing else. The previous contract
-        // returned nil for everything, and the guard below then attributed a
-        // NAS tile-read failure to "its FFT plan" — the error-attribution
-        // defect this session exists to fix. // v2 S7
-        let epoch = datasetEpoch
-        let vectors: BraggVectors?
-        do {
-            // P1 (Gate D, 2026-09-01): run the full-scan detection OFF the
-            // main actor. `detectAll` is nonisolated async and ran on the
-            // caller's executor here, and its `concurrentPerform` then
-            // conscripted the MAIN thread as a dispatch_apply worker for each
-            // tile's entire CPU-FFT workload — sampled live during the
-            // owner's frozen run: 2518/2519 main-thread samples inside
-            // FFT2D.transform, AX ping 7 s, progress unpaintable, Cancel
-            // dead. The detached task keeps the worker pool saturated while
-            // the runloop stays free. The progress closure already hopped to
-            // the main actor explicitly, so it is unchanged.
-            let data = fourD
-            // Read on the main actor, before the detach below.
-            let (learnedRef, learnedThreshold) = (learnedDetection.probeReference, learnedDetection.threshold)
-            let progress: @Sendable (Double) -> Void = { [weak self] fraction in
-                Task { @MainActor [weak self] in
-                    guard let self,
-                          self.isCurrentOperation(cancellation),
-                          !cancellation.isCancelled else { return }
-                    self.progress = fraction
-                    self.showReadout(statusPrefix)   // the bar draws the fraction
-                }
-            }
-            switch detectorClass {
-            case .classical:
-                vectors = try await Task.detached(priority: .userInitiated) {
-                    try await DiskDetection.detectAll(
-                        data: data, descriptor: d, kernel: kernel,
-                        params: params, cancellation: cancellation,
-                        progress: progress
-                    )
-                }.value
-            case .learned:
-                guard let learned = preparedLearned, let ref = learnedRef else {
-                    throw SimpleError("The learned detector is not ready — this is a defect; please report it.") }
-                vectors = try await Task.detached(priority: .userInitiated) {
-                    try await learned.detectAll(
-                        data: data, descriptor: d, probe: ref.pattern,
-                        probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
-                        kernelSource: ref.source, params: params, threshold: learnedThreshold,
-                        cancellation: cancellation, progress: progress
-                    )
-                }.value
-            }
-        } catch {
-            guard datasetEpoch == epoch else { return .failed("The dataset changed during the run") }
-            if cancellation.isCancelled {
-                statusText = braggVectors == nil
-                    ? "Disk detection cancelled — no peaks were published"
-                    : "Disk detection cancelled; the previous full-scan peaks are still shown"
-                return .cancelled
-            }
-            presentComputeFailure(error)
-            return .failed(error.localizedDescription)
-        }
-        guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
-        if cancellation.isCancelled {
-                // `DiskDetection.detectAll` returns nil on cancellation — never
-                // a partial `BraggVectors` — so nothing here is a half-finished
-                // result. What stays on screen is the PREVIOUS completed run,
-                // and saying so is the difference between this and the silent
-                // "it showed a Bragg vector map regardless" the release owner
-            // reported (backlog #34). Every other cancellable step in this
-            // file already names what it retained; this one did not.
-            statusText = braggVectors == nil
-                ? "Disk detection cancelled — no peaks were published"
-                : "Disk detection cancelled; the previous full-scan peaks are still shown"
-            return .cancelled
-        }
-        guard let vectors else {
-            // With the throwing contract, nil-and-not-cancelled cannot
-            // happen; if it ever does, say that rather than invent a cause.
-            let reason = "Disk detection returned no result and no reason — this is a defect; please report it."
-            presentComputeFailure(SimpleError(reason))
-            return .failed(reason)
-        }
-        braggVectors = vectors
-        learnedDetection.record(vectors, as: detectorClass)
-        // Recipe step (v2 S5): the canonical example of why the record exists
-        // separately from per-result controls — detection's own product
-        // (BraggVectors) is often never saved as a result, but strain's is,
-        // and replaying strain without these parameters is impossible.
-        // Re-detection INVALIDATES downstream steps: a strain or ACOM step
-        // recorded against the old peaks would otherwise survive next to the
-        // new detection — a recipe that replays neither the saved maps nor a
-        // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
-        var replayParameters = params.replayParameters(kernel: kernel)
-        replayParameters.merge(learnedDetection.replayParameters(for: detectorClass)) { _, new in new }
-        recordReplayStep(kind: "disk_detection", parameters: replayParameters,
-                          invalidating: ["strain", "acom"], replaying: replaying)
-        completedDiskSummary = DiskDetectionScanSummary(
-            vectors: vectors, maximumPeaks: params.maxNumPeaks, parameters: params
-        )
-        braggPeakCount = vectors.totalPeakCount
-        showBraggMap(vectors, descriptor: d)
-        if vectors.totalPeakCount == 0 {
-            // An empty result is a dead end unless it points at the
-            // evidence: the live acceptance funnel and scan summary in
-            // the Bragg panel show which filter removed everything.
-            statusText = "Disk detection accepted no peaks — check the acceptance funnel and warnings in the Bragg panel, then relax the intensity or spacing thresholds"
-        } else if detectorClass == .learned {
-            statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (neural net, \(params.subpixel.rawValue) subpixel)"
-        } else {
-            statusText = "Disks ✓  \(vectors.totalPeakCount) peaks (\(params.subpixel.rawValue) subpixel)"
-        }
-        return .published
-    }
-
-    /// Show the Bragg vector map (log-scaled — the central beam dominates the
-    /// raw histogram) in the result pane.
-    func showBraggMap(_ vectors: BraggVectors, descriptor d: DatasetDescriptor) {
-        let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
-        let bvm = calibrated.map(qy: d.qy, qx: d.qx)
-        resultColormap = .viridis
-        publishProduct(   // v2.5 step 3e: its own label
-            kind: "bragg_vector_map", displayName: "Bragg vector map", valueUnits: "log_intensity",
-            payload: .scalar(FloatImage(width: bvm.width, height: bvm.height,
-                                        pixels: bvm.pixels.map { log10(1 + max($0, 0)) })))
-        Task { await ensureScanNavigator() }
-    }
-
-    /// Publish where the last neural-net and the last classical full-scan run
-    /// on this dataset disagree, peak against peak, as a scan map (C7 session
-    /// 3; docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a) — "a product like any other"). Runs nothing and
-    /// records no recipe step: both inputs are completed results held by
-    /// `learnedDetection`, which clears them on dataset activation, so the pair
-    /// is always one dataset's; a replay reproduces it by re-running both.
-    @discardableResult
-    func runDiskDisagreement() -> AnalysisRunOutcome {
-        guard let classical = learnedDetection.lastClassical,
-              let learned = learnedDetection.lastLearned else {
-            return .failed("Run Detect All Disks with each detector on this dataset first")
-        }
-        guard let (image, summary) = DiskDisagreement.positionMatchedMap(
-            classical: classical, learned: learned
-        ) else {
-            return .failed("The classical and neural-net runs do not share a scan shape")
-        }
-        resultColormap = .viridis
-        // The mode's own metadata describes the current Bragg vectors; the
-        // product overrides what differs (domain, source, both classes, the
-        // compared learned run's identity, the statistics).
-        publishProduct(
-            kind: "disk_disagreement", displayName: "Detector disagreement (unmatched peaks)",
-            valueUnits: "peaks", payload: .scalar(image), domain: .scan,
-            extraProvenance: summary.provenance(learnedRun: learned.detectionProvenance))
-        statusText = summary.statusLine
-        return .published
-    }
-
-    /// Raw peaks remain the source of truth; analysis calibration is derived
-    /// on demand so imported or newly fitted origin/ellipse values immediately
-    /// affect Bragg maps, strain, and ACOM without re-running detection.
-    func calibratedBraggVectors(          // internal since 2026-09-12: AppState+PhaseMapping
-        _ vectors: BraggVectors,
-        descriptor d: DatasetDescriptor,
-        positions: [Int]? = nil
-    ) -> (vectors: BraggVectors, origin: Calibration.ReferenceOrigin) {
-        // v2 S13: ONE derivation, `Calibration.referenceOrigin`. This line used
-        // to read `calibration.meanOrigin ?? (qx/2, qy/2)`, and `meanOrigin` is
-        // nil in exactly the `.fileMean`/`.sessionMean` states — so the file's
-        // recorded beam centre was replaced by the detector's geometric middle
-        // in Q calibration, strain, ACOM and the Bragg map at once, while the
-        // inspector went on displaying the file's origin (S11, 2026-08-28).
-        // Three sibling call sites fell back to the aperture instead; they now
-        // ask the same function, and the KIND travels with the value so a
-        // caller that must not accept a stand-in can refuse on it.
-        let origin = calibrationSession.calibration.referenceOrigin(
-            detectorQX: d.qx, detectorQY: d.qy,
-            apertureCentre: (x: aperture.centerX, y: aperture.centerY)
-        )
-        return (
-            vectors.calibrated(
-                with: calibrationSession.calibration, referenceOrigin: origin.point, positions: positions
-            ),
-            origin
         )
     }
 

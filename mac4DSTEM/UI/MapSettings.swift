@@ -190,7 +190,7 @@ private struct DiskDetectionRows: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
                 }
-                if appState.diskParams.minRelativeIntensity > 0,
+                if appState.diskDetection.diskParams.minRelativeIntensity > 0,
                    !diagnostics.relativeReferenceWasAvailable {
                     Label(
                         "The selected reference-peak rank is absent in this pattern; the relative filter cannot be evaluated.",
@@ -344,7 +344,7 @@ private struct AdvancedDiskDetectionSection: View {
                 ),
                 range: floatEditorRange(.correlationPower),
                 step: Float(DiskDetectionParameterID.correlationPower.editorStep!),
-                valueText: String(format: "%.2f", appState.diskParams.corrPower)
+                valueText: String(format: "%.2f", appState.diskDetection.diskParams.corrPower)
             )
             .help(DiskDetectionParameterID.correlationPower.explanation)
 
@@ -359,7 +359,7 @@ private struct AdvancedDiskDetectionSection: View {
             .help(DiskDetectionParameterID.subpixel.explanation)
 
             Stepper(value: maximumPeaksBinding(appState), in: 1...500) {
-                Text("\(DiskDetectionParameterID.maximumPeaks.title)  \(appState.diskParams.maxNumPeaks)")
+                Text("\(DiskDetectionParameterID.maximumPeaks.title)  \(appState.diskDetection.diskParams.maxNumPeaks)")
             }
             .help(DiskDetectionParameterID.maximumPeaks.explanation)
 
@@ -371,7 +371,7 @@ private struct AdvancedDiskDetectionSection: View {
                 ),
                 range: floatEditorRange(.patternSigma),
                 step: Float(DiskDetectionParameterID.patternSigma.editorStep!),
-                valueText: String(format: "%.1f px", appState.diskParams.sigmaDP)
+                valueText: String(format: "%.1f px", appState.diskDetection.diskParams.sigmaDP)
             )
             .help(DiskDetectionParameterID.patternSigma.explanation)
 
@@ -382,7 +382,7 @@ private struct AdvancedDiskDetectionSection: View {
                 ),
                 range: floatEditorRange(.correlationSigma),
                 step: Float(DiskDetectionParameterID.correlationSigma.editorStep!),
-                valueText: String(format: "%.1f px", appState.diskParams.sigmaCC)
+                valueText: String(format: "%.1f px", appState.diskDetection.diskParams.sigmaCC)
             )
             .help(DiskDetectionParameterID.correlationSigma.explanation)
 
@@ -409,9 +409,9 @@ private struct AdvancedDiskDetectionSection: View {
 
             Stepper(
                 value: relativePeakRankBinding(appState),
-                in: 1...max(1, appState.diskParams.maxNumPeaks)
+                in: 1...max(1, appState.diskDetection.diskParams.maxNumPeaks)
             ) {
-                Text("\(DiskDetectionParameterID.relativeReferencePeak.title)  #\(appState.diskParams.relativeToPeak + 1)")
+                Text("\(DiskDetectionParameterID.relativeReferencePeak.title)  #\(appState.diskDetection.diskParams.relativeToPeak + 1)")
             }
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
@@ -427,7 +427,7 @@ private struct AdvancedDiskDetectionSection: View {
                 Text(String(
                     format: "%@  %.0f px",
                     DiskDetectionParameterID.relativeReferenceMinimumRadius.title,
-                    appState.diskParams.relativeReferenceMinimumRadiusPx
+                    appState.diskDetection.diskParams.relativeReferenceMinimumRadiusPx
                 ))
             }
             .help(DiskDetectionParameterID.relativeReferenceMinimumRadius.explanation)
@@ -440,7 +440,7 @@ private struct AdvancedDiskDetectionSection: View {
                 Text(String(
                     format: "%@  %.0f px",
                     DiskDetectionParameterID.minimumPeakSpacing.title,
-                    appState.diskParams.minPeakSpacing
+                    appState.diskDetection.diskParams.minPeakSpacing
                 ))
             }
             .help(DiskDetectionParameterID.minimumPeakSpacing.explanation)
@@ -449,18 +449,18 @@ private struct AdvancedDiskDetectionSection: View {
                 value: intBinding(appState, \.edgeBoundary, in: 1...maximumEdgeBoundary),
                 in: 1...maximumEdgeBoundary
             ) {
-                Text("\(DiskDetectionParameterID.edgeBoundary.title)  \(appState.diskParams.edgeBoundary) px")
+                Text("\(DiskDetectionParameterID.edgeBoundary.title)  \(appState.diskDetection.diskParams.edgeBoundary) px")
             }
             .help(DiskDetectionParameterID.edgeBoundary.explanation)
 
             // Fourier localization.
-            if appState.diskParams.subpixel == .multicorr {
+            if appState.diskDetection.diskParams.subpixel == .multicorr {
                 Stepper(
                     value: intBinding(appState, \.upsampleFactor, in: 4...64),
                     in: 4...64,
                     step: 4
                 ) {
-                    Text("\(DiskDetectionParameterID.upsampleFactor.title)  \(appState.diskParams.upsampleFactor)×")
+                    Text("\(DiskDetectionParameterID.upsampleFactor.title)  \(appState.diskDetection.diskParams.upsampleFactor)×")
                 }
                 .help(DiskDetectionParameterID.upsampleFactor.explanation)
             }
@@ -1040,11 +1040,11 @@ private func parameterBinding<Value>(
     _ keyPath: WritableKeyPath<DiskDetectionParams, Value>
 ) -> Binding<Value> {
     Binding(
-        get: { appState.diskParams[keyPath: keyPath] },
+        get: { appState.diskDetection.diskParams[keyPath: keyPath] },
         set: { value in
-            var params = appState.diskParams
+            var params = appState.diskDetection.diskParams
             params[keyPath: keyPath] = value
-            appState.diskParams = params
+            appState.diskDetection.diskParams = params
         }
     )
 }
@@ -1055,11 +1055,11 @@ private func floatBinding(
     in range: ClosedRange<Float>
 ) -> Binding<Float> {
     Binding(
-        get: { appState.diskParams[keyPath: keyPath] },
+        get: { appState.diskDetection.diskParams[keyPath: keyPath] },
         set: { value in
-            var params = appState.diskParams
+            var params = appState.diskDetection.diskParams
             params[keyPath: keyPath] = min(max(value, range.lowerBound), range.upperBound)
-            appState.diskParams = params
+            appState.diskDetection.diskParams = params
         }
     )
 }
@@ -1069,11 +1069,11 @@ private func nonnegativeFloatBinding(
     _ keyPath: WritableKeyPath<DiskDetectionParams, Float>
 ) -> Binding<Float> {
     Binding(
-        get: { appState.diskParams[keyPath: keyPath] },
+        get: { appState.diskDetection.diskParams[keyPath: keyPath] },
         set: { value in
-            var params = appState.diskParams
+            var params = appState.diskDetection.diskParams
             params[keyPath: keyPath] = value.isFinite ? max(0, value) : 0
-            appState.diskParams = params
+            appState.diskDetection.diskParams = params
         }
     )
 }
@@ -1084,11 +1084,11 @@ private func intBinding(
     in range: ClosedRange<Int>
 ) -> Binding<Int> {
     Binding(
-        get: { appState.diskParams[keyPath: keyPath] },
+        get: { appState.diskDetection.diskParams[keyPath: keyPath] },
         set: { value in
-            var params = appState.diskParams
+            var params = appState.diskDetection.diskParams
             params[keyPath: keyPath] = min(max(value, range.lowerBound), range.upperBound)
-            appState.diskParams = params
+            appState.diskDetection.diskParams = params
         }
     )
 }
@@ -1115,12 +1115,12 @@ private func learnedModelStatus(_ learned: LearnedDetectionSession) -> String {
 
 private func maximumPeaksBinding(_ appState: AppState) -> Binding<Int> {
     Binding(
-        get: { appState.diskParams.maxNumPeaks },
+        get: { appState.diskDetection.diskParams.maxNumPeaks },
         set: { value in
-            var params = appState.diskParams
+            var params = appState.diskDetection.diskParams
             params.maxNumPeaks = min(max(value, 1), 500)
             params.relativeToPeak = min(params.relativeToPeak, params.maxNumPeaks - 1)
-            appState.diskParams = params
+            appState.diskDetection.diskParams = params
         }
     )
 }
@@ -1129,25 +1129,25 @@ private func maximumPeaksBinding(_ appState: AppState) -> Binding<Int> {
 /// about in a compact UI while preserving the exact underlying parameter.
 private func relativeIntensityPercentBinding(_ appState: AppState) -> Binding<Double> {
     Binding(
-        get: { Double(appState.diskParams.minRelativeIntensity) * 100 },
+        get: { Double(appState.diskDetection.diskParams.minRelativeIntensity) * 100 },
         set: { value in
-            var params = appState.diskParams
+            var params = appState.diskDetection.diskParams
             let finite = value.isFinite ? value : 0
             params.minRelativeIntensity = Float(min(max(finite, 0), 100) / 100)
-            appState.diskParams = params
+            appState.diskDetection.diskParams = params
         }
     )
 }
 
 private func relativePeakRankBinding(_ appState: AppState) -> Binding<Int> {
     Binding(
-        get: { appState.diskParams.relativeToPeak + 1 },
+        get: { appState.diskDetection.diskParams.relativeToPeak + 1 },
         set: { rank in
-            var params = appState.diskParams
+            var params = appState.diskDetection.diskParams
             params.relativeToPeak = min(
                 max(0, rank - 1), max(0, params.maxNumPeaks - 1)
             )
-            appState.diskParams = params
+            appState.diskDetection.diskParams = params
         }
     )
 }
