@@ -556,6 +556,26 @@ final class ReplayPlanTests: XCTestCase {
         }
     }
 
+    func testPromotionPlansFromTheCapturedRehearsalFrameNotTheAppliedFullExtentView() {
+        var record = SessionReplayRecord()
+        record.record(kind: "virtual_detector",
+                      parameters: virtualDetectorStep.parameters,
+                      at: Date(timeIntervalSince1970: 0))
+        let capturedBeforePromotion = ReplayParameterFrame.detectorReduced(bin: 2, crop: nil)
+        let appliedAfterPromotion = LoadSpecification.fullExtent
+        XCTAssertTrue(appliedAfterPromotion.isFullExtent, "precondition: the current view has promoted")
+
+        let planned = ReplayPlanner.plan(record, frame: capturedBeforePromotion)
+
+        guard case .success(let plan) = planned[0].result else {
+            return XCTFail("The captured reduced frame must remain plannable after promotion")
+        }
+        XCTAssertEqual(plan, .virtualDetector(
+            shape: .annulus,
+            aperture: Aperture(centerX: 63.5, centerY: 60.5, inner: 6, outer: 18)
+        ), "Planning from the post-promote full-extent view would leave these recorded detector coordinates unmapped")
+    }
+
     func testACroppedAndBinnedFrameReReferencesPositionsWithTheOffset() {
         // Offsets come back AFTER un-binning — `apply` shifts then bins, so
         // the inverse un-bins then shifts. b = 2, crop offset (x 8, y 4):

@@ -114,6 +114,21 @@ final class SessionReplayTests: XCTestCase {
                        "Absence of a recorded recipe is absence — it must not clear this session's")
     }
 
+    @MainActor
+    func testPromotionKeepsTheRecipeFrameCapturedBeforeTheAppliedViewBecomesFullExtent() {
+        var record = SessionReplayRecord()
+        record.record(kind: "virtual_detector", parameters: ["outer": "6"])
+        let replay = SessionReplay()
+        let captured = ReplayParameterFrame.detectorReduced(bin: 2, crop: nil)
+
+        replay.adopt(record, recordedOn: captured)
+        let appliedAfterPromotion = LoadSpecification.fullExtent
+
+        XCTAssertTrue(appliedAfterPromotion.isFullExtent)
+        XCTAssertEqual(replay.parameterFrame, captured,
+                       "LoadedView may become full extent, but the recipe remains expressed in its captured rehearsal frame")
+    }
+
     // MARK: - File round-trip through the production writer/reader
 
     func testTheRecipeAndTheSpecificationRoundTripThroughTheSidecar() throws {

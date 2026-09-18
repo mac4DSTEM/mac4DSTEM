@@ -58,7 +58,7 @@ struct LoadConfigurator: View {
             footer
         }
         .onChange(of: pending.singleDPFailure, initial: true) { _, failure in
-            if let failure, appState.pendingLoad?.id == pending.id {
+            if let failure, appState.promotionRun.pendingLoad?.id == pending.id {
                 appState.statusText = "Pattern preview unavailable: \(failure)"
             }
         }

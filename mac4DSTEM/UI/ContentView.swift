@@ -90,7 +90,7 @@ struct ContentView: View {
             handleImport(result)
         }
         .sheet(item: Binding(
-            get: { appState.pendingLoad },
+            get: { appState.promotionRun.pendingLoad },
             set: { if $0 == nil { appState.discardPendingLoad() } }
         )) { pending in
             LoadConfigurator(pending: pending)

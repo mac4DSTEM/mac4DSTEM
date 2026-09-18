@@ -5,6 +5,11 @@ until `AppState.swift` holds owners, the window and publishing, and nothing
 else. Decision of record: one owner per feature on the `Session/StrainProduct`
 pattern; no store framework (`architecture.md`).
 
+**All seven seams landed 2026-09-18 — this plan is complete.** AppState.swift
+5476 → 1474 lines; it holds owners, window/publishing glue and the epoch, and
+is no longer the repo's largest file (`Support/ResultExport.swift` is). Kept
+live, not archived, as the log below is the seam-by-seam evidence trail.
+
 **To run the overnight part, paste this into a fresh session in the repo:**
 
 > Run `docs/appstate-seams-plan.md`, seams 1–4 in order, under its "Overnight
@@ -249,6 +254,7 @@ Each is its own session brief; paste the quoted line into a fresh session.
 | 2026-09-18 | 4 — `DPCProduct` (last unattended seam) | 4ffa5ca | build 0; unit 720/0/2=722 (`unit-seam4-20260918.log`, +5 over seam 3); inventory 0 (`inventory-seam4-20260918.log`) | 1 (`comField` private→internal for `AppState+DPC.swift`) | — |
 | 2026-09-18 | 5 — `ResultPresentation` | this commit | build 0; unit 727/0/2=729 (`unit-seam5-retry-20260918.log`, +7); rotation parity 0; strain-frame 0; owner drive passed; inventory 0 (`inventory-seam5-final-20260918.log`) | 2 (`loadCurrentPattern`, `scheduleLiveVirtualDetector`) | — |
 | 2026-09-18 | 6 — `DatasetSession` | this commit | build 0 (`build-final.log`); unit 732/0/2=734 (`unit-seam6-20260918.log`, +5); targeted owner/replay/cdhash tests 0 (`targeted-final.log`); inventory 0 (`inventory-seam6-final-20260918.log`); owner drive passed | 7 (`pendingRecovery`, `recoveryRecord`, `activate`, `beginDatasetLoading`, `finishDatasetLoading`, `rememberOpenedDataset`, `persistRecoveryPosition`) | — |
+| 2026-09-18 | 7 — load pipeline, both steps (`App/AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; owner `Session/PromotionRun.swift`) | this commit | build 0 (`build-seam7.log`); unit first run 740/1/2=743 **failed** — `PromotionCommitTests.testCommitRefusalPreservesThePendingLoadForCorrection` red (`unit-seam7.log`); fixed, re-run 741/0/2=743 (`unit-seam7-fixed.log`, 743 `func test` reconciled); inventory 0 (`inventory-seam7.log`): AppState.swift 3054 → 1474, AppState + ResultExport 4655 → 3075, handoff 408/450 words | 2 (`openFileAsync`, `realSpaceRegionMask`, both called only from `AppState.swift` itself) | Regression found and fixed, not restored — see decisions below |
 
 ### Seam 5 decisions and simplification ledger
 
@@ -258,6 +264,48 @@ Each is its own session brief; paste the quoted line into a fresh session.
 
 - `DatasetSession`, not `LoadedView`, owns reader/array; `LoadedView` records the applied view and calibration effects. The owner advances the epoch at the pre-seam point before view validation, then installs the pair synchronously before suspension.
 - Seven relocated lifecycle bodies have an empty normalized diff (`lifecycle-body.diff`, exit 0); five production mutations made all five owner tests red before clean-green. The required decision/mutation record and changelog are offset by trimming older live prose.
+
+### Seam 7 decisions and the regression it caught
+
+- **Both steps landed in one pass**, not split across attended sessions as
+  planned: placement (`App/AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`)
+  and the owner (`Session/PromotionRun<Pending>`, generic over `PendingLoad` —
+  not named in the plan but the natural shape) arrived together, uncommitted,
+  from an unattended agent session. The plan's Gate B-lite step ("a second
+  model reads the diagnosis, not the diff," before step two) did not happen
+  first — this review is that check, done after the fact rather than before.
+- **It caught a real bug.** The pre-seam `commitPendingLoad` guard read
+  `pendingLoad` and only cleared it once every condition passed
+  (`guard let pending = pendingLoad, ... else { return }`, then
+  `pendingLoad = nil`). The moved version collapsed the read and the clear
+  into one `promotionRun.take()` inside the guard, so a refused commit (a
+  beam-excluding crop, or no preview yet) still cleared the owner — the
+  configurator's pending load vanished instead of staying open for
+  correction. This is exactly the class of defect rule 2 ("no logic changes")
+  exists to catch, and it reached this session as a failing test
+  (`PromotionCommitTests.testCommitRefusalPreservesThePendingLoadForCorrection`,
+  red on the first `unit` run), not from reading the diff. Fixed by
+  restoring the peek-then-clear order; see the `DEVIATION` note in
+  `App/AppState+Promote.swift`.
+- **Everything else checked out:** the `Open`/`Promote`/`Replay` split
+  matches the pre-diff "Configured open" section boundaries exactly (checked
+  against `git show HEAD`, not just trusted); every `.pendingLoad` reader
+  outside `PromotionRun` itself was repointed to `promotionRun.pendingLoad`
+  (`ContentView.swift`, `LoadConfigurator.swift`, `TB1StallProbeTests.swift`,
+  grepped repo-wide, no stragglers); the two widened functions
+  (`openFileAsync`, `realSpaceRegionMask`) are both called only from
+  `AppState.swift`, which stayed behind. The three new `ReplayPlanTests`/
+  `SessionReplayAppStateTests`/`SessionReplayTests` cases pin the
+  captured-frame-survives-promotion contract the plan's seam 7 section
+  requires naming.
+- **Predicted end state was ≈1200 lines; actual is 1474** — still the
+  intended outcome (no longer the largest file), the gap being the Configured
+  open section's calibration-adjacent tail (`updateAperture`, the manual
+  Q/R setters, `realSpaceRegionMask`) that genuinely lived inside the same
+  section and had no more specific owner to move to.
+- **Not done:** an owner drive of the open → configure → commit/promote →
+  replay flow. Nothing is claimed on screen; see `docs/status.md`
+  "Unverified on screen".
 
 ### Overnight run summary, 2026-09-18
 

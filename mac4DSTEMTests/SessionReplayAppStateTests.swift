@@ -14,6 +14,52 @@ import DSTEMSession
 @MainActor
 final class SessionReplayAppStateTests: XCTestCase {
 
+    func testReopenReadsTheSourceAndAppliesTheSidecarSpecificationBeforeRecipeAdoption() async throws {
+        let suite = "mac4dstem.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+        let locator = SessionSidecarLocator(defaults: defaults)
+        let source = DemoFourDDataSource()
+        let descriptor = try await source.discoverPrimaryDataset()
+        let workDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SessionReplayReopen-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: workDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workDirectory) }
+        let sidecar = workDirectory.appendingPathComponent("demo.mac4dstem.h5")
+        locator.adopt(sidecar, for: descriptor)
+
+        var specification = LoadSpecification.fullExtent
+        specification.scanCrop = AxisCrop(yOffset: 2, xOffset: 3, height: 6, width: 6)
+        specification.detectorBin = 2
+        var record = SessionReplayRecord()
+        record.record(kind: "virtual_detector",
+                      parameters: ["shape": "Circle", "center_x": "16", "center_y": "16",
+                                   "inner": "0", "outer": "6"],
+                      at: Date(timeIntervalSince1970: 1))
+        try BraggVectorEMDWriter.mergeCalibration(
+            PixelCalibration(), qWidth: descriptor.qx, qHeight: descriptor.qy,
+            to: sidecar, loadSpecification: specification, replayRecord: record
+        )
+
+        let state = AppState(sessionSidecar: locator)
+        let restoredValue = await state.recordedLoadSpecification(
+            forSourcePath: descriptor.filePath, source: descriptor
+        )
+        let restored = try XCTUnwrap(restoredValue)
+        state.beginDatasetLoading("Reopening source…")
+        await state.activate(descriptor: descriptor, reader: source,
+                             specification: restored, runInitialAnalysis: false)
+        state.finishDatasetLoading()
+
+        XCTAssertEqual(state.datasetSession.loadView?.source.filePath, descriptor.filePath,
+                       "Reopen must read the source descriptor, never a reduced derived cube")
+        XCTAssertEqual(state.loadedView.specification, specification,
+                       "The sidecar specification is applied to the source before restore")
+        XCTAssertEqual(state.replay.record, record)
+        XCTAssertEqual(state.replay.parameterFrame, ReplayParameterFrame.of(specification),
+                       "Recipe adoption must name the sidecar specification's detector frame")
+    }
+
     func testTheAutomaticPassOnOpenRecordsNothing() async {
         // Opening runs the initial virtual-detector pass with DEFAULT
         // parameters. Recording it would let merely opening a colleague's

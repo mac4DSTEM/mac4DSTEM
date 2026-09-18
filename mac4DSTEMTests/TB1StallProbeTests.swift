@@ -35,10 +35,10 @@ final class TB1StallProbeTests: XCTestCase {
         let state = AppState()
         state.openFileForConfiguration(url: url)
         let deadline = Date().addingTimeInterval(120)
-        while state.pendingLoad == nil, Date() < deadline {
+        while state.promotionRun.pendingLoad == nil, Date() < deadline {
             try await Task.sleep(nanoseconds: 100_000_000)
         }
-        let pending = try XCTUnwrap(state.pendingLoad, "The configurator never appeared")
+        let pending = try XCTUnwrap(state.promotionRun.pendingLoad, "The configurator never appeared")
         if pending.preview == nil {
             // Reproduced. Re-run the builder WITHOUT the try? so the real
             // error becomes the test message — the whole point of the probe.
@@ -148,4 +148,3 @@ final class BookmarkResolutionLatencyTests: XCTestCase {
                        "The permission remedy is wrong for an absent volume")
     }
 }
-
