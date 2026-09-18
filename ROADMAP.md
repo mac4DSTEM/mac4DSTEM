@@ -56,25 +56,15 @@ additions are unverified on screen. Full registration:
 decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-v3.1-origin-validity-mask.md).
 
 **Theme 4's point-group coverage is also a Materials Project dependency, not
-only a grain-segmentation one** (found 2026-09-19, comparing against the
-pinned py4DSTEM source). Today's `ACOMCrystalSymmetry` implements exactly two
-point groups by hand in Swift: cubic (m-3m) and hexagonal (6/mmm)
-(`Core/Analysis/OrientationResult.swift`); anything else imports and
-identifies fine but is refused for orientation mapping/IPF
-(`CrystalModel.orientationMappingIssue`). py4DSTEM is only more general on
-paper: its own default plot function has the identical limit, undocumented
-to the point of a code comment — `plot_orientation_maps`'s docstring says
-"Currently, no symmetry reduction. Therefore the x and y orientations are
-going to be correct only for the \[001]\[011]\[111] orientation triangle"
-(cubic). py4DSTEM only reaches all 32 point groups by handing off to the
-external `orix` library (via `pymatgen` for point-group discovery), which
-Swift has no equivalent of. This matters for the **Materials Project
-importer** (`ROADMAP.md` § "Decided 2026-08-28" item 4): MP spans every
-crystal system, so a live connection will hit the cubic/hexagonal wall far
-more often than today's curated CIF imports do. Point-group coverage should
-be read as a soft prerequisite for the MP importer being broadly useful, not
-only for grain segmentation/multi-phase — sequencing decision owed if the MP
-importer is picked up before point-group coverage grows.
+only a grain-segmentation one** (found 2026-09-19). Today's
+`ACOMCrystalSymmetry` implements exactly two point groups by hand in Swift —
+cubic and hexagonal — so a live Materials Project connection (item 4 above)
+will hit the "can identify, can't orientation-map" wall far more often than
+today's curated CIF imports do; py4DSTEM is no more general by default
+(its own built-in plotting is cubic-only too — full coverage there needs
+the external `orix` library, which Swift has no equivalent of). **Both
+items are pre-registered together, next session:**
+[`docs/v3-materials-project-preregistration.md`](docs/v3-materials-project-preregistration.md).
 
 ## Beyond py4DSTEM — the differentiators
 
