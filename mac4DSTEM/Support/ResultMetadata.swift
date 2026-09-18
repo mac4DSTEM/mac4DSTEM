@@ -6,7 +6,7 @@
 //  This is a FILE-PLACEMENT move out of `ResultExport.swift` (2026-09-11), not
 //  the consolidation it superficially resembles. It stays an `extension
 //  AppState` and its body is unchanged, because it reads `virtualShape`,
-//  `dpcDisplay`, `strain.component`, `acomSession`, `phaseContrast.parallaxDepth` and more —
+//  `dpc.dpcDisplay`, `strain.component`, `acomSession`, `phaseContrast.parallaxDepth` and more —
 //  so it cannot join the `extension AnalysisMode` tables in
 //  `App/ProductWorkflow.swift` the way `AnalysisMode` itself did at step 1.
 //
@@ -36,7 +36,7 @@ extension AppState {
             return ("virtual_\(virtualShape.rawValue.lowercased())",
                     "Virtual detector · \(virtualShape.rawValue)", "intensity")
         case .dpc:
-            switch dpcDisplay {
+            switch dpc.dpcDisplay {
             case .magnitude:  return ("dpc_magnitude", "DPC magnitude", "detector_px")
             case .magnitudeMrad:
                 let physical = dpcMilliradiansPerDetectorPixel != nil

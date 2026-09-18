@@ -123,12 +123,12 @@ final class ProductStatusNegativeControlTests: XCTestCase {
         }
         let first = try XCTUnwrap(app.publishedProduct)
         XCTAssertTrue(first.kind.hasPrefix("dpc") || first.kind.hasPrefix("idpc"), first.kind)
-        app.dpcDisplay = .angle
+        app.dpc.dpcDisplay = .angle
         let angle = try XCTUnwrap(app.publishedProduct)
         XCTAssertEqual(angle.kind, "dpc_angle")
         XCTAssertEqual(angle.valueUnits, "rad")
         XCTAssertEqual(angle.quantitativeStatus, .quantitative)
-        app.dpcDisplay = .colorWheel
+        app.dpc.dpcDisplay = .colorWheel
         let wheel = try XCTUnwrap(app.publishedProduct)
         XCTAssertEqual(wheel.quantitativeStatus, .categorical)
         if case .rgba = wheel.payload {} else { XCTFail("colour wheel is an RGBA product") }

@@ -1337,7 +1337,7 @@ extension AppState {
 
     var currentScalarPersistenceMetadata:   // internal since v2.5 step 3c: publishLegacy reads it
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
-        if navigation.analysisMode == .dpc, dpcDisplay == .idpc {
+        if navigation.analysisMode == .dpc, dpc.dpcDisplay == .idpc {
             if let physical = idpcPhysicalCalibration {
                 return (
                     Double(physical.rowSamplingAngstrom),
@@ -1584,7 +1584,7 @@ extension AppState {
             ).rawValue
         }
         if publishedProduct?.origin != .restoredFromSidecar,
-           navigation.analysisMode == .dpc, dpcDisplay == .angle,
+           navigation.analysisMode == .dpc, dpc.dpcDisplay == .angle,
            currentResultKind == "dpc_angle", currentResultValueUnits == "rad",
            provenance[ScalarResultMap.dpcAngleEncodingKey] == nil {
             provenance[ScalarResultMap.dpcAngleEncodingKey] =

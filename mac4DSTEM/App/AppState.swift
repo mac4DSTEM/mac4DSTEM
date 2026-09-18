@@ -34,16 +34,6 @@ enum PatternScaleUnit: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum DPCDisplayMode: String, CaseIterable, Identifiable {
-    case magnitude = "Magnitude (detector px)"
-    case magnitudeMrad = "Magnitude (mrad)"
-    case angle = "Angle"
-    case colorWheel = "Color Wheel"
-    case idpc = "iDPC"
-
-    var id: String { rawValue }
-}
-
 // `ParallaxResultProduct` moved to `Session/PhaseContrastProduct.swift` (seam
 // 1, docs/appstate-seams-plan.md): a Session-layer owner cannot reference a
 // type defined in App/, so it moved with the state that uses it.
@@ -173,6 +163,14 @@ final class AppState {
         // `diskParams` `didSet`.
         diskDetection.onParamsChange = { [weak self] in
             Task { await self?.detectCurrentPattern() }
+        }
+        // Seam 4 (docs/appstate-seams-plan.md): the display derivation needs
+        // `comField`/`descriptor`/`navigation`/`calibrationSession`, none of
+        // which `dpc` holds — same hook shape as `diskDetection
+        // .onParamsChange` above. Body unchanged from the pre-seam
+        // `dpcDisplay` `didSet` (its return value was ignored there too).
+        dpc.onDisplayChange = { [weak self] in
+            _ = self?.applyDPCDisplay()
         }
     }
 
@@ -337,8 +335,11 @@ final class AppState {
     var patternVersion = 0
     var resultVersion = 0
 
-    // DPC: cached CoM shift field so display-mode switches don't re-run the GPU.
-    @ObservationIgnored private var comField: [Float]?
+    // DPC: cached CoM shift field so display-mode switches don't re-run the
+    // GPU. Widened from `private` (seam 4, docs/appstate-seams-plan.md):
+    // `App/AppState+DPC.swift`'s `runDPC`/`applyDPCDisplay` read/write it
+    // from a different file.
+    @ObservationIgnored var comField: [Float]?
 
     // Disk detection state. `diskParams` and its pure size-aware defaulting
     // moved to `diskDetection` (seam 3, docs/appstate-seams-plan.md); these
@@ -815,9 +816,11 @@ final class AppState {
     var realSpaceShape: RegionShape = .point
     var realSpaceRadius: Float = 6            // scan px half-extent / radius
     var virtualDiffractionPattern: DiffractionPattern?
-    var dpcDisplay: DPCDisplayMode = .magnitude {
-        didSet { applyDPCDisplay() }
-    }
+    /// Seam 4 (docs/appstate-seams-plan.md): the DPC display choice's one
+    /// owner, `dpc.dpcDisplay` (its `didSet` is now `dpc`'s own
+    /// `onDisplayChange` hook, wired in `init()`). Every reader goes there
+    /// directly; there are no forwarding properties.
+    let dpc = DPCProduct()
     /// CBED and scientific products deliberately own separate color choices.
     /// A diverging strain map must never recolor the diffraction evidence.
     /// Draw fit-verification overlays (origin/ellipse, strain lattice,
@@ -3364,164 +3367,18 @@ final class AppState {
 
     // MARK: - Calibration and phase contrast: AppState+Calibration.swift, AppState+PhaseContrast.swift (moved 2026-09-18)
 
-    // MARK: - DPC
-
-    /// Measure the CoM field (against calibrated origins) and cache it, then
-    /// render the selected DPC view. The field is cached so switching between
-    /// magnitude / angle / color-wheel / iDPC is instant (no GPU re-run).
-    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
-    @discardableResult
-    func runDPC(replaying: Bool = false) async -> AnalysisRunOutcome {
-        guard let descriptor else { return .failed("No dataset is loaded") }
-        let cancellation = beginCancellableOperation(
-            "DPC", status: "Computing DPC (center of mass)…",
-            totalUnits: descriptor.rx * descriptor.ry
-        )
-        defer { finishCancellableOperation(cancellation) }
-
-        do {
-            let epoch = datasetEpoch
-            let field = try await computeCoMField(cancellation: cancellation)
-            guard epoch == datasetEpoch else { return .failed("The dataset changed during the run") }
-            if cancellation.isCancelled {
-                statusText = "DPC cancelled"
-                return .cancelled
-            }
-            // A nil field here is not a publish: `computeCoMField` bails to
-            // nil when the cube is gone. The first version ran the success
-            // block anyway — "DPC ✓" over nothing, and a phantom recipe step
-            // (Gate A finding A6, 2026-08-25).
-            guard let field else {
-                statusText = "DPC could not run — no data is loaded"
-                return .failed("DPC could not run — no data is loaded")
-            }
-            comField = field
-            // A failed display derivation (an iDPC integration refusal) must
-            // not be papered over with "DPC ✓", must not become a recipe
-            // step, and must not report `.published` over a blank pane —
-            // Gate B refuted the first version on all three (2026-08-25).
-            // `presentComputeFailure` inside the derivation already put the
-            // reason in the durable log; withholding the ✓ line keeps it on
-            // the status bar too.
-            if let displayFailure = applyDPCDisplay() {
-                return .failed(displayFailure)
-            }
-            let ref = calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center"
-            statusText = "DPC ✓  (\(dpcDisplay.rawValue) vs \(ref))"
-            // Recipe step (v2 S5). ONLY the origin source: `computeCoMField`
-            // takes no aperture at all — its parameterization is which origin
-            // it subtracts (fitted per-position maps / mean origin, or the
-            // geometric fallback), and those come from `calibration` at run
-            // time exactly as they will at replay time. The first version
-            // recorded the aperture here; refuted by the function 45 lines up
-            // (Gate B-lite F2) — recording values the computation never used
-            // is false precision a replay would faithfully reproduce wrongly.
-            recordReplayStep(kind: "dpc", parameters: ["origin_reference": ref], replaying: replaying)
-            return .published
-        } catch {
-            if cancellation.isCancelled {
-                statusText = "DPC cancelled"
-                return .cancelled
-            }
-            presentComputeFailure(error)
-            return .failed(error.localizedDescription)
-        }
-    }
-
-    /// Flip the calibrated R–Q rotation by 180° — the curl/divergence solver
-    /// is blind to this (flipping both CoM components leaves both invariant),
-    /// so inverted iDPC contrast is fixed here, by hand.
-    func flipRotation180() {
-        guard var rotation = calibrationSession.calibration.rotationRad else { return }
-        rotation += .pi
-        if rotation > .pi { rotation -= 2 * .pi }
-        calibrationSession.calibration.rotationRad = rotation
-        calibrationSession.provenance.rotation = .manual
-        phaseContrast.parallaxPreprocess = nil
-        phaseContrast.parallaxAlignment = nil
-        // Same rule as `calibrateRotation`: the flip stands either way, but a
-        // refused re-derivation keeps its own message on the status bar.
-        // The strain tensor is mathematically invariant under a 180° flip
-        // (ε' = (−I)·ε·(−I)ᵀ = ε), but the displayed frame label shows the
-        // angle, so the display re-derives on the same one rule. // v2 S8
-        applyStrainDisplay()
-        if applyDPCDisplay() == nil {
-            statusText = String(format: "Rotation flipped → θ = %.1f°", rotation * 180 / .pi)
-        }
-    }
-
-    /// Derive the displayed image from the cached CoM field per `dpcDisplay`.
-    /// The calibrated R–Q rotation/transpose is applied first so the field is
-    /// in the scan frame. Cheap enough (scan-sized) to run on the main actor.
-    /// Returns the failure reason when the derivation could not produce an
-    /// image (today: an iDPC integration refusal), nil on success — so a
-    /// caller that writes its own "✓" status line can withhold it. The first
-    /// S7 version reported the failure only through `presentComputeFailure`
-    /// and `runDPC` then overwrote it with "DPC ✓", recorded a recipe step
-    /// and returned `.published` over a blank pane — the S1 channel defect
-    /// plus the A6 phantom-step defect, both found by Gate B (2026-08-25).
-    @discardableResult
-    /// The one publish site for every DPC display mode: pixels and label
-    /// chosen together (v2.5 step 3e, condition 2).
-    func applyDPCDisplay() -> String? {
-        guard var com = comField, let d = descriptor, navigation.analysisMode == .dpc else { return nil }
-        if let rotation = calibrationSession.calibration.rotationRad {
-            com = DPC.applyRotation(com: com, rotationRad: rotation,
-                                    transpose: calibrationSession.calibration.transposeQR ?? false)
-        }
-        let payload: ProductPayload
-        let kind: String, name: String, units: String
-        switch dpcDisplay {
-        case .magnitude:
-            resultColormap = .viridis
-            payload = .scalar(DPC.magnitudeImage(com: com, width: d.rx, height: d.ry))
-            (kind, name, units) = ("dpc_magnitude", "DPC magnitude", "detector_px")
-        case .magnitudeMrad:
-            resultColormap = .viridis
-            if let scale = dpcMilliradiansPerDetectorPixel {
-                payload = .scalar(DPC.physicalMagnitudeImage(
-                    com: com, width: d.rx, height: d.ry, milliradiansPerPixel: scale))
-                (kind, name, units) = ("dpc_magnitude_mrad", "DPC magnitude (mrad)", "mrad")
-            } else {
-                payload = .scalar(DPC.magnitudeImage(com: com, width: d.rx, height: d.ry))
-                (kind, name, units) = ("dpc_magnitude", "DPC magnitude", "detector_px")
-            }
-        case .angle:
-            resultColormap = .viridis
-            payload = .scalar(DPC.angleImage(com: com, width: d.rx, height: d.ry))
-            (kind, name, units) = ("dpc_angle", "DPC angle", "rad")
-        case .colorWheel:
-            resultColormap = .viridis
-            payload = .rgba(DPC.colorWheelRGBA(com: com, width: d.rx, height: d.ry))
-            (kind, name, units) = ("dpc_color", "DPC color wheel", "rgba")
-        case .idpc:
-            resultColormap = .rdbu
-            // `integrateIDPC` now throws instead of returning a zero image
-            // (v2 S7): a failed integration must leave NO image on screen —
-            // neither a fabricated flat map nor the previous display's
-            // pixels under an iDPC label — and must say why.
-            do {
-                if let physical = idpcPhysicalCalibration {
-                    payload = .scalar(try DPC.integratePhysicalIDPC(
-                        com: com, width: d.rx, height: d.ry,
-                        calibration: physical, boundary: .zeroPadded, paddingFactor: 2))
-                    (kind, name, units) = ("idpc_phase", "iDPC projected phase", "rad")
-                } else {
-                    payload = .scalar(try DPC.integrateIDPC(
-                        com: com, width: d.rx, height: d.ry,
-                        boundary: .zeroPadded, paddingFactor: 2))
-                    (kind, name, units) = ("idpc_qualitative", "iDPC (qualitative)", "detector_px_scan_px")
-                }
-            } catch {
-                publishedProduct = nil
-                resultVersion &+= 1
-                presentComputeFailure(error)
-                return error.localizedDescription
-            }
-        }
-        publishProduct(kind: kind, displayName: name, valueUnits: units, payload: payload)
-        return nil
-    }
+    // MARK: - DPC: run + display derivation in AppState+DPC.swift, display
+    // choice in Session/DPCProduct.swift (moved 2026-09-18, seam 4). What
+    // stays here (`dpcMilliradiansPerDetectorPixel`, `idpcOriginFitRefusal`,
+    // `idpcPhysicalCalibration`) are combiners over `calibrationSession`/
+    // `gates` with no dependency on `dpc`'s own state — see
+    // `Session/DPCProduct.swift`'s header for why the plan's "Moves" naming
+    // of `dpcMilliradiansPerDetectorPixel` was corrected.
+    //
+    // Deleted (moved verbatim to `App/AppState+DPC.swift`; diffed against
+    // the pre-seam file — identical apart from `dpcDisplay` →
+    // `dpc.dpcDisplay`): `runDPC(replaying:)`, `flipRotation180()`,
+    // `applyDPCDisplay() -> String?`.
 
     var dpcMilliradiansPerDetectorPixel: Float? {
         guard let qSize = calibrationSession.calibration.qPixelSize,

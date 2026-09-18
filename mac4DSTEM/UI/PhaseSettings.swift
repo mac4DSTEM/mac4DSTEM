@@ -58,6 +58,7 @@ private struct DPCSettingsSection: View {
 
     var body: some View {
         @Bindable var appState = appState
+        @Bindable var dpc = appState.dpc
         Section("DPC & iDPC") {
             // S22b (O2): status first — what running DPC will produce NOW —
             // then the display choice, then the per-mode detail.
@@ -92,13 +93,13 @@ private struct DPCSettingsSection: View {
                 .accessibilityIdentifier("dpc.openPrepare")
             }
 
-            Picker("Display", selection: $appState.dpcDisplay) {
+            Picker("Display", selection: $dpc.dpcDisplay) {
                 ForEach(DPCDisplayMode.allCases) { mode in
                     Text(mode.rawValue).tag(mode)
                 }
             }
 
-            if appState.dpcDisplay == .magnitudeMrad {
+            if dpc.dpcDisplay == .magnitudeMrad {
                 if let scale = appState.dpcMilliradiansPerDetectorPixel {
                     LabeledContent(
                         "Angular scale",
@@ -110,7 +111,7 @@ private struct DPCSettingsSection: View {
                         .foregroundStyle(.orange)
                 }
             }
-            if appState.dpcDisplay == .idpc {
+            if dpc.dpcDisplay == .idpc {
                 if let physical = appState.idpcPhysicalCalibration {
                     LabeledContent("Output", value: "Projected phase (rad)")
                     LabeledContent(

@@ -490,7 +490,7 @@ final class ProductWorkflowTests: XCTestCase {
     func testDPCScalarAnglePublishesRadianEncodingProvenance() {
         let state = AppState()
         state.navigation.analysisMode = .dpc
-        state.dpcDisplay = .angle
+        state.dpc.dpcDisplay = .angle
         state.publishProduct(kind: "dpc_angle", displayName: "DPC angle", valueUnits: "rad",
                              payload: .scalar(FloatImage(width: 1, height: 1, pixels: [.pi / 2])))
 

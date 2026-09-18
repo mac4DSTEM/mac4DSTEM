@@ -47,6 +47,17 @@ exactly that until the owner's drive says otherwise.
   they read `probeKernel`/`braggVectors`, which stay on AppState until seam
   5. AppState.swift 4230 → 3819 lines, 5 access widenings (the seam's cap).
   No logic changed. Unverified on screen.
+- **AppState seam 4: `DPCProduct`, the last unattended seam of the night.**
+  `dpcDisplay` and its `DPCDisplayMode` enum moved to the new owner
+  (`Session/DPCProduct.swift`); the `didSet` is now an `onDisplayChange`
+  hook. `dpcMilliradiansPerDetectorPixel` stayed on AppState (pure
+  `calibrationSession` derivation, no owner-state dependency). `runDPC`,
+  `flipRotation180`, `applyDPCDisplay` placed in `App/AppState+DPC.swift`;
+  `computeCoMField` untouched, shared with R–Q rotation as before.
+  AppState.swift 3819 → 3676 lines, 1 access widening. No logic changed.
+  Unverified on screen. **All four unattended seams (1–4) landed this
+  night**, AppState.swift 4699 → 3676; seams 5–7 are attended morning
+  sessions.
 
 ## v3.0.0 — 2026-09-11
 
