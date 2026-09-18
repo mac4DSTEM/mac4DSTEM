@@ -55,6 +55,27 @@ additions are unverified on screen. Full registration:
 [`docs/v3.1-calibration-preregistration.md`](docs/v3.1-calibration-preregistration.md),
 decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-v3.1-origin-validity-mask.md).
 
+**Theme 4's point-group coverage is also a Materials Project dependency, not
+only a grain-segmentation one** (found 2026-09-19, comparing against the
+pinned py4DSTEM source). Today's `ACOMCrystalSymmetry` implements exactly two
+point groups by hand in Swift: cubic (m-3m) and hexagonal (6/mmm)
+(`Core/Analysis/OrientationResult.swift`); anything else imports and
+identifies fine but is refused for orientation mapping/IPF
+(`CrystalModel.orientationMappingIssue`). py4DSTEM is only more general on
+paper: its own default plot function has the identical limit, undocumented
+to the point of a code comment — `plot_orientation_maps`'s docstring says
+"Currently, no symmetry reduction. Therefore the x and y orientations are
+going to be correct only for the \[001]\[011]\[111] orientation triangle"
+(cubic). py4DSTEM only reaches all 32 point groups by handing off to the
+external `orix` library (via `pymatgen` for point-group discovery), which
+Swift has no equivalent of. This matters for the **Materials Project
+importer** (`ROADMAP.md` § "Decided 2026-08-28" item 4): MP spans every
+crystal system, so a live connection will hit the cubic/hexagonal wall far
+more often than today's curated CIF imports do. Point-group coverage should
+be read as a soft prerequisite for the MP importer being broadly useful, not
+only for grain segmentation/multi-phase — sequencing decision owed if the MP
+importer is picked up before point-group coverage grows.
+
 ## Beyond py4DSTEM — the differentiators
 
 All requested by the owner; all out of v2 by the 2026-08-18 decision ("each
