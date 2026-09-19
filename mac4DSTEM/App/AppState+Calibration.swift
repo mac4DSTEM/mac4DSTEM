@@ -78,8 +78,13 @@ extension AppState {
             let data = fourD
             let progress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
-                    guard let self, self.isCurrentOperation(cancellation) else { return }
-                    self.progress = fraction
+                    guard let self,
+                          self.isCurrentOperation(cancellation),
+                          !cancellation.isCancelled else { return }
+                    // Friedel rows finish concurrently, so their MainActor
+                    // publication tasks can arrive out of order. Progress is
+                    // an observed lower bound, never a backwards step.
+                    self.progress = max(self.progress ?? 0, fraction)
                     self.statusText = "Calibrating origin…"
                 }
             }

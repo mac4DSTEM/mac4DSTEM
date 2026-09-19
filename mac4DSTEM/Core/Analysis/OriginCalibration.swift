@@ -82,6 +82,25 @@ private struct FriedelSlots: @unchecked Sendable {
     let px: UnsafePointer<Float>
 }
 
+/// Counts completed Friedel scan rows across a concurrent tile.  The FFT work
+/// remains unchanged; this only lets the caller distinguish a long tile from a
+/// stalled operation.
+nonisolated private final class FriedelRowProgress: @unchecked Sendable {
+    private let lock = NSLock()
+    private var completedRows: Int
+
+    init(completedRows: Int) {
+        self.completedRows = completedRows
+    }
+
+    func completeRow() -> Int {
+        lock.withLock {
+            completedRows += 1
+            return completedRows
+        }
+    }
+}
+
 package nonisolated enum OriginCalibration {
 
     // MARK: - Probe size (py4DSTEM get_probe_size)
@@ -644,6 +663,7 @@ package nonisolated enum OriginCalibration {
             let localRows = range.count
             let rowBase = range.lowerBound * rx
             let workers = max(1, min(cores, localRows))
+            let rowProgress = FriedelRowProgress(completedRows: range.lowerBound)
             output.withUnsafeMutableBufferPointer { outBuf in
                 tile.pixels.withUnsafeBufferPointer { pxBuf in
                     let slots = FriedelSlots(out: outBuf.baseAddress!, px: pxBuf.baseAddress!)
@@ -661,11 +681,13 @@ package nonisolated enum OriginCalibration {
                                     slots.out[gi + 1] = origin.row   // measured Y = detector row
                                 }
                             }
+                            guard cancellation?.isCancelled != true else { break }
+                            let completedRows = rowProgress.completeRow()
+                            progress?(Double(completedRows) / Double(d.ry))
                         }
                     }
                 }
             }
-            progress?(Double(range.upperBound) / Double(d.ry))
         }
         return output
     }

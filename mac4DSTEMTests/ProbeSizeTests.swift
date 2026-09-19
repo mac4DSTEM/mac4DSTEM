@@ -309,6 +309,29 @@ final class ProbeSizeTests: XCTestCase {
         XCTAssertEqual(fit.origin.fittedY[0], com.origin.fittedY[0], accuracy: 1.0)
     }
 
+    /// Friedel executes each tile's rows concurrently. Progress must nevertheless
+    /// describe completed rows, not wait for the entire tile: otherwise a 60-row
+    /// production tile leaves the UI bar and its ETA frozen for minutes.
+    /// Mutation: move the progress call back below `concurrentPerform`; then this
+    /// sees only the tile-end 0.90 fraction and fails.
+    func testFriedelOriginReportsProgressWithinATile() async throws {
+        let source = FriedelCentrosymmetricSource()
+        let d = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: d)
+        let progress = LockedFractions()
+
+        _ = try await OriginCalibration.tiledRun(
+            data: data, descriptor: d, fitFunction: .plane, originMethod: .friedel,
+            maximumTileRows: d.ry
+        ) { fraction in
+            progress.append(fraction)
+        }
+
+        let interior = progress.values.filter { $0 > 0.35 && $0 < 0.9 }
+        XCTAssertGreaterThanOrEqual(interior.count, 2,
+                                    "Friedel must report completed rows before its tile ends")
+    }
+
     // MARK: - Vacuum probe from a separate scan (v3.1 item 4)
 
     /// The separate-vacuum-scan probe path: a vacuum cube's mean pattern becomes
@@ -470,6 +493,19 @@ private actor ZeroFourDDataSource: FourDDataSource {
     }
     func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
     func pixelCalibration() -> PixelCalibration? { nil }
+}
+
+private final class LockedFractions: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [Double] = []
+
+    func append(_ fraction: Double) {
+        lock.withLock { stored.append(fraction) }
+    }
+
+    var values: [Double] {
+        lock.withLock { stored }
+    }
 }
 
 /// 4x4 scan of a 64x64 detector: every pattern identical and centrosymmetric
