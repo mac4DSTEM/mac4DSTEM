@@ -70,16 +70,25 @@ extension AppState {
         let d = descriptor
         do {
             let epoch = datasetSession.epoch
-            let result = try await OriginCalibration.tiledRun(
-                data: fourD, descriptor: d, fitFunction: fitFn, originMethod: method,
-                cancellation: cancellation
-            ) { [weak self] fraction in
+            // The Friedel path runs CPU FFTs via `DispatchQueue.concurrentPerform`.
+            // A direct await from this MainActor-owned state can enlist the main
+            // thread as a dispatch-apply worker, starving the run loop and Cancel.
+            // Keep the publication contract on MainActor but run the whole tiled
+            // operation on its own executor, as full-scan disk detection does.
+            let data = fourD
+            let progress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self, self.isCurrentOperation(cancellation) else { return }
                     self.progress = fraction
                     self.statusText = "Calibrating origin…"
                 }
             }
+            let result = try await Task.detached(priority: .userInitiated) {
+                try await OriginCalibration.tiledRun(
+                    data: data, descriptor: d, fitFunction: fitFn, originMethod: method,
+                    cancellation: cancellation, progress: progress
+                )
+            }.value
             guard epoch == datasetSession.epoch else { return }
             if cancellation.isCancelled {
                 statusText = "Origin calibration cancelled"

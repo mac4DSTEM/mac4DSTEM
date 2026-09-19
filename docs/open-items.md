@@ -21,6 +21,10 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 **Status:** D4 count landed (`PrepareSettings.positionsUsedValue`, unit-tested M4) but **unverified on screen**. Step-3 trim-sweep PASSED on 4 cubes: excluded 0.6–15.7 %, `maxGap` 1–5 — Si-SiGe (15.7 %, scattered) vs sim_Au (10.6 %, `maxGap 5`, clustered) exclude alike but differ spatially. D1/D2 stay at defaults, overrule on sight.
 **Owed:** the spatial validity overlay (origin fit over the scan grid, excluded positions greyed via `DisplayedProduct.validityMask`) is a larger follow-on, not built. Owner: unclaimed.
 Detail: `docs/archive/open-items-detail-2026-09-18.md`.
+## Full-cube Friedel origin calibration made the app unresponsive — fixed, screen check owed 2026-09-19
+
+Owner drive, Xcode Debug build: `datasetA_stride3.h5`, 171×171×128×128 after configured crop → virtual-detector replay → promote; Prepare ▸ advanced ▸ Friedel ▸ Calibrate Origin. ETA 4:15 stopped for minutes, macOS reported **not responding**, and the owner force-quit. Instruments showed 12 threads, 535 MiB physical footprint, nominal thermal — not memory exhaustion.
+Gate D: Core/HDF5/FFT stall was refuted: the same cube's optimized standalone pass reached statistics in 7.0 s and a 60-row Friedel tile in 9.0 s; a generic MainActor heartbeat stayed live. The app's `MainActor`-owned direct await of the tiled CPU `concurrentPerform` path remained the integration risk, matching disk detection's recorded prior frozen-run mechanism. `calibrateOrigin` now detaches only `tiledRun`; its token-checked MainActor progress and all result publication are unchanged. Independent refuter agreed. Build and unit gate passed; owner must rerun this exact full-cube workflow and verify a live progress bar and Cancel before closure.
 
 ## Owner drive 2026-09-17 — added 2026-09-17
 
