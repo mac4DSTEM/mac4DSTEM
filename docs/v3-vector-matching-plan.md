@@ -1,14 +1,11 @@
 # Vector-matching phase mapping — the plan, 2026-09-11
 
-> **Where it stands, 2026-09-15.** Steps **0, 1, 2, 4 and 5 are done**; step 3
-> **ran on a subsample and failed its pre-registered acceptance** (26 %
-> mislabelled against a 0.96–1.75 % band; 13.24 % after three decisions,
-> 8.75 % at a 0.2 % detection threshold, 6.64 % with the verdict cliff at
-> 0.75 pair radii and the orientation relationship on; §3). Before that: step 3
-> is **deferred on disk, not abandoned**, and everything the app produces is
-> labelled unvalidated until it runs. The record of what landed, what two
-> pre-registered predictions got wrong, and what the Al-Mg-Si cube actually
-> said is [`archive/v3/phase-mapping-2026-09-12.md`](archive/v3/phase-mapping-2026-09-12.md).
+> **Where it stands, 2026-09-19.** Steps **0, 1, 2, 4 and 5 are done**; step 3
+> **ran on the truth-labelled stride-3 paper dataset and remains outside its
+> 0.96–1.75 % acceptance band.** The sequence improved 26 % → 13.24 % →
+> 6.64 %, then **4.21 %** at a stated 0.1 % detection threshold; no default
+> moved. Phase outputs remain explicitly `validation:"none"`. The next work is
+> the validation lane below, not a claim that an AI model is ready.
 
 How Thronsen et al. (Ultramicroscopy 255 (2024) 113861, **CC BY 4.0**) gets
 incorporated. Method choice and its reasoning:
@@ -184,6 +181,16 @@ count, the mean distance in Å⁻¹, the matrix removals and the runner-up, for 
 position under the cursor). "Not indexed" is hatched rather than coloured, so
 it can never be read as one more phase.
 
+## Next-session validation lane — registered 2026-09-19
+
+The paper's CC-BY data and aligned truth are local at `References/thronsen-datasetA/datasetA_stride3.h5` and `truth_stride3.json`: acceptance data, not default training data.
+
+1. Reproduce `tools/thronsen-dataset/run.sh probe --min-relative 0.001 --or` at 4.21 %, retaining per-class confusion, settings, cube/truth identities, and app evidence before a new lever.
+2. Gate D one residual at a time: matrix-by-exclusion, then T1/θ′. A threshold, reference, or detector change needs prediction, refuter, truth measurement, and independent review.
+3. `DiffractionEmbedding`/PCA in **AI Analysis** is an exploratory comparator and future precipitate-classification route, not a shortcut. The paper ANN is a benchmark—not imported, retrained, or called validated absent its own truth-set campaign.
+
+Evidence may prepare alongside v3.1.0 release work; any phase-label/default change follows it and needs Gate D, Gate B, and a new release decision.
+
 ## What we inherit that is not good
 
 Stated now so it is not discovered later. Their implementation:
@@ -196,26 +203,6 @@ Stated now so it is not discovered later. Their implementation:
   measures strain, so it may be able to do better here than they did, but that
   is a hypothesis, not a plan.
 
-## Decisions owed by the owner
+## Decisions resolved / current residual
 
-1. ~~**`.identity` symmetry**~~ — **resolved 2026-09-11**, accepted; step 0
-   landed at `ee2221c`.
-2. ~~A β″ CIF~~ — **resolved 2026-09-11.** Generated from Andersen et al. 1998,
-   verified against the published cell content. No decision needed.
-3. ~~**Zenodo download**~~ — **resolved 2026-09-15**: streamed and
-   subsampled, no disk needed (`tools/thronsen-dataset`).
-4. ~~**Step 3 failed its acceptance**~~ — the three decisions were taken
-   2026-09-15 (`decisions.md`): the Friedel-pair floor, the matcher's outer
-   reach, and a relative reference that excludes the direct beam. 26.4 % →
-   13.24 % at shipped defaults; still outside the band. The "free-rotation
-   challenge" mechanism written here the same morning was refuted before it
-   landed (the challenge cannot take a two-of-two pair). "Detection at
-   the noise floor" was then measured (Gate D, `open-items.md`): a local
-   significance was refuted, the threshold itself is the lever (8.75 % at
-   0.2 %), and the next residual is θ′ face-on taken for edge-on under a
-   free in-plane rotation. An orientation-relationship filter was built
-   and measured (7.89 %; face-on → edge-on gone; edge-on recall 50 → 31 %,
-   the refuting observation at the half-pixel cliff). With the cliff at
-   0.75 pair radii it passed all five clauses, and it landed in its own
-   form — parallel planes or directions per phase, a field in the panel —
-   at 6.64 % (`open-items.md`).
+`.identity` symmetry, the β″ CIF, and the Zenodo stride-3 acquisition are resolved. The 2026-09-15 decisions and the full 4.21 % threshold record are in [`archive/v3/step3-2026-09-16.md`](archive/v3/step3-2026-09-16.md); the only live route is the validation lane above.

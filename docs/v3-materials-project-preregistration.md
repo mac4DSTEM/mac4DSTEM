@@ -207,10 +207,10 @@ group has gone through this — `.identity`'s honest refusal
 covered, not a bug to silently patch over.
 
 **Decisions owed to the owner.**
-- **D5 — which point group first.** *No default proposed*; see candidate
-  list. The β″ case argues for monoclinic on evidence already in hand; MP
-  import volume (once item 1 exists) may argue for tetragonal/trigonal on
-  reach. Genuinely the owner's call.
+- **D5 — which point group first.** **Owner preference, 2026-09-19: prepare
+  monoclinic 2/m first** — the β″ case is measured and blocked today. Confirm
+  that choice at pickup before any symmetry math; tetragonal/trigonal remain
+  the broader-reach follow-ons once MP import volume makes demand measurable.
 - **D6 — how much coverage is "done" for v3.** Three point groups (adding
   one to today's two) may be enough to badge as a real capability, or this
   may want to become an ongoing backlog item picked up opportunistically.

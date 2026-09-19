@@ -102,14 +102,12 @@ part of the product story: the load-specification and promote workflow,
 provenance that survives export and reopen, refusals that name what failed,
 the session sidecar as a sharing unit.
 
-## Open questions for the next pass
+## Next planned sequence — registered 2026-09-19
 
-1. One theme done properly, or several started? Themes 1 and 2 are different
-   bets — finish what exists, or open a new user base.
-2. Which front-of-queue item leads? Gate B capacity is one at a time; the
-   calibration foundation clears live defects and the validity mask is owed.
-3. Does the notebook change who the app is for (results checkable without a
-   Mac — a distribution argument)?
+1. **Release v3.1.0:** re-drive Friedel; restore or re-pin the three acceptance cubes; run `all` and the archive rehearsal before the credentialed cut. No feature slips in.
+2. **Materials Project importer:** build the pre-registered, user-initiated importer with offline provenance; settle its UX choices before UI code.
+3. **Orientation coverage:** prepare monoclinic 2/m first if the owner confirms it; it unlocks β″ and is a separate Gate D/B feature.
+4. **Scientific debts and phase validation:** diagnose R–Q; decide T1 and Parallax experiments; use the paper truth set before detector or learned-model work.
 
 ## How a v3 feature is done
 

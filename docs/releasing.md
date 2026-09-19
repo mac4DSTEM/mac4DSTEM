@@ -61,6 +61,10 @@ hardened Release package audit. The `real-data-acceptance` step needs the
 gitignored `References/training_dataset` acquisitions: without them it cannot
 run, which is why CI does not.
 
+### v3.1.0 readiness — 2026-09-19
+
+The last `all` attempt was clean until it correctly refused before unit/package: `Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5`, `downsample_Si_SiGe_exp.h5`, and `calibrationData_bullseyeProbe.h5` are absent from `tools/real-data-acceptance/expected.json`. Restore those exact acquisitions or explicitly re-pin; never waive/shrink the set. Then run `all`, rehearse the archive, and only then update 3.0.0 / 6 for a v3.1.0 credentialed cut.
+
 **A green `all` did NOT mean the archive builds, and now it does — 2026-09-11.**
 The gate's `package-test` built `-destination 'platform=macOS'`, the concrete
 machine, while `build-developer-id.sh` builds `generic/platform=macOS`; the
