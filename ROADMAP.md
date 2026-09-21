@@ -104,7 +104,7 @@ the session sidecar as a sharing unit.
 
 ## Next planned sequence — registered 2026-09-19
 
-1. **Release v3.1.0:** re-drive Friedel; restore or re-pin the three acceptance cubes; run `all` and the archive rehearsal before the credentialed cut. No feature slips in.
+1. **Release v3.1.0:** the three acceptance cubes are restored; run `all` and the archive rehearsal before the credentialed cut. Full-cube Friedel bar/ETA remains an on-screen check, not a gate. No feature slips in.
 2. **Materials Project importer:** build the pre-registered, user-initiated importer with offline provenance; settle its UX choices before UI code.
 3. **Orientation coverage:** prepare monoclinic 2/m first if the owner confirms it; it unlocks β″ and is a separate Gate D/B feature.
 4. **Scientific debts and phase validation:** diagnose R–Q; decide T1 and Parallax experiments; use the paper truth set before detector or learned-model work.

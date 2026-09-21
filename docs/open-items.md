@@ -24,7 +24,7 @@ Detail: `docs/archive/open-items-detail-2026-09-18.md`.
 ## Full-cube Friedel origin calibration froze the app, then progress/ETA plateaued — fixed, screen check owed 2026-09-19
 
 Owner's Debug 171×171 `datasetA_stride3.h5` Friedel run froze (**not responding**) without memory or thermal pressure. Gate D refuted an HDF5/FFT stall (statistics 7.0 s; 60-row tile 9.0 s; MainActor heartbeat live); `calibrateOrigin` now detaches only the tiled CPU-FFT pass.
-The next drive stayed responsive but at 4:28 showed ~35% and ETA 5:27: progress emitted only after a 60-row tile. It now emits completed rows with monotonic, non-cancelled publication. Focused test broke first; unit and Friedel/py4DSTEM parity passed; refuter confirmed FFT/output/fit unchanged. Owner re-runs for continuous bar, settling ETA, live Cancel.
+The next drive stayed responsive but at 4:28 showed ~35% and ETA 5:27: progress emitted only after a 60-row tile. It now emits completed rows with monotonic, non-cancelled publication. Current-app demo drive (12×12) verified selected Friedel, live Cancel, and measured completion on 2026-09-19; focused test broke first; unit and Friedel/py4DSTEM parity passed; refuter confirmed FFT/output/fit unchanged. The full-cube row-progress/ETA drive remains owed, not a release gate.
 
 ## Owner drive 2026-09-17 — added 2026-09-17
 

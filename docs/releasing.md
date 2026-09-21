@@ -63,7 +63,7 @@ run, which is why CI does not.
 
 ### v3.1.0 readiness — 2026-09-19
 
-The last `all` attempt was clean until it correctly refused before unit/package: `Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5`, `downsample_Si_SiGe_exp.h5`, and `calibrationData_bullseyeProbe.h5` are absent from `tools/real-data-acceptance/expected.json`. Restore those exact acquisitions or explicitly re-pin; never waive/shrink the set. Then run `all`, rehearse the archive, and only then update 3.0.0 / 6 for a v3.1.0 credentialed cut.
+The last `all` attempt was clean until it correctly refused before unit/package: `Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5`, `downsample_Si_SiGe_exp.h5`, and `calibrationData_bullseyeProbe.h5` were missing from `tools/real-data-acceptance/expected.json`. **They were never off this disk: the 09-17 run executed in a worktree whose gitignored `References/` lacked them (birth times July/August 2026, checked 2026-09-21).** `all` ran green on the main checkout 2026-09-21 (`all-v310-20260921.log`, exit 0, `docs/status.md` § Last gates): all five pinned cubes measured and matched. Do not waive/shrink the set. Next: silence the `App/AppState+Promote.swift:26` warning and bump 3.0.0 / 6 → 3.1.0 / 7 (owner's number), re-run `all` on the bumped tree, rehearse the archive, then the credentialed cut.
 
 **A green `all` did NOT mean the archive builds, and now it does — 2026-09-11.**
 The gate's `package-test` built `-destination 'platform=macOS'`, the concrete
