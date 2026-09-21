@@ -10,8 +10,11 @@ exactly that until the owner's drive says otherwise.
   Thronsen et al.'s vector analysis — score every surviving vector against each phase's known
   variants, no floors — ships beside the search rule, off by default. Measuring it exposed that
   the T1 reference dropped its weak {014}/{214} reflections under the 5 % intensity floor; at
-  floor 0 it scores 2.64 % on the published truth (search 3.77 %, was 4.21 %). Probe flags
-  `--rule`, `--min-intensity`, `--dump-entry`, `--residual-detail`, `--survivor-detail`.
+  floor 0 it scores 2.64 % on the published truth (search 3.77 %, was 4.21 %). Phase mapping
+  gained a Classifier picker (Search / Known variants), and every map now feeds the class-map →
+  objects bridge: object count, median length and areal density per precipitate phase in Results,
+  density only when the scan is calibrated. Probe flags `--rule`, `--min-intensity`, `--dump-entry`,
+  `--residual-detail`, `--survivor-detail`, `--slab`.
 
 - **Materials Project importer (2026-09-21).** The default phase source: an API key entered once
   in Settings (Keychain), then any material by mp-id. `MaterialsProjectImport` decodes a

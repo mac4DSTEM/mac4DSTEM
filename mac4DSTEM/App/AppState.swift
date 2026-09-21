@@ -188,9 +188,16 @@ final class AppState {
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
     let phaseMapping = PhaseMappingProduct()
-    /// The pre-registered diffraction-classification result. The owner is
-    /// deliberately unwired: no UI, export, classifier, or validation claim
-    /// exists until its owner-adjudicated ship gate passes. Views will read
+    /// Spatial precipitate objects. Session S3
+    /// (`docs/v3-precipitates-and-materials-project-plan.md`) wired its first
+    /// producer: `AppState+PhaseMapping.swift` publishes here from every
+    /// finished vector-matched phase map, via the pure
+    /// `PhaseMapObjectsBridge`. The pre-registered FULL-diffraction-pattern
+    /// classification route this owner was originally scoped for
+    /// (`docs/v3-precipitate-classification.md` §2) remains unbuilt and
+    /// would be a second producer, not a replacement. Neither producer nor
+    /// this owner makes a validation claim of its own — the phase map's
+    /// `validation: "none"` badge covers what is read off it. Views read
     /// `precipitateClassification.…` directly; no forwarding properties.
     let precipitateClassification = PrecipitateClassificationProduct()
     /// Session S5: whether a Materials Project API key is stored, and the

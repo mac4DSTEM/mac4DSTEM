@@ -91,11 +91,11 @@ Detail: `docs/archive/open-items-detail-2026-09-18.md`.
 `minimumIntensityFraction` 0 lands **773 / 29 241 = 2.64 %** (`map-known-variants-min0-cap48-20260921.log`),
 under the pre-registered 3 % bar, above the 0.96–1.75 % band; the search rule at the same floor 3.77 %.
 Record: `docs/archive/v3/known-variants-rule-2026-09-21.md`. Still `validation:"none"`.
-**Owed before S3 wires the rule** (S2 landed the T1 relationship: edge-on → T1 295 → 45, Al → T1 264 → 176,
-T1 recall 99 % kept, headline 2.67 %): (1) θ′ edge-on → not indexed 250 / 417 under known-variants (search
-labels 326 of them) — measure the θ′ edge-on entry against its survivors the way T1 was
-(`--survivor-detail`), then its own Gate D; (2) Al → precipitate false calls 362 total (no chance guard);
-(3) whether the floor default moves for the search rule is unmeasured on any other dataset.
+**S3 wired 2026-09-21** (Classifier picker; the rule sets the intensity floor to 0; class map → objects rows;
+unseen). **Owed:** (1) θ′ edge-on refuses 250 / 417 because a thin plate needs the paper's 0.3 Å⁻¹ slab and a
+global slab collapses θ′ face-on into Al — per-phase slab pre-registered, prediction ≤ 2.0 %
+(`archive/v3/theta-prime-slab-2026-09-21.md`); (2) Al → precipitate false calls 366 (no chance guard);
+(3) the floor default for the search rule is unmeasured on any other dataset.
 Owner: unclaimed.
 
 

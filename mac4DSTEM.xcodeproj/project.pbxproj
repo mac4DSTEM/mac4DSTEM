@@ -141,6 +141,7 @@
 				Session/MaterialsProjectSettings.swift,
 				Session/OperationCenter.swift,
 				Session/PhaseContrastProduct.swift,
+				Session/PhaseMapObjectsBridge.swift,
 				Session/PhaseMappingProduct.swift,
 				Session/PrecipitateClassificationProduct.swift,
 				Session/PromotionRun.swift,

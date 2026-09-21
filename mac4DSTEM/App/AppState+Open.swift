@@ -440,6 +440,10 @@ extension AppState {
         strain.clear()
         diffractionGroups.clear()
         phaseMapping.clear()
+        // Built from the phase map's OWN scan positions and this session's
+        // calibration; neither survives a dataset change, so this dies with
+        // the map that produced it, not on its own later trigger.
+        precipitateClassification.clear()
         clearCalibration()
         // A DM4 whose axis units cannot be trusted opens WITHOUT its pixel
         // sizes, and the reason goes to the log — the status line is what the

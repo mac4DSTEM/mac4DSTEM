@@ -166,6 +166,7 @@ extension AppState {
         ))
 
         publishPhaseMapProduct()
+        publishPrecipitateClassificationFromPhaseMap()
         let counts = map.phaseCounts
         let indexed = counts.enumerated()
             .filter { $0.offset != map.matrixPhaseIndex && $0.element > 0 }
@@ -191,6 +192,33 @@ extension AppState {
             extraProvenance: phaseProvenance(map: map, run: run).merging(
                 ["quantitative_status": "categorical"], uniquingKeysWith: { a, _ in a })
         )
+    }
+
+    /// Precipitate objects from the map just published: candidate phases
+    /// become `.precipitate` classes, the matrix phase `.matrix`, and every
+    /// `notIndexed` / `noData` position a dedicated not-indexed label —
+    /// `PhaseMapObjectsBridge`'s pure mapping, composed here with the
+    /// session's own real-space pixel size (`calibrationSession`, the same
+    /// calibration the scale bar draws from — `ScaleBar.footerSampling`,
+    /// `AppState+ResultPresentation.swift`). Nil when the dataset carries no
+    /// real-space calibration: density is then absent, never invented
+    /// (`PrecipitateStatistics.density`'s own refusal rule).
+    ///
+    /// `docs/v3-precipitate-classification.md` §2 steps 5–6. This does NOT
+    /// change what is validated: `PrecipitateClassificationProduct` makes no
+    /// validation claim of its own, and the phase map it is built from is
+    /// still `validation: "none"` — the Result section's badge says so for
+    /// both.
+    func publishPrecipitateClassificationFromPhaseMap() {
+        guard let map = phaseMapping.map else { return }
+        let labeled = PhaseMapObjectsBridge.labeledMap(from: map)
+        let calibration = calibrationSession.calibration
+        let objects = PrecipitateSegmentation.classObjects(
+            labels: labeled.labels, width: map.width, height: map.height,
+            roles: labeled.roles,
+            pixelSize: calibration.rPixelSize, pixelUnit: calibration.rPixelUnits
+        )
+        precipitateClassification.publish(objects)
     }
 
     /// The distance companion: how far, in Å⁻¹, the winning phase's reference
@@ -243,6 +271,10 @@ extension AppState {
             "q_scale_provenance": run.qScaleIsPhysical ? "physical" : "exploratory",
             "peaks_matched": String(run.peakCount),
         ]
+        // Additive, and empty for `.search` — see `PhaseMappingRuleDefaults
+        // .provenanceAdditions`'s own doc comment for why the shipped
+        // default's provenance string must not move.
+        out.merge(PhaseMappingRuleDefaults.provenanceAdditions(for: run.matching)) { current, _ in current }
         if run.matrixInPlaneDegrees.isFinite {
             // Recorded with what it means: the in-plane angle is determined
             // only modulo the projected symmetry of the phase, which the gated

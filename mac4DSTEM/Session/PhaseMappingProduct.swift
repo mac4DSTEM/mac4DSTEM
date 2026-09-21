@@ -156,6 +156,47 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
     }
 }
 
+/// Two small pure functions the classifier picker needs
+/// (`UI/PhaseMappingSettings.swift`) and `AppState+PhaseMapping.swift`'s
+/// provenance writer needs — kept here, in Session, so both are testable
+/// without a view or a running app. Session S3,
+/// `docs/v3-precipitate-classification.md` §2 step "wire".
+package enum PhaseMappingRuleDefaults {
+    /// What the picker sets `PhaseReferenceSettings.minimumIntensityFraction`
+    /// to when the classifier rule changes — a UI DEFAULT applied once, not
+    /// a constraint `PhaseReferenceLibrary` itself enforces, so the user can
+    /// still edit the field afterwards. `.knownVariants` (Thronsen et al.'s
+    /// own rule, `PhaseVectorMatching.swift` "The known-variants rule"):
+    /// every surviving vector is scored, unranked by intensity, so a floor
+    /// only discards information the argmin needs — 0. `.search`: the
+    /// shipped default, read from `PhaseReferenceSettings` itself rather
+    /// than copied as a literal, so the two can never drift apart.
+    package static func minimumIntensityFraction(
+        for rule: PhaseVectorSettings.ClassificationRule
+    ) -> Double {
+        switch rule {
+        case .knownVariants: return 0
+        case .search: return PhaseReferenceSettings().minimumIntensityFraction
+        }
+    }
+
+    /// Additive sidecar-provenance keys for `matching.classificationRule`.
+    /// Empty for `.search`, so `AppState+PhaseMapping.swift`'s hand-written
+    /// `phaseProvenance` dictionary is BYTE-IDENTICAL to before this session
+    /// for the shipped default (checked by
+    /// `PhaseMapObjectsWiringTests`); `.knownVariants` contributes the three
+    /// keys `PhaseVectorSettings.classificationRule`'s own doc comment named
+    /// as not-yet-carried into that dictionary.
+    package static func provenanceAdditions(for matching: PhaseVectorSettings) -> [String: String] {
+        guard matching.classificationRule == .knownVariants else { return [:] }
+        return [
+            "classification_rule": "known_variants",
+            "residual_cutoff_inv_angstrom": String(format: "%.4g", matching.residualCutoffInvAngstrom),
+            "direct_matrix_maximum_vectors": String(matching.directMatrixMaximumVectors),
+        ]
+    }
+}
+
 @Observable
 @MainActor
 package final class PhaseMappingProduct {

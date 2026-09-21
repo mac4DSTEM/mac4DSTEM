@@ -1,8 +1,13 @@
 //
 //  PrecipitateClassificationProduct.swift
-//  Role: owns the retained spatial result of the pre-registered diffraction
-//        classification route. AppState composes this owner without forwarding
-//        properties; a future orchestration seam is its only writer.
+//  Role: owns the retained spatial result of a class map — objects, per-class
+//        pixel counts and density. AppState composes this owner without
+//        forwarding properties. Session S3
+//        (`docs/v3-precipitates-and-materials-project-plan.md`) wired its
+//        first writer, `AppState+PhaseMapping.swift`, over the vector-matched
+//        phase map; the pre-registered FULL-diffraction-pattern
+//        classification route (`docs/v3-precipitate-classification.md` §2)
+//        would be a second writer of the same owner, still unbuilt.
 //
 
 import Foundation
@@ -13,11 +18,11 @@ import Observation
 
 /// The Session boundary for `docs/v3-precipitate-classification.md` §3.
 ///
-/// This is deliberately narrower than the feature registration: it owns only
-/// a published `ClassMapObjects` value. It does not classify patterns, choose
-/// class roles, attach phase names, publish a view or export, and makes no
-/// validation claim. Those operations must wait for the registered
-/// owner-adjudicated ship gate.
+/// It owns only a published `ClassMapObjects` value — it does not classify
+/// anything itself, publish a view, or export. It makes no validation claim
+/// of its own either: a writer's own result carries whatever validation
+/// status its source already has (today, the phase map's `validation:
+/// "none"`), and this type does not add or remove one.
 @Observable
 @MainActor
 package final class PrecipitateClassificationProduct {
@@ -29,7 +34,8 @@ package final class PrecipitateClassificationProduct {
     /// `clear` replace it, so it cannot outlive the dataset it describes.
     package private(set) var result: PrecipitateSegmentation.ClassMapObjects?
 
-    /// Publish a spatial result computed by the future classification route.
+    /// Publish a spatial result computed by whichever route produced it —
+    /// today, `AppState.publishPrecipitateClassificationFromPhaseMap()`.
     package func publish(_ newResult: PrecipitateSegmentation.ClassMapObjects) {
         result = newResult
     }

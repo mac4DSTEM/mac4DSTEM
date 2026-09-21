@@ -162,13 +162,49 @@ struct PhaseMappingSections: View {
         }
 
         Section("Matching") {
+            // Switching the rule resets the library's "Minimum intensity" to
+            // the rule's own default (`PhaseMappingRuleDefaults`) — the user
+            // can still edit it afterwards. A pure function, not a listener
+            // on the settings struct, so the reset happens exactly once, at
+            // the moment of the switch, and not on every unrelated edit.
+            Picker("Classifier", selection: $product.matching.classificationRule) {
+                ForEach(PhaseVectorSettings.ClassificationRule.allCases, id: \.self) { rule in
+                    Text(classifierLabel(rule)).tag(rule)
+                }
+            }
+            .onChange(of: product.matching.classificationRule) { _, newRule in
+                product.reference.minimumIntensityFraction =
+                    PhaseMappingRuleDefaults.minimumIntensityFraction(for: newRule)
+            }
+            .accessibilityIdentifier("phaseMapping.classifierPicker")
+
             parameterField("Pair radius", value: $product.matching.pairRadiusInvAngstrom,
                            units: "Å⁻¹", format: "%.3f")
             parameterField("Matrix removal", value: $product.matching.matrixToleranceInvAngstrom,
                            units: "Å⁻¹", format: "%.3f")
-            parameterField("Not indexed above",
-                           value: $product.matching.notIndexedAboveInvAngstrom,
-                           units: "Å⁻¹", format: "%.3f")
+
+            // `.knownVariants` (Thronsen et al.'s own rule) has no floors and
+            // no "not indexed above" cliff — every survivor is scored and the
+            // residual cutoff alone decides — so that row is replaced, not
+            // merely supplemented, and the resolution-in-pixels block below
+            // (which exists only to explain THOSE floors) does not apply
+            // either.
+            if product.matching.classificationRule == .knownVariants {
+                parameterField("Residual cutoff",
+                               value: $product.matching.residualCutoffInvAngstrom,
+                               units: "Å⁻¹", format: "%.3f")
+                intField("Direct matrix up to (vectors)",
+                         value: $product.matching.directMatrixMaximumVectors)
+                Text("Known variants: every surviving vector is scored; no floors "
+                     + "(Thronsen et al. 2024).")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                parameterField("Not indexed above",
+                               value: $product.matching.notIndexedAboveInvAngstrom,
+                               units: "Å⁻¹", format: "%.3f")
+            }
+
             // The data's reach: a masked or cropped pattern ends before the
             // detector does, and its edge is a ring of maxima no phase
             // explains (Thronsen step 3, 2026-09-15). 0 = the detector.
@@ -179,8 +215,10 @@ struct PhaseMappingSections: View {
             // These are set in Å⁻¹ and met on a pixel grid, and until
             // 2026-09-12 nothing on screen joined the two. On the owner's own
             // cube the defaults are 0.44 of one detector pixel; matrix removal
-            // removed nothing and the map came back empty.
-            if let resolution = appState.phaseVectorResolution {
+            // removed nothing and the map came back empty. Only meaningful
+            // for `.search`'s own floors and cliff — see the footnote above.
+            if product.matching.classificationRule == .search,
+               let resolution = appState.phaseVectorResolution {
                 LabeledContent("On this detector") {
                     Text(String(format: "%.2f · %.2f · %.2f px",
                                 resolution.pairRadiusPixels,
@@ -239,7 +277,8 @@ struct PhaseMappingSections: View {
         Section("Result") {
             Label("Unvalidated — this method has not been scored against an "
                   + "external ground truth in this app. Read the map; do not "
-                  + "quote a phase fraction from it.",
+                  + "quote a phase fraction from it. Object counts and "
+                  + "densities come from this unvalidated map.",
                   systemImage: "exclamationmark.triangle")
                 .font(.caption)
                 .foregroundStyle(.orange)
@@ -261,6 +300,23 @@ struct PhaseMappingSections: View {
                         swatch(row)
                         Text(row.label)
                     }
+                }
+            }
+
+            // One compact row per precipitate phase — objects, median length,
+            // areal density — from the SAME map, via
+            // `AppState.publishPrecipitateClassificationFromPhaseMap()`. No
+            // new room, no table: this is the class map's per-phase fraction
+            // row above, extended by one line.
+            if let objects = appState.precipitateClassification.result {
+                ForEach(objects.classes, id: \.label) { classObjects in
+                    LabeledContent(precipitatePhaseName(classObjects.label, map: map)) {
+                        Text(precipitateObjectsLine(classObjects))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .help(objects.analysedAreaRule)
                 }
             }
 
@@ -562,5 +618,57 @@ struct PhaseMappingSections: View {
         LabeledContent(title) {
             NumericField(title, value: value, format: .number)
         }
+    }
+
+    /// `PhaseVectorSettings.ClassificationRule`'s raw values are the Core
+    /// enum's Swift case names (`search`, `knownVariants`); this is a
+    /// presentation label only, kept here rather than on the Core type
+    /// itself so a picker word choice never touches `Core/`.
+    private func classifierLabel(_ rule: PhaseVectorSettings.ClassificationRule) -> String {
+        switch rule {
+        case .search: "Search"
+        case .knownVariants: "Known variants"
+        }
+    }
+
+    /// The phase name a class label prints as, or a fallback that still
+    /// names the number — `map.phaseNames` and `classObjects.label` are
+    /// index-aligned by construction (`PhaseMapObjectsBridge.labeledMap`).
+    private func precipitatePhaseName(_ label: Int32, map: PhaseMap) -> String {
+        let index = Int(label)
+        guard map.phaseNames.indices.contains(index) else { return "Phase \(label)" }
+        return map.phaseNames[index]
+    }
+
+    /// "N objects · median length L nm · D per µm²", or "N objects · no scan
+    /// scale" without a real-space pixel size — the refusal rule stays
+    /// visible rather than a blank field (`PrecipitateStatistics.density`).
+    /// `medianLength`/`meanWidth` are scan PIXELS (`PrecipitateStatistics
+    /// .density`'s own contract); this is the one place that turns them
+    /// physical, using the same calibration the density itself was computed
+    /// from, never a different one.
+    private func precipitateObjectsLine(_ classObjects: PrecipitateSegmentation.ClassObjects) -> String {
+        let density = classObjects.density
+        let n = density.acceptedCount
+        let countText = "\(n) object\(n == 1 ? "" : "s")"
+        guard let pixelSize = density.pixelSize, let unit = density.pixelUnit,
+              let areal = density.arealDensity else {
+            return "\(countText) · no scan scale"
+        }
+        var parts = [countText]
+        if let medianPx = density.medianLength {
+            parts.append(String(format: "median length %.3g %@", medianPx * pixelSize, unit as NSString))
+        }
+        // µm² reads better than nm² for a precipitate density; converted
+        // only for the unit this app actually normalizes to on load
+        // (`AppState+Open.swift`'s µm → nm pixel-calibration step). Any
+        // other unit is printed in its own units rather than guessing a
+        // conversion for it.
+        if unit.lowercased() == "nm" {
+            parts.append(String(format: "%.3g per µm²", areal * 1e6))
+        } else {
+            parts.append(String(format: "%.3g per %@²", areal, unit as NSString))
+        }
+        return parts.joined(separator: " · ")
     }
 }
