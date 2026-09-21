@@ -38,3 +38,22 @@ and face-on at 0.3, Al and T1 at the global 0.05: edge → not indexed ≈ 0, ed
 unchanged (≈ 965), T1 → T1 ≥ 6 270, Al → precipitate ≤ 400; headline **≤ 2.0 %**, with the paper's
 0.96–1.75 % band as the target. Refuting observation: face-on collapsing anyway (then the mechanism is not
 the Al entry), or edge → edge staying near 122 (then the 0.40–0.42 residual dominates).
+
+## Per-phase slab landed — measured 2026-09-21 evening
+
+`PhaseDefinition.excitationSlabInvAngstrom: Double?` (nil = the global 0.05); θ′ edge-on and face-on at 0.3 in
+the probe's phase list, Al and T1 at the global value. Tests `PhaseReferenceLibrarySlabTests` (2): override
+adds vectors only to its own phase (8/8 → 8/16 on a synthetic cell), nil reproduces the pre-change entries by
+checksum; mutations M1 (override applied library-wide) and M2 (override ignored) each exit 65 then green.
+Gates: core exit 0, unit 804 / 0. Entries: Al 8, θ′ edge-on 46, θ′ face-on 32, T1 48 (`entries-phaseslab-20260921.log`).
+
+| rule (`--or --min-relative 0.001 --min-intensity 0`) | mislabelled | edge→edge | edge→NI | face→face | T1→T1 | Al→precip. |
+|---|---|---|---|---|---|---|
+| known-variants (`map-known-variants-phaseslab-20260921.log`) | **529 = 1.81 %** | 398 | 0 | 969 | 6258 | 407 |
+| search (`map-search-phaseslab-20260921.log`) | 1245 = 4.26 % | 210 | 45 | 963 | 5736 | 56 |
+
+Scorecard: edge → NI 0 (met), edge → edge 398 (met), face-on 969 (met), T1 → T1 6 258 (missed by 12),
+Al → precipitate 407 (missed by 7), headline 1.81 % ≤ 2.0 % (met) — **just outside the paper's 0.96–1.75 %
+band**. Neither refuting observation occurred. Remaining residual is Al → precipitate false calls (407, no
+chance guard in the rule) and 53 T1 → edge-on; the search rule's edge-on recall (210) shows its floors now
+reject the streaked reflections — a separate question.

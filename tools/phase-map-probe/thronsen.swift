@@ -97,12 +97,18 @@ enum Thronsen {
         return [
             PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
                             role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+            // Per-phase slab (`theta-prime-slab-2026-09-21.md`): θ′ is the flat
+            // plate the paper's own 0.300 Å⁻¹ describes; T1 and Al stay `nil`
+            // (the library's global 0.05, itself a DEVIATION from the paper's
+            // T1 value of 0.030 — unchanged here, not this slice's question).
             PhaseDefinition(id: "theta-edge", displayName: "θ′ edge-on", crystal: thetaPrime,
                             role: .candidate, zoneAxes: [SIMD3(1, 0, 0)],
-                            orientationRelationships: thetaRelationships),
+                            orientationRelationships: thetaRelationships,
+                            excitationSlabInvAngstrom: 0.3),
             PhaseDefinition(id: "theta-face", displayName: "θ′ face-on", crystal: thetaPrime,
                             role: .candidate, zoneAxes: [SIMD3(0, 0, 1)],
-                            orientationRelationships: thetaFaceRelationships),
+                            orientationRelationships: thetaFaceRelationships,
+                            excitationSlabInvAngstrom: 0.3),
             PhaseDefinition(id: "t1", displayName: "T1", crystal: t1,
                             role: .candidate, zoneAxes: [SIMD3(0, -4, 1)],
                             orientationRelationships: t1Relationships),

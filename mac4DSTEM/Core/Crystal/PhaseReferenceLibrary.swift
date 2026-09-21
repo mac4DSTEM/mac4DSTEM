@@ -213,16 +213,29 @@ package nonisolated struct PhaseDefinition: Sendable {
     /// plane and its negative are indistinguishable and "parallel" only
     /// means so up to sign.
     package let orientationRelationships: [OrientationRelationship]
+    /// Per-phase override of `PhaseReferenceSettings.excitationSlabInvAngstrom`.
+    /// `nil` (the default) means "use the library's global setting" — today's
+    /// behaviour, unchanged for every existing call site.
+    ///
+    /// A thin plate streaks its reciprocal-lattice points along the plate
+    /// normal, so the slab a beam direction admits is a property of THAT
+    /// PHASE'S shape, not a single number every phase shares. Thronsen et al.
+    /// use 0.030 Å⁻¹ for T1 and 0.300 Å⁻¹ for θ′ (their Table 2); recording
+    /// which value a given library was built with is provenance, and is the
+    /// job of whoever calls `PhaseReferenceLibrary.build`, not of this file.
+    package let excitationSlabInvAngstrom: Double?
 
     package nonisolated init(id: String, displayName: String, crystal: Crystal,
                              role: Role, zoneAxes: [SIMD3<Int>],
-                             orientationRelationships: [OrientationRelationship] = []) {
+                             orientationRelationships: [OrientationRelationship] = [],
+                             excitationSlabInvAngstrom: Double? = nil) {
         self.id = id
         self.displayName = displayName
         self.crystal = crystal
         self.role = role
         self.zoneAxes = zoneAxes
         self.orientationRelationships = orientationRelationships
+        self.excitationSlabInvAngstrom = excitationSlabInvAngstrom
     }
 }
 
@@ -404,13 +417,19 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
             let reflections = phase.crystal.reflections(kMax: settings.kMaxInvAngstrom)
             let axes = phase.zoneAxes.isEmpty ? lowIndexZoneAxes : phase.zoneAxes
             var phaseHasAny = false
+            // This phase's own slab, or the library's global one — applied to
+            // THIS phase's entries only, never the others (see
+            // `PhaseDefinition.excitationSlabInvAngstrom`).
+            var phaseSettings = settings
+            phaseSettings.excitationSlabInvAngstrom =
+                phase.excitationSlabInvAngstrom ?? settings.excitationSlabInvAngstrom
 
             for axis in axes {
                 if cancellation?.isCancelled == true { break }
                 let base = projectedVectors(reflections: reflections,
                                             crystal: phase.crystal,
                                             zoneAxis: axis,
-                                            settings: settings)
+                                            settings: phaseSettings)
                 if base.isEmpty { continue }
                 phaseHasAny = true
                 for theta in steps {
