@@ -695,6 +695,7 @@ private struct ManualBasisRow: View {
 private struct ACOMSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
+    @State private var showMaterialsProjectSheet = false
     @SceneStorage("map.settings.acomEngine.isExpanded") private var showsEngine = false
 
     /// Nothing on a stock macOS declares `.cif`, so this resolves to the
@@ -710,30 +711,38 @@ private struct ACOMSections: View {
     var body: some View {
         @Bindable var session = appState.acomSession
         Section("ACOM (orientation)") {
+            // Session S5 (owner's product decision): Materials Project is the
+            // default phase source; the built-in library and "Custom
+            // cubic…" are no longer offered here — see the doc comment on
+            // `CrystalModelLibrary.models`. The picker now lists only
+            // "Choose phase…" and this session's already-imported models
+            // (CIF or Materials Project, both `.imported(id)`).
             Picker("Phase model", selection: $session.modelSelection) {
                 Text("Choose phase…").tag(CrystalModelSelection.none)
-                ForEach(CrystalModelLibrary.models) { model in
-                    Text(model.displayName).tag(CrystalModelSelection.library(model.id))
-                }
-                Text("Custom cubic…").tag(CrystalModelSelection.customCubic)
                 if !appState.acomSession.importedCrystalModels.isEmpty {
-                    Divider()
                     ForEach(appState.acomSession.importedCrystalModels) { model in
-                        // "Imported" prefix visually distinguishes a
-                        // user-supplied CIF from the vetted built-in library.
-                        Text("Imported: \(model.displayName)")
+                        Text(importedCrystalModelLabel(model))
                             .tag(CrystalModelSelection.imported(model.id))
                     }
                 }
             }
             .accessibilityIdentifier("acom.material")
 
-            Button {
-                showCIFImporter = true
-            } label: {
-                Label("Import CIF…", systemImage: "square.and.arrow.down")
+            HStack {
+                Button {
+                    showMaterialsProjectSheet = true
+                } label: {
+                    Label("Materials Project…", systemImage: "network")
+                }
+                .accessibilityIdentifier("acom.materialsProject")
+
+                Button {
+                    showCIFImporter = true
+                } label: {
+                    Label("Import CIF…", systemImage: "square.and.arrow.down")
+                }
+                .accessibilityIdentifier("acom.importCIF")
             }
-            .accessibilityIdentifier("acom.importCIF")
             .fileImporter(
                 isPresented: $showCIFImporter,
                 allowedContentTypes: cifTypes,
@@ -746,6 +755,10 @@ private struct ACOMSections: View {
                     appState.present(error)
                 }
             }
+            .sheet(isPresented: $showMaterialsProjectSheet) {
+                MaterialsProjectImportSheet(addsToPhaseMapping: false)
+                    .environment(appState)
+            }
 
             if let reason = appState.acomSession.modelSelectionIssue {
                 Label(reason, systemImage: "nosign")
@@ -753,8 +766,10 @@ private struct ACOMSections: View {
                     .foregroundStyle(.orange)
             } else if let model = appState.resolvedACOMModel {
                 LabeledContent("Symmetry", value: model.symmetry.displayName)
-                if model.source == .imported {
-                    LabeledContent("Source", value: "Imported CIF")
+                switch model.source {
+                case .imported: LabeledContent("Source", value: "Imported CIF")
+                case .materialsProject: LabeledContent("Source", value: "Materials Project \(model.id)")
+                case .builtIn, .custom: EmptyView()
                 }
                 Text("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
                     .font(.caption)

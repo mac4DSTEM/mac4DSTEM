@@ -6,13 +6,14 @@ Written as it lands, so the cut does not reconstruct it. Every item below
 passed the unit, core and inventory gates; "unverified on screen" means
 exactly that until the owner's drive says otherwise.
 
-- **Materials Project importer, Core half (2026-09-21).** `MaterialsProjectImport` decodes
-  a `materials/summary` document into a `CrystalModel` (family classified by the CIF
-  importer's own function), refuses a material whose formula matches but whose space group
-  does not (`PhaseExpectation`), and keeps the mp-id and fetch date in provenance;
-  `CrystalModel.spaceGroupNumber` is also read from CIFs. API key store on the Keychain.
-  The app may now open outbound HTTPS. Nothing calls the network yet; no UI.
-
+- **Materials Project importer (2026-09-21).** The default phase source: an API key entered once
+  in Settings (Keychain), then any material by mp-id. `MaterialsProjectImport` decodes a
+  `materials/summary` document, standardises a centred primitive cell to the conventional cell
+  (F/I/C/A/B/R; refuses what its metric, volume and site guards cannot verify), classifies the
+  family with the CIF importer's own function, and refuses a material whose formula matches but
+  whose space group does not (mp-1185307 vs T1 is a test). Provenance keeps the mp-id, fetch
+  date and cell note; `spaceGroupNumber` is also read from CIFs. Pickers now offer only
+  "Materials Project…" and "Import CIF…"; presets stay resolvable for replay. Unverified on screen.
 - **Origin validity mask.** The robust origin fit now keeps the positions it
   excluded (`OriginMaps.originValidity`), and Prepare shows "N of M
   positions". No fitted number moved. The spatial overlay is still owed.

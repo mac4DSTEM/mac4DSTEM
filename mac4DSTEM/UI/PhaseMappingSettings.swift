@@ -32,6 +32,7 @@ import simd
 struct PhaseMappingSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
+    @State private var showMaterialsProjectSheet = false
     @SceneStorage("ai.phaseMapping.advanced.isExpanded") private var showsAdvanced = false
 
     /// Same reasoning as ACOM's importer: nothing on a stock macOS declares
@@ -360,13 +361,21 @@ struct PhaseMappingSections: View {
         )
     }
 
+    /// Session S5 (owner's product decision): Materials Project is the
+    /// default phase source; the built-in library is no longer offered here
+    /// — see the doc comment on `CrystalModelLibrary.models`. The menu now
+    /// offers exactly the two sources plus this session's already-imported
+    /// models (CIF or Materials Project).
     private var addPhaseMenu: some View {
         Menu {
-            ForEach(CrystalModelLibrary.models) { model in
-                Button(model.displayName) { add(model) }
-            }
-            Divider()
+            Button("Materials Project…") { showMaterialsProjectSheet = true }
             Button("From CIF file…") { showCIFImporter = true }
+            if !appState.acomSession.importedCrystalModels.isEmpty {
+                Divider()
+                ForEach(appState.acomSession.importedCrystalModels) { model in
+                    Button(importedCrystalModelLabel(model)) { add(model) }
+                }
+            }
         } label: {
             Label("Add Phase", systemImage: "plus")
         }
@@ -388,14 +397,21 @@ struct PhaseMappingSections: View {
                 appState.present(error)
             }
         }
+        .sheet(isPresented: $showMaterialsProjectSheet) {
+            // `addsToPhaseMapping: true` routes the sheet's Import button
+            // through `AppState.addPhaseMappingSlot(_:)` — the same function
+            // `add(_:)` below delegates to — so both paths share one rule.
+            MaterialsProjectImportSheet(addsToPhaseMapping: true)
+                .environment(appState)
+        }
     }
 
+    /// `AppState.addPhaseMappingSlot(_:)` (`App/AppState+MaterialsProject.swift`)
+    /// is the same duplicate/matrix rule; this delegates rather than keeping
+    /// a second copy, now that the Materials Project sheet needs the same
+    /// logic from a view that doesn't have this one's local state.
     private func add(_ model: CrystalModel) {
-        guard !appState.phaseMapping.phases.contains(where: { $0.model.id == model.id })
-        else { return }
-        let isFirst = appState.phaseMapping.phases.isEmpty
-        appState.phaseMapping.phases.append(
-            PhaseMappingSlot(model: model, isMatrix: isFirst, u: 0, v: 0, w: 1))
+        appState.addPhaseMappingSlot(model)
     }
 
     private struct PhaseRow: View {

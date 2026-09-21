@@ -138,6 +138,7 @@
 				Session/LearnedDetection.swift,
 				Session/LoadedView.swift,
 				Session/MaterialsProjectKeyStore.swift,
+				Session/MaterialsProjectSettings.swift,
 				Session/OperationCenter.swift,
 				Session/PhaseContrastProduct.swift,
 				Session/PhaseMappingProduct.swift,

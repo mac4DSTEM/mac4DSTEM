@@ -81,6 +81,14 @@ enum LayoutPolicy {
         (CGSize(width: 720, height: 500), CGSize(width: 880, height: 720))
     static let exportSheet: (min: CGSize, ideal: CGSize) =
         (CGSize(width: 540, height: 460), CGSize(width: 600, height: 700))
+    /// The Materials Project fetch sheet: three fields, a result card, a
+    /// footer — shorter than `exportSheet`, which carries a live output
+    /// preview besides its own footer.
+    static let materialsProjectSheet: (min: CGSize, ideal: CGSize) =
+        (CGSize(width: 460, height: 380), CGSize(width: 520, height: 480))
+    /// The Materials Project Settings scene: one `Form` section, no footer —
+    /// width only, since a `Settings` window sizes its own height to content.
+    static let materialsProjectSettingsWidth: (min: CGFloat, ideal: CGFloat) = (380, 440)
 
     /// An inline progress bar beside its status text.
     static let inlineProgressWidth: CGFloat = 110
@@ -229,6 +237,19 @@ enum OperationMetricsFormat {
 /// the user already has on screen.
 func displayByteString(_ bytes: Int) -> String {
     bytes.formatted(.byteCount(style: .file))
+}
+
+/// How an already-imported phase model is labelled in the ACOM picker and
+/// the Phase Mapping "Add Phase" menu (`UI/MapSettings.swift`,
+/// `UI/PhaseMappingSettings.swift`) — one spelling shared by both, cheap
+/// (no computation, just the fields the model already carries): a Materials
+/// Project fetch names its mp-id, a CIF import stays labelled the way it
+/// always was.
+func importedCrystalModelLabel(_ model: CrystalModel) -> String {
+    switch model.source {
+    case .materialsProject: return "Materials Project \(model.id) — \(model.displayName)"
+    default: return "Imported: \(model.displayName)"
+    }
 }
 
 extension View {

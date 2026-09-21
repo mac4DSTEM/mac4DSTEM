@@ -175,5 +175,13 @@ struct mac4DSTEMApp: App {
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
             .commands { DatasetCommands() }
+        // Session S5: the app's first Settings scene — where the Materials
+        // Project API key is entered (owner's product decision: Materials
+        // Project is the default phase source). See
+        // `UI/MaterialsProjectSettingsView.swift` for why it owns its own
+        // `MaterialsProjectSettings` rather than a window's `AppState`.
+        Settings {
+            MaterialsProjectSettingsView()
+        }
     }
 }

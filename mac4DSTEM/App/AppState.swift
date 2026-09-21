@@ -97,8 +97,17 @@ final class AppState {
     /// must construct `AppState(sessionSidecar:)` with a suite-private store.
     let sessionSidecar: SessionSidecarLocator
 
-    init(sessionSidecar: SessionSidecarLocator = SessionSidecarLocator()) {
+    init(
+        sessionSidecar: SessionSidecarLocator = SessionSidecarLocator(),
+        materialsProject: MaterialsProjectSettings? = nil
+    ) {
         self.sessionSidecar = sessionSidecar
+        // Not a default *parameter* value: `MaterialsProjectSettings` is
+        // `@MainActor`, and a default argument expression is always checked
+        // as nonisolated, regardless of the initializer's own isolation — so
+        // constructing the fallback here, inside the (MainActor) init body,
+        // is what actually compiles.
+        self.materialsProject = materialsProject ?? MaterialsProjectSettings()
         // The seam signals presentation changes (component switches); the
         // displayed image is shared display state, so the derivation stays
         // here. Weak: AppState owns the seam, never the reverse.
@@ -184,6 +193,15 @@ final class AppState {
     /// exists until its owner-adjudicated ship gate passes. Views will read
     /// `precipitateClassification.…` directly; no forwarding properties.
     let precipitateClassification = PrecipitateClassificationProduct()
+    /// Session S5: whether a Materials Project API key is stored, and the
+    /// save/remove actions the Settings scene drives — composition only, no
+    /// forwarding properties (`Session/MaterialsProjectSettings.swift`). This
+    /// is the one piece of state the owner's product decision (Materials
+    /// Project as the default phase source) needs on every window, so no
+    /// other existing owner is the honest home for it. Injectable in `init`
+    /// for the same reason `sessionSidecar` is: the default reads and writes
+    /// the REAL Keychain item, which a test must never touch.
+    let materialsProject: MaterialsProjectSettings
     /// Seam 5 (docs/appstate-seams-plan.md): the retained product, result
     /// controls and their derived caches. Views read `resultPresentation.…`;
     /// cross-owner combiners are placed in `AppState+ResultPresentation.swift`.
