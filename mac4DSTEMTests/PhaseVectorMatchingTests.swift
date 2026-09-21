@@ -1084,6 +1084,298 @@ final class PhaseVectorMatchingTests: XCTestCase {
     func testCompletenessAwareCrossPhaseRankingShipsOff() {
         XCTAssertFalse(PhaseVectorSettings().completenessAwareCrossPhaseRanking)
     }
+
+    // MARK: - `.knownVariants` (Thronsen et al.'s own rule, session S1)
+
+    /// A library built directly from hand-placed reference vectors, bypassing
+    /// `PhaseReferenceLibrary.build`'s crystallography so every distance in a
+    /// `.knownVariants` test below is exact rather than derived from a
+    /// projected cell. Each of `candidateEntries` becomes one
+    /// `PhaseOrientationReference` at its own phase index; phase 0 (index
+    /// `matrixPhaseIndex`) is reserved for the matrix and carries no entry
+    /// unless the test builds one itself and splices it in.
+    private func knownVariantsLibrary(
+        candidateEntries: [(phaseIndex: Int, vectors: [ReferenceVector])],
+        matrixPhaseIndex: Int = 0
+    ) -> PhaseReferenceLibrary {
+        var phases: [PhaseDefinition] = [
+            PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: .aluminum,
+                            role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
+        ]
+        var entries: [PhaseOrientationReference] = []
+        for (offset, candidate) in candidateEntries.enumerated() {
+            phases.append(PhaseDefinition(id: "c\(offset)", displayName: "C\(offset)",
+                                          crystal: .aluminum, role: .candidate,
+                                          zoneAxes: [SIMD3(0, 0, 1)]))
+            entries.append(PhaseOrientationReference(
+                phaseIndex: candidate.phaseIndex, zoneAxis: SIMD3(0, 0, 1),
+                inPlaneRotationRad: 0, vectors: candidate.vectors))
+        }
+        return PhaseReferenceLibrary(phases: phases, settings: PhaseReferenceSettings(),
+                                     entries: entries, matrixPhaseIndex: matrixPhaseIndex)
+    }
+
+    /// (1) A planted candidate pattern -- exactly a library entry's own
+    /// vectors -- is labelled that phase, `.indexed`, at zero residual.
+    /// Mutation: `classifyKnownVariants` never reached from `classify`, or
+    /// the winner's phase/entry index mixed up.
+    func testKnownVariantsPlantedPatternIsLabelledThatPhase() {
+        let refs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.30, 0), length: 0.30, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0, 0.40), length: 0.40, relativeIntensity: 1),
+            ReferenceVector(h: 1, k: 1, l: 0, q: SIMD2(0.30, 0.40), length: 0.5, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: refs)])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        let result = PhaseVectorMatcher.classify(
+            vectors: refs.map(\.q), library: library, settings: settings,
+            matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 8))
+        XCTAssertEqual(result.verdict, .indexed)
+        XCTAssertEqual(Int(result.phaseIndex), 1)
+        XCTAssertEqual(Int(result.entryIndex), library.candidateEntryIndices[0])
+        XCTAssertEqual(result.score, 0, accuracy: 1e-12)
+        XCTAssertEqual(Int(result.matchedCount), 3)
+    }
+
+    /// (2) Survivor count alone decides the matrix branch: 0 and 1 survivors
+    /// -> `.matrix`, 2 -> reaches scoring. Mutation: `<=` relaxed to `<`, or
+    /// the matrix shortcut firing at 2 survivors too.
+    func testKnownVariantsSurvivorCountDecidesMatrixVsScored() {
+        let matrixEntry = PhaseOrientationReference(
+            phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1), inPlaneRotationRad: 0,
+            vectors: [ReferenceVector(h: 2, k: 0, l: 0, q: SIMD2(0.4, 0), length: 0.4, relativeIntensity: 1)])
+        let candidateRefs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(1.0, 0), length: 1.0, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(1.2, 0), length: 1.2, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: candidateRefs)])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 8)
+
+        // 0 survivors: the only input vector is the matrix's own.
+        let zero = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.4, 0)], library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+        XCTAssertEqual(zero.verdict, .matrix)
+        XCTAssertEqual(Int(zero.phaseIndex), library.matrixPhaseIndex)
+        XCTAssertEqual(Int(zero.survivingCount), 0)
+        XCTAssertEqual(Int(zero.removedCount), 1)
+
+        // 1 survivor: one matches the matrix and is removed, one does not.
+        let one = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.4, 0), SIMD2(1.0, 0)], library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+        XCTAssertEqual(one.verdict, .matrix)
+        XCTAssertEqual(Int(one.survivingCount), 1)
+        XCTAssertEqual(Int(one.removedCount), 1)
+
+        // 2 survivors: neither matches the matrix -- must reach scoring,
+        // not the by-exclusion shortcut.
+        let two = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(1.0, 0), SIMD2(1.2, 0)], library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+        XCTAssertEqual(two.verdict, .indexed, "2 survivors must reach scoring, not the matrix shortcut")
+        XCTAssertEqual(Int(two.phaseIndex), 1)
+        XCTAssertEqual(two.score, 0, accuracy: 1e-12)
+    }
+
+    /// (3) The unique-hit denominator: two survivors that both land nearest
+    /// the SAME reference spot must score WORSE than two survivors landing
+    /// nearest two DISTINCT spots at the same two distances -- cell 16's
+    /// `np.unique(ref_tmp[n], axis=0).shape[0]` denominator.
+    /// Break-first M1: divide by `surviving.count` instead of the unique-hit
+    /// count -- both cases then have denominator 2 and score identically,
+    /// so `XCTAssertGreaterThan` below must go red.
+    func testKnownVariantsUniqueHitDenominatorPenalisesRepeatedHits() {
+        let refs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.30, 0), length: 0.30, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0.60, 0), length: 0.60, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: refs)])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 8)
+
+        // Both survivors nearest the SAME reference (0.30): distances 0.01
+        // and 0.01, unique hits 1 -> score 0.02 / 1 = 0.02.
+        let sameSpot = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.29, 0), SIMD2(0.31, 0)], library: library, settings: settings,
+            matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+        // Survivors nearest two DIFFERENT references at the same two
+        // distances: unique hits 2 -> score 0.02 / 2 = 0.01.
+        let distinctSpots = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.29, 0), SIMD2(0.61, 0)], library: library, settings: settings,
+            matrixEntry: nil, candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+
+        XCTAssertEqual(sameSpot.verdict, .indexed)
+        XCTAssertEqual(distinctSpots.verdict, .indexed)
+        XCTAssertEqual(sameSpot.score, 0.02, accuracy: 1e-6)
+        XCTAssertEqual(distinctSpots.score, 0.01, accuracy: 1e-6)
+        XCTAssertGreaterThan(sameSpot.score, distinctSpots.score,
+                             "two hits on one reference must score worse than two hits on distinct ones")
+    }
+
+    /// (4) The residual cutoff, right at the edge: mean residual just below
+    /// `residualCutoffInvAngstrom` is `.indexed`, just above is
+    /// `.notIndexed`. Break-first M2: flip the comparison -- both cases
+    /// swap verdicts, so this must go red.
+    func testKnownVariantsCutoffBoundary() {
+        let cutoff = PhaseVectorSettings().residualCutoffInvAngstrom
+        let refs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.30, 0), length: 0.30, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0, 0.60), length: 0.60, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: refs)])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 8)
+
+        func result(offset: Double) -> PhaseVectorResult {
+            PhaseVectorMatcher.classify(
+                vectors: [SIMD2(0.30 + offset, 0), SIMD2(0, 0.60 + offset)],
+                library: library, settings: settings, matrixEntry: nil,
+                candidateEntryIndices: library.candidateEntryIndices, scratch: scratch)
+        }
+
+        let justBelow = result(offset: cutoff - 0.001)
+        let justAbove = result(offset: cutoff + 0.001)
+        XCTAssertEqual(justBelow.verdict, .indexed,
+                       "mean residual \(justBelow.score) is under the cutoff \(cutoff)")
+        XCTAssertEqual(justAbove.verdict, .notIndexed,
+                       "mean residual \(justAbove.score) is over the cutoff \(cutoff)")
+        // Still filled on a refusal, so the probe can print the distribution
+        // of would-be winners among the not-indexed positions.
+        XCTAssertEqual(Int(justAbove.phaseIndex), 1)
+        XCTAssertTrue(justAbove.score.isFinite)
+    }
+
+    /// (5) Partial explanation loses: an entry explaining 2 of 12 survivors
+    /// at 0.003 Å⁻¹ and leaving the other 10 far away must lose to an entry
+    /// explaining all 12 at 0.008 Å⁻¹ -- the measured θ′ edge-on -> T1
+    /// mechanism (`docs/archive/v3/phase-map-residual-detail-2026-09-21.md`:
+    /// a Friedel-pair floor lets a 2-of-12 partial match win under `.search`;
+    /// `.knownVariants` has no such floor, and summing every survivor is what
+    /// makes leaving ten unexplained costly instead of merely absent from the
+    /// count). Break-first M3: sum only the matched-within-radius distances
+    /// -- the ten far survivors drop out of entry X's sum, its score
+    /// collapses to near 0.003, and it wins instead, so this must go red.
+    func testKnownVariantsPartialExplanationLoses() {
+        let survivors = (0..<12).map { SIMD2<Double>(Double($0) * 1.0, 0) }
+        // Entry X: two reference vectors. Survivors 0 and 1 land 0.003 from
+        // one each; survivors 2...11 are all nearest the SECOND of the two,
+        // "far away" as the residual record describes.
+        let entryXRefs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.003, 0), length: 0.003, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(1.003, 0), length: 1.003, relativeIntensity: 1),
+        ]
+        // Entry Y: twelve reference vectors, each 0.008 from its own survivor.
+        let entryYRefs = (0..<12).map { i in
+            ReferenceVector(h: i, k: 0, l: 0, q: SIMD2(Double(i) * 1.0 + 0.008, 0),
+                            length: Double(i) * 1.0 + 0.008, relativeIntensity: 1)
+        }
+        let library = knownVariantsLibrary(candidateEntries: [
+            (phaseIndex: 1, vectors: entryXRefs),
+            (phaseIndex: 2, vectors: entryYRefs),
+        ])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        let result = PhaseVectorMatcher.classify(
+            vectors: survivors, library: library, settings: settings, matrixEntry: nil,
+            candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 16))
+        XCTAssertEqual(result.verdict, .indexed)
+        XCTAssertEqual(Int(result.phaseIndex), 2,
+                       "the entry explaining all 12 survivors must win over one explaining only 2 of them")
+        XCTAssertEqual(result.score, 0.008, accuracy: 1e-6)
+        XCTAssertEqual(Int(result.runnerUpPhaseIndex), 1)
+    }
+
+    /// (6) A matrix-phase entry is never the winner under this rule, even
+    /// when spliced into the candidate list with a perfect (zero-distance)
+    /// score -- the matrix is decided only by step b, never scored.
+    /// Mutation: the `entry.phaseIndex != library.matrixPhaseIndex` guard
+    /// removed from the scoring loop.
+    func testKnownVariantsNeverPicksTheMatrixPhaseEvenWhenItWouldScoreBest() {
+        let matrixRefs = [
+            ReferenceVector(h: 2, k: 0, l: 0, q: SIMD2(0.50, 0), length: 0.50, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 2, l: 0, q: SIMD2(0, 0.70), length: 0.70, relativeIntensity: 1),
+        ]
+        let matrixEntry = PhaseOrientationReference(phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1),
+                                                    inPlaneRotationRad: 0, vectors: matrixRefs)
+        // A real candidate, 0.01 Å⁻¹ off each spot -- the only legitimate winner.
+        let candidateRefs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.51, 0), length: 0.51, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0, 0.71), length: 0.71, relativeIntensity: 1),
+        ]
+        let base = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: candidateRefs)])
+        // Splice the matrix's own entry into the SAME entries array, so the
+        // guard under test is `classify`'s own, not merely a caller that
+        // already knew to leave the matrix out.
+        let library = PhaseReferenceLibrary(phases: base.phases, settings: base.settings,
+                                            entries: [matrixEntry] + base.entries,
+                                            matrixPhaseIndex: base.matrixPhaseIndex)
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        // Deliberately pass EVERY entry as a candidate, the matrix's included.
+        let result = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.50, 0), SIMD2(0, 0.70)], library: library, settings: settings,
+            matrixEntry: nil, candidateEntryIndices: Array(library.entries.indices),
+            scratch: PhaseVectorMatcher.Scratch(capacity: 8))
+        XCTAssertEqual(result.verdict, .indexed)
+        XCTAssertEqual(Int(result.phaseIndex), 1,
+                       "the matrix's own entry scored 0 and must still never win")
+        XCTAssertEqual(result.score, 0.01, accuracy: 1e-6)
+    }
+
+    /// (7) `.search` is unchanged by `.knownVariants` existing: a hand-placed
+    /// fixture's FULL `PhaseVectorResult` is pinned, and the default settings
+    /// (`.search`) agree exactly with settings that name `.search` explicitly
+    /// -- the dispatch adds a branch, it does not move which branch the
+    /// default takes or any field `.search` computes. `PhaseVectorResult`'s
+    /// synthesized `==` is not used directly: NaN != NaN would make a
+    /// passing runner-up comparison look like a failure.
+    func testKnownVariantsRuleDoesNotChangeSearchsOwnResult() {
+        let refs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.10, 0), length: 0.10, relativeIntensity: 1),
+            ReferenceVector(h: 2, k: 0, l: 0, q: SIMD2(0.20, 0), length: 0.20, relativeIntensity: 1),
+            ReferenceVector(h: 3, k: 0, l: 0, q: SIMD2(0.30, 0), length: 0.30, relativeIntensity: 1),
+            ReferenceVector(h: 5, k: 0, l: 0, q: SIMD2(0.50, 0), length: 0.50, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: refs)])
+        let vectors = [SIMD2(0.101, 0.0), SIMD2(0.199, 0.0), SIMD2(0.302, 0.0), SIMD2(0.505, 0.0)]
+        var settings = PhaseVectorSettings()
+        XCTAssertEqual(settings.classificationRule, .search, "the shipped default must stay .search")
+
+        let result = PhaseVectorMatcher.classify(
+            vectors: vectors, library: library, settings: settings, matrixEntry: nil,
+            candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 8))
+        XCTAssertEqual(result.verdict, .indexed)
+        XCTAssertEqual(Int(result.phaseIndex), 1)
+        XCTAssertEqual(Int(result.entryIndex), library.candidateEntryIndices[0])
+        XCTAssertEqual(result.score, 0.00225, accuracy: 1e-6)
+        XCTAssertEqual(Int(result.matchedCount), 4)
+        XCTAssertEqual(Int(result.survivingCount), 4)
+        XCTAssertEqual(Int(result.removedCount), 0)
+        XCTAssertEqual(Int(result.runnerUpPhaseIndex), -1)
+        XCTAssertTrue(result.runnerUpScore.isNaN)
+
+        settings.classificationRule = .search
+        let explicit = PhaseVectorMatcher.classify(
+            vectors: vectors, library: library, settings: settings, matrixEntry: nil,
+            candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 8))
+        XCTAssertEqual(explicit.verdict, result.verdict)
+        XCTAssertEqual(explicit.phaseIndex, result.phaseIndex)
+        XCTAssertEqual(explicit.entryIndex, result.entryIndex)
+        XCTAssertEqual(explicit.score, result.score)
+        XCTAssertEqual(explicit.matchedCount, result.matchedCount)
+        XCTAssertEqual(explicit.survivingCount, result.survivingCount)
+        XCTAssertEqual(explicit.removedCount, result.removedCount)
+    }
 }
 
 /// The presentation layer of the phase map, and the one piece of ACOM

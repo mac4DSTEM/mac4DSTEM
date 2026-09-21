@@ -128,6 +128,36 @@ enum Probe {
         // removedCount histograms and score quantiles, so a residual can be
         // read instead of re-derived by hand.
         var residualDetail = false
+        // Session S1 (v3-precipitates-and-materials-project-plan.md §2):
+        // `--rule known-variants` runs Thronsen et al.'s own per-position
+        // rule (`PhaseVectorSettings.ClassificationRule.knownVariants`)
+        // instead of the library search; `--residual-cutoff` and
+        // `--direct-matrix-max` are that rule's two settings, plumbed
+        // through so the pre-registered 0.07 / 1 can be swept without
+        // editing the app.
+        var ruleArg: String?
+        var residualCutoffArg: Double?
+        var directMatrixMaxArg: Int?
+        // Gate D MEASUREMENT, 2026-09-21 (docs/archive/v3/phase-map-residual-detail-2026-09-21.md
+        // follow-up): additive, off by default, zero behaviour change without
+        // it. `--rule known-variants` only. For truth-T1 positions, the
+        // per-survivor nearest-reference distance and |q| against the
+        // winning (or would-be winning) T1 entry, bucketed — is the excess
+        // of not-indexed T1 residual explained by detection noise (far
+        // survivors spread in |q|) or by real unmodelled reflections (far
+        // survivors peaked at specific |q|)?
+        var survivorDetail = false
+        // Gate D MEASUREMENT, 2026-09-21 (survivor-detail follow-up): additive,
+        // off by default, zero behaviour change without them. `--min-intensity`
+        // and `--max-vectors` plumb straight to `PhaseReferenceSettings`'
+        // `minimumIntensityFraction` (shipped 0.05) and `maximumVectorsPerEntry`
+        // (shipped 48) — the two settings suspected of dropping T1's [0 -4 1]
+        // ZOLZ reflections at 0.233/0.367/0.679 Å⁻¹ from the library entry.
+        // `--dump-entry PHASE` prints that entry's own vector table so the
+        // suspicion can be read directly instead of re-derived.
+        var minIntensityArg: Double?
+        var maxVectorsArg: Int?
+        var dumpEntryPhase: String?
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -163,6 +193,20 @@ enum Probe {
                 orientationRelationship = true; index += 1
             } else if args[index] == "--residual-detail" {
                 residualDetail = true; index += 1
+            } else if args[index] == "--survivor-detail" {
+                survivorDetail = true; index += 1
+            } else if args[index] == "--rule", index + 1 < args.count {
+                ruleArg = args[index + 1]; index += 2
+            } else if args[index] == "--residual-cutoff", index + 1 < args.count {
+                residualCutoffArg = Double(args[index + 1]); index += 2
+            } else if args[index] == "--direct-matrix-max", index + 1 < args.count {
+                directMatrixMaxArg = Int(args[index + 1]); index += 2
+            } else if args[index] == "--min-intensity", index + 1 < args.count {
+                minIntensityArg = Double(args[index + 1]); index += 2
+            } else if args[index] == "--max-vectors", index + 1 < args.count {
+                maxVectorsArg = Int(args[index + 1]); index += 2
+            } else if args[index] == "--dump-entry", index + 1 < args.count {
+                dumpEntryPhase = args[index + 1]; index += 2
             } else if args[index] == "--dump-edge-on" {
                 if index + 1 < args.count, let n = Int(args[index + 1]) {
                     dumpEdgeOnCount = n; index += 2
@@ -202,6 +246,15 @@ enum Probe {
         var referenceSettings = PhaseReferenceSettings()
         referenceSettings.kMaxInvAngstrom = thronsen != nil ? Thronsen.kMaxInvAngstrom : reach
         referenceSettings.inPlaneStepDeg = 2
+        if let minIntensityArg {
+            referenceSettings.minimumIntensityFraction = minIntensityArg
+            print(String(format: "reference library: minimum intensity fraction %.4f (shipped 0.05)",
+                         minIntensityArg))
+        }
+        if let maxVectorsArg {
+            referenceSettings.maximumVectorsPerEntry = maxVectorsArg
+            print("reference library: maximum vectors per entry \(maxVectorsArg) (shipped 48)")
+        }
 
         var matchSettings = PhaseVectorSettings()   // `var`: the reach and the floor are set below
         if completenessGuard {
@@ -219,6 +272,24 @@ enum Probe {
         if let notIndexedAbove {
             matchSettings.notIndexedAboveInvAngstrom = notIndexedAbove
             print(String(format: "matching: not indexed above %.4f Å⁻¹ (shipped 0.015)", notIndexedAbove))
+        }
+        if let ruleArg {
+            switch ruleArg {
+            case "search": matchSettings.classificationRule = .search
+            case "known-variants": matchSettings.classificationRule = .knownVariants
+            default:
+                print("--rule must be 'search' or 'known-variants', got '\(ruleArg)'"); exit(2)
+            }
+            print("matching: classification rule \(ruleArg) (shipped search)")
+        }
+        if let residualCutoffArg {
+            matchSettings.residualCutoffInvAngstrom = residualCutoffArg
+            print(String(format: "matching: residual cutoff %.4f Å⁻¹ (shipped 0.07, knownVariants only)",
+                         residualCutoffArg))
+        }
+        if let directMatrixMaxArg {
+            matchSettings.directMatrixMaximumVectors = directMatrixMaxArg
+            print("matching: direct matrix max \(directMatrixMaxArg) survivors (shipped 1, knownVariants only)")
         }
         if truth == nil && thronsen == nil {
             // One detector pixel, rounded up: nothing smaller can be measured
@@ -285,6 +356,40 @@ enum Probe {
                 print("    ^ UNRESOLVABLE on this detector: two distinct reflections fall inside "
                       + "one pair radius, so a single peak matches both and the score cannot "
                       + "separate them.")
+            }
+        }
+
+        // --dump-entry PHASE: additive, off by default. The entry at in-plane
+        // rotation 0 (or the phase's first entry, if 0 was somehow absent) —
+        // not the whole rotation sweep — because the vector SET a phase's
+        // entries carry does not depend on the in-plane rotation, only on
+        // `minimumIntensityFraction` and `maximumVectorsPerEntry` above.
+        if let dumpEntryPhase {
+            print("\n== --dump-entry \(dumpEntryPhase) ==")
+            print("  total library entries: \(library.entries.count)")
+            if let phaseIndex = phases.firstIndex(where: { $0.displayName == dumpEntryPhase }) {
+                let candidates = library.entries.indices.filter { library.entries[$0].phaseIndex == phaseIndex }
+                if candidates.isEmpty {
+                    print("  phase '\(dumpEntryPhase)' has no library entries")
+                } else {
+                    let entryIndex = candidates.first(where: { library.entries[$0].inPlaneRotationRad == 0 })
+                        ?? candidates[0]
+                    let entry = library.entries[entryIndex]
+                    let chance = entry.chanceMatchFraction(
+                        pairRadius: matchSettings.pairRadiusInvAngstrom, accessibleRadius: reach)
+                    print(String(format: "  entry: zone axis [%d %d %d], in-plane rotation %.1f°, %d vectors",
+                                 entry.zoneAxis.x, entry.zoneAxis.y, entry.zoneAxis.z,
+                                 entry.inPlaneRotationRad * 180 / .pi, entry.vectors.count))
+                    print(String(format: "  chanceMatchFraction(pairRadius: %.4f, accessibleRadius: %.4f) = %.4f (%.1f %%)",
+                                 matchSettings.pairRadiusInvAngstrom, reach, chance, 100 * chance))
+                    // Already sorted by |q| (`ReferenceVector`'s own contract).
+                    for v in entry.vectors {
+                        print(String(format: "    |q| %.4f  rel.intensity %.4f  (%d %d %d)",
+                                     v.length, v.relativeIntensity, v.h, v.k, v.l))
+                    }
+                }
+            } else {
+                print("  no phase named '\(dumpEntryPhase)' in this run")
             }
         }
 
@@ -664,6 +769,41 @@ enum Probe {
                       + String(format: "%11d", total))
             }
 
+            // Session S1: with `--rule known-variants`, print per truth class
+            // the winner-score quantiles for indexed AND for not-indexed
+            // positions, unconditionally (not behind --residual-detail) --
+            // so where `residualCutoffInvAngstrom` (0.07 shipped) falls on
+            // THIS dataset's own score distribution is visible without
+            // re-deriving it, and the cutoff is never tuned to the truth
+            // blind.
+            if matchSettings.classificationRule == .knownVariants {
+                print(String(format: "\n== known-variants: winner-score quantiles by truth class (cutoff %.4f Å⁻¹) ==",
+                             matchSettings.residualCutoffInvAngstrom))
+                func scoreQuantiles(_ values: [Double]) -> String {
+                    guard !values.isEmpty else { return "n=0 (no finite scores)" }
+                    let s = values.sorted()
+                    func at(_ p: Double) -> Double {
+                        s[max(0, min(s.count - 1, Int((Double(s.count - 1) * p).rounded())))]
+                    }
+                    return String(format: "n=%-6d min=%.4f p10=%.4f p50=%.4f p90=%.4f max=%.4f",
+                                  s.count, s.first!, at(0.10), at(0.50), at(0.90), s.last!)
+                }
+                for (label, wantIndexed) in [("indexed", true), ("not indexed", false)] {
+                    print("  -- \(label) --")
+                    for theirs in [0, 1, 2, 3] {
+                        let values = map.results.enumerated().compactMap { index, result -> Double? in
+                            guard thronsen.labels[index] == theirs, result.score.isFinite,
+                                  (result.verdict == .indexed) == wantIndexed,
+                                  result.verdict == .indexed || result.verdict == .notIndexed
+                            else { return nil }
+                            return Double(result.score)
+                        }
+                        guard !values.isEmpty else { continue }
+                        print(String(format: "  %-14@ ", name(theirs) as NSString) + scoreQuantiles(values))
+                    }
+                }
+            }
+
             // --residual-detail: additive, off by default. For named
             // truth→ours cells, break survivingCount/matchedCount/removedCount
             // (PhaseVectorMatching.swift:275-305) into histograms and score
@@ -742,6 +882,151 @@ enum Probe {
                     }
                 }
             }
+
+            // --survivor-detail: additive, off by default, `--rule
+            // known-variants` only. Refuting-observation test (Gate D
+            // measurement follow-up to phase-map-residual-detail-2026-09-21.md):
+            // for every truth-T1 position, find the winning (or would-be
+            // winning) T1 entry — `result.entryIndex` itself when the
+            // matcher's own overall winner is already T1, else the best T1
+            // entry by the SAME step-c scoring `classifyKnownVariants` uses,
+            // recomputed here only because that per-entry number is not
+            // carried in `PhaseVectorResult` — and for every survivor at
+            // that position, its true nearest-reference distance d against
+            // that entry's vectors and its |q|. If the far (d > 0.05)
+            // survivors' |q| bunches at T1's own ZOLZ radii (0.233, 0.367,
+            // 0.467, 0.493, 0.679 Å⁻¹) or Al {220} (0.700), they are
+            // reflections the reference does not carry, not noise; if they
+            // spread, they look like detection noise admitted by a
+            // relative threshold far looser than the paper's.
+            if survivorDetail, matchSettings.classificationRule != .knownVariants {
+                print("\n== --survivor-detail (known-variants rule; truth-T1 positions) ==")
+                print("  --survivor-detail only means anything with --rule known-variants; skipped")
+            }
+            if survivorDetail, matchSettings.classificationRule == .knownVariants {
+                print("\n== --survivor-detail (known-variants rule; truth-T1 positions) ==")
+                let t1Label = 3, alLabel = 0   // Thronsen.swift header: 0 Al, 3 T1
+                let t1PhaseIndex = map.phaseNames.firstIndex(of: "T1") ?? -1
+                let t1Entries = library.entries.indices.filter {
+                    Int(library.entries[$0].phaseIndex) == t1PhaseIndex
+                }
+                if t1PhaseIndex < 0 || t1Entries.isEmpty {
+                    print("  no T1 phase / entries in this library; skipped")
+                } else {
+                let matrixEntry = map.matrixEntryIndex >= 0 ? library.entries[map.matrixEntryIndex] : nil
+                // A radius no real Å⁻¹ distance on this cube can exceed (reach
+                // is 0.68 Å⁻¹, so no two vectors within it are farther apart
+                // than ~1.36): passing it to the SAME package function the
+                // matrix-removal step calls, `PhaseVectorMatcher.nearest(_:in:
+                // radius:)`, turns its length-band-pruned search into a plain
+                // true-nearest-neighbour lookup — reusing that call instead of
+                // hand-rolling the brute-force loop `nearestReferenceVector`
+                // (private to PhaseVectorMatching.swift) already is.
+                let unbounded = 999.0
+
+                var dSamples: [Double] = []
+                var qSamples: [Double] = []   // parallel to dSamples
+                var meanSurvivors: [Int: (sum: Int, n: Int)] = [t1Label: (0, 0), alLabel: (0, 0)]
+
+                for (index, result) in map.results.enumerated() {
+                    let theirs = thronsen.labels[index]
+                    guard theirs == t1Label || theirs == alLabel else { continue }
+                    meanSurvivors[theirs]!.sum += Int(result.survivingCount)
+                    meanSurvivors[theirs]!.n += 1
+                    guard theirs == t1Label,
+                          Int(result.survivingCount) > matchSettings.directMatrixMaximumVectors
+                    else { continue }   // classifyKnownVariants never scores these (step b: → .matrix)
+
+                    let vectors = PhaseVectorMatcher.experimentalVectors(
+                        peaks: peaks[index], originX: originX, originY: originY,
+                        invAngstromPerPixel: qPerPixel,
+                        directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                        maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                    let surviving = vectors.filter { u in
+                        guard let matrixEntry else { return true }
+                        return PhaseVectorMatcher.nearest(
+                            u, in: matrixEntry.vectors,
+                            radius: matchSettings.matrixToleranceInvAngstrom) == nil
+                    }
+                    guard surviving.count == Int(result.survivingCount) else { continue }  // sanity: must match the matcher's own count
+
+                    // The winning T1 entry: the matcher's own answer when T1
+                    // is already the overall winner (`result.entryIndex`),
+                    // else recomputed as classifyKnownVariants step c would,
+                    // restricted to T1's own entries — "would-be winning".
+                    var winEntry: Int?
+                    if result.phaseIndex == Int32(t1PhaseIndex), result.entryIndex >= 0 {
+                        winEntry = Int(result.entryIndex)
+                    } else {
+                        var bestScore = Double.infinity
+                        for e in t1Entries {
+                            let entry = library.entries[e]
+                            guard !entry.vectors.isEmpty else { continue }
+                            var sum = 0.0
+                            var uniqueHits = Set<Int>()
+                            for u in surviving {
+                                guard let hit = PhaseVectorMatcher.nearest(
+                                    u, in: entry.vectors, radius: unbounded) else { continue }
+                                sum += hit.distance
+                                uniqueHits.insert(hit.index)
+                            }
+                            guard !uniqueHits.isEmpty else { continue }
+                            let score = sum / Double(uniqueHits.count)
+                            if score < bestScore { bestScore = score; winEntry = e }
+                        }
+                    }
+                    guard let winEntry else { continue }
+                    let entry = library.entries[winEntry]
+                    for u in surviving {
+                        guard let hit = PhaseVectorMatcher.nearest(
+                            u, in: entry.vectors, radius: unbounded) else { continue }
+                        dSamples.append(hit.distance)
+                        qSamples.append(simd_length(u))
+                    }
+                }
+
+                for (label, stat) in [("T1", meanSurvivors[t1Label]!), ("Al", meanSurvivors[alLabel]!)] {
+                    let mean = stat.n > 0 ? Double(stat.sum) / Double(stat.n) : .nan
+                    print(String(format: "  mean survivors per truth-%@ position: %.3f (n=%d positions)",
+                                 label as NSString, mean, stat.n))
+                }
+                print("  survivors scored against the winning/would-be-winning T1 entry: n=\(dSamples.count)")
+
+                let dBucketEdges = [0.01, 0.02, 0.05, 0.1, 0.2]
+                let dBucketLabels = ["0-0.01", "0.01-0.02", "0.02-0.05", "0.05-0.1", "0.1-0.2", "0.2+"]
+                func dBucket(_ d: Double) -> Int {
+                    for (i, edge) in dBucketEdges.enumerated() where d < edge { return i }
+                    return dBucketEdges.count
+                }
+                var dCounts = [Int](repeating: 0, count: dBucketLabels.count)
+                for d in dSamples { dCounts[dBucket(d)] += 1 }
+                print("  d = nearest-reference distance to the winning T1 entry, Å⁻¹ (histogram):")
+                print("    " + zip(dBucketLabels, dCounts).map { "\($0)=\($1)" }.joined(separator: "  "))
+
+                func qHistogram(_ mask: (Double) -> Bool) -> String {
+                    let binWidth = 0.02
+                    let binCount = Int((0.70 / binWidth).rounded(.up)) + 1   // +1 catches ≥0.70
+                    var counts = [Int](repeating: 0, count: binCount)
+                    var n = 0
+                    for (d, q) in zip(dSamples, qSamples) where mask(d) {
+                        let bin = min(binCount - 1, Int(q / binWidth))
+                        counts[bin] += 1; n += 1
+                    }
+                    guard n > 0 else { return "  n=0" }
+                    var out = "  n=\(n)\n"
+                    for (bin, count) in counts.enumerated() where count > 0 {
+                        let lo = Double(bin) * binWidth
+                        out += String(format: "    %.2f-%.2f: %d\n", lo, lo + binWidth, count)
+                    }
+                    return out
+                }
+                print("\n  far survivors (d > 0.05 Å⁻¹): |q| histogram, 0.02 Å⁻¹ bins, 0-0.70:")
+                print(qHistogram { $0 > 0.05 })
+                print("  near survivors (d ≤ 0.02 Å⁻¹): |q| histogram, 0.02 Å⁻¹ bins, 0-0.70 (comparison):")
+                print(qHistogram { $0 <= 0.02 })
+                }
+            }
+
             // WHICH ROTATION WON, per truth → label cell: the winner's
             // in-plane angle relative to the matrix entry's, folded to
             // [0, 90) by Al's four-fold axis. The OR question (2026-09-15):

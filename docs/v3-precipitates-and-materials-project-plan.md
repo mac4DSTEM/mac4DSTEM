@@ -67,6 +67,8 @@ retuned on the truth. Ship gate: ≤ 3 % with the confusion table recorded
 under `docs/archive/v3/`, else the rule ships as an experimental option
 badged unvalidated and the record says why.
 
+**Outcome 2026-09-21.** Refuted as predicted-for, then explained: the T1 entry lacked {014}/{214} under the 5 % kinematic intensity floor; at floor 0 the rule scores 2.64 % (bar met, band not) and the search rule 3.77 %. Two residuals owed before wiring (`open-items.md`).
+
 **Then**: derive T1's stated relationship ((0001)T1 ∥ (111)Al, [1‑10]Al ∥
 [10‑10]T1) into the OR form so T1 stops being a free sweep; wire the class
 map to `classObjects` for per-class fraction, object count and areal
@@ -106,8 +108,8 @@ owner's key allows a real capture (recorded as such).
 
 | # | Session | Scope | Gate | Model | State |
 |---|---|---|---|---|---|
-| S0 | 2026-09-21 | Surveys, this plan, `--residual-detail` measurement, resume note | none (measurement) | Sonnet surveys, Fable plan | **running** |
-| S1 | A · rule | `ClassificationRule.knownVariants` in Core, synthetic fixture broken first, probe `--rule`, measured vs truth, archive record | D + B (Sonnet refuter) | Sonnet writes, Fable gates | next |
+| S0 | 2026-09-21 | Surveys, this plan, `--residual-detail` measurement, resume note | none (measurement) | Sonnet surveys, Fable plan | done |
+| S1 | A · rule | `ClassificationRule.knownVariants` in Core, synthetic fixture broken first, probe `--rule`, measured vs truth, archive record | D + B (Sonnet refuter) | Sonnet writes, Fable gates | done 2026-09-21: prediction refuted (18.11 %), T1 reference found incomplete, 2.64 % at floor 0 — `archive/v3/known-variants-rule-2026-09-21.md` |
 | S2 | A · T1 OR | T1 relationship derived into the OR form; re-measure; unit + `phase-vector-matching` harness | D + B | Sonnet, Fable gates | after S1 |
 | S3 | A · wire | Classifier picker in Phase mapping settings; class map → objects, per-class fraction/density in Results; export; badge logic | unit + inventory; **on-screen owed** | Sonnet | after S1; surface waits for the drive row or the owner's word |
 | S4a | B · core | Entitlement (landed `f500a31`); `Core/Crystal/MaterialsProjectImport.swift` (decode, request, `crystalModel(from:)` via the CIF classifier, `PhaseExpectation` check, `spaceGroupNumber`, `materials_project` source); Keychain store; fixtures; tests first | unit + core | Sonnet | done `6324314` |

@@ -62,7 +62,7 @@ Detail: `docs/archive/open-items-detail-2026-09-18.md`.
 
 ## T1 [0 -4 1]: the not-indexed pairs are per-peak detection noise, not origin or reference — measured 2026-09-17
 
-**Resolved by direct measurement (independently refuted):** the 252 not-indexed T1 positions each leave 2 survivors after matrix removal (52.1 % of 6358) forming one real `|q| ≈ 0.462–0.470 Å⁻¹` Friedel pair (the {200} ZOLZ reflection, `|g|=0.4668`) that sits 2.5–5.2° off antiparallel (`|u+v|` = 0.021–0.043, just over the 0.02 pair radius) — so `containsFriedelPair` returns false and the floor-3 rejects them. The T1 reference length is correct; do NOT change it.
+**Resolved by direct measurement (independently refuted):** the 252 not-indexed T1 positions each leave 2 survivors after matrix removal (52.1 % of 6358) forming one real `|q| ≈ 0.462–0.470 Å⁻¹` Friedel pair (the {200} ZOLZ reflection, `|g|=0.4668`) that sits 2.5–5.2° off antiparallel (`|u+v|` = 0.021–0.043, just over the 0.02 pair radius) — so `containsFriedelPair` returns false and the floor-3 rejects them. The T1 reference {200} length is correct; what was missing (measured 2026-09-21) were the weak {014}/{214} families under the 5 % intensity floor — `docs/archive/v3/known-variants-rule-2026-09-21.md`.
 **Gate D experiment (run 2026-09-17):** a per-position direct-beam origin sits 0.04 px (0.0007 Å⁻¹) median from the global origin (stable, not wandering) and recovers only 24 of 252 (10 %) — **the residual is per-PEAK centroid noise on the weak {200} spots (~0.5–1 px), not a common-mode origin error.**
 **py4DSTEM head-to-head (2026-09-17):** py4DSTEM's own ACOM+`CrystalPhase` on the same peaks labels 100 % of T1 positions Al — validates the matrix-removal design, not a lever to adopt.
 **Remaining levers, each its own Gate D:** better centroiding of the weak spots, loosen the pair-antiparallel tolerance (recovers ~half at rising Al-false-positive/0.015-cliff cost), or accept detection-limited T1 recall. Owner: which lever, if any.
@@ -85,6 +85,18 @@ Owner: assign a session with Gate B support, or authorize continuing here with a
 Detail: `docs/archive/open-items-detail-2026-09-18.md`.
 
 ## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
+## Known-variants rule at floor 0: 2.64 % on the Thronsen truth, two residuals owed — added 2026-09-21
+
+**Science.** `ClassificationRule.knownVariants` (the paper's rule, off by default) with the T1 reference at
+`minimumIntensityFraction` 0 lands **773 / 29 241 = 2.64 %** (`map-known-variants-min0-cap48-20260921.log`),
+under the pre-registered 3 % bar, above the 0.96–1.75 % band; the search rule at the same floor 3.77 %.
+Record: `docs/archive/v3/known-variants-rule-2026-09-21.md`. Still `validation:"none"`.
+**Owed, each its own Gate D before S3 wires the rule:** (1) edge-on → Al 107 under known-variants vs 20
+under search at the same floor — mechanism not established; (2) Al → T1 false calls 264 (the rule has no
+chance guard) — the S2 T1 relationship (180 free entries → ~40) is the pre-registered lever;
+(3) whether the floor default moves for the search rule is unmeasured on any other dataset (threshold rule).
+Owner: unclaimed.
+
 
 ### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
 

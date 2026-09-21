@@ -181,6 +181,38 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// unfixed T1 reference, `docs/open-items.md`).
     package var completenessAwareCrossPhaseRanking = false
 
+    // MARK: The known-variants rule (Thronsen et al.'s own, beside the search above)
+
+    /// Which per-position rule decides a verdict. `.search` (shipped) is
+    /// everything above: a library search ranked by mean distance and gated
+    /// by the floors and guards this file measures. `.knownVariants` is
+    /// Thronsen et al.'s own rule — score every non-matrix library entry
+    /// against the survivors, no floors, argmin wins
+    /// (`PhaseVectorMatcher.classifyKnownVariants`,
+    /// `References/SPED-phase-mapping-main/VectorAnalysis/vector_analysis_2.ipynb`
+    /// cells 6, 16, 19). Not (yet) carried into `RunRecord`'s hand-picked
+    /// sidecar provenance keys (`AppState+PhaseMapping.swift`'s
+    /// `phaseProvenance`, checked 2026-09-21): that dictionary is written by
+    /// hand, key by key, with no decode path back into these settings, so
+    /// `.search` round-trips unchanged either way — there is nothing here to
+    /// keep additive.
+    package enum ClassificationRule: String, Sendable, Equatable, CaseIterable {
+        case search
+        case knownVariants
+    }
+    /// Shipped. Adding `.knownVariants` changes nothing about this rule.
+    package var classificationRule: ClassificationRule = .search
+    /// `.knownVariants` only: survivors at or below this many → the matrix,
+    /// by exclusion. Cell 6: `direct_Al = 1`; cell 16:
+    /// `if len(xy) <= direct_Al: … phase.append('Al')`.
+    package var directMatrixMaximumVectors: Int = 1
+    /// `.knownVariants` only: the winning entry's residual mean above this →
+    /// "not indexed". Å⁻¹. Cell 6: `score_cutoff = 0.07`; cell 19:
+    /// `score_phase_mask = score_phase > score_cutoff`. The paper's value on
+    /// the paper's dataset — shipped as a setting, not retuned on this app's
+    /// truth (`docs/v3-precipitates-and-materials-project-plan.md` §2).
+    package var residualCutoffInvAngstrom: Double = 0.07
+
     package nonisolated init() {}
 }
 
@@ -796,6 +828,16 @@ package nonisolated enum PhaseVectorMatcher {
                                  candidateEntryIndices: [Int],
                                  scratch: Scratch,
                                  matrixChallenge: [PhaseOrientationReference] = []) -> PhaseVectorResult {
+        // Dispatch only, and only here: everything below this line is
+        // `.search`, untouched by `.knownVariants` existing. The second rule
+        // is a second function, not a branch threaded through this one, so
+        // `.search`'s numbers cannot drift by way of a shared code path —
+        // pinned by `testKnownVariantsRuleDoesNotChangeSearchsOwnResult`.
+        if settings.classificationRule == .knownVariants {
+            return classifyKnownVariants(vectors: vectors, library: library, settings: settings,
+                                         matrixEntry: matrixEntry,
+                                         candidateEntryIndices: candidateEntryIndices)
+        }
         var result = PhaseVectorResult()
         guard !vectors.isEmpty else { return result }
 
@@ -972,6 +1014,177 @@ package nonisolated enum PhaseVectorMatcher {
         result.phaseIndex = Int32(winner.key)
         result.entryIndex = Int32(winner.value.entryIndex)
         return result
+    }
+
+    // MARK: The known-variants rule (Thronsen et al.)
+
+    /// Thronsen et al.'s own per-position rule
+    /// (`References/SPED-phase-mapping-main/VectorAnalysis/vector_analysis_2.ipynb`,
+    /// cells 6, 16, 19): score every non-matrix library entry against the
+    /// survivors and take the argmin, no floors and no guards. `classify`
+    /// dispatches here for `settings.classificationRule == .knownVariants`;
+    /// this function never runs for `.search`.
+    ///
+    /// DEVIATION (cell 16, `if len(xy) <= direct_Al: … 'Al'`): the paper's
+    /// five references are θ′ and T1 only — Al is never among them. Here Al
+    /// (the matrix) is decided ENTIRELY by step b, by survivor count, and a
+    /// matrix-phase entry is excluded from scoring in step c for that same
+    /// reason: it is not that it would score badly, it is that the rule
+    /// never asks.
+    package static func classifyKnownVariants(vectors: [SIMD2<Double>],
+                                              library: PhaseReferenceLibrary,
+                                              settings: PhaseVectorSettings,
+                                              matrixEntry: PhaseOrientationReference?,
+                                              candidateEntryIndices: [Int]) -> PhaseVectorResult {
+        var result = PhaseVectorResult()
+        guard !vectors.isEmpty else { return result }
+
+        // a — matrix removal, identical to `classify` step 1: same
+        // tolerance, same survivors, same removedCount. DEVIATION: the
+        // paper masks in IMAGE space at a fixed 8 detector pixels; this
+        // removes in Å⁻¹ VECTOR space at `matrixToleranceInvAngstrom` — the
+        // same vector-space departure the file header already states for
+        // `.search`, inherited here because this step IS `.search`'s step
+        // 1, not a reimplementation of it.
+        var surviving: [SIMD2<Double>] = []
+        surviving.reserveCapacity(vectors.count)
+        if let matrixEntry {
+            for u in vectors {
+                if nearest(u, in: matrixEntry.vectors,
+                           radius: settings.matrixToleranceInvAngstrom) == nil {
+                    surviving.append(u)
+                }
+            }
+        } else {
+            surviving = vectors
+        }
+        result.survivingCount = Int32(surviving.count)
+        result.removedCount = Int32(vectors.count - surviving.count)
+
+        // b — the matrix, by exclusion. Cell 16: `if len(xy) <= direct_Al`.
+        if surviving.count <= settings.directMatrixMaximumVectors {
+            result.verdict = .matrix
+            result.phaseIndex = Int32(library.matrixPhaseIndex)
+            return result
+        }
+
+        // c — score every entry whose phase is NOT the matrix's. Cell 16's
+        // `ref_tmp` / `np.unique` loop: for every survivor, the TRUE nearest
+        // reference vector of the entry (`np.argmin` over the WHOLE set, no
+        // radius — see `nearestReferenceVector` below for why `nearest(_:in:
+        // radius:)` above is not reused), summed over every survivor, and
+        // divided by the count of DISTINCT reference vectors hit
+        // (`np.unique(ref_tmp[n], axis=0).shape[0]`) — a reference claimed
+        // twice costs the sum without buying a second denominator credit,
+        // which is what makes two survivors splitting one spot score worse
+        // than two survivors hitting two spots at the same distances.
+        //
+        // DEVIATION (cell 16's loop carries none of these — each omission
+        // named against the cell that has no such term):
+        //  - no `minimumMatchedVectors` / Friedel-pair floor (cell 16: every
+        //    survivor is scored, however few clear any particular entry);
+        //  - no `chanceMatchMultiple` guard (cell 16: no chance expectation
+        //    is computed at all);
+        //  - no matrix challenge, `classify` step 5 (cell 16: the matrix is
+        //    never re-offered once step b has passed it by);
+        //  - no `minimumPhaseContrastInvAngstrom` margin (cell 16:
+        //    `phase.append(phase_list[np.argmin(score)])` takes the argmin
+        //    outright, no runner-up margin considered);
+        //  - no completeness-aware cross-phase ranking (cell 16: `np.argmin`
+        //    is by score alone, matched count never enters the ordering).
+        //
+        // DEVIATION: the paper's five entries are hand-built at fixed
+        // orientations (T1 at two in-plane rotations under the stated
+        // orientation relationship, θ′ edge-on at two, face-on at one);
+        // every non-matrix entry THIS library holds is scored here instead —
+        // for this app, whatever zone axes and in-plane steps the phase list
+        // and `PhaseReferenceSettings` produced. T1 is a free in-plane sweep
+        // until a later session derives its stated relationship
+        // ((0001)T1 ∥ (111)Al, [1‑10]Al ∥ [10‑10]T1) into the constrained
+        // form θ′ already has.
+        var bestPerPhase: [Int: (entryIndex: Int, score: Double, matched: Int)] = [:]
+        for entryIndex in candidateEntryIndices {
+            let entry = library.entries[entryIndex]
+            guard entry.phaseIndex != library.matrixPhaseIndex, !entry.vectors.isEmpty
+            else { continue }
+            var sum = 0.0
+            var uniqueHits = Set<Int>()
+            var matchedWithinRadius = 0
+            for u in surviving {
+                guard let hit = nearestReferenceVector(u, in: entry.vectors) else { continue }
+                sum += hit.distance
+                uniqueHits.insert(hit.index)
+                if hit.distance <= settings.pairRadiusInvAngstrom { matchedWithinRadius += 1 }
+            }
+            guard !uniqueHits.isEmpty else { continue }
+            let score = sum / Double(uniqueHits.count)
+            if bestPerPhase[entry.phaseIndex] == nil || score < bestPerPhase[entry.phaseIndex]!.score {
+                bestPerPhase[entry.phaseIndex] = (entryIndex, score, matchedWithinRadius)
+            }
+        }
+        guard !bestPerPhase.isEmpty else {
+            result.verdict = .notIndexed
+            return result
+        }
+
+        // d — argmin over ALL entries, ties to the first in library order.
+        // Reduced through `bestPerPhase` above (the global minimum is always
+        // some phase's own minimum), then picked by entry index ascending so
+        // a tie keeps the earliest entry, the way `np.argmin` over a flat
+        // array would.
+        let ranked = bestPerPhase.map {
+            (phaseIndex: $0.key, entryIndex: $0.value.entryIndex,
+             score: $0.value.score, matched: $0.value.matched)
+        }.sorted { $0.entryIndex < $1.entryIndex }
+        var winner = ranked[0]
+        for candidate in ranked.dropFirst() where candidate.score < winner.score {
+            winner = candidate
+        }
+        var runnerUp: (phaseIndex: Int, score: Double)?
+        for candidate in ranked where candidate.phaseIndex != winner.phaseIndex {
+            if runnerUp == nil || candidate.score < runnerUp!.score {
+                runnerUp = (candidate.phaseIndex, candidate.score)
+            }
+        }
+
+        // Filled before the verdict is decided: a refused position must
+        // still carry the would-be winner's numbers, so the probe can print
+        // the distribution of scores that missed the cutoff.
+        result.phaseIndex = Int32(winner.phaseIndex)
+        result.entryIndex = Int32(winner.entryIndex)
+        result.score = Float(winner.score)
+        result.matchedCount = Int32(winner.matched)
+        if let runnerUp {
+            result.runnerUpPhaseIndex = Int32(runnerUp.phaseIndex)
+            result.runnerUpScore = Float(runnerUp.score)
+        }
+
+        // Cell 6 / cell 19: `score_cutoff = 0.07`; `score_phase_mask =
+        // score_phase > score_cutoff; phase_id[score_phase_mask] = 4`.
+        result.verdict = winner.score > settings.residualCutoffInvAngstrom ? .notIndexed : .indexed
+        return result
+    }
+
+    /// The TRUE nearest reference vector of `refs` — brute force, no radius
+    /// and no length-band prune. Cell 16: `ref[j][np.argmin(np.linalg.norm(
+    /// ref[j] - xy_, axis=1))]`.
+    ///
+    /// `nearest(_:in:radius:)` above is deliberately NOT reused: its
+    /// length-band prune assumes a candidate outside `|u| ± radius` can be
+    /// discarded without being computed, which is exactly the restriction
+    /// this rule does not have — a survivor here must find its true nearest
+    /// reference however far away that reference sits, because the residual
+    /// itself is what the cutoff judges.
+    private static func nearestReferenceVector(_ u: SIMD2<Double>, in refs: [ReferenceVector])
+        -> (index: Int, distance: Double)? {
+        guard !refs.isEmpty else { return nil }
+        var best = 0
+        var bestDistance = simd_distance(u, refs[0].q)
+        for i in 1..<refs.count {
+            let d = simd_distance(u, refs[i].q)
+            if d < bestDistance { bestDistance = d; best = i }
+        }
+        return (best, bestDistance)
     }
 
     /// The MATRIX crystal projected down every low-index zone axis, unrotated —

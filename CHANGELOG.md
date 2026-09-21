@@ -6,6 +6,13 @@ Written as it lands, so the cut does not reconstruct it. Every item below
 passed the unit, core and inventory gates; "unverified on screen" means
 exactly that until the owner's drive says otherwise.
 
+- **Known-variants phase classification (2026-09-21, experimental, unvalidated).** The rule from
+  Thronsen et al.'s vector analysis — score every surviving vector against each phase's known
+  variants, no floors — ships beside the search rule, off by default. Measuring it exposed that
+  the T1 reference dropped its weak {014}/{214} reflections under the 5 % intensity floor; at
+  floor 0 it scores 2.64 % on the published truth (search 3.77 %, was 4.21 %). Probe flags
+  `--rule`, `--min-intensity`, `--dump-entry`, `--residual-detail`, `--survivor-detail`.
+
 - **Materials Project importer (2026-09-21).** The default phase source: an API key entered once
   in Settings (Keychain), then any material by mp-id. `MaterialsProjectImport` decodes a
   `materials/summary` document, standardises a centred primitive cell to the conventional cell

@@ -295,6 +295,24 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
     package let entries: [PhaseOrientationReference]
     package let matrixPhaseIndex: Int
 
+    /// Explicit because the implicit memberwise initializer for a `package`
+    /// struct is `internal` (SE-0386), which `build()` can call from this
+    /// same file but a test target cannot. Every sibling struct in
+    /// `PhaseVectorMatching.swift` this library feeds (`PhaseVectorSettings`,
+    /// `PhaseVectorResult`, `PhaseOrientationReference`) already states its
+    /// own `package init` for exactly this reason — tests build small
+    /// fixtures directly, bypassing `build()`'s crystallography so a
+    /// `.knownVariants` test's distances are exact rather than derived from
+    /// a projected cell. `build()` below is unaffected: same four fields, same
+    /// order.
+    package nonisolated init(phases: [PhaseDefinition], settings: PhaseReferenceSettings,
+                             entries: [PhaseOrientationReference], matrixPhaseIndex: Int) {
+        self.phases = phases
+        self.settings = settings
+        self.entries = entries
+        self.matrixPhaseIndex = matrixPhaseIndex
+    }
+
     package var matrixEntryIndices: [Int] {
         entries.indices.filter { entries[$0].phaseIndex == matrixPhaseIndex }
     }
