@@ -835,4 +835,18 @@ final class MaterialsProjectImportTests: XCTestCase {
         XCTAssertEqual(model.crystal.gammaDeg, 120, accuracy: 1e-6)
         XCTAssertEqual(model.provenance["materials_project_cell"], "conventional from R-centred primitive")
     }
+
+    /// The live API omits `errors` (and `meta`) on success — the owner's first
+    /// real fetch (mp-134, 2026-09-21) failed on exactly this key.
+    func testLiveResponseWithoutErrorsKeyDecodes() throws {
+        let json = """
+        {"data":[{"material_id":"mp-134","formula_pretty":"Al","structure":{"lattice":{"a":4.05,"b":4.05,"c":4.05,"alpha":90,"beta":90,"gamma":90,"volume":66.4},"sites":[{"species":[{"element":"Al","occu":1}],"abc":[0,0,0]},{"species":[{"element":"Al","occu":1}],"abc":[0,0.5,0.5]},{"species":[{"element":"Al","occu":1}],"abc":[0.5,0,0.5]},{"species":[{"element":"Al","occu":1}],"abc":[0.5,0.5,0]}]},"symmetry":{"symbol":"Fm-3m","number":225,"crystal_system":"Cubic"}}],"meta":{"api_version":"v3"}}
+        """
+        let response = try MaterialsProjectImport.decode(Data(json.utf8))
+        XCTAssertTrue(response.errors.isEmpty)
+        let doc = try MaterialsProjectImport.firstDocument(in: response)
+        XCTAssertEqual(doc.materialID, "mp-134")
+        let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date(timeIntervalSince1970: 0))
+        XCTAssertEqual(model.symmetry, .cubic)
+    }
 }

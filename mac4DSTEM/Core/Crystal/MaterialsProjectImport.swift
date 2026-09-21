@@ -48,6 +48,9 @@ import simd
 /// `GET /materials/summary/` response envelope.
 package nonisolated struct MaterialsProjectSummaryResponse: Decodable, Sendable {
     package let data: [MaterialsProjectDocument]
+    /// Absent, not `[]`, on a successful live response (owner's fetch of
+    /// mp-134, 2026-09-21: `keyNotFound "errors"`); the schema only says
+    /// nullable. `meta` is likewise not modeled.
     package let errors: [MaterialsProjectError]
 
     // Explicit so the memberwise initializer is `package` (synthesized ones
@@ -56,6 +59,14 @@ package nonisolated struct MaterialsProjectSummaryResponse: Decodable, Sendable 
     package init(data: [MaterialsProjectDocument], errors: [MaterialsProjectError]) {
         self.data = data
         self.errors = errors
+    }
+
+    private enum CodingKeys: String, CodingKey { case data, errors }
+
+    package init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        data = try c.decodeIfPresent([MaterialsProjectDocument].self, forKey: .data) ?? []
+        errors = try c.decodeIfPresent([MaterialsProjectError].self, forKey: .errors) ?? []
     }
 }
 
