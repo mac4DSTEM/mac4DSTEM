@@ -86,7 +86,7 @@ classifies correctly because its *pattern* is precipitate-like even though its
 |---|---|
 | Reuses | `Core/Analysis/DiffractionEmbedding.swift` — featurisation, PCA, k-means, streaming, cancellation. Already on `main`, gated, 7 tests. |
 | New Core | class-average diffraction patterns; the precipitate-class criterion; spatial separation. |
-| State owner | A `Session/` product type, to be created. **It does not exist on `main`** — `PrecipitateProduct.swift` is still branch-only, because steps 5-7 were skipped when the precipitate ship gate came up unmet. `Session/DiffractionGroupsProduct.swift` (landed step 9) is the shape to copy. One `AppState` `let`, no forwarding properties. |
+| State owner | `Session/PrecipitateClassificationProduct.swift` owns only a published spatial class result; `AppState.precipitateClassification` composes it with no forwarding properties. It remains deliberately unwired — `PrecipitateProduct.swift` is still branch-only, because steps 5-7 were skipped when the precipitate ship gate came up unmet. `Session/DiffractionGroupsProduct.swift` (landed step 9) is the shape to copy. |
 | UI | the existing **AI Analysis** workspace. No new room. |
 | Retired | `PrecipitateSegmentation`'s ridge/threshold path, *if* §4 shows the new route wins. Not before. |
 

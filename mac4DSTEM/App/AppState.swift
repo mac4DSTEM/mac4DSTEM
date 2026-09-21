@@ -179,6 +179,11 @@ final class AppState {
     let strain = StrainProduct()
     let diffractionGroups = DiffractionGroupsProduct()
     let phaseMapping = PhaseMappingProduct()
+    /// The pre-registered diffraction-classification result. The owner is
+    /// deliberately unwired: no UI, export, classifier, or validation claim
+    /// exists until its owner-adjudicated ship gate passes. Views will read
+    /// `precipitateClassification.…` directly; no forwarding properties.
+    let precipitateClassification = PrecipitateClassificationProduct()
     /// Seam 5 (docs/appstate-seams-plan.md): the retained product, result
     /// controls and their derived caches. Views read `resultPresentation.…`;
     /// cross-owner combiners are placed in `AppState+ResultPresentation.swift`.

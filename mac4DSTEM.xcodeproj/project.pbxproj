@@ -139,6 +139,7 @@
 				Session/OperationCenter.swift,
 				Session/PhaseContrastProduct.swift,
 				Session/PhaseMappingProduct.swift,
+				Session/PrecipitateClassificationProduct.swift,
 				Session/PromotionRun.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
