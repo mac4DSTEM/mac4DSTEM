@@ -82,6 +82,15 @@ is its own product").
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
+- **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21) —
+  the bar above the log gets real height and live numbers (step, positions
+  done / total, patterns per second, MB streamed, ETA, residency), and can
+  be dragged up as far as the user wants to reveal a second central area:
+  the log today, the lineage graph when it exists (side by side or one at
+  a time — undecided). Builds on the log's existing dragged height
+  (`LayoutPolicy`); must stay a SwiftUI drag-resized area, never
+  `VSplitView` (decision 009). Inspector to follow Xcode's label-column
+  form; the Phase mapping room is the trial. Unclaimed, unscheduled.
 - **Lineage graph with real rewind** (owner, 2026-09-21) — every derived
   product shows its inputs as a graph, and clicking a node rewinds the
   parameter state, not a text history. Nothing exists today beyond the
