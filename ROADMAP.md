@@ -82,6 +82,19 @@ is its own product").
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
+- **Settings window, Xcode-style sidebar** (owner, 2026-09-21) — grows the
+  scene the Materials Project key opened. Sections: *General* (what Open
+  Dataset does by default, sidecar location, keep the Mac awake during long
+  runs, clear recents); *Appearance* (theme System / Light / Dark, default
+  colormap for maps and for diffraction, log or linear intensity by default,
+  scale bar, inspector density); *Analysis* — machine knobs only: streaming
+  memory budget, engine preference, whether the learned detector is offered;
+  *Materials Project* (key, last fetch); *Advanced* (log verbosity, reveal
+  the log, reset). **Never a threshold, radius or floor** — those are
+  properties of a dataset and live in the session (ADR 029). State owner:
+  one `AppPreferences` over `UserDefaults`, injectable for tests; the
+  scene is a `NavigationSplitView` (allowed), never a split view. Queued
+  after the inspector trial.
 - **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21) —
   the bar above the log gets real height and live numbers (step, positions
   done / total, patterns per second, MB streamed, ETA, residency), and can
