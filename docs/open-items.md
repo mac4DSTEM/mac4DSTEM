@@ -91,10 +91,10 @@ Detail: `docs/archive/open-items-detail-2026-09-18.md`.
 `minimumIntensityFraction` 0 lands **773 / 29 241 = 2.64 %** (`map-known-variants-min0-cap48-20260921.log`),
 under the pre-registered 3 % bar, above the 0.96–1.75 % band; the search rule at the same floor 3.77 %.
 Record: `docs/archive/v3/known-variants-rule-2026-09-21.md`. Still `validation:"none"`.
-**Owed, each its own Gate D before S3 wires the rule:** (1) edge-on → Al 107 under known-variants vs 20
-under search at the same floor — mechanism not established; (2) Al → T1 false calls 264 (the rule has no
-chance guard) — the S2 T1 relationship (180 free entries → ~40) is the pre-registered lever;
-(3) whether the floor default moves for the search rule is unmeasured on any other dataset (threshold rule).
+**Owed before S3 wires the rule:** (1) edge-on → T1 295 / 417 under known-variants — the free T1 sweep
+steals edge-on patterns; the S2 T1 relationship (180 entries → ~40) is the pre-registered lever, prediction:
+edge-on → T1 falls, T1 → T1 stays ≥ 6 313; (2) Al → T1 false calls 264 (the rule has no chance guard), same
+lever first; (3) whether the floor default moves for the search rule is unmeasured on any other dataset.
 Owner: unclaimed.
 
 

@@ -568,8 +568,16 @@ enum Probe {
                          c, 100 * Double(c) / n))
         }
         if map.matrixEntryIndex >= 0 {
+            let fittedMatrixEntry = library.entries[map.matrixEntryIndex]
             print(String(format: "  matrix in-plane fit: %.1f° (mod the projected symmetry)",
-                         library.entries[map.matrixEntryIndex].inPlaneRotationRad * 180 / .pi))
+                         fittedMatrixEntry.inPlaneRotationRad * 180 / .pi))
+            // Gate D measurement, 2026-09-21 (edge-on -> Al mechanism): the
+            // fitted entry's own identity, so two runs differing only in
+            // `--rule` can be checked for an identical matrix fit rather than
+            // inferred from the in-plane angle alone.
+            print(String(format: "  matrix entry: index %d, zone axis [%d %d %d]",
+                         map.matrixEntryIndex, fittedMatrixEntry.zoneAxis.x,
+                         fittedMatrixEntry.zoneAxis.y, fittedMatrixEntry.zoneAxis.z))
         }
         let scores = map.results.filter { $0.verdict == .indexed && $0.score.isFinite }
             .map { Double($0.score) }.sorted()
@@ -809,13 +817,28 @@ enum Probe {
             // (PhaseVectorMatching.swift:275-305) into histograms and score
             // (Å⁻¹) into quantiles.
             if residualDetail {
-                struct Cell { let title: String; let theirs: Int; let ours: Int; let notIndexed: Bool }
+                // `dumpIndices`: Gate D measurement, 2026-09-21 (edge-on ->
+                // Al mechanism, docs/open-items.md "Known-variants rule at
+                // floor 0"). The (truth theta-edge-on -> ours Al) cell is
+                // labelled Al 107 times under `--rule known-variants` but
+                // only 20 under `--rule search` at the same floor; both
+                // rules can only reach `ours == Al` via `PhaseVerdict.matrix`
+                // (`Thronsen.label` maps `.matrix` to 0 unconditionally, and
+                // `.indexed` at the matrix's own phase falls through its
+                // `default: return -1`, thronsen.swift:130-143) — so this
+                // cell's members are exactly each run's `.matrix` verdicts,
+                // and printing their indices lets the two runs' membership be
+                // intersected directly instead of re-derived.
+                struct Cell { let title: String; let theirs: Int; let ours: Int; let notIndexed: Bool
+                    let dumpIndices: Bool }
                 let residualCells: [Cell] = [
-                    Cell(title: "T1 (truth) -> not indexed (ours)", theirs: 3, ours: -1, notIndexed: true),
-                    Cell(title: "Al (truth) -> not indexed (ours)", theirs: 0, ours: -1, notIndexed: true),
-                    Cell(title: "theta-edge-on (truth) -> T1 (ours)", theirs: 1, ours: 3, notIndexed: false),
-                    Cell(title: "T1 (truth) -> T1 (ours), reference", theirs: 3, ours: 3, notIndexed: false),
-                    Cell(title: "Al (truth) -> Al (ours), reference", theirs: 0, ours: 0, notIndexed: false),
+                    Cell(title: "T1 (truth) -> not indexed (ours)", theirs: 3, ours: -1, notIndexed: true, dumpIndices: false),
+                    Cell(title: "Al (truth) -> not indexed (ours)", theirs: 0, ours: -1, notIndexed: true, dumpIndices: false),
+                    Cell(title: "theta-edge-on (truth) -> T1 (ours)", theirs: 1, ours: 3, notIndexed: false, dumpIndices: false),
+                    Cell(title: "theta-edge-on (truth) -> Al (ours)", theirs: 1, ours: 0, notIndexed: false,
+                         dumpIndices: true),
+                    Cell(title: "T1 (truth) -> T1 (ours), reference", theirs: 3, ours: 3, notIndexed: false, dumpIndices: false),
+                    Cell(title: "Al (truth) -> Al (ours), reference", theirs: 0, ours: 0, notIndexed: false, dumpIndices: false),
                 ]
                 let bucketLabels = ["0", "1", "2", "3", "4", "5", "6-9", "10+"]
                 func bucketOf(_ n: Int32) -> Int {
@@ -847,10 +870,11 @@ enum Probe {
                               matchSettings.friedelPairMinimumMatchedVectors, matchSettings.chanceMatchMultiple,
                               matchSettings.notIndexedAboveInvAngstrom, matchSettings.minimumPhaseContrastInvAngstrom))
                 for cell in residualCells {
-                    let members = map.results.enumerated().filter { index, result in
+                    let matches = map.results.enumerated().filter { index, result in
                         thronsen.labels[index] == cell.theirs
                             && Thronsen.label(of: result, phaseNames: map.phaseNames) == cell.ours
-                    }.map(\.element)
+                    }
+                    let members = matches.map(\.element)
                     print("\n  \(cell.title): n=\(members.count)")
                     guard !members.isEmpty else { continue }
                     print("    survivingCount " + histogram(members.map(\.survivingCount)))
@@ -858,6 +882,29 @@ enum Probe {
                     print("    removedCount   " + histogram(members.map(\.removedCount)))
                     print("    score (Å⁻¹)    "
                           + quantiles(members.filter { $0.score.isFinite }.map { Double($0.score) }))
+                    if cell.dumpIndices {
+                        let indices = matches.map(\.offset)
+                        print("    position indices (n=\(indices.count), capped at 120): "
+                              + indices.prefix(120).map(String.init).joined(separator: ","))
+                        // known-variants can reach `.matrix` (hence `ours ==
+                        // Al`) ONLY through the survivor-count exclusion
+                        // (PhaseVectorMatching.swift classifyKnownVariants
+                        // step b, :1064-1069) — step c explicitly excludes the
+                        // matrix's own phase (:1108) and there is no other
+                        // `.matrix` return in that function. So a > 0 count
+                        // below, for this rule, would prove some OTHER path to
+                        // `.matrix` exists (mechanism B); 0 confirms every
+                        // member here went through survivor-count exclusion.
+                        if matchSettings.classificationRule == .knownVariants {
+                            let atOrBelow = members.filter {
+                                Int($0.survivingCount) <= matchSettings.directMatrixMaximumVectors
+                            }.count
+                            print("    known-variants .matrix split: survivingCount<="
+                                  + "\(matchSettings.directMatrixMaximumVectors) = \(atOrBelow), "
+                                  + ">\(matchSettings.directMatrixMaximumVectors) = \(members.count - atOrBelow)"
+                                  + "  (a nonzero second number proves mechanism B)")
+                        }
+                    }
                     if cell.notIndexed {
                         // Approximated from counts: PhaseVectorResult
                         // (PhaseVectorMatching.swift:275-305) records no refusal

@@ -91,11 +91,13 @@ Phase maps, `--or --min-relative 0.001`, floor 0 (`map-<rule>-min0-cap<N>-202609
 |---|---|---|---|---|---|---|---|
 | search · 48 | **1102 = 3.77 %** | 5764 | 490 | 12 | 352 | 11 | 20 |
 | search · 96 | 1132 = 3.87 % | 5730 | 523 | 12 | · | 5 | · |
-| known-variants · 48 | **773 = 2.64 %** | 6313 | 4 | 264 | 4 | 15 | 107 |
+| known-variants · 48 | **773 = 2.64 %** | 6313 | 4 | 264 | 4 | 295 | 0 |
 | known-variants · 96 | 785 = 2.68 % | 6316 | 1 | 280 | 0 | · | · |
 
-Known-variants · 48 full table: Al → Al 21 087 · edge 90 · face 49 · T1 264 · NI 4; edge-on → Al 107 ·
-edge 295 · T1 15; T1 → Al 39 · face 2 · T1 6 313 · NI 4. Winner-score quantiles, indexed T1 (n 6 315):
+Known-variants · 48 full table: Al → Al 21 087 · edge 90 · face 49 · T1 264 · NI 4; edge-on → Al 0 ·
+edge 107 · T1 295 · NI 15 (first draft transcribed this row shifted by one column — caught by the
+edge-on → Al measurement, `edgeal-kv-20260921.log`, n = 0; search's 20 come from its matrix-challenge
+step, which the paper's rule does not have); T1 → Al 39 · face 2 · T1 6 313 · NI 4. Winner-score quantiles, indexed T1 (n 6 315):
 p50 0.0100, p90 0.0179, max 0.0698; not-indexed T1 n 4 (0.071–0.076). `--survivor-detail`: far survivors
 31 649 → 1 500; the 0.36–0.38 bin 13 466 → 192 far / 0 → 13 018 near; 0.66–0.68 5 830 → 30 far / 0 → 5 039 near.
 
@@ -109,9 +111,9 @@ the single winning entry only, so a real {100} spot at another azimuth reads as 
 is the check. Raw logs differ only in the print order of three exactly tied matrix zone-axis candidates
 (the Dictionary tie-order swap already recorded); every count is identical. Cost: Al → T1 false calls 109 → 264
 under known-variants (the rule has no chance guard; the search rule's guards hold Al → T1 at 12).
-**Open, mechanism not established:** edge-on → Al 107 under known-variants against 20 under search at the
-same floor — both rules share the matrix removal and the ≤ 1-survivor → matrix path, so this needs its own
-Gate D before S3 wires the rule. Also open: the S2 T1 relationship (180 free T1 entries → ~40) is the
+**Open:** edge-on → T1 **295 / 417** under known-variants (291 without `--or`, so the θ′ constraint is
+not the lever): the free 180-entry T1 sweep explains an edge-on pattern at some azimuth more cheaply
+than the constrained θ′ entries. Also open: the S2 T1 relationship (180 free T1 entries → ~40) is the
 pre-registered lever on the Al → T1 chance matches.
 
 The 2026-09-17 open item's "the T1 reference length is correct; do NOT change it" stands for the {200}
