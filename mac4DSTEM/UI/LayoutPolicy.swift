@@ -252,6 +252,23 @@ func importedCrystalModelLabel(_ model: CrystalModel) -> String {
     }
 }
 
+/// The ACOM "Phase model" row's value text: the CURRENT selection's name,
+/// tagged with where it came from — e.g. "Aluminium (mp-134)" for a
+/// Materials Project fetch, "β″ (CIF)" for an imported CIF
+/// (`UI/MapSettings.swift`). Distinct from `importedCrystalModelLabel`
+/// above, which labels one row of a *list* (the switch-between-imports
+/// menu); this labels the single active choice next to "Phase model". A
+/// `.library`/`.customCubic` resolution — replay/tests only, never offered
+/// in that row — prints its bare name, since neither carries an import
+/// provenance to tag.
+func acomPhaseModelValueText(_ model: CrystalModel) -> String {
+    switch model.source {
+    case .materialsProject: return "\(model.displayName) (\(model.id))"
+    case .imported: return "\(model.displayName) (CIF)"
+    case .builtIn, .custom: return model.displayName
+    }
+}
+
 extension View {
     /// A preview image fills its column's width up to the one height cap.
     func thumbnailCapped() -> some View {

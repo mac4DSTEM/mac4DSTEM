@@ -714,19 +714,19 @@ private struct ACOMSections: View {
             // Session S5 (owner's product decision): Materials Project is the
             // default phase source; the built-in library and "Custom
             // cubic…" are no longer offered here — see the doc comment on
-            // `CrystalModelLibrary.models`. The picker now lists only
-            // "Choose phase…" and this session's already-imported models
-            // (CIF or Materials Project, both `.imported(id)`).
-            Picker("Phase model", selection: $session.modelSelection) {
-                Text("Choose phase…").tag(CrystalModelSelection.none)
-                if !appState.acomSession.importedCrystalModels.isEmpty {
-                    ForEach(appState.acomSession.importedCrystalModels) { model in
-                        Text(importedCrystalModelLabel(model))
-                            .tag(CrystalModelSelection.imported(model.id))
-                    }
-                }
+            // `CrystalModelLibrary.models`. Driving feedback 2026-09-21
+            // (owner): the Picker whose only real choices were "Choose
+            // phase…" and already-imported models "doesn't make sense, the
+            // buttons below do a better job" — removed. The row is now just
+            // the current selection's name; the two buttons below are the
+            // only way to choose a phase model. Switching between two or
+            // more already-imported models still works, as the `Menu` case
+            // of `phaseModelValue`.
+            HStack {
+                Text("Phase model")
+                Spacer()
+                phaseModelValue
             }
-            .accessibilityIdentifier("acom.material")
 
             HStack {
                 Button {
@@ -827,6 +827,61 @@ private struct ACOMSections: View {
         Section("Result") {
             prerequisiteStatus
             resultControls
+        }
+    }
+
+    /// The "Phase model" row's value: the current selection's name (via
+    /// `selectedModelForDisplay`, so a `.library`/`.customCubic` selection —
+    /// never offered below, but still resolvable for replay/tests — still
+    /// reads correctly), wrapped in a `Menu` once there is more than one
+    /// already-imported model to switch between. "None chosen" is plain
+    /// text, not a control: nothing is chosen from this row any more, only
+    /// from the "Materials Project…" / "Import CIF…" buttons below.
+    @ViewBuilder
+    private var phaseModelValue: some View {
+        let imported = appState.acomSession.importedCrystalModels
+        if let model = selectedModelForDisplay {
+            if imported.count >= 2 {
+                Menu {
+                    ForEach(imported) { candidate in
+                        Button(importedCrystalModelLabel(candidate)) {
+                            appState.acomSession.modelSelection = .imported(candidate.id)
+                        }
+                    }
+                } label: {
+                    Text(acomPhaseModelValueText(model))
+                }
+                .accessibilityIdentifier("acom.phaseModelName")
+            } else {
+                Text(acomPhaseModelValueText(model))
+                    .accessibilityIdentifier("acom.phaseModelName")
+            }
+        } else {
+            Text("None chosen")
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("acom.phaseModelName")
+        }
+    }
+
+    /// Resolves `modelSelection` to a `CrystalModel` for display only —
+    /// unlike `AppState.resolvedACOMModel`, this does NOT gate on `isUsable`
+    /// / `supportsOrientationMapping`, because an unusable or non-mappable
+    /// selection still has a name to show; `modelSelectionIssue` (below,
+    /// unchanged) is what tells the user it can't be used.
+    private var selectedModelForDisplay: CrystalModel? {
+        switch appState.acomSession.modelSelection {
+        case .none:
+            return nil
+        case .library(let id):
+            return CrystalModelLibrary.model(id: id)
+        case .customCubic:
+            return CrystalModelLibrary.customCubic(
+                structure: appState.acomSession.customStructure,
+                latticeA: appState.acomSession.customLatticeA,
+                atomicNumber: appState.acomSession.customZ
+            )
+        case .imported(let id):
+            return appState.acomSession.importedCrystalModels.first { $0.id == id }
         }
     }
 
