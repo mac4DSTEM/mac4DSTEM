@@ -42,7 +42,15 @@ struct PhaseMappingSections: View {
     var body: some View {
         @Bindable var product = appState.phaseMapping
 
-        Section("Phases") {
+        // Xcode-inspector trial (owner, 2026-09-21): this room's controls are
+        // one nested `Form` styled `.columns` — a trailing label column beside
+        // a leading value column, the classic Mac preferences arrangement —
+        // rather than the outer inspector's boxed `.grouped` sections
+        // (`WorkspaceInspector.swift`). Bold `Text` headers replace the
+        // string-titled `Section`s so the heading survives regardless of the
+        // ambient style, and `Divider()` marks each group boundary by hand.
+        Form {
+        Section {
             if product.phases.isEmpty {
                 Text("Add the matrix phase and at least one precipitate phase.")
                     .font(.caption)
@@ -58,10 +66,8 @@ struct PhaseMappingSections: View {
                     }
                 }
                 .accessibilityIdentifier("phaseMapping.matrix")
-                Text("The matrix is stated, not found: its reflections are removed "
-                     + "from every pattern and it is the answer where too little is left.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                .help("The matrix is stated, not found: its reflections are removed "
+                      + "from every pattern and it is the answer where too little is left.")
 
                 // Which AXIS it is viewed down is not stated — it is measured.
                 // A matrix viewed down an axis it is not on presents no
@@ -75,6 +81,8 @@ struct PhaseMappingSections: View {
                 }
                 .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil)
                 .accessibilityIdentifier("phaseMapping.findZoneAxis")
+                .help("Symmetry-equivalent axes should tie exactly. They are shown "
+                      + "so a fit can be told from a coin toss.")
 
                 // A percentage alone cannot be read: at a tight tolerance an
                 // axis explains a few percent of ANY vectors, and the panel
@@ -123,17 +131,16 @@ struct PhaseMappingSections: View {
                                 100 * top.explainedFraction, 100 * top.sweepMedianFraction))
                         .font(.caption2)
                         .foregroundStyle(.orange)
-                } else if product.zoneAxisFits.count > 1 {
-                    Text("Symmetry-equivalent axes should tie exactly. They are "
-                         + "shown so a fit can be told from a coin toss.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
             }
             addPhaseMenu
+        } header: {
+            Text("Phases").font(.headline)
         }
 
-        Section("Reference library") {
+        Divider()
+
+        Section {
             LabeledContent("Orientations") {
                 Text("\(product.projectedEntryCount)")
                     .monospacedDigit()
@@ -146,22 +153,25 @@ struct PhaseMappingSections: View {
                            units: "°", format: "%.1f")
             DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
                 intField("Vectors per orientation",
-                         value: $product.reference.maximumVectorsPerEntry)
+                         value: $product.reference.maximumVectorsPerEntry,
+                         help: "A library holding every allowed reflection matches "
+                             + "anything. The cap is what keeps a match informative.")
                 parameterField("Minimum intensity",
                                value: $product.reference.minimumIntensityFraction,
-                               units: "of strongest", format: "%.3f")
+                               units: "of strongest", format: "%.3f",
+                               help: "Only bites when it removes more than the cap "
+                                   + "(vectors per orientation) already does.")
                 parameterField("Excitation slab",
                                value: $product.reference.excitationSlabInvAngstrom,
                                units: "Å⁻¹", format: "%.3f")
-                Text("A library holding every allowed reflection matches anything. "
-                     + "The cap is what keeps a match informative. Minimum intensity "
-                     + "only bites when it removes more than the cap already does.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
+        } header: {
+            Text("Reference library").font(.headline)
         }
 
-        Section("Matching") {
+        Divider()
+
+        Section {
             // Switching the rule resets the library's "Minimum intensity" to
             // the rule's own default (`PhaseMappingRuleDefaults`) — the user
             // can still edit it afterwards. A pure function, not a listener
@@ -192,13 +202,11 @@ struct PhaseMappingSections: View {
             if product.matching.classificationRule == .knownVariants {
                 parameterField("Residual cutoff",
                                value: $product.matching.residualCutoffInvAngstrom,
-                               units: "Å⁻¹", format: "%.3f")
+                               units: "Å⁻¹", format: "%.3f",
+                               help: "Known variants: every surviving vector is "
+                                   + "scored; no floors (Thronsen et al. 2024).")
                 intField("Direct matrix up to (vectors)",
                          value: $product.matching.directMatrixMaximumVectors)
-                Text("Known variants: every surviving vector is scored; no floors "
-                     + "(Thronsen et al. 2024).")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             } else {
                 parameterField("Not indexed above",
                                value: $product.matching.notIndexedAboveInvAngstrom,
@@ -240,7 +248,11 @@ struct PhaseMappingSections: View {
                     .accessibilityIdentifier("phaseMapping.scaleToDetector")
                 }
             }
+        } header: {
+            Text("Matching").font(.headline)
         }
+
+        Divider()
 
         Section {
             if let refusal = product.runRefusal {
@@ -265,8 +277,11 @@ struct PhaseMappingSections: View {
         }
 
         if let map = product.map, let run = product.lastRun {
+            Divider()
             resultSection(map: map, run: run, product: product)
         }
+        }
+        .formStyle(.columns)
     }
 
     // MARK: Result
@@ -274,7 +289,7 @@ struct PhaseMappingSections: View {
     @ViewBuilder
     private func resultSection(map: PhaseMap, run: PhaseMappingProduct.RunRecord,
                                product: PhaseMappingProduct) -> some View {
-        Section("Result") {
+        Section {
             Label("Unvalidated — this method has not been scored against an "
                   + "external ground truth in this app. Read the map; do not "
                   + "quote a phase fraction from it. Object counts and "
@@ -332,14 +347,12 @@ struct PhaseMappingSections: View {
                     Text(String(format: "%.0f %% of vectors, median", 100 * explained))
                         .monospacedDigit()
                 }
-                Text("How much of each matrix position's detected signal the matrix "
-                     + "itself accounts for. Near 100 % the matrix explains the pattern; "
-                     + "well below it, the position is matrix because nothing else fitted, "
-                     + "not because the matrix did. There is no threshold here — the "
-                     + "number falls as detection admits more noise, so read it against "
-                     + "this dataset's own settings.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .help("How much of each matrix position's detected signal the matrix "
+                      + "itself accounts for. Near 100 % the matrix explains the pattern; "
+                      + "well below it, the position is matrix because nothing else fitted, "
+                      + "not because the matrix did. There is no threshold here — the "
+                      + "number falls as detection admits more noise, so read it against "
+                      + "this dataset's own settings.")
             }
 
             if let diagnosis = appState.phaseMappingDiagnosis {
@@ -356,9 +369,7 @@ struct PhaseMappingSections: View {
                         .font(.caption)
                         .multilineTextAlignment(.trailing)
                 }
-                Text("The scan position under the cursor, and why it is that colour.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                .help("The scan position under the cursor, and why it is that colour.")
             }
 
             Button {
@@ -384,6 +395,8 @@ struct PhaseMappingSections: View {
                     .font(.caption2)
                     .foregroundStyle(.orange)
             }
+        } header: {
+            Text("Result").font(.headline)
         }
     }
 
@@ -606,17 +619,38 @@ struct PhaseMappingSections: View {
     /// `NumericField` is the one place a UI form control takes a width
     /// (`LayoutPolicy.swift`, presentation contract rule 4) — these wrap it so
     /// the panel spells no frame of its own.
+    ///
+    /// `help`, when given, is the row's own explanatory paragraph — moved off
+    /// the panel and onto the row it explains as an Xcode-style tooltip
+    /// rather than inline prose (owner, 2026-09-21).
+    @ViewBuilder
     private func parameterField(_ title: String, value: Binding<Double>,
-                                units: String, format: String) -> some View {
-        LabeledContent(title) {
-            NumericField(title, value: value,
-                         format: .number.precision(.fractionLength(3)), unit: units)
+                                units: String, format: String, help: String? = nil) -> some View {
+        if let help {
+            LabeledContent(title) {
+                NumericField(title, value: value,
+                             format: .number.precision(.fractionLength(3)), unit: units)
+            }
+            .help(help)
+        } else {
+            LabeledContent(title) {
+                NumericField(title, value: value,
+                             format: .number.precision(.fractionLength(3)), unit: units)
+            }
         }
     }
 
-    private func intField(_ title: String, value: Binding<Int>) -> some View {
-        LabeledContent(title) {
-            NumericField(title, value: value, format: .number)
+    @ViewBuilder
+    private func intField(_ title: String, value: Binding<Int>, help: String? = nil) -> some View {
+        if let help {
+            LabeledContent(title) {
+                NumericField(title, value: value, format: .number)
+            }
+            .help(help)
+        } else {
+            LabeledContent(title) {
+                NumericField(title, value: value, format: .number)
+            }
         }
     }
 
