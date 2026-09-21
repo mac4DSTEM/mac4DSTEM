@@ -129,6 +129,7 @@
 				Info.plist,
 				Session/ACOMSession.swift,
 				Session/ACOMWorkflow.swift,
+				Session/AppPreferences.swift,
 				Session/CalibrationSession.swift,
 				Session/DatasetResidency.swift,
 				Session/DatasetSession.swift,

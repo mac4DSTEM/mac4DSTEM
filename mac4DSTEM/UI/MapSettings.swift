@@ -47,6 +47,11 @@ struct MapSettings: View {
 /// `AdvancedDiskDetectionSection`, a collapsed section of its own.
 private struct DiskDetectionRows: View {
     @Environment(AppState.self) private var appState
+    /// "Offer the learned (neural net) detector" (session S21,
+    /// `Session/AppPreferences.swift`) — hides the `.learned` case from the
+    /// picker below when off. It never touches the asset, the threshold, or
+    /// any other per-dataset setting; only whether the option is offered.
+    @Environment(AppPreferences.self) private var preferences
     /// How a MEASURED probe becomes a kernel. A view choice, not app state:
     /// the kernel that results records its own mode in provenance. Flat by
     /// default: the trench needs a correct probe radius, and the estimator
@@ -54,6 +59,10 @@ private struct DiskDetectionRows: View {
     /// rebuilt the failing bullseye kernel on the first click).
     @State private var measuredKernelMode: ProbeKernelMode = .flat
     @State private var showVacuumImporter = false
+
+    private var offeredDetectorClasses: [DetectorClass] {
+        preferences.offerLearnedDetector ? DetectorClass.allCases : [.classical]
+    }
 
     private var datasetTypes: [UTType] {
         ["h5", "hdf5", "emd", "dm4", "dm3", "mib", "raw", "xml"]
@@ -131,7 +140,7 @@ private struct DiskDetectionRows: View {
         }
 
         Picker("Detector", selection: $learned.detectorClass) {
-            ForEach(DetectorClass.allCases) { detectorClass in
+            ForEach(offeredDetectorClasses) { detectorClass in
                 Text(detectorClass.rawValue).tag(detectorClass)
             }
         }
@@ -139,6 +148,10 @@ private struct DiskDetectionRows: View {
         .help("The neural net proposes candidate positions on the whole pattern; the classical refinement still measures every one.")
         .onChange(of: learned.detectorClass) { _, _ in Task { await appState.detectCurrentPattern() } }
         .onChange(of: learned.threshold) { _, _ in Task { await appState.detectCurrentPattern() } }
+        .onChange(of: preferences.offerLearnedDetector) { _, offered in
+            guard !offered, learned.detectorClass == .learned else { return }
+            learned.detectorClass = .classical
+        }
 
         if learned.detectorClass == .learned {
             LabeledContent("Threshold") {

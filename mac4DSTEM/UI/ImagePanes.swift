@@ -38,6 +38,10 @@ enum PatternSourceLabel {
 ///   can disagree.
 struct DiffractionPane: View {
     @Environment(AppState.self) private var appState
+    /// "Show scale bar" (session S21, `Session/AppPreferences.swift`) — read
+    /// directly from the environment rather than through `AppState`, since
+    /// nothing but this pane's own footer (and `RealSpacePane`'s) needs it.
+    @Environment(AppPreferences.self) private var preferences
     @State private var zp = ZoomPan()
 
     var body: some View {
@@ -294,18 +298,20 @@ struct DiffractionPane: View {
                 // reciprocal/px behaviour automatically if the Q calibration or
                 // the voltage it needs disappears.
                 PaneFooter {
-                    if appState.patternScaleUnit == .milliradians,
-                       let mradPerPixel = appState.dpcMilliradiansPerDetectorPixel {
-                        ScaleBar(
-                            unitsPerPoint: Double(mradPerPixel) * Double(qx)
-                                / Double(box.width) / Double(zp.drawZoom),
-                            unitLabel: "mrad")
-                    } else {
-                        let bar = appState.calibrationSession.calibration.diffractionScaleBar
-                        ScaleBar(
-                            unitsPerPoint: bar.perPixel * Double(qx)
-                                / Double(box.width) / Double(zp.drawZoom),
-                            unitLabel: bar.unitLabel)
+                    if preferences.showScaleBar {
+                        if appState.patternScaleUnit == .milliradians,
+                           let mradPerPixel = appState.dpcMilliradiansPerDetectorPixel {
+                            ScaleBar(
+                                unitsPerPoint: Double(mradPerPixel) * Double(qx)
+                                    / Double(box.width) / Double(zp.drawZoom),
+                                unitLabel: "mrad")
+                        } else {
+                            let bar = appState.calibrationSession.calibration.diffractionScaleBar
+                            ScaleBar(
+                                unitsPerPoint: bar.perPixel * Double(qx)
+                                    / Double(box.width) / Double(zp.drawZoom),
+                                unitLabel: bar.unitLabel)
+                        }
                     }
                 } trailing: {
                     if let range = appState.patternDisplayedValueRange {
@@ -365,6 +371,8 @@ struct RealSpacePane: View {
     var allowsScanSelection = true
 
     @Environment(AppState.self) private var appState
+    /// "Show scale bar" (session S21, `Session/AppPreferences.swift`).
+    @Environment(AppPreferences.self) private var preferences
     @State private var zp = ZoomPan()
     @State private var cursorSample: ProductSample?
 
@@ -884,10 +892,12 @@ struct RealSpacePane: View {
         let pixelsAcross = orientation.swapsAxes ? dims.height : dims.width
 
         PaneFooter {
-            ScaleBar(
-                unitsPerPoint: sampling.perPixel * Double(pixelsAcross)
-                    / Double(box.width) / Double(effZoom),
-                unitLabel: sampling.label)
+            if preferences.showScaleBar {
+                ScaleBar(
+                    unitsPerPoint: sampling.perPixel * Double(pixelsAcross)
+                        / Double(box.width) / Double(effZoom),
+                    unitLabel: sampling.label)
+            }
         } trailing: {
             // Order preserved from the separate overlays this replaced. **At
             // most one of these three ever renders**, and the stack claims no

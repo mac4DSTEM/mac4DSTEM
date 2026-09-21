@@ -82,6 +82,19 @@ final class RecentDatasetsTests: XCTestCase {
         XCTAssertEqual(recorder.saved.count, 1, "A no-op must not persist")
     }
 
+    func testClearAllEmptiesTheSharedInjectedOwner() {
+        let shared = RecentDatasets(entries: [entry("/data/a.h5")]) { _ in }
+        let firstWindow = AppState(recents: shared)
+        let secondWindow = AppState(recents: shared)
+
+        shared.clearAll()
+
+        XCTAssertTrue(firstWindow.recents.entries.isEmpty)
+        XCTAssertTrue(secondWindow.recents.entries.isEmpty)
+        XCTAssertTrue(firstWindow.recents === secondWindow.recents,
+                      "Settings and every dataset window must use one recents owner")
+    }
+
     func testLocationLabelsDistinguishSameNamedEntries() {
         // The Track B 2026-08-18 defect: one cube on a NAS and its copy on a
         // local SSD rendered as two identical rows.

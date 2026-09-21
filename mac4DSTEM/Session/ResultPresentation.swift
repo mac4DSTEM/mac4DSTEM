@@ -110,6 +110,22 @@ package final class ResultPresentation {
         resultVersion &+= 1
     }
 
+    /// A fresh window's starting colormap (session S21, `AppState.init`,
+    /// `Session/AppPreferences.swift`'s `mapColormap`) — set before any
+    /// product exists, so it must not look like a display change to a
+    /// version-gated cache. `resultColormap`'s own `didSet` bumps
+    /// `resultVersion` on every assignment (it has to, for a real change
+    /// mid-session); this restores whatever version was already current so
+    /// the ONE-TIME seed is invisible to it. Caught by
+    /// `ResultPresentationSeamTests.testAppStatePublicationUsesTheOwnerAndKeepsTheVersionContract`,
+    /// which pins `resultVersion == 1` after exactly one `publish` — that
+    /// broke red the first time this seeding used the plain setter.
+    package func seedInitialColormap(_ colormap: ColormapKind) {
+        let priorVersion = resultVersion
+        resultColormap = colormap
+        resultVersion = priorVersion
+    }
+
     package func setBraggVectors(_ vectors: BraggVectors?) {
         braggVectors = vectors
     }

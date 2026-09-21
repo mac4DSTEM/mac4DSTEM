@@ -1,9 +1,16 @@
 //
 //  MaterialsProjectSettingsView.swift
-//  Role: session S5's Settings scene — the app's first (`mac4DSTEMApp.swift`
-//        gains a `Settings { }` scene beside its one `WindowGroup`). The only
-//        place the Materials Project API key is entered, since the owner's
-//        product decision makes Materials Project the default phase source.
+//  Role: the Settings window's Materials Project section — the only place
+//        the Materials Project API key is entered, since the owner's product
+//        decision makes Materials Project the default phase source.
+//
+//  Session S5 built this as the app's whole Settings scene, standalone
+//  (`Settings { MaterialsProjectSettingsView() }`). Session S21
+//  (`ROADMAP.md` "Settings window, Xcode-style sidebar") grew that scene
+//  into `UI/SettingsWindow.swift`'s `NavigationSplitView`, so this file now
+//  holds only the `Section` content — `SettingsWindow` supplies the
+//  surrounding `Form`/sizing — under the SAME type name so nothing else has
+//  to change: `body` **is** the section, not a section inside a nested Form.
 //
 //  A `Settings` scene has no dataset window's `AppState` to read — each
 //  window owns its own (`mac4DSTEMApp.swift`'s `DatasetWindow`) — and the key
@@ -11,6 +18,14 @@
 //  owns its own `MaterialsProjectSettings` rather than reaching into a
 //  window's. `MaterialsProjectImportSheet` reloads `appState.materialsProject`
 //  itself when it opens, which is what keeps a key saved here visible there.
+//
+//  `keyDraft` is a `Binding`, not local `@State` (Finding A, adversarial
+//  review 2026-09-21): `SettingsWindow`'s detail pane rebuilds this view on
+//  every sidebar selection (it lives inside a `switch` on the selected
+//  section, `UI/SettingsWindow.swift`), so local `@State` here was silently
+//  discarded — a typed-but-not-saved key vanished the moment the user left
+//  and returned to this section. The draft is hoisted to `SettingsWindow`,
+//  the parent that actually outlives the switch.
 //
 
 import SwiftUI
@@ -21,47 +36,39 @@ import DSTEMSession
 
 struct MaterialsProjectSettingsView: View {
     @State private var settings = MaterialsProjectSettings()
-    @State private var keyDraft = ""
+    @Binding var keyDraft: String
     @State private var actionError: String?
 
     var body: some View {
-        Form {
-            Section("Materials Project API key") {
-                SecureField("API key", text: $keyDraft)
-                    .accessibilityIdentifier("materialsProject.settings.apiKey")
-                HStack {
-                    Button("Save") { save() }
-                        .disabled(trimmedDraft.isEmpty)
-                        .accessibilityIdentifier("materialsProject.settings.save")
-                    Button("Remove", role: .destructive) { remove() }
-                        .disabled(!settings.hasKey)
-                        .accessibilityIdentifier("materialsProject.settings.remove")
-                }
-                Text(settings.hasKey ? "Stored in Keychain" : "No key set")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("materialsProject.settings.status")
-                if let actionError {
-                    Text(actionError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-                Text("Sent only to api.materialsproject.org, and only when you fetch a material.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Link(
-                    "Get a key at materialsproject.org/api",
-                    destination: URL(string: "https://materialsproject.org/api")!
-                )
-                .font(.caption)
+        Section("Materials Project API key") {
+            SecureField("API key", text: $keyDraft)
+                .accessibilityIdentifier("materialsProject.settings.apiKey")
+            HStack {
+                Button("Save") { save() }
+                    .disabled(trimmedDraft.isEmpty)
+                    .accessibilityIdentifier("materialsProject.settings.save")
+                Button("Remove", role: .destructive) { remove() }
+                    .disabled(!settings.hasKey)
+                    .accessibilityIdentifier("materialsProject.settings.remove")
             }
+            Text(settings.hasKey ? "Stored in Keychain" : "No key set")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("materialsProject.settings.status")
+            if let actionError {
+                Text(actionError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            Text("Sent only to api.materialsproject.org, and only when you fetch a material.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Link(
+                "Get a key at materialsproject.org/api",
+                destination: URL(string: "https://materialsproject.org/api")!
+            )
+            .font(.caption)
         }
-        .formStyle(.grouped)
-        .frame(
-            minWidth: LayoutPolicy.materialsProjectSettingsWidth.min,
-            idealWidth: LayoutPolicy.materialsProjectSettingsWidth.ideal
-        )
-        .padding()
     }
 
     private var trimmedDraft: String {

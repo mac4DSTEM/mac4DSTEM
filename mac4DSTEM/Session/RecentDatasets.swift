@@ -79,6 +79,16 @@ package final class RecentDatasets {
         entries.first { $0.id == id }
     }
 
+    /// Empty the list. Settings' "Clear Recent Datasets" (session S21,
+    /// `ROADMAP.md` "Settings window") — an empty list is a no-op, the same
+    /// guard `remove(id:)` uses, so a repeated click cannot clobber the
+    /// store with an already-current empty snapshot for no reason.
+    package func clearAll() {
+        guard !entries.isEmpty else { return }
+        entries.removeAll()
+        save()
+    }
+
     /// Replace a stale security-scoped bookmark in place. A miss is a no-op:
     /// the entry may have been removed while the resolve was in flight.
     package func updateBookmark(_ bookmark: Data, forID id: String) {

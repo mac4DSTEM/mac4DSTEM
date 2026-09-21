@@ -86,9 +86,13 @@ enum LayoutPolicy {
     /// preview besides its own footer.
     static let materialsProjectSheet: (min: CGSize, ideal: CGSize) =
         (CGSize(width: 460, height: 380), CGSize(width: 520, height: 480))
-    /// The Materials Project Settings scene: one `Form` section, no footer —
-    /// width only, since a `Settings` window sizes its own height to content.
-    static let materialsProjectSettingsWidth: (min: CGFloat, ideal: CGFloat) = (380, 440)
+    /// The Settings window (session S21, `ROADMAP.md` "Settings window,
+    /// Xcode-style sidebar"): a `NavigationSplitView` — the old
+    /// `materialsProjectSettingsWidth` (one `Form` section, width only)
+    /// stopped fitting once a sidebar of five sections joined it, and is
+    /// replaced rather than kept alongside it.
+    static let settingsWindow: (min: CGSize, ideal: CGSize) =
+        (CGSize(width: 560, height: 380), CGSize(width: 660, height: 460))
 
     /// An inline progress bar beside its status text.
     static let inlineProgressWidth: CGFloat = 110

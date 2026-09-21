@@ -15,16 +15,51 @@ extension FocusedValues {
     }
 }
 
+extension AppAppearance {
+    /// The one place this maps to SwiftUI: `Session/AppPreferences.swift`
+    /// declares the enum but imports no SwiftUI (`docs/architecture.md`:
+    /// "Session/ … no SwiftUI"), so the mapping lives here, in the one file
+    /// that applies it (`DatasetWindow.body`, below). `nil` for `.system`
+    /// lets the OS decide, exactly as if `.preferredColorScheme` were never
+    /// called — a pure function, `AppPreferencesTests` pins all three cases.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
 /// Owns one state graph per window. Keeping this below WindowGroup (rather
 /// than on App) prevents a second dataset window from replacing the first
 /// window's reader, calibration, cancellation token, or results.
 private struct DatasetWindow: View {
-    @State private var appState = AppState()
+    let preferences: AppPreferences
+    let recents: RecentDatasets
+    @State private var appState: AppState
     @State private var loadedLaunchFixture = false
+
+    /// `preferences` is handed in (not `AppPreferences()` as a default, the
+    /// `materialsProject`/`sessionSidecar` shape) because it must be the
+    /// SAME instance the app's `Settings` scene edits — a `didSet` on a
+    /// second instance backed by the same `UserDefaults` domain would still
+    /// read the right values, but would never observe THIS window's live
+    /// changes while Settings is open, which is the whole point of
+    /// `@Observable` here. See `AppState.preferences`'s own doc for why
+    /// `AppState` needs it at all rather than reading it only from views.
+    init(preferences: AppPreferences, recents: RecentDatasets) {
+        self.preferences = preferences
+        self.recents = recents
+        _appState = State(initialValue: AppState(preferences: preferences, recents: recents))
+    }
 
     var body: some View {
         ContentView()
             .environment(appState)
+            .environment(preferences)
+            .environment(recents)
+            .preferredColorScheme(preferences.appearance.colorScheme)
         .focusedSceneValue(\.appState, appState)
         // Info.plist has declared CFBundleDocumentTypes since 2026-09-09, which
         // put mac4DSTEM in Finder's "Open With" — but nothing received the URL,
@@ -170,18 +205,30 @@ private struct DatasetCommands: Commands {
 
 @main
 struct mac4DSTEMApp: App {
+    // ONE instance for the whole process, shared by every dataset window and
+    // the Settings scene — `UserDefaults` would make a second instance read
+    // the same values, but only this one is `@Observable`-linked to what
+    // Settings edits live (`DatasetWindow.init`'s doc explains why that
+    // matters). Session S21, `ROADMAP.md` "Settings window, Xcode-style
+    // sidebar".
+    @State private var preferences = AppPreferences()
+    @State private var recents = RecentDatasets()
+
     var body: some Scene {
-        WindowGroup("mac4DSTEM", id: "dataset") { DatasetWindow() }
+        WindowGroup("mac4DSTEM", id: "dataset") {
+            DatasetWindow(preferences: preferences, recents: recents)
+        }
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
             .commands { DatasetCommands() }
-        // Session S5: the app's first Settings scene — where the Materials
-        // Project API key is entered (owner's product decision: Materials
-        // Project is the default phase source). See
-        // `UI/MaterialsProjectSettingsView.swift` for why it owns its own
-        // `MaterialsProjectSettings` rather than a window's `AppState`.
+        // Session S5 opened this as one `Form` section; S21 grew it into a
+        // sidebared `NavigationSplitView` (`UI/SettingsWindow.swift`), whose
+        // Materials Project section is that original view, moved rather than
+        // rewritten (see its own header).
         Settings {
-            MaterialsProjectSettingsView()
+            SettingsWindow()
+                .environment(preferences)
+                .environment(recents)
         }
     }
 }

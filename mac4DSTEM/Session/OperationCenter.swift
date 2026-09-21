@@ -18,14 +18,47 @@ import DSTEMCore
 
 @Observable
 package final class OperationCenter {
-    package private(set) var isBusy = false
+    /// The single source of "something is running" — `begin`/`finish`
+    /// (interactive analyses) and `setBusy` (dataset load, `AppState+Open.swift`)
+    /// are two different call paths, but both land here, so a `didSet` on
+    /// THIS property, not on either caller, is the one true run-start/run-end
+    /// seam. Settings' "Keep the Mac awake during long runs" hangs off it
+    /// for exactly that reason (session S21, ROADMAP.md "Settings window").
+    package private(set) var isBusy = false {
+        didSet {
+            guard oldValue != isBusy else { return }
+            if isBusy {
+                keepAwakeToken = beginKeepAwake()
+            } else if let token = keepAwakeToken {
+                endKeepAwake(token)
+                keepAwakeToken = nil
+            }
+        }
+    }
     /// Fractional progress [0,1] of the running operation, nil when idle or
     /// indeterminate.
     package var progress: Double?
     @ObservationIgnored private let controller: AnalysisOperationController
 
-    package init(controller: AnalysisOperationController = AnalysisOperationController()) {
+    /// Closures, not an `AppPreferences` reference, for the same reason
+    /// `Session/ReplayRun.swift`'s keep-awake pair is injectable: a unit test
+    /// cannot observe a real `ProcessInfo` activity, and this type should not
+    /// need to know the preference exists to be tested. The default is a
+    /// no-op pair, so every existing `OperationCenter()` call site (this
+    /// class's own tests included) is unchanged until a caller actually
+    /// wires a preference through — see `AppState.init`.
+    @ObservationIgnored private let beginKeepAwake: () -> NSObjectProtocol?
+    @ObservationIgnored private let endKeepAwake: (NSObjectProtocol) -> Void
+    @ObservationIgnored private var keepAwakeToken: NSObjectProtocol?
+
+    package init(
+        controller: AnalysisOperationController = AnalysisOperationController(),
+        beginKeepAwake: @escaping () -> NSObjectProtocol? = { nil },
+        endKeepAwake: @escaping (NSObjectProtocol) -> Void = { _ in }
+    ) {
         self.controller = controller
+        self.beginKeepAwake = beginKeepAwake
+        self.endKeepAwake = endKeepAwake
     }
 
     package var activeOperation: String? { controller.name }

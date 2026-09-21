@@ -99,15 +99,71 @@ final class AppState {
 
     init(
         sessionSidecar: SessionSidecarLocator = SessionSidecarLocator(),
-        materialsProject: MaterialsProjectSettings? = nil
+        materialsProject: MaterialsProjectSettings? = nil,
+        preferences: AppPreferences? = nil,
+        recents: RecentDatasets? = nil
     ) {
         self.sessionSidecar = sessionSidecar
+        self.recents = recents ?? RecentDatasets()
         // Not a default *parameter* value: `MaterialsProjectSettings` is
         // `@MainActor`, and a default argument expression is always checked
         // as nonisolated, regardless of the initializer's own isolation — so
         // constructing the fallback here, inside the (MainActor) init body,
         // is what actually compiles.
         self.materialsProject = materialsProject ?? MaterialsProjectSettings()
+        // Local `let`, not `self.preferences`, so the closures handed to
+        // `OperationCenter` below capture a plain value instead of `self`
+        // before every other stored property has one (two-phase init).
+        //
+        // Finding C (adversarial review, 2026-09-21): the fallback must not
+        // be `AppPreferences()`, whose default store is the real
+        // `UserDefaults.standard` — `sessionSidecar`/`materialsProject` keep
+        // that same real store out of a bare `AppState()` by staying LAZY
+        // (nothing touches the store until a caller asks a specific
+        // question), but `AppPreferences.init` cannot be made lazy the same
+        // way: by design (its own header) it decodes every key into a stored
+        // `@Observable` property immediately, so it always has to read
+        // something at construction. The mirror that fits here is instead
+        // `AppPreferencesTests.scratchDefaults()`'s shape — a private,
+        // uniquely named suite nothing else ever opens — applied
+        // automatically so none of the ~123 bare `AppState()`/
+        // `AppState(recents:)` call sites in mac4DSTEMTests (this file is
+        // hosted inside mac4DSTEM.app under the unit gate, so `.standard` IS
+        // the app's own domain) can seed from, or write into, the owner's
+        // real Settings. Production never reaches this branch — the one
+        // production call site (`App/mac4DSTEMApp.swift`) always supplies
+        // its own `AppPreferences(defaults: .standard)` explicitly — so nothing
+        // about shipped behaviour changes.
+        let preferences = preferences ?? AppPreferences(defaults: Self.scratchPreferencesDefaults())
+        self.preferences = preferences
+        self.operationCenter = OperationCenter(
+            beginKeepAwake: {
+                guard preferences.keepAwake else { return nil }
+                return ProcessInfo.processInfo.beginActivity(
+                    options: [.idleSystemSleepDisabled],
+                    reason: "mac4DSTEM analysis run"
+                )
+            },
+            endKeepAwake: { ProcessInfo.processInfo.endActivity($0) }
+        )
+        // Session S21 (`ROADMAP.md` "Settings window"): a FRESH window's
+        // starting colormap/intensity/engine choice, read once here — never
+        // re-applied later, so an analysis's own colormap choice (a
+        // diverging strain or DPC-difference map, `AppState+DPC.swift`,
+        // `AppState+ResultPresentation.swift`) is never overridden by a
+        // stale default.
+        //
+        // `patternColormap`/`logScale` bump `patternVersion` on every
+        // assignment (their own `didSet`, below) — restore it after seeding
+        // so this one-time default is invisible to version-gated caches, the
+        // same reason `resultPresentation.seedInitialColormap` exists rather
+        // than a plain `resultColormap =`.
+        let priorPatternVersion = patternVersion
+        patternColormap = preferences.diffractionColormap
+        logScale = preferences.intensityDisplay.isLog
+        patternVersion = priorPatternVersion
+        resultPresentation.seedInitialColormap(preferences.mapColormap)
+        acomSession.backend = preferences.enginePreference
         // The seam signals presentation changes (component switches); the
         // displayed image is shared display state, so the derivation stays
         // here. Weak: AppState owns the seam, never the reverse.
@@ -163,10 +219,21 @@ final class AppState {
         }
     }
 
+    /// A private, uniquely named `UserDefaults` suite for `init`'s
+    /// `preferences` fallback — see Finding C's note above. Nothing this
+    /// initializer does ever WRITES through it (only `AppPreferences.init`'s
+    /// own reads, all misses against a fresh suite), so unlike
+    /// `AppPreferencesTests.scratchDefaults()` there is nothing to remove
+    /// afterward: an unwritten suite leaves no plist behind.
+    private static func scratchPreferencesDefaults() -> UserDefaults {
+        let suite = "mac4dstem.appstate-default-preferences.\(UUID().uuidString)"
+        return UserDefaults(suiteName: suite) ?? .standard
+    }
+
     /// The recents list and its location labels. S3's seam
     /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/RecentDatasets.swift`.
     /// Views read `recents.…`; no forwarding properties. // v2 S3
-    let recents = RecentDatasets()
+    let recents: RecentDatasets
     /// The session's recipe — which analyses ran, with which parameters. S5's
     /// seam (docs/archive/development-process-2026-08-31.md §7) — see `Session/SessionReplay.swift`.
     /// No forwarding properties. // v2 S5
@@ -209,6 +276,23 @@ final class AppState {
     /// for the same reason `sessionSidecar` is: the default reads and writes
     /// the REAL Keychain item, which a test must never touch.
     let materialsProject: MaterialsProjectSettings
+    /// The Settings window's state (session S21, `ROADMAP.md` "Settings
+    /// window, Xcode-style sidebar"). Reached from here only for the few
+    /// places `AppState` itself must consult a default — seeding a fresh
+    /// window's colormap/intensity/engine choices and the primary "Open
+    /// Dataset…" behaviour in `init`/`requestOpenDataset` below, and the
+    /// keep-awake closure handed to `operationCenter`. Every VIEW reads
+    /// `AppPreferences` from `.environment(preferences)` instead
+    /// (`App/mac4DSTEMApp.swift`), never through this property. Injectable
+    /// for the same reason `materialsProject` is — a test that wants to
+    /// assert on a CHOSEN preference must supply its own suite-private
+    /// `AppPreferences(defaults:)` (`AppPreferencesTests.scratchDefaults()`'s
+    /// shape) — but unlike `materialsProject`/`sessionSidecar`, the omitted
+    /// case is ALSO safe: `init`'s fallback is a private scratch suite, never
+    /// `.standard` (Finding C, adversarial review 2026-09-21; see `init`'s
+    /// `scratchPreferencesDefaults()`), so a bare `AppState()` cannot read or
+    /// write the owner's real Settings either way.
+    let preferences: AppPreferences
     /// Seam 5 (docs/appstate-seams-plan.md): the retained product, result
     /// controls and their derived caches. Views read `resultPresentation.…`;
     /// cross-owner combiners are placed in `AppState+ResultPresentation.swift`.
@@ -834,7 +918,11 @@ final class AppState {
     let navigation = WorkspaceNavigation()
 
     /// v2.5 step 5b: owned by `OperationCenter`; forwarded for the readers.
-    let operationCenter = OperationCenter()
+    /// No default expression (unlike most of this file's stored properties):
+    /// its keep-awake closures are wired from `preferences` in `init`, so it
+    /// cannot be built before that resolves. See `OperationCenter`'s own
+    /// header for why the seam lives on `isBusy`'s `didSet` rather than here.
+    let operationCenter: OperationCenter
     var isBusy: Bool { operationCenter.isBusy }
     var statusText = "No file loaded" {
         didSet { activityLog.record(statusText) }
@@ -844,8 +932,13 @@ final class AppState {
     private(set) var openDatasetRequest = 0
     private(set) var preprocessingExportRequest = 0
 
+    /// The primary "Open Dataset…" gesture (⌘O, the sidebar's default
+    /// button). `requestOpenDatasetWithOptions` below is always explicit —
+    /// its own separate menu item/button — so `preferences.openBehaviour`
+    /// only decides what THIS shared action does; it can never make the
+    /// explicit "Open with Options…" action skip the configurator.
     func requestOpenDataset() {
-        configureOnOpen = false
+        configureOnOpen = preferences.openBehaviour == .options
         openDatasetRequest &+= 1
     }
 

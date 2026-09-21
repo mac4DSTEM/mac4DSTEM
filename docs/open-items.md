@@ -722,12 +722,11 @@ Per-kind replay contracts live in three places (record/parse/apply) held
 together by tests, not structure — co-locate per kind when the next kind is
 added.
 
-### Recents/window-state edge cases, both low priority (2026-09-02)
-Each window's `AppState` holds its own `RecentDatasets` snapshot over one
-`UserDefaults` key, so a second window's save can clobber the first's
-entry (single-window use, the shipped reality, is unaffected). Separately,
+### Recent failure leaves Reopen dead-ended (2026-09-02)
 `openRecent`'s failure path removes a dead entry from the list but leaves
-"Reopen" dead-ending in "No recoverable dataset." Both unclaimed.
+"Reopen" dead-ending in "No recoverable dataset." The separate multi-window
+recents clobber was fixed 2026-09-21 by sharing one `RecentDatasets` owner
+between Settings and every dataset window. Owner: unclaimed.
 
 ### Legacy `.icns` tops out at 256 px — reopened 2026-09-07 (the floor is 14)
 Called moot on 2026-09-04 because the floor was 26; the floor is 14 since
