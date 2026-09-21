@@ -15,6 +15,34 @@ file before the 2026-09-07 trim is verbatim in
 the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
+## Owner drive 2026-09-21 23:50–23:55 — the workspace/inspector restyle (`9fd386d`) REJECTED — added 2026-09-22
+
+Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible" — stop, reconsider the structure: [`docs/window-design.md`](window-design.md). Rule until decided: no UI surface lands. Owner.
+
+### The inspector does not reach the window top; the sidebar does — SEEN 2026-09-21
+`ContentView.swift` applies `.inspector` to the detail `WorkspaceView`, so the column sits under the toolbar and the toolbar's trailing group (the blue primary action, archive, folder, toggle) floats above it; at some widths the items land over the canvas instead, which reads as "sometimes to the top, sometimes not". Xcode's inspector is full height with only its toggle above it. Fix belongs to the structure phase: `.inspector` on the `NavigationSplitView`, the room's primary action out of the toolbar. Owner-scored.
+
+### One column, three alignments — SEEN 2026-09-21, Prepare
+"Compute Mean / Max" sits flush right (`InspectorActionRow`), "Measure Origin & Probe" / "Fit Detector Ellipse" flush left (bare buttons in a section), "Manual 0 / Unit per pixel" in the label column, "Not set" floating mid-row. Pixelmator's rule is one alignment per panel: label left, control right, value far right, buttons full width. Design, not a patch.
+
+### A section toggles only on its chevron, not its label — SEEN 2026-09-21
+`InspectorSection` is a `DisclosureGroup`; macOS toggles it from the triangle alone. The header must be one button (label + chevron) with a full-width hit target.
+
+### Buttons truncate and crowd — SEEN 2026-09-21, Bragg disks
+"Use Cu…", "Use Fil…", "Vacuu…" — three buttons in one `InspectorActionRow` at 320 pt; "Clear Th…", "Save t…", "Export…" likewise. A button never truncates: one per row, or a menu. `.controlSize(.small)` throughout the inspector makes every control look tiny; the inspector should use the regular size and 13-pt text, small only in the strip.
+
+### Settings / Info reads as a cramped segmented control fighting the toolbar — SEEN 2026-09-21
+The 2-segment text control sits directly under the toolbar's floating buttons with no header rhythm. Xcode's inspector header is an icon segmented control with breathing room and the pane's own toolbar row. Part of the structure phase.
+
+### The bottom pane's height changes when a tab is pressed — SEEN 2026-09-21
+Switching Output → Run → Lineage moves the divider: the pane's height follows the tab's content rather than the dragged height (`BottomWorkspace.swift`). The dragged height must be the pane's height regardless of tab. Defect; fix rides with the structure phase, not before.
+
+### The status strip is not a grab handle, and the pane is not a workspace — SEEN 2026-09-21
+Xcode's debug area is revealed by dragging anywhere on the bar above it; here only the thin divider drags, and what comes up is the log with two more tabs. The owner's intent (ROADMAP, 2026-09-21): pull the whole strip up to reveal a second central area — products side by side, the lineage graph — with Output/Run as its utility tabs. Structure phase.
+
+### No workflow logic in the rooms — SEEN 2026-09-21, Prepare and Bragg disks
+Prepare stacks Pattern → Calibration (five items, each with its own button) → manual Q fields → R scale → a five-line orange "Not quantitative — still needed" paragraph → Voltage → Clear. The step order, the state of each step and its one action are not legible; the manual fields precede the calibrations they depend on. Each room must read as ordered steps with state and one verb, the readiness as a compact row, not prose. Design phase, Prepare first as the reference room.
+
 ## v3.1 origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay + clustered case owed
 
 `OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position `kept` mask (disclosure only, no fitted number moves; ADR 033, `docs/v3-features.md#calibration-v31`).
