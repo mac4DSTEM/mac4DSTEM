@@ -23,20 +23,34 @@ import Observation
 @Observable
 @MainActor
 package final class MaterialsProjectSettings {
-    package private(set) var hasKey: Bool = false
+    /// Lazily read: the first view that shows it triggers the one Keychain
+    /// read; `AppState` construction never does (see `init`).
+    package var hasKey: Bool {
+        if !loaded { load() }
+        return cachedHasKey
+    }
+    private var cachedHasKey = false
+    private var loaded = false
 
     private let store: APIKeyStore
 
+    /// Never touches the store: `AppState` is built for every window and in
+    /// hundreds of unit tests, and a Keychain read from a differently signed
+    /// process (the test host, a scratch build) raises the "wants to use your
+    /// confidential information" prompt each time — the owner saw thousands
+    /// on 2026-09-21. The first read is the Settings view's or the sheet's
+    /// `load()` on appear.
     package init(store: APIKeyStore = KeychainAPIKeyStore()) {
         self.store = store
-        load()
     }
 
-    /// Re-reads the store. Called at `init`, and after every `save`/`remove`
-    /// so `hasKey` can never disagree with what is actually stored.
+    /// Re-reads the store. Called when a view that shows `hasKey` appears,
+    /// and after every `save`/`remove` so `hasKey` can never disagree with
+    /// what is actually stored.
     package func load() {
         let key = try? store.load()
-        hasKey = !(key?.isEmpty ?? true)
+        cachedHasKey = !(key?.isEmpty ?? true)
+        loaded = true
     }
 
     package func save(_ key: String) throws {

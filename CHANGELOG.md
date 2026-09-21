@@ -23,7 +23,9 @@ exactly that until the owner's drive says otherwise.
   family with the CIF importer's own function, and refuses a material whose formula matches but
   whose space group does not (mp-1185307 vs T1 is a test). Provenance keeps the mp-id, fetch
   date and cell note; `spaceGroupNumber` is also read from CIFs. Pickers now offer only
-  "Materials Project…" and "Import CIF…"; presets stay resolvable for replay. Unverified on screen.
+  "Materials Project…" and "Import CIF…"; presets stay resolvable for replay. The Keychain is read
+  only when a view shows the key state, never when a window or a test builds `AppState` (the owner
+  saw the access prompt storm from a test run, 2026-09-21, fixed). Unverified on screen.
 - **Origin validity mask.** The robust origin fit now keeps the positions it
   excluded (`OriginMaps.originValidity`), and Prepare shows "N of M
   positions". No fitted number moved. The spatial overlay is still owed.
