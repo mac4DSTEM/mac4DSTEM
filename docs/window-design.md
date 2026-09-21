@@ -7,16 +7,70 @@ drive 2026-09-21). This file says what the window is for, what the two
 reference apps do, what today's window gets wrong structurally, and the
 anatomy proposed instead. It is a design doc, not a truth doc.
 
-## 1. What we are building
+## 1. The owner's brief (2026-09-22) — read this first
 
-A scientifically useful 4D-STEM app for a working microscopist: load a
-cube, calibrate it, detect disks, map strain and orientation, identify
-phases, export something a paper can cite — every step reproducible from
-the session sidecar, every refusal naming what is missing. The window's one
-job is to make the pipeline's **state legible and the next step obvious**:
-where am I, what has been computed, what is the one thing to do next, and
-what is the app doing right now. Science lives in `Core/`; the window only
-presents it (ADR 009). Everything below is judged against that job.
+mac4DSTEM is a scientifically useful 4D-STEM app: load a cube, calibrate,
+detect disks, map strain and orientation, identify phases, export what a
+paper can cite, every step reproducible from the session sidecar. The
+window's job is to make the pipeline's state legible and the next step
+obvious. Its anatomy is **Xcode's**, in **plain, robust macOS**, on any
+Mac a microscopist owns.
+
+**Anatomy.** One toolbar. Three columns. Left, the navigator — workspaces
+as pipeline steps with their state, the dataset, the session — from the
+toolbar to the window's bottom edge, toggled by the toolbar's leading
+button. Right, the inspector — Settings · Info — from the toolbar to the
+bottom edge, toggled by the toolbar's trailing button. Both collapse
+completely and the window remembers them. The toolbar carries nothing
+else. The centre column has a header row (workspace › dataset on the
+left; on the right the one blue primary action, Save to Session, Reveal),
+the science panes, the **infobar**, and the process area. The infobar is
+the divider: one fixed-height line (status, progress, memory glance, the
+toggle at its right end), draggable over its whole width from the
+column's bottom edge (process area hidden) to its top edge (panes gone);
+⌃⌘L toggles it. Switching a tab in the process area (Output · Run ·
+Lineage) never moves the bar.
+
+**Inspector.** One style everywhere, Xcode's: a single top-level
+columns-style form — bold section headers, right-aligned labels in a
+fixed column, controls to the right, a hairline between sections, regular
+control size, 13-pt text. A section header toggles from anywhere on its
+row. A button never shares a row and never truncates. A step section
+shows its number, name, state and its one action; manual fields live in
+the section they belong to; readiness is one row, never a paragraph.
+
+**Rooms are workflows.** Each workspace's inspector reads as ordered
+steps; the header's blue verb is always the next step; the navigator
+shows each step's state.
+
+**Robust for many users on many machines.** A 13-inch MacBook Air at the
+microscope and a 27-inch display at the desk must both work: at the
+default 13-inch window all three columns fit with the science panes at
+their scientific minimum, and below that the side panels collapse before
+a pane ever shrinks past it. No number is fixed outside `LayoutPolicy`;
+nothing scrolls sideways; nothing truncates; light and dark, Increase
+Contrast and Reduce Motion all render correctly; a state (loading,
+streaming, refused, stale) is drawn, never assumed; status is never
+colour alone — glyph and text too. Numbers parse and print in the user's
+locale (a German user types 49,5). Trackpad and mouse both drag the
+infobar; every action is reachable from a menu and a shortcut; every
+control keeps its accessibility identifier and label. The UI never waits
+on the data: live numbers arrive by observation from `OperationCenter`,
+the glance ticks at 2 s, the log is capped, big cubes stream, and the
+memory figure is on screen so a user on an 8 GB Mac sees why a run is
+slow. Window state (panels, infobar position) restores per window.
+
+**Native only.** SwiftUI: `NavigationSplitView`, `.inspector` on the
+split view, the standard toolbar, standard controls at standard sizes,
+system fonts and colours. No custom chrome, no AppKit in `UI/`, no
+split-view classes (ADR 009). When SwiftUI cannot do something in this
+brief, that is a decision for the owner, never a hack.
+
+**Process.** One phase at a time. Each phase is drawn as a picture the
+owner can reject, costed in points, built, driven by him, and only then
+followed by the next. Prepare is the reference room; no other room
+changes until he has accepted it. A change he rejects is reverted, not
+patched.
 
 ## 2. The two references
 
@@ -170,3 +224,26 @@ each phase is mocked as a picture the owner can reject before code.
 The 2026-09-22 00:15 wireframe drew the status strip across the full
 window width under the sidebar and the inspector — wrong; the owner's
 red-box screenshot (00:28) is the anatomy of record.
+
+## 7. Prompt for the next agent
+
+> You are picking up mac4DSTEM's window redesign on `main` (never a
+> branch, never a push). Read `docs/status.md`, then
+> `docs/window-design.md` §1 (the owner's brief) and §6 (his decisions),
+> then `docs/open-items.md` "Owner drive 2026-09-21". Check the status
+> handoff for whether phase 1 (the anatomy) has been driven and accepted;
+> if not, the next step is his drive, not more code. Build the next phase
+> exactly as §1 says, in pure SwiftUI: `NavigationSplitView` with
+> `.inspector` on the split view, the standard toolbar, one top-level
+> columns-style `Form` for the inspector, every fixed point a
+> `LayoutPolicy` constant, no AppKit in `UI/`, no split-view classes.
+> Before code: draw the phase as a picture he can reject, cost it in
+> points, and stop for his yes. Prepare is the reference room; touch no
+> other room until he has accepted it. Never build into
+> `~/Library/Developer/Xcode/DerivedData` (his app runs from there); use
+> `tools/run-tests.sh unit | core | inventory` to a log and read the
+> exit line from the log. Break every new test one mutation at a time.
+> Commit with the gate numbers; update `docs/status.md` and
+> `docs/open-items.md` in the same commit. Record what he says after
+> every drive, verbatim in substance. If SwiftUI cannot do something the
+> brief asks, write the limitation down and ask him; never fake it.
