@@ -67,7 +67,7 @@ retuned on the truth. Ship gate: ≤ 3 % with the confusion table recorded
 under `docs/archive/v3/`, else the rule ships as an experimental option
 badged unvalidated and the record says why.
 
-**Outcome 2026-09-21.** Refuted as predicted-for, then explained: the T1 entry lacked {014}/{214} under the 5 % kinematic intensity floor; at floor 0 the rule scores 2.64 % (bar met, band not) and the search rule 3.77 %. Two residuals owed before wiring (`open-items.md`).
+**Outcome 2026-09-21.** Refuted as predicted-for, then explained: the T1 entry lacked {014}/{214} under the 5 % kinematic intensity floor; at floor 0 the rule scores 2.64 % (bar met, band not) and the search rule 3.77 %. Then the T1 relationship (2.67 %) and, after the θ′ edge-on measurement, a per-phase excitation slab (θ′ 0.3): **1.81 %**, 0.06 above the band (`archive/v3/theta-prime-slab-2026-09-21.md`). Residual: Al → precipitate 407, no chance guard in the rule (`open-items.md`).
 
 **Then**: derive T1's stated relationship ((0001)T1 ∥ (111)Al, [1‑10]Al ∥
 [10‑10]T1) into the OR form so T1 stops being a free sweep; wire the class
