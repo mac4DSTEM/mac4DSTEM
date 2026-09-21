@@ -1,7 +1,6 @@
 # Window design — the reset (2026-09-22)
 
-**Status: proposal, owner decisions owed. No UI code lands until the six
-questions at the end are answered.** Written after the owner drove the
+**Status: decided 2026-09-22 (§6); phase 1 in build.** Written after the owner drove the
 2026-09-21 restyle (`9fd386d`) and rejected it: "cramped, no logic to the
 panes, no workflow behind it". The findings are in `open-items.md` (Owner
 drive 2026-09-21). This file says what the window is for, what the two
@@ -68,20 +67,27 @@ that it was applied to the old structure without a design.
 ## 4. The proposed anatomy
 
 ```
-┌ toolbar ───────────────────────────────────────────────────┬──────┐
-│ ◧ sidebar   [dataset name ▾]                     ⋯   ⊟ run  │  ◨   │
-├──────────┬──────────────────────────────────────────────────┼──────┤
-│ Navigator│ Canvas header: Prepare › dataset  [Calibrate ▸] │Inspec│
-│ workspace│                                  save · reveal  │ tor  │
-│  steps   │ ┌─────────────┐ ┌─────────────┐                 │ ⚙ ⓘ ?│
-│ dataset  │ │ Diffraction │ │ Virtual det │                 │ cards│
-│ session  │ └─────────────┘ └─────────────┘                 │      │
-│          ├──────────────────────────────────────────────────┤      │
-│          │ ▤ second area (products · lineage) │ Output Run  │      │
-├──────────┴──────────────────────────────────────────────────┴──────┤
-│ status · progress                       1.2 GB · resident   ◫  ⌃⌘L │
-└────────────────────────────────────────────────────────────────────┘
+┌ toolbar ──────┬──────────────────────────────────────────┬────────────┐
+│ ◧             │                                          │          ◨ │
+├───────────────┼──────────────────────────────────────────┼────────────┤
+│ Navigator     │ Canvas header  Prepare › dataset         │ Inspector  │
+│ top to bottom │             [Calibrate Origin] save ▾ ⌂  │ top to     │
+│               │ ┌─────────────┐ ┌─────────────┐          │ bottom     │
+│ workspaces    │ │ Diffraction │ │ Real space  │          │            │
+│ dataset       │ └─────────────┘ └─────────────┘          │ Settings   │
+│ session       ├─ infobar  status · progress · glance · ◫ ┤   Info     │
+│               │ Process area   Output · Run · Lineage    │ sections   │
+│               │                                          │            │
+│ filter        │                                          │            │
+└───────────────┴──────────────────────────────────────────┴────────────┘
 ```
+
+The navigator and the inspector run from the toolbar to the window's
+bottom edge and never change; each toggles from its own toolbar button.
+The **infobar is the divider** of the centre column: drag it anywhere on
+its width from the column's bottom edge (process area hidden) to its top
+edge (canvas hidden — Xcode's two extremes, the owner's screenshots of
+2026-09-22 00:28–00:35); its right-hand button toggles the process area.
 
 **Window.** Three full-height columns under one toolbar. The inspector is
 `.inspector` on the `NavigationSplitView` itself (allowed by ADR 009: still
@@ -99,20 +105,18 @@ the workspace list is the pipeline: each row shows its state glyph (not
 started · computed · stale · refused), and the session list is the
 lineage's first surface.
 
-**Inspector = a stack of cards (Pixelmator), Xcode's header.** Header: an
-icon segmented control — Settings ⚙ · Info ⓘ · Help ? — with its own row
-height, then a scroll of cards. A **step card** has a title row: number,
-name, state glyph and text ("Not set" / "From file · 49.5 nm/px" /
-"Measured 23:51"), a reset control, and on the right the step's **one
-action** as a regular bordered button — never three in a row. Its body
-uses **one alignment rule**: label left, control right, value at the far
-edge; a slider row is label · slider · value; a note is one line under its
-row. A **readiness row** at the top of the stack replaces the orange
-paragraph: "Quantitative in 2 of 6 steps" with a chevron to the missing
-ones. Cards are `GroupBox`es (native), regular control size, 13-pt text,
-8-pt rhythm, 12-pt padding. Advanced controls live in a collapsed card at
-the bottom of the stack, and a card header is one full-width button —
-clicking anywhere on it toggles it.
+**Inspector = Xcode's inspector, one style everywhere** (owner,
+2026-09-22). Header: a text segmented control — Settings · Info — in its
+own row. Body: one top-level `Form` styled `.columns`: bold section
+headers, right-aligned labels in a fixed leading column, controls in the
+trailing column, a hairline between sections, regular control size, 13-pt
+text. That is the native SwiftUI form of Xcode's Identity-and-Type panel;
+the 2026-09-21 trial failed by nesting it inside a `.grouped` form. A
+**step section** shows its number, name, state ("Not set" / "From file ·
+49.5 nm/px") and its one action button on the section's first row;
+manual fields live in the section they belong to; a readiness row at the
+top ("Quantitative in 2 of 6 steps") replaces the orange paragraph;
+buttons never share a row; a section header is one full-width button.
 
 **Rooms read as workflows.** Prepare = 1 Origin & probe · 2 Ellipse ·
 3 R–Q rotation · 4 Q scale · 5 R scale · 6 Voltage, in that order, each a
@@ -121,13 +125,13 @@ belong to. Bragg disks = 1 Probe kernel · 2 Detector · 3 Detect, then
 Display and Advanced. The same shape in every room: the primary action in
 the header is always the next step's verb.
 
-**Bottom area (Xcode's debug area).** The whole status strip is the grab
-handle: drag anywhere on it to reveal the area; ⌃⌘L toggles it; its height
-is the dragged height regardless of what is inside. Inside: a **second
-central area** on the left — a product view side by side with the canvas,
-the lineage graph when it exists — and the utility tabs **Output · Run**
-on the right, Xcode's console-beside-variables split. Run keeps the live
-numbers (ADR 034); the strip stays one line.
+**Bottom area = Xcode's debug area, exactly.** The infobar is the
+divider and the grab handle across its whole width; its height is fixed;
+the process area's height is the dragged fraction of the centre column,
+from 0 (hidden) to 1 (the canvas gone); ⌃⌘L and the bar's right-hand
+button toggle between hidden and the last dragged height. Inside the
+process area: Output · Run · Lineage as its utility tabs, with Run's live
+numbers (ADR 034); switching a tab never moves the bar.
 
 **What stays as decided.** SwiftUI only, `LayoutPolicy` for every fixed
 point, `AppState` gains no state, live numbers on `OperationCenter`
@@ -135,10 +139,13 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
 
 ## 5. Sequence, driven at every step
 
-- **Phase 1 — window anatomy** (small, no vocabulary change): inspector on
-  the split view and fully toggleable; the canvas header with the primary
-  action, Save to Session and Reveal; the strip as grab handle; the pane
-  height bug; regular control size in the inspector. The owner drives.
+- **Phase 1 — window anatomy, nothing else** (in build 2026-09-22):
+  `.inspector` on the `NavigationSplitView`, toggled from the toolbar's
+  trailing button; the navigator's toggle at the leading edge; the canvas
+  header with the primary action, Save to Session and Reveal, so the
+  toolbar carries no room action; the infobar as the centre column's
+  divider from bottom edge to top edge; the process area's height
+  independent of its tab. The owner drives.
 - **Phase 2 — the Prepare reference room** as cards with the readiness
   row. Driven and accepted before any other room changes.
 - **Phase 3 — the other rooms**, one per session, each driven.
@@ -148,15 +155,18 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
 Cost is counted in points before each phase, as the rules require, and
 each phase is mocked as a picture the owner can reject before code.
 
-## 6. Decisions owed to the owner
+## 6. Decided by the owner, 2026-09-22
 
-1. Cards (Pixelmator) for step and adjustment content, flat sections
-   (Xcode) for facts in Info — or one style everywhere?
-2. The primary action in the **canvas header** (proposed) or at the
-   toolbar's leading edge like Xcode's Run?
-3. Inspector header: icon segments ⚙ ⓘ ? (proposed) or text?
-4. Inspector default width 320 → 360 pt, so a card's title row never wraps?
-5. Bottom area: second workspace **beside** Output/Run (proposed) or
-   tabs only, as today?
-6. Keep the 2026-09-21 vocabulary and restyle it, or retire it once the
-   cards exist? (Proposed: retire; the cards replace it.)
+1. One style everywhere, Xcode's inspector: a top-level `.columns` form
+   (see §4). Yes, it is plain SwiftUI.
+2. The primary action, Save to Session and Reveal in the canvas header.
+3. The inspector header is text: Settings · Info.
+4. Withdrawn (the width follows from the form).
+5. The bottom area is Xcode's debug area: the infobar is the divider and
+   the toggle, draggable over the whole centre column.
+6. Withdrawn; the `.columns` form replaces the 2026-09-21 vocabulary in
+   phase 2.
+
+The 2026-09-22 00:15 wireframe drew the status strip across the full
+window width under the sidebar and the inspector — wrong; the owner's
+red-box screenshot (00:28) is the anatomy of record.
