@@ -97,6 +97,11 @@ Full narratives, tables and logs:
   reference, which is 617 of the 1024 refusals and is already known wrong in detail.
 Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
 
+- The class-map → objects/density Core bridge is now unit- and Gate-D-reviewed but deliberately
+  unwired; it is not evidence that the classification route has met its owner-adjudicated ship
+  gate or that a phase-map density is validated. Detail:
+  `docs/archive/v3/phase-map-objects-gateD-2026-09-21.md`.
+
 ### Step 3 ran on a stride-3 subsample and is OUTSIDE their band — measured 2026-09-15
 
 **Result: OUTSIDE their band at every setting tried.** Shipped defaults 98.26 %; a 10 %
