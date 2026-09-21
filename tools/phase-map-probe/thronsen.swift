@@ -74,11 +74,9 @@ enum Thronsen {
     /// face-on both list their two symmetry-equivalent variants against
     /// Al's {200} in the [001] zone — Core derives the allowed azimuth per
     /// entry, so no library-frame degree list is carried by hand any more.
-    /// T1 lists nothing (free): the paper states T1's relationship in
-    /// REAL-SPACE directions, `(0001)T1 ∥ (111)Al, [1-10]Al ∥ [10-10]T1`,
-    /// which is not yet derived into this form — the angle-list run that
-    /// preceded this one placed T1 at the measured winner-angle clusters
-    /// instead, which is not a derivation and does not carry over.
+    /// T1 (since S2, 2026-09-21) lists the paper's `[1-10]Al ∥ [10-10]T1` as two
+    /// direction pairs; before that it was free, and the free sweep took 295 of
+    /// 417 edge-on positions (`known-variants-rule-2026-09-21.md`).
     static func phases(constrained: Bool) -> [PhaseDefinition] {
         let thetaRelationships: [OrientationRelationship] = constrained ? [
             OrientationRelationship(candidate: .plane(SIMD3(0, 0, 2)), matrix: .plane(SIMD3(2, 0, 0))),
@@ -87,6 +85,14 @@ enum Thronsen {
         let thetaFaceRelationships: [OrientationRelationship] = constrained ? [
             OrientationRelationship(candidate: .plane(SIMD3(2, 0, 0)), matrix: .plane(SIMD3(2, 0, 0))),
             OrientationRelationship(candidate: .plane(SIMD3(2, 0, 0)), matrix: .plane(SIMD3(0, 2, 0))),
+        ] : []
+        // T1 (S2, 2026-09-21): the paper's `[1-10]Al ∥ [10-10]T1` with `[10-10]` in the
+        // three-index basis the app uses, [u−t, v−t, w] = [2 1 0]; exactly ⟂ [0 -4 1] by the
+        // hexagonal metric. Two pairs against Al's ⟨110⟩ 90° apart select the four variants
+        // (the comparison is mod 180), the θ′ pattern above. Derivation: S2-diagnosis.md.
+        let t1Relationships: [OrientationRelationship] = constrained ? [
+            OrientationRelationship(candidate: .direction(SIMD3(2, 1, 0)), matrix: .direction(SIMD3(1, -1, 0))),
+            OrientationRelationship(candidate: .direction(SIMD3(2, 1, 0)), matrix: .direction(SIMD3(1, 1, 0))),
         ] : []
         return [
             PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
@@ -98,7 +104,8 @@ enum Thronsen {
                             role: .candidate, zoneAxes: [SIMD3(0, 0, 1)],
                             orientationRelationships: thetaFaceRelationships),
             PhaseDefinition(id: "t1", displayName: "T1", crystal: t1,
-                            role: .candidate, zoneAxes: [SIMD3(0, -4, 1)]),
+                            role: .candidate, zoneAxes: [SIMD3(0, -4, 1)],
+                            orientationRelationships: t1Relationships),
         ]
     }
 
