@@ -1,13 +1,13 @@
 //
 //  MaterialsProjectImport.swift
 //  Role: Core plumbing for the Materials Project (MP) importer — session S4a
-//        of docs/v3-precipitates-and-materials-project-plan.md. Decodes a
+//        of docs/v3-features.md#precipitates-mp-plan. Decodes a
 //        `GET /materials/summary/` response, turns one `SummaryDoc` into a
 //        validated `CrystalModel`, and checks a fetched document against the
 //        phase the user expected before it is trusted.
 //
 //  Wire shape verified live against the Materials Project openapi.json,
-//  2026-09-21 (docs/v3-materials-project-preregistration.md): the response is
+//  2026-09-21 (docs/v3-features.md#materials-project): the response is
 //  `{"data":[SummaryDoc…],"errors":[{"code":int,"message":str}],"meta":{…}}`.
 //  Unknown JSON keys are ignored — `Decodable` does this for free by simply
 //  not declaring them, matching what `CIFImport` does for CIF tags it does
@@ -836,7 +836,7 @@ package nonisolated enum MaterialsProjectImport {
         )
 
         // Verbatim reuse, not a re-implementation — see the file header and
-        // docs/v3-materials-project-preregistration.md. MP's own
+        // docs/v3-features.md#materials-project. MP's own
         // `symmetry.crystal_system` never reaches this decision; it is
         // recorded in provenance below only.
         let symmetry = try CIFImport.classifyFamily(

@@ -32,7 +32,7 @@ template — the user has to identify each class by hand anyway.
 ## Governs
 
 `mac4DSTEM/Core/Analysis/Precipitates/PrecipitateSegmentation.swift`,
-`docs/v3-precipitate-classification.md`'s ship gate.
+`docs/v3-features.md#precipitate-classification`'s ship gate.
 
 ## Sources
 

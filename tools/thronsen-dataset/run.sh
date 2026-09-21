@@ -1,5 +1,5 @@
 #!/bin/zsh
-# tools/thronsen-dataset — step 3 of docs/v3-vector-matching-plan.md: fetch a
+# tools/thronsen-dataset — step 3 of docs/v3-features.md#vector-matching: fetch a
 # stride-3 subsample of Thronsen et al.'s datasetA and its ground truth from
 # Zenodo (CC BY 4.0) into References/thronsen-datasetA/, then run the
 # shipped matcher on it through tools/phase-map-probe --thronsen and score by

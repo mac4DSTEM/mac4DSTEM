@@ -256,12 +256,12 @@ final class AppState {
     let diffractionGroups = DiffractionGroupsProduct()
     let phaseMapping = PhaseMappingProduct()
     /// Spatial precipitate objects. Session S3
-    /// (`docs/v3-precipitates-and-materials-project-plan.md`) wired its first
+    /// (`docs/v3-features.md#precipitates-mp-plan`) wired its first
     /// producer: `AppState+PhaseMapping.swift` publishes here from every
     /// finished vector-matched phase map, via the pure
     /// `PhaseMapObjectsBridge`. The pre-registered FULL-diffraction-pattern
     /// classification route this owner was originally scoped for
-    /// (`docs/v3-precipitate-classification.md` §2) remains unbuilt and
+    /// (`docs/v3-features.md#precipitate-classification` §2) remains unbuilt and
     /// would be a second producer, not a replacement. Neither producer nor
     /// this owner makes a validation claim of its own — the phase map's
     /// `validation: "none"` badge covers what is read off it. Views read

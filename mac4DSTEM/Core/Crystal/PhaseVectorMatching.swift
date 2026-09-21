@@ -30,7 +30,7 @@
 //  scan, so a second matrix grain would be mis-removed — that is a limit of
 //  this implementation, not of the method.
 //
-//  UNVALIDATED. Step 3 of `v3-vector-matching-plan.md` — scoring this against
+//  UNVALIDATED. Step 3 of `v3-features.md#vector-matching` — scoring this against
 //  the published ground truth of Thronsen et al. — has NOT been run: it needs a
 //  ~7.4 GB download this machine has no room for. Until it has, every number
 //  this file produces is an output, not a measurement, and the UI says so.
@@ -210,7 +210,7 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// "not indexed". Å⁻¹. Cell 6: `score_cutoff = 0.07`; cell 19:
     /// `score_phase_mask = score_phase > score_cutoff`. The paper's value on
     /// the paper's dataset — shipped as a setting, not retuned on this app's
-    /// truth (`docs/v3-precipitates-and-materials-project-plan.md` §2).
+    /// truth (`docs/v3-features.md#precipitates-mp-plan` §2).
     package var residualCutoffInvAngstrom: Double = 0.07
 
     package nonisolated init() {}

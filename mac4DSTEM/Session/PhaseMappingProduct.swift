@@ -10,7 +10,7 @@
 //  implemented from the published description; their repository has no licence
 //  and is not used. See `Core/Crystal/PhaseVectorMatching.swift`.
 //
-//  UNVALIDATED, and the UI says so. Step 3 of `docs/v3-vector-matching-plan.md`
+//  UNVALIDATED, and the UI says so. Step 3 of `docs/v3-features.md#vector-matching`
 //  — scoring this against their published ground truth — has not run, so
 //  `quantitativeStatus` below is `exploratory` and the result carries
 //  `validation: "none"` into every export. That is a decision, not an
@@ -160,7 +160,7 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
 /// (`UI/PhaseMappingSettings.swift`) and `AppState+PhaseMapping.swift`'s
 /// provenance writer needs — kept here, in Session, so both are testable
 /// without a view or a running app. Session S3,
-/// `docs/v3-precipitate-classification.md` §2 step "wire".
+/// `docs/v3-features.md#precipitate-classification` §2 step "wire".
 package enum PhaseMappingRuleDefaults {
     /// What the picker sets `PhaseReferenceSettings.minimumIntensityFraction`
     /// to when the classifier rule changes — a UI DEFAULT applied once, not

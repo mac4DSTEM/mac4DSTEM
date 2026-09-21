@@ -30,7 +30,7 @@ Ranked by value to a working microscopist.
 
 | # | Theme | Absent today | Size · depends on |
 |---|---|---|---|
-| 1 | **Calibration foundation** — everything else stands on it | **Landed 2026-09-17 as v3.1** (`docs/v3.1-calibration-preregistration.md`): vacuum probe from a separate scan, beamstop-tolerant origin (`get_origin_friedel` + beamstop mask), origin validity mask (count on screen; the spatial overlay is still owed). The CoM beam centre in `probeSize` is parked (Gate D: marginal). Unverified on screen until the owner drives it. | done · drive + `all` gate + v3.1.0 cut owed |
+| 1 | **Calibration foundation** — everything else stands on it | **Landed 2026-09-17 as v3.1** (`docs/v3-features.md#calibration-v31`): vacuum probe from a separate scan, beamstop-tolerant origin (`get_origin_friedel` + beamstop mask), origin validity mask (count on screen; the spatial overlay is still owed). The CoM beam centre in `probeSize` is parked (Gate D: marginal). Unverified on screen until the owner drives it. | done · drive + `all` gate + v3.1.0 cut owed |
 | 2 | **Amorphous and nanocrystalline** — a modality the app lacks | polar / polar-elliptical transform (gates the rest); radial profile I(q); pair distribution function (scattering factors already ported); radial variance / fluctuation microscopy | large · polar transform first |
 | 3 | **Strain where disk detection fails** — the peak-finding path finds no basis on three of four training datasets (`py4dstem-pipelines.md` §9.2/§10.3) | whole-pattern fitting; user-supplied reference lattice (absolute strain); strain from the ACOM solution | medium–large · — |
 | 4 | **From maps to the numbers a paper reports** | grain segmentation (size distribution, boundary misorientation, twin fraction); multi-phase identification (which phase is where); full point-group coverage | medium · point-group coverage first |
@@ -52,7 +52,7 @@ scipy on the real Au_ref beamstop cube) and **wired as an origin-method picker**
 the **vacuum probe from a separate scan** (a "Vacuum Scan…" probe source). **All four
 Calibration-foundation items landed 2026-09-17** (item 2 parked as marginal); the UI
 additions are unverified on screen. Full registration:
-[`docs/v3.1-calibration-preregistration.md`](docs/v3.1-calibration-preregistration.md),
+[`docs/v3-features.md#calibration-v31`](docs/v3-features.md#calibration-v31),
 decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-v3.1-origin-validity-mask.md).
 
 **Theme 4's point-group coverage is also a Materials Project dependency, not
@@ -64,7 +64,7 @@ today's curated CIF imports do; py4DSTEM is no more general by default
 (its own built-in plotting is cubic-only too — full coverage there needs
 the external `orix` library, which Swift has no equivalent of). **Both
 items are pre-registered together, next session:**
-[`docs/v3-materials-project-preregistration.md`](docs/v3-materials-project-preregistration.md).
+[`docs/v3-features.md#materials-project`](docs/v3-features.md#materials-project).
 
 ## Beyond py4DSTEM — the differentiators
 
@@ -77,7 +77,7 @@ is its own product").
   which is the expensive part to get wrong. **Superseded 2026-09-11**: the
   route is no longer real-space segmentation but classifying each scan
   position by its full diffraction pattern
-  (`docs/v3-precipitate-classification.md`, `docs/decisions/019-precipitates-by-classification.md`).
+  (`docs/v3-features.md#precipitate-classification`, `docs/decisions/019-precipitates-by-classification.md`).
 - **EDX correlation** (2026-08-26) — a data-model change before a feature: a
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
@@ -93,8 +93,8 @@ is its own product").
   the log, reset). **Never a threshold, radius or floor** — those are
   properties of a dataset and live in the session (ADR 029). State owner:
   one `AppPreferences` over `UserDefaults`, injectable for tests; the
-  scene is a `NavigationSplitView` (allowed), never a split view. Queued
-  after the inspector trial.
+  scene is a `NavigationSplitView` (allowed), never a split view. **Landed
+  2026-09-21** (`900fe7b`), unverified on screen.
 - **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21) —
   the bar above the log gets real height and live numbers (step, positions
   done / total, patterns per second, MB streamed, ETA, residency), and can

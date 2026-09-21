@@ -17,7 +17,7 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## v3.1 origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay + clustered case owed
 
-`OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position `kept` mask (disclosure only, no fitted number moves; ADR 033, `docs/v3.1-calibration-preregistration.md`).
+`OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position `kept` mask (disclosure only, no fitted number moves; ADR 033, `docs/v3-features.md#calibration-v31`).
 **Status:** D4 count landed (`PrepareSettings.positionsUsedValue`, unit-tested M4) but **unverified on screen**. Step-3 trim-sweep PASSED on 4 cubes: excluded 0.6–15.7 %, `maxGap` 1–5 — Si-SiGe (15.7 %, scattered) vs sim_Au (10.6 %, `maxGap 5`, clustered) exclude alike but differ spatially. D1/D2 stay at defaults, overrule on sight.
 **Owed:** the spatial validity overlay (origin fit over the scan grid, excluded positions greyed via `DisplayedProduct.validityMask`) is a larger follow-on, not built. Owner: unclaimed.
 Detail: `docs/archive/open-items-detail-2026-09-18.md`.

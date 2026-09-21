@@ -1,6 +1,6 @@
 //
 //  tools/phase-map-probe/main.swift
-//  Step 4 of `docs/v3-vector-matching-plan.md`: run vector-matched phase
+//  Step 4 of `docs/v3-features.md#vector-matching`: run vector-matched phase
 //  mapping on a real Al-Mg-Si datacube, through the app's own detector,
 //  library and matcher.
 //
@@ -122,13 +122,13 @@ enum Probe {
         // edge-on positions whose winner sits near 22°/67° to the matrix, not at
         // the OR's {0, 90}? (docs/open-items.md, step 3, "Next instrument".)
         var dumpEdgeOnCount: Int?
-        // Gate D measurement, 2026-09-21 (v3-vector-matching-plan.md step 1):
+        // Gate D measurement, 2026-09-21 (v3-features.md#vector-matching step 1):
         // additive, off by default, zero behaviour change without it. Breaks
         // named truth→ours confusion cells into survivingCount/matchedCount/
         // removedCount histograms and score quantiles, so a residual can be
         // read instead of re-derived by hand.
         var residualDetail = false
-        // Session S1 (v3-precipitates-and-materials-project-plan.md §2):
+        // Session S1 (v3-features.md#precipitates-mp-plan §2):
         // `--rule known-variants` runs Thronsen et al.'s own per-position
         // rule (`PhaseVectorSettings.ClassificationRule.knownVariants`)
         // instead of the library search; `--residual-cutoff` and
@@ -1830,7 +1830,7 @@ enum Probe {
                          map.results.count, fraction))
             print("  their four methods on the full 512 × 512: vector matching 1.54 %, template matching 1.75 %, "
                   + "NMF 1.50 %, ANN 0.96 % (reproduced from their published maps, 2026-09-15)")
-            print("  pre-registered acceptance (v3-vector-matching-plan.md step 3): inside their band, "
+            print("  pre-registered acceptance (v3-features.md#vector-matching step 3): inside their band, "
                   + "which is 0.96–1.75 %")
             print(fraction <= 1.75 ? "  VERDICT: inside the band" : "  VERDICT: OUTSIDE the band — the implementation is wrong, not the method")
         }

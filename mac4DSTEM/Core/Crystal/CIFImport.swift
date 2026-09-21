@@ -807,7 +807,7 @@ package nonisolated enum CIFImport {
     // `package` (not `private`) since 2026-09-21: `MaterialsProjectImport`
     // calls this verbatim rather than re-implementing family classification —
     // the Gate-D-relevant reuse the Materials Project importer pre-registration
-    // requires (docs/v3-materials-project-preregistration.md, "the one
+    // requires (docs/v3-features.md#materials-project, "the one
     // Gate-D-relevant piece... reuses the CIF importer's already-tested
     // classifier verbatim").
     package static func classifyFamily(
@@ -852,7 +852,7 @@ package nonisolated enum CIFImport {
         // 2026-09-11: `Crystal` builds the general triclinic metric tensor and
         // symmetry is read only in zone-axis sampling and orientation
         // reporting). β″ in Al-Mg-Si is monoclinic C2/m, so refusing here
-        // blocked the phase mapping in `docs/v3-vector-matching-plan.md`
+        // blocked the phase mapping in `docs/v3-features.md#vector-matching`
         // before it could start.
         return .identity
     }

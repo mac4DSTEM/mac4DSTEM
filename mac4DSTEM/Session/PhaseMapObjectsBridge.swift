@@ -6,7 +6,7 @@
 //        with the session's own real-space calibration (or nil, when there
 //        is none); this file is what makes that composition unit-testable
 //        without a running app. Session S3,
-//        `docs/v3-precipitate-classification.md` §2 steps 5–6.
+//        `docs/v3-features.md#precipitate-classification` §2 steps 5–6.
 //
 
 import Foundation

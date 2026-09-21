@@ -180,7 +180,7 @@ final class CIFImportTests: XCTestCase {
         // structure the app cannot orientation-map can still be used for phase
         // IDENTIFICATION, which needs a cell and a basis and no point group.
         // β″ in Al-Mg-Si is monoclinic C2/m, and refusing here blocked the
-        // phase mapping in docs/v3-vector-matching-plan.md before it started.
+        // phase mapping in docs/v3-features.md#vector-matching before it started.
         //
         // Both halves are asserted, because admitting the model without the
         // refusal below would let `identity.ipfColor` draw |x|,|y|,|z| as RGB —

@@ -4,7 +4,7 @@
 # that makes it a real risk, and the PRE-REGISTERED pass criterion.
 #
 # `diagnostic` deliberately: this is a MEASUREMENT that decides whether the
-# template-matched classification route in docs/v3-precipitate-classification.md
+# template-matched classification route in docs/v3-features.md#precipitate-classification
 # is viable at all. It becomes a gated invariant only if the measurement passes
 # and the route is adopted.
 set -euo pipefail

@@ -1,7 +1,7 @@
 //
 //  PhaseMapObjectsTests.swift
 //  Class-map → per-class objects → per-class statistics
-//  (docs/v3-precipitate-classification.md §2 steps 5–6, decision 019).
+//  (docs/v3-features.md#precipitate-classification §2 steps 5–6, decision 019).
 //  Every expected number here is arithmetic on a hand-drawn 12 × 9 label map,
 //  written before the implementation and broken against it before trusted.
 //

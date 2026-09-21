@@ -135,7 +135,7 @@ final class ProductWorkflowTests: XCTestCase {
 
     /// The task states that it is unvalidated wherever guidance is shown.
     /// Not decoration: this method has never been scored against an external
-    /// ground truth in this app (`docs/v3-vector-matching-plan.md` step 3), and
+    /// ground truth in this app (`docs/v3-features.md#vector-matching` step 3), and
     /// a phase fraction read off the map is not a measurement until it has.
     func testPhaseMappingGuidanceSaysItIsUnvalidated() {
         let guidance = ProductWorkflow.guidance(

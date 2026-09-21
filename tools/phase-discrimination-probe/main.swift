@@ -3,7 +3,7 @@
 //
 //  THE MEASUREMENT THAT CAN KILL THE TEMPLATE-MATCHED ROUTE.
 //
-//  docs/v3-precipitate-classification.md proposes labelling each scan position
+//  docs/v3-features.md#precipitate-classification proposes labelling each scan position
 //  by matching its diffraction pattern against per-phase templates. Every
 //  precipitate pattern in a real foil ALSO carries the matrix reflections --
 //  the beam passes through matrix above and below the particle -- so the

@@ -102,7 +102,7 @@ final class CIFImportAppStateTests: XCTestCase {
     /// non-cubic/non-hexagonal CIF was REFUSED at import with a modal error.
     /// It now imports as `.identity` — "Unreduced" — because phase
     /// identification needs a structure, not a point group, and β″ in Al-Mg-Si
-    /// is monoclinic C2/m (`docs/v3-vector-matching-plan.md` step 0).
+    /// is monoclinic C2/m (`docs/v3-features.md#vector-matching` step 0).
     ///
     /// What replaces the refusal is a REFUSAL FURTHER ALONG, and this test now
     /// pins that instead: the model loads and appears in the picker, but it

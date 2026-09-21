@@ -3,10 +3,10 @@
 //  Role: owns the retained spatial result of a class map — objects, per-class
 //        pixel counts and density. AppState composes this owner without
 //        forwarding properties. Session S3
-//        (`docs/v3-precipitates-and-materials-project-plan.md`) wired its
+//        (`docs/v3-features.md#precipitates-mp-plan`) wired its
 //        first writer, `AppState+PhaseMapping.swift`, over the vector-matched
 //        phase map; the pre-registered FULL-diffraction-pattern
-//        classification route (`docs/v3-precipitate-classification.md` §2)
+//        classification route (`docs/v3-features.md#precipitate-classification` §2)
 //        would be a second writer of the same owner, still unbuilt.
 //
 
@@ -16,7 +16,7 @@ import DSTEMCore
 #endif
 import Observation
 
-/// The Session boundary for `docs/v3-precipitate-classification.md` §3.
+/// The Session boundary for `docs/v3-features.md#precipitate-classification` §3.
 ///
 /// It owns only a published `ClassMapObjects` value — it does not classify
 /// anything itself, publish a view, or export. It makes no validation claim

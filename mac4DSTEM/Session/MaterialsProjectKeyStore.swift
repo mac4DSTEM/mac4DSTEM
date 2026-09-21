@@ -2,7 +2,7 @@
 //  MaterialsProjectKeyStore.swift
 //  Role: Session S4a's second half — where the Materials Project API key
 //        lives between launches. Keychain, not `UserDefaults`
-//        (docs/v3-materials-project-preregistration.md: "API key storage —
+//        (docs/v3-features.md#materials-project: "API key storage —
 //        Keychain, not UserDefaults"). A protocol in front of it so the
 //        eventual search UI and its tests can swap in an in-memory store
 //        without touching the Keychain at all.

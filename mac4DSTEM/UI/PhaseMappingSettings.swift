@@ -17,7 +17,7 @@
 //    for the colour under the cursor, in physical units.
 //
 //  And one refusal: the result is badged UNVALIDATED until step 3 of
-//  `docs/v3-vector-matching-plan.md` runs. The badge is not decoration — this
+//  `docs/v3-features.md#vector-matching` runs. The badge is not decoration — this
 //  method has never been scored against an external truth in this app.
 //
 

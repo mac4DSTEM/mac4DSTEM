@@ -1,5 +1,5 @@
 //
-//  thronsen.swift — step 3 of docs/v3-vector-matching-plan.md: the published
+//  thronsen.swift — step 3 of docs/v3-features.md#vector-matching: the published
 //  ground truth of Thronsen et al., Ultramicroscopy 255 (2024) 113861, CC BY
 //  4.0, Zenodo 10.5281/zenodo.6645396. `--thronsen labels.json` runs the
 //  app's shipped matcher on their dataset A (Al [001], 2xxx alloy, θ′ and T1)

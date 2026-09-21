@@ -13,7 +13,7 @@
 //
 //  UNVALIDATED. Every product published here carries `validation: "none"` and
 //  an exploratory quantitative status until step 3 of
-//  `docs/v3-vector-matching-plan.md` has run against Thronsen et al.'s
+//  `docs/v3-features.md#vector-matching` has run against Thronsen et al.'s
 //  published ground truth. A phase map you can look at is worth having; a
 //  density taken off one is not a measurement yet.
 //
@@ -204,7 +204,7 @@ extension AppState {
     /// real-space calibration: density is then absent, never invented
     /// (`PrecipitateStatistics.density`'s own refusal rule).
     ///
-    /// `docs/v3-precipitate-classification.md` §2 steps 5–6. This does NOT
+    /// `docs/v3-features.md#precipitate-classification` §2 steps 5–6. This does NOT
     /// change what is validated: `PrecipitateClassificationProduct` makes no
     /// validation claim of its own, and the phase map it is built from is
     /// still `validation: "none"` — the Result section's badge says so for
@@ -242,7 +242,7 @@ extension AppState {
     ///
     /// `validation: "none"` is the load-bearing key. It is what stops a phase
     /// fraction read off this map from being quoted as a measurement before
-    /// the acceptance test of `v3-vector-matching-plan.md` step 3 has run.
+    /// the acceptance test of `v3-features.md#vector-matching` step 3 has run.
     private func phaseProvenance(map: PhaseMap,
                                  run: PhaseMappingProduct.RunRecord) -> [String: String] {
         var out: [String: String] = [
