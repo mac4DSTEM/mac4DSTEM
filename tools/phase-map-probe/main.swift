@@ -147,6 +147,12 @@ enum Probe {
         // survivors spread in |q|) or by real unmodelled reflections (far
         // survivors peaked at specific |q|)?
         var survivorDetail = false
+        // Generalised 2026-09-21 (θ′ edge-on Gate D follow-up to S2,
+        // `docs/archive/v3/t1-relationship-2026-09-21.md`): `--survivor-detail`
+        // took only T1 (truth label 3); it now takes an optional truth-label
+        // argument (`--survivor-detail 1` for θ′ edge-on). Default 3 keeps the
+        // 2026-09-21 T1 measurement's exact output.
+        var survivorDetailLabel = 3
         // Gate D MEASUREMENT, 2026-09-21 (survivor-detail follow-up): additive,
         // off by default, zero behaviour change without them. `--min-intensity`
         // and `--max-vectors` plumb straight to `PhaseReferenceSettings`'
@@ -158,6 +164,14 @@ enum Probe {
         var minIntensityArg: Double?
         var maxVectorsArg: Int?
         var dumpEntryPhase: String?
+        // θ′ edge-on Gate D measurement, 2026-09-21: `--slab` and `--slab-width`
+        // plumb straight to `PhaseReferenceSettings.excitationSlabInvAngstrom`
+        // (shipped 0.05) and `excitationWidthInvAngstrom` (shipped 0.03) — the
+        // paper used a phase-dependent slab (0.030 T1, 0.300 θ′) where this app
+        // has one global number; these flags let that global be swept without
+        // editing `PhaseReferenceSettings`'s shipped default.
+        var slabArg: Double?
+        var slabWidthArg: Double?
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -194,7 +208,20 @@ enum Probe {
             } else if args[index] == "--residual-detail" {
                 residualDetail = true; index += 1
             } else if args[index] == "--survivor-detail" {
-                survivorDetail = true; index += 1
+                survivorDetail = true
+                // Optional trailing integer: the truth label (default 3 = T1).
+                // Consumed only when it parses as Int, so a bare
+                // `--survivor-detail` followed by the datacube path (no truth
+                // label) is unaffected.
+                if index + 1 < args.count, let label = Int(args[index + 1]) {
+                    survivorDetailLabel = label; index += 2
+                } else {
+                    index += 1
+                }
+            } else if args[index] == "--slab", index + 1 < args.count {
+                slabArg = Double(args[index + 1]); index += 2
+            } else if args[index] == "--slab-width", index + 1 < args.count {
+                slabWidthArg = Double(args[index + 1]); index += 2
             } else if args[index] == "--rule", index + 1 < args.count {
                 ruleArg = args[index + 1]; index += 2
             } else if args[index] == "--residual-cutoff", index + 1 < args.count {
@@ -254,6 +281,14 @@ enum Probe {
         if let maxVectorsArg {
             referenceSettings.maximumVectorsPerEntry = maxVectorsArg
             print("reference library: maximum vectors per entry \(maxVectorsArg) (shipped 48)")
+        }
+        if let slabArg {
+            referenceSettings.excitationSlabInvAngstrom = slabArg
+            print(String(format: "reference library: excitation slab %.4f Å⁻¹ (shipped 0.05)", slabArg))
+        }
+        if let slabWidthArg {
+            referenceSettings.excitationWidthInvAngstrom = slabWidthArg
+            print(String(format: "reference library: excitation width %.4f Å⁻¹ (shipped 0.03)", slabWidthArg))
         }
 
         var matchSettings = PhaseVectorSettings()   // `var`: the reach and the floor are set below
@@ -367,7 +402,12 @@ enum Probe {
         if let dumpEntryPhase {
             print("\n== --dump-entry \(dumpEntryPhase) ==")
             print("  total library entries: \(library.entries.count)")
-            if let phaseIndex = phases.firstIndex(where: { $0.displayName == dumpEntryPhase }) {
+            // Exact match first; a prefix match second (2026-09-21, θ′ edge-on
+            // measurement) so "θ′ edge-on" and a shell-mangled prefix of it
+            // both resolve to the one phase whose display name starts with it,
+            // rather than a silent "no phase named" on an encoding mismatch.
+            if let phaseIndex = phases.firstIndex(where: { $0.displayName == dumpEntryPhase })
+                ?? phases.firstIndex(where: { $0.displayName.hasPrefix(dumpEntryPhase) }) {
                 let candidates = library.entries.indices.filter { library.entries[$0].phaseIndex == phaseIndex }
                 if candidates.isEmpty {
                     print("  phase '\(dumpEntryPhase)' has no library entries")
@@ -951,14 +991,27 @@ enum Probe {
                 print("  --survivor-detail only means anything with --rule known-variants; skipped")
             }
             if survivorDetail, matchSettings.classificationRule == .knownVariants {
-                print("\n== --survivor-detail (known-variants rule; truth-T1 positions) ==")
-                let t1Label = 3, alLabel = 0   // Thronsen.swift header: 0 Al, 3 T1
-                let t1PhaseIndex = map.phaseNames.firstIndex(of: "T1") ?? -1
-                let t1Entries = library.entries.indices.filter {
-                    Int(library.entries[$0].phaseIndex) == t1PhaseIndex
+                // Generalised 2026-09-21 (θ′ edge-on Gate D measurement, S2
+                // follow-up to `docs/archive/v3/t1-relationship-2026-09-21.md`):
+                // this used to hardcode truth label 3 (T1); `--survivor-detail
+                // N` now names any truth label, scored against ITS OWN
+                // matching phase — `Thronsen.label`'s table read backwards
+                // (thronsen.swift:137-150). Default 3 (T1) reproduces the
+                // 2026-09-21 measurement's output unchanged, Al comparison
+                // line included (label 0 is always the reference class here,
+                // since the target label can never itself be 0 — Al is the
+                // matrix, not a candidate phase this block can score against).
+                let targetLabel = survivorDetailLabel, alLabel = 0
+                let targetPhaseNamesByLabel: [Int: String] = [1: "θ′ edge-on", 2: "θ′ face-on", 3: "T1"]
+                let targetLabelTag = targetLabel == 3 ? "T1" : "\(targetLabel)"
+                print("\n== --survivor-detail (known-variants rule; truth-\(targetLabelTag) positions) ==")
+                if let targetPhaseName = targetPhaseNamesByLabel[targetLabel] {
+                let targetPhaseIndex = map.phaseNames.firstIndex(of: targetPhaseName) ?? -1
+                let targetEntries = library.entries.indices.filter {
+                    Int(library.entries[$0].phaseIndex) == targetPhaseIndex
                 }
-                if t1PhaseIndex < 0 || t1Entries.isEmpty {
-                    print("  no T1 phase / entries in this library; skipped")
+                if targetPhaseIndex < 0 || targetEntries.isEmpty {
+                    print("  no \(targetPhaseName) phase / entries in this library; skipped")
                 } else {
                 let matrixEntry = map.matrixEntryIndex >= 0 ? library.entries[map.matrixEntryIndex] : nil
                 // A radius no real Å⁻¹ distance on this cube can exceed (reach
@@ -973,14 +1026,14 @@ enum Probe {
 
                 var dSamples: [Double] = []
                 var qSamples: [Double] = []   // parallel to dSamples
-                var meanSurvivors: [Int: (sum: Int, n: Int)] = [t1Label: (0, 0), alLabel: (0, 0)]
+                var meanSurvivors: [Int: (sum: Int, n: Int)] = [targetLabel: (0, 0), alLabel: (0, 0)]
 
                 for (index, result) in map.results.enumerated() {
                     let theirs = thronsen.labels[index]
-                    guard theirs == t1Label || theirs == alLabel else { continue }
+                    guard theirs == targetLabel || theirs == alLabel else { continue }
                     meanSurvivors[theirs]!.sum += Int(result.survivingCount)
                     meanSurvivors[theirs]!.n += 1
-                    guard theirs == t1Label,
+                    guard theirs == targetLabel,
                           Int(result.survivingCount) > matchSettings.directMatrixMaximumVectors
                     else { continue }   // classifyKnownVariants never scores these (step b: → .matrix)
 
@@ -997,16 +1050,17 @@ enum Probe {
                     }
                     guard surviving.count == Int(result.survivingCount) else { continue }  // sanity: must match the matcher's own count
 
-                    // The winning T1 entry: the matcher's own answer when T1
-                    // is already the overall winner (`result.entryIndex`),
-                    // else recomputed as classifyKnownVariants step c would,
-                    // restricted to T1's own entries — "would-be winning".
+                    // The winning entry of the target phase: the matcher's own
+                    // answer when that phase is already the overall winner
+                    // (`result.entryIndex`), else recomputed as
+                    // classifyKnownVariants step c would, restricted to the
+                    // target phase's own entries — "would-be winning".
                     var winEntry: Int?
-                    if result.phaseIndex == Int32(t1PhaseIndex), result.entryIndex >= 0 {
+                    if result.phaseIndex == Int32(targetPhaseIndex), result.entryIndex >= 0 {
                         winEntry = Int(result.entryIndex)
                     } else {
                         var bestScore = Double.infinity
-                        for e in t1Entries {
+                        for e in targetEntries {
                             let entry = library.entries[e]
                             guard !entry.vectors.isEmpty else { continue }
                             var sum = 0.0
@@ -1032,12 +1086,12 @@ enum Probe {
                     }
                 }
 
-                for (label, stat) in [("T1", meanSurvivors[t1Label]!), ("Al", meanSurvivors[alLabel]!)] {
+                for (label, stat) in [(targetPhaseName, meanSurvivors[targetLabel]!), ("Al", meanSurvivors[alLabel]!)] {
                     let mean = stat.n > 0 ? Double(stat.sum) / Double(stat.n) : .nan
                     print(String(format: "  mean survivors per truth-%@ position: %.3f (n=%d positions)",
                                  label as NSString, mean, stat.n))
                 }
-                print("  survivors scored against the winning/would-be-winning T1 entry: n=\(dSamples.count)")
+                print("  survivors scored against the winning/would-be-winning \(targetPhaseName) entry: n=\(dSamples.count)")
 
                 let dBucketEdges = [0.01, 0.02, 0.05, 0.1, 0.2]
                 let dBucketLabels = ["0-0.01", "0.01-0.02", "0.02-0.05", "0.05-0.1", "0.1-0.2", "0.2+"]
@@ -1047,7 +1101,7 @@ enum Probe {
                 }
                 var dCounts = [Int](repeating: 0, count: dBucketLabels.count)
                 for d in dSamples { dCounts[dBucket(d)] += 1 }
-                print("  d = nearest-reference distance to the winning T1 entry, Å⁻¹ (histogram):")
+                print("  d = nearest-reference distance to the winning \(targetPhaseName) entry, Å⁻¹ (histogram):")
                 print("    " + zip(dBucketLabels, dCounts).map { "\($0)=\($1)" }.joined(separator: "  "))
 
                 func qHistogram(_ mask: (Double) -> Bool) -> String {
@@ -1071,6 +1125,10 @@ enum Probe {
                 print(qHistogram { $0 > 0.05 })
                 print("  near survivors (d ≤ 0.02 Å⁻¹): |q| histogram, 0.02 Å⁻¹ bins, 0-0.70 (comparison):")
                 print(qHistogram { $0 <= 0.02 })
+                }
+                } else {
+                    print("  truth label \(targetLabel) has no matching candidate phase "
+                          + "(0 = Al, the matrix); skipped")
                 }
             }
 
