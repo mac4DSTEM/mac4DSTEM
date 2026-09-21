@@ -82,6 +82,13 @@ is its own product").
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
+- **Lineage graph with real rewind** (owner, 2026-09-21) — every derived
+  product shows its inputs as a graph, and clicking a node rewinds the
+  parameter state, not a text history. Nothing exists today beyond the
+  linear `SessionReplayRecord` and per-product provenance; a record with
+  step ids and input edges (a sidecar wire-format decision, owed) comes
+  first, a lineage list in Results second, the graph view only after the
+  drive row is empty. Unclaimed, unscheduled.
 - **Learned disk candidates** (owner, 2026-09-05; Core ML on the Neural
   Engine, 2026-09-07) — the first ML feature.
 
