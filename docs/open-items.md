@@ -17,10 +17,10 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Owner drive 2026-09-21 23:50–23:55 — the workspace/inspector restyle (`9fd386d`) REJECTED — added 2026-09-22
 
-Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible" — stop, reconsider the structure: [`docs/window-design.md`](window-design.md). Rule until decided: no UI surface lands. Owner.
+Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible". Anatomy decided 2026-09-22 in [`docs/window-design.md`](window-design.md); phase 1 has no recorded drive or acceptance. Owner drive before Prepare or any other room changes.
 
 ### The inspector does not reach the window top; the sidebar does — SEEN 2026-09-21
-`ContentView.swift` applies `.inspector` to the detail `WorkspaceView`, so the column sits under the toolbar and the toolbar's trailing group (the blue primary action, archive, folder, toggle) floats above it; at some widths the items land over the canvas instead, which reads as "sometimes to the top, sometimes not". Xcode's inspector is full height with only its toggle above it. Fix belongs to the structure phase: `.inspector` on the `NavigationSplitView`, the room's primary action out of the toolbar. Owner-scored.
+`ContentView.swift` applies `.inspector` to the detail `WorkspaceView`, so the column sits under the toolbar and the toolbar's trailing group (the blue primary action, archive, folder, toggle) floats above it; at some widths the items land over the canvas instead, which reads as "sometimes to the top, sometimes not". Xcode's inspector is full height with only its toggle above it. Phase 1: `.inspector` on the `NavigationSplitView`; centre header keeps breadcrumb left, primary action / Save to Session / Reveal right as its width flexes. No room action in toolbar or side panels. Owner drive owed.
 
 ### One column, three alignments — SEEN 2026-09-21, Prepare
 "Compute Mean / Max" sits flush right (`InspectorActionRow`), "Measure Origin & Probe" / "Fit Detector Ellipse" flush left (bare buttons in a section), "Manual 0 / Unit per pixel" in the label column, "Not set" floating mid-row. Pixelmator's rule is one alignment per panel: label left, control right, value far right, buttons full width. Design, not a patch.
@@ -32,7 +32,7 @@ Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 dete
 "Use Cu…", "Use Fil…", "Vacuu…" — three buttons in one `InspectorActionRow` at 320 pt; "Clear Th…", "Save t…", "Export…" likewise. A button never truncates: one per row, or a menu. `.controlSize(.small)` throughout the inspector makes every control look tiny; the inspector should use the regular size and 13-pt text, small only in the strip.
 
 ### Settings / Info reads as a cramped segmented control fighting the toolbar — SEEN 2026-09-21
-The 2-segment text control sits directly under the toolbar's floating buttons with no header rhythm. Xcode's inspector header is an icon segmented control with breathing room and the pane's own toolbar row. Part of the structure phase.
+The 2-segment text control sits directly under the toolbar's floating buttons with no header rhythm. The owner chose a text Settings · Info header in its own row (`window-design.md` §6). Part of the structure phase.
 
 ### The bottom pane's height changes when a tab is pressed — SEEN 2026-09-21
 Switching Output → Run → Lineage moves the divider: the pane's height follows the tab's content rather than the dragged height (`BottomWorkspace.swift`). The dragged height must be the pane's height regardless of tab. Defect; fix rides with the structure phase, not before.

@@ -2,7 +2,7 @@
 
 Dates: 2026-09-21
 
-Status: live; narrows 011 (throughput and the Performance rows leave the inspector for the Run tab)
+Status: live for live/durable state; 2026-09-21 layout rejected and revised by owner 2026-09-22
 
 ## Decision
 
@@ -34,6 +34,15 @@ scoped by tab and room, so two rooms' "Dataset" sections never collapse
 together. The `.grouped` boxes and the 2026-09-21 nested `.columns` trial
 are retired.
 
+**2026-09-22 layout amendment:** The owner rejected the 2026-09-21 restyle
+on screen. `docs/window-design.md` §1 and §6 now govern the anatomy: the
+infobar itself is the full-width drag handle within the centre column; the
+inspector uses one top-level `.columns` form; the room actions live in the
+centre header with breadcrumb pinned left and actions grouped right. Its
+width flexes when either full-height side panel toggles. The shared row
+vocabulary above records the rejected implementation, not the target for
+phase 2. Phase 1 has not been accepted on screen.
+
 ## Why
 
 The owner's reading of the app (2026-09-21): the centre panes were noisy,
@@ -53,4 +62,7 @@ streamed (frozen by the same guard as progress once a run is cancelled),
 and the last run with its outcome, so a cancelled run reads "cancelled
 after 3 s", never as a success; the tab selection by `WorkspaceNavigation`;
 nothing new is stored on `AppState`. The tab bar's 26 pt exist only while the pane is open. Copy, search
-and filter for Output, and the lineage graph, are later steps.
+and filter for Output, and the lineage graph, are later steps. The old
+maximum fraction is superseded by `window-design.md`: dragging the infobar
+must span the centre column's full usable height, subject to a documented
+SwiftUI limitation if that proves impossible.

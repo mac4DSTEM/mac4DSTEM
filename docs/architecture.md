@@ -238,16 +238,19 @@ again and no flag selects it. Six rules, the first three enforced by
    `AppState.activePane` survives only as the ROI direction's storage.
 5. **No new state on `AppState`.** UI's selection is derived from
    `WorkspaceNavigation`, never stored beside it (`WorkspaceRoute`).
-6. **The window is three columns with one job each.** Left is navigation and
-   nothing else. Centre is the science, with the status strip and the output
-   log on its bottom edge. Right is the inspector in two tabs — **Settings**,
-   every control the selected workspace owns, and **Info**, what the dataset
-   and the displayed product are. There is no workspace header: the window
-   title carries the task and the toolbar carries the one action that runs
-   it. Readiness has exactly one home, the Settings tab's first section.
+6. **The window is three columns with one job each** (`window-design.md`,
+   owner decision 2026-09-22; phase 1 not yet accepted on screen). Left is
+   navigation, right is the Settings · Info inspector; both run from the
+   toolbar to the window bottom and collapse completely. Centre owns the
+   science, an infobar and the process area. Its header keeps workspace ›
+   dataset at the left and the primary action, Save to Session and Reveal
+   grouped at the right; the space between them follows centre width as
+   either side panel toggles. The standard toolbar holds only window-level
+   controls. Readiness has one home, the Settings tab's first section.
 - **Navigation is a source list, settings are forms, and the two containers
   are not interchangeable.** Rule 1's `List(selection:)`/`.listStyle(.sidebar)`
-  carries navigation; controls are a grouped `Form` with `LabeledContent`,
+  carries navigation; the decided inspector is one top-level `.columns`
+  `Form` with `LabeledContent`,
   `Picker`, `Toggle`, `TextField`, `Slider`, `Button` as system controls, no
   hand-built rows with a `Spacer` between a label and its value.
   `LabeledContent` stacks a multi-element label vertically only inside a

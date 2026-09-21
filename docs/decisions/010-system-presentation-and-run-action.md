@@ -2,7 +2,7 @@
 
 Dates: 2026-09-03, 2026-09-04
 
-Status: live
+Status: partly superseded by the owner's 2026-09-22 window decision
 
 ## Decision
 
@@ -17,6 +17,12 @@ Dataset and Session section, and session-vs-data disagreements (an
 unreadable sidecar, a sidecar describing a region the file lacks, a result
 computed on a different view) are permanent, not buried in an Info tab.
 
+**2026-09-22 amendment:** `docs/window-design.md` §1 and §6 supersede the
+toolbar placement: the primary action, Save to Session and Reveal belong in
+the centre header, grouped at its right edge as the centre width changes.
+The toolbar keeps only window-level controls. The system-only presentation
+and sidebar trust rules remain. Phase 1 has not been accepted on screen.
+
 ## Why
 
 "An old sidecar loaded with a cube" is exactly the case nobody thinks to go
@@ -26,8 +32,8 @@ had no room.
 
 ## Governs
 
-`architecture.md`'s presentation contract, the toolbar's `.primaryAction`
-placement, the sidebar's Dataset/Session sections.
+`architecture.md`'s presentation contract and the sidebar's Dataset/Session
+sections; toolbar placement is superseded above.
 
 ## Sources
 

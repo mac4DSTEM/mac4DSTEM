@@ -21,11 +21,16 @@ as pipeline steps with their state, the dataset, the session — from the
 toolbar to the window's bottom edge, toggled by the toolbar's leading
 button. Right, the inspector — Settings · Info — from the toolbar to the
 bottom edge, toggled by the toolbar's trailing button. Both collapse
-completely and the window remembers them. The toolbar carries nothing
-else. The centre column has a header row (workspace › dataset on the
-left; on the right the one blue primary action, Save to Session, Reveal),
-the science panes, the **infobar**, and the process area. The infobar is
-the divider: one fixed-height line (status, progress, memory glance, the
+completely and the window remembers them. The toolbar carries only
+window-level controls: the two panel toggles, dataset switcher and global
+run indicator while busy. The centre column has a header row (workspace ›
+dataset pinned left; the one blue primary action, Save to Session and Reveal
+grouped at the right), the science panes, the **infobar**, and the process area.
+In every combination of open and closed side panels, that header remains
+inside the centre column:
+the space between the breadcrumb and actions grows or shrinks with the centre
+column. The actions never migrate into a side panel or the toolbar. The
+infobar is the divider: one fixed-height line (status, progress, memory glance, the
 toggle at its right end), draggable over its whole width from the
 column's bottom edge (process area hidden) to its top edge (panes gone);
 ⌃⌘L toggles it. Switching a tab in the process area (Output · Run ·
@@ -125,7 +130,7 @@ that it was applied to the old structure without a design.
 │ ◧             │                                          │          ◨ │
 ├───────────────┼──────────────────────────────────────────┼────────────┤
 │ Navigator     │ Canvas header  Prepare › dataset         │ Inspector  │
-│ top to bottom │             [Calibrate Origin] save ▾ ⌂  │ top to     │
+│ top to bottom │       [Calibrate Origin] Save   Reveal   │ top to     │
 │               │ ┌─────────────┐ ┌─────────────┐          │ bottom     │
 │ workspaces    │ │ Diffraction │ │ Real space  │          │            │
 │ dataset       │ └─────────────┘ └─────────────┘          │ Settings   │
@@ -150,9 +155,12 @@ entirely. The toolbar keeps only window-level items: sidebar toggle, the
 dataset switcher, the inspector toggle, a global "run" indicator while busy.
 
 **Canvas header (per workspace).** A jump-bar-style row over the science
-panes: *workspace › dataset* on the left; on the right the room's **one
-primary action** (blue), *Save to Session*, *Reveal in Finder*. Actions
-about the work sit over the work. This is where the blue button goes.
+panes: *workspace › dataset* pinned left; the room's **one primary action**
+(blue), *Save to Session* and *Reveal in Finder* grouped at the right. As
+the left or right panel toggles, the centre grows or shrinks and the space
+between these groups changes; the actions stay in the centre header at every
+width. Actions about the work sit over the work. This is where the blue
+button goes.
 
 **Navigator.** Unchanged in content (workspaces, dataset, session), but
 the workspace list is the pipeline: each row shows its state glyph (not
@@ -214,6 +222,9 @@ each phase is mocked as a picture the owner can reject before code.
 1. One style everywhere, Xcode's inspector: a top-level `.columns` form
    (see §4). Yes, it is plain SwiftUI.
 2. The primary action, Save to Session and Reveal in the canvas header.
+   Clarified 2026-09-22: breadcrumb left, three actions right, with flexible
+   space between them as the side panels toggle; none moves into a side panel
+   or toolbar.
 3. The inspector header is text: Settings · Info.
 4. Withdrawn (the width follows from the form).
 5. The bottom area is Xcode's debug area: the infobar is the divider and
@@ -234,15 +245,21 @@ red-box screenshot (00:28) is the anatomy of record.
 > handoff for whether phase 1 (the anatomy) has been driven and accepted;
 > if not, the next step is his drive, not more code. Build the next phase
 > exactly as §1 says, in pure SwiftUI: `NavigationSplitView` with
-> `.inspector` on the split view, the standard toolbar, one top-level
+> `.inspector` on the split view, the standard toolbar (panel toggles,
+> dataset switcher and busy run indicator only), one top-level
 > columns-style `Form` for the inspector, every fixed point a
 > `LayoutPolicy` constant, no AppKit in `UI/`, no split-view classes.
-> Before code: draw the phase as a picture he can reject, cost it in
+> In every open/closed panel combination, keep the centre header inside the
+> centre column: breadcrumb pinned left; primary action, Save to Session and
+> Reveal grouped right; the space between them changes with the centre width.
+> No room action moves into the side panels or toolbar. Before code: draw the
+> phase as a picture he can reject, cost it in
 > points, and stop for his yes. Prepare is the reference room; touch no
 > other room until he has accepted it. Never build into
-> `~/Library/Developer/Xcode/DerivedData` (his app runs from there); use
-> `tools/run-tests.sh unit | core | inventory` to a log and read the
-> exit line from the log. Break every new test one mutation at a time.
+> `~/Library/Developer/Xcode/DerivedData` (his app runs from there); run
+> `tools/run-tests.sh unit`, `tools/run-tests.sh core` and
+> `tools/run-tests.sh inventory` separately, each to its own log, and read
+> each log's exit line. Break every new test one mutation at a time.
 > Commit with the gate numbers; update `docs/status.md` and
 > `docs/open-items.md` in the same commit. Record what he says after
 > every drive, verbatim in substance. If SwiftUI cannot do something the

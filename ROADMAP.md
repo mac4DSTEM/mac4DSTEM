@@ -95,18 +95,15 @@ is its own product").
   one `AppPreferences` over `UserDefaults`, injectable for tests; the
   scene is a `NavigationSplitView` (allowed), never a split view. **Landed
   2026-09-21** (`900fe7b`), unverified on screen.
-- **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21) —
-  the bar above the log gets real height and live numbers (step, positions
-  done / total, patterns per second, MB streamed, ETA, residency), and can
-  be dragged up as far as the user wants to reveal a second central area:
-  the log today, the lineage graph when it exists (side by side or one at
-  a time — undecided). Builds on the log's existing dragged height
-  (`LayoutPolicy`); must stay a SwiftUI drag-resized area, never
-  `VSplitView` (decision 009). Inspector to follow Xcode's label-column
-  form; the Phase mapping room is the trial. **Landed 2026-09-21** (ADR 034):
-  Output / Run / Lineage tabs, a one-line strip with a memory glance, the
-  inspector vocabulary in every room; unseen. Copy/search/filter and the
-  graph are later steps.
+- **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21,
+  revised 2026-09-22) — the infobar is the centre column's fixed-height
+  divider and full-width drag handle, moving from its bottom to its top;
+  Output / Run / Lineage never change its position. The 2026-09-21
+  implementation (ADR 034) was driven and rejected. The decided anatomy is
+  `docs/window-design.md` §1 and §6: full-height collapsible side panels,
+  room actions in a centre-only header that flexes with them, then the
+  Prepare reference room. Phase 1 has no recorded owner acceptance. The
+  lineage graph and copy/search/filter follow later.
 - **Lineage graph with real rewind** (owner, 2026-09-21) — every derived
   product shows its inputs as a graph, and clicking a node rewinds the
   parameter state, not a text history. Nothing exists today beyond the
