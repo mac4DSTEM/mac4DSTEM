@@ -6,6 +6,7 @@ package nonisolated enum CrystalModelSource: String, Sendable {
     case builtIn = "built_in"
     case custom = "custom"
     case imported = "imported"
+    case materialsProject = "materials_project"
 }
 
 package nonisolated struct CrystalModelValidationIssue: Sendable, Equatable {
@@ -29,6 +30,17 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     package let crystal: Crystal
     package let symmetry: ACOMCrystalSymmetry
     package let source: CrystalModelSource
+    /// IT (International Tables) space-group number, when known — set by
+    /// `MaterialsProjectImport` from `symmetry.number`, or by `CIFImport` when
+    /// the CIF itself carries `_symmetry_int_tables_number` /
+    /// `_space_group_it_number`. `nil` means "not recorded", not "P1"; most
+    /// built-in and custom models never set it.
+    package let spaceGroupNumber: Int?
+    /// Source-specific provenance facts that don't fit the fixed keys
+    /// `provenance` always writes (a Materials Project id, fetch date,
+    /// reported symbol, …). Merged into `provenance` verbatim; empty for
+    /// every model that doesn't need it.
+    package let extraProvenance: [String: String]
 
     package var validationIssues: [CrystalModelValidationIssue] {
         var issues: [CrystalModelValidationIssue] = []
@@ -233,7 +245,7 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
         let atomicBasis = crystal.sites.map {
             "Z\($0.z)@(\($0.fractional.x),\($0.fractional.y),\($0.fractional.z));occ=\($0.occupancy)"
         }.joined(separator: "|")
-        return [
+        var result: [String: String] = [
             "crystal_model_id": id,
             "crystal_model_name": displayName,
             "crystal_model_source": source.rawValue,
@@ -248,6 +260,13 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
             "atomic_site_count": String(crystal.sites.count),
             "atomic_basis": atomicBasis,
         ]
+        if let spaceGroupNumber {
+            result["space_group_number"] = String(spaceGroupNumber)
+        }
+        for (key, value) in extraProvenance {
+            result[key] = value
+        }
+        return result
     }
 
     /// A stable digest of what the model IS — cell, symmetry and atomic basis
@@ -271,12 +290,18 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(id: String, displayName: String, crystal: Crystal, symmetry: ACOMCrystalSymmetry, source: CrystalModelSource) {
+    package nonisolated init(
+        id: String, displayName: String, crystal: Crystal, symmetry: ACOMCrystalSymmetry,
+        source: CrystalModelSource, spaceGroupNumber: Int? = nil,
+        extraProvenance: [String: String] = [:]
+    ) {
         self.id = id
         self.displayName = displayName
         self.crystal = crystal
         self.symmetry = symmetry
         self.source = source
+        self.spaceGroupNumber = spaceGroupNumber
+        self.extraProvenance = extraProvenance
     }
 }
 

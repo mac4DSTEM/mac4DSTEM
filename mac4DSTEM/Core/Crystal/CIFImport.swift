@@ -140,7 +140,8 @@ package nonisolated enum CIFImport {
             displayName: displayName,
             crystal: crystal,
             symmetry: symmetry,
-            source: .imported
+            source: .imported,
+            spaceGroupNumber: parsed.spaceGroupNumber
         )
         let issues = model.validationIssues
         guard issues.isEmpty else {
@@ -159,6 +160,12 @@ package nonisolated enum CIFImport {
         /// Coarsest rounding half-step over every written fractional
         /// coordinate — the precision the whole structure is limited by.
         package var coarsestHalfStep: Double
+        /// IT space-group number, when the file states one via
+        /// `_symmetry_int_tables_number` or `_space_group_it_number`. Additive
+        /// (2026-09-21, Materials Project importer session): threads into
+        /// `CrystalModel.spaceGroupNumber` without changing anything else this
+        /// parser does.
+        package var spaceGroupNumber: Int?
     }
 
     /// One asymmetric-unit site plus how precisely each of its coordinates was
@@ -275,6 +282,20 @@ package nonisolated enum CIFImport {
         let beta = try requiredNumber("_cell_angle_beta")
         let gamma = try requiredNumber("_cell_angle_gamma")
 
+        // Additive (2026-09-21): the same two tags `declaredNonP1SpaceGroup`
+        // already reads for the "declares symmetry but no operations" refusal,
+        // read here as a plain optional number so it can ride into
+        // `CrystalModel.spaceGroupNumber`. No behaviour change when absent.
+        var spaceGroupNumber: Int?
+        for tag in ["_symmetry_int_tables_number", "_space_group_it_number"] {
+            guard let raw = cellValues[tag]?.trimmingCharacters(in: .whitespaces),
+                  !raw.isEmpty, raw != "?", raw != "."
+            else { continue }
+            var text = raw
+            if let paren = text.firstIndex(of: "(") { text = String(text[text.startIndex..<paren]) }
+            if let value = Int(text) { spaceGroupNumber = value; break }
+        }
+
         guard !atomSiteRows.isEmpty else { throw CIFImportError.noAtomSites }
 
         var baseSites: [BaseSite] = []
@@ -356,7 +377,8 @@ package nonisolated enum CIFImport {
         return ParsedStructure(
             dataBlockName: dataBlockName,
             a: a, b: b, c: c, alpha: alpha, beta: beta, gamma: gamma,
-            sites: sites, coarsestHalfStep: coarsestHalfStep
+            sites: sites, coarsestHalfStep: coarsestHalfStep,
+            spaceGroupNumber: spaceGroupNumber
         )
     }
 
@@ -487,7 +509,9 @@ package nonisolated enum CIFImport {
 
     /// Strips trailing oxidation-state/isotope markers, e.g. `Si1` -> `Si`,
     /// `Fe3+` -> `Fe`, `O2-` -> `O`.
-    private static func elementSymbol(from raw: String) -> String {
+    // `package` since 2026-09-21 so `MaterialsProjectImport` can clean an MP
+    // species symbol the same way, rather than duplicating this stripping rule.
+    package static func elementSymbol(from raw: String) -> String {
         var chars = Array(raw)
         while let last = chars.last, last.isNumber || last == "+" || last == "-" {
             chars.removeLast()
@@ -503,7 +527,9 @@ package nonisolated enum CIFImport {
     /// can name (1–118). Elements beyond the scattering-factor table's reach
     /// (Z > 103) still resolve here — they're rejected later, specifically,
     /// as "no scattering factor" rather than "unrecognized symbol".
-    private static let elementSymbolToZ: [String: Int] = {
+    // `package` since 2026-09-21: `MaterialsProjectImport` resolves MP
+    // species symbols against this same table rather than a duplicate one.
+    package static let elementSymbolToZ: [String: Int] = {
         var map: [String: Int] = [:]
         for (z, symbol) in ScatteringFactors.symbols { map[symbol] = z }
         let beyondTable: [(Int, String)] = [
@@ -778,7 +804,13 @@ package nonisolated enum CIFImport {
     /// are accepted, matching the two symmetry reductions ACOM implements
     /// (`ACOMCrystalSymmetry`); every other cell is rejected rather than
     /// silently mapped onto one of these.
-    private static func classifyFamily(
+    // `package` (not `private`) since 2026-09-21: `MaterialsProjectImport`
+    // calls this verbatim rather than re-implementing family classification —
+    // the Gate-D-relevant reuse the Materials Project importer pre-registration
+    // requires (docs/v3-materials-project-preregistration.md, "the one
+    // Gate-D-relevant piece... reuses the CIF importer's already-tested
+    // classifier verbatim").
+    package static func classifyFamily(
         a: Double, b: Double, c: Double, alphaDeg: Double, betaDeg: Double, gammaDeg: Double
     ) throws -> ACOMCrystalSymmetry {
         func lengthsMatch(_ x: Double, _ y: Double) -> Bool {

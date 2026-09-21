@@ -6,6 +6,13 @@ Written as it lands, so the cut does not reconstruct it. Every item below
 passed the unit, core and inventory gates; "unverified on screen" means
 exactly that until the owner's drive says otherwise.
 
+- **Materials Project importer, Core half (2026-09-21).** `MaterialsProjectImport` decodes
+  a `materials/summary` document into a `CrystalModel` (family classified by the CIF
+  importer's own function), refuses a material whose formula matches but whose space group
+  does not (`PhaseExpectation`), and keeps the mp-id and fetch date in provenance;
+  `CrystalModel.spaceGroupNumber` is also read from CIFs. API key store on the Keychain.
+  The app may now open outbound HTTPS. Nothing calls the network yet; no UI.
+
 - **Origin validity mask.** The robust origin fit now keeps the positions it
   excluded (`OriginMaps.originValidity`), and Prepare shows "N of M
   positions". No fitted number moved. The spatial overlay is still owed.
