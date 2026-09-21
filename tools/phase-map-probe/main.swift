@@ -122,6 +122,12 @@ enum Probe {
         // edge-on positions whose winner sits near 22°/67° to the matrix, not at
         // the OR's {0, 90}? (docs/open-items.md, step 3, "Next instrument".)
         var dumpEdgeOnCount: Int?
+        // Gate D measurement, 2026-09-21 (v3-vector-matching-plan.md step 1):
+        // additive, off by default, zero behaviour change without it. Breaks
+        // named truth→ours confusion cells into survivingCount/matchedCount/
+        // removedCount histograms and score quantiles, so a residual can be
+        // read instead of re-derived by hand.
+        var residualDetail = false
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -155,6 +161,8 @@ enum Probe {
                 dumpPeaksPath = args[index + 1]; index += 2
             } else if args[index] == "--or" {
                 orientationRelationship = true; index += 1
+            } else if args[index] == "--residual-detail" {
+                residualDetail = true; index += 1
             } else if args[index] == "--dump-edge-on" {
                 if index + 1 < args.count, let n = Int(args[index + 1]) {
                     dumpEdgeOnCount = n; index += 2
@@ -654,6 +662,85 @@ enum Probe {
                 }
                 print(String(format: "  %-16@", name(theirs) as NSString) + cells.joined()
                       + String(format: "%11d", total))
+            }
+
+            // --residual-detail: additive, off by default. For named
+            // truth→ours cells, break survivingCount/matchedCount/removedCount
+            // (PhaseVectorMatching.swift:275-305) into histograms and score
+            // (Å⁻¹) into quantiles.
+            if residualDetail {
+                struct Cell { let title: String; let theirs: Int; let ours: Int; let notIndexed: Bool }
+                let residualCells: [Cell] = [
+                    Cell(title: "T1 (truth) -> not indexed (ours)", theirs: 3, ours: -1, notIndexed: true),
+                    Cell(title: "Al (truth) -> not indexed (ours)", theirs: 0, ours: -1, notIndexed: true),
+                    Cell(title: "theta-edge-on (truth) -> T1 (ours)", theirs: 1, ours: 3, notIndexed: false),
+                    Cell(title: "T1 (truth) -> T1 (ours), reference", theirs: 3, ours: 3, notIndexed: false),
+                    Cell(title: "Al (truth) -> Al (ours), reference", theirs: 0, ours: 0, notIndexed: false),
+                ]
+                let bucketLabels = ["0", "1", "2", "3", "4", "5", "6-9", "10+"]
+                func bucketOf(_ n: Int32) -> Int {
+                    switch n {
+                    case 0, 1, 2, 3, 4, 5: return Int(n)
+                    case 6...9: return 6
+                    default: return 7
+                    }
+                }
+                func histogram(_ values: [Int32]) -> String {
+                    var counts = [Int](repeating: 0, count: bucketLabels.count)
+                    for v in values { counts[bucketOf(v)] += 1 }
+                    return zip(bucketLabels, counts).map { "\($0)=\($1)" }.joined(separator: " ")
+                }
+                func quantiles(_ values: [Double]) -> String {
+                    let s = values.sorted()
+                    guard !s.isEmpty else { return "n=0 (no finite scores)" }
+                    func at(_ p: Double) -> Double {
+                        s[max(0, min(s.count - 1, Int((Double(s.count - 1) * p).rounded())))]
+                    }
+                    return String(format: "n=%d min=%.4f p10=%.4f p50=%.4f p90=%.4f max=%.4f",
+                                  s.count, s.first!, at(0.10), at(0.50), at(0.90), s.last!)
+                }
+                print("\n== --residual-detail ==")
+                print(String(format: "  settings in play: minimumVectors=%d minimumMatchedVectors=%d "
+                              + "friedelPairMinimumMatchedVectors=%d chanceMatchMultiple=%.1f "
+                              + "notIndexedAboveInvAngstrom=%.4f minimumPhaseContrastInvAngstrom=%.4f",
+                              matchSettings.minimumVectors, matchSettings.minimumMatchedVectors,
+                              matchSettings.friedelPairMinimumMatchedVectors, matchSettings.chanceMatchMultiple,
+                              matchSettings.notIndexedAboveInvAngstrom, matchSettings.minimumPhaseContrastInvAngstrom))
+                for cell in residualCells {
+                    let members = map.results.enumerated().filter { index, result in
+                        thronsen.labels[index] == cell.theirs
+                            && Thronsen.label(of: result, phaseNames: map.phaseNames) == cell.ours
+                    }.map(\.element)
+                    print("\n  \(cell.title): n=\(members.count)")
+                    guard !members.isEmpty else { continue }
+                    print("    survivingCount " + histogram(members.map(\.survivingCount)))
+                    print("    matchedCount   " + histogram(members.map(\.matchedCount)))
+                    print("    removedCount   " + histogram(members.map(\.removedCount)))
+                    print("    score (Å⁻¹)    "
+                          + quantiles(members.filter { $0.score.isFinite }.map { Double($0.score) }))
+                    if cell.notIndexed {
+                        // Approximated from counts: PhaseVectorResult
+                        // (PhaseVectorMatching.swift:275-305) records no refusal
+                        // reason. `.noData` = no peaks; `.notIndexed` with
+                        // matchedCount==0/score NaN never reached classify's
+                        // bestPerPhase (no candidate cleared minimumMatchedVectors
+                        // / chanceMatchMultiple, or --or excluded every entry,
+                        // PhaseVectorMatching.swift:845-867); `.notIndexed` with a
+                        // finite score is the notIndexedAboveInvAngstrom cliff
+                        // (:898) — minimumPhaseContrastInvAngstrom is 0 (off) this
+                        // run, so the margin refusal (:902-908) cannot fire.
+                        // surviving<minimumVectors (:819) returns .matrix, not
+                        // .notIndexed, so it cannot appear in this cell; printed
+                        // as a check that should read 0.
+                        let noData = members.filter { $0.verdict == .noData }.count
+                        let floorOrChance = members.filter { $0.verdict == .notIndexed && $0.matchedCount == 0 }.count
+                        let cliff = members.filter { $0.verdict == .notIndexed && $0.matchedCount > 0 }.count
+                        let survivingBelowFloor = members.filter { Int($0.survivingCount) < matchSettings.minimumVectors }.count
+                        print(String(format: "    refusal (approximated): noData=%d floor/chance=%d cliff=%d "
+                                      + "(surviving<minimumVectors=%d, expect 0)",
+                                      noData, floorOrChance, cliff, survivingBelowFloor))
+                    }
+                }
             }
             // WHICH ROTATION WON, per truth → label cell: the winner's
             // in-plane angle relative to the matrix entry's, folded to
