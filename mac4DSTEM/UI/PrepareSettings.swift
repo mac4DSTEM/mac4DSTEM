@@ -4,7 +4,9 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// Prepare's controls, as Sections of the inspector's Settings tab.
+/// Prepare's controls, as inspector sections in the Lightroom-style vocabulary
+/// (`InspectorSection` / `InspectorRow` / `InspectorValueRow` /
+/// `InspectorActionRow` / `InspectorNote`, `UI/InspectorRows.swift`).
 ///
 /// The migration of `UI/PrepareSidebar`, `UI/CalibrationReadinessView` and
 /// `UI/CalibrationDetailsView` into UI. Everything scientific is carried over
@@ -26,7 +28,10 @@ import DSTEMSession
 struct PrepareSettings: View {
     @Environment(AppState.self) private var appState
     // Advanced disclosures are presentation state, remembered per window so
-    // returning to Prepare does not reopen a wall of py4DSTEM kwargs.
+    // returning to Prepare does not reopen a wall of py4DSTEM kwargs. Passed
+    // to InspectorSection's own `expanded` binding rather than its default
+    // @SceneStorage key, so these two keys (unchanged since before this
+    // conversion) keep whatever a returning window already remembered.
     @SceneStorage("prepare.settings.advancedCorrection.isExpanded") private var showsDiagnostics = false
     @SceneStorage("prepare.settings.ellipseCorrection.isExpanded") private var showsEllipse = false
     /// Destructive, so it asks first — the same pattern as "Reset Recommended
@@ -101,7 +106,7 @@ struct PrepareSettings: View {
         Group {
         PatternStatisticsSection()
 
-        Section("Calibration") {
+        InspectorSection("Calibration") {
             Group {
                 ForEach(report.items) { item in
                     readinessRow(item)
@@ -120,7 +125,7 @@ struct PrepareSettings: View {
             // — DPC, parallax and ptychography all consume it — so it lives
             // with the other physical scales, not inside one consumer's
             // workflow. Identifier unchanged on purpose.
-            LabeledContent("Voltage") {
+            InspectorRow("Voltage") {
                 NumericField(
                     "Accelerating voltage (kV)",
                     value: Binding(
@@ -130,6 +135,7 @@ struct PrepareSettings: View {
                     format: .number.precision(.fractionLength(0...2)),
                     unit: "kV"
                 )
+                .labelsHidden()
                 .accessibilityIdentifier("calibration.acceleratingVoltage")
             }
 
@@ -139,14 +145,16 @@ struct PrepareSettings: View {
             // to remove, as "Reset Alignment" and "Restore Fitted Origin" are:
             // a control that would do nothing is not a control.
             if session.hasAnyCalibrationValue {
-                Button {
-                    showsClearConfirmation = true
-                } label: {
-                    Label("Clear Calibration", systemImage: "xmark.circle")
+                InspectorActionRow {
+                    Button {
+                        showsClearConfirmation = true
+                    } label: {
+                        Label("Clear Calibration", systemImage: "xmark.circle")
+                    }
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("calibration.clear")
+                    .help("Returns every calibration above to Not set, without reloading the file.")
                 }
-                .disabled(appState.isBusy)
-                .accessibilityIdentifier("calibration.clear")
-                .help("Returns every calibration above to Not set, without reloading the file.")
             }
         }
         .confirmationDialog(
@@ -172,55 +180,64 @@ struct PrepareSettings: View {
         // path. Physical Q/R values are intentionally edited only in the
         // readiness rows, so the same value, unit, provenance and consequence
         // cannot drift between duplicate controls.
-        Section {
-            DisclosureGroup("Fit diagnostics & advanced correction", isExpanded: $showsDiagnostics) {
-            LabeledContent("Aperture center", value: calibration.originProvenance.displayName)
+        InspectorSection("Fit diagnostics & advanced correction", expanded: $showsDiagnostics) {
+            InspectorValueRow("Aperture center", calibration.originProvenance.displayName)
                 .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
 
             if appState.canRestoreFittedOrigin {
+                InspectorActionRow {
+                    Button {
+                        appState.restoreFittedOrigin()
+                    } label: {
+                        Label("Restore Fitted Origin", systemImage: "arrow.uturn.backward.circle")
+                    }
+                    .disabled(appState.isBusy)
+                    .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
+                }
+            }
+
+            InspectorRow("Origin fit") {
+                Picker("Origin fit", selection: $session.originFitFunction) {
+                    ForEach(OriginFitFunction.allCases) { fit in
+                        Text(fit.rawValue).tag(fit)
+                    }
+                }
+                .labelsHidden()
+            }
+            InspectorRow("Origin method") {
+                Picker("Origin method", selection: $session.originMethod) {
+                    ForEach(OriginMethod.allCases, id: \.self) { method in
+                        Text(method.label).tag(method)
+                    }
+                }
+                .labelsHidden()
+                .help("Centre of mass is the fast default. Friedel finds the beam through a "
+                    + "beamstop by the pattern's own symmetry, auto-masking the stop (py4DSTEM "
+                    + "get_origin_friedel + get_beamstop_mask). Slower — an FFT per pattern — and "
+                    + "opt-in for data whose direct beam is occluded.")
+            }
+            InspectorActionRow {
                 Button {
-                    appState.restoreFittedOrigin()
+                    Task { await appState.calibrateOrigin() }
                 } label: {
-                    Label("Restore Fitted Origin", systemImage: "arrow.uturn.backward.circle")
+                    Label("Calibrate Origin", systemImage: "scope")
                 }
                 .disabled(appState.isBusy)
-                .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
-            }
-
-            Picker("Origin fit", selection: $session.originFitFunction) {
-                ForEach(OriginFitFunction.allCases) { fit in
-                    Text(fit.rawValue).tag(fit)
+                Button {
+                    Task { await appState.calibrateRotation() }
+                } label: {
+                    Label("Measure R–Q Rotation", systemImage: "rotate.3d")
                 }
+                .disabled(appState.isBusy)
             }
-            Picker("Origin method", selection: $session.originMethod) {
-                ForEach(OriginMethod.allCases, id: \.self) { method in
-                    Text(method.label).tag(method)
-                }
-            }
-            .help("Centre of mass is the fast default. Friedel finds the beam through a "
-                + "beamstop by the pattern's own symmetry, auto-masking the stop (py4DSTEM "
-                + "get_origin_friedel + get_beamstop_mask). Slower — an FFT per pattern — and "
-                + "opt-in for data whose direct beam is occluded.")
-            Button {
-                Task { await appState.calibrateOrigin() }
-            } label: {
-                Label("Calibrate Origin", systemImage: "scope")
-            }
-            .disabled(appState.isBusy)
-            Button {
-                Task { await appState.calibrateRotation() }
-            } label: {
-                Label("Measure R–Q Rotation", systemImage: "rotate.3d")
-            }
-            .disabled(appState.isBusy)
 
             if let radius = calibration.probeRadius {
-                LabeledContent("Probe radius", value: String(format: "%.1f px", radius))
+                InspectorValueRow("Probe radius", String(format: "%.1f px", radius))
             }
             // v2 S13: the residual the GATE judged, which is the robust one
             // where a robust fit ran — one number for one decision.
             if let residual = calibration.judgedOriginResidual {
-                LabeledContent("Fit residual", value: String(format: "%.3f px RMS", residual))
+                InspectorValueRow("Fit residual", String(format: "%.3f px RMS", residual))
             }
             // The excluded fraction, where the reader who sees the number
             // sees it (2026-08-28): "2.19 px over 73% of positions" is a
@@ -228,10 +245,10 @@ struct PrepareSettings: View {
             if let origin = calibration.origin,
                let excluded = origin.excludedFraction,
                Self.disclosesExcludedFraction(excluded) {
-                LabeledContent(
+                InspectorValueRow(
                     "Positions used",
-                    value: Self.positionsUsedValue(excludedFraction: excluded,
-                                                   validity: origin.originValidity)
+                    Self.positionsUsedValue(excludedFraction: excluded,
+                                             validity: origin.originValidity)
                 )
                 .help("The origin fit is robust: scan positions whose measured origin sits far "
                     + "from the fitted surface are excluded and the surface refitted. Excluding "
@@ -239,7 +256,7 @@ struct PrepareSettings: View {
                     + "position measured well.")
             }
             if let summary = appState.qCalibration.selfCheckSummary {
-                LabeledContent("Q shell check", value: summary)
+                InspectorValueRow("Q shell check", summary)
                     .help("The reciprocal scale assumes the innermost detected peak is the "
                         + "innermost allowed reflection. With two shells visible the app checks "
                         + "that assumption against the crystal; with one it cannot, and says so "
@@ -247,98 +264,97 @@ struct PrepareSettings: View {
             }
             if let rotation = calibration.rotationRad {
                 let transposed = (calibration.transposeQR ?? false) ? " ⊤" : ""
-                LabeledContent(
+                InspectorValueRow(
                     "R–Q rotation",
-                    value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed)
+                    String(format: "%.1f°%@", rotation * 180 / .pi, transposed)
                 )
-                Button {
-                    appState.flipRotation180()
-                } label: {
-                    Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
+                InspectorActionRow {
+                    Button {
+                        appState.flipRotation180()
+                    } label: {
+                        Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
+                    }
+                    .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
                 }
-                .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
             }
         }
-        }
 
-        Section {
-            DisclosureGroup("Ellipse correction", isExpanded: $showsEllipse) {
+        InspectorSection("Ellipse correction", expanded: $showsEllipse) {
             // Value, unit: one row per radius, because two fields beside one
             // label do not fit the column's minimum width.
-            LabeledContent("Fit annulus inner") {
+            InspectorRow("Fit annulus inner") {
                 NumericField(
                     "Inner fit radius",
                     value: $session.ellipseFitInnerRadius,
                     format: .number.precision(.fractionLength(0...2)),
                     unit: "px"
                 )
+                .labelsHidden()
             }
-            LabeledContent("Fit annulus outer") {
+            InspectorRow("Fit annulus outer") {
                 NumericField(
                     "Outer fit radius",
                     value: $session.ellipseFitOuterRadius,
                     format: .number.precision(.fractionLength(0...2)),
                     unit: "px"
                 )
+                .labelsHidden()
             }
-            Button {
-                Task { await appState.calibrateEllipse() }
-            } label: {
-                Label("Fit Ellipse", systemImage: "oval")
+            InspectorActionRow {
+                Button {
+                    Task { await appState.calibrateEllipse() }
+                } label: {
+                    Label("Fit Ellipse", systemImage: "oval")
+                }
+                .disabled(appState.isBusy)
+                .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
             }
-            .disabled(appState.isBusy)
-            .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
 
             // Offered only while the last fit was refused for coverage between
             // the sparse floor and the degeneracy bound — a "fit anyway" retry
             // could succeed on the caller's assertion that the annulus holds
             // one ring (`CalibrationSession.refuseEllipseFit`, 2026-09-15).
             if let offeredBins = session.ellipseFitAnywayOffer {
-                Button {
-                    Task { await appState.calibrateEllipse(acceptSparseCoverage: true) }
-                } label: {
-                    Label("Fit Anyway", systemImage: "exclamationmark.triangle")
+                InspectorActionRow {
+                    Button {
+                        Task { await appState.calibrateEllipse(acceptSparseCoverage: true) }
+                    } label: {
+                        Label("Fit Anyway", systemImage: "exclamationmark.triangle")
+                    }
+                    .disabled(appState.isBusy)
+                    .help("Only \(offeredBins) of 36 sectors carry ring signal, so an ellipse is underdetermined: spots from a few grains fit one as well as a distorted detector does. Fit anyway only if this annulus holds exactly one ring. The result is marked “Fit anyway” and is used by strain and ACOM.")
                 }
-                .disabled(appState.isBusy)
-                .help("Only \(offeredBins) of 36 sectors carry ring signal, so an ellipse is underdetermined: spots from a few grains fit one as well as a distorted detector does. Fit anyway only if this annulus holds exactly one ring. The result is marked “Fit anyway” and is used by strain and ACOM.")
-                Text("Refused: ring signal in \(offeredBins) of 36 sectors. Fit Anyway accepts it if the annulus holds one ring.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote("Refused: ring signal in \(offeredBins) of 36 sectors. Fit Anyway accepts it if the annulus holds one ring.")
             }
 
             if calibration.hasEllipse,
                let a = calibration.ellipseA,
                let b = calibration.ellipseB,
                let theta = calibration.ellipseTheta {
-                LabeledContent(
+                InspectorValueRow(
                     "Correction",
-                    value: String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
+                    String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
                 )
                 .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
                 if session.provenance.ellipse == .fitAnyway {
-                    Text("Fitted anyway on \(session.lastEllipseFit?.occupiedAngularBins ?? 0)/36 sectors — rests on your assertion that the annulus held one ring.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    InspectorNote("Fitted anyway on \(session.lastEllipseFit?.occupiedAngularBins ?? 0)/36 sectors — rests on your assertion that the annulus held one ring.")
                 }
                 if let fit = session.lastEllipseFit {
-                    LabeledContent("Model", value: fit.model.rawValue)
-                    LabeledContent(
+                    InspectorValueRow("Model", fit.model.rawValue)
+                    InspectorValueRow(
                         "Residual",
-                        value: String(format: "%.3f · %d/36 sectors", fit.normalizedResidual, fit.occupiedAngularBins)
+                        String(format: "%.3f · %d/36 sectors", fit.normalizedResidual, fit.occupiedAngularBins)
                     )
                     if let profile = fit.profile {
-                        LabeledContent(
+                        InspectorValueRow(
                             "Ring widths",
-                            value: String(format: "inner %.3g · outer %.3g px", profile.innerSigma, profile.outerSigma)
+                            String(format: "inner %.3g · outer %.3g px", profile.innerSigma, profile.outerSigma)
                         )
                     } else if let reason = fit.profileFallbackReason {
-                        Text("Profile fallback: \(reason)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        InspectorNote("Profile fallback: \(reason)")
                     }
                 }
             }
-        }
         }
         }
         .disabledWhileRunning(appState)
@@ -349,7 +365,10 @@ struct PrepareSettings: View {
     /// One calibration as a `LabeledContent` row — the kind with its status
     /// glyph and the calibrated value under it as the label, the provenance
     /// ("From file" / "Measured" / …, never demoted) as the content —
-    /// followed by its warning and its action.
+    /// followed by its warning and its action. Left as a native
+    /// `LabeledContent` (not `InspectorRow`/`InspectorValueRow`): its label is
+    /// a colour-coded `Label` plus a wrapping detail caption, not a plain
+    /// string, so the simple-string row API would drop the colour coding.
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
         // Ready and green, EXCEPT "fit anyway": the value is used same as any
@@ -489,14 +508,16 @@ struct PatternStatisticsSection: View {
 
     var body: some View {
         if appState.meanPattern == nil {
-            Section("Pattern") {
-                Button {
-                    Task { await appState.computeDPStatistics() }
-                } label: {
-                    Label("Compute Mean / Max", systemImage: "sum")
+            InspectorSection("Pattern") {
+                InspectorActionRow {
+                    Button {
+                        Task { await appState.computeDPStatistics() }
+                    } label: {
+                        Label("Compute Mean / Max", systemImage: "sum")
+                    }
+                    .disabled(appState.isBusy)
+                    .help("One pass over the cube; also computed by origin calibration.")
                 }
-                .disabled(appState.isBusy)
-                .help("One pass over the cube; also computed by origin calibration.")
             }
         }
     }

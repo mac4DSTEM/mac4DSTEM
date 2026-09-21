@@ -14,8 +14,9 @@ import UniformTypeIdentifiers
 /// is deliberately literal: every threshold, format string, unit, disabled
 /// condition, refusal, staleness warning and accessibility identifier is the
 /// old one. What changed is presentation only — the old views' `NumericField`
-/// is `NumericField`, and the body is a bare set of `Section`s for the
-/// inspector's grouped `Form`.
+/// is `NumericField`, and the body is `InspectorSection`s of `InspectorRow`s
+/// (`UI/InspectorRows.swift`), the utility-pane vocabulary the whole
+/// inspector shares (034).
 struct MapSettings: View {
     @Environment(AppState.self) private var appState
 
@@ -23,7 +24,7 @@ struct MapSettings: View {
         Group {
             switch appState.navigation.analysisMode {
             case .disks:
-                Section("Disk detection") {
+                InspectorSection("Disk detection") {
                     DiskDetectionRows()
                 }
                 AdvancedDiskDetectionSection()
@@ -72,89 +73,99 @@ private struct DiskDetectionRows: View {
     var body: some View {
         @Bindable var learned = appState.learnedDetection
 
-        Button {
-            Task { await appState.generateProbeKernel() }
-        } label: {
-            Label("Generate Probe Kernel", systemImage: "circle.circle")
-        }
-        .disabled(appState.isBusy)
-        .accessibilityIdentifier("disk.generateSyntheticKernel")
-
-        Picker("Measured kernel mode", selection: $measuredKernelMode) {
-            ForEach(ProbeKernelMode.allCases) { mode in
-                Text(mode.rawValue).tag(mode)
+        InspectorActionRow {
+            Button {
+                Task { await appState.generateProbeKernel() }
+            } label: {
+                Label("Generate Probe Kernel", systemImage: "circle.circle")
             }
+            .disabled(appState.isBusy)
+            .accessibilityIdentifier("disk.generateSyntheticKernel")
         }
-        .help("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.")
-        .accessibilityIdentifier("disk.measuredKernelMode")
 
-        Button {
-            Task { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
-        } label: {
-            Label("Use Current CBED / ROI", systemImage: "scope")
-        }
-        .disabled(appState.isBusy || appState.displayedPattern == nil)
-        .accessibilityIdentifier("disk.generateMeasuredKernel")
-        .help("Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern.")
-
-        Button {
-            Task { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
-        } label: {
-            Label("Use File's Probe", systemImage: "doc.viewfinder")
-        }
-        .disabled(appState.isBusy)
-        .accessibilityIdentifier("disk.generateFileProbeKernel")
-        .help("Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none.")
-
-        Button {
-            showVacuumImporter = true
-        } label: {
-            Label("Vacuum Scan…", systemImage: "square.stack.3d.up")
-        }
-        .disabled(appState.isBusy || !appState.hasDataset)
-        .accessibilityIdentifier("disk.generateVacuumProbeKernel")
-        .help("Build the kernel from a SEPARATE vacuum scan file — the fix for a sample with no vacuum region in frame. Its mean pattern is the probe; it must be on the same detector as the loaded data.")
-        .fileImporter(
-            isPresented: $showVacuumImporter,
-            allowedContentTypes: datasetTypes,
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    Task { await appState.generateVacuumProbeKernel(fromScan: url, mode: measuredKernelMode) }
+        InspectorRow("Measured kernel mode") {
+            Picker("Measured kernel mode", selection: $measuredKernelMode) {
+                ForEach(ProbeKernelMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
-            case .failure(let error):
-                appState.present(error)
+            }
+            .labelsHidden()
+            .help("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.")
+            .accessibilityIdentifier("disk.measuredKernelMode")
+        }
+
+        InspectorActionRow {
+            Button {
+                Task { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
+            } label: {
+                Label("Use Current CBED / ROI", systemImage: "scope")
+            }
+            .disabled(appState.isBusy || appState.displayedPattern == nil)
+            .accessibilityIdentifier("disk.generateMeasuredKernel")
+            .help("Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern.")
+
+            Button {
+                Task { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
+            } label: {
+                Label("Use File's Probe", systemImage: "doc.viewfinder")
+            }
+            .disabled(appState.isBusy)
+            .accessibilityIdentifier("disk.generateFileProbeKernel")
+            .help("Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none.")
+
+            Button {
+                showVacuumImporter = true
+            } label: {
+                Label("Vacuum Scan…", systemImage: "square.stack.3d.up")
+            }
+            .disabled(appState.isBusy || !appState.hasDataset)
+            .accessibilityIdentifier("disk.generateVacuumProbeKernel")
+            .help("Build the kernel from a SEPARATE vacuum scan file — the fix for a sample with no vacuum region in frame. Its mean pattern is the probe; it must be on the same detector as the loaded data.")
+            .fileImporter(
+                isPresented: $showVacuumImporter,
+                allowedContentTypes: datasetTypes,
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        Task { await appState.generateVacuumProbeKernel(fromScan: url, mode: measuredKernelMode) }
+                    }
+                case .failure(let error):
+                    appState.present(error)
+                }
             }
         }
 
         if let kernel = appState.probeKernel {
-            LabeledContent(
+            InspectorValueRow(
                 "Kernel",
-                value: String(
+                String(
                     format: "%@ · %@ · %.1f px", kernel.source.rawValue,
                     kernel.mode.rawValue.lowercased(), kernel.probeRadius
                 )
             )
         }
 
-        Picker("Detector", selection: $learned.detectorClass) {
-            ForEach(offeredDetectorClasses) { detectorClass in
-                Text(detectorClass.rawValue).tag(detectorClass)
+        InspectorRow("Detector") {
+            Picker("Detector", selection: $learned.detectorClass) {
+                ForEach(offeredDetectorClasses) { detectorClass in
+                    Text(detectorClass.rawValue).tag(detectorClass)
+                }
             }
-        }
-        .accessibilityIdentifier("disk.detectorClass")
-        .help("The neural net proposes candidate positions on the whole pattern; the classical refinement still measures every one.")
-        .onChange(of: learned.detectorClass) { _, _ in Task { await appState.detectCurrentPattern() } }
-        .onChange(of: learned.threshold) { _, _ in Task { await appState.detectCurrentPattern() } }
-        .onChange(of: preferences.offerLearnedDetector) { _, offered in
-            guard !offered, learned.detectorClass == .learned else { return }
-            learned.detectorClass = .classical
+            .labelsHidden()
+            .accessibilityIdentifier("disk.detectorClass")
+            .help("The neural net proposes candidate positions on the whole pattern; the classical refinement still measures every one.")
+            .onChange(of: learned.detectorClass) { _, _ in Task { await appState.detectCurrentPattern() } }
+            .onChange(of: learned.threshold) { _, _ in Task { await appState.detectCurrentPattern() } }
+            .onChange(of: preferences.offerLearnedDetector) { _, offered in
+                guard !offered, learned.detectorClass == .learned else { return }
+                learned.detectorClass = .classical
+            }
         }
 
         if learned.detectorClass == .learned {
-            LabeledContent("Threshold") {
+            InspectorRow("Threshold") {
                 NumericField(
                     "Threshold", value: learnedThresholdBinding(appState),
                     format: .number.precision(.fractionLength(2))
@@ -163,38 +174,36 @@ private struct DiskDetectionRows: View {
             .accessibilityIdentifier("disk.learnedThreshold")
             .help("The pick threshold on the neural net's heatmap, 0.3–0.99. Lower accepts more candidates; the classical refinement still filters them.")
 
-            LabeledContent("Model", value: learnedModelStatus(learned))
+            InspectorValueRow("Model", learnedModelStatus(learned))
         }
 
         if learned.canCompare {
-            Button {
-                appState.runDiskDisagreement()
-            } label: {
-                Label("Compare Detectors", systemImage: "arrow.left.arrow.right")
+            InspectorActionRow {
+                Button {
+                    appState.runDiskDisagreement()
+                } label: {
+                    Label("Compare Detectors", systemImage: "arrow.left.arrow.right")
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("disk.compareDetectors")
+                .help("Publish a scan map of the peaks the neural net and the classical detector do not share at each position, paired within 2 px. Appears once Detect All Disks has run with each detector on this dataset.")
             }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("disk.compareDetectors")
-            .help("Publish a scan map of the peaks the neural net and the classical detector do not share at each position, paired within 2 px. Appears once Detect All Disks has run with each detector on this dataset.")
         }
 
         DiskCentreLabelsRows()
 
         if appState.probeKernel != nil {
-            LabeledContent("Current CBED", value: "\(appState.currentPeaks.count) peaks")
-                .monospacedDigit()
+            InspectorValueRow("Current CBED", "\(appState.currentPeaks.count) peaks")
                 .accessibilityIdentifier("disk.currentPeakCount")
             if let diagnostics = appState.currentDiskDiagnostics {
-                LabeledContent(
+                InspectorValueRow(
                     "Acceptance funnel",
-                    value: "\(diagnostics.localMaximumCount) candidates → \(diagnostics.acceptedCount) accepted"
+                    "\(diagnostics.localMaximumCount) candidates → \(diagnostics.acceptedCount) accepted"
                 )
-                .monospacedDigit()
                 .help("Edge-qualified local maxima before filters, followed by the final accepted peak count.")
-                Text(
+                InspectorNote(
                     "absolute \(diagnostics.afterAbsoluteThresholdCount) · relative \(diagnostics.afterRelativeThresholdCount) · spacing \(diagnostics.afterSpacingCount)"
                 )
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
                 if diagnostics.wasCountLimited {
                     Label(
                         "This pattern was truncated to the configured maximum peak count.",
@@ -214,9 +223,7 @@ private struct DiskDetectionRows: View {
                 }
             }
         } else {
-            Text("Build a probe kernel to preview detections on the current CBED.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorNote("Build a probe kernel to preview detections on the current CBED.")
         }
 
         ForEach(
@@ -231,9 +238,7 @@ private struct DiskDetectionRows: View {
             .foregroundStyle(issue.severity == .error ? Color.red : Color.orange)
         }
 
-        Text("Use the toolbar action to run full-scan detection.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        InspectorNote("Use the toolbar action to run full-scan detection.")
 
         if appState.diskDetectionSettingsAreStale {
             Label("Full-scan peaks use earlier settings", systemImage: "exclamationmark.triangle.fill")
@@ -241,7 +246,7 @@ private struct DiskDetectionRows: View {
                 .foregroundStyle(.orange)
                 .help("Run Detect All Disks again before using the new settings for strain or ACOM.")
         } else if let count = appState.resultPresentation.braggPeakCount {
-            LabeledContent("Peaks found", value: "\(count)")
+            InspectorValueRow("Peaks found", "\(count)")
             if let summary = appState.completedDiskSummary {
                 // Warnings come FIRST. They sat after the two count rows until
                 // 2026-09-09, which put them below the panel's visible edge at
@@ -255,16 +260,15 @@ private struct DiskDetectionRows: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
-                LabeledContent(
+                InspectorValueRow(
                     "Per pattern",
-                    value: String(
+                    String(
                         format: "median %.1f · range %d–%d",
                         summary.medianPeakCount,
                         summary.minimumPeakCount,
                         summary.maximumPeakCount
                     )
                 )
-                .monospacedDigit()
             }
         }
     }
@@ -283,48 +287,51 @@ private struct DiskCentreLabelsRows: View {
         let ry = appState.selectedScan.y, rx = appState.selectedScan.x
         let thisPosition = labels.centres(ry: ry, rx: rx).count
 
-        Toggle("Label centres on click", isOn: $labels.labelling)
-            .disabled(appState.descriptor == nil || appState.patternDisplayMode != .current)
-            .accessibilityIdentifier("disk.labels.toggle")
-            .help("While on, click the diffraction pane to add a hand-clicked disk centre at the current scan position, or click near an existing one to remove it. Only available on the Current pattern display, where there is one scan position to label.")
+        InspectorRow("Label centres on click") {
+            Toggle("Label centres on click", isOn: $labels.labelling)
+                .labelsHidden()
+                .disabled(appState.descriptor == nil || appState.patternDisplayMode != .current)
+                .accessibilityIdentifier("disk.labels.toggle")
+                .help("While on, click the diffraction pane to add a hand-clicked disk centre at the current scan position, or click near an existing one to remove it. Only available on the Current pattern display, where there is one scan position to label.")
+        }
 
-        LabeledContent("This position", value: "\(thisPosition) centres")
-            .monospacedDigit()
+        InspectorValueRow("This position", "\(thisPosition) centres")
             .accessibilityIdentifier("disk.labels.thisPosition")
 
-        LabeledContent(
+        InspectorValueRow(
             "Labelled",
-            value: "\(labels.labelledPositionCount) positions · \(labels.centreCount) centres"
+            "\(labels.labelledPositionCount) positions · \(labels.centreCount) centres"
         )
-        .monospacedDigit()
         .accessibilityIdentifier("disk.labels.total")
 
-        Button {
-            labels.clear(ry: ry, rx: rx)
-        } label: {
-            Label("Clear This Position", systemImage: "xmark.circle")
-        }
-        .disabled(thisPosition == 0)
-        .accessibilityIdentifier("disk.labels.clearPosition")
-        .help("Remove every hand-clicked centre at the current scan position.")
+        InspectorActionRow {
+            Button {
+                labels.clear(ry: ry, rx: rx)
+            } label: {
+                Label("Clear This Position", systemImage: "xmark.circle")
+            }
+            .disabled(thisPosition == 0)
+            .accessibilityIdentifier("disk.labels.clearPosition")
+            .help("Remove every hand-clicked centre at the current scan position.")
 
-        Button {
-            appState.saveCalibrationToSessionSidecar()
-        } label: {
-            Label("Save to Sidecar", systemImage: "square.and.arrow.down")
-        }
-        .disabled(labels.isEmpty)
-        .accessibilityIdentifier("disk.labels.save")
-        .help("Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration.")
+            Button {
+                appState.saveCalibrationToSessionSidecar()
+            } label: {
+                Label("Save to Sidecar", systemImage: "square.and.arrow.down")
+            }
+            .disabled(labels.isEmpty)
+            .accessibilityIdentifier("disk.labels.save")
+            .help("Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration.")
 
-        Button {
-            _ = appState.exportDiskCentreLabels()
-        } label: {
-            Label("Export Labels…", systemImage: "square.and.arrow.up")
+            Button {
+                _ = appState.exportDiskCentreLabels()
+            } label: {
+                Label("Export Labels…", systemImage: "square.and.arrow.up")
+            }
+            .disabled(labels.isEmpty)
+            .accessibilityIdentifier("disk.labels.export")
+            .help("Write the current labels to a standalone file under Documents/mac4DSTEM/disk-labels/, in the JSON tools/disk-detector/label_centres.py writes.")
         }
-        .disabled(labels.isEmpty)
-        .accessibilityIdentifier("disk.labels.export")
-        .help("Write the current labels to a standalone file under Documents/mac4DSTEM/disk-labels/, in the JSON tools/disk-detector/label_centres.py writes.")
     }
 }
 
@@ -346,61 +353,67 @@ private struct AdvancedDiskDetectionSection: View {
     }
 
     var body: some View {
-        Section {
-        DisclosureGroup("Advanced detection", isExpanded: $showsAdvanced) {
+        InspectorSection("Advanced detection", expanded: $showsAdvanced) {
             // These are py4DSTEM algorithm kwargs without a physical unit:
             // keep them together behind the remembered Advanced disclosure.
-            parameterSliderRow(
-                title: DiskDetectionParameterID.correlationPower.title,
-                value: floatBinding(
+            AdjustmentSlider(
+                DiskDetectionParameterID.correlationPower.title,
+                value: doubleBinding(floatBinding(
                     appState, \.corrPower, in: floatEditorRange(.correlationPower)
-                ),
-                range: floatEditorRange(.correlationPower),
-                step: Float(DiskDetectionParameterID.correlationPower.editorStep!),
-                valueText: String(format: "%.2f", appState.diskDetection.diskParams.corrPower)
+                )),
+                in: DiskDetectionParameterID.correlationPower.editorRange ?? 0...1,
+                step: DiskDetectionParameterID.correlationPower.editorStep,
+                format: .number.precision(.fractionLength(2))
             )
             .help(DiskDetectionParameterID.correlationPower.explanation)
 
-            Picker(
-                DiskDetectionParameterID.subpixel.title,
-                selection: parameterBinding(appState, \.subpixel)
-            ) {
-                ForEach(SubpixelMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+            InspectorRow(DiskDetectionParameterID.subpixel.title) {
+                Picker(
+                    DiskDetectionParameterID.subpixel.title,
+                    selection: parameterBinding(appState, \.subpixel)
+                ) {
+                    ForEach(SubpixelMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
                 }
+                .labelsHidden()
+                .help(DiskDetectionParameterID.subpixel.explanation)
             }
-            .help(DiskDetectionParameterID.subpixel.explanation)
 
-            Stepper(value: maximumPeaksBinding(appState), in: 1...500) {
-                Text("\(DiskDetectionParameterID.maximumPeaks.title)  \(appState.diskDetection.diskParams.maxNumPeaks)")
+            InspectorRow(DiskDetectionParameterID.maximumPeaks.title) {
+                Stepper(value: maximumPeaksBinding(appState), in: 1...500) {
+                    Text("\(appState.diskDetection.diskParams.maxNumPeaks)")
+                }
             }
             .help(DiskDetectionParameterID.maximumPeaks.explanation)
 
             // Signal conditioning.
-            parameterSliderRow(
-                title: DiskDetectionParameterID.patternSigma.title,
-                value: floatBinding(
+            AdjustmentSlider(
+                DiskDetectionParameterID.patternSigma.title,
+                value: doubleBinding(floatBinding(
                     appState, \.sigmaDP, in: floatEditorRange(.patternSigma)
-                ),
-                range: floatEditorRange(.patternSigma),
-                step: Float(DiskDetectionParameterID.patternSigma.editorStep!),
-                valueText: String(format: "%.1f px", appState.diskDetection.diskParams.sigmaDP)
+                )),
+                in: DiskDetectionParameterID.patternSigma.editorRange ?? 0...1,
+                step: DiskDetectionParameterID.patternSigma.editorStep,
+                format: .number.precision(.fractionLength(1)),
+                unit: "px"
             )
             .help(DiskDetectionParameterID.patternSigma.explanation)
 
-            parameterSliderRow(
-                title: DiskDetectionParameterID.correlationSigma.title,
-                value: floatBinding(
+            AdjustmentSlider(
+                DiskDetectionParameterID.correlationSigma.title,
+                value: doubleBinding(floatBinding(
                     appState, \.sigmaCC, in: floatEditorRange(.correlationSigma)
-                ),
-                range: floatEditorRange(.correlationSigma),
-                step: Float(DiskDetectionParameterID.correlationSigma.editorStep!),
-                valueText: String(format: "%.1f px", appState.diskDetection.diskParams.sigmaCC)
+                )),
+                in: DiskDetectionParameterID.correlationSigma.editorRange ?? 0...1,
+                step: DiskDetectionParameterID.correlationSigma.editorStep,
+                format: .number.precision(.fractionLength(1)),
+                unit: "px"
             )
             .help(DiskDetectionParameterID.correlationSigma.explanation)
 
             // Peak acceptance.
-            LabeledContent(DiskDetectionParameterID.minimumAbsoluteIntensity.title) {
+            InspectorRow(DiskDetectionParameterID.minimumAbsoluteIntensity.title) {
                 NumericField(
                     DiskDetectionParameterID.minimumAbsoluteIntensity.title,
                     value: nonnegativeFloatBinding(appState, \.minAbsoluteIntensity),
@@ -410,7 +423,7 @@ private struct AdvancedDiskDetectionSection: View {
             }
             .help(DiskDetectionParameterID.minimumAbsoluteIntensity.explanation)
 
-            LabeledContent(DiskDetectionParameterID.minimumRelativeIntensity.title) {
+            InspectorRow(DiskDetectionParameterID.minimumRelativeIntensity.title) {
                 NumericField(
                     DiskDetectionParameterID.minimumRelativeIntensity.title,
                     value: relativeIntensityPercentBinding(appState),
@@ -420,11 +433,13 @@ private struct AdvancedDiskDetectionSection: View {
             }
             .help(DiskDetectionParameterID.minimumRelativeIntensity.explanation)
 
-            Stepper(
-                value: relativePeakRankBinding(appState),
-                in: 1...max(1, appState.diskDetection.diskParams.maxNumPeaks)
-            ) {
-                Text("\(DiskDetectionParameterID.relativeReferencePeak.title)  #\(appState.diskDetection.diskParams.relativeToPeak + 1)")
+            InspectorRow(DiskDetectionParameterID.relativeReferencePeak.title) {
+                Stepper(
+                    value: relativePeakRankBinding(appState),
+                    in: 1...max(1, appState.diskDetection.diskParams.maxNumPeaks)
+                ) {
+                    Text("#\(appState.diskDetection.diskParams.relativeToPeak + 1)")
+                }
             }
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
@@ -432,64 +447,69 @@ private struct AdvancedDiskDetectionSection: View {
             // direct beam saturates, "0.5 % of the maximum" is 0.5 % of a
             // plateau. The reference can exclude the beam; 0 keeps py4DSTEM's
             // rule and nothing shipped moves.
-            Stepper(
-                value: floatBinding(appState, \.relativeReferenceMinimumRadiusPx, in: 0...Float(detectorMinimum)),
-                in: 0...Float(detectorMinimum),
-                step: 1
-            ) {
-                Text(String(
-                    format: "%@  %.0f px",
-                    DiskDetectionParameterID.relativeReferenceMinimumRadius.title,
-                    appState.diskDetection.diskParams.relativeReferenceMinimumRadiusPx
-                ))
+            InspectorRow(DiskDetectionParameterID.relativeReferenceMinimumRadius.title) {
+                Stepper(
+                    value: floatBinding(appState, \.relativeReferenceMinimumRadiusPx, in: 0...Float(detectorMinimum)),
+                    in: 0...Float(detectorMinimum),
+                    step: 1
+                ) {
+                    Text(String(
+                        format: "%.0f px",
+                        appState.diskDetection.diskParams.relativeReferenceMinimumRadiusPx
+                    ))
+                }
             }
             .help(DiskDetectionParameterID.relativeReferenceMinimumRadius.explanation)
 
-            Stepper(
-                value: floatBinding(appState, \.minPeakSpacing, in: 0...Float(detectorMinimum)),
-                in: 0...Float(detectorMinimum),
-                step: 1
-            ) {
-                Text(String(
-                    format: "%@  %.0f px",
-                    DiskDetectionParameterID.minimumPeakSpacing.title,
-                    appState.diskDetection.diskParams.minPeakSpacing
-                ))
+            InspectorRow(DiskDetectionParameterID.minimumPeakSpacing.title) {
+                Stepper(
+                    value: floatBinding(appState, \.minPeakSpacing, in: 0...Float(detectorMinimum)),
+                    in: 0...Float(detectorMinimum),
+                    step: 1
+                ) {
+                    Text(String(
+                        format: "%.0f px",
+                        appState.diskDetection.diskParams.minPeakSpacing
+                    ))
+                }
             }
             .help(DiskDetectionParameterID.minimumPeakSpacing.explanation)
 
-            Stepper(
-                value: intBinding(appState, \.edgeBoundary, in: 1...maximumEdgeBoundary),
-                in: 1...maximumEdgeBoundary
-            ) {
-                Text("\(DiskDetectionParameterID.edgeBoundary.title)  \(appState.diskDetection.diskParams.edgeBoundary) px")
+            InspectorRow(DiskDetectionParameterID.edgeBoundary.title) {
+                Stepper(
+                    value: intBinding(appState, \.edgeBoundary, in: 1...maximumEdgeBoundary),
+                    in: 1...maximumEdgeBoundary
+                ) {
+                    Text("\(appState.diskDetection.diskParams.edgeBoundary) px")
+                }
             }
             .help(DiskDetectionParameterID.edgeBoundary.explanation)
 
             // Fourier localization.
             if appState.diskDetection.diskParams.subpixel == .multicorr {
-                Stepper(
-                    value: intBinding(appState, \.upsampleFactor, in: 4...64),
-                    in: 4...64,
-                    step: 4
-                ) {
-                    Text("\(DiskDetectionParameterID.upsampleFactor.title)  \(appState.diskDetection.diskParams.upsampleFactor)×")
+                InspectorRow(DiskDetectionParameterID.upsampleFactor.title) {
+                    Stepper(
+                        value: intBinding(appState, \.upsampleFactor, in: 4...64),
+                        in: 4...64,
+                        step: 4
+                    ) {
+                        Text("\(appState.diskDetection.diskParams.upsampleFactor)×")
+                    }
                 }
                 .help(DiskDetectionParameterID.upsampleFactor.explanation)
             }
 
-            Text("Changes update the rings on the current CBED. Run the toolbar's full-scan action to apply them to strain and ACOM.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorNote("Changes update the rings on the current CBED. Run the toolbar's full-scan action to apply them to strain and ACOM.")
 
-            Button {
-                showsResetConfirmation = true
-            } label: {
-                Label("Reset Recommended Settings", systemImage: "arrow.counterclockwise")
+            InspectorActionRow {
+                Button {
+                    showsResetConfirmation = true
+                } label: {
+                    Label("Reset Recommended Settings", systemImage: "arrow.counterclockwise")
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("disk.resetParameters")
             }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("disk.resetParameters")
-        }
         }
         .accessibilityIdentifier("disk.advancedDisclosure")
         .confirmationDialog(
@@ -514,30 +534,34 @@ private struct StrainSection: View {
 
     var body: some View {
         @Bindable var strain = appState.strain
-        Section("Strain") {
+        InspectorSection("Strain") {
             failureRemedy
 
-            Picker("Reference", selection: $strain.referenceMode) {
-                ForEach(StrainReferenceMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+            InspectorRow("Reference") {
+                Picker("Reference", selection: $strain.referenceMode) {
+                    ForEach(StrainReferenceMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
                 }
+                .labelsHidden()
+                .accessibilityIdentifier("strain.reference")
             }
-            .accessibilityIdentifier("strain.reference")
             // These two pickers ARE the scientific decision, so they say
             // what they decide rather than only what they are set to.
-            Text(appState.strain.referenceMode == .selectedRegion
+            InspectorNote(appState.strain.referenceMode == .selectedRegion
                  ? "Defines zero strain: the visible \(appState.realSpaceShape.rawValue.lowercased()) ROI around the selected scan point is treated as unstrained."
                  : "Defines zero strain: the whole scan is averaged, so strain is measured relative to the mean lattice.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
 
-            Picker("Basis", selection: $strain.basisMode) {
-                ForEach(StrainBasisMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+            InspectorRow("Basis") {
+                Picker("Basis", selection: $strain.basisMode) {
+                    ForEach(StrainBasisMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
                 }
+                .labelsHidden()
+                .accessibilityIdentifier("strain.basis")
+                .help("The g₁ / g₂ pair every position is indexed against.")
             }
-            .accessibilityIdentifier("strain.basis")
-            .help("The g₁ / g₂ pair every position is indexed against.")
 
             if appState.strain.basisMode == .manual {
                 // The unit stays *visible* rather than moving to hover:
@@ -550,17 +574,19 @@ private struct StrainSection: View {
                 ManualBasisRow(title: "g₂ y", value: $strain.g2Y)
             }
 
-            Button {
-                Task { await appState.runStrainMapping() }
-            } label: {
-                Label("Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right")
+            InspectorActionRow {
+                Button {
+                    Task { await appState.runStrainMapping() }
+                } label: {
+                    Label("Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
+                // C4(a): was `appState.isBusy || !appState.hasCurrentBraggVectors`
+                // — `hasCurrentBraggVectors` is exactly the readiness this button
+                // now asks for instead, so the two paths cannot drift again.
+                .disabled(!ProductWorkflow.mayRun(
+                    .strain, readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
+                ))
             }
-            // C4(a): was `appState.isBusy || !appState.hasCurrentBraggVectors`
-            // — `hasCurrentBraggVectors` is exactly the readiness this button
-            // now asks for instead, so the two paths cannot drift again.
-            .disabled(!ProductWorkflow.mayRun(
-                .strain, readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
-            ))
 
             if appState.diskDetectionSettingsAreStale {
                 Text("Detection settings changed — rerun Detect All Disks before strain.")
@@ -568,12 +594,15 @@ private struct StrainSection: View {
             }
 
             if appState.strain.map != nil {
-                Picker("Component", selection: $strain.component) {
-                    ForEach(StrainComponent.allCases) { component in
-                        Text(component.rawValue).tag(component)
+                InspectorRow("Component") {
+                    Picker("Component", selection: $strain.component) {
+                        ForEach(StrainComponent.allCases) { component in
+                            Text(component.rawValue).tag(component)
+                        }
                     }
+                    .labelsHidden()
+                    .accessibilityIdentifier("strain.component")
                 }
-                .accessibilityIdentifier("strain.component")
                 // The frame the tensor components are expressed in — the map
                 // is drawn over scan axes, so a detector-frame εxx read as
                 // "along the map's horizontal" is silently wrong under a
@@ -588,10 +617,10 @@ private struct StrainSection: View {
                     )
                     .accessibilityIdentifier("strain.frame")
                 if let map = appState.strain.map {
-                    LabeledContent(
+                    InspectorValueRow(
                         map.diagnostics.automaticBasis
                             ? "Basis consensus" : "Basis support",
-                        value: String(
+                        String(
                             format: "%.0f%% · %d/%d peaks",
                             map.diagnostics.basisSupportFraction * 100,
                             map.diagnostics.basisSupportCount,
@@ -599,27 +628,27 @@ private struct StrainSection: View {
                         )
                     )
                     .accessibilityIdentifier("strain.diagnostics.basisSupport")
-                    LabeledContent(
+                    InspectorValueRow(
                         "Basis fit",
-                        value: String(
+                        String(
                             format: "RMS %.3g px · κ %.2f",
                             map.diagnostics.basisResidualPixels,
                             map.diagnostics.basisConditionNumber
                         )
                     )
                     .accessibilityIdentifier("strain.diagnostics.basisFit")
-                    LabeledContent(
+                    InspectorValueRow(
                         "Local fits",
-                        value: String(
+                        String(
                             format: "%.0f%% indexed · median RMS %.3g px",
                             map.indexedFraction * 100,
                             map.diagnostics.localResidualMedianPixels
                         )
                     )
                     .accessibilityIdentifier("strain.diagnostics.localFits")
-                    LabeledContent(
+                    InspectorValueRow(
                         "Reference inliers",
-                        value: "\(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount)"
+                        "\(map.referencePositionCount)/\(map.diagnostics.referenceCandidateCount)"
                     )
                     .accessibilityIdentifier("strain.diagnostics.referenceInliers")
                 }
@@ -640,12 +669,12 @@ private struct StrainSection: View {
                     systemImage: "exclamationmark.triangle.fill"
                 )
                 .foregroundStyle(.orange)
-                Text("Indexing needs the direct beam plus two more reflections. "
+                InspectorNote("Indexing needs the direct beam plus two more reflections. "
                      + "Lower the detection thresholds, not the reference.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Go to Bragg Disks") { appState.changeMode(.disks) }
-                    .accessibilityIdentifier("strain.remedy.disks")
+                InspectorActionRow {
+                    Button("Go to Bragg Disks") { appState.changeMode(.disks) }
+                        .accessibilityIdentifier("strain.remedy.disks")
+                }
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("strain.remedy")
@@ -656,20 +685,18 @@ private struct StrainSection: View {
                       systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                 if appState.strain.referenceMode == .wholeScan {
-                    Text("The peak population is healthy. Averaging the whole scan "
+                    InspectorNote("The peak population is healthy. Averaging the whole scan "
                          + "mixes regions with different lattices — pick an "
                          + "unstrained region instead.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button("Use the current ROI as the reference") {
-                        appState.strain.referenceMode = .selectedRegion
+                    InspectorActionRow {
+                        Button("Use the current ROI as the reference") {
+                            appState.strain.referenceMode = .selectedRegion
+                        }
+                        .accessibilityIdentifier("strain.remedy.useROI")
                     }
-                    .accessibilityIdentifier("strain.remedy.useROI")
                 } else {
-                    Text("Move or resize the reference region onto an unstrained "
+                    InspectorNote("Move or resize the reference region onto an unstrained "
                          + "area, or set g₁ and g₂ manually.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
             .accessibilityElement(children: .contain)
@@ -688,7 +715,7 @@ private struct ManualBasisRow: View {
     @Binding var value: Float
 
     var body: some View {
-        LabeledContent(title) {
+        InspectorRow(title) {
             NumericField(
                 title,
                 value: $value,
@@ -723,7 +750,7 @@ private struct ACOMSections: View {
 
     var body: some View {
         @Bindable var session = appState.acomSession
-        Section("ACOM (orientation)") {
+        InspectorSection("ACOM (orientation)") {
             // Session S5 (owner's product decision): Materials Project is the
             // default phase source; the built-in library and "Custom
             // cubic…" are no longer offered here — see the doc comment on
@@ -735,13 +762,11 @@ private struct ACOMSections: View {
             // only way to choose a phase model. Switching between two or
             // more already-imported models still works, as the `Menu` case
             // of `phaseModelValue`.
-            HStack {
-                Text("Phase model")
-                Spacer()
+            InspectorRow("Phase model") {
                 phaseModelValue
             }
 
-            HStack {
+            InspectorActionRow {
                 Button {
                     showMaterialsProjectSheet = true
                 } label: {
@@ -778,66 +803,61 @@ private struct ACOMSections: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             } else if let model = appState.resolvedACOMModel {
-                LabeledContent("Symmetry", value: model.symmetry.displayName)
+                InspectorValueRow("Symmetry", model.symmetry.displayName)
                 switch model.source {
-                case .imported: LabeledContent("Source", value: "Imported CIF")
-                case .materialsProject: LabeledContent("Source", value: "Materials Project \(model.id)")
+                case .imported: InspectorValueRow("Source", "Imported CIF")
+                case .materialsProject: InspectorValueRow("Source", "Materials Project \(model.id)")
                 case .builtIn, .custom: EmptyView()
                 }
-                Text("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
             }
 
             if appState.acomSession.modelSelection == .customCubic {
                 customCrystalEditor
             }
 
-            Picker("Quality", selection: $session.quality) {
-                ForEach(ACOMQualityPreset.allCases) { quality in
-                    Text(quality.rawValue).tag(quality)
+            InspectorRow("Quality") {
+                Picker("Quality", selection: $session.quality) {
+                    ForEach(ACOMQualityPreset.allCases) { quality in
+                        Text(quality.rawValue).tag(quality)
+                    }
                 }
+                .labelsHidden()
             }
-            Text(appState.acomSession.quality.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorNote(appState.acomSession.quality.detail)
             // The app's only measured figure for how well it orients, so a
             // user reads it before trusting a zone axis to the degree. Planted
             // aluminium patterns, 2026-09-15 (`tools/acom-groundtruth`); no
             // other phase has been measured. Static on purpose: a number with
             // its date and its scope, not a promise.
-            Text("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorNote("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
                 .help("136 planted patterns across nine zone axes and two azimuthal bins of in-plane rotation (tools/acom-groundtruth/orientation-accuracy.py, 2026-09-15). The angles are the total error against the planted axis; the bank's own sampling accounts for at most 0.8° of the 13.6°, and the rest is the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin — the mechanism is recorded in docs/open-items.md.")
 
             scopeControls
 
-            LabeledContent("Work", value: appState.acomWorkSummary)
+            InspectorValueRow("Work", appState.acomWorkSummary)
                 .accessibilityIdentifier("acom.work")
-            LabeledContent("Expected", value: appState.acomEstimatedDurationText)
+            InspectorValueRow("Expected", appState.acomEstimatedDurationText)
                 .accessibilityIdentifier("acom.expected")
             if let suggestion = appState.acomFullScanSuggestion {
                 // The sentence wraps as a caption; the button stays short.
-                Text(suggestion)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Use Full Scan") {
-                    appState.acomSession.scope = .fullScan
+                InspectorNote(suggestion)
+                InspectorActionRow {
+                    Button("Use Full Scan") {
+                        appState.acomSession.scope = .fullScan
+                    }
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("acom.suggestFullScan")
                 }
-                .disabled(appState.isBusy)
-                .accessibilityIdentifier("acom.suggestFullScan")
             }
         }
 
-        Section {
-            DisclosureGroup("Engine & Q scale", isExpanded: $showsEngine) {
-                engineControls
-                qScaleControls
-            }
+        InspectorSection("Engine & Q scale", expanded: $showsEngine) {
+            engineControls
+            qScaleControls
         }
 
-        Section("Result") {
+        InspectorSection("Result") {
             prerequisiteStatus
             resultControls
         }
@@ -901,17 +921,23 @@ private struct ACOMSections: View {
     @ViewBuilder
     private var customCrystalEditor: some View {
         @Bindable var session = appState.acomSession
-        Picker("Element", selection: $session.customZ) {
-            ForEach(ScatteringFactors.supportedElements, id: \.self) { z in
-                Text("\(ScatteringFactors.symbols[z] ?? "?")  (Z=\(z))").tag(z)
+        InspectorRow("Element") {
+            Picker("Element", selection: $session.customZ) {
+                ForEach(ScatteringFactors.supportedElements, id: \.self) { z in
+                    Text("\(ScatteringFactors.symbols[z] ?? "?")  (Z=\(z))").tag(z)
+                }
             }
+            .labelsHidden()
         }
-        Picker("Structure", selection: $session.customStructure) {
-            ForEach(Crystal.CubicStructure.allCases) { structure in
-                Text(structure.rawValue).tag(structure)
+        InspectorRow("Structure") {
+            Picker("Structure", selection: $session.customStructure) {
+                ForEach(Crystal.CubicStructure.allCases) { structure in
+                    Text(structure.rawValue).tag(structure)
+                }
             }
+            .labelsHidden()
         }
-        LabeledContent("a") {
+        InspectorRow("a") {
             NumericField(
                 "Lattice parameter a",
                 value: $session.customLatticeA,
@@ -919,9 +945,7 @@ private struct ACOMSections: View {
                 unit: "Å"
             )
         }
-        Text("Custom models are single-element cubic cells; other phases need a validated model.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        InspectorNote("Custom models are single-element cubic cells; other phases need a validated model.")
     }
 
     @ViewBuilder
@@ -929,58 +953,67 @@ private struct ACOMSections: View {
         @Bindable var session = appState.acomSession
         // A menu, not three segments: the segmented row does not fit the
         // column (measured 2026-09-03).
-        Picker("Area", selection: $session.scope) {
-            ForEach(ACOMRunScope.allCases) { scope in
-                Text(scope.rawValue).tag(scope)
+        InspectorRow("Area") {
+            Picker("Area", selection: $session.scope) {
+                ForEach(ACOMRunScope.allCases) { scope in
+                    Text(scope.rawValue).tag(scope)
+                }
             }
+            .labelsHidden()
+            .accessibilityIdentifier("acom.scope")
         }
-        .accessibilityIdentifier("acom.scope")
 
         if appState.acomSession.scope == .selectedRegion, let descriptor = appState.descriptor {
-            Stepper(
-                "Center X  \(appState.selectedScan.x)",
-                value: Binding(
-                    get: { appState.selectedScan.x },
-                    set: { appState.selectScan(x: $0, y: appState.selectedScan.y) }
-                ),
-                in: 0...max(0, descriptor.rx - 1)
-            )
-            Stepper(
-                "Center Y  \(appState.selectedScan.y)",
-                value: Binding(
-                    get: { appState.selectedScan.y },
-                    set: { appState.selectScan(x: appState.selectedScan.x, y: $0) }
-                ),
-                in: 0...max(0, descriptor.ry - 1)
-            )
-            Stepper(
-                "Half-size  \(appState.acomSession.regionRadius) px",
-                value: $session.regionRadius,
-                in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
-            )
-            Text("The orange square is matched at full spatial resolution.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorRow("Center X") {
+                Stepper(
+                    value: Binding(
+                        get: { appState.selectedScan.x },
+                        set: { appState.selectScan(x: $0, y: appState.selectedScan.y) }
+                    ),
+                    in: 0...max(0, descriptor.rx - 1)
+                ) {
+                    Text("\(appState.selectedScan.x)")
+                }
+            }
+            InspectorRow("Center Y") {
+                Stepper(
+                    value: Binding(
+                        get: { appState.selectedScan.y },
+                        set: { appState.selectScan(x: appState.selectedScan.x, y: $0) }
+                    ),
+                    in: 0...max(0, descriptor.ry - 1)
+                ) {
+                    Text("\(appState.selectedScan.y)")
+                }
+            }
+            InspectorRow("Half-size") {
+                Stepper(
+                    value: $session.regionRadius,
+                    in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
+                ) {
+                    Text("\(appState.acomSession.regionRadius) px")
+                }
+            }
+            InspectorNote("The orange square is matched at full spatial resolution.")
         } else if appState.acomSession.scope == .preview {
-            Text("Samples at most 32 × 32 positions, then expands coarse blocks for a rapid whole-field check.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorNote("Samples at most 32 × 32 positions, then expands coarse blocks for a rapid whole-field check.")
         }
     }
 
     @ViewBuilder
     private var engineControls: some View {
         @Bindable var session = appState.acomSession
-        Picker("Engine", selection: $session.backend) {
-            ForEach(ACOMMatchingBackend.allCases) { backend in
-                Text(backend.rawValue).tag(backend)
+        InspectorRow("Engine") {
+            Picker("Engine", selection: $session.backend) {
+                ForEach(ACOMMatchingBackend.allCases) { backend in
+                    Text(backend.rawValue).tag(backend)
+                }
             }
+            .labelsHidden()
         }
-        LabeledContent("Will use", value: appState.acomSession.effectiveBackend.rawValue)
+        InspectorValueRow("Will use", appState.acomSession.effectiveBackend.rawValue)
         if appState.acomSession.backend == .automatic {
-            Text("Automatic currently uses the real-data-verified Accelerate CPU backend.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorNote("Automatic currently uses the real-data-verified Accelerate CPU backend.")
         }
     }
 
@@ -988,39 +1021,45 @@ private struct ACOMSections: View {
     private var qScaleControls: some View {
         @Bindable var session = appState.acomSession
         let semantics = appState.acomScaleSemantics
-        LabeledContent("Interpretation") {
+        InspectorRow("Interpretation") {
             Text(appState.acomInterpretationLabel)
                 .foregroundStyle(semantics.provenance.isPhysical ? Color.green : Color.orange)
         }
-        LabeledContent(
+        InspectorValueRow(
             "Q scale",
-            value: String(format: "%.6g Å⁻¹/px", semantics.invAngstromPerPixel)
+            String(format: "%.6g Å⁻¹/px", semantics.invAngstromPerPixel)
         )
-        LabeledContent("Provenance", value: semantics.provenance.displayName)
+        InspectorValueRow("Provenance", semantics.provenance.displayName)
 
         // **Prepare owns Q calibration.** What lives here is the read-out —
         // interpretation, Q scale, provenance — because ACOM's results are
         // labelled by it, plus a route to the owner. The link is
         // unconditional: when the scale is *not* physical is exactly when a
         // user most needs to be told where to fix it.
-        Button("Review Q Calibration in Prepare") {
-            appState.selectWorkspace(.prepare)
+        InspectorActionRow {
+            Button("Review Q Calibration in Prepare") {
+                appState.selectWorkspace(.prepare)
+            }
+            .accessibilityIdentifier("acom.reviewQCalibration")
         }
-        .accessibilityIdentifier("acom.reviewQCalibration")
 
         if !semantics.provenance.isPhysical {
-            // A labelled Slider row, not a LabeledContent: as a trailing
-            // value a slider collapses to its knob in this column.
-            Slider(value: $session.exploratoryScale, in: 0.001...0.05) {
-                Text(String(format: "Exploratory scale, %.4f Å⁻¹/px", appState.acomSession.exploratoryScale))
-            }
+            // An AdjustmentSlider row, not InspectorValueRow: this is a
+            // scientifically live control, not a read-out.
+            AdjustmentSlider(
+                "Exploratory scale",
+                value: $session.exploratoryScale,
+                in: 0.001...0.05,
+                format: .number.precision(.fractionLength(4)),
+                unit: "Å⁻¹/px"
+            )
             Text("This can help inspect correlation, but it is not physical calibration and every result remains Exploratory.")
                 .font(.caption)
                 .foregroundStyle(.orange)
         }
 
         if appState.acomSession.hasOrientationPlan, let plan = appState.acomSession.orientationPlan {
-            LabeledContent("Cached plan", value: "\(plan.count) templates")
+            InspectorValueRow("Cached plan", "\(plan.count) templates")
         }
     }
 
@@ -1049,28 +1088,30 @@ private struct ACOMSections: View {
             // Routed through `selectACOMDisplay` rather than bound directly, so
             // an explicit choice here is recorded and a later completed map
             // never silently promotes IPF·Z over it.
-            Picker("Display", selection: Binding(
-                get: { appState.acomSession.display },
-                set: { appState.selectACOMDisplay($0) }
-            )) {
-                ForEach(ACOMDisplayMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+            InspectorRow("Display") {
+                Picker("Display", selection: Binding(
+                    get: { appState.acomSession.display },
+                    set: { appState.selectACOMDisplay($0) }
+                )) {
+                    ForEach(ACOMDisplayMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
                 }
+                .labelsHidden()
+                // "Display" alone collides with a section header of the same
+                // name; the accessibility label disambiguates for VoiceOver and
+                // label-based automation queries.
+                .accessibilityLabel("ACOM display mode")
+                .accessibilityIdentifier("acom.display")
             }
-            // "Display" alone collides with a section header of the same
-            // name; the accessibility label disambiguates for VoiceOver and
-            // label-based automation queries.
-            .accessibilityLabel("ACOM display mode")
-            .accessibilityIdentifier("acom.display")
             // The IPF colour key is drawn over the image, keyed on the
             // *displayed* result actually being an IPF-Z map — a legend
             // belongs with the pixels it decodes, never here.
             if let text = appState.selectedEulerText {
-                LabeledContent(
+                InspectorValueRow(
                     "\(appState.acomSession.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
-                    value: text
+                    text
                 )
-                .monospacedDigit()
             }
         }
     }
@@ -1078,37 +1119,13 @@ private struct ACOMSections: View {
 
 // MARK: - Shared rows and bindings
 
-/// A parameter slider row: the title above, the slider below, and the
-/// current value trailing the title in its own text — not stitched into one
-/// string. `"\(title), \(valueText)"` as the slider's label read "Correlation
-/// power, 1.00" and wrapped mid-label onto a second line at the inspector's
-/// width, with a stray trailing comma once it did. Not a `LabeledContent` —
-/// as a trailing value a slider collapses to its knob in a narrow column
-/// (measured 2026-09-03) — so the value sits beside the title instead, and
-/// the slider keeps the title alone as its accessibility label.
-private func parameterSliderRow(
-    title: String,
-    value: Binding<Float>,
-    range: ClosedRange<Float>,
-    step: Float,
-    valueText: String
-) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-        HStack {
-            Text(title)
-            Spacer(minLength: 8)
-            Text(valueText)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-        }
-        .font(.subheadline)
-        Slider(value: value, in: range, step: step) {
-            Text(title)
-        }
-        .labelsHidden()
-        .accessibilityLabel(title)
-        .accessibilityValue(valueText)
-    }
+/// Bridges a `Float` parameter binding to the `Double` `AdjustmentSlider`
+/// expects; the clamping stays in the wrapped `Float` binding, unchanged.
+private func doubleBinding(_ floatBinding: Binding<Float>) -> Binding<Double> {
+    Binding(
+        get: { Double(floatBinding.wrappedValue) },
+        set: { floatBinding.wrappedValue = Float($0) }
+    )
 }
 
 private func floatEditorRange(

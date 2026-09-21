@@ -976,6 +976,12 @@ final class AppState {
         ProductWorkflow.recordedReplayStep(for: mode, in: replay.record.steps)
     }
 
+    /// The whole recorded pipeline, read-only — the bottom workspace's
+    /// Lineage tab (ADR 034). `replay` itself carries mutation (`record`,
+    /// `adopt`) that a view has no business calling, so it gets this forwarder
+    /// rather than reaching `appState.replay.record.steps` directly.
+    var replaySteps: [SessionReplayRecord.Step] { replay.record.steps }
+
     func currentReplaySignature(for mode: AnalysisMode) -> [String: String]? {
         let acomSignature = ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved(
             model: resolvedACOMModel, scale: acomScaleSemantics.invAngstromPerPixel,

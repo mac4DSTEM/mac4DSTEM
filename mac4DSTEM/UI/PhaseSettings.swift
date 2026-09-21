@@ -5,8 +5,8 @@ import DSTEMSession
 #endif
 
 /// The Reconstruct workspace's controls, as the inspector's **Settings** tab
-/// renders them: a bare set of `Section`s the caller places inside its own
-/// grouped `Form`.
+/// renders them: a sequence of `InspectorSection`s the caller places inside
+/// its own scroll container.
 ///
 /// Migrated from `UI/PhaseSidebar.swift`. Nothing scientific is re-decided
 /// here: every number, unit, gate, refusal string and staleness note reads
@@ -59,7 +59,7 @@ private struct DPCSettingsSection: View {
     var body: some View {
         @Bindable var appState = appState
         @Bindable var dpc = appState.dpc
-        Section("DPC & iDPC") {
+        InspectorSection("DPC & iDPC") {
             // S22b (O2): status first — what running DPC will produce NOW —
             // then the display choice, then the per-mode detail.
             if appState.idpcPhysicalCalibration != nil {
@@ -87,23 +87,28 @@ private struct DPCSettingsSection: View {
                 }
                 // The remedy lives in Prepare; take the user there instead of
                 // describing the journey.
-                Button("Open Prepare to Calibrate") {
-                    appState.selectWorkspace(.prepare)
+                InspectorActionRow {
+                    Button("Open Prepare to Calibrate") {
+                        appState.selectWorkspace(.prepare)
+                    }
+                    .accessibilityIdentifier("dpc.openPrepare")
                 }
-                .accessibilityIdentifier("dpc.openPrepare")
             }
 
-            Picker("Display", selection: $dpc.dpcDisplay) {
-                ForEach(DPCDisplayMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+            InspectorRow("Display") {
+                Picker("Display", selection: $dpc.dpcDisplay) {
+                    ForEach(DPCDisplayMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
                 }
+                .labelsHidden()
             }
 
             if dpc.dpcDisplay == .magnitudeMrad {
                 if let scale = appState.dpcMilliradiansPerDetectorPixel {
-                    LabeledContent(
+                    InspectorValueRow(
                         "Angular scale",
-                        value: String(format: "%.5g mrad / detector px", scale)
+                        String(format: "%.5g mrad / detector px", scale)
                     )
                 } else {
                     Text("mrad needs accelerating voltage and Q pixel calibration.")
@@ -113,28 +118,26 @@ private struct DPCSettingsSection: View {
             }
             if dpc.dpcDisplay == .idpc {
                 if let physical = appState.idpcPhysicalCalibration {
-                    LabeledContent("Output", value: "Projected phase (rad)")
-                    LabeledContent(
+                    InspectorValueRow("Output", "Projected phase (rad)")
+                    InspectorValueRow(
                         "Sampling",
-                        value: String(
+                        String(
                             format: "%.4g Å · Q %.4g Å⁻¹/px",
                             physical.rowSamplingAngstrom,
                             physical.reciprocalAngstromPerDetectorPixel
                         )
                     )
-                    LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
+                    InspectorValueRow("Boundary", "Symmetric zero pad · 2×")
                 } else {
                     // The qualitative/physical status and its reason lead the
                     // section (S22b) — only the boundary fact is per-mode.
-                    LabeledContent("Boundary", value: "Symmetric zero pad · 2×")
+                    InspectorValueRow("Boundary", "Symmetric zero pad · 2×")
                 }
             }
             if !appState.calibrationSession.calibration.hasFittedOrigin {
-                Text("Tip: calibrate the origin first — DPC shifts are measured against the fitted beam position.")
-                    .font(.caption).foregroundStyle(.secondary)
+                InspectorNote("Tip: calibrate the origin first — DPC shifts are measured against the fitted beam position.")
             } else if !appState.calibrationSession.calibration.hasRotation {
-                Text("Tip: calibrate the rotation for meaningful iDPC and vector direction.")
-                    .font(.caption).foregroundStyle(.secondary)
+                InspectorNote("Tip: calibrate the rotation for meaningful iDPC and vector direction.")
             }
         }
     }
@@ -149,31 +152,37 @@ private struct SingleslicePtychographySection: View {
     var body: some View {
         @Bindable var ptychography = appState.ptychography
         let isGradientDescent = ptychography.method == .gradientDescent
-        Section("Single-slice ptychography") {
-            Picker("Method", selection: $ptychography.method) {
-                ForEach(SingleslicePtychographyMethod.allCases) { method in
-                    Text(method.rawValue).tag(method)
+        InspectorSection("Single-slice ptychography") {
+            InspectorRow("Method") {
+                Picker("Method", selection: $ptychography.method) {
+                    ForEach(SingleslicePtychographyMethod.allCases) { method in
+                        Text(method.rawValue).tag(method)
+                    }
                 }
+                .labelsHidden()
             }
-            Button {
-                Task { await appState.runSingleslicePtychography() }
-            } label: {
-                Label("Reconstruct Object", systemImage: "circle.hexagongrid")
+            InspectorActionRow {
+                Button {
+                    Task { await appState.runSingleslicePtychography() }
+                } label: {
+                    Label("Reconstruct Object", systemImage: "circle.hexagongrid")
+                }
+                .disabled(!ProductWorkflow.mayRun(
+                    .singleslicePtychography,
+                    readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
+                ))
+                .help("Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine.")
             }
-            .disabled(!ProductWorkflow.mayRun(
-                .singleslicePtychography,
-                readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
-            ))
-            .help("Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine.")
             DisclosureGroup("Advanced ptychography", isExpanded: $showsAdvanced) {
-            LabeledContent("Iterations") {
+            InspectorRow("Iterations") {
                 NumericField(
                     "Iterations",
                     value: $ptychography.iterations,
                     format: .number
                 )
+                .labelsHidden()
             }
-            LabeledContent(isGradientDescent ? "Step" : "DM/AP α") {
+            InspectorRow(isGradientDescent ? "Step" : "DM/AP α") {
                 NumericField(
                     isGradientDescent ? "Step" : "DM/AP α",
                     value: isGradientDescent
@@ -181,47 +190,66 @@ private struct SingleslicePtychographySection: View {
                         : $ptychography.projectionParameter,
                     format: .number.precision(.fractionLength(0...3))
                 )
+                .labelsHidden()
             }
-            LabeledContent("Norm min") {
+            InspectorRow("Norm min") {
                 NumericField(
                     "Norm min",
                     value: $ptychography.normalizationMinimum,
                     format: .number.precision(.fractionLength(0...3))
                 )
+                .labelsHidden()
             }
-            Toggle("Fix probe", isOn: $ptychography.fixProbe)
-            Toggle(
-                "Limit object transmission to 1",
-                isOn: $ptychography.constrainObjectAmplitude
-            )
-            Toggle(
-                "Pure-phase object",
-                isOn: $ptychography.purePhaseObject
-            )
+            InspectorRow("Fix probe") {
+                Toggle("Fix probe", isOn: $ptychography.fixProbe)
+                    .labelsHidden()
+            }
+            InspectorRow("Limit object transmission to 1") {
+                Toggle(
+                    "Limit object transmission to 1",
+                    isOn: $ptychography.constrainObjectAmplitude
+                )
+                .labelsHidden()
+            }
+            InspectorRow("Pure-phase object") {
+                Toggle(
+                    "Pure-phase object",
+                    isOn: $ptychography.purePhaseObject
+                )
+                .labelsHidden()
+            }
             .help("Sets reconstructed object amplitude to one after every iteration.")
             if !ptychography.fixProbe {
-                Toggle(
-                    "Recenter probe each iteration",
-                    isOn: $ptychography.fixProbeCenterOfMass
-                )
-                Toggle(
-                    "Constrain probe support",
-                    isOn: $ptychography.constrainProbeAmplitude
-                )
+                InspectorRow("Recenter probe each iteration") {
+                    Toggle(
+                        "Recenter probe each iteration",
+                        isOn: $ptychography.fixProbeCenterOfMass
+                    )
+                    .labelsHidden()
+                }
+                InspectorRow("Constrain probe support") {
+                    Toggle(
+                        "Constrain probe support",
+                        isOn: $ptychography.constrainProbeAmplitude
+                    )
+                    .labelsHidden()
+                }
                 if ptychography.constrainProbeAmplitude {
-                    LabeledContent("Support radius") {
+                    InspectorRow("Support radius") {
                         NumericField(
                             "Support radius",
                             value: $ptychography.probeAmplitudeRadius,
                             format: .number.precision(.fractionLength(0...3))
                         )
+                        .labelsHidden()
                     }
-                    LabeledContent("Edge width") {
+                    InspectorRow("Edge width") {
                         NumericField(
                             "Edge width",
                             value: $ptychography.probeAmplitudeWidth,
                             format: .number.precision(.fractionLength(0...3))
                         )
+                        .labelsHidden()
                     }
                 }
             }
@@ -233,10 +261,11 @@ private struct SingleslicePtychographySection: View {
 // MARK: - Parallax: the four stages
 
 /// Backlog #39, v2.5 step 7a. The four stages of the staged bright-field
-/// reconstruction, one `Section` each, the header carrying the same ✓/number
-/// glyph the old progress block drew and the controls for that stage as its
-/// rows. A completed stage keeps its controls — Reset Alignment, the fields —
-/// so the chain stays revisitable.
+/// reconstruction, one `InspectorSection` each, carrying a status glyph
+/// (the same ✓/number glyph the old progress block drew) as the section's
+/// first element, and the controls for that stage as its rows. A completed
+/// stage keeps its controls — Reset Alignment, the fields — so the chain
+/// stays revisitable.
 ///
 /// Every control here already carried its own prerequisite in `disabled(…)`
 /// or an enclosing `if`, so a later stage is visible and inert rather than
@@ -255,174 +284,206 @@ private struct ParallaxStageSections: View {
         // already does for `appState.ptychography` below.
         @Bindable var phaseContrast = appState.phaseContrast
         stageSection(1, "Prepare preview") {
-            Button {
-                Task { await appState.prepareParallaxPreview() }
-            } label: {
-                Label("Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle")
+            InspectorActionRow {
+                Button {
+                    Task { await appState.prepareParallaxPreview() }
+                } label: {
+                    Label("Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle")
+                }
+                // C4(a): was `appState.isBusy` only — this entry point bypassed
+                // the same five-calibration gate the toolbar asks for
+                // `.ptychography` (§4 finding 2); every later stage guards on the
+                // previous stage's own in-memory product, which cannot exist
+                // unless this one already ran with calibration satisfied.
+                .disabled(!ProductWorkflow.mayRun(
+                    .ptychography, readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
+                ))
             }
-            // C4(a): was `appState.isBusy` only — this entry point bypassed
-            // the same five-calibration gate the toolbar asks for
-            // `.ptychography` (§4 finding 2); every later stage guards on the
-            // previous stage's own in-memory product, which cannot exist
-            // unless this one already ran with calibration satisfied.
-            .disabled(!ProductWorkflow.mayRun(
-                .ptychography, readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
-            ))
         }
         stageSection(2, "Align bright-field stack") {
-            Button {
-                Task { await appState.alignParallaxNextLevel() }
-            } label: {
-                Label("Align Next Level", systemImage: "align.horizontal.center")
-            }
-            .disabled(
-                appState.isBusy
-                    || appState.phaseContrast.parallaxPreprocess == nil
-                    || appState.phaseContrast.parallaxAlignment?.isComplete == true
-            )
-            .help("Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation.")
-
-            if appState.phaseContrast.parallaxAlignment != nil {
-                Button("Reset Alignment") {
-                    showsResetAlignmentConfirmation = true
+            InspectorActionRow {
+                Button {
+                    Task { await appState.alignParallaxNextLevel() }
+                } label: {
+                    Label("Align Next Level", systemImage: "align.horizontal.center")
                 }
-                .disabled(appState.isBusy)
-                .help("Discard completed alignment levels and return to the immutable preprocessed preview.")
+                .disabled(
+                    appState.isBusy
+                        || appState.phaseContrast.parallaxPreprocess == nil
+                        || appState.phaseContrast.parallaxAlignment?.isComplete == true
+                )
+                .help("Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation.")
+
+                if appState.phaseContrast.parallaxAlignment != nil {
+                    Button("Reset Alignment") {
+                        showsResetAlignmentConfirmation = true
+                    }
+                    .disabled(appState.isBusy)
+                    .help("Discard completed alignment levels and return to the immutable preprocessed preview.")
+                }
             }
         }
         stageSection(3, "Fit and correct phase") {
-            Button {
-                appState.fitParallaxAberrations()
-            } label: {
-                Label("Fit Aberrations", systemImage: "waveform.path")
+            InspectorActionRow {
+                Button {
+                    appState.fitParallaxAberrations()
+                } label: {
+                    Label("Fit Aberrations", systemImage: "waveform.path")
+                }
+                .disabled(
+                    appState.isBusy
+                        || appState.phaseContrast.parallaxAlignment?.isComplete != true
+                )
+                .help("Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration.")
             }
-            .disabled(
-                appState.isBusy
-                    || appState.phaseContrast.parallaxAlignment?.isComplete != true
-            )
-            .help("Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration.")
             if appState.phaseContrast.parallaxHigherOrderFit != nil {
-                LabeledContent("Low-pass") {
+                InspectorRow("Low-pass") {
                     NumericField(
                         "Low-pass",
                         value: $phaseContrast.parallaxQLowpassInvAngstrom,
                         format: .number.precision(.fractionLength(0...4)),
                         unit: "Å⁻¹"
                     )
+                    .labelsHidden()
                 }
-                LabeledContent("High-pass") {
+                InspectorRow("High-pass") {
                     NumericField(
                         "High-pass",
                         value: $phaseContrast.parallaxQHighpassInvAngstrom,
                         format: .number.precision(.fractionLength(0...4)),
                         unit: "Å⁻¹"
                     )
+                    .labelsHidden()
                 }
-                Button {
-                    Task { await appState.correctParallaxPhase() }
-                } label: {
-                    Label("Correct Phase", systemImage: "wand.and.stars")
+                InspectorActionRow {
+                    Button {
+                        Task { await appState.correctParallaxPhase() }
+                    } label: {
+                        Label("Correct Phase", systemImage: "wand.and.stars")
+                    }
+                    .disabled(appState.isBusy)
+                    .help("Applies the fitted even/odd aberration CTF. Zero cutoff values disable the corresponding Butterworth filter.")
                 }
-                .disabled(appState.isBusy)
-                .help("Applies the fitted even/odd aberration CTF. Zero cutoff values disable the corresponding Butterworth filter.")
             }
         }
         stageSection(4, "Inspect or reconstruct products") {
             if appState.phaseContrast.parallaxAlignment?.isComplete == true {
-                LabeledContent("KDE σ") {
+                InspectorRow("KDE σ") {
                     NumericField(
                         "KDE σ",
                         value: $phaseContrast.parallaxKDESigmaPixels,
                         format: .number.precision(.fractionLength(0...3)),
                         unit: "px"
                     )
+                    .labelsHidden()
                 }
                 DisclosureGroup("Advanced reconstruction", isExpanded: $showsAdvancedReconstruction) {
-                    LabeledContent("Auto factor") {
+                    InspectorRow("Auto factor") {
                         NumericField(
                             "Auto factor",
                             value: $phaseContrast.parallaxKDEUpsampleFactor,
                             format: .number.precision(.fractionLength(0...3))
                         )
+                        .labelsHidden()
                     }
-                    LabeledContent("Lanczos (0=off)") {
+                    InspectorRow("Lanczos (0=off)") {
                         NumericField(
                             "Lanczos (0=off)",
                             value: $phaseContrast.parallaxKDELanczosOrder,
                             format: .number
                         )
+                        .labelsHidden()
                     }
-                    LabeledContent("Position iters") {
+                    InspectorRow("Position iters") {
                         NumericField(
                             "Position iters",
                             value: $phaseContrast.parallaxPositionCorrectionIterations,
                             format: .number
                         )
+                        .labelsHidden()
                     }
-                    Toggle("Sinc low-pass", isOn: $phaseContrast.parallaxKDELowpass)
+                    InspectorRow("Sinc low-pass") {
+                        Toggle("Sinc low-pass", isOn: $phaseContrast.parallaxKDELowpass)
+                            .labelsHidden()
+                    }
                     if appState.phaseContrast.parallaxPositionCorrectionIterations > 0 {
-                        Toggle(
-                            "Checkerboard position steps",
-                            isOn: $phaseContrast.parallaxPositionCorrectionCheckerboard
-                        )
+                        InspectorRow("Checkerboard position steps") {
+                            Toggle(
+                                "Checkerboard position steps",
+                                isOn: $phaseContrast.parallaxPositionCorrectionCheckerboard
+                            )
+                            .labelsHidden()
+                        }
                     }
                 }
-                Button {
-                    Task { await appState.upsampleParallaxBF() }
-                } label: {
-                    Label("Upsample BF", systemImage: "arrow.up.left.and.arrow.down.right")
+                InspectorActionRow {
+                    Button {
+                        Task { await appState.upsampleParallaxBF() }
+                    } label: {
+                        Label("Upsample BF", systemImage: "arrow.up.left.and.arrow.down.right")
+                    }
+                    .disabled(appState.isBusy)
+                    .help("Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels.")
                 }
-                .disabled(appState.isBusy)
-                .help("Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels.")
             }
             if appState.phaseContrast.parallaxHigherOrderFit != nil {
-                LabeledContent("Depth start") {
+                InspectorRow("Depth start") {
                     NumericField(
                         "Depth start",
                         value: $phaseContrast.parallaxDepthStartAngstrom,
                         format: .number.precision(.fractionLength(0...1)),
                         unit: "Å"
                     )
+                    .labelsHidden()
                 }
-                LabeledContent("Depth end") {
+                InspectorRow("Depth end") {
                     NumericField(
                         "Depth end",
                         value: $phaseContrast.parallaxDepthEndAngstrom,
                         format: .number.precision(.fractionLength(0...1)),
                         unit: "Å"
                     )
+                    .labelsHidden()
                 }
-                LabeledContent("Info limit") {
+                InspectorRow("Info limit") {
                     NumericField(
                         "Info limit",
                         value: $phaseContrast.parallaxDepthInformationLimit,
                         format: .number.precision(.fractionLength(0...4)),
                         unit: "Å⁻¹"
                     )
+                    .labelsHidden()
                 }
                 DisclosureGroup("Advanced depth settings", isExpanded: $showsAdvancedDepth) {
-                    LabeledContent("Planes") {
+                    InspectorRow("Planes") {
                         NumericField(
                             "Planes",
                             value: $phaseContrast.parallaxDepthPlaneCount,
                             format: .number
                         )
+                        .labelsHidden()
                     }
-                    LabeledContent("Power") {
+                    InspectorRow("Power") {
                         NumericField(
                             "Power",
                             value: $phaseContrast.parallaxDepthInformationPower,
                             format: .number.precision(.fractionLength(0...2))
                         )
+                        .labelsHidden()
                     }
-                    Toggle("Use full fitted CTF", isOn: $phaseContrast.parallaxDepthUseFullFit)
+                    InspectorRow("Use full fitted CTF") {
+                        Toggle("Use full fitted CTF", isOn: $phaseContrast.parallaxDepthUseFullFit)
+                            .labelsHidden()
+                    }
                 }
-                Button {
-                    Task { await appState.computeParallaxDepthSections() }
-                } label: {
-                    Label("Compute Depth Stack", systemImage: "square.3.layers.3d")
+                InspectorActionRow {
+                    Button {
+                        Task { await appState.computeParallaxDepthSections() }
+                    } label: {
+                        Label("Compute Depth Stack", systemImage: "square.3.layers.3d")
+                    }
+                    .disabled(appState.isBusy)
                 }
-                .disabled(appState.isBusy)
             }
         }
         .confirmationDialog(
@@ -445,29 +506,27 @@ private struct ParallaxStageSections: View {
     ) -> some View {
         let complete = stageIsComplete(number)
         let active = number == currentStage
-        Section {
-            // The pipeline's order is enforced HERE and nowhere else:
-            // `upsampleParallaxBF()` guards only on a complete alignment and
-            // `computeParallaxDepthSections()` only on the higher-order fit,
-            // so Core would happily run stage 4 before Correct Phase. The old
-            // sidebar enforced it by rendering nothing for a pending stage;
-            // UI shows the stage so the chain explains itself and disables
-            // it instead, which is no looser.
+        // The status glyph — a filled checkmark once complete, the stage
+        // number while pending or current — is always visible in the
+        // header, not a row inside it, and the title reads emphasized while
+        // this is the active stage: the pipeline's order is enforced HERE
+        // and nowhere else (`upsampleParallaxBF()` guards only on a complete
+        // alignment, `computeParallaxDepthSections()` only on the
+        // higher-order fit, so Core would happily run stage 4 before Correct
+        // Phase), and a collapsed, unemphasized, unmarked section would lose
+        // the one place that order is explained. The old sidebar enforced it
+        // by rendering nothing for a pending stage; UI shows every stage and
+        // disables it instead, which is no looser.
+        InspectorSection(
+            title,
+            icon: Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle"),
+            emphasized: active
+        ) {
             content()
                 .disabled(!(active || complete))
-        } header: {
-            Label {
-                Text(title).fontWeight(active ? .semibold : .regular)
-            } icon: {
-                Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle")
-                    .foregroundStyle(complete ? Color.green
-                                     : (active ? Color.accentColor : Color.secondary))
-                    .accessibilityHidden(true)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityValue(complete ? "Complete" : (active ? "Current step" : "Pending"))
-            .accessibilityIdentifier("reconstruct.stage.\(number)")
         }
+        .accessibilityValue(complete ? "Complete" : (active ? "Current step" : "Pending"))
+        .accessibilityIdentifier("reconstruct.stage.\(number)")
     }
 
     private func stageIsComplete(_ number: Int) -> Bool {
@@ -496,36 +555,48 @@ private struct ParallaxProductSection: View {
 
     var body: some View {
         if !appState.availableParallaxProducts.isEmpty {
-            Section {
-                Picker(
-                    "Displayed product",
-                    selection: Binding(
-                        get: { appState.phaseContrast.parallaxResultProduct },
-                        set: appState.showParallaxProduct
-                    )
-                ) {
-                    ForEach(appState.availableParallaxProducts) { product in
-                        Text(product.rawValue).tag(product)
-                    }
-                }
-                if let depth = appState.phaseContrast.parallaxDepth {
+            // Untitled at HEAD (a bare `Section`), and left that way: this
+            // picker isn't a group of settings with a name of its own, and
+            // "Product" collided with the Info tab's own "Product" section
+            // before `inspectorScope` scoped the two apart (F1) — moot now,
+            // but a title here would still invent a name this picker never
+            // had (F6, `InspectorGroup`).
+            InspectorGroup {
+                InspectorRow("Displayed product") {
                     Picker(
-                        "Depth plane",
+                        "Displayed product",
                         selection: Binding(
-                            get: { appState.phaseContrast.parallaxDepthSelectedIndex },
-                            set: appState.selectParallaxDepthPlane
+                            get: { appState.phaseContrast.parallaxResultProduct },
+                            set: appState.showParallaxProduct
                         )
                     ) {
-                        ForEach(depth.depthsAngstrom.indices, id: \.self) { index in
-                            Text(String(format: "%.1f Å", depth.depthsAngstrom[index]))
-                                .tag(index)
+                        ForEach(appState.availableParallaxProducts) { product in
+                            Text(product.rawValue).tag(product)
                         }
+                    }
+                    .labelsHidden()
+                }
+                if let depth = appState.phaseContrast.parallaxDepth {
+                    InspectorRow("Depth plane") {
+                        Picker(
+                            "Depth plane",
+                            selection: Binding(
+                                get: { appState.phaseContrast.parallaxDepthSelectedIndex },
+                                set: appState.selectParallaxDepthPlane
+                            )
+                        ) {
+                            ForEach(depth.depthsAngstrom.indices, id: \.self) { index in
+                                Text(String(format: "%.1f Å", depth.depthsAngstrom[index]))
+                                    .tag(index)
+                            }
+                        }
+                        .labelsHidden()
                     }
                 }
                 if let iterative = appState.phaseContrast.singleslicePtychography {
-                    LabeledContent(
+                    InspectorValueRow(
                         "Ptychography",
-                        value: "\(iterative.errorHistory.count) iterations"
+                        "\(iterative.errorHistory.count) iterations"
                     )
                     ScientificHistoryPlot(
                         title: "\(iterative.options.method.rawValue) error",
@@ -546,34 +617,32 @@ private struct ParallaxRunDetailsSection: View {
 
     var body: some View {
         if let preview = appState.phaseContrast.parallaxPreprocess {
-            Section {
-                DisclosureGroup("Run details", isExpanded: $showsRunDetails) {
-                LabeledContent("BF detector pixels",
-                               value: "\(preview.brightFieldPixelCount)")
-                LabeledContent(
+            InspectorSection("Run details", expanded: $showsRunDetails) {
+                InspectorValueRow("BF detector pixels",
+                                   "\(preview.brightFieldPixelCount)")
+                InspectorValueRow(
                     "Stack",
-                    value: "\(preview.brightFieldPixelCount) × \(preview.stackHeight) × \(preview.stackWidth)"
+                    "\(preview.brightFieldPixelCount) × \(preview.stackHeight) × \(preview.stackWidth)"
                 )
-                LabeledContent(
+                InspectorValueRow(
                     "Stack memory",
-                    value: displayByteString(preview.residentStackByteCount)
+                    displayByteString(preview.residentStackByteCount)
                 )
-                LabeledContent(
+                InspectorValueRow(
                     "Electron wavelength",
-                    value: String(format: "%.5f Å", preview.calibration.wavelengthAngstrom)
+                    String(format: "%.5f Å", preview.calibration.wavelengthAngstrom)
                 )
-                LabeledContent(
+                InspectorValueRow(
                     "Probe-angle extent",
-                    value: String(format: "%.2f mrad", preview.maximumProbeAngleMrad)
+                    String(format: "%.2f mrad", preview.maximumProbeAngleMrad)
                 )
-                LabeledContent(
+                InspectorValueRow(
                     "Initial mismatch",
-                    value: String(format: "%.4f", preview.initialError)
+                    String(format: "%.4f", preview.initialError)
                 )
                 if let alignment = appState.phaseContrast.parallaxAlignment {
                     ParallaxAlignmentDetails(alignment: alignment)
                 }
-            }
             }
         } else {
             // R27 (owner, 2026-09-01): stateful and SPECIFIC. The generic
@@ -585,11 +654,9 @@ private struct ParallaxRunDetailsSection: View {
                 for: .ptychography,
                 readiness: appState.productWorkflowReadiness
             )
-            Section {
+            InspectorSection("Run details") {
                 if missingForPtycho.isEmpty {
-                    Text("All reconstruction requirements are met.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    InspectorNote("All reconstruction requirements are met.")
                 } else {
                     // The enumeration itself belongs to Requirements at the
                     // top of this same column (#21, one owner). What is NOT
@@ -611,57 +678,53 @@ private struct ParallaxAlignmentDetails: View {
     let alignment: ParallaxAlignmentResult
 
     var body: some View {
-        LabeledContent(
+        InspectorValueRow(
             "Aligned level",
-            value: "\(alignment.completedBins.count)/\(alignment.alignmentSchedule.count) · bin \(alignment.alignmentBin) · \(alignment.groups.count) groups"
+            "\(alignment.completedBins.count)/\(alignment.alignmentSchedule.count) · bin \(alignment.alignmentBin) · \(alignment.groups.count) groups"
         )
-        LabeledContent(
+        InspectorValueRow(
             "Bin schedule",
-            value: alignment.alignmentSchedule
+            alignment.alignmentSchedule
                 .map(String.init).joined(separator: " → ")
         )
-        LabeledContent(
+        InspectorValueRow(
             "Correlation",
-            value: "matrix DFT ×\(alignment.upsampleFactor)"
+            "matrix DFT ×\(alignment.upsampleFactor)"
         )
-        LabeledContent(
+        InspectorValueRow(
             "Maximum shift",
-            value: String(format: "%.2f px", alignment.maximumShiftPixels)
+            String(format: "%.2f px", alignment.maximumShiftPixels)
         )
-        LabeledContent(
+        InspectorValueRow(
             "Aligned mismatch",
-            value: String(format: "%.4f", alignment.currentError)
+            String(format: "%.4f", alignment.currentError)
         )
         ScientificHistoryPlot(
             title: "Alignment mismatch",
             values: alignment.errorHistory,
             scale: .logarithmic
         )
-        Text(alignment.isComplete
+        InspectorNote(alignment.isComplete
              ? "Coarse-to-fine alignment schedule complete; aberration fitting and correction remain pending."
              : "Continue with the next bin; cancellation retains this completed level.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
         if let fit = appState.phaseContrast.parallaxAberrationFit {
-            LabeledContent(
+            InspectorValueRow(
                 "Fitted rotation",
-                value: String(format: "%.2f°", fit.rotationRad * 180 / .pi)
+                String(format: "%.2f°", fit.rotationRad * 180 / .pi)
             )
-            LabeledContent("C1", value: String(format: "%.1f Å", fit.c1Angstrom))
-            LabeledContent(
+            InspectorValueRow("C1", String(format: "%.1f Å", fit.c1Angstrom))
+            InspectorValueRow(
                 "C12a / C12b",
-                value: String(
+                String(
                     format: "%.1f / %.1f Å",
                     fit.c12aAngstrom, fit.c12bAngstrom
                 )
             )
-            LabeledContent(
+            InspectorValueRow(
                 "Shift-fit RMS",
-                value: String(format: "%.4f Å", fit.rmsResidualAngstrom)
+                String(format: "%.4f Å", fit.rmsResidualAngstrom)
             )
-            Text("Diagnostic fit only; calibration and aligned data are unchanged.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            InspectorNote("Diagnostic fit only; calibration and aligned data are unchanged.")
             ParallaxFitDetails()
         }
     }
@@ -674,13 +737,13 @@ private struct ParallaxFitDetails: View {
 
     var body: some View {
         if let higher = appState.phaseContrast.parallaxHigherOrderFit {
-            LabeledContent(
+            InspectorValueRow(
                 "Higher-order fit",
-                value: "\(higher.terms.count) terms · \(higher.fitMethod.rawValue)"
+                "\(higher.terms.count) terms · \(higher.fitMethod.rawValue)"
             )
-            LabeledContent(
+            InspectorValueRow(
                 "Higher-order RMS",
-                value: String(format: "%.4f Å", higher.rmsResidualAngstrom)
+                String(format: "%.4f Å", higher.rmsResidualAngstrom)
             )
             Text(
                 zip(higher.terms, higher.coefficientsAngstrom)
@@ -694,26 +757,26 @@ private struct ParallaxFitDetails: View {
             .textSelection(.enabled)
         }
         if let correction = appState.phaseContrast.parallaxCorrection {
-            LabeledContent(
+            InspectorValueRow(
                 "Phase correction",
-                value: correction.usedFullFit
+                correction.usedFullFit
                     ? "full CTF · DC removed"
                     : "C1 fallback · DC removed"
             )
         }
         if let subpixel = appState.phaseContrast.parallaxSubpixel {
-            LabeledContent(
+            InspectorValueRow(
                 "KDE reconstruction",
-                value: String(
+                String(
                     format: "×%.2f · %.4f Å/px",
                     subpixel.upsampleFactor,
                     subpixel.outputSamplingAngstrom
                 )
             )
-            LabeledContent(
+            InspectorValueRow(
                 "KDE output",
                 // Width × height, UI's one order for a shape.
-                value: "\(subpixel.croppedBF.width) × \(subpixel.croppedBF.height)"
+                "\(subpixel.croppedBF.width) × \(subpixel.croppedBF.height)"
             )
             if !subpixel.positionCorrectionScores.isEmpty {
                 ScientificHistoryPlot(

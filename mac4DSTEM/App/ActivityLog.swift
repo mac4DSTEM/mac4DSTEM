@@ -57,6 +57,11 @@ final class ActivityLog {
     /// a suppressed write cannot leak into the one after it.
     func suppressNextRecordOnce() { suppressNextRecord = true }
 
+    /// Empties the log. The bottom workspace's Output tab "Clear" button
+    /// (ADR 034) — a deliberate user action, not a rule this file enforces
+    /// on its own, so it is a plain removal with no suppression bookkeeping.
+    func clear() { messages.removeAll() }
+
     /// Record one status event.
     ///
     /// Three things never reach the log. A readout, per

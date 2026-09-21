@@ -42,30 +42,30 @@ struct PhaseMappingSections: View {
     var body: some View {
         @Bindable var product = appState.phaseMapping
 
-        // Xcode-inspector trial (owner, 2026-09-21): this room's controls are
-        // one nested `Form` styled `.columns` — a trailing label column beside
-        // a leading value column, the classic Mac preferences arrangement —
-        // rather than the outer inspector's boxed `.grouped` sections
-        // (`WorkspaceInspector.swift`). Bold `Text` headers replace the
-        // string-titled `Section`s so the heading survives regardless of the
-        // ambient style, and `Divider()` marks each group boundary by hand.
-        Form {
-        Section {
+        // The Xcode-inspector trial (owner, 2026-09-21) — a nested `Form`
+        // styled `.columns`, bold `Text` headers, hand `Divider()`s — is
+        // retired ("school project"). This room now speaks the inspector's
+        // shared vocabulary (`InspectorRows.swift`): collapsible
+        // `InspectorSection`s with a hairline divider and a consistent label
+        // column. The outer inspector (`WorkspaceInspector.swift`) supplies
+        // the scroll container.
+        InspectorSection("Phases") {
             if product.phases.isEmpty {
-                Text("Add the matrix phase and at least one precipitate phase.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote("Add the matrix phase and at least one precipitate phase.")
             }
             ForEach(Array(product.phases.enumerated()), id: \.element.id) { index, slot in
                 PhaseRow(index: index, slot: slot)
             }
             if product.phases.count > 1 {
-                Picker("Matrix", selection: matrixSelection) {
-                    ForEach(product.phases) { slot in
-                        Text(slot.model.displayName).tag(slot.id)
+                InspectorRow("Matrix") {
+                    Picker("Matrix", selection: matrixSelection) {
+                        ForEach(product.phases) { slot in
+                            Text(slot.model.displayName).tag(slot.id)
+                        }
                     }
+                    .labelsHidden()
+                    .accessibilityIdentifier("phaseMapping.matrix")
                 }
-                .accessibilityIdentifier("phaseMapping.matrix")
                 .help("The matrix is stated, not found: its reflections are removed "
                       + "from every pattern and it is the answer where too little is left.")
 
@@ -74,15 +74,17 @@ struct PhaseMappingSections: View {
                 // reflections to remove, so nothing is removed and every
                 // position comes back "not indexed", which looks exactly like
                 // a method that does not work (the owner's run, 2026-09-12).
-                Button {
-                    Task { await appState.findMatrixZoneAxis() }
-                } label: {
-                    Label("Find Matrix Zone Axis", systemImage: "scope")
+                InspectorActionRow {
+                    Button {
+                        Task { await appState.findMatrixZoneAxis() }
+                    } label: {
+                        Label("Find Matrix Zone Axis", systemImage: "scope")
+                    }
+                    .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil)
+                    .accessibilityIdentifier("phaseMapping.findZoneAxis")
+                    .help("Symmetry-equivalent axes should tie exactly. They are shown "
+                          + "so a fit can be told from a coin toss.")
                 }
-                .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil)
-                .accessibilityIdentifier("phaseMapping.findZoneAxis")
-                .help("Symmetry-equivalent axes should tie exactly. They are shown "
-                      + "so a fit can be told from a coin toss.")
 
                 // A percentage alone cannot be read: at a tight tolerance an
                 // axis explains a few percent of ANY vectors, and the panel
@@ -95,7 +97,7 @@ struct PhaseMappingSections: View {
                 ForEach(Array(product.zoneAxisFits.enumerated()), id: \.offset) { rank, fit in
                     let aboveChance = fit.isAboveChance(
                         multiple: appState.phaseMapping.matching.chanceMatchMultiple)
-                    LabeledContent {
+                    InspectorRow("[\(fit.zoneAxis.x) \(fit.zoneAxis.y) \(fit.zoneAxis.z)]", emphasized: rank == 0) {
                         HStack(spacing: 6) {
                             Text(String(format: "%.0f %% · %.4f Å⁻¹",
                                         100 * fit.explainedFraction, fit.meanDistance))
@@ -107,10 +109,7 @@ struct PhaseMappingSections: View {
                                 Text("no better than a wrong axis").foregroundStyle(.orange)
                             }
                         }
-                    } label: {
-                        Text("[\(fit.zoneAxis.x) \(fit.zoneAxis.y) \(fit.zoneAxis.z)]")
-                            .monospacedDigit()
-                            .foregroundStyle(rank == 0 ? .primary : .secondary)
+                        .labelsHidden()
                     }
                 }
                 if let top = product.zoneAxisFits.first,
@@ -133,19 +132,18 @@ struct PhaseMappingSections: View {
                         .foregroundStyle(.orange)
                 }
             }
-            addPhaseMenu
-        } header: {
-            Text("Phases").font(.headline)
+            InspectorActionRow {
+                addPhaseMenu
+            }
         }
 
-        Divider()
-
-        Section {
-            LabeledContent("Orientations") {
+        InspectorSection("Reference library") {
+            InspectorRow("Orientations") {
                 Text("\(product.projectedEntryCount)")
                     .monospacedDigit()
                     .foregroundStyle(product.projectedEntryCount > product.reference.maximumEntries
                                      ? .orange : .primary)
+                    .labelsHidden()
             }
             parameterField("Max |q|", value: $product.reference.kMaxInvAngstrom,
                            units: "Å⁻¹", format: "%.2f")
@@ -165,28 +163,27 @@ struct PhaseMappingSections: View {
                                value: $product.reference.excitationSlabInvAngstrom,
                                units: "Å⁻¹", format: "%.3f")
             }
-        } header: {
-            Text("Reference library").font(.headline)
         }
 
-        Divider()
-
-        Section {
+        InspectorSection("Matching") {
             // Switching the rule resets the library's "Minimum intensity" to
             // the rule's own default (`PhaseMappingRuleDefaults`) — the user
             // can still edit it afterwards. A pure function, not a listener
             // on the settings struct, so the reset happens exactly once, at
             // the moment of the switch, and not on every unrelated edit.
-            Picker("Classifier", selection: $product.matching.classificationRule) {
-                ForEach(PhaseVectorSettings.ClassificationRule.allCases, id: \.self) { rule in
-                    Text(classifierLabel(rule)).tag(rule)
+            InspectorRow("Classifier") {
+                Picker("Classifier", selection: $product.matching.classificationRule) {
+                    ForEach(PhaseVectorSettings.ClassificationRule.allCases, id: \.self) { rule in
+                        Text(classifierLabel(rule)).tag(rule)
+                    }
                 }
+                .labelsHidden()
+                .onChange(of: product.matching.classificationRule) { _, newRule in
+                    product.reference.minimumIntensityFraction =
+                        PhaseMappingRuleDefaults.minimumIntensityFraction(for: newRule)
+                }
+                .accessibilityIdentifier("phaseMapping.classifierPicker")
             }
-            .onChange(of: product.matching.classificationRule) { _, newRule in
-                product.reference.minimumIntensityFraction =
-                    PhaseMappingRuleDefaults.minimumIntensityFraction(for: newRule)
-            }
-            .accessibilityIdentifier("phaseMapping.classifierPicker")
 
             parameterField("Pair radius", value: $product.matching.pairRadiusInvAngstrom,
                            units: "Å⁻¹", format: "%.3f")
@@ -227,34 +224,37 @@ struct PhaseMappingSections: View {
             // for `.search`'s own floors and cliff — see the footnote above.
             if product.matching.classificationRule == .search,
                let resolution = appState.phaseVectorResolution {
-                LabeledContent("On this detector") {
+                InspectorRow("On this detector") {
                     Text(String(format: "%.2f · %.2f · %.2f px",
                                 resolution.pairRadiusPixels,
                                 resolution.matrixRemovalPixels,
                                 resolution.notIndexedAbovePixels))
                         .monospacedDigit()
                         .foregroundStyle(resolution.advice == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.orange))
+                        .labelsHidden()
                 }
                 if let advice = resolution.advice {
                     Label(advice, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
-                    Button {
-                        appState.scalePhaseMatchingToDetector()
-                    } label: {
-                        Label("Scale to This Detector", systemImage: "arrow.left.and.right")
+                    InspectorActionRow {
+                        Button {
+                            appState.scalePhaseMatchingToDetector()
+                        } label: {
+                            Label("Scale to This Detector", systemImage: "arrow.left.and.right")
+                        }
+                        .disabled(appState.isBusy)
+                        .accessibilityIdentifier("phaseMapping.scaleToDetector")
                     }
-                    .disabled(appState.isBusy)
-                    .accessibilityIdentifier("phaseMapping.scaleToDetector")
                 }
             }
-        } header: {
-            Text("Matching").font(.headline)
         }
 
-        Divider()
-
-        Section {
+        // Untitled at HEAD, and left that way: a title here would invent a
+        // name this run button never had, and "Run" now also collides with
+        // the bottom pane's own Run tab (F6, `InspectorGroup` — no header,
+        // not collapsible).
+        InspectorGroup {
             if let refusal = product.runRefusal {
                 Label(refusal, systemImage: "nosign")
                     .font(.caption)
@@ -266,22 +266,21 @@ struct PhaseMappingSections: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
-            Button {
-                Task { await appState.runPhaseMapping() }
-            } label: {
-                Label("Map Phases", systemImage: "square.grid.3x3.topleft.filled")
+            InspectorActionRow {
+                Button {
+                    Task { await appState.runPhaseMapping() }
+                } label: {
+                    Label("Map Phases", systemImage: "square.grid.3x3.topleft.filled")
+                }
+                .disabled(appState.isBusy || product.runRefusal != nil
+                          || appState.resultPresentation.braggVectors == nil)
+                .accessibilityIdentifier("phaseMapping.run")
             }
-            .disabled(appState.isBusy || product.runRefusal != nil
-                      || appState.resultPresentation.braggVectors == nil)
-            .accessibilityIdentifier("phaseMapping.run")
         }
 
         if let map = product.map, let run = product.lastRun {
-            Divider()
             resultSection(map: map, run: run, product: product)
         }
-        }
-        .formStyle(.columns)
     }
 
     // MARK: Result
@@ -289,7 +288,7 @@ struct PhaseMappingSections: View {
     @ViewBuilder
     private func resultSection(map: PhaseMap, run: PhaseMappingProduct.RunRecord,
                                product: PhaseMappingProduct) -> some View {
-        Section {
+        InspectorSection("Result") {
             Label("Unvalidated — this method has not been scored against an "
                   + "external ground truth in this app. Read the map; do not "
                   + "quote a phase fraction from it. Object counts and "
@@ -307,14 +306,13 @@ struct PhaseMappingSections: View {
             }
 
             ForEach(Array(PhaseMapPresentation.legend(map).enumerated()), id: \.offset) { _, row in
-                LabeledContent {
-                    Text(String(format: "%.1f %%", 100 * row.fraction))
-                        .monospacedDigit()
-                } label: {
+                InspectorRow(row.label) {
                     HStack(spacing: 6) {
                         swatch(row)
-                        Text(row.label)
+                        Text(String(format: "%.1f %%", 100 * row.fraction))
+                            .monospacedDigit()
                     }
+                    .labelsHidden()
                 }
             }
 
@@ -325,11 +323,12 @@ struct PhaseMappingSections: View {
             // row above, extended by one line.
             if let objects = appState.precipitateClassification.result {
                 ForEach(objects.classes, id: \.label) { classObjects in
-                    LabeledContent(precipitatePhaseName(classObjects.label, map: map)) {
+                    InspectorRow(precipitatePhaseName(classObjects.label, map: map)) {
                         Text(precipitateObjectsLine(classObjects))
                             .font(.caption)
                             .monospacedDigit()
                             .multilineTextAlignment(.trailing)
+                            .labelsHidden()
                     }
                     .help(objects.analysedAreaRule)
                 }
@@ -343,9 +342,10 @@ struct PhaseMappingSections: View {
             // another whose every acceptance clause passes (2026-09-16,
             // `open-items.md`), so the number is given and the reader judges.
             if let explained = PhaseMapPresentation.medianMatrixExplainedFraction(map) {
-                LabeledContent("Matrix evidence") {
+                InspectorRow("Matrix evidence") {
                     Text(String(format: "%.0f %% of vectors, median", 100 * explained))
                         .monospacedDigit()
+                        .labelsHidden()
                 }
                 .help("How much of each matrix position's detected signal the matrix "
                       + "itself accounts for. Near 100 % the matrix explains the pattern; "
@@ -364,29 +364,32 @@ struct PhaseMappingSections: View {
             }
 
             if let evidence = appState.phaseMappingEvidenceLine {
-                LabeledContent("Evidence") {
+                InspectorRow("Evidence") {
                     Text(evidence)
                         .font(.caption)
                         .multilineTextAlignment(.trailing)
+                        .labelsHidden()
                 }
                 .help("The scan position under the cursor, and why it is that colour.")
             }
 
-            Button {
-                appState.publishPhaseDistanceProduct()
-            } label: {
-                Label("Show Match Distance", systemImage: "ruler")
+            InspectorActionRow {
+                Button {
+                    appState.publishPhaseDistanceProduct()
+                } label: {
+                    Label("Show Match Distance", systemImage: "ruler")
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("phaseMapping.showDistance")
             }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("phaseMapping.showDistance")
 
-            LabeledContent("Chance match at max |q|",
-                           value: String(format: "%.1f %%", run.worstChanceMatchPercent))
-            LabeledContent("Orientations", value: "\(run.libraryEntryCount)")
+            InspectorValueRow("Chance match at max |q|",
+                               String(format: "%.1f %%", run.worstChanceMatchPercent))
+            InspectorValueRow("Orientations", "\(run.libraryEntryCount)")
             if run.matrixInPlaneDegrees.isFinite {
-                LabeledContent("Matrix in-plane",
-                               value: String(format: "%.0f° (mod symmetry)",
-                                             run.matrixInPlaneDegrees))
+                InspectorValueRow("Matrix in-plane",
+                                   String(format: "%.0f° (mod symmetry)",
+                                          run.matrixInPlaneDegrees))
             }
             if !run.qScaleIsPhysical {
                 Label("The Å⁻¹ scale is exploratory, not calibrated — every "
@@ -395,8 +398,6 @@ struct PhaseMappingSections: View {
                     .font(.caption2)
                     .foregroundStyle(.orange)
             }
-        } header: {
-            Text("Result").font(.headline)
         }
     }
 
@@ -570,7 +571,7 @@ struct PhaseMappingSections: View {
         /// on the row, rather than silently becoming [0 0 0].
         private var zoneAxisField: some View {
             @Bindable var product = appState.phaseMapping
-            return LabeledContent("Zone axis") {
+            return InspectorRow("Zone axis") {
                 TextField("u v w", text: Binding(
                     get: { draft },
                     set: { text in
@@ -584,6 +585,7 @@ struct PhaseMappingSections: View {
                 ))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
+                .labelsHidden()
             }
         }
 
@@ -595,7 +597,7 @@ struct PhaseMappingSections: View {
         /// the run actually uses.
         private var orientationRelationshipField: some View {
             @Bindable var product = appState.phaseMapping
-            return LabeledContent("Parallel to matrix") {
+            return InspectorRow("Parallel to matrix") {
                 TextField("(002) ∥ (200), (002) ∥ (020)", text: Binding(
                     get: { orientationDraft },
                     set: { text in
@@ -606,6 +608,7 @@ struct PhaseMappingSections: View {
                 ))
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
+                .labelsHidden()
             }
             .help("This phase's plane (hkl) or direction [uvw] that lies parallel "
                   + "to the matrix's, as an orientation relationship is written; "
@@ -627,15 +630,17 @@ struct PhaseMappingSections: View {
     private func parameterField(_ title: String, value: Binding<Double>,
                                 units: String, format: String, help: String? = nil) -> some View {
         if let help {
-            LabeledContent(title) {
+            InspectorRow(title) {
                 NumericField(title, value: value,
                              format: .number.precision(.fractionLength(3)), unit: units)
+                    .labelsHidden()
             }
             .help(help)
         } else {
-            LabeledContent(title) {
+            InspectorRow(title) {
                 NumericField(title, value: value,
                              format: .number.precision(.fractionLength(3)), unit: units)
+                    .labelsHidden()
             }
         }
     }
@@ -643,13 +648,15 @@ struct PhaseMappingSections: View {
     @ViewBuilder
     private func intField(_ title: String, value: Binding<Int>, help: String? = nil) -> some View {
         if let help {
-            LabeledContent(title) {
+            InspectorRow(title) {
                 NumericField(title, value: value, format: .number)
+                    .labelsHidden()
             }
             .help(help)
         } else {
-            LabeledContent(title) {
+            InspectorRow(title) {
                 NumericField(title, value: value, format: .number)
+                    .labelsHidden()
             }
         }
     }

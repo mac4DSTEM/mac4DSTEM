@@ -18,7 +18,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 008 | macOS floor and arm64-only | 09-04, 09-11 | live |
 | 009 | UI contract | 09-03, 09-04, 09-07 | live (09-03 AppKit superseded) |
 | 010 | System presentation and run action | 09-03, 09-04 | live |
-| 011 | Status strip readouts | 09-04, 09-12 | live (09-04 narrowed) |
+| 011 | Status strip readouts | 09-04, 09-12 | live (09-04 narrowed; throughput and the Performance rows moved to the Run tab by 034, 09-21) |
 | 012 | Refusals not defaults | 09-04, 09-05 | live |
 | 013 | Residency `.automatic` dropped | 08-18 | live |
 | 014 | Learned disk detector | 09-06/07/08 | live |
@@ -41,6 +41,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 031 | v3 sequencing | 08-28, 09-03 | live |
 | 032 | Docs consolidation and the ADR layout | 09-16, 09-17 | live |
 | 033 | v3.1 leads with the origin validity mask (disclosure-only) | 09-17 | live |
+| 034 | Bottom workspace holds live state; the inspector holds durable state (Xcode utility-pane form) | 09-21 | live; narrows 011 |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

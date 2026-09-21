@@ -7,19 +7,16 @@ import DSTEMSession
 /// The Results workspace's inspector Settings tab: the saved-product chooser
 /// that was the old `ResultsSidebar`. It moves unchanged in substance — same
 /// rows, same wording, same identifiers — from a `.sidebar` List (where
-/// `LabeledContent` crushed onto one line) into the inspector's grouped
-/// `Form`, where it stacks as intended. Body is bare `Section`s for the
-/// caller's `Form`.
+/// `LabeledContent` crushed onto one line) into the inspector's Lightroom-
+/// style vocabulary (`UI/InspectorRows.swift`), where it stacks as intended.
 struct ResultsSettings: View {
     @Environment(AppState.self) private var appState
     @State private var pendingResultRemoval: SessionResultDescriptor?
 
     var body: some View {
-        Section("Saved products") {
+        InspectorSection("Saved products") {
             if appState.sessionInventory.results.isEmpty {
-                Text("Nothing saved yet. Save to Session keeps the visible result with this dataset, available after reopening.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote("Nothing saved yet. Save to Session keeps the visible result with this dataset, available after reopening.")
                     .accessibilityIdentifier("results.nothingSaved")
             } else {
                 ForEach(appState.sessionInventory.results) { result in
@@ -29,11 +26,8 @@ struct ResultsSettings: View {
             if let controls = appState.selectedSavedControlRehydration {
                 Text("Saved settings available")
                     .fontWeight(.medium)
-                Text(controls.summary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Choose Dataset → Apply Saved Controls to use these settings.")
-                    .font(.caption).foregroundStyle(.secondary)
+                InspectorNote(controls.summary)
+                InspectorNote("Choose Dataset → Apply Saved Controls to use these settings.")
             }
         }
         .confirmationDialog(
@@ -55,6 +49,10 @@ struct ResultsSettings: View {
         }
     }
 
+    /// The row's main tap target (select this saved result) is left as a
+    /// native `Button` — its label is a multi-line composite (name, icon,
+    /// dimensions, sampling caption), not a plain string, so the simple-
+    /// string row API would drop that structure.
     @ViewBuilder
     private func savedProductRow(_ result: SessionResultDescriptor) -> some View {
         let isCurrent = result.id == appState.sessionInventory.currentResultID
@@ -88,7 +86,7 @@ struct ResultsSettings: View {
         .accessibilityHint("Displays this saved result")
         .accessibilityIdentifier("session.savedResult")
 
-        LabeledContent("Compare") {
+        InspectorRow("Compare") {
             HStack(spacing: 6) {
                 Button("A") { Task { await appState.loadSavedSessionResult(result, into: .a) } }
                     .help("Load into comparison A")
@@ -97,6 +95,7 @@ struct ResultsSettings: View {
                     .help("Load into comparison B")
                     .accessibilityLabel("Load \(result.displayName) into comparison B")
             }
+            .labelsHidden()
         }
         .controlSize(.small)
         .buttonStyle(.bordered)
@@ -104,15 +103,17 @@ struct ResultsSettings: View {
         // Its own row: alongside A/B, "Remove" truncated to "Remo…" in the
         // 250pt capture (2026-09-03) — three bordered controls do not fit
         // one Compare row at the column minimum.
-        Button(role: .destructive) {
-            pendingResultRemoval = result
-        } label: {
-            Label("Remove", systemImage: "trash")
+        InspectorActionRow {
+            Button(role: .destructive) {
+                pendingResultRemoval = result
+            } label: {
+                Label("Remove", systemImage: "trash")
+            }
+            .controlSize(.small)
+            // C4(a): removal rebuilds the sidecar too — same gate as the saves.
+            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
+            .help("Remove saved result")
+            .accessibilityLabel("Remove \(result.displayName)")
         }
-        .controlSize(.small)
-        // C4(a): removal rebuilds the sidecar too — same gate as the saves.
-        .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
-        .help("Remove saved result")
-        .accessibilityLabel("Remove \(result.displayName)")
     }
 }

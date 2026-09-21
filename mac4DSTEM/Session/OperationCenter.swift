@@ -38,7 +38,32 @@ package final class OperationCenter {
     /// Fractional progress [0,1] of the running operation, nil when idle or
     /// indeterminate.
     package var progress: Double?
+
+    /// Bytes streamed so far by the running operation, when the loader
+    /// underneath it reports a byte count — nil when the operation does not
+    /// (or none is running). The bottom workspace's Run tab prints it as
+    /// "Streamed"; cleared on `begin`/`finish`/`reset` like `progress`.
+    package var bytesStreamed: Int64?
+
+    /// Whether a finished operation ran to completion or was stopped early.
+    /// `finish(_:)` runs on BOTH paths — `runVirtualDetector`'s
+    /// `defer { finishCancellableOperation(cancellation) }` reaches it same
+    /// as a normal finish — so this is read from the TOKEN's own
+    /// `isCancelled` bit at the moment `finish` is called, not inferred from
+    /// elapsed time or any other proxy that a cancelled-but-fast run could
+    /// share with a completed one.
+    package enum Outcome: Equatable {
+        case completed
+        case cancelled
+    }
+
+    /// The most recently finished operation's name, wall-clock elapsed time,
+    /// finish timestamp and outcome — the Run tab's idle-state "Last run"
+    /// line. Cleared by the next `begin`, so it never describes two runs ago.
+    package private(set) var lastFinished: (name: String, elapsed: TimeInterval, at: Date, outcome: Outcome)?
+
     @ObservationIgnored private let controller: AnalysisOperationController
+    @ObservationIgnored private let now: () -> Date
 
     /// Closures, not an `AppPreferences` reference, for the same reason
     /// `Session/ReplayRun.swift`'s keep-awake pair is injectable: a unit test
@@ -54,29 +79,58 @@ package final class OperationCenter {
     package init(
         controller: AnalysisOperationController = AnalysisOperationController(),
         beginKeepAwake: @escaping () -> NSObjectProtocol? = { nil },
-        endKeepAwake: @escaping (NSObjectProtocol) -> Void = { _ in }
+        endKeepAwake: @escaping (NSObjectProtocol) -> Void = { _ in },
+        now: @escaping () -> Date = Date.init
     ) {
         self.controller = controller
         self.beginKeepAwake = beginKeepAwake
         self.endKeepAwake = endKeepAwake
+        self.now = now
     }
 
     package var activeOperation: String? { controller.name }
     package var canCancel: Bool { isBusy && controller.hasActiveOperation }
 
+    /// The controller's own total, forwarded so a view never reaches past
+    /// `OperationCenter` for it (bottom-workspace Run tab, ADR 034).
+    package var totalUnits: Int? { controller.totalUnits }
+
+    /// `(progress × totalUnits).rounded()`, nil until both are known — the
+    /// Run tab's "Positions done / total" row.
+    package var unitsDone: Int? {
+        guard let total = controller.totalUnits, let progress else { return nil }
+        return Int((progress * Double(total)).rounded())
+    }
+
     package func begin(name: String, totalUnits: Int?) -> AnalysisCancellationToken {
         let token = controller.begin(name: name, totalUnits: totalUnits)
         isBusy = true
         progress = 0
+        bytesStreamed = nil
+        lastFinished = nil
         return token
     }
 
     /// True when `token` was the current operation and it is now over.
     @discardableResult
     package func finish(_ token: AnalysisCancellationToken) -> Bool {
+        // Read the controller's own metrics BEFORE it forgets the operation
+        // (`controller.finish` clears `active`), so the "Last run" line can
+        // report how long the run actually took.
+        let name = controller.name
+        let elapsedAtFinish = controller.metrics(progress: progress)?.elapsed
+        // Read BEFORE `controller.finish` — cancellation lives on the token,
+        // not the controller, so this ordering is not load-bearing, but it
+        // keeps every fact this method records read from the same pre-finish
+        // snapshot.
+        let outcome: Outcome = token.isCancelled ? .cancelled : .completed
         guard controller.finish(token) else { return false }
+        if let name, let elapsedAtFinish {
+            lastFinished = (name: name, elapsed: elapsedAtFinish, at: now(), outcome: outcome)
+        }
         isBusy = false
         progress = nil
+        bytesStreamed = nil
         return true
     }
 
@@ -87,6 +141,17 @@ package final class OperationCenter {
     package func update(_ token: AnalysisCancellationToken, progress fraction: Double) -> Bool {
         guard controller.isCurrent(token), !token.isCancelled else { return false }
         progress = min(1, max(0, fraction))
+        return true
+    }
+
+    /// Accepts a streamed-byte count only from the current, uncancelled
+    /// operation — the same guard as `update(_:progress:)`, so Cancel
+    /// freezes "Streamed" at the same instant it freezes progress/positions
+    /// instead of letting a late progress callback keep advancing it.
+    @discardableResult
+    package func update(_ token: AnalysisCancellationToken, bytesStreamed: Int64) -> Bool {
+        guard controller.isCurrent(token), !token.isCancelled else { return false }
+        self.bytesStreamed = bytesStreamed
         return true
     }
 
@@ -106,5 +171,7 @@ package final class OperationCenter {
         controller.reset()
         isBusy = false
         progress = nil
+        bytesStreamed = nil
+        lastFinished = nil
     }
 }

@@ -103,7 +103,10 @@ is its own product").
   a time — undecided). Builds on the log's existing dragged height
   (`LayoutPolicy`); must stay a SwiftUI drag-resized area, never
   `VSplitView` (decision 009). Inspector to follow Xcode's label-column
-  form; the Phase mapping room is the trial. Unclaimed, unscheduled.
+  form; the Phase mapping room is the trial. **Landed 2026-09-21** (ADR 034):
+  Output / Run / Lineage tabs, a one-line strip with a memory glance, the
+  inspector vocabulary in every room; unseen. Copy/search/filter and the
+  graph are later steps.
 - **Lineage graph with real rewind** (owner, 2026-09-21) — every derived
   product shows its inputs as a graph, and clicking a node rewinds the
   parameter state, not a text history. Nothing exists today beyond the

@@ -66,8 +66,36 @@ enum LayoutPolicy {
     /// column, not by this.
     static let thumbnailMaximumHeight: CGFloat = 320
 
-    /// The output log's dragged height.
-    static let outputLogHeight: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (80, 150, 420)
+    // Bottom workspace + status strip + inspector vocabulary (ADR 034, owner
+    // 2026-09-21): the inspector holds durable state, the bottom pane live
+    // state. Every fixed point in that surface is named here.
+
+    /// The bottom workspace's dragged height; the view also caps it at
+    /// `bottomWorkspaceMaxFraction` of the workspace so it can never eat
+    /// the centre panes.
+    static let bottomWorkspaceHeight: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (120, 220, 900)
+    static let bottomWorkspaceMaxFraction: CGFloat = 0.7
+
+    /// The Output / Run / Lineage tab row above the bottom workspace.
+    static let bottomTabBarHeight: CGFloat = 26
+
+    /// The permanent status strip: one line, nothing taller.
+    static let statusStripHeight: CGFloat = 22
+
+    /// The memory/residency glance slot in the strip — a constant width, like
+    /// the metrics slot (011), so a changing figure never reflows the strip.
+    static let statusGlanceWidth: CGFloat = 150
+
+    /// The Run tab's label column.
+    static let runMonitorLabelWidth: CGFloat = 110
+
+    /// The inspector's utility-pane label column and its rhythm.
+    static let inspectorLabelWidth: CGFloat = 96
+    static let inspectorRowSpacing: CGFloat = 6
+    static let inspectorSectionSpacing: CGFloat = 12
+
+    /// The editable value field beside an `AdjustmentSlider`.
+    static let adjustmentValueWidth: CGFloat = 64
 
     /// A control popover (the colorbar chip).
     static let popoverWidth: CGFloat = 280
@@ -196,6 +224,16 @@ enum OperationMetricsFormat {
         String(format: "%.1f %@", rate, throughputUnit(for: operation))
     }
 
+    /// The Run tab's idle "Last run" line: the run's name and how long it
+    /// took — worded differently for a run that was stopped than one that
+    /// finished, so Cancel never reads as if the run completed. Takes a
+    /// plain `Bool` rather than `OperationCenter.Outcome` so this formatter
+    /// stays free of the Session-module type; the call site translates.
+    static func lastRun(_ name: String, elapsed: TimeInterval, cancelled: Bool) -> String {
+        let durationText = duration(elapsed)
+        return cancelled ? "\(name) — cancelled after \(durationText)" : "\(name) — \(durationText)"
+    }
+
     /// The status bar's single line: elapsed, and an ETA once the run can
     /// estimate one. Elapsed is always real; an ETA it cannot yet estimate is
     /// absent rather than invented, because an invented ETA is a number the
@@ -226,6 +264,31 @@ enum OperationMetricsFormat {
             parts.append("ETA " + duration(eta))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// The status strip's memory/residency glance (ADR 034): app resident
+    /// memory beside whether the open cube is held in memory or streamed —
+    /// "1.4 GB · resident", "612 MB · streaming". One style throughout UI
+    /// (`displayByteString`/`SystemMonitor.byteString` are 1024-based too),
+    /// but this slot is fixed-width and ticks every 2 s, so it takes the raw
+    /// MB figure rather than a pre-formatted string, the same shape as
+    /// `duration`/`throughput` above.
+    static func glance(residentMB: Double, residency isResident: Bool) -> String {
+        let value: String
+        // GB before MB, TB before GB: `>=`, not `>`, at each boundary — a
+        // dataset that lands EXACTLY on 1 GB or 1 TB reads in the coarser
+        // unit rather than as "1024.0 MB"/"1024.0 GB". The TB branch exists
+        // because the GB-only formatter used to read a two-terabyte cube as
+        // "2048.0 GB" — a number no reader parses at a glance the way "2.0
+        // TB" does.
+        if residentMB >= 1024 * 1024 {
+            value = String(format: "%.1f TB", residentMB / (1024 * 1024))
+        } else if residentMB >= 1024 {
+            value = String(format: "%.1f GB", residentMB / 1024)
+        } else {
+            value = String(format: "%.0f MB", residentMB)
+        }
+        return "\(value) · \(isResident ? "resident" : "streaming")"
     }
 }
 

@@ -2,7 +2,7 @@
 
 Dates: 2026-09-04, 2026-09-12
 
-Status: live; the 2026-09-04 reserved-slot form is narrowed by the 2026-09-12 entries
+Status: live; the 2026-09-04 reserved-slot form is narrowed by the 2026-09-12 entries; 034 (2026-09-21) moves throughput and the Performance rows to the bottom workspace's Run tab and adds a second reserved slot (the memory/residency glance)
 
 ## Decision
 

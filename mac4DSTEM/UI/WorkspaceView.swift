@@ -18,22 +18,32 @@ import DSTEMSession
 struct WorkspaceView: View {
     @Environment(AppState.self) private var appState
 
-    /// The output log's dragged height, remembered for the session. A
-    /// `VSplitView` cannot divide the panes from the log — both are greedy,
-    /// so it splits them evenly and the panes lose half the window — so the
-    /// divider above the log carries the drag itself.
-    @State private var logHeight: CGFloat = LayoutPolicy.outputLogHeight.ideal
+    /// The bottom workspace's dragged height, remembered for the session. A
+    /// `VSplitView` cannot divide the panes from it — both are greedy, so it
+    /// splits them evenly and the panes lose half the window — so the
+    /// workspace's own drag handle (`BottomWorkspace`) carries the resize.
+    @State private var bottomWorkspaceHeight: CGFloat = LayoutPolicy.bottomWorkspaceHeight.ideal
 
-    /// The height the current drag started from. Without it the gesture's
-    /// cumulative `translation` is re-applied on every change event and the
-    /// strip snaps to a limit after a few points of travel.
-    @State private var logHeightAtDragStart: CGFloat?
+    /// The WHOLE workspace frame's measured height — the detail column's
+    /// full height, not reduced by the bottom workspace's own
+    /// `safeAreaInset` below. `BottomWorkspace` clamps itself to
+    /// `bottomWorkspaceMaxFraction` of this (ADR 034), the same way
+    /// `PaneSplit` reads its own container with a `GeometryReader` rather
+    /// than a view announcing a minimum upward.
+    ///
+    /// **Must not include the inset.** The `GeometryReader` that publishes
+    /// this (below, in `.background`) sits AFTER `.safeAreaInset` in the
+    /// modifier chain and `.ignoresSafeArea()`s, specifically so the pane it
+    /// caps is not also part of what shrinks the ceiling it is capped
+    /// against. Measuring the inset-reduced content instead — as an earlier
+    /// version of this view did — makes the cap and the measurement two
+    /// readings of the SAME shrinking quantity: growing the pane shrinks the
+    /// measured height, which shrinks the ceiling, which the 0.7 fraction
+    /// damps into convergence rather than a runaway, but a drag that ends
+    /// near the ceiling still takes several frames to settle instead of one.
+    @State private var workspaceHeight: CGFloat = 0
 
-    /// Grab margin for the log's divider, in points. Not a layout size: it
-    /// only widens the hit test, so the 1 pt rule stays 1 pt tall.
-    private let dividerGrab: CGFloat = 5
-
-    private var showsLog: Bool {
+    private var showsBottomWorkspace: Bool {
         appState.navigation.showLogPane && appState.hasDataset && !appState.datasetSession.isLoading
     }
 
@@ -42,14 +52,34 @@ struct WorkspaceView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    if showsLog {
-                        logResizeHandle
-                        outputLog
+                    if showsBottomWorkspace {
+                        BottomWorkspace(
+                            height: $bottomWorkspaceHeight,
+                            maxHeight: max(
+                                LayoutPolicy.bottomWorkspaceHeight.min,
+                                workspaceHeight * LayoutPolicy.bottomWorkspaceMaxFraction
+                            )
+                        )
                     }
                     Divider()
                     StatusBar()
                 }
             }
+            // Measures the WHOLE workspace, not `content` alone: attached
+            // AFTER `.safeAreaInset` above (so it reads the composite's outer
+            // frame, which `.safeAreaInset` does not shrink) and
+            // `.ignoresSafeArea()`s so the reader itself is never proposed a
+            // size already reduced by the inset it sits behind. See
+            // `workspaceHeight`'s doc comment for why the alternative —
+            // measuring inside the inset — couples the pane's ceiling to the
+            // pane's own height.
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(key: WorkspaceHeightPreferenceKey.self, value: geometry.size.height)
+                }
+                .ignoresSafeArea()
+            )
+            .onPreferenceChange(WorkspaceHeightPreferenceKey.self) { workspaceHeight = $0 }
     }
 
     @ViewBuilder
@@ -117,69 +147,6 @@ struct WorkspaceView: View {
         .accessibilityIdentifier("welcome.loadingStatus")
     }
 
-    // MARK: - Output log
-
-    /// Rolling output log below the panes, auto-scrolled to the latest line.
-    private var outputLog: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(Array(appState.activityLog.messages.enumerated()), id: \.offset) { index, line in
-                        Text(line)
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                            .id(index)
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-            }
-            .onChange(of: appState.activityLog.messages.count) {
-                if let target = ActivityLog.scrollTarget(forCount: appState.activityLog.messages.count) {
-                    proxy.scrollTo(target, anchor: .bottom)
-                }
-            }
-            .onAppear {
-                // `.onChange` never fires the first time the panel appears,
-                // so without this the strip opens scrolled to its top. The
-                // rows from `ForEach` may not exist yet on this same tick,
-                // so the scroll is deferred a runloop turn rather than run
-                // inline.
-                guard let target = ActivityLog.scrollTarget(forCount: appState.activityLog.messages.count) else { return }
-                DispatchQueue.main.async {
-                    proxy.scrollTo(target, anchor: .bottom)
-                }
-            }
-        }
-        // No ground of its own: the divider above it and the window's own
-        // material are the strip's whole look.
-        .frame(height: logHeight)
-    }
-
-    /// The log's top edge, draggable the way a split divider is. Pure
-    /// SwiftUI: no cursor push, no event monitor.
-    private var logResizeHandle: some View {
-        Divider()
-            .contentShape(Rectangle().inset(by: -dividerGrab))
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        let base = logHeightAtDragStart ?? logHeight
-                        if logHeightAtDragStart == nil { logHeightAtDragStart = base }
-                        // Up is negative in SwiftUI's coordinate space, and
-                        // the strip grows upward.
-                        logHeight = min(
-                            max(LayoutPolicy.outputLogHeight.min, base - value.translation.height),
-                            LayoutPolicy.outputLogHeight.max
-                        )
-                    }
-                    .onEnded { _ in logHeightAtDragStart = nil }
-            )
-            .accessibilityLabel("Resize the output log")
-    }
-
     // MARK: - Keyboard
 
     /// Arrow keys step the selected scan position (Shift = 10 px steps).
@@ -198,6 +165,18 @@ struct WorkspaceView: View {
         appState.selectScan(x: min(max(0, x), d.rx - 1),
                             y: min(max(0, y), d.ry - 1))
         return .handled
+    }
+}
+
+/// The science panes' measured height, read once per layout pass so
+/// `BottomWorkspace` can clamp itself to a fraction of it. `reduce` keeps the
+/// LAST reported value — there is only ever one `GeometryReader` publishing
+/// this key — matching the one-writer shape every other `PreferenceKey` in
+/// this file's sibling views uses.
+private struct WorkspaceHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
@@ -484,17 +463,20 @@ struct WelcomeWorkspace: View {
     }
 }
 
-// MARK: - The bottom strip
+// MARK: - The status strip
 
-/// The permanent status strip along the detail column's bottom edge.
+/// The permanent status strip along the detail column's bottom edge — one
+/// line, `LayoutPolicy.statusStripHeight` tall, nothing taller (ADR 034,
+/// owner 2026-09-21: live operational detail moved to the bottom workspace's
+/// Run tab, so this strip only glances).
 ///
-/// Left: the status line. Middle: a slim live progress bar with Cancel
-/// whenever a cancellable operation runs, so a long compute stays visible and
-/// killable from every workspace. Right: the standing facts — app memory,
-/// cube working size, residency — always on, plus the log's own control, the
-/// way Xcode's debug area is toggled from the bar it opens above. The
-/// inspector's Performance block keeps the full detail (GPU name, working-set
-/// limit); this is the glanceable subset.
+/// Left: the status line. Then, while a cancellable operation runs, a slim
+/// progress bar and its elapsed/ETA readout — Cancel itself moved to the Run
+/// tab (`BottomWorkspace`), because no test here pins a stop control IN the
+/// strip and the strip is the one surface this session had to make narrower,
+/// not wider. Then the memory/residency glance, always on. Right: the bottom
+/// workspace's own toggle, the way Xcode's debug area is opened from the bar
+/// above it.
 ///
 /// No bar of its own: the safe-area inset and the divider above it are its
 /// whole look.
@@ -505,19 +487,13 @@ struct StatusBar: View {
         @Bindable var navigation = appState.navigation
 
         HStack(spacing: 12) {
-            // One line, truncating: at ~1080 pt window width this used to
-            // wrap onto a second line and grow the bar's height with it —
-            // the strip has no bar of its own, so the message dictating its
-            // own height is a layout dependency this file otherwise refuses
-            // to take (see `operationMetrics` and the percentage above it).
-            // One line, truncating: at ~1080 pt window width this used to
-            // wrap onto a second line and grow the bar's height with it —
-            // the strip has no bar of its own, so the message dictating its
-            // own height is a layout dependency this file otherwise refuses
-            // to take. `.help` is the remedy for the truncation itself: the
-            // owner's screenshot of 2026-09-12 shows this line cut mid-file
-            // name with no way to read the rest, and the sidebar's dataset
-            // row already answers that with exactly this modifier.
+            // One line, truncating — the strip has no bar of its own, so the
+            // message dictating its own height is a layout dependency this
+            // file otherwise refuses to take. `.help` is the remedy for the
+            // truncation itself: the owner's screenshot of 2026-09-12 shows
+            // this line cut mid-file name with no way to read the rest, and
+            // the sidebar's dataset row already answers that with exactly
+            // this modifier.
             Text(appState.statusText)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -539,57 +515,16 @@ struct StatusBar: View {
                         .accessibilityValue(appState.progress
                             .map { "\(Int($0 * 100)) percent" } ?? "")
                     operationReadout
-                    if appState.canCancelActiveOperation {
-                        // A BORDERLESS GLYPH, not `Button("Cancel").controlSize(.mini)`.
-                        //
-                        // `.mini` sets a button's label to 9 pt — measured —
-                        // against this strip's own 10 pt `caption2`, so the one
-                        // control a user must be able to hit was the smallest
-                        // thing in the bar. Worse, its label was the only
-                        // FLEXIBLE child left in the busy group once the bar
-                        // and the readout took constant widths, so a tight row
-                        // squeezed it to "C…" — reproduced at 1080 pt, and the
-                        // identical symptom is already recorded for the toolbar
-                        // copy at `PrimaryActionButton.operationProgress`.
-                        //
-                        // Apple ships `NSImage.stopProgressFreestandingTemplateName`
-                        // for precisely this — its own documentation says "you
-                        // can use this image to implement a borderless button"
-                        // — and Finder's copy sheet and Safari's downloads
-                        // popover both stop work with a borderless glyph
-                        // attached to the progress it stops. The repo's own
-                        // Remove-from-Recents row forty lines above is the
-                        // same idiom. A glyph has an intrinsic size, so it
-                        // cannot truncate; the HIG's answer to losing the word
-                        // is the tooltip below.
-                        //
-                        // `.secondary`, not the Recents row's `.tertiary`: the
-                        // faintest thing in the strip is the wrong weight for
-                        // the control that stops a forty-minute compute.
-                        Button {
-                            appState.cancelActiveOperation()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Stop \(appState.activeOperation ?? "this operation")")
-                        .accessibilityLabel("Cancel \(appState.activeOperation ?? "operation")")
-                        .accessibilityIdentifier("status.footer.cancel")
-                    }
                 }
-                // NO `.accessibilityElement(children: .combine)` here. It used
-                // to merge the Cancel button out of the accessibility tree as
-                // a button — the control was unreachable to VoiceOver, which
-                // is the opposite of what combining was for. And with no
-                // element of its own the group must carry no identifier
-                // either, or the bar, the readout and the button would all
-                // answer to it.
+                // NO `.accessibilityElement(children: .combine)` here — it
+                // would merge the readout out of the accessibility tree.
             }
+
+            memoryGlance
 
             if appState.hasDataset && !appState.datasetSession.isLoading {
                 // A system toggle draws its own on-state, so the strip needs
-                // no tint of its own. The toolbar's Show/Hide Output item is
+                // no tint of its own. The menu's Show/Hide Bottom Pane item is
                 // the second door onto the same flag.
                 Toggle(isOn: $navigation.showLogPane) {
                     Image(systemName: "rectangle.bottomthird.inset.filled")
@@ -597,13 +532,14 @@ struct StatusBar: View {
                 .toggleStyle(.button)
                 .controlSize(.small)
                 .help(appState.navigation.showLogPane
-                      ? "Hide the output log" : "Show the output log")
-                .accessibilityLabel("Toggle output log")
+                      ? "Hide the bottom pane" : "Show the bottom pane")
+                .accessibilityLabel("Toggle bottom pane")
                 .accessibilityIdentifier("status.footer.toggleLog")
             }
         }
+        .controlSize(.small)
         .padding(.horizontal, 10)
-        .padding(.vertical, 4)
+        .frame(height: LayoutPolicy.statusStripHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -615,8 +551,8 @@ struct StatusBar: View {
     /// readout slot beside a loading column that has its own spinner and its
     /// own Cancel. A load that has started an analysis inside its bracket
     /// (`AppState.runCurrentAnalysis` within the open) still qualifies,
-    /// because that pass is cancellable and this is the only visible control
-    /// that stops it.
+    /// because that pass is cancellable and the Run tab is now the only
+    /// visible control that stops it.
     private var showsOperationProgress: Bool {
         appState.isBusy && (!appState.datasetSession.isLoading || appState.activeOperation != nil)
     }
@@ -624,7 +560,7 @@ struct StatusBar: View {
     /// Elapsed, and an ETA once the run can estimate one, beside the bar they
     /// describe (owner, 2026-09-04: the numbers belong beside the progress,
     /// not only one tab away). Throughput left this line on 2026-09-12 and is
-    /// the inspector's alone — the reasoning is on `OperationMetricsFormat.line`.
+    /// the Run tab's alone — the reasoning is on `OperationMetricsFormat.line`.
     ///
     /// **The frame is the point.** The first version of this line was
     /// `Text(...).fixedSize()`, whose width changed with the string on every
@@ -633,9 +569,6 @@ struct StatusBar: View {
     /// disk detection (`open-items.md`). Here the slot is a constant width
     /// from `LayoutPolicy`, wide enough for the longest line the formatter
     /// produces, and the text truncates inside it rather than resizing it.
-    /// It is reserved for the whole operation, so an appearing ETA moves
-    /// nothing either. Trailing-aligned: the numbers stay against the stop
-    /// control instead of drifting away from it as the line shortens.
     @ViewBuilder
     private var operationReadout: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -652,6 +585,27 @@ struct StatusBar: View {
         }
     }
 
+    /// The standing facts — app memory and whether the open cube is resident
+    /// or streamed — always on, in the strip's own fixed `statusGlanceWidth`
+    /// slot (the `operationReadoutWidth` rule applies here too: a ticking
+    /// string may never resize its own container). The Run tab's Residency
+    /// row is the same two facts at full sentence length; this is the
+    /// glanceable one.
+    @ViewBuilder
+    private var memoryGlance: some View {
+        TimelineView(.periodic(from: .now, by: 2)) { _ in
+            Text(OperationMetricsFormat.glance(
+                residentMB: SystemMonitor.residentMemoryMB(),
+                residency: appState.residency.isResident
+            ))
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(width: LayoutPolicy.statusGlanceWidth, alignment: .trailing)
+            .accessibilityIdentifier("status.footer.memoryGlance")
+        }
+    }
 }
 
 // MARK: - The two-pane split

@@ -215,6 +215,11 @@ extension AppState {
                 statusText = "Virtual detector cancelled"
                 return .cancelled
             }
+            // The bottom workspace's Run tab "Streamed" row (ADR 034): the
+            // same float32 working-size arithmetic `SystemMonitor.scanProgressStatus`
+            // already does internally, exposed here because that function
+            // only returns the composed status string, not the byte count.
+            let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
             let progressUpdate: (@Sendable (Double) -> Void)?
             if let token = cancellation {
                 progressUpdate = { @Sendable [weak self] fraction in
@@ -222,6 +227,14 @@ extension AppState {
                         guard let self, self.isCurrentOperation(token) else { return }
                         let clipped = min(1, max(0, fraction))
                         let processed = min(totalPatterns, max(0, Int((clipped * Double(totalPatterns)).rounded())))
+                        // Routed through `OperationCenter.update(_:bytesStreamed:)`,
+                        // not a bare property write, so a cancelled token is
+                        // rejected the same way `updateCancellableOperation`
+                        // below already rejects it for progress — otherwise
+                        // "Streamed" keeps climbing after Cancel while the
+                        // progress bar and position count it sits beside have
+                        // already frozen (Gate-B finding).
+                        self.operationCenter.update(token, bytesStreamed: Int64(processed) * Int64(bytesPerPattern))
                         self.updateCancellableOperation(
                             token,
                             progress: clipped,

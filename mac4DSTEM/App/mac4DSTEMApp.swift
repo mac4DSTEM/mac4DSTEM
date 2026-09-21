@@ -129,7 +129,7 @@ private struct DatasetCommands: Commands {
                 appState?.navigation.showInspectorPane.toggle()
             }
             .keyboardShortcut("i", modifiers: [.command, .control])
-            Button(appState?.navigation.showLogPane == true ? "Hide Output" : "Show Output") {
+            Button(appState?.navigation.showLogPane == true ? "Hide Bottom Pane" : "Show Bottom Pane") {
                 appState?.navigation.showLogPane.toggle()
             }
             .keyboardShortcut("l", modifiers: [.command, .control])

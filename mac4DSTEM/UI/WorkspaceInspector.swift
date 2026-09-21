@@ -20,6 +20,13 @@ import DSTEMSession
 /// always shown, and the product sections join them whenever a product is
 /// displayed. (That routing model and its types were deleted 2026-09-04;
 /// `git show d5786e2^:mac4DSTEM/UI/InspectorPanels.swift` has the old pair.)
+///
+/// **Restyle (ADR 034, owner 2026-09-21).** Both tabs used to be a boxed
+/// `.grouped` `Form`; each is now a `ScrollView` over a flat `VStack` of
+/// `InspectorSection`s (`UI/InspectorRows.swift`) — "Lightroom adjustment
+/// panel meets Xcode utility pane". This is placement/presentation only: no
+/// string, `.help`, accessibility identifier, binding, default or
+/// computation moved (Gate D: not applicable — no scientific number moves).
 struct WorkspaceInspector: View {
     /// Persisted so the column comes back on the tab the user left it on.
     private enum InspectorTab: String {
@@ -48,17 +55,22 @@ private struct InspectorSettingsTab: View {
 
     var body: some View {
         if appState.hasDataset {
-            Form {
-                RequirementsSection()
-                GuidanceSection()
-                workspaceSettings
-                DisplaySettingsSections()
-                DatasetActionSections()
-                SessionProductsSections()
+            ScrollView {
+                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
+                    RequirementsSection()
+                    GuidanceSection()
+                    workspaceSettings
+                    DisplaySettingsSections()
+                    DatasetActionSections()
+                    SessionProductsSections()
+                }
+                .padding()
             }
-            .formStyle(.grouped)
-            // The grouped Form draws no ground over the column's material.
-            .scrollContentBackground(.hidden)
+            // The Settings tab's own base scope — everything here that isn't
+            // one workspace room's own controls (Requirements, Interpretation,
+            // Display, the Dataset actions, Computed this session). A room
+            // below overrides this to its own, more specific scope.
+            .environment(\.inspectorScope, "settings")
         } else {
             ContentUnavailableView(
                 "No dataset loaded",
@@ -68,16 +80,21 @@ private struct InspectorSettingsTab: View {
         }
     }
 
-    /// Each of these produces bare `Section`s of its own.
+    /// Each of these produces bare `Section`s of its own — untouched room
+    /// files, converted to the inspector vocabulary separately. Each also
+    /// gets its own `inspectorScope`, so an `InspectorSection` titled
+    /// "Result" in the Map room and one titled "Result" in the AI Analysis
+    /// room remember their expansion separately rather than sharing one
+    /// `@SceneStorage` key.
     @ViewBuilder
     private var workspaceSettings: some View {
         switch appState.navigation.workspaceArea {
-        case .prepare: PrepareSettings()
-        case .image: ImagingSettings()
-        case .map: MapSettings()
-        case .reconstruct: PhaseSettings()
-        case .aiAnalysis: AIAnalysisSettings()
-        case .results: ResultsSettings()
+        case .prepare: PrepareSettings().environment(\.inspectorScope, "settings.prepare")
+        case .image: ImagingSettings().environment(\.inspectorScope, "settings.image")
+        case .map: MapSettings().environment(\.inspectorScope, "settings.map")
+        case .reconstruct: PhaseSettings().environment(\.inspectorScope, "settings.phase")
+        case .aiAnalysis: AIAnalysisSettings().environment(\.inspectorScope, "settings.aiAnalysis")
+        case .results: ResultsSettings().environment(\.inspectorScope, "settings.results")
         }
     }
 }
@@ -92,21 +109,24 @@ private struct RequirementsSection: View {
     var body: some View {
         let unmet = appState.unmetRequirements
         if !unmet.isEmpty {
-            Section("Requirements") {
+            InspectorSection("Requirements") {
                 ForEach(unmet) { item in
-                    LabeledContent {
-                        action(for: item)
-                    } label: {
+                    // The row's identity is a colour-coded status icon, not
+                    // a caption — the same idiom the sidebar's task rows
+                    // use, so it stays outside `InspectorRow`'s fixed label
+                    // column rather than losing its colour to it.
+                    VStack(alignment: .leading, spacing: 2) {
                         Label(item.title, systemImage: "exclamationmark.circle.fill")
+                            .font(.subheadline)
                             .foregroundStyle(.orange)
                         // A `taskPanel` resolution is a pointer, not a
-                        // destination: it names the control in this task's own
-                        // settings. As the second element of a Form's label it
-                        // stacks under the title and wraps.
+                        // destination: it names the control in this task's
+                        // own settings, so it carries no action row.
                         if case .taskPanel(let hint) = item.resolution {
-                            Text(hint)
+                            InspectorNote(hint)
                                 .accessibilityIdentifier("workspace.prerequisite.\(item.id).hint")
                         }
+                        InspectorActionRow { action(for: item) }
                     }
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("workspace.prerequisite.\(item.id)")
@@ -140,16 +160,17 @@ private struct GuidanceSection: View {
     var body: some View {
         let guidance = appState.taskGuidance
         if appState.unmetRequirements.isEmpty, !guidance.isEmpty {
-            Section("Interpretation") {
+            InspectorSection("Interpretation") {
                 Label("Ready · limited interpretation", systemImage: "checkmark.circle")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 ForEach(guidance, id: \.self) { item in
-                    Text(item)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    InspectorNote(item)
                 }
-                Button("Improve in Prepare") { appState.selectWorkspace(.prepare) }
-                    .accessibilityIdentifier("workspace.guidance.improve")
+                InspectorActionRow {
+                    Button("Improve in Prepare") { appState.selectWorkspace(.prepare) }
+                        .accessibilityIdentifier("workspace.guidance.improve")
+                }
             }
             .accessibilityIdentifier("workspace.guidance")
         }
@@ -164,14 +185,20 @@ private struct InspectorInfoTab: View {
 
     var body: some View {
         if let descriptor = appState.descriptor {
-            Form {
-                DatasetInfoSections(descriptor: descriptor)
-                ProductInfoSections()
-                InspectorDiagnosticsSections()
+            ScrollView {
+                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
+                    DatasetInfoSections(descriptor: descriptor)
+                    ProductInfoSections()
+                    InspectorDiagnosticsSections()
+                }
+                .padding()
             }
-            .formStyle(.grouped)
-            // The grouped Form draws no ground over the column's material.
-            .scrollContentBackground(.hidden)
+            // Scoped distinctly from the Settings tab's own "settings" (and
+            // its per-room children), so e.g. this tab's "Dataset" section
+            // and the Settings tab's own "Dataset" actions section — two
+            // different facts that happen to share a title — remember their
+            // expansion separately.
+            .environment(\.inspectorScope, "info")
         } else {
             ContentUnavailableView(
                 "No dataset loaded",
@@ -198,32 +225,32 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var datasetSection: some View {
-        Section("Dataset") {
-            inspectorRow("File", descriptor.fileName)
-            inspectorRow("Path", descriptor.datasetPath, mono: true)
-            inspectorRow("Shape", descriptor.shapeString, mono: true)
-            inspectorRow("dtype", descriptor.dtypeDescription, mono: true)
-            inspectorRow(
+        InspectorSection("Dataset") {
+            InspectorValueRow("File", descriptor.fileName)
+            InspectorValueRow("Path", descriptor.datasetPath, mono: true)
+            InspectorValueRow("Shape", descriptor.shapeString, mono: true)
+            InspectorValueRow("dtype", descriptor.dtypeDescription, mono: true)
+            InspectorValueRow(
                 "Chunks",
                 descriptor.chunkShape.map { $0.map(String.init).joined(separator: " x ") } ?? "contiguous",
                 mono: true
             )
-            inspectorRow("Size as float32", displayByteString(descriptor.byteCountAsFloat32))
+            InspectorValueRow("Size as float32", displayByteString(descriptor.byteCountAsFloat32))
         }
     }
 
     @ViewBuilder
     private var dimensionsSection: some View {
-        Section("Dimensions") {
+        InspectorSection("Dimensions") {
             // Columns × rows, the order the image is drawn in and the one
             // every other surface prints. The file's own axis order is
             // [Ry, Rx, Qy, Qx], so `rx`/`qx` ARE the columns; py4DSTEM names
             // the other axis qx, which is why anything printing py4DSTEM's
             // convention says so (`ImagePanes`).
-            inspectorRow("Scan (Rx × Ry)", "\(descriptor.rx) × \(descriptor.ry)")
-            inspectorRow("Detector (Qx × Qy)", "\(descriptor.qx) × \(descriptor.qy)")
+            InspectorValueRow("Scan (Rx × Ry)", "\(descriptor.rx) × \(descriptor.ry)")
+            InspectorValueRow("Detector (Qx × Qy)", "\(descriptor.qx) × \(descriptor.qy)")
             if let acceleratingVoltage = appState.calibrationSession.acceleratingVoltage {
-                inspectorRow("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
+                InspectorValueRow("Accel. voltage", String(format: "%.0f kV", acceleratingVoltage))
             }
         }
     }
@@ -231,13 +258,11 @@ private struct DatasetInfoSections: View {
     @ViewBuilder
     private var previewSection: some View {
         if let preview = appState.datasetSession.preview {
-            Section("Preview") {
+            InspectorSection("Preview") {
                 // INVARIANT I4: a sampled preview is not a result. The
                 // summary states the stride and is drawn FIRST, above the
                 // images, so nothing here can be read as a virtual image.
-                Text(preview.summary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote(preview.summary)
                     .accessibilityIdentifier("preview.summary")
                 previewImage(
                     "Real space", pixels: preview.realSpace.normalized(),
@@ -270,7 +295,7 @@ private struct DatasetInfoSections: View {
     @ViewBuilder
     private var loadedViewSection: some View {
         if !appState.loadedView.isFullExtent {
-            Section("Loaded view") {
+            InspectorSection("Loaded view") {
                 if let summary = appState.loadedView.summary {
                     Text(summary)
                         .accessibilityIdentifier("inspector.loadedViewSummary")
@@ -279,24 +304,21 @@ private struct DatasetInfoSections: View {
                     // The intensity consequence, said plainly: binning SUMS,
                     // so every absolute-intensity threshold moves with the
                     // factor.
-                    Text(notice)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    InspectorNote(notice)
                         .accessibilityIdentifier("inspector.binningNotice")
                 }
-                inspectorRow("Source shape", appState.loadedView.sourceShapeString, mono: true)
-                inspectorRow("Loaded shape", descriptor.shapeString, mono: true)
-                inspectorRow("Size as float32", displayByteString(descriptor.byteCountAsFloat32))
-
+                InspectorValueRow("Source shape", appState.loadedView.sourceShapeString, mono: true)
+                InspectorValueRow("Loaded shape", descriptor.shapeString, mono: true)
+                InspectorValueRow("Size as float32", displayByteString(descriptor.byteCountAsFloat32))
             }
         }
     }
 
     @ViewBuilder
     private var currentScanPositionSection: some View {
-        Section("Current scan position") {
-            inspectorRow("x (Rx)", "\(appState.selectedScan.x)")
-            inspectorRow("y (Ry)", "\(appState.selectedScan.y)")
+        InspectorSection("Current scan position") {
+            InspectorValueRow("x (Rx)", "\(appState.selectedScan.x)")
+            InspectorValueRow("y (Ry)", "\(appState.selectedScan.y)")
             // The statistics are of the pattern ON SCREEN, which in Mean, Max
             // or ROI mode is not this position's pattern; the row says which
             // (UI review 2026-09-04, finding b — the only other flag was the
@@ -306,19 +328,19 @@ private struct DatasetInfoSections: View {
                     mode: appState.patternDisplayMode,
                     roiSummed: appState.realSpaceShape != .point
                         && appState.resultPresentation.virtualDiffractionPattern != nil)
-                inspectorRow("\(noun) min", String(format: "%.3g", lowerBound))
-                inspectorRow("\(noun) max", String(format: "%.3g", upperBound))
+                InspectorValueRow("\(noun) min", String(format: "%.3g", lowerBound))
+                InspectorValueRow("\(noun) max", String(format: "%.3g", upperBound))
             }
         }
     }
 
     @ViewBuilder
     private var apertureSection: some View {
-        Section("Aperture (detector px)") {
-            inspectorRow("Center x", String(format: "%.1f", appState.aperture.centerX))
-            inspectorRow("Center y", String(format: "%.1f", appState.aperture.centerY))
-            inspectorRow("Inner r", String(format: "%.1f", appState.aperture.inner))
-            inspectorRow("Outer r", String(format: "%.1f", appState.aperture.outer))
+        InspectorSection("Aperture (detector px)") {
+            InspectorValueRow("Center x", String(format: "%.1f", appState.aperture.centerX))
+            InspectorValueRow("Center y", String(format: "%.1f", appState.aperture.centerY))
+            InspectorValueRow("Inner r", String(format: "%.1f", appState.aperture.inner))
+            InspectorValueRow("Outer r", String(format: "%.1f", appState.aperture.outer))
         }
     }
 
@@ -356,58 +378,70 @@ private struct DisplaySettingsSections: View {
     @SceneStorage("inspector.display.isExpanded") private var showsDisplay = false
 
     var body: some View {
-        Section {
-            DisclosureGroup("Display", isExpanded: $showsDisplay) {
-                realSpaceHistogramSection
-                diffractionHistogramSection
-            }
+        InspectorSection("Display", expanded: $showsDisplay) {
+            realSpaceHistogramSection
+            diffractionHistogramSection
         }
     }
 
     @ViewBuilder
     private var realSpaceHistogramSection: some View {
         if let image = appState.resultPresentation.resultImage {
-            Section("Histogram (real space)") {
-                let resultPresentation = Bindable(appState.resultPresentation)
-                HistogramView(pixels: image.pixels, version: appState.resultPresentation.resultVersion,
-                             rangeLo: resultPresentation.displayRangeLo,
-                             rangeHi: resultPresentation.displayRangeHi)
-                Text("Drag the handles to clip which intensities map into the image.")
-                    .font(.caption2).foregroundStyle(.tertiary)
-                gammaControl("Gamma", value: resultPresentation.resultGamma)
-            }
+            subHeader("Histogram (real space)")
+            let resultPresentation = Bindable(appState.resultPresentation)
+            HistogramView(pixels: image.pixels, version: appState.resultPresentation.resultVersion,
+                         rangeLo: resultPresentation.displayRangeLo,
+                         rangeHi: resultPresentation.displayRangeHi)
+            InspectorNote("Drag the handles to clip which intensities map into the image.")
+            AdjustmentSlider(
+                "Gamma", value: resultPresentation.resultGamma.asDouble,
+                in: 0.2...3, defaultValue: 1.0
+            )
         }
     }
 
     @ViewBuilder
     private var diffractionHistogramSection: some View {
         if let pattern = appState.displayedPattern {
-            Section("Histogram (diffraction)") {
-                HistogramView(
-                    pixels: pattern.contrastPixels(useLog: appState.logScale),
-                    version: appState.patternVersion,
-                    rangeLo: Bindable(appState).patternDisplayRangeLo,
-                    rangeHi: Bindable(appState).patternDisplayRangeHi
-                )
-                Text(appState.logScale
-                     ? "Contrast is selected on the log10(1 + intensity) axis."
-                     : "Drag the handles to set the CBED intensity window.")
-                    .font(.caption2).foregroundStyle(.tertiary)
-                gammaControl("Gamma", value: Bindable(appState).patternGamma)
-            }
+            subHeader("Histogram (diffraction)")
+            HistogramView(
+                pixels: pattern.contrastPixels(useLog: appState.logScale),
+                version: appState.patternVersion,
+                rangeLo: Bindable(appState).patternDisplayRangeLo,
+                rangeHi: Bindable(appState).patternDisplayRangeHi
+            )
+            InspectorNote(appState.logScale
+                 ? "Contrast is selected on the log10(1 + intensity) axis."
+                 : "Drag the handles to set the CBED intensity window.")
+            AdjustmentSlider(
+                "Gamma", value: Bindable(appState).patternGamma.asDouble,
+                in: 0.2...3, defaultValue: 1.0
+            )
         }
     }
 
-    /// A labelled `Slider` row: as a `LabeledContent` value a slider collapses
-    /// to its knob at the column's minimum (measured 2026-09-03).
-    private func gammaControl(_ label: String, value: Binding<Float>) -> some View {
-        Slider(value: value, in: 0.2...3) {
-            Text("\(label), \(String(format: "%.2f", value.wrappedValue))")
-        }
-        .accessibilityLabel(label)
-        .accessibilityValue(String(format: "%.2f", value.wrappedValue))
+    /// A sub-group heading inside "Display" — the same caption vocabulary
+    /// `InspectorSection`'s own header uses, one level down; the two
+    /// histograms are not independently collapsible, so this is a heading,
+    /// not a nested `InspectorSection`.
+    private func subHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
     }
+}
 
+/// `AdjustmentSlider` is written against `Double`; the app's own gamma
+/// values are `Float` (`ResultPresentation.resultGamma`,
+/// `AppState.patternGamma`). The round trip changes no science — gamma is a
+/// display-only exponent, never written to a saved product — so a
+/// `Binding<Float>` is bridged to `Binding<Double>` here rather than
+/// widening either stored property.
+private extension Binding where Value == Float {
+    var asDouble: Binding<Double> {
+        Binding<Double>(get: { Double(wrappedValue) }, set: { wrappedValue = Float($0) })
+    }
 }
 
 private struct DatasetActionSections: View {
@@ -416,13 +450,15 @@ private struct DatasetActionSections: View {
     var body: some View {
         if !appState.loadedView.isFullExtent || appState.residency.isResident
             || sessionViewDiffers {
-            Section("Dataset") {
+            InspectorSection("Dataset") {
                 if !appState.loadedView.isFullExtent {
-                    Button("Reopen at Full Extent") {
-                        Task { await appState.promoteAndReplayRecipe() }
+                    InspectorActionRow {
+                        Button("Reopen at Full Extent") {
+                            Task { await appState.promoteAndReplayRecipe() }
+                        }
+                        .disabled(appState.isBusy || appState.datasetSession.isLoading || appState.replayRun.isRunning)
+                        .accessibilityIdentifier("inspector.promoteToFullExtent")
                     }
-                    .disabled(appState.isBusy || appState.datasetSession.isLoading || appState.replayRun.isRunning)
-                    .accessibilityIdentifier("inspector.promoteToFullExtent")
                     // The price of the button it sits under. C4(c) emptied Info
                     // of actions but left this sentence and a SECOND
                     // PromoteRunCaption behind there, describing a control no
@@ -432,24 +468,28 @@ private struct DatasetActionSections: View {
                     // `displayByteString`, UI's only byte formatter, so the two
                     // surfaces a user compares cannot render it differently.
                     if let source = appState.datasetSession.loadView?.source {
-                        Text("Reloads the whole cube — "
-                             + displayByteString(source.byteCountAsFloat32)
-                             + " as float32. Analyses re-run against the full dataset.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        InspectorNote(
+                            "Reloads the whole cube — "
+                            + displayByteString(source.byteCountAsFloat32)
+                            + " as float32. Analyses re-run against the full dataset."
+                        )
                     }
                     PromoteRunCaption(record: appState.replay.record, frame: appState.replay.parameterFrame)
                 }
                 if sessionViewDiffers {
-                    Button("Reopen Without This Session") { appState.reopenIgnoringSessionSidecar() }
-                        .disabled(appState.isBusy)
-                        .help("Reopen without restoring the saved session; its file stays on disk.")
-                        .accessibilityIdentifier("inspector.reopenWithoutSession")
+                    InspectorActionRow {
+                        Button("Reopen Without This Session") { appState.reopenIgnoringSessionSidecar() }
+                            .disabled(appState.isBusy)
+                            .help("Reopen without restoring the saved session; its file stays on disk.")
+                            .accessibilityIdentifier("inspector.reopenWithoutSession")
+                    }
                 }
                 if appState.residency.isResident {
-                    Button("Release cube") { Task { await appState.releaseResidentCube() } }
-                        .disabled(appState.isBusy)
-                        .accessibilityIdentifier("performance.releaseCube")
+                    InspectorActionRow {
+                        Button("Release cube") { Task { await appState.releaseResidentCube() } }
+                            .disabled(appState.isBusy)
+                            .accessibilityIdentifier("performance.releaseCube")
+                    }
                 }
             }
         }
@@ -470,19 +510,19 @@ private struct ProductInfoSections: View {
 
     var body: some View {
         if let product = appState.displayedProduct {
-            Section("Product") {
-                inspectorRow("Name", product.displayName)
-                inspectorRow("Kind", product.kind.replacingOccurrences(of: "_", with: " "))
-                inspectorRow("Origin", product.origin == .computed
+            InspectorSection("Product") {
+                InspectorValueRow("Name", product.displayName)
+                InspectorValueRow("Kind", product.kind.replacingOccurrences(of: "_", with: " "))
+                InspectorValueRow("Origin", product.origin == .computed
                                 ? "Computed this session" : "Restored from the session sidecar")
-                inspectorRow("Size", "\(product.width) × \(product.height) px", mono: true)
-                inspectorRow("Frame", Self.frameLabel(product.domain))
-                inspectorRow("Values", product.valueUnits)
-                inspectorRow("Status", Self.statusLabel(product.quantitativeStatus))
+                InspectorValueRow("Size", "\(product.width) × \(product.height) px", mono: true)
+                InspectorValueRow("Frame", Self.frameLabel(product.domain))
+                InspectorValueRow("Values", product.valueUnits)
+                InspectorValueRow("Status", Self.statusLabel(product.quantitativeStatus))
                 // One wording authority for sampling, shared with the
                 // saved-result rows: a product's pixel size reads the same
                 // everywhere it appears.
-                inspectorRow(
+                InspectorValueRow(
                     "Sampling",
                     SessionResultPresentation.sampling(
                         row: product.sampling.row, column: product.sampling.column,
@@ -490,22 +530,22 @@ private struct ProductInfoSections: View {
                     ) ?? "not calibrated",
                     mono: true
                 )
-                inspectorRow("Valid", Self.validityLabel(product))
+                InspectorValueRow("Valid", Self.validityLabel(product))
             }
             .accessibilityIdentifier("inspector.product")
 
             if !product.qualityFields.isEmpty {
-                Section("Quality fields") {
+                InspectorSection("Quality fields") {
                     ForEach(product.qualityFields, id: \.name) { field in
-                        inspectorRow(field.name, field.units, mono: true)
+                        InspectorValueRow(field.name, field.units, mono: true)
                     }
                 }
             }
 
             if !product.overlays.isEmpty {
-                Section("Overlays") {
+                InspectorSection("Overlays") {
                     ForEach(product.overlays, id: \.kind) { overlay in
-                        inspectorRow(
+                        InspectorValueRow(
                             overlay.kind.replacingOccurrences(of: "_", with: " "),
                             overlay.provenance
                         )
@@ -513,9 +553,9 @@ private struct ProductInfoSections: View {
                 }
             }
 
-            Section("Provenance") {
+            InspectorSection("Provenance") {
                 ForEach(product.provenance.keys.sorted(), id: \.self) { key in
-                    inspectorRow(key, product.provenance[key] ?? "", mono: true)
+                    InspectorValueRow(key, product.provenance[key] ?? "", mono: true)
                 }
             }
         }
@@ -562,7 +602,7 @@ private struct SessionProductsSections: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        Section("Computed this session") {
+        InspectorSection("Computed this session") {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
             let disksState = ProductWorkflow.productState(
@@ -583,7 +623,6 @@ private struct SessionProductsSections: View {
             showableProduct(.strain, mode: .strain, done: appState.strain.map != nil)
             showableProduct(.orientation, mode: .acom, done: appState.acomSession.hasOrientationMap)
         }
-
     }
 
     /// A computed product that can be put back in the viewer on click.
@@ -615,7 +654,10 @@ private struct SessionProductsSections: View {
     }
 
     /// Same glyphs and colours as the sidebar's task rows, for the same
-    /// three states — one verdict on both surfaces.
+    /// three states — one verdict on both surfaces. A colour-coded status
+    /// row, the same idiom as `RequirementsSection`'s, so it stays a
+    /// `LabeledContent` rather than losing its glyph and colour to
+    /// `InspectorRow`'s plain caption column.
     private func product(_ name: String, state: TaskProductState, detail: String? = nil) -> some View {
         LabeledContent {
             if let detail {
@@ -633,6 +675,7 @@ private struct SessionProductsSections: View {
                     .help(reason)
             }
         }
+        .font(.subheadline)
     }
 
 }
@@ -640,7 +683,14 @@ private struct SessionProductsSections: View {
 // MARK: Info — diagnostics
 
 /// Promote run, calibration not carried into the view, the rotation curve,
-/// performance, and the session-vs-view warnings.
+/// and the session-vs-view warnings.
+///
+/// **Performance moved out 2026-09-21** (ADR 034): the live numbers this
+/// section used to print (`PerformanceRows` — status, elapsed, throughput,
+/// ETA, memory, GPU) split two ways. Memory now lives in the status strip's
+/// glance slot. Status, elapsed, throughput, ETA and engine now live in the
+/// bottom pane's Run tab, which has a timer of its own. Either way, the Info
+/// tab is durable description, not a second ticking readout.
 private struct InspectorDiagnosticsSections: View {
     @Environment(AppState.self) private var appState
 
@@ -648,9 +698,6 @@ private struct InspectorDiagnosticsSections: View {
         promoteRunSection
         invalidatedCalibrationSection
         rotationDiagnosticsSection
-        Section("Performance") {
-            PerformanceRows()
-        }
         sessionProvenanceSection
         sidecarUnreadableSection
         sidecarDoesNotFitSection
@@ -663,7 +710,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var promoteRunSection: some View {
         if appState.replayRun.phase != .idle {
-            Section("Promote run") {
+            InspectorSection("Promote run") {
                 if let headline = appState.replayRun.summaryHeadline {
                     Text(headline)
                         .font(.callout.weight(.medium))
@@ -676,19 +723,21 @@ private struct InspectorDiagnosticsSections: View {
                         .accessibilityIdentifier("inspector.promoteRunHalt")
                 }
                 if let note = appState.replayRun.frameNote {
-                    Text(note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    InspectorNote(note)
                         .accessibilityIdentifier("inspector.promoteRunFrameNote")
                 }
+                // A long step title beside a short status glyph is the
+                // opposite proportion from a settings row's short caption
+                // and wide control, so this stays `LabeledContent` rather
+                // than truncating the title into `InspectorRow`'s
+                // fixed-width label column.
                 ForEach(appState.replayRun.steps) { step in
                     LabeledContent("\(step.index + 1). \(step.title)") {
                         Text(Self.symbol(for: step.outcome))
                     }
+                    .font(.subheadline)
                     if let detail = Self.detail(for: step.outcome) {
-                        Text(detail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        InspectorNote(detail)
                     }
                 }
             }
@@ -702,13 +751,11 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var invalidatedCalibrationSection: some View {
         if !appState.loadedView.invalidatedCalibration.isEmpty {
-            Section("Not carried into this view") {
+            InspectorSection("Not carried into this view") {
                 ForEach(appState.loadedView.invalidatedCalibration) { item in
                     Text(item.field.rawValue)
                         .font(.callout.weight(.medium))
-                    Text(item.reason)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    InspectorNote(item.reason)
                 }
             }
             .accessibilityIdentifier("inspector.invalidatedCalibration")
@@ -718,7 +765,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var rotationDiagnosticsSection: some View {
         if let rotation = appState.lastRotationResult {
-            Section("Rotation diagnostics") {
+            InspectorSection("Rotation diagnostics") {
                 RotationCurveView(result: rotation)
                 // A refused fit still draws its curves — the marker is then
                 // the minimum the fit FOUND, not a value that was written, and
@@ -745,16 +792,13 @@ private struct InspectorDiagnosticsSections: View {
     private var sessionProvenanceSection: some View {
         if let recorded = appState.sessionLoadSpecification,
            recorded != appState.loadedView.specification {
-            Section("Session provenance") {
+            InspectorSection("Session provenance") {
                 Text("The saved session was computed on a different view of this file.")
                     .font(.callout)
-                inspectorRow("Session view", recorded.provenanceSummary ?? "whole file")
-                inspectorRow("Loaded view",
+                InspectorValueRow("Session view", recorded.provenanceSummary ?? "whole file")
+                InspectorValueRow("Loaded view",
                                 appState.loadedView.specification.provenanceSummary ?? "whole file")
-                Text("Restored results describe the session's view, not the one loaded now.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
+                InspectorNote("Restored results describe the session's view, not the one loaded now.")
             }
             .accessibilityIdentifier("inspector.sessionProvenanceMismatch")
         }
@@ -768,15 +812,11 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var sidecarUnreadableSection: some View {
         if let reason = appState.sessionSidecar.unreadableReason {
-            Section("Session sidecar") {
+            InspectorSection("Session sidecar") {
                 Text("A saved session sits beside this dataset and could not be read.")
                     .font(.callout)
-                Text(reason)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("The whole file is loaded. If that session recorded a crop, what is on screen is a different extent from what it saved.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote(reason)
+                InspectorNote("The whole file is loaded. If that session recorded a crop, what is on screen is a different extent from what it saved.")
             }
             .accessibilityIdentifier("inspector.sessionSidecarUnreadable")
         }
@@ -790,15 +830,11 @@ private struct InspectorDiagnosticsSections: View {
         if appState.sessionSidecar.unreadableReason == nil,
            let failure = appState.gates.sidecarRestoreFailure,
            failure.kind == .doesNotFit {
-            Section("Session sidecar") {
+            InspectorSection("Session sidecar") {
                 Text("The saved session beside this dataset describes a region this file does not have.")
                     .font(.callout)
-                Text(failure.message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("The whole file is loaded, and session saves are disabled so the sidecar's recorded view and results are not relabelled.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote(failure.message)
+                InspectorNote("The whole file is loaded, and session saves are disabled so the sidecar's recorded view and results are not relabelled.")
             }
             .accessibilityIdentifier("inspector.sessionSidecarDoesNotFit")
         }
@@ -829,51 +865,6 @@ private struct InspectorDiagnosticsSections: View {
             reason
         }
     }
-}
-
-/// Live performance readout. The status strip is the single progress and
-/// cancellation surface; the inspector only provides supporting metrics.
-private struct PerformanceRows: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        labeled("Status", appState.isBusy
-                ? (appState.activeOperation ?? "Working…") : "Idle")
-
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            if let metrics = appState.activeOperationMetrics(at: context.date) {
-                labeled("Elapsed", OperationMetricsFormat.duration(metrics.elapsed))
-                if let rate = metrics.unitsPerSecond {
-                    labeled("Throughput", OperationMetricsFormat.throughput(rate, for: appState.activeOperation))
-                }
-                if let eta = metrics.eta {
-                    labeled("ETA", OperationMetricsFormat.duration(eta))
-                }
-            }
-            labeled("App memory", String(format: "%.0f MB", SystemMonitor.residentMemoryMB()))
-        }
-        if let descriptor = appState.descriptor {
-            labeled("Full cube (f32)", displayByteString(descriptor.byteCountAsFloat32))
-            // Which path the analyses are actually taking. Resident and
-            // streaming produce identical numbers, so nothing else on screen
-            // would tell the user which one they are on.
-            labeled("Cube memory", appState.residency.summary)
-
-        }
-        labeled("GPU", SystemMonitor.gpuName)
-        // The configurator's row carries this name too; the two surfaces a
-        // user compares must use one name.
-        labeled("GPU working-set limit", String(format: "%.0f MB", SystemMonitor.gpuWorkingSetMB))
-    }
-
-    private func labeled(_ label: String, _ value: String) -> some View {
-        LabeledContent(label) {
-            // Monospaced digits: these values refresh continuously, and
-            // proportional digits make the whole column jitter.
-            Text(value).monospacedDigit().foregroundStyle(.secondary)
-        }
-    }
-
 }
 
 // MARK: - Supporting views
@@ -980,20 +971,5 @@ private struct RotationCurveView: View {
             result.rotationRad * 180 / .pi,
             result.transpose ? "transposed" : "untransposed"
         ))
-    }
-}
-
-// MARK: - Shared rows
-
-/// One label/value row. Every descriptive line in the Info tab is one of
-/// these, so a value the user needs to paste into a lab notebook is always
-/// selectable and a path or a shape is always monospaced.
-private func inspectorRow(_ label: String, _ value: String, mono: Bool = false) -> some View {
-    LabeledContent(label) {
-        Text(value)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.trailing)
-            .fontDesign(mono ? .monospaced : .default)
-            .textSelection(.enabled)
     }
 }

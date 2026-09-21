@@ -8,8 +8,10 @@ import DSTEMSession
 /// region, whichever direction is chosen. The old `ImageSidebar` switched
 /// between the two on `AppState.activePane` with no control the user could
 /// see; UI rule 7 forbids reading that implicit mode silently, so the first
-/// row here is an explicit `Picker` bound to it. Body is bare `Section`s for
-/// the caller's grouped `Form`.
+/// row here is an explicit `Picker` bound to it. Body is inspector-vocabulary
+/// rows (`UI/InspectorRows.swift`) for the caller's inspector scroll
+/// container; the untitled top row had no `Section` header before this
+/// conversion either, so it stays a bare row rather than gaining one.
 struct ImagingSettings: View {
     @Environment(AppState.self) private var appState
 
@@ -18,13 +20,13 @@ struct ImagingSettings: View {
         @Bindable var resultPresentation = appState.resultPresentation
 
         Group {
-        Section {
-            // Segmented, with the geometry each choice applies as its glyph
-            // (owner, 2026-09-04). The old sidebar used a menu because a
-            // four-segment row held a 250 pt column at 283 pt; the inspector
-            // starts at 280 pt and this row has two segments, so the reason
-            // is gone. The pane that this choice drives also carries an
-            // accent outline, so the setting and the pane agree on screen.
+        // Segmented, with the geometry each choice applies as its glyph
+        // (owner, 2026-09-04). The old sidebar used a menu because a
+        // four-segment row held a 250 pt column at 283 pt; the inspector
+        // starts at 280 pt and this row has two segments, so the reason
+        // is gone. The pane that this choice drives also carries an
+        // accent outline, so the setting and the pane agree on screen.
+        InspectorRow("Direction") {
             Picker("Direction", selection: $appState.activePane) {
                 Image(systemName: "circle.dashed")
                     .accessibilityLabel("Detector to real space")
@@ -34,26 +36,30 @@ struct ImagingSettings: View {
                     .tag(ActivePane.realSpace)
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
             .help("What dragging on the panes controls: the virtual detector that produces the real-space image, or the scan region that produces the diffraction pattern.")
             .accessibilityIdentifier("imaging.direction")
         }
 
         if appState.activePane == .diffraction {
-            Section("Detector → real space") {
-                Picker("Shape", selection: $resultPresentation.virtualShape) {
-                    ForEach(VirtualShapeMode.allCases) { shape in
-                        Image(systemName: Self.symbol(shape))
-                            .accessibilityLabel(shape.rawValue)
-                            .tag(shape)
+            InspectorSection("Detector → real space") {
+                InspectorRow("Shape") {
+                    Picker("Shape", selection: $resultPresentation.virtualShape) {
+                        ForEach(VirtualShapeMode.allCases) { shape in
+                            Image(systemName: Self.symbol(shape))
+                                .accessibilityLabel(shape.rawValue)
+                                .tag(shape)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .help("The detector geometry drawn on the diffraction pane: "
+                          + "circle, annulus, rectangle, or a single pixel.")
+                    .accessibilityLabel("Detector shape")
                 }
-                .pickerStyle(.segmented)
-                .help("The detector geometry drawn on the diffraction pane: "
-                      + "circle, annulus, rectangle, or a single pixel.")
-                .accessibilityLabel("Detector shape")
                 // Conventional STEM abbreviations; full names in the
                 // buttons' help and accessibility labels.
-                LabeledContent("Preset") {
+                InspectorRow("Preset") {
                     HStack(spacing: 6) {
                         ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
                             Button {
@@ -76,37 +82,43 @@ struct ImagingSettings: View {
                             )
                         }
                     }
+                    .labelsHidden()
                 }
-                Text("Drag the detector on the diffraction pane; the real-space image updates live.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote("Drag the detector on the diffraction pane; the real-space image updates live.")
             }
         } else {
-            Section("Region → diffraction") {
-                Picker("Shape", selection: $appState.realSpaceShape) {
-                    ForEach(RegionShape.allCases) { shape in
-                        Image(systemName: Self.symbol(shape))
-                            .accessibilityLabel(shape.rawValue)
-                            .tag(shape)
+            InspectorSection("Region → diffraction") {
+                InspectorRow("Shape") {
+                    Picker("Shape", selection: $appState.realSpaceShape) {
+                        ForEach(RegionShape.allCases) { shape in
+                            Image(systemName: Self.symbol(shape))
+                                .accessibilityLabel(shape.rawValue)
+                                .tag(shape)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .help("The scan region summed into the diffraction pattern: "
+                          + "one position, a rectangle, or a circle.")
+                    .accessibilityLabel("Region shape")
                 }
-                .pickerStyle(.segmented)
-                .help("The scan region summed into the diffraction pattern: "
-                      + "one position, a rectangle, or a circle.")
-                .accessibilityLabel("Region shape")
 
                 if appState.realSpaceShape != .point, let d = appState.descriptor {
-                    Slider(value: $appState.realSpaceRadius,
-                           in: 1...Float(max(d.rx, d.ry) / 2)) {
-                        Text("Radius, \(Int(appState.realSpaceRadius)) px")
-                    }
+                    AdjustmentSlider(
+                        "Radius",
+                        value: Binding(
+                            get: { Double(appState.realSpaceRadius) },
+                            set: { appState.realSpaceRadius = Float($0) }
+                        ),
+                        in: 1...Double(max(d.rx, d.ry) / 2),
+                        format: .number.precision(.fractionLength(0)),
+                        unit: "px"
+                    )
                     .accessibilityLabel("Region radius in pixels")
                 }
-                Text(appState.realSpaceShape == .point
+                InspectorNote(appState.realSpaceShape == .point
                      ? "Drag on the real-space image to scrub the diffraction pattern."
                      : "Drag the region on the real-space image; the summed pattern updates live.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
         }
