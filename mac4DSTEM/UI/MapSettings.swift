@@ -729,6 +729,23 @@ private struct ManualBasisRow: View {
 
 // MARK: - ACOM
 
+/// The ACOM "Source" row's label for a resolved phase model. Exhaustive over
+/// `CrystalModelSource` on purpose: `.builtIn` and `.custom` used to fall
+/// through to `EmptyView()` in the row's own `switch`, so a session restored
+/// from a recipe that resolved to a built-in or custom-cubic model (still
+/// live for replay — see `CrystalModelLibrary`'s doc comment — even though
+/// neither is offered from the picker any more) showed no Source line at
+/// all. `internal` (not `private`), so `ACOMPhaseModelSourceLabelTests` can
+/// pin every case directly rather than through the view.
+func acomPhaseModelSourceLabel(source: CrystalModelSource, id: String) -> String {
+    switch source {
+    case .imported: return "Imported CIF"
+    case .materialsProject: return "Materials Project \(id)"
+    case .builtIn: return "Built-in library"
+    case .custom: return "Custom cell"
+    }
+}
+
 /// ACOM's complete user-facing contract. Keeping material, scale semantics,
 /// work scope, and result diagnostics together prevents a physically labelled
 /// output from being assembled out of unrelated controls elsewhere.
@@ -804,11 +821,7 @@ private struct ACOMSections: View {
                     .foregroundStyle(.orange)
             } else if let model = appState.resolvedACOMModel {
                 InspectorValueRow("Symmetry", model.symmetry.displayName)
-                switch model.source {
-                case .imported: InspectorValueRow("Source", "Imported CIF")
-                case .materialsProject: InspectorValueRow("Source", "Materials Project \(model.id)")
-                case .builtIn, .custom: EmptyView()
-                }
+                InspectorValueRow("Source", acomPhaseModelSourceLabel(source: model.source, id: model.id))
                 InspectorNote("The phase model is selected explicitly; mac4DSTEM never infers it from the dataset name.")
             }
 

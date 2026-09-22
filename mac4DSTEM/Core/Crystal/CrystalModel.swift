@@ -2,7 +2,7 @@ import Foundation
 
 /// Origin of a phase definition. This describes the model, not the dataset;
 /// no phase is inferred from a filename or diffraction-pattern appearance.
-package nonisolated enum CrystalModelSource: String, Sendable {
+package nonisolated enum CrystalModelSource: String, Sendable, CaseIterable {
     case builtIn = "built_in"
     case custom = "custom"
     case imported = "imported"
