@@ -119,6 +119,13 @@ enum LayoutPolicy {
     /// shrinks, middle-truncating, when the WINDOW narrows; a ticking string
     /// still never changes it.
     static let toolbarDisplayWidth: CGFloat = 380
+    /// The minimum of every compressible status slot (the toolbar display,
+    /// the strip's run line and memory glance): a CONSTANT, so a ticking
+    /// string can never move a slot's minimum — the 2026-09-04
+    /// constraint-loop rule ("nothing inside a split may change its own
+    /// minimum", `open-items.md`). Without it, the minimum is the text's own
+    /// and ticks with it.
+    static let compressibleSlotMinimum: CGFloat = 0
     static let toolbarDisplayMinimumWidth: CGFloat = 160
     static let toolbarDisplaySpacing: CGFloat = 8
 
@@ -147,11 +154,7 @@ enum LayoutPolicy {
     /// The Run tab's label column.
     static let runMonitorLabelWidth: CGFloat = 110
 
-    /// The inspector's utility-pane label column and its rhythm. 112, not
-    /// 96: at 96 "Detector (Qx × Qy)" and "Measured kernel mode" wrapped to
-    /// two lines while the value column beside them had room (macOS 27
-    /// drive, 2026-09-22).
-    static let inspectorLabelWidth: CGFloat = 112
+    /// The inspector's rhythm (labels take their own width — no label column).
     static let inspectorRowSpacing: CGFloat = 6
     static let inspectorSectionSpacing: CGFloat = 12
 

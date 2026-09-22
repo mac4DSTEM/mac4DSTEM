@@ -57,6 +57,52 @@ struct MapSettings: View {
 /// compact defaults stay visible as rows of the "Disk detection" section; the
 /// less commonly changed signal/filter parameters live in the sibling
 /// `AdvancedDiskDetectionSection`, a collapsed section of its own.
+/// Where the probe kernel comes from — a view choice (2026-09-22 owner
+/// decision, "source picker + one button"), not app state: the kernel that
+/// results records its own source in provenance (`ProbeKernel.source`). Each
+/// case carries the old standalone button's icon, help text and
+/// accessibility identifier so collapsing four buttons into one changes
+/// presentation only, not the four code paths behind them.
+private enum KernelSource: String, CaseIterable, Identifiable {
+    case synthetic = "Synthetic"
+    case currentCBED = "Current CBED / ROI"
+    case fileProbe = "File's probe"
+    case vacuumScan = "Vacuum scan…"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .synthetic: "circle.circle"
+        case .currentCBED: "scope"
+        case .fileProbe: "doc.viewfinder"
+        case .vacuumScan: "square.stack.3d.up"
+        }
+    }
+
+    var help: String {
+        switch self {
+        case .synthetic:
+            "Build a synthetic bullseye/trench kernel from the detector geometry — no measured probe needed."
+        case .currentCBED:
+            "Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern."
+        case .fileProbe:
+            "Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none."
+        case .vacuumScan:
+            "Build the kernel from a SEPARATE vacuum scan file — the fix for a sample with no vacuum region in frame. Its mean pattern is the probe; it must be on the same detector as the loaded data."
+        }
+    }
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .synthetic: "disk.generateSyntheticKernel"
+        case .currentCBED: "disk.generateMeasuredKernel"
+        case .fileProbe: "disk.generateFileProbeKernel"
+        case .vacuumScan: "disk.generateVacuumProbeKernel"
+        }
+    }
+}
+
 private struct DiskDetectionRows: View {
     enum Part { case kernel, detection }
     let part: Part
@@ -73,6 +119,9 @@ private struct DiskDetectionRows: View {
     /// rebuilt the failing bullseye kernel on the first click).
     @State private var measuredKernelMode: ProbeKernelMode = .flat
     @State private var showVacuumImporter = false
+    /// The picked kernel source (see `KernelSource`). Synthetic by default —
+    /// the old first button, "Generate Probe Kernel".
+    @State private var kernelSource: KernelSource = .synthetic
 
     private var offeredDetectorClasses: [DetectorClass] {
         preferences.offerLearnedDetector ? DetectorClass.allCases : [.classical]
@@ -90,55 +139,63 @@ private struct DiskDetectionRows: View {
         }
     }
 
+    /// Whether the one Build Kernel button is disabled for the currently
+    /// picked source — `appState.isBusy` (every source) plus that source's
+    /// own old per-button condition.
+    private var isBuildKernelDisabled: Bool {
+        if appState.isBusy { return true }
+        switch kernelSource {
+        case .synthetic: return false
+        case .currentCBED: return appState.displayedPattern == nil
+        case .fileProbe: return false
+        case .vacuumScan: return !appState.hasDataset
+        }
+    }
+
     @ViewBuilder
     private var kernelRows: some View {
 
-        InspectorActionRow {
-            InspectorAdaptiveButton("Generate Probe Kernel", systemImage: "circle.circle") {
-                Task { await appState.generateProbeKernel() }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("disk.generateSyntheticKernel")
-        }
-
-        InspectorRow("Measured kernel mode") {
-            Picker("Measured kernel mode", selection: $measuredKernelMode) {
-                ForEach(ProbeKernelMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+        InspectorRow("Source") {
+            Picker("Source", selection: $kernelSource) {
+                ForEach(KernelSource.allCases) { source in
+                    Text(source.rawValue).tag(source).help(source.help)
                 }
             }
             .labelsHidden()
-            .help("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.")
-            .accessibilityIdentifier("disk.measuredKernelMode")
+            .accessibilityIdentifier("disk.kernelSource")
+        }
+
+        if kernelSource != .synthetic {
+            InspectorRow("Measured kernel mode") {
+                Picker("Measured kernel mode", selection: $measuredKernelMode) {
+                    ForEach(ProbeKernelMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .labelsHidden()
+                .help("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.")
+                .accessibilityIdentifier("disk.measuredKernelMode")
+            }
         }
 
         InspectorActionRow {
             InspectorAdaptiveButton(
-                "Use Current CBED / ROI", systemImage: "scope",
-                help: "Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern."
+                "Build Kernel", systemImage: kernelSource.systemImage,
+                help: kernelSource.help
             ) {
-                Task { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
+                switch kernelSource {
+                case .synthetic:
+                    Task { await appState.generateProbeKernel() }
+                case .currentCBED:
+                    Task { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
+                case .fileProbe:
+                    Task { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
+                case .vacuumScan:
+                    showVacuumImporter = true
+                }
             }
-            .disabled(appState.isBusy || appState.displayedPattern == nil)
-            .accessibilityIdentifier("disk.generateMeasuredKernel")
-
-            InspectorAdaptiveButton(
-                "Use File's Probe", systemImage: "doc.viewfinder",
-                help: "Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none."
-            ) {
-                Task { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("disk.generateFileProbeKernel")
-
-            InspectorAdaptiveButton(
-                "Vacuum Scan…", systemImage: "square.stack.3d.up",
-                help: "Build the kernel from a SEPARATE vacuum scan file — the fix for a sample with no vacuum region in frame. Its mean pattern is the probe; it must be on the same detector as the loaded data."
-            ) {
-                showVacuumImporter = true
-            }
-            .disabled(appState.isBusy || !appState.hasDataset)
-            .accessibilityIdentifier("disk.generateVacuumProbeKernel")
+            .disabled(isBuildKernelDisabled)
+            .accessibilityIdentifier(kernelSource.accessibilityIdentifier)
             .fileImporter(
                 isPresented: $showVacuumImporter,
                 allowedContentTypes: datasetTypes,

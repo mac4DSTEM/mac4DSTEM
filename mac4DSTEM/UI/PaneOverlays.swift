@@ -295,12 +295,19 @@ struct ColormapChip<Chip: View>: View {
                 .formStyle(.grouped)
                 .scrollContentBackground(.hidden)
                 .frame(width: LayoutPolicy.popoverWidth)
+                // Content height, not a scroller's default: with the
+                // histogram and gamma moved in, the grouped Form stopped at
+                // ~300 pt and hid its last rows behind a scroll.
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     /// The chip's popover as a grouped Form: the swatch rows the owner asked
-    /// for (D3), the IPF confidence gate, and the diffraction display
-    /// options, as system rows.
+    /// for (D3), the histogram this pane's image carries (moved out of the
+    /// inspector's "Display" section, owner decision 2026-09-22 — see
+    /// `WorkspaceInspector.swift`'s deleted `DisplaySettingsSections`), the
+    /// IPF confidence gate, and the diffraction display options, as system
+    /// rows.
     @ViewBuilder
     private var popoverContent: some View {
         @Bindable var appState = appState
@@ -308,28 +315,59 @@ struct ColormapChip<Chip: View>: View {
         let selection = pane == .diffraction
             ? $appState.patternColormap : $resultPresentation.resultColormap
         Form {
-            Section("Colormap") {
-                ForEach(ColormapKind.allCases) { kind in
-                    Button {
-                        selection.wrappedValue = kind
-                    } label: {
-                        LabeledContent {
-                            if selection.wrappedValue == kind {
-                                Image(systemName: "checkmark")
-                                    .fontWeight(.semibold)
-                            }
-                        } label: {
-                            Label {
-                                Text(kind.displayName)
-                            } icon: {
-                                swatch(kind)
-                            }
+            // One menu row, not a four-row list: the popover now also holds
+            // the histogram and gamma, and the list pushed them out of view
+            // (2026-09-22 night; the owner's accepted mock: "Colormap viridis ⌄").
+            Section {
+                Picker("Colormap", selection: selection) {
+                    ForEach(ColormapKind.allCases) { kind in
+                        Label {
+                            Text(kind.displayName)
+                        } icon: {
+                            swatch(kind)
                         }
-                        .contentShape(Rectangle())
+                        .tag(kind)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(
-                        selection.wrappedValue == kind ? .isSelected : []
+                }
+                .pickerStyle(.menu)
+            }
+            if pane == .diffraction, let pattern = appState.displayedPattern {
+                // Same binding, identifier-free content and behaviour as the
+                // inspector's old "Histogram (diffraction)" sub-section —
+                // moved, not changed.
+                Section("Histogram") {
+                    HistogramView(
+                        pixels: pattern.contrastPixels(useLog: appState.logScale),
+                        version: appState.patternVersion,
+                        rangeLo: $appState.patternDisplayRangeLo,
+                        rangeHi: $appState.patternDisplayRangeHi
+                    )
+                    // The how-to lives on hover: the popover opens upward from
+                    // the colour bar, and a line of prose here pushed its last
+                    // rows out of view.
+                    .help(appState.logScale
+                         ? "Contrast is selected on the log10(1 + intensity) axis."
+                         : "Drag the handles to set the CBED intensity window.")
+                    AdjustmentSlider(
+                        "Gamma", value: $appState.patternGamma.asDouble,
+                        in: 0.2...3, defaultValue: 1.0
+                    )
+                }
+            }
+            if pane == .result, let image = appState.resultPresentation.resultImage {
+                // Same binding, identifier-free content and behaviour as the
+                // inspector's old "Histogram (real space)" sub-section —
+                // moved, not changed.
+                Section("Histogram") {
+                    HistogramView(
+                        pixels: image.pixels, version: appState.resultPresentation.resultVersion,
+                        rangeLo: $resultPresentation.displayRangeLo,
+                        rangeHi: $resultPresentation.displayRangeHi
+                    )
+                    .help("Drag the handles to clip which intensities map into the image.")
+                    AdjustmentSlider(
+                        "Gamma", value: $resultPresentation.resultGamma.asDouble,
+                        in: 0.2...3, defaultValue: 1.0
                     )
                 }
             }
@@ -381,6 +419,19 @@ struct ColormapChip<Chip: View>: View {
     private func swatch(_ kind: ColormapKind) -> some View {
         Image(nsImage: Colormaps.swatch(kind))
             .clipShape(RoundedRectangle(cornerRadius: 2))
+    }
+}
+
+/// `AdjustmentSlider` is written against `Double`; the app's own gamma
+/// values are `Float` (`ResultPresentation.resultGamma`,
+/// `AppState.patternGamma`). The round trip changes no science — gamma is a
+/// display-only exponent, never written to a saved product — so a
+/// `Binding<Float>` is bridged to `Binding<Double>` here rather than
+/// widening either stored property. Moved from `WorkspaceInspector.swift`
+/// with the histogram gamma sliders that use it (2026-09-22).
+private extension Binding where Value == Float {
+    var asDouble: Binding<Double> {
+        Binding<Double>(get: { Double(wrappedValue) }, set: { wrappedValue = Float($0) })
     }
 }
 

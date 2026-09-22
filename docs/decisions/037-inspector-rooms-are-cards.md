@@ -39,8 +39,11 @@ colours; no Liquid Glass in content. The kit (`UI/InspectorRows.swift`, whose
 header cites each source) is now flat sections with the whole title row as
 the leading disclosure, label leading / control trailing (his Pixelmator
 rule), bordered buttons at one shared width (`.buttonSizing(.flexible)`),
-and `InspectorStatusRow` with the state on the symbol. Gaps: no adaptive
-`Menu`, no tinted warning note.
+and `InspectorStatusRow` with the state on the symbol. Then, at his word
+the same night: image contrast (histogram, gamma, log) lives in each
+pane's header popover, not the inspector; "Computed this session" in the
+Info tab only; the probe kernel is one Source picker + one Build button.
+Gaps: no adaptive `Menu`, no tinted warning note.
 
 ## Why
 

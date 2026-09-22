@@ -298,6 +298,11 @@ struct ToolbarRunDisplay: View {
                     .accessibilityIdentifier("toolbar.display.idle")
                 }
             }
+            // No constant ideal: at a constant 380 the toolbar dropped the
+            // display below ~1000 pt and the actions jumped leading (measured
+            // twice, 2026-09-22 night). The toolbar is not split content, so
+            // the constraint-loop rule does not bind here; the busy line's
+            // monospaced digits change its width only when a digit is added.
             .frame(minWidth: LayoutPolicy.toolbarDisplayMinimumWidth,
                    maxWidth: LayoutPolicy.toolbarDisplayWidth)
         }

@@ -268,10 +268,10 @@ struct InspectorValueRow: View {
     }
 }
 
-/// The Lightroom row: label column, a filling `Slider`, an editable value
-/// field, and an optional unit.
+/// The adjustment row: the label and an editable value (with an optional
+/// unit) on one line, a filling `Slider` below.
 ///
-/// The `TextField` beside the slider is `LayoutPolicy.adjustmentValueWidth`
+/// The `TextField` above the slider is `LayoutPolicy.adjustmentValueWidth`
 /// wide and shares the slider's binding; a typed value commits on Enter
 /// (`.onSubmit`) or on focus loss, and either way is clamped into `range`
 /// before it reaches `value` — never while the field is still being typed
@@ -310,24 +310,31 @@ struct AdjustmentSlider: View {
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            labelView
+        // Two lines, as Photos' Adjust panel does: label left and the
+        // value at the edge (the one alignment rule), the slider below at
+        // full width. A slider beside a fixed label column was squeezed to
+        // ~40 pt in a 280-pt popover (2026-09-22 night).
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                labelView
+                Spacer(minLength: 0)
+                TextField(label, value: $value, format: format)
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: LayoutPolicy.adjustmentValueWidth)
+                    .focused($fieldIsFocused)
+                    .onSubmit(commit)
+                    .onChange(of: fieldIsFocused) { _, isFocused in
+                        if !isFocused { commit() }
+                    }
+                if let unit {
+                    Text(unit)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             slider
                 .labelsHidden()
-            TextField(label, value: $value, format: format)
-                .labelsHidden()
-                .multilineTextAlignment(.trailing)
-                .frame(width: LayoutPolicy.adjustmentValueWidth)
-                .focused($fieldIsFocused)
-                .onSubmit(commit)
-                .onChange(of: fieldIsFocused) { _, isFocused in
-                    if !isFocused { commit() }
-                }
-            if let unit {
-                Text(unit)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label)
@@ -336,10 +343,8 @@ struct AdjustmentSlider: View {
 
     @ViewBuilder
     private var labelView: some View {
-        // Leading, primary, at one width so a stack of sliders still lines
-        // its tracks up — the same label rule as `InspectorRow`.
         let text = Text(label)
-            .frame(width: LayoutPolicy.inspectorLabelWidth, alignment: .leading)
+            .fixedSize()
             .onTapGesture(count: 2, perform: resetToDefault)
         if defaultValue != nil {
             text.help("Double-click to reset")

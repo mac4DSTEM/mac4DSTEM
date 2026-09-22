@@ -690,10 +690,12 @@ struct StatusBar: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    // Ideal + maximum, like the memory glance below: the
-                    // ideal never ticks, so no reflow, but a narrow window
-                    // compresses it instead of the inspector covering a pane.
-                    .frame(idealWidth: LayoutPolicy.runReadoutWidth,
+                    // Constant minimum, ideal and maximum, like the memory
+                    // glance below: none depends on the text, so nothing
+                    // ticks, yet a narrow window compresses the slot instead
+                    // of the inspector covering a pane.
+                    .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
+                           idealWidth: LayoutPolicy.runReadoutWidth,
                            maxWidth: LayoutPolicy.runReadoutWidth, alignment: .leading)
                     .accessibilityIdentifier("status.footer.metrics")
                 if appState.canCancelActiveOperation {
@@ -737,12 +739,14 @@ struct StatusBar: View {
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.tail)
-            // Ideal and maximum, not a fixed width: its ideal never changes,
-            // so a ticking value still never reflows the strip, but it can
-            // compress. A fixed 250 pt made the strip — and so the detail
-            // column — refuse to shrink below ~432 pt, and the inspector drew
-            // over the right science pane instead (Gate D, 2026-09-22 night).
-            .frame(idealWidth: LayoutPolicy.statusGlanceWidth,
+            // Constant minimum, ideal and maximum, not a fixed width: none
+            // depends on the text, so a ticking value never moves the
+            // strip's size (the 2026-09-04 constraint-loop rule), yet it
+            // compresses. A fixed 250 pt floored the strip — and so the
+            // detail column — at ~432 pt, and the inspector drew over the
+            // right science pane (Gate D, 2026-09-22 night).
+            .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
+                   idealWidth: LayoutPolicy.statusGlanceWidth,
                    maxWidth: LayoutPolicy.statusGlanceWidth, alignment: .trailing)
             .accessibilityIdentifier("status.footer.memoryGlance")
         }

@@ -163,16 +163,17 @@ private struct InspectorSettingsTab: View {
                     RequirementsSection()
                     GuidanceSection()
                     workspaceSettings
-                    DisplaySettingsSections()
                     DatasetActionSections()
-                    SessionProductsSections()
                 }
                 .padding()
             }
             // The Settings tab's own base scope — everything here that isn't
             // one workspace room's own controls (Requirements, Interpretation,
-            // Display, the Dataset actions, Computed this session). A room
-            // below overrides this to its own, more specific scope.
+            // the Dataset actions). A room below overrides this to its own,
+            // more specific scope. Display moved into each pane's own header
+            // popover and "Computed this session" moved to the Info tab
+            // (owner decisions, 2026-09-22 — see `DisplaySettingsSections`'s
+            // deletion note and `SessionProductsSections` below).
             .environment(\.inspectorScope, "settings")
         } else {
             ContentUnavailableView(
@@ -298,6 +299,12 @@ private struct InspectorInfoTab: View {
                 VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
                     DatasetInfoSections(descriptor: descriptor)
                     ProductInfoSections()
+                    // Moved here from the Settings tab, 2026-09-22 ("Computed
+                    // this session" decision): what has been computed and can
+                    // be shown again belongs with what the dataset and the
+                    // displayed product ARE, not with a room's controls, and
+                    // it now shows once per session rather than once per room.
+                    SessionProductsSections()
                     InspectorDiagnosticsSections()
                 }
                 .padding()
@@ -482,75 +489,15 @@ private struct DatasetInfoSections: View {
     }
 }
 
-private struct DisplaySettingsSections: View {
-    @Environment(AppState.self) private var appState
-    @SceneStorage("inspector.display.isExpanded") private var showsDisplay = false
-
-    var body: some View {
-        InspectorSection("Display", expanded: $showsDisplay) {
-            realSpaceHistogramSection
-            diffractionHistogramSection
-        }
-    }
-
-    @ViewBuilder
-    private var realSpaceHistogramSection: some View {
-        if let image = appState.resultPresentation.resultImage {
-            subHeader("Histogram (real space)")
-            let resultPresentation = Bindable(appState.resultPresentation)
-            HistogramView(pixels: image.pixels, version: appState.resultPresentation.resultVersion,
-                         rangeLo: resultPresentation.displayRangeLo,
-                         rangeHi: resultPresentation.displayRangeHi)
-            InspectorNote("Drag the handles to clip which intensities map into the image.")
-            AdjustmentSlider(
-                "Gamma", value: resultPresentation.resultGamma.asDouble,
-                in: 0.2...3, defaultValue: 1.0
-            )
-        }
-    }
-
-    @ViewBuilder
-    private var diffractionHistogramSection: some View {
-        if let pattern = appState.displayedPattern {
-            subHeader("Histogram (diffraction)")
-            HistogramView(
-                pixels: pattern.contrastPixels(useLog: appState.logScale),
-                version: appState.patternVersion,
-                rangeLo: Bindable(appState).patternDisplayRangeLo,
-                rangeHi: Bindable(appState).patternDisplayRangeHi
-            )
-            InspectorNote(appState.logScale
-                 ? "Contrast is selected on the log10(1 + intensity) axis."
-                 : "Drag the handles to set the CBED intensity window.")
-            AdjustmentSlider(
-                "Gamma", value: Bindable(appState).patternGamma.asDouble,
-                in: 0.2...3, defaultValue: 1.0
-            )
-        }
-    }
-
-    /// A sub-group heading inside "Display", one level below a section
-    /// title (sentence case, semibold — no uppercase captions); the two
-    /// histograms are not independently collapsible, so this is a heading,
-    /// not a nested `InspectorSection`.
-    private func subHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.subheadline.weight(.semibold))
-    }
-}
-
-/// `AdjustmentSlider` is written against `Double`; the app's own gamma
-/// values are `Float` (`ResultPresentation.resultGamma`,
-/// `AppState.patternGamma`). The round trip changes no science — gamma is a
-/// display-only exponent, never written to a saved product — so a
-/// `Binding<Float>` is bridged to `Binding<Double>` here rather than
-/// widening either stored property.
-private extension Binding where Value == Float {
-    var asDouble: Binding<Double> {
-        Binding<Double>(get: { Double(wrappedValue) }, set: { wrappedValue = Float($0) })
-    }
-}
-
+/// Moved into each image pane's own header popover, 2026-09-22 ("Pane header
+/// popover" decision): the real-space histogram + gamma now live in the
+/// result pane's popover, the diffraction histogram + gamma in the
+/// diffraction pane's, both built from this kit
+/// (`InspectorRow`/`AdjustmentSlider`/`InspectorNote`) — see
+/// `PaneOverlays.swift`'s `ColormapChip.popoverContent`. This section, its
+/// `@SceneStorage`, and its `subHeader` helper are deleted rather than kept
+/// dead; the `Binding<Float>.asDouble` bridge moved with the sliders that use
+/// it, to `PaneOverlays.swift`.
 private struct DatasetActionSections: View {
     @Environment(AppState.self) private var appState
 
