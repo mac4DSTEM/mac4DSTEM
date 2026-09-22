@@ -132,6 +132,11 @@ enum LayoutPolicy {
     /// a row of its own (window-design.md §6.3, 2026-09-22).
     static let inspectorHeaderHorizontalPadding: CGFloat = 12
     static let inspectorHeaderVerticalPadding: CGFloat = 8
+    /// The inspector's tab capsule (Xcode's inspector tab bar, with words):
+    /// the inset of the segments inside the glass capsule, and a segment's
+    /// vertical padding.
+    static let inspectorTabInset: CGFloat = 3
+    static let inspectorTabVerticalPadding: CGFloat = 4
 
     /// The editable value field beside an `AdjustmentSlider`.
     static let adjustmentValueWidth: CGFloat = 64

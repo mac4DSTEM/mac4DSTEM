@@ -378,6 +378,19 @@ make everything the same, then improve from there"** → Prepare returned to
 the rooms' `InspectorRows` kit the same day (ADR 037 reversed); every
 improvement to a room's look is a kit change from here on. (e) "Next I
 want to consolidate the app — provide a prompt to review everything" → §10.
+His next look, at launch with no dataset: (f) **"the right panel looks
+weird"** — the tab row sat mid-column: the no-dataset placeholder does
+not fill the column and the unpinned stack centred it (the Run-tab
+mechanism again; never captured because every agent capture used the
+demo fixture) → the column is pinned to the top and the launch state is
+in the capture set. (g) **"Settings and Info is still not Liquid Glass as
+I asked — it should look like in the screenshot from Xcode, but with
+text"** (his crop: Xcode's inspector tab bar, one capsule, the current
+segment a lighter pill) → one glass capsule spanning the row, text
+segments, the current one a lighter pill. (h) "Is everything in the
+background wired correctly? We really need to polish this — the next
+release is around the corner and this still looks bad." → the review of
+§10, in its own session, before any more UI.
 
 ## 10. Prompt: the consolidation review (owner, 2026-09-22 afternoon)
 

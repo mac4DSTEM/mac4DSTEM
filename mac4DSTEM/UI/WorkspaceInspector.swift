@@ -48,6 +48,7 @@ struct WorkspaceInspector: View {
     }
 
     @AppStorage("ui2.inspectorTab") private var tab: InspectorTab = .settings
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Xcode's anatomy (owner, 2026-09-22 late, §9.1: "a standard Mac way …
     /// like in Xcode"): the inspector's tabs are icons in its own first row
@@ -56,30 +57,40 @@ struct WorkspaceInspector: View {
     /// row (the evening's try) "jumped to the left of the toggle" and was
     /// rejected; a text picker row inside the column (the morning's) was
     /// "ugly".
-    /// Settings · Info as text tabs in the column's own first row (owner,
-    /// 2026-09-22 drive of `03cfa10`: "I prefer them to be text and in
-    /// liquid glass"). On macOS 26 they are the standard glass buttons in
-    /// one `GlassEffectContainer`, the current tab prominent; before 26,
-    /// where there is no glass, the same words as a segmented picker.
+    /// Settings · Info in the column's own first row, as Xcode's inspector
+    /// tab bar with words (owner, 2026-09-22, his Xcode crop): one glass
+    /// capsule, the segments inside it, the current one a lighter pill. On
+    /// macOS 26 the capsule is Liquid Glass; before 26, where there is no
+    /// glass, the same words as a segmented picker.
     @ViewBuilder
     private var tabRow: some View {
         if #available(macOS 26, *) {
-            GlassEffectContainer(spacing: LayoutPolicy.inspectorRowSpacing) {
-                HStack(spacing: LayoutPolicy.inspectorRowSpacing) {
-                    ForEach(InspectorTab.allCases, id: \.self) { candidate in
-                        if candidate == tab {
-                            Button(candidate.title) { tab = candidate }
-                                .buttonStyle(.glassProminent)
-                                .accessibilityAddTraits(.isSelected)
-                                .help(candidate.help)
-                        } else {
-                            Button(candidate.title) { tab = candidate }
-                                .buttonStyle(.glass)
-                                .help(candidate.help)
-                        }
+            HStack(spacing: 0) {
+                ForEach(InspectorTab.allCases, id: \.self) { candidate in
+                    let isCurrent = candidate == tab
+                    Button {
+                        tab = candidate
+                    } label: {
+                        Text(candidate.title)
+                            .fontWeight(isCurrent ? .semibold : .regular)
+                            .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, LayoutPolicy.inspectorTabVerticalPadding)
+                            .background {
+                                if isCurrent {
+                                    Capsule().fill(colorScheme == .dark ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.background))
+                                }
+                            }
+                            .contentShape(Capsule())
                     }
+                    .buttonStyle(.plain)
+                    .help(candidate.help)
+                    .accessibilityAddTraits(isCurrent ? .isSelected : [])
                 }
             }
+            .padding(LayoutPolicy.inspectorTabInset)
+            .glassEffect(.regular, in: .capsule)
+            .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Inspector tab")
         } else {
@@ -101,12 +112,16 @@ struct WorkspaceInspector: View {
                 .padding(.vertical, LayoutPolicy.inspectorHeaderVerticalPadding)
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("inspector.tabPicker")
-            Divider()
             switch tab {
             case .settings: InspectorSettingsTab()
             case .info: InspectorInfoTab()
             }
         }
+        // Pinned to the top: with no dataset the tab's content is a short
+        // placeholder that does not fill the column, and an unpinned stack
+        // centres it — the tab bar sat mid-column at launch (owner,
+        // 2026-09-22: "the right panel looks weird").
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // The one inspector toggle, in the inspector's own toolbar section:
         // it stays in the toolbar, once, while the column is hidden
         // (measured 2026-09-22), so it needs no fallback and a fallback
