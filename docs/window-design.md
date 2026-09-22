@@ -305,6 +305,42 @@ his decision; the infobar's height is a `LayoutPolicy` number (22 pt today;
 Xcode's bar is about 28). Nothing decided; nothing built; the shell stays
 frozen (ADR 035).
 
+## 9. His drive of the evening's builds — 2026-09-22, late (his words in substance)
+
+Driven on his own Xcode build of `9bac67d`, demo fixture, dark, with crops
+of the toolbar, the process area's three tabs and the Prepare cards.
+
+1. **Toolbar / inspector header.** "Settings and Info jump to the left of
+   the toggle button — doesn't make sense, looks bad. Make it clean; if
+   there is a standard Mac way you are more comfortable with, do it
+   instead, maybe like in Xcode." → Xcode's anatomy: only the toggle in
+   the toolbar over the inspector; the inspector's tabs as icons in its own
+   first row.
+2. **Infobar.** "Still very thin — I told you to make it wider. Apart from
+   that the movement and the toggle work well."
+3. **Process area.** "See what happens when I change Output to Run and then
+   to Lineage — very bad visually" (the tab bar moved with the tab: the Run
+   tab's content did not fill the pane, so the stack centred it). "Put the
+   info from the Run tab into the infobar itself — much more useful, and it
+   has the width now; maybe some logos (icons) if it makes sense. Then the
+   lower panel has two things, Output and Lineage; toggle them left and
+   right like Xcode's debug area (his two screenshots of Xcode's bar-end
+   buttons). Lineage should become a graph view of some sort — open to
+   discuss the details."
+4. **Prepare.** "Looks like shit. Do you think Pixelmator's panes look and
+   behave like this? Even the previous version, which the other rooms still
+   have, was better. Is there no standard macOS SwiftUI way?" → the grouped
+   form is the Settings look, not a card; the native card is `GroupBox`,
+   title row inside, 13-pt text.
+
+Then: "note my wishes in the docs and start implementing; ask when
+something is unclear, in simple English; implement it all now." Assumptions
+taken without asking: the infobar shows the live run (bar, done/total,
+rate, ETA, Stop) while busy and the last run while idle, with the engine
+beside the memory glance; hiding the last process pane closes the area and
+opening the area with none shown shows Output; the lineage graph is a chain
+of the recorded steps until the record carries input edges (ROADMAP).
+
 ## 7. Prompt for the next agent
 
 > You are picking up mac4DSTEM's window redesign on `main` (never a
