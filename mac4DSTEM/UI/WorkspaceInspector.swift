@@ -35,14 +35,28 @@ struct WorkspaceInspector: View {
 
     @AppStorage("ui2.inspectorTab") private var tab: InspectorTab = .settings
 
+    /// Header, then body (window-design.md §4 and §6.3, owner 2026-09-22): a
+    /// text segmented control — Settings · Info — in a row of its own, then
+    /// the tab's content. It was a `TabView`, which macOS draws as the
+    /// bordered tab box the owner read as "cramped … fighting the toolbar";
+    /// this is the same two states with the system segmented control in the
+    /// inspector's own first row.
     var body: some View {
-        TabView(selection: $tab) {
-            InspectorSettingsTab()
-                .tabItem { Label("Settings", systemImage: "slider.horizontal.3") }
-                .tag(InspectorTab.settings)
-            InspectorInfoTab()
-                .tabItem { Label("Info", systemImage: "info.circle") }
-                .tag(InspectorTab.info)
+        VStack(spacing: 0) {
+            Picker("Inspector tab", selection: $tab) {
+                Text("Settings").tag(InspectorTab.settings)
+                Text("Info").tag(InspectorTab.info)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, LayoutPolicy.inspectorHeaderHorizontalPadding)
+            .padding(.vertical, LayoutPolicy.inspectorHeaderVerticalPadding)
+            .accessibilityIdentifier("inspector.tabPicker")
+            Divider()
+            switch tab {
+            case .settings: InspectorSettingsTab()
+            case .info: InspectorInfoTab()
+            }
         }
     }
 }

@@ -130,14 +130,20 @@ private struct DatasetCommands: Commands {
                 .disabled(appState?.hasDataset != true || appState?.isBusy == true)
         }
         CommandGroup(replacing: .sidebar) {
-            Button(appState?.navigation.showToolsPane == true ? "Hide Tools" : "Show Tools") {
+            // Labels follow what is on screen; enablement follows the same
+            // width budget as the toolbar toggles (`WindowAnatomyPolicy`), so
+            // a menu item can never ask for a panel the window cannot show
+            // and have the request cleared a frame later (2026-09-22).
+            Button(appState?.navigation.navigatorIsVisible == true ? "Hide Tools" : "Show Tools") {
                 appState?.navigation.showToolsPane.toggle()
             }
             .keyboardShortcut("s", modifiers: [.command, .control])
-            Button(appState?.navigation.showInspectorPane == true ? "Hide Inspector" : "Show Inspector") {
+            .disabled(appState?.navigation.navigatorFits != true)
+            Button(appState?.navigation.inspectorIsVisible == true ? "Hide Inspector" : "Show Inspector") {
                 appState?.navigation.showInspectorPane.toggle()
             }
             .keyboardShortcut("i", modifiers: [.command, .control])
+            .disabled(appState?.navigation.inspectorFits != true)
             Button(appState?.navigation.showLogPane == true ? "Hide Bottom Pane" : "Show Bottom Pane") {
                 appState?.navigation.showLogPane.toggle()
             }

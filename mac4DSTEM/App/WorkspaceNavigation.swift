@@ -57,8 +57,35 @@ final class WorkspaceNavigation {
         set { processFraction = newValue ? lastProcessFraction : 0 }
     }
 
+    /// The user's INTENT for each side panel — what the toggles, the menu
+    /// items and the scene storage read and write. What is actually on
+    /// screen is `navigatorIsVisible` / `inspectorIsVisible` below: intent
+    /// AND the width budget. Keeping the two apart is what lets a panel the
+    /// window was too narrow for come back by itself when the window widens
+    /// (2026-09-22: the first phase-1 look found the inspector closed at
+    /// 1100 pt and still closed at 1280, because the collapse had overwritten
+    /// the intent).
     var showToolsPane = true
     var showInspectorPane = false
+
+    /// The window's width as `ContentView` last measured it; `.infinity`
+    /// until the first layout pass, so nothing collapses before there is a
+    /// number to collapse against. Not persisted — it is measured.
+    var availableWindowWidth: CGFloat = .infinity
+
+    var navigatorFits: Bool {
+        !WindowAnatomyPolicy.collapseNavigator(at: availableWindowWidth)
+    }
+
+    var navigatorIsVisible: Bool { showToolsPane && navigatorFits }
+
+    /// The inspector's budget counts the navigator only when the navigator
+    /// is actually on screen.
+    var inspectorFits: Bool {
+        !WindowAnatomyPolicy.collapseInspector(at: availableWindowWidth, navigatorVisible: navigatorIsVisible)
+    }
+
+    var inspectorIsVisible: Bool { showInspectorPane && inspectorFits }
 
     /// Which tab the bottom workspace shows (ADR 034, owner 2026-09-21).
     /// Defaults to Output — the rolling log a session has always opened to.

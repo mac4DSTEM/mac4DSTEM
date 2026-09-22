@@ -52,12 +52,16 @@ struct WorkspaceView: View {
                 CanvasHeader()
                     .frame(height: LayoutPolicy.canvasHeaderHeight)
 
-                if heights.canvas > 0 {
-                    content
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .frame(height: heights.canvas)
-                        .clipped()
-                }
+                // Always in the hierarchy, even at fraction 1 where its
+                // height is 0: an `if` here tore down both Metal views every
+                // time the infobar reached the top and rebuilt them on the
+                // way back (2026-09-22). `MetalImageView` already declines to
+                // draw without a drawable, so a 0-pt, clipped canvas costs
+                // nothing and keeps the panes' state.
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(height: heights.canvas)
+                    .clipped()
 
                 StatusBar(availableHeight: usable)
 
@@ -578,8 +582,13 @@ struct StatusBar: View {
         )
     }
 
+    /// `.global`, not the default `.local`: the bar MOVES with the drag, so
+    /// a translation measured in its own moving frame lags the pointer by
+    /// exactly what the bar has moved — the drag reached 0.51 of the column
+    /// for a full-height pull, twice, before this (2026-09-22: 709 pt of
+    /// travel over 2 × 692 pt = 0.51, measured on screen).
     private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 1)
+        DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { value in
                 guard appState.hasDataset, !appState.datasetSession.isLoading else { return }
                 let start = fractionAtDragStart ?? appState.navigation.processFraction
@@ -650,6 +659,7 @@ struct StatusBar: View {
         .overlay(alignment: .top) { Divider() }
         .overlay(alignment: .bottom) { Divider() }
         .contentShape(Rectangle())
+        .modifier(ResizePointer(axis: .row))
         .simultaneousGesture(dragGesture)
     }
 
@@ -800,9 +810,11 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
             .contentShape(
                 Rectangle().inset(by: -LayoutPolicy.dividerGrabWidth / 2)
             )
-            .modifier(ColumnResizePointer())
+            .modifier(ResizePointer(axis: .column))
+            // `.global` for the same reason as the infobar's gesture: the
+            // divider moves with the drag, and a local translation lags it.
             .gesture(
-                DragGesture(minimumDistance: 1)
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
                     .onChanged { value in
                         let start = fractionAtDragStart ?? fraction
                         fractionAtDragStart = start
@@ -850,14 +862,23 @@ struct SaveResultButton: View {
 }
 
 /// `pointerStyle` is macOS 15+, and it was the second and last thing pinning
-/// this app to a high floor (2026-09-04). The column-resize cursor over a
-/// divider is a refinement: below 15 the divider still drags, it just does not
-/// change the pointer. A `ViewModifier` rather than an inline `if #available`
-/// so both branches keep a single concrete type.
-private struct ColumnResizePointer: ViewModifier {
+/// this app to a high floor (2026-09-04). The resize cursor over a divider is
+/// a refinement: below 15 the divider still drags, it just does not change
+/// the pointer. A `ViewModifier` rather than an inline `if #available` so
+/// both branches keep a single concrete type. `.column` is the pane split's
+/// left–right pair; `.row` is the infobar's up–down pair, added 2026-09-22
+/// because a bar the brief calls "draggable over its whole width" gave no
+/// sign of it (window-design.md §1).
+private struct ResizePointer: ViewModifier {
+    enum Axis { case column, row }
+    let axis: Axis
+
     func body(content: Content) -> some View {
         if #available(macOS 15.0, *) {
-            content.pointerStyle(.columnResize)
+            switch axis {
+            case .column: content.pointerStyle(.columnResize)
+            case .row: content.pointerStyle(.rowResize)
+            }
         } else {
             content
         }

@@ -17,7 +17,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 007 | Versioning and release naming | 09-02, 09-03, 09-11 | live |
 | 008 | macOS floor and arm64-only | 09-04, 09-11 | live |
 | 009 | UI contract | 09-03, 09-04, 09-07 | live (09-03 AppKit superseded) |
-| 010 | System presentation and run action | 09-03, 09-04 | live |
+| 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `window-design.md` §6) |
 | 011 | Status strip readouts | 09-04, 09-12 | live (09-04 narrowed; throughput and the Performance rows moved to the Run tab by 034, 09-21) |
 | 012 | Refusals not defaults | 09-04, 09-05 | live |
 | 013 | Residency `.automatic` dropped | 08-18 | live |
@@ -42,6 +42,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 032 | Docs consolidation and the ADR layout | 09-16, 09-17 | live |
 | 033 | v3.1 leads with the origin validity mask (disclosure-only) | 09-17 | live |
 | 034 | Bottom workspace holds live state; the inspector holds durable state (Xcode utility-pane form) | 09-21, amended 09-22 | live state split; rejected layout superseded by `window-design.md` |
+| 035 | Frozen shell; width budget at the ideal columns; no toolbar title | 09-22 | live |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

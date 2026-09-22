@@ -1,6 +1,6 @@
 # Window design — the reset (2026-09-22)
 
-**Status: decided 2026-09-22 (§6); phase 1 code committed (`b0cf8e0`), awaiting owner drive.** The owner said on 2026-09-22 that he wants further changes; details and acceptance are pending. Written after the owner drove the
+**Status: decided 2026-09-22 (§6); phase 1 committed (`b0cf8e0`) and corrected the same day after its first on-screen look (ADR 035, [`archive/v3/ui-review-2026-09-22.md`](archive/v3/ui-review-2026-09-22.md)); the shell is frozen; owner drive owed.** The owner said on 2026-09-22 that he wants further changes; details and acceptance are pending. Written after the owner drove the
 2026-09-21 restyle (`9fd386d`) and rejected it: "cramped, no logic to the
 panes, no workflow behind it". The findings are in `open-items.md` (Owner
 drive 2026-09-21). This file says what the window is for, what the two
@@ -76,6 +76,14 @@ owner can reject, costed in points, built, driven by him, and only then
 followed by the next. Prepare is the reference room; no other room
 changes until he has accepted it. A change he rejects is reverted, not
 patched.
+
+**Frozen shell** (owner, 2026-09-22, ADR 035). `ContentView`,
+`WorkspaceView`, `WorkspaceInspector`, `LayoutPolicy` and
+`WorkspaceNavigation` change only against a picture he has accepted. The
+side panels' width budget is the window width against the columns' ideal
+widths (915 pt with both panels), kept apart from the user's intent so a
+panel a narrow window closed returns when the window widens; the toolbar
+draws no title; the infobar carries the resize pointer.
 
 ## 2. The two references
 
@@ -201,7 +209,10 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
 
 ## 5. Sequence, driven at every step
 
-- **Phase 1 — window anatomy, nothing else** (code ready, owner drive owed 2026-09-22):
+- **Phase 1 — window anatomy, nothing else** (`b0cf8e0`; seen on screen by
+  the agent 2026-09-22 at 1100/1280/1470 pt and corrected — the width budget,
+  the doubled title, the infobar pointer, the canvas teardown at fraction 1,
+  the inspector `TabView`; ADR 035; owner acceptance owed):
   `.inspector` on the `NavigationSplitView`, toggled from the toolbar's
   trailing button; the navigator's toggle at the leading edge; the canvas
   header with the primary action, Save to Session and Reveal, so the

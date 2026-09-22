@@ -118,11 +118,74 @@ final class NavigationSeamTests: XCTestCase {
         XCTAssertEqual(ProcessAreaLayout.toggled(from: 0, last: 0.6), 0.6)
     }
 
+    /// The side panels collapse exactly where two science panes at
+    /// `imagePaneMinimum` stop fitting beside columns at their IDEAL widths —
+    /// the widths the app sets. Rewritten 2026-09-22 from the maxima it
+    /// pinned before: that budget (1143 pt) is the one that hid the inspector
+    /// on an 1100-pt window and greyed its toggle (ADR 035).
     func testSidePanelsCollapseBeforeEitherSciencePaneFallsBelowItsMinimum() {
-        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: 1280, navigatorVisible: true))
-        XCTAssertTrue(WindowAnatomyPolicy.collapseInspector(at: 1080, navigatorVisible: true))
-        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: 1080, navigatorVisible: false))
-        XCTAssertTrue(WindowAnatomyPolicy.collapseNavigator(at: 640))
-        XCTAssertFalse(WindowAnatomyPolicy.collapseNavigator(at: 800))
+        let columns = LayoutPolicy.sidebarWidth.ideal + LayoutPolicy.inspectorWidth.ideal
+            + LayoutPolicy.splitColumnDividerAllowance * 2
+        let threshold = columns + WindowAnatomyPolicy.scienceMinimum
+        let paneAtThreshold = (threshold - columns - LayoutPolicy.sciencePaneDividerWidth) / 2
+        XCTAssertEqual(paneAtThreshold, LayoutPolicy.imagePaneMinimum,
+                       "at the threshold both panes sit exactly on the floor")
+        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: threshold, navigatorVisible: true))
+        XCTAssertTrue(WindowAnatomyPolicy.collapseInspector(at: threshold - 1, navigatorVisible: true))
+        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: 1100, navigatorVisible: true),
+                       "an 1100-pt window on a 13-inch display keeps its inspector")
+        XCTAssertFalse(WindowAnatomyPolicy.collapseNavigator(at: LayoutPolicy.datasetWindowMinimumSize.width),
+                       "the navigator never collapses at the window's own minimum width")
+    }
+
+    /// 2026-09-22, the first on-screen look at phase 1: an 1100-pt window
+    /// closed the inspector and greyed its toggle, and widening to 1280 left
+    /// it closed, because the collapse had overwritten the user's intent.
+    /// Intent and fit are two questions now.
+    func testANarrowWindowHidesTheInspectorWithoutForgettingTheIntentAndWideningRestoresIt() {
+        let navigation = WorkspaceNavigation()
+        navigation.showToolsPane = true
+        navigation.showInspectorPane = true
+        XCTAssertTrue(navigation.inspectorIsVisible, "an unmeasured (infinite) width collapses nothing")
+
+        navigation.availableWindowWidth = 900
+        XCTAssertFalse(navigation.inspectorFits)
+        XCTAssertFalse(navigation.inspectorIsVisible)
+        XCTAssertTrue(navigation.showInspectorPane, "the intent survives the collapse")
+        XCTAssertTrue(navigation.navigatorIsVisible, "the navigator collapses last")
+
+        navigation.availableWindowWidth = 1280
+        XCTAssertTrue(navigation.inspectorIsVisible, "widening brings the inspector back by itself")
+    }
+
+    /// The budget is the IDEAL column widths, the ones the app sets: the
+    /// maxima demanded 1143 pt and lost the inspector on a 13-inch display.
+    func testTheWidthBudgetSumsTheIdealColumnWidthsNotTheMaxima() {
+        let both = LayoutPolicy.sidebarWidth.ideal + LayoutPolicy.inspectorWidth.ideal
+            + WindowAnatomyPolicy.scienceMinimum + LayoutPolicy.splitColumnDividerAllowance * 2
+        XCTAssertEqual(both, 915)
+        XCTAssertTrue(WindowAnatomyPolicy.collapseInspector(at: both - 1, navigatorVisible: true))
+        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: both, navigatorVisible: true))
+
+        let alone = LayoutPolicy.inspectorWidth.ideal + WindowAnatomyPolicy.scienceMinimum
+            + LayoutPolicy.splitColumnDividerAllowance
+        XCTAssertTrue(WindowAnatomyPolicy.collapseInspector(at: alone - 1, navigatorVisible: false))
+        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: alone, navigatorVisible: false))
+
+        XCTAssertFalse(WindowAnatomyPolicy.collapseNavigator(at: LayoutPolicy.datasetWindowMinimumSize.width),
+                       "the navigator never collapses at or above the window's own minimum width")
+    }
+
+    /// The inspector's budget counts the navigator only while the navigator
+    /// is on screen: hiding the navigator is what makes room.
+    func testTheInspectorBudgetCountsOnlyANavigatorThatIsOnScreen() {
+        let navigation = WorkspaceNavigation()
+        navigation.showInspectorPane = true
+        navigation.availableWindowWidth = 700
+        navigation.showToolsPane = true
+        XCTAssertFalse(navigation.inspectorIsVisible)
+        navigation.showToolsPane = false
+        XCTAssertTrue(navigation.inspectorIsVisible,
+                      "700 pt fits an inspector beside two panes once the navigator is hidden")
     }
 }

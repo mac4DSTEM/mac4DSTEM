@@ -17,10 +17,10 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Owner drive 2026-09-21 23:50–23:55 — the workspace/inspector restyle (`9fd386d`) REJECTED — added 2026-09-22
 
-Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible". Anatomy decided 2026-09-22 in [`docs/window-design.md`](window-design.md); phase 1 committed as `b0cf8e0` but has no owner drive or acceptance. Owner says further changes are wanted; details pending. Drive before Prepare or any other room changes.
+Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible". Anatomy decided 2026-09-22 in [`docs/window-design.md`](window-design.md); phase 1 committed as `b0cf8e0`, put on screen by the agent the same day and corrected (ADR 035, [`archive/v3/ui-review-2026-09-22.md`](archive/v3/ui-review-2026-09-22.md)); the shell is frozen. Owner acceptance owed before Prepare or any other room changes.
 
-### The inspector does not reach the window top; the sidebar does — SEEN 2026-09-21
-`ContentView.swift` applies `.inspector` to the detail `WorkspaceView`, so the column sits under the toolbar and the toolbar's trailing group (the blue primary action, archive, folder, toggle) floats above it; at some widths the items land over the canvas instead, which reads as "sometimes to the top, sometimes not". Xcode's inspector is full height with only its toggle above it. Phase 1: `.inspector` on the `NavigationSplitView`; centre header keeps breadcrumb left, primary action / Save to Session / Reveal right as its width flexes. No room action in toolbar or side panels. Owner drive owed.
+### Fixed in code, owner acceptance owed — `b0cf8e0` + ADR 035 (2026-09-22)
+Inspector from toolbar to bottom edge (`.inspector` on the split view; the toolbar draws no title, the breadcrumb names room and dataset once); Settings · Info a segmented row of its own; the process area's height is the dragged fraction, never the tab's content; the infobar is the whole-width drag handle with a resize pointer, dragging in global coordinates (a local-space drag reached 0.51 of the column); a panel a narrow window closed returns when the window widens (budget 915 pt at the ideal columns, was 1143 at the maxima). Agent-captured at 1100/1280/1470 pt, dark only (`archive/v3/ui-review-2026-09-22/`). **Not driven by the owner.** Residual from the strip finding: the "second workspace" (products side by side, the lineage graph) is phase 4, unbuilt.
 
 ### One column, three alignments — SEEN 2026-09-21, Prepare
 "Compute Mean / Max" sits flush right (`InspectorActionRow`), "Measure Origin & Probe" / "Fit Detector Ellipse" flush left (bare buttons in a section), "Manual 0 / Unit per pixel" in the label column, "Not set" floating mid-row. Pixelmator's rule is one alignment per panel: label left, control right, value far right, buttons full width. Design, not a patch.
@@ -31,17 +31,22 @@ Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 dete
 ### Buttons truncate and crowd — SEEN 2026-09-21, Bragg disks
 "Use Cu…", "Use Fil…", "Vacuu…" — three buttons in one `InspectorActionRow` at 320 pt; "Clear Th…", "Save t…", "Export…" likewise. A button never truncates: one per row, or a menu. `.controlSize(.small)` throughout the inspector makes every control look tiny; the inspector should use the regular size and 13-pt text, small only in the strip.
 
-### Settings / Info reads as a cramped segmented control fighting the toolbar — SEEN 2026-09-21
-The 2-segment text control sits directly under the toolbar's floating buttons with no header rhythm. The owner chose a text Settings · Info header in its own row (`window-design.md` §6). Part of the structure phase.
-
-### The bottom pane's height changes when a tab is pressed — SEEN 2026-09-21
-Switching Output → Run → Lineage moves the divider: the pane's height follows the tab's content rather than the dragged height (`BottomWorkspace.swift`). The dragged height must be the pane's height regardless of tab. Defect; fix rides with the structure phase, not before.
-
-### The status strip is not a grab handle, and the pane is not a workspace — SEEN 2026-09-21
-Xcode's debug area is revealed by dragging anywhere on the bar above it; here only the thin divider drags, and what comes up is the log with two more tabs. The owner's intent (ROADMAP, 2026-09-21): pull the whole strip up to reveal a second central area — products side by side, the lineage graph — with Output/Run as its utility tabs. Structure phase.
-
 ### No workflow logic in the rooms — SEEN 2026-09-21, Prepare and Bragg disks
 Prepare stacks Pattern → Calibration (five items, each with its own button) → manual Q fields → R scale → a five-line orange "Not quantitative — still needed" paragraph → Voltage → Clear. The step order, the state of each step and its one action are not legible; the manual fields precede the calibrations they depend on. Each room must read as ordered steps with state and one verb, the readiness as a compact row, not prose. Design phase, Prepare first as the reference room.
+
+## Neutral UI review 2026-09-22 — open residuals (record: `archive/v3/ui-review-2026-09-22.md`)
+
+### Three inspector styles alive; the room vocabulary is dead on arrival — OPEN, phase 2
+`UI/InspectorRows.swift` (414 lines) is used across 5 491 lines of room files and is "the rejected implementation" by its own ADR 034 amendment; five sheets and Settings use `.formStyle(.grouped)`; the brief's top-level `.columns` `Form` exists nowhere. Next: a one-hour prototype of Prepare as a `.columns` form at 320 pt, owner yes/no, then one room per session, `InspectorRows.swift` deleted last. **Decide first:** a `.columns` form has no native collapsible sections and Xcode's inspector does — always-open sections with one Advanced disclosure row, or no collapsing. Owner.
+
+### View state has four owners — OPEN, code hygiene
+`WorkspaceNavigation` is the declared truth, but `UI/` holds 15 `@SceneStorage` keys and one `@AppStorage` key (`ui2.` is a relic of the deleted UI2), mirrored by 18 `onAppear`/`onChange` sites in four files. Two sources of truth is where "the pane came back wrong" lives. Next: `WorkspaceNavigation` persists one snapshot per window; delete the keys and the sync sites. Rides with the first room conversion.
+
+### UI tests cannot see layout; the unverified row drains only by owner time — OPEN, process
+33 UI-adjacent tests, all pure functions; the 2026-09-21 drive found eight structural defects 844 green tests did not. Next: every UI commit ships captures at 1100 and 1470 pt, light and dark, under `archive/` (recipe: review record §6, no dialog needed) — "Unverified on screen" then means the owner has not accepted the design, not that nobody looked. Light-mode captures are still owed for phase 1.
+
+### UI docs written for agent continuity, not owner decisions — OPEN, docs
+About 16 000 words across `status.md`, `window-design.md`, `open-items.md` and `ROADMAP.md` before a view may be touched; gate cells of 150 words; ADR 034 amends itself into describing dead code as the design. Next: `window-design.md` to the brief + the red-box screenshot + a 20-row element table (§2–§4 prose and the §7 agent prompt to the archive); ADR 034's rejected half retired, not amended; one line per gate row. Unclaimed.
 
 ## v3.1 origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay + clustered case owed
 

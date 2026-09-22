@@ -30,7 +30,6 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
     @State private var showExportSheet = false
-    @State private var availableWindowWidth: CGFloat = .infinity
     @SceneStorage("workspace.navigatorVisible") private var savedNavigatorVisible = true
     @SceneStorage("workspace.inspectorVisible") private var savedInspectorVisible = true
 
@@ -39,29 +38,27 @@ struct ContentView: View {
             .compactMap { UTType(filenameExtension: $0) }
     }
 
-    private var route: WorkspaceRoute { WorkspaceRoute.current(appState.navigation) }
-
     var body: some View {
         splitWindow
+        // The window's width feeds `WindowAnatomyPolicy` through the
+        // navigation seam; the side panels' on-screen state is derived from
+        // it there (intent AND fit) and never written back here.
         .background {
             GeometryReader { geometry in
                 Color.clear
-                    .onAppear { updateWindowWidth(geometry.size.width) }
-                    .onChange(of: geometry.size.width) { updateWindowWidth(geometry.size.width) }
+                    .onAppear { reportWindowWidth(geometry.size.width) }
+                    .onChange(of: geometry.size.width) { reportWindowWidth(geometry.size.width) }
             }
         }
         .onAppear {
             appState.navigation.showToolsPane = savedNavigatorVisible
             appState.navigation.showInspectorPane = savedInspectorVisible
-            collapsePanelsIfNeeded()
         }
         .onChange(of: appState.navigation.showToolsPane) {
             savedNavigatorVisible = appState.navigation.showToolsPane
-            collapsePanelsIfNeeded()
         }
         .onChange(of: appState.navigation.showInspectorPane) {
             savedInspectorVisible = appState.navigation.showInspectorPane
-            collapsePanelsIfNeeded()
         }
         .onChange(of: appState.resultPresentation.virtualShape) { appState.commitApertureChange() }
         .onChange(of: appState.realSpaceShape) { appState.updateRealSpaceRegion() }
@@ -109,9 +106,7 @@ struct ContentView: View {
     }
 
     private var splitWindow: some View {
-        @Bindable var navigation = appState.navigation
-
-        return NavigationSplitView(columnVisibility: sidebarVisibility) {
+        NavigationSplitView(columnVisibility: sidebarVisibility) {
             WorkspaceSidebar()
                 .navigationSplitViewColumnWidth(
                     min: LayoutPolicy.sidebarWidth.min,
@@ -120,13 +115,22 @@ struct ContentView: View {
                 )
         } detail: {
             WorkspaceView()
+                // Declared on the detail column, not on the split view.
+                // Measured 2026-09-22 on macOS 27: with the title removed,
+                // a toolbar declared on the split view laid these
+                // `.primaryAction` items out at the content's LEADING edge,
+                // beside the sidebar toggle, and a flexible `ToolbarSpacer`
+                // (automatic or `.primaryAction` placement) did not move
+                // them. Declared here they take the trailing edge — over
+                // the inspector when it is open, at the window's edge when
+                // it is not — and the toggle stays reachable either way.
+                .toolbar { windowToolbarContent }
         }
         // Phase 1 (window-design.md §4–§6, decided 2026-09-22): `.inspector`
         // moved here, off the detail view, so the column runs from the
         // toolbar to the window's bottom edge exactly the way the sidebar
-        // already does. The persistent trailing toggle belongs to the split
-        // view's toolbar, so it remains available with the inspector hidden.
-        .inspector(isPresented: $navigation.showInspectorPane) {
+        // already does.
+        .inspector(isPresented: inspectorPresented) {
             WorkspaceInspector()
                 .inspectorColumnWidth(
                     min: LayoutPolicy.inspectorWidth.min,
@@ -134,38 +138,40 @@ struct ContentView: View {
                     max: LayoutPolicy.inspectorWidth.max
                 )
         }
-        .navigationTitle(appState.hasDataset ? route.title : "mac4DSTEM")
-        .navigationSubtitle(appState.descriptor?.fileName ?? "")
-        .toolbar { windowToolbarContent }
+        // The window keeps a title — the dataset, as a document window's is —
+        // for the Window menu, Mission Control and accessibility, but the
+        // toolbar does not draw it: the centre header's breadcrumb already
+        // reads "Prepare › dataset", and the same words 30 pt above it were
+        // the duplicate header the 2026-09-04 rebuild had removed, found
+        // again on the first phase-1 look (2026-09-22). Xcode's toolbar
+        // carries no title either; its jump bar does.
+        .navigationTitle(appState.descriptor?.fileName ?? "mac4DSTEM")
+        .modifier(ToolbarTitleRemoved())
+    }
+
+    /// What the split view shows is intent AND fit; what a click writes is
+    /// intent alone (`WorkspaceNavigation`).
+    private var inspectorPresented: Binding<Bool> {
+        Binding(
+            get: { appState.navigation.inspectorIsVisible },
+            set: { appState.navigation.showInspectorPane = $0 }
+        )
     }
 
     /// The sidebar's visibility rides on the same flag as the Show/Hide Tools
     /// menu item, so the two can never disagree.
     private var sidebarVisibility: Binding<NavigationSplitViewVisibility> {
         Binding(
-            get: { appState.navigation.showToolsPane ? .all : .detailOnly },
+            get: { appState.navigation.navigatorIsVisible ? .all : .detailOnly },
             set: { appState.navigation.showToolsPane = ($0 != .detailOnly) }
         )
     }
 
-    private func updateWindowWidth(_ width: CGFloat) {
-        guard width >= LayoutPolicy.datasetWindowMinimumSize.width else { return }
-        availableWindowWidth = width
-        collapsePanelsIfNeeded()
-    }
-
-    private func collapsePanelsIfNeeded() {
-        let navigation = appState.navigation
-        if navigation.showInspectorPane,
-           WindowAnatomyPolicy.collapseInspector(
-               at: availableWindowWidth, navigatorVisible: navigation.showToolsPane
-           ) {
-            navigation.showInspectorPane = false
-        }
-        if navigation.showToolsPane,
-           WindowAnatomyPolicy.collapseNavigator(at: availableWindowWidth) {
-            navigation.showToolsPane = false
-        }
+    /// The first layout pass can report zero, and a zero would collapse both
+    /// panels for a frame.
+    private func reportWindowWidth(_ width: CGFloat) {
+        guard width > 0 else { return }
+        appState.navigation.availableWindowWidth = width
     }
 
     /// Only window-level controls live here. The split view supplies the
@@ -173,6 +179,17 @@ struct ContentView: View {
     /// inspector. ⌥⌘0 and the existing ⌃⌘I menu item reach the same state.
     @ToolbarContentBuilder
     private var windowToolbarContent: some ToolbarContent {
+        // The flexible spacer alone did NOT hold these items at the trailing
+        // edge once the title was removed (two captures, 2026-09-22, with
+        // `.automatic` and `.primaryAction` placement); declaring the toolbar
+        // on the detail column did (see `splitWindow`). The spacer stays as
+        // the new toolbar model's own separator between the title's former
+        // slot and this group. `ToolbarSpacer` is macOS 26+, which is why
+        // `ToolbarTitleRemoved` is guarded at 26 too: below it the title
+        // stays and the old layout holds.
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.flexible, placement: .primaryAction)
+        }
         ToolbarItem(placement: .primaryAction) {
             DatasetMenu()
         }
@@ -188,19 +205,22 @@ struct ContentView: View {
                 appState.navigation.showInspectorPane.toggle()
             } label: {
                 Label(
-                    appState.navigation.showInspectorPane ? "Hide Inspector" : "Show Inspector",
+                    appState.navigation.inspectorIsVisible ? "Hide Inspector" : "Show Inspector",
                     systemImage: "sidebar.trailing"
                 )
             }
-            .help(appState.navigation.showInspectorPane
-                  ? "Hide the inspector" : "Show the inspector")
+            .help(inspectorToggleHelp)
             .keyboardShortcut("0", modifiers: [.command, .option])
             .accessibilityIdentifier("toolbar.inspectorToggle")
-            .disabled(WindowAnatomyPolicy.collapseInspector(
-                at: availableWindowWidth,
-                navigatorVisible: appState.navigation.showToolsPane
-            ))
+            .disabled(!appState.navigation.inspectorFits)
         }
+    }
+
+    /// A disabled toggle explains itself: the inspector is not refusing, the
+    /// window is too narrow for it beside two science panes.
+    private var inspectorToggleHelp: String {
+        guard appState.navigation.inspectorFits else { return "Widen the window to show the inspector" }
+        return appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
     }
 
     /// The importer's completion, as a method rather than an inline closure:
@@ -233,5 +253,22 @@ struct ContentView: View {
         #else
         UIPasteboard.general.string = text
         #endif
+    }
+}
+
+
+/// `ToolbarDefaultItemKind.title` is macOS 15+ and the build floor is 14
+/// (ADR 008), so the removal is a refinement in the `ResizePointer` shape.
+/// Guarded at 26, not 15: the trailing-edge layout without a title was
+/// measured only on macOS 27 with the toolbar declared on the detail column
+/// (`splitWindow`); below 26 the toolbar keeps drawing the title beside the
+/// breadcrumb rather than risk misplaced toggles on an unmeasured OS.
+private struct ToolbarTitleRemoved: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.toolbar(removing: .title)
+        } else {
+            content
+        }
     }
 }
