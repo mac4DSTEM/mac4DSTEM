@@ -28,6 +28,8 @@ import DSTEMSession
 /// string, `.help`, accessibility identifier, binding, default or
 /// computation moved (Gate D: not applicable — no scientific number moves).
 struct WorkspaceInspector: View {
+    @Environment(AppState.self) private var appState
+
     /// Persisted so the column comes back on the tab the user left it on.
     private enum InspectorTab: String {
         case settings, info
@@ -35,29 +37,66 @@ struct WorkspaceInspector: View {
 
     @AppStorage("ui2.inspectorTab") private var tab: InspectorTab = .settings
 
-    /// Header, then body (window-design.md §4 and §6.3, owner 2026-09-22): a
-    /// text segmented control — Settings · Info — in a row of its own, then
-    /// the tab's content. It was a `TabView`, which macOS draws as the
-    /// bordered tab box the owner read as "cramped … fighting the toolbar";
-    /// this is the same two states with the system segmented control in the
-    /// inspector's own first row.
+    /// The inspector's own toolbar section, level with the window's other
+    /// buttons (owner, 2026-09-22 evening: a picker row inside the column "is
+    /// ugly"; Xcode keeps its inspector tabs up in the toolbar): the Settings ·
+    /// Info segmented control, then the inspector's toggle at the far right —
+    /// the one toggle this app declares, the standard SwiftUI shape (the split
+    /// view supplies the navigator's, the app supplies the inspector's).
+    /// Measured 2026-09-22: items declared here stay in the toolbar, once,
+    /// while the inspector is hidden, so the toggle needs no fallback and a
+    /// fallback doubles it. The body is the selected tab alone.
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("Inspector tab", selection: $tab) {
-                Text("Settings").tag(InspectorTab.settings)
-                Text("Info").tag(InspectorTab.info)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, LayoutPolicy.inspectorHeaderHorizontalPadding)
-            .padding(.vertical, LayoutPolicy.inspectorHeaderVerticalPadding)
-            .accessibilityIdentifier("inspector.tabPicker")
-            Divider()
+        Group {
             switch tab {
             case .settings: InspectorSettingsTab()
             case .info: InspectorInfoTab()
             }
         }
+        .toolbar {
+            // The picker goes with the column; the toggle stays.
+            if appState.navigation.inspectorIsVisible {
+                ToolbarItem(placement: .automatic) {
+                    Picker("Inspector tab", selection: $tab) {
+                        Text("Settings").tag(InspectorTab.settings)
+                        Text("Info").tag(InspectorTab.info)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .help("Settings: the room's controls. Info: what the dataset and the displayed product are.")
+                    .accessibilityIdentifier("inspector.tabPicker")
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                InspectorToggleButton()
+            }
+        }
+    }
+}
+
+/// The inspector's toggle, declared once, in the inspector's own toolbar.
+/// ⌥⌘0 here and ⌃⌘I in the View menu reach the same intent.
+struct InspectorToggleButton: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        Button {
+            appState.navigation.showInspectorPane.toggle()
+        } label: {
+            Label(appState.navigation.inspectorIsVisible ? "Hide Inspector" : "Show Inspector",
+                  systemImage: "sidebar.trailing")
+        }
+        .help(help)
+        .keyboardShortcut("0", modifiers: [.command, .option])
+        .accessibilityIdentifier("toolbar.inspectorToggle")
+        .disabled(!appState.navigation.inspectorFits)
+    }
+
+    /// A disabled toggle explains itself: the inspector is not refusing, the
+    /// window is too narrow for it beside two science panes.
+    private var help: String {
+        guard appState.navigation.inspectorFits else { return "Widen the window to show the inspector" }
+        return appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
     }
 }
 

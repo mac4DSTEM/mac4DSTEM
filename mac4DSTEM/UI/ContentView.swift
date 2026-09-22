@@ -53,6 +53,17 @@ struct ContentView: View {
         .onAppear {
             appState.navigation.showToolsPane = savedNavigatorVisible
             appState.navigation.showInspectorPane = savedInspectorVisible
+            // Capture scaffolding, the `--demo-fixture` shape: a launch can
+            // force a panel state, so a scripted capture of the hidden or
+            // shown toolbar does not depend on whatever state the last window
+            // left behind (2026-09-22).
+            applyPanelLaunchFlags()
+        }
+        .task {
+            // Once more after the first layout: scene restoration can land
+            // after `onAppear` and put the saved state back.
+            try? await Task.sleep(for: .milliseconds(500))
+            applyPanelLaunchFlags()
         }
         .onChange(of: appState.navigation.showToolsPane) {
             savedNavigatorVisible = appState.navigation.showToolsPane
@@ -137,18 +148,11 @@ struct ContentView: View {
                     ideal: LayoutPolicy.inspectorWidth.ideal,
                     max: LayoutPolicy.inspectorWidth.max
                 )
-                // Xcode's rule (owner, 2026-09-22 evening, on his own build):
-                // the ONLY toolbar item over the inspector is its toggle; the
-                // room's actions stay over the room. Declared here, the toggle
-                // sits in the inspector's own toolbar section while the
-                // inspector is open and stays at the window's trailing edge
-                // while it is hidden — measured on his build: SwiftUI keeps
-                // the inspector's toolbar items when the column collapses.
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        InspectorToggleButton()
-                    }
-                }
+                // The inspector's own toolbar carries its Settings · Info
+                // picker and its ONE toggle (`WorkspaceInspector`): items
+                // declared there stay in the toolbar, once, while the column
+                // is hidden — measured 2026-09-22 — so nothing here may add a
+                // second toggle (the owner saw two, twice, that evening).
         }
         // The window keeps a title — the dataset, as a document window's is —
         // for the Window menu, Mission Control and accessibility, but the
@@ -177,6 +181,15 @@ struct ContentView: View {
             get: { appState.navigation.navigatorIsVisible ? .all : .detailOnly },
             set: { appState.navigation.showToolsPane = ($0 != .detailOnly) }
         )
+    }
+
+    /// Capture scaffolding (see `onAppear`): only a launch flag writes here.
+    private func applyPanelLaunchFlags() {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--inspector-hidden") { appState.navigation.showInspectorPane = false }
+        if arguments.contains("--inspector-shown") { appState.navigation.showInspectorPane = true }
+        if arguments.contains("--navigator-hidden") { appState.navigation.showToolsPane = false }
+        if arguments.contains("--navigator-shown") { appState.navigation.showToolsPane = true }
     }
 
     /// The first layout pass can report zero, and a zero would collapse both
@@ -232,10 +245,8 @@ struct ContentView: View {
         ToolbarItem(placement: .primaryAction) {
             DatasetMenu()
         }
-        // No toggle here: the inspector's own toolbar item (see `.inspector`
-        // above) stays in the toolbar while the inspector is hidden — the
-        // owner's screenshot of 2026-09-22 showed it doubled beside a
-        // fallback that assumed otherwise.
+        // No inspector toggle here: it is the inspector's own (see
+        // `.inspector` above).
     }
 
     /// The importer's completion, as a method rather than an inline closure:
@@ -271,34 +282,6 @@ struct ContentView: View {
     }
 }
 
-
-/// The inspector's toggle, declared once in the inspector's own toolbar.
-/// ⌥⌘0 and the View menu's ⌃⌘I reach the same intent.
-struct InspectorToggleButton: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        Button {
-            appState.navigation.showInspectorPane.toggle()
-        } label: {
-            Label(
-                appState.navigation.inspectorIsVisible ? "Hide Inspector" : "Show Inspector",
-                systemImage: "sidebar.trailing"
-            )
-        }
-        .help(help)
-        .keyboardShortcut("0", modifiers: [.command, .option])
-        .accessibilityIdentifier("toolbar.inspectorToggle")
-        .disabled(!appState.navigation.inspectorFits)
-    }
-
-    /// A disabled toggle explains itself: the inspector is not refusing, the
-    /// window is too narrow for it beside two science panes.
-    private var help: String {
-        guard appState.navigation.inspectorFits else { return "Widen the window to show the inspector" }
-        return appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
-    }
-}
 
 /// The toolbar's centre — Xcode's activity viewer (owner, 2026-09-22
 /// evening: "the dataset's name … and the current process" in the toolbar).

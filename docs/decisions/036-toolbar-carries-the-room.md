@@ -2,7 +2,7 @@
 
 Dates: 2026-09-22 (evening)
 
-Status: live — decided on the owner's own build, corrected three times on his word the same hour (toggle placement, a doubled toggle, the verb's side)
+Status: live — decided on the owner's own build, corrected five times on his word the same evening (toggle placement, a doubled toggle, the verb's side, the picker's row, the picker hiding with the column)
 
 ## Decision
 
@@ -23,11 +23,18 @@ The window's toolbar is Xcode's (owner, 2026-09-22 evening, `window-design.md`
   position; the owner moved it on his build: the parameters are set in the
   inspector on the right, so the verb belongs under it, not by the
   navigator.
-- **Over the inspector, only its toggle.** Declared in the inspector's own
-  toolbar while it is open; supplied at the room's trailing edge while it is
-  hidden, so it never disappears and never doubles. The owner caught the
-  first cut putting the whole trailing group over the inspector: "like in
-  Xcode" means the editor's actions stay over the editor.
+- **Over the inspector: its Settings · Info picker and, at the far right,
+  its one toggle** — both declared in the inspector's own toolbar, the
+  standard SwiftUI shape (the split view supplies the navigator's toggle,
+  the app supplies the inspector's). Measured on 2026-09-22 with a launch
+  flag that forces each state: items declared there stay in the toolbar,
+  once, while the column is hidden, so the toggle needs no fallback and
+  any fallback doubles it (the owner saw two, twice); the picker is
+  conditional on the inspector being visible, so it goes with the column.
+  The owner caught the first cut putting the whole trailing group over the
+  inspector: "like in Xcode" means the editor's actions stay over the
+  editor. The picker moved up from a row inside the column on his word
+  ("at the same height as the buttons").
 - **The breadcrumb row (phase 1's centre header) is removed**; the panes
   gain its height. The room is named in the navigator's selection and in
   the centre display.
@@ -44,8 +51,12 @@ navigator's selection is space taken from the science.
 
 ## Governs
 
-`ContentView.windowToolbarContent`, `InspectorToggleButton`,
-`ToolbarRunDisplay`, `ToolbarDisplayFormat` (one test, red under a mutation);
+`ContentView.windowToolbarContent`, `WorkspaceInspector`'s toolbar
+(`InspectorToggleButton`, the picker), `ToolbarRunDisplay`,
+`ToolbarDisplayFormat` (one test, red under a mutation); the
+`--inspector-hidden` / `--inspector-shown` / `--navigator-hidden` /
+`--navigator-shown` launch flags, capture scaffolding in the
+`--demo-fixture` shape;
 `WorkspaceView` without `CanvasHeader`; `LayoutPolicy.toolbarDisplayWidth`,
 `statusStripHeight`. The shell stays frozen (035): this is the picture he
 accepted.
