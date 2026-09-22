@@ -260,6 +260,29 @@ private struct SingleslicePtychographySection: View {
 
 // MARK: - Parallax: the four stages
 
+/// Stage 4 ("Inspect or reconstruct products")'s completeness: true once
+/// either of its own two products exists — the KDE-upsampled bright-field
+/// reconstruction (`parallaxSubpixel`, published by `upsampleParallaxBF()`)
+/// or the depth-sectioned stack (`parallaxDepth`, published by
+/// `computeParallaxDepthSections()`) — matching the two content blocks stage
+/// 4's own body shows (below).
+///
+/// Gate D, 2026-09-22: this used to also read `singleslicePtychography !=
+/// nil`, a copy-paste survivor from the 2026-09-04 SwiftUI rewrite
+/// (`345c7c7`) that has nothing to do with parallax — single-slice
+/// ptychography is a wholly independent task of `WorkspaceArea.reconstruct`
+/// (`SingleslicePtychographySection`, above), with its own run method
+/// (`runSingleslicePtychography()`) and result type. Running it alone, with
+/// zero parallax stages ever run, made this stage's checkmark and
+/// accessibility value read "Complete". Presentation-only — traced
+/// `currentStage`'s one caller of this value and confirmed stage 4 is
+/// already `active` (and so already enabled) in every case where its own
+/// `complete` flag would otherwise matter, so no gate on what Core computes
+/// depended on this; `ParallaxStage4CompletenessTests` pins both products.
+func parallaxStage4IsComplete(_ phaseContrast: PhaseContrastProduct) -> Bool {
+    phaseContrast.parallaxSubpixel != nil || phaseContrast.parallaxDepth != nil
+}
+
 /// Backlog #39, v2.5 step 7a. The four stages of the staged bright-field
 /// reconstruction, one `InspectorSection` each, carrying a status glyph
 /// (the same ✓/number glyph the old progress block drew) as the section's
@@ -534,8 +557,7 @@ private struct ParallaxStageSections: View {
         case 1: appState.phaseContrast.parallaxPreprocess != nil
         case 2: appState.phaseContrast.parallaxAlignment?.isComplete == true
         case 3: appState.phaseContrast.parallaxCorrection != nil
-        default:
-            appState.phaseContrast.singleslicePtychography != nil || appState.phaseContrast.parallaxSubpixel != nil
+        default: parallaxStage4IsComplete(appState.phaseContrast)
         }
     }
 
