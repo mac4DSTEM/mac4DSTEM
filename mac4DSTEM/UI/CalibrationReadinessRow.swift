@@ -11,6 +11,12 @@
 //  the function itself stays host-agnostic and both callers keep their own
 //  `Form`/`Section` container unchanged. No behaviour change.
 //
+//  Consolidation review follow-up (2026-09-22): `row` joins `action` and
+//  `manualScale` here for the same reason — the two files also hand-copied
+//  the readiness row's own `LabeledContent`, and had drifted: this WAS a
+//  behaviour change, fixing `ExportSheet`'s copy to read `.ready(.fitAnyway)`
+//  as a warning the way `PrepareSettings`'s copy always did.
+//
 
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -19,6 +25,75 @@ import DSTEMSession
 #endif
 
 enum CalibrationReadinessRow {
+    /// One calibration's full readiness row: the `LabeledContent` line (kind,
+    /// ready/warning glyph, provenance, calibrated value), the R-scale
+    /// filename-conflict note when present, and the row's action below it.
+    ///
+    /// Hygiene audit row 1 follow-up (2026-09-22): `PrepareSettings` and
+    /// `ExportSheet` each hand-copied this whole row, byte-identical except
+    /// one line — `PrepareSettings` read `.ready(.fitAnyway)` as a warning
+    /// (orange, not green: the value is used the same as any other ready
+    /// value, but the assertion behind it is the user's, not the fit's);
+    /// `ExportSheet`'s copy did not, so the same calibration read as plain
+    /// green success in the export sheet and as a warning in Prepare. Left
+    /// as a native `LabeledContent` (not `InspectorRow`/`InspectorValueRow`):
+    /// its label is a colour-coded `Label` plus a wrapping detail caption,
+    /// not a plain string, so the simple-string row API would drop the
+    /// colour coding.
+    @ViewBuilder
+    static func row(
+        _ item: CalibrationReadinessItem,
+        appState: AppState,
+        rScaleFilenameConflict: String?,
+        qScaleUnavailableReason: String
+    ) -> some View {
+        let isWarning = item.status == .ready(.fitAnyway)
+        LabeledContent {
+            Text(item.status.displayName)
+                .foregroundStyle(item.status.isReady && !isWarning ? Color.secondary : Color.orange)
+                .fixedSize()
+        } label: {
+            Label {
+                Text(item.kind.rawValue)
+                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
+            } icon: {
+                Image(systemName: item.status.isReady
+                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
+            }
+            // The calibrated value and its units — the scientific content of
+            // the row, on screen unconditionally, wrapping never truncating
+            // (S22d: the tail is the caveat). Inside a Form the label stacks
+            // and the caption wraps to the column on its own.
+            Text(item.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        // `unlockSummary` says what this calibration *enables*: on hover and
+        // in the accessibility description, not permanently under six rows.
+        .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
+        .accessibilityElement(children: .contain)
+        .accessibilityHint(item.kind.unlockSummary)
+        .accessibilityIdentifier("calibration.item.\(item.kind.id)")
+
+        // Outside the `!isReady` branch: an imported R scale that disagrees
+        // with the filename is *ready*, and exactly the case worth a warning.
+        if item.kind == .rScale, let conflict = rScaleFilenameConflict {
+            Label(conflict, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("calibration.rScale.filenameConflict")
+        }
+        if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
+            for: item.kind, status: item.status
+        ) {
+            action(
+                appState: appState, kind: item.kind, status: item.status,
+                qScaleUnavailableReason: qScaleUnavailableReason
+            )
+        }
+    }
+
     @ViewBuilder
     static func action(
         appState: AppState,

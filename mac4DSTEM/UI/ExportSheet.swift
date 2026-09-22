@@ -223,56 +223,18 @@ struct ExportSheet: View {
 
     // MARK: - Readiness rows
 
-    /// One calibration as a `LabeledContent` row — the kind with its status
-    /// glyph and the calibrated value under it as the label, the provenance
-    /// ("From file" / "Measured" / …, never demoted) as the content —
-    /// followed by its warning and its action. Inside a `Form` the label
-    /// stacks and the detail wraps to the column on its own.
+    /// One calibration's readiness row — shared with `PrepareSettings` as
+    /// `CalibrationReadinessRow.row` (hygiene audit row 1 follow-up,
+    /// 2026-09-22: this copy had silently dropped the "fit anyway" orange
+    /// warning `PrepareSettings`'s copy carried; sharing the row fixes it
+    /// here too rather than patching the duplicate).
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
-        LabeledContent {
-            Text(item.status.displayName)
-                .foregroundStyle(item.status.isReady ? Color.secondary : Color.orange)
-                .fixedSize()
-        } label: {
-            Label {
-                Text(item.kind.rawValue)
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-            } icon: {
-                Image(systemName: item.status.isReady
-                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-            }
-            // The calibrated value and its units — the scientific content of
-            // the row, on screen unconditionally, wrapping never truncating
-            // (S22d: the tail is the caveat).
-            Text(item.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        // `unlockSummary` says what this calibration *enables*: on hover and
-        // in the accessibility description, not permanently under six rows.
-        .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
-        .accessibilityElement(children: .contain)
-        .accessibilityHint(item.kind.unlockSummary)
-        .accessibilityIdentifier("calibration.item.\(item.kind.id)")
-
-        // Outside the `!isReady` branch: an imported R scale that disagrees
-        // with the filename is *ready*, and exactly the case worth a warning.
-        if item.kind == .rScale, let conflict = rScaleFilenameConflict {
-            Label(conflict, systemImage: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundStyle(.orange)
-                .accessibilityIdentifier("calibration.rScale.filenameConflict")
-        }
-        if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
-            for: item.kind, status: item.status
-        ) {
-            CalibrationReadinessRow.action(
-                appState: appState, kind: item.kind, status: item.status,
-                qScaleUnavailableReason: qScaleUnavailableReason
-            )
-        }
+        CalibrationReadinessRow.row(
+            item, appState: appState,
+            rScaleFilenameConflict: rScaleFilenameConflict,
+            qScaleUnavailableReason: qScaleUnavailableReason
+        )
     }
 
     /// A scan-step token in the filename that disagrees with the R pixel scale

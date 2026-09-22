@@ -241,10 +241,7 @@ private struct DiskDetectionRows: View {
         InspectorNote("Use the toolbar action to run full-scan detection.")
 
         if appState.diskDetectionSettingsAreStale {
-            Label("Full-scan peaks use earlier settings", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundStyle(.orange)
-                .help("Run Detect All Disks again before using the new settings for strain or ACOM.")
+            DetectionSettingsStaleWarning(reason: "before using the new settings for strain or ACOM")
         } else if let count = appState.resultPresentation.braggPeakCount {
             InspectorValueRow("Peaks found", "\(count)")
             if let summary = appState.completedDiskSummary {
@@ -589,8 +586,7 @@ private struct StrainSection: View {
             }
 
             if appState.diskDetectionSettingsAreStale {
-                Text("Detection settings changed — rerun Detect All Disks before strain.")
-                    .font(.caption).foregroundStyle(.orange)
+                DetectionSettingsStaleWarning(reason: "before strain")
             }
 
             if appState.strain.map != nil {
@@ -1079,8 +1075,7 @@ private struct ACOMSections: View {
     @ViewBuilder
     private var prerequisiteStatus: some View {
         if appState.diskDetectionSettingsAreStale {
-            Text("Detection settings changed — rerun Detect All Disks before ACOM.")
-                .font(.caption).foregroundStyle(.orange)
+            DetectionSettingsStaleWarning(reason: "before ACOM")
         }
     }
 
@@ -1131,6 +1126,22 @@ private struct ACOMSections: View {
 }
 
 // MARK: - Shared rows and bindings
+
+/// The warning shown wherever `AppState.diskDetectionSettingsAreStale` gates
+/// a section — Disks, Strain and ACOM each hand-copied this, and Disks' copy
+/// put the "rerun Detect All Disks" instruction only in a `.help()` tooltip
+/// rather than the always-visible text the other two carry (consolidation
+/// review 2026-09-22, finding W-5's second half). One row, one wording, the
+/// reason parametrized per caller.
+private struct DetectionSettingsStaleWarning: View {
+    let reason: String
+
+    var body: some View {
+        Text("Detection settings changed — rerun Detect All Disks \(reason).")
+            .font(.caption)
+            .foregroundStyle(.orange)
+    }
+}
 
 /// Bridges a `Float` parameter binding to the `Double` `AdjustmentSlider`
 /// expects; the clamping stays in the wrapped `Float` binding, unchanged.
