@@ -375,17 +375,12 @@ struct ColormapChip<Chip: View>: View {
         }
     }
 
-    /// `Colormaps.swatch` is built with AppKit drawing, so this one line is
-    /// the file's only platform split; everything else here is portable.
-    @ViewBuilder
+    /// `Colormaps.swatch` returns `NSImage`, and the project targets macOS
+    /// only (`Package.swift`: `platforms: [.macOS(.v14)]`), so there is no
+    /// platform split to make here.
     private func swatch(_ kind: ColormapKind) -> some View {
-        #if os(macOS)
         Image(nsImage: Colormaps.swatch(kind))
             .clipShape(RoundedRectangle(cornerRadius: 2))
-        #else
-        Image(uiImage: Colormaps.swatch(kind))
-            .clipShape(RoundedRectangle(cornerRadius: 2))
-        #endif
     }
 }
 
@@ -930,9 +925,25 @@ struct PatternFitOverlay: View {
 
 // MARK: - IPF legends
 
-/// Compact sampled m-3m inverse-pole-figure key. The map and legend share the
-/// same color function, keeping the on-screen key aligned with exported pixels.
-struct CubicIPFLegend: View {
+/// Shared barycentric triangle key behind `CubicIPFLegend` and
+/// `HexagonalIPFLegend`: same drawing, differing only in the corner
+/// directions, the color function and the corner labels.
+///
+/// The three corner directions are kept as separate stored properties rather
+/// than inlined into the blend expression below: the single-expression form
+/// (three vectors normalized and combined inline) exceeded Xcode 26.6's
+/// type-checker budget (CI run #1) even though Xcode 27 accepts it.
+private struct IPFTriangleLegend: View {
+    let leftDirection: SIMD3<Double>
+    let rightDirection: SIMD3<Double>
+    let topDirection: SIMD3<Double>
+    let leftLabel: String
+    let topLabel: String
+    let rightLabel: String
+    let colorFunction: (SIMD3<Double>) -> SIMD3<Float>
+    let labelRowWidth: CGFloat
+    let accessibilityLabelText: String
+
     var body: some View {
         VStack(spacing: 1) {
             Canvas { context, size in
@@ -941,21 +952,15 @@ struct CubicIPFLegend: View {
                 let top = SIMD2<Double>(Double(size.width / 2), 3)
                 let steps = 36
                 let radius = max(1.4, Double(size.width) / Double(steps) * 0.65)
-                // Triangle corners as named constants: the one-expression blend
-                // exceeds Xcode 26.6's type-checker budget (CI run #1) even
-                // though Xcode 27 accepts it.
-                let dir001 = SIMD3<Double>(0, 0, 1)
-                let dir101 = simd_normalize(SIMD3<Double>(1, 0, 1))
-                let dir111 = simd_normalize(SIMD3<Double>(1, 1, 1))
                 for topIndex in 0...steps {
                     for rightIndex in 0...(steps - topIndex) {
                         let wt = Double(topIndex) / Double(steps)
                         let wr = Double(rightIndex) / Double(steps)
                         let wl = 1 - wt - wr
                         let point = left * wl + right * wr + top * wt
-                        let blended = dir001 * wl + dir101 * wr + dir111 * wt
+                        let blended = leftDirection * wl + rightDirection * wr + topDirection * wt
                         let direction = simd_normalize(blended)
-                        let rgb = CubicOrientationSymmetry.ipfColor(direction: direction)
+                        let rgb = colorFunction(direction)
                         let rect = CGRect(x: point.x - radius, y: point.y - radius,
                                           width: radius * 2, height: radius * 2)
                         context.fill(Path(ellipseIn: rect), with: .color(Color(
@@ -966,72 +971,57 @@ struct CubicIPFLegend: View {
             }
             .frame(width: Self.triangleSize.width, height: Self.triangleSize.height)
             HStack {
-                Text("001")
+                Text(leftLabel)
                 Spacer()
-                Text("111")
+                Text(topLabel)
                 Spacer()
-                Text("101")
+                Text(rightLabel)
             }
             .font(.caption2.monospacedDigit())
             // Drawing geometry, not a text layout: the corner labels are part
             // of the key and must sit under the triangle's corners.
-            .frame(width: Self.labelRowWidth)
+            .frame(width: labelRowWidth)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Cubic inverse pole figure color key: 001 red, 101 green, 111 blue")
+        .accessibilityLabel(accessibilityLabelText)
     }
 
     private static let triangleSize = CGSize(width: 116, height: 62)
-    private static let labelRowWidth: CGFloat = 132
+}
+
+/// Compact sampled m-3m inverse-pole-figure key. The map and legend share the
+/// same color function, keeping the on-screen key aligned with exported pixels.
+struct CubicIPFLegend: View {
+    var body: some View {
+        IPFTriangleLegend(
+            leftDirection: SIMD3<Double>(0, 0, 1),
+            rightDirection: simd_normalize(SIMD3<Double>(1, 0, 1)),
+            topDirection: simd_normalize(SIMD3<Double>(1, 1, 1)),
+            leftLabel: "001",
+            topLabel: "111",
+            rightLabel: "101",
+            colorFunction: CubicOrientationSymmetry.ipfColor(direction:),
+            labelRowWidth: 132,
+            accessibilityLabelText: "Cubic inverse pole figure color key: 001 red, 101 green, 111 blue"
+        )
+    }
 }
 
 /// Native 6/mmm key sharing the production hexagonal color function.
 struct HexagonalIPFLegend: View {
     var body: some View {
-        VStack(spacing: 1) {
-            Canvas { context, size in
-                let left = SIMD2<Double>(4, Double(size.height - 3))
-                let right = SIMD2<Double>(Double(size.width - 4), Double(size.height - 3))
-                let top = SIMD2<Double>(Double(size.width / 2), 3)
-                let steps = 36
-                let radius = max(1.4, Double(size.width) / Double(steps) * 0.65)
-                for topIndex in 0...steps {
-                    for rightIndex in 0...(steps - topIndex) {
-                        let wt = Double(topIndex) / Double(steps)
-                        let wr = Double(rightIndex) / Double(steps)
-                        let wl = 1 - wt - wr
-                        let point = left * wl + right * wr + top * wt
-                        let direction = simd_normalize(
-                            SIMD3(0.0, 0.0, 1.0) * wl
-                                + SIMD3(1.0, 0.0, 0.0) * wr
-                                + SIMD3(cos(.pi / 6), sin(.pi / 6), 0.0) * wt
-                        )
-                        let rgb = HexagonalOrientationSymmetry.ipfColor(direction: direction)
-                        let rect = CGRect(x: point.x - radius, y: point.y - radius,
-                                          width: radius * 2, height: radius * 2)
-                        context.fill(Path(ellipseIn: rect), with: .color(Color(
-                            red: Double(rgb.x), green: Double(rgb.y), blue: Double(rgb.z)
-                        )))
-                    }
-                }
-            }
-            .frame(width: Self.triangleSize.width, height: Self.triangleSize.height)
-            HStack {
-                Text("0001")
-                Spacer()
-                Text("11-20")
-                Spacer()
-                Text("10-10")
-            }
-            .font(.caption2.monospacedDigit())
-            // Drawing geometry, as above; wider than the cubic key because
-            // the hexagonal indices are four characters.
-            .frame(width: Self.labelRowWidth)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Hexagonal inverse pole figure color key: 0001 red, 10-10 green, 11-20 blue")
+        IPFTriangleLegend(
+            leftDirection: SIMD3<Double>(0, 0, 1),
+            rightDirection: SIMD3<Double>(1, 0, 0),
+            topDirection: SIMD3<Double>(cos(.pi / 6), sin(.pi / 6), 0),
+            leftLabel: "0001",
+            topLabel: "11-20",
+            rightLabel: "10-10",
+            colorFunction: HexagonalOrientationSymmetry.ipfColor(direction:),
+            // Wider than the cubic key because the hexagonal indices are four
+            // characters.
+            labelRowWidth: 142,
+            accessibilityLabelText: "Hexagonal inverse pole figure color key: 0001 red, 10-10 green, 11-20 blue"
+        )
     }
-
-    private static let triangleSize = CGSize(width: 116, height: 62)
-    private static let labelRowWidth: CGFloat = 142
 }
