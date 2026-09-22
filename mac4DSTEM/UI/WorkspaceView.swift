@@ -685,8 +685,18 @@ struct StatusBar: View {
                     // "Cancel", matching the toolbar's own button (owner,
                     // 2026-09-22): both name the same action on the same
                     // run, and read as two different controls when they
-                    // disagreed.
+                    // disagreed. `.fixedSize()` + `.layoutPriority(1)`:
+                    // found on screen the same night — this row's other
+                    // items (the progress bar, the fixed-width metrics
+                    // text) leave the button no protected space of its own,
+                    // and "Cancel" (6 chars) is wide enough that the row
+                    // collapsed it to a blank ~9pt pill with no visible
+                    // label, over its own fixed width when the metrics text
+                    // was near its own longest content. The label wasn't
+                    // just visually tight, it rendered with zero width.
                     Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
+                        .fixedSize()
+                        .layoutPriority(1)
                         .accessibilityLabel("Cancel \(appState.activeOperation ?? "the running operation")")
                         .accessibilityIdentifier("status.footer.stop")
                 }
