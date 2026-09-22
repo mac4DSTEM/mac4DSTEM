@@ -212,7 +212,8 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
 - **Phase 1 — window anatomy, nothing else** (`b0cf8e0`; seen on screen by
   the agent 2026-09-22 at 1100/1280/1470 pt and corrected — the width budget,
   the doubled title, the infobar pointer, the canvas teardown at fraction 1,
-  the inspector `TabView`; ADR 035; owner acceptance owed):
+  the inspector `TabView`; ADR 035; **driven by the owner that evening and
+  accepted in substance** — the header's content is his open decision, §6.7):
   `.inspector` on the `NavigationSplitView`, toggled from the toolbar's
   trailing button; the navigator's toggle at the leading edge; the canvas
   header with the primary action, Save to Session and Reveal, so the
@@ -242,6 +243,14 @@ each phase is mocked as a picture the owner can reject before code.
    the toggle, draggable over the whole centre column.
 6. Withdrawn; the `.columns` form replaces the 2026-09-21 vocabulary in
    phase 2.
+7. **Open (his drive, 2026-09-22 evening):** what the centre header
+   carries when the room has no next verb (the calibrated demo showed only
+   the breadcrumb and the two buttons — "empty") and while a run is in
+   flight ("the current run" should live there). Proposed: no dataset — no
+   row; open step — today's row; room complete — a state chip in the gap
+   and the verb points to the next room; run in flight — run name,
+   progress and ETA in the gap, Cancel in the verb's place, and the
+   infobar's own bar goes (one bar, not two).
 
 The 2026-09-22 00:15 wireframe drew the status strip across the full
 window width under the sidebar and the inspector — wrong; the owner's
