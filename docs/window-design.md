@@ -255,6 +255,46 @@ The 2026-09-22 00:15 wireframe drew the status strip across the full
 window width under the sidebar and the inspector — wrong; the owner's
 red-box screenshot (00:28) is the anatomy of record.
 
+## 8. The owner's vision by area — 2026-09-22 evening (his words in substance; not decided)
+
+Said after the phase-1 drive, with UI decisions parked for the session:
+"open for discussion", "we will see". Numbered by the labelled dummy of
+the window (1 toolbar · 2 navigator · 3 centre header · 4/5 science panes
+· 6 infobar · 7 process area · 8 inspector). Reference screenshots he
+sent: Xcode's window (the toolbar and its wide debug bar), the app as it
+is, and Pixelmator's Color Adjustments panel as "a cleaner example" for
+the inspector.
+
+1. **Toolbar** — "maybe" the dataset's name, the current process button,
+   Save to Session and Reveal in Finder, as buttons that are always there:
+   with both side panels toggled away and the data at full size, the
+   analysis can still be run from the process button.
+2. **Navigator** — as it is (workspaces, dataset, session); the design
+   could be more macOS, more basic, better looking — "Liquid Glass
+   maybe!?"
+3. **Centre header** — "maybe" the process and the step we are at, or
+   something else; not sure yet.
+4. / 5. **Science panes** — good so far.
+6. **Infobar** — good; should be wider, like Xcode's debug bar.
+7. **Process area** — a new space to fill with useful information: Output
+   makes sense; Lineage should become a graph view; how the sub-spaces
+   toggle is open — maybe only two (Output and the graph), with the option
+   of side by side like Xcode's console and variables.
+8. **Inspector** — good so far but needs a UI/UX rework: the fonts are too
+   small, it does not look like a good macOS app, the workflows are not
+   considered, the design is not optimal; Pixelmator's panel as the cleaner
+   example; still to discuss.
+
+If adopted, 1 reverses §6.2 and §1's "the toolbar carries only
+window-level controls" (the mock of 2026-09-22 draws it Xcode's way: run
+or stop at the left, the file name or the live run as a display in the
+centre, the actions and toggles at the right, the breadcrumb row gone); 7
+changes ADR 034's three tabs; "Liquid Glass" is a macOS 26 material
+(`glassEffect`) on a 14 floor, so a refinement behind `#available`, and
+his decision; the infobar's height is a `LayoutPolicy` number (22 pt today;
+Xcode's bar is about 28). Nothing decided; nothing built; the shell stays
+frozen (ADR 035).
+
 ## 7. Prompt for the next agent
 
 > You are picking up mac4DSTEM's window redesign on `main` (never a

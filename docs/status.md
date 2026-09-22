@@ -42,7 +42,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 | **AppState seams** | Plan complete 2026-09-18, all seven landed (`docs/appstate-seams-plan.md`); `AppState.swift` 1474 lines. | Owner: drive seam 7's flow. |
 | **Materials Project** | S4a/S4b/S5 landed 2026-09-21 (`docs/v3-features.md#materials-project`): decode, standardise or refuse a cell, classify via the CIF importer; Keychain key; mp-id sheet; 39 tests. First live fetch pending. | Owner: retry mp-134, then S6. |
 | Detector kernel | Every detection improvement worsens the matrix-by-exclusion verdict until that is fixed. | After the rows above. |
-| **Window design reset** | Phase 1 (`b0cf8e0` + ADR 035) **driven and accepted in substance 2026-09-22**; shell frozen. Parked by the owner: the toolbar's content (Xcode-style mock in `open-items.md`); bottom-pane tab controls "behave strange" (detail owed). | Toolbar decision first, then the Prepare `.columns` prototype (picture first). No other room changes. |
+| **Window design reset** | Phase 1 (`b0cf8e0` + ADR 035) **driven and accepted in substance 2026-09-22**; shell frozen. Parked by the owner; his vision by area is `window-design.md` §8; bottom-pane tab controls "behave strange" (detail owed). | Toolbar decision first, then the Prepare `.columns` prototype (picture first). No other room changes. |
 | Repo | One branch; pre-push hook proven both ways and run by GitHub Desktop; citations clean; the five v3 registrations are one file, `docs/v3-features.md` (`b314535`). | Nothing owed. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.
