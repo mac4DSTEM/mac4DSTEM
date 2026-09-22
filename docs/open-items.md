@@ -38,8 +38,8 @@ Prepare stacks Pattern → Calibration (five items, each with its own button) �
 
 ## Neutral UI review 2026-09-22 — open residuals (record: `archive/v3/ui-review-2026-09-22.md`)
 
-### Three inspector styles alive; the room vocabulary is dead on arrival — OPEN, phase 2
-`UI/InspectorRows.swift` (414 lines) is used across 5 491 lines of room files and is "the rejected implementation" by its own ADR 034 amendment; five sheets and Settings use `.formStyle(.grouped)`; the brief's top-level `.columns` `Form` exists nowhere. Next: a one-hour prototype of Prepare as a `.columns` form at 320 pt, owner yes/no, then one room per session, `InspectorRows.swift` deleted last. **Decide first:** a `.columns` form has no native collapsible sections and Xcode's inspector does — always-open sections with one Advanced disclosure row, or no collapsing. Owner.
+### Two inspector styles alive until the rooms convert — OPEN, phase 2 in progress
+Prepare is a grouped-form card room since 2026-09-22 evening (ADR 037, unseen by the owner); the other five rooms still stack `UI/InspectorRows.swift` sections (414 lines across ~5 000 lines of room files), and the shared sections render both ways through `SettingsSection(inForm:)`. Next: the owner drives Prepare; then one room per session; `InspectorRows.swift` deleted last. Collapsing was decided by the shape: cards are always open, Advanced is a disclosure row.
 
 ### View state has four owners — OPEN, code hygiene
 `WorkspaceNavigation` is the declared truth, but `UI/` holds 15 `@SceneStorage` keys and one `@AppStorage` key (`ui2.` is a relic of the deleted UI2), mirrored by 18 `onAppear`/`onChange` sites in four files. Two sources of truth is where "the pane came back wrong" lives. Next: `WorkspaceNavigation` persists one snapshot per window; delete the keys and the sync sites. Rides with the first room conversion.

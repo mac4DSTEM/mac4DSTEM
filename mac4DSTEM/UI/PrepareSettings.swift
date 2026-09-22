@@ -4,40 +4,48 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// Prepare's controls, as inspector sections in the Lightroom-style vocabulary
-/// (`InspectorSection` / `InspectorRow` / `InspectorValueRow` /
-/// `InspectorActionRow` / `InspectorNote`, `UI/InspectorRows.swift`).
+/// Prepare's controls as the reference room of phase 2 (owner, 2026-09-22
+/// evening: Pixelmator's cards — "one card per step with a title row and
+/// rows beneath" — chosen over the flat columns form of the morning).
 ///
-/// The migration of `UI/PrepareSidebar`, `UI/CalibrationReadinessView` and
-/// `UI/CalibrationDetailsView` into UI. Everything scientific is carried over
-/// unchanged — the same properties, the same provenance vocabulary, the same
-/// formats, the same refusals and the same accessibility identifiers. Three
-/// things are presentation-only and did change:
+/// **Shape.** The Settings tab hosts this in ONE top-level grouped `Form`
+/// (`WorkspaceInspector`), never nested in another form — the 2026-09-21
+/// trial nested a columns form inside a grouped one and was rejected. Each
+/// calibration step is a `Section` whose header row carries its number, its
+/// name and its state, and whose rows carry the value, the one action, and
+/// the manual fields that belong to it, in the order the pipeline needs
+/// them: 1 Origin & probe · 2 Ellipse distortion · 3 R–Q rotation · 4 Q
+/// pixel scale · 5 R pixel scale · 6 Accelerating voltage. Readiness is one
+/// row at the top, never a paragraph. Regular control size, 13-pt text.
 ///
-/// - Every readiness row is a real `LabeledContent` now. The old view built
-///   the row by hand (`VStack` + `Spacer` + `fixedSize`) because it was hosted
-///   in the sidebar's `List`, where `LabeledContent` laid the kind, the detail
-///   and the provenance on one truncated line. In a grouped `Form` the label
-///   stacks for us, so the hand-built stack is gone and the row reads the same.
-/// - "Compute Mean / Max" no longer waits for the diffraction pane to be the
-///   active one. The statistics are a property of the cube, not of which pane
-///   has focus, and UI has no pane focus model.
-/// - Manual Q/R editors remain reachable after a valid manual value makes the
-///   readiness row green. R has no in-app measurement path; Q's editor stays
-///   available for manual provenance alongside its crystal route.
+/// Everything scientific is carried over unchanged from the 2026-09-21
+/// room: the same properties, provenance vocabulary, formats, refusals and
+/// accessibility identifiers; placement and presentation only (Gate D: not
+/// applicable — no scientific number moves).
 struct PrepareSettings: View {
     @Environment(AppState.self) private var appState
     // Advanced disclosures are presentation state, remembered per window so
-    // returning to Prepare does not reopen a wall of py4DSTEM kwargs. Passed
-    // to InspectorSection's own `expanded` binding rather than its default
-    // @SceneStorage key, so these two keys (unchanged since before this
-    // conversion) keep whatever a returning window already remembered.
+    // returning to Prepare does not reopen a wall of py4DSTEM kwargs. The
+    // two keys are unchanged since before the 2026-09-21 conversion.
     @SceneStorage("prepare.settings.advancedCorrection.isExpanded") private var showsDiagnostics = false
     @SceneStorage("prepare.settings.ellipseCorrection.isExpanded") private var showsEllipse = false
-    /// Destructive, so it asks first — the same pattern as "Reset Recommended
-    /// Settings" and "Reset Alignment". Plain `@State`: a half-open dialog is
+    /// Destructive, so it asks first. Plain `@State`: a half-open dialog is
     /// not worth remembering across a window.
     @State private var showsClearConfirmation = false
+
+    /// The pipeline order of the calibration steps, numbered in the card
+    /// headers. The readiness report lists them in this order too; the
+    /// array is the one place the numbering is stated.
+    static let stepOrder: [CalibrationReadinessKind] = [.originProbe, .ellipse, .rotation, .qScale, .rScale]
+
+    /// The readiness row's one line: how many of the six steps are set, and
+    /// what is still in the way. Six, not five — the accelerating voltage is
+    /// the sixth card and the verdict counts it (`CalibrationSession.verdict`).
+    static func readinessSummary(readyCount: Int, blockers: [String]) -> String {
+        let total = stepOrder.count + 1
+        if blockers.isEmpty { return "Quantitative — all \(total) steps set" }
+        return "Quantitative in \(readyCount) of \(total) steps · still needed: " + blockers.joined(separator: ", ")
+    }
 
     /// core-data-05 (S22a ride-along): the excluded-fraction disclosure obeys
     /// the shared policy floor, not the retired 0.5% — readiness and the
@@ -99,33 +107,346 @@ struct PrepareSettings: View {
         appState.calibrationSession.readiness
     }
 
+    private func item(_ kind: CalibrationReadinessKind) -> CalibrationReadinessItem? {
+        report.items.first { $0.kind == kind }
+    }
+
     var body: some View {
         @Bindable var session = appState.calibrationSession
         let calibration = session.calibration
 
         Group {
-        PatternStatisticsSection()
+            readinessSection
 
-        InspectorSection("Calibration") {
-            Group {
-                ForEach(report.items) { item in
-                    readinessRow(item)
+            if let item = item(.originProbe) { originProbeSection(item, session: session, calibration: calibration) }
+            if let item = item(.ellipse) { ellipseSection(item, session: session, calibration: calibration) }
+            if let item = item(.rotation) { rotationSection(item, calibration: calibration) }
+            if let item = item(.qScale) { scaleSection(item, number: 4) }
+            if let item = item(.rScale) { scaleSection(item, number: 5) }
+            voltageSection(session: session)
+
+            if session.hasAnyCalibrationValue {
+                Section {
+                    Button(role: .destructive) {
+                        showsClearConfirmation = true
+                    } label: {
+                        Label("Clear Calibration", systemImage: "xmark.circle")
+                    }
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("calibration.clear")
+                    .help("Returns every calibration above to Not set, without reloading the file.")
+                    // On the button, not on the sections: a modifier on a
+                    // `Group` lands on each child, and a modified `Section`
+                    // stops being a Form section.
+                    .confirmationDialog(
+                        "Clear all calibration values?",
+                        isPresented: $showsClearConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Clear Calibration", role: .destructive) {
+                            appState.clearCalibration()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("Origin & probe, ellipse distortion, R–Q rotation and the Q and R "
+                           + "pixel scales all go back to Not set, whether they were measured "
+                           + "here or came from the file. The accelerating voltage stays, and "
+                           + "the data is not reloaded. The orientation map and any parallax "
+                           + "alignment are discarded because they were computed against these "
+                           + "values; strain and phase maps are kept, and should be rerun after "
+                           + "you recalibrate.")
+                    }
                 }
-                // v2.5 step 4b: the same verdict the dataset card shows.
-                let verdict = session.verdict
-                Label(verdict.summary,
-                      systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
-                    .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
-                    .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("calibration.readiness")
+        }
+    }
 
-            // S22c (pipelines §7.4): the accelerating voltage is calibration
-            // — DPC, parallax and ptychography all consume it — so it lives
-            // with the other physical scales, not inside one consumer's
-            // workflow. Identifier unchanged on purpose.
-            InspectorRow("Voltage") {
+    // MARK: - Readiness, one row
+
+    /// v2.5 step 4b: the same verdict the dataset card shows — one line, the
+    /// count of steps set and what is still in the way.
+    private var readinessSection: some View {
+        let verdict = appState.calibrationSession.verdict
+        let ready = report.items.filter { $0.status.isReady }.count
+            + (appState.calibrationSession.hasUsableVoltage ? 1 : 0)
+        return Section {
+            Label(
+                Self.readinessSummary(readyCount: ready, blockers: verdict.blockers),
+                systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle"
+            )
+            .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+            .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
+        }
+    }
+
+    // MARK: - The card header: number · name · state
+
+    /// Ready and green, EXCEPT "fit anyway": the value is used same as any
+    /// other, but the assertion behind it is the user's, not the fit's.
+    private func stepHeader(_ number: Int, _ item: CalibrationReadinessItem) -> some View {
+        let isWarning = item.status == .ready(.fitAnyway)
+        let ok = item.status.isReady && !isWarning
+        return HStack(spacing: 8) {
+            Text("\(number)")
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+            Text(item.kind.rawValue)
+            Spacer(minLength: 8)
+            Label(item.status.displayName,
+                  systemImage: item.status.isReady ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .foregroundStyle(ok ? Color.green : Color.orange)
+                .fixedSize()
+        }
+        .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(item.kind.unlockSummary)
+        .accessibilityIdentifier("calibration.item.\(item.kind.id)")
+    }
+
+    /// The calibrated value and its units — the scientific content of the
+    /// card, on screen unconditionally, wrapping never truncating (S22d: the
+    /// tail is the caveat).
+    private func detailRow(_ item: CalibrationReadinessItem) -> some View {
+        Text(item.detail)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - 1 · Origin & probe
+
+    @ViewBuilder
+    private func originProbeSection(
+        _ item: CalibrationReadinessItem, session: CalibrationSession, calibration: Calibration
+    ) -> some View {
+        @Bindable var session = session
+        Section {
+            detailRow(item)
+            if !item.status.isReady {
+                CalibrationReadinessRow.action(
+                    appState: appState, kind: .originProbe, status: item.status,
+                    qScaleUnavailableReason: qScaleUnavailableReason)
+            }
+            // "Compute Mean / Max", offered while the statistics do not exist
+            // yet; also computed by origin calibration. Once mean and max
+            // exist the pane's own Current | Mean | Max control is the ONLY
+            // switcher (S22 feedback R6, 2026-09-01).
+            if appState.meanPattern == nil {
+                LabeledContent("Mean / max pattern") {
+                    Button("Compute") {
+                        Task { await appState.computeDPStatistics() }
+                    }
+                    .disabled(appState.isBusy)
+                    .help("One pass over the cube; also computed by origin calibration.")
+                }
+            }
+            if let radius = calibration.probeRadius {
+                LabeledContent("Probe radius", value: String(format: "%.1f px", radius))
+            }
+            // v2 S13: the residual the GATE judged, which is the robust one
+            // where a robust fit ran — one number for one decision.
+            if let residual = calibration.judgedOriginResidual {
+                LabeledContent("Fit residual", value: String(format: "%.3f px RMS", residual))
+            }
+            // The excluded fraction, where the reader who sees the number
+            // sees it (2026-08-28): "2.19 px over 73% of positions" is a
+            // different claim from "2.19 px over all of them".
+            if let origin = calibration.origin,
+               let excluded = origin.excludedFraction,
+               Self.disclosesExcludedFraction(excluded) {
+                LabeledContent("Positions used",
+                               value: Self.positionsUsedValue(excludedFraction: excluded,
+                                                              validity: origin.originValidity))
+                .help("The origin fit is robust: scan positions whose measured origin sits far "
+                    + "from the fitted surface are excluded and the surface refitted. Excluding "
+                    + "nothing means there was no outlier tail to remove, not that every "
+                    + "position measured well.")
+            }
+            DisclosureGroup("Advanced", isExpanded: $showsDiagnostics) {
+                LabeledContent("Aperture center", value: calibration.originProvenance.displayName)
+                    .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
+                if appState.canRestoreFittedOrigin {
+                    Button {
+                        appState.restoreFittedOrigin()
+                    } label: {
+                        Label("Restore Fitted Origin", systemImage: "arrow.uturn.backward.circle")
+                    }
+                    .disabled(appState.isBusy)
+                    .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
+                }
+                Picker("Origin fit", selection: $session.originFitFunction) {
+                    ForEach(OriginFitFunction.allCases) { fit in
+                        Text(fit.rawValue).tag(fit)
+                    }
+                }
+                .disabled(appState.isBusy)
+                Picker("Origin method", selection: $session.originMethod) {
+                    ForEach(OriginMethod.allCases, id: \.self) { method in
+                        Text(method.label).tag(method)
+                    }
+                }
+                .help("Centre of mass is the fast default. Friedel finds the beam through a "
+                    + "beamstop by the pattern's own symmetry, auto-masking the stop (py4DSTEM "
+                    + "get_origin_friedel + get_beamstop_mask). Slower — an FFT per pattern — and "
+                    + "opt-in for data whose direct beam is occluded.")
+                if item.status.isReady {
+                    Button {
+                        Task { await appState.calibrateOrigin() }
+                    } label: {
+                        Label("Measure Origin & Probe Again", systemImage: "scope")
+                    }
+                    .disabled(appState.isBusy)
+                }
+                if let summary = appState.qCalibration.selfCheckSummary {
+                    LabeledContent("Q shell check", value: summary)
+                        .help("The reciprocal scale assumes the innermost detected peak is the "
+                            + "innermost allowed reflection. With two shells visible the app checks "
+                            + "that assumption against the crystal; with one it cannot, and says so "
+                            + "rather than passing silently.")
+                }
+            }
+        } header: {
+            stepHeader(1, item)
+        }
+    }
+
+    // MARK: - 2 · Ellipse distortion
+
+    @ViewBuilder
+    private func ellipseSection(
+        _ item: CalibrationReadinessItem, session: CalibrationSession, calibration: Calibration
+    ) -> some View {
+        @Bindable var session = session
+        Section {
+            detailRow(item)
+            // Value, unit: one row per radius.
+            LabeledContent("Fit annulus inner") {
+                NumericField("Inner fit radius", value: $session.ellipseFitInnerRadius,
+                             format: .number.precision(.fractionLength(0...2)), unit: "px")
+                .disabled(appState.isBusy)
+            }
+            LabeledContent("Fit annulus outer") {
+                NumericField("Outer fit radius", value: $session.ellipseFitOuterRadius,
+                             format: .number.precision(.fractionLength(0...2)), unit: "px")
+                .disabled(appState.isBusy)
+            }
+            Button {
+                Task { await appState.calibrateEllipse() }
+            } label: {
+                Label(item.status.isReady ? "Fit Detector Ellipse Again" : "Fit Detector Ellipse", systemImage: "oval")
+            }
+            .disabled(appState.isBusy)
+            .accessibilityIdentifier("calibration.action.ellipse")
+            .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
+
+            // Offered only while the last fit was refused for coverage between
+            // the sparse floor and the degeneracy bound — a "fit anyway" retry
+            // could succeed on the caller's assertion that the annulus holds
+            // one ring (`CalibrationSession.refuseEllipseFit`, 2026-09-15).
+            if let offeredBins = session.ellipseFitAnywayOffer {
+                Button {
+                    Task { await appState.calibrateEllipse(acceptSparseCoverage: true) }
+                } label: {
+                    Label("Fit Anyway", systemImage: "exclamationmark.triangle")
+                }
+                .disabled(appState.isBusy)
+                .help("Only \(offeredBins) of 36 sectors carry ring signal, so an ellipse is underdetermined: spots from a few grains fit one as well as a distorted detector does. Fit anyway only if this annulus holds exactly one ring. The result is marked “Fit anyway” and is used by strain and ACOM.")
+                Text("Refused: ring signal in \(offeredBins) of 36 sectors. Fit Anyway accepts it if the annulus holds one ring.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+
+            if calibration.hasEllipse,
+               let a = calibration.ellipseA,
+               let b = calibration.ellipseB,
+               let theta = calibration.ellipseTheta {
+                LabeledContent("Correction",
+                               value: String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi))
+                    .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
+                if session.provenance.ellipse == .fitAnyway {
+                    Text("Fitted anyway on \(session.lastEllipseFit?.occupiedAngularBins ?? 0)/36 sectors — rests on your assertion that the annulus held one ring.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                if let fit = session.lastEllipseFit {
+                    DisclosureGroup("Fit details", isExpanded: $showsEllipse) {
+                        LabeledContent("Model", value: fit.model.rawValue)
+                        LabeledContent("Residual",
+                                       value: String(format: "%.3f · %d/36 sectors", fit.normalizedResidual, fit.occupiedAngularBins))
+                        if let profile = fit.profile {
+                            LabeledContent("Ring widths",
+                                           value: String(format: "inner %.3g · outer %.3g px", profile.innerSigma, profile.outerSigma))
+                        } else if let reason = fit.profileFallbackReason {
+                            Text("Profile fallback: \(reason)").font(.callout).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        } header: {
+            stepHeader(2, item)
+        }
+    }
+
+    // MARK: - 3 · R–Q rotation
+
+    @ViewBuilder
+    private func rotationSection(_ item: CalibrationReadinessItem, calibration: Calibration) -> some View {
+        Section {
+            detailRow(item)
+            Button {
+                Task { await appState.calibrateRotation() }
+            } label: {
+                Label(item.status.isReady ? "Measure R–Q Rotation Again" : "Measure R–Q Rotation", systemImage: "rotate.3d")
+            }
+            .disabled(appState.isBusy)
+            .accessibilityIdentifier("calibration.action.rotation")
+            if let rotation = calibration.rotationRad {
+                let transposed = (calibration.transposeQR ?? false) ? " ⊤" : ""
+                LabeledContent("Rotation", value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed))
+                Button {
+                    appState.flipRotation180()
+                } label: {
+                    Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
+                }
+                .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
+            }
+        } header: {
+            stepHeader(3, item)
+        }
+    }
+
+    // MARK: - 4 · Q pixel scale, 5 · R pixel scale
+
+    @ViewBuilder
+    private func scaleSection(_ item: CalibrationReadinessItem, number: Int) -> some View {
+        Section {
+            detailRow(item)
+            // Outside the `!isReady` branch: an imported R scale that disagrees
+            // with the filename is *ready*, and exactly the case worth a warning.
+            if item.kind == .rScale, let conflict = rScaleFilenameConflict {
+                Label(conflict, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("calibration.rScale.filenameConflict")
+            }
+            if !item.status.isReady || Self.shouldShowManualScaleEditor(for: item.kind, status: item.status) {
+                CalibrationReadinessRow.action(
+                    appState: appState, kind: item.kind, status: item.status,
+                    qScaleUnavailableReason: qScaleUnavailableReason)
+            }
+        } header: {
+            stepHeader(number, item)
+        }
+    }
+
+    // MARK: - 6 · Accelerating voltage
+
+    /// S22c (pipelines §7.4): the accelerating voltage is calibration — DPC,
+    /// parallax and ptychography all consume it — so it is the sixth step,
+    /// not a consumer's setting. Identifier unchanged on purpose.
+    @ViewBuilder
+    private func voltageSection(session: CalibrationSession) -> some View {
+        let usable = session.hasUsableVoltage
+        Section {
+            LabeledContent("Voltage") {
                 NumericField(
                     "Accelerating voltage (kV)",
                     value: Binding(
@@ -135,290 +456,24 @@ struct PrepareSettings: View {
                     format: .number.precision(.fractionLength(0...2)),
                     unit: "kV"
                 )
-                .labelsHidden()
+                .disabled(appState.isBusy)
                 .accessibilityIdentifier("calibration.acceleratingVoltage")
             }
-
-            // The open item this closes: a measured calibration could not be
-            // taken back in the app — a wrong ellipse fit or a mistyped scale
-            // meant reloading the file. Offered only when there is something
-            // to remove, as "Reset Alignment" and "Restore Fitted Origin" are:
-            // a control that would do nothing is not a control.
-            if session.hasAnyCalibrationValue {
-                InspectorActionRow {
-                    Button {
-                        showsClearConfirmation = true
-                    } label: {
-                        Label("Clear Calibration", systemImage: "xmark.circle")
-                    }
-                    .disabled(appState.isBusy)
-                    .accessibilityIdentifier("calibration.clear")
-                    .help("Returns every calibration above to Not set, without reloading the file.")
-                }
+        } header: {
+            HStack(spacing: 8) {
+                Text("6").monospacedDigit().foregroundStyle(.secondary)
+                Text("Accelerating voltage")
+                Spacer(minLength: 8)
+                Label(usable ? "Set" : "Not set",
+                      systemImage: usable ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(usable ? Color.green : Color.orange)
+                    .fixedSize()
             }
-        }
-        .confirmationDialog(
-            "Clear all calibration values?",
-            isPresented: $showsClearConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Clear Calibration", role: .destructive) {
-                appState.clearCalibration()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Origin & probe, ellipse distortion, R–Q rotation and the Q and R "
-               + "pixel scales all go back to Not set, whether they were measured "
-               + "here or came from the file. The accelerating voltage stays, and "
-               + "the data is not reloaded. The orientation map and any parallax "
-               + "alignment are discarded because they were computed against these "
-               + "values; strain and phase maps are kept, and should be rerun after "
-               + "you recalibrate.")
-        }
-
-        // Diagnostic and fitting controls that supplement the single readiness
-        // path. Physical Q/R values are intentionally edited only in the
-        // readiness rows, so the same value, unit, provenance and consequence
-        // cannot drift between duplicate controls.
-        InspectorSection("Fit diagnostics & advanced correction", expanded: $showsDiagnostics) {
-            InspectorValueRow("Aperture center", calibration.originProvenance.displayName)
-                .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
-
-            if appState.canRestoreFittedOrigin {
-                InspectorActionRow {
-                    Button {
-                        appState.restoreFittedOrigin()
-                    } label: {
-                        Label("Restore Fitted Origin", systemImage: "arrow.uturn.backward.circle")
-                    }
-                    .disabled(appState.isBusy)
-                    .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
-                }
-            }
-
-            InspectorRow("Origin fit") {
-                Picker("Origin fit", selection: $session.originFitFunction) {
-                    ForEach(OriginFitFunction.allCases) { fit in
-                        Text(fit.rawValue).tag(fit)
-                    }
-                }
-                .labelsHidden()
-            }
-            InspectorRow("Origin method") {
-                Picker("Origin method", selection: $session.originMethod) {
-                    ForEach(OriginMethod.allCases, id: \.self) { method in
-                        Text(method.label).tag(method)
-                    }
-                }
-                .labelsHidden()
-                .help("Centre of mass is the fast default. Friedel finds the beam through a "
-                    + "beamstop by the pattern's own symmetry, auto-masking the stop (py4DSTEM "
-                    + "get_origin_friedel + get_beamstop_mask). Slower — an FFT per pattern — and "
-                    + "opt-in for data whose direct beam is occluded.")
-            }
-            InspectorActionRow {
-                Button {
-                    Task { await appState.calibrateOrigin() }
-                } label: {
-                    Label("Calibrate Origin", systemImage: "scope")
-                }
-                .disabled(appState.isBusy)
-                Button {
-                    Task { await appState.calibrateRotation() }
-                } label: {
-                    Label("Measure R–Q Rotation", systemImage: "rotate.3d")
-                }
-                .disabled(appState.isBusy)
-            }
-
-            if let radius = calibration.probeRadius {
-                InspectorValueRow("Probe radius", String(format: "%.1f px", radius))
-            }
-            // v2 S13: the residual the GATE judged, which is the robust one
-            // where a robust fit ran — one number for one decision.
-            if let residual = calibration.judgedOriginResidual {
-                InspectorValueRow("Fit residual", String(format: "%.3f px RMS", residual))
-            }
-            // The excluded fraction, where the reader who sees the number
-            // sees it (2026-08-28): "2.19 px over 73% of positions" is a
-            // different claim from "2.19 px over all of them".
-            if let origin = calibration.origin,
-               let excluded = origin.excludedFraction,
-               Self.disclosesExcludedFraction(excluded) {
-                InspectorValueRow(
-                    "Positions used",
-                    Self.positionsUsedValue(excludedFraction: excluded,
-                                             validity: origin.originValidity)
-                )
-                .help("The origin fit is robust: scan positions whose measured origin sits far "
-                    + "from the fitted surface are excluded and the surface refitted. Excluding "
-                    + "nothing means there was no outlier tail to remove, not that every "
-                    + "position measured well.")
-            }
-            if let summary = appState.qCalibration.selfCheckSummary {
-                InspectorValueRow("Q shell check", summary)
-                    .help("The reciprocal scale assumes the innermost detected peak is the "
-                        + "innermost allowed reflection. With two shells visible the app checks "
-                        + "that assumption against the crystal; with one it cannot, and says so "
-                        + "rather than passing silently.")
-            }
-            if let rotation = calibration.rotationRad {
-                let transposed = (calibration.transposeQR ?? false) ? " ⊤" : ""
-                InspectorValueRow(
-                    "R–Q rotation",
-                    String(format: "%.1f°%@", rotation * 180 / .pi, transposed)
-                )
-                InspectorActionRow {
-                    Button {
-                        appState.flipRotation180()
-                    } label: {
-                        Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
-                    }
-                    .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
-                }
-            }
-        }
-
-        InspectorSection("Ellipse correction", expanded: $showsEllipse) {
-            // Value, unit: one row per radius, because two fields beside one
-            // label do not fit the column's minimum width.
-            InspectorRow("Fit annulus inner") {
-                NumericField(
-                    "Inner fit radius",
-                    value: $session.ellipseFitInnerRadius,
-                    format: .number.precision(.fractionLength(0...2)),
-                    unit: "px"
-                )
-                .labelsHidden()
-            }
-            InspectorRow("Fit annulus outer") {
-                NumericField(
-                    "Outer fit radius",
-                    value: $session.ellipseFitOuterRadius,
-                    format: .number.precision(.fractionLength(0...2)),
-                    unit: "px"
-                )
-                .labelsHidden()
-            }
-            InspectorActionRow {
-                Button {
-                    Task { await appState.calibrateEllipse() }
-                } label: {
-                    Label("Fit Ellipse", systemImage: "oval")
-                }
-                .disabled(appState.isBusy)
-                .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
-            }
-
-            // Offered only while the last fit was refused for coverage between
-            // the sparse floor and the degeneracy bound — a "fit anyway" retry
-            // could succeed on the caller's assertion that the annulus holds
-            // one ring (`CalibrationSession.refuseEllipseFit`, 2026-09-15).
-            if let offeredBins = session.ellipseFitAnywayOffer {
-                InspectorActionRow {
-                    Button {
-                        Task { await appState.calibrateEllipse(acceptSparseCoverage: true) }
-                    } label: {
-                        Label("Fit Anyway", systemImage: "exclamationmark.triangle")
-                    }
-                    .disabled(appState.isBusy)
-                    .help("Only \(offeredBins) of 36 sectors carry ring signal, so an ellipse is underdetermined: spots from a few grains fit one as well as a distorted detector does. Fit anyway only if this annulus holds exactly one ring. The result is marked “Fit anyway” and is used by strain and ACOM.")
-                }
-                InspectorNote("Refused: ring signal in \(offeredBins) of 36 sectors. Fit Anyway accepts it if the annulus holds one ring.")
-            }
-
-            if calibration.hasEllipse,
-               let a = calibration.ellipseA,
-               let b = calibration.ellipseB,
-               let theta = calibration.ellipseTheta {
-                InspectorValueRow(
-                    "Correction",
-                    String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
-                )
-                .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
-                if session.provenance.ellipse == .fitAnyway {
-                    InspectorNote("Fitted anyway on \(session.lastEllipseFit?.occupiedAngularBins ?? 0)/36 sectors — rests on your assertion that the annulus held one ring.")
-                }
-                if let fit = session.lastEllipseFit {
-                    InspectorValueRow("Model", fit.model.rawValue)
-                    InspectorValueRow(
-                        "Residual",
-                        String(format: "%.3f · %d/36 sectors", fit.normalizedResidual, fit.occupiedAngularBins)
-                    )
-                    if let profile = fit.profile {
-                        InspectorValueRow(
-                            "Ring widths",
-                            String(format: "inner %.3g · outer %.3g px", profile.innerSigma, profile.outerSigma)
-                        )
-                    } else if let reason = fit.profileFallbackReason {
-                        InspectorNote("Profile fallback: \(reason)")
-                    }
-                }
-            }
-        }
-        }
-        .disabledWhileRunning(appState)
-    }
-
-    // MARK: - Readiness
-
-    /// One calibration as a `LabeledContent` row — the kind with its status
-    /// glyph and the calibrated value under it as the label, the provenance
-    /// ("From file" / "Measured" / …, never demoted) as the content —
-    /// followed by its warning and its action. Left as a native
-    /// `LabeledContent` (not `InspectorRow`/`InspectorValueRow`): its label is
-    /// a colour-coded `Label` plus a wrapping detail caption, not a plain
-    /// string, so the simple-string row API would drop the colour coding.
-    @ViewBuilder
-    private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
-        // Ready and green, EXCEPT "fit anyway": the value is used same as any
-        // other, but the assertion behind it is the user's, not the fit's.
-        let isWarning = item.status == .ready(.fitAnyway)
-        LabeledContent {
-            Text(item.status.displayName)
-                .foregroundStyle(item.status.isReady && !isWarning ? Color.secondary : Color.orange)
-                .fixedSize()
-        } label: {
-            Label {
-                Text(item.kind.rawValue)
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-            } icon: {
-                Image(systemName: item.status.isReady
-                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-            }
-            // The calibrated value and its units — the scientific content of
-            // the row, on screen unconditionally, wrapping never truncating
-            // (S22d: the tail is the caveat). Inside a Form the label stacks
-            // and the caption wraps to the column on its own.
-            Text(item.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        // `unlockSummary` says what this calibration *enables*: on hover and
-        // in the accessibility description, not permanently under six rows.
-        .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
-        .accessibilityElement(children: .contain)
-        .accessibilityHint(item.kind.unlockSummary)
-        .accessibilityIdentifier("calibration.item.\(item.kind.id)")
-
-        // Outside the `!isReady` branch: an imported R scale that disagrees
-        // with the filename is *ready*, and exactly the case worth a warning.
-        if item.kind == .rScale, let conflict = rScaleFilenameConflict {
-            Label(conflict, systemImage: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundStyle(.orange)
-                .accessibilityIdentifier("calibration.rScale.filenameConflict")
-        }
-        if !item.status.isReady || Self.shouldShowManualScaleEditor(
-            for: item.kind, status: item.status
-        ) {
-            CalibrationReadinessRow.action(
-                appState: appState, kind: item.kind, status: item.status,
-                qScaleUnavailableReason: qScaleUnavailableReason
-            )
+            .accessibilityIdentifier("calibration.item.voltage")
         }
     }
+
+    // MARK: - Helpers carried over
 
     /// A scan-step token in the filename that disagrees with the R pixel scale
     /// actually in use, if both exist and they differ materially.
@@ -499,10 +554,11 @@ struct PrepareSettings: View {
 /// "Compute Mean / Max", offered while the statistics do not exist yet.
 ///
 /// Shared by every settings surface whose diffraction pane works from the live
-/// CBED — Prepare and DPC. One view, so the condition cannot diverge between
-/// them: the old app had one `ComputePatternStatisticsSection` for the same
-/// reason. Once mean and max exist the pane's own Current | Mean | Max control
-/// is the ONLY switcher (S22 feedback R6, 2026-09-01).
+/// CBED — DPC in the flat-section vocabulary; Prepare carries the same
+/// control as a row of its first card. One condition, so it cannot diverge:
+/// the old app had one `ComputePatternStatisticsSection` for the same reason.
+/// Once mean and max exist the pane's own Current | Mean | Max control is
+/// the ONLY switcher (S22 feedback R6, 2026-09-01).
 struct PatternStatisticsSection: View {
     @Environment(AppState.self) private var appState
 

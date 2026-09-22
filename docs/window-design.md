@@ -225,7 +225,8 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
   same hour — the inspector's toggle is the only item over the inspector).
 - **Phase 2 — the Prepare reference room** as Pixelmator's cards (his
   choice, 2026-09-22 evening, over the columns form) with the readiness
-  row. Driven and accepted before any other room changes.
+  row: **built 2026-09-22 evening (ADR 037), owner drive owed.** Driven and
+  accepted before any other room changes.
 - **Phase 3 — the other rooms**, one per session, each driven.
 - **Phase 4 — the bottom area's second workspace** (products, then the
   lineage graph after the record exists).
@@ -257,6 +258,8 @@ each phase is mocked as a picture the owner can reject before code.
 8. **Decided (2026-09-22 evening): the inspector is Pixelmator's cards** — a
    grouped form, one card per step with a title row (number, name, state,
    action) and rows beneath; Prepare first. Supersedes §6.1's columns form.
+   Built the same evening (ADR 037): cards do not collapse, Advanced is a
+   disclosure row inside its card.
 
 The 2026-09-22 00:15 wireframe drew the status strip across the full
 window width under the sidebar and the inspector — wrong; the owner's

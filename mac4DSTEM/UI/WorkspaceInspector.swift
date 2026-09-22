@@ -63,12 +63,50 @@ struct WorkspaceInspector: View {
 
 // MARK: - Settings tab
 
+/// One container for the shared Settings sections in both hosts: a card
+/// (`Section`) inside the grouped Form the card rooms use (Prepare first,
+/// owner 2026-09-22 evening), or the flat `InspectorSection` the rooms not
+/// yet converted still stack in a `ScrollView`. A card does not collapse —
+/// a grouped Form has no native collapsing section — so `expanded` is
+/// honoured only by the flat host.
+private struct SettingsSection<Content: View>: View {
+    let title: String
+    let inForm: Bool
+    var expanded: Binding<Bool>? = nil
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if inForm {
+            Section(title) { content() }
+        } else if let expanded {
+            InspectorSection(title, expanded: expanded) { content() }
+        } else {
+            InspectorSection(title) { content() }
+        }
+    }
+}
+
 /// Readiness first, then the selected workspace's own controls.
 private struct InspectorSettingsTab: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        if appState.hasDataset {
+        if appState.hasDataset, appState.navigation.workspaceArea == .prepare {
+            // Phase 2, the reference room (owner, 2026-09-22 evening):
+            // Pixelmator's cards — ONE top-level grouped Form, the shared
+            // sections cards in it beside the room's own; never a form nested
+            // in a form (the rejected 2026-09-21 trial).
+            Form {
+                RequirementsSection(inForm: true)
+                GuidanceSection(inForm: true)
+                PrepareSettings()
+                DisplaySettingsSections(inForm: true)
+                DatasetActionSections(inForm: true)
+                SessionProductsSections(inForm: true)
+            }
+            .formStyle(.grouped)
+            .environment(\.inspectorScope, "settings.prepare")
+        } else if appState.hasDataset {
             ScrollView {
                 VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
                     RequirementsSection()
@@ -119,11 +157,12 @@ private struct InspectorSettingsTab: View {
 /// primary action, so the checklist can never disagree with the gate.
 private struct RequirementsSection: View {
     @Environment(AppState.self) private var appState
+    var inForm = false
 
     var body: some View {
         let unmet = appState.unmetRequirements
         if !unmet.isEmpty {
-            InspectorSection("Requirements") {
+            SettingsSection(title: "Requirements", inForm: inForm) {
                 ForEach(unmet) { item in
                     // The row's identity is a colour-coded status icon, not
                     // a caption — the same idiom the sidebar's task rows
@@ -170,11 +209,12 @@ private struct RequirementsSection: View {
 /// while something is missing, the missing thing is the message.
 private struct GuidanceSection: View {
     @Environment(AppState.self) private var appState
+    var inForm = false
 
     var body: some View {
         let guidance = appState.taskGuidance
         if appState.unmetRequirements.isEmpty, !guidance.isEmpty {
-            InspectorSection("Interpretation") {
+            SettingsSection(title: "Interpretation", inForm: inForm) {
                 Label("Ready · limited interpretation", systemImage: "checkmark.circle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -390,9 +430,10 @@ private struct DatasetInfoSections: View {
 private struct DisplaySettingsSections: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("inspector.display.isExpanded") private var showsDisplay = false
+    var inForm = false
 
     var body: some View {
-        InspectorSection("Display", expanded: $showsDisplay) {
+        SettingsSection(title: "Display", inForm: inForm, expanded: $showsDisplay) {
             realSpaceHistogramSection
             diffractionHistogramSection
         }
@@ -460,11 +501,12 @@ private extension Binding where Value == Float {
 
 private struct DatasetActionSections: View {
     @Environment(AppState.self) private var appState
+    var inForm = false
 
     var body: some View {
         if !appState.loadedView.isFullExtent || appState.residency.isResident
             || sessionViewDiffers {
-            InspectorSection("Dataset") {
+            SettingsSection(title: "Dataset", inForm: inForm) {
                 if !appState.loadedView.isFullExtent {
                     InspectorActionRow {
                         Button("Reopen at Full Extent") {
@@ -614,9 +656,10 @@ private struct ProductInfoSections: View {
 /// could not read or could not fit, and the way out of each.
 private struct SessionProductsSections: View {
     @Environment(AppState.self) private var appState
+    var inForm = false
 
     var body: some View {
-        InspectorSection("Computed this session") {
+        SettingsSection(title: "Computed this session", inForm: inForm) {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
             let disksState = ProductWorkflow.productState(

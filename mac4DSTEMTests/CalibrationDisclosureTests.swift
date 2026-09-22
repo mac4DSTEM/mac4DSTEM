@@ -185,4 +185,18 @@ final class CalibrationDisclosureTests: XCTestCase {
         XCTAssertEqual(fallback, "80% (20% excluded as outliers)")
         XCTAssertFalse(fallback.contains(" of "))
     }
+
+    /// The card room's readiness row (phase 2, 2026-09-22 evening): one
+    /// line, the count of the SIX steps set — the accelerating voltage is
+    /// the sixth — and what is still in the way, never a paragraph.
+    func testTheReadinessRowCountsSixStepsAndNamesTheBlockers() {
+        XCTAssertEqual(PrepareSettings.stepOrder,
+                       [.originProbe, .ellipse, .rotation, .qScale, .rScale],
+                       "the pipeline order the cards are numbered in")
+        XCTAssertEqual(PrepareSettings.readinessSummary(readyCount: 6, blockers: []),
+                       "Quantitative — all 6 steps set")
+        XCTAssertEqual(
+            PrepareSettings.readinessSummary(readyCount: 4, blockers: ["Ellipse distortion: Not set", "Accelerating voltage: Not set"]),
+            "Quantitative in 4 of 6 steps · still needed: Ellipse distortion: Not set, Accelerating voltage: Not set")
+    }
 }
