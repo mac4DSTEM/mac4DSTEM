@@ -11,65 +11,18 @@ import DSTEMSession
 /// replacing the inspector's deleted `PerformanceRows`), and Lineage (the
 /// read-only record of what produced the product on screen).
 ///
-/// `WorkspaceView` measures its own science-pane height and hands it down as
-/// `maxHeight`; this view is the one that owns the drag and the clamp, the
-/// same split of responsibility `PaneSplit` uses for the two science panes.
+/// `WorkspaceView` owns the infobar drag and gives this view its exact height.
+/// Changing tabs only changes the content within that height.
 struct BottomWorkspace: View {
     @Environment(AppState.self) private var appState
-    @Binding var height: CGFloat
-    let maxHeight: CGFloat
-
-    /// The height the current drag started from — without it the gesture's
-    /// cumulative `translation` re-applies on every change event and the
-    /// pane snaps to a limit after a few points of travel (the same shape
-    /// `PaneSplit.fractionAtDragStart` fixes for the science-pane divider).
-    @State private var heightAtDragStart: CGFloat?
-
-    /// Grab margin for the resize divider, in points. Not a layout size: it
-    /// only widens the hit test, so the 1 pt rule stays 1 pt tall.
-    private let dividerGrab: CGFloat = 5
-
-    private var clampedHeight: CGFloat {
-        let ceiling = min(LayoutPolicy.bottomWorkspaceHeight.max, max(LayoutPolicy.bottomWorkspaceHeight.min, maxHeight))
-        return min(max(height, LayoutPolicy.bottomWorkspaceHeight.min), ceiling)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
-            resizeHandle
             tabBar
             Divider()
             tabContent
         }
-        .frame(height: clampedHeight)
-    }
-
-    // MARK: - Resize
-
-    /// The pane's top edge, draggable the way a split divider is. Pure
-    /// SwiftUI: no cursor push, no event monitor — the old output log's own
-    /// `logResizeHandle`, moved here unchanged in mechanism.
-    private var resizeHandle: some View {
-        Divider()
-            .contentShape(Rectangle().inset(by: -dividerGrab))
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        let base = heightAtDragStart ?? height
-                        if heightAtDragStart == nil { heightAtDragStart = base }
-                        // Up is negative in SwiftUI's coordinate space, and
-                        // the pane grows upward. The fraction-of-workspace
-                        // ceiling applies during the drag too, not only at
-                        // rest, so a fast drag cannot overshoot it for a frame.
-                        let ceiling = min(LayoutPolicy.bottomWorkspaceHeight.max, max(LayoutPolicy.bottomWorkspaceHeight.min, maxHeight))
-                        height = min(
-                            max(LayoutPolicy.bottomWorkspaceHeight.min, base - value.translation.height),
-                            ceiling
-                        )
-                    }
-                    .onEnded { _ in heightAtDragStart = nil }
-            )
-            .accessibilityLabel("Resize the bottom workspace")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Tab bar

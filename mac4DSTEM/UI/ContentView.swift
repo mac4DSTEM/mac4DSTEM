@@ -14,27 +14,25 @@ import DSTEMSession
 /// a view under `UI/`. UI reads and drives the shared `App/`, `Session/`
 /// and `Core/` logic, and nothing else.
 ///
-/// **The shape** (owner decision, 2026-09-04) is Xcode's, Pages' and
-/// Keynote's, not the old window's:
+/// **The shape** (owner decision, 2026-09-22) is Xcode's:
 ///
 /// - **Left** is navigation and nothing else: five workspaces and their
 ///   tasks, in a source list narrow enough to stay narrow.
-/// - **Centre** is the science: the panes, with the status of the running
-///   operation and the output log along the bottom edge.
+/// - **Centre** owns the breadcrumb/action header, science panes, infobar,
+///   and the process area below that draggable bar.
 /// - **Right** is the inspector, in two tabs — **Settings**, every control
 ///   the selected workspace owns, and **Info**, what the dataset and the
 ///   displayed product actually are.
 ///
-/// That split is what retires the old column's two failure modes at once:
-/// controls no longer compete with navigation for one 250 pt column, and the
-/// workspace header that repeated the sidebar's own title is gone — the
-/// window title says where you are and the toolbar holds the one action that
-/// runs the task.
+/// The standard toolbar holds the dataset switcher and panel toggles; room
+/// actions stay inside the centre header as the side panels come and go.
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @State private var showImporter = false
     @State private var showExportSheet = false
-    @State private var openedInspectorOnce = false
+    @State private var availableWindowWidth: CGFloat = .infinity
+    @SceneStorage("workspace.navigatorVisible") private var savedNavigatorVisible = true
+    @SceneStorage("workspace.inspectorVisible") private var savedInspectorVisible = true
 
     private var datasetTypes: [UTType] {
         ["h5", "hdf5", "emd", "dm4", "dm3", "mib", "raw", "xml"]
@@ -44,36 +42,26 @@ struct ContentView: View {
     private var route: WorkspaceRoute { WorkspaceRoute.current(appState.navigation) }
 
     var body: some View {
-        @Bindable var navigation = appState.navigation
-
-        NavigationSplitView(columnVisibility: sidebarVisibility) {
-            WorkspaceSidebar()
-                .navigationSplitViewColumnWidth(
-                    min: LayoutPolicy.sidebarWidth.min,
-                    ideal: LayoutPolicy.sidebarWidth.ideal,
-                    max: LayoutPolicy.sidebarWidth.max
-                )
-        } detail: {
-            WorkspaceView()
-                .inspector(isPresented: $navigation.showInspectorPane) {
-                    WorkspaceInspector()
-                        .inspectorColumnWidth(
-                            min: LayoutPolicy.inspectorWidth.min,
-                            ideal: LayoutPolicy.inspectorWidth.ideal,
-                            max: LayoutPolicy.inspectorWidth.max
-                        )
-                }
+        splitWindow
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { updateWindowWidth(geometry.size.width) }
+                    .onChange(of: geometry.size.width) { updateWindowWidth(geometry.size.width) }
+            }
         }
-        .navigationTitle(appState.hasDataset ? route.title : "mac4DSTEM")
-        .navigationSubtitle(appState.descriptor?.fileName ?? "")
-        .toolbar { toolbarContent }
-        .task {
-            // The inspector holds the workspace's controls in UI, so it
-            // opens with the window. The flag is `WorkspaceNavigation`'s, so
-            // the Show/Hide Inspector menu item keeps working.
-            guard !openedInspectorOnce else { return }
-            openedInspectorOnce = true
-            appState.navigation.showInspectorPane = true
+        .onAppear {
+            appState.navigation.showToolsPane = savedNavigatorVisible
+            appState.navigation.showInspectorPane = savedInspectorVisible
+            collapsePanelsIfNeeded()
+        }
+        .onChange(of: appState.navigation.showToolsPane) {
+            savedNavigatorVisible = appState.navigation.showToolsPane
+            collapsePanelsIfNeeded()
+        }
+        .onChange(of: appState.navigation.showInspectorPane) {
+            savedInspectorVisible = appState.navigation.showInspectorPane
+            collapsePanelsIfNeeded()
         }
         .onChange(of: appState.resultPresentation.virtualShape) { appState.commitApertureChange() }
         .onChange(of: appState.realSpaceShape) { appState.updateRealSpaceRegion() }
@@ -120,6 +108,37 @@ struct ContentView: View {
         }
     }
 
+    private var splitWindow: some View {
+        @Bindable var navigation = appState.navigation
+
+        return NavigationSplitView(columnVisibility: sidebarVisibility) {
+            WorkspaceSidebar()
+                .navigationSplitViewColumnWidth(
+                    min: LayoutPolicy.sidebarWidth.min,
+                    ideal: LayoutPolicy.sidebarWidth.ideal,
+                    max: LayoutPolicy.sidebarWidth.max
+                )
+        } detail: {
+            WorkspaceView()
+        }
+        // Phase 1 (window-design.md §4–§6, decided 2026-09-22): `.inspector`
+        // moved here, off the detail view, so the column runs from the
+        // toolbar to the window's bottom edge exactly the way the sidebar
+        // already does. The persistent trailing toggle belongs to the split
+        // view's toolbar, so it remains available with the inspector hidden.
+        .inspector(isPresented: $navigation.showInspectorPane) {
+            WorkspaceInspector()
+                .inspectorColumnWidth(
+                    min: LayoutPolicy.inspectorWidth.min,
+                    ideal: LayoutPolicy.inspectorWidth.ideal,
+                    max: LayoutPolicy.inspectorWidth.max
+                )
+        }
+        .navigationTitle(appState.hasDataset ? route.title : "mac4DSTEM")
+        .navigationSubtitle(appState.descriptor?.fileName ?? "")
+        .toolbar { windowToolbarContent }
+    }
+
     /// The sidebar's visibility rides on the same flag as the Show/Hide Tools
     /// menu item, so the two can never disagree.
     private var sidebarVisibility: Binding<NavigationSplitViewVisibility> {
@@ -129,50 +148,41 @@ struct ContentView: View {
         )
     }
 
+    private func updateWindowWidth(_ width: CGFloat) {
+        guard width >= LayoutPolicy.datasetWindowMinimumSize.width else { return }
+        availableWindowWidth = width
+        collapsePanelsIfNeeded()
+    }
+
+    private func collapsePanelsIfNeeded() {
+        let navigation = appState.navigation
+        if navigation.showInspectorPane,
+           WindowAnatomyPolicy.collapseInspector(
+               at: availableWindowWidth, navigatorVisible: navigation.showToolsPane
+           ) {
+            navigation.showInspectorPane = false
+        }
+        if navigation.showToolsPane,
+           WindowAnatomyPolicy.collapseNavigator(at: availableWindowWidth) {
+            navigation.showToolsPane = false
+        }
+    }
+
+    /// Only window-level controls live here. The split view supplies the
+    /// leading navigator toggle; this trailing toggle survives closing the
+    /// inspector. ⌥⌘0 and the existing ⌃⌘I menu item reach the same state.
     @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        // `NavigationSplitView` contributes the sidebar toggle. Everything
-        // UI adds sits trailing, where macOS puts affirmative actions: the
-        // one action that runs the task, the way to keep its result, the
-        // dataset's own menu, and the inspector's toggle. The action was
-        // centred (`.principal`) until 2026-09-04; the owner's drive found
-        // that the centre slot is too narrow for the busy state, which
-        // truncated "Cancel" to "C…".
-        // The ONE macOS 26-only symbol in the codebase, and the only thing
-        // that stood between this app and an older deployment target
-        // (2026-09-04). `.primaryAction` already places items at the trailing
-        // edge on macOS, so the spacer refines that grouping rather than
-        // creating it; below 26 the toolbar simply loses the extra gap.
-        if #available(macOS 26.0, *) {
-            ToolbarSpacer(.flexible)
-        }
-
+    private var windowToolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
-            PrimaryActionButton()
+            DatasetMenu()
         }
-
         ToolbarItem(placement: .primaryAction) {
-            SaveResultButton()
-        }
-
-        ToolbarItem(placement: .primaryAction) {
-            Menu {
-                Button("Open Dataset…") { appState.requestOpenDataset() }
-                Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
-                if appState.hasDataset {
-                    Divider()
-                    Button("Preprocess & Export…") { appState.requestPreprocessingExport() }
-                        .disabled(appState.isBusy)
-                    Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }
-                        .disabled(appState.displayedPattern == nil)
-                }
-            } label: {
-                Label("Dataset", systemImage: "folder")
+            if appState.isBusy {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("An operation is running")
             }
-            .help("Open a dataset, or act on the one that is open")
-            .accessibilityIdentifier("toolbar.datasetMenu")
         }
-
         ToolbarItem(placement: .primaryAction) {
             Button {
                 appState.navigation.showInspectorPane.toggle()
@@ -184,6 +194,12 @@ struct ContentView: View {
             }
             .help(appState.navigation.showInspectorPane
                   ? "Hide the inspector" : "Show the inspector")
+            .keyboardShortcut("0", modifiers: [.command, .option])
+            .accessibilityIdentifier("toolbar.inspectorToggle")
+            .disabled(WindowAnatomyPolicy.collapseInspector(
+                at: availableWindowWidth,
+                navigatorVisible: appState.navigation.showToolsPane
+            ))
         }
     }
 

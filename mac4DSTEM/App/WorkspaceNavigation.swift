@@ -24,7 +24,39 @@ final class WorkspaceNavigation {
         didSet { if analysisMode != oldValue { onModeChange?() } }
     }
 
-    var showLogPane = false
+    /// The process area's share of the centre column (window-design.md §4,
+    /// phase 1): 0 hides it, 1 hides the canvas instead — the infobar's two
+    /// extremes. `didSet` remembers the last NON-ZERO fraction it saw, so
+    /// hiding the area never forgets the height the user dragged it to —
+    /// the same shape `PaneSplit`'s `@SceneStorage` fraction protects
+    /// against a reset-to-default, here against a reset-to-hidden.
+    var processFraction: Double = 0 {
+        didSet {
+            if processFraction > 0 { lastProcessFraction = processFraction }
+        }
+    }
+
+    /// What `processFraction` restores to when the process area re-opens.
+    /// `LayoutPolicy.processAreaIdealFraction` (UI/) is a same-module,
+    /// same-app-target reference, not a package import (`docs/architecture.md`:
+    /// `App/` and `UI/` are one compiled unit; only `Session/`/`Core/` are
+    /// the enforced package boundary) — so this reads the owner's "default
+    /// ideal" from the one place it is named rather than repeating 0.3 here.
+    var lastProcessFraction: Double = LayoutPolicy.processAreaIdealFraction
+
+    /// The process area's visibility, as the Bool the ⌃⌘L menu item
+    /// (`mac4DSTEMApp.swift`) and `NavigationSeamTests` have always driven.
+    /// Not stored: `Mirror` (`NavigationSeamTests`) sees stored properties
+    /// only, so a computed forwarder is invisible to it by design (the same
+    /// limit that test's own doc comment already states). The setter is the
+    /// toggle: shutting remembers nothing extra (`processFraction`'s own
+    /// `didSet` already keeps `lastProcessFraction` current), opening
+    /// restores it.
+    var showLogPane: Bool {
+        get { processFraction > 0 }
+        set { processFraction = newValue ? lastProcessFraction : 0 }
+    }
+
     var showToolsPane = true
     var showInspectorPane = false
 

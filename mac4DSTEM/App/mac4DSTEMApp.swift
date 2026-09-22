@@ -1,8 +1,16 @@
 import SwiftUI
+import AppKit
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
 #endif
+
+/// Finder integration stays in App/; the window and its controls stay SwiftUI.
+@MainActor enum DatasetLocationActions {
+    static func reveal(path: String) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+}
 
 private struct FocusedAppStateKey: FocusedValueKey {
     typealias Value = AppState
@@ -69,7 +77,8 @@ private struct DatasetWindow: View {
         // declined with a reason rather than reaching HDF5 twice.
         // UNVERIFIED ON SCREEN: added 2026-09-11, not yet driven from Finder.
         .onOpenURL { appState.openFile(url: $0) }
-        .frame(minWidth: 1080, minHeight: 640)
+        .frame(minWidth: LayoutPolicy.datasetWindowMinimumSize.width,
+               minHeight: LayoutPolicy.datasetWindowMinimumSize.height)
         .task {
                 guard !loadedLaunchFixture,
                       ProcessInfo.processInfo.arguments.contains("--demo-fixture") else {
@@ -218,6 +227,8 @@ struct mac4DSTEMApp: App {
         WindowGroup("mac4DSTEM", id: "dataset") {
             DatasetWindow(preferences: preferences, recents: recents)
         }
+            .defaultSize(width: LayoutPolicy.datasetWindowIdealSize.width,
+                         height: LayoutPolicy.datasetWindowIdealSize.height)
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
             .commands { DatasetCommands() }

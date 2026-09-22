@@ -14,6 +14,9 @@ import DSTEMCore
 /// the science panes are the one exception, and they take their floor from
 /// `imagePaneMinimum` / `resultPaneMinimum` rather than spelling a number.
 enum LayoutPolicy {
+    static let datasetWindowMinimumSize = CGSize(width: 640, height: 640)
+    static let datasetWindowIdealSize = CGSize(width: 1280, height: 800)
+
     /// The navigation column. Narrow on purpose: it holds five words and a
     /// task list, never a control.
     static let sidebarWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (190, 230, 320)
@@ -25,6 +28,8 @@ enum LayoutPolicy {
     /// Science: a diffraction or real-space pane below this stops being an
     /// image and becomes a smudge.
     static let imagePaneMinimum: CGFloat = 180
+    static let sciencePaneDividerWidth: CGFloat = 1
+    static let splitColumnDividerAllowance: CGFloat = 2
 
     /// Science: the Results pane shows one product at reading size.
     static let resultPaneMinimum = CGSize(width: 360, height: 300)
@@ -70,17 +75,29 @@ enum LayoutPolicy {
     // 2026-09-21): the inspector holds durable state, the bottom pane live
     // state. Every fixed point in that surface is named here.
 
-    /// The bottom workspace's dragged height; the view also caps it at
-    /// `bottomWorkspaceMaxFraction` of the workspace so it can never eat
-    /// the centre panes.
-    static let bottomWorkspaceHeight: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (120, 220, 900)
-    static let bottomWorkspaceMaxFraction: CGFloat = 0.7
-
-    /// The Output / Run / Lineage tab row above the bottom workspace.
+    /// The Output / Run / Lineage tab row above the process area.
     static let bottomTabBarHeight: CGFloat = 26
 
-    /// The permanent status strip: one line, nothing taller.
+    /// The permanent status strip: one line, nothing taller. Phase 1
+    /// (window-design.md §4–§6, decided 2026-09-22) makes this row the
+    /// centre column's own divider — see `ProcessAreaLayout` below.
     static let statusStripHeight: CGFloat = 22
+    static let infobarHorizontalPadding: CGFloat = 10
+    static let infobarItemSpacing: CGFloat = 12
+    static let infobarProgressSpacing: CGFloat = 8
+
+    /// The canvas header row above the science panes (window-design.md §4):
+    /// workspace › dataset on the left, the room's primary action, Save to
+    /// Session and the dataset menu on the right — what the toolbar's
+    /// trailing group used to carry, now over the panes it acts on.
+    static let canvasHeaderHeight: CGFloat = 34
+    static let canvasHeaderItemSpacing: CGFloat = 6
+    static let canvasHeaderHorizontalPadding: CGFloat = 12
+
+    /// The process area's share of the centre column the infobar's toggle
+    /// (and ⌃⌘L) restores when nothing has ever been dragged — the owner's
+    /// "default ideal" (window-design.md §6).
+    static let processAreaIdealFraction: Double = 0.3
 
     /// The memory/residency glance slot in the strip — a constant width, like
     /// the metrics slot (011), so a changing figure never reflows the strip.
@@ -148,6 +165,64 @@ enum LayoutPolicy {
         return size.width / size.height > aspect
             ? CGSize(width: size.height * aspect, height: size.height)
             : CGSize(width: size.width, height: size.width / aspect)
+    }
+}
+
+/// Width budget for the native side columns and two scientific images.
+/// SwiftUI performs the collapse; this policy only decides when to request it.
+enum WindowAnatomyPolicy {
+    static var scienceMinimum: CGFloat {
+        LayoutPolicy.imagePaneMinimum * 2 + LayoutPolicy.sciencePaneDividerWidth
+    }
+
+    static func collapseInspector(at width: CGFloat, navigatorVisible: Bool) -> Bool {
+        let navigator = navigatorVisible ? LayoutPolicy.sidebarWidth.max + LayoutPolicy.splitColumnDividerAllowance : 0
+        return width < navigator + LayoutPolicy.inspectorWidth.max
+            + LayoutPolicy.splitColumnDividerAllowance + scienceMinimum
+    }
+
+    static func collapseNavigator(at width: CGFloat) -> Bool {
+        width < LayoutPolicy.sidebarWidth.max
+            + LayoutPolicy.splitColumnDividerAllowance + scienceMinimum
+    }
+}
+
+/// Pure layout math for the centre column's process area (window-design.md
+/// §4–§6, decided 2026-09-22, phase 1): the infobar is the column's own
+/// divider, draggable anywhere along its whole width from the column's
+/// bottom edge (process area hidden) to its top edge (canvas hidden) —
+/// Xcode's two extremes. Free of `@State`/`@Bindable` so it is tested
+/// directly: `WorkspaceView` reads `heights` every layout pass, the
+/// infobar's drag gesture reads `fraction(afterDrag:)`, and its toggle
+/// button reads `toggled(from:last:)`. `WorkspaceNavigation.showLogPane`'s
+/// own setter reimplements the same rule for the ⌃⌘L menu item — see its
+/// doc comment for why that one setter cannot call into UI/.
+enum ProcessAreaLayout {
+    /// `fraction` is the process area's share of `available` — the centre
+    /// column's height with the canvas header and the infobar already
+    /// removed. 0 hides the process area entirely; 1 hides the canvas
+    /// entirely.
+    static func heights(fraction: Double, available: CGFloat) -> (canvas: CGFloat, process: CGFloat) {
+        let clampedFraction = min(max(fraction, 0), 1)
+        let usable = max(available, 0)
+        let process = usable * CGFloat(clampedFraction)
+        return (usable - process, process)
+    }
+
+    /// The infobar's own toggle button: open → always shuts (0); shut →
+    /// restores `last` (the fraction remembered from before it was last
+    /// shut), or the default ideal when nothing has ever been dragged.
+    static func toggled(from fraction: Double, last: Double) -> Double {
+        fraction > 0 ? 0 : (last > 0 ? last : LayoutPolicy.processAreaIdealFraction)
+    }
+
+    /// A drag on the infobar. SwiftUI's `translation` grows downward, and
+    /// the process area sits BELOW the bar, so dragging down shrinks it —
+    /// the delta is subtracted from the fraction the drag started at.
+    static func fraction(afterDrag translation: CGFloat, available: CGFloat, from start: Double) -> Double {
+        guard available > 0 else { return start }
+        let delta = Double(translation) / Double(available)
+        return min(max(start - delta, 0), 1)
     }
 }
 

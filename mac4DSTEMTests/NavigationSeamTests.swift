@@ -17,7 +17,8 @@ final class NavigationSeamTests: XCTestCase {
         }
         XCTAssertTrue(names.contains("navigation"), "the facade holds the seam")
         let forbidden = ["workspaceArea", "analysisMode", "showToolsPane",
-                         "showLogPane", "showInspectorPane", "bottomWorkspaceTab"]
+                         "showLogPane", "showInspectorPane", "bottomWorkspaceTab",
+                         "processFraction", "lastProcessFraction"]
         let shadows = forbidden.filter(names.contains)
         XCTAssertTrue(
             shadows.isEmpty,
@@ -87,5 +88,41 @@ final class NavigationSeamTests: XCTestCase {
             XCTAssertEqual(state.navigation.analysisMode, .disks,
                            "\(area) owns no task and must not re-point one")
         }
+    }
+
+    func testInfobarDragReachesBothExtremesWithoutMovingTheFixedBarHeight() {
+        let available: CGFloat = 600
+        let hidden = ProcessAreaLayout.heights(fraction: 0, available: available)
+        XCTAssertEqual(hidden.canvas, available)
+        XCTAssertEqual(hidden.process, 0)
+
+        let full = ProcessAreaLayout.heights(fraction: 1, available: available)
+        XCTAssertEqual(full.canvas, 0)
+        XCTAssertEqual(full.process, available)
+
+        let draggedUp = ProcessAreaLayout.fraction(afterDrag: -300, available: available, from: 0.25)
+        XCTAssertEqual(draggedUp, 0.75, accuracy: 0.001)
+        let draggedDown = ProcessAreaLayout.fraction(afterDrag: 300, available: available, from: 0.25)
+        XCTAssertEqual(draggedDown, 0, accuracy: 0.001)
+    }
+
+    func testProcessAreaToggleRestoresTheLastDraggedFraction() {
+        let navigation = WorkspaceNavigation()
+        navigation.processFraction = 0.6
+        navigation.showLogPane = false
+        XCTAssertEqual(navigation.processFraction, 0)
+        XCTAssertEqual(navigation.lastProcessFraction, 0.6)
+        navigation.showLogPane = true
+        XCTAssertEqual(navigation.processFraction, 0.6)
+        XCTAssertEqual(ProcessAreaLayout.toggled(from: 0.6, last: 0.6), 0)
+        XCTAssertEqual(ProcessAreaLayout.toggled(from: 0, last: 0.6), 0.6)
+    }
+
+    func testSidePanelsCollapseBeforeEitherSciencePaneFallsBelowItsMinimum() {
+        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: 1280, navigatorVisible: true))
+        XCTAssertTrue(WindowAnatomyPolicy.collapseInspector(at: 1080, navigatorVisible: true))
+        XCTAssertFalse(WindowAnatomyPolicy.collapseInspector(at: 1080, navigatorVisible: false))
+        XCTAssertTrue(WindowAnatomyPolicy.collapseNavigator(at: 640))
+        XCTAssertFalse(WindowAnatomyPolicy.collapseNavigator(at: 800))
     }
 }

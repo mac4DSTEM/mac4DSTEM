@@ -1,6 +1,6 @@
 # Window design — the reset (2026-09-22)
 
-**Status: decided 2026-09-22 (§6); phase 1 in build.** Written after the owner drove the
+**Status: decided 2026-09-22 (§6); phase 1 code ready for owner drive, not accepted on screen.** Written after the owner drove the
 2026-09-21 restyle (`9fd386d`) and rejected it: "cramped, no logic to the
 panes, no workflow behind it". The findings are in `open-items.md` (Owner
 drive 2026-09-21). This file says what the window is for, what the two
@@ -201,7 +201,7 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
 
 ## 5. Sequence, driven at every step
 
-- **Phase 1 — window anatomy, nothing else** (in build 2026-09-22):
+- **Phase 1 — window anatomy, nothing else** (code ready, owner drive owed 2026-09-22):
   `.inspector` on the `NavigationSplitView`, toggled from the toolbar's
   trailing button; the navigator's toggle at the leading edge; the canvas
   header with the primary action, Save to Session and Reveal, so the

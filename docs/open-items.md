@@ -17,7 +17,7 @@ the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
 
 ## Owner drive 2026-09-21 23:50–23:55 — the workspace/inspector restyle (`9fd386d`) REJECTED — added 2026-09-22
 
-Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible". Anatomy decided 2026-09-22 in [`docs/window-design.md`](window-design.md); phase 1 has no recorded drive or acceptance. Owner drive before Prepare or any other room changes.
+Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible". Anatomy decided 2026-09-22 in [`docs/window-design.md`](window-design.md); phase-1 code is ready but has no owner drive or acceptance. Drive it before Prepare or any other room changes.
 
 ### The inspector does not reach the window top; the sidebar does — SEEN 2026-09-21
 `ContentView.swift` applies `.inspector` to the detail `WorkspaceView`, so the column sits under the toolbar and the toolbar's trailing group (the blue primary action, archive, folder, toggle) floats above it; at some widths the items land over the canvas instead, which reads as "sometimes to the top, sometimes not". Xcode's inspector is full height with only its toggle above it. Phase 1: `.inspector` on the `NavigationSplitView`; centre header keeps breadcrumb left, primary action / Save to Session / Reveal right as its width flexes. No room action in toolbar or side panels. Owner drive owed.

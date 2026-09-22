@@ -4,82 +4,81 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The detail column: the science, and the two strips along its bottom edge.
+/// The detail column: the canvas header, the science, and the infobar +
+/// process area along its bottom edge (window-design.md §4, phase 1, decided
+/// 2026-09-22).
 ///
-/// **There is no workspace header.** The old `ProductWorkspaceHeader` repeated
-/// the sidebar row's own title and subtitle and cost about 100 pt off the top
-/// of both panes; in UI the window title carries the task name, the toolbar
-/// carries the one action that runs it (`PrimaryActionButton`), and
-/// readiness has exactly one owner — the inspector's Settings tab. Nothing
-/// here re-creates `TaskPrerequisiteChecklist`.
+/// **There is no workspace header beyond the canvas header below.** The old
+/// `ProductWorkspaceHeader` repeated the sidebar row's own title and
+/// subtitle and cost about 100 pt off the top of both panes; readiness has
+/// exactly one owner — the inspector's Settings tab. Nothing here re-creates
+/// `TaskPrerequisiteChecklist`.
 ///
-/// The bottom edge is a `safeAreaInset`, so the panes lay out above it and
-/// neither strip can ever overprint an image.
+/// **Layout, top to bottom, one `GeometryReader` over the whole column**
+/// (replacing the old `.safeAreaInset` + a drag handle owned by
+/// `BottomWorkspace` alone): the canvas header (`LayoutPolicy
+/// .canvasHeaderHeight`, fixed), the science panes, the infobar
+/// (`LayoutPolicy.statusStripHeight`, fixed — the column's own divider, drag
+/// gesture and all), the process area. `ProcessAreaLayout.heights(fraction:
+/// available:)` turns `appState.navigation.processFraction` into the canvas
+/// and process area's shares of what is left after the header and the
+/// infobar: 0 hides the process area, 1 hides the canvas — the owner's two
+/// extremes. The process area's height depends on nothing but that fraction,
+/// so switching its tab (`BottomWorkspace`) can never move the bar.
 struct WorkspaceView: View {
     @Environment(AppState.self) private var appState
+    @SceneStorage("workspace.processFraction") private var savedProcessFraction = 0.0
+    @SceneStorage("workspace.lastProcessFraction") private var savedLastProcessFraction = LayoutPolicy.processAreaIdealFraction
 
-    /// The bottom workspace's dragged height, remembered for the session. A
-    /// `VSplitView` cannot divide the panes from it — both are greedy, so it
-    /// splits them evenly and the panes lose half the window — so the
-    /// workspace's own drag handle (`BottomWorkspace`) carries the resize.
-    @State private var bottomWorkspaceHeight: CGFloat = LayoutPolicy.bottomWorkspaceHeight.ideal
-
-    /// The WHOLE workspace frame's measured height — the detail column's
-    /// full height, not reduced by the bottom workspace's own
-    /// `safeAreaInset` below. `BottomWorkspace` clamps itself to
-    /// `bottomWorkspaceMaxFraction` of this (ADR 034), the same way
-    /// `PaneSplit` reads its own container with a `GeometryReader` rather
-    /// than a view announcing a minimum upward.
-    ///
-    /// **Must not include the inset.** The `GeometryReader` that publishes
-    /// this (below, in `.background`) sits AFTER `.safeAreaInset` in the
-    /// modifier chain and `.ignoresSafeArea()`s, specifically so the pane it
-    /// caps is not also part of what shrinks the ceiling it is capped
-    /// against. Measuring the inset-reduced content instead — as an earlier
-    /// version of this view did — makes the cap and the measurement two
-    /// readings of the SAME shrinking quantity: growing the pane shrinks the
-    /// measured height, which shrinks the ceiling, which the 0.7 fraction
-    /// damps into convergence rather than a runaway, but a drag that ends
-    /// near the ceiling still takes several frames to settle instead of one.
-    @State private var workspaceHeight: CGFloat = 0
-
-    private var showsBottomWorkspace: Bool {
+    /// Gates the process area exactly as the old `showsBottomWorkspace` did:
+    /// `navigation.processFraction > 0` (via `showLogPane`) still has to be
+    /// true, but a dataset that is absent or still loading forces it shut
+    /// regardless of the dragged fraction, which `processFraction` itself is
+    /// NOT reset for — reopening the same dataset restores the same split.
+    private var showsProcessArea: Bool {
         appState.navigation.showLogPane && appState.hasDataset && !appState.datasetSession.isLoading
     }
 
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    if showsBottomWorkspace {
-                        BottomWorkspace(
-                            height: $bottomWorkspaceHeight,
-                            maxHeight: max(
-                                LayoutPolicy.bottomWorkspaceHeight.min,
-                                workspaceHeight * LayoutPolicy.bottomWorkspaceMaxFraction
-                            )
-                        )
-                    }
-                    Divider()
-                    StatusBar()
+        GeometryReader { geometry in
+            let usable = max(
+                geometry.size.height - LayoutPolicy.canvasHeaderHeight - LayoutPolicy.statusStripHeight,
+                0
+            )
+            let effectiveFraction = showsProcessArea ? appState.navigation.processFraction : 0
+            let heights = ProcessAreaLayout.heights(fraction: effectiveFraction, available: usable)
+
+            VStack(spacing: 0) {
+                CanvasHeader()
+                    .frame(height: LayoutPolicy.canvasHeaderHeight)
+
+                if heights.canvas > 0 {
+                    content
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(height: heights.canvas)
+                        .clipped()
+                }
+
+                StatusBar(availableHeight: usable)
+
+                if heights.process > 0 {
+                    BottomWorkspace()
+                        .frame(height: heights.process)
+                        .clipped()
                 }
             }
-            // Measures the WHOLE workspace, not `content` alone: attached
-            // AFTER `.safeAreaInset` above (so it reads the composite's outer
-            // frame, which `.safeAreaInset` does not shrink) and
-            // `.ignoresSafeArea()`s so the reader itself is never proposed a
-            // size already reduced by the inset it sits behind. See
-            // `workspaceHeight`'s doc comment for why the alternative —
-            // measuring inside the inset — couples the pane's ceiling to the
-            // pane's own height.
-            .background(
-                GeometryReader { geometry in
-                    Color.clear.preference(key: WorkspaceHeightPreferenceKey.self, value: geometry.size.height)
-                }
-                .ignoresSafeArea()
-            )
-            .onPreferenceChange(WorkspaceHeightPreferenceKey.self) { workspaceHeight = $0 }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .onAppear {
+            appState.navigation.lastProcessFraction = savedLastProcessFraction
+            appState.navigation.processFraction = savedProcessFraction
+        }
+        .onChange(of: appState.navigation.processFraction) {
+            savedProcessFraction = appState.navigation.processFraction
+        }
+        .onChange(of: appState.navigation.lastProcessFraction) {
+            savedLastProcessFraction = appState.navigation.lastProcessFraction
+        }
     }
 
     @ViewBuilder
@@ -168,15 +167,78 @@ struct WorkspaceView: View {
     }
 }
 
-/// The science panes' measured height, read once per layout pass so
-/// `BottomWorkspace` can clamp itself to a fraction of it. `reduce` keeps the
-/// LAST reported value — there is only ever one `GeometryReader` publishing
-/// this key — matching the one-writer shape every other `PreferenceKey` in
-/// this file's sibling views uses.
-private struct WorkspaceHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+// MARK: - The canvas header
+
+/// The centre column's own header (window-design.md §4, phase 1): what the
+/// window's toolbar used to carry at its trailing edge —
+/// `PrimaryActionButton`, `SaveResultButton`, and Reveal — moved down
+/// over the panes they act on, the way Xcode's jump bar carries actions
+/// about the file being edited rather than the window chrome. Left: the same
+/// workspace and dataset name, taken from the same route and descriptor as
+/// the window title.
+private struct CanvasHeader: View {
+    @Environment(AppState.self) private var appState
+
+    private var route: WorkspaceRoute { WorkspaceRoute.current(appState.navigation) }
+
+    private var title: String {
+        guard appState.hasDataset else { return "mac4DSTEM" }
+        guard let dataset = appState.descriptor?.fileName, !dataset.isEmpty else { return route.title }
+        return "\(route.title) › \(dataset)"
+    }
+
+    var body: some View {
+        HStack(spacing: LayoutPolicy.canvasHeaderItemSpacing) {
+            Text(title)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(title)
+
+            Spacer(minLength: LayoutPolicy.canvasHeaderItemSpacing)
+
+            PrimaryActionButton()
+            SaveResultButton()
+            RevealDatasetButton()
+        }
+        .padding(.horizontal, LayoutPolicy.canvasHeaderHorizontalPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+/// The window-level dataset switcher in the standard toolbar.
+struct DatasetMenu: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        Menu {
+            Button("Open Dataset…") { appState.requestOpenDataset() }
+            Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
+            if appState.hasDataset {
+                Divider()
+                Button("Preprocess & Export…") { appState.requestPreprocessingExport() }
+                    .disabled(appState.isBusy)
+                Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }
+                    .disabled(appState.displayedPattern == nil)
+            }
+        } label: {
+            Label("Dataset", systemImage: "folder")
+        }
+        .help("Open a dataset, or act on the one that is open")
+        .accessibilityIdentifier("toolbar.datasetMenu")
+    }
+}
+
+private struct RevealDatasetButton: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        Button("Reveal in Finder") {
+            guard let path = appState.descriptor?.filePath else { return }
+            DatasetLocationActions.reveal(path: path)
+        }
+        .disabled(appState.descriptor == nil || appState.datasetSession.isLoading)
+        .accessibilityIdentifier("workspace.revealDataset")
     }
 }
 
@@ -463,30 +525,74 @@ struct WelcomeWorkspace: View {
     }
 }
 
-// MARK: - The status strip
+// MARK: - The status strip / infobar
 
-/// The permanent status strip along the detail column's bottom edge — one
+/// The permanent status strip along the centre column's bottom edge — one
 /// line, `LayoutPolicy.statusStripHeight` tall, nothing taller (ADR 034,
-/// owner 2026-09-21: live operational detail moved to the bottom workspace's
-/// Run tab, so this strip only glances).
+/// owner 2026-09-21: live operational detail moved to the process area's Run
+/// tab, so this strip only glances).
+///
+/// **Phase 1 (window-design.md §4–§6): this IS the centre column's
+/// divider.** A `DragGesture` over the whole bar — every pixel of its
+/// width, via `.contentShape(Rectangle())` — reads `availableHeight` (the
+/// same denominator `WorkspaceView`'s `ProcessAreaLayout.heights` uses) and
+/// writes `appState.navigation.processFraction` through
+/// `ProcessAreaLayout.fraction(afterDrag:available:from:)`, the same way
+/// `PaneSplit`'s divider carries the science panes' resize. No event monitor,
+/// AppKit cursor, or hosted split view is involved.
 ///
 /// Left: the status line. Then, while a cancellable operation runs, a slim
-/// progress bar and its elapsed/ETA readout — Cancel itself moved to the Run
+/// progress bar and its elapsed/ETA readout — Cancel itself lives in the Run
 /// tab (`BottomWorkspace`), because no test here pins a stop control IN the
 /// strip and the strip is the one surface this session had to make narrower,
-/// not wider. Then the memory/residency glance, always on. Right: the bottom
-/// workspace's own toggle, the way Xcode's debug area is opened from the bar
-/// above it.
+/// not wider. Then the memory/residency glance, always on. Right: the
+/// process area's own toggle, the way Xcode's debug area is opened from the
+/// bar above it — `ProcessAreaLayout.toggled(from:last:)`, the same pure
+/// function `WorkspaceNavigation.showLogPane`'s setter reimplements for the
+/// ⌃⌘L menu item, since that type cannot reach into `UI/` (see its doc
+/// comment).
 ///
-/// No bar of its own: the safe-area inset and the divider above it are its
-/// whole look.
+/// No bar of its own: a `Divider()` above and below (added by `WorkspaceView`,
+/// the one exception the hard rules carve out for the infobar) is its whole
+/// look.
 struct StatusBar: View {
     @Environment(AppState.self) private var appState
+    let availableHeight: CGFloat
+
+    /// The fraction the current drag started from — without it the
+    /// gesture's cumulative `translation` re-applies on every change event
+    /// and the bar snaps to a limit after a few points of travel, the same
+    /// shape `PaneSplit.fractionAtDragStart` and `BottomWorkspace`'s old
+    /// `heightAtDragStart` both guarded against.
+    @State private var fractionAtDragStart: Double?
+
+    private var processAreaToggleBinding: Binding<Bool> {
+        Binding(
+            get: { appState.navigation.processFraction > 0 },
+            set: { _ in
+                appState.navigation.processFraction = ProcessAreaLayout.toggled(
+                    from: appState.navigation.processFraction,
+                    last: appState.navigation.lastProcessFraction
+                )
+            }
+        )
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                guard appState.hasDataset, !appState.datasetSession.isLoading else { return }
+                let start = fractionAtDragStart ?? appState.navigation.processFraction
+                if fractionAtDragStart == nil { fractionAtDragStart = start }
+                appState.navigation.processFraction = ProcessAreaLayout.fraction(
+                    afterDrag: value.translation.height, available: availableHeight, from: start
+                )
+            }
+            .onEnded { _ in fractionAtDragStart = nil }
+    }
 
     var body: some View {
-        @Bindable var navigation = appState.navigation
-
-        HStack(spacing: 12) {
+        HStack(spacing: LayoutPolicy.infobarItemSpacing) {
             // One line, truncating — the strip has no bar of its own, so the
             // message dictating its own height is a layout dependency this
             // file otherwise refuses to take. `.help` is the remedy for the
@@ -502,10 +608,10 @@ struct StatusBar: View {
                 .help(appState.statusText)
                 .accessibilityIdentifier("status.bar")
 
-            Spacer(minLength: 12)
+            Spacer(minLength: LayoutPolicy.infobarItemSpacing)
 
             if showsOperationProgress {
-                HStack(spacing: 8) {
+                HStack(spacing: LayoutPolicy.infobarProgressSpacing) {
                     // The percentage that used to sit beside this bar is gone
                     // (2026-09-12) and reaches VoiceOver here instead, where
                     // it cannot wrap and is not a second drawing of the bar.
@@ -526,7 +632,7 @@ struct StatusBar: View {
                 // A system toggle draws its own on-state, so the strip needs
                 // no tint of its own. The menu's Show/Hide Bottom Pane item is
                 // the second door onto the same flag.
-                Toggle(isOn: $navigation.showLogPane) {
+                Toggle(isOn: processAreaToggleBinding) {
                     Image(systemName: "rectangle.bottomthird.inset.filled")
                 }
                 .toggleStyle(.button)
@@ -538,9 +644,13 @@ struct StatusBar: View {
             }
         }
         .controlSize(.small)
-        .padding(.horizontal, 10)
+        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .frame(height: LayoutPolicy.statusStripHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { Divider() }
+        .overlay(alignment: .bottom) { Divider() }
+        .contentShape(Rectangle())
+        .simultaneousGesture(dragGesture)
     }
 
     /// Whether the strip draws a progress bar of its own.
@@ -657,7 +767,7 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
         nonmutating set { storedFraction = Double(newValue) }
     }
 
-    private static var dividerWidth: CGFloat { 1 }
+    private static var dividerWidth: CGFloat { LayoutPolicy.sciencePaneDividerWidth }
 
     var body: some View {
         GeometryReader { geometry in
@@ -709,32 +819,29 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
 
 // MARK: - Keeping a result
 
-/// "Save to Results", in the toolbar beside the action that produced the
+/// "Save to Session", in the centre header beside the action that produced the
 /// result (owner, 2026-09-04: "if you generate a result there should be a
 /// button for saving this to the results window").
 ///
 /// The old window offered this only inside the Results workspace, so keeping
 /// a virtual image or a strain map meant leaving the workspace that made it.
 /// The action is the same one Results calls — one writer, one sidecar — and
-/// the wording is now the same in both places: the destination the user is
-/// thinking of is the Results list, not the file format underneath it.
+/// the destination is the session sidecar, from which Results reads it.
 struct SaveResultButton: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        if appState.hasDataset, !appState.datasetSession.isLoading,
-           appState.displayedProduct != nil,
-           appState.navigation.workspaceArea != .results {
+        if appState.hasDataset, appState.navigation.workspaceArea != .results {
             Button {
                 appState.saveCurrentResultToSessionSidecar()
             } label: {
-                Label("Save to Results", systemImage: "archivebox")
+                Label("Save to Session", systemImage: "archivebox")
             }
             // C4(a): was `appState.isBusy` only, so this was enabled and then
             // refused through a modal after the click when the session
-            // sidecar could not be rewritten (§4 finding 2). The `if` above
-            // already requires `displayedProduct != nil` — the thing to save.
-            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
+            // sidecar could not be rewritten (§4 finding 2).
+            .disabled(appState.datasetSession.isLoading || appState.displayedProduct == nil
+                      || appState.isBusy || !appState.gates.mayWriteSidecar)
             .help("Keeps the displayed result with this dataset, in its session "
                   + "sidecar. It appears in Results and survives reopening.")
             .accessibilityIdentifier("workspace.saveToResults")
