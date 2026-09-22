@@ -27,6 +27,10 @@
 //  and returned to this section. The draft is hoisted to `SettingsWindow`,
 //  the parent that actually outlives the switch.
 //
+//  Not to be confused with a dataset window's inspector Settings tab
+//  (`WorkspaceInspector.swift`'s `InspectorTab.settings`) — that is a room's
+//  per-analysis controls; this is the app-wide `Settings` scene (⌘,).
+//
 
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
