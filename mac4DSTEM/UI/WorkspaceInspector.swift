@@ -29,8 +29,22 @@ import DSTEMSession
 /// computation moved (Gate D: not applicable — no scientific number moves).
 struct WorkspaceInspector: View {
     /// Persisted so the column comes back on the tab the user left it on.
-    private enum InspectorTab: String {
+    private enum InspectorTab: String, CaseIterable {
         case settings, info
+
+        var title: String {
+            switch self {
+            case .settings: "Settings"
+            case .info: "Info"
+            }
+        }
+
+        var help: String {
+            switch self {
+            case .settings: "Settings — the room's controls"
+            case .info: "Info — what the dataset and the product are"
+            }
+        }
     }
 
     @AppStorage("ui2.inspectorTab") private var tab: InspectorTab = .settings
@@ -42,23 +56,51 @@ struct WorkspaceInspector: View {
     /// row (the evening's try) "jumped to the left of the toggle" and was
     /// rejected; a text picker row inside the column (the morning's) was
     /// "ugly".
-    var body: some View {
-        VStack(spacing: 0) {
+    /// Settings · Info as text tabs in the column's own first row (owner,
+    /// 2026-09-22 drive of `03cfa10`: "I prefer them to be text and in
+    /// liquid glass"). On macOS 26 they are the standard glass buttons in
+    /// one `GlassEffectContainer`, the current tab prominent; before 26,
+    /// where there is no glass, the same words as a segmented picker.
+    @ViewBuilder
+    private var tabRow: some View {
+        if #available(macOS 26, *) {
+            GlassEffectContainer(spacing: LayoutPolicy.inspectorRowSpacing) {
+                HStack(spacing: LayoutPolicy.inspectorRowSpacing) {
+                    ForEach(InspectorTab.allCases, id: \.self) { candidate in
+                        if candidate == tab {
+                            Button(candidate.title) { tab = candidate }
+                                .buttonStyle(.glassProminent)
+                                .accessibilityAddTraits(.isSelected)
+                                .help(candidate.help)
+                        } else {
+                            Button(candidate.title) { tab = candidate }
+                                .buttonStyle(.glass)
+                                .help(candidate.help)
+                        }
+                    }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Inspector tab")
+        } else {
             Picker("Inspector tab", selection: $tab) {
-                Image(systemName: "slider.horizontal.3")
-                    .accessibilityLabel("Settings")
-                    .tag(InspectorTab.settings)
-                Image(systemName: "info.circle")
-                    .accessibilityLabel("Info")
-                    .tag(InspectorTab.info)
+                ForEach(InspectorTab.allCases, id: \.self) { candidate in
+                    Text(candidate.title).tag(candidate)
+                }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
-            .help(tab == .settings ? "Settings — the room's controls" : "Info — what the dataset and the product are")
-            .padding(.vertical, LayoutPolicy.inspectorHeaderVerticalPadding)
-            .frame(maxWidth: .infinity)
-            .accessibilityIdentifier("inspector.tabPicker")
+            .help(tab.help)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            tabRow
+                .padding(.vertical, LayoutPolicy.inspectorHeaderVerticalPadding)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("inspector.tabPicker")
             Divider()
             switch tab {
             case .settings: InspectorSettingsTab()

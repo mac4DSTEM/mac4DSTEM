@@ -322,8 +322,8 @@ of the toolbar, the process area's three tabs and the Prepare cards.
    the toggle button — doesn't make sense, looks bad. Make it clean; if
    there is a standard Mac way you are more comfortable with, do it
    instead, maybe like in Xcode." → Xcode's anatomy: only the toggle in
-   the toolbar over the inspector; the inspector's tabs as icons in its own
-   first row.
+   the toolbar over the inspector; the inspector's tabs in its own first
+   row (icons that night; text in glass since §9.6).
 2. **Infobar.** "Still very thin — I told you to make it wider. Apart from
    that the movement and the toggle work well."
 3. **Process area.** "See what happens when I change Output to Run and then
@@ -353,6 +353,25 @@ of the recorded steps until the record carries input edges (ROADMAP).
 anything there — leave the left categories standing, maybe a search bar
 on top; standard macOS." → the sidebar toggle removed; the search field
 is optional, later.
+
+6. **His drive of `03cfa10`** (2026-09-22 afternoon, his own build,
+`datasetA_stride3.h5`, 171 × 171 streaming, live origin calibration and
+disk detection in the infobar): "much better now! good work." Three small
+things, then "consolidate this state — a step forward in the skeleton;
+fix the few small things and we discuss later how to make further
+progress": (a) "cancel button is not stop, is there a reason?" — asked
+back: the buttons say Stop, the status says "Cancelling…"; whether he
+means the word or that a run did not stop is not yet answered; (b) Settings
+· Info "only icons — I prefer them to be text and in Liquid Glass" →
+built the same day: text tabs as the standard glass buttons in one
+`GlassEffectContainer` (macOS 26; a text segmented picker before that);
+(c) **"everywhere in the app should be Liquid Glass where it fits"** —
+a standing wish for the discussion, not built: on macOS 26 the toolbar,
+sidebar and menus are glass by themselves; Apple's guidance keeps glass
+to the control layer floating over content (toolbars, overlays such as the
+canvas legends and scale bars, floating buttons), never on content, cards
+or text, and never glass on glass. Candidates and costs come to him as a
+picture before any code (ADR 035).
 
 ## 7. Prompt for the next agent
 

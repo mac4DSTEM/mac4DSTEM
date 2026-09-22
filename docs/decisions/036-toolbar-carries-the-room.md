@@ -28,8 +28,9 @@ The window's toolbar is Xcode's (owner, 2026-09-22 evening, `window-design.md`
   navigator's toggle, the app supplies the inspector's). Items declared
   there stay in the toolbar once while the column is hidden, so the
   toggle needs no fallback and any fallback doubles it (the owner saw
-  two, twice). The Settings · Info tabs are icons in the inspector's own
-  first row under the toolbar — Xcode's anatomy; the text picker up in
+  two, twice). The Settings · Info tabs are text in the inspector's own
+  first row under the toolbar (glass buttons on macOS 26; icons for one
+  night, changed on his word 2026-09-22 afternoon) — Xcode's anatomy; the text picker up in
   the toolbar row was rejected the same night ("jumps to the left of the
   toggle button, looks bad").
 - **The breadcrumb row (phase 1's centre header) is removed**; the panes
