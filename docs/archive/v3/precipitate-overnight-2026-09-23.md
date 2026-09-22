@@ -232,3 +232,91 @@ either setting.
 existing `--residual-detail` table) and `tools/phase-map-probe/run.sh` (sources `crystal` and
 `core` groups, plus `Session/PhaseMapObjectsBridge.swift` directly). Nothing under
 `mac4DSTEM/Core/` changed. No shipped default moved.
+
+## Independent refutation — 2026-09-23 01:00 CEST
+
+Refuter: a separate agent that did not write a6d82d0, briefed to break the claim. No tracked file
+other than this section was edited. Logs (session scratchpad, not committed):
+`refute-repro-20260923.log` (the committed probe, `tools/thronsen-dataset/run.sh probe --rule
+known-variants --or --min-relative 0.001 --min-intensity 0 --al-precipitate-detail
+--object-table`, exit 0); `refute-dump-20260923.{log,csv}` (a scratch copy of the probe that adds
+one per-position CSV dump inside the `--object-table` block — the same truth-free "specific"
+formula as `main.swift:1571–1597`, additionally evaluated at pair radius 0.010/0.015/0.020/0.025/
+0.030 Å⁻¹ and at 0.5×/1×/2× the Al-shared tolerance; its own confusion matrix and headline are
+529 = 1.81 %, identical); `refute-analysis-20260923.log` and `refute-analysis2-20260923.log`
+(Python over that CSV: full recount, splits, bootstrap, boundary and object provenance).
+
+| # | claim | verdict |
+|---|---|---|
+| 1 | baseline 529 = 1.81 %, guard 423 = 1.45 % | **NOT REFUTED** — reproduced to the digit (confusion matrix, sweeps A/B, object table all identical to the author's logs); a full recount on guarded labels (not the `529 − fixed + broken` shortcut) also gives 423, and 438 for `≥ 2` |
+| 2 | "specific" is leak-free | **NOT REFUTED**, one qualification — truth never enters it: it is computed from the survivors and the entry the position was *called* as (`result.entryIndex`), which a production guard would have. But the guard is one-directional by construction (precipitate → Al only, never the reverse), so it can only trade toward the 73.5 % majority class |
+| 3 | `specific ≥ 1` is not an overfit | **PARTIALLY REFUTED** — held-out it generalises; as a "parameter-free" rule it does not (below) |
+| 4 | guard only removes Al → precipitate false calls | **PARTIALLY REFUTED** — the error arithmetic is right; the flip set is wider (below) |
+| 5 | "inside the paper's band" is like-for-like | **PARTIALLY REFUTED** — same metric and denominator, different sampling (below) |
+| 6 | Al lattice constant; 1.81 → 1.83 % | **NOT REFUTED** as a conclusion; the stated mechanism is wrong (below) |
+| 7 | step 3 truth and prediction extracted identically | code **NOT REFUTED**; the *reading* **REFUTED** (below) |
+
+**3 — held out.** Choosing k ∈ 0…6 on one half and scoring the other, for six spatial splits in
+both directions (left/right, top/bottom, checkerboard, even/odd rows, even/odd columns, diagonal):
+k = 1 is chosen 9 times of 12, k = 2 three times, and the held-out half improves every time, by
+0.21–0.42 points (e.g. left → right 1.62 → 1.29 %, right → left 1.99 → 1.60 %). 200 random 50/50
+splits: k = 1 chosen 170 times, k = 2 30 times; held-out change median −0.35 points (5–95 %
+−0.42 to −0.18). At the probe's radius the k curve is a two-point plateau (1.45 / 1.50 %) then a
+cliff (5.08 % at 3), not a knife edge at 1. **But "≥ 1" is only defined relative to the pair
+radius, which the author never varied**: k ≥ 1 gives 2.18 % at 0.010 Å⁻¹ (worse than no guard),
+1.35 % at 0.015, 1.45 % at 0.020, 1.56 % at 0.025; k ≥ 2 gives 1.30 % at 0.025. With radius free
+too, the held-out halves pick 0.025/k = 2 in 10 of 12 and score 1.08–1.63 %. The Al-shared
+tolerance is flat (0.5×–2× changes ≤ 3 positions). So 1.45 % is neither the best point on this
+dataset nor a property of the method: it is one point on a (k, radius) ridge, and the probe runs at
+0.020 while the app's `scaledToDetector` would use one pixel, 0.01904. Within-dataset halves share
+the microscope, sample and detection settings; none of this is cross-dataset evidence.
+
+**4 — what flips.** The guard flips 158 positions: 112 truth-Al fixed (69 → θ′ edge,
+22 → θ′ face, 21 → T1), 6 correct calls lost (4 T1, 2 θ′ edge-on), and **40 already-wrong
+precipitate positions relabelled as Al** (39 of the 53 T1 → θ′ edge-on, 1 θ′ face → edge). Those
+40 are error-neutral under the metric but move errors from "wrong precipitate" to "missed
+precipitate": precipitate → Al errors go 39 → 85. All 6 lost calls sit 1–2 scan pixels from a
+different truth label (boundary), each with 2–10 survivors, `matchedCount` 0, and 1–3 specific
+reflections that appear only at radius ≥ 0.025 (two only at 0.030). Boundary check on the whole residual: **354 of the
+407 Al → precipitate false calls are 8-adjacent to a non-Al truth pixel, against a 21.9 % base rate
+for truth-Al** (287 adjacent to the very class they were called). Step 1's "chance-level,
+too-little-evidence" reading describes the *isolated* minority better than the population; the
+guard is selective for it — 60 of its 112 fixes touch the called class, versus 227 of the 295
+it leaves.
+
+**5 — the band.** Same code, same metric (`ours != theirs`, not-indexed and the 2 "disagreement"
+positions counted wrong), same 29 241 denominator. Not like-for-like: the 0.96–1.75 % band is their
+maps on the full 512 × 512, ours a stride-3 subgrid, and their maps were never scored on the same
+subgrid. A spatial block bootstrap (9 × 9 blocks, 2000 draws) gives baseline 1.81 % [1.55, 2.08]
+and guarded 1.44 % [1.23, 1.69] (95 %): P(baseline ≤ 1.75 %) = 0.34, P(guarded ≤ 1.75 %) = 0.995.
+The guarded point is inside the band robustly; **the baseline was never distinguishably outside
+it**, so "just outside the band" (theta-prime-slab, 2026-09-21) and "moves it inside" are both
+statements within sampling noise at this stride.
+
+**6 — Al.** 4.0495 Å is pure Al at room temperature; 4.04 Å is the paper's CIF, the same value as
+θ′'s a (Cu and Li in solution contract Al slightly, but not settled here). The 8-vs-4 vector
+difference is not an excitation-slab effect as Finding 4 says: it is the {220} ring straddling the
+probe's `kMax` 0.70 Å⁻¹ — √8/a = 0.6985 Å⁻¹ at 4.0495, 0.7001 at 4.04 — a cutoff knife edge
+(the 4 matched {200} vectors differ by the 0.00116 Å⁻¹ reported). Five positions; no
+conclusion depends on it.
+
+**7 — objects.** Truth and predictions go through the same `PrecipitateSegmentation.classObjects`
+call (8-connected, `pixelSize` nil); only the not-indexed role differs ({} vs {−1}). Two small
+errors: the comment says truth label 4 is excluded from the analysed area, but it is counted
+(analysed 29 241 includes its 2 pixels); and label identity relies on the phase list's order
+coinciding with Thronsen's 0–3 (it does). The *reading* does not hold: of the 62 baseline T1
+objects, 39 overlap truth T1 and 23 overlap nothing (20 single pixels); guarded, 39 overlap truth
+and 9 are spurious. The truth-overlapping population is unchanged (39, median area 94 → 93 px, split
+2 → 2). **The median-length rise 8.61 → 13.37 px is spurious singletons removed from the median,
+not shattered objects repaired** — "baseline shatters 37 into 62, the guard recovers most of it" is
+refuted. Same for θ′ face-on: 67 of 70 baseline objects are spurious 1–2 px speckles.
+
+**Owner decisions.** (a) If a guard is pursued, it is a two-parameter rule (count, pair radius);
+pre-register one pair — k ≥ 1 at the app's own one-pixel radius is the natural choice — and
+measure it on a second dataset before any flag. (b) Do not cite the T1 median-length gain as
+independent support (owner question 4): it is the same singleton removal the confusion matrix
+already counts. (c) Report the headline with its sampling interval, or score their published maps
+on the stride-3 subgrid, before saying "inside/outside the band". (d) Correct Finding 4's mechanism
+(`kMax` knife edge) if the Al `DEVIATION` note is written. Nothing here invalidates the 1.45 %
+number itself; it invalidates calling it parameter-free and calling step 3 a second line of
+evidence.
