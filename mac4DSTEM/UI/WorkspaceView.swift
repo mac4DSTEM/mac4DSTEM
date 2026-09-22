@@ -4,27 +4,25 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The detail column: the canvas header, the science, and the infobar +
-/// process area along its bottom edge (window-design.md §4, phase 1, decided
-/// 2026-09-22).
+/// The detail column: the science, and the infobar + process area along its
+/// bottom edge (window-design.md §4, phase 1, decided 2026-09-22; the
+/// breadcrumb row above the panes went on 2026-09-22 evening, §8 — the room
+/// actions and the file name live in the toolbar).
 ///
-/// **There is no workspace header beyond the canvas header below.** The old
-/// `ProductWorkspaceHeader` repeated the sidebar row's own title and
-/// subtitle and cost about 100 pt off the top of both panes; readiness has
-/// exactly one owner — the inspector's Settings tab. Nothing here re-creates
-/// `TaskPrerequisiteChecklist`.
+/// **There is no workspace header.** The old `ProductWorkspaceHeader`
+/// repeated the sidebar row's own title and cost about 100 pt off the top of
+/// both panes; the phase-1 breadcrumb row repeated it again at 34 pt.
+/// Readiness has exactly one owner — the inspector's Settings tab.
 ///
-/// **Layout, top to bottom, one `GeometryReader` over the whole column**
-/// (replacing the old `.safeAreaInset` + a drag handle owned by
-/// `BottomWorkspace` alone): the canvas header (`LayoutPolicy
-/// .canvasHeaderHeight`, fixed), the science panes, the infobar
-/// (`LayoutPolicy.statusStripHeight`, fixed — the column's own divider, drag
-/// gesture and all), the process area. `ProcessAreaLayout.heights(fraction:
-/// available:)` turns `appState.navigation.processFraction` into the canvas
-/// and process area's shares of what is left after the header and the
-/// infobar: 0 hides the process area, 1 hides the canvas — the owner's two
-/// extremes. The process area's height depends on nothing but that fraction,
-/// so switching its tab (`BottomWorkspace`) can never move the bar.
+/// **Layout, top to bottom, one `GeometryReader` over the whole column**: the
+/// science panes, the infobar (`LayoutPolicy.statusStripHeight`, fixed — the
+/// column's own divider, drag gesture and all), the process area.
+/// `ProcessAreaLayout.heights(fraction:available:)` turns
+/// `appState.navigation.processFraction` into the canvas and process area's
+/// shares of what is left after the infobar: 0 hides the process area, 1
+/// hides the canvas — the owner's two extremes. The process area's height
+/// depends on nothing but that fraction, so switching its tab
+/// (`BottomWorkspace`) can never move the bar.
 struct WorkspaceView: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("workspace.processFraction") private var savedProcessFraction = 0.0
@@ -41,17 +39,11 @@ struct WorkspaceView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let usable = max(
-                geometry.size.height - LayoutPolicy.canvasHeaderHeight - LayoutPolicy.statusStripHeight,
-                0
-            )
+            let usable = max(geometry.size.height - LayoutPolicy.statusStripHeight, 0)
             let effectiveFraction = showsProcessArea ? appState.navigation.processFraction : 0
             let heights = ProcessAreaLayout.heights(fraction: effectiveFraction, available: usable)
 
             VStack(spacing: 0) {
-                CanvasHeader()
-                    .frame(height: LayoutPolicy.canvasHeaderHeight)
-
                 // Always in the hierarchy, even at fraction 1 where its
                 // height is 0: an `if` here tore down both Metal views every
                 // time the infobar reached the top and rebuilt them on the
@@ -171,44 +163,7 @@ struct WorkspaceView: View {
     }
 }
 
-// MARK: - The canvas header
-
-/// The centre column's own header (window-design.md §4, phase 1): what the
-/// window's toolbar used to carry at its trailing edge —
-/// `PrimaryActionButton`, `SaveResultButton`, and Reveal — moved down
-/// over the panes they act on, the way Xcode's jump bar carries actions
-/// about the file being edited rather than the window chrome. Left: the same
-/// workspace and dataset name, taken from the same route and descriptor as
-/// the window title.
-private struct CanvasHeader: View {
-    @Environment(AppState.self) private var appState
-
-    private var route: WorkspaceRoute { WorkspaceRoute.current(appState.navigation) }
-
-    private var title: String {
-        guard appState.hasDataset else { return "mac4DSTEM" }
-        guard let dataset = appState.descriptor?.fileName, !dataset.isEmpty else { return route.title }
-        return "\(route.title) › \(dataset)"
-    }
-
-    var body: some View {
-        HStack(spacing: LayoutPolicy.canvasHeaderItemSpacing) {
-            Text(title)
-                .font(.headline)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .help(title)
-
-            Spacer(minLength: LayoutPolicy.canvasHeaderItemSpacing)
-
-            PrimaryActionButton()
-            SaveResultButton()
-            RevealDatasetButton()
-        }
-        .padding(.horizontal, LayoutPolicy.canvasHeaderHorizontalPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-}
+// MARK: - The toolbar's room actions
 
 /// The window-level dataset switcher in the standard toolbar.
 struct DatasetMenu: View {
@@ -226,21 +181,26 @@ struct DatasetMenu: View {
                     .disabled(appState.displayedPattern == nil)
             }
         } label: {
-            Label("Dataset", systemImage: "folder")
+            // The folder is Reveal in Finder's (owner, 2026-09-22 evening);
+            // the dataset menu is the cube stack the sidebar already uses.
+            Label("Dataset", systemImage: "square.stack.3d.up")
         }
         .help("Open a dataset, or act on the one that is open")
         .accessibilityIdentifier("toolbar.datasetMenu")
     }
 }
 
-private struct RevealDatasetButton: View {
+struct RevealDatasetButton: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        Button("Reveal in Finder") {
+        Button {
             guard let path = appState.descriptor?.filePath else { return }
             DatasetLocationActions.reveal(path: path)
+        } label: {
+            Label("Reveal in Finder", systemImage: "folder")
         }
+        .help("Reveal the dataset in Finder")
         .disabled(appState.descriptor == nil || appState.datasetSession.isLoading)
         .accessibilityIdentifier("workspace.revealDataset")
     }
@@ -248,8 +208,11 @@ private struct RevealDatasetButton: View {
 
 // MARK: - The one action that runs the task
 
-/// The toolbar's principal item: the single action the selected task runs,
-/// and — while it runs — its progress and the way to stop it.
+/// The toolbar's run button, at the head of the trailing group under the
+/// inspector where the room's parameters are set (owner, 2026-09-22
+/// evening): the single action the selected task runs, and — while it runs —
+/// the way to stop it. The run's progress is the toolbar's centre display
+/// (`ToolbarRunDisplay`), not this button.
 ///
 /// Titles, hints and enablement are the old `ProductWorkspaceHeader`'s,
 /// verbatim, including the parallax staging rule that gates only
@@ -279,14 +242,14 @@ struct PrimaryActionButton: View {
         }
     }
 
-    /// While a run is in flight the toolbar offers ONE thing: the way to stop
-    /// it. The progress bar that used to live here was the second copy of the
-    /// one in the status bar (owner, 2026-09-04) and it squeezed the Cancel
-    /// button until its label truncated to "C…".
+    /// While a run is in flight this slot offers ONE thing: the way to stop
+    /// it — "Stop", Xcode's word, in Xcode's place. The progress bar that
+    /// once sat here squeezed the button until its label truncated to "C…"
+    /// (owner, 2026-09-04); the bar is the centre display now.
     @ViewBuilder
     private var operationProgress: some View {
         if appState.canCancelActiveOperation {
-            Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
+            Button("Stop", role: .cancel) { appState.cancelActiveOperation() }
                 .help(appState.activeOperation ?? appState.statusText)
                 .accessibilityLabel("Cancel \(appState.activeOperation ?? "the running operation")")
                 .accessibilityIdentifier("workspace.cancelAction")
@@ -831,9 +794,10 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
 
 // MARK: - Keeping a result
 
-/// "Save to Session", in the centre header beside the action that produced the
-/// result (owner, 2026-09-04: "if you generate a result there should be a
-/// button for saving this to the results window").
+/// "Save to Session", in the toolbar beside Reveal (owner, 2026-09-04: "if
+/// you generate a result there should be a button for saving this to the
+/// results window"; 2026-09-22 evening: always in the toolbar, so it is
+/// reachable with both side panels hidden).
 ///
 /// The old window offered this only inside the Results workspace, so keeping
 /// a virtual image or a strain map meant leaving the workspace that made it.
@@ -854,8 +818,8 @@ struct SaveResultButton: View {
             // sidecar could not be rewritten (§4 finding 2).
             .disabled(appState.datasetSession.isLoading || appState.displayedProduct == nil
                       || appState.isBusy || !appState.gates.mayWriteSidecar)
-            .help("Keeps the displayed result with this dataset, in its session "
-                  + "sidecar. It appears in Results and survives reopening.")
+            .help("Save to Session — keeps the displayed result with this dataset, in "
+                  + "its session sidecar. It appears in Results and survives reopening.")
             .accessibilityIdentifier("workspace.saveToResults")
         }
     }

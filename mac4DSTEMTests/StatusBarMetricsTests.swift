@@ -1,5 +1,6 @@
 import AppKit
 import DSTEMCore
+import DSTEMSession
 import XCTest
 @testable import mac4DSTEM
 
@@ -139,5 +140,16 @@ final class StatusBarMetricsTests: XCTestCase {
         return NSFont.monospacedDigitSystemFont(
             ofSize: base.pointSize, weight: .regular
         )
+    }
+
+    /// The toolbar's idle display (owner, 2026-09-22 evening): the file
+    /// first — it is the window's subject — then the room, then the scan
+    /// size with a thousands separator, so "Demo.h5 · Prepare · 4,050
+    /// positions" reads the same as the Run tab's counts.
+    func testTheToolbarIdleDisplayNamesFileRoomAndPositionsInThatOrder() {
+        let line = ToolbarDisplayFormat.idle(file: "Demo.h5", room: "Prepare", positions: 4050)
+        XCTAssertEqual(line, "Demo.h5 · Prepare · \(SystemMonitor.count(4050)) positions")
+        XCTAssertTrue(line.hasPrefix("Demo.h5"), "the file leads")
+        XCTAssertTrue(line.hasSuffix("positions"))
     }
 }

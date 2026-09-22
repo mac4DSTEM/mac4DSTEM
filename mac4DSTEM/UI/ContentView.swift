@@ -137,6 +137,18 @@ struct ContentView: View {
                     ideal: LayoutPolicy.inspectorWidth.ideal,
                     max: LayoutPolicy.inspectorWidth.max
                 )
+                // Xcode's rule (owner, 2026-09-22 evening, on his own build):
+                // the ONLY toolbar item over the inspector is its toggle; the
+                // room's actions stay over the room. Declared here, the toggle
+                // sits in the inspector's own toolbar section while the
+                // inspector is open and stays at the window's trailing edge
+                // while it is hidden — measured on his build: SwiftUI keeps
+                // the inspector's toolbar items when the column collapses.
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        InspectorToggleButton()
+                    }
+                }
         }
         // The window keeps a title — the dataset, as a document window's is —
         // for the Window menu, Mission Control and accessibility, but the
@@ -177,50 +189,53 @@ struct ContentView: View {
     /// Only window-level controls live here. The split view supplies the
     /// leading navigator toggle; this trailing toggle survives closing the
     /// inspector. ⌥⌘0 and the existing ⌃⌘I menu item reach the same state.
+    /// The owner's arrangement (2026-09-22 evening, window-design.md §8.1 and
+    /// his corrections on his own build): the file, the room and the live
+    /// run as a DISPLAY in the centre, never a button (the 2026-09-04 "C…"
+    /// trap); over the room at the trailing edge, the run button — Stop
+    /// while it runs — then Save to Session, Reveal in Finder and the
+    /// dataset menu as icons; only the inspector's toggle over the inspector.
+    /// Always there, so the analysis runs with both side panels hidden and
+    /// the data at full size. This reverses §6.2 of 2026-09-22 morning; the
+    /// breadcrumb row it replaces is gone (`WorkspaceView`).
     @ToolbarContentBuilder
     private var windowToolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            ToolbarRunDisplay()
+        }
         // The flexible spacer alone did NOT hold these items at the trailing
         // edge once the title was removed (two captures, 2026-09-22, with
         // `.automatic` and `.primaryAction` placement); declaring the toolbar
         // on the detail column did (see `splitWindow`). The spacer stays as
-        // the new toolbar model's own separator between the title's former
-        // slot and this group. `ToolbarSpacer` is macOS 26+, which is why
+        // the new toolbar model's own separator between the centre display
+        // and this group. `ToolbarSpacer` is macOS 26+, which is why
         // `ToolbarTitleRemoved` is guarded at 26 too: below it the title
         // stays and the old layout holds.
         if #available(macOS 26.0, *) {
             ToolbarSpacer(.flexible, placement: .primaryAction)
         }
+        // The room's verb heads the trailing group, beside the actions on
+        // its result and under the inspector where its parameters are set
+        // (owner, 2026-09-22 evening, on his build: "the user changes the
+        // parameters of the current workspace on the right" — the mock's
+        // Xcode-Run position at the left was wrong for this app). Stop takes
+        // its place while a run is in flight.
+        ToolbarItem(placement: .primaryAction) {
+            PrimaryActionButton()
+        }
+        ToolbarItem(placement: .primaryAction) {
+            SaveResultButton()
+        }
+        ToolbarItem(placement: .primaryAction) {
+            RevealDatasetButton()
+        }
         ToolbarItem(placement: .primaryAction) {
             DatasetMenu()
         }
-        ToolbarItem(placement: .primaryAction) {
-            if appState.isBusy {
-                ProgressView()
-                    .controlSize(.small)
-                    .accessibilityLabel("An operation is running")
-            }
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                appState.navigation.showInspectorPane.toggle()
-            } label: {
-                Label(
-                    appState.navigation.inspectorIsVisible ? "Hide Inspector" : "Show Inspector",
-                    systemImage: "sidebar.trailing"
-                )
-            }
-            .help(inspectorToggleHelp)
-            .keyboardShortcut("0", modifiers: [.command, .option])
-            .accessibilityIdentifier("toolbar.inspectorToggle")
-            .disabled(!appState.navigation.inspectorFits)
-        }
-    }
-
-    /// A disabled toggle explains itself: the inspector is not refusing, the
-    /// window is too narrow for it beside two science panes.
-    private var inspectorToggleHelp: String {
-        guard appState.navigation.inspectorFits else { return "Widen the window to show the inspector" }
-        return appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
+        // No toggle here: the inspector's own toolbar item (see `.inspector`
+        // above) stays in the toolbar while the inspector is hidden — the
+        // owner's screenshot of 2026-09-22 showed it doubled beside a
+        // fallback that assumed otherwise.
     }
 
     /// The importer's completion, as a method rather than an inline closure:
@@ -256,6 +271,98 @@ struct ContentView: View {
     }
 }
 
+
+/// The inspector's toggle, declared once in the inspector's own toolbar.
+/// ⌥⌘0 and the View menu's ⌃⌘I reach the same intent.
+struct InspectorToggleButton: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        Button {
+            appState.navigation.showInspectorPane.toggle()
+        } label: {
+            Label(
+                appState.navigation.inspectorIsVisible ? "Hide Inspector" : "Show Inspector",
+                systemImage: "sidebar.trailing"
+            )
+        }
+        .help(help)
+        .keyboardShortcut("0", modifiers: [.command, .option])
+        .accessibilityIdentifier("toolbar.inspectorToggle")
+        .disabled(!appState.navigation.inspectorFits)
+    }
+
+    /// A disabled toggle explains itself: the inspector is not refusing, the
+    /// window is too narrow for it beside two science panes.
+    private var help: String {
+        guard appState.navigation.inspectorFits else { return "Widen the window to show the inspector" }
+        return appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
+    }
+}
+
+/// The toolbar's centre — Xcode's activity viewer (owner, 2026-09-22
+/// evening: "the dataset's name … and the current process" in the toolbar).
+/// Idle: the file, the room and the scan size, one line, middle-truncating.
+/// Busy: the running operation, its bar and its elapsed/ETA, ticking once a
+/// second. A display, never a button, at a constant width
+/// (`LayoutPolicy.toolbarDisplayWidth`) so a ticking string never reflows the
+/// toolbar (011). Absent without a dataset, like every room action.
+struct ToolbarRunDisplay: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        if let descriptor = appState.descriptor, !appState.datasetSession.isLoading {
+            Group {
+                if appState.isBusy {
+                    busy
+                } else {
+                    Text(ToolbarDisplayFormat.idle(
+                        file: descriptor.fileName,
+                        room: WorkspaceRoute.current(appState.navigation).title,
+                        positions: descriptor.rx * descriptor.ry
+                    ))
+                    .font(.subheadline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(descriptor.filePath)
+                    .accessibilityIdentifier("toolbar.display.idle")
+                }
+            }
+            .frame(width: LayoutPolicy.toolbarDisplayWidth)
+        }
+    }
+
+    private var busy: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            HStack(spacing: LayoutPolicy.toolbarDisplaySpacing) {
+                Text(appState.activeOperation ?? appState.statusText)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                ProgressView(value: appState.progress)
+                    .frame(width: LayoutPolicy.inlineProgressWidth)
+                    .accessibilityLabel(appState.activeOperation ?? "Progress")
+                    .accessibilityValue(appState.progress.map { "\(Int($0 * 100)) percent" } ?? "")
+                Text(appState.activeOperationMetrics(at: context.date)
+                        .map { OperationMetricsFormat.line($0, for: appState.activeOperation) } ?? "")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: LayoutPolicy.operationReadoutWidth, alignment: .leading)
+            }
+            .accessibilityIdentifier("toolbar.display.busy")
+        }
+    }
+}
+
+/// How the toolbar's idle display is worded, in one place, tested.
+enum ToolbarDisplayFormat {
+    /// "Demo.h5 · Prepare · 144 positions" — the file first (it is the
+    /// window's subject), the room, then the scan size.
+    static func idle(file: String, room: String, positions: Int) -> String {
+        "\(file) · \(room) · \(SystemMonitor.count(positions)) positions"
+    }
+}
 
 /// `ToolbarDefaultItemKind.title` is macOS 15+ and the build floor is 14
 /// (ADR 008), so the removal is a refinement in the `ResizePointer` shape.

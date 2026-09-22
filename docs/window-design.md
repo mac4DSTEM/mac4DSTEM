@@ -220,7 +220,11 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
   toolbar carries no room action; the infobar as the centre column's
   divider from bottom edge to top edge; the process area's height
   independent of its tab. The owner drives.
-- **Phase 2 — the Prepare reference room** as cards with the readiness
+- **Phase 1b — the toolbar carries the room** (ADR 036, built 2026-09-22
+  evening on his answer to the mock; corrected once on his own build the
+  same hour — the inspector's toggle is the only item over the inspector).
+- **Phase 2 — the Prepare reference room** as Pixelmator's cards (his
+  choice, 2026-09-22 evening, over the columns form) with the readiness
   row. Driven and accepted before any other room changes.
 - **Phase 3 — the other rooms**, one per session, each driven.
 - **Phase 4 — the bottom area's second workspace** (products, then the
@@ -233,23 +237,26 @@ each phase is mocked as a picture the owner can reject before code.
 
 1. One style everywhere, Xcode's inspector: a top-level `.columns` form
    (see §4). Yes, it is plain SwiftUI.
-2. The primary action, Save to Session and Reveal in the canvas header.
-   Clarified 2026-09-22: breadcrumb left, three actions right, with flexible
-   space between them as the side panels toggle; none moves into a side panel
-   or toolbar.
+2. ~~The primary action, Save to Session and Reveal in the canvas header.~~
+   **Superseded the same evening (ADR 036):** the toolbar carries them —
+   the file and the live run as a display in the centre; the run button,
+   Save, Reveal and the dataset menu over the room at its right; only the
+   inspector's toggle over the inspector; the canvas header row is gone.
 3. The inspector header is text: Settings · Info.
 4. Withdrawn (the width follows from the form).
 5. The bottom area is Xcode's debug area: the infobar is the divider and
    the toggle, draggable over the whole centre column.
 6. Withdrawn; the `.columns` form replaces the 2026-09-21 vocabulary in
    phase 2.
-7. **Open, parked (his drive, 2026-09-22 evening; clarified with a
-   labelled dummy: he means the TOOLBAR):** he wants the file name, Save
-   to Session, Reveal in Finder and the current run in the toolbar — the
-   reverse of §6.2. Proposed: Xcode's arrangement — run/stop at the left,
-   the file name or the live run as a display in the centre, Save, Reveal,
-   dataset menu and inspector toggle at the right, the breadcrumb row
-   removed. Parked by him the same evening: no UI decisions this session.
+7. **Decided, later the same evening (ADR 036):** the toolbar carries the
+   room — the file and the live run as a display in the centre; over the
+   room, right of it, the run button (Stop while busy), then Save / Reveal /
+   dataset menu as icons; only the inspector's toggle over the inspector;
+   the breadcrumb row removed; the infobar 28 pt. Built and driven on his
+   own build the same hour, corrected three times on his word.
+8. **Decided (2026-09-22 evening): the inspector is Pixelmator's cards** — a
+   grouped form, one card per step with a title row (number, name, state,
+   action) and rows beneath; Prepare first. Supersedes §6.1's columns form.
 
 The 2026-09-22 00:15 wireframe drew the status strip across the full
 window width under the sidebar and the inspector — wrong; the owner's

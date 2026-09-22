@@ -80,19 +80,22 @@ enum LayoutPolicy {
 
     /// The permanent status strip: one line, nothing taller. Phase 1
     /// (window-design.md §4–§6, decided 2026-09-22) makes this row the
-    /// centre column's own divider — see `ProcessAreaLayout` below.
-    static let statusStripHeight: CGFloat = 22
+    /// centre column's own divider — see `ProcessAreaLayout` below. 28 pt
+    /// from 22 (owner, 2026-09-22 evening, §8.6: "wider, like Xcode's" —
+    /// Xcode's debug bar is about that tall).
+    static let statusStripHeight: CGFloat = 28
     static let infobarHorizontalPadding: CGFloat = 10
     static let infobarItemSpacing: CGFloat = 12
     static let infobarProgressSpacing: CGFloat = 8
 
-    /// The canvas header row above the science panes (window-design.md §4):
-    /// workspace › dataset on the left, the room's primary action, Save to
-    /// Session and the dataset menu on the right — what the toolbar's
-    /// trailing group used to carry, now over the panes it acts on.
-    static let canvasHeaderHeight: CGFloat = 34
-    static let canvasHeaderItemSpacing: CGFloat = 6
-    static let canvasHeaderHorizontalPadding: CGFloat = 12
+    /// The toolbar's centre display — Xcode's activity viewer: the file,
+    /// the room and the scan size when idle; the running operation, its
+    /// bar and its elapsed/ETA when busy (owner, 2026-09-22 evening, §8.1;
+    /// the breadcrumb row it replaces is gone). A constant width, the
+    /// `operationReadoutWidth` rule: a ticking string never reflows the
+    /// toolbar (011).
+    static let toolbarDisplayWidth: CGFloat = 380
+    static let toolbarDisplaySpacing: CGFloat = 8
 
     /// The process area's share of the centre column the infobar's toggle
     /// (and ⌃⌘L) restores when nothing has ever been dragged — the owner's
