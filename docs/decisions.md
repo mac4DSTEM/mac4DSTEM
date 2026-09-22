@@ -14,7 +14,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 004 | Gate B independent review | 08-18, 08-31, 09-02 | live |
 | 005 | Inventory is the review | 09-02 | live |
 | 006 | py4DSTEM pin and DEVIATION notes | 09-03, 09-14 | live |
-| 007 | Versioning and release naming | 09-02, 09-03, 09-11 | live |
+| 007 | Versioning and release naming; a raised system requirement is a major | 09-02, 09-03, 09-11, 09-22 | live |
 | 008 | macOS floor and arm64-only | 09-04, 09-11, 09-22 | live (floor raised 14→27 09-22; v3.0.0 stays for older systems) |
 | 009 | UI contract | 09-03, 09-04, 09-07 | live (09-03 AppKit superseded) |
 | 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `window-design.md` §6) |

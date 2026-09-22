@@ -25,29 +25,22 @@ live view, so you see what a choice does while you make it.
 Algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
 gated against it, so results trace back to the reference implementation.
 
-## New in v3.0.0 (2026-09-11)
+## New in v4.0.0 (2026-09-23)
 
-- **Bragg disks can be found by a trained model.** Disk detection gains a
-  `Detector` picker; the learned path runs as Core ML on the Apple Neural
-  Engine. On a frozen, hand-labelled test set never used for selection, at the
-  shipped confidence of 0.7 it scores recall / precision **0.768 / 0.712**
-  against the classical detector's **0.487 / 0.485**, at **1.44–1.64x** the
-  speed. No third-party model weights are distributed.
-- **A flat measured kernel, and the file's own probe as a kernel source** — the
-  mode py4DSTEM recommends for bullseye and other structured probes, which the
-  app could not do before. On `calibrationData_bullseyeProbe` it reproduces
-  py4DSTEM's flat route peak for peak.
-- **Datasets are offered in Finder's "Open With"**, and the app ships the GNU
-  GPL text and `NOTICE` inside the bundle.
-- **Apple Silicon only, and now checked at build time.** The release gate
-  measures the architecture of the shipped executable and every embedded
-  library and refuses anything but arm64. v2.5.1 shipped an Intel slice by
-  accident against Apple-Silicon-only HDF5; **if you are on an Intel Mac, do
-  not use v2.5.1 — its HDF5 support is broken.**
-- **Known limitations are stated, not left to be found.** Parallax and
-  ptychography are untested on real data; VoiceOver is unsupported; the
-  `Quantitative` badge does not check the origin a result was computed from.
-  All of them, and more, are listed at the end of the v3.0.0 notes.
+- **Requires macOS 27.** The major version marks the new system requirement;
+  v3.0.0 stays the download for older systems.
+- **A rebuilt interface, on Apple's own design guidance.** One flat inspector
+  for every step — labels on the left, values at the edge, the step's main
+  action in the toolbar; image contrast in each image's own popover; a window
+  that never lets the inspector cover an image.
+- **Calibration foundation.** A beamstop-tolerant origin (py4DSTEM's
+  `get_origin_friedel` and beamstop mask, at ~1e-6 px parity), an origin
+  validity mask, a probe kernel from a separate vacuum scan, and faster
+  Friedel and R–Q solves proven bit-identical to the serial code.
+- **Materials Project import** by mp-id, standardised to the conventional
+  cell, and an **experimental, unvalidated** known-variants phase classifier —
+  labelled unvalidated in the app. Known limitations are at the end of the
+  v4.0.0 notes.
 
 Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -92,8 +85,8 @@ Merlin MIB and EMPAD RAW readers are preview-grade. Current limitations:
 ## Requirements
 
 macOS 27 or later on Apple Silicon. Nothing else to install — every dependency
-ships inside the application. The v3.0.0 download (floor 14) stays available
-for older systems; the 27 floor gates releases after it.
+ships inside the application. Older systems: the v3.0.0 download (macOS 14+)
+stays available.
 
 Development and testing happen on macOS 27. The build supports 27 and later —
 that is the enforced minimum, not a claim every version has been exercised — so

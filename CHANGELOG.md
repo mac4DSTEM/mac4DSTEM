@@ -1,17 +1,23 @@
 # Changelog
 
-## Unreleased — v3.1 Calibration foundation, on `main` since 2026-09-17
+## v4.0.0 — 2026-09-23
 
-Written as it lands, so the cut does not reconstruct it. Every item below
-passed the unit, core and inventory gates; "unverified on screen" means
-exactly that until the owner's drive says otherwise.
+**Requires macOS 27 on Apple Silicon.** The major version marks the system
+requirement: v3.0.0 (macOS 14+) stays downloadable for older systems. This
+release carries the v3.1 calibration foundation (on `main` since 2026-09-17)
+and a rebuilt interface. Every item passed the unit, core and inventory
+gates; "unverified on screen" means exactly that.
 
-- **macOS floor raised 14 → 27 (2026-09-22 night).** Owner: "don't care about older macOS, want
-  it good-looking, simple, future-proof." Every `#available` guard below 27 removed; v3.0.0's
-  artefact (floor 14) stays downloadable for older systems — the raise gates only releases after
-  it. The toolbar now uses `ToolbarContent.visibilityPriority` and a shrinking centre display; the
-  window's minimum size is a derived constant (`WindowAnatomyPolicy` retired); the card kit built
-  for Prepare landed in all six rooms. Driven: Prepare, the toolbar, the window floor; unverified: every other room, the Info tab, light mode.
+- **The interface, rebuilt on Apple's own guidance (2026-09-22 night).** A
+  flat inspector — each section's title is its disclosure, labels on the
+  left, controls and values at the edge, one button width, status colour on
+  symbols only; the room's one prominent action is its toolbar verb. Image
+  contrast (histogram, gamma, log) lives in each image's own popover;
+  "Computed this session" in the Info tab; Bragg disks' probe kernel is one
+  source picker and one Build button. The toolbar keeps the run verb and
+  dataset menu as the window narrows; the window has a derived minimum
+  (915 pt) so no pane is ever covered by the inspector. Driven and accepted
+  by the owner on a real cube.
 
 - **Known-variants phase classification (2026-09-21, experimental, unvalidated).** The rule from
   Thronsen et al.'s vector analysis — score every surviving vector against each phase's known
@@ -57,6 +63,17 @@ exactly that until the owner's drive says otherwise.
 - **AppState seam 5: `ResultPresentation`.** Shared product/display state moved to one owner and cross-owner orchestration to `AppState+ResultPresentation.swift`; AppState.swift 3676 → 3240. Seven tests pin version bumps; unit 727/0/2 and rotation/strain-frame parity passed; the owner drove `sim_Au` normally.
 - **AppState seam 6: `DatasetSession`.** Reader/array, datasets, preview, loading state and stale-publish epoch moved to one owner and lifecycle orchestration to `AppState+DatasetSession.swift`; AppState.swift 3240 → 3054. Five tests pin ownership/epoch; unit 732/0/2 passed; the owner drove open → switch dataset → reopen ignoring sidecar normally.
 - **AppState seam 7: the load pipeline, and the seams plan is complete.** Configured-open split into `AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; the pending-load owner is `Session/PromotionRun`. AppState.swift 3054 → 1474 — no longer the repo's largest file. Caught and fixed a regression before commit: the moved `commitPendingLoad` cleared its owner before finishing the refusal guard, so a beam-excluding crop silently dropped the configurator's pending load; a new test (`PromotionCommitTests`) pins the correct behaviour. Unit 741/0/2=743 passed. All seven seams of `docs/appstate-seams-plan.md` are now landed; not yet driven on screen.
+
+### Known limitations
+
+- **Phase mapping and the known-variants rule are unvalidated** and badged so
+  in the app until they pass on a dataset with truth.
+- **Unverified on screen:** the Friedel origin method, the vacuum-scan probe,
+  the Materials Project importer's first live fetch, light mode on a real cube.
+- **Deferred to the next cut (owner, 2026-09-22):** the release-readiness
+  Gate D items listed in `docs/status.md`.
+- At the 915-pt minimum window width a long file name can push the toolbar's
+  centre display out, and the toolbar's buttons then shift left.
 
 ## v3.0.0 — 2026-09-11
 

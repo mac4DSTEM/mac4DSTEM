@@ -1,7 +1,7 @@
 # CLAUDE.md — start here
 
 mac4DSTEM: native macOS (Swift / SwiftUI / Metal) 4D-STEM analysis on Apple Silicon, validated against py4DSTEM at one pinned upstream commit (`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`).
-**v3.0.0 was released 2026-09-11**, version/build 3.0.0 / 6. The consolidation plan **exited 2026-09-11** (`docs/archive/consolidation-plan.md`, §7 checked line by line) and the feature freeze it carried lapsed with it. Rules only here; status and history elsewhere.
+**v4.0.0 was released 2026-09-23**, version/build 4.0.0 / 7 (macOS 27+; v3.0.0 stays for older systems). The consolidation plan **exited 2026-09-11** (`docs/archive/consolidation-plan.md`, §7 checked line by line) and the feature freeze it carried lapsed with it. Rules only here; status and history elsewhere.
 
 ## Read, in this order
 

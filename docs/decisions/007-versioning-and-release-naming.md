@@ -20,6 +20,11 @@ arrival made v3.0.0, not v2.7.0, the number for the 2026-09-11 cut: a feature
 cuts a major version under this rule, and cutting the same work under a minor
 would hide its largest change.
 
+**Amended 2026-09-22 night (owner):** a raised system requirement is a
+major version. The macOS 14 → 27 floor ships as **4.0.0**, not 3.1.0, although
+the calibration foundation alone would have been a minor; v3.0.0 stays the
+download for older systems.
+
 ## Why
 
 A version number should describe what happened, not a schedule. Tagging the
