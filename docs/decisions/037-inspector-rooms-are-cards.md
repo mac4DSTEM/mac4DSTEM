@@ -30,17 +30,17 @@ disclosure row.
 Prepare is the reference room; no other room converts until the owner has
 driven it. When every room is converted, `InspectorRows.swift` goes.
 
-**Amended 2026-09-22 night:** cards landed after all, but built into the
-kit rather than beside it — `InspectorSection` (`UI/InspectorRows.swift`)
-is now the `GroupBox` card itself (headline header, optional
-`systemImage:`, collapse state still kept by `sceneStorageKey`),
-`InspectorGroup` a headerless card, plus new `InspectorAdaptiveButton`
-(`ViewThatFits` full label → icon-only, words on `.help`) and
-`InspectorStatusRow`. Applied to all six rooms in one pass (Strain & ACOM,
-Phase, Imaging, diffraction groups, phase mapping, Results, Info). Prepare's
-uncommitted card draft became the kit; `classicBody` deleted. Gaps: no
-adaptive `Menu`, no tinted warning note. Only Prepare/toolbar/floor were
-driven on screen; the rest is unverified (`docs/status.md`).
+**Superseded 2026-09-22 night (owner, on his build: "this can't be it … look
+up the Apple dev documentation"):** cards were built into the kit, driven,
+and then dropped for Apple's own inspector guidance — `Form` "renders as a
+vertical stack" on macOS; ≤ 2 prominent buttons per view (the room's verb is
+the toolbar's); leading disclosure; colour on symbols, text in label
+colours; no Liquid Glass in content. The kit (`UI/InspectorRows.swift`, whose
+header cites each source) is now flat sections with the whole title row as
+the leading disclosure, label leading / control trailing (his Pixelmator
+rule), bordered buttons at one shared width (`.buttonSizing(.flexible)`),
+and `InspectorStatusRow` with the state on the symbol. Gaps: no adaptive
+`Menu`, no tinted warning note.
 
 ## Why
 

@@ -129,7 +129,7 @@ struct PrepareSettings: View {
         Group {
         PatternStatisticsSection()
 
-        InspectorSection("Calibration", systemImage: "checkmark.seal") {
+        InspectorSection("Calibration") {
             Group {
                 ForEach(report.items) { item in
                     readinessRow(item)
@@ -138,10 +138,15 @@ struct PrepareSettings: View {
                 let verdict = session.verdict
                 let ready = report.items.filter { $0.status.isReady }.count
                     + (session.hasUsableVoltage ? 1 : 0)
-                Label(Self.readinessSummary(readyCount: ready, blockers: verdict.blockers),
-                      systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
-                    .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
-                    .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
+                // Colour on the symbol only; the sentence stays primary text.
+                Label {
+                    Text(Self.readinessSummary(readyCount: ready, blockers: verdict.blockers))
+                        .fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+                }
+                .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("calibration.readiness")
@@ -215,7 +220,7 @@ struct PrepareSettings: View {
         // path. Physical Q/R values are intentionally edited only in the
         // readiness rows, so the same value, unit, provenance and consequence
         // cannot drift between duplicate controls.
-        InspectorSection("Fit diagnostics & advanced correction", systemImage: "chart.xyaxis.line", expanded: $showsDiagnostics) {
+        InspectorSection("Fit diagnostics & advanced correction", expanded: $showsDiagnostics) {
             InspectorValueRow("Aperture center", calibration.originProvenance.displayName)
                 .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
 
@@ -320,7 +325,7 @@ struct PrepareSettings: View {
     private var ellipseCorrectionSection: some View {
         @Bindable var session = appState.calibrationSession
         let calibration = session.calibration
-        InspectorSection("Ellipse correction", systemImage: "oval", expanded: $showsEllipse) {
+        InspectorSection("Ellipse correction", expanded: $showsEllipse) {
             // Value, unit: one row per radius, because two fields beside one
             // label do not fit the column's minimum width.
             InspectorRow("Fit annulus inner") {
@@ -507,10 +512,10 @@ struct PatternStatisticsSection: View {
 
     var body: some View {
         if appState.meanPattern == nil {
-            InspectorSection("Pattern", systemImage: "viewfinder") {
+            InspectorSection("Pattern") {
                 InspectorActionRow {
                     InspectorAdaptiveButton(
-                        "Compute Mean / Max", systemImage: "sum", prominent: true,
+                        "Compute Mean / Max", systemImage: "sum",
                         help: "Compute Mean / Max — one pass over the cube; also computed by origin calibration."
                     ) {
                         Task { await appState.computeDPStatistics() }

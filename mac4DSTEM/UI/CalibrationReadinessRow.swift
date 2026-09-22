@@ -42,11 +42,9 @@ enum CalibrationReadinessRow {
     /// (orange, not green: the value is used the same as any other ready
     /// value, but the assertion behind it is the user's, not the fit's);
     /// `ExportSheet`'s copy did not, so the same calibration read as plain
-    /// green success in the export sheet and as a warning in Prepare. Left
-    /// as a native `LabeledContent` (not `InspectorRow`/`InspectorValueRow`):
-    /// its label is a colour-coded `Label` plus a wrapping detail caption,
-    /// not a plain string, so the simple-string row API would drop the
-    /// colour coding.
+    /// green success in the export sheet and as a warning in Prepare. Built
+    /// on `InspectorStatusRow`: the state's colour on the symbol, the
+    /// calibrated value as a wrapping caption under the title.
     @ViewBuilder
     static func row(
         _ item: CalibrationReadinessItem,
@@ -54,19 +52,23 @@ enum CalibrationReadinessRow {
         rScaleFilenameConflict: String?,
         qScaleUnavailableReason: String
     ) -> some View {
+        // The symbol carries the state's colour (the status word is plain
+        // secondary text): a "fit anyway" result is ready but caveated, so
+        // it gets the warning triangle, never the green check.
         let isWarning = item.status == .ready(.fitAnyway)
-        let readyTint: Color = item.status.isReady ? .green : .orange
+        let symbol = !item.status.isReady ? "exclamationmark.circle.fill"
+            : isWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+        let tint: Color = item.status.isReady && !isWarning ? .green : .orange
         // `item.detail` (the calibrated value and its units — the scientific
         // content of the row) is on screen unconditionally, wrapping never
         // truncating (S22d: the tail is the caveat) — `InspectorStatusRow`'s
         // `detail` parameter wraps by construction, being ordinary `Text`.
         InspectorStatusRow(
             title: item.kind.rawValue,
-            systemImage: item.status.isReady ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
-            tint: readyTint,
+            systemImage: symbol,
+            tint: tint,
             detail: item.detail,
-            status: item.status.displayName,
-            statusTint: item.status.isReady && !isWarning ? Color.secondary : Color.orange
+            status: item.status.displayName
         )
         // `unlockSummary` says what this calibration *enables*: on hover and
         // in the accessibility description, not permanently under six rows.
@@ -75,22 +77,30 @@ enum CalibrationReadinessRow {
         .accessibilityHint(item.kind.unlockSummary)
         .accessibilityIdentifier("calibration.item.\(item.kind.id)")
 
-        // Outside the `!isReady` branch: an imported R scale that disagrees
-        // with the filename is *ready*, and exactly the case worth a warning.
-        if item.kind == .rScale, let conflict = rScaleFilenameConflict {
-            Label(conflict, systemImage: "exclamationmark.triangle.fill")
+        // The row's own warning and controls indent to its title, so they
+        // read as this row's, not the section's.
+        VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
+            // Outside the `!isReady` branch: an imported R scale that disagrees
+            // with the filename is *ready*, and exactly the case worth a warning.
+            if item.kind == .rScale, let conflict = rScaleFilenameConflict {
+                Label {
+                    Text(conflict)
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                }
                 .font(.caption)
-                .foregroundStyle(.orange)
                 .accessibilityIdentifier("calibration.rScale.filenameConflict")
+            }
+            if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
+                for: item.kind, status: item.status
+            ) {
+                action(
+                    appState: appState, kind: item.kind, status: item.status,
+                    qScaleUnavailableReason: qScaleUnavailableReason
+                )
+            }
         }
-        if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
-            for: item.kind, status: item.status
-        ) {
-            action(
-                appState: appState, kind: item.kind, status: item.status,
-                qScaleUnavailableReason: qScaleUnavailableReason
-            )
-        }
+        .padding(.leading, InspectorStatusRow.childIndent)
     }
 
     @ViewBuilder
@@ -131,7 +141,6 @@ enum CalibrationReadinessRow {
                     Button("Calibrate from Selected Material") {
                         Task { await appState.calibrateQFromCrystal() }
                     }
-                    .buttonStyle(.borderedProminent)
                     .disabled(appState.isBusy)
                     .accessibilityIdentifier("calibration.action.qCrystal")
                     .help("Selected ACOM phase model: \(model.displayName)")

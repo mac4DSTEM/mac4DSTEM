@@ -59,7 +59,7 @@ private struct DPCSettingsSection: View {
     var body: some View {
         @Bindable var appState = appState
         @Bindable var dpc = appState.dpc
-        InspectorSection("DPC & iDPC", systemImage: "arrow.up.and.down.and.arrow.left.and.right") {
+        InspectorSection("DPC & iDPC") {
             // S22b (O2): status first — what running DPC will produce NOW —
             // then the display choice, then the per-mode detail.
             if appState.idpcPhysicalCalibration != nil {
@@ -152,7 +152,7 @@ private struct SingleslicePtychographySection: View {
     var body: some View {
         @Bindable var ptychography = appState.ptychography
         let isGradientDescent = ptychography.method == .gradientDescent
-        InspectorSection("Single-slice ptychography", systemImage: "circle.hexagongrid") {
+        InspectorSection("Single-slice ptychography") {
             InspectorRow("Method") {
                 Picker("Method", selection: $ptychography.method) {
                     ForEach(SingleslicePtychographyMethod.allCases) { method in
@@ -163,7 +163,7 @@ private struct SingleslicePtychographySection: View {
             }
             InspectorActionRow {
                 InspectorAdaptiveButton(
-                    "Reconstruct Object", systemImage: "circle.hexagongrid", prominent: true,
+                    "Reconstruct Object", systemImage: "circle.hexagongrid",
                     help: "Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine."
                 ) {
                     Task { await appState.runSingleslicePtychography() }
@@ -309,7 +309,7 @@ private struct ParallaxStageSections: View {
         stageSection(1, "Prepare preview") {
             InspectorActionRow {
                 InspectorAdaptiveButton(
-                    "Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle", prominent: true
+                    "Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle"
                 ) {
                     Task { await appState.prepareParallaxPreview() }
                 }
@@ -326,7 +326,7 @@ private struct ParallaxStageSections: View {
         stageSection(2, "Align bright-field stack") {
             InspectorActionRow {
                 InspectorAdaptiveButton(
-                    "Align Next Level", systemImage: "align.horizontal.center", prominent: true,
+                    "Align Next Level", systemImage: "align.horizontal.center",
                     help: "Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation."
                 ) {
                     Task { await appState.alignParallaxNextLevel() }
@@ -351,7 +351,7 @@ private struct ParallaxStageSections: View {
         stageSection(3, "Fit and correct phase") {
             InspectorActionRow {
                 InspectorAdaptiveButton(
-                    "Fit Aberrations", systemImage: "waveform.path", prominent: true,
+                    "Fit Aberrations", systemImage: "waveform.path",
                     help: "Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration."
                 ) {
                     appState.fitParallaxAberrations()
@@ -639,7 +639,7 @@ private struct ParallaxRunDetailsSection: View {
 
     var body: some View {
         if let preview = appState.phaseContrast.parallaxPreprocess {
-            InspectorSection("Run details", systemImage: "list.bullet.rectangle", expanded: $showsRunDetails) {
+            InspectorSection("Run details", expanded: $showsRunDetails) {
                 InspectorValueRow("BF detector pixels",
                                    "\(preview.brightFieldPixelCount)")
                 InspectorValueRow(
@@ -676,7 +676,7 @@ private struct ParallaxRunDetailsSection: View {
                 for: .ptychography,
                 readiness: appState.productWorkflowReadiness
             )
-            InspectorSection("Run details", systemImage: "list.bullet.rectangle") {
+            InspectorSection("Run details") {
                 if missingForPtycho.isEmpty {
                     InspectorNote("All reconstruction requirements are met.")
                 } else {

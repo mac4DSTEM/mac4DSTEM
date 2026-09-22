@@ -35,11 +35,14 @@ struct HistogramView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Toggle("Log y-axis", isOn: $useLog)
-                    .font(.caption)
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
+                // Label leading, switch at the trailing edge — the
+                // inspector's one alignment rule.
+                Text("Log y-axis")
                 Spacer()
+                Toggle("Log y-axis", isOn: $useLog)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                 if let lo = rangeLo, let hi = rangeHi,
                    lo.wrappedValue > 0 || hi.wrappedValue < 1 {
                     Button("Reset range") {

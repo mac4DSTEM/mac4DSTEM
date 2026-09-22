@@ -212,7 +212,7 @@ private struct RequirementsSection: View {
     var body: some View {
         let unmet = appState.unmetRequirements
         if !unmet.isEmpty {
-            InspectorSection("Requirements", systemImage: "list.bullet.clipboard") {
+            InspectorSection("Requirements") {
                 ForEach(unmet) { item in
                     // The row's identity is a colour-coded status icon, not
                     // a caption — the same idiom the sidebar's task rows
@@ -267,7 +267,7 @@ private struct GuidanceSection: View {
     var body: some View {
         let guidance = appState.taskGuidance
         if appState.unmetRequirements.isEmpty, !guidance.isEmpty {
-            InspectorSection("Interpretation", systemImage: "text.magnifyingglass") {
+            InspectorSection("Interpretation") {
                 Label("Ready · limited interpretation", systemImage: "checkmark.circle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -275,7 +275,7 @@ private struct GuidanceSection: View {
                     InspectorNote(item)
                 }
                 InspectorActionRow {
-                    InspectorAdaptiveButton("Improve in Prepare", systemImage: "wrench.and.screwdriver", prominent: true) {
+                    InspectorAdaptiveButton("Improve in Prepare", systemImage: "wrench.and.screwdriver") {
                         appState.selectWorkspace(.prepare)
                     }
                     .accessibilityIdentifier("workspace.guidance.improve")
@@ -334,7 +334,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var datasetSection: some View {
-        InspectorSection("Dataset", systemImage: "cube") {
+        InspectorSection("Dataset") {
             InspectorValueRow("File", descriptor.fileName)
             InspectorValueRow("Path", descriptor.datasetPath, mono: true)
             InspectorValueRow("Shape", descriptor.shapeString, mono: true)
@@ -350,7 +350,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var dimensionsSection: some View {
-        InspectorSection("Dimensions", systemImage: "ruler") {
+        InspectorSection("Dimensions") {
             // Columns × rows, the order the image is drawn in and the one
             // every other surface prints. The file's own axis order is
             // [Ry, Rx, Qy, Qx], so `rx`/`qx` ARE the columns; py4DSTEM names
@@ -367,7 +367,7 @@ private struct DatasetInfoSections: View {
     @ViewBuilder
     private var previewSection: some View {
         if let preview = appState.datasetSession.preview {
-            InspectorSection("Preview", systemImage: "eye") {
+            InspectorSection("Preview") {
                 // INVARIANT I4: a sampled preview is not a result. The
                 // summary states the stride and is drawn FIRST, above the
                 // images, so nothing here can be read as a virtual image.
@@ -404,7 +404,7 @@ private struct DatasetInfoSections: View {
     @ViewBuilder
     private var loadedViewSection: some View {
         if !appState.loadedView.isFullExtent {
-            InspectorSection("Loaded view", systemImage: "crop") {
+            InspectorSection("Loaded view") {
                 if let summary = appState.loadedView.summary {
                     Text(summary)
                         .accessibilityIdentifier("inspector.loadedViewSummary")
@@ -425,7 +425,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var currentScanPositionSection: some View {
-        InspectorSection("Current scan position", systemImage: "location") {
+        InspectorSection("Current scan position") {
             InspectorValueRow("x (Rx)", "\(appState.selectedScan.x)")
             InspectorValueRow("y (Ry)", "\(appState.selectedScan.y)")
             // The statistics are of the pattern ON SCREEN, which in Mean, Max
@@ -445,7 +445,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var apertureSection: some View {
-        InspectorSection("Aperture (detector px)", systemImage: "circle.dashed") {
+        InspectorSection("Aperture (detector px)") {
             InspectorValueRow("Center x", String(format: "%.1f", appState.aperture.centerX))
             InspectorValueRow("Center y", String(format: "%.1f", appState.aperture.centerY))
             InspectorValueRow("Inner r", String(format: "%.1f", appState.aperture.inner))
@@ -487,7 +487,7 @@ private struct DisplaySettingsSections: View {
     @SceneStorage("inspector.display.isExpanded") private var showsDisplay = false
 
     var body: some View {
-        InspectorSection("Display", systemImage: "slider.horizontal.3", expanded: $showsDisplay) {
+        InspectorSection("Display", expanded: $showsDisplay) {
             realSpaceHistogramSection
             diffractionHistogramSection
         }
@@ -529,15 +529,13 @@ private struct DisplaySettingsSections: View {
         }
     }
 
-    /// A sub-group heading inside "Display" — the same caption vocabulary
-    /// `InspectorSection`'s own header uses, one level down; the two
+    /// A sub-group heading inside "Display", one level below a section
+    /// title (sentence case, semibold — no uppercase captions); the two
     /// histograms are not independently collapsible, so this is a heading,
     /// not a nested `InspectorSection`.
     private func subHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
+            .font(.subheadline.weight(.semibold))
     }
 }
 
@@ -559,12 +557,11 @@ private struct DatasetActionSections: View {
     var body: some View {
         if !appState.loadedView.isFullExtent || appState.residency.isResident
             || sessionViewDiffers {
-            InspectorSection("Dataset", systemImage: "externaldrive") {
+            InspectorSection("Dataset") {
                 if !appState.loadedView.isFullExtent {
                     InspectorActionRow {
                         InspectorAdaptiveButton(
-                            "Reopen at Full Extent", systemImage: "arrow.up.left.and.arrow.down.right",
-                            prominent: true
+                            "Reopen at Full Extent", systemImage: "arrow.up.left.and.arrow.down.right"
                         ) {
                             Task { await appState.promoteAndReplayRecipe() }
                         }
@@ -628,7 +625,7 @@ private struct ProductInfoSections: View {
 
     var body: some View {
         if let product = appState.displayedProduct {
-            InspectorSection("Product", systemImage: "photo") {
+            InspectorSection("Product") {
                 InspectorValueRow("Name", product.displayName)
                 InspectorValueRow("Kind", product.kind.replacingOccurrences(of: "_", with: " "))
                 InspectorValueRow("Origin", product.origin == .computed
@@ -653,7 +650,7 @@ private struct ProductInfoSections: View {
             .accessibilityIdentifier("inspector.product")
 
             if !product.qualityFields.isEmpty {
-                InspectorSection("Quality fields", systemImage: "checkmark.seal") {
+                InspectorSection("Quality fields") {
                     ForEach(product.qualityFields, id: \.name) { field in
                         InspectorValueRow(field.name, field.units, mono: true)
                     }
@@ -661,7 +658,7 @@ private struct ProductInfoSections: View {
             }
 
             if !product.overlays.isEmpty {
-                InspectorSection("Overlays", systemImage: "square.3.layers.3d") {
+                InspectorSection("Overlays") {
                     ForEach(product.overlays, id: \.kind) { overlay in
                         InspectorValueRow(
                             overlay.kind.replacingOccurrences(of: "_", with: " "),
@@ -671,7 +668,7 @@ private struct ProductInfoSections: View {
                 }
             }
 
-            InspectorSection("Provenance", systemImage: "clock.arrow.circlepath") {
+            InspectorSection("Provenance") {
                 ForEach(product.provenance.keys.sorted(), id: \.self) { key in
                     InspectorValueRow(key, product.provenance[key] ?? "", mono: true)
                 }
@@ -720,7 +717,7 @@ private struct SessionProductsSections: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        InspectorSection("Computed this session", systemImage: "cpu") {
+        InspectorSection("Computed this session") {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
             let disksState = ProductWorkflow.productState(
@@ -772,28 +769,16 @@ private struct SessionProductsSections: View {
     }
 
     /// Same glyphs and colours as the sidebar's task rows, for the same
-    /// three states — one verdict on both surfaces. A colour-coded status
-    /// row, the same idiom as `RequirementsSection`'s, so it stays a
-    /// `LabeledContent` rather than losing its glyph and colour to
-    /// `InspectorRow`'s plain caption column.
+    /// three states — one verdict on both surfaces — on the kit's status
+    /// row: colour on the glyph, the name in the primary label colour.
     private func product(_ name: String, state: TaskProductState, detail: String? = nil) -> some View {
-        LabeledContent {
-            if let detail {
-                Text(detail).fontDesign(.monospaced).foregroundStyle(.secondary)
-            }
-        } label: {
-            switch state {
-            case .none:
-                Label(name, systemImage: "circle").foregroundStyle(Color.secondary)
-            case .current:
-                Label(name, systemImage: "checkmark.circle.fill").foregroundStyle(Color.green)
-            case .stale(let reason):
-                Label(name, systemImage: "clock.arrow.circlepath")
-                    .foregroundStyle(Color.orange)
-                    .help(reason)
-            }
+        let glyph: (String, Color) = switch state {
+        case .none: ("circle", .secondary)
+        case .current: ("checkmark.circle.fill", .green)
+        case .stale: ("clock.arrow.circlepath", .orange)
         }
-        .font(.subheadline)
+        return InspectorStatusRow(title: name, systemImage: glyph.0, tint: glyph.1, status: detail ?? "")
+            .help(state.staleReason ?? "")
     }
 
 }
@@ -828,7 +813,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var promoteRunSection: some View {
         if appState.replayRun.phase != .idle {
-            InspectorSection("Promote run", systemImage: "play.circle") {
+            InspectorSection("Promote run") {
                 if let headline = appState.replayRun.summaryHeadline {
                     Text(headline)
                         .font(.callout.weight(.medium))
@@ -869,7 +854,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var invalidatedCalibrationSection: some View {
         if !appState.loadedView.invalidatedCalibration.isEmpty {
-            InspectorSection("Not carried into this view", systemImage: "xmark.circle") {
+            InspectorSection("Not carried into this view") {
                 ForEach(appState.loadedView.invalidatedCalibration) { item in
                     Text(item.field.rawValue)
                         .font(.callout.weight(.medium))
@@ -883,7 +868,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var rotationDiagnosticsSection: some View {
         if let rotation = appState.lastRotationResult {
-            InspectorSection("Rotation diagnostics", systemImage: "rotate.3d") {
+            InspectorSection("Rotation diagnostics") {
                 RotationCurveView(result: rotation)
                 // A refused fit still draws its curves — the marker is then
                 // the minimum the fit FOUND, not a value that was written, and
@@ -910,7 +895,7 @@ private struct InspectorDiagnosticsSections: View {
     private var sessionProvenanceSection: some View {
         if let recorded = appState.sessionLoadSpecification,
            recorded != appState.loadedView.specification {
-            InspectorSection("Session provenance", systemImage: "clock.arrow.circlepath") {
+            InspectorSection("Session provenance") {
                 Text("The saved session was computed on a different view of this file.")
                     .font(.callout)
                 InspectorValueRow("Session view", recorded.provenanceSummary ?? "whole file")
@@ -930,7 +915,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var sidecarUnreadableSection: some View {
         if let reason = appState.sessionSidecar.unreadableReason {
-            InspectorSection("Session sidecar", systemImage: "exclamationmark.triangle") {
+            InspectorSection("Session sidecar") {
                 Text("A saved session sits beside this dataset and could not be read.")
                     .font(.callout)
                 InspectorNote(reason)
@@ -948,7 +933,7 @@ private struct InspectorDiagnosticsSections: View {
         if appState.sessionSidecar.unreadableReason == nil,
            let failure = appState.gates.sidecarRestoreFailure,
            failure.kind == .doesNotFit {
-            InspectorSection("Session sidecar", systemImage: "exclamationmark.triangle") {
+            InspectorSection("Session sidecar") {
                 Text("The saved session beside this dataset describes a region this file does not have.")
                     .font(.callout)
                 InspectorNote(failure.message)

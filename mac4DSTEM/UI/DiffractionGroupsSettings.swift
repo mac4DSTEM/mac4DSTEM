@@ -18,7 +18,7 @@ struct DiffractionGroupsSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        InspectorSection("Diffraction groups", systemImage: "circle.grid.3x3") {
+        InspectorSection("Diffraction groups") {
             InspectorRow("Binned size") {
                 Picker("Binned size", selection: binnedSizeBinding(appState)) {
                     Text("8 × 8").tag(8)
@@ -60,7 +60,7 @@ struct DiffractionGroupsSection: View {
                 // "Update Image". The two spellings of one action read as two
                 // actions (owner's drive 2026-09-06, `drive-groups` defect 7).
                 InspectorAdaptiveButton(
-                    "Group Patterns", systemImage: "circle.grid.3x3", prominent: true,
+                    "Group Patterns", systemImage: "circle.grid.3x3",
                     help: "Run PCA and k-means over every scan position's diffraction pattern."
                 ) {
                     Task { await appState.runDiffractionGroups() }

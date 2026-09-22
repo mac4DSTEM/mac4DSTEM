@@ -24,7 +24,7 @@ struct MapSettings: View {
         Group {
             switch appState.navigation.analysisMode {
             case .disks:
-                InspectorSection("Disk detection", systemImage: "circle.grid.cross") {
+                InspectorSection("Disk detection") {
                     DiskDetectionRows()
                 }
                 AdvancedDiskDetectionSection()
@@ -348,7 +348,7 @@ private struct AdvancedDiskDetectionSection: View {
     }
 
     var body: some View {
-        InspectorSection("Advanced detection", systemImage: "slider.horizontal.3", expanded: $showsAdvanced) {
+        InspectorSection("Advanced detection", expanded: $showsAdvanced) {
             // These are py4DSTEM algorithm kwargs without a physical unit:
             // keep them together behind the remembered Advanced disclosure.
             AdjustmentSlider(
@@ -527,7 +527,7 @@ private struct StrainSection: View {
 
     var body: some View {
         @Bindable var strain = appState.strain
-        InspectorSection("Strain", systemImage: "arrow.up.left.and.arrow.down.right") {
+        InspectorSection("Strain") {
             failureRemedy
 
             InspectorRow("Reference") {
@@ -569,7 +569,7 @@ private struct StrainSection: View {
 
             InspectorActionRow {
                 InspectorAdaptiveButton(
-                    "Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right", prominent: true
+                    "Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right"
                 ) {
                     Task { await appState.runStrainMapping() }
                 }
@@ -761,7 +761,7 @@ private struct ACOMSections: View {
 
     var body: some View {
         @Bindable var session = appState.acomSession
-        InspectorSection("ACOM (orientation)", systemImage: "atom") {
+        InspectorSection("ACOM (orientation)") {
             // Session S5 (owner's product decision): Materials Project is the
             // default phase source; the built-in library and "Custom
             // cubic…" are no longer offered here — see the doc comment on
@@ -855,12 +855,12 @@ private struct ACOMSections: View {
             }
         }
 
-        InspectorSection("Engine & Q scale", systemImage: "gearshape", expanded: $showsEngine) {
+        InspectorSection("Engine & Q scale", expanded: $showsEngine) {
             engineControls
             qScaleControls
         }
 
-        InspectorSection("Result", systemImage: "map") {
+        InspectorSection("Result") {
             prerequisiteStatus
             resultControls
         }

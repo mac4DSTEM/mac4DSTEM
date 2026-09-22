@@ -14,7 +14,7 @@ struct ResultsSettings: View {
     @State private var pendingResultRemoval: SessionResultDescriptor?
 
     var body: some View {
-        InspectorSection("Saved products", systemImage: "tray.full") {
+        InspectorSection("Saved products") {
             if appState.sessionInventory.results.isEmpty {
                 InspectorNote("Nothing saved yet. Save to Session keeps the visible result with this dataset, available after reopening.")
                     .accessibilityIdentifier("results.nothingSaved")

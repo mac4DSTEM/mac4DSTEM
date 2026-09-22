@@ -46,7 +46,7 @@ struct ImagingSettings: View {
         }
 
         if appState.activePane == .diffraction {
-            InspectorSection("Detector → real space", systemImage: "circle.dashed") {
+            InspectorSection("Detector → real space") {
                 InspectorRow("Shape") {
                     Picker("Shape", selection: $resultPresentation.virtualShape) {
                         ForEach(VirtualShapeMode.allCases) { shape in
@@ -77,7 +77,7 @@ struct ImagingSettings: View {
                 InspectorNote("Drag the detector on the diffraction pane; the real-space image updates live.")
             }
         } else {
-            InspectorSection("Region → diffraction", systemImage: "square.dashed") {
+            InspectorSection("Region → diffraction") {
                 InspectorRow("Shape") {
                     Picker("Shape", selection: $appState.realSpaceShape) {
                         ForEach(RegionShape.allCases) { shape in

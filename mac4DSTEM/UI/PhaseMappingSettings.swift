@@ -49,7 +49,7 @@ struct PhaseMappingSections: View {
         // `InspectorSection`s with a hairline divider and a consistent label
         // column. The outer inspector (`WorkspaceInspector.swift`) supplies
         // the scroll container.
-        InspectorSection("Phases", systemImage: "atom") {
+        InspectorSection("Phases") {
             if product.phases.isEmpty {
                 InspectorNote("Add the matrix phase and at least one precipitate phase.")
             }
@@ -135,7 +135,7 @@ struct PhaseMappingSections: View {
             }
         }
 
-        InspectorSection("Reference library", systemImage: "books.vertical") {
+        InspectorSection("Reference library") {
             InspectorRow("Orientations") {
                 Text("\(product.projectedEntryCount)")
                     .monospacedDigit()
@@ -163,7 +163,7 @@ struct PhaseMappingSections: View {
             }
         }
 
-        InspectorSection("Matching", systemImage: "slider.horizontal.3") {
+        InspectorSection("Matching") {
             // Switching the rule resets the library's "Minimum intensity" to
             // the rule's own default (`PhaseMappingRuleDefaults`) — the user
             // can still edit it afterwards. A pure function, not a listener
@@ -263,7 +263,7 @@ struct PhaseMappingSections: View {
                     .foregroundStyle(.orange)
             }
             InspectorActionRow {
-                InspectorAdaptiveButton("Map Phases", systemImage: "square.grid.3x3.topleft.filled", prominent: true) {
+                InspectorAdaptiveButton("Map Phases", systemImage: "square.grid.3x3.topleft.filled") {
                     Task { await appState.runPhaseMapping() }
                 }
                 .disabled(appState.isBusy || product.runRefusal != nil
@@ -282,7 +282,7 @@ struct PhaseMappingSections: View {
     @ViewBuilder
     private func resultSection(map: PhaseMap, run: PhaseMappingProduct.RunRecord,
                                product: PhaseMappingProduct) -> some View {
-        InspectorSection("Result", systemImage: "chart.pie") {
+        InspectorSection("Result") {
             Label("Unvalidated — this method has not been scored against an "
                   + "external ground truth in this app. Read the map; do not "
                   + "quote a phase fraction from it. Object counts and "

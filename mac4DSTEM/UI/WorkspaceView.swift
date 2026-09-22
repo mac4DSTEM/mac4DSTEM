@@ -421,34 +421,45 @@ struct WelcomeWorkspace: View {
         }
     }
 
+    /// One row when the centre column has room, otherwise one column of
+    /// equal-width buttons — never "Open Dat…" (the launch state at the
+    /// window's minimum width, 2026-09-22 night drive).
     private var entryPoints: some View {
-        HStack(spacing: 12) {
-            Button("Open Dataset…") { appState.requestOpenDataset() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .disabled(appState.isBusy)
-            // The configured open is a SECOND door, not a mode on the first.
-            Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
-                .controlSize(.large)
-                .disabled(appState.isBusy)
-                .help("Preview the dataset and choose a crop or binning before loading")
-                .accessibilityIdentifier("welcome.openWithOptions")
-            if appState.recoveryRecord != nil {
-                Button("Reopen Last Dataset") { appState.reopenLastDataset() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(appState.isBusy)
-            }
-            Button("Try Demo Data") {
-                Task { await appState.openDemoFixture() }
-            }
-            .buttonStyle(.bordered)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { entryButtons }
+            VStack(spacing: 8) { entryButtons }
+                .buttonSizing(.flexible)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    @ViewBuilder
+    private var entryButtons: some View {
+        Button("Open Dataset…") { appState.requestOpenDataset() }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            .disabled(appState.isBusy)
+        // The configured open is a SECOND door, not a mode on the first.
+        Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
             .controlSize(.large)
             .disabled(appState.isBusy)
-            .help("The demo is a small synthetic 4D-STEM dataset — every workspace works, and nothing on disk is touched.")
-            .accessibilityIdentifier("welcome.demoButton")
+            .help("Preview the dataset and choose a crop or binning before loading")
+            .accessibilityIdentifier("welcome.openWithOptions")
+        if appState.recoveryRecord != nil {
+            Button("Reopen Last Dataset") { appState.reopenLastDataset() }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(appState.isBusy)
         }
+        Button("Try Demo Data") {
+            Task { await appState.openDemoFixture() }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .disabled(appState.isBusy)
+        .help("The demo is a small synthetic 4D-STEM dataset — every workspace works, and nothing on disk is touched.")
+        .accessibilityIdentifier("welcome.demoButton")
     }
 
     private var recents: some View {
@@ -679,7 +690,11 @@ struct StatusBar: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(width: LayoutPolicy.runReadoutWidth, alignment: .leading)
+                    // Ideal + maximum, like the memory glance below: the
+                    // ideal never ticks, so no reflow, but a narrow window
+                    // compresses it instead of the inspector covering a pane.
+                    .frame(idealWidth: LayoutPolicy.runReadoutWidth,
+                           maxWidth: LayoutPolicy.runReadoutWidth, alignment: .leading)
                     .accessibilityIdentifier("status.footer.metrics")
                 if appState.canCancelActiveOperation {
                     // "Cancel", matching the toolbar's own button (owner,
@@ -722,7 +737,13 @@ struct StatusBar: View {
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.tail)
-            .frame(width: LayoutPolicy.statusGlanceWidth, alignment: .trailing)
+            // Ideal and maximum, not a fixed width: its ideal never changes,
+            // so a ticking value still never reflows the strip, but it can
+            // compress. A fixed 250 pt made the strip — and so the detail
+            // column — refuse to shrink below ~432 pt, and the inspector drew
+            // over the right science pane instead (Gate D, 2026-09-22 night).
+            .frame(idealWidth: LayoutPolicy.statusGlanceWidth,
+                   maxWidth: LayoutPolicy.statusGlanceWidth, alignment: .trailing)
             .accessibilityIdentifier("status.footer.memoryGlance")
         }
     }
