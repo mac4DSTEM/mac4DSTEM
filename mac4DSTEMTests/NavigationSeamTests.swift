@@ -17,8 +17,8 @@ final class NavigationSeamTests: XCTestCase {
         }
         XCTAssertTrue(names.contains("navigation"), "the facade holds the seam")
         let forbidden = ["workspaceArea", "analysisMode", "showToolsPane",
-                         "showLogPane", "showInspectorPane", "bottomWorkspaceTab",
-                         "processFraction", "lastProcessFraction"]
+                         "showLogPane", "showInspectorPane", "showsOutputPane",
+                         "showsLineagePane", "processFraction", "lastProcessFraction"]
         let shadows = forbidden.filter(names.contains)
         XCTAssertTrue(
             shadows.isEmpty,

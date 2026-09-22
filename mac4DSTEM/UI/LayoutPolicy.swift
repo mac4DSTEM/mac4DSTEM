@@ -1,6 +1,7 @@
 import SwiftUI
 #if canImport(DSTEMCore)
 import DSTEMCore
+import DSTEMSession
 #endif
 
 /// UI's whole number budget, in one file.
@@ -75,15 +76,15 @@ enum LayoutPolicy {
     // 2026-09-21): the inspector holds durable state, the bottom pane live
     // state. Every fixed point in that surface is named here.
 
-    /// The Output / Run / Lineage tab row above the process area.
+    /// The header row of each process pane (Output · Lineage).
     static let bottomTabBarHeight: CGFloat = 26
 
-    /// The permanent status strip: one line, nothing taller. Phase 1
-    /// (window-design.md §4–§6, decided 2026-09-22) makes this row the
-    /// centre column's own divider — see `ProcessAreaLayout` below. 28 pt
-    /// from 22 (owner, 2026-09-22 evening, §8.6: "wider, like Xcode's" —
-    /// Xcode's debug bar is about that tall).
-    static let statusStripHeight: CGFloat = 28
+    /// The permanent status strip — the infobar. Phase 1 (window-design.md
+    /// §4–§6) made this row the centre column's own divider. 22 → 28 pt on
+    /// 2026-09-22 evening ("wider, like Xcode's"), and 34 pt the same night
+    /// when it took the Run tab's live numbers at 12-pt text with a Stop
+    /// button (§9.2, §9.3).
+    static let statusStripHeight: CGFloat = 34
     static let infobarHorizontalPadding: CGFloat = 10
     static let infobarItemSpacing: CGFloat = 12
     static let infobarProgressSpacing: CGFloat = 8
@@ -102,9 +103,22 @@ enum LayoutPolicy {
     /// "default ideal" (window-design.md §6).
     static let processAreaIdealFraction: Double = 0.3
 
-    /// The memory/residency glance slot in the strip — a constant width, like
-    /// the metrics slot (011), so a changing figure never reflows the strip.
-    static let statusGlanceWidth: CGFloat = 150
+    /// The engine · memory · residency glance slot in the infobar — a
+    /// constant width, like the metrics slot (011), so a changing figure
+    /// never reflows the strip. Widened 2026-09-22 late for the engine's
+    /// name ("Apple M3 Max · 1.4 GB · resident").
+    static let statusGlanceWidth: CGFloat = 250
+
+    /// The live run's readout in the infobar — done / total · rate · elapsed
+    /// · ETA — at 12-pt monospaced digits, the `operationReadoutWidth` rule.
+    /// **396, measured 2026-09-22, not chosen:** the widest line
+    /// `OperationMetricsFormat.runLine` produces, "9,999,999 / 9,999,999 ·
+    /// 9999.9 positions/s · 5999:59 · ETA 5999:59", is 390.5 pt at the
+    /// callout font's monospaced digits; `StatusBarMetricsTests` sweeps it.
+    static let runReadoutWidth: CGFloat = 396
+
+    /// A card's own inner padding beyond `GroupBox`'s (the Prepare steps).
+    static let cardPadding: CGFloat = 4
 
     /// The Run tab's label column.
     static let runMonitorLabelWidth: CGFloat = 110
@@ -370,6 +384,29 @@ enum OperationMetricsFormat {
             parts.append("ETA " + duration(eta))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// The infobar's live run, one line (owner, 2026-09-22 late: the Run
+    /// tab's numbers belong in the bar): done / total, the rate, then
+    /// elapsed and ETA from `line`. A part that is not known yet is absent,
+    /// never invented.
+    static func runLine(done: Int?, total: Int?, metrics: AnalysisOperationMetrics?, for operation: String?) -> String {
+        var parts: [String] = []
+        if let done, let total {
+            parts.append("\(SystemMonitor.count(done)) / \(SystemMonitor.count(total))")
+        }
+        if let rate = metrics?.unitsPerSecond {
+            parts.append(throughput(rate, for: operation))
+        }
+        if let metrics {
+            parts.append(line(metrics, for: operation))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// The glance with the engine in front: "Apple M3 · 1.4 GB · resident".
+    static func glance(engine: String, residentMB: Double, residency isResident: Bool) -> String {
+        "\(engine) · " + glance(residentMB: residentMB, residency: isResident)
     }
 
     /// The status strip's memory/residency glance (ADR 034): app resident

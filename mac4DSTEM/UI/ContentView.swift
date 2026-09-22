@@ -190,6 +190,8 @@ struct ContentView: View {
         if arguments.contains("--inspector-shown") { appState.navigation.showInspectorPane = true }
         if arguments.contains("--navigator-hidden") { appState.navigation.showToolsPane = false }
         if arguments.contains("--navigator-shown") { appState.navigation.showToolsPane = true }
+        if arguments.contains("--lineage-shown") { appState.navigation.showsLineagePane = true }
+        if arguments.contains("--process-area-open") { appState.navigation.showLogPane = true }
     }
 
     /// The first layout pass can report zero, and a zero would collapse both
@@ -315,25 +317,18 @@ struct ToolbarRunDisplay: View {
         }
     }
 
+    /// Name and elapsed time only: the bar, the counts, the rate, the ETA
+    /// and Stop are the infobar's (owner, 2026-09-22 late, §9.3) — one
+    /// progress bar on screen, never two (010).
     private var busy: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            HStack(spacing: LayoutPolicy.toolbarDisplaySpacing) {
-                Text(appState.activeOperation ?? appState.statusText)
-                    .font(.subheadline)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                ProgressView(value: appState.progress)
-                    .frame(width: LayoutPolicy.inlineProgressWidth)
-                    .accessibilityLabel(appState.activeOperation ?? "Progress")
-                    .accessibilityValue(appState.progress.map { "\(Int($0 * 100)) percent" } ?? "")
-                Text(appState.activeOperationMetrics(at: context.date)
-                        .map { OperationMetricsFormat.line($0, for: appState.activeOperation) } ?? "")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(width: LayoutPolicy.operationReadoutWidth, alignment: .leading)
-            }
-            .accessibilityIdentifier("toolbar.display.busy")
+            Text([appState.activeOperation ?? appState.statusText,
+                  appState.activeOperationMetrics(at: context.date).map { OperationMetricsFormat.duration($0.elapsed) }]
+                    .compactMap { $0 }.joined(separator: " · "))
+                .font(.subheadline.monospacedDigit())
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .accessibilityIdentifier("toolbar.display.busy")
         }
     }
 }

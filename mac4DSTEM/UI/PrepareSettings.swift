@@ -6,17 +6,18 @@ import DSTEMSession
 
 /// Prepare's controls as the reference room of phase 2 (owner, 2026-09-22
 /// evening: Pixelmator's cards — "one card per step with a title row and
-/// rows beneath" — chosen over the flat columns form of the morning).
+/// rows beneath").
 ///
-/// **Shape.** The Settings tab hosts this in ONE top-level grouped `Form`
-/// (`WorkspaceInspector`), never nested in another form — the 2026-09-21
-/// trial nested a columns form inside a grouped one and was rejected. Each
-/// calibration step is a `Section` whose header row carries its number, its
-/// name and its state, and whose rows carry the value, the one action, and
-/// the manual fields that belong to it, in the order the pipeline needs
-/// them: 1 Origin & probe · 2 Ellipse distortion · 3 R–Q rotation · 4 Q
-/// pixel scale · 5 R pixel scale · 6 Accelerating voltage. Readiness is one
-/// row at the top, never a paragraph. Regular control size, 13-pt text.
+/// **Shape.** Each calibration step is a `GroupBox` — macOS's own card —
+/// whose first row carries the number, the name, the state and the one
+/// action, and whose rows beneath carry the value and the manual fields
+/// that belong to it, label left and value right, in the order the pipeline
+/// needs them: 1 Origin & probe · 2 Ellipse distortion · 3 R–Q rotation ·
+/// 4 Q pixel scale · 5 R pixel scale · 6 Accelerating voltage. Readiness is
+/// one row at the top, never a paragraph. Regular control size, 13-pt text.
+/// The grouped `Form` of the same evening drew macOS's Settings list, not a
+/// card, and was rejected on sight ("do you think Pixelmator's panes look
+/// like this?" — §9.4); this is the native card.
 ///
 /// Everything scientific is carried over unchanged from the 2026-09-21
 /// room: the same properties, provenance vocabulary, formats, refusals and
@@ -126,19 +127,15 @@ struct PrepareSettings: View {
             voltageSection(session: session)
 
             if session.hasAnyCalibrationValue {
-                Section {
-                    Button(role: .destructive) {
-                        showsClearConfirmation = true
-                    } label: {
-                        Label("Clear Calibration", systemImage: "xmark.circle")
-                    }
-                    .disabled(appState.isBusy)
-                    .accessibilityIdentifier("calibration.clear")
-                    .help("Returns every calibration above to Not set, without reloading the file.")
-                    // On the button, not on the sections: a modifier on a
-                    // `Group` lands on each child, and a modified `Section`
-                    // stops being a Form section.
-                    .confirmationDialog(
+                Button(role: .destructive) {
+                    showsClearConfirmation = true
+                } label: {
+                    Label("Clear Calibration", systemImage: "xmark.circle")
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.clear")
+                .help("Returns every calibration above to Not set, without reloading the file.")
+                .confirmationDialog(
                         "Clear all calibration values?",
                         isPresented: $showsClearConfirmation,
                         titleVisibility: .visible
@@ -155,10 +152,10 @@ struct PrepareSettings: View {
                            + "alignment are discarded because they were computed against these "
                            + "values; strain and phase maps are kept, and should be rerun after "
                            + "you recalibrate.")
-                    }
                 }
             }
         }
+        .labeledContentStyle(.trailingValue)
     }
 
     // MARK: - Readiness, one row
@@ -169,38 +166,66 @@ struct PrepareSettings: View {
         let verdict = appState.calibrationSession.verdict
         let ready = report.items.filter { $0.status.isReady }.count
             + (appState.calibrationSession.hasUsableVoltage ? 1 : 0)
-        return Section {
-            Label(
-                Self.readinessSummary(readyCount: ready, blockers: verdict.blockers),
-                systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle"
-            )
-            .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
-            .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
-        }
+        return Label(
+            Self.readinessSummary(readyCount: ready, blockers: verdict.blockers),
+            systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle"
+        )
+        .font(.callout)
+        .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
     }
 
-    // MARK: - The card header: number · name · state
+    // MARK: - The card: number · name · state · action, then rows
 
     /// Ready and green, EXCEPT "fit anyway": the value is used same as any
     /// other, but the assertion behind it is the user's, not the fit's.
-    private func stepHeader(_ number: Int, _ item: CalibrationReadinessItem) -> some View {
+    private func stepHeader<Action: View>(
+        _ number: Int, _ item: CalibrationReadinessItem, @ViewBuilder action: () -> Action
+    ) -> some View {
         let isWarning = item.status == .ready(.fitAnyway)
         let ok = item.status.isReady && !isWarning
-        return HStack(spacing: 8) {
-            Text("\(number)")
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-            Text(item.kind.rawValue)
-            Spacer(minLength: 8)
-            Label(item.status.displayName,
-                  systemImage: item.status.isReady ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .foregroundStyle(ok ? Color.green : Color.orange)
-                .fixedSize()
+        return VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
+            HStack(spacing: 8) {
+                Text("\(number)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                Text(item.kind.rawValue)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Spacer(minLength: 8)
+                Label(item.status.displayName,
+                      systemImage: item.status.isReady ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(ok ? Color.green : Color.orange)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
+            .accessibilityElement(children: .contain)
+            .accessibilityHint(item.kind.unlockSummary)
+            .accessibilityIdentifier("calibration.item.\(item.kind.id)")
+            detailRow(item)
+            // The one action, on a row of its own at the right — a button
+            // never shares a row (window-design.md §1; the first card cut
+            // truncated "Measure Ag…" beside the state).
+            HStack {
+                Spacer(minLength: 0)
+                action()
+            }
         }
-        .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
-        .accessibilityElement(children: .combine)
-        .accessibilityHint(item.kind.unlockSummary)
-        .accessibilityIdentifier("calibration.item.\(item.kind.id)")
+    }
+
+    /// macOS's own card: a `GroupBox` with the title row inside, then the
+    /// rows, at the inspector's row rhythm.
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
+                content()
+            }
+            .padding(LayoutPolicy.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     /// The calibrated value and its units — the scientific content of the
@@ -220,12 +245,13 @@ struct PrepareSettings: View {
         _ item: CalibrationReadinessItem, session: CalibrationSession, calibration: Calibration
     ) -> some View {
         @Bindable var session = session
-        Section {
-            detailRow(item)
-            if !item.status.isReady {
-                CalibrationReadinessRow.action(
-                    appState: appState, kind: .originProbe, status: item.status,
-                    qScaleUnavailableReason: qScaleUnavailableReason)
+        card {
+            stepHeader(1, item) {
+                Button(item.status.isReady ? "Measure Origin & Probe Again" : "Measure Origin & Probe") {
+                    Task { await appState.calibrateOrigin() }
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.action.originProbe")
             }
             // "Compute Mean / Max", offered while the statistics do not exist
             // yet; also computed by origin calibration. Once mean and max
@@ -289,14 +315,6 @@ struct PrepareSettings: View {
                     + "beamstop by the pattern's own symmetry, auto-masking the stop (py4DSTEM "
                     + "get_origin_friedel + get_beamstop_mask). Slower — an FFT per pattern — and "
                     + "opt-in for data whose direct beam is occluded.")
-                if item.status.isReady {
-                    Button {
-                        Task { await appState.calibrateOrigin() }
-                    } label: {
-                        Label("Measure Origin & Probe Again", systemImage: "scope")
-                    }
-                    .disabled(appState.isBusy)
-                }
                 if let summary = appState.qCalibration.selfCheckSummary {
                     LabeledContent("Q shell check", value: summary)
                         .help("The reciprocal scale assumes the innermost detected peak is the "
@@ -305,8 +323,6 @@ struct PrepareSettings: View {
                             + "rather than passing silently.")
                 }
             }
-        } header: {
-            stepHeader(1, item)
         }
     }
 
@@ -317,8 +333,15 @@ struct PrepareSettings: View {
         _ item: CalibrationReadinessItem, session: CalibrationSession, calibration: Calibration
     ) -> some View {
         @Bindable var session = session
-        Section {
-            detailRow(item)
+        card {
+            stepHeader(2, item) {
+                Button(item.status.isReady ? "Fit Detector Ellipse Again" : "Fit Detector Ellipse") {
+                    Task { await appState.calibrateEllipse() }
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.action.ellipse")
+                .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
+            }
             // Value, unit: one row per radius.
             LabeledContent("Fit annulus inner") {
                 NumericField("Inner fit radius", value: $session.ellipseFitInnerRadius,
@@ -330,15 +353,6 @@ struct PrepareSettings: View {
                              format: .number.precision(.fractionLength(0...2)), unit: "px")
                 .disabled(appState.isBusy)
             }
-            Button {
-                Task { await appState.calibrateEllipse() }
-            } label: {
-                Label(item.status.isReady ? "Fit Detector Ellipse Again" : "Fit Detector Ellipse", systemImage: "oval")
-            }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.ellipse")
-            .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
-
             // Offered only while the last fit was refused for coverage between
             // the sparse floor and the degeneracy bound — a "fit anyway" retry
             // could succeed on the caller's assertion that the annulus holds
@@ -380,8 +394,6 @@ struct PrepareSettings: View {
                     }
                 }
             }
-        } header: {
-            stepHeader(2, item)
         }
     }
 
@@ -389,27 +401,26 @@ struct PrepareSettings: View {
 
     @ViewBuilder
     private func rotationSection(_ item: CalibrationReadinessItem, calibration: Calibration) -> some View {
-        Section {
-            detailRow(item)
-            Button {
-                Task { await appState.calibrateRotation() }
-            } label: {
-                Label(item.status.isReady ? "Measure R–Q Rotation Again" : "Measure R–Q Rotation", systemImage: "rotate.3d")
+        card {
+            stepHeader(3, item) {
+                Button(item.status.isReady ? "Measure R–Q Rotation Again" : "Measure R–Q Rotation") {
+                    Task { await appState.calibrateRotation() }
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.action.rotation")
             }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.rotation")
             if let rotation = calibration.rotationRad {
                 let transposed = (calibration.transposeQR ?? false) ? " ⊤" : ""
-                LabeledContent("Rotation", value: String(format: "%.1f°%@", rotation * 180 / .pi, transposed))
-                Button {
-                    appState.flipRotation180()
-                } label: {
-                    Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
+                LabeledContent("Rotation") {
+                    HStack(spacing: LayoutPolicy.inspectorRowSpacing) {
+                        Text(String(format: "%.1f°%@", rotation * 180 / .pi, transposed))
+                            .monospacedDigit()
+                        Button("Flip 180°") { appState.flipRotation180() }
+                            .controlSize(.small)
+                            .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
+                    }
                 }
-                .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
             }
-        } header: {
-            stepHeader(3, item)
         }
     }
 
@@ -417,8 +428,8 @@ struct PrepareSettings: View {
 
     @ViewBuilder
     private func scaleSection(_ item: CalibrationReadinessItem, number: Int) -> some View {
-        Section {
-            detailRow(item)
+        card {
+            stepHeader(number, item) { EmptyView() }
             // Outside the `!isReady` branch: an imported R scale that disagrees
             // with the filename is *ready*, and exactly the case worth a warning.
             if item.kind == .rScale, let conflict = rScaleFilenameConflict {
@@ -432,8 +443,6 @@ struct PrepareSettings: View {
                     appState: appState, kind: item.kind, status: item.status,
                     qScaleUnavailableReason: qScaleUnavailableReason)
             }
-        } header: {
-            stepHeader(number, item)
         }
     }
 
@@ -445,7 +454,17 @@ struct PrepareSettings: View {
     @ViewBuilder
     private func voltageSection(session: CalibrationSession) -> some View {
         let usable = session.hasUsableVoltage
-        Section {
+        card {
+            HStack(spacing: 8) {
+                Text("6").monospacedDigit().foregroundStyle(.secondary)
+                Text("Accelerating voltage").fontWeight(.semibold)
+                Spacer(minLength: 8)
+                Label(usable ? "Set" : "Not set",
+                      systemImage: usable ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(usable ? Color.green : Color.orange)
+                    .fixedSize()
+            }
+            .accessibilityIdentifier("calibration.item.voltage")
             LabeledContent("Voltage") {
                 NumericField(
                     "Accelerating voltage (kV)",
@@ -459,17 +478,6 @@ struct PrepareSettings: View {
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("calibration.acceleratingVoltage")
             }
-        } header: {
-            HStack(spacing: 8) {
-                Text("6").monospacedDigit().foregroundStyle(.secondary)
-                Text("Accelerating voltage")
-                Spacer(minLength: 8)
-                Label(usable ? "Set" : "Not set",
-                      systemImage: usable ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .foregroundStyle(usable ? Color.green : Color.orange)
-                    .fixedSize()
-            }
-            .accessibilityIdentifier("calibration.item.voltage")
         }
     }
 
@@ -577,4 +585,23 @@ struct PatternStatisticsSection: View {
             }
         }
     }
+}
+
+
+/// Pixelmator's one alignment rule for a card's rows: the name at the left,
+/// the control or value at the far right. `LabeledContent` outside a `Form`
+/// would otherwise put the value right after the label.
+struct TrailingValueLabeledContentStyle: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: LayoutPolicy.inspectorRowSpacing) {
+            configuration.label
+            Spacer(minLength: LayoutPolicy.inspectorRowSpacing)
+            configuration.content
+                .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+extension LabeledContentStyle where Self == TrailingValueLabeledContentStyle {
+    static var trailingValue: TrailingValueLabeledContentStyle { TrailingValueLabeledContentStyle() }
 }

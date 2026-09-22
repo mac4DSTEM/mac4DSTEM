@@ -152,4 +152,42 @@ final class StatusBarMetricsTests: XCTestCase {
         XCTAssertTrue(line.hasPrefix("Demo.h5"), "the file leads")
         XCTAssertTrue(line.hasSuffix("positions"))
     }
+
+    /// The infobar's live run (owner, 2026-09-22 late): done / total, the
+    /// rate, elapsed and ETA in one line; a part not known yet is absent.
+    func testTheRunLineJoinsCountsRateAndTimesAndOmitsWhatIsUnknown() {
+        let metrics = AnalysisOperationMetrics(elapsed: 53, unitsPerSecond: 312.4, eta: 42)
+        XCTAssertEqual(
+            OperationMetricsFormat.runLine(done: 1204, total: 4050, metrics: metrics, for: "Disk detection"),
+            "\(SystemMonitor.count(1204)) / \(SystemMonitor.count(4050)) · 312.4 positions/s · 53 s · ETA 42 s")
+        XCTAssertEqual(
+            OperationMetricsFormat.runLine(done: nil, total: nil, metrics: AnalysisOperationMetrics(elapsed: 3, unitsPerSecond: nil, eta: nil), for: nil),
+            "3 s")
+        XCTAssertEqual(OperationMetricsFormat.glance(engine: "Apple M3", residentMB: 612, residency: false),
+                       "Apple M3 · 612 MB · streaming")
+    }
+
+    /// `runReadoutWidth` is measured, not chosen: the widest run line the
+    /// formatter can produce at the infobar's 12-pt monospaced digits must
+    /// fit the slot, so a ticking string never resizes its own container.
+    func testTheRunReadoutSlotFitsTheLongestRunLine() {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.preferredFont(forTextStyle: .callout).pointSize, weight: .regular)
+        var widest = (line: "", width: CGFloat(0))
+        for operation in ["Disk detection", "Virtual detector"] {
+            for (done, total) in [(0, 144), (1204, 4050), (9_999_999, 9_999_999)] {
+                for rate in [nil, 0.1, 999.9, 9999.9] as [Double?] {
+                    for eta in [nil, 5, 5999 * 60 + 59] as [TimeInterval?] {
+                        let line = OperationMetricsFormat.runLine(
+                            done: done, total: total,
+                            metrics: AnalysisOperationMetrics(elapsed: 5999 * 60 + 59, unitsPerSecond: rate, eta: eta),
+                            for: operation)
+                        let width = (line as NSString).size(withAttributes: [.font: font]).width
+                        if width > widest.width { widest = (line, width) }
+                    }
+                }
+            }
+        }
+        XCTAssertLessThanOrEqual(widest.width, LayoutPolicy.runReadoutWidth,
+            "\"\(widest.line)\" is \(widest.width) pt; widen LayoutPolicy.runReadoutWidth — do NOT let the text size itself.")
+    }
 }

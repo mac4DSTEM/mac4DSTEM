@@ -227,6 +227,12 @@ point, `AppState` gains no state, live numbers on `OperationCenter`
   choice, 2026-09-22 evening, over the columns form) with the readiness
   row: **built 2026-09-22 evening (ADR 037), owner drive owed.** Driven and
   accepted before any other room changes.
+- **The same night, on his drive of the evening's builds (§9):** the
+  inspector's tabs as icons in its own row, the infobar at 34 pt carrying
+  the live run, the process area as Output · Lineage side by side with the
+  Run tab folded into the bar, Prepare rebuilt as `GroupBox` cards (the
+  grouped form rejected on sight), the Settings window's sidebar toggle
+  removed. Owner drive owed.
 - **Phase 3 — the other rooms**, one per session, each driven.
 - **Phase 4 — the bottom area's second workspace** (products, then the
   lineage graph after the record exists).
@@ -243,7 +249,8 @@ each phase is mocked as a picture the owner can reject before code.
    the file and the live run as a display in the centre; the run button,
    Save, Reveal and the dataset menu over the room at its right; only the
    inspector's toggle over the inspector; the canvas header row is gone.
-3. The inspector header is text: Settings · Info.
+3. The inspector header is text: Settings · Info. — superseded the same
+   night: icons in the inspector's own first row (§9.1).
 4. Withdrawn (the width follows from the form).
 5. The bottom area is Xcode's debug area: the infobar is the divider and
    the toggle, draggable over the whole centre column.
@@ -259,7 +266,8 @@ each phase is mocked as a picture the owner can reject before code.
    grouped form, one card per step with a title row (number, name, state,
    action) and rows beneath; Prepare first. Supersedes §6.1's columns form.
    Built the same evening (ADR 037): cards do not collapse, Advanced is a
-   disclosure row inside its card.
+   disclosure row inside its card. Rebuilt as `GroupBox` cards the same
+   night after the grouped form was rejected (§9.4).
 
 The 2026-09-22 00:15 wireframe drew the status strip across the full
 window width under the sidebar and the inspector — wrong; the owner's
@@ -340,6 +348,11 @@ rate, ETA, Stop) while busy and the last run while idle, with the engine
 beside the memory glance; hiding the last process pane closes the area and
 opening the area with none shown shows Output; the lineage graph is a chain
 of the recorded steps until the record carries input edges (ROADMAP).
+
+5. **Settings window** (added later that night): "no need to toggle
+anything there — leave the left categories standing, maybe a search bar
+on top; standard macOS." → the sidebar toggle removed; the search field
+is optional, later.
 
 ## 7. Prompt for the next agent
 

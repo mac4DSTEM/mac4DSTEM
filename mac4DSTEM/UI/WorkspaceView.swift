@@ -508,16 +508,14 @@ struct WelcomeWorkspace: View {
 /// `PaneSplit`'s divider carries the science panes' resize. No event monitor,
 /// AppKit cursor, or hosted split view is involved.
 ///
-/// Left: the status line. Then, while a cancellable operation runs, a slim
-/// progress bar and its elapsed/ETA readout — Cancel itself lives in the Run
-/// tab (`BottomWorkspace`), because no test here pins a stop control IN the
-/// strip and the strip is the one surface this session had to make narrower,
-/// not wider. Then the memory/residency glance, always on. Right: the
-/// process area's own toggle, the way Xcode's debug area is opened from the
-/// bar above it — `ProcessAreaLayout.toggled(from:last:)`, the same pure
-/// function `WorkspaceNavigation.showLogPane`'s setter reimplements for the
-/// ⌃⌘L menu item, since that type cannot reach into `UI/` (see its doc
-/// comment).
+/// Left: the status line. Then the live run while one is in flight — the
+/// bar, done / total, the rate, elapsed · ETA and Stop — or the last run
+/// while idle (owner, 2026-09-22 late, §9.3: the Run tab's numbers belong
+/// in the bar). Then the engine · memory · residency glance, always on.
+/// Right: Xcode's debug-bar buttons — one per process pane (Output,
+/// Lineage) and the area's own toggle — `ProcessAreaLayout.toggled
+/// (from:last:)`, the same pure function `WorkspaceNavigation.showLogPane`'s
+/// setter reimplements for the ⌃⌘L menu item.
 ///
 /// No bar of its own: a `Divider()` above and below (added by `WorkspaceView`,
 /// the one exception the hard rules carve out for the infobar) is its whole
@@ -545,11 +543,21 @@ struct StatusBar: View {
         )
     }
 
-    /// `.global`, not the default `.local`: the bar MOVES with the drag, so
-    /// a translation measured in its own moving frame lags the pointer by
-    /// exactly what the bar has moved — the drag reached 0.51 of the column
-    /// for a full-height pull, twice, before this (2026-09-22: 709 pt of
-    /// travel over 2 × 692 pt = 0.51, measured on screen).
+    /// Xcode's debug-bar buttons (owner, 2026-09-22 late, §9.3): one per
+    /// pane, each toggling its pane and, through `toggleProcessPane`, the
+    /// area itself when it is the last pane out or the first pane in.
+    private func paneBinding(_ pane: WorkspaceNavigation.ProcessPane) -> Binding<Bool> {
+        Binding(
+            get: {
+                switch pane {
+                case .output: appState.navigation.showsOutputPane && appState.navigation.showLogPane
+                case .lineage: appState.navigation.showsLineagePane && appState.navigation.showLogPane
+                }
+            },
+            set: { _ in appState.navigation.toggleProcessPane(pane) }
+        )
+    }
+
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { value in
@@ -565,16 +573,10 @@ struct StatusBar: View {
 
     var body: some View {
         HStack(spacing: LayoutPolicy.infobarItemSpacing) {
-            // One line, truncating — the strip has no bar of its own, so the
-            // message dictating its own height is a layout dependency this
-            // file otherwise refuses to take. `.help` is the remedy for the
-            // truncation itself: the owner's screenshot of 2026-09-12 shows
-            // this line cut mid-file name with no way to read the rest, and
-            // the sidebar's dataset row already answers that with exactly
-            // this modifier.
+            // One line, truncating — the message never dictates the bar's
+            // height; `.help` carries the rest of a long line.
             Text(appState.statusText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.callout)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(appState.statusText)
@@ -582,33 +584,42 @@ struct StatusBar: View {
 
             Spacer(minLength: LayoutPolicy.infobarItemSpacing)
 
+            // The Run tab's numbers, here (owner, 2026-09-22 late, §9.3):
+            // the bar, done / total, the rate, elapsed · ETA and Stop while a
+            // run is in flight; the last run while idle.
             if showsOperationProgress {
-                HStack(spacing: LayoutPolicy.infobarProgressSpacing) {
-                    // The percentage that used to sit beside this bar is gone
-                    // (2026-09-12) and reaches VoiceOver here instead, where
-                    // it cannot wrap and is not a second drawing of the bar.
-                    ProgressView(value: appState.progress)
-                        .frame(width: LayoutPolicy.inlineProgressWidth)
-                        .accessibilityLabel(appState.activeOperation ?? "Progress")
-                        .accessibilityValue(appState.progress
-                            .map { "\(Int($0 * 100)) percent" } ?? "")
-                    operationReadout
-                }
-                // NO `.accessibilityElement(children: .combine)` here — it
-                // would merge the readout out of the accessibility tree.
+                runReadout
+            } else if let last = appState.operationCenter.lastFinished {
+                Text("Last run · " + OperationMetricsFormat.lastRun(
+                    last.name, elapsed: last.elapsed, cancelled: last.outcome == .cancelled))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .accessibilityIdentifier("status.footer.lastRun")
             }
 
-            memoryGlance
+            systemGlance
 
             if appState.hasDataset && !appState.datasetSession.isLoading {
-                // A system toggle draws its own on-state, so the strip needs
-                // no tint of its own. The menu's Show/Hide Bottom Pane item is
-                // the second door onto the same flag.
+                Toggle(isOn: paneBinding(.output)) {
+                    Image(systemName: "rectangle.leadinghalf.inset.filled")
+                }
+                .toggleStyle(.button)
+                .help("Output pane")
+                .accessibilityLabel("Toggle the Output pane")
+                .accessibilityIdentifier("status.footer.toggleOutput")
+                Toggle(isOn: paneBinding(.lineage)) {
+                    Image(systemName: "rectangle.trailinghalf.inset.filled")
+                }
+                .toggleStyle(.button)
+                .help("Lineage pane")
+                .accessibilityLabel("Toggle the Lineage pane")
+                .accessibilityIdentifier("status.footer.toggleLineage")
                 Toggle(isOn: processAreaToggleBinding) {
                     Image(systemName: "rectangle.bottomthird.inset.filled")
                 }
                 .toggleStyle(.button)
-                .controlSize(.small)
                 .help(appState.navigation.showLogPane
                       ? "Hide the bottom pane" : "Show the bottom pane")
                 .accessibilityLabel("Toggle bottom pane")
@@ -626,62 +637,62 @@ struct StatusBar: View {
         .simultaneousGesture(dragGesture)
     }
 
-    /// Whether the strip draws a progress bar of its own.
-    ///
-    /// `isBusy` alone was not the right question. During a dataset OPEN it is
-    /// true, `activeOperationMetrics` is nil outright, and `canCancel` is
-    /// false — so the strip drew an indeterminate bar and a guaranteed-blank
-    /// readout slot beside a loading column that has its own spinner and its
-    /// own Cancel. A load that has started an analysis inside its bracket
-    /// (`AppState.runCurrentAnalysis` within the open) still qualifies,
-    /// because that pass is cancellable and the Run tab is now the only
-    /// visible control that stops it.
+    /// Whether the strip draws the live run. `isBusy` alone was not the
+    /// right question: during a dataset OPEN it is true with no metrics and
+    /// no Cancel, beside a loading column that has its own spinner and
+    /// Cancel. A load that has started an analysis inside its bracket still
+    /// qualifies, because that pass is cancellable.
     private var showsOperationProgress: Bool {
         appState.isBusy && (!appState.datasetSession.isLoading || appState.activeOperation != nil)
     }
 
-    /// Elapsed, and an ETA once the run can estimate one, beside the bar they
-    /// describe (owner, 2026-09-04: the numbers belong beside the progress,
-    /// not only one tab away). Throughput left this line on 2026-09-12 and is
-    /// the Run tab's alone — the reasoning is on `OperationMetricsFormat.line`.
-    ///
-    /// **The frame is the point.** The first version of this line was
-    /// `Text(...).fixedSize()`, whose width changed with the string on every
-    /// tick — a hosted child repeatedly changing its own minimum size, which
-    /// is the constraint loop that crashed the app 2.5 minutes into a real
-    /// disk detection (`open-items.md`). Here the slot is a constant width
-    /// from `LayoutPolicy`, wide enough for the longest line the formatter
-    /// produces, and the text truncates inside it rather than resizing it.
-    @ViewBuilder
-    private var operationReadout: some View {
+    /// The bar, the counts, the rate, elapsed · ETA, Stop — ticking once a
+    /// second, in a constant-width slot (`runReadoutWidth`, the
+    /// `operationReadoutWidth` rule: a ticking string never resizes its own
+    /// container — the 2026-09-04 constraint loop).
+    private var runReadout: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            // Nil while a dataset loads, which `showsOperationProgress` now
-            // keeps off screen; an empty string holds the slot otherwise.
-            Text(appState.activeOperationMetrics(at: context.date)
-                    .map { OperationMetricsFormat.line($0, for: appState.activeOperation) } ?? "")
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: LayoutPolicy.operationReadoutWidth, alignment: .trailing)
-                .accessibilityIdentifier("status.footer.metrics")
+            HStack(spacing: LayoutPolicy.infobarProgressSpacing) {
+                ProgressView(value: appState.progress)
+                    .frame(width: LayoutPolicy.inlineProgressWidth)
+                    .accessibilityLabel(appState.activeOperation ?? "Progress")
+                    .accessibilityValue(appState.progress
+                        .map { "\(Int($0 * 100)) percent" } ?? "")
+                Text(OperationMetricsFormat.runLine(
+                    done: appState.operationCenter.unitsDone,
+                    total: appState.operationCenter.totalUnits,
+                    metrics: appState.activeOperationMetrics(at: context.date),
+                    for: appState.activeOperation))
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(width: LayoutPolicy.runReadoutWidth, alignment: .leading)
+                    .accessibilityIdentifier("status.footer.metrics")
+                if appState.canCancelActiveOperation {
+                    Button("Stop", role: .cancel) { appState.cancelActiveOperation() }
+                        .accessibilityLabel("Stop \(appState.activeOperation ?? "the running operation")")
+                        .accessibilityIdentifier("status.footer.stop")
+                }
+            }
         }
     }
 
-    /// The standing facts — app memory and whether the open cube is resident
-    /// or streamed — always on, in the strip's own fixed `statusGlanceWidth`
-    /// slot (the `operationReadoutWidth` rule applies here too: a ticking
-    /// string may never resize its own container). The Run tab's Residency
-    /// row is the same two facts at full sentence length; this is the
-    /// glanceable one.
-    @ViewBuilder
-    private var memoryGlance: some View {
+    /// The standing facts — the engine, app memory and whether the cube is
+    /// resident or streamed — always on, in a fixed slot, with the chip
+    /// glyph the owner asked for ("some logos if it makes sense").
+    private var systemGlance: some View {
         TimelineView(.periodic(from: .now, by: 2)) { _ in
-            Text(OperationMetricsFormat.glance(
-                residentMB: SystemMonitor.residentMemoryMB(),
-                residency: appState.residency.isResident
-            ))
-            .font(.caption2.monospacedDigit())
+            Label {
+                Text(OperationMetricsFormat.glance(
+                    engine: SystemMonitor.gpuName,
+                    residentMB: SystemMonitor.residentMemoryMB(),
+                    residency: appState.residency.isResident
+                ))
+            } icon: {
+                Image(systemName: "memorychip")
+            }
+            .font(.callout.monospacedDigit())
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.tail)
@@ -722,8 +733,21 @@ struct StatusBar: View {
 /// minimum, so this view propagates no minimum upward at all. It is also
 /// portable — `HSplitView` is macOS-only.
 struct PaneSplit<Leading: View, Trailing: View>: View {
-    @ViewBuilder var leading: () -> Leading
-    @ViewBuilder var trailing: () -> Trailing
+    private let leading: () -> Leading
+    private let trailing: () -> Trailing
+
+    /// `storageKey` names the scene-storage slot the divider's position lives
+    /// in, so the science split and the process area's split (2026-09-22
+    /// late) remember their own fractions.
+    init(
+        storageKey: String = "workspace.paneSplit.fraction",
+        @ViewBuilder leading: @escaping () -> Leading,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
+        self.leading = leading
+        self.trailing = trailing
+        self._storedFraction = SceneStorage(wrappedValue: 0.5, storageKey)
+    }
 
     /// The divider's position as a fraction of the usable width. Where a
     /// divider sits is window state, not app state, so it lives in the
@@ -732,7 +756,7 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
     /// its own. As `@State` it reset to centre on every rebuild — the
     /// `PaneSplit` residual (c) and the first item of the UI polish list
     /// (`open-items.md`), closed 2026-09-05.
-    @SceneStorage("workspace.paneSplit.fraction") private var storedFraction: Double = 0.5
+    @SceneStorage private var storedFraction: Double
     @State private var fractionAtDragStart: CGFloat?
 
     private var fraction: CGFloat {

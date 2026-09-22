@@ -2,7 +2,7 @@
 
 Dates: 2026-09-22 (evening)
 
-Status: live — decided on the owner's own build, corrected five times on his word the same evening (toggle placement, a doubled toggle, the verb's side, the picker's row, the picker hiding with the column)
+Status: live — decided on the owner's own build, corrected six times on his word the same evening (toggle placement, a doubled toggle, the verb's side, the picker's row, the picker hiding with the column, the picker back into the inspector's row as icons)
 
 ## Decision
 
@@ -23,22 +23,25 @@ The window's toolbar is Xcode's (owner, 2026-09-22 evening, `window-design.md`
   position; the owner moved it on his build: the parameters are set in the
   inspector on the right, so the verb belongs under it, not by the
   navigator.
-- **Over the inspector: its Settings · Info picker and, at the far right,
-  its one toggle** — both declared in the inspector's own toolbar, the
-  standard SwiftUI shape (the split view supplies the navigator's toggle,
-  the app supplies the inspector's). Measured on 2026-09-22 with a launch
-  flag that forces each state: items declared there stay in the toolbar,
-  once, while the column is hidden, so the toggle needs no fallback and
-  any fallback doubles it (the owner saw two, twice); the picker is
-  conditional on the inspector being visible, so it goes with the column.
-  The owner caught the first cut putting the whole trailing group over the
-  inspector: "like in Xcode" means the editor's actions stay over the
-  editor. The picker moved up from a row inside the column on his word
-  ("at the same height as the buttons").
+- **Over the inspector: only its toggle**, declared in the inspector's own
+  toolbar, the standard SwiftUI shape (the split view supplies the
+  navigator's toggle, the app supplies the inspector's). Items declared
+  there stay in the toolbar once while the column is hidden, so the
+  toggle needs no fallback and any fallback doubles it (the owner saw
+  two, twice). The Settings · Info tabs are icons in the inspector's own
+  first row under the toolbar — Xcode's anatomy; the text picker up in
+  the toolbar row was rejected the same night ("jumps to the left of the
+  toggle button, looks bad").
 - **The breadcrumb row (phase 1's centre header) is removed**; the panes
   gain its height. The room is named in the navigator's selection and in
   the centre display.
-- **The infobar is 28 pt** (was 22): "wider, like Xcode's" debug bar.
+- **The infobar is 34 pt** (was 22, then 28): "wider, like Xcode's" debug
+  bar. While a job runs it carries the live run — a progress bar,
+  "done / total · rate · elapsed · ETA" and a Stop button; idle, it shows
+  "Last run · <name — duration>". Always the glance "engine · memory ·
+  residency", and the two process-pane buttons beside the area's own
+  toggle. The toolbar's centre display then shows only the operation's
+  name and elapsed while busy.
 
 This supersedes §6.2 of the same morning (actions in the centre header) and
 010's "toolbar carries only window-level controls".
@@ -58,8 +61,9 @@ navigator's selection is space taken from the science.
 `--navigator-shown` launch flags, capture scaffolding in the
 `--demo-fixture` shape;
 `WorkspaceView` without `CanvasHeader`; `LayoutPolicy.toolbarDisplayWidth`,
-`statusStripHeight`. The shell stays frozen (035): this is the picture he
-accepted.
+`statusStripHeight`, `LayoutPolicy.runReadoutWidth`, and the two
+process-pane toggle buttons at the infobar's right end. The shell stays
+frozen (035): this is the picture he accepted.
 
 ## Sources
 

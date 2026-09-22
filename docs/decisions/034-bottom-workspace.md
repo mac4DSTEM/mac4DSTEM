@@ -2,7 +2,7 @@
 
 Dates: 2026-09-21
 
-Status: live for live/durable state; 2026-09-21 layout rejected and revised by owner 2026-09-22
+Status: live for live/durable state; 2026-09-21 layout rejected and revised by owner 2026-09-22; 2026-09-22 late: Run tab folded into the infobar, two panes (036)
 
 ## Decision
 
@@ -42,6 +42,14 @@ centre header with breadcrumb pinned left and actions grouped right. Its
 width flexes when either full-height side panel toggles. The shared row
 vocabulary above records the rejected implementation, not the target for
 phase 2. Phase 1 has not been accepted on screen.
+
+**2026-09-22 late amendment:** the Run tab is gone — its live numbers are
+the infobar's (036); the area is two panes side by side, Output and
+Lineage, each with its own bar button, Xcode's debug area; Lineage is
+drawn as a chain of the recorded steps until the record carries input
+edges. The three-tab bar moved between tabs because the Run tab's content
+did not fill the pane and the stack centred it — the owner's "controls
+behave strange" finding.
 
 ## Why
 

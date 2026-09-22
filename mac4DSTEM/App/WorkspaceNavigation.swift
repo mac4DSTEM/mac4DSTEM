@@ -54,7 +54,36 @@ final class WorkspaceNavigation {
     /// restores it.
     var showLogPane: Bool {
         get { processFraction > 0 }
-        set { processFraction = newValue ? lastProcessFraction : 0 }
+        set {
+            processFraction = newValue ? lastProcessFraction : 0
+            // Opening the area with no pane shown shows Output — an open,
+            // empty area is not a state (owner, 2026-09-22 late, §9.3).
+            if newValue, !showsOutputPane, !showsLineagePane { showsOutputPane = true }
+        }
+    }
+
+    /// The process area's two panes, Xcode's debug area (owner, 2026-09-22
+    /// late, §9.3): Output on the left, Lineage on the right, each with its
+    /// own toggle at the infobar's right end. Not persisted, like the tab
+    /// they replace.
+    var showsOutputPane = true
+    var showsLineagePane = false
+
+    enum ProcessPane { case output, lineage }
+
+    /// Toggling a pane: hiding the last visible pane closes the area, and
+    /// showing a pane while the area is closed opens it — the two buttons
+    /// never leave the area open and empty, or a pane chosen but unseen.
+    func toggleProcessPane(_ pane: ProcessPane) {
+        switch pane {
+        case .output: showsOutputPane.toggle()
+        case .lineage: showsLineagePane.toggle()
+        }
+        if !showsOutputPane && !showsLineagePane {
+            showLogPane = false
+        } else if !showLogPane {
+            showLogPane = true
+        }
     }
 
     /// The user's INTENT for each side panel — what the toggles, the menu
@@ -87,19 +116,5 @@ final class WorkspaceNavigation {
 
     var inspectorIsVisible: Bool { showInspectorPane && inspectorFits }
 
-    /// Which tab the bottom workspace shows (ADR 034, owner 2026-09-21).
-    /// Defaults to Output — the rolling log a session has always opened to.
-    var bottomWorkspaceTab: BottomWorkspaceTab = .output
-
     @ObservationIgnored var onModeChange: (() -> Void)?
-}
-
-/// The bottom workspace's three rooms: the rolling log, the live operation
-/// monitor, and the read-only record of what produced the product on screen.
-/// `Codable` so a future scene-restore can carry it the way `WorkspaceArea`
-/// does; today it is a plain `WorkspaceNavigation` property, not persisted.
-enum BottomWorkspaceTab: String, CaseIterable, Codable {
-    case output
-    case run
-    case lineage
 }

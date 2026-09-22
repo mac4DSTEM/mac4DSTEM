@@ -28,8 +28,6 @@ import DSTEMSession
 /// string, `.help`, accessibility identifier, binding, default or
 /// computation moved (Gate D: not applicable — no scientific number moves).
 struct WorkspaceInspector: View {
-    @Environment(AppState.self) private var appState
-
     /// Persisted so the column comes back on the tab the user left it on.
     private enum InspectorTab: String {
         case settings, info
@@ -37,36 +35,41 @@ struct WorkspaceInspector: View {
 
     @AppStorage("ui2.inspectorTab") private var tab: InspectorTab = .settings
 
-    /// The inspector's own toolbar section, level with the window's other
-    /// buttons (owner, 2026-09-22 evening: a picker row inside the column "is
-    /// ugly"; Xcode keeps its inspector tabs up in the toolbar): the Settings ·
-    /// Info segmented control, then the inspector's toggle at the far right —
-    /// the one toggle this app declares, the standard SwiftUI shape (the split
-    /// view supplies the navigator's, the app supplies the inspector's).
-    /// Measured 2026-09-22: items declared here stay in the toolbar, once,
-    /// while the inspector is hidden, so the toggle needs no fallback and a
-    /// fallback doubles it. The body is the selected tab alone.
+    /// Xcode's anatomy (owner, 2026-09-22 late, §9.1: "a standard Mac way …
+    /// like in Xcode"): the inspector's tabs are icons in its own first row
+    /// under the toolbar, centred, a hairline beneath; the toolbar over the
+    /// inspector carries only its toggle. A text picker up in the toolbar
+    /// row (the evening's try) "jumped to the left of the toggle" and was
+    /// rejected; a text picker row inside the column (the morning's) was
+    /// "ugly".
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            Picker("Inspector tab", selection: $tab) {
+                Image(systemName: "slider.horizontal.3")
+                    .accessibilityLabel("Settings")
+                    .tag(InspectorTab.settings)
+                Image(systemName: "info.circle")
+                    .accessibilityLabel("Info")
+                    .tag(InspectorTab.info)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .help(tab == .settings ? "Settings — the room's controls" : "Info — what the dataset and the product are")
+            .padding(.vertical, LayoutPolicy.inspectorHeaderVerticalPadding)
+            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("inspector.tabPicker")
+            Divider()
             switch tab {
             case .settings: InspectorSettingsTab()
             case .info: InspectorInfoTab()
             }
         }
+        // The one inspector toggle, in the inspector's own toolbar section:
+        // it stays in the toolbar, once, while the column is hidden
+        // (measured 2026-09-22), so it needs no fallback and a fallback
+        // doubles it.
         .toolbar {
-            // The picker goes with the column; the toggle stays.
-            if appState.navigation.inspectorIsVisible {
-                ToolbarItem(placement: .automatic) {
-                    Picker("Inspector tab", selection: $tab) {
-                        Text("Settings").tag(InspectorTab.settings)
-                        Text("Info").tag(InspectorTab.info)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .help("Settings: the room's controls. Info: what the dataset and the displayed product are.")
-                    .accessibilityIdentifier("inspector.tabPicker")
-                }
-            }
             ToolbarItem(placement: .primaryAction) {
                 InspectorToggleButton()
             }
@@ -102,50 +105,12 @@ struct InspectorToggleButton: View {
 
 // MARK: - Settings tab
 
-/// One container for the shared Settings sections in both hosts: a card
-/// (`Section`) inside the grouped Form the card rooms use (Prepare first,
-/// owner 2026-09-22 evening), or the flat `InspectorSection` the rooms not
-/// yet converted still stack in a `ScrollView`. A card does not collapse —
-/// a grouped Form has no native collapsing section — so `expanded` is
-/// honoured only by the flat host.
-private struct SettingsSection<Content: View>: View {
-    let title: String
-    let inForm: Bool
-    var expanded: Binding<Bool>? = nil
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        if inForm {
-            Section(title) { content() }
-        } else if let expanded {
-            InspectorSection(title, expanded: expanded) { content() }
-        } else {
-            InspectorSection(title) { content() }
-        }
-    }
-}
-
 /// Readiness first, then the selected workspace's own controls.
 private struct InspectorSettingsTab: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        if appState.hasDataset, appState.navigation.workspaceArea == .prepare {
-            // Phase 2, the reference room (owner, 2026-09-22 evening):
-            // Pixelmator's cards — ONE top-level grouped Form, the shared
-            // sections cards in it beside the room's own; never a form nested
-            // in a form (the rejected 2026-09-21 trial).
-            Form {
-                RequirementsSection(inForm: true)
-                GuidanceSection(inForm: true)
-                PrepareSettings()
-                DisplaySettingsSections(inForm: true)
-                DatasetActionSections(inForm: true)
-                SessionProductsSections(inForm: true)
-            }
-            .formStyle(.grouped)
-            .environment(\.inspectorScope, "settings.prepare")
-        } else if appState.hasDataset {
+        if appState.hasDataset {
             ScrollView {
                 VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
                     RequirementsSection()
@@ -196,12 +161,11 @@ private struct InspectorSettingsTab: View {
 /// primary action, so the checklist can never disagree with the gate.
 private struct RequirementsSection: View {
     @Environment(AppState.self) private var appState
-    var inForm = false
 
     var body: some View {
         let unmet = appState.unmetRequirements
         if !unmet.isEmpty {
-            SettingsSection(title: "Requirements", inForm: inForm) {
+            InspectorSection("Requirements") {
                 ForEach(unmet) { item in
                     // The row's identity is a colour-coded status icon, not
                     // a caption — the same idiom the sidebar's task rows
@@ -248,12 +212,11 @@ private struct RequirementsSection: View {
 /// while something is missing, the missing thing is the message.
 private struct GuidanceSection: View {
     @Environment(AppState.self) private var appState
-    var inForm = false
 
     var body: some View {
         let guidance = appState.taskGuidance
         if appState.unmetRequirements.isEmpty, !guidance.isEmpty {
-            SettingsSection(title: "Interpretation", inForm: inForm) {
+            InspectorSection("Interpretation") {
                 Label("Ready · limited interpretation", systemImage: "checkmark.circle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -469,10 +432,9 @@ private struct DatasetInfoSections: View {
 private struct DisplaySettingsSections: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("inspector.display.isExpanded") private var showsDisplay = false
-    var inForm = false
 
     var body: some View {
-        SettingsSection(title: "Display", inForm: inForm, expanded: $showsDisplay) {
+        InspectorSection("Display", expanded: $showsDisplay) {
             realSpaceHistogramSection
             diffractionHistogramSection
         }
@@ -540,12 +502,11 @@ private extension Binding where Value == Float {
 
 private struct DatasetActionSections: View {
     @Environment(AppState.self) private var appState
-    var inForm = false
 
     var body: some View {
         if !appState.loadedView.isFullExtent || appState.residency.isResident
             || sessionViewDiffers {
-            SettingsSection(title: "Dataset", inForm: inForm) {
+            InspectorSection("Dataset") {
                 if !appState.loadedView.isFullExtent {
                     InspectorActionRow {
                         Button("Reopen at Full Extent") {
@@ -695,10 +656,9 @@ private struct ProductInfoSections: View {
 /// could not read or could not fit, and the way out of each.
 private struct SessionProductsSections: View {
     @Environment(AppState.self) private var appState
-    var inForm = false
 
     var body: some View {
-        SettingsSection(title: "Computed this session", inForm: inForm) {
+        InspectorSection("Computed this session") {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
             let disksState = ProductWorkflow.productState(

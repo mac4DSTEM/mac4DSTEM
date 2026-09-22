@@ -160,18 +160,35 @@ final class BottomWorkspaceTests: XCTestCase {
             "Virtual detector — cancelled after 3 s")
     }
 
-    // MARK: - The tab seam
+    // MARK: - The two panes (owner, 2026-09-22 late, Xcode's debug area)
 
-    func testBottomWorkspaceTabDefaultsToOutput() {
+    func testOutputIsShownAndLineageHiddenByDefault() {
         let navigation = WorkspaceNavigation()
-        XCTAssertEqual(navigation.bottomWorkspaceTab, .output)
+        XCTAssertTrue(navigation.showsOutputPane)
+        XCTAssertFalse(navigation.showsLineagePane)
     }
 
-    func testBottomWorkspaceTabHasExactlyTheThreeNamedCases() {
-        XCTAssertEqual(
-            Set(BottomWorkspaceTab.allCases),
-            Set([BottomWorkspaceTab.output, .run, .lineage])
-        )
+    /// The two bar buttons never leave the area open and empty, or a pane
+    /// chosen but unseen: hiding the last pane closes the area, showing a
+    /// pane while the area is closed opens it, and opening the area with no
+    /// pane chosen shows Output.
+    func testHidingTheLastPaneClosesTheAreaAndShowingOneOpensIt() {
+        let navigation = WorkspaceNavigation()
+        navigation.showLogPane = true
+        XCTAssertTrue(navigation.showLogPane)
+
+        navigation.toggleProcessPane(.output)
+        XCTAssertFalse(navigation.showsOutputPane)
+        XCTAssertFalse(navigation.showLogPane, "hiding the last visible pane closes the area")
+
+        navigation.toggleProcessPane(.lineage)
+        XCTAssertTrue(navigation.showsLineagePane)
+        XCTAssertTrue(navigation.showLogPane, "showing a pane while the area is closed opens it")
+
+        navigation.toggleProcessPane(.lineage)
+        XCTAssertFalse(navigation.showLogPane)
+        navigation.showLogPane = true
+        XCTAssertTrue(navigation.showsOutputPane, "opening the area with no pane chosen shows Output")
     }
 
     // MARK: - The status strip's memory/residency glance
