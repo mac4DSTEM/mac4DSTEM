@@ -59,58 +59,45 @@ struct WorkspaceInspector: View {
     /// "ugly".
     /// Settings · Info in the column's own first row, as Xcode's inspector
     /// tab bar with words (owner, 2026-09-22, his Xcode crop): one glass
-    /// capsule, the segments inside it, the current one a lighter pill. On
-    /// macOS 26 the capsule is Liquid Glass; before 26, where there is no
-    /// glass, the same words as a segmented picker.
+    /// capsule, the segments inside it, the current one a lighter pill, in
+    /// Liquid Glass (the floor is macOS 27, so there is no pre-glass branch).
     @ViewBuilder
     private var tabRow: some View {
-        if #available(macOS 26, *) {
-            HStack(spacing: 0) {
-                ForEach(InspectorTab.allCases, id: \.self) { candidate in
-                    let isCurrent = candidate == tab
-                    Button {
-                        tab = candidate
-                    } label: {
-                        Text(candidate.title)
-                            .fontWeight(isCurrent ? .semibold : .regular)
-                            .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, LayoutPolicy.inspectorTabVerticalPadding)
-                            .background {
-                                if isCurrent {
-                                    Capsule().fill(colorScheme == .dark ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.background))
-                                }
+        HStack(spacing: 0) {
+            ForEach(InspectorTab.allCases, id: \.self) { candidate in
+                let isCurrent = candidate == tab
+                Button {
+                    tab = candidate
+                } label: {
+                    Text(candidate.title)
+                        .fontWeight(isCurrent ? .semibold : .regular)
+                        .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, LayoutPolicy.inspectorTabVerticalPadding)
+                        .background {
+                            if isCurrent {
+                                Capsule().fill(colorScheme == .dark ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.background))
                             }
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .help(candidate.help)
-                    .accessibilityAddTraits(isCurrent ? .isSelected : [])
+                        }
+                        .contentShape(Capsule())
                 }
+                .buttonStyle(.plain)
+                .help(candidate.help)
+                .accessibilityAddTraits(isCurrent ? .isSelected : [])
             }
-            .padding(LayoutPolicy.inspectorTabInset)
-            // Plain `.glassEffect` — no manual rim, shadow or highlight
-            // layered on top to fake the look. Tried that tonight (a rim, a
-            // shadow, then a top-down highlight gradient) chasing a stronger
-            // effect against this capsule's flat background; the owner
-            // called it out as "not the real deal, made to look like it"
-            // and asked for the system material alone, simple and robust,
-            // trusting the platform over a hand-built approximation.
-            .glassEffect(.regular, in: .capsule)
-            .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Inspector tab")
-        } else {
-            Picker("Inspector tab", selection: $tab) {
-                ForEach(InspectorTab.allCases, id: \.self) { candidate in
-                    Text(candidate.title).tag(candidate)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            .help(tab.help)
         }
+        .padding(LayoutPolicy.inspectorTabInset)
+        // Plain `.glassEffect` — no manual rim, shadow or highlight
+        // layered on top to fake the look. Tried that tonight (a rim, a
+        // shadow, then a top-down highlight gradient) chasing a stronger
+        // effect against this capsule's flat background; the owner
+        // called it out as "not the real deal, made to look like it"
+        // and asked for the system material alone, simple and robust,
+        // trusting the platform over a hand-built approximation.
+        .glassEffect(.regular, in: .capsule)
+        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Inspector tab")
     }
 
     var body: some View {
@@ -156,14 +143,10 @@ struct InspectorToggleButton: View {
         .help(help)
         .keyboardShortcut("0", modifiers: [.command, .option])
         .accessibilityIdentifier("toolbar.inspectorToggle")
-        .disabled(!appState.navigation.inspectorFits)
     }
 
-    /// A disabled toggle explains itself: the inspector is not refusing, the
-    /// window is too narrow for it beside two science panes.
     private var help: String {
-        guard appState.navigation.inspectorFits else { return "Widen the window to show the inspector" }
-        return appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
+        appState.navigation.inspectorIsVisible ? "Hide the inspector" : "Show the inspector"
     }
 }
 
@@ -229,7 +212,7 @@ private struct RequirementsSection: View {
     var body: some View {
         let unmet = appState.unmetRequirements
         if !unmet.isEmpty {
-            InspectorSection("Requirements") {
+            InspectorSection("Requirements", systemImage: "list.bullet.clipboard") {
                 ForEach(unmet) { item in
                     // The row's identity is a colour-coded status icon, not
                     // a caption — the same idiom the sidebar's task rows
@@ -260,11 +243,15 @@ private struct RequirementsSection: View {
     private func action(for item: TaskPrerequisite) -> some View {
         switch item.resolution {
         case .prepare:
-            Button("Open Prepare") { appState.selectWorkspace(.prepare) }
-                .accessibilityIdentifier("workspace.prerequisite.\(item.id).action")
+            InspectorAdaptiveButton("Open Prepare", systemImage: "wrench.and.screwdriver") {
+                appState.selectWorkspace(.prepare)
+            }
+            .accessibilityIdentifier("workspace.prerequisite.\(item.id).action")
         case .task(let mode):
-            Button("Open \(mode.productTitle)") { appState.changeMode(mode) }
-                .accessibilityIdentifier("workspace.prerequisite.\(item.id).action")
+            InspectorAdaptiveButton("Open \(mode.productTitle)", systemImage: "arrow.right.circle") {
+                appState.changeMode(mode)
+            }
+            .accessibilityIdentifier("workspace.prerequisite.\(item.id).action")
         case .taskPanel:
             EmptyView()
         }
@@ -280,7 +267,7 @@ private struct GuidanceSection: View {
     var body: some View {
         let guidance = appState.taskGuidance
         if appState.unmetRequirements.isEmpty, !guidance.isEmpty {
-            InspectorSection("Interpretation") {
+            InspectorSection("Interpretation", systemImage: "text.magnifyingglass") {
                 Label("Ready · limited interpretation", systemImage: "checkmark.circle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -288,8 +275,10 @@ private struct GuidanceSection: View {
                     InspectorNote(item)
                 }
                 InspectorActionRow {
-                    Button("Improve in Prepare") { appState.selectWorkspace(.prepare) }
-                        .accessibilityIdentifier("workspace.guidance.improve")
+                    InspectorAdaptiveButton("Improve in Prepare", systemImage: "wrench.and.screwdriver", prominent: true) {
+                        appState.selectWorkspace(.prepare)
+                    }
+                    .accessibilityIdentifier("workspace.guidance.improve")
                 }
             }
             .accessibilityIdentifier("workspace.guidance")
@@ -345,7 +334,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var datasetSection: some View {
-        InspectorSection("Dataset") {
+        InspectorSection("Dataset", systemImage: "cube") {
             InspectorValueRow("File", descriptor.fileName)
             InspectorValueRow("Path", descriptor.datasetPath, mono: true)
             InspectorValueRow("Shape", descriptor.shapeString, mono: true)
@@ -361,7 +350,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var dimensionsSection: some View {
-        InspectorSection("Dimensions") {
+        InspectorSection("Dimensions", systemImage: "ruler") {
             // Columns × rows, the order the image is drawn in and the one
             // every other surface prints. The file's own axis order is
             // [Ry, Rx, Qy, Qx], so `rx`/`qx` ARE the columns; py4DSTEM names
@@ -378,7 +367,7 @@ private struct DatasetInfoSections: View {
     @ViewBuilder
     private var previewSection: some View {
         if let preview = appState.datasetSession.preview {
-            InspectorSection("Preview") {
+            InspectorSection("Preview", systemImage: "eye") {
                 // INVARIANT I4: a sampled preview is not a result. The
                 // summary states the stride and is drawn FIRST, above the
                 // images, so nothing here can be read as a virtual image.
@@ -415,7 +404,7 @@ private struct DatasetInfoSections: View {
     @ViewBuilder
     private var loadedViewSection: some View {
         if !appState.loadedView.isFullExtent {
-            InspectorSection("Loaded view") {
+            InspectorSection("Loaded view", systemImage: "crop") {
                 if let summary = appState.loadedView.summary {
                     Text(summary)
                         .accessibilityIdentifier("inspector.loadedViewSummary")
@@ -436,7 +425,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var currentScanPositionSection: some View {
-        InspectorSection("Current scan position") {
+        InspectorSection("Current scan position", systemImage: "location") {
             InspectorValueRow("x (Rx)", "\(appState.selectedScan.x)")
             InspectorValueRow("y (Ry)", "\(appState.selectedScan.y)")
             // The statistics are of the pattern ON SCREEN, which in Mean, Max
@@ -456,7 +445,7 @@ private struct DatasetInfoSections: View {
 
     @ViewBuilder
     private var apertureSection: some View {
-        InspectorSection("Aperture (detector px)") {
+        InspectorSection("Aperture (detector px)", systemImage: "circle.dashed") {
             InspectorValueRow("Center x", String(format: "%.1f", appState.aperture.centerX))
             InspectorValueRow("Center y", String(format: "%.1f", appState.aperture.centerY))
             InspectorValueRow("Inner r", String(format: "%.1f", appState.aperture.inner))
@@ -498,7 +487,7 @@ private struct DisplaySettingsSections: View {
     @SceneStorage("inspector.display.isExpanded") private var showsDisplay = false
 
     var body: some View {
-        InspectorSection("Display", expanded: $showsDisplay) {
+        InspectorSection("Display", systemImage: "slider.horizontal.3", expanded: $showsDisplay) {
             realSpaceHistogramSection
             diffractionHistogramSection
         }
@@ -570,10 +559,13 @@ private struct DatasetActionSections: View {
     var body: some View {
         if !appState.loadedView.isFullExtent || appState.residency.isResident
             || sessionViewDiffers {
-            InspectorSection("Dataset") {
+            InspectorSection("Dataset", systemImage: "externaldrive") {
                 if !appState.loadedView.isFullExtent {
                     InspectorActionRow {
-                        Button("Reopen at Full Extent") {
+                        InspectorAdaptiveButton(
+                            "Reopen at Full Extent", systemImage: "arrow.up.left.and.arrow.down.right",
+                            prominent: true
+                        ) {
                             Task { await appState.promoteAndReplayRecipe() }
                         }
                         .disabled(appState.isBusy || appState.datasetSession.isLoading || appState.replayRun.isRunning)
@@ -598,17 +590,23 @@ private struct DatasetActionSections: View {
                 }
                 if sessionViewDiffers {
                     InspectorActionRow {
-                        Button("Reopen Without This Session") { appState.reopenIgnoringSessionSidecar() }
-                            .disabled(appState.isBusy)
-                            .help("Reopen without restoring the saved session; its file stays on disk.")
-                            .accessibilityIdentifier("inspector.reopenWithoutSession")
+                        InspectorAdaptiveButton(
+                            "Reopen Without This Session", systemImage: "arrow.counterclockwise.circle",
+                            help: "Reopen without restoring the saved session; its file stays on disk."
+                        ) {
+                            appState.reopenIgnoringSessionSidecar()
+                        }
+                        .disabled(appState.isBusy)
+                        .accessibilityIdentifier("inspector.reopenWithoutSession")
                     }
                 }
                 if appState.residency.isResident {
                     InspectorActionRow {
-                        Button("Release cube") { Task { await appState.releaseResidentCube() } }
-                            .disabled(appState.isBusy)
-                            .accessibilityIdentifier("performance.releaseCube")
+                        InspectorAdaptiveButton("Release cube", systemImage: "memorychip") {
+                            Task { await appState.releaseResidentCube() }
+                        }
+                        .disabled(appState.isBusy)
+                        .accessibilityIdentifier("performance.releaseCube")
                     }
                 }
             }
@@ -630,7 +628,7 @@ private struct ProductInfoSections: View {
 
     var body: some View {
         if let product = appState.displayedProduct {
-            InspectorSection("Product") {
+            InspectorSection("Product", systemImage: "photo") {
                 InspectorValueRow("Name", product.displayName)
                 InspectorValueRow("Kind", product.kind.replacingOccurrences(of: "_", with: " "))
                 InspectorValueRow("Origin", product.origin == .computed
@@ -655,7 +653,7 @@ private struct ProductInfoSections: View {
             .accessibilityIdentifier("inspector.product")
 
             if !product.qualityFields.isEmpty {
-                InspectorSection("Quality fields") {
+                InspectorSection("Quality fields", systemImage: "checkmark.seal") {
                     ForEach(product.qualityFields, id: \.name) { field in
                         InspectorValueRow(field.name, field.units, mono: true)
                     }
@@ -663,7 +661,7 @@ private struct ProductInfoSections: View {
             }
 
             if !product.overlays.isEmpty {
-                InspectorSection("Overlays") {
+                InspectorSection("Overlays", systemImage: "square.3.layers.3d") {
                     ForEach(product.overlays, id: \.kind) { overlay in
                         InspectorValueRow(
                             overlay.kind.replacingOccurrences(of: "_", with: " "),
@@ -673,7 +671,7 @@ private struct ProductInfoSections: View {
                 }
             }
 
-            InspectorSection("Provenance") {
+            InspectorSection("Provenance", systemImage: "clock.arrow.circlepath") {
                 ForEach(product.provenance.keys.sorted(), id: \.self) { key in
                     InspectorValueRow(key, product.provenance[key] ?? "", mono: true)
                 }
@@ -722,7 +720,7 @@ private struct SessionProductsSections: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        InspectorSection("Computed this session") {
+        InspectorSection("Computed this session", systemImage: "cpu") {
             product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
             product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
             let disksState = ProductWorkflow.productState(
@@ -830,7 +828,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var promoteRunSection: some View {
         if appState.replayRun.phase != .idle {
-            InspectorSection("Promote run") {
+            InspectorSection("Promote run", systemImage: "play.circle") {
                 if let headline = appState.replayRun.summaryHeadline {
                     Text(headline)
                         .font(.callout.weight(.medium))
@@ -871,7 +869,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var invalidatedCalibrationSection: some View {
         if !appState.loadedView.invalidatedCalibration.isEmpty {
-            InspectorSection("Not carried into this view") {
+            InspectorSection("Not carried into this view", systemImage: "xmark.circle") {
                 ForEach(appState.loadedView.invalidatedCalibration) { item in
                     Text(item.field.rawValue)
                         .font(.callout.weight(.medium))
@@ -885,7 +883,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var rotationDiagnosticsSection: some View {
         if let rotation = appState.lastRotationResult {
-            InspectorSection("Rotation diagnostics") {
+            InspectorSection("Rotation diagnostics", systemImage: "rotate.3d") {
                 RotationCurveView(result: rotation)
                 // A refused fit still draws its curves — the marker is then
                 // the minimum the fit FOUND, not a value that was written, and
@@ -912,7 +910,7 @@ private struct InspectorDiagnosticsSections: View {
     private var sessionProvenanceSection: some View {
         if let recorded = appState.sessionLoadSpecification,
            recorded != appState.loadedView.specification {
-            InspectorSection("Session provenance") {
+            InspectorSection("Session provenance", systemImage: "clock.arrow.circlepath") {
                 Text("The saved session was computed on a different view of this file.")
                     .font(.callout)
                 InspectorValueRow("Session view", recorded.provenanceSummary ?? "whole file")
@@ -932,7 +930,7 @@ private struct InspectorDiagnosticsSections: View {
     @ViewBuilder
     private var sidecarUnreadableSection: some View {
         if let reason = appState.sessionSidecar.unreadableReason {
-            InspectorSection("Session sidecar") {
+            InspectorSection("Session sidecar", systemImage: "exclamationmark.triangle") {
                 Text("A saved session sits beside this dataset and could not be read.")
                     .font(.callout)
                 InspectorNote(reason)
@@ -950,7 +948,7 @@ private struct InspectorDiagnosticsSections: View {
         if appState.sessionSidecar.unreadableReason == nil,
            let failure = appState.gates.sidecarRestoreFailure,
            failure.kind == .doesNotFit {
-            InspectorSection("Session sidecar") {
+            InspectorSection("Session sidecar", systemImage: "exclamationmark.triangle") {
                 Text("The saved session beside this dataset describes a region this file does not have.")
                     .font(.callout)
                 InspectorNote(failure.message)

@@ -87,34 +87,18 @@ final class WorkspaceNavigation {
     }
 
     /// The user's INTENT for each side panel — what the toggles, the menu
-    /// items and the scene storage read and write. What is actually on
-    /// screen is `navigatorIsVisible` / `inspectorIsVisible` below: intent
-    /// AND the width budget. Keeping the two apart is what lets a panel the
-    /// window was too narrow for come back by itself when the window widens
-    /// (2026-09-22: the first phase-1 look found the inspector closed at
-    /// 1100 pt and still closed at 1280, because the collapse had overwritten
-    /// the intent).
+    /// items and the scene storage read and write, and (2026-09-22) what is
+    /// on screen: `LayoutPolicy.datasetWindowMinimumSize` is now derived from
+    /// the same ideal columns and science floor a narrow window used to
+    /// collapse a panel against (`WindowAnatomyPolicy`, retired), so a window
+    /// that exists at all already fits both panels open. Nothing measures
+    /// the window to decide visibility anymore.
     var showToolsPane = true
     var showInspectorPane = false
 
-    /// The window's width as `ContentView` last measured it; `.infinity`
-    /// until the first layout pass, so nothing collapses before there is a
-    /// number to collapse against. Not persisted — it is measured.
-    var availableWindowWidth: CGFloat = .infinity
+    var navigatorIsVisible: Bool { showToolsPane }
 
-    var navigatorFits: Bool {
-        !WindowAnatomyPolicy.collapseNavigator(at: availableWindowWidth)
-    }
-
-    var navigatorIsVisible: Bool { showToolsPane && navigatorFits }
-
-    /// The inspector's budget counts the navigator only when the navigator
-    /// is actually on screen.
-    var inspectorFits: Bool {
-        !WindowAnatomyPolicy.collapseInspector(at: availableWindowWidth, navigatorVisible: navigatorIsVisible)
-    }
-
-    var inspectorIsVisible: Bool { showInspectorPane && inspectorFits }
+    var inspectorIsVisible: Bool { showInspectorPane }
 
     @ObservationIgnored var onModeChange: (() -> Void)?
 }

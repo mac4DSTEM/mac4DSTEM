@@ -49,7 +49,7 @@ struct PhaseMappingSections: View {
         // `InspectorSection`s with a hairline divider and a consistent label
         // column. The outer inspector (`WorkspaceInspector.swift`) supplies
         // the scroll container.
-        InspectorSection("Phases") {
+        InspectorSection("Phases", systemImage: "atom") {
             if product.phases.isEmpty {
                 InspectorNote("Add the matrix phase and at least one precipitate phase.")
             }
@@ -75,15 +75,13 @@ struct PhaseMappingSections: View {
                 // position comes back "not indexed", which looks exactly like
                 // a method that does not work (the owner's run, 2026-09-12).
                 InspectorActionRow {
-                    Button {
+                    InspectorAdaptiveButton("Find Matrix Zone Axis", systemImage: "scope",
+                                             help: "Symmetry-equivalent axes should tie exactly. They are shown "
+                                                 + "so a fit can be told from a coin toss.") {
                         Task { await appState.findMatrixZoneAxis() }
-                    } label: {
-                        Label("Find Matrix Zone Axis", systemImage: "scope")
                     }
                     .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil)
                     .accessibilityIdentifier("phaseMapping.findZoneAxis")
-                    .help("Symmetry-equivalent axes should tie exactly. They are shown "
-                          + "so a fit can be told from a coin toss.")
                 }
 
                 // A percentage alone cannot be read: at a tight tolerance an
@@ -137,7 +135,7 @@ struct PhaseMappingSections: View {
             }
         }
 
-        InspectorSection("Reference library") {
+        InspectorSection("Reference library", systemImage: "books.vertical") {
             InspectorRow("Orientations") {
                 Text("\(product.projectedEntryCount)")
                     .monospacedDigit()
@@ -165,7 +163,7 @@ struct PhaseMappingSections: View {
             }
         }
 
-        InspectorSection("Matching") {
+        InspectorSection("Matching", systemImage: "slider.horizontal.3") {
             // Switching the rule resets the library's "Minimum intensity" to
             // the rule's own default (`PhaseMappingRuleDefaults`) — the user
             // can still edit it afterwards. A pure function, not a listener
@@ -238,10 +236,8 @@ struct PhaseMappingSections: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                     InspectorActionRow {
-                        Button {
+                        InspectorAdaptiveButton("Scale to This Detector", systemImage: "arrow.left.and.right") {
                             appState.scalePhaseMatchingToDetector()
-                        } label: {
-                            Label("Scale to This Detector", systemImage: "arrow.left.and.right")
                         }
                         .disabled(appState.isBusy)
                         .accessibilityIdentifier("phaseMapping.scaleToDetector")
@@ -267,10 +263,8 @@ struct PhaseMappingSections: View {
                     .foregroundStyle(.orange)
             }
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton("Map Phases", systemImage: "square.grid.3x3.topleft.filled", prominent: true) {
                     Task { await appState.runPhaseMapping() }
-                } label: {
-                    Label("Map Phases", systemImage: "square.grid.3x3.topleft.filled")
                 }
                 .disabled(appState.isBusy || product.runRefusal != nil
                           || appState.resultPresentation.braggVectors == nil)
@@ -288,7 +282,7 @@ struct PhaseMappingSections: View {
     @ViewBuilder
     private func resultSection(map: PhaseMap, run: PhaseMappingProduct.RunRecord,
                                product: PhaseMappingProduct) -> some View {
-        InspectorSection("Result") {
+        InspectorSection("Result", systemImage: "chart.pie") {
             Label("Unvalidated — this method has not been scored against an "
                   + "external ground truth in this app. Read the map; do not "
                   + "quote a phase fraction from it. Object counts and "
@@ -374,10 +368,8 @@ struct PhaseMappingSections: View {
             }
 
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton("Show Match Distance", systemImage: "ruler") {
                     appState.publishPhaseDistanceProduct()
-                } label: {
-                    Label("Show Match Distance", systemImage: "ruler")
                 }
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("phaseMapping.showDistance")

@@ -84,7 +84,7 @@ struct SettingsWindow: View {
         }
         // The category list stands; there is nothing to toggle in a
         // settings window (owner, 2026-09-22 late, §9.5 — System Settings'
-        // own shape). `.sidebarToggle` is macOS 14+, the build floor.
+        // own shape).
         .toolbar(removing: .sidebarToggle)
         .frame(
             minWidth: LayoutPolicy.settingsWindow.min.width,

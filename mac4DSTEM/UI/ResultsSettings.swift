@@ -14,7 +14,7 @@ struct ResultsSettings: View {
     @State private var pendingResultRemoval: SessionResultDescriptor?
 
     var body: some View {
-        InspectorSection("Saved products") {
+        InspectorSection("Saved products", systemImage: "tray.full") {
             if appState.sessionInventory.results.isEmpty {
                 InspectorNote("Nothing saved yet. Save to Session keeps the visible result with this dataset, available after reopening.")
                     .accessibilityIdentifier("results.nothingSaved")
@@ -104,15 +104,12 @@ struct ResultsSettings: View {
         // 250pt capture (2026-09-03) — three bordered controls do not fit
         // one Compare row at the column minimum.
         InspectorActionRow {
-            Button(role: .destructive) {
+            InspectorAdaptiveButton("Remove", systemImage: "trash", help: "Remove saved result",
+                                     role: .destructive) {
                 pendingResultRemoval = result
-            } label: {
-                Label("Remove", systemImage: "trash")
             }
-            .controlSize(.small)
             // C4(a): removal rebuilds the sidecar too — same gate as the saves.
             .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
-            .help("Remove saved result")
             .accessibilityLabel("Remove \(result.displayName)")
         }
     }

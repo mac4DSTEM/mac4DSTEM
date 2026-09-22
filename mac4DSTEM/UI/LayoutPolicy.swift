@@ -15,7 +15,21 @@ import DSTEMSession
 /// the science panes are the one exception, and they take their floor from
 /// `imagePaneMinimum` / `resultPaneMinimum` rather than spelling a number.
 enum LayoutPolicy {
-    static let datasetWindowMinimumSize = CGSize(width: 640, height: 640)
+    /// Derived, not chosen: the ideal navigator plus the ideal inspector,
+    /// each with its own split divider, plus two science panes at their
+    /// floor with the divider between them (`sidebarWidth.ideal +
+    /// inspectorWidth.ideal + 2 * splitColumnDividerAllowance +
+    /// scienceMinimum` = 230 + 320 + 4 + 361 = 915). Below this the native
+    /// `navigationSplitViewColumnWidth` / `inspectorColumnWidth` min/ideal/max
+    /// declared in `ContentView` and the science panes fight over space the
+    /// window never had — the defect the hand-rolled `WindowAnatomyPolicy`
+    /// used to paper over by hiding a panel (retired 2026-09-22; its
+    /// `scienceMinimum` moved here). A window this wide never needs that
+    /// collapse, so the panels now track intent alone.
+    static let datasetWindowMinimumSize = CGSize(
+        width: sidebarWidth.ideal + inspectorWidth.ideal + splitColumnDividerAllowance * 2 + scienceMinimum,
+        height: 640
+    )
     static let datasetWindowIdealSize = CGSize(width: 1280, height: 800)
 
     /// The navigation column. Narrow on purpose: it holds five words and a
@@ -31,6 +45,11 @@ enum LayoutPolicy {
     static let imagePaneMinimum: CGFloat = 180
     static let sciencePaneDividerWidth: CGFloat = 1
     static let splitColumnDividerAllowance: CGFloat = 2
+
+    /// Two science panes at their floor, with the divider between them.
+    /// Moved here from the retired `WindowAnatomyPolicy` (2026-09-22): it is
+    /// part of the window's own width budget now, not a collapse threshold.
+    static let scienceMinimum: CGFloat = imagePaneMinimum * 2 + sciencePaneDividerWidth
 
     /// Science: the Results pane shows one product at reading size.
     static let resultPaneMinimum = CGSize(width: 360, height: 300)
@@ -94,8 +113,13 @@ enum LayoutPolicy {
     /// bar and its elapsed/ETA when busy (owner, 2026-09-22 evening, §8.1;
     /// the breadcrumb row it replaces is gone). A constant width, the
     /// `operationReadoutWidth` rule: a ticking string never reflows the
-    /// toolbar (011).
+    /// toolbar (011). The maximum, not a fixed width (2026-09-22, macOS 27
+    /// drive): at a fixed 380 the display dropped out of a 1000-pt window and
+    /// the surviving actions jumped to the room's leading edge. It now
+    /// shrinks, middle-truncating, when the WINDOW narrows; a ticking string
+    /// still never changes it.
     static let toolbarDisplayWidth: CGFloat = 380
+    static let toolbarDisplayMinimumWidth: CGFloat = 160
     static let toolbarDisplaySpacing: CGFloat = 8
 
     /// The process area's share of the centre column the infobar's toggle
@@ -192,48 +216,6 @@ enum LayoutPolicy {
         return size.width / size.height > aspect
             ? CGSize(width: size.height * aspect, height: size.height)
             : CGSize(width: size.width, height: size.width / aspect)
-    }
-}
-
-/// Width budget for the native side columns and two scientific images
-/// (window-design.md §1: "below that the side panels collapse before a pane
-/// ever shrinks past it"). SwiftUI performs the collapse; this policy only
-/// decides when to request it, as a function of the WINDOW width alone — a
-/// decision read off the centre column's own width would feed back into
-/// itself (collapsing widens the centre, which then fits, which reopens).
-///
-/// **Budgeted at the IDEAL column widths, not the maxima** (2026-09-22, the
-/// first on-screen look at phase 1). Summing the maxima demanded 1143 pt
-/// with both panels open, so an 1100-pt window on a 13-inch display lost
-/// its inspector and greyed the toggle; the ideal widths — the ones the app
-/// itself asks for — need 915, and the panes still sit at their floor
-/// there. A user who drags a column wider than its ideal is asking for a
-/// wider window; the budget is a safety net for the layout the app sets,
-/// not an enforcement against every drag.
-///
-/// The decision is a request, not a mutation: `WorkspaceNavigation` keeps
-/// the user's intent (`showInspectorPane`) and derives what is on screen
-/// (`inspectorIsVisible`) from intent AND this budget, so a panel closed by
-/// a narrow window comes back on its own when the window widens.
-enum WindowAnatomyPolicy {
-    static var scienceMinimum: CGFloat {
-        LayoutPolicy.imagePaneMinimum * 2 + LayoutPolicy.sciencePaneDividerWidth
-    }
-
-    /// The inspector collapses first: it is the wider column, and navigation
-    /// is what a narrow window still needs.
-    static func collapseInspector(at width: CGFloat, navigatorVisible: Bool) -> Bool {
-        let navigator = navigatorVisible ? LayoutPolicy.sidebarWidth.ideal + LayoutPolicy.splitColumnDividerAllowance : 0
-        return width < navigator + LayoutPolicy.inspectorWidth.ideal
-            + LayoutPolicy.splitColumnDividerAllowance + scienceMinimum
-    }
-
-    /// Below the dataset window's own minimum width today (593 < 640), so
-    /// this never fires; kept so the rule is stated in one place should the
-    /// minimum ever drop.
-    static func collapseNavigator(at width: CGFloat) -> Bool {
-        width < LayoutPolicy.sidebarWidth.ideal
-            + LayoutPolicy.splitColumnDividerAllowance + scienceMinimum
     }
 }
 

@@ -1,19 +1,29 @@
 import SwiftUI
 
-/// The inspector's row vocabulary (ADR 034, owner 2026-09-21): "Lightroom
-/// adjustment panel meets Xcode utility pane" — flat, dense, collapsible
-/// sections with a consistent label column and hairline separators, in place
-/// of the boxed `.grouped` `Form` the inspector used before. Every fixed
-/// point below comes from `LayoutPolicy`; nothing here invents its own
-/// number.
+/// The inspector's row vocabulary (ADR 034, owner 2026-09-21): originally
+/// "Lightroom adjustment panel meets Xcode utility pane" — flat, dense,
+/// collapsible sections with hairline separators. Superseded 2026-09-22
+/// (owner, driving the Prepare card draft: "make it look like the other
+/// panels, make everything the same, then improve from there"): sections are
+/// now `GroupBox` cards with a `.headline` title row, not flat hairline
+/// dividers — the rest of the vocabulary (label column, row spacing) is
+/// unchanged. Every fixed point below comes from `LayoutPolicy`, or from a
+/// `static let` declared here for chrome `LayoutPolicy` has no opinion on
+/// (card spacing); nothing here invents an unexplained number.
 ///
 /// `WorkspaceInspector.swift` and the room files (`PrepareSettings`,
 /// `ImagingSettings`, `MapSettings`, `PhaseMappingSettings`, `PhaseSettings`,
 /// `AIAnalysisSettings`, `ResultsSettings`, `DiffractionGroupsSettings`,
-/// `CalibrationReadinessRow`) build the inspector's contents from these six
-/// types. This file is presentation only: it holds no `AppState`,
-/// `OperationCenter` or `Session` reference, and no fixed number that isn't
-/// a `LayoutPolicy` constant.
+/// `CalibrationReadinessRow`) build the inspector's contents from the types
+/// in this file — `InspectorSection`/`InspectorGroup` (the cards),
+/// `InspectorRow`/`InspectorValueRow`/`AdjustmentSlider`/`InspectorNote`
+/// (rows inside a card), and `InspectorActionRow`/`InspectorAdaptiveButton`/
+/// `InspectorStatusRow` (buttons and the calibration-style status line). One
+/// kit for all rooms (owner rule, 2026-09-22): a room-specific layout fix
+/// belongs here, not hand-rolled in one room file. This file is presentation
+/// only: it holds no `AppState`, `OperationCenter` or `Session` reference,
+/// and no fixed number that isn't a `LayoutPolicy` constant or one of this
+/// file's own, explained `static let`s.
 
 /// The room or tab an `InspectorSection` renders in.
 ///
@@ -31,6 +41,21 @@ private struct InspectorScopeKey: EnvironmentKey {
     static let defaultValue: String = ""
 }
 
+/// Layout constants this file's card chrome owns — not `LayoutPolicy`'s,
+/// since nothing outside `InspectorSection`/`InspectorGroup` depends on them
+/// (the other agent's file, per the room brief, stays untouched).
+private enum InspectorCardMetrics {
+    /// The gap after one card, so adjacent sections separate even where the
+    /// caller stacks them as bare siblings with no spacing of its own
+    /// (`WorkspaceInspector`'s per-room `Group`s concatenate several
+    /// `InspectorSection`s inline; its own `inspectorSectionSpacing` applies
+    /// only between its named top-level groups — `RequirementsSection`,
+    /// `workspaceSettings`, … — not the individual sections inside one of
+    /// them, so each card must space itself rather than rely on that
+    /// spacing to separate it from its neighbour).
+    static let cardSpacing: CGFloat = 10
+}
+
 extension EnvironmentValues {
     var inspectorScope: String {
         get { self[InspectorScopeKey.self] }
@@ -41,24 +66,32 @@ extension EnvironmentValues {
 /// A collapsible group of inspector rows — the utility pane's basic unit,
 /// replacing a `Form` `Section`.
 ///
-/// The header is an uppercase, semibold, secondary caption with the native
-/// disclosure chevron a `DisclosureGroup` already draws; a hairline
-/// `Divider()` closes the group below it, expanded or not, so collapsed
-/// neighbours still separate. Rows inside are spaced
+/// The header is a `GroupBox` label: the title in `.headline`, sentence
+/// case, with a trailing disclosure chevron that rotates and toggles the
+/// section open or closed. Card, not hairline: two cards sitting back to
+/// back read as separated by their own borders, so the chrome below adds
+/// `InspectorCardMetrics.cardSpacing` after each one rather than depending
+/// on the caller's stack to space every section apart (`WorkspaceInspector`
+/// concatenates several rooms' sections as bare siblings with no spacing of
+/// its own between them — see that file's own `inspectorSectionSpacing`,
+/// applied only between its named top-level groups, not the individual
+/// sections inside one). Rows inside are spaced
 /// `LayoutPolicy.inspectorRowSpacing`. When the caller passes no `expanded`
 /// binding, the section remembers its own open/closed state, scoped by
 /// `inspectorScope` and title, via `@SceneStorage`, defaulting to expanded —
 /// the inspector reads, at a glance, the way the old always-visible `Form`
 /// sections did until the user collapses one.
 ///
-/// `icon` and `emphasized` cover the one header this vocabulary did not
-/// otherwise have room for: a stage row that carries an always-visible
-/// status glyph and reads bolder while it is the active step (the parallax
-/// pipeline's four stages). Neither is set, most sections draw the plain
-/// caption header above.
+/// `icon` (an `Image`) and `systemImage` (a system symbol name) are two ways
+/// to give the header an icon; `icon` wins if both are set. `emphasized`
+/// covers the one header this vocabulary did not otherwise have room for: a
+/// stage row that carries an always-visible status glyph and reads bolder
+/// while it is the active step (the parallax pipeline's four stages). None
+/// set, most sections draw the plain title header above.
 struct InspectorSection<Content: View>: View {
     private let title: String
     private let icon: Image?
+    private let systemImage: String?
     private let emphasized: Bool
     private let externalExpanded: Binding<Bool>?
     private let content: Content
@@ -67,12 +100,14 @@ struct InspectorSection<Content: View>: View {
     init(
         _ title: String,
         icon: Image? = nil,
+        systemImage: String? = nil,
         emphasized: Bool = false,
         expanded: Binding<Bool>? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.icon = icon
+        self.systemImage = systemImage
         self.emphasized = emphasized
         self.externalExpanded = expanded
         self.content = content()
@@ -87,12 +122,12 @@ struct InspectorSection<Content: View>: View {
 
     var body: some View {
         if let externalExpanded {
-            InspectorSectionBody(title: title, icon: icon, emphasized: emphasized,
+            InspectorSectionBody(title: title, icon: icon, systemImage: systemImage, emphasized: emphasized,
                                   isExpanded: externalExpanded, content: content)
         } else {
             InspectorSectionRemembering(
                 key: Self.sceneStorageKey(scope: scope, title: title),
-                title: title, icon: icon, emphasized: emphasized, content: content)
+                title: title, icon: icon, systemImage: systemImage, emphasized: emphasized, content: content)
         }
     }
 }
@@ -109,69 +144,115 @@ struct InspectorSection<Content: View>: View {
 private struct InspectorSectionRemembering<Content: View>: View {
     private let title: String
     private let icon: Image?
+    private let systemImage: String?
     private let emphasized: Bool
     @SceneStorage private var isExpanded: Bool
     private let content: Content
 
-    init(key: String, title: String, icon: Image?, emphasized: Bool, content: Content) {
+    init(key: String, title: String, icon: Image?, systemImage: String?, emphasized: Bool, content: Content) {
         self.title = title
         self.icon = icon
+        self.systemImage = systemImage
         self.emphasized = emphasized
         self._isExpanded = SceneStorage(wrappedValue: true, key)
         self.content = content
     }
 
     var body: some View {
-        InspectorSectionBody(title: title, icon: icon, emphasized: emphasized,
+        InspectorSectionBody(title: title, icon: icon, systemImage: systemImage, emphasized: emphasized,
                               isExpanded: $isExpanded, content: content)
     }
 }
 
-/// The section's actual chrome — header, disclosure, rows, hairline —
-/// shared by the remembered-state and explicit-binding paths.
+/// The section's actual chrome — a `GroupBox` card whose label is a header
+/// button (title + disclosure chevron) — shared by the remembered-state and
+/// explicit-binding paths.
 private struct InspectorSectionBody<Content: View>: View {
     let title: String
     let icon: Image?
+    let systemImage: String?
     let emphasized: Bool
     let isExpanded: Binding<Bool>
     let content: Content
 
+    /// Collapsed, the card is its header alone: an empty `GroupBox` still
+    /// draws its rounded box, which read on screen as a stray dot under the
+    /// title (first macOS 27 look, 2026-09-22).
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            DisclosureGroup(isExpanded: isExpanded) {
-                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
-                    content
+        Group {
+            if isExpanded.wrappedValue {
+                GroupBox {
+                    VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
+                        content
+                    }
+                    .padding(.top, LayoutPolicy.inspectorRowSpacing)
+                    // Full column width: a `GroupBox` hugs its content, so a
+                    // card of short rows came out narrower than its siblings.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } label: {
+                    header
                 }
-                .padding(.top, LayoutPolicy.inspectorRowSpacing)
-            } label: {
+            } else {
                 header
             }
-            Divider()
         }
+        .padding(.bottom, InspectorCardMetrics.cardSpacing)
+    }
+
+    private var header: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isExpanded.wrappedValue.toggle()
+            }
+        } label: {
+            HStack {
+                headerLabel
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .imageScale(.small)
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded.wrappedValue ? 90 : 0))
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isExpanded.wrappedValue ? [.isHeader] : [.isHeader, .isButton])
+        .accessibilityValue(isExpanded.wrappedValue ? "Expanded" : "Collapsed")
     }
 
     @ViewBuilder
-    private var header: some View {
-        let label = Text(title)
-            .font(.caption.weight(emphasized ? .bold : .semibold))
-            .foregroundStyle(emphasized ? .primary : .secondary)
-            .textCase(.uppercase)
+    private var headerLabel: some View {
+        // Primary, not secondary: a secondary headline over a card read as a
+        // disabled control on screen. `emphasized` stays a weight change.
+        let text = Text(title)
+            .font(.headline.weight(emphasized ? .bold : .semibold))
+            .foregroundStyle(.primary)
         if let icon {
             Label {
-                label
+                text
             } icon: {
                 icon
                     .foregroundStyle(emphasized ? .primary : .secondary)
                     .accessibilityHidden(true)
             }
             .accessibilityElement(children: .combine)
+        } else if let systemImage {
+            Label {
+                text
+            } icon: {
+                Image(systemName: systemImage)
+                    .foregroundStyle(emphasized ? .primary : .secondary)
+                    .accessibilityHidden(true)
+            }
+            .accessibilityElement(children: .combine)
         } else {
-            label
+            text
         }
     }
 }
 
-/// A non-collapsible run of rows — no caption header, no chevron, no
+/// A non-collapsible run of rows — no title header, no chevron, no
 /// `@SceneStorage` — for content that was never a titled `Section` at HEAD.
 ///
 /// Two rooms invented a title converting into this vocabulary (a matcher's
@@ -179,7 +260,7 @@ private struct InspectorSectionBody<Content: View>: View {
 /// pane's own Run tab; a parallax product picker became "Product", which
 /// collided with the Info tab's own "Product"); `InspectorGroup` is what
 /// they convert to instead, so nothing acquires a name — or a persisted
-/// expansion state — it never had. Same row spacing and trailing hairline as
+/// expansion state — it never had. Same card chrome and row spacing as
 /// `InspectorSection`, minus the header and the disclosure.
 struct InspectorGroup<Content: View>: View {
     private let content: Content
@@ -189,12 +270,14 @@ struct InspectorGroup<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        GroupBox {
             VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
                 content
             }
-            Divider()
+            .padding(.top, LayoutPolicy.inspectorRowSpacing)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.bottom, InspectorCardMetrics.cardSpacing)
     }
 }
 
@@ -397,6 +480,16 @@ struct InspectorNote: View {
 
 /// A trailing-aligned row of small buttons — the vocabulary's replacement
 /// for a bare button (or button group) sitting at a `Section`'s end.
+///
+/// `ViewThatFits` between the original flush-right `HStack` and a
+/// trailing-aligned `VStack`: at the inspector's narrowest widths several
+/// small buttons side by side can run out of room and clip, the same
+/// failure mode `InspectorAdaptiveButton` exists to avoid for one button —
+/// wrapping this row to a column, rather than truncating, is the fallback.
+/// A single `InspectorAdaptiveButton` inside this row still degrades to its
+/// own icon-only form first, before this row ever needs to wrap, so callers
+/// with one action are better served composing `InspectorAdaptiveButton`
+/// directly. API is unchanged — same `init`, same `Content`.
 struct InspectorActionRow<Content: View>: View {
     private let content: Content
 
@@ -405,10 +498,140 @@ struct InspectorActionRow<Content: View>: View {
     }
 
     var body: some View {
-        HStack {
-            Spacer(minLength: 0)
-            content
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                Spacer(minLength: 0)
+                content
+            }
+            VStack(alignment: .trailing, spacing: LayoutPolicy.inspectorRowSpacing) {
+                content
+            }
         }
         .controlSize(.small)
+    }
+}
+
+/// A button that gives up its text label, not its meaning, when the column
+/// is too narrow: `ViewThatFits` between the full `Label(title:systemImage:)`
+/// and a bare `Image(systemName:)`, both wired to the same `help` tooltip
+/// and the same accessibility label.
+///
+/// Built for a failure this vocabulary had without it: a narrow inspector
+/// column truncates a `Label`'s text mid-word ("Compute M…"), which drops
+/// the missing part of the word silently — nothing on screen says a
+/// character is missing. The icon-only fallback loses nothing the tooltip
+/// didn't already say, and is a whole, legible button rather than a clipped
+/// one. This is the durable pattern for every button that must survive the
+/// inspector's minimum width, not a one-room stopgap.
+struct InspectorAdaptiveButton: View {
+    private let title: String
+    private let systemImage: String
+    private let prominent: Bool
+    private let help: String?
+    private let role: ButtonRole?
+    private let action: () -> Void
+
+    init(
+        _ title: String,
+        systemImage: String,
+        prominent: Bool = false,
+        help: String? = nil,
+        role: ButtonRole? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.prominent = prominent
+        self.help = help
+        self.role = role
+        self.action = action
+    }
+
+    var body: some View {
+        Group {
+            // `ButtonStyle` is a protocol: `.borderedProminent` and
+            // `.bordered` are different concrete types, so the choice
+            // between them branches here rather than in a ternary.
+            if prominent {
+                button.buttonStyle(.borderedProminent)
+            } else {
+                button.buttonStyle(.bordered)
+            }
+        }
+        .controlSize(.regular)
+        .help(help ?? title)
+        .accessibilityLabel(title)
+    }
+
+    private var button: some View {
+        Button(role: role, action: action) {
+            ViewThatFits(in: .horizontal) {
+                Label(title, systemImage: systemImage)
+                Image(systemName: systemImage)
+            }
+        }
+    }
+}
+
+/// A status line whose short status word can never wrap and whose longer
+/// explanation never has to: the status word alone, `.fixedSize()`, pinned
+/// to the trailing edge, and the (often longer)
+/// detail text under the title on the leading side instead.
+///
+/// Built for the other failure the Prepare card draft found: an earlier
+/// layout put both the status word and the wrapping detail line in the
+/// trailing column together. At any width the short status word floated
+/// flush-right with a gap after it, disconnected from the label, because
+/// the wrapped detail line below it filled most of the row and read as
+/// left-aligned; narrower still, that trailing column had no floor to stop
+/// the status word itself wrapping mid-word. Splitting the two — status
+/// word alone, fixed, trailing; detail prose leading, under the title — is
+/// the durable fix, not a width this one row happened to need.
+struct InspectorStatusRow: View {
+    private let title: String
+    private let systemImage: String
+    private let tint: Color
+    private let detail: String?
+    private let status: String
+    private let statusTint: Color
+
+    init(
+        title: String,
+        systemImage: String,
+        tint: Color = .primary,
+        detail: String? = nil,
+        status: String,
+        statusTint: Color = .secondary
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.tint = tint
+        self.detail = detail
+        self.status = status
+        self.statusTint = statusTint
+    }
+
+    var body: some View {
+        // An explicit HStack + Spacer, not `LabeledContent`: outside a
+        // `Form`, `LabeledContent` sets its value right after the label, so
+        // the status word floated mid-row at a different x on every row
+        // (first macOS 27 look, 2026-09-22). The spacer pins it trailing.
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(title, systemImage: systemImage)
+                    .foregroundStyle(tint)
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            Text(status)
+                .fixedSize()
+                .foregroundStyle(statusTint)
+        }
+        .accessibilityElement(children: .combine)
+        .controlSize(.regular)
     }
 }

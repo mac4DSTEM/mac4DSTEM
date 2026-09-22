@@ -27,9 +27,12 @@ Driven on the owner's Xcode build of `6132ff1`, demo fixture, dark, wide display
 
 ### Owner drive 2026-09-22 night — three findings during the consolidation session
 Sent mid-session while driving `datasetA_stride3.h5` live (screenshots in chat, not saved to a file). He then asked directly for B and C to be fixed in the same session rather than deferred — both landed the same night; A stays open, genuinely unactionable without a reproduction.
-**A — "a weird overlap from time to time"** — a strong lead found, NOT diagnosed, NOT fixed. Driven live this session on `datasetA_stride3.h5` (171×171, 29,241 positions) via a screenshot loop (`scratchpad/.../windowid.swift` for the CGWindowID, `screencapture -l<id>`, then computer-use once the owner returned and granted access): the app window itself, not just its content, twice went to a state where a screenshot of the app process showed **only the menu bar over black/the desktop** — no chrome, no panes, window content entirely blank — for roughly 1 s, then it recovered to normal size and content on its own. Both times it coincided with a calibration step's toolbar transition (busy → idle, the toolbar's centre display and primary-action button swapping content, e.g. after Origin calibration finished and R–Q rotation's own busy state hadn't yet drawn). A click issued during the blank state still reached the app — the Output log shows the ellipse-fit action ran twice from what looked like one click, meaning input kept landing while the window drew nothing. Not the same shape as a `.zIndex`/`.offset` stacking bug (grepped `WorkspaceView.swift`/`ContentView.swift`, nothing found there); more consistent with a window-frame resize/redraw tied to `ideal-width budget` (ADR 035) recomputing on every toolbar content change and the window briefly rendering at the wrong size or an unbacked frame before settling. Not reproduced on command — happened twice in roughly 20 busy→idle transitions driven, both on the real dataset, never on the tiny demo fixture (whose operations finish in under a second, too fast to have caught this even if it also happens there). Owner: Gate D — the cause is not established, this is a mechanism guess from correlation, not a proven diagnosis; needs a deliberate repro attempt (drive several busy→idle transitions on a real dataset, screen-record rather than discrete screenshots) before any fix, and `WorkspaceView.swift`/`ContentView.swift` are Frozen Shell regardless.
+**A — "a weird overlap from time to time"** — a strong lead found, NOT diagnosed, NOT fixed. Driven live this session on `datasetA_stride3.h5` (171×171, 29,241 positions) via a screenshot loop (`scratchpad/.../windowid.swift` for the CGWindowID, `screencapture -l<id>`, then computer-use once the owner returned and granted access): the app window itself, not just its content, twice went to a state where a screenshot of the app process showed **only the menu bar over black/the desktop** — no chrome, no panes, window content entirely blank — for roughly 1 s, then it recovered to normal size and content on its own. Both times it coincided with a calibration step's toolbar transition (busy → idle, the toolbar's centre display and primary-action button swapping content, e.g. after Origin calibration finished and R–Q rotation's own busy state hadn't yet drawn). A click issued during the blank state still reached the app — the Output log shows the ellipse-fit action ran twice from what looked like one click, meaning input kept landing while the window drew nothing. Not the same shape as a `.zIndex`/`.offset` stacking bug (grepped `WorkspaceView.swift`/`ContentView.swift`, nothing found there); more consistent with a window-frame resize/redraw tied to `ideal-width budget` (ADR 035) recomputing on every toolbar content change and the window briefly rendering at the wrong size or an unbacked frame before settling. Not reproduced on command — happened twice in roughly 20 busy→idle transitions driven, both on the real dataset, never on the tiny demo fixture (whose operations finish in under a second, too fast to have caught this even if it also happens there). Owner: Gate D — the cause is not established, this is a mechanism guess from correlation, not a proven diagnosis; needs a deliberate repro attempt (drive several busy→idle transitions on a real dataset, screen-record rather than discrete screenshots) before any fix, and `WorkspaceView.swift`/`ContentView.swift` are Frozen Shell regardless. 2026-09-22 night: the path this lead named — the ideal-width budget (ADR 035) recomputing on every toolbar content change — was deleted this session (the floor is now a fixed derived constant, not a per-change recompute); not re-tested on a real cube, so the lead stays open rather than closed by this change.
 **B — the Stop/Cancel wording and the "collapsed" look — FIXED same night, `bcb3845`.** Repeated finding C from 2026-09-22 afternoon (asked once, not answered; asked again, unprompted, that night) — two asks was treated as the answer. Both "Stop" buttons (`WorkspaceView.swift`'s toolbar `operationProgress` and the bottom infobar's `runReadout`) renamed to "Cancel"; the toolbar one also given an icon (`Label` + `.bordered`) matching its sibling toolbar buttons, which is what had read as "collapsed" — a bare unstyled text button beside icon buttons. Frozen Shell (ADR 035) touched on his direct, live request, treated as the required acceptance. Unverified on screen — his own rebuild owed.
 **C — "i cant see the liquid glas" — addressed, not necessarily closed, `9fa7e4e`.** Asked back first: he confirmed the capsule and its selection pill DO render (rules out a `#available`/Reduce Transparency failure — both checked: this machine runs macOS 27, `reduceTransparency` reads 0) but read as flat, not glass. Fourth build of this exact row today (two glass pills, one capsule, now a rim + shadow) — added a hairline stroke and a depth shadow rather than guess at the glass material itself a fifth time, since another wrong guess costs a full rebuild-relaunch-report cycle. May not be enough; his own verdict owed before calling this done.
+
+### macOS 27 floor: a clipped pane at the window minimum, two kit gaps — added 2026-09-22 night
+Driven at the 915-pt floor (`--demo-fixture`, System Events resize): the right image pane ("Virtual detector") reads clipped under the inspector column. New observation, NOT diagnosed — may be the same family as "a weird overlap" above, or a plain layout-math gap in the new derived floor; not established either way. Also unbuilt in the card kit (`UI/InspectorRows.swift`): no adaptive `Menu` (Add Phase still hand-rolled), no tinted warning note (orange captions stay hand-rolled, outside the kit's `InspectorStatusRow`/`InspectorAdaptiveButton` vocabulary). Owner: Gate D on the clipped pane once reproduced; the two kit gaps are scoped work, not bugs.
 
 ### One column, three alignments — SEEN 2026-09-21, Prepare
 "Compute Mean / Max" sits flush right (`InspectorActionRow`), "Measure Origin & Probe" / "Fit Detector Ellipse" flush left (bare buttons in a section), "Manual 0 / Unit per pixel" in the label column, "Not set" floating mid-row. Pixelmator's rule is one alignment per panel: label left, control right, value far right, buttons full width. Design, not a patch.
@@ -638,17 +641,6 @@ running in September). The retired checklist's trap notes are in
 screen: the six `status.md` rows marked unverified, light appearance, every
 divider, a real load cancel, the bounded promote run. Owner: C3, one sitting.
 
-### macOS 14–25 is supported and has never been run there (2026-09-04)
-Floor lowered 2026-09-04 (`decisions.md`): `MACOSX_DEPLOYMENT_TARGET` 14.0 in
-all four configurations, `Package.swift` `.macOS(.v14)`; two cosmetic symbols
-behind `#available` (`ToolbarSpacer`, `.pointerStyle(.columnResize)`); macOS
-13 is unreachable (`@Observable`). Established by building at 15.0, 14.0 and
-13.0. Published as macOS 14+ from v2.5.1: a true statement about the
-artefact's floor, not a claim every version was exercised. **The live gap:
-no machine or VM here runs below 26**, so 14–25 is compile-verified and never
-executed; a VM would close it and needs ~40 GB. `tools/package-test`'s floor
-assertion is derived from the project, so it no longer flags a floor change.
-
 ### Residency `.automatic` cannot be re-measured without a second machine (2026-08-19)
 Dropped by decision (v2 S3), not dormant — do not set
 `ResidencyAdmission.measuredWorkingSetFraction`. The three checked-in
@@ -776,16 +768,6 @@ added.
 "Reopen" dead-ending in "No recoverable dataset." The separate multi-window
 recents clobber was fixed 2026-09-21 by sharing one `RecentDatasets` owner
 between Settings and every dataset window. Owner: unclaimed.
-
-### Legacy `.icns` tops out at 256 px — reopened 2026-09-07 (the floor is 14)
-Called moot on 2026-09-04 because the floor was 26; the floor is 14 since
-v2.5.1 (`decisions.md`, 2026-09-04), so the reasoning inverts. On macOS 26+
-Get Info, Quick Look and large Finder icon views render from the `.icon`
-source; below 26 they render from the legacy `.icns`, whose largest
-representation is 256 px, so a 512/1024 px icon view shows an upscaled icon
-there. Cosmetic; never observed (no machine here runs below 26). Fix: a full
-legacy PNG set (16–1024 px, @1x/@2x) in the `.icns`. Owner: unclaimed;
-verify on the first report from an older system, or in the VM above.
 
 ### Resident/streaming residuals (2026-09-02)
 `releaseResident()`'s "freed" claim is asserted by a derived byte count,

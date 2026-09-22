@@ -263,11 +263,11 @@ again and no flag selects it. Six rules, the first three enforced by
 
 ## Requirements, build, test
 
-- macOS 14+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 14.0` in every
-  build configuration and `.macOS(.v14)` in `Package.swift`, lowered from 26
-  on 2026-09-04 (`decisions.md`); 14–25 is compile-verified and has never
-  been executed here. Xcode 26 or later — development is on 27.0, CI on
-  macos-26. No separately installed HDF5.
+- macOS 27+ on Apple Silicon — `MACOSX_DEPLOYMENT_TARGET = 27.0` in every
+  build configuration and `.macOS("27.0")` in `Package.swift`, raised from
+  14 on 2026-09-22 (`decisions.md` 008); v3.0.0's artefact (floor 14) stays
+  downloadable for older systems. Xcode 27 or later — development is on
+  27.0, CI on macos-26. No separately installed HDF5.
 - Build: open `mac4DSTEM.xcodeproj`, scheme `mac4DSTEM`, `⌘R`; or
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
   Tools resolve their own toolchain via `tools/lib/developer-dir.sh`

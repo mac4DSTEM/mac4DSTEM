@@ -376,7 +376,7 @@ struct ColormapChip<Chip: View>: View {
     }
 
     /// `Colormaps.swatch` returns `NSImage`, and the project targets macOS
-    /// only (`Package.swift`: `platforms: [.macOS(.v14)]`), so there is no
+    /// only (`Package.swift`: `platforms: [.macOS("27.0")]`), so there is no
     /// platform split to make here.
     private func swatch(_ kind: ColormapKind) -> some View {
         Image(nsImage: Colormaps.swatch(kind))

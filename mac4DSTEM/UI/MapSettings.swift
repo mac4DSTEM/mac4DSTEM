@@ -24,7 +24,7 @@ struct MapSettings: View {
         Group {
             switch appState.navigation.analysisMode {
             case .disks:
-                InspectorSection("Disk detection") {
+                InspectorSection("Disk detection", systemImage: "circle.grid.cross") {
                     DiskDetectionRows()
                 }
                 AdvancedDiskDetectionSection()
@@ -74,10 +74,8 @@ private struct DiskDetectionRows: View {
         @Bindable var learned = appState.learnedDetection
 
         InspectorActionRow {
-            Button {
+            InspectorAdaptiveButton("Generate Probe Kernel", systemImage: "circle.circle") {
                 Task { await appState.generateProbeKernel() }
-            } label: {
-                Label("Generate Probe Kernel", systemImage: "circle.circle")
             }
             .disabled(appState.isBusy)
             .accessibilityIdentifier("disk.generateSyntheticKernel")
@@ -95,32 +93,32 @@ private struct DiskDetectionRows: View {
         }
 
         InspectorActionRow {
-            Button {
+            InspectorAdaptiveButton(
+                "Use Current CBED / ROI", systemImage: "scope",
+                help: "Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern."
+            ) {
                 Task { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
-            } label: {
-                Label("Use Current CBED / ROI", systemImage: "scope")
             }
             .disabled(appState.isBusy || appState.displayedPattern == nil)
             .accessibilityIdentifier("disk.generateMeasuredKernel")
-            .help("Select a vacuum point or real-space ROI, then build the disk-correlation kernel from its displayed diffraction pattern.")
 
-            Button {
+            InspectorAdaptiveButton(
+                "Use File's Probe", systemImage: "doc.viewfinder",
+                help: "Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none."
+            ) {
                 Task { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
-            } label: {
-                Label("Use File's Probe", systemImage: "doc.viewfinder")
             }
             .disabled(appState.isBusy)
             .accessibilityIdentifier("disk.generateFileProbeKernel")
-            .help("Build the kernel from a probe image stored in the file (py4DSTEM's probe or probe_template) on this detector grid. The status bar says when the file carries none.")
 
-            Button {
+            InspectorAdaptiveButton(
+                "Vacuum Scan…", systemImage: "square.stack.3d.up",
+                help: "Build the kernel from a SEPARATE vacuum scan file — the fix for a sample with no vacuum region in frame. Its mean pattern is the probe; it must be on the same detector as the loaded data."
+            ) {
                 showVacuumImporter = true
-            } label: {
-                Label("Vacuum Scan…", systemImage: "square.stack.3d.up")
             }
             .disabled(appState.isBusy || !appState.hasDataset)
             .accessibilityIdentifier("disk.generateVacuumProbeKernel")
-            .help("Build the kernel from a SEPARATE vacuum scan file — the fix for a sample with no vacuum region in frame. Its mean pattern is the probe; it must be on the same detector as the loaded data.")
             .fileImporter(
                 isPresented: $showVacuumImporter,
                 allowedContentTypes: datasetTypes,
@@ -179,14 +177,14 @@ private struct DiskDetectionRows: View {
 
         if learned.canCompare {
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton(
+                    "Compare Detectors", systemImage: "arrow.left.arrow.right",
+                    help: "Publish a scan map of the peaks the neural net and the classical detector do not share at each position, paired within 2 px. Appears once Detect All Disks has run with each detector on this dataset."
+                ) {
                     appState.runDiskDisagreement()
-                } label: {
-                    Label("Compare Detectors", systemImage: "arrow.left.arrow.right")
                 }
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("disk.compareDetectors")
-                .help("Publish a scan map of the peaks the neural net and the classical detector do not share at each position, paired within 2 px. Appears once Detect All Disks has run with each detector on this dataset.")
             }
         }
 
@@ -302,32 +300,32 @@ private struct DiskCentreLabelsRows: View {
         .accessibilityIdentifier("disk.labels.total")
 
         InspectorActionRow {
-            Button {
+            InspectorAdaptiveButton(
+                "Clear This Position", systemImage: "xmark.circle",
+                help: "Remove every hand-clicked centre at the current scan position."
+            ) {
                 labels.clear(ry: ry, rx: rx)
-            } label: {
-                Label("Clear This Position", systemImage: "xmark.circle")
             }
             .disabled(thisPosition == 0)
             .accessibilityIdentifier("disk.labels.clearPosition")
-            .help("Remove every hand-clicked centre at the current scan position.")
 
-            Button {
+            InspectorAdaptiveButton(
+                "Save to Sidecar", systemImage: "square.and.arrow.down",
+                help: "Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration."
+            ) {
                 appState.saveCalibrationToSessionSidecar()
-            } label: {
-                Label("Save to Sidecar", systemImage: "square.and.arrow.down")
             }
             .disabled(labels.isEmpty)
             .accessibilityIdentifier("disk.labels.save")
-            .help("Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration.")
 
-            Button {
+            InspectorAdaptiveButton(
+                "Export Labels…", systemImage: "square.and.arrow.up",
+                help: "Write the current labels to a standalone file under Documents/mac4DSTEM/disk-labels/, in the JSON tools/disk-detector/label_centres.py writes."
+            ) {
                 _ = appState.exportDiskCentreLabels()
-            } label: {
-                Label("Export Labels…", systemImage: "square.and.arrow.up")
             }
             .disabled(labels.isEmpty)
             .accessibilityIdentifier("disk.labels.export")
-            .help("Write the current labels to a standalone file under Documents/mac4DSTEM/disk-labels/, in the JSON tools/disk-detector/label_centres.py writes.")
         }
     }
 }
@@ -350,7 +348,7 @@ private struct AdvancedDiskDetectionSection: View {
     }
 
     var body: some View {
-        InspectorSection("Advanced detection", expanded: $showsAdvanced) {
+        InspectorSection("Advanced detection", systemImage: "slider.horizontal.3", expanded: $showsAdvanced) {
             // These are py4DSTEM algorithm kwargs without a physical unit:
             // keep them together behind the remembered Advanced disclosure.
             AdjustmentSlider(
@@ -499,10 +497,8 @@ private struct AdvancedDiskDetectionSection: View {
             InspectorNote("Changes update the rings on the current CBED. Run the toolbar's full-scan action to apply them to strain and ACOM.")
 
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton("Reset Recommended Settings", systemImage: "arrow.counterclockwise") {
                     showsResetConfirmation = true
-                } label: {
-                    Label("Reset Recommended Settings", systemImage: "arrow.counterclockwise")
                 }
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("disk.resetParameters")
@@ -531,7 +527,7 @@ private struct StrainSection: View {
 
     var body: some View {
         @Bindable var strain = appState.strain
-        InspectorSection("Strain") {
+        InspectorSection("Strain", systemImage: "arrow.up.left.and.arrow.down.right") {
             failureRemedy
 
             InspectorRow("Reference") {
@@ -572,10 +568,10 @@ private struct StrainSection: View {
             }
 
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton(
+                    "Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right", prominent: true
+                ) {
                     Task { await appState.runStrainMapping() }
-                } label: {
-                    Label("Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
                 // C4(a): was `appState.isBusy || !appState.hasCurrentBraggVectors`
                 // — `hasCurrentBraggVectors` is exactly the readiness this button
@@ -668,8 +664,10 @@ private struct StrainSection: View {
                 InspectorNote("Indexing needs the direct beam plus two more reflections. "
                      + "Lower the detection thresholds, not the reference.")
                 InspectorActionRow {
-                    Button("Go to Bragg Disks") { appState.changeMode(.disks) }
-                        .accessibilityIdentifier("strain.remedy.disks")
+                    InspectorAdaptiveButton("Go to Bragg Disks", systemImage: "circle.grid.cross") {
+                        appState.changeMode(.disks)
+                    }
+                    .accessibilityIdentifier("strain.remedy.disks")
                 }
             }
             .accessibilityElement(children: .contain)
@@ -685,7 +683,7 @@ private struct StrainSection: View {
                          + "mixes regions with different lattices — pick an "
                          + "unstrained region instead.")
                     InspectorActionRow {
-                        Button("Use the current ROI as the reference") {
+                        InspectorAdaptiveButton("Use the current ROI as the reference", systemImage: "viewfinder") {
                             appState.strain.referenceMode = .selectedRegion
                         }
                         .accessibilityIdentifier("strain.remedy.useROI")
@@ -763,7 +761,7 @@ private struct ACOMSections: View {
 
     var body: some View {
         @Bindable var session = appState.acomSession
-        InspectorSection("ACOM (orientation)") {
+        InspectorSection("ACOM (orientation)", systemImage: "atom") {
             // Session S5 (owner's product decision): Materials Project is the
             // default phase source; the built-in library and "Custom
             // cubic…" are no longer offered here — see the doc comment on
@@ -780,17 +778,13 @@ private struct ACOMSections: View {
             }
 
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton("Materials Project…", systemImage: "network") {
                     showMaterialsProjectSheet = true
-                } label: {
-                    Label("Materials Project…", systemImage: "network")
                 }
                 .accessibilityIdentifier("acom.materialsProject")
 
-                Button {
+                InspectorAdaptiveButton("Import CIF…", systemImage: "square.and.arrow.down") {
                     showCIFImporter = true
-                } label: {
-                    Label("Import CIF…", systemImage: "square.and.arrow.down")
                 }
                 .accessibilityIdentifier("acom.importCIF")
             }
@@ -852,7 +846,7 @@ private struct ACOMSections: View {
                 // The sentence wraps as a caption; the button stays short.
                 InspectorNote(suggestion)
                 InspectorActionRow {
-                    Button("Use Full Scan") {
+                    InspectorAdaptiveButton("Use Full Scan", systemImage: "square.grid.3x3") {
                         appState.acomSession.scope = .fullScan
                     }
                     .disabled(appState.isBusy)
@@ -861,12 +855,12 @@ private struct ACOMSections: View {
             }
         }
 
-        InspectorSection("Engine & Q scale", expanded: $showsEngine) {
+        InspectorSection("Engine & Q scale", systemImage: "gearshape", expanded: $showsEngine) {
             engineControls
             qScaleControls
         }
 
-        InspectorSection("Result") {
+        InspectorSection("Result", systemImage: "map") {
             prerequisiteStatus
             resultControls
         }
@@ -1046,7 +1040,7 @@ private struct ACOMSections: View {
         // unconditional: when the scale is *not* physical is exactly when a
         // user most needs to be told where to fix it.
         InspectorActionRow {
-            Button("Review Q Calibration in Prepare") {
+            InspectorAdaptiveButton("Review Q Calibration in Prepare", systemImage: "checkmark.seal") {
                 appState.selectWorkspace(.prepare)
             }
             .accessibilityIdentifier("acom.reviewQCalibration")

@@ -15,7 +15,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 005 | Inventory is the review | 09-02 | live |
 | 006 | py4DSTEM pin and DEVIATION notes | 09-03, 09-14 | live |
 | 007 | Versioning and release naming | 09-02, 09-03, 09-11 | live |
-| 008 | macOS floor and arm64-only | 09-04, 09-11 | live |
+| 008 | macOS floor and arm64-only | 09-04, 09-11, 09-22 | live (floor raised 14→27 09-22; v3.0.0 stays for older systems) |
 | 009 | UI contract | 09-03, 09-04, 09-07 | live (09-03 AppKit superseded) |
 | 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `window-design.md` §6) |
 | 011 | Status strip readouts | 09-04, 09-12 | live (09-04 narrowed; throughput and the Performance rows moved to the Run tab by 034, 09-21) |
@@ -44,7 +44,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 034 | Bottom workspace holds live state; the inspector holds durable state (Xcode utility-pane form) | 09-21, amended 09-22 twice | live state split; Run tab folded into the infobar, two panes (036) |
 | 035 | Frozen shell; width budget at the ideal columns; no toolbar title | 09-22 | live |
 | 036 | The toolbar carries the room (file + live run display in the centre; run/stop, Save, Reveal, dataset menu over the room; only the toggle over the inspector); breadcrumb row removed; infobar 28 pt | 09-22 evening | live (supersedes §6.2 of the morning) |
-| 037 | Inspector rooms are `GroupBox` cards; Prepare the reference; always-open cards, Advanced as a disclosure row | 09-22 evening, rebuilt the same night | reversed 09-22 afternoon: one kit (`InspectorRows`) for all rooms first, improve together |
+| 037 | Inspector rooms are `GroupBox` cards; Prepare the reference; always-open cards, Advanced as a disclosure row | 09-22 evening, rebuilt the same night, realized in the kit 09-22 night | live: cards built into `InspectorRows` itself (`InspectorSection`/`InspectorGroup`), applied to all six rooms |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

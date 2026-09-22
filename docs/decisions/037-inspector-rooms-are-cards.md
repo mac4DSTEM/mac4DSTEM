@@ -30,6 +30,18 @@ disclosure row.
 Prepare is the reference room; no other room converts until the owner has
 driven it. When every room is converted, `InspectorRows.swift` goes.
 
+**Amended 2026-09-22 night:** cards landed after all, but built into the
+kit rather than beside it — `InspectorSection` (`UI/InspectorRows.swift`)
+is now the `GroupBox` card itself (headline header, optional
+`systemImage:`, collapse state still kept by `sceneStorageKey`),
+`InspectorGroup` a headerless card, plus new `InspectorAdaptiveButton`
+(`ViewThatFits` full label → icon-only, words on `.help`) and
+`InspectorStatusRow`. Applied to all six rooms in one pass (Strain & ACOM,
+Phase, Imaging, diffraction groups, phase mapping, Results, Info). Prepare's
+uncommitted card draft became the kit; `classicBody` deleted. Gaps: no
+adaptive `Menu`, no tinted warning note. Only Prepare/toolbar/floor were
+driven on screen; the rest is unverified (`docs/status.md`).
+
 ## Why
 
 The owner's reading of the 2026-09-21 restyle ("cramped, three

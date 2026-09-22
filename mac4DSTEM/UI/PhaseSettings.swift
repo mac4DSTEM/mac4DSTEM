@@ -59,7 +59,7 @@ private struct DPCSettingsSection: View {
     var body: some View {
         @Bindable var appState = appState
         @Bindable var dpc = appState.dpc
-        InspectorSection("DPC & iDPC") {
+        InspectorSection("DPC & iDPC", systemImage: "arrow.up.and.down.and.arrow.left.and.right") {
             // S22b (O2): status first — what running DPC will produce NOW —
             // then the display choice, then the per-mode detail.
             if appState.idpcPhysicalCalibration != nil {
@@ -88,7 +88,7 @@ private struct DPCSettingsSection: View {
                 // The remedy lives in Prepare; take the user there instead of
                 // describing the journey.
                 InspectorActionRow {
-                    Button("Open Prepare to Calibrate") {
+                    InspectorAdaptiveButton("Open Prepare to Calibrate", systemImage: "arrow.right.circle") {
                         appState.selectWorkspace(.prepare)
                     }
                     .accessibilityIdentifier("dpc.openPrepare")
@@ -152,7 +152,7 @@ private struct SingleslicePtychographySection: View {
     var body: some View {
         @Bindable var ptychography = appState.ptychography
         let isGradientDescent = ptychography.method == .gradientDescent
-        InspectorSection("Single-slice ptychography") {
+        InspectorSection("Single-slice ptychography", systemImage: "circle.hexagongrid") {
             InspectorRow("Method") {
                 Picker("Method", selection: $ptychography.method) {
                     ForEach(SingleslicePtychographyMethod.allCases) { method in
@@ -162,16 +162,16 @@ private struct SingleslicePtychographySection: View {
                 .labelsHidden()
             }
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton(
+                    "Reconstruct Object", systemImage: "circle.hexagongrid", prominent: true,
+                    help: "Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine."
+                ) {
                     Task { await appState.runSingleslicePtychography() }
-                } label: {
-                    Label("Reconstruct Object", systemImage: "circle.hexagongrid")
                 }
                 .disabled(!ProductWorkflow.mayRun(
                     .singleslicePtychography,
                     readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
                 ))
-                .help("Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine.")
             }
             DisclosureGroup("Advanced ptychography", isExpanded: $showsAdvanced) {
             InspectorRow("Iterations") {
@@ -308,10 +308,10 @@ private struct ParallaxStageSections: View {
         @Bindable var phaseContrast = appState.phaseContrast
         stageSection(1, "Prepare preview") {
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton(
+                    "Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle", prominent: true
+                ) {
                     Task { await appState.prepareParallaxPreview() }
-                } label: {
-                    Label("Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle")
                 }
                 // C4(a): was `appState.isBusy` only — this entry point bypassed
                 // the same five-calibration gate the toolbar asks for
@@ -325,39 +325,41 @@ private struct ParallaxStageSections: View {
         }
         stageSection(2, "Align bright-field stack") {
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton(
+                    "Align Next Level", systemImage: "align.horizontal.center", prominent: true,
+                    help: "Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation."
+                ) {
                     Task { await appState.alignParallaxNextLevel() }
-                } label: {
-                    Label("Align Next Level", systemImage: "align.horizontal.center")
                 }
                 .disabled(
                     appState.isBusy
                         || appState.phaseContrast.parallaxPreprocess == nil
                         || appState.phaseContrast.parallaxAlignment?.isComplete == true
                 )
-                .help("Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation.")
 
                 if appState.phaseContrast.parallaxAlignment != nil {
-                    Button("Reset Alignment") {
+                    InspectorAdaptiveButton(
+                        "Reset Alignment", systemImage: "arrow.uturn.backward.circle",
+                        help: "Discard completed alignment levels and return to the immutable preprocessed preview."
+                    ) {
                         showsResetAlignmentConfirmation = true
                     }
                     .disabled(appState.isBusy)
-                    .help("Discard completed alignment levels and return to the immutable preprocessed preview.")
                 }
             }
         }
         stageSection(3, "Fit and correct phase") {
             InspectorActionRow {
-                Button {
+                InspectorAdaptiveButton(
+                    "Fit Aberrations", systemImage: "waveform.path", prominent: true,
+                    help: "Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration."
+                ) {
                     appState.fitParallaxAberrations()
-                } label: {
-                    Label("Fit Aberrations", systemImage: "waveform.path")
                 }
                 .disabled(
                     appState.isBusy
                         || appState.phaseContrast.parallaxAlignment?.isComplete != true
                 )
-                .help("Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration.")
             }
             if appState.phaseContrast.parallaxHigherOrderFit != nil {
                 InspectorRow("Low-pass") {
@@ -379,13 +381,13 @@ private struct ParallaxStageSections: View {
                     .labelsHidden()
                 }
                 InspectorActionRow {
-                    Button {
+                    InspectorAdaptiveButton(
+                        "Correct Phase", systemImage: "wand.and.stars",
+                        help: "Applies the fitted even/odd aberration CTF. Zero cutoff values disable the corresponding Butterworth filter."
+                    ) {
                         Task { await appState.correctParallaxPhase() }
-                    } label: {
-                        Label("Correct Phase", systemImage: "wand.and.stars")
                     }
                     .disabled(appState.isBusy)
-                    .help("Applies the fitted even/odd aberration CTF. Zero cutoff values disable the corresponding Butterworth filter.")
                 }
             }
         }
@@ -440,13 +442,13 @@ private struct ParallaxStageSections: View {
                     }
                 }
                 InspectorActionRow {
-                    Button {
+                    InspectorAdaptiveButton(
+                        "Upsample BF", systemImage: "arrow.up.left.and.arrow.down.right",
+                        help: "Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels."
+                    ) {
                         Task { await appState.upsampleParallaxBF() }
-                    } label: {
-                        Label("Upsample BF", systemImage: "arrow.up.left.and.arrow.down.right")
                     }
                     .disabled(appState.isBusy)
-                    .help("Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels.")
                 }
             }
             if appState.phaseContrast.parallaxHigherOrderFit != nil {
@@ -500,10 +502,8 @@ private struct ParallaxStageSections: View {
                     }
                 }
                 InspectorActionRow {
-                    Button {
+                    InspectorAdaptiveButton("Compute Depth Stack", systemImage: "square.3.layers.3d") {
                         Task { await appState.computeParallaxDepthSections() }
-                    } label: {
-                        Label("Compute Depth Stack", systemImage: "square.3.layers.3d")
                     }
                     .disabled(appState.isBusy)
                 }
@@ -639,7 +639,7 @@ private struct ParallaxRunDetailsSection: View {
 
     var body: some View {
         if let preview = appState.phaseContrast.parallaxPreprocess {
-            InspectorSection("Run details", expanded: $showsRunDetails) {
+            InspectorSection("Run details", systemImage: "list.bullet.rectangle", expanded: $showsRunDetails) {
                 InspectorValueRow("BF detector pixels",
                                    "\(preview.brightFieldPixelCount)")
                 InspectorValueRow(
@@ -676,7 +676,7 @@ private struct ParallaxRunDetailsSection: View {
                 for: .ptychography,
                 readiness: appState.productWorkflowReadiness
             )
-            InspectorSection("Run details") {
+            InspectorSection("Run details", systemImage: "list.bullet.rectangle") {
                 if missingForPtycho.isEmpty {
                     InspectorNote("All reconstruction requirements are met.")
                 } else {

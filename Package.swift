@@ -12,7 +12,7 @@ import PackageDescription
 
 let package = Package(
     name: "mac4DSTEM",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS("27.0")],
     products: [
         .library(name: "DSTEMCore", targets: ["DSTEMCore"]),
         .library(name: "DSTEMSession", targets: ["DSTEMSession"]),

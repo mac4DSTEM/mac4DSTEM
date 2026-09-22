@@ -2,10 +2,10 @@
 //  DiffractionGroupsSettings.swift
 //  Role: the classical diffraction-grouping panel (docs/ai-ml/README.md §6) —
 //        run controls for `DiffractionEmbedding`'s PCA + k-means baseline,
-//        and a readout of what the last run found. A bare `Section` for the
-//        caller's grouped `Form`, matching `ImagingSettings`'/`MapSettings`'
-//        style. Mounted by `AIAnalysisSettings`, the sixth workspace's panel
-//        (owner, 2026-09-11, `docs/decisions.md`).
+//        and a readout of what the last run found. An `InspectorSection`
+//        card, matching `ImagingSettings`'/`MapSettings`' style (one kit for
+//        all rooms). Mounted by `AIAnalysisSettings`, the sixth workspace's
+//        panel (owner, 2026-09-11, `docs/decisions.md`).
 //
 
 import SwiftUI
@@ -18,57 +18,66 @@ struct DiffractionGroupsSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        Section("Diffraction groups") {
-            Picker("Binned size", selection: binnedSizeBinding(appState)) {
-                Text("8 × 8").tag(8)
-                Text("16 × 16").tag(16)
-                Text("32 × 32").tag(32)
+        InspectorSection("Diffraction groups", systemImage: "circle.grid.3x3") {
+            InspectorRow("Binned size") {
+                Picker("Binned size", selection: binnedSizeBinding(appState)) {
+                    Text("8 × 8").tag(8)
+                    Text("16 × 16").tag(16)
+                    Text("32 × 32").tag(32)
+                }
+                .labelsHidden()
+                .help("Each diffraction pattern is log-scaled, per-pattern normalised, "
+                      + "and box-binned to this many pixels per side before grouping.")
+                .accessibilityIdentifier("groups.binnedSize")
             }
-            .help("Each diffraction pattern is log-scaled, per-pattern normalised, "
-                  + "and box-binned to this many pixels per side before grouping.")
-            .accessibilityIdentifier("groups.binnedSize")
 
-            Stepper(
-                value: intBinding(appState, \.components, in: 2...32),
-                in: 2...32
-            ) {
-                Text("Components  \(appState.diffractionGroups.settings.components)")
+            InspectorRow("Components") {
+                Stepper(
+                    value: intBinding(appState, \.components, in: 2...32),
+                    in: 2...32
+                ) {
+                    Text("\(appState.diffractionGroups.settings.components)")
+                }
+                .help("Principal components kept from the box-binned patterns.")
+                .accessibilityIdentifier("groups.components")
             }
-            .help("Principal components kept from the box-binned patterns.")
-            .accessibilityIdentifier("groups.components")
 
-            Stepper(
-                value: intBinding(appState, \.groups, in: 2...32),
-                in: 2...32
-            ) {
-                Text("Groups  \(appState.diffractionGroups.settings.groups)")
+            InspectorRow("Groups") {
+                Stepper(
+                    value: intBinding(appState, \.groups, in: 2...32),
+                    in: 2...32
+                ) {
+                    Text("\(appState.diffractionGroups.settings.groups)")
+                }
+                .help("k-means group count over the principal-component coordinates.")
+                .accessibilityIdentifier("groups.groups")
             }
-            .help("k-means group count over the principal-component coordinates.")
-            .accessibilityIdentifier("groups.groups")
 
-            Button {
-                Task { await appState.runDiffractionGroups() }
-            } label: {
+            InspectorActionRow {
                 // "Group Patterns", matching the toolbar's primary action for
                 // this task (`WorkspaceView.primaryActionTitle`) and every
                 // other toolbar verb — "Detect All Disks", "Compute Strain",
                 // "Update Image". The two spellings of one action read as two
                 // actions (owner's drive 2026-09-06, `drive-groups` defect 7).
-                Label("Group Patterns", systemImage: "circle.grid.3x3")
-            }
-            .disabled(appState.isBusy || appState.descriptor == nil)
-            .help("Run PCA and k-means over every scan position's diffraction pattern.")
-            .accessibilityIdentifier("groups.run")
+                InspectorAdaptiveButton(
+                    "Group Patterns", systemImage: "circle.grid.3x3", prominent: true,
+                    help: "Run PCA and k-means over every scan position's diffraction pattern."
+                ) {
+                    Task { await appState.runDiffractionGroups() }
+                }
+                .disabled(appState.isBusy || appState.descriptor == nil)
+                .accessibilityIdentifier("groups.run")
 
-            Button {
-                appState.showSimilarityToCurrentPosition()
-            } label: {
-                Label("Find similar to current position", systemImage: "wand.and.rays")
+                InspectorAdaptiveButton(
+                    "Find similar to current position", systemImage: "wand.and.rays",
+                    help: "Cosine-similarity map to the diffraction pattern at the currently "
+                          + "selected scan position, against the last grouping result."
+                ) {
+                    appState.showSimilarityToCurrentPosition()
+                }
+                .disabled(appState.isBusy || appState.diffractionGroups.result == nil)
+                .accessibilityIdentifier("groups.similarity")
             }
-            .disabled(appState.isBusy || appState.diffractionGroups.result == nil)
-            .help("Cosine-similarity map to the diffraction pattern at the currently "
-                  + "selected scan position, against the last grouping result.")
-            .accessibilityIdentifier("groups.similarity")
 
             // The reference the similarity map was computed against, named
             // where the button that produces it is. `referencePosition` existed
@@ -78,9 +87,9 @@ struct DiffractionGroupsSection: View {
             // (owner's drive 2026-09-06, `drive-groups` defect 4).
             if let position = appState.diffractionGroups.referencePosition,
                let result = appState.diffractionGroups.result, result.scanWidth > 0 {
-                LabeledContent(
+                InspectorValueRow(
                     "Reference",
-                    value: "(\(position % result.scanWidth), \(position / result.scanWidth))"
+                    "(\(position % result.scanWidth), \(position / result.scanWidth))"
                 )
                 .accessibilityIdentifier("groups.referencePosition")
             }
@@ -104,16 +113,12 @@ struct DiffractionGroupsSection: View {
                 }
 
                 let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
-                Text("First 3 components explain \(String(format: "%.1f", firstThreePercent)) % of variance")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                InspectorNote("First 3 components explain \(String(format: "%.1f", firstThreePercent)) % of variance")
                     .accessibilityIdentifier("groups.explainedVariance")
 
                 let sizes = groupSizes(result)
-                Text("Group sizes: " + sizes.enumerated()
+                InspectorNote("Group sizes: " + sizes.enumerated()
                     .map { "\($0.offset): \($0.element)" }.joined(separator: ", "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                     .accessibilityIdentifier("groups.sizes")
 
                 // The run's own provenance. `publishProduct` writes all of it
@@ -124,11 +129,11 @@ struct DiffractionGroupsSection: View {
                 // the displayed product is whatever was published LAST (the
                 // similarity map, a virtual image) and need not be this run's.
                 if let ran = appState.diffractionGroups.lastRunSettings {
-                    Text("Run: \(ran.binnedSize) × \(ran.binnedSize) binned · "
+                    InspectorNote(
+                        "Run: \(ran.binnedSize) × \(ran.binnedSize) binned · "
                          + "\(result.componentCount) of \(ran.components) components · "
-                         + "k = \(result.groupCount) · seed \(ran.seed)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                         + "k = \(result.groupCount) · seed \(ran.seed)"
+                    )
                         .help("The settings this readout was computed with: the box-binned "
                               + "pattern size, the principal components actually kept (clamped "
                               + "down for a low-rank dataset), the k-means group count, and the "
@@ -142,10 +147,8 @@ struct DiffractionGroupsSection: View {
                 // saw three unexplained controls and two buttons and no hint at
                 // all (owner's drive 2026-09-06, `drive-groups` defect 6). This
                 // one is in the panel, where the emptiness actually is.
-                Text("No grouping yet. Run Group Patterns to sort every scan "
+                InspectorNote("No grouping yet. Run Group Patterns to sort every scan "
                      + "position's diffraction pattern into k groups.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                     .accessibilityIdentifier("groups.emptyHint")
             }
         }

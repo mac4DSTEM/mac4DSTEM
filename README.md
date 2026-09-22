@@ -46,9 +46,8 @@ gated against it, so results trace back to the reference implementation.
   not use v2.5.1 — its HDF5 support is broken.**
 - **Known limitations are stated, not left to be found.** Parallax and
   ptychography are untested on real data; VoiceOver is unsupported; the
-  `Quantitative` badge does not check the origin a result was computed from;
-  macOS 14–25 is compile-verified but never executed. All of them, and more,
-  are listed at the end of the v3.0.0 notes.
+  `Quantitative` badge does not check the origin a result was computed from.
+  All of them, and more, are listed at the end of the v3.0.0 notes.
 
 Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -92,10 +91,11 @@ Merlin MIB and EMPAD RAW readers are preview-grade. Current limitations:
 
 ## Requirements
 
-macOS 14 or later on Apple Silicon. Nothing else to install — every dependency
-ships inside the application.
+macOS 27 or later on Apple Silicon. Nothing else to install — every dependency
+ships inside the application. The v3.0.0 download (floor 14) stays available
+for older systems; the 27 floor gates releases after it.
 
-Development and testing happen on macOS 26. The build supports 14 and later —
+Development and testing happen on macOS 27. The build supports 27 and later —
 that is the enforced minimum, not a claim every version has been exercised — so
 if something misbehaves on an older system, a report with the version in it is
 especially useful.

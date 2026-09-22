@@ -9,12 +9,11 @@ notary-service credentials. Those secrets do not belong in the repository.
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
 - Version/build: `3.0.0` / `6`, shipped 2026-09-11. Previously `2.5.1` / `5` (2026-09-04; v2.5.0 was `2.5` / `4` the same day, build 3 its superseded 2026-09-03 artefact). A driven bug cuts v3.0.x, a landed science number v3.1.0 (`docs/decisions/007-versioning-and-release-naming.md`). v2.0.0 was named 2026-09-02, never built, superseded by v2.5.0
-- Minimum system: **macOS 14** (`MACOSX_DEPLOYMENT_TARGET = 14.0`,
-  `Package.swift: .macOS(.v14)`, lowered from 26 on 2026-09-04 —
-  `decisions.md`). Published as the requirement it is; development and testing
-  are on 26, and 14–25 has not been exercised on hardware. v2.5.0 shipped with
-  a 26.0 floor and cannot launch below it — the 14 floor reaches users only via
-  the v2.5.1 artefact
+- Minimum system: **macOS 27** (`MACOSX_DEPLOYMENT_TARGET = 27.0`,
+  `Package.swift: .macOS("27.0")`, raised from 14 on 2026-09-22 —
+  `decisions.md` 008). Published as the requirement it is; development and
+  testing are on 27. v3.0.0's artefact (floor 14) stays downloadable for
+  older systems — the raise gates only releases after it
 - **Apple Silicon only, and the artefact must prove it.** The three embedded
   HDF5 libraries are arm64-only and `Core/ML/LearnedDiskDetector.swift` uses
   `Float16`, which does not exist on x86_64 macOS. `ARCHS = arm64` at project
@@ -131,8 +130,8 @@ The script submits with `notarytool --wait`, staples and validates the ticket,
 runs Gatekeeper assessment, and produces `mac4DSTEM-<version>.zip`. Preserve the archive,
 notary submission ID/log, commit hash, and final SHA-256 together as release
 provenance. Test the ZIP on a clean account before publishing. The floor is
-macOS 14; the only account available here is 26, so an older system remains
-untested — a VM would close that and needs ~40 GB this machine has not got.
+macOS 27, matching this machine, so a clean-account test here covers the
+floor with no VM gap.
 
 ## The disk image users actually download
 

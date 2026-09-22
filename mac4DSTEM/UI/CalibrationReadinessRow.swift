@@ -17,6 +17,13 @@
 //  behaviour change, fixing `ExportSheet`'s copy to read `.ready(.fitAnyway)`
 //  as a warning the way `PrepareSettings`'s copy always did.
 //
+//  Card kit follow-up (2026-09-22, same night): `row`'s own `LabeledContent`
+//  is now built on `InspectorStatusRow` (`UI/InspectorRows.swift`) — the
+//  vocabulary's own shared status-line component, built for exactly this
+//  row's two failure modes (a detached, wrapping status word; a mid-word
+//  wrap on the status itself). Same visible output: the status word alone,
+//  fixed, trailing; kind name and detail leading, under the title.
+//
 
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -48,27 +55,19 @@ enum CalibrationReadinessRow {
         qScaleUnavailableReason: String
     ) -> some View {
         let isWarning = item.status == .ready(.fitAnyway)
-        LabeledContent {
-            Text(item.status.displayName)
-                .foregroundStyle(item.status.isReady && !isWarning ? Color.secondary : Color.orange)
-                .fixedSize()
-        } label: {
-            Label {
-                Text(item.kind.rawValue)
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-            } icon: {
-                Image(systemName: item.status.isReady
-                        ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .foregroundStyle(item.status.isReady ? Color.green : Color.orange)
-            }
-            // The calibrated value and its units — the scientific content of
-            // the row, on screen unconditionally, wrapping never truncating
-            // (S22d: the tail is the caveat). Inside a Form the label stacks
-            // and the caption wraps to the column on its own.
-            Text(item.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        let readyTint: Color = item.status.isReady ? .green : .orange
+        // `item.detail` (the calibrated value and its units — the scientific
+        // content of the row) is on screen unconditionally, wrapping never
+        // truncating (S22d: the tail is the caveat) — `InspectorStatusRow`'s
+        // `detail` parameter wraps by construction, being ordinary `Text`.
+        InspectorStatusRow(
+            title: item.kind.rawValue,
+            systemImage: item.status.isReady ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
+            tint: readyTint,
+            detail: item.detail,
+            status: item.status.displayName,
+            statusTint: item.status.isReady && !isWarning ? Color.secondary : Color.orange
+        )
         // `unlockSummary` says what this calibration *enables*: on hover and
         // in the accessibility description, not permanently under six rows.
         .help("\(item.detail)\n\n\(item.kind.unlockSummary)")

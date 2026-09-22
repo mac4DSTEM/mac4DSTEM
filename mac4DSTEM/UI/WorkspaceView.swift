@@ -875,11 +875,7 @@ struct SaveResultButton: View {
     }
 }
 
-/// `pointerStyle` is macOS 15+, and it was the second and last thing pinning
-/// this app to a high floor (2026-09-04). The resize cursor over a divider is
-/// a refinement: below 15 the divider still drags, it just does not change
-/// the pointer. A `ViewModifier` rather than an inline `if #available` so
-/// both branches keep a single concrete type. `.column` is the pane split's
+/// The resize cursor over a divider. `.column` is the pane split's
 /// left–right pair; `.row` is the infobar's up–down pair, added 2026-09-22
 /// because a bar the brief calls "draggable over its whole width" gave no
 /// sign of it (window-design.md §1).
@@ -888,13 +884,9 @@ private struct ResizePointer: ViewModifier {
     let axis: Axis
 
     func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            switch axis {
-            case .column: content.pointerStyle(.columnResize)
-            case .row: content.pointerStyle(.rowResize)
-            }
-        } else {
-            content
+        switch axis {
+        case .column: content.pointerStyle(.columnResize)
+        case .row: content.pointerStyle(.rowResize)
         }
     }
 }

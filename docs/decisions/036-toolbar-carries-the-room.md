@@ -44,6 +44,20 @@ The window's toolbar is Xcode's (owner, 2026-09-22 evening, `window-design.md`
   toggle. The toolbar's centre display then shows only the operation's
   name and elapsed while busy.
 
+**Amended 2026-09-22 night:** the centre display and trailing actions now
+carry `ToolbarContent.visibilityPriority` (macOS 26.1+; measured against the
+macOS 27 SwiftUI swiftinterface, `topBarPinnedTrailing` and
+`toolbarOverflowMenu` are `@available(macOS, unavailable)` — iOS/visionOS
+only) — the verb and dataset menu `.high`, Save and Reveal `.low`. Driven at
+a fixed 380-pt centre display: a 1000-pt window dropped the display and the
+surviving actions jumped to the leading edge; a `.high` spacer did not fix
+it (refuted); removing all priorities kept the display but overflowed every
+action. Fix: the display's width is now min 160 / max 380
+(`LayoutPolicy.toolbarDisplayMinimumWidth`, was the fixed
+`toolbarDisplayWidth`) — it shrinks with the window instead of the actions
+moving. Captured at 1200/1000/915: display present, actions trailing; at
+915 Save/Reveal overflow (`>>`).
+
 This supersedes §6.2 of the same morning (actions in the centre header) and
 010's "toolbar carries only window-level controls".
 

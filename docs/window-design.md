@@ -418,7 +418,7 @@ release is around the corner and this still looks bad." → the review of
 >    `@AppStorage` keys with no owner, sync sites between
 >    `WorkspaceNavigation` and views, AppKit or split-view classes,
 >    constants outside `LayoutPolicy`, availability guards that hide a
->    macOS 14 path nobody has run.
+>    pre-27 path nobody runs (the floor is 27 as of 2026-09-22).
 > 3. **The tests.** Which UI tests assert a constant rather than a
 >    behaviour; which would stay green if the view were deleted; which
 >    gates can fail silently. Count declarations against the log by the

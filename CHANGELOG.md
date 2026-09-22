@@ -6,6 +6,13 @@ Written as it lands, so the cut does not reconstruct it. Every item below
 passed the unit, core and inventory gates; "unverified on screen" means
 exactly that until the owner's drive says otherwise.
 
+- **macOS floor raised 14 → 27 (2026-09-22 night).** Owner: "don't care about older macOS, want
+  it good-looking, simple, future-proof." Every `#available` guard below 27 removed; v3.0.0's
+  artefact (floor 14) stays downloadable for older systems — the raise gates only releases after
+  it. The toolbar now uses `ToolbarContent.visibilityPriority` and a shrinking centre display; the
+  window's minimum size is a derived constant (`WindowAnatomyPolicy` retired); the card kit built
+  for Prepare landed in all six rooms. Driven: Prepare, the toolbar, the window floor; unverified: every other room, the Info tab, light mode.
+
 - **Known-variants phase classification (2026-09-21, experimental, unvalidated).** The rule from
   Thronsen et al.'s vector analysis — score every surviving vector against each phase's known
   variants, no floors — ships beside the search rule, off by default. Measuring it exposed that

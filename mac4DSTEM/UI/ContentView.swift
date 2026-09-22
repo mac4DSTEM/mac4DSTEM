@@ -40,16 +40,6 @@ struct ContentView: View {
 
     var body: some View {
         splitWindow
-        // The window's width feeds `WindowAnatomyPolicy` through the
-        // navigation seam; the side panels' on-screen state is derived from
-        // it there (intent AND fit) and never written back here.
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear { reportWindowWidth(geometry.size.width) }
-                    .onChange(of: geometry.size.width) { reportWindowWidth(geometry.size.width) }
-            }
-        }
         .onAppear {
             appState.navigation.showToolsPane = savedNavigatorVisible
             appState.navigation.showInspectorPane = savedInspectorVisible
@@ -162,11 +152,11 @@ struct ContentView: View {
         // again on the first phase-1 look (2026-09-22). Xcode's toolbar
         // carries no title either; its jump bar does.
         .navigationTitle(appState.descriptor?.fileName ?? "mac4DSTEM")
-        .modifier(ToolbarTitleRemoved())
+        .toolbar(removing: .title)
     }
 
-    /// What the split view shows is intent AND fit; what a click writes is
-    /// intent alone (`WorkspaceNavigation`).
+    /// What the split view shows and what a click writes are both intent
+    /// now (`WorkspaceNavigation`) — nothing narrows it further.
     private var inspectorPresented: Binding<Bool> {
         Binding(
             get: { appState.navigation.inspectorIsVisible },
@@ -194,13 +184,6 @@ struct ContentView: View {
         if arguments.contains("--process-area-open") { appState.navigation.showLogPane = true }
     }
 
-    /// The first layout pass can report zero, and a zero would collapse both
-    /// panels for a frame.
-    private func reportWindowWidth(_ width: CGFloat) {
-        guard width > 0 else { return }
-        appState.navigation.availableWindowWidth = width
-    }
-
     /// Only window-level controls live here. The split view supplies the
     /// leading navigator toggle; this trailing toggle survives closing the
     /// inspector. ⌥⌘0 and the existing ⌃⌘I menu item reach the same state.
@@ -223,30 +206,32 @@ struct ContentView: View {
         // `.automatic` and `.primaryAction` placement); declaring the toolbar
         // on the detail column did (see `splitWindow`). The spacer stays as
         // the new toolbar model's own separator between the centre display
-        // and this group. `ToolbarSpacer` is macOS 26+, which is why
-        // `ToolbarTitleRemoved` is guarded at 26 too: below it the title
-        // stays and the old layout holds.
-        if #available(macOS 26.0, *) {
-            ToolbarSpacer(.flexible, placement: .primaryAction)
-        }
+        // and this group.
+        ToolbarSpacer(.flexible, placement: .primaryAction)
         // The room's verb heads the trailing group, beside the actions on
         // its result and under the inspector where its parameters are set
         // (owner, 2026-09-22 evening, on his build: "the user changes the
         // parameters of the current workspace on the right" — the mock's
         // Xcode-Run position at the left was wrong for this app). Stop takes
-        // its place while a run is in flight.
+        // its place while a run is in flight. `visibilityPriority` says what
+        // overflows first when the window narrows: the run verb and the
+        // dataset switcher stay, Save/Reveal go into the overflow menu.
         ToolbarItem(placement: .primaryAction) {
             PrimaryActionButton()
         }
+        .visibilityPriority(.high)
         ToolbarItem(placement: .primaryAction) {
             SaveResultButton()
         }
+        .visibilityPriority(.low)
         ToolbarItem(placement: .primaryAction) {
             RevealDatasetButton()
         }
+        .visibilityPriority(.low)
         ToolbarItem(placement: .primaryAction) {
             DatasetMenu()
         }
+        .visibilityPriority(.high)
         // No inspector toggle here: it is the inspector's own (see
         // `.inspector` above).
     }
@@ -313,7 +298,8 @@ struct ToolbarRunDisplay: View {
                     .accessibilityIdentifier("toolbar.display.idle")
                 }
             }
-            .frame(width: LayoutPolicy.toolbarDisplayWidth)
+            .frame(minWidth: LayoutPolicy.toolbarDisplayMinimumWidth,
+                   maxWidth: LayoutPolicy.toolbarDisplayWidth)
         }
     }
 
@@ -339,21 +325,5 @@ enum ToolbarDisplayFormat {
     /// window's subject), the room, then the scan size.
     static func idle(file: String, room: String, positions: Int) -> String {
         "\(file) · \(room) · \(SystemMonitor.count(positions)) positions"
-    }
-}
-
-/// `ToolbarDefaultItemKind.title` is macOS 15+ and the build floor is 14
-/// (ADR 008), so the removal is a refinement in the `ResizePointer` shape.
-/// Guarded at 26, not 15: the trailing-edge layout without a title was
-/// measured only on macOS 27 with the toolbar declared on the detail column
-/// (`splitWindow`); below 26 the toolbar keeps drawing the title beside the
-/// breadcrumb rather than risk misplaced toggles on an unmeasured OS.
-private struct ToolbarTitleRemoved: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content.toolbar(removing: .title)
-        } else {
-            content
-        }
     }
 }

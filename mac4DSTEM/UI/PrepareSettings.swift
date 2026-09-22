@@ -4,15 +4,20 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// Prepare's controls, as inspector sections in the Lightroom-style vocabulary
+/// Prepare's controls, as inspector sections in the shared card vocabulary
 /// (`InspectorSection` / `InspectorRow` / `InspectorValueRow` /
-/// `InspectorActionRow` / `InspectorNote`, `UI/InspectorRows.swift`) — the
-/// same kit as the other five rooms. It was `GroupBox` cards for one day
-/// (ADR 037, 2026-09-22); the owner, driving them: "the Prepare panel still
-/// looks different from the rest — make it look like the other panels, make
-/// everything the same, then improve from there." Improvements to the look
-/// of a room go into the kit, for all rooms at once. Kept from the cards:
-/// the readiness line that counts the six steps (`readinessSummary`).
+/// `InspectorActionRow` / `InspectorAdaptiveButton` / `InspectorStatusRow` /
+/// `InspectorNote`, `UI/InspectorRows.swift`) — the same kit as the other
+/// five rooms. This room drove two additions to that kit (owner, on screen,
+/// 2026-09-22 night: "look at it now... is this how a modern SwiftUI app
+/// should look?", then "make it look like the other panels, make everything
+/// the same, then improve from there"): `InspectorAdaptiveButton`, so a
+/// narrow column gets a whole icon-only button rather than a truncated
+/// label, and `InspectorStatusRow`, so a calibration item's short status
+/// word can't wrap or float detached from its label. Both are now `kit`
+/// (`InspectorRows.swift`), not a one-room GroupBox draft — every room gets
+/// them from here on. Kept from that draft: the readiness line that counts
+/// the six steps (`readinessSummary`).
 ///
 /// The migration of `UI/PrepareSidebar`, `UI/CalibrationReadinessView` and
 /// `UI/CalibrationDetailsView` into UI. Everything scientific is carried over
@@ -120,12 +125,11 @@ struct PrepareSettings: View {
 
     var body: some View {
         @Bindable var session = appState.calibrationSession
-        let calibration = session.calibration
 
         Group {
         PatternStatisticsSection()
 
-        InspectorSection("Calibration") {
+        InspectorSection("Calibration", systemImage: "checkmark.seal") {
             Group {
                 ForEach(report.items) { item in
                     readinessRow(item)
@@ -167,10 +171,8 @@ struct PrepareSettings: View {
             // a control that would do nothing is not a control.
             if session.hasAnyCalibrationValue {
                 InspectorActionRow {
-                    Button {
+                    InspectorAdaptiveButton("Clear Calibration", systemImage: "xmark.circle") {
                         showsClearConfirmation = true
-                    } label: {
-                        Label("Clear Calibration", systemImage: "xmark.circle")
                     }
                     .disabled(appState.isBusy)
                     .accessibilityIdentifier("calibration.clear")
@@ -197,11 +199,23 @@ struct PrepareSettings: View {
                + "you recalibrate.")
         }
 
+        diagnosticsSection
+        ellipseCorrectionSection
+        }
+        .disabledWhileRunning(appState)
+    }
+
+    /// A section of `body`, factored out only so it reads as one unit; no
+    /// logic moved, nothing renamed.
+    @ViewBuilder
+    private var diagnosticsSection: some View {
+        @Bindable var session = appState.calibrationSession
+        let calibration = session.calibration
         // Diagnostic and fitting controls that supplement the single readiness
         // path. Physical Q/R values are intentionally edited only in the
         // readiness rows, so the same value, unit, provenance and consequence
         // cannot drift between duplicate controls.
-        InspectorSection("Fit diagnostics & advanced correction", expanded: $showsDiagnostics) {
+        InspectorSection("Fit diagnostics & advanced correction", systemImage: "chart.xyaxis.line", expanded: $showsDiagnostics) {
             InspectorValueRow("Aperture center", calibration.originProvenance.displayName)
                 .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
 
@@ -299,8 +313,14 @@ struct PrepareSettings: View {
                 }
             }
         }
+    }
 
-        InspectorSection("Ellipse correction", expanded: $showsEllipse) {
+    /// A section of `body`, factored out — see `diagnosticsSection`.
+    @ViewBuilder
+    private var ellipseCorrectionSection: some View {
+        @Bindable var session = appState.calibrationSession
+        let calibration = session.calibration
+        InspectorSection("Ellipse correction", systemImage: "oval", expanded: $showsEllipse) {
             // Value, unit: one row per radius, because two fields beside one
             // label do not fit the column's minimum width.
             InspectorRow("Fit annulus inner") {
@@ -377,8 +397,6 @@ struct PrepareSettings: View {
                 }
             }
         }
-        }
-        .disabledWhileRunning(appState)
     }
 
     // MARK: - Readiness
@@ -479,20 +497,25 @@ struct PrepareSettings: View {
 /// them: the old app had one `ComputePatternStatisticsSection` for the same
 /// reason. Once mean and max exist the pane's own Current | Mean | Max control
 /// is the ONLY switcher (S22 feedback R6, 2026-09-01).
+///
+/// `InspectorAdaptiveButton` (2026-09-22): the Prepare card draft found a
+/// narrow inspector column truncates a plain `Label`-based button's text
+/// mid-word ("Compute M…"); the adaptive button's icon-only fallback is a
+/// whole, legible button instead, so DPC gets the same fix Prepare does.
 struct PatternStatisticsSection: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         if appState.meanPattern == nil {
-            InspectorSection("Pattern") {
+            InspectorSection("Pattern", systemImage: "viewfinder") {
                 InspectorActionRow {
-                    Button {
+                    InspectorAdaptiveButton(
+                        "Compute Mean / Max", systemImage: "sum", prominent: true,
+                        help: "Compute Mean / Max — one pass over the cube; also computed by origin calibration."
+                    ) {
                         Task { await appState.computeDPStatistics() }
-                    } label: {
-                        Label("Compute Mean / Max", systemImage: "sum")
                     }
                     .disabled(appState.isBusy)
-                    .help("One pass over the cube; also computed by origin calibration.")
                 }
             }
         }
