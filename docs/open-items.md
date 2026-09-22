@@ -396,14 +396,6 @@ Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
 
 ## Verification debt — added 2026-09-08
 
-### RotationCalibration's py4DSTEM parity leg exposes an (Rx,Ry)-vs-(col,row) frame class — Gate D, added 2026-09-17
-
-`tools/rotation-parity-test` transcribes py4DSTEM's curl grid search from the pinned source and runs it on the same field Swift fits. They disagree: on a planted 37.2° field, Swift returns (−37.2°, transpose=false); the numpy transcription under the natural `(Rx,Ry)`=(row,col) reading returns (+37.2°, transpose=true) — same magnitude, flipped sign and transpose, the signature of a coordinate-frame difference, not a numerical bug.
-**Not diagnosed:** which side (if either) is wrong, or whether `(Rx,Ry)` means (row,col) or (col,row) in py4DSTEM's own storage. Trap: do not resolve by tuning the numpy reference until it agrees with Swift.
-Owner: `/diagnose`, before any change to `RotationCalibration.swift`; the harness ships with this leg informational (not gated) — the source-contract assertion is what gates today.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-
 ### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
 The `macos-26` runner carries Xcode 26.6, and its type checker times out on
 `ContentView`'s file-importer closure ("unable to type-check this expression

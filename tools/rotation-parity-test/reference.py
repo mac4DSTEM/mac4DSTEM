@@ -18,20 +18,33 @@ Two legs, both computed here, never by calling the code under test:
     text this file transcribes. The transcription itself
     (`py4dstem_curl_grid_search` below) is frozen from that pinned text and
     run on the SAME leg-(a) field. main.swift compares its answer with
-    Swift's — informationally only. A first measurement (this session, a
-    throwaway standalone probe, not committed) found they disagree: Swift
-    gives (-37.2 deg, transpose=false), the direct numpy transcription under
-    the natural axis reading (array axis 0 = Rx = the field's row/slow axis,
-    matching the docstring's "(Rx,Ry) xp.ndarray" order) gives
-    (+37.2 deg, transpose=true) on the identical field — same magnitude,
-    flipped sign and transpose, the signature of a coordinate-frame
-    convention difference, not a numerical bug. Per the open item this
-    session filed (docs/open-items.md, "RotationCalibration's py4DSTEM parity
-    leg exposes an (Rx,Ry)-vs-(col,row) frame class"), main.swift prints the
-    disagreement as a NOTE, not a FAIL: do not edit this transcription to
-    chase Swift's answer, never loosen a tolerance to paper over it, never
-    edit RotationCalibration.swift here. The source-contract assert is the
-    part of this leg that gates.
+    Swift's — informationally only, even now that they agree (never gates:
+    the source-contract assert above is the only hard gate on this leg).
+
+    DIAGNOSED 2026-09-17 -> 2026-09-23 (Gate D,
+    docs/archive/v3/rq-frame-class-2026-09-23.md): a first measurement found
+    Swift and this transcription disagreeing — (-37.2 deg, transpose=false)
+    vs (+37.2 deg, transpose=true), same magnitude, flipped sign and
+    transpose. That was a bug in THIS FILE, not in RotationCalibration.swift
+    and not in py4DSTEM's own math. py4DSTEM's Rx is unconditionally array
+    axis 0 (`R_Nx = self.data.shape[0]`, py4DSTEM/datacube/datacube.py:172-173;
+    the CoM loop `for rx, ry in tqdmnd(sx, sy): ... intensities[rx, ry]`,
+    py4DSTEM/process/phase/phase_base_class.py:706-727, with `sx =
+    intensities.shape[0]`) — but `potential_gradient` below builds `gx, gy`
+    via `np.meshgrid(np.arange(width), np.arange(height))` (default 'xy'
+    indexing), giving shape (height, width): axis 0 is the FIELD's row/
+    height axis, not its width/Rx-direction axis. Feeding that array to
+    `py4dstem_curl_grid_search` un-transposed told py4DSTEM's formula "axis 0
+    (height) is Rx" when Rx is really the width axis (RotationCalibration's
+    own real call site passes `width: d.rx, height: d.ry`,
+    mac4DSTEM/App/AppState+Calibration.swift:244) — an axis-order bug in this
+    harness's call, confirmed by transposing the array and recovering
+    Swift's exact answer on both the direct and transposed fixture fields,
+    and on a non-square (30x40) field that rules out the 40x40 coincidence.
+    Fix: transpose the fixture array (swap axis 0 <-> axis 1, keep the cx/cy
+    channel labels) before this one call. Nothing else about the
+    transcription changed; it is still frozen from, and gated against, the
+    exact pinned text. Never edit RotationCalibration.swift here.
 """
 
 from __future__ import annotations
@@ -106,10 +119,14 @@ def py4dstem_curl_grid_search(
     maximize_divergence=False branch of
     `_solve_for_center_of_mass_relative_rotation` — every line traceable to
     the required expressions `assert_source_contract` just checked. com_x,
-    com_y: shape (Rx, Ry) per the docstring; the natural reading of that
-    order is axis 0 = Rx, axis 1 = Ry, applied as-is (no transpose of the
-    array here — that is exactly the open question leg (b) records rather
-    than resolves).
+    com_y: shape (Rx, Ry) per the docstring, i.e. array axis 0 = Rx, axis 1 =
+    Ry (py4DSTEM/datacube/datacube.py:172-173, `R_Nx = data.shape[0]`;
+    py4DSTEM/process/phase/phase_base_class.py:706-727's CoM loop indexes
+    `intensities[rx, ry]` with `rx` over `shape[0]`) — the CALLER is
+    responsible for handing this function an array laid out that way; it
+    does no reshaping of its own (see the module docstring's 2026-09-23
+    entry: the one call site below transposes `potential_gradient`'s
+    (height, width) field before passing it here, precisely to satisfy this).
     """
     rotation_angles_deg = np.arange(-89.0, 90.0, 1.0)
     rotation_angles_rad = np.deg2rad(rotation_angles_deg)[:, None, None]
@@ -169,7 +186,14 @@ def main() -> None:
     # transpose branch's own sign, not the direct branch's).
     transposed_cx, transposed_cy = rotate(gy, gx, planted_deg)
 
-    py4dstem_angle, py4dstem_transpose = py4dstem_curl_grid_search(direct_cx, direct_cy)
+    # Transpose axis 0 <-> axis 1 before this call: potential_gradient builds
+    # (height, width)-shaped arrays (axis 0 = the field's height/row axis),
+    # but py4dstem_curl_grid_search wants axis 0 = Rx = the WIDTH axis
+    # (RotationCalibration's real call site passes width: d.rx, height:
+    # d.ry — mac4DSTEM/App/AppState+Calibration.swift:244). Fixed
+    # 2026-09-23 per docs/archive/v3/rq-frame-class-2026-09-23.md; channel
+    # labels (cx/cy) are untouched, only the array's own axis order.
+    py4dstem_angle, py4dstem_transpose = py4dstem_curl_grid_search(direct_cx.T, direct_cy.T)
 
     def interleave(cx: np.ndarray, cy: np.ndarray) -> list[float]:
         out = np.empty(cx.size * 2, dtype=np.float32)

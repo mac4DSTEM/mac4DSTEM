@@ -1189,3 +1189,29 @@ it, three unit tests pin it.
 
 *The residual stays live in `docs/open-items.md`.*
 
+## RotationCalibration's py4DSTEM parity leg exposes an (Rx,Ry)-vs-(col,row) frame class — closed 2026-09-23
+
+### ~~RotationCalibration's py4DSTEM parity leg exposes an (Rx,Ry)-vs-(col,row) frame class~~ — **CLOSED 2026-09-23**
+
+> `tools/rotation-parity-test` transcribes py4DSTEM's curl grid search from the pinned
+> source and runs it on the same field Swift fits. They disagree: on a planted 37.2° field,
+> Swift returns (−37.2°, transpose=false); the numpy transcription under the natural
+> `(Rx,Ry)`=(row,col) reading returns (+37.2°, transpose=true) — same magnitude, flipped
+> sign and transpose. Not diagnosed: which side (if either) was wrong.
+
+**Closure** (Gate D, full record `docs/archive/v3/rq-frame-class-2026-09-23.md`).
+**Neither side was wrong.** py4DSTEM's own curl formula (`phase_base_class.py:1109-1118`)
+and `RotationCalibration.swift`'s (`RotationCalibration.swift:159-164`) are the same
+curl_z = ∂Vy/∂Rx − ∂Vx/∂Ry against the same physical scan axes; they only store Rx/Ry in
+opposite array-index order internally (py4DSTEM: Rx = axis 0, always —
+`datacube.py:172-173`, `phase_base_class.py:706-727`; Swift: rx = the fast/inner axis, per
+its real call site `width: d.rx` at `AppState+Calibration.swift:244`). The bug was in
+`tools/rotation-parity-test/reference.py`'s leg (b): it fed the fixture array (built
+(height, width), axis 0 = height) to the transcribed py4DSTEM formula without transposing
+it into Rx = axis 0 first — mislabeling which axis was Rx. Confirmed by a standalone
+experiment: transposing the array before that one call recovers Swift's exact answer on
+both fixture fields and on a non-square field. Fixed in `reference.py` (the one call site,
+plus updated comments); leg (b) stays informational (never gated) and now reports PASS
+instead of NOTE. `RotationCalibration.swift` untouched — no scientific number or shipped
+default moved. No owner decision needed.
+
