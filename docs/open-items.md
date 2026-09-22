@@ -396,6 +396,13 @@ Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
 
 ## Verification debt — added 2026-09-08
 
+### App R–Q rotation is −py4DSTEM's on the same file; QR_rotation crosses the boundary unconverted — Gate D, added 2026-09-17, reopened 2026-09-23
+The app reads a file's scan/detector axes as (Ry, Rx, Qy, Qx) (`DatasetDescriptor.swift:15,38-41`), py4DSTEM as (Rx, Ry, Qx, Qy): both pairs swapped, so the app's θ = −py4DSTEM's θ, transpose identical.
+Measured (refuter, `rq-frame-class-2026-09-23.md` § Independent refutation): real `Particle_1_Stack_1…bin8.h5` → py4DSTEM +80.0° T, app −80.1° T; three planted non-square fields flip sign likewise.
+Origins and peaks are axis-swapped at the py4DSTEM import/export boundary, but `QR_rotation` is not (`AppState+Open.swift:474`; `ResultExport.swift:1304` → `BraggVectorEMDWriter.swift:1690-1697`); no `DEVIATION` note on the displayed sign.
+Bogus close `bfa5525`: its leg-(b) "fix" transposes scan axes only, relabeling py4DSTEM into the app's frame, so leg (b) now PASSes by construction; `reference.py`'s 2026-09-23 docstring and `main.swift`'s leg-(b) comment overstate.
+Owner: decide the displayed convention; then Gate D on the sign conversion (a scientific number), a file-faithful leg (b), and check `ellipseTheta` at the same boundary.
+
 ### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
 The `macos-26` runner carries Xcode 26.6, and its type checker times out on
 `ContentView`'s file-importer closure ("unable to type-check this expression
