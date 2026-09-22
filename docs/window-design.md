@@ -372,32 +372,58 @@ to the control layer floating over content (toolbars, overlays such as the
 canvas legends and scale bars, floating buttons), never on content, cards
 or text, and never glass on glass. Candidates and costs come to him as a
 picture before any code (ADR 035).
+Then, on the text tabs: "it is better now." And (d) **"the Prepare panel
+still looks different from the rest — make it look like the other panels,
+make everything the same, then improve from there"** → Prepare returned to
+the rooms' `InspectorRows` kit the same day (ADR 037 reversed); every
+improvement to a room's look is a kit change from here on. (e) "Next I
+want to consolidate the app — provide a prompt to review everything" → §10.
 
-## 7. Prompt for the next agent
+## 10. Prompt: the consolidation review (owner, 2026-09-22 afternoon)
 
-> You are picking up mac4DSTEM's window redesign on `main` (never a
-> branch, never a push). Read `docs/status.md`, then
-> `docs/window-design.md` §1 (the owner's brief) and §6 (his decisions),
-> then `docs/open-items.md` "Owner drive 2026-09-21". Check the status
-> handoff for whether phase 1 (the anatomy) has been driven and accepted;
-> if not, the next step is his drive, not more code. Build the next phase
-> exactly as §1 says, in pure SwiftUI: `NavigationSplitView` with
-> `.inspector` on the split view, the standard toolbar (panel toggles,
-> dataset switcher and busy run indicator only), one top-level
-> columns-style `Form` for the inspector, every fixed point a
-> `LayoutPolicy` constant, no AppKit in `UI/`, no split-view classes.
-> In every open/closed panel combination, keep the centre header inside the
-> centre column: breadcrumb pinned left; primary action, Save to Session and
-> Reveal grouped right; the space between them changes with the centre width.
-> No room action moves into the side panels or toolbar. Before code: draw the
-> phase as a picture he can reject, cost it in
-> points, and stop for his yes. Prepare is the reference room; touch no
-> other room until he has accepted it. Never build into
-> `~/Library/Developer/Xcode/DerivedData` (his app runs from there); run
-> `tools/run-tests.sh unit`, `tools/run-tests.sh core` and
-> `tools/run-tests.sh inventory` separately, each to its own log, and read
-> each log's exit line. Break every new test one mutation at a time.
-> Commit with the gate numbers; update `docs/status.md` and
-> `docs/open-items.md` in the same commit. Record what he says after
-> every drive, verbatim in substance. If SwiftUI cannot do something the
-> brief asks, write the limitation down and ask him; never fake it.
+> You are reviewing mac4DSTEM whole, on `main`, for consolidation — not
+> building. The owner's words: "consolidate the app; review everything."
+> Read `CLAUDE.md`, `docs/status.md`, `docs/open-items.md`,
+> `docs/architecture.md`, then this file §1, §6 and §9, then ADR 034–037.
+> Rules that bind you: `main` only, never a branch, never a push; the
+> frozen shell (ADR 035); no new on-screen surface; Gate D is not yours —
+> a scientific number you doubt is a finding, never a fix; nothing is
+> "seen" unless you captured it (the marked-instance recipe in
+> `docs/archive/v3/ui-review-2026-09-22.md`), and every claim names its
+> evidence. Review in this order, one section of findings each:
+>
+> 1. **The window.** Every room (Prepare, Imaging, Strain & ACOM and its
+>    three children, Phase, AI Analysis, Results) × Settings and Info, in
+>    every panel state, dark and light, at 1100 and 1470 pt, on the demo
+>    fixture and one real cube. Score each capture against §1 and the
+>    Xcode/Pixelmator references in §2: one kit, one alignment per panel,
+>    no truncated control, no control that does nothing, no text under
+>    13 pt in the inspector, nothing that moves when it should not.
+> 2. **The UI code.** `UI/` and `App/`: what the four shell rebuilds left
+>    behind — dead types, duplicated kits (`InspectorRows` is the one
+>    vocabulary; anything beside it is a finding), `@SceneStorage` and
+>    `@AppStorage` keys with no owner, sync sites between
+>    `WorkspaceNavigation` and views, AppKit or split-view classes,
+>    constants outside `LayoutPolicy`, availability guards that hide a
+>    macOS 14 path nobody has run.
+> 3. **The tests.** Which UI tests assert a constant rather than a
+>    behaviour; which would stay green if the view were deleted; which
+>    gates can fail silently. Count declarations against the log by the
+>    outcome suffix.
+> 4. **The docs.** Contradictions between `status.md`, `window-design.md`,
+>    the ADRs and `open-items.md`; items over 12 lines; narrative that
+>    belongs in `docs/archive/`; the handoff's word count; what a new
+>    reader would read twice.
+> 5. **The science boundary.** Any UI change since `6132ff1` that could
+>    move a number (a default, a threshold, a format that rounds) — name
+>    it for Gate D, do not touch it.
+>
+> Output: `docs/archive/v3/consolidation-review-<date>.md` — findings
+> ranked, each ≤ 12 lines in the `open-items.md` format (what is wrong,
+> the evidence, the trap, the owner, the residual), the captures beside
+> it; then a consolidation plan of at most ten steps, each costed in hours
+> and in what it deletes, for the owner to accept or strike. Change no
+> code except deletions of code you have proven dead, each with the
+> three gates in the commit message. Land the review with `status.md` and
+> `open-items.md` updated in the same commit, net negative markdown or
+> say why.

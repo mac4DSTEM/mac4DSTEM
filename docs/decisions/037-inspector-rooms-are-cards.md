@@ -2,7 +2,7 @@
 
 Dates: 2026-09-22 (evening)
 
-Status: live — rebuilt as GroupBox cards the same night; owner drive owed
+Status: **reversed 2026-09-22 afternoon** — he drove the cards ("much better now" for the window as a whole) and then: "the Prepare panel still looks different from the rest — make it look like the other panels, make everything the same, then improve from there." Prepare is back on the rooms' `InspectorRows` kit (the file of `69c40d1`, the six-step readiness line kept); a room's look now improves in the kit, for all six rooms at once. The card vocabulary below is the record of what was built, for that discussion.
 
 ## Decision
 
