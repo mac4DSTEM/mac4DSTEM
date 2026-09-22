@@ -1,6 +1,6 @@
 # Window design — the reset (2026-09-22)
 
-**Status: decided 2026-09-22 (§6); phase 1 code ready for owner drive, not accepted on screen.** Written after the owner drove the
+**Status: decided 2026-09-22 (§6); phase 1 code committed (`b0cf8e0`), awaiting owner drive.** The owner said on 2026-09-22 that he wants further changes; details and acceptance are pending. Written after the owner drove the
 2026-09-21 restyle (`9fd386d`) and rejected it: "cramped, no logic to the
 panes, no workflow behind it". The findings are in `open-items.md` (Owner
 drive 2026-09-21). This file says what the window is for, what the two
