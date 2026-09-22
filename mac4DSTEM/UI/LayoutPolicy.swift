@@ -126,7 +126,13 @@ enum LayoutPolicy {
     /// minimum", `open-items.md`). Without it, the minimum is the text's own
     /// and ticks with it.
     static let compressibleSlotMinimum: CGFloat = 0
-    static let toolbarDisplayMinimumWidth: CGFloat = 160
+    /// 140 + 2 × `toolbarDisplayPadding` = the 160-pt minimum item. The
+    /// toolbar fits items by their IDEAL width (measured 2026-09-22): a
+    /// 14-pt pad dropped the demo's display at 915 pt, 10 pt keeps it; a
+    /// long real file name can still drop it at the window's minimum.
+    static let toolbarDisplayMinimumWidth: CGFloat = 140
+    /// Breathing room inside the display's capsule, each side.
+    static let toolbarDisplayPadding: CGFloat = 10
     static let toolbarDisplaySpacing: CGFloat = 8
 
     /// The process area's share of the centre column the infobar's toggle

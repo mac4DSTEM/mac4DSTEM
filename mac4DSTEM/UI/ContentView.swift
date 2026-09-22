@@ -305,6 +305,10 @@ struct ToolbarRunDisplay: View {
             // monospaced digits change its width only when a digit is added.
             .frame(minWidth: LayoutPolicy.toolbarDisplayMinimumWidth,
                    maxWidth: LayoutPolicy.toolbarDisplayWidth)
+            // Outside the frame, so the system's capsule gets room around
+            // the text rather than hugging it (owner, on a real cube,
+            // 2026-09-22: "looks too tight around the text").
+            .padding(.horizontal, LayoutPolicy.toolbarDisplayPadding)
         }
     }
 
