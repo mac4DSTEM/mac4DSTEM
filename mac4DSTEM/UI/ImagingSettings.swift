@@ -26,19 +26,23 @@ struct ImagingSettings: View {
         // starts at 280 pt and this row has two segments, so the reason
         // is gone. The pane that this choice drives also carries an
         // accent outline, so the setting and the pane agree on screen.
-        InspectorRow("Direction") {
-            Picker("Direction", selection: $appState.activePane) {
-                Image(systemName: "circle.dashed")
-                    .accessibilityLabel("Detector to real space")
-                    .tag(ActivePane.diffraction)
-                Image(systemName: "square.dashed")
-                    .accessibilityLabel("Region to diffraction")
-                    .tag(ActivePane.realSpace)
+        // A headerless card: a bare row above the first card read as
+        // loose (first macOS 27 drive, 2026-09-22).
+        InspectorGroup {
+            InspectorRow("Direction") {
+                Picker("Direction", selection: $appState.activePane) {
+                    Image(systemName: "circle.dashed")
+                        .accessibilityLabel("Detector to real space")
+                        .tag(ActivePane.diffraction)
+                    Image(systemName: "square.dashed")
+                        .accessibilityLabel("Region to diffraction")
+                        .tag(ActivePane.realSpace)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .help("What dragging on the panes controls: the virtual detector that produces the real-space image, or the scan region that produces the diffraction pattern.")
+                .accessibilityIdentifier("imaging.direction")
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .help("What dragging on the panes controls: the virtual detector that produces the real-space image, or the scan region that produces the diffraction pattern.")
-            .accessibilityIdentifier("imaging.direction")
         }
 
         if appState.activePane == .diffraction {
@@ -60,27 +64,13 @@ struct ImagingSettings: View {
                 // Conventional STEM abbreviations; full names in the
                 // buttons' help and accessibility labels.
                 InspectorRow("Preset") {
-                    HStack(spacing: 6) {
-                        ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
-                            Button {
-                                appState.applyDetectorPreset(preset)
-                            } label: {
-                                // The abbreviation AND the geometry it sets:
-                                // BF, ADF and HAADF differ only by radii, so
-                                // the ring each one draws is the fastest read.
-                                Label {
-                                    Text(Self.shortName(preset))
-                                } icon: {
-                                    Image(systemName: Self.symbol(preset))
-                                }
-                            }
-                            .controlSize(.small)
-                            .help("Set the detector to \(preset.rawValue)")
-                            .accessibilityLabel("Apply \(preset.rawValue) preset")
-                            .accessibilityIdentifier(
-                                "detector.preset.\(Self.shortName(preset).lowercased())"
-                            )
-                        }
+                    // Glyph + abbreviation when the column has room, the
+                    // abbreviation alone when it does not — never "A…" /
+                    // "H…" (915-pt drive, 2026-09-22): the letters name the
+                    // detector, the ring only illustrates it.
+                    ViewThatFits(in: .horizontal) {
+                        presetButtons(showsGlyph: true)
+                        presetButtons(showsGlyph: false)
                     }
                     .labelsHidden()
                 }
@@ -141,6 +131,38 @@ struct ImagingSettings: View {
         case .point: "smallcircle.filled.circle"
         case .rectangle: "square"
         case .circle: "circle"
+        }
+    }
+
+    /// The three preset buttons; `showsGlyph` false is the narrow fallback.
+    @ViewBuilder
+    private func presetButtons(showsGlyph: Bool) -> some View {
+        HStack(spacing: 6) {
+            ForEach([DetectorPreset.brightField, .adf, .haadf]) { preset in
+                Button {
+                    appState.applyDetectorPreset(preset)
+                } label: {
+                    // The abbreviation AND the geometry it sets: BF, ADF and
+                    // HAADF differ only by radii, so the ring each one draws
+                    // is the fastest read.
+                    if showsGlyph {
+                        Label {
+                            Text(Self.shortName(preset))
+                        } icon: {
+                            Image(systemName: Self.symbol(preset))
+                        }
+                    } else {
+                        Text(Self.shortName(preset))
+                    }
+                }
+                .controlSize(.small)
+                .fixedSize()
+                .help("Set the detector to \(preset.rawValue)")
+                .accessibilityLabel("Apply \(preset.rawValue) preset")
+                .accessibilityIdentifier(
+                    "detector.preset.\(Self.shortName(preset).lowercased())"
+                )
+            }
         }
     }
 

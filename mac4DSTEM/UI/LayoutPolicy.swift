@@ -147,8 +147,11 @@ enum LayoutPolicy {
     /// The Run tab's label column.
     static let runMonitorLabelWidth: CGFloat = 110
 
-    /// The inspector's utility-pane label column and its rhythm.
-    static let inspectorLabelWidth: CGFloat = 96
+    /// The inspector's utility-pane label column and its rhythm. 112, not
+    /// 96: at 96 "Detector (Qx × Qy)" and "Measured kernel mode" wrapped to
+    /// two lines while the value column beside them had room (macOS 27
+    /// drive, 2026-09-22).
+    static let inspectorLabelWidth: CGFloat = 112
     static let inspectorRowSpacing: CGFloat = 6
     static let inspectorSectionSpacing: CGFloat = 12
 

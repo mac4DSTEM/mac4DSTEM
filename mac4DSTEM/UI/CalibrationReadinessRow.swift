@@ -102,32 +102,40 @@ enum CalibrationReadinessRow {
     ) -> some View {
         switch kind {
         case .originProbe:
-            Button("Measure Origin & Probe") {
-                Task { await appState.calibrateOrigin() }
+            InspectorActionRow {
+                Button("Measure Origin & Probe") {
+                    Task { await appState.calibrateOrigin() }
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.action.originProbe")
             }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.originProbe")
         case .ellipse:
-            Button("Fit Detector Ellipse") {
-                Task { await appState.calibrateEllipse() }
+            InspectorActionRow {
+                Button("Fit Detector Ellipse") {
+                    Task { await appState.calibrateEllipse() }
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.action.ellipse")
             }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.ellipse")
         case .rotation:
-            Button("Measure R–Q Rotation") {
-                Task { await appState.calibrateRotation() }
+            InspectorActionRow {
+                Button("Measure R–Q Rotation") {
+                    Task { await appState.calibrateRotation() }
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("calibration.action.rotation")
             }
-            .disabled(appState.isBusy)
-            .accessibilityIdentifier("calibration.action.rotation")
         case .qScale:
             if appState.hasCurrentBraggVectors, let model = appState.resolvedACOMModel {
-                Button("Calibrate from Selected Material") {
-                    Task { await appState.calibrateQFromCrystal() }
+                InspectorActionRow {
+                    Button("Calibrate from Selected Material") {
+                        Task { await appState.calibrateQFromCrystal() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("calibration.action.qCrystal")
+                    .help("Selected ACOM phase model: \(model.displayName)")
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(appState.isBusy)
-                .accessibilityIdentifier("calibration.action.qCrystal")
-                .help("Selected ACOM phase model: \(model.displayName)")
                 manualScale(
                     value: appState.manualQPixelSize,
                     units: appState.manualQPixelUnits,
@@ -176,21 +184,29 @@ enum CalibrationReadinessRow {
         onChange: @escaping (Double) -> Void,
         onUnitChange: @escaping (String) -> Void
     ) -> some View {
-        LabeledContent("Manual") {
+        // `InspectorRow`s, so both labels sit in the kit's label column like
+        // every other row in the card (they sat flush left beside the
+        // Voltage row's column on the first macOS 27 drive).
+        InspectorRow("Manual") {
             NumericField(
                 "Manual scale",
                 value: Binding(get: { value ?? 0 }, set: onChange),
                 format: .number.precision(.fractionLength(0...6))
             )
+            .labelsHidden()
             .accessibilityIdentifier(identifier)
         }
         .help(help)
         .accessibilityHint(help)
-        Picker("Unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
-            ForEach(unitOptions, id: \.self) { unit in
-                Text(unit).tag(unit)
+        InspectorRow("Unit per pixel") {
+            Picker("Unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
+                ForEach(unitOptions, id: \.self) { unit in
+                    Text(unit).tag(unit)
+                }
             }
+            .labelsHidden()
+            .fixedSize()
+            .accessibilityIdentifier(identifier + ".units")
         }
-        .accessibilityIdentifier(identifier + ".units")
     }
 }

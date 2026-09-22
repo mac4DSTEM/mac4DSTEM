@@ -497,17 +497,36 @@ struct InspectorActionRow<Content: View>: View {
         self.content = content()
     }
 
+    /// Stacked, the buttons fill the column at one width: trailing-aligned
+    /// buttons of different widths read as a ragged edge, and the stack sat
+    /// at its own width rather than the card's (first macOS 27 drive,
+    /// 2026-09-22, Strain & ACOM). `.regular`, like every card control.
     var body: some View {
         ViewThatFits(in: .horizontal) {
             HStack {
                 Spacer(minLength: 0)
                 content
             }
-            VStack(alignment: .trailing, spacing: LayoutPolicy.inspectorRowSpacing) {
+            VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
                 content
             }
+            .environment(\.inspectorActionFillsWidth, true)
+            .frame(maxWidth: .infinity)
         }
-        .controlSize(.small)
+        .controlSize(.regular)
+    }
+}
+
+private struct InspectorActionFillsWidthKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Set by `InspectorActionRow`'s stacked fallback so each
+    /// `InspectorAdaptiveButton` in it takes the column's full width.
+    var inspectorActionFillsWidth: Bool {
+        get { self[InspectorActionFillsWidthKey.self] }
+        set { self[InspectorActionFillsWidthKey.self] = newValue }
     }
 }
 
@@ -530,6 +549,7 @@ struct InspectorAdaptiveButton: View {
     private let help: String?
     private let role: ButtonRole?
     private let action: () -> Void
+    @Environment(\.inspectorActionFillsWidth) private var fillsWidth
 
     init(
         _ title: String,
@@ -569,6 +589,7 @@ struct InspectorAdaptiveButton: View {
                 Label(title, systemImage: systemImage)
                 Image(systemName: systemImage)
             }
+            .frame(maxWidth: fillsWidth ? .infinity : nil)
         }
     }
 }
