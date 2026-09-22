@@ -33,7 +33,7 @@ struct PhaseMappingSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
     @State private var showMaterialsProjectSheet = false
-    @SceneStorage("ai.phaseMapping.advanced.isExpanded") private var showsAdvanced = false
+    @SceneStorage("aiAnalysis.phaseMapping.advanced.isExpanded") private var showsAdvanced = false
 
     /// Same reasoning as ACOM's importer: nothing on a stock macOS declares
     /// `.cif`, so this resolves to the same dynamic type a `.cif` on disk gets.
