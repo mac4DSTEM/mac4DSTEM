@@ -90,6 +90,15 @@ struct WorkspaceInspector: View {
             }
             .padding(LayoutPolicy.inspectorTabInset)
             .glassEffect(.regular, in: .capsule)
+            // The owner, 2026-09-22 night, driving this exact build: the
+            // capsule and its selection pill both render, but nothing reads
+            // as GLASS — `.regular` alone gives no edge, so against a
+            // similarly-toned inspector background the whole row can look
+            // like a flat grey shape rather than a discrete surface. Real
+            // glass has a boundary and a shadow separating it from what is
+            // behind it; this had neither.
+            .overlay(Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12), radius: 3, y: 1)
             .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Inspector tab")
