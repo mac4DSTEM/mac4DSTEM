@@ -90,13 +90,29 @@ struct WorkspaceInspector: View {
             }
             .padding(LayoutPolicy.inspectorTabInset)
             .glassEffect(.regular, in: .capsule)
-            // The owner, 2026-09-22 night, driving this exact build: the
-            // capsule and its selection pill both render, but nothing reads
-            // as GLASS — `.regular` alone gives no edge, so against a
-            // similarly-toned inspector background the whole row can look
-            // like a flat grey shape rather than a discrete surface. Real
-            // glass has a boundary and a shadow separating it from what is
-            // behind it; this had neither.
+            // The owner, 2026-09-22 night, driving this exact build (his own
+            // screenshots): the capsule and its selection pill both render,
+            // but nothing reads as GLASS. Confirmed on screen afterward
+            // (agent capture, same build): `.glassEffect` blurs whatever is
+            // BEHIND it, and behind this capsule is the inspector's own flat
+            // single-tone background — nothing textured or colourful to
+            // distort, so the blur has nothing to reveal and the capsule
+            // reads as a plain grey fill. A hairline rim and a shadow
+            // (below) give it a boundary, which helped only a little at
+            // native size. Added a top-down highlight — a light catching a
+            // curved surface — because that reads as glass independent of
+            // what is behind it; every reference "glass" screenshot the
+            // owner has pointed at has one.
+            .overlay {
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(colorScheme == .dark ? 0.5 : 0.6), .white.opacity(0)],
+                            startPoint: .top, endPoint: .center
+                        )
+                    )
+                    .allowsHitTesting(false)
+            }
             .overlay(Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.12), radius: 3, y: 1)
             .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
