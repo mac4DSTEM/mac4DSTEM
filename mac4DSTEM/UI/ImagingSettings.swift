@@ -31,10 +31,12 @@ struct ImagingSettings: View {
         InspectorGroup {
             InspectorRow("Direction") {
                 Picker("Direction", selection: $appState.activePane) {
-                    Image(systemName: "circle.dashed")
+                    // Words, not two dashed shapes: what the drag controls
+                    // must read at a glance (2026-09-22 night review).
+                    Text("Detector")
                         .accessibilityLabel("Detector to real space")
                         .tag(ActivePane.diffraction)
-                    Image(systemName: "square.dashed")
+                    Text("Region")
                         .accessibilityLabel("Region to diffraction")
                         .tag(ActivePane.realSpace)
                 }

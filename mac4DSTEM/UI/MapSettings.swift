@@ -19,15 +19,26 @@ import UniformTypeIdentifiers
 /// inspector shares (034).
 struct MapSettings: View {
     @Environment(AppState.self) private var appState
+    @SceneStorage("map.settings.trainingLabels.isExpanded") private var showsTrainingLabels = false
 
     var body: some View {
         Group {
             switch appState.navigation.analysisMode {
             case .disks:
+                // Three jobs, three sections (2026-09-22 night review): the
+                // kernel, the detection it drives, and the hand-labelled
+                // centres that train the learned detector — the last one
+                // collapsed, since most runs never touch it.
+                InspectorSection("Probe kernel") {
+                    DiskDetectionRows(part: .kernel)
+                }
                 InspectorSection("Disk detection") {
-                    DiskDetectionRows()
+                    DiskDetectionRows(part: .detection)
                 }
                 AdvancedDiskDetectionSection()
+                InspectorSection("Training labels", expanded: $showsTrainingLabels) {
+                    DiskCentreLabelsRows()
+                }
             case .strain:
                 StrainSection()
             case .acom:
@@ -47,6 +58,8 @@ struct MapSettings: View {
 /// less commonly changed signal/filter parameters live in the sibling
 /// `AdvancedDiskDetectionSection`, a collapsed section of its own.
 private struct DiskDetectionRows: View {
+    enum Part { case kernel, detection }
+    let part: Part
     @Environment(AppState.self) private var appState
     /// "Offer the learned (neural net) detector" (session S21,
     /// `Session/AppPreferences.swift`) — hides the `.learned` case from the
@@ -71,7 +84,14 @@ private struct DiskDetectionRows: View {
     }
 
     var body: some View {
-        @Bindable var learned = appState.learnedDetection
+        switch part {
+        case .kernel: kernelRows
+        case .detection: detectionRows
+        }
+    }
+
+    @ViewBuilder
+    private var kernelRows: some View {
 
         InspectorActionRow {
             InspectorAdaptiveButton("Generate Probe Kernel", systemImage: "circle.circle") {
@@ -144,6 +164,11 @@ private struct DiskDetectionRows: View {
                 )
             )
         }
+    }
+
+    @ViewBuilder
+    private var detectionRows: some View {
+        @Bindable var learned = appState.learnedDetection
 
         InspectorRow("Detector") {
             Picker("Detector", selection: $learned.detectorClass) {
@@ -187,8 +212,6 @@ private struct DiskDetectionRows: View {
                 .accessibilityIdentifier("disk.compareDetectors")
             }
         }
-
-        DiskCentreLabelsRows()
 
         if appState.probeKernel != nil {
             InspectorValueRow("Current CBED", "\(appState.currentPeaks.count) peaks")

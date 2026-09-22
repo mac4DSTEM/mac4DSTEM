@@ -205,9 +205,8 @@ struct InspectorGroup<Content: View>: View {
 /// One labelled control: the label at the leading edge in the primary label
 /// colour, the control at the trailing edge — the owner's one alignment rule
 /// (Pixelmator: "label left, control right, value at the edge"). The label
-/// takes the width it needs and wraps only when the control leaves it none;
-/// no fixed label column, so no label wraps beside empty space. The control
-/// has layout priority, so a picker or field is not squeezed first. Hiding a control's own label is the caller's
+/// is one line at its own width, never compressed; the control takes what
+/// is left and adapts. No fixed label column. Hiding a control's own label is the caller's
 /// job. `emphasized` sets the label semibold (a ranked list's top row).
 struct InspectorRow<Content: View>: View {
     private let label: String
@@ -222,12 +221,16 @@ struct InspectorRow<Content: View>: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
+            // One line, never compressed: with the control given priority
+            // the label was squeezed to one character a line ("Pr / es /
+            // et", owner's drive 2026-09-22). Labels are short by design;
+            // the control adapts instead (`ViewThatFits`, compressing
+            // pickers).
             Text(label)
                 .fontWeight(emphasized ? .semibold : .regular)
-                .fixedSize(horizontal: false, vertical: true)
+                .fixedSize()
             Spacer(minLength: 0)
             content
-                .layoutPriority(1)
         }
         .controlSize(.regular)
     }
@@ -252,6 +255,7 @@ struct InspectorValueRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
+                .fixedSize()
             Spacer(minLength: 0)
             Text(value)
                 .monospacedDigit()
