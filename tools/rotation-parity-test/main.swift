@@ -17,14 +17,9 @@
 //      `assert_source_contract` already gated the pinned source text before
 //      this binary ran at all (a nonzero Python exit fails the harness via
 //      `run.sh`'s `set -e`, before main.swift is even invoked). The NUMERIC
-//      comparison below is informational only, by design, even though it
-//      now agrees — see reference.py's module docstring: an apparent
-//      (Rx,Ry)-vs-(col,row) frame class (Gate D, filed 2026-09-17) turned
-//      out to be an axis-order bug in THIS HARNESS's leg (b) call, not a
-//      disagreement between RotationCalibration.swift and py4DSTEM's own
-//      math (docs/archive/v3/rq-frame-class-2026-09-23.md). Fixed in
-//      reference.py; this leg still never gates — the source-contract
-//      assert above is the only hard gate on it.
+//      comparison below is informational only, by design — see reference.py's
+//      module docstring for why (a measured (Rx,Ry)-vs-(col,row) frame-class
+//      difference, filed as a Gate-D open item, not fixed here).
 //
 //  (c) NULL / ADR 024 (must pass): reuses `tools/rotation-null-probe`'s exact
 //      generator functions and seed formulas (XorshiftRNG, whiteNoiseField,

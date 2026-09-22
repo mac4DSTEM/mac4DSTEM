@@ -404,6 +404,7 @@ Bogus close `bfa5525`: its leg-(b) "fix" transposes scan axes only, relabeling p
 Owner: decide the displayed convention; then Gate D on the sign conversion (a scientific number), a file-faithful leg (b), and check `ellipseTheta` at the same boundary.
 
 ### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
+**2026-09-23:** the macOS 27 floor (v4.0.0) makes the `macos-26` runner unable to build the app at all (deployment target above its SDK); CI needs a macOS 27 runner image — owner's call.
 The `macos-26` runner carries Xcode 26.6, and its type checker times out on
 `ContentView`'s file-importer closure ("unable to type-check this expression
 in reasonable time") while the owner's Xcode 27.0 compiles it; the last three
