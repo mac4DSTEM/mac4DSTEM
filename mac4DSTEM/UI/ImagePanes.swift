@@ -78,6 +78,11 @@ struct DiffractionPane: View {
             fullHeader
             compactHeader
         }
+        // One constant height for both panes' headers: the diffraction
+        // header's regular-size picker made it taller than the real-space
+        // one, so the two images, each centred below its header, sat a few
+        // points apart (owner, 2026-09-22, on a real cube).
+        .frame(height: LayoutPolicy.paneHeaderHeight)
     }
 
     private var title: some View {
@@ -472,6 +477,11 @@ struct RealSpacePane: View {
             fullHeader
             compactHeader
         }
+        // One constant height for both panes' headers: the diffraction
+        // header's regular-size picker made it taller than the real-space
+        // one, so the two images, each centred below its header, sat a few
+        // points apart (owner, 2026-09-22, on a real cube).
+        .frame(height: LayoutPolicy.paneHeaderHeight)
     }
 
     private var title: some View {

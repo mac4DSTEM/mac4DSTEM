@@ -43,6 +43,8 @@ enum LayoutPolicy {
     /// Science: a diffraction or real-space pane below this stops being an
     /// image and becomes a smudge.
     static let imagePaneMinimum: CGFloat = 180
+    /// Both science panes' header row, so their images start at one height.
+    static let paneHeaderHeight: CGFloat = 26
     static let sciencePaneDividerWidth: CGFloat = 1
     static let splitColumnDividerAllowance: CGFloat = 2
 
