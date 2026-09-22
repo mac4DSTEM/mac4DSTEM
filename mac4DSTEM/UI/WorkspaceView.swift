@@ -242,17 +242,29 @@ struct PrimaryActionButton: View {
         }
     }
 
-    /// While a run is in flight this slot offers ONE thing: the way to stop
-    /// it — "Stop", Xcode's word, in Xcode's place. The progress bar that
-    /// once sat here squeezed the button until its label truncated to "C…"
-    /// (owner, 2026-09-04); the bar is the centre display now.
+    /// While a run is in flight this slot offers ONE thing: the way to
+    /// cancel it. Said "Stop" (Xcode's word) until the owner asked twice,
+    /// live, the same day, whether there was a reason it didn't say
+    /// "Cancel" — there wasn't one that survived being asked. `Label` with
+    /// an icon and `.bordered`, matching every sibling toolbar item
+    /// (`SaveResultButton`, `RevealDatasetButton`, `DatasetMenu`), not the
+    /// plain unstyled text button this used to be — the plain form is what
+    /// read as "collapsed" beside them. The progress bar that once sat here
+    /// squeezed the button until its label truncated to "C…" (owner,
+    /// 2026-09-04); the bar is the centre display now, so the label has
+    /// room.
     @ViewBuilder
     private var operationProgress: some View {
         if appState.canCancelActiveOperation {
-            Button("Stop", role: .cancel) { appState.cancelActiveOperation() }
-                .help(appState.activeOperation ?? appState.statusText)
-                .accessibilityLabel("Cancel \(appState.activeOperation ?? "the running operation")")
-                .accessibilityIdentifier("workspace.cancelAction")
+            Button(role: .cancel) {
+                appState.cancelActiveOperation()
+            } label: {
+                Label("Cancel", systemImage: "xmark.circle")
+            }
+            .buttonStyle(.bordered)
+            .help(appState.activeOperation ?? appState.statusText)
+            .accessibilityLabel("Cancel \(appState.activeOperation ?? "the running operation")")
+            .accessibilityIdentifier("workspace.cancelAction")
         } else {
             ProgressView()
                 .controlSize(.small)
@@ -670,8 +682,12 @@ struct StatusBar: View {
                     .frame(width: LayoutPolicy.runReadoutWidth, alignment: .leading)
                     .accessibilityIdentifier("status.footer.metrics")
                 if appState.canCancelActiveOperation {
-                    Button("Stop", role: .cancel) { appState.cancelActiveOperation() }
-                        .accessibilityLabel("Stop \(appState.activeOperation ?? "the running operation")")
+                    // "Cancel", matching the toolbar's own button (owner,
+                    // 2026-09-22): both name the same action on the same
+                    // run, and read as two different controls when they
+                    // disagreed.
+                    Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
+                        .accessibilityLabel("Cancel \(appState.activeOperation ?? "the running operation")")
                         .accessibilityIdentifier("status.footer.stop")
                 }
             }
