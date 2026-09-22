@@ -16,7 +16,14 @@ trap 'rm -rf "$WORK"' EXIT
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 . "$REPO/tools/lib/sources.manifest"
-mac4dstem_sources "$REPO" phasevectors readers
+# `crystal` added 2026-09-23 (step 0, precipitate-overnight record): the
+# probe's own `--cif-check` needs `CIFImport`, which lives in that group and
+# is not pulled in by `phasevectors`/`acom`. `core` added the same day (step
+# 3): `--object-table` needs `PrecipitateSegmentation`/`PrecipitateStatistics`,
+# which have no dedicated sources.manifest group of their own — `core` is
+# every Core/ source and a strict superset of everything else this probe
+# sources, so it costs a slower build, not a wrong one (paths dedupe).
+mac4dstem_sources "$REPO" phasevectors readers crystal core
 
 for lib in libhdf5 libsz.2 libaec.0; do
   cp "$REPO/$lib.dylib" "$WORK/"
@@ -29,6 +36,7 @@ xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
 
 xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -o "$WORK/probe" \
   main.swift thronsen.swift \
+  "$REPO/mac4DSTEM/Session/PhaseMapObjectsBridge.swift" \
   "${MAC4DSTEM_SOURCES[@]}" \
   "${MAC4DSTEM_ISOLATION_FLAGS[@]}" \
   -framework Accelerate -framework Metal -framework MetalKit \

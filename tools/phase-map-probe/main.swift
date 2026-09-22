@@ -73,8 +73,172 @@ struct TruthMap {
 
 @main
 enum Probe {
+    // Step 0 (docs/archive/v3/precipitate-overnight-2026-09-23.md): reference
+    // integrity. `thronsen.swift`'s header claims its three crystals are
+    // "built directly rather than through `CIFImport`, which admits only
+    // cubic and hexagonal cells (θ′ is tetragonal)". `--cif-check <Al.cif>
+    // <thetaPrime.cif> <T1.cif>` loads the paper's own CIFs
+    // (`References/crystal-structures/`) through the app's real
+    // `CIFImport.crystalModel(from:fileBaseName:)` and compares the result
+    // against the hand-typed crystals at both levels the brief asks for:
+    // the expanded atom-site list, and the kinematic reference-vector list
+    // `PhaseReferenceLibrary` builds for it at the same zone axes the probe
+    // uses. Additive, off by default, needs no datacube, changes nothing
+    // about any other mode.
+    /// Loads one CIF and returns its `CIFImport`-built `Crystal`, or nil with
+    /// a printed reason. Shared by `--cif-check` and `--cif-crystals`.
+    static func loadCIF(_ path: String, name: String) -> Crystal? {
+        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else {
+            print("  \(name): could not read \(path)"); return nil
+        }
+        do {
+            let model = try CIFImport.crystalModel(from: text, fileBaseName: name)
+            let sgLine = model.spaceGroupNumber.map(String.init) ?? "nil"
+            let siteCount = model.crystal.sites.count
+            print("  \(name): CIFImport OK, symmetry=\(model.symmetry), "
+                  + "spaceGroupNumber=\(sgLine), \(siteCount) expanded sites")
+            return model.crystal
+        } catch {
+            print("  \(name): CIFImport THREW — \(error)")
+            return nil
+        }
+    }
+
+    /// Returns `basePhases` with each phase's crystal swapped for the
+    /// CIF-imported one at the matching id ("al", "theta-edge", "theta-face",
+    /// "t1"), or nil if any of the three CIFs failed to load. Every other
+    /// field (role, zone axes, orientation relationships, slab override) is
+    /// carried over unchanged — only the *crystal* is CIF-sourced.
+    static func substituteCIFCrystals(
+        _ basePhases: [PhaseDefinition], alPath: String, thetaPath: String, t1Path: String
+    ) -> [PhaseDefinition]? {
+        let cifAl = loadCIF(alPath, name: "Al")
+        let cifTheta = loadCIF(thetaPath, name: "theta-prime")
+        let cifT1 = loadCIF(t1Path, name: "T1")
+        guard let cifAl, let cifTheta, let cifT1 else { return nil }
+        let swap: [String: Crystal] = ["al": cifAl, "theta-edge": cifTheta, "theta-face": cifTheta, "t1": cifT1]
+        return basePhases.map { phase in
+            guard let replacement = swap[phase.id] else { return phase }
+            return PhaseDefinition(
+                id: phase.id, displayName: phase.displayName, crystal: replacement,
+                role: phase.role, zoneAxes: phase.zoneAxes,
+                orientationRelationships: phase.orientationRelationships,
+                excitationSlabInvAngstrom: phase.excitationSlabInvAngstrom)
+        }
+    }
+
+    static func runCIFCheck(alPath: String, thetaPath: String, t1Path: String) {
+        print("== --cif-check ==")
+        let cifAl = loadCIF(alPath, name: "Al")
+        let cifTheta = loadCIF(thetaPath, name: "theta-prime")
+        let cifT1 = loadCIF(t1Path, name: "T1")
+
+        // ---- Level 1: expanded atom sites ----------------------------------
+        func compareSites(_ name: String, hand: [AtomSite], cif: [AtomSite]?) {
+            guard let cif else { print("\n  \(name) sites: no CIF model to compare"); return }
+            print("\n  \(name) sites: hand-typed \(hand.count), CIF \(cif.count)")
+            func wrap(_ v: Double) -> Double {
+                var m = v.truncatingRemainder(dividingBy: 1); if m < 0 { m += 1 }; return m
+            }
+            func dist(_ p: SIMD3<Double>, _ q: SIMD3<Double>) -> Double {
+                var best = Double.infinity
+                for dx in [-1.0, 0, 1] { for dy in [-1.0, 0, 1] { for dz in [-1.0, 0, 1] {
+                    let d = SIMD3(wrap(p.x) - wrap(q.x) + dx, wrap(p.y) - wrap(q.y) + dy,
+                                   wrap(p.z) - wrap(q.z) + dz)
+                    best = min(best, simd_length(d))
+                } } }
+                return best
+            }
+            var unmatchedHand = 0
+            var worst = 0.0
+            var claimed = Set<Int>()
+            for h in hand {
+                var bestIndex = -1, bestDist = Double.infinity
+                for (i, c) in cif.enumerated() where !claimed.contains(i) && c.z == h.z {
+                    let d = dist(h.fractional, c.fractional)
+                    if d < bestDist { bestDist = d; bestIndex = i }
+                }
+                if bestIndex >= 0, bestDist < 1e-3 {
+                    claimed.insert(bestIndex); worst = max(worst, bestDist)
+                } else {
+                    unmatchedHand += 1
+                }
+            }
+            let unmatchedCIF = cif.count - claimed.count
+            print("    matched \(claimed.count); hand-typed unmatched \(unmatchedHand); "
+                  + "CIF unmatched \(unmatchedCIF); worst matched separation \(worst) (fractional)")
+        }
+        compareSites("Al", hand: Crystal.aluminum.sites, cif: cifAl?.sites)
+        compareSites("theta-prime", hand: Thronsen.thetaPrime.sites, cif: cifTheta?.sites)
+        compareSites("T1", hand: Thronsen.t1.sites, cif: cifT1?.sites)
+
+        // ---- Level 2: kinematic reference-vector lists, same zone axes -----
+        // Same phase list `--thronsen` builds (Thronsen.phases(constrained:
+        // false)), with each phase's crystal swapped for the CIF-imported one
+        // where available. Same reference settings (kMax = their 0.70 Å⁻¹
+        // mask radius, inPlaneStepDeg 2) so entries are directly comparable.
+        var settings = PhaseReferenceSettings()
+        settings.kMaxInvAngstrom = Thronsen.kMaxInvAngstrom
+        settings.inPlaneStepDeg = 2
+        let handPhases = Thronsen.phases(constrained: false)
+        guard let cifAl, let cifTheta, let cifT1 else {
+            print("\n  one or more CIFs failed to load; skipping level 2"); return
+        }
+        let swap: [String: Crystal] = ["al": cifAl, "theta-edge": cifTheta, "theta-face": cifTheta, "t1": cifT1]
+        let cifPhases: [PhaseDefinition] = handPhases.map { phase in
+            guard let replacement = swap[phase.id] else { return phase }
+            return PhaseDefinition(
+                id: phase.id, displayName: phase.displayName, crystal: replacement,
+                role: phase.role, zoneAxes: phase.zoneAxes,
+                orientationRelationships: phase.orientationRelationships,
+                excitationSlabInvAngstrom: phase.excitationSlabInvAngstrom)
+        }
+        guard let handLibrary = try? PhaseReferenceLibrary.build(phases: handPhases, settings: settings),
+              let cifLibrary = try? PhaseReferenceLibrary.build(phases: cifPhases, settings: settings) else {
+            print("\n  library build failed for hand-typed or CIF-substituted phases"); return
+        }
+        func firstEntry(_ library: PhaseReferenceLibrary, phaseIndex: Int, zoneAxis: SIMD3<Int>) -> PhaseOrientationReference? {
+            let candidates = library.entries.filter { $0.phaseIndex == phaseIndex && $0.zoneAxis == zoneAxis }
+            return candidates.first(where: { $0.inPlaneRotationRad == 0 }) ?? candidates.first
+        }
+        for (index, phase) in handPhases.enumerated() where phase.role == .candidate || phase.id == "al" {
+            guard let axis = phase.zoneAxes.first else { continue }
+            guard let handEntry = firstEntry(handLibrary, phaseIndex: index, zoneAxis: axis) else { continue }
+            let cifEntry = firstEntry(cifLibrary, phaseIndex: index, zoneAxis: axis)
+            print("\n  \(phase.displayName) [\(axis.x) \(axis.y) \(axis.z)]: "
+                  + "hand-typed \(handEntry.vectors.count) vectors"
+                  + (cifEntry.map { ", CIF \($0.vectors.count) vectors" } ?? ", CIF: no entry"))
+            guard let cifEntry else { continue }
+            var matched = 0
+            var claimed = Set<Int>()
+            var worstQ = 0.0, worstIntensity = 0.0
+            for v in handEntry.vectors {
+                var bestIndex = -1, bestD = Double.infinity
+                for (i, c) in cifEntry.vectors.enumerated() where !claimed.contains(i) {
+                    let d = simd_distance(v.q, c.q)
+                    if d < bestD { bestD = d; bestIndex = i }
+                }
+                if bestIndex >= 0, bestD < 0.005 {
+                    claimed.insert(bestIndex); matched += 1
+                    worstQ = max(worstQ, bestD)
+                    worstIntensity = max(worstIntensity,
+                                         abs(v.relativeIntensity - cifEntry.vectors[bestIndex].relativeIntensity))
+                }
+            }
+            print("    matched \(matched) of \(handEntry.vectors.count) hand-typed vectors "
+                  + "(CIF unmatched \(cifEntry.vectors.count - claimed.count)); "
+                  + String(format: "worst matched |q| separation %.5f Å⁻¹, worst matched "
+                           + "relative-intensity difference %.4f", worstQ, worstIntensity))
+        }
+        print("\n== end --cif-check ==")
+    }
+
     static func main() async {
         let args = CommandLine.arguments
+        if args.count >= 5, args[1] == "--cif-check" {
+            runCIFCheck(alPath: args[2], thetaPath: args[3], t1Path: args[4])
+            exit(0)
+        }
         guard args.count > 3,
               let probeRadius = Float(args[2]),
               let qPerPixel = Double(args[3]) else {
@@ -147,6 +311,29 @@ enum Probe {
         // survivors spread in |q|) or by real unmodelled reflections (far
         // survivors peaked at specific |q|)?
         var survivorDetail = false
+        // Gate D step 1 (precipitate-overnight-2026-09-23.md): additive, off
+        // by default, `--rule known-variants` only. Measures, for truth-Al
+        // positions the rule calls a precipitate (the false-call residual),
+        // truth-Al positions it calls Al (correct), and truth-precipitate
+        // positions it calls correctly: best precipitate score, an "Al
+        // score" (the survivors scored against the fitted matrix entry the
+        // same way, diagnostic only — Al is never scored this way in
+        // production), the phase-contrast margin, and how many of the
+        // winning entry's matched reflections sit at a |q| an Al reflection
+        // ALSO occupies ("shared") versus nowhere near one ("specific").
+        // Then sweeps two candidate guards (minimum specific-reflection
+        // count; minimum margin) that would fall back a failing position to
+        // MATRIX, and reports the exact headline-% and confusion-cell delta
+        // at each threshold — a measurement, not a default change.
+        var alPrecipitateDetail = false
+        // Gate D step 3 (precipitate-overnight-2026-09-23.md): additive, off
+        // by default, `--rule known-variants` only. Runs the app's own
+        // `PrecipitateSegmentation.classObjects` (via `PhaseMapObjectsBridge`)
+        // on (a) the truth labels, (b) the baseline predicted labels, and
+        // (c) the step-1 "specific >= 1" guarded labels, and reports
+        // per-phase object count, median length, area fraction, and how many
+        // truth/predicted objects split or merged against each other.
+        var objectTable = false
         // Generalised 2026-09-21 (θ′ edge-on Gate D follow-up to S2,
         // `docs/archive/v3/t1-relationship-2026-09-21.md`): `--survivor-detail`
         // took only T1 (truth label 3); it now takes an optional truth-label
@@ -172,6 +359,13 @@ enum Probe {
         // editing `PhaseReferenceSettings`'s shipped default.
         var slabArg: Double?
         var slabWidthArg: Double?
+        // Step 0 follow-up (precipitate-overnight-2026-09-23.md): an
+        // ADDITIONAL, off-by-default probe option that substitutes the
+        // paper's own CIFs (loaded through `CIFImport`) for `thronsen.swift`'s
+        // hand-typed crystals in the `--thronsen` phase list, so the
+        // known-variants baseline can be re-run on CIF-sourced crystals
+        // without touching the default. Only meaningful with `--thronsen`.
+        var cifCrystalPaths: (al: String, theta: String, t1: String)?
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -234,6 +428,13 @@ enum Probe {
                 maxVectorsArg = Int(args[index + 1]); index += 2
             } else if args[index] == "--dump-entry", index + 1 < args.count {
                 dumpEntryPhase = args[index + 1]; index += 2
+            } else if args[index] == "--al-precipitate-detail" {
+                alPrecipitateDetail = true; index += 1
+            } else if args[index] == "--object-table" {
+                objectTable = true; index += 1
+            } else if args[index] == "--cif-crystals", index + 3 < args.count {
+                cifCrystalPaths = (al: args[index + 1], theta: args[index + 2], t1: args[index + 3])
+                index += 4
             } else if args[index] == "--dump-edge-on" {
                 if index + 1 < args.count, let n = Int(args[index + 1]) {
                     dumpEdgeOnCount = n; index += 2
@@ -344,7 +545,7 @@ enum Probe {
         // what the app's phase list makes when the owner adds β″ twice, and
         // `bestPerPhase` keeps one winner per phase, so the shape of the
         // competition depends on it.
-        let phases = thronsen != nil ? Thronsen.phases(constrained: orientationRelationship) : truth != nil
+        var phases = thronsen != nil ? Thronsen.phases(constrained: orientationRelationship) : truth != nil
             ? [
                 PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
                                 role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
@@ -361,6 +562,19 @@ enum Probe {
                 PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
                                 role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
             ]
+        if let cifCrystalPaths {
+            if thronsen == nil {
+                print("--cif-crystals only means anything with --thronsen; ignoring")
+            } else {
+                print("\n== --cif-crystals: substituting CIF-imported crystals for the hand-typed ones ==")
+                guard let substituted = substituteCIFCrystals(
+                    phases, alPath: cifCrystalPaths.al, thetaPath: cifCrystalPaths.theta, t1Path: cifCrystalPaths.t1
+                ) else {
+                    print("--cif-crystals: one or more CIFs failed to load; aborting"); exit(1)
+                }
+                phases = substituted
+            }
+        }
         let library: PhaseReferenceLibrary
         do {
             library = try PhaseReferenceLibrary.build(phases: phases, settings: referenceSettings)
@@ -877,6 +1091,13 @@ enum Probe {
                     Cell(title: "theta-edge-on (truth) -> T1 (ours)", theirs: 1, ours: 3, notIndexed: false, dumpIndices: false),
                     Cell(title: "theta-edge-on (truth) -> Al (ours)", theirs: 1, ours: 0, notIndexed: false,
                          dumpIndices: true),
+                    // Step 2 (precipitate-overnight-2026-09-23.md): the 53
+                    // T1 (truth) positions the known-variants rule calls θ′
+                    // edge-on (`ours == 1`) — added so the population can be
+                    // read directly (matchedCount/score/indices) instead of
+                    // re-derived from the rotation-angle table alone.
+                    Cell(title: "T1 (truth) -> theta-edge-on (ours)", theirs: 3, ours: 1, notIndexed: false,
+                         dumpIndices: true),
                     Cell(title: "T1 (truth) -> T1 (ours), reference", theirs: 3, ours: 3, notIndexed: false, dumpIndices: false),
                     Cell(title: "Al (truth) -> Al (ours), reference", theirs: 0, ours: 0, notIndexed: false, dumpIndices: false),
                 ]
@@ -1130,6 +1351,324 @@ enum Probe {
                     print("  truth label \(targetLabel) has no matching candidate phase "
                           + "(0 = Al, the matrix); skipped")
                 }
+            }
+
+            if alPrecipitateDetail, matchSettings.classificationRule == .knownVariants,
+               map.matrixEntryIndex >= 0 {
+                let matrixEntry = library.entries[map.matrixEntryIndex]
+                print("\n== --al-precipitate-detail (Gate D step 1: Al -> precipitate false calls) ==")
+                print("  NOTE: candidate entries here are `library.candidateEntryIndices`, unfiltered "
+                      + "by --or's per-position orientation-relationship gate (that filter needs the "
+                      + "fitted matrix crystal + relationship list threaded in, not reused here) — this "
+                      + "can only make the recomputed 'best precipitate score' path MORE permissive than "
+                      + "production for matrix-shortcut positions (group B), never for group A/C, whose "
+                      + "score/matched/margin come straight off the real per-position result.")
+                let sharedTolerance = matchSettings.matrixToleranceInvAngstrom
+                let candidateIdx = library.candidateEntryIndices
+
+                struct Sample {
+                    var score = Double.nan
+                    var matched = 0
+                    var margin = Double.nan
+                    var alScore = Double.nan
+                    var specific = 0
+                    var shared = 0
+                    var survivingCount = 0
+                }
+                var groupA: [Sample] = []   // truth Al -> our precipitate (the false call)
+                var groupB: [Sample] = []   // truth Al -> our Al (correct)
+                var groupC: [Sample] = []   // truth precipitate -> our SAME subclass (correct)
+
+                for (index, result) in map.results.enumerated() {
+                    let theirs = thronsen.labels[index]
+                    guard theirs == 0 || theirs == 1 || theirs == 2 || theirs == 3 else { continue }
+                    let ours = Thronsen.label(of: result, phaseNames: map.phaseNames)
+                    let inGroupA = theirs == 0 && ours != 0
+                    let inGroupB = theirs == 0 && ours == 0
+                    let inGroupC = theirs != 0 && ours == theirs
+                    guard inGroupA || inGroupB || inGroupC else { continue }
+
+                    let vectors = PhaseVectorMatcher.experimentalVectors(
+                        peaks: peaks[index], originX: originX, originY: originY,
+                        invAngstromPerPixel: qPerPixel,
+                        directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                        maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                    let surviving = vectors.filter { u in
+                        PhaseVectorMatcher.nearest(
+                            u, in: matrixEntry.vectors, radius: matchSettings.matrixToleranceInvAngstrom) == nil
+                    }
+                    guard surviving.count == Int(result.survivingCount) else { continue }  // sanity
+
+                    var sample = Sample()
+                    sample.survivingCount = surviving.count
+
+                    // "Al score": survivors scored against the FITTED MATRIX
+                    // entry by the identical unique-hit-normalized formula
+                    // step c uses for a candidate. Diagnostic only — Al is
+                    // never scored this way in production (DEVIATION note on
+                    // `classifyKnownVariants`: it is decided entirely by
+                    // survivor count, step b).
+                    if !surviving.isEmpty {
+                        var sum = 0.0; var uniqueHits = Set<Int>()
+                        for u in surviving {
+                            guard let hit = PhaseVectorMatcher.nearest(
+                                u, in: matrixEntry.vectors, radius: 999.0) else { continue }
+                            sum += hit.distance; uniqueHits.insert(hit.index)
+                        }
+                        if !uniqueHits.isEmpty { sample.alScore = sum / Double(uniqueHits.count) }
+                    }
+
+                    // Best precipitate score: the REAL step c/d winner when
+                    // this position reached step c in production
+                    // (`result.entryIndex >= 0` — filled whether the verdict
+                    // ended up indexed or notIndexed-cliffed). Group B
+                    // positions were matrix-shortcut by step b and never
+                    // reached step c, so it is recomputed here, OPEN, by the
+                    // identical formula, to ask "what would it have scored".
+                    var winEntry: Int? = result.entryIndex >= 0 ? Int(result.entryIndex) : nil
+                    var winScore = result.entryIndex >= 0 ? Double(result.score) : Double.nan
+                    var winMatched = result.entryIndex >= 0 ? Int(result.matchedCount) : 0
+                    if winEntry == nil, !surviving.isEmpty {
+                        var bestScore = Double.infinity
+                        var bestMatched = 0
+                        for e in candidateIdx {
+                            let entry = library.entries[e]
+                            guard !entry.vectors.isEmpty else { continue }
+                            var sum = 0.0; var uniqueHits = Set<Int>(); var withinRadius = 0
+                            for u in surviving {
+                                guard let hit = PhaseVectorMatcher.nearest(
+                                    u, in: entry.vectors, radius: 999.0) else { continue }
+                                sum += hit.distance; uniqueHits.insert(hit.index)
+                                if hit.distance <= matchSettings.pairRadiusInvAngstrom { withinRadius += 1 }
+                            }
+                            guard !uniqueHits.isEmpty else { continue }
+                            let s = sum / Double(uniqueHits.count)
+                            if s < bestScore { bestScore = s; winEntry = e; bestMatched = withinRadius }
+                        }
+                        if winEntry != nil { winScore = bestScore; winMatched = bestMatched }
+                    }
+                    sample.score = winScore
+                    sample.matched = winMatched
+                    if result.entryIndex >= 0, result.score.isFinite, result.runnerUpScore.isFinite {
+                        sample.margin = Double(result.runnerUpScore) - Double(result.score)
+                    }
+
+                    if let winEntry {
+                        let entry = library.entries[winEntry]
+                        var uniqueHitIndices = Set<Int>()
+                        for u in surviving {
+                            guard let hit = PhaseVectorMatcher.nearest(
+                                u, in: entry.vectors, radius: matchSettings.pairRadiusInvAngstrom)
+                            else { continue }
+                            uniqueHitIndices.insert(hit.index)
+                        }
+                        for hitIndex in uniqueHitIndices {
+                            let refQ = entry.vectors[hitIndex].q
+                            let nearAl = matrixEntry.vectors.contains {
+                                simd_distance($0.q, refQ) <= sharedTolerance
+                            }
+                            if nearAl { sample.shared += 1 } else { sample.specific += 1 }
+                        }
+                    }
+
+                    if inGroupA { groupA.append(sample) }
+                    else if inGroupB { groupB.append(sample) }
+                    else if inGroupC { groupC.append(sample) }
+                }
+
+                func quant(_ values: [Double]) -> String {
+                    let s = values.filter { $0.isFinite }.sorted()
+                    guard !s.isEmpty else { return "n=0" }
+                    func at(_ p: Double) -> Double {
+                        s[max(0, min(s.count - 1, Int((Double(s.count - 1) * p).rounded())))]
+                    }
+                    return String(format: "n=%-6d min=%.4f p25=%.4f p50=%.4f p75=%.4f max=%.4f",
+                                  s.count, s.first!, at(0.25), at(0.5), at(0.75), s.last!)
+                }
+                func quanti(_ values: [Int]) -> String { quant(values.map(Double.init)) }
+
+                for (label, group) in [
+                    ("Al -> precipitate (FALSE CALL, n=\(groupA.count))", groupA),
+                    ("Al -> Al (correct, n=\(groupB.count))", groupB),
+                    ("precipitate -> same subclass (correct, n=\(groupC.count))", groupC),
+                ] {
+                    print("\n  -- \(label) --")
+                    print("    best precipitate score (Å⁻¹): " + quant(group.map(\.score)))
+                    print("    Al score (Å⁻¹), diagnostic:   " + quant(group.map(\.alScore)))
+                    print("    margin (runnerUp - winner):   " + quant(group.map(\.margin)))
+                    print("    matched, specific-to-phase:   " + quanti(group.map(\.specific)))
+                    print("    matched, shared-with-Al:      " + quanti(group.map(\.shared)))
+                    print("    surviving vectors:            " + quanti(group.map(\.survivingCount)))
+                }
+
+                // ---- Guard sweep. A position failing the guard falls back
+                // to MATRIX (not not-indexed): the hypothesis under test is
+                // "too little phase-specific evidence to call anything but
+                // Al", and Al is what "not enough evidence" should mean for
+                // a rule that never asks whether the matrix explains it
+                // better (`classifyKnownVariants` has no `challengeByMatrix`
+                // step, DEVIATION note). Only group A (fixed) and group C
+                // (broken) can change the headline: every other confusion
+                // cell is either already correct-and-untouched or already
+                // wrong-and-still-wrong after a fallback to Al (cross-
+                // subclass errors, e.g. T1 -> θ′ edge-on, stay wrong either
+                // way), so `529 - fixed + broken` is the exact new total,
+                // not an approximation.
+                let baselineMislabelled = mislabelled
+                let baselineTotal = map.results.count
+                print("\n  guard sweep A: minimum SPECIFIC-to-phase reflections to keep .indexed "
+                      + "(else -> matrix); baseline \(baselineMislabelled)/\(baselineTotal) = "
+                      + String(format: "%.2f", 100 * Double(baselineMislabelled) / Double(baselineTotal)) + " %")
+                for minSpecific in 0...6 {
+                    let fixed = groupA.filter { $0.specific < minSpecific }.count
+                    let broken = groupC.filter { $0.specific < minSpecific }.count
+                    let newTotal = baselineMislabelled - fixed + broken
+                    print(String(format: "    specific >= %d: fixes %4d/%-4d Al-false-calls, "
+                                  + "costs %4d/%-4d correct precipitate calls -> %5d/%d = %.2f %%",
+                                  minSpecific, fixed, groupA.count, broken, groupC.count,
+                                  newTotal, baselineTotal, 100 * Double(newTotal) / Double(baselineTotal)))
+                }
+                print("\n  guard sweep B: minimum MARGIN (runnerUp - winner, Å⁻¹) to keep .indexed (else -> matrix)")
+                for minMargin in [0.0, 0.002, 0.005, 0.01, 0.02, 0.05] {
+                    let fixed = groupA.filter { !$0.margin.isFinite || $0.margin < minMargin }.count
+                    let broken = groupC.filter { !$0.margin.isFinite || $0.margin < minMargin }.count
+                    let newTotal = baselineMislabelled - fixed + broken
+                    print(String(format: "    margin >= %.4f: fixes %4d/%-4d Al-false-calls, "
+                                  + "costs %4d/%-4d correct precipitate calls -> %5d/%d = %.2f %%",
+                                  minMargin, fixed, groupA.count, broken, groupC.count,
+                                  newTotal, baselineTotal, 100 * Double(newTotal) / Double(baselineTotal)))
+                }
+            }
+
+            if objectTable, matchSettings.classificationRule == .knownVariants, map.matrixEntryIndex >= 0 {
+                print("\n== --object-table (Gate D step 3: object-level truth check) ==")
+                let width = cols.count, height = rows.count
+                let matrixEntry = library.entries[map.matrixEntryIndex]
+
+                // (a) truth labels: 0 Al (matrix), 1/2/3 precipitate
+                // subclasses, 4 "disagreement" — held out of every role set
+                // (neither matrix, precipitate, nor notIndexed) so it is
+                // simply excluded from the analysed area, the same way an
+                // unselected indexed class would be (phase-map-objects-
+                // gateD-2026-09-21.md's own precedent), rather than folded
+                // into either neighbour by a guess this record has no
+                // evidence for.
+                let truthLabels: [Int32] = thronsen.labels.map { Int32($0) }
+                let truthRoles = PrecipitateSegmentation.LabelRoles(
+                    precipitateClasses: [1, 2, 3], matrix: [0], notIndexed: [])
+
+                // (b) baseline predicted labels: the app's own bridge, byte
+                // for byte what a real run would hand `classObjects`.
+                let baseline = PhaseMapObjectsBridge.labeledMap(from: map)
+
+                // (c) step-1 guarded labels: identical to (b) except every
+                // REAL .indexed position whose winning entry matches fewer
+                // than 1 phase-specific (not Al-shared) reflection falls
+                // back to the matrix label — the single best point measured
+                // in --al-precipitate-detail's guard sweep A, recomputed
+                // here the same way (not stored, since that flag is a
+                // separate pass).
+                var guardedLabels = baseline.labels
+                for (index, result) in map.results.enumerated() where result.verdict == .indexed {
+                    guard result.entryIndex >= 0 else { continue }
+                    let vectors = PhaseVectorMatcher.experimentalVectors(
+                        peaks: peaks[index], originX: originX, originY: originY,
+                        invAngstromPerPixel: qPerPixel,
+                        directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                        maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                    let surviving = vectors.filter { u in
+                        PhaseVectorMatcher.nearest(
+                            u, in: matrixEntry.vectors, radius: matchSettings.matrixToleranceInvAngstrom) == nil
+                    }
+                    let entry = library.entries[Int(result.entryIndex)]
+                    var uniqueHitIndices = Set<Int>()
+                    for u in surviving {
+                        guard let hit = PhaseVectorMatcher.nearest(
+                            u, in: entry.vectors, radius: matchSettings.pairRadiusInvAngstrom)
+                        else { continue }
+                        uniqueHitIndices.insert(hit.index)
+                    }
+                    let specific = uniqueHitIndices.filter { hitIndex in
+                        let refQ = entry.vectors[hitIndex].q
+                        return !matrixEntry.vectors.contains {
+                            simd_distance($0.q, refQ) <= matchSettings.matrixToleranceInvAngstrom
+                        }
+                    }.count
+                    if specific < 1 { guardedLabels[index] = Int32(map.matrixPhaseIndex) }
+                }
+                let guarded = PhaseMapObjectsBridge.LabeledMap(labels: guardedLabels, roles: baseline.roles)
+
+                let truthObjects = PrecipitateSegmentation.classObjects(
+                    labels: truthLabels, width: width, height: height, roles: truthRoles,
+                    pixelSize: nil, pixelUnit: nil)
+                let baselineObjects = PrecipitateSegmentation.classObjects(
+                    labels: baseline.labels, width: width, height: height, roles: baseline.roles,
+                    pixelSize: nil, pixelUnit: nil)
+                let guardedObjects = PrecipitateSegmentation.classObjects(
+                    labels: guarded.labels, width: width, height: height, roles: guarded.roles,
+                    pixelSize: nil, pixelUnit: nil)
+
+                func medianLength(_ objects: [PrecipitateSegmentation.Object]) -> Float {
+                    guard !objects.isEmpty else { return .nan }
+                    let s = objects.map(\.lengthPx).sorted()
+                    return s[s.count / 2]
+                }
+                // Split: a truth object whose pixels touch >= 2 distinct
+                // predicted objects OF THE SAME CLASS. Merge: a predicted
+                // object whose pixels touch >= 2 distinct truth objects of
+                // the same class. Vanished: a truth object touching ZERO
+                // predicted objects of the same class (relabelled away
+                // entirely — not "split", which requires 2+) — printed
+                // alongside since a split/merge count alone cannot be read
+                // without it.
+                func splitMergeVanished(
+                    truthObjs: [PrecipitateSegmentation.Object], predObjs: [PrecipitateSegmentation.Object]
+                ) -> (split: Int, merge: Int, vanished: Int) {
+                    var predOwnerOfPixel: [Int: Int] = [:]
+                    for o in predObjs { for p in o.pixelIndices { predOwnerOfPixel[p] = o.id } }
+                    var truthOwnerOfPixel: [Int: Int] = [:]
+                    for o in truthObjs { for p in o.pixelIndices { truthOwnerOfPixel[p] = o.id } }
+                    var split = 0, vanished = 0
+                    for o in truthObjs {
+                        let touched = Set(o.pixelIndices.compactMap { predOwnerOfPixel[$0] })
+                        if touched.isEmpty { vanished += 1 } else if touched.count > 1 { split += 1 }
+                    }
+                    var merge = 0
+                    for o in predObjs {
+                        let touched = Set(o.pixelIndices.compactMap { truthOwnerOfPixel[$0] })
+                        if touched.count > 1 { merge += 1 }
+                    }
+                    return (split, merge, vanished)
+                }
+
+                let phaseLabelNames: [Int32: String] = [1: "θ′ edge-on", 2: "θ′ face-on", 3: "T1"]
+                print(String(format: "  %-12@ %8@ %8@ %10@ %10@ %8@ %8@ %8@",
+                             "phase" as NSString, "source" as NSString, "objects" as NSString,
+                             "medianLen" as NSString, "areaFrac" as NSString,
+                             "split" as NSString, "merge" as NSString, "vanish" as NSString))
+                for label in [Int32(1), 2, 3] {
+                    let name = phaseLabelNames[label] ?? "\(label)"
+                    let truthClass = truthObjects.classes.first { $0.label == label }
+                    let baselineClass = baselineObjects.classes.first { $0.label == label }
+                    let guardedClass = guardedObjects.classes.first { $0.label == label }
+                    for (source, predClass) in [("baseline", baselineClass), ("guarded", guardedClass)] {
+                        guard let truthClass, let predClass else { continue }
+                        let smv = splitMergeVanished(truthObjs: truthClass.objects, predObjs: predClass.objects)
+                        if source == "baseline" {
+                            print(String(format: "  %-12@ %8@ %8d %10.2f %10.4f %8@ %8@ %8@",
+                                         name as NSString, "truth" as NSString, truthClass.objects.count,
+                                         medianLength(truthClass.objects), truthClass.areaFraction ?? .nan,
+                                         "-" as NSString, "-" as NSString, "-" as NSString))
+                        }
+                        print(String(format: "  %-12@ %8@ %8d %10.2f %10.4f %8d %8d %8d",
+                                     name as NSString, source as NSString, predClass.objects.count,
+                                     medianLength(predClass.objects), predClass.areaFraction ?? .nan,
+                                     smv.split, smv.merge, smv.vanished))
+                    }
+                }
+                print(String(format: "\n  analysed pixels: truth %d, baseline %d, guarded %d (of %d total)",
+                             truthObjects.analysedPixels, baselineObjects.analysedPixels,
+                             guardedObjects.analysedPixels, width * height))
             }
 
             // WHICH ROTATION WON, per truth → label cell: the winner's
