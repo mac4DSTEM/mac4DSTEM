@@ -1,7 +1,7 @@
 # Cloud session 2026-09-23: precipitate objects, progress
 
 Branch `cloud/2026-09-23-precipitate-objects`, cut from `origin/main` at `075c044`.
-Last updated: 2026-09-23, during the follow-up (see "Follow-up work").
+Last updated: 2026-09-23, end of the follow-up. All four follow-up items are done.
 
 ## Task state
 
