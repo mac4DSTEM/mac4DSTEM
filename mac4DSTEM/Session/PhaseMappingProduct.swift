@@ -186,13 +186,17 @@ package enum PhaseMappingRuleDefaults {
     /// for the shipped default (checked by
     /// `PhaseMapObjectsWiringTests`); `.knownVariants` contributes the three
     /// keys `PhaseVectorSettings.classificationRule`'s own doc comment named
-    /// as not-yet-carried into that dictionary.
+    /// as not-yet-carried into that dictionary, plus the evidence guard's.
     package static func provenanceAdditions(for matching: PhaseVectorSettings) -> [String: String] {
         guard matching.classificationRule == .knownVariants else { return [:] }
         return [
             "classification_rule": "known_variants",
             "residual_cutoff_inv_angstrom": String(format: "%.4g", matching.residualCutoffInvAngstrom),
             "direct_matrix_maximum_vectors": String(matching.directMatrixMaximumVectors),
+            // The evidence guard (Gate D 2026-09-23): a saved map records
+            // whether it was guarded.
+            "known_variants_minimum_specific_reflections":
+                String(matching.knownVariantsMinimumSpecificReflections),
         ]
     }
 }

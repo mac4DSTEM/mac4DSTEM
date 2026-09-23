@@ -166,7 +166,7 @@ extension AppState {
         ))
 
         publishPhaseMapProduct()
-        publishPrecipitateClassificationFromPhaseMap()
+        await publishPrecipitateClassificationFromPhaseMap()
         let counts = map.phaseCounts
         let indexed = counts.enumerated()
             .filter { $0.offset != map.matrixPhaseIndex && $0.element > 0 }
@@ -209,16 +209,88 @@ extension AppState {
     /// validation claim of its own, and the phase map it is built from is
     /// still `validation: "none"` — the Result section's badge says so for
     /// both.
-    func publishPrecipitateClassificationFromPhaseMap() {
+    func publishPrecipitateClassificationFromPhaseMap() async {
         guard let map = phaseMapping.map else { return }
         let labeled = PhaseMapObjectsBridge.labeledMap(from: map)
         let calibration = calibrationSession.calibration
-        let objects = PrecipitateSegmentation.classObjects(
-            labels: labeled.labels, width: map.width, height: map.height,
-            roles: labeled.roles,
-            pixelSize: calibration.rPixelSize, pixelUnit: calibration.rPixelUnits
-        )
-        precipitateClassification.publish(objects)
+        let labels = labeled.labels, roles = labeled.roles
+        let width = map.width, height = map.height
+        let pixelSize = calibration.rPixelSize, pixelUnit = calibration.rPixelUnits
+        // Off the main actor: an 8-connected flood fill per class over the
+        // whole scan. A newer run or a dataset change while it computes wins
+        // (`PrecipitateClassificationProduct.publish(_:ifCurrent:)`).
+        let token = precipitateClassification.beginComputation()
+        let objects = await Task.detached(priority: .userInitiated) {
+            PrecipitateSegmentation.classObjects(
+                labels: labels, width: width, height: height, roles: roles,
+                pixelSize: pixelSize, pixelUnit: pixelUnit)
+        }.value
+        precipitateClassification.publish(objects, ifCurrent: token)
+    }
+
+    /// The object table for what the reader has now: the retained objects,
+    /// the CURRENT real-space calibration (so a density is never stale
+    /// against a scale changed after the run) and the reader's minimum
+    /// object size. Nil until a phase map has been classified.
+    var precipitateObjectReport: PrecipitateObjectReport? {
+        guard let objects = precipitateClassification.result, let map = phaseMapping.map,
+              objects.width == map.width, objects.height == map.height else { return nil }
+        let calibration = calibrationSession.calibration
+        return PrecipitateObjectReport.make(
+            objects: objects, phaseNames: map.phaseNames, matrixPhaseIndex: map.matrixPhaseIndex,
+            pixelSize: calibration.rPixelSize, pixelUnit: calibration.rPixelUnits,
+            minimumAreaPx: precipitateClassification.minimumObjectAreaPx,
+            provenance: precipitateReportProvenance(map: map))
+    }
+
+    /// The CSV's comment header: what was measured, from what, and that it
+    /// is unvalidated. Ordered: the load-bearing keys first.
+    private func precipitateReportProvenance(map: PhaseMap) -> [(String, String)] {
+        var out: [(String, String)] = [("product", "precipitate objects from the phase map")]
+        if let file = descriptor?.fileName { out.append(("source_file", file)) }
+        out.append(("created", ISO8601DateFormatter().string(from: Date())))
+        guard let run = phaseMapping.lastRun else { return out }
+        let rest = phaseProvenance(map: map, run: run)
+        for key in ["validation", "method", "method_citation", "phases", "matrix_phase"] {
+            if let value = rest[key] { out.append((key, value)) }
+        }
+        let first: Set<String> = ["validation", "method", "method_citation", "phases", "matrix_phase"]
+        for key in rest.keys.sorted() where !first.contains(key) {
+            out.append((key, rest[key] ?? ""))
+        }
+        return out
+    }
+
+    /// The objects over the scan, coloured as the numbers count them:
+    /// counted objects in their phase colour, objects on the scan edge or
+    /// under the minimum size dimmed (`PrecipitateObjectReport.image`).
+    /// Inherits the phase map's `validation: "none"`.
+    func publishPrecipitateObjectsProduct() {
+        guard let map = phaseMapping.map, let run = phaseMapping.lastRun,
+              let objects = precipitateClassification.result,
+              let report = precipitateObjectReport else { return }
+        let image = PrecipitateObjectReport.image(
+            objects: objects, report: report, verdicts: map.results.map(\.verdict),
+            matrixPhaseIndex: map.matrixPhaseIndex)
+        var extra = phaseProvenance(map: map, run: run)
+        extra["quantitative_status"] = "categorical"
+        extra["minimum_object_area_px"] = String(report.minimumAreaPx)
+        extra["object_connectivity"] = "8"
+        extra["objects_counted_rule"] = "scan-edge objects and objects under the minimum size are drawn dimmed and not counted"
+        publishProduct(
+            kind: "precipitate_objects",
+            displayName: "Precipitate Objects",
+            valueUnits: "phase",
+            payload: .rgba(image),
+            domain: .scan,
+            extraProvenance: extra)
+    }
+
+    /// Rebuild the drawn objects after the reader changes the minimum size,
+    /// but only when the objects are what the pane is showing.
+    func refreshPrecipitateObjectsProductIfShown() {
+        guard displayedProduct?.kind == "precipitate_objects" else { return }
+        publishPrecipitateObjectsProduct()
     }
 
     /// The distance companion: how far, in Å⁻¹, the winning phase's reference

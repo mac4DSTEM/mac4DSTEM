@@ -1231,6 +1231,10 @@ final class PhaseVectorMatchingTests: XCTestCase {
         let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: refs)])
         var settings = PhaseVectorSettings()
         settings.classificationRule = .knownVariants
+        // The cutoff alone: these survivors sit ~0.07 Å⁻¹ from their
+        // references, outside the pair radius, so the evidence guard (tested
+        // below) would send the under-cutoff case to the matrix.
+        settings.knownVariantsMinimumSpecificReflections = 0
         let scratch = PhaseVectorMatcher.Scratch(capacity: 8)
 
         func result(offset: Double) -> PhaseVectorResult {
@@ -1251,6 +1255,152 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertEqual(Int(justAbove.phaseIndex), 1)
         XCTAssertTrue(justAbove.score.isFinite)
     }
+
+    // MARK: - `.knownVariants` evidence guard (Gate D 2026-09-23)
+
+    /// Matrix at (0.4, 0); candidate phase 1 holds a SHARED reflection at
+    /// (0.415, 0) (0.015 from the matrix's, inside `matrixToleranceInvAngstrom`)
+    /// and a SPECIFIC one at (0, 0.75). `second` places the second survivor.
+    private func guardFixture(second: SIMD2<Double>, minimumSpecific: Int)
+        -> PhaseVectorResult {
+        let matrixEntry = PhaseOrientationReference(
+            phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1), inPlaneRotationRad: 0,
+            vectors: [ReferenceVector(h: 2, k: 0, l: 0, q: SIMD2(0.4, 0), length: 0.4, relativeIntensity: 1)])
+        let refs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.415, 0), length: 0.415, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0, 0.75), length: 0.75, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: refs)])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        settings.knownVariantsMinimumSpecificReflections = minimumSpecific
+        // (0.43, 0) is 0.03 from the matrix's (0.4, 0): it survives removal,
+        // and hits the SHARED reference 0.015 away, inside the pair radius.
+        return PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.43, 0), second], library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 8))
+    }
+
+    /// (G1) A winner whose only in-radius hit is a reflection the matrix
+    /// shares is the matrix under the guard, and `.indexed` without it. The
+    /// second survivor (0, 0.70) is 0.05 from the specific reference, outside
+    /// the pair radius: score (0.015 + 0.05) / 2 = 0.0325, under the cutoff.
+    /// Break-first: (a) the guard removed, or (b) the shared-with-matrix filter
+    /// removed from `specificReflectionCount` (the shared hit then counts), each
+    /// leaves the k = 1 case `.indexed`, so this must go red.
+    func testKnownVariantsGuardSendsSharedOnlyWinnerToMatrix() {
+        let guarded = guardFixture(second: SIMD2(0, 0.70), minimumSpecific: 1)
+        XCTAssertEqual(guarded.verdict, .matrix)
+        XCTAssertEqual(Int(guarded.phaseIndex), 0, "the matrix's phase index")
+        XCTAssertEqual(Int(guarded.entryIndex), -1, "cleared, as in every matrix fallback")
+        XCTAssertEqual(guarded.score, 0.0325, accuracy: 1e-6, "the rejected winner's score is kept")
+
+        let unguarded = guardFixture(second: SIMD2(0, 0.70), minimumSpecific: 0)
+        XCTAssertEqual(unguarded.verdict, .indexed)
+        XCTAssertEqual(Int(unguarded.phaseIndex), 1)
+        XCTAssertEqual(unguarded.score, 0.0325, accuracy: 1e-6)
+    }
+
+    /// (G2) The boundary: one specific hit ((0, 0.76), 0.01 from (0, 0.75))
+    /// passes k = 1 and fails k = 2. Break-first: `<` changed to `<=` in the
+    /// guard sends the k = 1 case to the matrix, so this must go red.
+    func testKnownVariantsGuardBoundaryAtOneSpecificReflection() {
+        let atOne = guardFixture(second: SIMD2(0, 0.76), minimumSpecific: 1)
+        XCTAssertEqual(atOne.verdict, .indexed, "exactly one specific reflection meets k = 1")
+        XCTAssertEqual(Int(atOne.phaseIndex), 1)
+        let atTwo = guardFixture(second: SIMD2(0, 0.76), minimumSpecific: 2)
+        XCTAssertEqual(atTwo.verdict, .matrix, "one specific reflection fails k = 2")
+    }
+
+    /// (G3) A refusal stays a refusal: a winner over the residual cutoff with
+    /// no specific hit is `.notIndexed`, not the matrix. Second survivor
+    /// (0, 0.90): 0.15 from (0, 0.75), score (0.015 + 0.15) / 2 = 0.0825 > 0.07.
+    /// Break-first: the guard applied to every verdict (the `.indexed` test
+    /// dropped) turns this into `.matrix`, so this must go red.
+    func testKnownVariantsGuardLeavesRefusalsAlone() {
+        let refused = guardFixture(second: SIMD2(0, 0.90), minimumSpecific: 1)
+        XCTAssertEqual(refused.verdict, .notIndexed)
+        XCTAssertEqual(Int(refused.phaseIndex), 1, "the would-be winner, as for every refusal")
+    }
+
+    /// (G5) "Shared with the matrix" is judged at the MATRIX tolerance, not
+    /// the pair radius (Gate B 2026-09-23: with both at 0.02 no test told them
+    /// apart). Pair radius 0.03, matrix tolerance 0.01; the candidate's
+    /// (0.42, 0) sits 0.02 from the matrix's (0.4, 0): outside the tolerance,
+    /// so SPECIFIC. Survivor (0.43, 0) survives removal (0.03 > 0.01) and hits
+    /// it at 0.01; (0, 0.70) is 0.05 from (0, 0.75), outside the radius.
+    /// Score (0.01 + 0.05) / 2 = 0.03. Break-first: the shared filter at
+    /// `pairRadiusInvAngstrom` makes (0.42, 0) shared, specific 0, matrix — so
+    /// this must go red.
+    func testKnownVariantsGuardJudgesSharedAtTheMatrixTolerance() {
+        let matrixEntry = PhaseOrientationReference(
+            phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1), inPlaneRotationRad: 0,
+            vectors: [ReferenceVector(h: 2, k: 0, l: 0, q: SIMD2(0.4, 0), length: 0.4, relativeIntensity: 1)])
+        let refs = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.42, 0), length: 0.42, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0, 0.75), length: 0.75, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [(phaseIndex: 1, vectors: refs)])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        settings.pairRadiusInvAngstrom = 0.03
+        settings.matrixToleranceInvAngstrom = 0.01
+        let result = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.43, 0), SIMD2(0, 0.70)], library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: PhaseVectorMatcher.Scratch(capacity: 8))
+        XCTAssertEqual(result.verdict, .indexed, "one specific reflection at the matrix tolerance")
+        XCTAssertEqual(Int(result.phaseIndex), 1)
+        XCTAssertEqual(result.score, 0.03, accuracy: 1e-6)
+    }
+
+    /// (G6) The guard judges the WINNER, not the first entry in library
+    /// order (Gate B 2026-09-23: every guard test had one candidate). Entry 0
+    /// (phase 1) has a specific hit, (0.445, 0), but scores (0.015 + 0.10) / 2
+    /// = 0.0575. Entry 1 (phase 2) wins at (0.015 + 0.05) / 2 = 0.0325 with
+    /// only a shared hit, (0.415, 0), so the guard sends the position to the
+    /// matrix. Break-first: the guard evaluated on `ranked[0]` (entry 0,
+    /// specific 1) keeps it indexed as phase 2, so this must go red.
+    func testKnownVariantsGuardJudgesTheWinnerNotTheFirstEntry() {
+        let matrixEntry = PhaseOrientationReference(
+            phaseIndex: 0, zoneAxis: SIMD3(0, 0, 1), inPlaneRotationRad: 0,
+            vectors: [ReferenceVector(h: 2, k: 0, l: 0, q: SIMD2(0.4, 0), length: 0.4, relativeIntensity: 1)])
+        let loser = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.445, 0), length: 0.445, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0, 0.60), length: 0.60, relativeIntensity: 1),
+        ]
+        let winner = [
+            ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.415, 0), length: 0.415, relativeIntensity: 1),
+            ReferenceVector(h: 0, k: 1, l: 0, q: SIMD2(0, 0.75), length: 0.75, relativeIntensity: 1),
+        ]
+        let library = knownVariantsLibrary(candidateEntries: [
+            (phaseIndex: 1, vectors: loser), (phaseIndex: 2, vectors: winner),
+        ])
+        var settings = PhaseVectorSettings()
+        settings.classificationRule = .knownVariants
+        let scratch = PhaseVectorMatcher.Scratch(capacity: 8)
+        let result = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.43, 0), SIMD2(0, 0.70)], library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: scratch)
+        XCTAssertEqual(result.verdict, .matrix, "the winner (phase 2) has no specific reflection")
+        XCTAssertEqual(result.score, 0.0325, accuracy: 1e-6, "phase 2's score: it was the winner")
+
+        settings.knownVariantsMinimumSpecificReflections = 0
+        let unguarded = PhaseVectorMatcher.classify(
+            vectors: [SIMD2(0.43, 0), SIMD2(0, 0.70)], library: library, settings: settings,
+            matrixEntry: matrixEntry, candidateEntryIndices: library.candidateEntryIndices,
+            scratch: scratch)
+        XCTAssertEqual(Int(unguarded.phaseIndex), 2, "without the guard phase 2 wins")
+    }
+
+    /// (G4) Shipped on at 1 (owner decision 2026-09-23). Break-first: the
+    /// default changed to 0, so this must go red.
+    func testKnownVariantsGuardShipsOnAtOne() {
+        XCTAssertEqual(PhaseVectorSettings().knownVariantsMinimumSpecificReflections, 1)
+    }
+
 
     /// (5) Partial explanation loses: an entry explaining 2 of 12 survivors
     /// at 0.003 Å⁻¹ and leaving the other 10 far away must lose to an entry

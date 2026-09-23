@@ -339,6 +339,14 @@ enum Probe {
         // JSON so tools/cloud-analysis/direction_check.py can apply the
         // truth's cleanup convention to the app's own map. Off by default.
         var dumpLabelsPath: String?
+        // `--scale-to-detector` (2026-09-23 night, known-variants guard Gate D
+        // E3): apply the app's own `PhaseVectorResolution.scaledToDetector` —
+        // what "scale to detector" does in the app — after every other
+        // matching flag. Off by default.
+        var scaleToDetector = false
+        // `--specific-guard k` (Gate D E1–E4): set
+        // `knownVariantsMinimumSpecificReflections` (shipped 1; 0 = off).
+        var specificGuardArg: Int?
         // Generalised 2026-09-21 (θ′ edge-on Gate D follow-up to S2,
         // `docs/archive/v3/t1-relationship-2026-09-21.md`): `--survivor-detail`
         // took only T1 (truth label 3); it now takes an optional truth-label
@@ -439,6 +447,10 @@ enum Probe {
                 objectTable = true; index += 1
             } else if args[index] == "--dump-labels", index + 1 < args.count {
                 dumpLabelsPath = args[index + 1]; index += 2
+            } else if args[index] == "--scale-to-detector" {
+                scaleToDetector = true; index += 1
+            } else if args[index] == "--specific-guard", index + 1 < args.count {
+                specificGuardArg = Int(args[index + 1]); index += 2
             } else if args[index] == "--cif-crystals", index + 3 < args.count {
                 cifCrystalPaths = (al: args[index + 1], theta: args[index + 2], t1: args[index + 3])
                 index += 4
@@ -541,6 +553,16 @@ enum Probe {
             matchSettings.matrixToleranceInvAngstrom = matchSettings.pairRadiusInvAngstrom
             matchSettings.notIndexedAboveInvAngstrom = matchSettings.pairRadiusInvAngstrom * 0.75
             matchSettings.directBeamRadiusInvAngstrom = 3 * qPerPixel
+        }
+        if let specificGuardArg {
+            matchSettings.knownVariantsMinimumSpecificReflections = specificGuardArg
+            print("matching: known-variants specific-reflection guard \(specificGuardArg) (shipped 1, knownVariants only)")
+        }
+        if scaleToDetector {
+            matchSettings = PhaseVectorResolution(settings: matchSettings, invAngstromPerPixel: qPerPixel)
+                .scaledToDetector(matchSettings)
+            print(String(format: "matching: scaled to detector — pair radius %.5f, matrix tolerance %.5f Å⁻¹",
+                         matchSettings.pairRadiusInvAngstrom, matchSettings.matrixToleranceInvAngstrom))
         }
         // In truth mode every setting is the app's shipped default, untouched
         // above: the question is what a user gets, not what a tuned probe can

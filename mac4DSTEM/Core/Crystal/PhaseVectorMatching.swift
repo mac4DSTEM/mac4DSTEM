@@ -212,6 +212,31 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// the paper's dataset — shipped as a setting, not retuned on this app's
     /// truth (`docs/v3-features.md#precipitates-mp-plan` §2).
     package var residualCutoffInvAngstrom: Double = 0.07
+    /// `.knownVariants` only: an `.indexed` winner must match at least this
+    /// many PHASE-SPECIFIC reference reflections, or the position falls back
+    /// to the matrix. 0 disables it.
+    ///
+    /// "Specific" = a reference vector of the winning entry that some
+    /// survivor hit within `pairRadiusInvAngstrom`, and whose own `q` lies
+    /// outside `matrixToleranceInvAngstrom` of every matrix reference, i.e. a
+    /// reflection the matrix cannot also explain. The fallback is the matrix,
+    /// not "not indexed": this rule has no matrix challenge, and too little
+    /// evidence for a precipitate is what the matrix means here.
+    ///
+    /// DEVIATION: cell 16 has no such guard (argmin wins however little the
+    /// winner matched). MEASURED on Thronsen et al.'s dataset A, stride 3,
+    /// at this rule's defaults (pair radius 0.020 Å⁻¹): 529 → 423 of 29 241
+    /// mislabelled at the 0.1 % detection floor, 424 → 383 at 0.15 %,
+    /// 1189 → 1168 at 0.2 %. It fixes Al → precipitate false calls at a cost
+    /// of 6 of 7 625 correct precipitate calls, and it relabels already-wrong
+    /// precipitate calls as Al (precipitate → Al errors 39 → 85).
+    /// Held out on spatial halves, k = 1 was chosen 170 of 200 times. It is
+    /// NOT parameter-free: with k fixed, the result moves with the pair
+    /// radius (2.18 % at 0.010 Å⁻¹, 1.35 % at 0.015). One dataset.
+    /// Records: `docs/archive/v3/precipitate-overnight-2026-09-23.md`,
+    /// `docs/archive/v4/known-variants-guard-gateD-2026-09-23.md`.
+    /// Shipped on at 1 by owner decision, 2026-09-23.
+    package var knownVariantsMinimumSpecificReflections: Int = 1
 
     package nonisolated init() {}
 }
@@ -1157,7 +1182,46 @@ package nonisolated enum PhaseVectorMatcher {
         // Cell 6 / cell 19: `score_cutoff = 0.07`; `score_phase_mask =
         // score_phase > score_cutoff; phase_id[score_phase_mask] = 4`.
         result.verdict = winner.score > settings.residualCutoffInvAngstrom ? .notIndexed : .indexed
+
+        // e — the evidence guard (DEVIATION, `knownVariantsMinimumSpecificReflections`):
+        // an accepted winner with too few phase-specific reflections is the
+        // matrix. Only `.indexed` is judged; a refusal stays a refusal. As in
+        // the other matrix fallbacks, `entryIndex` is cleared; the rejected
+        // winner's score, matched count and runner-up stay for diagnosis.
+        let minimumSpecific = settings.knownVariantsMinimumSpecificReflections
+        if result.verdict == .indexed, minimumSpecific > 0,
+           specificReflectionCount(surviving: surviving, entry: library.entries[winner.entryIndex],
+                                   matrixEntry: matrixEntry, settings: settings) < minimumSpecific {
+            result.verdict = .matrix
+            result.phaseIndex = Int32(library.matrixPhaseIndex)
+            result.entryIndex = -1
+        }
         return result
+    }
+
+    /// Distinct reference vectors of `entry` hit by some survivor within
+    /// `pairRadiusInvAngstrom`, whose own `q` is not within
+    /// `matrixToleranceInvAngstrom` of any matrix reference. With no matrix
+    /// entry every hit counts. Transcribes the probe's inline guard
+    /// (`tools/phase-map-probe/main.swift`, `--al-precipitate-detail` /
+    /// `--object-table`) so the Core rule reproduces its measured numbers.
+    package static func specificReflectionCount(surviving: [SIMD2<Double>],
+                                                entry: PhaseOrientationReference,
+                                                matrixEntry: PhaseOrientationReference?,
+                                                settings: PhaseVectorSettings) -> Int {
+        var hits = Set<Int>()
+        for u in surviving {
+            if let hit = nearest(u, in: entry.vectors, radius: settings.pairRadiusInvAngstrom) {
+                hits.insert(hit.index)
+            }
+        }
+        guard let matrixEntry else { return hits.count }
+        return hits.filter { index in
+            let q = entry.vectors[index].q
+            return !matrixEntry.vectors.contains {
+                simd_distance($0.q, q) <= settings.matrixToleranceInvAngstrom
+            }
+        }.count
     }
 
     /// The TRUE nearest reference vector of `refs` — brute force, no radius

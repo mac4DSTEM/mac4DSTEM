@@ -33,16 +33,55 @@ package final class PrecipitateClassificationProduct {
     /// `clear` replace it, so it cannot outlive the dataset it describes.
     package private(set) var result: PrecipitateSegmentation.ClassMapObjects?
 
+    /// The reader's minimum object size in scan pixels; 1 keeps every
+    /// object. Smaller objects stay listed and drawn (dimmed) but leave the
+    /// counted statistics (`PrecipitateObjectReport`). A property of the
+    /// dataset the reader judges, never a shipped cut: the published truth's
+    /// own cuts were 4, 782 and 10 px on its dataset. Kept across datasets,
+    /// as a reader analysing a series expects.
+    package var minimumObjectAreaPx: Int = 1 {
+        didSet { if minimumObjectAreaPx < 1 { minimumObjectAreaPx = 1 } }
+    }
+
+    /// True while a classification is computing off the main actor.
+    package private(set) var isComputing = false
+    private var generation = 0
+
     /// Publish a spatial result computed by whichever route produced it —
     /// today, `AppState.publishPrecipitateClassificationFromPhaseMap()`.
     package func publish(_ newResult: PrecipitateSegmentation.ClassMapObjects) {
+        generation &+= 1
+        isComputing = false
         result = newResult
     }
 
+    /// Start a background computation; its token must still be current when
+    /// it finishes, or the result is dropped.
+    package func beginComputation() -> Int {
+        generation &+= 1
+        isComputing = true
+        return generation
+    }
+
+    /// Publish a background result only if nothing newer (another run, a
+    /// clear) happened since `beginComputation` returned `token`. Returns
+    /// whether it was published.
+    @discardableResult
+    package func publish(_ newResult: PrecipitateSegmentation.ClassMapObjects,
+                         ifCurrent token: Int) -> Bool {
+        guard token == generation else { return false }
+        isComputing = false
+        result = newResult
+        return true
+    }
+
     /// Dataset activation drops a result whose scan coordinates and calibrated
-    /// area belong to the previous dataset. No controls exist in this owner
-    /// yet, so no preference is preserved here.
+    /// area belong to the previous dataset, and any computation still in
+    /// flight for it. The minimum object size is a reader preference and is
+    /// kept.
     package func clear() {
+        generation &+= 1
+        isComputing = false
         result = nil
     }
 }

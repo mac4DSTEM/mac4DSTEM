@@ -56,23 +56,17 @@ governs whether a feature runs at all), not a tuning knob to raise.
 Consequence: both features ship **undriven on real data** and must be
 described that way in release notes. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
-### Known-variants rule / Al→precipitate guard — measured on one dataset, not shipped — Gate D 2026-09-23
-`ClassificationRule.knownVariants` at `minimumIntensityFraction` 0 reproduces
-**529/29 241 = 1.81 %** on the Thronsen truth (`baseline-repro-20260923.log`,
-digit-for-digit against `theta-prime-slab-2026-09-21.md`). The rule has no
-chance guard; a `specific ≥ 1` fallback-to-matrix candidate reaches
-**423/29 241 = 1.45 %** (inside the paper's 0.96–1.75 % band, cost 6/7 625
-correct calls) — an independent Gate D refuter (`385c1e3`) reproduced this to
-the digit but found it is a `(count, pair-radius)` **family**, not a fixed
-point (k≥1 is 2.18 % at radius 0.010, 1.35 % at 0.015 Å⁻¹); the baseline is
-not distinguishably outside the band under a stride-3 block bootstrap; 354 of
-407 false calls sit at truth-label boundaries, not scattered; and step 3's T1
-median-length gain is spurious singletons removed, not objects repaired.
-Al's hand-typed lattice constant differs 0.24 % from the paper's own CIF
-(a real small finding, not yet corrected). Nothing under `Core/` changed —
-every addition is an off-by-default probe flag.
-Owner: whether to ship a guard, and at what count/radius; unclaimed.
-Detail: `archive/v3/precipitate-overnight-2026-09-23.md`.
+### Known-variants evidence guard — SHIPPED ON 2026-09-23 (ADR 038); the costs it carries
+`knownVariantsMinimumSpecificReflections = 1`: the app's guard reproduces the
+measured inline guard to the position at the 0.1 / 0.15 / 0.2 / 0.5 % floors and
+the one-pixel radius (`archive/v4/known-variants-guard-gateD-2026-09-23.md`,
+Gate B NOT REFUTED on the numbers). On Thronsen it helps at low floors (0.15 %:
+424 → 383 = 1.31 %) and **costs 5 positions at the shipped 0.5 %**
+(3333 → 3338). It is a (count, pair-radius) family, not parameter-free (2.18 %
+at 0.010 Å⁻¹). It relabels already-wrong precipitate calls as Al. On the demo
+cube it lost no precipitate call and returned grain C (Al [111]) to matrix;
+grain B (Al [011]) stays labelled β″ because the rule has no matrix challenge.
+Owner: a second truth dataset before calling it validated; 0 turns it off.
 
 ### Phase mapping has no object-level pass bar — draft pre-registration, owner decision owed 2026-09-23
 Per-position error cannot see precipitate objects. At 0.96–1.75 %, the four published Thronsen maps
@@ -85,6 +79,17 @@ is 23 spurious objects at the 0.1 % floor, outside the published 1–13. At 0.15
 stride 3 (the truth goes from 38 to 74 objects).
 **Trap:** the cuts (782 / 10 / 4 px) are this truth's convention, never an app default.
 Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.
+
+### Precipitate objects residuals — found driving the app, 2026-09-23 night
+The pipeline was driven on `datasetA_stride3.h5` (ADR 038). Still open:
+- selecting a table row does not highlight its object in the pane;
+- the Result legend prints "76.2 %" with a "." while every inspector field uses
+  the locale's "," (`PhaseMappingSettings.swift`, `String(format:)`);
+- the zone-axis search lists symmetry-equivalent tied axes in a different order
+  from run to run (pre-e4 vs post-e4k0, unchanged code). Harmless if ties are
+  equivalent, but a choice of the first tie is not reproducible;
+- the table's final column widths and the "/µm²" text landed after the drive:
+  unverified on screen.
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
@@ -156,8 +161,8 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
   and correlation-score-based rescue doesn't work (score halves, reliability
   rises). Owner: its own design pass.
 
-### Precipitate segmentation defects — engine unwired, none blocking a shipped product
-`PrecipitateSegmentation` (owner: whether/how to fix, not urgent while unwired):
+### Precipitate segmentation defects — the image `segment` path, unwired; the class-map path is wired (ADR 038)
+`PrecipitateSegmentation.segment` (owner: whether/how to fix, not urgent while unwired):
 non-finite guard imputes the finite median, surviving scattered NaN but not
 a large contiguous invalid region (blocks wiring until resolved); non-finite
 pixels ON a feature erase it silently (6 marked pixels → 5 needles read as 0

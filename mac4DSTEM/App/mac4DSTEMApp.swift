@@ -233,6 +233,17 @@ struct mac4DSTEMApp: App {
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
             .commands { DatasetCommands() }
+        // The object table (`UI/PrecipitateObjectsWindow.swift`): a snapshot
+        // value, so it needs no reference to the dataset window's AppState and
+        // can stay open beside the map. Opened from the Precipitates section.
+        WindowGroup("Precipitate Objects", for: PrecipitateObjectReport.self) { $report in
+            if let report {
+                PrecipitateObjectsWindow(report: report)
+                    .preferredColorScheme(preferences.appearance.colorScheme)
+            }
+        }
+            .defaultSize(width: 1180, height: 680)
+            .windowToolbarStyle(.unified)
         // `UI/SettingsWindow.swift`'s sidebared `NavigationSplitView` hosts
         // this; its Materials Project section is the original `Form`
         // section, moved rather than rewritten (see its own header).

@@ -145,6 +145,7 @@
 				Session/PhaseMapObjectsBridge.swift,
 				Session/PhaseMappingProduct.swift,
 				Session/PrecipitateClassificationProduct.swift,
+				Session/PrecipitateObjectReport.swift,
 				Session/PromotionRun.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,

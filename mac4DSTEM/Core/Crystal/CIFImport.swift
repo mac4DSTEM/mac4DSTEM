@@ -106,6 +106,20 @@ package nonisolated enum CIFImport {
     /// `fileBaseName` (typically the source filename without extension) is
     /// used to build a stable model id and as the display-name fallback when
     /// the CIF's own `data_` block name is empty.
+    /// The name a phase imports under: the CIF's `data_` block name, unless
+    /// it says nothing — empty, or the placeholder a structure editor writes
+    /// into every file. VESTA exports `data_VESTA_phase_1` whatever the
+    /// structure; Thronsen et al.'s Al, θ′ and T1 CIFs all carry it, so all
+    /// three imported as "VESTA_phase_1" and a phase map, its legend and its
+    /// precipitate table could not tell them apart (found driving the app,
+    /// 2026-09-23). The file name is then the reader's only handle.
+    package static func displayName(dataBlockName: String?, fileBaseName: String) -> String {
+        guard let block = dataBlockName?.trimmingCharacters(in: .whitespaces), !block.isEmpty,
+              block.range(of: #"^VESTA_phase_[0-9]+$"#, options: .regularExpression) == nil
+        else { return fileBaseName }
+        return block
+    }
+
     package static func crystalModel(from cifText: String, fileBaseName: String) throws -> CrystalModel {
         let parsed = try parse(cifText)
         // The metric only proposes a family; the atom positions have to
@@ -134,7 +148,7 @@ package nonisolated enum CIFImport {
         }
 
         let sanitizedBase = sanitize(fileBaseName)
-        let displayName = (parsed.dataBlockName?.isEmpty == false) ? parsed.dataBlockName! : fileBaseName
+        let displayName = Self.displayName(dataBlockName: parsed.dataBlockName, fileBaseName: fileBaseName)
         let model = CrystalModel(
             id: "imported_\(sanitizedBase)",
             displayName: displayName,

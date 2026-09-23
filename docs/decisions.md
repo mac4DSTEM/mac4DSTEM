@@ -45,6 +45,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 035 | Frozen shell; width budget at the ideal columns; no toolbar title | 09-22 | live |
 | 036 | The toolbar carries the room (file + live run display in the centre; run/stop, Save, Reveal, dataset menu over the room; only the toggle over the inspector); breadcrumb row removed; infobar 28 pt | 09-22 evening | live (supersedes §6.2 of the morning) |
 | 037 | Inspector rooms are `GroupBox` cards; Prepare the reference | 09-22 evening; superseded 09-22 night | superseded: flat HIG sections in `InspectorRows` (cards dropped on Apple's guidance) |
+| 038 | Precipitate objects finish in the phase-mapping room (section, snapshot table window, minimum size, CSV); known-variants evidence guard ships on at 1 | 09-23 night | live |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

@@ -87,7 +87,8 @@ final class PhaseMapObjectsWiringTests: XCTestCase {
         XCTAssertEqual(additions["classification_rule"], "known_variants")
         XCTAssertEqual(additions["residual_cutoff_inv_angstrom"], "0.07")
         XCTAssertEqual(additions["direct_matrix_maximum_vectors"], "1")
-        XCTAssertEqual(additions.count, 3, "exactly the three named keys, nothing else")
+        XCTAssertEqual(additions["known_variants_minimum_specific_reflections"], "1")
+        XCTAssertEqual(additions.count, 4, "exactly the four named keys, nothing else")
     }
 
     // MARK: - (c) The bridge: PhaseMap -> labels/roles -> classObjects
@@ -121,13 +122,13 @@ final class PhaseMapObjectsWiringTests: XCTestCase {
 
     // MARK: - (d) No real-space calibration -> counted, never a density
 
-    func testUncalibratedDatasetPublishesCountsWithoutDensity() throws {
+    func testUncalibratedDatasetPublishesCountsWithoutDensity() async throws {
         let appState = AppState()
         appState.phaseMapping.publish(sixBySixMap(), ranWith: runRecord())
         appState.calibrationSession.calibration.rPixelSize = nil
         appState.calibrationSession.calibration.rPixelUnits = nil
 
-        appState.publishPrecipitateClassificationFromPhaseMap()
+        await appState.publishPrecipitateClassificationFromPhaseMap()
 
         let result = try XCTUnwrap(appState.precipitateClassification.result)
         let phaseOne = try XCTUnwrap(result.classes.first { $0.label == 1 })
@@ -136,13 +137,13 @@ final class PhaseMapObjectsWiringTests: XCTestCase {
         XCTAssertNil(phaseOne.density.pixelSize)
     }
 
-    func testCalibratedDatasetPublishesDensity() throws {
+    func testCalibratedDatasetPublishesDensity() async throws {
         let appState = AppState()
         appState.phaseMapping.publish(sixBySixMap(), ranWith: runRecord())
         appState.calibrationSession.calibration.rPixelSize = 2.0
         appState.calibrationSession.calibration.rPixelUnits = "nm"
 
-        appState.publishPrecipitateClassificationFromPhaseMap()
+        await appState.publishPrecipitateClassificationFromPhaseMap()
 
         let result = try XCTUnwrap(appState.precipitateClassification.result)
         let phaseOne = try XCTUnwrap(result.classes.first { $0.label == 1 })
@@ -176,12 +177,42 @@ final class PhaseMapObjectsWiringTests: XCTestCase {
         XCTAssertNil(product.result, "a cleared product must not outlive the dataset it described")
     }
 
-    func testAppStatePublishesThenClearsAlongsideThePhaseMap() {
+    /// A background result is published only if nothing newer happened
+    /// since it started: a second run, or a dataset change (`clear`). Gate B
+    /// 2026-09-23: the token check could be deleted with every test green.
+    /// Break-first: `publish(_:ifCurrent:)` ignoring the token lets the stale
+    /// first result land, so this must go red.
+    func testStaleBackgroundResultIsDropped() {
+        let product = PrecipitateClassificationProduct()
+        func objects(_ label: Int32) -> PrecipitateSegmentation.ClassMapObjects {
+            PrecipitateSegmentation.classObjects(
+                labels: [label], width: 1, height: 1,
+                roles: .init(precipitateClasses: [1], matrix: [0], notIndexed: []),
+                pixelSize: nil, pixelUnit: nil)
+        }
+        let first = product.beginComputation()
+        let second = product.beginComputation()
+        XCTAssertTrue(product.isComputing)
+        XCTAssertFalse(product.publish(objects(1), ifCurrent: first), "a newer run started")
+        XCTAssertNil(product.result)
+        XCTAssertTrue(product.isComputing, "the newer run is still computing")
+        XCTAssertTrue(product.publish(objects(0), ifCurrent: second))
+        XCTAssertEqual(product.result?.matrixPixels, 1, "the newer result, not the stale one")
+        XCTAssertFalse(product.isComputing)
+
+        let third = product.beginComputation()
+        product.clear()
+        XCTAssertFalse(product.publish(objects(1), ifCurrent: third), "the dataset changed")
+        XCTAssertNil(product.result)
+        XCTAssertFalse(product.isComputing)
+    }
+
+    func testAppStatePublishesThenClearsAlongsideThePhaseMap() async {
         let appState = AppState()
         appState.phaseMapping.publish(sixBySixMap(), ranWith: runRecord())
         appState.calibrationSession.calibration.rPixelSize = 2.0
         appState.calibrationSession.calibration.rPixelUnits = "nm"
-        appState.publishPrecipitateClassificationFromPhaseMap()
+        await appState.publishPrecipitateClassificationFromPhaseMap()
         XCTAssertNotNil(appState.precipitateClassification.result)
 
         // The same coupling `AppState+Open.swift`'s dataset-activation path

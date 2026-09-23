@@ -53,6 +53,20 @@ final class CIFImportTests: XCTestCase {
     Au4 Au 0.0 0.5 0.5
     """
 
+    /// A generic VESTA block name falls back to the file name; a real block
+    /// name is kept; an empty one falls back. Break-first: the VESTA pattern
+    /// check removed makes the first assertion return "VESTA_phase_1", so
+    /// this must go red.
+    func testGenericVESTABlockNameFallsBackToTheFileName() {
+        XCTAssertEqual(CIFImport.displayName(dataBlockName: "VESTA_phase_1", fileBaseName: "T1_thronsen2024"),
+                       "T1_thronsen2024")
+        XCTAssertEqual(CIFImport.displayName(dataBlockName: "Al_Fm-3m", fileBaseName: "Al"), "Al_Fm-3m")
+        XCTAssertEqual(CIFImport.displayName(dataBlockName: "", fileBaseName: "Al"), "Al")
+        XCTAssertEqual(CIFImport.displayName(dataBlockName: nil, fileBaseName: "Al"), "Al")
+        XCTAssertEqual(CIFImport.displayName(dataBlockName: "VESTA_phase_1_modified", fileBaseName: "x"),
+                       "VESTA_phase_1_modified", "only the exact placeholder is generic")
+    }
+
     func testGoldP1ReproducesBuiltInGoldCellAndSites() throws {
         let model = try CIFImport.crystalModel(from: goldP1CIF, fileBaseName: "gold")
         XCTAssertEqual(model.source, .imported)

@@ -200,6 +200,12 @@ struct PhaseMappingSections: View {
                                    + "scored; no floors (Thronsen et al. 2024).")
                 intField("Direct matrix up to (vectors)",
                          value: $product.matching.directMatrixMaximumVectors)
+                intField("Phase-specific reflections, at least",
+                         value: $product.matching.knownVariantsMinimumSpecificReflections,
+                         help: "A winner that matches fewer reflections the matrix does not also "
+                             + "have falls back to the matrix. 1 is shipped (measured on Thronsen "
+                             + "et al.'s dataset A: fewer Al → precipitate false calls at the 0.1–0.2 % "
+                             + "detection floors, a 5-position cost at 0.5 %); 0 turns it off.")
             } else {
                 parameterField("Not indexed above",
                                value: $product.matching.notIndexedAboveInvAngstrom,
@@ -272,6 +278,7 @@ struct PhaseMappingSections: View {
 
         if let map = product.map, let run = product.lastRun {
             resultSection(map: map, run: run, product: product)
+            PrecipitateObjectsSection()
         }
     }
 
@@ -305,24 +312,6 @@ struct PhaseMappingSections: View {
                             .monospacedDigit()
                     }
                     .labelsHidden()
-                }
-            }
-
-            // One compact row per precipitate phase — objects, median length,
-            // areal density — from the SAME map, via
-            // `AppState.publishPrecipitateClassificationFromPhaseMap()`. No
-            // new room, no table: this is the class map's per-phase fraction
-            // row above, extended by one line.
-            if let objects = appState.precipitateClassification.result {
-                ForEach(objects.classes, id: \.label) { classObjects in
-                    InspectorRow(precipitatePhaseName(classObjects.label, map: map)) {
-                        Text(precipitateObjectsLine(classObjects))
-                            .font(.caption)
-                            .monospacedDigit()
-                            .multilineTextAlignment(.trailing)
-                            .labelsHidden()
-                    }
-                    .help(objects.analysedAreaRule)
                 }
             }
 
@@ -659,46 +648,5 @@ struct PhaseMappingSections: View {
         case .search: "Search"
         case .knownVariants: "Known variants"
         }
-    }
-
-    /// The phase name a class label prints as, or a fallback that still
-    /// names the number — `map.phaseNames` and `classObjects.label` are
-    /// index-aligned by construction (`PhaseMapObjectsBridge.labeledMap`).
-    private func precipitatePhaseName(_ label: Int32, map: PhaseMap) -> String {
-        let index = Int(label)
-        guard map.phaseNames.indices.contains(index) else { return "Phase \(label)" }
-        return map.phaseNames[index]
-    }
-
-    /// "N objects · median length L nm · D per µm²", or "N objects · no scan
-    /// scale" without a real-space pixel size — the refusal rule stays
-    /// visible rather than a blank field (`PrecipitateStatistics.density`).
-    /// `medianLength`/`meanWidth` are scan PIXELS (`PrecipitateStatistics
-    /// .density`'s own contract); this is the one place that turns them
-    /// physical, using the same calibration the density itself was computed
-    /// from, never a different one.
-    private func precipitateObjectsLine(_ classObjects: PrecipitateSegmentation.ClassObjects) -> String {
-        let density = classObjects.density
-        let n = density.acceptedCount
-        let countText = "\(n) object\(n == 1 ? "" : "s")"
-        guard let pixelSize = density.pixelSize, let unit = density.pixelUnit,
-              let areal = density.arealDensity else {
-            return "\(countText) · no scan scale"
-        }
-        var parts = [countText]
-        if let medianPx = density.medianLength {
-            parts.append(String(format: "median length %.3g %@", medianPx * pixelSize, unit as NSString))
-        }
-        // µm² reads better than nm² for a precipitate density; converted
-        // only for the unit this app actually normalizes to on load
-        // (`AppState+Open.swift`'s µm → nm pixel-calibration step). Any
-        // other unit is printed in its own units rather than guessing a
-        // conversion for it.
-        if unit.lowercased() == "nm" {
-            parts.append(String(format: "%.3g per µm²", areal * 1e6))
-        } else {
-            parts.append(String(format: "%.3g per %@²", areal, unit as NSString))
-        }
-        return parts.joined(separator: " · ")
     }
 }
