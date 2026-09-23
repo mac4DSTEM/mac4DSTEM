@@ -1,7 +1,7 @@
 # Cloud session 2026-09-23: precipitate objects, progress
 
 Branch `cloud/2026-09-23-precipitate-objects`, cut from `origin/main` at `075c044`.
-Last updated: 2026-09-23, end of session.
+Last updated: 2026-09-23, during the follow-up (see "Follow-up work").
 
 ## Task state
 
@@ -43,3 +43,16 @@ PyPI can be reached: `numpy`, `h5py` and `scipy` installed. There is no Swift to
 1. Commit the brief to `main`, or to this branch, at `docs/cloud/2026-09-23-brief.md`.
 2. Allow `zenodo.org` in the cloud environment's network settings (Edit environment → Network access). Add `doi.org` too if the brief resolves the DOI.
 3. If any task needs a Swift probe, run it on a Mac. This Linux container has no Swift.
+
+## Follow-up work (owner, mid-session: "look through the repo and check for anything else you can do")
+
+Same limits as the brief: read-only against the app. Writes go only to this folder and `tools/cloud-analysis/`. No data, no Swift.
+
+| Item | State | File |
+|---|---|---|
+| F1: Al lattice constant memo (owner decision 3) | Done. The lead session re-ran the \|g\| arithmetic independently and it matched. | `al-lattice-constant.md` |
+| F2: R–Q sign-convention memo (owner decision 2) | Running | `rq-sign-convention.md` |
+| F3: triage of the 2026-09-09 register's 121 open claims (113 new + 8 possible repeats; open-items counts 119) | Running, split over 4 read-only verifiers | `defect-triage.md` |
+| F4: Python cross-check of the precipitate object definitions | Running | `precipitate-objects-crosscheck.md`, `tools/cloud-analysis/` |
+
+py4DSTEM was fetched at the repo's lock `f050d207` (0.14.19) into gitignored `References/` for F2. It is not committed.
