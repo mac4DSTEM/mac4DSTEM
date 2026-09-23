@@ -56,54 +56,28 @@ governs whether a feature runs at all), not a tuning knob to raise.
 Consequence: both features ship **undriven on real data** and must be
 described that way in release notes. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
-### Known-variants evidence guard — SHIPPED ON 2026-09-23 (ADR 038); the costs it carries
-`knownVariantsMinimumSpecificReflections = 1`: the app's guard reproduces the
-measured inline guard to the position at the 0.1 / 0.15 / 0.2 / 0.5 % floors and
-the one-pixel radius (`archive/v4/known-variants-guard-gateD-2026-09-23.md`,
-Gate B NOT REFUTED on the numbers). On Thronsen it helps at low floors (0.15 %:
-424 → 383 = 1.31 %) and **costs 5 positions at the shipped 0.5 %**
-(3333 → 3338). It is a (count, pair-radius) family, not parameter-free (2.18 %
-at 0.010 Å⁻¹). It relabels already-wrong precipitate calls as Al. On the demo
-cube it lost no precipitate call and returned grain C (Al [111]) to matrix;
-grain B (Al [011]) stays labelled β″ because the rule has no matrix challenge.
-Owner: a second truth dataset before calling it validated; 0 turns it off.
-
 ### Phase mapping has no object-level pass bar — draft pre-registration, owner decision owed 2026-09-23
-Per-position error cannot see precipitate objects. At 0.96–1.75 %, the four published Thronsen maps
-have 20–173× the truth's θ′ face-on objects and 1.3–2.4× its T1 objects (`docs/cloud/2026-09-23/T2-direction-check.md`).
-The truth's own size cuts bring every map, and the app's stride-3 map, back to truth counts. But
-the independent refuter showed that random Al flips at the app's false-call rate clean up to the
-truth's counts as well, so **cleaned counts cannot certify a classifier**. The app's raw T1 speckle
-is 23 spurious objects at the 0.1 % floor, outside the published 1–13. At 0.15 % it is 5
-(`archive/v4/detection-floor-sweep-2026-09-23.md`). θ′ edge-on objects are unmeasurable at
-stride 3 (the truth goes from 38 to 74 objects).
-**Trap:** the cuts (782 / 10 / 4 px) are this truth's convention, never an app default.
+Per-position error cannot see objects: at 0.96–1.75 % the published Thronsen maps have 20–173×
+the truth's θ′ face-on objects (`docs/cloud/2026-09-23/T2-direction-check.md`). Cleaned counts
+cannot certify a classifier (random flips clean up to the truth's counts); raw speckle can. The
+app's T1 raw speckle is 23 objects at the 0.1 % floor, 5 at 0.15 % (published 1–13).
+**Trap:** the truth's cuts (782 / 10 / 4 px) are that dataset's, never an app default. The shipped
+guard (ADR 038) still needs a second truth dataset before "validated" (closed-items 2026-09).
 Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.
 
-### Precipitate objects residuals — found driving the app, 2026-09-23 night
-The pipeline was driven on `datasetA_stride3.h5` (ADR 038). Still open:
-- selecting a table row does not highlight its object in the pane;
-- the Result legend prints "76.2 %" with a "." while every inspector field uses
-  the locale's "," (`PhaseMappingSettings.swift`, `String(format:)`);
-- the zone-axis search lists symmetry-equivalent tied axes in a different order
-  from run to run (pre-e4 vs post-e4k0, unchanged code). Harmless if ties are
-  equivalent, but a choice of the first tie is not reproducible;
-- a phase takes one zone axis, and the same crystal cannot be added twice
-  (`addPhaseMappingSlot` skips a model id already listed, silently). β″ at [010]
-  and [001] needs a second CIF file name today. A unique slot id is the fix
-  (slot `id` is `model.id`, keyed on in several places);
-- unverified on screen: the table's final column widths, and the density on its
-  own line.
+### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
+- a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
+  [010] + [001] needs a second CIF file name. Fix: a unique slot id (today `id == model.id`);
+- a table row does not highlight its object; the Result legend prints "76.2 %" with a ".";
+- zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0);
+- unverified on screen: the table's final column widths, the density on its own line.
 
 ### The owner's real Al-Mg-Si cube: matrix almost never wins — driven 2026-09-24, cause not established
-`Al_Mg_Si_060…bin_4` (⟨110⟩Al, 0.0457 Å⁻¹/px), scaled to the detector: matrix
-0.7 % at the 0.15 % floor and 2.2 % at 0.5 %; not indexed 56–65 %; β″ is speckle
-(about 3 000 objects per class, median 2 px). Al is found (⟨110⟩, 43 % of vectors)
-but about 4 of 6 peaks per pattern are unexplained by one global orientation.
-A different Al CIF cannot help (0.003 vs 0.046 Å⁻¹).
-**Trap:** do not tune the floor or the β″ library first. Gate D: (1) ACOM on Al —
-does the orientation vary across the scan? (2) template overlay — disks or kernel
-maxima? Record: `archive/v4/almgsi-drive-2026-09-23.md`. Owner: next session.
+`Al_Mg_Si_060…bin_4` (⟨110⟩Al, 0.0457 Å⁻¹/px), scaled to the detector: matrix 0.7 % at the 0.15 %
+floor, 2.2 % at 0.5 %; β″ speckle. Al is found (43 % of vectors) but ~4 of 6 peaks per pattern
+are unexplained by one global orientation; a different Al CIF cannot help (0.003 vs 0.046 Å⁻¹).
+**Trap:** do not tune the floor or β″ first. Gate D next session: (1) ACOM on Al — does the
+orientation vary? (2) template overlay — disks or kernel maxima? `archive/v4/almgsi-drive-2026-09-23.md`.
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
@@ -176,17 +150,11 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
   rises). Owner: its own design pass.
 
 ### Precipitate segmentation defects — the image `segment` path, unwired; the class-map path is wired (ADR 038)
-`PrecipitateSegmentation.segment` (owner: whether/how to fix, not urgent while unwired):
-non-finite guard imputes the finite median, surviving scattered NaN but not
-a large contiguous invalid region (blocks wiring until resolved); non-finite
-pixels ON a feature erase it silently (6 marked pixels → 5 needles read as 0
-objects; report the imputed count or refuse); the robust-sigma constant
-(`1.4826 * mad`) and the fill statistic (median) are one-token mutants,
-every test green either way; dark-contrast ridges register through their
-flanks, not the stripe (every fixture is bright-only); a negative peak
-collapses an object to 1×1 and NaN beside a maximum passes (unreproduced,
-no fixture). Full wording: `archive/open-items-detail-2026-09-23.md`;
-mechanism detail: `archive/v3/open-items-detail-2026-09-16.md`.
+`PrecipitateSegmentation.segment` only (owner: whether/how to fix, not urgent while unwired): a
+large contiguous NaN region survives imputation; NaN on a feature erases it silently; two
+one-token mutants (robust sigma, fill statistic) leave every test green; dark ridges register
+via their flanks. Shared `measure`: a negative peak collapses an object to 1×1 (no fixture).
+Full wording: `archive/open-items-detail-2026-09-23.md`.
 
 ### Other named science/presentation residuals
 Full original wording for the first four: `archive/open-items-detail-2026-09-23.md`.

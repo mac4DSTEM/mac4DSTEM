@@ -135,15 +135,11 @@ part of v4.0.0 (2026-09-23) and the Materials Project importer landed
 2026-09-21 (superseded text: `docs/archive/v4/roadmap-history.md`). Current
 order, from `docs/status.md` § Handoff and the 2026-09-23 overnight records:
 
-1. **Four owner decisions from last night's Gate D runs, before anything
-   below them moves:** the known-variants precipitate guard (pre-register as
-   a two-parameter count/pair-radius rule, measure on a second dataset —
-   `docs/archive/v3/precipitate-overnight-2026-09-23.md`); the R–Q displayed
-   sign convention (app θ = −py4DSTEM's on real data; decide which is
-   displayed, then Gate D the sign conversion — `docs/open-items.md`); the Al
-   lattice constant DEVIATION mechanism (4.0495 Å pure Al vs 4.04 Å the
-   paper's CIF, a `kMax` knife edge, not an excitation-slab effect); and a
-   macOS 27 CI runner image (`macos-26` can no longer build the app at all).
+1. **Owner decisions and one Gate D first:** the known-variants guard shipped on 2026-09-23
+   (ADR 038). Still owed: the R–Q displayed sign convention (`docs/open-items.md`); the Al
+   lattice constant `DEVIATION` (4.0495 vs 4.04 Å, a `kMax` knife edge); a macOS 27 CI runner;
+   the object-level pass bar (T4 draft). Gate D next: the owner's real Al-Mg-Si cube, where the
+   matrix almost never wins (`archive/v4/almgsi-drive-2026-09-23.md`).
 2. **Materials Project S6:** the live fetch works (owner, 2026-09-23); owed are
    the pre-registered comparisons — Al/θ′/T1 cells vs the paper's CIFs, a
    phase map through them within the S1 band, mp-1185307 refused.

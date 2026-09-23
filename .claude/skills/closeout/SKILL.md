@@ -55,7 +55,7 @@ Done means the repo tells the next reader the truth. In order:
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
 7. Republish the owner's living board (owner request, 2026-08-26; retitled
-   2026-09-21): the artifact titled **"mac4DSTEM v3.x Board"** (was "v2 Board"). Do not hardcode its address —
+   2026-09-21): the artifact titled **"mac4DSTEM v4.x Board"** (was "v3.x Board", "v2 Board"). Do not hardcode its address —
    the URL form changed on 2026-09-15 and a stale form would fork a second
    board, which is the failure this step exists to prevent. Find it with the
    Artifact tool's `action: "list"`, match the title, and pass that row's

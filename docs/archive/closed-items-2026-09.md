@@ -1323,3 +1323,15 @@ request, treated as the required acceptance — Frozen Shell, ADR 035), and
 `Label("Cancel", systemImage: "xmark.circle")` at the toolbar's
 `operationProgress` site. No separate rendering complaint remains against
 this item.
+
+## Known-variants evidence guard — shipped on 2026-09-23 (ADR 038), moved here at closeout 2026-09-24
+`knownVariantsMinimumSpecificReflections = 1`: the app's guard reproduces the
+measured inline guard to the position at the 0.1 / 0.15 / 0.2 / 0.5 % floors and
+the one-pixel radius (`archive/v4/known-variants-guard-gateD-2026-09-23.md`,
+Gate B NOT REFUTED on the numbers). On Thronsen it helps at low floors (0.15 %:
+424 → 383 = 1.31 %) and **costs 5 positions at the shipped 0.5 %**
+(3333 → 3338). It is a (count, pair-radius) family, not parameter-free (2.18 %
+at 0.010 Å⁻¹). It relabels already-wrong precipitate calls as Al. On the demo
+cube it lost no precipitate call and returned grain C (Al [111]) to matrix;
+grain B (Al [011]) stays labelled β″ because the rule has no matrix challenge.
+Owner: a second truth dataset before calling it validated; 0 turns it off.
