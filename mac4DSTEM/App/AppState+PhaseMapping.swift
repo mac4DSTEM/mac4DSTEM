@@ -30,11 +30,19 @@ extension AppState {
     /// The phase list as Core's own definitions, or nil if the list is not
     /// runnable. Kept separate from `runPhaseMapping` so the settings panel can
     /// size the library without starting one.
+    ///
+    /// Two phases that share a name (the same structure from two CIF files, as
+    /// β″ is added once per zone axis) are named by their zone axis too, so
+    /// the legend, the objects and the table can tell them apart (found
+    /// driving the demo cube, 2026-09-23).
     func phaseDefinitions() -> [PhaseDefinition]? {
         guard phaseMapping.runRefusal == nil else { return nil }
+        let names = phaseMapping.phases.map(\.model.displayName)
         return phaseMapping.phases.map { slot in
-            PhaseDefinition(
-                id: slot.model.id, displayName: slot.model.displayName,
+            let shared = names.filter { $0 == slot.model.displayName }.count > 1
+            return PhaseDefinition(
+                id: slot.model.id,
+                displayName: shared ? "\(slot.model.displayName) \(slot.zoneAxisText)" : slot.model.displayName,
                 crystal: slot.model.crystal,
                 role: slot.isMatrix ? .matrix : .candidate,
                 zoneAxes: [slot.zoneAxis],

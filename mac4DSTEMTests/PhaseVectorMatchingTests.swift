@@ -42,6 +42,29 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertEqual(product.phaseSignature, original)
     }
 
+    /// Two phases with one name (one structure imported from two files, one
+    /// per zone axis) are named by their zone axis; a unique name is left
+    /// alone. Break-first: the `shared` suffix removed leaves both
+    /// "Twin" and this must go red.
+    @MainActor
+    func testPhasesSharingANameAreNamedByZoneAxis() throws {
+        let base = CrystalModelLibrary.models[1]
+        func twin(_ id: String) -> CrystalModel {
+            CrystalModel(id: id, displayName: "Twin", crystal: base.crystal,
+                         symmetry: base.symmetry, source: .imported)
+        }
+        let appState = AppState()
+        appState.phaseMapping.phases = [
+            PhaseMappingSlot(model: CrystalModelLibrary.models[0], isMatrix: true, u: 0, v: 0, w: 1),
+            PhaseMappingSlot(model: twin("twin_a"), isMatrix: false, u: 0, v: 1, w: 0),
+            PhaseMappingSlot(model: twin("twin_b"), isMatrix: false, u: 0, v: 0, w: 1),
+        ]
+        let names = try XCTUnwrap(appState.phaseDefinitions()).map(\.displayName)
+        XCTAssertEqual(names[1], "Twin [0 1 0]")
+        XCTAssertEqual(names[2], "Twin [0 0 1]")
+        XCTAssertEqual(names[0], CrystalModelLibrary.models[0].displayName, "a unique name is unchanged")
+    }
+
     // MARK: The reciprocal lattice the library is built from
 
     /// Every lattice point inside kMax, enumerated over a tile far larger than

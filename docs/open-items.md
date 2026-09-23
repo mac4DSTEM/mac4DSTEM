@@ -88,8 +88,22 @@ The pipeline was driven on `datasetA_stride3.h5` (ADR 038). Still open:
 - the zone-axis search lists symmetry-equivalent tied axes in a different order
   from run to run (pre-e4 vs post-e4k0, unchanged code). Harmless if ties are
   equivalent, but a choice of the first tie is not reproducible;
-- the table's final column widths and the "/µm²" text landed after the drive:
-  unverified on screen.
+- a phase takes one zone axis, and the same crystal cannot be added twice
+  (`addPhaseMappingSlot` skips a model id already listed, silently). β″ at [010]
+  and [001] needs a second CIF file name today. A unique slot id is the fix
+  (slot `id` is `model.id`, keyed on in several places);
+- unverified on screen: the table's final column widths, and the density on its
+  own line.
+
+### The owner's real Al-Mg-Si cube: matrix almost never wins — driven 2026-09-24, cause not established
+`Al_Mg_Si_060…bin_4` (⟨110⟩Al, 0.0457 Å⁻¹/px), scaled to the detector: matrix
+0.7 % at the 0.15 % floor and 2.2 % at 0.5 %; not indexed 56–65 %; β″ is speckle
+(about 3 000 objects per class, median 2 px). Al is found (⟨110⟩, 43 % of vectors)
+but about 4 of 6 peaks per pattern are unexplained by one global orientation.
+A different Al CIF cannot help (0.003 vs 0.046 Å⁻¹).
+**Trap:** do not tune the floor or the β″ library first. Gate D: (1) ACOM on Al —
+does the orientation vary across the scan? (2) template overlay — disks or kernel
+maxima? Record: `archive/v4/almgsi-drive-2026-09-23.md`. Owner: next session.
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is

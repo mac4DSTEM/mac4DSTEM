@@ -72,10 +72,14 @@ struct PrecipitateObjectsSection: View {
                         Text("\(summary.countedObjects) object\(summary.countedObjects == 1 ? "" : "s")")
                             .monospacedDigit()
                     }
-                    Text(detailLine(summary, report: report))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+                    // One fact per line: a long phase name leaves the value
+                    // column narrow, and a joined line wrapped mid-unit.
+                    ForEach(detailLines(summary, report: report), id: \.self) { line in
+                        Text(line)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
                 .labelsHidden()
             }
@@ -122,9 +126,9 @@ struct PrecipitateObjectsSection: View {
         .disabled(appState.isBusy)
     }
 
-    /// "median 23,1 nm · 12,3 /µm²" (locale digits), or pixels with "no scan scale".
-    private func detailLine(_ summary: PrecipitateObjectReport.ClassSummary,
-                            report: PrecipitateObjectReport) -> String {
+    /// ["median 23,1 nm", "12,3 /µm²"] (locale digits), or pixels and "no scan scale".
+    private func detailLines(_ summary: PrecipitateObjectReport.ClassSummary,
+                             report: PrecipitateObjectReport) -> [String] {
         var parts: [String] = []
         if let median = summary.medianLengthPx {
             if let size = report.pixelSize, let unit = report.pixelUnit {
@@ -138,7 +142,7 @@ struct PrecipitateObjectsSection: View {
         } else if !report.hasPhysicalScale {
             parts.append("no scan scale")
         }
-        return parts.isEmpty ? "—" : parts.joined(separator: " · ")
+        return parts.isEmpty ? ["—"] : parts
     }
 
     private func helpText(_ summary: PrecipitateObjectReport.ClassSummary,
