@@ -8,7 +8,7 @@ Last updated: 2026-09-23, end of session.
 | Task | State | Why |
 |---|---|---|
 | T1–T6 | **Not started** | The brief `docs/cloud/2026-09-23-brief.md` does not exist (B1), and the only permitted data source can't be reached from this container (B2). |
-| PROGRESS.md / SUMMARY.md / PR | Done | This file, `SUMMARY.md`, one PR to `main`, left unmerged. |
+| PROGRESS.md / SUMMARY.md / PR | Done | This file, `SUMMARY.md`, and draft PR https://github.com/mac4DSTEM/mac4DSTEM/pull/2 to `main`, left unmerged. |
 
 ## Blockers, with evidence
 
