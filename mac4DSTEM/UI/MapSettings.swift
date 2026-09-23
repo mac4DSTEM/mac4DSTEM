@@ -906,11 +906,12 @@ private struct ACOMSections: View {
             InspectorNote(appState.acomSession.quality.detail)
             // The app's only measured figure for how well it orients, so a
             // user reads it before trusting a zone axis to the degree.
-            // Planted aluminium patterns (`tools/acom-groundtruth`, retired — see docs/archive/v4/tools-retired-2026-09-23.md; measured
-            // 2026-09-15); no other phase has been measured. Static on
-            // purpose: a number with its date and its scope, not a promise.
+            // Planted aluminium patterns, measured 2026-09-15 with the since
+            // retired `tools/acom-groundtruth` (restore: docs/archive/v4/
+            // tools-retired-2026-09-23.md); no other phase has been measured.
+            // Static on purpose: a number with its date and scope, not a promise.
             InspectorNote("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
-                .help("136 planted patterns across nine zone axes and two azimuthal bins of in-plane rotation (tools/acom-groundtruth/orientation-accuracy.py, 2026-09-15). The angles are the total error against the planted axis; the bank's own sampling accounts for at most 0.8° of the 13.6°, and the rest is the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin — the mechanism is recorded in docs/open-items.md.")
+                .help("Measured on 136 planted aluminium patterns across nine zone axes and two azimuthal bins of in-plane rotation (2026-09-15). The angles are the total error against the planted axis: the template bank's own spacing accounts for at most 0.8° of the 13.6°; the rest comes from the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin.")
 
             scopeControls
 
