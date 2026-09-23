@@ -3,9 +3,10 @@
 # the matcher against planted truth. See main.swift's header for what stands in
 # for ground truth here, and for the pre-registered pass criteria.
 #
-# `scientific` deliberately: unlike tools/phase-discrimination-probe, which was
-# a one-off measurement deciding whether a route was viable at all, everything
-# gated here is an invariant of shipped Core code.
+# `scientific` deliberately: unlike the one-off per-position template-matching
+# probe that decided whether that route was viable at all (retired; answer in
+# docs/archive/v4/tools-retired-2026-09-23.md), everything gated here is an
+# invariant of shipped Core code.
 set -euo pipefail
 
 cd "$(dirname "$0")"

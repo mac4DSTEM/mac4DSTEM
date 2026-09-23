@@ -8,7 +8,7 @@ import DSTEMSession
 
 /// The noun for the pattern on screen, shared by the diffraction pane and the
 /// inspector's statistics rows, so "Pattern min" can never silently describe a
-/// mean, a max or a region sum (UI review 2026-09-04, finding b).
+/// mean, a max or a region sum.
 enum PatternSourceLabel {
     static func noun(mode: PatternDisplayMode, roiSummed: Bool) -> String {
         switch mode {
@@ -29,7 +29,7 @@ enum PatternSourceLabel {
 /// (overlay handles stay pixel-accurate at any zoom), and a `PaneFooter`
 /// carrying the scale bar and the colorbar chip.
 ///
-/// **Two migration fixes** (owner findings, 2026-09-04):
+/// **Two migration fixes** (owner findings):
 /// - The fitted image is pinned to the TOP of the available space rather than
 ///   centred, so the header sits directly above the image instead of across a
 ///   band of slack.
@@ -55,9 +55,9 @@ struct DiffractionPane: View {
         .padding(8)
         // `PaneSplit` hands a pane an explicit width rather than refusing
         // to go below its minimum the way `HSplitView` did, so the header
-        // is compressible (`ViewThatFits`, 2026-09-05) and the clip is the
-        // backstop: whatever still does not fit stays inside the pane
-        // instead of overprinting the divider and its neighbour.
+        // is compressible (`ViewThatFits`) and the clip is the backstop:
+        // whatever still does not fit stays inside the pane instead of
+        // overprinting the divider and its neighbour.
         .clipped()
         .contentShape(Rectangle())
         .overlay { ActivePaneOutline(pane: .diffraction) }
@@ -68,11 +68,11 @@ struct DiffractionPane: View {
     /// changes the header's height, which moves the image below it. The title
     /// yields first — the window title already names the task.
     ///
-    /// Two layouts, the first that fits wins (`PaneSplit` residual (a),
-    /// 2026-09-05): the full row, or — below the width its `.fixedSize()`
-    /// controls need — the title, the ROI badge and one overflow menu holding
-    /// the same controls. Neither announces a minimum width upward, which is
-    /// the constraint-loop rule (`open-items.md`).
+    /// Two layouts, the first that fits wins (`PaneSplit` residual (a)): the
+    /// full row, or — below the width its `.fixedSize()` controls need — the
+    /// title, the ROI badge and one overflow menu holding the same controls.
+    /// Neither announces a minimum width upward, which is the constraint-loop
+    /// rule (`open-items.md`).
     private var header: some View {
         ViewThatFits(in: .horizontal) {
             fullHeader
@@ -81,7 +81,7 @@ struct DiffractionPane: View {
         // One constant height for both panes' headers: the diffraction
         // header's regular-size picker made it taller than the real-space
         // one, so the two images, each centred below its header, sat a few
-        // points apart (owner, 2026-09-22, on a real cube).
+        // points apart (observed on a real cube).
         .frame(height: LayoutPolicy.paneHeaderHeight)
     }
 
@@ -228,11 +228,11 @@ struct DiffractionPane: View {
                         .allowsHitTesting(false)
                     }
 
-                    // Hand-clicked disk-centre labels (C7 session 4, Disks
-                    // mode only — labelling is one scan position at a time).
-                    // Shown once there is something to show, or while the
-                    // click-mode toggle is on so the owner can see where a
-                    // click would land.
+                    // Hand-clicked disk-centre labels (Disks mode only —
+                    // labelling is one scan position at a time). Shown once
+                    // there is something to show, or while the click-mode
+                    // toggle is on so the user can see where a click would
+                    // land.
                     if appState.navigation.analysisMode == .disks {
                         let labels = appState.diskCentreLabels
                         let centres = labels.centres(
@@ -334,13 +334,11 @@ struct DiffractionPane: View {
                 }
             }
             .frame(width: box.width, height: box.height)
-            // The image is pinned to the top of the pane, not centred in it,
-            // so the header sits directly above it.
             // Centred, as Preview centres a photo. Top-pinning was tried
             // first (a review note about the header sitting far from the
             // image) and looked broken on screen: a square pattern in a tall,
-            // narrow pane left ~400 pt of dead space below it, measured
-            // 2026-09-04 in a 1470 pt window.
+            // narrow pane left ~400 pt of dead space below it (measured in a
+            // 1470 pt window).
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Diffraction pattern")
@@ -370,9 +368,9 @@ struct DiffractionPane: View {
 struct RealSpacePane: View {
     /// Whether this pane offers the scan-position marker and click-to-scrub.
     ///
-    /// False in Results (owner, 2026-09-04): the marker moves the position the
-    /// DIFFRACTION pane reads, and Results has no diffraction pane, so it drew
-    /// a control whose effect was invisible from where it was drawn.
+    /// False in Results: the marker moves the position the DIFFRACTION pane
+    /// reads, and Results has no diffraction pane, so it drew a control
+    /// whose effect was invisible from where it was drawn.
     var allowsScanSelection = true
 
     @Environment(AppState.self) private var appState
@@ -413,9 +411,9 @@ struct RealSpacePane: View {
         .padding(8)
         // `PaneSplit` hands a pane an explicit width rather than refusing
         // to go below its minimum the way `HSplitView` did, so the header
-        // is compressible (`ViewThatFits`, 2026-09-05) and the clip is the
-        // backstop: whatever still does not fit stays inside the pane
-        // instead of overprinting the divider and its neighbour.
+        // is compressible (`ViewThatFits`) and the clip is the backstop:
+        // whatever still does not fit stays inside the pane instead of
+        // overprinting the divider and its neighbour.
         .clipped()
         .contentShape(Rectangle())
         .overlay { ActivePaneOutline(pane: .realSpace) }
@@ -467,11 +465,11 @@ struct RealSpacePane: View {
     /// Single-line on purpose: a wrapping title or cursor readout changes the
     /// header's height, which moves the image. The title yields first.
     ///
-    /// Two layouts, the first that fits wins (`PaneSplit` residual (a),
-    /// 2026-09-05): the full row, or — below the ~420 pt its `.fixedSize()`
-    /// controls need — title, badges, cursor readout and one overflow menu
-    /// holding the quality toggle and the view orientation. Neither layout
-    /// announces a minimum width upward (the constraint-loop rule).
+    /// Two layouts, the first that fits wins (`PaneSplit` residual (a)): the
+    /// full row, or — below the ~420 pt its `.fixedSize()` controls need —
+    /// title, badges, cursor readout and one overflow menu holding the
+    /// quality toggle and the view orientation. Neither layout announces a
+    /// minimum width upward (the constraint-loop rule).
     private var header: some View {
         ViewThatFits(in: .horizontal) {
             fullHeader
@@ -480,7 +478,7 @@ struct RealSpacePane: View {
         // One constant height for both panes' headers: the diffraction
         // header's regular-size picker made it taller than the real-space
         // one, so the two images, each centred below its header, sat a few
-        // points apart (owner, 2026-09-22, on a real cube).
+        // points apart (observed on a real cube).
         .frame(height: LayoutPolicy.paneHeaderHeight)
     }
 
@@ -574,8 +572,7 @@ struct RealSpacePane: View {
                 // axis "qx" is: the file's order is [Ry, Rx, Qy, Qx], so the
                 // app's qx is the columns, while py4DSTEM's qx is the rows.
                 // Unnamed, these two glyphs contradicted the "Qx × Qy" printed
-                // inches away and nobody could tell which convention was meant
-                // (review, 2026-09-04).
+                // inches away and nobody could tell which convention was meant.
                 Text("py4DSTEM qᵧ →  ·  qₓ ↓")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
@@ -846,13 +843,11 @@ struct RealSpacePane: View {
                        qualityField: qualityField, effZoom: effZoom)
             }
             .frame(width: box.width, height: box.height)
-            // Pinned to the top of the pane, not centred in it, so the header
-            // sits directly above the image.
             // Centred, as Preview centres a photo. Top-pinning was tried
             // first (a review note about the header sitting far from the
             // image) and looked broken on screen: a square pattern in a tall,
-            // narrow pane left ~400 pt of dead space below it, measured
-            // 2026-09-04 in a 1470 pt window.
+            // narrow pane left ~400 pt of dead space below it (measured in a
+            // 1470 pt window).
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
             .accessibilityLabel(appState.displayedResultName)
@@ -1210,24 +1205,19 @@ struct RealSpacePane: View {
 
 /// An accent outline on the pane the Imaging Direction currently drives.
 ///
-/// Owner, 2026-09-04: "the app needs an indicator which the active plane is
-/// because the settings plane changes and it is confusing when setting the
-/// detector." This is NOT the retired pane focus model — it routes nothing and
-/// writes nothing. It draws the answer to one question the Settings tab
-/// already asks: which of the two panes does dragging act on. It therefore
-/// appears only in Imaging, the one workspace where that choice exists;
-/// elsewhere `activePane` decides nothing and an outline would be noise.
-/// Click a pane to select it — the outline moves and the Settings tab follows.
+/// This is NOT the retired pane focus model — it routes nothing and writes
+/// nothing. It draws the answer to one question the Settings tab already
+/// asks: which of the two panes does dragging act on. It therefore appears
+/// only in Imaging, the one workspace where that choice exists; elsewhere
+/// `activePane` decides nothing and an outline would be noise. Click a pane
+/// to select it — the outline moves and the Settings tab follows.
 ///
-/// Restored 2026-09-11 on the owner's call, reversing two recorded decisions:
-/// 2026-09-04 retired the pane focus model, and C4(c) cut the click path as
-/// consolidation finding #5, "clicking the image rewrites the inspector".
-/// The owner's reason, driving 060_STEM_SI on 2026-09-11: clicking a picture
-/// doing nothing is not how a Mac app behaves, and the accent outline already
-/// looks exactly like a selection. Selection driving the inspector is the
-/// Xcode/Keynote idiom, not a violation of it — what made the old behaviour
-/// confusing was that nothing showed WHAT had been selected, and
-/// `ActivePaneOutline` (which the owner asked for the same week) now does.
+/// Owner decision, reversing an earlier retirement of this click path: a
+/// picture doing nothing on click is not how a Mac app behaves, and the
+/// accent outline already looks exactly like a selection. Selection driving
+/// the inspector is the Xcode/Keynote idiom, not a violation of it — what
+/// made the earlier behaviour confusing was that nothing showed WHAT had
+/// been selected, and `ActivePaneOutline` now does.
 ///
 /// `simultaneousGesture` so it composes with the detector drag, the scan
 /// scrub and the ROI handles rather than swallowing them; `TapGesture` so a

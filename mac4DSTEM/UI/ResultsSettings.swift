@@ -4,11 +4,9 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The Results workspace's inspector Settings tab: the saved-product chooser
-/// that was the old `ResultsSidebar`. It moves unchanged in substance — same
-/// rows, same wording, same identifiers — from a `.sidebar` List (where
-/// `LabeledContent` crushed onto one line) into the inspector's Lightroom-
-/// style vocabulary (`UI/InspectorRows.swift`), where it stacks as intended.
+/// The Results workspace's inspector Settings tab: the saved-product chooser,
+/// built on the inspector's row vocabulary (`UI/InspectorRows.swift`) because
+/// a `.sidebar` List crushes `LabeledContent` onto one line.
 struct ResultsSettings: View {
     @Environment(AppState.self) private var appState
     @State private var pendingResultRemoval: SessionResultDescriptor?

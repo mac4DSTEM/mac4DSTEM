@@ -1,10 +1,10 @@
 //
 //  AppState+MaterialsProject.swift
-//  Role: session S5's fetch glue — the one place that actually talks to
-//        api.materialsproject.org, and the one writer that turns a fetched
-//        `CrystalModel` into session state. `MaterialsProjectImport`
-//        (Core/Crystal) does the request-building, decoding and phase check;
-//        this file owns the network call itself and where the result lands.
+//  Role: the one place that talks to api.materialsproject.org, and the one
+//        writer that turns a fetched `CrystalModel` into session state.
+//        `MaterialsProjectImport` (Core/Crystal) does the request-building,
+//        decoding and phase check; this file owns the network call itself
+//        and where the result lands.
 //
 //  Nothing here runs automatically. `fetchMaterialsProject` is called from
 //  exactly one place — `MaterialsProjectImportSheet`'s Fetch button — the
@@ -61,14 +61,14 @@ package enum MaterialsProjectFetchOutcome {
 extension AppState {
     /// Fetch one material by id and grade it against `expectation`.
     ///
-    /// HTTP status handling (owner's brief, session S5): 401/403 → the key
-    /// was rejected; 404 → no such id; 429 → rate limited. A 200 whose body's
-    /// `errors` array is non-empty, and everything Core itself throws
-    /// (`MaterialsProjectImport.Failure` — malformed JSON, empty `data`, and
-    /// whatever the concurrent S5b `standardise` work adds), falls through to
-    /// the generic `LocalizedError` description rather than a case-by-case
-    /// switch: a new `Failure` case must not silently stop being reported
-    /// just because this call site never learned its name.
+    /// HTTP status handling: 401/403 → the key was rejected; 404 → no such
+    /// id; 429 → rate limited. A 200 whose body's `errors` array is
+    /// non-empty, and everything Core itself throws
+    /// (`MaterialsProjectImport.Failure` — malformed JSON, empty `data`,
+    /// etc.), falls through to the generic `LocalizedError` description
+    /// rather than a case-by-case switch: a new `Failure` case must not
+    /// silently stop being reported just because this call site never
+    /// learned its name.
     func fetchMaterialsProject(
         materialID: String,
         expectation: PhaseExpectation,

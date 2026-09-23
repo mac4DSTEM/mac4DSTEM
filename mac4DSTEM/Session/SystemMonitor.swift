@@ -42,7 +42,7 @@ package enum SystemMonitor {
     /// not the on-disk size, which differs whenever the file's dtype is not
     /// float32 (a uint16 cube streams at twice its file size). Reporting the
     /// file size here would be the more flattering number and the wrong one.
-    // Moved from AppState in C7 session 3 (the C5 budget): pure formatting beside `byteString`.
+    // Pure formatting; kept beside `byteString`.
     package nonisolated static func count(_ value: Int) -> String {
         value.formatted(.number.locale(Locale(identifier: "en_US")))
     }
@@ -53,10 +53,9 @@ package enum SystemMonitor {
         let bytesPerPattern = d.qy * d.qx * MemoryLayout<Float>.stride
         // Fixed grouping rather than the user's locale, because the byte string
         // beside it is itself unlocalized (`SystemMonitor.byteString` always
-        // formats "3.96 GB" with a period decimal point). Locale grouping put
-        // two meanings of "." in one line — on a German system this read
-        // "1.378 / 16.218 patterns · 3.96 GB", where the first two periods
-        // group and the third is a decimal point. One convention per line.
+        // formats "3.96 GB" with a period decimal point). Locale grouping would
+        // put two meanings of "." in one line (e.g. German grouping reads as a
+        // second decimal point). One convention per line.
         let patterns = "\(count(processed)) / \(count(total)) patterns"
         let bytes = "\(byteString(processed * bytesPerPattern))"
             + " of \(byteString(total * bytesPerPattern))"

@@ -51,13 +51,12 @@ extension AppState {
         do {
             // Off the main actor, exactly like the classical full-scan
             // detection (`AppState.swift:4907`). `DiffractionEmbedding.compute`
-            // is `nonisolated async`, and under SE-0461 a nonisolated async
-            // callee runs on its CALLER's executor — awaited straight from
-            // this `@MainActor` method it ran the whole embedding on the main
-            // thread, so the progress hop above could never be serviced and
-            // the app sat frozen at "0 %  0 s" for ~5 minutes with Cancel
-            // inert (owner's drive 2026-09-06, the owner's drive, `drive-groups` defect 1:
-            // 698/698 main-thread samples; Gate D `docs/archive/v3/ai-gateD-2026-09-06/gateD-A2.md`).
+            // is `nonisolated async`; under SE-0461 a nonisolated async
+            // callee runs on its CALLER's executor, so awaiting it directly
+            // from this `@MainActor` method would run the whole embedding on
+            // the main thread and starve the progress hop above (measured
+            // 698/698 main-thread samples; Gate D
+            // `docs/archive/v3/ai-gateD-2026-09-06/gateD-A2.md`).
             let computed = try await Task.detached(priority: .userInitiated) {
                 try await DiffractionEmbedding.compute(
                     data: fourD, descriptor: descriptor, settings: settings,

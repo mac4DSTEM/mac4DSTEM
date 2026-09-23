@@ -4,8 +4,8 @@
 //        memory — the requested mode, whether it is actually held, how large it
 //        is, and the preload's measured progress.
 //
-//  WHY THIS IS ITS OWN TYPE (docs/archive/development-process-2026-08-31.md §7, decided
-//  2026-08-17). Every L-stage that touches `AppState` extracts one seam. L2
+//  WHY THIS IS ITS OWN TYPE (docs/archive/development-process-2026-08-31.md §7).
+//  Every L-stage that touches `AppState` extracts one seam. L2
 //  *adds* this state, so it lands here rather than becoming four more
 //  properties on a facade that 172 stored properties already share.
 //
@@ -30,13 +30,14 @@ import DSTEMCore
 @Observable
 package final class DatasetResidency {
 
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    // Explicit so the default initializer is `package` (synthesized ones are
+    // internal). (v2.5 step 2c)
     package nonisolated init() {}
 
     /// What was asked for. `.streamed` is the shipped default — `.automatic`
-    /// was dropped for v2 (owner decision 2026-08-18; it always streamed, so
-    /// behaviour is unchanged). See the `Residency` enum for the return
-    /// condition. // v2 S3
+    /// was dropped for v2 (owner decision; it always streamed, so behaviour
+    /// is unchanged). See the `Residency` enum for the return condition
+    /// (v2 S3).
     package private(set) var mode: Residency = .streamed
 
     /// Whether a cube is actually held. Set only from the array's own answer,
@@ -78,7 +79,7 @@ package final class DatasetResidency {
     /// "Loading into memory…" with no preload running and nothing to clear it —
     /// and, across a dataset switch, dataset A's late ticks and final `sync`
     /// could publish A's residency onto the object that now describes B.
-    /// Adversarial review 2026-08-17.
+    /// Adversarial review.
     private var generation = 0
     private var activePreload: Int?
 
@@ -121,7 +122,7 @@ package final class DatasetResidency {
         // an array someone made resident BEHIND this seam (direct
         // `setResidencyRequest(.resident)` + `makeResident`, the tools/tests
         // pattern) drops that buffer — where the old `.automatic` stamp was
-        // inert. Deliberate, not accidental (Gate A review, 2026-08-19): this
+        // inert. Deliberate, not accidental (Gate A review): this
         // type's contract is that preload/release are the only residency
         // transitions and the published flags never drift from the buffer.
         // Forcing the array to the seam's own mode keeps both consistent;

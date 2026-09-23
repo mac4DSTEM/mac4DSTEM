@@ -8,19 +8,15 @@ import DSTEMSession
 /// (`InspectorSection` / `InspectorRow` / `InspectorValueRow` /
 /// `InspectorActionRow` / `InspectorAdaptiveButton` / `InspectorStatusRow` /
 /// `InspectorNote`, `UI/InspectorRows.swift`) — the same kit as the other
-/// five rooms. This room drove two additions to that kit (owner, on screen,
-/// 2026-09-22 night: "look at it now... is this how a modern SwiftUI app
-/// should look?", then "make it look like the other panels, make everything
-/// the same, then improve from there"): `InspectorAdaptiveButton`, so a
-/// narrow column gets a whole icon-only button rather than a truncated
+/// five rooms. This room drove two additions to that kit, both now shared
+/// (`InspectorRows.swift`, not a one-room draft): `InspectorAdaptiveButton`,
+/// so a narrow column gets a whole icon-only button rather than a truncated
 /// label, and `InspectorStatusRow`, so a calibration item's short status
-/// word can't wrap or float detached from its label. Both are now `kit`
-/// (`InspectorRows.swift`), not a one-room GroupBox draft — every room gets
-/// them from here on. Kept from that draft: the readiness line that counts
-/// the six steps (`readinessSummary`).
+/// word can't wrap or float detached from its label. Kept from the earlier
+/// draft: the readiness line that counts the six steps (`readinessSummary`).
 ///
-/// The migration of `UI/PrepareSidebar`, `UI/CalibrationReadinessView` and
-/// `UI/CalibrationDetailsView` into UI. Everything scientific is carried over
+/// Migrated from `UI/PrepareSidebar`, `UI/CalibrationReadinessView` and
+/// `UI/CalibrationDetailsView`. Everything scientific is carried over
 /// unchanged — the same properties, the same provenance vocabulary, the same
 /// formats, the same refusals and the same accessibility identifiers. Three
 /// things are presentation-only and did change:
@@ -63,10 +59,10 @@ struct PrepareSettings: View {
         return "Quantitative in \(readyCount) of \(total) steps · still needed: " + blockers.joined(separator: ", ")
     }
 
-    /// core-data-05 (S22a ride-along): the excluded-fraction disclosure obeys
-    /// the shared policy floor, not the retired 0.5% — readiness and the
-    /// refusal path already use `excludedFractionDisclosureFloor`, and Gate B
-    /// measured 0.5% as inside the trim's own false-positive range.
+    /// core-data-05: the excluded-fraction disclosure obeys the shared
+    /// policy floor, not the retired 0.5% — readiness and the refusal path
+    /// already use `excludedFractionDisclosureFloor`, and Gate B measured
+    /// 0.5% as inside the trim's own false-positive range.
     static func disclosesExcludedFraction(_ excluded: Float) -> Bool {
         excluded > Calibration.excludedFractionDisclosureFloor
     }
@@ -76,7 +72,7 @@ struct PrepareSettings: View {
     /// which localises the disclosure the scalar cannot; a restored session
     /// carries no mask (not persisted, D3) and falls back to the percentage.
     /// Mirrors `WorkspaceInspector.validityLabel`'s "N of M positions" wording
-    /// so the count reads identically across the app. // v3.1 ADR 033
+    /// so the count reads identically across the app (ADR 033).
     static func positionsUsedValue(excludedFraction excluded: Float, validity: [Bool]?) -> String {
         let excludedPercent = Double(excluded) * 100
         if let validity, !validity.isEmpty {
@@ -93,10 +89,10 @@ struct PrepareSettings: View {
     /// every provenance but one. R has no measurement path in this app. Q's
     /// imported value is exactly the one worth overriding — py4DSTEM's own DM
     /// reader documents Gatan files whose calibration is invalid — and a
-    /// restored session value must not lock its editor either (the 2026-09-05
-    /// first cut did both, and two tests committed against it were red). Only
-    /// a Q measured in the app from a known crystal keeps the field away: that
-    /// number was earned here, and overriding it is a re-measure, not a typo.
+    /// restored session value must not lock its editor either (an earlier
+    /// version locked both; tests caught it). Only a Q measured in the app
+    /// from a known crystal keeps the field away: that number was earned
+    /// here, and overriding it is a re-measure, not a typo.
     static func shouldShowManualScaleEditor(
         for kind: CalibrationReadinessKind,
         status: CalibrationReadinessStatus
@@ -134,7 +130,7 @@ struct PrepareSettings: View {
                 ForEach(report.items) { item in
                     readinessRow(item)
                 }
-                // v2.5 step 4b: the same verdict the dataset card shows.
+                // The same verdict the dataset card shows.
                 let verdict = session.verdict
                 let ready = report.items.filter { $0.status.isReady }.count
                     + (session.hasUsableVoltage ? 1 : 0)
@@ -151,10 +147,10 @@ struct PrepareSettings: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("calibration.readiness")
 
-            // S22c (pipelines §7.4): the accelerating voltage is calibration
-            // — DPC, parallax and ptychography all consume it — so it lives
-            // with the other physical scales, not inside one consumer's
-            // workflow. Identifier unchanged on purpose.
+            // The accelerating voltage is calibration — DPC, parallax and
+            // ptychography all consume it — so it lives with the other
+            // physical scales, not inside one consumer's workflow.
+            // Identifier unchanged on purpose.
             InspectorRow("Voltage") {
                 NumericField(
                     "Accelerating voltage (kV)",
@@ -274,14 +270,14 @@ struct PrepareSettings: View {
             if let radius = calibration.probeRadius {
                 InspectorValueRow("Probe radius", String(format: "%.1f px", radius))
             }
-            // v2 S13: the residual the GATE judged, which is the robust one
+            // The residual the GATE judged, which is the robust one
             // where a robust fit ran — one number for one decision.
             if let residual = calibration.judgedOriginResidual {
                 InspectorValueRow("Fit residual", String(format: "%.3f px RMS", residual))
             }
             // The excluded fraction, where the reader who sees the number
-            // sees it (2026-08-28): "2.19 px over 73% of positions" is a
-            // different claim from "2.19 px over all of them".
+            // sees it: "2.19 px over 73% of positions" is a different claim
+            // from "2.19 px over all of them".
             if let origin = calibration.origin,
                let excluded = origin.excludedFraction,
                Self.disclosesExcludedFraction(excluded) {
@@ -359,7 +355,7 @@ struct PrepareSettings: View {
             // Offered only while the last fit was refused for coverage between
             // the sparse floor and the degeneracy bound — a "fit anyway" retry
             // could succeed on the caller's assertion that the annulus holds
-            // one ring (`CalibrationSession.refuseEllipseFit`, 2026-09-15).
+            // one ring (`CalibrationSession.refuseEllipseFit`).
             if let offeredBins = session.ellipseFitAnywayOffer {
                 InspectorActionRow {
                     Button {
@@ -407,9 +403,9 @@ struct PrepareSettings: View {
     // MARK: - Readiness
 
     /// One calibration's readiness row — shared with `ExportSheet` as
-    /// `CalibrationReadinessRow.row` (hygiene audit row 1 follow-up,
-    /// 2026-09-22: the two files hand-copied this row too, and ExportSheet's
-    /// copy had silently dropped the "fit anyway" orange warning).
+    /// `CalibrationReadinessRow.row` (previously hand-copied in both files;
+    /// ExportSheet's copy had silently dropped the "fit anyway" orange
+    /// warning).
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
         CalibrationReadinessRow.row(
@@ -458,7 +454,7 @@ struct PrepareSettings: View {
         inFilename path: String
     ) -> (angstromPerPixel: Double, text: String)? {
         let name = (path as NSString).lastPathComponent
-        // ui-09 (S22e): the token must not start mid-word — unanchored, this
+        // ui-09: the token must not start mid-word — unanchored, this
         // matched `ss30nm` inside `thickness30nm` and flagged a correct
         // imported calibration as conflicting with its own filename.
         guard let match = name.range(
@@ -501,12 +497,12 @@ struct PrepareSettings: View {
 /// CBED — Prepare and DPC. One view, so the condition cannot diverge between
 /// them: the old app had one `ComputePatternStatisticsSection` for the same
 /// reason. Once mean and max exist the pane's own Current | Mean | Max control
-/// is the ONLY switcher (S22 feedback R6, 2026-09-01).
+/// is the ONLY switcher.
 ///
-/// `InspectorAdaptiveButton` (2026-09-22): the Prepare card draft found a
-/// narrow inspector column truncates a plain `Label`-based button's text
-/// mid-word ("Compute M…"); the adaptive button's icon-only fallback is a
-/// whole, legible button instead, so DPC gets the same fix Prepare does.
+/// Uses `InspectorAdaptiveButton`: a narrow inspector column truncates a
+/// plain `Label`-based button's text mid-word ("Compute M…"), and the
+/// adaptive button's icon-only fallback stays whole and legible, so DPC
+/// gets the same fix Prepare does.
 struct PatternStatisticsSection: View {
     @Environment(AppState.self) private var appState
 

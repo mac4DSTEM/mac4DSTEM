@@ -1141,9 +1141,9 @@ package enum DiskDetection {
         var results = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
         let rowsDone = NSLock()
         var doneCount = 0
-        // Progress counts PATTERNS, not scan rows (FFT session ride-along,
-        // 2026-09-01): a tile of a few rows on a wide scan used to move the bar
-        // in ~8 % steps. One lock take per pattern costs nothing next to a
+        // Progress counts PATTERNS, not scan rows: a tile of a few rows on a
+        // wide scan moves the bar in ~8 % steps if counted that way. One lock
+        // take per pattern costs nothing next to a
         // correlation. The CALLBACK is rate-limited to one per 0.1 % of the
         // scan (at most ~1,000 per run), because the app's progress closure
         // hops to the main actor per call and a tick per pattern at ~3,000

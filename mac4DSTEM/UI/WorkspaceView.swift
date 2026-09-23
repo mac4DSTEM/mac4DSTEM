@@ -5,9 +5,8 @@ import DSTEMSession
 #endif
 
 /// The detail column: the science, and the infobar + process area along its
-/// bottom edge (docs/archive/v4/window-design.md §4, phase 1, decided 2026-09-22; the
-/// breadcrumb row above the panes went on 2026-09-22 evening, §8 — the room
-/// actions and the file name live in the toolbar).
+/// bottom edge (docs/archive/v4/window-design.md §4) — the room actions and
+/// the file name live in the toolbar, not here.
 ///
 /// **There is no workspace header.** The old `ProductWorkspaceHeader`
 /// repeated the sidebar row's own title and cost about 100 pt off the top of
@@ -181,8 +180,8 @@ struct DatasetMenu: View {
                     .disabled(appState.displayedPattern == nil)
             }
         } label: {
-            // The folder is Reveal in Finder's (owner, 2026-09-22 evening);
-            // the dataset menu is the cube stack the sidebar already uses.
+            // The folder icon is Reveal in Finder's (owner decision); the
+            // dataset menu uses the cube stack the sidebar already uses.
             Label("Dataset", systemImage: "square.stack.3d.up")
         }
         .help("Open a dataset, or act on the one that is open")
@@ -209,14 +208,13 @@ struct RevealDatasetButton: View {
 // MARK: - The one action that runs the task
 
 /// The toolbar's run button, at the head of the trailing group under the
-/// inspector where the room's parameters are set (owner, 2026-09-22
-/// evening): the single action the selected task runs, and — while it runs —
-/// the way to stop it. The run's progress is the toolbar's centre display
-/// (`ToolbarRunDisplay`), not this button.
+/// inspector where the room's parameters are set: the single action the
+/// selected task runs, and — while it runs — the way to stop it. The run's
+/// progress is the toolbar's centre display (`ToolbarRunDisplay`), not this
+/// button.
 ///
-/// Titles, hints and enablement are the old `ProductWorkspaceHeader`'s,
-/// verbatim, including the parallax staging rule that gates only
-/// `.ptychography` and the `ProductWorkflow.readiness` check that the
+/// Titles, hints and enablement follow the parallax staging rule that gates
+/// only `.ptychography` and the `ProductWorkflow.readiness` check the
 /// checklist and the replay executor ask the same question of. When the
 /// action is disabled by an unmet requirement, the help names the first one,
 /// so the disabled state explains itself without a second readiness surface.
@@ -243,13 +241,10 @@ struct PrimaryActionButton: View {
     }
 
     /// While a run is in flight this slot offers ONE thing: the way to
-    /// cancel it. Said "Stop" (Xcode's word) until the owner asked twice,
-    /// live, the same day, whether there was a reason it didn't say
-    /// "Cancel" — there wasn't one that survived being asked. `Label` with
-    /// an icon and `.bordered`, matching every sibling toolbar item
-    /// (`SaveResultButton`, `RevealDatasetButton`, `DatasetMenu`), not the
-    /// plain unstyled text button this used to be — the plain form is what
-    /// read as "collapsed" beside them. The progress bar that once sat here
+    /// cancel it, labeled "Cancel". `Label` with an icon and `.bordered`,
+    /// matching every sibling toolbar item (`SaveResultButton`,
+    /// `RevealDatasetButton`, `DatasetMenu`) — a plain text button read as
+    /// collapsed beside them. A progress bar once shared this slot and
     /// squeezed the button until its label truncated to "C…" (owner,
     /// 2026-09-04); the bar is the centre display now, so the label has
     /// room.
@@ -347,7 +342,7 @@ struct PrimaryActionButton: View {
     private var primaryActionEnabled: Bool {
         guard appState.hasDataset, !appState.isBusy else { return false }
         if appState.navigation.workspaceArea != .prepare && appState.navigation.workspaceArea != .results {
-            // v2.5 step 5a: the same answer the checklist and replay get.
+            // The same answer the checklist and replay get.
             guard case .ready = ProductWorkflow.readiness(
                 for: appState.navigation.analysisMode,
                 readiness: appState.productWorkflowReadiness
@@ -422,8 +417,8 @@ struct WelcomeWorkspace: View {
     }
 
     /// One row when the centre column has room, otherwise one column of
-    /// equal-width buttons — never "Open Dat…" (the launch state at the
-    /// window's minimum width, 2026-09-22 night drive).
+    /// equal-width buttons — never "Open Dat…" at the window's minimum
+    /// width, the launch state (driven, 2026-09-22).
     private var entryPoints: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 12) { entryButtons }
@@ -518,9 +513,9 @@ struct WelcomeWorkspace: View {
 // MARK: - The status strip / infobar
 
 /// The permanent status strip along the centre column's bottom edge — one
-/// line, `LayoutPolicy.statusStripHeight` tall, nothing taller (ADR 034,
-/// owner 2026-09-21: live operational detail moved to the process area's Run
-/// tab, so this strip only glances).
+/// line, `LayoutPolicy.statusStripHeight` tall, nothing taller (ADR 034:
+/// live operational detail lives in the process area's Run tab, so this
+/// strip only glances).
 ///
 /// **Phase 1 (docs/archive/v4/window-design.md §4–§6): this IS the centre column's
 /// divider.** A `DragGesture` over the whole bar — every pixel of its
@@ -533,12 +528,12 @@ struct WelcomeWorkspace: View {
 ///
 /// Left: the status line. Then the live run while one is in flight — the
 /// bar, done / total, the rate, elapsed · ETA and Stop — or the last run
-/// while idle (owner, 2026-09-22 late, §9.3: the Run tab's numbers belong
-/// in the bar). Then the engine · memory · residency glance, always on.
-/// Right: Xcode's debug-bar buttons — one per process pane (Output,
-/// Lineage) and the area's own toggle — `ProcessAreaLayout.toggled
-/// (from:last:)`, the same pure function `WorkspaceNavigation.showLogPane`'s
-/// setter reimplements for the ⌃⌘L menu item.
+/// while idle (owner decision: the Run tab's numbers belong in the bar).
+/// Then the engine · memory · residency glance, always on. Right: buttons
+/// styled after Xcode's debug bar — one per process pane (Output, Lineage)
+/// and the area's own toggle — `ProcessAreaLayout.toggled(from:last:)`, the
+/// same pure function `WorkspaceNavigation.showLogPane`'s setter
+/// reimplements for the ⌃⌘L menu item.
 ///
 /// No bar of its own: a `Divider()` above and below (added by `WorkspaceView`,
 /// the one exception the hard rules carve out for the infobar) is its whole
@@ -566,9 +561,9 @@ struct StatusBar: View {
         )
     }
 
-    /// Xcode's debug-bar buttons (owner, 2026-09-22 late, §9.3): one per
-    /// pane, each toggling its pane and, through `toggleProcessPane`, the
-    /// area itself when it is the last pane out or the first pane in.
+    /// One per pane, each toggling its pane and, through
+    /// `toggleProcessPane`, the area itself when it is the last pane out or
+    /// the first pane in.
     private func paneBinding(_ pane: WorkspaceNavigation.ProcessPane) -> Binding<Bool> {
         Binding(
             get: {
@@ -607,9 +602,9 @@ struct StatusBar: View {
 
             Spacer(minLength: LayoutPolicy.infobarItemSpacing)
 
-            // The Run tab's numbers, here (owner, 2026-09-22 late, §9.3):
-            // the bar, done / total, the rate, elapsed · ETA and Stop while a
-            // run is in flight; the last run while idle.
+            // The Run tab's numbers, here (owner decision): the bar,
+            // done / total, the rate, elapsed · ETA and Stop while a run is
+            // in flight; the last run while idle.
             if showsOperationProgress {
                 runReadout
             } else if let last = appState.operationCenter.lastFinished {
@@ -672,7 +667,7 @@ struct StatusBar: View {
     /// The bar, the counts, the rate, elapsed · ETA, Stop — ticking once a
     /// second, in a constant-width slot (`runReadoutWidth`, the
     /// `operationReadoutWidth` rule: a ticking string never resizes its own
-    /// container — the 2026-09-04 constraint loop).
+    /// container — the constraint-loop rule).
     private var runReadout: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             HStack(spacing: LayoutPolicy.infobarProgressSpacing) {
@@ -699,18 +694,14 @@ struct StatusBar: View {
                            maxWidth: LayoutPolicy.runReadoutWidth, alignment: .leading)
                     .accessibilityIdentifier("status.footer.metrics")
                 if appState.canCancelActiveOperation {
-                    // "Cancel", matching the toolbar's own button (owner,
-                    // 2026-09-22): both name the same action on the same
-                    // run, and read as two different controls when they
-                    // disagreed. `.fixedSize()` + `.layoutPriority(1)`:
-                    // found on screen the same night — this row's other
-                    // items (the progress bar, the fixed-width metrics
-                    // text) leave the button no protected space of its own,
-                    // and "Cancel" (6 chars) is wide enough that the row
-                    // collapsed it to a blank ~9pt pill with no visible
-                    // label, over its own fixed width when the metrics text
-                    // was near its own longest content. The label wasn't
-                    // just visually tight, it rendered with zero width.
+                    // "Cancel", matching the toolbar's own button: both name
+                    // the same action on the same run. `.fixedSize()` +
+                    // `.layoutPriority(1)`: this row's other items (the
+                    // progress bar, the fixed-width metrics text) leave the
+                    // button no protected space of its own, and without them
+                    // it collapsed to a blank ~9pt pill with a zero-width
+                    // label when the metrics text was near its own longest
+                    // content.
                     Button("Cancel", role: .cancel) { appState.cancelActiveOperation() }
                         .fixedSize()
                         .layoutPriority(1)
@@ -741,10 +732,10 @@ struct StatusBar: View {
             .truncationMode(.tail)
             // Constant minimum, ideal and maximum, not a fixed width: none
             // depends on the text, so a ticking value never moves the
-            // strip's size (the 2026-09-04 constraint-loop rule), yet it
-            // compresses. A fixed 250 pt floored the strip — and so the
-            // detail column — at ~432 pt, and the inspector drew over the
-            // right science pane (Gate D, 2026-09-22 night).
+            // strip's size (the constraint-loop rule), yet it compresses. A
+            // fixed 250 pt floored the strip — and so the detail column —
+            // at ~432 pt, and the inspector drew over the right science
+            // pane (Gate D).
             .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
                    idealWidth: LayoutPolicy.statusGlanceWidth,
                    maxWidth: LayoutPolicy.statusGlanceWidth, alignment: .trailing)
@@ -788,8 +779,8 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
     private let trailing: () -> Trailing
 
     /// `storageKey` names the scene-storage slot the divider's position lives
-    /// in, so the science split and the process area's split (2026-09-22
-    /// late) remember their own fractions.
+    /// in, so the science split and the process area's split each remember
+    /// their own fraction.
     init(
         storageKey: String = "workspace.paneSplit.fraction",
         @ViewBuilder leading: @escaping () -> Leading,
@@ -806,7 +797,7 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
     /// trip to Results) and the window being reopened, and each window keeps
     /// its own. As `@State` it reset to centre on every rebuild — the
     /// `PaneSplit` residual (c) and the first item of the UI polish list
-    /// (`open-items.md`), closed 2026-09-05.
+    /// (`open-items.md`).
     @SceneStorage private var storedFraction: Double
     @State private var fractionAtDragStart: CGFloat?
 
@@ -869,15 +860,12 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
 
 // MARK: - Keeping a result
 
-/// "Save to Session", in the toolbar beside Reveal (owner, 2026-09-04: "if
-/// you generate a result there should be a button for saving this to the
-/// results window"; 2026-09-22 evening: always in the toolbar, so it is
-/// reachable with both side panels hidden).
-///
-/// The old window offered this only inside the Results workspace, so keeping
-/// a virtual image or a strain map meant leaving the workspace that made it.
-/// The action is the same one Results calls — one writer, one sidecar — and
-/// the destination is the session sidecar, from which Results reads it.
+/// "Save to Session", in the toolbar beside Reveal (owner decision): always
+/// available, from any workspace, so a virtual image or a strain map can be
+/// kept without leaving the workspace that made it, and it stays reachable
+/// with both side panels hidden. The action is the same one Results calls —
+/// one writer, one sidecar — and the destination is the session sidecar,
+/// from which Results reads it.
 struct SaveResultButton: View {
     @Environment(AppState.self) private var appState
 
@@ -888,9 +876,9 @@ struct SaveResultButton: View {
             } label: {
                 Label("Save to Session", systemImage: "archivebox")
             }
-            // C4(a): was `appState.isBusy` only, so this was enabled and then
-            // refused through a modal after the click when the session
-            // sidecar could not be rewritten (§4 finding 2).
+            // C4(a): this used to gate on `appState.isBusy` only, so it
+            // stayed enabled and was refused through a modal after the
+            // click when the session sidecar could not be rewritten.
             .disabled(appState.datasetSession.isLoading || appState.displayedProduct == nil
                       || appState.isBusy || !appState.gates.mayWriteSidecar)
             .help("Save to Session — keeps the displayed result with this dataset, in "
@@ -901,9 +889,9 @@ struct SaveResultButton: View {
 }
 
 /// The resize cursor over a divider. `.column` is the pane split's
-/// left–right pair; `.row` is the infobar's up–down pair, added 2026-09-22
-/// because a bar the brief calls "draggable over its whole width" gave no
-/// sign of it (docs/archive/v4/window-design.md §1).
+/// left–right pair; `.row` is the infobar's up–down pair — the bar is
+/// draggable over its whole width and needs a cursor that says so
+/// (docs/archive/v4/window-design.md §1).
 private struct ResizePointer: ViewModifier {
     enum Axis { case column, row }
     let axis: Axis

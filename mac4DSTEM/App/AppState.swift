@@ -82,19 +82,20 @@ final class AppState {
 
     var openURL: URL?
     @ObservationIgnored var pendingRecovery: DatasetRecoveryRecord?
-    /// S1's seam (docs/archive/development-process-2026-08-31.md §7): the one owner of where this
-    /// dataset's session sidecar is and whether the app may read it. Replaces a
-    /// bare `scopedSessionSidecarURL` that eight call sites derived around in
-    /// two different ways — see `Session/SessionSidecarLocator.swift`.
-    /// Injectable for the S1 reason one level up (v2 S7): the locator persists
-    /// bookmarks into `UserDefaults`, and the demo dataset's file path is a
-    /// CONSTANT — so a test that saves a sidecar for the demo through the real
-    /// defaults plants a grant every other demo-opening test (including one in
-    /// a parallel worker PROCESS, which shares the persisted domain) then
-    /// resolves, adopting that test's calibration and recipe as session state.
-    /// Measured 2026-08-25: `.mixed` replay frames and `sessionSidecar`-stamped
-    /// Q scales appearing in unrelated suites. Tests that publish sidecars
-    /// must construct `AppState(sessionSidecar:)` with a suite-private store.
+    /// S1's seam (docs/archive/development-process-2026-08-31.md §7): the one
+    /// owner of where this dataset's session sidecar is and whether the app
+    /// may read it. Replaces a bare `scopedSessionSidecarURL` that eight call
+    /// sites derived around in two different ways — see
+    /// `Session/SessionSidecarLocator.swift`.
+    /// Injectable because the locator persists bookmarks into `UserDefaults`,
+    /// and the demo dataset's file path is a CONSTANT — a test that saves a
+    /// sidecar for the demo through the real defaults plants a grant for
+    /// every other demo-opening test (including one in a parallel worker
+    /// PROCESS, which shares the persisted domain), which then adopts that
+    /// test's calibration and recipe as session state. Measured 2026-08-25:
+    /// `.mixed` replay frames and `sessionSidecar`-stamped Q scales appearing
+    /// in unrelated suites. Tests that publish sidecars must construct
+    /// `AppState(sessionSidecar:)` with a suite-private store.
     let sessionSidecar: SessionSidecarLocator
 
     init(
@@ -301,8 +302,8 @@ final class AppState {
     /// (docs/archive/development-process-2026-08-31.md §7) — see `Session/QCalibrationRun.swift`.
     /// Views read `qCalibration.…`; no forwarding properties. // v2 S13
     let qCalibration = QCalibrationRun()
-    /// What happened this session, for the output strip — the 2026-09-04
-    /// seam (docs/archive/development-process-2026-08-31.md §7) — see `App/ActivityLog.swift`.
+    /// What happened this session, for the output strip
+    /// (docs/archive/development-process-2026-08-31.md §7) — see `App/ActivityLog.swift`.
     /// Views read `activityLog.messages`; no forwarding properties.
     let activityLog = ActivityLog()
 
@@ -758,19 +759,17 @@ final class AppState {
         acomSession.orientationMap?.eulerText(x: selectedScan.x, y: selectedScan.y)
     }
 
-    /// Whether the real-space ROI must be drawn on the scan image.
-    /// This is now simply "is an ROI in force", because `displayedPattern`
-    /// substitutes the ROI-summed pattern for the current one whenever
-    /// `realSpaceShape != .point` — in *every* task, not just the ones that
-    /// nominally use a region.
-    /// The old rule listed the tasks where an ROI was *intended* (virtual
-    /// detector, strain-from-region, ACOM-from-region), which meant that after
-    /// setting a rectangle in Image, Bragg disks and Strain kept showing a
-    /// summed CBED while the scan image drew only a point crosshair. That is
-    /// not cosmetic: the summed pattern is what "Use Current CBED / ROI" builds
+    /// Whether the real-space ROI must be drawn on the scan image: simply
+    /// "is an ROI in force", because `displayedPattern` substitutes the
+    /// ROI-summed pattern for the current one whenever
+    /// `realSpaceShape != .point`, in every task — not just the ones that
+    /// nominally use a region. A rule scoped to only those tasks (virtual
+    /// detector, strain-from-region, ACOM-from-region) left an ROI invisible
+    /// elsewhere — e.g. Bragg disks and Strain kept showing a summed CBED
+    /// while the scan image drew only a point crosshair — which is not
+    /// cosmetic: the summed pattern is what "Use Current CBED / ROI" builds
     /// the probe kernel from and what the "Current CBED · N peaks" read-out
-    /// counts, so an invisible ROI silently changed the science. Reported by
-    /// the release owner 2026-08-05.
+    /// counts, so an invisible ROI silently changed the science.
     var realSpaceROIIsRelevant: Bool { realSpaceShape != .point }
 
     /// The explicitly selected complete phase model — never a filename- or
@@ -1349,10 +1348,10 @@ final class AppState {
         (maps: OriginMaps, provenance: OriginProvenance)?
     var canRestoreFittedOrigin = false
 
-    // MARK: - Calibration and phase contrast: AppState+Calibration.swift, AppState+PhaseContrast.swift (moved 2026-09-18)
+    // MARK: - Calibration and phase contrast: AppState+Calibration.swift, AppState+PhaseContrast.swift
 
     // MARK: - DPC: run + display derivation in AppState+DPC.swift, display
-    // choice in Session/DPCProduct.swift (moved 2026-09-18, seam 4). What
+    // choice in Session/DPCProduct.swift (seam 4). What
     // stays here (`dpcMilliradiansPerDetectorPixel`, `idpcOriginFitRefusal`,
     // `idpcPhysicalCalibration`) are combiners over `calibrationSession`/
     // `gates` with no dependency on `dpc`'s own state — see

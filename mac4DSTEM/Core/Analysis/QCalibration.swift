@@ -81,9 +81,9 @@ package nonisolated struct QCalibrationEstimate: Sendable {
 
 package nonisolated enum KnownCrystalQCalibration {
 
-    // MARK: - Why there are no thresholds here (v2 S13, after Gate B)
+    // MARK: - Why there are no thresholds here (after Gate B)
     //
-    // This session shipped three — `maximumShellConsistency = 0.07`,
+    // An earlier attempt shipped three — `maximumShellConsistency = 0.07`,
     // `minimumShellRadiusRatioOfProbe = 1.0`, `maximumShellRatioMismatch =
     // 0.03` — each presented as "the geometric centre of a measured gap", and
     // an adversarial review refuted the derivation of all three on the same

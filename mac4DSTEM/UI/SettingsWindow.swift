@@ -1,8 +1,8 @@
 //
 //  SettingsWindow.swift
-//  Role: session S21's Settings scene (`ROADMAP.md` "Settings window,
-//        Xcode-style sidebar", owner 2026-09-21) — grows the one-section
-//        scene `UI/MaterialsProjectSettingsView.swift` opened (S5) into a
+//  Role: the Settings scene (`ROADMAP.md` "Settings window, Xcode-style
+//        sidebar") — grows the one-section scene
+//        `UI/MaterialsProjectSettingsView.swift` opened (S5) into a
 //        `NavigationSplitView`: a sidebar of sections, a `Form` detail. Every
 //        preference it edits lives on `AppPreferences`
 //        (`Session/AppPreferences.swift`), the Settings scene's one state
@@ -50,12 +50,12 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 struct SettingsWindow: View {
     @Environment(AppPreferences.self) private var preferences
     @State private var selection: SettingsSection? = .general
-    /// Finding A (adversarial review, 2026-09-21): hoisted out of
-    /// `MaterialsProjectSettingsView`, which the `switch` below rebuilds
-    /// (a fresh `@State` each time, discarding the local one) whenever the
-    /// sidebar selection leaves `.materialsProject` and comes back. This
-    /// `@State` lives on `SettingsWindow` instead, which the switch does not
-    /// rebuild, so a typed-but-not-yet-saved key survives the round trip.
+    /// Hoisted out of `MaterialsProjectSettingsView`, which the `switch`
+    /// below rebuilds (a fresh `@State` each time, discarding the local one)
+    /// whenever the sidebar selection leaves `.materialsProject` and comes
+    /// back. This `@State` lives on `SettingsWindow` instead, which the
+    /// switch does not rebuild, so a typed-but-not-yet-saved key survives
+    /// the round trip.
     @State private var materialsProjectKeyDraft = ""
 
     var body: some View {
@@ -83,8 +83,7 @@ struct SettingsWindow: View {
             .navigationTitle((selection ?? .general).title)
         }
         // The category list stands; there is nothing to toggle in a
-        // settings window (owner, 2026-09-22 late, §9.5 — System Settings'
-        // own shape).
+        // settings window — matches System Settings' own shape.
         .toolbar(removing: .sidebarToggle)
         .frame(
             minWidth: LayoutPolicy.settingsWindow.min.width,

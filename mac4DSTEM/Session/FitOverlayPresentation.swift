@@ -7,13 +7,12 @@ import DSTEMCore
 /// ellipse in Prepare, the local strain lattice, the matched ACOM template —
 /// as one value computed over a snapshot of session state.
 ///
-/// C5's first extraction (consolidation plan §4, 2026-09-07): this was 115
-/// lines of computed properties on `AppState`. Pure, so the gating (only the
-/// single pattern the vectors were measured from; only the mode that can
-/// draw) and the reopen boundary (a calibration restored from a sidecar draws
-/// the same origin and ellipse) are pinned in `FitOverlayPresentationTests`
-/// without a window. `AppState.fitOverlays` builds the snapshot; the UI reads
-/// this value. The geometry itself stays in Core's `FitOverlays`.
+/// Pure, so the gating (only the single pattern the vectors were measured
+/// from; only the mode that can draw) and the reopen boundary (a calibration
+/// restored from a sidecar draws the same origin and ellipse) are pinned in
+/// `FitOverlayPresentationTests` without a window. `AppState.fitOverlays`
+/// builds the snapshot; the UI reads this value. The geometry itself stays
+/// in Core's `FitOverlays`.
 package nonisolated struct FitOverlayPresentation {
     package enum Analysis: Equatable { case strain, acom, other }
 

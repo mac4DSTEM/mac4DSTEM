@@ -1,17 +1,17 @@
 //
 //  MaterialsProjectImportSheet.swift
-//  Role: session S5's fetch UI — the owner's product decision made this the
-//        DEFAULT and only phase source besides the user's own CIFs: no
-//        dropdown of stored presets, just an mp-id the user already knows and
-//        an optional expectation to check it against. Opened from either the
-//        ACOM phase picker (`UI/MapSettings.swift`) or the Phase Mapping
-//        "Add Phase" menu (`UI/PhaseMappingSettings.swift`); `addsToPhaseMapping`
-//        is the only difference between those two call sites.
+//  Role: the fetch UI — an owner decision made this the DEFAULT and only
+//        phase source besides the user's own CIFs: no dropdown of stored
+//        presets, just an mp-id the user already knows and an optional
+//        expectation to check it against. Opened from either the ACOM phase
+//        picker (`UI/MapSettings.swift`) or the Phase Mapping "Add Phase"
+//        menu (`UI/PhaseMappingSettings.swift`); `addsToPhaseMapping` is the
+//        only difference between those two call sites.
 //
 //  Import is disabled on a mismatch or a failure, and the disabled state says
 //  why — the same reason line the result card already shows, since a second,
-//  differently-worded copy of that reason is exactly the drift this session's
-//  `docs/architecture.md` "one legend" rule warns about elsewhere. The pure
+//  differently-worded copy of that reason is exactly the drift
+//  `docs/architecture.md`'s "one legend" rule warns about elsewhere. The pure
 //  decision itself lives in `App/AppState+MaterialsProject.swift`'s
 //  `canImport(outcome:)`, so it is tested without driving this view.
 //

@@ -4,13 +4,10 @@
 //        the Materials Project API key is entered, since the owner's product
 //        decision makes Materials Project the default phase source.
 //
-//  Session S5 built this as the app's whole Settings scene, standalone
-//  (`Settings { MaterialsProjectSettingsView() }`). Session S21
-//  (`ROADMAP.md` "Settings window, Xcode-style sidebar") grew that scene
-//  into `UI/SettingsWindow.swift`'s `NavigationSplitView`, so this file now
-//  holds only the `Section` content — `SettingsWindow` supplies the
-//  surrounding `Form`/sizing — under the SAME type name so nothing else has
-//  to change: `body` **is** the section, not a section inside a nested Form.
+//  This file holds only the `Section` content; `UI/SettingsWindow.swift`'s
+//  `NavigationSplitView` supplies the surrounding `Form`/sizing under the
+//  SAME type name so nothing else has to change: `body` **is** the section,
+//  not a section inside a nested Form.
 //
 //  A `Settings` scene has no dataset window's `AppState` to read — each
 //  window owns its own (`mac4DSTEMApp.swift`'s `DatasetWindow`) — and the key
@@ -19,8 +16,8 @@
 //  window's. `MaterialsProjectImportSheet` reloads `appState.materialsProject`
 //  itself when it opens, which is what keeps a key saved here visible there.
 //
-//  `keyDraft` is a `Binding`, not local `@State` (Finding A, adversarial
-//  review 2026-09-21): `SettingsWindow`'s detail pane rebuilds this view on
+//  `keyDraft` is a `Binding`, not local `@State` (adversarial review, Finding
+//  A): `SettingsWindow`'s detail pane rebuilds this view on
 //  every sidebar selection (it lives inside a `switch` on the selected
 //  section, `UI/SettingsWindow.swift`), so local `@State` here was silently
 //  discarded — a typed-but-not-saved key vanished the moment the user left

@@ -14,8 +14,8 @@
 //  `WorkspaceRecoveryStore`'s keys in the same `UserDefaults.standard` domain.
 //  EVERY property's default equals today's shipped behaviour with no
 //  Settings window at all — installing this file changes nothing until a
-//  user actually opens Settings and changes something (owner directive,
-//  ROADMAP.md "Settings window, Xcode-style sidebar", 2026-09-21).
+//  user actually opens Settings and changes something (owner decision,
+//  ROADMAP.md "Settings window, Xcode-style sidebar").
 //
 
 import Foundation

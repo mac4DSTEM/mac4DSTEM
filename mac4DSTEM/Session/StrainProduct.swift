@@ -60,7 +60,7 @@ package enum StrainBasisMode: String, CaseIterable, Identifiable {
 @MainActor
 package final class StrainProduct {
 
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    // Explicit so the default initializer is `package` (synthesized ones are internal).
     package nonisolated init() {}
 
     /// The retained whole-scan product. Only `publish`/`clear` may replace it,
@@ -81,16 +81,15 @@ package final class StrainProduct {
     /// The origin provenance **as it was when this map was computed**, not as
     /// it is when someone presses Save.
     ///
-    /// Gate B, 2026-08-28: v2 S13 wrote `origin_reference`,
-    /// `origin_fit_residual_px` and the excluded fraction into exports by
-    /// reading the LIVE calibration at export time. Compute a strain map
-    /// against fitted maps, drag the aperture — which nulls
-    /// `calibration.origin` while leaving `strain.map` alone — then export, and
-    /// the bundle claimed a residual and an excluded fraction for an origin the
-    /// map never used. The reverse was worse: a product computed with no origin
-    /// at all, exported after a later Calibrate Origin, carried a full set of
-    /// origin-fit keys. Snapshotting at publish is what makes the keys a
-    /// statement about the map rather than about the moment of saving.
+    /// Reading the LIVE calibration at export time instead would let a strain
+    /// map computed against fitted maps, followed by an aperture drag (which
+    /// nulls `calibration.origin` while leaving `strain.map` alone) and then
+    /// export, claim a residual and an excluded fraction for an origin the
+    /// map never used — or the reverse: a product computed with no origin at
+    /// all, exported after a later Calibrate Origin, would carry a full set
+    /// of origin-fit keys it never earned. Snapshotting at publish is what
+    /// makes the keys a statement about the map rather than about the moment
+    /// of saving.
     package private(set) var originProvenance: [String: String] = [:]
 
     // Run controls. Deliberately NOT cleared on dataset activation — the

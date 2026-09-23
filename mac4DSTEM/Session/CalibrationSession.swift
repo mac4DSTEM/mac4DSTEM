@@ -1,10 +1,10 @@
 //
 //  CalibrationSession.swift
-//  v2.5 step 4a (2026-09-03): the calibration values, their provenance, the
-//  fit settings, the accelerating voltage and the readiness report, owned in
-//  one observable place (plan §4 "CalibrationSession"). AppState forwards to
-//  it so existing readers keep compiling; the forwarders go as the readers
-//  move here. Task-aware readiness (step 4b) is computed on this type.
+//  The calibration values, their provenance, the fit settings, the
+//  accelerating voltage and the readiness report, owned in one observable
+//  place (plan §4 "CalibrationSession"). AppState forwards to it so
+//  existing readers keep compiling; the forwarders go as the readers move
+//  here. Task-aware readiness is computed on this type.
 //
 
 import Foundation
@@ -40,16 +40,16 @@ package final class CalibrationSession {
     /// Take an R–Q rotation fit, or say why not. Returns nil when the fit was
     /// written; the refusal sentence when it was not.
     ///
-    /// THIS LIVES HERE RATHER THAN IN `AppState` so it can be tested at the
-    /// boundary where it is enforced. Gate B, 2026-09-15: deleting the guard
-    /// from `AppState.calibrateRotation` left the whole suite green, because
-    /// every test of it lived in Core and none constructed a session — the one
-    /// line that decides whether a refused rotation reaches strain, ACOM and
-    /// DPC was the one line nothing covered.
+    /// Lives here rather than in `AppState` so it can be tested at the
+    /// boundary where it is enforced: Core's tests never construct a
+    /// session, so a guard placed in `AppState` instead can be deleted
+    /// without failing any test (Gate B, 2026-09-15) even though it is the
+    /// one line deciding whether a refused rotation reaches strain, ACOM
+    /// and DPC.
     ///
-    /// It writes `transposeQR` with the angle deliberately: the flag rides
-    /// with the fit, and a refusal that kept one and dropped the other would
-    /// leave the axes swapped against an angle that never applied.
+    /// Writes `transposeQR` with the angle deliberately: the flag rides
+    /// with the fit, and a refusal that kept one and dropped the other
+    /// would leave the axes swapped against an angle that never applied.
     package func applyRotation(_ result: RotationCalibration.Result) -> String? {
         if let refusal = result.refusalMessage { return refusal }
         calibration.rotationRad = result.rotationRad
@@ -119,10 +119,10 @@ package final class CalibrationSession {
         acceleratingVoltage.map { $0.isFinite && $0 > 0 } ?? false
     }
 
-    /// The ONE quantitative verdict every surface renders (v2.5 step 4b): the
-    /// dataset header, the readiness checklist and export used to compute
-    /// their own with different rules ("Core calibrated" ignored the ellipse,
-    /// "Calibration is complete" ignored the voltage).
+    /// The one quantitative verdict every surface renders: previously the
+    /// dataset header, the readiness checklist and export each computed
+    /// their own with different rules ("Core calibrated" ignored the
+    /// ellipse, "Calibration is complete" ignored the voltage).
     package struct Verdict: Equatable, Sendable {
         package let quantitative: Bool
         /// "<item>: <state>" for everything still in the way, voltage included.

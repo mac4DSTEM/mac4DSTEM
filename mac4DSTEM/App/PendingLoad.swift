@@ -4,24 +4,22 @@
 //        committed to a load — the state L5's configurator edits.
 //
 //  This is the stage's `AppState` seam (docs/archive/development-process-2026-08-31.md §7): the
-//  state L5 *adds*, in its own `@Observable` type that `AppState` holds, no
-//  forwarding properties. Same precedent as `App/DatasetResidency.swift` (L2)
-//  and `App/LoadedView.swift` (L3/L4). v2 S4 keeps the rule: the single-DP
-//  pane, the display caches and the direct-beam guard all live here, and the
-//  facade gained nothing.
+//  state this stage adds lives in its own `@Observable` type that `AppState`
+//  holds, no forwarding properties. Same precedent as `App/DatasetResidency.swift`
+//  and `App/LoadedView.swift`: the single-DP pane, the display caches and the
+//  direct-beam guard all live here, and a facade would gain nothing.
 //
-//  THE MOMENT THIS EXISTS FOR. The plan's L5 item 2: the size arithmetic is only
-//  worth showing while the decision is still cheap. Once a 50 GB cube has been
-//  read there is nothing to decide. So the reader is opened, the descriptor
-//  discovered and a strided preview built — all cheap — and then the app STOPS
-//  and asks, instead of committing to the expensive pass.
+//  THE MOMENT THIS EXISTS FOR: the size arithmetic is only worth showing
+//  while the decision is still cheap. Once a 50 GB cube has been read there
+//  is nothing to decide. So the reader is opened, the descriptor discovered
+//  and a strided preview built — all cheap — and then the app STOPS and
+//  asks, instead of committing to the expensive pass.
 //
-//  ENTRY IS OPT-IN (release owner, 2026-08-18). "Open Dataset…" loads the whole
-//  file exactly as it always has; this path is reached only from "Open with
-//  options…". The alternative — configuring on every open — was the plan's
-//  literal intent but puts a step in front of every open including the many
-//  where the whole file is what you want, and a defect in it would block all
-//  opens rather than one path.
+//  ENTRY IS OPT-IN (owner decision). "Open Dataset…" loads the whole file
+//  exactly as it always has; this path is reached only from "Open with
+//  options…". The alternative — configuring on every open — puts a step in
+//  front of every open including the many where the whole file is what you
+//  want, and a defect in it would block all opens rather than one path.
 //
 
 import Foundation
@@ -120,7 +118,7 @@ final class PendingLoad: Identifiable {
         self.configuration = LoadConfiguration(source: source)
     }
 
-    // MARK: - Display caches (v2 S4)
+    // MARK: - Display caches
 
     /// The three panes' pixels, normalized at SET time. `realSpace` and
     /// `maxDP` are recomputed only if `preview` is ever reassigned;
@@ -154,7 +152,7 @@ final class PendingLoad: Identifiable {
         beamPosition = Self.beamProxyPosition(of: preview.meanDP)
     }
 
-    // MARK: - The single-DP pane (owner request 2026-08-18, v2 S4)
+    // MARK: - The single-DP pane (owner request)
 
     /// One REAL diffraction pattern, at a scan position the user picked by
     /// clicking the real-space preview. The mean/max panes answer "where is
@@ -251,7 +249,7 @@ final class PendingLoad: Identifiable {
         return (bestIndex % width, bestIndex / width)
     }
 
-    // MARK: - Configure-time direct-beam guard (v2 S4)
+    // MARK: - Configure-time direct-beam guard
 
     /// Where the direct beam is, as evidenced by the sampled preview — the
     /// brightest pixel of the MEAN pattern, computed once when the preview
@@ -293,8 +291,7 @@ final class PendingLoad: Identifiable {
     /// BEFORE the load. `CalibrationReReference.apply` refuses this crop well —
     /// but only when there is an existing calibration to re-reference, so on a
     /// first open nothing fired: the load succeeded silently and the
-    /// geometric-default centre landed wherever the box happened to be
-    /// (release owner, 2026-08-19).
+    /// geometric-default centre landed wherever the box happened to be.
     ///
     /// Checked against the view's `readDetectorCrop` — the rectangle a reader
     /// ACTUALLY reads, crop trimmed to a whole number of bins — never

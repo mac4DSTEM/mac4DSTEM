@@ -37,9 +37,9 @@ package final class MaterialsProjectSettings {
     /// Never touches the store: `AppState` is built for every window and in
     /// hundreds of unit tests, and a Keychain read from a differently signed
     /// process (the test host, a scratch build) raises the "wants to use your
-    /// confidential information" prompt each time — the owner saw thousands
-    /// on 2026-09-21. The first read is the Settings view's or the sheet's
-    /// `load()` on appear.
+    /// confidential information" prompt each time — thousands of prompts,
+    /// measured 2026-09-21. The first read is the Settings view's or the
+    /// sheet's `load()` on appear.
     package init(store: APIKeyStore = KeychainAPIKeyStore()) {
         self.store = store
     }

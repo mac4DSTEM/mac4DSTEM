@@ -4,15 +4,16 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// Seam 7 placement: promote-and-replay orchestration and step execution.
+/// Promote-and-replay orchestration and step execution.
 extension AppState {
-    /// The promote control's action since v2 S6 — the release claim's
-    /// "one action" (docs/v2-release.md §1, commitment 2): reopen at full
-    /// extent, then replay the recorded pipeline sequentially, unattended,
-    /// with the machine held awake. With an empty recipe this is exactly the
-    /// S3 promote, re-establishing pass included.
-    /// The record and its frame are captured BEFORE the reopen: the replay
-    /// executes the recipe the user promoted, not whatever `activate`'s
+    /// The promote control's action — the release claim's "one action"
+    /// (docs/v2-release.md §1, commitment 2): reopen at full extent, then
+    /// replay the recorded pipeline sequentially, unattended, with the
+    /// machine held awake. With an empty recipe this is exactly the
+    /// ordinary promote, re-establishing pass included.
+    ///
+    /// The record and its frame are captured before the reopen: replay must
+    /// execute the recipe the user promoted, not whatever `activate`'s
     /// sidecar restore re-adopts mid-flight.
     func promoteAndReplayRecipe() async {
         let record = replay.record
@@ -24,11 +25,11 @@ extension AppState {
         // Replay is the promote's tail only — on an already-full-extent view
         // there is nothing this button's gesture means.
         guard !loadedView.isFullExtent, !datasetSession.isLoading else { return }
-        // The plan is PURE, so every certain refusal is known before the
-        // expensive reopen is paid for. A recipe whose FIRST step already
-        // refuses will replay nothing — run the ordinary re-establishing
-        // pass in that case so the morning is not "hours of reopen, zero
-        // analyses, and a halt" (Gate A findings E1/B2, 2026-08-25).
+        // The plan is pure, so every certain refusal is known before the
+        // expensive reopen is paid for. A recipe whose first step already
+        // refuses replays nothing — run the ordinary re-establishing pass
+        // instead, so a promote isn't hours of reopen for zero analyses and
+        // a halt (Gate A findings E1/B2).
         let planned = ReplayPlanner.plan(record, frame: frame)
         let firstStepRefused: Bool
         if case .failure = planned[0].result { firstStepRefused = true }
@@ -39,7 +40,7 @@ extension AppState {
         // this run's step table or release its assertion (finding A5).
         // The frame note travels into the run so the morning summary states a
         // re-referenced replay the same way the pre-click caption did — set
-        // only when a planned step actually carries detector numbers. // v2 S10
+        // only when a planned step actually carries detector numbers.
         let frameNote: String?
         if let note = frame.reReferenceDescription,
            planned.contains(where: {
@@ -65,11 +66,11 @@ extension AppState {
         await executeReplay(planned: planned)
     }
 
-    /// Sequential replay — v2 S6. One step at a time, in recipe order; the
-    /// first refusal, failure or cancellation HALTS the run (never silently
-    /// past a failure, per the S6 brief) and everything after it stays "not
-    /// reached" in the summary. `replayRun.begin` already ran — the caller
-    /// holds the keep-awake assertion from before the reopen.
+    /// Sequential replay: one step at a time, in recipe order. The first
+    /// refusal, failure or cancellation halts the run — never silently past
+    /// a failure — and everything after it stays "not reached" in the
+    /// summary. `replayRun.begin` already ran; the caller holds the
+    /// keep-awake assertion from before the reopen.
     private func executeReplay(planned: [PlannedReplayStep]) async {
         let epoch = datasetSession.epoch
         var haltReason: String?
@@ -129,12 +130,12 @@ extension AppState {
     }
 
     /// Apply one parsed step's recorded parameters to live state and run the
-    /// SAME entry point the user's click runs — replay must not grow a second
-    /// execution path that can drift from the interactive one.
-    /// v2.5 step 5a: a replayed step refuses for exactly the reason the live
-    /// checklist would block the same task — one requirements list. Called
-    /// after a step has written its recorded parameters, so the answer is
-    /// about the state the run would actually see.
+    /// same entry point the user's click runs — replay must not grow a
+    /// second execution path that can drift from the interactive one. A
+    /// replayed step refuses for exactly the reason the live checklist
+    /// would block the same task — one requirements list. Called after a
+    /// step has written its recorded parameters, so the answer is about the
+    /// state the run would actually see.
     func replayRefusal(for mode: AnalysisMode) -> String? {
         if case .unavailable(let reason) = ProductWorkflow.readiness(
             for: mode, readiness: productWorkflowReadiness) {
@@ -153,11 +154,11 @@ extension AppState {
 
         case .dpc(let wantsFittedOrigin):
             guard calibrationSession.calibration.hasFittedOrigin == wantsFittedOrigin else {
-                // The wanted-but-absent direction is the EXPECTED one after a
+                // The wanted-but-absent direction is expected after a
                 // promote: per-position origin maps are fitted at the
                 // rehearsal's extent and do not carry across the reopen
-                // (the same inverse-mapping family as S10's detector-frame
-                // work — Gate A findings A2/C2, 2026-08-25). The refusal
+                // (the same inverse-mapping family as the detector-frame
+                // re-referencing work — Gate A findings A2/C2). The refusal
                 // must say what to do, not just what is missing.
                 if wantsFittedOrigin {
                     return .refused("the recipe ran DPC against calibrated origins, and the rehearsal's per-position origin fit does not carry across a promote — calibrate the origin on the promoted view, then run DPC by hand")
@@ -189,10 +190,10 @@ extension AppState {
 
         case .acom(let acomPlan):
             // Resolution is `ACOMReplayPlan.resolveMaterial` (pure, tested):
-            // by id, never a fallback crystal; the custom-cubic arm exists
-            // because `activate` reset the SELECTION but the fields survive
-            // (Gate A finding C4), and it now also requires the rehearsed
-            // lattice constant (Gate D 2026-09-02).
+            // by id, never a fallback crystal. The custom-cubic arm exists
+            // because `activate` resets the selection but the fields
+            // survive (Gate A finding C4), and it also requires the
+            // rehearsed lattice constant (Gate D).
             switch acomPlan.resolveMaterial(in: .init(
                 importedIDs: Set(acomSession.importedCrystalModels.map(\.id)),
                 // The content check: an imported id is a file stem, so the

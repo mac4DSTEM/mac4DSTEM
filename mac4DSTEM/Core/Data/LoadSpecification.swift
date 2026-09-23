@@ -219,14 +219,12 @@ package nonisolated enum LoadSpecificationError: LocalizedError, Equatable {
 /// site; deriving `descriptor` inside `init(source:specification:)` removes it
 /// from all of them.
 ///
-/// **It is not unrepresentable, and an earlier version of this comment claimed
-/// it was.** `init(fullExtentOf:)` below takes any descriptor without
+/// **The forbidden pair is not unrepresentable.** `init(fullExtentOf:)` below
+/// takes any descriptor without
 /// validating it, so handing it an already-cropped descriptor reconstructs
 /// exactly the forbidden pair. What catches that is `requireSource` at the first
-/// read — a refusal, loudly, rather than a wrong number — not the type. Stated
-/// accurately here because a guarantee that is really a runtime check is the
-/// kind of claim this repository has been burned by. (Adversarial review,
-/// 2026-08-18.)
+/// read — a refusal, loudly, rather than a wrong number — not the type.
+/// (Adversarial review, 2026-08-18.)
 ///
 /// Coordinates: `descriptor` extents and every `ry`/`rx`/`yRange` a reader is
 /// given are in **view** coordinates, starting at 0. Readers add
@@ -293,12 +291,11 @@ package nonisolated struct LoadView: Sendable {
         // trimmed down to a multiple of the factor, and the trimmed pixels are
         // never converted or allocated.
         //
-        // **Never converted, not necessarily never fetched** — an earlier
-        // version of this comment claimed the stronger thing. Whether the bytes
+        // **Never converted, not necessarily never fetched.** Whether the bytes
         // leave the disk is per reader and per file, which is the whole reason
         // `LoadPushdown` is declared rather than assumed: the raw readers fetch
         // a whole frame and decode part of it, and a CHUNKED HDF5 dataset is
-        // read and inflated a whole chunk at a time. Corrected 2026-08-18.
+        // read and inflated a whole chunk at a time.
         //
         // What was dropped is recorded and must be stated in the UI:
         // silently returning a smaller detector than the user asked for is the

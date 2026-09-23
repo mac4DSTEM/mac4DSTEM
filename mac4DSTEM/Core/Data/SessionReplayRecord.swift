@@ -13,13 +13,13 @@
 //  downstream products were (disk detection feeding a saved strain map is the
 //  canonical case).
 //
-//  SEMANTICS, decided v2 S5 (2026-08-24): one step per analysis kind, in
+//  SEMANTICS: one step per analysis kind, in
 //  FIRST-RUN order; re-running a kind updates its parameters in place. The
 //  recipe is "the pipeline you built, with the parameters you settled on" —
 //  not a keystroke log (fifty exploratory runs replayed overnight would be a
 //  bug, not fidelity). Known limit, stated: two same-kind runs with different
-//  parameters keep only the latest; extending to multi-instance steps is
-//  S6's call if the owner wants it.
+//  parameters keep only the latest; extending to multi-instance steps is a
+//  future decision, not yet made.
 //
 //  ABSENCE IS ABSENCE. A sidecar without the attribute yields NO record —
 //  never an empty-but-asserted one. This is the `?? .fullExtent` lesson
@@ -44,7 +44,7 @@ package nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
         /// ORDER of `steps` is the pipeline order, not the timestamps.
         package var recorded: Date
 
-        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
         package nonisolated init(kind: String, parameters: [String: String], recorded: Date) {
             self.kind = kind
             self.parameters = parameters

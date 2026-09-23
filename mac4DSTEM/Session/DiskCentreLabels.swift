@@ -1,9 +1,9 @@
 //
 //  DiskCentreLabels.swift
-//  Role: C7 session 4's seam (docs/decisions.md, 2026-09-08 "centres, as one
-//        attribute") — the one owner of hand-clicked disk-centre labels: the
-//        click-mode toggle, the labelled positions for the dataset currently
-//        open, and the JSON that rides the session sidecar beside calibration
+//  Role: the one owner of hand-clicked disk-centre labels (docs/decisions.md
+//        "centres, as one attribute"): the click-mode toggle, the labelled
+//        positions for the dataset currently open, and the JSON that rides
+//        the session sidecar beside calibration
 //        (`mac4dstem_disk_centre_labels`, `BraggVectorEMDWriter`). Held by
 //        AppState with no forwarding properties; views read
 //        `diskCentreLabels.…`.
@@ -11,9 +11,9 @@
 //  A label is a set of hand-clicked disk CENTRES at one scan position, in the
 //  detector's NATIVE pixel frame — not a model-size crop, so one labels file
 //  scores any model size (the same convention `tools/disk-detector/
-//  label_centres.py` uses, C7 2026-09-07). The JSON this store reads and
-//  writes is exactly that tool's schema, so `tools/disk-detector/evaluate.py`
-//  scores app labels and tool labels alike.
+//  label_centres.py` uses). The JSON this store reads and writes is exactly
+//  that tool's schema, so `tools/disk-detector/evaluate.py` scores app
+//  labels and tool labels alike.
 //
 //  What deliberately does NOT live here: the click gesture and its hit-testing
 //  (`UI/ImagePanes.swift`'s `CentreLabelOverlay`), the tap-to-pixel mapping

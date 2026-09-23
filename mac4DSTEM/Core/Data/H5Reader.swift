@@ -29,11 +29,10 @@ package enum H5Error: LocalizedError {
     case cannotOpenFile(String)
     case noDatasetFound([String])
     /// The opened file is one of this app's own session sidecars — recognised
-    /// by its root schema attribute, which the open path never used to check.
-    /// The release owner hit the raw path-wall answer twice in one afternoon
-    /// (2026-08-19): the open panel offers both files of the sharing pair and
+    /// by its root schema attribute. Hit twice in one afternoon (2026-08-19):
+    /// the open panel offers both files of the sharing pair and
     /// they sort adjacently under near-identical names, so this failure mode
-    /// is EXPECTED, not exotic — it deserves a sentence, not a dump. // v2 S4
+    /// is EXPECTED, not exotic — it deserves a sentence, not a dump.
     case sessionSidecarOpened(sidecar: String, suggestedSource: String?)
     case datasetOpenFailed(String)
     case readFailed(String)

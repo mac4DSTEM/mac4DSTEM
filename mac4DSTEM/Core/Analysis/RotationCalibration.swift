@@ -67,8 +67,8 @@ package enum RotationCalibration {
         ///
         /// WHAT THIS CANNOT DO, measured rather than guessed (Gate B,
         /// 2026-09-15). It catches one failure: that the field is spatially
-        /// WHITE, which on 2026-09-14 was reported to the owner as
-        /// "Measured −67.5°" from pure Poisson shot noise. It does NOT:
+        /// WHITE — pure Poisson shot noise produced a spurious "Measured
+        /// −67.5°" on 2026-09-14. It does NOT:
         /// - catch a rotation-free field that merely has structure — a
         ///   per-row descan drift and a specimen edge were both certified
         ///   6 of 6, at 6–20× the shuffled depth, with arbitrary angles;

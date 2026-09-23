@@ -5,14 +5,13 @@
 //        to claim. A gate that exists once cannot be derived differently at two
 //        call sites.
 //
-//  This is S7's `AppState` seam (docs/archive/development-process-2026-08-31.md §7), and like S1's
-//  it is the seam the session's own defect earned: physical iDPC decided "may I
-//  use the origin fit quantitatively?" from `hasFittedOrigin` alone
-//  (`AppState.idpcPhysicalCalibration`), while Q calibration decided the same
-//  question from `originFitRefusal` — so an origin fit whose residual exceeded
-//  the probe radius was refused for a Q measurement and simultaneously admitted
-//  into "iDPC projected phase (rad)". Same question, two derivations, the odd
-//  one out unreviewed. Both call sites now ask this type.
+//  Both call sites ask this type rather than re-deriving policy: physical
+//  iDPC decided "may I use the origin fit quantitatively?" from
+//  `hasFittedOrigin` alone (`AppState.idpcPhysicalCalibration`), while Q
+//  calibration decided the same question from `originFitRefusal` — so an
+//  origin fit whose residual exceeded the probe radius was refused for a Q
+//  measurement and simultaneously admitted into "iDPC projected phase
+//  (rad)". Same question, two derivations, the odd one out unreviewed.
 //
 //  The type answers two questions today and is the stated home for the next
 //  one (docs/open-items.md: unifying `PendingLoad.directBeamRefusal` with
@@ -33,7 +32,7 @@ import DSTEMCore
 @MainActor
 package final class SessionGates {
 
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    // Explicit so the default initializer is `package` (synthesized ones are internal).
     package nonisolated init() {}
 
     // MARK: - May I use the origin fit quantitatively?
@@ -58,37 +57,36 @@ package final class SessionGates {
         calibration.originFitRefusal
     }
 
-    /// May a *reciprocal* measurement be derived in this frame? — the stricter
-    /// question, and v2 S13's half of the split
-    /// (`docs/q-calibration-design.md` §2). Q calibration asks this one;
-    /// everything that needs only a centred frame keeps asking the looser one
-    /// above.
+    /// May a *reciprocal* measurement be derived in this frame? — the
+    /// stricter question (`docs/q-calibration-design.md` §2). Q calibration
+    /// asks this one; everything that needs only a centred frame keeps
+    /// asking the looser one above.
     ///
     /// Two predicates, ONE policy owner: the science lives in
-    /// `Calibration.originSupportsReciprocalMetrology`, and what lives here is
-    /// the rule that app code asks the gate. S11 found this same question
-    /// answered four different ways at four call sites on 2026-08-28 — the S7
-    /// class — so the split must not create a fifth, which is why the strict
-    /// predicate is a second function on this type rather than a tighter
-    /// threshold hand-rolled at the Q-calibration call site.
+    /// `Calibration.originSupportsReciprocalMetrology`, and what lives here
+    /// is the rule that app code asks the gate — this same question was once
+    /// answered four different ways at four call sites, so the split must
+    /// not create a fifth; that is why the strict predicate is a second
+    /// function on this type rather than a tighter threshold hand-rolled at
+    /// the Q-calibration call site.
     ///
-    /// It refuses a **stand-in origin** by kind, not by measuring how wrong it
-    /// is: S13 E1 measured the geometric-middle substitution at 1.14 px on
-    /// `sim_Au` and 7.07 px on `downsample_Si_SiGe_exp`, straddling the band any
-    /// estimator check can see, so "watch for it" was never going to work.
+    /// It refuses a **stand-in origin** by kind, not by measuring how wrong
+    /// it is: measured geometric-middle substitution error is 1.14 px on
+    /// `sim_Au` and 7.07 px on `downsample_Si_SiGe_exp` (S13 E1), straddling
+    /// the band any estimator check can see, so "watch for it" was never
+    /// going to work.
     package func reciprocalMetrologyRefusal(
         for calibration: Calibration,
         descriptor: DatasetDescriptor,
         apertureCentre: (x: Float, y: Float)?
     ) -> String? {
-        // The predicate is asked of `Calibration`, not re-derived here. The
-        // first version composed `originQuantitativeRefusal` with its own
+        // The predicate is asked of `Calibration`, not re-derived here. An
+        // earlier version composed `originQuantitativeRefusal` with its own
         // `origin.kind.isMeasuredBeamCentre` test, which left
-        // `Calibration.originSupportsReciprocalMetrology` with **no production
-        // caller at all** — two derivations of one question, created by the
-        // change whose whole point was to remove exactly that. Gate B found it
-        // by deleting half the unused predicate and watching the fixture stay
-        // green (2026-08-28).
+        // `Calibration.originSupportsReciprocalMetrology` with **no
+        // production caller at all** — two derivations of one question.
+        // Gate B found it by deleting half the unused predicate and watching
+        // the fixture stay green.
         guard !calibration.originSupportsReciprocalMetrology(
             detectorQX: descriptor.qx, detectorQY: descriptor.qy,
             apertureCentre: apertureCentre
@@ -105,7 +103,7 @@ package final class SessionGates {
             // call site passes a non-nil aperture and the aperture starts at
             // the detector's middle, so this fires for users who have placed
             // nothing — telling them "where you put it" describes an action
-            // they did not take (Gate B, 2026-08-28).
+            // they did not take (Gate B finding).
             return "Reciprocal calibration needs a measured beam centre. This dataset has none, "
                 + "so Bragg vectors would be re-centred on the detector aperture's current "
                 + "position, which is not a measurement of where the beam is. Run Calibrate "
@@ -138,7 +136,7 @@ package final class SessionGates {
         package var kind: Kind
         package var message: String
 
-        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
         package nonisolated init(kind: Kind, message: String) {
             self.kind = kind
             self.message = message
@@ -150,15 +148,13 @@ package final class SessionGates {
     /// Cleared on EVERY path that changes the open dataset — `openFileAsync`
     /// and `discardPartialLoad` (beside `SessionSidecarLocator.release()`),
     /// plus `commitPendingLoad` and `openDemoFixture`, which change datasets
-    /// without going through either. The first version claimed "paired with
-    /// every release()" was sufficient; Gate B refuted it with a configurator
-    /// commit that carried dataset A's refusal onto dataset B's saves
-    /// (2026-08-25).
+    /// without going through either. Pairing the clear with `release()` alone
+    /// is not sufficient — Gate B refuted it with a configurator commit that
+    /// carried dataset A's refusal onto dataset B's saves.
     ///
-    /// Observable state, not a log line: the does-not-fit branch used to
-    /// report only through `statusText`, which S1 measured being overwritten
-    /// three lines later by the loading stages — the same unreadable-channel
-    /// defect S1 fixed for the sibling branch. The inspector renders this.
+    /// Observable state, not a log line: reporting only through `statusText`
+    /// gets overwritten by the loading stages moments later. The inspector
+    /// renders this.
     package private(set) var sidecarRestoreFailure: SidecarRestoreFailure?
 
     package func noteSidecarRestoreFailed(
@@ -199,7 +195,7 @@ package final class SessionGates {
             // heuristic, not a fact this gate can rely on. So the remedy
             // names both paths rather than promising re-granting will fix a
             // damaged file — a printed remedy that cannot work is the F1.3h
-            // defect (Gate B, 2026-08-25).
+            // defect (Gate B finding).
             remedy = "If mac4DSTEM has not been granted access to it, "
                 + "re-grant with Change… in the dataset inspector (choosing "
                 + "the same file); if the file itself cannot be read or "
@@ -230,17 +226,15 @@ package final class SessionGates {
     /// compute catch block is not an ordinary compute failure — it
     /// invalidates the session, so `AppState.presentComputeFailure` escalates
     /// it to the modal path regardless of which analysis stage surfaced it.
-    /// Moved here from `AppState` (C7 session 4, a stateless predicate with
-    /// no AppState dependency) to pay down the `AppState` + `ResultExport`
-    /// budget (CLAUDE.md) — a placement change only, not a policy change.
-    /// No harness compiles this file, so it is not subject to the
-    /// small-single-module-list constraint the sibling `Core/Analysis`
-    /// relocation would have hit.
+    /// Lives here rather than on `AppState` as a stateless predicate, paying
+    /// down the `AppState` + `ResultExport` budget (CLAUDE.md) — a placement
+    /// choice only, not a policy change. No harness compiles this file, so
+    /// it is not subject to the small-single-module-list constraint the
+    /// sibling `Core/Analysis` relocation would have hit.
     package static func isDataSourceFailure(_ error: Error) -> Bool {
-        // A tile-read failure WRAPS its data-source error (v2 S7's typed
-        // attribution) — judge the wrapped error, or a mid-scan HDF5 failure
-        // would stay off the modal path precisely because S7 gave it a type
-        // (Gate B, 2026-08-25).
+        // A tile-read failure WRAPS its data-source error — judge the
+        // wrapped error, or a mid-scan HDF5 failure would stay off the modal
+        // path precisely because it now carries a type (Gate B finding).
         if case DiskDetection.FullScanError.tileRead(_, let underlying) = error {
             return isDataSourceFailure(underlying)
         }

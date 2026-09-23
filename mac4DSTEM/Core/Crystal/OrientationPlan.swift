@@ -216,7 +216,7 @@ package nonisolated struct OrientationPlan {
             // is power_radial = 0, and `open-items.md` has carried that as an
             // untested omission since 2026-08-28.
             //
-            // MEASURED 2026-09-15 with `tools/acom-groundtruth/orientation-accuracy.py`
+            // MEASURED 2026-09-15 with `tools/acom-groundtruth/orientation-accuracy.py` (retired; restore per docs/archive/v4/tools-retired-2026-09-23.md)
             // over 136 planted patterns, as excess orientation error beyond
             // what the bank's own sampling forces, summed over 8 zone axes:
             //   power_radial 0 (shipped) 18.79°   0.5 → 20.45°

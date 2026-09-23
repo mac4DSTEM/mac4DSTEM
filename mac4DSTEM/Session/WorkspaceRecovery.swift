@@ -9,7 +9,7 @@ package nonisolated struct RecentDataset: Codable, Identifiable, Hashable {
     package var bookmark: Data
     package var lastOpened: Date
 
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
     package nonisolated init(id: String, displayName: String, bookmark: Data, lastOpened: Date) {
         self.id = id
         self.displayName = displayName
@@ -20,13 +20,10 @@ package nonisolated struct RecentDataset: Codable, Identifiable, Hashable {
 
 /// Where a recent dataset lives, said only as precisely as it needs to be said.
 ///
-/// **The defect this exists for** (Track B, 2026-08-18): the recents list showed
-/// `url.lastPathComponent` and nothing else, so a dataset on a NAS and an
-/// identical copy on a local SSD rendered as two identical rows. The
-/// de-duplication was correct — the two paths genuinely differ — but the list
-/// whose only purpose is choosing between datasets could not show the choice.
-/// The release owner opened 3.96 GB over SMB with the same file sitting on a
-/// local disk.
+/// **Why this exists.** `url.lastPathComponent` alone renders a dataset on a
+/// NAS and an identical copy on a local SSD as two identical rows: the
+/// de-duplication is correct (the two paths genuinely differ) but the list,
+/// whose only purpose is choosing between datasets, cannot show the choice.
 ///
 /// **Why not just print the path.** These are 90 characters of mount point and
 /// inbox folders; a row that shows all of it shows nothing. And why not always
@@ -119,10 +116,10 @@ package nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
     /// A position is only meaningful in the view it was selected in: after a
     /// promote the coordinates are full-extent, after a sidecar restore the
     /// view is the rehearsal crop, and clamping one frame's position into the
-    /// other manufactured "a defensible pixel the user never chose" (S3's
-    /// carried finding, fixed v2 S5). Nil = written by an older build, frame
-    /// unknown — the restore applies the position only if it fits, and drops
-    /// it otherwise. Optional so old persisted records still decode.
+    /// other manufactures "a defensible pixel the user never chose". Nil =
+    /// written by an older build, frame unknown — the restore applies the
+    /// position only if it fits, and drops it otherwise. Optional so old
+    /// persisted records still decode.
     package var loadSpecification: LoadSpecification? = nil
 
     /// The recorded position, applied only when it is honest in the view
@@ -135,7 +132,7 @@ package nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
     /// Only `scanCrop` is compared: scan coordinates live in the scan crop's
     /// frame, and a detector crop or bin moves no scan index — a whole-spec
     /// comparison dropped honest positions on detector-only changes
-    /// (Gate B-lite F13). Pure, so the tests can pin every branch. // v2 S5
+    /// (Gate B-lite F13). Pure, so the tests can pin every branch.
     package nonisolated func position(
         inViewWith specification: LoadSpecification, rx: Int, ry: Int
     ) -> (x: Int, y: Int)? {
@@ -147,7 +144,7 @@ package nonisolated struct DatasetRecoveryRecord: Codable, Equatable {
         return (selectedX, selectedY)
     }
 
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
     package nonisolated init(datasetID: String, bookmark: Data, selectedX: Int, selectedY: Int, analysisMode: String, updated: Date, loadSpecification: LoadSpecification? = nil) {
         self.datasetID = datasetID
         self.bookmark = bookmark
@@ -180,14 +177,13 @@ package nonisolated enum WorkspaceRecoveryStore {
 
     package static func resolve(_ bookmark: Data) throws -> (url: URL, stale: Bool) {
         var stale = false
-        // `.withoutMounting` is load-bearing (Gate D, 2026-08-25): resolving
-        // a bookmark whose volume is an unreachable network share otherwise
-        // BLOCKS while the system attempts to mount it — measured at 30.03 s
-        // on this machine's own stored NAS recents entry, 2026-08-25; the
-        // reproducible pin is `BookmarkResolutionLatencyTests`, which drives
-        // every stored bookmark — and every caller of this function runs on
-        // the main actor, so each attempt freezes the whole UI for that
-        // long; queued clicks then serialize into minutes. An unmounted
+        // `.withoutMounting` is load-bearing: resolving a bookmark whose
+        // volume is an unreachable network share otherwise BLOCKS while the
+        // system attempts to mount it — measured at 30.03 s on a stored NAS
+        // recents entry (Gate D, 2026-08-25; reproducible pin is
+        // `BookmarkResolutionLatencyTests`). Every caller of this function
+        // runs on the main actor, so each attempt freezes the whole UI for
+        // that long; queued clicks then serialize into minutes. An unmounted
         // volume must resolve to a fast failure ("no longer accessible"),
         // never to a silent mount attempt.
         let url = try URL(resolvingBookmarkData: bookmark,
@@ -204,9 +200,9 @@ package nonisolated enum WorkspaceRecoveryStore {
     /// does, so this is safe to call in a catch block on the main actor.
     /// Exists so the two resolution catch blocks can tell "the file is gone"
     /// (forget the bookmark) from "the volume is not mounted right now"
-    /// (KEEP it) — the Gate D second reader caught both catches destroying
-    /// state on a merely-unplugged NAS (2026-08-25): a recents row deleted
-    /// with its volume label, and a chosen sidecar grant silently forgotten,
+    /// (KEEP it) — both catches destroying state on a merely-unplugged NAS
+    /// (found by a Gate D second reader, 2026-08-25) deletes a recents row
+    /// with its volume label and silently forgets a chosen sidecar grant,
     /// which re-arms the silent-full-extent reopen through a new trigger.
     package static func unmountedVolumeName(forBookmark bookmark: Data) -> String? {
         guard let path = URL.resourceValues(

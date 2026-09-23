@@ -46,9 +46,9 @@ struct WorkspaceSidebar: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         // A `.sidebar` List gives its rows no width, so this
-                        // takes its one-line ideal and truncates — amended
-                        // contract rule 5 says that is the choice, not a
-                        // finding, but a hint nobody can finish reading is
+                        // takes its one-line ideal and truncates — UI
+                        // contract rule 5 says that's the choice, not a
+                        // finding — but a hint nobody can finish reading is
                         // useless, so the full sentence is on hover.
                         .help(hint)
                         .accessibilityIdentifier("workspace.nextStepHint")
@@ -168,9 +168,8 @@ struct WorkspaceSidebar: View {
 
     /// The state of this task's retained product — the same rule the
     /// inspector's "Computed this session" rows apply, so the two surfaces
-    /// cannot give different verdicts on staleness (C4(b): generalized past
-    /// disk settings — any task's own recipe step, compared to what current
-    /// settings would record).
+    /// cannot give different verdicts on staleness: any task's own recipe
+    /// step, compared to what current settings would record (C4(b)).
     private func taskProductState(_ mode: AnalysisMode) -> TaskProductState {
         ProductWorkflow.productState(
             for: mode, hasProduct: taskHasProduct(mode),
@@ -216,16 +215,12 @@ struct WorkspaceSidebar: View {
 // MARK: - What is loaded, and what session it carries
 
 /// The bottom of the source list: which dataset is open and what saved
-/// session came with it.
-///
-/// Owner, 2026-09-04. Two things drove this. The column below the task list
-/// was empty, and — the reason it is THIS content and not a decoration — the
-/// sidecar warnings sat one tab away in Info, where "an old sidecar loaded
-/// with a cube" is exactly the case a user would not think to go looking for.
-/// A saved session that cannot be read, or that describes a region this file
-/// does not have, or that was computed on a different view, changes what every
-/// number on screen means. Those three now sit in permanent view; the detail
-/// stays in Info.
+/// session came with it. The sidecar warnings live here, not only in Info,
+/// because a saved session that cannot be read, describes a region this
+/// file doesn't have, or was computed on a different view changes what
+/// every number on screen means — that has to sit in permanent view, not
+/// one tab away where a user would not think to look; the detail stays in
+/// Info.
 ///
 /// Rows here are List rows, not Form rows, so they stack explicitly —
 /// `LabeledContent` would lay them out on one line and truncate.
@@ -243,16 +238,14 @@ struct SessionSection: View {
                     Text("\(descriptor.rx) × \(descriptor.ry) scan · \(descriptor.qx) × \(descriptor.qy) detector")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
-                    // Residency moved here from the status strip, 2026-09-12.
-                    // The other two facts that stood beside it — app resident
-                    // memory and the cube's byte count — were deleted: one is a
-                    // debugger readout, the other a static property of the file,
-                    // and Info › Performance carries both. This one is not
-                    // telemetry. Resident and streaming produce IDENTICAL
-                    // numbers, so nothing else on screen tells a user which
-                    // path their analyses took — which makes it provenance, and
-                    // provenance belongs beside the dataset it describes rather
-                    // than four interactions deep in a collapsible inspector.
+                    // Residency, not telemetry: resident and streaming produce
+                    // identical numbers, so nothing else on screen tells a user
+                    // which path their analyses took, which makes this
+                    // provenance — it belongs beside the dataset it describes,
+                    // not four interactions deep in a collapsible inspector.
+                    // App resident memory and the cube's byte count stay out:
+                    // one is a debugger readout, the other a static file
+                    // property, and Info › Performance carries both.
                     Text(appState.residency.summary)
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
@@ -314,11 +307,11 @@ struct SessionSection: View {
         .accessibilityIdentifier(identifier)
     }
 
-    /// What the sidecar holds. Moved here from the Info panel on 2026-09-04
-    /// (owner): after loading a dataset the user
-    /// should see on the LEFT what came with it. Info keeps the two sections
-    /// that explain a sidecar the app could not read or could not fit — that
-    /// is the half of the split the comment above deliberately kept there.
+    /// What the sidecar holds — on the left, so the user sees what came
+    /// with the dataset right after loading it. Info keeps the two sections
+    /// that explain a sidecar the app could not read or could not fit;
+    /// that's the half of the split the comment above deliberately kept
+    /// there.
     ///
     /// Every row takes the `.sidebar` List's one-line ideal and truncates, so
     /// the detail a row cannot show is on `.help`, the same choice the
@@ -327,16 +320,14 @@ struct SessionSection: View {
     @ViewBuilder
     private var inventory: some View {
         if let descriptor = appState.descriptor, appState.sessionInventory.hasSidecar {
-            // Through the seam: this once derived the path itself, so a
-            // bookmark resolving to a sidecar the user had RENAMED made the
-            // app name a file it was not reading.
+            // Goes through the seam rather than deriving the path itself: a
+            // bookmark resolving to a sidecar the user had renamed once made
+            // the app name a file it wasn't reading.
             let sidecar = appState.sessionSidecar.location(for: descriptor)
-            // What this section IS, said once: the owner's note on first
-            // seeing it was that nothing tells you these came from a file
-            // loaded beside the cube rather than from this session's work.
-            // Short enough to survive a sidebar row's one-line width; the
-            // full sentence is on hover, the same choice the next-step hint
-            // makes.
+            // States plainly that these results came from a file loaded
+            // beside the cube, not from this session's work — short enough
+            // to survive a sidebar row's one-line width; the full sentence
+            // is on hover, the same choice the next-step hint makes.
             Text("Loaded with the dataset — from earlier analysis")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -386,11 +377,10 @@ struct SessionSection: View {
     /// `.sidebar` row has no width to spend on them, so one caption line
     /// survives and the rest is on `.help`.
     ///
-    /// Remove is in the row's context menu, NOT a second visible row per
+    /// Remove lives in the row's context menu, not a second visible row per
     /// result as Info had it: two rows per saved result fills this column,
     /// and a right-click is the source-list idiom for acting on a row. This
-    /// is the one judgement call in the move — it is placement, and it is the
-    /// owner's to overrule on screen.
+    /// is placement, and the owner's to overrule on screen.
     @ViewBuilder
     private func savedResultRow(_ result: SessionResultDescriptor, isCurrent: Bool) -> some View {
         Button {

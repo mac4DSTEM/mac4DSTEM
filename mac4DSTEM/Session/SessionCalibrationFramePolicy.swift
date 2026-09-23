@@ -3,16 +3,15 @@ import Foundation
 import DSTEMCore
 #endif
 
-/// P2 (Gate D, 2026-09-01): which frame treatment a session sidecar's
-/// calibration gets on restore.
+/// Which frame treatment a session sidecar's calibration gets on restore.
 ///
-/// A sidecar records calibration in ITS OWN view's frame; the file may now be
-/// loaded under a different specification. `applySessionCalibration` used to
-/// adopt the values raw — on a 2× binned open of a full-extent session that
-/// put the aperture centre one full frame off (the owner's corner BF preset)
-/// and doubled-frame Q scales into strain (R11). The geometry lives in
-/// `CalibrationReReference`; this type is only the POLICY of when it runs —
-/// pure, so the three-way decision is unit-pinned.
+/// A sidecar records calibration in its own view's frame, and the file may
+/// now be loaded under a different specification. Adopting the sidecar's
+/// values raw can misplace the aperture centre by a full frame and double
+/// Q scales into strain (R11) when the loaded view differs from the
+/// session's. The geometry lives in `CalibrationReReference`; this type is
+/// only the POLICY of when it runs — pure, so the three-way decision is
+/// unit-pinned.
 package nonisolated enum SessionCalibrationFramePolicy: Equatable {
     /// Recorded on exactly the view now loaded — adopt verbatim.
     case identity
@@ -42,12 +41,12 @@ package nonisolated enum SessionCalibrationFramePolicy: Equatable {
     }
 }
 
-/// P2: phases 1–2 of session-calibration adoption, pure so the wiring the
-/// unit gate proved uncovered (it stayed green across a known-flawed
-/// intermediate) is pinned by test. Phase 1 translates the sidecar's values
-/// into a calibration of their own frame; phase 2 moves that snapshot
-/// through `CalibrationReReference` when the policy says so. The state
-/// merge stays in `AppState`.
+/// Phases 1–2 of session-calibration adoption, kept pure so the wiring is
+/// unit-pinned — a coverage gap here once stayed green through a flawed
+/// intermediate. Phase 1 translates the sidecar's values into a calibration
+/// of their own frame; phase 2 moves that snapshot through
+/// `CalibrationReReference` when the policy says so. The state merge stays
+/// in `AppState`.
 package nonisolated enum SessionCalibrationTranslation {
     package struct Output {
         package var calibration: Calibration
@@ -55,7 +54,7 @@ package nonisolated enum SessionCalibrationTranslation {
         package var restoredMaps: Bool
         package var invalidated: [CalibrationInvalidation]
 
-        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
         package nonisolated init(calibration: Calibration, center: CalibrationReReference.DetectorPoint? = nil, restoredMaps: Bool, invalidated: [CalibrationInvalidation]) {
             self.calibration = calibration
             self.center = center
@@ -86,13 +85,12 @@ package nonisolated enum SessionCalibrationTranslation {
         if let value = saved.ellipseB { sessionFrame.ellipseB = value }
         if let value = saved.ellipseTheta { sessionFrame.ellipseTheta = value }
         var restoredMaps = false
-        // Maps are sized against the extent the SESSION's frame describes —
-        // and the sidecar WRITER records maps in its LIVE VIEW's frame
+        // Maps are sized against the extent the SESSION's frame describes:
+        // the sidecar writer records maps in its live view's frame
         // (`ResultExport`), so an identity restore sizes against the loaded
-        // descriptor; only a full-extent session describes the source extent.
-        // Getting this wrong silently downgrades fitted maps to the mean
-        // (refuter correction, 2026-09-01; pinned red-first in
-        // `SessionCalibrationTranslationTests`).
+        // descriptor and only a full-extent session describes the source
+        // extent. Getting this wrong silently downgrades fitted maps to the
+        // mean — pinned red-first in `SessionCalibrationTranslationTests`.
         let mapExtent: DatasetDescriptor
         if case .reReference = policy {
             mapExtent = view?.source ?? descriptor

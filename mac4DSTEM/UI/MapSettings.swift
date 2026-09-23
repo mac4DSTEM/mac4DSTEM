@@ -25,10 +25,10 @@ struct MapSettings: View {
         Group {
             switch appState.navigation.analysisMode {
             case .disks:
-                // Three jobs, three sections (2026-09-22 night review): the
-                // kernel, the detection it drives, and the hand-labelled
-                // centres that train the learned detector — the last one
-                // collapsed, since most runs never touch it.
+                // Three jobs, three sections: the kernel, the detection it
+                // drives, and the hand-labelled centres that train the
+                // learned detector — the last one collapsed, since most
+                // runs never touch it.
                 InspectorSection("Probe kernel") {
                     DiskDetectionRows(part: .kernel)
                 }
@@ -57,9 +57,9 @@ struct MapSettings: View {
 /// compact defaults stay visible as rows of the "Disk detection" section; the
 /// less commonly changed signal/filter parameters live in the sibling
 /// `AdvancedDiskDetectionSection`, a collapsed section of its own.
-/// Where the probe kernel comes from — a view choice (2026-09-22 owner
-/// decision, "source picker + one button"), not app state: the kernel that
-/// results records its own source in provenance (`ProbeKernel.source`). Each
+/// Where the probe kernel comes from is a view choice (owner decision), not
+/// app state: the kernel that results records its own source in provenance
+/// (`ProbeKernel.source`). Each
 /// case carries the old standalone button's icon, help text and
 /// accessibility identifier so collapsing four buttons into one changes
 /// presentation only, not the four code paths behind them.
@@ -107,16 +107,16 @@ private struct DiskDetectionRows: View {
     enum Part { case kernel, detection }
     let part: Part
     @Environment(AppState.self) private var appState
-    /// "Offer the learned (neural net) detector" (session S21,
-    /// `Session/AppPreferences.swift`) — hides the `.learned` case from the
+    /// "Offer the learned (neural net) detector"
+    /// (`Session/AppPreferences.swift`) — hides the `.learned` case from the
     /// picker below when off. It never touches the asset, the threshold, or
     /// any other per-dataset setting; only whether the option is offered.
     @Environment(AppPreferences.self) private var preferences
     /// How a MEASURED probe becomes a kernel. A view choice, not app state:
     /// the kernel that results records its own mode in provenance. Flat by
     /// default: the trench needs a correct probe radius, and the estimator
-    /// reads structured probes small (Gate B, 2026-09-05 — the trench default
-    /// rebuilt the failing bullseye kernel on the first click).
+    /// reads structured probes small — the trench default once rebuilt the
+    /// failing bullseye kernel on the first click (Gate B).
     @State private var measuredKernelMode: ProbeKernelMode = .flat
     @State private var showVacuumImporter = false
     /// The picked kernel source (see `KernelSource`). Synthetic by default —
@@ -323,13 +323,11 @@ private struct DiskDetectionRows: View {
         } else if let count = appState.resultPresentation.braggPeakCount {
             InspectorValueRow("Peaks found", "\(count)")
             if let summary = appState.completedDiskSummary {
-                // Warnings come FIRST. They sat after the two count rows until
-                // 2026-09-09, which put them below the panel's visible edge at
-                // the default window height: WS2 finished with a green
-                // "Disks ✓ 16384 peaks" while the median ≤ 1 warning that
-                // explains it — one peak per pattern, the direct beam only —
-                // was off-screen (`docs/open-items.md`, the drive of that day).
-                // The reader needs the caveat before the number it qualifies.
+                // Warnings come first: a green "Disks ✓" peak count can be
+                // followed by a median ≤ 1 warning that means one peak per
+                // pattern, the direct beam only — the reader needs the
+                // caveat before the number it qualifies, not scrolled past
+                // it (`docs/open-items.md`).
                 ForEach(Array(summary.warnings.enumerated()), id: \.offset) { _, warning in
                     Label(warning, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
@@ -518,10 +516,9 @@ private struct AdvancedDiskDetectionSection: View {
             }
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
-            // Decision 3 of 2026-09-15 (Thronsen step 3): on a pattern whose
-            // direct beam saturates, "0.5 % of the maximum" is 0.5 % of a
-            // plateau. The reference can exclude the beam; 0 keeps py4DSTEM's
-            // rule and nothing shipped moves.
+            // On a pattern whose direct beam saturates, "0.5% of the
+            // maximum" is 0.5% of a plateau. The reference can exclude the
+            // beam; 0 keeps py4DSTEM's rule and nothing shipped moves.
             InspectorRow(DiskDetectionParameterID.relativeReferenceMinimumRadius.title) {
                 Stepper(
                     value: floatBinding(appState, \.relativeReferenceMinimumRadiusPx, in: 0...Float(detectorMinimum)),
@@ -842,17 +839,16 @@ private struct ACOMSections: View {
     var body: some View {
         @Bindable var session = appState.acomSession
         InspectorSection("ACOM (orientation)") {
-            // Session S5 (owner's product decision): Materials Project is the
-            // default phase source; the built-in library and "Custom
-            // cubic…" are no longer offered here — see the doc comment on
-            // `CrystalModelLibrary.models`. Driving feedback 2026-09-21
-            // (owner): the Picker whose only real choices were "Choose
-            // phase…" and already-imported models "doesn't make sense, the
-            // buttons below do a better job" — removed. The row is now just
-            // the current selection's name; the two buttons below are the
-            // only way to choose a phase model. Switching between two or
-            // more already-imported models still works, as the `Menu` case
-            // of `phaseModelValue`.
+            // Materials Project is the default phase source (owner
+            // decision); the built-in library and "Custom cubic…" are no
+            // longer offered here — see the doc comment on
+            // `CrystalModelLibrary.models`. A picker whose only choices
+            // were "Choose phase…" and already-imported models added
+            // nothing over the buttons below, so it's gone: the row is
+            // just the current selection's name, and the two buttons are
+            // the only way to choose a phase model. Switching between
+            // already-imported models still works, as the `Menu` case of
+            // `phaseModelValue`.
             InspectorRow("Phase model") {
                 phaseModelValue
             }
@@ -909,10 +905,10 @@ private struct ACOMSections: View {
             }
             InspectorNote(appState.acomSession.quality.detail)
             // The app's only measured figure for how well it orients, so a
-            // user reads it before trusting a zone axis to the degree. Planted
-            // aluminium patterns, 2026-09-15 (`tools/acom-groundtruth`); no
-            // other phase has been measured. Static on purpose: a number with
-            // its date and its scope, not a promise.
+            // user reads it before trusting a zone axis to the degree.
+            // Planted aluminium patterns (`tools/acom-groundtruth`, retired — see docs/archive/v4/tools-retired-2026-09-23.md; measured
+            // 2026-09-15); no other phase has been measured. Static on
+            // purpose: a number with its date and its scope, not a promise.
             InspectorNote("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
                 .help("136 planted patterns across nine zone axes and two azimuthal bins of in-plane rotation (tools/acom-groundtruth/orientation-accuracy.py, 2026-09-15). The angles are the total error against the planted axis; the bank's own sampling accounts for at most 0.8° of the 13.6°, and the rest is the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin — the mechanism is recorded in docs/open-items.md.")
 
@@ -1205,8 +1201,8 @@ private struct ACOMSections: View {
 /// a section — Disks, Strain and ACOM each hand-copied this, and Disks' copy
 /// put the "rerun Detect All Disks" instruction only in a `.help()` tooltip
 /// rather than the always-visible text the other two carry (consolidation
-/// review 2026-09-22, finding W-5's second half). One row, one wording, the
-/// reason parametrized per caller.
+/// review, finding W-5). One row, one wording, the reason parametrized per
+/// caller.
 private struct DetectionSettingsStaleWarning: View {
     let reason: String
 

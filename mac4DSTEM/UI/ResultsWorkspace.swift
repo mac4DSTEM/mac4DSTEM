@@ -23,14 +23,14 @@ struct ResultsWorkspace: View {
         VStack(spacing: 0) {
             if hasVisibleResult {
                 // No scan marker here: Results has no diffraction pane
-                // for it to drive (owner, 2026-09-04).
+                // for it to drive (owner decision).
                 RealSpacePane(allowsScanSelection: false)
                     // No minimum announced upward. The Results branch is the
                     // one place left where a content-derived minimum reaches
                     // the `NavigationSplitView` host directly — it flips on
-                    // and off with `hasVisibleResult` — and the launch crash's
-                    // mechanism is NOT established well enough to call that
-                    // safe (Gate D refuter, 2026-09-04). The pane's reading
+                    // and off with `hasVisibleResult` — and the launch
+                    // crash's mechanism is not established well enough to
+                    // call that safe (Gate D refuter). The pane's reading
                     // size is the window's to give.
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
@@ -147,9 +147,7 @@ struct ComparisonPanel: Identifiable {
     /// colorbar prints. A diverging map is symmetric about zero, exactly as
     /// `normalized(symmetric:)` scales it, so the bar's zero mark is where
     /// the map's neutral colour is. nil for an RGBA payload, which has no
-    /// scalar window. Until 2026-09-05 the three panels drew at 0…1 with no
-    /// legend, so a symmetric RdBu difference had no readable zero or range
-    /// (UI review, finding d).
+    /// scalar window.
     let valueRange: (low: Double, high: Double)?
     /// True when the payload holds pixels the map cannot colour (no data).
     let hasMasked: Bool

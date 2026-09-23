@@ -4,11 +4,10 @@
 //        the persisted store behind it, and the location labels that tell
 //        same-named entries apart.
 //
-//  WHY THIS IS ITS OWN TYPE (docs/archive/development-process-2026-08-31.md §7). S3 touches
-//  `AppState`, so it extracts one seam at a green test boundary. This is the
-//  cheapest true seam on S3's path: the list is real state with real
-//  transitions (remember, remove, bookmark refresh, the cap at eight), it is
-//  persisted as a unit, and the labels derive from it alone. // v2 S3
+//  WHY THIS IS ITS OWN TYPE (docs/archive/development-process-2026-08-31.md §7):
+//  the list is real state with real transitions (remember, remove, bookmark
+//  refresh, the cap at eight), it is persisted as a unit, and the labels
+//  derive from it alone.
 //
 //  `AppState` holds it and keeps NO forwarding properties: views read
 //  `appState.recents.…` directly. What stays behind on `AppState` is the
@@ -16,11 +15,9 @@
 //  recent with per-session position state the record needs at write time) and
 //  the open/resolve flows, which touch readers and security scopes.
 //
-//  The labels are STORED, not computed per access. The comment this replaces
-//  claimed "recomputed only when the list changes" of a computed property that
-//  in fact ran its O(n²) disambiguation on every read — harmless at n ≤ 8, but
-//  the claim was wrong, and #31 is the standing item about exactly that
-//  pattern. Recomputing on mutation makes the claim true.
+//  The labels are STORED, not computed per access — a computed property here
+//  would run its O(n²) disambiguation on every read (harmless at n ≤ 8, but
+//  the pattern open-items #31 tracks). Recomputing only on mutation avoids it.
 //
 
 import Foundation
@@ -79,10 +76,10 @@ package final class RecentDatasets {
         entries.first { $0.id == id }
     }
 
-    /// Empty the list. Settings' "Clear Recent Datasets" (session S21,
-    /// `ROADMAP.md` "Settings window") — an empty list is a no-op, the same
-    /// guard `remove(id:)` uses, so a repeated click cannot clobber the
-    /// store with an already-current empty snapshot for no reason.
+    /// Empty the list. Settings' "Clear Recent Datasets" (`ROADMAP.md`
+    /// "Settings window") — an empty list is a no-op, the same guard
+    /// `remove(id:)` uses, so a repeated click cannot clobber the store with
+    /// an already-current empty snapshot for no reason.
     package func clearAll() {
         guard !entries.isEmpty else { return }
         entries.removeAll()
@@ -110,7 +107,7 @@ package final class RecentDatasets {
         // decoded — and a corrupted or hand-edited blob with two equal paths
         // must not make the app unlaunchable. Duplicate paths get identical
         // labels anyway, so keeping the first is exact, and behaviour for a
-        // duplicate-free list is byte-identical. Gate A review, 2026-08-19.
+        // duplicate-free list is byte-identical (Gate A reviewed).
         locationLabels = Dictionary(zip(paths, labels), uniquingKeysWith: { first, _ in first })
     }
 }

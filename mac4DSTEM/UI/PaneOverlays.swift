@@ -31,18 +31,14 @@ import DSTEMSession
 /// The bottom overlay row of an image pane: the scale bar at the leading edge,
 /// the colour legend at the trailing edge.
 ///
-/// Both used to be independent `bottomLeading` / `bottomTrailing` overlays in
-/// the same ZStack, each unaware of the other. On a tall, narrow pane there is
-/// not enough width for both — a 200x50 scan with a display rotation applied
-/// put the `-0.04145 0 0.04145` colorbar straight through the `20 [pix]` scale
-/// bar (found on a Track B drive; fixed in v2 S18). The legend is 146pt wide
-/// before its label, and the bar is quantized to ~70pt of *drawn* length plus
-/// its own caption, so the collision is a property of the width of the **drawn
-/// image box** — `LayoutPolicy.fitted(in:aspect:)`, which this overlay sits
-/// inside — and NOT of the pane. For a square pattern in a pane taller than it
-/// is wide the two coincide; for a rotated tall-narrow scan the box stays
-/// narrow at any divider position, so that pane is stacked always and
-/// correctly.
+/// On a tall, narrow pane there is not enough width for both: the legend is
+/// 146pt wide before its label, and the bar is quantized to ~70pt of *drawn*
+/// length plus its own caption, so a collision is a property of the width of
+/// the **drawn image box** — `LayoutPolicy.fitted(in:aspect:)`, which this
+/// overlay sits inside — and NOT of the pane. For a square pattern in a pane
+/// taller than it is wide the two coincide; for a rotated tall-narrow scan
+/// the box stays narrow at any divider position, so that pane is stacked
+/// always and correctly.
 ///
 /// `ViewThatFits` picks side-by-side while both ideal widths fit and stacks
 /// them otherwise, which keeps the wide case pixel-identical to what shipped
@@ -94,7 +90,7 @@ struct ScaleBar: View {
     /// What the bar measures for a displayed product: the physical sampling
     /// along the SCREEN horizontal and its unit, or pixels when the product
     /// carries no unit. A sampling with no unit is not a physical sampling —
-    /// printing it under "px" mislabelled a number (UI review 2026-09-04).
+    /// printing it under "px" would mislabel it.
     static func footerSampling(
         row: Double?, column: Double?, units: String?, swapsAxes: Bool
     ) -> (perPixel: Double, label: String) {
@@ -226,11 +222,10 @@ struct Colorbar: View {
         .padding(.vertical, 5)
         // Legibility plate over the image, as on the scale bar.
         .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
-        // R23 (2026-09-02, diagnosed live): this view is the LABEL of
-        // `ColormapChip`'s button. `.allowsHitTesting(false)` here made the
-        // button's whole area transparent to real clicks — AXPress opened the
-        // popover, a click inside the button's own 146×51 pt frame did not.
-        // Plain (non-button) uses opt out at their call site instead.
+        // This view is the LABEL of `ColormapChip`'s button (R23):
+        // `.allowsHitTesting(false)` here would make the button's whole area
+        // transparent to real clicks, though AXPress would still open the
+        // popover. Plain (non-button) uses opt out at their call site instead.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Color scale from \(Self.format(low)) to \(Self.format(high)) \(unitLabel)"
                             + (showsMasked ? ", gray marks masked pixels with no fit" : ""))
@@ -249,17 +244,15 @@ struct Colorbar: View {
 
 // MARK: - Colormap chip
 
-/// D3 (owner decision, 2026-09-01: "colorbar click"): colormap choice lives
-/// ON the colorbar chip in each pane — click the gradient you are already
-/// looking at, pick from real swatches. This replaced the sidebar's Display
-/// row entirely, and dissolves the old Results-workspace scoping problem
-/// structurally: the chip exists wherever its pane exists.
+/// Colormap choice lives ON the colorbar chip in each pane — click the
+/// gradient you are already looking at, pick from real swatches (owner
+/// decision D3). The chip exists wherever its pane exists, so there is no
+/// separate scoping concern like the old sidebar Display row had.
 ///
-/// **Popover, not Menu — R23.** The first version used the chip as a `Menu`
-/// label; AppKit hosts a menu-button's label itself and does not render a
-/// SwiftUI `Canvas` there, so the gradient vanished and the chip degraded to
-/// a bare number (owner screenshots, 21:33). A `.popover` is presented
-/// SwiftUI-side, so the chip and the swatches render exactly as authored.
+/// **Popover, not Menu — R23.** AppKit hosts a menu-button's label itself and
+/// does not render a SwiftUI `Canvas` there, so a `Menu`-based chip loses its
+/// gradient. A `.popover` is presented SwiftUI-side, so the chip and the
+/// swatches render exactly as authored.
 struct ColormapChip<Chip: View>: View {
     @Environment(AppState.self) private var appState
     @State private var isPresented = false
@@ -302,12 +295,10 @@ struct ColormapChip<Chip: View>: View {
         }
     }
 
-    /// The chip's popover as a grouped Form: the swatch rows the owner asked
-    /// for (D3), the histogram this pane's image carries (moved out of the
-    /// inspector's "Display" section, owner decision 2026-09-22 — see
-    /// `WorkspaceInspector.swift`'s deleted `DisplaySettingsSections`), the
-    /// IPF confidence gate, and the diffraction display options, as system
-    /// rows.
+    /// The chip's popover as a grouped Form: the swatch rows (D3), the
+    /// histogram this pane's image carries (owned here, not in the
+    /// inspector's "Display" section — owner decision), the IPF confidence
+    /// gate, and the diffraction display options, as system rows.
     @ViewBuilder
     private var popoverContent: some View {
         @Bindable var appState = appState
@@ -315,9 +306,8 @@ struct ColormapChip<Chip: View>: View {
         let selection = pane == .diffraction
             ? $appState.patternColormap : $resultPresentation.resultColormap
         Form {
-            // One menu row, not a four-row list: the popover now also holds
-            // the histogram and gamma, and the list pushed them out of view
-            // (2026-09-22 night; the owner's accepted mock: "Colormap viridis ⌄").
+            // One menu row, not a four-row list: the popover also holds the
+            // histogram and gamma, and a full list would push them out of view.
             Section {
                 Picker("Colormap", selection: selection) {
                     ForEach(ColormapKind.allCases) { kind in
@@ -332,9 +322,6 @@ struct ColormapChip<Chip: View>: View {
                 .pickerStyle(.menu)
             }
             if pane == .diffraction, let pattern = appState.displayedPattern {
-                // Same binding, identifier-free content and behaviour as the
-                // inspector's old "Histogram (diffraction)" sub-section —
-                // moved, not changed.
                 Section("Histogram") {
                     HistogramView(
                         pixels: pattern.contrastPixels(useLog: appState.logScale),
@@ -355,9 +342,6 @@ struct ColormapChip<Chip: View>: View {
                 }
             }
             if pane == .result, let image = appState.resultPresentation.resultImage {
-                // Same binding, identifier-free content and behaviour as the
-                // inspector's old "Histogram (real space)" sub-section —
-                // moved, not changed.
                 Section("Histogram") {
                     HistogramView(
                         pixels: image.pixels, version: appState.resultPresentation.resultVersion,
@@ -373,8 +357,8 @@ struct ColormapChip<Chip: View>: View {
             }
             if pane == .result, appState.navigation.analysisMode == .acom,
                appState.acomSession.display == .ipfZ, appState.acomSession.orientationMap != nil {
-                // v2.5 step 7 (plan §3 item 2): the IPF map's confidence gate
-                // lives with the map's colours. Nil = automatic (10th percentile).
+                // The IPF map's confidence gate lives with the map's colours.
+                // Nil = automatic (10th percentile).
                 let effective = appState.acomSession.effectiveReliabilityThreshold ?? 0
                 let kept = appState.acomSession.orientationMap?
                     .fractionOfMatchedPositions(withReliabilityAtLeast: effective)
@@ -427,8 +411,7 @@ struct ColormapChip<Chip: View>: View {
 /// `AppState.patternGamma`). The round trip changes no science — gamma is a
 /// display-only exponent, never written to a saved product — so a
 /// `Binding<Float>` is bridged to `Binding<Double>` here rather than
-/// widening either stored property. Moved from `WorkspaceInspector.swift`
-/// with the histogram gamma sliders that use it (2026-09-22).
+/// widening either stored property.
 private extension Binding where Value == Float {
     var asDouble: Binding<Double> {
         Binding<Double>(get: { Double(wrappedValue) }, set: { wrappedValue = Float($0) })
@@ -456,11 +439,10 @@ struct ApertureOverlay: View {
             let radiusScale = (scaleX + scaleY) / 2
             // Detector coordinates name pixel CENTRES — `VirtualDetector`'s
             // mask computes `dx = Float(x) - centerX` over integer pixel
-            // indices. This used to be a bare `centerX * scaleX`, which drew
-            // the aperture at the pixel's top-left corner and read as visibly
-            // off-axis on a small detector (reported 2026-08-05). Routed
-            // through PeakOverlayGeometry so the half-pixel convention has one
-            // definition shared with the Bragg-peak overlay.
+            // indices. A bare `centerX * scaleX` draws the aperture at the
+            // pixel's top-left corner, visibly off-axis on a small detector.
+            // Routed through PeakOverlayGeometry so the half-pixel convention
+            // has one definition shared with the Bragg-peak overlay.
             let center = PeakOverlayGeometry.center(
                 x: aperture.centerX, y: aperture.centerY,
                 patternWidth: patternWidth, patternHeight: patternHeight,
@@ -602,19 +584,16 @@ struct ApertureOverlay: View {
     /// Snap the geometry to whole detector pixels before publishing — a
     /// virtual detector sums whole pixels, so fractional edges are meaningless.
     ///
-    /// **Every handle drag goes through here.** The radius handles used to call
-    /// `onEdited` directly, so dragging an inner/outer radius published
-    /// fractional pixels while dragging the centre snapped — one control, two
-    /// contracts, and the inspector's "Inner r / Outer r" rows showed whichever
-    /// handle you happened to have touched last.
+    /// **Every handle drag goes through here.** One chokepoint keeps every
+    /// route (drag or accessibility slider) reporting the same published
+    /// values, instead of each control snapping independently and disagreeing.
     private func emit(_ a: Aperture) {
         var s = a
-        // ui-08 (S22e): clamp AFTER rounding. The drag path clamped the raw
-        // point to `width`, and rounding the exact right edge (width − 0.5)
-        // then published `width` — one past the last pixel, which
-        // `VirtualDetector` silently answers with an empty mask. The
-        // accessibility sliders already stop at width − 1; now every route
-        // through this chokepoint agrees with them.
+        // Clamp AFTER rounding (ui-08): clamping the raw point to `width`
+        // first and then rounding the right edge (width − 0.5) would publish
+        // `width` — one past the last pixel, which `VirtualDetector` silently
+        // answers with an empty mask. The accessibility sliders stop at
+        // width − 1; this keeps every route through this chokepoint agreeing.
         s.centerX = min(max(0, s.centerX.rounded()), Float(patternWidth - 1))
         s.centerY = min(max(0, s.centerY.rounded()), Float(patternHeight - 1))
         s.inner = s.inner.rounded()
@@ -731,9 +710,9 @@ struct PeakOverlay: View {
     }
 }
 
-/// Hand-clicked disk-centre labels (C7 session 4) — one cyan cross per centre,
-/// in a colour distinct from `PeakOverlay`'s green rings so a labelled and a
-/// detected centre are never mistaken for each other. Uses the same
+/// Hand-clicked disk-centre labels — one cyan cross per centre, in a colour
+/// distinct from `PeakOverlay`'s green rings so a labelled and a detected
+/// centre are never mistaken for each other. Uses the same
 /// `PeakOverlayGeometry` box map as `PeakOverlay`; centres are stored as
 /// (row, col) = (y, x) in detector pixels.
 struct CentreLabelOverlay: View {

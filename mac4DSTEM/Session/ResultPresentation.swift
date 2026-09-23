@@ -1,7 +1,7 @@
 //
 //  ResultPresentation.swift
-//  Role: AppState seam 5 — the one owner of the retained scientific product,
-//        result-view controls, and the presentation caches derived from them.
+//  Role: the one owner of the retained scientific product, result-view
+//        controls, and the presentation caches derived from them.
 //
 //  `DisplayedProduct` remains an immutable Core value. This type owns the
 //  mutable session/window presentation around that value; AppState only
@@ -43,7 +43,7 @@ package final class ResultPresentation {
 
     // The scientific value retained when navigation temporarily presents a
     // positioning reference. Mutations go through the methods below so the
-    // pre-seam version-bump order can stay exact at every call site.
+    // version-bump order stays exact at every call site.
     package private(set) var product: DisplayedProduct?
 
     package var resultColormap: ColormapKind = .viridis {
@@ -94,8 +94,8 @@ package final class ResultPresentation {
     }
 
     /// Replace the retained product without changing the version. Several
-    /// legacy call sites bump before or after this write; seam 5 preserves that
-    /// ordering exactly and records unifying it as follow-up debt.
+    /// legacy call sites bump before or after this write; this preserves
+    /// that ordering exactly. Unifying it is tracked as follow-up debt.
     package func replaceProduct(_ product: DisplayedProduct?) {
         self.product = product
     }
@@ -110,16 +110,15 @@ package final class ResultPresentation {
         resultVersion &+= 1
     }
 
-    /// A fresh window's starting colormap (session S21, `AppState.init`,
-    /// `Session/AppPreferences.swift`'s `mapColormap`) — set before any
+    /// A fresh window's starting colormap (`AppState.init`,
+    /// `Session/AppPreferences.swift`'s `mapColormap`) is set before any
     /// product exists, so it must not look like a display change to a
     /// version-gated cache. `resultColormap`'s own `didSet` bumps
     /// `resultVersion` on every assignment (it has to, for a real change
     /// mid-session); this restores whatever version was already current so
-    /// the ONE-TIME seed is invisible to it. Caught by
+    /// the one-time seed is invisible to it. Pinned by
     /// `ResultPresentationSeamTests.testAppStatePublicationUsesTheOwnerAndKeepsTheVersionContract`,
-    /// which pins `resultVersion == 1` after exactly one `publish` — that
-    /// broke red the first time this seeding used the plain setter.
+    /// which asserts `resultVersion == 1` after exactly one `publish`.
     package func seedInitialColormap(_ colormap: ColormapKind) {
         let priorVersion = resultVersion
         resultColormap = colormap

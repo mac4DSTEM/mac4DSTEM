@@ -195,8 +195,7 @@ package nonisolated enum CalibrationReReference {
                 // analysis uses; the measured arrays are a fit-quality record
                 // and are allowed to scatter outside without condemning the fit.
                 // Bounds are checked in the final, binned frame. **This is a
-                // free choice, not a load-bearing one, and an earlier version of
-                // this comment claimed otherwise.** `binnedCoordinate` is affine
+                // free choice, not a load-bearing one.** `binnedCoordinate` is affine
                 // and maps -0.5 to -0.5 and W-0.5 to W/b-0.5, so "inside the
                 // pre-bin rectangle" and "inside the binned rectangle" are the
                 // SAME predicate — checking either side of the bin gives an
@@ -344,10 +343,6 @@ package nonisolated enum CalibrationReReference {
         // `Q_pixel_size` of `file x bin` is still the file's number, expressed
         // in this view's pixels, exactly as a translated origin is still the
         // origin that was fitted.
-        //
-        // An earlier version of this comment predicted that L4 would be the
-        // first thing to clear an entry here. L4 landed and cleared none;
-        // the prediction is recorded as wrong rather than quietly deleted.
         return Outcome(calibration: calibration, apertureCenter: apertureCenter,
                        provenance: provenance,
                        invalidated: invalidated,

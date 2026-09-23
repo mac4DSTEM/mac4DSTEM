@@ -5,13 +5,10 @@ import DSTEMSession
 #endif
 
 /// Imaging's inspector Settings tab: the virtual detector and the reciprocal
-/// region, whichever direction is chosen. The old `ImageSidebar` switched
-/// between the two on `AppState.activePane` with no control the user could
-/// see; UI rule 7 forbids reading that implicit mode silently, so the first
-/// row here is an explicit `Picker` bound to it. Body is inspector-vocabulary
-/// rows (`UI/InspectorRows.swift`) for the caller's inspector scroll
-/// container; the untitled top row had no `Section` header before this
-/// conversion either, so it stays a bare row rather than gaining one.
+/// region, whichever direction is chosen. UI rule 7 forbids reading
+/// `AppState.activePane` silently, so the first row is an explicit `Picker`
+/// bound to it. Body is inspector-vocabulary rows (`UI/InspectorRows.swift`);
+/// the untitled top row stays a bare row with no `Section` header.
 struct ImagingSettings: View {
     @Environment(AppState.self) private var appState
 
@@ -20,19 +17,18 @@ struct ImagingSettings: View {
         @Bindable var resultPresentation = appState.resultPresentation
 
         Group {
-        // Segmented, with the geometry each choice applies as its glyph
-        // (owner, 2026-09-04). The old sidebar used a menu because a
-        // four-segment row held a 250 pt column at 283 pt; the inspector
-        // starts at 280 pt and this row has two segments, so the reason
-        // is gone. The pane that this choice drives also carries an
-        // accent outline, so the setting and the pane agree on screen.
-        // A headerless card: a bare row above the first card read as
-        // loose (first macOS 27 drive, 2026-09-22).
+        // Segmented control; the geometry each choice applies is its own
+        // glyph (owner decision). A four-segment menu once needed 250 pt in
+        // a 283 pt column; this row has two segments and the inspector
+        // starts at 280 pt, so a segmented control fits directly. The pane
+        // it drives also carries an accent outline, so the setting and the
+        // pane agree on screen. Headerless card: a bare row above the first
+        // card read as loose (driven, 2026-09-22).
         InspectorGroup {
             InspectorRow("Direction") {
                 Picker("Direction", selection: $appState.activePane) {
-                    // Words, not two dashed shapes: what the drag controls
-                    // must read at a glance (2026-09-22 night review).
+                    // Words, not shape glyphs: what the drag controls must
+                    // read at a glance.
                     Text("Detector")
                         .accessibilityLabel("Detector to real space")
                         .tag(ActivePane.diffraction)

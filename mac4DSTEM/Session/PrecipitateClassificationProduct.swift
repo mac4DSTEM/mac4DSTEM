@@ -2,12 +2,11 @@
 //  PrecipitateClassificationProduct.swift
 //  Role: owns the retained spatial result of a class map — objects, per-class
 //        pixel counts and density. AppState composes this owner without
-//        forwarding properties. Session S3
-//        (`docs/v3-features.md#precipitates-mp-plan`) wired its
-//        first writer, `AppState+PhaseMapping.swift`, over the vector-matched
-//        phase map; the pre-registered FULL-diffraction-pattern
-//        classification route (`docs/v3-features.md#precipitate-classification` §2)
-//        would be a second writer of the same owner, still unbuilt.
+//        forwarding properties. `AppState+PhaseMapping.swift` is the first
+//        writer, over the vector-matched phase map; the pre-registered
+//        full-diffraction-pattern classification route
+//        (`docs/v3-features.md#precipitate-classification` §2) would be a
+//        second writer of the same owner, still unbuilt.
 //
 
 import Foundation

@@ -159,8 +159,8 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
 /// Two small pure functions the classifier picker needs
 /// (`UI/PhaseMappingSettings.swift`) and `AppState+PhaseMapping.swift`'s
 /// provenance writer needs — kept here, in Session, so both are testable
-/// without a view or a running app. Session S3,
-/// `docs/v3-features.md#precipitate-classification` §2 step "wire".
+/// without a view or a running app
+/// (`docs/v3-features.md#precipitate-classification` §2 step "wire").
 package enum PhaseMappingRuleDefaults {
     /// What the picker sets `PhaseReferenceSettings.minimumIntensityFraction`
     /// to when the classifier rule changes — a UI DEFAULT applied once, not
@@ -264,8 +264,8 @@ package final class PhaseMappingProduct {
     /// positions of the run and the phase list shows the current ones. With a
     /// sorted signature, removing a phase and adding it back at the end left
     /// `isStale` false while the list swatch and the legend swatch for that
-    /// phase disagreed (found 2026-09-14). A moved phase now reads as stale,
-    /// which is the truthful state: the list no longer reads as the legend.
+    /// phase disagreed. A moved phase now reads as stale, which is the
+    /// truthful state: the list no longer reads as the legend.
     package var phaseSignature: String {
         phases.map(\.signature).joined(separator: ";")
     }
@@ -310,7 +310,7 @@ package final class PhaseMappingProduct {
     /// The published map's display name. The phase count is in it for the same
     /// reason k is in the diffraction-groups name: two runs over different
     /// phase lists are otherwise indistinguishable in Results and in the
-    /// sidecar (`drive-groups` defect 2, 2026-09-06).
+    /// sidecar (`drive-groups` defect 2).
     package nonisolated static func mapDisplayName(candidatePhases: Int) -> String {
         "Phase map (\(candidatePhases) candidate\(candidatePhases == 1 ? "" : "s"))"
     }

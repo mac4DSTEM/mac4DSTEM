@@ -300,10 +300,11 @@ extension AppState {
     /// What the phase-mapping tolerances mean on the detector currently open.
     ///
     /// The settings are in Å⁻¹ and the measurement is on a pixel grid; the Q
-    /// calibration is the only thing that joins them, and until 2026-09-12
-    /// nothing showed the user the conversion. On the owner's own cube the
-    /// shipped 0.020 Å⁻¹ tolerances are 0.44 of one detector pixel, matrix
-    /// removal removed nothing at all, and the map came back empty.
+    /// calibration is the only thing that joins them, and without this the
+    /// conversion is invisible to the user. On the owner's cube the shipped
+    /// 0.020 Å⁻¹ tolerances are 0.44 of one detector pixel (measured
+    /// 2026-09-12) — matrix removal removed nothing at all, and the map came
+    /// back empty.
     ///
     /// Nil when there is no Q scale to convert through — an exploratory scale
     /// is a slider value, and a pixel count derived from one would be a number
@@ -329,13 +330,12 @@ extension AppState {
     /// The app's own diagnosis tells a user to check the matrix zone axis when
     /// nothing was removed as matrix. Telling someone to check something and
     /// giving them no way to answer it is half a feature — this is the other
-    /// half. The owner hit exactly this on 2026-09-12 with Al on [001] and a
-    /// matrix verdict count of zero.
+    /// half.
     ///
     /// Reports the top three, because a tie across a symmetry-equivalent
     /// family is the sign the sweep is behaving (all five sampled ⟨110⟩ tied
-    /// at 39.0 % on his cube) and a user who sees only the winner cannot tell
-    /// a fit from a coin toss.
+    /// at 39.0 %, measured 2026-09-12) and a user who sees only the winner
+    /// cannot tell a fit from a coin toss.
     func findMatrixZoneAxis() async -> AnalysisRunOutcome {
         guard let descriptor else { return .failed("Open a dataset first.") }
         guard let matrixIndex = phaseMapping.phases.firstIndex(where: \.isMatrix) else {
@@ -386,14 +386,14 @@ extension AppState {
         }
         // `id` is the model's, so the same crystal at two zone axes shares
         // it; requiring `isMatrix` too pins the one slot that can be the
-        // matrix (Gate B, 2026-09-14).
+        // matrix (Gate B finding).
         guard phaseMapping.phases.indices.contains(matrixIndex),
               phaseMapping.phases[matrixIndex].id == slot.id,
               phaseMapping.phases[matrixIndex].isMatrix else { return .cancelled }
         // The marks on the panel used to be the only thing the two nulls
         // reached: the winner was written into the phase model regardless
-        // (Gate B, 2026-09-15 night). A winner that is no better than a
-        // wrong axis, or than chance, is shown and not written.
+        // (Gate B finding). A winner that is no better than a wrong axis, or
+        // than chance, is shown and not written.
         phaseMapping.zoneAxisFits = Array(fits.prefix(3))
         guard winner.isInformative(multiple: matching.chanceMatchMultiple) else {
             return .failed("No zone axis stands out for \(slot.model.displayName): the best, "

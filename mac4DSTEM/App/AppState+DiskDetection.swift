@@ -4,25 +4,19 @@
 //        live overlay, the full-scan run, the Bragg vector map, the
 //        classical/neural-net disagreement map, and the one calibrated-
 //        Bragg-vectors derivation strain/ACOM/the Bragg map all share.
-//        Moved verbatim out of AppState.swift on 2026-09-18 (seam 3,
-//        docs/archive/v4/appstate-seams-plan.md): a placement change, no logic touched.
-//        `diskParams` moved into `Session/DiskDetectionProduct.swift` in the
-//        same seam — the two reads of it here are renamed to
-//        `diskDetection.diskParams`; everything else (`probeKernel`,
-//        `currentPeaks`, `currentDiskDiagnostics`, `resultPresentation.braggVectors`,
-//        `resultPresentation.braggPeakCount`, `completedDiskSummary`, `liveDetectionRequest`)
-//        stays AppState's per the plan and keeps its pre-seam name — three of
-//        those (`currentDiskDiagnostics`, `resultPresentation.braggVectors`,
-//        `completedDiskSummary`) widen from `private(set)` to a plain `var`
-//        so this file can set them, and `liveDetectionRequest` and
-//        `Self.makeReader` widen from `private` to `internal` for the same
-//        reason (4 widenings total for this seam).
-//        `liveDetectionInFlight`/`liveDetectionPending` — the single-flight
-//        coalescing flags `detectCurrentPattern`/`performLiveDetection` use
-//        — cannot follow as AppState stored properties (an extension can't
-//        declare them) and are not named as staying by the plan, so they
-//        moved to `diskDetection` instead of widening; see that file's
-//        header.
+//        Placement only (seam 3, docs/archive/v4/appstate-seams-plan.md); no
+//        logic differs from AppState's own.
+//
+//  `diskParams` lives on `Session/DiskDetectionProduct.swift`, read here as
+//  `diskDetection.diskParams`. Everything else this file touches
+//  (`probeKernel`, `currentPeaks`, `currentDiskDiagnostics`,
+//  `resultPresentation.braggVectors`, `resultPresentation.braggPeakCount`,
+//  `completedDiskSummary`, `liveDetectionRequest`) stays on AppState under
+//  its pre-seam name; three of those widen from `private(set)` to `var`, and
+//  `liveDetectionRequest`/`Self.makeReader` widen from `private` to
+//  `internal`, so this extension can set them (4 widenings for this seam).
+//  `liveDetectionInFlight`/`liveDetectionPending` live on `diskDetection`
+//  instead — an extension cannot declare stored properties.
 //
 
 import Foundation
@@ -70,7 +64,7 @@ extension AppState {
     func generateMeasuredProbeKernel(mode: ProbeKernelMode = .sigmoidTrench) async {
         guard let d = descriptor, let pattern = displayedPattern else { return }
         guard let radius = await ensureProbeRadius() else { return }
-        let origin = calibrationSession.calibration.referenceOrigin(  // v2 S13: one derivation
+        let origin = calibrationSession.calibration.referenceOrigin(  // single derivation point
             detectorQX: d.qx, detectorQY: d.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         ).point
@@ -138,7 +132,7 @@ extension AppState {
     /// Build the kernel from a SEPARATE vacuum scan file — the fix for a sample
     /// with no vacuum region in frame (the MgO disk-radius finding). The vacuum
     /// scan's mean pattern is the probe; `OriginCalibration.vacuumProbeKernel`
-    /// refuses if its detector differs from the loaded dataset's. // v3.1
+    /// refuses if its detector differs from the loaded dataset's.
     func generateVacuumProbeKernel(fromScan url: URL, mode: ProbeKernelMode = .flat) async {
         guard let descriptor else { return }
         let accessed = url.startAccessingSecurityScopedResource()
@@ -229,7 +223,7 @@ extension AppState {
     }
 
     /// Full-scan detection → BraggVectors + Bragg vector map.
-    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
+    /// Returns the typed run verdict — see `runVirtualDetector`'s note.
     @discardableResult
     func runDiskDetection(replaying: Bool = false) async -> AnalysisRunOutcome {
         guard let fourD = datasetSession.fourD, let descriptor else { return .failed("No dataset is loaded") }
@@ -270,24 +264,24 @@ extension AppState {
         defer { finishCancellableOperation(cancellation) }
 
         let d = descriptor
-        // `detectAll` now throws a `FullScanError` naming what failed and
-        // where; nil means cancelled and nothing else. The previous contract
+        // `detectAll` throws a `FullScanError` naming what failed and where;
+        // nil means cancelled and nothing else. The previous contract
         // returned nil for everything, and the guard below then attributed a
-        // NAS tile-read failure to "its FFT plan" — the error-attribution
-        // defect this session exists to fix. // v2 S7
+        // NAS tile-read failure to "its FFT plan" — the throwing contract
+        // exists to prevent that misattribution.
         let epoch = datasetSession.epoch
         let vectors: BraggVectors?
         do {
-            // P1 (Gate D, 2026-09-01): run the full-scan detection OFF the
-            // main actor. `detectAll` is nonisolated async and ran on the
-            // caller's executor here, and its `concurrentPerform` then
-            // conscripted the MAIN thread as a dispatch_apply worker for each
-            // tile's entire CPU-FFT workload — sampled live during the
-            // owner's frozen run: 2518/2519 main-thread samples inside
-            // FFT2D.transform, AX ping 7 s, progress unpaintable, Cancel
-            // dead. The detached task keeps the worker pool saturated while
-            // the runloop stays free. The progress closure already hopped to
-            // the main actor explicitly, so it is unchanged.
+            // Gate D P1: run the full-scan detection OFF the main actor.
+            // `detectAll` is nonisolated async but ran on the caller's
+            // executor, and its `concurrentPerform` then conscripted the
+            // MAIN thread as a dispatch_apply worker for each tile's entire
+            // CPU-FFT workload — measured live during a frozen run:
+            // 2518/2519 main-thread samples inside FFT2D.transform, AX ping
+            // 7 s, progress unpaintable, Cancel dead (2026-09-01). The
+            // detached task keeps the worker pool saturated while the
+            // runloop stays free; the progress closure already hops to the
+            // main actor explicitly, so it is unchanged.
             let data = fourD
             // Read on the main actor, before the detach below.
             let (learnedRef, learnedThreshold) = (learnedDetection.probeReference, learnedDetection.threshold)
@@ -355,10 +349,10 @@ extension AppState {
         }
         resultPresentation.setBraggVectors(vectors)
         learnedDetection.record(vectors, as: detectorClass)
-        // Recipe step (v2 S5): the canonical example of why the record exists
-        // separately from per-result controls — detection's own product
-        // (BraggVectors) is often never saved as a result, but strain's is,
-        // and replaying strain without these parameters is impossible.
+        // The canonical example of why the record exists separately from
+        // per-result controls — detection's own product (BraggVectors) is
+        // often never saved as a result, but strain's is, and replaying
+        // strain without these parameters is impossible.
         // Re-detection INVALIDATES downstream steps: a strain or ACOM step
         // recorded against the old peaks would otherwise survive next to the
         // new detection — a recipe that replays neither the saved maps nor a
@@ -391,7 +385,7 @@ extension AppState {
         let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
         let bvm = calibrated.map(qy: d.qy, qx: d.qx)
         resultPresentation.resultColormap = .viridis
-        publishProduct(   // v2.5 step 3e: its own label
+        publishProduct(   // its own label
             kind: "bragg_vector_map", displayName: "Bragg vector map", valueUnits: "log_intensity",
             payload: .scalar(FloatImage(width: bvm.width, height: bvm.height,
                                         pixels: bvm.pixels.map { log10(1 + max($0, 0)) })))
@@ -399,11 +393,12 @@ extension AppState {
     }
 
     /// Publish where the last neural-net and the last classical full-scan run
-    /// on this dataset disagree, peak against peak, as a scan map (C7 session
-    /// 3; docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a) — "a product like any other"). Runs nothing and
-    /// records no recipe step: both inputs are completed results held by
-    /// `learnedDetection`, which clears them on dataset activation, so the pair
-    /// is always one dataset's; a replay reproduces it by re-running both.
+    /// on this dataset disagree, peak against peak, as a scan map
+    /// (docs/archive/v3/learned-detector-preregistration-2026-09-07.md).
+    /// Runs nothing and records no recipe step: both inputs are completed
+    /// results held by `learnedDetection`, which clears them on dataset
+    /// activation, so the pair is always one dataset's; a replay reproduces
+    /// it by re-running both.
     @discardableResult
     func runDiskDisagreement() -> AnalysisRunOutcome {
         guard let classical = learnedDetection.lastClassical,
@@ -430,20 +425,20 @@ extension AppState {
     /// Raw peaks remain the source of truth; analysis calibration is derived
     /// on demand so imported or newly fitted origin/ellipse values immediately
     /// affect Bragg maps, strain, and ACOM without re-running detection.
-    func calibratedBraggVectors(          // internal since 2026-09-12: AppState+PhaseMapping
+    func calibratedBraggVectors(          // internal for AppState+PhaseMapping
         _ vectors: BraggVectors,
         descriptor d: DatasetDescriptor,
         positions: [Int]? = nil
     ) -> (vectors: BraggVectors, origin: Calibration.ReferenceOrigin) {
-        // v2 S13: ONE derivation, `Calibration.referenceOrigin`. This line used
-        // to read `calibration.meanOrigin ?? (qx/2, qy/2)`, and `meanOrigin` is
-        // nil in exactly the `.fileMean`/`.sessionMean` states — so the file's
-        // recorded beam centre was replaced by the detector's geometric middle
-        // in Q calibration, strain, ACOM and the Bragg map at once, while the
-        // inspector went on displaying the file's origin (S11, 2026-08-28).
-        // Three sibling call sites fell back to the aperture instead; they now
-        // ask the same function, and the KIND travels with the value so a
-        // caller that must not accept a stand-in can refuse on it.
+        // ONE derivation, `Calibration.referenceOrigin`: this used to read
+        // `calibration.meanOrigin ?? (qx/2, qy/2)` directly, and `meanOrigin`
+        // is nil in exactly the `.fileMean`/`.sessionMean` states — so Q
+        // calibration, strain, ACOM and the Bragg map silently fell back to
+        // the detector's geometric middle while the inspector kept showing
+        // the file's recorded origin. Three sibling call sites now ask this
+        // same function instead of falling back to the aperture, and the
+        // KIND travels with the value so a caller that must not accept a
+        // stand-in can refuse on it.
         let origin = calibrationSession.calibration.referenceOrigin(
             detectorQX: d.qx, detectorQY: d.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)

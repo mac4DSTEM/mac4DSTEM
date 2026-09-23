@@ -99,25 +99,25 @@ extension AppState {
         // would otherwise stand, and its frame tag with it. // v2 S6
         let recipeBeforePromote = replay.record
         let frameBeforePromote = replay.parameterFrame
-        // `!datasetSession.isLoading` is the reentrancy gate. Without it the only
-        // protections were the button's `.disabled` (which cannot see a load
+        // `!datasetSession.isLoading` is the reentrancy gate: without it, the
+        // only protections were the button's `.disabled` (blind to a load
         // that starts after the click renders) and an ordering accident —
         // `activate` resets `loadedView` before its first suspension, so a
         // double-fired Task happened to fail the guard below. An accident is
         // not a contract; a second `beginDatasetLoading` would replace the
         // shared cancellation token and Cancel would stop only the newer
-        // load. Gate A review, 2026-08-19.
+        // load (Gate A review, 2026-08-19).
         guard !datasetSession.isLoading, let reader = datasetSession.reader,
               let source = datasetSession.loadView?.source,
               !loadedView.isFullExtent else { return }
-        // The recipe survives EVERY exit, not only success: `activate` resets
-        // it and may re-adopt the sidecar's OLDER copy before a cancel is
-        // noticed, so the pre-S6 success-only re-adopt let a cancelled
-        // promote silently swap an unsaved recipe for the sidecar's stale one
-        // (Gate A finding C5, 2026-08-25). `adopt` treats nil/absent as
-        // absence, so an empty pre-promote record leaves whatever the sidecar
-        // restore adopted in place. Registered after the guard: a refused
-        // promote touched nothing and restates nothing.
+        // The recipe survives EVERY exit, not only success: `activate`
+        // resets it and may re-adopt the sidecar's OLDER copy before a
+        // cancel is noticed, so a success-only re-adopt let a cancelled
+        // promote silently swap an unsaved recipe for the sidecar's stale
+        // one (Gate A finding C5, 2026-08-25). `adopt` treats nil/absent as
+        // absence, so an empty pre-promote record leaves whatever the
+        // sidecar restore adopted in place. Registered after the guard: a
+        // refused promote touched nothing and restates nothing.
         defer {
             replay.adopt(recipeBeforePromote.isEmpty ? nil : recipeBeforePromote,
                          recordedOn: frameBeforePromote)

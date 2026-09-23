@@ -121,8 +121,7 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
             // Structurally fine. What it cannot do is stated by
             // `supportsOrientationMapping` below, NOT here: a validation issue
             // would make `CIFImport.crystalModel` throw `.invalidModel` and the
-            // structure would never load at all, which is the bug this comment
-            // replaced (caught by probe, 2026-09-11).
+            // structure would never load at all.
             break
         }
         return issues

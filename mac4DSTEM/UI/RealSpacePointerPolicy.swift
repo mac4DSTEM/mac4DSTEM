@@ -6,22 +6,14 @@ import DSTEMSession
 
 /// Who owns a plain drag in the real-space pane (backlog #35).
 ///
-/// The two panes were inconsistent: the diffraction pane already followed the
-/// rule the release owner wants — the detector moves only when its handle is
-/// grabbed, and a drag on empty area pans — while `StemImageView` put a
-/// `DragGesture(minimumDistance: 0)` scrub layer *above* the pan gesture. So in
-/// real space every click scrubbed the scan position and the scrub always won
-/// over the pan, which meant **a zoomed real-space image could not be panned at
-/// all**: you could magnify but never navigate.
+/// Zoomed in: a drag on empty area pans, and the scan marker moves only via
+/// its grab handle, matching the diffraction pane's detector-handle rule.
+/// Zoomed out or at 1x: a click or drag anywhere scrubs the scan position —
+/// the gesture used most often, so it stays the default rather than always
+/// requiring a grab handle.
 ///
-/// The release owner chose option 1 on 2026-08-05 — *pan when zoomed, scrub
-/// when not* — over the literal "always require a grab handle" reading:
-/// click-to-scrub is the gesture a user makes a hundred times a session and it
-/// must not regress in the common case, while the zoomed case is the one that
-/// was actually broken.
-///
-/// This is a *mode*, and a mode that is invisible is just confusing, so
-/// `StemImageView` labels it in the pane header whenever it is not `.scrub`.
+/// The mode is otherwise invisible, so `StemImageView` labels it in the pane
+/// header whenever it is not `.scrub`.
 enum RealSpacePointerPolicy {
     enum Mode: Equatable {
         /// Zoom 1 (and zoomed out): a click or drag anywhere scrubs the scan

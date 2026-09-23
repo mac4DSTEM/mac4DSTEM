@@ -4,56 +4,49 @@
 //        read it?" — the derived sibling path, the security-scoped bookmark
 //        that grants access to it, and the scoped URL currently held open.
 //
-//  This is S1's `AppState` seam (docs/archive/development-process-2026-08-31.md §7), and it is the
-//  seam this session earned rather than a convenient one: the defect S1 fixes is
-//  literally that the same question was answered in two different ways.
+//  This is the `AppState` seam for that question (docs/archive/development-process-2026-08-31.md §7).
 //
-//  THE DEFECT THIS TYPE MAKES UNLIKELY — not unrepresentable, and the first
-//  version of this header claimed the stronger thing. `sessionSidecarURL` is
-//  still public and still callable, so a new call site can bypass this type the
-//  same way the old ones did; what changed is that every EXISTING one goes
-//  through it. Gate D found a ninth site doing exactly that
-//  (`UI/InspectorPanels.swift`), which the first version of this comment had
-//  missed while asserting completeness. Nine call sites needed a sidecar URL.
-//  Eight spelled it
+//  `sessionSidecarURL` is still public and callable, so a new call site can
+//  still bypass this type — what this type guarantees is only that every
+//  EXISTING call site goes through it. Before it existed, nine call sites
+//  needed a sidecar URL. Eight spelled it
 //
 //      resolvedSessionSidecarURL(for: descriptor)
 //          ?? BraggVectorEMDWriter.sessionSidecarURL(forSourcePath: descriptor.filePath)
 //
-//  and the eighth — `AppState.recordedLoadSpecification`, the one that decides
+//  and the ninth — `AppState.recordedLoadSpecification`, the one that decides
 //  WHAT PART OF THE FILE TO LOAD — went straight to the derived path and never
 //  consulted the bookmark at all. So a sidecar the app had been granted access
 //  to could be read for results and calibration, and simultaneously be
-//  unreadable for the crop that produced them. That is the `sources.manifest`
-//  lesson in app code: one question, several spellings, and the odd one out is
-//  the one nobody re-reads.
+//  unreadable for the crop that produced them: one question, several
+//  spellings, and the odd one out is the one nobody re-reads.
 //
-//  WHY THAT MATTERED MORE THAN "restore failed". `recordedLoadSpecification`
+//  That mattered more than "restore failed" because `recordedLoadSpecification`
 //  swallowed the failure with `try?`, so a refused read was indistinguishable
 //  from "this session recorded no crop" — and the dataset then opened at FULL
 //  EXTENT, silently, while the sidecar beside it said it was a cropped view.
-//  Right numbers, wrong extent, no warning. The refusal rule's own words: a gate
-//  whose miss path records an error and continues is not a gate.
+//  Right numbers, wrong extent, no warning. A gate whose miss path records an
+//  error and continues is not a gate.
 //
-//  THE SANDBOX FACT UNDERNEATH, measured rather than assumed (2026-08-19,
-//  docs/open-items.md). The app holds `files.user-selected.read-write` only. The
-//  user picks the *source* cube in a panel; the sidecar is a SIBLING they never
-//  picked, so it is reachable only through a bookmark stored when they chose it
-//  in a save panel. With no bookmark, `FileManager.fileExists` still returns
-//  true — `application.sb:508` grants `file-read-metadata` broadly — and then
-//  `H5Fopen` fails with **errno 1, EPERM, "Operation not permitted"**. Observed
-//  in the running app at 09:34:27 that day, not inferred. Anything here that
+//  THE SANDBOX FACT UNDERNEATH, measured (docs/open-items.md). The app holds
+//  `files.user-selected.read-write` only. The user picks the *source* cube in
+//  a panel; the sidecar is a SIBLING they never picked, so it is reachable
+//  only through a bookmark stored when they chose it in a save panel. With no
+//  bookmark, `FileManager.fileExists` still returns true —
+//  `application.sb:508` grants `file-read-metadata` broadly — and then
+//  `H5Fopen` fails with **errno 1, EPERM, "Operation not permitted"**,
+//  observed directly in the running app, not inferred. Anything here that
 //  treats "the file is there" as "I can read it" is wrong for that reason.
 //
 //  **EPERM is not by itself proof of the sandbox**, and saying so would be
 //  affirming the consequent: `tools/sidecar-error-detail-test` establishes
 //  "sandbox denial implies EPERM", not the converse. EPERM is a kernel
 //  MAC-policy refusal; on this path SIP, TCC, quarantine, ACLs and file flags
-//  were each excluded individually (Gate D, 2026-08-19 — including the decisive
-//  one, that the source cube in the same directory opened fine at the same
-//  instant), which leaves the sandbox as the only MAC policy in play. The
-//  classification below is a heuristic for choosing what to TELL the user, and
-//  it is worth nothing more than that.
+//  were each excluded individually (Gate D — including the decisive one, that
+//  the source cube in the same directory opened fine at the same instant),
+//  which leaves the sandbox as the only MAC policy in play. The
+//  classification below is a heuristic for choosing what to TELL the user,
+//  and it is worth nothing more than that.
 //
 
 import Foundation
@@ -64,7 +57,7 @@ import DSTEMCore
 /// Domain, code and underlying error, not just the localized text. A bare
 /// `localizedDescription` reads identically to a real sandbox denial — the
 /// trap that motivated this (docs/open-items.md, "could not remember
-/// access", 2026-09-17). Lives in `Session/`, not `App/AppState`, because
+/// access"). Lives in `Session/`, not `App/AppState`, because
 /// `AppState.errorDetail` (`Support/ResultExport.swift`) calls this same
 /// function rather than duplicating it, and `Session/` may not depend on
 /// `App/` (architecture.md's layering rule) while `App/` may depend on
@@ -84,41 +77,34 @@ package final class SessionSidecarLocator {
     /// The scoped URL currently held open, WITH the source path it was resolved
     /// for.
     ///
-    /// **The pairing is the fix for a second defect, not bookkeeping.** The
-    /// previous cache was a bare `scopedSessionSidecarURL` consulted before the
-    /// descriptor was even looked at (`ResultExport.swift:81`), so once any
-    /// dataset's bookmark resolved, *every* later dataset was handed that same
-    /// sidecar — one cube's results written into another cube's companion. It
-    /// was masked only because no bookmark resolved at all after the
-    /// bundle-identifier change, and it would have armed itself the moment one
-    /// did, which is the moment S1's fix creates. Recorded as its own item on
-    /// 2026-08-19; closed here because the seam is where it lives.
+    /// **The pairing is the fix for a second defect, not bookkeeping.** A bare
+    /// cached URL consulted before the descriptor was even looked at
+    /// (`ResultExport.swift:81`) let any dataset's resolved bookmark get
+    /// handed to *every* later dataset — one cube's results written into
+    /// another cube's companion. Pairing the URL with the source path it was
+    /// resolved for is what makes that mismatch impossible rather than just
+    /// unlikely.
     @ObservationIgnored private var scoped: (sourcePath: String, url: URL)?
 
     /// Whether a grant is currently held.
     ///
-    /// Nothing in `mac4DSTEM/` reads this yet — only tests do. Said plainly
-    /// because the first version of this comment claimed it was "observable so
-    /// the UI can say whether the companion is reachable", describing a UI that
-    /// does not exist (Gate D, 2026-08-19). It is kept because it is the natural
-    /// signal for the affordance S4 will need — "this sidecar is reachable" —
-    /// and deleting it now to re-add it then is churn; but until then it is
-    /// state with one reader, and that is worth knowing.
+    /// Nothing in `mac4DSTEM/` reads this yet — only tests do. Kept because it
+    /// is the natural signal for the affordance S4 will need ("this sidecar
+    /// is reachable"), and deleting it now to re-add it then would be churn.
     package private(set) var hasGrant = false
 
     /// Set when a sidecar exists beside the dataset and could not be read, so
     /// the inspector can say the loaded extent may not be the recorded one.
     ///
-    /// **This exists because `statusText` does not survive.** S1's first attempt
-    /// reported the refusal there; Gate D traced the actual sequence and found
-    /// it overwritten three lines later — `recordedLoadSpecification`
-    /// (`AppState.swift:1838`) is followed immediately by `activate`
-    /// (`:1841`), whose `beginDatasetLoadingStage` assigns `statusText`, and then
-    /// again by preview sampling and the whole-cube pass. The user never saw a
-    /// frame carrying the warning. A message that is written and then
-    /// overwritten before it can be read is not a warning; it is a log line, and
-    /// this session's whole point is that a silent full-extent reopen must not
-    /// stay silent.
+    /// **This exists because `statusText` does not survive.** A refusal
+    /// reported only through `statusText` gets overwritten within the same
+    /// `activate` call — `recordedLoadSpecification` (`AppState.swift:1838`)
+    /// is followed immediately by `activate` (`:1841`), whose
+    /// `beginDatasetLoadingStage` assigns `statusText`, then preview sampling
+    /// and the whole-cube pass do again. The user never sees a frame
+    /// carrying the warning. A message written and then overwritten before
+    /// it can be read is a log line, not a warning, and a silent
+    /// full-extent reopen must not stay silent.
     ///
     /// Cleared by `release()`, i.e. when the open dataset changes, so it can
     /// never describe a dataset other than the one on screen.
@@ -169,7 +155,7 @@ package final class SessionSidecarLocator {
     /// nil is the *normal* answer for a dataset whose sidecar has never been
     /// saved from this app installation — including every dataset after a
     /// bundle-identifier change, which replaces the container and so empties
-    /// `UserDefaults` (the 2026-08-14 `1e5727d` change; docs/open-items.md C10).
+    /// `UserDefaults` (docs/open-items.md C10).
     package func grant(for descriptor: DatasetDescriptor) -> URL? {
         grant(forSourcePath: descriptor.filePath)
     }
@@ -186,7 +172,7 @@ package final class SessionSidecarLocator {
         var stale = false
         do {
             // `.withoutMounting` for the same reason as
-            // `WorkspaceRecoveryStore.resolve` (Gate D, 2026-08-25): this
+            // `WorkspaceRecoveryStore.resolve` (Gate D): this
             // runs synchronously on the main actor inside every open's
             // sidecar lookup, and a grant pointing at an unmounted network
             // volume otherwise blocks the UI ~30 s per attempt while the
@@ -212,8 +198,8 @@ package final class SessionSidecarLocator {
             // local sibling, which does not exist, and the next open would
             // read as "no session recorded": the exact silent-full-extent
             // class this type's header exists to prevent, re-armed through
-            // a new trigger (Gate D second reader, 2026-08-25). Unmounted
-            // keeps the key; the grant simply is not available right now.
+            // a new trigger (Gate D second reader). Unmounted keeps the
+            // key; the grant simply is not available right now.
             if WorkspaceRecoveryStore.unmountedVolumeName(forBookmark: data) == nil {
                 defaults.removeObject(forKey: Self.bookmarkKey(path))
             }
@@ -291,15 +277,14 @@ package enum SessionSidecarReadFailure: Equatable {
 
     /// Classify an error thrown while opening a sidecar.
     ///
-    /// Matched on the HDF5 error detail S1 added to the six sidecar read throw
+    /// Matched on the HDF5 error detail added to the six sidecar read throw
     /// sites, which carries the innermost frame verbatim — including
     /// `errno = 1, error message = 'Operation not permitted'`. Matching on
     /// **errno rather than the message text** is deliberate: the message is
-    /// localised by `strerror`, the number is not. The measured distinction that
-    /// makes this worth classifying at all is that a sandbox denial is EPERM (1)
-    /// while an ordinary POSIX permission problem is EACCES (13) — established
-    /// by `tools/sidecar-error-detail-test`, whose first version asserted the
-    /// wrong one of the two and would have sent the diagnosis the other way.
+    /// localised by `strerror`, the number is not. The distinction that makes
+    /// this worth classifying at all is measured: a sandbox denial is EPERM
+    /// (1) while an ordinary POSIX permission problem is EACCES (13) —
+    /// established by `tools/sidecar-error-detail-test`.
     package static func classify(_ error: Error) -> SessionSidecarReadFailure {
         let text = "\(error)" + " " + error.localizedDescription
         return text.contains("errno = 1,") ? .notPermitted : .unreadable

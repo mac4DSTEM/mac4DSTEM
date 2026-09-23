@@ -4,14 +4,14 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The process area beneath the science panes — Xcode's debug area (owner,
-/// 2026-09-22 late, docs/archive/v4/window-design.md §9.3): two panes side by side, Output
+/// The process area beneath the science panes — Xcode's debug area
+/// (docs/archive/v4/window-design.md §9.3): two panes side by side, Output
 /// on the left and Lineage on the right, each shown or hidden by its own
 /// button at the infobar's right end. The live run's numbers, once a Run
 /// tab here, are the infobar's. `WorkspaceView` gives this view its exact
-/// height; which panes are visible only changes what fills it — nothing here
-/// can move the bar (the 2026-09-21 finding: the tab bar moved because a
-/// tab's content did not fill the pane and the stack centred it).
+/// height; which panes are visible only changes what fills it — nothing
+/// here can move the bar: a tab whose content doesn't fill the pane lets
+/// the stack recenter it and the bar moves.
 struct BottomWorkspace: View {
     @Environment(AppState.self) private var appState
 
@@ -109,9 +109,9 @@ private struct OutputPane: View {
 
 /// The record of how the session got here, drawn as a chain — one node per
 /// recorded step, in order, then the displayed product's provenance. A
-/// chain, not yet a graph: the replay record is linear and carries no input
-/// edges; the graph with rewind follows the record (ROADMAP, owner
-/// 2026-09-22: "a graph view of some sort — open to discuss the details").
+/// chain, not yet a graph: the replay record is linear and carries no
+/// input edges; a graph view with rewind is planned (ROADMAP) and would
+/// follow the record.
 private struct LineagePane: View {
     @Environment(AppState.self) private var appState
 

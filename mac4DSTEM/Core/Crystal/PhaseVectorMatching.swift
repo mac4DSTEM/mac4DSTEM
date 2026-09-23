@@ -734,17 +734,13 @@ package nonisolated enum PhaseVectorMatcher {
     /// by mean distance alone: an entry matching one vector at 0.001 Å⁻¹ would
     /// win over one matching nine at 0.01.
     ///
-    /// This sentence used to end "…the same completeness trap
-    /// `minimumMatchedFraction` closes on the candidate side". **There is no
-    /// such symbol and there never was** (`grep -rn` over every `.swift` and
-    /// `.md`, introduced with this comment in `cee63e6`; corrected
-    /// 2026-09-16). The candidate side is guarded by `minimumMatchedVectors`
+    /// The candidate side is guarded by `minimumMatchedVectors`
     /// and `chanceMatchMultiple`, which are floors on COUNT, not on the
-    /// fraction of an entry's accessible vectors that matched — a different
-    /// quantity, and not the one the sentence claimed. So the trap IS open on
-    /// the candidate side: the cross-phase winner below is still chosen by mean
-    /// distance alone, and a 2-vector Friedel pair at 0.004 beats a 10-vector
-    /// match at 0.012. That is measured, not hypothetical (`open-items.md`).
+    /// fraction of an entry's accessible vectors that matched. So the trap IS
+    /// open on the candidate side: the cross-phase winner below is still
+    /// chosen by mean distance alone, and a 2-vector Friedel pair at 0.004
+    /// beats a 10-vector match at 0.012. That is measured, not hypothetical
+    /// (`open-items.md`).
     package static func fitMatrixOrientation(bragg: BraggVectors,
                                              library: PhaseReferenceLibrary,
                                              settings: PhaseVectorSettings,
@@ -975,10 +971,9 @@ package nonisolated enum PhaseVectorMatcher {
         // more" rather than "at least as many" — it is what makes a fully
         // explained precipitate impossible to erase.
         //
-        // THE IN-PLANE ROTATION IS DERIVED HERE, NOT FITTED FOR THE SCAN, and
-        // that correction is the whole reason this comment is long. The first
-        // implementation took one rotation per axis from `fitZoneAxis` — a
-        // whole-scan fit — and the fixture refuted it the same evening: at a
+        // THE IN-PLANE ROTATION IS DERIVED HERE, NOT FITTED FOR THE SCAN. An
+        // earlier implementation took one rotation per axis from
+        // `fitZoneAxis` — a whole-scan fit — and the fixture refuted it: at a
         // grain-B position the pool carried [-1 1 0] at 100°, matching NOTHING,
         // while the same axis at 130° matches 8 of 8 at 0.0001 Å⁻¹. A
         // whole-scan fit ranks a rotation by matches summed over every grain,

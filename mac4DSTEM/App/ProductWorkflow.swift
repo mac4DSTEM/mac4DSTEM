@@ -12,26 +12,24 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     case image
     case map
     case reconstruct
-    // The sixth room (owner, 2026-09-11, `docs/decisions.md`). The five above
-    // are named by OUTCOME (D1, 2026-09-01); this one is named by its method,
-    // against that rule and knowingly — the owner chose it because the
-    // capability with no py4DSTEM equivalent should be findable as what it is.
+    // Named by its method rather than outcome (the other five follow the D1
+    // outcome rule) — owner decision, docs/decisions.md: findable as what it
+    // is, since it has no py4DSTEM equivalent.
     case aiAnalysis
     case results
 
     var id: String { rawValue }
 
-    // S22c: the five steps are re-cut along the physics
-    // (docs/s22-ux-design.md §4.2). Case names and raw values deliberately
-    // keep their v1 identities — `image`/`map`/`reconstruct` — so persisted
-    // recovery records and any stored selection survive the re-cut; only the
-    // presented names and the task assignment change.
+    // Case names and raw values keep their v1 identities —
+    // `image`/`map`/`reconstruct` (docs/s22-ux-design.md §4.2) — so
+    // persisted recovery records and stored selections survive relabeling;
+    // only the presented names and task assignment change.
     var title: String {
         switch self {
         case .prepare: "Prepare"
         case .image: "Imaging"
-        // D1 (owner, 2026-09-01): named by its OUTCOMES — "Bragg" put the
-        // method's name four times in one sidebar column.
+        // Named by outcome (D1) — "Bragg" repeated the method's name four
+        // times down one sidebar column.
         case .map: "Strain & ACOM"
         case .reconstruct: "Phase"
         case .aiAnalysis: "AI Analysis"
@@ -106,10 +104,10 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
 /// outcome the user is reaching for; this names the method that gets there —
 /// the distinction this file's header draws.
 ///
-/// Declared here rather than in `AppState.swift` (moved 2026-09-11): it holds
-/// no `AppState` dependency, every presentation table over it already lives
-/// below in `extension AnalysisMode`, and `AppState.swift` is one of the two
-/// files the C5 line budget caps (`tools/run-tests.sh`).
+/// Lives here, not in `AppState.swift`: it holds no `AppState` dependency,
+/// every presentation table over it is below in `extension AnalysisMode`,
+/// and `AppState.swift` is one of the two files the C5 line budget caps
+/// (`tools/run-tests.sh`).
 enum AnalysisMode: String, CaseIterable, Identifiable {
     case virtualDetector = "Virtual Det"
     case dpc = "DPC"
@@ -345,11 +343,9 @@ struct TaskPrerequisite: Equatable, Identifiable, Sendable {
 }
 
 /// What a task's retained product is worth right now — ONE verdict, shared by
-/// the sidebar's task rows and the inspector's "Computed this session" rows.
-/// Until 2026-09-05 the sidebar's green check ignored stale disk settings by
-/// design while the inspector and the result pane both flagged them, and a
-/// strain or orientation map stayed green after the disk settings that fed
-/// it had changed (UI review 2026-09-04, finding f).
+/// the sidebar's task rows and the inspector's "Computed this session" rows,
+/// so a stale strain/orientation map cannot read current in one place and
+/// stale in another (UI review, finding f).
 enum TaskProductState: Equatable, Sendable {
     /// Nothing retained for this task.
     case none
@@ -596,8 +592,7 @@ enum ProductWorkflow {
 
     /// C4(a): the ONE composition every run/compute control binds to — this
     /// task's readiness, plus "not already running", and nothing else. A
-    /// panel button that checked its own fragment of a prerequisite (or
-    /// skipped the check `PrimaryActionButton` already makes) is the exact
+    /// panel button checking its own fragment of a prerequisite is the exact
     /// drift `docs/consolidation-plan.md` §4 finding 2 found between the
     /// toolbar and "Reconstruct Object" / "Prepare Parallax Preview".
     static func mayRun(

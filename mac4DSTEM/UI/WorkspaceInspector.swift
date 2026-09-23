@@ -50,17 +50,16 @@ struct WorkspaceInspector: View {
     @AppStorage("ui2.inspectorTab") private var tab: InspectorTab = .settings
     @Environment(\.colorScheme) private var colorScheme
 
-    /// Xcode's anatomy (owner, 2026-09-22 late, §9.1: "a standard Mac way …
-    /// like in Xcode"): the inspector's tabs are icons in its own first row
-    /// under the toolbar, centred, a hairline beneath; the toolbar over the
-    /// inspector carries only its toggle. A text picker up in the toolbar
-    /// row (the evening's try) "jumped to the left of the toggle" and was
-    /// rejected; a text picker row inside the column (the morning's) was
-    /// "ugly".
-    /// Settings · Info in the column's own first row, as Xcode's inspector
-    /// tab bar with words (owner, 2026-09-22, his Xcode crop): one glass
-    /// capsule, the segments inside it, the current one a lighter pill, in
-    /// Liquid Glass (the floor is macOS 27, so there is no pre-glass branch).
+    /// Xcode's inspector anatomy (owner decision): the tabs are icons in the
+    /// column's own first row under the toolbar, centred, a hairline
+    /// beneath; the toolbar over the inspector carries only its toggle. Two
+    /// rejected alternatives: a text picker up in the toolbar row (it
+    /// "jumped to the left of the toggle") and a text picker row inside the
+    /// column ("ugly").
+    /// Settings · Info sit in that first row as Xcode's inspector tab bar
+    /// with words (owner decision): one glass capsule, the segments inside
+    /// it, the current one a lighter pill, in Liquid Glass (the floor is
+    /// macOS 27, so there is no pre-glass branch).
     @ViewBuilder
     private var tabRow: some View {
         HStack(spacing: 0) {
@@ -87,13 +86,11 @@ struct WorkspaceInspector: View {
             }
         }
         .padding(LayoutPolicy.inspectorTabInset)
-        // Plain `.glassEffect` — no manual rim, shadow or highlight
-        // layered on top to fake the look. Tried that tonight (a rim, a
-        // shadow, then a top-down highlight gradient) chasing a stronger
-        // effect against this capsule's flat background; the owner
-        // called it out as "not the real deal, made to look like it"
-        // and asked for the system material alone, simple and robust,
-        // trusting the platform over a hand-built approximation.
+        // Plain `.glassEffect` — no manual rim, shadow or highlight layered
+        // on top to fake the look: a hand-built approximation (rim, shadow,
+        // top-down highlight) read as "not the real deal, made to look like
+        // it" against this capsule's flat background. The system material
+        // alone is simpler and more robust than approximating it.
         .glassEffect(.regular, in: .capsule)
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .accessibilityElement(children: .contain)
@@ -113,8 +110,8 @@ struct WorkspaceInspector: View {
         }
         // Pinned to the top: with no dataset the tab's content is a short
         // placeholder that does not fill the column, and an unpinned stack
-        // centres it — the tab bar sat mid-column at launch (owner,
-        // 2026-09-22: "the right panel looks weird").
+        // centres it — the tab bar sat mid-column at launch (owner
+        // feedback).
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // The one inspector toggle, in the inspector's own toolbar section:
         // it stays in the toolbar, once, while the column is hidden
@@ -172,8 +169,8 @@ private struct InspectorSettingsTab: View {
             // the Dataset actions). A room below overrides this to its own,
             // more specific scope. Display moved into each pane's own header
             // popover and "Computed this session" moved to the Info tab
-            // (owner decisions, 2026-09-22 — see `DisplaySettingsSections`'s
-            // deletion note and `SessionProductsSections` below).
+            // (owner decisions — see `DisplaySettingsSections`'s deletion
+            // note and `SessionProductsSections` below).
             .environment(\.inspectorScope, "settings")
         } else {
             ContentUnavailableView(
@@ -299,9 +296,9 @@ private struct InspectorInfoTab: View {
                 VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
                     DatasetInfoSections(descriptor: descriptor)
                     ProductInfoSections()
-                    // Moved here from the Settings tab, 2026-09-22 ("Computed
-                    // this session" decision): what has been computed and can
-                    // be shown again belongs with what the dataset and the
+                    // Moved here from the Settings tab ("Computed this
+                    // session" decision): what has been computed and can be
+                    // shown again belongs with what the dataset and the
                     // displayed product ARE, not with a room's controls, and
                     // it now shows once per session rather than once per room.
                     SessionProductsSections()
@@ -437,8 +434,8 @@ private struct DatasetInfoSections: View {
             InspectorValueRow("y (Ry)", "\(appState.selectedScan.y)")
             // The statistics are of the pattern ON SCREEN, which in Mean, Max
             // or ROI mode is not this position's pattern; the row says which
-            // (UI review 2026-09-04, finding b — the only other flag was the
-            // pane header, one tab away).
+            // (UI review finding b — the only other flag was the pane
+            // header, one tab away).
             if let (lowerBound, upperBound) = appState.patternMinMax {
                 let noun = PatternSourceLabel.noun(
                     mode: appState.patternDisplayMode,
@@ -489,8 +486,8 @@ private struct DatasetInfoSections: View {
     }
 }
 
-/// Moved into each image pane's own header popover, 2026-09-22 ("Pane header
-/// popover" decision): the real-space histogram + gamma now live in the
+/// Moved into each image pane's own header popover ("Pane header popover"
+/// decision): the real-space histogram + gamma now live in the
 /// result pane's popover, the diffraction histogram + gamma in the
 /// diffraction pane's, both built from this kit
 /// (`InspectorRow`/`AdjustmentSlider`/`InspectorNote`) — see
@@ -518,7 +515,7 @@ private struct DatasetActionSections: View {
                     // The price of the button it sits under. C4(c) emptied Info
                     // of actions but left this sentence and a SECOND
                     // PromoteRunCaption behind there, describing a control no
-                    // longer on that tab (`docs/open-items.md`, 2026-09-08).
+                    // longer on that tab (`docs/open-items.md`).
                     // Moved here rather than the button moved back: the
                     // configurator prices the same cube through
                     // `displayByteString`, UI's only byte formatter, so the two
@@ -656,8 +653,8 @@ private struct ProductInfoSections: View {
 
 /// The in-memory products only. The sidecar's own contents — its filename,
 /// Calibration, BraggVectors, the saved results and the actions on them —
-/// moved to the LEFT sidebar's `Session` section on 2026-09-04, so that after
-/// loading a dataset the user sees on the left what came with it. What stays
+/// moved to the LEFT sidebar's `Session` section, so that after loading a
+/// dataset the user sees on the left what came with it. What stays
 /// on this side is Info: the two sections that explain a sidecar the app
 /// could not read or could not fit, and the way out of each.
 private struct SessionProductsSections: View {
@@ -735,7 +732,7 @@ private struct SessionProductsSections: View {
 /// Promote run, calibration not carried into the view, the rotation curve,
 /// and the session-vs-view warnings.
 ///
-/// **Performance moved out 2026-09-21** (ADR 034): the live numbers this
+/// **Performance moved out** (ADR 034): the live numbers this
 /// section used to print (`PerformanceRows` — status, elapsed, throughput,
 /// ETA, memory, GPU) split two ways. Memory now lives in the status strip's
 /// glance slot. Status, elapsed, throughput, ETA and engine now live in the
@@ -818,10 +815,10 @@ private struct InspectorDiagnosticsSections: View {
             InspectorSection("Rotation diagnostics") {
                 RotationCurveView(result: rotation)
                 // A refused fit still draws its curves — the marker is then
-                // the minimum the fit FOUND, not a value that was written, and
-                // the caption said the opposite until 2026-09-15 night. The
-                // refusal sentence lives here in full; the status bar carries
-                // one line and points at this section.
+                // the minimum the fit FOUND, not a value that was written
+                // (the caption used to say the opposite). The refusal
+                // sentence lives here in full; the status bar carries one
+                // line and points at this section.
                 if let refusal = rotation.refusalMessage {
                     Text(refusal)
                         .font(.caption).foregroundStyle(.orange)

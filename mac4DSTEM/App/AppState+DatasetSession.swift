@@ -4,8 +4,8 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// Seam 6 placement for lifecycle orchestration that combines the
-/// `DatasetSession` owner with window-level recovery, navigation and errors.
+/// Lifecycle orchestration for the `DatasetSession` owner: window-level
+/// recovery, navigation and error presentation.
 extension AppState {
 
     func openRecent(_ recent: RecentDataset) {
@@ -15,13 +15,12 @@ extension AppState {
             if resolved.stale { refreshStoredBookmark(for: resolved.url, id: recent.id) }
             openFile(url: resolved.url)
         } catch {
-            // Two different facts, two different fates (Gate D second
-            // reader, 2026-08-25): a volume that is merely NOT MOUNTED keeps
-            // its entry — deleting it would destroy the only place the NAS
-            // path is shown, for a dataset that is fine — while a genuinely
-            // dead bookmark is still removed as before. `.withoutMounting`
-            // (the same day's fix) is what makes the unmounted case reach
-            // this catch fast instead of freezing the UI ~30 s per click.
+            // Two different fates: a volume that is merely NOT MOUNTED keeps
+            // its recent-list entry — deleting it would destroy the only
+            // place the NAS path is shown, for a dataset that is otherwise
+            // fine — while a genuinely dead bookmark is still removed.
+            // `.withoutMounting` is what makes the unmounted case reach this
+            // catch fast instead of freezing the UI ~30 s per click.
             if let volume = WorkspaceRecoveryStore.unmountedVolumeName(
                 forBookmark: recent.bookmark
             ) {
@@ -82,7 +81,7 @@ extension AppState {
         record.updated = Date()
         // Every stamp restates the frame, so a position persisted after a
         // promote is knowably full-extent, not silently reinterpreted by the
-        // next crop-restoring relaunch. // v2 S5
+        // next crop-restoring relaunch.
         record.loadSpecification = loadedView.specification
         recoveryRecord = record
         WorkspaceRecoveryStore.saveRecovery(record)
@@ -91,13 +90,13 @@ extension AppState {
     func selectDataset(_ descriptor: DatasetDescriptor) {
         guard let reader = datasetSession.reader else { return }
         Task {
-            // Bracketed as a load, the way openFileAsync does it. `activate`
-            // preloads the resident cube, and the preload's progress callback is
-            // gated on `datasetSession.isLoading` — so without this bracket, switching
-            // to a multi-gigabyte dataset set statusText to "Loaded …" with the
-            // bar at 1.0 and then read the whole cube in complete silence. That
-            // is #36's stall reintroduced one layer down, in the one path L1's
-            // reordering did not cover. Found by adversarial review 2026-08-17.
+            // Bracketed as a load, the way openFileAsync does it: `activate`
+            // preloads the resident cube, and the preload's progress callback
+            // is gated on `datasetSession.isLoading`. Without this bracket,
+            // switching to a multi-gigabyte dataset sets statusText to
+            // "Loaded …" with the bar at 1.0 and then reads the whole cube in
+            // complete silence — open-items #36's stall, reintroduced one
+            // layer down.
             beginDatasetLoading("Opening \(descriptor.datasetPath)…")
             await activate(descriptor: descriptor, reader: reader)
             finishDatasetLoading()

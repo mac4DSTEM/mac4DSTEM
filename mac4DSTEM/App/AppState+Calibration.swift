@@ -2,10 +2,8 @@
 //  AppState+Calibration.swift
 //  Role: the Prepare calibrations — DP statistics, origin, ellipse,
 //        R–Q rotation — and the centre-of-mass field they and DPC share.
-//        Moved verbatim out of AppState.swift on 2026-09-18 (the audit's
-//        refactor row 5, one AppState seam per session): a placement change,
-//        no logic touched; the only edits are `private` → internal on the
-//        members the other file still reaches.
+//        A placement seam out of `AppState.swift`: no logic touched, only
+//        `private` → internal on the members another file still reaches.
 //
 
 import Foundation
@@ -260,12 +258,12 @@ extension AppState {
             phaseContrast.parallaxPreprocess = nil
             phaseContrast.parallaxAlignment = nil
             lastRotationResult = result
-            // A cached CoM field must not show a stale rotation — and if the
+            // A cached CoM field must not show a stale rotation, and if the
             // re-derivation itself refuses (iDPC), its message must not be
-            // overwritten by the ✓ line (Gate B, 2026-08-25). The rotation
-            // DID calibrate either way; only the status line changes.
-            // A displayed strain map is derived from the same rotation and
-            // re-derives on the same rule. // v2 S8
+            // overwritten by the ✓ line (Gate B). The rotation calibrated
+            // either way; only the status line changes. A displayed strain
+            // map derives from the same rotation and re-derives under the
+            // same rule.
             applyStrainDisplay()
             if applyDPCDisplay() == nil {
                 statusText = String(format: "Rotation ✓  θ = %.1f°%@",
@@ -286,7 +284,7 @@ extension AppState {
         guard cancellation?.isCancelled != true else { return nil }
         guard let fourD = datasetSession.fourD, let descriptor else { return nil }
         let origins = calibrationSession.calibration.origin?.interleavedFitted
-        let center = calibrationSession.calibration.referenceOrigin(  // v2 S13: one derivation
+        let center = calibrationSession.calibration.referenceOrigin(
             detectorQX: descriptor.qx, detectorQY: descriptor.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
         ).point

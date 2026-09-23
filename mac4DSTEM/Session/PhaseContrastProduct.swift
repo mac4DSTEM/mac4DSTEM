@@ -1,33 +1,24 @@
 //
 //  PhaseContrastProduct.swift
-//  Role: seam 1 (docs/archive/v4/appstate-seams-plan.md) — the one owner of the Parallax
-//        and single-slice ptychography products and their run controls. Held
-//        by AppState as `let phaseContrast = PhaseContrastProduct()`, no
-//        forwarding properties; views read `phaseContrast.…`.
+//  Role: the one owner of the Parallax and single-slice ptychography
+//        products and their run controls. Held by AppState as
+//        `let phaseContrast = PhaseContrastProduct()`, no forwarding
+//        properties; views read `phaseContrast.…`.
+//        (docs/archive/v4/appstate-seams-plan.md, seam 1)
 //
-//  Moved verbatim out of AppState.swift on 2026-09-18 (the seams plan, seam
-//  1): the six results, sixteen run controls and the selected depth plane
-//  and product, with their two `didSet` observers, keep their pre-seam
-//  names, types, default values and didSet bodies. Every property stays a
-//  plain `package var` (not `private(set)`) rather than following
-//  `StrainProduct`'s `private(set)` + publish-method encapsulation: the
-//  09-18 placement seam (a0ffb2a) already widened these exact 11 properties
-//  from `private(set)` to plain `var` so `App/AppState+PhaseContrast.swift`
-//  could keep assigning them directly, and several OTHER call sites
-//  (`App/AppState+Calibration.swift`, `Support/ResultExport.swift`) also
-//  assign or clear them directly with ad hoc multi-property resets (e.g.
-//  `parallaxPreprocess = nil; parallaxAlignment = nil`). Wrapping those in
-//  reset/publish methods would change each call site's statement structure,
-//  which the seam rule against logic changes (plan §"Rules for every seam"
-//  #2 — the diff must be identical except for the owner prefix and access
-//  keywords) does not allow for this seam. This seam therefore REVERSES the
-//  11 widenings (they move off AppState.swift's inventory entirely) without
-//  reintroducing them here; a later encapsulation pass can tighten this
-//  class to `private(set)` + methods if it also rewrites those call sites.
+//  Every property stays a plain `package var` (not `private(set)`), unlike
+//  `StrainProduct`'s `private(set)` + publish-method encapsulation:
+//  `App/AppState+PhaseContrast.swift` and other call sites
+//  (`App/AppState+Calibration.swift`, `Support/ResultExport.swift`) assign
+//  or clear these directly with ad hoc multi-property resets (e.g.
+//  `parallaxPreprocess = nil; parallaxAlignment = nil`). Wrapping them in
+//  reset/publish methods would change every one of those call sites — a
+//  later encapsulation pass can tighten this class if it rewrites the call
+//  sites too.
 //
 //  What deliberately does NOT live here: `ptychography`
-//  (`PtychographySettings`, its own owner since 2026-09-17 — reconstruction
-//  run controls, not a parallax stage) and the shared display derivation
+//  (`PtychographySettings`, its own owner — reconstruction run controls, not
+//  a parallax stage) and the shared display derivation
 //  (`resultImage`/`resultColormap`/`displayed*`) — AppState re-derives those
 //  through `showParallaxProduct`'s `publishProduct` call.
 //
@@ -38,9 +29,9 @@ import DSTEMCore
 #endif
 import Observation
 
-/// Moved verbatim from `App/AppState.swift` with the state that switches on
-/// it: a Session-layer owner cannot reference a type defined in App/, and
-/// `parallaxResultProduct` below needs this enum in scope.
+/// Declared here, not in App/: a Session-layer owner cannot reference a
+/// type defined in App/, and `parallaxResultProduct` below needs this enum
+/// in scope.
 package enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable {
     case preprocess = "Preprocessed BF"
     case alignment = "Aligned BF"
@@ -59,7 +50,7 @@ package enum ParallaxResultProduct: String, CaseIterable, Identifiable, Sendable
 @MainActor
 package final class PhaseContrastProduct {
 
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // seam 1
+    // Explicit so the default initializer is `package` (synthesized ones are internal).
     package nonisolated init() {}
 
     // MARK: - Six retained results

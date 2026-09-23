@@ -1,12 +1,12 @@
 //
 //  ACOMSession.swift
-//  v2.5 step 6a (2026-09-03): the ACOM analysis's own state — model choice,
-//  matching options, custom crystal, display, confidence gate, the plan and
-//  map, and the facts of the last run — owned in one observable place (plan
-//  §4 "ACOMController"). 7c 4b (2026-09-03, owner): the run functions stay
-//  on AppState; this type owns the state and its invalidation, and hands the
-//  effects that need the window (scope selection, display refresh, the
-//  published product) to AppState through the hooks below — the same seam
+//  The ACOM analysis's own state — model choice, matching options, custom
+//  crystal, display, confidence gate, the plan and map, and the facts of
+//  the last run — owned in one observable place (plan §4
+//  "ACOMController"). The run functions stay on AppState; this type owns
+//  the state and its invalidation, and hands the effects that need the
+//  window (scope selection, display refresh, the published product) to
+//  AppState through the hooks below — the same seam
 //  `StrainProduct.onPresentationChange` uses.
 //
 

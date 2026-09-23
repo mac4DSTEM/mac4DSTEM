@@ -200,9 +200,9 @@ package nonisolated enum DatasetPreviewBuilder {
     }
 }
 
-/// Core's own thousands formatter. It used to call `AppState.count`, the one
-/// upward reference in `Core/`; removed 2026-09-02 so Core builds as the
-/// standalone `DSTEMCore` module (`Package.swift`).
+/// Core's own thousands formatter, so `Core/` has no upward reference to
+/// `AppState.count` and builds as the standalone `DSTEMCore` module
+/// (`Package.swift`).
 package nonisolated func formattedCount(_ value: Int) -> String {
     value.formatted(.number.locale(Locale(identifier: "en_US")))
 }

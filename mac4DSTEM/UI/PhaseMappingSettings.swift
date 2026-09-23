@@ -42,13 +42,11 @@ struct PhaseMappingSections: View {
     var body: some View {
         @Bindable var product = appState.phaseMapping
 
-        // The Xcode-inspector trial (owner, 2026-09-21) — a nested `Form`
-        // styled `.columns`, bold `Text` headers, hand `Divider()`s — is
-        // retired ("school project"). This room now speaks the inspector's
-        // shared vocabulary (`InspectorRows.swift`): collapsible
-        // `InspectorSection`s with a hairline divider and a consistent label
-        // column. The outer inspector (`WorkspaceInspector.swift`) supplies
-        // the scroll container.
+        // This room speaks the inspector's shared vocabulary
+        // (`InspectorRows.swift`): collapsible `InspectorSection`s with a
+        // hairline divider and a consistent label column, not a nested
+        // `Form` with its own headers and dividers. The outer inspector
+        // (`WorkspaceInspector.swift`) supplies the scroll container.
         InspectorSection("Phases") {
             if product.phases.isEmpty {
                 InspectorNote("Add the matrix phase and at least one precipitate phase.")
@@ -73,7 +71,7 @@ struct PhaseMappingSections: View {
                 // A matrix viewed down an axis it is not on presents no
                 // reflections to remove, so nothing is removed and every
                 // position comes back "not indexed", which looks exactly like
-                // a method that does not work (the owner's run, 2026-09-12).
+                // a method that does not work.
                 InspectorActionRow {
                     InspectorAdaptiveButton("Find Matrix Zone Axis", systemImage: "scope",
                                              help: "Symmetry-equivalent axes should tie exactly. They are shown "
@@ -85,13 +83,13 @@ struct PhaseMappingSections: View {
                 }
 
                 // A percentage alone cannot be read: at a tight tolerance an
-                // axis explains a few percent of ANY vectors, and the panel
-                // showed that the same way it shows a real fit (the owner's
-                // ⟨112⟩ at 8 %, 2026-09-14). Each row says whether it beats
-                // chance by the matcher's own multiple AND whether it explains
-                // more than a wrong axis does on this data (the sweep's
-                // median, Gate D 2026-09-15 night) — the second is what marks
-                // the ⟨112⟩, which shares reflections with the true axis.
+                // axis explains a few percent of ANY vectors, indistinguishable
+                // on screen from a real fit (⟨112⟩ at 8 %, measured 2026-09-14).
+                // Each row says whether it beats chance by the matcher's own
+                // multiple AND whether it explains more than a wrong axis does
+                // on this data (the sweep's median, Gate D 2026-09-15) — the
+                // second is what marks the ⟨112⟩, which shares reflections
+                // with the true axis.
                 ForEach(Array(product.zoneAxisFits.enumerated()), id: \.offset) { rank, fit in
                     let aboveChance = fit.isAboveChance(
                         multiple: appState.phaseMapping.matching.chanceMatchMultiple)
@@ -210,16 +208,16 @@ struct PhaseMappingSections: View {
 
             // The data's reach: a masked or cropped pattern ends before the
             // detector does, and its edge is a ring of maxima no phase
-            // explains (Thronsen step 3, 2026-09-15). 0 = the detector.
+            // explains (Thronsen step 3). 0 = the detector.
             parameterField("Ignore peaks beyond",
                            value: $product.matching.maximumVectorInvAngstrom,
                            units: "Å⁻¹ (0 = detector)", format: "%.2f")
 
-            // These are set in Å⁻¹ and met on a pixel grid, and until
-            // 2026-09-12 nothing on screen joined the two. On the owner's own
-            // cube the defaults are 0.44 of one detector pixel; matrix removal
-            // removed nothing and the map came back empty. Only meaningful
-            // for `.search`'s own floors and cliff — see the footnote above.
+            // These are set in Å⁻¹ but met on a pixel grid, and the two can
+            // silently disagree: at 0.44 of one detector pixel (measured),
+            // matrix removal removes nothing and the map comes back empty.
+            // Only meaningful for `.search`'s own floors and cliff — see the
+            // footnote above.
             if product.matching.classificationRule == .search,
                let resolution = appState.phaseVectorResolution {
                 InspectorRow("On this detector") {
@@ -333,8 +331,9 @@ struct PhaseMappingSections: View {
             // nothing survived removal and when the matrix out-fitted every
             // candidate, and the fraction above says neither. Reported, NOT
             // thresholded: a 0.90 bar measured on one dataset marked 46 % of
-            // another whose every acceptance clause passes (2026-09-16,
-            // `open-items.md`), so the number is given and the reader judges.
+            // another whose every acceptance clause passes (measured
+            // 2026-09-16, see `open-items.md`), so the number is given and
+            // the reader judges.
             if let explained = PhaseMapPresentation.medianMatrixExplainedFraction(map) {
                 InspectorRow("Matrix evidence") {
                     Text(String(format: "%.0f %% of vectors, median", 100 * explained))
@@ -423,11 +422,10 @@ struct PhaseMappingSections: View {
         )
     }
 
-    /// Session S5 (owner's product decision): Materials Project is the
-    /// default phase source; the built-in library is no longer offered here
-    /// — see the doc comment on `CrystalModelLibrary.models`. The menu now
-    /// offers exactly the two sources plus this session's already-imported
-    /// models (CIF or Materials Project).
+    /// Materials Project is the default phase source (owner decision); the
+    /// built-in library is not offered here — see the doc comment on
+    /// `CrystalModelLibrary.models`. The menu offers exactly the two sources
+    /// plus this session's already-imported models (CIF or Materials Project).
     private var addPhaseMenu: some View {
         Menu {
             Button("Materials Project…") { showMaterialsProjectSheet = true }
@@ -532,10 +530,10 @@ struct PhaseMappingSections: View {
                 }
             }
             // The axis can change UNDER the field — Find Matrix Zone Axis writes
-            // the fitted [u v w] into the slot — and a draft filled once on
-            // appear kept showing "0 0 1" beside a row that said "zone [0 -1 1]"
-            // (owner's drive, 2026-09-14). Refresh only when the field's own
-            // text no longer means the slot's axis, so "0-12" stays as typed.
+            // the fitted [u v w] into the slot — so a draft filled once on
+            // appear can go stale and disagree with the row's own label.
+            // Refresh only when the field's own text no longer means the
+            // slot's axis, so "0-12" stays as typed.
             .onChange(of: slot.zoneAxis) { _, axis in
                 if PhaseMappingSlot.parseZoneAxis(draft) != axis {
                     draft = "\(axis.x) \(axis.y) \(axis.z)"
@@ -615,9 +613,8 @@ struct PhaseMappingSections: View {
     /// (`LayoutPolicy.swift`, presentation contract rule 4) — these wrap it so
     /// the panel spells no frame of its own.
     ///
-    /// `help`, when given, is the row's own explanatory paragraph — moved off
-    /// the panel and onto the row it explains as an Xcode-style tooltip
-    /// rather than inline prose (owner, 2026-09-21).
+    /// `help`, when given, is the row's own explanatory paragraph — an
+    /// Xcode-style tooltip on the row it explains, rather than inline prose.
     @ViewBuilder
     private func parameterField(_ title: String, value: Binding<Double>,
                                 units: String, format: String, help: String? = nil) -> some View {

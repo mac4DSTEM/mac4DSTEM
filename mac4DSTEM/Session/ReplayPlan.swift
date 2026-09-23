@@ -1,36 +1,33 @@
 //
 //  ReplayPlan.swift
-//  Role: The executable reading of a `SessionReplayRecord` — v2 S6. Parses each
+//  Role: The executable reading of a `SessionReplayRecord`. Parses each
 //        recorded step's flat string parameters back into the typed values the
 //        analysis entry points take, and refuses — with a named reason — every
 //        step it cannot replay faithfully.
 //
-//  THE FRAME RULE, decided v2 S6 (2026-08-25), completed v2 S10. Recorded
-//  parameters are view-frame numbers: an aperture centre, a smoothing sigma,
-//  a g-vector are all in the detector pixels of the view the analysis ran on.
-//  A SCAN crop never touches the detector frame, so a recipe recorded on a
-//  scan-crop-only rehearsal replays at full extent as-is — the flagship
-//  rehearse → promote case. A DETECTOR crop or bin changes what those numbers
-//  mean; since S10 the plan RE-REFERENCES them into the source frame — the
-//  exact affine inverse of the load-time re-reference, built on
-//  `CalibrationReReference`'s own coordinate primitives — and any value with
-//  no exact re-expression (an absolute intensity threshold, an unclassified
-//  key) still refuses by name, never rounds, never guesses. `.mixed` and
-//  `.unknown` frames refuse wholesale, unchanged from S6.
+//  THE FRAME RULE. Recorded parameters are view-frame numbers: an aperture
+//  centre, a smoothing sigma, a g-vector are all in the detector pixels of
+//  the view the analysis ran on. A SCAN crop never touches the detector
+//  frame, so a recipe recorded on a scan-crop-only rehearsal replays at full
+//  extent as-is — the flagship rehearse → promote case. A DETECTOR crop or
+//  bin changes what those numbers mean, so the plan RE-REFERENCES them into
+//  the source frame — the exact affine inverse of the load-time
+//  re-reference, built on `CalibrationReReference`'s own coordinate
+//  primitives — and any value with no exact re-expression (an absolute
+//  intensity threshold, an unclassified key) still refuses by name, never
+//  rounds, never guesses. `.mixed` and `.unknown` frames refuse wholesale.
 //
 //  REFUSAL OVER SKIPPING. A step this file cannot parse, or whose recorded
 //  precondition the session cannot honour, halts the run at that step —
-//  continuing past it would replay an incoherent pipeline, which is the
-//  "silently past a failure" the S6 brief bans.
+//  continuing past it would replay an incoherent pipeline.
 //
 //  WHY App/ AND NOT Core/. This is parsing, and "parsing lives in Core" is
 //  the letter of the placement rule — but the parser's whole OUTPUT
 //  vocabulary is App workflow state (`VirtualShapeMode`, `Aperture`,
-//  `ACOMRunScope`, `ACOMQualityPreset` — session vocabulary, now DSTEMSession), so a Core
-//  placement would make Core depend on App, inverting the layering the rule
-//  exists to protect. It sits with the types it produces, beside the
-//  `SessionReplay` seam whose record it reads. Raised and weighed at S6's
-//  Gate A, 2026-08-25.
+//  `ACOMRunScope`, `ACOMQualityPreset` — session vocabulary, now DSTEMSession),
+//  so a Core placement would make Core depend on App, inverting the layering
+//  the rule exists to protect. It sits with the types it produces, beside
+//  the `SessionReplay` seam whose record it reads.
 //
 
 import Foundation
@@ -38,8 +35,7 @@ import Foundation
 import DSTEMCore
 #endif
 
-// Moved here from App/AppState.swift 2026-09-03 (v2.5 step 2c): the recipe
-// vocabulary lives with the recipe.
+// The recipe vocabulary lives with the recipe.
 package enum VirtualShapeMode: String, CaseIterable, Identifiable {
     case circle = "Circle"
     case annulus = "Annulus"
@@ -57,15 +53,13 @@ package enum ReplayParameterFrame: Equatable {
     /// No detector crop, bin 1 — detector-frame parameters are already
     /// source-frame numbers. A scan crop alone stays in this case.
     case detectorIdentity
-    /// Recorded on a reduced detector. Since S10, detector-frame parameters
-    /// are RE-REFERENCED into the source frame at plan time — the exact
-    /// inverse of the load-time re-reference — instead of refusing wholesale;
+    /// Recorded on a reduced detector. Detector-frame parameters are
+    /// RE-REFERENCED into the source frame at plan time — the exact inverse
+    /// of the load-time re-reference — instead of refusing wholesale;
     /// individual values that cannot be re-expressed exactly still refuse by
     /// name. The payload carries the actual crop, never a flag: two same-bin
     /// crops at DIFFERENT offsets are different frames, and collapsing them
-    /// to one would map every position with the wrong offset. (Latent while
-    /// S6 refused this case wholesale; armed the moment mapping exists —
-    /// which is why the payload widened in the same session.) // v2 S10
+    /// to one would map every position with the wrong offset.
     case detectorReduced(bin: Int, crop: AxisCrop?)
     /// Steps recorded under two different detector frames in one record
     /// (adopt under one specification, re-record under another). Never
@@ -74,7 +68,7 @@ package enum ReplayParameterFrame: Equatable {
     /// A non-empty record whose frame was never established — reachable only
     /// through an adopt that failed to thread the specification. Refuses
     /// detector-frame steps: replaying an unknown frame would be the guess
-    /// this file bans (Gate A finding, 2026-08-25). // v2 S6
+    /// this file bans (Gate A finding).
     case unknown
 
     /// The frame of a load specification. Nil means the sidecar carried no
@@ -84,7 +78,7 @@ package enum ReplayParameterFrame: Equatable {
     /// The REQUESTED crop is what a specification carries; the read crop
     /// differs from it only by the bin-edge trim, which comes off the END of
     /// each axis (`LoadView`) — so the OFFSETS, the only part positions
-    /// need, are identical. // v2 S10
+    /// need, are identical.
     package static func of(_ specification: LoadSpecification?) -> ReplayParameterFrame {
         guard let spec = specification,
               spec.detectorCrop != nil || spec.detectorBin > 1 else {
@@ -100,7 +94,7 @@ package enum ReplayParameterFrame: Equatable {
     /// Why detector-frame steps refuse under this frame, in the app's voice.
     /// Nil when they can run as-is (`.detectorIdentity`) or be re-referenced
     /// (`.detectorReduced` — whose refusals are per-parameter, from the
-    /// mapper, not wholesale). // v2 S10
+    /// mapper, not wholesale).
     package var refusalReason: String? {
         switch self {
         case .detectorIdentity, .detectorReduced:
@@ -114,7 +108,7 @@ package enum ReplayParameterFrame: Equatable {
 
     /// The transform that re-expresses this frame's recorded numbers in the
     /// SOURCE detector frame — nil when none is needed (identity) or none
-    /// exists (`.mixed`/`.unknown`, which refuse instead). // v2 S10
+    /// exists (`.mixed`/`.unknown`, which refuse instead).
     package var sourceTransform: ReplayFrameTransform? {
         guard case .detectorReduced(let bin, let crop) = self,
               bin > 1 || crop != nil else { return nil }
@@ -126,7 +120,7 @@ package enum ReplayParameterFrame: Equatable {
     /// One sentence for the promote caption and run summary, so a mapped
     /// replay is never a silent substitution: the numbers the entry points
     /// receive are exact re-expressions of the rehearsal's, and the carrier
-    /// says so. Nil when nothing was re-referenced. // v2 S10
+    /// says so. Nil when nothing was re-referenced.
     package var reReferenceDescription: String? {
         guard case .detectorReduced(let bin, let crop) = self,
               bin > 1 || crop != nil else { return nil }
@@ -144,7 +138,7 @@ package enum ReplayParameterFrame: Equatable {
 /// (view → source) and the reduced-file export's carried recipe (view → the
 /// exported file's own frame) share one role table — two tables is how they
 /// drift. The coordinate primitives are `CalibrationReReference`'s, so the
-/// forward and inverse maps cannot disagree about the half-pixel. // v2 S10
+/// forward and inverse maps cannot disagree about the half-pixel.
 package enum ReplayFrameTransform: Equatable {
     /// Undo the load-time reduction. `CalibrationReReference.apply` shifts by
     /// the crop offset THEN bins, so the inverse un-bins then shifts back.
@@ -204,10 +198,10 @@ package enum ReplayFrameTransform: Equatable {
 
 /// Re-express a recorded step's parameters in another detector frame, or
 /// refuse with the parameter named. The role table is the frame vocabulary of
-/// the S5 recording sites — like `ReplayPlanner.parse`, it must FOLLOW those
+/// the recording sites — like `ReplayPlanner.parse`, it must FOLLOW those
 /// sites, never lead them. A key neither classified here nor written by them
 /// REFUSES rather than passing through: an unclassified number carried across
-/// frames is a fabrication waiting for a reader. // v2 S10
+/// frames is a fabrication waiting for a reader.
 package enum ReplayRecordFrameMap {
 
     package enum Role: Equatable {
@@ -224,7 +218,7 @@ package enum ReplayRecordFrameMap {
         case perPixelScale
     }
 
-    /// Every key the S5 recording sites write, by kind. `nil` = unknown key.
+    /// Every key the recording sites write, by kind. `nil` = unknown key.
     package static func role(kind: String, key: String) -> Role? {
         switch kind {
         case "virtual_detector":
@@ -263,7 +257,7 @@ package enum ReplayRecordFrameMap {
             switch key {
             // lattice_a is in Å — frame-invariant. Missing from this table it
             // would drop every custom-phase recipe from a binned export
-            // (refuter, Gate D 2026-09-02).
+            // (refuter, Gate D).
             case "material", "matching_backend", "scope", "quality", "lattice_a",
                  "material_fingerprint": .invariant
             case "scale_inv_angstrom_per_pixel": .perPixelScale
@@ -325,8 +319,8 @@ package enum ReplayRecordFrameMap {
     }
 
     /// The whole-record form for the exported reduced file: a recipe replays
-    /// a coherent pipeline or nothing (the S5 rule), so ONE unmappable step
-    /// drops the whole record — with the reason, so the export summary can
+    /// a coherent pipeline or nothing, so ONE unmappable step drops the
+    /// whole record — with the reason, so the export summary can
     /// say what was left out and why instead of the recipe silently missing.
     package static func mapForExport(_ record: SessionReplayRecord, exportBin: Int)
         -> Result<SessionReplayRecord, ReplayRefusal> {
@@ -352,9 +346,9 @@ package enum ReplayRecordFrameMap {
 
     /// The recipe-selection decision for a calibrated-cube export: the record
     /// to stamp (already re-expressed in the exported file's frame) or the
-    /// omission reason. Moved from `AppState.exportableRecipe` (C7 session 4,
-    /// budget relocation) — pure, and it already called straight into this
-    /// type's own `mapForExport`.
+    /// omission reason. Lives here as a pure function, paying down the
+    /// `AppState` budget (CLAUDE.md), and it already calls straight into
+    /// this type's own `mapForExport`.
     package static func exportableRecipe(
         record: SessionReplayRecord?,
         recordedFrame: ReplayParameterFrame?,
@@ -378,7 +372,7 @@ package enum ReplayRecordFrameMap {
 package struct ReplayRefusal: Equatable, Error {
     package let reason: String
 
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
     package nonisolated init(reason: String) {
         self.reason = reason
     }
@@ -398,9 +392,9 @@ package enum ReplayStepPlan: Equatable {
     case acom(ACOMReplayPlan)
 
     /// The recorded detector class for a `diskDetection` step, and, for
-    /// `.learned`, the threshold and model identity it ran against — session
-    /// 2 (C7, 2026-09-08). `LearnedDetectionSession.replayRefusal(for:)`
-    /// applies this and compares the hash against the running build's.
+    /// `.learned`, the threshold and model identity it ran against.
+    /// `LearnedDetectionSession.replayRefusal(for:)` applies this and
+    /// compares the hash against the running build's.
     package struct DiskDetectorReplay: Equatable, Sendable {
         package var detectorClass: DetectorClass
         package var learnedThreshold: Float?
@@ -420,13 +414,12 @@ package enum ReplayStepPlan: Equatable {
     package struct StrainReplayPlan: Equatable {
         /// Manual g-vectors when the recorded basis was manual; nil replays the
         /// automatic (consensus) basis, which re-derives on the full data —
-        /// the recorded resolved_g values are informational for that mode
-        /// (the fidelity decision S5 left to S6).
+        /// the recorded resolved_g values are informational for that mode.
         package var manualBasis: ManualBasis?
         package struct ManualBasis: Equatable {
             package var g1x: Float, g1y: Float, g2x: Float, g2y: Float
 
-            // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+            // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
             package nonisolated init(g1x: Float, g1y: Float, g2x: Float, g2y: Float) {
                 self.g1x = g1x
                 self.g1y = g1y
@@ -435,7 +428,7 @@ package enum ReplayStepPlan: Equatable {
             }
         }
 
-        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
         package nonisolated init(manualBasis: ManualBasis? = nil) {
             self.manualBasis = manualBasis
         }
@@ -446,15 +439,15 @@ package enum ReplayStepPlan: Equatable {
         /// Lattice constant (Å) the custom-cubic model was rehearsed with. The
         /// custom id encodes structure and Z but not a₀, so without this a
         /// restored session whose `a` field drifted replayed a different
-        /// crystal under the same id (Gate D 2026-09-02). nil for library and
+        /// crystal under the same id (Gate D finding). nil for library and
         /// imported ids, and for records that predate the key.
         package var latticeA: Double? = nil
         /// `CrystalModel.contentFingerprint` of the IMPORTED model that ran.
         /// Imported ids are `imported_<file stem>`, so two CIFs with one
         /// filename share an id; without this a restored session that had
-        /// imported a different file under the same name replayed against it
-        /// (open item, closed 2026-09-05). nil for library and custom ids,
-        /// and for records that predate the key.
+        /// imported a different file under the same name replayed against
+        /// it. nil for library and custom ids, and for records that predate
+        /// the key.
         package var materialFingerprint: String? = nil
         /// The scale the run matched at, in Å⁻¹ per detector pixel. Replay
         /// verifies the session's scale semantics agree before running —
@@ -474,7 +467,7 @@ package enum ReplayStepPlan: Equatable {
             package var customLatticeA: Double
             package var customZ: Int
 
-            // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+            // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
             package nonisolated init(importedIDs: Set<String>, importedFingerprints: [String: String] = [:],
                                      customStructure: Crystal.CubicStructure, customLatticeA: Double, customZ: Int) {
                 self.importedIDs = importedIDs
@@ -556,7 +549,7 @@ package enum ReplayStepPlan: Equatable {
             return .customCubic
         }
 
-        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
         package nonisolated init(materialID: String, latticeA: Double? = nil, materialFingerprint: String? = nil,
                                  scaleInvAngstromPerPixel: Double, scope: ACOMRunScope, quality: ACOMQualityPreset) {
             self.materialID = materialID
@@ -588,7 +581,7 @@ package struct PlannedReplayStep: Equatable {
     package let title: String
     package let result: Result<ReplayStepPlan, ReplayRefusal>
 
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
     package nonisolated init(kind: String, title: String, result: Result<ReplayStepPlan, ReplayRefusal>) {
         self.kind = kind
         self.title = title
@@ -617,7 +610,7 @@ package enum ReplayPlanner {
     /// mid-run on a missing-peaks guard. The FRAME GATE is applied here too —
     /// every consequence of the plan is pure and computable BEFORE the
     /// expensive reopen, and the executor and the promote caption must read
-    /// the same verdict (Gate A findings E1/B5, 2026-08-25).
+    /// the same verdict (Gate A findings E1/B5).
     package static func plan(_ record: SessionReplayRecord,
                      frame: ReplayParameterFrame) -> [PlannedReplayStep] {
         let transform = frame.sourceTransform
@@ -668,7 +661,7 @@ package enum ReplayPlanner {
         }
     }
 
-    /// Parse one step. The keys and vocabularies are exactly what the S5
+    /// Parse one step. The keys and vocabularies are exactly what the
     /// recording sites write (`AppState.recordReplayStep` call sites) — this
     /// function must follow those sites, never lead them.
     package static func parse(_ step: SessionReplayRecord.Step) -> Result<ReplayStepPlan, ReplayRefusal> {
@@ -701,7 +694,7 @@ package enum ReplayPlanner {
             // thresholds were tuned against depends on it. A MEASURED kernel
             // came from a vacuum ROI the recipe cannot carry, so replaying
             // with the synthetic one would be a silent substitution — the
-            // exact class this executor bans (Gate A finding C3, 2026-08-25).
+            // exact class this executor bans (Gate A finding C3).
             switch p["kernel_source"] {
             case "synthetic":
                 break
@@ -710,18 +703,18 @@ package enum ReplayPlanner {
             case "measured_file_probe":
                 // The probe image IS in the file (kernel_probe_path), so this
                 // could replay; it does not yet — the executor builds no
-                // kernel. Refused rather than substituted (2026-09-05).
+                // kernel. Refused rather than substituted.
                 return .failure(ReplayRefusal(reason: "it detected disks with the file's own probe image as the kernel (\(p["kernel_probe_path"] ?? "")), which the replay does not rebuild yet — choose Use File's Probe on the promoted view, then run detection by hand"))
             case "measured_vacuum_scan":
                 // The probe came from a SEPARATE vacuum scan the recipe cannot
                 // carry (only its file name, kernel_probe_path). Refused rather
-                // than substituted, like the vacuum-ROI case. // v3.1
+                // than substituted, like the vacuum-ROI case.
                 return .failure(ReplayRefusal(reason: "it detected disks with a probe measured from a separate vacuum scan (\(p["kernel_probe_path"] ?? "")), which the recipe cannot carry — load that vacuum scan as the probe on the promoted view, then run detection by hand"))
             default:
                 return refused(step, key: "kernel_source", value: p["kernel_source"])
             }
             // Absent `detector_class` means classical: every recipe written
-            // before C7 session 2 (2026-09-08) has no such key, and every
+            // before the learned detector shipped has no such key, and every
             // one of them ran the classical detector — the only one that
             // existed then.
             let detector: ReplayStepPlan.DiskDetectorReplay

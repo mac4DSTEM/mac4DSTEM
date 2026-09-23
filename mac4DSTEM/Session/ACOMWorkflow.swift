@@ -105,7 +105,7 @@ package struct ACOMScaleSemantics: Sendable, Equatable {
         provenance.isPhysical ? "physical" : "exploratory"
     }
 
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+    // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
     package nonisolated init(invAngstromPerPixel: Double, provenance: ACOMQScaleProvenance) {
         self.invAngstromPerPixel = invAngstromPerPixel
         self.provenance = provenance
@@ -121,10 +121,10 @@ package struct ACOMRunSemantics: Sendable, Equatable {
     package let scale: ACOMScaleSemantics
     package let materialProvenance: [String: String]
     /// The origin-fit keys (`origin_reference`, residual, excluded fraction)
-    /// as they stood WHEN THE MAP WAS COMPUTED — the snapshot `StrainProduct`
-    /// keeps and this type lacked, so the export read the live calibration
-    /// and could describe an origin the map was never computed against
-    /// (Gate B, 2026-08-28; the open item closed 2026-09-05).
+    /// as they stood WHEN THE MAP WAS COMPUTED — this type used to lack that
+    /// snapshot (unlike `StrainProduct`), so the export could read the live
+    /// calibration and describe an origin the map was never computed against
+    /// (Gate B finding).
     package let originProvenance: [String: String]
 
     package init(

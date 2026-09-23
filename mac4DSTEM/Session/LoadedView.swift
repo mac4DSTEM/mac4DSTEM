@@ -4,13 +4,14 @@
 //        the reader could push into its own I/O, and what the move into that
 //        frame cost the calibration.
 //
-//  THIS IS THE STAGE'S `AppState` SEAM (docs/archive/development-process-2026-08-31.md §7, binding
-//  since 2026-08-17). It follows L2's precedent — `App/DatasetResidency.swift` —
-//  and for the same reason: the cheapest true seam is state the stage is adding,
-//  so it starts owned rather than being prised out of a 188-property facade
-//  later. `AppState` HOLDS this; there are no forwarding properties, because
-//  forwarding would preserve the view API while keeping the exact property that
-//  caused the problem — that every piece of code can reach every piece of state.
+//  This is the stage's `AppState` seam (docs/archive/development-process-2026-08-31.md §7).
+//  It follows L2's precedent — `App/DatasetResidency.swift` — for the same
+//  reason: the cheapest true seam is state the stage is adding, so it starts
+//  owned rather than being prised out of a wide state facade later.
+//  `AppState` holds this directly; there are no forwarding properties,
+//  because forwarding would preserve the view API while keeping the exact
+//  property that caused the problem — that every piece of code can reach
+//  every piece of state.
 //
 //  It publishes what was actually applied, never what was requested. Same rule
 //  as `DatasetResidency`: a panel that reports the request is a panel that lies
@@ -25,7 +26,7 @@ import DSTEMCore
 @Observable
 package final class LoadedView {
 
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    // Explicit so the default initializer is `package` (synthesized ones are internal).
     package nonisolated init() {}
 
     /// Which part of the source is loaded. `.fullExtent` is the shipped value —
@@ -42,9 +43,9 @@ package final class LoadedView {
     /// nothing needed moving.
     package private(set) var invalidatedCalibration: [CalibrationInvalidation] = []
 
-    /// P2 (2026-09-01): session-restore outcomes join the same surface as
-    /// load-time invalidations — the inspector's "Not carried into this view"
-    /// section is the one place a dropped calibration is explained.
+    /// Session-restore outcomes join the same surface as load-time
+    /// invalidations — the inspector's "Not carried into this view" section
+    /// is the one place a dropped calibration is explained.
     package func appendInvalidated(_ items: [CalibrationInvalidation]) {
         invalidatedCalibration.append(contentsOf: items)
     }
@@ -57,12 +58,10 @@ package final class LoadedView {
     ///
     /// **NOT YET SHOWN ANYWHERE.** Nothing in `UI/` reads this type's display
     /// surface — not this, not `summary`, not `binningNotice`, not
-    /// `invalidatedCalibration`. The intent is that the user asked for one
-    /// extent and got a slightly smaller one, and that difference turns up later
-    /// as an unexplained number if nobody says so; the wiring belongs with L5's
+    /// `invalidatedCalibration`. The user asked for one extent and got a
+    /// slightly smaller one, and that difference turns up later as an
+    /// unexplained number if nobody says so; the wiring belongs with L5's
     /// configurator, where all of it becomes visible in one Track B pass.
-    /// Recorded here rather than implied, because an earlier version of this
-    /// comment said "stated, never silent" of a value no view reads.
     package private(set) var discardedDetectorRows = 0
     package private(set) var discardedDetectorColumns = 0
 

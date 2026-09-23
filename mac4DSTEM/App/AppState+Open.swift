@@ -131,8 +131,8 @@ extension AppState {
     ) async {
         let source = DemoFourDDataSource(includesCalibration: calibrated)
         // Same rule as `commitPendingLoad`: a dataset change outside
-        // `openFileAsync` drops the previous dataset's restore-failure flag.
-        // // v2 S7
+        // `openFileAsync` drops the previous dataset's restore-failure
+        // flag (v2 S7).
         gates.clearSidecarRestoreFailure()
         beginDatasetLoading("Opening demo dataset…")
         defer {
@@ -150,17 +150,17 @@ extension AppState {
             // cube still printed "Demo ready…" over the error status, with
             // reader/datasets already swapped and nothing loaded. Both checks
             // are needed: the specification comparison catches a failed
-            // re-open OVER a previous demo (whose stale spec cannot equal the
-            // failing one — a spec that fits the demo does not fail), and the
-            // file-path comparison catches a previous real dataset that
-            // happened to share the requested spec. Gate A review, 2026-08-19.
+            // re-open OVER a previous demo (a spec that fits the demo does
+            // not fail, so a stale spec cannot equal the failing one), and
+            // the file-path comparison catches a previous real dataset that
+            // happened to share the requested spec (Gate A review).
             guard datasetSession.loadView?.specification == specification,
                   self.descriptor?.filePath == datasetSession.datasets.first?.filePath else { return }
             finishDatasetLoading()
             acomSession.display = .ipfZ
-            // S22c wording: the steps are Prepare / Imaging / Bragg / Phase /
-            // Results — caught on screen by the consolidated drive after the
-            // re-cut renamed them everywhere else.
+            // Keep this string's step names in sync with the current
+            // workspace titles — it is data, not a UI label, so a rename
+            // elsewhere will not catch a stale name here.
             statusText = "Demo ready — follow Prepare → Imaging → Strain & ACOM (Bragg disks first) → Results; each task lists anything it still needs"
         } catch {
             present(error)
@@ -184,15 +184,14 @@ extension AppState {
                 let descriptor = try await h5.describe(path: datasetPath)
                 datasetSession.addDatasetIfNeeded(descriptor)
                 // Bracketed for the same reason as `selectDataset` above: every
-                // stage line, the preview sampling and the resident preload are
-                // gated on `datasetSession.isLoading`, so without this the whole open
-                // runs in silence while `activate` reports "Loaded …" with the
-                // bar at 1.0 — #36's stall, one layer down.
-                // **Unreachable today**: nothing calls `openManualPath`. Fixed
-                // anyway, because the trap is laid for whoever wires it to a
-                // control, and at that point the silence would look like a new
-                // defect rather than an old one. Found by `/code-review ultra`,
-                // 2026-08-18.
+                // stage line, the preview sampling and the resident preload
+                // are gated on `datasetSession.isLoading` — without this the
+                // whole open runs silently while `activate` reports
+                // "Loaded …" with the bar at 1.0 (the same #36 stall, one
+                // layer down).
+                // Unreachable today (nothing calls `openManualPath`), fixed
+                // anyway so the trap does not wait for whoever wires it to a
+                // control (found by `/code-review ultra`).
                 beginDatasetLoading("Opening \(descriptor.datasetPath)…")
                 await activate(descriptor: descriptor, reader: h5)
                 finishDatasetLoading()
@@ -348,14 +347,12 @@ extension AppState {
         datasetSession.beginActivation()
         beginDatasetLoadingStage("Reading calibration metadata…")
         // ONE view, built once and shared: the array reads through it, the
-        // calibration is re-referenced into it, and `loadedView` records it. The
-        // specification is `.fullExtent` on every shipped path — L5's
-        // configurator is what will hand a real one in.
+        // calibration is re-referenced into it, and `loadedView` records it.
         // The specification is `.fullExtent` on every path except L5's
-        // configurator. A specification that does not fit the source is a
-        // caller error, not a user error — the configurator only offers ones it
-        // has already validated — so falling back to full extent here would
-        // silently load something other than what was asked for.
+        // configurator, which only offers specifications it has already
+        // validated against the source — a specification that does not fit
+        // is a caller error, not a user error, so there is no silent
+        // fallback to full extent here.
         let view: LoadView
         do {
             view = try LoadView(source: sourceDescriptor, specification: specification)
@@ -367,16 +364,15 @@ extension AppState {
         datasetSession.install(reader: reader, view: view)
 
         // EVERYTHING BELOW USES THE VIEW, and the parameter is deliberately
-        // named `sourceDescriptor` so that reaching for the file's own extent is
-        // something you have to type on purpose.
-        // The two are identical on every shipped path today, which is exactly
-        // why this needed saying: an adversarial review on 2026-08-18 found four
-        // detector-frame defaults still derived from the source, and a fifth —
-        // the `minPeakSpacing` derivation — that this repo had already CLAIMED
-        // followed the view. The unit test behind that claim called
-        // `detectorAdapted` with a view descriptor directly, so it pinned the
-        // function and not the call site. A crop or a bin would have made all
-        // five wrong at once, and every one of them plausible.
+        // named `sourceDescriptor` so that reaching for the file's own extent
+        // is something you have to type on purpose. The two are identical on
+        // every shipped path today — which is exactly the trap: an
+        // adversarial review found four detector-frame defaults still
+        // derived from the source, and a fifth (`minPeakSpacing`) whose unit
+        // test pinned the function by calling `detectorAdapted` with a view
+        // descriptor directly rather than pinning the call site. A crop or
+        // bin would have made all five wrong at once, and every one
+        // plausible-looking.
         let descriptor = view.descriptor
         // A new array is a new (absent) buffer; the old cube dies with the old
         // array. Resetting here keeps the panel from claiming residency that
@@ -399,20 +395,18 @@ extension AppState {
         phaseContrast.singleslicePtychography = nil
         phaseContrast.parallaxResultProduct = .preprocess
         // THE VIEW'S detector, not the source's. These four are lengths and a
-        // position in DETECTOR PIXELS, and a binned or cropped view has fewer
-        // of them.
-        // They sat on `descriptor` — the source — until an adversarial review
-        // found it on 2026-08-18. Unreachable then, because `activate` only ever
-        // built a full-extent view, and a trap set for L5: on a 256 px detector
-        // binned by 4 the "quarter of the detector" aperture would have come out
-        // at 64 px on a 64 px detector, and `ellipseFitOuterRadius` at 115 px
-        // entirely off it. Both are plausible-looking numbers, which is the
-        // failure mode that matters here.
-        // `CalibrationReReference` takes the aperture CENTRE as a parameter on
-        // the principle that every detector-frame rule belongs in one file.
-        // These are defaults rather than re-referenced values — there is no
-        // prior value to move — so they belong here, but they must be derived
-        // from the same frame.
+        // position in DETECTOR PIXELS, and a binned or cropped view has
+        // fewer of them: on a 256 px detector binned by 4, a "quarter of the
+        // detector" aperture read against the source would come out at 64 px
+        // on a 64 px detector, with `ellipseFitOuterRadius` at 115 px
+        // entirely off it — both plausible-looking numbers, which is what
+        // makes this class of bug dangerous (adversarial review finding;
+        // trap for L5).
+        // `CalibrationReReference` takes the aperture CENTRE as a parameter
+        // on the principle that every detector-frame rule belongs in one
+        // file. These are defaults rather than re-referenced values — there
+        // is no prior value to move — so they belong here, but must be
+        // derived from the same frame.
         let detectorHalfSize = Double(min(descriptor.qx, descriptor.qy)) / 2
         calibrationSession.ellipseFitInnerRadius = max(1, detectorHalfSize * 0.35)
         calibrationSession.ellipseFitOuterRadius = max(calibrationSession.ellipseFitInnerRadius + 2, detectorHalfSize * 0.9)
@@ -435,7 +429,7 @@ extension AppState {
         // awaits in between, the export menu is reachable during a suspension, and
         // the strain frame keys come from the LIVE calibration — an uncleared map
         // would export the previous dataset's scan-frame pixels under this reset's
-        // "rotation not calibrated" claim (Gate B finding 3, 2026-08-25). The group
+        // "rotation not calibrated" claim (Gate B finding 3). The group
         // and phase maps are scan-indexed for the same reason.
         strain.clear()
         diffractionGroups.clear()
@@ -489,11 +483,11 @@ extension AppState {
             if let qx0 = pc.qx0Mean, let qy0 = pc.qy0Mean {
                 aperture.centerX = Float(qy0)
                 aperture.centerY = Float(qx0)
-                // v2 S13: the value gets a HOME, not just a provenance label.
-                // Until now it lived only in the aperture, so it was lost the
-                // moment the user moved the detector and every analysis fell
-                // through to the detector's geometric middle while the
-                // inspector went on displaying the file's origin (S11).
+                // The value gets a HOME, not just a provenance label (v2
+                // S13) — stored only in the aperture it would be lost the
+                // moment the user moved the detector, leaving every analysis
+                // fall through to the detector's geometric middle while the
+                // inspector still displayed the file's origin (S11).
                 calibrationSession.calibration.recordedOriginX = Float(qy0)
                 calibrationSession.calibration.recordedOriginY = Float(qx0)
                 calibrationSession.calibration.originProvenance = .fileMean
@@ -643,11 +637,11 @@ extension AppState {
            ) {
             selectedScan = ScanPos(x: position.x, y: position.y)
             // The remembered task is restored, but the WORKSPACE is not: a
-            // reopened dataset always lands on Prepare. Dropping the user back
-            // into Map or Reconstruct started them mid-flow, past the step that
-            // confirms the dataset and its calibration are what they think —
-            // and calibration is per-session state that the recovery record
-            // does not carry. Reported by the release owner 2026-08-05.
+            // reopened dataset always lands on Prepare. Dropping the user
+            // back into Map or Reconstruct would start them mid-flow, past
+            // the step that confirms the dataset and its calibration are
+            // what they think — and calibration is per-session state the
+            // recovery record does not carry.
             if let mode = AnalysisMode(rawValue: recovery.analysisMode) {
                 navigation.analysisMode = mode
             }
@@ -763,11 +757,11 @@ extension AppState {
         descriptor = nil
         datasetSession.clearDatasetListAndPreview()
         clearCalibration()
-        // A cancelled open must not be remembered — the release owner's call,
-        // 2026-08-18: you cancelled because it was the wrong file, so promoting
-        // it to the top of Recents is precisely backwards. `openFileAsync` also
-        // defers `rememberOpenedDataset` until the load has actually finished,
-        // so on the normal path there is nothing here to undo.
+        // A cancelled open must not be remembered — owner decision: you
+        // cancelled because it was the wrong file, so promoting it to the
+        // top of Recents is precisely backwards. `openFileAsync` also defers
+        // `rememberOpenedDataset` until the load has actually finished, so
+        // on the normal path there is nothing here to undo.
         if let openURL {
             openURL.stopAccessingSecurityScopedResource()
             self.openURL = nil
@@ -835,13 +829,13 @@ extension AppState {
             guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
             sessionLoadSpecification = snapshot.loadSpecification ?? .fullExtent
-            // A colleague's recipe becomes this session's starting point, so
-            // a later save round-trips it instead of replacing it. Nil (no
-            // recorded recipe) leaves the live record alone. // v2 S5
+            // A colleague's recipe becomes this session's starting point
+            // (v2 S5), so a later save round-trips it instead of replacing
+            // it. Nil (no recorded recipe) leaves the live record alone.
             // The recipe's parameters are expressed in the frame of the
-            // sidecar's OWN recorded specification — not the view being
-            // opened, which can legitimately differ after a reconfigure.
-            // // v2 S6
+            // sidecar's OWN recorded specification (v2 S6) — not the view
+            // being opened, which can legitimately differ after a
+            // reconfigure.
             replay.adopt(snapshot.replayRecord,
                          recordedOn: ReplayParameterFrame.of(snapshot.loadSpecification))
             if let sessionCalibration = snapshot.calibration {
@@ -854,12 +848,12 @@ extension AppState {
             return snapshot
         } catch {
             guard epoch == datasetSession.epoch else { return nil }
-            // The DURABLE channel, not only `statusText` — S1 measured
+            // The DURABLE channel, not only `statusText` — measured
             // `statusText` set here being overwritten within the same
-            // `activate` (three times). The minimum-reader refusal in
-            // particular exists to be READ: without this, a too-new sidecar
-            // opens as a dataset with no results and no reason
-            // (Gate B-lite F7). // v2 S5
+            // `activate` call (three times, S1). The minimum-reader refusal
+            // in particular exists to be READ: without this, a too-new
+            // sidecar opens as a dataset with no results and no reason
+            // (Gate B-lite F7, v2 S5).
             sessionSidecar.noteUnreadable(
                 "Could not restore \(url.lastPathComponent): \(Self.errorDetail(error))"
             )
@@ -872,12 +866,12 @@ extension AppState {
         _ saved: PixelCalibration, recordedOn sessionSpecification: LoadSpecification,
         for descriptor: DatasetDescriptor
     ) {
-        // P2 (Gate D, 2026-09-01): the sidecar's values are in ITS view's
-        // frame, and this function used to adopt them raw regardless of what
-        // is loaded now — a full-extent session restored onto a 2× binned
-        // open put the aperture centre a whole frame off (the corner BF) and
-        // fed strain a doubled-frame Q scale. Policy first; geometry, when
-        // owed, through the same engine the file path uses (below).
+        // P2 (Gate D): the sidecar's values are in ITS view's frame, not
+        // necessarily the one now loaded — adopting them raw let a
+        // full-extent session restore onto a 2× binned open put the aperture
+        // centre a whole frame off (the corner BF) and feed strain a
+        // doubled-frame Q scale. Policy first; geometry, when owed, through
+        // the same engine the file path uses (below).
         let framePolicy = SessionCalibrationFramePolicy.decide(
             session: sessionSpecification, loaded: loadedView.specification
         )
@@ -967,15 +961,14 @@ extension AppState {
                 aperture.centerY = center.y
             }
         }
-        // No strain-display refresh here, deliberately (Gate B finding 4,
-        // 2026-08-25): this function's only caller chain is
-        // `loadSessionSnapshot` ← `activate`, which always runs after
-        // `strain.clear()` — a refresh would be unconditionally the guarded
-        // no-op. The S4 Change… path never adopts a calibration in-session
-        // (it retargets the file and asks for a reopen). If an in-session
-        // "adopt calibration" path is ever added, it must refresh the strain
-        // display itself — the live sites are `calibrateRotation` and
-        // `flipRotation180`. // v2 S8
+        // No strain-display refresh here, deliberately (Gate B finding 4):
+        // this function's only caller chain is `loadSessionSnapshot` ←
+        // `activate`, which always runs after `strain.clear()` — a refresh
+        // would be an unconditionally guarded no-op. The S4 Change… path
+        // never adopts a calibration in-session (it retargets the file and
+        // asks for a reopen). If an in-session "adopt calibration" path is
+        // ever added, it must refresh the strain display itself — the live
+        // sites are `calibrateRotation` and `flipRotation180` (v2 S8).
     }
 
     private func restoreSessionResult(
@@ -1073,15 +1066,15 @@ extension AppState {
                 statusText = "Manual aperture center — fitted origin set aside (Restore Fitted Origin in Calibration undoes this)"
             }
             calibrationSession.calibration.origin = nil
-            // The file's recorded mean goes with them. Gate B, 2026-08-28: v2
-            // S13 gave that value a home of its own and then did not clear it
-            // here, so `referenceOrigin` returned `.recordedMean` — the FILE's
+            // The file's recorded mean goes with them (Gate B): v2 S13 gave
+            // that value a home of its own but did not clear it here, so
+            // `referenceOrigin` kept returning `.recordedMean` — the FILE's
             // number — while `originProvenance` read `.manual`, and the CoM
             // field and the measured probe kernel silently stopped using the
-            // centre the user had just dragged to. Discarding it restores the
-            // pre-S13 semantics exactly (the aperture was the only carrier
-            // then, and moving it destroyed the value); it is not recoverable
-            // through `supersededFittedOrigin`, which holds maps only.
+            // centre the user had just dragged to. Discarding it here
+            // restores the pre-S13 semantics (the aperture was the only
+            // carrier then); it is not recoverable through
+            // `supersededFittedOrigin`, which holds maps only.
             calibrationSession.calibration.recordedOriginX = nil
             calibrationSession.calibration.recordedOriginY = nil
             calibrationSession.calibration.originProvenance = .manual

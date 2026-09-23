@@ -2,27 +2,19 @@
 //  CalibrationReadinessRow.swift
 //  Role: the one spelling of a calibration item's readiness-row body, shared
 //        between `ExportSheet`'s `Form` and `PrepareSettings`'s `Section`s.
+//        `appState`, the kind, the status, and the one string that differs
+//        between the two hosts (`qScaleUnavailableReason`) are passed in
+//        explicitly, so the function stays host-agnostic and both callers
+//        keep their own `Form`/`Section` container unchanged.
 //
-//  Hygiene audit row 1 (2026-09-16): `readinessAction` and `manualScaleRows`
-//  were hand-copied into both files, byte-identical after the two wrapped
-//  words in one comment are normalised away. Everything each row *reads* —
-//  `appState`, the kind, the status, and the one string that differs between
-//  the two hosts (`qScaleUnavailableReason`) — is passed in explicitly, so
-//  the function itself stays host-agnostic and both callers keep their own
-//  `Form`/`Section` container unchanged. No behaviour change.
-//
-//  Consolidation review follow-up (2026-09-22): `row` joins `action` and
-//  `manualScale` here for the same reason — the two files also hand-copied
-//  the readiness row's own `LabeledContent`, and had drifted: this WAS a
-//  behaviour change, fixing `ExportSheet`'s copy to read `.ready(.fitAnyway)`
-//  as a warning the way `PrepareSettings`'s copy always did.
-//
-//  Card kit follow-up (2026-09-22, same night): `row`'s own `LabeledContent`
-//  is now built on `InspectorStatusRow` (`UI/InspectorRows.swift`) — the
-//  vocabulary's own shared status-line component, built for exactly this
-//  row's two failure modes (a detached, wrapping status word; a mid-word
-//  wrap on the status itself). Same visible output: the status word alone,
-//  fixed, trailing; kind name and detail leading, under the title.
+//  `row`'s `LabeledContent` reads `.ready(.fitAnyway)` as a warning — both
+//  hosts must agree on this, since two hand-copied versions once drifted and
+//  let the same calibration show as a plain green success in one and a
+//  warning in the other. It is built on `InspectorStatusRow`
+//  (`UI/InspectorRows.swift`), the shared status-line component built for
+//  this row's two failure modes (a detached, wrapping status word; a
+//  mid-word wrap on the status itself): the status word alone, fixed,
+//  trailing; kind name and detail leading, under the title.
 //
 
 import SwiftUI
@@ -35,16 +27,11 @@ enum CalibrationReadinessRow {
     /// One calibration's full readiness row: the `LabeledContent` line (kind,
     /// ready/warning glyph, provenance, calibrated value), the R-scale
     /// filename-conflict note when present, and the row's action below it.
-    ///
-    /// Hygiene audit row 1 follow-up (2026-09-22): `PrepareSettings` and
-    /// `ExportSheet` each hand-copied this whole row, byte-identical except
-    /// one line — `PrepareSettings` read `.ready(.fitAnyway)` as a warning
-    /// (orange, not green: the value is used the same as any other ready
-    /// value, but the assertion behind it is the user's, not the fit's);
-    /// `ExportSheet`'s copy did not, so the same calibration read as plain
-    /// green success in the export sheet and as a warning in Prepare. Built
-    /// on `InspectorStatusRow`: the state's colour on the symbol, the
-    /// calibrated value as a wrapping caption under the title.
+    /// `.ready(.fitAnyway)` reads as a warning (orange, not green) — the
+    /// value is used the same as any other ready value, but the assertion
+    /// behind it is the user's, not the fit's. Built on `InspectorStatusRow`:
+    /// the state's colour on the symbol, the calibrated value as a wrapping
+    /// caption under the title.
     @ViewBuilder
     static func row(
         _ item: CalibrationReadinessItem,
@@ -194,8 +181,7 @@ enum CalibrationReadinessRow {
         onUnitChange: @escaping (String) -> Void
     ) -> some View {
         // `InspectorRow`s, so both labels sit in the kit's label column like
-        // every other row in the card (they sat flush left beside the
-        // Voltage row's column on the first macOS 27 drive).
+        // every other row in the card, not flush left as they did before.
         InspectorRow("Manual") {
             NumericField(
                 "Manual scale",

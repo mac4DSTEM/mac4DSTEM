@@ -98,7 +98,7 @@ extension DiskDetection {
         // The resident detector rate-limits its ticks per TILE (one per 0.1 %
         // of the tile); across many tiles that would multiply. Coalesce again
         // on the GLOBAL fraction so a full-scan run makes at most ~1,000
-        // callbacks however it is tiled (FFT session ride-along, 2026-09-01).
+        // callbacks however it is tiled.
         let coalescer = ProgressCoalescer()
         let coalesced: (@Sendable (Double) -> Void)? = progress.map { progress in
             { @Sendable fraction in

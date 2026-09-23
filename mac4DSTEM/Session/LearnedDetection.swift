@@ -1,12 +1,13 @@
 //
 //  LearnedDetection.swift
-//  Role: C7 session 2's seam (docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), docs/archive/development-process-2026-08-31.md
-//        §7) — the one owner of the learned-vs-classical detector option, the
-//        learned pick threshold, the probe image the learned path needs, the
-//        loaded `LearnedDiskDetector`, and the two runs a disagreement map
+//  Role: this file's seam (docs/archive/v3/learned-detector-preregistration-2026-09-07.md,
+//        docs/archive/development-process-2026-08-31.md §7) — the one owner
+//        of the learned-vs-classical detector option, the learned pick
+//        threshold, the probe image the learned path needs, the loaded
+//        `LearnedDiskDetector`, and the two runs a disagreement map
 //        compares. Held by AppState with no forwarding properties; views
-//        read `learnedDetection.…`. Core ML (session 1), not the Core AI
-//        runtime an earlier branch used — no availability gate.
+//        read `learnedDetection.…`. Uses Core ML, not the Core AI runtime
+//        an earlier branch used — no availability gate.
 //
 //  What deliberately does NOT live here: the disk-detection run itself
 //  (`AppState.runDiskDetection`, which reads `detectorClass`/`threshold`/
@@ -79,8 +80,8 @@ package final class LearnedDetectionSession {
     package private(set) var unavailableReason: String?
 
     /// The loaded detector, held once and reused — loading it is slow
-    /// (~1.3 s, C7 session 1 measurement) and must never happen inside a
-    /// run's own cancellable operation.
+    /// (~1.3 s, measured) and must never happen inside a run's own
+    /// cancellable operation.
     @ObservationIgnored private var detector: LearnedDiskDetector?
 
     /// Record a completed full-scan result under the class that produced it.
@@ -213,7 +214,7 @@ package final class LearnedDetectionSession {
         guard recorded.detectorClass == .learned else { detectorClass = .classical; return nil }
         // The class and threshold are applied only once the replay may proceed:
         // a refused learned step must not leave the picker switched to Neural
-        // net at the recorded threshold (Gate B, 2026-09-08).
+        // net at the recorded threshold (Gate B reviewed).
         guard let assetURL = LearnedDiskDetector.bundledAssetURL() else {
             return "the neural-net model is not in this build — choose Classical under Detector in Disk detection, then run detection by hand"
         }

@@ -37,7 +37,7 @@ package final class ReplayRun {
         case failed(reason: String)
         /// The user (or a dataset change) stopped it — a deliberate stop is
         /// not a failure, and a summary that says "failed" for a cancel
-        /// misdescribes the run (Gate A finding B6, 2026-08-25).
+        /// misdescribes the run (Gate A finding B6).
         case cancelled
         /// Never ran — the plan refused it, with the reason.
         case refused(reason: String)
@@ -58,7 +58,7 @@ package final class ReplayRun {
         package var outcome: Outcome = .notReached
         package var id: Int { index }
 
-        // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+        // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
         package nonisolated init(index: Int, title: String, outcome: Outcome = .notReached) {
             self.index = index
             self.title = title
@@ -73,7 +73,7 @@ package final class ReplayRun {
     }
 
     /// Derived from the timestamps, so the phase and the dates the summary
-    /// renders can never disagree (Gate A simplification, 2026-08-25).
+    /// renders can never disagree (Gate A simplification).
     package var phase: Phase {
         if startedAt == nil { return .idle }
         return endedAt == nil ? .running : .finished
@@ -118,7 +118,7 @@ package final class ReplayRun {
     /// running — the caller must NOT proceed then: the executor is
     /// single-flight, and a second caller that ignored the refusal would
     /// write into the first run's step table and release its keep-awake
-    /// assertion mid-run (Gate A finding A5, 2026-08-25). Called BEFORE the
+    /// assertion mid-run (Gate A finding A5). Called BEFORE the
     /// full-extent reopen, so the assertion covers the longest unattended
     /// phase, not just the analyses (findings B1/C1).
     @discardableResult
@@ -182,7 +182,7 @@ package final class ReplayRun {
     /// A halt names the step that halted it only when one exists — a
     /// between-steps halt (dataset changed before the next step began) says
     /// "after N of M" instead, so the headline can never contradict a step
-    /// row that shows ✓ (Gate A findings A1/B6, 2026-08-25).
+    /// row that shows ✓ (Gate A findings A1/B6).
     package var summaryHeadline: String? {
         guard phase == .finished else { return nil }
         let window = [startedAt, endedAt]

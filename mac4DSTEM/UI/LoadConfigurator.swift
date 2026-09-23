@@ -62,9 +62,8 @@ struct LoadConfigurator: View {
                 appState.statusText = "Pattern preview unavailable: \(failure)"
             }
         }
-        // A band, not a fixed size: the 2026-08-18 fixed 900x760 sheet
-        // overflowed a display shorter than ~790pt and pushed its own footer
-        // off screen.
+        // A band, not a fixed size: a fixed 900x760 sheet overflows a display
+        // shorter than ~790pt and pushes its own footer off screen.
         .frame(
             minWidth: LayoutPolicy.configuratorSheet.min.width,
             idealWidth: LayoutPolicy.configuratorSheet.ideal.width,
@@ -93,9 +92,9 @@ struct LoadConfigurator: View {
     // MARK: - The preview panes
 
     /// All three panes draw pixels `PendingLoad` normalised when the data
-    /// landed — `MetalImageView`'s contract, and the one the old view broke
-    /// until 2026-08-18. `realSpace` holds the *sum* of every detector pixel
-    /// at a scan position (10⁴–10⁸ on a real cube) and the fragment shader
+    /// landed — `MetalImageView`'s contract. `realSpace` holds the *sum* of
+    /// every detector pixel at a scan position (10⁴–10⁸ on a real cube) and
+    /// the fragment shader
     /// clamps to [0,1], so raw values collapse to the top LUT entry and both
     /// panes render one flat colour. The diffraction panes are log-normalised
     /// for the same reason the rest of the app logs a max-DP: linear, it is
@@ -161,10 +160,9 @@ struct LoadConfigurator: View {
                         onDrag: setDetectorCrop
                     )
 
-                    // One REAL pattern beside the max (owner request,
-                    // 2026-08-18). Same crop binding as the max pane — both
-                    // draw the same detector rectangle, and a drag on either
-                    // sets it.
+                    // One REAL pattern beside the max. Same crop binding as
+                    // the max pane — both draw the same detector rectangle,
+                    // and a drag on either sets it.
                     if let singleDP = pending.singleDPDisplay {
                         cropPane(
                             title: "Diffraction — single position",
@@ -264,11 +262,10 @@ struct LoadConfigurator: View {
                 // to normalized view UVs, so handing it the full pane draws
                 // e.g. an 84x100 scan into a 270x227 box — a circular
                 // diffraction disk renders elliptical and, worse, a user
-                // dragging a visually SQUARE box gets a non-square crop.
-                // Measured on screen 2026-08-27: a 100x98pt drag on sim_Au
-                // produced `63 x 45`, exactly 54% of width by 63% of height.
-                // The crop arithmetic was right; the picture was lying about
-                // what was being selected.
+                // dragging a visually SQUARE box gets a non-square crop: a
+                // 100x98pt drag on sim_Au produces `63 x 45`, 54% of width by
+                // 63% of height (measured 2026-08-27) even though the crop
+                // arithmetic itself is correct.
                 //
                 // Sizing the ZStack to `box` also fixes the gestures for free —
                 // tap and drag then work in the box's own coordinate space, so
@@ -370,9 +367,8 @@ struct LoadConfigurator: View {
 
     private var binSection: some View {
         Section("Diffraction binning") {
-            // Crop and bin trade against DIFFERENT things (release owner's
-            // question, 2026-08-19); both mirror py4DSTEM
-            // (crop_data_diffraction / bin_data_diffraction).
+            // Crop and bin trade against DIFFERENT things; both mirror
+            // py4DSTEM (crop_data_diffraction / bin_data_diffraction).
             Text("Crop limits angular range. Binning keeps the range but coarsens disk positions.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -405,8 +401,8 @@ struct LoadConfigurator: View {
 
     private var sizeSection: some View {
         Section("Size") {
-            // Axis-labelled in the inspector's own convention (owner request,
-            // 2026-08-18), so this is not a third ordering variant.
+            // Axis-labelled in the inspector's own convention, so this is not
+            // a third ordering variant.
             sizeRow("Scan (Rx × Ry)", "\(pending.source.rx) × \(pending.source.ry)")
             sizeRow("Detector (Qx × Qy)", "\(pending.source.qx) × \(pending.source.qy)")
             if let fileBytes = pending.fileByteCount {

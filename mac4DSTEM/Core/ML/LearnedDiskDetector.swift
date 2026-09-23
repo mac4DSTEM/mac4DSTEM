@@ -227,8 +227,8 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// `fit_to` only when the size differs); a longer axis is covered by
     /// `n = ⌈(q − overlap) / (inputSize − overlap)⌉` windows whose origins spread
     /// evenly across `0 ... q − inputSize` (integer, rounded) so consecutive windows
-    /// overlap by `overlap` px everywhere (owner 2026-09-07 "tiling for now";
-    /// 2026-09-08: windows only above 256).
+    /// overlap by `overlap` px everywhere (windowing applies only above 256 px,
+    /// decided 2026-09-08).
     package static func windowOrigins(q: Int, probeCentreOnAxis: Float, overlap: Int) -> [Int] {
         let S = inputSize
         if q < S { return [Int(probeCentreOnAxis.rounded(.toNearestOrEven)) - S / 2] }

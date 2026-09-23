@@ -3,17 +3,14 @@
 //  Role: the ACOM (orientation mapping) orchestration — reciprocal-pixel
 //        calibration from a known crystal, orientation-plan generation, the
 //        match run, and the one publish site for every ACOM display mode.
-//        Moved verbatim out of AppState.swift on 2026-09-18 (seam 2,
-//        docs/archive/v4/appstate-seams-plan.md): a placement change, no logic touched.
-//        The 15(ish) `acom*` properties these functions read moved into
-//        `Session/ACOMSession.swift` in the same seam — call sites here are
-//        renamed to the owner prefix (`acomSession.modelSelectionIssue`,
-//        `.scanSelection(...)`, `.effectiveBackend`,
-//        `.effectiveReliabilityThreshold`, `.lastMeasuredTemplateCount`,
-//        `.lastMeasuredBackend`) but otherwise unchanged; everything that
-//        stayed an AppState computed property (`resolvedACOMModel`,
-//        `acomScaleSemantics`, `acomModelSelectionIssue`'s callers already
-//        renamed above) keeps its pre-seam name.
+//        The 15(ish) `acom*` properties these functions read live in
+//        `Session/ACOMSession.swift` (see docs/archive/v4/appstate-seams-plan.md,
+//        seam 2) — call sites here use the owner prefix
+//        (`acomSession.modelSelectionIssue`, `.scanSelection(...)`,
+//        `.effectiveBackend`, `.effectiveReliabilityThreshold`,
+//        `.lastMeasuredTemplateCount`, `.lastMeasuredBackend`); properties
+//        that stayed on AppState (`resolvedACOMModel`, `acomScaleSemantics`)
+//        keep their own names.
 //
 
 import Foundation
@@ -56,13 +53,12 @@ extension AppState {
             presentComputeFailure(SimpleError("Detect Bragg disks before calibrating reciprocal pixels."))
             return
         }
-        // v2 S13: the STRICTER of the two predicates. It still runs before the
-        // model guard for the reason the old comment gives — naming the origin
-        // first is more useful than re-detecting disks against a bad one — but
-        // it now needs the descriptor, so the dataset guard moved above it.
-        // What it adds over `originQuantitativeRefusal` is the second
-        // requirement from the design's §2: the origin must be a MEASURED beam
-        // centre. That is S11's worst finding closed structurally.
+        // The STRICTER of the two predicates — runs before the model guard
+        // because naming the origin first is more useful than re-detecting
+        // disks against a bad one, and needs the descriptor, so the dataset
+        // guard sits above it. What it adds over `originQuantitativeRefusal`
+        // is the design's §2 second requirement: the origin must be a
+        // MEASURED beam centre (S11's finding, closed structurally).
         if let refusal = gates.reciprocalMetrologyRefusal(
             for: calibrationSession.calibration, descriptor: descriptor,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
@@ -85,9 +81,9 @@ extension AppState {
             // symmetry equivalent separately, all at the same |g|, so the
             // "second shell" is the first length that DIFFERS — not
             // `reflections[1]`, which is another equivalent of the first.
-            // Measured consequence of getting this wrong (S13 E1): the
-            // self-check reads 1.020 on healthy sim_Au against an expected
-            // 1.155 and fires on good data.
+            // Getting this wrong makes the self-check read 1.020 on healthy
+            // sim_Au against an expected 1.155 and fire on good data
+            // (measured, S13 E1).
             let lengths = model.crystal.reflections(kMax: 2.5).map(\.gLength)
             var shells: [Double] = []
             for length in lengths where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
@@ -109,11 +105,10 @@ extension AppState {
             presentComputeFailure(SimpleError(reason))
             return
         }
-        // The estimator MEASURES a shell ratio and refuses nothing. v2 S13
-        // shipped three plausibility thresholds here and Gate B refuted the
-        // derivation of all three the same day (see `KnownCrystalQCalibration`
-        // for what went wrong and what a later session needs). What survived is
-        // the measurement, which `qCalibration.selfCheckSummary` surfaces.
+        // The estimator MEASURES a shell ratio and refuses nothing — plausibility
+        // thresholds here were tried and their derivation refuted by Gate B
+        // (see `KnownCrystalQCalibration` for what went wrong). What survives
+        // is the measurement, which `qCalibration.selfCheckSummary` surfaces.
         qCalibration.record(estimate)
         calibrationSession.calibration.qPixelSize = estimate.invAngstromPerPixel
         calibrationSession.calibration.qPixelUnits = "Å⁻¹"
@@ -190,7 +185,7 @@ extension AppState {
 
     /// Match the chosen preview, selected region, or full scan against the
     /// plan (needs a prior disk-detection pass; builds the plan first if needed).
-    /// Returns the typed run verdict — see `runVirtualDetector`'s note. // v2 S6
+    /// Returns the typed run verdict — see `runVirtualDetector`'s note.
     @discardableResult
     func runACOM(replaying: Bool = false) async -> AnalysisRunOutcome {
         let actionStarted = Date()
@@ -288,15 +283,15 @@ extension AppState {
         }
         acomSession.orientationMap = map
         acomSession.hasOrientationMap = true
-        // Recipe step (v2 S5). Everything from the CAPTURED run semantics,
-        // nothing from live state: the first version recorded the exploratory
-        // slider even when the run matched at the calibrated physical scale —
-        // a replay at 0.01 Å⁻¹/px instead of the calibrated value gets every
-        // orientation wrong with no shape check to catch it (Gate B-lite F3).
-        // The material is recorded by ID: a replay that cannot resolve it
-        // must fail by name, never fall back to a different crystal.
-        // The custom id carries structure and Z but not a₀; the record also
-        // carries lattice_a so replay can refuse a drifted a₀ by name.
+        // Recipe step. Everything recorded comes from the CAPTURED run
+        // semantics, never live state: recording the live exploratory slider
+        // instead would let a replay run at e.g. 0.01 Å⁻¹/px instead of the
+        // calibrated value and get every orientation wrong with no shape
+        // check to catch it (Gate B-lite F3). The material is recorded by
+        // ID: a replay that cannot resolve it must fail by name, never fall
+        // back to a different crystal. The custom id carries structure and Z
+        // but not a₀; the record also carries lattice_a so replay can refuse
+        // a drifted a₀ by name.
         recordReplayStep(kind: "acom",
                          parameters: ReplayStepPlan.ACOMReplayPlan.recordedParameters(
                              model: model, scale: scale, backend: map.matchingBackend.rawValue,
@@ -320,10 +315,10 @@ extension AppState {
             runSemantics.scale.provenance.displayName,
             workCount.formatted(), elapsed
         )
-        // R17 (owner, 2026-09-01): a landed preview's natural next step is
-        // the full map, so the scope — and with it the header's primary
-        // action — advances to it. The segmented control shows the change,
-        // and the user can step back to Preview at any time.
+        // A landed preview's natural next step is the full map, so the scope
+        // — and with it the header's primary action — advances to it (R17,
+        // owner decision). The segmented control shows the change, and the
+        // user can step back to Preview at any time.
         if scope == .preview { acomSession.scope = .fullScan }
         return .published
     }

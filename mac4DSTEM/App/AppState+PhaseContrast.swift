@@ -3,10 +3,8 @@
 //  Role: the Parallax and single-slice ptychography orchestration —
 //        preview, per-level alignment, aberration fit, BF upsampling, depth
 //        sections, phase correction, product selection.
-//        Moved verbatim out of AppState.swift on 2026-09-18 (the audit's
-//        refactor row 5, one AppState seam per session): a placement change,
-//        no logic touched; the only edits are `private` → internal on the
-//        members the other file still reaches.
+//        A placement seam out of `AppState.swift`: no logic touched, only
+//        `private` → internal on the members another file still reaches.
 //
 
 import Foundation
@@ -61,7 +59,7 @@ extension AppState {
                   !token.isCancelled else { return }
             phaseContrast.parallaxPreprocess = result
             phaseContrast.parallaxAlignment = nil
-            showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
+            showParallaxProduct(.preprocess)   // one publish site
             resultPresentation.resultGamma = 1
             resultPresentation.displayRangeLo = 0
             resultPresentation.displayRangeHi = 1
@@ -140,7 +138,7 @@ extension AppState {
             guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxAlignment = result
-            showParallaxProduct(.alignment)   // v2.5 step 3e: one publish site
+            showParallaxProduct(.alignment)   // one publish site
             resultPresentation.resultGamma = 1
             resultPresentation.displayRangeLo = 0
             resultPresentation.displayRangeHi = 1
@@ -166,7 +164,7 @@ extension AppState {
     func resetParallaxAlignment() {
         guard !isBusy, phaseContrast.parallaxPreprocess != nil else { return }
         phaseContrast.parallaxAlignment = nil
-        showParallaxProduct(.preprocess)   // v2.5 step 3e: one publish site
+        showParallaxProduct(.preprocess)   // one publish site
         resultPresentation.resultGamma = 1
         resultPresentation.displayRangeLo = 0
         resultPresentation.displayRangeHi = 1
@@ -238,7 +236,7 @@ extension AppState {
             guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxSubpixel = result
-            showParallaxProduct(.subpixel)   // v2.5 step 3e: one publish site
+            showParallaxProduct(.subpixel)   // one publish site
             resultPresentation.resultGamma = 1
             resultPresentation.displayRangeLo = 0
             resultPresentation.displayRangeHi = 1
@@ -427,7 +425,7 @@ extension AppState {
     }
 
     /// The one publish site for every parallax and ptychography product: the
-    /// image and its label are chosen together (v2.5 step 3e, condition 2).
+    /// image and its label are chosen together.
     func showParallaxProduct(_ product: ParallaxResultProduct) {
         let image: FloatImage?
         let kind: String, name: String, units: String
@@ -505,7 +503,7 @@ extension AppState {
             guard isCurrentOperation(token), datasetSession.epoch == epoch,
                   !token.isCancelled else { return }
             phaseContrast.parallaxCorrection = result
-            showParallaxProduct(.correctedPhase)   // v2.5 step 3e: one publish site
+            showParallaxProduct(.correctedPhase)   // one publish site
             resultPresentation.resultGamma = 1
             resultPresentation.displayRangeLo = 0
             resultPresentation.displayRangeHi = 1

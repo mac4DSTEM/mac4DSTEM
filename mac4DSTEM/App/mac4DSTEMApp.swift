@@ -69,13 +69,12 @@ private struct DatasetWindow: View {
             .environment(recents)
             .preferredColorScheme(preferences.appearance.colorScheme)
         .focusedSceneValue(\.appState, appState)
-        // Info.plist has declared CFBundleDocumentTypes since 2026-09-09, which
-        // put mac4DSTEM in Finder's "Open With" — but nothing received the URL,
-        // so a double-click launched the app to an empty window. This is the
-        // handler that declaration always needed. `openFile` refuses a second
-        // load while one is in flight, so a double-click during a load is
-        // declined with a reason rather than reaching HDF5 twice.
-        // UNVERIFIED ON SCREEN: added 2026-09-11, not yet driven from Finder.
+        // Info.plist declares CFBundleDocumentTypes, which puts mac4DSTEM in
+        // Finder's "Open With" — this is the handler that requires.
+        // `openFile` refuses a second load while one is in flight, so a
+        // double-click during a load is declined with a reason rather than
+        // reaching HDF5 twice.
+        // UNVERIFIED ON SCREEN: not yet driven from Finder.
         .onOpenURL { appState.openFile(url: $0) }
         .frame(minWidth: LayoutPolicy.datasetWindowMinimumSize.width,
                minHeight: LayoutPolicy.datasetWindowMinimumSize.height)
@@ -106,7 +105,7 @@ private struct DatasetCommands: Commands {
             // cheap half of that defect — it removes the advertised gesture
             // that reaches it fastest, and does not make concurrent HDF5 safe.
             // The real fix is a single actor owning the library handle
-            // (`docs/open-items.md`, 2026-09-11).
+            // (`docs/open-items.md`).
             Button("New Dataset Window") { openWindow(id: "dataset") }
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(appState?.datasetSession.isLoading ?? false)
@@ -131,10 +130,9 @@ private struct DatasetCommands: Commands {
         }
         CommandGroup(replacing: .sidebar) {
             // Labels follow what is on screen. No enablement check against a
-            // width budget anymore (`WindowAnatomyPolicy` retired 2026-09-22):
-            // the dataset window's own minimum width is now derived to fit
-            // both panels open, so a menu item never asks for a panel the
-            // window cannot show.
+            // width budget: the dataset window's own minimum width is
+            // derived to fit both panels open, so a menu item never asks for
+            // a panel the window cannot show.
             Button(appState?.navigation.navigatorIsVisible == true ? "Hide Tools" : "Show Tools") {
                 appState?.navigation.showToolsPane.toggle()
             }
@@ -198,9 +196,8 @@ private struct DatasetCommands: Commands {
             workspaceCommand(.map, key: "3")
             workspaceCommand(.reconstruct, key: "4")
             workspaceCommand(.aiAnalysis, key: "5")
-            // Results moves to 6. The owner accepted this when he chose the
-            // sixth room (docs/decisions.md, 2026-09-11): the rooms are ordered
-            // by the pipeline, and Results is last.
+            // Results is 6: the rooms are ordered by the pipeline, and
+            // Results is last (owner decision, docs/decisions.md).
             workspaceCommand(.results, key: "6")
         }
     }
@@ -223,8 +220,7 @@ struct mac4DSTEMApp: App {
     // the Settings scene — `UserDefaults` would make a second instance read
     // the same values, but only this one is `@Observable`-linked to what
     // Settings edits live (`DatasetWindow.init`'s doc explains why that
-    // matters). Session S21, `ROADMAP.md` "Settings window, Xcode-style
-    // sidebar".
+    // matters). See `ROADMAP.md` "Settings window, Xcode-style sidebar".
     @State private var preferences = AppPreferences()
     @State private var recents = RecentDatasets()
 
@@ -237,10 +233,9 @@ struct mac4DSTEMApp: App {
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
             .commands { DatasetCommands() }
-        // Session S5 opened this as one `Form` section; S21 grew it into a
-        // sidebared `NavigationSplitView` (`UI/SettingsWindow.swift`), whose
-        // Materials Project section is that original view, moved rather than
-        // rewritten (see its own header).
+        // `UI/SettingsWindow.swift`'s sidebared `NavigationSplitView` hosts
+        // this; its Materials Project section is the original `Form`
+        // section, moved rather than rewritten (see its own header).
         Settings {
             SettingsWindow()
                 .environment(preferences)

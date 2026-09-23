@@ -309,8 +309,7 @@ package enum DPC {
         let ny = height * factor
         guard let fft = FFT2D(nx: nx, ny: ny) else {
             // Never disguise an integration failure as a scientifically
-            // different magnitude image — and (v2 S7) never as a zero one
-            // either, which is what this branch used to return.
+            // different magnitude image — and never as a zero one either.
             throw IDPCError.fftUnavailable(nx: nx, ny: ny)
         }
 

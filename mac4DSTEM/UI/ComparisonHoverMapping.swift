@@ -4,12 +4,10 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// ui-06 (S22e): the comparison panes draw aspect-fit (letterboxed) and then
-/// centre-zoomed, but the hover readout divided the raw pointer by the full
-/// pane size — so any pane whose aspect differed from its product read a
-/// systematically wrong source pixel, and the shared cursor made BOTH panels
-/// agree on the same wrong coordinate. This is the exact inverse of the draw
-/// transform, in one pure function so it can be pinned headlessly.
+/// Inverts the comparison panes' draw transform (aspect-fit, then
+/// centre-zoom) to map a pane-space pointer back to the source pixel it
+/// hovers. Kept as one pure function, separate from the draw code, so the
+/// mapping can be pinned in a headless test (ui-06).
 enum ComparisonHoverMapping {
     /// Maps a pointer in pane coordinates to the source pixel it hovers,
     /// or nil when the pointer is over letterbox rather than image.

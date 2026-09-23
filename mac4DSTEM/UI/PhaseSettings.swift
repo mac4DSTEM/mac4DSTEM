@@ -6,26 +6,17 @@ import DSTEMSession
 
 /// The Reconstruct workspace's controls, as the inspector's **Settings** tab
 /// renders them: a sequence of `InspectorSection`s the caller places inside
-/// its own scroll container.
+/// its own scroll container. Presentation only — every number, unit, gate,
+/// refusal string and staleness note reads directly from `AppState`; nothing
+/// is re-decided here. The three tasks of `WorkspaceArea.reconstruct` each
+/// own their own sections — DPC & iDPC, single-slice ptychography, and the
+/// four-stage parallax pipeline.
 ///
-/// Migrated from `UI/PhaseSidebar.swift`. Nothing scientific is re-decided
-/// here: every number, unit, gate, refusal string and staleness note reads
-/// the same `AppState` property and uses the same wording it did before. The
-/// three tasks of `WorkspaceArea.reconstruct` each own their own sections —
-/// DPC & iDPC, single-slice ptychography, and the four-stage parallax
-/// pipeline — exactly as they did.
-///
-/// Two presentation rules of UI change how the old file *looked*, never what
-/// it decided:
-///
-/// - The old "Pattern" section appeared only while the diffraction pane was
-///   the *active* one. UI has no pane focus model, and both panes are on
-///   screen at once, so the offer is gated on the statistics being absent and
-///   nothing else.
-/// - A pending parallax stage used to render no controls at all. Here every
-///   stage is visible and its controls carry the same `disabled` conditions
-///   the old file already gave them, so the order still explains itself
-///   without a stage ever becoming operable early.
+/// The "Pattern" section is gated on the statistics being absent, not on
+/// pane focus — UI has no pane focus model, and both panes are on screen at
+/// once. Every parallax stage stays visible even while pending, with
+/// `disabled` conditions on its controls, so the order explains itself
+/// without a stage ever becoming operable early.
 struct PhaseSettings: View {
     @Environment(AppState.self) private var appState
 
@@ -36,7 +27,7 @@ struct PhaseSettings: View {
                 PatternStatisticsSection()   // DPC works from the live CBED
                 DPCSettingsSection()
             case .singleslicePtychography:
-                // v2.5 step 7a: its own task, no parallax stage in front of it.
+                // Its own task, no parallax stage in front of it.
                 SingleslicePtychographySection()
             case .ptychography:
                 ParallaxStageSections()
@@ -267,15 +258,13 @@ private struct SingleslicePtychographySection: View {
 /// `computeParallaxDepthSections()`) — matching the two content blocks stage
 /// 4's own body shows (below).
 ///
-/// Gate D, 2026-09-22: this used to also read `singleslicePtychography !=
-/// nil`, a copy-paste survivor from the 2026-09-04 SwiftUI rewrite
-/// (`345c7c7`) that has nothing to do with parallax — single-slice
+/// Gate D: this used to also read `singleslicePtychography != nil`, a
+/// copy-paste survivor with nothing to do with parallax — single-slice
 /// ptychography is a wholly independent task of `WorkspaceArea.reconstruct`
 /// (`SingleslicePtychographySection`, above), with its own run method
 /// (`runSingleslicePtychography()`) and result type. Running it alone, with
 /// zero parallax stages ever run, made this stage's checkmark and
-/// accessibility value read "Complete". Presentation-only — traced
-/// `currentStage`'s one caller of this value and confirmed stage 4 is
+/// accessibility value read "Complete". Presentation-only: stage 4 is
 /// already `active` (and so already enabled) in every case where its own
 /// `complete` flag would otherwise matter, so no gate on what Core computes
 /// depended on this; `ParallaxStage4CompletenessTests` pins both products.
@@ -283,7 +272,7 @@ func parallaxStage4IsComplete(_ phaseContrast: PhaseContrastProduct) -> Bool {
     phaseContrast.parallaxSubpixel != nil || phaseContrast.parallaxDepth != nil
 }
 
-/// Backlog #39, v2.5 step 7a. The four stages of the staged bright-field
+/// Backlog #39. The four stages of the staged bright-field
 /// reconstruction, one `InspectorSection` each, carrying a status glyph
 /// (the same ✓/number glyph the old progress block drew) as the section's
 /// first element, and the controls for that stage as its rows. A completed
@@ -313,11 +302,11 @@ private struct ParallaxStageSections: View {
                 ) {
                     Task { await appState.prepareParallaxPreview() }
                 }
-                // C4(a): was `appState.isBusy` only — this entry point bypassed
-                // the same five-calibration gate the toolbar asks for
-                // `.ptychography` (§4 finding 2); every later stage guards on the
-                // previous stage's own in-memory product, which cannot exist
-                // unless this one already ran with calibration satisfied.
+                // C4(a): this entry point could bypass the same
+                // five-calibration gate the toolbar asks for `.ptychography`;
+                // every later stage guards on the previous stage's own
+                // in-memory product, which cannot exist unless this one
+                // already ran with calibration satisfied.
                 .disabled(!ProductWorkflow.mayRun(
                     .ptychography, readiness: appState.productWorkflowReadiness, isBusy: appState.isBusy
                 ))
@@ -537,9 +526,9 @@ private struct ParallaxStageSections: View {
         // alignment, `computeParallaxDepthSections()` only on the
         // higher-order fit, so Core would happily run stage 4 before Correct
         // Phase), and a collapsed, unemphasized, unmarked section would lose
-        // the one place that order is explained. The old sidebar enforced it
-        // by rendering nothing for a pending stage; UI shows every stage and
-        // disables it instead, which is no looser.
+        // the one place that order is explained. Showing every stage and
+        // disabling it, rather than rendering nothing for a pending one, is
+        // no looser — the constraint is enforced the same way, just visibly.
         InspectorSection(
             title,
             icon: Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle"),
@@ -667,7 +656,7 @@ private struct ParallaxRunDetailsSection: View {
                 }
             }
         } else {
-            // R27 (owner, 2026-09-01): stateful and SPECIFIC. The generic
+            // R27 (owner decision): stateful and SPECIFIC. The generic
             // orange sentence sat under a green "Core calibrated" badge and
             // read as a false alarm — while the actual gap (ptychography also
             // needs the R scale and voltage, beyond "core") stayed invisible.
@@ -752,8 +741,7 @@ private struct ParallaxAlignmentDetails: View {
     }
 }
 
-/// The higher-order fit, the correction and the KDE reconstruction — the
-/// rows the old file nested three deep inside the aberration-fit branch.
+/// The higher-order fit, the correction and the KDE reconstruction.
 private struct ParallaxFitDetails: View {
     @Environment(AppState.self) private var appState
 

@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// The inspector's row vocabulary — one kit for every room (owner rule,
-/// 2026-09-22): a layout fix belongs here, never hand-rolled in a room file.
+/// The inspector's row vocabulary — one kit for every room (owner rule): a
+/// layout fix belongs here, never hand-rolled in a room file.
 ///
-/// Built to Apple's own inspector guidance, re-read 2026-09-22 night after
-/// the card version failed the owner's look: a `Form` "renders as a vertical
+/// Built to Apple's own inspector guidance: a `Form` "renders as a vertical
 /// stack" on macOS, not boxed cards, so sections are flat — a title with a
 /// LEADING disclosure triangle (HIG, Disclosure controls), rows, a hairline;
 /// status colour lives on symbols, text stays in the system label colours
@@ -222,10 +221,10 @@ struct InspectorRow<Content: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             // One line, never compressed: with the control given priority
-            // the label was squeezed to one character a line ("Pr / es /
-            // et", owner's drive 2026-09-22). Labels are short by design;
-            // the control adapts instead (`ViewThatFits`, compressing
-            // pickers).
+            // the label wrapped to one character per line ("Pr / es / et")
+            // when this shared a fixed width with the control. Labels are
+            // short by design; the control adapts instead (`ViewThatFits`,
+            // compressing pickers).
             Text(label)
                 .fontWeight(emphasized ? .semibold : .regular)
                 .fixedSize()
@@ -312,8 +311,8 @@ struct AdjustmentSlider: View {
     var body: some View {
         // Two lines, as Photos' Adjust panel does: label left and the
         // value at the edge (the one alignment rule), the slider below at
-        // full width. A slider beside a fixed label column was squeezed to
-        // ~40 pt in a 280-pt popover (2026-09-22 night).
+        // full width. A slider beside a fixed label column squeezed to
+        // ~40 pt in a 280-pt popover.
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 labelView

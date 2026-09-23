@@ -1,13 +1,12 @@
 //
 //  OperationCenter.swift
-//  v2.5 step 5b (2026-09-03): the one owner of "is something running, how far,
-//  can it be cancelled" — the busy flag and progress that AppState used to
-//  keep beside AnalysisOperationController, plus the controller itself. Every
-//  way an operation ends (finish, cancel, reset on dataset change) goes
-//  through here, so `isBusy` can no longer be left stale by a bare reset
-//  (plan §10c). AppState forwards `isBusy`/`progress` and keeps `statusText`,
-//  whose didSet now feeds `ActivityLog` (the log itself moved off AppState,
-//  2026-09-04).
+//  The one owner of "is something running, how far, can it be cancelled" —
+//  the busy flag and progress that AppState used to keep beside
+//  AnalysisOperationController, plus the controller itself. Every way an
+//  operation ends (finish, cancel, reset on dataset change) goes through
+//  here, so `isBusy` can no longer be left stale by a bare reset. AppState
+//  forwards `isBusy`/`progress` and keeps `statusText`, whose didSet feeds
+//  `ActivityLog`.
 //
 
 import Foundation
@@ -23,7 +22,7 @@ package final class OperationCenter {
     /// are two different call paths, but both land here, so a `didSet` on
     /// THIS property, not on either caller, is the one true run-start/run-end
     /// seam. Settings' "Keep the Mac awake during long runs" hangs off it
-    /// for exactly that reason (session S21, ROADMAP.md "Settings window").
+    /// for exactly that reason (`ROADMAP.md` "Settings window").
     package private(set) var isBusy = false {
         didSet {
             guard oldValue != isBusy else { return }

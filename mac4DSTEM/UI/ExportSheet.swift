@@ -5,16 +5,11 @@
 //        destructive reduction is visible in the output preview before the
 //        save panel appears.
 //
-//  The migration of `UI/PreprocessingExportSheet` (and, for its readiness
-//  block, `UI/CalibrationReadinessView`) into UI. Every number, every unit,
-//  every provenance word, the uncalibrated-export warning and its wording, and
-//  every accessibility identifier are carried over unchanged.
-//
-//  WHY THE READINESS ROWS' CONTAINER IS RE-AUTHORED HERE rather than shared
-//  with `PrepareSettings`: a settings view's body is a bare set of `Section`s
-//  belonging to the inspector, and this sheet needs the same *data* in its own
-//  `Form`. The row bodies themselves are `CalibrationReadinessRow` (hygiene
-//  audit row 1, 2026-09-16) — one spelling shared by both hosts — and the
+//  The readiness rows' container is re-authored here rather than shared with
+//  `PrepareSettings`: a settings view's body is a bare set of `Section`s
+//  belonging to the inspector, and this sheet needs the same *data* in its
+//  own `Form`. The row bodies themselves are `CalibrationReadinessRow`
+//  (hygiene audit row 1) — one spelling shared by both hosts — and the
 //  filename-conflict parser and manual-editor visibility policy are shared
 //  too, as pure statics, so only the container differs between the two.
 //
@@ -130,7 +125,7 @@ struct ExportSheet: View {
                 ForEach(readiness.items) { item in
                     readinessRow(item)
                 }
-                // v2.5 step 4b: the same verdict the dataset card shows.
+                // The same verdict the dataset card shows.
                 let verdict = appState.calibrationSession.verdict
                 Label(verdict.summary,
                       systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
@@ -224,10 +219,9 @@ struct ExportSheet: View {
     // MARK: - Readiness rows
 
     /// One calibration's readiness row — shared with `PrepareSettings` as
-    /// `CalibrationReadinessRow.row` (hygiene audit row 1 follow-up,
-    /// 2026-09-22: this copy had silently dropped the "fit anyway" orange
-    /// warning `PrepareSettings`'s copy carried; sharing the row fixes it
-    /// here too rather than patching the duplicate).
+    /// `CalibrationReadinessRow.row` (hygiene audit row 1 follow-up): a
+    /// duplicate copy here had silently dropped the "fit anyway" orange
+    /// warning; sharing the row prevents that drift from recurring.
     @ViewBuilder
     private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
         CalibrationReadinessRow.row(

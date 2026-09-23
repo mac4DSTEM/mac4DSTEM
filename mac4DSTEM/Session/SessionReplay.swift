@@ -4,9 +4,9 @@
 //        analyses as they run, adopted from the sidecar on restore, handed to
 //        the writer on every save.
 //
-//  This is v2 S5's `AppState` seam (docs/archive/development-process-2026-08-31.md §7): the state
-//  the stage ADDS, in its own `@Observable` type that `AppState` holds — the
-//  `DatasetResidency` / `PendingLoad` precedent, no forwarding properties.
+//  An `AppState` seam (docs/archive/development-process-2026-08-31.md §7): the state
+//  this stage adds lives in its own `@Observable` type that `AppState` holds —
+//  the `DatasetResidency` / `PendingLoad` precedent, no forwarding properties.
 //  The serialized format lives in `Core/Data/SessionReplayRecord.swift`; this
 //  type owns the session-lifetime mutations and nothing else.
 //
@@ -19,7 +19,7 @@ import DSTEMCore
 @Observable
 package final class SessionReplay {
 
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2c
+    // Explicit so the default initializer is `package` (synthesized ones are internal).
     package nonisolated init() {}
 
     /// The recipe as currently known. Starts empty; `adopt` replaces it with
@@ -30,7 +30,7 @@ package final class SessionReplay {
     /// state, never serialized (the sidecar's load specification carries the
     /// frame for a restored recipe; this tracks it once adopted, and merges to
     /// `.mixed` if steps are later recorded under a different one). Nil while
-    /// the record is empty. Consulted once, by S6's replay executor. // v2 S6
+    /// the record is empty. Consulted once, by the replay executor.
     package private(set) var parameterFrame: ReplayParameterFrame?
 
     /// What a save should carry. **Nil when empty** — writing an empty record
@@ -53,7 +53,7 @@ package final class SessionReplay {
         // A first step sets the frame; later steps merge — two different
         // detector frames in one record is `.mixed`, permanently, and the
         // replay refuses detector-frame steps rather than guessing which
-        // frame each number meant. // v2 S6
+        // frame each number meant.
         parameterFrame = wasEmpty ? frame : parameterFrame?.merging(frame) ?? frame
     }
 
@@ -63,7 +63,7 @@ package final class SessionReplay {
     /// recorded recipe in the file) leaves the current record alone —
     /// absence is absence. `recordedOn` is the frame the restored record's
     /// parameters are expressed in — the sidecar's own load specification,
-    /// or a captured pre-promote frame on the promote path. // v2 S6
+    /// or a captured pre-promote frame on the promote path.
     package func adopt(_ restored: SessionReplayRecord?, recordedOn frame: ReplayParameterFrame?) {
         guard let restored else { return }
         record = restored

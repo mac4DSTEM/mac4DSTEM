@@ -1,9 +1,9 @@
 //
 //  LearnedDiskDetection.swift
 //  Role: The learned candidate stage's disagreement diagnostics (position-
-//        matched, C7 session 3) and its
-//        full-scan streaming orchestration (Core ML, the macOS 14 floor —
-//        C7 2026-09-08; docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), step 4 slice 2).
+//        matched) and its
+//        full-scan streaming orchestration (Core ML, the macOS 14 floor;
+//        docs/archive/v3/learned-detector-preregistration-2026-09-07.md (was docs/v3-plan.md §3a), step 4 slice 2).
 //
 
 import Foundation
@@ -12,18 +12,18 @@ import Metal
 // MARK: - Disagreement diagnostics (no availability gate: pure Swift over BraggVectors)
 
 /// Where the classical and learned detectors disagree at each scan position,
-/// peak against peak (v3-plan §3a; C7 session 3, 2026-09-08). The two peak
+/// peak against peak (v3-plan §3a, 2026-09-08). The two peak
 /// lists at a position are paired greedily by distance within `matchRadius`
 /// — closest pair first, each peak used once — and whatever is left unpaired
 /// on either side is the disagreement. Two lists of equal length at different
-/// positions therefore no longer pass as agreement, which the count-only
-/// first cut of sessions 1–2 (`countDifferenceMap`, deleted) let through.
+/// positions therefore no longer pass as agreement, which an earlier
+/// count-only cut (`countDifferenceMap`, deleted) let through.
 package nonisolated enum DiskDisagreement {
 
     /// The pairing distance in detector pixels. C6's evaluation matched a
     /// prediction to a labelled centre within 2 px (`evaluate.py`), and both
     /// detectors here end in the same classical refinement, so a shared disk
-    /// lands well inside it. A session-3 choice, recorded in `decisions.md`.
+    /// lands well inside it. Recorded in `decisions.md`.
     package static let defaultMatchRadius: Float = 2
 
     /// Aggregate statistics over one position-matched map.

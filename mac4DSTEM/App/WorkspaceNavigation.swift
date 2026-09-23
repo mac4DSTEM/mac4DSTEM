@@ -4,15 +4,15 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The navigation/selection seam (S22c; `docs/archive/development-process-2026-08-31.md` §7 —
-/// one seam per stage, extracted at a green boundary). Owns which workspace
-/// and task the user is in and which panes are visible: pure view-state, no
-/// science. `AppState` holds it as `navigation` without forwarding
-/// properties — the same contract `StrainProductTests` pins for `strain`.
+/// The navigation/selection seam (S22c; `docs/archive/development-process-2026-08-31.md` §7).
+/// Owns which workspace and task the user is in and which panes are
+/// visible: pure view-state, no science. `AppState` holds it as
+/// `navigation` without forwarding properties — the same contract
+/// `StrainProductTests` pins for `strain`.
 ///
-/// Orchestration deliberately stays on `AppState` (`selectWorkspace`,
-/// `changeMode`): switching tasks touches result bookkeeping and recovery,
-/// which are AppState's to coordinate. This type only stores the answer.
+/// Orchestration stays on `AppState` (`selectWorkspace`, `changeMode`):
+/// switching tasks touches result bookkeeping and recovery, which are
+/// AppState's to coordinate. This type only stores the answer.
 @Observable
 final class WorkspaceNavigation {
     var workspaceArea: WorkspaceArea = .prepare
@@ -57,15 +57,14 @@ final class WorkspaceNavigation {
         set {
             processFraction = newValue ? lastProcessFraction : 0
             // Opening the area with no pane shown shows Output — an open,
-            // empty area is not a state (owner, 2026-09-22 late, §9.3).
+            // empty area is not a valid state (owner decision).
             if newValue, !showsOutputPane, !showsLineagePane { showsOutputPane = true }
         }
     }
 
-    /// The process area's two panes, Xcode's debug area (owner, 2026-09-22
-    /// late, §9.3): Output on the left, Lineage on the right, each with its
-    /// own toggle at the infobar's right end. Not persisted, like the tab
-    /// they replace.
+    /// The process area's two panes, modeled on Xcode's debug area: Output
+    /// on the left, Lineage on the right, each with its own toggle at the
+    /// infobar's right end. Not persisted, like the tab they replace.
     var showsOutputPane = true
     var showsLineagePane = false
 
@@ -87,12 +86,11 @@ final class WorkspaceNavigation {
     }
 
     /// The user's INTENT for each side panel — what the toggles, the menu
-    /// items and the scene storage read and write, and (2026-09-22) what is
-    /// on screen: `LayoutPolicy.datasetWindowMinimumSize` is now derived from
-    /// the same ideal columns and science floor a narrow window used to
-    /// collapse a panel against (`WindowAnatomyPolicy`, retired), so a window
-    /// that exists at all already fits both panels open. Nothing measures
-    /// the window to decide visibility anymore.
+    /// items and the scene storage read and write, and also what is on
+    /// screen: `LayoutPolicy.datasetWindowMinimumSize` derives from the same
+    /// ideal columns and science floor, so any window that exists already
+    /// fits both panels open. Nothing measures the window to decide
+    /// visibility.
     var showToolsPane = true
     var showInspectorPane = false
 

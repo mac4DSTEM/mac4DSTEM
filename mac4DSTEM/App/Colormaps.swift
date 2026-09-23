@@ -92,9 +92,9 @@ private extension Double {
 }
 
 extension Colormaps {
-    /// D3 (owner decision, 2026-09-01): small gradient swatches for the
-    /// colorbar-chip menu, built once per colormap from the same LUT the
-    /// renderer uses — the menu shows the actual mapping, not a name.
+    /// D3 (owner decision): small gradient swatches for the colorbar-chip
+    /// menu, built once per colormap from the same LUT the renderer uses —
+    /// the menu shows the actual mapping, not a name.
     @MainActor private static var swatchCache: [ColormapKind: NSImage] = [:]
 
     @MainActor static func swatch(_ kind: ColormapKind) -> NSImage {

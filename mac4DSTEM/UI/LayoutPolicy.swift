@@ -93,18 +93,17 @@ enum LayoutPolicy {
     /// column, not by this.
     static let thumbnailMaximumHeight: CGFloat = 320
 
-    // Bottom workspace + status strip + inspector vocabulary (ADR 034, owner
-    // 2026-09-21): the inspector holds durable state, the bottom pane live
-    // state. Every fixed point in that surface is named here.
+    // Bottom workspace + status strip + inspector vocabulary (ADR 034): the
+    // inspector holds durable state, the bottom pane live state. Every
+    // fixed point in that surface is named here.
 
     /// The header row of each process pane (Output · Lineage).
     static let bottomTabBarHeight: CGFloat = 26
 
     /// The permanent status strip — the infobar. Phase 1 (docs/archive/v4/window-design.md
-    /// §4–§6) made this row the centre column's own divider. 22 → 28 pt on
-    /// 2026-09-22 evening ("wider, like Xcode's"), and 34 pt the same night
-    /// when it took the Run tab's live numbers at 12-pt text with a Stop
-    /// button (§9.2, §9.3).
+    /// §4–§6) made this row the centre column's own divider. 34 pt is what
+    /// it takes to hold the Run tab's live numbers at 12-pt text with a
+    /// Stop button.
     static let statusStripHeight: CGFloat = 34
     static let infobarHorizontalPadding: CGFloat = 10
     static let infobarItemSpacing: CGFloat = 12
@@ -112,21 +111,19 @@ enum LayoutPolicy {
 
     /// The toolbar's centre display — Xcode's activity viewer: the file,
     /// the room and the scan size when idle; the running operation, its
-    /// bar and its elapsed/ETA when busy (owner, 2026-09-22 evening, §8.1;
-    /// the breadcrumb row it replaces is gone). A constant width, the
-    /// `operationReadoutWidth` rule: a ticking string never reflows the
-    /// toolbar (011). The maximum, not a fixed width (2026-09-22, macOS 27
-    /// drive): at a fixed 380 the display dropped out of a 1000-pt window and
-    /// the surviving actions jumped to the room's leading edge. It now
+    /// bar and its elapsed/ETA when busy (the breadcrumb row it replaces is
+    /// gone). A constant width, the `operationReadoutWidth` rule: a ticking
+    /// string never reflows the toolbar (011). The maximum, not a fixed
+    /// width: at a fixed 380 the display dropped out of a 1000-pt window
+    /// and the surviving actions jumped to the room's leading edge. It now
     /// shrinks, middle-truncating, when the WINDOW narrows; a ticking string
     /// still never changes it.
     static let toolbarDisplayWidth: CGFloat = 380
     /// The minimum of every compressible status slot (the toolbar display,
     /// the strip's run line and memory glance): a CONSTANT, so a ticking
-    /// string can never move a slot's minimum — the 2026-09-04
-    /// constraint-loop rule ("nothing inside a split may change its own
-    /// minimum", `open-items.md`). Without it, the minimum is the text's own
-    /// and ticks with it.
+    /// string can never move a slot's minimum — the constraint-loop rule
+    /// ("nothing inside a split may change its own minimum", `open-items.md`).
+    /// Without it, the minimum is the text's own and ticks with it.
     static let compressibleSlotMinimum: CGFloat = 0
     /// 140 + 2 × `toolbarDisplayPadding` = the 160-pt minimum item. The
     /// toolbar fits items by their IDEAL width (measured 2026-09-22): a
@@ -143,8 +140,8 @@ enum LayoutPolicy {
 
     /// The engine · memory · residency glance slot in the infobar — a
     /// constant width, like the metrics slot (011), so a changing figure
-    /// never reflows the strip. Widened 2026-09-22 late for the engine's
-    /// name ("Apple M3 Max · 1.4 GB · resident").
+    /// never reflows the strip. Sized to fit the engine's name
+    /// ("Apple M3 Max · 1.4 GB · resident").
     static let statusGlanceWidth: CGFloat = 250
 
     /// The live run's readout in the infobar — done / total · rate · elapsed
@@ -160,7 +157,7 @@ enum LayoutPolicy {
     static let inspectorSectionSpacing: CGFloat = 12
 
     /// The inspector's header row — the Settings · Info segmented control in
-    /// a row of its own (docs/archive/v4/window-design.md §6.3, 2026-09-22).
+    /// a row of its own (docs/archive/v4/window-design.md §6.3).
     static let inspectorHeaderVerticalPadding: CGFloat = 8
     /// The inspector's tab capsule (Xcode's inspector tab bar, with words):
     /// the inset of the segments inside the glass capsule, and a segment's
@@ -199,8 +196,8 @@ enum LayoutPolicy {
     /// An inline progress bar beside its status text.
     static let inlineProgressWidth: CGFloat = 110
 
-    // `progressPercentWidth` (36 pt) was here and is DELETED, 2026-09-12 —
-    // with the label it reserved. A numeric percentage beside a progress bar
+    // `progressPercentWidth` (36 pt) was here and is DELETED — with the
+    // label it reserved. A numeric percentage beside a progress bar
     // is the same fact drawn twice: `ProgressView` has no percentage API,
     // `NSProgressIndicator` has none, the HIG never asks for one, and this
     // app's own loading card a screen away already draws a determinate bar
@@ -210,8 +207,8 @@ enum LayoutPolicy {
     // (116) above, re-measured after throughput left the line.
 
     /// The grabbable width of a thin divider, centred on the drawn line. A
-    /// 1 pt zone put the drag on the focus ring (owner finding (c),
-    /// 2026-09-03); this is the same 9 pt the AppKit columns use.
+    /// 1 pt zone put the drag on the focus ring (owner finding (c)); this
+    /// is the same 9 pt the AppKit columns use.
     static let dividerGrabWidth: CGFloat = 9
 
     /// Largest box with `aspect` (width / height) that fits inside `size`.
@@ -226,7 +223,7 @@ enum LayoutPolicy {
 }
 
 /// Pure layout math for the centre column's process area (docs/archive/v4/window-design.md
-/// §4–§6, decided 2026-09-22, phase 1): the infobar is the column's own
+/// §4–§6, phase 1): the infobar is the column's own
 /// divider, draggable anywhere along its whole width from the column's
 /// bottom edge (process area hidden) to its top edge (canvas hidden) —
 /// Xcode's two extremes. Free of `@State`/`@Bindable` so it is tested
@@ -309,10 +306,9 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
 /// How a running operation's numbers are worded, in one place.
 ///
 /// The status bar and the inspector's Performance rows both print elapsed,
-/// throughput and ETA (owner, 2026-09-04: the numbers belong beside the
+/// throughput and ETA (owner decision: the numbers belong beside the
 /// progress bar, not only one tab away). Two copies of "53 s" versus "0:53"
-/// is exactly the drift this session spent its time removing, so both read
-/// from here.
+/// is exactly the drift this file exists to remove, so both read from here.
 enum OperationMetricsFormat {
     /// Seconds as "53 s" below a minute, "2:35" above it.
     ///
@@ -352,18 +348,18 @@ enum OperationMetricsFormat {
     /// absent rather than invented, because an invented ETA is a number the
     /// user will plan around.
     ///
-    /// **THROUGHPUT IS NOT HERE, from 2026-09-12, and that narrows a decision
-    /// the owner made on 2026-09-04** ("the numbers belong beside the progress
-    /// bar, not only one tab away", `decisions.md`). Three things forced it and
-    /// they are stated rather than assumed. Apple's own chrome carries no
-    /// units-per-second anywhere — that is Activity Monitor's register, and the
-    /// HIG asks only for "a description that provides additional context".
-    /// It is the longest token in the line by far: the widest string this
+    /// **THROUGHPUT IS NOT HERE** — this narrows an owner decision ("the
+    /// numbers belong beside the progress bar, not only one tab away",
+    /// `decisions.md`). Three things forced it and they are stated rather
+    /// than assumed. Apple's own chrome carries no units-per-second
+    /// anywhere — that is Activity Monitor's register, and the HIG asks
+    /// only for "a description that provides additional context". It is
+    /// the longest token in the line by far: the widest string this
     /// formatter could produce WITH it measured 180.9 pt, against 113.6
-    /// without, so it alone was most of a 190 pt reservation in a strip the
-    /// owner has now called cluttered. And it is derivable at a glance from
-    /// the bar and the elapsed time beside it, which the two numbers kept here
-    /// are not derivable from anything.
+    /// without, so it alone was most of a 190 pt reservation in a strip now
+    /// considered cluttered. And it is derivable at a glance from the bar
+    /// and the elapsed time beside it, which the two numbers kept here are
+    /// not derivable from anything.
     ///
     /// `for operation:` is KEPT although this function no longer reads it.
     /// `throughputUnit(for:)` is still the inspector's, and the three tests
@@ -379,10 +375,10 @@ enum OperationMetricsFormat {
         return parts.joined(separator: " · ")
     }
 
-    /// The infobar's live run, one line (owner, 2026-09-22 late: the Run
-    /// tab's numbers belong in the bar): done / total, the rate, then
-    /// elapsed and ETA from `line`. A part that is not known yet is absent,
-    /// never invented.
+    /// The infobar's live run, one line (owner decision: the Run tab's
+    /// numbers belong in the bar): done / total, the rate, then elapsed and
+    /// ETA from `line`. A part that is not known yet is absent, never
+    /// invented.
     static func runLine(done: Int?, total: Int?, metrics: AnalysisOperationMetrics?, for operation: String?) -> String {
         var parts: [String] = []
         if let done, let total {
@@ -430,7 +426,7 @@ enum OperationMetricsFormat {
 
 /// Every byte quantity UI prints, through one formatter.
 ///
-/// UI had three (2026-09-04 review): two hand-rolled 1024-based ones that
+/// UI had three: two hand-rolled 1024-based ones that
 /// disagreed on precision, and `ByteCountFormatter(.file)` at 1000. The same
 /// float32 cube read 4.00 GB in the inspector and 4.29 GB in the export sheet
 /// the user opens to decide whether to write it. Apple's own split — `.memory`

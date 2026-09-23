@@ -14,7 +14,7 @@
 //  not model.
 //
 //  Symmetry classification is NOT re-implemented here. `classifyFamily`
-//  (widened `private` → `package` on `CIFImport`, this session) is called
+//  (`package`-visible on `CIFImport`) is called
 //  verbatim, per the pre-registration's Gate D reasoning: the one
 //  symmetry-relevant step in this importer reuses the CIF importer's
 //  already-tested classifier rather than writing new science. MP's own
@@ -24,7 +24,7 @@
 //  (`CIFImport.swift`, `verifyFamily`).
 //
 //  Element lookup reuses `CIFImport.elementSymbolToZ` / `.elementSymbol(from:)`
-//  (both widened `private` → `package` this session) rather than a second
+//  (both `package`-visible) rather than a second
 //  symbol table.
 //
 //  Occupancy rule for a site with several species: the same one `CIFImport`

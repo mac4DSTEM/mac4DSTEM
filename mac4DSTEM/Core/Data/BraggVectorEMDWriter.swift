@@ -137,7 +137,7 @@ package nonisolated enum BraggVectorEMDWriter {
         let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
         defer {
-            // try? OK (v2 S7 audit): best-effort scratch cleanup on the way
+            // try? OK: best-effort scratch cleanup on the way
             // out — on the failure path the primary error is already
             // in flight, and a leftover .tmp in the system-provided scratch
             // directory harms nothing the error did not already report.
@@ -275,7 +275,7 @@ package nonisolated enum BraggVectorEMDWriter {
         let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
         defer {
-            // try? OK (v2 S7 audit): best-effort scratch cleanup on the way
+            // try? OK: best-effort scratch cleanup on the way
             // out — on the failure path the primary error is already
             // in flight, and a leftover .tmp in the system-provided scratch
             // directory harms nothing the error did not already report.
@@ -448,13 +448,13 @@ package nonisolated enum BraggVectorEMDWriter {
     /// current. Legacy one-slot sidecars are treated as a one-map inventory.
     /// The one minimum-reader check, shared by EVERY reader that hands back
     /// session content — `loadSession` and the two direct result readers
-    /// (`loadResultMap(id:)`, `loadRGBAResultMap(id:)`), which used to bypass
-    /// it and restore pixel arrays from a file the gate had refused
+    /// (`loadResultMap(id:)`, `loadRGBAResultMap(id:)`) — both would otherwise
+    /// bypass it and restore pixel arrays from a file the gate had refused
     /// (Gate B-lite F5). Absent marker ⇒ the file predates it ⇒ readable by
     /// the rules that applied when it was written; an unparseable value is
     /// treated the same, because refusing on garbage would brick every
     /// sidecar a bit-flip touches while a newer-format file always writes a
-    /// clean integer. // v2 S5
+    /// clean integer.
     private static func enforceMinimumReader(
         on root: hid_t, hdf5 h5: HDF5WriteLibrary, supportedSchema: Int
     ) throws {
@@ -1057,7 +1057,7 @@ package nonisolated enum BraggVectorEMDWriter {
         let (temporary, scratchDirectory) = temporaryPublishURL(for: destination)
         var published = false
         defer {
-            // try? OK (v2 S7 audit): best-effort scratch cleanup on the way
+            // try? OK: best-effort scratch cleanup on the way
             // out — on the failure path the primary error is already
             // in flight, and a leftover .tmp in the system-provided scratch
             // directory harms nothing the error did not already report.
@@ -1613,15 +1613,15 @@ package nonisolated enum BraggVectorEMDWriter {
         }
         // The schema attribute is the file's IDENTITY marker, not a result
         // manifest, so it is written on every file this writer produces —
-        // a calibration-only sidecar is still a sidecar. It used to ride the
-        // result-nodes condition below, which left exactly the file the
-        // release owner double-clicked twice on 2026-08-19 (8.9 kB,
-        // calibration only) unrecognisable to the open path's sidecar check.
+        // a calibration-only sidecar is still a sidecar. Tying it to the
+        // result-nodes condition below left exactly this shape (8.9 kB,
+        // calibration only, opened twice on 2026-08-19) unrecognisable to the
+        // open path's sidecar check.
         // Nothing reads this attribute to mean "has results"; the inventory
-        // reads `resultNodesAttribute`. // v2 S4
+        // reads `resultNodesAttribute`.
         try writeStringAttribute(schemaAttribute, value: sessionSchemaVersion,
                                  on: root, hdf5: h5)
-        // The minimum-reader marker, on every file (v2 S5): the oldest schema
+        // The minimum-reader marker, on every file: the oldest schema
         // that interprets THIS file without misreading it — 6 when a reduced
         // specification is recorded (dangerous to ignore), 5 otherwise, so a
         // marker-checking reader never refuses a file it could read safely.
@@ -2094,7 +2094,7 @@ package nonisolated enum BraggVectorEMDWriter {
         guard status >= 0 else { throw WriterError.hdf5("writing attribute \(name)") }
     }
 
-    // try? OK (v2 S7 audit): serializing a [String: String] that
+    // try? OK: serializing a [String: String] that
     // `isValidJSONObject` just accepted cannot fail; the guard is belt and
     // braces around an unreachable branch, and nil means "write no
     // provenance attribute", which reads back as an absent one.
@@ -2107,7 +2107,7 @@ package nonisolated enum BraggVectorEMDWriter {
         return String(data: data, encoding: .utf8)
     }
 
-    // try? accepted with a stated limit (v2 S7 audit): a malformed
+    // try? accepted with a stated limit: a malformed
     // provenance attribute decodes as EMPTY — visibly absent labels, which a
     // reader can see and question. This is the opposite shape from the
     // specification/recipe attributes above, where absent has a load-bearing

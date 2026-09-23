@@ -91,11 +91,9 @@ package actor FourDArray {
         }
         // A resident cube holds the whole cube as one FLAT, CONTIGUOUS copy, so
         // any scan-row range slices out correctly regardless of how the buffer
-        // was filled. (An earlier version of this comment said the tile was
-        // "filled from these same tiles", which is false — `makeResident` picks
-        // its own fill tiling and consumers pass their own `maximumRows`. The
-        // fill tiling is not load-bearing, and saying it was invited a future
-        // reader to depend on it.)
+        // was filled. The fill tiling is NOT load-bearing: `makeResident`
+        // picks its own fill tiling and consumers pass their own
+        // `maximumRows`, and the two are not required to match.
         //
         // Serving from here skips the disk WITHOUT changing the CALLER's
         // tiling, so every cross-tile reduction (tiledDPStatistics' weighted
@@ -179,9 +177,8 @@ package actor FourDArray {
     /// GPU reducers — they bind the cube's buffer at the tile's byte offset
     /// instead (`TileGPUSource`).
     ///
-    /// **This counter does NOT prove the copy is gone, and an earlier version of
-    /// this comment said it did** (corrected 2026-08-28 by the Gate B second
-    /// read, which demonstrated it). Reinstate a staging copy *inside*
+    /// **This counter does NOT prove the copy is gone** (Gate B second read,
+    /// 2026-08-28). Reinstate a staging copy *inside*
     /// `TileGPUSource.binding` — copy the tile's bytes into a fresh
     /// `MTLBuffer`, return it at offset 0 — and every value stays bit-identical
     /// while this counter reads 0 before and 0 after, because that copy never

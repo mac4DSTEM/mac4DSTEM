@@ -5,16 +5,15 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The app's window: a SwiftUI-only shell. It was `--ui2` until 2026-09-04,
-/// when the AppKit-hosted window it replaced was deleted.
+/// The app's window: a SwiftUI-only shell.
 ///
-/// **The frozen rules.** `NavigationSplitView` and the native `.inspector`
-/// are the whole window structure — no `NSSplitViewController`, no hosted
-/// AppKit shell, no custom pane chrome, no pane focus ring, and no call into
-/// a view under `UI/`. UI reads and drives the shared `App/`, `Session/`
-/// and `Core/` logic, and nothing else.
+/// **The frozen rules** (ADR 035). `NavigationSplitView` and the native
+/// `.inspector` are the whole window structure — no `NSSplitViewController`,
+/// no hosted AppKit shell, no custom pane chrome, no pane focus ring, and no
+/// call into a view under `UI/`. UI reads and drives the shared `App/`,
+/// `Session/` and `Core/` logic, and nothing else.
 ///
-/// **The shape** (owner decision, 2026-09-22) is Xcode's:
+/// **The shape** is Xcode's:
 ///
 /// - **Left** is navigation and nothing else: five workspaces and their
 ///   tasks, in a source list narrow enough to stay narrow.
@@ -45,8 +44,8 @@ struct ContentView: View {
             appState.navigation.showInspectorPane = savedInspectorVisible
             // Capture scaffolding, the `--demo-fixture` shape: a launch can
             // force a panel state, so a scripted capture of the hidden or
-            // shown toolbar does not depend on whatever state the last window
-            // left behind (2026-09-22).
+            // shown toolbar does not depend on whatever state the last
+            // window left behind.
             applyPanelLaunchFlags()
         }
         .task {
@@ -127,7 +126,7 @@ struct ContentView: View {
                 // it is not — and the toggle stays reachable either way.
                 .toolbar { windowToolbarContent }
         }
-        // Phase 1 (docs/archive/v4/window-design.md §4–§6, decided 2026-09-22): `.inspector`
+        // Phase 1 (docs/archive/v4/window-design.md §4–§6): `.inspector`
         // moved here, off the detail view, so the column runs from the
         // toolbar to the window's bottom edge exactly the way the sidebar
         // already does.
@@ -141,16 +140,15 @@ struct ContentView: View {
                 // The inspector's own toolbar carries its Settings · Info
                 // picker and its ONE toggle (`WorkspaceInspector`): items
                 // declared there stay in the toolbar, once, while the column
-                // is hidden — measured 2026-09-22 — so nothing here may add a
-                // second toggle (the owner saw two, twice, that evening).
+                // is hidden (measured 2026-09-22) — nothing here may add a
+                // second toggle.
         }
         // The window keeps a title — the dataset, as a document window's is —
         // for the Window menu, Mission Control and accessibility, but the
         // toolbar does not draw it: the centre header's breadcrumb already
-        // reads "Prepare › dataset", and the same words 30 pt above it were
-        // the duplicate header the 2026-09-04 rebuild had removed, found
-        // again on the first phase-1 look (2026-09-22). Xcode's toolbar
-        // carries no title either; its jump bar does.
+        // reads "Prepare › dataset", and drawing the title too would
+        // duplicate it 30 pt above. Xcode's toolbar carries no title either;
+        // its jump bar does.
         .navigationTitle(appState.descriptor?.fileName ?? "mac4DSTEM")
         .toolbar(removing: .title)
     }
@@ -187,15 +185,14 @@ struct ContentView: View {
     /// Only window-level controls live here. The split view supplies the
     /// leading navigator toggle; this trailing toggle survives closing the
     /// inspector. ⌥⌘0 and the existing ⌃⌘I menu item reach the same state.
-    /// The owner's arrangement (2026-09-22 evening, docs/archive/v4/window-design.md §8.1 and
-    /// his corrections on his own build): the file, the room and the live
-    /// run as a DISPLAY in the centre, never a button (the 2026-09-04 "C…"
-    /// trap); over the room at the trailing edge, the run button — Stop
-    /// while it runs — then Save to Session, Reveal in Finder and the
-    /// dataset menu as icons; only the inspector's toggle over the inspector.
-    /// Always there, so the analysis runs with both side panels hidden and
-    /// the data at full size. This reverses §6.2 of 2026-09-22 morning; the
-    /// breadcrumb row it replaces is gone (`WorkspaceView`).
+    /// The arrangement (ADR 036, docs/archive/v4/window-design.md §8.1): the
+    /// file, the room and the live run as a DISPLAY in the centre, never a
+    /// button (the 2026-09-04 "C…" trap); over the room at the trailing
+    /// edge, the run button — Stop while it runs — then Save to Session,
+    /// Reveal in Finder and the dataset menu as icons; only the inspector's
+    /// toggle over the inspector. Always there, so the analysis runs with
+    /// both side panels hidden and the data at full size. Supersedes the
+    /// breadcrumb row it replaces, now gone (`WorkspaceView`).
     @ToolbarContentBuilder
     private var windowToolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) {
@@ -210,12 +207,12 @@ struct ContentView: View {
         ToolbarSpacer(.flexible, placement: .primaryAction)
         // The room's verb heads the trailing group, beside the actions on
         // its result and under the inspector where its parameters are set
-        // (owner, 2026-09-22 evening, on his build: "the user changes the
-        // parameters of the current workspace on the right" — the mock's
-        // Xcode-Run position at the left was wrong for this app). Stop takes
-        // its place while a run is in flight. `visibilityPriority` says what
-        // overflows first when the window narrows: the run verb and the
-        // dataset switcher stay, Save/Reveal go into the overflow menu.
+        // (ADR 036: parameters of the current workspace live on the right;
+        // the Xcode mock's Run-on-the-left position does not fit this app).
+        // Stop takes its place while a run is in flight. `visibilityPriority`
+        // says what overflows first when the window narrows: the run verb
+        // and the dataset switcher stay, Save/Reveal go into the overflow
+        // menu.
         ToolbarItem(placement: .primaryAction) {
             PrimaryActionButton()
         }
@@ -238,8 +235,8 @@ struct ContentView: View {
 
     /// The importer's completion, as a method rather than an inline closure:
     /// Xcode 26.6's type checker times out on the closure form ("unable to
-    /// type-check this expression in reasonable time", CI 2026-09-14) while
-    /// Xcode 27 compiles it. Nothing here changed but the shape.
+    /// type-check this expression in reasonable time" in CI) while Xcode 27
+    /// compiles it. Nothing here changed but the shape.
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
@@ -270,8 +267,8 @@ struct ContentView: View {
 }
 
 
-/// The toolbar's centre — Xcode's activity viewer (owner, 2026-09-22
-/// evening: "the dataset's name … and the current process" in the toolbar).
+/// The toolbar's centre — Xcode's activity viewer (ADR 036: the dataset's
+/// name and the current process belong in the toolbar).
 /// Idle: the file, the room and the scan size, one line, middle-truncating.
 /// Busy: the running operation, its bar and its elapsed/ETA, ticking once a
 /// second. A display, never a button, at a constant width
@@ -299,22 +296,22 @@ struct ToolbarRunDisplay: View {
                 }
             }
             // No constant ideal: at a constant 380 the toolbar dropped the
-            // display below ~1000 pt and the actions jumped leading (measured
-            // twice, 2026-09-22 night). The toolbar is not split content, so
+            // display below ~1000 pt and the actions jumped leading
+            // (measured 2026-09-22). The toolbar is not split content, so
             // the constraint-loop rule does not bind here; the busy line's
             // monospaced digits change its width only when a digit is added.
             .frame(minWidth: LayoutPolicy.toolbarDisplayMinimumWidth,
                    maxWidth: LayoutPolicy.toolbarDisplayWidth)
             // Outside the frame, so the system's capsule gets room around
-            // the text rather than hugging it (owner, on a real cube,
-            // 2026-09-22: "looks too tight around the text").
+            // the text rather than hugging it (owner decision, on a real
+            // cube).
             .padding(.horizontal, LayoutPolicy.toolbarDisplayPadding)
         }
     }
 
     /// Name and elapsed time only: the bar, the counts, the rate, the ETA
-    /// and Stop are the infobar's (owner, 2026-09-22 late, §9.3) — one
-    /// progress bar on screen, never two (010).
+    /// and Stop are the infobar's — one progress bar on screen, never two
+    /// (010).
     private var busy: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Text([appState.activeOperation ?? appState.statusText,

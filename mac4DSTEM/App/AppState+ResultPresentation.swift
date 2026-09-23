@@ -41,12 +41,10 @@ extension AppState {
     }
 
     /// Ensure ACOM region selection has a real-space canvas even when a
-    /// recovered session opened directly into Map and never formed a virtual
-    /// image. A quiet ADF image gives structural contrast without replacing the
-    /// retained scientific result.
-    /// Quietly build persistent real-space context used for region selection
-    /// and for detector/reconstruction products. Failure is non-fatal because
-    /// the primary scientific result remains usable without the convenience.
+    /// recovered session opened directly into Map and never formed a
+    /// virtual image: builds a quiet ADF image for structural context.
+    /// Failure is non-fatal — the primary scientific result remains usable
+    /// without this convenience.
     func ensureScanNavigator() async {
         guard scanNavigationImage == nil,
               let fourD = datasetSession.fourD, let descriptor else { return }
@@ -310,11 +308,10 @@ extension AppState {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
             }
             // The recipe step, recorded at the SUCCESS publish and nowhere
-            // earlier — a cancelled or failed run is not part of the pipeline.
-            // (An earlier comment here claimed the automatic pass on open
-            // "counts too" — refuted: it runs with defaults and would
-            // overwrite an adopted recipe; `recordReplayStep` suppresses it.)
-            // // v2 S5
+            // earlier — a cancelled or failed run is not part of the
+            // pipeline. The automatic pass on open does not count: it runs
+            // with defaults and would overwrite an adopted recipe;
+            // `recordReplayStep` suppresses it.
             recordReplayStep(kind: "virtual_detector",
                               parameters: Aperture.replayParameters(shape: shapeMode.rawValue, aperture: ap),
                               replaying: replaying)

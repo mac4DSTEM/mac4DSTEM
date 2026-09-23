@@ -3,7 +3,7 @@
 //  Role: The session's rolling record of what happened, shown in the output
 //        strip along the bottom of the science panes.
 //
-//  An `AppState` seam (docs/archive/development-process-2026-08-31.md §7), extracted 2026-09-04
+//  An `AppState` seam (docs/archive/development-process-2026-08-31.md §7),
 //  under CLAUDE.md's rule that a session touching `AppState` moves one
 //  responsibility out of it. It sits in App/ rather than Session/ for the
 //  same reason `WorkspaceNavigation` does: it is view-state with no science
@@ -11,10 +11,9 @@
 //
 //  Views read `activityLog.messages`; no forwarding properties on `AppState`.
 //
-//  `@Observable` here is load-bearing, not ceremony. `WorkspaceView`'s output
-//  strip reads `messages` and scrolls on its count; without observation the
-//  strip goes quiet and nothing else breaks, which is the kind of silent
-//  failure this repo keeps buying. `ActivityLogTests` pins the whole chain
+//  `@Observable` here is load-bearing, not ceremony: `WorkspaceView`'s output
+//  strip reads `messages` and scrolls on its count, and without observation
+//  the strip goes silently stale. `ActivityLogTests` pins the whole chain
 //  with `withObservationTracking` rather than trusting the annotation.
 //
 
@@ -41,15 +40,14 @@ final class ActivityLog {
     ///
     /// A READOUT IS NOT AN EVENT. The status line has two jobs — reporting
     /// what happened, and showing where you are — and only the first belongs
-    /// in a log. Measured on the owner's screen 2026-09-12: every click on the
-    /// scan image wrote "Pattern x 154, y 152 from <filename>" here, the
-    /// dedupe below never fired because the coordinates differ every time, and
-    /// on a 330 × 330 scan there are 108 900 of them against a 300-line
-    /// capacity. Cursor movement was evicting the run's real events — the
-    /// detection, the import, the phase map — from the record kept to explain
-    /// them.
+    /// in a log. Without this, every click on the scan image writes "Pattern
+    /// x 154, y 152 from <filename>" here; the dedupe below never fires
+    /// because the coordinates differ every time, and a 330 × 330 scan has
+    /// 108 900 of them against a 300-line capacity — cursor movement would
+    /// evict the run's real events (detection, import, phase map) from the
+    /// record kept to explain them (observed 2026-09-12).
     ///
-    /// A one-shot flag and not a `isEvent:` parameter on `record`, because the
+    /// A one-shot flag, not an `isEvent:` parameter on `record`, because the
     /// caller is `statusText.didSet` and a `didSet` cannot see who wrote to it.
     @ObservationIgnored private var suppressNextRecord = false
 
@@ -65,23 +63,17 @@ final class ActivityLog {
     /// Record one status event.
     ///
     /// Three things never reach the log. A readout, per
-    /// `suppressNextRecordOnce` above — **which is how progress is kept out
-    /// now**, because `AppState.updateCancellableOperation` is the one funnel
+    /// `suppressNextRecordOnce` above — the primary defence against progress
+    /// spam, since `AppState.updateCancellableOperation` is the one funnel
     /// every operation's progress passes through and it calls `showReadout`.
     /// An immediate repeat of the last message, because a status written twice
-    /// is one thing happening, not two. And any message ending in "%", which
-    /// is the backstop the funnel replaced.
-    ///
-    /// **That suffix rule was never sufficient and the owner's screenshot
-    /// showed it**, 2026-09-12: `SystemMonitor.scanProgressStatus` returns
-    /// "Computing virtual detector… 100,980 / 108,900 patterns · 1.54 GB of
-    /// 1.66 GB", which ends in "GB", so a whole-cube pass wrote a line here
-    /// every tick and buried the run's real events. Filtering progress by what
-    /// a string happens to end with is a rule the next status message can
-    /// break without anyone noticing; the funnel cannot be broken that way.
-    /// The suffix rule is kept as a second line of defence and is no longer
-    /// the reason any status string carries a percentage — they have all
-    /// dropped theirs, because the progress bar beside them draws it.
+    /// is one thing happening, not two. And any message ending in "%", a
+    /// backstop that is not sufficient alone: `SystemMonitor.scanProgressStatus`
+    /// returns lines like "...1.54 GB of 1.66 GB", which end in "GB" not "%",
+    /// so a whole-cube pass could still write a line per tick without the
+    /// funnel (observed 2026-09-12). The suffix check stays as a second line
+    /// of defence; no status string needs it any more since the progress bar
+    /// beside them draws the percentage instead.
     func record(_ message: String) {
         let suppressed = suppressNextRecord
         suppressNextRecord = false

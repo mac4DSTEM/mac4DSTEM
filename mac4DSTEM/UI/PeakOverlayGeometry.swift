@@ -42,10 +42,9 @@ enum PeakOverlayGeometry {
     }
 
     /// The drawn disk radius in view points, or nil when there is no probe
-    /// kernel to take a radius from. Until 2026-09-05 a missing kernel drew
-    /// every disk at an invented 3 px (UI review, minor finding): a circle
-    /// says "this is the disk's extent", and with no kernel that claim has
-    /// no source. nil tells the overlay to draw a marker instead.
+    /// kernel to take a radius from. A circle says "this is the disk's
+    /// extent" — with no kernel that claim has no source, so this returns
+    /// nil (not an invented radius) and the overlay draws a marker instead.
     nonisolated static func radius(
         probeRadius: Float?,
         patternWidth: Int,
