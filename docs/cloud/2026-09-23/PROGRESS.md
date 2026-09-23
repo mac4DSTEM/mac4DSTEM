@@ -51,7 +51,7 @@ Same limits as the brief: read-only against the app. Writes go only to this fold
 | Item | State | File |
 |---|---|---|
 | F1: Al lattice constant memo (owner decision 3) | Done. The lead session re-ran the \|g\| arithmetic independently and it matched. | `al-lattice-constant.md` |
-| F2: R–Q sign-convention memo (owner decision 2) | Running | `rq-sign-convention.md` |
+| F2: R–Q sign-convention memo (owner decision 2) | Done. The lead session checked the key claim: `AppState+Open.swift:468` assigns `QR_rotation` unconverted while the origins beside it are swapped. | `rq-sign-convention.md` |
 | F3: triage of the 2026-09-09 register's 121 open claims (113 new + 8 possible repeats; open-items counts 119) | Running, split over 4 read-only verifiers | `defect-triage.md` |
 | F4: Python cross-check of the precipitate object definitions | Running | `precipitate-objects-crosscheck.md`, `tools/cloud-analysis/` |
 
