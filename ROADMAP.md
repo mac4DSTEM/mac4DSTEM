@@ -67,8 +67,8 @@ built-in plotting is cubic-only too — full coverage there needs the
 external `orix` library, which Swift has no equivalent of). **The Materials
 Project importer landed 2026-09-21** (decode/standardise/refuse a cell,
 classify via the CIF importer's own function, Keychain key, mp-id sheet, 39
-tests; `docs/v3-features.md#materials-project`) — its first live fetch is
-still pending (owner: retry mp-134, then S6). Point-group coverage beyond
+tests; `docs/v3-features.md#materials-project`) — shipped in v4.0.0;
+the owner live-tested a fetch 2026-09-23 (it worked); S6's comparisons owed. Point-group coverage beyond
 cubic and hexagonal remains unclaimed.
 
 ## Beyond py4DSTEM — the differentiators
@@ -144,8 +144,9 @@ order, from `docs/status.md` § Handoff and the 2026-09-23 overnight records:
    lattice constant DEVIATION mechanism (4.0495 Å pure Al vs 4.04 Å the
    paper's CIF, a `kMax` knife edge, not an excitation-slab effect); and a
    macOS 27 CI runner image (`macos-26` can no longer build the app at all).
-2. **Materials Project live fetch (S6):** retry mp-134, then build S6 on a
-   real fetch.
+2. **Materials Project S6:** the live fetch works (owner, 2026-09-23); owed are
+   the pre-registered comparisons — Al/θ′/T1 cells vs the paper's CIFs, a
+   phase map through them within the S1 band, mp-1185307 refused.
 3. **Orientation coverage:** monoclinic 2/m first, once the owner confirms
    it — it unlocks β″ and is a separate Gate D/B feature.
 4. **Scientific debts:** the parallax default bin schedule (diagnosed,

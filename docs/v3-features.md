@@ -328,8 +328,9 @@ Materials Project importer — state ownership as in
   through them within the S1 band, and confirms mp-1185307 is refused for
   real) is the one step still owed, scheduled after S5.
 - The session board below is the authoritative sequencing record for this
-  plan; only S6 (manual, owner's key) and S7 (the release cut, gate `all`
-  exit 0) remain open. S8 (an ANN on the Neural Engine, the paper's
+  plan; S7 closed with v4.0.0 (2026-09-23, gate `all` exit 0); S6 is
+  partly done — the owner's live fetch worked 2026-09-23, its comparisons are
+  owed. S8 (an ANN on the Neural Engine, the paper's
   simulated-training route) is pre-registration-only, not scheduled.
 
 | # | Session | Scope | Gate | State |
