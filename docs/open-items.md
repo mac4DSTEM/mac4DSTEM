@@ -80,7 +80,8 @@ have 20–173× the truth's θ′ face-on objects and 1.3–2.4× its T1 objects
 The truth's own size cuts bring every map, and the app's stride-3 map, back to truth counts. But
 the independent refuter showed that random Al flips at the app's false-call rate clean up to the
 truth's counts as well, so **cleaned counts cannot certify a classifier**. The app's raw T1 speckle
-(23 spurious objects) is outside the published 1–13. θ′ edge-on objects are unmeasurable at
+is 23 spurious objects at the 0.1 % floor, outside the published 1–13. At 0.15 % it is 5
+(`archive/v4/detection-floor-sweep-2026-09-23.md`). θ′ edge-on objects are unmeasurable at
 stride 3 (the truth goes from 38 to 74 objects).
 **Trap:** the cuts (782 / 10 / 4 px) are this truth's convention, never an app default.
 Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.

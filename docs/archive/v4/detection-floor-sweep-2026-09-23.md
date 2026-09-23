@@ -47,4 +47,51 @@ would mean the floor's main effect on this data is not the weak-reflection loss 
 
 ## Result
 
-*(Written after the runs.)*
+Logs (session scratchpad, not retained): `floor-0.001.log`, `floor-0.0015.log`, `floor-0.002.log`,
+each exit 0 on its own line (`floor-exits.txt`), and `app-0.001.log`, `app-0.0015.log`,
+`app-0.002.log`, each exit 0. The 0.1 % rerun reprints 529 = 1.81 % and 101/70/62, and its Python
+object output is byte-identical to T3's `app.log`. The instrument is unchanged.
+
+| floor | per-position error | Al → precipitate | T1 → Al | face-on → Al | T1 / face-on / edge-on raw spurious objects | T1 area fraction (truth 0.2174) | face-on area fraction (truth 0.0332) | edge-on area fraction (truth 0.0143) | T1 after P/9: objects, split, vanished |
+|---|---|---|---|---|---|---|---|---|---|
+| 0.1 % | 529 = **1.81 %** | 407 | 39 | 0 | 23 / 67 / 49 | 0.2183 | 0.0372 | 0.0219 | 37, 1, 2 |
+| 0.15 % | 424 = **1.45 %** | 150 | 177 | 26 | 5 / 36 / 9 | 0.2106 | 0.0343 | 0.0181 | 34, 2, 5 |
+| 0.2 % | 1189 = **4.07 %** | 94 | 671 | 367 | 2 / 26 / 11 | 0.1935 | 0.0220 | 0.0170 | 40, 5, 5 |
+
+Correct precipitate calls, truth → same class: T1 6258 → 6129 → 5647 of 6358; face-on
+969 → 944 → 603 of 970; edge-on 398 → 400 → 402 of 417. With the known-variants guard
+(`specific ≥ 1`, `--al-precipitate-detail` sweep A): 1.45 % → **1.31 %** (383) → 3.99 %.
+Published raw spurious objects at stride 3 (T2): T1 1–13, face-on 7–113, edge-on 0–5.
+
+### Against the prediction
+
+- **Per-position error: REFUTED at 0.15 %.** It fell (1.81 → 1.45 %) where I predicted a rise.
+  At 0.2 % it rose to 4.07 %, inside the predicted 2.5–5 %. **So error is not monotone in the
+  floor over this range.** The 09-16 sweep's 0.1 → 0.2 % rise (+2.43 points) recurs here
+  (+2.26 points). Its 0.15 % point was never measured.
+- **Directions held on every other metric:** Al false calls fell (407 → 150 → 94), T1 misses
+  rose (39 → 177 → 671), T1 and face-on raw spurious objects fell, T1 area fraction fell below
+  the truth, and T1's vanished and split counts rose.
+- **θ′ edge-on area fraction: REFUTED.** It fell 17 % and 22 % (predicted within ±10 % and
+  ±15 %), toward the truth. Al → edge-on false calls went 188 → 94 → 70 and T1 → edge-on went
+  53 → 36 → 26. Edge-on's reflections are strong, but much of its excess area was false calls,
+  and those shrink with the floor.
+
+What the numbers show, without a mechanism claimed: the floor trades Al false calls against
+precipitate recall. Between 0.1 % and 0.15 %, 257 fewer Al false calls outweigh 138 more T1 and
+26 more face-on misses. Between 0.15 % and 0.2 %, 56 fewer false calls cost 494 T1 and 341 face-on
+misses; face-on recall falls to 62 %.
+
+### On the T4 draft's object metrics
+
+At **0.15 %, the app's raw speckle falls inside the published range** on T1 (5 vs 1–13) and
+face-on (36 vs 7–113). Edge-on (9 vs 0–5) is still outside but much closer than 49. At 0.1 % T1
+was outside (23). The cost shows after cleanup: T1 vanishes 5 truth objects (2 at 0.1 %), and its
+P/9 count is 34, equal to the cleaned truth. At 0.2 % the precipitates are lost: face-on area
+fraction 0.66× truth, 38 % of face-on positions called Al, and under H/9 two of three plates gone.
+
+**0.15 % is the best of these three points on this dataset.** A threshold is a property of the
+dataset and settings it was measured under (`CLAUDE.md`). Three points are not a curve, and the
+minimum could lie anywhere between 0.1 % and 0.2 %. The app's 0.5 % default is untouched, per the
+owner. Owed by the T4 draft and not run here: the null-map raw spurious counts, and the
+convention-break mutations.
