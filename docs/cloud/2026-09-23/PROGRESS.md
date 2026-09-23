@@ -52,7 +52,7 @@ Same limits as the brief: read-only against the app. Writes go only to this fold
 |---|---|---|
 | F1: Al lattice constant memo (owner decision 3) | Done. The lead session re-ran the \|g\| arithmetic independently and it matched. | `al-lattice-constant.md` |
 | F2: R–Q sign-convention memo (owner decision 2) | Done. The lead session checked the key claim: `AppState+Open.swift:468` assigns `QR_rotation` unconverted while the origins beside it are swapped. | `rq-sign-convention.md` |
-| F3: triage of the 2026-09-09 register's 121 open claims (113 new + 8 possible repeats; open-items counts 119) | Running, split over 4 read-only verifiers | `defect-triage.md` |
+| F3: triage of the 2026-09-09 register's 121 open claims (113 new + 8 possible repeats; open-items counts 119) | Done. 4 read-only verifiers: 83 CONFIRMED, 23 PARTLY, 6 FIXED, 5 GONE, 3 REFUTED, 1 CANNOT_TELL; 4 at priority 1. The lead session re-checked all four priority-1 claims (D021 reproduced numerically in numpy). | `defect-triage.md`, `defect-triage.json` |
 | F4: Python cross-check of the precipitate object definitions | Done. The lead session re-ran `python3 -B tools/cloud-analysis/precipitate_objects_ref.py all`: exit 0, 24/24 selftest, every mutant as expected, scipy crosscheck PASS. It also read-verified the `lengthPx` finding at `PrecipitateSegmentation.swift:421-431`. | `precipitate-objects-crosscheck.md`, `tools/cloud-analysis/precipitate_objects_ref.py` |
 
 py4DSTEM was fetched at the repo's lock `f050d207` (0.14.19) into gitignored `References/` for F2. It is not committed.
