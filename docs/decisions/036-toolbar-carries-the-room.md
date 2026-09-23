@@ -6,7 +6,7 @@ Status: live — decided on the owner's own build, corrected six times on his wo
 
 ## Decision
 
-The window's toolbar is Xcode's (owner, 2026-09-22 evening, `window-design.md`
+The window's toolbar is Xcode's (owner, 2026-09-22 evening, `docs/archive/v4/window-design.md`
 §8.1, answered "as drawn, row 3 goes" to the mock):
 
 - **Centre, a display, never a button:** the file, the room and the scan
@@ -82,5 +82,5 @@ frozen (035): this is the picture he accepted.
 
 ## Sources
 
-- `docs/window-design.md` §8.1, §8.6, the two mocks of 2026-09-22 evening
+- `docs/archive/v4/window-design.md` §8.1, §8.6, the two mocks of 2026-09-22 evening
 - `docs/archive/v3/ui-review-2026-09-22.md` §4 (item 1)

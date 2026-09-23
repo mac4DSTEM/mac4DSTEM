@@ -5,7 +5,7 @@ import DSTEMSession
 #endif
 
 /// The process area beneath the science panes — Xcode's debug area (owner,
-/// 2026-09-22 late, window-design.md §9.3): two panes side by side, Output
+/// 2026-09-22 late, docs/archive/v4/window-design.md §9.3): two panes side by side, Output
 /// on the left and Lineage on the right, each shown or hidden by its own
 /// button at the infobar's right end. The live run's numbers, once a Run
 /// tab here, are the infobar's. `WorkspaceView` gives this view its exact

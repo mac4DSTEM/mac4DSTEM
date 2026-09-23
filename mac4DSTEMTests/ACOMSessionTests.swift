@@ -104,7 +104,7 @@ final class ACOMSessionTests: XCTestCase {
         XCTAssertFalse(state.acomSession.regionSelectionActive)
     }
 
-    // MARK: - Seam 2 (docs/appstate-seams-plan.md): the properties moved off
+    // MARK: - Seam 2 (docs/archive/v4/appstate-seams-plan.md): the properties moved off
     // `AppState.swift` — measured throughput, the effective backend, the
     // parameterized scan selection, the model-selection refusal text, and the
     // effective reliability gate. All are pure functions of this session's

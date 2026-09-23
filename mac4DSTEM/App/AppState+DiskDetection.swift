@@ -5,7 +5,7 @@
 //        classical/neural-net disagreement map, and the one calibrated-
 //        Bragg-vectors derivation strain/ACOM/the Bragg map all share.
 //        Moved verbatim out of AppState.swift on 2026-09-18 (seam 3,
-//        docs/appstate-seams-plan.md): a placement change, no logic touched.
+//        docs/archive/v4/appstate-seams-plan.md): a placement change, no logic touched.
 //        `diskParams` moved into `Session/DiskDetectionProduct.swift` in the
 //        same seam — the two reads of it here are renamed to
 //        `diskDetection.diskParams`; everything else (`probeKernel`,

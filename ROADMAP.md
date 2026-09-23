@@ -4,8 +4,10 @@ Imported 2026-09-03 from the "mac4DSTEM v3 Themes" artifact of 2026-08-28
 (seven parallel surveys of the pinned py4DSTEM source against `Core/`: 166
 findings, 45 high-value gaps, 77 absent, 54 partial, 7 absent by recorded
 decision; the ranking is a recommendation, sizes are rough). The first v3
-feature to land bumped the version to v3.0.0, released 2026-09-11
-(`docs/releasing.md` § Releases).
+feature to land bumped the version to v3.0.0, released 2026-09-11; v4.0.0
+(2026-09-23) carries the v3.1 calibration foundation and a rebuilt interface
+on the macOS 27 floor (`docs/releasing.md` § Releases). What is live now is
+`docs/status.md`; this file is the forward plan.
 
 ## Decided 2026-08-28
 
@@ -30,9 +32,9 @@ Ranked by value to a working microscopist.
 
 | # | Theme | Absent today | Size · depends on |
 |---|---|---|---|
-| 1 | **Calibration foundation** — everything else stands on it | **Landed 2026-09-17 as v3.1** (`docs/v3-features.md#calibration-v31`): vacuum probe from a separate scan, beamstop-tolerant origin (`get_origin_friedel` + beamstop mask), origin validity mask (count on screen; the spatial overlay is still owed). The CoM beam centre in `probeSize` is parked (Gate D: marginal). Unverified on screen until the owner drives it. | done · drive + `all` gate + v3.1.0 cut owed |
+| 1 | **Calibration foundation** — everything else stands on it | **Landed 2026-09-17 as v3.1, shipped in v4.0.0** (`docs/v3-features.md#calibration-v31`): vacuum probe from a separate scan, beamstop-tolerant origin (`get_origin_friedel` + beamstop mask), origin validity mask (count on screen; the spatial overlay is still owed). The CoM beam centre in `probeSize` is parked (Gate D: marginal). The origin-method picker and the Friedel demo have been driven by the owner; the spatial overlay stays owed. | done |
 | 2 | **Amorphous and nanocrystalline** — a modality the app lacks | polar / polar-elliptical transform (gates the rest); radial profile I(q); pair distribution function (scattering factors already ported); radial variance / fluctuation microscopy | large · polar transform first |
-| 3 | **Strain where disk detection fails** — the peak-finding path finds no basis on three of four training datasets (`py4dstem-pipelines.md` §9.2/§10.3) | whole-pattern fitting; user-supplied reference lattice (absolute strain); strain from the ACOM solution | medium–large · — |
+| 3 | **Strain where disk detection fails** — the peak-finding path finds no basis on three of four training datasets (`docs/archive/qc-run-findings-2026-08.md` §9.2/§10.3) | whole-pattern fitting; user-supplied reference lattice (absolute strain); strain from the ACOM solution | medium–large · — |
 | 4 | **From maps to the numbers a paper reports** | grain segmentation (size distribution, boundary misorientation, twin fraction); multi-phase identification (which phase is where); full point-group coverage | medium · point-group coverage first |
 | 5 | **Interoperability** | read a native py4DSTEM EMD (probe, Bragg vectors, calibration); the notebook export | medium · pinned py4DSTEM env exists |
 | 6 | **Detector realism** | per-position detector shift (the origin map exists); arbitrary detector masks (the GPU path takes a weight image); hot-pixel filtering; ARINA reader, MIB packed modes | small each · — |
@@ -58,13 +60,16 @@ decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-
 **Theme 4's point-group coverage is also a Materials Project dependency, not
 only a grain-segmentation one** (found 2026-09-19). Today's
 `ACOMCrystalSymmetry` implements exactly two point groups by hand in Swift —
-cubic and hexagonal — so a live Materials Project connection (item 4 above)
-will hit the "can identify, can't orientation-map" wall far more often than
-today's curated CIF imports do; py4DSTEM is no more general by default
-(its own built-in plotting is cubic-only too — full coverage there needs
-the external `orix` library, which Swift has no equivalent of). **Both
-items are pre-registered together, next session:**
-[`docs/v3-features.md#materials-project`](docs/v3-features.md#materials-project).
+cubic and hexagonal — so a live Materials Project connection will hit the
+"can identify, can't orientation-map" wall far more often than today's
+curated CIF imports do; py4DSTEM is no more general by default (its own
+built-in plotting is cubic-only too — full coverage there needs the
+external `orix` library, which Swift has no equivalent of). **The Materials
+Project importer landed 2026-09-21** (decode/standardise/refuse a cell,
+classify via the CIF importer's own function, Keychain key, mp-id sheet, 39
+tests; `docs/v3-features.md#materials-project`) — its first live fetch is
+still pending (owner: retry mp-134, then S6). Point-group coverage beyond
+cubic and hexagonal remains unclaimed.
 
 ## Beyond py4DSTEM — the differentiators
 
@@ -72,56 +77,48 @@ All requested by the owner; all out of v2 by the 2026-08-18 decision ("each
 is its own product").
 
 - **Needle-shaped precipitate pipeline** (2026-08-06, re-requested
-  2026-08-26) — per-object, real-space segmentation driving per-object
-  analysis and a calibrated-area density; a per-object result is not a map,
-  which is the expensive part to get wrong. **Superseded 2026-09-11**: the
-  route is no longer real-space segmentation but classifying each scan
-  position by its full diffraction pattern
-  (`docs/v3-features.md#precipitate-classification`, `docs/decisions/019-precipitates-by-classification.md`).
+  2026-08-26) — classifying each scan position by its full diffraction
+  pattern, superseded from real-space segmentation 2026-09-11
+  (`docs/v3-features.md#precipitate-classification`,
+  `docs/decisions/019-precipitates-by-classification.md`). Ships unvalidated
+  (`validation:"none"`, `docs/status.md` § Handoff). **2026-09-23 overnight
+  Gate D:** an Al → precipitate false-call guard (`specific ≥ 1`) measured
+  423/29241 = 1.45 % against the baseline 1.81 %, independently refuted in
+  part — the headline number stands, but it is not parameter-free (it rides
+  a (count, pair-radius) ridge) and the object-table evidence it cited is
+  spurious-singleton removal, not repaired detection
+  (`docs/archive/v3/precipitate-overnight-2026-09-23.md`). Owner: pre-register
+  the guard as a two-parameter rule and measure it on a second dataset before
+  it ships as a flag (`docs/status.md` § Handoff).
 - **EDX correlation** (2026-08-26) — a data-model change before a feature: a
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
-- **Settings window, Xcode-style sidebar** (owner, 2026-09-21) — grows the
-  scene the Materials Project key opened. Sections: *General* (what Open
-  Dataset does by default, sidecar location, keep the Mac awake during long
-  runs, clear recents); *Appearance* (theme System / Light / Dark, default
-  colormap for maps and for diffraction, log or linear intensity by default,
-  scale bar, inspector density); *Analysis* — machine knobs only: streaming
-  memory budget, engine preference, whether the learned detector is offered;
-  *Materials Project* (key, last fetch); *Advanced* (log verbosity, reveal
-  the log, reset). **Never a threshold, radius or floor** — those are
-  properties of a dataset and live in the session (ADR 029). State owner:
-  one `AppPreferences` over `UserDefaults`, injectable for tests; the
-  scene is a `NavigationSplitView` (allowed), never a split view. **Landed
-  2026-09-21** (`900fe7b`), unverified on screen.
+- **Settings window, Xcode-style sidebar** (owner, 2026-09-21) — the
+  Materials Project key, general/appearance/analysis/advanced sections, one
+  `AppPreferences` state owner. **Landed 2026-09-21** (`900fe7b`) and driven
+  by the owner the same night. Full design:
+  [`docs/archive/v4/roadmap-history.md`](docs/archive/v4/roadmap-history.md).
 - **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21,
-  revised 2026-09-22) — the infobar is the centre column's fixed-height
-  divider and full-width drag handle, moving from its bottom to its top;
-  Output / Run / Lineage never change its position. The 2026-09-21
-  implementation (ADR 034) was driven and rejected. The decided anatomy is
-  `docs/window-design.md` §1 and §6: full-height collapsible side panels,
-  room actions in a centre-only header that flexes with them, then the
-  Prepare reference room. Phase 1 has no recorded owner acceptance. The
-  lineage graph and copy/search/filter follow later.
+  revised 2026-09-22) — **closed 2026-09-22 night**: the macOS 27 rebuild on
+  Apple's inspector guidance, driven and accepted by the owner on a real
+  cube (ADR 008, 035–037, `docs/status.md` § Handoff). Live residuals: the
+  toolbar's leading jump at a long file name, inspector-kit gaps, a parked
+  panel-blank lead (`docs/open-items.md`). Earlier, rejected design:
+  [`docs/archive/v4/roadmap-history.md`](docs/archive/v4/roadmap-history.md).
 - **Lineage graph with real rewind** (owner, 2026-09-21) — every derived
   product shows its inputs as a graph, and clicking a node rewinds the
   parameter state, not a text history. Nothing exists today beyond the
   linear `SessionReplayRecord` and per-product provenance; a record with
   step ids and input edges (a sidecar wire-format decision, owed) comes
   first, a lineage list in Results second, the graph view only after the
-  drive row is empty. Unclaimed, unscheduled.
+  drive row is empty. Unclaimed, unscheduled — follows the window design
+  above.
 - **Learned disk candidates** (owner, 2026-09-05; Core ML on the Neural
-  Engine, 2026-09-07) — the first ML feature.
-
-**Learned disk candidates — pre-registration.** A second `DetectorClass`
-beside the classical one: a Core ML U-Net paints a disk-centre heatmap on
-the Neural Engine, and the existing correlation/centroid refinement measures
-each candidate to sub-pixel; opt-in, off by default. **Verdict (step 3):
-passed 2026-09-08** — on the frozen hand-labelled test set the net finds the
-same real disks with far fewer inventions (256 px: 0.667 / 0.840 against the
-classical 0.487 / 0.485). Full pre-registration:
-[`docs/archive/v3/learned-detector-preregistration-2026-09-07.md`](docs/archive/v3/learned-detector-preregistration-2026-09-07.md).
+  Engine, 2026-09-07) — the first ML feature, **shipped in v3.0.0**
+  (2026-09-11, `docs/releasing.md` § Releases). Pre-registration and the
+  passing step-3 verdict:
+  [`docs/archive/v4/roadmap-history.md`](docs/archive/v4/roadmap-history.md).
 
 ## Leave alone; where the app is ahead
 
@@ -131,12 +128,30 @@ part of the product story: the load-specification and promote workflow,
 provenance that survives export and reopen, refusals that name what failed,
 the session sidecar as a sharing unit.
 
-## Next planned sequence — registered 2026-09-19
+## Next planned sequence — registered 2026-09-23
 
-1. **Release v3.1.0:** the three acceptance cubes are restored; run `all` and the archive rehearsal before the credentialed cut. Full-cube Friedel bar/ETA remains an on-screen check, not a gate. No feature slips in.
-2. **Materials Project importer:** build the pre-registered, user-initiated importer with offline provenance; settle its UX choices before UI code.
-3. **Orientation coverage:** prepare monoclinic 2/m first if the owner confirms it; it unlocks β″ and is a separate Gate D/B feature.
-4. **Scientific debts and phase validation:** diagnose R–Q; decide T1 and Parallax experiments; use the paper truth set before detector or learned-model work.
+The 2026-09-19 sequence's first two items are both done: v3.1.0 shipped as
+part of v4.0.0 (2026-09-23) and the Materials Project importer landed
+2026-09-21 (superseded text: `docs/archive/v4/roadmap-history.md`). Current
+order, from `docs/status.md` § Handoff and the 2026-09-23 overnight records:
+
+1. **Four owner decisions from last night's Gate D runs, before anything
+   below them moves:** the known-variants precipitate guard (pre-register as
+   a two-parameter count/pair-radius rule, measure on a second dataset —
+   `docs/archive/v3/precipitate-overnight-2026-09-23.md`); the R–Q displayed
+   sign convention (app θ = −py4DSTEM's on real data; decide which is
+   displayed, then Gate D the sign conversion — `docs/open-items.md`); the Al
+   lattice constant DEVIATION mechanism (4.0495 Å pure Al vs 4.04 Å the
+   paper's CIF, a `kMax` knife edge, not an excitation-slab effect); and a
+   macOS 27 CI runner image (`macos-26` can no longer build the app at all).
+2. **Materials Project live fetch (S6):** retry mp-134, then build S6 on a
+   real fetch.
+3. **Orientation coverage:** monoclinic 2/m first, once the owner confirms
+   it — it unlocks β″ and is a separate Gate D/B feature.
+4. **Scientific debts:** the parallax default bin schedule (diagnosed,
+   fix owed), the cross-phase completeness guard (candidate built, parked),
+   T1's remaining detection-limited recall — each its own Gate D, in the
+   order `docs/status.md` § Handoff names.
 
 ## How a v3 feature is done
 

@@ -3,7 +3,7 @@
 //  Role: the DPC orchestration — the CoM-field run, the 180° rotation flip,
 //        and the one display-derivation site every DPC mode publishes
 //        through. Moved verbatim out of AppState.swift on 2026-09-18 (seam
-//        4, docs/appstate-seams-plan.md, the last of the night's four
+//        4, docs/archive/v4/appstate-seams-plan.md, the last of the night's four
 //        unattended seams): a placement change, no logic touched.
 //        `dpcDisplay` moved into `Session/DPCProduct.swift` in the same
 //        seam — the reads of it here are renamed to `dpc.dpcDisplay`;

@@ -5,7 +5,7 @@ import DSTEMSession
 #endif
 
 /// The detail column: the science, and the infobar + process area along its
-/// bottom edge (window-design.md §4, phase 1, decided 2026-09-22; the
+/// bottom edge (docs/archive/v4/window-design.md §4, phase 1, decided 2026-09-22; the
 /// breadcrumb row above the panes went on 2026-09-22 evening, §8 — the room
 /// actions and the file name live in the toolbar).
 ///
@@ -522,7 +522,7 @@ struct WelcomeWorkspace: View {
 /// owner 2026-09-21: live operational detail moved to the process area's Run
 /// tab, so this strip only glances).
 ///
-/// **Phase 1 (window-design.md §4–§6): this IS the centre column's
+/// **Phase 1 (docs/archive/v4/window-design.md §4–§6): this IS the centre column's
 /// divider.** A `DragGesture` over the whole bar — every pixel of its
 /// width, via `.contentShape(Rectangle())` — reads `availableHeight` (the
 /// same denominator `WorkspaceView`'s `ProcessAreaLayout.heights` uses) and
@@ -903,7 +903,7 @@ struct SaveResultButton: View {
 /// The resize cursor over a divider. `.column` is the pane split's
 /// left–right pair; `.row` is the infobar's up–down pair, added 2026-09-22
 /// because a bar the brief calls "draggable over its whole width" gave no
-/// sign of it (window-design.md §1).
+/// sign of it (docs/archive/v4/window-design.md §1).
 private struct ResizePointer: ViewModifier {
     enum Axis { case column, row }
     let axis: Axis

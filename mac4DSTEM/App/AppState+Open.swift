@@ -204,7 +204,7 @@ extension AppState {
 
     /// The reader for a URL, by extension. Extracted so the configured open and
     /// the direct open cannot drift apart on which formats they accept.
-    /// Widened from `private` (seam 3, docs/appstate-seams-plan.md):
+    /// Widened from `private` (seam 3, docs/archive/v4/appstate-seams-plan.md):
     /// `App/AppState+DiskDetection.swift`'s `generateVacuumProbeKernel` calls
     /// it from outside this file.
     static func makeReader(for url: URL) async throws -> any FourDDataSource {

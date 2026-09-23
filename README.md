@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM v2.5.0: a convergent-beam diffraction pattern with detected Bragg disks and lattice fit overlay, beside the resulting epsilon-yy strain map, with fit diagnostics in the inspector" width="100%">
+  <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM: a convergent-beam diffraction pattern with detected Bragg disks and lattice fit overlay, beside the resulting epsilon-yy strain map, with fit diagnostics in the inspector" width="100%">
 </p>
 
-<p align="center"><sub>v2.5.0 — the Strain &amp; ACOM workspace.</sub></p>
+<p align="center"><sub>The Strain &amp; ACOM workspace.</sub></p>
 
 ---
 

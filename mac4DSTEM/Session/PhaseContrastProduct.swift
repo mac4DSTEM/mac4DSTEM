@@ -1,6 +1,6 @@
 //
 //  PhaseContrastProduct.swift
-//  Role: seam 1 (docs/appstate-seams-plan.md) — the one owner of the Parallax
+//  Role: seam 1 (docs/archive/v4/appstate-seams-plan.md) — the one owner of the Parallax
 //        and single-slice ptychography products and their run controls. Held
 //        by AppState as `let phaseContrast = PhaseContrastProduct()`, no
 //        forwarding properties; views read `phaseContrast.…`.

@@ -1,6 +1,6 @@
 //
 //  DiskDetectionProduct.swift
-//  Role: seam 3 (docs/appstate-seams-plan.md) — the one owner of the
+//  Role: seam 3 (docs/archive/v4/appstate-seams-plan.md) — the one owner of the
 //        disk-detection run controls (`diskParams`). Held by AppState as
 //        `let diskDetection = DiskDetectionProduct()`, no forwarding
 //        properties; views read `diskDetection.…` (via `appState.diskDetection`).

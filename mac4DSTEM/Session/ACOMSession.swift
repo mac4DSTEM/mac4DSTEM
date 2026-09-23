@@ -88,7 +88,7 @@ package final class ACOMSession {
     /// The displayed product is AppState's; it clears it when the map goes.
     @ObservationIgnored package var onResultInvalidated: (() -> Void)?
 
-    // MARK: - Seam 2 additions (docs/appstate-seams-plan.md)
+    // MARK: - Seam 2 additions (docs/archive/v4/appstate-seams-plan.md)
     //
     // Moved verbatim out of `App/AppState.swift`'s ACOM section (seam 2):
     // the run-throughput measurement, the effective backend, the model-

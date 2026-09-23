@@ -4,7 +4,7 @@
 //        calibration from a known crystal, orientation-plan generation, the
 //        match run, and the one publish site for every ACOM display mode.
 //        Moved verbatim out of AppState.swift on 2026-09-18 (seam 2,
-//        docs/appstate-seams-plan.md): a placement change, no logic touched.
+//        docs/archive/v4/appstate-seams-plan.md): a placement change, no logic touched.
 //        The 15(ish) `acom*` properties these functions read moved into
 //        `Session/ACOMSession.swift` in the same seam — call sites here are
 //        renamed to the owner prefix (`acomSession.modelSelectionIssue`,

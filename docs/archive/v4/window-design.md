@@ -1,6 +1,23 @@
+# Window design — the reset (2026-09-22) — CLOSED, archived 2026-09-23
+
+The UI design brief that drove the v4.0.0 window rebuild: the owner's
+2026-09-22 anatomy brief, the Xcode/Pixelmator references, the proposed
+three-column shape, the phase-by-phase build/drive log through the night of
+2026-09-22, and the §10 consolidation-review prompt. Work closed the night
+of 2026-09-22 and shipped in **v4.0.0** (2026-09-23, CHANGELOG: "The
+interface, rebuilt on Apple's own guidance (2026-09-22 night)... Driven and
+accepted by the owner on a real cube"); the §10 review itself ran and is
+recorded at `docs/archive/v3/consolidation-review-2026-09-22.md`. Superseded
+by the shipped shell: `docs/architecture.md` §"The UI contract" describes
+the anatomy as built; ADR 035 (frozen shell), 036 (toolbar carries the
+room), 037 (superseded — cards dropped for `InspectorRows`' flat HIG
+sections) are the decision record. Moved here verbatim, unedited below.
+
+---
+
 # Window design — the reset (2026-09-22)
 
-**Status: decided 2026-09-22 (§6); phase 1 committed (`b0cf8e0`) and corrected the same day after its first on-screen look (ADR 035, [`archive/v3/ui-review-2026-09-22.md`](archive/v3/ui-review-2026-09-22.md)); the shell is frozen; owner drive owed.** The owner said on 2026-09-22 that he wants further changes; details and acceptance are pending. Written after the owner drove the
+**Status: decided 2026-09-22 (§6); phase 1 committed (`b0cf8e0`) and corrected the same day after its first on-screen look (ADR 035, [`archive/v3/ui-review-2026-09-22.md`](../v3/ui-review-2026-09-22.md)); the shell is frozen; owner drive owed.** The owner said on 2026-09-22 that he wants further changes; details and acceptance are pending. Written after the owner drove the
 2026-09-21 restyle (`9fd386d`) and rejected it: "cramped, no logic to the
 panes, no workflow behind it". The findings are in `open-items.md` (Owner
 drive 2026-09-21). This file says what the window is for, what the two

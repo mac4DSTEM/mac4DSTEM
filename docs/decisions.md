@@ -17,7 +17,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 007 | Versioning and release naming; a raised system requirement is a major | 09-02, 09-03, 09-11, 09-22 | live |
 | 008 | macOS floor and arm64-only | 09-04, 09-11, 09-22 | live (floor raised 14→27 09-22; v3.0.0 stays for older systems) |
 | 009 | UI contract | 09-03, 09-04, 09-07 | live (09-03 AppKit superseded) |
-| 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `window-design.md` §6) |
+| 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `docs/archive/v4/window-design.md` §6) |
 | 011 | Status strip readouts | 09-04, 09-12 | live (09-04 narrowed; throughput and the Performance rows moved to the Run tab by 034, 09-21) |
 | 012 | Refusals not defaults | 09-04, 09-05 | live |
 | 013 | Residency `.automatic` dropped | 08-18 | live |

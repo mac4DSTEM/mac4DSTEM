@@ -45,3 +45,6 @@ tools/disk-detector/labels/
 
 # Session evidence: retained logs referenced by docs, never committed
 scratchpad/
+
+# Coverage output from instrumented runs
+*.profraw

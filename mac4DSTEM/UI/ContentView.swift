@@ -127,7 +127,7 @@ struct ContentView: View {
                 // it is not — and the toggle stays reachable either way.
                 .toolbar { windowToolbarContent }
         }
-        // Phase 1 (window-design.md §4–§6, decided 2026-09-22): `.inspector`
+        // Phase 1 (docs/archive/v4/window-design.md §4–§6, decided 2026-09-22): `.inspector`
         // moved here, off the detail view, so the column runs from the
         // toolbar to the window's bottom edge exactly the way the sidebar
         // already does.
@@ -187,7 +187,7 @@ struct ContentView: View {
     /// Only window-level controls live here. The split view supplies the
     /// leading navigator toggle; this trailing toggle survives closing the
     /// inspector. ⌥⌘0 and the existing ⌃⌘I menu item reach the same state.
-    /// The owner's arrangement (2026-09-22 evening, window-design.md §8.1 and
+    /// The owner's arrangement (2026-09-22 evening, docs/archive/v4/window-design.md §8.1 and
     /// his corrections on his own build): the file, the room and the live
     /// run as a DISPLAY in the centre, never a button (the 2026-09-04 "C…"
     /// trap); over the room at the trailing edge, the run button — Stop

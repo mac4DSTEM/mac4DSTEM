@@ -24,9 +24,13 @@ one.
 
 ## Building
 
-Xcode 26 or later (development is on 27.0, CI on macos-26) on Apple Silicon,
-and a **full Xcode** — the Command Line Tools alone cannot build this project.
-Build and test commands: `CLAUDE.md` § Build / test.
+Xcode with the macOS 27 SDK (development is on Xcode-beta 27.0; the project's
+`MACOSX_DEPLOYMENT_TARGET` is 27.0, `docs/releasing.md` § Release contract) on
+Apple Silicon, and a **full Xcode** — the Command Line Tools alone cannot
+build this project. GitHub CI's `macos-26` runner cannot build the app at all
+since the macOS 27 floor landed (`docs/open-items.md`); a macOS 27 runner
+image is an owner decision owed (`docs/status.md` § Handoff). Build and test
+commands: `CLAUDE.md` § Build / test.
 
 Everything under `tools/` resolves its own toolchain via
 `tools/lib/developer-dir.sh`: an explicit `DEVELOPER_DIR` wins, then whatever

@@ -4,900 +4,565 @@ Live defects, debts, owed runs and open questions only — status is
 `docs/status.md`, history is `docs/archive/`. Four lanes (owner, 2026-09-03):
 **Science** items are taken one at a time in the order the status handoff
 names, carry no release number, and a landed change to a scientific output
-cuts v2.6.0; **Verification debt** closes when its run happens; **Known,
-scoped** items and the owner's bug reports ship in the next v2.5.x patch;
+cuts a release; **Verification debt** closes when its run happens; **Known,
+scoped** items and the owner's bug reports ship in the next patch;
 **Code hygiene** rides with the session that touches its file. Each entry is
 ≤ 12 lines and dated: what is wrong, the pinning evidence, the trap, the
 owner. No narrative. Closed items move to
 [`docs/archive/closed-items-2026-09.md`](archive/closed-items-2026-09.md); the
 file before the 2026-09-07 trim is verbatim in
 [`docs/archive/open-items-2026-09-07.md`](archive/open-items-2026-09-07.md),
-the 2026-09-02 pre-cull file beside it. The merged UI-findings list is
+the 2026-09-02 pre-cull file beside it. Long narrative compressed out of this
+file on 2026-09-23 is in
+[`docs/archive/open-items-detail-2026-09-23.md`](archive/open-items-detail-2026-09-23.md);
+earlier detail files are `archive/open-items-detail-2026-09-18.md` and
+`archive/v3/open-items-detail-2026-09-16.md`. The merged UI-findings list is
 [`docs/archive/v2/v2.5-plan.md`](archive/v2/v2.5-plan.md) §3 — point there.
 
-## Owner drive 2026-09-21 23:50–23:55 — the workspace/inspector restyle (`9fd386d`) REJECTED — added 2026-09-22
+## Science & parity
 
-Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible". Anatomy decided 2026-09-22 in [`docs/window-design.md`](window-design.md); phase 1 committed as `b0cf8e0`, corrected the same day (ADR 035, [`archive/v3/ui-review-2026-09-22.md`](archive/v3/ui-review-2026-09-22.md)) and **driven by the owner that evening: accepted in substance**, two findings below. The shell is frozen; the header's content is his open decision before Prepare.
+### App R–Q rotation is −py4DSTEM's on the same file; QR_rotation crosses the boundary unconverted — Gate D, reopened 2026-09-23
+The app reads a file's scan/detector axes as (Ry, Rx, Qy, Qx)
+(`DatasetDescriptor.swift:15,38-41`), py4DSTEM as (Rx, Ry, Qx, Qy): both pairs
+swapped, so the app's θ = −py4DSTEM's θ, transpose identical. Measured
+(independent refuter, `archive/v3/rq-frame-class-2026-09-23.md` §Independent
+refutation): real `Particle_1_Stack_1…bin8.h5` → py4DSTEM +80.0° T, app
+−80.1° T; three planted non-square fields flip sign likewise. Origins and
+peaks are axis-swapped at the py4DSTEM import/export boundary, but
+`QR_rotation` is not (`AppState+Open.swift:474`; `ResultExport.swift:1304` →
+`BraggVectorEMDWriter.swift:1690-1697`); no `DEVIATION` note on the sign.
+**Trap:** `bfa5525`'s "fix" transposed the harness's own reference array,
+relabeling py4DSTEM into the app's frame — leg (b) then PASSed by
+construction; restored to informational (`a0e9a4a`).
+Owner: decide the displayed convention; then Gate D on the sign conversion
+(a scientific number), a file-faithful leg (b), and check `ellipseTheta` at
+the same boundary.
 
-### Owner drive 2026-09-22 — phase 1 + ADR 035 ACCEPTED in substance ("the backbone is better now"); two findings
-Driven on the owner's Xcode build of `6132ff1`, demo fixture, dark, wide display, six screenshots. Confirmed: toolbar without title and with the toggles trailing; the inspector toggle; the infobar drag over its whole width; the header stays inside the centre column with both panels hidden. Light mode not yet driven.
-**A — the TOOLBAR read as empty** (by "header" he meant the toolbar). **Decided and built the same evening (ADR 036):** the file and the live run as a display in the centre; the run button (Stop while busy), Save, Reveal and the dataset menu as icons over the room at its right; only the inspector's toggle over the inspector; the breadcrumb row gone; the infobar 28 pt. Three corrections on his own build within the hour: the trailing group had ridden over the inspector ("like in Xcode"), a fallback toggle doubled the inspector's own, and the verb sat at the navigator's edge ("the user changes the parameters on the right"). **"Better now"** after the first. Owner check owed on the last two; not yet seen: the busy state (needs a real cube), light mode.
-**B — the bottom pane's tab controls "behave strange" — DIAGNOSED and REBUILT the same night:** the tab bar moved between tabs because the Run tab's content did not fill the pane and the stack centred it. The area is now Xcode's debug area — Output and Lineage side by side, each with its own bar button; the Run tab's numbers are the infobar's (036 amendment). Owner drive owed.
-**C — his drive of `03cfa10` (2026-09-22 afternoon, `datasetA_stride3.h5`, live runs): ACCEPTED, "much better now! good work"; consolidate.** Two small findings: the Settings · Info icons → text tabs in Liquid Glass (built the same day, unseen); "cancel button is not stop, is there a reason?" — the buttons say Stop, the status says "Cancelling…"/"cancelled"; whether he means the word or a run that did not stop is asked back, not assumed. Owner: answer, then the wording or a Gate D on the stop path. Then (his second look): "Prepare still looks different from the rest — make everything the same, then improve" → Prepare back on the rooms' `InspectorRows` kit the same day (ADR 037 reversed, unseen); "provide a prompt to review everything" → `window-design.md` §10. His launch screenshot (no dataset): the inspector's tab row mid-column — mechanism read in the code (the placeholder does not fill, the stack centres), pinned to the top the same day; the trap: every agent capture used the demo fixture, so the launch state was never looked at — it is in the capture set now. The text tabs "still not Liquid Glass — like Xcode's, with text" → one glass capsule with text segments, same day.
+### Origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay owed, still `validation:"none"`
+`OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position
+`kept` mask (disclosure only, no fitted number moves; ADR 033). D4 count
+landed (`PrepareSettings.positionsUsedValue`, unit-tested) but **unverified
+on screen**. Step-3 trim-sweep PASSED on 4 cubes: excluded 0.6–15.7 %,
+`maxGap` 1–5 — two cubes exclude alike but differ spatially. **Owed:** the
+spatial validity overlay (origin fit over the scan grid, excluded positions
+greyed via `DisplayedProduct.validityMask`) is a larger follow-on, not
+built. Owner: unclaimed. Detail: `archive/open-items-detail-2026-09-18.md`.
 
-### Owner drive 2026-09-22 night — three findings during the consolidation session
-Sent mid-session while driving `datasetA_stride3.h5` live (screenshots in chat, not saved to a file). He then asked directly for B and C to be fixed in the same session rather than deferred — both landed the same night; A stays open, genuinely unactionable without a reproduction.
-**A — "a weird overlap from time to time"** — a strong lead found, NOT diagnosed, NOT fixed. Driven live this session on `datasetA_stride3.h5` (171×171, 29,241 positions) via a screenshot loop (`scratchpad/.../windowid.swift` for the CGWindowID, `screencapture -l<id>`, then computer-use once the owner returned and granted access): the app window itself, not just its content, twice went to a state where a screenshot of the app process showed **only the menu bar over black/the desktop** — no chrome, no panes, window content entirely blank — for roughly 1 s, then it recovered to normal size and content on its own. Both times it coincided with a calibration step's toolbar transition (busy → idle, the toolbar's centre display and primary-action button swapping content, e.g. after Origin calibration finished and R–Q rotation's own busy state hadn't yet drawn). A click issued during the blank state still reached the app — the Output log shows the ellipse-fit action ran twice from what looked like one click, meaning input kept landing while the window drew nothing. Not the same shape as a `.zIndex`/`.offset` stacking bug (grepped `WorkspaceView.swift`/`ContentView.swift`, nothing found there); more consistent with a window-frame resize/redraw tied to `ideal-width budget` (ADR 035) recomputing on every toolbar content change and the window briefly rendering at the wrong size or an unbacked frame before settling. Not reproduced on command — happened twice in roughly 20 busy→idle transitions driven, both on the real dataset, never on the tiny demo fixture (whose operations finish in under a second, too fast to have caught this even if it also happens there). Owner: Gate D — the cause is not established, this is a mechanism guess from correlation, not a proven diagnosis; needs a deliberate repro attempt (drive several busy→idle transitions on a real dataset, screen-record rather than discrete screenshots) before any fix, and `WorkspaceView.swift`/`ContentView.swift` are Frozen Shell regardless. 2026-09-22 night: the path this lead named — the ideal-width budget (ADR 035) recomputing on every toolbar content change — was deleted this session (the floor is now a fixed derived constant, not a per-change recompute); not re-tested on a real cube, so the lead stays open rather than closed by this change. **Parked 2026-09-22 night:** the owner has not seen it recur across the rebuild's drives; not diagnosed and not called fixed — reopen with a screen recording if it returns.
-**B — the Stop/Cancel wording and the "collapsed" look — FIXED same night, `bcb3845`.** Repeated finding C from 2026-09-22 afternoon (asked once, not answered; asked again, unprompted, that night) — two asks was treated as the answer. Both "Stop" buttons (`WorkspaceView.swift`'s toolbar `operationProgress` and the bottom infobar's `runReadout`) renamed to "Cancel"; the toolbar one also given an icon (`Label` + `.bordered`) matching its sibling toolbar buttons, which is what had read as "collapsed" — a bare unstyled text button beside icon buttons. Frozen Shell (ADR 035) touched on his direct, live request, treated as the required acceptance. Unverified on screen — his own rebuild owed.
-**C — "i cant see the liquid glas" — addressed, not necessarily closed, `9fa7e4e`.** Asked back first: he confirmed the capsule and its selection pill DO render (rules out a `#available`/Reduce Transparency failure — both checked: this machine runs macOS 27, `reduceTransparency` reads 0) but read as flat, not glass. Fourth build of this exact row today (two glass pills, one capsule, now a rim + shadow) — added a hairline stroke and a depth shadow rather than guess at the glass material itself a fifth time, since another wrong guess costs a full rebuild-relaunch-report cycle. May not be enough; his own verdict owed before calling this done.
+### Parallax and ptychography are unrunnable on the owner's Mac — release-notes item
+8–11 GB of working set for a 268 MB cube is a 30–40× ratio; nobody has
+checked whether that is the algorithm's true cost or an over-estimate that
+refuses work the machine could do. That is a Gate D of its own (a number
+governs whether a feature runs at all), not a tuning knob to raise.
+Consequence: both features ship **undriven on real data** and must be
+described that way in release notes. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
-### Inspector kit gaps — added 2026-09-22 night
-No adaptive `Menu` in `UI/InspectorRows.swift` (Add Phase hand-rolled) and no warning-note type (orange captions and the unvalidated badges stay hand-rolled; the badges must not change). Long labels ("Measured kernel mode") wrap beside wide pickers — wording is the owner's call. Scoped work, not bugs. Sliders are now two lines (label + value, slider below); the toolbar display's width may move by a digit while busy (it cannot hold a constant ideal without dropping out); the toolbar fits by IDEAL width, so a long real file name drops the display at the 915-pt minimum and the dataset menu jumps leading — the jump, not the drop, is the defect. (The clipped pane at 915 pt was diagnosed and fixed 2026-09-22 night: the status strip's fixed-width glance and run readout floored the detail column; both now compress — Gate D, refuter NOT REFUTED on all rooms, busy and with the process area open.)
+### Known-variants rule / Al→precipitate guard — measured on one dataset, not shipped — Gate D 2026-09-23
+`ClassificationRule.knownVariants` at `minimumIntensityFraction` 0 reproduces
+**529/29 241 = 1.81 %** on the Thronsen truth (`baseline-repro-20260923.log`,
+digit-for-digit against `theta-prime-slab-2026-09-21.md`). The rule has no
+chance guard; a `specific ≥ 1` fallback-to-matrix candidate reaches
+**423/29 241 = 1.45 %** (inside the paper's 0.96–1.75 % band, cost 6/7 625
+correct calls) — an independent Gate D refuter (`385c1e3`) reproduced this to
+the digit but found it is a `(count, pair-radius)` **family**, not a fixed
+point (k≥1 is 2.18 % at radius 0.010, 1.35 % at 0.015 Å⁻¹); the baseline is
+not distinguishably outside the band under a stride-3 block bootstrap; 354 of
+407 false calls sit at truth-label boundaries, not scattered; and step 3's T1
+median-length gain is spurious singletons removed, not objects repaired.
+Al's hand-typed lattice constant differs 0.24 % from the paper's own CIF
+(a real small finding, not yet corrected). Nothing under `Core/` changed —
+every addition is an off-by-default probe flag.
+Owner: whether to ship a guard, and at what count/radius; unclaimed.
+Detail: `archive/v3/precipitate-overnight-2026-09-23.md`.
 
-### One column, three alignments — SEEN 2026-09-21, Prepare
-"Compute Mean / Max" sits flush right (`InspectorActionRow`), "Measure Origin & Probe" / "Fit Detector Ellipse" flush left (bare buttons in a section), "Manual 0 / Unit per pixel" in the label column, "Not set" floating mid-row. Pixelmator's rule is one alignment per panel: label left, control right, value far right, buttons full width. Design, not a patch.
+### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
+`PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
+called matrix when almost nothing survives removal — never because the
+matrix entry explains the pattern. The best entry per phase is chosen by
+mean distance alone, so a sparse precise match outranks a dense one, across
+phases too (Gate B 2026-09-15: 0.004 two-vector beats 0.012 ten-vector).
+A count-aware candidate (`PhaseVectorSettings.completenessAwareCrossPhaseRanking`,
+off by default) is byte-identical on the demo cube with the flag on or off —
+no regression, not yet an improvement; Thronsen isn't a valid second
+measurement (T1 reference already known wrong). Step 3 stride-3 sits outside
+every threshold tried (98.26 % shipped defaults; 26.2–26.4 % at 1–10 %
+thresholds). Gate D before any edit on either the exclusion rule or the
+ranking. Owner: unclaimed.
+Detail: `archive/v3/step3-2026-09-16.md`, `archive/v3/open-items-detail-2026-09-16.md`.
 
-### A section toggles only on its chevron, not its label — SEEN 2026-09-21
-`InspectorSection` is a `DisclosureGroup`; macOS toggles it from the triangle alone. The header must be one button (label + chevron) with a full-width hit target.
-
-### Buttons truncate and crowd — SEEN 2026-09-21, Bragg disks
-"Use Cu…", "Use Fil…", "Vacuu…" — three buttons in one `InspectorActionRow` at 320 pt; "Clear Th…", "Save t…", "Export…" likewise. A button never truncates: one per row, or a menu. `.controlSize(.small)` throughout the inspector makes every control look tiny; the inspector should use the regular size and 13-pt text, small only in the strip.
-
-### No workflow logic in the rooms — SEEN 2026-09-21, Prepare and Bragg disks
-Prepare stacks Pattern → Calibration (five items, each with its own button) → manual Q fields → R scale → a five-line orange "Not quantitative — still needed" paragraph → Voltage → Clear. The step order, the state of each step and its one action are not legible; the manual fields precede the calibrations they depend on. Each room must read as ordered steps with state and one verb, the readiness as a compact row, not prose. Design phase, Prepare first as the reference room.
-
-## Consolidation session 2026-09-22 night — three residuals, all Frozen Shell (record: `archive/v3/consolidation-review-2026-09-22.md`)
-Six of seven verified findings landed a fix (`ce65014`..`10e765a`); the record above also carries a provenance note — the session's own task claimed a prior review at commit `4ff4884` that does not exist anywhere in this repo, and treated every one of its claims as unverified until re-checked against source. Three residuals, all blocked the same way — `CLAUDE.md`'s Frozen Shell rule (`WorkspaceInspector.swift`/`WorkspaceView.swift`/`LayoutPolicy.swift`/`ContentView.swift`/`WorkspaceNavigation.swift`, "change only against a picture the owner has accepted, ADR 035"):
-**D1 — `WorkspaceInspector.swift:50`'s `@AppStorage("ui2.inspectorTab")`** is a real relic (also named in "View state has four owners" below) — not renamed, the file is frozen.
-**D2 — `PhaseSettings.swift` → `ReconstructSettings.swift`** (it backs `WorkspaceArea.reconstruct`, titled "Phase", confusable with the unrelated `PhaseMappingSettings.swift`) — the rename's only production call site is `WorkspaceInspector.swift:208`, so even a pure rename cannot land without touching a frozen file.
-**D3 — the Info tab has no "Unvalidated" badge** (`WorkspaceInspector.swift`'s `ProductInfoSections` has no per-room branching at all; a phase-mapping product's `validation: "none"` reaches Info only as one more alphabetized Provenance row, while the Settings tab shows a styled orange warning `Label`, `PhaseMappingSettings.swift:291-298`) — 100% blocked, no partial version exists.
-Also recorded, not a Frozen Shell item: fixing `parallaxStage4IsComplete` (`10e765a`) made the parallax stage-4 checklist checkmark MORE correct, exposing a fresh disagreement with two independent, un-refactored "is parallax done" checks that still read `parallaxSubpixel` alone — `WorkspaceView.swift:297` (`primaryActionTitle`) and `AppState.swift:1236` (`runPrimaryWorkspaceTask()`), reachable in the state `parallaxDepth != nil && parallaxSubpixel == nil`. Cosmetic (the dispatcher's own gate is independent and correct) but real; `WorkspaceView.swift`'s half is frozen, so `AppState.swift`'s half was left matching it rather than diverging further. Owner: unclaimed.
-
-## Neutral UI review 2026-09-22 — open residuals (record: `archive/v3/ui-review-2026-09-22.md`)
-
-### Two inspector styles alive until the rooms convert — OPEN, phase 2 in progress
-Prepare is GroupBox cards since 2026-09-22 late (ADR 037, the grouped-form version built earlier that night rejected on sight); the other five rooms still stack `UI/InspectorRows.swift` sections (414 lines across ~5 000 lines of room files). Next: the owner drives Prepare; then one room per session; `InspectorRows.swift` deleted last. Cards do not collapse; Advanced is a disclosure row.
-
-### View state has four owners — OPEN, code hygiene
-`WorkspaceNavigation` is the declared truth, but `UI/` holds 15 `@SceneStorage` keys and one `@AppStorage` key (`ui2.` is a relic of the deleted UI2), mirrored by 18 `onAppear`/`onChange` sites in four files. Two sources of truth is where "the pane came back wrong" lives. Next: `WorkspaceNavigation` persists one snapshot per window; delete the keys and the sync sites. Rides with the first room conversion.
-
-### UI tests cannot see layout; the unverified row drains only by owner time — OPEN, process
-33 UI-adjacent tests, all pure functions; the 2026-09-21 drive found eight structural defects 844 green tests did not. Next: every UI commit ships captures at 1100 and 1470 pt, light and dark, under `archive/` (recipe: review record §6, no dialog needed) — "Unverified on screen" then means the owner has not accepted the design, not that nobody looked. Light-mode captures are still owed for phase 1.
-
-### UI docs written for agent continuity, not owner decisions — OPEN, docs
-About 16 000 words across `status.md`, `window-design.md`, `open-items.md` and `ROADMAP.md` before a view may be touched; gate cells of 150 words; ADR 034 amends itself into describing dead code as the design. Next: `window-design.md` to the brief + the red-box screenshot + a 20-row element table (§2–§4 prose and the §7 agent prompt to the archive); ADR 034's rejected half retired, not amended; one line per gate row. Unclaimed.
-
-## v3.1 origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay + clustered case owed
-
-`OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position `kept` mask (disclosure only, no fitted number moves; ADR 033, `docs/v3-features.md#calibration-v31`).
-**Status:** D4 count landed (`PrepareSettings.positionsUsedValue`, unit-tested M4) but **unverified on screen**. Step-3 trim-sweep PASSED on 4 cubes: excluded 0.6–15.7 %, `maxGap` 1–5 — Si-SiGe (15.7 %, scattered) vs sim_Au (10.6 %, `maxGap 5`, clustered) exclude alike but differ spatially. D1/D2 stay at defaults, overrule on sight.
-**Owed:** the spatial validity overlay (origin fit over the scan grid, excluded positions greyed via `DisplayedProduct.validityMask`) is a larger follow-on, not built. Owner: unclaimed.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-## Full-cube Friedel origin calibration froze the app, then progress/ETA plateaued — fixed, screen check owed 2026-09-19
-
-Owner's Debug 171×171 `datasetA_stride3.h5` Friedel run froze (**not responding**) without memory or thermal pressure. Gate D refuted an HDF5/FFT stall (statistics 7.0 s; 60-row tile 9.0 s; MainActor heartbeat live); `calibrateOrigin` now detaches only the tiled CPU-FFT pass.
-The next drive stayed responsive but at 4:28 showed ~35% and ETA 5:27: progress emitted only after a 60-row tile. It now emits completed rows with monotonic, non-cancelled publication. Current-app demo drive (12×12) verified selected Friedel, live Cancel, and measured completion on 2026-09-19; focused test broke first; unit and Friedel/py4DSTEM parity passed; refuter confirmed FFT/output/fit unchanged. The full-cube row-progress/ETA drive remains owed, not a release gate.
-
-## Owner drive 2026-09-17 — added 2026-09-17
-
-### Sidecar save "could not remember access" was a dev cdhash mismatch; the live residual is the message — CONFIRMED 2026-09-17
-2026-09-17 00:26:37: bookmarking the just-saved sidecar threw "The file couldn't be opened". Cause, from the
-unified log (`docs/archive/audit-2026-09-16/sidecar-bookmark-cdhash-20260917.log`): `ScopedBookmarkAgent`
-returned -67034 `errSecCSStaticCodeChanged` because the ad-hoc Debug bundle in DerivedData was rebuilt under
-the running instance. **Confirmed a dev artifact, not a product bug**: after a fresh build nobody rebuilt under,
-Save persisted and the sidecar restored (owner reproduction, log 00:47:43). H1 (sandbox extension) and H3
-(wrong URL) refuted; no Gate D (mechanism proven by a reproducing observation). **Residual FIXED 2026-09-17:** `AppState.errorDetail` names the domain, code and underlying error
-(where -67034 lives); applied to the sidecar-grant and the recent-file "could not remember access"
-messages. Test `ErrorRoutingTests.testErrorDetailNamesDomainCodeAndUnderlyingCause`, broken first
-(bare `localizedDescription` → red on domain/code/underlying, `bf2-mut-20260917.log` exit 65; real
-and final exit 0). Item closed.
-
-## Deviation-note audit 2026-09-17 — added 2026-09-17
-
-Read-only fan-out over 43 Core/ ported sources (CLAUDE.md hard rule: port deviations get
-an inline `DEVIATION` note). Two files got a class-a note inline where a same-file
-justification already existed untagged (`DiskDetection.swift`, `OrientationMatcher.swift`),
-plus `ProbeKernel.swift` and `StrainMapping.swift`. Five class-b gaps were found. **Four were
-pure documentation gaps and got their inline `DEVIATION` note 2026-09-17** (each verified
-against source, re-checked by an independent refuter): `EllipseCalibration.fitAmorphousRing`
-(LM start point differs), `ParallaxPreprocessing` probe angles (milliradian storage, converted
-back to radians in every science consumer), `OrientationPlan` per-ring mean (py4DSTEM's is
-commented out AND coarser — a whole-image mean, not per-ring), `ScatteringFactors` (no
-`units="VA"` branch). The fifth is a behaviour deviation, not a doc gap, and stays open:
+### T1 [0 -4 1] not-indexed pairs are detection noise, not origin or reference — measured 2026-09-17/21, lever choice owed
+Resolved by direct measurement: the 252 not-indexed T1 positions each leave
+one real {200} Friedel pair sitting 2.5–5.2° off antiparallel, so
+`containsFriedelPair` returns false; a per-position origin recovers only 10 %
+of them (per-peak centroid noise on weak spots, not a common-mode origin
+error). What was actually missing (measured 2026-09-21) were the weak
+{014}/{214} families under the 5 % intensity floor. py4DSTEM's own ACOM
+labels 100 % of these positions Al — validates the matrix-removal design,
+not a lever. Remaining levers, each its own Gate D: better centroiding,
+loosen the pair-antiparallel tolerance (recovers ~half, raises Al-false-
+positive cost), or accept detection-limited recall.
+Owner: which lever, if any. Detail: `archive/open-items-detail-2026-09-18.md`.
 
 ### Parallax default bin schedule runs the finest bin once; py4DSTEM's runs it twice — Gate D diagnosed 2026-09-17, fix owed
-
-`ParallaxAligner.defaultBinSchedule` (`ParallaxAlignment.swift:152-166`) returns `[4,2,1]` for a diameter-5 disk; py4DSTEM's `reconstruct` default (`num_iter_at_min_bin=2`, `parallax.py:1141,1278-1281`) appends one repeat of the finest bin → `[4,2,1,1]`, so every product gating on `isComplete` (`ParallaxAberrationFitting:134`, `AberrationCorrection:82`, `SubpixelReconstruction:96`, `DepthSectioning:99`) computes one refinement pass short.
-**Diagnosed 2026-09-17** (refuting observation confirmed: `errorHistory` holds one bin-1 entry, no `numIterAtMinBin` knob exists). **Not yet run:** the head-to-head experiment (py4DSTEM's `BFReconstruction.reconstruct(reset=True)` vs the port over `[4,2,1]`, reporting max-abs `totalShifts`/`alignedBF`/final-error diffs). **Trap:** `tools/parallax-alignment-test/reference.py:354-357` hard-codes the schedule without the repeat, so the green test can't catch this.
-**Science, Gate D before any `ParallaxAlignment` change.** Owner: unclaimed.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-## T1 [0 -4 1]: the not-indexed pairs are per-peak detection noise, not origin or reference — measured 2026-09-17
-
-**Resolved by direct measurement (independently refuted):** the 252 not-indexed T1 positions each leave 2 survivors after matrix removal (52.1 % of 6358) forming one real `|q| ≈ 0.462–0.470 Å⁻¹` Friedel pair (the {200} ZOLZ reflection, `|g|=0.4668`) that sits 2.5–5.2° off antiparallel (`|u+v|` = 0.021–0.043, just over the 0.02 pair radius) — so `containsFriedelPair` returns false and the floor-3 rejects them. The T1 reference {200} length is correct; what was missing (measured 2026-09-21) were the weak {014}/{214} families under the 5 % intensity floor — `docs/archive/v3/known-variants-rule-2026-09-21.md`.
-**Gate D experiment (run 2026-09-17):** a per-position direct-beam origin sits 0.04 px (0.0007 Å⁻¹) median from the global origin (stable, not wandering) and recovers only 24 of 252 (10 %) — **the residual is per-PEAK centroid noise on the weak {200} spots (~0.5–1 px), not a common-mode origin error.**
-**py4DSTEM head-to-head (2026-09-17):** py4DSTEM's own ACOM+`CrystalPhase` on the same peaks labels 100 % of T1 positions Al — validates the matrix-removal design, not a lever to adopt.
-**Remaining levers, each its own Gate D:** better centroiding of the weak spots, loosen the pair-antiparallel tolerance (recovers ~half at rising Al-false-positive/0.015-cliff cost), or accept detection-limited T1 recall. Owner: which lever, if any.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-## resultexport-split, prepared and parked — added 2026-09-17
-
-Audit 3.2 row 6: `Support/ResultExport.swift` (1 939 lines before this session, 12 of 27 funcs untested) is being split by export kind, in small green-boundary commits, each verified before the next.
-**Landed, self-verified only — NOT Gate B-reviewed (STOP before self-approval):** `Support/ResultExport+Rendering.swift`, the pure rendering helpers with zero `AppState` dependency, diffed byte-identical against the pre-split backup except three `private`→internal widenings. Build exit 0 zero warnings, 6 rendering/provenance unit tests pass, `inventory` AppState+ResultExport **7045 (was 7314)** — the moved 269 lines exactly accounted. unit 689/0/2=691.
-**Parked — the actual wire-format-risk portion:** four candidate files (`+SessionSidecar`, `+ScientificBundle`, `+Image`/`+DataCube`, `+Provenance`) covering the HDF5-adjacent functions the four named parity harnesses genuinely exercise. `sessionPixelCalibration` must stay single-sourced in ONE new file, not duplicated.
-Owner: assign a session with Gate B support, or authorize continuing here with a refuter.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-## braggvector-emd-writer-split, prepared and parked — added 2026-09-17
-
-Audit 3.2 row 7. `Core/Data/BraggVectorEMDWriter.swift` (2 890 lines) is the actual EMD/HDF5 wire format — high science risk. One zero-behavior-risk step landed; the writer logic itself (`H5Fcreate`/`H5Dwrite`) is untouched.
-**Landed:** `Core/Data/BraggVectorEMDTypes.swift` — the pure data-model types, no HDF5 call, diffed byte-identical against the pristine backup (exit 0), no access-level changes needed. Wired into both `tools/lib/sources.manifest`'s `export` group and `project.pbxproj`'s exception-set list. Both build paths verified (`itemJ-build1.log`, `itemJ-core.log`, exit 0). All six harnesses that compile this file pass, several with an actual py4DSTEM h5py round-trip read (`itemJ-parity-harnesses.log`, all six `EXIT=0`). unit 689/0/2=691, inventory exit 0.
-**Parked — the writer itself:** splitting `BraggVectorEMDWriter`'s read/write functions BY DATASET KIND needs mapping which function writes which EMD dataset, every new file kept `nonisolated` (verified by a cold app build, not `core`), the same pbxproj+manifest wiring per file, and an `h5diff` byte-identical check.
-Owner: assign a session with Gate B support, or authorize continuing here with a refuter.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-## Phase mapping, landed unvalidated 2026-09-12 — added 2026-09-12
-## Known-variants rule at floor 0: 2.64 % on the Thronsen truth, two residuals owed — added 2026-09-21
-
-**Science.** `ClassificationRule.knownVariants` (the paper's rule, off by default) with the T1 reference at
-`minimumIntensityFraction` 0 lands **773 / 29 241 = 2.64 %** (`map-known-variants-min0-cap48-20260921.log`),
-under the pre-registered 3 % bar, above the 0.96–1.75 % band; the search rule at the same floor 3.77 %.
-Record: `docs/archive/v3/known-variants-rule-2026-09-21.md`. Still `validation:"none"`.
-**S3 wired 2026-09-21** (Classifier picker; the rule sets the intensity floor to 0; class map → objects rows;
-unseen). **Per-phase slab landed** (θ′ at 0.3): **1.81 %** (`archive/v3/theta-prime-slab-2026-09-21.md`), just above the
-0.96–1.75 % band. **Owed:** (1) Al → precipitate false calls 407 (no chance guard in the rule); (2) the app's
-phase slots have no per-phase slab field yet (probe only);
-(3) the floor default for the search rule is unmeasured on any other dataset.
-Owner: unclaimed.
-
-
-### Step 3's 2026-09-16 increments — the record is archived, these are the live residuals
-
-Full narratives, tables and logs:
-[`archive/v3/step3-2026-09-16.md`](archive/v3/step3-2026-09-16.md).
-
-- **The matrix is still a verdict by exclusion** (`PhaseVectorMatching.swift`,
-  `surviving.count < minimumVectors`), and the cross-phase winner is still chosen by mean
-  distance alone with no completeness guard. Both are open; the next increment is the T1
-  reference, which is 617 of the 1024 refusals and is already known wrong in detail.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-- The class-map → objects/density Core bridge is Gate-D/B reviewed; its retained `Session` owner
-  is unit-reviewed. Both are deliberately unwired, so neither is evidence that the classification
-  route has met its owner-adjudicated ship gate or that a phase-map density is validated. Detail:
-  `docs/archive/v3/phase-map-objects-gateD-2026-09-21.md`.
-
-### Step 3 ran on a stride-3 subsample and is OUTSIDE their band — measured 2026-09-15
-
-**Result: OUTSIDE their band at every setting tried.** Shipped defaults 98.26 %; a 10 %
-threshold 26.40 %; 1 / 2 / 3 / 5 % with the reach 25.91 / 26.18 / 26.24 / 26.32 %
-(`thronsen-*-20260915.log`). That, and T1's last 22 %, are what remains. Until the band is
-reached a phase fraction off this map is not a measurement and every product still says
-`validation: "none"`.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### The matrix is a verdict by exclusion, so it fails exactly when detection improves — MEASURED 2026-09-16, Gate D target
-
-`PhaseVectorMatching.swift:769-773`
-
-`minimumVectors` is **2**. So a position is called matrix when *almost nothing survives
-matrix removal* — never because the matrix entry actually explains the pattern. Gate D
-before any edit: diagnosis, refuting observation, prediction, then the experiment — on
-`tools/phase-map-probe`, on both datasets, before a number moves.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### The Al-Mg-Si cube's peak set is not clean enough — added 2026-09-12
-
-**Science.** On `060_STEM SI_…bin_4`, only **39 %** of detected vectors are
-explained by the best-fitting Al orientation at one-pixel tolerance, on a
-specimen whose matrix is aluminium. Measured by `tools/phase-map-probe` with a
-synthetic 2.5 px kernel and default spacing on a 4×-binned 64 px detector, so
-this is a statement about the DETECTION, not the matcher. The app's own path —
-a measured probe kernel, a fitted origin map, the ellipse — is what the probe
-skips. Evidence: `docs/archive/v3/phase-mapping-2026-09-12.md` §"Step 4".
-Not blocking: the matcher refuses (99.0 % "not indexed") rather than inventing.
-
-### The β″ zone axis for ⟨110⟩Al data is not chosen — added 2026-09-12
-
-**Known, scoped.** β″ is coherent along its b-axis with a ⟨100⟩Al direction, so
-with the beam on ⟨110⟩Al — which is where this cube sits, measured — no variant
-is viewed down its needle axis and a [010]β″ library cannot match. Which β″
-zone axes a ⟨110⟩Al beam DOES present is a crystallographic question nobody has
-answered here; until it is, the UI lets the user type one and the method
-refuses when it is wrong, which is the correct behaviour but not the answer.
-
-### Phase mapping's two distance thresholds sit near a cliff — added 2026-09-12, the cliff moved 2026-09-15, a candidate built 2026-09-17
-
-The best entry per phase is still chosen by mean distance alone, so a sparse precise match outranks a dense one — **across phases too** (Gate B 2026-09-15: a two-vector match at 0.004 beats a ten-vector match of another phase at 0.012 Å⁻¹) — no count-aware score is built.
-**A candidate built and measured 2026-09-17, PARKED:** `PhaseVectorSettings.completenessAwareCrossPhaseRanking` (off by default) reranks the cross-phase winner by matched count first, mean distance as tiebreak; unit-tested directly, broken-first. On the demo cube (`tools/phase-map-probe --truth --completeness-guard`) the confusion matrix is **byte-identical with the flag on or off** (Matrix 97.0 %, indexed 204 positions, all recall rows 100 %) — proves no regression, not yet an improvement; Thronsen isn't a valid second measurement (T1 reference already known wrong).
-Owner: Gate D on real data that exercises the trap, then a refuter, before this ever ships true.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-### A stale DerivedData test bundle fakes both a pass and a surviving mutation — added 2026-09-12
-
-Twice on 2026-09-12 a newly added test method was **not discovered by XCTest at all**: eight of nine cases ran, the ninth never appeared, and the suite reported success. Rule: reconcile the case count against `func test` per file — `cases: 8 declared: 9` is the signature; a mutation surviving an incremental build is not evidence until it survives a clean one.
-**Related trap, found 2026-09-17:** a test appended "at the end of the file" can land in the WRONG class. `ProductWorkflowTests.swift` holds three `XCTestCase` classes; a test inserted before the file's final `}` landed in `PhaseSplitTests` instead of `ProductWorkflowTests`, and `-only-testing:...ProductWorkflowTests/<name>` reported **"TEST SUCCEEDED" having run zero test cases** — silently green.
-Rule this buys: `grep -n "^final class\|XCTestCase"` the target file before inserting near "the end", and grep the run log for the test's own name after adding it, not just the exit code.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-### The ellipse "Fit anyway" mark: what it does not yet do — added 2026-09-15
-
-**Known, scoped.** The flag the owner asked for landed 2026-09-15 behind an explicit "Fit
-Anyway" button (`decisions.md`; the closed entry with the four refuted statistics is in
-`archive/closed-items-2026-09.md`).
-
-- **The mark does not survive a session round trip.** `PixelCalibration` carries a/b/θ and
-  nothing else, so a restored fit-anyway ellipse reads "From session". The sidecar wire
-  format is the owner's (plan §8); a field there is a format decision, not a fix.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### A challenged matrix verdict is drawn like one by exclusion — added 2026-09-15
-**Presentation, live; the science is closed** (`archive/closed-items-2026-09.md`,
-"A second matrix grain…"). A position the matrix takes back through `classify`
-step 5 gets the same neutral grey as one where removal left too little to
-index, and `PhaseMap.phaseCounts` cannot separate the two. The evidence line
-does distinguish them; nothing else does. The demo cube's matrix fraction moves
-51 % → 74 % because of it, which is correct but unexplained on screen. Owner:
-presentation only, so no Gate D.
-
-### The rotation null keeps the field's structure now — what it still cannot do — Gate D 2026-09-15 night
-
-- **Power drops at the highest noise:** planted 30° at sd 0.05 is refused 3 of 12 (0 of 48
-  at sd ≤ 0.03), against 0 of 60 under the shuffle null.
-
-**The owner's own case class:** the demo cube's field is shot noise at sd ≈ 0.010 on 100 ×
-100 (measured 2026-09-14); the probe's `A-100` row certifies **2 of 60** such fields, so
-"Measured −67.5°" recurs about once in thirty, not every time. The cube itself has not
-been re-run through the app.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### ACOM returns a zone axis up to 12.8° beyond what its bank forces — MEASURED 2026-09-15
-
-**Science, live, no fix; the cause is narrowed to the SCORE, not the search.** The matcher
-returns a template up to 12.8° beyond what its bank's own sampling forces, worst on ⟨122⟩;
-the winner outscores the truth by 0.6–10 %. Exact on about half the axes. **The one
-experiment that has never been run**, and the only one worth doing next: dump the
-experimental polar image and BOTH templates — the winner's and the true axis's — for a
-failing ⟨122⟩ case, and look at what the winner has that the truth does not.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### 26 of 200 ACOM templates do not recover themselves at an off-grid rotation — added 2026-09-14
-
-Feed every template its own exact spots back in. At an in-plane rotation that lands on the
-2.8125° azimuthal grid, 0 of 200 fail and the self-score is exactly 1.0000. At an off-grid
-rotation, **26 of 200 fail to recover themselves, by 1.7° to 9.3°**. That is a different
-experiment: compare the TRUE template's score against the winner's across many
-orientations, rather than chasing the winner. Gate D owed before any change; two
-hypotheses are already spent.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### py4DSTEM's `power_radial` is absent from the port, with no DEVIATION note — added 2026-09-14
-
-`grep -r "power_radial\|powerRadial\|radialPower" mac4DSTEM/` returns nothing, yet it sits
-in the same expression as the `power_intensity` the port does implement
-(`crystal_ACOM.py:809/816`), multiplying template weights by shell radius — which up-
-weights exactly the outer rings the entry above is about. An existing item, "ACOM omits
-py4DSTEM's `power_radial` weighting (2026-08-28)", already names the first of these — this
-entry is the measured list around it.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### The zone-axis sweep marks a wrong axis against its own median — Gate D 2026-09-15 night, residuals
-
-**Residuals:** the bar rests on synthetic plants, not on the owner's cube
-(not on this machine); the disc model still understates chance about sixfold
-for ring-confined vectors. **Unverified on screen.** The 2026-09-14 entry is
-in `archive/closed-items-2026-09.md`.
-
-### Contiguous invalid regions fabricate precipitates — blocks wiring
-
-`PrecipitateSegmentation.segment()`'s non-finite guard imputes the finite median. That
-survives scattered NaN and **not** a large contiguous invalid region — the shape
-`Core/Analysis/StrainMapping.swift:81` actually writes. **Do not wire this engine to a
-product until this is resolved.** Gate D of its own; the obvious remedy (threshold
-statistics over the finite subset) silently breaks the caller-validity contract at
-`PrecipitateSegmentation.swift:104-107` unless it excludes non-finite rather than invalid
-pixels. Owner: whether to fix or to refuse above a bound.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Non-finite pixels ON a feature erase it silently
-Same engine, same guard, different placement — and `StrainMap.component()`
-writes NaN where indexing failed, which is *on* the second phase. Marking a
-needle's own pixels invalid deletes it from the result with no signal: 1 needle
-marked → 5 objects, 6 marked (126 px, 0.77 % of the scan) → **0 objects**.
-Worse at partial coverage: 7 invalid pixels (0.04 %) leave a reassuring count
-of 6 while one needle reads **21.6 px instead of 8.2** — wrong by 2.6x. No
-imputation strategy recovers this; the information is gone from the input. The
-honest fix is to report the imputed count, not to hide it. Owner: report or
-refuse.
-
-### The robust-sigma constant and the fill statistic are unpinned
-Pre-existing, inherited with the port, found by Gate B. `1.4826 * mad`
-(`PrecipitateSegmentation.swift:305`) can be changed to `3.0 * mad` — a +102 %
-error in the constant that gives `Settings.thresholdSigmas` its documented
-meaning — with every test green, moving mask footprints **-22 %**,
-`meanIntensity` **-36 %** and one object's orientation by **23°**. Separately
-`medianOf(finite)` can become the arithmetic mean with every test green. Both
-are one-token mutants. Fix: one fixture asserting `robustThreshold` lands near
-`median + 3 x sigma_known` on known Gaussian noise, and one assertion that
-distinguishes median from mean. Not blocking — the engine is unwired.
-
-### Dark-contrast ridges register through their flanks — added 2026-09-14
-Found by the 2026-09-14 audit (an independent reader; script not retained).
-`ridgeMeasure` (`PrecipitateSegmentation.swift`) keeps only the negative
-Hessian eigenvalue and its comment says a dark ridge "never registers". A
-dark stripe's smoothed cross-section has two negative-curvature shoulders,
-which DO register and close into one ring-shaped object: a −200 dark 40 × 30
-stripe on a bright field, `.needles`, gave one object with the right centroid
-and `lengthPx` 53.96, `widthPx` 45.0 — the flank spacing, not the stripe.
-Every needle fixture in `PrecipitateTests` is bright. Owner: decide whether
-dark contrast is in scope; if it is, the measure needs the sign made explicit
-and a dark fixture. Not blocking — unwired.
-
-### A negative peak collapses an object to 1 × 1, and NaN next to a maximum passes — added 2026-09-14
-Same audit, both unreproduced through the public surface. `PrecipitateSegmentation`
-takes `half = 0.5 × peak` for the length/width extent; with `peak < 0` no
-member clears it and the object ships as `lengthPx = widthPx = 1`, silently.
-`.needles` drops it on the length floor; `.particles` has none. Reaching it
-needs a component whose maximum is negative, which the threshold seems to
-prevent unless `thresholdSigmas ≤ 0`, which nothing validates. And
-`PrecipitateReflections.find` checks `isFinite` on the candidate only; a NaN
-neighbour compares false, so a pixel beside a dead detector pixel can be a
-local maximum. No fixture holds a NaN in the max pattern. Not blocking.
-
-## Repository review 2026-09-09 — added 2026-09-09
-
-### 119 unverified defect claims, and the adversarial pass that never ran
-The whole-repo review produced 259 records and stopped mid-run; the
-verification pass was still in flight. Deduplicated to 156 clusters in
-[`docs/archive/2026-09-09-review/register.md`](archive/2026-09-09-review/register.md).
-Three are fixed, 16 repeat and 8 may repeat the 2026-08-31 review, 8 are
-already tracked here, **119 are new and none is verified**. They are claims
-with a file and a line, not defects. Do not fix from the register: each one
-that can move a scientific number is a Gate D of its own, and this repo has
-shipped three confident wrong diagnoses. Triage before v3.0.0 should verify
-the release-blocking ones only — a number moves, a clone breaks, the process
-dies — and leave the rest listed. Owner: triage order.
-
-### The three redistributed dylibs have no rebuild path
-
-What is still missing is a way to *make* them: they came from Homebrew `hdf5 2.1.1` /
-`libaec 1.1.7` on one machine, and nothing in the repo rebuilds them. Owner: whether
-v3.0.0 needs a rebuild script.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-## Accessibility — added 2026-09-09 by the delegated drive
-
-**Does NOT block v3.0.0** (owner, 2026-09-11; `decisions.md`). Deferred to a
-far-future release. Kept here in full because it is a live defect, not a closed
-one, and because it is not VoiceOver-only: any AX client resolving labels on the
-front window trips it, so it blocks any automated driving rig and it crashed the
-owner's own session twice on 2026-09-08.
-
-
-### Reading an accessibility label crashes the app — evidence aged off 2026-09-15, suspect named
-
-Two crash reports of 2026-09-08 showed `EXC_BAD_ACCESS` at a stack guard page — a stack
-overflow — in `AccessibilityNode.accessibilityLabel()` → `labelsToResolve` →
-`resolvedRole(forPlatformElement:)` → AppKit `_accessibilityFindRoleFromProtocol`, both
-times while an AX client resolved labels on the front window. VoiceOver does exactly that,
-so a VoiceOver user very likely cannot use the app at all. A crash report saved out of
-`~/Library/Logs/DiagnosticReports` the same day belongs in `docs/archive/`, since this
-item has now lost its evidence once.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### In-body controls report no accessibility label — the same bug
-
-`Compute Mean / Max`, `Fit Detector Ellipse`, the two image-pane buttons and every
-`Advanced` disclosure come back as bare `AXButton` / `AXDisclosureTriangle` with empty
-title, description and value, while AppKit-backed toolbar items (`Hide Sidebar`, `Save to
-Results`, `Dataset`) and the `Accelerating voltage (kV)` field report correctly. Treat as
-one Gate D, not two fixes.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-## Verification debt — added 2026-09-08
-
-### App R–Q rotation is −py4DSTEM's on the same file; QR_rotation crosses the boundary unconverted — Gate D, added 2026-09-17, reopened 2026-09-23
-The app reads a file's scan/detector axes as (Ry, Rx, Qy, Qx) (`DatasetDescriptor.swift:15,38-41`), py4DSTEM as (Rx, Ry, Qx, Qy): both pairs swapped, so the app's θ = −py4DSTEM's θ, transpose identical.
-Measured (refuter, `rq-frame-class-2026-09-23.md` § Independent refutation): real `Particle_1_Stack_1…bin8.h5` → py4DSTEM +80.0° T, app −80.1° T; three planted non-square fields flip sign likewise.
-Origins and peaks are axis-swapped at the py4DSTEM import/export boundary, but `QR_rotation` is not (`AppState+Open.swift:474`; `ResultExport.swift:1304` → `BraggVectorEMDWriter.swift:1690-1697`); no `DEVIATION` note on the displayed sign.
-Bogus close `bfa5525`: its leg-(b) "fix" transposes scan axes only, relabeling py4DSTEM into the app's frame, so leg (b) now PASSes by construction; `reference.py`'s 2026-09-23 docstring and `main.swift`'s leg-(b) comment overstate.
-Owner: decide the displayed convention; then Gate D on the sign conversion (a scientific number), a file-faithful leg (b), and check `ellipseTheta` at the same boundary.
-
-### GitHub CI's unit job has been red since the v3.0.0 cut — added 2026-09-14
-**2026-09-23:** the macOS 27 floor (v4.0.0) makes the `macos-26` runner unable to build the app at all (deployment target above its SDK); CI needs a macOS 27 runner image — owner's call.
-The `macos-26` runner carries Xcode 26.6, and its type checker times out on
-`ContentView`'s file-importer closure ("unable to type-check this expression
-in reasonable time") while the owner's Xcode 27.0 compiles it; the last three
-runs on `main` (3c4b82c, 9b9949b, 6cb31a3) failed there and nobody read them.
-Found by the PR #1 auto-fix. The closure became a typed method on the
-`ai-analysis` branch, and Xcode 26.6 got through: the suite then ran on the
-runner, 637 / 1 / 4 of 642. Every green gate recorded in `status.md` is a
-LOCAL run on Xcode 27.
-
-### The learned-detector parity fixture is a same-runtime claim, and CI has no Neural Engine — added 2026-09-14
-
-`testLearnedPathMatchesPythonReference` failed on both runner jobs of 05ba82a and passed
-here. The test now skips where `MLComputeDevice` lists no Neural Engine, saying so; the 98
-% bars were NOT loosened. Residual: a CPU-written second fixture would turn the skip back
-into a check, at the cost of per-path bars. Owner: whether CI should verify this.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### The published v2.5.1 artefact is universal, and Intel users get a broken app
-
-`lipo -archs` on the shipped `build/release/mac4DSTEM-2.5.1-pre-notarization.zip`
-executable is `x86_64 arm64`, while all three embedded libraries are `arm64` alone, and
-`Info.plist` invites every macOS 14 machine. Every `.h5`/`.emd` open — and every EMD
-export and sidecar save (`BraggVectorEMDWriter.swift:2769`) — fails with the named modal
-alert "Could not load the bundled HDF5 library" (`H5Reader.swift:44`). **Owner decision
-owed:** withdraw or annotate the v2.5.1 download.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Owed on screen from C4(c) and C7, after the 2026-09-09 drive
-
-Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh,
-configurator single-pattern preview, "No preview available") reaching the status strip,
-and both Reset confirmations. The disk-centre LABEL round trip is still unverified: the
-rig could not place a label on the diffraction pane at all (finding 7), which is a
-Metal/Canvas view that may simply not take synthesised clicks. That one needs the owner's
-hand, or a rig that can.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-## Release-readiness review 2026-09-11 — added 2026-09-11
-
-Eight dimensions audited by delegated readers, every finding attacked by an independent refuter; the entries that follow are the ones that survived and were confirmed from source. Full dossier is that session's workflow transcript, not retained — each entry below carries its own evidence.
-**One correction, made 2026-09-11 after the fact:** the synthesis dismissed a refuter for citing a `website/index.html` "that does not exist" — it does exist, in the sibling `mac4DSTEM/website` repo (`index.html:732`, the GPL source offer). The licence fix still stands: GPL-3 wants the licence text to accompany the binary, a different requirement from the source offer a website can satisfy, and the bundle carried neither before that day.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-### The hexagonal IPF colour key is labelled the wrong way round (2026-09-11)
-
-**Established:** the colour function and the two label strings, quoted above. **Not
-established:** which corner of the drawn triangle each label sits under, and therefore
-whether the fix is to swap the labels or to leave them; that needs the triangle geometry
-read against the azimuth convention, and the maps themselves are not in question. **Owner:
-presentation only, so no Gate D — but it must be settled against the convention, not by
-eye, and pinned by a unit test asserting `ipfColor` at +x names the index the key
-prints.**
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Single-slice ptychography publishes under a mode its export guard misses
-
-`ResultExport.swift:1627` guards `analysisMode == .ptychography` alone, while `:1478`
-handles `.ptychography, .singleslicePtychography` together — established by reading both.
-**Not established:** that the publish path really uses the distinct case; verify before
-fixing. No test publishes a ptychography product. **Owner: Gate D — a scale bar is a
-scientific number, and the cause is not yet established.**
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### HDF5 runs under one lock now — what that costs and what is still open — fixed 2026-09-15 late night
-
-**Costs:** a caller blocks its thread for the length of one operation (a
-sidecar write can be seconds); the two `dlopen`s stay two; no unit test can
-crash-test this, the probe is diagnostic. **The "refuse a second open"
-guard stays** as belt and braces. Thread-safety is still asserted by one
-2026-08-19 `nm` inspection; `H5is_library_threadsafe` is still called
-nowhere.
-
-### The Quantitative badge consults no origin gate at all (2026-09-11)
-
-**The real defect is larger:** products do not carry the origin they were computed
-against. Strain snapshots it and nothing reads it (one consumer,
-`ResultExport.swift:516`); DPC snapshots nothing; **ACOM alone is wired**
-(`ACOMWorkflow.swift:145-150`). A badge gate cannot work until that is true. **A fix was
-written 2026-09-11, REJECTED by Gate B, and reverted** — it changed no behaviour while
-five tests passed. Ships in v3.0.0 as a stated limitation (owner, 2026-09-11), because a
-fix that looks like one and is not is worse than the open defect. Gate D and Gate B owed.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### A radius-only aperture drag destroys the fitted origin (2026-09-11)
-
-`ApertureOverlay.emit` rounds the centre to whole pixels and hands the WHOLE `Aperture` to
-`updateAperture`, which tests `newAperture.centerX != aperture.centerX`
-(`AppState.swift:3112`). So dragging an inner/outer RADIUS handle, never touching the
-centre, rounds it by up to 0.5 px, trips the centre-change branch and destroys
-`calibration.origin` and `recordedOriginX/Y`. Owner: cheap, Gate D (a number can move).
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### "Computed this session" reports what EXISTS, not what was computed (2026-09-11)
-This is what the owner actually reported. The two rows are bare predicates —
-`product("Origin calibration", done: ...calibration.hasFittedOrigin)` and
-`done: ...hasRotation` (`WorkspaceInspector.swift:563-565`) — so a session
-restored from a sidecar shows both green having computed nothing. The owner's
-session WAS restored (the sidecar reproduces his 9.72 px and 3.74 px exactly),
-so his green ticks were restored, not computed, and the tick went grey because
-the origin was cleared, not because a computation was undone. The label is the
-defect. Owner: presentation only, neither Gate D trigger applies.
-
-### Moving the detector destroys the origin fit with no durable warning (2026-09-11)
-
-The aperture centre silently IS the calibration, and after a fit the aperture sits on the
-fitted mean — 10.9 px from the pattern's visual middle on this dataset — which is
-precisely what invites a user in an imaging workspace to "correct" it. The only notice is
-a transient `statusText`; Owner: decide whether a confirmation, a non-transient banner, or
-refusing to clear without consent.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### A red real-data gate names the symptom, not the cause (2026-09-09)
-`compare.py`'s `fail()` raises `SystemExit`, so a run stops at the first
-mismatching field of the first mismatching file. On 2026-09-08 it printed
-`diskSampleCandidateCounts` and never reached `diskProbeRadiusPixels`, where
-the change was, nor the cubes after it — and the one golden verdict in the log
-was read as three, because the harness's own `PASS: <file> <shape> in <t> s`
-lines look like verdicts. Wanted: collect every mismatch, fail once. Confirmed
-by the Gate D refuter. `comparator-test` gates this file too. Owner: cheap.
-
-### Real-data numbers are pinned by one harness only `all` reaches (2026-09-09)
-`tools/real-data-acceptance/run.sh` says `all` "is the only one that reaches
-this harness at all". `ba6360d` moved a measured probe radius on 2026-09-05,
-`scientific` stayed green three days, and by the time `all` ran, 43 commits
-stood between change and symptom — the entry written from it blamed two
-innocent ones. Options, uncosted: add the harness to `scientific` (which
-already reads the cubes), or gate science-lane commits on it by hand.
-Main-only: `ba6360d` postdates v2.5.1, so no shipped build carried it.
-
-### The acceptance harness pins peak COUNTS, never positions (2026-09-09)
-Gate D refuter: `AcceptanceReport` (`main.swift:6-22`) has no coordinates, so a
-change moving every peak while preserving the count is invisible. On `ba6360d`
-all 36 `downsample_Si_SiGe_exp` peaks shifted 0.005-0.02 px and one
-`calibrationData_bullseyeProbe` peak was SUBSTITUTED — (114.2198, 194.8632) ->
-(140.6368, 196.8596), ~26 px — count unchanged at 11, harness silent
-(`drift/refuter/peak-position-diff.txt`). Likely two near-threshold
-noise peaks trading places (the noise item below), not a defect; the defect is
-that the gate cannot tell. Owner: a checksum needs a tolerance — a design pass.
-
-### The one-peak warning is below the fold, and Strain unlocks without it (2026-09-09)
-
-Driven on `polycrystal_2D_WS2.h5` (`archive/v3/drive-2026-09-09.md`, finding 16; shot
-`B33-ws2-detect-done.png`). Still open, and the harder half: `Strain` moved from `!` to
-enabled on a median-1 result, because readiness gates on Bragg vectors EXISTING, not on
-being usable. Owner: presentation plus a readiness question; no Gate D (mechanism
-established by reading the two call sites, no number moves).
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Bullseye disk detection accepts noise — two of three fixes landed 2026-09-05, drive owed
-
-LANDED: flat mode + Use File's Probe, parity 878/878 and 164/164 with py4DSTEM's flat
-route (`status.md`). OPEN: (1), an outer-edge probe size for structured probes (it also
-feeds the origin window — its own Gate D). Owner: drive Map ▸ Bragg disks on the file with
-Flat + Use File's Probe at Min relative intensity ~0.05.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Origin-fit gate has two unresolved holes (2026-09-05)
-
-(b) Which statistic gates `originFitIsSane` is open: full-scan RMS (current) cannot see
-bias; the robust/kept-set residual tried 2026-08-28 was reverted — it passes a 15 px-
-displaced fit at 9.94 px. (c) The trimmed fit is blind to spatially clustered failure and
-contamination ≥ 50 % (a 40 px-off quarter of the scan gives 100 % kept, 20.6 px error; an
-exactly bimodal residual zeroes the MAD guard). Owner: a design pass — no statistic
-proposed yet separates displacement from contamination. `docs/q-calibration-design.md`.
-
-### The origin's coarse block seed lands on the wrong blob on noisy cubes (2026-09-05)
-Gate B refuter (`q-calibration-design.md` §9,
-`tools/origin-fit-diagnostics/origin-kernel-twin.py`): against py4DSTEM's
-Gaussian-argmax seed, the app's block-sum seed puts 28/169 positions of
-`downsample_Si_SiGe_exp`, 29/195 of `Particle_1` and 2/169 of `COPL` more
-than 1 px away — unchanged by the iterated window, which cannot leave a
-wrong block (a DEVIATION recorded in the kernel header). Clean cubes: 0.
-Trap: the plane fit's trimming hides most of these, so the fitted origin
-looks fine while `excludedFraction` carries them. Owner: a design pass on
-the coarse step (Gaussian-filtered seed, or a coarse-to-fine window) before
-the origin-fit holes (b)/(c), which it would move.
-
-### CIF import can silently accept a wrong crystal (2026-09-01)
-(a) A non-P1 declaration with a PARTIAL ops list still imports the wrong
-cell (`verifyFamily` can pass it — Gate B refuter escape E2, 2026-09-01,
-recorded not fixed; the missing/identity-only case is guarded). Trap: needs
-a 230-entry IT-number→group-order table the importer deliberately lacks —
-cheap mitigation, new scope. (b) closed 2026-09-05: the ACOM recipe step
-records `material_fingerprint` (`CrystalModel.contentFingerprint`, FNV-1a
-over cell, symmetry and basis) for imported models and `resolveMaterial`
-refuses by name when the session's same-named import differs; pre-key
-records still resolve by membership (`ReplayPlanTests`, `CIFImportTests`).
-Owner: (a) unclaimed, Gate B when picked up.
-
-### ACOM orientation/export coverage gaps (2026-08-31)
-
-(a) Exported Euler angles are labelled py4DSTEM/orix-compatible but differ by frame
-rotation `P` — median 38.55° misorientation if compared naively; math right, label wrong.
-(b) The projection convention (`OrientationPlan.project`) is verified three independent
-ways, but every gated ACOM harness builds its own peaks through the function it tests, so
-two frame-mutation bugs stay green — no analytic, non-self-referential fixture exists yet.
-Owner: (a) relabel-vs-convert decision then Gate B; (b)–(d) Gate B.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Q-calibration scale defects on real crystals (2026-09-02)
-
-(b) The reference-shell pick has no l-filter or visibility filter; on 2H-WS₂ it selects
-(0002), which a [0001]-zone specimen never shows — predicted mis-scale 2.26×, silent; at
-that scale the correlation score HALVES while median `reliability` RISES, so no fix may
-lean on reliability to choose between scales. Owner: (b) its own design pass.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Twisted bilayer graphene finds only the beam at defaults, at either reference (2026-09-05)
-Observed (`det-experiment-20260905.log`): 10 201 positions, one accepted
-peak each, with `relativeToPeak` 0 AND 1 — so the relative threshold is not
-what removes the disks; the funnel is one local maximum before any threshold
-(probe r 25.3 px, spacing 16, edge 5 on a 128 px detector). Not diagnosed:
-whether the 25-px synthetic kernel's correlation has a single maximum, or
-the edge boundary/spacing swallow the ring at ~38 px. Owner: unclaimed; a
-Gate D with the per-pattern funnel on one position.
-
-### #18 — training-dataset campaign can't reproduce the app's Si_SiGe strain (2026-09-02)
-Mechanism resolved: the campaign's fitted mean origin is ~7 px off centre
-(non-quantitative fit), which poisons `estimateLatticeBasis`'s clustering
-scale; the app's own gate rejects that fit and falls back to the true
-detector centre. Latent app-side risk: a genuinely off-centre beam with
-`meanOrigin` nil would fail the same way. Two candidate fixes, neither made
-(science changes, own Gate B): floor `minRadius` at the probe radius or
-scale it with fit quality; or have the campaign adopt the app's origin
-gating. Full diff in the archive.
-
-### No automated visual baseline (2026-08-17)
-Every acceptance run is numeric-only; the owner driving the app is the only
-evidence anything "looks right" — say who drove it and when. Driving has
-caught defects with every harness green (colormap control missing, readiness
-row self-contradicting, three more in the clean-account run, five sessions
-running in September). The retired checklist's trap notes are in
-`docs/archive/v2/visual-acceptance-checklist-2026-09-03.md`. Never seen on
-screen: the six `status.md` rows marked unverified, light appearance, every
-divider, a real load cancel, the bounded promote run. Owner: C3, one sitting.
-
-### Residency `.automatic` cannot be re-measured without a second machine (2026-08-19)
-Dropped by decision (v2 S3), not dormant — do not set
-`ResidencyAdmission.measuredWorkingSetFraction`. The three checked-in
-training cubes top out at working-set ratio 0.19 on this machine; no knee
-exists in that data. A second-machine sweep is the only thing that could
-reopen it, and if two machines disagree the rule needs a second term.
+`ParallaxAligner.defaultBinSchedule` returns `[4,2,1]`; py4DSTEM's default
+(`num_iter_at_min_bin=2`) appends one repeat → `[4,2,1,1]`, so every gate on
+`isComplete` computes one refinement pass short. Diagnosed (refuting
+observation confirmed: no `numIterAtMinBin` knob exists). Not yet run: the
+head-to-head experiment (py4DSTEM `reset=True` vs the port, max-abs diffs).
+**Trap:** `tools/parallax-alignment-test/reference.py:354-357` hard-codes the
+schedule without the repeat, so the green test can't catch this.
+Science, Gate D before any change. Owner: unclaimed.
+Detail: `archive/open-items-detail-2026-09-18.md`.
+
+### ACOM / zone-axis science residuals — four measured gaps, no fix attempted
+- **Zone axis up to 12.8° beyond the bank's own sampling** (MEASURED
+  2026-09-15): winner outscores the truth by 0.6–10 %, worst on ⟨122⟩. Next
+  experiment: dump the winner's and the true axis's templates for one
+  failing case.
+- **26 of 200 templates fail to recover themselves at an off-grid rotation**
+  (added 2026-09-14), by 1.7–9.3°; 0/200 fail on-grid. Two hypotheses
+  already spent; Gate D owed before any change.
+- **py4DSTEM's `power_radial` is absent, no DEVIATION note** (added
+  2026-09-14): up-weights the outer rings the item above is about.
+- **The rotation null's power drops at the highest noise**: 3/12 refused at
+  sd 0.05 vs 0/60 shuffle null; the demo cube's own noise level (sd≈0.010)
+  is certified only 2/60 — "measured −67.5°" recurs about once in thirty.
+Detail: `archive/v3/open-items-detail-2026-09-16.md`.
+
+### Origin-fit and Q-calibration open holes
+- **Origin gate has two unresolved holes** (2026-09-05): which statistic
+  gates `originFitIsSane` (full-scan RMS can't see bias; the robust residual
+  tried 2026-08-28 passes a 15 px-displaced fit); the trimmed fit is blind
+  to spatially clustered contamination ≥ 50 % (a 40 px-off quarter gives
+  100 % kept, 20.6 px error). Owner: a design pass, `docs/q-calibration-design.md`.
+- **The coarse block seed lands on the wrong blob on noisy cubes**
+  (Gate B refuter, `q-calibration-design.md` §9): 28/169, 29/195, 2/169 of
+  three real cubes miss by >1 px against a Gaussian-argmax seed; the plane
+  fit's trimming hides most of it. Owner: a design pass before the holes
+  above, which it would move.
+- **Reference-shell pick has no l-filter**: on 2H-WS₂ it selects (0002),
+  invisible on a [0001]-zone specimen — predicted mis-scale 2.26×, silent,
+  and correlation-score-based rescue doesn't work (score halves, reliability
+  rises). Owner: its own design pass.
+
+### Precipitate segmentation defects — engine unwired, none blocking a shipped product
+`PrecipitateSegmentation` (owner: whether/how to fix, not urgent while unwired):
+non-finite guard imputes the finite median, surviving scattered NaN but not
+a large contiguous invalid region (blocks wiring until resolved); non-finite
+pixels ON a feature erase it silently (6 marked pixels → 5 needles read as 0
+objects; report the imputed count or refuse); the robust-sigma constant
+(`1.4826 * mad`) and the fill statistic (median) are one-token mutants,
+every test green either way; dark-contrast ridges register through their
+flanks, not the stripe (every fixture is bright-only); a negative peak
+collapses an object to 1×1 and NaN beside a maximum passes (unreproduced,
+no fixture). Full wording: `archive/open-items-detail-2026-09-23.md`;
+mechanism detail: `archive/v3/open-items-detail-2026-09-16.md`.
+
+### Other named science/presentation residuals
+Full original wording for the first four: `archive/open-items-detail-2026-09-23.md`.
+- **Al-Mg-Si cube's peak set not clean** (2026-09-12): only 39 % of detected
+  vectors explained by the best Al orientation — a detection statement, not
+  a matcher failure (matcher refuses 99.0 % rather than inventing).
+- **β″ zone axis for ⟨110⟩Al not chosen** (known, scoped): no ⟨110⟩Al variant
+  is viewed down its needle axis; which axes it DOES present is unanswered.
+- **The ellipse "Fit anyway" mark doesn't survive a session round trip**:
+  `PixelCalibration` carries a/b/θ only — a sidecar wire-format decision.
+- **A challenged matrix verdict is drawn like one by exclusion**: same grey
+  for "matrix took it back" vs "too little to index." Presentation, no Gate D.
+- **The hexagonal IPF colour key may be labelled wrong way round** (2026-09-11):
+  the colour function and both label strings are established; which triangle
+  corner each sits under is not. Owner: settle against the convention, pin
+  with a unit test, before calling it presentation-only.
+- **Single-slice ptychography's export guard may miss its mode**
+  (`ResultExport.swift:1627` vs `:1478`): not established that the publish
+  path uses the distinct case. Gate D — a scale bar is a scientific number.
+- **The Quantitative badge consults no origin gate**: only ACOM is wired
+  (`ACOMWorkflow.swift:145-150`); Strain snapshots the origin and nothing
+  reads it; DPC snapshots nothing. A 2026-09-11 fix was Gate-B rejected and
+  reverted (changed no behaviour). Ships as a stated limitation. Gate D+B owed.
+- **A radius-only aperture drag destroys the fitted origin** (2026-09-11):
+  `ApertureOverlay.emit` rounds the centre and hands the whole `Aperture` to
+  `updateAperture`, which trips the centre-change branch on rounding alone
+  (`AppState.swift:3112`). Cheap, Gate D (a number can move).
+- **"Computed this session" reports what EXISTS, not what was computed**
+  (2026-09-11): a restored sidecar shows both readiness rows green having
+  computed nothing (bare predicates, `WorkspaceInspector.swift:563-565`).
+  Presentation only.
+- **Moving the detector destroys the origin fit with no durable warning**
+  (2026-09-11): the aperture centre IS the calibration; only a transient
+  status line notices. Owner: confirmation, banner, or refuse.
+- **Bullseye disk detection accepts noise** — two of three fixes landed
+  2026-09-05 (flat mode + Use File's Probe, parity 878/878 and 164/164);
+  open: an outer-edge probe size for structured probes. Owner: drive Map ▸
+  Bragg disks, Flat + Use File's Probe, Min relative intensity ~0.05.
+- **The one-peak warning is below the fold; Strain unlocks without it**
+  (driven 2026-09-09, `archive/v3/drive-2026-09-09.md` finding 16): Strain
+  gates on Bragg vectors existing, not on being usable. Presentation +
+  readiness question, no Gate D (mechanism established by reading, no number
+  moves).
+- **Twisted bilayer graphene finds only the beam at defaults**: one accepted
+  peak at `relativeToPeak` 0 AND 1 — the relative threshold isn't what
+  removes the disks; not diagnosed which stage swallows the ring. Gate D
+  owed with a per-pattern funnel.
+- **Learned detector above 256 px: probe/pattern anchor mismatch** (Gate B):
+  the probe channel crops clamped-centred while pattern windows use
+  `windowOrigins` — the opposite of every training input. No Python
+  reference above 256 px; nothing shipped is above 250 px. Owed: one
+  synthetic >256-px case scored both ways before the windowed path is
+  quoted as measured.
+- **#18 — the training campaign can't reproduce the app's Si_SiGe strain**
+  (2026-09-02): resolved mechanism (campaign's origin fit is ~7 px off,
+  poisoning clustering scale; the app's own gate rejects that fit). Two
+  candidate fixes exist, neither made (own Gate B). Detail:
+  `archive/open-items-detail-2026-09-18.md`.
+- **CIF import can silently accept a wrong crystal** (2026-09-01): a non-P1
+  declaration with a partial ops list can still import the wrong cell
+  (Gate B escape E2, recorded not fixed) — needs a 230-entry IT-number→
+  group-order table the importer lacks. Owner: unclaimed, Gate B when picked up.
+- **ACOM orientation/export coverage gaps** (2026-08-31): exported Euler
+  angles differ from py4DSTEM/orix by frame rotation `P` (median 38.55°
+  naive misorientation, math right, label wrong); every gated ACOM harness
+  builds its own peaks through the function it tests, so two frame-mutation
+  bugs stay green. Owner: relabel-vs-convert decision, then Gate B.
+- **DPC's banner contradicts its badge — corrected 2026-09-04**: the badge
+  and banner agree; the real defect is `PhaseSettings`' always-shown
+  qualitative banner over quantities `quantitativeStatus` calls quantitative.
+  No version field exists to migrate existing sidecars/PNGs on a fix. Owner:
+  the trust-fixes session, a judgement call.
+Detail: `archive/v3/open-items-detail-2026-09-16.md`.
+
+## Data, IO & sessions
+
+### Full-cube Friedel origin calibration froze the app, then progress/ETA plateaued — fixed, screen check owed (2026-09-19)
+Owner's Debug 171×171 run froze without memory/thermal pressure; Gate D
+refuted an HDF5/FFT stall — `calibrateOrigin` now detaches only the tiled
+CPU-FFT pass, and progress now emits completed rows with monotonic,
+non-cancelled publication (was: only after a 60-row tile, giving a
+plateaued ETA). Current-app demo drive (12×12) verified selected Friedel,
+live Cancel, measured completion; unit and Friedel/py4DSTEM parity passed.
+**The full-cube row-progress/ETA drive remains owed**, not a release gate.
 
 ### An emptied manual Q field, confirmed, discards the file's calibration (2026-09-07)
-Agent drive, C3 (`drive/shots-c3/b2-qr-unset-bug.png`): on the COPL
-cube (Q pixel scale green "From file 0.156828"), typing `0.2` into Prepare's
-Manual field entered nothing (this locale wants `0,2`; the period was dropped
-silently), and Return on the now-empty field flipped the row to "Not set /
-Reciprocal dimensions remain in pixels" and the scale bar from `0.5 Å⁻¹` to
-`5 px`. `0,25` typed afterwards worked live. Two things to establish before a
-fix (Gate D): why a period is rejected rather than parsed, and whether an empty
-manual entry should clear the file value or restore it. Owner: `/diagnose`.
+Agent drive (`drive/shots-c3/b2-qr-unset-bug.png`): on a cube with Q pixel
+scale green "From file", typing `0.2` into Prepare's Manual field entered
+nothing (this locale wants `0,2`; the period was dropped silently), and
+Return on the now-empty field flipped the row to "Not set" and the scale
+bar from `0.5 Å⁻¹` to `5 px`. `0,25` typed afterward worked live. Two
+things to establish before a fix (Gate D): why a period is rejected rather
+than parsed, and whether an empty manual entry should clear the file value
+or restore it. Owner: `/diagnose`.
 
-### C3 drive leftovers: presentation observations (2026-09-07)
+### HDF5 runs under one lock — what that still costs (fixed 2026-09-15 late night)
+Costs: a caller blocks its thread for the length of one operation (a
+sidecar write can be seconds); the two `dlopen`s stay two; no unit test can
+crash-test this, the probe is diagnostic. The "refuse a second open" guard
+stays as belt and braces. **Residual:** thread-safety is still asserted by
+one 2026-08-19 `nm` inspection; `H5is_library_threadsafe` is still called
+nowhere.
 
-Still unprovoked: staleness (f), and "Fit Detector Ellipse" on the demo ending in
-"residual is too large (0.247)".
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
+### resultexport-split and braggvector-emd-writer-split — both prepared and parked, Gate B support owed
+`Support/ResultExport.swift` and `Core/Data/BraggVectorEMDWriter.swift` are
+the two largest wire-format-risk files. One zero-behaviour-risk extraction
+landed on each (`+Rendering.swift` byte-identical diff; `BraggVectorEMDTypes.swift`
+byte-identical diff, both harness-verified). **Parked:** the actual
+HDF5-adjacent split — four candidate files on the ResultExport side
+(`sessionPixelCalibration` must stay single-sourced), and the writer's
+`H5Fcreate`/`H5Dwrite` logic itself, dataset-kind by dataset-kind, each new
+file `nonisolated`-verified by a cold app build.
+Owner: assign a session with Gate B support, or authorize continuing with a
+refuter. Detail: `archive/open-items-detail-2026-09-18.md`.
 
-### Two diagnostic harnesses gate nothing (2026-09-02)
+### DM4Reader silently reads whole files into RAM off non-local volumes (2026-09-02)
+`.mappedIfSafe` declines to map on any volume failing
+`MNT_LOCAL && !MNT_REMOVABLE` (every external disk, disk image, smbfs —
+confirmed) and falls back to a full anonymous-memory read held for the whole
+session. The original 8 GB-machine death that motivated this is still NOT
+explained as this mechanism's cause — real defect, not yet tied to that
+incident. Owner: a later session, Gate B. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
+
+### The sidecar reader has D003's missing attribute-length guard too (2026-09-09)
+`BraggVectorEMDWriter.swift`'s attribute reads share D003's defect in
+`H5Reader.swift`: `H5Aread` assumes a scalar without checking file type or
+extent (measured: 24 bytes into 8; 32 into 9). Same three-line fix
+(`H5Aget_space` + `elementCount(spaceID:) == 1`). Owner: a patch session.
+
+### Scan-fastest DM4 detector pair may be transposed (2026-09-05)
+`Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags as `[Rx,
+Ry, Qy, Qx]`, giving a pattern 480×448. A transposed pattern silently flips
+strain axes and R–Q rotation. Owed: the owner reads width/height in GMS —
+if 448 wide, flip `DM4Reader.scanFastestStrides` and pin an ncempy checksum.
+Detail: `archive/v3/open-items-detail-2026-09-16.md`.
+
+### Load/promote/replay trust residuals
+- **Fabricated provenance on pre-2026-08-18 sidecars**: `AppState.swift:2854,2867`
+  do `snapshot.loadSpecification ?? .fullExtent`, asserting full-extent for
+  an unknown-era crop. Reproducer needs a synthesised sidecar. Unowned.
+- **The open/promote unwind is sixfold, Cancel can vanish mid-load**:
+  `finishDatasetLoading` unconditionally nils `datasetLoadCancellation` —
+  with two loads in flight the first tail to finish disarms Cancel for the
+  second. No fixture exercises this. Owner: whichever session next touches
+  any of the six.
+- **Promote/replay residuals**: (a) should promote carry scan position, or
+  land at (0,0)? (b) fitted origin maps refuse the full-extent restore's
+  shape check, expected but unexplained; (c) parallax/ptychography
+  deliberately not in the replay record; (d) a user analysis mid-replay
+  steals Cancel; (e) per-kind replay contracts live in three places held
+  together by tests, not structure.
+- **Recent failure leaves Reopen dead-ended**: `openRecent`'s failure path
+  drops a dead entry but "Reopen" still dead-ends in "No recoverable
+  dataset." (The separate multi-window recents clobber WAS fixed 2026-09-21,
+  sharing one `RecentDatasets` owner.) Owner: unclaimed.
+- **Resident/streaming residuals**: `releaseResident()`'s "freed" claim is a
+  derived byte count, never measured — a leaked `MTLBuffer` is invisible to
+  every test. `TiledDiskDetection.detectAll` still stages each tile into a
+  fresh `MTLBuffer`. Resident cancellation is 2.5× coarser than streaming —
+  academic until something requests `.resident`, which nothing does today.
+
+### Sidecar/session UX residuals, mostly small
+Recents-row location labels unverified on screen. A sidecar retarget made
+before any save survives only until the next dataset change. Repeating
+"Save Session Sidecar As…" can prefill a doubled `.h5.h5` suffix. Pre-S4
+calibration-only sidecars remain unrecognisable (owner decision on the
+open-panel filter). Manual Q/R pixel scale fields: **fixed in code, drive
+owed** — owner enters a manual scale, the row turns green; owed: confirm
+the field stays visible and editable afterward (a wrong R scale silently
+rescales every real-space axis). `calibration.*` accessibility identifiers
+are emitted twice while the export sheet is open (harmless today, would
+defeat a future UI test addressing a readiness row). Owner: unclaimed.
+
+### Misc data-layer items, low priority
+Load-cancel (a real load cancelled on screen) never driven. `#31`
+`validationIssues` is O(n²) in a SwiftUI view body — confirmed still called
+from `DiskDetection.swift`/`TiledDiskDetection.swift` inline, not cached.
+`#32` `isSymmetry`'s bijection check has no fixture coverage. `#30` —
+origin calibration over a NAS runs at ~3 MB/s (2026-08-06), uninvestigated
+since. Ptychography pads both object axes unlike py4DSTEM (deliberate,
+kept as a `DEVIATION` note — correcting it was outside the port's scope).
+Residency `.automatic` cannot be re-measured without a second machine
+(dropped by decision, v2 S3, not dormant — do NOT set
+`ResidencyAdmission.measuredWorkingSetFraction`; the three checked-in
+training cubes top out at 0.19 working-set ratio, no knee in that data).
 `tools/bragg-spacing-probe/` and `tools/residency-sweep/` both need
-gitignored multi-GB data and stay diagnostics only — not a gap to close,
-a standing limit to remember before citing them as coverage.
+gitignored multi-GB data and stay diagnostics only — a standing limit, not
+a gap. C3 drive leftovers, still unprovoked: staleness (f), and "Fit
+Detector Ellipse" on the demo ending in "residual is too large (0.247)".
 
-### Learned detector above 256 px: the probe channel's anchor (Gate B, 2026-09-08)
-`LearnedDiskDetector.detectAll` crops the probe channel clamped-centred for
-every window while the pattern windows sit at `windowOrigins`, so on a
-detector above 256 px the probe and the pattern do not share one anchor —
-the opposite of every training input (`simulate.py` "the SAME anchor for
-both"). The >256-px path has no Python reference (`evaluate.py` never tiles);
-its tests are Swift against Swift. Nothing shipped is above 250 px. Owed: one
-synthetic >256-px detector scored under clamped-centred vs per-window-anchored
-probe placement before the windowed path is quoted as measured.
+## UI & on-screen
 
-### #30 — origin calibration over a NAS runs at ~3 MB/s (2026-08-06)
-Investigation owed; nobody has measured it since.
+### The panel overlap — a transient blank/black window, not diagnosed, parked 2026-09-22
+Driven live on `datasetA_stride3.h5` (171×171, 29,241 positions): twice, a
+screenshot during a calibration busy→idle toolbar transition showed the
+whole app window blank (menu bar only, no chrome/panes) for ~1 s before
+recovering on its own; a click issued during the blank state still reached
+the app (one action ran twice from what looked like one click). Not a
+`.zIndex`/`.offset` stacking bug (grepped, nothing found); the leading guess
+— ADR 035's ideal-width budget recomputing on every toolbar change — was
+independently *deleted* the same night (the floor is now a fixed derived
+constant), but not re-tested on a real cube, so this stays open rather than
+closed by that change. **2026-09-22 night:** the owner has not seen it
+recur across the rebuild's drives (`413bcdc`). Not diagnosed, not fixed.
+Owner: reopen with a screen recording if it returns; `WorkspaceView.swift`/
+`ContentView.swift` are Frozen Shell regardless.
 
-## Known, scoped, not blocking
+### View state has four owners, and three Frozen Shell residuals sit behind it — code hygiene
+Confirmed still current (2026-09-23 grep): 26 `@SceneStorage`/`@AppStorage`
+sites across `UI/`, including `WorkspaceInspector.swift:50`'s
+`@AppStorage("ui2.inspectorTab")` — a relic of the deleted UI2, not renamed
+because the file is Frozen Shell (ADR 035). Two other Frozen Shell residuals
+sit behind the same wall: **`PhaseSettings.swift` → `ReconstructSettings.swift`**
+(still unrenamed; its only call site, `WorkspaceInspector.swift:199`, is
+frozen) and **the Info tab has no "Unvalidated" badge**
+(`ProductInfoSections`, `WorkspaceInspector.swift:570`, confirmed still has
+no per-room branching — a `validation:"none"` product reaches Info as one
+more alphabetized Provenance row while Settings shows a styled orange
+warning). `WorkspaceNavigation` (104 lines) is the declared truth but does
+not yet own all 26 sites. Rides with the first Frozen Shell exception or
+the next room conversion. Owner: unclaimed.
 
-### Parallax and ptychography are unrunnable on the owner's Mac (2026-09-11)
+### Inspector kit gaps — confirmed still open 2026-09-23
+`UI/InspectorRows.swift` has no adaptive `Menu` (Add Phase stays hand-rolled)
+and no warning-note variant — `InspectorNote` is a plain secondary caption;
+orange captions and unvalidated badges stay hand-rolled and must not change
+shape. Long labels ("Measured kernel mode") wrap beside wide pickers —
+wording is the owner's call. Scoped work, not bugs.
 
-**What is NOT established** is whether the estimates are right: 8-11 GB of working set for
-a 268 MB cube is a 30-40x ratio, and nobody has checked whether that is the algorithm's
-true cost or an over-estimate that refuses work the machine could do. That is a Gate D of
-its own (a number governs whether a feature runs at all), not a tuning knob to raise.
-Consequence for the release: Parallax and single-slice ptychography ship **undriven on
-real data** and must be described that way in the release notes.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
+### No workflow logic in the rooms — partially addressed, on-screen verification owed
+Original finding (2026-09-21, Prepare and Bragg disks): steps, manual
+fields and calibrations were unordered prose, not legible as steps with
+state and one verb. `PrepareSettings.swift` (2026-09-23 check) now declares
+`stepOrder` (`[.originProbe, .ellipse, .rotation, .qScale, .rScale]`) and a
+`readinessSummary` line replacing the old prose paragraph — code evidence
+the redesign happened, but not re-driven on screen against the original
+critique. Owner: confirm on a real cube before closing.
 
-### Fabricated provenance on pre-2026-08-18 sidecars (2026-09-02)
-`AppState.swift:2854,2867` do `snapshot.loadSpecification ?? .fullExtent` —
-a sidecar saved from a cropped view before that attribute existed is now
-asserted full-extent rather than unknown. Both prior reproducers were
-overwritten by later driving sessions; demonstrating it again needs a
-synthesised sidecar, not a training-set one. Unowned, belongs with the
-trust fixes.
+### Two pre-rebuild UI process gaps, still open
+- **UI tests cannot see layout; the unverified row drains only by owner
+  time**: 33 UI-adjacent tests are all pure functions; the 2026-09-21 drive
+  found eight structural defects 844 green tests did not. Every UI commit
+  should ship captures at 1100/1470 pt, light and dark, under `archive/`
+  so "Unverified on screen" means undecided, not unlooked-at. Light-mode
+  captures are still owed even after the v4.0.0 rebuild (status.md: "Unseen:
+  light mode on a real cube; busy run at the 915-pt minimum on a real cube").
+- **UI docs written for agent continuity, not owner decisions**: `docs/archive/v4/window-design.md`
+  is still 442 lines / 4 416 words (2026-09-23 measurement) against
+  `status.md`, this file and `ROADMAP.md`. Next: brief + red-box screenshot
+  + a 20-row element table; retire ADR 034's rejected half rather than
+  amend it. Unclaimed.
 
-### DM4Reader silently reads the whole file into RAM off non-local volumes (2026-09-02)
+### Cosmetic parallax-completeness disagreement, confirmed still present (2026-09-23)
+Fixing `parallaxStage4IsComplete` made the checklist checkmark more correct
+but exposed two independent, un-refactored "is parallax done" checks still
+reading `parallaxSubpixel` alone: `WorkspaceView.swift:309` and
+`AppState.swift:1236`. Cosmetic (the dispatcher's own gate is independent
+and correct) but real; `WorkspaceView.swift`'s half is Frozen Shell, so
+`AppState.swift`'s half was left matching rather than diverging further.
+Owner: unclaimed.
 
-`.mappedIfSafe` (`Core/Data/DM4Reader.swift:97`) declines to map on any volume failing
-`MNT_LOCAL && !MNT_REMOVABLE` (confirmed by S9b: every external disk, every disk image
-even on internal SSD, all smbfs) and silently falls back to a full anonymous-memory read —
-held for the whole session. **The original 2026-08-18 8 GB-machine death that motivated
-this is still NOT explained** — the mechanism is real and worth fixing but not established
-as that incident's cause. Owner: a later session, Gate B.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
+### No automated visual baseline (2026-08-17), residual after the v4.0.0 drive
+Every acceptance run is numeric-only; the owner driving the app is the only
+evidence anything "looks right." Driving has caught defects with every
+harness green five separate sessions. Since 2026-08-17: the v4.0.0 rebuild
+was driven and accepted on a real cube ("fantastic so far"); still never
+seen on screen — light appearance on a real cube, a real load cancel, the
+bounded promote run. Retired checklist trap notes:
+`archive/v2/visual-acceptance-checklist-2026-09-03.md`. Owner: one sitting.
 
-### The sidecar reader has D003's missing guard too — not fixed (2026-09-09)
+### The constraint-loop crash rule, and one unreproduced crash of its class (2026-09-04, 2026-09-22)
+**The rule, demonstrated 2026-09-04: nothing inside a split's hosted content
+may repeatedly change its own minimum size.** Two sites, both in the status
+bar, both fixed (`e608dbd`, `27de9bb`). Residuals: n=1 each way against a
+fault once called intermittent; the inspector's Performance rows still tick
+per second. **2026-09-22 night:** one crash of this class
+(`_crashOnException` in `updateConstraintsForSubtree`, a scratch build, 3 s
+after launch) after a Gate D fix made the strip's glance/run slots
+compressible without a constant minimum; NOT reproduced (12 resizes, 6
+launches) after the slots were given a constant min/ideal/max
+(`LayoutPolicy.compressibleSlotMinimum`). A different pre-session abort
+(20:26, owner's build) is undiagnosed. Owner: unclaimed.
 
-`BraggVectorEMDWriter.swift`'s attribute reads carry the same defect D003 fixed in
-`H5Reader.swift`: `H5Aread` reads a whole attribute into a buffer sized for one value.
-This is the 2026-08-31 review's `core-data-01` (**confirmed, high** — "assume scalar
-variable-length storage without checking the file type or extent"), which D003 has now
-supplied the runtime evidence for, and the new register's `D029`/`D053`. The fix is the
-same three lines — `H5Aget_space` plus `elementCount(spaceID:) == 1` — and the measurement
-is already done (24 bytes into 8; 32 into 9). Owner: a v2.5.x patch session.
+### `PaneSplit` image-floor residual — status unclear, verify against current split code
+(a) header overflow and (c) divider reset were closed and seen on screen
+2026-09-07. (b) **The image floor lapses below 2× itself**: the fraction
+saturates at 0.5 under ~360 pt of usable width; SwiftUI offers no detail-
+column minimum short of the window's own floor, and announcing one from
+inside the split is the constraint-loop shape. Not re-verified against the
+v4.0.0 toolbar/inspector rebuild's own split code — status unclear. Owner:
+with the owner's next drive.
 
-### Ptychography pads both object axes unlike py4DSTEM — deliberate (2026-09-09)
-py4DSTEM's `_calculate_scan_positions_in_pixels` pads BOTH position axes by
-`region_of_interest_shape[0]/2` (`object_padding_px = (float_padding,
-float_padding)`, then `[0][0]` and `[1][0]` — both index 0). This app pads each
-axis by its own half-extent, which differs only on a non-square detector. Kept
-as it was when D002 ported the rest of that function, and carried as an inline
-`DEVIATION`: correcting py4DSTEM's quirk was outside D002's scope and would
-have moved a number nobody asked about. Open question, not a defect: whether
-py4DSTEM intends it. Owner: decide when ptychography is next driven.
+## Release, CI & process
 
-### Scan-fastest DM4 detector pair may be transposed — Gate D owed (2026-09-05)
+### GitHub CI's unit job has been red since the v3.0.0 cut — worse after v4.0.0 (2026-09-14, updated 2026-09-23)
+**2026-09-23:** the macOS 27 deployment floor (v4.0.0) makes the `macos-26`
+runner unable to build the app at all (target above its SDK) — CI needs a
+macOS 27 runner image, owner's call. Before that: the runner's Xcode 26.6
+type checker timed out on `ContentView`'s file-importer closure while the
+owner's Xcode 27.0 compiled it fine; three `main` runs failed unread. Every
+green gate in `status.md` is a LOCAL run on Xcode 27.
 
-`Si-SiGe.dm4` stores its scan pair fastest; the reader maps the tags as `[Rx, Ry, Qy,
-Qx]`, a pattern 480 wide × 448 tall. A transposed pattern silently flips strain axes and
-the R–Q rotation. Owed: the owner reads the pattern's width and height in GMS. If 448
-wide: flip `DM4Reader.scanFastestStrides` and the scan-fastest shape line, then pin a
-checksum from ncempy's raw array on the real file.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
+### 119 unverified defect claims from the 2026-09-09 repository review, triage order owed
+259 records, deduplicated to 156 clusters (`archive/2026-09-09-review/register.md`).
+Three fixed, 16 repeat, 8 may repeat the 2026-08-31 review, 8 already
+tracked here, **119 new, none verified** — claims with a file and a line,
+not defects. Do not fix from the register: each one that can move a
+scientific number is its own Gate D. Owner: triage order.
 
-### The open/promote unwind is sixfold, and Cancel can vanish mid-load (2026-09-04)
+### The learned-detector parity fixture is a same-runtime claim; CI has no Neural Engine (2026-09-14)
+`testLearnedPathMatchesPythonReference` failed on both runner jobs, passed
+locally. Now skips (stated) where no Neural Engine is listed; the 98 % bars
+were NOT loosened. A CPU-written second fixture would turn the skip back
+into a check. Owner: whether CI should verify this.
 
-Hazard 2 is worse than recorded: `finishDatasetLoading` (`AppState.swift:2800`)
-unconditionally nils `datasetLoadCancellation` and clears `isLoadingDataset`, both of
-which `canCancelDatasetLoad` (`:1162`) depends on — with two loads in flight the FIRST
-tail to finish disarms Cancel for the second. Unification alone is not the fix; no fixture
-exercises these branches, and that is the precondition. Owner: whichever session next
-touches any of the six.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
+### A red real-data gate names the symptom, not the cause; only one harness reaches it (2026-09-08/09)
+`compare.py`'s `fail()` raises `SystemExit` at the first mismatch, hiding
+later ones — confirmed by the Gate D refuter, cheap fix (collect every
+mismatch). Separately, `real-data-acceptance/run.sh` is the only harness
+`all` reaches; `scientific` stayed green three days past a real regression
+in 2026-09-05 (`ba6360d`), 43 commits before symptom. Uncosted options: add
+the harness to `scientific`, or gate science-lane commits by hand.
 
-### Promote/replay residuals (2026-09-02)
-(a) Owner design question: should promote carry the scan position across,
-or land at (0,0) as today? (b) Fitted origin maps are crop-sized and dropped
-by the full-extent restore's shape check, so a promoted recipe recorded
-against "calibrated origins" refuses — expected behaviour, not a bug. (c)
-Parallax/ptychography are deliberately NOT in the replay record (not
-bit-reproducible); folding them in is its own session. (d) A user-initiated
-analysis mid-replay steals the Cancel control from the replayed step. (e)
-Per-kind replay contracts live in three places (record/parse/apply) held
-together by tests, not structure — co-locate per kind when the next kind is
-added.
+### The acceptance harness pins peak counts, never positions (2026-09-09)
+`AcceptanceReport` has no coordinates — a change moving every peak while
+preserving the count is invisible. On `ba6360d` one peak was substituted
+~26 px away, count unchanged, harness silent. Likely two near-threshold
+noise peaks trading places, not a defect — but the gate can't tell. Owner:
+a checksum needs a tolerance, a design pass.
 
-### Recent failure leaves Reopen dead-ended (2026-09-02)
-`openRecent`'s failure path removes a dead entry from the list but leaves
-"Reopen" dead-ending in "No recoverable dataset." The separate multi-window
-recents clobber was fixed 2026-09-21 by sharing one `RecentDatasets` owner
-between Settings and every dataset window. Owner: unclaimed.
+### A stale DerivedData test bundle fakes both a pass and a surviving mutation — process trap (2026-09-12)
+Twice a newly added test method was not discovered by XCTest at all: N-1 of
+N cases ran, suite reported success. Rule: reconcile the case count against
+`func test` per file. **Related trap:** a test appended "at the end of the
+file" can land in the wrong `XCTestCase` class and report "TEST SUCCEEDED"
+having run zero cases. Rule: `grep -n "^final class\|XCTestCase"` before
+inserting, and grep the run log for the test's own name, not just the exit code.
 
-### Resident/streaming residuals (2026-09-02)
-`releaseResident()`'s "freed" claim is asserted by a derived byte count,
-never a measured one — a leaked `MTLBuffer` is invisible to every test.
-`TiledDiskDetection.detectAll` still stages each tile into a fresh
-`MTLBuffer` (out of S18's bounded staging-copy elimination). Resident
-cancellation is 2.5× coarser than streaming (one indivisible dispatch) —
-academic until something under `mac4DSTEM/` requests `.resident`, which
-nothing does today.
+### The published v2.5.1 artefact is universal but its libraries are arm64-only — status unclear, verify against the current release
+`lipo -archs` on that build's executable is `x86_64 arm64` while all three
+embedded libraries are `arm64` alone, and `Info.plist` invites every macOS
+14 machine — every `.h5`/`.emd` open fails on Intel. Not re-checked against
+the current v4.0.0 (arm64-only per `docs/decisions.md`, macOS 27 floor)
+download that has since superseded it — likely moot if v2.5.1 is no longer
+the linked artefact, but unverified. Owner: confirm the current download,
+then decide whether v2.5.1 needs withdrawing or annotating.
 
-### Toolbar Cancel button renders wrong during a run — cosmetic, not blocking (2026-09-04)
+### Owed on screen from earlier drives (2026-09-09)
+Still unexercised: the four failure paths (ROI-sum, sidecar inventory
+refresh, configurator single-pattern preview, "No preview available")
+reaching the status strip, both Reset confirmations, and the disk-centre
+label round trip (the rig couldn't synthesize a click on that Metal/Canvas
+pane at all). That one needs the owner's hand.
 
-**Amended 2026-09-12.** The status bar's own Cancel was a `.controlSize(.mini)` version of
-the same mistake and is now a borderless `xmark.circle.fill`, so this toolbar item is the
-ONLY Cancel left with a rendering complaint against it. The owner's call on whether the
-toolbar wants it is still owed, and is now a smaller question than it was.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
+### The three redistributed dylibs have no rebuild path (2026-09-09)
+They came from Homebrew `hdf5 2.1.1` / `libaec 1.1.7` on one machine;
+nothing in the repo rebuilds them. Owner: whether a release needs a rebuild
+script.
 
-### Sidecar/session UX residuals (2026-09-02)
-Recents-row location labels unverified on screen (F1.1c). A sidecar
-retarget made before any save survives only until the next dataset
-change. Repeating "Save Session Sidecar As…" can prefill a doubled
-`.h5.h5` suffix. Pre-S4 calibration-only sidecars remain unrecognisable
-(extension/open-panel-filter half is an owner decision). The configurator's
-beam proxy has no "load anyway" override (owner question; unifying it with
-`CalibrationReReference`'s gate is a deliberate non-unification,
-`Session/SessionGates.swift`).
+### Acceptance-gate test-infrastructure residuals (2026-09-02)
+`real-data-acceptance/run.sh`'s empty-glob SKIP exits 0, so a machine with
+zero datasets passes the gate — whether it should consult `expected.json`
+is open. The 15 s acceptance budget gates 4 pinned datasets only. `abs_tol`
+on virtual-image fields exceeds one fixture's whole dynamic range. The
+comparator's `rel_tol` on `diskProbeRadiusPixels` is inert below 50 px, and
+`if not actual:` is unkillable by any mutation. The runner aborts at the
+first red harness, so it can't say how many are red.
 
-### DPC's banner contradicts its badge — entry corrected 2026-09-04
+## Accessibility (does NOT block a release — owner decision, 2026-09-11)
 
-**Headline:** iDPC's badge and banner AGREE; the contradiction is `PhaseSettings`' always-
-shown qualitative banner over `dpc_magnitude` / `dpc_angle`, which `quantitativeStatus`
-calls quantitative. Before any fix: status is frozen at publish and at persist and
-preferred over re-derivation on restore, so a change corrects neither existing sidecars
-nor exported PNGs, and there is no version field to migrate on. Owner: the trust-fixes
-session; a judgement call.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### Misc unclaimed, low priority (2026-09-02)
-
-Load-cancel: F1.1d (cancel a real load on screen) never driven; resident buffer/cropped-
-view teardown unpinned. #31 `validationIssues` is O(n²) in a SwiftUI view body. #32
-`isSymmetry`'s bijection check has no fixture coverage.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### The constraint-loop crash: nothing in a split may change its own minimum (2026-09-04)
-
-**The rule, demonstrated 2026-09-04: nothing inside a split's hosted content may
-repeatedly change its own minimum size.** Two sites, both in the status bar, both fixed.
-Full diagnosis and the refuted `HSplitView` conjunction: commits `e608dbd`, `27de9bb`; the
-S17 record is archived. Residuals: n=1 each way against a fault once called intermittent;
-the inspector's Performance rows still tick per second. Owner: unclaimed.
-**2026-09-22 night:** one crash of this class (`_crashOnException` in `updateConstraintsForSubtree`, a scratch build, 3 s after launch) after the Gate D fix made the strip's glance/run slots compressible without a constant minimum; NOT reproduced (12 resizes, 6 launches). The slots now carry a constant min/ideal/max (`LayoutPolicy.compressibleSlotMinimum`), the rule's shape. A different pre-session abort (20:26, owner's build) is undiagnosed.
-Detail: `docs/archive/v3/open-items-detail-2026-09-16.md`.
-
-### `PaneSplit` residuals from the refuter (2026-09-04)
-(a) header overflow and (c) the divider resetting to centre are closed and
-were seen on screen 2026-09-07 (`shots-c3/a3b-narrow.png`, `a4b-divider-back.png`).
-(b) **The image floor lapses
-below 2× itself**: the fraction saturates at 0.5 under ~360 pt of usable
-width, and UI declares no detail-column minimum where the retired AppKit UI
-had `SplitViewPolicy.detailMinimum` = 360. SwiftUI offers no detail-column
-minimum short of the window's own floor, and announcing one from inside the
-split is the constraint-loop shape; recorded, not made. Owner: with the
-owner's drive (C3).
-
-
-### Manual Q and R pixel scale cannot be corrected once entered — fixed in code, drive owed (2026-09-04)
-
-Owner, on `downsample_Si_SiGe_exp.h5`: enter a manual Q or R pixel size, the row turns
-green and the field disappears with it. A wrong R scale silently rescales every real-space
-axis, scale bar and export, so this is a trust defect. Owed: the owner drives both
-surfaces and sees the fields stay visible and editable after the row is green.
-
-### `calibration.*` identifiers exist twice while the export sheet is open (2026-09-04)
-`ExportSheet` re-renders the readiness rows, so `calibration.readiness`,
-`calibration.item.*`, `calibration.rScale.filenameConflict` and
-`calibration.action.originProbe` are each emitted by both it and
-`PrepareSettings` while the sheet is up. Harmless today — nothing queries them
-at runtime — but it would defeat any future UI test that addresses a readiness
-row by identifier. The old app had the same collision. Owner: unclaimed.
+Deferred to a far-future release, kept in full because it is a live defect
+and not VoiceOver-only: any AX client resolving labels on the front window
+trips it, blocking any automated driving rig, and it crashed the owner's own
+session twice on 2026-09-08. **Two crash reports, evidence aged off
+2026-09-15, suspect named:** `EXC_BAD_ACCESS` at a stack guard page —
+overflow — in `AccessibilityNode.accessibilityLabel()` → `labelsToResolve` →
+`resolvedRole(forPlatformElement:)` → AppKit, both times while an AX client
+resolved labels on the front window; VoiceOver does exactly that. **In-body
+controls report no accessibility label — same bug:** `Compute Mean / Max`,
+`Fit Detector Ellipse`, both image-pane buttons, every `Advanced` disclosure
+come back as bare `AXButton`/`AXDisclosureTriangle` with empty
+title/description/value, while AppKit-backed toolbar items report
+correctly. Treat as one Gate D, not two fixes.
+Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
 ## Code hygiene
 
-### The audit's refactor list, rows 4–13, is the open hygiene queue — 2026-09-16
+### The audit's refactor list, rows 4–13 — most parked, one closed off-list
+Rows 1–3, 10 landed (`e415929`); row 8 closed 2026-09-17; row 5 (Settings
+extraction, then the full AppState seams plan) closed 2026-09-18 —
+`AppState.swift` 5476 → 1474 lines at closeout, since grown again with the
+seams' own follow-ons. **Still open:** row 4 (a shared harness `fail`
+helper — Gate B on it, a shared bug can green 46 harnesses at once); rows
+6–7 (the ResultExport/BraggVectorEMDWriter splits above, both parked); row
+12 (the >1 000-line harness mains). **Row 9 is a do-not:** five different
+`median` bodies in Core stay separate until a Gate D shows they should
+agree (ADR 015). Owner: whoever picks a row.
+Detail: `archive/open-items-detail-2026-09-18.md`.
 
-Rows 1–3 and 10 landed in `e415929`. **Row 8's `axisDelta` pair closed 2026-09-17** (full record `docs/archive/closed-items-2026-09.md`); `nextPow2` stays open on purpose (merging FFT1D/FFT2D forces FFT1D into ~5 dependency-closed manifest groups). **Row 5's `PtychographySettings` extraction landed 2026-09-17** (`App/PtychographySettings.swift`, broken-first contract tests, `docs/status.md`).
-**Still open:** row 4 (a shared harness helper, Gate B on it — a shared `fail` can green 46 harnesses at once); rows 6–7 (`Support/ResultExport.swift` / `Core/Data/BraggVectorEMDWriter.swift` splits, both started 2026-09-17, still parked — see the "resultexport-split" and "braggvector-emd-writer-split" entries above); row 12 (the >1 000-line harness mains). **Row 9 is a do-not:** five different `median` bodies in Core stay separate until a Gate D shows they should agree (ADR 015).
-**Row 5 (the AppState seams) is CLOSED 2026-09-18:** all seven seams landed — the full seam-by-seam log, decisions and gate numbers live in `docs/appstate-seams-plan.md` and are not duplicated here. AppState.swift 5476 → 1474 lines; it is no longer the repo's largest file (`Support/ResultExport.swift` is, at 1601). **Seam 7** (the load pipeline placement — `App/AppState+Open.swift`/`+Promote.swift`/`+Replay.swift` — plus its owner `Session/PromotionRun.swift`) landed a genuine regression caught before commit, not on inspection: the moved `commitPendingLoad` collapsed its peek-then-clear guard into one `promotionRun.take()`, so a refused commit (a beam-excluding crop) silently dropped the configurator's pending load instead of leaving it open for correction. Caught by `PromotionCommitTests.testCommitRefusalPreservesThePendingLoadForCorrection` (red before the fix, green after); fixed with an inline `DEVIATION` note. Gates: build 0, unit 741/0/2=743 (743 `func test` reconciled), inventory 0 — `AppState.swift` no longer the largest file; simplicity debt carried forward: replace the scattered manual result-version bumps with one standard invalidation API.
-Evidence and blast radii: `docs/archive/audit-2026-09-16/REPORT.md` §3.2. Owner: whoever picks a row.
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-### `tools/free-space.sh` still spells shared path knowledge three times (2026-09-04)
-Fixed 2026-09-04, the misreporting half: it prints the two volumes the
-preflight gates (`$ROOT`, `$TMPDIR`), answers "will the gate run?" against the
-8 GB floor, and surveys the regenerable roots outside its two (DerivedData,
-`ModuleCache.noindex`, `CodingAssistant`, `.build`). Report-only;
-`guard_path()` untouched, and `build/release` (notarized, stapled images)
-prints as PROTECTED. Residual: the temp prefix is spelled by producer and
-reaper separately and the MCP root is hardcoded (the 50 untagged
-`mktemp -d` sites were tagged `mac4dstem-<harness>` in C2, 2026-09-07). A
-`tools/lib/` constants file is deliberately NOT taken — every gate sources
-through `run-tests.sh` under `set -euo pipefail`, so a bad line there kills
-the whole harness. Owner: whoever next touches `run-tests.sh`.
-
-### Acceptance-gate test-infrastructure residuals (2026-09-02)
-`real-data-acceptance/run.sh` sources `tools/lib/sources.manifest` since C2
-(2026-09-07). Its empty-glob SKIP exits 0, so a machine with
-zero datasets passes the gate; whether it should consult `expected.json` is
-open. The 15 s acceptance budget gates the 4 pinned datasets only —
-pin-or-refuse vs the advisory `UNPINNED` line is an open call. `abs_tol=1e-3`
-on virtual-image fields exceeds `polycrystal_2D_WS2`'s whole dynamic range
-(5.3e-4); not tightened, but the fixture carries a WS₂-magnitude case so the
-boundary is testable. Comparator: `rel_tol` on `diskProbeRadiusPixels` is
-inert below 50 px; `if not actual:` is unkillable by any mutation. The runner
-aborts at the first red harness, so it cannot say how many are red.
-
-### `.fixedSize()` in `UI/`, audited 2026-09-04 — one armed site, contained
-
-12 bare `.fixedSize()` call sites exist against the constraint-loop rule above (`grep -rn '^\s*\.fixedSize()'`). **One is armed:** the zoom badge (`ImagePanes.swift:587`, `zoomModeBadge`) — `ZoomPan.liveZoom` is written on every magnify event, the digit count moves (×9.9 → ×10.0 → ×100.0) unclamped mid-pinch, and the badge appears/disappears across ×1.0, inserting/removing a `.fixedSize()` child repeatedly in one gesture. The rest are literals or change once per published product.
-**Not fixed, deliberately:** a reserved slot closes the string-width channel, not the appears/disappears one. **Not urgent:** none of the 12 sits in the one `.safeAreaInset` where both crashing sites lived.
-Owner: with the `PaneSplit` residual (a).
-Detail: `docs/archive/open-items-detail-2026-09-18.md`.
-
-### Harness type replicas of `Aperture` (2026-09-02)
-Every runner sources `tools/lib/sources.manifest` since C2 (2026-09-07; the
-inventory fails one that does not). What remains: `Aperture` is declared in
-`App/AppState.swift`, and scientific harnesses carry their own copies that
-would still compile and pass if the app's gained a field — it belongs in
-`Core/`. The app build is the only real gate for actor isolation
-(`tools/load-spec-test` compiles nonisolated; the manifest's isolation flags
-buy visibility, not enforcement). Owner: the next `AppState` extraction (C5;
-the first, the fit overlays, landed 2026-09-07).
+### Minor tooling/hygiene residuals
+`tools/free-space.sh`: the temp prefix is spelled by producer and reaper
+separately, and the MCP root is hardcoded — a `tools/lib/` constants file
+is deliberately NOT taken (every gate sources through `run-tests.sh` under
+`set -euo pipefail`; a bad line there kills the whole harness). `.fixedSize()`
+in `UI/`: 12 bare sites against the constraint-loop rule, one armed (the
+zoom badge, `ImagePanes.swift:587`, inserts/removes a child repeatedly
+mid-pinch) — not fixed deliberately, not urgent. `Aperture` is declared in
+`App/AppState.swift` and scientific harnesses carry their own copies that
+would still pass if the app's gained a field — belongs in `Core/`, owner:
+the next `AppState` extraction.

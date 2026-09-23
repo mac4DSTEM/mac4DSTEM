@@ -35,7 +35,7 @@ enum PatternScaleUnit: String, CaseIterable, Identifiable {
 }
 
 // `ParallaxResultProduct` moved to `Session/PhaseContrastProduct.swift` (seam
-// 1, docs/appstate-seams-plan.md): a Session-layer owner cannot reference a
+// 1, docs/archive/v4/appstate-seams-plan.md): a Session-layer owner cannot reference a
 // type defined in App/, so it moved with the state that uses it.
 
 /// Which image pane the user is currently operating on. Determines which ROI
@@ -66,7 +66,7 @@ enum AnalysisRunOutcome: Equatable {
 
 @Observable
 final class AppState {
-    /// Seam 6 (docs/appstate-seams-plan.md): the live reader/array pair,
+    /// Seam 6 (docs/archive/v4/appstate-seams-plan.md): the live reader/array pair,
     /// dataset list, preview, loading state and stale-publish epoch. Readers go
     /// directly to the owner; AppState has no forwarding properties.
     let datasetSession = DatasetSession()
@@ -201,7 +201,7 @@ final class AppState {
         navigation.onModeChange = { [weak self] in
             self?.persistRecoveryPosition()
         }
-        // Seam 3 (docs/appstate-seams-plan.md): the live overlay needs
+        // Seam 3 (docs/archive/v4/appstate-seams-plan.md): the live overlay needs
         // `probeKernel`/`navigation`/`displayedPattern`, none of which
         // `diskDetection` holds — same hook shape as `strain
         // .onPresentationChange` above. Body unchanged from the pre-seam
@@ -209,7 +209,7 @@ final class AppState {
         diskDetection.onParamsChange = { [weak self] in
             Task { await self?.detectCurrentPattern() }
         }
-        // Seam 4 (docs/appstate-seams-plan.md): the display derivation needs
+        // Seam 4 (docs/archive/v4/appstate-seams-plan.md): the display derivation needs
         // `comField`/`descriptor`/`navigation`/`calibrationSession`, none of
         // which `dpc` holds — same hook shape as `diskDetection
         // .onParamsChange` above. Body unchanged from the pre-seam
@@ -293,7 +293,7 @@ final class AppState {
     /// `scratchPreferencesDefaults()`), so a bare `AppState()` cannot read or
     /// write the owner's real Settings either way.
     let preferences: AppPreferences
-    /// Seam 5 (docs/appstate-seams-plan.md): the retained product, result
+    /// Seam 5 (docs/archive/v4/appstate-seams-plan.md): the retained product, result
     /// controls and their derived caches. Views read `resultPresentation.…`;
     /// cross-owner combiners are placed in `AppState+ResultPresentation.swift`.
     let resultPresentation = ResultPresentation()
@@ -323,7 +323,7 @@ final class AppState {
     /// from the published results (Gate A findings A4/B3, 2026-08-25). The
     /// recipe keeps its rehearsal values; what actually ran is the results'
     /// own provenance and the run summary. // v2 S6
-    /// Widened from `private` (seam 2, docs/appstate-seams-plan.md):
+    /// Widened from `private` (seam 2, docs/archive/v4/appstate-seams-plan.md):
     /// `App/AppState+ACOM.swift`'s `runACOM` calls it from outside this file.
     func recordReplayStep(kind: String,
                                   parameters: [String: String],
@@ -407,7 +407,7 @@ final class AppState {
     /// v2.5 step 4a: calibration state lives in `CalibrationSession`. Every
     /// reader goes there directly; the forwarders went in 7c slice 5b.
     let calibrationSession = CalibrationSession()
-    /// Seam 1 (docs/appstate-seams-plan.md): the Parallax and single-slice
+    /// Seam 1 (docs/archive/v4/appstate-seams-plan.md): the Parallax and single-slice
     /// ptychography products and their run controls. Every reader goes
     /// there directly; there are no forwarding properties.
     let phaseContrast = PhaseContrastProduct()
@@ -418,13 +418,13 @@ final class AppState {
     var patternVersion = 0
 
     // DPC: cached CoM shift field so display-mode switches don't re-run the
-    // GPU. Widened from `private` (seam 4, docs/appstate-seams-plan.md):
+    // GPU. Widened from `private` (seam 4, docs/archive/v4/appstate-seams-plan.md):
     // `App/AppState+DPC.swift`'s `runDPC`/`applyDPCDisplay` read/write it
     // from a different file.
     @ObservationIgnored var comField: [Float]?
 
     // Disk detection state. `diskParams` and its pure size-aware defaulting
-    // moved to `diskDetection` (seam 3, docs/appstate-seams-plan.md); these
+    // moved to `diskDetection` (seam 3, docs/archive/v4/appstate-seams-plan.md); these
     // stay because they read AppState-only or another owner's state
     // (`descriptor`, `probeKernel`, `calibrationSession`, `resultPresentation.braggVectors`)
     // that cannot move with it. `currentDiskDiagnostics`/`resultPresentation.braggVectors`/
@@ -436,7 +436,7 @@ final class AppState {
     var currentDiskDiagnostics: DiskDetectionPatternDiagnostics?
     var completedDiskSummary: DiskDetectionScanSummary?
     @ObservationIgnored var liveDetectionRequest: UInt64 = 0
-    /// Seam 3 (docs/appstate-seams-plan.md): the disk-detection run controls'
+    /// Seam 3 (docs/archive/v4/appstate-seams-plan.md): the disk-detection run controls'
     /// one owner. Every reader goes there directly; there are no forwarding
     /// properties.
     let diskDetection = DiskDetectionProduct()
@@ -511,7 +511,7 @@ final class AppState {
 
     /// ACOM state, plan and map live in `ACOMSession` (v2.5 step 6a); the
     /// forwarders went in 7c 4b. The run functions moved to
-    /// `App/AppState+ACOM.swift` in seam 2 (docs/appstate-seams-plan.md) and
+    /// `App/AppState+ACOM.swift` in seam 2 (docs/archive/v4/appstate-seams-plan.md) and
     /// still read the session directly; the session's hooks below carry the
     /// effects that need the window.
     let acomSession = ACOMSession()
@@ -526,7 +526,7 @@ final class AppState {
     /// `acomWorkPositionCount` and its dependents need `descriptor` (rx/ry),
     /// which only AppState holds, so they stay here as orchestration over
     /// `ACOMSession`'s moved `scanSelection`/`estimatedDuration` (seam 2,
-    /// docs/appstate-seams-plan.md) rather than becoming forwarders — see the
+    /// docs/archive/v4/appstate-seams-plan.md) rather than becoming forwarders — see the
     /// "seam 2 additions" note atop `Session/ACOMSession.swift`.
     var acomWorkPositionCount: Int {
         guard let descriptor else { return 0 }
@@ -872,7 +872,7 @@ final class AppState {
     /// quality check, one click away. Promoted only when the crystal actually
     /// has a symmetry to color by — `.identity` has no fundamental zone, so an
     /// IPF key there would be a fabricated legend.
-    /// Widened from `private` (seam 2, docs/appstate-seams-plan.md):
+    /// Widened from `private` (seam 2, docs/archive/v4/appstate-seams-plan.md):
     /// `App/AppState+ACOM.swift`'s `runACOM` calls it from outside this file.
     func promoteIPFZDisplayIfDefault(for map: OrientationMap) {
         guard !acomSession.displayIsUserChosen,
@@ -888,7 +888,7 @@ final class AppState {
     var activePane: ActivePane = .diffraction
     var realSpaceShape: RegionShape = .point
     var realSpaceRadius: Float = 6            // scan px half-extent / radius
-    /// Seam 4 (docs/appstate-seams-plan.md): the DPC display choice's one
+    /// Seam 4 (docs/archive/v4/appstate-seams-plan.md): the DPC display choice's one
     /// owner, `dpc.dpcDisplay` (its `didSet` is now `dpc`'s own
     /// `onDisplayChange` hook, wired in `init()`). Every reader goes there
     /// directly; there are no forwarding properties.

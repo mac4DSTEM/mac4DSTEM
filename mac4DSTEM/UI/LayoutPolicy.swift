@@ -100,7 +100,7 @@ enum LayoutPolicy {
     /// The header row of each process pane (Output · Lineage).
     static let bottomTabBarHeight: CGFloat = 26
 
-    /// The permanent status strip — the infobar. Phase 1 (window-design.md
+    /// The permanent status strip — the infobar. Phase 1 (docs/archive/v4/window-design.md
     /// §4–§6) made this row the centre column's own divider. 22 → 28 pt on
     /// 2026-09-22 evening ("wider, like Xcode's"), and 34 pt the same night
     /// when it took the Run tab's live numbers at 12-pt text with a Stop
@@ -135,11 +135,10 @@ enum LayoutPolicy {
     static let toolbarDisplayMinimumWidth: CGFloat = 140
     /// Breathing room inside the display's capsule, each side.
     static let toolbarDisplayPadding: CGFloat = 10
-    static let toolbarDisplaySpacing: CGFloat = 8
 
     /// The process area's share of the centre column the infobar's toggle
     /// (and ⌃⌘L) restores when nothing has ever been dragged — the owner's
-    /// "default ideal" (window-design.md §6).
+    /// "default ideal" (docs/archive/v4/window-design.md §6).
     static let processAreaIdealFraction: Double = 0.3
 
     /// The engine · memory · residency glance slot in the infobar — a
@@ -156,19 +155,12 @@ enum LayoutPolicy {
     /// callout font's monospaced digits; `StatusBarMetricsTests` sweeps it.
     static let runReadoutWidth: CGFloat = 396
 
-    /// A card's own inner padding beyond `GroupBox`'s (the Prepare steps).
-    static let cardPadding: CGFloat = 4
-
-    /// The Run tab's label column.
-    static let runMonitorLabelWidth: CGFloat = 110
-
     /// The inspector's rhythm (labels take their own width — no label column).
     static let inspectorRowSpacing: CGFloat = 6
     static let inspectorSectionSpacing: CGFloat = 12
 
     /// The inspector's header row — the Settings · Info segmented control in
-    /// a row of its own (window-design.md §6.3, 2026-09-22).
-    static let inspectorHeaderHorizontalPadding: CGFloat = 12
+    /// a row of its own (docs/archive/v4/window-design.md §6.3, 2026-09-22).
     static let inspectorHeaderVerticalPadding: CGFloat = 8
     /// The inspector's tab capsule (Xcode's inspector tab bar, with words):
     /// the inset of the segments inside the glass capsule, and a segment's
@@ -233,7 +225,7 @@ enum LayoutPolicy {
     }
 }
 
-/// Pure layout math for the centre column's process area (window-design.md
+/// Pure layout math for the centre column's process area (docs/archive/v4/window-design.md
 /// §4–§6, decided 2026-09-22, phase 1): the infobar is the column's own
 /// divider, draggable anywhere along its whole width from the column's
 /// bottom edge (process area hidden) to its top edge (canvas hidden) —

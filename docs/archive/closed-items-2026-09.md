@@ -1189,3 +1189,137 @@ it, three unit tests pin it.
 
 *The residual stays live in `docs/open-items.md`.*
 
+
+---
+
+## Docs cleanup 2026-09-23 — UI items verified resolved against the v4.0.0 rebuild
+
+Moved from `docs/open-items.md` during the 2026-09-23 triage. Each closure
+below was independently re-verified against the current tree (`d9fd32e`),
+not taken on the original entry's own "ACCEPTED"/"FIXED" wording alone —
+see the specific file/line evidence in each closure note.
+
+### Sidecar save "could not remember access" was a dev cdhash mismatch; the live residual is the message — CLOSED 2026-09-17
+
+> 2026-09-17 00:26:37: bookmarking the just-saved sidecar threw "The file couldn't be opened". Cause, from the
+> unified log (`docs/archive/audit-2026-09-16/sidecar-bookmark-cdhash-20260917.log`): `ScopedBookmarkAgent`
+> returned -67034 `errSecCSStaticCodeChanged` because the ad-hoc Debug bundle in DerivedData was rebuilt under
+> the running instance. **Confirmed a dev artifact, not a product bug**: after a fresh build nobody rebuilt under,
+> Save persisted and the sidecar restored (owner reproduction, log 00:47:43). H1 (sandbox extension) and H3
+> (wrong URL) refuted; no Gate D (mechanism proven by a reproducing observation). **Residual FIXED 2026-09-17:** `AppState.errorDetail` names the domain, code and underlying error
+> (where -67034 lives); applied to the sidecar-grant and the recent-file "could not remember access"
+> messages. Test `ErrorRoutingTests.testErrorDetailNamesDomainCodeAndUnderlyingCause`, broken first
+> (bare `localizedDescription` → red on domain/code/underlying, `bf2-mut-20260917.log` exit 65; real
+> and final exit 0). Item closed.
+
+**Closure.** Already marked "Item closed" in the live file; moved here as part of the 2026-09-23 triage (the file's own rule that closed items do not stay in `open-items.md`).
+
+### Deviation-note audit 2026-09-17 — four documentation gaps closed same day
+
+> Read-only fan-out over 43 Core/ ported sources (CLAUDE.md hard rule: port deviations get
+> an inline `DEVIATION` note). Two files got a class-a note inline where a same-file
+> justification already existed untagged (`DiskDetection.swift`, `OrientationMatcher.swift`),
+> plus `ProbeKernel.swift` and `StrainMapping.swift`. Five class-b gaps were found. **Four were
+> pure documentation gaps and got their inline `DEVIATION` note 2026-09-17** (each verified
+> against source, re-checked by an independent refuter): `EllipseCalibration.fitAmorphousRing`
+> (LM start point differs), `ParallaxPreprocessing` probe angles (milliradian storage, converted
+> back to radians in every science consumer), `OrientationPlan` per-ring mean (py4DSTEM's is
+> commented out AND coarser — a whole-image mean, not per-ring), `ScatteringFactors` (no
+> `units="VA"` branch).
+
+**Closure.** All four landed their inline `DEVIATION` note the same day, independently
+re-checked. The fifth gap in this audit (`ParallaxAligner.defaultBinSchedule` vs py4DSTEM's
+finest-bin repeat) is a behaviour deviation, not a doc gap, and stays live in
+`docs/open-items.md` under Science & parity.
+
+### Owner drive 2026-09-21 23:50–23:55 restyle REJECTED; phase 1 + ADR 035 + toolbar (ADR 036) ACCEPTED — CLOSED 2026-09-23
+
+> ## Owner drive 2026-09-21 23:50–23:55 — the workspace/inspector restyle (`9fd386d`) REJECTED — added 2026-09-22
+>
+> Driven on `Particle_1_Stack_1_45x90_…_bin8.h5` (45 × 90 scan, 128 × 128 detector, streaming), Prepare and Strain & ACOM › Bragg disks, five screenshots. Verdict (owner): "cramped, no logic to the panes, no workflow behind it, this is just horrible". Anatomy decided 2026-09-22 in [`docs/window-design.md`](window-design.md); phase 1 committed as `b0cf8e0`, corrected the same day (ADR 035, [`archive/v3/ui-review-2026-09-22.md`](archive/v3/ui-review-2026-09-22.md)) and **driven by the owner that evening: accepted in substance**, two findings below. The shell is frozen; the header's content is his open decision before Prepare.
+>
+> ### Owner drive 2026-09-22 — phase 1 + ADR 035 ACCEPTED in substance ("the backbone is better now"); two findings
+> Driven on the owner's Xcode build of `6132ff1`, demo fixture, dark, wide display, six screenshots. Confirmed: toolbar without title and with the toggles trailing; the inspector toggle; the infobar drag over its whole width; the header stays inside the centre column with both panels hidden. Light mode not yet driven.
+> **A — the TOOLBAR read as empty** (by "header" he meant the toolbar). **Decided and built the same evening (ADR 036):** the file and the live run as a display in the centre; the run button (Stop while busy), Save, Reveal and the dataset menu as icons over the room at its right; only the inspector's toggle over the inspector; the breadcrumb row gone; the infobar 28 pt. Three corrections on his own build within the hour: the trailing group had ridden over the inspector ("like in Xcode"), a fallback toggle doubled the inspector's own, and the verb sat at the navigator's edge ("the user changes the parameters on the right"). **"Better now"** after the first. Owner check owed on the last two; not yet seen: the busy state (needs a real cube), light mode.
+> **B — the bottom pane's tab controls "behave strange" — DIAGNOSED and REBUILT the same night:** the tab bar moved between tabs because the Run tab's content did not fill the pane and the stack centred it. The area is now Xcode's debug area — Output and Lineage side by side, each with its own bar button; the Run tab's numbers are the infobar's (036 amendment). Owner drive owed.
+> **C — his drive of `03cfa10` (2026-09-22 afternoon, `datasetA_stride3.h5`, live runs): ACCEPTED, "much better now! good work"; consolidate.** Two small findings: the Settings · Info icons → text tabs in Liquid Glass (built the same day, unseen); "cancel button is not stop, is there a reason?" — the buttons say Stop, the status says "Cancelling…"/"cancelled"; whether he means the word or a run that did not stop is asked back, not assumed. Owner: answer, then the wording or a Gate D on the stop path. Then (his second look): "Prepare still looks different from the rest — make everything the same, then improve" → Prepare back on the rooms' `InspectorRows` kit the same day (ADR 037 reversed, unseen); "provide a prompt to review everything" → `window-design.md` §10. His launch screenshot (no dataset): the inspector's tab row mid-column — mechanism read in the code (the placeholder does not fill, the stack centres), pinned to the top the same day; the trap: every agent capture used the demo fixture, so the launch state was never looked at — it is in the capture set now. The text tabs "still not Liquid Glass — like Xcode's, with text" → one glass capsule with text segments, same day.
+
+**Closure.** The whole macOS 27 UI/UX rebuild (`fbc59f9..d9fd32e`, v4.0.0)
+superseded this line of work; the owner drove a real cube 2026-09-22 night
+("fantastic so far", `docs/status.md`) and confirmed the pill padding and
+aligned pane headers on his own build (`413bcdc`). Re-verified 2026-09-23
+against current code: the toolbar carries the file/run display centre,
+action icons trailing, only the inspector's own toggle over the inspector
+(`UI/WorkspaceView.swift`); the bottom pane is now its own file
+(`UI/BottomWorkspace.swift`) with Output/Lineage areas, not the old tab
+bar; Prepare is fully on the `InspectorRows` kit (`UI/PrepareSettings.swift`,
+no `GroupBox`); the tab capsule is plain `.glassEffect` per the owner's own
+call (`2df605a`). "Busy state on a real cube" and "light mode on a real
+cube" are **not yet re-verified** — carried forward live in
+`docs/open-items.md` under UI & on-screen.
+
+### Owner drive 2026-09-22 night — findings B (Cancel wording) and C (glass capsule) — CLOSED, confirmed on screen
+
+> **B — the Stop/Cancel wording and the "collapsed" look — FIXED same night, `bcb3845`.** Repeated finding C from 2026-09-22 afternoon (asked once, not answered; asked again, unprompted, that night) — two asks was treated as the answer. Both "Stop" buttons (`WorkspaceView.swift`'s toolbar `operationProgress` and the bottom infobar's `runReadout`) renamed to "Cancel"; the toolbar one also given an icon (`Label` + `.bordered`) matching its sibling toolbar buttons, which is what had read as "collapsed" — a bare unstyled text button beside icon buttons. Frozen Shell (ADR 035) touched on his direct, live request, treated as the required acceptance. Unverified on screen — his own rebuild owed.
+> **C — "i cant see the liquid glas" — addressed, not necessarily closed, `9fa7e4e`.** Asked back first: he confirmed the capsule and its selection pill DO render (rules out a `#available`/Reduce Transparency failure — both checked: this machine runs macOS 27, `reduceTransparency` reads 0) but read as flat, not glass. Fourth build of this exact row today (two glass pills, one capsule, now a rim + shadow) — added a hairline stroke and a depth shadow rather than guess at the glass material itself a fifth time, since another wrong guess costs a full rebuild-relaunch-report cycle. May not be enough; his own verdict owed before calling this done.
+
+**Closure.** B: the infobar's own Cancel rendering was found and fixed the
+same session (`9ded6b4`, "confirmed on screen, driven fix" — a real
+29,241-position run, `.fixedSize()` + `.layoutPriority(1)`); both Cancel
+buttons now read `Button("Cancel", role: .cancel)`/`Label("Cancel", ...)`
+in current `UI/WorkspaceView.swift`. C: the owner's own call landed the
+same night — the rim/shadow experiment was reverted back to plain
+`.glassEffect` (`2df605a`, "his call, on screen"), confirmed current in
+`UI/WorkspaceInspector.swift` (`.glassEffect(.regular, in: .capsule)`, a
+comment reading "Plain `.glassEffect` — no manual rim, shadow or
+highlight"). **Item A from the same drive (the panel overlap) is NOT
+closed** — it stays live in `docs/open-items.md` under UI & on-screen.
+
+### One column, three alignments / section toggles only on its chevron / buttons truncate and crowd — CLOSED, `UI/InspectorRows.swift` (v4.0.0)
+
+> ### One column, three alignments — SEEN 2026-09-21, Prepare
+> "Compute Mean / Max" sits flush right (`InspectorActionRow`), "Measure Origin & Probe" / "Fit Detector Ellipse" flush left (bare buttons in a section), "Manual 0 / Unit per pixel" in the label column, "Not set" floating mid-row. Pixelmator's rule is one alignment per panel: label left, control right, value far right, buttons full width. Design, not a patch.
+>
+> ### A section toggles only on its chevron, not its label — SEEN 2026-09-21
+> `InspectorSection` is a `DisclosureGroup`; macOS toggles it from the triangle alone. The header must be one button (label + chevron) with a full-width hit target.
+>
+> ### Buttons truncate and crowd — SEEN 2026-09-21, Bragg disks
+> "Use Cu…", "Use Fil…", "Vacuu…" — three buttons in one `InspectorActionRow` at 320 pt; "Clear Th…", "Save t…", "Export…" likewise. A button never truncates: one per row, or a menu. `.controlSize(.small)` throughout the inspector makes every control look tiny; the inspector should use the regular size and 13-pt text, small only in the strip.
+
+**Closure.** All three verified resolved by the 2026-09-23 triage against
+current `UI/InspectorRows.swift`: it is no longer a `DisclosureGroup` — the
+title row IS the disclosure control (`InspectorSectionBody`, "a title row
+that is itself the disclosure control"), giving a full-width hit target;
+the file states "One alignment rule, the owner's (Pixelmator's): label
+leading, control or value at the trailing edge"; and `InspectorActionRow`
+now uses `.buttonSizing(.flexible)` (one shared width, no truncation) and
+`.controlSize(.regular)` throughout (`.controlSize(.small)` is gone from
+the inspector kit).
+
+### Two inspector styles alive until the rooms convert — CLOSED, all six rooms on one kit
+
+> Prepare is GroupBox cards since 2026-09-22 late (ADR 037, the grouped-form version built earlier that night rejected on sight); the other five rooms still stack `UI/InspectorRows.swift` sections (414 lines across ~5 000 lines of room files). Next: the owner drives Prepare; then one room per session; `InspectorRows.swift` deleted last. Cards do not collapse; Advanced is a disclosure row.
+
+**Closure.** ADR 037 was reversed the same night (owner: "make everything
+the same, then improve") and superseded again by the v4.0.0 rebuild.
+Confirmed 2026-09-23: `grep -rn GroupBox UI/*.swift` finds none in any room
+file (the two remaining uses are `WorkspaceView.swift`'s unrelated "Recent
+datasets" list and a stale comment in `PrepareSettings.swift` describing
+what it is NOT). `UI/PrepareSettings.swift`'s own header states "the same
+kit as the other five rooms... every room gets them from here on."
+
+### Toolbar Cancel button renders wrong during a run — cosmetic, not blocking (2026-09-04, amended 2026-09-12) — CLOSED 2026-09-23
+
+> **Amended 2026-09-12.** The status bar's own Cancel was a `.controlSize(.mini)` version of
+> the same mistake and is now a borderless `xmark.circle.fill`, so this toolbar item is the
+> ONLY Cancel left with a rendering complaint against it. The owner's call on whether the
+> toolbar wants it is still owed, and is now a smaller question than it was.
+
+**Closure.** Same evidence as the "findings B" closure above: `bcb3845`
+gave the toolbar's Cancel button a `Label` + icon + `.bordered` style
+matching its sibling toolbar buttons (built on the owner's direct, live
+request, treated as the required acceptance — Frozen Shell, ADR 035), and
+`UI/WorkspaceView.swift` currently reads
+`Label("Cancel", systemImage: "xmark.circle")` at the toolbar's
+`operationProgress` site. No separate rendering complaint remains against
+this item.

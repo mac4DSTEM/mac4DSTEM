@@ -24,7 +24,7 @@ final class WorkspaceNavigation {
         didSet { if analysisMode != oldValue { onModeChange?() } }
     }
 
-    /// The process area's share of the centre column (window-design.md §4,
+    /// The process area's share of the centre column (docs/archive/v4/window-design.md §4,
     /// phase 1): 0 hides it, 1 hides the canvas instead — the infobar's two
     /// extremes. `didSet` remembers the last NON-ZERO fraction it saw, so
     /// hiding the area never forgets the height the user dragged it to —

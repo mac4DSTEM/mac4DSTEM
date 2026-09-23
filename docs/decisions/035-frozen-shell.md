@@ -67,4 +67,4 @@ The five files above; `LayoutPolicy.datasetWindowMinimumSize`
 ## Sources
 
 - `docs/archive/v3/ui-review-2026-09-22.md` §2, §4, §5
-- `docs/window-design.md` §1, §5 (phase 1)
+- `docs/archive/v4/window-design.md` §1, §5 (phase 1)

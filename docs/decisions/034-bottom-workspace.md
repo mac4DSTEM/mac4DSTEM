@@ -35,7 +35,7 @@ together. The `.grouped` boxes and the 2026-09-21 nested `.columns` trial
 are retired.
 
 **2026-09-22 layout amendment:** The owner rejected the 2026-09-21 restyle
-on screen. `docs/window-design.md` §1 and §6 now govern the anatomy: the
+on screen. `docs/archive/v4/window-design.md` §1 and §6 now govern the anatomy: the
 infobar itself is the full-width drag handle within the centre column; the
 inspector uses one top-level `.columns` form; the room actions live in the
 centre header with breadcrumb pinned left and actions grouped right. Its
@@ -71,6 +71,6 @@ and the last run with its outcome, so a cancelled run reads "cancelled
 after 3 s", never as a success; the tab selection by `WorkspaceNavigation`;
 nothing new is stored on `AppState`. The tab bar's 26 pt exist only while the pane is open. Copy, search
 and filter for Output, and the lineage graph, are later steps. The old
-maximum fraction is superseded by `window-design.md`: dragging the infobar
+maximum fraction is superseded by `docs/archive/v4/window-design.md`: dragging the infobar
 must span the centre column's full usable height, subject to a documented
 SwiftUI limitation if that proves impossible.

@@ -1,6 +1,6 @@
 //
 //  DatasetSession.swift
-//  Role: seam 6 (docs/appstate-seams-plan.md) — the one owner of the open
+//  Role: seam 6 (docs/archive/v4/appstate-seams-plan.md) — the one owner of the open
 //        dataset, its stale-publish epoch, preview and loading state.
 //
 

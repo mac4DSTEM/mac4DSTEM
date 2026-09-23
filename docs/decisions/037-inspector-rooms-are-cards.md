@@ -8,7 +8,7 @@ Status: **reversed 2026-09-22 afternoon** — he drove the cards ("much better n
 
 The inspector's Settings tab for a room shows each step as a `GroupBox`
 (owner, 2026-09-22 late evening, rejecting the grouped-`Form` built
-earlier that night, `window-design.md` §9.4): every step a `GroupBox`
+earlier that night, `docs/archive/v4/window-design.md` §9.4): every step a `GroupBox`
 whose first row carries its number, its name, its state and its one
 action (Measure / Fit / Measure Again…); rows beneath carry the label
 left and the value right; regular control size, 13-pt text; in pipeline
@@ -63,5 +63,5 @@ Supersedes ADR 034's row vocabulary for converted rooms and §6.1 of
 
 ## Sources
 
-- `docs/window-design.md` §6.8, §8.8; the Pixelmator screenshot he sent
+- `docs/archive/v4/window-design.md` §6.8, §8.8; the Pixelmator screenshot he sent
 - `docs/archive/v3/ui-review-2026-09-22.md` §4 (item 2)

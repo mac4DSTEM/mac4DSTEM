@@ -9,6 +9,12 @@ No product here is called validated while it self-reports `validation:
 "none"` — precipitate/phase-mapping outputs stay badged unvalidated in every
 release note until they pass their stated ship gate.
 
+**As of v4.0.0 (2026-09-23):** every feature below has shipped at least its
+first cut (calibration foundation, vector matching, precipitate
+classification, the Materials Project importer) — there was never a
+separate v3.1.0 release; what remains live here is what is still unbuilt,
+undecided or unvalidated per feature, not the release status.
+
 Consolidates, 2026-09-21: `v3-materials-project-preregistration.md`,
 `v3-precipitate-classification.md`, `v3-precipitates-and-materials-project-plan.md`,
 `v3-vector-matching-plan.md`, `v3.1-calibration-preregistration.md` — each
@@ -39,8 +45,10 @@ mask — Core disclosure + on-screen count), item 3 (`get_origin_friedel` +
 beamstop mask, wired as an origin-method picker) and item 4 (vacuum probe
 from a separate scan) all landed 2026-09-17. Item 2 (recover the discarded
 CoM beam centre in `probeSize`) was Gate D **diagnosed and parked** the same
-day — marginal and two-sided, not built. The v3.1.0 release cut itself is
-still owed.
+day — marginal and two-sided, not built. There was never a separate
+v3.1.0 cut: this work shipped inside **v4.0.0** (2026-09-23) — its
+CHANGELOG entry states it "carries the v3.1 calibration foundation (on
+`main` since 2026-09-17)".
 
 **Scope and state owner.** `OriginMaps` (`Core/Data/Calibration.swift`) owns
 the new `originValidity: [Bool]?`, populated by the two `OriginCalibration`
@@ -275,12 +283,13 @@ with provenance, required DFT-relaxation warning, ~1 % off measured).
 
 ## Precipitates + Materials Project — plan of record
 
-**Status.** Registered 2026-09-21 (owner brief, in chat). Governs the
-**next release** (not the calibration-only v3.1.0 cut): (A) precipitate
-phase classification by known variants, checked against Thronsen et al.'s
-published ground truth, and (B) the Materials Project importer as the
-default phase source. Both largely landed 2026-09-21 per the session board
-below; the release number and cut are owed.
+**Status.** Registered 2026-09-21 (owner brief, in chat). Shipped in
+**v4.0.0** (2026-09-23, CHANGELOG): (A) precipitate phase classification by
+known variants, checked against Thronsen et al.'s published ground truth —
+shipped experimental and off by default, still `validation:"none"` — and
+(B) the Materials Project importer as the default phase source. The
+session board below is the sequencing record; only S6 (the owner's manual
+key test) remains open.
 
 **Scope and state owner.** Feature A extends
 `Core/Crystal/PhaseVectorMatching.swift` with
@@ -333,13 +342,13 @@ Materials Project importer — state ownership as in
 | S4b | MP conventional-cell standardisation from a primitive cell | D + B | done, 8 fixtures |
 | S5 | MP Settings scene; import sheet with expected-structure check; pickers reduced to two sources | unit + inventory; on-screen owed | done, unverified on screen |
 | S6 | Owner's key: fetch Al/θ′/T1, compare cells, phase-map within the S1 band | manual, recorded | after S5 |
-| S7 | Release: CHANGELOG, status, open-items, board; `all`; cut | `all` exit 0 | last |
+| S7 | Release: CHANGELOG, status, open-items, board; `all`; cut | `all` exit 0 | done — shipped as v4.0.0, 2026-09-23 |
 | S8 | ANN on the Neural Engine (pre-registration only) | — | not scheduled |
 
-**Decisions owed to the owner.** The release number; whether S3/S5's surface
-may land before the "Unverified on screen" row of `docs/status.md` is
-emptied (`CLAUDE.md`'s 2026-09-18 rule: it may not); the T1 recall lever,
-parked pending S1's outcome, now reported and still open.
+**Decisions owed to the owner.** Whether S3/S5's surface may land before the
+"Unverified on screen" row of `docs/status.md` is emptied (`CLAUDE.md`'s
+2026-09-18 rule: it may not); the T1 recall lever, parked pending S1's
+outcome, now reported and still open.
 
 **Records.** `docs/archive/v3/known-variants-rule-2026-09-21.md` (S1);
 `docs/archive/v3/t1-relationship-2026-09-21.md` (S2);

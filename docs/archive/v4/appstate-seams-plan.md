@@ -1,3 +1,19 @@
+# AppState seams plan — CLOSED, archived 2026-09-23
+
+The plan and seam-by-seam log for emptying `AppState.swift` into one
+`@Observable` owner per feature (`Session/`) plus one orchestration
+extension per feature (`App/AppState+<Feature>.swift`). All seven seams
+landed 2026-09-18 (commits `8fbac48`, `5972e8f`, `3f2f909`, `4ffa5ca`, and
+three same-day commits for seams 5–7); `AppState.swift` went 5476 → 1474
+lines then (1603 lines at HEAD, 2026-09-23, after later feature work).
+Superseded by the shipped result: `docs/architecture.md` § "Ownership today
+and where it is going" describes the current owner list
+(`mac4DSTEM/Session/*.swift` + `mac4DSTEM/App/AppState+*.swift`); the
+seam-by-seam evidence (gate logs, byte-diffs, the seam-7 regression caught
+and fixed) is preserved verbatim below, unedited.
+
+---
+
 # AppState seams — the plan to empty `AppState.swift`
 
 Pre-registered 2026-09-18. Governs the audit's refactor row 5 (`open-items.md`)

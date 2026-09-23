@@ -49,10 +49,11 @@ this class of defect — a narrowed, not closed, blind spot per
 
 ## What it does, by subsystem
 
-**Workflow.** Five workspaces — **Prepare / Imaging / Strain & ACOM / Phase /
-Results** (`⌘1…⌘5`). Navigation is side-effect free; whole-scan work starts
+**Workflow.** Six workspaces — **Prepare / Imaging / Strain & ACOM / Phase /
+AI Analysis / Results** (`⌘1…⌘6`; `App/ProductWorkflow.swift`'s
+`WorkspaceArea`). Navigation is side-effect free; whole-scan work starts
 only from an explicit primary action, runs detached with live progress and
-Cancel, and reports in the permanent status footer.
+Cancel, and reports in the infobar.
 
 **Data and display.** HDF5 (`.h5`/`.hdf5`/`.emd` — py4DSTEM, Gatan, HyperSpy
 and arbitrary EMD layouts via link traversal), Gatan DM3/DM4
@@ -127,14 +128,17 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
 6. **Publish.** A result becomes a `DisplayedProduct` — pixel payload, a
    `ProductDomain`, a `ProductQuantitativeStatus`, sampling, a flat
    `provenance: [String:String]` and overlays, so UI never infers semantics
-   from a display title. `AppState` holds the live one as
-   `publishedProduct`, written by one choke point, `publishProduct(...)`.
+   from a display title. `Session/ResultPresentation.swift` (AppState seam 5,
+   `docs/archive/v4/appstate-seams-plan.md`) owns the live one;
+   `AppState.publishProduct(...)` (`App/AppState.swift`) is the one choke
+   point that writes it, and `appState.displayedProduct` is the one read
+   site every viewer, comparison and export path uses.
 7. **Record the recipe.** `Session/SessionReplay.swift` records completed
    runs into a `SessionReplayRecord` — one step per analysis kind, in
    first-run order, not a keystroke log. `Session/ReplayPlan.swift` parses a
    recorded step back into typed parameters for replay/promote; it lives in
    `Session/` because its output vocabulary is App-level workflow state.
-8. **Show.** `UI/` renders `appState.publishedProduct` via
+8. **Show.** `UI/` renders `appState.displayedProduct` via
    `@Environment(AppState.self)` (`ContentView.swift`) through the one
    SwiftUI↔Metal bridge, `UI/MetalImageView.swift`; a `contentVersion` gates re-upload.
 9. **Export / persist.** `Support/ResultExport.swift` writes PNG, CSV of
@@ -183,33 +187,40 @@ a form," per its header.
 
 ## Ownership today and where it is going
 
-Today `AppState` (`App/AppState.swift`) owns loading, session state, calibration,
-every analysis's parameters and dispatch, product publication, replay and
-recovery; `ContentView` reconstructs workflow rules from it. Extracted seams
-already exist (`DatasetResidency`, `SessionGates`, `WorkspaceNavigation`,
-`StrainProduct`, `ReplayRun`, `QCalibrationRun`, `SessionCalibrationFramePolicy`,
-`FitOverlayPresentation` — C5's first extraction, 2026-09-07: the diffraction
-pane's fit overlays as a value over a snapshot — `PtychographySettings`,
-2026-09-17: the single-slice ptychography input controls, the result stays
-on `AppState` like `StrainProduct`'s split between controls and map).
-The target (`archive/v2/v2.5-plan.md` §4): `ScientificProduct` as an
-immutable value owning pixels, axes, units, frame, calibration snapshot,
-validity and provenance, with `ProductPresentation` separate; narrow
-per-analysis controllers; a typed task registry that is also the recipe
-vocabulary, so live runs and replay share one execution path; `AppState`
-reduced to composition and window coordination.
-Rules while migrating: no new stored state in `AppState`; a feature names its
-owner first; adapters carry an expiry condition; numerical code is split only
-at scientifically meaningful boundaries. `AppState.swift` +
-`Support/ResultExport.swift` are size-tracked by `inventory` against the
-previous commit (`HEAD^` on a clean tree, `HEAD` on a dirty one — C5,
-2026-09-07): the hard "never net positive lines" form of that rule is
-**overruled (owner, 2026-09-16)** — `inventory` now reports the delta instead
-of failing on it, since growth is allowed where one of these two files is the
-honest home for the state; the caution is real, the block is not. A commit
-that grows them says in its message why no other home would do. Extractions
-still follow the plan's §4 order above, one at a time, each with a green
-boundary and a reopen test.
+The `docs/archive/v4/appstate-seams-plan.md` extraction (all seven seams,
+complete 2026-09-18) moved every feature's state into one `@Observable`
+owner in `Session/` plus one orchestration extension in `App/`; `AppState`
+(`App/AppState.swift`, 1603 lines at HEAD) now composes those owners plus
+the window, publishing glue and the dataset epoch, rather than holding
+feature state directly, and `ContentView` reconstructs workflow rules from
+it. Current owners (`mac4DSTEM/Session/`): `ACOMSession`, `ACOMWorkflow`,
+`CalibrationSession`, `DatasetResidency`, `DatasetSession`,
+`DiffractionGroupsProduct`, `DiskCentreLabels`, `DiskDetectionProduct`,
+`DPCProduct`, `FitOverlayPresentation`, `LearnedDetection`, `LoadedView`,
+`MaterialsProjectKeyStore`, `MaterialsProjectSettings`, `OperationCenter`,
+`PhaseContrastProduct`, `PhaseMapObjectsBridge`, `PhaseMappingProduct`,
+`PrecipitateClassificationProduct`, `PromotionRun`, `QCalibrationRun`,
+`RecentDatasets`, `ReplayPlan`, `ReplayRun`, `ResultPresentation`,
+`SessionCalibrationFramePolicy`, `SessionGates`, `SessionReplay`,
+`SessionSidecarLocator`, `StrainProduct`, `SystemMonitor`,
+`WorkspaceRecovery`; each with its own `App/AppState+<Feature>.swift`
+orchestration file where cross-owner logic needs one (`+ACOM`,
+`+Calibration`, `+DatasetSession`, `+DiffractionGroups`, `+DiskDetection`,
+`+DPC`, `+MaterialsProject`, `+Open`, `+PhaseContrast`, `+PhaseMapping`,
+`+Promote`, `+Replay`, `+ResultPresentation`).
+The target the seams plan cited (`archive/v2/v2.5-plan.md` §4) goes further
+than what shipped: one immutable `ScientificProduct` value type (pixels,
+axes, units, frame, calibration snapshot, validity, provenance) with
+`ProductPresentation` separate, and a typed task registry shared by live
+runs and replay. That unification is not built — the per-feature owner
+pattern above is the seams plan's actual, shipped shape.
+Rules while extending: no new stored state in `AppState`; a feature names its
+owner first; numerical code is split only at scientifically meaningful
+boundaries. `AppState.swift` + `Support/ResultExport.swift` (1601 lines) are
+size-tracked by `inventory` against the previous commit (`HEAD^` on a clean
+tree, `HEAD` on a dirty one): growth is allowed where one of these two files
+is the honest home for the state, and a commit that grows them says in its
+message why no other home would do (owner, 2026-09-16).
 
 ## The UI contract
 
@@ -238,15 +249,30 @@ again and no flag selects it. Six rules, the first three enforced by
    `AppState.activePane` survives only as the ROI direction's storage.
 5. **No new state on `AppState`.** UI's selection is derived from
    `WorkspaceNavigation`, never stored beside it (`WorkspaceRoute`).
-6. **The window is three columns with one job each** (`window-design.md`,
-   owner decision 2026-09-22; phase 1 not yet accepted on screen). Left is
-   navigation, right is the Settings · Info inspector; both run from the
-   toolbar to the window bottom and collapse completely. Centre owns the
-   science, an infobar and the process area. Its header keeps workspace ›
-   dataset at the left and the primary action, Save to Session and Reveal
-   grouped at the right; the space between them follows centre width as
-   either side panel toggles. The standard toolbar holds only window-level
-   controls. Readiness has one home, the Settings tab's first section.
+6. **The window is three full-height columns, one job each** (ADR 035/036;
+   `docs/archive/v4/window-design.md`; shipped and driven-accepted in
+   v4.0.0, 2026-09-23). Left is `WorkspaceSidebar`; right is
+   `WorkspaceInspector`'s Settings · Info tabs, in one glass capsule row,
+   presented as `.inspector` on the `NavigationSplitView` itself (not on the
+   detail view) so it reaches the toolbar like the sidebar does. Both
+   collapse completely and run from the toolbar to the window's bottom
+   edge; below `LayoutPolicy.datasetWindowMinimumSize` (915 pt, both panels
+   at their ideal width plus the science floor) a panel closes before a
+   science pane shrinks past it — `WindowAnatomyPolicy` is retired, folded
+   into `LayoutPolicy` and `WorkspaceNavigation`. Centre (`WorkspaceView`)
+   is the science panes, the infobar (the column's own divider and drag
+   handle) and the process area — **there is no canvas header**: the file
+   name, the live run, and the room's one primary action (Save to Session,
+   Reveal in Finder, the dataset menu) live in the standard toolbar instead
+   (`ContentView.windowToolbarContent`), ranked by `.visibilityPriority` so
+   the run verb and dataset switcher are the last to overflow as the window
+   narrows. Readiness has one home, the Settings tab's first section
+   (`UI/CalibrationReadinessRow.swift`). The inspector's row vocabulary is
+   `UI/InspectorRows.swift` — flat HIG sections per Apple's own guidance
+   (title is the leading disclosure, hairline, one bordered push button per
+   row), not cards (ADR 037, superseded the same night it shipped). Each
+   science pane's own header popover (`UI/PaneOverlays.swift`) carries that
+   pane's contrast, histogram and gamma controls.
 - **Navigation is a source list, settings are forms, and the two containers
   are not interchangeable.** Rule 1's `List(selection:)`/`.listStyle(.sidebar)`
   carries navigation; the decided inspector is one top-level `.columns`

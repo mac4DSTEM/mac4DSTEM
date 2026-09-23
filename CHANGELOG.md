@@ -59,10 +59,10 @@ gates; "unverified on screen" means exactly that.
 - **AppState seams 1–4.** Phase contrast, ACOM, disk detection and DPC state
   moved to feature owners; their cross-owner orchestration moved to focused
   extensions. AppState.swift 4699 → 3676; details and gates are retained in
-  `docs/appstate-seams-plan.md`. All four were later owner-driven with seam 5.
+  `docs/archive/v4/appstate-seams-plan.md`. All four were later owner-driven with seam 5.
 - **AppState seam 5: `ResultPresentation`.** Shared product/display state moved to one owner and cross-owner orchestration to `AppState+ResultPresentation.swift`; AppState.swift 3676 → 3240. Seven tests pin version bumps; unit 727/0/2 and rotation/strain-frame parity passed; the owner drove `sim_Au` normally.
 - **AppState seam 6: `DatasetSession`.** Reader/array, datasets, preview, loading state and stale-publish epoch moved to one owner and lifecycle orchestration to `AppState+DatasetSession.swift`; AppState.swift 3240 → 3054. Five tests pin ownership/epoch; unit 732/0/2 passed; the owner drove open → switch dataset → reopen ignoring sidecar normally.
-- **AppState seam 7: the load pipeline, and the seams plan is complete.** Configured-open split into `AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; the pending-load owner is `Session/PromotionRun`. AppState.swift 3054 → 1474 — no longer the repo's largest file. Caught and fixed a regression before commit: the moved `commitPendingLoad` cleared its owner before finishing the refusal guard, so a beam-excluding crop silently dropped the configurator's pending load; a new test (`PromotionCommitTests`) pins the correct behaviour. Unit 741/0/2=743 passed. All seven seams of `docs/appstate-seams-plan.md` are now landed; not yet driven on screen.
+- **AppState seam 7: the load pipeline, and the seams plan is complete.** Configured-open split into `AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; the pending-load owner is `Session/PromotionRun`. AppState.swift 3054 → 1474 — no longer the repo's largest file. Caught and fixed a regression before commit: the moved `commitPendingLoad` cleared its owner before finishing the refusal guard, so a beam-excluding crop silently dropped the configurator's pending load; a new test (`PromotionCommitTests`) pins the correct behaviour. Unit 741/0/2=743 passed. All seven seams of `docs/archive/v4/appstate-seams-plan.md` are now landed; not yet driven on screen.
 
 ### Known limitations
 

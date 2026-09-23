@@ -1,6 +1,6 @@
 //
 //  DPCProduct.swift
-//  Role: seam 4 (docs/appstate-seams-plan.md) — the last of the night's four
+//  Role: seam 4 (docs/archive/v4/appstate-seams-plan.md) — the last of the night's four
 //        unattended seams. The one owner of the DPC display choice
 //        (`dpcDisplay`). Held by AppState as `let dpc = DPCProduct()`, no
 //        forwarding properties; views read `dpc.…` (via `appState.dpc`).
