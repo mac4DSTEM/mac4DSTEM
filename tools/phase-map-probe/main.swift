@@ -334,6 +334,11 @@ enum Probe {
         // per-phase object count, median length, area fraction, and how many
         // truth/predicted objects split or merged against each other.
         var objectTable = false
+        // `--dump-labels <path>` (2026-09-23 night, T3 of docs/cloud/2026-09-23-brief.md):
+        // with --object-table, write the baseline and guarded label maps as
+        // JSON so tools/cloud-analysis/direction_check.py can apply the
+        // truth's cleanup convention to the app's own map. Off by default.
+        var dumpLabelsPath: String?
         // Generalised 2026-09-21 (θ′ edge-on Gate D follow-up to S2,
         // `docs/archive/v3/t1-relationship-2026-09-21.md`): `--survivor-detail`
         // took only T1 (truth label 3); it now takes an optional truth-label
@@ -432,6 +437,8 @@ enum Probe {
                 alPrecipitateDetail = true; index += 1
             } else if args[index] == "--object-table" {
                 objectTable = true; index += 1
+            } else if args[index] == "--dump-labels", index + 1 < args.count {
+                dumpLabelsPath = args[index + 1]; index += 2
             } else if args[index] == "--cif-crystals", index + 3 < args.count {
                 cifCrystalPaths = (al: args[index + 1], theta: args[index + 2], t1: args[index + 3])
                 index += 4
@@ -1597,6 +1604,21 @@ enum Probe {
                     if specific < 1 { guardedLabels[index] = Int32(map.matrixPhaseIndex) }
                 }
                 let guarded = PhaseMapObjectsBridge.LabeledMap(labels: guardedLabels, roles: baseline.roles)
+                if let dumpLabelsPath {
+                    let payload: [String: Any] = [
+                        "width": width, "height": height,
+                        "notIndexedLabels": baseline.roles.notIndexed.sorted().map { Int($0) },
+                        "baseline": baseline.labels.map { Int($0) },
+                        "guarded": guardedLabels.map { Int($0) }]
+                    do {
+                        let data = try JSONSerialization.data(withJSONObject: payload)
+                        try data.write(to: URL(fileURLWithPath: dumpLabelsPath))
+                        print("  labels written: \(dumpLabelsPath)")
+                    } catch {
+                        print("  --dump-labels failed: \(error)")
+                        exit(1)
+                    }
+                }
 
                 let truthObjects = PrecipitateSegmentation.classObjects(
                     labels: truthLabels, width: width, height: height, roles: truthRoles,

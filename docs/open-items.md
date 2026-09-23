@@ -74,6 +74,17 @@ every addition is an off-by-default probe flag.
 Owner: whether to ship a guard, and at what count/radius; unclaimed.
 Detail: `archive/v3/precipitate-overnight-2026-09-23.md`.
 
+### Phase mapping has no object-level pass bar — draft pre-registration, owner decision owed 2026-09-23
+Per-position error cannot see precipitate objects. At 0.96–1.75 %, the four published Thronsen maps
+have 20–173× the truth's θ′ face-on objects and 1.3–2.4× its T1 objects (`docs/cloud/2026-09-23/T2-direction-check.md`).
+The truth's own size cuts bring every map, and the app's stride-3 map, back to truth counts. But
+the independent refuter showed that random Al flips at the app's false-call rate clean up to the
+truth's counts as well, so **cleaned counts cannot certify a classifier**. The app's raw T1 speckle
+(23 spurious objects) is outside the published 1–13. θ′ edge-on objects are unmeasurable at
+stride 3 (the truth goes from 38 to 74 objects).
+**Trap:** the cuts (782 / 10 / 4 px) are this truth's convention, never an app default.
+Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.
+
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
 called matrix when almost nothing survives removal — never because the
