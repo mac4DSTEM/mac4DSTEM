@@ -40,11 +40,11 @@ package nonisolated enum PrecipitateSegmentation {
         package nonisolated init() {}
     }
 
-    /// One segmented object. `lengthPx`/`widthPx` are the pixel extents along and across the principal axis (end to end); the earlier wording below described a moment estimate that is no longer used. Historically: the principal-axis
-    /// extents of an ellipse with the same normalized second moments as the
-    /// pixel set (4 x sqrt of the covariance eigenvalues — the skimage
-    /// `regionprops` convention: this reproduces the true axis length for a
-    /// uniformly-filled ellipse).
+    /// One segmented object. `lengthPx`/`widthPx` are the extents along and
+    /// across the principal axis of the pixel-coordinate covariance, end to
+    /// end: the range of the members' projections + 1, over members at or
+    /// above half the object's peak footprint value (see `measure`). Not a
+    /// moment estimate (4·√eigenvalue, skimage's `regionprops` convention).
     package nonisolated struct Object: Sendable, Identifiable, Equatable {
         package let id: Int
         /// Row-major pixel indices into the segmented image, ascending.
