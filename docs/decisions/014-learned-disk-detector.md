@@ -21,6 +21,13 @@ is a set of hand-clicked disk centres at one scan position in the detector's
 native frame, stored as one JSON attribute on the session sidecar's root
 group.
 
+**Revisit owed (owner, 2026-09-23):** Core ML vs Core AI is to be decided
+again at a later stage. One of the three reasons above lapsed with the macOS 27
+floor (ADR 008, 2026-09-22) — Core ML's macOS 14 reach no longer matters; the
+other two (a speed wash, a segfaulting stateful asset in the beta) stand until
+re-measured. Natural trigger: the precipitate classifier on the Neural Engine
+(S8) or the next change to the learned detector, whichever comes first.
+
 ## Why
 
 The ANE is reached only through Core ML, which has no FFT, ruling out

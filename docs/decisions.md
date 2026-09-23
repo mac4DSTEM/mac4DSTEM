@@ -21,7 +21,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 011 | Status strip readouts | 09-04, 09-12 | live (09-04 narrowed; throughput and the Performance rows moved to the Run tab by 034, 09-21) |
 | 012 | Refusals not defaults | 09-04, 09-05 | live |
 | 013 | Residency `.automatic` dropped | 08-18 | live |
-| 014 | Learned disk detector | 09-06/07/08 | live |
+| 014 | Learned disk detector | 09-06/07/08 | live — Core ML vs Core AI revisit owed (owner, 09-23) |
 | 015 | Even-count median | 09-09 | live |
 | 016 | Accessibility crash deferred | 09-11 | live |
 | 017 | Pane click selects | 09-11 | live |
