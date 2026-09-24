@@ -79,6 +79,21 @@ are unexplained by one global orientation; a different Al CIF cannot help (0.003
 **Trap:** do not tune the floor or β″ first. Gate D next session: (1) ACOM on Al — does the
 orientation vary? (2) template overlay — disks or kernel maxima? `archive/v4/almgsi-drive-2026-09-23.md`.
 
+### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
+`datasetA_stride3.h5` carries no calibration; Map Phases ran with Q unset (scale bars "20 px",
+the px fallback at `ImagePanes.swift:298`) and returned 29 241 / 29 241 not indexed, every phase 0;
+Find Matrix Zone Axis reported "at chance". Setting Q 0,1904 nm⁻¹ and re-running Map Phases (no
+re-detection) gave T1 3680 / θ′ 833 / matrix 22 068 / not indexed 2660. Owner: "add this later" —
+refuse, or say why, when Q is uncalibrated. The stale zone-axis list also survives a calibration change.
+
+### Diffraction groups at 32 × 32 is too slow to use — owner's drive, 2026-09-24, not profiled
+Same cube (29 241 positions, 128²): 32 × 32 / 8 components / 4 groups sat at "0 / 29 241" past 1:10
+and was abandoned. Suspect, unmeasured: `DiffractionEmbedding.accumulate` (`:525`) is a scalar
+per-pattern d² outer product, d = 1024 → ~3·10¹⁰ double multiply-adds; the build may have been Debug.
+The progress counter only moves per tile, so "0" is not proof of a stall. Fix candidate: one
+Accelerate `syrk`/`gemm` over the cached vectors. It moves explained variance in the last digits:
+old-vs-new agreement fixture before it ships. Profile first (Release vs Debug, per-phase time).
+
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
 called matrix when almost nothing survives removal — never because the
