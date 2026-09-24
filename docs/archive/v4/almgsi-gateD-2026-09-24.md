@@ -176,3 +176,40 @@ rotation that the matcher searches anyway.
 **Refuted if** the RMS is > 0.6 px, or (b) is < 60 %, or (c) is < 50 %, or (d) is < 1.5×
 chance. (a)–(c) partly reuse the peaks A was fitted to, so they can only refute. Only the
 residual and (d) can support H5.
+
+## Result, part 3: H5 (runs `gd-h5.log` at 0.15 % and `gd-05.log` at 0.5 %, all exit 0)
+
+| | predicted | 0.15 % floor | 0.5 % floor |
+|---|---|---|---|
+| (a) RMS residual, 8 centres | ≤ 0.3 px | **0.153 px** | 0.131 px |
+| axis ratio (major axis) | 1.05–1.15 | **1.0853** (69.6°) | 1.0841 (69.6°) |
+| Q = 0.4939 / √det A | 0.0265 ± 3 % | **0.026392** | 0.026431 |
+| (b) ⟨100⟩ after correction | ≥ 80 % | **94.5 %** (next family 24.0 %) | not re-run |
+| (c) drive's map, matrix | ≥ 70 % | **91.1 %** (β″ 0.8, not indexed 8.1) | not re-run |
+| (d) {400}/{420} hits vs chance | ≥ 3× | **33 vs 0.5 (65×)**, 2 of 12 positions inside the detector, 81 peaks beyond 33 px | — |
+
+**H5 holds on every registered criterion.** The 0.5 % run also completes part 1's registration.
+It reproduces the drive (matrix 1.9, β″ 20.2 / 13.9, not indexed 64.1 %; drive 2.2 / 19.6 /
+13.5 / 64.7), and H1 and H3 are refuted there too (median |Δθ| 0.5°; survivors median 0.55).
+
+**A correction to part 2's claim about what can support H5, made before the refuter saw it.**
+A linear map can carry any 2D lattice onto any other. The 0.15 px residual and the (d) hits
+therefore prove that the disks form **one distorted 2D lattice**. They do not by themselves
+prove the zone. What picks [001] over the alternatives:
+- the **size of the distortion** each reading needs. An equal-sided rhombus of 84° becomes a
+  square with an axis ratio of 1/tan 42° ≈ 1.11 (fitted: 1.085). It becomes ⟨110⟩'s
+  70.5° rhombus only with tan 42° / tan 35.26° ≈ 1.27, a 27 % distortion;
+- **nothing inside the inner ring**, which fits fcc [001] ({200} is the innermost reflection);
+- no fcc zone gives an undistorted equal-sided 84° rhombus with an empty interior. [113] and
+  [012] were checked by hand and do not.
+
+**Robust to the zone question:** at the file's Q, 0.045741 Å⁻¹/px, the inner ring is at
+0.852 Å⁻¹, and Al has no zone whose innermost reflection sits there. **The file's Q is wrong
+for Al under any reading.** Observation, no mechanism claimed: the file's Q is 1.733× the
+fitted one, which is √3 to within 0.1 %.
+
+**Diagnosis (for the refuter):** the matrix is lost because the cube's calibration is wrong
+twice. Its Q is about 1.73× too large, and the pattern carries an elliptical distortion of
+about 8.5 % (major axis at 69.6° in the detector) that the drive did not model. With both
+corrected, the app's own matcher calls 91 % of positions matrix, and β″ falls from 45 % to
+0.8 %. The matcher did what it was given. **No app code is implicated by this mechanism.**

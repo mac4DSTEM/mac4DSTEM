@@ -96,7 +96,8 @@ enum MatrixOrientationProbe {
             guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
             return args[i + 1]
         }
-        let qPerPixel = Double(value("--q") ?? "0.045741") ?? 0.045741
+        var qPerPixel = Double(value("--q") ?? "0.045741") ?? 0.045741
+        let distortionCorrect = args.contains("--distortion-correct")
         let minRelative = Float(value("--min-relative") ?? "0.0015") ?? 0.0015
         let stride = max(1, Int(value("--stride") ?? "2") ?? 2)
         let csvPath = value("--csv")
@@ -137,14 +138,28 @@ enum MatrixOrientationProbe {
         for ry in rows { for rx in cols {
             subPeaks.append(calibrated.peaks[ry * d.rx + rx]); subXY.append((rx, ry))
         } }
-        let bragg = BraggVectors(scanWidth: cols.count, scanHeight: rows.count, peaks: subPeaks)
+        var bragg = BraggVectors(scanWidth: cols.count, scanHeight: rows.count, peaks: subPeaks)
+        var distortion: simd_double2x2? = nil
+        // --dump-peaks: the descan-corrected peaks of the strided scan, in
+        // detector pixels, with the reference origin — so a refuter can
+        // re-derive the rings without this file's code.
+        if let dumpPath = value("--dump-peaks") {
+            let payload: [String: Any] = [
+                "origin": [Double(origin.x), Double(origin.y)], "stride": stride,
+                "cols": cols.count, "rows": rows.count, "detector": [d.qx, d.qy],
+                "probe_radius_px": Double(fit.probeRadius),
+                "peaks": subPeaks.map { $0.map { [Double($0.x), Double($0.y), Double($0.intensity)] } },
+            ]
+            try JSONSerialization.data(withJSONObject: payload).write(to: URL(fileURLWithPath: dumpPath))
+            print("wrote the strided scan's peaks to \(dumpPath)")
+        }
 
         // ---- H4 (added after the overlay, pre-registered before this ran):
         // where are the disks, in PIXELS, independent of any Q calibration?
         // Two strongest rings by count, then each ring's four azimuth
         // clusters: [001] predicts 90° gaps and a 45° offset between rings;
         // ⟨110⟩ {111} would give 70.5° / 109.5°.
-        do {
+        rings: do {
             let binPx = 0.25, maxR = 46.0
             var radial = [Int](repeating: 0, count: Int(maxR / binPx))
             let inner = Double(2 * fit.probeRadius)
@@ -206,7 +221,100 @@ enum MatrixOrientationProbe {
                              offsets.map { String(format: "%.1f", $0) }.joined(separator: ", ") as NSString))
                 print(String(format: "  if r1 is Al {200} (0.4939 Å⁻¹): Q = %.6f Å⁻¹/px, the file's %.6f is %.3f× that",
                              0.4939 / r1, qPerPixel, qPerPixel / (0.4939 / r1)))
+
+                // ---- H5: one linear map A from ideal [001] to the data ----
+                // Inner cluster k ↔ e_k (unit {200}, rotating +90° per k);
+                // outer cluster between k and k+1 ↔ e_k + e_{k+1} ({220}).
+                func angDist(_ a: Double, _ b: Double) -> Double {
+                    let x = abs(a - b).truncatingRemainder(dividingBy: 360); return min(x, 360 - x)
+                }
+                func centroid(_ keep: ((r: Double, phi: Double)) -> Bool) -> SIMD2<Double>? {
+                    var sx = 0.0, sy = 0.0, n = 0.0
+                    for p in polar where keep(p) {
+                        sx += p.r * cos(p.phi * .pi / 180); sy += p.r * sin(p.phi * .pi / 180); n += 1
+                    }
+                    return n >= 20 ? SIMD2(sx / n, sy / n) : nil
+                }
+                guard c1.count == 4 else { print("  H5: ring 1 did not give four clusters"); break rings }
+                let e: [SIMD2<Double>] = [SIMD2(1, 0), SIMD2(0, 1), SIMD2(-1, 0), SIMD2(0, -1)]
+                var ideal: [SIMD2<Double>] = [], seen: [SIMD2<Double>] = [], names: [String] = []
+                for k in 0..<4 {
+                    if let p = centroid({ abs($0.r - r1) <= 1.5 && angDist($0.phi, c1[k]) <= 15 }) {
+                        ideal.append(e[k]); seen.append(p); names.append("inner \(k)")
+                    }
+                    let a = c1[k], b = c1[(k + 1) % 4] + (k == 3 ? 360 : 0)
+                    let mid = (a + b) / 2
+                    if let p = centroid({ $0.r >= 1.2 * r1 && $0.r <= 1.7 * r1 && angDist($0.phi, mid) <= 12 }) {
+                        ideal.append(e[k] + e[(k + 1) % 4]); seen.append(p); names.append("outer \(k)")
+                    }
+                }
+                guard ideal.count >= 6 else { print("  H5: only \(ideal.count) cluster centres found"); break rings }
+                // Least squares, one row of A at a time: seen.x = a11 s.x + a12 s.y.
+                var sxx = 0.0, sxy = 0.0, syy = 0.0, bx1 = 0.0, bx2 = 0.0, by1 = 0.0, by2 = 0.0
+                for (s, p) in zip(ideal, seen) {
+                    sxx += s.x * s.x; sxy += s.x * s.y; syy += s.y * s.y
+                    bx1 += s.x * p.x; bx2 += s.y * p.x; by1 += s.x * p.y; by2 += s.y * p.y
+                }
+                let det = sxx * syy - sxy * sxy
+                let a11 = (syy * bx1 - sxy * bx2) / det, a12 = (sxx * bx2 - sxy * bx1) / det
+                let a21 = (syy * by1 - sxy * by2) / det, a22 = (sxx * by2 - sxy * by1) / det
+                let A = simd_double2x2(columns: (SIMD2(a11, a21), SIMD2(a12, a22)))
+                var sq = 0.0
+                print("\n== H5: one linear map from ideal [001] ({200} = unit) to the data, px ==")
+                for (i, (s, p)) in zip(ideal, seen).enumerated() {
+                    let r = simd_length(A * s - p); sq += r * r
+                    print(String(format: "  %@  ideal (%+.0f, %+.0f)  seen (%+.2f, %+.2f)  residual %.2f px",
+                                 names[i] as NSString, s.x, s.y, p.x, p.y, r))
+                }
+                let rms = (sq / Double(ideal.count)).squareRoot()
+                // Singular values of A: the ellipse's semi-axes per unit {200}.
+                let ata = A.transpose * A
+                let tr = ata[0][0] + ata[1][1], dt = ata[0][0] * ata[1][1] - ata[0][1] * ata[1][0]
+                let l1 = tr / 2 + ((tr * tr / 4 - dt).squareRoot()), l2 = tr / 2 - ((tr * tr / 4 - dt).squareRoot())
+                let s1 = l1.squareRoot(), s2 = l2.squareRoot()
+                let aat = A * A.transpose
+                let major = 0.5 * atan2(2 * aat[1][0], aat[0][0] - aat[1][1]) * 180 / .pi
+                print(String(format: "  RMS residual %.3f px over %d centres; axis ratio %.4f (major axis at %.1f° in the detector); {200} = %.2f–%.2f px; Q = %.6f Å⁻¹/px (0.4939 / √det A)",
+                             rms, ideal.count, s1 / s2, major, s2, s1, 0.4939 / (s1 * s2).squareRoot()))
+                distortion = A
+
+                // (d) {400}/{420}: never used by the fit.
+                let far: [SIMD2<Double>] = [SIMD2(2, 0), SIMD2(-2, 0), SIMD2(0, 2), SIMD2(0, -2),
+                                            SIMD2(2, 1), SIMD2(2, -1), SIMD2(-2, 1), SIMD2(-2, -1),
+                                            SIMD2(1, 2), SIMD2(-1, 2), SIMD2(1, -2), SIMD2(-1, -2)]
+                let halfW = Double(d.qx) / 2 - Double(params.edgeBoundary), halfH = Double(d.qy) / 2 - Double(params.edgeBoundary)
+                var observed = 0, expected = 0.0, used = 0
+                for s in far {
+                    let t = A * s
+                    guard abs(t.x) < halfW - 1, abs(t.y) < halfH - 1 else { continue }
+                    used += 1
+                    let rt = simd_length(t)
+                    var inAnnulus = 0
+                    for p in polar where abs(p.r - rt) <= 1 {
+                        inAnnulus += 1
+                        let v = SIMD2(p.r * cos(p.phi * .pi / 180), p.r * sin(p.phi * .pi / 180))
+                        if simd_length(v - t) <= 1 { observed += 1 }
+                    }
+                    expected += Double(inAnnulus) * (Double.pi * 1) / (2 * Double.pi * rt * 2)
+                }
+                let beyond = polar.filter { $0.r > 33 }.count
+                print(String(format: "  (d) {400}/{420} inside the detector: %d of 12 positions; peaks within 1 px: %d, chance %.1f → %.2f×; peaks beyond 33 px: %d",
+                             used, observed, expected, Double(observed) / max(expected, 1e-9), beyond))
             }
+        }
+        if distortionCorrect, let A = distortion {
+            // Every peak mapped through A⁻¹ onto an undistorted virtual
+            // detector at the scale where one {200} is 0.4939 / Qv px.
+            let qVirtual = 0.026518
+            let unit = 0.4939 / qVirtual
+            let inv = A.inverse
+            subPeaks = subPeaks.map { peaks in peaks.map { p in
+                let v = inv * SIMD2(Double(p.x - origin.x), Double(p.y - origin.y)) * unit
+                return BraggPeak(x: origin.x + Float(v.x), y: origin.y + Float(v.y), intensity: p.intensity)
+            } }
+            bragg = BraggVectors(scanWidth: cols.count, scanHeight: rows.count, peaks: subPeaks)
+            qPerPixel = qVirtual
+            print(String(format: "\n** distortion-corrected: every peak mapped through A⁻¹; virtual Q %.6f Å⁻¹/px **", qVirtual))
         }
 
         var settings = PhaseVectorResolution(settings: PhaseVectorSettings(), invAngstromPerPixel: qPerPixel)
