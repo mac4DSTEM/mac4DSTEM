@@ -213,3 +213,46 @@ twice. Its Q is about 1.73× too large, and the pattern carries an elliptical di
 about 8.5 % (major axis at 69.6° in the detector) that the drive did not model. With both
 corrected, the app's own matcher calls 91 % of positions matrix, and β″ falls from 45 % to
 0.8 %. The matcher did what it was given. **No app code is implicated by this mechanism.**
+
+## Part 4: independent refuter (Sonnet, own numpy on `gd-peaks-015.json`, no repo code run)
+
+1. **Fit: NOT REFUTED.** Re-derived from the raw peaks: RMS 0.1528 px, axis ratio 1.0853,
+   69.6°, Q 0.026392. Exact.
+2. **Zone: PARTLY.** A ⟨110⟩ ideal gives the **identical** RMS (0.1528 px). This is provable:
+   one ideal lattice is a fixed linear reparametrisation of the other. **So the residual can
+   never tell zones apart**, which is stronger than part 3's caveat. What does tell them apart:
+   the axis ratio each needs ([001] 1.085, ⟨110⟩ **1.305**), and the intensities. The four
+   inner spots are near-equal (spread 1.19×), and inner ({200}) are 6.3× stronger than outer
+   ({220}), as fcc [001] predicts. An oblique 8.5 % ellipse is on the high side but plausible
+   for 4D-STEM. Its 69.6° angle argues against non-square binned pixels.
+3. **"The file's Q is wrong for Al": holds.** Across 175 low-index fcc zones, none has its
+   innermost reflection near 0.852 Å⁻¹. Only implausible high-index axes such as [1 2 5] come
+   close, and they would not give this pattern.
+4. **(d): REFUTED as evidence.** The only two predicted positions inside the detector are a
+   Friedel pair at r ≈ 40.7 px, in the detector's corners. At that radius a square detector
+   admits peaks only in a wedge about 0.85° wide per corner, narrower than the 1 px match
+   disk. Any peak that far out "hits" by geometry. **The 65× is an artefact of the detector's
+   shape, and (d) supports nothing.** The criterion stays as registered; the evidence is
+   withdrawn.
+5. **Reproduction: NOT REFUTED.** The tool's steps trace to `AppState+PhaseMapping.swift`. The
+   ≤ 1.4-point gaps to the drive plausibly come from the kernel choice, which the drive record
+   does not state.
+6. **Provenance:** `h5dump -A` shows the file stores 0.0457415 Å⁻¹ in `Q_pixel_size`, `dim2` and
+   `dim3`, consistently. The app read what the file says. The √3 ratio stays unexplained.
+
+## Conclusion
+
+**Cause established:** the cube's calibration is wrong twice, and the matcher did what it was
+given. Q is 1.733× too large (the file says 0.045741 Å⁻¹/px; the data says 0.02639), and an
+elliptical distortion (axis ratio 1.085, major axis 69.6°) was not modelled. The specimen is on
+**[001]Al**, not ⟨110⟩Al as recorded since 2026-09-12. Corrected, the app's own matcher calls
+91.1 % of positions matrix; β″ falls from 45 % to 0.8 %. The evidence for [001] is the distortion
+size, the empty interior and the {200}/{220} intensities. The residual and (d) are not
+evidence. **No app code is implicated in the mechanism.** Two app gaps it exposed go to the
+owner, not into a fix:
+- the ellipse can come only from the app's own ring fit, a py4DSTEM file or a session. There
+  is no manual entry, and a four-spot ring is too sparse for the ring fit (refused unless "Fit
+  Anyway");
+- nothing flagged a matrix fit explaining 43 % of vectors. A correct identification here
+  explains about 95 %. By the threshold rule this is a quantity to show, not a cut-off to
+  invent.

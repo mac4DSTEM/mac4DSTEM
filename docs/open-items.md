@@ -75,12 +75,14 @@ Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DR
 - zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0);
 - unverified on screen: the table's final column widths, the density on its own line.
 
-### The owner's real Al-Mg-Si cube: matrix almost never wins — driven 2026-09-24, cause not established
-`Al_Mg_Si_060…bin_4` (⟨110⟩Al, 0.0457 Å⁻¹/px), scaled to the detector: matrix 0.7 % at the 0.15 %
-floor, 2.2 % at 0.5 %; β″ speckle. Al is found (43 % of vectors) but ~4 of 6 peaks per pattern
-are unexplained by one global orientation; a different Al CIF cannot help (0.003 vs 0.046 Å⁻¹).
-**Trap:** do not tune the floor or β″ first. Gate D next session: (1) ACOM on Al — does the
-orientation vary? (2) template overlay — disks or kernel maxima? `archive/v4/almgsi-drive-2026-09-23.md`.
+### The owner's real Al-Mg-Si cube lost its matrix — Gate D closed 2026-09-24: the file's calibration, not the matcher
+`Al_Mg_Si_060…bin_4` is on **[001]Al, not ⟨110⟩**. Its stored Q, 0.0457415 Å⁻¹/px, is 1.733× too large (data:
+0.02639), and an unmodelled ellipse (axis ratio 1.085, major axis 69.6°) remains. Corrected, the app's matcher calls
+91.1 % matrix (was 0.6 %). The refuter reproduced this exactly; the {400}/{420} test was withdrawn as a detector-corner
+artefact. Record: `archive/v4/almgsi-gateD-2026-09-24.md`. **Owner:** (1) where the file's Q came from; (2) a way to
+enter or fit an ellipse from a spot pattern, since there is no manual entry and a four-spot ring is too sparse for the
+ring fit; (3) whether to show the matrix fit's explained fraction (43 % here, about 95 % when right) more prominently.
+Re-drive with Q 0,02639 once (2) exists.
 
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
 `datasetA_stride3.h5` carries no calibration; Map Phases ran with Q unset (scale bars "20 px",
