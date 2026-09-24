@@ -71,3 +71,59 @@ of vectors, or it is a different instrument and nothing below it is read.
 
 **Not in scope:** any change to `mac4DSTEM/`; tuning the floor or the β″ library; the fix. An
 independent refuter reviews the diagnosis before any fix is proposed to the owner.
+
+## Result, part 1: the 0.15 % floor (run 2026-09-24, `gd-015.log`, exit 0)
+
+The line citation above should read `:882`, not `:884`.
+
+**The instrument reproduces the drive.** Axis ⟨110⟩ at 43.6 % of sampled vectors (drive 43 %),
+with all five ⟨110⟩ tied at exactly 1451 of 3331. Map at stride 2: matrix 0.6, β″[010] 28.2,
+β″[001] 17.0, not indexed 54.1 % (drive 0.7 / 27.1 / 16.6 / 55.7). Origin plane fit spans
+0.27 × 0.17 px, so descan is negligible. 1 010 514 peaks, median 9 per pattern, identical to
+the drive.
+
+- **H1: REFUTED, as predicted.** The refit's median |Δθ| is 0.50°, which is the sweep step, and
+  the 95th percentile is 1.5°. A neighbour's Δθ differs by as much as a random position's does
+  (0.50° vs 0.50°), so there is no spatial structure. 99.9 % of positions pick the global axis.
+  The in-plane refit raises the explained fraction from 43.7 to 51.5 % (+7.8 points, under
+  the 10-point bar). The orientation does not vary.
+- **H2: REFUTED by its stated criterion, and the criterion had no power.** 81.4 % of the
+  survivors sit on an Al shell radius, but uniform chance is 77.8 %: at a 0.046 Å⁻¹ tolerance
+  the Al shells cover most of the annulus. The part with power: **0.0 % of survivors match a
+  ⟨0 -1 1⟩Al reflection at intensity floor 0**, so the reference omits nothing. The histogram
+  is sharply peaked, but at |q| 0.84–0.88 and 1.14–1.18 Å⁻¹.
+- **H3: REFUTED.** The survivors are strong: median 0.68 of the same pattern's matrix-peak
+  intensity (75th percentile 1.9). No position has two or more survivors that are all weak.
+
+**The overlay** (`gd-015-overlay.png`: 12 patterns, 3 per drive label) shows why. Every pattern
+has about eight clean disks plus the direct beam, all real, on two rings. The dense ⟨110⟩
+template (34 vectors) catches about half of them by density and misses the rest by about a
+pixel. The disks are arranged four-fold: an inner four about 90° apart, and an outer four
+offset about 45° at about √2 the radius. Nothing lies inside the inner ring. **This was seen,
+not predicted**, so it is registered below as H4 before it is tested.
+
+## H4, registered after the overlay and before its test
+
+**H4: the specimen is on [001]Al and the file's Q, 0.045741 Å⁻¹/px, is about 1.7× too large.**
+The inner ring is then {200} (0.4939 Å⁻¹) and the outer ring {220}. The dense ⟨110⟩ entry won
+only because, at the wrong scale, it covers the detector densely enough to catch half of any
+pattern. All five ⟨110⟩ tying exactly is the tell.
+
+*Measurement:* the same tool, with rings measured in detector pixels (no Q involved), then the
+whole pipeline re-run at Q = 0.4939 / r1.
+
+*Predictions:*
+- (a) The two strongest rings have r2/r1 = 1.414 ± 0.03. Each ring's four azimuth clusters are
+  spaced 90° ± 3°, and ring 2's clusters sit 45° ± 3° from ring 1's. Under 0.5 % of peaks lie
+  inside r1 apart from the direct beam.
+- (b) At Q = 0.4939 / r1, `fitZoneAxis` ranks a ⟨100⟩ axis first, explaining ≥ 80 % of vectors
+  and ≥ 20 points above the best non-⟨100⟩ axis.
+- (c) At that Q, the drive's map (Al + β″ [010] and [001], search rule, scaled tolerances)
+  calls ≥ 70 % of positions matrix.
+
+**Refuted if:** ring 1's clusters are spaced about 70.5° / 109.5° (⟨110⟩ {111}), or r2/r1 is
+not √2 within 0.03; or at the new Q a ⟨110⟩ axis still wins, or ⟨100⟩ explains < 60 %. Q is set
+from ring 1 alone, so ring 2, the zone-axis ranking and the map are independent checks on it.
+**If H4 holds, the cause is the dataset's calibration, not the matcher**, and no app code
+would change. The app's known-crystal Q estimate (`KnownCrystalQCalibration`), and whether the
+app should have caught this, is the follow-on question for the owner.

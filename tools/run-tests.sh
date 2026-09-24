@@ -114,7 +114,7 @@ diagnostic=(bragg-spacing-probe origin-fit-diagnostics
   real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
   training-dataset-campaign precipitate-handcount
   phase-map-probe demo-dataset rotation-null-probe
-  hdf5-race-probe thronsen-dataset cloud-analysis)
+  hdf5-race-probe thronsen-dataset cloud-analysis matrix-orientation-probe)
 owner_only=()
 retired=()
 support=(lib release crystal-structures hooks)
