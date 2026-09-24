@@ -576,6 +576,11 @@ helper — Gate B on it, a shared bug can green 46 harnesses at once); rows
 agree (ADR 015). Owner: whoever picks a row.
 Detail: `archive/open-items-detail-2026-09-18.md`.
 
+### `phase-map-probe` and `matrix-orientation-probe` hide their exit code (2026-09-24)
+Both `run.sh` end in `| grep -v '^\[MetalEngine\]'`, so `$?` is grep's: a compile error printed "EXIT=0" on
+2026-09-24. The "exit 0" in that day's Gate D and feasibility records means the output ran to its last line, not a
+probe exit. Fix: `set -o pipefail` or the filter moved into the probe. Tooling, no Gate D. Owner: next session.
+
 ### Minor tooling/hygiene residuals
 `tools/free-space.sh`: the temp prefix is spelled by producer and reaper
 separately, and the MCP root is hardcoded — a `tools/lib/` constants file

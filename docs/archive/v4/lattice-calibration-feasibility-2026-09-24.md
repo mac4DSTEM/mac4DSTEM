@@ -188,3 +188,14 @@ for the reader.
 
 **Refuted if** any grain gives no fit or falls outside tolerance, or W4 fails. Then plan B is
 not built on this method without the owner deciding otherwise.
+
+## Status at close, 2026-09-24
+
+**v3 has not run.** Its first run, and the regenerated peak dumps, were lost to a kernel panic
+caused by a separate DM4 probe (`almgsi-gateD-2026-09-24.md` part 6). A second regeneration was
+stopped at close. The code is `2d7cf98`. To resume: regenerate the dumps one at a time
+(`tools/matrix-orientation-probe --dump-peaks` on the shipped demo cube, D1–D6 from
+`make_demo.py --distort`, and the real cube at stride 2), then run
+`tools/lattice-calibration-probe/run.sh` as W1–W4 register it. Correction: the "exit 0" of parts
+1 and 2 is the output reaching its last line; the probe's `run.sh` exit is its pipe's
+(`open-items.md`).
