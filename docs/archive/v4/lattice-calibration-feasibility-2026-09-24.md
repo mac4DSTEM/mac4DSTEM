@@ -165,3 +165,26 @@ From this record, a version for the app needs:
 
 **Plan B waits on one more headless round (v3: multi-start), pre-registered on fixtures v3 has
 never seen**, as the registered rule requires.
+
+## v3, registered after part 2 and before it runs
+
+**Change, search only:** v3 is **multi-start**. The coarse search keeps its best rotation for
+every (shell, scale) start. Starts within 1 % in scale and 2° in rotation of a better one are
+suppressed, and up to 12 remain. Each is refined with v2's schedule unchanged. The result is
+the refined candidate that **explains the largest fraction of peaks**, ties going to more
+clusters, then to lower RMS. The runner-up is reported too. No threshold is added: a
+candidate is chosen, never refused, and the explained fraction and cluster count are printed
+for the reader.
+
+**Predictions:**
+- **W1, fixtures generated after this is committed, never run before:** D5 (1.10 @ 45°) and D6
+  (1.07 @ 100°), all three grains, within Q ± 0.3 %, axis ratio ± 0.005, angle ± 2°.
+- **W2:** v3 gets D3 C and D4 A right, within the same tolerances. These are v2's seen
+  failures, so W2 is not independent; W1 is.
+- **W3, no regression:** D0, D1, D2 and R reproduce v2's numbers within 0.02 % Q, 0.0005 ratio
+  and 0.5°.
+- **W4:** on every D grain, any refined candidate whose Q is off by more than 5 % explains
+  ≤ 60 % of peaks, so the explained fraction separates it from the right answer.
+
+**Refuted if** any grain gives no fit or falls outside tolerance, or W4 fails. Then plan B is
+not built on this method without the owner deciding otherwise.
