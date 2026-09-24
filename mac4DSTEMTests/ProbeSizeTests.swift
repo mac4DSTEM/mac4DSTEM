@@ -495,7 +495,7 @@ private actor ZeroFourDDataSource: FourDDataSource {
     func pixelCalibration() -> PixelCalibration? { nil }
 }
 
-private final class LockedFractions: @unchecked Sendable {
+private nonisolated final class LockedFractions: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [Double] = []
 

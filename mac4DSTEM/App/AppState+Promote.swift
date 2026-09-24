@@ -23,7 +23,7 @@ extension AppState {
         // `PromotionCommitTests.testCommitRefusalPreservesThePendingLoadForCorrection`.
         guard let pending = promotionRun.pendingLoad, pending.view != nil,
               pending.directBeamRefusal == nil else { return }
-        promotionRun.take()
+        _ = promotionRun.take()
         pending.cancelSingleDPFetch()
         Task {
             beginDatasetLoading("Opening \(pending.source.datasetPath)…")

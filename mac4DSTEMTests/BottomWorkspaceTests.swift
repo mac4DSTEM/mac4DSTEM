@@ -115,7 +115,7 @@ final class BottomWorkspaceTests: XCTestCase {
         XCTAssertTrue(center.update(token, bytesStreamed: 1_000))
         XCTAssertEqual(center.bytesStreamed, 1_000)
 
-        center.cancel()
+        _ = center.cancel()
         XCTAssertFalse(center.update(token, bytesStreamed: 2_000), "a cancelled token must not move bytesStreamed")
         XCTAssertEqual(center.bytesStreamed, 1_000, "the last accepted value survives the rejected update")
     }
@@ -132,7 +132,7 @@ final class BottomWorkspaceTests: XCTestCase {
     func testFinishRecordsACancelledOutcomeWhenCancelWasCalledFirst() {
         let center = OperationCenter()
         let token = center.begin(name: "Virtual detector", totalUnits: 10)
-        center.cancel()
+        _ = center.cancel()
         center.finish(token)
         XCTAssertEqual(center.lastFinished?.outcome, .cancelled)
     }

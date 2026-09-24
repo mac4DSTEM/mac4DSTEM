@@ -44,7 +44,8 @@ extension AppState {
             attributes: [
                 .font: NSFont.systemFont(ofSize: 10),
                 .paragraphStyle: paragraph,
-            ]
+            ],
+            context: nil   // macOS 27 deprecates the context-less overload; nil is its old behaviour
         )
         return max(17, ceil(bounds.height))
     }

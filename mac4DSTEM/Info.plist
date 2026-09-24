@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
 	<!-- Base only. GENERATE_INFOPLIST_FILE stays YES and the build injects
-	     CFBundleIdentifier, the versions, LSMinimumSystemVersion (14.0, the
-	     whole point of v2.5.1) and the copyright on top of this. Verified
+	     CFBundleIdentifier, the versions, LSMinimumSystemVersion (from
+	     MACOSX_DEPLOYMENT_TARGET, 27.0 since v4.0.0; 14.0 was v2.5.1's point) and the copyright on top of this. Verified
 	     after the change by reading the BUILT Info.plist, not assumed.
 
 	     The extensions mirror `ContentView.datasetTypes` exactly, minus

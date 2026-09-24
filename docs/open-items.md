@@ -68,7 +68,10 @@ Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DR
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
   [010] + [001] needs a second CIF file name. Fix: a unique slot id (today `id == model.id`);
-- a table row does not highlight its object; the Result legend prints "76.2 %" with a ".";
+- a table row does not highlight its object;
+- **58 displayed numbers ignore the locale** (2026-09-24 survey, `grep -rn "String(format:" mac4DSTEM/UI`): the
+  legend's "76.2 %" on a German Mac is one; 13 in FROZEN files. `.formatted(...)` is the in-repo pattern;
+  `%.2e` (`PaneOverlays.swift:239`) has no direct `FormatStyle`. Presentation, no Gate D;
 - zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0);
 - unverified on screen: the table's final column widths, the density on its own line.
 
