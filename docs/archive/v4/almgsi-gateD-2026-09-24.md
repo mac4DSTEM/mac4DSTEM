@@ -127,3 +127,52 @@ from ring 1 alone, so ring 2, the zone-axis ranking and the map are independent 
 **If H4 holds, the cause is the dataset's calibration, not the matcher**, and no app code
 would change. The app's known-crystal Q estimate (`KnownCrystalQCalibration`), and whether the
 app should have caught this, is the follow-on question for the owner.
+
+## Result, part 2: H4 (runs `gd-h4a.log` and `gd-h4b.log`, both exit 0)
+
+- **(a) REFUTED as registered.** The strongest rings are at 18.62 and 27.62 px, r2/r1 = 1.483
+  (predicted 1.414 ± 0.03). Ring 1's azimuth clusters are spaced 84° / 96° and ring 2's
+  87° / 93°, both outside 90° ± 3°. Ring 2 sits 42° / 45° off ring 1. **What held: 0.09 % of
+  peaks lie inside r1** apart from the direct beam.
+- **(b) REFUTED as registered (below the 60 % bar), though the ranking moved decisively.** At
+  Q = 0.4939 / 18.62 = 0.026518 Å⁻¹/px, the ⟨100⟩ family wins with 53.1 % of vectors. The best
+  non-⟨100⟩ axis explains 18.2 %, a 35-point gap. At the file's Q, the whole ⟨110⟩ family tied
+  at 43.6 % and the runner-up family was not separated.
+- **(c) REFUTED.** Matrix 2.2 %, β″[001] 77.8 %, not indexed 16.0 %.
+- **Correction to H4's text:** an exact tie across one family is not a "tell". The members of a
+  family are symmetry-equivalent, so they project to the same pattern and tie whenever they are
+  swept at the same rotations. The ⟨100⟩ family ties the same way at the new Q.
+
+**What part 2 establishes, independent of H4's fate.** At the file's Q, ⟨110⟩Al puts its
+strongest reflections, {111} and {200}, at 9.4 and 10.8 px. The data has 0.09 % of its peaks
+inside 17 px. **So the drive's "⟨110⟩, 43 %" was a density match, not an identification, and
+the premise carried since 2026-09-12 ("the specimen sits on ⟨110⟩Al") is unsupported.** The
+pattern is four-fold-like, but not square: a rhombus of 84° / 96°, with the outer ring split.
+A square seen through an elliptical distortion of about 5 % gives exactly that. That is H5,
+registered here before its test.
+
+## H5, registered before its test
+
+**H5: [001]Al, seen through a linear (elliptical) distortion of the diffraction pattern, at a Q
+near 0.0265 Å⁻¹/px.**
+
+*Measurement:* the whole-scan cluster centres of the four inner spots and the four outer spots
+(the outer ones taken as the sums of adjacent inner ones). One 2 × 2 map A is fitted, with
+ideal {200} = unit vectors. A's polar decomposition gives the ellipse axis ratio and angle, and
+Q = 0.4939 / √det A. The pipeline is then re-run with every vector mapped through A⁻¹ and
+scaled so {200} = 0.4939 Å⁻¹. This is equivalent to Q + ellipse (a, b, θ) + an in-plane
+rotation that the matcher searches anyway.
+
+*Predictions:*
+- (a) A fits the eight centres with an RMS residual ≤ 0.3 px. The axis ratio is 1.05–1.15
+  (≈ 1.11 from the 84° gap) and Q is within 3 % of 0.0265.
+- (b) After correction, ⟨100⟩ ranks first and explains ≥ 80 % of vectors.
+- (c) The drive's map calls ≥ 70 % of positions matrix.
+- (d) **The test that does not reuse the fit's own peaks:** peaks near the predicted {400} and
+  {420} positions (A·(±2, 0), A·(±2, ±1) and so on, in the detector corners) at ≥ 3× the rate
+  of an equal area at the same radius. This is reported as untestable if fewer than 50 peaks
+  lie beyond 33 px.
+
+**Refuted if** the RMS is > 0.6 px, or (b) is < 60 %, or (c) is < 50 %, or (d) is < 1.5×
+chance. (a)–(c) partly reuse the peaks A was fitted to, so they can only refute. Only the
+residual and (d) can support H5.
