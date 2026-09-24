@@ -102,9 +102,9 @@ def sample(img, bin_px, half, p):
     return out
 
 
-def fit_zone(xy, g2, inner, half):
-    # Coarse similarity: scale from the strongest ring against each of the
-    # first six shells, rotation in 0.5 deg steps.
+def coarse_candidates(xy, g2, inner, half, keep=12):
+    """v3: the best rotation for every (shell, scale) start, suppressed to
+    distinct starts (1 % in scale, 2 deg in rotation), best first."""
     r = np.hypot(xy[:, 0], xy[:, 1])
     hist, edges = np.histogram(r, bins=int(half / 0.25), range=(0, half))
     r_ring = 0.5 * (edges[np.argmax(hist)] + edges[np.argmax(hist) + 1])
@@ -113,21 +113,30 @@ def fit_zone(xy, g2, inner, half):
     thetas = np.radians(np.arange(0, 360, 0.5))
     rot = np.stack([np.stack([np.cos(thetas), -np.sin(thetas)], -1),
                     np.stack([np.sin(thetas), np.cos(thetas)], -1)], -2)   # T x 2 x 2
-    best = (-1, None)
+    starts = []
     for shell in shells:
         s0 = r_ring / shell
-        for s in s0 * (1 + np.linspace(-0.08, 0.08, 33)):   # v2: ± 8 % (v1: ± 4 %)
+        for s in s0 * (1 + np.linspace(-0.08, 0.08, 33)):
             p = s * np.einsum("tij,gj->tgi", rot, g2)                      # T x G x 2
             inside = (np.abs(p[..., 0]) < half - 1) & (np.abs(p[..., 1]) < half - 1) \
                 & (np.hypot(p[..., 0], p[..., 1]) > inner)
             score = (sample(img, bin_px, half, p) * inside).sum(axis=1) / np.maximum(inside.sum(axis=1), 1)
             t = int(np.argmax(score))
-            if score[t] > best[0]:
-                best = (score[t], s * rot[t])
-    A = best[1]
-    # Refine: weighted least squares on cluster centroids. v2 (capture range
-    # only): the innermost two shells first, at a radius proportional to
-    # |p|, then all shells, then fixed 1.25 -> 1 px.
+            starts.append((float(score[t]), float(s), float(thetas[t])))
+    starts.sort(reverse=True)
+    kept = []
+    for sc, s, th in starts:
+        if all(abs(s / s2 - 1) > 0.01 or abs(math.degrees((th - th2 + math.pi) % (2 * math.pi) - math.pi)) > 2
+               for _, s2, th2 in kept):
+            kept.append((sc, s, th))
+        if len(kept) == keep:
+            break
+    return [s * np.array([[math.cos(th), -math.sin(th)], [math.sin(th), math.cos(th)]]) for _, s, th in kept], shells
+
+
+def refine(A, xy, g2, shells, inner, half):
+    """v2's schedule, unchanged: innermost two shells at a radius
+    proportional to |p|, then all shells, then fixed 1.25 -> 1 px."""
     g_len = np.linalg.norm(g2, axis=1)
     inner_two = g_len <= shells[min(1, len(shells) - 1)] + 1e-6
     schedule = [(inner_two, lambda r: np.maximum(2.0, 0.10 * r))] * 2 \
@@ -163,6 +172,25 @@ def fit_zone(xy, g2, inner, half):
     return dict(Q=q, ratio=ratio, angle=angle, rms=rms, explained=explained, clusters=len(G))
 
 
+def fit_zone(xy, g2, inner, half):
+    """v3: refine every distinct coarse start; choose the candidate that
+    explains the most peaks (ties: more clusters, then lower RMS). Returns
+    the choice with the runner-up and every refined candidate attached."""
+    starts, shells = coarse_candidates(xy, g2, inner, half)
+    fits = [f for f in (refine(A, xy, g2, shells, inner, half) for A in starts) if f is not None]
+    if not fits:
+        return None
+    # Distinct solutions only (the same answer reached from two starts).
+    distinct = []
+    for f in sorted(fits, key=lambda f: (-f["explained"], -f["clusters"], f["rms"])):
+        if all(abs(f["Q"] / g["Q"] - 1) > 0.002 or abs(f["ratio"] - g["ratio"]) > 0.002 for g in distinct):
+            distinct.append(f)
+    best = dict(distinct[0])
+    best["runner_up"] = distinct[1] if len(distinct) > 1 else None
+    best["candidates"] = distinct
+    return best
+
+
 def angle_diff(a, b):
     d = abs(a - b) % 180
     return min(d, 180 - d)
@@ -181,6 +209,15 @@ def report(label, xy, npos, inner, half, zones, a, expect):
         print(f"  [{z}]  explained {100 * fit['explained']:5.1f} %  RMS {fit['rms']:.3f} px  "
               f"({fit['clusters']} clusters)  Q {fit['Q']:.6f}  ratio {fit['ratio']:.4f}  "
               f"major {fit['angle']:5.1f}°")
+        ru = fit.get("runner_up")
+        if ru is not None:
+            print(f"         runner-up: explained {100 * ru['explained']:5.1f} %  ({ru['clusters']} clusters)  "
+                  f"Q {ru['Q']:.6f}  ratio {ru['ratio']:.4f}")
+        if expect:
+            off = [c for c in fit["candidates"] if abs(c["Q"] / expect[0] - 1) > 0.05]
+            if off:
+                print(f"         W4: {len(off)} refined candidate(s) with Q off > 5 %: max explained "
+                      f"{100 * max(c['explained'] for c in off):.1f} %")
     if not rows:
         return
     top = max(f["explained"] for _, f in rows)
