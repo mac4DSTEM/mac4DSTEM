@@ -256,3 +256,28 @@ owner, not into a fix:
 - nothing flagged a matrix fit explaining 43 % of vectors. A correct identification here
   explains about 95 %. By the threshold rule this is a quantity to show, not a cut-off to
   invent.
+
+## Part 5: where the file's Q came from (owner's question 1, 2026-09-24)
+
+The owner's preprocessing notebook (`LMN_MA_4DSTEM/code/4DSTEM_first_steps_loading_preprosessing.ipynb`,
+on the owner's backup volume) runs `py4DSTEM.import_file(dm4)` → `bin_Q(n)` → `save`. It hardcodes
+no calibration. The raw file (`4DSTEM_170330/ROI_5/raw/SI data (7)/060_STEM SI.dm4`, 28 GB, read
+with ncempy header-only) stores **Dimension 1/2 Scale 0.11435369 nm⁻¹/px** on a 256 × 256 frame:
+GIF Continuum, 4× hardware binning, 200 kV, STEM camera length 60, alpha tilt 18.1°. Divided
+by 10 (nm⁻¹ → Å⁻¹) and multiplied by 4 (`bin_Q(4)`), that is 0.0457415, **exactly the stored
+Q**. The preprocessed file on the backup is byte-identical to `References/training_dataset/`.
+
+- **py4DSTEM carried the microscope's recorded scale faithfully. The error is in
+  DigitalMicrograph's diffraction calibration** for that setup, 1.733× the value the Al [001]
+  lattice gives. The same notebook's other dataset (Ni65Cu35, also CL 60, 2024-11) recorded
+  0.0196 Å⁻¹/px unbinned. The recorded scale is not even consistent between sessions at one
+  nominal camera length.
+- `Au_ref_ROI15_…bin_4_20241214.h5` stores the same 0.04574148. Its strongest rings, at 25.38
+  and 29.62 px (ratio 1.1675, close to Au {200}/{111} = 1.1547), would put its true Q near
+  0.0167 Å⁻¹/px. **Not claimed**: its disks are large (probe radius 8 px), 35 % of its peaks lie
+  inside the first ring, and its raw metadata is not on hand.
+- The ellipse: energy-filter (GIF) optics are a plausible source of a several-percent
+  distortion. Not measured here, and no mechanism is claimed.
+
+**Consequence for the app:** on data from this microscope setup, a file's Q cannot be trusted.
+Q, and the ellipse, must come from a known crystal in the data.

@@ -79,10 +79,10 @@ Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DR
 `Al_Mg_Si_060…bin_4` is on **[001]Al, not ⟨110⟩**. Its stored Q, 0.0457415 Å⁻¹/px, is 1.733× too large (data:
 0.02639), and an unmodelled ellipse (axis ratio 1.085, major axis 69.6°) remains. Corrected, the app's matcher calls
 91.1 % matrix (was 0.6 %). The refuter reproduced this exactly; the {400}/{420} test was withdrawn as a detector-corner
-artefact. Record: `archive/v4/almgsi-gateD-2026-09-24.md`. **Owner:** (1) where the file's Q came from; (2) a way to
-enter or fit an ellipse from a spot pattern, since there is no manual entry and a four-spot ring is too sparse for the
-ring fit; (3) whether to show the matrix fit's explained fraction (43 % here, about 95 % when right) more prominently.
-Re-drive with Q 0,02639 once (2) exists.
+artefact. Record: `archive/v4/almgsi-gateD-2026-09-24.md`. **Q provenance (owner's q. 1, confirmed 2026-09-24):** DigitalMicrograph recorded 0.11435 nm⁻¹/px, and py4DSTEM
+carried it faithfully through `bin_Q(4)`; the microscope calibration is wrong, not the preprocessing. **Next (owner):**
+calibrate Q and the ellipse from a known crystal in the data (q. 2, "if the science holds"); show the explained fraction
+(q. 3, low priority). Re-drive with Q 0,02639 once the ellipse can be entered.
 
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
 `datasetA_stride3.h5` carries no calibration; Map Phases ran with Q unset (scale bars "20 px",
