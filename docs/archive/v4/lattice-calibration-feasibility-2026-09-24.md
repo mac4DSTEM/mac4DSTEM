@@ -121,3 +121,47 @@ takes all shells at max(1.5 px, 0.05·|p|), then fixed 1.25 → 1.0 px. Nothing 
 
 **Refuted if** any grain gives no fit or falls outside tolerance. Then the capture-range
 explanation is wrong or incomplete, and plan B waits.
+
+## Result, part 2: v2 (`lattice-fit-v2.log`, exit 0)
+
+Correction to the fixture list above: the baseline ran on the **Bragg-vector map**, not the
+mean pattern. That is the input `AppState+Calibration.swift` gives the ring fit whenever peaks
+exist.
+
+| fixture | A [001] | B [011] | C [111] |
+|---|---|---|---|
+| D1 1.085 @ 69.6° | Q −0.012 %, ratio −0.0001, 0.1° | +0.017 %, −0.0001, 0.1° | +0.005 %, −0.0001, 0.0° |
+| **D3 1.12 @ 135° (unseen)** | +0.019 %, −0.0003, 0.1° | −0.003 %, +0.0002, 0.0° | **no fit** |
+| **D4 1.05 @ 0° (unseen)** | **Q −29.3 %**, ratio +0.0004, 0.1°: **wrong, with 4 clusters, 49 % explained** | +0.012 %, −0.0000, 0.1° | −0.017 %, +0.0001, 0.1° |
+| D0 / D2 / R (regression) | identical to v1 | identical to v1 | identical to v1 |
+
+- **V1 holds. V3 holds. V2 is REFUTED:** D3 C gives no fit, and **D4 A returns a wrong number.**
+  The D4 failure is the dangerous kind. The coarse search locked onto a √2-scaled sublattice (Q
+  0.008487 = 0.012 / √2) and refined it to a self-consistent fit, **with RMS 0.000 px**. What
+  gives it away is not the residual. It is **4 clusters instead of 8, and 49 % of peaks
+  explained instead of 98 %**.
+- A first look at P4, which part 1 could not test: on D2 B, [111] explains as much as the true
+  [011] (98.5 %), but only with an axis ratio of 1.198 against 1.030. The least-distortion rule
+  picks correctly there. That is one case, not a test.
+
+## Conclusion of A (for the owner)
+
+**Scientifically it makes sense, and on the real cube it works.** When the fit lands on the
+right solution it is accurate to ≈ 0.02 % in Q, 0.0003 in axis ratio and 0.4° in angle, across
+all three zones and ellipses from 1.00 to 1.12. On the owner's cube, four independent quadrants
+agree to 0.04 %. The app's existing ring fit cannot do this: it refuses a spot pattern even
+with "Fit Anyway".
+
+**This prototype's search is not good enough to ship behind a button.** Of 15 fixture grains it
+refused one and gave one confidently wrong Q. Both failures are in the search, not the model.
+From this record, a version for the app needs:
+1. the **crystal and zone declared by the user**, with alternatives shown with the distortion
+   each needs (P4 is untested);
+2. a **multi-start search**, refining every coarse optimum rather than the best one, because
+   scale sublattices are a known trap;
+3. the **explained fraction and cluster count shown with the result** (the owner's question 3).
+   Here they were the only signal separating right from wrong, and a residual alone would have
+   passed a −29 % Q.
+
+**Plan B waits on one more headless round (v3: multi-start), pre-registered on fixtures v3 has
+never seen**, as the registered rule requires.

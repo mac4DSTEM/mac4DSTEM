@@ -116,7 +116,7 @@ def fit_zone(xy, g2, inner, half):
     best = (-1, None)
     for shell in shells:
         s0 = r_ring / shell
-        for s in s0 * (1 + np.linspace(-0.04, 0.04, 17)):
+        for s in s0 * (1 + np.linspace(-0.08, 0.08, 33)):   # v2: ± 8 % (v1: ± 4 %)
             p = s * np.einsum("tij,gj->tgi", rot, g2)                      # T x G x 2
             inside = (np.abs(p[..., 0]) < half - 1) & (np.abs(p[..., 1]) < half - 1) \
                 & (np.hypot(p[..., 0], p[..., 1]) > inner)
@@ -125,13 +125,21 @@ def fit_zone(xy, g2, inner, half):
             if score[t] > best[0]:
                 best = (score[t], s * rot[t])
     A = best[1]
-    # Refine: weighted least squares on cluster centroids, radius 2 -> 1 px.
-    for rho in (2.0, 1.75, 1.5, 1.25, 1.0, 1.0, 1.0):
+    # Refine: weighted least squares on cluster centroids. v2 (capture range
+    # only): the innermost two shells first, at a radius proportional to
+    # |p|, then all shells, then fixed 1.25 -> 1 px.
+    g_len = np.linalg.norm(g2, axis=1)
+    inner_two = g_len <= shells[min(1, len(shells) - 1)] + 1e-6
+    schedule = [(inner_two, lambda r: np.maximum(2.0, 0.10 * r))] * 2 \
+        + [(np.ones_like(inner_two), lambda r: np.maximum(1.5, 0.05 * r))] * 2 \
+        + [(np.ones_like(inner_two), lambda r, v=v: np.full_like(r, v)) for v in (1.25, 1.0, 1.0)]
+    for subset, rho_of in schedule:
         p = g2 @ A.T
         inside = (np.abs(p[:, 0]) < half - 1) & (np.abs(p[:, 1]) < half - 1) \
-            & (np.hypot(p[:, 0], p[:, 1]) > inner)
+            & (np.hypot(p[:, 0], p[:, 1]) > inner) & subset
+        rhos = rho_of(np.hypot(p[:, 0], p[:, 1]))
         G, C, W = [], [], []
-        for gi, pi in zip(g2[inside], p[inside]):
+        for gi, pi, rho in zip(g2[inside], p[inside], rhos[inside]):
             m = np.hypot(xy[:, 0] - pi[0], xy[:, 1] - pi[1]) <= rho
             if m.sum() >= max(20, 0.001 * len(xy)):
                 G.append(gi); C.append(xy[m].mean(axis=0)); W.append(m.sum())
