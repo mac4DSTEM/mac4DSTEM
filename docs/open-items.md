@@ -73,7 +73,7 @@ Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DR
   legend's "76.2 %" on a German Mac is one; 13 in FROZEN files. `.formatted(...)` is the in-repo pattern;
   `%.2e` (`PaneOverlays.swift:239`) has no direct `FormatStyle`. Presentation, no Gate D;
 - zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0);
-- unverified on screen: the table's final column widths, the density on its own line.
+- **driven 2026-09-24** (owner's Debug build of `ae732b7`, real Al-Mg-Si cube): the density sits on its own line (seen); **the Object Table's last column is clipped** at its default 980 pt width (header shows "C", reachable by horizontal scroll), and the Phase column truncates both names to "beta_double_prime_Mg5S…", hiding the zone-axis suffix;
 
 ### The owner's real Al-Mg-Si cube lost its matrix — Gate D closed 2026-09-24: the file's calibration, not the matcher
 `Al_Mg_Si_060…bin_4` is on **[001]Al, not ⟨110⟩**. Its stored Q, 0.0457415 Å⁻¹/px, is 1.733× too large (data:
@@ -290,13 +290,15 @@ file `nonisolated`-verified by a cold app build.
 Owner: assign a session with Gate B support, or authorize continuing with a
 refuter. Detail: `archive/open-items-detail-2026-09-18.md`.
 
-### DM4Reader silently reads whole files into RAM off non-local volumes (2026-09-02)
-`.mappedIfSafe` declines to map on any volume failing
-`MNT_LOCAL && !MNT_REMOVABLE` (every external disk, disk image, smbfs —
-confirmed) and falls back to a full anonymous-memory read held for the whole
-session. The original 8 GB-machine death that motivated this is still NOT
-explained as this mechanism's cause — real defect, not yet tied to that
-incident. Owner: a later session, Gate B. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
+### DM4Reader silently reads whole files into RAM off non-local volumes (2026-09-02) — it panicked this Mac 2026-09-24
+`.mappedIfSafe` declines to map on any volume failing `MNT_LOCAL && !MNT_REMOVABLE` (every external disk, disk
+image, smbfs) and reads the whole file into anonymous memory. **2026-09-24:** opening the owner's 28 GB raw
+`060_STEM SI.dm4` (exFAT via FSKit, external SSD) through it on this 8 GB Mac exhausted swap and **kernel-panicked
+the machine** (watchdog timeout); an RSS watchdog did not prevent it. **Trap: never reproduce this on a file larger
+than ~2 GB here.** Fix written, not yet committed: `DM4Reader.readingOptions(forPath:)` maps on any `MNT_LOCAL`
+volume and keeps the old option on network volumes (SIGBUS trade-off stated there). Proof owed on a 128 MB synthetic
+DM4 on an exFAT disk image (`tools/dm4-parity-probe --make-fixture / --foundation-check / --open-only`), then Gate B.
+**The 28 GB parity run against the py4DSTEM file waits for the owner's stronger Mac** (runbook: `archive/v4/almgsi-gateD-2026-09-24.md` part 6).
 
 ### The sidecar reader has D003's missing attribute-length guard too (2026-09-09)
 `BraggVectorEMDWriter.swift`'s attribute reads share D003's defect in

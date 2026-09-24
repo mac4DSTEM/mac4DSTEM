@@ -281,3 +281,36 @@ Q**. The preprocessed file on the backup is byte-identical to `References/traini
 
 **Consequence for the app:** on data from this microscope setup, a file's Q cannot be trusted.
 Q, and the ellipse, must come from a known crystal in the data.
+
+## Part 6: preprocessing in mac4DSTEM (plan C), status and runbook, 2026-09-24
+
+**What happened.** The first attempt to observe the DM4 bug opened the 28 GB raw
+`060_STEM SI.dm4` (exFAT via FSKit on the owner's external SSD) through the **unfixed** reader on
+this 8 GB Mac. `.mappedIfSafe` read it into anonymous memory, swap ran out and the kernel
+panicked (watchdog timeout, "LOW swap space"). The session's scratchpad was lost with it. No
+number from that run exists. **Rule since:** memory bugs are reproduced on small files only.
+
+**What is ready (uncommitted until its proof):**
+- the fix, `DM4Reader.readingOptions(forPath:)`: map on any `MNT_LOCAL` volume, keep
+  `.mappedIfSafe` on network volumes;
+- `tools/dm4-parity-probe/` (`diagnostic`): `--make-fixture` (a 128 MB synthetic 4D DM4 from the
+  robustness harness's writer), `--foundation-check` (the mechanism, as footprint deltas),
+  `--open-only`, and `--parity RAW.dm4 PRE.h5 --bin 4`. That last one compares every position of
+  the app's own binned raw read (sum, like py4DSTEM `bin_Q`) with the py4DSTEM file, plus a
+  transposed comparison. Both sides are float32 (DM data type 2), so py4DSTEM's
+  `.astype(dtype)` cannot have wrapped.
+
+**Proof on this Mac, owed next:** the fixture on an exFAT disk image, `--foundation-check`
+(prediction: `.mappedIfSafe` grows the footprint by about the file size, `.alwaysMapped` does
+not), then `--open-only` through the fixed reader. Then Gate B on the fix.
+
+**Runbook for the owner's stronger Mac:** close every other heavy process, then
+
+```sh
+tools/dm4-parity-probe/run.sh --parity "<…>/ROI_5/raw/SI data (7)/060_STEM SI.dm4" \
+  "References/training_dataset/Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5" --bin 4
+```
+
+Predicted: 108 900 patterns compared, max relative Δ ≤ 1e-6 (float32 summation order only), and
+a transposed max |Δ| far larger. Run it only with the fix in place; the probe's watchdog is a
+backstop, not protection.
