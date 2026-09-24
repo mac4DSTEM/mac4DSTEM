@@ -130,6 +130,32 @@ enum MatrixOrientationProbe {
         let allCounts = calibrated.peaks.map(\.count)
         print("detected \(allCounts.reduce(0, +)) peaks over \(allCounts.count) positions, median \(Int(median(allCounts.map(Double.init))))")
 
+        // --ring-ellipse INNER,OUTER (lattice-calibration feasibility P6):
+        // the app's own ring fit on the Bragg-vector map, as
+        // `AppState+Calibration.swift` feeds it (centre = the reference
+        // origin, py4DSTEM order: qx is row). Without and with "Fit Anyway".
+        if let ring = value("--ring-ellipse") {
+            let parts = ring.split(separator: ",").compactMap { Double($0) }
+            if parts.count == 2 {
+                let bvm = calibrated.map(qy: d.qy, qx: d.qx)
+                let pattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: bvm.pixels)
+                print(String(format: "\n== Ring ellipse baseline: annulus %.1f–%.1f px on the Bragg-vector map ==", parts[0], parts[1]))
+                for sparse in [false, true] {
+                    do {
+                        let f = try EllipseCalibration.fitBestAvailable(
+                            pattern: pattern, centerQX: Double(origin.y), centerQY: Double(origin.x),
+                            innerRadius: parts[0], outerRadius: parts[1], acceptSparseCoverage: sparse)
+                        print(String(format: "  acceptSparseCoverage %@: a %.3f b %.3f θ %.4f rad (%.1f°), axis ratio %.4f, residual %.3f, %d/36 sectors, model %@",
+                                     sparse ? "true " : "false", f.a, f.b, f.theta, f.theta * 180 / .pi,
+                                     max(f.a, f.b) / min(f.a, f.b), f.normalizedResidual, f.occupiedAngularBins,
+                                     f.model.rawValue as NSString))
+                    } catch {
+                        print("  acceptSparseCoverage \(sparse): refused — \(error)")
+                    }
+                }
+            }
+        }
+
         // Strided sub-scan: the questions are distributions.
         let rows = Array(Swift.stride(from: 0, to: d.ry, by: stride))
         let cols = Array(Swift.stride(from: 0, to: d.rx, by: stride))

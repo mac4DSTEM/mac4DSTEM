@@ -85,6 +85,21 @@ RECIPE_CODE = {"A": 0, "B": 1, "C": 2, "vacuum": 3, "mixAB": 4, "mixAC": 5, "mix
                "A_strain": 0, }  # strain keeps the grain-A label in the truth map
 
 
+# Optional planted detector ellipse (2026-09-24, lattice-calibration
+# feasibility): an area-preserving map applied where reciprocal positions
+# become pixels, so the true Q is unchanged. None (the default) takes the
+# original arithmetic untouched, and the shipped cube is reproduced exactly.
+DISTORT = None
+
+
+def to_pixels(qxr, qyr):
+    if DISTORT is None:
+        return ORIGIN + qxr / Q_PIXEL_INV_A, ORIGIN + qyr / Q_PIXEL_INV_A
+    dx, dy = qxr / Q_PIXEL_INV_A, qyr / Q_PIXEL_INV_A
+    (a, b), (c, d) = DISTORT
+    return ORIGIN + a * dx + b * dy, ORIGIN + c * dx + d * dy
+
+
 def rotate(qx, qy, deg):
     theta = math.radians(deg)
     c, s = math.cos(theta), math.sin(theta)
@@ -119,16 +134,14 @@ def render(reflections, zone_key, rotation_deg, strain_scale=1.0,
     for ref in reflections[zone_key]:
         qx, qy = ref["qx"] * strain_scale, ref["qy"] * strain_scale
         qxr, qyr = rotate(qx, qy, rotation_deg)
-        px = ORIGIN + qxr / Q_PIXEL_INV_A
-        py = ORIGIN + qyr / Q_PIXEL_INV_A
+        px, py = to_pixels(qxr, qyr)
         stamp_disk(pattern, px, py, S * ref["intensity"])
     pattern += BACKGROUND_PRECIPITATE if extra_background else BACKGROUND_BASE
     if precipitate is not None:
         pkey, prot_deg = precipitate
         for ref in reflections[pkey]:
             qxr, qyr = rotate(ref["qx"], ref["qy"], prot_deg)
-            px = ORIGIN + qxr / Q_PIXEL_INV_A
-            py = ORIGIN + qyr / Q_PIXEL_INV_A
+            px, py = to_pixels(qxr, qyr)
             stamp_disk(pattern, px, py, PRECIPITATE_INTENSITY_SCALE * S * ref["intensity"])
     return pattern
 
@@ -275,7 +288,19 @@ def main():
     ap.add_argument("--reflections", required=True)
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--distort", default=None,
+                    help="RATIO,ANGLE_DEG: plant an area-preserving detector ellipse "
+                         "(axis ratio, major axis angle from +x toward +y). Off by default.")
     args = ap.parse_args()
+    if args.distort:
+        global DISTORT
+        ratio, angle = (float(v) for v in args.distort.split(","))
+        c, s_ = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+        k1, k2 = math.sqrt(ratio), 1 / math.sqrt(ratio)
+        # R(angle) · diag(k1, k2) · R(-angle)
+        DISTORT = ((k1 * c * c + k2 * s_ * s_, (k1 - k2) * c * s_),
+                   ((k1 - k2) * c * s_, k1 * s_ * s_ + k2 * c * c))
+        print(f"planted ellipse: ratio {ratio}, major axis {angle}°", file=sys.stderr)
 
     with open(args.reflections) as f:
         reflections = json.load(f)

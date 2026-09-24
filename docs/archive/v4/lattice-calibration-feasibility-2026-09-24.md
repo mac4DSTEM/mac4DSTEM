@@ -72,3 +72,52 @@ A new diagnostic, `tools/lattice-calibration-probe/` (numpy only). It runs on th
 `tools/matrix-orientation-probe --dump-peaks` writes, which use the app's own detection and
 descan correction. `--ring-ellipse` is added to that probe for the baseline, through the app's
 own `EllipseCalibration`.
+
+## Result, part 1 (v1 fit; `lattice-fit.log`, `ring-*.log`, all exit 0)
+
+The generator's default output is identical to the shipped cube: every data array and
+`truth.json`. The peak dumps come from `matrix-orientation-probe --dump-peaks` at the 0.5 %
+floor (demo) and the 0.15 % floor (real cube).
+
+| fixture | grain / region | explained | Q vs truth | axis ratio vs truth | angle off | verdict |
+|---|---|---|---|---|---|---|
+| D0 | A [001] | 98.0 % | −0.006 % | +0.0000 | — | P1 holds |
+| D0 | B [011] | 98.5 % | −0.000 % | +0.0001 | — | holds |
+| D0 | C [111] | 100.0 % | +0.002 % | +0.0001 | — | holds |
+| D1 (1.085 @ 69.6°) | A [001] | **no fit** | — | — | — | **P2 FAILS** |
+| D1 | B [011] | 98.5 % | +0.017 % | −0.0001 | 0.1° | holds |
+| D1 | C [111] | **no fit** | — | — | — | **P3 FAILS** |
+| D2 (1.03 @ 20°) | A [001] | 98.0 % | +0.011 % | +0.0001 | 0.4° | P2 holds |
+| D2 | B [011] | 98.5 % | −0.010 % | +0.0001 | 0.3° | P3 holds |
+| D2 | C [111] | 100.0 % | −0.005 % | +0.0001 | 0.1° | P3 holds |
+| R | quadrants 0–3 | 93.7–95.8 % | 0.026381–0.026391 (spread 0.038 %) | 1.0848–1.0857 (spread 0.0009) | 69.5–69.6° | **P5 holds**; mean within 0.04 % of the Gate D fit |
+
+- **Where v1 converged it is accurate to about 0.02 % in Q, 0.0001 in axis ratio and 0.4° in
+  angle.** Where it did not, it returned nothing. It never returned a wrong number.
+- **Why D1 A and C fail (a mechanism, not measured):** the demo detector puts {200} and {220}
+  at 41 and 58 px. An 8.5 % ellipse moves them up to about 2–3 px from the similarity start,
+  beyond v1's 2 px first capture radius. On R the disks are at 18–27 px, so the same ellipse
+  stays inside it.
+- **P4 was not tested.** The wrong zones mostly failed to converge rather than being ranked by
+  distortion (D2 A's [111] alternative explained 24.8 %). **Treated as failed: plan B must have
+  the user declare the zone.**
+- **P6: the ring fit refuses R even with `acceptSparseCoverage`** (5 of 36 sectors on the {200}
+  annulus 15.6–21.6 px, 4 of 36 on {220} at 24.5–30.5 px). Plan B cannot shrink to unblocking
+  it.
+
+## v2, registered after part 1 and before it runs
+
+**Change, capture range only:** the coarse scale window widens from ± 4 % to ± 8 %. Refinement
+starts from the innermost two shells alone, with a capture radius of max(2 px, 0.10·|p|), then
+takes all shells at max(1.5 px, 0.05·|p|), then fixed 1.25 → 1.0 px. Nothing else changes.
+
+**Predictions:**
+- **V1:** v2 converges on D1 A, B and C within P2's tolerances (Q ± 0.3 %, ratio ± 0.005,
+  angle ± 2°).
+- **V2, fixtures generated after this is committed, never run before:** D3 (1.12 @ 135°) and D4
+  (1.05 @ 0°), all three grains, within the same tolerances. D4's angle is ± 5°, as for D2.
+- **V3, no regression:** D0, D2 and R reproduce v1's numbers within 0.02 % Q, 0.0005 ratio and
+  0.5°.
+
+**Refuted if** any grain gives no fit or falls outside tolerance. Then the capture-range
+explanation is wrong or incomplete, and plan B waits.
