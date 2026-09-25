@@ -349,5 +349,19 @@ at the 0.15 % floor found 1 010 514 peaks. Phases: `Al_thronsen2024.cif` plus
 - Show Objects on 1-px objects shows nothing the owner could see ("does not seem to do a lot").
   The Object Table read well.
 
-**Not claimed:** that β″ is mapped, or that 8.0 % is a precipitate fraction. Those are one run with
-one slot missing, and an unvalidated method.
+**Re-runs the same afternoon, with one slot set to [0 1 0]** (as in the app log; screenshot not
+retained):
+- **Search rule:** β″[010] 755, β″[001] 102, matrix 99 976, not indexed 8 067. The end-on slot
+  claims only 665 more positions, and the streaks stay not indexed.
+- **Known-variants rule** (guard k = 1; the log's last line): **β″[010] 5 633 (5.2 %), β″[001] 1 705
+  (1.6 %), matrix 101 512 (93.2 %), not indexed 50 (0.05 %).** The streaks are now drawn in β″
+  colours, mostly the [0 1 0] slot's. Scattered 1-px β″ specks remain across the matrix. At
+  minimum size 1 there are 1 464 + 672 objects, median 1.54 nm (one scan pixel), and 58 on the
+  scan edge. The needles are fragmented and speckle dominates the count.
+- Open question, not tested: why the in-plane streaks take the [0 1 0] (end-on) slot's label.
+  Either the known-variants rule labels a slot's whole variant set, or the label is wrong for
+  in-plane needles. Read `PhaseVectorMatching`'s variant generation before interpreting it.
+
+**Not claimed:** that β″ is mapped, that any fraction is a precipitate fraction, or that the object
+counts are counts. These are runs of an unvalidated method, and the object pass bar (T4) is still
+the owner's decision.
