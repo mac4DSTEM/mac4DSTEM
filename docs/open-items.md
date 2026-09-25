@@ -531,6 +531,12 @@ helper — Gate B on it, a shared bug can green 46 harnesses at once); rows
 agree (ADR 015). Owner: whoever picks a row.
 Detail: `archive/open-items-detail-2026-09-18.md`.
 
+### Scope clean-up — owner directive 2026-09-25, candidates listed, not started
+The app should be lean, simple, robust, pure macOS. A read-only audit listed 10 candidates, each
+unverified: a dead `displayedProduct` branch, the built-in crystal resolver, an always-false flag,
+a legacy sidecar path, an unused bundled JSON, and oversized files. Record:
+`archive/v4/cleanup-audit-2026-09-25.md`. Work through it with the owner; Gate D for `Core/Crystal` rows.
+
 ### Minor tooling/hygiene residuals
 `tools/free-space.sh`: the temp prefix is spelled by producer and reaper
 separately, and the MCP root is hardcoded — a `tools/lib/` constants file
