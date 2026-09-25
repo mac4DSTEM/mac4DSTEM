@@ -83,8 +83,11 @@ artefact. Record: `archive/v4/almgsi-gateD-2026-09-24.md`. **Q provenance (owner
 carried it faithfully through `bin_Q(4)`; the microscope calibration is wrong, not the preprocessing. **Next (owner):**
 calibrate Q and the ellipse from a known crystal in the data (q. 2, "if the science holds"); show the explained fraction
 (q. 3, low priority). Re-drive with Q 0,02639 once the ellipse can be entered.
-**2026-09-25:** the lattice route's v3 search was refuted (a √2/√3 dense twin ties on explained fraction;
-occupancy separates it); plan B's route is the owner's call (feasibility record part 3).
+**2026-09-25:** v3's search refuted (feasibility part 3). **Owner re-drove in the app** with the fit's
+ellipse written into a file copy (no UI field exists) and Q 0.0275: ⟨100⟩ 88 %, matrix **91.8 %**,
+not indexed 8.0 %. The in-plane needle streaks are not-indexed grey and the β″ calls are 1-px specks
+(both β″ slots were [0 0 1]); Show Objects is invisible at 1-px objects. Record: Gate D part 7.
+Open: a manual ellipse field (owner); the [0 1 0] slot re-run; a β″ variant for in-plane needles.
 
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
 `datasetA_stride3.h5` carries no calibration; Map Phases ran with Q unset (scale bars "20 px",

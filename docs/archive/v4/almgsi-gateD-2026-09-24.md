@@ -314,3 +314,40 @@ tools/dm4-parity-probe/run.sh --parity "<…>/ROI_5/raw/SI data (7)/060_STEM SI.
 Predicted: 108 900 patterns compared, max relative Δ ≤ 1e-6 (float32 summation order only), and
 a transposed max |Δ| far larger. Run it only with the fix in place; the probe's watchdog is a
 backstop, not protection.
+
+## Part 7: the owner's in-app re-drive with the lattice calibration, 2026-09-25
+
+**How the calibration got into the app.** The app has no field for an ellipse. It reads py4DSTEM's
+calibration keys `a`, `b`, `theta` from the file. So a copy of the cube, `…bin_4_20260712_ellipse-20260925.h5`
+(gitignored), got three datasets added to `dm_dataset_root/metadatabundle/calibration`. The
+values came from the whole-cube lattice fit (Q 0.026384, ratio 1.0853, major axis 69.5° in x/y;
+`lattice-calibration-feasibility` part 3). They were converted through a literal port of
+`Calibration.ellipseTransform`, now `tools/lattice-calibration-probe/app_ellipse.py`. Applying that
+port to the cube's own peaks and refitting gives a round lattice (axis ratio 1.0001, 95.2 %
+explained) at **Q 0.027488 Å⁻¹ per corrected px**. That is the Q to type, not 0.02639: the ellipse
+leaves the minor axis at scale and stretches the major one. It becomes 0.027553 with the paper's
+Al CIF, a = 4.04 Å. Slip: the copy carries a = 21.1647 and b = 19.5013 px. The ratio and θ are
+right, and the correction reads only b/a and θ. The absolute sizes are 8.5 % large, so the
+overlay ellipse is drawn outside the {200} disks. The tool now prints 19.50 / 17.97.
+
+**Driven by the owner** (their build, the ellipse copy; screenshots in the session, not
+retained). Prepare showed "Ellipse distortion · From file · a 21.16 · b 19.5 · θ 20.5°". The log
+reported "pair radius 0.0275 Å⁻¹, one detector pixel", so Q ≈ 0.0275 was in force. Disk detection
+at the 0.15 % floor found 1 010 514 peaks. Phases: `Al_thronsen2024.cif` plus
+`beta_double_prime_Mg5Si6_needle.cif` and `beta_double_prime_Mg5Si6.cif`. **Both β″ slots stayed at
+[0 0 1]**; the end-on [0 1 0] slot was never set. Search rule.
+- Find Matrix Zone Axis: **⟨100⟩, 88 % of vectors at 0.0096 Å⁻¹**, three equivalent axes tied
+  (at the file's Q on 2026-09-24: ⟨110⟩, 43 %). The app now agrees with parts 3–4.
+- Map: **matrix 99 976 (91.8 %)**, β″ 90 + 123 (0.1 % + 0.1 %), not indexed 8 711 (8.0 %) of
+  108 900. The corrected probe run of part 3 gave 91.1 % matrix at stride 2.
+- The map shows **two perpendicular families of streaks**, which are the in-plane needles. As
+  read from the screenshot, **they are drawn in the not-indexed grey**. The β″ calls are
+  scattered 1-px specks: 80 + 98 objects, median length 1.54 nm, which is one scan pixel. So the
+  needles are located by exclusion (matrix removal leaves their vectors unexplained), not
+  identified as β″. The run did not include the end-on slot, so whether [0 1 0] would claim the
+  end-on cross-sections is untested.
+- Show Objects on 1-px objects shows nothing the owner could see ("does not seem to do a lot").
+  The Object Table read well.
+
+**Not claimed:** that β″ is mapped, or that 8.0 % is a precipitate fraction. Those are one run with
+one slot missing, and an unvalidated method.
