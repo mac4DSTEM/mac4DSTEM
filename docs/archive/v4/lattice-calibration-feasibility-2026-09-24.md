@@ -191,11 +191,54 @@ not built on this method without the owner deciding otherwise.
 
 ## Status at close, 2026-09-24
 
-**v3 has not run.** Its first run, and the regenerated peak dumps, were lost to a kernel panic
+**v3 had not run at that close** (it ran 2026-09-25, part 3 below). Its first run, and the regenerated peak dumps, were lost to a kernel panic
 caused by a separate DM4 probe (`almgsi-gateD-2026-09-24.md` part 6). A second regeneration was
 stopped at close. The code is `2d7cf98`. To resume: regenerate the dumps one at a time
 (`tools/matrix-orientation-probe --dump-peaks` on the shipped demo cube, D1–D6 from
 `make_demo.py --distort`, and the real cube at stride 2), then run
-`tools/lattice-calibration-probe/run.sh` as W1–W4 register it. Correction: the "exit 0" of parts
-1 and 2 is the output reaching its last line; the probe's `run.sh` exit is its pipe's
-(`open-items.md`).
+`tools/lattice-calibration-probe/run.sh` as W1–W4 register it. ~~Correction: the probe's `run.sh`
+exit is its pipe's~~ — refuted 2026-09-25: both scripts set `pipefail`, and a nonexistent cube
+exits 1 through the pipe (`closed-items-2026-09.md`).
+
+## Result, part 3: v3 (2026-09-25; code `2d7cf98`; `fit-D0…D6.log`, `fit-R.log`, each exit 0 on its own line)
+
+Dumps regenerated one at a time (`matrix-orientation-probe --dump-peaks`, stride 2, 0.5 % floor on
+the demo fixtures, 0.15 % on R; every dump exit 0). D1–D6 regenerated with seed 42 at the
+registered distortions. **Control:** v2's code (`9984bc9`) on the same new dumps reproduces v2's
+recorded behaviour — D3 C no fit, D4 A −29.3 % — so the dumps are equivalent and every
+difference below is v3's.
+
+True-zone fit vs truth (Q, axis ratio, angle); ✗ = outside tolerance:
+
+| fixture | A [001] | B [011] | C [111] |
+|---|---|---|---|
+| D0 (seen) | **✗ Q +41.4 %** | +0.000 %, +0.0001, 0.0° | **✗ Q +73.2 %** |
+| D1 (seen) | −0.017 %, −0.0001, 0.1° | +0.017 %, −0.0001, 0.1° | +0.008 %, −0.0001, 0.0° |
+| D2 (seen) | **✗ Q +41.4 %** | −0.008 %, +0.0001, 0.3° | **✗ Q +73.2 %** |
+| D3 (seen) | +0.017 %, −0.0003, 0.1° | +0.000 %, +0.0002, 0.0° | **✗ Q +73.2 %** |
+| D4 (seen) | +0.000 %, +0.0004, 0.1° | +0.008 %, +0.0000, 0.1° | −0.017 %, +0.0001, 0.1° |
+| **D5 (unseen)** | +0.000 %, −0.0001, 0.0° | +0.017 %, +0.0000, 0.0° | +0.025 %, −0.0001, 0.1° |
+| **D6 (unseen)** | +0.008 %, +0.0003, 0.1° | −0.008 %, +0.0000, 0.1° | **✗ Q +73.2 %** |
+| R quadrants | Q 0.026381–0.026391, ratio 1.0848–1.0857, 69.5–69.6° — identical to v1/v2 | | |
+
+- **W1 REFUTED** (D6 C). **W2 REFUTED** (D4 A now right; D3 C now a wrong Q instead of no fit).
+  **W3 REFUTED** (D0 A/C, D2 A/C regress; R holds). **W4 REFUTED** on every A and C grain: a
+  √2 (A) or √3 (C) candidate explains 96.3 % / 100 %, tying the right answer.
+- **Mechanism, measured by the independent refuter (own code, committed as `tools/lattice-calibration-probe/occupancy_check.py`; exit 0, rerun from the repo copy byte-identical):**
+  the wrong candidate is the right one rescaled — same rotation and axis ratio to 4 decimals —
+  predicting a **denser** lattice whose spots include every real one. Explained fraction and
+  cluster count tie exactly (8992 / 9342 peaks both; RMS identical to 8 decimals), so the
+  final tie-break is arbitrary. What separates them is **occupancy**, the fraction of
+  predicted in-detector spots that carry peaks: 8/8 vs 8/16 on [001], 6/6 vs 6/14–16 on [111].
+  The explained fraction catches too-sparse predictions (v2's D4 A, 48 %) and is blind to
+  too-dense ones. v2 escaped the dense twin only because its ± 8 % window never started there.
+- On D3 C the zone proposal also went wrong ([011] at Q −36 %), so P4's least-distortion rule
+  is not safe either; the refuter flagged it as a second failure mode.
+- **Observation, no mechanism claimed:** the real cube's file Q is 1.733× the data's, √3 to
+  0.1 % — exactly the fcc {222}/{200} (and {422}/{220}) length ratio, the same dense-twin
+  geometry. A calibration that indexed {200} as {222} would produce it. Not tested.
+
+**Verdict:** v3 is refuted as registered. Where it picks the right candidate it is as accurate as
+v1/v2 (≤ 0.025 % in Q); it never refuses, and 6 of 21 fixture grains return a confidently wrong
+Q. By the registration, plan B is not built on this method without the owner deciding.
+

@@ -1335,3 +1335,11 @@ at 0.010 Å⁻¹). It relabels already-wrong precipitate calls as Al. On the dem
 cube it lost no precipitate call and returned grain C (Al [111]) to matrix;
 grain B (Al [011]) stays labelled β″ because the rule has no matrix challenge.
 Owner: a second truth dataset before calling it validated; 0 turns it off.
+
+## `phase-map-probe` / `matrix-orientation-probe` "hide their exit code" — refuted 2026-09-25, moved here the same day
+The 2026-09-24 entry said `$?` was the trailing `| grep`'s. Both `run.sh` have set `-euo pipefail` since they
+were created (`f7f5df2`, `36a2492`), and zsh 5.9 honours it: `tools/matrix-orientation-probe/run.sh` on a
+nonexistent cube exited **1** through the pipe (2026-09-25, `exitcheck.log`). The "EXIT=0" after a compile
+error on 2026-09-24 therefore came from the calling command, not the script; that command was lost with the
+scratchpad, so it cannot be reconstructed. The residual trap is the caller's own pipe, which CLAUDE.md already
+forbids. One harmless edge remains: `grep -v` exits 1 when every line is filtered, a false red. No change made.
