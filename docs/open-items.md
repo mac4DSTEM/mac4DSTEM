@@ -69,6 +69,7 @@ Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DR
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
   [010] + [001] needs a second CIF file name. Fix: a unique slot id (today `id == model.id`);
 - a table row does not highlight its object;
+- **owner request 2026-09-25:** mark on the CBED which disks each phase claimed (matrix / each β″ slot / unexplained), like the Bragg-disk rings — new surface: cost it, then Prepare-style mock first;
 - **58 displayed numbers ignore the locale** (2026-09-24 survey, `grep -rn "String(format:" mac4DSTEM/UI`): the
   legend's "76.2 %" on a German Mac is one; 13 in FROZEN files. `.formatted(...)` is the in-repo pattern;
   `%.2e` (`PaneOverlays.swift:239`) has no direct `FormatStyle`. Presentation, no Gate D;
