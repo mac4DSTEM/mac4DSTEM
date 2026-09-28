@@ -218,9 +218,9 @@ app's own settings (at `evaluate.py`'s the 70-peak cap binds). The in-app labell
 `.mappedIfSafe` read whole files into anonymous memory off any removable or network volume; on 2026-09-24 the
 owner's 28 GB raw DM4 (exFAT/FSKit SSD) **kernel-panicked this 8 GB Mac**. **Trap: never open a file over ~2 GB
 through an unproven path here.** Fixed: `DM4Reader.readingOptions(forPath:)` maps on every `MNT_LOCAL` volume
-(128 MB fixture on an exFAT image: +128 MB before, +0 after; Gate B, inventory pins `init`). Residuals: the
-physical SSD is proved only by proxy; a vanished volume is a SIGBUS crash with no dialog; network volumes keep the
-old full read. **Owed: the 28 GB `--parity` run on the owner's stronger Mac** (`archive/v4/almgsi-gateD-2026-09-24.md` parts 6, 8).
+(128 MB fixture on an exFAT image: +128 MB before, +0 after; Gate B, inventory pins `init`). Residuals: a vanished volume is a SIGBUS crash with no dialog; network volumes keep the
+old full read. 2026-09-29: the physical SSD is proved directly (footprint 3–53 MB opening and subsampling the 28 GB
+file, `archive/v4/ssd-subsample-2026-09-29.md`). **Owed: the 28 GB `--parity` run** (`almgsi-gateD-2026-09-24.md` 6, 8).
 
 ### The sidecar reader has D003's missing attribute-length guard too (2026-09-09)
 `BraggVectorEMDWriter.swift`'s attribute reads share D003's defect in

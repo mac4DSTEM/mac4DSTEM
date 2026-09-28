@@ -118,7 +118,7 @@ settled; rooms move only on a concrete plan the owner accepts.
 2. **Precipitate analysis, polished.** The owner's recipe reproduces the map in the app; finish what it lacks: the
    per-phase slab field (landed 2026-09-28 night), then a polishing cycle over the whole precipitate path
    (settings, legend, objects, table, export). Thickness → volumetric density is the last missing step: registered 2026-09-28 with a typed thickness (PACBED deferred).
-3. **The owner's own Al-Mg-Si high-resolution scans, subsampled.** The 28 GB cubes are sampled in real space (every
+3. **The owner's own Al-Mg-Si high-resolution scans, subsampled.** First cube done 2026-09-29 (stride 3, full 256² detector, bit-identical; `archive/v4/ssd-subsample-2026-09-29.md`); next: calibrate and analyse it. The 28 GB cubes are sampled in real space (every
    n-th position, full diffraction resolution kept), as was done for Thronsen's dataset: more reciprocal-space
    resolution for disk detection, fewer real-space pixels, precipitates still visible. On the stronger Mac, or here with
    a streaming job proven on a small file first (never read a file larger than RAM, 2026-09-24).
