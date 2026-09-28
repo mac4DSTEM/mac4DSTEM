@@ -76,3 +76,29 @@ face-on 1.00 / 1.03 / 1.04, T1 1.00 / 1.01 / 1.00, edge-on area 1.54.
 The app's edge-on speckle is the known weakness. **The null** is predicted to FAIL on T1 raw
 spurious objects (the refuter measured 93 raw T1 objects on its null against the truth's 37)
 while passing the cleaned counts. That is the demonstration that the primary tier has teeth.
+
+## Amendment — registered before any app number was read (the probe had finished; its output unopened)
+
+The scorer's self-test failed the rule as first registered. **The truth itself failed it**: T1 count
+ratio 0.919 and median ratio 1.349 against the raw truth. Under P/9 the truth loses its own 3 small
+T1 objects (37 → 34, the refuter's "fair T1 reference is 34"), and the limits had been read from
+ratios rounded to two decimals. A bar that fails a perfect map is miscalibrated, so it is amended:
+- **Ratios are taken against the truth under the same convention** (truth · P/9: T1 34 objects,
+  median 29.6745 px, area 0.217161; face-on 3 / 22.2271 / 0.033173; edge-on area 0.014261), so a
+  perfect map scores exactly 1.
+- **The ratio limits are recomputed** from the four published P/9 rows against that reference:
+  - T1: count 0.0588, median **0.0834**, area 0.0500;
+  - face-on: count 0, median 0.0334, area 0.0671;
+  - edge-on area: 0.3604.
+
+  The T1 median limit tightens from 0.33 to 0.083, because the published medians sit well below
+  the cleaned truth's. The error-count limits are unchanged.
+- **New validity 0:** the truth itself must PASS, and the truth with its largest T1 object deleted
+  must FAIL. Both hold (`selftest2-truth.log`).
+- **Validity 2 follows T4's own wording:** "off-by-one on the ÷ 9 rounding, **or** 4- vs
+  8-connectivity for face-on, must move at least one reported number". So at least one break must
+  move a number, not both. On the truth, face-on 8-connectivity moves nothing, because face-on
+  objects are large; the rounding break moves T1 vanished from 3 to 0.
+
+The predictions above stand unchanged, except that the T1 median ratio's pass/fail call now uses
+the tighter limit: 0.95–1.15 against |r − 1| ≤ 0.083 **may fail**.
