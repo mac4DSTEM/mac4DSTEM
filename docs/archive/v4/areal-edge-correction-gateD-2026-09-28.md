@@ -74,3 +74,11 @@ plates centred in the margin [−R, 0) ∪ (S, S + R] are never rejected yet cou
 matching. **Predicted:** rejecting on an extended canvas covering the whole box moves the θ′ d 190 corrected cells to
 ≈ 0.99–1.00 and leaves T1 (rejection ≈ 2 %) within its SEM. **Refuted if** θ′ d 190 stays ≈ 3 % low.
 
+## Run 2 — hypothesis M held (`areal-run2.log`, `T6_REJECT_EXTENDED=1`; both run 1s reproduced byte-identical first)
+
+Rejection on a canvas covering the whole box: θ′ d 190 corrected 0.971/0.957/0.974 → **0.994/0.982/1.000**; T1
+unchanged within SEM. **Corrected passes all 18 cells (0.982–1.025); current fails at every d ≥ 100 (0.88–0.96).**
+The harness fix is conditional (off reproduces run 1); the verdict for the fix rests on run 2 with M stated first.
+**Thronsen geometry** (171 px at 13.89 nm, reported): T1 d 190 t 100 current **0.890 ± 0.009**, corrected
+1.017 ± 0.010; T1 d 100 current 0.914, corrected 0.993 — the shipped T1 density on such a scan reads ≈ 9–11 % low.
+

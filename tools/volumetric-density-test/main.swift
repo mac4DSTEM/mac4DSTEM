@@ -38,6 +38,9 @@ let env = ProcessInfo.processInfo.environment
 let pixelNm = Double(env["T6_PIXEL_NM"] ?? "") ?? 2.5
 let lengthOffsetPx = Double(env["T6_LENGTH_OFFSET_PX"] ?? "") ?? 0
 let W = Int((fieldNm / pixelNm).rounded()), H = W
+// Hypothesis M (areal record): reject overlaps on a canvas covering the whole
+// generation box, so margin plates compete like in-field ones. Off = run 1.
+let rejectExtended = ProcessInfo.processInfo.environment["T6_REJECT_EXTENDED"] == "1"
 let coverageTarget = 0.01
 let minSeeds = 20, maxSeeds = arealMode ? 3000 : 400
 let semTarget = arealMode ? 0.01 : 0.015
@@ -92,8 +95,10 @@ func runSeed(_ cell: Cell, seedIndex: Int) -> SeedResult {
     var rng = SplitMix64(state: UInt64(cell.index) &* 0x100000001B3 &+ UInt64(seedIndex) &* 0xD6E8FEB86659FD93 &+ 0x1234_5678)
     _ = rng.next(); _ = rng.next()
 
-    var occupied = [Bool](repeating: false, count: W * H)
-    var stamp = [Int32](repeating: 0, count: W * H)
+    let m = rejectExtended ? Int((R / pixelNm).rounded(.up)) + 2 : 0
+    let We = W + 2 * m, He = H + 2 * m
+    var occupied = [Bool](repeating: false, count: We * He)
+    var stamp = [Int32](repeating: 0, count: We * He)
     var stampID: Int32 = 0
     var occupiedCount = 0
     let target = Int((coverageTarget * Double(W * H)).rounded(.up))
@@ -133,35 +138,38 @@ func runSeed(_ cell: Cell, seedIndex: Int) -> SeedResult {
                 if z < 0 || z > t { continue }
                 let x = cx + a * u.0 + b * v.0
                 let y = cy + a * u.1 + b * v.1
-                let px = Int((x / pixelNm).rounded(.down)), py = Int((y / pixelNm).rounded(.down))
-                if px < 0 || px >= W || py < 0 || py >= H { continue }
-                let idx = py * W + px
+                let px = Int((x / pixelNm).rounded(.down)) + m, py = Int((y / pixelNm).rounded(.down)) + m
+                if px < 0 || px >= We || py < 0 || py >= He { continue }
+                let idx = py * We + px
                 if stamp[idx] != stampID { stamp[idx] = stampID; fp.append(idx) }
             }
         }
         var clash = false
         outer: for idx in fp {
-            let r = idx / W, c = idx % W
+            let r = idx / We, c = idx % We
             for dr in -1...1 {
                 let rr = r + dr
-                if rr < 0 || rr >= H { continue }
+                if rr < 0 || rr >= He { continue }
                 for dc in -1...1 {
                     let cc = c + dc
-                    if cc < 0 || cc >= W { continue }
-                    if occupied[rr * W + cc] { clash = true; break outer }
+                    if cc < 0 || cc >= We { continue }
+                    if occupied[rr * We + cc] { clash = true; break outer }
                 }
             }
         }
         if clash { res.rejected += 1; continue }
         res.accepted += 1
         if cz >= 0 && cz <= t { res.insideZ += 1 }
-        for idx in fp { occupied[idx] = true }
-        occupiedCount += fp.count
+        for idx in fp {
+            occupied[idx] = true
+            let r = idx / We - m, c = idx % We - m
+            if r >= 0 && r < H && c >= 0 && c < W { occupiedCount += 1 }
+        }
     }
 
     // Labels and the app's own counting path.
     var labels = [Int32](repeating: 0, count: W * H)
-    for i in 0..<(W * H) where occupied[i] { labels[i] = 1 }
+    for r in 0..<H { for c in 0..<W where occupied[(r + m) * We + (c + m)] { labels[r * W + c] = 1 } }
     let roles = PrecipitateSegmentation.LabelRoles(
         precipitateClasses: [1], matrix: [0], notIndexed: [])
     let map = PrecipitateSegmentation.classObjects(
