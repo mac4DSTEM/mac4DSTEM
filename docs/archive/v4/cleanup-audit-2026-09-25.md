@@ -54,5 +54,5 @@ windows, then the owner's calls):
   Engine control is the one place to choose, and a new session starts on `.automatic`.
 - **Parallax and single-slice ptychography: kept** until they are driven on the stronger Mac. They are
   unrunnable on the 8 GB Mac.
-- **Diffraction groups: kept, profile first** (too slow at 32 × 32, not profiled).
+- **Diffraction groups: kept, profile first** (too slow at 32 × 32). Profiled the same day: fast optimised, about 180× slower in the owner's Debug build (`open-items.md`).
 - **Training labels: kept.** Hand labels made the learned detector's frozen truth set.

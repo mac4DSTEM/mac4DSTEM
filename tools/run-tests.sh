@@ -115,7 +115,7 @@ diagnostic=(bragg-spacing-probe origin-fit-diagnostics
   training-dataset-campaign precipitate-handcount
   phase-map-probe demo-dataset rotation-null-probe
   hdf5-race-probe thronsen-dataset cloud-analysis matrix-orientation-probe
-  lattice-calibration-probe dm4-parity-probe)
+  lattice-calibration-probe dm4-parity-probe embedding-profile)
 owner_only=()
 retired=()
 support=(lib release crystal-structures hooks)
