@@ -91,8 +91,10 @@ Stride-3 (r, c) is full-resolution (3r, 3c). Predictions were written before the
 Population: of the app's 55 Al → edge-on positions at stride 3, 54 (98 %) lie within 1 full-resolution px of truth
 edge-on; published vector analysis 137 of 138, template matching 120 of 122, NMF 2 of 2, ANN 42 of 42.
 
-**What changes.** The 3 truth-Al objects are calls 2.5 nm from a truth needle. The needle pixel is not on the stride-3
-grid, so the call becomes an isolated object and counts as spurious. That is a property of scoring at stride 3, and every
+**What changes.** The 3 truth-Al objects are calls 1–2 full-resolution pixels from a truth needle. The needle pixel is not
+on the stride-3 grid, so the call becomes an isolated object and counts as spurious. *(Corrected the same evening from the
+paper: the probe is 1.3 nm and smaller than the step, so the pattern does not pick up the neighbouring needle; the paper
+states the hand-made truth is uncertain at interfaces, which fits. Pixel size: `thronsen-2024-paper-notes.md`, open.)* That is a property of scoring at stride 3, and every
 method's Al → edge-on calls share it. The bar is not moved on this; scoring at full resolution (A3, the stronger Mac) is
 where it is settled. **The error B1 has to fix is the 4 objects (5 positions) deep inside T1**, where edge-on's dense
 entry wins on one weak specific reflection. Thronsen's vector analysis makes the same call at 3 of them; her template

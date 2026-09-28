@@ -90,6 +90,11 @@ not indexed 8.0 % (search rule); the needle streaks stay not indexed. With [0 1 
 mostly by the [0 1 0] slot (why is untested), and 1-px speckle dominates the object count. Show Objects
 is invisible at 1-px objects. Record: Gate D part 7. The manual ellipse field landed and was driven 2026-09-28 (ADR 039). Open: the slot-label question.
 
+### Thronsen dataset A's scan step is unsettled — it sets every length and density (2026-09-28)
+The paper's text gives a 4.6 nm step (and "about 2.4 µm²" for 512 × 512); the file's own axes say 2.4943 nm/px; the 400 nm
+bar in their Fig. 7 reads roughly 2.2–2.5 nm/px. The app takes the file's value. Ask the authors before any density on
+this dataset is quoted. Notes: `archive/v4/thronsen-2024-paper-notes.md`.
+
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
 `datasetA_stride3.h5` carries no calibration; Map Phases ran with Q unset (scale bars "20 px",
 the px fallback at `ImagePanes.swift:298`) and returned 29 241 / 29 241 not indexed, every phase 0;
