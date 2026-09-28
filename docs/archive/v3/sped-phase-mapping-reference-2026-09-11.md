@@ -98,6 +98,9 @@ construction.
 
 ## 6. Licence — we may learn from it, we may not copy it
 
+**Superseded 2026-09-28 (ADR 042):** the first author confirmed to the owner that the code may be used.
+It is to be used for ground truth and ported where it makes sense, not copied 1:1. The text below is the 2026-09-11 position.
+
 **There is no LICENSE file in the repository.** Default copyright therefore
 applies: no grant to copy, modify or redistribute. This repo is public and
 GPL-3.0, so **no code, notebook fragment or CIF from it may be copied into

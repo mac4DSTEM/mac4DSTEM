@@ -40,22 +40,7 @@ Ranked by value to a working microscopist.
 | 6 | **Detector realism** | per-position detector shift (the origin map exists); arbitrary detector masks (the GPU path takes a weight image); hot-pixel filtering; ARINA reader, MIB packed modes | small each · — |
 | 7 | **Phase-contrast depth** | direct ptychography (SSB / OBF / WDD); mixed-state; probe-position correction | large · — |
 
-**Calibration foundation (theme 1) — pre-registration, v3.1.** Sequenced
-least-risk first (Gate B capacity is one campaign at a time). The **origin
-validity mask leads** (owner, 2026-09-17): surface the per-position `kept` mask
-the robust origin fit already computes and discards, completing the 2026-08-28
-admit-with-fraction decision from a scalar to a spatial map — disclosure only,
-no shipped number moves, a unit gate. **Landed 2026-09-17:** item 1 (mask + D4
-count + step-3 measured); the CoM centre in `probeSize` **diagnosed and parked**
-(marginal, two-sided); and **`get_origin_friedel`'s Core algorithm ported**
-(`FriedelOrigin.swift`, beamstop-tolerant, opt-in/additive) with a gated parity
-harness at ~1e-6 px against py4DSTEM, `get_beamstop_mask` ported (pixel-identical to
-scipy on the real Au_ref beamstop cube) and **wired as an origin-method picker**; and
-the **vacuum probe from a separate scan** (a "Vacuum Scan…" probe source). **All four
-Calibration-foundation items landed 2026-09-17** (item 2 parked as marginal); the UI
-additions are unverified on screen. Full registration:
-[`docs/v3-features.md#calibration-v31`](docs/v3-features.md#calibration-v31),
-decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-v3.1-origin-validity-mask.md).
+The v3.1 calibration foundation's pre-registration and landing notes are in `docs/archive/v4/roadmap-history.md`.
 
 **Theme 4's point-group coverage is also a Materials Project dependency, not
 only a grain-segmentation one** (found 2026-09-19). Today's
@@ -94,18 +79,6 @@ is its own product").
   second signal with its own reader and units, registered onto the scan grid
   with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
-- **Settings window, Xcode-style sidebar** (owner, 2026-09-21) — the
-  Materials Project key, general/appearance/analysis/advanced sections, one
-  `AppPreferences` state owner. **Landed 2026-09-21** (`900fe7b`) and driven
-  by the owner the same night. Full design:
-  [`docs/archive/v4/roadmap-history.md`](docs/archive/v4/roadmap-history.md).
-- **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21,
-  revised 2026-09-22) — **closed 2026-09-22 night**: the macOS 27 rebuild on
-  Apple's inspector guidance, driven and accepted by the owner on a real
-  cube (ADR 008, 035–037, `docs/status.md` § Handoff). Live residuals: the
-  toolbar's leading jump at a long file name, inspector-kit gaps, a parked
-  panel-blank lead (`docs/open-items.md`). Earlier, rejected design:
-  [`docs/archive/v4/roadmap-history.md`](docs/archive/v4/roadmap-history.md).
 - **Lineage graph with real rewind** (owner, 2026-09-21) — every derived
   product shows its inputs as a graph, and clicking a node rewinds the
   parameter state, not a text history. Nothing exists today beyond the
@@ -128,27 +101,78 @@ part of the product story: the load-specification and promote workflow,
 provenance that survives export and reopen, refusals that name what failed,
 the session sidecar as a sharing unit.
 
-## Next planned sequence — registered 2026-09-23
+## Next planned sequence — registered 2026-09-28
 
-The 2026-09-19 sequence's first two items are both done: v3.1.0 shipped as
-part of v4.0.0 (2026-09-23) and the Materials Project importer landed
-2026-09-21 (superseded text: `docs/archive/v4/roadmap-history.md`). Current
-order, from `docs/status.md` § Handoff and the 2026-09-23 overnight records:
+Three tracks, in dependency order. **Truth comes first**, because both of the others are judged
+against it. Every step is registered before it runs. Gate D applies where a number moves, and an
+independent refuter reviews every verdict. Tracks B and C share one rule: a port or a trained model is
+scored against its reference's own outputs on the same input before it is called equivalent. The
+2026-09-23 sequence is in `docs/archive/v4/roadmap-history.md`.
 
-1. **Owner decisions and one Gate D first:** the known-variants guard shipped on 2026-09-23
-   (ADR 038). Still owed: the R–Q displayed sign convention (`docs/open-items.md`); the Al
-   lattice constant `DEVIATION` (4.0495 vs 4.04 Å, a `kMax` knife edge); a macOS 27 CI runner;
-   the object-level pass bar (T4 draft). Gate D next: the owner's real Al-Mg-Si cube, where the
-   matrix almost never wins (`archive/v4/almgsi-drive-2026-09-23.md`).
-2. **Materials Project S6:** the live fetch works (owner, 2026-09-23); owed are
-   the pre-registered comparisons — Al/θ′/T1 cells vs the paper's CIFs, a
-   phase map through them within the S1 band, mp-1185307 refused.
-3. **Orientation coverage:** monoclinic 2/m first, once the owner confirms
-   it — it unlocks β″ and is a separate Gate D/B feature.
-4. **Scientific debts:** the parallax default bin schedule (diagnosed,
-   fix owed), the cross-phase completeness guard (candidate built, parked),
-   T1's remaining detection-limited recall — each its own Gate D, in the
-   order `docs/status.md` § Handoff names.
+### A — Ground truth, kept and reproduced (the foundation)
+
+1. **A truth ledger:** one row per feature, giving its truth, the reference numbers we reproduced,
+   its pass bar and its status. Phase mapping has one: Thronsen A, their errors reproduced to the
+   digit, the T4 bar. Disk detection, strain and ACOM do not yet have real-data truth.
+2. **Truth artefacts are committed, never gitignored.** The owner's 306 hand labels were lost that way
+   (`open-items.md`). Re-label with the in-app Training labels rows, and commit the result. Commit the
+   stride-3 Thronsen truth (CC BY 4.0, with attribution) beside it.
+3. **Run the Thronsen code locally (ADR 042).** First reproduce their four published maps from their own
+   code on dataset A; that proves the environment. Then run their methods on inputs we choose:
+   stride 3, dataset B, the owner's Al-Mg-Si cube. That turns "agreement" into a real reference
+   wherever the published maps don't reach.
+
+### B — Precipitate analysis
+
+1. **Close the one failing T4 metric,** θ′ edge-on speckle (7 against 0–5). Gate D, diagnosis first:
+   the 7 are 1–2 px objects next to other phases. Every scored run uses the adopted T4 bar, with
+   edge-on flips in the null.
+2. **Port Thronsen's methods where it makes sense (ADR 042),** each scored against their own output
+   (A3) before it is called equivalent:
+   - vector analysis, closest to the app's matcher;
+   - NMF on Accelerate;
+   - their ANN as a reference model, with inference through Core ML or Core AI on the Neural Engine,
+     and retraining through track C.
+3. **The microprobe Al-Mg-Si re-acquisition** on the stronger Mac: calibrate it from its own lattice,
+   then score it with agreement metrics (there is no truth there).
+4. **Where precipitate analysis lives** is the owner's call, after track C settles what the AI
+   workspace becomes. No UI moves before a mock the owner has accepted (the frozen shell, ADR 035).
+
+### C — The Neural Engine and on-device training (owner, 2026-09-28: "soon")
+
+The goal: **a user labels a dataset by hand, trains on this Mac, checks the model against labels held
+out from training, and works from there.** Inference runs on the Neural Engine, and training runs
+where Apple allows it (see C2). The first model is the learned disk detector.
+1. **Labels as a product.** The existing labelling rows write labels into the session sidecar, with
+   provenance. They export as a truth file, and fixtures commit them (A2).
+2. **A measured framework spike, ≤ 1 day** (`archive/v4/ondevice-training-research-2026-09-28.md`).
+   Only **MLX Swift** or MPSGraph can train this net in-app. Core ML's updatable models cannot
+   backprop through a U-Net's concatenated skips, Create ML has no heatmap task, and Core AI is
+   inference-only. **No public API trains on the Neural Engine.** The route back to it:
+   - mirror the shipped BN-free graph in MLX;
+   - fine-tune it;
+   - inject the weights into the shipped Core ML spec through
+     `MLModelAsset(specification:blobMapping:)`;
+   - check placement with `MLComputePlan`.
+
+   The spike's four pass criteria (a round trip ≤ 1e-2, the loss falling within ≤ 2 GB, the convs
+   placed on the Neural Engine, the evaluation equal to `evaluate.py`'s) and its kill condition are in
+   the record. MLX stays out of the `DSTEMCore` package: SwiftPM cannot build its shaders. This also
+   re-decides Core ML against Core AI (ADR 014).
+3. **A training loop in Core.** It runs off the main thread, is cancellable, fits in a memory budget
+   measured on the 8 GB Mac, and makes deterministic splits. Evaluation uses the record's rule
+   (recall/precision, a 2 px match, the eligible frame). Every trained model carries versioned
+   provenance: its data, labels, seed and code.
+4. **Neural Engine inference of the trained model,** with parity checked against the training
+   framework's own output (the learned detector's existing fixture pattern).
+5. **The AI workspace, redesigned around label → train → evaluate → use.** The owner's mock and
+   decisions come first, then one room built and driven before any other.
+
+### D — Carried
+
+A second dataset with truth before the 0.15 % floor (ADR 041) is re-judged; R–Q residuals
+(`open-items.md`); drive parallax and ptychography on the stronger Mac; the 28 GB DM4 parity run;
+the cross-phase completeness guard; the 119-defect triage.
 
 ## How a v3 feature is done
 

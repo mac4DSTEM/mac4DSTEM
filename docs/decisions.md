@@ -49,6 +49,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 039 | The detector ellipse can be typed in Prepare: py4DSTEM's a (semi-major), b, θ in degrees; applied only by a button; a < b refused | 09-28 | live, driven |
 | 040 | Four owed decisions: T4 object pass bar adopted; R–Q shown/written in py4DSTEM's convention (Gate D owed); Al stays 4.0495 Å with a DEVIATION note; CI unit job paused | 09-28 | live |
 | 041 | The default disk-detection floor is 0.15 % (DEVIATION from py4DSTEM's 0.5 %); supersedes the floor line of 026/038 | 09-28 | live |
+| 042 | Thronsen et al.'s SPED-phase-mapping code: use for ground truth and port (not copy 1:1), per the first author, verbally; written confirmation owed | 09-28 | live |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

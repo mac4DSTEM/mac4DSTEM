@@ -66,3 +66,61 @@ implementation (ADR 034) was driven and rejected. The decided anatomy is
 room actions in a centre-only header that flexes with them, then the
 Prepare reference room. Phase 1 has no recorded owner acceptance. The
 lineage graph and copy/search/filter follow later.
+
+## The 2026-09-23 sequence, superseded 2026-09-28 (moved verbatim from ROADMAP.md)
+
+### Next planned sequence — registered 2026-09-23
+
+The 2026-09-19 sequence's first two items are both done: v3.1.0 shipped as
+part of v4.0.0 (2026-09-23) and the Materials Project importer landed
+2026-09-21 (superseded text: `docs/archive/v4/roadmap-history.md`). Current
+order, from `docs/status.md` § Handoff and the 2026-09-23 overnight records:
+
+1. **Owner decisions and one Gate D first:** the known-variants guard shipped on 2026-09-23
+   (ADR 038). Still owed: the R–Q displayed sign convention (`docs/open-items.md`); the Al
+   lattice constant `DEVIATION` (4.0495 vs 4.04 Å, a `kMax` knife edge); a macOS 27 CI runner;
+   the object-level pass bar (T4 draft). Gate D next: the owner's real Al-Mg-Si cube, where the
+   matrix almost never wins (`archive/v4/almgsi-drive-2026-09-23.md`).
+2. **Materials Project S6:** the live fetch works (owner, 2026-09-23); owed are
+   the pre-registered comparisons — Al/θ′/T1 cells vs the paper's CIFs, a
+   phase map through them within the S1 band, mp-1185307 refused.
+3. **Orientation coverage:** monoclinic 2/m first, once the owner confirms
+   it — it unlocks β″ and is a separate Gate D/B feature.
+4. **Scientific debts:** the parallax default bin schedule (diagnosed,
+   fix owed), the cross-phase completeness guard (candidate built, parked),
+   T1's remaining detection-limited recall — each its own Gate D, in the
+   order `docs/status.md` § Handoff names.
+
+
+## Moved from ROADMAP.md at the 2026-09-28 closeout (finished items)
+
+**Calibration foundation (theme 1) — pre-registration, v3.1.** Sequenced
+least-risk first (Gate B capacity is one campaign at a time). The **origin
+validity mask leads** (owner, 2026-09-17): surface the per-position `kept` mask
+the robust origin fit already computes and discards, completing the 2026-08-28
+admit-with-fraction decision from a scalar to a spatial map — disclosure only,
+no shipped number moves, a unit gate. **Landed 2026-09-17:** item 1 (mask + D4
+count + step-3 measured); the CoM centre in `probeSize` **diagnosed and parked**
+(marginal, two-sided); and **`get_origin_friedel`'s Core algorithm ported**
+(`FriedelOrigin.swift`, beamstop-tolerant, opt-in/additive) with a gated parity
+harness at ~1e-6 px against py4DSTEM, `get_beamstop_mask` ported (pixel-identical to
+scipy on the real Au_ref beamstop cube) and **wired as an origin-method picker**; and
+the **vacuum probe from a separate scan** (a "Vacuum Scan…" probe source). **All four
+Calibration-foundation items landed 2026-09-17** (item 2 parked as marginal); the UI
+additions are unverified on screen. Full registration:
+[`docs/v3-features.md#calibration-v31`](docs/v3-features.md#calibration-v31),
+decision [`docs/decisions/033-v3.1-origin-validity-mask.md`](docs/decisions/033-v3.1-origin-validity-mask.md).
+
+
+- **Settings window, Xcode-style sidebar** (owner, 2026-09-21) — the
+  Materials Project key, general/appearance/analysis/advanced sections, one
+  `AppPreferences` state owner. **Landed 2026-09-21** (`900fe7b`) and driven
+  by the owner the same night. Full design:
+  [`docs/archive/v4/roadmap-history.md`](docs/archive/v4/roadmap-history.md).
+- **Bottom area as a second workspace, Xcode-style** (owner, 2026-09-21,
+  revised 2026-09-22) — **closed 2026-09-22 night**: the macOS 27 rebuild on
+  Apple's inspector guidance, driven and accepted by the owner on a real
+  cube (ADR 008, 035–037, `docs/status.md` § Handoff). Live residuals: the
+  toolbar's leading jump at a long file name, inspector-kit gaps, a parked
+  panel-blank lead (`docs/open-items.md`). Earlier, rejected design:
+  [`docs/archive/v4/roadmap-history.md`](docs/archive/v4/roadmap-history.md).
