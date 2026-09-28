@@ -56,3 +56,8 @@ it on the right half, and the pass comes from moving errors between classes. B1'
 shipped configuration. Every narrowly aimed relabelling is exposed to this: the T4 bar scores each class separately, so
 an error can be counted as fixed in one class while it reappears in another. Future candidates are judged on the
 per-position error and on every class's speckle together, not on the failing metric alone.
+
+**Reported variant, not scored (`t4-ng-al.log`):** the same 21 positions sent to Al instead. Per-position error 1.31 →
+1.29 %; edge-on raw spurious 3; T1 speckle stays at 1; T4 PASS (the H/9 bracket fails on face-on, as the baseline does).
+It fixes the 11 truth-Al positions, breaks the 5 truth edge-on ones, and leaves the 5 truth-T1 ones wrong (now Al).
+Registered as reported only, so it is not a result. If pursued, it needs its own registration and holdout.
