@@ -62,7 +62,9 @@ Adopted 2026-09-28 (ADR 040). **First scored run 2026-09-28**: FAIL on one metri
 guard on one weak specific reflection; 3 in truth Al carry 2–4 (two lie along sampled truth needles; full-res truth unchecked).
 A global guard k = 2 gives 3 but breaks T1 (1.93 %) — rejected. **Full-res truth (same day):** the 3 truth-Al calls sit
 1–2 px (2.5–5 nm) from truth needles not on the stride-3 grid (98 % of every method's Al → edge-on calls do); the 4 objects
-inside T1 are the real error. **Next:** register a guard for edge-on beating a T1 runner-up on one specific reflection.
+inside T1 are the real error. **Narrow guard (registered, run):** edge-on over a T1 runner-up on one reflection → T1 passes
+T4 but moves errors between classes (error unchanged 1.31 %, T1 speckle 1 → 12, holdout refuted) — not shipped
+(`archive/v4/b1-narrow-guard-2026-09-28.md`). Candidates are judged on per-position error and every class's speckle.
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
