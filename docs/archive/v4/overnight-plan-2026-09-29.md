@@ -25,7 +25,12 @@ the plan AND the night's log: append one line per finished item and commit it, s
   never-full-read-bigger-than-ram). **No Detect All Disks in the app on multi-GB cubes** until item A1 lands.
 - Drives: a scratch build (`-derivedDataPath` in the scratchpad), launched `open -n`, pid-pinned; every claimed
   observation checked against its screenshot by the session before it is written down.
-- Stop, don't guess: an owner decision is written into §5 with a recommendation and the session moves on.
+- **Decide, don't stall** (owner, 2026-09-29, replacing "stop, don't guess"): (1) decide from the record — ADRs,
+  CLAUDE.md, the owner's recorded preferences; (2) otherwise ask a stronger model: an Opus advisor subagent (Fable for
+  the hardest) gets the evidence and the options, argues against the proposal, recommends; (3) if it endorses and the
+  step is reversible, do it, commit it with the reason and the advisor's verdict, and list it in §5 as **"decided
+  overnight — overrule on sight"**; (4) stop only on what is irreversible or the owner's alone: push, delete, a moved
+  shipped scientific number (YELLOW stays measure-only), a Frozen Shell redesign, anything outside the repo.
 
 ## 2. The rubric, updated
 
@@ -78,7 +83,8 @@ the shot names), what is YELLOW awaiting the owner, and the §5 decisions.
 > the memory notes it names. Run it unattended in order: Sonnet 5.5 subagents for implementation, drives and sweeps;
 > you review every diff and every screenshot, gate, commit, and append to the plan's log after each item. First:
 > caffeinate, request screen access for mac4DSTEM, confirm the owner's own app is not running, check disk and memory.
-> Never push, never branch, one heavy job at a time, stop-don't-guess into §5. Stay curious: where a drive shows
+> Never push, never branch, one heavy job at a time. Decide, don't stall (§1): record → Opus advisor → reversible
+> steps proceed as "decided overnight — overrule on sight" in §5; stop only on push/delete/shipped numbers/Frozen Shell. Stay curious: where a drive shows
 > something clumsy, record it with a proposal. End with the §4 morning report.
 
 ## Log
