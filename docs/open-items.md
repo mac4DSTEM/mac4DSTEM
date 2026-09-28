@@ -373,16 +373,15 @@ seen on screen — light appearance on a real cube, a real load cancel, the
 bounded promote run. Retired checklist trap notes:
 `archive/v2/visual-acceptance-checklist-2026-09-03.md`. Owner: one sitting.
 
-### The constraint-loop crash REPRODUCED at the 915-pt minimum width — blocks the unit gate (2026-09-28)
-The unit gate's test host aborts at launch: "The window has been marked as needing another Update Constraints in Window
-pass, but it has already had more … passes than there are views", window `{{555, 0}, {915, 923}}` (915 pt = ADR 035's
-minimum). It reproduces on committed code (`2862526`…`555e0c6`, today's phase-slot change set aside), serial or parallel,
-with the owner's app not running (`unit-repro.log`, `unit-baseline-check.log`). The unit gate was green this morning, so
-what changed is the environment (saved window state after today's drive), not code. Frozen Shell territory: Gate D first,
-then a fix against a picture the owner accepts. **Next session's first target.**
-The rule (2026-09-04): nothing inside a split's hosted content may repeatedly change its own minimum size; the earlier
-cases and the unreproduced 2026-09-22 crash are in `archive/closed-items-2026-09.md`.
-
+### The window's columns can be restored wider than its minimum holds — launch crash, owner's choice of fix (2026-09-28)
+Gate D, refuter NOT REFUTED: launch aborts in the constraint loop (`SplitViewChildController…didUpdateMinSize`) iff the
+restored **window − sidebar ≤ 639 pt**; ≥ 640 launches (28 runs on `5ebaa1b`: sidebar 275/276 at 915, window 917/918 at
+sidebar 278, 959/960 at 320). 640 ≈ inspector min 280 + detail ≈ 360 is a fit, not a mechanism. Refuted: 361+320+4
+(S240, W955 passed), 361+280+4 (S275, W920 passed), the restored dataset. The shell allows a 320-pt sidebar at the
+915-pt floor where only ≤ 275 fits; reachable by the owner's app, not shown; how 278 at 915 got saved is unknown.
+The unit gate hit it through its unsigned host's `~/Library/Preferences`; `run-tests.sh` now clears that geometry.
+Fix in SwiftUI only (owner, 2026-09-28): HIG asks for min *and* max pane sizes that fit the window.
+Rule and earlier cases: `archive/closed-items-2026-09.md`.
 
 ### `PaneSplit` image-floor residual — status unclear, verify against current split code
 (a) header overflow and (c) divider reset were closed and seen on screen

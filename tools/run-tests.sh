@@ -45,7 +45,26 @@ require_free_space() {
   done
 }
 
+# The unit tests' host is the app, unsigned and so unsandboxed: it restores the
+# window and split geometry that whatever unsigned build ran last saved in
+# ~/Library/Preferences. On 2026-09-28 a saved 915-pt window with a 278-pt
+# sidebar made every launch abort in the constraint loop (window − sidebar
+# ≤ 639 pt crashes, ≥ 640 passes; `open-items.md`), turning the gate red on
+# unchanged code. The gate starts from the default geometry instead, and says
+# which keys it cleared. The app's own defect is recorded, not hidden, there.
+clear_test_host_geometry() {
+  local domain="$HOME/Library/Preferences/com.mac4dstem.mac4DSTEM.plist" key
+  [[ -f "$domain" ]] || return 0
+  defaults export "$domain" - | plutil -p - \
+    | sed -n 's/^  "\(NSWindow Frame [^"]*\)" =>.*/\1/p; s/^  "\(NSSplitView Subview Frames [^"]*\)" =>.*/\1/p' \
+    | while IFS= read -r key; do
+        echo "run-tests.sh: clearing the test host's saved geometry: $key"
+        defaults delete "$domain" "$key"
+      done
+}
+
 unit_tests() (
+  clear_test_host_geometry
   # Never let an unsigned test build replace the app that Xcode launches from
   # its normal DerivedData directory. HDF5 is loaded lazily, so overwriting a
   # running app can otherwise give the process and bundled dylib different code
