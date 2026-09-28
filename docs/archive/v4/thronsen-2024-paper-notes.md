@@ -53,5 +53,5 @@ of the PDF is in the gitignored `References/papers/thronsen-2024-ultramicroscopy
 - **Overlap:** none of our rules applies their priority scheme; neither does their vector matching.
 - **Open: the scan step.** The paper's text gives a 4.6 nm step (and "about 2.4 µm²" for 512 × 512); their
   `datasetA_preprocessed.hspy` axes say 2.4943 nm/px (read from the file 2026-09-28); the 400 nm bar in their Fig. 7
-  suggests about 2.2–2.5 nm/px (a rough read of a figure). The R scale sets every length and density the app reports on
-  this dataset, so it must be settled with the authors before a density is quoted.
+  suggests about 2.2–2.5 nm/px (a rough read of a figure). **Settled by the owner 2026-09-28: 2.4943 nm/px, the file's
+  value, which the scale bar agrees with.** Every length and density on this dataset uses it.
