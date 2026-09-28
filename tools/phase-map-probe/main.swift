@@ -38,6 +38,7 @@ import simd
 struct TruthMap {
     /// One name per position, in row-major scan order.
     let className: [String]
+    let width: Int
     /// The order classes are printed in, so a missing class still shows a row.
     static let classes = ["Al [001] grain A", "Al [011] grain B", "Al [111] grain C",
                           "β″ [010] end-on", "β″ [001] needle", "vacuum"]
@@ -68,6 +69,18 @@ struct TruthMap {
             }
         }
         className = names
+        self.width = width
+    }
+    private init(className: [String], width: Int) { self.className = className; self.width = width }
+    /// Every `n`-th row and column from 0 (`--scan-stride`).
+    func strided(by n: Int) -> TruthMap {
+        guard n > 1, width > 0 else { return self }
+        let height = className.count / width
+        var out: [String] = []
+        for r in Swift.stride(from: 0, to: height, by: n) {
+            for c in Swift.stride(from: 0, to: width, by: n) { out.append(className[r * width + c]) }
+        }
+        return TruthMap(className: out, width: (width + n - 1) / n)
     }
 }
 
@@ -390,6 +403,18 @@ enum Probe {
         // known-variants baseline can be re-run on CIF-sourced crystals
         // without touching the default. Only meaningful with `--thronsen`.
         var cifCrystalPaths: (al: String, theta: String, t1: String)?
+        // `--scan-stride N` (stride-invariance registration 2026-09-28): with
+        // `--thronsen`/`--truth`, keep only positions where row % N == 0 and
+        // col % N == 0 of the loaded cube, and subsample the truth labels the
+        // same way. Default 1 = the original full-scan behaviour, unchanged.
+        var scanStrideArg = 1
+        // `--pixel-nm X`: the loaded cube's real-space pixel (nm); with
+        // `--object-table` prints the edge-corrected areal density per class at
+        // X · N nm/px. Nil = no density table (the original output).
+        var pixelNmArg: Double?
+        // `--min-size P`: minimum object area (pixels) for that density table;
+        // default round(10 / N²), a constant area of 10 px at N = 1.
+        var minSizeArg: Int?
         var positional: [String] = []
         var index = 4
         while index < args.count {
@@ -464,6 +489,12 @@ enum Probe {
                 alPrecipitateDetail = true; index += 1
             } else if args[index] == "--object-table" {
                 objectTable = true; index += 1
+            } else if args[index] == "--scan-stride", index + 1 < args.count {
+                scanStrideArg = max(1, Int(args[index + 1]) ?? 1); index += 2
+            } else if args[index] == "--pixel-nm", index + 1 < args.count {
+                pixelNmArg = Double(args[index + 1]); index += 2
+            } else if args[index] == "--min-size", index + 1 < args.count {
+                minSizeArg = Int(args[index + 1]); index += 2
             } else if args[index] == "--dump-labels", index + 1 < args.count {
                 dumpLabelsPath = args[index + 1]; index += 2
             } else if args[index] == "--scale-to-detector" {
@@ -483,13 +514,18 @@ enum Probe {
                 positional.append(args[index]); index += 1
             }
         }
-        let truth = truthPath.flatMap(TruthMap.init(path:))
-        if truthPath != nil, truth == nil {
+        let truthFull = truthPath.flatMap(TruthMap.init(path:))
+        if truthPath != nil, truthFull == nil {
             print("could not read truth map at \(truthPath!)"); exit(1)
         }
-        let thronsen = thronsenPath.flatMap(Thronsen.Truth.init(path:))
-        if thronsenPath != nil, thronsen == nil {
+        let thronsenFull = thronsenPath.flatMap(Thronsen.Truth.init(path:))
+        if thronsenPath != nil, thronsenFull == nil {
             print("could not read Thronsen labels at \(thronsenPath!)"); exit(1)
+        }
+        let truth = truthFull?.strided(by: scanStrideArg)
+        let thronsen = thronsenFull?.strided(by: scanStrideArg)
+        if scanStrideArg > 1, truth == nil, thronsen == nil {
+            print("--scan-stride only applies with --thronsen/--truth (otherwise use the positional stride); ignoring")
         }
         if noiseFloor, thronsen == nil {
             print("--noise-floor only means anything with --thronsen; ignoring")
@@ -497,7 +533,7 @@ enum Probe {
         }
         // Truth mode scores every position; a stride would compare the map
         // against truth on a subsample and call it a measurement of the map.
-        let stride = (truth != nil || thronsen != nil) ? 1 : (positional.first.flatMap(Int.init) ?? 3)
+        let stride = (truth != nil || thronsen != nil) ? scanStrideArg : (positional.first.flatMap(Int.init) ?? 3)
 
         guard let reader = try? H5Reader(path: path),
               let primary = try? await reader.discoverPrimaryDataset() else {
@@ -1815,6 +1851,36 @@ enum Probe {
                                      name as NSString, source as NSString, predClass.objects.count,
                                      medianLength(predClass.objects), predClass.areaFraction ?? .nan,
                                      smv.split, smv.merge, smv.vanished))
+                    }
+                }
+                if let pixelNmArg {
+                    // Stride-invariance registration 2026-09-28: the edge-corrected
+                    // areal density per class (PrecipitateStatistics.density, whole
+                    // map as the frame), at this run's pixel (X · N nm), objects
+                    // below the constant-AREA minimum dropped first.
+                    let minSize = minSizeArg ?? max(1, Int((10.0 / Double(scanStrideArg * scanStrideArg)).rounded()))
+                    let pixelNm = pixelNmArg * Double(scanStrideArg)
+                    print(String(format: "\n  DENSITY (stride %d, pixel %.4f nm, frame %d x %d, min object %d px):",
+                                 scanStrideArg, pixelNm, width, height, minSize))
+                    print(String(format: "  %-12@ %-8@ %8@ %8@ %8@ %12@ %10@",
+                                 "phase" as NSString, "source" as NSString, "counted" as NSString,
+                                 "edgeEx" as NSString, "dropped" as NSString,
+                                 "objects/um2" as NSString, "medLen nm" as NSString))
+                    for (source, objs) in [("truth", truthObjects), ("baseline", baselineObjects), ("guarded", guardedObjects)] {
+                        for label in [Int32(1), 2, 3] {
+                            guard let cls = objs.classes.first(where: { $0.label == label }) else { continue }
+                            let kept = cls.objects.filter { $0.area >= minSize }
+                            let d = PrecipitateStatistics.density(
+                                objects: kept, accepted: Set(kept.map(\.id)),
+                                analysedPixels: objs.analysedPixels, frameWidth: width, frameHeight: height,
+                                pixelSize: pixelNm, pixelUnit: "nm")
+                            let perUm2 = (d.arealDensity ?? .nan) * 1e6
+                            let medNm = (d.medianLength ?? .nan) * pixelNm
+                            print(String(format: "  DENSITY %-12@ %-8@ %8d %8d %8d %12.4f %10.2f",
+                                         (phaseLabelNames[label] ?? "\(label)") as NSString, source as NSString,
+                                         d.acceptedCount, d.edgeCount, cls.objects.count - kept.count,
+                                         perUm2, medNm))
+                        }
                     }
                 }
                 print(String(format: "\n  analysed pixels: truth %d, baseline %d, guarded %d (of %d total)",

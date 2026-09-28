@@ -135,6 +135,20 @@ enum Thronsen {
             self.labels = rows.flatMap { $0 }
             self.height = rows.count; self.width = width
         }
+        private init(classes: [Int: String], labels: [Int], height: Int, width: Int) {
+            self.classes = classes; self.labels = labels; self.height = height; self.width = width
+        }
+        /// Every `n`-th row and column starting at 0 (`--scan-stride`): the
+        /// labels at the positions the strided probe keeps, ceil(h/n) × ceil(w/n).
+        func strided(by n: Int) -> Truth {
+            guard n > 1 else { return self }
+            let rows = Swift.stride(from: 0, to: height, by: n).map { $0 }
+            let cols = Swift.stride(from: 0, to: width, by: n).map { $0 }
+            var out: [Int] = []
+            out.reserveCapacity(rows.count * cols.count)
+            for r in rows { for c in cols { out.append(labels[r * width + c]) } }
+            return Truth(classes: classes, labels: out, height: rows.count, width: cols.count)
+        }
     }
 
     /// The app's verdict as their label. Not indexed / no data map to −1,

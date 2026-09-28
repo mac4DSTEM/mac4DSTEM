@@ -27,3 +27,25 @@ held at a constant AREA (10 px at N = 1 → round(10/N²): 3 px, 1 px). Runs one
 
 (1) proves the per-position independence the whole precipitate path assumes; (3)–(4) measure, on real data, the
 one-pixel length effect T6 found on synthetic data — the argument for keeping stride 3 (or finer) for density.
+
+## Result (2026-09-29; `stride-N{1,2,3}.log`, `stride-compare.log`; Sonnet implementer, numbers checked against the log)
+
+N = 1 reproduces the T4 record (1.31 %, raw spurious 1/33/7, FAIL on edge-on 7 > 5). Edge-corrected density (ADR 045)
+in every run.
+
+1. **Labels — HELD:** identical at 100 % of kept positions (7396/7396 at stride 6, 3249/3249 at stride 9). Every step
+   of the chain is per position; no whole-scan fit moved a label.
+2. **Phase fractions — HELD:** every class within 0.33 pp (Al 73.94/73.63/73.78 %, T1 21.04/21.36/21.18 %,
+   θ′ face-on 3.42/3.37/3.39 %, θ′ edge-on 1.59/1.62/1.66 %), inside binomial error.
+3. **T1 density — HELD at stride 6** (3.68 ± 0.66 vs 4.01 ± 0.71 /µm², −0.35σ), **REFUTED at stride 9**: 4.98 ± 0.75,
+   +24 %, not lower.
+4. **Median length — REFUTED:** 337 → 379 → 176 nm, not one-pixel quantisation.
+
+**Reading:** object counts are not a property of the specimen alone but of the grid and the minimum-size cut. The
+constant-area rule falls to 1 px at stride 9 and admits single-pixel fragments (θ′ edge-on 12 → 8 → 38 objects);
+at stride 3 the 10-px cut already drops 12 T1, 33 face-on and 66 edge-on objects. **The truth map does the same**
+(edge-on 13 → 8 → 32; T1 18 → 15 → 13), so it is object definition on a grid, not the classifier. With 16 counted T1
+objects one scan carries ±18 % Poisson error. **Quote phase fractions freely; quote object densities only with their
+pixel size, minimum size and count** — and more area at finer sampling (the owner's raw cubes) is what would settle
+them.
+
