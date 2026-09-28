@@ -150,22 +150,14 @@ extension AppState {
         }
     }
 
-    /// The duplicate/matrix rule for adding a phase slot: the first phase added
-    /// to an empty list becomes the matrix, since a list with phases and no matrix
-    /// cannot run. A structure already in the list is added again, because one
-    /// structure seen along two zone axes is two phases (θ′ edge-on [100] and
-    /// face-on [001]); until its zone axis differs, `runRefusal` says so. Before
-    /// 2026-09-28 the second add was skipped without a word.
-    /// `PhaseMappingSections.add(_:)` (`UI/PhaseMappingSettings.swift`)
-    /// delegates here too, so the Materials Project sheet and the CIF/library
-    /// "Add Phase" menu share the one rule.
+    /// Adds a phase slot by `PhaseMappingProduct.add(_:)`'s rule and says so when
+    /// the structure was already in the list. `PhaseMappingSections.add(_:)`
+    /// (`UI/PhaseMappingSettings.swift`) delegates here too, so the Materials
+    /// Project sheet and the CIF/library "Add Phase" menu share the one rule.
     func addPhaseMappingSlot(_ model: CrystalModel) {
-        if phaseMapping.phases.contains(where: { $0.model.id == model.id }) {
+        if phaseMapping.add(model) {
             statusText = "Added \"\(model.displayName)\" again — give this copy its own zone axis"
         }
-        let isFirst = phaseMapping.phases.isEmpty
-        phaseMapping.phases.append(
-            PhaseMappingSlot(model: model, isMatrix: isFirst, u: 0, v: 0, w: 1))
     }
 }
 

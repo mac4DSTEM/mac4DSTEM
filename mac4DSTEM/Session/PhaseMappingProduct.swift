@@ -316,6 +316,20 @@ package final class PhaseMappingProduct {
         return nil
     }
 
+    /// The one rule for adding a phase (moved out of AppState 2026-09-28): the first
+    /// phase in an empty list becomes the matrix, since a list with phases and no
+    /// matrix cannot run. A structure already in the list is added again, because
+    /// one structure seen along two zone axes is two phases (θ′ edge-on [100] and
+    /// face-on [001]); until its zone axis differs, `runRefusal` says so. Before
+    /// 2026-09-28 the second add was skipped without a word. Returns whether the
+    /// structure was already in the list.
+    @discardableResult
+    package func add(_ model: CrystalModel) -> Bool {
+        let repeated = phases.contains(where: { $0.model.id == model.id })
+        phases.append(PhaseMappingSlot(model: model, isMatrix: phases.isEmpty, u: 0, v: 0, w: 1))
+        return repeated
+    }
+
     /// The library this list and these settings would build, before building
     /// it — so the panel can show the size and the refusal without work.
     package var projectedEntryCount: Int {
