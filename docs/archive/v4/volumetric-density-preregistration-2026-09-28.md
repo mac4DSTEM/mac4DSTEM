@@ -138,3 +138,19 @@ deficits roughly halve ((c) T1 d 20 t 50 → ≈ 0.974); D2, pixel 2.5 nm with L
 of §7's analytic values. **Refuted if** D1 leaves the d 20 deficits unchanged. Diagnostics do not replace run 1's
 verdict; a changed harness or estimator is a new registration.
 
+## 9. Diagnostics D1, D2 — H held (`t6-D1.log`, `t6-D2.log`; run 1 reproduced byte-identical first)
+
+| Cell | run 1 (c) | D1: p 1.25 nm (c) | D2: Lᵢ − p (c) | §7 analytic (c) |
+|---|---|---|---|---|
+| T1 d 20 t 50 | 0.948 | **0.972** (pred. ≈ 0.974) | 0.980 | 1.000 |
+| θ′ d 20 t 50 | 0.959 | 0.978 | 0.998 | 1.000 |
+| θ′ d 100 t 50, estimator (a) | 1.081 | 1.085 | 1.102 | 1.095 |
+
+D1 roughly halves every d 20 deficit; (c) then passes all twelve cells. D2 puts θ′ on the analytic values ((a)
+1.008/0.994/0.989 vs 1.011/0.997/0.992; (c) 0.994–0.998) and (c) passes all twelve. **Partial miss:** T1 d 20 keeps
+−1 to −2 % (predicted within 1.5 %): its traces run at 45° to the grid, where cell intersection overshoots by ≈ √2·p,
+not p. **Reading:** the formula did not fail at d 20; object length read about one pixel long did. (c) is unbiased
+wherever lengths are; (a) is biased by truncation (1.08–1.10 at d ≈ 2t) as §7 predicted. Length accuracy of order one
+pixel (13.9 nm on the stride-3 Thronsen scan) is the limiting systematic and must enter the reported uncertainty.
+Not yet refuted by an independent reader; no app code written.
+

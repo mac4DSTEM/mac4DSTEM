@@ -28,8 +28,12 @@ import Foundation
 // MARK: - Fixed parameters (§7)
 
 let fieldNm = 2400.0
-let pixelNm = 2.5
-let W = 960, H = 960
+// Diagnostics only (§8: D1 halves the pixel, D2 shortens every length by one
+// pixel). Unset, they are the registered values and run 1 reproduces exactly.
+let env = ProcessInfo.processInfo.environment
+let pixelNm = Double(env["T6_PIXEL_NM"] ?? "") ?? 2.5
+let lengthOffsetPx = Double(env["T6_LENGTH_OFFSET_PX"] ?? "") ?? 0
+let W = Int((fieldNm / pixelNm).rounded()), H = W
 let coverageTarget = 0.01
 let minSeeds = 20, maxSeeds = 400
 let semTarget = 0.015
@@ -178,7 +182,7 @@ func runSeed(_ cell: Cell, seedIndex: Int) -> SeedResult {
     guard N > 0 else { return res }
     var sumInv = 0.0, sumL = 0.0, sumW = 0.0, sumWL = 0.0
     for o in counted {
-        let L = Double(o.lengthPx) * pixelNm
+        let L = (Double(o.lengthPx) - lengthOffsetPx) * pixelNm
         var cmin = Int.max, cmax = -1, rmin = Int.max, rmax = -1
         for i in o.pixelIndices {
             let r = i / W, c = i % W
@@ -301,7 +305,7 @@ struct T6 {
         }
         let results = box.all()
 
-        print("T6 volumetric density, field \(Int(fieldNm)) nm, pixel \(pixelNm) nm (\(W)x\(H)), ratio = estimate / true N_V")
+        print("T6 volumetric density, field \(Int(fieldNm)) nm, pixel \(pixelNm) nm (\(W)x\(H)), length offset \(lengthOffsetPx) px, ratio = estimate / true N_V")
         print("(a) registered per-object 1/(t+L s); (b) Nie-Muddle class-level; (c) (b)+Miles-Lantuejoul weights; naive N/(A t)")
         print("bar |mean-1| <= \(passBar); seeds >= \(minSeeds) until SEM <= \(semTarget) for all four, cap \(maxSeeds)")
         var allPass = [true, true, true, true]
