@@ -404,12 +404,13 @@ type checker timed out on `ContentView`'s file-importer closure while the
 owner's Xcode 27.0 compiled it fine; three `main` runs failed unread. Every
 green gate in `status.md` is a LOCAL run on Xcode 27.
 
-### 119 unverified defect claims from the 2026-09-09 repository review, triage order owed
-259 records, deduplicated to 156 clusters (`archive/2026-09-09-review/register.md`).
-Three fixed, 16 repeat, 8 may repeat the 2026-08-31 review, 8 already
-tracked here, **119 new, none verified** — claims with a file and a line,
-not defects. Do not fix from the register: each one that can move a
-scientific number is its own Gate D. Owner: triage order.
+### The 2026-09-09 register, triaged 2026-09-29 — 11 Gate D candidates hold and are reachable
+All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`): 105 present in code, 22
+closed, 8 duplicates; a refuter broke 4 of the 37 science rows and narrowed 15. Reachable with realistic data, each
+its own Gate D: **D025** circle-ROI mask +0.5 px off the drawn ROI; **D023** empty positions add 3.4e38 to the strain
+clustering median; **D019** one NaN pixel loses a pattern's peaks; **D079** parallax/ptycho take the aperture centre,
+not the fitted origin; **D098**, **D004** learned-detector window effects over 256 px; **D068** calibration edits never
+stale a strain map; **D017**, **D020**, **D006**, **D021** (see the record). Owner: order.
 
 ### The learned-detector parity fixture is a same-runtime claim; CI has no Neural Engine (2026-09-14)
 `testLearnedPathMatchesPythonReference` failed on both runner jobs, passed
