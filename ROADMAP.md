@@ -139,12 +139,10 @@ Everything in B builds or runs the app's Swift/Metal code on local data: **this 
 1. **Close the one failing T4 metric,** θ′ edge-on speckle (7 against 0–5). Gate D, diagnosis first:
    the 7 are 1–2 px objects next to other phases. Every scored run uses the adopted T4 bar, with
    edge-on flips in the null.
-2. **Port Thronsen's methods where it makes sense (ADR 042),** each scored against their own output
-   (A3) before it is called equivalent:
-   - vector analysis, closest to the app's matcher;
-   - NMF on Accelerate;
-   - their ANN as a reference model, with inference through Core ML or Core AI on the Neural Engine,
-     and retraining through track C.
+2. **One method in the app (ADR 044):** vector matching stays; Thronsen's four methods are references in
+   `tools/`, scored on inputs we choose (A3a on stride 3 on this Mac, A3 on the full dataset). Her ANN is the one
+   challenger: it replaces vector matching only if it beats it under T4 on truth, through track C's
+   label → train route. NMF and template-matched phase mapping are not ported.
 3. **The microprobe Al-Mg-Si re-acquisition** on the stronger Mac: calibrate it from its own lattice,
    then score it with agreement metrics (there is no truth there).
 4. **Where precipitate analysis lives** is the owner's call, after track C settles what the AI
