@@ -47,6 +47,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 037 | Inspector rooms are `GroupBox` cards; Prepare the reference | 09-22 evening; superseded 09-22 night | superseded: flat HIG sections in `InspectorRows` (cards dropped on Apple's guidance) |
 | 038 | Precipitate objects finish in the phase-mapping room (section, snapshot table window, minimum size, CSV); known-variants evidence guard ships on at 1 | 09-23 night | live |
 | 039 | The detector ellipse can be typed in Prepare: py4DSTEM's a (semi-major), b, θ in degrees; applied only by a button; a < b refused | 09-28 | live, driven |
+| 040 | Four owed decisions: T4 object pass bar adopted; R–Q shown/written in py4DSTEM's convention (Gate D owed); Al stays 4.0495 Å with a DEVIATION note; CI unit job paused | 09-28 | live |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

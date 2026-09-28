@@ -34,8 +34,8 @@ peaks are axis-swapped at the py4DSTEM import/export boundary, but
 **Trap:** `bfa5525`'s "fix" transposed the harness's own reference array,
 relabeling py4DSTEM into the app's frame — leg (b) then PASSed by
 construction; restored to informational (`a0e9a4a`).
-Owner: decide the displayed convention; then Gate D on the sign conversion
-(a scientific number), a file-faithful leg (b), and check `ellipseTheta` at
+**Decided 2026-09-28 (ADR 040):** display and write py4DSTEM's convention. Next: Gate D on the sign
+conversion at the file boundary (a scientific number), a file-faithful leg (b), and `ellipseTheta` at
 the same boundary.
 
 ### Origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay owed, still `validation:"none"`
@@ -56,14 +56,15 @@ governs whether a feature runs at all), not a tuning knob to raise.
 Consequence: both features ship **undriven on real data** and must be
 described that way in release notes. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
-### Phase mapping has no object-level pass bar — draft pre-registration, owner decision owed 2026-09-23
+### Phase mapping's object-level pass bar — adopted 2026-09-28 (ADR 040), no run scored against it yet
 Per-position error cannot see objects: at 0.96–1.75 % the published Thronsen maps have 20–173×
 the truth's θ′ face-on objects (`docs/cloud/2026-09-23/T2-direction-check.md`). Cleaned counts
 cannot certify a classifier (random flips clean up to the truth's counts); raw speckle can. The
 app's T1 raw speckle is 23 objects at the 0.1 % floor, 5 at 0.15 % (published 1–13).
 **Trap:** the truth's cuts (782 / 10 / 4 px) are that dataset's, never an app default. The shipped
 guard (ADR 038) still needs a second truth dataset before "validated" (closed-items 2026-09).
-Owner: the five decisions in `docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.
+Adopted 2026-09-28 (ADR 040): the T4 draft, with the published methods' range as the reference. Owed: the
+first run scored under it (the baseline row in T4 is the draft's; re-state predictions before running).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
@@ -98,12 +99,13 @@ Find Matrix Zone Axis reported "at chance". Setting Q 0,1904 nm⁻¹ and re-runn
 re-detection) gave T1 3680 / θ′ 833 / matrix 22 068 / not indexed 2660. Owner: "add this later" —
 refuse, or say why, when Q is uncalibrated. The stale zone-axis list also survives a calibration change.
 
-### Diffraction groups in a Debug build — fixed 2026-09-28 (two Gate Ds); projection is what remains
-The owner's 2026-09-24 stall at 32 × 32 on 29 241 positions was mostly `-Onone` scalar loops (the Debug config
-he runs). `accumulate` now uses `cblas_dsyrk` and `embed` uses vDSP/vForce, with the old scalar code kept for
-NaN/±Inf patterns (`archive/v4/embedding-accumulate-gateD-2026-09-28.md`, `embedding-embed-gateD-2026-09-28.md`).
-1 000 patterns at 32 × 32 at `-Onone`: 90.7 → 1.76 s, so under a minute for the cube (synthetic data, file I/O
-excluded). The next Debug cost is the projection loop (0.7 s per 1 000). Owner's option: Release for real work.
+### Diffraction groups in a Debug build — fixed 2026-09-28 (three Gate Ds); one test gap
+The owner's 2026-09-24 stall at 32 × 32 was mostly `-Onone` scalar loops (the Debug config he runs). The
+covariance sums (`cblas_dsyrk`), `embed` (vDSP/vForce, with the old scalar code kept for NaN/±Inf) and the
+projection (`vDSP_vsub` + `vDSP_dotpr`) all moved to Accelerate (`archive/v4/embedding-*-gateD-2026-09-28.md`).
+1 000 patterns at 32 × 32 at `-Onone`: 90.7 → 1.02 s, so about 20 s for the cube (synthetic data, file I/O
+excluded). **Gap:** no shipped test reaches the two-pass path (cube cache > 512 MB). The refuter ran it by
+forcing it with a scratch edit. A test seam would close it.
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
@@ -423,10 +425,10 @@ with the owner's next drive.
 
 ## Release, CI & process
 
-### GitHub CI's unit job has been red since the v3.0.0 cut — worse after v4.0.0 (2026-09-14, updated 2026-09-23)
+### GitHub CI's unit job is paused until a macOS 27 runner exists (ADR 040, 2026-09-28)
 **2026-09-23:** the macOS 27 deployment floor (v4.0.0) makes the `macos-26`
 runner unable to build the app at all (target above its SDK) — CI needs a
-macOS 27 runner image, owner's call. Before that: the runner's Xcode 26.6
+macOS 27 runner image. **2026-09-28:** paused (`if: false` in `ci.yml`), to be restored on such an image. Before that: the runner's Xcode 26.6
 type checker timed out on `ContentView`'s file-importer closure while the
 owner's Xcode 27.0 compiled it fine; three `main` runs failed unread. Every
 green gate in `status.md` is a LOCAL run on Xcode 27.

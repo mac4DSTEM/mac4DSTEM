@@ -1,6 +1,6 @@
 # T4 — Draft pre-registration: an object-level pass bar for phase mapping
 
-**DRAFT — owner review. Nothing here is decided.** Drafted 2026-09-23 night from
+**ADOPTED 2026-09-28 (ADR 040)** — the owner took the recommendation: this bar, with the published four methods' range as the reference (decision 3 below), P with H as the bracket on the stride-3 grid, θ′ edge-on area-only, no dataset B run for now. The rest of this file is the draft as reviewed. Drafted 2026-09-23 night from
 [T2](T2-direction-check.md) and [T3](T3-gap-decomposition.md), in the shape of `ROADMAP.md`
 § "How a v3 feature is done": what it touches, who owns its state, the tests written first, the
 decisions owed. Data: Thronsen et al., *Ultramicroscopy* 255 (2024) 113861; Zenodo

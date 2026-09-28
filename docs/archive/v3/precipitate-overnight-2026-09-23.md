@@ -50,7 +50,9 @@ relative-intensity difference `0.0000`.
 *positions* still match exactly (FCC fractional coordinates don't depend on `a`), but the
 [001] matrix entry's reflection *count* differs at the shipped excitation-slab settings: 8
 (hand-typed) vs. 4 (CIF) vectors, with matched vectors' worst `|q|` separation `0.00116 Å⁻¹`.
-This is a `DEVIATION`-worthy discrepancy nobody had measured before.
+This is a `DEVIATION`-worthy discrepancy nobody had measured before. **Corrected 2026-09-28
+(ADR 040):** the 8-vs-4 count is the {220} ring straddling `kMax` = 0.70 Å⁻¹, not an
+excitation-slab effect (§6 below). The `DEVIATION` note is in `Crystal.swift`.
 
 **Baseline reproduced first**, exactly, before anything else ran
 (`baseline-repro-20260923.log`): `known-variants`, `--or --min-relative 0.001 --min-intensity 0`

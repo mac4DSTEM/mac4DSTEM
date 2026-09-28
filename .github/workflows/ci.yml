@@ -71,6 +71,11 @@ concurrency:
 jobs:
   unit:
     name: unit (XCTest)
+    # PAUSED 2026-09-28 (ADR 040): the app targets macOS 27 and the macos-26 image
+    # cannot build it, so this job could only ever be red. It comes back, as the
+    # independent gate a one-machine setup lacks, once GitHub offers a macOS 27
+    # image: delete this `if` and set `runs-on` to it.
+    if: false
     runs-on: macos-26
     timeout-minutes: 90
     steps:

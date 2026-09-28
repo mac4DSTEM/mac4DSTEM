@@ -251,6 +251,11 @@ package nonisolated struct Crystal: Sendable {
     }
 
     // Named materials (lattice constants in Å).
+    // DEVIATION (ADR 040, 2026-09-28): 4.0495 Å is pure Al at room temperature. The
+    // Thronsen et al. (2024) CIF uses 4.04 Å; on their dataset the difference moves 5 of
+    // 29 241 positions (1.81 → 1.83 %), because the {220} ring straddles kMax = 0.70 Å⁻¹
+    // (√8/a = 0.6985 vs 0.7001 Å⁻¹). A CIF import carries its own a. Revisit only if a
+    // second dataset disagrees.
     package static var aluminum: Crystal { fcc(a: 4.0495, z: 13) }
     package static var gold: Crystal     { fcc(a: 4.0782, z: 79) }
     package static var nickel: Crystal   { fcc(a: 3.5240, z: 28) }
