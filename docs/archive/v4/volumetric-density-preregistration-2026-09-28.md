@@ -55,5 +55,51 @@ waits for the owner's EELS/CBED measurement.
 
 ## 6. Open before the build
 
-1. T1's hᵢ geometry at the Thronsen zone axis (§2) — derive and check against a drawing.
-2. Face-on θ′: accept a typed plate thickness, or report that class areal-only.
+1. ~~T1's hᵢ~~ — owner 2026-09-28: by geometry, h = d·sin 54.74° = d·√(2/3), checked in T6.
+2. ~~Face-on θ′~~ — owner 2026-09-28: areal-only unless a plate thickness is typed.
+
+## 7. Amendment before any T6 run (2026-09-28 night, committed before the harness exists)
+
+Two effects the §2 estimator ignores, found reading `PrecipitateStatistics` and by geometry, not from data:
+**truncation** — a plate whose centre lies outside the foil shows a chord, so hᵢ = Lᵢ·s is too small and (a) reads
+high where d ≳ t (Nie & Muddle's Eq. 1 is the correction: mean apparent d_a = d (t + (π/4) h) / (t + h), h = d·s,
+s = sin of the plate normal's angle to the beam; the chord of a tilted disc cut by the foil has the same π/4 mean);
+**edge exclusion** — the app counts only objects clear of the scan edge but divides by the whole scan (the areal
+density too), low by the fraction of objects the edge band catches: a property of plate size ÷ field size.
+
+**T6 therefore scores four estimators, the bar (|mean − 1| ≤ 5 % in every cell) applied to each:**
+(a) the registered per-object Σ 1/(t + Lᵢ·s) / A; (b) class-level N / (A (t + d̂·s)), d̂ from the mean counted Lᵢ by
+inverting Eq. 1; (c) (b) with each counted object weighted by Miles–Lantuéjoul's S² / ((S − bxᵢ)(S − byᵢ)) (its
+bounding box), weights also in the mean L; naive N / (A·t). Only an estimator that passes every cell may ship.
+**Harness parameters fixed now:** field S = 2400 nm (Thronsen A's extent), pixel 2.5 nm (960²), θ′ edge-on
+(normals ±x, ±y) and T1 (normals (±1, ±1, 1)/√3) run separately, centres uniform in x, y ∈ [−R, S + R] and
+z ∈ [−h/2, t + h/2], truth N_V = accepted plates / ((S + 2R)² (t + h)); a plate whose in-foil footprint (dilated one
+pixel) meets an earlier one is rejected and not counted in truth; ~1 % projected coverage; seeds until the standard
+error of the mean is ≤ 1.5 % (cap 400) — amending §4's 20 seeds, which cannot reach that at this field size; counting
+through `PrecipitateSegmentation.classObjects` with the edge rule of `PrecipitateStatistics`, minimum size off.
+
+**Predictions (analytic; pixelisation, merging and rejection ignored):** (a) FAILS one cell (θ′ d 100 t 50: 1.095)
+and passes others partly because the edge loss cancels the truncation gain; (b) FAILS the three T1 d 100 cells (0.932);
+(c) PASSES all twelve (1.000); naive FAILS all twelve (1.07–2.87). A deviation from these beyond the standard error is
+a finding about the harness or the app's counting before it is one about the formula.
+
+```
+T6 analytic predictions, field 2400 nm (Thronsen A extent), ratio = estimate / true N_V
+(a) registered per-object h_i = L_i*s; (b) Nie-Muddle class-level, app edge exclusion; (c) (b) + Miles-Lantuejoul edge weights; naive N/(A t)
+theta' edge-on     d= 20 t= 50  (a) 1.011 PASS  (b) 0.991 PASS  (c) 1.000 PASS  naive 1.39 FAIL
+theta' edge-on     d= 20 t=100  (a) 0.997 PASS  (b) 0.991 PASS  (c) 1.000 PASS  naive 1.19 FAIL
+theta' edge-on     d= 20 t=200  (a) 0.992 PASS  (b) 0.991 PASS  (c) 1.000 PASS  naive 1.09 FAIL
+theta' edge-on     d=100 t= 50  (a) 1.095 FAIL  (b) 0.957 PASS  (c) 1.000 PASS  naive 2.87 FAIL
+theta' edge-on     d=100 t=100  (a) 1.025 PASS  (b) 0.957 PASS  (c) 1.000 PASS  naive 1.91 FAIL
+theta' edge-on     d=100 t=200  (a) 0.984 PASS  (b) 0.957 PASS  (c) 1.000 PASS  naive 1.44 FAIL
+T1 {111} at <001>  d= 20 t= 50  (a) 1.001 PASS  (b) 0.986 PASS  (c) 1.000 PASS  naive 1.31 FAIL
+T1 {111} at <001>  d= 20 t=100  (a) 0.991 PASS  (b) 0.986 PASS  (c) 1.000 PASS  naive 1.15 FAIL
+T1 {111} at <001>  d= 20 t=200  (a) 0.988 PASS  (b) 0.986 PASS  (c) 1.000 PASS  naive 1.07 FAIL
+T1 {111} at <001>  d=100 t= 50  (a) 1.043 PASS  (b) 0.932 FAIL  (c) 1.000 PASS  naive 2.45 FAIL
+T1 {111} at <001>  d=100 t=100  (a) 0.984 PASS  (b) 0.932 FAIL  (c) 1.000 PASS  naive 1.69 FAIL
+T1 {111} at <001>  d=100 t=200  (a) 0.951 PASS  (b) 0.932 FAIL  (c) 1.000 PASS  naive 1.31 FAIL
+```
+
+The edge finding reaches the **shipped areal density** (Thronsen A, T1: 14 edge objects beside 43 counted). Changing
+it is its own Gate D, with the owner — not part of this build.
+
