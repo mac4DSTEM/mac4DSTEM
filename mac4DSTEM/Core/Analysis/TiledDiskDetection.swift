@@ -123,33 +123,52 @@ extension DiskDetection {
             }
             guard cancellation?.isCancelled != true else { prefetcher.cancel(); return nil }
             let byteCount = tile.pixels.count * MemoryLayout<Float>.stride
-            guard let buffer = MetalEngine.shared.device.makeBuffer(
-                bytes: tile.pixels,
-                length: byteCount,
-                options: .storageModeShared
-            ) else {
+            let tileDescriptor = DatasetDescriptor(
+                filePath: d.filePath, datasetPath: d.datasetPath,
+                shape: [range.count, d.rx, d.qy, d.qx],
+                dtypeDescription: d.dtypeDescription, chunkShape: nil
+            )
+            // One autorelease pool per tile. This loop is `async`, so no pool
+            // drains inside it; without one an autoreleased reference keeps
+            // each tile's MTLBuffer alive until the scan ends, and GPU memory
+            // grows by about one tile per tile (the resident detector itself
+            // is CPU-only) (Gate D, 2026-09-29: 1087 -> 2093 MB over four tiles of
+            // the Thronsen stride-3 cube, flat with a pool per tile —
+            // docs/archive/v4/tiled-detection-memory-gateD-2026-09-29.md).
+            // The `await` above stays outside the pool; nothing inside
+            // suspends. Arithmetic is untouched: peaks are bit-identical.
+            enum TileOutcome {
+                case peaks([[BraggPeak]])
+                case bufferFailed
+                case detectorFailed
+            }
+            let outcome: TileOutcome = autoreleasepool {
+                guard let buffer = MetalEngine.shared.device.makeBuffer(
+                    bytes: tile.pixels,
+                    length: byteCount,
+                    options: .storageModeShared
+                ) else { return .bufferFailed }
+                buffer.label = "Disk detection tile rows \(lower)..<\(upper)"
+                guard let detected = detectAll(
+                    cube: buffer, descriptor: tileDescriptor, kernel: kernel,
+                    params: params, cancellation: cancellation,
+                    progress: { fraction in
+                        coalesced?(
+                            (Double(lower) + fraction * Double(range.count)) / Double(d.ry)
+                        )
+                    }
+                ) else { return .detectorFailed }
+                return .peaks(detected.peaks)
+            }
+            switch outcome {
+            case .bufferFailed:
                 prefetcher.cancel()
                 // Same rule as the other two throw branches: a cancel racing
                 // this failure is a cancel, honoring "nil ONLY on
                 // cancellation" from both sides (Gate B, 2026-08-25).
                 guard cancellation?.isCancelled != true else { return nil }
                 throw FullScanError.bufferAllocation(rows: range, bytes: byteCount)
-            }
-            buffer.label = "Disk detection tile rows \(range.lowerBound)..<\(range.upperBound)"
-            let tileDescriptor = DatasetDescriptor(
-                filePath: d.filePath, datasetPath: d.datasetPath,
-                shape: [range.count, d.rx, d.qy, d.qx],
-                dtypeDescription: d.dtypeDescription, chunkShape: nil
-            )
-            guard let detected = detectAll(
-                cube: buffer, descriptor: tileDescriptor, kernel: kernel,
-                params: params, cancellation: cancellation,
-                progress: { fraction in
-                    coalesced?(
-                        (Double(lower) + fraction * Double(range.count)) / Double(d.ry)
-                    )
-                }
-            ) else {
+            case .detectorFailed:
                 prefetcher.cancel()
                 // The resident detector returns nil for exactly three
                 // reasons: cancellation, parameter validation (already
@@ -157,11 +176,12 @@ extension DiskDetection {
                 // detector build. Not-cancelled therefore means the build.
                 guard cancellation?.isCancelled != true else { return nil }
                 throw FullScanError.detectorUnavailable
+            case .peaks(let detected):
+                allPeaks.replaceSubrange(
+                    lower * d.rx..<upper * d.rx,
+                    with: detected
+                )
             }
-            allPeaks.replaceSubrange(
-                lower * d.rx..<upper * d.rx,
-                with: detected.peaks
-            )
         }
 
         progress?(1)

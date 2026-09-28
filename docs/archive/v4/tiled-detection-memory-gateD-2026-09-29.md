@@ -48,3 +48,30 @@ Gaps: A never completed, so A = B peaks is unchecked here (the probe's 8-row cro
 start at ≈ 0.93 GB after the origin fit, unexplained. The fix (pool per tile in Core, a memory harness broken first,
 refuter, unit gate) is overnight item A1.
 
+
+## Fix — overnight A1 (2026-09-29 night; Sonnet implementer, reviewed; refuter below)
+
+A pool per tile in `detectAll(data:)` (buffer + resident detection; the `await` stays outside) — and a **second
+mechanism the pool uncovered**: `findMaxima` appended every local maximum and trimmed with `removeAll(where:)` /
+`removeLast`, which keep the capacity, so each retained per-position array pinned its longest form (`Malloc Small`,
+≈ 14 MB per 512 positions in the harness, which runs the worst case: spacing filter off, `minPeakSpacing` 0 — at
+the app's default 60 the filter already rebuilds the array). The survivors are now copied to an exact-size array;
+peaks and diagnostics unchanged.
+Harness `tools/tiled-detection-memory-test` (gated in `scientific`; 12 × 32 MB generated tiles, limit 2 tiles):
+
+| Variant | Growth over 12 tiles | Verdict |
+|---|---|---|
+| original code | 473 MB | FAIL |
+| compaction, no pool | 321 MB | FAIL |
+| pool, no compaction | 153 MB | FAIL |
+| both (shipped) | 1 MB | PASS |
+
+First tile's peaks exact against the resident path; `cancellation-test` and `virtual-detector-test` (tiled parity)
+exit 0. Logs `a1-harness-red.log`, `a1-final-mut-*.log`, `a1-final-green.log`.
+
+**Refuter (Opus, read-only; `a1-refuter.md`): NOT REFUTED WITH FIXES.** Behaviour and every value preserved; harness
+sound (compiled `-Onone`). Corrected: the diagnosis's "command buffers and encoders" — the resident detector is
+CPU-only (vDSP); what is established is that an autoreleased reference keeps each tile's `MTLBuffer` alive. **Not
+covered:** `LearnedDiskDetection.detectAll(data:)` has the same per-tile `makeBuffer` in an async loop and awaits
+Core ML inside, so a plain pool cannot wrap it (own measurement owed); `VirtualDetector`'s tiled paths have the same
+shape — perhaps the unexplained ≈ 0.93 GB baseline, undiagnosed. Open item filed.

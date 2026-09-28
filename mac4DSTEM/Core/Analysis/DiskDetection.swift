@@ -1100,17 +1100,23 @@ package nonisolated final class DiskDetector {
         let afterSpacingCount = found.count
 
         let wasCountLimited = found.count > p.maxNumPeaks
-        if found.count > p.maxNumPeaks {
-            found.removeLast(found.count - p.maxNumPeaks)
-        }
+        // Copy the survivors into an array of their own size. `removeAll(where:)`
+        // and `removeLast` keep the capacity of every local maximum, and a
+        // whole-scan result retains one array per position. It bites when the
+        // spacing filter is off (`minPeakSpacing` 0; the filter rebuilds the
+        // array): ~14 MB per 512 positions in the memory harness (2026-09-29,
+        // tools/tiled-detection-memory-test). Same elements, same order.
+        var kept: [BraggPeak] = []
+        kept.reserveCapacity(min(found.count, p.maxNumPeaks))
+        kept.append(contentsOf: found.prefix(p.maxNumPeaks))
         return (
-            found,
+            kept,
             DiskDetectionPatternDiagnostics(
                 localMaximumCount: localMaximumCount,
                 afterAbsoluteThresholdCount: afterAbsoluteThresholdCount,
                 afterRelativeThresholdCount: afterRelativeThresholdCount,
                 afterSpacingCount: afterSpacingCount,
-                acceptedCount: found.count,
+                acceptedCount: kept.count,
                 wasCountLimited: wasCountLimited,
                 relativeReferenceIntensity: relativeReferenceIntensity,
                 relativeReferenceWasAvailable: relativeReferenceWasAvailable,

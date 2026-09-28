@@ -51,10 +51,13 @@ B1 (`archive/v4/b1-edge-on-gateD-2026-09-28.md`, `b1-narrow-guard-2026-09-28.md`
 needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves errors between classes — neither shipped.
 The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
 
-### Disk detection grows GPU memory one tile per tile — diagnosed 2026-09-29, fix is overnight A1
-No pool drains in `TiledDiskDetection.detectAll`'s async loop: +335 MB per 331 MB tile on Thronsen A, killed at
-2.6 GB; a pool per tile stays flat (one tile buffer). Not in the app on big cubes until the fix. Also: 1 px match tolerance on 256² → 97 % not
-indexed. Record `archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`.
+### Tiled GPU memory: classical detection fixed 2026-09-29 (A1); the learned and virtual-detector loops are not
+Classical `TiledDiskDetection.detectAll` holds one tile (a pool per tile, and `findMaxima` survivors copied to their
+own size); gated by `tools/tiled-detection-memory-test` (`archive/v4/tiled-detection-memory-gateD-2026-09-29.md`).
+**Open:** `LearnedDiskDetection.detectAll(data:)` has the same per-tile `makeBuffer` in an async loop but awaits
+Core ML inside, so a plain pool cannot wrap it — no learned Detect All Disks on multi-GB cubes until measured;
+`VirtualDetector`'s tiled loops have the same shape (maybe the unexplained ≈ 0.93 GB baseline). Separately: the 1 px
+match tolerance on 256² leaves 97 % not indexed (overnight D1).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a table row does not highlight its object;
