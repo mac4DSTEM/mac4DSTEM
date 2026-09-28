@@ -76,3 +76,25 @@ spatial-halves holdout as for k on 09-23, a physical reason for treating edge-on
 
 Diagnosed, no fix. The metric stays 7 against 5. Next, in order: register the edge-on-only guard with a spatial holdout;
 check the Al group against the full-resolution truth when it is on disk. Phase mapping stays badged unvalidated.
+
+## Addendum, same day: against the full-resolution truth
+
+The full-resolution truth came on disk with A3a (`References/thronsen-datasetA/published/ground_truth.hspy`, md5 checked).
+Stride-3 (r, c) is full-resolution (3r, 3c). Predictions were written before the pixels were read (`fullres-predictions.md`).
+
+| Prediction | Outcome |
+|---|---|
+| P1 the 3 truth-Al positions have truth edge-on within 1 px at ≥ 2 | **held**: (100,54) and (151,57) within 1 px; (10,103) within 2 px |
+| P2 the 5 truth-T1 positions have edge-on within 1 px at ≤ 1 | **held**: 0; all five are T1 for ≥ 2 px around ((46,126) borders face-on) |
+| P3 ≥ 2 of the 4 published maps call edge-on at each truth-Al pixel | **held**: vector analysis and template matching at all 3; NMF and ANN say Al |
+
+Population: of the app's 55 Al → edge-on positions at stride 3, 54 (98 %) lie within 1 full-resolution px of truth
+edge-on; published vector analysis 137 of 138, template matching 120 of 122, NMF 2 of 2, ANN 42 of 42.
+
+**What changes.** The 3 truth-Al objects are calls 2.5 nm from a truth needle. The needle pixel is not on the stride-3
+grid, so the call becomes an isolated object and counts as spurious. That is a property of scoring at stride 3, and every
+method's Al → edge-on calls share it. The bar is not moved on this; scoring at full resolution (A3, the stronger Mac) is
+where it is settled. **The error B1 has to fix is the 4 objects (5 positions) deep inside T1**, where edge-on's dense
+entry wins on one weak specific reflection. Thronsen's vector analysis makes the same call at 3 of them; her template
+matching, NMF and ANN mostly do not. Next: register a guard for that case (edge-on winning against a T1 runner-up on one
+specific reflection) with a spatial holdout and every class's cost.

@@ -60,8 +60,9 @@ guard (ADR 038) still needs a second truth dataset before "validated" (closed-it
 Adopted 2026-09-28 (ADR 040). **First scored run 2026-09-28**: FAIL on one metric, θ′ edge-on raw spurious 7 > 5.
 **B1 Gate D 2026-09-28** (`archive/v4/b1-edge-on-gateD-2026-09-28.md`): two populations. 5 positions in truth T1 pass the
 guard on one weak specific reflection; 3 in truth Al carry 2–4 (two lie along sampled truth needles; full-res truth unchecked).
-A global guard k = 2 gives 3 but breaks T1 (1.93 %) — rejected. An edge-on-only k = 2 passes T4 at 1.28 %, post hoc:
-**next** register it with a spatial holdout and a stated reason edge-on differs.
+A global guard k = 2 gives 3 but breaks T1 (1.93 %) — rejected. **Full-res truth (same day):** the 3 truth-Al calls sit
+1–2 px (2.5–5 nm) from truth needles not on the stride-3 grid (98 % of every method's Al → edge-on calls do); the 4 objects
+inside T1 are the real error. **Next:** register a guard for edge-on beating a T1 runner-up on one specific reflection.
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
