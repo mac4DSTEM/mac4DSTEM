@@ -193,8 +193,7 @@ package nonisolated enum DiffractionEmbedding {
         var cachedVectors = cacheEverything
             ? [Float](repeating: 0, count: totalPositions * dims) : []
 
-        var sumVec = [Double](repeating: 0, count: dims)
-        var sumOuter = [Double](repeating: 0, count: dims * dims)
+        var accumulator = OuterProductAccumulator(dims: dims)
 
         let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
         let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
@@ -240,7 +239,7 @@ package nonisolated enum DiffractionEmbedding {
                         let dst = posIndex * dims
                         for i in 0..<dims { cachedVectors[dst + i] = vector[i] }
                     }
-                    accumulate(vector, dims: dims, sumVec: &sumVec, sumOuter: &sumOuter)
+                    accumulator.add(vector)
                     processed += 1
                 }
             }
@@ -252,6 +251,7 @@ package nonisolated enum DiffractionEmbedding {
                 "Streamed \(processed) of \(totalPositions) scan positions.")
         }
         progress?(statsWeight)
+        let (sumVec, sumOuter) = accumulator.finish()
 
         // Mean and covariance in double precision.
         let n = Double(totalPositions)
@@ -516,26 +516,79 @@ package nonisolated enum DiffractionEmbedding {
         return out
     }
 
-    /// Fold one binned vector into the running (double precision) sum and
-    /// sum-of-outer-products used to form the mean and covariance once
-    /// streaming finishes. This is the dominant cost of the whole pass
-    /// (O(positions × dims²)) — inherent to exact covariance PCA, not a
-    /// property of this implementation, which is why `binnedSize` defaults
-    /// small (16 → dims = 256).
-    private static func accumulate(
-        _ vector: [Float], dims: Int, sumVec: inout [Double], sumOuter: inout [Double]
-    ) {
-        vector.withUnsafeBufferPointer { v in
-            sumVec.withUnsafeMutableBufferPointer { sv in
-                for i in 0..<dims { sv[i] += Double(v[i]) }
-            }
-            sumOuter.withUnsafeMutableBufferPointer { so in
-                for i in 0..<dims {
-                    let vi = Double(v[i])
-                    let rowBase = i * dims
-                    for j in 0..<dims { so[rowBase + j] += vi * Double(v[j]) }
+    /// The running (double precision) sum and sum of outer products that
+    /// become the mean and covariance once streaming finishes. The outer
+    /// products are the dominant cost of the whole pass (O(positions × dims²),
+    /// inherent to exact covariance PCA), so they go through Accelerate:
+    /// vectors are converted to double in chunks and each chunk updates the
+    /// upper triangle with one `cblas_dsyrk`; `finish` mirrors it into the
+    /// lower triangle once.
+    ///
+    /// Gate D, 2026-09-28 (`docs/archive/v4/embedding-accumulate-gateD-2026-09-28.md`).
+    /// The scalar loop this replaces took 84.8 of 90.7 s for 1 000 patterns at
+    /// 32 × 32 in an `-Onone` build (the owner's Debug build), against about
+    /// 0.4 s at `-O`. BLAS runs optimised in every configuration. The sums
+    /// agree with the old loop up to summation order and fused multiply-adds
+    /// (`DiffractionEmbeddingAccumulatorTests`, old loop kept verbatim there as the
+    /// reference). `sumVec` is still added element by element in position
+    /// order (`vDSP_vaddD`), so it is bit-identical to the old loop.
+    package struct OuterProductAccumulator {
+        package let dims: Int
+        /// Vectors per `dsyrk` call: 1 024 × dims doubles (8 MB at dims 1 024)
+        /// bounds the buffer however large a scan tile is.
+        package static let chunk = 1024
+        private var batch: [Double]
+        private var batched = 0
+        private var sumVec: [Double]
+        private var sumOuter: [Double]
+
+        package init(dims: Int) {
+            self.dims = dims
+            batch = [Double](repeating: 0, count: Self.chunk * dims)
+            sumVec = [Double](repeating: 0, count: dims)
+            sumOuter = [Double](repeating: 0, count: dims * dims)
+        }
+
+        package mutating func add(_ vector: [Float]) {
+            precondition(vector.count == dims)
+            let d = dims, offset = batched * d
+            batch.withUnsafeMutableBufferPointer { b in
+                vector.withUnsafeBufferPointer { v in
+                    vDSP_vspdp(v.baseAddress!, 1, b.baseAddress! + offset, 1, vDSP_Length(d))
+                }
+                sumVec.withUnsafeMutableBufferPointer { sv in
+                    vDSP_vaddD(sv.baseAddress!, 1, b.baseAddress! + offset, 1,
+                               sv.baseAddress!, 1, vDSP_Length(d))
                 }
             }
+            batched += 1
+            if batched == Self.chunk { flush() }
+        }
+
+        /// The sums, with the outer-product matrix full (both triangles).
+        package mutating func finish() -> (sumVec: [Double], sumOuter: [Double]) {
+            flush()
+            let d = dims
+            sumOuter.withUnsafeMutableBufferPointer { so in
+                for i in 1..<max(1, d) {
+                    for j in 0..<i { so[i * d + j] = so[j * d + i] }
+                }
+            }
+            return (sumVec, sumOuter)
+        }
+
+        /// sumOuter (row-major, upper triangle j ≥ i) += Bᵀ·B over the batched
+        /// rows B (batched × dims, row-major).
+        private mutating func flush() {
+            guard batched > 0 else { return }
+            let d = __LAPACK_int(dims), k = __LAPACK_int(batched)
+            batch.withUnsafeBufferPointer { b in
+                sumOuter.withUnsafeMutableBufferPointer { so in
+                    cblas_dsyrk(CblasRowMajor, CblasUpper, CblasTrans, d, k,
+                                1, b.baseAddress!, d, 1, so.baseAddress!, d)
+                }
+            }
+            batched = 0
         }
     }
 

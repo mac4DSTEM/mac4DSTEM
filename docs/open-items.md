@@ -98,14 +98,12 @@ Find Matrix Zone Axis reported "at chance". Setting Q 0,1904 nm⁻¹ and re-runn
 re-detection) gave T1 3680 / θ′ 833 / matrix 22 068 / not indexed 2660. Owner: "add this later" —
 refuse, or say why, when Q is uncalibrated. The stale zone-axis list also survives a calibration change.
 
-### Diffraction groups at 32 × 32 is too slow in a Debug build — measured 2026-09-28, fix is the owner's call
-Owner's drive 2026-09-24: 32 × 32 on 29 241 positions sat at "0 / 29 241" past 1:10. **Measured**
-(`tools/embedding-profile`, synthetic 128² patterns through the real `compute`, `profile-O.log` /
-`profile-Onone.log`): with `-O`, 2 000 patterns at 32 × 32 take 1.0 s (≈ 15 s for 29 241); with `-Onone`,
-1 000 take **90.7 s, 84.8 s of it `accumulate`** (d² scaling: 5.4 s at 16 × 16), ≈ 44 min for 29 241.
-Project Debug is `-Onone` and the owner runs the Debug build, so every scalar-heavy step is slow in it.
-Options (owner): run real work from a Release build; and/or one Accelerate `dsyr`/`syrk` in `accumulate`
-(needs an old-vs-new agreement fixture, since it moves the last digits). Synthetic data: file I/O not included.
+### Diffraction groups in a Debug build — accumulate fixed 2026-09-28 (Gate D); `embed` is the remaining cost
+Owner's drive 2026-09-24: 32 × 32 on 29 241 positions sat at "0 / 29 241" past 1:10. Profiled
+(`tools/embedding-profile`): the scalar covariance loop was 84.8 of 90.7 s per 1 000 patterns at `-Onone`
+(the Debug config the owner runs). Now `cblas_dsyrk` (`archive/v4/embedding-accumulate-gateD-2026-09-28.md`):
+6.3 s per 1 000 at `-Onone`, ≈ 3 min for the cube, **almost all of it `embed`** (per-pixel `log1p`; vectorising
+it would move values, so it needs its own agreement fixture). Owner's option: run real work from a Release build.
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
