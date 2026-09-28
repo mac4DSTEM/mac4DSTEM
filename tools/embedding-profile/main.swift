@@ -94,5 +94,12 @@ enum Probe {
         let embed = Date().timeIntervalSinceReferenceDate - e0
         print(String(format: "N %d  binned %d (d=%d)  comps %d groups %d | total %.3f s | stream %.3f (embed %.3f, accumulate+tiles %.3f) | eigen %.3f | project %.3f | kmeans+rest %.3f | groups %d sink %.1f",
                      patterns.count, binned, binned * binned, components, groups, t1 - t0, stream, embed, stream - embed, eigen, project, rest, r.groupCount, sink))
+        // Downstream agreement (2026-09-28, projection Gate D): the labels'
+        // FNV-1a hash and the group sizes, comparable across builds.
+        var h: UInt64 = 0xcbf29ce484222325
+        for g in r.groupOf { h = (h ^ UInt64(UInt32(bitPattern: Int32(g)))) &* 0x100000001b3 }
+        var sizes = [Int](repeating: 0, count: r.groupCount)
+        for g in r.groupOf where g >= 0 && g < sizes.count { sizes[g] += 1 }
+        print("  labels fnv1a \(String(h, radix: 16)) sizes \(sizes) explained \(r.explainedVariance.map { String(format: "%.6f", $0) }.joined(separator: " "))")
     }
 }
