@@ -414,9 +414,13 @@ Owner's build, the same ellipse copy. The ellipse was typed in Prepare (ADR 039:
 θ 20.5°) and Q 0.0275 typed ("pair radius 0.0275 Å⁻¹, one detector pixel"). Numbers are from the app
 log in the owner's screenshots (not retained). The 09-25 values from part 7 are in brackets.
 
-- Disks: **1 011 055** peaks (1 010 514). A first detection at the file's Q (0.0457) found
-  1 189 964, so something in detection depends on Q. The +541 against 09-25 is not explained and
-  was not investigated.
+- Disks: **1 011 055** peaks (1 010 514). An earlier detection the same morning found 1 189 964.
+  **Correction, same day:** the first version of this line said detection "depends on Q". It does
+  not. `TiledDiskDetection.detectAll` takes only the data, the descriptor, the probe kernel and
+  pixel/relative settings (`DiskDetectionParams`: floor, spacing, edge, …), so Q cannot move a
+  count. The differences come from detection settings the app log does not record (the floor, and
+  the minimum spacing, which is re-derived when the probe is measured). Which setting differed is
+  unknown.
 - Search rule, both β″ slots [0 0 1]: β″ 151 + 63, matrix 99 849 (91.7 %), not indexed 8 837
   (90 + 123, 99 976, 8 711). The needle streaks are drawn not indexed.
 - Search rule, [0 1 0] + [0 0 1]: 752 + 102, matrix 99 849, not indexed 8 197 (755 + 102,
