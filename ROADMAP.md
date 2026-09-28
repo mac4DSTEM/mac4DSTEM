@@ -116,7 +116,7 @@ settled; rooms move only on a concrete plan the owner accepts.
 **Order.**
 1. ~~**The 915-pt launch crash**~~: fixed 2026-09-28 (sidebar max 270, owner's pick).
 2. **Precipitate analysis, polished.** The owner's recipe reproduces the map in the app; finish what it lacks: the
-   per-phase slab field (engine and session done, `f633216`), then a polishing cycle over the whole precipitate path
+   per-phase slab field (landed 2026-09-28 night), then a polishing cycle over the whole precipitate path
    (settings, legend, objects, table, export). Thickness → volumetric density (PACBED) is the last missing step.
 3. **The owner's own Al-Mg-Si high-resolution scans, subsampled.** The 28 GB cubes are sampled in real space (every
    n-th position, full diffraction resolution kept), as was done for Thronsen's dataset: more reciprocal-space

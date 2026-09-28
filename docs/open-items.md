@@ -52,8 +52,6 @@ needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves e
 The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
-- a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
-  [010] + [001] needs a second CIF file name. Fix: a unique slot id (today `id == model.id`);
 - a table row does not highlight its object;
 - **owner request 2026-09-25:** mark on the CBED which disks each phase claimed (matrix / each β″ slot / unexplained), like the Bragg-disk rings — new surface: cost it, then Prepare-style mock first;
 - displayed numbers print "76.2" whatever the Mac's region: **declined by the owner 2026-09-28** (the app is English);

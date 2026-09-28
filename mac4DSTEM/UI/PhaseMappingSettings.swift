@@ -504,6 +504,7 @@ struct PhaseMappingSections: View {
             }
             if !slot.isMatrix {
                 orientationRelationshipField
+                excitationSlabField
                 if !orientationDraft.isEmpty,
                    PhaseMappingSlot.parseOrientationRelationships(orientationDraft) == nil {
                     Text("A relationship is pairs like (002) ∥ (200); planes in "
@@ -566,6 +567,39 @@ struct PhaseMappingSections: View {
                 .multilineTextAlignment(.trailing)
                 .labelsHidden()
             }
+        }
+
+        /// This phase's own excitation slab, or empty for the library's global
+        /// value (Reference library › Advanced), which the empty field shows
+        /// greyed. A thin plate's reflections stay excited much further from
+        /// the Bragg condition than the matrix's — θ′ edge-on at 0.3 Å⁻¹ in the
+        /// Thronsen recipe — so one global value cannot serve every phase.
+        private var excitationSlabField: some View {
+            @Bindable var product = appState.phaseMapping
+            let global = product.reference.excitationSlabInvAngstrom
+            let format = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(3))
+            return InspectorRow("Excitation slab") {
+                HStack(spacing: 6) {
+                    TextField("Excitation slab", value: Binding(
+                        get: { slot.excitationSlabInvAngstrom },
+                        set: { value in
+                            guard index < product.phases.count else { return }
+                            product.phases[index].excitationSlabInvAngstrom = value
+                        }
+                    ), format: format, prompt: Text(global.formatted(format)))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: LayoutPolicy.numericFieldWidth)
+                    Text("Å⁻¹")
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                }
+                .accessibilityLabel("Excitation slab")
+            }
+            .help("How far from the Bragg condition this phase's reflections still "
+                  + "count as excited. Empty = the library's global value, shown "
+                  + "grey. Changing it marks the map as needing a re-run.")
         }
 
         /// The orientation relationship to the matrix, in the form a paper
