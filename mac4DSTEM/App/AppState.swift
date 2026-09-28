@@ -939,7 +939,8 @@ final class AppState {
         return ProductWorkflow.currentReplaySignature(for: mode, virtualDetectorShape: resultPresentation.virtualShape.rawValue, aperture: aperture,
             dpcOriginReference: calibrationSession.calibration.hasFittedOrigin ? "calibrated origins" : "global center", diskKernel: probeKernel,
             diskParams: diskDetection.diskParams, learnedDetectorParameters: learnedDetection.replayParameters(for: learnedDetection.detectorClass),
-            strainSignature: strain.currentReplaySignature, acomSignature: acomSignature)
+            strainSignature: strain.currentReplaySignature, acomSignature: acomSignature,
+            diskPeaksProvenance: resultPresentation.braggVectors?.detectionProvenance)
     }
 
     // The result-value cache moved to `resultPresentation` with the result

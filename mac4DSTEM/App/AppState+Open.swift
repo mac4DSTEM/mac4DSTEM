@@ -671,9 +671,60 @@ extension AppState {
         if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
         await preloadResidentCube()
         if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
+        // After the cube is settled and BEFORE the initial analysis, so a
+        // reopen straight into Disks shows the restored Bragg map; the status
+        // line is re-asserted after it because that analysis (and the load's
+        // own stage lines) would otherwise overwrite the one sentence that
+        // says what happened to the stored disks.
+        let peaksNote = await restoreSessionPeaks(from: sessionSnapshot, for: descriptor)
         if runInitialAnalysis {
             await runCurrentAnalysis()
         }
+        if let peaksNote { statusText = peaksNote }
+    }
+
+    /// Adopt the peaks a session sidecar stores, when every check passes
+    /// (`SessionPeakRestore`); otherwise leave `braggVectors` nil and return
+    /// the reason. Returns the status sentence either way, nil when the
+    /// sidecar simply holds no peaks. Restores the PRODUCT only: no replay
+    /// step is recorded (the sidecar's own record was adopted above and is
+    /// what vouched for the peaks) and the learned-detector record is not
+    /// touched (`learnedDetection.record` is for a completed run). The read
+    /// is off the main actor and epoch-guarded like the calibration restore.
+    private func restoreSessionPeaks(
+        from snapshot: SessionSidecarSnapshot?, for descriptor: DatasetDescriptor
+    ) async -> String? {
+        guard let snapshot, snapshot.inventory.hasBraggVectors,
+              resultPresentation.braggVectors == nil else { return nil }
+        if let reason = SessionPeakRestore.refusalBeforeReading(
+            sessionSpecification: snapshot.loadSpecification ?? .fullExtent,
+            loadedSpecification: loadedView.specification,
+            replay: snapshot.replayRecord
+        ) { return reason }
+        guard let step = SessionPeakRestore.diskStep(in: snapshot.replayRecord) else { return nil }
+        let url = sessionSidecar.location(for: descriptor)
+        let epoch = datasetSession.epoch
+        let grid: BraggVectorEMDWriter.StoredPeakGrid?
+        do {
+            grid = try await Task.detached(priority: .utility) {
+                try BraggVectorEMDWriter.loadPeakGrid(from: url)
+            }.value
+        } catch {
+            guard epoch == datasetSession.epoch else { return nil }
+            return "Stored disks not used — \(Self.errorDetail(error))"
+        }
+        guard epoch == datasetSession.epoch else { return nil }
+        guard let grid else {
+            return "Stored disks not used — the session's peak grid could not be read"
+        }
+        if let reason = SessionPeakRestore.refusal(
+            for: grid, scanWidth: descriptor.rx, scanHeight: descriptor.ry,
+            detectorWidth: descriptor.qx, detectorHeight: descriptor.qy, step: step
+        ) { return reason }
+        resultPresentation.setBraggVectors(grid.vectors)
+        resultPresentation.setBraggPeakCount(grid.vectors.totalPeakCount)
+        let detected = step.recorded.formatted(date: .abbreviated, time: .omitted)
+        return "Disks restored from the session — \(grid.vectors.totalPeakCount) peaks (detected \(detected))"
     }
 
     /// Sample a cheap preview before the expensive passes, so the open shows

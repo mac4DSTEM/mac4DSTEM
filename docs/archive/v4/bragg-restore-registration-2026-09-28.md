@@ -35,3 +35,19 @@ Round trip write → read, per position, including empty positions and the axis 
 ## Decision for the owner (recommended default in bold)
 
 Restore **automatically when every check passes**, or ask each time ("Use stored disks?").
+
+## Built (2026-09-29; Sonnet implementer, reviewed)
+
+`BraggVectorEMDWriter.loadPeakGrid` (axes swapped back, empty positions, float64 → Float32); `SessionPeakRestore`
+(pure adoption checks, in `SessionCalibrationFramePolicy.swift`); `restoreSessionPeaks` at the end of `activate`,
+detached and epoch-guarded; `DiskDetectionRecordMatch` maps the provenance keys to the replay step's. **Automatic**
+(owner's choice) when the load specification decides `.identity`, a disk-detection step exists, and scan shape,
+detector shape and all 14 provenance keys match; otherwise "Stored disks not used — <why>". Adoption sets only the
+peaks and their count; replay and learned-detector records untouched. **Staleness hole closed:** with no kernel the
+disk signature is the peaks' own provenance restated in step keys, so a missing or disagreeing step reads stale.
+16 tests (`BraggPeakRestoreTests`), each red under its named mutation (`bragg-mut-*.log`). Unit **932 / 0 / 2 = 934**
+via the script's own xcodebuild line (`run-tests.sh unit` refused, exit 69: 3.7–4.0 GB free; scratch builds deleted
+after). **Open:** the detection controls stay at detector defaults after a restore, so once a kernel is built the
+restored disks read "computed with different settings" — seed the controls from the recorded step (next). **Not yet
+seen on screen** (the owed drive).
+

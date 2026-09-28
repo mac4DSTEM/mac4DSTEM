@@ -168,6 +168,70 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
     }
 }
 
+/// Compares the provenance a `BraggVectors` carries (`DiskDetectionParams.
+/// provenance`, the sidecar's `mac4dstem_detection_provenance`) with the
+/// parameters of a recorded `disk_detection` replay step
+/// (`DiskDetectionParams.replayParameters` + the detector-class keys). The two
+/// vocabularies name six keys differently (`sigma_dp_px` / `sigma_dp`, …), so
+/// this table is the one place that says which is which. Used to decide
+/// whether peaks restored from a sidecar are the peaks the recorded step made
+/// (docs/archive/v4/bragg-restore-registration-2026-09-28.md).
+package nonisolated enum DiskDetectionRecordMatch {
+    /// (provenance key, step key). Every pair is REQUIRED: a step or a
+    /// provenance that lacks one cannot be verified, and unverified peaks are
+    /// not adopted.
+    package static let requiredKeys: [(provenance: String, step: String)] = [
+        (DiskDetectionParameterID.correlationPower.rawValue, "corr_power"),
+        (DiskDetectionParameterID.patternSigma.rawValue, "sigma_dp"),
+        (DiskDetectionParameterID.correlationSigma.rawValue, "sigma_cc"),
+        (DiskDetectionParameterID.subpixel.rawValue, "subpixel"),
+        (DiskDetectionParameterID.upsampleFactor.rawValue, "upsample_factor"),
+        (DiskDetectionParameterID.minimumAbsoluteIntensity.rawValue, "min_absolute_intensity"),
+        (DiskDetectionParameterID.minimumRelativeIntensity.rawValue, "min_relative_intensity"),
+        (DiskDetectionParameterID.relativeReferencePeak.rawValue, "relative_to_peak"),
+        (DiskDetectionParameterID.relativeReferenceMinimumRadius.rawValue,
+         "relative_reference_minimum_radius_px"),
+        (DiskDetectionParameterID.minimumPeakSpacing.rawValue, "min_peak_spacing"),
+        (DiskDetectionParameterID.edgeBoundary.rawValue, "edge_boundary"),
+        (DiskDetectionParameterID.maximumPeaks.rawValue, "max_peaks"),
+        ("kernel_source", "kernel_source"),
+        ("kernel_mode", "kernel_mode"),
+    ]
+    /// Same name on both sides, compared only when the step carries it (a
+    /// classical step written before the detector class was recorded does not).
+    package static let optionalKeys = ["detector_class", "learned_threshold", "learned_model_sha256"]
+
+    /// The provenance restated in the recorded step's vocabulary, so it can be
+    /// compared with `DiskDetectionParams.replayParameters` /
+    /// `ProductWorkflow.stalenessVerdict`. A required key the provenance lacks
+    /// maps to "" — which differs from any recorded value — so an unverifiable
+    /// provenance reads as changed, never as matching.
+    package static func stepSignature(fromProvenance provenance: [String: String]) -> [String: String] {
+        var signature = [String: String]()
+        for pair in requiredKeys { signature[pair.step] = provenance[pair.provenance] ?? "" }
+        for key in optionalKeys { if let value = provenance[key] { signature[key] = value } }
+        return signature
+    }
+
+    /// The step keys whose values differ from the provenance's, sorted; empty
+    /// means the provenance is the recorded step's. An empty provenance
+    /// mismatches every required key.
+    package static func mismatches(
+        provenance: [String: String], stepParameters: [String: String]
+    ) -> [String] {
+        let signature = stepSignature(fromProvenance: provenance)
+        var differing = [String]()
+        for pair in requiredKeys {
+            let recorded = stepParameters[pair.step]
+            if recorded == nil || signature[pair.step] != recorded { differing.append(pair.step) }
+        }
+        for key in optionalKeys {
+            if let recorded = stepParameters[key], signature[key] != recorded { differing.append(key) }
+        }
+        return differing.sorted()
+    }
+}
+
 package nonisolated struct DiskDetectionContext: Sendable, Equatable {
     package let qy: Int
     package let qx: Int

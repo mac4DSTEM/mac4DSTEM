@@ -561,6 +561,153 @@ package nonisolated enum BraggVectorEMDWriter {
         )
     }
 
+    /// The peaks a sidecar's `braggvectors/_v_uncal` holds, with the detector
+    /// shape it was written against. `vectors.detectionProvenance` carries the
+    /// `mac4dstem_detection_provenance` attribute (empty when absent or
+    /// undecodable — absent provenance asserts nothing, so a caller that needs
+    /// it must refuse on the empty dictionary).
+    package struct StoredPeakGrid: Sendable {
+        package let vectors: BraggVectors
+        package let detectorHeight: Int
+        package let detectorWidth: Int
+
+        package nonisolated init(vectors: BraggVectors, detectorHeight: Int, detectorWidth: Int) {
+            self.vectors = vectors
+            self.detectorHeight = detectorHeight
+            self.detectorWidth = detectorWidth
+        }
+    }
+
+    /// The read half of `writePeakGrid` (2026-09-28, docs/archive/v4/
+    /// bragg-restore-registration-2026-09-28.md). Nil when the sidecar has no
+    /// peak grid (or no `_braggvectors_shape`, which the detector shape comes
+    /// from). Throws on an HDF5 failure or a non-finite peak — never a partial
+    /// grid. py4DSTEM's qx is the detector ROW and qy the COLUMN; the app's
+    /// `BraggPeak` is x = column, y = row, so the writer's swap is undone here.
+    /// float64 → Float32 is exact for values the writer produced from Float32.
+    package static func loadPeakGrid(
+        from url: URL,
+        supportedSchema: Int = SessionSidecarFormat.currentSchema
+    ) throws -> StoredPeakGrid? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let h5 = try HDF5WriteLibrary.load()
+        let fileID = url.path.withCString {
+            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
+        }
+        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
+        defer { _ = h5.h5fclose(fileID) }
+        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
+        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
+        defer { _ = h5.h5gclose(root) }
+        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
+
+        guard linkExists("braggvectors/_v_uncal/data", in: root, hdf5: h5) else { return nil }
+        let bragg = "braggvectors".withCString { h5.h5gopen2(root, $0, h5DefaultProperty) }
+        guard bragg >= 0 else { return nil }
+        defer { _ = h5.h5gclose(bragg) }
+        let provenance = decodeProvenance(try readStringAttribute(
+            "mac4dstem_detection_provenance", on: bragg, hdf5: h5
+        ))
+        guard let qShape = try readInt64Vector(
+            "metadatabundle/_braggvectors_shape/Qshape", from: bragg, count: 2, hdf5: h5
+        ), qShape.allSatisfy({ $0 > 0 }) else { return nil }
+
+        let group = "_v_uncal".withCString { h5.h5gopen2(bragg, $0, h5DefaultProperty) }
+        guard group >= 0 else { return nil }
+        defer { _ = h5.h5gclose(group) }
+        let dataset = "data".withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
+        guard dataset >= 0 else { return nil }
+        defer { _ = h5.h5dclose(dataset) }
+        let space = h5.h5dgetSpace(dataset)
+        guard space >= 0 else { throw WriterError.hdf5("opening the peak-grid dataspace") }
+        defer { _ = h5.h5sclose(space) }
+        guard h5.h5sgetSimpleExtentNdims(space) == 2 else { return nil }
+        var rawShape = [hsize_t](repeating: 0, count: 2)
+        guard rawShape.withUnsafeMutableBufferPointer({
+            h5.h5sgetSimpleExtentDims(space, $0.baseAddress, nil)
+        }) == 2,
+        rawShape.allSatisfy({ $0 > 0 && $0 <= hsize_t(Int32.max) }) else { return nil }
+        let scanHeight = Int(rawShape[0]), scanWidth = Int(rawShape[1])
+        let positions = scanHeight * scanWidth
+
+        // The memory type is the writer's own: vlen of {qx, qy, intensity}
+        // float64. HDF5 converts by member NAME, so a file that orders the
+        // fields differently (py4DSTEM's own) reads the same.
+        let compound = h5.h5tcreate(h5CompoundClass, MemoryLayout<EMDPeakRecord>.stride)
+        guard compound >= 0 else { throw WriterError.hdf5("creating the peak compound type") }
+        defer { _ = h5.h5tclose(compound) }
+        guard "qx".withCString({ h5.h5tinsert(compound, $0, 0, h5.nativeDouble) }) >= 0,
+              "qy".withCString({ h5.h5tinsert(compound, $0, 8, h5.nativeDouble) }) >= 0,
+              "intensity".withCString({ h5.h5tinsert(compound, $0, 16, h5.nativeDouble) }) >= 0 else {
+            throw WriterError.hdf5("defining the peak compound fields")
+        }
+        let variable = h5.h5tvlenCreate(compound)
+        guard variable >= 0 else { throw WriterError.hdf5("creating the variable-length peak type") }
+        defer { _ = h5.h5tclose(variable) }
+
+        var cells = [H5VariableLength](
+            repeating: H5VariableLength(length: 0, pointer: nil), count: positions
+        )
+        guard cells.withUnsafeMutableBytes({
+            h5.h5dread(dataset, variable, h5EntireDataspace, h5EntireDataspace,
+                       h5DefaultProperty, $0.baseAddress)
+        }) >= 0 else { throw WriterError.hdf5("reading the peak grid") }
+
+        // Every cell's buffer belongs to the library's allocator and is freed
+        // exactly once below, on the success path and the throwing one alike
+        // (a compound of doubles holds no nested variable-length data, so
+        // freeing each cell is the whole of `H5Dvlen_reclaim`).
+        defer {
+            for cell in cells { if let pointer = cell.pointer { _ = h5.h5freeMemory(pointer) } }
+        }
+        var peaks = [[BraggPeak]](repeating: [], count: positions)
+        for index in 0..<positions {
+            let cell = cells[index]
+            guard cell.length > 0 else { continue }
+            guard let pointer = cell.pointer, cell.length <= Int(Int32.max) else {
+                throw WriterError.hdf5("the peak grid holds a malformed cell")
+            }
+            let records = pointer.assumingMemoryBound(to: EMDPeakRecord.self)
+            var cellPeaks = [BraggPeak]()
+            cellPeaks.reserveCapacity(cell.length)
+            for item in 0..<cell.length {
+                let record = records[item]
+                // AXIS CONVERSION (inverse of writePeakGrid): qx = row = y, qy = column = x.
+                let peak = BraggPeak(
+                    x: Float(record.qy), y: Float(record.qx), intensity: Float(record.intensity)
+                )
+                guard peak.x.isFinite, peak.y.isFinite, peak.intensity.isFinite else {
+                    throw WriterError.hdf5("the peak grid holds a non-finite peak")
+                }
+                cellPeaks.append(peak)
+            }
+            peaks[index] = cellPeaks
+        }
+        return StoredPeakGrid(
+            vectors: BraggVectors(
+                scanWidth: scanWidth, scanHeight: scanHeight, peaks: peaks,
+                detectionProvenance: provenance
+            ),
+            detectorHeight: qShape[0], detectorWidth: qShape[1]
+        )
+    }
+
+    private static func readInt64Vector(
+        _ path: String, from parent: hid_t, count: Int, hdf5 h5: HDF5WriteLibrary
+    ) throws -> [Int]? {
+        guard linkExists(path, in: parent, hdf5: h5) else { return nil }
+        let dataset = path.withCString { h5.h5dopen2(parent, $0, h5DefaultProperty) }
+        guard dataset >= 0 else { return nil }
+        defer { _ = h5.h5dclose(dataset) }
+        var values = [Int64](repeating: 0, count: count)
+        guard values.withUnsafeMutableBytes({
+            h5.h5dread(dataset, h5.nativeLongLong, h5EntireDataspace, h5EntireDataspace,
+                       h5DefaultProperty, $0.baseAddress)
+        }) >= 0 else { throw WriterError.hdf5("reading dataset \(path)") }
+        return values.map { Int($0) }
+    }
+
     package static func loadInventory(from url: URL) throws -> SessionSidecarInventory {
         try loadSession(from: url).inventory
     }

@@ -138,3 +138,58 @@ package nonisolated enum SessionCalibrationTranslation {
         )
     }
 }
+
+/// When the peaks a session sidecar stores may be adopted on open
+/// (docs/archive/v4/bragg-restore-registration-2026-09-28.md). Pure, so each
+/// refusal is unit-pinned. Peaks are scan-indexed detector coordinates:
+/// unlike calibration they are never re-mapped between views, so the only
+/// frame treatment that adopts them is `.identity` — the exact view they were
+/// detected on. Every check that fails names itself in the returned sentence,
+/// which becomes the status line; a nil return means adopt.
+package nonisolated enum SessionPeakRestore {
+    package static let diskStepKind = "disk_detection"
+
+    /// The recorded disk-detection step, if the record has one.
+    package static func diskStep(in record: SessionReplayRecord?) -> SessionReplayRecord.Step? {
+        record?.steps.first { $0.kind == diskStepKind }
+    }
+
+    /// The checks that need no peaks read — run first so a sidecar that cannot
+    /// pass is never read (a Thronsen-A grid is 18 MB).
+    package static func refusalBeforeReading(
+        sessionSpecification: LoadSpecification,
+        loadedSpecification: LoadSpecification,
+        replay: SessionReplayRecord?
+    ) -> String? {
+        guard SessionCalibrationFramePolicy.decide(
+            session: sessionSpecification, loaded: loadedSpecification
+        ) == .identity else {
+            return "Stored disks not used — they were detected on a different view than the one loaded now"
+        }
+        guard diskStep(in: replay) != nil else {
+            return "Stored disks not used — the session's recipe has no disk-detection step to vouch for them"
+        }
+        return nil
+    }
+
+    /// The checks that need the stored grid.
+    package static func refusal(
+        for grid: BraggVectorEMDWriter.StoredPeakGrid,
+        scanWidth: Int, scanHeight: Int, detectorWidth: Int, detectorHeight: Int,
+        step: SessionReplayRecord.Step
+    ) -> String? {
+        guard grid.vectors.scanWidth == scanWidth, grid.vectors.scanHeight == scanHeight else {
+            return "Stored disks not used — they cover a \(grid.vectors.scanWidth) × \(grid.vectors.scanHeight) scan, not \(scanWidth) × \(scanHeight)"
+        }
+        guard grid.detectorWidth == detectorWidth, grid.detectorHeight == detectorHeight else {
+            return "Stored disks not used — they were detected on a \(grid.detectorWidth) × \(grid.detectorHeight) detector, not \(detectorWidth) × \(detectorHeight)"
+        }
+        let differing = DiskDetectionRecordMatch.mismatches(
+            provenance: grid.vectors.detectionProvenance, stepParameters: step.parameters
+        )
+        guard differing.isEmpty else {
+            return "Stored disks not used — their detection settings do not match the session's recorded disk-detection step (\(differing.joined(separator: ", ")))"
+        }
+        return nil
+    }
+}

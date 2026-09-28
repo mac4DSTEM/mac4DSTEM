@@ -443,7 +443,8 @@ enum ProductWorkflow {
         dpcOriginReference: String,
         diskKernel: ProbeKernel?, diskParams: DiskDetectionParams, learnedDetectorParameters: [String: String],
         strainSignature: [String: String],
-        acomSignature: [String: String]?
+        acomSignature: [String: String]?,
+        diskPeaksProvenance: [String: String]? = nil
     ) -> [String: String]? {
         switch mode {
         case .virtualDetector:
@@ -456,7 +457,16 @@ enum ProductWorkflow {
             // vectors, so nothing outside this task can make it stale.
             return nil
         case .disks:
-            guard let diskKernel else { return nil }
+            // No live kernel (a fresh open): there is nothing to rebuild the
+            // signature from, and `nil` here reads as "no comparison
+            // possible" → `.current` — which let peaks restored from a
+            // sidecar look valid before anything could vouch for them. Judge
+            // them by what they themselves record instead; a step that is
+            // missing or that disagrees then reads stale, and a kernel built
+            // later takes the ordinary branch below.
+            guard let diskKernel else {
+                return diskPeaksProvenance.map(DiskDetectionRecordMatch.stepSignature(fromProvenance:))
+            }
             return diskParams.replayParameters(kernel: diskKernel)
                 .merging(learnedDetectorParameters) { _, new in new }
         case .strain:
