@@ -12,6 +12,16 @@
 //        external volume falls back to a full read into anonymous memory
 //        (open-items "DM4Reader silently reads whole files into RAM off
 //        non-local volumes"); run it under run.sh's RSS watchdog.
+//    --subsample RAW.dm4 OUT.h5 --stride N
+//        Keep scan positions (r, c) with r % N == 0 and c % N == 0, FULL
+//        detector, stored dtype, as a py4DSTEM-readable EMD datacube; never
+//        more than one scan row of kept patterns in memory (subsample.swift).
+//    --verify-subsample RAW.dm4 OUT.h5 --stride N
+//        Every kept position, both sides read pattern by pattern, compared
+//        bit for bit; shape, dtype and calibration too. Exit 1 on any difference.
+//    --make-fixture PATH [--fixture-calibration]
+//        The 128 MB synthetic DM4; the flag adds axis calibration (q 0.125
+//        1/nm per px, r 3.5 nm) so the calibration copy can be proved.
 //    --parity RAW.dm4 PREPROCESSED.h5 [--bin 4] [--stride N]
 //        Every (stride-th) scan position of the raw file, binned by the app's
 //        own `LoadView` (sum, like py4DSTEM `bin_Q`), against the same
@@ -25,7 +35,7 @@ import Foundation
 /// Resident memory, and the anonymous footprint (`phys_footprint`). A mapped
 /// file's clean pages count in the first and not the second: the second is
 /// what a full read into memory grows, and what can exhaust swap.
-func memoryMB() -> (resident: Double, footprint: Double) {
+nonisolated func memoryMB() -> (resident: Double, footprint: Double) {
     var info = task_vm_info_data_t()
     var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
     let kr = withUnsafeMutablePointer(to: &info) {
@@ -37,12 +47,12 @@ func memoryMB() -> (resident: Double, footprint: Double) {
     return (Double(info.resident_size) / 1_048_576, Double(info.phys_footprint) / 1_048_576)
 }
 
-func memory() -> String {
+nonisolated func memory() -> String {
     let m = memoryMB()
     return String(format: "RSS %.0f MB, footprint %.0f MB", m.resident, m.footprint)
 }
 
-func fail(_ m: String) -> Never { FileHandle.standardError.write(Data("FAIL: \(m)\n".utf8)); exit(1) }
+nonisolated func fail(_ m: String) -> Never { FileHandle.standardError.write(Data("FAIL: \(m)\n".utf8)); exit(1) }
 
 @main
 enum DM4ParityProbe {
@@ -60,8 +70,13 @@ enum DM4ParityProbe {
             var pixels = ByteWriter()
             for i in 0..<(s * s * q * q) { pixels.i16le(Int16(truncatingIfNeeded: i % 30011)) }
             let n = UInt64(s * s * q * q)
+            let calibration = args.contains("--fixture-calibration")
+                ? calibrationDimensions(labels: ["0", "1", "2", "3"], scales: [0.125, 0.125, 3.5, 3.5],
+                                        units: ["1/nm", "1/nm", "nm", "nm"])
+                : nil
             let body = dm4Header() + groupHeader(nTags: 1)
                 + imageDataObject(qx: Int32(q), qy: Int32(q), rx: Int32(s), ry: Int32(s),
+                                  calibration: calibration,
                                   dataLength: n, dataPayload: pixels.bytes)
             try writeFixture(body, to: URL(fileURLWithPath: out))
             print("wrote \(out): \(body.count / 1_048_576) MB")
@@ -90,6 +105,16 @@ enum DM4ParityProbe {
             }
             return
         }
+        if let raw = value("--subsample"), let idx = args.firstIndex(of: "--subsample"), idx + 2 < args.count {
+            guard let stride = Int(value("--stride") ?? ""), stride >= 1 else { fail("--subsample needs --stride N (N >= 1)") }
+            try await Subsample.write(raw: raw, out: args[idx + 2], stride: stride)
+            return
+        }
+        if let raw = value("--verify-subsample"), let idx = args.firstIndex(of: "--verify-subsample"), idx + 2 < args.count {
+            guard let stride = Int(value("--stride") ?? ""), stride >= 1 else { fail("--verify-subsample needs --stride N (N >= 1)") }
+            try await Subsample.verify(raw: raw, out: args[idx + 2], stride: stride)
+            return
+        }
         if let raw = value("--open-only") {
             print("before open: \(memory())")
             let t0 = Date()
@@ -110,7 +135,7 @@ enum DM4ParityProbe {
             return
         }
         guard let raw = value("--parity"), let idx = args.firstIndex(of: "--parity"), idx + 2 < args.count
-        else { fail("usage: --open-only RAW.dm4 | --parity RAW.dm4 PRE.h5 [--bin 4] [--stride N]") }
+        else { fail("usage: --open-only RAW.dm4 | --subsample RAW OUT.h5 --stride N | --verify-subsample RAW OUT.h5 --stride N | --parity RAW.dm4 PRE.h5 [--bin 4] [--stride N]") }
         let pre = args[idx + 2]
         let bin = Int(value("--bin") ?? "4") ?? 4
         let stride = max(1, Int(value("--stride") ?? "1") ?? 1)

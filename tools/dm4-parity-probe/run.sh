@@ -22,7 +22,7 @@ for lib in libhdf5 libsz.2 libaec.0; do
   codesign -f -s - "$WORK/$lib.dylib" 2>/dev/null
 done
 xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -o "$WORK/probe" \
-  main.swift dm4writer.swift "${MAC4DSTEM_SOURCES[@]}" "${MAC4DSTEM_ISOLATION_FLAGS[@]}"
+  main.swift dm4writer.swift subsample.swift "${MAC4DSTEM_SOURCES[@]}" "${MAC4DSTEM_ISOLATION_FLAGS[@]}"
 codesign -f -s - "$WORK/probe" 2>/dev/null
 LIMIT="${DM4_PROBE_RSS_LIMIT_MB:-2048}"
 MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" "$WORK/probe" "$@" &
