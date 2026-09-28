@@ -407,3 +407,27 @@ and each of two mutations turns only its own test red.
 - **Q4 NOT REFUTED.** P1–P5 hold, number by number.
 
 **Still owed:** the 28 GB `--parity` run on the owner's stronger Mac (runbook in part 6).
+
+## Part 9: the owner's re-drive through the manual ellipse field, 2026-09-28
+
+Owner's build, the same ellipse copy. The ellipse was typed in Prepare (ADR 039: a 19.5, b 17.97,
+θ 20.5°) and Q 0.0275 typed ("pair radius 0.0275 Å⁻¹, one detector pixel"). Numbers are from the app
+log in the owner's screenshots (not retained). The 09-25 values from part 7 are in brackets.
+
+- Disks: **1 011 055** peaks (1 010 514). A first detection at the file's Q (0.0457) found
+  1 189 964, so something in detection depends on Q. The +541 against 09-25 is not explained and
+  was not investigated.
+- Search rule, both β″ slots [0 0 1]: β″ 151 + 63, matrix 99 849 (91.7 %), not indexed 8 837
+  (90 + 123, 99 976, 8 711). The needle streaks are drawn not indexed.
+- Search rule, [0 1 0] + [0 0 1]: 752 + 102, matrix 99 849, not indexed 8 197 (755 + 102,
+  99 976, 8 067).
+- Known variants, guard 1: **β″[010] 5 593 (5.1 %), β″[001] 1 719 (1.6 %), matrix 101 440
+  (93.1 %), not indexed 148 (0.1 %)** (5 633, 1 705, 101 512, 50). The streaks are labelled β″.
+  At minimum size 10 px there are 101 + 24 objects, with median lengths 13.4 / 15.4 nm and
+  392 / 93.1 per µm². Not counted: 10 on the scan edge and 2 071 under 10 px.
+
+So the typed ellipse reproduces the file-copy route to within 0.1 % of positions. The needles
+are still fragmented, and why they take the end-on slot's label is still untested. **Owner's
+next step:** more compute (the stronger Mac), then a new acquisition in microprobe mode, where
+sharper, non-overlapping disks should help detection at the source. The new data needs its own
+calibration from its matrix lattice. Unvalidated, like every map in this record.
