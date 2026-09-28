@@ -171,7 +171,8 @@ where Apple allows it (see C2). The first model is the learned disk detector.
 
    The spike's four pass criteria (a round trip ≤ 1e-2, the loss falling within ≤ 2 GB, the convs
    placed on the Neural Engine, the evaluation equal to `evaluate.py`'s) and its kill condition are in
-   the record. MLX stays out of the `DSTEMCore` package: SwiftPM cannot build its shaders. This also
+   the record. **Ran 2026-09-28 and failed as registered** (`archive/v4/c2-mlx-spike-2026-09-28.md`); the
+   heatmap bars are replaced by detection on held-out labels (ADR 043). MLX stays out of the `DSTEMCore` package: SwiftPM cannot build its shaders. This also
    re-decides Core ML against Core AI (ADR 014).
 3. **A training loop in Core.** It runs off the main thread, is cancellable, fits in a memory budget
    measured on the 8 GB Mac, and makes deterministic splits. Evaluation uses the record's rule
