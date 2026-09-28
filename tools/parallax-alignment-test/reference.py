@@ -352,9 +352,17 @@ def multilevel_alignment(schedule):
 
 
 diameter = int(max(np.ptp(indices[:, 0]), np.ptp(indices[:, 1])) + 1)
-schedule = (
-    2 ** np.arange(np.ceil(np.log2(diameter)).astype(int))[::-1]
-).tolist()
+# py4DSTEM parallax.py:1274-1281, line for line, with its defaults
+# (min_alignment_bin=1, num_iter_at_min_bin=2 at :1141). Before 2026-09-28 this
+# omitted the repeat of the finest bin and so agreed with the port by
+# construction (docs/archive/v4/parallax-bin-schedule-gateD-2026-09-28.md).
+min_alignment_bin, num_iter_at_min_bin = 1, 2
+bin_min = np.ceil(np.log(min_alignment_bin) / np.log(2))
+bin_max = np.ceil(np.log(diameter) / np.log(2))
+bin_vals = 2 ** np.arange(bin_min, bin_max)[::-1]
+if num_iter_at_min_bin > 1:
+    bin_vals = np.hstack((bin_vals, np.repeat(bin_vals[-1], num_iter_at_min_bin - 1)))
+schedule = [int(v) for v in bin_vals]
 
 json.dump(
     {

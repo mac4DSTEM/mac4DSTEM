@@ -129,17 +129,6 @@ loosen the pair-antiparallel tolerance (recovers ~half, raises Al-false-
 positive cost), or accept detection-limited recall.
 Owner: which lever, if any. Detail: `archive/open-items-detail-2026-09-18.md`.
 
-### Parallax default bin schedule runs the finest bin once; py4DSTEM's runs it twice — Gate D diagnosed 2026-09-17, fix owed
-`ParallaxAligner.defaultBinSchedule` returns `[4,2,1]`; py4DSTEM's default
-(`num_iter_at_min_bin=2`) appends one repeat → `[4,2,1,1]`, so every gate on
-`isComplete` computes one refinement pass short. Diagnosed (refuting
-observation confirmed: no `numIterAtMinBin` knob exists). Not yet run: the
-head-to-head experiment (py4DSTEM `reset=True` vs the port, max-abs diffs).
-**Trap:** `tools/parallax-alignment-test/reference.py:354-357` hard-codes the
-schedule without the repeat, so the green test can't catch this.
-Science, Gate D before any change. Owner: unclaimed.
-Detail: `archive/open-items-detail-2026-09-18.md`.
-
 ### ACOM / zone-axis science residuals — four measured gaps, no fix attempted
 - **Zone axis up to 12.8° beyond the bank's own sampling** (MEASURED
   2026-09-15): winner outscores the truth by 0.6–10 %, worst on ⟨122⟩. Next

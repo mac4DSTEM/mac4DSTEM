@@ -149,9 +149,18 @@ package nonisolated enum ParallaxAligner {
         }
     }
 
-    /// py4DSTEM's default `2 ** arange(ceil(log2(min)), ceil(log2(max)))[::-1]`.
+    /// py4DSTEM's default `2 ** arange(ceil(log2(min)), ceil(log2(max)))[::-1]`,
+    /// then the finest bin repeated `iterationsAtMinimumBin − 1` times
+    /// (`parallax.py:1274-1281`; `num_iter_at_min_bin` defaults to 2 at :1141),
+    /// e.g. [4, 2, 1, 1]. Until 2026-09-28 the repeat was missing, so every
+    /// "complete" alignment ran one refinement pass short
+    /// (`docs/archive/v4/parallax-bin-schedule-gateD-2026-09-28.md`).
+    /// DEVIATION: when no binning is possible (min ≥ max) py4DSTEM's
+    /// `bin_vals[-1]` raises IndexError on the empty list; this returns
+    /// `[minimum]` once, as before.
     package static func defaultBinSchedule(
-        detectorIndices: [ParallaxDetectorIndex], minimumBin: Int = 1
+        detectorIndices: [ParallaxDetectorIndex], minimumBin: Int = 1,
+        iterationsAtMinimumBin: Int = 2
     ) -> [Int] {
         guard !detectorIndices.isEmpty else { return [] }
         let rows = detectorIndices.map(\.qx)
@@ -162,7 +171,8 @@ package nonisolated enum ParallaxAligner {
         let minPower = Int(ceil(log2(Double(minimum))))
         let maxPower = Int(ceil(log2(Double(diameter))))
         guard minPower < maxPower else { return [minimum] }
-        return Array((minPower..<maxPower).reversed()).map { 1 << $0 }
+        let bins = Array((minPower..<maxPower).reversed()).map { 1 << $0 }
+        return bins + Array(repeating: bins.last!, count: max(0, iterationsAtMinimumBin - 1))
     }
 
     package static func groups(
