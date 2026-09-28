@@ -231,6 +231,14 @@ file `nonisolated`-verified by a cold app build.
 Owner: assign a session with Gate B support, or authorize continuing with a
 refuter. Detail: `archive/open-items-detail-2026-09-18.md`.
 
+### C2 spike failed as registered — owner decision on the ANE bar owed (2026-09-28)
+MLX trains the shipped graph and its weights reach the ANE (15/15 convs), but criterion 1's 1e-2 sits below the ANE's own
+fp16 error on the fixture (0.0355 shipped weights, 0.0591 fine-tuned); MLX's training peak is 2.78 GB at batch 8; in-memory
+injection is 3.2× slower (the on-disk package 1.00× but ≥ 0.056 off on the ANE); criterion 4 (the app's Swift path) not run.
+**Owed:** the owner decides how a fine-tuned model is judged on the ANE (a bar from a measured distribution, detection on
+held-out labels, or GPU inference); a smaller training step; criterion 4. Record
+`archive/v4/c2-mlx-spike-2026-09-28.md`.
+
 ### The detector's real-data truth re-labelled and committed (A2, 2026-09-28); not yet scored
 The owner's 306 labels (sha `3c43e89d…`) were lost while `.gitignore:44` ignored them; the line is gone. The same
 40 seed-1 bullseye positions were re-labelled by Claude by eye (no detector consulted), approved by the owner on the
