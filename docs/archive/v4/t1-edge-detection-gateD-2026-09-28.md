@@ -30,3 +30,17 @@ lever is detection that finds weak real disks without noise, which is what a det
 **Next.** Register a detection change scored under T4 with every class's cost: a learned detector fine-tuned on marked
 disks (C3), or a LoG-style finder as a second classical option. Each is judged on per-position error and every class's
 speckle together.
+
+## Addendum, same evening: what the missed peaks are
+
+Looked at directly (`figs/06-t1-edge-closer.png`, linear and log, with her full peak list, her non-Al list, ours, and the
+Al positions from her pure-Al pattern), every visible disk in the example T1-edge patterns sits on an Al reflection; no
+T1 lattice is visible. Measured over all 204 positions (contrast of a 1.5 px disc against a 4–7 px ring, in the ring's
+noise σ): Al disks median **64.6 σ** (p10 41.0); her non-Al peaks median **1.7 σ** (p10 0.9, p90 2.9, n = 625); random
+background spots −0.3 σ. Her extra peaks are real but about 40 times fainter than the Al disks: at most a trace of T1.
+
+**Revised reading.** The diagnosis above holds mechanically (she keeps features we do not detect), but the features are
+barely above noise, and the patterns are Al to the eye (the owner's reading too). At plate edges the truth's T1 label
+follows where the annotators drew the boundary in virtual dark-field images, which the paper states is uncertain. Most of
+the 204 are therefore an edge-definition question, not a detection failure to chase. The stride-3 sampling is not a
+cause: each pattern is the full-resolution pattern at that position.
