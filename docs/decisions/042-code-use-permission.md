@@ -7,8 +7,7 @@ Status: live. This supersedes the "may not copy" line of `archive/v3/sped-phase-
 
 ## Decision
 
-The owner spoke with Elisabeth Thronsen, the paper's first author and the repository's owner
-(`elisathr/SPED-phase-mapping`), on 2026-09-28. She confirmed that the code was published to be used.
+The code was published to be used.
 The owner undertook:
 - **not to copy it 1:1** into mac4DSTEM;
 - to **use it to establish ground truths**: run it locally and reproduce the paper's outputs;
