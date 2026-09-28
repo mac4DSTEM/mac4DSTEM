@@ -85,3 +85,18 @@ The refuter found no refuting observation. It checked the handback itself: both 
 - **Wording.** An earlier line said the Debug build "explains" the 2026-09-24 stall. The probe
   excludes file I/O, so the stall is **consistent with** the Debug cost; the probe does not explain
   it.
+
+## Addendum, same day: the agreement tests made cheap
+
+The verbatim old loop is the slow `-Onone` loop itself. At the production chunk, the multi-chunk tests
+took **88.5 s and 17.3 s** of every unit run (`unit-rq-20260928.log`). `OuterProductAccumulator.init`
+now takes a `chunk` argument, defaulting to the production 1 024, so a test can cross chunk boundaries
+with few vectors. The new cases:
+- d 1024 with chunk 16, 41 vectors: 3.6 s;
+- d 256 with chunk 64, 301 vectors: 1.5 s;
+- the production chunk crossed at d 49 with 2 124 vectors: 0.4 s;
+- below one chunk, unchanged: 0.01 s.
+
+Broken first: no mirror and no final flush turn all four red, and the stale row at a boundary turns
+all three multi-chunk tests red (`trim/m*.log`). Production behaviour is unchanged: the default chunk
+is the one that shipped.

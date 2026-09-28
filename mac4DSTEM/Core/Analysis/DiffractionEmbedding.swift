@@ -624,14 +624,18 @@ package nonisolated enum DiffractionEmbedding {
         /// Vectors per `dsyrk` call: 1 024 × dims doubles (8 MB at dims 1 024)
         /// bounds the buffer however large a scan tile is.
         package static let chunk = 1024
+        /// `chunk` in production; a test may pass a small one to cross chunk
+        /// boundaries with few vectors (its reference loop is slow in Debug).
+        private let chunkSize: Int
         private var batch: [Double]
         private var batched = 0
         private var sumVec: [Double]
         private var sumOuter: [Double]
 
-        package init(dims: Int) {
+        package init(dims: Int, chunk: Int = OuterProductAccumulator.chunk) {
             self.dims = dims
-            batch = [Double](repeating: 0, count: Self.chunk * dims)
+            chunkSize = max(1, chunk)
+            batch = [Double](repeating: 0, count: chunkSize * dims)
             sumVec = [Double](repeating: 0, count: dims)
             sumOuter = [Double](repeating: 0, count: dims * dims)
         }
@@ -649,7 +653,7 @@ package nonisolated enum DiffractionEmbedding {
                 }
             }
             batched += 1
-            if batched == Self.chunk { flush() }
+            if batched == chunkSize { flush() }
         }
 
         /// The sums, with the outer-product matrix full (both triangles).

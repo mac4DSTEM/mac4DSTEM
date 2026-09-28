@@ -41,11 +41,12 @@ final class DiffractionEmbeddingAccumulatorTests: XCTestCase {
         }
     }
 
-    private func assertAgreement(count: Int, dims: Int, file: StaticString = #filePath, line: UInt = #line) {
+    private func assertAgreement(count: Int, dims: Int, chunk: Int = DiffractionEmbedding.OuterProductAccumulator.chunk,
+                                 file: StaticString = #filePath, line: UInt = #line) {
         let data = vectors(count: count, dims: dims, seed: UInt64(count * 31 + dims))
         var refVec = [Double](repeating: 0, count: dims)
         var refOuter = [Double](repeating: 0, count: dims * dims)
-        var accumulator = DiffractionEmbedding.OuterProductAccumulator(dims: dims)
+        var accumulator = DiffractionEmbedding.OuterProductAccumulator(dims: dims, chunk: chunk)
         for v in data {
             Self.accumulate(v, dims: dims, sumVec: &refVec, sumOuter: &refOuter)
             accumulator.add(v)
@@ -65,14 +66,23 @@ final class DiffractionEmbeddingAccumulatorTests: XCTestCase {
         }
     }
 
-    /// The shipped default (16 × 16): three chunks and a remainder.
+    /// The shipped default (16 × 16): four chunks of 64 and a remainder. The
+    /// chunk is small so the reference loop stays cheap in a Debug build
+    /// (2 500 vectors at the production chunk took 17 s of every unit run).
     func testAgreesWithTheOldLoopAtTheDefaultSize() {
-        assertAgreement(count: 2 * DiffractionEmbedding.OuterProductAccumulator.chunk + 452, dims: 256)
+        assertAgreement(count: 4 * 64 + 45, dims: 256, chunk: 64)
     }
 
-    /// 32 × 32, the size the owner found too slow; one chunk and a remainder.
+    /// 32 × 32, the size the owner found too slow: two chunks of 16 and a
+    /// remainder (1 100 vectors at the production chunk took 88 s).
     func testAgreesWithTheOldLoopAtThirtyTwo() {
-        assertAgreement(count: DiffractionEmbedding.OuterProductAccumulator.chunk + 76, dims: 1024)
+        assertAgreement(count: 2 * 16 + 9, dims: 1024, chunk: 16)
+    }
+
+    /// The production chunk's own boundary, at a small dimension so it is
+    /// cheap: two full chunks of 1 024 and a remainder.
+    func testAgreesWithTheOldLoopAcrossTheProductionChunk() {
+        assertAgreement(count: 2 * DiffractionEmbedding.OuterProductAccumulator.chunk + 76, dims: 49)
     }
 
     /// Fewer vectors than a chunk, and a non-square-friendly dimension.
