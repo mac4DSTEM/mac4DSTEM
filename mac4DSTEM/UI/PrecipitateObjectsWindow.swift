@@ -36,6 +36,7 @@ struct PrecipitateObjectsWindow: View {
     var body: some View {
         VStack(spacing: 0) {
             summary
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             Divider()
@@ -128,26 +129,33 @@ struct PrecipitateObjectsWindow: View {
     private var table: some View {
         Table(rows, selection: $selection, sortOrder: $sortOrder) {
             TableColumn("ID", value: \.id) { Text("\($0.id)").monospacedDigit() }
-                .width(min: 40, ideal: 50)
+                .width(min: 36, ideal: 44)
             TableColumn("Phase", value: \.phaseName) { row in
                 HStack(spacing: 6) {
                     PhaseSwatch(rgb: report.color(of: row.label))
                     Text(row.phaseName)
                 }
             }
-            .width(min: 120, ideal: 190)
+            // Wide enough for "thetaprime_thronsen2024 [1 0 0]": two copies of
+            // one structure differ only in that suffix (seen truncated,
+            // 2026-09-28 drive).
+            .width(min: 160, ideal: 250)
             TableColumn("Area (\(areaUnit))", value: \.areaPx) { row in
                 Text(row.area.map { format($0) } ?? row.areaPx.formatted()).monospacedDigit()
             }
+            .width(min: 56, ideal: 80)
             TableColumn("Length (\(unit))", value: \.lengthPx) { row in
                 Text(format(row.length ?? row.lengthPx)).monospacedDigit()
             }
+            .width(min: 56, ideal: 80)
             TableColumn("Width (\(unit))", value: \.widthPx) { row in
                 Text(format(row.width ?? row.widthPx)).monospacedDigit()
             }
+            .width(min: 56, ideal: 80)
             TableColumn("Aspect", value: \.aspectRatio) { row in
                 Text(format(row.aspectRatio)).monospacedDigit()
             }
+            .width(min: 48, ideal: 64)
             TableColumn("Orientation", value: \.orientationDegrees) { row in
                 Text(row.orientationDegrees.formatted(.number.precision(.fractionLength(1))) + "°")
                     .monospacedDigit()
@@ -156,6 +164,7 @@ struct PrecipitateObjectsWindow: View {
             TableColumn("Position", value: \.centroidY) { row in
                 Text("\(Int(row.centroidX.rounded())), \(Int(row.centroidY.rounded()))").monospacedDigit()
             }
+            .width(min: 64, ideal: 76)
             TableColumn("Counted", value: \.countedSortKey) { row in
                 if let why = row.exclusion {
                     Text("no — \(why)").foregroundStyle(.secondary)

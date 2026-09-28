@@ -56,7 +56,7 @@ The largest error class, T1 edges called Al (204), is mostly where the truth dra
 - **owner request 2026-09-25:** mark on the CBED which disks each phase claimed (matrix / each β″ slot / unexplained), like the Bragg-disk rings — new surface: cost it, then Prepare-style mock first;
 - displayed numbers print "76.2" whatever the Mac's region: **declined by the owner 2026-09-28** (the app is English);
 - zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0);
-- **driven 2026-09-24** (owner's Debug build of `ae732b7`, real Al-Mg-Si cube): the density sits on its own line (seen); **the Object Table's last column is clipped** at its default 980 pt width (header shows "C", reachable by horizontal scroll), and the Phase column truncates both names to "beta_double_prime_Mg5S…", hiding the zone-axis suffix;
+- the relationship field's grey prompt "(002) ∥ (200), …" reads like a value on a new phase (empty = any rotation; 2026-09-28 drive);
 
 
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
