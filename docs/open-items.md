@@ -406,6 +406,14 @@ seen on screen — light appearance on a real cube, a real load cancel, the
 bounded promote run. Retired checklist trap notes:
 `archive/v2/visual-acceptance-checklist-2026-09-03.md`. Owner: one sitting.
 
+### The constraint-loop crash REPRODUCED at the 915-pt minimum width — blocks the unit gate (2026-09-28)
+The unit gate's test host aborts at launch: "The window has been marked as needing another Update Constraints in Window
+pass, but it has already had more … passes than there are views", window `{{555, 0}, {915, 923}}` (915 pt = ADR 035's
+minimum). It reproduces on committed code (`2862526`…`555e0c6`, today's phase-slot change set aside), serial or parallel,
+with the owner's app not running (`unit-repro.log`, `unit-baseline-check.log`). The unit gate was green this morning, so
+what changed is the environment (saved window state after today's drive), not code. Frozen Shell territory: Gate D first,
+then a fix against a picture the owner accepts. **Next session's first target.**
+
 ### The constraint-loop crash rule, and one unreproduced crash of its class (2026-09-04, 2026-09-22)
 **The rule, demonstrated 2026-09-04: nothing inside a split's hosted content
 may repeatedly change its own minimum size.** Two sites, both in the status

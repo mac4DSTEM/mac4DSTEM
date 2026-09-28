@@ -38,15 +38,18 @@ extension AppState {
     func phaseDefinitions() -> [PhaseDefinition]? {
         guard phaseMapping.runRefusal == nil else { return nil }
         let names = phaseMapping.phases.map(\.model.displayName)
+        let ids = phaseMapping.phases.map(\.model.id)
         return phaseMapping.phases.map { slot in
             let shared = names.filter { $0 == slot.model.displayName }.count > 1
+            let sharedID = ids.filter { $0 == slot.model.id }.count > 1
             return PhaseDefinition(
-                id: slot.model.id,
+                id: sharedID ? "\(slot.model.id)@\(slot.u),\(slot.v),\(slot.w)" : slot.model.id,
                 displayName: shared ? "\(slot.model.displayName) \(slot.zoneAxisText)" : slot.model.displayName,
                 crystal: slot.model.crystal,
                 role: slot.isMatrix ? .matrix : .candidate,
                 zoneAxes: [slot.zoneAxis],
-                orientationRelationships: slot.isMatrix ? [] : slot.orientationRelationships
+                orientationRelationships: slot.isMatrix ? [] : slot.orientationRelationships,
+                excitationSlabInvAngstrom: slot.excitationSlabInvAngstrom
             )
         }
     }

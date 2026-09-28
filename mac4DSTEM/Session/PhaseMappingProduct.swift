@@ -45,8 +45,16 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
     /// states an OR, not a pre-parsed pair. Empty (the default) is free: no
     /// constraint on the in-plane rotation.
     package var orientationRelationshipText: String = ""
+    /// This phase's excitation slab (Å⁻¹), or nil for the library's global value.
+    /// Thronsen et al. use 0.300 for θ′ and 0.030 for T1 in one run; one global
+    /// field cannot hold both (B1 reproduction, 2026-09-28).
+    package var excitationSlabInvAngstrom: Double?
+    /// The slot's own identity. Not the CIF's: the same structure can sit in the
+    /// list twice, once per zone axis (θ′ edge-on [100] and face-on [001]), and
+    /// keying slots by `model.id` made the second one collide silently.
+    package var slotID = UUID()
 
-    package var id: String { model.id }
+    package var id: String { slotID.uuidString }
     package var zoneAxis: SIMD3<Int> { SIMD3(u, v, w) }
     package var zoneAxisText: String { "[\(u) \(v) \(w)]" }
     /// `orientationRelationshipText` parsed, or empty when it does not parse.
@@ -60,15 +68,16 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
     /// CIFs that share an id, which `CrystalModel` already records.
     package var signature: String {
         "\(model.id)|\(model.contentFingerprint)|\(isMatrix ? "m" : "c")|\(u),\(v),\(w)"
-            + "|\(orientationRelationshipText)"
+            + "|\(orientationRelationshipText)|\(excitationSlabInvAngstrom.map { String($0) } ?? "global")"
     }
 
     package init(model: CrystalModel, isMatrix: Bool, u: Int, v: Int, w: Int,
-                 orientationRelationshipText: String = "") {
+                 orientationRelationshipText: String = "", excitationSlabInvAngstrom: Double? = nil) {
         self.model = model
         self.isMatrix = isMatrix
         self.u = u; self.v = v; self.w = w
         self.orientationRelationshipText = orientationRelationshipText
+        self.excitationSlabInvAngstrom = excitationSlabInvAngstrom
     }
 
     /// "0 1 0", "0,1,0", "[010]" or "0 -1 2" — three integers however a
@@ -295,6 +304,14 @@ package final class PhaseMappingProduct {
         }
         for slot in phases where !slot.model.isUsable {
             return "\(slot.model.displayName) has validation issues and cannot be used."
+        }
+        // The same structure twice is allowed (one slot per zone axis); twice at the
+        // same zone axis is the same reference twice, which can only split its votes.
+        for (i, slot) in phases.enumerated() {
+            if phases[..<i].contains(where: { $0.model.id == slot.model.id
+                && $0.model.contentFingerprint == slot.model.contentFingerprint && $0.zoneAxis == slot.zoneAxis }) {
+                return "\(slot.model.displayName) is in the list twice at \(slot.zoneAxisText); give each copy its own zone axis."
+            }
         }
         return nil
     }
