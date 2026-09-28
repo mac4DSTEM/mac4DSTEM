@@ -231,12 +231,12 @@ file `nonisolated`-verified by a cold app build.
 Owner: assign a session with Gate B support, or authorize continuing with a
 refuter. Detail: `archive/open-items-detail-2026-09-18.md`.
 
-### The detector's only real-data truth is lost — the owner's 306 hand labels (2026-09-08), 2026-09-28
-The label JSON (sha `3c43e89d…`) was gitignored and is no longer on disk. `net-labels.npz` holds the net's own
-heatmaps, not the labels (refuter, `archive/v4/default-floor-gateD-2026-09-28.md`). Without them, neither the
-learned detector nor the classical floor (ADR 041) can be scored on real data. **Owed:** re-label (the in-app
-Training labels rows) and **commit labels** from now on: they are the owner's, and small. This is the
-first step of on-device training.
+### The detector's real-data truth re-labelled and committed (A2, 2026-09-28); not yet scored
+The owner's 306 labels (sha `3c43e89d…`) were lost while `.gitignore:44` ignored them; the line is gone. The same
+40 seed-1 bullseye positions were re-labelled by Claude by eye (no detector consulted), approved by the owner on the
+review sheet, central beam kept: 370 centres, 148 in the central 128 px (`tools/disk-detector/labels/bullseye-2026-09-28.json`).
+Not the C6 file: its numbers compare only as a new set. **Owed:** score both detectors (learned, classical at 0.15 %).
+The in-app labelling route is still untried on real data.
 
 ### DM4 on external volumes — fixed and proved small 2026-09-28; the 28 GB parity run owed
 `.mappedIfSafe` read whole files into anonymous memory off any removable or network volume; on 2026-09-24 the

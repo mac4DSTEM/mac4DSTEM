@@ -94,7 +94,7 @@ the visibility rule it recovers 207/230 = 0.900 (2026-09-07), a number
 `evaluate.py` now reports as `fixture_classical` beside the net's. `check_export.py` exits 1 outside
 `--tolerance` (max |heatmap diff| vs PyTorch float16, default 0.1) or below
 `--min-peak-recall` (0.98), and exits 1 when nothing was checked. The
-hand-labelled test set is the owner's data under `labels/` (gitignored);
+hand-labelled test set is committed under `labels/` (A2, 2026-09-28: the gitignored C6 file was lost);
 `evaluate.py --labels` scores the net at the shipped threshold AND the
 classical detector against it, so the comparison is against truth.
 

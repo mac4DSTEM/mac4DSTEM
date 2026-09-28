@@ -98,3 +98,18 @@ on 2026-09-05 as a reference was never part of a shipped build and was removed
 from the tree on 2026-09-07. abTEM (GPL-3.0) is used only as a simulation tool
 during development; nothing from it is distributed. Any detector mac4DSTEM
 ships is trained on its own data with its own weights.
+
+
+================================================================================
+Third-party ground truth
+================================================================================
+
+tools/thronsen-dataset/truth/truth_stride3.json is derived from the ground-truth
+phase map of Thronsen et al., "Scanning precession electron diffraction data
+analysis approaches for phase mapping of precipitates in aluminium alloys",
+Ultramicroscopy 255 (2024) 113861, data at Zenodo 10.5281/zenodo.6645396
+(ground_truth.hspy), licensed CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Changed: every third row and
+column kept (tools/thronsen-dataset/make_truth.py), written as JSON. SHA-256
+45600cce0e59cf8dd3325ba71da091986b0b98635988e3623702753b75ca4af4. It is not
+distributed in the application bundle.

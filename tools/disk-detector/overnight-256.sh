@@ -3,7 +3,7 @@
 #   ingredients --size 256 -> train --size 256 -> export -> check -> evaluate --asset --labels
 # each step's stdout+stderr logged to <outdir>, the chain stopping at the FIRST non-zero exit (the
 # committed 128-px fixture and its `run.sh fixture` gate are untouched by any of this). The owner's
-# frozen hand-labelled bullseye set (C6, tools/disk-detector/labels/, gitignored) is used if
+# hand-labelled bullseye set (tools/disk-detector/labels/, committed since A2 2026-09-28) is used if
 # present; otherwise evaluate runs without --labels and every other number still comes out.
 #
 #   tools/disk-detector/overnight-256.sh <outdir>
@@ -19,7 +19,7 @@ mkdir -p "$OUT"
 REPO="$(cd ../.. && pwd)"
 BULLSEYE="$REPO/References/training_dataset/calibrationData_bullseyeProbe.h5"
 WS2="$REPO/References/training_dataset/polycrystal_2D_WS2.h5"
-LABELS="labels/bullseye-2026-09-08.json"   # the owner's frozen hand-labelled set (C6), if it exists
+LABELS="labels/bullseye-2026-09-28.json"   # the re-labelled seed-1 set (A2; the C6 file was lost), if it exists
 RUN="$OUT/run"
 INGREDIENTS="$OUT/ingredients-256.npz"
 

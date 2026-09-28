@@ -10,7 +10,7 @@ looks at a heatmap; it is NEVER used for selection. Output JSON: cube, dataset, 
 frame: "native", positions [{ry, rx, centres [[row, col], ...]}], and its own sha256 over the
 positions — the number that goes into the evidence file with the counts. evaluate.py --labels maps
 these native centres into whatever model frame it is scoring (`simulate.fit_offset`). The file is
-the owner's data (tools/disk-detector/labels/ is gitignored).
+the owner's data, committed under tools/disk-detector/labels/ (never gitignored again: ROADMAP A2).
 
     run.sh label --cube <h5> --dataset 4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data \\
                  --ingredient bullseye --out labels/bullseye-2026-09-08.json [--n 40] [--seed 1]
