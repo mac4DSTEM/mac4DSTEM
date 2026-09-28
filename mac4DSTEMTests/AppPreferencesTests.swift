@@ -45,7 +45,6 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.openBehaviour, .direct)
         XCTAssertFalse(prefs.keepAwake)
         XCTAssertEqual(prefs.logVerbosity, .normal)
-        XCTAssertEqual(prefs.enginePreference, .automatic)
         XCTAssertTrue(prefs.offerLearnedDetector)
     }
 
@@ -67,7 +66,6 @@ final class AppPreferencesTests: XCTestCase {
         writer.openBehaviour = .options
         writer.keepAwake = true
         writer.logVerbosity = .verbose
-        writer.enginePreference = .metal
         writer.offerLearnedDetector = false
 
         let reader = AppPreferences(defaults: defaults)
@@ -79,7 +77,6 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(reader.openBehaviour, .options)
         XCTAssertTrue(reader.keepAwake)
         XCTAssertEqual(reader.logVerbosity, .verbose)
-        XCTAssertEqual(reader.enginePreference, .metal)
         XCTAssertFalse(reader.offerLearnedDetector)
     }
 
@@ -101,10 +98,10 @@ final class AppPreferencesTests: XCTestCase {
 
     // MARK: Reset restores every default
 
-    /// BREAK-FIRST evidence, 2026-09-21: temporarily removed `enginePreference`
-    /// from `Keys.all` (a "skip one key" mutation) and reran this test alone
-    /// — failed red (exit 65: `enginePreference` stayed `.metal` instead of
-    /// resetting to `.automatic`), reverted, reran green.
+    /// BREAK-FIRST evidence, 2026-09-21: temporarily removed a key from
+    /// `Keys.all` (a "skip one key" mutation) and reran this test alone —
+    /// failed red (exit 65), reverted, reran green. The key used then,
+    /// `enginePreference`, was retired 2026-09-28 (clean-up session).
     func testResetRestoresEveryKeyToItsDefault() {
         let (defaults, cleanup) = scratchDefaults()
         defer { cleanup() }
@@ -118,7 +115,6 @@ final class AppPreferencesTests: XCTestCase {
         prefs.openBehaviour = .options
         prefs.keepAwake = true
         prefs.logVerbosity = .verbose
-        prefs.enginePreference = .metal
         prefs.offerLearnedDetector = false
 
         prefs.resetAllToDefaults()
@@ -131,7 +127,6 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.openBehaviour, .direct)
         XCTAssertFalse(prefs.keepAwake)
         XCTAssertEqual(prefs.logVerbosity, .normal)
-        XCTAssertEqual(prefs.enginePreference, .automatic)
         XCTAssertTrue(prefs.offerLearnedDetector)
     }
 
@@ -146,8 +141,8 @@ final class AppPreferencesTests: XCTestCase {
     // MARK: AppState reads the defaults at construction
 
     /// The seam is `AppState.init`, not a re-applied default: a fresh
-    /// window's diffraction/map colormap, intensity display and ACOM engine
-    /// start from the preference. Nothing here claims an analysis's own
+    /// window's diffraction/map colormap and intensity display start from
+    /// the preference. Nothing here claims an analysis's own
     /// colormap choice (a diverging strain/DPC map) is affected — that stays
     /// untouched, per `AppState+ResultPresentation.swift`/`AppState+DPC.swift`.
     func testAppStateSeedsItsDisplayDefaultsFromPreferences() {
@@ -157,14 +152,12 @@ final class AppPreferencesTests: XCTestCase {
         prefs.diffractionColormap = .inferno
         prefs.mapColormap = .rdbu
         prefs.intensityDisplay = .linear
-        prefs.enginePreference = .metal
 
         let appState = AppState(preferences: prefs)
 
         XCTAssertEqual(appState.patternColormap, .inferno)
         XCTAssertEqual(appState.resultPresentation.resultColormap, .rdbu)
         XCTAssertFalse(appState.logScale)
-        XCTAssertEqual(appState.acomSession.backend, .metal)
     }
 
     /// `requestOpenDataset()` is the shared "Open Dataset…" gesture; the

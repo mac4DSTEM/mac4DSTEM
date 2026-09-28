@@ -33,3 +33,26 @@ recipe resolves to. Deleting row 3 decides a parked science question by removal.
 settings and inspector rows that no longer earn their place), the `Package.swift` and target
 layout, and the bundled dylibs (`libhdf5`, `libsz`, `libaec`; see the no-rebuild-path item in
 `open-items.md`).
+
+## Verdicts — worked with the owner, 2026-09-28
+
+Each row was checked against the code before it was put to the owner.
+
+| # | Checked | Verdict |
+|---|---|---|
+| 1 | Dead, confirmed: `ResultPresentation.resultImage`/`resultRGBA` derive from `product`, so after the early return both are nil | **Removed** (−53 lines of `AppState.swift`); the helpers it used are still used elsewhere and stay |
+| 2 | Used by 5 unit-test files, 5 gated harnesses and pre-S5 recipe replay | **Kept** |
+| 3 | The measured, parked fix candidate for "matrix wins by exclusion", which is the β″-needle question | **Kept** |
+| 4 | Serves only sidecars saved before `display_domain` (2026-07-15/16, pre-v1.0); the owner has none in use | **Removed**: a product without the key is refused by name (`AppState.savedDomain`, `SavedProductDomainTests`) |
+| 5 | Deliberate module boundary | **Kept** |
+| 6 | The model's provenance card (sha256, training run, threshold evidence, licence) | **Kept** in the bundle |
+| 7–10 | Reorganising, not slimming | **Out of scope** |
+
+**User-facing surface** (a read-only inventory of rooms, menus, Settings, toolbar, inspector sections and
+windows, then the owner's calls):
+- **Settings › Analysis › Default engine: removed**, together with the `enginePreference` key. ACOM's own
+  Engine control is the one place to choose, and a new session starts on `.automatic`.
+- **Parallax and single-slice ptychography: kept** until they are driven on the stronger Mac. They are
+  unrunnable on the 8 GB Mac.
+- **Diffraction groups: kept, profile first** (too slow at 32 × 32, not profiled).
+- **Training labels: kept.** Hand labels made the learned detector's frozen truth set.

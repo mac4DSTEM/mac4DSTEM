@@ -187,18 +187,6 @@ private struct AnalysisSettingsSection: View {
 
     var body: some View {
         @Bindable var preferences = preferences
-        Section("Matching engine") {
-            Picker("Default engine", selection: $preferences.enginePreference) {
-                ForEach(ACOMMatchingBackend.allCases) { backend in
-                    Text(backend.rawValue).tag(backend)
-                }
-            }
-            .accessibilityIdentifier("settings.analysis.engine")
-            Text("ACOM's own \u{201C}Engine\u{201D} control can still change it per session.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-
         Section("Disk detection") {
             Toggle("Offer the learned (neural net) detector", isOn: $preferences.offerLearnedDetector)
                 .accessibilityIdentifier("settings.analysis.offerLearnedDetector")

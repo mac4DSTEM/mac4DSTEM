@@ -845,9 +845,7 @@ extension AppState {
                     try BraggVectorEMDWriter.loadResultMap(id: saved.id, from: url)
                 }.value
                 guard let map else { return }
-                let domain = map.provenance["display_domain"].flatMap(ProductDomain.init)
-                    ?? legacyDomain(kind: map.kind, width: map.width, height: map.height,
-                                    descriptor: descriptor)
+                let domain = try Self.savedDomain(map.provenance, displayName: map.displayName)
                 product = DisplayedProduct(
                     kind: map.kind, displayName: map.displayName,
                     payload: .scalar(FloatImage(width: map.width, height: map.height,
@@ -871,9 +869,7 @@ extension AppState {
                     kind: map.kind, displayName: map.displayName,
                     payload: .rgba(RGBAImage(width: map.width, height: map.height,
                                             rgba: map.rgba)),
-                    domain: map.provenance["display_domain"].flatMap(ProductDomain.init)
-                        ?? legacyDomain(kind: map.kind, width: map.width,
-                                        height: map.height, descriptor: descriptor),
+                    domain: try Self.savedDomain(map.provenance, displayName: map.displayName),
                     sampling: ProductSampling(
                         row: map.pixelSizeRow, column: map.pixelSizeColumn,
                         units: map.pixelUnits
@@ -897,21 +893,15 @@ extension AppState {
         }
     }
 
-    private func legacyDomain(
-        kind: String, width: Int, height: Int, descriptor: DatasetDescriptor
-    ) -> ProductDomain {
-        // Exact frozen-v1 kinds only. Unknown legacy data is treated as scan
-        // space only when its shape proves that mapping; no title parsing.
-        switch kind {
-        case "bragg_vector_map": return .detector
-        case "parallax_preprocess", "parallax_alignment", "parallax_subpixel_bf",
-             "parallax_corrected_phase", "parallax_depth",
-             "ptychography_object_phase", "ptychography_object_amplitude",
-             "ptychography_probe_phase", "ptychography_probe_amplitude":
-            return .reconstruction
-        default:
-            return width == descriptor.rx && height == descriptor.ry ? .scan : .detector
+    /// Where a saved product lives. Every product saved since before v1.0
+    /// records `display_domain`; the shape-guessing fallback for older
+    /// sidecars was removed 2026-09-28 (clean-up audit row 4, owner: no
+    /// pre-v1.0 sessions in use), so such a product is refused, not guessed.
+    static func savedDomain(_ provenance: [String: String], displayName: String) throws -> ProductDomain {
+        guard let domain = provenance["display_domain"].flatMap(ProductDomain.init) else {
+            throw SimpleError("“\(displayName)” was saved by a version of mac4DSTEM before 1.0 and cannot be compared. Run the analysis again to compare it.")
         }
+        return domain
     }
 
     /// Validated controls available for the scalar map currently selected from

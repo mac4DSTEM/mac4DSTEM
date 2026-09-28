@@ -164,7 +164,6 @@ final class AppState {
         logScale = preferences.intensityDisplay.isLog
         patternVersion = priorPatternVersion
         resultPresentation.seedInitialColormap(preferences.mapColormap)
-        acomSession.backend = preferences.enginePreference
         // The seam signals presentation changes (component switches); the
         // displayed image is shared display state, so the derivation stays
         // here. Weak: AppState owns the seam, never the reverse.
@@ -650,7 +649,7 @@ final class AppState {
     }
 
     /// The only semantic source used by result viewers and comparison/export
-    /// workflows. Legacy scalar/RGBA slots remain as frozen-v1 adapters.
+    /// workflows.
     var displayedProduct: DisplayedProduct? {
         if showsACOMRegionReference, let image = scanNavigationImage {
             return DisplayedProduct(
@@ -665,59 +664,11 @@ final class AppState {
                 provenance: ["display_role": "acom_region_reference"]
             )
         }
-        // A product published by its compute site is authoritative; the
-        // legacy assembly below serves the analyses not yet migrated.
-        if let product = resultPresentation.product { return product }
-        guard let payload: ProductPayload = resultPresentation.resultImage.map(ProductPayload.scalar)
-                ?? resultPresentation.resultRGBA.map(ProductPayload.rgba) else { return nil }
-        let metadata = currentResultPersistenceMetadata
-        let domain = activeResultDomain
-        let status = metadata.provenance["quantitative_status"]
-            .flatMap(ProductQuantitativeStatus.init)
-            ?? quantitativeStatus(for: currentResultKind, units: currentResultValueUnits)
-        var quality: [ProductQualityField] = []
-        var overlays: [ProductOverlayDescriptor] = []
-        var validity: [Bool]?
-        if navigation.analysisMode == .strain, let map = strain.map,
-           map.width == payload.dimensions.width, map.height == payload.dimensions.height {
-            validity = map.mask
-            quality = [
-                ProductQualityField(
-                    name: "fit residual", units: "detector_px",
-                    image: FloatImage(width: map.width, height: map.height,
-                                      pixels: map.localResidualPixels)
-                ),
-                ProductQualityField(
-                    name: "indexed", units: "boolean",
-                    image: FloatImage(width: map.width, height: map.height,
-                                      pixels: map.mask.map { $0 ? 1 : 0 })
-                ),
-            ]
-            overlays.append(ProductOverlayDescriptor(
-                kind: "local_lattice_fit", provenance: "retained Bragg-vector least-squares fit"
-            ))
-        } else if navigation.analysisMode == .acom, let map = acomSession.orientationMap,
-                  map.width == payload.dimensions.width, map.height == payload.dimensions.height {
-            validity = map.results.map { $0.templateIndex >= 0 }
-            quality = [
-                ProductQualityField(name: "reliability", units: "dimensionless",
-                                    image: map.reliabilityImage),
-                ProductQualityField(name: "score", units: "dimensionless",
-                                    image: map.scoreImage),
-            ]
-            overlays.append(ProductOverlayDescriptor(
-                kind: "matched_template", provenance: "selected ACOM orientation template"
-            ))
-        }
-        return DisplayedProduct(
-            kind: currentResultKind, displayName: currentResultDisplayName,
-            payload: payload, domain: domain, validityMask: validity,
-            qualityFields: quality,
-            sampling: ProductSampling(row: metadata.row, column: metadata.column,
-                                      units: metadata.units),
-            valueUnits: currentResultValueUnits, quantitativeStatus: status,
-            provenance: metadata.provenance, overlays: overlays
-        )
+        // Every analysis publishes its product at its compute site. The
+        // legacy assembly that once served unmigrated analyses was
+        // unreachable (it read `resultImage`/`resultRGBA`, which derive from
+        // `product`) and was removed 2026-09-28 (clean-up audit row 1).
+        return resultPresentation.product
     }
 
     var activeResultDomain: ProductDomain {

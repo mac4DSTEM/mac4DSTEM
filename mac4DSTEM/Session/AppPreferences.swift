@@ -143,13 +143,6 @@ package final class AppPreferences {
         didSet { persist(logVerbosity, forKey: Keys.logVerbosity) }
     }
 
-    /// ACOM's existing "Engine" picker (`UI/MapSettings.swift`,
-    /// `ACOMSession.backend`) defaults to `.automatic` per session; this only
-    /// changes what a FRESH session's picker starts on.
-    package var enginePreference: ACOMMatchingBackend {
-        didSet { persist(enginePreference, forKey: Keys.enginePreference) }
-    }
-
     /// Whether the learned (Core ML) disk detector is offered in the
     /// Detector picker at all (`UI/MapSettings.swift`). `true` is today's
     /// shipped behaviour — the picker always lists it when a bundled asset
@@ -169,7 +162,6 @@ package final class AppPreferences {
         self.openBehaviour = Self.decode(Keys.openBehaviour, from: defaults) ?? .direct
         self.keepAwake = defaults.object(forKey: Keys.keepAwake) as? Bool ?? false
         self.logVerbosity = Self.decode(Keys.logVerbosity, from: defaults) ?? .normal
-        self.enginePreference = Self.decode(Keys.enginePreference, from: defaults) ?? .automatic
         self.offerLearnedDetector = defaults.object(forKey: Keys.offerLearnedDetector) as? Bool ?? true
     }
 
@@ -187,7 +179,6 @@ package final class AppPreferences {
         openBehaviour = .direct
         keepAwake = false
         logVerbosity = .normal
-        enginePreference = .automatic
         offerLearnedDetector = true
         suppressPersistence = false
     }
@@ -217,13 +208,12 @@ package final class AppPreferences {
         static let openBehaviour = "prefs.openBehaviour"
         static let keepAwake = "prefs.keepAwake"
         static let logVerbosity = "prefs.logVerbosity"
-        static let enginePreference = "prefs.enginePreference"
         static let offerLearnedDetector = "prefs.offerLearnedDetector"
 
         static let all = [
             appearance, mapColormap, diffractionColormap, intensityDisplay,
             showScaleBar, openBehaviour, keepAwake, logVerbosity,
-            enginePreference, offerLearnedDetector,
+            offerLearnedDetector,
         ]
     }
 }
