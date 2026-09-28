@@ -48,3 +48,29 @@ from the pure-Al positions present, about one ninth of them.
 
 **Kill rule.** If P1 fails, the environment or the patches are wrong. Nothing about the methods is concluded until the
 difference is explained.
+
+## Result (`run-vectors.log` notebook 1, 473 s, peak footprint 3.15 GB; `run-vectors-nb2.log` notebook 2)
+
+Run: `python tools/thronsen-dataset/run_their_vectors.py <work>` in the `thronsen` env; notebook 2 was rerun alone
+(`--nb2-only`, from notebook 1's saved peak files) after the first run stopped on a display-only cell whose plot call
+spans two lines. The runner now skips such a cell only if it contains a display call. **Added after registration, path
+only:** their CIF folder is resolved absolutely (`folder_cif`), because the run's working directory is not the notebook's.
+
+| Prediction | Outcome |
+|---|---|
+| P1 their run = their published map at our positions on ≥ 99.0 % | **held**: 99.99 %, 3 of 29 241 differ (Al → edge-on twice, face-on → edge-on once) |
+| P2 error vs the stride-3 truth 1.51 ± 0.15 % | **held**: 1.51 %; their own printed line: success rate 98.49 % |
+| P3 theirs vs the app disagree at 1.5–3.0 %, over half within 1 px of a truth boundary | **held**: 1.55 % (453), 85 % at a boundary |
+| P4 at B1's 5 truth-T1 positions theirs says T1 at ≥ 4 | **refuted**: T1 at 1 — edge-on at (6,91), (6,92), (8,91); face-on at (46,126) |
+
+**The environment is proved without the full cube.** Their per-pattern method, run by their own code here, reproduces
+their published map at our positions to 3 positions in 29 241. Their methods are now references we can run on any input.
+
+**Method against method.** Their vector analysis errs at 443 positions, the app at 383, both at the same 203. Their
+largest error is Al → edge-on (140); the app's is T1 → Al (204). The app is right where theirs is wrong at 240
+positions; theirs right where the app is wrong at 180.
+
+**For B1.** All 3 truth-Al positions the app calls edge-on, theirs calls edge-on too; so do 3 of the 5 truth-T1 ones.
+B1's spurious edge-on positions are hard for both methods, not an artefact of the app's matcher: it argues for checking
+them against the full-resolution truth (now on disk, `References/thronsen-datasetA/published/ground_truth.hspy`) before
+any edge-on guard is registered.
