@@ -57,10 +57,11 @@ cannot certify a classifier (random flips clean up to the truth's counts); raw s
 app's T1 raw speckle is 23 objects at the 0.1 % floor, 5 at 0.15 % (published 1–13).
 **Trap:** the truth's cuts (782 / 10 / 4 px) are that dataset's, never an app default. The shipped
 guard (ADR 038) still needs a second truth dataset before "validated" (closed-items 2026-09).
-Adopted 2026-09-28 (ADR 040). **First scored run 2026-09-28** (`archive/v4/t4-first-scored-run-2026-09-28.md`):
-at the 0.15 % floor + guard, FAIL on one metric, θ′ edge-on raw spurious 7 > 5; everything else within the
-worst published method. At the old 0.5 % default the map was 11.42 % wrong and θ′ face-on vanished; the
-default is now 0.15 % (ADR 041, Gate D).
+Adopted 2026-09-28 (ADR 040). **First scored run 2026-09-28**: FAIL on one metric, θ′ edge-on raw spurious 7 > 5.
+**B1 Gate D 2026-09-28** (`archive/v4/b1-edge-on-gateD-2026-09-28.md`): two populations. 5 positions in truth T1 pass the
+guard on one weak specific reflection; 3 in truth Al carry 2–4 (two lie along sampled truth needles; full-res truth unchecked).
+A global guard k = 2 gives 3 but breaks T1 (1.93 %) — rejected. An edge-on-only k = 2 passes T4 at 1.28 %, post hoc:
+**next** register it with a spatial holdout and a stated reason edge-on differs.
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at

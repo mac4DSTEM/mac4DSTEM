@@ -326,6 +326,12 @@ enum Probe {
         // MATRIX, and reports the exact headline-% and confusion-cell delta
         // at each threshold — a measurement, not a default change.
         var alPrecipitateDetail = false
+        // `--position-detail "r,c;r,c;..."` (B1 Gate D, 2026-09-28): for the named scan
+        // positions, the evidence behind the call — winner, score, runner-up, matched,
+        // specific/shared reflections of the winning entry and each specific hit's peak
+        // intensity relative to the position's brightest non-central peak — plus the same
+        // specific-count and margin distributions over correctly-called θ′ edge-on positions.
+        var positionDetail: [(Int, Int)] = []
         // Gate D step 3 (precipitate-overnight-2026-09-23.md): additive, off
         // by default, `--rule known-variants` only. Runs the app's own
         // `PrecipitateSegmentation.classObjects` (via `PhaseMapObjectsBridge`)
@@ -441,6 +447,12 @@ enum Probe {
                 maxVectorsArg = Int(args[index + 1]); index += 2
             } else if args[index] == "--dump-entry", index + 1 < args.count {
                 dumpEntryPhase = args[index + 1]; index += 2
+            } else if args[index] == "--position-detail", index + 1 < args.count {
+                positionDetail = args[index + 1].split(separator: ";").compactMap { pair in
+                    let rc = pair.split(separator: ",").compactMap { Int($0) }
+                    return rc.count == 2 ? (rc[0], rc[1]) : nil
+                }
+                index += 2
             } else if args[index] == "--al-precipitate-detail" {
                 alPrecipitateDetail = true; index += 1
             } else if args[index] == "--object-table" {
@@ -1379,6 +1391,85 @@ enum Probe {
                 } else {
                     print("  truth label \(targetLabel) has no matching candidate phase "
                           + "(0 = Al, the matrix); skipped")
+                }
+            }
+
+            if !positionDetail.isEmpty, map.matrixEntryIndex >= 0 {
+                let matrixEntry = library.entries[map.matrixEntryIndex]
+                let width = cols.count
+                struct Evidence { var specific = 0; var shared = 0; var margin = Double.nan; var hitRel: [Double] = [] }
+                func evidence(_ index: Int) -> Evidence {
+                    var ev = Evidence()
+                    let result = map.results[index]
+                    guard result.entryIndex >= 0 else { return ev }
+                    if result.score.isFinite, result.runnerUpScore.isFinite {
+                        ev.margin = Double(result.runnerUpScore) - Double(result.score)
+                    }
+                    // keep each vector's peak so a hit can report its intensity
+                    var vecs: [(SIMD2<Double>, Float)] = []
+                    for pk in peaks[index] {
+                        let v = PhaseVectorMatcher.experimentalVectors(
+                            peaks: [pk], originX: originX, originY: originY, invAngstromPerPixel: qPerPixel,
+                            directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                            maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom)
+                        if let q = v.first { vecs.append((q, pk.intensity)) }
+                    }
+                    let brightest = vecs.map(\.1).max() ?? 1
+                    let surviving = vecs.filter {
+                        PhaseVectorMatcher.nearest($0.0, in: matrixEntry.vectors,
+                                                   radius: matchSettings.matrixToleranceInvAngstrom) == nil
+                    }
+                    let entry = library.entries[Int(result.entryIndex)]
+                    var hits: [Int: Float] = [:]
+                    for (u, inten) in surviving {
+                        guard let hit = PhaseVectorMatcher.nearest(u, in: entry.vectors,
+                                                                   radius: matchSettings.pairRadiusInvAngstrom) else { continue }
+                        hits[hit.index] = max(hits[hit.index] ?? 0, inten)
+                    }
+                    for (hitIndex, inten) in hits {
+                        let refQ = entry.vectors[hitIndex].q
+                        if matrixEntry.vectors.contains(where: { simd_distance($0.q, refQ) <= matchSettings.matrixToleranceInvAngstrom }) {
+                            ev.shared += 1
+                        } else {
+                            ev.specific += 1; ev.hitRel.append(Double(inten / brightest))
+                        }
+                    }
+                    return ev
+                }
+                print("\n== --position-detail (B1 Gate D) ==")
+                for (r, c) in positionDetail {
+                    let index = r * width + c
+                    guard map.results.indices.contains(index) else { print("  (\(r),\(c)) out of range"); continue }
+                    let result = map.results[index]
+                    let ours = Thronsen.label(of: result, phaseNames: map.phaseNames)
+                    let theirs = Int(thronsen.labels[index])
+                    let ev = evidence(index)
+                    let runner = map.phaseNames.indices.contains(Int(result.runnerUpPhaseIndex))
+                        ? map.phaseNames[Int(result.runnerUpPhaseIndex)] : "-"
+                    print(String(format: "  (%d,%d) truth %d ours %d  peaks %d surviving %d  score %.4f runner-up %@ %.4f margin %.4f  matched %d specific %d shared %d  specific-hit rel. intensity %@",
+                                 r, c, theirs, ours, peaks[index].count, Int(result.survivingCount),
+                                 Double(result.score), runner, Double(result.runnerUpScore), ev.margin,
+                                 Int(result.matchedCount), ev.specific, ev.shared,
+                                 ev.hitRel.map { String(format: "%.3f", $0) }.joined(separator: ",")))
+                }
+                do {
+                    var spec: [Int] = [], marg: [Double] = [], strongest: [Double] = []
+                    for index in map.results.indices where Int(thronsen.labels[index]) == 1
+                        && Thronsen.label(of: map.results[index], phaseNames: map.phaseNames) == 1 {
+                        let ev = evidence(index); spec.append(ev.specific); if ev.margin.isFinite { marg.append(ev.margin) }
+                        if let top = ev.hitRel.max() { strongest.append(top) }
+                    }
+                    let st = strongest.sorted()
+                    if !st.isEmpty {
+                        print(String(format: "  correct θ′ edge-on strongest specific hit, rel. intensity: p10 %.3f p50 %.3f p90 %.3f; below 0.02: %d of %d",
+                                     st[st.count / 10], st[st.count / 2], st[st.count * 9 / 10], st.filter { $0 < 0.02 }.count, st.count))
+                    }
+                    let hist = Dictionary(grouping: spec, by: { min($0, 6) }).mapValues(\.count).sorted { $0.key < $1.key }
+                    let m = marg.sorted()
+                    print("  correct θ′ edge-on calls (n=\(spec.count)): specific-count histogram (6 = 6+) \(hist.map { "\($0.key):\($0.value)" }.joined(separator: " "))")
+                    if !m.isEmpty {
+                        print(String(format: "  correct θ′ edge-on margin: p10 %.4f p50 %.4f p90 %.4f", m[m.count / 10], m[m.count / 2], m[m.count * 9 / 10]))
+                    }
                 }
             }
 
