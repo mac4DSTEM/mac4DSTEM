@@ -89,7 +89,7 @@ ellipse written into a file copy (no UI field exists) and Q 0.0275: ⟨100⟩ 88
 not indexed 8.0 % (search rule); the needle streaks stay not indexed. With [0 1 0] + [0 0 1] and the
 **known-variants rule**: β″ 5.2 + 1.6 %, matrix 93.2 %, not indexed 0.05 %. The streaks are labelled β″,
 mostly by the [0 1 0] slot (why is untested), and 1-px speckle dominates the object count. Show Objects
-is invisible at 1-px objects. Record: Gate D part 7. The manual ellipse field landed 2026-09-28 (ADR 039, not yet driven). Open: the slot-label question.
+is invisible at 1-px objects. Record: Gate D part 7. The manual ellipse field landed and was driven 2026-09-28 (ADR 039). Open: the slot-label question.
 
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
 `datasetA_stride3.h5` carries no calibration; Map Phases ran with Q unset (scale bars "20 px",

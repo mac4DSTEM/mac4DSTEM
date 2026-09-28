@@ -2,7 +2,8 @@
 
 Dates: 2026-09-28
 
-Status: live, not yet driven on screen. Owner decision 5 of the 2026-09-25 board ("calibration from a
+Status: live. Driven by the owner on 2026-09-28 (their build, the Al-Mg-Si ellipse copy): typed 19,5 / 17,97 / 20,5 (decimal commas taken), Apply → readiness "Manual · a 19.5 · b 17.97 · θ 20.5°";
+the Correction line and status bar agree, and the overlay ring shrank onto the {200} disks. Owner decision 5 of the 2026-09-25 board ("calibration from a
 known crystal — which route"): the manual field first, a v4 search only if the owner asks for one.
 The three choices below were put to the owner as options with a recommendation; he took each
 recommendation.
