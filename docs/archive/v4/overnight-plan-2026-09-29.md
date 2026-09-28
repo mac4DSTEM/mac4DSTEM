@@ -14,6 +14,10 @@ the plan AND the night's log: append one line per finished item and commit it, s
 4. Mac on power, awake and **not locking** (the owner's call: System Settings › Lock Screen); the session runs
    `caffeinate -dimsu` itself. SSD may stay plugged in: read-only use of `ROI_5/mac4dstem_subsampled/` only.
 5. Push beforehand in GitHub Desktop, so the night starts from a pushed `main`.
+6. **Claude Code auto-update off for the night** (every update revokes Accessibility — driving would stop silently;
+   if it happens anyway, the session continues with non-driving items). **Screen saver "Never"** (caffeinate does not
+   stop a password-locking screen saver). **Hard disks never sleep** if the SSD stays plugged in (a vanished volume is
+   a SIGBUS in a probe); or unplug it and skip D2.
 
 ## 1. Safety — nothing lost, nothing crushed
 
@@ -23,6 +27,10 @@ the plan AND the night's log: append one line per finished item and commit it, s
   session's own scratch DerivedData); memory pressure checked; every probe on a multi-GB cube under the footprint
   guard (`phys_footprint` > 1.5 GB or critical pressure → kill; rebuild `guard.sh` from memory note
   never-full-read-bigger-than-ram). **No Detect All Disks in the app on multi-GB cubes** until item A1 lands.
+- Disk: every `xcodebuild test` also leaves a ≈ 300 MB log archive in `/var/tmp`; check `df -h /` before each
+  build and clear only the session's own scratch. The Board: `read` it before publishing (a publish without a read
+  in that session is refused). Memory consolidation runs LAST (the night relies on the notes).
+- **Clock:** no new heavy item after 06:30; the §4 morning report starts by 07:00.
 - Drives: a scratch build (`-derivedDataPath` in the scratchpad), launched `open -n`, pid-pinned; every claimed
   observation checked against its screenshot by the session before it is written down.
 - **Decide, don't stall** (owner, 2026-09-29, replacing "stop, don't guess"): (1) decide from the record — ADRs,
