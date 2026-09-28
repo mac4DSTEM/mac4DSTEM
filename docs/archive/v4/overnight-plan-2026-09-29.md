@@ -96,3 +96,6 @@ the shot names), what is YELLOW awaiting the owner, and the §5 decisions.
 > something clumsy, record it with a proposal. End with the §4 morning report.
 
 ## Log
+
+- Start-up: caffeinate; owner's app not running; screen control granted and proved on a scratch build (pid 41839); 5.3 GB free; tree clean at `1a76089`, pushed.
+- A3 `AppState`: `runStrainMapping` → `AppState+Strain.swift` (every run now has its own extension file; nothing widened; AppState.swift 1554 → 1430). Unit 941/0/2 = 943 (`unit-A123.log`), inventory 0.
