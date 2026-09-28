@@ -22,16 +22,17 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 Earlier gate rows — 2026-09-17 through the 2026-09-23 overnight runs — are archived verbatim at [`archive/v4/status-history-2026-09-23.md`](archive/v4/status-history-2026-09-23.md). The 2026-09-23 night to 2026-09-25 rows are at [`archive/v4/status-history-2026-09-28.md`](archive/v4/status-history-2026-09-28.md). The 2026-09-28 morning's DM4, ellipse, clean-up and diffraction-groups rows are there too, and that day's R–Q, parallax, floor, T4, A2 and C2 rows.
 
-## Handoff — 2026-09-28 evening
+## Handoff — 2026-09-29 night
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | v4.0.0 released 2026-09-23 (4.0.0 / 7, macOS 27+). `main` carries the day's work unpushed: fixes and ADRs 039–044, A2 truth, C2 spike, B1, A3a, the paper notes, the phase-slot change (`f633216`, `9b483cb`). | Owner: push; next cut. |
-| **Next — `ROADMAP.md` (revised 2026-09-28 evening)** | Order: **1** ~~the 915-pt launch crash~~ fixed (sidebar max 270); **2** precipitate polish: ~~the per-phase slab field~~ (landed, seen), the polishing pass, then thickness → density; **3** the owner's own Al-Mg-Si scans subsampled in real space; **4** where precipitate analysis lives (owner's call); **5** on-device training in the Disks section. | Owner: the areal edge correction (Gate D) and whether to pursue volumetric density through a polydisperse bar; then the rest of the polish. |
-| **Owner owed** | Thronsen's written confirmation (ADR 042); where precipitate analysis lives. | Owner. |
-| Phase mapping | Unvalidated. T4 one metric short (edge-on speckle 7 > 5; 3 of them edge calls, 4 real). The owner's in-app run is close; recipe: θ′ twice ([100], [001]), T1's own relationship, minimum size 10. | Polish (roadmap 2). |
-| **Unverified on screen** | The Bragg restore (`"Disks restored from the session"` on opening Thronsen A). Earlier row emptied: Driven 2026-09-28 night on a scratch build of `04af66e` + the slab row (a Sonnet driver, every shot reviewed; owner's go): sidebar max 270 pt; Settings › Analysis has one toggle, no engine picker; θ′ added twice with its status and same-axis refusal; R–Q on `Particle_1…bin8.h5` shows +78.6° transposed (py4DSTEM +80.0° T: sign checked, magnitude not — origin fit RMS 18 px); the slab rows (grey 0,050, typed 0,300, cleared). | — |
-| Carried | R–Q residuals; the 28 GB DM4 parity run and parallax/ptychography drive on the stronger Mac; C2's memory and criterion 4; the 119-defect triage; CI paused (ADR 040). | `open-items.md`. |
+| **Now** | v4.0.0 released 2026-09-23. `main` carries 79 unpushed commits since `49759b9`: 2026-09-28's ADRs 039–044, and that night's crash fix, slab row, Object Table, areal edge correction (ADR 045), Bragg restore, stride test, SSD subsample writer, raw-cube calibration, "Rules serve the app". | Owner: push, then start the overnight session. |
+| **Next — the overnight plan** | `archive/v4/overnight-plan-2026-09-29.md` (kickoff prompt §6): **A** the disk-detection memory fix (diagnosis held), Bragg-restore settings + drive, Object Table highlight; **B** every on-screen debt, driven; **C** consolidation; **D** YELLOW science, measure only. | The overnight session. |
+| **Owner owed** | Thronsen's written confirmation (ADR 042); where precipitate analysis lives; morning review of "decided overnight — overrule on sight". | Owner. |
+| **⚠ Don't run** | Detect All Disks in the app on multi-GB cubes until overnight A1 lands (one tile per tile of GPU memory; > 2.6 GB on Thronsen A). | — |
+| Phase mapping | Unvalidated. T4 one metric short; raw 060 cube: matrix 86.4 % at 4 px tolerance, 97 % unindexed at the app's 1 px on 256². | Overnight D. |
+| **Unverified on screen** | The Bragg restore status line; the areal-density help text (edge-weighted wording). | Overnight B. |
+| Carried | R–Q residuals; the 28 GB `--parity` run; parallax/ptychography drive; C2's memory and criterion 4; the 119-defect triage; CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.
 
