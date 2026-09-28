@@ -51,3 +51,10 @@ after). **Open:** the detection controls stay at detector defaults after a resto
 restored disks read "computed with different settings" — seed the controls from the recorded step (next). **Not yet
 seen on screen** (the owed drive).
 
+
+**Seeded (overnight A2, 2026-09-29 night; Sonnet implementer, reviewed):** on adoption only,
+`DiskDetectionRecordMatch.controls(fromStepParameters:)` — the reverse of `replayParameters`, nil unless every key
+parses, so never a partial seed — sets all 12 `DiskDetectionParams`, the detector class and (learned) the threshold.
+The kernel keys have no control (a kernel is built, not set), and a learned step reads stale on
+`learned_model_sha256` until the model is prepared. 9 tests (`DiskDetectionControlsFromStepTests`,
+`BraggPeakSeedsControlsOnOpenTests`), each red under its mutation (`a2-mut-*.log`); unit 941 / 0 / 2 = 943.

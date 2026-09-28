@@ -723,6 +723,15 @@ extension AppState {
         ) { return reason }
         resultPresentation.setBraggVectors(grid.vectors)
         resultPresentation.setBraggPeakCount(grid.vectors.totalPeakCount)
+        // Only on adoption: the controls show what these disks were detected
+        // with, so a kernel built later with the same class judges them
+        // `.current` until the user changes a control. A refusal returned
+        // above and left the controls at the detector defaults.
+        if let controls = DiskDetectionRecordMatch.controls(fromStepParameters: step.parameters) {
+            diskDetection.diskParams = controls.params
+            learnedDetection.detectorClass = controls.detectorClass
+            if let threshold = controls.learnedThreshold { learnedDetection.threshold = threshold }
+        }
         let detected = step.recorded.formatted(date: .abbreviated, time: .omitted)
         return "Disks restored from the session — \(grid.vectors.totalPeakCount) peaks (detected \(detected))"
     }

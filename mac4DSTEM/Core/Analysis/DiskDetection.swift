@@ -213,6 +213,72 @@ package nonisolated enum DiskDetectionRecordMatch {
         return signature
     }
 
+    /// The detection controls a recorded step was run with: the
+    /// `DiskDetectionParams` the Bragg-disks inspector edits, plus the detector
+    /// class and (learned only) pick threshold the Detector picker edits.
+    package struct Controls: Equatable, Sendable {
+        package var params: DiskDetectionParams
+        package var detectorClass: DetectorClass
+        /// Nil for a classical step, or a learned one that recorded none.
+        package var learnedThreshold: Float?
+
+        package init(params: DiskDetectionParams, detectorClass: DetectorClass, learnedThreshold: Float?) {
+            self.params = params
+            self.detectorClass = detectorClass
+            self.learnedThreshold = learnedThreshold
+        }
+    }
+
+    /// The reverse of `DiskDetectionParams.replayParameters` (+ the detector
+    /// class keys): the controls a recorded `disk_detection` step was run with,
+    /// so peaks restored from a sidecar can seed the inspector with the
+    /// settings they were detected with instead of detector defaults.
+    /// Unlike `ReplayPlan.parse` this is not a replay: a step whose kernel was
+    /// measured still names the controls its peaks were detected with, so the
+    /// kernel keys are not judged here (there is no control for them — the
+    /// kernel is built, not set). Nil when any control value is missing or
+    /// malformed, so a partial seed never happens. `String(Float)` round-trips
+    /// exactly, so the seeded controls restate the recorded step key for key.
+    package static func controls(fromStepParameters p: [String: String]) -> Controls? {
+        func float(_ key: String) -> Float? {
+            guard let text = p[key], let value = Float(text), value.isFinite else { return nil }
+            return value
+        }
+        func int(_ key: String) -> Int? { p[key].flatMap { Int($0) } }
+        guard let corrPower = float("corr_power"), let sigmaDP = float("sigma_dp"),
+              let sigmaCC = float("sigma_cc"),
+              let subpixel = SubpixelMode.allCases.first(where: { $0.provenanceID == p["subpixel"] }),
+              let upsample = int("upsample_factor"),
+              let minAbsolute = float("min_absolute_intensity"),
+              let minRelative = float("min_relative_intensity"),
+              let relativeTo = int("relative_to_peak"),
+              let radius = float("relative_reference_minimum_radius_px"), radius >= 0,
+              let spacing = float("min_peak_spacing"), let edge = int("edge_boundary"),
+              let maxPeaks = int("max_peaks") else { return nil }
+        var params = DiskDetectionParams()
+        params.corrPower = corrPower
+        params.sigmaDP = sigmaDP
+        params.sigmaCC = sigmaCC
+        params.subpixel = subpixel
+        params.upsampleFactor = upsample
+        params.minAbsoluteIntensity = minAbsolute
+        params.minRelativeIntensity = minRelative
+        params.relativeToPeak = relativeTo
+        params.relativeReferenceMinimumRadiusPx = radius
+        params.minPeakSpacing = spacing
+        params.edgeBoundary = edge
+        params.maxNumPeaks = maxPeaks
+        // Absent means classical, as in `ReplayPlan.parse`.
+        switch p["detector_class"] {
+        case nil, DetectorClass.classical.provenanceID?:
+            return Controls(params: params, detectorClass: .classical, learnedThreshold: nil)
+        case DetectorClass.learned.provenanceID?:
+            return Controls(params: params, detectorClass: .learned, learnedThreshold: float("learned_threshold"))
+        default:
+            return nil
+        }
+    }
+
     /// The step keys whose values differ from the provenance's, sorted; empty
     /// means the provenance is the recorded step's. An empty provenance
     /// mismatches every required key.

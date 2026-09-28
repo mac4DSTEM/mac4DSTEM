@@ -99,3 +99,4 @@ the shot names), what is YELLOW awaiting the owner, and the §5 decisions.
 
 - Start-up: caffeinate; owner's app not running; screen control granted and proved on a scratch build (pid 41839); 5.3 GB free; tree clean at `1a76089`, pushed.
 - A3 `AppState`: `runStrainMapping` → `AppState+Strain.swift` (every run now has its own extension file; nothing widened; AppState.swift 1554 → 1430). Unit 941/0/2 = 943 (`unit-A123.log`), inventory 0.
+- A2 Bragg restore: detection controls seeded from the recorded step on adoption (12 params, detector class, learned threshold); 9 tests, 7 mutations red (`a2-mut-*.log`); unit 941/0/2 = 943. Drive owed (B1).

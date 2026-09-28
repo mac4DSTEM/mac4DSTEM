@@ -48,19 +48,44 @@ private enum PeakRestoreFixture {
 
     static func params() -> DiskDetectionParams { DiskDetectionParams() }
 
+    /// Every control the step records, moved off its default (and off the
+    /// detector-adapted default a fresh open seeds), so a seed that copies
+    /// one field wrong, or nothing, cannot pass.
+    static func nonDefaultParams() -> DiskDetectionParams {
+        var p = DiskDetectionParams()
+        p.corrPower = 0.65
+        p.sigmaDP = 0.7
+        p.sigmaCC = 1.3
+        p.subpixel = .multicorr
+        p.upsampleFactor = 32
+        p.minAbsoluteIntensity = 0.021
+        p.minRelativeIntensity = 0.0042
+        p.relativeToPeak = 2
+        p.relativeReferenceMinimumRadiusPx = 9.5
+        p.minPeakSpacing = 7.25
+        p.edgeBoundary = 3
+        p.maxNumPeaks = 41
+        return p
+    }
+
     static func kernel(qy: Int, qx: Int) throws -> ProbeKernel {
         try XCTUnwrap(ProbeKernel.synthetic(radius: 4, qy: qy, qx: qx))
     }
 
-    static func provenance(qy: Int, qx: Int) throws -> [String: String] {
-        params().provenance(kernel: try kernel(qy: qy, qx: qx), qy: qy, qx: qx)
+    static func provenance(
+        qy: Int, qx: Int, params: DiskDetectionParams = params(), detector: [String: String] = [:]
+    ) throws -> [String: String] {
+        params.provenance(kernel: try kernel(qy: qy, qx: qx), qy: qy, qx: qx)
+            .merging(detector) { _, new in new }
     }
 
     /// What a real `runDiskDetection` records for the same run.
-    static func stepParameters(qy: Int, qx: Int) throws -> [String: String] {
-        var parameters = params().replayParameters(kernel: try kernel(qy: qy, qx: qx))
+    static func stepParameters(
+        qy: Int, qx: Int, params: DiskDetectionParams = params(), detector: [String: String] = [:]
+    ) throws -> [String: String] {
+        var parameters = params.replayParameters(kernel: try kernel(qy: qy, qx: qx))
         parameters["detector_class"] = classical
-        return parameters
+        return parameters.merging(detector) { _, new in new }
     }
 
     static func record(_ parameters: [String: String]?) -> SessionReplayRecord {
@@ -172,6 +197,74 @@ final class DiskDetectionRecordMatchTests: XCTestCase {
     }
 }
 
+// MARK: - Recorded step → detection controls
+
+final class DiskDetectionControlsFromStepTests: XCTestCase {
+
+    func testEveryNonDefaultControlSurvivesParamsToStepToParams() throws {
+        let params = PeakRestoreFixture.nonDefaultParams()
+        // The fixture is only worth something if every field really moved.
+        let defaults = DiskDetectionParams()
+        XCTAssertNotEqual(params.corrPower, defaults.corrPower)
+        XCTAssertNotEqual(params.sigmaDP, defaults.sigmaDP)
+        XCTAssertNotEqual(params.sigmaCC, defaults.sigmaCC)
+        XCTAssertNotEqual(params.subpixel, defaults.subpixel)
+        XCTAssertNotEqual(params.upsampleFactor, defaults.upsampleFactor)
+        XCTAssertNotEqual(params.minAbsoluteIntensity, defaults.minAbsoluteIntensity)
+        XCTAssertNotEqual(params.minRelativeIntensity, defaults.minRelativeIntensity)
+        XCTAssertNotEqual(params.relativeToPeak, defaults.relativeToPeak)
+        XCTAssertNotEqual(params.relativeReferenceMinimumRadiusPx, defaults.relativeReferenceMinimumRadiusPx)
+        XCTAssertNotEqual(params.minPeakSpacing, defaults.minPeakSpacing)
+        XCTAssertNotEqual(params.edgeBoundary, defaults.edgeBoundary)
+        XCTAssertNotEqual(params.maxNumPeaks, defaults.maxNumPeaks)
+
+        let step = try PeakRestoreFixture.stepParameters(qy: 32, qx: 32, params: params)
+        let controls = try XCTUnwrap(DiskDetectionRecordMatch.controls(fromStepParameters: step))
+        XCTAssertEqual(controls.params, params)
+        XCTAssertEqual(controls.detectorClass, .classical)
+        XCTAssertNil(controls.learnedThreshold)
+    }
+
+    func testEverySubpixelModeRoundTrips() throws {
+        for mode in SubpixelMode.allCases {
+            var params = PeakRestoreFixture.nonDefaultParams()
+            params.subpixel = mode
+            let step = try PeakRestoreFixture.stepParameters(qy: 32, qx: 32, params: params)
+            XCTAssertEqual(DiskDetectionRecordMatch.controls(fromStepParameters: step)?.params.subpixel, mode)
+        }
+    }
+
+    func testALearnedStepSeedsTheClassAndItsThreshold() throws {
+        let step = try PeakRestoreFixture.stepParameters(
+            qy: 32, qx: 32, params: PeakRestoreFixture.nonDefaultParams(),
+            detector: ["detector_class": "learned", "learned_threshold": "0.37",
+                       "learned_model_sha256": "abc"])
+        let controls = try XCTUnwrap(DiskDetectionRecordMatch.controls(fromStepParameters: step))
+        XCTAssertEqual(controls.detectorClass, .learned)
+        XCTAssertEqual(controls.learnedThreshold, 0.37)
+        XCTAssertEqual(controls.params, PeakRestoreFixture.nonDefaultParams())
+    }
+
+    func testAStepWithAMissingOrMalformedControlSeedsNothing() throws {
+        let step = try PeakRestoreFixture.stepParameters(
+            qy: 32, qx: 32, params: PeakRestoreFixture.nonDefaultParams())
+        for key in ["corr_power", "sigma_dp", "sigma_cc", "subpixel", "upsample_factor",
+                    "min_absolute_intensity", "min_relative_intensity", "relative_to_peak",
+                    "relative_reference_minimum_radius_px", "min_peak_spacing",
+                    "edge_boundary", "max_peaks"] {
+            var missing = step
+            missing.removeValue(forKey: key)
+            XCTAssertNil(DiskDetectionRecordMatch.controls(fromStepParameters: missing), "missing \(key)")
+            var malformed = step
+            malformed[key] = "not-a-number"
+            XCTAssertNil(DiskDetectionRecordMatch.controls(fromStepParameters: malformed), "malformed \(key)")
+        }
+        var unknownClass = step
+        unknownClass["detector_class"] = "oracle"
+        XCTAssertNil(DiskDetectionRecordMatch.controls(fromStepParameters: unknownClass))
+    }
+}
+
 // MARK: - Adoption on open (real AppState.activate)
 
 @MainActor
@@ -198,7 +291,9 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         gridScan: (width: Int, height: Int)? = nil,
         gridDetectorDelta: Int = 0,
         stepParameters: [String: String]?? = nil,
-        provenance: [String: String]? = nil
+        provenance: [String: String]? = nil,
+        runParams: DiskDetectionParams = PeakRestoreFixture.params(),
+        detector: [String: String] = [:]
     ) async throws -> Opened {
         let suite = "mac4dstem.tests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -218,7 +313,7 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
 
         let scan = gridScan ?? (width: d.rx, height: d.ry)
         let recordedProvenance = try provenance
-            ?? PeakRestoreFixture.provenance(qy: d.qy, qx: d.qx)
+            ?? PeakRestoreFixture.provenance(qy: d.qy, qx: d.qx, params: runParams, detector: detector)
         var vectors: BraggVectors?
         if scan.width > 0 {
             vectors = PeakRestoreFixture.vectors(
@@ -231,7 +326,9 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         }
         let step: [String: String]?
         switch stepParameters {
-        case .none: step = try PeakRestoreFixture.stepParameters(qy: d.qy, qx: d.qx)
+        case .none:
+            step = try PeakRestoreFixture.stepParameters(
+                qy: d.qy, qx: d.qx, params: runParams, detector: detector)
         case .some(let explicit): step = explicit
         }
         let record = PeakRestoreFixture.record(step)
@@ -356,11 +453,9 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         let d = try XCTUnwrap(state.descriptor)
         XCTAssertFalse(state.diskDetectionSettingsAreStale)
 
-        // The same settings and kernel class: still current. (A fresh open
-        // seeds the controls with the detector-adapted defaults, which need
-        // not be the settings the stored run used; setting the run's own
-        // settings back is what "the same settings" means here.)
-        state.diskDetection.diskParams = PeakRestoreFixture.params()
+        // The same settings and kernel class: still current. The controls
+        // were seeded from the recorded step on adoption, so nothing has to
+        // be set back by hand (`BraggPeakSeedsControlsOnOpenTests`).
         state.probeKernel = try PeakRestoreFixture.kernel(qy: d.qy, qx: d.qx)
         XCTAssertFalse(state.diskDetectionSettingsAreStale)
 
@@ -407,5 +502,135 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         }
         XCTAssertEqual(unverifiable.count, DiskDetectionRecordMatch.requiredKeys.count)
         XCTAssertNil(signature(nil), "No peaks and no kernel: nothing to compare, as before")
+    }
+}
+
+// MARK: - The controls after a restore (real AppState.activate)
+
+@MainActor
+final class BraggPeakSeedsControlsOnOpenTests: XCTestCase {
+
+    /// Same harness shape as `BraggPeakRestoreOnOpenTests.open`, reduced to
+    /// what these tests vary.
+    private func open(
+        loaded: LoadSpecification = .fullExtent,
+        recorded: LoadSpecification = .fullExtent,
+        runParams: DiskDetectionParams = PeakRestoreFixture.nonDefaultParams(),
+        detector: [String: String] = [:],
+        step: [String: String]? = nil
+    ) async throws -> AppState {
+        let suite = "mac4dstem.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+        let locator = SessionSidecarLocator(defaults: defaults)
+        let source = DemoFourDDataSource()
+        let sourceDescriptor = try await source.discoverPrimaryDataset()
+        let view = try LoadView(source: sourceDescriptor, specification: loaded)
+        let d = view.descriptor
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BraggPeakSeeds-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let sidecar = directory.appendingPathComponent("demo.mac4dstem.h5")
+        locator.adopt(sidecar, for: sourceDescriptor)
+        try BraggVectorEMDWriter.write(
+            vectors: PeakRestoreFixture.vectors(
+                scanWidth: d.rx, scanHeight: d.ry,
+                provenance: try PeakRestoreFixture.provenance(
+                    qy: d.qy, qx: d.qx, params: runParams, detector: detector)),
+            qWidth: d.qx, qHeight: d.qy, calibration: PixelCalibration(), to: sidecar
+        )
+        let stepParameters = try step ?? PeakRestoreFixture.stepParameters(
+            qy: d.qy, qx: d.qx, params: runParams, detector: detector)
+        try BraggVectorEMDWriter.mergeCalibration(
+            PixelCalibration(), qWidth: d.qx, qHeight: d.qy, to: sidecar,
+            loadSpecification: recorded, replayRecord: PeakRestoreFixture.record(stepParameters)
+        )
+        let state = AppState(sessionSidecar: locator)
+        state.beginDatasetLoading("Reopening source…")
+        await state.activate(descriptor: sourceDescriptor, reader: source,
+                             specification: loaded, runInitialAnalysis: false)
+        state.finishDatasetLoading()
+        return state
+    }
+
+    func testAdoptionSeedsTheControlsWithTheSettingsTheDisksWereDetectedWith() async throws {
+        let state = try await open()
+        XCTAssertNotNil(state.resultPresentation.braggVectors)
+        XCTAssertEqual(state.diskDetection.diskParams, PeakRestoreFixture.nonDefaultParams())
+        XCTAssertEqual(state.learnedDetection.detectorClass, .classical)
+    }
+
+    func testTheSeededControlsKeepTheDisksCurrentOnceAKernelIsBuiltUntilAControlChanges() async throws {
+        let state = try await open()
+        let d = try XCTUnwrap(state.descriptor)
+        XCTAssertNotNil(state.resultPresentation.braggVectors)
+        XCTAssertNil(state.probeKernel)
+        XCTAssertFalse(state.diskDetectionSettingsAreStale)
+
+        // A kernel of the recorded class, built after the restore: the
+        // signature is now rebuilt from the CONTROLS, not from the peaks.
+        state.probeKernel = try PeakRestoreFixture.kernel(qy: d.qy, qx: d.qx)
+        XCTAssertEqual(ProductWorkflow.stalenessVerdict(
+            recordedStep: state.recordedReplayStep(for: .disks),
+            currentSignature: state.currentReplaySignature(for: .disks), hasProduct: true),
+            .current, "Nothing was changed by the user: the disks must not read as stale")
+        XCTAssertFalse(state.diskDetectionSettingsAreStale)
+        XCTAssertTrue(state.hasCurrentBraggVectors)
+
+        // The user changes a control: now, and only now, stale.
+        state.diskDetection.diskParams.edgeBoundary += 1
+        XCTAssertEqual(ProductWorkflow.stalenessVerdict(
+            recordedStep: state.recordedReplayStep(for: .disks),
+            currentSignature: state.currentReplaySignature(for: .disks), hasProduct: true),
+            .stale(changedKeys: ["edge_boundary"]))
+    }
+
+    func testALearnedStepSeedsTheDetectorPickerAndThreshold() async throws {
+        let state = try await open(detector: [
+            "detector_class": "learned", "learned_threshold": "0.37", "learned_model_sha256": "abc"])
+        XCTAssertNotNil(state.resultPresentation.braggVectors)
+        XCTAssertEqual(state.diskDetection.diskParams, PeakRestoreFixture.nonDefaultParams())
+        XCTAssertEqual(state.learnedDetection.detectorClass, .learned)
+        XCTAssertEqual(state.learnedDetection.threshold, 0.37)
+        // The model hash is a property of the loaded asset, not a control:
+        // it is the one key that stays until the model is prepared.
+        let d = try XCTUnwrap(state.descriptor)
+        state.probeKernel = try PeakRestoreFixture.kernel(qy: d.qy, qx: d.qx)
+        XCTAssertEqual(ProductWorkflow.stalenessVerdict(
+            recordedStep: state.recordedReplayStep(for: .disks),
+            currentSignature: state.currentReplaySignature(for: .disks), hasProduct: true),
+            .stale(changedKeys: ["learned_model_sha256"]))
+    }
+
+    // MARK: - A refusal leaves the controls alone
+
+    private func expectedUntouchedControls(_ state: AppState) throws -> DiskDetectionParams {
+        let d = try XCTUnwrap(state.descriptor)
+        return .detectorAdapted(qy: d.qy, qx: d.qx, probeRadius: state.fittedProbeRadius)
+    }
+
+    func testARefusalAfterReadingLeavesTheControlsAtTheDetectorDefaults() async throws {
+        let full = try await DemoFourDDataSource().discoverPrimaryDataset()
+        var step = try PeakRestoreFixture.stepParameters(
+            qy: full.qy, qx: full.qx, params: PeakRestoreFixture.nonDefaultParams(),
+            detector: ["detector_class": "learned", "learned_threshold": "0.37"])
+        step["edge_boundary"] = "21"      // provenance disagrees: refused after the read
+        let state = try await open(step: step)
+        XCTAssertNil(state.resultPresentation.braggVectors)
+        XCTAssertTrue(state.statusText.contains("Stored disks not used"), "Status was: \(state.statusText)")
+        XCTAssertEqual(state.diskDetection.diskParams, try expectedUntouchedControls(state))
+        XCTAssertNotEqual(state.diskDetection.diskParams, PeakRestoreFixture.nonDefaultParams())
+        XCTAssertEqual(state.learnedDetection.detectorClass, .classical)
+        XCTAssertEqual(state.learnedDetection.threshold, LearnedDiskDetector.defaultThreshold)
+    }
+
+    func testARefusalBeforeReadingLeavesTheControlsAtTheDetectorDefaults() async throws {
+        let cropA = LoadSpecification(scanCrop: AxisCrop(yOffset: 0, xOffset: 0, height: 6, width: 6))
+        let cropB = LoadSpecification(scanCrop: AxisCrop(yOffset: 2, xOffset: 3, height: 6, width: 6))
+        let state = try await open(loaded: cropA, recorded: cropB)
+        XCTAssertNil(state.resultPresentation.braggVectors)
+        XCTAssertTrue(state.statusText.contains("different view"), "Status was: \(state.statusText)")
+        XCTAssertEqual(state.diskDetection.diskParams, try expectedUntouchedControls(state))
     }
 }
