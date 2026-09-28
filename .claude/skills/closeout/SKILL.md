@@ -31,7 +31,9 @@ Done means the repo tells the next reader the truth. In order:
    the app better, or say why no move would (`CLAUDE.md` "Rules serve the
    app"). Splitting into `extension AppState { }` does not count as a move.
 3. If the session changed what the app draws: say so, and state the work as
-   unverified on screen until the owner has driven it.
+   unverified on screen until a drive has seen it — the owner's, or the
+   session's own on a scratch build with the build, clicks and shots named
+   (`CLAUDE.md`).
 4. Update the step's row in `docs/status.md` (state, commit, what deviated)
    and the dated gate table. A new file in `docs/decisions/` and a row in
    `docs/decisions.md` if a decision was made.
@@ -71,5 +73,4 @@ Done means the repo tells the next reader the truth. In order:
    "do not commit unless the user asked"). Land the work as coherent commits
    with the gate numbers in the message, and the docs in the same commit as
    the code they describe. **Pushing is still the owner's** — ask if it should
-   go out. `main` is linear by preference, not by rule, since the 2026-09-16
-   merge split put a cherry-pick on it.
+   go out. `main` only — no feature or worktree branches (owner, 2026-09-17).

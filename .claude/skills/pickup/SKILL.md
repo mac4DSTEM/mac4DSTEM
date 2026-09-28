@@ -1,6 +1,6 @@
 ---
 name: pickup
-description: Start the next mac4DSTEM development target from docs/status.md. Use whenever the user says "pick up", "next session", "continue the app", or names a target — a bug they reported, an open item, a v3 feature, a consolidation item — even when they don't say which list it comes from. Reads the status table, takes the named target, and enforces its gate.
+description: Start the next mac4DSTEM development target from docs/status.md. Use whenever the user says "pick up", "next session", "continue the app", or names a target — a bug they reported, an open item, a ROADMAP feature, an overnight plan — even when they don't say which list it comes from. Reads the status table, takes the named target, and enforces its gate.
 ---
 
 # Pick up a target
@@ -20,8 +20,13 @@ This skill only makes sure you enter them correctly.
    Results crash I reported"). With no name, take the top of the status
    handoff. If the target needs something only the user can provide — a
    decision, a data file — and it is not in the conversation, do the parts
-   that don't need it, then stop and say exactly what is needed. Never guess
-   the user's answer to keep an unattended run moving.
+   that don't need it, then stop and say exactly what is needed. Unattended
+   (owner, 2026-09-29, "decide, don't stall"): decide from the record (ADRs,
+   `CLAUDE.md`, the owner's recorded preferences); otherwise ask an Opus advisor
+   subagent to argue against the proposal; if it endorses and the step is
+   reversible, do it and list it as "decided overnight — overrule on sight".
+   Stop only on a push, a delete, a moved shipped number, a Frozen Shell
+   redesign, or anything outside the repo.
    The consolidation plan closed 2026-09-11, so a feature target is no
    longer refused: a v3 feature is a target, pre-registered and built the
    way `ROADMAP.md`'s "How a v3 feature is done" section says. A closed consolidation gate ("/pickup C1")
@@ -33,7 +38,7 @@ This skill only makes sure you enter them correctly.
    driving anyway. Say which you took and why.
 3. Before any work, restate in one short block: the target's scope, its gate
    (unit / unit+scientific / Gate D / Gate B), what it deletes, which release
-   it lands in (a driven bug cuts v3.0.x, a landed science number v3.1.0 —
+   it lands in (a driven bug cuts v4.0.x, a landed science number v4.1.0 —
    `docs/releasing.md`), and any decision the user makes in-step. A feature
    is pre-registered first (`ROADMAP.md`'s "How a v3 feature is done" section).
 4. Non-negotiables (each has burned this repo): Gate D before any fix
@@ -41,7 +46,9 @@ This skill only makes sure you enter them correctly.
    in Core (`/adversarial-review`); a session touching `AppState` moves one
    responsibility out where that makes the app better (never a move for its own
    sake — `CLAUDE.md` "Rules serve the app"); break every new test before trusting it; a change to
-   what the app draws is stated as unverified on screen until the owner has
-   seen it; do NOT set `ResidencyAdmission.measuredWorkingSetFraction`.
-5. One target per conversation. When the work lands, invoke `/closeout`.
-   Commit freely; pushing is the owner's — ask before any push.
+   what the app draws is unverified on screen until a drive has seen it (the
+   owner's, or a session's on a scratch build, pid-pinned, every shot reviewed —
+   `CLAUDE.md`); do NOT set `ResidencyAdmission.measuredWorkingSetFraction`.
+5. One target per conversation, unless a plan file names the night's list
+   (then log each item in it as it lands). When the work lands, invoke
+   `/closeout`. Commit freely on `main` (no branches); pushing is the owner's.
