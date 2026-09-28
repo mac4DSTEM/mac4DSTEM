@@ -49,8 +49,8 @@ moves a shipped number or a shipped verdict. RED (list only): owner decisions, p
 ## 3. The night, in order (GREEN first, YELLOW last)
 
 **A — finish tonight's work (GREEN)**
-1. Gate D fix: autorelease pool per tile in `TiledDiskDetection.detectAll` (experiment in
-   `tiled-detection-memory-gateD-2026-09-29.md`), a gated memory harness broken first, refuter, unit gate.
+1. Gate D fix: autorelease pool per tile in `TiledDiskDetection.detectAll` — **diagnosis held** (+335 MB per tile
+   unpatched, flat with a pool; `tiled-detection-memory-gateD-2026-09-29.md`), a gated memory harness broken first, refuter, unit gate.
 2. Bragg restore: seed the detection controls from the recorded step; test broken first; then **drive** — open
    Thronsen A, see "Disks restored…", map phases without detecting; screenshots reviewed.
 3. `AppState`: move one responsibility out only where that makes the app better (owner 2026-09-29, "Rules

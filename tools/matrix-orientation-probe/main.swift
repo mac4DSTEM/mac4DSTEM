@@ -88,6 +88,93 @@ struct PositionRecord {
     var verdict = -1
 }
 
+
+// ---- 2026-09-29 `--mem-test A|B`: Gate D experiment for
+// docs/archive/v4/tiled-detection-memory-gateD-2026-09-29.md. A = the app's own
+// `DiskDetection.detectAll(data:)`, unmodified. B = a scratch copy of its tile
+// loop (same arithmetic, same TilePrefetcher) with an `autoreleasepool` around
+// the synchronous part of each tile. Both log `phys_footprint` (task_info
+// TASK_VM_INFO) at every tile boundary via the progress callback, plus the
+// peak seen by a 100 ms sampler thread, and IOAccelerator from `vmmap -summary`
+// at a few boundaries. Diagnostic only; nothing here changes an app number.
+nonisolated func physFootprintMB() -> Double {
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+    let kr = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+        }
+    }
+    return kr == KERN_SUCCESS ? Double(info.phys_footprint) / 1_048_576 : .nan
+}
+
+nonisolated func vmmapIOAccelerator() -> String {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/vmmap")
+    p.arguments = ["-summary", String(ProcessInfo.processInfo.processIdentifier)]
+    let pipe = Pipe()
+    p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
+    do { try p.run() } catch { return "vmmap failed: \(error)" }
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    p.waitUntilExit()
+    let text = String(decoding: data, as: UTF8.self)
+    let lines = text.split(separator: "\n").filter { $0.hasPrefix("IOAccelerator") || $0.hasPrefix("Physical footprint:") }
+    return lines.map { String($0) }.joined(separator: " | ")
+}
+
+nonisolated final class MemLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastTile = -1
+    private var peakSince = 0.0
+    private var stop = false
+    let rowsPerTile: Int, ry: Int, nTiles: Int, vmmapTiles: Set<Int>
+    let t0 = Date()
+    var series: [(tile: Int, fp: Double, peak: Double)] = []
+    init(rowsPerTile: Int, ry: Int, nTiles: Int) {
+        self.rowsPerTile = rowsPerTile; self.ry = ry; self.nTiles = nTiles
+        vmmapTiles = [1, nTiles / 2, nTiles - 1]
+        let thread = Thread { [self] in
+            while true {
+                let stopping = lock.withLock { () -> Bool in
+                    peakSince = max(peakSince, physFootprintMB()); return stop
+                }
+                if stopping { return }
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+        }
+        thread.start()
+    }
+    func finish() { lock.withLock { stop = true } }
+    /// Called from the progress callback: logs once per tile, at the tile's first admitted tick.
+    func tick(_ fraction: Double) {
+        let tile = min(nTiles - 1, Int(fraction * Double(ry) + 1e-9) / rowsPerTile)
+        let fire: (Double, Double)? = lock.withLock {
+            guard tile != lastTile else { return nil }
+            lastTile = tile
+            let fp = physFootprintMB()
+            let pk = max(peakSince, fp); peakSince = fp
+            series.append((tile, fp, pk))
+            return (fp, pk)
+        }
+        guard let (fp, pk) = fire else { return }
+        var line = String(format: "  [tile %d/%d @ %.0f s] phys_footprint %.0f MB (peak since previous boundary %.0f MB)",
+                          tile, nTiles, Date().timeIntervalSince(t0), fp, pk)
+        if vmmapTiles.contains(tile) { line += "  vmmap: " + vmmapIOAccelerator() }
+        print(line); fflush(stdout)
+    }
+}
+
+nonisolated func peakChecksum(_ peaks: [[BraggPeak]]) -> (count: Int, hash: UInt64) {
+    var h: UInt64 = 0xcbf29ce484222325
+    var n = 0
+    func mix(_ v: UInt32) { for k in 0..<4 { h ^= UInt64((v >> (8 * UInt32(k))) & 0xff); h = h &* 0x100000001b3 } }
+    for (i, list) in peaks.enumerated() {
+        mix(UInt32(truncatingIfNeeded: i)); mix(UInt32(truncatingIfNeeded: list.count))
+        for p in list { mix(p.x.bitPattern); mix(p.y.bitPattern); mix(p.intensity.bitPattern); n += 1 }
+    }
+    return (n, h)
+}
+
 @main
 enum MatrixOrientationProbe {
     static func main() async throws {
@@ -134,6 +221,61 @@ enum MatrixOrientationProbe {
         // `detectAll(cube:)`, identical arithmetic) with each tile's buffer
         // released in its own `autoreleasepool`. Without `--tile-rows` the
         // app's own path is used unchanged.
+        // ---- --mem-test A|B (see the helpers above) --------------------------
+        if let mode = value("--mem-test") {
+            let rowsPerTile = await data.scanTileRows(maximumRows: tileRows)
+            let ranges = Array(Swift.stride(from: 0, to: d.ry, by: rowsPerTile))
+            let tileBytes = rowsPerTile * d.rx * d.qy * d.qx * MemoryLayout<Float>.stride
+            print(String(format: "mem-test %@: rowsPerTile %d, tile %.1f MB, %d tiles, cube %.0f MB as Float; footprint after origin fit %.0f MB",
+                         mode, rowsPerTile, Double(tileBytes) / 1_048_576, ranges.count,
+                         Double(d.ry * d.rx * d.qy * d.qx * 4) / 1_048_576, physFootprintMB()))
+            fflush(stdout)
+            let log = MemLog(rowsPerTile: rowsPerTile, ry: d.ry, nTiles: ranges.count)
+            let started = Date()
+            let all: BraggVectors
+            if mode == "A" {
+                guard let r = try await DiskDetection.detectAll(
+                    data: data, descriptor: d, kernel: kernel, params: params,
+                    maximumTileRows: tileRows, progress: { log.tick($0) })
+                else { fail("detection cancelled") }
+                all = r
+            } else {
+                // Scratch copy of TiledDiskDetection.detectAll(data:)'s loop, pool added.
+                var allPeaks = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
+                let tileRanges: [Range<Int>] = Swift.stride(from: 0, to: d.ry, by: rowsPerTile).map { $0..<min(d.ry, $0 + rowsPerTile) }
+                var prefetcher = TilePrefetcher(data: data)
+                for (index, range) in tileRanges.enumerated() {
+                    let lower = range.lowerBound, upper = range.upperBound
+                    let tile = try await prefetcher.tile(
+                        for: range, prefetching: index + 1 < tileRanges.count ? tileRanges[index + 1] : nil)
+                    let tileDescriptor = DatasetDescriptor(
+                        filePath: d.filePath, datasetPath: d.datasetPath,
+                        shape: [range.count, d.rx, d.qy, d.qx],
+                        dtypeDescription: d.dtypeDescription, chunkShape: nil)
+                    let ok: Bool = autoreleasepool {
+                        guard let buffer = MetalEngine.shared.device.makeBuffer(
+                            bytes: tile.pixels, length: tile.pixels.count * MemoryLayout<Float>.stride,
+                            options: .storageModeShared) else { return false }
+                        buffer.label = "Disk detection tile rows \(lower)..<\(upper)"
+                        guard let detected = DiskDetection.detectAll(
+                            cube: buffer, descriptor: tileDescriptor, kernel: kernel, params: params,
+                            progress: { fraction in
+                                log.tick((Double(lower) + fraction * Double(range.count)) / Double(d.ry))
+                            }) else { return false }
+                        allPeaks.replaceSubrange(lower * d.rx..<upper * d.rx, with: detected.peaks)
+                        return true
+                    }
+                    guard ok else { fail("tile \(lower)..<\(upper) failed") }
+                }
+                all = BraggVectors(scanWidth: d.rx, scanHeight: d.ry, peaks: allPeaks)
+            }
+            log.finish()
+            let (n, h) = peakChecksum(all.peaks)
+            print(String(format: "mem-test %@ done in %.1f s: total peaks %d, checksum %016llx, final footprint %.0f MB, peak boundary footprint %.0f MB",
+                         mode, Date().timeIntervalSince(started), n, h, physFootprintMB(),
+                         log.series.map(\.peak).max() ?? .nan))
+            exit(0)
+        }
         let raw: BraggVectors
         if let tileRows {
             let rowsPerTile = await data.scanTileRows(maximumRows: tileRows)
