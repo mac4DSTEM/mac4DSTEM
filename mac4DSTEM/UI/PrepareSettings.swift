@@ -45,6 +45,13 @@ struct PrepareSettings: View {
     /// Settings" and "Reset Alignment". Plain `@State`: a half-open dialog is
     /// not worth remembering across a window.
     @State private var showsClearConfirmation = false
+    /// The manual ellipse as typed, before Apply Ellipse. Nil shows the
+    /// ellipse in use, so the fields open on it and editing is a tweak;
+    /// cleared whenever the calibration's ellipse changes. UI draft only:
+    /// nothing reaches the calibration except through Apply.
+    @State private var ellipseDraftA: Double?
+    @State private var ellipseDraftB: Double?
+    @State private var ellipseDraftThetaDegrees: Double?
 
     /// The pipeline order of the calibration steps; the readiness line
     /// counts them in this order and it is the one place the order is stated.
@@ -369,6 +376,8 @@ struct PrepareSettings: View {
                 InspectorNote("Refused: ring signal in \(offeredBins) of 36 sectors. Fit Anyway accepts it if the annulus holds one ring.")
             }
 
+            manualEllipseRows(calibration)
+
             if calibration.hasEllipse,
                let a = calibration.ellipseA,
                let b = calibration.ellipseB,
@@ -397,6 +406,66 @@ struct PrepareSettings: View {
                     }
                 }
             }
+        }
+    }
+
+    /// The ellipse typed by hand (owner decision 5, 2026-09-28): py4DSTEM's
+    /// a, b and θ, in the convention the "Correction" line shows, applied
+    /// only by the button. One row per value, like the fit annulus.
+    @ViewBuilder
+    private func manualEllipseRows(_ calibration: Calibration) -> some View {
+        let a = ellipseDraftA ?? calibration.ellipseA ?? 0
+        let b = ellipseDraftB ?? calibration.ellipseB ?? 0
+        let thetaDegrees = ellipseDraftThetaDegrees
+            ?? calibration.ellipseTheta.map { $0 * 180 / .pi } ?? 0
+        let help = "Enter an ellipse by hand in py4DSTEM's convention: semi-axes a (the longer) and b in detector pixels, θ the tilt of the a axis from qx (the row axis) in degrees — the numbers the Correction line shows. Only b/a and θ change the correction; a and b size the drawn ring."
+        InspectorRow("Semi-axis a") {
+            NumericField(
+                "Semi-axis a",
+                value: Binding(get: { a }, set: { ellipseDraftA = $0 }),
+                format: .number.precision(.fractionLength(0...4)),
+                unit: "px"
+            )
+            .labelsHidden()
+            .accessibilityIdentifier("calibration.ellipse.manualA")
+        }
+        .help(help)
+        InspectorRow("Semi-axis b") {
+            NumericField(
+                "Semi-axis b",
+                value: Binding(get: { b }, set: { ellipseDraftB = $0 }),
+                format: .number.precision(.fractionLength(0...4)),
+                unit: "px"
+            )
+            .labelsHidden()
+            .accessibilityIdentifier("calibration.ellipse.manualB")
+        }
+        .help(help)
+        InspectorRow("θ") {
+            NumericField(
+                "Ellipse angle θ",
+                value: Binding(get: { thetaDegrees }, set: { ellipseDraftThetaDegrees = $0 }),
+                format: .number.precision(.fractionLength(0...3)),
+                unit: "°"
+            )
+            .labelsHidden()
+            .accessibilityIdentifier("calibration.ellipse.manualTheta")
+        }
+        .help(help)
+        InspectorActionRow {
+            Button {
+                appState.applyManualEllipse(a: a, b: b, thetaDegrees: thetaDegrees)
+            } label: {
+                Label("Apply Ellipse", systemImage: "checkmark.circle")
+            }
+            .disabled(appState.isBusy || !(a > 0 && b > 0))
+            .accessibilityIdentifier("calibration.ellipse.applyManual")
+            .help(help)
+        }
+        .onChange(of: [calibration.ellipseA, calibration.ellipseB, calibration.ellipseTheta]) {
+            ellipseDraftA = nil
+            ellipseDraftB = nil
+            ellipseDraftThetaDegrees = nil
         }
     }
 

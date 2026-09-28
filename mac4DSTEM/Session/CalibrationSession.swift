@@ -72,6 +72,39 @@ package final class CalibrationSession {
         ellipseFitAnywayOffer = nil
     }
 
+    /// Write an ellipse typed by hand (2026-09-28, owner decision 5): a, b are
+    /// py4DSTEM's semi-axes in detector pixels and `thetaDegrees` its tilt of
+    /// the semi-major axis from the qx (row) axis, in degrees — the numbers
+    /// Prepare's "Correction" line shows, so a displayed ellipse round-trips.
+    /// Only b/a and θ reach the correction; a and b size the overlay ring.
+    ///
+    /// Returns the refusal sentence and writes nothing when a value cannot
+    /// be an ellipse — an earlier ellipse stands, as after a refused fit.
+    /// Otherwise it replaces the ellipse, marks it `.manual`, and clears the
+    /// last fit's model and residual rows, which described another ellipse.
+    package func applyManualEllipse(a: Double, b: Double, thetaDegrees: Double) -> String? {
+        guard a.isFinite, b.isFinite, a > 0, b > 0 else {
+            return "Enter both semi-axes as positive lengths in pixels."
+        }
+        // py4DSTEM's a is the semi-major axis and θ its tilt
+        // (`elliptical_coords.py:76` normalises a, b = max, min), and the
+        // app's fit keeps that order. An a < b ellipse would still be
+        // corrected exactly, but typing the axes in the wrong order while
+        // keeping θ describes another ellipse and leaves a 17.97–21.16 px
+        // spread on the owner's cube (Gate B, 2026-09-28): refuse it.
+        guard a >= b else {
+            return "a is the semi-major axis: enter the longer length as a. If your angle belongs to the shorter axis, swap a and b and add 90° to θ."
+        }
+        guard thetaDegrees.isFinite else { return "Enter θ in degrees." }
+        calibration.ellipseA = a
+        calibration.ellipseB = b
+        calibration.ellipseTheta = thetaDegrees * .pi / 180
+        provenance.ellipse = .manual
+        lastEllipseFit = nil
+        ellipseFitAnywayOffer = nil
+        return nil
+    }
+
     /// A refused ellipse fit writes nothing — an earlier ellipse, if any,
     /// stands — but between the sparse floor and the degeneracy bound the
     /// refusal is one a "fit anyway" retry could overturn, so that is the

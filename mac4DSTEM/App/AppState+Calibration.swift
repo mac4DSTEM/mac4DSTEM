@@ -214,6 +214,22 @@ extension AppState {
         }
     }
 
+    /// An ellipse typed in Prepare. The decision lives in
+    /// `CalibrationSession.applyManualEllipse`; this does what a fit does
+    /// after it lands — reproject a displayed Bragg map, leave strain and
+    /// ACOM to be rerun — and reports either way.
+    func applyManualEllipse(a: Double, b: Double, thetaDegrees: Double) {
+        if let refusal = calibrationSession.applyManualEllipse(a: a, b: b, thetaDegrees: thetaDegrees) {
+            presentComputeFailure(SimpleError(refusal))
+            return
+        }
+        if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors,
+           let descriptor {
+            showBraggMap(vectors, descriptor: descriptor)
+        }
+        statusText = String(format: "Ellipse set by hand · a %.4g · b %.4g · θ %.1f°", a, b, thetaDegrees)
+    }
+
     /// R–Q rotation calibration: find the rotation (and detector transpose)
     /// that makes the CoM field curl-free. Runs origin calibration first if
     /// needed — the solver wants the descan-corrected field.
