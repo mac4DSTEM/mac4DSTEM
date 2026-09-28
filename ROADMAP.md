@@ -106,7 +106,9 @@ the session sidecar as a sharing unit.
 Three tracks, in dependency order. **Truth comes first**, because both of the others are judged
 against it. Every step is registered before it runs. Gate D applies where a number moves, and an
 independent refuter reviews every verdict. Tracks B and C share one rule: a port or a trained model is
-scored against its reference's own outputs on the same input before it is called equivalent. The
+scored against its reference's own outputs on the same input before it is called equivalent. Three
+steps open with a design session with the owner, each once its input exists: B2's port order (after
+A3), C3's shape and Core ML vs Core AI (after C2), and C5's mock, which also settles B4. The
 2026-09-23 sequence is in `docs/archive/v4/roadmap-history.md`.
 
 ### A — Ground truth, kept and reproduced (the foundation)
