@@ -150,3 +150,28 @@ The app records the floor in the product's provenance.
 floor, the app's maps match or beat the worst published method on every object metric except
 θ′ edge-on speckle (7 small spurious edge-on objects against the published 0–5). Phase mapping
 stays badged unvalidated: one dataset, and a FAIL.
+
+## Independent refuter (Sonnet), same day
+
+**NOT REFUTED. No correction of substance.** The refuter re-derived everything with its own scipy code,
+without importing the scorer's object functions (`refuter-recompute.py`, `refuter-null-edge.py`).
+- **The amendment is principled and fair.** Commit times: registration 15:28:14, probe labels
+  written 15:30:11, amendment committed 15:31:01, the first scored output 15:31:11. The
+  amendment's cause is in truth-only self-tests from 15:29:20 and 15:30:44. The label file existed
+  50 s before the amendment. It is an unreadable pixel array without the scorer, and it was not
+  opened: stated so that the gap is on the record. The published methods and the app are scored by
+  the same function against the same reference.
+- **Every limit recomputed by hand** from the T2 rows matches the scorer (to rounding). The verdict
+  recomputed independently matches too: T1 / face-on / edge-on raw spurious 1 / 33 / **7**, raw
+  merges 0 / 0 / 11. At 0.5 %: 11.4155 %, and face-on P/9 count 0.
+- **The FAIL is genuine speckle.** Of the 7 spurious edge-on objects, six are 1 px and one is 2 px,
+  and none touches the scan boundary. 5 of the 7 sit next to another truth class (boundary
+  spill-over); 2 are isolated in Al. Whether a different stride-3 offset would change the count
+  cannot be tested: no full-resolution prediction exists.
+- **Validity 1 has a blind axis, now measured.** The registered null never flips Al to edge-on,
+  the one class that failed. An edge-on null at the app's own Al → edge-on rate (0.256 %, several
+  seeds) gives **47–54** spurious edge-on objects, 7–8× the app's 7. So the metric separates
+  structured calls from noise on that axis too, and the FAIL is not an artefact of the metric.
+  **Follow-up for any later scored run: flip all three classes in the null.**
+- **Confirmed:** the probe's `baseline` is built under the shipped guard
+  (`PhaseVectorMatching.swift:239`, k = 1), so `baseline == guarded` byte for byte in both dumps.
