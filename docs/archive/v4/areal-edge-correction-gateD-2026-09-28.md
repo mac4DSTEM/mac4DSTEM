@@ -40,3 +40,37 @@ the T1 d 190 cells (the test can fail). The Thronsen-geometry cell is reported, 
 Unit tests before the app change, each broken first (a hand-computed weight; an interior object's weight > 1; the
 edge-excluded object still excluded; a 1×1 object's weight). Refuter on the diagnosis and the run. Unit + scientific
 gates. ADR if it passes.
+
+## Run 1 (`areal-run1.log`; T6 run 1 reproduced byte-identical first)
+
+The app's own `density.arealDensity` equals the "current" column in every cell. **Current rule: fails where
+predicted** (0.88–0.95 at d 100/190). **Corrected: FAILS one cell as registered** — θ′ d 190 t 100, 0.957 ± 0.009;
+all three θ′ d 190 cells sit ≈ 3 % low (0.971, 0.957, 0.974); every other cell 0.990–1.025.
+
+```
+theta' edge-on d= 20 t= 50  current 0.978+-0.001 PASS  corrected 0.990+-0.001 PASS
+theta' edge-on d= 20 t=100  current 0.982+-0.001 PASS  corrected 0.994+-0.001 PASS
+theta' edge-on d= 20 t=200  current 0.985+-0.001 PASS  corrected 0.997+-0.001 PASS
+theta' edge-on d=100 t= 50  current 0.952+-0.005 FAIL  corrected 0.991+-0.005 PASS
+theta' edge-on d=100 t=100  current 0.953+-0.004 FAIL  corrected 0.994+-0.004 PASS
+theta' edge-on d=100 t=200  current 0.952+-0.006 FAIL  corrected 0.994+-0.006 PASS
+theta' edge-on d=190 t= 50  current 0.904+-0.008 FAIL  corrected 0.971+-0.009 PASS
+theta' edge-on d=190 t=100  current 0.889+-0.008 FAIL  corrected 0.957+-0.009 FAIL
+theta' edge-on d=190 t=200  current 0.901+-0.008 FAIL  corrected 0.974+-0.008 PASS
+T1 {111} d= 20 t= 50  current 0.980+-0.002 PASS  corrected 0.997+-0.002 PASS
+T1 {111} d= 20 t=100  current 0.980+-0.003 PASS  corrected 0.997+-0.003 PASS
+T1 {111} d= 20 t=200  current 0.979+-0.002 PASS  corrected 0.996+-0.002 PASS
+T1 {111} d=100 t= 50  current 0.937+-0.009 FAIL  corrected 0.994+-0.010 PASS
+T1 {111} d=100 t=100  current 0.953+-0.009 FAIL  corrected 1.014+-0.010 PASS
+T1 {111} d=100 t=200  current 0.951+-0.009 FAIL  corrected 1.017+-0.010 PASS
+T1 {111} d=190 t= 50  current 0.883+-0.009 FAIL  corrected 0.982+-0.010 PASS
+T1 {111} d=190 t=100  current 0.916+-0.009 FAIL  corrected 1.025+-0.010 PASS
+T1 {111} d=190 t=200  current 0.889+-0.009 FAIL  corrected 1.001+-0.010 PASS
+```
+
+**Hypothesis M (before any further run):** the harness rejects an overlapping plate only against in-field pixels, so
+plates centred in the margin [−R, 0) ∪ (S, S + R] are never rejected yet count in truth. Where rejection is high
+(θ′ d 190: 16 %) and the margin large ((S + 2R)² − S² = 14 % of the box), truth is inflated by ≈ 0.14 × 0.16 ≈ 2–3 %,
+matching. **Predicted:** rejecting on an extended canvas covering the whole box moves the θ′ d 190 corrected cells to
+≈ 0.99–1.00 and leaves T1 (rejection ≈ 2 %) within its SEM. **Refuted if** θ′ d 190 stays ≈ 3 % low.
+

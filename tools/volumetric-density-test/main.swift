@@ -27,7 +27,11 @@ import Foundation
 
 // MARK: - Fixed parameters (§7)
 
-let fieldNm = 2400.0
+// Areal mode (archive/v4/areal-edge-correction-gateD-2026-09-28.md): T6_MODE=areal
+// scores the app's areal density (current edge rule) and the Miles–Lantuéjoul
+// corrected one against truth = accepted / (S + 2R)^2, with d 190 cells added.
+let arealMode = ProcessInfo.processInfo.environment["T6_MODE"] == "areal"
+let fieldNm = Double(ProcessInfo.processInfo.environment["T6_FIELD_NM"] ?? "") ?? 2400.0
 // Diagnostics only (§8: D1 halves the pixel, D2 shortens every length by one
 // pixel). Unset, they are the registered values and run 1 reproduces exactly.
 let env = ProcessInfo.processInfo.environment
@@ -35,9 +39,9 @@ let pixelNm = Double(env["T6_PIXEL_NM"] ?? "") ?? 2.5
 let lengthOffsetPx = Double(env["T6_LENGTH_OFFSET_PX"] ?? "") ?? 0
 let W = Int((fieldNm / pixelNm).rounded()), H = W
 let coverageTarget = 0.01
-let minSeeds = 20, maxSeeds = 400
-let semTarget = 0.015
-let passBar = 0.05
+let minSeeds = 20, maxSeeds = arealMode ? 3000 : 400
+let semTarget = arealMode ? 0.01 : 0.015
+let passBar = arealMode ? 0.03 : 0.05
 
 enum PlateClass: String { case thetaPrime = "theta' edge-on", t1 = "T1 {111}" }
 
@@ -176,6 +180,25 @@ func runSeed(_ cell: Cell, seedIndex: Int) -> SeedResult {
     precondition(density.edgeCount == res.edge, "density.edgeCount mismatch")
     precondition(map.analysedPixels == W * H)
 
+    if arealMode {
+        // Truth: visible plates per area. Weight = the inverse fraction of box
+        // positions clear of the forbidden border row, in pixels.
+        let lambda = Double(res.accepted) / ((fieldNm + 2 * R) * (fieldNm + 2 * R))
+        let A = Double(map.analysedPixels) * pixelNm * pixelNm
+        var sumW = 0.0
+        for o in counted {
+            var cmin = Int.max, cmax = -1, rmin = Int.max, rmax = -1
+            for i in o.pixelIndices {
+                let r = i / W, c = i % W
+                cmin = min(cmin, c); cmax = max(cmax, c); rmin = min(rmin, r); rmax = max(rmax, r)
+            }
+            let bx = Double(cmax - cmin + 1), by = Double(rmax - rmin + 1)
+            sumW += Double(W * H) / ((Double(W) - bx - 1) * (Double(H) - by - 1))
+        }
+        res.ratios = [(Double(counted.count) / A) / lambda, (sumW / A) / lambda,
+                      (density.arealDensity ?? .nan) / lambda, (sumW / A) / lambda]
+        return res
+    }
     let truth = Double(res.accepted) / ((fieldNm + 2 * R) * (fieldNm + 2 * R) * (t + h))
     let A = Double(map.analysedPixels) * pixelNm * pixelNm
     let N = Double(counted.count)
@@ -293,7 +316,7 @@ struct T6 {
         selfChecks()
         var cells: [Cell] = []
         for cls in [PlateClass.thetaPrime, .t1] {
-            for d in [20.0, 100.0] {
+            for d in (arealMode ? [20.0, 100.0, 190.0] : [20.0, 100.0]) {
                 for t in [50.0, 100, 200] {
                     cells.append(Cell(cls: cls, d: d, t: t, index: cells.count))
                 }
@@ -309,7 +332,7 @@ struct T6 {
         print("(a) registered per-object 1/(t+L s); (b) Nie-Muddle class-level; (c) (b)+Miles-Lantuejoul weights; naive N/(A t)")
         print("bar |mean-1| <= \(passBar); seeds >= \(minSeeds) until SEM <= \(semTarget) for all four, cap \(maxSeeds)")
         var allPass = [true, true, true, true]
-        let names = ["(a)", "(b)", "(c)", "naive"]
+        let names = arealMode ? ["current", "corrected", "app", "corrected"] : ["(a)", "(b)", "(c)", "naive"]
         for r in results {
             var line = String(format: "%-14@ d=%3d t=%3d seeds=%3d%@ cnt=%6.1f edge=%5.1f rej=%5.1f%%",
                               r.cell.cls.rawValue as NSString, Int(r.cell.d), Int(r.cell.t), r.seeds,
