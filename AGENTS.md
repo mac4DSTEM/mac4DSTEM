@@ -24,6 +24,7 @@ is not loaded here: do not assume a fact is remembered.
 
 ## Hard rules
 
+- **Rules serve the app** (owner, 2026-09-29): a rule that would make the app worse — less simple, robust, correct or intuitive — is not followed; the commit names the rule and says why. Rules are changed here, not worked around quietly.
 - Views describe UI only; loading, parsing and compute live in `Core/`. `AppState` is the single source of truth until the plan's stores replace it.
 - New stored state in `AppState` names its owner first; `inventory` now reports (not blocks) growth of `AppState.swift` + `Support/ResultExport.swift`, and a commit that grows them says why no other home would do.
 - **Gate D** applies when a change can move a scientific number, or the cause of a defect is not yet established — not every change in `Core/`. Diagnosis, refuting observation, predicted outcome, experiment, then the fix; an independent refuter after; a fixture; the model that wrote the change never approves it alone — review the diagnosis, not the diff.

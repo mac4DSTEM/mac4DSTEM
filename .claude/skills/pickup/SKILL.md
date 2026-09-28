@@ -39,7 +39,8 @@ This skill only makes sure you enter them correctly.
 4. Non-negotiables (each has burned this repo): Gate D before any fix
    (`/diagnose`); an independent refuter for anything that changes a number
    in Core (`/adversarial-review`); a session touching `AppState` moves one
-   responsibility out; break every new test before trusting it; a change to
+   responsibility out where that makes the app better (never a move for its own
+   sake — `CLAUDE.md` "Rules serve the app"); break every new test before trusting it; a change to
    what the app draws is stated as unverified on screen until the owner has
    seen it; do NOT set `ResidencyAdmission.measuredWorkingSetFraction`.
 5. One target per conversation. When the work lands, invoke `/closeout`.

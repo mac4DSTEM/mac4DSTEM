@@ -40,7 +40,8 @@ moves a shipped number or a shipped verdict. RED (list only): owner decisions, p
    `tiled-detection-memory-gateD-2026-09-29.md`), a gated memory harness broken first, refuter, unit gate.
 2. Bragg restore: seed the detection controls from the recorded step; test broken first; then **drive** — open
    Thronsen A, see "Disks restored…", map phases without detecting; screenshots reviewed.
-3. Move one responsibility out of `AppState` (owed since 265c811).
+3. `AppState`: move one responsibility out only where that makes the app better (owner 2026-09-29, "Rules
+   serve the app"); otherwise record why not.
 4. Object Table: a selected row highlights its object on the map (open residual); the relationship field's grey
    prompt stops reading like a value. Drive-verified.
 

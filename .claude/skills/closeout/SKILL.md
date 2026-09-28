@@ -27,9 +27,9 @@ Done means the repo tells the next reader the truth. In order:
    own `xcodebuild test` line run directly into a retained log), and **exit 65 with exactly the S17
    sidebar intermittent** is the documented flake (add the run to S17's
    observation log in `docs/open-items.md` with the measured heights).
-2. If `AppState` was touched: confirm one responsibility moved out of it
-   (`CLAUDE.md` hard rules). Splitting into `extension AppState { }` does
-   not count.
+2. If `AppState` was touched: move one responsibility out where that makes
+   the app better, or say why no move would (`CLAUDE.md` "Rules serve the
+   app"). Splitting into `extension AppState { }` does not count as a move.
 3. If the session changed what the app draws: say so, and state the work as
    unverified on screen until the owner has driven it.
 4. Update the step's row in `docs/status.md` (state, commit, what deviated)
