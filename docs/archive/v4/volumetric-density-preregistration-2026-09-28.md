@@ -154,3 +154,24 @@ wherever lengths are; (a) is biased by truncation (1.08–1.10 at d ≈ 2t) as �
 pixel (13.9 nm on the stride-3 Thronsen scan) is the limiting systematic and must enter the reported uncertainty.
 Not yet refuted by an independent reader; no app code written.
 
+## 10. Independent refuter (Opus, 2026-09-28 night; its scratch `refuter/`, prediction written before its run)
+
+**Oracle experiment:** (c) fed the generator's true in-foil chords reads 0.986–1.013 in all twelve cells (T1 d 20 t 50:
+0.988; predicted ~1.000, H weakened at ≤ 0.975) — **H not refuted:** the d 20 deficit is length measurement. Measured
+overshoot L − c: θ′ +0.70–0.73 px, T1 d 20 +1.23–1.35 px (D2's −1 px over-corrects θ′). **Held:** the tilted-disc π/4
+chord and h = d·√(2/3) for T1; Miles–Lantuéjoul on visible footprints; rejection thinning negligible (D1 raised θ′ d 100
+rejection 10.5 → 17.5 %, (c) moved 0.002). Claim 1 corrected: truncation alone is +14.4 % at θ′ d 100 t 50, partly
+cancelled by the edge loss.
+
+**Found:** (1) **(c) is exact only for one plate size.** For lognormal d it inverts to ≈ E[d²]/E[d]: exact lengths give
+0.935 at d 100 t 50, CV 0.4, and 0.82–0.87 at d ≈ 190 t 50, CV 0.6 — where real T1 sits. **No estimator here may ship
+as volumetric density.** (2) The exact edge weight counts the forbidden border pixel: S² / ((S − bx − p)(S − by − p))
+(0.2 % here, ~1.2 % on a 171-px scan). (3) 0.3–1 % of accepted interior plates leave no pixel (harness defect).
+(4) **The shipped areal density is biased low by the edge rule, ≈ 13–17 % for T1 on Thronsen A** (its model predicts
+edge/counted 0.29–0.40; the drive saw 14/43 = 0.33) — systematic, inside one scan's Poisson error.
+**Unestablished:** polydisperse (c), sliver visibility, trace merging at real coverage, the length bias on real
+point-sampled masks, any real thickness.
+
+**Status:** volumetric density is NOT built. Next only with the owner: a polydisperse bar (CV 0, 0.3, 0.6) and an
+estimator that passes it, and — separately — the areal edge correction as its own Gate D.
+
