@@ -245,15 +245,13 @@ file `nonisolated`-verified by a cold app build.
 Owner: assign a session with Gate B support, or authorize continuing with a
 refuter. Detail: `archive/open-items-detail-2026-09-18.md`.
 
-### DM4Reader silently reads whole files into RAM off non-local volumes (2026-09-02) — it panicked this Mac 2026-09-24
-`.mappedIfSafe` declines to map on any volume failing `MNT_LOCAL && !MNT_REMOVABLE` (every external disk, disk
-image, smbfs) and reads the whole file into anonymous memory. **2026-09-24:** opening the owner's 28 GB raw
-`060_STEM SI.dm4` (exFAT via FSKit, external SSD) through it on this 8 GB Mac exhausted swap and **kernel-panicked
-the machine** (watchdog timeout); an RSS watchdog did not prevent it. **Trap: never reproduce this on a file larger
-than ~2 GB here.** Fix written, not yet committed: `DM4Reader.readingOptions(forPath:)` maps on any `MNT_LOCAL`
-volume and keeps the old option on network volumes (SIGBUS trade-off stated there). Proof owed on a 128 MB synthetic
-DM4 on an exFAT disk image (`tools/dm4-parity-probe --make-fixture / --foundation-check / --open-only`), then Gate B.
-**The 28 GB parity run against the py4DSTEM file waits for the owner's stronger Mac** (runbook: `archive/v4/almgsi-gateD-2026-09-24.md` part 6).
+### DM4 on external volumes — fixed and proved small 2026-09-28; the 28 GB parity run owed
+`.mappedIfSafe` read whole files into anonymous memory off any removable or network volume; on 2026-09-24 the
+owner's 28 GB raw DM4 (exFAT/FSKit SSD) **kernel-panicked this 8 GB Mac**. **Trap: never open a file over ~2 GB
+through an unproven path here.** Fixed: `DM4Reader.readingOptions(forPath:)` maps on every `MNT_LOCAL` volume
+(128 MB fixture on an exFAT image: +128 MB before, +0 after; Gate B, inventory pins `init`). Residuals: the
+physical SSD is proved only by proxy; a vanished volume is a SIGBUS crash with no dialog; network volumes keep the
+old full read. **Owed: the 28 GB `--parity` run on the owner's stronger Mac** (`archive/v4/almgsi-gateD-2026-09-24.md` parts 6, 8).
 
 ### The sidecar reader has D003's missing attribute-length guard too (2026-09-09)
 `BraggVectorEMDWriter.swift`'s attribute reads share D003's defect in

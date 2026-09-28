@@ -115,7 +115,7 @@ diagnostic=(bragg-spacing-probe origin-fit-diagnostics
   training-dataset-campaign precipitate-handcount
   phase-map-probe demo-dataset rotation-null-probe
   hdf5-race-probe thronsen-dataset cloud-analysis matrix-orientation-probe
-  lattice-calibration-probe)
+  lattice-calibration-probe dm4-parity-probe)
 owner_only=()
 retired=()
 support=(lib release crystal-structures hooks)
@@ -157,6 +157,19 @@ inventory() {
     echo "  phase mapping: badge and validation:\"none\" key present"
   else
     echo "  phase mapping: the Unvalidated badge or the validation:\"none\" key is GONE"; rc=1
+  fi
+
+  # DM4 mapping (Gate B 2026-09-28): the unit tests pin
+  # `readingOptions(forPath:)` alone; a literal `.mappedIfSafe` in `init`
+  # kept them green and read a 128 MB file off exFAT into memory again (the
+  # defect that panicked this Mac on 28 GB). One open, with that answer.
+  echo "== DM4Reader opens with readingOptions(forPath:)"
+  local dm4="$ROOT/mac4DSTEM/Core/Data/DM4Reader.swift"
+  if [[ "$(grep -c 'Data(contentsOf:' "$dm4")" == 1 ]] \
+     && [[ "$(grep -c 'options: Self.readingOptions(forPath: path))' "$dm4")" == 1 ]]; then
+    echo "  one Data(contentsOf:), options from readingOptions(forPath:)"
+  else
+    echo "  DM4Reader no longer opens exactly once through readingOptions(forPath:)"; rc=1
   fi
 
   echo "== tracked files over 1 MiB"

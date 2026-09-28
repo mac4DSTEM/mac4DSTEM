@@ -88,19 +88,49 @@ package actor DM4Reader: FourDDataSource {
     package init(path: String) async throws {
         // The underlying error travels with the refusal (v2 S7 audit): the
         // old `try?` collapsed EPERM, ENOENT and a short read into one
-        // pathless "cannot open". The `.mappedIfSafe` semantics themselves —
-        // and whether a NAS mount makes this a hidden full read — are S9's
-        // Gate D experiment (docs/v2-release.md §8); do not change the
-        // mapping option here.
+        // pathless "cannot open". How the file is held is
+        // `readingOptions(forPath:)`'s decision; see there.
         do {
             self.data = try Data(contentsOf: URL(fileURLWithPath: path),
-                                 options: .mappedIfSafe)
+                                 options: Self.readingOptions(forPath: path))
         } catch {
             throw DM4Error.cannotOpen(
                 "\(displayFileName(path)) — \(error.localizedDescription)")
         }
         self.filePath = path
         try parse()
+    }
+
+    /// How the file is held (2026-09-24, open-items "DM4Reader silently reads
+    /// whole files into RAM off non-local volumes").
+    ///
+    /// `.mappedIfSafe` maps only on a volume that is local AND not removable,
+    /// so every external disk falls back to reading the whole file into
+    /// anonymous memory. The owner's raw 4D-STEM files are 28 GB on an
+    /// external SSD, and this Mac has 8 GB of RAM: that fallback cannot work.
+    ///
+    /// On any local volume, removable or not, the file is memory-mapped
+    /// (`.alwaysMapped`): pages come in as patterns are read and are clean,
+    /// reclaimable file pages, not anonymous memory. The price is the one
+    /// py4DSTEM pays: its binned load (`read_dm.py:100-121`, `mem="RAM"`,
+    /// `binfactor > 1`) and its `mem="MEMMAP"` (`:123-124`) both read through
+    /// ncempy's `np.memmap` (`ncempy/io/dm.py:1195`). If the volume disappears
+    /// while mapped, the next page touched is a SIGBUS: the app crashes
+    /// without a dialog, not a thrown `DM4Error`.
+    ///
+    /// DEVIATION: ncempy maps on every volume. A network volume (no
+    /// `MNT_LOCAL`) keeps `.mappedIfSafe` here, the old behaviour, because a
+    /// mapped page the network cannot deliver is the same SIGBUS, far more
+    /// likely than an unplugged SSD. Streaming reads that throw instead would
+    /// fix both, and are not built.
+    ///
+    /// `init` must open the file with exactly this answer; `run-tests.sh
+    /// inventory` greps for it (Gate B 2026-09-28: a literal option in `init`
+    /// left the unit tests of this function green while reading 128 MB).
+    package nonisolated static func readingOptions(forPath path: String) -> Data.ReadingOptions {
+        var info = statfs()
+        guard statfs(path, &info) == 0 else { return .mappedIfSafe }
+        return (info.f_flags & UInt32(MNT_LOCAL)) != 0 ? .alwaysMapped : .mappedIfSafe
     }
 
     // MARK: FourDDataSource

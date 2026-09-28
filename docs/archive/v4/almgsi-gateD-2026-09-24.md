@@ -365,3 +365,45 @@ retained):
 **Not claimed:** that β″ is mapped, that any fraction is a precipitate fraction, or that the object
 counts are counts. These are runs of an unvalidated method, and the object pass bar (T4) is still
 the owner's decision.
+
+## Part 8: the DM4 mapping fix, proved on a 128 MB fixture and Gate B, 2026-09-28
+
+**Rig.** `tools/dm4-parity-probe --make-fixture`: a 128 MB synthetic DM4 (64 × 64 scan, 128 × 128
+int16). One copy on internal APFS, one on a 400 MB exFAT disk image (`hdiutil`), mounted
+`exfat, local, … fskit`, the same stack as the owner's external SSD. The predictions were written
+before any run. Every run exited 0 on its own line. Numbers are the probe's `phys_footprint`
+lines. The run script's watchdog "peak RSS" is not used: it samples every 0.2 s and printed 0 and
+5 MB on runs that reached 7 and 135 MB.
+
+| Run | Volume | Footprint change | Prediction |
+|---|---|---|---|
+| `--foundation-check`, `.mappedIfSafe` | exFAT image | **+128 MB** after open (a full read) | P1 held |
+| `--foundation-check`, `.alwaysMapped` | exFAT image | +0 MB after open and after touching every page | P1 held |
+| `--foundation-check`, both options | APFS (control) | +0 / +0 MB | P2 held |
+| `--open-only`, fixed reader | exFAT / APFS | 2 MB throughout; chose `alwaysMapped` | P3, P4 held |
+| `--open-only`, reader forced to `.mappedIfSafe` (control) | exFAT image | **2 → 130 MB** | the bug, reproduced small |
+
+The checksum (475646) and the three pattern sums are identical across options and volumes (P5).
+So `.mappedIfSafe` refuses to map on this *local* volume. The removable half of its test trips,
+which is exactly the case the fix covers.
+
+**Tests.** `DM4ReadingOptionsTests` (2 tests on `readingOptions(forPath:)`). Each was broken first,
+and each of two mutations turns only its own test red.
+
+**Gate B** (an independent Sonnet refuter, 2026-09-28):
+- **Q1 REFUTED.** A literal `.mappedIfSafe` in `init` left both unit tests green and read the
+  128 MB fixture into memory again (footprint 130 MB). The probe's "reading options" line also
+  misreported it, because it asks the function, not the reader. Remedy: `run-tests.sh inventory`
+  now requires exactly one `Data(contentsOf:)` in `DM4Reader.swift`, taking
+  `options: Self.readingOptions(forPath: path))`. Broken first: the same mutation turns inventory
+  red (exit 1), and the fixed file passes (exit 0). The probe line now says what it measures.
+- **Q2 NOT REFUTED.** The FSKit exFAT image reports `MNT_LOCAL`. **Not proved:** the owner's
+  physical SSD. The image is a proxy for it.
+- **Q3 citation corrected.** py4DSTEM's binned load (`read_dm.py:100-121`, the default
+  `mem="RAM"` with `binfactor > 1`) and `MEMMAP` (`:123-124`) both map through ncempy's
+  `np.memmap` (`ncempy/io/dm.py:1195`), on every volume. Keeping `.mappedIfSafe` on network
+  volumes is a `DEVIATION`, noted inline. SIGBUS on a vanished volume crashes the app without a
+  dialog. This is stated in the code, and nothing in the UI surfaces it.
+- **Q4 NOT REFUTED.** P1–P5 hold, number by number.
+
+**Still owed:** the 28 GB `--parity` run on the owner's stronger Mac (runbook in part 6).
