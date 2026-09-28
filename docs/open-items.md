@@ -98,12 +98,12 @@ Find Matrix Zone Axis reported "at chance". Setting Q 0,1904 nm⁻¹ and re-runn
 re-detection) gave T1 3680 / θ′ 833 / matrix 22 068 / not indexed 2660. Owner: "add this later" —
 refuse, or say why, when Q is uncalibrated. The stale zone-axis list also survives a calibration change.
 
-### Diffraction groups in a Debug build — accumulate fixed 2026-09-28 (Gate D); `embed` is the remaining cost
-Owner's drive 2026-09-24: 32 × 32 on 29 241 positions sat at "0 / 29 241" past 1:10. Profiled
-(`tools/embedding-profile`): the scalar covariance loop was 84.8 of 90.7 s per 1 000 patterns at `-Onone`
-(the Debug config the owner runs). Now `cblas_dsyrk` (`archive/v4/embedding-accumulate-gateD-2026-09-28.md`):
-6.3 s per 1 000 at `-Onone`, ≈ 3 min for the cube, **almost all of it `embed`** (per-pixel `log1p`; vectorising
-it would move values, so it needs its own agreement fixture). Owner's option: run real work from a Release build.
+### Diffraction groups in a Debug build — fixed 2026-09-28 (two Gate Ds); projection is what remains
+The owner's 2026-09-24 stall at 32 × 32 on 29 241 positions was mostly `-Onone` scalar loops (the Debug config
+he runs). `accumulate` now uses `cblas_dsyrk` and `embed` uses vDSP/vForce, with the old scalar code kept for
+NaN/±Inf patterns (`archive/v4/embedding-accumulate-gateD-2026-09-28.md`, `embedding-embed-gateD-2026-09-28.md`).
+1 000 patterns at 32 × 32 at `-Onone`: 90.7 → 1.76 s, so under a minute for the cube (synthetic data, file I/O
+excluded). The next Debug cost is the projection loop (0.7 s per 1 000). Owner's option: Release for real work.
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is

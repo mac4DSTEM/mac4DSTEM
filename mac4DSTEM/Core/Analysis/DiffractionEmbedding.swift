@@ -485,6 +485,68 @@ package nonisolated enum DiffractionEmbedding {
     package static func embed(
         pixels: [Float], base: Int, qy: Int, qx: Int, geometry: BinGeometry, binnedSize: Int
     ) -> [Float] {
+        // Gate D, 2026-09-28 (`docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
+        // the three per-pixel scalar loops below were 5.1 of 6.3 s per 1 000
+        // patterns in an `-Onone` build (the owner's Debug build). A pattern
+        // with only finite values takes the Accelerate path; one with NaN or
+        // ±Inf (its float sum is not finite) takes the old scalar path
+        // unchanged, because `vDSP_vthr` would turn NaN into 0, where Swift's
+        // `max(x, 0)` keeps it and lets the covariance guard refuse the
+        // dataset. The two paths agree to ≤ 1e-6 relative (`vvlog1pf` vs
+        // `log1pf`, summation order): `DiffractionEmbeddingEmbedTests`.
+        let count = qy * qx
+        var total: Float = 0
+        pixels.withUnsafeBufferPointer { buf in
+            vDSP_sve(buf.baseAddress! + base, 1, &total, vDSP_Length(count))
+        }
+        guard total.isFinite else {
+            return embedScalar(pixels: pixels, base: base, qy: qy, qx: qx,
+                               geometry: geometry, binnedSize: binnedSize)
+        }
+        var scaled = [Float](repeating: 0, count: count)
+        var logged = [Float](repeating: 0, count: count)
+        var maxVal: Float = 0
+        pixels.withUnsafeBufferPointer { buf in
+            scaled.withUnsafeMutableBufferPointer { sc in
+                logged.withUnsafeMutableBufferPointer { lg in
+                    var zero: Float = 0
+                    vDSP_vthr(buf.baseAddress! + base, 1, &zero, sc.baseAddress!, 1, vDSP_Length(count))
+                    var n = Int32(count)
+                    vvlog1pf(lg.baseAddress!, sc.baseAddress!, &n)
+                    vDSP_maxv(lg.baseAddress!, 1, &maxVal, vDSP_Length(count))
+                    if maxVal > 0 {
+                        var inv = 1 / maxVal
+                        vDSP_vsmul(lg.baseAddress!, 1, &inv, lg.baseAddress!, 1, vDSP_Length(count))
+                    }
+                }
+            }
+        }
+        var out = [Float](repeating: 0, count: binnedSize * binnedSize)
+        guard geometry.binnedH > 0, geometry.binnedW > 0 else { return out }
+        logged.withUnsafeBufferPointer { lg in
+            for by in 0..<geometry.binnedH {
+                let y0 = geometry.offsetY + by * geometry.boxY
+                for bx in 0..<geometry.binnedW {
+                    let x0 = geometry.offsetX + bx * geometry.boxX
+                    var sum: Float = 0
+                    for dy in 0..<geometry.boxY {
+                        var row: Float = 0
+                        vDSP_sve(lg.baseAddress! + (y0 + dy) * qx + x0, 1, &row, vDSP_Length(geometry.boxX))
+                        sum += row
+                    }
+                    out[by * binnedSize + bx] = sum
+                }
+            }
+        }
+        return out
+    }
+
+    /// The scalar `embed` as it was before 2026-09-28, unchanged: the path
+    /// for a pattern holding NaN or ±Inf, whose exact semantics (NaN kept,
+    /// −Inf clamped to 0) the refusal downstream depends on.
+    private static func embedScalar(
+        pixels: [Float], base: Int, qy: Int, qx: Int, geometry: BinGeometry, binnedSize: Int
+    ) -> [Float] {
         let count = qy * qx
         var scaled = [Float](repeating: 0, count: count)
         var maxVal: Float = 0
