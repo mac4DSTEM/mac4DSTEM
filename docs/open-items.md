@@ -235,8 +235,9 @@ refuter. Detail: `archive/open-items-detail-2026-09-18.md`.
 The owner's 306 labels (sha `3c43e89d…`) were lost while `.gitignore:44` ignored them; the line is gone. The same
 40 seed-1 bullseye positions were re-labelled by Claude by eye (no detector consulted), approved by the owner on the
 review sheet, central beam kept: 370 centres, 148 in the central 128 px (`tools/disk-detector/labels/bullseye-2026-09-28.json`).
-Not the C6 file: its numbers compare only as a new set. **Owed:** score both detectors (learned, classical at 0.15 %).
-The in-app labelling route is still untried on real data.
+Scored 2026-09-28 (`archive/v4/a2-label-scoring-2026-09-28.md`): net 0.584 / 0.655 at 0.7, 2 px; label-vs-net scatter
+median 1.2 px, no offset, so label precision is a confound. **Owed:** an inter-labeller check; the classical floor at the
+app's own settings (at `evaluate.py`'s the 70-peak cap binds). The in-app labelling route is still untried on real data.
 
 ### DM4 on external volumes — fixed and proved small 2026-09-28; the 28 GB parity run owed
 `.mappedIfSafe` read whole files into anonymous memory off any removable or network volume; on 2026-09-24 the

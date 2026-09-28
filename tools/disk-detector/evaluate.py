@@ -350,7 +350,9 @@ def main():
     ap.add_argument("--asset", help="stage net: a Core AI .aimodel whose `heatmap` output replaces PyTorch's (the exported runtime, ANE preferred)")
     ap.add_argument("--asset-function", default="heatmap"); ap.add_argument("--asset-batch", type=int, default=32)
     ap.add_argument("--size", type=int, default=None, help="the model size (default: read from --run's config.json; overrides it when given) — C7 2026-09-07")
+    ap.add_argument("--min-relative", type=float, default=None, help="classical minRelativeIntensity instead of SETTINGS' 0.05 (the app's floor is 0.0015, ADR 041) — A2 2026-09-28")
     a = ap.parse_args(); os.makedirs(a.out, exist_ok=True)
+    if a.min_relative is not None: SETTINGS["minRelativeIntensity"] = a.min_relative
     # the run's own model size, --size overriding when given (only "net" needs the training run's
     # config.json to build the right-sized inputs; "compare" re-derives size per section from the
     # heatmap arrays stage_net wrote, so this is a convenience default there, not load-bearing)
