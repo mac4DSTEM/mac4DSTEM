@@ -111,18 +111,28 @@ scored against its reference's own outputs on the same input before it is called
 
 ### A — Ground truth, kept and reproduced (the foundation)
 
-1. **A truth ledger:** one row per feature, giving its truth, the reference numbers we reproduced,
-   its pass bar and its status. Phase mapping has one: Thronsen A, their errors reproduced to the
+**Where each step runs.** A remote session runs on Linux: no Xcode, Metal, Core ML or Neural Engine,
+and no `References/` data (gitignored, and on 2026-09-23 the cloud proxy refused Zenodo). So it can do
+docs and code reading only. Everything that builds, runs the app or touches the data needs the Mac.
+
+1. **A truth ledger** (*remote-capable, docs only*): one row per feature, giving its truth, the
+   reference numbers we reproduced, its pass bar and its status. Phase mapping has one: Thronsen A, their errors reproduced to the
    digit, the T4 bar. Disk detection, strain and ACOM do not yet have real-data truth.
-2. **Truth artefacts are committed, never gitignored.** The owner's 306 hand labels were lost that way
-   (`open-items.md`). Re-label with the in-app Training labels rows, and commit the result. Commit the
+2. **Truth artefacts are committed, never gitignored** (*this Mac, the owner present to label*). The owner's 306 hand labels were lost that way
+   (`open-items.md`). Re-label with the in-app Training labels rows, and commit the result. The export exists
+   (`exportForFineTuning`), but its old home `tools/disk-detector/labels/` is still gitignored
+   (`.gitignore:44`): A2 drops that line first. Commit the
    stride-3 Thronsen truth (CC BY 4.0, with attribution) beside it.
-3. **Run the Thronsen code locally (ADR 042).** First reproduce their four published maps from their own
+3. **Run the Thronsen code locally (ADR 042)** (*the stronger Mac*, or a Linux box with ≥ 32 GB and
+   Zenodo access. Full dataset A is about 7.4 GB, too close to the 8 GB Mac: see the 2026-09-24 kernel
+   panic. Reading and planning the ports can be remote). First reproduce their four published maps from their own
    code on dataset A; that proves the environment. Then run their methods on inputs we choose:
    stride 3, dataset B, the owner's Al-Mg-Si cube. That turns "agreement" into a real reference
    wherever the published maps don't reach.
 
 ### B — Precipitate analysis
+
+Everything in B builds or runs the app's Swift/Metal code on local data: **this Mac**. B3 needs the stronger Mac.
 
 1. **Close the one failing T4 metric,** θ′ edge-on speckle (7 against 0–5). Gate D, diagnosis first:
    the 7 are 1–2 px objects next to other phases. Every scored run uses the adopted T4 bar, with
@@ -139,6 +149,8 @@ scored against its reference's own outputs on the same input before it is called
    workspace becomes. No UI moves before a mock the owner has accepted (the frozen shell, ADR 035).
 
 ### C — The Neural Engine and on-device training (owner, 2026-09-28: "soon")
+
+C1–C4 are **Mac only** (MLX, Metal, Core ML, the Neural Engine). The research sizes C2 at batch 8 on this M3. The C5 mock can be drawn remotely; the decisions are the owner's.
 
 The goal: **a user labels a dataset by hand, trains on this Mac, checks the model against labels held
 out from training, and works from there.** Inference runs on the Neural Engine, and training runs
