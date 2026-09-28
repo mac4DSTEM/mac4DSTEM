@@ -21,6 +21,12 @@ import sys
 
 import numpy as np
 
+# 2026-09-29 --px-scale N: every pixel-valued constant below (bins, blur, capture
+# radii, the 1 px match) is multiplied by N. 1 = the 64x64-detector values the
+# 2026-09-24 record used; 4 for the raw 256x256 cube (docs/archive/v4/
+# almgsi-raw-stride3-registration-2026-09-29.md).
+PX = 1.0
+
 ZONES_DEFAULT = "001,011,111,112,012,013,122,114"
 
 
@@ -75,12 +81,14 @@ def load(path, truth_path=None, grain=None, quadrant=None):
     xy = np.array([[p[0] - ox, p[1] - oy] for p in pts])
     r = np.hypot(xy[:, 0], xy[:, 1])
     inner = 2 * d["probe_radius_px"]
-    half = min(d["detector"]) / 2 - 2
+    half = min(d["detector"]) / 2 - 2 * PX
     xy = xy[(r > inner)]
     return xy, int(keep.sum()), inner, half
 
 
-def density_image(xy, half, bin_px=0.25, sigma_px=1.0):
+def density_image(xy, half, bin_px=None, sigma_px=None):
+    bin_px = 0.25 * PX if bin_px is None else bin_px
+    sigma_px = 1.0 * PX if sigma_px is None else sigma_px
     n = int(math.ceil(2 * half / bin_px))
     img, _, _ = np.histogram2d(xy[:, 1], xy[:, 0], bins=n, range=[[-half, half], [-half, half]])
     k = np.arange(-int(3 * sigma_px / bin_px), int(3 * sigma_px / bin_px) + 1) * bin_px
@@ -106,7 +114,7 @@ def coarse_candidates(xy, g2, inner, half, keep=12):
     """v3: the best rotation for every (shell, scale) start, suppressed to
     distinct starts (1 % in scale, 2 deg in rotation), best first."""
     r = np.hypot(xy[:, 0], xy[:, 1])
-    hist, edges = np.histogram(r, bins=int(half / 0.25), range=(0, half))
+    hist, edges = np.histogram(r, bins=int(half / (0.25 * PX)), range=(0, half))
     r_ring = 0.5 * (edges[np.argmax(hist)] + edges[np.argmax(hist) + 1])
     shells = np.unique(np.round(np.linalg.norm(g2, axis=1), 6))[:6]
     img, bin_px = density_image(xy, half)
@@ -118,7 +126,7 @@ def coarse_candidates(xy, g2, inner, half, keep=12):
         s0 = r_ring / shell
         for s in s0 * (1 + np.linspace(-0.08, 0.08, 33)):
             p = s * np.einsum("tij,gj->tgi", rot, g2)                      # T x G x 2
-            inside = (np.abs(p[..., 0]) < half - 1) & (np.abs(p[..., 1]) < half - 1) \
+            inside = (np.abs(p[..., 0]) < half - PX) & (np.abs(p[..., 1]) < half - PX) \
                 & (np.hypot(p[..., 0], p[..., 1]) > inner)
             score = (sample(img, bin_px, half, p) * inside).sum(axis=1) / np.maximum(inside.sum(axis=1), 1)
             t = int(np.argmax(score))
@@ -139,12 +147,12 @@ def refine(A, xy, g2, shells, inner, half):
     proportional to |p|, then all shells, then fixed 1.25 -> 1 px."""
     g_len = np.linalg.norm(g2, axis=1)
     inner_two = g_len <= shells[min(1, len(shells) - 1)] + 1e-6
-    schedule = [(inner_two, lambda r: np.maximum(2.0, 0.10 * r))] * 2 \
-        + [(np.ones_like(inner_two), lambda r: np.maximum(1.5, 0.05 * r))] * 2 \
-        + [(np.ones_like(inner_two), lambda r, v=v: np.full_like(r, v)) for v in (1.25, 1.0, 1.0)]
+    schedule = [(inner_two, lambda r: np.maximum(2.0 * PX, 0.10 * r))] * 2 \
+        + [(np.ones_like(inner_two), lambda r: np.maximum(1.5 * PX, 0.05 * r))] * 2 \
+        + [(np.ones_like(inner_two), lambda r, v=v: np.full_like(r, v)) for v in (1.25 * PX, 1.0 * PX, 1.0 * PX)]
     for subset, rho_of in schedule:
         p = g2 @ A.T
-        inside = (np.abs(p[:, 0]) < half - 1) & (np.abs(p[:, 1]) < half - 1) \
+        inside = (np.abs(p[:, 0]) < half - PX) & (np.abs(p[:, 1]) < half - PX) \
             & (np.hypot(p[:, 0], p[:, 1]) > inner) & subset
         rhos = rho_of(np.hypot(p[:, 0], p[:, 1]))
         G, C, W = [], [], []
@@ -162,9 +170,9 @@ def refine(A, xy, g2, shells, inner, half):
     resid = np.hypot(*(G @ A.T - C).T)
     rms = math.sqrt(float((W * resid ** 2).sum() / W.sum()))
     p = g2 @ A.T
-    inside = (np.abs(p[:, 0]) < half - 1) & (np.abs(p[:, 1]) < half - 1)
+    inside = (np.abs(p[:, 0]) < half - PX) & (np.abs(p[:, 1]) < half - PX)
     d2 = np.min((xy[:, None, 0] - p[None, inside, 0]) ** 2 + (xy[:, None, 1] - p[None, inside, 1]) ** 2, axis=1)
-    explained = float((d2 <= 1.0).mean())
+    explained = float((d2 <= PX ** 2).mean())
     U, sv, _ = np.linalg.svd(A)
     ratio = sv[0] / sv[1]
     angle = math.degrees(math.atan2(U[1, 0], U[0, 0])) % 180
@@ -241,7 +249,10 @@ def main():
     ap.add_argument("--a", type=float, default=4.0495)
     ap.add_argument("--zones", default=ZONES_DEFAULT)
     ap.add_argument("--expect", help="Q,RATIO,ANGLE truth, printed as deltas")
+    ap.add_argument("--px-scale", type=float, default=1.0, help="scale every px constant (4 for a 256^2 detector)")
     args = ap.parse_args()
+    global PX
+    PX = args.px_scale
     zones = args.zones.split(",")
     expect = tuple(float(v) for v in args.expect.split(",")) if args.expect else None
     if args.truth:

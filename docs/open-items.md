@@ -51,6 +51,11 @@ B1 (`archive/v4/b1-edge-on-gateD-2026-09-28.md`, `b1-narrow-guard-2026-09-28.md`
 needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves errors between classes — neither shipped.
 The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
 
+### Disk detection grows GPU memory per tile on large cubes — Gate D owed; not in the app on big cubes (2026-09-29)
+3.2 GB raw stride-3 cube: `TiledDiskDetection.detectAll` hit 1.6–2.1 GB (IOAccelerator 770 MB, 22 unfreed tile
+buffers); an `autoreleasepool` per tile (probe only) held ≈ 500 MB. Also: 1 px match tolerance on 256² → 97 % not
+indexed. Record `archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`.
+
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a table row does not highlight its object;
 - **owner request 2026-09-25:** mark on the CBED which disks each phase claimed (matrix / each β″ slot / unexplained), like the Bragg-disk rings — new surface: cost it, then Prepare-style mock first;

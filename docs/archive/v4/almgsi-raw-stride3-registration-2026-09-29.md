@@ -26,3 +26,33 @@ heavy job at a time, reads from the SSD, footprint watched.
 
 **Refuted if** Q differs from 0.00660 by > 1.5 %, or the axis ratio from 1.085 by > 0.015: then the binned file and
 the raw differ in geometry, not only in sampling, and that is the finding.
+
+## Result (2026-09-29; Sonnet runner, logs `raw3-*` in the session scratchpad; every run under a footprint guard)
+
+| | predicted | measured | |
+|---|---|---|---|
+| Q | 0.00660 ± 1.5 % | **0.006577** (−0.34 %) | HELD |
+| axis ratio | 1.085 ± 0.015 | **1.0846** | HELD |
+| angle (py4DSTEM θ) | 20.5° ± 3° | **20.8°** (69.2° in lattice_fit's x/y frame; binned 69.6°) | HELD |
+| zone | [001] first | **[001], 92.9 %** of vectors (next 24 %) | HELD |
+| {200} ring | ≈ 74.9 px | 75.1 px; py4DSTEM (a, b) = (78.2, 72.1) | — |
+| matrix | ≥ 85 % | **86.4 %** (β″ [010] 0.8, [001] 0.2, not indexed 12.6) | HELD |
+
+104 050 peaks, all 110 × 110 positions, disk radius measured 10.24 px, 0.15 % floor. The file's Q is again 1.74× too
+large. For the app: Q 0.006850 Å⁻¹ per corrected pixel with the ellipse (`app_ellipse.py`). Raw and binned agree
+in geometry; no axis-convention difference. Matrix 4.7 pp below the binned cube's 91.1 %.
+
+**Two findings about the app, not the specimen:**
+1. **GPU memory grows per tile in `TiledDiskDetection.detectAll` on this 3.2 GB cube:** the guard killed three runs
+   (2.1, 1.8, 1.6 GB footprint); `vmmap` showed IOAccelerator 770 MB in 22 tile-sized buffers. In the probe only, each
+   tile in an `autoreleasepool` (same arithmetic; peaks identical on an 8-row crop) held it at ≈ 500 MB. Mechanism
+   not proved; the app's own Detect All Disks likely shares it — **do not run it in the app on this cube until a
+   Gate D.**
+2. **The phase-match tolerance is in detector pixels:** at the app's 1 px on a 256² detector (0.0066 Å⁻¹, a quarter
+   of the binned run's physical tolerance) 97.0 % of positions are not indexed; at 4 px (the binned run's physical
+   tolerance, the registered scaling) 86.4 % are matrix.
+
+Not done: known variants (the matrix-orientation probe has only the search rule); a control at `--px-scale 1`.
+The probe takes the fitted stretch as `--distortion-matrix` (no ellipse input), dropping the fit's in-plane rotation
+(harmless on square [001]).
+

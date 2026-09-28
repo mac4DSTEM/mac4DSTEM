@@ -29,6 +29,7 @@
 //
 
 import Foundation
+import Metal
 import simd
 
 func fail(_ message: String) -> Never {
@@ -102,6 +103,10 @@ enum MatrixOrientationProbe {
         let stride = max(1, Int(value("--stride") ?? "2") ?? 2)
         let csvPath = value("--csv")
         let overlayPath = value("--overlay")
+        // 2026-09-29 `--tile-rows N`: cap the streaming tile (default: the app's own
+        // physical/24 budget, 12 rows = 346 MB on the 256² raw cube, which peaked
+        // at 2.1 GB phys_footprint on the 8 GB Mac and tripped the 1.5 GB guard).
+        let tileRows = value("--tile-rows").flatMap(Int.init)
 
         let reader = try H5Reader(path: path)
         let d = try await reader.discoverPrimaryDataset()
@@ -110,7 +115,7 @@ enum MatrixOrientationProbe {
         print(String(format: "Q %.6f Å⁻¹/px · detection floor %.4f %% · stride %d", qPerPixel, 100 * minRelative, stride))
 
         // ---- The app's pipeline -------------------------------------------
-        guard let fit = try await OriginCalibration.tiledRun(data: data, descriptor: d, fitFunction: .plane)
+        guard let fit = try await OriginCalibration.tiledRun(data: data, descriptor: d, fitFunction: .plane, maximumTileRows: tileRows)
         else { fail("origin calibration did not initialize") }
         let fx = fit.origin.fittedX, fy = fit.origin.fittedY
         print(String(format: "origin plane fit: probe radius %.2f px; fitted origin spans x %.2f–%.2f, y %.2f–%.2f px (descan, corrected below)",
@@ -121,8 +126,40 @@ enum MatrixOrientationProbe {
         params.minRelativeIntensity = minRelative
         print(String(format: "detection: min spacing %.0f px, edge %d px, max peaks %d",
                      params.minPeakSpacing, params.edgeBoundary, params.maxNumPeaks))
-        guard let raw = try await DiskDetection.detectAll(data: data, descriptor: d, kernel: kernel, params: params)
-        else { fail("detection cancelled") }
+        // 2026-09-29: on the 3.2 GB raw cube `TiledDiskDetection.detectAll` grew
+        // `IOAccelerator (graphics)` by one tile-sized MTLBuffer per tile
+        // (770 MB in 22 buffers at the guard's look, `vmmap -summary`), i.e.
+        // the tile buffers were not freed until the call returned. This loop
+        // is the same per-tile pipeline (`scanTile` -> `makeBuffer` ->
+        // `detectAll(cube:)`, identical arithmetic) with each tile's buffer
+        // released in its own `autoreleasepool`. Without `--tile-rows` the
+        // app's own path is used unchanged.
+        let raw: BraggVectors
+        if let tileRows {
+            let rowsPerTile = await data.scanTileRows(maximumRows: tileRows)
+            var allPeaks = [[BraggPeak]](repeating: [], count: d.ry * d.rx)
+            for lower in Swift.stride(from: 0, to: d.ry, by: rowsPerTile) {
+                let upper = min(d.ry, lower + rowsPerTile)
+                let tile = try await data.scanTile(yRange: lower..<upper)
+                let tileDescriptor = DatasetDescriptor(
+                    filePath: d.filePath, datasetPath: d.datasetPath,
+                    shape: [upper - lower, d.rx, d.qy, d.qx],
+                    dtypeDescription: d.dtypeDescription, chunkShape: nil)
+                let detected: BraggVectors? = autoreleasepool {
+                    guard let buffer = MetalEngine.shared.device.makeBuffer(
+                        bytes: tile.pixels, length: tile.pixels.count * MemoryLayout<Float>.stride,
+                        options: .storageModeShared) else { return nil }
+                    return DiskDetection.detectAll(cube: buffer, descriptor: tileDescriptor, kernel: kernel, params: params)
+                }
+                guard let detected else { fail("tile \(lower)..<\(upper) detection failed") }
+                allPeaks.replaceSubrange(lower * d.rx..<upper * d.rx, with: detected.peaks)
+            }
+            raw = BraggVectors(scanWidth: d.rx, scanHeight: d.ry, peaks: allPeaks)
+        } else {
+            guard let all = try await DiskDetection.detectAll(data: data, descriptor: d, kernel: kernel, params: params)
+                else { fail("detection cancelled") }
+            raw = all
+        }
         var calibration = Calibration()
         calibration.origin = fit.origin
         guard let origin = calibration.meanOrigin else { fail("no mean origin") }
@@ -328,10 +365,20 @@ enum MatrixOrientationProbe {
                              used, observed, expected, Double(observed) / max(expected, 1e-9), beyond))
             }
         }
-        if distortionCorrect, let A = distortion {
+        // 2026-09-29: `--distortion-matrix m11,m12,m21,m22` (px per unit {200},
+        // detector x = column, y = row) and `--virtual-q` supply A and the
+        // virtual pixel size from outside — needed for a detector other than
+        // the 64² one the ring section above is sized for (its 46 px window
+        // and 0.25 px bins), and for the raw 256² cube whose {200} ring is at
+        // ~75 px. Without them the behaviour is exactly as before.
+        let suppliedA: simd_double2x2? = value("--distortion-matrix").flatMap { text in
+            let v = text.split(separator: ",").compactMap { Double($0) }
+            return v.count == 4 ? simd_double2x2(columns: (SIMD2(v[0], v[2]), SIMD2(v[1], v[3]))) : nil
+        }
+        if distortionCorrect, let A = suppliedA ?? distortion {
             // Every peak mapped through A⁻¹ onto an undistorted virtual
             // detector at the scale where one {200} is 0.4939 / Qv px.
-            let qVirtual = 0.026518
+            let qVirtual = Double(value("--virtual-q") ?? "0.026518") ?? 0.026518
             let unit = 0.4939 / qVirtual
             let inv = A.inverse
             subPeaks = subPeaks.map { peaks in peaks.map { p in
@@ -345,6 +392,15 @@ enum MatrixOrientationProbe {
 
         var settings = PhaseVectorResolution(settings: PhaseVectorSettings(), invAngstromPerPixel: qPerPixel)
             .scaledToDetector(PhaseVectorSettings())
+        // 2026-09-29 `--tolerance-px N`: the app's rule is ONE detector pixel
+        // for the pair and matrix tolerances (0.75 for the verdict distance);
+        // on a 4x finer detector that is 4x tighter in Å⁻¹ than the binned run
+        // it is compared with. N multiplies those three radii (default 1 = the
+        // app's own rule, unchanged).
+        let tolerancePx = Double(value("--tolerance-px") ?? "1") ?? 1
+        settings.pairRadiusInvAngstrom *= tolerancePx
+        settings.matrixToleranceInvAngstrom *= tolerancePx
+        settings.notIndexedAboveInvAngstrom *= tolerancePx
         let reach = Double(min(d.qx, d.qy)) / 2 * qPerPixel
         let tol = settings.matrixToleranceInvAngstrom
         print(String(format: "matching (scaled to detector): pair %.4f, matrix tolerance %.4f, not indexed above %.4f, direct beam %.4f Å⁻¹; detector reach %.3f Å⁻¹",
