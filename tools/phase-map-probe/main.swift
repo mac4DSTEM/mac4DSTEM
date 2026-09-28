@@ -332,6 +332,11 @@ enum Probe {
         // intensity relative to the position's brightest non-central peak — plus the same
         // specific-count and margin distributions over correctly-called θ′ edge-on positions.
         var positionDetail: [(Int, Int)] = []
+        // `--edge-t1-guard t1|al` (B1 narrow guard, registered 2026-09-28 in
+        // archive/v4/b1-narrow-guard-2026-09-28.md): in the --object-table guarded map, a θ′ edge-on
+        // winner resting on exactly one edge-on-specific reflection with T1 as runner-up becomes T1
+        // (`t1`, scored) or the matrix (`al`, reported). Measurement only; the shipped matcher is untouched.
+        var edgeT1Guard: String?
         // Gate D step 3 (precipitate-overnight-2026-09-23.md): additive, off
         // by default, `--rule known-variants` only. Runs the app's own
         // `PrecipitateSegmentation.classObjects` (via `PhaseMapObjectsBridge`)
@@ -447,6 +452,8 @@ enum Probe {
                 maxVectorsArg = Int(args[index + 1]); index += 2
             } else if args[index] == "--dump-entry", index + 1 < args.count {
                 dumpEntryPhase = args[index + 1]; index += 2
+            } else if args[index] == "--edge-t1-guard", index + 1 < args.count {
+                edgeT1Guard = args[index + 1]; index += 2
             } else if args[index] == "--position-detail", index + 1 < args.count {
                 positionDetail = args[index + 1].split(separator: ";").compactMap { pair in
                     let rc = pair.split(separator: ",").compactMap { Int($0) }
@@ -1689,6 +1696,7 @@ enum Probe {
                 // here the same way (not stored, since that flag is a
                 // separate pass).
                 var guardedLabels = baseline.labels
+                var edgeT1Changed = 0
                 for (index, result) in map.results.enumerated() where result.verdict == .indexed {
                     guard result.entryIndex >= 0 else { continue }
                     let vectors = PhaseVectorMatcher.experimentalVectors(
@@ -1715,7 +1723,15 @@ enum Probe {
                         }
                     }.count
                     if specific < 1 { guardedLabels[index] = Int32(map.matrixPhaseIndex) }
+                    if let mode = edgeT1Guard, specific == 1,
+                       let edgeIndex = map.phaseNames.firstIndex(of: "θ′ edge-on"),
+                       let t1Index = map.phaseNames.firstIndex(of: "T1"),
+                       Int(result.phaseIndex) == edgeIndex, Int(result.runnerUpPhaseIndex) == t1Index {
+                        guardedLabels[index] = mode == "al" ? Int32(map.matrixPhaseIndex) : Int32(t1Index)
+                        edgeT1Changed += 1
+                    }
                 }
+                if edgeT1Guard != nil { print("  --edge-t1-guard \(edgeT1Guard!): \(edgeT1Changed) positions relabelled") }
                 let guarded = PhaseMapObjectsBridge.LabeledMap(labels: guardedLabels, roles: baseline.roles)
                 if let dumpLabelsPath {
                     let payload: [String: Any] = [

@@ -31,3 +31,28 @@ left (cols < 86) and right (cols ≥ 86) halves, and must help in both.
 
 The run counts only if the rerun without the flag reproduces the T4 labels (label arrays equal) and the scorer's own
 validity checks hold (the truth passes; the null fails).
+
+## Result (`probe-ng-none.log`, `probe-ng-t1.log`, `t4-ng-t1.log`)
+
+The first attempt passed the flag and its value as one shell word (zsh does not split an unquoted variable), so the
+probe ignored it and the "guarded" run equalled the baseline. It was rerun with the arguments separate; the log now
+prints `--edge-t1-guard t1: 21 positions relabelled`. Validity: the run without the flag reproduces the T4 label arrays
+exactly; the truth passes and the null fails under the scorer.
+
+| Prediction | Outcome |
+|---|---|
+| P1 edge-on raw spurious 7 → 3 | **held** (3) |
+| P2 every scored T4 metric passes | **held**: PASS |
+| P3 per-position error 1.26–1.33 % | **held**, and unchanged: 1.31 % |
+| P4 ≤ 11 of 398 correct edge-on lost, area ratio within its limit | **held**: 5 lost; area ratio 1.065 |
+| P5 in each half, fixed ≥ broken | **refuted**: left 1 fixed, 0 broken; right 4 fixed, **5 broken** |
+
+Of the 21 relabelled positions, 5 were truth T1 (fixed), 5 truth edge-on (broken) and 11 truth Al, which change from
+a wrong edge-on to a wrong T1. The per-position error does not move. T1's raw spurious objects rise from 1 to 12 (limit
+13): the rule moves errors from the one class whose metric failed into another class's speckle.
+
+**Verdict: the rule passes the registered bar but is not an improvement, and it does not ship.** The holdout refuted
+it on the right half, and the pass comes from moving errors between classes. B1's metric stays at 7 against 5 in the
+shipped configuration. Every narrowly aimed relabelling is exposed to this: the T4 bar scores each class separately, so
+an error can be counted as fixed in one class while it reappears in another. Future candidates are judged on the
+per-position error and on every class's speckle together, not on the failing metric alone.
