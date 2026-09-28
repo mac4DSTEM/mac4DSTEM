@@ -21,16 +21,10 @@ earlier detail files are `archive/open-items-detail-2026-09-18.md` and
 
 ## Science & parity
 
-### R–Q rotation shown and written in py4DSTEM's convention — fixed 2026-09-28 (ADR 040, Gate D); two residuals
-The app's internal angle is −py4DSTEM's (axis order). Since 2026-09-28 one `RQRotationConvention` converts at
-every boundary: py4DSTEM import, sidecar and export (with a `QR_rotation_convention` marker), strain export
-keys, and every readout. Parity leg (b) now gates, file-faithful. On the real cube py4DSTEM gives +80.0° T and
-the app shows +80.1° T (`archive/v4/rq-sign-gateD-2026-09-28.md`).
-**Residuals:**
-- A datacube exported by the app **before 2026-09-28** and reopened as a dataset is sign-flipped, because it
-  cannot be told apart from a py4DSTEM file. Re-export it.
-- `tools/training-dataset-campaign`'s report holds the app's own sign.
-- The parallax fit's own rotation is untested against the calibration's convention.
+### R–Q rotation in py4DSTEM's convention — fixed 2026-09-28 (ADR 040); residuals
+One `RQRotationConvention` converts at every boundary; parity leg (b) gates (`archive/v4/rq-sign-gateD-2026-09-28.md`).
+Residuals: a datacube exported by the app before 2026-09-28 and reopened is sign-flipped (re-export it);
+`tools/training-dataset-campaign`'s report keeps the app's sign; the parallax fit's own rotation is untested against it.
 
 ### Origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay owed, still `validation:"none"`
 `OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position
@@ -50,21 +44,12 @@ governs whether a feature runs at all), not a tuning knob to raise.
 Consequence: both features ship **undriven on real data** and must be
 described that way in release notes. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
-### Phase mapping's object-level pass bar — adopted 2026-09-28 (ADR 040), no run scored against it yet
-Per-position error cannot see objects: at 0.96–1.75 % the published Thronsen maps have 20–173×
-the truth's θ′ face-on objects (`docs/cloud/2026-09-23/T2-direction-check.md`). Cleaned counts
-cannot certify a classifier (random flips clean up to the truth's counts); raw speckle can. The
-app's T1 raw speckle is 23 objects at the 0.1 % floor, 5 at 0.15 % (published 1–13).
-**Trap:** the truth's cuts (782 / 10 / 4 px) are that dataset's, never an app default. The shipped
-guard (ADR 038) still needs a second truth dataset before "validated" (closed-items 2026-09).
-Adopted 2026-09-28 (ADR 040). **First scored run 2026-09-28**: FAIL on one metric, θ′ edge-on raw spurious 7 > 5.
-**B1 Gate D 2026-09-28** (`archive/v4/b1-edge-on-gateD-2026-09-28.md`): two populations. 5 positions in truth T1 pass the
-guard on one weak specific reflection; 3 in truth Al carry 2–4 (two lie along sampled truth needles; full-res truth unchecked).
-A global guard k = 2 gives 3 but breaks T1 (1.93 %) — rejected. **Full-res truth (same day):** the 3 truth-Al calls sit
-1–2 px (2.5–5 nm) from truth needles not on the stride-3 grid (98 % of every method's Al → edge-on calls do); the 4 objects
-inside T1 are the real error. **Narrow guard (registered, run):** edge-on over a T1 runner-up on one reflection → T1 passes
-T4 but moves errors between classes (error unchanged 1.31 %, T1 speckle 1 → 12, holdout refuted) — not shipped
-(`archive/v4/b1-narrow-guard-2026-09-28.md`). Candidates are judged on per-position error and every class's speckle.
+### Phase mapping under the T4 object bar (ADR 040) — one metric short
+Raw speckle, not cleaned counts, certifies a classifier (`docs/cloud/2026-09-23/T2-direction-check.md`); the truth's cuts
+(782 / 10 / 4 px) are that dataset's, never an app default. First scored run: FAIL on θ′ edge-on raw spurious 7 > 5.
+B1 (`archive/v4/b1-edge-on-gateD-2026-09-28.md`, `b1-narrow-guard-2026-09-28.md`): 3 are edge calls 1–2 px from truth
+needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves errors between classes — neither shipped.
+The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
@@ -77,20 +62,6 @@ T4 but moves errors between classes (error unchanged 1.31 %, T1 speckle 1 → 12
 - zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0);
 - **driven 2026-09-24** (owner's Debug build of `ae732b7`, real Al-Mg-Si cube): the density sits on its own line (seen); **the Object Table's last column is clipped** at its default 980 pt width (header shows "C", reachable by horizontal scroll), and the Phase column truncates both names to "beta_double_prime_Mg5S…", hiding the zone-axis suffix;
 
-### The owner's real Al-Mg-Si cube lost its matrix — Gate D closed 2026-09-24: the file's calibration, not the matcher
-`Al_Mg_Si_060…bin_4` is on **[001]Al, not ⟨110⟩**. Its stored Q, 0.0457415 Å⁻¹/px, is 1.733× too large (data:
-0.02639), and an unmodelled ellipse (axis ratio 1.085, major axis 69.6°) remains. Corrected, the app's matcher calls
-91.1 % matrix (was 0.6 %). The refuter reproduced this exactly; the {400}/{420} test was withdrawn as a detector-corner
-artefact. Record: `archive/v4/almgsi-gateD-2026-09-24.md`. **Q provenance (owner's q. 1, confirmed 2026-09-24):** DigitalMicrograph recorded 0.11435 nm⁻¹/px, and py4DSTEM
-carried it faithfully through `bin_Q(4)`; the microscope calibration is wrong, not the preprocessing. **Next (owner):**
-calibrate Q and the ellipse from a known crystal in the data (q. 2, "if the science holds"); show the explained fraction
-(q. 3, low priority). Re-drive with Q 0,02639 once the ellipse can be entered.
-**2026-09-25:** v3's search refuted (feasibility part 3). **Owner re-drove in the app** with the fit's
-ellipse written into a file copy (no UI field exists) and Q 0.0275: ⟨100⟩ 88 %, matrix **91.8 %**,
-not indexed 8.0 % (search rule); the needle streaks stay not indexed. With [0 1 0] + [0 0 1] and the
-**known-variants rule**: β″ 5.2 + 1.6 %, matrix 93.2 %, not indexed 0.05 %. The streaks are labelled β″,
-mostly by the [0 1 0] slot (why is untested), and 1-px speckle dominates the object count. Show Objects
-is invisible at 1-px objects. Record: Gate D part 7. The manual ellipse field landed and was driven 2026-09-28 (ADR 039). Open: the slot-label question.
 
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24
 `datasetA_stride3.h5` carries no calibration; Map Phases ran with Q unset (scale bars "20 px",
@@ -100,12 +71,8 @@ re-detection) gave T1 3680 / θ′ 833 / matrix 22 068 / not indexed 2660. Owner
 refuse, or say why, when Q is uncalibrated. The stale zone-axis list also survives a calibration change.
 
 ### Diffraction groups in a Debug build — fixed 2026-09-28 (three Gate Ds); one test gap
-The owner's 2026-09-24 stall at 32 × 32 was mostly `-Onone` scalar loops (the Debug config he runs). The
-covariance sums (`cblas_dsyrk`), `embed` (vDSP/vForce, with the old scalar code kept for NaN/±Inf) and the
-projection (`vDSP_vsub` + `vDSP_dotpr`) all moved to Accelerate (`archive/v4/embedding-*-gateD-2026-09-28.md`).
-1 000 patterns at 32 × 32 at `-Onone`: 90.7 → 1.02 s, so about 20 s for the cube (synthetic data, file I/O
-excluded). **Gap:** no shipped test reaches the two-pass path (cube cache > 512 MB). The refuter ran it by
-forcing it with a scratch edit. A test seam would close it.
+Covariance, embed and projection moved to Accelerate (`archive/v4/embedding-*-gateD-2026-09-28.md`); 1 000 patterns at
+32 × 32 in Debug: 90.7 → 1.02 s. **Gap:** no shipped test reaches the two-pass path (cube cache > 512 MB).
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `PhaseVectorMatching.swift:769-773`'s `minimumVectors` is 2, so a position is
@@ -413,19 +380,9 @@ minimum). It reproduces on committed code (`2862526`…`555e0c6`, today's phase-
 with the owner's app not running (`unit-repro.log`, `unit-baseline-check.log`). The unit gate was green this morning, so
 what changed is the environment (saved window state after today's drive), not code. Frozen Shell territory: Gate D first,
 then a fix against a picture the owner accepts. **Next session's first target.**
+The rule (2026-09-04): nothing inside a split's hosted content may repeatedly change its own minimum size; the earlier
+cases and the unreproduced 2026-09-22 crash are in `archive/closed-items-2026-09.md`.
 
-### The constraint-loop crash rule, and one unreproduced crash of its class (2026-09-04, 2026-09-22)
-**The rule, demonstrated 2026-09-04: nothing inside a split's hosted content
-may repeatedly change its own minimum size.** Two sites, both in the status
-bar, both fixed (`e608dbd`, `27de9bb`). Residuals: n=1 each way against a
-fault once called intermittent; the inspector's Performance rows still tick
-per second. **2026-09-22 night:** one crash of this class
-(`_crashOnException` in `updateConstraintsForSubtree`, a scratch build, 3 s
-after launch) after a Gate D fix made the strip's glance/run slots
-compressible without a constant minimum; NOT reproduced (12 resizes, 6
-launches) after the slots were given a constant min/ideal/max
-(`LayoutPolicy.compressibleSlotMinimum`). A different pre-session abort
-(20:26, owner's build) is undiagnosed. Owner: unclaimed.
 
 ### `PaneSplit` image-floor residual — status unclear, verify against current split code
 (a) header overflow and (c) divider reset were closed and seen on screen

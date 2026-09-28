@@ -1343,3 +1343,34 @@ nonexistent cube exited **1** through the pipe (2026-09-25, `exitcheck.log`). Th
 error on 2026-09-24 therefore came from the calling command, not the script; that command was lost with the
 scratchpad, so it cannot be reconstructed. The residual trap is the caller's own pipe, which CLAUDE.md already
 forbids. One harmless edge remains: `grep -v` exits 1 when every line is filtered, a false red. No change made.
+
+
+## Moved 2026-09-28 evening
+
+### The owner's real Al-Mg-Si cube lost its matrix — Gate D closed 2026-09-24: the file's calibration, not the matcher
+`Al_Mg_Si_060…bin_4` is on **[001]Al, not ⟨110⟩**. Its stored Q, 0.0457415 Å⁻¹/px, is 1.733× too large (data:
+0.02639), and an unmodelled ellipse (axis ratio 1.085, major axis 69.6°) remains. Corrected, the app's matcher calls
+91.1 % matrix (was 0.6 %). The refuter reproduced this exactly; the {400}/{420} test was withdrawn as a detector-corner
+artefact. Record: `archive/v4/almgsi-gateD-2026-09-24.md`. **Q provenance (owner's q. 1, confirmed 2026-09-24):** DigitalMicrograph recorded 0.11435 nm⁻¹/px, and py4DSTEM
+carried it faithfully through `bin_Q(4)`; the microscope calibration is wrong, not the preprocessing. **Next (owner):**
+calibrate Q and the ellipse from a known crystal in the data (q. 2, "if the science holds"); show the explained fraction
+(q. 3, low priority). Re-drive with Q 0,02639 once the ellipse can be entered.
+**2026-09-25:** v3's search refuted (feasibility part 3). **Owner re-drove in the app** with the fit's
+ellipse written into a file copy (no UI field exists) and Q 0.0275: ⟨100⟩ 88 %, matrix **91.8 %**,
+not indexed 8.0 % (search rule); the needle streaks stay not indexed. With [0 1 0] + [0 0 1] and the
+**known-variants rule**: β″ 5.2 + 1.6 %, matrix 93.2 %, not indexed 0.05 %. The streaks are labelled β″,
+mostly by the [0 1 0] slot (why is untested), and 1-px speckle dominates the object count. Show Objects
+is invisible at 1-px objects. Record: Gate D part 7. The manual ellipse field landed and was driven 2026-09-28 (ADR 039). Open: the slot-label question.
+
+### The constraint-loop crash rule, and one unreproduced crash of its class (2026-09-04, 2026-09-22)
+**The rule, demonstrated 2026-09-04: nothing inside a split's hosted content
+may repeatedly change its own minimum size.** Two sites, both in the status
+bar, both fixed (`e608dbd`, `27de9bb`). Residuals: n=1 each way against a
+fault once called intermittent; the inspector's Performance rows still tick
+per second. **2026-09-22 night:** one crash of this class
+(`_crashOnException` in `updateConstraintsForSubtree`, a scratch build, 3 s
+after launch) after a Gate D fix made the strip's glance/run slots
+compressible without a constant minimum; NOT reproduced (12 resizes, 6
+launches) after the slots were given a constant min/ideal/max
+(`LayoutPolicy.compressibleSlotMinimum`). A different pre-session abort
+(20:26, owner's build) is undiagnosed. Owner: unclaimed.
