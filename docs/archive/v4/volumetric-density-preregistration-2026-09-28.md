@@ -103,3 +103,38 @@ T1 {111} at <001>  d=100 t=200  (a) 0.951 PASS  (b) 0.932 FAIL  (c) 1.000 PASS  
 The edge finding reaches the **shipped areal density** (Thronsen A, T1: 14 edge objects beside 43 counted). Changing
 it is its own Gate D, with the owner — not part of this build.
 
+## 8. Run 1 — the registered result (2026-09-28 night, `tools/volumetric-density-test`, `t6-run1.log`)
+
+**Every estimator FAILS the bar as registered.** (a) one cell (θ′ d 100 t 50: 1.081, predicted 1.095); (b) eight;
+(c) one (T1 d 20 t 50: 0.948); naive all twelve. First run, no harness change before it. The code was reviewed line
+by line against §7 (basis, truth, counting through `classObjects` + `PrecipitateStatistics`).
+
+```
+theta' edge-on d= 20 t= 50 seeds= 20  cnt=1102.8 edge= 22.8 rej=  4.6%  (a) 0.972+-0.001 PASS  (b) 0.950+-0.001 FAIL  (c) 0.959+-0.001 PASS  naive 1.370+-0.002 FAIL
+theta' edge-on d= 20 t=100 seeds= 20  cnt=1076.5 edge= 21.8 rej=  4.7%  (a) 0.974+-0.001 PASS  (b) 0.966+-0.001 PASS  (c) 0.976+-0.001 PASS  naive 1.179+-0.001 FAIL
+theta' edge-on d= 20 t=200 seeds= 20  cnt=1058.8 edge= 21.7 rej=  4.7%  (a) 0.978+-0.001 PASS  (b) 0.976+-0.001 PASS  (c) 0.986+-0.001 PASS  naive 1.083+-0.001 FAIL
+theta' edge-on d=100 t= 50 seeds= 20  cnt= 254.1 edge= 20.5 rej= 10.5%  (a) 1.081+-0.007 FAIL  (b) 0.943+-0.005 FAIL  (c) 0.978+-0.006 PASS  naive 2.855+-0.014 FAIL
+theta' edge-on d=100 t=100 seeds= 20  cnt= 244.6 edge= 19.4 rej= 10.5%  (a) 1.015+-0.005 PASS  (b) 0.946+-0.004 FAIL  (c) 0.983+-0.004 PASS  naive 1.907+-0.008 FAIL
+theta' edge-on d=100 t=200 seeds= 20  cnt= 233.7 edge= 19.7 rej= 10.9%  (a) 0.973+-0.006 PASS  (b) 0.946+-0.005 FAIL  (c) 0.985+-0.006 PASS  naive 1.427+-0.009 FAIL
+T1 {111} d= 20 t= 50 seeds= 20  cnt= 274.8 edge=  8.6 rej=  2.5%  (a) 0.952+-0.003 PASS  (b) 0.935+-0.003 FAIL  (c) 0.948+-0.003 FAIL  naive 1.294+-0.004 FAIL
+T1 {111} d= 20 t=100 seeds= 20  cnt= 249.1 edge=  8.4 rej=  2.4%  (a) 0.958+-0.004 PASS  (b) 0.952+-0.004 PASS  (c) 0.967+-0.004 PASS  naive 1.135+-0.005 FAIL
+T1 {111} d= 20 t=200 seeds= 20  cnt= 234.4 edge=  7.0 rej=  2.4%  (a) 0.970+-0.002 PASS  (b) 0.968+-0.002 PASS  (c) 0.983+-0.002 PASS  naive 1.061+-0.002 FAIL
+T1 {111} d=100 t= 50 seeds=120  cnt=  27.9 edge=  3.2 rej=  2.6%  (a) 1.030+-0.007 PASS  (b) 0.919+-0.006 FAIL  (c) 0.972+-0.006 PASS  naive 2.475+-0.015 FAIL
+T1 {111} d=100 t=100 seeds= 89  cnt=  19.7 edge=  2.6 rej=  2.3%  (a) 0.977+-0.009 PASS  (b) 0.925+-0.008 FAIL  (c) 0.982+-0.009 PASS  naive 1.710+-0.015 FAIL
+T1 {111} d=100 t=200 seeds= 59  cnt=  16.1 edge=  1.9 rej=  2.5%  (a) 0.962+-0.011 PASS  (b) 0.941+-0.011 FAIL  (c) 1.003+-0.011 PASS  naive 1.335+-0.015 FAIL
+sanity worst |deviation| = 0.0146
+VERDICT (a): FAIL
+VERDICT (b): FAIL
+VERDICT (c): FAIL
+VERDICT naive: FAIL
+```
+
+**Deviation from §7 to explain first:** every d = 20 cell of (a) and (c) reads 2–5 % low, both classes, where the
+analytic model says ≈ 1.00. **Hypothesis H (before any diagnostic run):** the harness rasterises by *cell
+intersection* (every pixel a sample falls in, `main.swift` line 128), so a trace of length c covers ≈ c/p + 1 pixels
+and the app's length (extent + 1) reads ≈ c + p — 12 % of a 20-nm plate, 2.5 % of a 100-nm one — making hᵢ and d̂
+too large. A scan samples *points* (probe positions), not cells. **Predicted:** D1, pixel 1.25 nm → the d 20
+deficits roughly halve ((c) T1 d 20 t 50 → ≈ 0.974); D2, pixel 2.5 nm with Lᵢ − p → (a) and (c) at d 20 within 1.5 %
+of §7's analytic values. **Refuted if** D1 leaves the d 20 deficits unchanged. Diagnostics do not replace run 1's
+verdict; a changed harness or estimator is a new registration.
+
