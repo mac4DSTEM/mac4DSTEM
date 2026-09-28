@@ -61,7 +61,7 @@ findings.
 ## Governs
 
 The five files above; `LayoutPolicy.datasetWindowMinimumSize`
-(`WindowAnatomyPolicy` retired 2026-09-22 night); `NavigationSeamTests`
+(`WindowAnatomyPolicy` retired 2026-09-22 night; **amended 2026-09-28**, owner's pick: a column's maximum must fit at the floor beside the others' minima, so `sidebarWidth.max` 320 → 270 after a saved 320-pt sidebar crashed every launch); `NavigationSeamTests`
 (four tests, each red under one mutation); `CLAUDE.md` "Frozen shell".
 
 ## Sources

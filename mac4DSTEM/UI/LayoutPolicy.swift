@@ -33,8 +33,11 @@ enum LayoutPolicy {
     static let datasetWindowIdealSize = CGSize(width: 1280, height: 800)
 
     /// The navigation column. Narrow on purpose: it holds five words and a
-    /// task list, never a control.
-    static let sidebarWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (190, 230, 320)
+    /// task list, never a control. The maximum is what still fits at the
+    /// window's minimum beside the inspector's minimum and both science panes
+    /// (915 − 280 − 4 − 361 = 270): a saved 320-pt sidebar crashed every
+    /// launch in the constraint loop at 915 pt (Gate D 2026-09-28).
+    static let sidebarWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (190, 230, 270)
 
     /// The inspector: the workspace's settings and the dataset/product
     /// descriptor. Wider than the sidebar because forms live here.

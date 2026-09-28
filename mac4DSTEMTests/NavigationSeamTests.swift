@@ -129,4 +129,15 @@ final class NavigationSeamTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(LayoutPolicy.datasetWindowMinimumSize.width, required)
         XCTAssertGreaterThanOrEqual(LayoutPolicy.datasetWindowMinimumSize.width, 900)
     }
+
+    /// The sidebar dragged to its maximum must still leave the inspector and
+    /// both science panes their floor at the window's minimum. A saved sidebar
+    /// wider than that crashed every launch in the constraint loop at 915 pt
+    /// (Gate D 2026-09-28: restored window − sidebar ≤ 639 pt crashed, ≥ 640
+    /// launched; the 320-pt maximum was inside the crash region).
+    func testTheWidestSidebarStillFitsTheMinimumWindow() {
+        let required = LayoutPolicy.sidebarWidth.max + LayoutPolicy.inspectorWidth.min
+            + LayoutPolicy.splitColumnDividerAllowance * 2 + LayoutPolicy.scienceMinimum
+        XCTAssertLessThanOrEqual(required, LayoutPolicy.datasetWindowMinimumSize.width)
+    }
 }

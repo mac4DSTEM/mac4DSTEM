@@ -373,15 +373,13 @@ seen on screen — light appearance on a real cube, a real load cancel, the
 bounded promote run. Retired checklist trap notes:
 `archive/v2/visual-acceptance-checklist-2026-09-03.md`. Owner: one sitting.
 
-### The window's columns can be restored wider than its minimum holds — launch crash, owner's choice of fix (2026-09-28)
-Gate D, refuter NOT REFUTED: launch aborts in the constraint loop (`SplitViewChildController…didUpdateMinSize`) iff the
-restored **window − sidebar ≤ 639 pt**; ≥ 640 launches (28 runs on `5ebaa1b`: sidebar 275/276 at 915, window 917/918 at
-sidebar 278, 959/960 at 320). 640 ≈ inspector min 280 + detail ≈ 360 is a fit, not a mechanism. Refuted: 361+320+4
-(S240, W955 passed), 361+280+4 (S275, W920 passed), the restored dataset. The shell allows a 320-pt sidebar at the
-915-pt floor where only ≤ 275 fits; reachable by the owner's app, not shown; how 278 at 915 got saved is unknown.
-The unit gate hit it through its unsigned host's `~/Library/Preferences`; `run-tests.sh` now clears that geometry.
-Fix in SwiftUI only (owner, 2026-09-28): HIG asks for min *and* max pane sizes that fit the window.
-Rule and earlier cases: `archive/closed-items-2026-09.md`.
+### The 915-pt launch crash: fixed by the sidebar maximum; the inspector's maximum is unmeasured (2026-09-28)
+Gate D, refuter NOT REFUTED: launch aborted in the constraint loop iff restored **window − sidebar ≤ 639 pt** (28 runs,
+both axes). The shell allowed a 320-pt sidebar at the 915-pt floor where ≤ 275 fits. Fix (owner's pick, SwiftUI only):
+`sidebarWidth.max` 320 → 270, so the saved 278 and 320 states launch; the floor stays at 915. The rejected alternative
+was a 965-pt floor, which also passed. Open: the inspector's max of 460 has the same arithmetic (190 + 460 + 365 > 915).
+Its width is not saved, so it cannot crash at launch, but a live drag at the floor is untested. The unit host now
+clears saved geometry (`run-tests.sh`). Rule and earlier cases: `archive/closed-items-2026-09.md`.
 
 ### `PaneSplit` image-floor residual — status unclear, verify against current split code
 (a) header overflow and (c) divider reset were closed and seen on screen

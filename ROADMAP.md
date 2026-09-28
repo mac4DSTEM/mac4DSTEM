@@ -114,7 +114,7 @@ error and every class's speckle together) until the owner's own data reach that 
 settled; rooms move only on a concrete plan the owner accepts.
 
 **Order.**
-1. **The 915-pt launch crash** (`open-items.md`): diagnosed 2026-09-28; the Frozen Shell fix is the owner's pick.
+1. ~~**The 915-pt launch crash**~~: fixed 2026-09-28 (sidebar max 270, owner's pick).
 2. **Precipitate analysis, polished.** The owner's recipe reproduces the map in the app; finish what it lacks: the
    per-phase slab field (engine and session done, `f633216`), then a polishing cycle over the whole precipitate path
    (settings, legend, objects, table, export). Thickness → volumetric density (PACBED) is the last missing step.
