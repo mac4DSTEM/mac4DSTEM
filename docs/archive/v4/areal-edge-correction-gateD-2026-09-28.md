@@ -82,3 +82,25 @@ The harness fix is conditional (off reproduces run 1); the verdict for the fix r
 **Thronsen geometry** (171 px at 13.89 nm, reported): T1 d 190 t 100 current **0.890 ± 0.009**, corrected
 1.017 ± 0.010; T1 d 100 current 0.914, corrected 0.993 — the shipped T1 density on such a scan reads ≈ 9–11 % low.
 
+## The app change and its tests
+
+`PrecipitateStatistics.density` takes the frame (`frameWidth`, `frameHeight`, required — no default) and sums
+`edgeWeight` over the counted objects; both callers pass the class map's size; the CSV names the rule. Counts stay
+integers. New tests (`PrecipitateTests`): `testDensityWeightsEachCountedObjectByItsBoundingBox` (hand-derived
+(100/64 + 100/35)/80) and `testEdgeObjectsAddNoWeight`. **Red first** on the old rule with the new signature
+(0.025 and 0.01, `prec-red.log`); **each named mutation turns it red**: length for the box, analysed area for the
+frame, the border "− 1" dropped (`mut-*.log`, source restored and cmp'd after each). Five pinned densities
+re-derived by hand from their fixtures before comparing (12 × 9: 108/48 and 108/42; 8 × 6: 3 + 2; 6 × 6: 4; 3 × 3: 9;
+40 × 25: 1000/874) — each matched. Unit **917 / 0 / 1 = 918** (+2), reconciled with 918 declared
+(`unit-edge-20260928.log`, `UNIT_EXIT=0`).
+
+## Refuter (Sonnet, 2026-09-28 night) — NOT REFUTED
+
+Position count by hand (W 6, bx 2 → 3 = W − bx − 1); a component clear of the border row cannot hide a merge, so the
+estimator is unbiased for any shape; hypothesis M's text (9f97baa) precedes run 2's code (933aaff); all seven test
+values re-derived from the fixtures. Its own run on the new tree: the app's density equals "corrected" in all 18
+cells (wiring). **Applied:** `edgeWeight` preconditions a fitting frame instead of returning 1; the report's doc
+line and the UI help text say the density is edge-weighted, not N ÷ area. **Noted:** the 10 × 10 test cannot see a
+W↔H swap (the 8 × 6 report test does); a near-scan-sized object can carry a large, unflagged weight; the real-data
+change on Thronsen A is estimated (+12–16 % for T1), not measured. ADR 045.
+

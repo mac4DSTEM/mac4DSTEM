@@ -52,6 +52,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 042 | Thronsen et al.'s SPED-phase-mapping code: use for ground truth and port (not copy 1:1), per the first author, verbally; written confirmation owed | 09-28 | live |
 | 043 | A fine-tuned detector is judged by detection on held-out labels (non-inferior recall and precision, ANE path), not heatmap equality; supersedes C2's heatmap bars after C2 | 09-28 | live |
 | 044 | Vector matching is the app's one phase-mapping method; Thronsen's four methods are references in tools/, her ANN the one challenger | 09-28 | live |
+| 045 | Areal precipitate density is edge-corrected: each counted object weighted W·H/((W−bx−1)(H−by−1)) (Miles–Lantuéjoul); counts stay integers | 09-28 | live |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

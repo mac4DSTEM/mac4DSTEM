@@ -183,7 +183,8 @@ func runSeed(_ cell: Cell, seedIndex: Int) -> SeedResult {
     res.edge = cls.objects.count - counted.count
     let density = PrecipitateStatistics.density(
         objects: cls.objects, accepted: Set(cls.objects.map(\.id)),
-        analysedPixels: map.analysedPixels, pixelSize: pixelNm, pixelUnit: "nm")
+        analysedPixels: map.analysedPixels, frameWidth: W, frameHeight: H,
+        pixelSize: pixelNm, pixelUnit: "nm")
     precondition(density.acceptedCount == counted.count, "density.acceptedCount \(density.acceptedCount) != counted \(counted.count)")
     precondition(density.edgeCount == res.edge, "density.edgeCount mismatch")
     precondition(map.analysedPixels == W * H)

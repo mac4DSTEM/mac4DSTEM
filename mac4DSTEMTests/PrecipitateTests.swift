@@ -602,7 +602,7 @@ final class PrecipitateTests: XCTestCase {
         ]
         let density = PrecipitateStatistics.density(
             objects: objects, accepted: Set([1, 2]), analysedPixels: 40_000,
-            pixelSize: nil, pixelUnit: nil
+            frameWidth: 200, frameHeight: 200, pixelSize: nil, pixelUnit: nil
         )
         XCTAssertNil(density.arealDensity)
         XCTAssertEqual(density.acceptedCount, 2)
@@ -625,17 +625,51 @@ final class PrecipitateTests: XCTestCase {
         ]
         let density = PrecipitateStatistics.density(
             objects: objects, accepted: Set([1, 2, 3]), analysedPixels: 1000,
-            pixelSize: 0.01, pixelUnit: "nm"
+            frameWidth: 40, frameHeight: 25, pixelSize: 0.01, pixelUnit: "nm"
         )
         XCTAssertEqual(density.acceptedCount, 2, "object 3 touches the edge and must not be counted")
         XCTAssertEqual(density.edgeCount, 1)
-        let expected = 2.0 / (1000.0 * 0.01 * 0.01)
+        // Two 1 × 1 boxes in a 40 × 25 frame, each weighted by the edge
+        // correction 1000 / ((40 − 2)(25 − 2)) (Gate D 2026-09-28).
+        let expected = 2.0 * (1000.0 / (38.0 * 23.0)) / (1000.0 * 0.01 * 0.01)
         XCTAssertNotNil(density.arealDensity)
         if let arealDensity = density.arealDensity {
             XCTAssertEqual(arealDensity, expected, accuracy: 1e-9)
         }
         XCTAssertEqual(density.meanLength ?? -1, 15.0, accuracy: 1e-6, "(10+20)/2, object 3 excluded")
         XCTAssertEqual(density.medianLength ?? -1, 15.0, accuracy: 1e-6)
+    }
+
+    /// Miles–Lantuéjoul edge correction (Gate D 2026-09-28,
+    /// `archive/v4/areal-edge-correction-gateD-2026-09-28.md`): each counted
+    /// object weighs W·H / ((W − bx − 1)(H − by − 1)) for its pixel bounding
+    /// box, over the ANALYSED area. 10 × 10 frame, 80 analysed pixels.
+    /// A: one pixel at (row 5, col 5) → 100/(8·8) = 1.5625.
+    /// B: rows 4–5, cols 3–6 (4 × 2 box) → 100/(5·7) = 2.857142857…
+    /// Density = (1.5625 + 2.857142857) / 80 = 0.05524553571.
+    /// The lengths are deliberately NOT the boxes (99, 1). Mutations, each a
+    /// different number: the old count (2/80 = 0.025); lengthPx for the box;
+    /// analysedPixels for W·H; the border "− 1" dropped (100/81 + 100/48).
+    func testDensityWeightsEachCountedObjectByItsBoundingBox() throws {
+        let a = PrecipitateSegmentation.Object(id: 1, pixelIndices: [55], area: 1, centroidX: 5, centroidY: 5, lengthPx: 99, widthPx: 1, orientationDegrees: 0, touchesEdge: false, meanIntensity: 1)
+        let b = PrecipitateSegmentation.Object(id: 2, pixelIndices: [43, 44, 45, 46, 53, 54, 55, 56], area: 8, centroidX: 4.5, centroidY: 4.5, lengthPx: 1, widthPx: 1, orientationDegrees: 0, touchesEdge: false, meanIntensity: 1)
+        let density = PrecipitateStatistics.density(
+            objects: [a, b], accepted: [1, 2], analysedPixels: 80,
+            frameWidth: 10, frameHeight: 10, pixelSize: 1, pixelUnit: "nm")
+        XCTAssertEqual(density.acceptedCount, 2, "the count stays an integer")
+        XCTAssertEqual(try XCTUnwrap(density.arealDensity), (100.0 / 64 + 100.0 / 35) / 80, accuracy: 1e-12)
+    }
+
+    /// An edge object is still not counted and adds no weight. Mutation: the
+    /// weights summed over every accepted object, edge ones included.
+    func testEdgeObjectsAddNoWeight() throws {
+        let inside = PrecipitateSegmentation.Object(id: 1, pixelIndices: [55], area: 1, centroidX: 5, centroidY: 5, lengthPx: 1, widthPx: 1, orientationDegrees: 0, touchesEdge: false, meanIntensity: 1)
+        let edge = PrecipitateSegmentation.Object(id: 2, pixelIndices: [0, 1], area: 2, centroidX: 0.5, centroidY: 0, lengthPx: 2, widthPx: 1, orientationDegrees: 0, touchesEdge: true, meanIntensity: 1)
+        let density = PrecipitateStatistics.density(
+            objects: [inside, edge], accepted: [1, 2], analysedPixels: 100,
+            frameWidth: 10, frameHeight: 10, pixelSize: 1, pixelUnit: "nm")
+        XCTAssertEqual(density.edgeCount, 1)
+        XCTAssertEqual(try XCTUnwrap(density.arealDensity), (100.0 / 64) / 100, accuracy: 1e-12)
     }
 
     // MARK: - Reflections

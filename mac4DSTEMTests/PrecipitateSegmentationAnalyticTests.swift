@@ -273,7 +273,9 @@ final class PrecipitateSegmentationAnalyticTests: XCTestCase {
         // Positive control: the refusal is specific to <= 0 / non-finite,
         // not a blanket nil.
         let px = 3.0
-        let expected = 1.0 / (9.0 * px * px)
+        // One interior pixel of a 3 × 3 frame: the only position clear of the
+        // border, so its edge weight is 9 / (1·1) = 9 (Gate D 2026-09-28).
+        let expected = 9.0 / (9.0 * px * px)
         XCTAssertEqual(try XCTUnwrap(try density(px).arealDensity), expected, accuracy: 1e-12)
     }
 

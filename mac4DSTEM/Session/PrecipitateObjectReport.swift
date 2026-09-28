@@ -79,7 +79,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         package let medianLengthPx: Double?
         package let meanLengthPx: Double?
         package let meanWidthPx: Double?
-        /// Counted objects per unit² of analysed area; nil without a scale.
+        /// Counted objects, each edge-weighted (Miles–Lantuéjoul,
+        /// `PrecipitateStatistics`), per unit² of analysed area; nil without a scale.
         package let arealDensity: Double?
         package var id: Int32 { label }
     }
@@ -133,6 +134,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             let density = PrecipitateStatistics.density(
                 objects: classObjects.objects, accepted: accepted,
                 analysedPixels: objects.analysedPixels,
+                frameWidth: objects.width, frameHeight: objects.height,
                 pixelSize: scale, pixelUnit: scale == nil ? nil : pixelUnit)
             let belowMinimum = classObjects.objects.filter { $0.area < minimum }
             summaries.append(ClassSummary(
@@ -245,6 +247,7 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         }
         lines.append("# minimum object size: \(minimumAreaPx) px (user setting; smaller objects are listed, not counted)")
         lines.append("# counting: objects touching the scan edge are listed, not counted")
+        lines.append("# density: each counted object weighted by W*H / ((W - bx - 1)(H - by - 1)) for its bounding box (Miles-Lantuejoul edge correction), over the analysed area")
         lines.append("# analysed area: \(analysedPixels) positions; \(analysedAreaRule)")
         for s in summaries {
             var parts = ["\(s.countedObjects) counted of \(s.totalObjects)",

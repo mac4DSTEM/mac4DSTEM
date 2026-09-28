@@ -360,7 +360,8 @@ package nonisolated enum PrecipitateSegmentation {
             }
             let density = PrecipitateStatistics.density(
                 objects: objects, accepted: Set(objects.map(\.id)),
-                analysedPixels: analysedPixels, pixelSize: pixelSize, pixelUnit: pixelUnit
+                analysedPixels: analysedPixels, frameWidth: width, frameHeight: height,
+                pixelSize: pixelSize, pixelUnit: pixelUnit
             )
             let pixelCount = objects.reduce(0) { $0 + $1.area }
             return ClassObjects(

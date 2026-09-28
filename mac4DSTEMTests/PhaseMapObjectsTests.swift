@@ -190,11 +190,14 @@ final class PhaseMapObjectsTests: XCTestCase {
         let result = classMap(pixelSize: px, pixelUnit: "nm")
         let one = try cls(1, in: result), two = try cls(2, in: result)
 
-        let expected = 1.0 / (105.0 * px * px)   // one accepted object over the analysed area
+        // One counted object per class, edge-weighted in the 12 × 9 frame
+        // (Gate D 2026-09-28): A1's 3 × 2 box 108/(8·6), B1's 4 × 2 box 108/(7·6).
+        let expected1 = (108.0 / 48.0) / (105.0 * px * px)
+        let expected2 = (108.0 / 42.0) / (105.0 * px * px)
         let d1 = try XCTUnwrap(one.density.arealDensity)
         let d2 = try XCTUnwrap(two.density.arealDensity)
-        XCTAssertEqual(abs(d1 - expected) / expected, 0, accuracy: 1e-9, "class 1: A2 on the edge, so 1 counted")
-        XCTAssertEqual(abs(d2 - expected) / expected, 0, accuracy: 1e-9, "class 2: B1 alone")
+        XCTAssertEqual(abs(d1 - expected1) / expected1, 0, accuracy: 1e-9, "class 1: A2 on the edge, so 1 counted")
+        XCTAssertEqual(abs(d2 - expected2) / expected2, 0, accuracy: 1e-9, "class 2: B1 alone")
         XCTAssertEqual(one.density.pixelSize, px)
         XCTAssertEqual(one.density.pixelUnit, "nm")
         // Length/width summaries come through the existing type (edge object excluded).

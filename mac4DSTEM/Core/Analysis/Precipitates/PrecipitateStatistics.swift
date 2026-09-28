@@ -12,6 +12,14 @@
 //  reports how many of the caller's accepted objects were excluded for that
 //  reason, so the UI can say why the count is smaller than the accepted set.
 //
+//  The density does not inherit that loss (Gate D 2026-09-28,
+//  `docs/archive/v4/areal-edge-correction-gateD-2026-09-28.md`): each counted
+//  object is weighted by Miles–Lantuéjoul's W·H / ((W − bx − 1)(H − by − 1)),
+//  the inverse fraction of positions at which a bx × by pixel bounding box
+//  lies clear of the forbidden border row. Unweighted, the density read
+//  ≈ 9–11 % low for T1 on a Thronsen-sized scan (synthetic foil, T6 harness).
+//  The frame is the whole scan; not-indexed pixels inside it are not edges.
+//
 
 import Foundation
 
@@ -25,8 +33,9 @@ package nonisolated enum PrecipitateStatistics {
         package let analysedPixels: Int
         package let pixelSize: Double?
         package let pixelUnit: String?
-        /// acceptedCount / (analysedPixels x pixelSize^2). Nil without a
-        /// pixel size — the refusal rule.
+        /// Σ edge weights of the counted objects / (analysedPixels ×
+        /// pixelSize²) — see the file header. Nil without a pixel size — the
+        /// refusal rule.
         package let arealDensity: Double?
         package let meanLength: Double?
         package let medianLength: Double?
@@ -99,6 +108,8 @@ package nonisolated enum PrecipitateStatistics {
         objects: [PrecipitateSegmentation.Object],
         accepted: Set<Int>,
         analysedPixels: Int,
+        frameWidth: Int,
+        frameHeight: Int,
         pixelSize: Double?,
         pixelUnit: String?
     ) -> Density {
@@ -122,7 +133,10 @@ package nonisolated enum PrecipitateStatistics {
 
         var arealDensity: Double?
         if let pixelSize, pixelSize.isFinite, pixelSize > 0, analysedPixels > 0 {
-            arealDensity = Double(counted.count) / (Double(analysedPixels) * pixelSize * pixelSize)
+            let weighted = counted.reduce(0.0) {
+                $0 + edgeWeight($1, frameWidth: frameWidth, frameHeight: frameHeight)
+            }
+            arealDensity = weighted / (Double(analysedPixels) * pixelSize * pixelSize)
         }
 
         return Density(
@@ -136,5 +150,26 @@ package nonisolated enum PrecipitateStatistics {
             medianLength: medianLength,
             meanWidth: meanWidth
         )
+    }
+
+    /// Miles–Lantuéjoul: W·H / ((W − bx − 1)(H − by − 1)) for the object's
+    /// pixel bounding box. A counted object never touches the border, so both
+    /// factors are ≥ 1.
+    package nonisolated static func edgeWeight(
+        _ object: PrecipitateSegmentation.Object, frameWidth: Int, frameHeight: Int
+    ) -> Double {
+        precondition(frameWidth > 0 && frameHeight > 0, "the frame must have a size")
+        var cMin = Int.max, cMax = Int.min, rMin = Int.max, rMax = Int.min
+        for index in object.pixelIndices {
+            let r = index / frameWidth, c = index % frameWidth
+            cMin = min(cMin, c); cMax = max(cMax, c); rMin = min(rMin, r); rMax = max(rMax, r)
+        }
+        guard cMax >= cMin, rMax >= rMin else { return 1 }
+        let freeX = frameWidth - (cMax - cMin + 1) - 1
+        let freeY = frameHeight - (rMax - rMin + 1) - 1
+        // A counted object never touches the border, so both are ≥ 1; anything
+        // else is a frame that does not match the labels — never hide it.
+        precondition(freeX > 0 && freeY > 0, "edge weight: the frame does not fit the object")
+        return Double(frameWidth * frameHeight) / Double(freeX * freeY)
     }
 }

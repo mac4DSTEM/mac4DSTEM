@@ -153,7 +153,9 @@ struct PrecipitateObjectsSection: View {
         if let fraction = summary.areaFraction {
             text += " Area fraction \(fraction.formatted(.percent.precision(.fractionLength(2))))."
         }
-        return text + " Density is over the analysed area: \(report.analysedAreaRule)"
+        return text + " Density weights each counted object for the chance that an object its size "
+            + "touches the scan edge (Miles–Lantuéjoul), so it is not N ÷ area. "
+            + "Over the analysed area: \(report.analysedAreaRule)"
     }
 
     private func exclusionNote(_ report: PrecipitateObjectReport) -> String? {

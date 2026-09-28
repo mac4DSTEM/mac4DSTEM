@@ -77,7 +77,9 @@ final class PrecipitateObjectReportTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(a.area), 12, accuracy: 1e-12)
         XCTAssertEqual(try XCTUnwrap(a.length), 6, accuracy: 1e-6)
         let summary = try XCTUnwrap(report.summaries.first)
-        XCTAssertEqual(try XCTUnwrap(summary.arealDensity), 2.0 / (47.0 * 4.0), accuracy: 1e-12)
+        // Edge-weighted (Gate D 2026-09-28): A's 3 × 1 box weighs 48/(4·4) = 3,
+        // B's 1 × 1 box 48/(6·4) = 2, in the 8 × 6 frame.
+        XCTAssertEqual(try XCTUnwrap(summary.arealDensity), (3.0 + 2.0) / (47.0 * 4.0), accuracy: 1e-12)
 
         let unscaled = PrecipitateObjectReport.make(
             objects: fixture().objects, phaseNames: names, matrixPhaseIndex: 0,

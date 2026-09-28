@@ -155,7 +155,9 @@ final class PhaseMapObjectsWiringTests: XCTestCase {
         // 2.0 in the numerator, which failed against the real edge flag
         // (0.014705882... expected vs 0.007352941... actual) — fixed here,
         // not in the production code, since the production code was right.
-        let expected = 1.0 / (34.0 * 2.0 * 2.0)
+        // Blob A's 2 × 2 box in the 6 × 6 frame weighs 36/(3·3) = 4
+        // (edge correction, Gate D 2026-09-28).
+        let expected = 4.0 / (34.0 * 2.0 * 2.0)
         let density = try XCTUnwrap(phaseOne.density.arealDensity)
         XCTAssertEqual(density, expected, accuracy: 1e-9)
         XCTAssertEqual(phaseOne.density.pixelUnit, "nm")
