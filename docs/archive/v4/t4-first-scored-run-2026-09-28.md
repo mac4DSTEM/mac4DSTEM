@@ -102,3 +102,51 @@ ratios rounded to two decimals. A bar that fails a perfect map is miscalibrated,
 
 The predictions above stand unchanged, except that the T1 median ratio's pass/fail call now uses
 the tighter limit: 0.95–1.15 against |r − 1| ≤ 0.083 **may fail**.
+
+## Result (scorer `t4_score.py`; probe and scorer logs all exit 0 on their own lines)
+
+**Scored configuration** (known-variants, `--or`, floor 0.15 %, guard k = 1; `probe-0.0015.log`,
+`t4-0.0015.log`): per-position error **1.31 %**. 774 245 peaks. **The run counts:**
+- validity 0: the truth passes, and a deleted T1 object fails;
+- validity 1: the null FAILS, on T1 raw spurious 22 > 13 (its cleaned counts all pass, exactly
+  as the refuter predicted);
+- validity 2: the rounding break moves 5 numbers, and face-on 8-connectivity moves 2;
+- validity 3: Swift = Python, all 9 object-table rows identical (`dc-app-0.0015.log`).
+
+**Verdict: FAIL, on one metric: θ′ edge-on raw spurious objects, 7 against the published limit
+of 5.** Every other scored metric passes:
+
+| metric | T1 | θ′ face-on | θ′ edge-on |
+|---|---|---|---|
+| raw spurious (limit) | **1** (≤ 13) | 33 (≤ 113) | **7 (≤ 5) FAIL** |
+| raw merges | 0 (≤ 1) | 0 (≤ 0) | 11 (reported) |
+| split / merge / vanished after P/9 | 2 / 0 / 5 (≤ 2 / 0 / 5, both at the limit) | 0 / 0 / 0 | — |
+| count / median / area ratio vs truth · P/9 | 1.000 / 1.002 / 0.967 | 1.000 / 1.021 / 0.993 | area 1.115 (≤ 0.360 off) |
+
+**Against the predictions:**
+- Held: T1 raw spurious down to ≤ 5 (it is 1); face-on 20–40 (it is 33); the edge-on raw
+  spurious FAIL.
+- **Refuted in the app's favour:** the edge-on area ratio (predicted 1.2–1.6 and "likely FAIL";
+  it is 1.115, a pass), and the face-on median (at its tight limit, "may fail"; it is 1.021, a
+  pass).
+- The T1 median passes the amended 0.083 limit at 1.002.
+
+The H/9 bracket fails θ′ face-on as well: one face-on object is lost, giving count 0.667 and
+median 1.228. So face-on sits close to the stricter annotator's cut.
+
+**A mislabel corrected:** `t4_score.py`'s "unguarded" section is not unguarded. Since ADR 038 the
+shipped matcher applies the guard itself, so the probe's `baseline` dump is already guarded; the
+two maps are identical (1.31 % both). No unguarded map was scored.
+
+**Reported, not scored: the shipped default floor, 0.5 %** (`probe-0.005.log`, `t4-0.005.log`).
+Per-position error is **11.42 %**. After P/9 **θ′ face-on vanishes entirely** (count ratio 0), and
+T1 has 8 splits, 11 vanished and an area ratio of 0.63. Raw spurious objects are low (2 / 11 / 0),
+because too little is detected. This continues the floor sweep (0.1 / 0.15 / 0.2 % → 1.81 / 1.45 /
+4.07 %). **On this dataset the default detection floor is far too high.** One dataset does not set
+a default, per the threshold rule in CLAUDE.md, so whether the default moves is the owner's call.
+The app records the floor in the product's provenance.
+
+**What the verdict means:** on the one dataset with truth, and at the owner's working
+floor, the app's maps match or beat the worst published method on every object metric except
+θ′ edge-on speckle (7 small spurious edge-on objects against the published 0–5). Phase mapping
+stays badged unvalidated: one dataset, and a FAIL.

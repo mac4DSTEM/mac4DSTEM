@@ -57,8 +57,10 @@ cannot certify a classifier (random flips clean up to the truth's counts); raw s
 app's T1 raw speckle is 23 objects at the 0.1 % floor, 5 at 0.15 % (published 1–13).
 **Trap:** the truth's cuts (782 / 10 / 4 px) are that dataset's, never an app default. The shipped
 guard (ADR 038) still needs a second truth dataset before "validated" (closed-items 2026-09).
-Adopted 2026-09-28 (ADR 040): the T4 draft, with the published methods' range as the reference. Owed: the
-first run scored under it (the baseline row in T4 is the draft's; re-state predictions before running).
+Adopted 2026-09-28 (ADR 040). **First scored run 2026-09-28** (`archive/v4/t4-first-scored-run-2026-09-28.md`):
+at the 0.15 % floor + guard, FAIL on one metric, θ′ edge-on raw spurious 7 > 5; everything else within the
+worst published method. At the shipped 0.5 % default the map is 11.42 % wrong and θ′ face-on vanishes: the
+default floor is an owner decision (one dataset).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
