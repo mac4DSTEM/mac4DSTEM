@@ -334,7 +334,13 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     package var subpixel: SubpixelMode = .poly
     package var upsampleFactor: Int = 16
     package var minAbsoluteIntensity: Float = 0
-    package var minRelativeIntensity: Float = 0.005
+    // DEVIATION (ADR 041, Gate D 2026-09-28,
+    // docs/archive/v4/default-floor-gateD-2026-09-28.md): py4DSTEM's
+    // find_Bragg_disks defaults to 0.005 (diskdetection.py:34). The app's
+    // default is 0.15 %: at 0.5 % the weak θ′/T1 reflections phase mapping
+    // needs are cut — on Thronsen dataset A, 11.42 % per-position error and
+    // θ′ face-on lost vs 1.31 % at 0.15 %. Parity checks pass 0.005 explicitly.
+    package var minRelativeIntensity: Float = 0.0015
     package var relativeToPeak: Int = 0
     /// The reference the relative threshold is measured against is the
     /// brightest maximum at least this far from the brightest one, in
@@ -531,7 +537,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .poly, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.005, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
+    package nonisolated init(corrPower: Float = 1, sigmaDP: Float = 0, sigmaCC: Float = 2, subpixel: SubpixelMode = .poly, upsampleFactor: Int = 16, minAbsoluteIntensity: Float = 0, minRelativeIntensity: Float = 0.0015, relativeToPeak: Int = 0, minPeakSpacing: Float = 60, edgeBoundary: Int = 20, maxNumPeaks: Int = 70) {
         self.corrPower = corrPower
         self.sigmaDP = sigmaDP
         self.sigmaCC = sigmaCC

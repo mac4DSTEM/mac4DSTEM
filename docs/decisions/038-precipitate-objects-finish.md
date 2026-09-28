@@ -10,7 +10,7 @@ made inline under that brief, for the owner to overrule on sight.
 ## Decision
 
 1. **The guard.** `PhaseVectorSettings.knownVariantsMinimumSpecificReflections = 1`, on by
-   default for `.knownVariants`. The detection-floor default stays at 0.5 %. The Core guard
+   default for `.knownVariants`. The detection-floor default stays at 0.5 % (superseded 2026-09-28: 0.15 %, ADR 041). The Core guard
    reproduces the probe's measured inline guard byte for byte (Gate D:
    `archive/v4/known-variants-guard-gateD-2026-09-23.md`). It is shown in the known-variants
    settings as "Phase-specific reflections, at least"; 0 turns it off. Its value is recorded in

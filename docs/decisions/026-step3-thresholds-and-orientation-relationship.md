@@ -14,7 +14,7 @@ edge ring of unexplained maxima doesn't fail every position; a
 relative-threshold reference excluding the direct beam
 (`relativeReferenceMinimumRadiusPx`, default 0 = py4DSTEM's rule), measured
 from the brightest maximum, not the array centre. The detection default
-stays py4DSTEM's 0.5% (a per-dataset override is the user's to make). The
+stays py4DSTEM's 0.5% (a per-dataset override is the user's to make; superseded 2026-09-28: the default is 0.15 %, ADR 041). The
 verdict cliff (`notIndexedAboveInvAngstrom`) moved 0.01→0.015 (detector
 scaling 0.5→0.75px) after the half-pixel cliff was shown rejecting honest
 6–11-vector fits. The orientation relationship (OR) ships stated as pairs of

@@ -59,8 +59,8 @@ app's T1 raw speckle is 23 objects at the 0.1 % floor, 5 at 0.15 % (published 1�
 guard (ADR 038) still needs a second truth dataset before "validated" (closed-items 2026-09).
 Adopted 2026-09-28 (ADR 040). **First scored run 2026-09-28** (`archive/v4/t4-first-scored-run-2026-09-28.md`):
 at the 0.15 % floor + guard, FAIL on one metric, θ′ edge-on raw spurious 7 > 5; everything else within the
-worst published method. At the shipped 0.5 % default the map is 11.42 % wrong and θ′ face-on vanishes: the
-default floor is an owner decision (one dataset).
+worst published method. At the old 0.5 % default the map was 11.42 % wrong and θ′ face-on vanished; the
+default is now 0.15 % (ADR 041, Gate D).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - a phase takes one zone axis and the same crystal cannot be added twice (silently); β″ at
@@ -230,6 +230,13 @@ HDF5-adjacent split — four candidate files on the ResultExport side
 file `nonisolated`-verified by a cold app build.
 Owner: assign a session with Gate B support, or authorize continuing with a
 refuter. Detail: `archive/open-items-detail-2026-09-18.md`.
+
+### The detector's only real-data truth is lost — the owner's 306 hand labels (2026-09-08), 2026-09-28
+The label JSON (sha `3c43e89d…`) was gitignored and is no longer on disk. `net-labels.npz` holds the net's own
+heatmaps, not the labels (refuter, `archive/v4/default-floor-gateD-2026-09-28.md`). Without them, neither the
+learned detector nor the classical floor (ADR 041) can be scored on real data. **Owed:** re-label (the in-app
+Training labels rows) and **commit labels** from now on: they are the owner's, and small. This is the
+first step of on-device training.
 
 ### DM4 on external volumes — fixed and proved small 2026-09-28; the 28 GB parity run owed
 `.mappedIfSafe` read whole files into anonymous memory off any removable or network volume; on 2026-09-24 the

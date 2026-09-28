@@ -54,3 +54,49 @@ default should not move on this evidence.
   explicitly; each one is named. Anything else failing refutes "only the floor moved".
 - **Decision rule:** the default moves if P1 is not worse. P2 is recorded, not judged, since there
   is no truth.
+
+## Outcome, same day (every log exits 0 on its own line unless stated)
+
+- **P1 held: the demo cube is not worse** (`demo-before.log`, `demo-after.log`, the probe in truth mode with the
+  shipped defaults). The confusion is identical: every truth class is labelled 100 %, with 0 false
+  precipitate positions. Peaks rose from 90 747 to **93 635** (+3.2 %, per-pattern maximum 50 → 70), which proves
+  the new default was in force. The demo's disks are strong and synthetic, so this check is weak.
+- **P2 held: disk counts rise on every pinned real dataset** (`rda-before.log`; `rda-after.log` fails as
+  expected; `rda-report-after.json`). Peak counts summed over the three sample positions:
+
+  | dataset | before | after |
+  |---|---|---|
+  | Particle_1 | 22 | 23 |
+  | sim_Au | 25 | 31 |
+  | WS₂ | 3 | 6 |
+  | Si-SiGe | 36 | 61 |
+  | bullseye calibration | 24 | 52 |
+
+  The probe radius is unchanged. `expected.json`'s three disk arrays are re-pinned for the five datasets (old
+  file in `expected.before.json`), and the harness then passes (`rda-after-repinned.log`). There is no truth
+  on these datasets, so whether the extra peaks are real disks is **unmeasured**.
+- **P3 held:** the unit gate is 908 / 0 / 1 (`unit-floor.log`). The scientific gate failed only
+  `disk-correlation-parity` (`scientific-floor.log`). That harness pins the CPU correlation baseline
+  recorded at 0.005 for backend identity, not a product default, so it now passes 0.005 explicitly. It
+  then passes, and the gate is **48/48** (`scientific-floor2.log`).
+- **Decision rule met:** the default moves to 0.15 %, with a `DEVIATION` note naming py4DSTEM's 0.005.
+
+## Independent refuter (Sonnet), same day
+
+**The change holds. Four gaps were found and closed.**
+- **Code: no gap.** Every consumer reaches the default through one seam
+  (`DiskDetectionProduct.diskParams` / `detectorAdapted`). A replayed recipe *requires* its recorded
+  floor (`ReplayPlan.swift`, refused without it), and no UI text claims 0.5 %.
+- **No test pinned the default.** The struct's only initialiser carries the effective default; the
+  property's own `= …` is never consulted. Reverting the init default to 0.005 left all 908 tests
+  green. `testShippedDefaultMinRelativeIntensityIsThePinnedFloor` is now added: green on the fix,
+  red on that revert (`refuter-pin-green.log`, `refuter-pin-red.log`).
+- **Docs:** no ADR existed (now ADR 041), and ADRs 026 and 038 still stated 0.5 % (now marked
+  superseded). Two test comments called 0.5 % "the shipped" threshold (reworded).
+- **The owner's 306 hand labels are not recoverable.** `net-labels.npz` holds the network's own
+  predicted heatmaps at the 40 labelled positions, not the labels. Peak-finding on it gives 253–1 755
+  "centres" depending on the threshold. The label JSON exists nowhere on disk. **Whether the new
+  floor's extra peaks are real disks cannot be measured today.** At 0.5 % the classical detector
+  already missed 27–51 % of those labels, which supports but does not prove it.
+- **The over-claim is real and is stated:** the demo check is weak, and one dataset with truth set
+  the default. ADR 041 says so.

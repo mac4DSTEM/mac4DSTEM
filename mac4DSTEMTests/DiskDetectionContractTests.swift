@@ -4,6 +4,14 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 final class DiskDetectionContractTests: XCTestCase {
+    /// ADR 041 (Gate D 2026-09-28): the shipped floor is 0.15 %, a DEVIATION
+    /// from py4DSTEM's 0.5 %. The refuter reverted the init default to 0.005
+    /// and the whole suite stayed green; this pins it (red on that revert,
+    /// refuter-pin-red.log).
+    func testShippedDefaultMinRelativeIntensityIsThePinnedFloor() {
+        XCTAssertEqual(DiskDetectionParams().minRelativeIntensity, 0.0015)
+    }
+
     func testDetectorAdaptedConfigurationValidatesAcrossDetectorShapes() {
         for (qy, qx) in [(128, 128), (125, 125), (96, 160), (32, 64)] {
             let parameters = DiskDetectionParams.detectorAdapted(qy: qy, qx: qx)
@@ -132,7 +140,7 @@ final class DiskDetectionContractTests: XCTestCase {
     }
 
     /// One accepted peak per pattern is the WS2 signature: every Bragg disk is
-    /// ~0.2 % of the beam and the shipped 0.5 % threshold, measured against
+    /// ~0.2 % of the beam and the 0.5 % threshold (the shipped default until ADR 041), measured against
     /// the brightest peak, rejects them all (open item, 2026-09-05). The
     /// warning has to name that threshold, its reference and the remedy —
     /// "spacing or thresholds" sent the reader to the wrong knob.
@@ -175,7 +183,7 @@ final class DiskDetectionContractTests: XCTestCase {
     /// Decision 3 of 2026-09-15 (Thronsen step 3): a saturated direct beam is
     /// the wrong reference for "fraction of the maximum". A 64 × 64 pattern
     /// with a flat central plateau at 1.0, one Bragg-sized spot at 0.05 and
-    /// two weak spots at 0.003: at the shipped 0.5 % against the plateau the
+    /// two weak spots at 0.003: at 0.5 % (the default until ADR 041) against the plateau the
     /// weak spots are 0.3 % and are dropped; against the brightest maximum
     /// outside 10 px of the centre they are 6 % and kept. Mutations this
     /// names: the parameter ignored (the second count equals the first), or

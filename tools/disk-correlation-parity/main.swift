@@ -208,6 +208,11 @@ var params = DiskDetectionParams.detectorAdapted(qy: qy, qx: qx)
 params.subpixel = .poly
 params.corrPower = 1
 params.sigmaCC = 2
+// The baselines were recorded at the 0.5 % floor, py4DSTEM's default. The app's
+// default became 0.15 % on 2026-09-28 (ADR 040 follow-up,
+// docs/archive/v4/default-floor-gateD-2026-09-28.md); this harness pins backend
+// identity, not the product default, so it keeps the recorded floor.
+params.minRelativeIntensity = 0.005
 let issues = params.validationIssues(
     in: DiskDetectionContext(qy: qy, qx: qx, probeRadius: kernel.probeRadius)
 )
