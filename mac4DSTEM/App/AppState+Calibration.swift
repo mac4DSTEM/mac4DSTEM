@@ -283,7 +283,7 @@ extension AppState {
             applyStrainDisplay()
             if applyDPCDisplay() == nil {
                 statusText = String(format: "Rotation ✓  θ = %.1f°%@",
-                                    result.rotationRad * 180 / .pi,
+                                    RQRotationConvention.displayDegrees(fromApp: result.rotationRad),
                                     result.transpose ? ", detector transposed" : "")
             }
         } catch {

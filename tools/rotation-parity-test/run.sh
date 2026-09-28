@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Gated parity harness for Core/Analysis/RotationCalibration.swift — see
-# main.swift for the four legs and reference.py's module docstring for why
-# leg (b)'s numeric comparison is informational only.
+# main.swift for the four legs. Leg (b), file-faithful py4DSTEM parity of the
+# converted angle, gates since 2026-09-28 (ADR 040).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

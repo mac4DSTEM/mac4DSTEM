@@ -89,6 +89,10 @@ package nonisolated struct PixelCalibration: Sendable {
     package var ellipseTheta: Double? = nil
     /// py4DSTEM QR_rotation in radians.
     package var qrRotationRad: Double? = nil
+    /// `RQRotationConvention.marker` when `qrRotationRad` is in py4DSTEM's
+    /// convention and this app wrote it (sidecars since 2026-09-28); nil for
+    /// older sidecars, which hold the app's own sign (ADR 040).
+    package var qrRotationConvention: String? = nil
     /// Probe radius returned by py4DSTEM probe-size fitting, in detector px.
     package var probeSemiangle: Double? = nil
     /// Fitted (and optionally measured) per-position origins from py4DSTEM.

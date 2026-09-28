@@ -113,6 +113,7 @@ mac4dstem_sources() {
           "$core/Data/DiffractionPattern.swift"
           "$core/Data/FourDDataSource.swift"
           "$core/Data/LoadSpecification.swift"
+          "$core/Data/RQRotationConvention.swift"
         )
         ;;
       calibration)
@@ -258,6 +259,7 @@ mac4dstem_sources() {
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/FFT2D.swift"
           "$core/Analysis/RotationCalibration.swift"
+          "$core/Data/RQRotationConvention.swift"
         )
         ;;
       friedel)

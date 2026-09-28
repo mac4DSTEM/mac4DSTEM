@@ -213,7 +213,9 @@ final class StrainFrameTests: XCTestCase {
         )
         XCTAssertTrue(caption.contains("strain_frame=scan"),
                       "caption must name the frame on its face: \(caption)")
-        XCTAssertTrue(caption.contains("qr_rotation_deg=37.2"),
+        // ADR 040: exported in py4DSTEM's sign, the negative of the app's
+        // internal +37.2° (was "qr_rotation_deg=37.2" before 2026-09-28).
+        XCTAssertTrue(caption.contains("qr_rotation_deg=-37.2"),
                       "caption must carry the applied angle: \(caption)")
     }
 
@@ -308,9 +310,12 @@ final class StrainFrameTests: XCTestCase {
         state.calibrationSession.calibration.transposeQR = true
         let scan = state.strainFrameProvenance
         XCTAssertEqual(scan["strain_frame"], "scan")
-        XCTAssertEqual(scan["qr_rotation_deg"], "-37.2")
+        // ADR 040: py4DSTEM's sign, the negative of the app's internal
+        // −37.2° (these read "-37.2" and −0.6493 before 2026-09-28).
+        XCTAssertEqual(scan["qr_rotation_deg"], "37.2")
+        XCTAssertEqual(scan["qr_rotation_convention"], "py4DSTEM")
         XCTAssertEqual(scan["qr_transposed"], "true")
-        XCTAssertEqual(scan["qr_rotation_rad"], String(Float(-0.6493)))
+        XCTAssertEqual(scan["qr_rotation_rad"], String(Float(0.6493)))
         XCTAssertNil(scan["strain_frame_reason"])
     }
 
@@ -330,7 +335,7 @@ final class StrainFrameTests: XCTestCase {
         let bundle = try XCTUnwrap(state.scientificBundleMaps())
         let exx = try XCTUnwrap(bundle.first { $0.kind == "strain_exx" })
         XCTAssertEqual(exx.provenance["strain_frame"], "scan")
-        XCTAssertEqual(exx.provenance["qr_rotation_deg"], "-64.0")
+        XCTAssertEqual(exx.provenance["qr_rotation_deg"], "64.0")   // ADR 040: py4DSTEM's sign
         XCTAssertEqual(exx.provenance["qr_transposed"], "true")
 
         let expected = map.presented(

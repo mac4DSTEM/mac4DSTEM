@@ -1015,7 +1015,7 @@ private struct RotationCurveView: View {
         .accessibilityLabel("Rotation calibration objective")
         .accessibilityValue(String(
             format: "chosen angle %.2f degrees, %@ detector axes",
-            result.rotationRad * 180 / .pi,
+            RQRotationConvention.displayDegrees(fromApp: result.rotationRad),   // ADR 040: py4DSTEM's sign
             result.transpose ? "transposed" : "untransposed"
         ))
     }

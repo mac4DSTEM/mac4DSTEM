@@ -11,7 +11,11 @@ Two legs, both computed here, never by calling the code under test:
     gradient itself: numpy differentiates the potential by hand, not by
     calling into Swift.
 
-(b) PY4DSTEM PARITY (bonus, has a hard stop). `assert_source_contract()`
+(b) PY4DSTEM PARITY, FILE-FAITHFUL, GATING since 2026-09-28 (ADR 040). The
+    history below explains why it was informational before; see main()'s
+    leg-(b) comment for the file-faithful call now used.
+
+    Original text (b), kept for the record: PY4DSTEM PARITY (bonus, has a hard stop). `assert_source_contract()`
     below is the hard gate: it raises if the pinned curl grid search in
     References/py4DSTEM-dev's `_solve_for_center_of_mass_relative_rotation`
     ("Transpose unknown, rotation unknown" branch) has drifted from the exact
@@ -169,7 +173,21 @@ def main() -> None:
     # transpose branch's own sign, not the direct branch's).
     transposed_cx, transposed_cy = rotate(gy, gx, planted_deg)
 
-    py4dstem_angle, py4dstem_transpose = py4dstem_curl_grid_search(direct_cx, direct_cy)
+    # Leg (b), file-faithful (ADR 040, Gate D 2026-09-28,
+    # docs/archive/v4/rq-sign-gateD-2026-09-28.md): the field's array axis 0
+    # is the file's axis 0, which py4DSTEM calls Rx, so it is kept; the
+    # app's detector channels (cx along file axis 3, cy along file axis 2)
+    # are py4DSTEM's (com_y, com_x). This is how py4DSTEM would read the same
+    # file; the old call (com_x=cx, com_y=cy) relabelled py4DSTEM into the
+    # app's frame and agreed with Swift by construction
+    # (archive/v3/rq-frame-class-2026-09-23.md, independent refutation).
+    nonsquare_gx, nonsquare_gy = potential_gradient(40, 30)
+    nonsquare_cx, nonsquare_cy = rotate(nonsquare_gx, nonsquare_gy, planted_deg)
+    file_faithful = [
+        py4dstem_curl_grid_search(com_x=cy, com_y=cx)
+        for cx, cy in [(direct_cx, direct_cy), (transposed_cx, transposed_cy),
+                       (nonsquare_cx, nonsquare_cy)]
+    ]
 
     def interleave(cx: np.ndarray, cy: np.ndarray) -> list[float]:
         out = np.empty(cx.size * 2, dtype=np.float32)
@@ -185,8 +203,12 @@ def main() -> None:
                 "plantedDeg": planted_deg,
                 "directField": interleave(direct_cx, direct_cy),
                 "transposedField": interleave(transposed_cx, transposed_cy),
-                "py4dstemAngleDeg": py4dstem_angle,
-                "py4dstemTranspose": py4dstem_transpose,
+                "nonSquareWidth": 40,
+                "nonSquareHeight": 30,
+                "nonSquareField": interleave(nonsquare_cx, nonsquare_cy),
+                "py4dstemFileFaithful": [
+                    {"angleDeg": a, "transpose": t} for a, t in file_faithful
+                ],
             },
             indent=2,
         )

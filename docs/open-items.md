@@ -21,22 +21,16 @@ earlier detail files are `archive/open-items-detail-2026-09-18.md` and
 
 ## Science & parity
 
-### App R–Q rotation is −py4DSTEM's on the same file; QR_rotation crosses the boundary unconverted — Gate D, reopened 2026-09-23
-The app reads a file's scan/detector axes as (Ry, Rx, Qy, Qx)
-(`DatasetDescriptor.swift:15,38-41`), py4DSTEM as (Rx, Ry, Qx, Qy): both pairs
-swapped, so the app's θ = −py4DSTEM's θ, transpose identical. Measured
-(independent refuter, `archive/v3/rq-frame-class-2026-09-23.md` §Independent
-refutation): real `Particle_1_Stack_1…bin8.h5` → py4DSTEM +80.0° T, app
-−80.1° T; three planted non-square fields flip sign likewise. Origins and
-peaks are axis-swapped at the py4DSTEM import/export boundary, but
-`QR_rotation` is not (`AppState+Open.swift:474`; `ResultExport.swift:1304` →
-`BraggVectorEMDWriter.swift:1690-1697`); no `DEVIATION` note on the sign.
-**Trap:** `bfa5525`'s "fix" transposed the harness's own reference array,
-relabeling py4DSTEM into the app's frame — leg (b) then PASSed by
-construction; restored to informational (`a0e9a4a`).
-**Decided 2026-09-28 (ADR 040):** display and write py4DSTEM's convention. Next: Gate D on the sign
-conversion at the file boundary (a scientific number), a file-faithful leg (b), and `ellipseTheta` at
-the same boundary.
+### R–Q rotation shown and written in py4DSTEM's convention — fixed 2026-09-28 (ADR 040, Gate D); two residuals
+The app's internal angle is −py4DSTEM's (axis order). Since 2026-09-28 one `RQRotationConvention` converts at
+every boundary: py4DSTEM import, sidecar and export (with a `QR_rotation_convention` marker), strain export
+keys, and every readout. Parity leg (b) now gates, file-faithful. On the real cube py4DSTEM gives +80.0° T and
+the app shows +80.1° T (`archive/v4/rq-sign-gateD-2026-09-28.md`).
+**Residuals:**
+- A datacube exported by the app **before 2026-09-28** and reopened as a dataset is sign-flipped, because it
+  cannot be told apart from a py4DSTEM file. Re-export it.
+- `tools/training-dataset-campaign`'s report holds the app's own sign.
+- The parallax fit's own rotation is untested against the calibration's convention.
 
 ### Origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay owed, still `validation:"none"`
 `OriginMaps.originValidity: [Bool]?` carries the robust trim's per-position

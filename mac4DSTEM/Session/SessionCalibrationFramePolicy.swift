@@ -79,7 +79,12 @@ package nonisolated enum SessionCalibrationTranslation {
         if let value = saved.qSize { sessionFrame.qPixelSize = value }
         if let value = saved.qUnits { sessionFrame.qPixelUnits = value }
         if let value = saved.qrFlip { sessionFrame.transposeQR = value }
-        if let value = saved.qrRotationRad { sessionFrame.rotationRad = Float(value) }
+        // ADR 040: a marked sidecar holds py4DSTEM's sign; an unmarked one
+        // (written before 2026-09-28) holds the app's own and is read as-is.
+        if let value = saved.qrRotationRad {
+            sessionFrame.rotationRad = Float(saved.qrRotationConvention == RQRotationConvention.marker
+                ? RQRotationConvention.app(fromPy4DSTEM: value) : value)
+        }
         if let value = saved.probeSemiangle { sessionFrame.probeRadius = Float(value) }
         if let value = saved.ellipseA { sessionFrame.ellipseA = value }
         if let value = saved.ellipseB { sessionFrame.ellipseB = value }

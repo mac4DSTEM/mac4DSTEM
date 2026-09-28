@@ -13,13 +13,14 @@
 //      transpose. Ground truth is external — reference.py's numpy, never
 //      this binary's own formula.
 //
-//  (b) PY4DSTEM PARITY (bonus, has a hard stop): reference.py's
-//      `assert_source_contract` already gated the pinned source text before
-//      this binary ran at all (a nonzero Python exit fails the harness via
-//      `run.sh`'s `set -e`, before main.swift is even invoked). The NUMERIC
-//      comparison below is informational only, by design — see reference.py's
-//      module docstring for why (a measured (Rx,Ry)-vs-(col,row) frame-class
-//      difference, filed as a Gate-D open item, not fixed here).
+//  (b) PY4DSTEM PARITY, FILE-FAITHFUL (must pass since 2026-09-28, ADR 040):
+//      reference.py's `assert_source_contract` gates the pinned source text,
+//      then calls py4DSTEM's frozen curl search the way py4DSTEM reads the
+//      same file (direct, transposed, and non-square 40x30). The app's angle
+//      converted by `RQRotationConvention` must match it and the transpose;
+//      the unconverted angle must NOT (anti-vacuity). Until 2026-09-28 this
+//      leg was informational: the frame-class difference it exposed is now
+//      handled at the boundary (docs/archive/v4/rq-sign-gateD-2026-09-28.md).
 //
 //  (c) NULL / ADR 024 (must pass): reuses `tools/rotation-null-probe`'s exact
 //      generator functions and seed formulas (XorshiftRNG, whiteNoiseField,
@@ -57,8 +58,15 @@ struct Fixture: Decodable {
     let plantedDeg: Double
     let directField: [Float]
     let transposedField: [Float]
-    let py4dstemAngleDeg: Double
-    let py4dstemTranspose: Bool
+    let nonSquareWidth: Int
+    let nonSquareHeight: Int
+    let nonSquareField: [Float]
+    let py4dstemFileFaithful: [Py4DSTEMAnswer]
+}
+
+struct Py4DSTEMAnswer: Decodable {
+    let angleDeg: Double
+    let transpose: Bool
 }
 
 guard CommandLine.arguments.count == 2 else { fail("usage: rotation-parity-test fixture.json") }
@@ -117,20 +125,38 @@ guard transposedError < angleTolerance else {
 print("PASS: analytic recovery, transpose=true, planted \(fixture.plantedDeg)deg "
       + "recovered as \(transposedDeg)deg (error \(transposedError)deg)")
 
-// Leg (b): informational only. reference.py's assert_source_contract already
-// gated the pinned text (a nonzero Python exit would have stopped run.sh
-// before this binary ran); this comparison never calls exit(1).
-let parityError = angleErrorModHalfCircle(measuredDeg: directDeg, targetDeg: fixture.py4dstemAngleDeg)
-if direct.transpose == fixture.py4dstemTranspose && parityError < angleTolerance {
-    print("PASS: py4DSTEM curl-grid-search parity (informational): Swift "
-          + "\(directDeg)deg/transpose=\(direct.transpose) agrees with py4DSTEM "
-          + "\(fixture.py4dstemAngleDeg)deg/transpose=\(fixture.py4dstemTranspose)")
-} else {
-    print("NOTE: py4DSTEM curl-grid-search parity leg disagrees (informational, not a "
-          + "failure — see reference.py's module docstring and docs/open-items.md, "
-          + "\"RotationCalibration's py4DSTEM parity leg exposes an (Rx,Ry)-vs-(col,row) "
-          + "frame class\"): Swift \(directDeg)deg/transpose=\(direct.transpose) vs "
-          + "py4DSTEM \(fixture.py4dstemAngleDeg)deg/transpose=\(fixture.py4dstemTranspose)")
+// Leg (b): file-faithful py4DSTEM parity, GATING since 2026-09-28 (ADR 040,
+// docs/archive/v4/rq-sign-gateD-2026-09-28.md). reference.py calls py4DSTEM's
+// frozen curl search the way py4DSTEM reads the same file; the app's angle,
+// converted by RQRotationConvention (the one conversion every display and
+// file uses), must agree with it within py4DSTEM's 1° grid (0.75°) and with
+// the same transpose. Anti-vacuity: the UNconverted angle must be off by
+// more than 10° — otherwise this fixture could not see a dropped sign.
+guard let nonSquare = RotationCalibration.solve(
+    com: fixture.nonSquareField, width: fixture.nonSquareWidth, height: fixture.nonSquareHeight
+) else { fail("solve() returned nil on the non-square fixture field") }
+guard fixture.py4dstemFileFaithful.count == 3 else { fail("reference.py must emit three file-faithful answers") }
+let legBTolerance = 0.75
+for (name, result, py) in [("direct 40x40", direct, fixture.py4dstemFileFaithful[0]),
+                           ("transposed 40x40", transposed, fixture.py4dstemFileFaithful[1]),
+                           ("direct 40x30", nonSquare, fixture.py4dstemFileFaithful[2])] {
+    let appDeg = Double(result.rotationRad) * 180 / .pi
+    let shownDeg = RQRotationConvention.displayDegrees(fromApp: result.rotationRad)
+    let error = angleErrorModHalfCircle(measuredDeg: shownDeg, targetDeg: py.angleDeg)
+    let unconverted = angleErrorModHalfCircle(measuredDeg: appDeg, targetDeg: py.angleDeg)
+    guard result.transpose == py.transpose else {
+        fail("leg (b) \(name): transpose \(result.transpose), py4DSTEM \(py.transpose)")
+    }
+    guard error < legBTolerance else {
+        fail("leg (b) \(name): shown \(shownDeg)deg vs file-faithful py4DSTEM \(py.angleDeg)deg, "
+             + "error \(error)deg exceeds \(legBTolerance)deg")
+    }
+    guard unconverted > 10 else {
+        fail("leg (b) \(name): the unconverted app angle \(appDeg)deg is within 10deg of py4DSTEM's "
+             + "\(py.angleDeg)deg — this fixture cannot discriminate the sign")
+    }
+    print("PASS: file-faithful py4DSTEM parity, \(name): shown \(shownDeg)deg/transpose=\(result.transpose) "
+          + "vs py4DSTEM \(py.angleDeg)deg/transpose=\(py.transpose) (error \(error)deg; unconverted off by \(unconverted)deg)")
 }
 
 // MARK: - Leg (c): NULL / ADR 024, reusing tools/rotation-null-probe's exact

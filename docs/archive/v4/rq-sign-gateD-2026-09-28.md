@@ -65,3 +65,55 @@ moves. The sign flips in exactly one place, a new `RQRotationConvention`
   tests (strain-frame-test, DPC and ACOM harnesses green).
 - **P6 real data** (diagnostic): on `Particle_1…bin8.h5`, the app's displayed angle equals
   py4DSTEM's +80° within 0.5°, transpose T.
+
+## Outcome, same day
+
+Every log ends with exit 0 on its own line unless stated otherwise.
+- **P1 held** (`parity-after.log`). File-faithful py4DSTEM gives the three predicted results: **(+37.0, F)**
+  direct 40 × 40, **(−37.0, T)** transposed, **(+37.0, F)** 40 × 30. The app's converted angle is
+  +37.2 / −37.2 / +37.2 with the same transpose, off by 0.2°, which is py4DSTEM's 1° grid. The
+  unconverted angle is off by 74.2° in every case. With the conversion removed, the harness FAILs
+  with exit 1 (`parity-mut-noconvert.log`). Leg (b) now gates; until today it was informational.
+- **P2, P3, P4 held** (`RQRotationConventionTests`, 4 tests; `green.log` 19/19 with `StrainFrameTests`).
+  - A py4DSTEM file's 0.6 rad becomes −0.6 inside the app. The readiness row shows "34.4°", and
+    so does the strain frame label.
+  - The sidecar snapshot writes −0.6 plus the marker, and nothing when there is no rotation.
+  - A marked sidecar reads back as 0.6, and so does a legacy one.
+
+  Six mutations, one per boundary, were each red on their own test: the import not negated; the
+  snapshot not converted; the read ignoring the marker; the read always converting; the display
+  unconverted; the strain keys unconverted.
+- **P4, one deliberate expectation change:** `StrainFrameTests` pinned the export keys in the
+  app's sign. They now pin py4DSTEM's: "37.2" and "64.0" (were "-37.2" and "-64.0"). The caption
+  now reads "-37.2" for an internal +37.2°, and `qr_rotation_convention` is asserted.
+- **P6 held** (`real/py_side.log`, `real/app_side.log`). On the real cube, py4DSTEM's own DPC gives
+  **+80.0° T**. The app's solver on the same CoM field gives −80.1° T internally, **shown as +80.1° T**.
+  The field does not beat its own null there (ADR 024), so the app would decline to apply it, as
+  before. The sign relation is exact either way.
+- **Residual, recorded:** the diagnostic `tools/training-dataset-campaign` writes and reads the app's
+  own sign on its private path. It is not a user boundary, and it is left as is.
+
+## Independent refuter (Sonnet), same day
+
+**NOT REFUTED on the predictions; PARTLY REFUTED on completeness.** I checked the handback: every
+changed file `cmp`-identical, no processes left.
+- **Every boundary converts.** The refuter checked each site by grep, and found no angle in the replay
+  recipes or the export sheet. The parallax fit's rotation is a different quantity, correctly left
+  alone.
+- **Gap closed.** No test drove the real HDF5 writer and reader together. A writer that dropped the
+  marker while the snapshot still converted (so the next open would read py4DSTEM's sign as a
+  legacy app sign) left all four boundary tests green.
+  `testARealSidecarRoundTripKeepsTheAppAngle` now writes through `BraggVectorEMDWriter.write` and
+  reads back through `loadSession` and `translate`. It is green on the fix and red on that
+  mutation (`roundtrip-green.log`, `roundtrip-dropmarker.log`).
+- **Residual, recorded, not fixed.** A datacube this app exported **before 2026-09-28** holds the
+  app's sign with no marker. If it is reopened as a dataset (File › Open), the import negates it
+  as if it were a py4DSTEM file, so it is shown and used with the wrong sign. It cannot be told
+  apart from a genuine py4DSTEM file, and few such files exist. The fix is to re-export the file.
+  This is in `open-items.md`.
+- `tools/training-dataset-campaign`'s JSON report writes `rotation_degrees` in the app's sign,
+  unlabelled. It is a diagnostic's private file, now named as a residual defect.
+- **Internals untouched,** by diff: RotationCalibration, DPC, ptychography, parallax, and
+  StrainFrame's maths.
+- **The frozen-shell edit is acceptable:** one VoiceOver format argument in
+  `WorkspaceInspector.swift`, and not a pixel changes.

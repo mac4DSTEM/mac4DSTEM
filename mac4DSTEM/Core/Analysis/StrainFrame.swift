@@ -80,7 +80,8 @@ package nonisolated enum StrainPresentationFrame: Equatable, Sendable {
         switch self {
         case .scan(let rotationRad, let transposed):
             String(format: "Scan frame (R–Q %.1f°%@ applied)",
-                   rotationRad * 180 / .pi, transposed ? " · transposed" : "")
+                   RQRotationConvention.displayDegrees(fromApp: rotationRad),
+                   transposed ? " · transposed" : "")
         case .detector:
             "Detector x/y — R–Q rotation not calibrated"
         }

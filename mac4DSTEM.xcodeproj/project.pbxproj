@@ -121,6 +121,7 @@
 				Core/Data/LoadSpecification.swift,
 				Core/Data/ResidentCube.swift,
 				Core/Data/ResultPresentation.swift,
+				Core/Data/RQRotationConvention.swift,
 				Core/Data/SessionReplayRecord.swift,
 				Core/Data/VendorRawReaders.swift,
 				Core/ML/LearnedDiskDetection.swift,

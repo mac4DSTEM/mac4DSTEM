@@ -465,7 +465,9 @@ extension AppState {
                 calibrationSession.provenance.qScale = .importedFile
             }
             if let flip = pc.qrFlip { calibrationSession.calibration.transposeQR = flip }
-            calibrationSession.calibration.rotationRad = pc.qrRotationRad.map(Float.init)
+            // ADR 040: a file's QR_rotation is py4DSTEM's sign; the app's is its negative.
+            calibrationSession.calibration.rotationRad = pc.qrRotationRad
+                .map { Float(RQRotationConvention.app(fromPy4DSTEM: $0)) }
             calibrationSession.calibration.probeRadius = pc.probeSemiangle.map(Float.init)
             calibrationSession.calibration.ellipseA = pc.ellipseA
             calibrationSession.calibration.ellipseB = pc.ellipseB

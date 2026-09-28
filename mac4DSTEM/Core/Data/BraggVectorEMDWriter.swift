@@ -718,6 +718,9 @@ package nonisolated enum BraggVectorEMDWriter {
         calibration.qrRotationRad = try readDoubleDataset(
             "QR_rotation", from: group, hdf5: h5
         )
+        calibration.qrRotationConvention = try readStringDataset(
+            "QR_rotation_convention", from: group, hdf5: h5
+        )
         calibration.probeSemiangle = try readDoubleDataset(
             "probe_semiangle", from: group, hdf5: h5
         )
@@ -1694,6 +1697,10 @@ package nonisolated enum BraggVectorEMDWriter {
             try writeScalarDataset("QR_rotation_degrees", value: &degrees,
                                    type: h5.nativeDouble, metadataType: "number",
                                    in: group, hdf5: h5)
+            if let convention = calibration.qrRotationConvention {
+                try writeStringDataset("QR_rotation_convention", value: convention,
+                                       metadataType: "string", in: group, hdf5: h5)
+            }
         }
         if var value = calibration.probeSemiangle {
             try writeScalarDataset("probe_semiangle", value: &value, type: h5.nativeDouble,

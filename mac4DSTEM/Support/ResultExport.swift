@@ -488,8 +488,11 @@ extension AppState {
         var keys: [String: String] = ["strain_frame": frame.provenanceValue]
         switch frame {
         case .scan(let rotationRad, let transposed):
-            keys["qr_rotation_rad"] = String(rotationRad)
-            keys["qr_rotation_deg"] = String(format: "%.1f", rotationRad * 180 / .pi)
+            // ADR 040: exported in py4DSTEM's convention, and said so.
+            let py4DSTEMRad = Float(RQRotationConvention.py4DSTEM(fromApp: Double(rotationRad)))
+            keys["qr_rotation_rad"] = String(py4DSTEMRad)
+            keys["qr_rotation_deg"] = String(format: "%.1f", py4DSTEMRad * 180 / .pi)
+            keys["qr_rotation_convention"] = RQRotationConvention.marker
             keys["qr_transposed"] = transposed ? "true" : "false"
         case .detector:
             keys["strain_frame_reason"] = "qr_rotation_not_calibrated"
@@ -1283,7 +1286,7 @@ extension AppState {
 
     /// Construct the py4DSTEM-axis calibration snapshot. This is the sole save
     /// boundary where app detector x/y becomes py4DSTEM qy/qx.
-    private func sessionPixelCalibration(descriptor: DatasetDescriptor) -> PixelCalibration {
+    func sessionPixelCalibration(descriptor: DatasetDescriptor) -> PixelCalibration {
         var snapshot = PixelCalibration(
             rSize: calibrationSession.calibration.rPixelSize,
             rUnits: calibrationSession.calibration.rPixelUnits,
@@ -1291,7 +1294,10 @@ extension AppState {
             qUnits: calibrationSession.calibration.qPixelUnits,
             qrFlip: calibrationSession.calibration.transposeQR
         )
-        snapshot.qrRotationRad = calibrationSession.calibration.rotationRad.map(Double.init)
+        // ADR 040: files carry py4DSTEM's R–Q sign, marked as such.
+        snapshot.qrRotationRad = calibrationSession.calibration.rotationRad
+            .map { RQRotationConvention.py4DSTEM(fromApp: Double($0)) }
+        if snapshot.qrRotationRad != nil { snapshot.qrRotationConvention = RQRotationConvention.marker }
         snapshot.probeSemiangle = calibrationSession.calibration.probeRadius.map(Double.init)
         snapshot.ellipseA = calibrationSession.calibration.ellipseA
         snapshot.ellipseB = calibrationSession.calibration.ellipseB
