@@ -1161,7 +1161,7 @@ extension AppState {
 
     /// Do not place an imported `1 pixels/px` placeholder beside the manual
     /// physical-unit picker. Until the user supplies a physical unit/value,
-    /// the action field is intentionally empty (rendered as zero by SwiftUI).
+    /// the action field is intentionally empty (it shows "Not set").
     var manualQPixelSize: Double? {
         guard CalibrationUnitConversion.canonicalEditableReciprocalUnit(
             calibrationSession.calibration.qPixelUnits

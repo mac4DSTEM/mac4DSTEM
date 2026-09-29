@@ -602,7 +602,7 @@ struct PhaseMappingSections: View {
                             guard index < product.phases.count else { return }
                             product.phases[index].excitationSlabInvAngstrom = value
                         }
-                    ), format: format, prompt: Text(global.formatted(format)))
+                    ), format: DecimalEntryFormat(format), prompt: Text(DecimalEntryFormat(format).format(global)))
                     .labelsHidden()
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)

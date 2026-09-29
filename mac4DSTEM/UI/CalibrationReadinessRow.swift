@@ -183,10 +183,11 @@ enum CalibrationReadinessRow {
         // `InspectorRow`s, so both labels sit in the kit's label column like
         // every other row in the card, not flush left as they did before.
         InspectorRow("Manual") {
-            NumericField(
-                "Manual scale",
-                value: Binding(get: { value ?? 0 }, set: onChange),
-                format: .number.precision(.fractionLength(0...6))
+            OptionalNumericField(
+                title: "Manual scale",
+                value: value,
+                format: .number.precision(.fractionLength(0...6)),
+                onCommit: onChange
             )
             .labelsHidden()
             .accessibilityIdentifier(identifier)

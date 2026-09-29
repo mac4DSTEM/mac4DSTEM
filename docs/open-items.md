@@ -93,14 +93,13 @@ One line each; full wording as above.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
-### S3 Prepare: the manual Q field, the voltage placeholder, the Friedel ETA
-- **An emptied manual Q, confirmed, discards the file's calibration** (2026-09-07, `drive/shots-c3/b2-qr-unset-bug.png`):
-  `0.2` entered nothing (locale wants `0,2`; the period dropped silently); Return on the empty field flipped Q to "Not set",
-  bar `0.5 Å⁻¹` → `5 px`. Gate D owes: why a period is rejected; whether empty clears or restores. Not re-checked since v4.
-- **Voltage reads "0 kV"** while readiness says "Not set" (`d1-02`): an empty field, placeholder "Not set".
+### S3 Prepare: the Friedel ETA that only grows (the number-entry half closed 2026-09-30)
 - **Full-cube Friedel ETA only grows** (drive 2, 2026-09-29): 329 → 106 positions/s over 12 000 positions, ETA 58 s → 2:39;
-  ≈ 20 s stalls; Cancel lands in ≈ 20 s (`archive/v4/overnight-2026-09-29-shots/d2-07b-friedel-later.jpg`). Cause not
-  established — Gate D first; then an ETA from a trailing-window rate.
+  ≈ 20 s stalls; Cancel lands in ≈ 20 s (`archive/v4/overnight-2026-09-29-shots/d2-07b-friedel-later.jpg`). Gate D open:
+  the serial tile read (`friedelMeasuredOrigins` awaits `scanTile`, no prefetch, no cancel check inside a read) was
+  predicted to need ≈ 156 positions/s of reading; h5py decompresses this file's per-pattern chunks at 5 300–6 400/s —
+  **refuted** for raw HDF5 (2026-09-30). Unmeasured: the app's own `readScanTile` + float conversion, memory growth
+  (the rate FALLS, so something grows). Next: time each tile's read and compute, and the footprint, on the app's path.
 - The manual Q field stays visible and editable after a new value (`d3-03b`).
 
 ### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe

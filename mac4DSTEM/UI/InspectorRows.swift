@@ -373,7 +373,7 @@ struct AdjustmentSlider: View {
             HStack(alignment: .firstTextBaseline) {
                 labelView
                 Spacer(minLength: 0)
-                TextField(label, value: $value, format: format)
+                TextField(label, value: $value, format: DecimalEntryFormat(format))
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
                     .frame(width: LayoutPolicy.adjustmentValueWidth)
@@ -566,5 +566,110 @@ struct InspectorStatusRow: View {
                 .fixedSize()
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Number entry
+
+/// How every numeric field reads and shows a number (Gate D, 2026-09-30,
+/// Session queue S3). The system's lenient parse, in a region whose decimal
+/// separator is a comma, read a typed period as grouping: `0.0275` became
+/// 275 and `0.2` became 0 — silently, in the calibration fields. So:
+/// - the value is shown without grouping (`1600`, never `1.600`), so a shown
+///   number committed unchanged can never be re-read as another;
+/// - in a decimal field one `.` or `,` typed is the decimal point, whichever
+///   the region uses (declared trade-off: a US `1,600` is 1.6 here);
+/// - anything else is grouping only in valid groups — 1–3 digits, then
+///   exactly 3 (`1.234,5`, `1,234.5`, `1.000.000`); an integer field takes
+///   separators only as grouping (`1.600` is 1600);
+/// - every other placement is refused — the field keeps its value — so a
+///   typo like `0.0.275` or `300.5.` can never become 275 or 3005.
+nonisolated struct DecimalEntryFormat<Inner: ParseableFormatStyle>: ParseableFormatStyle
+where Inner.FormatOutput == String {
+    var inner: Inner
+    var locale: Locale
+
+    init(_ inner: Inner, locale: Locale = .autoupdatingCurrent) {
+        self.inner = inner
+        self.locale = locale
+    }
+
+    func format(_ value: Inner.FormatInput) -> String {
+        Self.ungrouped(inner.format(value), locale: locale)
+    }
+
+    var parseStrategy: Strategy { Strategy(inner: inner, locale: locale) }
+
+    struct Strategy: ParseStrategy {
+        var inner: Inner
+        var locale: Locale
+
+        func parse(_ value: String) throws -> Inner.FormatInput {
+            let integer = Inner.FormatInput.self is any BinaryInteger.Type
+            return try inner.parseStrategy.parse(
+                DecimalEntryFormat.normalized(value, locale: locale, integer: integer))
+        }
+    }
+
+    struct Refused: Error {}
+
+    static func ungrouped(_ text: String, locale: Locale) -> String {
+        guard let grouping = locale.groupingSeparator, !grouping.isEmpty else { return text }
+        return text.replacingOccurrences(of: grouping, with: "")
+    }
+
+    /// The typed text rewritten in `locale`'s own convention, ungrouped, or
+    /// `Refused` when its separators have no one reading.
+    static func normalized(_ raw: String, locale: Locale, integer: Bool = false) throws -> String {
+        let text = raw.trimmingCharacters(in: .whitespaces)
+        let decimal = locale.decimalSeparator ?? "."
+        let separators = text.filter { $0 == "." || $0 == "," }
+        guard let last = separators.last else { return text }
+        if !integer && separators.count == 1 {
+            return text.replacingOccurrences(of: String(last), with: decimal)
+        }
+        // Several separators, or any in an integer: all but a decimal point
+        // must be grouping, and grouping must be well formed.
+        let point: Character? = integer || Set(separators).count == 1 ? nil : last
+        let grouping: Character = point.map { $0 == "." ? "," : "." } ?? last
+        let whole = point.map { p in String(text[..<text.lastIndex(of: p)!]) } ?? text
+        guard !whole.contains(where: { $0 == point }) else { throw Refused() }
+        let groups = whole.drop { $0 == "-" || $0 == "+" || $0 == "\u{2212}" }
+            .split(separator: grouping, omittingEmptySubsequences: false)
+        guard groups.count > 1, (1...3).contains(groups[0].count),
+              groups.dropFirst().allSatisfy({ $0.count == 3 }),
+              groups.allSatisfy({ $0.allSatisfy(\.isNumber) }) else { throw Refused() }
+        let ungroupedText = text.filter { $0 != grouping }
+        return point.map { ungroupedText.replacingOccurrences(of: String($0), with: decimal) } ?? ungroupedText
+    }
+}
+
+/// `NumericField` for a value that may be unset: empty shows `prompt`, and an
+/// emptied field commits nothing — the value in effect stays (S3: an emptied
+/// or unparsed entry must never clear a calibration the file supplied).
+struct OptionalNumericField<Value, Format: ParseableFormatStyle>: View
+where Format.FormatInput == Value, Format.FormatOutput == String {
+    let title: String
+    let value: Value?
+    let format: Format
+    var unit: String?
+    var prompt: String = "Not set"
+    let onCommit: (Value) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            TextField(title, value: Binding(get: { value }, set: { if let entered = $0 { onCommit(entered) } }),
+                      format: DecimalEntryFormat(format), prompt: Text(prompt))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: LayoutPolicy.numericFieldWidth)
+            if let unit {
+                Text(unit)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            }
+        }
+        .accessibilityLabel(title)
     }
 }

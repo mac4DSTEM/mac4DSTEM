@@ -162,14 +162,12 @@ struct PrepareSettings: View {
             // physical scales, not inside one consumer's workflow.
             // Identifier unchanged on purpose.
             InspectorRow("Voltage") {
-                NumericField(
-                    "Accelerating voltage (kV)",
-                    value: Binding(
-                        get: { appState.calibrationSession.acceleratingVoltage ?? 0 },
-                        set: appState.setManualAcceleratingVoltage
-                    ),
+                OptionalNumericField(
+                    title: "Accelerating voltage (kV)",
+                    value: appState.calibrationSession.acceleratingVoltage,
                     format: .number.precision(.fractionLength(0...2)),
-                    unit: "kV"
+                    unit: "kV",
+                    onCommit: appState.setManualAcceleratingVoltage
                 )
                 .labelsHidden()
                 .accessibilityIdentifier("calibration.acceleratingVoltage")

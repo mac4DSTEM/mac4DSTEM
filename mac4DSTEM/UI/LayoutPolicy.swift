@@ -320,7 +320,8 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
 
     var body: some View {
         HStack(spacing: 6) {
-            TextField(title, value: $value, format: format)
+            // Either decimal separator, never grouped (`DecimalEntryFormat`).
+            TextField(title, value: $value, format: DecimalEntryFormat(format))
                 // Labelled by the row it sits in; the title stays for
                 // VoiceOver.
                 .labelsHidden()
