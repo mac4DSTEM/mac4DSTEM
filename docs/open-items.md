@@ -19,11 +19,13 @@ The largest error class, T1 edges called Al (204), is mostly where the truth dra
 S10 (2026-09-30): candidate A refuted at step 0; B (noise hit) refuted at the bar (error 1.31 → 4.41 %); the metric ships as a quantity (ADR 048). T1's [0 -4 1] entry holds
 30 first-order-Laue-zone reflections (`archive/v4/s10-s11-gateD-2026-09-30.md`).
 
-### Tiled GPU memory: classical and learned Detect All gated and seen flat; the virtual-detector loops unmeasured
+### Tiled GPU memory: classical and learned Detect All and the virtual-detector loops gated flat
 Classical and learned `detectAll` are gated by `tools/tiled-detection-memory-test` (`archive/v4/s10-s11-gateD-2026-09-30.md`).
 In the app (2026-09-30, scratch build, Thronsen A 171², 128²): learned Detect All, 29 241 positions in 1:17, footprint flat
-1.63–1.67 GB (peak 1.72 GB), 955 MB after. **Open:** `VirtualDetector`'s tiled loops have the same shape (maybe the
-unexplained ≈ 0.93 GB baseline). D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits all four datasets.
+1.63–1.67 GB (peak 1.72 GB), 955 MB after. `VirtualDetector`'s six streaming paths measured flat and gated by
+`tools/virtual-detector-memory-test` (S16, 0–2 MB over 10 tiles; retained-buffer mutants 352 MB); on Thronsen A 778 MB stays
+between passes as 662.7 MB "Malloc Large (empty)" = two 331 MB tiles (an observation, no mechanism; the ≈ 0.93 GB baseline
+may be the same). Resident-cube paths unmeasured. D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits all four datasets.
 
 ### The 2026-09-09 register, triaged 2026-09-29 — every reachable candidate fixed 2026-09-30; residuals below
 All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`); D019/D023/D025 fixed with

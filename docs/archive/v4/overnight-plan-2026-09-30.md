@@ -153,3 +153,6 @@ what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes
   bit-identical across 3 runs / 2 builds); no data = FAIL; `scientific` reaches the harness (loud CI opt-out). Each check
   broken first (14 comparator mutations; a 1 px moved peak; a +0.3 px `polyRefine` shift → 15 named FAILs where counts saw
   nothing). run.sh 60 → 73 s. Fable Gate B FIX-FIRST (a dead citation; the unnamed mutation site) → fixed → COMMIT.
+- S16 Virtual-detector tiled loops: measured FLAT (prediction "growing" refuted; written before the run) on all six streaming
+  paths, 0–2 MB over 10 tiles; `virtual-detector-memory-test` gates it (retained-buffer mutants red at 352 MB), in `scientific`;
+  Thronsen A: 778 MB between passes, no growth. No code change. Fable supervisor COMMIT.

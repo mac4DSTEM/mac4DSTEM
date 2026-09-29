@@ -121,7 +121,7 @@ scientific=(
   phase-vector-matching
   acom-orientation-test acom-matching-test acom-convention-test parity-metric-test cif-symmetry-test
   ws2-crystal-test
-  idpc-test cancellation-test tiled-detection-memory-test
+  idpc-test cancellation-test tiled-detection-memory-test virtual-detector-memory-test
   bragg-export-test sidecar-result-test strain-test strain-frame-test
   ellipse-calibration-test
   dm4-robustness-test vendor-reader-test load-spec-test datacube-discovery-test load-spec-calibration
