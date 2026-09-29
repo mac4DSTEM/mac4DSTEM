@@ -94,6 +94,23 @@ run_harnesses() {
   done
 }
 
+# real-data-acceptance is NOT in the array below (inventory counts it as gated
+# on its own, and `all` runs it explicitly — listing it twice would run it twice).
+# `scientific` reaches it here (S19, 2026-09-30): before, only `all` did, and
+# `scientific` stayed green three days past ba6360d, which real data would have
+# turned red. It FAILS, it does not skip, when the data are gone (its run.sh);
+# a machine that never had References/training_dataset says so out loud with
+# MAC4DSTEM_NO_REAL_DATA=1, and CI (which sets CI) is such a machine. The
+# comparator self-test needs no data and always runs.
+real_data() {
+  if [[ -n "${MAC4DSTEM_NO_REAL_DATA:-}" || -n "${CI:-}" ]]; then
+    echo "==> real-data-acceptance: NOT RUN (MAC4DSTEM_NO_REAL_DATA or CI is set: no real data on this machine)"
+    "$ROOT/tools/real-data-acceptance/compare-selftest.sh"
+    return
+  fi
+  run_harnesses real-data-acceptance
+}
+
 scientific=(
   comparator-test
   calibration-test calibration-readiness-test q-calibration-gate-test
@@ -416,7 +433,7 @@ case "${1:-unit}" in
   unit) require_free_space 4 "the xcodebuild unit suite"; unit_tests ;;
   benchmark) require_free_space 4 "the performance baseline"; "$ROOT/tools/performance-baseline/run.sh" ;;
   campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
-  scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; run_harnesses "${scientific[@]}" ;;
+  scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; run_harnesses "${scientific[@]}"; real_data ;;
   all) require_free_space 8 "the full suite"; "$ROOT/tools/lib/fetch-py4dstem.sh"; unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
   *) echo "Usage: tools/run-tests.sh [unit|benchmark|campaign|scientific|all|inventory|core]" >&2; exit 64 ;;
 esac

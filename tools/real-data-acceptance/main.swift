@@ -15,6 +15,13 @@ struct AcceptanceReport: Codable {
     let diskSampleAfterRelativeCounts: [Int]
     let diskSampleAfterSpacingCounts: [Int]
     let diskSamplePeakCounts: [Int]
+    /// The scan positions [ry, rx] the disk counts and peaks above were measured at.
+    let diskSampleScanPositions: [[Int]]
+    /// The surviving peaks' [x, y] (detector column, row) in pixels, per sampled scan
+    /// position, rounded to 0.01 px and sorted by (x, y). The counts above cannot see a
+    /// peak that moved (S19: on `ba6360d` one moved ~26 px with every count unchanged);
+    /// compare.py matches these by nearest neighbour within 0.05 px.
+    let diskSamplePeakPositions: [[[Double]]]
     let virtualImageMinimum: Float
     let virtualImageMaximum: Float
     let virtualImageMean: Double
@@ -148,6 +155,11 @@ func fail(_ message: String) -> Never {
                 $0.diagnostics.afterSpacingCount
             }
             let diskPeakCounts = diskResults.map { $0.peaks.count }
+            let diskPeakPositions: [[[Double]]] = diskResults.map { result in
+                result.peaks
+                    .map { [Double(($0.x * 100).rounded()) / 100, Double(($0.y * 100).rounded()) / 100] }
+                    .sorted { ($0[0], $0[1]) < ($1[0], $1[1]) }
+            }
 
             let data = FourDArray(reader: reader, descriptor: descriptor)
             let radius = Float(min(descriptor.qx, descriptor.qy)) * 0.1
@@ -175,6 +187,8 @@ func fail(_ message: String) -> Never {
                 diskSampleAfterRelativeCounts: diskAfterRelativeCounts,
                 diskSampleAfterSpacingCounts: diskAfterSpacingCounts,
                 diskSamplePeakCounts: diskPeakCounts,
+                diskSampleScanPositions: positions.map { [$0.0, $0.1] },
+                diskSamplePeakPositions: diskPeakPositions,
                 virtualImageMinimum: minimum, virtualImageMaximum: maximum,
                 virtualImageMean: mean, virtualImageChecksum: checksum,
                 elapsedSeconds: Date().timeIntervalSince(start)

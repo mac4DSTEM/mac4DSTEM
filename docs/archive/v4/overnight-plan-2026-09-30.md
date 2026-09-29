@@ -149,3 +149,7 @@ what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes
   bijection fixture; a garbled-coefficient crash found and clamped. All 10 References CIFs identical before/after (dump
   rebuilt on the final file); cif-symmetry-test exit 0 (`cif-harness.log`); 77 / 0 in the CIF classes (`log_green2.txt`);
   4 mutations red. Fable refuter/supervisor COMMIT (every claim HOLDS; it caught a false "harness exit 0" — re-run).
+- S19 Regression net: compare.py collects every mismatch; 173 peak positions pinned on the 5 pinned datasets (0.05 px,
+  bit-identical across 3 runs / 2 builds); no data = FAIL; `scientific` reaches the harness (loud CI opt-out). Each check
+  broken first (14 comparator mutations; a 1 px moved peak; a +0.3 px `polyRefine` shift → 15 named FAILs where counts saw
+  nothing). run.sh 60 → 73 s. Fable Gate B FIX-FIRST (a dead citation; the unnamed mutation site) → fixed → COMMIT.

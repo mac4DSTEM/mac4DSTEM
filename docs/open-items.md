@@ -149,10 +149,10 @@ C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests
 both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need multi-GB data and stay diagnostics.
 
 ### Acceptance-harness gaps — red gate names the symptom, counts not positions, thin infrastructure (2026-09-02/09)
-- **Symptom, not cause; one harness reaches it**: `compare.py`'s `fail()` raises at the first mismatch (cheap fix: collect
-  all); `real-data-acceptance/run.sh` is the only harness `all` reaches — `scientific` stayed green three days past `ba6360d`.
-- **Counts, never positions**: `AcceptanceReport` has no coordinates; on `ba6360d` one peak moved ~26 px, count unchanged.
-- **Infrastructure**: empty-glob SKIP exits 0; the 15 s budget gates 4 pinned datasets only; virtual-image `abs_tol` exceeds one
+- S19 (2026-09-30): `compare.py` collects every mismatch, peak positions are pinned per sampled position (0.05 px, measured on
+  this Mac's GPU only), no data is a FAIL, `scientific` reaches the harness (`CI`/`MAC4DSTEM_NO_REAL_DATA` skip it loudly; `all`
+  has no opt-out); `--check-data` is existence-only; 4 datasets stay UNPINNED.
+- **Infrastructure**: the 15 s budget gates the pinned datasets only; virtual-image `abs_tol` exceeds one
   fixture's range; `rel_tol` on `diskProbeRadiusPixels` is inert below 50 px; `if not actual:` is unkillable; the runner aborts
   at the first red harness.
 - **Learned-detector parity is a same-runtime claim**: skips where no Neural Engine is listed (bars not loosened); a

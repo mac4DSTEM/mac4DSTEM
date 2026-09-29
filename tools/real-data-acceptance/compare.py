@@ -26,13 +26,38 @@ claimed it bought only the first item:
 
 SCOPE OF THE MISSING-DATASET GUARD — do not overstate it, as this docstring
 once did. It protects a pinned cube from vanishing out of a report that
-compare.py actually sees. It does NOT cover an empty dataset directory: run.sh
-exits 0 with a SKIP before invoking this file at all. That residual is an open
-item, not something this file can fix.
+compare.py actually sees. An empty dataset directory never reaches this file:
+run.sh refuses it (exit 1, "FAIL: no ... .h5 files") before building anything,
+and compare-selftest.sh pins that.
+
+EVERY MISMATCH IS NAMED (S19, 2026-09-30). `fail()` used to raise at the first
+mismatch, so a red gate named one symptom and hid the rest — on `ba6360d` the
+first line said "count" and the real defect was elsewhere. `fail()` now records
+and prints each mismatch and the script exits 1 at the end, after all of them.
+Only a report that cannot be indexed at all (not a list, empty) stops early.
+
+POSITIONS, NOT ONLY COUNTS (S19, 2026-09-30). The count fields cannot see a peak
+that moved: on `ba6360d` one peak moved ~26 px, the counts did not change, and the
+gate stayed green. An entry that pins `diskSamplePeakPositions` (the surviving
+peaks' (x, y) in detector pixels, per sampled scan position) is matched by
+nearest neighbour in BOTH directions within POSITION_TOLERANCE_PX. The pin is
+today's behaviour, generated from the harness's own report, not a py4DSTEM
+comparison. An entry without the key is not position-checked (the synthetic
+fixture of tools/comparator-test carries none); compare-selftest.sh asserts the
+shipped expected.json pins every dataset, so the pin cannot be dropped silently.
 """
 import json
 import math
 import sys
+
+# Peak positions are pinned rounded to 0.01 px; 0.05 px is five times that and
+# far below the ~26 px movement the count fields missed. A threshold is a
+# property of the datasets it was measured on (CLAUDE.md): measured 2026-09-30 on
+# this Mac, three harness runs from two builds reproduced every pinned position
+# bit-for-bit (max nearest-neighbour distance 0 px); 0.05 px absorbs one .xx5
+# rounding flip on another GPU, not an offset.
+POSITION_TOLERANCE_PX = 0.05
+MAX_LISTED_PEAKS = 6
 
 expected = json.load(open(sys.argv[1]))
 report_text = open(sys.argv[2]).read()
@@ -61,35 +86,132 @@ IMAGE_FIELDS = (
 )
 
 
+FAILURES = []
+
+
 def fail(message):
-    raise SystemExit(f"FAIL: {message}")
+    """Record and print one mismatch; the run continues and finish() exits 1."""
+    FAILURES.append(message)
+    print(f"FAIL: {message}", file=sys.stderr, flush=True)
+
+
+def finish():
+    if FAILURES:
+        print(
+            f"RESULT: {len(FAILURES)} mismatch(es) — every one is listed above as a FAIL: line",
+            file=sys.stderr, flush=True,
+        )
+        raise SystemExit(1)
+
+
+def fatal(message):
+    """A mismatch after which nothing further can be compared."""
+    fail(message)
+    finish()
 
 
 def by_name(entries, label, need_all_fields):
-    """Index entries on `file`, refusing malformed input and duplicates."""
+    """Index entries on `file`, naming malformed input and duplicates.
+
+    Returns (index, malformed): `malformed` holds the names of entries that were
+    present but unusable, so they are not ALSO reported as absent."""
     if not isinstance(entries, list):
-        fail(f"{label} is not a JSON list (got {type(entries).__name__})")
+        fatal(f"{label} is not a JSON list (got {type(entries).__name__})")
     index = {}
+    malformed = set()
     for position, entry in enumerate(entries):
         if not isinstance(entry, dict):
             fail(f"{label} entry {position} is not an object (got {type(entry).__name__})")
+            continue
         if "file" not in entry:
             fail(f"{label} entry {position} has no 'file' key")
+            continue
         name = entry["file"]
         if not isinstance(name, str):
             fail(f"{label} entry {position} has a non-string 'file' ({type(name).__name__})")
-        if name in index:
+            continue
+        if name in index or name in malformed:
             fail(f"{label} lists {name!r} more than once")
+            continue
         if need_all_fields:
-            for key in REQUIRED:
-                if key not in entry:
-                    fail(f"{label} entry {name!r} has no {key!r} key")
+            absent = [key for key in REQUIRED if key not in entry]
+            for key in absent:
+                fail(f"{label} entry {name!r} has no {key!r} key")
+            if absent:
+                malformed.add(name)
+                continue
         index[name] = entry
-    return index
+    return index, malformed
+
+
+def peak_list(name, label, value):
+    """A list of finite [x, y] pairs, or None after naming what is wrong."""
+    if not isinstance(value, list):
+        fail(f"{name} {label}: peaks are not a list (got {type(value).__name__})")
+        return None
+    points = []
+    for k, point in enumerate(value):
+        if (not isinstance(point, list) or len(point) != 2
+                or not all(isinstance(c, (int, float)) and not isinstance(c, bool)
+                           and math.isfinite(c) for c in point)):
+            fail(f"{name} {label}: peak {k + 1} is not a finite [x, y] pair: {point!r}")
+            return None
+        points.append((float(point[0]), float(point[1])))
+    return points
+
+
+def unmatched(points, others):
+    """Points with no point of `others` within the tolerance (`d <= tol`, so
+    a distance that is not a number can never count as a match)."""
+    return [
+        p for p in points
+        if not any(math.hypot(p[0] - q[0], p[1] - q[1]) <= POSITION_TOLERANCE_PX for q in others)
+    ]
+
+
+def listed(points):
+    shown = ", ".join(f"({x:.2f}, {y:.2f})" for x, y in points[:MAX_LISTED_PEAKS])
+    return shown + (f" and {len(points) - MAX_LISTED_PEAKS} more" if len(points) > MAX_LISTED_PEAKS else "")
+
+
+def check_positions(name, want, got):
+    """Nearest-neighbour match of the surviving peaks, both ways, per sampled
+    scan position; one mismatch per position, naming the peaks left over."""
+    key = "diskSamplePeakPositions"
+    if "diskSampleScanPositions" in want and got.get("diskSampleScanPositions") != want["diskSampleScanPositions"]:
+        fail(f"{name} diskSampleScanPositions: {got.get('diskSampleScanPositions')} != {want['diskSampleScanPositions']}")
+    if key not in got:
+        fail(f"{name} {key}: the report carries none, but expected.json pins them")
+        return
+    want_sets, got_sets = want[key], got[key]
+    if not isinstance(want_sets, list) or not isinstance(got_sets, list):
+        fail(f"{name} {key}: not a list per sampled position")
+        return
+    if len(want_sets) != len(got_sets):
+        fail(f"{name} {key}: {len(got_sets)} sampled positions, pinned {len(want_sets)}")
+        return
+    scan = want.get("diskSampleScanPositions") or got.get("diskSampleScanPositions")
+    for i, (w_raw, g_raw) in enumerate(zip(want_sets, got_sets)):
+        where = (f"scan position (ry={scan[i][0]}, rx={scan[i][1]})"
+                 if isinstance(scan, list) and i < len(scan) and len(scan[i]) == 2
+                 else f"sampled position {i}")
+        w = peak_list(name, where + " (pinned)", w_raw)
+        g = peak_list(name, where, g_raw)
+        if w is None or g is None:
+            continue
+        lost, extra = unmatched(w, g), unmatched(g, w)
+        if lost or extra:
+            parts = []
+            if lost:
+                parts.append(f"{len(lost)} pinned peak(s) with no reported peak within "
+                             f"{POSITION_TOLERANCE_PX} px: {listed(lost)}")
+            if extra:
+                parts.append(f"{len(extra)} reported peak(s) matching no pinned peak: {listed(extra)}")
+            fail(f"{name} {where}: " + "; ".join(parts))
 
 
 if not expected:
-    fail("expected.json pins no datasets — the gate would check nothing")
+    fatal("expected.json pins no datasets — the gate would check nothing")
 # SUBSUMED for correctness — kept for the message, and this comment has now been
 # wrong twice, so here is the whole history rather than a third confident claim.
 # (1) It was first documented as uncoverable. (2) A Gate B reviewer refuted that:
@@ -103,13 +225,14 @@ if not expected:
 # would say "1 pinned dataset(s) absent" — clearer about what went wrong. A
 # green suite is NOT evidence this line executes.
 if not actual:
-    fail("the report is empty — no file produced a measurement")
+    fatal("the report is empty — no file produced a measurement")
 
-want_by_name = by_name(expected, "expected.json", need_all_fields=False)
-got_by_name = by_name(actual, "the report", need_all_fields=True)
+want_by_name, _ = by_name(expected, "expected.json", need_all_fields=False)
+got_by_name, unusable = by_name(actual, "the report", need_all_fields=True)
 
-# The disappearance guard the length assert was standing in for.
-missing = [name for name in want_by_name if name not in got_by_name]
+# The disappearance guard the length assert was standing in for. A present but
+# malformed entry was already named above; it is not also "absent".
+missing = [name for name in want_by_name if name not in got_by_name and name not in unusable]
 if missing:
     fail(
         f"{len(missing)} pinned dataset(s) absent from the report: "
@@ -117,7 +240,10 @@ if missing:
     )
 
 for name, want in want_by_name.items():
+    if name not in got_by_name:
+        continue  # absent or malformed: named above
     got = got_by_name[name]
+    failures_before = len(FAILURES)
     # `file` is deliberately NOT compared. Both sides are fetched by `name`, so
     # got["file"] == name == want["file"] can never differ — it was a live check
     # under the old positional zip and became tautological here. Two reviewers
@@ -150,9 +276,12 @@ for name, want in want_by_name.items():
     for key in IMAGE_FIELDS:
         if not math.isclose(got[key], want[key], rel_tol=2e-6, abs_tol=1e-3):
             fail(f"{name} {key}: {got[key]} != {want[key]}")
+    if "diskSamplePeakPositions" in want:
+        check_positions(name, want, got)
     if not (got["elapsedSeconds"] <= 15):
         fail(f"{name} exceeded 15 s acceptance budget: {got['elapsedSeconds']} s")
-    print(f"PASS: {name} golden and {got['elapsedSeconds']:.2f} s budget")
+    if len(FAILURES) == failures_before:
+        print(f"PASS: {name} golden and {got['elapsedSeconds']:.2f} s budget", flush=True)
 
 # Named, not silent: an unpinned dataset is real data on this machine that no
 # golden values cover, and it can never fail the gate, so this line is the ONLY
@@ -164,3 +293,5 @@ if unpinned:
         f"UNPINNED: {len(unpinned)} dataset(s) measured but not covered by "
         f"expected.json — {', '.join(unpinned)}"
     )
+
+finish()
