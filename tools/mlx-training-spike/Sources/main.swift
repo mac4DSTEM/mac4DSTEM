@@ -49,6 +49,24 @@ final class UNet: Module, UnaryLayer {
         let d1 = block(concatenated([up(d2), e1], axis: -1), 12)
         return sigmoid(convs[14](d1))
     }
+
+    /// C2.5 (memory): the same graph with the fp32 master weights cast to `dt` inside the step, so gradients
+    /// reach the fp32 parameters through the cast and activations are held in `dt`.
+    func forward(_ x: MLXArray, _ dt: DType) -> MLXArray {
+        func conv(_ i: Int, _ a: MLXArray) -> MLXArray {
+            let c = convs[i]
+            return conv2d(a, c.weight.asType(dt), padding: i == 14 ? 0 : 1) + c.bias!.asType(dt)
+        }
+        func blk(_ a: MLXArray, _ i: Int) -> MLXArray { silu(conv(i + 1, silu(conv(i, a)))) }
+        let e1 = blk(x.asType(dt), 0)
+        let e2 = blk(pool(e1), 2)
+        let e3 = blk(pool(e2), 4)
+        let b = blk(pool(e3), 6)
+        let d3 = blk(concatenated([up(b), e3], axis: -1), 8)
+        let d2 = blk(concatenated([up(d3), e2], axis: -1), 10)
+        let d1 = blk(concatenated([up(d2), e1], axis: -1), 12)
+        return sigmoid(conv(14, d1))
+    }
 }
 
 // MARK: - MIL blob file (coremltools MILBlob StorageFormat: 64-B header, 64-B metadata per blob)
@@ -343,8 +361,91 @@ func fallback() async throws {
     print("fallback: patched-package ANE vs in-memory injected ANE max |Δ| \(p6); inference-only median batch-32 \(a) s shipped vs \(b) s patched (\(b / a)x)")
 }
 
+// MARK: - C2.5: one training step's memory (ROADMAP "Clearing the board" C2.5)
+
+/// `SPIKE_MODE=membench mlx-spike <package.mlpackage> <data dir> <out dir> [steps=50]`, options by env:
+/// SPIKE_BATCH (8) micro-batch, SPIKE_ACCUM (1) micro-batches per optimiser update (effective batch = BATCH x ACCUM),
+/// SPIKE_DTYPE (f32|bf16|f16) activation dtype (weights, Adam state and loss stay fp32), SPIKE_CROP (0 = the full 256 px;
+/// otherwise a random square crop per step, a multiple of 8), SPIKE_CACHE_MB, SPIKE_LR (1e-4).
+/// Loads only the training/held-out arrays. The peak is reset just before the loop and read right after it, before the
+/// held-out passes (which run outside the window, chunks of 8). Prints one JSON line.
+func membench() async throws {
+    let args = CommandLine.arguments
+    let pkg = URL(fileURLWithPath: args[1]), dataDir = URL(fileURLWithPath: args[2])
+    let steps = args.count > 4 ? Int(args[4])! : 50
+    let env = ProcessInfo.processInfo.environment
+    let batchN = Int(env["SPIKE_BATCH"] ?? "8")!, accum = Int(env["SPIKE_ACCUM"] ?? "1")!, crop = Int(env["SPIKE_CROP"] ?? "0")!
+    let lr = Float(env["SPIKE_LR"] ?? "1e-4")!
+    let dtName = env["SPIKE_DTYPE"] ?? "f32"
+    let dt: DType = dtName == "bf16" ? .bfloat16 : dtName == "f16" ? .float16 : .float32
+    if let mb = env["SPIKE_CACHE_MB"].flatMap(Int.init) { Memory.cacheLimit = mb * 1_048_576 }
+    let bin = try Data(contentsOf: pkg.appendingPathComponent("Data/com.apple.CoreML/weights/weight.bin"))
+    let meta = try JSONSerialization.jsonObject(with: Data(contentsOf: dataDir.appendingPathComponent("data.json"))) as! [String: [Int]]
+    let model = UNet(); try loadWeights(model, from: bin)
+    let tx = try loadF32(dataDir, "train_x", meta["train_x"]!), ty = try loadF32(dataDir, "train_y", meta["train_y"]!)
+    let vx = try loadF32(dataDir, "val_x", meta["val_x"]!), vy = try loadF32(dataDir, "val_y", meta["val_y"]!)
+    eval(tx, ty, vx, vy, model)
+    func lossFn(_ m: UNet, _ x: MLXArray, _ t: MLXArray) -> MLXArray {
+        mean((1 + 20 * t) * square(m.forward(x, dt).asType(.float32) - t))
+    }
+    func heldOut() -> Float {  // fp32 forward (the weights are fp32 masters), chunks of 8, outside the measured window
+        var total: Float = 0
+        for s in stride(from: 0, to: vx.dim(0), by: 8) {
+            total += mean((1 + 20 * vy[s ..< s + 8]) * square(model(vx[s ..< s + 8]) - vy[s ..< s + 8])).item(Float.self) * 8
+        }
+        return total / Float(vx.dim(0))
+    }
+    model.convs[14].freeze(recursive: false, keys: ["bias"])
+    let lg = valueAndGrad(model: model, lossFn)
+    let opt = AdamW(learningRate: lr, weightDecay: 1e-4)
+    var gen = SplitMix(seed: 20_260_928)
+    let val0 = heldOut()
+    eval(model)
+    let baseline = Double(Memory.activeMemory) / 1_048_576
+    Memory.peakMemory = 0  // resets the peak
+    let t0 = Date(); var tAfterFirst = t0
+    var losses: [Double] = []
+    let side = crop > 0 ? crop : 256
+    for step in 1 ... steps {
+        var acc: [String: MLXArray] = [:]; var lossSum: Float = 0
+        for _ in 0 ..< accum {
+            let idx = MLXArray((0 ..< batchN).map { _ in Int32(gen.next() % UInt64(tx.dim(0))) })
+            var bx = tx[idx], by = ty[idx]
+            if crop > 0 {
+                let oy = Int(gen.next() % UInt64(256 - crop + 1)), ox = Int(gen.next() % UInt64(256 - crop + 1))
+                bx = bx[0..., oy ..< oy + crop, ox ..< ox + crop, 0...]; by = by[0..., oy ..< oy + crop, ox ..< ox + crop, 0...]
+            }
+            let (loss, grads) = lg(model, bx, by)
+            if accum == 1 { opt.update(model: model, gradients: grads); eval(model, opt, loss); lossSum = loss.item(Float.self) }
+            else {
+                for (k, g) in grads.flattened() { acc[k] = acc[k].map { $0 + g } ?? g }
+                eval(Array(acc.values) + [loss]); lossSum += loss.item(Float.self)
+            }
+        }
+        if accum > 1 {
+            let mean = ModuleParameters.unflattened(acc.map { ($0.key, $0.value / Float(accum)) })
+            opt.update(model: model, gradients: mean); eval(model, opt)
+        }
+        losses.append(Double(lossSum / Float(accum)))
+        if step == 1 { tAfterFirst = Date() }
+    }
+    let total = Date().timeIntervalSince(t0)
+    let sPerStep = steps > 1 ? Date().timeIntervalSince(tAfterFirst) / Double(steps - 1) : total
+    let mlxPeak = Double(Memory.peakMemory) / 1_048_576, lifetime = lifetimeMaxFootprintMB(), foot = physFootprintMB()
+    let val1 = heldOut()
+    func m(_ a: ArraySlice<Double>) -> Double { a.reduce(0, +) / Double(a.count) }
+    let out: [String: Any] = ["batch": batchN, "accum": accum, "dtype": dtName, "crop": crop > 0 ? crop : 256, "steps": steps,
+        "mlx_peak_mb": mlxPeak, "mlx_baseline_active_mb": baseline, "lifetime_max_footprint_mb": lifetime, "footprint_end_mb": foot,
+        "s_per_step": sPerStep, "samples_per_s": Double(batchN * accum) / sPerStep,
+        "loss_first10": m(losses.prefix(10)), "loss_last10": m(losses.suffix(10)), "val_before": val0, "val_after": val1,
+        "losses": losses.map { ($0 * 1e5).rounded() / 1e5 }]
+    print("MEMBENCH " + String(data: try JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]), encoding: .utf8)!)
+}
+
 if ProcessInfo.processInfo.environment["SPIKE_MODE"] == "fallback" {
     do { try await fallback() } catch { print("mlx-spike: \(error)"); exit(1) }
+} else if ProcessInfo.processInfo.environment["SPIKE_MODE"] == "membench" {
+    do { try await membench() } catch { print("mlx-spike: \(error)"); exit(1) }
 } else {
     do { try await run() } catch { print("mlx-spike: \(error)"); exit(1) }
 }

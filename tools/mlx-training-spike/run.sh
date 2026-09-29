@@ -4,6 +4,7 @@
 # spike with xcodebuild (SwiftPM from the command line cannot build MLX's Metal shaders, which is why
 # MLX stays out of DSTEMCore), and runs it against the shipped Core ML package.
 #   run.sh <scratch dir> [steps]          env: SPIKE_LR (1e-4), SPIKE_CACHE_MB, SPIKE_VAL_CHUNK (32)
+#   SPIKE_REUSE=1 skips the export and the build when <scratch dir>/data.json and the binary exist (membench.sh uses it).
 # Needs References/training_runs/disk-detector-2026-09-08 (owner-local). Record:
 # docs/archive/v4/c2-mlx-spike-2026-09-28.md. One heavy job at a time on the 8 GB Mac.
 # Nothing to take from tools/lib/sources.manifest: the spike compiles no Core/ file; it reads the shipped package.
@@ -13,6 +14,9 @@ cd "$(dirname "$0")"; REPO="$(cd ../.. && pwd)"
 OUT="${1:?usage: run.sh <scratch dir> [steps]}"; STEPS="${2:-500}"; mkdir -p "$OUT"
 R="$REPO/References/training_runs/disk-detector-2026-09-08"
 DET="${DETECTOR_PYTHON:-$HOME/miniconda3/envs/disk-detector/bin/python}"
+BIN="$OUT/dd/Build/Products/Release/mlx-spike"; REUSE=0
+[[ "${SPIKE_REUSE:-0}" == 1 && -f "$OUT/data.json" && -x "$BIN" ]] && REUSE=1
+if [[ $REUSE == 0 ]]; then
 ( cd "$REPO/tools/disk-detector" && "$DET" - "$OUT" "$R" <<'PY'
 import sys, json, numpy as np, simulate as sm, train as tr
 out, R = sys.argv[1], sys.argv[2]
@@ -29,4 +33,5 @@ PY
 )
 xcodebuild build -scheme mlx-training-spike -destination 'platform=macOS,arch=arm64' -configuration Release \
   -derivedDataPath "$OUT/dd" -skipPackagePluginValidation > "$OUT/build.log" 2>&1
-"$OUT/dd/Build/Products/Release/mlx-spike" "$REPO/Models/DiskDetector/disk-detector-heatmap-256.mlpackage" "$OUT" "$OUT/out" "$STEPS"
+fi
+"$BIN" "$REPO/Models/DiskDetector/disk-detector-heatmap-256.mlpackage" "$OUT" "$OUT/out" "$STEPS"
