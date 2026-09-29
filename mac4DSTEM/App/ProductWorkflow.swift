@@ -254,7 +254,8 @@ extension AnalysisMode {
         switch self {
         case .virtualDetector: "Virtual imaging"
         case .dpc: "DPC & iDPC"
-        case .disks: "Bragg disks"
+        // Not "Bragg disks": the workspace and its sidebar heading already say it (owner, 2026-09-30).
+        case .disks: "Disk detection"
         case .strain: "Strain"
         case .ptychography: "Parallax"
         case .singleslicePtychography: "Single-slice ptychography"

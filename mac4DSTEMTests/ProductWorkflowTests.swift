@@ -222,6 +222,15 @@ final class ProductWorkflowTests: XCTestCase {
         )
     }
 
+    /// The sidebar lists a workspace's tasks under the workspace's own name, so a task named like its
+    /// workspace reads the same words twice ("Bragg Disks › Bragg disks", owner 2026-09-30).
+    func testNoTaskRepeatsItsWorkspaceName() {
+        for mode in AnalysisMode.allCases {
+            XCTAssertNotEqual(mode.productTitle.lowercased(), mode.workspaceArea.title.lowercased(),
+                              "\(mode) repeats its workspace's name")
+        }
+    }
+
     func testPrimaryNavigationUsesUserOutcomes() {
         // S22c re-cut: the five steps follow the physics families — Imaging
         // (no prerequisites), Bragg (disks → strain/orientation), Phase
