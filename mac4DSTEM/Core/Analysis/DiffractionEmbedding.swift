@@ -158,6 +158,9 @@ package nonisolated enum DiffractionEmbedding {
 
     // MARK: - compute
 
+    /// The cache ceiling the app runs with: 512 MB of binned Float vectors.
+    package static let defaultCacheBudgetBytes = 512 * 1024 * 1024
+
     /// Stream the cube once (twice only when the memory budget refuses
     /// caching), embed every pattern, PCA the embeddings, then k-means the
     /// coordinates. Returns nil ONLY on cancellation.
@@ -166,6 +169,7 @@ package nonisolated enum DiffractionEmbedding {
         descriptor d: DatasetDescriptor,
         settings: Settings,
         maximumTileRows: Int? = nil,
+        cacheBudgetBytes: Int = defaultCacheBudgetBytes,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) async throws -> Result? {
@@ -183,9 +187,11 @@ package nonisolated enum DiffractionEmbedding {
         guard cancellation?.isCancelled != true else { return nil }
 
         // Decide the memory strategy up front: cache every binned vector
-        // only when doing so stays at or under 512 MB, else recompute them
-        // in a second streaming pass rather than hold an unbounded array.
-        let cacheBudgetBytes = 512 * 1024 * 1024
+        // only when doing so stays at or under `cacheBudgetBytes` (512 MB by
+        // default), else recompute them in a second streaming pass rather
+        // than hold an unbounded array. The budget is a parameter so a test
+        // can reach the two-pass path with a small cube; the app never
+        // passes it.
         let candidateCacheBytes = totalPositions.multipliedReportingOverflow(by: dims)
         let cacheEverything = !candidateCacheBytes.overflow
             && candidateCacheBytes.partialValue <= cacheBudgetBytes / MemoryLayout<Float>.stride

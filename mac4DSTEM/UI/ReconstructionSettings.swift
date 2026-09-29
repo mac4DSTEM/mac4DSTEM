@@ -53,12 +53,20 @@ private struct DPCSettingsSection: View {
         InspectorSection("DPC & iDPC") {
             // S22b (O2): status first — what running DPC will produce NOW —
             // then the display choice, then the per-mode detail.
-            if appState.idpcPhysicalCalibration != nil {
+            //
+            // The iDPC status is about iDPC. It is shown only while Display
+            // is iDPC: the other modes are called quantitative by
+            // `quantitativeStatus` (detector px, mrad, angle) or categorical
+            // (colour wheel), and an orange "Qualitative iDPC" over them
+            // contradicted the badge on the result (open-items, trust-fixes
+            // residual, closed here). Their own caveats stay where they were:
+            // the mrad row below, and the origin/rotation tip at the bottom.
+            if dpc.dpcDisplay == .idpc, appState.idpcPhysicalCalibration != nil {
                 Label("Physical iDPC ready — projected phase in rad",
                       systemImage: "checkmark.circle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else {
+            } else if dpc.dpcDisplay == .idpc {
                 // The true reason, not the requirements list: when every
                 // requirement is met and the origin FIT is what the gate
                 // refuses, listing requirements that are all satisfied would
@@ -76,8 +84,14 @@ private struct DPCSettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
-                // The remedy lives in Prepare; take the user there instead of
-                // describing the journey.
+            }
+            // The remedy lives in Prepare; take the user there instead of
+            // describing the journey. Offered where a calibration is what
+            // is missing: iDPC without its physical calibration, and mrad
+            // without its angular scale.
+            if (dpc.dpcDisplay == .idpc && appState.idpcPhysicalCalibration == nil)
+                || (dpc.dpcDisplay == .magnitudeMrad
+                    && appState.dpcMilliradiansPerDetectorPixel == nil) {
                 InspectorActionRow {
                     InspectorAdaptiveButton("Open Prepare to Calibrate", systemImage: "arrow.right.circle") {
                         appState.selectWorkspace(.prepare)

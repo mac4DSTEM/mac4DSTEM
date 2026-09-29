@@ -43,6 +43,26 @@ package nonisolated enum PhaseMapPresentation {
     package static let matrixColor: RGB = (58, 58, 64)
     /// The two greys of the "not indexed" hatch.
     package static let notIndexedColors: (RGB, RGB) = ((168, 168, 172), (208, 208, 212))
+    /// The stripe laid over the matrix grey where the matrix WON A CHALLENGE
+    /// (see `isChallengedMatrix`): the same dark ground with a slightly
+    /// lighter slate stripe, so it still reads as "matrix" and not as a
+    /// phase, and stays dark enough that it cannot be mistaken for the light
+    /// "not indexed" hatch. A tone and a shape, no hue.
+    package static let challengedMatrixStripe: RGB = (98, 98, 110)
+
+    /// True where the matrix verdict was reached by CHALLENGE — an orientation
+    /// of the matrix crystal explained more of the pattern than any candidate
+    /// (`classify` step 5) — rather than by EXCLUSION, where removal left too
+    /// little to index (`matchedCount == 0`). They are different facts about
+    /// the specimen and share one verdict, so this is the one place the
+    /// distinction is made: the map, the legend and `evidenceLine` all read it.
+    package static func isChallengedMatrix(_ r: PhaseVectorResult) -> Bool {
+        r.verdict == .matrix && r.matchedCount > 0
+    }
+
+    /// The challenged subset's diagonal stripe, in map pixels (same period as
+    /// the "not indexed" hatch so the two share one visual grammar).
+    package static func isChallengedStripe(x: Int, y: Int) -> Bool { (x + y) % 6 < 3 }
 
     /// How much of this position's detected signal the matrix explained, or
     /// nil where the question does not apply (nothing detected).
@@ -98,7 +118,10 @@ package nonisolated enum PhaseMapPresentation {
                 var alpha: UInt8 = 255
                 switch r.verdict {
                 case .matrix:
-                    rgb = matrixColor
+                    // Challenged matrix keeps the matrix ground and adds a
+                    // lighter stripe; the verdict itself is unchanged.
+                    rgb = (isChallengedMatrix(r) && isChallengedStripe(x: x, y: y))
+                        ? challengedMatrixStripe : matrixColor
                 case .indexed:
                     rgb = color(phaseIndex: Int(r.phaseIndex),
                                 matrixPhaseIndex: map.matrixPhaseIndex)
@@ -132,6 +155,9 @@ package nonisolated enum PhaseMapPresentation {
     }
 
     /// One legend row per phase, plus the two verdicts that are not phases.
+    /// A "challenged" row sits directly under the matrix row when any matrix
+    /// position was reached by challenge; it is a SUBSET of the matrix row's
+    /// count, not an extra verdict, so the fractions overlap by design.
     package struct LegendRow: Sendable {
         package let label: String
         package let color: RGB
@@ -150,6 +176,15 @@ package nonisolated enum PhaseMapPresentation {
                 label: index == map.matrixPhaseIndex ? "\(name) (matrix)" : name,
                 color: color(phaseIndex: index, matrixPhaseIndex: map.matrixPhaseIndex),
                 hatched: false, count: count, fraction: Double(count) / Double(total)))
+            if index == map.matrixPhaseIndex {
+                let challenged = map.results.filter(isChallengedMatrix).count
+                if challenged > 0 {
+                    rows.append(LegendRow(
+                        label: "of which challenged", color: challengedMatrixStripe,
+                        hatched: true, count: challenged,
+                        fraction: Double(challenged) / Double(total)))
+                }
+            }
         }
         let notIndexed = map.count(of: .notIndexed)
         rows.append(LegendRow(label: "Not indexed", color: notIndexedColors.0,
@@ -242,7 +277,7 @@ package nonisolated enum PhaseMapPresentation {
             // narrated as the first: a challenged position read "0 of 8
             // vectors are the matrix's, and 8 is too few to index" when the
             // matrix had in fact matched 6 of them.
-            if result.matchedCount > 0 {
+            if isChallengedMatrix(result) {
                 return "\(name(Int32(map.matrixPhaseIndex))) — on another orientation: it "
                     + "accounts for \(result.matchedCount) of \(result.survivingCount) "
                     + "vectors here, closer than any candidate phase."

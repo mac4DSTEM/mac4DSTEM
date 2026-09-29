@@ -82,17 +82,16 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 ### Other named presentation and trust residuals
 One line each; full wording as above.
 - Ellipse "Fit anyway" mark lost on a session round trip — sidecar wire-format decision.
-- Challenged matrix verdict drawn like one by exclusion (same grey). Presentation.
+- The objects picture (`PrecipitateObjectReport.swift:200`) paints challenged matrix flat; the phase map stripes it. Presentation.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
-- Radius-only aperture drag destroys the fitted origin (rounding trips the centre branch) — Gate D.
 - "Computed this session" reports what exists, not what was computed. Presentation.
 - Moving the detector destroys the origin fit with no durable warning — owner: confirm, banner or refuse.
-- One-peak warning below the fold; Strain unlocks on vectors existing, not usable. No Gate D.
-- DPC's always-shown qualitative banner over quantities called quantitative — trust-fixes session.
+- Strain unlocks on vectors existing, not usable (it now fails with the named cause; the one-peak warning moved above "Per pattern", `MapSettings.swift:366`, unverified on screen). No Gate D.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
 ### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe
+- The zone-axis ranking's stale check covers Q, origin and ellipse only; a changed matrix phase or matching tolerance still shows it as current (Fable refuter, 2026-09-30). Single-slice ptychography products no longer carry `analysis_mode` (no reader).
 - Fixed 2026-09-30: phase mapping and Find Matrix Zone Axis now require a physical Q scale (a prerequisite with its route
   to Prepare; a refusal line — unverified on screen). The zone-axis list now records its Q scale and calibration and
   shows "…changed since this ranking — fit again" instead of rows once they move (unverified on screen: change Q after
