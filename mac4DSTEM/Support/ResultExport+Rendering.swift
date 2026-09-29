@@ -258,7 +258,8 @@ extension AppState {
         if writePNG(image, to: url, properties: properties) {
             state.statusText = "Exported \(url.lastPathComponent)"
             state.recordExportRun(format: "png", fileName: url.lastPathComponent,
-                                  productKind: producing?.kind)   // lineage sink (ADR 047)
+                                  productKind: producing?.kind,
+                                  productStep: producing?.provenance["lineage_step"])   // lineage sink (ADR 047)
         } else {
             state.present(SimpleError("Writing the PNG failed."))
         }

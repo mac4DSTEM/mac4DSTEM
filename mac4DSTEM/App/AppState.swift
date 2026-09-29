@@ -944,26 +944,8 @@ final class AppState {
         )
     }
 
-    /// C4(b): AppState gathers the live ingredients; `ProductWorkflow` dispatches by mode.
-    func recordedReplayStep(for mode: AnalysisMode) -> SessionReplayRecord.Step? {
-        let active = ProductWorkflow.recordedReplayStep(for: mode, in: replay.record.steps)
-        // After a rewind (ADR 047 R4) the active step of a kind can differ from
-        // the run whose product is still in memory. The product is judged by ITS
-        // run's settings against the restored controls, so it reads "Computed
-        // with different …" instead of current. Peaks are judged by their own
-        // parameters alone; a product derived from them (strain, orientations,
-        // …) whose own keys happen to agree is still not current — its run is off
-        // the path — so it reads as "no longer part of the recipe" (nil).
-        guard let kind = mode.replayKind, let producer = replay.supersededProducer(kind: kind) else {
-            return active
-        }
-        let step = SessionReplayRecord.Step(kind: producer.kind, parameters: producer.parameters,
-                                            recorded: producer.recorded)
-        if mode == .disks { return step }
-        return ProductWorkflow.stalenessVerdict(
-            recordedStep: step, currentSignature: currentReplaySignature(for: mode),
-            hasProduct: true) == .current ? nil : step
-    }
+    // `recordedReplayStep(for:)` — which run a task's product is judged by — is
+    // lineage logic and lives in `AppState+Lineage.swift`.
 
     /// The whole recorded pipeline, read-only — the bottom workspace's
     /// Lineage tab (ADR 034). `replay` itself carries mutation (`record`,
@@ -971,7 +953,10 @@ final class AppState {
     /// rather than reaching `appState.replay.record.steps` directly.
     var replaySteps: [SessionReplayRecord.Step] { replay.record.steps }
 
+    /// A kind with no settings signature (phase mapping, diffraction groups)
+    /// is still judged by the lineage path (`lineagePathOnlySignature`).
     func currentReplaySignature(for mode: AnalysisMode) -> [String: String]? {
+        if let pathOnly = lineagePathOnlySignature(for: mode) { return pathOnly }
         let acomSignature = ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved(
             model: resolvedACOMModel, scale: acomScaleSemantics.invAngstromPerPixel,
             backend: acomSession.effectiveBackend.rawValue, scope: acomSession.scope, quality: acomSession.quality)

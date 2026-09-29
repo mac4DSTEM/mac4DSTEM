@@ -585,3 +585,259 @@ final class SessionReplayAppStateTests: XCTestCase {
         XCTAssertEqual(agree.acomSession.modelSelection, .library("au_fcc"))
     }
 }
+
+// MARK: - lineage_step on products (ROADMAP D; ADR 047 R2, R4(3))
+//
+// The lineage-only product kinds (phase map and its distance companion,
+// precipitate objects, diffraction groups) name the run that made them, a
+// product whose run left the active path reads stale and stays shown — also
+// after a save and a reopen — and an export's edge names the run of the
+// product it wrote, not whichever run of that kind is active.
+
+extension SessionReplayAppStateTests {
+
+    /// Any structure that is not Al stands in for the precipitate CIF (as in
+    /// `AlMgSiPresetTests`); the demo carries a physical Q scale.
+    private func preparePhaseMapping(_ state: AppState) throws {
+        let beta = try XCTUnwrap(CrystalModelLibrary.model(id: "mg_hcp"))
+        state.phaseMapping.applyAlMgSiPreset(precipitate: beta)
+    }
+
+    private func detectDisks(_ state: AppState, _ context: String) async {
+        state.navigation.analysisMode = .disks
+        await state.runDiskDetection()
+        XCTAssertNotNil(state.resultPresentation.braggVectors, "\(context): \(state.statusText)")
+    }
+
+    private func mapPhases(_ state: AppState, _ context: String) async throws -> String {
+        state.navigation.analysisMode = .phaseMapping
+        let outcome = await state.runPhaseMapping()
+        XCTAssertEqual(outcome, .published, "\(context): \(state.statusText)")
+        return try XCTUnwrap(activeID(state, "phase_mapping"), context)
+    }
+
+    /// The verdict the sidebar row and the inspector share, for a mode.
+    private func productState(_ state: AppState, _ mode: AnalysisMode) -> TaskProductState {
+        ProductWorkflow.productState(
+            for: mode, hasProduct: true,
+            recordedStep: state.recordedReplayStep(for: mode),
+            currentSignature: state.currentReplaySignature(for: mode))
+    }
+
+    private var offThePathReason: String { ProductWorkflow.staleReason(changedKeys: []) }
+
+    /// d1 -> pm1, then d2 (sigma_cc + 1; a new node, d1 has a child) -> pm2.
+    private func twoPhaseMaps(_ state: AppState) async throws -> (d1: String, pm1: String, d2: String, pm2: String) {
+        try preparePhaseMapping(state)
+        await detectDisks(state, "first detection")
+        let d1 = try XCTUnwrap(activeID(state, "disk_detection"))
+        let pm1 = try await mapPhases(state, "first phase map")
+        state.diskDetection.diskParams.sigmaCC += 1
+        await detectDisks(state, "second detection")
+        let d2 = try XCTUnwrap(activeID(state, "disk_detection"))
+        XCTAssertNotEqual(d2, d1)
+        let pm2 = try await mapPhases(state, "second phase map")
+        XCTAssertNotEqual(pm2, pm1)
+        return (d1, pm1, d2, pm2)
+    }
+
+    /// (a) R2 for the kinds that are not recipe steps. Mutations it catches:
+    /// `SessionReplay.record` crediting only recipe kinds; phase mapping or
+    /// grouping publishing before recording (the map would name no run, or
+    /// the previous one).
+    func testThePhaseMapItsCompanionsAndTheGroupMapNameTheRunThatMadeThem() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        try preparePhaseMapping(state)
+        await detectDisks(state, "detection")
+        let pm = try await mapPhases(state, "phase map")
+        XCTAssertEqual(state.displayedProduct?.kind, "phase_map")
+        XCTAssertEqual(state.displayedProduct?.provenance["lineage_step"], pm)
+
+        state.publishPhaseDistanceProduct()
+        XCTAssertEqual(state.displayedProduct?.kind, "phase_match_distance")
+        XCTAssertEqual(state.displayedProduct?.provenance["lineage_step"], pm)
+
+        let objects = try XCTUnwrap(activeID(state, "precipitate_objects"))
+        state.publishPrecipitateObjectsProduct()
+        XCTAssertEqual(state.displayedProduct?.kind, "precipitate_objects")
+        XCTAssertEqual(state.displayedProduct?.provenance["lineage_step"], objects)
+
+        state.navigation.analysisMode = .diffractionGroups
+        let grouped = await state.runDiffractionGroups()
+        XCTAssertEqual(grouped, .published, state.statusText)
+        XCTAssertEqual(state.displayedProduct?.kind, "diffraction_groups")
+        XCTAssertEqual(state.displayedProduct?.provenance["lineage_step"],
+                       try XCTUnwrap(activeID(state, "diffraction_groups")))
+    }
+
+    /// (b) R4(3): after a rewind to before the run that made the phase map on
+    /// screen, the map reads stale with the existing sentence and stays shown.
+    /// Mutation it catches: a verdict that ignores the lineage path for a kind
+    /// with no settings signature (it read current).
+    func testARewindToBeforeThePhaseMapReadsItStaleAndKeepsItShown() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        let run = try await twoPhaseMaps(state)
+        XCTAssertEqual(productState(state, .phaseMapping), .current, "precondition: current before the rewind")
+
+        let refusal = await state.rewindLineage(to: run.d1)
+        XCTAssertNil(refusal, refusal ?? "")
+        let active = state.replay.lineage.activeNodes().map(\.id)
+        XCTAssertFalse(active.contains(run.pm2), "\(active)")
+        XCTAssertNotNil(state.phaseMapping.map, "nothing is deleted")
+        XCTAssertEqual(state.displayedProduct?.kind, "phase_map", "the map stays shown")
+        XCTAssertEqual(state.displayedProduct?.provenance["lineage_step"], run.pm2)
+        XCTAssertEqual(productState(state, .phaseMapping).staleReason, offThePathReason)
+        let model = LineageGraphModel(
+            lineage: state.replay.lineage, productKind: state.displayedProduct?.kind,
+            productStep: state.displayedProduct?.provenance["lineage_step"],
+            producedSteps: state.replay.producedStep)
+        XCTAssertEqual(model.state(of: run.pm1), .stale, "the active phase-mapping run is not the one in memory")
+
+        // Rewinding back puts the map's own run on the path: current again.
+        let back = await state.rewindLineage(to: run.pm2)
+        XCTAssertNil(back, back ?? "")
+        XCTAssertEqual(productState(state, .phaseMapping), .current)
+    }
+
+    /// (b) for diffraction groups: the first grouping is saved (so R3 keeps it),
+    /// a second one is shown, and a rewind to the first reads the shown one stale.
+    func testARewindToAnEarlierGroupingReadsTheShownGroupMapStale() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        state.navigation.analysisMode = .diffractionGroups
+        var outcome = await state.runDiffractionGroups()
+        XCTAssertEqual(outcome, .published, state.statusText)
+        let g1 = try XCTUnwrap(activeID(state, "diffraction_groups"))
+        XCTAssertNotNil(state.markLineageProductSaved(productKind: "diffraction_groups"))
+        state.diffractionGroups.settings.seed += 1
+        outcome = await state.runDiffractionGroups()
+        XCTAssertEqual(outcome, .published, state.statusText)
+        let g2 = try XCTUnwrap(activeID(state, "diffraction_groups"))
+        XCTAssertNotEqual(g2, g1, "a saved grouping is never collapsed into")
+        XCTAssertEqual(productState(state, .diffractionGroups), .current)
+
+        let refusal = await state.rewindLineage(to: g1)
+        XCTAssertNil(refusal, refusal ?? "")
+        XCTAssertNotNil(state.diffractionGroups.result)
+        XCTAssertEqual(state.displayedProduct?.provenance["lineage_step"], g2)
+        XCTAssertEqual(productState(state, .diffractionGroups).staleReason, offThePathReason)
+    }
+
+    /// Saves the map on screen into the sidecar and waits for the app's own
+    /// follow-up read to finish (the HDF5 library is not thread-safe).
+    private func saveShownResult(_ state: AppState) async throws {
+        state.statusText = ""
+        state.saveCurrentResultToSessionSidecar()
+        for _ in 0..<200 where !state.statusText.hasPrefix("Saved") {
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertTrue(state.statusText.hasPrefix("Saved"), "the save never completed: \(state.statusText)")
+    }
+
+    /// (c) `lineage_step` survives save -> reopen and names a node of the
+    /// restored lineage, on its active path or off it as it was saved. A
+    /// restored map is not a task's in-memory product, so no verdict surface
+    /// judges it: no run of the reopened session made anything, and the phase
+    /// task reads current. Mutations it catches: an unstamped map, or one
+    /// stamped with the previous run.
+    func testLineageStepRidesTheSaveAndNamesItsNodeInTheRestoredLineage() async throws {
+        let suite = "mac4dstem.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+        let workDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LineageStepReopen-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: workDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workDirectory) }
+        let url = workDirectory.appendingPathComponent("demo.mac4dstem.h5")
+
+        let state = AppState(sessionSidecar: SessionSidecarLocator(defaults: defaults))
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        let run = try await twoPhaseMaps(state)
+        state.sessionSidecar.adopt(url, for: try XCTUnwrap(state.descriptor))
+
+        func reopened() async throws -> AppState {
+            let restored = AppState(sessionSidecar: SessionSidecarLocator(defaults: defaults))
+            await restored.openDemoFixture(specification: uniformLatticeCrop)
+            // Opening shows the automatic virtual image; View the saved map.
+            for _ in 0..<100 where !restored.sessionInventory.results.contains(where: { $0.kind == "phase_map" }) {
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            let saved = try XCTUnwrap(restored.sessionInventory.results.first { $0.kind == "phase_map" })
+            await restored.selectSavedSessionResult(saved)
+            let product = try XCTUnwrap(restored.displayedProduct)
+            XCTAssertEqual(product.origin, .restoredFromSidecar)
+            XCTAssertEqual(product.kind, "phase_map")
+            XCTAssertEqual(product.provenance["lineage_step"], run.pm2, "lineage_step rides the save")
+            XCTAssertNotNil(restored.replay.lineage.node(id: run.pm2))
+            XCTAssertTrue(restored.replay.producedStep.isEmpty, "no run of the reopened session made it")
+            return restored
+        }
+
+        // On the path when saved: current after reopen.
+        try await saveShownResult(state)
+        let onPath = try await reopened()
+        XCTAssertTrue(onPath.replay.lineage.activeNodes().contains { $0.id == run.pm2 })
+        XCTAssertEqual(productState(onPath, .phaseMapping), .current)
+
+        // Off the path when saved (rewound to d1): the restored lineage keeps the
+        // rewound path, and the map still names its own run — a branch now.
+        let refusal = await state.rewindLineage(to: run.d1)
+        XCTAssertNil(refusal, refusal ?? "")
+        try await saveShownResult(state)
+        let offPath = try await reopened()
+        let restoredActive = offPath.replay.lineage.activeNodes().map(\.id)
+        XCTAssertFalse(restoredActive.contains(run.pm2), "\(restoredActive)")
+        XCTAssertTrue(restoredActive.contains(run.d1) && restoredActive.contains(run.pm1), "\(restoredActive)")
+        XCTAssertEqual(offPath.replay.lineage.node(id: run.pm2)?.product,
+                       BraggVectorEMDWriter.resultNodeName(forKind: "phase_map"),
+                       "the saved map's run is marked as the one the file carries")
+    }
+
+    /// The everyday case, no rewind: d1 -> pm1, then detect again (a new node:
+    /// d1 has a child). Phase mapping leaves the active path with the peaks it
+    /// was built on, so the map in memory reads stale. Mutation it catches:
+    /// `recordedReplayStep` answering the producer's step when its kind has no
+    /// active node (it read current — the false-fresh at HEAD).
+    func testADetectionAfterThePhaseMapReadsItStaleWithoutARewind() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        try preparePhaseMapping(state)
+        await detectDisks(state, "first detection")
+        let pm1 = try await mapPhases(state, "phase map")
+        XCTAssertEqual(productState(state, .phaseMapping), .current)
+        state.diskDetection.diskParams.sigmaCC += 1
+        await detectDisks(state, "second detection")
+        XCTAssertNil(activeID(state, "phase_mapping"), "the phase map's run left the path with its peaks")
+        XCTAssertEqual(state.replay.producedStep["phase_mapping"], pm1)
+        XCTAssertNotNil(state.phaseMapping.map)
+        XCTAssertEqual(productState(state, .phaseMapping).staleReason, offThePathReason)
+    }
+
+    /// (d) The export's input edge names the run of the product it wrote: after
+    /// a rewind the in-memory strain map is s2's while s1 is the active strain.
+    /// Mutation it catches: linking the sink to the active node of the kind.
+    func testAnExportAfterARewindNamesTheRunOfTheProductItWrote() async throws {
+        let s = try await runTwoBranches()
+        let state = s.state
+        let refusal = await state.rewindLineage(to: s.disks1)
+        XCTAssertNil(refusal, refusal ?? "")
+        XCTAssertEqual(activeID(state, "strain"), s.strain1)
+
+        // The scientific bundle writes the in-memory maps (strain2's run).
+        let bundle = try XCTUnwrap(state.recordExportRun(
+            format: "emd_scientific_bundle", fileName: "bundle.h5", productKind: "strain_exx"))
+        XCTAssertEqual(state.replay.lineage.node(id: bundle)?.inputs,
+                       [SessionLineage.Input(step: s.strain2, role: "product")])
+        // A PNG passes the name its product carries, and that wins over the
+        // in-memory run: here a map naming strain1 (a saved one, viewed again)
+        // while the strain held in memory is strain2's.
+        let product = try XCTUnwrap(state.displayedProduct)
+        XCTAssertEqual(product.provenance["lineage_step"], s.strain2)
+        let png = try XCTUnwrap(state.recordExportRun(
+            format: "png", fileName: "map.png", productKind: product.kind, productStep: s.strain1))
+        XCTAssertEqual(state.replay.lineage.node(id: png)?.inputs,
+                       [SessionLineage.Input(step: s.strain1, role: "product")])
+    }
+}

@@ -4,6 +4,8 @@
 //        that are NOT recipe steps — calibration, diffraction groups, phase
 //        mapping, precipitate objects, export. The five replayable kinds
 //        already reach `SessionReplay.record` through `recordReplayStep`.
+//        Also: which run a product names (`lineage_step`, R2), the staleness
+//        verdict that follows from it (R4(3)), and rewind (L4).
 //
 //  The live lineage is owned by `SessionReplay` (`replay.lineage`); nothing is
 //  stored on `AppState`. Each helper here only turns a finished run's numbers
@@ -25,7 +27,12 @@ extension AppState {
     @discardableResult
     func recordLineageRun(kind: String, parameters: [String: String],
                           external: [SessionLineage.External] = []) -> String? {
-        guard !datasetSession.isLoading else { return nil }
+        guard !datasetSession.isLoading else {
+            // As `recordReplayStep`: a product must not be credited to a node
+            // whose settings it did not use.
+            replay.forgetProducedStep(kind: kind)
+            return nil
+        }
         return replay.record(kind: kind, parameters: parameters, external: external,
                              under: ReplayParameterFrame.of(loadedView.specification))
     }
@@ -82,11 +89,8 @@ extension AppState {
     func markLineageProductSaved(productKind: String) -> (step: String, previous: String?)? {
         guard let kind = SessionLineage.lineageKind(forProductKind: productKind) else { return nil }
         // The displayed product names its own run (`lineage_step`, R2) — after a
-        // rewind that is not necessarily the active run of its kind. A name that
-        // is not a node of this kind (a stale id from another file) is ignored.
-        let named = resultPresentation.product?.provenance["lineage_step"]
-            .flatMap { replay.lineage.node(id: $0) }
-            .flatMap { $0.kind == kind ? $0 : nil }
+        // rewind that is not necessarily the active run of its kind.
+        let named = lineageNode(named: resultPresentation.product?.provenance["lineage_step"], kind: kind)
         guard let node = named ?? replay.lineage.activeNodes().first(where: { $0.kind == kind })
         else { return nil }
         replay.markProduct(step: node.id, as: BraggVectorEMDWriter.resultNodeName(forKind: productKind))
@@ -108,14 +112,22 @@ extension AppState {
     /// A sink: something left the session (a file in a format). Not
     /// rewindable and never collapsed into (R1, R3) — the file name is the
     /// only identity it has, so each export is a node. `productKind`, when the
-    /// export wrote the displayed product, names the run it wrote (edge role
-    /// `product`); an export of the source data consumes no recorded run.
+    /// export wrote a product, links the sink to the run that made it (edge
+    /// role `product`); an export of the source data consumes no recorded run.
+    /// That run is the one the product names (`productStep`, its own
+    /// `lineage_step`), else the run that made the kind's in-memory product
+    /// (the scientific bundle writes those maps), else — nothing recorded
+    /// either — the active run of the kind. After a rewind the active run is
+    /// not the one that made what was written.
     @discardableResult
-    func recordExportRun(format: String, fileName: String, productKind: String? = nil) -> String? {
+    func recordExportRun(format: String, fileName: String, productKind: String? = nil,
+                         productStep: String? = nil) -> String? {
         guard !datasetSession.isLoading else { return nil }
         var sources: [SessionLineage.Input] = []
         if let productKind, let kind = SessionLineage.lineageKind(forProductKind: productKind),
-           let node = replay.lineage.activeNodes().first(where: { $0.kind == kind }) {
+           let node = lineageNode(named: productStep, kind: kind)
+               ?? lineageNode(named: replay.producedStep[kind], kind: kind)
+               ?? replay.lineage.activeNodes().first(where: { $0.kind == kind }) {
             sources.append(SessionLineage.Input(step: node.id, role: "product"))
         }
         let id = replay.record(
@@ -139,6 +151,66 @@ extension AppState {
               SessionLineage.lineageKind(forProductKind: product.kind) == kind,
               product.provenance["lineage_step"] != step else { return }
         resultPresentation.replaceProduct(product.addingProvenance(["lineage_step": step]))
+    }
+
+    /// The node a product's `lineage_step` names, when it is a node of `kind`
+    /// recorded with lineage. A name that is not a node of this kind (a stale
+    /// id from another file) is ignored, and so is a node synthesized from a v1
+    /// record: its id was assigned on open (R7), so no product was ever stamped
+    /// with it — a match would be a coincidence of numbering (a file an older
+    /// build re-saved keeps its products' names but loses the lineage, R6).
+    func lineageNode(named step: String?, kind: String) -> SessionLineage.Node? {
+        guard let step, let node = replay.lineage.node(id: step),
+              node.kind == kind, node.source != "v1" else { return nil }
+        return node
+    }
+
+    /// The run that made the product a task holds in memory: this session's
+    /// run of the kind (`replay.producedStep`). A product restored from the
+    /// sidecar is NOT a task's product (every verdict surface asks about the
+    /// in-memory map), so its own `lineage_step` is never used here: judging
+    /// the in-memory map by the run of a saved map on display read a map the
+    /// active path produces as stale (Fable supervisor, 2026-09-29).
+    func lineageProducer(ofKind kind: String) -> SessionLineage.Node? {
+        replay.producedStep[kind].flatMap { lineageNode(named: $0, kind: kind) }
+    }
+
+    /// C4(b), with the lineage (ADR 047 R4(3)): the recorded step a task's
+    /// product is judged by. `ProductWorkflow` compares it with what the
+    /// controls would record now; nil reads "no longer part of the recipe".
+    ///
+    /// The active step of the kind, unless the lineage knows the run that made
+    /// the product and it is not that one — after a rewind. Then the product is judged by ITS run's
+    /// settings against the restored controls, so it reads "Computed with
+    /// different …" instead of current. Peaks are judged by their own
+    /// parameters alone; a product derived from them (strain, orientations, …)
+    /// whose own keys happen to agree is still not current — its run is off the
+    /// path — so it reads as "no longer part of the recipe" (nil). A kind with
+    /// no settings signature (phase mapping, groups; `lineagePathOnlySignature`)
+    /// is judged by the path alone: its run, when active; nil otherwise.
+    func recordedReplayStep(for mode: AnalysisMode) -> SessionReplayRecord.Step? {
+        let active = ProductWorkflow.recordedReplayStep(for: mode, in: replay.record.steps)
+        guard let kind = mode.replayKind, let producer = lineageProducer(ofKind: kind) else { return active }
+        let step = SessionReplayRecord.Step(kind: producer.kind, parameters: producer.parameters,
+                                            recorded: producer.recorded)
+        guard let activeNode = replay.lineage.activeNodes().first(where: { $0.kind == kind }) else {
+            return active   // the kind left the path (nil)
+        }
+        if activeNode.id == producer.id { return active ?? step }
+        if mode == .disks { return step }
+        return ProductWorkflow.stalenessVerdict(
+            recordedStep: step, currentSignature: currentReplaySignature(for: mode),
+            hasProduct: true) == .current ? nil : step
+    }
+
+    /// `ProductWorkflow.pathOnlySignature` for a task whose kind lives only in
+    /// the lineage and has no settings signature, when the lineage knows the
+    /// run that made its product; nil otherwise (no comparison possible —
+    /// current, as before the lineage).
+    func lineagePathOnlySignature(for mode: AnalysisMode) -> [String: String]? {
+        guard let kind = mode.replayKind, SessionReplay.lineageOnlyProductKinds.contains(kind),
+              lineageProducer(ofKind: kind) != nil else { return nil }
+        return ProductWorkflow.pathOnlySignature
     }
 
     // MARK: - Rewind (R4, phase L4)

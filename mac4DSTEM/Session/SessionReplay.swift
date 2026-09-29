@@ -59,16 +59,14 @@ package final class SessionReplay {
         producedStep[kind] = nil
     }
 
-    /// The node that made this kind's in-memory product, when ANOTHER node of
-    /// the kind is the active one — the state after a rewind. Nil in every other
-    /// state (including "the kind left the active path", which the recipe
-    /// already reports as a step that is no longer part of it).
-    package func supersededProducer(kind: String) -> SessionLineage.Node? {
-        guard let id = producedStep[kind], let node = lineage.node(id: id),
-              let active = lineage.activeNodes().first(where: { $0.kind == kind }),
-              active.id != id else { return nil }
-        return node
-    }
+    /// The kinds outside the recipe whose run still leaves a product in memory
+    /// (a phase map and its distance companion, the object table, the group
+    /// map), so they are credited like the recipe kinds. Calibrations are not:
+    /// their "product" is the live value a rewind restores, never a stale one.
+    /// Exports are sinks.
+    package static let lineageOnlyProductKinds: Set<String> = [
+        "diffraction_groups", "phase_mapping", "precipitate_objects",
+    ]
 
     /// Rewind (ADR 047 R4): the active path changes, the linear recipe follows
     /// it, nothing is deleted. The caller has already put the parameters back in
@@ -118,7 +116,10 @@ package final class SessionReplay {
         let id = lineage.recordRun(kind: kind, parameters: parameters, frame: nodeFrame,
                                    external: external, extraInputs: extraInputs)
         record = lineage.projection()
-        if !SessionLineage.lineageOnlyKinds.contains(kind), !id.isEmpty { producedStep[kind] = id }
+        if !id.isEmpty, !SessionLineage.lineageOnlyKinds.contains(kind)
+            || Self.lineageOnlyProductKinds.contains(kind) {
+            producedStep[kind] = id
+        }
         // A calibration or a product node carries no recipe parameters, so it
         // says nothing about the frame the recipe is expressed in. A first
         // recipe step sets the frame; later steps merge — two different

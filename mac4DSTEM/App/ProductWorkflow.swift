@@ -402,6 +402,13 @@ enum ProductWorkflow {
         return changedKeys.isEmpty ? .current : .stale(changedKeys: changedKeys)
     }
 
+    /// A signature with no settings in it: the verdict then asks only whether
+    /// the product's run is still on the recipe path — its step present reads
+    /// current, absent reads "no longer part of the recipe". For the lineage-only
+    /// kinds that have no settings signature (`AppState.lineagePathOnlySignature`,
+    /// ADR 047 R4(3)); the pure builder below still returns nil for them.
+    static let pathOnlySignature: [String: String] = [:]
+
     /// The UI-facing sentence for a stale verdict — replaces the fixed
     /// `staleDiskSettingsHelp` string with one naming what changed. Empty
     /// `changedKeys` is the "recorded step is gone" case: there is nothing to
@@ -454,7 +461,9 @@ enum ProductWorkflow {
         case .diffractionGroups:
             // The run is reproducible from its own Settings alone: it reads
             // the raw cube and needs no calibration, no origin and no Bragg
-            // vectors, so nothing outside this task can make it stale.
+            // vectors, so no setting outside this task can make it stale. A
+            // rewind can take its run off the path: `AppState` judges that
+            // (`pathOnlySignature`).
             return nil
         case .disks:
             // No live kernel (a fresh open): there is nothing to rebuild the
@@ -481,7 +490,8 @@ enum ProductWorkflow {
             // carry (a CIF's content fingerprint is part of the identity).
             // Returning nil here keeps the generalised verdict out of its way
             // rather than giving it half the inputs, exactly as diffraction
-            // grouping does above.
+            // grouping does above — and, like it, the lineage path is judged
+            // in `AppState` (`pathOnlySignature`).
             return nil
         }
     }

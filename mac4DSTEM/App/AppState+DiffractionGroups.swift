@@ -69,6 +69,14 @@ extension AppState {
             }
             guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
             diffractionGroups.publish(result, ranWith: settings)
+            // Recorded BEFORE the map is published, so the map names this run
+            // (`lineage_step`, ADR 047 R2) — `publishProduct` reads it.
+            recordLineageRun(kind: "diffraction_groups", parameters: [
+                "binned_size": String(settings.binnedSize),
+                "components": String(settings.components),
+                "groups": String(settings.groups),
+                "seed": String(settings.seed),
+            ])   // lineage node (ADR 047): the settings that ran, not the clamped counts
 
             let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
             publishProduct(
@@ -85,12 +93,6 @@ extension AppState {
                     "seed": String(settings.seed),
                 ]
             )
-            recordLineageRun(kind: "diffraction_groups", parameters: [
-                "binned_size": String(settings.binnedSize),
-                "components": String(settings.components),
-                "groups": String(settings.groups),
-                "seed": String(settings.seed),
-            ])   // lineage node (ADR 047): the settings that ran, not the clamped counts
             statusText = "\(result.groupCount) groups from \(totalPatterns) patterns, "
                 + "first 3 components explain \(String(format: "%.1f", firstThreePercent)) %"
             return .published

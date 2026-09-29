@@ -189,8 +189,10 @@ extension AppState {
             calibration: calibrationStamp
         ), library: library)
 
-        publishPhaseMapProduct()
+        // Recorded BEFORE the map is published, so the map names this run
+        // (`lineage_step`, ADR 047 R2) — `publishProduct` reads it.
         recordPhaseMappingRun(map: map, run: phaseMapping.lastRun)
+        publishPhaseMapProduct()
         await publishPrecipitateClassificationFromPhaseMap()
         let counts = map.phaseCounts
         let indexed = counts.enumerated()
