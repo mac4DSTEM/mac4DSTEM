@@ -65,6 +65,53 @@ final class StrainEmptyPositionMedianTests: XCTestCase {
     }
 }
 
+/// `occupiedPositions` (the D023 refuter's finding): the 8 % cluster-support bar
+/// counted central-beam-only positions, so with the lattice in only 5 % of the
+/// scan no cluster reached the bar and no basis was found. A central-only
+/// position must weigh exactly what an empty one does.
+final class StrainCentralOnlyPositionsTests: XCTestCase {
+    private func lattice() -> [BraggPeak] {
+        var peaks = [BraggPeak(x: 32, y: 32, intensity: 10)]
+        for h in -2...2 { for k in -2...2 where !(h == 0 && k == 0) {
+            peaks.append(BraggPeak(x: 32 + Float(h) * 20 + Float(k) * 3,
+                                   y: 32 + Float(k) * 18, intensity: 1))
+        } }
+        return peaks
+    }
+
+    /// 400 positions, `latticePositions` of them (spread evenly) hold the lattice, the rest hold `filler`.
+    private func basis(latticePositions: Int, filler: [BraggPeak]) -> (g1: (x: Float, y: Float), g2: (x: Float, y: Float))? {
+        var placed = 0
+        let peaks: [[BraggPeak]] = (0..<400).map { i in
+            if (i + 1) * latticePositions / 400 > placed { placed += 1; return lattice() }
+            return filler
+        }
+        return StrainMapping.chooseLatticeVectors(
+            bragg: BraggVectors(scanWidth: 20, scanHeight: 20, peaks: peaks), x0: 32, y0: 32)
+    }
+
+    func testALatticeInFivePercentOfTheScanIsFoundWhateverTheRestHolds() throws {
+        let central = [BraggPeak(x: 32, y: 32, intensity: 10)]
+        for latticePositions in [20, 28, 4] {          // 95 %, 93 %, 99 % without a lattice
+            let withCentral = try XCTUnwrap(basis(latticePositions: latticePositions, filler: central),
+                                            "\(latticePositions)/400 lattice positions, the rest central-beam only: no basis")
+            let lengths = [withCentral.g1, withCentral.g2].map { hypot($0.x, $0.y) }.sorted()
+            XCTAssertEqual(lengths[0], hypot(3, 18), accuracy: 0.5)
+            XCTAssertEqual(lengths[1], 20, accuracy: 0.5)
+            let empty = try XCTUnwrap(basis(latticePositions: latticePositions, filler: []))
+            XCTAssertEqual(withCentral.g1.x, empty.g1.x, "central-only must weigh what empty does")
+            XCTAssertEqual(withCentral.g1.y, empty.g1.y)
+            XCTAssertEqual(withCentral.g2.x, empty.g2.x)
+            XCTAssertEqual(withCentral.g2.y, empty.g2.y)
+        }
+    }
+
+    func testAMajorityLatticeWasAndStaysFine() {
+        XCTAssertNotNil(basis(latticePositions: 200, filler: [BraggPeak(x: 32, y: 32, intensity: 10)]),
+                        "control: green before and after the fix")
+    }
+}
+
 /// D019: one NaN or ±Inf detector pixel turned the whole correlation map to
 /// zero and the pattern lost every peak, reading like vacuum.
 final class DiskDetectionNonFinitePixelTests: XCTestCase {

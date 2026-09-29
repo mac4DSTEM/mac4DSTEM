@@ -588,17 +588,11 @@ struct ApertureOverlay: View {
     /// route (drag or accessibility slider) reporting the same published
     /// values, instead of each control snapping independently and disagreeing.
     private func emit(_ a: Aperture) {
-        var s = a
-        // Clamp AFTER rounding (ui-08): clamping the raw point to `width`
-        // first and then rounding the right edge (width − 0.5) would publish
-        // `width` — one past the last pixel, which `VirtualDetector` silently
-        // answers with an empty mask. The accessibility sliders stop at
-        // width − 1; this keeps every route through this chokepoint agreeing.
-        s.centerX = min(max(0, s.centerX.rounded()), Float(patternWidth - 1))
-        s.centerY = min(max(0, s.centerY.rounded()), Float(patternHeight - 1))
-        s.inner = s.inner.rounded()
-        s.outer = s.outer.rounded()
-        onEdited(s)
+        // The decision (which fields to snap) is `Aperture.snappedEdit`, pure
+        // and unit-tested: a radius-only drag must not re-round a fractional
+        // fitted centre into a "centre change".
+        onEdited(a.snappedEdit(from: aperture,
+                               patternWidth: patternWidth, patternHeight: patternHeight))
     }
 
     private func handle(color: Color) -> some View {

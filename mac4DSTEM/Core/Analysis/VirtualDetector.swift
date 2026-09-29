@@ -34,6 +34,32 @@ package struct Aperture: Equatable {
         self.outer = outer
     }
 
+    /// A gesture's raw edit (`self`) snapped to whole detector pixels, given the
+    /// aperture it started from. A virtual detector sums whole pixels, so
+    /// fractional radii are meaningless and stay rounded; the CENTRE is
+    /// snapped only when the gesture actually moved it. After an origin fit or
+    /// restore the live centre is fractional (the fitted mean, e.g.
+    /// (69.3133, 54.5009)); rounding it on a radius-only drag published a
+    /// "changed" centre, tripped `updateAperture`'s centre-change branch and
+    /// discarded the fitted origin on rounding alone (open item "Radius-only
+    /// aperture drag destroys the fitted origin", Gate D 2026-09-30). The
+    /// clamp is AFTER rounding (ui-08): clamping the raw point to `width`
+    /// first and then rounding would publish `width`, one past the last pixel,
+    /// which `VirtualDetector` silently answers with an empty mask.
+    package func snappedEdit(from previous: Aperture,
+                             patternWidth: Int, patternHeight: Int) -> Aperture {
+        var snapped = self
+        snapped.centerX = centerX == previous.centerX
+            ? previous.centerX
+            : min(max(0, centerX.rounded()), Float(patternWidth - 1))
+        snapped.centerY = centerY == previous.centerY
+            ? previous.centerY
+            : min(max(0, centerY.rounded()), Float(patternHeight - 1))
+        snapped.inner = inner.rounded()
+        snapped.outer = outer.rounded()
+        return snapped
+    }
+
     /// The recipe step's parameters for a `virtual_detector` run — mirrors
     /// `DiskDetectionParams.replayParameters(kernel:)` (C4(b)). `shape` is a
     /// `VirtualShapeMode.rawValue`: that enum is a Session-layer recipe

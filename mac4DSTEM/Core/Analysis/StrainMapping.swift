@@ -447,7 +447,15 @@ package nonisolated enum StrainMapping {
             }
         }
 
-        let occupiedPositions = max(1, bragg.peaks.filter { !$0.isEmpty }.count)
+        // DEVIATION (register: occupiedPositions, Gate D 2026-09-30): the 8 %
+        // support bar is mac4DSTEM's own automation (py4DSTEM picks maxima of
+        // the whole-scan vector histogram and has no per-position count), and
+        // it is a fraction of the positions a cluster CAN be drawn from --
+        // those that hold a peak beyond `minRadius`, i.e. `nearestRadii`. It
+        // counted every position with any peak, so central-beam-only positions
+        // raised the bar: at 95 % central-only (lattice in 5 %) no cluster
+        // reached 8 % and no basis was found.
+        let occupiedPositions = max(1, nearestRadii.count)
         let minimumClusterSupport = max(1, Int(ceil(Double(occupiedPositions) * 0.08)))
         let candidates = clusters
             .filter { $0.count >= minimumClusterSupport && $0.radius > minRadius }
