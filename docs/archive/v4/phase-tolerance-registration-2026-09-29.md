@@ -68,3 +68,14 @@ each exit code on its own log line. The winner is a property of these four Al-ma
 binned 9 × ~3–5 min (est., 1.78 GB); raw 9 × ~20 s off the SSD, read-only, fastguard 1.5 GB (peak 501 MB pre-A1).
 **Decision (owner's):** (a) R0 stands, fix only matrix-orientation-probe's one-pixel default (GREEN); (b) a new T or R3
 moves a shipped default: Gate D, a refuter, the owner. No ship tonight.
+
+## Amendment, 2026-09-29 04:35 — BEFORE the raw grid is read (orchestrator; on the D1 refuter's advice)
+
+The raw cube's k 1 point gave 96.9 % not indexed against the registered 97.0 % (four repeats agree; `tol-raw-1*.log`);
+k 4 reproduces exactly (86.4 / 0.8 / 0.2 / 12.6) and the peaks are identical (116 150). The first line differing from
+the record is the global matrix axis picked among three exactly tied cubic-equivalent axes ([0 -1 0] at 110° now,
+[-1 0 0] at 200° then; survivors 54 470 vs 54 468) — supported by the diff, not demonstrated. The raw grid was held
+unread, as registered. **Amended rule for the raw cube only:** reproduction = identical peaks + k 4 exact + k 1 within
+tie noise (≤ 0.2 pp); any raw verdict within 0.2 pp of its band edge is reported UNRESOLVED. Also added, as the refuter
+asked: one demo run with the verdict distance at k·Q (not 0.75·k·Q) at k 1.666667, to show whether that line binds.
+Nothing else changes; the other three datasets' verdicts stand as read.
