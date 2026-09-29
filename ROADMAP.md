@@ -139,10 +139,12 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
   the C3 flow, T4 as a quantity, hardware waits) — overrule on sight.
 - [ ] **C. On-device training (ADR 043/048).** Done: C2.5 (1.48 GB), the MPSGraph mirror (equals MLX, 4× faster), C4a
   core + C4b flow in Bragg Disks (split, Train Model…, the D7 sheet, model picker, Remove, provenance), gated and
-  reviewed. Left: **C5** — a full run on ≥ 12 held-out labelled positions, driven; the minimum N measured.
+  reviewed; the step-loop leak fixed (`7361eea`, 10.9 → 0.04 MB/step). Left: **C5** — a full run on ≥ 12 held-out labelled
+  positions, driven; the minimum N measured. On this 8 GB Mac admission refuses while Claude runs (2.10–2.13 of 2.16 GB,
+  2026-09-30): the owner's run with Claude quit, or the stronger Mac.
 - [ ] **D. Lineage graph (ADR 047).** Done: L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane
-  (driven on Thronsen A: v1 order-only, detail column, narrow list). Left: **L4** rewind (Gate D) and `lineage_step`
-  on products (stale marking).
+  (driven on Thronsen A: v1 order-only, detail column, narrow list), L4 Rewind to Here (`34af213`, Gate D, three
+  reviews, driven). Left: `lineage_step` on products (stale marking).
 - [ ] **E. The remaining lanes.** Done: T4 as a quantity; the claimed-disks overlay and the Al–Mg–Si phase-setup
   preset, driven on the demo cube (matrix 8 claimed, β″ 6 + 2 unexplained, unmatched 6 unexplained). Left: the Al
   Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048); hardware.

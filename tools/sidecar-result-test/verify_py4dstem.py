@@ -54,7 +54,10 @@ with h5py.File(path, "r") as f:
     # stale at "5" from S5 until 2026-08-25 because the harness had a
     # compile break over the same period (docs/open-items.md) and the
     # stale pin was never reached — fixed together in S7.
-    assert session_root.attrs["mac4dstem_session_schema"] == "6"
+    # "7" since the lineage graph (aa920d0, ADR 047): additive, so the
+    # minimum-reader marker below stays "5". Stale at "6" until 2026-09-30:
+    # no scientific run between the bump and this closeout.
+    assert session_root.attrs["mac4dstem_session_schema"] == "7"
     assert session_root.attrs["mac4dstem_min_reader_schema"] == "5"
     nodes = session_root.attrs["mac4dstem_result_nodes"].split("\n")
     assert len(nodes) == 9, nodes

@@ -44,7 +44,7 @@ Gate D before any edit. Owner: unclaimed. Detail: `archive/v3/step3-2026-09-16.m
 
 ### Origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay owed, still `validation:"none"`
 `OriginMaps.originValidity` carries the robust trim's `kept` mask (disclosure only; ADR 033); the D4 count
-(`PrepareSettings.positionsUsedValue`) is **unverified on screen**. Step-3 trim sweep, 4 cubes: excluded 0.6–15.7 %, `maxGap`
+(`PrepareSettings.positionsUsedValue`) seen on screen 2026-09-30 (sim_Au: 7509 of 8400, `archive/v4/drives-2026-09-30.md`). Step-3 trim sweep, 4 cubes: excluded 0.6–15.7 %, `maxGap`
 1–5. **Owed:** the spatial overlay (excluded positions greyed via `DisplayedProduct.validityMask`), not built — new
 surface. Owner: unclaimed. Detail: `archive/open-items-detail-2026-09-18.md`.
 
@@ -86,21 +86,21 @@ One line each; full wording as above.
 - The objects picture (`PrecipitateObjectReport.swift:200`) paints challenged matrix flat; the phase map stripes it. Presentation.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - "Computed this session" reports what exists, not what was computed. Presentation.
+- Clear Calibration keeps the single-slice ptychography result on screen with its Å sampling and scale bar (no stale mark, the dialog silent) while parallax is discarded (`AppState+Open.swift:1101`); its sampling unit prints "A", not "Å" — decide discard-or-badge; sibling of D068.
 - Moving the detector destroys the origin fit with no durable warning — owner: confirm, banner or refuse.
-- Strain unlocks on vectors existing, not usable (it now fails with the named cause; the one-peak warning moved above "Per pattern", `MapSettings.swift:366`, unverified on screen). No Gate D.
+- Strain unlocks on vectors existing, not usable (it now fails with the named cause; the one-peak warning above "Per pattern" — both seen 2026-09-30). No Gate D.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
 ### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe
 - The zone-axis ranking's stale check covers Q, origin and ellipse only; a changed matrix phase or matching tolerance still shows it as current (Fable refuter, 2026-09-30). Single-slice ptychography products no longer carry `analysis_mode` (no reader).
-- Fixed 2026-09-30: phase mapping and Find Matrix Zone Axis now require a physical Q scale (a prerequisite with its route
-  to Prepare; a refusal line — unverified on screen). The zone-axis list now records its Q scale and calibration and
-  shows "…changed since this ranking — fit again" instead of rows once they move (unverified on screen: change Q after
-  a fit). The "run-dependent tie order" was `tools/phase-map-probe`'s Dictionary, fixed; the app's own ranking is now a total order too.
+- Fixed and seen 2026-09-30 (`archive/v4/drives-2026-09-30.md`): phase mapping and Find Matrix Zone Axis require a physical
+  Q scale; the zone-axis list shows "…changed since this ranking — fit again" once Q moves (the origin variant fired after a
+  Plane → Parabola re-fit; an identical re-fit untried). The tie order is a total order (the probe's Dictionary, fixed).
 - At 1000 pt a busy run clips the status text and hides the metrics line; the panes widen while busy so the inspector
   covers ~110 pt of the phase map (`report-drive3.md` step 4): metrics get truncation priority, split fraction constant.
-- Built 2026-09-30, unverified on screen: the claimed-disks overlay (drive after a phase-mapping run; a challenge-turned
-  matrix position shows its disks as unexplained — the challenger's axis is not recorded) and the Al–Mg–Si preset.
+- The claimed-disks overlay and the Al–Mg–Si preset were driven 2026-09-30 (`c8db808`, `archive/v4/clearing-board-2026-09-30-shots/`).
+  Residual: a challenge-turned matrix position shows its disks as unexplained (the challenger's axis is not recorded).
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
 - **A superseded load's tail still runs `discardPartialLoad`** (`AppState+Open.swift:810`) over whatever load is current;
@@ -127,8 +127,10 @@ One line each; full wording as above.
 
 ### Training (ADR 043/048): the step-loop leak fixed (2026-09-30); the full C5 run and the in-app drive owed
 - MPSGraph's autoreleased results piled up in the one detached job: 10.9 MB/step → 0.04 with a per-step pool, losses
-  identical (`archive/v4/training-leak-gateD-2026-09-30.md`). **Owed:** the 500-step C5 run alone on a quiet machine
-  (the 09-29 attempt was refused admission for 10 min under load); Train Model… in the app.
+  identical (`archive/v4/training-leak-gateD-2026-09-30.md`). **Owed:** the 500-step C5 run and Train Model… in the app.
+  Both drives (2026-09-30) reached the button set up (40 positions, split 23/17) and were refused by admission: 2.07–2.13
+  GB available of 2.16 needed with the Claude app resident (`archive/v4/drives-2026-09-30.md`). Owner: run it with Claude
+  quit (the labelled sidecar sits beside the bullseye cube), or on the stronger Mac.
 - **Detector truth** (A2, `tools/disk-detector/labels/bullseye-2026-09-28.json`, 370 centres re-labelled by eye, owner-approved;
   `archive/v4/a2-label-scoring-2026-09-28.md`): net 0.584 / 0.655 at 0.7, 2 px; label-vs-net scatter 1.2 px. **Owed:** an
   inter-labeller check; the classical floor at the app's own settings. The in-app labelling route is untried on real data.
