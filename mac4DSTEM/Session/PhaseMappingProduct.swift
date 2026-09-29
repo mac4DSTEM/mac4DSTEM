@@ -233,7 +233,25 @@ package final class PhaseMappingProduct {
     /// panel can show the runners-up. A tie across a symmetry-equivalent
     /// family is what says the fit is real rather than arbitrary, and only the
     /// runners-up show it. Cleared with the dataset, like the map.
-    package var zoneAxisFits: [PhaseVectorMatcher.ZoneAxisFit] = []
+    package private(set) var zoneAxisFits: [PhaseVectorMatcher.ZoneAxisFit] = []
+    /// The Q scale and calibration `zoneAxisFits` were computed under, written
+    /// with them and cleared with them (S4: the list used to outlive a
+    /// calibration change and read as current).
+    package private(set) var zoneAxisRun: ZoneAxisRun?
+
+    package func setZoneAxisFits(_ fits: [PhaseVectorMatcher.ZoneAxisFit], ranWith run: ZoneAxisRun) {
+        zoneAxisFits = fits
+        zoneAxisRun = run
+    }
+
+    /// Why the shown zone-axis list must not be offered against the live
+    /// calibration, or nil. The list is dropped, not recomputed: only a rerun
+    /// answers for the new scale.
+    package func zoneAxisStaleness(currentInvAngstromPerPixel q: Double,
+                                   currentCalibration: CalibrationStamp) -> String? {
+        guard !zoneAxisFits.isEmpty else { return nil }
+        return zoneAxisRun?.staleness(currentInvAngstromPerPixel: q, currentCalibration: currentCalibration)
+    }
     /// Everything needed to say what produced `map`, and to tell whether the
     /// live controls have moved since.
     package private(set) var lastRun: RunRecord?
@@ -249,7 +267,7 @@ package final class PhaseMappingProduct {
                      matrixEntryIndex: Int, matrixInPlaneDegrees: Double,
                      worstChanceMatchPercent: Double, invAngstromPerPixel: Double,
                      qScaleIsPhysical: Bool, peakCount: Int,
-                     calibration: CalibrationStamp? = nil) {
+                     calibration: CalibrationStamp) {
             self.phaseSignature = phaseSignature
             self.reference = reference
             self.matching = matching
@@ -277,8 +295,9 @@ package final class PhaseMappingProduct {
         package var qScaleIsPhysical: Bool
         package var peakCount: Int
         /// The origin and ellipse the run calibrated its Bragg vectors with.
-        /// nil = not recorded, which the claims check treats as unverifiable.
-        package var calibration: CalibrationStamp?
+        /// Always recorded: `lastRun` is memory-only and cleared on every load,
+        /// so no run exists that predates the stamp.
+        package var calibration: CalibrationStamp
 
         /// Why the claimed-disks overlay must not be drawn against this run,
         /// or nil. The overlay re-calibrates the raw peaks with the CURRENT
@@ -292,11 +311,50 @@ package final class PhaseMappingProduct {
             guard abs(q - invAngstromPerPixel) <= 1e-12 * max(1, abs(invAngstromPerPixel)) else {
                 return "Q calibration changed since the map — run again"
             }
-            guard let calibration else {
-                return "The map did not record its calibration — run again"
-            }
             guard calibration == currentCalibration else {
                 return "Origin or ellipse changed since the map — run again"
+            }
+            return nil
+        }
+    }
+
+    /// The claimed-disks overlay's task key for the calibration. The quick
+    /// stamp cannot tell two origin fits apart that share a mean origin and map
+    /// dimensions (Measure Origin again, Constant then Plane, no Clear in
+    /// between), yet `BraggVectors.calibrated` re-centres every position on
+    /// `fittedX/Y`. The arrays themselves join the key: Swift compares equal
+    /// buffers by identity first, so an unchanged calibration costs O(1) per
+    /// SwiftUI body pass where a digest would walk both maps.
+    package struct CalibrationKey: Equatable {
+        package var quick: CalibrationStamp
+        package var fittedX: [Float]?
+        package var fittedY: [Float]?
+
+        package nonisolated init(calibration: Calibration, referenceOrigin: (x: Float, y: Float)) {
+            quick = CalibrationStamp(calibration: calibration, referenceOrigin: referenceOrigin,
+                                     includeMapDigest: false)
+            fittedX = calibration.origin?.fittedX
+            fittedY = calibration.origin?.fittedY
+        }
+    }
+
+    /// What a Find Matrix Zone Axis ranking was computed under.
+    package struct ZoneAxisRun: Sendable, Equatable {
+        package var invAngstromPerPixel: Double
+        package var calibration: CalibrationStamp
+
+        package init(invAngstromPerPixel: Double, calibration: CalibrationStamp) {
+            self.invAngstromPerPixel = invAngstromPerPixel
+            self.calibration = calibration
+        }
+
+        package func staleness(currentInvAngstromPerPixel q: Double,
+                               currentCalibration: CalibrationStamp) -> String? {
+            guard abs(q - invAngstromPerPixel) <= 1e-12 * max(1, abs(invAngstromPerPixel)) else {
+                return "The Q scale changed since this ranking — fit again"
+            }
+            guard calibration == currentCalibration else {
+                return "The origin or ellipse changed since this ranking — fit again"
             }
             return nil
         }
@@ -442,6 +500,7 @@ package final class PhaseMappingProduct {
                 PhaseMappingRuleDefaults.minimumIntensityFraction(for: .knownVariants)
         }
         zoneAxisFits = []
+        zoneAxisRun = nil
     }
 
     /// The library this list and these settings would build, before building
@@ -477,5 +536,6 @@ package final class PhaseMappingProduct {
         lastRun = nil
         lastLibrary = nil
         zoneAxisFits = []
+        zoneAxisRun = nil
     }
 }

@@ -101,7 +101,15 @@ struct PhaseMappingSections: View {
                 // on this data (the sweep's median, Gate D 2026-09-15) — the
                 // second is what marks the ⟨112⟩, which shares reflections
                 // with the true axis.
-                ForEach(Array(product.zoneAxisFits.enumerated()), id: \.offset) { rank, fit in
+                // A ranking from another Q scale, origin or ellipse is not
+                // offered: only a new fit answers for the live calibration.
+                let staleRanking = appState.zoneAxisStaleness
+                if let staleRanking {
+                    InspectorWarning(staleRanking, systemImage: "clock.arrow.circlepath")
+                        .accessibilityIdentifier("phaseMapping.zoneAxisStale")
+                }
+                ForEach(staleRanking == nil ? Array(product.zoneAxisFits.enumerated()) : [],
+                        id: \.offset) { rank, fit in
                     let aboveChance = fit.isAboveChance(
                         multiple: appState.phaseMapping.matching.chanceMatchMultiple)
                     InspectorRow("[\(fit.zoneAxis.x) \(fit.zoneAxis.y) \(fit.zoneAxis.z)]", emphasized: rank == 0) {
@@ -119,7 +127,7 @@ struct PhaseMappingSections: View {
                         .labelsHidden()
                     }
                 }
-                if let top = product.zoneAxisFits.first,
+                if staleRanking == nil, let top = product.zoneAxisFits.first,
                    !top.isAboveChance(
                        multiple: appState.phaseMapping.matching.chanceMatchMultiple) {
                     Text(String(format: "No axis beats chance here. A reference set "
@@ -129,7 +137,7 @@ struct PhaseMappingSections: View {
                                 100 * top.chanceFraction, 100 * top.explainedFraction))
                         .font(.caption2)
                         .foregroundStyle(.orange)
-                } else if let top = product.zoneAxisFits.first, !top.isAboveSweep {
+                } else if staleRanking == nil, let top = product.zoneAxisFits.first, !top.isAboveSweep {
                     Text(String(format: "No axis stands out here. The best explains "
                                 + "%.0f %% and the median axis %.0f %%; on a real crystal "
                                 + "a wrong axis explains that much through shared "

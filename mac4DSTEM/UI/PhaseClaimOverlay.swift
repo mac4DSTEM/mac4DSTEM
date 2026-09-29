@@ -222,9 +222,9 @@ struct PhaseClaimLayer: View {
         var x: Int, y: Int
         var scale: Double
         var peakCount: Int
-        /// Origin and ellipse (without the map digest — this is read on every
-        /// body pass); `refresh` compares the full stamp.
-        var calibration: PhaseMappingProduct.CalibrationStamp
+        /// Origin, ellipse and the fitted maps themselves (`CalibrationKey`:
+        /// read on every body pass, so no digest); `refresh` compares the full stamp.
+        var calibration: PhaseMappingProduct.CalibrationKey
     }
 
     private var key: Key {
@@ -232,19 +232,17 @@ struct PhaseClaimLayer: View {
             x: appState.selectedScan.x, y: appState.selectedScan.y,
             scale: appState.acomScaleSemantics.invAngstromPerPixel,
             peakCount: appState.fitOverlays.storedPeaksAtSelection.count,
-            calibration: currentCalibrationStamp(includeMapDigest: false))
+            calibration: PhaseMappingProduct.CalibrationKey(
+                calibration: appState.calibrationSession.calibration, referenceOrigin: currentReferenceOrigin))
     }
 
-    private func currentCalibrationStamp(includeMapDigest: Bool)
-        -> PhaseMappingProduct.CalibrationStamp {
+    private var currentReferenceOrigin: (x: Float, y: Float) {
         let calibration = appState.calibrationSession.calibration
-        let origin = appState.descriptor.map {
+        return appState.descriptor.map {
             calibration.referenceOrigin(
                 detectorQX: $0.qx, detectorQY: $0.qy,
                 apertureCentre: (x: appState.aperture.centerX, y: appState.aperture.centerY)).point
         } ?? (x: 0, y: 0)
-        return PhaseMappingProduct.CalibrationStamp(
-            calibration: calibration, referenceOrigin: origin, includeMapDigest: includeMapDigest)
     }
 
     var body: some View {
@@ -295,7 +293,8 @@ struct PhaseClaimLayer: View {
         }
         if let refusal = run.claimsRefusal(
             currentInvAngstromPerPixel: appState.acomScaleSemantics.invAngstromPerPixel,
-            currentCalibration: currentCalibrationStamp(includeMapDigest: true)) {
+            currentCalibration: PhaseMappingProduct.CalibrationStamp(
+                calibration: appState.calibrationSession.calibration, referenceOrigin: currentReferenceOrigin)) {
             note = refusal
             return
         }

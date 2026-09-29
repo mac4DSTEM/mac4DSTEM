@@ -50,7 +50,8 @@ final class InspectorWidthBudgetTests: XCTestCase {
             reference: state.phaseMapping.reference, matching: state.phaseMapping.matching,
             libraryEntryCount: 1234, matrixEntryIndex: 0, matrixInPlaneDegrees: 12,
             worstChanceMatchPercent: 3.5, invAngstromPerPixel: 0.01,
-            qScaleIsPhysical: true, peakCount: 100)
+            qScaleIsPhysical: true, peakCount: 100,
+            calibration: PhaseMappingProduct.CalibrationStamp(calibration: Calibration(), referenceOrigin: (0, 0)))
     }
 
     /// Mutations this must catch: the unit "Å⁻¹ (0 = detector)" back on

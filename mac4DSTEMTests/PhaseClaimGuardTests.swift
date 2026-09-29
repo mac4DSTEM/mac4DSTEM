@@ -63,12 +63,13 @@ final class PhaseClaimGuardTests: XCTestCase {
     // MARK: - 2. Claims refuse on origin / ellipse changes
 
     private func calibration(ellipse: [Double]? = [1.0, 1.1, 0.3],
-                             fittedX: [Float]? = [10, 11, 12, 13]) -> Calibration {
+                             fittedX: [Float]? = [10, 11, 12, 13],
+                             fittedY: [Float] = [20, 21, 22, 23]) -> Calibration {
         var c = Calibration()
         if let ellipse { c.ellipseA = ellipse[0]; c.ellipseB = ellipse[1]; c.ellipseTheta = ellipse[2] }
         if let fittedX {
             c.origin = OriginMaps(width: 2, height: 2, measuredX: nil, measuredY: nil,
-                                  fittedX: fittedX, fittedY: [20, 21, 22, 23])
+                                  fittedX: fittedX, fittedY: fittedY)
         }
         return c
     }
@@ -78,7 +79,7 @@ final class PhaseClaimGuardTests: XCTestCase {
         PhaseMappingProduct.CalibrationStamp(calibration: c, referenceOrigin: origin)
     }
 
-    private func run(_ s: PhaseMappingProduct.CalibrationStamp?) -> PhaseMappingProduct.RunRecord {
+    private func run(_ s: PhaseMappingProduct.CalibrationStamp) -> PhaseMappingProduct.RunRecord {
         PhaseMappingProduct.RunRecord(
             phaseSignature: "x", reference: PhaseReferenceSettings(), matching: PhaseVectorSettings(),
             libraryEntryCount: 1, matrixEntryIndex: 0, matrixInPlaneDegrees: 0,
@@ -92,25 +93,22 @@ final class PhaseClaimGuardTests: XCTestCase {
     func testRefusesWhenOriginOrEllipseDiffersFromTheRun() {
         let base = calibration()
         let r = run(stamp(base))
+        let message = "Origin or ellipse changed since the map — run again"
         XCTAssertNil(r.claimsRefusal(currentInvAngstromPerPixel: 0.01, currentCalibration: stamp(base)),
                      "unchanged calibration draws")
 
-        let moved = r.claimsRefusal(currentInvAngstromPerPixel: 0.01,
-                                    currentCalibration: stamp(base, origin: (10.5, 20)))
-        XCTAssertEqual(moved, "Origin or ellipse changed since the map — run again", "reference origin")
-
-        XCTAssertNotNil(r.claimsRefusal(currentInvAngstromPerPixel: 0.01,
-                                        currentCalibration: stamp(calibration(ellipse: [1.0, 1.2, 0.3]))),
-                        "ellipse b")
-        XCTAssertNotNil(r.claimsRefusal(currentInvAngstromPerPixel: 0.01,
-                                        currentCalibration: stamp(calibration(ellipse: nil))),
-                        "ellipse removed")
-        XCTAssertNotNil(r.claimsRefusal(currentInvAngstromPerPixel: 0.01,
-                                        currentCalibration: stamp(calibration(fittedX: [10, 11, 12, 13.5]))),
-                        "one fitted origin value")
-        XCTAssertNotNil(r.claimsRefusal(currentInvAngstromPerPixel: 0.01,
-                                        currentCalibration: stamp(calibration(fittedX: nil))),
-                        "origin maps removed")
+        let cases: [(String, PhaseMappingProduct.CalibrationStamp)] = [
+            ("reference origin", stamp(base, origin: (10.5, 20))),
+            ("ellipse b", stamp(calibration(ellipse: [1.0, 1.2, 0.3]))),
+            ("ellipse removed", stamp(calibration(ellipse: nil))),
+            ("one fitted-X value", stamp(calibration(fittedX: [10, 11, 12, 13.5]))),
+            ("one fitted-Y value", stamp(calibration(fittedY: [20, 21, 22, 23.5]))),
+            ("origin maps removed", stamp(calibration(fittedX: nil))),
+        ]
+        for (name, changed) in cases {
+            XCTAssertEqual(r.claimsRefusal(currentInvAngstromPerPixel: 0.01, currentCalibration: changed),
+                           message, name)
+        }
     }
 
     /// Mutation: drop the Q comparison -> red.
@@ -119,13 +117,6 @@ final class PhaseClaimGuardTests: XCTestCase {
         let r = run(stamp(base))
         XCTAssertEqual(r.claimsRefusal(currentInvAngstromPerPixel: 0.0101, currentCalibration: stamp(base)),
                        "Q calibration changed since the map — run again")
-    }
-
-    /// A run that recorded no calibration cannot be verified, so it does not draw.
-    func testRefusesARunThatRecordedNoCalibration() {
-        let base = calibration()
-        XCTAssertNotNil(run(nil).claimsRefusal(currentInvAngstromPerPixel: 0.01,
-                                               currentCalibration: stamp(base)))
     }
 
     /// The quick stamp (no map digest) must not depend on the maps' contents.
@@ -139,6 +130,30 @@ final class PhaseClaimGuardTests: XCTestCase {
         XCTAssertNotEqual(a, PhaseMappingProduct.CalibrationStamp(
             calibration: calibration(ellipse: [1, 1.3, 0.3]), referenceOrigin: (10, 20),
             includeMapDigest: false))
+    }
+
+    /// Fable review of c8db808: an origin re-fit that keeps the mean origin and
+    /// the map dimensions left the overlay's task key unchanged, so the old
+    /// rings stayed drawn. The quick stamp (the old key) is equal for these two
+    /// calibrations; the key must not be. Mutation: drop `fittedX/fittedY` from
+    /// `CalibrationKey` -> the last assertion goes red.
+    func testOverlayKeyChangesWhenTheFittedMapsChangeButTheirMeanDoesNot() {
+        let a = calibration(fittedX: [10, 11, 12, 13], fittedY: [20, 21, 22, 23])
+        let b = calibration(fittedX: [13, 12, 11, 10], fittedY: [23, 22, 21, 20])   // same mean, same size
+        let quick = { (c: Calibration) in
+            PhaseMappingProduct.CalibrationStamp(calibration: c, referenceOrigin: (11.5, 21.5),
+                                                 includeMapDigest: false)
+        }
+        XCTAssertEqual(quick(a), quick(b), "premise: the old key could not tell these apart")
+        XCTAssertNotEqual(stamp(a, origin: (11.5, 21.5)), stamp(b, origin: (11.5, 21.5)),
+                          "the full stamp (what claimsRefusal compares) can")
+        let key = { (c: Calibration) in
+            PhaseMappingProduct.CalibrationKey(calibration: c, referenceOrigin: (11.5, 21.5))
+        }
+        XCTAssertEqual(key(a), key(a))
+        XCTAssertNotEqual(key(a), key(b), "the overlay must re-run its task")
+        XCTAssertNotEqual(key(a), key(calibration(fittedX: [10, 11, 12, 13], fittedY: [23, 22, 21, 20])),
+                          "a Y-only change")
     }
 
     // MARK: - 3. The library lives with the run
@@ -164,15 +179,70 @@ final class PhaseClaimGuardTests: XCTestCase {
     func testProductKeepsTheRunsLibraryAndDropsItWithTheRun() {
         let product = PhaseMappingProduct()
         XCTAssertNil(product.lastLibrary)
-        product.publish(map(), ranWith: run(nil), library: library(entries: 1))
+        product.publish(map(), ranWith: run(stamp(calibration())), library: library(entries: 1))
         XCTAssertEqual(product.lastLibrary?.entries.count, 1)
-        product.publish(map(), ranWith: run(nil), library: library(entries: 2))
+        product.publish(map(), ranWith: run(stamp(calibration())), library: library(entries: 2))
         XCTAssertEqual(product.lastLibrary?.entries.count, 2, "a new run replaces the pair")
-        product.publish(map(), ranWith: run(nil))
+        product.publish(map(), ranWith: run(stamp(calibration())))
         XCTAssertNil(product.lastLibrary, "a run published without a library must not keep the old one")
-        product.publish(map(), ranWith: run(nil), library: library(entries: 1))
+        product.publish(map(), ranWith: run(stamp(calibration())), library: library(entries: 1))
         product.clear()
         XCTAssertNil(product.lastLibrary)
         XCTAssertNil(product.lastRun)
+    }
+
+    // MARK: - 4. The zone-axis ranking is stale once the calibration moves (S4)
+
+    private func fit() -> PhaseVectorMatcher.ZoneAxisFit {
+        PhaseVectorMatcher.ZoneAxisFit(zoneAxis: SIMD3(1, 1, 0), inPlaneRotationRad: 0,
+                                       matchedVectors: 40, totalVectors: 100, meanDistance: 0.002,
+                                       chanceMatchedVectors: 5, sweepMedianFraction: 0.1)
+    }
+
+    private func zoneRun(_ c: Calibration, q: Double = 0.01) -> PhaseMappingProduct.ZoneAxisRun {
+        PhaseMappingProduct.ZoneAxisRun(invAngstromPerPixel: q, calibration: stamp(c))
+    }
+
+    /// Mutation: drop the Q comparison in `ZoneAxisRun.staleness` -> the Q case
+    /// goes red; drop the `calibration ==` guard -> the origin/ellipse/map
+    /// cases go red. Against the old code (no scale beside the list) none of
+    /// this compiles: the list was shown whatever the calibration.
+    func testRankingIsStaleWhenQOriginOrEllipseMoved() {
+        let base = calibration()
+        let product = PhaseMappingProduct()
+        product.setZoneAxisFits([fit()], ranWith: zoneRun(base))
+        XCTAssertNil(product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.01,
+                                               currentCalibration: stamp(base)), "unchanged is current")
+        XCTAssertEqual(product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.0101,
+                                                 currentCalibration: stamp(base)),
+                       "The Q scale changed since this ranking — fit again")
+        let moved = "The origin or ellipse changed since this ranking — fit again"
+        XCTAssertEqual(product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.01,
+                                                 currentCalibration: stamp(base, origin: (10.5, 20))), moved, "origin")
+        XCTAssertEqual(product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.01,
+                                                 currentCalibration: stamp(calibration(ellipse: [1, 1.2, 0.3]))),
+                       moved, "ellipse")
+        XCTAssertEqual(product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.01,
+                                                 currentCalibration: stamp(calibration(fittedX: [10, 11, 12, 13.5]))),
+                       moved, "origin map X value")
+        XCTAssertEqual(product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.01,
+                                                 currentCalibration: stamp(calibration(fittedY: [20, 21, 22, 23.5]))),
+                       moved, "origin map Y value")
+    }
+
+    /// Mutation: `clear` (or the preset) forgets `zoneAxisRun = nil` -> red;
+    /// a run and its list are written and cleared together (setZoneAxisFits / clear), so a list without a run is unreachable.
+    func testRankingRunDiesWithTheListAndAnEmptyListIsNeverStale() {
+        let product = PhaseMappingProduct()
+        XCTAssertNil(product.zoneAxisStaleness(currentInvAngstromPerPixel: 5, currentCalibration: stamp(calibration())),
+                     "nothing shown, nothing stale")
+        product.setZoneAxisFits([fit()], ranWith: zoneRun(calibration()))
+        product.clear()
+        XCTAssertTrue(product.zoneAxisFits.isEmpty)
+        XCTAssertNil(product.zoneAxisRun)
+        product.setZoneAxisFits([fit()], ranWith: zoneRun(calibration()))
+        product.applyAlMgSiPreset(precipitate: CrystalModelLibrary.model(id: "mg_hcp")!)
+        XCTAssertTrue(product.zoneAxisFits.isEmpty)
+        XCTAssertNil(product.zoneAxisRun)
     }
 }

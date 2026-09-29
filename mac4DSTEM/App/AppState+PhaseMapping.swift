@@ -462,6 +462,21 @@ extension AppState {
             + "peaks in detector pixels, so without it every position reads not indexed."
     }
 
+    /// Why the zone-axis ranking on the panel belongs to an earlier Q scale,
+    /// origin or ellipse, or nil. Called from a view body, only while a ranking
+    /// is shown (the stamp digests the fitted origin maps).
+    var zoneAxisStaleness: String? {
+        guard !phaseMapping.zoneAxisFits.isEmpty, let d = descriptor else { return nil }
+        let calibration = calibrationSession.calibration
+        let origin = calibration.referenceOrigin(
+            detectorQX: d.qx, detectorQY: d.qy,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY)).point
+        return phaseMapping.zoneAxisStaleness(
+            currentInvAngstromPerPixel: acomScaleSemantics.invAngstromPerPixel,
+            currentCalibration: PhaseMappingProduct.CalibrationStamp(
+                calibration: calibration, referenceOrigin: origin))
+    }
+
     /// Put the three matching tolerances onto this detector's own grid.
     func scalePhaseMatchingToDetector() {
         guard let resolution = phaseVectorResolution else { return }
@@ -501,6 +516,11 @@ extension AppState {
         let slot = phaseMapping.phases[matrixIndex]
         let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
         let origin = calibrated.origin.point
+        // Taken with the vectors, before the awaits (as in runPhaseMapping).
+        let zoneAxisRun = PhaseMappingProduct.ZoneAxisRun(
+            invAngstromPerPixel: acomScaleSemantics.invAngstromPerPixel,
+            calibration: PhaseMappingProduct.CalibrationStamp(
+                calibration: calibrationSession.calibration, referenceOrigin: origin))
         let scale = acomScaleSemantics
         // Read on the main actor, before the detach below — same reason as
         // runPhaseMapping's invAngstromPerPixel extraction, above.
@@ -550,7 +570,7 @@ extension AppState {
         // `fitZoneAxis` returns a total order (count, mean distance, then the
         // axis indices), so which three rows show — and which one is written
         // below — no longer depends on the order the sweep met the axes in.
-        phaseMapping.zoneAxisFits = Array(fits.prefix(3))
+        phaseMapping.setZoneAxisFits(Array(fits.prefix(3)), ranWith: zoneAxisRun)
         guard winner.isInformative(multiple: matching.chanceMatchMultiple) else {
             return .failed("No zone axis stands out for \(slot.model.displayName): the best, "
                            + "[\(winner.zoneAxis.x) \(winner.zoneAxis.y) \(winner.zoneAxis.z)], "

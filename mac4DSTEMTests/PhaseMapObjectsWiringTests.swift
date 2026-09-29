@@ -56,7 +56,8 @@ final class PhaseMapObjectsWiringTests: XCTestCase {
             matching: PhaseVectorSettings(), libraryEntryCount: 1,
             matrixEntryIndex: 0, matrixInPlaneDegrees: .nan,
             worstChanceMatchPercent: 0, invAngstromPerPixel: 0.01,
-            qScaleIsPhysical: false, peakCount: 0
+            qScaleIsPhysical: false, peakCount: 0,
+            calibration: PhaseMappingProduct.CalibrationStamp(calibration: Calibration(), referenceOrigin: (0, 0))
         )
     }
 

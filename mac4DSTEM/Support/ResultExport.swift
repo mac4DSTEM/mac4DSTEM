@@ -1464,7 +1464,8 @@ extension AppState {
             let q = calibrationSession.calibration
             return (q.qPixelSize, q.qPixelSize, q.qPixelUnits, provenance)
         }
-        guard navigation.analysisMode == .ptychography else {
+        // Both modes: single-slice runs in its own (SingleslicePtychographyExportTests).
+        guard navigation.analysisMode == .ptychography || navigation.analysisMode == .singleslicePtychography else {
             return (
                 calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelSize,
                 calibrationSession.calibration.rPixelUnits, ["analysis_mode": navigation.analysisMode.rawValue]
