@@ -183,7 +183,8 @@ struct DiffractionPane: View {
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .fixedSize()
-                    .help("Draw the fitted model (origin/ellipse, strain lattice, or matched template) over the pattern.")
+                    .accessibilityLabel("Fit overlay")
+                    .help("Draw the fitted model (origin/ellipse, strain lattice, or matched template) over the pattern. In Prepare it also greys, in the real-space image, the scan positions the origin fit's robust trim excluded.")
             }
 
             if claimedDisksAvailable {
@@ -466,6 +467,15 @@ struct RealSpacePane: View {
         if let rgba = appState.displayedResultRGBA { return (rgba.width, rgba.height) }
         if let image = appState.displayedResultImage { return (image.width, image.height) }
         return nil
+    }
+
+    /// The origin trim's mask when it is this scan's and Prepare is judging it
+    /// (`FitOverlayPresentation.originTrim` decides; the pane only draws).
+    private func originTrim(matching dims: (width: Int, height: Int))
+        -> FitOverlays.OriginTrimOverlay? {
+        guard let trim = appState.fitOverlays.originTrim,
+              trim.width == dims.width, trim.height == dims.height else { return nil }
+        return trim
     }
 
     private var mapsScanPositions: Bool {
@@ -833,6 +843,15 @@ struct RealSpacePane: View {
                             .frame(width: imageBox.width, height: imageBox.height)
                     }
 
+                    // Positions the origin fit's robust trim excluded (S23):
+                    // a wash in the shared container, so it follows zoom,
+                    // rotation and mirroring with the image it marks.
+                    if mapsScanPositions, let trim = originTrim(matching: dims) {
+                        OriginTrimWash(overlay: trim)
+                            .frame(width: imageBox.width, height: imageBox.height)
+                            .allowsHitTesting(false)
+                    }
+
                     // Objects selected in the object table (an overlay, not a
                     // published product: never saved or compared).
                     if let tableSelection {
@@ -957,6 +976,10 @@ struct RealSpacePane: View {
                 // Direction legend for the DPC colour wheel. Suppressed while
                 // inspecting a quality field — the viewer is then showing a
                 // scalar viridis map, not the colour-wheel-encoded result.
+                if mapsScanPositions, let trim = originTrim(matching: dims) {
+                    OriginTrimLegend(caption: trim.caption)
+                }
+
                 if qualityField == nil, appState.displayedResultKind == "dpc_color" {
                     colorWheelLegend
                         .frame(width: Self.colorWheelLegendSize,

@@ -161,6 +161,16 @@ package nonisolated struct FitOverlayPresentation {
         )
     }
 
+    /// The real-space wash for positions the origin fit's robust trim
+    /// excluded (S23). Prepare only - that is where the origin is judged - and
+    /// under the same "Fit overlay" toggle as the pattern marks; the mask is
+    /// the calibration's own, so a restored origin (no mask) draws nothing.
+    package var originTrim: FitOverlays.OriginTrimOverlay? {
+        guard enabled, inPrepare, let d = descriptor else { return nil }
+        return FitOverlays.originTrimOverlay(
+            origins: calibration.origin, scanWidth: d.rx, scanHeight: d.ry)
+    }
+
     /// True when the current mode/state could produce a fit overlay, so the
     /// toggle only appears where it has an effect.
     package var isAvailable: Bool {

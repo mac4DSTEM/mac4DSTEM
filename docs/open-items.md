@@ -47,11 +47,11 @@ beats 0.012 ten-vector). The count-aware candidate (`completenessAwareCrossPhase
 the demo cube on or off; Thronsen is not a valid second measurement; step 3 stride-3 sits outside every threshold tried.
 Gate D before any edit. Owner: unclaimed. Detail: `archive/v3/step3-2026-09-16.md`.
 
-### Origin validity mask landed 2026-09-17 (disclosure + D4 count); overlay owed, still `validation:"none"`
-`OriginMaps.originValidity` carries the robust trim's `kept` mask (disclosure only; ADR 033); the D4 count
-(`PrepareSettings.positionsUsedValue`) seen on screen 2026-09-30 (sim_Au: 7509 of 8400, `archive/v4/drives-2026-09-30.md`). Step-3 trim sweep, 4 cubes: excluded 0.6–15.7 %, `maxGap`
-1–5. **Owed:** the spatial overlay (excluded positions greyed via `DisplayedProduct.validityMask`), not built — new
-surface. Owner: unclaimed. Detail: `archive/open-items-detail-2026-09-18.md`.
+### Origin validity mask: disclosure, D4 count and (S23, 2026-09-30 night) the Prepare wash; still `validation:"none"`
+`OriginMaps.originValidity` carries the robust trim's `kept` mask (ADR 033). In Prepare, with Fit overlay on, the real-space pane
+greys the excluded positions with "N of M positions excluded by the origin fit's robust trim" (`FitOverlays.originTrimOverlay`);
+seen on screen on sim_Au: 891 of 8400, Positions used 7509 (drive 1, 2026-09-30 night). Residuals: an imported or restored origin
+has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen); no standalone origin-map product.
 
 ### ACOM / zone-axis science residuals — three measured gaps, no fix attempted
 - **Zone axis up to 12.8° beyond the bank's own sampling** (2026-09-15): winner outscores truth by 0.6–10 %, worst ⟨122⟩; next:

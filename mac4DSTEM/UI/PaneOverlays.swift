@@ -138,6 +138,65 @@ struct ScaleBar: View {
     }
 }
 
+// MARK: - Origin robust-trim wash
+
+/// The real-space wash for scan positions the origin fit's robust trim
+/// excluded (S23). Draws exactly the runs Core hands it - no rule of its own -
+/// in the neutral gray the colorbar's masked swatch already uses, translucent
+/// so the image underneath stays readable.
+struct OriginTrimWash: View {
+    let overlay: FitOverlays.OriginTrimOverlay
+
+    /// Shared with `OriginTrimLegend`'s swatch: one colour, one meaning.
+    static let washColor = Color(red: 0.32, green: 0.32, blue: 0.34)
+    static let washOpacity = 0.6
+
+    var body: some View {
+        Canvas { context, size in
+            let cell = CGSize(width: size.width / CGFloat(overlay.width),
+                              height: size.height / CGFloat(overlay.height))
+            var path = Path()
+            for run in overlay.runs {
+                path.addRect(CGRect(x: CGFloat(run.x) * cell.width,
+                                    y: CGFloat(run.y) * cell.height,
+                                    width: CGFloat(run.length) * cell.width,
+                                    height: cell.height))
+            }
+            context.fill(path, with: .color(Self.washColor.opacity(Self.washOpacity)))
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// The one line that says what the wash is, on the same legibility plate as
+/// the colorbar (an overlay, no layout row).
+struct OriginTrimLegend: View {
+    let caption: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 4) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(OriginTrimWash.washColor)
+                .frame(width: 10, height: 7)
+                .overlay(RoundedRectangle(cornerRadius: 1)
+                    .stroke(Color.white.opacity(0.45), lineWidth: 0.5))
+                .padding(.top, 2)
+            Text(caption)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: 176, alignment: .leading)
+        .font(.caption2)
+        .foregroundStyle(.white.opacity(0.85))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(caption)
+        .accessibilityIdentifier("result.originTrimLegend")
+    }
+}
+
 // MARK: - Colorbar
 
 /// Numeric scalar legend for the exact colormap and contrast window displayed

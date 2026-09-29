@@ -162,3 +162,6 @@ what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes
   M1–M12 red. Fable supervisor COMMIT; drive 1 VERIFIED a–e on screen (supervisor checked every shot); an identical origin
   re-fit leaves the ranking current (empties the Unverified row). Post-drive string fixes (grouped count, "· restored",
   "matrix removal") gated (14 / 0, grouped-count mutation red) — re-driven in drive 2.
+- S23 Origin validity wash: excluded positions greyed in Prepare's real-space pane with a count legend, gated by Fit overlay; no
+  new control, no Frozen Shell. 8 / 0, two mutations red. Fable supervisor COMMIT (not transposable; 5×4 asymmetric mask); drive
+  1: 891 of 8400 = Positions used 7509, toggle, Results and rotation seen; pinch zoom not synthesisable.

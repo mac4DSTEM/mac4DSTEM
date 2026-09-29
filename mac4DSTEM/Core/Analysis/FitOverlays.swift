@@ -243,6 +243,76 @@ package nonisolated enum FitOverlays {
         )
     }
 
+    // MARK: - Origin robust trim (real space)
+
+    /// The scan positions the origin fit's robust trim excluded, as data for a
+    /// real-space pane to grey (S23; ADR 033's mask, drawn). Row runs, so a
+    /// pane fills a few rectangles rather than one per position, and a run never
+    /// continues across the row wrap. Pure display of `OriginMaps.originValidity`:
+    /// nothing here feeds a number, and the fitted origins of an excluded
+    /// position are still valid (they come from the surface the kept positions
+    /// define) - the wash says "this measurement was not used", not "no value".
+    package struct OriginTrimOverlay: Equatable, Sendable {
+        package struct Run: Equatable, Sendable {
+            package let y: Int
+            package let x: Int
+            package let length: Int
+
+            package nonisolated init(y: Int, x: Int, length: Int) {
+                self.y = y
+                self.x = x
+                self.length = length
+            }
+        }
+
+        package let width: Int
+        package let height: Int
+        package let excluded: Int
+        package let runs: [Run]
+
+        package var total: Int { width * height }
+
+        /// The legend line: counts only, the mask's own statement.
+        package var caption: String {
+            "\(excluded) of \(total) positions excluded by the origin fit\u{2019}s robust trim"
+        }
+
+        package nonisolated init(width: Int, height: Int, excluded: Int, runs: [Run]) {
+            self.width = width
+            self.height = height
+            self.excluded = excluded
+            self.runs = runs
+        }
+    }
+
+    /// nil when there is nothing honest to draw: no origin maps, no mask (an
+    /// imported, restored or re-referenced origin has no trim history and this
+    /// invents none), a mask that is not this scan's (length or shape), or a
+    /// trim that excluded nothing.
+    package static func originTrimOverlay(
+        origins: OriginMaps?, scanWidth: Int, scanHeight: Int
+    ) -> OriginTrimOverlay? {
+        guard let origins, let mask = origins.originValidity,
+              scanWidth > 0, scanHeight > 0,
+              origins.width == scanWidth, origins.height == scanHeight,
+              mask.count == scanWidth * scanHeight else { return nil }
+        var runs: [OriginTrimOverlay.Run] = []
+        var excluded = 0
+        for y in 0..<scanHeight {
+            var x = 0
+            while x < scanWidth {
+                guard !mask[y * scanWidth + x] else { x += 1; continue }
+                let start = x
+                while x < scanWidth, !mask[y * scanWidth + x] { x += 1 }
+                runs.append(OriginTrimOverlay.Run(y: y, x: start, length: x - start))
+                excluded += x - start
+            }
+        }
+        guard excluded > 0 else { return nil }
+        return OriginTrimOverlay(width: scanWidth, height: scanHeight,
+                                 excluded: excluded, runs: runs)
+    }
+
     // MARK: - Calibration (origin / ellipse)
 
     /// Sample the fitted ellipse as a polyline in raw detector pixels.
