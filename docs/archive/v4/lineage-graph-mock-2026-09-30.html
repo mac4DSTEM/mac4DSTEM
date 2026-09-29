@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lineage Graph Mock</title>
+<style>
+:root {
+  --page: #f5f5f7; --text: #1d1d1f; --secondary: #6e6e73; --tertiary: #a1a1a6;
+  --window: #ffffff; --chrome: #ececee; --hairline: #d2d2d7; --pane: #fbfbfd; --canvas: #f4f4f6;
+  --node: #ffffff; --node-stroke: #c7c7cc; --glyph: #3a3a3c; --edge: #9a9aa0;
+  --accent: #007aff; --accent-soft: rgba(0,122,255,.14); --green: #28a745; --orange: #f08c00;
+  --callout: #c2185b; --callout-text: #ffffff; --button: #ffffff; --button-stroke: #c7c7cc;
+  --img-a: #2b2f36; --img-b: #3a3f47;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #161618; --text: #ececf0; --secondary: #9d9da3; --tertiary: #6c6c72;
+    --window: #1e1e20; --chrome: #2a2a2d; --hairline: #3a3a3e; --pane: #1b1b1d; --canvas: #202023;
+    --node: #2c2c2f; --node-stroke: #48484c; --glyph: #d8d8dc; --edge: #6e6e75;
+    --accent: #0a84ff; --accent-soft: rgba(10,132,255,.22); --green: #30d158; --orange: #ff9f0a;
+    --callout: #ff5c93; --callout-text: #1a0a10; --button: #3a3a3d; --button-stroke: #4a4a4e;
+    --img-a: #0e1014; --img-b: #171a1f;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #161618; --text: #ececf0; --secondary: #9d9da3; --tertiary: #6c6c72;
+  --window: #1e1e20; --chrome: #2a2a2d; --hairline: #3a3a3e; --pane: #1b1b1d; --canvas: #202023;
+  --node: #2c2c2f; --node-stroke: #48484c; --glyph: #d8d8dc; --edge: #6e6e75;
+  --accent: #0a84ff; --accent-soft: rgba(10,132,255,.22); --green: #30d158; --orange: #ff9f0a;
+  --callout: #ff5c93; --callout-text: #1a0a10; --button: #3a3a3d; --button-stroke: #4a4a4e;
+  --img-a: #0e1014; --img-b: #171a1f;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--text);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 900px; margin: 0 auto; padding: 24px 16px 40px; }
+h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -.01em; }
+.lede { color: var(--secondary); margin: 0 0 18px; max-width: 68ch; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+/* ---------- the window ---------- */
+.scroller { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 11px; }
+.window {
+  width: 868px; background: var(--window); border: 1px solid var(--hairline); border-radius: 11px;
+  overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.08);
+}
+.toolbar {
+  height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  background: var(--chrome); border-bottom: 1px solid var(--hairline);
+}
+.lights { display: flex; gap: 8px; margin-right: 6px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.lights i:nth-child(1) { background: #ff5f57; } .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.tb-icon { width: 26px; height: 22px; display: grid; place-items: center; color: var(--secondary); }
+.tb-center { flex: 1; display: flex; justify-content: center; }
+.capsule {
+  display: flex; align-items: center; gap: 10px; height: 28px; padding: 0 6px 0 12px;
+  border-radius: 14px; background: var(--window); border: 1px solid var(--hairline); font-size: 12px;
+}
+.capsule .file { font-weight: 600; }
+.capsule .sub { color: var(--secondary); }
+.run {
+  display: flex; align-items: center; gap: 5px; height: 22px; padding: 0 10px; border-radius: 11px;
+  background: var(--accent); color: #fff; font-weight: 600; font-size: 12px;
+}
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 22px; padding: 0 10px;
+  border-radius: 6px; background: var(--button); border: 1px solid var(--button-stroke); font-size: 12px; color: var(--text);
+  box-shadow: 0 .5px 1px rgba(0,0,0,.08);
+}
+.content { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--hairline); height: 118px; }
+.img { position: relative; background: radial-gradient(circle at 50% 50%, var(--img-b), var(--img-a)); }
+.img span { position: absolute; left: 10px; top: 8px; font-size: 11px; color: #c9c9ce; }
+.infobar {
+  height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px;
+  border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); background: var(--chrome); font-size: 11.5px;
+}
+.infobar .status { color: var(--secondary); flex: 1; white-space: nowrap; }
+.toggle { width: 26px; height: 20px; display: grid; place-items: center; border-radius: 5px; color: var(--secondary); }
+.toggle.on { color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- lineage pane ---------- */
+.pane { background: var(--pane); }
+.pane-header {
+  height: 26px; display: flex; align-items: center; gap: 10px; padding: 0 10px;
+  border-bottom: 1px solid var(--hairline); font-size: 12px;
+}
+.pane-header .title { font-weight: 600; color: var(--secondary); }
+.pane-header .spacer { flex: 1; }
+.check { display: inline-flex; align-items: center; gap: 5px; color: var(--text); font-size: 11.5px; }
+.check i { width: 12px; height: 12px; border: 1px solid var(--button-stroke); border-radius: 3px; background: var(--button); display: block; }
+.pane-body { display: grid; grid-template-columns: 1fr 236px; height: 414px; }
+.graph { background: var(--canvas); position: relative; overflow: hidden; }
+.graph svg { display: block; width: 100%; height: 100%; }
+.detail { border-left: 1px solid var(--hairline); padding: 9px 12px; overflow: hidden; font-size: 12px; }
+.d-head { display: flex; align-items: center; gap: 7px; }
+.d-head b { font-size: 13px; }
+.d-cap { color: var(--secondary); font-size: 11px; margin: 1px 0 8px 23px; }
+.sec { font-size: 11px; font-weight: 600; color: var(--secondary); margin: 8px 0 3px; }
+.row { display: flex; align-items: baseline; gap: 8px; padding: 1.5px 0; }
+.row .k { color: var(--text); flex: 1; white-space: nowrap; }
+.row .v { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; white-space: nowrap; }
+.row .was { color: var(--secondary); font-size: 10.5px; white-space: nowrap; }
+.link { display: flex; align-items: center; gap: 6px; padding: 1.5px 0; }
+.link .id { color: var(--tertiary); font-size: 10.5px; margin-left: auto; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.muted { color: var(--secondary); font-size: 11px; }
+.rewind { width: 100%; height: 24px; margin-top: 9px; font-size: 12.5px; }
+.consequence { color: var(--secondary); font-size: 10.5px; line-height: 1.35; margin-top: 5px; }
+
+/* ---------- graph svg ---------- */
+.n-box { fill: var(--node); stroke: var(--node-stroke); stroke-width: 1; }
+.n-label { fill: var(--text); font-size: 11px; font-weight: 600; text-anchor: middle; }
+.n-sub { fill: var(--secondary); font-size: 9.5px; text-anchor: middle; }
+.n-id { fill: var(--tertiary); font-size: 8.5px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.glyph { color: var(--glyph); }
+.edge { fill: none; stroke: var(--edge); stroke-width: 1.3; }
+.edge.ghost { stroke-dasharray: 3 3; }
+.edge.sel { stroke: var(--accent); stroke-width: 2; }
+.branch { opacity: .5; }
+.ghost .n-box { fill: none; stroke-dasharray: 4 3; }
+.ghost .n-label, .ghost .glyph { opacity: .75; }
+.selected .n-box { stroke: var(--accent); stroke-width: 2; }
+.selring { fill: none; stroke: var(--accent-soft); stroke-width: 5; }
+.s-ok { fill: var(--green); } .s-warn { fill: var(--orange); }
+.s-mark { fill: none; stroke: #fff; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.s-branch { color: var(--secondary); }
+.b-note { fill: var(--tertiary); font-size: 10px; text-anchor: end; }
+.co circle { fill: var(--callout); } .co text { fill: var(--callout-text); font-size: 10px; font-weight: 700; text-anchor: middle; }
+
+/* ---------- callouts + notes ---------- */
+.badge {
+  display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%;
+  background: var(--callout); color: var(--callout-text); font-size: 10px; font-weight: 700; flex: none;
+}
+.notes { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.notes li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; }
+.notes b { font-weight: 600; }
+h2 { font-size: 15px; margin: 26px 0 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--secondary); font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.alt { margin: 0; padding-left: 18px; color: var(--secondary); }
+.alt li { margin: 3px 0; }
+.alt b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Lineage graph</h1>
+  <p class="lede">Mock for the ADR 047 draft (clearing the board, B2). A static picture for the owner's decision, not UI code.
+  The session: load, calibrate, detect disks (0.50 %), ACOM, phases, objects; then a rewind to Q scale and a new
+  detection at 0.15 %, followed by strain, phases, objects and a CSV export. The window has the sidebar and inspector hidden.</p>
+
+  <div class="scroller">
+  <div class="window" role="img" aria-label="mac4DSTEM window with the Lineage pane showing a session graph">
+    <!-- toolbar -->
+    <div class="toolbar">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div class="tb-icon"><svg width="16" height="14" viewBox="0 0 16 14"><rect x="1" y="1.5" width="14" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="1.5" x2="6" y2="12.5" stroke="currentColor" stroke-width="1.2"/></svg></div>
+      <div class="tb-center">
+        <div class="capsule">
+          <span class="file">datasetA_stride3.h5</span><span class="sub">Crystal Maps · Phases</span>
+          <span class="run"><svg width="9" height="10" viewBox="0 0 9 10"><path d="M1 1 L8 5 L1 9 Z" fill="currentColor"/></svg>Map Phases</span>
+        </div>
+      </div>
+      <span class="btn">Save</span>
+      <div class="tb-icon"><svg width="16" height="14" viewBox="0 0 16 14"><rect x="1" y="1.5" width="14" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="10" y1="1.5" x2="10" y2="12.5" stroke="currentColor" stroke-width="1.2"/></svg></div>
+    </div>
+    <!-- centre panes -->
+    <div class="content">
+      <div class="img"><span>Phase map</span></div>
+      <div class="img"><span>Diffraction · (41, 17)</span></div>
+    </div>
+    <!-- infobar -->
+    <div class="infobar">
+      <span class="status">Objects ✓ 412 objects · export written</span>
+      <span class="toggle" title="Output"><svg width="14" height="12" viewBox="0 0 14 12"><rect x="1" y="1" width="12" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M3.5 4.5h5M3.5 7h7" stroke="currentColor" stroke-width="1.1"/></svg></span>
+      <span class="toggle on" title="Lineage"><svg width="14" height="12" viewBox="0 0 14 12"><circle cx="2.5" cy="6" r="1.7" fill="currentColor"/><circle cx="11.5" cy="2.5" r="1.7" fill="currentColor"/><circle cx="11.5" cy="9.5" r="1.7" fill="currentColor"/><path d="M4 6 C7 6 7 2.5 10 2.5 M4 6 C7 6 7 9.5 10 9.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></span>
+    </div>
+    <!-- lineage pane -->
+    <div class="pane">
+      <div class="pane-header">
+        <span class="title">Lineage</span><span class="badge" aria-label="callout 1">1</span>
+        <span class="spacer"></span>
+        <span class="check"><i></i>Active path only</span>
+        <span class="btn" style="height:20px">Fit</span>
+      </div>
+      <div class="pane-body">
+        <div class="graph">
+          <svg viewBox="0 0 640 318" role="img" aria-label="Session graph">
+            <defs>
+              <!-- SF-Symbol-like glyphs, 16×16, stroked in currentColor -->
+              <symbol id="g-load" viewBox="-8 -8 16 16"><path d="M-4.5 -6.5 H1.5 L4.5 -3.5 V6.5 H-4.5 Z M1.5 -6.5 V-3.5 H4.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+              <symbol id="g-origin" viewBox="-8 -8 16 16"><circle r="4.8" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M0 -7 V-2.5 M0 2.5 V7 M-7 0 H-2.5 M2.5 0 H7" stroke="currentColor" stroke-width="1.2"/><circle r="1" fill="currentColor"/></symbol>
+              <symbol id="g-ellipse" viewBox="-8 -8 16 16"><ellipse rx="6.5" ry="4" transform="rotate(-22)" fill="none" stroke="currentColor" stroke-width="1.2"/><circle r="1" fill="currentColor"/></symbol>
+              <symbol id="g-q" viewBox="-8 -8 16 16"><rect x="-7" y="-3" width="14" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M-4 -3 V0 M-1 -3 V-1 M2 -3 V0 M5 -3 V-1" stroke="currentColor" stroke-width="1"/></symbol>
+              <symbol id="g-disks" viewBox="-8 -8 16 16"><circle r="1.9" fill="currentColor"/><circle cx="-4.6" cy="-4.6" r="1.5" fill="currentColor"/><circle cx="4.6" cy="-4.6" r="1.5" fill="currentColor"/><circle cx="-4.6" cy="4.6" r="1.5" fill="currentColor"/><circle cx="4.6" cy="4.6" r="1.5" fill="currentColor"/></symbol>
+              <symbol id="g-strain" viewBox="-8 -8 16 16"><path d="M-6.5 0 H6.5 M-6.5 0 L-4 -2.5 M-6.5 0 L-4 2.5 M6.5 0 L4 -2.5 M6.5 0 L4 2.5 M0 -6 V6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+              <symbol id="g-acom" viewBox="-8 -8 16 16"><path d="M0 -6.5 L5.6 -3.2 V3.2 L0 6.5 L-5.6 3.2 V-3.2 Z M0 0 L5.6 -3.2 M0 0 L-5.6 -3.2 M0 0 V6.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+              <symbol id="g-phase" viewBox="-8 -8 16 16"><circle r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M0 -6 A6 6 0 0 0 0 6 Z" fill="currentColor" opacity=".55"/></symbol>
+              <symbol id="g-objects" viewBox="-8 -8 16 16"><ellipse cx="-3.2" cy="-2.6" rx="3" ry="1.8" transform="rotate(-25 -3.2 -2.6)" fill="none" stroke="currentColor" stroke-width="1.2"/><ellipse cx="3.4" cy="-1" rx="1.6" ry="3.1" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="-2" cy="4" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+              <symbol id="g-export" viewBox="-8 -8 16 16"><path d="M-2.5 -1.5 H-5 V6.5 H5 V-1.5 H2.5 M0 3 V-7 M-2.6 -4.4 L0 -7 L2.6 -4.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+              <!-- status symbols -->
+              <symbol id="st-ok" viewBox="-6 -6 12 12"><circle r="5.5" class="s-ok"/><path d="M-2.5 0.2 L-0.7 2 L2.7 -1.8" class="s-mark"/></symbol>
+              <symbol id="st-warn" viewBox="-6 -6 12 12"><path d="M0 -5.5 L5.8 4.8 H-5.8 Z" class="s-warn" stroke-linejoin="round"/><path d="M0 -1.8 V1.2" class="s-mark"/><circle cy="3" r=".7" fill="#fff"/></symbol>
+              <symbol id="st-branch" viewBox="-6 -6 12 12"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><circle cx="-3" cy="4" r="1.3"/><circle cx="-3" cy="-4" r="1.3"/><circle cx="3.5" cy="-1.5" r="1.3"/><path d="M-3 -2.7 V2.7 M-3 1.5 C-3 -0.5 3.5 0.5 3.5 -0.2"/></g></symbol>
+              <marker id="arr" viewBox="0 0 6 6" refX="5.5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L6 3 L0 6 Z" style="fill:var(--edge)"/></marker>
+              <marker id="arr-sel" viewBox="0 0 6 6" refX="5.5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L6 3 L0 6 Z" style="fill:var(--accent)"/></marker>
+            </defs>
+
+            <!-- other-branch note -->
+            <text class="b-note" x="296" y="210">Other branch</text>
+            <text class="b-note" x="296" y="223">before the rewind to Q scale</text>
+
+            <!-- edges: active path -->
+            <path class="edge" marker-end="url(#arr)" d="M70 90 H88"/>
+            <path class="edge" marker-end="url(#arr)" d="M150 90 H168"/>
+            <path class="edge" marker-end="url(#arr)" d="M230 90 H248"/>
+            <path class="edge" marker-end="url(#arr)" d="M310 90 H328"/>
+            <path class="edge" marker-end="url(#arr)" d="M390 90 C399 90 399 32 408 32"/>
+            <path class="edge" marker-end="url(#arr)" d="M390 90 H408"/>
+            <path class="edge ghost" marker-end="url(#arr)" d="M390 90 C399 90 399 148 408 148"/>
+            <path class="edge" marker-end="url(#arr)" d="M470 90 H488"/>
+            <path class="edge" marker-end="url(#arr)" d="M550 90 H568"/>
+            <!-- edges: other branch (s4 -> s5 is the selected node's input, drawn in accent) -->
+            <path class="edge sel" marker-end="url(#arr-sel)" d="M310 90 C320 90 318 216 328 216"/>
+            <g class="branch">
+              <path class="edge" marker-end="url(#arr)" d="M390 216 H408"/>
+              <path class="edge" marker-end="url(#arr)" d="M390 216 C399 216 399 274 408 274"/>
+              <path class="edge" marker-end="url(#arr)" d="M470 216 H488"/>
+            </g>
+
+            <!-- nodes: active path (x, y = top-left; 62 × 48) -->
+            <g transform="translate(8 66)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-load" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s1</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Load</text><text class="n-sub" x="31" y="43">stride 3</text></g>
+            <g transform="translate(88 66)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-origin" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s2</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Origin</text><text class="n-sub" x="31" y="43">Friedel</text></g>
+            <g transform="translate(168 66)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-ellipse" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s3</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Ellipse</text><text class="n-sub" x="31" y="43">a/b 1.012</text></g>
+            <g transform="translate(248 66)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-q" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s4</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Q scale</text><text class="n-sub" x="31" y="43">Al lattice</text></g>
+            <g transform="translate(328 66)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-disks" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s9</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Disks</text><text class="n-sub" x="31" y="43">floor 0.15 %</text></g>
+            <g transform="translate(408 8)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-strain" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s10</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Strain</text><text class="n-sub" x="31" y="43">consensus</text></g>
+            <g transform="translate(408 66)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-phase" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s11</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Phases</text><text class="n-sub" x="31" y="43">Al · β″ CIFs</text></g>
+            <g class="ghost" transform="translate(408 124)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-acom" class="glyph" x="23" y="6" width="16" height="16"/><use href="#st-warn" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">ACOM</text><text class="n-sub" x="31" y="43">stale (s6)</text></g>
+            <g transform="translate(488 66)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-objects" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s12</text><use href="#st-ok" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Objects</text><text class="n-sub" x="31" y="43">412</text></g>
+            <g transform="translate(568 66)"><rect class="n-box" width="62" height="48" rx="24"/><use href="#g-export" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="8" y="13">s13</text><text class="n-label" x="31" y="33">Export</text><text class="n-sub" x="31" y="43">CSV</text></g>
+
+            <!-- nodes: other branch -->
+            <g class="selected" transform="translate(328 192)"><rect class="selring" x="-3" y="-3" width="68" height="54" rx="10"/><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-disks" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s5</text><use href="#st-branch" class="s-branch" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Disks</text><text class="n-sub" x="31" y="43">floor 0.50 %</text></g>
+            <g class="branch">
+              <g transform="translate(408 192)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-phase" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s7</text><use href="#st-branch" class="s-branch" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Phases</text><text class="n-sub" x="31" y="43">Al · β″ CIFs</text></g>
+              <g transform="translate(408 250)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-acom" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s6</text><use href="#st-branch" class="s-branch" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">ACOM</text><text class="n-sub" x="31" y="43">Al</text></g>
+              <g transform="translate(488 192)"><rect class="n-box" width="62" height="48" rx="8"/><use href="#g-objects" class="glyph" x="23" y="6" width="16" height="16"/><text class="n-id" x="5" y="11">s8</text><use href="#st-branch" class="s-branch" x="47" y="3" width="12" height="12"/><text class="n-label" x="31" y="33">Objects</text><text class="n-sub" x="31" y="43">287</text></g>
+            </g>
+
+            <!-- callouts -->
+            <g class="co"><circle cx="376" cy="46" r="8"/><text x="376" y="49.5">2</text></g>
+            <g class="co"><circle cx="300" cy="150" r="8"/><text x="300" y="153.5">3</text></g>
+            <g class="co"><circle cx="484" cy="148" r="8"/><text x="484" y="151.5">4</text></g>
+          </svg>
+        </div>
+
+        <!-- node detail column -->
+        <div class="detail" aria-label="Selected node detail">
+          <div class="d-head">
+            <svg width="16" height="16" class="glyph"><use href="#g-disks" width="16" height="16"/></svg>
+            <b>Disk detection</b>
+          </div>
+          <div class="d-cap">s5 · other branch · 29 Sep 14:02</div>
+
+          <div class="sec">Differs from the active path</div>
+          <div class="row"><span class="k">Floor</span><span class="v">0.50 %</span><span class="was">now 0.15 %</span></div>
+
+          <div class="sec">Parameters</div>
+          <div class="row"><span class="k">Detector</span><span class="v">Classical</span></div>
+          <div class="row"><span class="k">Floor</span><span class="v">0.50 %</span></div>
+          <div class="row"><span class="k">Min. spacing</span><span class="v">20 px</span></div>
+          <div class="row"><span class="k">Subpixel</span><span class="v">multicorr ×16</span></div>
+          <div class="row"><span class="k">Frame</span><span class="v">full detector</span></div>
+
+          <div class="sec">Inputs</div>
+          <div class="link"><svg width="13" height="13" class="glyph"><use href="#g-q" width="13" height="13"/></svg>Q scale<span class="id">s4</span></div>
+          <div class="link"><svg width="13" height="13" class="glyph"><use href="#g-load" width="13" height="13"/></svg>Load<span class="id">s1</span></div>
+
+          <div style="position:relative"><button class="btn rewind" type="button">Rewind to Here</button><span class="badge" style="position:absolute;right:-6px;top:4px" aria-label="callout 5">5</span></div>
+          <div class="consequence">Restores these settings (the calibration is unchanged). ACOM becomes current again;
+          Disks, Strain, Phases and Objects become stale. Nothing is deleted or recomputed.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <h2>Legend</h2>
+  <div class="legend">
+    <span><svg width="12" height="12"><use href="#st-ok" width="12" height="12"/></svg>current — on the active path, its product matches</span>
+    <span><svg width="12" height="12"><use href="#st-warn" width="12" height="12"/></svg>stale — dashed: set up, but the product shown came from elsewhere</span>
+    <span><svg width="12" height="12" class="s-branch"><use href="#st-branch" width="12" height="12"/></svg>another branch — dimmed, kept, rewindable</span>
+    <span><svg width="22" height="12"><rect x="1" y="1" width="20" height="10" rx="3" fill="none" style="stroke:var(--accent)" stroke-width="2"/></svg>selected node and its input edge</span>
+    <span><svg width="22" height="12"><rect x="1" y="1" width="20" height="10" rx="5" fill="none" style="stroke:var(--node-stroke)"/></svg>export — a sink, not rewindable</span>
+    <span><svg width="26" height="12"><path d="M1 6 H25" style="stroke:var(--edge)" stroke-width="1.3" stroke-dasharray="1 3" stroke-linecap="round"/></svg>v1 session: order only (not in this session)</span>
+  </div>
+
+  <ol class="notes">
+    <li><span class="badge">1</span><div><b>It lives in the bottom Lineage pane.</b> This is the debug-area slot from ADR 034, and the owner asked for "Output + a lineage graph, side by side". The graph replaces today's chain. No Frozen Shell file changes and no new window. The inspector keeps the room's settings. Results gets the plain lineage list in L2.</div></li>
+    <li><span class="badge">2</span><div><b>Edges are inputs that were actually consumed, laid out left to right.</b> Strain, ACOM and Phases all read the same disk detection. The graph shows only direct edges: Phases also read Q scale, but that edge is already implied through Disks, so it shows when the node is selected. CIFs are external inputs, listed in the detail by name and fingerprint.</div></li>
+    <li><span class="badge">3</span><div><b>A rewind followed by a run makes a branch; nothing is deleted.</b> Rewinding to Q scale and detecting again at 0.15 % started the top path. The 0.50 % run and everything built on it stay below it, dimmed. A re-run with the same inputs that nothing depends on replaces its node instead, so moving a slider back and forth does not grow the graph.</div></li>
+    <li><span class="badge">4</span><div><b>Status is shown by a symbol, not by colouring the node.</b> Boxes stay neutral. Colour is only on the check and the warning triangle, and the accent is only on the selection (inspector HIG). The dashed ACOM means its settings are active, but the map on screen was computed on the other branch (s6), so it is stale until it runs again.</div></li>
+    <li><span class="badge">5</span><div><b>Clicking a node shows its record in a column inside the pane:</b> the difference from the active path, the parameters (label left, value right), the inputs, and one bordered <b>Rewind to Here</b> button. The toolbar's run button stays the only prominent one. The sentence under the button says exactly what will become current or stale before you click. Arrow keys move between nodes, and the column stays open while you do.</div></li>
+  </ol>
+
+  <h2>Considered, not recommended</h2>
+  <ul class="alt">
+    <li><b>An inspector tab.</b> The inspector holds the room's settings (ADR 034) and is Frozen Shell.</li>
+    <li><b>A Results tab.</b> It is far from the work. It gets the L2 list, not the graph.</li>
+    <li><b>A popover per node.</b> It closes when you move to the next node, so you cannot step through a branch while comparing parameters.</li>
+    <li><b>Deleting downstream on rewind.</b> This cannot be undone, and one ACOM run can take an hour.</li>
+    <li><b>Recomputing on rewind.</b> A long run would start from what looks like navigation. In L4, re-running is its own explicit step.</li>
+  </ul>
+</div>
+</body>
+</html>
