@@ -19,12 +19,11 @@ The largest error class, T1 edges called Al (204), is mostly where the truth dra
 S10 (2026-09-30): candidate A (zero-weight evidence) refuted at step 0; B (noise hit) left. T1's [0 -4 1] entry holds
 30 first-order-Laue-zone reflections (`archive/v4/s10-s11-gateD-2026-09-30.md`) — the library comment is stale.
 
-### Tiled GPU memory: classical fixed (A1); the learned loop measured flat 2026-09-30 (S11), the virtual-detector loops not
-Classical and learned `detectAll` are gated by `tools/tiled-detection-memory-test` (classical: per-tile growth; learned:
-per-tile footprint slope ≤ 0.25 tile/tile — each awaited Core ML batch drains the pool; `archive/v4/s10-s11-gateD-2026-09-30.md`).
-**Owed:** one in-app learned Detect All on a multi-GB cube before the "don't run" warning lifts; `VirtualDetector`'s tiled
-loops have the same shape (maybe the unexplained ≈ 0.93 GB baseline). D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits
-all four datasets (`archive/v4/phase-tolerance-results-2026-09-29.md`).
+### Tiled GPU memory: classical and learned Detect All gated and seen flat; the virtual-detector loops unmeasured
+Classical and learned `detectAll` are gated by `tools/tiled-detection-memory-test` (`archive/v4/s10-s11-gateD-2026-09-30.md`).
+In the app (2026-09-30, scratch build, Thronsen A 171², 128²): learned Detect All, 29 241 positions in 1:17, footprint flat
+1.63–1.67 GB (peak 1.72 GB), 955 MB after. **Open:** `VirtualDetector`'s tiled loops have the same shape (maybe the
+unexplained ≈ 0.93 GB baseline). D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits all four datasets.
 
 ### The 2026-09-09 register, triaged 2026-09-29 — 8 Gate D candidates left (D019, D023, D025 fixed 2026-09-30)
 All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`); D019/D023/D025 fixed with
@@ -95,14 +94,9 @@ One line each; full wording as above.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
-### S3 Prepare: the Friedel ETA's falling shape (speed fixed 2026-09-30)
-- **Speed — fixed.** Gate D (`tools/origin-fit-diagnostics/run.sh friedel-timing`, Thronsen A 171², 128²): the app's
-  Friedel pass runs at 3 572 positions/s at `-O` (cube in 8 s, footprint flat 753 MB) and 38/s at `-Onone` (765 s) — and
-  the Debug app linked `DSTEMCore` built `-Onone`. Reads are not it (6 600–7 000 patterns/s, both builds; h5py 5 300+).
-  `Package.swift` now builds both packages `-O` in Debug.
-- **Open:** the drive's falling rate (329 → 106/s) was not reproduced — the `-Onone` probe starts slow and levels at
-  38/s. Re-drive the owner's Debug build; if the ETA still wanders at 8 s, a trailing-window rate is the proposal.
-- The manual Q field stays visible and editable after a new value (`d3-03b`).
+### S3 residual
+- The manual Q field stays visible and editable after a new value (`d3-03b`). (The Friedel ETA closed 2026-09-30: in the
+  app, full-cube Friedel on Thronsen A in 34 s, the ETA falling 45 → 15 → 6 s — `archive/v4/s10-s11-gateD-2026-09-30.md`.)
 
 ### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe
 - Fixed 2026-09-30: phase mapping and Find Matrix Zone Axis now require a physical Q scale (a prerequisite with its route
