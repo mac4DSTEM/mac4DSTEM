@@ -267,8 +267,19 @@ struct InspectorDataRow<Content: View>: View {
 /// A read-only fact: label leading, the value trailing in the secondary
 /// label colour, selectable (a value the reader may paste into a notebook)
 /// and in monospaced digits so a column of these keeps its numerals aligned.
-/// `mono` sets the whole value monospaced — a path or a shape string. The
-/// value wraps (trailing-aligned) rather than truncating.
+/// `mono` sets the whole value monospaced — a path or a shape string.
+///
+/// On one line when label and value fit side by side; otherwise the label
+/// takes its own line and the value wraps, trailing-aligned, beneath it (as
+/// Xcode's inspectors do). Info labels are often DATA — a provenance key such
+/// as "relative_reference_minimum_radius_px" — and a fixed-size row raised
+/// the inspector's minimum past its column and aborted the app at a 915-pt
+/// window (Gate D 2026-09-29, `InspectorWidthBudgetTests`). The stacked form
+/// keeps the row's minimum width at a few characters WHATEVER the value
+/// says, so a live value (the scan position) can never move the inspector's
+/// minimum — the constraint-loop shape. Squeezing both onto one line failed
+/// on screen twice (2026-09-30): a long key left "3.92" one character wide,
+/// and an even split cut short values in half.
 struct InspectorValueRow: View {
     private let label: String
     private let value: String
@@ -281,26 +292,34 @@ struct InspectorValueRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            // Keeps its whole width whenever it fits (the higher priority), but
-            // may truncate: Info labels are often DATA — a provenance key such
-            // as "relative_reference_minimum_radius_px" — and a fixed-size one
-            // raised the inspector's minimum past its column and aborted the
-            // app at a 915-pt window (Gate D 2026-09-29, `InspectorWidthBudgetTests`).
-            Text(label)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .layoutPriority(2)
-                .help(label)
-            Spacer(minLength: 0)
-            Text(value)
-                .monospacedDigit()
-                .fontDesign(mono ? .monospaced : .default)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
-                .textSelection(.enabled)
-                .layoutPriority(1)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(label)
+                    .fixedSize()
+                Spacer(minLength: 0)
+                // Ahead of the spacer, or the row splits evenly and a value
+                // that fits is cut in half (2026-09-30 drive).
+                valueText
+                    .layoutPriority(1)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(label)
+                valueText
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
+    }
+
+    private var valueText: some View {
+        Text(value)
+            .monospacedDigit()
+            .fontDesign(mono ? .monospaced : .default)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.trailing)
+            .textSelection(.enabled)
     }
 }
 

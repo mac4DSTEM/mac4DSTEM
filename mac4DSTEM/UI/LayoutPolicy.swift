@@ -40,24 +40,12 @@ enum LayoutPolicy {
     static let sidebarWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (190, 230, 270)
 
     /// The inspector: the workspace's settings and the dataset/product
-    /// descriptor. Wider than the sidebar because forms live here. `max` is
-    /// the ceiling on a wide window; the column's live maximum is
-    /// `inspectorMaximum(windowWidth:navigatorVisible:)`.
+    /// descriptor. Wider than the sidebar because forms live here. At the
+    /// window's floor `max` fits only with the sidebar aside (915 − 460 − 4 ≥
+    /// `scienceMinimum`), which is why the sidebar steps aside when narrow
+    /// (`navigatorFits`); a maximum that followed the window failed on screen
+    /// (2026-09-30: SwiftUI does not shrink a column whose maximum drops).
     static let inspectorWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (280, 320, 460)
-
-    /// The inspector's maximum for THIS window: what is left beside the
-    /// sidebar (at its own maximum, when shown) and both science panes at
-    /// their floor, clamped to `inspectorWidth`. A fixed 460 let a drag at
-    /// the 915-pt floor push the layout 17 pt past the window and abort in
-    /// the constraint loop (owner's decision 2026-09-30, overnight §5 A;
-    /// `docs/archive/v4/ai-room-narrow-crash-gateD-2026-09-29.md`). Read from
-    /// the window's width, never from anything inside the split, so it
-    /// cannot feed back into itself.
-    static func inspectorMaximum(windowWidth: CGFloat, navigatorVisible: Bool) -> CGFloat {
-        let beside = navigatorVisible ? sidebarWidth.max + splitColumnDividerAllowance : 0
-        let room = windowWidth - beside - splitColumnDividerAllowance - scienceMinimum
-        return min(inspectorWidth.max, max(inspectorWidth.min, room))
-    }
 
     /// The width a science pane should keep before the sidebar steps aside:
     /// narrower than this, the window collapses the sidebar, as Xcode hides
@@ -70,10 +58,22 @@ enum LayoutPolicy {
     /// ideal. False → the window collapses the sidebar
     /// (`WorkspaceNavigation.navigatorCollapsedForWidth`).
     static func navigatorFits(windowWidth: CGFloat, inspectorVisible: Bool) -> Bool {
-        let inspector = inspectorVisible ? inspectorWidth.ideal + splitColumnDividerAllowance : 0
-        let needed = sidebarWidth.ideal + splitColumnDividerAllowance + inspector
+        windowWidth >= navigatorLine(inspectorVisible: inspectorVisible)
+    }
+
+    /// The width below which the sidebar steps aside: the larger of the ideal
+    /// columns beside two comfortable panes, and the WIDEST columns beside two
+    /// panes at their floor — the fixed inspector maximum must fit wherever
+    /// the sidebar stays (1095 pt with the inspector shown).
+    static func navigatorLine(inspectorVisible: Bool) -> CGFloat {
+        let divider = splitColumnDividerAllowance
+        let comfortable = sidebarWidth.ideal + divider
+            + (inspectorVisible ? inspectorWidth.ideal + divider : 0)
             + sciencePaneComfortable * 2 + sciencePaneDividerWidth
-        return windowWidth >= needed
+        let widest = sidebarWidth.max + divider
+            + (inspectorVisible ? inspectorWidth.max + divider : 0)
+            + scienceMinimum
+        return max(comfortable, widest)
     }
 
     /// Science: a diffraction or real-space pane below this stops being an

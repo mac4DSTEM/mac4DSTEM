@@ -24,11 +24,11 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge and T6
 | Item | State | Next step, owner |
 |---|---|---|
 | **Now** | v4.0.0 released 2026-09-23. `main` carries the overnight session's commits on top of the pushed `1a76089` (plan Log, §4 report). | Owner: read the §4 report and §5, then push. |
-| **A crash at narrow windows** | Fixed in the room (overnight) and in the shell (2026-09-30, your go): Info rows truncate, the inspector's maximum follows the window, the sidebar steps aside under 240-pt panes. Unit 965/0/2 = 967. **Unverified on screen.** | A drive at 915 pt once your own copy is closed. |
+| Narrow windows | The constraint-loop abort is fixed and **seen on screen** (2026-09-30, your pick: fixed 460 inspector + the sidebar stepping aside below 1095 pt). Unit 965/0/2 = 967. Residual: Show Tools against the screen's edge. | — |
 | **Owner owed** | §5 A (the 915-pt floor), B (D1: keep the shipped tolerance), C (the register's Gate D order); Thronsen's written confirmation (ADR 042); where precipitate analysis lives; the "decided overnight — overrule on sight" list. | Owner. |
 | **⚠ Don't run** | Detect All Disks with the **learned** detector on multi-GB cubes (its tiled loop is not pooled). | — |
 | Phase mapping | Unvalidated. T4 one metric short; D1 measured: the shipped max(0.02 Å⁻¹, 1 px) lies inside all four datasets' bands (raw 060 cube: matrix 84.4 % at the app's 0.02); `archive/v4/phase-tolerance-results-2026-09-29.md`. | Owner: option (a). |
-| **Unverified on screen** | The 915-pt shell fix (Info tab, widest inspector drag, sidebar stepping aside). | Drive, next. |
+| **Unverified on screen** | — | — |
 | Carried | R–Q residuals; the 28 GB `--parity` run; parallax/ptychography drive; C2's memory and criterion 4; the register's 11 Gate D candidates; Friedel ETA; D2 (raw cube objects — the two probes need bridging first); CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.

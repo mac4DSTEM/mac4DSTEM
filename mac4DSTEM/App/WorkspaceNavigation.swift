@@ -91,10 +91,12 @@ final class WorkspaceNavigation {
     var showInspectorPane = false
 
     /// Set by the window, never by a click: the sidebar steps aside when the
-    /// science panes would fall under `LayoutPolicy.sciencePaneComfortable`,
-    /// as Xcode hides its navigator (owner's decision 2026-09-30). Written
-    /// only when the width crosses that line, so showing the sidebar by hand
-    /// on a narrow window sticks; never saved, so the intent above survives.
+    /// window narrows past the line where the science panes would fall under
+    /// `LayoutPolicy.sciencePaneComfortable`, as Xcode hides its navigator
+    /// (owner's decision 2026-09-30). Cleared only by the user showing the
+    /// sidebar (`toggleNavigator`) — it never returns by itself, because a
+    /// returning sidebar grows the window. Never saved, so the intent above
+    /// survives a relaunch.
     var navigatorCollapsedForWidth = false
 
     var navigatorIsVisible: Bool { showToolsPane && !navigatorCollapsedForWidth }

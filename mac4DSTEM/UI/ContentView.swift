@@ -32,8 +32,8 @@ struct ContentView: View {
     @SceneStorage("workspace.navigatorVisible") private var savedNavigatorVisible = true
     @SceneStorage("workspace.inspectorVisible") private var savedInspectorVisible = true
     /// The window's width, read from outside the split (never from a column's
-    /// content, which is the constraint-loop shape): it sets the inspector's
-    /// live maximum and when the sidebar steps aside (`LayoutPolicy`).
+    /// content, which is the constraint-loop shape): it decides when the
+    /// sidebar steps aside (`LayoutPolicy.navigatorFits`).
     @State private var windowWidth: CGFloat = LayoutPolicy.datasetWindowIdealSize.width
 
     private var datasetTypes: [UTType] {
@@ -44,10 +44,12 @@ struct ContentView: View {
     var body: some View {
         splitWindow
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
-        // Written only when the width crosses the line (and once at launch),
-        // so a sidebar shown by hand on a narrow window stays shown.
+        // Steps aside when the window narrows past the line (and at a narrow
+        // launch); never comes back by itself — a returning sidebar made
+        // macOS grow the window (1150 -> 1420 pt, 2026-09-30 drive). The user
+        // brings it back with the toggle, which clears the flag.
         .onChange(of: navigatorFits, initial: true) {
-            appState.navigation.navigatorCollapsedForWidth = !navigatorFits
+            if !navigatorFits { appState.navigation.navigatorCollapsedForWidth = true }
         }
         .onAppear {
             appState.navigation.showToolsPane = savedNavigatorVisible
@@ -145,11 +147,12 @@ struct ContentView: View {
                 .inspectorColumnWidth(
                     min: LayoutPolicy.inspectorWidth.min,
                     ideal: LayoutPolicy.inspectorWidth.ideal,
-                    // Follows the window: a fixed 460 let a drag at 915 pt
-                    // push the layout past the window and abort (2026-09-29).
-                    max: LayoutPolicy.inspectorMaximum(
-                        windowWidth: windowWidth,
-                        navigatorVisible: appState.navigation.navigatorIsVisible)
+                    // Fixed. A maximum that followed the window was tried and
+                    // failed on screen (2026-09-30): SwiftUI does not shrink a
+                    // column whose maximum drops below its width, and the
+                    // overflow looped. What keeps 460 inside a narrow window is
+                    // the sidebar stepping aside (`navigatorFits`).
+                    max: LayoutPolicy.inspectorWidth.max
                 )
                 // The inspector's own toolbar carries its Settings · Info
                 // picker and its ONE toggle (`WorkspaceInspector`): items

@@ -131,25 +131,22 @@ final class InspectorWidthBudgetTests: XCTestCase {
         assertFits("Info: the displayed product", minimumWidth(ProductInfoSections(), state: state))
     }
 
-    /// The inspector's live maximum leaves the sidebar (at its maximum) and
-    /// both science panes at their floor inside every window from the
-    /// minimum up. Drive 4 (2026-09-29): a fixed 460 dragged at 915 pt
-    /// aborted. Mutation: `inspectorMaximum` returning `inspectorWidth.max`.
-    func testTheInspectorMaximumFollowsTheWindow() {
+    /// The fixed inspector maximum always fits: with the sidebar aside at the
+    /// window's floor, and beside the sidebar (at its maximum) at every width
+    /// where the sidebar stays. Drive 4 (2026-09-29): a 460 inspector beside
+    /// the sidebar at 915 pt overflowed and aborted. Mutations: an inspector
+    /// maximum of 560; a collapse line that keeps the sidebar at 915 pt.
+    func testTheWidestInspectorFitsWheneverTheSidebarStays() {
+        let divider = LayoutPolicy.splitColumnDividerAllowance
+        let inspector = LayoutPolicy.inspectorWidth.max
         let floor = LayoutPolicy.datasetWindowMinimumSize.width
-        XCTAssertEqual(LayoutPolicy.inspectorMaximum(windowWidth: floor, navigatorVisible: true),
-                       LayoutPolicy.inspectorWidth.min, "at the floor beside the sidebar only the minimum fits")
-        XCTAssertEqual(LayoutPolicy.inspectorMaximum(windowWidth: 1470, navigatorVisible: true),
-                       LayoutPolicy.inspectorWidth.max, "a wide window keeps the ceiling")
-        for width in stride(from: floor, through: 2000, by: 5) {
-            for navigator in [true, false] {
-                let inspector = LayoutPolicy.inspectorMaximum(windowWidth: width, navigatorVisible: navigator)
-                let sidebar = navigator ? LayoutPolicy.sidebarWidth.max + LayoutPolicy.splitColumnDividerAllowance : 0
-                XCTAssertGreaterThanOrEqual(inspector, LayoutPolicy.inspectorWidth.min)
-                XCTAssertLessThanOrEqual(
-                    sidebar + inspector + LayoutPolicy.splitColumnDividerAllowance + LayoutPolicy.scienceMinimum, width,
-                    "at \(width) pt (sidebar \(navigator)) the widest inspector overflows the window")
-            }
+        XCTAssertLessThanOrEqual(inspector + divider + LayoutPolicy.scienceMinimum, floor,
+                                 "at the floor, with the sidebar aside, the widest inspector overflows")
+        for width in stride(from: floor, through: 2000, by: 5)
+        where LayoutPolicy.navigatorFits(windowWidth: width, inspectorVisible: true) {
+            XCTAssertLessThanOrEqual(
+                LayoutPolicy.sidebarWidth.max + divider + inspector + divider + LayoutPolicy.scienceMinimum, width,
+                "at \(width) pt the sidebar stays, and beside it the widest inspector overflows")
         }
     }
 
@@ -157,9 +154,11 @@ final class InspectorWidthBudgetTests: XCTestCase {
     /// comfortable width; with the inspector hidden it never has to at the
     /// window's minimum. Mutation: `navigatorFits` always true.
     func testTheSidebarStepsAsideBeforeThePanesGetCramped() {
-        let needed = LayoutPolicy.sidebarWidth.ideal + LayoutPolicy.inspectorWidth.ideal
+        let needed = LayoutPolicy.navigatorLine(inspectorVisible: true)
+        XCTAssertGreaterThanOrEqual(needed, LayoutPolicy.sidebarWidth.ideal + LayoutPolicy.inspectorWidth.ideal
             + 2 * LayoutPolicy.splitColumnDividerAllowance
-            + 2 * LayoutPolicy.sciencePaneComfortable + LayoutPolicy.sciencePaneDividerWidth
+            + 2 * LayoutPolicy.sciencePaneComfortable + LayoutPolicy.sciencePaneDividerWidth,
+            "the panes must keep their comfortable width beside the ideal columns")
         XCTAssertTrue(LayoutPolicy.navigatorFits(windowWidth: needed, inspectorVisible: true))
         XCTAssertFalse(LayoutPolicy.navigatorFits(windowWidth: needed - 1, inspectorVisible: true))
         XCTAssertFalse(LayoutPolicy.navigatorFits(windowWidth: LayoutPolicy.datasetWindowMinimumSize.width,

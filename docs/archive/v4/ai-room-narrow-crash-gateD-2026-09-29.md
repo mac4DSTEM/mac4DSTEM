@@ -108,3 +108,21 @@ the column is squeezed and released in alternation. **Refuted if** a build whose
 visibility (window − sidebar max − dividers − science floor, always) still loops on the same sequence. **Predicted:**
 that build lives through the sequence; the collapse alone (static 460 maximum) is not the loop. A second observation
 to fix regardless: the sidebar's return growing the window (1150 → 1420) is a jump the user did not ask for.
+
+## Part 2 revised and seen on screen (2026-09-30 morning; the owner chose "fixed 460 + sidebar collapse")
+
+The experiment refined the diagnosis: narrowing alone did not loop (1470 → 960 with the inspector widest lived, 0 loop
+lines), but returning from 1150 to 915 left a 460-pt inspector past the window's edge with a declared maximum of 280
+(`d6-05`) — **SwiftUI does not shrink a column whose maximum drops below its width**, so the live maximum could only
+create the overflow it was meant to prevent. Revised: the inspector's maximum is fixed at 460 again; the sidebar steps
+aside below `LayoutPolicy.navigatorLine` — the larger of the ideal columns beside two 240-pt panes and the WIDEST
+columns beside two floor panes (1095 pt with the inspector shown) — and never returns by itself (a returning sidebar
+grew the window 1150 → 1420); `InspectorValueRow` stacks label over value when a pair cannot share a line (two
+single-line variants failed on screen: a 1-character value column, and values cut in half). Tests: the widest
+inspector fits wherever the sidebar stays (sweep 915–2000 pt), the line keeps comfortable panes, the Info sections
+with long data ≤ 248 pt, the toggle — red under an inspector maximum of 560, a comfortable-only line, and a row without
+the stacked fallback (`floor2-mut*.log`). Unit 965 / 0 / 2 = 967 (`unit-floor2.log`).
+**Seen on screen** (scratch build-app-10, Thronsen A, the orchestrator driving): 915 → widest drag → 1150 → 915 → 960 →
+1250 → 915 with no jump, no overflow, no loop line, alive; Info at 915 with provenance rows stacked (`d6-01`); Show
+Tools at 915 with the inspector widest grew the window to 1190 and everything fit (`d7-01`). Residual: showing the
+sidebar on a narrow window relies on macOS growing the window — not tried with the window against the screen's edge.
