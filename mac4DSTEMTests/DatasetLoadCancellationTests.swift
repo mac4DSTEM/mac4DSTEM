@@ -115,6 +115,28 @@ final class DatasetLoadCancellationTests: XCTestCase {
         XCTAssertEqual(state.calibrationSession.calibration.originProvenance, .geometricDefault)
     }
 
+    func testDiscardingClearsTheSidecarInventoryBehindTheResultsBadge() async {
+        // Drive 1 step 9 (2026-09-29): after Cancel the welcome screen still
+        // showed the sidebar Results badge, because the badge counts
+        // `sessionInventory.results` and only the next open cleared it.
+        let state = AppState()
+        await state.openDemoFixture()
+        state.sessionInventory = SessionSidecarInventory(
+            hasSidecar: true, hasBraggVectors: true, hasCalibration: true,
+            results: [SessionResultDescriptor(
+                id: "r1", kind: "phase_map", displayName: "Phase map",
+                valueUnits: "", width: 4, height: 4, storage: .scalarFloat32,
+                pixelSizeRow: nil, pixelSizeColumn: nil, pixelUnits: nil, provenance: [:]
+            )],
+            currentResultID: "r1"
+        )
+        XCTAssertEqual(state.sessionInventory.results.count, 1, "precondition: a badge to clear")
+
+        await state.discardPartialLoad()
+        XCTAssertEqual(state.sessionInventory, .empty)
+        XCTAssertTrue(state.sessionInventory.results.isEmpty)
+    }
+
     func testCancellationIsMonotonicAndIdempotent() {
         let token = AnalysisCancellationToken()
         XCTAssertFalse(token.isCancelled)

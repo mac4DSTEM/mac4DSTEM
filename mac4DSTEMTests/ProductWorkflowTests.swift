@@ -580,6 +580,61 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertTrue(CalibrationReadinessKind.rScale.unlockSummary.contains("scale bars"))
     }
 
+    /// Drive 3 step 3 (2026-09-29): Return in the Manual field with the value
+    /// untouched flipped "From session" to "Manual". Committing what is already
+    /// in effect is not an edit; committing a different value still is.
+    func testCommittingTheUnchangedManualScaleKeepsProvenance() {
+        let state = AppState()
+        state.calibrationSession.calibration.qPixelSize = 0.1904
+        state.calibrationSession.calibration.qPixelUnits = "nm⁻¹"
+        state.calibrationSession.provenance.qScale = .sessionSidecar
+        state.calibrationSession.calibration.rPixelSize = 0.5
+        state.calibrationSession.calibration.rPixelUnits = "nm"
+        state.calibrationSession.provenance.rScale = .sessionSidecar
+
+        // The same number, and the same number as the field re-parses it
+        // (six displayed places): both are "unchanged".
+        state.setManualQPixelSize(0.1904)
+        XCTAssertEqual(state.calibrationSession.provenance.qScale, .sessionSidecar)
+        state.calibrationSession.calibration.qPixelSize = 0.19040012 // shown as 0,190400
+        state.setManualQPixelSize(0.1904)
+        XCTAssertEqual(state.calibrationSession.provenance.qScale, .sessionSidecar)
+        XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, 0.19040012,
+                       "an unchanged commit must not rewrite the stored value either")
+        state.setManualRPixelSize(0.5)
+        XCTAssertEqual(state.calibrationSession.provenance.rScale, .sessionSidecar)
+
+        // A different value, even by one displayed digit, is an edit.
+        state.setManualQPixelSize(0.190401)
+        XCTAssertEqual(state.calibrationSession.provenance.qScale, .manual)
+        XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, 0.190401)
+        state.setManualRPixelSize(0.25)
+        XCTAssertEqual(state.calibrationSession.provenance.rScale, .manual)
+        XCTAssertEqual(state.calibrationSession.calibration.rPixelSize, 0.25)
+    }
+
+    /// An index-unit placeholder is not a value in the shown unit, so entering
+    /// the same number as the placeholder (1) is a real first entry.
+    func testCommittingOverAnIndexPlaceholderIsStillAnEdit() {
+        let state = AppState()
+        state.calibrationSession.calibration.qPixelSize = 1
+        state.calibrationSession.calibration.qPixelUnits = "pixels"
+        state.setManualQPixelSize(1)
+        XCTAssertEqual(state.calibrationSession.provenance.qScale, .manual)
+        XCTAssertEqual(state.calibrationSession.calibration.qPixelUnits, "nm⁻¹")
+    }
+
+    func testManualFieldHelpNamesTheManualStateOnItsOwn() {
+        let known = "Choose a phase model to calibrate Q from a known crystal."
+        // Manual: the field's own sentence, never the fall-back text.
+        XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .ready(.manual), otherwise: known),
+                       "Your value. Entering another replaces it.")
+        // Non-manual ready states keep the override warning; not-ready keeps `otherwise`.
+        XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .ready(.sessionSidecar), otherwise: known),
+                       "Replaces the value restored from session; provenance becomes Manual.")
+        XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .missing, otherwise: known), known)
+    }
+
     func testManualPixelScaleReplacesIndexUnitsWithExplicitPhysicalUnits() {
         let state = AppState()
         state.calibrationSession.calibration.rPixelSize = 1
@@ -655,9 +710,10 @@ final class ProductWorkflowTests: XCTestCase {
             for: .rotation, status: .ready(.manual)
         ))
         // The hover text says what an entry replaces, except when nothing is
-        // replaced or the value is already manual.
+        // replaced; an already-manual value has its own sentence.
         XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .missing, otherwise: "fallback"), "fallback")
-        XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .ready(.manual), otherwise: "fallback"), "fallback")
+        XCTAssertEqual(PrepareSettings.manualScaleHelp(status: .ready(.manual), otherwise: "fallback"),
+                       "Your value. Entering another replaces it.")
         XCTAssertEqual(
             PrepareSettings.manualScaleHelp(status: .ready(.importedFile), otherwise: "fallback"),
             "Replaces the value imported from file; provenance becomes Manual.")

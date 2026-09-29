@@ -118,7 +118,10 @@ struct PrepareSettings: View {
     /// The manual field's hover text: what entering a value does to the value
     /// already there, so an imported or restored scale is overridden knowingly.
     static func manualScaleHelp(status: CalibrationReadinessStatus, otherwise: String) -> String {
-        guard case .ready(let provenance) = status, provenance != .manual else { return otherwise }
+        guard case .ready(let provenance) = status else { return otherwise }
+        // Manual is the field's own state; `otherwise` describes what the field
+        // offers before there is a value (for Q, the known-crystal button).
+        if provenance == .manual { return "Your value. Entering another replaces it." }
         return "Replaces the value \(provenance.rawValue.lowercased()); provenance becomes Manual."
     }
 

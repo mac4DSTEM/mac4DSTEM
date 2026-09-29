@@ -198,9 +198,8 @@ A sidecar retarget made before any save survives only until the next dataset cha
 As…" can prefill a doubled `.h5.h5`. Pre-S4 calibration-only sidecars stay unrecognisable (owner: open-panel filter).
 `calibration.*` accessibility identifiers are emitted twice while the export sheet is open. Seen 2026-09-29 night:
 Recents location labels ("This Mac", `d1-01`); the manual Q field stays visible and editable after a new value
-(`d3-03b`). **New:** pressing Return in the Q field with the value unchanged flips its source from "From session" to
-"Manual" (`d3-03a`) — provenance changes without a change; and the Q field's help reads "Choose a phase model to
-calibrate Q from a known crystal." (the R field's says what the field does) — read via AX. Owner: unclaimed.
+(`d3-03b`). Fixed and seen 2026-09-29 night (drive 5): an unchanged manual Q/R value no longer flips its source to
+"Manual"; a Manual value's help says "Your value. Entering another replaces it." Owner: unclaimed.
 
 ### Misc data-layer items, low priority
 `#31` `validationIssues` is O(n²) in a SwiftUI view body, called inline from `DiskDetection`/`TiledDiskDetection`, not
@@ -213,7 +212,6 @@ data and stay diagnostics. A real load cancel was driven 2026-09-29 night ("Load
 ## UI & on-screen
 
 ### Small things seen driving, 2026-09-29 night — each with a proposal (GREEN when taken)
-- After a load cancel the sidebar still shows "Results 2" with no dataset (`d1-09c`): clear the badge with the dataset.
 - Voltage reads "0 kV" while readiness says "Accelerating voltage: Not set" (`d1-02`): an empty field, placeholder "Not set".
 - At 1000 pt a busy run clips the status text on the left and hides the metrics line (zero width); the image panes
   widen while busy so the inspector covers ~110 pt of the phase-map pane (`report-drive3.md` step 4): give the status
