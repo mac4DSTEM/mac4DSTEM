@@ -458,7 +458,16 @@ package nonisolated enum BraggVectorEMDWriter {
     private static func enforceMinimumReader(
         on root: hid_t, hdf5 h5: HDF5WriteLibrary, supportedSchema: Int
     ) throws {
-        if let markerText = try readStringAttribute(minimumReaderAttribute, on: root, hdf5: h5),
+        // A marker of the wrong shape or type is garbage like any other
+        // unparseable value, so it reads as absent (the rule above), not as
+        // the reader's `malformedAttribute` refusal. // S5
+        let markerText: String?
+        do {
+            markerText = try readStringAttribute(minimumReaderAttribute, on: root, hdf5: h5)
+        } catch WriterError.malformedAttribute {
+            markerText = nil
+        }
+        if let markerText,
            let minimum = Int(markerText),
            minimum > supportedSchema {
             throw WriterError.sidecarRequiresNewerReader(
@@ -2459,9 +2468,38 @@ package nonisolated enum BraggVectorEMDWriter {
         let attribute = name.withCString { h5.h5aopen(object, $0, h5DefaultProperty) }
         guard attribute >= 0 else { throw WriterError.hdf5("opening attribute \(name)") }
         defer { _ = h5.h5aclose(attribute) }
+        // `H5Aread` writes the WHOLE attribute into the buffer it is handed
+        // and cannot know that buffer's size, and it reports success when it
+        // overruns — the D003 finding against `H5Reader` (2026-09-09: 24 bytes
+        // into 8). The buffer below is ONE `char *`, so it is only safe for
+        // one variable-length string; anything else (an array, a fixed-length
+        // string, a number written by another tool) is refused by name or read
+        // into a buffer sized from the type. // S5, as H5Reader's D003 guard
+        let space = h5.h5agetSpace(attribute)
+        guard space >= 0 else { throw WriterError.hdf5("opening attribute space \(name)") }
+        defer { _ = h5.h5sclose(space) }
+        guard elementCount(spaceID: space, hdf5: h5) == 1 else {
+            throw WriterError.malformedAttribute(name: name)
+        }
         let type = h5.h5agetType(attribute)
         guard type >= 0 else { throw WriterError.hdf5("opening attribute type \(name)") }
         defer { _ = h5.h5tclose(type) }
+        guard h5.h5tgetClass(type) == h5StringClass else {
+            throw WriterError.malformedAttribute(name: name)
+        }
+        if h5.h5tisVariableStr(type) <= 0 {
+            // A fixed-length string (what h5py writes for `np.bytes_`): read
+            // into a buffer of the type's own size plus a terminator.
+            let size = h5.h5tgetSize(type)
+            guard size > 0, size < 1 << 20 else {
+                throw WriterError.malformedAttribute(name: name)
+            }
+            var bytes = [CChar](repeating: 0, count: size + 1)
+            guard bytes.withUnsafeMutableBytes({
+                h5.h5aread(attribute, type, $0.baseAddress)
+            }) >= 0 else { throw WriterError.hdf5("reading attribute \(name)") }
+            return String(cString: bytes)
+        }
         var pointer: UnsafeMutablePointer<CChar>?
         guard withUnsafeMutablePointer(to: &pointer, {
             h5.h5aread(attribute, type, UnsafeMutableRawPointer($0))
@@ -2469,6 +2507,27 @@ package nonisolated enum BraggVectorEMDWriter {
         guard let pointer else { return "" }
         defer { _ = h5.h5freeMemory(pointer) }
         return String(cString: pointer)
+    }
+
+    /// Number of elements in a dataspace (1 for scalar), or nil.
+    private static func elementCount(spaceID: hid_t, hdf5 h5: HDF5WriteLibrary) -> Int? {
+        let rank = Int(h5.h5sgetSimpleExtentNdims(spaceID))
+        guard rank >= 0 else { return nil }
+        if rank == 0 { return 1 }
+        var dims = [hsize_t](repeating: 0, count: rank)
+        _ = dims.withUnsafeMutableBufferPointer {
+            h5.h5sgetSimpleExtentDims(spaceID, $0.baseAddress, nil)
+        }
+        // A hostile extent (unlimited, ~0) must refuse, not trap on the
+        // UInt64 → Int conversion or the product.
+        var count = 1
+        for dim in dims {
+            guard let d = Int(exactly: dim) else { return nil }
+            let (product, overflow) = count.multipliedReportingOverflow(by: d)
+            guard !overflow else { return nil }
+            count = product
+        }
+        return count
     }
 }
 
@@ -2480,6 +2539,7 @@ nonisolated private let h5FileTruncate: UInt32 = 0x0002
 nonisolated private let h5FileReadOnly: UInt32 = 0x0000
 nonisolated private let h5ScalarDataspace: Int32 = 0
 nonisolated private let h5CompoundClass: Int32 = 6
+nonisolated private let h5StringClass: Int32 = 3
 nonisolated private let h5UTF8CharacterSet: Int32 = 1
 nonisolated private let h5SelectSet: Int32 = 0
 nonisolated private let h5IndexByName: Int32 = 0
@@ -2532,6 +2592,10 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     package typealias H5Aexists = @convention(c) (hid_t, UnsafePointer<CChar>?) -> Int32
     package typealias H5Aopen = @convention(c) (hid_t, UnsafePointer<CChar>?, hid_t) -> hid_t
     package typealias H5AgetType = @convention(c) (hid_t) -> hid_t
+    package typealias H5AgetSpace = @convention(c) (hid_t) -> hid_t
+    package typealias H5TgetClass = @convention(c) (hid_t) -> Int32
+    package typealias H5TgetSize = @convention(c) (hid_t) -> Int
+    package typealias H5TisVariableStr = @convention(c) (hid_t) -> Int32
     package typealias H5Awrite = @convention(c) (hid_t, hid_t, UnsafeRawPointer?) -> herr_t
     package typealias H5Aread = @convention(c) (hid_t, hid_t, UnsafeMutableRawPointer?) -> herr_t
     package typealias H5Aclose = @convention(c) (hid_t) -> herr_t
@@ -2577,6 +2641,10 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     package let h5aexists: H5Aexists
     package let h5aopen: H5Aopen
     package let h5agetType: H5AgetType
+    package let h5agetSpace: H5AgetSpace
+    package let h5tgetClass: H5TgetClass
+    package let h5tgetSize: H5TgetSize
+    package let h5tisVariableStr: H5TisVariableStr
     package let h5awrite: H5Awrite
     package let h5aread: H5Aread
     package let h5aclose: H5Aclose
@@ -2725,6 +2793,10 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
             h5aexists: try symbol("H5Aexists", as: H5Aexists.self),
             h5aopen: try symbol("H5Aopen", as: H5Aopen.self),
             h5agetType: try symbol("H5Aget_type", as: H5AgetType.self),
+            h5agetSpace: try symbol("H5Aget_space", as: H5AgetSpace.self),
+            h5tgetClass: try symbol("H5Tget_class", as: H5TgetClass.self),
+            h5tgetSize: try symbol("H5Tget_size", as: H5TgetSize.self),
+            h5tisVariableStr: try symbol("H5Tis_variable_str", as: H5TisVariableStr.self),
             h5awrite: try symbol("H5Awrite", as: H5Awrite.self),
             h5aread: try symbol("H5Aread", as: H5Aread.self),
             h5aclose: try symbol("H5Aclose", as: H5Aclose.self),

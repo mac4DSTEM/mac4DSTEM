@@ -25,13 +25,13 @@ Detect All Disks on multi-GB cubes until measured; `VirtualDetector`'s tiled loo
 unexplained ≈ 0.93 GB baseline). D1 (`archive/v4/phase-tolerance-results-2026-09-29.md`): the shipped match tolerance
 max(0.02 Å⁻¹, 1 px) fits all four datasets. Owner: keep it (option a).
 
-### The 2026-09-09 register, triaged 2026-09-29 — 11 Gate D candidates hold and are reachable
-All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`): 105 present in code, 22
-closed, 8 duplicates; a refuter broke 4 of the 37 science rows and narrowed 15. Reachable with realistic data, each
-its own Gate D: **D025** circle-ROI mask +0.5 px off the drawn ROI; **D023** empty positions add 3.4e38 to the strain
-clustering median; **D019** one NaN pixel loses a pattern's peaks (these three are S7–S9); **D079** parallax/ptycho take
-the aperture centre, not the fitted origin; **D098**, **D004** learned-detector window effects over 256 px; **D068**
-calibration edits never stale a strain map; **D017**, **D020**, **D006**, **D021** (see the record). Owner: order.
+### The 2026-09-09 register, triaged 2026-09-29 — 8 Gate D candidates left (D019, D023, D025 fixed 2026-09-30)
+All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`); D019/D023/D025 fixed with
+refuters (`archive/v4/register-D019-D023-D025-gateD-2026-09-30.md`). Reachable, each its own Gate D: **D079**
+parallax/ptycho take the aperture centre, not the fitted origin; **D098**, **D004** learned-detector window effects over
+256 px; **D068** calibration edits never stale a strain map; **D017**, **D020**, **D006**, **D021** (see the record).
+New from the D023 refuter: `occupiedPositions` (`StrainMapping.swift`) counts central-beam-only positions, raising the
+minimum cluster support — at 95 % central-only no basis. Owner: order.
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `Core/Crystal/PhaseVectorMatching.swift`: `minimumVectors` = 2 (`:73`, applied `:882`), so a position is "matrix" when almost
@@ -73,6 +73,7 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 - β″ zone axes presented under ⟨110⟩Al unanswered (known, scoped).
 - Hexagonal IPF key may be labelled the wrong way round (2026-09-11) — settle, pin with a test.
 - Single-slice ptychography export guard may miss its mode (`ResultExport.swift:1506`) — Gate D.
+- Region circle radius: the mask takes centres up to ½ px outside the drawn ring (`R + 0.5`, strict `<`; R 5: 97 px vs `d ≤ R` 81, py4DSTEM 69) — own Gate D (D025 refuter).
 - Bullseye detection accepts noise: outer-edge probe size for structured probes open.
 - Twisted bilayer graphene finds only the beam at defaults — Gate D with a per-pattern funnel.
 - Learned detector above 256 px: probe/pattern anchor mismatch — one >256-px case scored both ways (Gate B).
@@ -112,16 +113,15 @@ One line each; full wording as above.
 - The owner's Al-Mg-Si recipe as a preset (`archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`).
 - **Owner request 2026-09-25, not in S4's scope:** mark on the CBED which disks each phase claimed — new surface: cost it, mock first.
 
-### S5 Sessions & sidecars: the reader's guard, load/promote/replay, the UX residuals
-- **Sidecar reader lacks D003's attribute-length guard** (2026-09-09): `BraggVectorEMDWriter.swift`'s `readStringAttribute`
-  (`:2453`) calls `H5Aread` with no type/extent check (24 bytes into 8). Fix as `H5Reader`: `H5Aget_space` + `elementCount == 1`.
+### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
+- **A superseded load's tail still runs `discardPartialLoad`** (`AppState+Open.swift:810`) over whatever load is current;
+  the owned cancel token (S5) stops it clearing busy, not the reset. Needs two loads in flight (promote/replay).
 - **Fabricated provenance on pre-2026-08-18 sidecars**: `AppState+Open.swift:700,893,906` `?? .fullExtent`. Needs a synthesised sidecar.
-- **Cancel can vanish mid-load**: `DatasetSession.finishLoading()` (`:104`) nils `loadCancellation` unconditionally; two loads in flight.
 - **Promote/replay**: (a) promote lands at (0,0)? (b) fitted origin maps refuse the full-extent restore's shape check; (c)
   parallax/ptychography not in the replay record; (d) a user analysis mid-replay steals Cancel; (e) replay contracts in three places.
-- **Reopen dead-ends** after a failed recent (`AppState+DatasetSession.swift:11`, `:37`). **Resident**: "freed" bytes never measured.
-- UX: a retarget before any save lasts one dataset change; "Save Session Sidecar As…" can prefill `.h5.h5`; pre-S4
-  calibration-only sidecars unrecognisable; `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac".
+- **Resident**: "freed" bytes never measured. The reopen fix has no test (the recovery store is the real `UserDefaults`).
+- UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
+  `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
 
 ### S6 Inspector kit & view state, with the Frozen Shell residuals
 - **View state has four owners**: 26 `@SceneStorage`/`@AppStorage` sites (2026-09-23), incl. `WorkspaceInspector.swift:50`'s
@@ -130,11 +130,12 @@ One line each; full wording as above.
 - **Kit gaps**: `UI/InspectorRows.swift` has no adaptive `Menu` (Add Phase hand-rolled) and no warning-note variant; long labels
   wrap beside wide pickers (wording the owner's).
 - Parallax "done" read from `parallaxSubpixel` alone at `WorkspaceView.swift:304` and `AppState.swift:1187` (cosmetic).
-- **The 915-pt floor's residual, now seen** (S2 drive, 2026-09-30, `archive/v4/s2-workspaces-2026-09-30-shots/`): Show Sidebar
-  pressed at 915 pt with the app in the background did not grow the window; resized back to 915 by AX, the shown sidebar
-  stayed and the inspector ran ~145 pt off the right edge (`s2-02`, in Reconstruction, a room S2 did not change); widened
-  to 1470, ~142-pt empty strips stayed left of the sidebar and before the inspector until relaunch (`s2-05`). No abort. Not
-  run on the pre-S2 build. Frozen Shell (`ContentView`); Gate D first.
+- **The 915-pt floor's residual, now seen** (S2 drive, `archive/v4/s2-workspaces-2026-09-30-shots/`): Show Sidebar at 915 pt
+  with the app in the background did not grow the window; the layout stayed ~1190 wide, centred and clipped both sides at
+  915 (`s2-02`), and left ~142-pt strips at 1470 until relaunch (`s2-05`). No abort. Diagnosis (read-only, PLAUSIBLE): the
+  split pins detail 595 + sidebar 270 after an unfinished grow; `ContentView.swift:46` measures the rigid child, not the
+  window, so the 1095-pt step-aside never fires. Proposal: measure the window (`maxWidth: .infinity` before
+  `.onGeometryChange`). Owner: check R1 first — foreground Show at 915, then drag to 915 by hand (user-reachable?).
 - The welcome's Recents list runs off the bottom at 915 pt: let it scroll.
 - **No workflow logic in the rooms** (seen 2026-09-29, `d1-02/03`, `d1-04b`): the owner judges it against the 2026-09-21 critique, then close.
 

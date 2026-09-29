@@ -14,8 +14,8 @@ extension AppState {
     /// `commitPendingLoad`.
     func openFileForConfiguration(url: URL) {
         Task {
-            beginDatasetLoading("Opening \(url.lastPathComponent)…")
-            defer { if datasetSession.isLoading { finishDatasetLoading() } }
+            let load = beginDatasetLoading("Opening \(url.lastPathComponent)…")
+            defer { finishDatasetLoading(owner: load) }
             let accessed = url.startAccessingSecurityScopedResource()
             do {
                 let reader = try await Self.makeReader(for: url)
@@ -69,7 +69,7 @@ extension AppState {
                         displaced.url.stopAccessingSecurityScopedResource()
                     }
                 }
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
             } catch {
                 if accessed { url.stopAccessingSecurityScopedResource() }
                 present(error)
@@ -134,10 +134,8 @@ extension AppState {
         // `openFileAsync` drops the previous dataset's restore-failure
         // flag (v2 S7).
         gates.clearSidecarRestoreFailure()
-        beginDatasetLoading("Opening demo dataset…")
-        defer {
-            if datasetSession.isLoading { finishDatasetLoading() }
-        }
+        let load = beginDatasetLoading("Opening demo dataset…")
+        defer { finishDatasetLoading(owner: load) }
         do {
             beginDatasetLoadingStage("Reading file structure of the demo dataset…")
             let descriptor = try await source.discoverPrimaryDataset()
@@ -156,7 +154,7 @@ extension AppState {
             // happened to share the requested spec (Gate A review).
             guard datasetSession.loadView?.specification == specification,
                   self.descriptor?.filePath == datasetSession.datasets.first?.filePath else { return }
-            finishDatasetLoading()
+            finishDatasetLoading(owner: load)
             acomSession.display = .ipfZ
             // Keep this string's step names in sync with the current
             // workspace titles — it is data, not a UI label, so a rename
@@ -192,9 +190,9 @@ extension AppState {
                 // Unreachable today (nothing calls `openManualPath`), fixed
                 // anyway so the trap does not wait for whoever wires it to a
                 // control (found by `/code-review ultra`).
-                beginDatasetLoading("Opening \(descriptor.datasetPath)…")
+                let load = beginDatasetLoading("Opening \(descriptor.datasetPath)…")
                 await activate(descriptor: descriptor, reader: h5)
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
             } catch {
                 present(error)
             }
@@ -262,11 +260,9 @@ extension AppState {
     }
 
     func openFileAsync(url: URL) async {
-        beginDatasetLoading("Opening \(url.lastPathComponent)…")
+        let load = beginDatasetLoading("Opening \(url.lastPathComponent)…")
         errorMessage = nil
-        defer {
-            if datasetSession.isLoading { finishDatasetLoading() }
-        }
+        defer { finishDatasetLoading(owner: load) }
 
         let previousOpenURL = openURL
         let accessed = url.startAccessingSecurityScopedResource()
@@ -278,7 +274,7 @@ extension AppState {
             if datasetSession.loadWasCancelled {
                 if accessed { url.stopAccessingSecurityScopedResource() }
                 await discardPartialLoad()
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
                 return
             }
             if let previousOpenURL {
@@ -303,7 +299,7 @@ extension AppState {
                 // case where it did, and stops the open continuing into an
                 // analysis of a dataset that is no longer there.
                 await discardPartialLoad()
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
                 return
             }
             // The first whole-cube pass IS part of opening, from the user's
@@ -314,7 +310,7 @@ extension AppState {
             await runCurrentAnalysis()
             if datasetSession.loadWasCancelled {
                 await discardPartialLoad()
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
                 return
             }
             // REMEMBERED ONLY ONCE THE LOAD HAS ACTUALLY FINISHED. Moved here
@@ -322,7 +318,7 @@ extension AppState {
             // leaves Recents untouched — a cancelled file is one you did not
             // want, and putting it at the top of the list is backwards.
             rememberOpenedDataset(url)
-            finishDatasetLoading()
+            finishDatasetLoading(owner: load)
         } catch {
             if accessed { url.stopAccessingSecurityScopedResource() }
             present(error)
@@ -841,15 +837,21 @@ extension AppState {
         statusText = "Load cancelled"
     }
 
-    func beginDatasetLoading(_ status: String) {
-        datasetSession.beginLoading(status)
+    /// Returns the load's token: pass it to `finishDatasetLoading(owner:)`
+    /// so this load's tail can only ever end this load (S5).
+    @discardableResult
+    func beginDatasetLoading(_ status: String) -> AnalysisCancellationToken {
+        let load = datasetSession.beginLoading(status)
         operationCenter.setBusy(true)
         progress = nil
         statusText = status
+        return load
     }
 
-    func finishDatasetLoading() {
-        datasetSession.finishLoading()
+    /// A superseded or already-finished load's tail touches nothing — not the
+    /// session's loading state, and not the newer load's busy flag.
+    func finishDatasetLoading(owner load: AnalysisCancellationToken) {
+        guard datasetSession.finishLoading(owner: load) else { return }
         operationCenter.setBusy(false)
         progress = nil
     }

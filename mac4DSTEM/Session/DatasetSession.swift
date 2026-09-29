@@ -93,20 +93,33 @@ package final class DatasetSession {
         epoch &+= 1
     }
 
-    package func beginLoading(_ status: String) {
+    /// Starts a load and returns its token — the load's claim on this
+    /// session's loading state, handed back to `finishLoading(owner:)`.
+    @discardableResult
+    package func beginLoading(_ status: String) -> AnalysisCancellationToken {
+        let token = AnalysisCancellationToken()
         isLoading = true
-        loadCancellation = AnalysisCancellationToken()
+        loadCancellation = token
         isCancellingLoad = false
         loadingProgress = nil
         loadingStatus = status
+        return token
     }
 
-    package func finishLoading() {
+    /// Ends the load that owns `owner`, and only that load. With two loads in
+    /// flight the older one's tail used to nil the NEWER load's token and
+    /// flag, so Cancel vanished for a load still running (S5). A tail whose
+    /// load has been superseded — or already finished — changes nothing and
+    /// returns false.
+    @discardableResult
+    package func finishLoading(owner: AnalysisCancellationToken) -> Bool {
+        guard loadCancellation === owner else { return false }
         isLoading = false
         loadCancellation = nil
         isCancellingLoad = false
         loadingProgress = nil
         loadingStatus = nil
+        return true
     }
 
     @discardableResult

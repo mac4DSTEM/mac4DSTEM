@@ -338,10 +338,10 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
         )
 
         let state = AppState(sessionSidecar: locator)
-        state.beginDatasetLoading("Reopening source…")
+        let load = state.beginDatasetLoading("Reopening source…")
         await state.activate(descriptor: sourceDescriptor, reader: source,
                              specification: loaded, runInitialAnalysis: false)
-        state.finishDatasetLoading()
+        state.finishDatasetLoading(owner: load)
         return Opened(state: state, record: record, written: vectors)
     }
 
@@ -547,10 +547,10 @@ final class BraggPeakSeedsControlsOnOpenTests: XCTestCase {
             loadSpecification: recorded, replayRecord: PeakRestoreFixture.record(stepParameters)
         )
         let state = AppState(sessionSidecar: locator)
-        state.beginDatasetLoading("Reopening source…")
+        let load = state.beginDatasetLoading("Reopening source…")
         await state.activate(descriptor: sourceDescriptor, reader: source,
                              specification: loaded, runInitialAnalysis: false)
-        state.finishDatasetLoading()
+        state.finishDatasetLoading(owner: load)
         return state
     }
 

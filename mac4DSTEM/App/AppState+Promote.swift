@@ -26,7 +26,7 @@ extension AppState {
         _ = promotionRun.take()
         pending.cancelSingleDPFetch()
         Task {
-            beginDatasetLoading("Opening \(pending.source.datasetPath)…")
+            let load = beginDatasetLoading("Opening \(pending.source.datasetPath)…")
             if let openURL { openURL.stopAccessingSecurityScopedResource() }
             openURL = pending.accessedSecurityScope ? pending.url : nil
             datasetSession.prepare(reader: pending.reader, datasets: [pending.source])
@@ -45,17 +45,17 @@ extension AppState {
             )
             if datasetSession.loadWasCancelled || !hasDataset {
                 await discardPartialLoad()
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
                 return
             }
             await runCurrentAnalysis()
             if datasetSession.loadWasCancelled {
                 await discardPartialLoad()
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
                 return
             }
             rememberOpenedDataset(pending.url)
-            finishDatasetLoading()
+            finishDatasetLoading(owner: load)
         }
     }
 
@@ -122,7 +122,7 @@ extension AppState {
             replay.adopt(recipeBeforePromote.isEmpty ? nil : recipeBeforePromote,
                          recordedOn: frameBeforePromote)
         }
-        beginDatasetLoading("Reopening \(source.fileName) at full extent…")
+        let load = beginDatasetLoading("Reopening \(source.fileName) at full extent…")
         await activate(
             descriptor: source, reader: reader,
             specification: .fullExtent,
@@ -130,7 +130,7 @@ extension AppState {
         )
         if datasetSession.loadWasCancelled || !hasDataset {
             await discardPartialLoad()
-            finishDatasetLoading()
+            finishDatasetLoading(owner: load)
             return
         }
         guard loadedView.isFullExtent else {
@@ -142,14 +142,14 @@ extension AppState {
             // run the whole-cube pass under a "Reopening…" banner for a
             // reopen that never happened. Do not discard: the rehearsal is
             // intact and still what the user had.
-            finishDatasetLoading()
+            finishDatasetLoading(owner: load)
             return
         }
         if runReestablishingAnalysis {
             await runCurrentAnalysis()
             if datasetSession.loadWasCancelled {
                 await discardPartialLoad()
-                finishDatasetLoading()
+                finishDatasetLoading(owner: load)
                 return
             }
         }
@@ -158,7 +158,7 @@ extension AppState {
         // recovery record so the persisted (frame, position) pair describes
         // the promoted view now, not whenever the user next moves the cursor
         // (Gate B-lite F14). // v2 S5
-        finishDatasetLoading()
+        finishDatasetLoading(owner: load)
         persistRecoveryPosition()
     }
     /// Walk away without loading. Releases the file access the pending open

@@ -47,6 +47,46 @@ final class DatasetSessionTests: XCTestCase {
         XCTAssertFalse(session.canCancelLoad)
     }
 
+    /// S5: two loads in flight. The older load's tail must not disarm Cancel
+    /// for the newer one. Mutation it catches: drop the `=== owner` guard in
+    /// `finishLoading(owner:)` (the pre-S5 unconditional clear) — the first
+    /// finish then nils B's token and `canCancelLoad` goes false.
+    func testAnOlderLoadsTailLeavesTheNewerLoadCancellable() {
+        let session = DatasetSession()
+        let older = session.beginLoading("Opening A…")
+        let newer = session.beginLoading("Opening B…")
+
+        XCTAssertFalse(session.finishLoading(owner: older),
+                       "a superseded load's tail must change nothing")
+        XCTAssertTrue(session.isLoading)
+        XCTAssertTrue(session.loadCancellation === newer)
+        XCTAssertEqual(session.loadingStatus, "Opening B…")
+        XCTAssertTrue(session.canCancelLoad, "Cancel must stay armed for the running load")
+
+        XCTAssertTrue(session.finishLoading(owner: newer))
+        XCTAssertFalse(session.isLoading)
+        XCTAssertNil(session.loadCancellation)
+        XCTAssertFalse(session.finishLoading(owner: newer),
+                       "a second finish of the same load is a no-op")
+    }
+
+    /// The same through AppState, whose wrapper also owns the busy flag.
+    /// Mutation it catches: `finishDatasetLoading(owner:)` ignoring the
+    /// session's refusal (calling `setBusy(false)` unconditionally).
+    func testAnOlderLoadsTailLeavesTheNewerLoadBusy() {
+        let state = AppState()
+        let older = state.beginDatasetLoading("Opening A…")
+        let newer = state.beginDatasetLoading("Opening B…")
+
+        state.finishDatasetLoading(owner: older)
+        XCTAssertTrue(state.isBusy)
+        XCTAssertTrue(state.datasetSession.canCancelLoad)
+
+        state.finishDatasetLoading(owner: newer)
+        XCTAssertFalse(state.isBusy)
+        XCTAssertFalse(state.datasetSession.isLoading)
+    }
+
     func testDiscardClearsOwnedStateAndAdvancesEpochAgain() async throws {
         let session = DatasetSession()
         let reader = DemoFourDDataSource()

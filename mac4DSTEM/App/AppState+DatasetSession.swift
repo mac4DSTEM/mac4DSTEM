@@ -28,16 +28,29 @@ extension AppState {
                     "The volume “\(volume)” is not mounted. Connect it in Finder, then open the dataset again."
                 ))
             } else {
-                recents.remove(id: recent.id)
+                // `removeRecent`, not `recents.remove`: a dead entry that is
+                // also the recovery record's must take the record with it, or
+                // "Reopen Last Dataset" stays offered for an entry that no
+                // longer exists and answers "No recoverable dataset" (S5).
+                removeRecent(recent)
                 present(SimpleError("This recent dataset is no longer accessible. Open it again to renew permission."))
             }
         }
     }
 
     func reopenLastDataset() {
-        guard let recoveryRecord,
-              let recent = recents.entry(withID: recoveryRecord.datasetID) else {
+        guard let record = recoveryRecord else {
             present(SimpleError("No recoverable dataset is available.")); return
+        }
+        guard let recent = recents.entry(withID: record.datasetID) else {
+            // A record whose Recents entry is gone can never reopen: drop it
+            // so the Reopen command stops being offered, and name the file
+            // rather than answering a visible command with "none". // S5
+            recoveryRecord = nil
+            WorkspaceRecoveryStore.clearRecovery()
+            let name = URL(fileURLWithPath: record.datasetID).lastPathComponent
+            present(SimpleError("“\(name)” is no longer in Recents. Open it again with File › Open Dataset…"))
+            return
         }
         openRecent(recent)
     }
@@ -97,9 +110,9 @@ extension AppState {
             // "Loaded …" with the bar at 1.0 and then reads the whole cube in
             // complete silence — open-items #36's stall, reintroduced one
             // layer down.
-            beginDatasetLoading("Opening \(descriptor.datasetPath)…")
+            let load = beginDatasetLoading("Opening \(descriptor.datasetPath)…")
             await activate(descriptor: descriptor, reader: reader)
-            finishDatasetLoading()
+            finishDatasetLoading(owner: load)
         }
     }
 }

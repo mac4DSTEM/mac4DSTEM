@@ -46,10 +46,10 @@ final class SessionReplayAppStateTests: XCTestCase {
             forSourcePath: descriptor.filePath, source: descriptor
         )
         let restored = try XCTUnwrap(restoredValue)
-        state.beginDatasetLoading("Reopening source…")
+        let load = state.beginDatasetLoading("Reopening source…")
         await state.activate(descriptor: descriptor, reader: source,
                              specification: restored, runInitialAnalysis: false)
-        state.finishDatasetLoading()
+        state.finishDatasetLoading(owner: load)
 
         XCTAssertEqual(state.datasetSession.loadView?.source.filePath, descriptor.filePath,
                        "Reopen must read the source descriptor, never a reduced derived cube")
