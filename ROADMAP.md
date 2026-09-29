@@ -107,11 +107,8 @@ The owner, 2026-09-30: "clear the board and then start to consolidate and polish
 session of 2026-09-29 cleared its own list, not the board: most lanes are features or decisions only the owner can take.
 Clearing is three moves, in this order.
 
-1. **Close (one short session, docs only).** Lanes done and seen on screen leave the board for the ledger: disk-detection
-   memory (classical), Bragg disks kept in the session, calibration foundation, the interface on macOS 27 and the
-   narrow-window abort, R–Q parity. Open items that are standing process notes, not defects (the visual baseline, the
-   two process gaps, the stale-DerivedData trap, CI waiting for a macOS 27 image, the dylib rebuild path) move to
-   `docs/archive/` with one line each where they belong. Target: **board ≤ 8 lanes, `open-items.md` ≤ 25 entries.**
+1. **Closed 2026-09-30 (S1):** board 18 → 7 lanes (done and parked lanes in its ledger), `open-items.md` 46 → 22
+   entries grouped by polish room; the standing process notes are one line each in `docs/architecture.md`.
 2. **Decided 2026-09-30 (ADR 046):** training and the lineage graph (a real graph with rewind) kept; volumetric
    density and β″ orientation maps parked; A3 retired. Originally: **keep, defer or retire** each feature lane — disks claimed per phase, β″
    orientation maps, the lineage graph, volumetric density, on-device training, the full Thronsen reproduction (A3).
@@ -120,24 +117,12 @@ Clearing is three moves, in this order.
    28 GB `--parity` run) waits for the stronger Mac and leaves the board as one "waits on hardware" row.
 3. **Polish (GREEN, one room per session, each drive-verified).** First the workspaces, ADR 046's accepted picture:
    Prepare · Imaging (+ diffraction groups) · Bragg Disks (detect, labels, training) · Crystal Maps (strain,
-   orientation, phases and precipitates) · Reconstruction (DPC, parallax, ptychography) · Results. Then:
-   - *Prepare:* an emptied manual Q discards the file's calibration; voltage "0 kV" when unset; the Friedel ETA that
-     only grows (Gate D first — cause unknown).
-   - *Phase mapping and precipitates:* refuse or explain an uncalibrated run; the zone-axis tie order; the busy status
-     line at narrow widths; your Al-Mg-Si recipe as a preset once your run confirms it.
-   - *Sessions and sidecars:* the retarget, `.h5.h5` and load/promote/replay residuals; the sidecar reader's
-     attribute guard.
-   - *Inspector kit and view state:* the kit gaps and the four owners of view state (hygiene with the Frozen Shell
-     residuals the owner accepts).
-4. **Science, one Gate D per session, after the polish:** D025 (circle-ROI mask +0.5 px), D023 (empty positions in the
-   strain median), D019 (a NaN pixel loses a pattern), T4's last metric (θ′ edge-on speckle), the learned detector's
-   tiled memory loop.
+   orientation, phases and precipitates) · Reconstruction (DPC, parallax, ptychography) · Results. Then one room per
+   session (S3–S6 below; their items are `docs/open-items.md` § Polish).
+4. **Science, one Gate D per session, after the polish** (S7–S11 below).
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-- [ ] **S1 Close.** Board lanes done → ledger (disk memory, Bragg restore, calibration, interface + narrow window, R–Q,
-  ground truth A2/A3a); parked lanes (volumetric, β″ orientation) leave the board for "Later"; open-items' standing
-  notes (visual baseline, process gaps, stale-DerivedData trap → `gate-run` notes, CI wait, dylib path) to archive.
-  Target board ≤ 8 lanes, open-items ≤ 25 entries. Docs only.
+- [x] **S1 Close** (2026-09-30): board 7 lanes, open-items 22 entries (see step 1 above).
 - [ ] **S2 Workspaces (ADR 046, Frozen Shell against its picture).** `WorkspaceArea` in `App/ProductWorkflow.swift`
   (raw values `prepare/image/map/reconstruct/aiAnalysis/results` are persisted — keep them; add a case for Bragg
   Disks and remap, never rename a raw value) and `AnalysisMode` (raw values persisted in recovery records and exports:

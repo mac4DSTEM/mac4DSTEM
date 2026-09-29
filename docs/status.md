@@ -23,9 +23,9 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge and T6
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | v4.0.0 released 2026-09-23; `main` pushed at `a8ea83d` (2026-09-30) with the overnight work and the narrow-window fix. | — |
+| **Now** | v4.0.0 released 2026-09-23; `main` pushed at `5bd686b` (2026-09-30): the overnight work, the narrow-window fix, the session queue. | — |
 | Narrow windows | The constraint-loop abort is fixed and **seen on screen** (2026-09-30, your pick: fixed 460 inspector + the sidebar stepping aside below 1095 pt). Unit 965/0/2 = 967. Residual: Show Tools against the screen's edge. | — |
-| **Next — the session queue** | `ROADMAP.md` › Next planned sequence › **Session queue**: a bare `/pickup` takes the first unchecked line (**S1 Close**), and its closeout ticks it and names the next. S2 builds the workspaces of ADR 046; S3–S6 polish; S7–S11 Gate D; then training, then the lineage graph. | `/pickup`. |
+| **Next — the session queue** | `ROADMAP.md` › **Session queue**: S1 Close done 2026-09-30 (board 18 → 7 lanes, open-items 46 → 22 entries, docs only). Next unchecked: **S2 Workspaces** (ADR 046, Frozen Shell against its accepted picture); S3–S6 polish; S7–S11 Gate D; then training, then the lineage graph. | `/pickup`. |
 | **Owner owed** | D1 option (a); the lineage graph's session-file format (when it is registered); Thronsen's written confirmation (ADR 042); the "overrule on sight" list (plan §5). | Owner. |
 | **⚠ Don't run** | Detect All Disks with the **learned** detector on multi-GB cubes (its tiled loop is not pooled). | — |
 | Phase mapping | Unvalidated. T4 one metric short; D1 measured: the shipped max(0.02 Å⁻¹, 1 px) lies inside all four datasets' bands (raw 060 cube: matrix 84.4 % at the app's 0.02); `archive/v4/phase-tolerance-results-2026-09-29.md`. | Owner: option (a). |
@@ -37,4 +37,5 @@ Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-0
 ## Owed to the owner
 
 - The §10g decisions and plan §8 (sidecar wire format). C8's engines question was settled 2026-09-08: leave (`decisions.md`).
+- Whether the v2.5.1 download (universal executable, arm64-only libraries) is withdrawn or annotated — likely moot under v4.0.0.
 - Four session-4 choices to overrule on sight, and the C4 slices 1-2 drive — both carried in [`archive/v3/v3.0.0-closeout-2026-09-11.md`](archive/v3/v3.0.0-closeout-2026-09-11.md).

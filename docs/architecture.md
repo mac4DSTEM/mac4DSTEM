@@ -293,7 +293,8 @@ again and no flag selects it. Six rules, the first three enforced by
   build configuration and `.macOS("27.0")` in `Package.swift`, raised from
   14 on 2026-09-22 (`decisions.md` 008); v3.0.0's artefact (floor 14) stays
   downloadable for older systems. Xcode 27 or later — development is on
-  27.0, CI on macos-26. No separately installed HDF5.
+  27.0; CI's unit job is paused until GitHub offers a macOS 27 runner (ADR 040), so
+  every green gate is a local run. No separately installed HDF5.
 - Build: open `mac4DSTEM.xcodeproj`, scheme `mac4DSTEM`, `⌘R`; or
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
   Tools resolve their own toolchain via `tools/lib/developer-dir.sh`
@@ -345,7 +346,8 @@ Distribution always uses hardened Release (`releasing.md`). HDF5 access is
 serialised process-wide by a lock, not an actor: `HDF5Serial`
 (`Core/Data/HDF5Types.swift`) is acquired and released around every
 `H5Reader` public method's body, recursive so a nested entry does not
-deadlock and never held across an `await`.
+deadlock and never held across an `await`. The three redistributed dylibs came from Homebrew
+`hdf5 2.1.1` / `libaec 1.1.7` on one machine; nothing in the repo rebuilds them.
 
 ## Known limitations
 
@@ -375,5 +377,7 @@ deadlock and never held across an `await`.
   (the frozen-Detect-All-Disks lesson).
 - Metal parameter structs in `MetalEngine.swift` stay byte-identical to the
   `.metal` structs (all 4-byte fields).
+- A stale DerivedData test bundle can fake a pass and a surviving mutation: reconcile the case count against
+  `func test` per file, check which `XCTestCase` class a new test landed in, and grep the log for its own name.
 - Debug builds compile the app module at `-O` so interactive science is never
   benchmarked at `-Onone`.
