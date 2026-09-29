@@ -491,15 +491,23 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
         // MEASURED 2026-09-12 (Gate B finding 7), and it changes how the two
         // excitation settings should be read: with a flat sphere
         // s_g = g·n = (hu + kv + lw)/|r_uvw|, which is EXACTLY 0 for every
-        // zone-law reflection and at least 1/|r_uvw| otherwise. For every axis
-        // in play that spacing is 0.066 Å⁻¹ or more — above
-        // `excitationSlabInvAngstrom` — so no non-ZOLZ reflection is admitted
-        // and the Gaussian is identically 1 on everything that is. The slab is
-        // therefore a ZONE SELECTOR here, not a weighting, and
+        // zone-law reflection and at least 1/|r_uvw| otherwise. For the axes
+        // measured that day that spacing was 0.066 Å⁻¹ or more — above
+        // `excitationSlabInvAngstrom` — so no non-ZOLZ reflection was admitted
+        // and the Gaussian was identically 1 on everything that was. The slab
+        // is then a ZONE SELECTOR, not a weighting, and
         // `excitationWidthInvAngstrom` cannot change any output until the
         // Ewald curvature is restored or the slab is widened past a Laue-zone
         // spacing. Both settings are kept because that is exactly what changes
         // for a long-axis cell, where 1/|r_uvw| falls below the slab.
+        //
+        // NOT true for every axis in use (Gate D S10, 2026-09-30,
+        // `docs/archive/v4/s10-s11-gateD-2026-09-30.md`): T1's [0 -4 1] entry
+        // (c = 14.145 Å cell) holds 48 vectors, 30 of them first-order-Laue-
+        // zone reflections at |s_g| = 0.0411 Å⁻¹ — below the 0.05 slab, so
+        // admitted, at Gaussian weight e^-1.9 at the default 0.03 width
+        // (e.g. (0 0 ±1), |g| 0.0575 Å⁻¹, relative intensity 0.173). For that
+        // entry the slab is a weighting too, and the width does move output.
         //
         // Flat Ewald sphere: s_g = g·n. Deliberately flat, and NOT the
         // curvature-corrected form `OrientationPlan.project` offers. The

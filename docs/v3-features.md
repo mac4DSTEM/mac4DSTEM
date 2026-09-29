@@ -215,7 +215,7 @@ named by outcome, not moved into an `AI/` folder.
 when to build multi-dataset and volumetric density.
 
 **Records.** `docs/decisions/018-ai-pipeline-on-main.md` (PCA over NMF;
-ridge filter parked, not retired); `docs/decisions/019-precipitates-by-classification.md`
+ridge filter parked then retired with the image `segment` path, 2026-09-30); `docs/decisions/019-precipitates-by-classification.md`
 (the route decision and ship gate); `docs/archive/v3/precipitate-baseline-2026-09-11.md`,
 `docs/archive/v3/precipitate-handcount-2026-09-11.md` (the measured failures
 that killed the image route); `docs/archive/v3/precipitates-real-space-route-2026-09-07.md`

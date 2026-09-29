@@ -1031,21 +1031,24 @@ struct CubicIPFLegend: View {
     }
 }
 
-/// Native 6/mmm key sharing the production hexagonal color function.
+/// Native 6/mmm key sharing the production hexagonal color function. Corner
+/// directions, labels and colours come from `HexagonalOrientationSymmetry.keyCorners`.
 struct HexagonalIPFLegend: View {
     var body: some View {
+        let corners = HexagonalOrientationSymmetry.keyCorners
         IPFTriangleLegend(
-            leftDirection: SIMD3<Double>(0, 0, 1),
-            rightDirection: SIMD3<Double>(1, 0, 0),
-            topDirection: SIMD3<Double>(cos(.pi / 6), sin(.pi / 6), 0),
-            leftLabel: "0001",
-            topLabel: "11-20",
-            rightLabel: "10-10",
+            leftDirection: corners[0].direction,
+            rightDirection: corners[1].direction,
+            topDirection: corners[2].direction,
+            leftLabel: corners[0].label,
+            topLabel: corners[2].label,
+            rightLabel: corners[1].label,
             colorFunction: HexagonalOrientationSymmetry.ipfColor(direction:),
             // Wider than the cubic key because the hexagonal indices are four
             // characters.
             labelRowWidth: 142,
-            accessibilityLabelText: "Hexagonal inverse pole figure color key: 0001 red, 10-10 green, 11-20 blue"
+            accessibilityLabelText: "Hexagonal inverse pole figure color key: "
+                + "\(corners[0].label) red, \(corners[1].label) green, \(corners[2].label) blue"
         )
     }
 }

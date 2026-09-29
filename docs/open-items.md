@@ -17,7 +17,7 @@ B1 (`archive/v4/b1-edge-on-gateD-2026-09-28.md`, `b1-narrow-guard-2026-09-28.md`
 needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves errors between classes — neither shipped.
 The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
 S10 (2026-09-30): candidate A refuted at step 0; B (noise hit) refuted at the bar (error 1.31 → 4.41 %); the metric ships as a quantity (ADR 048). T1's [0 -4 1] entry holds
-30 first-order-Laue-zone reflections (`archive/v4/s10-s11-gateD-2026-09-30.md`) — the library comment is stale.
+30 first-order-Laue-zone reflections (`archive/v4/s10-s11-gateD-2026-09-30.md`).
 
 ### Tiled GPU memory: classical and learned Detect All gated and seen flat; the virtual-detector loops unmeasured
 Classical and learned `detectAll` are gated by `tools/tiled-detection-memory-test` (`archive/v4/s10-s11-gateD-2026-09-30.md`).
@@ -68,12 +68,9 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) and `archive/v4/open-items-detail-2026-09-25.md`.
 - T1 [0 -4 1]: 252 not-indexed positions are detection noise (a Friedel pair 2.5–5.2° off); levers (centroiding, tolerance, accept) are the owner's.
 - R–Q (ADR 040) residuals: a datacube exported before 2026-09-28 and reopened is sign-flipped; the campaign report and the parallax fit's own rotation keep the old sign / are untested.
-- Image `PrecipitateSegmentation.segment` is unwired and has four defects (NaN regions, two surviving mutants, dark ridges) — retire it (lean-app) or fix.
-- Diffraction groups: no shipped test reaches the two-pass path (cube cache > 512 MB); profile Release vs Debug before deciding its fate.
+- Diffraction groups: profile Release vs Debug before deciding the two-pass path's fate (it is now test-reachable via `cacheBudgetBytes`).
 - Al-Mg-Si peak set: 39 % explained by the best Al orientation (2026-09-12) — detection, not the matcher.
 - β″ zone axes presented under ⟨110⟩Al unanswered (known, scoped).
-- Hexagonal IPF key may be labelled the wrong way round (2026-09-11) — settle, pin with a test.
-- Single-slice ptychography export guard may miss its mode (`ResultExport.swift:1506`) — Gate D.
 - Region circle radius: the mask takes centres up to ½ px outside the drawn ring (`R + 0.5`, strict `<`; R 5: 97 px vs `d ≤ R` 81, py4DSTEM 69) — own Gate D (D025 refuter).
 - Bullseye detection accepts noise: outer-edge probe size for structured probes open.
 - Twisted bilayer graphene finds only the beam at defaults — Gate D with a per-pattern funnel.

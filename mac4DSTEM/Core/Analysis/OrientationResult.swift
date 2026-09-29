@@ -367,7 +367,7 @@ package nonisolated enum CubicOrientationSymmetry {
 /// Proper rotational subgroup of the hexagonal 6/mmm Laue class (D6): six
 /// rotations about c plus six twofold rotations about basal-plane axes. The
 /// diffraction/Friedel direction key folds the resulting sector to
-/// `[0001]-[10-10]-[11-20]`.
+/// `[0001]-[2-1-10]-[10-10]`.
 package nonisolated enum HexagonalOrientationSymmetry {
     package static let operators: [simd_double3x3] = {
         var result: [simd_double3x3] = []
@@ -465,8 +465,29 @@ package nonisolated enum HexagonalOrientationSymmetry {
         return selected
     }
 
-    /// Explicit native 6/mmm IPF key: [0001] red, [10-10] green, [11-20]
-    /// blue. Square-root intensity and max normalization match conventional
+    /// One corner of the 6/mmm key triangle: its crystal-Cartesian direction
+    /// (py4DSTEM frame: a along +x, c along +z), the four-index label the
+    /// legend prints, and the colour `ipfColor` gives it.
+    package nonisolated struct KeyCorner: Sendable, Equatable {
+        package let direction: SIMD3<Double>
+        package let label: String
+        package let color: SIMD3<Float>
+    }
+
+    /// The key's three corners: the legend and the test read this table.
+    /// The frame is py4DSTEM's (`Crystal.latReal`: a along +x), so azimuth 0
+    /// is the a-axis [2-1-10] and azimuth 30 deg is [10-10]. The pre-2026-09-30
+    /// labels had the two prismatic corners swapped (Gate D, open-items
+    /// 2026-09-11); the colours were never changed, only what they are called.
+    package static let keyCorners: [KeyCorner] = [
+        KeyCorner(direction: SIMD3(0, 0, 1), label: "0001", color: SIMD3(1, 0, 0)),
+        KeyCorner(direction: SIMD3(1, 0, 0), label: "2-1-10", color: SIMD3(0, 1, 0)),
+        KeyCorner(direction: SIMD3(cos(.pi / 6), sin(.pi / 6), 0), label: "10-10",
+                  color: SIMD3(0, 0, 1)),
+    ]
+
+    /// Explicit native 6/mmm IPF key: [0001] red, [2-1-10] green, [10-10]
+    /// blue (see `keyCorners`). Square-root intensity and max normalization match conventional
     /// IPF saturation while keeping the policy deterministic and dependency-free.
     package static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
         let value = reduceDirection(direction)
