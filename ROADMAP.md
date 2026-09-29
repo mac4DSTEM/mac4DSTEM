@@ -137,7 +137,8 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
 - [ ] **B. One owner sitting, prepared as artifacts** — each a recommendation he accepts or overrules: (1) the Frozen
   Shell picture: the sidebar-clip fix, the busy status line, the view-state owners, the Info-tab badge; (2) the
   lineage session format (ADR draft: step ids, input edges, sidecar v2) and a graph-view mock; (3) the training flow
-  (C3 design: where labels live, split, the non-inferiority screen, model swap); (4) hardware: is the stronger Mac here.
+  (C3 design: where labels live, split, the non-inferiority screen, model swap); (4) hardware: is the stronger Mac here;
+  (5) T4: ship θ′ edge-on speckle as a quantity (S10's recommendation, `archive/v4/s10-theta-edge-on-preregistration-2026-09-30.md`).
 - [ ] **C. On-device training, the C track (ADR 043).** C2.5 a training step ≤ 2 GB on this Mac (batch/activation
   memory, measured) and criterion 4 through the app's Swift path; C3 pre-register; C4 build label → train on the GPU
   (MLX) → write the weights into the Core ML package (the on-disk route, 1.00× speed) → run on the Neural Engine →
