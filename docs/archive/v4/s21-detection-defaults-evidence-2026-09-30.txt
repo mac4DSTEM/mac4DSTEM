@@ -1,0 +1,551 @@
+S21 evidence, 2026-09-30 (scratch logs of the session, copied verbatim; harness source main.swift and analyse.py appended below)
+
+##### profile-bullseye.log
+=== calibrationData_bullseyeProbe.h5 scan 100x84 det 250x250
+  meanDP: r_est 6.843 centre (126.98,127.48) R_out 11 rRing 8 D 0.222 | unrestricted rRing 8 D 0.222
+    profile/max 0..39: [1.0, 0.89, 0.674, 0.407, 0.222, 0.236, 0.42, 0.582, 0.67, 0.526, 0.316, 0.137, 0.049, 0.026, 0.021, 0.02, 0.019, 0.018, 0.018, 0.017, 0.017, 0.016, 0.016, 0.015, 0.015, 0.015, 0.014, 0.014, 0.013, 0.013, 0.013, 0.012, 0.012, 0.012, 0.012, 0.012, 0.012, 0.012, 0.012, 0.012]
+  probe /4DSTEM_experiment/data/diffractionslices/probe_template/data [20 slices]: r_est 7.365 centre (125.05,125.00) R_out 11 rRing 8 D 0.055 | unrestricted rRing 8 D 0.055
+    profile/max 0..39: [1.0, 0.97, 0.799, 0.365, 0.062, 0.055, 0.301, 0.636, 0.767, 0.591, 0.241, 0.044, 0.004, 0.002, 0.003, 0.002, 0.002, 0.003, 0.002, 0.003, 0.003, 0.003, 0.003, 0.003, 0.002, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003, 0.003]
+peak footprint 1117 MB
+MAC4DSTEM_HDF5_PATH=$PWD/libhdf5.dylib ./s21 profile   1.39s user 0.93s system 71% cpu 3.244 total
+
+##### profile-others.log
+=== Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5 scan 90x45 det 128x128
+  meanDP: r_est 6.123 centre (64.58,70.55) R_out 10 rRing 3 D 0.894 | unrestricted rRing 3 D 0.894
+    profile/max 0..39: [0.792, 0.894, 0.989, 1.0, 0.976, 0.875, 0.769, 0.633, 0.435, 0.273, 0.137, 0.057, 0.029, 0.02, 0.017, 0.014, 0.013, 0.011, 0.01, 0.01, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009, 0.008, 0.008, 0.008, 0.008, 0.007, 0.007, 0.007, 0.007, 0.006, 0.006, 0.006]
+=== downsample_Si_SiGe_exp.h5 scan 50x200 det 128x128
+  meanDP: r_est 3.738 centre (70.41,59.19) R_out 15 rRing 0 D 1.000 | unrestricted rRing 8 D 0.017
+    profile/max 0..39: [0.017, 0.017, 0.018, 0.02, 0.025, 0.197, 0.329, 0.717, 1.0, 0.857, 0.745, 0.438, 0.379, 0.346, 0.256, 0.157, 0.118, 0.122, 0.101, 0.104, 0.143, 0.169, 0.13, 0.155, 0.144, 0.136, 0.126, 0.1, 0.07, 0.024, 0.017, 0.016, 0.016, 0.02, 0.024, 0.021, 0.021, 0.02, 0.018, 0.014]
+=== polycrystal_2D_WS2.h5 scan 128x128 det 128x128
+  meanDP: r_est 1.858 centre (63.84,63.84) R_out 2 rRing 0 D 1.000 | unrestricted rRing 0 D 1.000
+    profile/max 0..39: [1.0, 0.842, 0.097, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+=== sim_Au_data_all_binned.h5 scan 100x84 det 125x125
+  meanDP: r_est 5.113 centre (63.30,63.49) R_out 6 rRing 0 D 1.000 | unrestricted rRing 0 D 1.000
+    profile/max 0..39: [1.0, 0.998, 0.997, 0.984, 0.764, 0.282, 0.043, 0.022, 0.021, 0.02, 0.019, 0.018, 0.017, 0.016, 0.015, 0.015, 0.014, 0.015, 0.016, 0.016, 0.016, 0.017, 0.016, 0.016, 0.015, 0.014, 0.013, 0.011, 0.01, 0.009, 0.008, 0.008, 0.008, 0.008, 0.008, 0.008, 0.009, 0.009, 0.009, 0.01]
+  probe /4DSTEM_simulation/vacuum_probe/data [1 slices]: r_est 5.168 centre (62.36,62.33) R_out 5 rRing 3 D 0.999 | unrestricted rRing 3 D 0.999
+    profile/max 0..39: [0.999, 1.0, 0.999, 0.999, 0.882, 0.184, 0.006, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005]
+=== Au_ref_ROI15_preprocessed_unfiltered_bin_4_20241214.h5 scan 205x310 det 64x64
+  meanDP: r_est 8.056 centre (33.80,29.61) R_out 26 rRing 10 D 0.006 | unrestricted rRing 25 D 0.006
+    profile/max 0..39: [0.006, 0.006, 0.009, 0.294, 0.992, 0.822, 0.611, 0.588, 0.795, 0.977, 1.0, 0.793, 0.492, 0.322, 0.391, 0.489, 0.544, 0.559, 0.471, 0.403, 0.298, 0.18, 0.142, 0.173, 0.204, 0.207, 0.186, 0.149, 0.125, 0.109, 0.09, 0.082, 0.086, 0.093, 0.089, 0.079, 0.064, 0.055, 0.049, 0.047]
+=== Si-SiGe_calibrated.h5 scan 77x17 det 448x480
+  meanDP: r_est 3.693 centre (243.33,226.87) R_out 4 rRing 0 D 1.000 | unrestricted rRing 0 D 1.000
+    profile/max 0..39: [1.0, 0.993, 0.966, 0.658, 0.106, 0.042, 0.029, 0.023, 0.019, 0.017, 0.015, 0.014, 0.013, 0.013, 0.012, 0.012, 0.011, 0.011, 0.011, 0.011, 0.011, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+GUARD: footprint 2555038216 > 2.5 GB, exiting
+MAC4DSTEM_HDF5_PATH=$PWD/libhdf5.dylib ./s21 profile            1.21s user 3.69s system 84% cpu 5.826 total
+
+##### profile-others2.log
+=== Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5 scan 330x330 det 64x64
+  meanDP: r_est 2.540 centre (31.93,31.92) R_out 3 rRing 0 D 1.000 | unrestricted rRing 0 D 1.000
+    profile/max 0..39: [1.0, 0.962, 0.587, 0.106, 0.046, 0.028, 0.019, 0.015, 0.012, 0.01, 0.009, 0.008, 0.007, 0.006, 0.006, 0.006, 0.009, 0.011, 0.011, 0.009, 0.007, 0.004, 0.003, 0.003, 0.003, 0.003, 0.003, 0.002, 0.002, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.0]
+=== Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712_ellipse-20260925.h5 scan 330x330 det 64x64
+  meanDP: r_est 2.540 centre (31.93,31.92) R_out 3 rRing 0 D 1.000 | unrestricted rRing 0 D 1.000
+    profile/max 0..39: [1.0, 0.962, 0.587, 0.106, 0.046, 0.028, 0.019, 0.015, 0.012, 0.01, 0.009, 0.008, 0.007, 0.006, 0.006, 0.006, 0.009, 0.011, 0.011, 0.009, 0.007, 0.004, 0.003, 0.003, 0.003, 0.003, 0.003, 0.002, 0.002, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.0]
+=== datasetA_stride3.h5 scan 171x171 det 128x128
+  meanDP: r_est 2.835 centre (63.82,63.81) R_out 4 rRing 0 D 1.000 | unrestricted rRing 0 D 1.000
+    profile/max 0..39: [1.0, 0.987, 0.727, 0.21, 0.055, 0.034, 0.023, 0.017, 0.013, 0.011, 0.009, 0.008, 0.007, 0.006, 0.006, 0.005, 0.005, 0.005, 0.004, 0.004, 0.004, 0.005, 0.006, 0.015, 0.023, 0.024, 0.025, 0.019, 0.01, 0.005, 0.004, 0.003, 0.003, 0.004, 0.007, 0.01, 0.01, 0.01, 0.007, 0.004]
+=== AlMgSi_demo.h5 scan 100x100 det 128x128
+  meanDP: r_est 2.985 centre (63.50,63.50) R_out 3 rRing 0 D 1.000 | unrestricted rRing 0 D 1.000
+    profile/max 0..39: [1.0, 1.0, 0.816, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.011, 0.013, 0.014, 0.014, 0.013, 0.013, 0.015, 0.019]
+peak footprint 191 MB
+MAC4DSTEM_HDF5_PATH=$PWD/libhdf5.dylib ./s21 profile      6.17s user 2.17s system 84% cpu 9.835 total
+
+##### score analysis (analyse.py over score-run1.jsonl; score-run2.jsonl identical by cmp)
+{'appSpacing': 7.0, 'appEdge': 10, 'appMinRel': 0.0015, 'appSigmaCC': 2.0, 'appCorrPower': 1.0, 'appMaxPeaks': 70, 'appRelPeak': 0, 'probeR': 7.3649807, 'probeX0': 125.04627, 'probeY0': 125.00164, 'nLabels': 370}
+CONTROLS
+ beam label matched 2px at 40 / 40 ; beamLabelIsNearestCentre 40 / 40
+ swap recall 0.07297297297297298 vs 0.6270270270270271
+BASELINES
+ flat sp7 mr0.0015 rp0        sel  R 0.689 P 0.082 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.0015 rp0        conf R 0.576 P 0.084 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.0015 rp0        all  R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.0015 rp0        all3 R 0.778 P 0.103 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat125 sp7 mr0.0015 rp0     sel  R 0.695 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat125 sp7 mr0.0015 rp0     conf R 0.576 P 0.084 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat125 sp7 mr0.0015 rp0     all  R 0.630 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat125 sp7 mr0.0015 rp0     all3 R 0.776 P 0.102 pred/pos 70.0 cap 1.00 beamBright 1.00
+ syn sp7 mr0.0015 rp0         sel  R 0.096 P 0.016 pred/pos 50.9 cap 0.35 beamBright 0.00
+ syn sp7 mr0.0015 rp0         conf R 0.138 P 0.025 pred/pos 56.8 cap 0.40 beamBright 0.00
+ syn sp7 mr0.0015 rp0         all  R 0.119 P 0.020 pred/pos 53.8 cap 0.38 beamBright 0.00
+ syn sp7 mr0.0015 rp0         all3 R 0.246 P 0.042 pred/pos 53.8 cap 0.38 beamBright 0.00
+ syn11 sp7 mr0.0015 rp0       sel  R 0.790 P 0.416 pred/pos 15.8 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp0       conf R 0.773 P 0.442 pred/pos 17.8 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp0       all  R 0.781 P 0.430 pred/pos 16.8 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp0       all3 R 0.873 P 0.481 pred/pos 16.8 cap 0.00 beamBright 1.00
+GRID (all positions, 2px)
+ flat sp11 mr0.0015 rp0             R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp11 mr0.0015 rp1             R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp11 mr0.005 rp0              R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp11 mr0.005 rp1              R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp11 mr0.01 rp0               R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp11 mr0.01 rp1               R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp11 mr0.02 rp0               R 0.616 P 0.084 pred/pos 67.7 cap 0.93 beamBright 1.00
+ flat sp11 mr0.02 rp1               R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp11 mr0.05 rp0               R 0.373 P 0.444 pred/pos 7.8 cap 0.05 beamBright 1.00
+ flat sp11 mr0.05 rp1               R 0.616 P 0.081 pred/pos 70.0 cap 0.97 beamBright 1.00
+ flat sp22 mr0.0015 rp0             R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp22 mr0.0015 rp1             R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp22 mr0.005 rp0              R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp22 mr0.005 rp1              R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp22 mr0.01 rp0               R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp22 mr0.01 rp1               R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp22 mr0.02 rp0               R 0.614 P 0.124 pred/pos 45.6 cap 0.00 beamBright 1.00
+ flat sp22 mr0.02 rp1               R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp22 mr0.05 rp0               R 0.373 P 0.543 pred/pos 6.3 cap 0.00 beamBright 1.00
+ flat sp22 mr0.05 rp1               R 0.614 P 0.119 pred/pos 47.8 cap 0.00 beamBright 1.00
+ flat sp7 mr0.0015 rp0              R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.0015 rp0 cp0.9        R 0.632 P 0.084 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.0015 rp0 sig1         R 0.624 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.0015 rp0 sig3         R 0.641 P 0.139 pred/pos 42.7 cap 0.03 beamBright 1.00
+ flat sp7 mr0.0015 rp1              R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.005 rp0               R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.005 rp1               R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.01 rp0                R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.01 rp1                R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.02 rp0                R 0.627 P 0.085 pred/pos 68.2 cap 0.95 beamBright 1.00
+ flat sp7 mr0.02 rp1                R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat sp7 mr0.05 rp0                R 0.381 P 0.425 pred/pos 8.3 cap 0.05 beamBright 1.00
+ flat sp7 mr0.05 rp1                R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ flat125 sp7 mr0.0015 rp0           R 0.630 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00
+ syn sp11 mr0.0015 rp0              R 0.119 P 0.022 pred/pos 49.2 cap 0.25 beamBright 0.00
+ syn sp11 mr0.0015 rp1              R 0.119 P 0.021 pred/pos 53.0 cap 0.42 beamBright 0.00
+ syn sp11 mr0.005 rp0               R 0.108 P 0.064 pred/pos 15.6 cap 0.00 beamBright 0.00
+ syn sp11 mr0.005 rp1               R 0.111 P 0.048 pred/pos 21.2 cap 0.07 beamBright 0.00
+ syn sp11 mr0.01 rp0                R 0.070 P 0.077 pred/pos 8.4 cap 0.00 beamBright 0.00
+ syn sp11 mr0.01 rp1                R 0.089 P 0.062 pred/pos 13.4 cap 0.03 beamBright 0.00
+ syn sp11 mr0.02 rp0                R 0.035 P 0.070 pred/pos 4.6 cap 0.00 beamBright 0.00
+ syn sp11 mr0.02 rp1                R 0.051 P 0.060 pred/pos 7.9 cap 0.03 beamBright 0.00
+ syn sp11 mr0.05 rp0                R 0.003 P 0.011 pred/pos 2.3 cap 0.00 beamBright 0.00
+ syn sp11 mr0.05 rp1                R 0.014 P 0.038 pred/pos 3.3 cap 0.00 beamBright 0.00
+ syn sp22 mr0.0015 rp0              R 0.108 P 0.028 pred/pos 35.5 cap 0.00 beamBright 0.00
+ syn sp22 mr0.0015 rp1              R 0.108 P 0.025 pred/pos 39.2 cap 0.00 beamBright 0.00
+ syn sp22 mr0.005 rp0               R 0.100 P 0.072 pred/pos 12.8 cap 0.00 beamBright 0.00
+ syn sp22 mr0.005 rp1               R 0.103 P 0.055 pred/pos 17.1 cap 0.00 beamBright 0.00
+ syn sp22 mr0.01 rp0                R 0.065 P 0.079 pred/pos 7.6 cap 0.00 beamBright 0.00
+ syn sp22 mr0.01 rp1                R 0.081 P 0.068 pred/pos 11.0 cap 0.00 beamBright 0.00
+ syn sp22 mr0.02 rp0                R 0.032 P 0.067 pred/pos 4.5 cap 0.00 beamBright 0.00
+ syn sp22 mr0.02 rp1                R 0.046 P 0.062 pred/pos 6.8 cap 0.00 beamBright 0.00
+ syn sp22 mr0.05 rp0                R 0.003 P 0.011 pred/pos 2.3 cap 0.00 beamBright 0.00
+ syn sp22 mr0.05 rp1                R 0.011 P 0.032 pred/pos 3.1 cap 0.00 beamBright 0.00
+ syn sp7 mr0.0015 rp0               R 0.119 P 0.020 pred/pos 53.8 cap 0.38 beamBright 0.00
+ syn sp7 mr0.0015 rp0 cp0.9         R 0.103 P 0.015 pred/pos 64.7 cap 0.70 beamBright 0.00
+ syn sp7 mr0.0015 rp0 sig1          R 0.127 P 0.019 pred/pos 61.7 cap 0.75 beamBright 0.00
+ syn sp7 mr0.0015 rp0 sig3          R 0.143 P 0.029 pred/pos 45.6 cap 0.20 beamBright 0.00
+ syn sp7 mr0.0015 rp1               R 0.119 P 0.019 pred/pos 56.6 cap 0.53 beamBright 0.00
+ syn sp7 mr0.005 rp0                R 0.108 P 0.049 pred/pos 20.2 cap 0.03 beamBright 0.00
+ syn sp7 mr0.005 rp1                R 0.111 P 0.040 pred/pos 25.8 cap 0.10 beamBright 0.00
+ syn sp7 mr0.01 rp0                 R 0.070 P 0.054 pred/pos 12.0 cap 0.00 beamBright 0.00
+ syn sp7 mr0.01 rp1                 R 0.089 P 0.048 pred/pos 17.1 cap 0.05 beamBright 0.00
+ syn sp7 mr0.02 rp0                 R 0.035 P 0.045 pred/pos 7.2 cap 0.00 beamBright 0.00
+ syn sp7 mr0.02 rp1                 R 0.051 P 0.045 pred/pos 10.5 cap 0.03 beamBright 0.00
+ syn sp7 mr0.05 rp0                 R 0.003 P 0.006 pred/pos 3.9 cap 0.00 beamBright 0.00
+ syn sp7 mr0.05 rp1                 R 0.014 P 0.024 pred/pos 5.2 cap 0.00 beamBright 0.00
+ syn11 sp11 mr0.0015 rp0            R 0.778 P 0.438 pred/pos 16.4 cap 0.00 beamBright 1.00
+ syn11 sp11 mr0.0015 rp1            R 0.778 P 0.110 pred/pos 65.2 cap 0.47 beamBright 1.00
+ syn11 sp11 mr0.005 rp0             R 0.692 P 0.780 pred/pos 8.2 cap 0.00 beamBright 1.00
+ syn11 sp11 mr0.005 rp1             R 0.778 P 0.135 pred/pos 53.2 cap 0.17 beamBright 1.00
+ syn11 sp11 mr0.01 rp0              R 0.549 P 0.875 pred/pos 5.8 cap 0.00 beamBright 1.00
+ syn11 sp11 mr0.01 rp1              R 0.778 P 0.176 pred/pos 40.9 cap 0.05 beamBright 1.00
+ syn11 sp11 mr0.02 rp0              R 0.378 P 0.946 pred/pos 3.7 cap 0.00 beamBright 1.00
+ syn11 sp11 mr0.02 rp1              R 0.778 P 0.264 pred/pos 27.2 cap 0.03 beamBright 1.00
+ syn11 sp11 mr0.05 rp0              R 0.203 P 0.949 pred/pos 2.0 cap 0.00 beamBright 1.00
+ syn11 sp11 mr0.05 rp1              R 0.751 P 0.465 pred/pos 14.9 cap 0.03 beamBright 1.00
+ syn11 sp22 mr0.0015 rp0            R 0.778 P 0.459 pred/pos 15.7 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.0015 rp1            R 0.778 P 0.148 pred/pos 48.6 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.005 rp0             R 0.692 P 0.793 pred/pos 8.1 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.005 rp1             R 0.778 P 0.172 pred/pos 41.8 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.01 rp0              R 0.549 P 0.883 pred/pos 5.8 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.01 rp1              R 0.778 P 0.210 pred/pos 34.2 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.02 rp0              R 0.378 P 0.946 pred/pos 3.7 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.02 rp1              R 0.778 P 0.291 pred/pos 24.7 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.05 rp0              R 0.203 P 0.949 pred/pos 2.0 cap 0.00 beamBright 1.00
+ syn11 sp22 mr0.05 rp1              R 0.751 P 0.485 pred/pos 14.3 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp0             R 0.781 P 0.430 pred/pos 16.8 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp0 cp0.9       R 0.751 P 0.314 pred/pos 22.1 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp0 sig1        R 0.722 P 0.361 pred/pos 18.5 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp0 sig3        R 0.849 P 0.485 pred/pos 16.2 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.0015 rp1             R 0.781 P 0.106 pred/pos 68.0 cap 0.68 beamBright 1.00
+ syn11 sp7 mr0.005 rp0              R 0.695 P 0.781 pred/pos 8.2 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.005 rp1              R 0.781 P 0.128 pred/pos 56.3 cap 0.30 beamBright 1.00
+ syn11 sp7 mr0.01 rp0               R 0.549 P 0.875 pred/pos 5.8 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.01 rp1               R 0.781 P 0.170 pred/pos 42.6 cap 0.12 beamBright 1.00
+ syn11 sp7 mr0.02 rp0               R 0.378 P 0.946 pred/pos 3.7 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.02 rp1               R 0.781 P 0.256 pred/pos 28.2 cap 0.03 beamBright 1.00
+ syn11 sp7 mr0.05 rp0               R 0.203 P 0.949 pred/pos 2.0 cap 0.00 beamBright 1.00
+ syn11 sp7 mr0.05 rp1               R 0.754 P 0.460 pred/pos 15.2 cap 0.03 beamBright 1.00
+SELECTION
+ flow flat vs baseline 'flat sp7 mr0.0015 rp0': selected 'flat sp22 mr0.02 rp0'
+   sel  base R 0.689 P 0.082 pred/pos 70.0 cap 1.00 beamBright 1.00 | sel R 0.671 P 0.124 pred/pos 45.0 cap 0.00 beamBright 1.00 | dP +0.042 dR -0.018
+   conf base R 0.576 P 0.084 pred/pos 70.0 cap 1.00 beamBright 1.00 | sel R 0.567 P 0.124 pred/pos 46.3 cap 0.00 beamBright 1.00 | dP +0.041 dR -0.010
+   all  base R 0.627 P 0.083 pred/pos 70.0 cap 1.00 beamBright 1.00 | sel R 0.614 P 0.124 pred/pos 45.6 cap 0.00 beamBright 1.00 | dP +0.041 dR -0.014
+ flow syn vs baseline 'syn sp7 mr0.0015 rp0': selected 'syn sp22 mr0.005 rp0'
+   sel  base R 0.096 P 0.016 pred/pos 50.9 cap 0.35 beamBright 0.00 | sel R 0.078 P 0.054 pred/pos 12.1 cap 0.00 beamBright 0.00 | dP +0.038 dR -0.018
+   conf base R 0.138 P 0.025 pred/pos 56.8 cap 0.40 beamBright 0.00 | sel R 0.118 P 0.089 pred/pos 13.4 cap 0.00 beamBright 0.00 | dP +0.065 dR -0.020
+   all  base R 0.119 P 0.020 pred/pos 53.8 cap 0.38 beamBright 0.00 | sel R 0.100 P 0.072 pred/pos 12.8 cap 0.00 beamBright 0.00 | dP +0.052 dR -0.019
+ flow syn11 vs baseline 'syn11 sp7 mr0.0015 rp0': selected 'syn11 sp7 mr0.0015 rp0 sig3'
+   sel  base R 0.790 P 0.416 pred/pos 15.8 cap 0.00 beamBright 1.00 | sel R 0.868 P 0.477 pred/pos 15.2 cap 0.00 beamBright 1.00 | dP +0.061 dR +0.078
+   conf base R 0.773 P 0.442 pred/pos 17.8 cap 0.00 beamBright 1.00 | sel R 0.833 P 0.493 pred/pos 17.1 cap 0.00 beamBright 1.00 | dP +0.050 dR +0.059
+   all  base R 0.781 P 0.430 pred/pos 16.8 cap 0.00 beamBright 1.00 | sel R 0.849 P 0.485 pred/pos 16.2 cap 0.00 beamBright 1.00 | dP +0.055 dR +0.068
+ flow syn11 vs baseline 'syn sp7 mr0.0015 rp0': selected 'syn11 sp7 mr0.02 rp0'
+   sel  base R 0.096 P 0.016 pred/pos 50.9 cap 0.35 beamBright 0.00 | sel R 0.419 P 0.933 pred/pos 3.8 cap 0.00 beamBright 1.00 | dP +0.918 dR +0.323
+   conf base R 0.138 P 0.025 pred/pos 56.8 cap 0.40 beamBright 0.00 | sel R 0.345 P 0.959 pred/pos 3.6 cap 0.00 beamBright 1.00 | dP +0.934 dR +0.207
+   all  base R 0.119 P 0.020 pred/pos 53.8 cap 0.38 beamBright 0.00 | sel R 0.378 P 0.946 pred/pos 3.7 cap 0.00 beamBright 1.00 | dP +0.926 dR +0.259
+
+##### exploratory kernel-radius sensitivity (radii.jsonl, all 40 positions, 2 px)
+syn r6.843 sp7         R 0.119 P 0.020 pred/pos 53.8 beamBright 0.00
+syn r6.843 coupled     R 0.119 P 0.020 pred/pos 53.8 beamBright 0.00
+syn r8.0 sp7           R 0.224 P 0.050 pred/pos 41.8 beamBright 0.00
+syn r8.0 coupled       R 0.224 P 0.051 pred/pos 40.5 beamBright 0.00
+syn r9.0 sp7           R 0.900 P 0.296 pred/pos 28.1 beamBright 1.00
+syn r9.0 coupled       R 0.900 P 0.304 pred/pos 27.4 beamBright 1.00
+syn r10.0 sp7          R 0.886 P 0.419 pred/pos 19.6 beamBright 1.00
+syn r10.0 coupled      R 0.886 P 0.428 pred/pos 19.2 beamBright 1.00
+syn r11.0 sp7          R 0.781 P 0.430 pred/pos 16.8 beamBright 1.00
+syn r11.0 coupled      R 0.778 P 0.438 pred/pos 16.4 beamBright 1.00
+syn r12.0 sp7          R 0.719 P 0.422 pred/pos 15.8 beamBright 1.00
+syn r12.0 coupled      R 0.719 P 0.432 pred/pos 15.4 beamBright 1.00
+syn r13.0 sp7          R 0.681 P 0.419 pred/pos 15.1 beamBright 1.00
+syn r13.0 coupled      R 0.678 P 0.431 pred/pos 14.6 beamBright 1.00
+syn r14.0 sp7          R 0.616 P 0.388 pred/pos 14.7 beamBright 1.00
+syn r14.0 coupled      R 0.616 P 0.399 pred/pos 14.3 beamBright 1.00
+syn r16.0 sp7          R 0.365 P 0.234 pred/pos 14.4 beamBright 1.00
+syn r16.0 coupled      R 0.365 P 0.246 pred/pos 13.7 beamBright 1.00
+syn r20.0 sp7          R 0.122 P 0.078 pred/pos 14.3 beamBright 0.97
+syn r20.0 coupled      R 0.114 P 0.084 pred/pos 12.5 beamBright 0.97
+
+##### rule.log (patched harness, structuredProbeOuterRadius on every dataset's meanDP)
+RULE calibrationData_bullseyeProbe.h5: r_est 6.842883 -> structuredProbeOuterRadius 11.0
+RULE Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5: r_est 6.122854 -> structuredProbeOuterRadius nil
+RULE downsample_Si_SiGe_exp.h5: r_est 3.7383435 -> structuredProbeOuterRadius nil
+RULE polycrystal_2D_WS2.h5: r_est 1.8584188 -> structuredProbeOuterRadius nil
+RULE sim_Au_data_all_binned.h5: r_est 5.1133018 -> structuredProbeOuterRadius nil
+RULE Au_ref_ROI15_preprocessed_unfiltered_bin_4_20241214.h5: r_est 8.055587 -> structuredProbeOuterRadius nil
+RULE Si-SiGe_calibrated.h5: r_est 3.6932957 -> structuredProbeOuterRadius nil
+RULE Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5: r_est 2.5402706 -> structuredProbeOuterRadius nil
+RULE Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712_ellipse-20260925.h5: r_est 2.5402706 -> structuredProbeOuterRadius nil
+RULE datasetA_stride3.h5: r_est 2.8351986 -> structuredProbeOuterRadius nil
+RULE AlMgSi_demo.h5: r_est 2.9849098 -> structuredProbeOuterRadius nil
+
+##### moves-auref.log (what-if for the raw gate, informational)
+MOVES r_est r=8.055587 spacing 8.0 pos (0,0): 9 peaks; first 5 (50.11,20.18) (39.02,33.81) (31.62,28.11) (25.02,38.36) (11.44,35.03)
+MOVES r_est r=8.055587 spacing 8.0 pos (102,155): 10 peaks; first 5 (18.63,31.21) (39.70,54.70) (38.26,18.86) (49.17,30.41) (34.10,39.39)
+MOVES r_est r=8.055587 spacing 8.0 pos (204,309): 1 peaks; first 5 (34.04,29.93)
+MOVES R_out r=26.0 spacing 8.0 pos (0,0): 1 peaks; first 5 (35.81,29.29)
+MOVES R_out r=26.0 spacing 8.0 pos (102,155): 2 peaks; first 5 (32.84,39.60) (29.10,14.92)
+MOVES R_out r=26.0 spacing 8.0 pos (204,309): 1 peaks; first 5 (34.50,29.91)
+
+##### parity control: harness vs bullseye-parity-probe (copy with 'import Foundation' prepended): 878 vs 878 peaks, max position difference 0.0, ry/rx identical
+
+##### real-data-acceptance/run.sh in the patched scratch copy (runsh-patched.log), exit 0; tail
+SKIP: sim_Au_data_all_binned.mac4dstem.h5 is a mac4DSTEM session sidecar
+SKIP: sim_Au_data_all_binned_scientific_bundle.h5 has no 4D datacube (session sidecar or results-only file)
+PASS: Particle_1_Stack_1_45x90_ss30nm_0p09s_spot8_alpha=0p48_bin2_cl-600mm_300kV_bin8.h5 golden and 0.33 s budget
+PASS: downsample_Si_SiGe_exp.h5 golden and 0.85 s budget
+PASS: polycrystal_2D_WS2.h5 golden and 0.65 s budget
+PASS: sim_Au_data_all_binned.h5 golden and 0.89 s budget
+PASS: calibrationData_bullseyeProbe.h5 golden and 1.48 s budget
+UNPINNED: 4 dataset(s) measured but not covered by expected.json — Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712.h5, Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712_ellipse-20260925.h5, Au_ref_ROI15_preprocessed_unfiltered_bin_4_20241214.h5, Si-SiGe_calibrated.h5
+
+##### main.swift
+import Foundation
+import Darwin
+
+// S21 scratch harness (never in the repo). Modes:
+//   profile <h5>...              meanDP -> probeSize, R_out, D (gate distribution); file probe too when present
+//   score <cube> <labels> <out> <rsyn>   the closed grid against the A2 labels
+//   parity <cube> <minRel>       peak list at the bullseye-parity-probe settings (control)
+
+// ---- footprint guard: kill above 2.5 GB phys_footprint
+func footprint() -> UInt64 {
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+    let kr = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count) }
+    }
+    return kr == KERN_SUCCESS ? info.phys_footprint : 0
+}
+final class Guard: @unchecked Sendable {
+    var peak: UInt64 = 0
+    func start() {
+        let t = Thread { [self] in
+            while true {
+                let f = footprint(); if f > peak { peak = f }
+                if f > 2_500_000_000 { FileHandle.standardError.write(Data("GUARD: footprint \(f) > 2.5 GB, exiting\n".utf8)); exit(99) }
+                usleep(200_000)
+            }
+        }
+        t.start()
+    }
+}
+let guardian = Guard()
+
+struct Profile {
+    var rOut: Int; var D: Double; var Dfull: Double; var rRing: Int; var rRingFull: Int; var prof: [Double]
+}
+func profile(dp: [Float], qy: Int, qx: Int, x0: Float, y0: Float, rEst: Float) -> Profile {
+    let nb = Int(Double(qx * qx + qy * qy).squareRoot()) + 2
+    var sum = [Double](repeating: 0, count: nb), cnt = [Double](repeating: 0, count: nb)
+    for y in 0..<qy { for x in 0..<qx {
+        let v = dp[y * qx + x]; guard v.isFinite else { continue }
+        let r = Int(hypot(Double(y) - Double(y0), Double(x) - Double(x0)))
+        sum[r] += Double(v); cnt[r] += 1
+    } }
+    let prof = (0..<nb).map { cnt[$0] > 0 ? sum[$0] / cnt[$0] : 0 }
+    let m = prof.max() ?? 1
+    var rOut = 0
+    for i in 0..<nb where prof[i] >= 0.2 * m { rOut = i + 1 }
+    func ring(limit: Int) -> (Int, Double) {
+        var last = 0
+        for i in 1..<(min(limit, nb - 1)) where prof[i] > prof[i - 1] && prof[i] >= prof[i + 1] && prof[i] >= 0.2 * m { last = i }
+        if last <= 1 { return (last, 1) }
+        return (last, (1..<last).map { prof[$0] }.min()! / m)
+    }
+    let a = ring(limit: Int(2 * rEst) + 1), b = ring(limit: nb - 1)
+    return Profile(rOut: rOut, D: a.1, Dfull: b.1, rRing: a.0, rRingFull: b.0, prof: Array(prof.prefix(40)).map { ($0 / m * 1000).rounded() / 1000 })
+}
+
+// ---- scoring
+struct Score { var pred = 0; var m2 = 0; var m3 = 0; var beam2 = false; var beamBright = false }
+func score(peaks: [BraggPeak], labels: [[Double]], swap: Bool = false) -> Score {
+    var s = Score(); s.pred = peaks.count
+    let pts = peaks.map { swap ? (Double($0.x), Double($0.y)) : (Double($0.y), Double($0.x)) } // (row, col)
+    func match(_ tol: Double) -> (Int, Set<Int>) {
+        var pairs: [(Double, Int, Int)] = []
+        for (i, p) in pts.enumerated() { for (j, l) in labels.enumerated() {
+            let d = hypot(p.0 - l[0], p.1 - l[1]); if d <= tol { pairs.append((d, i, j)) } } }
+        pairs.sort { $0.0 < $1.0 }
+        var up = Set<Int>(), ul = Set<Int>()
+        for (_, i, j) in pairs where !up.contains(i) && !ul.contains(j) { up.insert(i); ul.insert(j) }
+        return (up.count, ul)
+    }
+    let (m2, l2) = match(2); s.m2 = m2; s.m3 = match(3).0
+    s.beam2 = l2.contains(0)
+    if let b = peaks.enumerated().max(by: { $0.element.intensity < $1.element.intensity }) {
+        let p = pts[b.offset]; s.beamBright = hypot(p.0 - labels[0][0], p.1 - labels[0][1]) <= 2
+    }
+    return s
+}
+
+@main enum S21 {
+    static func main() async throws {
+        setvbuf(stdout, nil, _IONBF, 0)
+        guardian.start()
+        let a = Array(CommandLine.arguments.dropFirst())
+        guard let mode = a.first else { print("usage"); exit(64) }
+        switch mode {
+        case "profile": try await runProfile(Array(a.dropFirst()))
+        case "score": try await runScore(a)
+        case "parity": try await runParity(a)
+        case "rule": try await runRule(Array(a.dropFirst()))
+        case "radii": try await runRadii(a)
+        case "moves": try await runMoves(Array(a.dropFirst()))
+        default: print("bad mode"); exit(64)
+        }
+        FileHandle.standardError.write(Data("peak footprint \(guardian.peak / 1_000_000) MB\n".utf8))
+    }
+
+    static func runProfile(_ paths: [String]) async throws {
+        for path in paths {
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            let reader = try H5Reader(path: path)
+            let d: DatasetDescriptor
+            do { d = try await reader.discoverPrimaryDataset() } catch { print("=== \(name) SKIPPED \(error)"); continue }
+            let data = FourDArray(reader: reader, descriptor: d)
+            let stats = try await VirtualDetector.tiledDPStatistics(data: data, descriptor: d, maximumTileRows: 2)
+            print("=== \(name) scan \(d.ry)x\(d.rx) det \(d.qy)x\(d.qx)")
+            func report(_ label: String, _ dp: [Float]) {
+                guard let p = OriginCalibration.probeSize(dp: dp, qy: d.qy, qx: d.qx) else { print("  \(label): probeSize nil"); return }
+                let pr = profile(dp: dp, qy: d.qy, qx: d.qx, x0: p.x0, y0: p.y0, rEst: p.r)
+                print(String(format: "  %@: r_est %.3f centre (%.2f,%.2f) R_out %d rRing %d D %.3f | unrestricted rRing %d D %.3f", label, p.r, p.x0, p.y0, pr.rOut, pr.rRing, pr.D, pr.rRingFull, pr.Dfull))
+                print("    profile/max 0..39: \(pr.prof)")
+            }
+            report("meanDP", stats.meanDP)
+            let cands = (try? await reader.probeCandidates(detectorQY: d.qy, detectorQX: d.qx)) ?? []
+            for c in cands {
+                if let px = try? await reader.readProbe(c) { report("probe \(c.path) [\(c.sliceCount) slices]", px) }
+            }
+        }
+    }
+
+    static func loadLabels(_ path: String) throws -> [(ry: Int, rx: Int, centres: [[Double]])] {
+        let obj = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: path))) as! [String: Any]
+        return (obj["positions"] as! [[String: Any]]).map {
+            ($0["ry"] as! Int, $0["rx"] as! Int, ($0["centres"] as! [[Double]]))
+        }
+    }
+
+    static func runScore(_ a: [String]) async throws {
+        let cube = a[1], labelsPath = a[2], outPath = a[3], rSyn = Float(a[4])!
+        let labels = try loadLabels(labelsPath)
+        let reader = try H5Reader(path: cube)
+        let d = try await reader.discoverPrimaryDataset()
+        precondition(d.qy == 250 && d.qx == 250)
+        let view = LoadView(fullExtentOf: d)
+        var patterns: [[Float]] = []
+        for l in labels { patterns.append(try await reader.readPattern(view, ry: l.ry, rx: l.rx)) }
+        let cands = try await reader.probeCandidates(detectorQY: d.qy, detectorQX: d.qx)
+        guard let cand = cands.first else { print("no probe"); exit(1) }
+        let probe = DiffractionPattern(qy: cand.qy, qx: cand.qx, pixels: try await reader.readProbe(cand))
+        guard let size = OriginCalibration.probeSize(dp: probe.pixels, qy: probe.qy, qx: probe.qx) else { exit(1) }
+        print("probe \(cand.path) r \(size.r) centre (\(size.x0),\(size.y0)); rSyn \(rSyn)")
+
+        // kernels
+        var kernels: [(String, ProbeKernel)] = []
+        let flat = ProbeKernel.measured(pattern: probe, originX: size.x0, originY: size.y0, radius: size.r, mode: .flat, source: .fileProbe, probePath: cand.path)!
+        kernels.append(("flat", flat))
+        kernels.append(("flat125", ProbeKernel.measured(pattern: probe, originX: 125, originY: 125, radius: size.r, mode: .flat, source: .fileProbe, probePath: cand.path)!))
+        kernels.append(("syn", ProbeKernel.synthetic(radius: rSyn, qy: 250, qx: 250)!))
+        kernels.append(("syn11", ProbeKernel.synthetic(radius: 11, qy: 250, qx: 250)!))
+
+        struct Cfg { var name: String; var kernel: String; var spacing: Float; var minRel: Float; var relPeak: Int; var sigmaCC: Float; var corrPower: Float }
+        var cfgs: [Cfg] = []
+        for k in ["flat", "syn", "syn11"] {
+            for sp in [Float(7), 11, 22] { for mr in [Float(0.0015), 0.005, 0.01, 0.02, 0.05] { for rp in [0, 1] {
+                cfgs.append(Cfg(name: "\(k) sp\(Int(sp)) mr\(mr) rp\(rp)", kernel: k, spacing: sp, minRel: mr, relPeak: rp, sigmaCC: 2, corrPower: 1)) } } }
+            for s in [Float(1), 3] { cfgs.append(Cfg(name: "\(k) sp7 mr0.0015 rp0 sig\(Int(s))", kernel: k, spacing: 7, minRel: 0.0015, relPeak: 0, sigmaCC: s, corrPower: 1)) }
+            cfgs.append(Cfg(name: "\(k) sp7 mr0.0015 rp0 cp0.9", kernel: k, spacing: 7, minRel: 0.0015, relPeak: 0, sigmaCC: 2, corrPower: 0.9))
+        }
+        cfgs.append(Cfg(name: "flat125 sp7 mr0.0015 rp0", kernel: "flat125", spacing: 7, minRel: 0.0015, relPeak: 0, sigmaCC: 2, corrPower: 1))
+
+        var out = ""
+        // default-flow sanity: the app's params for this probe
+        let base = DiskDetectionParams.detectorAdapted(qy: 250, qx: 250, probeRadius: size.r)
+        out += "{\"meta\":{\"appSpacing\":\(base.minPeakSpacing),\"appEdge\":\(base.edgeBoundary),\"appMinRel\":\(base.minRelativeIntensity),\"appSigmaCC\":\(base.sigmaCC),\"appCorrPower\":\(base.corrPower),\"appMaxPeaks\":\(base.maxNumPeaks),\"appRelPeak\":\(base.relativeToPeak),\"probeR\":\(size.r),\"probeX0\":\(size.x0),\"probeY0\":\(size.y0),\"nLabels\":\(labels.map { $0.centres.count }.reduce(0,+))}}\n"
+        var detectors: [String: DiskDetector] = [:]
+        for (n, k) in kernels { detectors[n] = DiskDetector(kernel: k)! }
+        for c in cfgs {
+            var p = base
+            p.minPeakSpacing = c.spacing; p.minRelativeIntensity = c.minRel; p.relativeToPeak = c.relPeak
+            p.sigmaCC = c.sigmaCC; p.corrPower = c.corrPower
+            let det = detectors[c.kernel]!
+            for (i, l) in labels.enumerated() {
+                let peaks = det.detect(pattern: patterns[i], params: p)
+                let s = score(peaks: peaks, labels: l.centres)
+                var line = "{\"cfg\":\"\(c.name)\",\"pos\":\(i),\"nlab\":\(l.centres.count),\"pred\":\(s.pred),\"m2\":\(s.m2),\"m3\":\(s.m3),\"beam2\":\(s.beam2),\"beamBright\":\(s.beamBright)"
+                if c.name == "flat sp7 mr0.0015 rp0" {
+                    let sw = score(peaks: peaks, labels: l.centres, swap: true)
+                    line += ",\"swapM2\":\(sw.m2)"
+                    let nearest = l.centres.enumerated().min(by: { hypot($0.element[0] - 125, $0.element[1] - 125) < hypot($1.element[0] - 125, $1.element[1] - 125) })!.offset
+                    line += ",\"beamLabelIsNearestCentre\":\(nearest == 0)"
+                }
+                out += line + "}\n"
+            }
+            print("done \(c.name)")
+        }
+        try out.write(toFile: outPath, atomically: true, encoding: .utf8)
+    }
+
+    static func runRule(_ paths: [String]) async throws {
+        for path in paths {
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            let reader = try H5Reader(path: path)
+            guard let d = try? await reader.discoverPrimaryDataset() else { print("=== \(name) SKIPPED"); continue }
+            let data = FourDArray(reader: reader, descriptor: d)
+            let stats = try await VirtualDetector.tiledDPStatistics(data: data, descriptor: d, maximumTileRows: 2)
+            let r = OriginCalibration.structuredProbeOuterRadius(meanDP: stats.meanDP, qy: d.qy, qx: d.qx)
+            let est = OriginCalibration.probeSize(dp: stats.meanDP, qy: d.qy, qx: d.qx)?.r ?? -1
+            print("RULE \(name): r_est \(est) -> structuredProbeOuterRadius \(r.map { String($0) } ?? "nil")")
+        }
+    }
+
+    // EXPLORATORY (not in the pre-registered grid): kernel-radius sensitivity, synthetic trench, app-default params,
+    // spacing either fixed 7 or coupled to the radius as the app does (min(round(r), qMin/8)).
+    static func runRadii(_ a: [String]) async throws {
+        let labels = try loadLabels(a[2]); let out = a[3]
+        let reader = try H5Reader(path: a[1]); let d = try await reader.discoverPrimaryDataset()
+        let view = LoadView(fullExtentOf: d)
+        var patterns: [[Float]] = []
+        for l in labels { patterns.append(try await reader.readPattern(view, ry: l.ry, rx: l.rx)) }
+        var text = ""
+        for r in [Float(6.843), 8, 9, 10, 11, 12, 13, 14, 16, 20] {
+            let det = DiskDetector(kernel: ProbeKernel.synthetic(radius: r, qy: 250, qx: 250)!)!
+            for coupled in [false, true] {
+                var p = DiskDetectionParams.detectorAdapted(qy: 250, qx: 250, probeRadius: r)
+                if !coupled { p.minPeakSpacing = 7 }
+                for (i, l) in labels.enumerated() {
+                    let s = score(peaks: det.detect(pattern: patterns[i], params: p), labels: l.centres)
+                    text += "{\"cfg\":\"syn r\(r) \(coupled ? "coupled" : "sp7")\",\"pos\":\(i),\"nlab\":\(l.centres.count),\"pred\":\(s.pred),\"m2\":\(s.m2),\"m3\":\(s.m3),\"beam2\":\(s.beam2),\"beamBright\":\(s.beamBright)}\n"
+                }
+            }
+        }
+        try ("{\"meta\":{}}\n" + text).write(toFile: out, atomically: true, encoding: .utf8)
+    }
+
+    // What-if for a firing dataset: the acceptance-harness positions, kernel at r_est vs at a given radius, app-adapted params.
+    static func runMoves(_ a: [String]) async throws {
+        let path = a[0], rNew = Float(a[1])!
+        let reader = try H5Reader(path: path); let d = try await reader.discoverPrimaryDataset()
+        let data = FourDArray(reader: reader, descriptor: d)
+        let stats = try await VirtualDetector.tiledDPStatistics(data: data, descriptor: d, maximumTileRows: 2)
+        let rOld = OriginCalibration.probeSize(dp: stats.meanDP, qy: d.qy, qx: d.qx)!.r
+        let view = LoadView(fullExtentOf: d)
+        for (name, r) in [("r_est", rOld), ("R_out", rNew)] {
+            let det = DiskDetector(kernel: ProbeKernel.synthetic(radius: r, qy: d.qy, qx: d.qx)!)!
+            let p = DiskDetectionParams.detectorAdapted(qy: d.qy, qx: d.qx, probeRadius: r)
+            for (y, x) in [(0, 0), (d.ry / 2, d.rx / 2), (d.ry - 1, d.rx - 1)] {
+                let peaks = det.detect(pattern: try await reader.readPattern(view, ry: y, rx: x), params: p)
+                print("MOVES \(name) r=\(r) spacing \(p.minPeakSpacing) pos (\(y),\(x)): \(peaks.count) peaks; first 5 " + peaks.prefix(5).map { String(format: "(%.2f,%.2f)", $0.x, $0.y) }.joined(separator: " "))
+            }
+        }
+    }
+
+    static func runParity(_ a: [String]) async throws {
+        let minRel = Float(a[2]) ?? 0.05
+        let reader = try H5Reader(path: a[1])
+        let d = try await reader.discoverPrimaryDataset()
+        let probes = try await reader.probeCandidates(detectorQY: d.qy, detectorQX: d.qx)
+        let candidate = probes.first!
+        let probe = DiffractionPattern(qy: candidate.qy, qx: candidate.qx, pixels: try await reader.readProbe(candidate))
+        let size = OriginCalibration.probeSize(dp: probe.pixels, qy: probe.qy, qx: probe.qx)!
+        let kernel = ProbeKernel.measured(pattern: probe, originX: 125, originY: 125, radius: size.r, mode: .flat, source: .fileProbe, probePath: candidate.path)!
+        let detector = DiskDetector(kernel: kernel)!
+        var params = DiskDetectionParams()
+        params.minPeakSpacing = 8; params.edgeBoundary = 6; params.minRelativeIntensity = minRel; params.subpixel = .poly; params.sigmaCC = 2
+        let view = LoadView(fullExtentOf: d)
+        for ry in stride(from: 0, to: d.ry, by: 10) { for rx in stride(from: 0, to: d.rx, by: 10) {
+            let pattern = try await reader.readPattern(view, ry: ry, rx: rx)
+            let peaks = pattern.withUnsafeBufferPointer { detector.detect(pattern: $0.baseAddress!, params: params) }
+            for p in peaks { print("\(ry) \(rx) \(p.x) \(p.y) \(p.intensity)") }
+        } }
+    }
+}
+
+##### analyse.py
+import json, sys, collections
+rows = [json.loads(l) for l in open(sys.argv[1])]
+meta = rows[0]["meta"]; rows = rows[1:]
+by = collections.defaultdict(list)
+for r in rows: by[r["cfg"]].append(r)
+
+def agg(rs, key="m2"):
+    nl = sum(r["nlab"] for r in rs); npred = sum(r["pred"] for r in rs); m = sum(r[key] for r in rs)
+    return dict(rec=m / nl, prec=m / npred if npred else 0, npos=len(rs), pred=npred / len(rs),
+                cap=sum(1 for r in rs if r["pred"] >= 70) / len(rs), beam=sum(1 for r in rs if r["beamBright"]) / len(rs),
+                beam2=sum(1 for r in rs if r["beam2"]) / len(rs))
+def halves(name):
+    rs = by[name]
+    return {"sel": agg([r for r in rs if r["pos"] % 2 == 0]), "conf": agg([r for r in rs if r["pos"] % 2 == 1]), "all": agg(rs),
+            "all3": agg(rs, "m3")}
+print(meta)
+res = {n: halves(n) for n in by}
+def fmt(d): return f"R {d['rec']:.3f} P {d['prec']:.3f} pred/pos {d['pred']:.1f} cap {d['cap']:.2f} beamBright {d['beam']:.2f}"
+print("CONTROLS")
+b = by["flat sp7 mr0.0015 rp0"]
+print(" beam label matched 2px at", sum(r["beam2"] for r in b), "/", len(b), "; beamLabelIsNearestCentre", sum(r["beamLabelIsNearestCentre"] for r in b), "/", len(b))
+print(" swap recall", sum(r["swapM2"] for r in b) / sum(r["nlab"] for r in b), "vs", res["flat sp7 mr0.0015 rp0"]["all"]["rec"])
+print("BASELINES")
+for n in ["flat sp7 mr0.0015 rp0", "flat125 sp7 mr0.0015 rp0", "syn sp7 mr0.0015 rp0", "syn11 sp7 mr0.0015 rp0"]:
+    for h in ["sel", "conf", "all", "all3"]: print(f" {n:28s} {h:4s}", fmt(res[n][h]))
+print("GRID (all positions, 2px)")
+for n in sorted(res): print(f" {n:34s}", fmt(res[n]["all"]))
+# selection: per flow-base (flat / syn / syn11), max precision on sel with recall >= base recall(sel) - 0.02
+print("SELECTION")
+for flow, basename in [("flat", "flat sp7 mr0.0015 rp0"), ("syn", "syn sp7 mr0.0015 rp0"), ("syn11", "syn11 sp7 mr0.0015 rp0")]:
+    for ref in ([basename] + (["syn sp7 mr0.0015 rp0"] if flow == "syn11" else [])):
+        rs = res[ref]["sel"]["rec"]
+        cands = [n for n in res if n.split()[0] == flow and res[n]["sel"]["rec"] >= rs - 0.02]
+        best = max(cands, key=lambda n: (res[n]["sel"]["prec"], res[n]["sel"]["rec"]))
+        print(f" flow {flow} vs baseline '{ref}': selected '{best}'")
+        for h in ["sel", "conf", "all"]:
+            b0 = res[ref][h]; b1 = res[best][h]
+            print(f"   {h:4s} base {fmt(b0)} | sel {fmt(b1)} | dP {b1['prec']-b0['prec']:+.3f} dR {b1['rec']-b0['rec']:+.3f}")
+E = None

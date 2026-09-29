@@ -1,0 +1,79 @@
+diff --git a/mac4DSTEM/App/AppState+DiskDetection.swift b/mac4DSTEM/App/AppState+DiskDetection.swift
+index 315e7f5..1d17d25 100644
+--- a/mac4DSTEM/App/AppState+DiskDetection.swift
++++ b/mac4DSTEM/App/AppState+DiskDetection.swift
+@@ -40,7 +40,13 @@ extension AppState {
+     /// running origin calibration first if needed.
+     func generateProbeKernel() async {
+         guard let descriptor else { return }
+-        guard let radius = await ensureProbeRadius() else { return }
++        guard var radius = await ensureProbeRadius() else { return }
++        // S21: a ring-structured probe (bullseye) is read small by the probe-size
++        // estimator; the trench kernel is built at the ring's outer edge instead.
++        if let mean = meanPattern, mean.qy == descriptor.qy, mean.qx == descriptor.qx,
++           let outer = OriginCalibration.structuredProbeOuterRadius(meanDP: mean.pixels, qy: mean.qy, qx: mean.qx) {
++            radius = outer
++        }
+ 
+         guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
+             presentComputeFailure(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
+diff --git a/mac4DSTEM/Core/Analysis/OriginCalibration.swift b/mac4DSTEM/Core/Analysis/OriginCalibration.swift
+index 32e3829..10c6c37 100644
+--- a/mac4DSTEM/Core/Analysis/OriginCalibration.swift
++++ b/mac4DSTEM/Core/Analysis/OriginCalibration.swift
+@@ -186,6 +186,55 @@ package nonisolated enum OriginCalibration {
+         return (r, sumIX / sumI, sumIY / sumI)
+     }
+ 
++    /// The outer edge of a RING-STRUCTURED probe (a bullseye), read from the
++    /// scan's mean pattern; nil for every ordinary probe. `probeSize` reads such
++    /// a probe at its first shoulder (bullseye: 6.84 px where the ring ends at
++    /// 11), and the trench kernel built at that radius never finds the beam
++    /// (S21, docs/archive/v4/s21-detection-defaults-results-2026-09-30.md:
++    /// recall 0.12 against the A2 labels, 0.78 with radius 11).
++    ///
++    /// The azimuthal mean about `probeSize`'s centre (integer-radius bins) is
++    /// read outside in: the outer edge is the largest radius at which it is
++    /// still >= 20 % of its maximum. The probe counts as structured when, out to
++    /// 2 x the `probeSize` radius, the profile has a local maximum >= 20 % of
++    /// its maximum after a dip: the profile's minimum before that last maximum
++    /// is below 25 % of its maximum. The outer edge is returned only when it is
++    /// beyond the `probeSize` radius and no larger than a quarter of the
++    /// detector's short side over two (`min(qx, qy) / 8`, the same bound
++    /// `detectorAdapted` clamps spacing to). `probeSize` itself is not changed:
++    /// the origin window shares it.
++    ///
++    /// Both 0.25 and the 20 % edge are properties of the files this was
++    /// measured on (see the record), not of the method.
++    package nonisolated static func structuredProbeOuterRadius(
++        meanDP dp: [Float], qy: Int, qx: Int
++    ) -> Float? {
++        guard dp.count == qy * qx, let probe = probeSize(dp: dp, qy: qy, qx: qx) else { return nil }
++        let bins = Int(Double(qx * qx + qy * qy).squareRoot()) + 2
++        var sum = [Double](repeating: 0, count: bins)
++        var count = [Double](repeating: 0, count: bins)
++        for y in 0..<qy {
++            for x in 0..<qx {
++                let v = dp[y * qx + x]
++                guard v.isFinite else { continue }
++                let r = Int(hypot(Double(y) - Double(probe.y0), Double(x) - Double(probe.x0)))
++                sum[r] += Double(v); count[r] += 1
++            }
++        }
++        let profile = (0..<bins).map { count[$0] > 0 ? sum[$0] / count[$0] : 0 }
++        guard let peak = profile.max(), peak > 0 else { return nil }
++        var outer = 0
++        for i in 0..<bins where profile[i] >= 0.2 * peak { outer = i + 1 }
++        var ring = 0
++        for i in 1..<min(Int(2 * probe.r) + 1, bins - 1)
++        where profile[i] > profile[i - 1] && profile[i] >= profile[i + 1] && profile[i] >= 0.2 * peak {
++            ring = i
++        }
++        guard ring > 1, let dip = profile[1..<ring].min(), dip / peak < 0.25 else { return nil }
++        guard Float(outer) > probe.r, Float(outer) <= Float(min(qx, qy)) / 8 else { return nil }
++        return Float(outer)
++    }
++
+     // MARK: - Origin fit (py4DSTEM fit_origin)
+ 
+     /// Fit the measured origin maps with a smooth 2D function and return the
