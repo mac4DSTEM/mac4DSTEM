@@ -95,3 +95,16 @@ written only on crossings, so Show Tools on a narrow window sticks and nothing i
 overflows any window 915–2000 pt; the collapse line; the toggle semantics — each red under its mutation
 (`floor-mut-3.log`, `floor-mut-2.log`: fixed-size label, fixed 460, toggle not clearing the flag, visibility ignoring
 the flag, collapse never). Unit 965 / 0 / 2 = 967 (`unit-floor.log`). **Unverified on screen** until a drive at 915.
+
+## Part 2 regression, found by the confirming drive (2026-09-30 morning) — registered before the experiment
+
+Drive (scratch build of `98bb0d3` + a row-layout change, Thronsen A): 915 pt, Info tab — lives; inspector dragged to its
+widest (460) at 915 — lives, nothing clipped. Then widening to 1150 **jumped the window to 1420** (the sidebar came back
+by the width flag and macOS grew the window by its 270 pt), and narrowing to 960 put AppKit in an update-constraints
+loop (`update constraints count` past the 300 limit, unified log) and the process died — twice, two launches.
+**Diagnosis:** the inspector's live maximum depends on `navigatorIsVisible`, which the width flag flips in the same
+pass the window narrows: at 960 pt the maximum is 325 with the sidebar and 460 without, while the inspector sits at 460 —
+the column is squeezed and released in alternation. **Refuted if** a build whose maximum ignores the sidebar's
+visibility (window − sidebar max − dividers − science floor, always) still loops on the same sequence. **Predicted:**
+that build lives through the sequence; the collapse alone (static 460 maximum) is not the loop. A second observation
+to fix regardless: the sidebar's return growing the window (1150 → 1420) is a jump the user did not ask for.
