@@ -119,7 +119,7 @@ hand); memory consolidation ran last (this session).
 9. **Skills** (`41c5584`): pickup/closeout now carry "decide, don't stall", v4 numbering, session drives, main only.
 
 **Yours (not done — each needs you):**
-- **A. The 915-pt floor (Frozen Shell).** Found tonight: the inspector's Info tab at 915 pt and a widest inspector drag
+- **A. The 915-pt floor (Frozen Shell) — the owner took the proposal 2026-09-30; built, see the Gate D record.** Found tonight: the inspector's Info tab at 915 pt and a widest inspector drag
   still **abort** (the same constraint loop as the fixed AI-room case); after Info the layout overflows ≈ 17 pt; each
   image pane is ≈ 146 pt at the floor. Proposal: (1) the Info tab's dataset rows truncate like `InspectorDataRow`
   (`WorkspaceInspector.swift`), (2) the inspector's maximum follows the window (≤ window − sidebar − the panes' floor,

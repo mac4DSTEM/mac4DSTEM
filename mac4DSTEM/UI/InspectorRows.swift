@@ -282,8 +282,16 @@ struct InspectorValueRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
+            // Keeps its whole width whenever it fits (the higher priority), but
+            // may truncate: Info labels are often DATA — a provenance key such
+            // as "relative_reference_minimum_radius_px" — and a fixed-size one
+            // raised the inspector's minimum past its column and aborted the
+            // app at a 915-pt window (Gate D 2026-09-29, `InspectorWidthBudgetTests`).
             Text(label)
-                .fixedSize()
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .layoutPriority(2)
+                .help(label)
             Spacer(minLength: 0)
             Text(value)
                 .monospacedDigit()

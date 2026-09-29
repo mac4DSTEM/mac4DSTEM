@@ -81,3 +81,17 @@ dataset rows — path, shape, size — are wider than 248 pt); (2) dragging the 
 the settings' units clipped, `d4-L1b-03`) and the restored Info tab carries that into the next launch. Both triggers
 live in `WorkspaceInspector.swift` / `LayoutPolicy.swift` (Frozen Shell): **the owner's**, with the proposal in the
 overnight plan §5 — the Info rows truncate like `InspectorDataRow`, and the inspector's maximum follows the window.
+
+## Fix, part 2 — the shell (owner's go 2026-09-30: "go with your proposal for the 915-pt floor")
+
+Frozen Shell files changed against the proposal the owner accepted (overnight plan §5 A): (1) `InspectorValueRow`'s
+label keeps its full width when it fits (priority 2) and truncates in the middle only when it cannot — Info labels
+are often data (provenance keys); (2) the inspector's maximum follows the window, `LayoutPolicy.inspectorMaximum` =
+window − (sidebar max, when shown) − dividers − both science panes' floor, clamped to 280–460, read from the window's
+width outside the split; (3) the sidebar steps aside when the panes would fall under 240 pt
+(`LayoutPolicy.navigatorFits`), as a width flag separate from the user's intent (`navigatorCollapsedForWidth`),
+written only on crossings, so Show Tools on a narrow window sticks and nothing is saved. Tests (4, in
+`InspectorWidthBudgetTests`): the Info sections with long real data ≤ 248 pt; the inspector's maximum never
+overflows any window 915–2000 pt; the collapse line; the toggle semantics — each red under its mutation
+(`floor-mut-3.log`, `floor-mut-2.log`: fixed-size label, fixed 460, toggle not clearing the flag, visibility ignoring
+the flag, collapse never). Unit 965 / 0 / 2 = 967 (`unit-floor.log`). **Unverified on screen** until a drive at 915.

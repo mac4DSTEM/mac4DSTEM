@@ -102,6 +102,90 @@ final class InspectorWidthBudgetTests: XCTestCase {
         assertFits("… and stale", minimumWidth(PhaseMappingSections(), state: state))
     }
 
+    /// The Info tab's dataset and product sections with real, long data: a
+    /// long file name and dataset path, and a displayed product whose
+    /// provenance keys ("minimum_object_area_px", "objects_counted_rule")
+    /// are row LABELS. Drive 4 (2026-09-29) aborted on switching to Info at a
+    /// 915-pt window. Mutation: `InspectorValueRow`'s label back to
+    /// `.fixedSize()` — red.
+    func testInfoSectionsWithLongDataFitTheNarrowestColumn() async {
+        let state = AppState()
+        state.descriptor = DatasetDescriptor(
+            filePath: "/Volumes/PL_SSD_2TB/ROI_5/Al_Mg_Si_060_STEM SI_preprocessed_unfiltered_bin_4_20260712_ellipse-20260925.h5",
+            datasetPath: "/4DSTEM_experiment/data/datacubes/datacube_root/datacube/data",
+            shape: [171, 171, 128, 128], dtypeDescription: "float32", chunkShape: [1, 1, 128, 128])
+        state.addPhaseMappingSlot(CrystalModelLibrary.models[0])
+        state.addPhaseMappingSlot(CrystalModelLibrary.models[1])
+        var map = PhaseMap(width: 8, height: 8, matrixEntryIndex: 0,
+                           phaseNames: state.phaseMapping.phases.map(\.model.displayName),
+                           matrixPhaseIndex: 0)
+        for i in map.results.indices { map.results[i].verdict = .matrix; map.results[i].phaseIndex = 0 }
+        for i in [18, 19, 26, 27] { map.results[i].verdict = .indexed; map.results[i].phaseIndex = 1 }
+        state.phaseMapping.publish(map, ranWith: runRecord(state))
+        await state.publishPrecipitateClassificationFromPhaseMap()
+        state.publishPrecipitateObjectsProduct()
+        XCTAssertEqual(state.displayedProduct?.kind, "precipitate_objects", "no product to describe")
+        XCTAssertNotNil(state.displayedProduct?.provenance["objects_counted_rule"], "the long provenance key is gone")
+        guard let descriptor = state.descriptor else { return XCTFail("no descriptor") }
+        assertFits("Info: the dataset", minimumWidth(DatasetInfoSections(descriptor: descriptor), state: state))
+        assertFits("Info: the displayed product", minimumWidth(ProductInfoSections(), state: state))
+    }
+
+    /// The inspector's live maximum leaves the sidebar (at its maximum) and
+    /// both science panes at their floor inside every window from the
+    /// minimum up. Drive 4 (2026-09-29): a fixed 460 dragged at 915 pt
+    /// aborted. Mutation: `inspectorMaximum` returning `inspectorWidth.max`.
+    func testTheInspectorMaximumFollowsTheWindow() {
+        let floor = LayoutPolicy.datasetWindowMinimumSize.width
+        XCTAssertEqual(LayoutPolicy.inspectorMaximum(windowWidth: floor, navigatorVisible: true),
+                       LayoutPolicy.inspectorWidth.min, "at the floor beside the sidebar only the minimum fits")
+        XCTAssertEqual(LayoutPolicy.inspectorMaximum(windowWidth: 1470, navigatorVisible: true),
+                       LayoutPolicy.inspectorWidth.max, "a wide window keeps the ceiling")
+        for width in stride(from: floor, through: 2000, by: 5) {
+            for navigator in [true, false] {
+                let inspector = LayoutPolicy.inspectorMaximum(windowWidth: width, navigatorVisible: navigator)
+                let sidebar = navigator ? LayoutPolicy.sidebarWidth.max + LayoutPolicy.splitColumnDividerAllowance : 0
+                XCTAssertGreaterThanOrEqual(inspector, LayoutPolicy.inspectorWidth.min)
+                XCTAssertLessThanOrEqual(
+                    sidebar + inspector + LayoutPolicy.splitColumnDividerAllowance + LayoutPolicy.scienceMinimum, width,
+                    "at \(width) pt (sidebar \(navigator)) the widest inspector overflows the window")
+            }
+        }
+    }
+
+    /// The sidebar steps aside before the science panes fall under their
+    /// comfortable width; with the inspector hidden it never has to at the
+    /// window's minimum. Mutation: `navigatorFits` always true.
+    func testTheSidebarStepsAsideBeforeThePanesGetCramped() {
+        let needed = LayoutPolicy.sidebarWidth.ideal + LayoutPolicy.inspectorWidth.ideal
+            + 2 * LayoutPolicy.splitColumnDividerAllowance
+            + 2 * LayoutPolicy.sciencePaneComfortable + LayoutPolicy.sciencePaneDividerWidth
+        XCTAssertTrue(LayoutPolicy.navigatorFits(windowWidth: needed, inspectorVisible: true))
+        XCTAssertFalse(LayoutPolicy.navigatorFits(windowWidth: needed - 1, inspectorVisible: true))
+        XCTAssertFalse(LayoutPolicy.navigatorFits(windowWidth: LayoutPolicy.datasetWindowMinimumSize.width,
+                                                  inspectorVisible: true), "915 pt with the inspector: step aside")
+        XCTAssertTrue(LayoutPolicy.navigatorFits(windowWidth: LayoutPolicy.datasetWindowMinimumSize.width,
+                                                 inspectorVisible: false), "915 pt without it: room enough")
+    }
+
+    /// The width collapse is not the user's intent: showing the sidebar on a
+    /// narrow window keeps it shown, hiding it records the intent, and the
+    /// Show/Hide label follows what is on screen. Mutations: `navigatorIsVisible`
+    /// ignoring the collapse; `toggleNavigator` not clearing it.
+    func testShowingToolsOnANarrowWindowKeepsThemShown() {
+        let navigation = WorkspaceNavigation()
+        navigation.showToolsPane = true
+        navigation.navigatorCollapsedForWidth = true
+        XCTAssertFalse(navigation.navigatorIsVisible, "a narrow window hides the sidebar")
+        XCTAssertTrue(navigation.showToolsPane, "…without touching the user's intent")
+        navigation.toggleNavigator()
+        XCTAssertTrue(navigation.navigatorIsVisible, "Show Tools on a narrow window shows it")
+        XCTAssertFalse(navigation.navigatorCollapsedForWidth)
+        navigation.toggleNavigator()
+        XCTAssertFalse(navigation.navigatorIsVisible)
+        XCTAssertFalse(navigation.showToolsPane, "Hide Tools records the intent")
+    }
+
     /// The other rooms' settings views, hosted the same way. They are hosted
     /// with no dataset, so a row that only exists once data is loaded is not
     /// measured here; what renders is held to the same column.

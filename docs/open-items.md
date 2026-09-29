@@ -266,7 +266,7 @@ night, session drives). Still never seen: the bounded promote run. Retired trap 
 Launch no longer aborts (`sidebarWidth.max` 320 → 270; rule window − sidebar ≤ 639 pt; `archive/closed-items-2026-09.md`).
 At the floor, driven on Thronsen A: (1) **a constraint-loop abort when inspector content outgrows it** — pre-existing
 (`archive/v4/ai-room-narrow-crash-gateD-2026-09-29.md`): the Phase-mapping rows fixed overnight (guard test ≤ 248 pt);
-**still aborting: the Info tab at 915, and the inspector dragged to its widest**; (2) dragging the inspector wider clips the sidebar
+the Info tab and the widest drag fixed in the shell 2026-09-30 (owner's go) — **unverified on screen**; (2) dragging the inspector wider clips the sidebar
 on the left and the inspector on the right, no crash (`d1-08b`: the inspector max 460 with 190 + 460 + 365 > 915);
 (3) the image floor lapses — each image pane ≈ 146 pt while sidebar + inspector take ≈ 650 (`d1-08a`; was the
 `PaneSplit` residual (b)). All three live in `LayoutPolicy`/`WorkspaceView` (Frozen Shell): proposal in the overnight

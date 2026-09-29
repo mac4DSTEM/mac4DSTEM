@@ -86,15 +86,29 @@ final class WorkspaceNavigation {
     }
 
     /// The user's INTENT for each side panel — what the toggles, the menu
-    /// items and the scene storage read and write, and also what is on
-    /// screen: `LayoutPolicy.datasetWindowMinimumSize` derives from the same
-    /// ideal columns and science floor, so any window that exists already
-    /// fits both panels open. Nothing measures the window to decide
-    /// visibility.
+    /// items and the scene storage read and write.
     var showToolsPane = true
     var showInspectorPane = false
 
-    var navigatorIsVisible: Bool { showToolsPane }
+    /// Set by the window, never by a click: the sidebar steps aside when the
+    /// science panes would fall under `LayoutPolicy.sciencePaneComfortable`,
+    /// as Xcode hides its navigator (owner's decision 2026-09-30). Written
+    /// only when the width crosses that line, so showing the sidebar by hand
+    /// on a narrow window sticks; never saved, so the intent above survives.
+    var navigatorCollapsedForWidth = false
+
+    var navigatorIsVisible: Bool { showToolsPane && !navigatorCollapsedForWidth }
+
+    /// The Show/Hide Tools action: acts on what is on screen. Showing clears
+    /// the width collapse — the user asked for the sidebar at this width.
+    func toggleNavigator() {
+        if navigatorIsVisible {
+            showToolsPane = false
+        } else {
+            showToolsPane = true
+            navigatorCollapsedForWidth = false
+        }
+    }
 
     var inspectorIsVisible: Bool { showInspectorPane }
 

@@ -31,6 +31,10 @@ struct ContentView: View {
     @State private var showExportSheet = false
     @SceneStorage("workspace.navigatorVisible") private var savedNavigatorVisible = true
     @SceneStorage("workspace.inspectorVisible") private var savedInspectorVisible = true
+    /// The window's width, read from outside the split (never from a column's
+    /// content, which is the constraint-loop shape): it sets the inspector's
+    /// live maximum and when the sidebar steps aside (`LayoutPolicy`).
+    @State private var windowWidth: CGFloat = LayoutPolicy.datasetWindowIdealSize.width
 
     private var datasetTypes: [UTType] {
         ["h5", "hdf5", "emd", "dm4", "dm3", "mib", "raw", "xml"]
@@ -39,6 +43,12 @@ struct ContentView: View {
 
     var body: some View {
         splitWindow
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
+        // Written only when the width crosses the line (and once at launch),
+        // so a sidebar shown by hand on a narrow window stays shown.
+        .onChange(of: navigatorFits, initial: true) {
+            appState.navigation.navigatorCollapsedForWidth = !navigatorFits
+        }
         .onAppear {
             appState.navigation.showToolsPane = savedNavigatorVisible
             appState.navigation.showInspectorPane = savedInspectorVisible
@@ -135,7 +145,11 @@ struct ContentView: View {
                 .inspectorColumnWidth(
                     min: LayoutPolicy.inspectorWidth.min,
                     ideal: LayoutPolicy.inspectorWidth.ideal,
-                    max: LayoutPolicy.inspectorWidth.max
+                    // Follows the window: a fixed 460 let a drag at 915 pt
+                    // push the layout past the window and abort (2026-09-29).
+                    max: LayoutPolicy.inspectorMaximum(
+                        windowWidth: windowWidth,
+                        navigatorVisible: appState.navigation.navigatorIsVisible)
                 )
                 // The inspector's own toolbar carries its Settings · Info
                 // picker and its ONE toggle (`WorkspaceInspector`): items
@@ -162,13 +176,25 @@ struct ContentView: View {
         )
     }
 
-    /// The sidebar's visibility rides on the same flag as the Show/Hide Tools
-    /// menu item, so the two can never disagree.
+    /// The sidebar's visibility rides on the same state as the Show/Hide
+    /// Tools menu item (`navigatorIsVisible`), so the two can never disagree;
+    /// the toolbar toggle acts through the same `toggleNavigator`.
     private var sidebarVisibility: Binding<NavigationSplitViewVisibility> {
         Binding(
             get: { appState.navigation.navigatorIsVisible ? .all : .detailOnly },
-            set: { appState.navigation.showToolsPane = ($0 != .detailOnly) }
+            set: {
+                if ($0 != .detailOnly) != appState.navigation.navigatorIsVisible {
+                    appState.navigation.toggleNavigator()
+                }
+            }
         )
+    }
+
+    /// Whether the sidebar fits beside the inspector and two comfortable
+    /// science panes at this window's width (`LayoutPolicy.navigatorFits`).
+    private var navigatorFits: Bool {
+        LayoutPolicy.navigatorFits(windowWidth: windowWidth,
+                                   inspectorVisible: appState.navigation.inspectorIsVisible)
     }
 
     /// Capture scaffolding (see `onAppear`): only a launch flag writes here.

@@ -323,7 +323,7 @@ private struct InspectorInfoTab: View {
 
 // MARK: Info — the dataset
 
-private struct DatasetInfoSections: View {
+struct DatasetInfoSections: View {
     @Environment(AppState.self) private var appState
     let descriptor: DatasetDescriptor
 
@@ -564,7 +564,7 @@ private struct DatasetActionSections: View {
 /// What the displayed product IS — units, frame, sampling, validity, quality
 /// fields, overlays, provenance. Present whenever a product is displayed;
 /// there is no focus pane to choose it.
-private struct ProductInfoSections: View {
+struct ProductInfoSections: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {

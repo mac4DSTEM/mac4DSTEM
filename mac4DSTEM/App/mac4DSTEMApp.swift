@@ -129,12 +129,12 @@ private struct DatasetCommands: Commands {
                 .disabled(appState?.hasDataset != true || appState?.isBusy == true)
         }
         CommandGroup(replacing: .sidebar) {
-            // Labels follow what is on screen. No enablement check against a
-            // width budget: the dataset window's own minimum width is
-            // derived to fit both panels open, so a menu item never asks for
-            // a panel the window cannot show.
+            // Labels follow what is on screen, and the action acts on it too
+            // (`toggleNavigator`): a sidebar the narrow window stepped aside
+            // reads "Show Tools", and showing it keeps it shown. No
+            // enablement check: the window's minimum fits both panels open.
             Button(appState?.navigation.navigatorIsVisible == true ? "Hide Tools" : "Show Tools") {
-                appState?.navigation.showToolsPane.toggle()
+                appState?.navigation.toggleNavigator()
             }
             .keyboardShortcut("s", modifiers: [.command, .control])
             Button(appState?.navigation.inspectorIsVisible == true ? "Hide Inspector" : "Show Inspector") {
