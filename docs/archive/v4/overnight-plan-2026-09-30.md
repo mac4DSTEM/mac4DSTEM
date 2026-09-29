@@ -29,7 +29,8 @@ blocks new surface (status "Unverified on screen" holds only what a session can 
   branch, no in-repo deletes of tracked history, no force. A lost session resumes from this log and its scratchpad.
 - **Machine rules** (the disk filled three times on 2026-09-29/30): every build/test/probe takes the heavy lock
   (`mkdir <scratch>/heavy.lock`, released by a trap), only when `df -m /` ≥ 1500 and swap used < 6000 M; `-jobs 2`;
-  ONE shared scratch DerivedData; delete `Logs/Test/*.xcresult` after reading each run; a guard kills builds below
+  ONE shared scratch DerivedData; delete `Logs/Test/*.xcresult` after reading each run, and the
+  `/var/tmp/test-session-systemlogs-*.logarchive` a test run can leave (~470 MB each; 1.4 GB on 2026-09-30); a guard kills builds below
   350 MB free. Never read an exit code through a pipe. Never full-read a file bigger than RAM (footprint guard on any
   probe over a multi-GB cube).
 - **Parallel where safe:** Sonnet implementers on disjoint write-sets work in parallel; heavy jobs serialize behind the

@@ -25,15 +25,18 @@ In the app (2026-09-30, scratch build, Thronsen A 171², 128²): learned Detect 
 1.63–1.67 GB (peak 1.72 GB), 955 MB after. **Open:** `VirtualDetector`'s tiled loops have the same shape (maybe the
 unexplained ≈ 0.93 GB baseline). D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits all four datasets.
 
-### The 2026-09-09 register, triaged 2026-09-29 — 2 candidates left (D004, D006, D019, D020, D021, D023, D025, D079, D098 fixed 2026-09-30)
+### The 2026-09-09 register, triaged 2026-09-29 — every reachable candidate fixed 2026-09-30; residuals below
 All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`); D019/D023/D025 fixed with
 refuters (`archive/v4/register-D019-D023-D025-gateD-2026-09-30.md`). D006 (multi-`data_` CIF refused, structure blocks
 named), D021 (parallax stack mean in Double) and D079 (ptychography origin = `Calibration.referenceOrigin`) fixed (`archive/v4/register-D006-D021-D079-gateD-2026-09-30.md`), refuter
 held (D079's drag symptom is by design; the gap was replay/lineage restore; a pre-fix record whose aperture differs from the
 fit now reproduces a different ptycho result, intended). Residual: a second CIF block with only a symmetry loop still merges. D098/D004 fixed (one dose scale per pattern; seam
 margins close the unsearched bands; ≤ 256 px byte-identical; `archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md`).
-D020 is the hexagonal IPF key swap, fixed as P1 (`023a5b0`). Left: **D068** calibration edits never stale a strain map;
-**D017** (see the record). (`occupiedPositions` fixed 2026-09-30: `archive/v4/gateD-occupied-aperture-drag-2026-09-30.md`.)
+D020 was P1's IPF fix (`023a5b0`). D068 and D017 fixed (9f5d4eb, `archive/v4/register-D068-D017-2026-09-30.md`). Residuals: aperture
+drag, Restore Fitted Origin and Clear Calibration make no calibration node (a map computed on the fit reads current under
+a manual centre; a run after Clear records the old nodes as inputs — needs a "cleared" lineage state); a Q edit deletes the
+ACOM map instead of marking it stale; D069 (an unresolved ACOM model compares no settings); a restored product is not
+labelled as saved anywhere. (`occupiedPositions`: `archive/v4/gateD-occupied-aperture-drag-2026-09-30.md`.)
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `Core/Crystal/PhaseVectorMatching.swift`: `minimumVectors` = 2 (`:73`, applied `:882`), so a position is "matrix" when almost
@@ -87,7 +90,7 @@ One line each; full wording as above.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - "Computed this session" reports what exists, not what was computed. Presentation.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results; objects redrawn at a new minimum size republish under the old run.
-- Clear Calibration keeps the single-slice ptychography result on screen with its Å sampling and scale bar (no stale mark, the dialog silent) while parallax is discarded (`AppState+Open.swift:1101`); its sampling unit prints "A", not "Å" — decide discard-or-badge; sibling of D068.
+- The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
 - Moving the detector destroys the origin fit with no durable warning — owner: confirm, banner or refuse.
 - Strain unlocks on vectors existing, not usable (it now fails with the named cause; the one-peak warning above "Per pattern" — both seen 2026-09-30). No Gate D.
 
