@@ -18,7 +18,8 @@ This skill only makes sure you enter them correctly.
    or the owner's report.
 2. The user names the target ("/pickup the origin-fit guard", "/pickup the
    Results crash I reported"). With no name, take the top of the status
-   handoff. If the target needs something only the user can provide — a
+   handoff; when it points at `ROADMAP.md`'s **Session queue**, take the first
+   unchecked line there and read the records it names first. If the target needs something only the user can provide — a
    decision, a data file — and it is not in the conversation, do the parts
    that don't need it, then stop and say exactly what is needed. Unattended
    (owner, 2026-09-29, "decide, don't stall"): decide from the record (ADRs,

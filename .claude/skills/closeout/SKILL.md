@@ -34,7 +34,11 @@ Done means the repo tells the next reader the truth. In order:
    unverified on screen until a drive has seen it — the owner's, or the
    session's own on a scratch build with the build, clicks and shots named
    (`CLAUDE.md`).
-4. Update the step's row in `docs/status.md` (state, commit, what deviated)
+4. If the session came from `ROADMAP.md`'s Session queue, tick its line there
+   (with the commit), make the handoff name the next unchecked line, and write
+   what the next session needs into that line or the record it points to — the
+   next session knows only the repo.
+   Update the step's row in `docs/status.md` (state, commit, what deviated)
    and the dated gate table. A new file in `docs/decisions/` and a row in
    `docs/decisions.md` if a decision was made.
 5. Update `docs/open-items.md` — add, amend, or delete. Closed items move
