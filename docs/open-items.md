@@ -86,6 +86,7 @@ One line each; full wording as above.
 - The objects picture (`PrecipitateObjectReport.swift:200`) paints challenged matrix flat; the phase map stripes it. Presentation.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - "Computed this session" reports what exists, not what was computed. Presentation.
+- Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results; objects redrawn at a new minimum size republish under the old run.
 - Clear Calibration keeps the single-slice ptychography result on screen with its Å sampling and scale bar (no stale mark, the dialog silent) while parallax is discarded (`AppState+Open.swift:1101`); its sampling unit prints "A", not "Å" — decide discard-or-badge; sibling of D068.
 - Moving the detector destroys the origin fit with no durable warning — owner: confirm, banner or refuse.
 - Strain unlocks on vectors existing, not usable (it now fails with the named cause; the one-peak warning above "Per pattern" — both seen 2026-09-30). No Gate D.

@@ -142,9 +142,9 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
   reviewed; the step-loop leak fixed (`7361eea`, 10.9 → 0.04 MB/step). Left: **C5** — a full run on ≥ 12 held-out labelled
   positions, driven; the minimum N measured. On this 8 GB Mac admission refuses while Claude runs (2.10–2.13 of 2.16 GB,
   2026-09-30): waits for the new hardware (owner, 2026-09-30).
-- [ ] **D. Lineage graph (ADR 047).** Done: L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane
-  (driven on Thronsen A: v1 order-only, detail column, narrow list), L4 Rewind to Here (`34af213`, Gate D, three
-  reviews, driven). Left: `lineage_step` on products (stale marking).
+- [x] **D. Lineage graph (ADR 047)** (2026-09-30): L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane,
+  L4 Rewind to Here (`34af213`), `lineage_step` on phase maps, objects and groups with stale marking by the active path
+  and the export edge to its own run (`c8cf592`, Fable supervisor, driven). Residuals in open-items.
 - [ ] **E. The remaining lanes.** Done: T4 as a quantity; the claimed-disks overlay and the Al–Mg–Si phase-setup
   preset, driven on the demo cube (matrix 8 claimed, β″ 6 + 2 unexplained, unmatched 6 unexplained). Left: the Al
   Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048); hardware.
