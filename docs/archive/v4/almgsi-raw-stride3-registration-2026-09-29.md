@@ -56,3 +56,15 @@ Not done: known variants (the matrix-orientation probe has only the search rule)
 The probe takes the fitted stretch as `--distortion-matrix` (no ellipse input), dropping the fit's in-plane rotation
 (harmless on square [001]).
 
+
+## The app recipe for this cube (given to the owner 2026-09-30; from this record and D1, not yet confirmed by his run)
+
+Prepare, in this order: ellipse (manual a, b, θ) **78,2 / 72,1 / 20,8°**, applied first; Q manual **0,0685 nm⁻¹**
+(= 0.006850 Å⁻¹ per ellipse-corrected pixel — the file's 0.1144 nm⁻¹ is 1.74× too large; "On this detector" should
+then read ≈ 2.9 px, not 1.75); R manual **4,618 nm** (the stride-3 step); R–Q as measured (83.7° in his run). Disks: the
+0.15 % floor gives **116 150 peaks**, the probe's count exactly — no re-detection needed after the calibration.
+Phase mapping: Al (matrix, zone 0 0 1) + `beta_double_prime_Mg5Si6.cif` **twice**, zones **0 1 0** (needles end-on)
+and **0 0 1** (in-plane); "Parallel to matrix" empty; classifier **Known variants**; tolerances left at the shipped
+**0,020 / 0,020 / 0,015** (D1: 84.4 % matrix here; never "Scale to this detector"); ignore peaks beyond 0. Precipitates:
+no validated minimum size — compare 1, 3, 5 px; quote densities with pixel size, minimum size and count. Expect
+fragmented needles (seen on the binned cube). To become a preset in polish session S4 once his run confirms it.

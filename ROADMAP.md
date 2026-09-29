@@ -133,6 +133,28 @@ Clearing is three moves, in this order.
    strain median), D019 (a NaN pixel loses a pattern), T4's last metric (θ′ edge-on speckle), the learned detector's
    tiled memory loop.
 
+**Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
+- [ ] **S1 Close.** Board lanes done → ledger (disk memory, Bragg restore, calibration, interface + narrow window, R–Q,
+  ground truth A2/A3a); parked lanes (volumetric, β″ orientation) leave the board for "Later"; open-items' standing
+  notes (visual baseline, process gaps, stale-DerivedData trap → `gate-run` notes, CI wait, dylib path) to archive.
+  Target board ≤ 8 lanes, open-items ≤ 25 entries. Docs only.
+- [ ] **S2 Workspaces (ADR 046, Frozen Shell against its picture).** `WorkspaceArea` in `App/ProductWorkflow.swift`
+  (raw values `prepare/image/map/reconstruct/aiAnalysis/results` are persisted — keep them; add a case for Bragg
+  Disks and remap, never rename a raw value) and `AnalysisMode` (raw values persisted in recovery records and exports:
+  keep). Diffraction groups → Imaging; disks → Bragg Disks; strain/ACOM/phase mapping → Crystal Maps; "Phase" →
+  "Reconstruction"; retire `aiAnalysis` presentation. Layout rules learned 2026-09-30: every room's settings ≤ 248 pt
+  (`InspectorWidthBudgetTests` — add the new rooms); no dynamic column max (SwiftUI will not shrink a column whose
+  max drops); a shown sidebar grows the window; keep six workspaces. Drive at 915 and 1470 pt; restore the owner's frame.
+- [ ] **S3 Prepare polish:** emptied manual Q discards the file's calibration; voltage "0 kV" when unset; Friedel ETA
+  (Gate D first).
+- [ ] **S4 Phases & precipitates polish:** uncalibrated run refuses or explains; zone-axis tie order; busy status line
+  at narrow widths; the owner's Al-Mg-Si recipe as a preset (`archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`).
+- [ ] **S5 Sessions & sidecars:** retarget, `.h5.h5`, load/promote/replay residuals, the sidecar reader's guard.
+- [ ] **S6 Inspector kit & view state** (with the Frozen Shell residuals the owner accepts).
+- [ ] **S7–S11 Gate D, one each:** D025, D023, D019, T4's last metric, the learned detector's tiled memory loop.
+- [ ] **S12 Training** (ADR 043, the C2 route; memory ≤ 2 GB first). **S13 Lineage graph** — pre-register; the
+  session-file format (step ids, input edges) is the owner's decision first.
+
 **Later (off the board until the owner brings one back):** whatever step 2 defers; on-device training stays the first
 candidate once the polish ends.
 

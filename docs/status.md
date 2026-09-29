@@ -23,9 +23,9 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge and T6
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | v4.0.0 released 2026-09-23. `main` carries the overnight session's commits and the 2026-09-30 morning's narrow-window fix on top of the pushed `1a76089`. | Owner: push. |
+| **Now** | v4.0.0 released 2026-09-23; `main` pushed at `a8ea83d` (2026-09-30) with the overnight work and the narrow-window fix. | — |
 | Narrow windows | The constraint-loop abort is fixed and **seen on screen** (2026-09-30, your pick: fixed 460 inspector + the sidebar stepping aside below 1095 pt). Unit 965/0/2 = 967. Residual: Show Tools against the screen's edge. | — |
-| **Next — clear the board** | `ROADMAP.md` › Next planned sequence: **1** close the done lanes and standing notes (board ≤ 8, open-items ≤ 25); **2** decided (ADR 046); **3** polish — first the workspaces (Bragg Disks · Crystal Maps · Reconstruction), then room by room, driven; **4** one Gate D per session. Then training, then the lineage graph. | Session 1: close. |
+| **Next — the session queue** | `ROADMAP.md` › Next planned sequence › **Session queue**: a bare `/pickup` takes the first unchecked line (**S1 Close**), and its closeout ticks it and names the next. S2 builds the workspaces of ADR 046; S3–S6 polish; S7–S11 Gate D; then training, then the lineage graph. | `/pickup`. |
 | **Owner owed** | D1 option (a); the lineage graph's session-file format (when it is registered); Thronsen's written confirmation (ADR 042); the "overrule on sight" list (plan §5). | Owner. |
 | **⚠ Don't run** | Detect All Disks with the **learned** detector on multi-GB cubes (its tiled loop is not pooled). | — |
 | Phase mapping | Unvalidated. T4 one metric short; D1 measured: the shipped max(0.02 Å⁻¹, 1 px) lies inside all four datasets' bands (raw 060 cube: matrix 84.4 % at the app's 0.02); `archive/v4/phase-tolerance-results-2026-09-29.md`. | Owner: option (a). |
