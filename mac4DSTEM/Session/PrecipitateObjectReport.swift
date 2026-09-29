@@ -186,35 +186,40 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     /// The objects drawn over the scan: counted objects in their phase's map
     /// colour, objects left out of the statistics (scan edge, under the
     /// minimum size) at 35 % of that colour over the matrix grey, the matrix
-    /// and unselected classes in the matrix grey, not-indexed positions in
-    /// the phase map's own two-grey hatch, no-data positions transparent.
+    /// and unselected classes in the matrix grey (a matrix position the
+    /// matrix won by challenge striped as on the phase map), not-indexed
+    /// positions in the phase map's own two-grey hatch, no-data positions
+    /// transparent.
     /// The picture shows exactly what the numbers count.
     package nonisolated static func image(
         objects: PrecipitateSegmentation.ClassMapObjects,
         report: PrecipitateObjectReport,
-        verdicts: [PhaseVerdict],
+        results: [PhaseVectorResult],
         matrixPhaseIndex: Int
     ) -> RGBAImage {
         let count = objects.width * objects.height
         var out = [UInt8](repeating: 0, count: max(0, count * 4))
-        let matrix = PhaseMapPresentation.matrixColor
         for i in 0..<count {
-            var rgb = matrix
+            var rgb = PhaseMapPresentation.matrixColor
             var alpha: UInt8 = 255
-            if verdicts.indices.contains(i) {
-                switch verdicts[i] {
+            if results.indices.contains(i) {
+                let x = i % objects.width, y = i / objects.width
+                switch results[i].verdict {
                 case .notIndexed:
-                    let x = i % objects.width, y = i / objects.width
-                    rgb = ((x + y) % 6 < 3) ? PhaseMapPresentation.notIndexedColors.0
-                                            : PhaseMapPresentation.notIndexedColors.1
+                    rgb = PhaseMapPresentation.notIndexedPixelColor(x: x, y: y)
                 case .noData:
                     alpha = 0
-                case .matrix, .indexed:
+                case .matrix:
+                    // The phase map's own rule: a matrix position the matrix won by
+                    // challenge keeps the stripe it has there (S12).
+                    rgb = PhaseMapPresentation.matrixPixelColor(results[i], x: x, y: y)
+                case .indexed:
                     break
                 }
             }
             out[i * 4] = rgb.r; out[i * 4 + 1] = rgb.g; out[i * 4 + 2] = rgb.b; out[i * 4 + 3] = alpha
         }
+        let matrix = PhaseMapPresentation.matrixColor
         let counted = Set(report.rows.filter(\.isCounted).map(\.id))
         for classObjects in objects.classes {
             let full = PhaseMapPresentation.color(phaseIndex: Int(classObjects.label),

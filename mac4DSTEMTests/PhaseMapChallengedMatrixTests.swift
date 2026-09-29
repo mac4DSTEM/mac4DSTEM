@@ -126,6 +126,50 @@ final class PhaseMapChallengedMatrixTests: XCTestCase {
         XCTAssertEqual(legendTones("Al (matrix)"), tones(row: 2))
     }
 
+    /// S12: the pixel rule the phase map and the objects picture share.
+    /// Mutations: `matrixPixelColor` returning `matrixColor` always -> the
+    /// stripe half goes red; returning the stripe for every challenged pixel
+    /// (dropping `isChallengedStripe`) -> the ground half goes red; dropping
+    /// `isChallengedMatrix` (striping the exclusion route too) -> the
+    /// exclusion half goes red.
+    func testMatrixPixelRuleStripesOnlyChallengedPositionsOnTheStripeTone() {
+        let ground = PhaseMapPresentation.matrixColor
+        let stripe = PhaseMapPresentation.challengedMatrixStripe
+        let challenged = result(.matrix, matched: 6)
+        let excluded = result(.matrix, matched: 0)
+        var sawStripe = false, sawGround = false
+        for y in 0..<PhaseMapPresentation.stripePeriod {
+            for x in 0..<PhaseMapPresentation.stripePeriod {
+                let got = PhaseMapPresentation.matrixPixelColor(challenged, x: x, y: y)
+                let onStripe = PhaseMapPresentation.isChallengedStripe(x: x, y: y)
+                XCTAssertTrue(got == (onStripe ? stripe : ground), "challenged at (\(x), \(y))")
+                if onStripe { sawStripe = true } else { sawGround = true }
+                XCTAssertTrue(PhaseMapPresentation.matrixPixelColor(excluded, x: x, y: y) == ground,
+                              "exclusion is flat at (\(x), \(y))")
+            }
+        }
+        XCTAssertTrue(sawStripe && sawGround, "one period holds both tones")
+        // The not-indexed hatch is the same shared rule the map paints.
+        let hatch = PhaseMapPresentation.notIndexedColors
+        XCTAssertTrue(PhaseMapPresentation.notIndexedPixelColor(x: 0, y: 0) == hatch.0)
+        XCTAssertTrue(PhaseMapPresentation.notIndexedPixelColor(x: 3, y: 0) == hatch.1)
+    }
+
+    /// S12 (e): the evidence line of a challenge-turned matrix position says why
+    /// the claimed-disks overlay shows some of its disks as unexplained — the
+    /// challenger's zone axis is not recorded, so the overlay cannot pair against
+    /// it. Mutation: dropping the sentence from `evidenceLine` -> red; adding it
+    /// to the exclusion route as well -> the second assertion goes red.
+    func testEvidenceLineNamesTheOverlayLimitOnlyForAChallengedPosition() {
+        let m = map()
+        let challenged = PhaseMapPresentation.evidenceLine(m.results[6], map: m)
+        XCTAssertTrue(challenged.contains("Show claimed disks"), challenged)
+        XCTAssertTrue(challenged.contains("unexplained"), challenged)
+        XCTAssertTrue(challenged.contains("not recorded"), challenged)
+        let excluded = PhaseMapPresentation.evidenceLine(m.results[0], map: m)
+        XCTAssertFalse(excluded.contains("unexplained"), excluded)
+    }
+
     /// The evidence line and the map share one classification.
     func testEvidenceLineAgreesWithTheClassification() {
         let m = map()

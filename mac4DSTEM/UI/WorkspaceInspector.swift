@@ -685,9 +685,17 @@ private struct SessionProductsSections: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        InspectorSection("Computed this session") {
-            product("Origin calibration", done: appState.calibrationSession.calibration.hasFittedOrigin)
-            product("R–Q rotation", done: appState.calibrationSession.calibration.hasRotation)
+        // A row says what is in memory AND where it came from: a value restored
+        // from a file or the session sidecar is not something this session
+        // computed (S12; the title used to claim it was).
+        InspectorSection("In memory") {
+            let calibration = appState.calibrationSession.calibration
+            product("Origin calibration", done: calibration.hasFittedOrigin,
+                    detail: calibration.hasFittedOrigin
+                        ? SessionProductOrigin.originCalibration(calibration.originProvenance) : nil)
+            product("R–Q rotation", done: calibration.hasRotation,
+                    detail: calibration.hasRotation
+                        ? SessionProductOrigin.rotation(appState.calibrationSession.provenance.rotation) : nil)
             let disksState = ProductWorkflow.productState(
                 for: .disks, hasProduct: appState.resultPresentation.braggVectors != nil,
                 recordedStep: appState.recordedReplayStep(for: .disks),
@@ -697,7 +705,9 @@ private struct SessionProductsSections: View {
                 state: disksState,
                 detail: disksState.staleReason != nil
                     ? "settings changed · rerun"
-                    : appState.resultPresentation.braggPeakCount.map { "\($0) peaks" }
+                    : SessionProductOrigin.braggDisks(
+                        peakCount: appState.resultPresentation.braggPeakCount,
+                        computedThisSession: appState.completedDiskSummary != nil)
             )
             // Clickable when retained: these are held in memory
             // simultaneously, so bringing one back needs no recompute. Their

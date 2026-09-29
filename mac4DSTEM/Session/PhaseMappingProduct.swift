@@ -64,6 +64,11 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
         Self.parseOrientationRelationships(orientationRelationshipText) ?? []
     }
 
+    /// The structure alone — id and content fingerprint — for the checks that
+    /// ask "is this still the same crystal": not the zone axis (a fit writes
+    /// it), not the flags.
+    package var matrixIdentity: String { "\(model.id)|\(model.contentFingerprint)" }
+
     /// Identity for staleness. `contentFingerprint` is what distinguishes two
     /// CIFs that share an id, which `CrystalModel` already records.
     package var signature: String {
@@ -244,13 +249,22 @@ package final class PhaseMappingProduct {
         zoneAxisRun = run
     }
 
+    /// The structure of the phase marked as the matrix now, or "" when none is
+    /// (`PhaseMappingSlot.matrixIdentity`).
+    package var matrixIdentity: String {
+        phases.first(where: \.isMatrix)?.matrixIdentity ?? ""
+    }
+
     /// Why the shown zone-axis list must not be offered against the live
     /// calibration, or nil. The list is dropped, not recomputed: only a rerun
     /// answers for the new scale.
     package func zoneAxisStaleness(currentInvAngstromPerPixel q: Double,
                                    currentCalibration: CalibrationStamp) -> String? {
         guard !zoneAxisFits.isEmpty else { return nil }
-        return zoneAxisRun?.staleness(currentInvAngstromPerPixel: q, currentCalibration: currentCalibration)
+        return zoneAxisRun?.staleness(
+            currentInvAngstromPerPixel: q, currentCalibration: currentCalibration,
+            currentMatrixPhase: matrixIdentity,
+            currentMatrixToleranceInvAngstrom: matching.matrixToleranceInvAngstrom)
     }
     /// Everything needed to say what produced `map`, and to tell whether the
     /// live controls have moved since.
@@ -342,19 +356,36 @@ package final class PhaseMappingProduct {
     package struct ZoneAxisRun: Sendable, Equatable {
         package var invAngstromPerPixel: Double
         package var calibration: CalibrationStamp
+        /// The matrix phase the axes were fitted for (`PhaseMappingSlot.matrixIdentity`:
+        /// the structure, not its zone axis — the fit itself writes the winner
+        /// into the slot's axis, which must not read as "changed").
+        package var matrixPhase: String
+        /// The tolerance the sweep scored with (`fitZoneAxis`: `matrixToleranceInvAngstrom`).
+        package var matrixToleranceInvAngstrom: Double
 
-        package init(invAngstromPerPixel: Double, calibration: CalibrationStamp) {
+        package init(invAngstromPerPixel: Double, calibration: CalibrationStamp,
+                     matrixPhase: String, matrixToleranceInvAngstrom: Double) {
             self.invAngstromPerPixel = invAngstromPerPixel
             self.calibration = calibration
+            self.matrixPhase = matrixPhase
+            self.matrixToleranceInvAngstrom = matrixToleranceInvAngstrom
         }
 
         package func staleness(currentInvAngstromPerPixel q: Double,
-                               currentCalibration: CalibrationStamp) -> String? {
+                               currentCalibration: CalibrationStamp,
+                               currentMatrixPhase: String,
+                               currentMatrixToleranceInvAngstrom tolerance: Double) -> String? {
             guard abs(q - invAngstromPerPixel) <= 1e-12 * max(1, abs(invAngstromPerPixel)) else {
                 return "The Q scale changed since this ranking — fit again"
             }
             guard calibration == currentCalibration else {
                 return "The origin or ellipse changed since this ranking — fit again"
+            }
+            guard matrixPhase == currentMatrixPhase else {
+                return "The matrix phase changed since this ranking — fit again"
+            }
+            guard abs(tolerance - matrixToleranceInvAngstrom) <= 1e-12 * max(1, abs(matrixToleranceInvAngstrom)) else {
+                return "The matrix removal tolerance changed since this ranking — fit again"
             }
             return nil
         }

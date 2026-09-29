@@ -254,11 +254,28 @@ extension AppState {
         }.value
         if precipitateClassification.publish(objects, ifCurrent: token) {
             // Lineage node (ADR 047): consumes the phase map just recorded.
-            recordLineageRun(kind: "precipitate_objects", parameters: [
-                "connectivity": "8",
-                "minimum_object_area_px": String(precipitateClassification.minimumObjectAreaPx),
-            ])
+            recordLineageRun(kind: "precipitate_objects", parameters: objectsRunParameters)
         }
+    }
+
+    /// What the objects run records: the connectivity and the reader's minimum size.
+    private var objectsRunParameters: [String: String] {
+        ["connectivity": "8", "minimum_object_area_px": String(precipitateClassification.minimumObjectAreaPx)]
+    }
+
+    /// The minimum size is a parameter of the objects run (what is counted, and so
+    /// what the picture dims). A picture drawn at a size the run did not record is a
+    /// different run: record it before publishing, so the product names the run that
+    /// drew it and an export of it edges to that run (S12; before, a redraw was
+    /// published under the run of the old size). Nothing is recorded when the size
+    /// is the one on record, or when no objects run stands behind the picture.
+    private func recordObjectsRunIfMinimumSizeChanged() {
+        let kind = "precipitate_objects"
+        guard let standing = lineageProducer(ofKind: kind)
+                ?? replay.lineage.activeNodes().first(where: { $0.kind == kind }),
+              standing.parameters["minimum_object_area_px"] != objectsRunParameters["minimum_object_area_px"]
+        else { return }
+        recordLineageRun(kind: kind, parameters: objectsRunParameters)
     }
 
     /// The phase-mapping lineage node: the run's settings and phase list — the
@@ -333,8 +350,9 @@ extension AppState {
         guard let map = phaseMapping.map, let run = phaseMapping.lastRun,
               let objects = precipitateClassification.result,
               let report = precipitateObjectReport else { return }
+        recordObjectsRunIfMinimumSizeChanged()
         let image = PrecipitateObjectReport.image(
-            objects: objects, report: report, verdicts: map.results.map(\.verdict),
+            objects: objects, report: report, results: map.results,
             matrixPhaseIndex: map.matrixPhaseIndex)
         var extra = phaseProvenance(map: map, run: run)
         extra["quantitative_status"] = "categorical"
@@ -522,7 +540,9 @@ extension AppState {
         let zoneAxisRun = PhaseMappingProduct.ZoneAxisRun(
             invAngstromPerPixel: acomScaleSemantics.invAngstromPerPixel,
             calibration: PhaseMappingProduct.CalibrationStamp(
-                calibration: calibrationSession.calibration, referenceOrigin: origin))
+                calibration: calibrationSession.calibration, referenceOrigin: origin),
+            matrixPhase: slot.matrixIdentity,
+            matrixToleranceInvAngstrom: phaseMapping.matching.matrixToleranceInvAngstrom)
         let scale = acomScaleSemantics
         // Read on the main actor, before the detach below — same reason as
         // runPhaseMapping's invAngstromPerPixel extraction, above.

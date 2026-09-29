@@ -119,11 +119,13 @@ final class PrecipitateObjectReportTests: XCTestCase {
         let report = PrecipitateObjectReport.make(
             objects: objects, phaseNames: names, matrixPhaseIndex: 0,
             pixelSize: nil, pixelUnit: nil, minimumAreaPx: 2)
-        let verdicts: [PhaseVerdict] = labels.map {
-            $0 == -1 ? .notIndexed : ($0 == 0 ? .matrix : .indexed)
+        let results: [PhaseVectorResult] = labels.map { label in
+            var r = PhaseVectorResult()
+            r.verdict = label == -1 ? .notIndexed : (label == 0 ? .matrix : .indexed)
+            return r
         }
         let image = PrecipitateObjectReport.image(
-            objects: objects, report: report, verdicts: verdicts, matrixPhaseIndex: 0)
+            objects: objects, report: report, results: results, matrixPhaseIndex: 0)
         func rgb(_ x: Int, _ y: Int) -> [UInt8] {
             let i = (y * 8 + x) * 4
             return Array(image.rgba[i..<i + 3])
@@ -135,5 +137,54 @@ final class PrecipitateObjectReportTests: XCTestCase {
         let hatch = PhaseMapPresentation.notIndexedColors
         XCTAssertTrue([[hatch.0.r, hatch.0.g, hatch.0.b], [hatch.1.r, hatch.1.g, hatch.1.b]]
                         .contains(rgb(0, 5)), "not indexed keeps the phase map's hatch")
+    }
+    /// (6) S12: the objects picture stripes a matrix position the matrix WON BY
+    /// CHALLENGE exactly as the phase map does (`PhaseMapPresentation`'s rule),
+    /// and leaves matrix-by-exclusion flat. The picture is compared with the
+    /// map's own pixels, position by position, so a drifted tone or period goes
+    /// red. Mutation: the objects picture painting every matrix position
+    /// `matrixColor` (the state before S12) -> red; `challengedMatrixStripe`
+    /// swapped for `matrixColor` in `PhaseMapPresentation.matrixPixelColor` ->
+    /// red (no stripe at all); an object over a challenged position is not
+    /// possible (objects are candidate classes), so the second half pins that
+    /// objects still paint over the ground.
+    func testTheObjectsPictureStripesChallengedMatrixLikeThePhaseMap() {
+        let (labels, objects) = fixture()
+        var map = PhaseMap(width: 8, height: 6, matrixEntryIndex: 0,
+                           phaseNames: names, matrixPhaseIndex: 0)
+        for i in map.results.indices {
+            let label = labels[i]
+            map.results[i].verdict = label == -1 ? .notIndexed : (label == 0 ? .matrix : .indexed)
+            map.results[i].phaseIndex = label > 0 ? Int32(label) : 0
+        }
+        // Row 0 and row 3: matrix by challenge (matched > 0); row 1 col 0-3: by exclusion.
+        for x in 0..<8 { map.results[x].matchedCount = 5; map.results[3 * 8 + x].matchedCount = 5 }
+        let report = PrecipitateObjectReport.make(
+            objects: objects, phaseNames: names, matrixPhaseIndex: 0,
+            pixelSize: nil, pixelUnit: nil, minimumAreaPx: 2)
+        let picture = PrecipitateObjectReport.image(
+            objects: objects, report: report, results: map.results, matrixPhaseIndex: 0)
+        let mapImage = PhaseMapPresentation.image(map)
+        func px(_ image: RGBAImage, _ x: Int, _ y: Int) -> [UInt8] {
+            let i = (y * 8 + x) * 4
+            return Array(image.rgba[i..<i + 4])
+        }
+        var stripes = 0, grounds = 0
+        for y in [0, 3] {
+            for x in 0..<8 {
+                XCTAssertEqual(px(picture, x, y), px(mapImage, x, y), "challenged matrix at (\(x), \(y)) is the map's pixel")
+                let stripe = PhaseMapPresentation.challengedMatrixStripe
+                if px(picture, x, y) == [stripe.r, stripe.g, stripe.b, 255] { stripes += 1 } else { grounds += 1 }
+            }
+        }
+        XCTAssertGreaterThan(stripes, 0, "the stripe tone appears")
+        XCTAssertGreaterThan(grounds, 0, "and so does the ground")
+        let ground = PhaseMapPresentation.matrixColor
+        for x in 0..<8 where map.results[8 + x].verdict == .matrix {
+            XCTAssertEqual(px(picture, x, 1), [ground.r, ground.g, ground.b, 255], "exclusion stays flat at (\(x), 1)")
+        }
+        // Objects still paint over: A (counted) is its phase colour, not a stripe.
+        let full = PhaseMapPresentation.color(phaseIndex: 1, matrixPhaseIndex: 0)
+        XCTAssertEqual(px(picture, 3, 2), [full.r, full.g, full.b, 255])
     }
 }

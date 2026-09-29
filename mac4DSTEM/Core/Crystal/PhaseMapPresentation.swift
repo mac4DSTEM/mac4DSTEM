@@ -72,6 +72,20 @@ package nonisolated enum PhaseMapPresentation {
         isFirstStripeTone(x: x, y: y)
     }
 
+    /// The colour of a MATRIX position at map pixel (x, y): the matrix ground,
+    /// or the lighter stripe where the matrix won a challenge
+    /// (`isChallengedMatrix`, `isChallengedStripe`). The one rule the phase map
+    /// and the objects picture both paint the matrix with.
+    package static func matrixPixelColor(_ r: PhaseVectorResult, x: Int, y: Int) -> RGB {
+        (isChallengedMatrix(r) && isChallengedStripe(x: x, y: y)) ? challengedMatrixStripe : matrixColor
+    }
+
+    /// The colour of a "not indexed" position at map pixel (x, y): the
+    /// two-grey hatch. Shared by the phase map and the objects picture.
+    package static func notIndexedPixelColor(x: Int, y: Int) -> RGB {
+        isFirstStripeTone(x: x, y: y) ? notIndexedColors.0 : notIndexedColors.1
+    }
+
     /// How much of this position's detected signal the matrix explained, or
     /// nil where the question does not apply (nothing detected).
     package static func explainedFraction(_ r: PhaseVectorResult) -> Double? {
@@ -128,8 +142,7 @@ package nonisolated enum PhaseMapPresentation {
                 case .matrix:
                     // Challenged matrix keeps the matrix ground and adds a
                     // lighter stripe; the verdict itself is unchanged.
-                    rgb = (isChallengedMatrix(r) && isChallengedStripe(x: x, y: y))
-                        ? challengedMatrixStripe : matrixColor
+                    rgb = matrixPixelColor(r, x: x, y: y)
                 case .indexed:
                     rgb = color(phaseIndex: Int(r.phaseIndex),
                                 matrixPhaseIndex: map.matrixPhaseIndex)
@@ -137,7 +150,7 @@ package nonisolated enum PhaseMapPresentation {
                     // A 6-pixel diagonal stripe: unmistakable at any zoom, and
                     // it survives every colour map because it is two greys and
                     // a shape rather than a hue.
-                    rgb = isFirstStripeTone(x: x, y: y) ? notIndexedColors.0 : notIndexedColors.1
+                    rgb = notIndexedPixelColor(x: x, y: y)
                 case .noData:
                     rgb = (0, 0, 0); alpha = 0
                 }
@@ -289,9 +302,14 @@ package nonisolated enum PhaseMapPresentation {
             // vectors are the matrix's, and 8 is too few to index" when the
             // matrix had in fact matched 6 of them.
             if isChallengedMatrix(result) {
+                // The last sentence is a stated LIMIT (S12): that orientation is not
+                // recorded (`entryIndex` is cleared), so "Show claimed disks" cannot
+                // pair against it and rings the disks it explains as unexplained.
                 return "\(name(Int32(map.matrixPhaseIndex))) — on another orientation: it "
                     + "accounts for \(result.matchedCount) of \(result.survivingCount) "
-                    + "vectors here, closer than any candidate phase."
+                    + "vectors here, closer than any candidate phase. That orientation is "
+                    + "not recorded, so \"Show claimed disks\" rings the disks it explains "
+                    + "as unexplained."
             }
             return "\(name(Int32(map.matrixPhaseIndex))) — "
                 + "\(result.removedCount) of \(result.removedCount + result.survivingCount) "

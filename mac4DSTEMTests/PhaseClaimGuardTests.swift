@@ -199,8 +199,10 @@ final class PhaseClaimGuardTests: XCTestCase {
                                        chanceMatchedVectors: 5, sweepMedianFraction: 0.1)
     }
 
-    private func zoneRun(_ c: Calibration, q: Double = 0.01) -> PhaseMappingProduct.ZoneAxisRun {
-        PhaseMappingProduct.ZoneAxisRun(invAngstromPerPixel: q, calibration: stamp(c))
+    private func zoneRun(_ c: Calibration, q: Double = 0.01, matrix: String = "",
+                         tolerance: Double = 0.02) -> PhaseMappingProduct.ZoneAxisRun {
+        PhaseMappingProduct.ZoneAxisRun(invAngstromPerPixel: q, calibration: stamp(c),
+                                        matrixPhase: matrix, matrixToleranceInvAngstrom: tolerance)
     }
 
     /// Mutation: drop the Q comparison in `ZoneAxisRun.staleness` -> the Q case
@@ -228,6 +230,50 @@ final class PhaseClaimGuardTests: XCTestCase {
         XCTAssertEqual(product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.01,
                                                  currentCalibration: stamp(calibration(fittedY: [20, 21, 22, 23.5]))),
                        moved, "origin map Y value")
+    }
+
+    /// S12: the ranking is also a function of WHICH crystal is the matrix and of
+    /// the matrix tolerance the sweep scored with. Mutations: drop the matrix-phase
+    /// guard in `ZoneAxisRun.staleness` (or `matrixIdentity` returning a constant)
+    /// -> the swap cases go red; drop the tolerance guard -> the tolerance case goes
+    /// red; put the zone axis into `matrixIdentity` -> the "fit writes the axis"
+    /// case goes red (the ranking would mark itself stale the moment it wrote its winner).
+    func testRankingIsStaleWhenTheMatrixPhaseOrTheMatchingToleranceChanged() {
+        let base = calibration()
+        let product = PhaseMappingProduct()
+        let al = CrystalModelLibrary.models[0], other = CrystalModelLibrary.models[1]
+        product.phases = [
+            PhaseMappingSlot(model: al, isMatrix: true, u: 1, v: 1, w: 0),
+            PhaseMappingSlot(model: other, isMatrix: false, u: 0, v: 0, w: 1),
+        ]
+        product.matching.matrixToleranceInvAngstrom = 0.02
+        product.setZoneAxisFits([fit()], ranWith: zoneRun(base, matrix: product.matrixIdentity, tolerance: 0.02))
+        func staleness() -> String? {
+            product.zoneAxisStaleness(currentInvAngstromPerPixel: 0.01, currentCalibration: stamp(base))
+        }
+        XCTAssertNotEqual(product.matrixIdentity, "", "the matrix slot has an identity")
+        XCTAssertNil(staleness(), "unchanged is current")
+
+        // The fit's own write-back and edits to a candidate are not a change of matrix.
+        product.phases[0].u = 2; product.phases[0].v = 0; product.phases[0].w = 0
+        product.phases[1].w = 3
+        XCTAssertNil(staleness(), "the winner written into the matrix axis leaves the ranking current")
+
+        product.matching.matrixToleranceInvAngstrom = 0.03
+        XCTAssertEqual(staleness(), "The matrix removal tolerance changed since this ranking — fit again")
+        product.matching.matrixToleranceInvAngstrom = 0.02
+        XCTAssertNil(staleness(), "back to the recorded tolerance is current again")
+
+        product.phases[0].isMatrix = false
+        product.phases[1].isMatrix = true
+        XCTAssertEqual(staleness(), "The matrix phase changed since this ranking — fit again", "another phase is the matrix")
+        product.phases[1].isMatrix = false
+        XCTAssertEqual(staleness(), "The matrix phase changed since this ranking — fit again", "no phase is the matrix")
+        product.phases[0].isMatrix = true
+        product.phases[0].model = CrystalModel(id: al.id, displayName: al.displayName, crystal: other.crystal,
+                                               symmetry: other.symmetry, source: .builtIn)
+        XCTAssertEqual(staleness(), "The matrix phase changed since this ranking — fit again",
+                       "a different crystal under the same id")
     }
 
     /// Mutation: `clear` (or the preset) forgets `zoneAxisRun = nil` -> red;

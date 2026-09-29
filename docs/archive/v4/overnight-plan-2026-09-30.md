@@ -156,3 +156,9 @@ what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes
 - S16 Virtual-detector tiled loops: measured FLAT (prediction "growing" refuted; written before the run) on all six streaming
   paths, 0–2 MB over 10 tiles; `virtual-detector-memory-test` gates it (retained-buffer mutants red at 352 MB), in `scientific`;
   Thronsen A: 778 MB between passes, no growth. No code change. Fable supervisor COMMIT.
+- S12 Stale marks II: zone-axis ranking stale on a changed matrix phase / matrix-removal tolerance; objects redrawn at a new
+  minimum size recorded as their run; Info "In memory" says fitted here / restored / N peaks (Frozen Shell wording only, the
+  helper moved out); the objects picture stripes challenged matrix; the challenger limit named in the evidence line. 122 / 0,
+  M1–M12 red. Fable supervisor COMMIT; drive 1 VERIFIED a–e on screen (supervisor checked every shot); an identical origin
+  re-fit leaves the ranking current (empties the Unverified row). Post-drive string fixes (grouped count, "· restored",
+  "matrix removal") gated (14 / 0, grouped-count mutation red) — re-driven in drive 2.

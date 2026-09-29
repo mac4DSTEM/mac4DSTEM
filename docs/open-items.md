@@ -87,22 +87,25 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 ### Other named presentation and trust residuals
 One line each; full wording as above.
 - Ellipse "Fit anyway" mark lost on a session round trip — sidecar wire-format decision.
-- The objects picture (`PrecipitateObjectReport.image`, `Session/PrecipitateObjectReport.swift:192`) paints challenged matrix flat; the phase map stripes it. Presentation.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
-- "Computed this session" reports what exists, not what was computed. Presentation.
-- Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results; objects redrawn at a new minimum size republish under the old run.
+- Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
 - Moving the detector destroys the origin fit with no durable warning — owner: confirm, banner or refuse.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
 ### S4 Phases & precipitates: residuals (the zone-axis stale check, the busy line, a challenged matrix position)
-- The zone-axis ranking's stale check covers Q, origin and ellipse only (`PhaseMappingProduct.swift`, `ZoneAxisRun.staleness`);
-  a changed matrix phase or matching tolerance still shows it as current (Fable refuter, 2026-09-30).
+- The zone-axis ranking's stale check (Q, origin, ellipse, and since S12 the matrix phase and tolerance) does not cover the
+  reference settings, direct-beam radius or maximum vector `fitZoneAxis` also reads (`PhaseVectorMatching.swift:728-750`).
 - At 1000 pt a busy run clips the status text and hides the metrics line; the panes widen while busy so the inspector
   covers ~110 pt of the phase map (original wording, `archive/closed-items-2026-09.md`): metrics get truncation priority,
   split fraction constant.
-- A challenge-turned matrix position shows its disks as unexplained in the claimed-disks overlay (the challenger's axis is not recorded).
+- A challenge-turned matrix position shows its disks as unexplained in the claimed-disks overlay (the challenger's axis is not recorded; named in the evidence line since S12).
+- Drive 2026-09-30 night, proposals (shots `archive/v4/drives-2026-09-30-night-shots/`): two β″ variants read identically in the
+  Matrix picker (append the zone axis); no way back from Show Objects to the phase map but re-running; the Evidence help says
+  "under the cursor" but follows the clicked position; "Measure Origin & Probe" leaves Calibration after the first fit (keep a
+  Re-measure); the Session heading says "Loaded with the dataset" right after a save; a fresh cube shows "Phase map (0
+  candidates)" in Prepare; the Lineage list puts a later origin fit above earlier nodes.
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
 - **A superseded load's tail still runs `discardPartialLoad`** (`AppState+Open.swift:810`) over whatever load is current;
