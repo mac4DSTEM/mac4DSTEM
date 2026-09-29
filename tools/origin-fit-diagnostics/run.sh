@@ -27,6 +27,11 @@
 #                            threshold is measured instead of invented. <id> is
 #                            a CrystalModelLibrary model id.
 #
+#   friedel-timing <f.h5> [--tile-rows N]  S3 Gate D (2026-09-30): the app's tile
+#                            reads alone, then tiledRun(.friedel) with rate and
+#                            footprint per 1 % — why the Friedel ETA only grows.
+#                            OPT=-Onone builds it as the Debug app is built.
+#
 #   trim-sweep <file.h5>...  S13 E2: kept fraction, bootstrap SD of the fitted
 #                            origin, and the kept set's spatial support across a
 #                            sweep of trim aggressiveness — the evidence for
@@ -60,7 +65,7 @@ build_probe() {
   xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
   . "$ROOT/tools/lib/sources.manifest"
   mac4dstem_sources "$ROOT" qcalibration
-  xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/$out" \
+  xcrun swiftc -package-name mac4DSTEM "${OPT:--O}" -parse-as-library -o "$WORK/$out" \
     "${MAC4DSTEM_SOURCES[@]}" "$ROOT/mac4DSTEM/Core/Data/DisplayedProduct.swift" \
     "$HERE/$entry" -framework Accelerate -framework Metal -framework MetalKit
   codesign -f -s - "$WORK/$out" 2>/dev/null
@@ -100,6 +105,13 @@ probe-size)
   absolute=(); for f in "${files[@]}"; do absolute+=("${f:A}"); done
   cd "$WORK"
   MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./probesize "${absolute[@]}" 2>&1 | sed '/^\[MetalEngine\]/d'
+  ;;
+friedel-timing)
+  if (( $# < 1 )); then echo "Usage: run.sh friedel-timing <file.h5> [--tile-rows N]" >&2; exit 64; fi
+  target="${1:A}"; shift
+  build_probe friedel-timing.swift friedeltiming
+  cd "$WORK"
+  MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./friedeltiming "$target" "$@" 2>&1 | sed '/^\[MetalEngine\]/d'
   ;;
 trim-sweep)
   if (( $# == 0 )); then default_files; else files=("$@"); fi

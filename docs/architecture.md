@@ -380,5 +380,6 @@ deadlock and never held across an `await`. The three redistributed dylibs came f
   `.metal` structs (all 4-byte fields).
 - A stale DerivedData test bundle can fake a pass and a surviving mutation: reconcile the case count against
   `func test` per file, check which `XCTestCase` class a new test landed in, and grep the log for its own name.
-- Debug builds compile the app module at `-O` so interactive science is never
-  benchmarked at `-Onone`.
+- Debug builds compile the app module AND the `DSTEMCore`/`DSTEMSession` packages at
+  `-O` (the packages since 2026-09-30, `Package.swift`), so interactive science is never
+  run or benchmarked at `-Onone` — the Friedel origin pass was 93× slower there.

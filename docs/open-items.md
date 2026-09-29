@@ -93,13 +93,13 @@ One line each; full wording as above.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
-### S3 Prepare: the Friedel ETA that only grows (the number-entry half closed 2026-09-30)
-- **Full-cube Friedel ETA only grows** (drive 2, 2026-09-29): 329 → 106 positions/s over 12 000 positions, ETA 58 s → 2:39;
-  ≈ 20 s stalls; Cancel lands in ≈ 20 s (`archive/v4/overnight-2026-09-29-shots/d2-07b-friedel-later.jpg`). Gate D open:
-  the serial tile read (`friedelMeasuredOrigins` awaits `scanTile`, no prefetch, no cancel check inside a read) was
-  predicted to need ≈ 156 positions/s of reading; h5py decompresses this file's per-pattern chunks at 5 300–6 400/s —
-  **refuted** for raw HDF5 (2026-09-30). Unmeasured: the app's own `readScanTile` + float conversion, memory growth
-  (the rate FALLS, so something grows). Next: time each tile's read and compute, and the footprint, on the app's path.
+### S3 Prepare: the Friedel ETA's falling shape (speed fixed 2026-09-30)
+- **Speed — fixed.** Gate D (`tools/origin-fit-diagnostics/run.sh friedel-timing`, Thronsen A 171², 128²): the app's
+  Friedel pass runs at 3 572 positions/s at `-O` (cube in 8 s, footprint flat 753 MB) and 38/s at `-Onone` (765 s) — and
+  the Debug app linked `DSTEMCore` built `-Onone`. Reads are not it (6 600–7 000 patterns/s, both builds; h5py 5 300+).
+  `Package.swift` now builds both packages `-O` in Debug.
+- **Open:** the drive's falling rate (329 → 106/s) was not reproduced — the `-Onone` probe starts slow and levels at
+  38/s. Re-drive the owner's Debug build; if the ETA still wanders at 8 s, a trailing-window rate is the proposal.
 - The manual Q field stays visible and editable after a new value (`d3-03b`).
 
 ### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe

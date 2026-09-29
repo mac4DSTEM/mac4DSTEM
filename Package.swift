@@ -1,10 +1,10 @@
 // swift-tools-version: 6.2
 // DSTEMCore — Core/ compiled as a standalone module (v2.5 step 2, 2026-09-02).
 //
-// The Xcode app target still compiles these same sources directly through its
-// synchronized folder group; this package exists so that `swift build` fails
-// the moment Core/ reaches upward into App/, UI/ or Support/, and so Core can
-// be built and tested from the shell without Xcode's DerivedData footprint.
+// The Xcode app target links these two products (`packageProductDependencies`);
+// the package is also what makes `swift build` fail the moment Core/ reaches
+// upward into App/, UI/ or Support/, and lets Core build and test from the
+// shell without Xcode's DerivedData footprint.
 // Settings mirror the app target (Swift 5 mode, MainActor default isolation,
 // approachable concurrency, MemberImportVisibility). `tools/run-tests.sh core`
 // runs it; CI runs it on every push.
@@ -39,6 +39,11 @@ let package = Package(
                 // publishing DSTEMCore ever matters, the way back is a small C
                 // target using `cSettings: [.define(...)]`, not this line.
                 .unsafeFlags(["-Xcc", "-DACCELERATE_NEW_LAPACK"]),
+                // Optimised in Debug too (Gate D, 2026-09-30): the owner runs
+                // the Debug build, and a package's Debug is -Onone — the
+                // Friedel origin pass ran its FFTs at a crawl there while the
+                // app module beside it was -O. Same flag, same cost as above.
+                .unsafeFlags(["-O"], .when(configuration: .debug)),
                 .swiftLanguageMode(.v5),
                 .defaultIsolation(MainActor.self),
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
@@ -54,6 +59,7 @@ let package = Package(
             dependencies: ["DSTEMCore"],
             path: "mac4DSTEM/Session",
             swiftSettings: [
+                .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore
                 .swiftLanguageMode(.v5),
                 .defaultIsolation(MainActor.self),
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
