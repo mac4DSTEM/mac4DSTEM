@@ -101,40 +101,37 @@ part of the product story: the load-specification and promote workflow,
 provenance that survives export and reopen, refusals that name what failed,
 the session sidecar as a sharing unit.
 
-## Next planned sequence — revised with the owner, 2026-09-28 evening
+## Next planned sequence — clear the board, then consolidate and polish (2026-09-30)
 
-The morning's tracks A–C (archived verbatim in `docs/archive/v4/roadmap-history.md`) ran the same day: A2 truth
-committed, A3a reproduced Thronsen's vector analysis on this Mac (99.99 %), C2 proved the training route (and failed its
-registered bars), B1 diagnosed the edge-on speckle. What that taught, in the owner's words distilled: **our vector
-matching is powerful; keep the app simple, robust, pure macOS, with an intuitive UI; rethink the approach whenever a
-better one appears, and use the Neural Engine where it earns its place.**
+The owner, 2026-09-30: "clear the board and then start to consolidate and polish for some sessions." The overnight
+session of 2026-09-29 cleared its own list, not the board: most lanes are features or decisions only the owner can take.
+Clearing is three moves, in this order.
 
-**Principles.** One method per job in the app (ADR 044). Every change is judged on Thronsen's truth (T4, per-position
-error and every class's speckle together) until the owner's own data reach that standard. The workspace layout is
-settled; rooms move only on a concrete plan the owner accepts.
+1. **Close (one short session, docs only).** Lanes done and seen on screen leave the board for the ledger: disk-detection
+   memory (classical), Bragg disks kept in the session, calibration foundation, the interface on macOS 27 and the
+   narrow-window abort, R–Q parity. Open items that are standing process notes, not defects (the visual baseline, the
+   two process gaps, the stale-DerivedData trap, CI waiting for a macOS 27 image, the dylib rebuild path) move to
+   `docs/archive/` with one line each where they belong. Target: **board ≤ 8 lanes, `open-items.md` ≤ 25 entries.**
+2. **Decide (15 minutes with the owner): keep, defer or retire** each feature lane — disks claimed per phase, β″
+   orientation maps, the lineage graph, volumetric density, on-device training, the full Thronsen reproduction (A3).
+   Deferred lanes move to "Later" below and off the board; retired ones are deleted from code in the same session
+   (lean-app directive), e.g. the unwired image `segment` path. Hardware-gated work (parallax/ptychography drive, the
+   28 GB `--parity` run) waits for the stronger Mac and leaves the board as one "waits on hardware" row.
+3. **Polish (GREEN, one room per session, each drive-verified):**
+   - *Prepare:* an emptied manual Q discards the file's calibration; voltage "0 kV" when unset; the Friedel ETA that
+     only grows (Gate D first — cause unknown).
+   - *Phase mapping and precipitates:* refuse or explain an uncalibrated run; the zone-axis tie order; the busy status
+     line at narrow widths; your Al-Mg-Si recipe as a preset once your run confirms it.
+   - *Sessions and sidecars:* the retarget, `.h5.h5` and load/promote/replay residuals; the sidecar reader's
+     attribute guard.
+   - *Inspector kit and view state:* the kit gaps and the four owners of view state (hygiene with the Frozen Shell
+     residuals the owner accepts).
+4. **Science, one Gate D per session, after the polish:** D025 (circle-ROI mask +0.5 px), D023 (empty positions in the
+   strain median), D019 (a NaN pixel loses a pattern), T4's last metric (θ′ edge-on speckle), the learned detector's
+   tiled memory loop.
 
-**Order.**
-1. ~~**The 915-pt launch crash**~~: fixed 2026-09-28 (sidebar max 270, owner's pick).
-2. **Precipitate analysis, polished.** The owner's recipe reproduces the map in the app; finish what it lacks: the
-   per-phase slab field (landed 2026-09-28 night), then a polishing cycle over the whole precipitate path
-   (settings, legend, objects, table, export) — the table→map highlight and the "Any rotation" prompt landed 2026-09-29 night. Thickness → volumetric density is the last missing step: registered 2026-09-28 with a typed thickness (PACBED deferred).
-3. **The owner's own Al-Mg-Si high-resolution scans, subsampled.** First cube done 2026-09-29 (stride 3, full 256² detector, bit-identical; `archive/v4/ssd-subsample-2026-09-29.md`), calibrated from its own lattice the same day (every prediction held); next: analyse it — the in-app Detect All Disks no longer grows memory per tile (overnight A1), the match tolerance is under measurement (D1). The 28 GB cubes are sampled in real space (every
-   n-th position, full diffraction resolution kept), as was done for Thronsen's dataset: more reciprocal-space
-   resolution for disk detection, fewer real-space pixels, precipitates still visible. On the stronger Mac, or here with
-   a streaming job proven on a small file first (never read a file larger than RAM, 2026-09-24).
-4. **Where precipitate analysis lives.** The AI Analysis workspace will be folded into the others later, on a concrete
-   plan; image segmentation stays for now. Owner's call, not a design exercise.
-5. **On-device training, in the Disks section** (track C). The loop the owner wants: detect disks (classical or the
-   learned detector on the Neural Engine), mark or refine positions by clicking, train on the GPU with MLX (C2: the
-   route works; memory ≤ 2 GB first), write the model back so it runs on the Neural Engine, detect again. Judged by
-   detection on held-out marks (ADR 043) and by what it does to the segmentation.
-
-**Reduced or dropped.** The full reproduction of Thronsen's maps "to the digit" (A3) is not needed now: A3a proved the
-environment. Ports from the paper only where they teach the app something (ADR 044); her ANN stays the one challenger.
-The microprobe re-acquisition (B3) waits for new measurements; the existing scans come first.
-
-**Already there.** The learned disk detector has run on the Neural Engine since v3.0.0 (Detector: Learned, offered
-once *Offer learned detector* is on in Settings). What is missing is training it on the user's own marks.
+**Later (off the board until the owner brings one back):** whatever step 2 defers; on-device training stays the first
+candidate once the polish ends.
 
 ## How a v3 feature is done
 
