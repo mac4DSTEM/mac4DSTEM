@@ -83,7 +83,55 @@ cube. Each: a scratch drive, shots reviewed, the item closed or re-recorded with
 Board republished, this log complete, a closeout: what landed (commits, gate numbers), what was seen on screen (with
 the shot names), what is YELLOW awaiting the owner, and the §5 decisions.
 
+## 4a. Morning report (written 2026-09-29, ~04:50)
+
+**Landed** (18 commits on `1a76089`, none pushed; each with its gate in the message): A1 memory fix `6cf4dfe` (harness
+473 → 1 MB; Opus refuter) · A2 seeded controls `aed83c4` · A3 strain move `9bb1e48` · A4 table highlight + "Any rotation"
++ table minimum `e1ea1ff` · grouped counts `a076f0a` · AI-room abort part 1 `d03f867` (Gate D `a11e492`, `4cef2d1`,
+`a6fd6e5`, `af00e57`) · three drive findings `3d8bae1` · triage `c436c41` · skills `41c5584` · open-items 521 → 346
+`760ce23` · D1 registered `7f99ded`, amended `3f828d5`, measured `e1b24e1` · this closeout. Last unit gate **961 / 0 / 2
+= 963** (`unit-sm.log`); inventory exit 0 at every commit.
+**Seen on screen** (five drives on scratch builds, pid-pinned, every shot reviewed; `overnight-2026-09-29-shots/`): the
+restore line and seeded controls (`d1-02`, `d1-04b`); in-app Detect All flat at ≈ 1.18 GB with 754,479 peaks (drive 2
+guard log); the outline around the selected object and gone on close (`d2-05b`, `d2-05f`); the table clamping at 674 pt
+(`d2-06`); light mode (`d1-07a`); load cancel with no stale badge (`d5-02`); a 60-character phase name truncated
+(`d4-L4-03`). **Found:** the constraint-loop abort (fixed in the room; Info tab and widest drag still abort — §5 A), the
+915-pt clipping (`d1-08b`, `d4-L1b-03`), the Friedel ETA that only grows.
+**YELLOW, awaiting you:** D1 — option (a) recommended (§5 B). D2 and D3 not started (the raw cube's objects need the two
+probes bridged first; D3 was "only if everything above is done").
+**Not done from the plan:** "Owed on screen" failure paths and the disk-centre label (need a failure to provoke / your
+hand); memory consolidation ran last (this session).
+
 ## 5. Decisions for the owner (filled in during the night)
+
+**Decided overnight — overrule on sight** (each reversible; the reason is in its commit):
+1. **Table → map highlight design** (`e1ea1ff`): an app-scoped selection relay keyed by the classification run's
+   `sourceID`; an outline overlay, never a published product. Opus advisor endorsed a narrowed proposal and rejected
+   re-publishing the objects picture with emphasis (it would leak into Save Result and the sidecar).
+2. **Object Table windows are not restored at launch**; their minimum width is the one-line summary (`e1ea1ff`).
+3. **"Any rotation"** as the relationship field's placeholder; the example moved into the help (`e1ea1ff`).
+4. **Peak counts grouped** with the app's en_US count formatter, as "29,241 positions" already is (`a076f0a`).
+5. **The strain run moved to `AppState+Strain.swift`** (`9bb1e48`): the one AppState move that helped.
+6. **`findMaxima` copies survivors to an exact-size array** (`6cf4dfe`): the second memory mechanism; values identical.
+7. **The AI-room rows shortened** (`d03f867`): "Å⁻¹ (0 = detector)" → "Å⁻¹" (meaning in the help), "Direct matrix, max",
+   "Specific reflections, min", "Min. intensity … of max"; phase names truncate in the middle (`InspectorDataRow`).
+8. **An unchanged manual Q/R value is not an edit** (`3d8bae1`): within half the field's last digit (5e-7).
+9. **Skills** (`41c5584`): pickup/closeout now carry "decide, don't stall", v4 numbering, session drives, main only.
+
+**Yours (not done — each needs you):**
+- **A. The 915-pt floor (Frozen Shell).** Found tonight: the inspector's Info tab at 915 pt and a widest inspector drag
+  still **abort** (the same constraint loop as the fixed AI-room case); after Info the layout overflows ≈ 17 pt; each
+  image pane is ≈ 146 pt at the floor. Proposal: (1) the Info tab's dataset rows truncate like `InspectorDataRow`
+  (`WorkspaceInspector.swift`), (2) the inspector's maximum follows the window (≤ window − sidebar − the panes' floor,
+  `LayoutPolicy`), and collapse the sidebar before the panes fall under ~240 pt each (Xcode's behaviour). Alternative:
+  raise the window floor to ~1000 pt. Evidence `ai-room-narrow-crash-gateD-2026-09-29.md`, shots `d1-08*`, `d4-*`.
+- **B. D1** (`phase-tolerance-results-2026-09-29.md`): **recommended (a)** — keep the shipped max(0.02 Å⁻¹, 1 px); it is
+  the only rule tested inside all four datasets' bands. (b) a new default → Gate D, a refuter, then you.
+- **C. The 2026-09-09 register:** order of the 11 Gate D candidates (recommended first: D025, the circle-ROI mask +0.5 px
+  off the drawn ROI; then D023, D019).
+- **D. The Friedel ETA** only grows (329 → 106 positions/s, bursty, cancel ≈ 20 s): a Gate D when you want it.
+- Carried: Thronsen's written confirmation (ADR 042); where precipitate analysis lives; the learned detector's tiled
+  loop (awaits Core ML inside — no plain pool).
 
 ## 6. Kickoff prompt (paste into a new session, Auto mode)
 
@@ -109,3 +157,4 @@ the shot names), what is YELLOW awaiting the owner, and the §5 decisions.
 - AI-room crash (found by drive 3; Gate D registered first; E1/E2/E3 + Opus refuter): part 1 landed — the room's rows ≤ 248 pt, data names truncate, `InspectorWidthBudgetTests` (12, 6 mutations red); unit 957/0/2 = 959. Drive 4: entering the room at 915 now lives; the Info tab and a widest inspector drag still abort — Frozen Shell, owner (§5).
 - Small fixes from the drives: an unchanged manual Q/R commit keeps its provenance; Manual-state help text; the Results badge dies with a cancelled load. 4 tests, 2 mutation runs red (`sm-mut*.log`); unit 961/0/2 = 963 (`unit-sm.log`). Drive 5 (orchestrator, build-app-5): R unchanged → "From session", Q 0,1905 → Manual with the new help, no Results badge after "Load cancelled" (`d5-02`); Thronsen sidecar byte-identical to its backup.
 - D1 measured (Sonnet runner, Opus refuter; raw read after the amendment): the shipped max(0.02 Å⁻¹, 1 px) lies inside all four bands; raw cube at the app's 0.02 → matrix 84.4 %; P2 held, P1/P3/P4/P5 partly refuted as recorded; supports option (a). `--tolerance-px` added to phase-map-probe (refuses unparsable values). Record `phase-tolerance-results-2026-09-29.md`.
+- Closeout: status.md rewritten for the morning (older gate rows → `archive/v4/status-history-2026-09-29.md`), ROADMAP facts, §4a report and §5 decisions written; Board republished; memory consolidated.
