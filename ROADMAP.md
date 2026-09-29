@@ -149,6 +149,18 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
   preset, driven on the demo cube (matrix 8 claimed, β″ 6 + 2 unexplained, unmatched 6 unexplained). Left: the Al
   Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048); hardware.
 - A lane leaves the board when its line here is ticked; the board is cleared when A–E are.
+- **Next block (accepted by the owner 2026-09-30; run as one night, `archive/v4/overnight-plan-2026-09-30.md`)** — GREEN
+  first, YELLOW (measure + propose) last:
+- [ ] **S17 Lean sweep:** the stale open-items entries retired; diffraction groups' two-pass path kept or deleted by profile.
+- [ ] **S12 Stale marks II:** zone-axis stale check (phase, tolerance), objects re-run as a run, "Computed this session".
+- [ ] **S13 CIF trust:** short symmetry-op lists refused; a symmetry-only second block no longer merges.
+- [ ] **S19 Regression net:** positions not counts; empty globs fail; every check broken first.
+- [ ] **S22 Accessibility:** probe, retire what holds, label what does not.
+- [ ] **S16 Virtual-detector tiled loops:** measured; fixed only if not flat.
+- [ ] **S18 Promote / replay / load tail:** the superseded-load tail, promote position, restore shape check, provenance.
+- [ ] **S15 R–Q sign residuals:** pre-2026-09-28 exports refused or labelled, never silently flipped.
+- [ ] **S23 Origin validity overlay:** excluded positions greyed (new surface, driven).
+- [ ] **S14 · S20 · S21 (YELLOW):** origin coarse seed, ACOM off-grid recovery, detection defaults — measured and proposed.
 
 ## How a v3 feature is done
 

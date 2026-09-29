@@ -25,15 +25,15 @@ In the app (2026-09-30, scratch build, Thronsen A 171², 128²): learned Detect 
 1.63–1.67 GB (peak 1.72 GB), 955 MB after. **Open:** `VirtualDetector`'s tiled loops have the same shape (maybe the
 unexplained ≈ 0.93 GB baseline). D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits all four datasets.
 
-### The 2026-09-09 register, triaged 2026-09-29 — 3 Gate D candidates left (D004, D006, D019, D021, D023, D025, D079, D098 fixed 2026-09-30)
+### The 2026-09-09 register, triaged 2026-09-29 — 2 candidates left (D004, D006, D019, D020, D021, D023, D025, D079, D098 fixed 2026-09-30)
 All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`); D019/D023/D025 fixed with
 refuters (`archive/v4/register-D019-D023-D025-gateD-2026-09-30.md`). D006 (multi-`data_` CIF refused, structure blocks
 named), D021 (parallax stack mean in Double) and D079 (ptychography origin = `Calibration.referenceOrigin`) fixed (`archive/v4/register-D006-D021-D079-gateD-2026-09-30.md`), refuter
 held (D079's drag symptom is by design; the gap was replay/lineage restore; a pre-fix record whose aperture differs from the
 fit now reproduces a different ptycho result, intended). Residual: a second CIF block with only a symmetry loop still merges. D098/D004 fixed (one dose scale per pattern; seam
 margins close the unsearched bands; ≤ 256 px byte-identical; `archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md`).
-Reachable, each its own Gate D: **D068** calibration edits never stale a strain map; **D017**, **D020** (see the record).
-Owner: order. (`occupiedPositions` fixed 2026-09-30: `archive/v4/gateD-occupied-aperture-drag-2026-09-30.md`.)
+D020 is the hexagonal IPF key swap, fixed as P1 (`023a5b0`). Left: **D068** calibration edits never stale a strain map;
+**D017** (see the record). (`occupiedPositions` fixed 2026-09-30: `archive/v4/gateD-occupied-aperture-drag-2026-09-30.md`.)
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `Core/Crystal/PhaseVectorMatching.swift`: `minimumVectors` = 2 (`:73`, applied `:882`), so a position is "matrix" when almost
