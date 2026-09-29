@@ -144,3 +144,8 @@ what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes
   the two-pass diffraction-groups path KEPT — it is the memory bound past 512 MB; single pass 25.6–26.1 s vs two-pass
   51.2–51.5 s at -O, outputs identical (`profile-dg2.log`); zoom badge not armed (by reading). Fable supervisor COMMIT;
   unit 1250 / 0 / 3 = 1253 (`unit-b1.log`).
+- S13 CIF trust (Gate D): a symmetry list shorter than the named IT group's order is refused by name (reproduced first: MgO
+  225 with 48 ops imported as CsCl, 2 sites / 1 308 reflections vs 8 / 330); a symmetry-only second block no longer merges;
+  bijection fixture; a garbled-coefficient crash found and clamped. All 10 References CIFs identical before/after (dump
+  rebuilt on the final file); cif-symmetry-test exit 0 (`cif-harness.log`); 77 / 0 in the CIF classes (`log_green2.txt`);
+  4 mutations red. Fable refuter/supervisor COMMIT (every claim HOLDS; it caught a false "harness exit 0" — re-run).

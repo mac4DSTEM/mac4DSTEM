@@ -74,6 +74,18 @@ package nonisolated enum CIFImportError: LocalizedError, Equatable {
     /// reading on would merge the blocks into a crystal that is none of them
     /// (D006). Names are the structure-defining blocks, in file order.
     case multipleStructures(blockNames: [String])
+    /// The file names its space group by IT number but lists fewer distinct
+    /// symmetry operations than that group has in the conventional setting.
+    /// Expanding the asymmetric unit with a partial list builds a smaller
+    /// cell content — rock salt written with only its 48 point operations
+    /// (no F-centring) imported as the CsCl structure, still cubic m-3m, so no
+    /// later check noticed (Gate B escape E2, S13 2026-09-30).
+    case incompleteSymmetryOperations(spaceGroupNumber: Int, declaredName: String?, listed: Int, required: Int)
+    /// A `data_` block that defines no structure carries a symmetry-operation
+    /// loop while another block defines one. The parser keeps one operation
+    /// list for the whole file, so that loop would be applied to the other
+    /// block's atoms (D006 residual). Names are the symmetry-only blocks.
+    case symmetryOperationsOutsideStructure(blockNames: [String])
 
     package var errorDescription: String? {
         switch self {
@@ -103,6 +115,11 @@ package nonisolated enum CIFImportError: LocalizedError, Equatable {
             return "Imported crystal model failed validation: \(issues.joined(separator: "; "))."
         case .multipleStructures(let names):
             return "This CIF holds \(names.count) structures (\(names.joined(separator: ", "))); import one at a time. Split the file so each data_ block is its own CIF — reading them together would merge their cells and atoms into one crystal that is none of them."
+        case .incompleteSymmetryOperations(let number, let name, let listed, let required):
+            let group = name.map { "No. \(number) (\($0))" } ?? "No. \(number)"
+            return "The CIF lists \(listed) distinct symmetry operations but space group \(group) has \(required) in its conventional setting — the list is incomplete (or the space-group number does not match the operations), so expanding the atom sites with it would build a smaller structure than the file describes (rock salt without its F-centring reads as CsCl). Re-export the CIF with its full symmetry-operation loop, or supply a P1 file that lists every atom in the cell."
+        case .symmetryOperationsOutsideStructure(let names):
+            return "The CIF has a symmetry-operation loop in a data_ block that holds no structure (\(names.joined(separator: ", "))). Reading the file as one crystal would apply those operations to another block's atoms. Move the loop into the structure's own data_ block, or split the file."
         }
     }
 }
@@ -207,7 +224,7 @@ package nonisolated enum CIFImport {
         var dataBlockName: String?
         // Every `data_` block seen, and whether it defines a structure. A
         // journal-only block (`data_global`) defines none and is not counted.
-        var blocks: [(name: String, definesStructure: Bool)] = []
+        var blocks: [(name: String, definesStructure: Bool, hasSymmetryLoop: Bool)] = []
         var cellValues: [String: String] = [:]
         var atomSiteRows: [[String: String]] = []
         var symmetryOps: [String] = []
@@ -223,7 +240,7 @@ package nonisolated enum CIFImport {
 
             if isDataBlock(token) {
                 let name = String(token.dropFirst("data_".count))
-                blocks.append((name: name.isEmpty ? "(unnamed)" : name, definesStructure: false))
+                blocks.append((name: name.isEmpty ? "(unnamed)" : name, definesStructure: false, hasSymmetryLoop: false))
                 if dataBlockName == nil {
                     dataBlockName = name.isEmpty ? nil : name
                 }
@@ -274,6 +291,7 @@ package nonisolated enum CIFImport {
                 } else if loopTags.contains("_symmetry_equiv_pos_as_xyz")
                     || loopTags.contains("_space_group_symop_operation_xyz") {
                     haveSymmetryLoop = true
+                    if !blocks.isEmpty { blocks[blocks.count - 1].hasSymmetryLoop = true }
                     let key = loopTags.contains("_symmetry_equiv_pos_as_xyz")
                         ? "_symmetry_equiv_pos_as_xyz" : "_space_group_symop_operation_xyz"
                     for row in rows {
@@ -302,6 +320,16 @@ package nonisolated enum CIFImport {
         let structureBlocks = blocks.filter(\.definesStructure)
         if structureBlocks.count > 1 {
             throw CIFImportError.multipleStructures(blockNames: structureBlocks.map(\.name))
+        }
+        // A block that is only a symmetry loop is not a structure, so the count
+        // above lets it through — and the single operation list would then be
+        // applied to the structure block's atoms (D006 residual, S13).
+        if !structureBlocks.isEmpty {
+            let symmetryOnly = blocks.filter { !$0.definesStructure && $0.hasSymmetryLoop }
+            if !symmetryOnly.isEmpty {
+                throw CIFImportError.symmetryOperationsOutsideStructure(
+                    blockNames: symmetryOnly.map(\.name))
+            }
         }
 
         func requiredNumber(_ tag: String) throws -> Double {
@@ -371,6 +399,20 @@ package nonisolated enum CIFImport {
         let sites: [AtomSite]
         let ops = try symmetryOps.map { try parseSymmetryOperation($0) }
         if haveSymmetryLoop, ops.contains(where: { !isIdentity($0) }) {
+            // A file that names its space group must list every operation of it
+            // (in the setting its cell is written in). Fewer builds a smaller
+            // structure that can still pass the point-group check below (rock
+            // salt without its F-centring is CsCl, cubic m-3m) — S13.
+            if let number = spaceGroupNumber,
+               let required = requiredOperationCount(
+                   spaceGroup: number, alphaDeg: alpha, betaDeg: beta, gammaDeg: gamma) {
+                let listed = distinctOperationCount(ops)
+                if listed < required {
+                    throw CIFImportError.incompleteSymmetryOperations(
+                        spaceGroupNumber: number, declaredName: declaredHermannMauguin(cellValues),
+                        listed: listed, required: required)
+                }
+            }
             // Duplicate detection is a real-space question, so it needs the
             // cell metric. The site list is irrelevant to `latReal`.
             let lattice = Crystal(
@@ -582,6 +624,107 @@ package nonisolated enum CIFImport {
     }()
 
     // MARK: - Symmetry operations
+
+    // MARK: Space-group order (S13)
+
+    /// Order of the point group of each range of IT numbers (ITA crystal
+    /// classes): 1, -1, 2, m, 2/m, 222, mm2, mmm, 4, -4, 4/m, 422, 4mm, -42m,
+    /// 4/mmm, 3, -3, 32, 3m, -3m, 6, -6, 6/m, 622, 6mm, -6m2, 6/mmm, 23, m-3,
+    /// 432, -43m, m-3m.
+    private static let pointGroupOrders: [(numbers: ClosedRange<Int>, order: Int)] = [
+        (1...1, 1), (2...9, 2), (10...46, 4), (47...74, 8), (75...82, 4),
+        (83...122, 8), (123...142, 16), (143...146, 3), (147...161, 6),
+        (162...167, 12), (168...174, 6), (175...190, 12), (191...194, 24),
+        (195...199, 12), (200...220, 24), (221...230, 48),
+    ]
+
+    /// IT numbers of the centred groups, by number of lattice points per cell.
+    /// Conventional cells: C/A 2, I 2, R (hexagonal axes) 3, F 4.
+    private static let centredGroups: [(numbers: Set<Int>, multiplicity: Int)] = [
+        (Set([5, 8, 9, 12, 15, 20, 21, 35, 36, 37, 38, 39, 40, 41, 63, 64, 65, 66, 67, 68,
+              23, 24, 44, 45, 46, 71, 72, 73, 74, 79, 80, 82, 87, 88, 97, 98,
+              107, 108, 109, 110, 119, 120, 121, 122, 139, 140, 141, 142,
+              197, 199, 204, 206, 211, 214, 217, 220, 229, 230]), 2),
+        (Set([146, 148, 155, 160, 161, 166, 167]), 3),
+        (Set([22, 42, 43, 69, 70, 196, 202, 203, 209, 210, 216, 219, 225, 226, 227, 228]), 4),
+    ]
+
+    /// Number of general-position operations of space group `number` (1...230)
+    /// in the conventional setting — what a complete CIF lists in
+    /// `_symmetry_equiv_pos_as_xyz`, centring translations included: point
+    /// group order × lattice points per conventional cell (Fm-3m 48 × 4 = 192,
+    /// P6₃/mmc 24, R-3m in hexagonal axes 12 × 3 = 36). Settings and origin
+    /// choices do not change it. nil outside 1...230.
+    package static func spaceGroupOrder(_ number: Int) -> Int? {
+        guard let point = pointGroupOrders.first(where: { $0.numbers.contains(number) })?.order
+        else { return nil }
+        let centring = centredGroups.first(where: { $0.numbers.contains(number) })?.multiplicity ?? 1
+        return point * centring
+    }
+
+    /// The fewest distinct operations a CIF for `number` may list before it is
+    /// called incomplete. The conventional order, except for a centred group
+    /// written in a cell that is NOT its conventional one: a primitive cell
+    /// legitimately lists order / centring operations, and a rhombohedral-axes
+    /// R group a third. Which cell it is comes from the angles alone — all 90°
+    /// (cubic, tetragonal, orthorhombic), 90/90/120 (trigonal and hexagonal),
+    /// two 90° (monoclinic) mean conventional; anything else is taken as
+    /// primitive, so a correct file is never refused for its setting. The cost:
+    /// a partial list in a primitive-looking cell is not caught.
+    package static func requiredOperationCount(
+        spaceGroup number: Int, alphaDeg: Double, betaDeg: Double, gammaDeg: Double
+    ) -> Int? {
+        guard let order = spaceGroupOrder(number) else { return nil }
+        let centring = centredGroups.first(where: { $0.numbers.contains(number) })?.multiplicity ?? 1
+        guard centring > 1 else { return order }
+        func right(_ angle: Double) -> Bool { abs(angle - 90) <= 0.05 }
+        let conventional: Bool
+        switch number {
+        case 3...15:
+            conventional = [alphaDeg, betaDeg, gammaDeg].filter(right).count >= 2
+        case 143...194:
+            conventional = right(alphaDeg) && right(betaDeg) && abs(gammaDeg - 120) <= 0.05
+        default:
+            conventional = right(alphaDeg) && right(betaDeg) && right(gammaDeg)
+        }
+        return conventional ? order : order / centring
+    }
+
+    /// Distinct operations in `ops`: linear part exact, translation mod 1 to
+    /// 1e-3 (the finest genuine translation is 1/12 apart). Duplicated rows
+    /// therefore cannot pad an incomplete list up to the group's order.
+    private static func distinctOperationCount(_ ops: [SymOp]) -> Int {
+        // `Int(Double)` traps on NaN/±inf/out of range, and an op string is user
+        // text ("1000000000000000000000x,y,z" parses to 1e21): clamp first, so a
+        // garbled operation counts as its own operation instead of crashing.
+        func quantised(_ value: Double, scale: Double) -> Int {
+            guard value.isFinite else { return Int.max }
+            return Int((max(-1e9, min(1e9, value)) * scale).rounded())
+        }
+        var seen = Set<[Int]>()
+        for op in ops {
+            var key: [Int] = []
+            for row in [op.rowX, op.rowY, op.rowZ] {
+                key.append(contentsOf: [row.x, row.y, row.z].map { quantised($0, scale: 1e6) })
+            }
+            for t in [op.translation.x, op.translation.y, op.translation.z] {
+                key.append(quantised(t - t.rounded(.down), scale: 1e3) % 1000)
+            }
+            seen.insert(key)
+        }
+        return seen.count
+    }
+
+    /// The Hermann-Mauguin symbol the file states, for naming the group in a
+    /// refusal; nil when it states none.
+    private static func declaredHermannMauguin(_ cellValues: [String: String]) -> String? {
+        for tag in ["_symmetry_space_group_name_h-m", "_space_group_name_h-m_alt",
+                    "_space_group_name_h-m_full", "_space_group_name_h-m_ref"] {
+            if let raw = cellValues[tag]?.trimmingCharacters(in: .whitespaces),
+               !raw.isEmpty, raw != "?", raw != "." { return raw }
+        }
+        return nil
+    }
 
     /// One affine fractional-coordinate symmetry operation: `p' = M·p + t`.
     private struct SymOp {

@@ -30,7 +30,7 @@ All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-0
 refuters (`archive/v4/register-D019-D023-D025-gateD-2026-09-30.md`). D006 (multi-`data_` CIF refused, structure blocks
 named), D021 (parallax stack mean in Double) and D079 (ptychography origin = `Calibration.referenceOrigin`) fixed (`archive/v4/register-D006-D021-D079-gateD-2026-09-30.md`), refuter
 held (D079's drag symptom is by design; the gap was replay/lineage restore; a pre-fix record whose aperture differs from the
-fit now reproduces a different ptycho result, intended). Residual: a second CIF block with only a symmetry loop still merges. D098/D004 fixed (one dose scale per pattern; seam
+fit now reproduces a different ptycho result, intended). D098/D004 fixed (one dose scale per pattern; seam
 margins close the unsearched bands; ≤ 256 px byte-identical; `archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md`).
 D020 was P1's IPF fix (`023a5b0`). D068 and D017 fixed (9f5d4eb, `archive/v4/register-D068-D017-2026-09-30.md`). Residuals: aperture
 drag, Restore Fitted Origin and Clear Calibration make no calibration node (a map computed on the fit reads current under
@@ -78,7 +78,8 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 - Twisted bilayer graphene finds only the beam at defaults — Gate D with a per-pattern funnel.
 - Learned detector above 256 px: the anchor measured 2026-09-29, no change (same disks; a zeroed probe channel bit-identical); < 256 px with an off-centre probe still scales by the crop's maximum (kept for byte-identity) — owner.
 - #18 training campaign can't reproduce the app's Si_SiGe strain — two candidate fixes, own Gate B.
-- CIF import can accept a wrong crystal (partial ops list, Gate B escape E2) — needs an IT-number table.
+- CIF symmetry (S13, 2026-09-30, `CIFImport.spaceGroupOrder`): a list shorter than the named IT group's order is refused; residuals — a group
+  named by H-M symbol alone is not checked, a partial list in a primitive-looking cell passes, a primitive C-monoclinic cell with β = 90.00 is falsely refused.
 - ACOM exported Euler angles differ from py4DSTEM/orix by frame rotation `P` — relabel-vs-convert, then Gate B.
 
 ### Other named presentation and trust residuals
@@ -143,7 +144,7 @@ promote run. There is no automated visual baseline; drives are the evidence (sta
 ## Data, harnesses & code hygiene
 
 ### Misc data-layer items, low priority
-`#32` `isSymmetry`'s bijection check has no fixture. C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
+C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads
 both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need multi-GB data and stay diagnostics.
 
