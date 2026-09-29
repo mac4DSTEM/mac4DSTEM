@@ -1,0 +1,28 @@
+preflight (build): 2078 MB free on /, no xcodebuild / swift-frontend
+compiling DSTEMCore ...
+compiling Training + probe ...
+preflight (run): 1686 MB free (need 1536) or a build is running; waiting 60 s (0/10)
+preflight (run): 1399 MB free (need 1536) or a build is running; waiting 60 s (1/10)
+preflight (run): 1417 MB free (need 1536) or a build is running; waiting 60 s (2/10)
+preflight (run): 1118 MB free (need 1536) or a build is running; waiting 60 s (3/10)
+preflight (run): 1614 MB free on /, no xcodebuild / swift-frontend
+labels: 40 positions, 370 centres, sha256 d69f2aa053dabce15703434dc9998f492ba5683f6ccd5a7d0ec5a7e037b87fd6
+cube: /4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data shape [100, 84, 250, 250]
+probe /4DSTEM_experiment/data/diffractionslices/probe_template/data  r 7.36 centre (125.05, 125.00)  params: minPeakSpacing 7 edgeBoundary 10 minRel 0.0015 sigmaCC 2.0  threshold 0.70
+bundled: <scratch>/c5/tmp/tr-probe-build.Sz0vzb/disk-detector-heatmap-256.mlpackage
+split: train 23 · held out 17 (HeldOutSplit, 30 % by hash)
+bundled model loaded (.all), sha 0f53d270a6b9; footprint 19 MB
+admission refused (attempt 1): 1.69 GB available, 2.16 GB needed
+admission refused (attempt 2): 1.59 GB available, 2.16 GB needed
+admission refused (attempt 3): 1.39 GB available, 2.16 GB needed
+admission refused (attempt 4): 1.60 GB available, 2.16 GB needed
+admission refused (attempt 5): 1.68 GB available, 2.16 GB needed
+admission refused (attempt 6): 1.64 GB available, 2.16 GB needed
+admission refused (attempt 7): 1.84 GB available, 2.16 GB needed
+admission refused (attempt 8): 1.93 GB available, 2.16 GB needed
+  preparing 1/23  15 MB
+  preparing 11/23  22 MB
+  preparing 21/23  29 MB
+  step 1/500 loss 7.771e-03  0.481 s/step  227 MB
+  step 100/500 loss 1.865e-03  0.165 s/step  1313 MB
+  step 200/500 loss 2.335e-03  0.198 s/step  2404 MB

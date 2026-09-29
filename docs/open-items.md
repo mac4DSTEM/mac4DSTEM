@@ -94,15 +94,11 @@ One line each; full wording as above.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
-### S3 residual
-- The manual Q field stays visible and editable after a new value (`d3-03b`). (The Friedel ETA closed 2026-09-30: in the
-  app, full-cube Friedel on Thronsen A in 34 s, the ETA falling 45 → 15 → 6 s — `archive/v4/s10-s11-gateD-2026-09-30.md`.)
-
 ### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe
 - Fixed 2026-09-30: phase mapping and Find Matrix Zone Axis now require a physical Q scale (a prerequisite with its route
-  to Prepare; a refusal line — unverified on screen). The stale zone-axis list still survives a calibration change
-  (proposal: store the fit's scale beside `zoneAxisFits`). The "run-dependent tie order" was `tools/phase-map-probe`'s
-  Dictionary, fixed; the app's own ranking is now a total order too.
+  to Prepare; a refusal line — unverified on screen). The zone-axis list now records its Q scale and calibration and
+  shows "…changed since this ranking — fit again" instead of rows once they move (unverified on screen: change Q after
+  a fit). The "run-dependent tie order" was `tools/phase-map-probe`'s Dictionary, fixed; the app's own ranking is now a total order too.
 - At 1000 pt a busy run clips the status text and hides the metrics line; the panes widen while busy so the inspector
   covers ~110 pt of the phase map (`report-drive3.md` step 4): metrics get truncation priority, split fraction constant.
 - Built 2026-09-30, unverified on screen: the claimed-disks overlay (drive after a phase-mapping run; a challenge-turned
@@ -135,6 +131,7 @@ One line each; full wording as above.
 - The headless C5 run through the app's Training/ path grew linearly, 227 MB (step 1) → 1313 (100) → 2404 MB (200),
   ~11 MB/step, and was stopped when swap filled the disk; the spike's step is flat at 1.48 GB (C2.5). The in-app
   Train Model… (`aa920d0`) shares the loop: do not train in the app until this closes. Mechanism not yet established.
+  Log: `archive/v4/c5-training-leak-run-2026-09-30.log` (admission refused 8× at 2.16 GB needed, then the run started anyway).
 - **Detector truth** (A2, `tools/disk-detector/labels/bullseye-2026-09-28.json`, 370 centres re-labelled by eye, owner-approved;
   `archive/v4/a2-label-scoring-2026-09-28.md`): net 0.584 / 0.655 at 0.7, 2 px; label-vs-net scatter 1.2 px. **Owed:** an
   inter-labeller check; the classical floor at the app's own settings. The in-app labelling route is untried on real data.
