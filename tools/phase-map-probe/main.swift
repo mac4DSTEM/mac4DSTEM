@@ -368,6 +368,12 @@ enum Probe {
         // what "scale to detector" does in the app — after every other
         // matching flag. Off by default.
         var scaleToDetector = false
+        // `--tolerance-px k` (phase-tolerance registration, 2026-09-29 overnight
+        // D1): pair radius = matrix tolerance = k detector pixels, verdict
+        // distance 0.75 k pixels (the shipped ratio) — the same five lines as
+        // matrix-orientation-probe's flag. Applied after `--scale-to-detector`;
+        // k = 1 is that flag's own result. Direct beam untouched. Off by default.
+        var tolerancePxArg: Double?
         // `--specific-guard k` (Gate D E1–E4): set
         // `knownVariantsMinimumSpecificReflections` (shipped 1; 0 = off).
         var specificGuardArg: Int?
@@ -499,6 +505,14 @@ enum Probe {
                 dumpLabelsPath = args[index + 1]; index += 2
             } else if args[index] == "--scale-to-detector" {
                 scaleToDetector = true; index += 1
+            } else if args[index] == "--tolerance-px", index + 1 < args.count {
+                // A value that does not parse ("0,02") must not fall back to
+                // the defaults silently (D1 refuter, 2026-09-29).
+                guard let k = Double(args[index + 1]), k.isFinite, k > 0 else {
+                    FileHandle.standardError.write(Data("--tolerance-px needs a positive number, got \(args[index + 1])\n".utf8))
+                    exit(2)
+                }
+                tolerancePxArg = k; index += 2
             } else if args[index] == "--specific-guard", index + 1 < args.count {
                 specificGuardArg = Int(args[index + 1]); index += 2
             } else if args[index] == "--cif-crystals", index + 3 < args.count {
@@ -618,6 +632,14 @@ enum Probe {
                 .scaledToDetector(matchSettings)
             print(String(format: "matching: scaled to detector — pair radius %.5f, matrix tolerance %.5f Å⁻¹",
                          matchSettings.pairRadiusInvAngstrom, matchSettings.matrixToleranceInvAngstrom))
+        }
+        if let k = tolerancePxArg {
+            matchSettings.pairRadiusInvAngstrom = k * qPerPixel
+            matchSettings.matrixToleranceInvAngstrom = k * qPerPixel
+            matchSettings.notIndexedAboveInvAngstrom = 0.75 * k * qPerPixel
+            print(String(format: "matching: tolerance %.4f px — pair radius %.5f, matrix tolerance %.5f, not indexed above %.5f Å⁻¹",
+                         k, matchSettings.pairRadiusInvAngstrom, matchSettings.matrixToleranceInvAngstrom,
+                         matchSettings.notIndexedAboveInvAngstrom))
         }
         // In truth mode every setting is the app's shipped default, untouched
         // above: the question is what a user gets, not what a tuned probe can

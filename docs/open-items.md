@@ -39,8 +39,9 @@ Classical `TiledDiskDetection.detectAll` holds one tile (a pool per tile, and `f
 own size); gated by `tools/tiled-detection-memory-test` (`archive/v4/tiled-detection-memory-gateD-2026-09-29.md`).
 **Open:** `LearnedDiskDetection.detectAll(data:)` has the same per-tile `makeBuffer` in an async loop but awaits
 Core ML inside, so a plain pool cannot wrap it — no learned Detect All Disks on multi-GB cubes until measured;
-`VirtualDetector`'s tiled loops have the same shape (maybe the unexplained ≈ 0.93 GB baseline). Separately: the probe's 1 px
-match tolerance leaves 97 % not indexed on 256² — the app ships 0.02 Å⁻¹ (≈ 3 px), unmeasured (D1).
+`VirtualDetector`'s tiled loops have the same shape (maybe the unexplained ≈ 0.93 GB baseline). The match tolerance was
+measured overnight (D1, `archive/v4/phase-tolerance-results-2026-09-29.md`): the shipped max(0.02 Å⁻¹, 1 px) fits all four
+datasets (raw cube 84.4 % matrix); the 97 % was the probe's rule. Owner: keep it (option a).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
 - **owner request 2026-09-25:** mark on the CBED which disks each phase claimed (matrix / each β″ slot / unexplained), like the Bragg-disk rings — new surface: cost it, then Prepare-style mock first;

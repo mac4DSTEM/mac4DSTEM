@@ -30,7 +30,7 @@ Earlier gate rows — 2026-09-17 through the 2026-09-23 overnight runs — are a
 | **Next — the overnight plan** | `archive/v4/overnight-plan-2026-09-29.md` (kickoff prompt §6): **A** the disk-detection memory fix (diagnosis held), Bragg-restore settings + drive, Object Table highlight; **B** every on-screen debt, driven; **C** consolidation; **D** YELLOW science, measure only. | The overnight session. |
 | **Owner owed** | Thronsen's written confirmation (ADR 042); where precipitate analysis lives; morning review of "decided overnight — overrule on sight". | Owner. |
 | **⚠ Don't run** | Detect All Disks with the **learned** detector on multi-GB cubes (its tiled loop is not pooled; classical fixed overnight A1). | — |
-| Phase mapping | Unvalidated. T4 one metric short; raw 060 cube: matrix 86.4 % at 4 px, 97 % unindexed at the probe's 1 px (the app's 0.02 Å⁻¹ ≈ 3 px unmeasured; D1 registered). | Overnight D. |
+| Phase mapping | Unvalidated. T4 one metric short; D1 measured: the shipped max(0.02 Å⁻¹, 1 px) lies inside all four datasets' bands (raw 060 cube: matrix 84.4 % at the app's 0.02); `archive/v4/phase-tolerance-results-2026-09-29.md`. | Overnight D. |
 | **Unverified on screen** | — (emptied overnight 2026-09-29 by two reviewed drives: `archive/v4/overnight-2026-09-29-shots/`). | — |
 | Carried | R–Q residuals; the 28 GB `--parity` run; parallax/ptychography drive; C2's memory and criterion 4; the 2026-09-09 register's 11 Gate D candidates (triaged overnight); CI paused (ADR 040). | `open-items.md`. |
 
