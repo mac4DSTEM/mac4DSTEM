@@ -27,9 +27,9 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, r
 | **Done** | Clearing the board A, B, E; C through the leak fix (`7361eea`); D through L4 Rewind to Here (`34af213`). Register D004, D006, D019, D021, D023, D025, D079, D098; strain support; aperture drag; IPF key (the v4.0.0 known issue); ptychography sampling; stale zone-axis list; challenged-matrix stripe and legend; iDPC caption; the task "Disk detection" (owner). Drives 2026-09-30: every drawing change above seen, a Fable supervisor per group (`archive/v4/drives-2026-09-30.md`). | — |
 | **Next** | `lineage_step` on products (ROADMAP D); the register's D068, D017, D020, each its own Gate D; Clear Calibration and the ptychography result (open-items). | Session. |
 | **Overrule on sight** | Core `-O` in Debug (`9fe9440`); ADRs 047 (with the L4 amendment), 048 (MPSGraph; Core ML for every model; T4 as a quantity); the D025 radius at R + 0.5; < 256 px off-centre probes keep the crop's dose scale (byte-identity). | Owner. |
-| **Owner owed** | C5 and Train Model… in the app: admission refuses on this Mac while Claude runs (2.10–2.13 of 2.16 GB) — run it with Claude quit, or on the stronger Mac; D1 option (a); Thronsen's written confirmation (ADR 042). | Owner. |
+| **Owner owed** | D1 option (a); Thronsen's written confirmation (ADR 042). C5 and Train Model… wait for the new hardware (owner, 2026-09-30; admission refuses here, 2.10–2.13 of 2.16 GB). | Owner. |
 | Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048). | — |
-| **Unverified on screen** | Train Model… in the app (C5); the zone-axis notice after an identical origin re-fit. | Owner's run / session. |
+| **Unverified on screen** | Train Model… in the app (C5, after the new hardware); the zone-axis notice after an identical origin re-fit. | Session. |
 | Carried | R–Q residuals; parallax/ptychography and the 28 GB parity run (hardware); the virtual-detector tiled loops; CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.

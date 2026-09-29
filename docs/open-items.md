@@ -129,8 +129,8 @@ One line each; full wording as above.
 - MPSGraph's autoreleased results piled up in the one detached job: 10.9 MB/step → 0.04 with a per-step pool, losses
   identical (`archive/v4/training-leak-gateD-2026-09-30.md`). **Owed:** the 500-step C5 run and Train Model… in the app.
   Both drives (2026-09-30) reached the button set up (40 positions, split 23/17) and were refused by admission: 2.07–2.13
-  GB available of 2.16 needed with the Claude app resident (`archive/v4/drives-2026-09-30.md`). Owner: run it with Claude
-  quit (the labelled sidecar sits beside the bullseye cube), or on the stronger Mac.
+  GB available of 2.16 needed with the Claude app resident (`archive/v4/drives-2026-09-30.md`). Deferred to the new
+  hardware (owner, 2026-09-30); the labelled sidecar stays beside the bullseye cube.
 - **Detector truth** (A2, `tools/disk-detector/labels/bullseye-2026-09-28.json`, 370 centres re-labelled by eye, owner-approved;
   `archive/v4/a2-label-scoring-2026-09-28.md`): net 0.584 / 0.655 at 0.7, 2 px; label-vs-net scatter 1.2 px. **Owed:** an
   inter-labeller check; the classical floor at the app's own settings. The in-app labelling route is untried on real data.

@@ -141,7 +141,7 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
   core + C4b flow in Bragg Disks (split, Train Model…, the D7 sheet, model picker, Remove, provenance), gated and
   reviewed; the step-loop leak fixed (`7361eea`, 10.9 → 0.04 MB/step). Left: **C5** — a full run on ≥ 12 held-out labelled
   positions, driven; the minimum N measured. On this 8 GB Mac admission refuses while Claude runs (2.10–2.13 of 2.16 GB,
-  2026-09-30): the owner's run with Claude quit, or the stronger Mac.
+  2026-09-30): waits for the new hardware (owner, 2026-09-30).
 - [ ] **D. Lineage graph (ADR 047).** Done: L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane
   (driven on Thronsen A: v1 order-only, detail column, narrow list), L4 Rewind to Here (`34af213`, Gate D, three
   reviews, driven). Left: `lineage_step` on products (stale marking).
