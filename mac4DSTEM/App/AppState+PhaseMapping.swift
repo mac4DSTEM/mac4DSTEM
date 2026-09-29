@@ -251,7 +251,23 @@ extension AppState {
             objects: objects, phaseNames: map.phaseNames, matrixPhaseIndex: map.matrixPhaseIndex,
             pixelSize: calibration.rPixelSize, pixelUnit: calibration.rPixelUnits,
             minimumAreaPx: precipitateClassification.minimumObjectAreaPx,
-            provenance: precipitateReportProvenance(map: map))
+            provenance: precipitateReportProvenance(map: map),
+            sourceID: precipitateClassification.sourceID)
+    }
+
+    /// The outline of the objects selected in the object table, for the scan
+    /// pane to stroke. Empty unless the pane is showing the objects picture AND
+    /// the selection came from THIS window's current classification run — a
+    /// stale table, another dataset window or a re-run never highlights. An
+    /// overlay only: nothing is published, so Save Result, the sidecar and
+    /// comparisons never see it.
+    func precipitateHighlightOutline(for selection: PrecipitateTableSelection)
+        -> [PrecipitateHighlight.Edge] {
+        guard displayedProduct?.kind == "precipitate_objects",
+              let source = precipitateClassification.sourceID, selection.sourceID == source,
+              !selection.objectIDs.isEmpty,
+              let objects = precipitateClassification.result else { return [] }
+        return PrecipitateHighlight.outline(objects: objects, ids: selection.objectIDs)
     }
 
     /// The CSV's comment header: what was measured, from what, and that it

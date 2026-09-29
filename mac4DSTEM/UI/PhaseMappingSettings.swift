@@ -611,7 +611,7 @@ struct PhaseMappingSections: View {
         private var orientationRelationshipField: some View {
             @Bindable var product = appState.phaseMapping
             return InspectorRow("Parallel to matrix") {
-                TextField("(002) ∥ (200), (002) ∥ (020)", text: Binding(
+                TextField("Any rotation", text: Binding(
                     get: { orientationDraft },
                     set: { text in
                         orientationDraft = text
@@ -625,8 +625,9 @@ struct PhaseMappingSections: View {
             }
             .help("This phase's plane (hkl) or direction [uvw] that lies parallel "
                   + "to the matrix's, as an orientation relationship is written; "
-                  + "list each variant. Empty = any in-plane rotation. Applied "
-                  + "once the matrix orientation is fitted.")
+                  + "list each variant, e.g. (002) ∥ (200), (002) ∥ (020). Empty = "
+                  + "any in-plane rotation. Applied once the matrix orientation "
+                  + "is fitted.")
         }
     }
 

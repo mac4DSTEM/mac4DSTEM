@@ -33,6 +33,11 @@ package final class PrecipitateClassificationProduct {
     /// `clear` replace it, so it cannot outlive the dataset it describes.
     package private(set) var result: PrecipitateSegmentation.ClassMapObjects?
 
+    /// Minted whenever a result is published and dropped with it, so a table
+    /// built from run N can tell it is not run N+1's
+    /// (`PrecipitateObjectReport.sourceID`, `PrecipitateTableSelection`).
+    package private(set) var sourceID: UUID?
+
     /// The reader's minimum object size in scan pixels; 1 keeps every
     /// object. Smaller objects stay listed and drawn (dimmed) but leave the
     /// counted statistics (`PrecipitateObjectReport`). A property of the
@@ -53,6 +58,7 @@ package final class PrecipitateClassificationProduct {
         generation &+= 1
         isComputing = false
         result = newResult
+        sourceID = UUID()
     }
 
     /// Start a background computation; its token must still be current when
@@ -72,6 +78,7 @@ package final class PrecipitateClassificationProduct {
         guard token == generation else { return false }
         isComputing = false
         result = newResult
+        sourceID = UUID()
         return true
     }
 
@@ -83,5 +90,6 @@ package final class PrecipitateClassificationProduct {
         generation &+= 1
         isComputing = false
         result = nil
+        sourceID = nil
     }
 }

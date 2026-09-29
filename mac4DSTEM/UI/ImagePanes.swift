@@ -376,6 +376,8 @@ struct RealSpacePane: View {
     @Environment(AppState.self) private var appState
     /// "Show scale bar" (session S21, `Session/AppPreferences.swift`).
     @Environment(AppPreferences.self) private var preferences
+    /// The object table's selection (nil where no app scene provides it).
+    @Environment(PrecipitateTableSelection.self) private var tableSelection: PrecipitateTableSelection?
     @State private var zp = ZoomPan()
     @State private var cursorSample: ProductSample?
 
@@ -804,6 +806,17 @@ struct RealSpacePane: View {
                         regionOverlay(box: imageBox, imgW: dims.width, imgH: dims.height)
                             .frame(width: imageBox.width, height: imageBox.height)
                     }
+
+                    // Objects selected in the object table (an overlay, not a
+                    // published product: never saved or compared).
+                    if let tableSelection {
+                        let edges = appState.precipitateHighlightOutline(for: tableSelection)
+                        if !edges.isEmpty {
+                            objectHighlight(edges, box: imageBox, imgW: dims.width,
+                                            imgH: dims.height, zoom: effZoom)
+                                .allowsHitTesting(false)
+                        }
+                    }
                 }
                 .frame(width: imageBox.width, height: imageBox.height)
                 .coordinateSpace(.named(Self.imageSpace))
@@ -1133,6 +1146,24 @@ struct RealSpacePane: View {
             appState.scrubTo(x: appState.selectedScan.x, y: appState.selectedScan.y + 1)
         }
         .accessibilityIdentifier("result.scanMarkerHandle")
+    }
+
+    /// The outline of the table-selected objects: a dark halo under a white
+    /// line reads on the light and the dark colours of the objects picture, and
+    /// widths are divided by the zoom so it stays thin when zoomed in.
+    private func objectHighlight(_ edges: [PrecipitateHighlight.Edge], box: CGSize,
+                                 imgW: Int, imgH: Int, zoom: CGFloat) -> some View {
+        Canvas { context, size in
+            let sx = size.width / CGFloat(imgW), sy = size.height / CGFloat(imgH)
+            var path = Path()
+            for e in edges {
+                path.move(to: CGPoint(x: CGFloat(e.x0) * sx, y: CGFloat(e.y0) * sy))
+                path.addLine(to: CGPoint(x: CGFloat(e.x1) * sx, y: CGFloat(e.y1) * sy))
+            }
+            context.stroke(path, with: .color(.black.opacity(0.85)), lineWidth: 3 / zoom)
+            context.stroke(path, with: .color(.white), lineWidth: 1 / zoom)
+        }
+        .frame(width: box.width, height: box.height)
     }
 
     /// Rectangle / circle ROI centred on the selected scan position, with a

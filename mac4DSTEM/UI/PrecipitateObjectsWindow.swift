@@ -17,6 +17,9 @@ import DSTEMSession
 
 struct PrecipitateObjectsWindow: View {
     let report: PrecipitateObjectReport
+    /// The relay to the dataset windows' scan panes: a selected row outlines
+    /// its object on the map. Optional so the window also runs without it.
+    @Environment(PrecipitateTableSelection.self) private var relay: PrecipitateTableSelection?
 
     @State private var sortOrder = [KeyPathComparator(\PrecipitateObjectReport.Row.id)]
     @State private var phaseFilter: Int32 = -1          // −1 = every phase
@@ -42,8 +45,10 @@ struct PrecipitateObjectsWindow: View {
             Divider()
             table
         }
-        // Size: the scene's `.defaultSize` (App/mac4DSTEMApp.swift); the
-        // columns' own minimum widths keep the table readable when narrowed.
+        // Size: the scene's `.defaultSize` (App/mac4DSTEMApp.swift). The
+        // summary grid keeps its one-line width (`fixedSize` below), which the
+        // window takes as its minimum: a 300 pt frame wrapped "Median length"
+        // letter by letter (2026-09-29 drive).
         .navigationTitle("Precipitate Objects")
         .navigationSubtitle(subtitle)
         .toolbar {
@@ -69,6 +74,12 @@ struct PrecipitateObjectsWindow: View {
                 .help("Every object and the per-phase summary as CSV, with provenance")
             }
         }
+        // A selected row outlines its object on the map. Only rows the reader
+        // can see count, and closing the table takes its highlight with it.
+        .onChange(of: selection) { pushSelection() }
+        .onChange(of: phaseFilter) { pushSelection() }
+        .onChange(of: countedOnly) { pushSelection() }
+        .onDisappear { relay?.clear(ifOwnedBy: report.sourceID) }
         .fileExporter(
             isPresented: Binding(get: { exportDocument != nil },
                                  set: { if !$0 { exportDocument = nil } }),
@@ -76,6 +87,10 @@ struct PrecipitateObjectsWindow: View {
             contentType: .commaSeparatedText,
             defaultFilename: "precipitate-objects.csv"
         ) { _ in }
+    }
+
+    private func pushSelection() {
+        relay?.select(selection.intersection(rows.map(\.id)), of: report.sourceID)
     }
 
     // MARK: Summary
@@ -121,6 +136,9 @@ struct PrecipitateObjectsWindow: View {
                     .monospacedDigit()
                 }
             }
+            // One line per phase: the report is a snapshot, so this width never
+            // changes while the window is open, and it is the window's minimum.
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
 

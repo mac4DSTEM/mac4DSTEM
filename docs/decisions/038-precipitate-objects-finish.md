@@ -50,4 +50,5 @@ made inline under that brief, for the owner to overrule on sight.
 - The `lengthPx` definition: centre to centre + 1, not the end-to-end extent (PR #2's
   cross-check). An owner decision.
 - An object-level pass bar: `docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.
-- Selecting a table row does not yet highlight the object in the pane.
+- ~~Selecting a table row does not yet highlight the object in the pane~~ — done 2026-09-29 night: an app-scoped
+  selection relay keyed by the classification run's `sourceID`; an outline overlay, never a published product.

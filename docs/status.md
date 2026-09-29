@@ -31,7 +31,7 @@ Earlier gate rows — 2026-09-17 through the 2026-09-23 overnight runs — are a
 | **Owner owed** | Thronsen's written confirmation (ADR 042); where precipitate analysis lives; morning review of "decided overnight — overrule on sight". | Owner. |
 | **⚠ Don't run** | Detect All Disks with the **learned** detector on multi-GB cubes (its tiled loop is not pooled; classical fixed overnight A1). | — |
 | Phase mapping | Unvalidated. T4 one metric short; raw 060 cube: matrix 86.4 % at 4 px tolerance, 97 % unindexed at the app's 1 px on 256². | Overnight D. |
-| **Unverified on screen** | The Bragg restore status line; the areal-density help text (edge-weighted wording). | Overnight B. |
+| **Unverified on screen** | — (emptied overnight 2026-09-29 by two reviewed drives: `archive/v4/overnight-2026-09-29-shots/`). | — |
 | Carried | R–Q residuals; the 28 GB `--parity` run; parallax/ptychography drive; C2's memory and criterion 4; the 2026-09-09 register's 11 Gate D candidates (triaged overnight); CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.

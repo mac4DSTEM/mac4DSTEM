@@ -223,10 +223,15 @@ struct mac4DSTEMApp: App {
     // matters). See `ROADMAP.md` "Settings window, Xcode-style sidebar".
     @State private var preferences = AppPreferences()
     @State private var recents = RecentDatasets()
+    // The object table's selection, read by every dataset window's scan pane
+    // (`PrecipitateTableSelection`). App-scoped because the table is a separate
+    // scene holding a snapshot, not a link to any one window's AppState.
+    @State private var tableSelection = PrecipitateTableSelection()
 
     var body: some Scene {
         WindowGroup("mac4DSTEM", id: "dataset") {
             DatasetWindow(preferences: preferences, recents: recents)
+                .environment(tableSelection)
         }
             .defaultSize(width: LayoutPolicy.datasetWindowIdealSize.width,
                          height: LayoutPolicy.datasetWindowIdealSize.height)
@@ -239,11 +244,15 @@ struct mac4DSTEMApp: App {
         WindowGroup("Precipitate Objects", for: PrecipitateObjectReport.self) { $report in
             if let report {
                 PrecipitateObjectsWindow(report: report)
+                    .environment(tableSelection)
                     .preferredColorScheme(preferences.appearance.colorScheme)
             }
         }
             .defaultSize(width: 1180, height: 680)
             .windowToolbarStyle(.unified)
+            // A snapshot of a run in a session that is gone: reopened at launch
+            // it would sit detached from any map, its selection matching no run.
+            .restorationBehavior(.disabled)
         // `UI/SettingsWindow.swift`'s sidebared `NavigationSplitView` hosts
         // this; its Materials Project section is the original `Form`
         // section, moved rather than rewritten (see its own header).

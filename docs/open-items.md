@@ -60,11 +60,9 @@ Core ML inside, so a plain pool cannot wrap it — no learned Detect All Disks o
 match tolerance on 256² leaves 97 % not indexed (overnight D1).
 
 ### Precipitate objects residuals — found driving the app, 2026-09-23/24 night
-- a table row does not highlight its object;
 - **owner request 2026-09-25:** mark on the CBED which disks each phase claimed (matrix / each β″ slot / unexplained), like the Bragg-disk rings — new surface: cost it, then Prepare-style mock first;
 - displayed numbers print "76.2" whatever the Mac's region: **declined by the owner 2026-09-28** (the app is English);
 - zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0);
-- the relationship field's grey prompt "(002) ∥ (200), …" reads like a value on a new phase (empty = any rotation; 2026-09-28 drive);
 
 
 ### Phase mapping runs on an uncalibrated cube and says nothing — owner's drive, 2026-09-24

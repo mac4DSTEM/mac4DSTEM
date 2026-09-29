@@ -100,6 +100,11 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     package let summaries: [ClassSummary]
     /// Ordered key/value provenance, written as the CSV's comment header.
     package let provenance: [[String]]
+    /// The classification result this table was built from
+    /// (`PrecipitateClassificationProduct.sourceID`), so a table selection is
+    /// only ever drawn on the map of the run it came from. Nil for a report
+    /// with no such source (or decoded from before the field existed).
+    package let sourceID: UUID?
 
     package var hasPhysicalScale: Bool { pixelSize != nil && pixelUnit != nil }
 
@@ -115,7 +120,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
         pixelSize: Double?,
         pixelUnit: String?,
         minimumAreaPx: Int,
-        provenance: [(String, String)] = []
+        provenance: [(String, String)] = [],
+        sourceID: UUID? = nil
     ) -> PrecipitateObjectReport {
         let minimum = max(1, minimumAreaPx)
         let scale: Double? = {
@@ -171,7 +177,8 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             notIndexedPixels: objects.notIndexedPixels,
             analysedAreaRule: objects.analysedAreaRule,
             rows: rows, summaries: summaries,
-            provenance: provenance.map { [$0.0, $0.1] })
+            provenance: provenance.map { [$0.0, $0.1] },
+            sourceID: sourceID)
     }
 
     // MARK: - Objects image
@@ -288,5 +295,54 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
     private nonisolated static func csvField(_ text: String) -> String {
         guard text.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else { return text }
         return "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+}
+
+/// Which scan pixels a table selection stands for, and the outline that
+/// marks them on the map. Pure: the map view only strokes the segments. It is
+/// an overlay, never a published product, so a highlight cannot reach Save
+/// Result, the sidecar or a comparison.
+package nonisolated enum PrecipitateHighlight {
+
+    /// A unit edge on the scan grid: (x0, y0)–(x1, y1) in pixel corners, so
+    /// pixel (x, y) spans x…x+1, y…y+1.
+    package nonisolated struct Edge: Sendable, Hashable {
+        package let x0: Int, y0: Int, x1: Int, y1: Int
+        // Explicit so the initializer is `package` (synthesized ones are internal).
+        package init(x0: Int, y0: Int, x1: Int, y1: Int) {
+            self.x0 = x0; self.y0 = y0; self.x1 = x1; self.y1 = y1
+        }
+    }
+
+    /// Scan-grid indices (y * width + x) of the objects with these ids.
+    package nonisolated static func pixels(
+        objects: PrecipitateSegmentation.ClassMapObjects, ids: Set<Int>
+    ) -> Set<Int> {
+        let count = objects.width * objects.height
+        var out = Set<Int>()
+        for classObjects in objects.classes {
+            for object in classObjects.objects where ids.contains(object.id) {
+                for i in object.pixelIndices where i >= 0 && i < count { out.insert(i) }
+            }
+        }
+        return out
+    }
+
+    /// The boundary of those pixels: every pixel side that faces a pixel
+    /// outside the selection or the scan edge.
+    package nonisolated static func outline(
+        objects: PrecipitateSegmentation.ClassMapObjects, ids: Set<Int>
+    ) -> [Edge] {
+        let w = objects.width
+        let set = pixels(objects: objects, ids: ids)
+        var edges: [Edge] = []
+        for i in set {
+            let x = i % w, y = i / w
+            if x == 0 || !set.contains(i - 1) { edges.append(Edge(x0: x, y0: y, x1: x, y1: y + 1)) }
+            if x == w - 1 || !set.contains(i + 1) { edges.append(Edge(x0: x + 1, y0: y, x1: x + 1, y1: y + 1)) }
+            if !set.contains(i - w) { edges.append(Edge(x0: x, y0: y, x1: x + 1, y1: y)) }
+            if !set.contains(i + w) { edges.append(Edge(x0: x, y0: y + 1, x1: x + 1, y1: y + 1)) }
+        }
+        return edges
     }
 }
