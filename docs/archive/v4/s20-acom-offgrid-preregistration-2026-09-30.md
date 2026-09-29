@@ -69,3 +69,24 @@ The gate (record `s20-acom-offgrid-results-2026-09-30.md`, committed 090975b) fo
 - Bar: >= 90 % of the reproduced failures recovered (at 1.4 deg and reported across the 0.35 deg x k sweep), 0 on-grid regressions, no axis
   exact at every rotation today made wrong in the 136 sweep, pinned acom-* harnesses and unit classes within tolerance.
 - Everything else unchanged. Further amendments are appended here before the result they concern is read.
+
+## Amendment 2 (2026-09-30 night, written after GO and before the dump or any P1-P4 run): operational definitions
+Chosen now, not fitted to a result. Both plans (no wavelength, 200 kV) are reported separately throughout.
+- Active ring: ring r counts in the per-ring shift comparison iff its energy is >= 2 % of the largest ring energy in BOTH the pattern's
+  and the template's polar image. Per-ring shift = argmax of that ring's own correlation over the 128 shifts; unwrapped circularly
+  around the all-ring best shift. P1's "span" = number of DISTINCT unwrapped values among active rings (truth >= 2 and winner 1 is the
+  registered test; "truth's distinct count > winner's" is reported as the looser reading).
+- Continuous score: the pair's score with each spot's ring spectrum written analytically at its exact azimuth (no rounding), the
+  shipped blur response and radial spreading, per-ring mean removed, L2 normalised, evaluated on a shift grid zero-padded 16x
+  (2048 shifts). The same code with rounded azimuth and no padding must reproduce the production score to 1e-5 (checked first).
+- Variants (one code path): {rounded, exact azimuth} x {128 shifts, 4x zero-padded shifts}. "rounded/128" is production; the candidate
+  fix class of P1 is "exact/4x". P4 (only if P1 holds) = 512 bins with blur 6 bins and 1024 with blur 12, each judged at its own
+  half-bin rotation AND at 1.4 deg (1.4 deg is 1.99 bins of 512, near-aligned, so it alone is not evidence there).
+- Recovered: a reproduced failure whose winner axis is within 0.5 deg of the template's under the variant; new failure: a
+  previously right (template, rotation) that fails. Evaluated at 1.4 deg, the five grid rotations, and the 0.35 deg x k sweep.
+- P3 (planted <122>, 0.35 deg, plan without wavelength, the 2e805f9 plant): the winner-over-truth gap (winner score / best bank
+  entry's score - 1, expected ~4.88 %) is re-measured with sgWidth raised to 1000 (sg down-weighting removed); reported as the
+  change in gap, judged against both readings of the registration (< 1 % of the gap, and < 1 point).
+- 136-pattern sweep: plant, floor (minimum angle to any bank entry over the 48 signed permutations of the axis), and excess as in the
+  retired harness; "wrong" = excess > 0.5 deg. The definition is checked on production first against the recorded 40 / 136 and 18.79
+  deg; if it does not match, the numbers are reported under this definition and the mismatch is stated.

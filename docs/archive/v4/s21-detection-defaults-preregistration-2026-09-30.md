@@ -55,3 +55,10 @@ B_syn's kernel radius {6.84, 11}. Selection rule on the even half: max precision
 Precision gain < 0.10 for every grid point at recall −0.02 (I expect this for the scalar levers, P2); D >= 0.25 on a non-bullseye probe input; the winner not holding on the odd half; a gain that vanishes at 3 px or under
 row/col swap. No mechanism is inferred from a null: a failed lever says only that it did not help on these 40 positions and this label set (label scatter 1.2 px, single labeller).
 Overall prediction: bar NOT met for scalar levers (~70 %); met, if at all, only by P3's B_syn kernel radius.
+
+## Amendments (2026-09-30, after GO, before any measurement was read)
+- **A1 (definition of D).** "min of the profile inside R_out / its max" is wrong for a smooth flat-topped disk: its own edge bins sit between 0.2 and 0.5 of the max, so D would be < 0.25 on every probe and P4 would fail by construction.
+  D is now: min of the integer-radius azimuthal profile over radii 1..r_ring−1 divided by its max, where r_ring is the LARGEST radius at which the profile has a local maximum >= 20 % of the max; D = 1 when r_ring <= 1 (no ring). Profile centre = the `probeSize` centre on the same input. P4's number (< 0.25 bullseye only, >= 0.5 elsewhere) is unchanged.
+- **A2 (parity control).** B_flat is compared with `bullseye-parity-probe.swift` run unchanged at its own settings (spacing 8, edge 6, minRel 0.05, origin 125,125) on its 90 strided positions, against the same harness at those settings; the control is the peak lists agreeing within 0.05 px.
+- **A3 (build).** All scratch builds use a `git archive HEAD` snapshot under `$SP/s21/repo` (HEAD 04d2560), because the working tree carries other agents' uncommitted edits.
+- **A1b.** In A1, r_ring is searched only at radii <= 2 x r_est (the trench's own outer radius), so a Bragg ring in a mean pattern is not read as probe structure. The unrestricted D is reported beside it; the restricted one is the gate quantity. Decided before the profile or the grid was run.
