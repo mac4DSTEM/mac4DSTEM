@@ -42,7 +42,11 @@ struct ContentView: View {
     }
 
     var body: some View {
-        splitWindow
+        // `WindowFillingLayout` reports the window's width, not the split's
+        // rigid one: `.onGeometryChange` on the split itself measured 1190 pt
+        // in a 915-pt window after a Show Sidebar that could not grow the
+        // window, so the step-aside line below never fired (S6, 2026-09-30).
+        WindowFillingLayout { splitWindow }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
         // Steps aside when the window narrows past the line (and at a narrow
         // launch); never comes back by itself — a returning sidebar made
@@ -295,6 +299,36 @@ struct ContentView: View {
     }
 }
 
+
+/// A single-child container that is exactly as large as the space it is
+/// offered, whatever its child's minimum is (the child may overflow, topLeading).
+/// A rigid child — `NavigationSplitView` pinning its columns after a sidebar
+/// that could not grow the window — otherwise makes its parent, and so any
+/// `.onGeometryChange` on it, report the child's width instead of the
+/// window's. A finite proposal is answered with itself (so the window's
+/// minimum comes from the frame above ContentView, not from the split); an
+/// ideal or unbounded query is answered by the child, so the window's ideal
+/// and maximum sizes are unchanged.
+struct WindowFillingLayout: Layout {
+    static func reportedSize(proposal: ProposedViewSize, child: CGSize) -> CGSize {
+        func axis(_ offered: CGFloat?, _ own: CGFloat) -> CGFloat {
+            if let offered, offered.isFinite { return offered }
+            return own
+        }
+        return CGSize(width: axis(proposal.width, child.width),
+                      height: axis(proposal.height, child.height))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        Self.reportedSize(proposal: proposal,
+                          child: subviews.first?.sizeThatFits(proposal) ?? .zero)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading,
+                              proposal: ProposedViewSize(bounds.size))
+    }
+}
 
 /// The toolbar's centre — Xcode's activity viewer (ADR 036: the dataset's
 /// name and the current process belong in the toolbar).

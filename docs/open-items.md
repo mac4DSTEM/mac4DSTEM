@@ -123,21 +123,14 @@ One line each; full wording as above.
 - **Resident**: "freed" bytes never measured; the reopen fix has no test (the recovery store is real `UserDefaults`). UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
   `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
 
-### S6 Inspector kit & view state, with the Frozen Shell residuals
-- **View state has four owners**: 26 `@SceneStorage`/`@AppStorage` sites (2026-09-23), incl. `WorkspaceInspector.swift:50`'s
-  `"ui2.inspectorTab"` relic; `PhaseSettings.swift` → `ReconstructSettings.swift` unrenamed (call site `WorkspaceInspector.swift:199`);
-  no "Unvalidated" badge on the Info tab (`ProductInfoSections`, `:570`). `WorkspaceNavigation` does not own all 26.
-- **Kit gaps**: `UI/InspectorRows.swift` has no adaptive `Menu` (Add Phase hand-rolled) and no warning-note variant; long labels
-  wrap beside wide pickers (wording the owner's).
-- Parallax "done" read from `parallaxSubpixel` alone at `WorkspaceView.swift:304` and `AppState.swift:1187` (cosmetic).
-- **The 915-pt floor's residual, now seen** (S2 drive, `archive/v4/s2-workspaces-2026-09-30-shots/`): Show Sidebar at 915 pt
-  with the app in the background did not grow the window; the layout stayed ~1190 wide, centred and clipped both sides at
-  915 (`s2-02`), and left ~142-pt strips at 1470 until relaunch (`s2-05`). No abort. Diagnosis (read-only, PLAUSIBLE): the
-  split pins detail 595 + sidebar 270 after an unfinished grow; `ContentView.swift:46` measures the rigid child, not the
-  window, so the 1095-pt step-aside never fires. Proposal: measure the window (`maxWidth: .infinity` before
-  `.onGeometryChange`). Owner: check R1 first — foreground Show at 915, then drag to 915 by hand (user-reachable?).
-- The welcome's Recents list runs off the bottom at 915 pt: let it scroll.
-- **No workflow logic in the rooms** (seen 2026-09-29, `d1-02/03`, `d1-04b`): the owner judges it against the 2026-09-21 critique, then close.
+### S6 closed 2026-09-30 (driven); what the drive found next
+- **Numeric fields commit on every keystroke** (drive, 2026-09-30): typing `0.0` without Return already cleared Q (the
+  setter's ≤ 0 branch); `0.0.275` ended "Not set", `300.5.` ended 300,5 — the last parseable prefix wins and every
+  keystroke fires the setter's side effects. Fix in progress: a field that holds its text and commits on Return/focus loss.
+- **A disabled toolbar verb still draws bright blue** (macOS 27 prominent glass): Map Phases disabled for an unmet
+  requirement looked enabled. Phase mapping without phases passes `readiness` (the phases are not a prerequisite).
+- **No workflow logic in the rooms** (2026-09-29): judged against the 2026-09-21 critique — closed, the rooms carry the
+  calibration rows, one verb each and the readiness line.
 
 ## Waits on hardware or the owner
 

@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 import DSTEMCore
 import DSTEMSession
@@ -143,5 +144,60 @@ final class NavigationSeamTests: XCTestCase {
         let required = LayoutPolicy.sidebarWidth.max + LayoutPolicy.inspectorWidth.min
             + LayoutPolicy.splitColumnDividerAllowance * 2 + LayoutPolicy.scienceMinimum
         XCTAssertLessThanOrEqual(required, LayoutPolicy.datasetWindowMinimumSize.width)
+    }
+    // MARK: S6 Frozen Shell (2026-09-30)
+
+    /// The window-width probe answers a finite proposal with itself, whatever
+    /// the child needs. Red under the old shape (the split measured directly:
+    /// 1190 in a 915-pt window) and under `max(proposal, child)`.
+    func testWindowFillingLayoutReportsTheOfferedSizeNotTheRigidChild() {
+        let rigid = CGSize(width: 1190, height: 700)
+        let reported = WindowFillingLayout.reportedSize(
+            proposal: ProposedViewSize(width: 915, height: 600), child: rigid)
+        XCTAssertEqual(reported.width, 915)
+        XCTAssertEqual(reported.height, 600)
+        // The sidebar's step-aside line reads that width: 915 < 1095.
+        XCTAssertFalse(LayoutPolicy.navigatorFits(windowWidth: reported.width, inspectorVisible: true))
+    }
+
+    /// An ideal or unbounded query still goes to the child, so the window's
+    /// ideal and maximum sizes are unchanged. Red if the layout answered 0 or
+    /// infinity for those.
+    func testWindowFillingLayoutDefersIdealAndUnboundedQueriesToTheChild() {
+        let child = CGSize(width: 1280, height: 800)
+        let ideal = WindowFillingLayout.reportedSize(proposal: .unspecified, child: child)
+        XCTAssertEqual(ideal, child)
+        let unbounded = WindowFillingLayout.reportedSize(
+            proposal: ProposedViewSize(width: .infinity, height: 500), child: child)
+        XCTAssertEqual(unbounded.width, 1280)
+        XCTAssertEqual(unbounded.height, 500)
+    }
+
+    /// Info's "Unvalidated" note follows the product's own provenance key.
+    /// Red if the key is ignored (always false) or the value not compared.
+    func testInfoTabFlagsOnlyProductsThatSelfReportNoValidation() {
+        XCTAssertTrue(ProductInfoSections.isUnvalidated(provenance: ["validation": "none"]))
+        XCTAssertFalse(ProductInfoSections.isUnvalidated(provenance: ["validation": "py4DSTEM"]))
+        XCTAssertFalse(ProductInfoSections.isUnvalidated(provenance: [:]))
+        XCTAssertTrue(ProductInfoSections.unvalidatedNote.hasPrefix("Unvalidated"))
+    }
+
+    /// The renamed inspector-tab key carries a saved choice over exactly once
+    /// and never overwrites a value already under the new key.
+    func testInspectorTabKeyMigratesOnceAndNeverOverwrites() throws {
+        let suite = "NavigationSeamTests.tab.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set("info", forKey: WorkspaceInspector.legacyTabKey)
+        WorkspaceInspector.migrateLegacyTab(in: defaults)
+        XCTAssertEqual(defaults.string(forKey: WorkspaceInspector.tabKey), "info")
+        XCTAssertNil(defaults.object(forKey: WorkspaceInspector.legacyTabKey))
+
+        defaults.set("settings", forKey: WorkspaceInspector.tabKey)
+        defaults.set("info", forKey: WorkspaceInspector.legacyTabKey)
+        WorkspaceInspector.migrateLegacyTab(in: defaults)
+        XCTAssertEqual(defaults.string(forKey: WorkspaceInspector.tabKey), "settings",
+                       "a value under the new key wins")
     }
 }

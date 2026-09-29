@@ -516,7 +516,7 @@ extension View {
     /// Sliders, Steppers, TextFields, Pickers and Toggles — none of which
     /// were disabled mid-run before this (§4 finding 1: "a map can land
     /// already stale against the controls on screen"). Applied once, to the
-    /// panel body `MapSettings`/`PhaseSettings`/`PrepareSettings`/
+    /// panel body `MapSettings`/`ReconstructionSettings`/`PrepareSettings`/
     /// `ImagingSettings` return, not to each control.
     func disabledWhileRunning(_ appState: AppState) -> some View {
         disabled(appState.isBusy)

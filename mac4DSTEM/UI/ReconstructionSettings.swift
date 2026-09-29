@@ -17,7 +17,7 @@ import DSTEMSession
 /// once. Every parallax stage stays visible even while pending, with
 /// `disabled` conditions on its controls, so the order explains itself
 /// without a stage ever becoming operable early.
-struct PhaseSettings: View {
+struct ReconstructionSettings: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
@@ -292,7 +292,7 @@ private struct ParallaxStageSections: View {
         @Bindable var appState = appState
         // `phaseContrast` is a `let` on AppState (seam 1, no forwarding
         // properties), so a chained `$phaseContrast.…` binding has
-        // no writable key path; bind the owner itself, as `PhaseSettings`
+        // no writable key path; bind the owner itself, as `ReconstructionSettings`
         // already does for `appState.ptychography` below.
         @Bindable var phaseContrast = appState.phaseContrast
         stageSection(1, "Prepare preview") {

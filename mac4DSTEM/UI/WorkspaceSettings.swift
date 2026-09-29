@@ -34,7 +34,7 @@ struct WorkspaceSettings: View {
             } else {
                 MapSettings().environment(\.inspectorScope, "settings.map")
             }
-        case .reconstruct: PhaseSettings().environment(\.inspectorScope, "settings.phase")
+        case .reconstruct: ReconstructionSettings().environment(\.inspectorScope, "settings.phase")
         case .results: ResultsSettings().environment(\.inspectorScope, "settings.results")
         }
     }

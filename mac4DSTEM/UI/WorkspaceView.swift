@@ -303,7 +303,7 @@ struct PrimaryActionButton: View {
             else if appState.phaseContrast.parallaxAlignment?.isComplete != true { "Align Next Level" }
             else if appState.phaseContrast.parallaxHigherOrderFit == nil { "Fit Aberrations" }
             else if appState.phaseContrast.parallaxCorrection == nil { "Correct Phase" }
-            else if appState.phaseContrast.parallaxSubpixel == nil { "Upsample BF" }
+            else if !parallaxStage4IsComplete(appState.phaseContrast) { "Upsample BF" }
             // C4(a): every parallax stage is complete — readiness is already
             // shown by the stage checklist's own checkmarks
             // (`ParallaxStageSections`), so the toolbar offers no button
@@ -600,6 +600,14 @@ struct StatusBar: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(appState.statusText)
+                // Truncates FIRST (S4, 2026-09-30): at ~1000 pt a busy run
+                // clipped this text on the left and gave the metrics zero
+                // width. The order under compression is now the run's numbers
+                // (`runReadout`, 1), the standing glance (0), this message
+                // (-1); `.help` carries the rest of it. Priorities are
+                // constant, so nothing here changes the strip's own minimum
+                // (the constraint-loop rule).
+                .layoutPriority(-1)
                 .accessibilityIdentifier("status.bar")
 
             Spacer(minLength: LayoutPolicy.infobarItemSpacing)
@@ -609,6 +617,7 @@ struct StatusBar: View {
             // in flight; the last run while idle.
             if showsOperationProgress {
                 runReadout
+                    .layoutPriority(1)
             } else if let last = appState.operationCenter.lastFinished {
                 Text("Last run · " + OperationMetricsFormat.lastRun(
                     last.name, elapsed: last.elapsed, cancelled: last.outcome == .cancelled))

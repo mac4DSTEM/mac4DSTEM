@@ -517,6 +517,65 @@ struct InspectorAdaptiveButton: View {
     }
 }
 
+/// The adaptive button's menu twin: a pull-down whose label is the full
+/// `Label` when the row has room and the symbol alone when it does not, with
+/// the title kept on `.help` and as the accessibility label — the same
+/// `ViewThatFits` rule as `InspectorAdaptiveButton`, so a menu and a button
+/// in one `InspectorActionRow` size alike. The caller adds its own
+/// accessibility identifier.
+struct InspectorAdaptiveMenu<Content: View>: View {
+    private let title: String
+    private let systemImage: String
+    private let help: String?
+    private let content: Content
+
+    init(
+        _ title: String,
+        systemImage: String,
+        help: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.help = help
+        self.content = content()
+    }
+
+    var body: some View {
+        Menu {
+            content
+        } label: {
+            ViewThatFits(in: .horizontal) {
+                Label(title, systemImage: systemImage)
+                Image(systemName: systemImage)
+            }
+        }
+        .help(help ?? title)
+        .accessibilityLabel(title)
+    }
+}
+
+/// A warning note: the caption-size orange `Label` every room hand-rolled
+/// (`Label(text, systemImage:).font(.caption).foregroundStyle(.orange)`),
+/// named once. Wraps like any `Label`; the symbol defaults to the filled
+/// triangle and a note whose meaning is not "beware" (a refusal, a stale
+/// result) passes its own.
+struct InspectorWarning: View {
+    private let text: String
+    private let systemImage: String
+
+    init(_ text: String, systemImage: String = "exclamationmark.triangle.fill") {
+        self.text = text
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(.orange)
+    }
+}
+
 /// A status line: a tinted status symbol, the title in the primary label
 /// colour with its detail under it in secondary, and the short status word
 /// at the trailing edge, `.fixedSize()` so it never wraps. Colour lives on

@@ -283,21 +283,11 @@ private struct DiskDetectionRows: View {
                     "absolute \(diagnostics.afterAbsoluteThresholdCount) · relative \(diagnostics.afterRelativeThresholdCount) · spacing \(diagnostics.afterSpacingCount)"
                 )
                 if diagnostics.wasCountLimited {
-                    Label(
-                        "This pattern was truncated to the configured maximum peak count.",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                    InspectorWarning("This pattern was truncated to the configured maximum peak count.")
                 }
                 if appState.diskDetection.diskParams.minRelativeIntensity > 0,
                    !diagnostics.relativeReferenceWasAvailable {
-                    Label(
-                        "The selected reference-peak rank is absent in this pattern; the relative filter cannot be evaluated.",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                    InspectorWarning("The selected reference-peak rank is absent in this pattern; the relative filter cannot be evaluated.")
                 }
             }
         } else {
@@ -329,9 +319,7 @@ private struct DiskDetectionRows: View {
                 // caveat before the number it qualifies, not scrolled past
                 // it (`docs/open-items.md`).
                 ForEach(Array(summary.warnings.enumerated()), id: \.offset) { _, warning in
-                    Label(warning, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    InspectorWarning(warning)
                 }
                 InspectorValueRow(
                     "Per pattern",
@@ -882,9 +870,7 @@ private struct ACOMSections: View {
             }
 
             if let reason = appState.acomSession.modelSelectionIssue {
-                Label(reason, systemImage: "nosign")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                InspectorWarning(reason, systemImage: "nosign")
             } else if let model = appState.resolvedACOMModel {
                 InspectorValueRow("Symmetry", model.symmetry.displayName)
                 InspectorValueRow("Source", acomPhaseModelSourceLabel(source: model.source, id: model.id))

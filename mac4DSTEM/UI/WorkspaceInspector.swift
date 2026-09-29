@@ -47,7 +47,27 @@ struct WorkspaceInspector: View {
         }
     }
 
-    @AppStorage("ui2.inspectorTab") private var tab: InspectorTab = .settings
+    /// The tab's storage key. The first generation was `ui2.inspectorTab`, a
+    /// relic of the UI rebuild's working name; `migrateLegacyTab` carries a
+    /// saved choice over once so nobody's inspector resets to Settings.
+    static let tabKey = "inspector.tab"
+    static let legacyTabKey = "ui2.inspectorTab"
+
+    @AppStorage(WorkspaceInspector.tabKey) private var tab: InspectorTab = .settings
+
+    init() {
+        Self.migrateLegacyTab()
+        _tab = AppStorage(wrappedValue: .settings, Self.tabKey)
+    }
+
+    /// Copies the legacy key's value to `tabKey` when the new key has none,
+    /// then drops the legacy key. Idempotent; a value under the new key wins.
+    static func migrateLegacyTab(in defaults: UserDefaults = .standard) {
+        guard defaults.object(forKey: tabKey) == nil,
+              let legacy = defaults.string(forKey: legacyTabKey) else { return }
+        defaults.set(legacy, forKey: tabKey)
+        defaults.removeObject(forKey: legacyTabKey)
+    }
     @Environment(\.colorScheme) private var colorScheme
 
     /// Xcode's inspector anatomy (owner decision): the tabs are icons in the
@@ -572,6 +592,14 @@ struct ProductInfoSections: View {
                     mono: true
                 )
                 InspectorValueRow("Valid", Self.validityLabel(product))
+                if Self.isUnvalidated(product) {
+                    // The same orange note the Settings tab shows under a
+                    // phase map, on the Info tab of any product whose own
+                    // provenance says `validation: none` (owner, 2026-09-18:
+                    // unvalidated stays labelled wherever it is read).
+                    InspectorWarning(Self.unvalidatedNote)
+                        .accessibilityIdentifier("inspector.product.unvalidated")
+                }
             }
             .accessibilityIdentifier("inspector.product")
 
@@ -601,6 +629,20 @@ struct ProductInfoSections: View {
             }
         }
     }
+
+    /// A product self-reports `validation: "none"` in its provenance when the
+    /// method has not been scored against an external truth.
+    static func isUnvalidated(provenance: [String: String]) -> Bool {
+        provenance["validation"] == "none"
+    }
+
+    private static func isUnvalidated(_ product: DisplayedProduct) -> Bool {
+        isUnvalidated(provenance: product.provenance)
+    }
+
+    static let unvalidatedNote = "Unvalidated — this method has not been scored against an "
+        + "external ground truth in this app. Read the product; do not quote a "
+        + "number from it."
 
     static func frameLabel(_ domain: ProductDomain) -> String {
         switch domain {

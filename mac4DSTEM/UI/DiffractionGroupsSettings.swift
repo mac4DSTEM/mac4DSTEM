@@ -102,13 +102,8 @@ struct DiffractionGroupsSection: View {
                 // (`drive-groups` defect 5 — k=4 group sizes sat under
                 // `Groups 8` unmarked).
                 if appState.diffractionGroups.isStale {
-                    Label(
-                        "From an earlier run — the settings above have changed. "
-                            + "Run Group Patterns again.",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                    InspectorWarning("From an earlier run — the settings above have changed. "
+                            + "Run Group Patterns again.")
                     .accessibilityIdentifier("groups.staleReadout")
                 }
 

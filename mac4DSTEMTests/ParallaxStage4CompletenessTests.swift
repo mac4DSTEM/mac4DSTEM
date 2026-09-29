@@ -3,7 +3,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-/// `UI/PhaseSettings.swift`'s `ParallaxStageSections.stageIsComplete(4)` used
+/// `UI/ReconstructionSettings.swift`'s `ParallaxStageSections.stageIsComplete(4)` used
 /// to read `phaseContrast.singleslicePtychography != nil` as an alternate
 /// completion signal — a copy-paste survivor from the 2026-09-04 SwiftUI
 /// rewrite (`345c7c7`) with nothing to do with parallax: single-slice

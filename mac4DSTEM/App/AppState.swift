@@ -1190,7 +1190,7 @@ final class AppState {
                 fitParallaxAberrations()
             } else if phaseContrast.parallaxCorrection == nil {
                 await correctParallaxPhase()
-            } else if phaseContrast.parallaxSubpixel == nil {
+            } else if !parallaxStage4IsComplete(phaseContrast) {
                 await upsampleParallaxBF()
             }
         case .results:

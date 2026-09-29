@@ -253,9 +253,7 @@ struct PhaseMappingSections: View {
                         .labelsHidden()
                 }
                 if let advice = resolution.advice {
-                    Label(advice, systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    InspectorWarning(advice, systemImage: "exclamationmark.triangle")
                     InspectorActionRow {
                         InspectorAdaptiveButton("Scale to This Detector", systemImage: "arrow.left.and.right") {
                             appState.scalePhaseMatchingToDetector()
@@ -273,19 +271,13 @@ struct PhaseMappingSections: View {
         // not collapsible).
         InspectorGroup {
             if let refusal = product.runRefusal {
-                Label(refusal, systemImage: "nosign")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                InspectorWarning(refusal, systemImage: "nosign")
             } else if appState.resultPresentation.braggVectors == nil {
-                Label("Detect Bragg disks first — this matches the peaks disk "
-                      + "detection finds, it does not find its own.",
-                      systemImage: "nosign")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                InspectorWarning("Detect Bragg disks first — this matches the peaks disk "
+                                 + "detection finds, it does not find its own.",
+                                 systemImage: "nosign")
             } else if let refusal = appState.phaseMappingQScaleRefusal {
-                Label(refusal, systemImage: "nosign")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                InspectorWarning(refusal, systemImage: "nosign")
             }
             InspectorActionRow {
                 InspectorAdaptiveButton("Map Phases", systemImage: "square.grid.3x3.topleft.filled") {
@@ -312,20 +304,14 @@ struct PhaseMappingSections: View {
     private func resultSection(map: PhaseMap, run: PhaseMappingProduct.RunRecord,
                                product: PhaseMappingProduct) -> some View {
         InspectorSection("Result") {
-            Label("Unvalidated — this method has not been scored against an "
+            InspectorWarning("Unvalidated — this method has not been scored against an "
                   + "external ground truth in this app. Read the map; do not "
                   + "quote a phase fraction from it. Object counts and "
-                  + "densities come from this unvalidated map.",
-                  systemImage: "exclamationmark.triangle")
-                .font(.caption)
-                .foregroundStyle(.orange)
+                  + "densities come from this unvalidated map.", systemImage: "exclamationmark.triangle")
 
             if product.isStale {
-                Label("From an earlier run — the phases or the settings have "
-                      + "changed since. Map Phases again to update it.",
-                      systemImage: "clock.arrow.circlepath")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                InspectorWarning("From an earlier run — the phases or the settings have "
+                      + "changed since. Map Phases again to update it.", systemImage: "clock.arrow.circlepath")
             }
 
             ForEach(Array(PhaseMapPresentation.legend(map).enumerated()), id: \.offset) { _, row in
@@ -366,9 +352,7 @@ struct PhaseMappingSections: View {
             if let diagnosis = appState.phaseMappingDiagnosis {
                 // A map that found nothing is a result about the SETTINGS, and
                 // on screen it looks exactly like a result about the specimen.
-                Label(diagnosis, systemImage: "questionmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                InspectorWarning(diagnosis, systemImage: "questionmark.circle")
             }
 
             if let evidence = appState.phaseMappingEvidenceLine {
@@ -442,7 +426,7 @@ struct PhaseMappingSections: View {
     /// `CrystalModelLibrary.models`. The menu offers exactly the two sources
     /// plus this session's already-imported models (CIF or Materials Project).
     private var addPhaseMenu: some View {
-        Menu {
+        InspectorAdaptiveMenu("Add Phase", systemImage: "plus") {
             Button("Materials Project…") { showMaterialsProjectSheet = true }
             Button("From CIF file…") { showCIFImporter = true }
             if !appState.acomSession.importedCrystalModels.isEmpty {
@@ -451,8 +435,6 @@ struct PhaseMappingSections: View {
                     Button(importedCrystalModelLabel(model)) { add(model) }
                 }
             }
-        } label: {
-            Label("Add Phase", systemImage: "plus")
         }
         .accessibilityIdentifier("phaseMapping.addPhase")
         .fileImporter(isPresented: $showCIFImporter,
