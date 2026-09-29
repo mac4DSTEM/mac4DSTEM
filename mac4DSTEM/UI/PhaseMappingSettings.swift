@@ -33,7 +33,14 @@ struct PhaseMappingSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
     @State private var showMaterialsProjectSheet = false
-    @SceneStorage("aiAnalysis.phaseMapping.advanced.isExpanded") private var showsAdvanced = false
+    @SceneStorage private var showsAdvanced: Bool
+
+    /// `advancedExpanded` is only the first-launch value of the remembered
+    /// disclosure; a test hosts the view with it open to measure its rows.
+    init(advancedExpanded: Bool = false) {
+        _showsAdvanced = SceneStorage(wrappedValue: advancedExpanded,
+                                      "aiAnalysis.phaseMapping.advanced.isExpanded")
+    }
 
     /// Same reasoning as ACOM's importer: nothing on a stock macOS declares
     /// `.cif`, so this resolves to the same dynamic type a `.cif` on disk gets.
@@ -150,11 +157,12 @@ struct PhaseMappingSections: View {
                          value: $product.reference.maximumVectorsPerEntry,
                          help: "A library holding every allowed reflection matches "
                              + "anything. The cap is what keeps a match informative.")
-                parameterField("Minimum intensity",
+                parameterField("Min. intensity",
                                value: $product.reference.minimumIntensityFraction,
-                               units: "of strongest", format: "%.3f",
-                               help: "Only bites when it removes more than the cap "
-                                   + "(vectors per orientation) already does.")
+                               units: "of max", format: "%.3f",
+                               help: "Reflections weaker than this fraction of an orientation's "
+                                   + "strongest are dropped. Only bites when it removes more than "
+                                   + "the cap (vectors per orientation) already does.")
                 parameterField("Excitation slab",
                                value: $product.reference.excitationSlabInvAngstrom,
                                units: "Å⁻¹", format: "%.3f")
@@ -162,7 +170,7 @@ struct PhaseMappingSections: View {
         }
 
         InspectorSection("Matching") {
-            // Switching the rule resets the library's "Minimum intensity" to
+            // Switching the rule resets the library's "Min. intensity" to
             // the rule's own default (`PhaseMappingRuleDefaults`) — the user
             // can still edit it afterwards. A pure function, not a listener
             // on the settings struct, so the reset happens exactly once, at
@@ -198,9 +206,12 @@ struct PhaseMappingSections: View {
                                units: "Å⁻¹", format: "%.3f",
                                help: "Known variants: every surviving vector is "
                                    + "scored; no floors (Thronsen et al. 2024).")
-                intField("Direct matrix up to (vectors)",
-                         value: $product.matching.directMatrixMaximumVectors)
-                intField("Phase-specific reflections, at least",
+                intField("Direct matrix, max",
+                         value: $product.matching.directMatrixMaximumVectors,
+                         help: "Direct matrix up to this many vectors: a position whose "
+                             + "surviving vectors number at or below it is the matrix, by "
+                             + "exclusion (Thronsen et al.'s direct_Al = 1).")
+                intField("Specific reflections, min",
                          value: $product.matching.knownVariantsMinimumSpecificReflections,
                          help: "A winner that matches fewer reflections the matrix does not also "
                              + "have falls back to the matrix. 1 is shipped (measured on Thronsen "
@@ -217,7 +228,10 @@ struct PhaseMappingSections: View {
             // explains (Thronsen step 3). 0 = the detector.
             parameterField("Ignore peaks beyond",
                            value: $product.matching.maximumVectorInvAngstrom,
-                           units: "Å⁻¹ (0 = detector)", format: "%.2f")
+                           units: "Å⁻¹", format: "%.2f",
+                           help: "0 = the detector's edge. A masked or cropped pattern ends "
+                               + "before the detector does, and its edge is a ring of maxima "
+                               + "no phase explains (Thronsen step 3).")
 
             // These are set in Å⁻¹ but met on a pixel grid, and the two can
             // silently disagree: at 0.44 of one detector pixel (measured),
@@ -305,13 +319,15 @@ struct PhaseMappingSections: View {
             }
 
             ForEach(Array(PhaseMapPresentation.legend(map).enumerated()), id: \.offset) { _, row in
-                InspectorRow(row.label) {
+                // The label is a phase's own name, so it truncates rather than
+                // pushing the inspector's minimum width up (`InspectorDataRow`).
+                InspectorDataRow(row.label) {
                     HStack(spacing: 6) {
                         swatch(row)
                         Text(String(format: "%.1f %%", 100 * row.fraction))
                             .monospacedDigit()
+                            .fixedSize()
                     }
-                    .labelsHidden()
                 }
             }
 

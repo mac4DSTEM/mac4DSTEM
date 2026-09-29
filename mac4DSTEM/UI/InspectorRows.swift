@@ -235,6 +235,35 @@ struct InspectorRow<Content: View>: View {
     }
 }
 
+/// `InspectorRow`'s anatomy for a label that is DATA — a phase's name from a
+/// CIF or a Materials Project entry, of any length. `InspectorRow`'s label is
+/// fixed-size, right for a literal word, but a data-derived one has no bound
+/// and its width would set the inspector's minimum: a 53-character phase name
+/// measured 395 pt against the 248 a 280-pt inspector gives its content (Gate D
+/// 2026-09-29, `InspectorWidthBudgetTests`). Here the label truncates in the
+/// middle, one line, and the full text is the row's help.
+struct InspectorDataRow<Content: View>: View {
+    private let label: String
+    private let content: Content
+
+    init(_ label: String, @ViewBuilder content: () -> Content) {
+        self.label = label
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+            content
+        }
+        .controlSize(.regular)
+        .help(label)
+    }
+}
+
 /// A read-only fact: label leading, the value trailing in the secondary
 /// label colour, selectable (a value the reader may paste into a notebook)
 /// and in monospaced digits so a column of these keeps its numerals aligned.

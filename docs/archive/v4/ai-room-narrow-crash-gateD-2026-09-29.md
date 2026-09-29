@@ -63,3 +63,21 @@ map) was not reproduced; **data-derived labels** (the legend's phase names, unbo
 are fixed-size and would bring it back. Fixes: every row measured ≤ 248; data-derived names truncate (middle) with the
 full name in help; a guard test over the rooms' settings widths; a confirming drive (three fresh launches at 915, both
 classifier modes, a computed map, resizes 915 → 1000 → 975 → 950 → 915, a long phase name).
+
+## Fix, part 1 — the room's own rows (landed); drive 4: two triggers remain, both in the Frozen Shell
+
+Landed (`PhaseMappingSettings.swift`, `InspectorRows.swift`, `PrecipitateObjectsSection.swift`): "Ignore peaks beyond"
+unit "Å⁻¹" (meaning in the help); "Direct matrix, max", "Specific reflections, min", "Min. intensity … of max" (each
+measured ≤ 248 pt); phase names in the legend and Precipitates rows truncate in the middle (`InspectorDataRow`).
+`InspectorWidthBudgetTests` (12 tests) hosts every room's settings and asserts a minimum ≤ 248 pt — phase mapping 245
+in both classifiers, with Advanced open and a 53-character phase name; red on the old unit (333), each old label (267,
+306, 287), a fixed-size legend (431) or Precipitates row (395). Unit 957 / 0 / 2 = 959 (`unit-fx.log`).
+**Drive 4** (build-app-4, five launches at 915 × 720; `report-drive4.md`, unified-log excerpts `d4-crash-{1,2,3}.log` —
+ReportCrash wrote no .ips): entering AI Analysis and Phase mapping, three CIFs, Known variants, Map Phases and the
+915 → 1000 → 975 → 950 → 915 resizes now **survive**; a 60-character phase name truncates and widens nothing
+(`d4-L4-03`). **Still aborting, same exception:** (1) switching the inspector to its **Info** tab at 915 (twice; its
+dataset rows — path, shape, size — are wider than 248 pt); (2) dragging the inspector divider to its **widest**
+(max 460 > what 915 leaves). After Info has been shown once, the layout overflows the window by ≈ 17 pt (sidebar and
+the settings' units clipped, `d4-L1b-03`) and the restored Info tab carries that into the next launch. Both triggers
+live in `WorkspaceInspector.swift` / `LayoutPolicy.swift` (Frozen Shell): **the owner's**, with the proposal in the
+overnight plan §5 — the Info rows truncate like `InspectorDataRow`, and the inspector's maximum follows the window.

@@ -63,7 +63,7 @@ struct PrecipitateObjectsSection: View {
         .font(.caption)
 
         ForEach(report.summaries) { summary in
-            InspectorRow(summary.phaseName) {
+            InspectorDataRow(summary.phaseName) {
                 VStack(alignment: .trailing, spacing: 1) {
                     // The phase map's own colour: the only thing that tells two
                     // phases apart when their names coincide.
