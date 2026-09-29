@@ -151,6 +151,17 @@ def main(app_json, truth_json):
           % (rate_face, rate_t1))
     null_ok = table("Validity 1: the null map (must FAIL)", metrics(null, truth, set()))
 
+    # Validity 3 (S10, registered 2026-09-30): a null with edge-on flips must fail. The edge-on class has
+    # published limits (raw spurious <= 5, area |r-1| <= 0.360); flip 0.2 % of the truth-Al positions to
+    # edge-on (about 55 isolated positions), so the bar must see them. Seed 20260930.
+    rng3 = np.random.default_rng(20260930)
+    edge_null = truth.copy().ravel()
+    pick = idx[rng3.random(len(idx)) < 0.002]
+    edge_null[pick] = EDGE
+    edge_null = edge_null.reshape(truth.shape)
+    print("Edge-on null: stride-3 truth with %d Al positions → edge-on (0.2 %% of Al), seed 20260930\n" % len(pick))
+    edge_null_ok = table("Validity 3: the edge-on-flipping null (must FAIL)", metrics(edge_null, truth, set()))
+
     # Validity 2: breaking the convention must move at least one number.
     moved = {}
     for name, kwargs in (("÷ 9 rounded down", {"round_up": False}), ("face-on 8-connected", {"face_conn": 8})):
@@ -159,9 +170,9 @@ def main(app_json, truth_json):
         print("Validity 2, break '%s': %d number(s) move%s" % (name, len(moved[name]),
               (": " + ", ".join("%s %s %s→%s" % (NAMES[k[0]], k[1], scored[k], b[k]) for k in moved[name][:4])) if moved[name] else ""))
     print()
-    valid = self_ok and not delete_ok and (not null_ok) and any(moved.values())
+    valid = self_ok and not delete_ok and (not null_ok) and (not edge_null_ok) and any(moved.values())
     reason = ("the bar fails the truth" if not self_ok else "the bar passes a deleted object" if delete_ok
-              else "the null passed" if null_ok else "no convention break moved anything")
+              else "the null passed" if null_ok else "the edge-on null passed" if edge_null_ok else "no convention break moved anything")
     print("## Verdict: %s — run %s\n" % ("PASS" if verdict else "FAIL", "counts" if valid else "DOES NOT COUNT (%s)" % reason))
     return 0
 

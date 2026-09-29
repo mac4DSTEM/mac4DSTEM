@@ -356,6 +356,13 @@ enum Probe {
         // |s_g| <= X (s_g = g . n, the flat-sphere excitation error `projectedVectors` uses). The score
         // is unchanged. Measurement only; the shipped matcher is untouched.
         var evidenceSlab: Double?
+        // `--min-evidence-sigma X` (S10 candidate B, pre-registered 2026-09-30 in
+        // archive/v4/s10-theta-edge-on-preregistration-2026-09-30.md §2 B): in the --object-table guarded map,
+        // a phase-specific hit counts toward the "specific >= 1" guard only if the raw pattern shows it at
+        // >= X sigma: (mean of a 1.5 px disc at the matched peak - mean of the 4-7 px ring) / std of the
+        // ring (the t1-edge addendum's measure, t1-edge-detection-gateD-2026-09-28.md). The hit's sigma is
+        // the best over the detected peaks that matched it. Measurement only; the shipped matcher is untouched.
+        var minEvidenceSigma: Double?
         // Gate D step 3 (precipitate-overnight-2026-09-23.md): additive, off
         // by default, `--rule known-variants` only. Runs the app's own
         // `PrecipitateSegmentation.classObjects` (via `PhaseMapObjectsBridge`)
@@ -493,6 +500,12 @@ enum Probe {
                 edgeT1Guard = args[index + 1]; index += 2
             } else if args[index] == "--evidence-slab", index + 1 < args.count {
                 evidenceSlab = Double(args[index + 1]); index += 2
+            } else if args[index] == "--min-evidence-sigma", index + 1 < args.count {
+                guard let k = Double(args[index + 1]), k.isFinite else {
+                    FileHandle.standardError.write(Data("--min-evidence-sigma needs a number, got \(args[index + 1])\n".utf8))
+                    exit(2)
+                }
+                minEvidenceSigma = k; index += 2
             } else if args[index] == "--position-detail", index + 1 < args.count {
                 positionDetail = args[index + 1].split(separator: ";").compactMap { pair in
                     let rc = pair.split(separator: ",").compactMap { Int($0) }
@@ -1477,6 +1490,48 @@ enum Probe {
                 }
             }
 
+            // S10 candidate B: the disc-vs-ring significance of one detected peak in the raw pattern
+            // (t1-edge addendum: a 1.5 px disc against a 4-7 px ring, in the ring's noise sigma).
+            func peakSigma(_ pattern: [Float], _ pk: BraggPeak) -> Double {
+                let qx = primary.qx, qy = primary.qy
+                var discSum = 0.0, discN = 0, ringSum = 0.0, ringSq = 0.0, ringN = 0
+                let x0 = Int(pk.x.rounded()), y0 = Int(pk.y.rounded())
+                for y in max(0, y0 - 8)...min(qy - 1, y0 + 8) {
+                    for x in max(0, x0 - 8)...min(qx - 1, x0 + 8) {
+                        let dx = Double(x) - Double(pk.x), dy = Double(y) - Double(pk.y)
+                        let r = (dx * dx + dy * dy).squareRoot()
+                        let v = Double(pattern[y * qx + x])
+                        if r <= 1.5 { discSum += v; discN += 1 }
+                        else if r >= 4, r <= 7 { ringSum += v; ringSq += v * v; ringN += 1 }
+                    }
+                }
+                guard discN > 0, ringN > 1 else { return .nan }
+                let ringMean = ringSum / Double(ringN)
+                let variance = max(0, ringSq / Double(ringN) - ringMean * ringMean)
+                let sd = variance.squareRoot()
+                guard sd > 0 else { return .nan }
+                return (discSum / Double(discN) - ringMean) / sd
+            }
+            /// Best sigma per reference-vector index of `entry` over the detected peaks that survive the matrix
+            /// removal and land within the pair radius of it.
+            func hitSigmas(_ index: Int, _ entry: PhaseOrientationReference, _ matrixEntry: PhaseOrientationReference,
+                           _ pattern: [Float]) -> [Int: Double] {
+                var best: [Int: Double] = [:]
+                for pk in peaks[index] {
+                    guard let u = PhaseVectorMatcher.experimentalVectors(
+                        peaks: [pk], originX: originX, originY: originY, invAngstromPerPixel: qPerPixel,
+                        directBeamRadiusInvAngstrom: matchSettings.directBeamRadiusInvAngstrom,
+                        maximumVectorInvAngstrom: matchSettings.maximumVectorInvAngstrom).first else { continue }
+                    if PhaseVectorMatcher.nearest(u, in: matrixEntry.vectors,
+                                                  radius: matchSettings.matrixToleranceInvAngstrom) != nil { continue }
+                    guard let hit = PhaseVectorMatcher.nearest(u, in: entry.vectors,
+                                                               radius: matchSettings.pairRadiusInvAngstrom) else { continue }
+                    let sg = peakSigma(pattern, pk)
+                    if !(best[hit.index] ?? -.infinity >= sg) { best[hit.index] = sg }
+                }
+                return best
+            }
+
             if !positionDetail.isEmpty, map.matrixEntryIndex >= 0 {
                 let matrixEntry = library.entries[map.matrixEntryIndex]
                 let width = cols.count
@@ -1490,7 +1545,7 @@ enum Probe {
                     let g = Double(v.h) * crystal.latInv[0] + Double(v.k) * crystal.latInv[1] + Double(v.l) * crystal.latInv[2]
                     return simd_dot(g, n)
                 }
-                func evidence(_ index: Int) -> Evidence {
+                func evidence(_ index: Int, pattern: [Float]? = nil) -> Evidence {
                     var ev = Evidence()
                     let result = map.results[index]
                     guard result.entryIndex >= 0 else { return ev }
@@ -1518,6 +1573,7 @@ enum Probe {
                                                                    radius: matchSettings.pairRadiusInvAngstrom) else { continue }
                         hits[hit.index] = max(hits[hit.index] ?? 0, inten)
                     }
+                    let sigmas = pattern.map { hitSigmas(index, entry, matrixEntry, $0) } ?? [:]
                     for (hitIndex, inten) in hits {
                         let refQ = entry.vectors[hitIndex].q
                         if matrixEntry.vectors.contains(where: { simd_distance($0.q, refQ) <= matchSettings.matrixToleranceInvAngstrom }) {
@@ -1526,8 +1582,9 @@ enum Probe {
                             ev.specific += 1; ev.hitRel.append(Double(inten / brightest))
                             let sg = excitationError(entry.vectors[hitIndex], entry)
                             let v = entry.vectors[hitIndex]
-                            ev.hitDesc.append(String(format: "[%d %d %d] s_g %+.4f %@", v.h, v.k, v.l, sg,
-                                                     abs(sg) <= 0.05 ? "ON-slab" : "OFF-slab"))
+                            ev.hitDesc.append(String(format: "[%d %d %d] s_g %+.4f %@ sigma %.2f", v.h, v.k, v.l, sg,
+                                                     abs(sg) <= 0.05 ? "ON-slab" : "OFF-slab",
+                                                     sigmas[hitIndex] ?? .nan))
                         }
                     }
                     return ev
@@ -1539,7 +1596,8 @@ enum Probe {
                     let result = map.results[index]
                     let ours = Thronsen.label(of: result, phaseNames: map.phaseNames)
                     let theirs = Int(thronsen.labels[index])
-                    let ev = evidence(index)
+                    let pattern = try? await reader.readPattern(view, ry: rows[r], rx: cols[c])
+                    let ev = evidence(index, pattern: pattern)
                     let runner = map.phaseNames.indices.contains(Int(result.runnerUpPhaseIndex))
                         ? map.phaseNames[Int(result.runnerUpPhaseIndex)] : "-"
                     print(String(format: "  (%d,%d) truth %d ours %d  peaks %d surviving %d  score %.4f runner-up %@ %.4f margin %.4f  matched %d specific %d shared %d  specific-hit rel. intensity %@  hits %@",
@@ -1806,8 +1864,14 @@ enum Probe {
                         else { continue }
                         uniqueHitIndices.insert(hit.index)
                     }
+                    var sigmaByHit: [Int: Double] = [:]
+                    if minEvidenceSigma != nil, !uniqueHitIndices.isEmpty,
+                       let pattern = try? await reader.readPattern(view, ry: rows[index / width], rx: cols[index % width]) {
+                        sigmaByHit = hitSigmas(index, entry, matrixEntry, pattern)
+                    }
                     let specific = uniqueHitIndices.filter { hitIndex in
                         let refQ = entry.vectors[hitIndex].q
+                        if let minEvidenceSigma, !((sigmaByHit[hitIndex] ?? -.infinity) >= minEvidenceSigma) { return false }
                         if let evidenceSlab {
                             let crystal = phases[entry.phaseIndex].crystal
                             guard let n = PhaseReferenceLibrary.cartesianZoneAxis(entry.zoneAxis, crystal: crystal)
@@ -1829,6 +1893,7 @@ enum Probe {
                         edgeT1Changed += 1
                     }
                 }
+                if let minEvidenceSigma { print(String(format: "  --min-evidence-sigma %.2f: a specific hit counts only at >= this many sigma (disc 1.5 px vs ring 4-7 px)", minEvidenceSigma)) }
                 if edgeT1Guard != nil { print("  --edge-t1-guard \(edgeT1Guard!): \(edgeT1Changed) positions relabelled") }
                 let guarded = PhaseMapObjectsBridge.LabeledMap(labels: guardedLabels, roles: baseline.roles)
                 if let dumpLabelsPath {
