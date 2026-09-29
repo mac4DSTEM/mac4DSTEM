@@ -1,6 +1,6 @@
 //
 //  PhaseMappingSettings.swift
-//  Role: the AI Analysis room's second task — vector-matched phase mapping.
+//  Role: Crystal Maps' third task (ADR 046) — vector-matched phase mapping.
 //        The phase list, the two settings groups, the run, and the evidence
 //        for the position under the cursor.
 //

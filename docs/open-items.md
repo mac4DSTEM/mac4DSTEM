@@ -131,7 +131,11 @@ One line each; full wording as above.
 - **Kit gaps**: `UI/InspectorRows.swift` has no adaptive `Menu` (Add Phase hand-rolled) and no warning-note variant; long labels
   wrap beside wide pickers (wording the owner's).
 - Parallax "done" read from `parallaxSubpixel` alone at `WorkspaceView.swift:304` and `AppState.swift:1187` (cosmetic).
-- The 915-pt floor's residual: Show Tools against the screen's right edge relies on macOS growing the window — untested.
+- **The 915-pt floor's residual, now seen** (S2 drive, 2026-09-30, `archive/v4/s2-workspaces-2026-09-30-shots/`): Show Sidebar
+  pressed at 915 pt with the app in the background did not grow the window; resized back to 915 by AX, the shown sidebar
+  stayed and the inspector ran ~145 pt off the right edge (`s2-02`, in Reconstruction, a room S2 did not change); widened
+  to 1470, ~142-pt empty strips stayed left of the sidebar and before the inspector until relaunch (`s2-05`). No abort. Not
+  run on the pre-S2 build. Frozen Shell (`ContentView`); Gate D first.
 - The welcome's Recents list runs off the bottom at 915 pt: let it scroll.
 - **No workflow logic in the rooms** (seen 2026-09-29, `d1-02/03`, `d1-04b`): the owner judges it against the 2026-09-21 critique, then close.
 

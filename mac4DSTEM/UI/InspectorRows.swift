@@ -21,9 +21,9 @@ import SwiftUI
 /// A section remembers its own expansion by title alone unless scoped —
 /// which left unrelated sections that happen to share a title ("Dataset" in
 /// the Info tab and "Dataset" among the Settings tab's own actions, "Result"
-/// in the Map room and in the AI Analysis room) collapsing together, since
-/// they wrote the same `@SceneStorage` key. `WorkspaceInspector` sets this
-/// once per tab ("info"), and again, more specifically, per workspace room
+/// in two rooms) collapsing together, since they wrote the same
+/// `@SceneStorage` key. `WorkspaceInspector` sets this once per tab ("info"),
+/// and `WorkspaceSettings` again, more specifically, per task's room file
 /// within the Settings tab ("settings.map", "settings.phase", …), so the key
 /// each section remembers its state under is scoped to where it actually
 /// lives. Default "" so a section built outside that scaffolding (a preview,

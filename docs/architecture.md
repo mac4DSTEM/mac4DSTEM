@@ -49,9 +49,10 @@ this class of defect — a narrowed, not closed, blind spot per
 
 ## What it does, by subsystem
 
-**Workflow.** Six workspaces — **Prepare / Imaging / Strain & ACOM / Phase /
-AI Analysis / Results** (`⌘1…⌘6`; `App/ProductWorkflow.swift`'s
-`WorkspaceArea`). Navigation is side-effect free; whole-scan work starts
+**Workflow.** Six workspaces that follow the data (ADR 046) — **Prepare /
+Imaging / Bragg Disks / Crystal Maps / Reconstruction / Results** (`⌘1…⌘6`;
+`App/ProductWorkflow.swift`'s `WorkspaceArea`; `UI/WorkspaceSettings.swift`
+picks each task's inspector controls). Navigation is side-effect free; whole-scan work starts
 only from an explicit primary action, runs detached with live progress and
 Cancel, and reports in the infobar.
 

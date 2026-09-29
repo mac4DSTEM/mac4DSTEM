@@ -10,29 +10,27 @@ import DSTEMSession
 enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     case prepare
     case image
+    case braggDisks
     case map
     case reconstruct
-    // Named by its method rather than outcome (the other five follow the D1
-    // outcome rule) — owner decision, docs/decisions.md: findable as what it
-    // is, since it has no py4DSTEM equivalent.
-    case aiAnalysis
     case results
 
     var id: String { rawValue }
 
     // Case names and raw values keep their v1 identities —
-    // `image`/`map`/`reconstruct` (docs/s22-ux-design.md §4.2) — so
-    // persisted recovery records and stored selections survive relabeling;
-    // only the presented names and task assignment change.
+    // `image`/`map`/`reconstruct` (docs/s22-ux-design.md §4.2) — so the
+    // accessibility identifiers `workspace.<rawValue>` survive relabeling;
+    // only the presented names and task assignment change. The six rooms
+    // follow the data (ADR 046): disks first, then everything that consumes
+    // them; "AI Analysis" held vector matching and PCA, neither of them
+    // machine learning, and is gone.
     var title: String {
         switch self {
         case .prepare: "Prepare"
         case .image: "Imaging"
-        // Named by outcome (D1) — "Bragg" repeated the method's name four
-        // times down one sidebar column.
-        case .map: "Strain & ACOM"
-        case .reconstruct: "Phase"
-        case .aiAnalysis: "AI Analysis"
+        case .braggDisks: "Bragg Disks"
+        case .map: "Crystal Maps"
+        case .reconstruct: "Reconstruction"
         case .results: "Results"
         }
     }
@@ -40,10 +38,10 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     var subtitle: String {
         switch self {
         case .prepare: "Inspect and calibrate the dataset"
-        case .image: "Form BF, ADF, or custom virtual images"
-        case .map: "Detect Bragg disks, then strain and orientation"
+        case .image: "Virtual images and diffraction groups"
+        case .braggDisks: "Detect Bragg disks and label them"
+        case .map: "Strain, orientation, and phases from Bragg disks"
         case .reconstruct: "DPC, parallax, and ptychography"
-        case .aiAnalysis: "Group scan positions by diffraction similarity"
         case .results: "Review, save, and export products"
         }
     }
@@ -52,9 +50,9 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .prepare: "scope"
         case .image: "camera.filters"
+        case .braggDisks: "circle.grid.3x3"
         case .map: "map"
         case .reconstruct: "waveform.path.ecg.rectangle"
-        case .aiAnalysis: "sparkles"
         case .results: "square.grid.2x2"
         }
     }
@@ -62,19 +60,16 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     var analysisModes: [AnalysisMode] {
         switch self {
         case .prepare, .results: []
-        case .image: [.virtualDetector]
-        // The Bragg path in its pipeline order: disks produce the vectors
-        // the other two consume.
-        case .map: [.disks, .strain, .acom]
+        // Both need nothing but the cube: an image first, then grouping
+        // (PCA + k-means), which a user reaches for before they know which
+        // phases to name.
+        case .image: [.virtualDetector, .diffractionGroups]
+        // Disks produce the vectors every Crystal Maps task consumes.
+        case .braggDisks: [.disks]
+        case .map: [.strain, .acom, .phaseMapping]
         // The phase-contrast family, together — every member needs only
         // voltage and geometry, none needs Bragg vectors (§3.3 grammar).
         case .reconstruct: [.dpc, .ptychography, .singleslicePtychography]
-        // Grouping first: it needs nothing but the cube, and it is what a
-        // user reaches for before they know which phases to name. Phase
-        // mapping needs Bragg vectors, so it is also the later of the two in
-        // prerequisite order — the sidebar groups them by family and would
-        // separate them anyway.
-        case .aiAnalysis: [.diffractionGroups, .phaseMapping]
         }
     }
 
@@ -180,12 +175,13 @@ struct TaskFamilyGroup: Identifiable, Sendable {
 /// Two families of analysis have very different prerequisites: the Bragg path
 /// (disks → strain/ACOM) needs disk detection and crystal calibration, while
 /// the phase-contrast path (DPC, parallax, ptychography) needs only energy and
-/// geometry. S22c aligned the workspaces with these families (Bragg and Phase
-/// are now workspaces); the per-task grouping remains for any future task mix.
+/// geometry. The workspaces follow these families (S22c; ADR 046 gave disks
+/// their own room); the per-task grouping remains for any future task mix.
 ///
 /// Deliberately three cases, not two: `.disks` *produces* the vectors that
 /// `.strain` and `.acom` consume, so a single "requires Bragg vectors" label
-/// spanning all of Map would be wrong about the one task that satisfies it.
+/// spanning disks and their consumers would be wrong about the one task that
+/// satisfies it.
 ///
 /// `allCases` order is the order groups are presented in.
 enum TaskPrerequisiteFamily: CaseIterable, Identifiable, Sendable {
@@ -219,8 +215,7 @@ extension AnalysisMode {
         case .strain, .acom: .requiresBraggVectors
         case .virtualDetector, .dpc, .ptychography, .singleslicePtychography,
              .diffractionGroups: .phaseContrast
-        // Phase mapping consumes `BraggVectors` and finds none of its own, so
-        // it is in the Bragg family although it lives in another room.
+        // Phase mapping consumes `BraggVectors` and finds none of its own.
         case .phaseMapping: .requiresBraggVectors
         }
     }
@@ -244,13 +239,13 @@ extension AnalysisMode {
 
     var workspaceArea: WorkspaceArea {
         switch self {
-        case .virtualDetector: .image
-        case .disks, .strain, .acom: .map
+        case .virtualDetector, .diffractionGroups: .image
+        case .disks: .braggDisks
+        case .strain, .acom, .phaseMapping: .map
         // DPC sits with its prerequisite family (S22c): it shares the
         // voltage-only contract with parallax/ptychography, not the
         // zero-prerequisite contract of virtual imaging.
         case .dpc, .ptychography, .singleslicePtychography: .reconstruct
-        case .diffractionGroups, .phaseMapping: .aiAnalysis
         }
     }
 
@@ -667,9 +662,9 @@ enum ProductWorkflow {
     /// something already on screen is noise rather than guidance:
     /// - Prepare with calibration still incomplete — the readiness checklist
     ///   already names each missing field and its action.
-    /// - Map before disks exist — the task group labels
-    ///   (`TaskPrerequisiteFamily`) already say which tasks need Bragg vectors.
-    /// - Results and Reconstruct — terminal for this purpose; nothing to point at.
+    /// - Bragg Disks and Crystal Maps before disks exist — the Requirements
+    ///   section already names the missing Bragg vectors.
+    /// - Results and Reconstruction — terminal for this purpose; nothing to point at.
     static func nextStepHint(
         for area: WorkspaceArea,
         readiness: ProductWorkflowReadiness,
@@ -678,17 +673,21 @@ enum ProductWorkflow {
         switch area {
         case .prepare:
             return calibrationReady
-                ? "Next: create an image, or detect Bragg disks in Strain & ACOM."
+                ? "Next: create an image, or detect Bragg disks."
                 : nil
         case .image:
             return readiness.hasBraggVectors
                 ? nil
-                : "Next: detect Bragg disks in Strain & ACOM to unlock its maps."
+                : "Next: detect Bragg disks to unlock the crystal maps."
+        case .braggDisks:
+            return readiness.hasBraggVectors
+                ? "Next: map strain, orientation, or phases in Crystal Maps."
+                : nil
         case .map:
             return readiness.hasBraggVectors
                 ? "Next: review and export in Results."
                 : nil
-        case .reconstruct, .aiAnalysis, .results:
+        case .reconstruct, .results:
             return nil
         }
     }

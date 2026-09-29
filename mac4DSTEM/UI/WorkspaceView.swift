@@ -286,12 +286,14 @@ struct PrimaryActionButton: View {
             // C4(a): every other task's title is its own verb — "Detect All
             // Disks", "Compute Strain", "Run DPC" — imaging's was the one
             // holdover generic label.
-            "Compute Image"
+            appState.navigation.analysisMode == .diffractionGroups ? "Group Patterns" : "Compute Image"
+        case .braggDisks:
+            "Detect All Disks"
         case .map:
             switch appState.navigation.analysisMode {
-            case .disks: "Detect All Disks"
             case .strain: "Compute Strain"
             case .acom: appState.acomSession.primaryActionTitle
+            case .phaseMapping: "Map Phases"
             default: nil
             }
         case .reconstruct:
@@ -307,8 +309,6 @@ struct PrimaryActionButton: View {
             // (`ParallaxStageSections`), so the toolbar offers no button
             // rather than a permanently disabled "Reconstruction Ready" one.
             else { nil }
-        case .aiAnalysis:
-            appState.navigation.analysisMode == .phaseMapping ? "Map Phases" : "Group Patterns"
         case .results:
             nil
         }
@@ -320,21 +320,23 @@ struct PrimaryActionButton: View {
             appState.calibrationSession.calibration.hasFittedOrigin
                 ? "Solves scan-to-detector rotation for quantitative vector output."
                 : "Fits the unscattered-beam origin across the scan."
-        case .image: "Runs the selected imaging task with the current settings."
+        case .image:
+            appState.navigation.analysisMode == .diffractionGroups
+                ? "Runs PCA and k-means over every scan position's diffraction pattern."
+                : "Runs the selected imaging task with the current settings."
+        case .braggDisks: "Detects Bragg disks at every scan position with the current settings."
         case .map:
-            appState.navigation.analysisMode == .acom
-                ? "Runs the selected orientation area and quality shown in the tools panel."
-                : "Runs the selected whole-scan mapping task."
+            switch appState.navigation.analysisMode {
+            case .acom: "Runs the selected orientation area and quality shown in the tools panel."
+            case .phaseMapping: "Matches every position's peaks against the phases you named. Unvalidated."
+            default: "Runs the selected whole-scan mapping task."
+            }
         case .reconstruct:
             switch appState.navigation.analysisMode {
             case .dpc: "Maps beam deflection across the scan and integrates projected phase."
             case .singleslicePtychography: "Runs the iterative single-slice reconstruction on the full datacube."
             default: "Runs the next incomplete parallax stage."
             }
-        case .aiAnalysis:
-            appState.navigation.analysisMode == .phaseMapping
-                ? "Matches every position's peaks against the phases you named. Unvalidated."
-                : "Runs PCA and k-means over every scan position's diffraction pattern."
         case .results: "Adds the visible result to the reusable dataset session."
         }
     }

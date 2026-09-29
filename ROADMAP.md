@@ -122,14 +122,9 @@ Clearing is three moves, in this order.
 4. **Science, one Gate D per session, after the polish** (S7–S11 below).
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-- [x] **S1 Close** (2026-09-30): board 7 lanes, open-items 22 entries (see step 1 above).
-- [ ] **S2 Workspaces (ADR 046, Frozen Shell against its picture).** `WorkspaceArea` in `App/ProductWorkflow.swift`
-  (raw values `prepare/image/map/reconstruct/aiAnalysis/results` are persisted — keep them; add a case for Bragg
-  Disks and remap, never rename a raw value) and `AnalysisMode` (raw values persisted in recovery records and exports:
-  keep). Diffraction groups → Imaging; disks → Bragg Disks; strain/ACOM/phase mapping → Crystal Maps; "Phase" →
-  "Reconstruction"; retire `aiAnalysis` presentation. Layout rules learned 2026-09-30: every room's settings ≤ 248 pt
-  (`InspectorWidthBudgetTests` — add the new rooms); no dynamic column max (SwiftUI will not shrink a column whose
-  max drops); a shown sidebar grows the window; keep six workspaces. Drive at 915 and 1470 pt; restore the owner's frame.
+- [x] **S1 Close** (2026-09-30, `45d1228`): board 7 lanes, open-items 22 entries (see step 1 above).
+- [x] **S2 Workspaces** (2026-09-30): ADR 046's six, `UI/WorkspaceSettings.swift` picks each task's controls; driven at
+  915 and 1470 pt. Its drive found the explicit-show sidebar clip at 915 pt (S6, `docs/open-items.md`).
 - [ ] **S3 Prepare polish:** emptied manual Q discards the file's calibration; voltage "0 kV" when unset; Friedel ETA
   (Gate D first).
 - [ ] **S4 Phases & precipitates polish:** uncalibrated run refuses or explains; zone-axis tie order; busy status line

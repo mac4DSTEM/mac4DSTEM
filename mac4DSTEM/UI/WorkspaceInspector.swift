@@ -159,7 +159,7 @@ private struct InspectorSettingsTab: View {
                 VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
                     RequirementsSection()
                     GuidanceSection()
-                    workspaceSettings
+                    WorkspaceSettings()
                     DatasetActionSections()
                 }
                 .padding()
@@ -178,24 +178,6 @@ private struct InspectorSettingsTab: View {
                 systemImage: "square.stack.3d.up.slash",
                 description: Text("Open a 4D-STEM dataset; the controls for each step appear here.")
             )
-        }
-    }
-
-    /// Each of these produces bare `Section`s of its own — untouched room
-    /// files, converted to the inspector vocabulary separately. Each also
-    /// gets its own `inspectorScope`, so an `InspectorSection` titled
-    /// "Result" in the Map room and one titled "Result" in the AI Analysis
-    /// room remember their expansion separately rather than sharing one
-    /// `@SceneStorage` key.
-    @ViewBuilder
-    private var workspaceSettings: some View {
-        switch appState.navigation.workspaceArea {
-        case .prepare: PrepareSettings().environment(\.inspectorScope, "settings.prepare")
-        case .image: ImagingSettings().environment(\.inspectorScope, "settings.image")
-        case .map: MapSettings().environment(\.inspectorScope, "settings.map")
-        case .reconstruct: PhaseSettings().environment(\.inspectorScope, "settings.phase")
-        case .aiAnalysis: AIAnalysisSettings().environment(\.inspectorScope, "settings.aiAnalysis")
-        case .results: ResultsSettings().environment(\.inspectorScope, "settings.results")
         }
     }
 }

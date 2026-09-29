@@ -1278,7 +1278,8 @@ struct ActivePaneOutline: View {
     let pane: ActivePane
 
     var body: some View {
-        if appState.navigation.workspaceArea == .image,
+        if appState.navigation.analysisMode == .virtualDetector,
+           appState.navigation.workspaceArea == .image,
            appState.hasDataset,
            appState.activePane == pane {
             RoundedRectangle(cornerRadius: 8)

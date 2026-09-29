@@ -4,8 +4,8 @@
 //        run controls for `DiffractionEmbedding`'s PCA + k-means baseline,
 //        and a readout of what the last run found. An `InspectorSection`
 //        card, matching `ImagingSettings`'/`MapSettings`' style (one kit for
-//        all rooms). Mounted by `AIAnalysisSettings`, the sixth workspace's
-//        panel (owner decision, see `docs/decisions.md`).
+//        all rooms). Mounted by `WorkspaceSettings` as Imaging's second task
+//        (ADR 046).
 //
 
 import SwiftUI

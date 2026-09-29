@@ -193,9 +193,9 @@ private struct DatasetCommands: Commands {
         CommandMenu("Workspace") {
             workspaceCommand(.prepare, key: "1")
             workspaceCommand(.image, key: "2")
-            workspaceCommand(.map, key: "3")
-            workspaceCommand(.reconstruct, key: "4")
-            workspaceCommand(.aiAnalysis, key: "5")
+            workspaceCommand(.braggDisks, key: "3")
+            workspaceCommand(.map, key: "4")
+            workspaceCommand(.reconstruct, key: "5")
             // Results is 6: the rooms are ordered by the pipeline, and
             // Results is last (owner decision, docs/decisions.md).
             workspaceCommand(.results, key: "6")

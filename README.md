@@ -12,7 +12,7 @@
   <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM: a convergent-beam diffraction pattern with detected Bragg disks and lattice fit overlay, beside the resulting epsilon-yy strain map, with fit diagnostics in the inspector" width="100%">
 </p>
 
-<p align="center"><sub>The Strain &amp; ACOM workspace.</sub></p>
+<p align="center"><sub>Strain in the Crystal Maps workspace.</sub></p>
 
 ---
 

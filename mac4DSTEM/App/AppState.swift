@@ -1163,12 +1163,18 @@ final class AppState {
                 await calibrateRotation()
             }
         case .image:
-            await runCurrentAnalysis()
+            if navigation.analysisMode == .diffractionGroups {
+                await runDiffractionGroups()
+            } else {
+                await runCurrentAnalysis()
+            }
+        case .braggDisks:
+            await runDiskDetection()
         case .map:
             switch navigation.analysisMode {
-            case .disks: await runDiskDetection()
             case .strain: await runStrainMapping()
             case .acom: await runACOM()
+            case .phaseMapping: await runPhaseMapping()
             default: break
             }
         case .reconstruct:
@@ -1186,11 +1192,6 @@ final class AppState {
                 await correctParallaxPhase()
             } else if phaseContrast.parallaxSubpixel == nil {
                 await upsampleParallaxBF()
-            }
-        case .aiAnalysis:
-            switch navigation.analysisMode {
-            case .phaseMapping: await runPhaseMapping()
-            default: await runDiffractionGroups()
             }
         case .results:
             break

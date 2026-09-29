@@ -185,22 +185,25 @@ final class InspectorWidthBudgetTests: XCTestCase {
         XCTAssertFalse(navigation.showToolsPane, "Hide Tools records the intent")
     }
 
-    /// The other rooms' settings views, hosted the same way. They are hosted
-    /// with no dataset, so a row that only exists once data is loaded is not
-    /// measured here; what renders is held to the same column.
-    private func room<V: View>(_ name: String, _ mode: AnalysisMode?, _ view: V) {
-        let state = AppState()
-        if let mode { state.navigation.analysisMode = mode }
-        assertFits(name, minimumWidth(view, state: state))
+    /// Every (workspace, task) pair, hosted through `WorkspaceSettings` — the
+    /// view the inspector mounts — so a room added or a task moved (ADR 046)
+    /// is measured without a new test. Hosted with no dataset, so a row that
+    /// only exists once data is loaded is not measured here; what renders is
+    /// held to the same column. A pair that routes to nothing measures ~0 pt
+    /// and fails `assertFits`' floor.
+    func testEveryWorkspaceTaskSettingsFitTheNarrowestColumn() {
+        var measured = 0
+        for area in WorkspaceArea.allCases {
+            let modes: [AnalysisMode?] = area.analysisModes.isEmpty ? [nil] : area.analysisModes
+            for mode in modes {
+                let state = AppState()
+                state.navigation.workspaceArea = area
+                if let mode { state.navigation.analysisMode = mode }
+                assertFits("\(area.title) / \(mode?.rawValue ?? "room")",
+                           minimumWidth(WorkspaceSettings(), state: state))
+                measured += 1
+            }
+        }
+        XCTAssertEqual(measured, AnalysisMode.allCases.count + 2, "every task, plus Prepare and Results")
     }
-    func testPrepareSettingsFitTheNarrowestColumn() { room("Prepare", nil, PrepareSettings()) }
-    func testImagingSettingsFit() { room("Imaging", .virtualDetector, ImagingSettings()) }
-    func testDiskDetectionSettingsFit() { room("Map / Disks", .disks, MapSettings()) }
-    func testStrainSettingsFit() { room("Map / Strain", .strain, MapSettings()) }
-    func testACOMSettingsFit() { room("Map / ACOM", .acom, MapSettings()) }
-    func testDPCSettingsFit() { room("Reconstruct / DPC", .dpc, PhaseSettings()) }
-    func testSingleslicePtychographySettingsFit() { room("Reconstruct / Single-slice", .singleslicePtychography, PhaseSettings()) }
-    func testParallaxSettingsFit() { room("Reconstruct / Parallax", .ptychography, PhaseSettings()) }
-    func testDiffractionGroupsSettingsFit() { room("AI / Diffraction groups", .diffractionGroups, AIAnalysisSettings()) }
-    func testResultsSettingsFit() { room("Results", nil, ResultsSettings()) }
 }

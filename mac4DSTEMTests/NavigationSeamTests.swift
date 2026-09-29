@@ -60,17 +60,21 @@ final class NavigationSeamTests: XCTestCase {
         XCTAssertEqual(state.navigation.analysisMode, .virtualDetector,
                        "a task the destination owns is kept")
 
-        // Map does not, so it adopts Map's first task — disks, which produce
-        // the vectors the other two consume.
-        state.selectWorkspace(.map)
-        XCTAssertEqual(state.navigation.workspaceArea, .map)
+        // Bragg Disks does not, so it adopts its one task.
+        state.selectWorkspace(.braggDisks)
+        XCTAssertEqual(state.navigation.workspaceArea, .braggDisks)
         XCTAssertEqual(state.navigation.analysisMode, .disks,
                        "a task the destination does not own is replaced by its default")
 
-        // Strain is Map's too: arriving again must not reset the user's task.
-        state.navigation.analysisMode = .strain
+        // Crystal Maps does not own disks either: its first task is strain.
         state.selectWorkspace(.map)
-        XCTAssertEqual(state.navigation.analysisMode, .strain,
+        XCTAssertEqual(state.navigation.workspaceArea, .map)
+        XCTAssertEqual(state.navigation.analysisMode, .strain)
+
+        // ACOM is Crystal Maps' too: arriving again must not reset the user's task.
+        state.navigation.analysisMode = .acom
+        state.selectWorkspace(.map)
+        XCTAssertEqual(state.navigation.analysisMode, .acom,
                        "re-entering a workspace does not reset a task it owns")
     }
 
@@ -79,7 +83,7 @@ final class NavigationSeamTests: XCTestCase {
     /// alone rather than fall through to some other workspace's default.
     func testATasklessWorkspaceLeavesTheCurrentTaskUntouched() {
         let state = AppState()
-        state.selectWorkspace(.map)
+        state.selectWorkspace(.braggDisks)
         XCTAssertEqual(state.navigation.analysisMode, .disks)
 
         for area in [WorkspaceArea.results, .prepare] {

@@ -90,32 +90,28 @@ final class ProductWorkflowTests: XCTestCase {
         }
     }
 
-    // MARK: - The sixth room (owner, 2026-09-11)
+    // MARK: - The workspaces follow the data (ADR 046, owner 2026-09-30)
 
-    /// `AI Analysis` carries exactly its two tasks, in this order, and both
-    /// are routed only here. `testEveryAnalysisHasOneProductWorkspace` above
-    /// already guarantees every mode is routed to exactly one area; this pins
-    /// WHICH, so moving either into another room is a deliberate edit rather
-    /// than a silent one.
+    /// Each moved task is routed to its ADR 046 room, in this order.
+    /// `testEveryAnalysisHasOneProductWorkspace` above guarantees every mode is
+    /// routed to exactly one area; this pins WHICH, so moving a task is a
+    /// deliberate edit rather than a silent one.
     ///
     /// The ORDER is pinned too, because `defaultAnalysisMode` is
-    /// `analysisModes.first` and that is where ⌘-5 lands: grouping needs only
-    /// the cube, phase mapping needs Bragg vectors, so opening the room on
-    /// phase mapping would greet a freshly loaded dataset with a refusal.
-    func testAIAnalysisOwnsItsTwoTasksAndNothingElse() {
-        XCTAssertEqual(WorkspaceArea.aiAnalysis.analysisModes,
-                       [.diffractionGroups, .phaseMapping])
-        XCTAssertEqual(AnalysisMode.diffractionGroups.workspaceArea, .aiAnalysis)
-        XCTAssertEqual(AnalysisMode.phaseMapping.workspaceArea, .aiAnalysis)
-        XCTAssertEqual(WorkspaceArea.aiAnalysis.defaultAnalysisMode, .diffractionGroups)
-        for area in WorkspaceArea.allCases where area != .aiAnalysis {
-            for mode in [AnalysisMode.diffractionGroups, .phaseMapping] {
-                XCTAssertFalse(
-                    area.analysisModes.contains(mode),
-                    "\(area.title) must not also claim \(mode.rawValue)"
-                )
-            }
-        }
+    /// `analysisModes.first` and that is where ⌘-key navigation lands: Imaging
+    /// opens on the virtual detector, not on grouping; Crystal Maps on strain.
+    func testWorkspacesFollowTheData() {
+        XCTAssertEqual(WorkspaceArea.image.analysisModes, [.virtualDetector, .diffractionGroups])
+        XCTAssertEqual(WorkspaceArea.braggDisks.analysisModes, [.disks])
+        XCTAssertEqual(WorkspaceArea.map.analysisModes, [.strain, .acom, .phaseMapping])
+        XCTAssertEqual(AnalysisMode.diffractionGroups.workspaceArea, .image)
+        XCTAssertEqual(AnalysisMode.disks.workspaceArea, .braggDisks)
+        XCTAssertEqual(AnalysisMode.phaseMapping.workspaceArea, .map)
+        XCTAssertEqual(WorkspaceArea.image.defaultAnalysisMode, .virtualDetector)
+        XCTAssertEqual(WorkspaceArea.map.defaultAnalysisMode, .strain)
+        // Accessibility identifiers are `workspace.<rawValue>`; the old ones keep their spelling.
+        XCTAssertEqual(WorkspaceArea.allCases.map(\.rawValue),
+                       ["prepare", "image", "braggDisks", "map", "reconstruct", "results"])
     }
 
     /// Phase mapping matches the peaks disk detection finds and looks for none
@@ -163,13 +159,12 @@ final class ProductWorkflowTests: XCTestCase {
         // (voltage-only: DPC first, ptychography behind it).
         XCTAssertEqual(
             WorkspaceArea.allCases.map(\.title),
-            ["Prepare", "Imaging", "Strain & ACOM", "Phase", "AI Analysis", "Results"]
+            ["Prepare", "Imaging", "Bragg Disks", "Crystal Maps", "Reconstruction", "Results"]
         )
-        XCTAssertEqual(WorkspaceArea.image.defaultAnalysisMode, .virtualDetector)
-        XCTAssertEqual(WorkspaceArea.map.defaultAnalysisMode, .disks)
+        XCTAssertEqual(WorkspaceArea.braggDisks.defaultAnalysisMode, .disks)
         XCTAssertEqual(WorkspaceArea.reconstruct.defaultAnalysisMode, .dpc)
         XCTAssertEqual(AnalysisMode.dpc.workspaceArea, .reconstruct,
-                       "DPC belongs to the Phase family workspace")
+                       "DPC belongs to the phase-contrast workspace")
         XCTAssertNil(WorkspaceArea.prepare.defaultAnalysisMode)
         XCTAssertNil(WorkspaceArea.results.defaultAnalysisMode)
     }
@@ -365,11 +360,13 @@ final class ProductWorkflowTests: XCTestCase {
             for: .prepare, readiness: readiness, calibrationReady: true
         ))
 
-        // Map: silent before disks exist — the task group labels already say
-        // which tasks require Bragg vectors.
-        XCTAssertNil(ProductWorkflow.nextStepHint(
-            for: .map, readiness: readiness, calibrationReady: true
-        ))
+        // Bragg Disks and Crystal Maps: silent before disks exist — the
+        // Requirements section already names the missing Bragg vectors.
+        for area in [WorkspaceArea.braggDisks, .map] {
+            XCTAssertNil(ProductWorkflow.nextStepHint(
+                for: area, readiness: readiness, calibrationReady: true
+            ), "\(area)")
+        }
 
         // Image points at the Bragg path only while it is still unsatisfied.
         XCTAssertNotNil(ProductWorkflow.nextStepHint(
@@ -380,9 +377,11 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertNil(ProductWorkflow.nextStepHint(
             for: .image, readiness: readiness, calibrationReady: true
         ))
-        XCTAssertNotNil(ProductWorkflow.nextStepHint(
-            for: .map, readiness: readiness, calibrationReady: true
-        ))
+        for area in [WorkspaceArea.braggDisks, .map] {
+            XCTAssertNotNil(ProductWorkflow.nextStepHint(
+                for: area, readiness: readiness, calibrationReady: true
+            ), "\(area)")
+        }
 
         // Terminal for this purpose regardless of state.
         for ready in [false, true] {
@@ -419,7 +418,11 @@ final class ProductWorkflowTests: XCTestCase {
     /// refining #4). Reconstruct had it sitting over a single task, and Image
     /// over a single family — noise in both.
     func testFamilyCaptionsAreDrawnOnlyWhereThereIsMoreThanOneFamily() {
-        XCTAssertTrue(WorkspaceArea.map.showsTaskFamilyLabels, "Map: disks vs strain/ACOM")
+        // ADR 046 put the Bragg producer and its consumers in separate rooms,
+        // so no workspace holds two families today; the rule stays for any
+        // future task mix.
+        XCTAssertFalse(WorkspaceArea.map.showsTaskFamilyLabels, "Crystal Maps: all three consume Bragg vectors")
+        XCTAssertFalse(WorkspaceArea.braggDisks.showsTaskFamilyLabels, "Bragg Disks has one task")
         XCTAssertFalse(
             WorkspaceArea.reconstruct.showsTaskFamilyLabels,
             "Reconstruct has one task; a caption above it says nothing"
