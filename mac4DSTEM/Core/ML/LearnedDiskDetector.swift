@@ -61,6 +61,9 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// before it runs; provenance only — no number the detector computes reads either.
     package var origin = "bundled"
     package var parentSHA256: String?
+    /// A test seam: called with (job index, the job's three-channel model input) for every (position, window) job
+    /// of a scan, from the CPU workers (so it must be thread-safe). Never set by the app.
+    package var inputObserver: (@Sendable (Int, [Float16]) -> Void)?
     private let model: MLModel
     private let inputName = "x"
     private let outputName = "heatmap"
@@ -146,14 +149,30 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         return pattern.map { $0 * s }
     }
 
+    /// The scale `toCounts` would apply to a whole native pattern of `count` pixels: `nominalBeamCounts / max` when
+    /// the largest FINITE value lies in (0, 1], else 1. Non-finite pixels are ignored, as `fillNonFinite` replaces
+    /// them in every frame before the maximum is read.
+    package static func nativeCountScale(pattern: UnsafePointer<Float>, count: Int) -> Float {
+        var mx: Float = 0
+        for i in 0..<count { let v = pattern[i]; if v.isFinite && v > mx { mx = v } }
+        return mx > 0 && mx <= 1 ? nominalBeamCounts / mx : 1
+    }
+
     /// `simulate.model_inputs`: (3, S, S) float16 — log1p(max(p − min p, 0)) / max on the
     /// count-scaled pattern, probe / max, correlation / max. Dose-invariant; keeps raw
     /// counts inside float16.
-    package static func modelInputs(pattern: [Float], probe: [Float], correlation: [Float]) -> [Float16] {
+    ///
+    /// `countScale` (D098, 2026-09-29): the dose scale of the NATIVE pattern this frame was cut from
+    /// (`nativeCountScale`), 1 for a pattern already in counts. `nil` is the per-frame rule (`toCounts`) - the
+    /// one a detector that fits the frame has always used, and its output is unchanged. A window of a larger
+    /// detector passes the scale of its whole pattern: `simulate.model_inputs` scales the native pattern, then
+    /// fits it, so every window of one pattern must see one scale, not its own maximum's.
+    package static func modelInputs(pattern: [Float], probe: [Float], correlation: [Float], countScale: Float? = nil) -> [Float16] {
         let n = inputSize * inputSize
         precondition(pattern.count == n && probe.count == n && correlation.count == n)
         var out = [Float16](repeating: 0, count: 3 * n)
-        let counts = toCounts(pattern)
+        let counts: [Float]
+        if let s = countScale { counts = s == 1 ? pattern : pattern.map { $0 * s } } else { counts = toCounts(pattern) }
         let pMin = counts.min() ?? 0
         var logged = [Float](repeating: 0, count: n)
         for i in 0..<n { logged[i] = log1p(max(counts[i] - pMin, 0)) }
@@ -252,6 +271,24 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         let step = max(S - min(overlap, S - 1), 1)
         let n = max(Int((Double(q - overlap) / Double(step)).rounded(.up)), 2)
         return (0..<n).map { i in Int((Double(i) * Double(q - S) / Double(n - 1)).rounded()) }
+    }
+
+    /// The edge-rule margin `(lo, hi)` of each window along one axis (D004, 2026-09-29). A window side that
+    /// is the detector's own edge (the first window's `lo`, the last window's `hi`, or the only window's both) keeps
+    /// `edge` - `edgeBoundary`, the rule the classical detector applies. A side shared with a neighbouring window
+    /// takes `min(edge, overlap / 2)`, `overlap` being the ACTUAL pixels the pair shares (`origins` spread evenly and
+    /// rounded, so 256 − step, not the nominal `windowOverlap`): the two margins of a pair then add to at most the
+    /// overlap, so the intervals the two windows accept touch and no band of the detector goes unsearched. Where the
+    /// overlap is at least `2 · edge` this is `edge` on every side - the rule as it was; the margin shrinks only
+    /// where the old rule left a gap (`edgeBoundary = qMin/24` grows with the detector, the overlap does not:
+    /// q = 1024, overlap 64 against 2·42 = 84).
+    package static func edgeMargins(origins: [Int], edge: Int) -> [(lo: Int, hi: Int)] {
+        let S = inputSize
+        return origins.indices.map { i in
+            let lo = i == 0 ? edge : min(edge, max(origins[i - 1] + S - origins[i], 0) / 2)
+            let hi = i == origins.count - 1 ? edge : min(edge, max(origins[i] + S - origins[i + 1], 0) / 2)
+            return (lo, hi)
+        }
     }
 
     /// Merge one scan position's per-window peaks, already shifted to the full
@@ -356,7 +393,11 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// the count per position. Provenance carries the classical parameters, the learned
     /// stage's identity, and the frame (`learned_windows`, `learned_window_overlap_px`,
     /// `learned_crop_origin_*` for the one-window case — negative means padding —
-    /// `learned_window_origins` otherwise).
+    /// `learned_window_origins` otherwise). Above the frame two rules differ from the one-window case (2026-09-29, the record
+    /// docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md):
+    /// the dose scale of a float pattern (`simulate.to_counts`) is taken once from the whole pattern (`nativeCountScale`)
+    /// and shared by its windows (D098), and a window side shared with a neighbour takes the edge margin
+    /// `edgeMargins` gives, so the band between two windows is searched by at least one of them (D004).
     package func detectAll(
         cube: MTLBuffer, descriptor d: DatasetDescriptor,
         probe: DiffractionPattern, probeCentre: (x: Float, y: Float), probeRadius: Float,
@@ -376,10 +417,21 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         let colOrigins = Self.windowOrigins(q: d.qx, probeCentreOnAxis: probeCentre.x, overlap: overlap)
         let windows: [(row0: Int, col0: Int)] = rowOrigins.flatMap { r in colOrigins.map { c in (row0: r, col0: c) } }
         let nWindows = windows.count
+        // A detector covered by several windows scales the pattern's dose once, from the whole pattern (D098), and
+        // gives each window the edge margins that leave no band unsearched between neighbours (D004). One window
+        // (a detector that fits the frame) keeps the per-frame scale and the plain edge rule, unchanged.
+        let windowed = nWindows > 1
+        let rowMargins = Self.edgeMargins(origins: rowOrigins, edge: params.edgeBoundary)
+        let colMargins = Self.edgeMargins(origins: colOrigins, edge: params.edgeBoundary)
 
         // the probe's frame and its flat kernel, centred on the probe: ONE for every window.
         // Fitted like the pattern when the detector fits the frame; a centred crop clamped
-        // inside the detector when windows are needed.
+        // inside the detector when windows are needed. Probe anchor, measured 2026-09-29/30 (the record
+        // docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md): with the model's probe channel zeroed,
+        // every peak list measured was bit-identical (512 px with the beam 90 px from an edge, ten real Si_SiGe
+        // 448x480 patterns, the <= 256 px fixtures); an unclamped `fitOffset` crop (which also moves the kernel's
+        // frame) finds the same disks at 2 px; a probe crop at each window's own origin loses 5 of 320 Si_SiGe
+        // peaks. So the clamped crop stays.
         let probeRow0 = d.qy > S ? min(max(Int(probeCentre.y.rounded(.toNearestOrEven)) - S / 2, 0), d.qy - S) : rowOrigins[0]
         let probeCol0 = d.qx > S ? min(max(Int(probeCentre.x.rounded(.toNearestOrEven)) - S / 2, 0), d.qx - S) : colOrigins[0]
         var probeCrop = [Float](repeating: 0, count: S * S)
@@ -404,20 +456,33 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         let totalJobs = positions * nWindows
         let n3 = 3 * S * S
         var lastBucket = -1
+        var scaleCachePos = -1, scaleCache: Float = 1
 
         struct Shared: @unchecked Sendable {
             let base: UnsafePointer<Float>; let inputs: UnsafeMutablePointer<Float16>
             let smoothed: UnsafeMutablePointer<[Float]>; let detectors: [DiskDetector]
             let windows: [(row0: Int, col0: Int)]
+            let scales: [Float]; let firstPos: Int
+            let observer: (@Sendable (Int, [Float16]) -> Void)?
         }
         /// Channel three and the model inputs for `count` (position, window) jobs from
         /// `start`, one CPU worker per detector (this is the classical cost); the batch
         /// buffer is zero-padded past `count`. Job `j` is position `j / nWindows`, window
         /// `j % nWindows` — position-major, so consecutive jobs share a pattern.
         func prepare(start: Int, count: Int, inputs: inout [Float16], smoothed: inout [[Float]]) {
+            // one dose scale per native pattern in this batch (D098); a position spans batches, so the last is kept
+            let firstPos = start / nWindows, lastPos = (start + count - 1) / nWindows
+            var scales: [Float] = []
+            if windowed && count > 0 {
+                for pos in firstPos...lastPos {
+                    if pos != scaleCachePos { scaleCachePos = pos; scaleCache = Self.nativeCountScale(pattern: base + pos * patPix, count: patPix) }
+                    scales.append(scaleCache)
+                }
+            }
             inputs.withUnsafeMutableBufferPointer { ib in
                 smoothed.withUnsafeMutableBufferPointer { sb in
-                    let shared = Shared(base: base, inputs: ib.baseAddress!, smoothed: sb.baseAddress!, detectors: detectors, windows: windows)
+                    let shared = Shared(base: base, inputs: ib.baseAddress!, smoothed: sb.baseAddress!, detectors: detectors, windows: windows,
+                                        scales: scales, firstPos: firstPos, observer: inputObserver)
                     DispatchQueue.concurrentPerform(iterations: workers) { w in
                         var crop = [Float](repeating: 0, count: S * S)
                         for b in stride(from: w, to: count, by: workers) {
@@ -431,7 +496,9 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
                                 DiskDetector.fillNonFinite($0.baseAddress!, width: S, height: S, rowStride: S)
                             }
                             let corr = crop.withUnsafeBufferPointer { shared.detectors[w].correlation(pattern: $0.baseAddress!, params: params) }
-                            let mi = Self.modelInputs(pattern: crop, probe: probeCrop, correlation: corr.raw)
+                            let mi = Self.modelInputs(pattern: crop, probe: probeCrop, correlation: corr.raw,
+                                                      countScale: shared.scales.isEmpty ? nil : shared.scales[pos - shared.firstPos])
+                            shared.observer?(job, mi)
                             for i in 0..<n3 { shared.inputs[b * n3 + i] = mi[i] }
                             shared.smoothed[b] = corr.smoothed
                         }
@@ -445,9 +512,14 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
                 for b in 0..<count {
                     let slice = UnsafeBufferPointer(rebasing: hb[(b * S * S)..<((b + 1) * S * S)])
                     let cands = Self.pickPeaks(heatmap: slice, threshold: threshold)
-                    var peaks = detectors[0].refine(candidates: cands, smoothedCorrelation: smoothed[b], params: params)
                     let job = start + b
                     let win = windows[job % nWindows]
+                    var margins: DiskDetector.EdgeMargins?
+                    if windowed {
+                        let w = job % nWindows, r = rowMargins[w / colOrigins.count], c = colMargins[w % colOrigins.count]
+                        margins = DiskDetector.EdgeMargins(left: c.lo, right: c.hi, top: r.lo, bottom: r.hi)
+                    }
+                    var peaks = detectors[0].refine(candidates: cands, smoothedCorrelation: smoothed[b], params: params, edgeMargins: margins)
                     for i in peaks.indices { peaks[i].x += Float(win.col0); peaks[i].y += Float(win.row0) }
                     perWindowResults[job] = peaks
                 }

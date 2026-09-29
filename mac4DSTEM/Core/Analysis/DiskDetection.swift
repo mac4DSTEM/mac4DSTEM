@@ -861,6 +861,12 @@ package nonisolated final class DiskDetector {
 
     // MARK: Learned candidates (v3-plan §3a step 4, 2026-09-07)
 
+    /// The edge-rule margin of each side of a frame, in pixels (`refine`).
+    package struct EdgeMargins: Sendable {
+        package let left: Int, right: Int, top: Int, bottom: Int
+        package init(left: Int, right: Int, top: Int, bottom: Int) { self.left = left; self.right = right; self.top = top; self.bottom = bottom }
+    }
+
     /// A disk-centre proposal from the learned detector: a pixel and the net's score.
     package struct Candidate: Sendable {
         package let x: Int, y: Int, score: Float
@@ -913,11 +919,19 @@ package nonisolated final class DiskDetector {
     /// suppression ranks by the net's score, py4DSTEM by correlation intensity. Shared with
     /// py4DSTEM: the parabola is only evaluated at a local maximum (so |shift| ≤ 0.5 px),
     /// the `<` spacing test, the cap keeps the highest-ranked.
+    ///
+    /// `edgeMargins` (D004, 2026-09-29): the edge rule per side, for a window of a larger detector, whose
+    /// sides on the detector's own edge keep `edgeBoundary` and whose sides on a neighbouring window take the
+    /// margin `LearnedDiskDetector.edgeMargins` computes. `nil` (every caller but the windowed learned scan) is
+    /// `edgeBoundary` on all four sides, the rule this function always had.
     package func refine(
-        candidates: [Candidate], smoothedCorrelation ar: [Float], params: DiskDetectionParams
+        candidates: [Candidate], smoothedCorrelation ar: [Float], params: DiskDetectionParams,
+        edgeMargins: EdgeMargins? = nil
     ) -> [BraggPeak] {
         precondition(ar.count == qy * qx)
         let eb = Float(params.edgeBoundary)
+        let mLeft = edgeMargins.map { Float($0.left) } ?? eb, mRight = edgeMargins.map { Float($0.right) } ?? eb
+        let mTop = edgeMargins.map { Float($0.top) } ?? eb, mBottom = edgeMargins.map { Float($0.bottom) } ?? eb
         var accepted: [(peak: BraggPeak, score: Float)] = []
         accepted.reserveCapacity(candidates.count)
         for cand in candidates {
@@ -940,7 +954,7 @@ package nonisolated final class DiskDetector {
             let dx = (ix1 - ix1_) / (4 * ix0 - 2 * ix1 - 2 * ix1_)
             let dy = (iy1 - iy1_) / (4 * ix0 - 2 * iy1 - 2 * iy1_)
             let x = Float(bx) + (dx.isFinite ? dx : 0), y = Float(by) + (dy.isFinite ? dy : 0)
-            guard x >= eb, x < Float(qx) - eb, y >= eb, y < Float(qy) - eb else { continue }
+            guard x >= mLeft, x < Float(qx) - mRight, y >= mTop, y < Float(qy) - mBottom else { continue }
             // bilinear intensity at the refined position (as polyRefine reports it)
             let x0 = Int(x.rounded(.down)), y0 = Int(y.rounded(.down))
             let x1 = min(x0 + 1, qx - 1), y1 = min(y0 + 1, qy - 1)
