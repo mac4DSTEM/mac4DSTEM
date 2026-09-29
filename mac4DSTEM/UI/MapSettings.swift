@@ -321,7 +321,7 @@ private struct DiskDetectionRows: View {
         if appState.diskDetectionSettingsAreStale {
             DetectionSettingsStaleWarning(reason: "before using the new settings for strain or ACOM")
         } else if let count = appState.resultPresentation.braggPeakCount {
-            InspectorValueRow("Peaks found", "\(count)")
+            InspectorValueRow("Peaks found", SystemMonitor.count(count))
             if let summary = appState.completedDiskSummary {
                 // Warnings come first: a green "Disks ✓" peak count can be
                 // followed by a median ≤ 1 warning that means one peak per

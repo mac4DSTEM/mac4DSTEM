@@ -733,7 +733,7 @@ extension AppState {
             if let threshold = controls.learnedThreshold { learnedDetection.threshold = threshold }
         }
         let detected = step.recorded.formatted(date: .abbreviated, time: .omitted)
-        return "Disks restored from the session — \(grid.vectors.totalPeakCount) peaks (detected \(detected))"
+        return "Disks restored from the session — \(SystemMonitor.count(grid.vectors.totalPeakCount)) peaks (detected \(detected))"
     }
 
     /// Sample a cheap preview before the expensive passes, so the open shows

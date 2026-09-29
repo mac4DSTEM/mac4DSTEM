@@ -357,7 +357,7 @@ final class BraggPeakRestoreOnOpenTests: XCTestCase {
             XCTAssertEqual(restored.peaks[index].map(\.x.bitPattern), written.peaks[index].map(\.x.bitPattern))
             XCTAssertEqual(restored.peaks[index].map(\.y.bitPattern), written.peaks[index].map(\.y.bitPattern))
         }
-        XCTAssertTrue(state.statusText.hasPrefix("Disks restored from the session — \(written.totalPeakCount) peaks (detected "),
+        XCTAssertTrue(state.statusText.hasPrefix("Disks restored from the session — \(SystemMonitor.count(written.totalPeakCount)) peaks (detected "),
                       "Status was: \(state.statusText)")
         XCTAssertTrue(state.hasCurrentBraggVectors,
                       "Restored peaks that the recorded step vouches for are current")
