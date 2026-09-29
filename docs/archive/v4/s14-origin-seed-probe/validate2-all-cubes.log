@@ -1,0 +1,12 @@
+WS2 | r=1.8584 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 12 | V1n==f64 60 | V0-vs-twin max 1.8e-05 bad 0
+SiSiGe_exp | r=3.7383 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 6.1e-06 bad 0
+Particle_1 | r=6.1229 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 3.4e-05 bad 0
+simAu_poly | r=5.1173 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 2.3e-05 bad 0
+simAu_nano | r=5.1133 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 2.8e-05 bad 0
+bullseye_polyAu | r=6.8429 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 4.8e-05 bad 0
+bullseye_sim | r=6.7815 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 4.1e-05 bad 0
+SiSiGe_cal | r=3.6933 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 8.5e-05 bad 0
+Au_ref | r=8.0556 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 5.6e-05 bad 0
+AlMgSi_060 | r=2.5403 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 1.2e-05 bad 0
+thronsenA | r=2.8352 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 2.1e-05 bad 0
+demo_cube | r=2.9849 | n=60 | G==scipy 60 | V1==f64 60 | V2==f64 60 | V1n==f64 60 | V0-vs-twin max 2.2e-05 bad 0

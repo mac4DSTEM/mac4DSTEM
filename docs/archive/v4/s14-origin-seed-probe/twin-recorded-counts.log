@@ -1,0 +1,16 @@
+== downsample_Si_SiGe_exp.h5  q=128x128  sample=169  r=3.645  1.2r=4.373  r+1.5=5.145  win_new=5.145
+   innermost ring radius ~50.25   nearest off-beam local max at 7.41 px;  window admits ring inner edge (ring - r < win)? no (old 1.2r: no)
+   OLD  mean (69.5285, 56.5424)  median (68.5791, 49.2393)  sd (6.087, 9.057)
+   NEW  mean (69.4925, 56.4886)  median (68.5673, 49.2313)  sd (6.181, 9.012)
+   PY   mean (70.1220, 57.4886)  median (68.5009, 58.3326)  sd (6.796, 8.841)
+   WIDE mean (70.1037, 57.4871)  median (68.4947, 58.3188)  sd (6.789, 8.822)
+   NEW-OLD mean shift (-0.0360, -0.0538);  NEW-WIDE (-0.6112, -0.9985);  OLD-WIDE (-0.5752, -0.9447);  PY-WIDE (+0.0183, +0.0014)
+   per-pattern |NEW-WIDE| max 29.375   |OLD-WIDE| max 29.365   |PY-WIDE| max 0.272
+== Particle_1_Stack_1_45x90_ss30nm_0p09s_sp  q=128x128  sample=195  r=5.577  1.2r=6.692  r+1.5=7.077  win_new=7.077
+   innermost ring radius ~19.25   nearest off-beam local max at 8.44 px;  window admits ring inner edge (ring - r < win)? no (old 1.2r: no)
+   OLD  mean (65.4894, 71.3090)  median (63.6885, 70.8794)  sd (10.933, 13.766)
+   NEW  mean (65.4485, 71.3167)  median (64.6309, 71.2776)  sd (10.875, 13.748)
+   PY   mean (65.4070, 71.9119)  median (64.9656, 71.1598)  sd (11.963, 14.030)
+   WIDE mean (65.3851, 71.8797)  median (64.9672, 71.3509)  sd (11.062, 13.202)
+   NEW-OLD mean shift (-0.0409, +0.0077);  NEW-WIDE (+0.0634, -0.5630);  OLD-WIDE (+0.1044, -0.5706);  PY-WIDE (+0.0220, +0.0322)
+   per-pattern |NEW-WIDE| max 73.718   |OLD-WIDE| max 74.114   |PY-WIDE| max 10.957

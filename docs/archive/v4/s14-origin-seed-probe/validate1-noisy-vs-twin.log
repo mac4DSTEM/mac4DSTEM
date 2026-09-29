@@ -1,0 +1,14 @@
+== SiSiGe_exp sample 169
+ [twin r 3.645] >1px of PY: OLD euclid 28/169  NEW euclid 28  OLD per-axis 28  NEW per-axis 28
+ [app r 3.7383] >1px of PY: OLD euclid 28/169  NEW euclid 28  OLD per-axis 28  NEW per-axis 28
+ B: GPU V0 vs twin NEW(app r): max 8.11e-06  n>1e-3: 0  median 2.67e-06
+ C: G seed == scipy on 169/169; G refined vs twin refine of scipy seed: max 8.69e-06 n>1e-3 0
+ D: V1 (hw 4) seed == float64 clipped-box argmax on 169/169
+ D: V2 (hw 6) seed == float64 clipped-box argmax on 169/169
+== Particle_1 sample 195
+ [twin r 5.577] >1px of PY: OLD euclid 70/195  NEW euclid 29  OLD per-axis 65  NEW per-axis 26
+ [app r 6.1229] >1px of PY: OLD euclid 73/195  NEW euclid 32  OLD per-axis 66  NEW per-axis 27
+ B: GPU V0 vs twin NEW(app r): max 5.30e-05  n>1e-3: 0  median 5.37e-06
+ C: G seed == scipy on 195/195; G refined vs twin refine of scipy seed: max 5.30e-05 n>1e-3 0
+ D: V1 (hw 6) seed == float64 clipped-box argmax on 195/195
+ D: V2 (hw 11) seed == float64 clipped-box argmax on 195/195
