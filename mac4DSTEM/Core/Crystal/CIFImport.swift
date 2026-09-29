@@ -69,6 +69,11 @@ package nonisolated enum CIFImportError: LocalizedError, Equatable {
     /// The assembled model failed `CrystalModel.validationIssues` for a
     /// reason not already surfaced as a more specific case above.
     case invalidModel([String])
+    /// More than one `data_` block defines a structure (a cell or an atom-site
+    /// loop). The parser keeps one set of cell values and one atom list, so
+    /// reading on would merge the blocks into a crystal that is none of them
+    /// (D006). Names are the structure-defining blocks, in file order.
+    case multipleStructures(blockNames: [String])
 
     package var errorDescription: String? {
         switch self {
@@ -96,6 +101,8 @@ package nonisolated enum CIFImportError: LocalizedError, Equatable {
             return "The atom positions are written to \(decimals) decimal places, which is too coarse to confirm \(family) symmetry — at that precision a real symmetry break is indistinguishable from the rounding in the coordinates themselves. mac4DSTEM will not assume the symmetry, because assuming it would fabricate an orientation colour key. Re-export the CIF with more decimal places."
         case .invalidModel(let issues):
             return "Imported crystal model failed validation: \(issues.joined(separator: "; "))."
+        case .multipleStructures(let names):
+            return "This CIF holds \(names.count) structures (\(names.joined(separator: ", "))); import one at a time. Split the file so each data_ block is its own CIF — reading them together would merge their cells and atoms into one crystal that is none of them."
         }
     }
 }
@@ -198,6 +205,9 @@ package nonisolated enum CIFImport {
         let tokens = tokenize(text)
 
         var dataBlockName: String?
+        // Every `data_` block seen, and whether it defines a structure. A
+        // journal-only block (`data_global`) defines none and is not counted.
+        var blocks: [(name: String, definesStructure: Bool)] = []
         var cellValues: [String: String] = [:]
         var atomSiteRows: [[String: String]] = []
         var symmetryOps: [String] = []
@@ -212,8 +222,9 @@ package nonisolated enum CIFImport {
             let token = tokens[index]
 
             if isDataBlock(token) {
+                let name = String(token.dropFirst("data_".count))
+                blocks.append((name: name.isEmpty ? "(unnamed)" : name, definesStructure: false))
                 if dataBlockName == nil {
-                    let name = String(token.dropFirst("data_".count))
                     dataBlockName = name.isEmpty ? nil : name
                 }
                 index += 1
@@ -258,6 +269,7 @@ package nonisolated enum CIFImport {
                 }
 
                 if loopTags.contains("_atom_site_fract_x") {
+                    if !blocks.isEmpty { blocks[blocks.count - 1].definesStructure = true }
                     atomSiteRows.append(contentsOf: rows)
                 } else if loopTags.contains("_symmetry_equiv_pos_as_xyz")
                     || loopTags.contains("_space_group_symop_operation_xyz") {
@@ -274,6 +286,9 @@ package nonisolated enum CIFImport {
             if isTag(token) {
                 let tag = token.lowercased()
                 guard index + 1 < tokens.count else { break }
+                if tag == "_cell_length_a", !blocks.isEmpty {
+                    blocks[blocks.count - 1].definesStructure = true
+                }
                 cellValues[tag] = tokens[index + 1]
                 index += 2
                 continue
@@ -282,6 +297,11 @@ package nonisolated enum CIFImport {
             // Stray value with no owning tag/loop (e.g. leftover from a
             // construct we don't model) — skip it and keep scanning.
             index += 1
+        }
+
+        let structureBlocks = blocks.filter(\.definesStructure)
+        if structureBlocks.count > 1 {
+            throw CIFImportError.multipleStructures(blockNames: structureBlocks.map(\.name))
         }
 
         func requiredNumber(_ tag: String) throws -> Double {

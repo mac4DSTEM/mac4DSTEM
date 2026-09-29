@@ -25,13 +25,14 @@ In the app (2026-09-30, scratch build, Thronsen A 171², 128²): learned Detect 
 1.63–1.67 GB (peak 1.72 GB), 955 MB after. **Open:** `VirtualDetector`'s tiled loops have the same shape (maybe the
 unexplained ≈ 0.93 GB baseline). D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits all four datasets.
 
-### The 2026-09-09 register, triaged 2026-09-29 — 8 Gate D candidates left (D019, D023, D025 fixed 2026-09-30)
+### The 2026-09-09 register, triaged 2026-09-29 — 5 Gate D candidates left (D006, D019, D021, D023, D025, D079 fixed 2026-09-30)
 All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`); D019/D023/D025 fixed with
-refuters (`archive/v4/register-D019-D023-D025-gateD-2026-09-30.md`). Reachable, each its own Gate D: **D079**
-parallax/ptycho take the aperture centre, not the fitted origin; **D098**, **D004** learned-detector window effects over
-256 px; **D068** calibration edits never stale a strain map; **D017**, **D020**, **D006**, **D021** (see the record).
-New from the D023 refuter: `occupiedPositions` (`StrainMapping.swift`) counts central-beam-only positions, raising the
-minimum cluster support — at 95 % central-only no basis. Owner: order.
+refuters (`archive/v4/register-D019-D023-D025-gateD-2026-09-30.md`). D006 (multi-`data_` CIF refused, structure blocks
+named), D021 (parallax stack mean in Double) and D079 (ptychography origin = `Calibration.referenceOrigin`) fixed (`archive/v4/register-D006-D021-D079-gateD-2026-09-30.md`), refuter
+held (D079's drag symptom is by design; the gap was replay/lineage restore; a pre-fix record whose aperture differs from the
+fit now reproduces a different ptycho result, intended). Residual: a second CIF block with only a symmetry loop still merges. Reachable, each its own Gate D: **D098**, **D004** learned-detector window effects over
+256 px; **D068** calibration edits never stale a strain map; **D017**, **D020** (see the record).
+Owner: order. (`occupiedPositions` fixed 2026-09-30: `archive/v4/gateD-occupied-aperture-drag-2026-09-30.md`.)
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
 `Core/Crystal/PhaseVectorMatching.swift`: `minimumVectors` = 2 (`:73`, applied `:882`), so a position is "matrix" when almost

@@ -66,6 +66,9 @@ package nonisolated enum PtychographyPreparer {
                 let sourceBase = scanColumn * detectorCount
                 let destinationBase = (scanRow * descriptor.rx + scanColumn)
                     * detectorCount
+                // DEVIATION (D079 refuter): py4DSTEM shifts each pattern by its own
+                // fitted origin (`com_fitted` per position); this shifts every
+                // pattern by the one mean origin `diffractionOrigin` resolves.
                 for row in 0..<descriptor.qy {
                     let sourceRow = Float(row) + Float(calibration.originQX)
                     let rowFloor = Int(floor(sourceRow))

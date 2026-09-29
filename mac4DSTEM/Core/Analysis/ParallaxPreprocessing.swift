@@ -40,6 +40,35 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
     package let rotationRad: Double
     package let transpose: Bool
 
+    /// The diffraction origin this calibration carries, as py4DSTEM's
+    /// detector axes `(qx, qy)` = (row, column) — D079. Only single-slice
+    /// ptychography reads it (`PtychographyPreparation`, the per-pattern
+    /// shift); parallax itself never reads `originQX`/`originQY`.
+    ///
+    /// This is `Calibration.referenceOrigin`, the one derivation every other
+    /// consumer (DPC, strain, ACOM, Bragg calibration) already asks: fitted
+    /// maps' mean → the file's/session's recorded mean → the aperture the user
+    /// placed. `resolve` used to take the aperture centre unconditionally, so
+    /// whenever the aperture and the calibration disagreed — the aperture is
+    /// assigned directly, bypassing `AppState.updateAperture`, by replay and by
+    /// lineage restore — parallax/ptychography and every other analysis used
+    /// two different origins. In the ordinary flow they coincide (a fit or a
+    /// file load moves the aperture onto the same mean, and a drag through
+    /// `updateAperture` displaces the fit so the aperture IS the origin), so no
+    /// number moves there. The geometric-middle fallback is unreachable: the
+    /// aperture is always supplied, and `resolve` refuses `.geometricDefault`
+    /// before asking.
+    package static func diffractionOrigin(
+        calibration: Calibration, apertureCentre: (x: Float, y: Float)
+    ) -> (qx: Double, qy: Double) {
+        let origin = calibration.referenceOrigin(
+            detectorQX: 0, detectorQY: 0, apertureCentre: apertureCentre
+        )
+        // One explicit app -> py4DSTEM detector-axis conversion:
+        // app x is the detector column (qy), app y the row (qx).
+        return (qx: Double(origin.y), qy: Double(origin.x))
+    }
+
     package static func resolve(
         calibration: Calibration,
         apertureCenterX: Float,
@@ -56,6 +85,9 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
                 "Set a finite diffraction origin."
             )
         }
+        let origin = diffractionOrigin(
+            calibration: calibration, apertureCentre: (x: apertureCenterX, y: apertureCenterY)
+        )
         guard let rotation = calibration.rotationRad, rotation.isFinite else {
             throw ParallaxPreprocessor.PreprocessError.missingCalibration(
                 "Calibrate the R–Q rotation."
@@ -94,9 +126,8 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
             reciprocalSamplingInvAngstrom: reciprocalSampling,
             energyEV: energyEV,
             wavelengthAngstrom: wavelength,
-            // One explicit app -> py4DSTEM detector-axis conversion.
-            originQX: Double(apertureCenterY),
-            originQY: Double(apertureCenterX),
+            originQX: origin.qx,
+            originQY: origin.qy,
             rotationRad: Double(rotation),
             transpose: calibration.transposeQR ?? false
         )
@@ -419,7 +450,7 @@ package nonisolated enum ParallaxPreprocessor {
         }
         try checkCancellation(cancellation)
 
-        let stackMean = Float(Double(stack.reduce(0, +)) / Double(stack.count))
+        let stackMean = Self.stackMean(stack)
         guard stackMean.isFinite, stackMean > 0 else {
             throw PreprocessError.invalidData("the normalized stack mean is not positive")
         }
@@ -458,6 +489,22 @@ package nonisolated enum ParallaxPreprocessor {
             unshiftedStack: unshiftedStack,
             incoherentBF: incoherent, initialError: initialError
         )
+    }
+
+    /// py4DSTEM `parallax.py:806` `self._stack_mean = xp.mean(self._stack_BF_shifted)`.
+    ///
+    /// DEVIATION (D021): numpy's float32 mean is pairwise-summed, i.e. accurate
+    /// to ~1e-7; this accumulates sequentially in **Double**, which agrees with
+    /// it to that level. The previous `stack.reduce(0, +)` inferred `Float` and
+    /// froze at 2^24 = 16 777 216 (adding 1.0 to it rounds to nothing), so a
+    /// stack of ~1-valued elements longer than that — 100 BF images of 512×512 —
+    /// read as `16777216 / count` (0.645 at 26 M) and the incoherent
+    /// initialisation and `initialError` were normalised by the wrong number.
+    /// `package`, not private, so a test needs no full parallax run.
+    package static func stackMean(_ stack: [Float]) -> Float {
+        var total = 0.0
+        for value in stack { total += Double(value) }
+        return Float(total / Double(stack.count))
     }
 
     private static func edgeWindowAxis(count: Int, blend: Float) -> [Float] {
