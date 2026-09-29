@@ -60,9 +60,17 @@ package nonisolated enum PhaseMapPresentation {
         r.verdict == .matrix && r.matchedCount > 0
     }
 
-    /// The challenged subset's diagonal stripe, in map pixels (same period as
-    /// the "not indexed" hatch so the two share one visual grammar).
-    package static func isChallengedStripe(x: Int, y: Int) -> Bool { (x + y) % 6 < 3 }
+    /// The diagonal stripe both striped classes share (challenged matrix and
+    /// "not indexed"), in map pixels: period 6 along x + y, half of it the
+    /// first tone. The map painter and the legend swatch both read this, so
+    /// the swatch cannot drift from the map.
+    package static let stripePeriod = 6
+    package static func isFirstStripeTone(x: Int, y: Int) -> Bool {
+        (x + y) % stripePeriod < stripePeriod / 2
+    }
+    package static func isChallengedStripe(x: Int, y: Int) -> Bool {
+        isFirstStripeTone(x: x, y: y)
+    }
 
     /// How much of this position's detected signal the matrix explained, or
     /// nil where the question does not apply (nothing detected).
@@ -129,7 +137,7 @@ package nonisolated enum PhaseMapPresentation {
                     // A 6-pixel diagonal stripe: unmistakable at any zoom, and
                     // it survives every colour map because it is two greys and
                     // a shape rather than a hue.
-                    rgb = ((x + y) % 6 < 3) ? notIndexedColors.0 : notIndexedColors.1
+                    rgb = isFirstStripeTone(x: x, y: y) ? notIndexedColors.0 : notIndexedColors.1
                 case .noData:
                     rgb = (0, 0, 0); alpha = 0
                 }
@@ -160,8 +168,11 @@ package nonisolated enum PhaseMapPresentation {
     /// count, not an extra verdict, so the fractions overlap by design.
     package struct LegendRow: Sendable {
         package let label: String
+        /// The row's tone where `isFirstStripeTone` holds (a solid swatch when
+        /// `stripe` is nil).
         package let color: RGB
-        package let hatched: Bool
+        /// The second stripe tone, exactly as the map paints it; nil = solid.
+        package let stripe: RGB?
         package let count: Int
         package let fraction: Double
     }
@@ -175,24 +186,24 @@ package nonisolated enum PhaseMapPresentation {
             rows.append(LegendRow(
                 label: index == map.matrixPhaseIndex ? "\(name) (matrix)" : name,
                 color: color(phaseIndex: index, matrixPhaseIndex: map.matrixPhaseIndex),
-                hatched: false, count: count, fraction: Double(count) / Double(total)))
+                stripe: nil, count: count, fraction: Double(count) / Double(total)))
             if index == map.matrixPhaseIndex {
                 let challenged = map.results.filter(isChallengedMatrix).count
                 if challenged > 0 {
                     rows.append(LegendRow(
                         label: "of which challenged", color: challengedMatrixStripe,
-                        hatched: true, count: challenged,
+                        stripe: matrixColor, count: challenged,
                         fraction: Double(challenged) / Double(total)))
                 }
             }
         }
         let notIndexed = map.count(of: .notIndexed)
         rows.append(LegendRow(label: "Not indexed", color: notIndexedColors.0,
-                              hatched: true, count: notIndexed,
+                              stripe: notIndexedColors.1, count: notIndexed,
                               fraction: Double(notIndexed) / Double(total)))
         let noData = map.count(of: .noData)
         if noData > 0 {
-            rows.append(LegendRow(label: "No peaks", color: (0, 0, 0), hatched: false,
+            rows.append(LegendRow(label: "No peaks", color: (0, 0, 0), stripe: nil,
                                   count: noData, fraction: Double(noData) / Double(total)))
         }
         return rows

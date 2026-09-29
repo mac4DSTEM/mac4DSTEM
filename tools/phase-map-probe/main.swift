@@ -2721,7 +2721,7 @@ enum Probe {
         for row in PhaseMapPresentation.legend(map) {
             print(String(format: "  legend %-16@ rgb(%3d,%3d,%3d)%@ %5.1f %%",
                          row.label as NSString, Int(row.color.r), Int(row.color.g),
-                         Int(row.color.b), row.hatched ? " hatched" : "        ",
+                         Int(row.color.b), row.stripe != nil ? " hatched" : "        ",
                          100 * row.fraction))
         }
     }

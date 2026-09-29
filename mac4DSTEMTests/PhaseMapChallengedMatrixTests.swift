@@ -89,6 +89,43 @@ final class PhaseMapChallengedMatrixTests: XCTestCase {
                        "no challenged position, no row")
     }
 
+    /// The legend swatch of each striped class may carry only tones the map
+    /// really paints for that class, and both of them. The map side is read
+    /// off the rendered pixels, not from the constants, so a swatch colour
+    /// the map never draws (the 2026-09 defect: a solid (98,98,110) and a
+    /// flat grey 168 in the legend against stripes on the map) goes red.
+    ///
+    /// Mutation (turns it red): in `PhaseMapPresentation.legend`, change the
+    /// challenged row's `stripe: matrixColor` to `stripe: nil` (or to any
+    /// other colour); likewise `stripe: notIndexedColors.1` in the
+    /// "Not indexed" row.
+    func testStripedLegendRowsCarryExactlyTheTonesTheMapPaints() {
+        var m = PhaseMap(width: 6, height: 3, matrixEntryIndex: 0,
+                         phaseNames: ["Al", "β″"], matrixPhaseIndex: 0)
+        for x in 0..<6 { m.results[x] = result(.matrix, matched: 5) }      // row 0: challenged
+        for x in 0..<6 { m.results[6 + x] = result(.notIndexed) }          // row 1: not indexed
+        for x in 0..<6 { m.results[12 + x] = result(.matrix, matched: 0) } // row 2: exclusion
+        let image = PhaseMapPresentation.image(m)
+        func tones(row y: Int) -> Set<[UInt8]> {
+            Set((0..<6).map { x -> [UInt8] in
+                let i = (y * 6 + x) * 4
+                return [image.rgba[i], image.rgba[i + 1], image.rgba[i + 2]]
+            })
+        }
+        func legendTones(_ label: String) -> Set<[UInt8]>? {
+            guard let row = PhaseMapPresentation.legend(m).first(where: { $0.label == label })
+            else { return nil }
+            guard let second = row.stripe else { return [[row.color.r, row.color.g, row.color.b]] }
+            return [[row.color.r, row.color.g, row.color.b], [second.r, second.g, second.b]]
+        }
+        XCTAssertEqual(tones(row: 0).count, 2, "the map stripes the challenged row in two tones")
+        XCTAssertEqual(legendTones("of which challenged"), tones(row: 0))
+        XCTAssertEqual(tones(row: 1).count, 2, "the map stripes the not-indexed row in two tones")
+        XCTAssertEqual(legendTones("Not indexed"), tones(row: 1))
+        XCTAssertEqual(tones(row: 2).count, 1, "exclusion stays one flat tone")
+        XCTAssertEqual(legendTones("Al (matrix)"), tones(row: 2))
+    }
+
     /// The evidence line and the map share one classification.
     func testEvidenceLineAgreesWithTheClassification() {
         let m = map()

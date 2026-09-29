@@ -401,19 +401,38 @@ struct PhaseMappingSections: View {
     }
 
     private func swatch(_ row: PhaseMapPresentation.LegendRow) -> some View {
-        RoundedRectangle(cornerRadius: 2)
-            .fill(Color(red: Double(row.color.r) / 255,
-                        green: Double(row.color.g) / 255,
-                        blue: Double(row.color.b) / 255))
-            .frame(width: LayoutPolicy.legendSwatch, height: LayoutPolicy.legendSwatch)
-            .overlay {
-                // The hatch that marks "not indexed" on the map is repeated
-                // here, so the legend cannot read as one more phase colour.
-                if row.hatched {
-                    RoundedRectangle(cornerRadius: 2)
-                        .strokeBorder(.primary.opacity(0.5), lineWidth: 1)
-                }
+        func tone(_ c: PhaseMapPresentation.RGB) -> Color {
+            Color(red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
+        }
+        let side = LayoutPolicy.legendSwatch
+        let shape = RoundedRectangle(cornerRadius: 2)
+        return Canvas { context, _ in
+            guard let second = row.stripe else {
+                context.fill(Path(CGRect(x: 0, y: 0, width: side, height: side)),
+                             with: .color(tone(row.color)))
+                return
             }
+            // The map's stripe (`isFirstStripeTone`: first tone where
+            // (x + y) % period < period / 2) at 1 pt per map pixel, so the
+            // swatch shows exactly the two tones and the orientation the map
+            // draws; a 12-pt swatch carries four periods.
+            let period = CGFloat(PhaseMapPresentation.stripePeriod)
+            context.fill(Path(CGRect(x: 0, y: 0, width: side, height: side)),
+                         with: .color(tone(second)))
+            var band = Path()
+            var k: CGFloat = 0
+            while k < 2 * side {
+                band.move(to: CGPoint(x: k, y: 0))
+                band.addLine(to: CGPoint(x: k + period / 2, y: 0))
+                band.addLine(to: CGPoint(x: 0, y: k + period / 2))
+                band.addLine(to: CGPoint(x: 0, y: k))
+                band.closeSubpath()
+                k += period
+            }
+            context.fill(band, with: .color(tone(row.color)))
+        }
+        .frame(width: side, height: side)
+        .clipShape(shape)
     }
 
     // MARK: Phase list
