@@ -39,7 +39,7 @@ ACOM map instead of marking it stale; D069 (an unresolved ACOM model compares no
 labelled as saved anywhere. (`occupiedPositions`: `archive/v4/gateD-occupied-aperture-drag-2026-09-30.md`.)
 
 ### Phase mapping's matrix verdict is by exclusion, and the cross-phase winner ignores completeness — MEASURED, unwired candidate parked
-`Core/Crystal/PhaseVectorMatching.swift`: `minimumVectors` = 2 (`:73`, applied `:882`), so a position is "matrix" when almost
+`Core/Crystal/PhaseVectorMatching.swift`: `minimumVectors` = 2 (`:73`, applied `:947`), so a position is "matrix" when almost
 nothing survives removal; the best entry per phase is chosen by mean distance alone (Gate B 2026-09-15: 0.004 two-vector
 beats 0.012 ten-vector). The count-aware candidate (`completenessAwareCrossPhaseRanking`, `:182`, off) is byte-identical on
 the demo cube on or off; Thronsen is not a valid second measurement; step 3 stride-3 sits outside every threshold tried.
@@ -56,7 +56,7 @@ surface. Owner: unclaimed. Detail: `archive/open-items-detail-2026-09-18.md`.
   dump the winner's and the true axis's templates for one failing case.
 - **26 of 200 templates fail to recover themselves off-grid** (2026-09-14) by 1.7–9.3°, 0/200 on-grid; two hypotheses spent; Gate D owed.
 - **Rotation null loses power at the highest noise**: 3/12 refused at sd 0.05 vs 0/60 shuffle null; the demo cube (sd≈0.010) is
-  certified 2/60 — "measured −67.5°" recurs ~1 in 30. `power_radial` is omitted by decision (DEVIATION, `OrientationPlan.swift:212-229`).
+  certified 2/60 — "measured −67.5°" recurs ~1 in 30.
 Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
 ### Origin-fit and Q-calibration open holes
@@ -72,9 +72,7 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) and `archive/v4/open-items-detail-2026-09-25.md`.
 - T1 [0 -4 1]: 252 not-indexed positions are detection noise (a Friedel pair 2.5–5.2° off); levers (centroiding, tolerance, accept) are the owner's.
 - R–Q (ADR 040) residuals: a datacube exported before 2026-09-28 and reopened is sign-flipped; the campaign report and the parallax fit's own rotation keep the old sign / are untested.
-- Diffraction groups: profile Release vs Debug before deciding the two-pass path's fate (it is now test-reachable via `cacheBudgetBytes`).
 - Al-Mg-Si peak set: 39 % explained by the best Al orientation (2026-09-12) — detection, not the matcher.
-- β″ zone axes presented under ⟨110⟩Al unanswered (known, scoped).
 - Region circle radius: the mask takes centres up to ½ px outside the drawn ring (`R + 0.5`, strict `<`; R 5: 97 px vs `d ≤ R` 81, py4DSTEM 69) — own Gate D (D025 refuter).
 - Bullseye detection accepts noise: outer-edge probe size for structured probes open.
 - Twisted bilayer graphene finds only the beam at defaults — Gate D with a per-pattern funnel.
@@ -86,38 +84,31 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 ### Other named presentation and trust residuals
 One line each; full wording as above.
 - Ellipse "Fit anyway" mark lost on a session round trip — sidecar wire-format decision.
-- The objects picture (`PrecipitateObjectReport.swift:200`) paints challenged matrix flat; the phase map stripes it. Presentation.
+- The objects picture (`PrecipitateObjectReport.image`, `Session/PrecipitateObjectReport.swift:192`) paints challenged matrix flat; the phase map stripes it. Presentation.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - "Computed this session" reports what exists, not what was computed. Presentation.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results; objects redrawn at a new minimum size republish under the old run.
 - The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
 - Moving the detector destroys the origin fit with no durable warning — owner: confirm, banner or refuse.
-- Strain unlocks on vectors existing, not usable (it now fails with the named cause; the one-peak warning above "Per pattern" — both seen 2026-09-30). No Gate D.
 
 ## Polish — the Session queue's rooms (S3–S6)
 
-### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe
-- The zone-axis ranking's stale check covers Q, origin and ellipse only; a changed matrix phase or matching tolerance still shows it as current (Fable refuter, 2026-09-30). Single-slice ptychography products no longer carry `analysis_mode` (no reader).
-- Fixed and seen 2026-09-30 (`archive/v4/drives-2026-09-30.md`): phase mapping and Find Matrix Zone Axis require a physical
-  Q scale; the zone-axis list shows "…changed since this ranking — fit again" once Q moves (the origin variant fired after a
-  Plane → Parabola re-fit; an identical re-fit untried). The tie order is a total order (the probe's Dictionary, fixed).
+### S4 Phases & precipitates: residuals (the zone-axis stale check, the busy line, a challenged matrix position)
+- The zone-axis ranking's stale check covers Q, origin and ellipse only (`PhaseMappingProduct.swift`, `ZoneAxisRun.staleness`);
+  a changed matrix phase or matching tolerance still shows it as current (Fable refuter, 2026-09-30).
 - At 1000 pt a busy run clips the status text and hides the metrics line; the panes widen while busy so the inspector
-  covers ~110 pt of the phase map (`report-drive3.md` step 4): metrics get truncation priority, split fraction constant.
-- The claimed-disks overlay and the Al–Mg–Si preset were driven 2026-09-30 (`c8db808`, `archive/v4/clearing-board-2026-09-30-shots/`).
-  Residual: a challenge-turned matrix position shows its disks as unexplained (the challenger's axis is not recorded).
+  covers ~110 pt of the phase map (original wording, `archive/closed-items-2026-09.md`): metrics get truncation priority,
+  split fraction constant.
+- A challenge-turned matrix position shows its disks as unexplained in the claimed-disks overlay (the challenger's axis is not recorded).
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
 - **A superseded load's tail still runs `discardPartialLoad`** (`AppState+Open.swift:810`) over whatever load is current;
   the owned cancel token (S5) stops it clearing busy, not the reset. Needs two loads in flight (promote/replay).
-- **Fabricated provenance on pre-2026-08-18 sidecars**: `AppState+Open.swift:700,893,906` `?? .fullExtent`. Needs a synthesised sidecar.
+- **Fabricated provenance on pre-2026-08-18 sidecars**: `AppState+Open.swift:696,901,917` `?? .fullExtent`. Needs a synthesised sidecar.
 - **Promote/replay**: (a) promote lands at (0,0)? (b) fitted origin maps refuse the full-extent restore's shape check; (c)
   parallax/ptychography not in the replay record; (d) a user analysis mid-replay steals Cancel; (e) replay contracts in three places.
 - **Resident**: "freed" bytes never measured; the reopen fix has no test (the recovery store is real `UserDefaults`). UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
   `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
-
-### S6 closed 2026-09-30 (driven); what the drive found next
-- **No workflow logic in the rooms** (2026-09-29): judged against the 2026-09-21 critique — closed, the rooms carry the
-  calibration rows, one verb each and the readiness line.
 
 ## Waits on hardware or the owner
 
@@ -127,7 +118,7 @@ One line each; full wording as above.
 - **The 28 GB `--parity` run** (`almgsi-gateD-2026-09-24.md` 6, 8). The DM4 reader maps on every `MNT_LOCAL` volume
   (`DM4Reader.readingOptions(forPath:)`; the SSD proved at 3–53 MB, `archive/v4/ssd-subsample-2026-09-29.md`). **Trap: never open
   a file over ~2 GB through an unproven path on the 8 GB Mac** (it kernel-panicked 2026-09-24). Residuals: a vanished volume is a
-  SIGBUS crash with no dialog; network volumes keep the old full read.
+  SIGBUS crash with no dialog; network volumes keep the old full read (origin calibration over a NAS ran at ~3 MB/s, 2026-08-06, uninvestigated).
 
 ### Training (ADR 043/048): the step-loop leak fixed (2026-09-30); the full C5 run and the in-app drive owed
 - MPSGraph's autoreleased results piled up in the one detached job: 10.9 MB/step → 0.04 with a per-step pool, losses
@@ -152,9 +143,7 @@ promote run. There is no automated visual baseline; drives are the evidence (sta
 ## Data, harnesses & code hygiene
 
 ### Misc data-layer items, low priority
-`#31` `validationIssues` is O(n²) in a SwiftUI view body, not cached. `#32` `isSymmetry`'s bijection check has no fixture. `#30`
-origin calibration over a NAS ran at ~3 MB/s (2026-08-06). C3 drive leftovers: staleness (f); "Fit Detector Ellipse" on the demo
-ending "residual is too large (0.247)". HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
+`#32` `isSymmetry`'s bijection check has no fixture. C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads
 both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need multi-GB data and stay diagnostics.
 
@@ -184,6 +173,7 @@ bodies in Core stay separate until a Gate D shows they should agree (ADR 015). D
 
 ### Minor tooling/hygiene residuals
 `tools/free-space.sh`: the temp prefix is spelled by producer and reaper separately and the MCP root is hardcoded — a `tools/lib/`
-constants file is deliberately NOT taken (a bad line there kills every gate). `.fixedSize()` in `UI/`: 20 call sites
-(2026-09-29) against the constraint-loop rule, one armed — the zoom badge (`ImagePanes.swift:639`) inserts/removes a child
-mid-pinch; not urgent.
+constants file is deliberately NOT taken (a bad line there kills every gate). `.fixedSize()` in `UI/` (20 call sites counted
+2026-09-29) against the constraint-loop rule: the one suspect, the zoom badge (`ImagePanes.swift:662`, in the header's
+`ViewThatFits`), is not armed by reading — monospaced digits, so its width changes only when the digit count does, and it
+is inserted once per pinch, not per tick; never seen to abort. Unverified on screen; the rule stays a review item.

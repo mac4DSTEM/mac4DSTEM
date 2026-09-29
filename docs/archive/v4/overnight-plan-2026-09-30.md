@@ -137,4 +137,10 @@ what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes
 
 ## Log
 
-- (the night appends here)
+- Step 0 (21:32): caffeinate on; owner's app not running; 9.1 GB free, swap 2.1 GB; tree clean and pushed; unit baseline
+  1203 / 0 / 2 = 1205 = `func test` on 453f344 (`unit-base.log`); screen control proven on a scratch build (a pid-pinned
+  click moved Prepare → Bragg Disks).
+- S17 Lean sweep: open-items 21 → 20 headings, 43 → 38 bullets, 189 → 179 lines (retired entries' evidence cited in the diff);
+  the two-pass diffraction-groups path KEPT — it is the memory bound past 512 MB; single pass 25.6–26.1 s vs two-pass
+  51.2–51.5 s at -O, outputs identical (`profile-dg2.log`); zoom badge not armed (by reading). Fable supervisor COMMIT;
+  unit 1250 / 0 / 3 = 1253 (`unit-b1.log`).

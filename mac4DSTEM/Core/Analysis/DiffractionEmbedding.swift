@@ -192,6 +192,15 @@ package nonisolated enum DiffractionEmbedding {
         // than hold an unbounded array. The budget is a parameter so a test
         // can reach the two-pass path with a small cube; the app never
         // passes it.
+        //
+        // The two-pass path is the memory bound, not an optimisation, and is
+        // not deletable: past the budget (524 288 positions at the default
+        // 16 x 16 binning) there is nowhere to put the vectors. It costs one
+        // extra read of the cube: on a generated 100 x 100 x 128 x 128 cube
+        // (source generation included), -O, 3 runs each, 25.6-26.1 s cached
+        // against 51.2-51.5 s two-pass, coordinates and groups identical
+        // (S17, 2026-09-30; reproduce with `testProfileSingleVersusTwoPass`
+        // in DiffractionEmbeddingTwoPassTests).
         let candidateCacheBytes = totalPositions.multipliedReportingOverflow(by: dims)
         let cacheEverything = !candidateCacheBytes.overflow
             && candidateCacheBytes.partialValue <= cacheBudgetBytes / MemoryLayout<Float>.stride

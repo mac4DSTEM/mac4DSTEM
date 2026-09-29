@@ -55,6 +55,55 @@ private actor TwoPassFixtureSource: FourDDataSource {
     func pixelCalibration() -> PixelCalibration? { nil }
 }
 
+/// Generates its patterns on demand (nothing stored), so a realistic cube can
+/// stream through `compute` without holding it — for the PROFILE_DG probe only.
+private actor GeneratedProbeSource: FourDDataSource {
+    private let shape: [Int]
+    init(ry: Int, rx: Int, qy: Int, qx: Int) { shape = [ry, rx, qy, qx] }
+
+    private func fill(_ out: inout [Float], at offset: Int, position i: Int) {
+        let qy = shape[2], qx = shape[3]
+        let s = qy / 16
+        let centres: [(Int, Int)]
+        switch i % 3 {
+        case 0: centres = [(4, 4), (4, 11), (11, 4), (11, 11)]
+        case 1: centres = [(8, 2), (8, 13)]
+        default: centres = [(2, 8), (13, 8)]
+        }
+        for k in 0..<(qy * qx) { out[offset + k] = 1 + Float((k &* 31 &+ i &* 17) % 13) * 0.05 }
+        for (cy, cx) in centres {
+            for dy in -s...s { for dx in -s...s {
+                out[offset + (cy * s + dy) * qx + cx * s + dx] = 40
+            } }
+        }
+    }
+
+    func discoverPrimaryDataset() throws -> DatasetDescriptor {
+        DatasetDescriptor(filePath: "/synthetic/probe.h5", datasetPath: "/data",
+                          shape: shape, dtypeDescription: "float32", chunkShape: nil)
+    }
+    nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+    func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+        var out = [Float](repeating: 0, count: shape[2] * shape[3])
+        fill(&out, at: 0, position: ry * shape[1] + rx)
+        return out
+    }
+    func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+        let n = shape[2] * shape[3]
+        var out = [Float](repeating: 0, count: shape[1] * n)
+        for rx in 0..<shape[1] { fill(&out, at: rx * n, position: ry * shape[1] + rx) }
+        return out
+    }
+    func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+        var pixels = [Float]()
+        for ry in yRange { pixels.append(contentsOf: try readScanRow(view, ry: ry)) }
+        return FourDScanTile(yRange: yRange, scanWidth: shape[1],
+                             detectorHeight: shape[2], detectorWidth: shape[3], pixels: pixels)
+    }
+    func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+    func pixelCalibration() -> PixelCalibration? { nil }
+}
+
 /// Progress values, collected from a `@Sendable` callback.
 private final class ProgressLog: @unchecked Sendable {
     private let lock = NSLock()
@@ -178,5 +227,56 @@ final class DiffractionEmbeddingTwoPassTests: XCTestCase {
         XCTAssertEqual(oneTile.coordinates.count, tiled.coordinates.count)
         XCTAssertLessThanOrEqual(worst, 1e-5, "tiled two-pass differs by \(worst)")
         XCTAssertEqual(oneTile.groupOf, tiled.groupOf)
+    }
+
+    /// Timing probe, not a check: `TEST_RUNNER_PROFILE_DG=1 xcodebuild test
+    /// -only-testing:mac4DSTEMTests/DiffractionEmbeddingTwoPassTests/testProfileSingleVersusTwoPass`.
+    /// One 100 x 100 x 128 x 128 generated cube at the shipped binning (16),
+    /// three runs of each path (the cache decides which path runs), wall time
+    /// only. The Core package builds -O in Debug since 9fe9440, so this is the
+    /// shipped arithmetic. Skipped otherwise.
+    func testProfileSingleVersusTwoPass() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["PROFILE_DG"] == "1",
+                          "timing probe: set TEST_RUNNER_PROFILE_DG=1")
+        let source = GeneratedProbeSource(ry: 100, rx: 100, qy: 128, qx: 128)
+        let descriptor = try await source.discoverPrimaryDataset()
+        let data = FourDArray(reader: source, descriptor: descriptor)
+        let settings = DiffractionEmbedding.Settings(binnedSize: 16, components: 10,
+                                                     groups: 6, seed: 7)
+        var last: [Bool: DiffractionEmbedding.Result] = [:]
+        var lines: [String] = []
+        func note(_ line: String) {
+            print(line)
+            lines.append(line)
+            // xcodebuild keeps test stdout only inside the .xcresult; a path in
+            // TEST_RUNNER_PROFILE_DG_OUT keeps the numbers without it.
+            if let path = ProcessInfo.processInfo.environment["PROFILE_DG_OUT"] {
+                try? (lines.joined(separator: "\n") + "\n").write(
+                    toFile: path, atomically: true, encoding: .utf8)
+            }
+        }
+        for run in 1...3 {
+            for cached in [true, false] {
+                let clock = ContinuousClock()
+                let start = clock.now
+                let result = try await DiffractionEmbedding.compute(
+                    data: data, descriptor: descriptor, settings: settings,
+                    maximumTileRows: 10,
+                    cacheBudgetBytes: cached ? DiffractionEmbedding.defaultCacheBudgetBytes : 0,
+                    cancellation: nil, progress: nil)
+                let elapsed = start.duration(to: clock.now)
+                let seconds = Double(elapsed.components.seconds)
+                    + Double(elapsed.components.attoseconds) * 1e-18
+                note(String(format: "PROFILE_DG run %d %@ %.3f s", run,
+                            cached ? "single-pass" : "two-pass ", seconds))
+                last[cached] = try XCTUnwrap(result)
+            }
+        }
+        var worst: Float = 0
+        for (a, b) in zip(last[true]!.coordinates, last[false]!.coordinates) {
+            worst = max(worst, abs(a - b))
+        }
+        note("PROFILE_DG worst coordinate difference \(worst); groups equal: "
+             + "\(last[true]!.groupOf == last[false]!.groupOf)")
     }
 }
