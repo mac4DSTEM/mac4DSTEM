@@ -28,8 +28,8 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, r
 | **Next** | C5 a full training run on real labels (driven); L4 rewind (Gate D); the claimed-disks drive after a phase-mapping run; Phase C/D/E Fable review. | Session. |
 | **Overrule on sight** | Core `-O` in Debug (`9fe9440`); ADRs 047, 048 (MPSGraph; Core ML for every model; T4 as a quantity); the D025 radius left at R + 0.5. | Owner. |
 | **Owner owed** | D1 option (a); Thronsen's written confirmation (ADR 042); the stronger Mac for the hardware lane. | Owner. |
-| Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048); S10 A refuted, B running. | Session. |
-| **Unverified on screen** | S5 reopen wording; commit-before-run (`PendingEdits`); the claimed-disks overlay; a full training run. | Session's drive. |
+| Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048); S10 A and B refuted (`4fe4eac`). | — |
+| **Unverified on screen** | Commit-before-run (`PendingEdits`) and the reopen alert's new wording, after their fixes; a full training run (C5). | Session's drive. |
 | Carried | R–Q residuals; parallax/ptychography and the 28 GB parity run (hardware); the register's 8 Gate D candidates; the virtual-detector tiled loops; CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.

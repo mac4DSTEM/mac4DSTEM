@@ -32,8 +32,12 @@ extension AppState {
                 // also the recovery record's must take the record with it, or
                 // "Reopen Last Dataset" stays offered for an entry that no
                 // longer exists and answers "No recoverable dataset" (S5).
+                // A bookmark that fails to resolve (the volume case is above)
+                // means the file is gone: "renew permission" was the wrong advice.
                 removeRecent(recent)
-                present(SimpleError("This recent dataset is no longer accessible. Open it again to renew permission."))
+                present(SimpleError(
+                    "“\(recent.displayName)” can no longer be found — it was moved, renamed or deleted, so it was removed from Recents. Open it again with File › Open Dataset…"
+                ))
             }
         }
     }

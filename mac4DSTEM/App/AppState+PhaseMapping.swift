@@ -116,6 +116,10 @@ extension AppState {
 
         let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
         let origin = calibrated.origin.point
+        // Taken with the vectors above, before the awaits: a calibration
+        // edited while the matcher runs must not be recorded as the run's.
+        let calibrationStamp = PhaseMappingProduct.CalibrationStamp(
+            calibration: calibrationSession.calibration, referenceOrigin: origin)
         let scale = acomScaleSemantics
         // Read on the main actor, before the detach below (AppState.swift's
         // disk-detection progress closure and learnedRef/learnedThreshold
@@ -181,8 +185,9 @@ extension AppState {
             worstChanceMatchPercent: 100 * worstChance,
             invAngstromPerPixel: scale.invAngstromPerPixel,
             qScaleIsPhysical: scale.provenance.isPhysical,
-            peakCount: rawVectors.totalPeakCount
-        ))
+            peakCount: rawVectors.totalPeakCount,
+            calibration: calibrationStamp
+        ), library: library)
 
         publishPhaseMapProduct()
         recordPhaseMappingRun(map: map, run: phaseMapping.lastRun)

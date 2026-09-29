@@ -132,8 +132,9 @@ Clearing is three moves, in this order.
 
 **Clearing the board (owner, 2026-09-30: "make a plan to clear everything").** Sessions drive the app themselves; the
 owner is asked only for decisions, batched into ONE sitting (phase B). Each line lands as commits with its gate.
-- [x] **A. Verify and finish** (2026-09-30): every unverified row driven; S10 A and B refuted (T4 ships as a quantity);
-  S11 flat in the app; S6 both halves; number fields commit on Return, and before any run (`PendingEdits`).
+- [x] **A. Verify and finish** (2026-09-30): the unverified rows driven (S5 reopen last; it found a defect); S10 A and
+  B refuted (T4 ships as a quantity); S11 flat in the app; S6 both halves; number fields commit on Return, and before
+  any run (`PendingEdits`).
 - [x] **B. The owner's sitting, taken under delegation** (2026-09-30): ADR 047 (lineage), 048 (training on MPSGraph,
   the C3 flow, T4 as a quantity, hardware waits) — overrule on sight.
 - [ ] **C. On-device training (ADR 043/048).** Done: C2.5 (1.48 GB), the MPSGraph mirror (equals MLX, 4× faster), C4a
@@ -142,8 +143,8 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
 - [ ] **D. Lineage graph (ADR 047).** Done: L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane
   (driven on Thronsen A: v1 order-only, detail column, narrow list). Left: **L4** rewind (Gate D) and `lineage_step`
   on products (stale marking).
-- [ ] **E. The remaining lanes.** Done: T4 as a quantity; the claimed-disks overlay (built, gated; unverified on
-  screen — needs a phase-mapping run); the Al–Mg–Si phase-setup preset (calibration stays a recipe). Left: the Al
+- [ ] **E. The remaining lanes.** Done: T4 as a quantity; the claimed-disks overlay and the Al–Mg–Si phase-setup
+  preset, driven on the demo cube (matrix 8 claimed, β″ 6 + 2 unexplained, unmatched 6 unexplained). Left: the Al
   Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048); hardware.
 - A lane leaves the board when its line here is ticked; the board is cleared when A–E are.
 

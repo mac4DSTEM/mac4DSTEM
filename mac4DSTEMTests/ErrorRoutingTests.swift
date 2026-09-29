@@ -19,6 +19,14 @@ final class ErrorRoutingTests: XCTestCase {
                       "The compute failure must still reach the log pane")
     }
 
+    /// The app's own sentence reaches the alert as written (driven 2026-09-30:
+    /// every `SimpleError` alert read "mac4DSTEM.SimpleError 1: …").
+    func testAppAuthoredErrorReadsAsWritten() {
+        let state = AppState()
+        state.present(SimpleError("The file could not be read."))
+        XCTAssertEqual(state.errorMessage, "The file could not be read.")
+    }
+
     func testSessionLevelFailureStillPresentsModally() {
         let state = AppState()
         state.present(SimpleError("The file could not be read."))

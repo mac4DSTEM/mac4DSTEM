@@ -237,13 +237,19 @@ package final class PhaseMappingProduct {
     /// Everything needed to say what produced `map`, and to tell whether the
     /// live controls have moved since.
     package private(set) var lastRun: RunRecord?
+    /// The reference library `lastRun` was made with, kept so the claimed-disks
+    /// overlay does not rebuild it (seconds) every time its layer is created.
+    /// One pair: it dies with the run (`publish` replaces it, `clear` drops
+    /// it). nil when a run was published without one.
+    package private(set) var lastLibrary: PhaseReferenceLibrary?
 
     package struct RunRecord: Sendable, Equatable {
         package init(phaseSignature: String, reference: PhaseReferenceSettings,
                      matching: PhaseVectorSettings, libraryEntryCount: Int,
                      matrixEntryIndex: Int, matrixInPlaneDegrees: Double,
                      worstChanceMatchPercent: Double, invAngstromPerPixel: Double,
-                     qScaleIsPhysical: Bool, peakCount: Int) {
+                     qScaleIsPhysical: Bool, peakCount: Int,
+                     calibration: CalibrationStamp? = nil) {
             self.phaseSignature = phaseSignature
             self.reference = reference
             self.matching = matching
@@ -254,6 +260,7 @@ package final class PhaseMappingProduct {
             self.invAngstromPerPixel = invAngstromPerPixel
             self.qScaleIsPhysical = qScaleIsPhysical
             self.peakCount = peakCount
+            self.calibration = calibration
         }
 
         package var phaseSignature: String
@@ -269,6 +276,71 @@ package final class PhaseMappingProduct {
         package var invAngstromPerPixel: Double
         package var qScaleIsPhysical: Bool
         package var peakCount: Int
+        /// The origin and ellipse the run calibrated its Bragg vectors with.
+        /// nil = not recorded, which the claims check treats as unverifiable.
+        package var calibration: CalibrationStamp?
+
+        /// Why the claimed-disks overlay must not be drawn against this run,
+        /// or nil. The overlay re-calibrates the raw peaks with the CURRENT
+        /// calibration and replays the matcher's pairing against this run's
+        /// entry; if the Q scale, the origin or the ellipse differs from what
+        /// the run used, the rings would answer a different question than the
+        /// map's colours (Fable review of aa920d0, 2026-09-30: only Q was
+        /// compared). Pure, so the comparison is unit-tested.
+        package func claimsRefusal(currentInvAngstromPerPixel q: Double,
+                                   currentCalibration: CalibrationStamp) -> String? {
+            guard abs(q - invAngstromPerPixel) <= 1e-12 * max(1, abs(invAngstromPerPixel)) else {
+                return "Q calibration changed since the map — run again"
+            }
+            guard let calibration else {
+                return "The map did not record its calibration — run again"
+            }
+            guard calibration == currentCalibration else {
+                return "Origin or ellipse changed since the map — run again"
+            }
+            return nil
+        }
+    }
+
+    /// The part of `Calibration` that moves Bragg-vector positions before
+    /// matching (`BraggVectors.calibrated`): the reference origin, the ellipse
+    /// and, when they are used, the per-position origin maps. Q is compared
+    /// separately (`RunRecord.invAngstromPerPixel`). There was no such
+    /// fingerprint in the code to reuse.
+    package struct CalibrationStamp: Sendable, Equatable {
+        package var originX: Float
+        package var originY: Float
+        /// a, b, theta — empty when the calibration has no valid ellipse.
+        package var ellipse: [Double]
+        /// Size and FNV-1a digest of the fitted origin maps; nil when there are none.
+        package var originMaps: OriginMapsStamp?
+
+        package struct OriginMapsStamp: Sendable, Equatable {
+            package var width: Int, height: Int, count: Int
+            package var digest: UInt64
+        }
+
+        /// `includeMapDigest: false` is for a SwiftUI task key, which is
+        /// evaluated on every body pass; the digest walks both maps.
+        package nonisolated init(calibration: Calibration, referenceOrigin: (x: Float, y: Float),
+                                 includeMapDigest: Bool = true) {
+            originX = referenceOrigin.x
+            originY = referenceOrigin.y
+            ellipse = calibration.hasEllipse
+                ? [calibration.ellipseA ?? 0, calibration.ellipseB ?? 0, calibration.ellipseTheta ?? 0] : []
+            if let maps = calibration.origin {
+                var hash: UInt64 = 0xcbf29ce484222325
+                if includeMapDigest {
+                    for value in maps.fittedX + maps.fittedY {
+                        hash = (hash ^ UInt64(value.bitPattern)) &* 0x100000001b3
+                    }
+                }
+                originMaps = OriginMapsStamp(width: maps.width, height: maps.height,
+                                             count: maps.fittedX.count, digest: hash)
+            } else {
+                originMaps = nil
+            }
+        }
     }
 
     /// Identity of the current phase list, ORDER-DEPENDENT. The science does
@@ -314,6 +386,18 @@ package final class PhaseMappingProduct {
             }
         }
         return nil
+    }
+
+    /// Change the phase with this id, if it is still in the list. Deferred
+    /// writes (`PendingEdits` flushes a field's closure as it was at the last
+    /// keystroke) must name a phase by its stable id: a list position captured
+    /// then names a different phase once an earlier one has been removed.
+    /// Returns whether the phase was found.
+    @discardableResult
+    package func updatePhase(id: String, _ change: (inout PhaseMappingSlot) -> Void) -> Bool {
+        guard let i = phases.firstIndex(where: { $0.id == id }) else { return false }
+        change(&phases[i])
+        return true
     }
 
     /// The one rule for adding a phase (moved out of AppState 2026-09-28): the first
@@ -367,9 +451,11 @@ package final class PhaseMappingProduct {
         return phases.count * steps
     }
 
-    package func publish(_ newMap: PhaseMap, ranWith record: RunRecord) {
+    package func publish(_ newMap: PhaseMap, ranWith record: RunRecord,
+                         library: PhaseReferenceLibrary? = nil) {
         map = newMap
         lastRun = record
+        lastLibrary = library
     }
 
     /// The published map's display name. The phase count is in it for the same
@@ -389,6 +475,7 @@ package final class PhaseMappingProduct {
     package func clear() {
         map = nil
         lastRun = nil
+        lastLibrary = nil
         zoneAxisFits = []
     }
 }

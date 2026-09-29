@@ -11,9 +11,9 @@
 //  Rendering only. The claims come from `PhaseVectorMatcher.claims`, a replay
 //  of the matcher's own pairing against the entry the map recorded for this
 //  position, so the rings cannot disagree with the map. This file adds the
-//  two things Core does not hold: the reference library (not kept after a run,
-//  so rebuilt from the run's own record and checked against its entry count)
-//  and the position's calibrated peaks.
+//  two things Core does not hold: the reference library (kept by
+//  `PhaseMappingProduct` beside the run it was built for) and the position's
+//  calibrated peaks.
 //
 //  Visual vocabulary, in keeping with `PatternFitOverlay`, colour on the
 //  marks only:
@@ -212,10 +212,6 @@ struct PhaseClaimLayer: View {
     let patternHeight: Int
     let box: CGSize
 
-    /// The reference library of the current run — not kept by the run, so
-    /// rebuilt once from its record and reused for every position.
-    @State private var library: PhaseReferenceLibrary?
-    @State private var libraryRun: PhaseMappingProduct.RunRecord?
     @State private var claims: [PhaseDiskClaim] = []
     @State private var claimedPeakCount = 0
     @State private var note: String?
@@ -226,13 +222,29 @@ struct PhaseClaimLayer: View {
         var x: Int, y: Int
         var scale: Double
         var peakCount: Int
+        /// Origin and ellipse (without the map digest — this is read on every
+        /// body pass); `refresh` compares the full stamp.
+        var calibration: PhaseMappingProduct.CalibrationStamp
     }
 
     private var key: Key {
         Key(run: appState.phaseMapping.lastRun, stale: appState.phaseMapping.isStale,
             x: appState.selectedScan.x, y: appState.selectedScan.y,
             scale: appState.acomScaleSemantics.invAngstromPerPixel,
-            peakCount: appState.fitOverlays.storedPeaksAtSelection.count)
+            peakCount: appState.fitOverlays.storedPeaksAtSelection.count,
+            calibration: currentCalibrationStamp(includeMapDigest: false))
+    }
+
+    private func currentCalibrationStamp(includeMapDigest: Bool)
+        -> PhaseMappingProduct.CalibrationStamp {
+        let calibration = appState.calibrationSession.calibration
+        let origin = appState.descriptor.map {
+            calibration.referenceOrigin(
+                detectorQX: $0.qx, detectorQY: $0.qy,
+                apertureCentre: (x: appState.aperture.centerX, y: appState.aperture.centerY)).point
+        } ?? (x: 0, y: 0)
+        return PhaseMappingProduct.CalibrationStamp(
+            calibration: calibration, referenceOrigin: origin, includeMapDigest: includeMapDigest)
     }
 
     var body: some View {
@@ -281,9 +293,10 @@ struct PhaseClaimLayer: View {
             note = "Phase list or settings changed since the map — run again"
             return
         }
-        guard abs(appState.acomScaleSemantics.invAngstromPerPixel - run.invAngstromPerPixel)
-                <= 1e-12 * max(1, abs(run.invAngstromPerPixel)) else {
-            note = "Q calibration changed since the map — run again"
+        if let refusal = run.claimsRefusal(
+            currentInvAngstromPerPixel: appState.acomScaleSemantics.invAngstromPerPixel,
+            currentCalibration: currentCalibrationStamp(includeMapDigest: true)) {
+            note = refusal
             return
         }
         let x = appState.selectedScan.x, y = appState.selectedScan.y
@@ -292,22 +305,13 @@ struct PhaseClaimLayer: View {
         let scan = y * map.width + x
         guard appState.fitOverlays.storedPeaksAtSelection.count == raw.peaks[scan].count else { return }
 
-        if library == nil || libraryRun != run {
-            library = nil; libraryRun = nil
-            guard let definitions = appState.phaseDefinitions() else { return }
-            let settings = run.reference
-            let built = await Task.detached(priority: .userInitiated) {
-                try? PhaseReferenceLibrary.build(phases: definitions, settings: settings)
-            }.value
-            // The run may have been replaced while the library built.
-            guard appState.phaseMapping.lastRun == run else { return }
-            guard let built, built.entries.count == run.libraryEntryCount else {
-                note = "Reference library differs from the map's — run again"
-                return
-            }
-            library = built; libraryRun = run
+        // The run's own library, kept by the product when it published: nothing
+        // to rebuild when this layer is created again (toggle, room switch).
+        guard let library = phaseMapping.lastLibrary,
+              library.entries.count == run.libraryEntryCount else {
+            note = "Reference library not kept for this map — run again"
+            return
         }
-        guard !Task.isCancelled, let library else { return }
 
         let calibrated = appState.calibratedBraggVectors(raw, descriptor: descriptor,
                                                          positions: [scan])

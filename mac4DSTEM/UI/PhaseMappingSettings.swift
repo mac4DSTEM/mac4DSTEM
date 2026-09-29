@@ -583,11 +583,10 @@ struct PhaseMappingSections: View {
                     get: { draft },
                     set: { text in
                         draft = text
-                        guard index < product.phases.count,
-                              let parsed = PhaseMappingSlot.parseZoneAxis(text) else { return }
-                        product.phases[index].u = parsed.x
-                        product.phases[index].v = parsed.y
-                        product.phases[index].w = parsed.z
+                        guard let parsed = PhaseMappingSlot.parseZoneAxis(text) else { return }
+                        product.updatePhase(id: slot.id) {
+                            $0.u = parsed.x; $0.v = parsed.y; $0.w = parsed.z
+                        }
                     }
                 ))
                 .textFieldStyle(.roundedBorder)
@@ -607,11 +606,15 @@ struct PhaseMappingSections: View {
             let format = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(3))
             return InspectorRow("Excitation slab") {
                 HStack(spacing: 6) {
+                    // By the slot's id, not `index`: `PendingEdits` keeps this closure
+                    // as it was at the last keystroke, and by the time a toolbar
+                    // verb flushes it an earlier phase may have been removed —
+                    // the index would then name a different phase.
+                    let slotID = slot.id
                     NumberEntryField(title: "Excitation slab", value: slot.excitationSlabInvAngstrom,
                                      format: format, prompt: DecimalEntryFormat(format).format(global),
                                      emptyClears: true) { value in
-                        guard index < product.phases.count else { return }
-                        product.phases[index].excitationSlabInvAngstrom = value
+                        product.updatePhase(id: slotID) { $0.excitationSlabInvAngstrom = value }
                     }
                     .labelsHidden()
                     .textFieldStyle(.roundedBorder)
@@ -641,8 +644,7 @@ struct PhaseMappingSections: View {
                     get: { orientationDraft },
                     set: { text in
                         orientationDraft = text
-                        guard index < product.phases.count else { return }
-                        product.phases[index].orientationRelationshipText = text
+                        product.updatePhase(id: slot.id) { $0.orientationRelationshipText = text }
                     }
                 ))
                 .textFieldStyle(.roundedBorder)
