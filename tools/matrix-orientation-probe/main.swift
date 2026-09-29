@@ -534,11 +534,13 @@ enum MatrixOrientationProbe {
 
         var settings = PhaseVectorResolution(settings: PhaseVectorSettings(), invAngstromPerPixel: qPerPixel)
             .scaledToDetector(PhaseVectorSettings())
-        // 2026-09-29 `--tolerance-px N`: the app's rule is ONE detector pixel
+        // 2026-09-29 `--tolerance-px N`: this probe's rule is ONE detector pixel
         // for the pair and matrix tolerances (0.75 for the verdict distance);
         // on a 4x finer detector that is 4x tighter in Å⁻¹ than the binned run
-        // it is compared with. N multiplies those three radii (default 1 = the
-        // app's own rule, unchanged).
+        // it is compared with. N multiplies those three radii (default 1).
+        // NOT the app's rule (corrected 2026-09-29 night): the app ships
+        // 0.02 Å⁻¹ and offers one pixel only when that is wider
+        // (`PhaseVectorResolution.advice`) — phase-tolerance-registration.
         let tolerancePx = Double(value("--tolerance-px") ?? "1") ?? 1
         settings.pairRadiusInvAngstrom *= tolerancePx
         settings.matrixToleranceInvAngstrom *= tolerancePx
