@@ -373,12 +373,12 @@ final class AppState {
     /// kind/name/units — condition 2 of plan §9d, one site at a time. Sampling
     /// and provenance still come from the per-mode persistence metadata; a
     /// product that is not the mode's own (the disagreement map published from
-    /// Disk detection, C7 session 3) passes its domain and its own keys.
+    /// Disk detection, C7 session 3) passes its domain, sampling and own keys.
     func publishProduct(
         kind: String, displayName: String, valueUnits: String, payload: ProductPayload,
         validityMask: [Bool]? = nil, qualityFields: [ProductQualityField] = [],
         overlays: [ProductOverlayDescriptor] = [],
-        domain: ProductDomain? = nil, extraProvenance: [String: String] = [:]
+        domain: ProductDomain? = nil, sampling: ProductSampling? = nil, extraProvenance: [String: String] = [:]
     ) {
         let persisted = currentScalarPersistenceMetadata
         let domain = domain ?? activeResultDomain
@@ -396,7 +396,7 @@ final class AppState {
         resultPresentation.publish(DisplayedProduct(
             kind: kind, displayName: displayName, payload: payload, domain: domain,
             validityMask: validityMask, qualityFields: qualityFields,
-            sampling: ProductSampling(row: persisted.row, column: persisted.column, units: persisted.units),
+            sampling: sampling ?? ProductSampling(row: persisted.row, column: persisted.column, units: persisted.units),
             valueUnits: valueUnits, quantitativeStatus: status, provenance: provenance,
             overlays: overlays))
     }
@@ -953,9 +953,9 @@ final class AppState {
     /// rather than reaching `appState.replay.record.steps` directly.
     var replaySteps: [SessionReplayRecord.Step] { replay.record.steps }
 
-    /// A kind with no settings signature (phase mapping, diffraction groups)
-    /// is still judged by the lineage path (`lineagePathOnlySignature`).
-    func currentReplaySignature(for mode: AnalysisMode) -> [String: String]? {
+    /// A kind with no settings signature (phase mapping, groups) is judged by the lineage path
+    /// (`lineagePathOnlySignature`); `currentReplaySignature` (AppState+Lineage) adds calibration.
+    func settingsReplaySignature(for mode: AnalysisMode) -> [String: String]? {
         if let pathOnly = lineagePathOnlySignature(for: mode) { return pathOnly }
         let acomSignature = ReplayStepPlan.ACOMReplayPlan.currentSignatureIfResolved(
             model: resolvedACOMModel, scale: acomScaleSemantics.invAngstromPerPixel,

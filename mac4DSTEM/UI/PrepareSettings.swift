@@ -202,10 +202,10 @@ struct PrepareSettings: View {
             Text("Origin & probe, ellipse distortion, R–Q rotation and the Q and R "
                + "pixel scales all go back to Not set, whether they were measured "
                + "here or came from the file. The accelerating voltage stays, and "
-               + "the data is not reloaded. The orientation map and any parallax "
-               + "alignment are discarded because they were computed against these "
-               + "values; strain and phase maps are kept, and should be rerun after "
-               + "you recalibrate.")
+               + "the data is not reloaded. The orientation map, any parallax "
+               + "alignment and the ptychography reconstruction are discarded because "
+               + "they were computed against these values; strain and phase maps are "
+               + "kept, and should be rerun after you recalibrate.")
         }
 
         diagnosticsSection

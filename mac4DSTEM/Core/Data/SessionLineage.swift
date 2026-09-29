@@ -217,6 +217,36 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         "precipitate_objects": [Dependency(role: "phases", kind: "phase_mapping")],
     ]
 
+    /// The kinds whose product is judged by the calibration nodes it consumed
+    /// (R4(3) for calibration): what they compute moves with the origin,
+    /// ellipse or Q scale they read. Not disk detection: its peaks are raw
+    /// detector positions (calibration is applied downstream, on demand), and
+    /// the probe kernel it takes from the origin fit is in its own signature.
+    package static let calibrationJudgedKinds: Set<String> = ["strain", "acom", "phase_mapping", "dpc"]
+
+    /// One calibration kind a run's policy lists: the node the run used (nil:
+    /// none was active then) and the node of that kind active now (nil: none).
+    package nonisolated struct CalibrationUse: Equatable, Sendable {
+        package let kind: String
+        package let used: String?
+        package let active: String?
+        package var changed: Bool { used != active }
+    }
+
+    /// The calibration a judged run stood on against the calibration active
+    /// now — nodes, not values. Empty for any other kind, and for a node whose
+    /// inputs were never written (v1: absence is absence, R7).
+    package func calibrationUses(of node: Node) -> [CalibrationUse] {
+        guard Self.calibrationJudgedKinds.contains(node.kind), let inputs = node.inputs else { return [] }
+        let active = activeNodes()
+        return (Self.inputPolicy[node.kind] ?? []).filter { $0.role == "calibration" }.map { dependency in
+            CalibrationUse(
+                kind: dependency.kind,
+                used: inputs.first { $0.role == "calibration" && self.node(id: $0.step)?.kind == dependency.kind }?.step,
+                active: active.first { $0.kind == dependency.kind }?.id)
+        }
+    }
+
     /// The CIFs a run took from outside the session, when its own parameters
     /// say so (ACOM records an imported model's id — the file stem — and its
     /// content fingerprint). A run whose parameters do not say has none here;

@@ -178,4 +178,28 @@ final class LearnedDetectionSessionTests: XCTestCase {
         XCTAssertEqual(product.provenance["learned_threshold"], "0.7")
         XCTAssertTrue(state.statusText.hasPrefix("Disagreement: 1 of 1 positions differ"), state.statusText)
     }
+
+    /// D017: the disagreement map is a SCAN map published from Disk detection,
+    /// whose own products are detector-domain; it must carry the real-space
+    /// pixel size, not the reciprocal one, on screen and in the export.
+    /// Mutation it catches: the mode's Q sampling taken for a scan product.
+    func testTheDisagreementMapCarriesTheRealSpaceSamplingOnScreenAndInTheExport() throws {
+        let state = AppState()
+        state.navigation.analysisMode = .disks   // the task it is run from
+        state.calibrationSession.calibration.rPixelSize = 2.5
+        state.calibrationSession.calibration.rPixelUnits = "nm"
+        state.calibrationSession.calibration.qPixelSize = 0.0125
+        state.calibrationSession.calibration.qPixelUnits = "A^-1"
+        state.learnedDetection.record(vectors(count: 2), as: .classical)
+        state.learnedDetection.record(vectors(count: 1), as: .learned)
+
+        XCTAssertEqual(state.runDiskDisagreement(), .published)
+        let product = try XCTUnwrap(state.displayedProduct)
+        XCTAssertEqual(product.domain, .scan)
+        XCTAssertEqual(product.sampling, ProductSampling(row: 2.5, column: 2.5, units: "nm"))
+        let exported = state.currentResultPersistenceMetadata
+        XCTAssertEqual(exported.row, 2.5)
+        XCTAssertEqual(exported.column, 2.5)
+        XCTAssertEqual(exported.units, "nm")
+    }
 }

@@ -125,7 +125,9 @@ extension AppState {
                                        probeRadius: result.probeRadius,
                                        rmsResidual: result.origin.rmsResidual)
 
-            await runCurrentAnalysis()
+            // Not in DPC: that would recompute the whole cube, unasked; the map
+            // reads stale instead (D068). Other modes only re-show or re-derive.
+            if navigation.analysisMode != .dpc { await runCurrentAnalysis() }
         } catch {
             if cancellation.isCancelled { statusText = "Origin calibration cancelled" }
             else { presentComputeFailure(error) }
@@ -201,7 +203,7 @@ extension AppState {
 
             // A displayed Bragg map can be reprojected immediately because
             // raw peak storage remains unchanged. Strain/ACOM are deliberately
-            // not relabeled; users rerun those quantitative analyses.
+            // not recomputed; they read stale (D068) until the user reruns them.
             if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors {
                 showBraggMap(vectors, descriptor: descriptor)
             }
@@ -223,7 +225,7 @@ extension AppState {
     /// An ellipse typed in Prepare. The decision lives in
     /// `CalibrationSession.applyManualEllipse`; this does what a fit does
     /// after it lands — reproject a displayed Bragg map, leave strain and
-    /// ACOM to be rerun — and reports either way.
+    /// ACOM to be rerun (they read stale) — and reports either way.
     func applyManualEllipse(a: Double, b: Double, thetaDegrees: Double) {
         if let refusal = calibrationSession.applyManualEllipse(a: a, b: b, thetaDegrees: thetaDegrees) {
             presentComputeFailure(SimpleError(refusal))

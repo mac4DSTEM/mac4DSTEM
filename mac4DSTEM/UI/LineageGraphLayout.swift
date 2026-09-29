@@ -408,7 +408,9 @@ nonisolated struct LineageGraphModel {
     ///   - producedSteps: lineage kind -> the run that made the in-memory
     ///     product of that kind (`SessionReplay.producedStep`). After a rewind
     ///     the active run of a kind can differ from it; that active run is then
-    ///     stale too, whether or not its product is the one on screen.
+    ///     stale too, whether or not its product is the one on screen. So is an
+    ///     active run whose calibration node is no longer the active one of its
+    ///     kind (`SessionLineage.calibrationUses`) — the sidebar's rule, D068.
     init(lineage: SessionLineage, productKind: String? = nil, productStep: String? = nil,
          activePathOnly: Bool = false, producedSteps: [String: String] = [:]) {
         let active = lineage.activeNodes()
@@ -417,6 +419,7 @@ nonisolated struct LineageGraphModel {
         self.activeIDs = activeIDs
         self.staleIDs = Self.staleSteps(active: active, productKind: productKind, productStep: productStep)
             .union(active.filter { node in producedSteps[node.kind].map { $0 != node.id } ?? false }.map(\.id))
+            .union(active.filter { lineage.calibrationUses(of: $0).contains(where: \.changed) }.map(\.id))
         let shown = activePathOnly ? lineage.nodes.filter { activeIDs.contains($0.id) } : lineage.nodes
         self.nodes = shown
         self.layout = LineageGraphLayout(items: shown.map { node in

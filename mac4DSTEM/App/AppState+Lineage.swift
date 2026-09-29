@@ -188,15 +188,24 @@ extension AppState {
     /// path — so it reads as "no longer part of the recipe" (nil). A kind with
     /// no settings signature (phase mapping, groups; `lineagePathOnlySignature`)
     /// is judged by the path alone: its run, when active; nil otherwise.
+    ///
+    /// The step also carries the calibration nodes the run consumed
+    /// (`lineageCalibrationSignatures`), so a re-fit, a typed value or a new
+    /// calibration after the run reads "Computed with different … calibration".
     func recordedReplayStep(for mode: AnalysisMode) -> SessionReplayRecord.Step? {
         let active = ProductWorkflow.recordedReplayStep(for: mode, in: replay.record.steps)
         guard let kind = mode.replayKind, let producer = lineageProducer(ofKind: kind) else { return active }
-        let step = SessionReplayRecord.Step(kind: producer.kind, parameters: producer.parameters,
-                                            recorded: producer.recorded)
+        let calibration = lineageCalibrationSignatures(ofKind: kind)?.recorded ?? [:]
+        func withCalibration(_ s: SessionReplayRecord.Step) -> SessionReplayRecord.Step {
+            SessionReplayRecord.Step(kind: s.kind, parameters: s.parameters.merging(calibration) { _, new in new },
+                                     recorded: s.recorded)
+        }
+        let step = withCalibration(SessionReplayRecord.Step(kind: producer.kind, parameters: producer.parameters,
+                                                            recorded: producer.recorded))
         guard let activeNode = replay.lineage.activeNodes().first(where: { $0.kind == kind }) else {
             return active   // the kind left the path (nil)
         }
-        if activeNode.id == producer.id { return active ?? step }
+        if activeNode.id == producer.id { return active.map(withCalibration) ?? step }
         if mode == .disks { return step }
         return ProductWorkflow.stalenessVerdict(
             recordedStep: step, currentSignature: currentReplaySignature(for: mode),
@@ -211,6 +220,45 @@ extension AppState {
         guard let kind = mode.replayKind, SessionReplay.lineageOnlyProductKinds.contains(kind),
               lineageProducer(ofKind: kind) != nil else { return nil }
         return ProductWorkflow.pathOnlySignature
+    }
+
+    /// What current settings would record for a task (`settingsReplaySignature`),
+    /// plus — when the lineage knows the run that made its product — the
+    /// calibration node of each kind that run consumed, as it stands now.
+    /// A nil settings signature (ACOM before a model resolves) still carries the
+    /// calibration: a changed calibration is a fact whatever the settings.
+    func currentReplaySignature(for mode: AnalysisMode) -> [String: String]? {
+        let settings = settingsReplaySignature(for: mode)
+        guard let kind = mode.replayKind,
+              let calibration = lineageCalibrationSignatures(ofKind: kind)?.current else { return settings }
+        return (settings ?? [:]).merging(calibration) { _, new in new }
+    }
+
+    /// The calibration a task's product stood on (`recorded`) and the one in
+    /// force now (`current`), one key per calibration kind its run lists
+    /// (`SessionLineage.calibrationUses`), valued by node id or "none". Nil when
+    /// no run of this session is known to have made the product. The keys read
+    /// in the stale sentence ("Computed with different origin calibration").
+    /// Rotation has no node and needs none: strain presents in the scan frame
+    /// from the current rotation at every display, and ACOM, phase mapping do
+    /// not read it.
+    func lineageCalibrationSignatures(ofKind kind: String)
+        -> (recorded: [String: String], current: [String: String])? {
+        guard let producer = lineageProducer(ofKind: kind) else { return nil }
+        let uses = replay.lineage.calibrationUses(of: producer)
+        guard !uses.isEmpty else { return nil }
+        var recorded: [String: String] = [:], current: [String: String] = [:]
+        for use in uses {
+            let key = switch use.kind {
+            case "calibration_origin": "origin calibration"
+            case "calibration_ellipse": "ellipse calibration"
+            case "calibration_q": "Q calibration"
+            default: use.kind
+            }
+            recorded[key] = use.used ?? "none"
+            current[key] = use.active ?? "none"
+        }
+        return (recorded, current)
     }
 
     // MARK: - Rewind (R4, phase L4)
@@ -349,6 +397,7 @@ extension AppState {
                 if let provenance { calibrationSession.provenance.qScale = provenance }
                 phaseContrast.parallaxPreprocess = nil
                 phaseContrast.parallaxAlignment = nil
+                rederiveDisplayedDPCForScaleChange()
             }
         }
         replay.apply(plan)

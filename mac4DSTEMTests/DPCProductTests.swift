@@ -1,4 +1,5 @@
 import XCTest
+import DSTEMCore
 @testable import mac4DSTEM
 
 /// Seam 4 (docs/archive/v4/appstate-seams-plan.md), the last of the night's four
@@ -67,5 +68,79 @@ final class DPCProductTests: XCTestCase {
         XCTAssertTrue(names.contains("dpc"), "the facade holds the seam")
         XCTAssertFalse(names.contains("dpcDisplay"),
                        "no dpcDisplay stored property may shadow the seam")
+    }
+
+    /// A DPC product in milliradians derives from the Q scale at display time,
+    /// so a Q change re-derives it (the rotation rule) instead of leaving the
+    /// old scale on screen under a current badge. Mutation it catches: a Q
+    /// setter that does not re-derive the displayed DPC product.
+    func testAQChangeRederivesTheDisplayedDPCMagnitudeInMilliradians() async throws {
+        let app = AppState()
+        await app.openDemoFixture(calibrated: true)
+        if app.calibrationSession.acceleratingVoltage == nil { app.calibrationSession.acceleratingVoltage = 300 }
+        app.navigation.analysisMode = .dpc
+        _ = await app.runDPC()
+        app.dpc.dpcDisplay = .magnitudeMrad
+        let before = try XCTUnwrap(app.resultPresentation.product, app.statusText)
+        XCTAssertEqual(before.kind, "dpc_magnitude_mrad", "precondition: a physical Q scale and a voltage")
+        guard case .scalar(let old) = before.payload else { return XCTFail("scalar payload expected") }
+        let scale1 = try XCTUnwrap(app.dpcMilliradiansPerDetectorPixel)
+        let q = try XCTUnwrap(app.calibrationSession.calibration.qPixelSize)
+
+        app.setManualQPixelSize(q * 2)
+        let scale2 = try XCTUnwrap(app.dpcMilliradiansPerDetectorPixel)
+        XCTAssertEqual(Double(scale2 / scale1), 2, accuracy: 1e-3, "precondition: the scale doubled")
+        let after = try XCTUnwrap(app.resultPresentation.product)
+        guard case .scalar(let new) = after.payload else { return XCTFail("scalar payload expected") }
+        let i = try XCTUnwrap(old.pixels.indices.max { old.pixels[$0] < old.pixels[$1] })
+        XCTAssertGreaterThan(old.pixels[i], 0)
+        XCTAssertEqual(Double(new.pixels[i] / old.pixels[i]), Double(scale2 / scale1), accuracy: 1e-3,
+                       "the displayed magnitude follows the new Q scale")
+    }
+
+    private func dpcOnScreen(_ display: DPCDisplayMode) async throws -> AppState {
+        let app = AppState()
+        await app.openDemoFixture(calibrated: true)
+        app.navigation.analysisMode = .dpc
+        _ = await app.runDPC()
+        app.dpc.dpcDisplay = display
+        return app
+    }
+
+    /// Clear Calibration takes the Q scale away: a shown "DPC magnitude
+    /// (mrad)" must not keep it. Mutation it catches: no re-derive in Clear.
+    func testClearCalibrationRederivesTheDisplayedDPCWithoutTheOldScale() async throws {
+        let app = try await dpcOnScreen(.magnitudeMrad)
+        XCTAssertEqual(app.resultPresentation.product?.kind, "dpc_magnitude_mrad", "precondition")
+        app.clearCalibration()
+        XCTAssertEqual(app.resultPresentation.product?.kind, "dpc_magnitude", "no scale, no mrad")
+    }
+
+    /// A saved DPC map shown from the sidecar is its file's record: a Q edit
+    /// must not overwrite it with the live field. Mutation it catches: the
+    /// re-derive guarded on the kind alone.
+    func testAQEditLeavesASavedDPCMapShownFromTheSidecarAlone() async throws {
+        let app = try await dpcOnScreen(.magnitudeMrad)
+        let live = try XCTUnwrap(app.resultPresentation.product)
+        app.publishRestoredProduct(
+            kind: live.kind, displayName: live.displayName, valueUnits: live.valueUnits, payload: live.payload,
+            pixelSizeRow: live.sampling.row, pixelSizeColumn: live.sampling.column, pixelUnits: live.sampling.units,
+            provenance: live.provenance)
+        let q = try XCTUnwrap(app.calibrationSession.calibration.qPixelSize)
+        app.setManualQPixelSize(q * 2)
+        XCTAssertEqual(app.resultPresentation.product?.origin, .restoredFromSidecar)
+    }
+
+    /// Physical iDPC integrates with the real-space sampling: an R change
+    /// re-derives it. Mutation it catches: an R setter without the re-derive.
+    func testAnRChangeRederivesTheDisplayedPhysicalIDPC() async throws {
+        let app = try await dpcOnScreen(.idpc)
+        let before = try XCTUnwrap(app.resultPresentation.product, app.statusText)
+        XCTAssertEqual(before.kind, "idpc_phase", "precondition: physical iDPC on the calibrated demo")
+        let row = try XCTUnwrap(before.sampling.row)
+        let r = try XCTUnwrap(app.calibrationSession.calibration.rPixelSize)
+        app.setManualRPixelSize(r * 2)
+        let after = try XCTUnwrap(app.resultPresentation.product)
+        XCTAssertEqual(try XCTUnwrap(after.sampling.row) / row, 2, accuracy: 1e-6)
     }
 }

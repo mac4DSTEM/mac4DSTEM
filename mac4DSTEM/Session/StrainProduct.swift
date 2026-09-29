@@ -116,7 +116,8 @@ package final class StrainProduct {
     /// two INPUT keys the run's `recordReplayStep(kind: "strain", ...)` also
     /// writes. `resolved_g1/g2_*` are fit OUTPUTS, deliberately excluded: a
     /// staleness check that compared them would call a map stale for having
-    /// been computed at all.
+    /// been computed at all. The calibration the run consumed is judged by the
+    /// lineage (`AppState.currentReplaySignature`, D068), not here.
     package var currentReplaySignature: [String: String] {
         [
             "reference_mode": referenceMode == .wholeScan ? "whole-scan" : "selected-region",

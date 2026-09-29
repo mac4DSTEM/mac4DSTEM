@@ -415,10 +415,14 @@ extension AppState {
         resultPresentation.resultColormap = .viridis
         // The mode's own metadata describes the current Bragg vectors; the
         // product overrides what differs (domain, source, both classes, the
-        // compared learned run's identity, the statistics).
+        // compared learned run's identity, the statistics) — and its sampling:
+        // a scan map takes the real-space pixel size, not the mode's reciprocal
+        // one (D017), as the virtual image and the ACOM region reference do.
+        let r = calibrationSession.calibration
         publishProduct(
             kind: "disk_disagreement", displayName: "Detector disagreement (unmatched peaks)",
             valueUnits: "peaks", payload: .scalar(image), domain: .scan,
+            sampling: ProductSampling(row: r.rPixelSize, column: r.rPixelSize, units: r.rPixelUnits),
             extraProvenance: summary.provenance(learnedRun: learned.detectionProvenance))
         statusText = summary.statusLine
         return .published

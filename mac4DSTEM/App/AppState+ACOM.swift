@@ -129,6 +129,7 @@ extension AppState {
         }
         statusText = status
         recordQCalibrationRun()   // lineage node (ADR 047)
+        rederiveDisplayedDPCForScaleChange()
     }
 
     /// Build the orientation-plan template library for the selected crystal.

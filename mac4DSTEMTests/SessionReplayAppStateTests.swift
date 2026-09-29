@@ -841,3 +841,146 @@ extension SessionReplayAppStateTests {
                        [SessionLineage.Input(step: s.strain1, role: "product")])
     }
 }
+
+// MARK: - A calibration change after a run marks its product stale (D068; ADR 047 R4(3))
+//
+// A strain, ACOM, phase-mapping or DPC run records the calibration nodes it
+// consumed (`SessionLineage.inputPolicy`, role `calibration`). When the node of
+// a calibration kind the run lists is no longer the one it used — a re-fit, a
+// typed value, a newly made calibration — its product reads stale with the
+// existing sentence, stays shown, and nothing recomputes. A calibration made
+// before the run, or a rewind that puts the run's own calibration back, reads
+// current. Rotation has no node and needs none: strain presents in the scan
+// frame from the CURRENT rotation at every display (StrainFrame.swift), and
+// ACOM and phase mapping do not read it.
+
+extension SessionReplayAppStateTests {
+
+    private func detectAndStrain(_ state: AppState, _ context: String) async throws -> String {
+        await detectDisks(state, "\(context): detection")
+        state.navigation.analysisMode = .strain
+        let outcome = await state.runStrainMapping()
+        XCTAssertEqual(outcome, .published, "\(context): \(state.statusText)")
+        return try XCTUnwrap(activeID(state, "strain"), context)
+    }
+
+    /// The lineage pane's state of a node, as the pane builds it.
+    private func graphState(_ state: AppState, _ id: String) -> LineageNodeState {
+        LineageGraphModel(
+            lineage: state.replay.lineage, productKind: state.displayedProduct?.kind,
+            productStep: state.displayedProduct?.provenance["lineage_step"],
+            producedSteps: state.replay.producedStep).state(of: id)
+    }
+
+    private func calibrationReason(_ key: String) -> String {
+        ProductWorkflow.staleReason(changedKeys: [key])
+    }
+
+    /// (a) origin. Mutation it catches: a strain signature blind to the
+    /// calibration the run consumed (the map read current — D068).
+    func testAnOriginRefitAfterStrainReadsTheMapStaleAndKeepsItShown() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        let s1 = try await detectAndStrain(state, "strain")
+        XCTAssertEqual(productState(state, .strain), .current, "precondition")
+        let o1 = activeID(state, "calibration_origin")
+
+        await state.calibrateOrigin()   // in Strain: re-shows the map, recomputes nothing
+        let o2 = try XCTUnwrap(activeID(state, "calibration_origin"), state.statusText)
+        XCTAssertNotEqual(o2, o1, "a re-fit after a run that used the origin is a new node")
+        XCTAssertEqual(activeID(state, "strain"), s1, "nothing recomputed")
+        XCTAssertNotNil(state.strain.map, "the map stays")
+        XCTAssertEqual(productState(state, .strain).staleReason, calibrationReason("origin calibration"))
+        XCTAssertEqual(graphState(state, s1), .stale, "the pane agrees with the sidebar")
+    }
+
+    /// (a) ellipse, and (c) no false stale: an ellipse typed BEFORE the run is
+    /// the run's own (current); one typed after reads stale; a rewind to the
+    /// run puts its ellipse back and the map reads current again. Mutations it
+    /// catches: the verdict blind to calibration; a verdict that compares
+    /// against the newest calibration node instead of the ACTIVE one (the
+    /// rewind would keep it stale).
+    func testAnEllipseChangeAfterStrainReadsStaleAndRewindingToTheRunReadsCurrent() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        state.applyManualEllipse(a: 10.1, b: 10, thetaDegrees: 20)
+        let e1 = try XCTUnwrap(activeID(state, "calibration_ellipse"), state.statusText)
+        let s1 = try await detectAndStrain(state, "strain on e1")
+        XCTAssertTrue(state.replay.lineage.node(id: s1)?.inputs?.contains {
+            $0.step == e1 && $0.role == "calibration" } == true, "precondition: the run recorded its ellipse")
+        XCTAssertEqual(productState(state, .strain), .current, "a calibration made before the run is its own")
+        XCTAssertEqual(graphState(state, s1), .current)
+
+        state.applyManualEllipse(a: 10.2, b: 10, thetaDegrees: 20)
+        let e2 = try XCTUnwrap(activeID(state, "calibration_ellipse"))
+        XCTAssertNotEqual(e2, e1)
+        XCTAssertNotNil(state.strain.map)
+        XCTAssertEqual(productState(state, .strain).staleReason, calibrationReason("ellipse calibration"))
+        XCTAssertEqual(graphState(state, s1), .stale)
+
+        let refusal = await state.rewindLineage(to: s1)
+        XCTAssertNil(refusal, refusal ?? "")
+        XCTAssertEqual(activeID(state, "calibration_ellipse"), e1)
+        XCTAssertEqual(state.calibrationSession.calibration.ellipseA, 10.1)
+        XCTAssertEqual(productState(state, .strain), .current, "the run's own ellipse is back")
+        XCTAssertEqual(graphState(state, s1), .current)
+    }
+
+    /// (a) Q, with its control: phase mapping consumes the Q scale and reads
+    /// stale after a Q edit; strain does not (it works in detector pixels on
+    /// origin- and ellipse-corrected vectors) and stays current. Mutations it
+    /// catches: a verdict blind to Q (the phase map read current); one that
+    /// judges every calibration kind for every product (strain read stale).
+    func testAQEditReadsThePhaseMapStaleAndLeavesStrainCurrent() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        try preparePhaseMapping(state)
+        _ = try await detectAndStrain(state, "strain")
+        let pm = try await mapPhases(state, "phase map")
+        XCTAssertEqual(productState(state, .phaseMapping), .current, "precondition")
+        XCTAssertEqual(productState(state, .strain), .current, "precondition")
+
+        let q = try XCTUnwrap(state.calibrationSession.calibration.qPixelSize)
+        state.setManualQPixelSize(q * 1.01)
+        XCTAssertNotNil(activeID(state, "calibration_q"), "the typed Q is a node")
+        XCTAssertNotNil(state.phaseMapping.map, "the map stays")
+        XCTAssertEqual(productState(state, .phaseMapping).staleReason, calibrationReason("Q calibration"))
+        XCTAssertEqual(graphState(state, pm), .stale)
+        XCTAssertEqual(productState(state, .strain), .current, "strain does not consume Q")
+    }
+
+    /// (b) ACOM consumes origin, ellipse and Q. (A Q edit discards the ACOM
+    /// map outright — `ACOMSession.invalidateResult` — so the ellipse is the
+    /// change that can leave one on screen.) Mutation it catches: the verdict
+    /// blind to calibration for ACOM.
+    func testAnEllipseFittedAfterACOMReadsItStale() async throws {
+        let (state, kernel) = try await handSession()
+        state.acomSession.modelSelection = .library("au_fcc")
+        handRecord(state, "disk_detection", detectionRecord(state.diskDetection.diskParams, kernel: kernel))
+        let signature = try XCTUnwrap(state.currentReplaySignature(for: .acom), "a resolved model has a signature")
+        let a1 = handRecord(state, "acom", signature)
+        XCTAssertEqual(productState(state, .acom), .current, "precondition")
+
+        state.applyManualEllipse(a: 10.1, b: 10, thetaDegrees: 20)
+        XCTAssertEqual(productState(state, .acom).staleReason, calibrationReason("ellipse calibration"))
+        XCTAssertEqual(graphState(state, a1), .stale)
+    }
+
+    /// An origin fit while DPC is open no longer recomputes DPC behind the
+    /// user's back (a full-cube pass and an unasked node, since bde005d): the
+    /// map stays and reads stale. Mutation it catches: the unguarded
+    /// `runCurrentAnalysis()` at the end of `calibrateOrigin`.
+    func testAnOriginFitInDPCKeepsTheMapAndReadsItStale() async throws {
+        let state = AppState()
+        await state.openDemoFixture(specification: uniformLatticeCrop)
+        await state.calibrateOrigin()   // first fit, outside DPC
+        state.navigation.analysisMode = .dpc
+        _ = await state.runDPC()
+        let d1 = try XCTUnwrap(activeID(state, "dpc"), state.statusText)
+        XCTAssertEqual(productState(state, .dpc), .current, "precondition")
+
+        await state.calibrateOrigin()
+        XCTAssertEqual(activeID(state, "dpc"), d1, "no recompute, no new DPC node")
+        XCTAssertEqual(productState(state, .dpc).staleReason, calibrationReason("origin calibration"))
+    }
+}

@@ -49,4 +49,23 @@ final class SingleslicePtychographyExportTests: XCTestCase {
         XCTAssertEqual(product.sampling.row, 0.25)
         XCTAssertEqual(product.provenance["engine"], "singleslice")
     }
+
+    /// Clear Calibration discards the reconstruction with parallax: its Å
+    /// sampling and scale bar describe the calibration being cleared.
+    /// Mutation it catches: clearing parallax only (the result survived).
+    /// ...and the reconstruction on screen goes with it (supervisor F1: the
+    /// displayed product kept its Å sampling and would still export).
+    /// Mutation it catches: discarding the result but not the shown product.
+    func testClearCalibrationDiscardsTheReconstruction() {
+        let state = AppState()
+        state.changeMode(.singleslicePtychography)
+        state.phaseContrast.singleslicePtychography = result()
+        XCTAssertTrue(state.availableParallaxProducts.contains(.iterativePhase), "precondition")
+        state.showParallaxProduct(.iterativePhase)
+        XCTAssertEqual(state.displayedProduct?.kind, "ptychography_object_phase", "precondition")
+        state.clearCalibration()
+        XCTAssertNil(state.phaseContrast.singleslicePtychography)
+        XCTAssertFalse(state.availableParallaxProducts.contains(.iterativePhase))
+        XCTAssertNil(state.displayedProduct, "the shown reconstruction is discarded with it")
+    }
 }

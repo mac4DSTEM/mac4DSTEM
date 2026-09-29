@@ -114,6 +114,17 @@ extension AppState {
     /// this failure only through `presentComputeFailure` let `runDPC`
     /// overwrite it with "DPC ✓", record a recipe step, and return
     /// `.published` over a blank pane — both found by Gate B.
+    /// A scale the displayed DPC product derives from at display time (Q and
+    /// voltage for mrad, Q for physical iDPC) changed: re-derive it, as a
+    /// rotation change does, so the old scale never stays on screen under a
+    /// current badge. Only while a DPC product computed here is the one shown
+    /// (a saved map from the sidecar is its file's record, never overwritten).
+    func rederiveDisplayedDPCForScaleChange() {
+        guard let product = resultPresentation.product, product.origin == .computed,
+              product.kind.hasPrefix("dpc_") || product.kind.hasPrefix("idpc_") else { return }
+        _ = applyDPCDisplay()
+    }
+
     @discardableResult
     /// The one publish site for every DPC display mode: pixels and label
     /// chosen together.

@@ -1097,12 +1097,23 @@ extension AppState {
     /// Prepare's Clear Calibration; a reset spelled out elsewhere is the mistake
     /// this prevents (v2 S13). NOT `datasetSession.epoch` (the cube is unchanged) and not
     /// the strain/phase maps, which are left to rerun — but it DOES discard the
-    /// orientation map and parallax, and the confirmation dialog says so.
+    /// orientation map, parallax and the ptychography reconstruction (whose Å
+    /// sampling came from this calibration), and the confirmation dialog says so.
     func clearCalibration() {
         calibrationSession.clear()
         qCalibration.clear()
         clearSupersededFittedOrigin()
         phaseContrast.parallaxPreprocess = nil; phaseContrast.parallaxAlignment = nil
+        phaseContrast.singleslicePtychography = nil
+        // What is shown goes too: a computed parallax or ptychography image
+        // keeps the Å sampling of the calibration being cleared (a saved one
+        // shown from the sidecar is its file's record, and stays).
+        if let shown = resultPresentation.product, shown.origin == .computed,
+           shown.kind.hasPrefix("parallax_") || shown.kind.hasPrefix("ptychography_") {
+            resultPresentation.replaceProduct(nil)
+            resultPresentation.bumpResultVersion()
+        }
+        rederiveDisplayedDPCForScaleChange()   // its Q, R and rotation just went
         acomSession.invalidateResult()
     }
 
@@ -1220,6 +1231,7 @@ extension AppState {
             calibrationSession.provenance.qScale = nil
             acomSession.invalidateResult()
         }
+        rederiveDisplayedDPCForScaleChange()
     }
 
     func setManualQPixelUnits(_ units: String) {
@@ -1233,6 +1245,7 @@ extension AppState {
             calibrationSession.provenance.qScale = .manual
         }
         acomSession.invalidateResult()
+        rederiveDisplayedDPCForScaleChange()
     }
 
     func setManualRPixelSize(_ value: Double) {
@@ -1247,6 +1260,7 @@ extension AppState {
             calibrationSession.calibration.rPixelSize = nil
             calibrationSession.provenance.rScale = nil
         }
+        rederiveDisplayedDPCForScaleChange()   // physical iDPC integrates with R
     }
 
     func setManualRPixelUnits(_ units: String) {
@@ -1258,6 +1272,7 @@ extension AppState {
         if calibrationSession.calibration.rPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
             calibrationSession.provenance.rScale = .manual
         }
+        rederiveDisplayedDPCForScaleChange()
     }
 
     func setManualAcceleratingVoltage(_ value: Double) {
@@ -1267,6 +1282,7 @@ extension AppState {
         if CalibrationUnitConversion.normalized(calibrationSession.calibration.qPixelUnits) == "mrad" {
             acomSession.invalidateResult()
         }
+        rederiveDisplayedDPCForScaleChange()
     }
 
 
