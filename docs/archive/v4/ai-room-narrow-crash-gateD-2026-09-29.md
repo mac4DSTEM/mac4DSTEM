@@ -37,3 +37,15 @@ The pre-night tree `1a76089`, exported with `git archive` and built to scratch D
 opening Thronsen A from Recents with Phase mapping selected **aborted** with the identical exception and stack (E1, as
 predicted). **Pre-existing, not tonight's work**; refutation 1 did not fire, refutation 2 did not either (the empty room
 lives). The minimum comes with loaded content. Next: E3, bisect it in a scratch copy.
+
+## E3 — the minimum found (Opus diagnostician, scratch copy only; `e3-result.md`, `e3-log.md`, predictions logged first)
+
+A width probe in a scratch copy: the detail column's minimum stayed 0 (panes and overlays are not involved); the
+**inspector's** content minimum is set by one Phase-mapping row, "Ignore peaks beyond" (`PhaseMappingSettings.swift:218`):
+a fixed-size label + 12 pt + the 72-pt field + the fixed-size unit "Å⁻¹ (0 = detector)" = **332 pt**, so the inspector
+cannot go below 364 pt (2 × 16 padding) where the room is given 288 (ideal 320) or 248 (minimum 280). Before the abort the
+inspector was offered 320 and answered 364 repeatedly while the detail was offered 284 → 404 — the loop. Every other
+room's widest row fits (Prepare 207.5 pt). With the unit shortened to "Å⁻¹" (row 244, inspector 276) the same start
+**survived** (T6). Two Known-variants rows are also too wide (306, 267 pt) but alone did not abort (the split took the
+difference from the sidebar). Refuted along the way: a clean width threshold — once the inspector had grown, 950 pt
+did not abort but pushed the inspector off the window's right edge (path-dependent; the same row's second symptom).
