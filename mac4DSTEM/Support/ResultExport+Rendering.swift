@@ -248,7 +248,8 @@ extension AppState {
 
     static func savePNG(
         _ image: CGImage, suggestedName: String, state: AppState,
-        properties: [CFString: Any]? = nil
+        properties: [CFString: Any]? = nil,
+        producing: DisplayedProduct? = nil
     ) {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
@@ -256,6 +257,8 @@ extension AppState {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         if writePNG(image, to: url, properties: properties) {
             state.statusText = "Exported \(url.lastPathComponent)"
+            state.recordExportRun(format: "png", fileName: url.lastPathComponent,
+                                  productKind: producing?.kind)   // lineage sink (ADR 047)
         } else {
             state.present(SimpleError("Writing the PNG failed."))
         }

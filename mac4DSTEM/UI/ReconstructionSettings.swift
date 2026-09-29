@@ -157,7 +157,7 @@ private struct SingleslicePtychographySection: View {
                     "Reconstruct Object", systemImage: "circle.hexagongrid",
                     help: "Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine."
                 ) {
-                    Task { await appState.runSingleslicePtychography() }
+                    PendingEdits.run { await appState.runSingleslicePtychography() }
                 }
                 .disabled(!ProductWorkflow.mayRun(
                     .singleslicePtychography,
@@ -300,7 +300,7 @@ private struct ParallaxStageSections: View {
                 InspectorAdaptiveButton(
                     "Prepare Parallax Preview", systemImage: "waveform.path.ecg.rectangle"
                 ) {
-                    Task { await appState.prepareParallaxPreview() }
+                    PendingEdits.run { await appState.prepareParallaxPreview() }
                 }
                 // C4(a): this entry point could bypass the same
                 // five-calibration gate the toolbar asks for `.ptychography`;
@@ -318,7 +318,7 @@ private struct ParallaxStageSections: View {
                     "Align Next Level", systemImage: "align.horizontal.center",
                     help: "Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation."
                 ) {
-                    Task { await appState.alignParallaxNextLevel() }
+                    PendingEdits.run { await appState.alignParallaxNextLevel() }
                 }
                 .disabled(
                     appState.isBusy
@@ -374,7 +374,7 @@ private struct ParallaxStageSections: View {
                         "Correct Phase", systemImage: "wand.and.stars",
                         help: "Applies the fitted even/odd aberration CTF. Zero cutoff values disable the corresponding Butterworth filter."
                     ) {
-                        Task { await appState.correctParallaxPhase() }
+                        PendingEdits.run { await appState.correctParallaxPhase() }
                     }
                     .disabled(appState.isBusy)
                 }
@@ -435,7 +435,7 @@ private struct ParallaxStageSections: View {
                         "Upsample BF", systemImage: "arrow.up.left.and.arrow.down.right",
                         help: "Zero factor selects py4DSTEM's BF/DF sampling heuristic; σ is specified in input pixels."
                     ) {
-                        Task { await appState.upsampleParallaxBF() }
+                        PendingEdits.run { await appState.upsampleParallaxBF() }
                     }
                     .disabled(appState.isBusy)
                 }
@@ -492,7 +492,7 @@ private struct ParallaxStageSections: View {
                 }
                 InspectorActionRow {
                     InspectorAdaptiveButton("Compute Depth Stack", systemImage: "square.3.layers.3d") {
-                        Task { await appState.computeParallaxDepthSections() }
+                        PendingEdits.run { await appState.computeParallaxDepthSections() }
                     }
                     .disabled(appState.isBusy)
                 }

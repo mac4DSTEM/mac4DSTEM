@@ -56,6 +56,11 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// so short batches are zero-padded rather than reshaped.
     package let batch: Int
     package let batchMax: Int
+    /// Where these weights came from, recorded beside `learned_model_sha256` (C4b, ADR 048): "bundled", or
+    /// "fine-tuned" with the bundled package's tree hash as its parent. Set by whoever loads the detector,
+    /// before it runs; provenance only — no number the detector computes reads either.
+    package var origin = "bundled"
+    package var parentSHA256: String?
     private let model: MLModel
     private let inputName = "x"
     private let outputName = "heatmap"
@@ -68,11 +73,18 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// Loads the asset: hash the package tree, compile it (Core ML writes the compiled
     /// model to a temporary location that lives as long as the process), load it with
     /// the Neural Engine preferred. Slow the first time; never inside a run.
-    package static func load(assetURL: URL, preferNeuralEngine: Bool = true) async throws -> LearnedDiskDetector {
+    /// `compiledURL`: an already compiled `.mlmodelc` of this very package (the model store keeps one);
+    /// it is loaded as it is and nothing is compiled. The identity is still the package's tree hash.
+    /// A compiled model that cannot be loaded throws — the caller decides whether to fall back.
+    package static func load(assetURL: URL, compiledURL: URL? = nil, preferNeuralEngine: Bool = true) async throws -> LearnedDiskDetector {
         let sha = try sha256(ofAsset: assetURL)
         let compiled: URL
-        do { compiled = try await MLModel.compileModel(at: assetURL) }
-        catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.compileModel(at:)", underlying: error) }
+        if let compiledURL {
+            compiled = compiledURL
+        } else {
+            do { compiled = try await MLModel.compileModel(at: assetURL) }
+            catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.compileModel(at:)", underlying: error) }
+        }
         let config = MLModelConfiguration()
         config.computeUnits = preferNeuralEngine ? .all : .cpuAndGPU
         let model: MLModel
@@ -478,6 +490,8 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         provenance["learned_runtime"] = "coreml"
         provenance["learned_model_asset"] = assetURL.lastPathComponent
         provenance["learned_model_sha256"] = assetSHA256
+        provenance["learned_model_origin"] = origin
+        if let parent = parentSHA256 { provenance["learned_model_parent_sha256"] = parent }
         provenance["learned_threshold"] = String(threshold)
         provenance["learned_input_px"] = String(S)
         provenance["learned_windows"] = "\(rowOrigins.count)x\(colOrigins.count)"

@@ -16,7 +16,7 @@ Raw speckle, not cleaned counts, certifies a classifier (`docs/cloud/2026-09-23/
 B1 (`archive/v4/b1-edge-on-gateD-2026-09-28.md`, `b1-narrow-guard-2026-09-28.md`): 3 are edge calls 1–2 px from truth
 needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves errors between classes — neither shipped.
 The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
-S10 (2026-09-30): candidate A (zero-weight evidence) refuted at step 0; B (noise hit) left. T1's [0 -4 1] entry holds
+S10 (2026-09-30): candidate A refuted at step 0; B (noise hit) refuted at the bar (error 1.31 → 4.41 %); the metric ships as a quantity (ADR 048). T1's [0 -4 1] entry holds
 30 first-order-Laue-zone reflections (`archive/v4/s10-s11-gateD-2026-09-30.md`) — the library comment is stale.
 
 ### Tiled GPU memory: classical and learned Detect All gated and seen flat; the virtual-detector loops unmeasured
@@ -105,8 +105,8 @@ One line each; full wording as above.
   Dictionary, fixed; the app's own ranking is now a total order too.
 - At 1000 pt a busy run clips the status text and hides the metrics line; the panes widen while busy so the inspector
   covers ~110 pt of the phase map (`report-drive3.md` step 4): metrics get truncation priority, split fraction constant.
-- The owner's Al-Mg-Si recipe as a preset (`archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`).
-- **Owner request 2026-09-25, not in S4's scope:** mark on the CBED which disks each phase claimed — new surface: cost it, mock first.
+- Built 2026-09-30, unverified on screen: the claimed-disks overlay (drive after a phase-mapping run; a challenge-turned
+  matrix position shows its disks as unexplained — the challenger's axis is not recorded) and the Al–Mg–Si preset.
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
 - **A superseded load's tail still runs `discardPartialLoad`** (`AppState+Open.swift:810`) over whatever load is current;

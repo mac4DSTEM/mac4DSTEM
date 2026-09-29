@@ -12,6 +12,7 @@
 		000000000000000300000003 /* libsz.2.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 000000000000000200000003 /* libsz.2.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		300000000000000000000004 /* DSTEMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000003 /* DSTEMCore */; };
 		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
+		300000000000000000000008 /* DSTEMTraining in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000007 /* DSTEMTraining */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 		F6A1D0DE0001000000000002 /* DiskDetector in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000001 /* DiskDetector */; };
 		F6A1D0DE0001000000000004 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000003 /* Licenses */; };
@@ -122,6 +123,7 @@
 				Core/Data/ResidentCube.swift,
 				Core/Data/ResultPresentation.swift,
 				Core/Data/RQRotationConvention.swift,
+				Core/Data/SessionLineage.swift,
 				Core/Data/SessionReplayRecord.swift,
 				Core/Data/VendorRawReaders.swift,
 				Core/ML/LearnedDiskDetection.swift,
@@ -160,6 +162,16 @@
 				Session/StrainProduct.swift,
 				Session/SystemMonitor.swift,
 				Session/WorkspaceRecovery.swift,
+				Training/DetectionScorer.swift,
+				Training/DetectorFineTuning.swift,
+				Training/DetectorGraph.swift,
+				Training/DetectorTrainer.swift,
+				Training/DetectorWeights.swift,
+				Training/HeldOutSplit.swift,
+				Training/ModelPackageWriter.swift,
+				Training/TrainedModelStore.swift,
+				Training/TrainingPolicy.swift,
+				Training/TrainingSampleBuilder.swift,
 			);
 			target = 000000000000000100000000 /* mac4DSTEM */;
 		};
@@ -187,6 +199,7 @@
 			files = (
 				300000000000000000000004 /* DSTEMCore in Frameworks */,
 				300000000000000000000006 /* DSTEMSession in Frameworks */,
+				300000000000000000000008 /* DSTEMTraining in Frameworks */,
 			);
 		};
 		100000000000000130000000 /* Frameworks */ = {
@@ -252,6 +265,7 @@
 			packageProductDependencies = (
 				300000000000000000000003 /* DSTEMCore */,
 				300000000000000000000005 /* DSTEMSession */,
+				300000000000000000000007 /* DSTEMTraining */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
@@ -676,6 +690,10 @@
 		300000000000000000000005 /* DSTEMSession */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DSTEMSession;
+		};
+		300000000000000000000007 /* DSTEMTraining */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DSTEMTraining;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

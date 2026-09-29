@@ -185,6 +185,7 @@ extension AppState {
         ))
 
         publishPhaseMapProduct()
+        recordPhaseMappingRun(map: map, run: phaseMapping.lastRun)
         await publishPrecipitateClassificationFromPhaseMap()
         let counts = map.phaseCounts
         let indexed = counts.enumerated()
@@ -244,7 +245,28 @@ extension AppState {
                 labels: labels, width: width, height: height, roles: roles,
                 pixelSize: pixelSize, pixelUnit: pixelUnit)
         }.value
-        precipitateClassification.publish(objects, ifCurrent: token)
+        if precipitateClassification.publish(objects, ifCurrent: token) {
+            // Lineage node (ADR 047): consumes the phase map just recorded.
+            recordLineageRun(kind: "precipitate_objects", parameters: [
+                "connectivity": "8",
+                "minimum_object_area_px": String(precipitateClassification.minimumObjectAreaPx),
+            ])
+        }
+    }
+
+    /// The phase-mapping lineage node: the run's settings and phase list — the
+    /// provenance both phase products carry, less the per-class counts, which
+    /// are the result and not what produced it — and the CIFs the phases were
+    /// imported from, by file name and content fingerprint.
+    private func recordPhaseMappingRun(map: PhaseMap, run: PhaseMappingProduct.RunRecord?) {
+        guard let run else { return }
+        let parameters = phaseProvenance(map: map, run: run)
+            .filter { !$0.key.hasPrefix("count_") }
+        let imported = phaseMapping.phases
+            .filter { $0.model.source == .imported }
+            .map { SessionLineage.External(name: $0.model.id,
+                                           fingerprint: $0.model.contentFingerprint) }
+        recordLineageRun(kind: "phase_mapping", parameters: parameters, external: imported)
     }
 
     /// The object table for what the reader has now: the retained objects,
@@ -540,6 +562,30 @@ extension AppState {
             + String(format: "explaining %.0f %% of the measured vectors at %.4f Å⁻¹",
                      100 * winner.explainedFraction, winner.meanDistance)
         return .published
+    }
+
+    /// The "Al–Mg–Si (β″ needles)" preset of Add Phase: import the user's β″
+    /// CIF (not bundled — see `PhaseMappingProduct.applyAlMgSiPreset`), then
+    /// replace the phase list and select the classifier. Calibration is not
+    /// touched; it is per dataset.
+    func applyAlMgSiPreset(precipitateCIF url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            let model = try CIFImport.crystalModel(
+                from: text, fileBaseName: url.deletingPathExtension().lastPathComponent)
+            if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
+                acomSession.importedCrystalModels[index] = model
+            } else {
+                acomSession.importedCrystalModels.append(model)
+            }
+            phaseMapping.applyAlMgSiPreset(precipitate: model)
+            statusText = "Al–Mg–Si preset: Al (matrix) + \"\(model.displayName)\" at [0 1 0] and [0 0 1], "
+                + "Known variants. Calibrate this dataset yourself."
+        } catch {
+            present(error)
+        }
     }
 
     /// What a finished map says about itself when it found nothing, or nil.

@@ -119,6 +119,11 @@ extension AppState {
             let rms = result.origin.rmsResidual ?? 0
             statusText = String(format: "Origin ✓  r ≈ %.1f px, fit RMS %.3f px (%@)",
                                 result.probeRadius, rms, fitFn.rawValue)
+            // The lineage node (ADR 047): what the next disk detection, DPC and
+            // strain run will name as their calibration input.
+            recordOriginCalibrationRun(fitFunction: fitFn, method: method,
+                                       probeRadius: result.probeRadius,
+                                       rmsResidual: result.origin.rmsResidual)
 
             await runCurrentAnalysis()
         } catch {
@@ -205,6 +210,7 @@ extension AppState {
                          fit.occupiedAngularBins, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
                 : String(format: "Ellipse ✓  %@ · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
                          fit.model.rawValue, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
+            recordEllipseCalibrationRun()   // lineage node (ADR 047)
         } catch {
             if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }
             else {
@@ -228,6 +234,7 @@ extension AppState {
             showBraggMap(vectors, descriptor: descriptor)
         }
         statusText = String(format: "Ellipse set by hand · a %.4g · b %.4g · θ %.1f°", a, b, thetaDegrees)
+        recordEllipseCalibrationRun()   // lineage node (ADR 047)
     }
 
     /// R–Q rotation calibration: find the rotation (and detector transpose)

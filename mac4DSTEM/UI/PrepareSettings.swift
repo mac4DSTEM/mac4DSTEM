@@ -262,13 +262,13 @@ struct PrepareSettings: View {
             }
             InspectorActionRow {
                 Button {
-                    Task { await appState.calibrateOrigin() }
+                    PendingEdits.run { await appState.calibrateOrigin() }
                 } label: {
                     Label("Calibrate Origin", systemImage: "scope")
                 }
                 .disabled(appState.isBusy)
                 Button {
-                    Task { await appState.calibrateRotation() }
+                    PendingEdits.run { await appState.calibrateRotation() }
                 } label: {
                     Label("Measure R–Q Rotation", systemImage: "rotate.3d")
                 }
@@ -352,7 +352,7 @@ struct PrepareSettings: View {
             }
             InspectorActionRow {
                 Button {
-                    Task { await appState.calibrateEllipse() }
+                    PendingEdits.run { await appState.calibrateEllipse() }
                 } label: {
                     Label("Fit Ellipse", systemImage: "oval")
                 }
@@ -367,7 +367,7 @@ struct PrepareSettings: View {
             if let offeredBins = session.ellipseFitAnywayOffer {
                 InspectorActionRow {
                     Button {
-                        Task { await appState.calibrateEllipse(acceptSparseCoverage: true) }
+                        PendingEdits.run { await appState.calibrateEllipse(acceptSparseCoverage: true) }
                     } label: {
                         Label("Fit Anyway", systemImage: "exclamationmark.triangle")
                     }
@@ -584,7 +584,7 @@ struct PatternStatisticsSection: View {
                         "Compute Mean / Max", systemImage: "sum",
                         help: "Compute Mean / Max — one pass over the cube; also computed by origin calibration."
                     ) {
-                        Task { await appState.computeDPStatistics() }
+                        PendingEdits.run { await appState.computeDPStatistics() }
                     }
                     .disabled(appState.isBusy)
                 }

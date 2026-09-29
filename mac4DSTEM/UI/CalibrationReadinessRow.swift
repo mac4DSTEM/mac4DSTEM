@@ -101,7 +101,7 @@ enum CalibrationReadinessRow {
         case .originProbe:
             InspectorActionRow {
                 Button("Measure Origin & Probe") {
-                    Task { await appState.calibrateOrigin() }
+                    PendingEdits.run { await appState.calibrateOrigin() }
                 }
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("calibration.action.originProbe")
@@ -109,7 +109,7 @@ enum CalibrationReadinessRow {
         case .ellipse:
             InspectorActionRow {
                 Button("Fit Detector Ellipse") {
-                    Task { await appState.calibrateEllipse() }
+                    PendingEdits.run { await appState.calibrateEllipse() }
                 }
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("calibration.action.ellipse")
@@ -117,7 +117,7 @@ enum CalibrationReadinessRow {
         case .rotation:
             InspectorActionRow {
                 Button("Measure R–Q Rotation") {
-                    Task { await appState.calibrateRotation() }
+                    PendingEdits.run { await appState.calibrateRotation() }
                 }
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("calibration.action.rotation")
@@ -126,7 +126,7 @@ enum CalibrationReadinessRow {
             if appState.hasCurrentBraggVectors, let model = appState.resolvedACOMModel {
                 InspectorActionRow {
                     Button("Calibrate from Selected Material") {
-                        Task { await appState.calibrateQFromCrystal() }
+                        PendingEdits.run { await appState.calibrateQFromCrystal() }
                     }
                     .disabled(appState.isBusy)
                     .accessibilityIdentifier("calibration.action.qCrystal")

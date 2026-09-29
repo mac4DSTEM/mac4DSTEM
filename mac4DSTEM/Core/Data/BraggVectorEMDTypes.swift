@@ -170,15 +170,25 @@ package nonisolated struct SessionSidecarSnapshot: Sendable {
     /// **Nil means "no recipe was recorded"** — absence is absence, never an
     /// empty-but-asserted record (the `?? .fullExtent` lesson). // v2 S5
     package var replayRecord: SessionReplayRecord? = nil
+    /// The run graph (schema 7). Nil only when the file carried neither a
+    /// lineage nor a record. From a v1 file it is SYNTHESIZED in memory —
+    /// nodes marked `source: "v1"`, `inputs` absent — and the file is not
+    /// touched. // ADR 047 L1
+    package var lineage: SessionLineage? = nil
+    /// Set when a lineage was present but disagreed with the record beside it,
+    /// so the file was read as v1. Nil otherwise. // ADR 047 R7
+    package var lineageNote: String? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, replayRecord: SessionReplayRecord? = nil) {
+    package nonisolated init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, replayRecord: SessionReplayRecord? = nil, lineage: SessionLineage? = nil, lineageNote: String? = nil) {
         self.inventory = inventory
         self.calibration = calibration
         self.currentResult = currentResult
         self.currentRGBAResult = currentRGBAResult
         self.loadSpecification = loadSpecification
         self.replayRecord = replayRecord
+        self.lineage = lineage
+        self.lineageNote = lineageNote
     }
 }
 

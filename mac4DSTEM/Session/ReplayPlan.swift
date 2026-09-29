@@ -236,7 +236,8 @@ package enum ReplayRecordFrameMap {
             case "corr_power", "subpixel", "upsample_factor",
                  "min_relative_intensity", "relative_to_peak", "max_peaks",
                  "kernel_source", "kernel_mode", "kernel_probe_path",
-                 "detector_class", "learned_threshold", "learned_model_sha256": .invariant
+                 "detector_class", "learned_threshold", "learned_model_sha256",
+                 "learned_model_origin", "learned_model_parent_sha256": .invariant
             case "sigma_dp", "sigma_cc", "min_peak_spacing", "relative_reference_minimum_radius_px": .length
             case "edge_boundary": .lengthInt
             case "min_absolute_intensity": .absoluteIntensity
@@ -355,7 +356,15 @@ package enum ReplayRecordFrameMap {
         currentSpecification: LoadSpecification,
         exportBin: Int
     ) -> (record: SessionReplayRecord?, omission: String?) {
-        guard let record else { return (nil, nil) }
+        // An empty recipe has no detector-pixel parameters to mis-frame, so it
+        // has nothing to omit and nothing to explain. `recordForSaving` is
+        // non-nil for a session whose only runs were calibrations (it carries
+        // the lineage); without this guard that session's export reported a
+        // "different detector frame" omission for a recipe that does not exist.
+        // The lineage is not this file's business either — the reduced file
+        // stamps the recipe, and `mac4dstem_lineage` lives on the sidecar.
+        guard var record, !record.isEmpty else { return (nil, nil) }
+        record.lineage = nil
         let currentFrame = ReplayParameterFrame.of(currentSpecification)
         guard (recordedFrame ?? .unknown) == currentFrame else {
             return (nil, "the recipe's detector-pixel parameters were recorded on a different detector frame than this view (a promoted or restored session) — re-run the analyses on this view to record an exportable recipe")

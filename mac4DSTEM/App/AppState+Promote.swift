@@ -98,6 +98,10 @@ extension AppState {
         // it was recorded under — the sidecar re-adopt during `activate`
         // would otherwise stand, and its frame tag with it. // v2 S6
         let recipeBeforePromote = replay.record
+        // The run graph the recipe is the projection of survives with it
+        // (ADR 047): ids, inputs and calibration nodes are not recomputable
+        // from the record. Empty ⇒ nothing to restate.
+        let lineageBeforePromote = replay.lineage
         let frameBeforePromote = replay.parameterFrame
         // `!datasetSession.isLoading` is the reentrancy gate: without it, the
         // only protections were the button's `.disabled` (blind to a load
@@ -120,6 +124,7 @@ extension AppState {
         // refused promote touched nothing and restates nothing.
         defer {
             replay.adopt(recipeBeforePromote.isEmpty ? nil : recipeBeforePromote,
+                         lineage: lineageBeforePromote.isEmpty ? nil : lineageBeforePromote,
                          recordedOn: frameBeforePromote)
         }
         let load = beginDatasetLoading("Reopening \(source.fileName) at full extent…")

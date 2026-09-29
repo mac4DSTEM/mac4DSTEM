@@ -132,24 +132,19 @@ Clearing is three moves, in this order.
 
 **Clearing the board (owner, 2026-09-30: "make a plan to clear everything").** Sessions drive the app themselves; the
 owner is asked only for decisions, batched into ONE sitting (phase B). Each line lands as commits with its gate.
-- [ ] **A. Verify and finish (sessions, now).** Drive every "Unverified on screen" row on a scratch build; S10 T4's last
-  metric (Gate D, pre-registered first); S11 the learned detector's tiled memory (Gate D); S6's non-shell half.
-- [ ] **B. One owner sitting, prepared as artifacts** — each a recommendation he accepts or overrules: (1) the Frozen
-  Shell picture: the sidebar-clip fix, the busy status line, the view-state owners, the Info-tab badge; (2) the
-  lineage session format (ADR draft: step ids, input edges, sidecar v2) and a graph-view mock; (3) the training flow
-  (C3 design: where labels live, split, the non-inferiority screen, model swap); (4) hardware: is the stronger Mac here;
-  (5) T4: ship θ′ edge-on speckle as a quantity (S10's recommendation, `archive/v4/s10-theta-edge-on-preregistration-2026-09-30.md`).
-- [ ] **C. On-device training, the C track (ADR 043).** C2.5 a training step ≤ 2 GB on this Mac (batch/activation
-  memory, measured) and criterion 4 through the app's Swift path; C3 pre-register; C4 build label → train on the GPU
-  (MLX) → write the weights into the Core ML package (the on-disk route, 1.00× speed) → run on the Neural Engine →
-  judge on held-out labels (non-inferiority, both numbers shown) → swap or keep; C5 drive on real data. The ANE does
-  inference only — no public API trains on it.
-- [ ] **D. Lineage graph (ADR from B2).** L1 session record v2 (step ids, input edges; old sidecars still read); L2 a
-  lineage list in Results; L3 the graph view to the accepted mock; L4 real rewind — a node restores its parameter
-  state through the replay machinery. Each driven.
-- [ ] **E. The remaining lanes.** Precipitates: T4 passes, or the metric ships as a quantity (S10's verdict); the
-  disks-claimed-per-phase view (mock in B). Al-Mg-Si: the recipe preset once the owner's microprobe run confirms it.
-  Materials Project: its comparison run. Hardware: the 28 GB parity run and the parallax/ptychography drive.
+- [x] **A. Verify and finish** (2026-09-30): every unverified row driven; S10 A and B refuted (T4 ships as a quantity);
+  S11 flat in the app; S6 both halves; number fields commit on Return, and before any run (`PendingEdits`).
+- [x] **B. The owner's sitting, taken under delegation** (2026-09-30): ADR 047 (lineage), 048 (training on MPSGraph,
+  the C3 flow, T4 as a quantity, hardware waits) — overrule on sight.
+- [ ] **C. On-device training (ADR 043/048).** Done: C2.5 (1.48 GB), the MPSGraph mirror (equals MLX, 4× faster), C4a
+  core + C4b flow in Bragg Disks (split, Train Model…, the D7 sheet, model picker, Remove, provenance), gated and
+  reviewed. Left: **C5** — a full run on ≥ 12 held-out labelled positions, driven; the minimum N measured.
+- [ ] **D. Lineage graph (ADR 047).** Done: L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane
+  (driven on Thronsen A: v1 order-only, detail column, narrow list). Left: **L4** rewind (Gate D) and `lineage_step`
+  on products (stale marking).
+- [ ] **E. The remaining lanes.** Done: T4 as a quantity; the claimed-disks overlay (built, gated; unverified on
+  screen — needs a phase-mapping run); the Al–Mg–Si phase-setup preset (calibration stays a recipe). Left: the Al
+  Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048); hardware.
 - A lane leaves the board when its line here is ticked; the board is cleared when A–E are.
 
 ## How a v3 feature is done

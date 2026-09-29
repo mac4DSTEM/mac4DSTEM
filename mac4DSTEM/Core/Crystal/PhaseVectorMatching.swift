@@ -418,14 +418,34 @@ package nonisolated enum PhaseVectorMatcher {
         var out: [SIMD2<Double>] = []
         out.reserveCapacity(peaks.count)
         for p in peaks {
-            let q = SIMD2(Double(p.x - originX) * invAngstromPerPixel,
-                          Double(p.y - originY) * invAngstromPerPixel)
-            let len = simd_length(q)
-            guard len.isFinite, len > directBeamRadiusInvAngstrom,
-                  maximumVectorInvAngstrom <= 0 || len < maximumVectorInvAngstrom else { continue }
-            out.append(q)
+            if let q = experimentalVector(
+                peak: p, originX: originX, originY: originY,
+                invAngstromPerPixel: invAngstromPerPixel,
+                directBeamRadiusInvAngstrom: directBeamRadiusInvAngstrom,
+                maximumVectorInvAngstrom: maximumVectorInvAngstrom) {
+                out.append(q)
+            }
         }
         return out
+    }
+
+    /// One peak as a calibrated vector, or nil when the matcher leaves it
+    /// out (the direct beam, past the maximum vector, not finite). The single
+    /// definition of "usable", shared by `experimentalVectors` and
+    /// `claims(...)`, so the overlay's idea of which disks were matched cannot
+    /// drift from the map's.
+    package static func experimentalVector(peak p: BraggPeak,
+                                           originX: Float, originY: Float,
+                                           invAngstromPerPixel: Double,
+                                           directBeamRadiusInvAngstrom: Double,
+                                           maximumVectorInvAngstrom: Double = 0)
+        -> SIMD2<Double>? {
+        let q = SIMD2(Double(p.x - originX) * invAngstromPerPixel,
+                      Double(p.y - originY) * invAngstromPerPixel)
+        let len = simd_length(q)
+        guard len.isFinite, len > directBeamRadiusInvAngstrom,
+              maximumVectorInvAngstrom <= 0 || len < maximumVectorInvAngstrom else { return nil }
+        return q
     }
 
     // MARK: Nearest reference, with a length-band prune
@@ -1595,5 +1615,84 @@ package nonisolated enum PhaseVectorMatcher {
     private nonisolated struct SendableBox: @unchecked Sendable {
         let value: UnsafeMutablePointer<PhaseVectorResult>
         init(_ v: UnsafeMutablePointer<PhaseVectorResult>) { value = v }
+    }
+}
+
+// MARK: - Which detected disk did which phase claim?
+
+/// What the phase map made of one detected Bragg disk at one scan position.
+package nonisolated enum PhaseDiskClaim: Sendable, Equatable {
+    /// Never offered to the matcher: inside the direct-beam radius, past the
+    /// maximum vector, or not a finite position.
+    case notMatched
+    /// Removed as the fitted matrix orientation's (step 1 of `classify`).
+    case matrix
+    /// Paired, within the pair radius, with a reference vector of the winning
+    /// entry of this phase (its index in the library's `phases`).
+    case phase(Int)
+    /// Offered to the matcher, and claimed by nothing: it survived matrix
+    /// removal and the winning entry has no reference vector within the pair
+    /// radius — or the position has no winning entry (matrix by exclusion, not
+    /// indexed), so nothing beyond the matrix could claim it.
+    case unexplained
+}
+
+extension PhaseVectorMatcher {
+
+    /// The claim of every peak of one scan position, in `peaks` order.
+    ///
+    /// A REPLAY OF THE MATCHER'S OWN PAIRING, not a second opinion: usable
+    /// vectors from `experimentalVector`, matrix removal by the same
+    /// `nearest(_:in:radius:)` at `matrixToleranceInvAngstrom` that
+    /// `classify` step 1 (and `classifyKnownVariants` step a) uses, and the
+    /// phase claim by the same `nearest` at `pairRadiusInvAngstrom` against
+    /// the entry the map recorded for this position
+    /// (`result.entryIndex`) — the pairing `score(vectors:against:…)` counts
+    /// as `matchedCount`. So, for an `.indexed` position, the number of
+    /// `.phase` claims equals `result.matchedCount`, the `.matrix` claims
+    /// `removedCount`, and matrix + phase + unexplained = the usable vectors.
+    ///
+    /// Nothing is re-decided here: the verdict, the winning phase and entry
+    /// are read from `result`, so a claim can name only the phase the map
+    /// drew. A position the map did not index gives no `.phase` claim.
+    ///
+    /// `peaks` must be the CALIBRATED peaks the run matched (the caller's
+    /// `BraggVectors.calibrated(...)`), and `matrixEntry` the run's fitted
+    /// matrix entry, nil when none was fitted.
+    ///
+    /// LIMIT: where the verdict is `.matrix` because the matrix challenge
+    /// (`classify` step 5) found the matrix on another zone axis, that axis
+    /// is not recorded (`entryIndex` is cleared), so the disks it explains
+    /// are reported as unexplained rather than matrix.
+    package static func claims(peaks: [BraggPeak],
+                               originX: Float, originY: Float,
+                               invAngstromPerPixel: Double,
+                               settings: PhaseVectorSettings,
+                               matrixEntry: PhaseOrientationReference?,
+                               result: PhaseVectorResult,
+                               library: PhaseReferenceLibrary) -> [PhaseDiskClaim] {
+        var winning: PhaseOrientationReference?
+        if result.verdict == .indexed, result.entryIndex >= 0,
+           Int(result.entryIndex) < library.entries.count {
+            winning = library.entries[Int(result.entryIndex)]
+        }
+        return peaks.map { peak in
+            guard let u = experimentalVector(
+                peak: peak, originX: originX, originY: originY,
+                invAngstromPerPixel: invAngstromPerPixel,
+                directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom,
+                maximumVectorInvAngstrom: settings.maximumVectorInvAngstrom)
+            else { return .notMatched }
+            if let matrixEntry,
+               nearest(u, in: matrixEntry.vectors,
+                       radius: settings.matrixToleranceInvAngstrom) != nil {
+                return .matrix
+            }
+            if let winning,
+               nearest(u, in: winning.vectors, radius: settings.pairRadiusInvAngstrom) != nil {
+                return .phase(Int(result.phaseIndex))
+            }
+            return .unexplained
+        }
     }
 }

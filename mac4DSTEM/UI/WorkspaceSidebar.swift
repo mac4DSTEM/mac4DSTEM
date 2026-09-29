@@ -99,7 +99,7 @@ struct WorkspaceSidebar: View {
         ) { result in
             Button("Remove \(result.displayName)", role: .destructive) {
                 pendingResultRemoval = nil
-                Task { await appState.removeSavedSessionResult(result) }
+                PendingEdits.run { await appState.removeSavedSessionResult(result) }
             }
             Button("Cancel", role: .cancel) { pendingResultRemoval = nil }
         } message: { result in
@@ -384,7 +384,7 @@ struct SessionSection: View {
     @ViewBuilder
     private func savedResultRow(_ result: SessionResultDescriptor, isCurrent: Bool) -> some View {
         Button {
-            Task { await appState.selectSavedSessionResult(result) }
+            PendingEdits.run { await appState.selectSavedSessionResult(result) }
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Label(

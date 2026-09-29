@@ -63,7 +63,7 @@ struct DiffractionGroupsSection: View {
                     "Group Patterns", systemImage: "circle.grid.3x3",
                     help: "Run PCA and k-means over every scan position's diffraction pattern."
                 ) {
-                    Task { await appState.runDiffractionGroups() }
+                    PendingEdits.run { await appState.runDiffractionGroups() }
                 }
                 .disabled(appState.isBusy || appState.descriptor == nil)
                 .accessibilityIdentifier("groups.run")

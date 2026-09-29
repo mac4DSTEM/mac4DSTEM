@@ -368,7 +368,7 @@ struct PrimaryActionButton: View {
     }
 
     private func runPrimaryAction() {
-        Task { await appState.runPrimaryWorkspaceTask() }
+        PendingEdits.run { await appState.runPrimaryWorkspaceTask() }
     }
 }
 
@@ -460,7 +460,7 @@ struct WelcomeWorkspace: View {
                 .disabled(appState.isBusy)
         }
         Button("Try Demo Data") {
-            Task { await appState.openDemoFixture() }
+            PendingEdits.run { await appState.openDemoFixture() }
         }
         .buttonStyle(.bordered)
         .controlSize(.large)

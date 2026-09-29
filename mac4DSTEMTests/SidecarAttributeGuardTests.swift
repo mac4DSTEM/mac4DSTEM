@@ -98,10 +98,14 @@ final class SidecarAttributeGuardTests: XCTestCase {
 /// Writes one attribute onto a sidecar's session root with the bundled
 /// libhdf5 — the image the writer already loaded, found through dyld, so the
 /// process holds one copy of the (non-thread-safe) library.
-private enum SidecarPatcher {
+/// Internal (not private) since ADR 047 L1: `SessionLineageSidecarTests` writes
+/// hostile lineage attributes through it.
+enum SidecarPatcher {
     enum Value {
         case fixedStrings([String], size: Int)
         case double(Double)
+        /// A scalar VARIABLE-length string — what the writer itself produces.
+        case variableString(String)
     }
 
     private typealias Open = @convention(c) () -> Int32
@@ -166,8 +170,14 @@ private enum SidecarPatcher {
 
         let type: Int64
         let space: Int64
-        let bytes: [UInt8]
+        var bytes: [UInt8] = []
+        var variableText: String?
         switch value {
+        case .variableString(let text):
+            type = try tCopy(global("H5T_C_S1_g"))
+            _ = tSetSize(type, Int(bitPattern: UInt.max))   // H5T_VARIABLE
+            variableText = text
+            space = sCreate(0)
         case .fixedStrings(let strings, let size):
             type = try tCopy(global("H5T_C_S1_g"))
             _ = tSetSize(type, size)
@@ -191,6 +201,14 @@ private enum SidecarPatcher {
         let attribute = name.withCString { aCreate(root, $0, type, space, 0, 0) }
         guard attribute >= 0 else { throw Failure(description: "H5Acreate2") }
         defer { _ = aClose(attribute) }
+        if let variableText {
+            let status = variableText.withCString { characters -> Int32 in
+                var pointer: UnsafePointer<CChar>? = characters
+                return withUnsafePointer(to: &pointer) { aWrite(attribute, type, $0) }
+            }
+            guard status >= 0 else { throw Failure(description: "H5Awrite") }
+            return
+        }
         guard bytes.withUnsafeBytes({ aWrite(attribute, type, $0.baseAddress) }) >= 0 else {
             throw Failure(description: "H5Awrite")
         }

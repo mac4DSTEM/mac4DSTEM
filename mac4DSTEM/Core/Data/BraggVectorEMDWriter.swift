@@ -24,6 +24,20 @@ package nonisolated enum BraggVectorEMDWriter {
     private static let derivationAttribute = "mac4dstem_derivation"
     private static let minimumReaderAttribute = SessionSidecarFormat.minimumReaderAttribute
     private static let replayRecordAttribute = SessionSidecarFormat.replayRecordAttribute
+    private static let lineageAttribute = SessionSidecarFormat.lineageAttribute
+    /// Why the last write left the lineage out, or nil when it wrote it (or had
+    /// none). Written inside `writeFile` and read by `takeLineageOmission`,
+    /// both under `HDF5Serial` — the lock every sidecar write already holds.
+    nonisolated(unsafe) private static var lineageOmission: String?
+
+    /// The reason the most recent sidecar write did not carry the lineage, once:
+    /// the caller logs it. Nil when the lineage was written, or there was none.
+    package static func takeLineageOmission() -> String? {
+        HDF5Serial.run {
+            defer { lineageOmission = nil }
+            return lineageOmission
+        }
+    }
     /// The hand-clicked disk-centre labels (C7 session 4, 2026-09-08), as the
     /// same JSON `tools/disk-detector/label_centres.py` writes — one
     /// attribute on the session root, beside calibration. Additive content,
@@ -555,6 +569,44 @@ package nonisolated enum BraggVectorEMDWriter {
         } else {
             replay = nil
         }
+        // The lineage (schema 7, ADR 047). Read only by a reader that knows
+        // the attribute: `supportedSchema` below 7 models a v4.0.0 reader, which
+        // ignores it — the test seam that proves a v7 file still restores there.
+        // Present-but-refused ⇒ REFUSE by name (R8), like the two above. A
+        // lineage whose projection differs from the record beside it is a foreign
+        // or hand-edited file: read as v1, with a note, never merged (R7).
+        // Absent ⇒ synthesized IN MEMORY from the record, inputs absent; this
+        // function never writes.
+        var lineage: SessionLineage?
+        var lineageNote: String?
+        if supportedSchema >= 7,
+           let json = try readStringAttribute(lineageAttribute, on: root, hdf5: h5) {
+            // The 4 MiB cap is checked on the string after it is read: for a
+            // variable-length string HDF5 stores only a 16-byte heap id in the
+            // attribute (`H5Aget_storage_size` reports 16 for a 5 MiB string,
+            // measured 2026-09-30), so there is no size to check first. What
+            // bounds the read is the file itself; a fixed-length string is
+            // capped before it is read (`readStringAttribute`).
+            switch SessionLineage.validated(json) {
+            case .failure(.unsupportedVersion(let version)):
+                // A NEWER lineage in a file whose minimum-reader marker says this
+                // build can read it: the record beside it is complete and safe,
+                // so the file reads as v1 — with a note, never a refusal.
+                lineageNote = "This session's lineage is version \(version), newer than this build reads, so it is read as a record from before lineage: order only. Saving will replace it."
+            case .failure:
+                throw WriterError.malformedAttribute(name: lineageAttribute)
+            case .success(let parsed):
+                if SessionLineage.sameSteps(parsed.projection().steps, replay?.steps ?? []) {
+                    lineage = parsed
+                } else {
+                    lineageNote = "The lineage in this session does not match its replay record, so it is read as a record from before lineage: order only, nothing merged."
+                }
+            }
+        }
+        if lineage == nil, let replay, !replay.isEmpty {
+            lineage = SessionLineage.synthesized(
+                from: replay, frame: SessionLineage.Frame(specification ?? .fullExtent))
+        }
         let inventory = SessionSidecarInventory(
             hasSidecar: true,
             hasBraggVectors: linkExists("\(rootPath)/braggvectors", in: fileID, hdf5: h5),
@@ -566,7 +618,8 @@ package nonisolated enum BraggVectorEMDWriter {
             inventory: inventory, calibration: calibration,
             currentResult: currentResult, currentRGBAResult: currentRGBAResult,
             loadSpecification: specification,
-            replayRecord: replay
+            replayRecord: replay,
+            lineage: lineage, lineageNote: lineageNote
         )
     }
 
@@ -1630,8 +1683,18 @@ package nonisolated enum BraggVectorEMDWriter {
         // same rule as the result nodes above. Without this, a save from a
         // session that ran no analyses (a colleague adjusting calibration)
         // would silently ERASE the recipe the sidecar exists to carry. // v2 S5
+        //
+        // An EMPTY record counts as nothing to say too (a session whose only
+        // runs were calibrations carries a lineage but no replayable step):
+        // writing `{"steps":[]}` would assert an empty recipe over a real one.
+        // The lineage (schema 7) is preserved on the same condition as the
+        // record it is the projection of — and only when the caller hands NO
+        // record at all: a save that carries a record without a lineage is a
+        // caller that predates it, and the file's lineage would be stale
+        // against the record it now holds.
         var preservedReplayJSON: String?
-        if replayRecord == nil, let existingID {
+        var preservedLineageJSON: String?
+        if replayRecord?.isEmpty ?? true, let existingID {
             let existingRoot = rootPath.withCString {
                 h5.h5gopen2(existingID, $0, h5DefaultProperty)
             }
@@ -1640,6 +1703,17 @@ package nonisolated enum BraggVectorEMDWriter {
                 preservedReplayJSON = try readStringAttribute(
                     replayRecordAttribute, on: existingRoot, hdf5: h5
                 )
+                if replayRecord == nil {
+                    do {
+                        preservedLineageJSON = try readStringAttribute(
+                            lineageAttribute, on: existingRoot, hdf5: h5)
+                    } catch WriterError.malformedAttribute {
+                        // An unreadable lineage cannot be carried forward and
+                        // must not block an unrelated save; the reader refuses
+                        // such a file by name, so it was never being used.
+                        preservedLineageJSON = nil
+                    }
+                }
             }
         }
         // Preserve existing disk-centre labels the same way, for the same
@@ -1791,9 +1865,35 @@ package nonisolated enum BraggVectorEMDWriter {
         )
         // The replay record: the caller's live record wins; failing that, the
         // record the existing file already carried survives the rewrite.
-        if let json = replayRecord?.jsonString ?? preservedReplayJSON {
+        let recordJSON = replayRecord.flatMap { $0.isEmpty ? nil : $0.jsonString }
+        let recordToWrite = recordJSON ?? preservedReplayJSON
+        if let json = recordToWrite {
             try writeStringAttribute(replayRecordAttribute, value: json,
                                      on: root, hdf5: h5)
+        }
+        // The lineage the record is the projection of, when the caller has one
+        // (schema 7, ADR 047) — or, for a save that says nothing, the one the
+        // file already carries. NEVER written unchecked: it must pass the
+        // reader's own validation (a file this build writes must be a file this
+        // build reads) and its projection must equal the record being written
+        // beside it, or it is omitted and the omission is reported
+        // (`takeLineageOmission`). A session whose only runs were calibrations,
+        // saved over a file that has a recipe, is the second case: the recipe
+        // stays, the calibration nodes are not written.
+        let lineageCandidate = replayRecord?.lineage?.jsonString ?? preservedLineageJSON
+        lineageOmission = nil
+        if let candidate = lineageCandidate {
+            switch SessionLineage.writable(
+                candidate, alongside: recordToWrite.flatMap(SessionReplayRecord.parse)
+            ) {
+            case .success:
+                try writeStringAttribute(lineageAttribute, value: candidate,
+                                         on: root, hdf5: h5)
+            case .failure(let omission):
+                lineageOmission = omission.description
+            }
+        } else if replayRecord?.lineage != nil {
+            lineageOmission = "The lineage was not saved — it could not be encoded."
         }
         // Same rule as the replay record immediately above: the caller's
         // live value wins, otherwise the labels already on the file survive

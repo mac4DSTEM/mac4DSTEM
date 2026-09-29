@@ -16,6 +16,7 @@ let package = Package(
     products: [
         .library(name: "DSTEMCore", targets: ["DSTEMCore"]),
         .library(name: "DSTEMSession", targets: ["DSTEMSession"]),
+        .library(name: "DSTEMTraining", targets: ["DSTEMTraining"]),
     ],
     targets: [
         .target(
@@ -58,6 +59,25 @@ let package = Package(
             name: "DSTEMSession",
             dependencies: ["DSTEMCore"],
             path: "mac4DSTEM/Session",
+            swiftSettings: [
+                .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore
+                .swiftLanguageMode(.v5),
+                .defaultIsolation(MainActor.self),
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+                .enableUpcomingFeature("InferIsolatedConformances"),
+                .enableUpcomingFeature("InferSendableFromCaptures"),
+                .enableUpcomingFeature("MemberImportVisibility"),
+            ]
+        ),
+        // On-device fine-tuning of the learned disk detector (Phase C4a, ADR 048): the held-out split, the
+        // detection scorer, the MPSGraph trainer, the model-package writer and the trained-model store. System
+        // frameworks only (Metal, MetalPerformanceShadersGraph, CoreML, CryptoKit, Foundation): no package
+        // dependency beyond DSTEMCore, so `swift build` never sees a training runtime. Not linked by the app
+        // target until C4b.
+        .target(
+            name: "DSTEMTraining",
+            dependencies: ["DSTEMCore"],
+            path: "mac4DSTEM/Training",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore
                 .swiftLanguageMode(.v5),

@@ -1,7 +1,8 @@
 #!/bin/zsh
 # tools/mpsgraph-training-spike — ADR 048 phase C (2026-09-30), a DIAGNOSTIC: never gates. An MPSGraph mirror of the learned
 # disk detector's training step, run against the shipped Core ML package. System frameworks only: no package, no xcodebuild,
-# one `xcrun swiftc -O` into a temp dir that is removed on exit.
+# one `xcrun swiftc -O` into a temp dir that is removed on exit. It does not use tools/lib/sources.manifest: it compiles
+# no Core/ source (the graph and the weight reader are its own), so there is no group to name.
 #   run.sh <scratch dir> [steps=50]     env: SPIKE_MODE (forward|train; unset = forward, then train, as two processes)
 #                                       SPIKE_DTYPE (f32|f16|bf16) SPIKE_BATCH (2) SPIKE_ACCUM (4) SPIKE_LR (1e-4)
 # Exports the fixed training/held-out/fixture inputs once from tools/disk-detector (the detector env) into <scratch dir>,

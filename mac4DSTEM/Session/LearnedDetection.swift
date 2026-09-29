@@ -15,6 +15,13 @@
 //  image generation (`AppState.generateProbeKernel` and its two siblings,
 //  which populate `probeReference` alongside `AppState.probeKernel`).
 //
+//  The ACTIVE MODEL (C4b, ADR 048): one per app, owned here — the bundled
+//  package unless `selectModel` names a fine-tuned one. This layer knows a
+//  model only by its package URL, origin and parent hash (no training types);
+//  the trained-model store lives in the app layer and is reached through
+//  `modelLookup`, so a recorded hash can be found on this Mac before a replay
+//  refuses.
+//
 
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
@@ -79,6 +86,59 @@ package final class LearnedDetectionSession {
     /// failure. Cleared on a successful `prepare`.
     package private(set) var unavailableReason: String?
 
+    /// A model other than the bundled one: where its package is, where it came from and which
+    /// model it was fine-tuned from. Sendable plain data — the store's record stays in the app layer.
+    package struct ActiveModel: Equatable, Sendable {
+        package static let originBundled = "bundled"
+        package static let originFineTuned = "fine-tuned"
+
+        package var packageURL: URL
+        /// A compiled copy of `packageURL` (the store's), loaded instead of recompiling; nil compiles.
+        package var compiledURL: URL?
+        package var origin: String
+        /// The bundled package's tree hash for a fine-tuned model (D4: always the parent).
+        package var parentSHA256: String?
+        /// The model's own tree hash, when it is known before loading (a stored model's is).
+        package var sha256: String?
+
+        package init(packageURL: URL, compiledURL: URL? = nil, origin: String = ActiveModel.originFineTuned,
+                     parentSHA256: String? = nil, sha256: String? = nil) {
+            self.packageURL = packageURL; self.compiledURL = compiledURL; self.origin = origin
+            self.parentSHA256 = parentSHA256; self.sha256 = sha256
+        }
+    }
+
+    /// The model every detection runs, app-wide; nil is the bundled one.
+    package private(set) var activeModel: ActiveModel?
+
+    /// Finds a stored model by its tree hash (full, or a prefix of at least 8 digits) — set by the app
+    /// layer, which owns the trained-model store. Nil in a session that has no store.
+    @ObservationIgnored package var modelLookup: ((String) -> ActiveModel?)?
+
+    /// Called whenever the active model changes (a picker choice, a training adoption, or a replay that
+    /// switched to the model a recipe ran on), so the choice is persisted whichever way it was made.
+    @ObservationIgnored package var onModelChange: ((ActiveModel?) -> Void)?
+
+    /// Called by `clear()`: the app layer drops what belongs to the dataset (a pending fine-tuning review).
+    @ObservationIgnored package var onDatasetCleared: (() -> Void)?
+
+    /// "bundled" or "fine-tuned": what `learned_model_origin` records.
+    package var modelOrigin: String { activeModel?.origin ?? ActiveModel.originBundled }
+
+    /// The active model's package: the selected one, else the bundled asset (nil when this build has none).
+    package var resolvedAssetURL: URL? { activeModel?.packageURL ?? LearnedDiskDetector.bundledAssetURL() }
+
+    /// Makes `model` (nil: the bundled one) the active model. The loaded detector and its identity are
+    /// dropped — the next `prepare` loads the new package — and the compared full-scan runs stay as recorded.
+    package func selectModel(_ model: ActiveModel?) {
+        guard model != activeModel else { return }
+        activeModel = model
+        detector = nil
+        assetSHA256 = model?.sha256
+        unavailableReason = nil
+        onModelChange?(model)
+    }
+
     /// The loaded detector, held once and reused — loading it is slow
     /// (~1.3 s, measured) and must never happen inside a run's own
     /// cancellable operation.
@@ -101,6 +161,7 @@ package final class LearnedDetectionSession {
         lastClassical = nil
         lastLearned = nil
         probeReference = nil
+        onDatasetCleared?()
     }
 
     /// Both runs are on the same (freshly cleared) dataset because `clear()`
@@ -132,11 +193,20 @@ package final class LearnedDetectionSession {
     /// `prepareForRun` runs it BEFORE `AppState.runDiskDetection` calls
     /// `beginCancellableOperation`.
     package func prepare(assetURL: URL) async throws -> LearnedDiskDetector {
-        if let cached = detector { return cached }
+        if let cached = detector, cached.assetURL == assetURL { return cached }
         preparing = true
         defer { preparing = false }
         do {
-            let loaded = try await LearnedDiskDetector.load(assetURL: assetURL)
+            // A stored model's compiled copy is used when it loads; otherwise (a copy from another OS, say) compile.
+            let precompiled = activeModel?.packageURL == assetURL ? activeModel?.compiledURL : nil
+            let loaded: LearnedDiskDetector
+            if let precompiled, let fast = try? await LearnedDiskDetector.load(assetURL: assetURL, compiledURL: precompiled) {
+                loaded = fast
+            } else {
+                loaded = try await LearnedDiskDetector.load(assetURL: assetURL)
+            }
+            loaded.origin = modelOrigin
+            loaded.parentSHA256 = activeModel?.parentSHA256
             detector = loaded
             assetSHA256 = loaded.assetSHA256
             unavailableReason = nil
@@ -164,7 +234,7 @@ package final class LearnedDetectionSession {
         guard probeReference != nil else {
             return .failure("Generate a probe kernel first — the learned detector needs the probe image")
         }
-        guard let assetURL = LearnedDiskDetector.bundledAssetURL() else {
+        guard let assetURL = resolvedAssetURL else {
             return .failure("The learned detector's model is not in this build")
         }
         do {
@@ -180,7 +250,7 @@ package final class LearnedDetectionSession {
     /// preparable here.
     package func livePeaks(pattern: DiffractionPattern, params: DiskDetectionParams) async -> [BraggPeak]? {
         guard detectorClass == .learned, let ref = probeReference,
-              let assetURL = LearnedDiskDetector.bundledAssetURL(),
+              let assetURL = resolvedAssetURL,
               let learned = try? await prepare(assetURL: assetURL) else { return nil }
         let currentThreshold = threshold
         return await Task.detached(priority: .userInitiated) {
@@ -200,6 +270,13 @@ package final class LearnedDetectionSession {
         if detectorClass == .learned {
             params["learned_threshold"] = String(threshold)
             params["learned_model_sha256"] = assetSHA256 ?? ""
+            // Only a fine-tuned model adds keys: with the bundled model the
+            // signature stays byte-identical to the one every session before
+            // 2026-09-30 recorded, so those disks do not turn stale.
+            if modelOrigin != ActiveModel.originBundled {
+                params["learned_model_origin"] = modelOrigin
+                if let parent = activeModel?.parentSHA256 { params["learned_model_parent_sha256"] = parent }
+            }
         }
         return params
     }
@@ -215,18 +292,39 @@ package final class LearnedDetectionSession {
         // The class and threshold are applied only once the replay may proceed:
         // a refused learned step must not leave the picker switched to Neural
         // net at the recorded threshold (Gate B reviewed).
-        guard let assetURL = LearnedDiskDetector.bundledAssetURL() else {
+        guard LearnedDiskDetector.bundledAssetURL() != nil else {
             return "the neural-net model is not in this build — choose Classical under Detector in Disk detection, then run detection by hand"
         }
+        // The recorded model is the active one, the bundled one, or a stored fine-tuned one (found by its
+        // hash). A switch to it is undone if the replay is then refused, like the class and threshold.
+        let previous = activeModel
         do {
-            _ = try await prepare(assetURL: assetURL)
+            _ = try await prepare(assetURL: resolvedAssetURL!)
         } catch {
             return unavailableReason ?? sessionErrorDetail(error)
         }
-        guard assetSHA256 == recorded.learnedModelSHA256 else {
-            let have = String((assetSHA256 ?? "").prefix(8))
-            let want = String((recorded.learnedModelSHA256 ?? "").prefix(8))
-            return "it detected disks with the neural net at model \(want)…, and this build ships \(have)… — run detection by hand"
+        if assetSHA256 != recorded.learnedModelSHA256 {
+            let want = recorded.learnedModelSHA256 ?? ""
+            let bundledMatches = activeModel != nil && LearnedDiskDetector.bundledAssetURL().flatMap {
+                try? LearnedDiskDetector.sha256(ofAsset: $0)
+            } == want
+            let stored = want.isEmpty ? nil : modelLookup?(want)
+            guard bundledMatches || stored != nil else {
+                let have = String((assetSHA256 ?? "").prefix(8))
+                return "it detected disks with the neural net at model \(String(want.prefix(8)))…, which is not on this Mac (the active model is \(have)…) — run detection by hand"
+            }
+            selectModel(bundledMatches ? nil : stored)
+            do {
+                _ = try await prepare(assetURL: resolvedAssetURL!)
+            } catch {
+                let reason = unavailableReason ?? sessionErrorDetail(error)
+                selectModel(previous)
+                return reason
+            }
+            guard assetSHA256 == recorded.learnedModelSHA256 else {
+                selectModel(previous)
+                return "the stored model no longer matches the recorded hash \(String(want.prefix(8)))… — run detection by hand"
+            }
         }
         detectorClass = .learned
         if let recordedThreshold = recorded.learnedThreshold { threshold = recordedThreshold }

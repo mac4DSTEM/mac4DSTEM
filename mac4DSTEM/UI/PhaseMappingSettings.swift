@@ -32,6 +32,8 @@ import simd
 struct PhaseMappingSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
+    /// What the CIF importer is for: one phase, or the Al–Mg–Si preset's β″.
+    @State private var importsAlMgSiPreset = false
     @State private var showMaterialsProjectSheet = false
     @SceneStorage private var showsAdvanced: Bool
 
@@ -82,7 +84,7 @@ struct PhaseMappingSections: View {
                     InspectorAdaptiveButton("Find Matrix Zone Axis", systemImage: "scope",
                                              help: "Symmetry-equivalent axes should tie exactly. They are shown "
                                                  + "so a fit can be told from a coin toss.") {
-                        Task { await appState.findMatrixZoneAxis() }
+                        PendingEdits.run { await appState.findMatrixZoneAxis() }
                     }
                     // No physical Q scale, no fit: every axis would read "at
                     // chance" (drive 2026-09-24); the run section says why.
@@ -280,7 +282,7 @@ struct PhaseMappingSections: View {
             }
             InspectorActionRow {
                 InspectorAdaptiveButton("Map Phases", systemImage: "square.grid.3x3.topleft.filled") {
-                    Task { await appState.runPhaseMapping() }
+                    PendingEdits.run { await appState.runPhaseMapping() }
                 }
                 // C4(a): the toolbar's own readiness (Bragg vectors current,
                 // a physical Q scale), plus the phase list's own refusal.
@@ -361,7 +363,7 @@ struct PhaseMappingSections: View {
                         .multilineTextAlignment(.trailing)
                         .labelsHidden()
                 }
-                .help("The scan position under the cursor, and why it is that colour.")
+                .help("The scan position under the cursor, and why it is that colour. \"Show claimed disks\" on the diffraction pane rings the disks each phase claimed there.")
             }
 
             InspectorActionRow {
@@ -424,10 +426,22 @@ struct PhaseMappingSections: View {
     /// built-in library is not offered here — see the doc comment on
     /// `CrystalModelLibrary.models`. The menu offers exactly the two sources
     /// plus this session's already-imported models (CIF or Materials Project).
+    private static let alMgSiPresetHelp = """
+        Replaces the phase list with Al (matrix, zone [0 0 1]) and your β″ (Mg5Si6) CIF twice, at zones \
+        [0 1 0] (needles end-on) and [0 0 1] (in-plane), and selects the Known variants classifier. \
+        "Parallel to matrix" stays empty and the tolerances stay as they are. Calibration (ellipse, Q, R) \
+        is per dataset and is not set — calibrate from this scan's own lattice.
+        """
+
     private var addPhaseMenu: some View {
         InspectorAdaptiveMenu("Add Phase", systemImage: "plus") {
             Button("Materials Project…") { showMaterialsProjectSheet = true }
-            Button("From CIF file…") { showCIFImporter = true }
+            Button("From CIF file…") { importsAlMgSiPreset = false; showCIFImporter = true }
+            Divider()
+            Section("Presets") {
+                Button("Al–Mg–Si (β″ needles)…") { importsAlMgSiPreset = true; showCIFImporter = true }
+                    .help(Self.alMgSiPresetHelp)
+            }
             if !appState.acomSession.importedCrystalModels.isEmpty {
                 Divider()
                 ForEach(appState.acomSession.importedCrystalModels) { model in
@@ -442,6 +456,11 @@ struct PhaseMappingSections: View {
             switch result {
             case .success(let urls):
                 guard let url = urls.first else { return }
+                if importsAlMgSiPreset {
+                    importsAlMgSiPreset = false
+                    appState.applyAlMgSiPreset(precipitateCIF: url)
+                    return
+                }
                 appState.importCrystalModel(from: url)
                 // `importCrystalModel` appends to the shared imported-model
                 // list, which ACOM owns; take the one it just selected so a
@@ -450,6 +469,7 @@ struct PhaseMappingSections: View {
                     add(model)
                 }
             case .failure(let error):
+                importsAlMgSiPreset = false
                 appState.present(error)
             }
         }

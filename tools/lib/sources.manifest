@@ -237,6 +237,7 @@ mac4dstem_sources() {
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
+          "$core/Data/SessionLineage.swift"
           "$core/Data/SessionReplayRecord.swift"
         )
         ;;

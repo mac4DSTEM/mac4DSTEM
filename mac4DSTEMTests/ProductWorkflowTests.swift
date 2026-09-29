@@ -120,15 +120,18 @@ final class ProductWorkflowTests: XCTestCase {
     /// report an empty map as a result.
     /// Drive 2026-09-30: the toolbar's Map Phases was enabled with no phases,
     /// then refused on click. The phase list is a requirement, so the verb,
-    /// the checklist and replay agree. Mutation: `hasRunnablePhases` ignored.
+    /// the checklist and replay agree. Mutation: `phaseListRefusal` ignored.
     func testPhaseMappingRequiresARunnablePhaseList() {
         let noPhases = ProductWorkflowReadiness(hasBraggVectors: true, hasPhysicalACOMScale: true,
-                                                hasRunnablePhases: false)
-        XCTAssertEqual(ProductWorkflow.prerequisiteItems(for: .phaseMapping, readiness: noPhases)
-            .filter { !$0.isSatisfied }.map(\.id), ["phases"])
+                                                phaseListRefusal: "Two phases are marked as the matrix.")
+        let unmet = ProductWorkflow.prerequisiteItems(for: .phaseMapping, readiness: noPhases)
+            .filter { !$0.isSatisfied }
+        XCTAssertEqual(unmet.map(\.id), ["phases"])
+        XCTAssertEqual(unmet.first?.title, "Two phases are marked as the matrix.",
+                       "the row names the actual refusal, not a fixed sentence (Fable review)")
         XCTAssertFalse(ProductWorkflow.mayRun(.phaseMapping, readiness: noPhases, isBusy: false))
         var ready = noPhases
-        ready.hasRunnablePhases = true
+        ready.phaseListRefusal = nil
         XCTAssertTrue(ProductWorkflow.mayRun(.phaseMapping, readiness: ready, isBusy: false))
     }
 

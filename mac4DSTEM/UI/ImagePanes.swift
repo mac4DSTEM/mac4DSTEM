@@ -43,6 +43,14 @@ struct DiffractionPane: View {
     /// nothing but this pane's own footer (and `RealSpacePane`'s) needs it.
     @Environment(AppPreferences.self) private var preferences
     @State private var zp = ZoomPan()
+    /// "Show claimed disks" (phase-mapping task): a per-viewer display
+    /// preference, so it lives with the view and not in `AppState`.
+    @AppStorage("phaseMapping.showClaimedDisks") private var showClaimedDisks = true
+
+    /// The claimed-disks overlay exists once a phase map has run.
+    private var claimedDisksAvailable: Bool {
+        appState.navigation.analysisMode == .phaseMapping && appState.phaseMapping.map != nil
+    }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -118,7 +126,8 @@ struct DiffractionPane: View {
             title
             roiSumBadge
             Spacer(minLength: 8)
-            if appState.meanPattern != nil || appState.fitOverlays.isAvailable {
+            if appState.meanPattern != nil || appState.fitOverlays.isAvailable
+                || claimedDisksAvailable {
                 Menu {
                     if appState.meanPattern != nil {
                         Picker("Pattern source", selection: $appState.patternDisplayMode) {
@@ -130,6 +139,9 @@ struct DiffractionPane: View {
                     }
                     if appState.fitOverlays.isAvailable {
                         Toggle("Fit overlay", isOn: $appState.showFitOverlay)
+                    }
+                    if claimedDisksAvailable {
+                        Toggle("Show claimed disks", isOn: $showClaimedDisks)
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -172,6 +184,15 @@ struct DiffractionPane: View {
                     .controlSize(.small)
                     .fixedSize()
                     .help("Draw the fitted model (origin/ellipse, strain lattice, or matched template) over the pattern.")
+            }
+
+            if claimedDisksAvailable {
+                Toggle("Show claimed disks", isOn: $showClaimedDisks)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .fixedSize()
+                    .help("Ring each detected disk at this scan position in the colour of the phase that claimed it: the matrix, a precipitate phase, or unexplained.")
+                    .accessibilityIdentifier("pattern.showClaimedDisks")
             }
 
             if let pattern = appState.displayedPattern {
@@ -262,6 +283,11 @@ struct DiffractionPane: View {
                                     }
                                 )
                         }
+                    }
+
+                    // Phase mapping: which phase claimed each detected disk here.
+                    if claimedDisksAvailable, showClaimedDisks {
+                        PhaseClaimLayer(patternWidth: qx, patternHeight: qy, box: box)
                     }
 
                     // Fit verification: measured peaks against the fitted model

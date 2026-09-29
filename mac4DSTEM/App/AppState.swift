@@ -217,6 +217,7 @@ final class AppState {
         dpc.onDisplayChange = { [weak self] in
             _ = self?.applyDPCDisplay()
         }
+        detectorTraining.install(in: learnedDetection)
     }
 
     /// A private, uniquely named `UserDefaults` suite for `init`'s
@@ -522,6 +523,9 @@ final class AppState {
 
     /// Hand-clicked disk-centre labels (C7 session 4) — see `Session/DiskCentreLabels.swift`.
     let diskCentreLabels = DiskCentreLabelStore()
+
+    /// The on-device training flow's state (C4b): the trained-model store, the pending review — see `App/DetectorTrainingSession.swift`.
+    let detectorTraining = DetectorTrainingSession()
 
     /// `acomWorkPositionCount` and its dependents need `descriptor` (rx/ry),
     /// which only AppState holds, so they stay here as orchestration over
@@ -918,7 +922,7 @@ final class AppState {
             hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical,
             wantsLearnedDetector: learnedDetection.detectorClass == .learned,
             hasLearnedDetectorAsset: LearnedDiskDetector.bundledAssetURL() != nil,
-            hasRunnablePhases: phaseMapping.runRefusal == nil
+            phaseListRefusal: phaseMapping.runRefusal
         )
     }
 

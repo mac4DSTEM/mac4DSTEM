@@ -359,6 +359,8 @@ extension AppState {
         // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
         var replayParameters = params.replayParameters(kernel: kernel)
         replayParameters.merge(learnedDetection.replayParameters(for: detectorClass)) { _, new in new }
+        // (Lineage, ADR 047: the same supersession is `SessionLineage.downstreamKinds`,
+        // which decides the projection; this list is the call site's own statement of it.)
         recordReplayStep(kind: "disk_detection", parameters: replayParameters,
                           invalidating: ["strain", "acom"], replaying: replaying)
         completedDiskSummary = DiskDetectionScanSummary(

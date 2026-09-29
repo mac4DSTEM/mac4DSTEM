@@ -19,17 +19,18 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, raw Al-Mg-Si calibration, Bragg-restore and overnight 09-29 rows are at [`archive/v4/status-history-2026-09-29.md`](archive/v4/status-history-2026-09-29.md); 2026-09-17 through the 2026-09-23 overnight runs — are archived verbatim at [`archive/v4/status-history-2026-09-23.md`](archive/v4/status-history-2026-09-23.md). The 2026-09-23 night to 2026-09-25 rows are at [`archive/v4/status-history-2026-09-28.md`](archive/v4/status-history-2026-09-28.md). The 2026-09-28 morning's DM4, ellipse, clean-up and diffraction-groups rows are there too, and that day's R–Q, parallax, floor, T4, A2 and C2 rows.
 
-## Handoff — 2026-09-30 morning
+## Handoff — 2026-09-30, clearing the board (owner delegated every decision)
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | v4.0.0 released 2026-09-23; `main` pushed at `5bd686b` (2026-09-30): the overnight work, the narrow-window fix, the session queue. | — |
-| **Done 2026-09-30** | S1 board; S2 workspaces (driven); S3 number entry (Gate D, driven) and Friedel speed (Core `-O` in Debug); S4 phase mapping needs a physical Q; S5 sessions; S7–S9 register D025/D023/D019 (Gate D, refuted). Unit 980/0/1 = 981. | — |
-| **Next — clearing the board** | `ROADMAP.md` › **Clearing the board** A–E: A sessions verify on screen and finish S10/S11/S6; B one owner sitting (shell picture, lineage format + mock, training flow, hardware); C on-device training; D lineage graph; E remaining lanes. | `/pickup` (A); owner (B). |
-| **Owner owed** | Overrule on sight: Core `-O` in Debug (`9fe9440`); the shell sidebar-clip check R1 (open-items S6). D1 option (a); the lineage graph's session-file format (when it is registered); Thronsen's written confirmation (ADR 042); the "overrule on sight" list (plan §5). | Owner. |
-| Phase mapping | Unvalidated. T4 one metric short; D1 measured: the shipped max(0.02 Å⁻¹, 1 px) lies inside all four datasets' bands (raw 060 cube: matrix 84.4 % at the app's 0.02); `archive/v4/phase-tolerance-results-2026-09-29.md`. | Owner: option (a). |
-| **Unverified on screen** | S3 typo refusal; S5 reopen wording; S4's phase-mapping refusal line and requirement row. | Owner's drive. |
-| Carried | R–Q residuals; the 28 GB `--parity` run; parallax/ptychography drive; C2's memory and criterion 4; the register's 8 Gate D candidates; the Friedel ETA shape; D2 (raw cube objects — the two probes need bridging first); CI paused (ADR 040). | `open-items.md`. |
+| **Now** | v4.0.0 released 2026-09-23; `main` pushed by the owner after S5; later commits unpushed. | Owner: push. |
+| **Done** | Clearing the board A and B; C through C4 (training in Bragg Disks, MPSGraph, gated + Fable-reviewed); D through L3 (lineage graph in the Lineage pane, Gate B); E: claimed-disks overlay, Al–Mg–Si preset, T4 as a quantity. Unit 1115/0/1 = 1116. | — |
+| **Next** | C5 a full training run on real labels (driven); L4 rewind (Gate D); the claimed-disks drive after a phase-mapping run; Phase C/D/E Fable review. | Session. |
+| **Overrule on sight** | Core `-O` in Debug (`9fe9440`); ADRs 047, 048 (MPSGraph; Core ML for every model; T4 as a quantity); the D025 radius left at R + 0.5. | Owner. |
+| **Owner owed** | D1 option (a); Thronsen's written confirmation (ADR 042); the stronger Mac for the hardware lane. | Owner. |
+| Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048); S10 A refuted, B running. | Session. |
+| **Unverified on screen** | S5 reopen wording; commit-before-run (`PendingEdits`); the claimed-disks overlay; a full training run. | Session's drive. |
+| Carried | R–Q residuals; parallax/ptychography and the 28 GB parity run (hardware); the register's 8 Gate D candidates; the virtual-detector tiled loops; CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.
 

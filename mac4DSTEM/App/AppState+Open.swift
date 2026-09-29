@@ -906,8 +906,11 @@ extension AppState {
             // sidecar's OWN recorded specification (v2 S6) — not the view
             // being opened, which can legitimately differ after a
             // reconfigure.
-            replay.adopt(snapshot.replayRecord,
+            replay.adopt(snapshot.replayRecord, lineage: snapshot.lineage,
                          recordedOn: ReplayParameterFrame.of(snapshot.loadSpecification))
+            // A lineage that disagreed with its record was read as v1 (ADR 047
+            // R7): say so where the session log is read, not only in the file.
+            if let note = snapshot.lineageNote { activityLog.record(note) }
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(
                     sessionCalibration,
@@ -1211,6 +1214,7 @@ extension AppState {
             calibrationSession.calibration.qPixelUnits = manualQPixelUnits
             calibrationSession.provenance.qScale = .manual
             acomSession.invalidateResult()
+            recordQCalibrationRun()   // lineage node (ADR 047)
         } else {
             calibrationSession.calibration.qPixelSize = nil
             calibrationSession.provenance.qScale = nil

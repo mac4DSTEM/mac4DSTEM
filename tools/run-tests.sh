@@ -281,14 +281,15 @@ inventory() {
   # NSView tree (SwiftUI's `.bar` hosts no NSVisualEffectView; measured
   # 2026-09-03), so the rule is held here. The scientific panes are exempt.
   if grep -nE '\.background\((\.bar\)|Color\.[a-zA-Z]+\.opacity)' "$ROOT"/mac4DSTEM/UI/*.swift \
-       | grep -vE 'ImagePanes|PaneOverlays|LoadConfigurator|MetalImageView|HistogramView'; then
+       | grep -vE 'ImagePanes|PaneOverlays|PhaseClaimOverlay|LoadConfigurator|MetalImageView|HistogramView'; then
     echo "  ^ custom bar or opacity wash in the chrome (presentation contract rule 3)"; rc=1
   fi
+  # PhaseClaimOverlay (2026-09-30) is a science-pane overlay like PaneOverlays.
   # Rule 4 (2026-09-03): no fixed frames except the science. A numeric
   # `.frame(...)` in the chrome must come from `LayoutPolicy.swift`; the
   # panes, overlays and plots are exempt.
   if grep -nE '\.frame\([^)]*: *[0-9]' "$ROOT"/mac4DSTEM/UI/*.swift \
-       | grep -vE 'ImagePanes|PaneOverlays|HistogramView|ResultsWorkspace|LoadConfigurator|LayoutPolicy' \
+       | grep -vE 'ImagePanes|PaneOverlays|PhaseClaimOverlay|HistogramView|ResultsWorkspace|LoadConfigurator|LayoutPolicy' \
        | grep -vE 'LayoutPolicy\.|cropPane|// science'; then
     echo "  ^ a fixed frame outside the science (presentation contract rule 4)"; rc=1
   fi

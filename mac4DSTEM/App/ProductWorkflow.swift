@@ -313,9 +313,9 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
     /// Default true so a caller that never sets it (most readiness states)
     /// does not manufacture a missing-asset prerequisite out of nowhere.
     var hasLearnedDetectorAsset = true
-    /// Phase mapping's phase list can run (`PhaseMappingProduct.runRefusal` is
-    /// nil). Default true for the same reason as the asset flag above.
-    var hasRunnablePhases = true
+    /// Why phase mapping's phase list cannot run (`PhaseMappingProduct.runRefusal`),
+    /// nil when it can — the requirement row names the actual reason.
+    var phaseListRefusal: String? = nil
 }
 
 /// One requirement of a task, with its live status and where the satisfying
@@ -578,9 +578,10 @@ enum ProductWorkflow {
                 // disabled — not enabled and then refused — until it can run
                 // (drive, 2026-09-30).
                 TaskPrerequisite(
-                    id: "phases", title: "Add the matrix phase and at least one precipitate phase",
-                    isSatisfied: readiness.hasRunnablePhases,
-                    resolution: .taskPanel("Use Add Phase under Phases.")
+                    id: "phases",
+                    title: readiness.phaseListRefusal ?? "Add the matrix phase and at least one precipitate phase",
+                    isSatisfied: readiness.phaseListRefusal == nil,
+                    resolution: .taskPanel("Edit the list under Phases.")
                 )
             ]
         case .acom:

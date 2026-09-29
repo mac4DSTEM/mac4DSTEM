@@ -509,7 +509,7 @@ private struct DatasetActionSections: View {
                         InspectorAdaptiveButton(
                             "Reopen at Full Extent", systemImage: "arrow.up.left.and.arrow.down.right"
                         ) {
-                            Task { await appState.promoteAndReplayRecipe() }
+                            PendingEdits.run { await appState.promoteAndReplayRecipe() }
                         }
                         .disabled(appState.isBusy || appState.datasetSession.isLoading || appState.replayRun.isRunning)
                         .accessibilityIdentifier("inspector.promoteToFullExtent")
@@ -546,7 +546,7 @@ private struct DatasetActionSections: View {
                 if appState.residency.isResident {
                     InspectorActionRow {
                         InspectorAdaptiveButton("Release cube", systemImage: "memorychip") {
-                            Task { await appState.releaseResidentCube() }
+                            PendingEdits.run { await appState.releaseResidentCube() }
                         }
                         .disabled(appState.isBusy)
                         .accessibilityIdentifier("performance.releaseCube")

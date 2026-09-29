@@ -128,6 +128,7 @@ extension AppState {
             status += String(format: " · shell ratio %.3f vs %.3f predicted", observed, expected)
         }
         statusText = status
+        recordQCalibrationRun()   // lineage node (ADR 047)
     }
 
     /// Build the orientation-plan template library for the selected crystal.

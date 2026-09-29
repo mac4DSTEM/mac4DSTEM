@@ -2,6 +2,7 @@ import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import DSTEMTraining
 #endif
 import UniformTypeIdentifiers
 
@@ -48,6 +49,14 @@ struct MapSettings: View {
             }
         }
         .disabledWhileRunning(appState)
+        // The fine-tuning comparison (C4b): opens when a run finishes; Keep Current Model is the default.
+        .sheet(item: Binding(
+            get: { appState.detectorTraining.review },
+            set: { if $0 == nil { appState.discardFineTunedReview() } }
+        )) { review in
+            DetectorTrainingReviewSheet(review: review)
+                .environment(appState)
+        }
     }
 }
 
@@ -118,6 +127,7 @@ private struct DiskDetectionRows: View {
     /// reads structured probes small — the trench default once rebuilt the
     /// failing bullseye kernel on the first click (Gate B).
     @State private var measuredKernelMode: ProbeKernelMode = .flat
+    @State private var confirmingModelRemoval = false
     @State private var showVacuumImporter = false
     /// The picked kernel source (see `KernelSource`). Synthetic by default —
     /// the old first button, "Generate Probe Kernel".
@@ -185,11 +195,11 @@ private struct DiskDetectionRows: View {
             ) {
                 switch kernelSource {
                 case .synthetic:
-                    Task { await appState.generateProbeKernel() }
+                    PendingEdits.run { await appState.generateProbeKernel() }
                 case .currentCBED:
-                    Task { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
+                    PendingEdits.run { await appState.generateMeasuredProbeKernel(mode: measuredKernelMode) }
                 case .fileProbe:
-                    Task { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
+                    PendingEdits.run { await appState.generateFileProbeKernel(mode: measuredKernelMode) }
                 case .vacuumScan:
                     showVacuumImporter = true
                 }
@@ -204,7 +214,7 @@ private struct DiskDetectionRows: View {
                 switch result {
                 case .success(let urls):
                     if let url = urls.first {
-                        Task { await appState.generateVacuumProbeKernel(fromScan: url, mode: measuredKernelMode) }
+                        PendingEdits.run { await appState.generateVacuumProbeKernel(fromScan: url, mode: measuredKernelMode) }
                     }
                 case .failure(let error):
                     appState.present(error)
@@ -236,8 +246,8 @@ private struct DiskDetectionRows: View {
             .labelsHidden()
             .accessibilityIdentifier("disk.detectorClass")
             .help("The neural net proposes candidate positions on the whole pattern; the classical refinement still measures every one.")
-            .onChange(of: learned.detectorClass) { _, _ in Task { await appState.detectCurrentPattern() } }
-            .onChange(of: learned.threshold) { _, _ in Task { await appState.detectCurrentPattern() } }
+            .onChange(of: learned.detectorClass) { _, _ in PendingEdits.run { await appState.detectCurrentPattern() } }
+            .onChange(of: learned.threshold) { _, _ in PendingEdits.run { await appState.detectCurrentPattern() } }
             .onChange(of: preferences.offerLearnedDetector) { _, offered in
                 guard !offered, learned.detectorClass == .learned else { return }
                 learned.detectorClass = .classical
@@ -254,7 +264,47 @@ private struct DiskDetectionRows: View {
             .accessibilityIdentifier("disk.learnedThreshold")
             .help("The pick threshold on the neural net's heatmap, 0.3–0.99. Lower accepts more candidates; the classical refinement still filters them.")
 
-            InspectorValueRow("Model", learnedModelStatus(learned))
+            InspectorRow("Model") {
+                Picker("Model", selection: Binding(
+                    get: {
+                        // A stored model that is no longer listed reads as Bundled, never as a blank picker.
+                        let sha = appState.learnedDetection.activeModel?.sha256 ?? ""
+                        return appState.detectorTraining.entries.contains { $0.record.sha256 == sha } ? sha : ""
+                    },
+                    set: { appState.selectDetectorModel(sha256: $0) }
+                )) {
+                    Text("Bundled").tag("")
+                    ForEach(appState.detectorTraining.entries, id: \.record.sha256) { entry in
+                        Text("Fine-tuned \(entry.sha8)").tag(entry.record.sha256)
+                    }
+                }
+                .labelsHidden()
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("disk.learnedModel")
+                .help("The neural-net model every detection uses, app-wide: the bundled one, or a model you fine-tuned on your own labels (Training labels). Each result records which model made it.")
+            }
+            InspectorValueRow("Model ID", learnedModelStatus(learned))
+            if learned.activeModel != nil {
+                InspectorActionRow {
+                    InspectorAdaptiveButton(
+                        "Remove Fine-Tuned Model…", systemImage: "trash",
+                        help: "Move the active fine-tuned model to the Trash and go back to the bundled model. Results already made keep their record of which model made them.",
+                        role: .destructive
+                    ) {
+                        confirmingModelRemoval = true
+                    }
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("disk.learnedModel.remove")
+                }
+                .confirmationDialog(
+                    "Remove the fine-tuned model?", isPresented: $confirmingModelRemoval, titleVisibility: .visible
+                ) {
+                    Button("Move to Trash", role: .destructive) { appState.removeActiveFineTunedModel() }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("It moves to the Trash and the bundled model becomes active. Results already made keep their record of which model made them.")
+                }
+            }
         }
 
         if learned.canCompare {
@@ -393,6 +443,25 @@ private struct DiskCentreLabelsRows: View {
             .disabled(labels.isEmpty)
             .accessibilityIdentifier("disk.labels.export")
         }
+
+        // Fine-tune the neural net on these labels (C4b, ADR 048): the split is by a hash of the scan
+        // position, so new labels never move a position; the model is judged on the held-out ones.
+        let refusal = appState.trainModelRefusal
+        InspectorValueRow("Split", TrainingPolicy.splitRowText(appState.trainingSplit))
+            .help("Positions with at least one centre are split by a hash of the scan position (about 30 % held out), never by centre, so adding labels never moves a position between the sets. The held-out positions judge the fine-tuned model; they never train it.")
+            .accessibilityIdentifier("disk.labels.split")
+
+        InspectorActionRow {
+            InspectorAdaptiveButton(
+                "Train Model…", systemImage: "brain",
+                help: refusal ?? "Fine-tune the bundled neural-net model on the training positions (about a minute on the GPU), then judge it against the active model on the held-out positions with the current settings. It is offered only if it is at least as good on recall and precision and better on one. Needs at least \(TrainingPolicy.minimumHeldOutPositions) held-out positions (a floor not yet measured on the data; the count is always shown)."
+            ) {
+                PendingEdits.run { await appState.trainDetectorModel() }
+            }
+            .disabled(refusal != nil)
+            .accessibilityIdentifier("disk.labels.train")
+        }
+        if let refusal { InspectorNote(refusal) }
     }
 }
 
@@ -636,7 +705,7 @@ private struct StrainSection: View {
                 InspectorAdaptiveButton(
                     "Compute Strain Map", systemImage: "arrow.up.left.and.arrow.down.right"
                 ) {
-                    Task { await appState.runStrainMapping() }
+                    PendingEdits.run { await appState.runStrainMapping() }
                 }
                 // C4(a): was `appState.isBusy || !appState.hasCurrentBraggVectors`
                 // — `hasCurrentBraggVectors` is exactly the readiness this button

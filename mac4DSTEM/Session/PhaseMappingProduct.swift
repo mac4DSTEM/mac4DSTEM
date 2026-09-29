@@ -330,6 +330,36 @@ package final class PhaseMappingProduct {
         return repeated
     }
 
+    /// Al–Mg–Si preset: the DATASET-INDEPENDENT phase setup only (owner
+    /// decision 2026-09-30, from `docs/archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`
+    /// "The app recipe for this cube"). Replaces the phase list with
+    /// Al (matrix, zone [0 0 1]) and the given β″ (Mg5Si6) structure twice —
+    /// zone [0 1 0] (needles end-on) and [0 0 1] (in-plane) — with
+    /// "Parallel to matrix" empty, and selects the Known-variants classifier
+    /// (with that rule's own intensity-floor default, exactly what the picker
+    /// does on a switch). It touches NOTHING else: not the tolerances, not
+    /// the reference settings beyond that floor, and — living elsewhere — not
+    /// the calibration (ellipse, Q, R). A calibration is a property of its
+    /// dataset and is never a default (CLAUDE.md, the threshold rule).
+    /// The β″ structure is passed in because the repo does not redistribute
+    /// its CIF (`tools/crystal-structures/make_beta_double_prime.py`).
+    /// Stale zone-axis fits belonged to the old list and are dropped.
+    package func applyAlMgSiPreset(precipitate: CrystalModel,
+                                   matrix: CrystalModel? = CrystalModelLibrary.model(id: "al_fcc")) {
+        guard let matrix else { return }
+        phases = [
+            PhaseMappingSlot(model: matrix, isMatrix: true, u: 0, v: 0, w: 1),
+            PhaseMappingSlot(model: precipitate, isMatrix: false, u: 0, v: 1, w: 0),
+            PhaseMappingSlot(model: precipitate, isMatrix: false, u: 0, v: 0, w: 1),
+        ]
+        if matching.classificationRule != .knownVariants {
+            matching.classificationRule = .knownVariants
+            reference.minimumIntensityFraction =
+                PhaseMappingRuleDefaults.minimumIntensityFraction(for: .knownVariants)
+        }
+        zoneAxisFits = []
+    }
+
     /// The library this list and these settings would build, before building
     /// it — so the panel can show the size and the refusal without work.
     package var projectedEntryCount: Int {

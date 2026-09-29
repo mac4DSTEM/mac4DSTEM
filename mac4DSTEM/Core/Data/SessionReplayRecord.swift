@@ -21,6 +21,13 @@
 //  parameters keep only the latest; extending to multi-instance steps is a
 //  future decision, not yet made.
 //
+//  SINCE SCHEMA 7 (ADR 047) this record is the PROJECTION of the run graph in
+//  `SessionLineage.swift` — the active node of each replayable kind — and is
+//  still written beside it, byte for byte what schema 6 wrote, so an older
+//  build's promote-and-replay keeps working. `record(kind:…)` below is the
+//  reference semantics the projection is tested against
+//  (`SessionLineageTests`), not the live write path.
+//
 //  ABSENCE IS ABSENCE. A sidecar without the attribute yields NO record —
 //  never an empty-but-asserted one. This is the `?? .fullExtent` lesson
 //  (docs/open-items.md, fabricated provenance): the app must not state a
@@ -53,6 +60,17 @@ package nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
     }
 
     package var steps: [Step] = []
+
+    /// The lineage this record is the projection of (ADR 047 R6) — carried
+    /// ALONG the record to the sidecar writer so every existing save path,
+    /// which already hands the writer `replay.recordForSaving`, also writes
+    /// `mac4dstem_lineage` without a signature change. **Not part of the
+    /// record's own JSON** (`CodingKeys` lists `steps` only): the record a
+    /// build reads back is the same bytes it always was. Nil everywhere but
+    /// `SessionReplay.recordForSaving`.
+    package var lineage: SessionLineage?
+
+    private enum CodingKeys: String, CodingKey { case steps }
 
     package var isEmpty: Bool { steps.isEmpty }
 
@@ -106,7 +124,8 @@ package nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(steps: [Step] = []) {
+    package nonisolated init(steps: [Step] = [], lineage: SessionLineage? = nil) {
         self.steps = steps
+        self.lineage = lineage
     }
 }

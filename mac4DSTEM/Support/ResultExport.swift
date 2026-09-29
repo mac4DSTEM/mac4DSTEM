@@ -118,6 +118,7 @@ extension AppState {
                     suffix += " · recipe not carried: \(recipeOmission)"
                 }
                 self.statusText = "Exported \(summary.shape.map(String.init).joined(separator: " × ")) DataCube → \(url.lastPathComponent)\(suffix)"
+                self.recordExportRun(format: "py4dstem_datacube", fileName: url.lastPathComponent)   // lineage sink (ADR 047)
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 guard self.isCurrentOperation(token) else { return }
                 self.statusText = "Calibrated DataCube export cancelled"
@@ -264,7 +265,8 @@ extension AppState {
             properties: Self.pngProperties(
                 title: currentResultDisplayName,
                 record: exportedImageProvenanceRecord()
-            )
+            ),
+            producing: product
         )
     }
 
@@ -426,6 +428,8 @@ extension AppState {
                 }.value
                 guard self.isCurrentOperation(token) else { return }
                 let omitted = self.scientificBundleOmissions(in: maps)
+                self.recordExportRun(format: "emd_scientific_bundle", fileName: url.lastPathComponent,
+                                     productKind: maps.first?.kind)   // lineage sink (ADR 047)
                 self.statusText = omitted.isEmpty
                     ? "Exported \(maps.count) coherent fields → \(url.lastPathComponent)"
                     : "Exported \(maps.count) coherent fields → \(url.lastPathComponent) "
@@ -734,6 +738,7 @@ extension AppState {
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer { self.finishCancellableOperation(token) }
+            var productMark: (step: String, previous: String?)?
             do {
                 let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
                     Task { @MainActor [weak self] in
@@ -749,6 +754,11 @@ extension AppState {
                 // specification silently erased the crop attribute from the
                 // sidecar (found by S5). // v2 S5
                 let specification = loadedView.specification
+                // The run that made this map stops being collapsible (ADR 047
+                // R3) — marked BEFORE the lineage is captured, so the file that
+                // carries the map also names its run; undone if the save fails.
+                productMark = self.markLineageProductSaved(
+                    productKind: scalarMap?.kind ?? rgbaMap?.kind ?? metadata.kind)
                 let recipe = replay.recordForSaving
                 try await Task.detached(priority: .userInitiated) {
                     if let scalarMap {
@@ -769,6 +779,7 @@ extension AppState {
                         )
                     }
                 }.value
+                self.reportLineageOmission()
                 guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
                     self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
@@ -780,9 +791,11 @@ extension AppState {
                 } ?? "Saved \(metadata.displayName) → \(url.lastPathComponent)"
                 self.rememberSidecarGrant(url, for: descriptor, what: metadata.displayName)
             } catch BraggVectorEMDWriter.WriterError.cancelled {
+                self.undoLineageProductMark(productMark)
                 guard self.isCurrentOperation(token) else { return }
                 self.statusText = "Session sidecar save cancelled"
             } catch {
+                self.undoLineageProductMark(productMark)
                 guard self.isCurrentOperation(token) else { return }
                 self.present(error)
             }
@@ -1007,6 +1020,7 @@ extension AppState {
                     cancellation: token
                 )
             }.value
+            reportLineageOmission()
             guard isCurrentOperation(token), epoch == datasetSession.epoch else { return }
             let inventory = try await Task.detached(priority: .utility) {
                 try BraggVectorEMDWriter.loadInventory(from: url)
@@ -1205,6 +1219,7 @@ extension AppState {
                         cancellation: token
                     )
                 }.value
+                self.reportLineageOmission()
                 guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
                     self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
@@ -1442,7 +1457,8 @@ extension AppState {
             var provenance = ["analysis_mode": navigation.analysisMode.rawValue,
                               "source_product": "bragg_vector_map", "coordinate_space": "reciprocal"]
             // C7: the detector's identity travels with the map; the Model row shows the same hash.
-            for key in ["detector_class", "learned_threshold", "learned_model_sha256"] {
+            for key in ["detector_class", "learned_threshold", "learned_model_sha256",
+                        "learned_model_origin", "learned_model_parent_sha256"] {
                 provenance[key] = resultPresentation.braggVectors?.detectionProvenance[key]
             }
             let q = calibrationSession.calibration

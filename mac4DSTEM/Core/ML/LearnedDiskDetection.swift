@@ -65,6 +65,7 @@ package nonisolated enum DiskDisagreement {
                 "detector_class": "classical,learned",
                 "learned_threshold": learned["learned_threshold"] ?? "",
                 "learned_model_sha256": learned["learned_model_sha256"] ?? "",
+                "learned_model_origin": learned["learned_model_origin"] ?? "",
                 "disagreement_match_radius_px": String(matchRadiusPx),
                 "disagreement_matched": String(matched),
                 "disagreement_classical_only": String(classicalOnly),

@@ -207,6 +207,98 @@ let cases: [(String, LoadSpecification)] = [
                   "malformed replay text \(text.debugDescription) decoded to something")
         }
 
+        // ---- 9. The lineage (ADR 047 L1, schema 7) round-trips by the same rules
+        // Equal after the trip, byte-stable on re-encode (sorted keys, seconds),
+        // node ORDER and ids preserved, the projection equal to the linear record
+        // the same runs build, and every hostile shape refused rather than
+        // guessed at — never a partial graph.
+        var lineage = SessionLineage()
+        let identity = SessionLineage.Frame()
+        let binned = SessionLineage.Frame(
+            bin: 2, crop: AxisCrop(yOffset: 4, xOffset: 8, height: 32, width: 64))
+        lineage.recordRun(kind: "calibration_origin", parameters: ["fit_function": "Plane"],
+                          frame: identity, at: Date(timeIntervalSince1970: 5))
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2.0"],
+                          frame: identity, at: Date(timeIntervalSince1970: 10))
+        lineage.recordRun(kind: "strain", parameters: ["basis_mode": "automatic"],
+                          frame: binned, at: Date(timeIntervalSince1970: 20))
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "3.5"],
+                          frame: identity, at: Date(timeIntervalSince1970: 30))
+        lineage.recordRun(kind: "acom", parameters: ["material": "imported_x", "material_fingerprint": "abc"],
+                          frame: identity, at: Date(timeIntervalSince1970: 40))
+        check(lineage.nodes.map(\.id) == ["s1", "s2", "s3", "s4", "s5"],
+              "ids must be s1… in recording order, got \(lineage.nodes.map(\.id))")
+        check(lineage.nodes[2].inputs?.contains(SessionLineage.Input(step: "s2", role: "peaks")) == true,
+              "strain must name the disk detection it consumed")
+        check(lineage.nodes[4].external == [SessionLineage.External(name: "imported_x", fingerprint: "abc")],
+              "an imported phase must be an external input by name and fingerprint")
+        check(lineage.projection().steps.map(\.kind) == ["disk_detection", "acom"],
+              "the projection must drop the strain a re-detection superseded, and no calibration kind")
+        if let lineageJSON = lineage.jsonString {
+            let decoded = SessionLineage.parse(lineageJSON)
+            check(decoded == lineage, "the lineage differs after the round trip")
+            check(decoded?.jsonString == lineageJSON,
+                  "re-encoding the lineage produced different bytes")
+        } else {
+            check(false, "a non-empty lineage failed to encode")
+        }
+        var v1 = SessionLineage.synthesized(from: recipe, frame: identity)
+        check(v1.nodes.allSatisfy { $0.inputs == nil && $0.source == "v1" },
+              "a synthesized v1 node must carry no inputs (absence is absence)")
+        check(v1.projection() == recipe, "a synthesized lineage must project to its own record")
+        if let v1JSON = v1.jsonString {
+            check(SessionLineage.parse(v1JSON)?.jsonString == v1JSON,
+                  "a v1 lineage is not byte-stable (an absent inputs key must stay absent)")
+            check(!v1JSON.contains("\"inputs\""), "a v1 node wrote an inputs key")
+        }
+        v1.recordRun(kind: "virtual_detector", parameters: [:], frame: identity)
+        check(v1.nodes.last?.id == "s3", "a live run after a v1 file continues the ids")
+        let hostile: [(String, String)] = [
+            ("empty", ""), ("array", "[]"), ("number", "2.5"), ("null", "null"),
+            ("wrong version", "{\"head\":null,\"next_id\":1,\"nodes\":[],\"version\":3}"),
+            ("dangling", "{\"head\":\"s1\",\"next_id\":2,\"nodes\":[{\"external\":[],\"id\":\"s1\",\"inputs\":[{\"role\":\"peaks\",\"step\":\"s9\"}],\"kind\":\"strain\",\"parameters\":{},\"recorded\":1,\"source\":\"live\"}],\"version\":2}"),
+            ("cycle", "{\"head\":\"s2\",\"next_id\":3,\"nodes\":[{\"external\":[],\"id\":\"s1\",\"inputs\":[{\"role\":\"peaks\",\"step\":\"s2\"}],\"kind\":\"a\",\"parameters\":{},\"recorded\":1,\"source\":\"live\"},{\"external\":[],\"id\":\"s2\",\"inputs\":[{\"role\":\"peaks\",\"step\":\"s1\"}],\"kind\":\"b\",\"parameters\":{},\"recorded\":1,\"source\":\"live\"}],\"version\":2}"),
+            ("oversize", String(repeating: " ", count: SessionLineage.maximumJSONBytes + 1)),
+        ]
+        for (name, text) in hostile {
+            check(SessionLineage.parse(text) == nil, "a hostile lineage (\(name)) decoded to something")
+        }
+
+        // ---- 10. Gate B fixes: bounds, order under pruning, futures -------
+        func nodeText(_ id: String, kind: String = "dpc") -> String {
+            "{\"external\":[],\"id\":\"\(id)\",\"inputs\":[],\"kind\":\"\(kind)\",\"parameters\":{},\"recorded\":1,\"source\":\"live\"}"
+        }
+        func lineageText(nextID: Int, version: Int = 2) -> String {
+            "{\"head\":null,\"next_id\":\(nextID),\"nodes\":[\(nodeText("s1"))],\"version\":\(version)}"
+        }
+        for hostileID in [Int.max, SessionLineage.maximumNextID + 1, 0] {
+            check(SessionLineage.parse(lineageText(nextID: hostileID)) == nil, "next_id \(hostileID) validated")
+        }
+        if var edge = SessionLineage.parse(lineageText(nextID: SessionLineage.maximumNextID - 1)) {
+            let minted = edge.recordRun(kind: "virtual_detector", parameters: [:], frame: identity)
+            check(minted == "s\(SessionLineage.maximumNextID - 1)", "the last mint")
+            check(edge.jsonString.flatMap(SessionLineage.parse) != nil, "the file after the last mint must read")
+            let count = edge.nodes.count
+            edge.recordRun(kind: "strain", parameters: [:], frame: identity)
+            check(edge.nodes.count == count, "a run with the ids spent must not grow the graph")
+        } else { check(false, "next_id one below the bound was refused") }
+        check(SessionLineage.validated(lineageText(nextID: 2, version: 3)) == .failure(.unsupportedVersion(3)), "future version")
+        check(SessionLineage.validated("{\"version\":3,\"nodes\":\"reshaped\"}") == .failure(.unsupportedVersion(3)),
+              "a future version with reshaped nodes is still recognised as future")
+        var pruned = SessionLineage()
+        var reference = SessionReplayRecord()
+        func both(_ kind: String, _ index: Int, _ inv: [String] = []) {
+            let p = ["n": String(index)]
+            pruned.recordRun(kind: kind, parameters: p, frame: identity, at: Date(timeIntervalSince1970: TimeInterval(index)))
+            reference.record(kind: kind, parameters: p, at: Date(timeIntervalSince1970: TimeInterval(index)), invalidating: inv)
+            if pruned.projection() != reference { check(false, "projection diverged at step \(index) (\(kind))") }
+        }
+        both("disk_detection", 0, ["strain", "acom"]); both("dpc", 1)
+        for index in 2..<1_200 {
+            both("strain", 2 * index); both("disk_detection", 2 * index + 1, ["strain", "acom"])
+        }
+        check(pruned.nextID > 2_100 && pruned.nodes.count <= SessionLineage.maximumNodes, "the run must pass the cap")
+        check(pruned.projection().steps.map(\.kind) == ["disk_detection", "dpc"], "pruning reordered the projection")
         if failures.isEmpty {
             print("load-spec-roundtrip: all passed")
         } else {

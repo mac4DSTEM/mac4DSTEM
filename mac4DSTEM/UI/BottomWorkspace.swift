@@ -107,31 +107,30 @@ private struct OutputPane: View {
 
 // MARK: - Lineage
 
-/// The record of how the session got here, drawn as a chain — one node per
-/// recorded step, in order, then the displayed product's provenance. A
-/// chain, not yet a graph: the replay record is linear and carries no
-/// input edges; a graph view with rewind is planned (ROADMAP) and would
-/// follow the record.
+/// How the session got here, as the run graph (ADR 047, L3): one node per
+/// recorded run, layered left to right, the selected run's record in a
+/// trailing column (`LineageGraphView`). A session recorded before lineage
+/// existed draws in order only, and says so. The displayed product's
+/// provenance stays one disclosure below.
 private struct LineagePane: View {
     @Environment(AppState.self) private var appState
-
-    private static let recordedFormat: Date.FormatStyle = .dateTime.month(.abbreviated).day().hour().minute()
+    @State private var activePathOnly = false
+    @State private var showsProvenance = false
 
     var body: some View {
+        let product = appState.displayedProduct
+        let model = LineageGraphModel(
+            lineage: appState.replay.lineage,
+            productKind: product?.kind,
+            productStep: product?.provenance["lineage_step"],
+            activePathOnly: activePathOnly)
         VStack(spacing: 0) {
-            PaneHeader(title: "Lineage") {
-                Text("Linear record — the graph with rewind follows the record")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-            ScrollView {
-                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
-                    chain
-                    provenance
-                }
-                .padding(LayoutPolicy.infobarHorizontalPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            PaneHeader(title: "Lineage") { headerTrailing(model) }
+            LineageGraphView(model: model)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let product {
+                Divider()
+                provenance(product)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -139,63 +138,46 @@ private struct LineagePane: View {
     }
 
     @ViewBuilder
-    private var chain: some View {
-        let steps = appState.replaySteps
-        if steps.isEmpty {
-            Text("No steps recorded yet.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        } else {
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: LayoutPolicy.inspectorRowSpacing) {
-                    ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                        if index > 0 {
-                            Image(systemName: "arrow.right")
-                                .foregroundStyle(.secondary)
-                                .padding(.top, LayoutPolicy.inspectorRowSpacing)
-                                .accessibilityHidden(true)
-                        }
-                        GroupBox {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(step.kind).font(.callout.weight(.medium))
-                                Text(step.recorded, format: Self.recordedFormat)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                if !step.parameters.isEmpty {
-                                    Text(step.parameters.sorted { $0.key < $1.key }
-                                        .map { "\($0.key) = \($0.value)" }
-                                        .joined(separator: "\n"))
-                                        .font(.caption.monospaced())
-                                        .foregroundStyle(.secondary)
-                                        .textSelection(.enabled)
-                                }
-                            }
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("Step \(index + 1), \(step.kind)")
-                    }
-                }
+    private func headerTrailing(_ model: LineageGraphModel) -> some View {
+        let total = model.lineage.nodes.count
+        if total > 0 {
+            Text(model.branchNodeCount > 0
+                 ? "\(total) runs · \(model.branchNodeCount) on other branches"
+                 : "\(total) run\(total == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+            if model.branchNodeCount > 0 || activePathOnly {
+                Toggle("Active path only", isOn: $activePathOnly)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
+                    .accessibilityIdentifier("bottomWorkspace.lineage.activePathOnly")
             }
         }
     }
 
-    @ViewBuilder
-    private var provenance: some View {
-        if let product = appState.displayedProduct {
+    private func provenance(_ product: DisplayedProduct) -> some View {
+        DisclosureGroup(isExpanded: $showsProvenance) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(product.provenance.sorted { $0.key < $1.key }, id: \.key) { entry in
+                        HStack(alignment: .firstTextBaseline, spacing: LayoutPolicy.inspectorRowSpacing) {
+                            Text(entry.key).foregroundStyle(.secondary)
+                            Text(entry.value).textSelection(.enabled)
+                            Spacer(minLength: 0)
+                        }
+                        .font(.caption.monospaced())
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: LineageGraphMetrics.provenanceMaxHeight)
+        } label: {
             Text("Provenance — \(product.displayName)")
                 .font(.callout.weight(.semibold))
-            ForEach(product.provenance.sorted { $0.key < $1.key }, id: \.key) { entry in
-                HStack(alignment: .firstTextBaseline, spacing: LayoutPolicy.inspectorRowSpacing) {
-                    Text(entry.key).foregroundStyle(.secondary)
-                    Text(entry.value).textSelection(.enabled)
-                    Spacer(minLength: 0)
-                }
-                .font(.caption.monospaced())
-            }
-        } else {
-            Text("No product is displayed.")
-                .font(.callout)
                 .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
+        .padding(.vertical, 4)
     }
 }

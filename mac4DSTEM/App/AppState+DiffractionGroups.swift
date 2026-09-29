@@ -85,6 +85,12 @@ extension AppState {
                     "seed": String(settings.seed),
                 ]
             )
+            recordLineageRun(kind: "diffraction_groups", parameters: [
+                "binned_size": String(settings.binnedSize),
+                "components": String(settings.components),
+                "groups": String(settings.groups),
+                "seed": String(settings.seed),
+            ])   // lineage node (ADR 047): the settings that ran, not the clamped counts
             statusText = "\(result.groupCount) groups from \(totalPatterns) patterns, "
                 + "first 3 components explain \(String(format: "%.1f", firstThreePercent)) %"
             return .published

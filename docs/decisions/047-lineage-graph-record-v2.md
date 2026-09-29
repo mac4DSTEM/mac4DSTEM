@@ -88,3 +88,17 @@ the live lineage (no new `AppState` storage); the type is `Core/Data/SessionLine
 
 A graph that restores state needs ids and edges in the file first. Additive format, derived linear record and a
 read-only v1 path change no saved session, older build or replay before L4; stale-not-delete keeps every run reversible.
+
+## Amendment — Gate B, 2026-09-30 (L1)
+
+An independent Gate B on the L1 reader/writer found two defects and four gaps; the rules they led to:
+- **An unknown lineage `version` reads as v1** (the record only) with a named note — never a refusal of the sidecar,
+  since the min-reader marker promises the rest of the file is readable.
+- **The writer validates what it writes** (the same R8 checks the reader applies) and writes the lineage only when its
+  projection equals the record written beside it; otherwise it omits the lineage and says so. An unvalidated lineage
+  string is never carried forward.
+- `next_id` is bounded (≤ 1 000 000) and never overflows; pruning at 2 000 nodes keeps the projection's order. The
+  4 MiB cap is checked after the read: HDF5 reports a variable-length string's heap id, not its length
+  (`H5Aget_storage_size` = 16 for a 5 MiB string, measured), so the read is bounded by the file's own size.
+- A calibration-only session exports no "recipe not carried" note (an empty projection is not an omission).
+- R5's example: nil fields are omitted, not written as `null` (byte-stable either way; the code omits).

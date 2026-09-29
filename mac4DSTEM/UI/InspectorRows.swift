@@ -695,6 +695,29 @@ where Inner.FormatOutput == String {
     }
 }
 
+/// Edits typed into a `NumberEntryField` and not yet committed. Every UI
+/// action that starts work goes through `run`, which commits them first —
+/// the SwiftUI stand-in for AppKit's `commitEditing()`.
+@MainActor
+enum PendingEdits {
+    private static var commits: [UUID: () -> Void] = [:]
+
+    static func register(_ id: UUID, commit: @escaping () -> Void) { commits[id] = commit }
+    static func forget(_ id: UUID) { commits[id] = nil }
+
+    static func commitAll() {
+        let pending = commits
+        commits.removeAll()
+        for commit in pending.values { commit() }
+    }
+
+    /// Commit every pending edit, then start `work`.
+    static func run(_ work: @escaping @MainActor () async -> Void) {
+        commitAll()
+        Task { await work() }
+    }
+}
+
 /// The one text field every number is typed into: it owns its text and
 /// commits on Return or focus loss — never per keystroke. Drive 2026-09-30:
 /// SwiftUI's `TextField(value:format:)` committed each parseable prefix as it
@@ -712,6 +735,7 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     let onCommit: (Value?) -> Void
 
     @State private var text = ""
+    @State private var editID = UUID()
     @FocusState private var isFocused: Bool
 
     private var entry: DecimalEntryFormat<Format> { DecimalEntryFormat(format) }
@@ -722,13 +746,34 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
             .focused($isFocused)
             .onSubmit(commit)
             .onChange(of: isFocused) { _, focused in if !focused { commit() } }
+            // Escape abandons the edit, as in any Mac text field.
+            .onExitCommand { PendingEdits.forget(editID); text = shown }
             .onAppear { text = shown }
+            // Torn down mid-edit (task or room switch): the edit still lands.
+            .onDisappear(perform: commit)
             // Only a commit or an outside change moves `value` now, so the
             // text follows it even while the field keeps focus.
             .onChange(of: value) { _, _ in text = shown }
+            // A click on a toolbar or inspector button does not take focus
+            // from a Mac text field, so an uncommitted edit is registered and
+            // every action that starts work commits it first
+            // (`PendingEdits.run`, Fable review 2026-09-30).
+            .onChange(of: text) { _, typed in
+                if typed == shown {
+                    PendingEdits.forget(editID)
+                } else {
+                    PendingEdits.register(editID) { [value, emptyClears, entry, onCommit] in
+                        if case .set(let newValue) = Self.resolve(typed: typed, current: value,
+                                                                  emptyClears: emptyClears, entry: entry) {
+                            onCommit(newValue)
+                        }
+                    }
+                }
+            }
     }
 
     private func commit() {
+        PendingEdits.forget(editID)
         if case .set(let newValue) = Self.resolve(typed: text, current: value,
                                                   emptyClears: emptyClears, entry: entry) {
             onCommit(newValue)

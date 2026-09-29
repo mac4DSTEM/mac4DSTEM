@@ -39,7 +39,7 @@ struct ResultsSettings: View {
         ) { result in
             Button("Remove \(result.displayName)", role: .destructive) {
                 pendingResultRemoval = nil
-                Task { await appState.removeSavedSessionResult(result) }
+                PendingEdits.run { await appState.removeSavedSessionResult(result) }
             }
             Button("Cancel", role: .cancel) { pendingResultRemoval = nil }
         } message: { result in
@@ -55,7 +55,7 @@ struct ResultsSettings: View {
     private func savedProductRow(_ result: SessionResultDescriptor) -> some View {
         let isCurrent = result.id == appState.sessionInventory.currentResultID
         Button {
-            Task { await appState.selectSavedSessionResult(result) }
+            PendingEdits.run { await appState.selectSavedSessionResult(result) }
         } label: {
             LabeledContent {
                 if isCurrent {
@@ -86,10 +86,10 @@ struct ResultsSettings: View {
 
         InspectorRow("Compare") {
             HStack(spacing: 6) {
-                Button("A") { Task { await appState.loadSavedSessionResult(result, into: .a) } }
+                Button("A") { PendingEdits.run { await appState.loadSavedSessionResult(result, into: .a) } }
                     .help("Load into comparison A")
                     .accessibilityLabel("Load \(result.displayName) into comparison A")
-                Button("B") { Task { await appState.loadSavedSessionResult(result, into: .b) } }
+                Button("B") { PendingEdits.run { await appState.loadSavedSessionResult(result, into: .b) } }
                     .help("Load into comparison B")
                     .accessibilityLabel("Load \(result.displayName) into comparison B")
             }
