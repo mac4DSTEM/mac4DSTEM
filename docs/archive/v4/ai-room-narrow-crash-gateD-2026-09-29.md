@@ -49,3 +49,17 @@ room's widest row fits (Prepare 207.5 pt). With the unit shortened to "Å⁻¹" 
 **survived** (T6). Two Known-variants rows are also too wide (306, 267 pt) but alone did not abort (the split took the
 difference from the sidebar). Refuted along the way: a clean width threshold — once the inspector had grown, 950 pt
 did not abort but pushed the inspector off the window's right edge (path-dependent; the same row's second symptom).
+
+## Refuter (Opus, read-only; `e3-refuter.md`): NOT REFUTED WITH FIXES
+
+Holds: the loop is caught in the act (inspector offered 320, answers 364; detail minimum 0), and drive 3's crash 1 is
+its own discriminator (Diffraction groups drawn at 915 lived; the click to Phase mapping aborted). **Corrected:** T2
+reopened on Phase mapping, not Diffraction groups (the measured 332-pt minimum exists only there); and the trigger is not
+"the split cannot give the width" — a fresh launch at 950 had 392 pt to spare and aborted — but **a content minimum
+larger than the column's current width at the moment the content appears or changes**, which explains the path
+dependence. The only line the evidence supports: **content minimum ≤ the inspector's declared minimum − padding
+(280 − 2 × 16 = 248 pt)**. Also: one surviving trial is thin; drive 3's full state (Known variants, three phases, a
+map) was not reproduced; **data-derived labels** (the legend's phase names, unbounded — a long Materials Project name)
+are fixed-size and would bring it back. Fixes: every row measured ≤ 248; data-derived names truncate (middle) with the
+full name in help; a guard test over the rooms' settings widths; a confirming drive (three fresh launches at 915, both
+classifier modes, a computed map, resizes 915 → 1000 → 975 → 950 → 915, a long phase name).
