@@ -350,6 +350,12 @@ enum Probe {
         // winner resting on exactly one edge-on-specific reflection with T1 as runner-up becomes T1
         // (`t1`, scored) or the matrix (`al`, reported). Measurement only; the shipped matcher is untouched.
         var edgeT1Guard: String?
+        // `--evidence-slab X` (S10 candidate A, pre-registered 2026-09-30 in
+        // archive/v4/s10-theta-edge-on-preregistration-2026-09-30.md): in the --object-table guarded map,
+        // a phase-specific hit counts toward the "specific >= 1" guard only if the entry's reflection has
+        // |s_g| <= X (s_g = g . n, the flat-sphere excitation error `projectedVectors` uses). The score
+        // is unchanged. Measurement only; the shipped matcher is untouched.
+        var evidenceSlab: Double?
         // Gate D step 3 (precipitate-overnight-2026-09-23.md): additive, off
         // by default, `--rule known-variants` only. Runs the app's own
         // `PrecipitateSegmentation.classObjects` (via `PhaseMapObjectsBridge`)
@@ -485,6 +491,8 @@ enum Probe {
                 dumpEntryPhase = args[index + 1]; index += 2
             } else if args[index] == "--edge-t1-guard", index + 1 < args.count {
                 edgeT1Guard = args[index + 1]; index += 2
+            } else if args[index] == "--evidence-slab", index + 1 < args.count {
+                evidenceSlab = Double(args[index + 1]); index += 2
             } else if args[index] == "--position-detail", index + 1 < args.count {
                 positionDetail = args[index + 1].split(separator: ";").compactMap { pair in
                     let rc = pair.split(separator: ",").compactMap { Int($0) }
@@ -743,9 +751,13 @@ enum Probe {
                     print(String(format: "  chanceMatchFraction(pairRadius: %.4f, accessibleRadius: %.4f) = %.4f (%.1f %%)",
                                  matchSettings.pairRadiusInvAngstrom, reach, chance, 100 * chance))
                     // Already sorted by |q| (`ReferenceVector`'s own contract).
+                    let dumpCrystal = phases[entry.phaseIndex].crystal
+                    let dumpN = PhaseReferenceLibrary.cartesianZoneAxis(entry.zoneAxis, crystal: dumpCrystal)
                     for v in entry.vectors {
-                        print(String(format: "    |q| %.4f  rel.intensity %.4f  (%d %d %d)",
-                                     v.length, v.relativeIntensity, v.h, v.k, v.l))
+                        let g = Double(v.h) * dumpCrystal.latInv[0] + Double(v.k) * dumpCrystal.latInv[1] + Double(v.l) * dumpCrystal.latInv[2]
+                        print(String(format: "    |q| %.4f  rel.intensity %.4f  (%d %d %d)  s_g %+.4f",
+                                     v.length, v.relativeIntensity, v.h, v.k, v.l,
+                                     dumpN.map { simd_dot(g, $0) } ?? .nan))
                     }
                 }
             } else {
@@ -1468,7 +1480,16 @@ enum Probe {
             if !positionDetail.isEmpty, map.matrixEntryIndex >= 0 {
                 let matrixEntry = library.entries[map.matrixEntryIndex]
                 let width = cols.count
-                struct Evidence { var specific = 0; var shared = 0; var margin = Double.nan; var hitRel: [Double] = [] }
+                struct Evidence { var specific = 0; var shared = 0; var margin = Double.nan; var hitRel: [Double] = []
+                                  var hitDesc: [String] = [] }
+                // s_g = g . n of one reference vector at its entry's zone axis (flat sphere, as
+                // `projectedVectors`); independent of the in-plane rotation.
+                func excitationError(_ v: ReferenceVector, _ entry: PhaseOrientationReference) -> Double {
+                    let crystal = phases[entry.phaseIndex].crystal
+                    guard let n = PhaseReferenceLibrary.cartesianZoneAxis(entry.zoneAxis, crystal: crystal) else { return .nan }
+                    let g = Double(v.h) * crystal.latInv[0] + Double(v.k) * crystal.latInv[1] + Double(v.l) * crystal.latInv[2]
+                    return simd_dot(g, n)
+                }
                 func evidence(_ index: Int) -> Evidence {
                     var ev = Evidence()
                     let result = map.results[index]
@@ -1503,6 +1524,10 @@ enum Probe {
                             ev.shared += 1
                         } else {
                             ev.specific += 1; ev.hitRel.append(Double(inten / brightest))
+                            let sg = excitationError(entry.vectors[hitIndex], entry)
+                            let v = entry.vectors[hitIndex]
+                            ev.hitDesc.append(String(format: "[%d %d %d] s_g %+.4f %@", v.h, v.k, v.l, sg,
+                                                     abs(sg) <= 0.05 ? "ON-slab" : "OFF-slab"))
                         }
                     }
                     return ev
@@ -1517,11 +1542,12 @@ enum Probe {
                     let ev = evidence(index)
                     let runner = map.phaseNames.indices.contains(Int(result.runnerUpPhaseIndex))
                         ? map.phaseNames[Int(result.runnerUpPhaseIndex)] : "-"
-                    print(String(format: "  (%d,%d) truth %d ours %d  peaks %d surviving %d  score %.4f runner-up %@ %.4f margin %.4f  matched %d specific %d shared %d  specific-hit rel. intensity %@",
+                    print(String(format: "  (%d,%d) truth %d ours %d  peaks %d surviving %d  score %.4f runner-up %@ %.4f margin %.4f  matched %d specific %d shared %d  specific-hit rel. intensity %@  hits %@",
                                  r, c, theirs, ours, peaks[index].count, Int(result.survivingCount),
                                  Double(result.score), runner, Double(result.runnerUpScore), ev.margin,
                                  Int(result.matchedCount), ev.specific, ev.shared,
-                                 ev.hitRel.map { String(format: "%.3f", $0) }.joined(separator: ",")))
+                                 ev.hitRel.map { String(format: "%.3f", $0) }.joined(separator: ","),
+                                 ev.hitDesc.joined(separator: " | ")))
                 }
                 do {
                     var spec: [Int] = [], marg: [Double] = [], strongest: [Double] = []
@@ -1782,6 +1808,14 @@ enum Probe {
                     }
                     let specific = uniqueHitIndices.filter { hitIndex in
                         let refQ = entry.vectors[hitIndex].q
+                        if let evidenceSlab {
+                            let crystal = phases[entry.phaseIndex].crystal
+                            guard let n = PhaseReferenceLibrary.cartesianZoneAxis(entry.zoneAxis, crystal: crystal)
+                            else { return false }
+                            let v = entry.vectors[hitIndex]
+                            let g = Double(v.h) * crystal.latInv[0] + Double(v.k) * crystal.latInv[1] + Double(v.l) * crystal.latInv[2]
+                            if abs(simd_dot(g, n)) > evidenceSlab { return false }
+                        }
                         return !matrixEntry.vectors.contains {
                             simd_distance($0.q, refQ) <= matchSettings.matrixToleranceInvAngstrom
                         }

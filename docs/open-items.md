@@ -16,14 +16,15 @@ Raw speckle, not cleaned counts, certifies a classifier (`docs/cloud/2026-09-23/
 B1 (`archive/v4/b1-edge-on-gateD-2026-09-28.md`, `b1-narrow-guard-2026-09-28.md`): 3 are edge calls 1–2 px from truth
 needles, 4 real T1 → edge-on; a global guard breaks T1, the narrow one moves errors between classes — neither shipped.
 The largest error class, T1 edges called Al (204), is mostly where the truth draws the edge (`t1-edge-detection-gateD`).
+S10 (2026-09-30): candidate A (zero-weight evidence) refuted at step 0; B (noise hit) left. T1's [0 -4 1] entry holds
+30 first-order-Laue-zone reflections (`archive/v4/s10-s11-gateD-2026-09-30.md`) — the library comment is stale.
 
-### Tiled GPU memory: classical detection fixed 2026-09-29 (A1); the learned and virtual-detector loops are not
-Classical `TiledDiskDetection.detectAll` holds one tile (`tools/tiled-detection-memory-test`,
-`archive/v4/tiled-detection-memory-gateD-2026-09-29.md`). **Open (Session queue S11):** `LearnedDiskDetection.detectAll(data:)`
-has the same per-tile `makeBuffer` in an async loop but awaits Core ML inside, so a plain pool cannot wrap it — no learned
-Detect All Disks on multi-GB cubes until measured; `VirtualDetector`'s tiled loops have the same shape (maybe the
-unexplained ≈ 0.93 GB baseline). D1 (`archive/v4/phase-tolerance-results-2026-09-29.md`): the shipped match tolerance
-max(0.02 Å⁻¹, 1 px) fits all four datasets. Owner: keep it (option a).
+### Tiled GPU memory: classical fixed (A1); the learned loop measured flat 2026-09-30 (S11), the virtual-detector loops not
+Classical and learned `detectAll` are gated by `tools/tiled-detection-memory-test` (classical: per-tile growth; learned:
+per-tile footprint slope ≤ 0.25 tile/tile — each awaited Core ML batch drains the pool; `archive/v4/s10-s11-gateD-2026-09-30.md`).
+**Owed:** one in-app learned Detect All on a multi-GB cube before the "don't run" warning lifts; `VirtualDetector`'s tiled
+loops have the same shape (maybe the unexplained ≈ 0.93 GB baseline). D1: the shipped max(0.02 Å⁻¹, 1 px) tolerance fits
+all four datasets (`archive/v4/phase-tolerance-results-2026-09-29.md`).
 
 ### The 2026-09-09 register, triaged 2026-09-29 — 8 Gate D candidates left (D019, D023, D025 fixed 2026-09-30)
 All 156 clusters judged against `main` (`archive/2026-09-09-review/triage-2026-09-29.md`); D019/D023/D025 fixed with
