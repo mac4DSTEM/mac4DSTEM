@@ -124,11 +124,10 @@ One line each; full wording as above.
   a file over ~2 GB through an unproven path on the 8 GB Mac** (it kernel-panicked 2026-09-24). Residuals: a vanished volume is a
   SIGBUS crash with no dialog; network volumes keep the old full read.
 
-### Training (ADR 043/048): the app's step loop leaks — Gate D open (2026-09-30)
-- The headless C5 run through the app's Training/ path grew linearly, 227 MB (step 1) → 1313 (100) → 2404 MB (200),
-  ~11 MB/step, and was stopped when swap filled the disk; the spike's step is flat at 1.48 GB (C2.5). The in-app
-  Train Model… (`aa920d0`) shares the loop: do not train in the app until this closes. Mechanism not yet established.
-  Log: `archive/v4/c5-training-leak-run-2026-09-30.log` (admission refused 8× at 2.16 GB needed, then the run started anyway).
+### Training (ADR 043/048): the step-loop leak fixed (2026-09-30); the full C5 run and the in-app drive owed
+- MPSGraph's autoreleased results piled up in the one detached job: 10.9 MB/step → 0.04 with a per-step pool, losses
+  identical (`archive/v4/training-leak-gateD-2026-09-30.md`). **Owed:** the 500-step C5 run alone on a quiet machine
+  (the 09-29 attempt was refused admission for 10 min under load); Train Model… in the app.
 - **Detector truth** (A2, `tools/disk-detector/labels/bullseye-2026-09-28.json`, 370 centres re-labelled by eye, owner-approved;
   `archive/v4/a2-label-scoring-2026-09-28.md`): net 0.584 / 0.655 at 0.7, 2 px; label-vs-net scatter 1.2 px. **Owed:** an
   inter-labeller check; the classical floor at the app's own settings. The in-app labelling route is untried on real data.

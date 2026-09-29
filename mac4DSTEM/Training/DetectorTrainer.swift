@@ -346,40 +346,46 @@ package nonisolated final class DetectorTrainer: @unchecked Sendable {
         var losses: [Double] = []
         let t0 = Date()
         for step in 1 ... r.steps {
-            var acc = zeros; var lossSum: Float = 0
-            for _ in 0 ..< r.accumulation {
-                if cancellation?.isCancelled == true { throw TrainingError.cancelled }
-                var xb = [Float](repeating: 0, count: nB * xs), tb = [Float](repeating: 0, count: nB * ys)
-                for b in 0 ..< nB {
-                    let i = Int(gen.next() % UInt64(samples.count))
-                    let k = r.augment ? Int(gen.next() % 8) : 0
-                    let src = samples[i].inputs
-                    let tgt = DetectorTraining.heatmapTarget(centres: samples[i].centres, size: S, sigma: r.heatmapSigma)
-                    if k == 0 {
-                        for j in 0 ..< xs { xb[b * xs + j] = Float(src[j]) }
-                        for j in 0 ..< ys { tb[b * ys + j] = tgt[j] }
-                    } else {
-                        let table = tables[k]
-                        for ch in 0 ..< 3 {
-                            for j in 0 ..< ys { xb[b * xs + ch * ys + j] = Float(src[ch * ys + Int(table[j])]) }
+            // One autorelease pool per step. MPSGraph hands back autoreleased objects (the result dictionary, its
+            // MPSGraphTensorData and the buffers behind them, the bridged NSData of every feed); `Task.detached` runs this whole
+            // loop as ONE job, so without the pool none of it is released until training returns — 10.9 MB of physical
+            // footprint per step (5.7 GB at 500 steps), measured 2026-09-29; with it the slope is ~0 (tools/training-run-probe, TR_PROBE_TRAIN_ONLY=1).
+            let stepLoss: Double = try autoreleasepool {
+                var acc = zeros; var lossSum: Float = 0
+                for _ in 0 ..< r.accumulation {
+                    if cancellation?.isCancelled == true { throw TrainingError.cancelled }
+                    var xb = [Float](repeating: 0, count: nB * xs), tb = [Float](repeating: 0, count: nB * ys)
+                    for b in 0 ..< nB {
+                        let i = Int(gen.next() % UInt64(samples.count))
+                        let k = r.augment ? Int(gen.next() % 8) : 0
+                        let src = samples[i].inputs
+                        let tgt = DetectorTraining.heatmapTarget(centres: samples[i].centres, size: S, sigma: r.heatmapSigma)
+                        if k == 0 {
+                            for j in 0 ..< xs { xb[b * xs + j] = Float(src[j]) }
+                            for j in 0 ..< ys { tb[b * ys + j] = tgt[j] }
+                        } else {
+                            let table = tables[k]
+                            for ch in 0 ..< 3 {
+                                for j in 0 ..< ys { xb[b * xs + ch * ys + j] = Float(src[ch * ys + Int(table[j])]) }
+                            }
+                            for j in 0 ..< ys { tb[b * ys + j] = tgt[Int(table[j])] }
                         }
-                        for j in 0 ..< ys { tb[b * ys + j] = tgt[Int(table[j])] }
                     }
+                    var feeds: [MPSGraphTensor: MPSGraphTensorData] = [
+                        ax: Self.tensorData(gdev, xb, [NSNumber(value: nB), 3, NSNumber(value: S), NSNumber(value: S)]),
+                        at: Self.tensorData(gdev, tb, [NSNumber(value: nB), 1, NSNumber(value: S), NSNumber(value: S)])]
+                    for (t, d) in zip(netA.params, P) { feeds[t] = d }
+                    for (t, d) in zip(accIn, acc) { feeds[t] = d }
+                    let out = gA.run(with: queue, feeds: feeds, targetTensors: [lossA] + accOut, targetOperations: nil)
+                    lossSum += Self.readFloats(out[lossA]!, count: 1)[0]
+                    acc = accOut.map { out[$0]! }
                 }
-                var feeds: [MPSGraphTensor: MPSGraphTensorData] = [
-                    ax: Self.tensorData(gdev, xb, [NSNumber(value: nB), 3, NSNumber(value: S), NSNumber(value: S)]),
-                    at: Self.tensorData(gdev, tb, [NSNumber(value: nB), 1, NSNumber(value: S), NSNumber(value: S)])]
-                for (t, d) in zip(netA.params, P) { feeds[t] = d }
-                for (t, d) in zip(accIn, acc) { feeds[t] = d }
-                let out = gA.run(with: queue, feeds: feeds, targetTensors: [lossA] + accOut, targetOperations: nil)
-                lossSum += Self.readFloats(out[lossA]!, count: 1)[0]
-                acc = accOut.map { out[$0]! }
+                var feedsB: [MPSGraphTensor: MPSGraphTensorData] = [:]
+                for i in 0 ..< nP { feedsB[pB[i]] = P[i]; feedsB[mB[i]] = M[i]; feedsB[vB[i]] = V[i]; feedsB[aB[i]] = acc[i] }
+                let rb = gB.run(with: queue, feeds: feedsB, targetTensors: newP + newM + newV, targetOperations: nil)
+                P = newP.map { rb[$0]! }; M = newM.map { rb[$0]! }; V = newV.map { rb[$0]! }
+                return Double(lossSum / Float(r.accumulation))
             }
-            var feedsB: [MPSGraphTensor: MPSGraphTensorData] = [:]
-            for i in 0 ..< nP { feedsB[pB[i]] = P[i]; feedsB[mB[i]] = M[i]; feedsB[vB[i]] = V[i]; feedsB[aB[i]] = acc[i] }
-            let rb = gB.run(with: queue, feeds: feedsB, targetTensors: newP + newM + newV, targetOperations: nil)
-            P = newP.map { rb[$0]! }; M = newM.map { rb[$0]! }; V = newV.map { rb[$0]! }
-            let stepLoss = Double(lossSum / Float(r.accumulation))
             losses.append(stepLoss)
             progress?(TrainingProgress(step: step, steps: r.steps, loss: stepLoss, secondsPerStep: Date().timeIntervalSince(t0) / Double(step)))
         }

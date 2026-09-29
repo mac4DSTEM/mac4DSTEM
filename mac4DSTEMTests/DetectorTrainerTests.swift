@@ -13,7 +13,8 @@
 //  changes it (red); a flip missing from the target but present in the input turns
 //  testDihedralMapsMoveTargetAndInputTogether red; the admission bar at 1 GiB turns the boundary test red;
 //  a learning rate of 1e-4 in the smoke run moves the weights past 5e-4 (red); a transposed kernel in the
-//  graph makes the Core ML comparison fail by far more than 0.06.
+//  graph makes the Core ML comparison fail by far more than 0.06; removing the per-step `autoreleasepool` in
+//  `trainBlocking` turns testTheFootprintDoesNotGrowWithTheStepCount red (about +330 MB over steps 10-40).
 //
 
 import XCTest
@@ -151,6 +152,22 @@ final class DetectorTrainerTests: XCTestCase {
         XCTAssertGreaterThan(maxDelta, 1e-6, "training moved the weights")
         XCTAssertLessThan(maxDelta, 5e-4, "lr 1e-5 for 2 steps moves a weight by about 1e-4 at most")
         XCTAssertTrue(result.weights.parameters.allSatisfy { $0.allSatisfy(\.isFinite) })
+    }
+
+    /// The 2026-09-29 leak: the whole loop is one `Task.detached` job, so every autoreleased MPSGraph result piled up until
+    /// training returned — 10.9 MB of physical footprint per step (5.7 GB at 500 steps; the C5 probe swap-filled the disk).
+    /// Steps 10 -> 40 leaked about 330 MB before the per-step autorelease pool; with it the footprint is flat (probe: 0.04 MB/step).
+    func testTheFootprintDoesNotGrowWithTheStepCount() async throws {
+        try requireMetal()
+        let fixture = try LearnedSwiftFixture.load()
+        var recipe = TrainingRecipe(); recipe.steps = 40
+        let feet = TrainingRecorder<Double>()
+        _ = try await DetectorTrainer(parentPackage: try TrainingTestSupport.bundledPackage, recipe: recipe).train(
+            samples: try TrainingTestSupport.fixtureSamples(fixture), availableMemory: { Int.max },
+            progress: { if $0.step == 10 || $0.step == 40 { feet.add(DetectorTraining.footprintMB()) } })
+        let f = feet.values
+        XCTAssertEqual(f.count, 2)
+        XCTAssertLessThan(f[1] - f[0], 120, "footprint grew \(Int(f[1] - f[0])) MB over 30 steps (the leak: about 330 MB)")
     }
 
     func testACancelledTokenStopsTheRun() async throws {

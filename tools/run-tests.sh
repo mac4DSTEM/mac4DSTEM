@@ -135,6 +135,7 @@ diagnostic=(bragg-spacing-probe origin-fit-diagnostics
   phase-map-probe demo-dataset rotation-null-probe
   hdf5-race-probe thronsen-dataset cloud-analysis matrix-orientation-probe
   lattice-calibration-probe dm4-parity-probe embedding-profile mlx-training-spike mpsgraph-training-spike
+  training-run-probe
   volumetric-density-test)
 owner_only=()
 retired=()
