@@ -134,7 +134,7 @@ diagnostic=(bragg-spacing-probe origin-fit-diagnostics
   training-dataset-campaign precipitate-handcount
   phase-map-probe demo-dataset rotation-null-probe
   hdf5-race-probe thronsen-dataset cloud-analysis matrix-orientation-probe
-  lattice-calibration-probe dm4-parity-probe embedding-profile mlx-training-spike
+  lattice-calibration-probe dm4-parity-probe embedding-profile mlx-training-spike mpsgraph-training-spike
   volumetric-density-test)
 owner_only=()
 retired=()
@@ -172,7 +172,9 @@ inventory() {
   # and the export key are load-bearing; a session that drops either would
   # ship an unvalidated map as science.
   echo "== unvalidated products stay labelled"
-  if grep -q 'Label("Unvalidated' "$ROOT/mac4DSTEM/UI/PhaseMappingSettings.swift" \
+  # The badge is the kit's `InspectorWarning` since 2026-09-30 (same look as the
+  # hand-rolled Label it replaced); either spelling of it satisfies the rule.
+  if grep -Eq '(Label|InspectorWarning)\("Unvalidated' "$ROOT/mac4DSTEM/UI/PhaseMappingSettings.swift" \
      && grep -q '"validation": "none"' "$ROOT/mac4DSTEM/App/AppState+PhaseMapping.swift"; then
     echo "  phase mapping: badge and validation:\"none\" key present"
   else
