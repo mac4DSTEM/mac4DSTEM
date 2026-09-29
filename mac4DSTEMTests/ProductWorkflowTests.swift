@@ -118,12 +118,26 @@ final class ProductWorkflowTests: XCTestCase {
     /// of its own, so it must carry the Bragg prerequisite. Without this the
     /// task would offer an enabled button on a dataset with no peaks, run, and
     /// report an empty map as a result.
+    /// Drive 2026-09-30: the toolbar's Map Phases was enabled with no phases,
+    /// then refused on click. The phase list is a requirement, so the verb,
+    /// the checklist and replay agree. Mutation: `hasRunnablePhases` ignored.
+    func testPhaseMappingRequiresARunnablePhaseList() {
+        let noPhases = ProductWorkflowReadiness(hasBraggVectors: true, hasPhysicalACOMScale: true,
+                                                hasRunnablePhases: false)
+        XCTAssertEqual(ProductWorkflow.prerequisiteItems(for: .phaseMapping, readiness: noPhases)
+            .filter { !$0.isSatisfied }.map(\.id), ["phases"])
+        XCTAssertFalse(ProductWorkflow.mayRun(.phaseMapping, readiness: noPhases, isBusy: false))
+        var ready = noPhases
+        ready.hasRunnablePhases = true
+        XCTAssertTrue(ProductWorkflow.mayRun(.phaseMapping, readiness: ready, isBusy: false))
+    }
+
     func testPhaseMappingRequiresBraggVectors() {
         XCTAssertEqual(AnalysisMode.phaseMapping.prerequisiteFamily, .requiresBraggVectors)
         let unmet = ProductWorkflow.prerequisiteItems(
             for: .phaseMapping,
             readiness: ProductWorkflowReadiness(hasBraggVectors: false, hasPhysicalACOMScale: true))
-        XCTAssertEqual(unmet.map(\.id), ["braggVectors", "qScale"])
+        XCTAssertEqual(unmet.map(\.id), ["braggVectors", "qScale", "phases"])
         XCTAssertEqual(unmet.first?.isSatisfied, false)
         XCTAssertEqual(ProductWorkflow.prerequisites(
             for: .phaseMapping,

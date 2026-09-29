@@ -124,11 +124,6 @@ One line each; full wording as above.
   `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
 
 ### S6 closed 2026-09-30 (driven); what the drive found next
-- **Numeric fields commit on every keystroke** (drive, 2026-09-30): typing `0.0` without Return already cleared Q (the
-  setter's ≤ 0 branch); `0.0.275` ended "Not set", `300.5.` ended 300,5 — the last parseable prefix wins and every
-  keystroke fires the setter's side effects. Fix in progress: a field that holds its text and commits on Return/focus loss.
-- **A disabled toolbar verb still draws bright blue** (macOS 27 prominent glass): Map Phases disabled for an unmet
-  requirement looked enabled. Phase mapping without phases passes `readiness` (the phases are not a prerequisite).
 - **No workflow logic in the rooms** (2026-09-29): judged against the 2026-09-21 critique — closed, the rooms carry the
   calibration rows, one verb each and the readiness line.
 

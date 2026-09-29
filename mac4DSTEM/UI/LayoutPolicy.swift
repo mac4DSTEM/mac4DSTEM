@@ -299,7 +299,7 @@ enum ProcessAreaLayout {
 
 /// A numeric text field with an optional unit, for the trailing side of a
 /// `LabeledContent` row — the one place a UI form control takes a width.
-struct NumericField<Value, Format: ParseableFormatStyle>: View
+struct NumericField<Value: Equatable, Format: ParseableFormatStyle>: View
 where Format.FormatInput == Value, Format.FormatOutput == String {
     let title: String
     @Binding var value: Value
@@ -320,8 +320,11 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
 
     var body: some View {
         HStack(spacing: 6) {
-            // Either decimal separator, never grouped (`DecimalEntryFormat`).
-            TextField(title, value: $value, format: DecimalEntryFormat(format))
+            // Commits on Return or focus loss, either decimal separator
+            // (`NumberEntryField`, `DecimalEntryFormat`).
+            NumberEntryField(title: title, value: value, format: format) {
+                if let typed = $0 { value = typed }
+            }
                 // Labelled by the row it sits in; the title stays for
                 // VoiceOver.
                 .labelsHidden()

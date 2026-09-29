@@ -229,15 +229,25 @@ struct PrimaryActionButton: View {
             if appState.isBusy {
                 operationProgress
             } else if let actionTitle = primaryActionTitle {
-                Button(actionTitle) { runPrimaryAction() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!primaryActionEnabled)
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .help(helpText)
-                    .accessibilityHint(primaryActionHint)
-                    .accessibilityIdentifier("workspace.primaryAction")
+                // Prominent only when it can run: on macOS 27 a disabled
+                // `.borderedProminent` in the toolbar's glass still draws the
+                // accent fill, so a blocked verb read as ready (drive,
+                // 2026-09-30). Disabled, it takes the siblings' `.bordered`.
+                if primaryActionEnabled {
+                    primaryAction(actionTitle).buttonStyle(.borderedProminent)
+                } else {
+                    primaryAction(actionTitle).buttonStyle(.bordered).disabled(true)
+                }
             }
         }
+    }
+
+    private func primaryAction(_ title: String) -> some View {
+        Button(title) { runPrimaryAction() }
+            .keyboardShortcut(.return, modifiers: .command)
+            .help(helpText)
+            .accessibilityHint(primaryActionHint)
+            .accessibilityIdentifier("workspace.primaryAction")
     }
 
     /// While a run is in flight this slot offers ONE thing: the way to

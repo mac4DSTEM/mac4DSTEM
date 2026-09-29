@@ -94,3 +94,28 @@ final class DecimalEntryFormatTests: XCTestCase {
         XCTAssertThrowsError(try parse("  ", american))
     }
 }
+
+/// Drive 2026-09-30: the field committed every parseable prefix while typing.
+/// `NumberEntryField` commits on Return / focus loss by this rule only.
+final class NumberEntryCommitRuleTests: XCTestCase {
+    private typealias Field = NumberEntryField<Double, FloatingPointFormatStyle<Double>>
+    private let entry = DecimalEntryFormat(
+        FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0...6)).locale(Locale(identifier: "en_US@rg=dezzzz")),
+        locale: Locale(identifier: "en_US@rg=dezzzz"))
+
+    func testATypoKeepsTheValueInsteadOfItsLastGoodPrefix() {
+        XCTAssertEqual(Field.resolve(typed: "0.0.275", current: 0.1904, emptyClears: false, entry: entry), .keep)
+        XCTAssertEqual(Field.resolve(typed: "300.5.", current: 200, emptyClears: false, entry: entry), .keep)
+    }
+
+    func testAnEmptyFieldKeepsOrClearsAsTheFieldSays() {
+        XCTAssertEqual(Field.resolve(typed: "  ", current: 0.1904, emptyClears: false, entry: entry), .keep)
+        XCTAssertEqual(Field.resolve(typed: "", current: 0.3, emptyClears: true, entry: entry), .set(nil))
+        XCTAssertEqual(Field.resolve(typed: "", current: nil, emptyClears: true, entry: entry), .keep)
+    }
+
+    func testTheSameValueDoesNotCommitAndANewOneDoes() {
+        XCTAssertEqual(Field.resolve(typed: "0,1904", current: 0.1904, emptyClears: false, entry: entry), .keep)
+        XCTAssertEqual(Field.resolve(typed: "0.0275", current: 0.1904, emptyClears: false, entry: entry), .set(0.0275))
+    }
+}

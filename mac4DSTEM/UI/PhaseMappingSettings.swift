@@ -55,9 +55,8 @@ struct PhaseMappingSections: View {
         // `Form` with its own headers and dividers. The outer inspector
         // (`WorkspaceInspector.swift`) supplies the scroll container.
         InspectorSection("Phases") {
-            if product.phases.isEmpty {
-                InspectorNote("Add the matrix phase and at least one precipitate phase.")
-            }
+            // An empty list is named once, by the Requirements section (the
+            // phases are a prerequisite since 2026-09-30), not again here.
             ForEach(Array(product.phases.enumerated()), id: \.element.id) { index, slot in
                 PhaseRow(index: index, slot: slot)
             }
@@ -588,13 +587,12 @@ struct PhaseMappingSections: View {
             let format = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(3))
             return InspectorRow("Excitation slab") {
                 HStack(spacing: 6) {
-                    TextField("Excitation slab", value: Binding(
-                        get: { slot.excitationSlabInvAngstrom },
-                        set: { value in
-                            guard index < product.phases.count else { return }
-                            product.phases[index].excitationSlabInvAngstrom = value
-                        }
-                    ), format: DecimalEntryFormat(format), prompt: Text(DecimalEntryFormat(format).format(global)))
+                    NumberEntryField(title: "Excitation slab", value: slot.excitationSlabInvAngstrom,
+                                     format: format, prompt: DecimalEntryFormat(format).format(global),
+                                     emptyClears: true) { value in
+                        guard index < product.phases.count else { return }
+                        product.phases[index].excitationSlabInvAngstrom = value
+                    }
                     .labelsHidden()
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)

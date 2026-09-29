@@ -917,7 +917,8 @@ final class AppState {
             hasSupportedACOMMaterial: resolvedACOMModel != nil,
             hasPhysicalACOMScale: acomScaleSemantics.provenance.isPhysical,
             wantsLearnedDetector: learnedDetection.detectorClass == .learned,
-            hasLearnedDetectorAsset: LearnedDiskDetector.bundledAssetURL() != nil
+            hasLearnedDetectorAsset: LearnedDiskDetector.bundledAssetURL() != nil,
+            hasRunnablePhases: phaseMapping.runRefusal == nil
         )
     }
 

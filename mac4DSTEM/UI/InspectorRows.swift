@@ -344,7 +344,6 @@ struct AdjustmentSlider: View {
     private let unit: String?
     private let defaultValue: Double?
 
-    @FocusState private var fieldIsFocused: Bool
 
     init(
         _ label: String,
@@ -373,15 +372,12 @@ struct AdjustmentSlider: View {
             HStack(alignment: .firstTextBaseline) {
                 labelView
                 Spacer(minLength: 0)
-                TextField(label, value: $value, format: DecimalEntryFormat(format))
+                NumberEntryField(title: label, value: value, format: format) {
+                    if let typed = $0 { value = Self.clamp(typed, to: range) }
+                }
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
                     .frame(width: LayoutPolicy.adjustmentValueWidth)
-                    .focused($fieldIsFocused)
-                    .onSubmit(commit)
-                    .onChange(of: fieldIsFocused) { _, isFocused in
-                        if !isFocused { commit() }
-                    }
                 if let unit {
                     Text(unit)
                         .font(.caption)
@@ -415,10 +411,6 @@ struct AdjustmentSlider: View {
         } else {
             Slider(value: $value, in: range)
         }
-    }
-
-    private func commit() {
-        value = Self.clamp(value, to: range)
     }
 
     private func resetToDefault() {
@@ -703,10 +695,65 @@ where Inner.FormatOutput == String {
     }
 }
 
+/// The one text field every number is typed into: it owns its text and
+/// commits on Return or focus loss — never per keystroke. Drive 2026-09-30:
+/// SwiftUI's `TextField(value:format:)` committed each parseable prefix as it
+/// was typed, so `0.0` on the way to `0.02` cleared the file's Q (the setter's
+/// ≤ 0 branch) and a typo ended at its last good prefix (`300.5.` → 300,5).
+/// A committed text that does not parse reverts; an empty one reverts, or
+/// clears the value when `emptyClears`.
+struct NumberEntryField<Value: Equatable, Format: ParseableFormatStyle>: View
+where Format.FormatInput == Value, Format.FormatOutput == String {
+    let title: String
+    let value: Value?
+    let format: Format
+    var prompt: String?
+    var emptyClears = false
+    let onCommit: (Value?) -> Void
+
+    @State private var text = ""
+    @FocusState private var isFocused: Bool
+
+    private var entry: DecimalEntryFormat<Format> { DecimalEntryFormat(format) }
+    private var shown: String { value.map { entry.format($0) } ?? "" }
+
+    var body: some View {
+        TextField(title, text: $text, prompt: prompt.map { Text($0) })
+            .focused($isFocused)
+            .onSubmit(commit)
+            .onChange(of: isFocused) { _, focused in if !focused { commit() } }
+            .onAppear { text = shown }
+            // Only a commit or an outside change moves `value` now, so the
+            // text follows it even while the field keeps focus.
+            .onChange(of: value) { _, _ in text = shown }
+    }
+
+    private func commit() {
+        if case .set(let newValue) = Self.resolve(typed: text, current: value,
+                                                  emptyClears: emptyClears, entry: entry) {
+            onCommit(newValue)
+        }
+        text = shown
+    }
+
+    enum Resolution: Equatable { case keep, set(Value?) }
+
+    /// What a committed text does — pure, so the rule is testable without a
+    /// host: empty keeps (or clears, when `emptyClears`); a text that does not
+    /// parse keeps; the same value keeps (no provenance flip); else sets.
+    static func resolve(typed raw: String, current: Value?, emptyClears: Bool,
+                        entry: DecimalEntryFormat<Format>) -> Resolution {
+        let typed = raw.trimmingCharacters(in: .whitespaces)
+        if typed.isEmpty { return emptyClears && current != nil ? .set(nil) : .keep }
+        guard let parsed = try? entry.parseStrategy.parse(typed), parsed != current else { return .keep }
+        return .set(parsed)
+    }
+}
+
 /// `NumericField` for a value that may be unset: empty shows `prompt`, and an
 /// emptied field commits nothing — the value in effect stays (S3: an emptied
 /// or unparsed entry must never clear a calibration the file supplied).
-struct OptionalNumericField<Value, Format: ParseableFormatStyle>: View
+struct OptionalNumericField<Value: Equatable, Format: ParseableFormatStyle>: View
 where Format.FormatInput == Value, Format.FormatOutput == String {
     let title: String
     let value: Value?
@@ -717,8 +764,9 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
 
     var body: some View {
         HStack(spacing: 6) {
-            TextField(title, value: Binding(get: { value }, set: { if let entered = $0 { onCommit(entered) } }),
-                      format: DecimalEntryFormat(format), prompt: Text(prompt))
+            NumberEntryField(title: title, value: value, format: format, prompt: prompt) {
+                if let entered = $0 { onCommit(entered) }
+            }
                 .labelsHidden()
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)

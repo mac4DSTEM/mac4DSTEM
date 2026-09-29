@@ -313,6 +313,9 @@ struct ProductWorkflowReadiness: Equatable, Sendable {
     /// Default true so a caller that never sets it (most readiness states)
     /// does not manufacture a missing-asset prerequisite out of nowhere.
     var hasLearnedDetectorAsset = true
+    /// Phase mapping's phase list can run (`PhaseMappingProduct.runRefusal` is
+    /// nil). Default true for the same reason as the asset flag above.
+    var hasRunnablePhases = true
 }
 
 /// One requirement of a task, with its live status and where the satisfying
@@ -570,6 +573,14 @@ enum ProductWorkflow {
                         ? "Set the accelerating voltage to convert the Q scale from mrad"
                         : "Set the Q pixel scale",
                     isSatisfied: readiness.hasPhysicalACOMScale, resolution: .prepare
+                ),
+                // The phase list is a requirement too, so the toolbar verb is
+                // disabled — not enabled and then refused — until it can run
+                // (drive, 2026-09-30).
+                TaskPrerequisite(
+                    id: "phases", title: "Add the matrix phase and at least one precipitate phase",
+                    isSatisfied: readiness.hasRunnablePhases,
+                    resolution: .taskPanel("Use Add Phase under Phases.")
                 )
             ]
         case .acom:
