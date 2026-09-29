@@ -69,7 +69,8 @@ extension AppState {
             // recorded the aperture here; refuted (Gate B-lite F2) —
             // recording values the computation never used is false precision
             // a replay would faithfully reproduce wrongly.
-            recordReplayStep(kind: "dpc", parameters: ["origin_reference": ref], replaying: replaying)
+            recordReplayStep(kind: "dpc", parameters: ["origin_reference": ref], replaying: replaying,
+                             stampsDisplayedProduct: true)
             return .published
         } catch {
             if cancellation.isCancelled {

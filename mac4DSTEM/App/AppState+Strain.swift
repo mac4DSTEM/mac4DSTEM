@@ -122,13 +122,23 @@ extension AppState {
         // ("consensus"/"manual", "selected-region"/"whole-scan"), not Swift
         // case names — the two carriers share keys and must share values
         // (Gate B-lite F10).
-        recordReplayStep(kind: "strain", parameters: [
+        var strainParameters: [String: String] = [
             "reference_mode": map.diagnostics.referenceMaskApplied
                 ? "selected-region" : "whole-scan",
             "basis_mode": map.diagnostics.automaticBasis ? "consensus" : "manual",
             "resolved_g1_x": String(map.refG1.x), "resolved_g1_y": String(map.refG1.y),
             "resolved_g2_x": String(map.refG2.x), "resolved_g2_y": String(map.refG2.y),
-        ], replaying: replaying)
+        ]
+        // A manual run's INPUT basis (the g-vectors it indexed with). The resolved
+        // ones above are the lattice it found, a median of local fits — not the
+        // same numbers, and running again from them is not running again from
+        // these. Only the lineage rewind reads these keys (replay keeps using the
+        // resolved ones, unchanged).
+        if let initialBasis {   // captured before the compute, not read back from the live fields
+            strainParameters["input_g1_x"] = String(initialBasis.g1.x); strainParameters["input_g1_y"] = String(initialBasis.g1.y)
+            strainParameters["input_g2_x"] = String(initialBasis.g2.x); strainParameters["input_g2_y"] = String(initialBasis.g2.y)
+        }
+        recordReplayStep(kind: "strain", parameters: strainParameters, replaying: replaying)
         resultPresentation.resultColormap = .rdbu   // diverging map without recoloring the CBED pane
         applyStrainDisplay()
         statusText = String(format: "Strain ✓  %.0f%% indexed · %.0f%% basis support · RMS %.3g px · κ %.2f · %d/%d ref",

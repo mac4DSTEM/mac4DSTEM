@@ -96,6 +96,29 @@ final class SessionLineageSidecarTests: XCTestCase {
 
     // MARK: - Schema 7 and the round trip
 
+    /// L4: a rewound path is a fact of the file. The sidecar written after a
+    /// rewind reads back with the same active path, the same nodes, and the
+    /// linear record beside it equal to the rewound projection — the writer's
+    /// own agreement check (`writable`) would omit the lineage otherwise.
+    /// Mutation it catches: leave the pin out of the encoding (the file then
+    /// reads as the fold's path and the record disagrees), or project from the
+    /// fold instead of the pin.
+    func testARewoundPathSurvivesTheSidecarAndTheRecordBesideItFollowsThePin() throws {
+        var lineage = sampleLineage()
+        // s1 origin, s2 disks 2.0, s3 strain, s4 disks 3.5 (branch), s5 strain, s6 acom.
+        lineage.apply(try lineage.rewindPlan(to: "s2").get())
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", "s2", "s3"], "precondition")
+        let path = url("rewound")
+        try save(attached(lineage), to: path, specification: binned)
+        XCTAssertNil(BraggVectorEMDWriter.takeLineageOmission(), "the writer accepted the rewound lineage")
+        let snapshot = try BraggVectorEMDWriter.loadSession(from: path)
+        XCTAssertNil(snapshot.lineageNote)
+        XCTAssertEqual(snapshot.lineage, lineage)
+        XCTAssertEqual(snapshot.lineage?.activeNodes().map(\.id), ["s1", "s2", "s3"])
+        XCTAssertEqual(snapshot.lineage?.nodes.count, 6, "every node, on every branch, came back")
+        XCTAssertEqual(snapshot.replayRecord?.steps.first { $0.kind == "disk_detection" }?.parameters["sigma_cc"], "2.0")
+    }
+
     /// Mutation it catches: leave `currentSchema` at 6; write no lineage
     /// attribute; decode a different graph than was written; re-encode with
     /// different bytes after the trip.

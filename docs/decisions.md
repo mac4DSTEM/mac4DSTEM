@@ -54,7 +54,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 044 | Vector matching is the app's one phase-mapping method; Thronsen's four methods are references in tools/, her ANN the one challenger | 09-28 | live |
 | 045 | Areal precipitate density is edge-corrected: each counted object weighted W·H/((W−bx−1)(H−by−1)) (Miles–Lantuéjoul); counts stay integers | 09-28 | live |
 | 046 | Clear the board: training and the lineage graph kept, volumetric density and β″ orientation parked, A3 retired; workspaces follow the data — Prepare · Imaging · Bragg Disks · Crystal Maps · Reconstruction · Results | 09-30 | decided |
-| 047 | Lineage: session record v2 (step ids, input edges, parameter snapshots); rewind restores parameters and marks stale, never deletes; the graph lives in the Lineage pane | 09-30 | accepted by delegation |
+| 047 | Lineage: session record v2 (step ids, input edges, parameter snapshots); rewind restores parameters and marks stale, never deletes; the graph lives in the Lineage pane; L4 amendment: an `active` key, held kinds stay on the path, rewind refuses rather than mislead | 09-30 | accepted by delegation |
 | 048 | Clearing the board: training on MPSGraph first (MLX the fallback), the C3 flow, T4's edge-on speckle as a quantity, the hardware lane waits | 09-30 | accepted by delegation |
 ## Superseded or history (verbatim in the archive log)
 

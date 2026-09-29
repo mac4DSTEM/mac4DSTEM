@@ -16,8 +16,16 @@
 //  "Recorded before lineage: order only".
 //
 //  Narrow pane (below `LineageGraphMetrics.graphMinimumWidth`): the graph gives
-//  way to a list of the active path with the same detail beneath it. No
-//  "Rewind to Here" yet — rewind is L4 (Gate D); no dead control is shown.
+//  way to a list of the active path with the same detail beneath it.
+//
+//  REWIND (ADR 047 R4, phase L4). A run that is not the current one gets a
+//  "Rewind to Here" button in its detail, with the consequence written out
+//  BEFORE the click ("Strain, Phase map become stale; nothing is deleted …")
+//  and a confirmation that repeats it. A run recorded before lineage, and an
+//  export, get the reason instead of a button. There is no "Re-run stale steps":
+//  the replay executor is the promote path (see `AppState.rewindLineage`), so
+//  no control is shown for what the app cannot do safely. The view only asks;
+//  the closure does, and the graph redraws from the lineage it changed.
 //
 
 import SwiftUI
@@ -28,11 +36,14 @@ import DSTEMSession
 
 struct LineageGraphView: View {
     let model: LineageGraphModel
+    /// Rewind to a run. Nil = the pane offers no rewind (a read-only host).
+    var rewind: ((String) -> Void)?
 
     @State private var selectedID: String?
     @State private var scrollPosition = ScrollPosition()
     @State private var visibleRect = CGRect.zero
     @FocusState private var isFocused: Bool
+    @State private var confirmingRewind: String?
 
     /// The chosen run, or the one recorded last when nothing (valid) is chosen.
     private var selected: SessionLineage.Node? {
@@ -63,7 +74,23 @@ struct LineageGraphView: View {
                 narrowList
             }
         }
+        .confirmationDialog("Rewind to \(confirmingRewind ?? "")?",
+                            isPresented: Binding(get: { confirmingRewind != nil },
+                                                 set: { if !$0 { confirmingRewind = nil } }),
+                            titleVisibility: .visible, presenting: confirmingRewind) { id in
+            Button("Rewind to Here") { rewind?(id) }
+            Button("Cancel", role: .cancel) {}
+        } message: { id in
+            Text(rewindConsequence(of: id))
+        }
         .accessibilityIdentifier("bottomWorkspace.lineage.graph")
+    }
+
+    private func rewindConsequence(of id: String) -> String {
+        guard let node = model.node(id: id), case .available(let text)? = model.rewindOffer(for: node) else {
+            return "Nothing is deleted."
+        }
+        return text
     }
 
     // MARK: - Graph
@@ -300,6 +327,8 @@ struct LineageGraphView: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 1)
 
+                rewindSection(for: node)
+
                 differences(of: node)
 
                 DetailSection("Parameters") {
@@ -330,6 +359,33 @@ struct LineageGraphView: View {
             Text("Select a run to see its record.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    /// The rewind offer: a button and its consequence, or the reason there is none.
+    @ViewBuilder
+    private func rewindSection(for node: SessionLineage.Node) -> some View {
+        if rewind != nil, let offer = model.rewindOffer(for: node) {
+            VStack(alignment: .leading, spacing: 4) {
+                switch offer {
+                case .available(let consequence):
+                    Button("Rewind to Here") { confirmingRewind = node.id }
+                        .controlSize(.small)
+                        .help(consequence)
+                        .accessibilityIdentifier("bottomWorkspace.lineage.rewind")
+                    Text(consequence)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                case .unavailable(let reason):
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("bottomWorkspace.lineage.rewindUnavailable")
+                }
+            }
+            .padding(.top, 10)
         }
     }
 

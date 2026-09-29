@@ -751,6 +751,41 @@ final class ReplayPlanTests: XCTestCase {
         XCTAssertEqual(mapped.parameters["resolved_g2_x"], String(Float(20.0)))
     }
 
+    /// A manual-basis strain now records the basis it indexed with (`input_g*`).
+    /// Mutation it catches: leave the four keys out of `ReplayRecordFrameMap.role`
+    /// — the step is refused on a binned promote and the export drops the recipe.
+    func testAManualStrainWithItsInputBasisMapsAndPlansOnABinnedView() throws {
+        let parameters = ["reference_mode": "whole-scan", "basis_mode": "manual",
+                          "resolved_g1_x": "-7.25", "resolved_g1_y": "12.5",
+                          "resolved_g2_x": "10.0", "resolved_g2_y": "3.5",
+                          "input_g1_x": "-7.5", "input_g1_y": "12.0",
+                          "input_g2_x": "9.5", "input_g2_y": "3.0"]
+        let step = SessionReplayRecord.Step(kind: "strain", parameters: parameters,
+                                            recorded: Date(timeIntervalSince1970: 0))
+        let mapped = try ReplayRecordFrameMap.map(
+            step, through: .viewToSource(bin: 2, xOffset: 8, yOffset: 4)).get()
+        XCTAssertEqual(mapped.parameters["input_g1_x"], String(Float(-15.0)))
+        XCTAssertEqual(mapped.parameters["input_g1_y"], String(Float(24.0)))
+        XCTAssertEqual(mapped.parameters["input_g2_x"], String(Float(19.0)))
+        XCTAssertEqual(mapped.parameters["input_g2_y"], String(Float(6.0)))
+        // The promote plan (a binned rehearsal) does not refuse it...
+        var record = SessionReplayRecord()
+        record.record(kind: "disk_detection",
+                      parameters: ["corr_power": "1.0", "sigma_dp": "0.0", "sigma_cc": "2.0", "subpixel": "poly",
+                                   "upsample_factor": "16", "min_absolute_intensity": "0.0",
+                                   "min_relative_intensity": "0.005", "relative_to_peak": "0",
+                                   "min_peak_spacing": "5.0", "edge_boundary": "4", "max_peaks": "70",
+                                   "kernel_source": "synthetic"])
+        record.record(kind: "strain", parameters: parameters)
+        let planned = ReplayPlanner.plan(record, frame: .detectorReduced(bin: 2, crop: nil))
+        guard case .success = planned[1].result else {
+            return XCTFail("the manual strain was refused on a binned promote: \(planned[1].result)")
+        }
+        // ...and a binned export keeps the recipe.
+        XCTAssertNoThrow(try ReplayRecordFrameMap.mapForExport(record, exportBin: 2).get(),
+                         "the export dropped the recipe")
+    }
+
     func testACOMScaleMapsAsAPerPixelSamplingInterval() throws {
         let step = SessionReplayRecord.Step(
             kind: "acom",

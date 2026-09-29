@@ -326,13 +326,25 @@ final class AppState {
     /// own provenance and the run summary. // v2 S6
     /// Widened from `private` (seam 2, docs/archive/v4/appstate-seams-plan.md):
     /// `App/AppState+ACOM.swift`'s `runACOM` calls it from outside this file.
+    ///
+    /// Lineage (ADR 047 R2): the node this run became is remembered as the run
+    /// that made the in-memory product of `kind` (`replay.producedStep`), and a
+    /// suppressed run FORGETS it — a product must not be credited to a node
+    /// whose settings it did not use. `stampsDisplayedProduct` is for the two
+    /// run sites (virtual detector, DPC) that publish BEFORE they record: the
+    /// product on screen is this run's, and gets its `lineage_step` now.
     func recordReplayStep(kind: String,
                                   parameters: [String: String],
                                   invalidating downstream: [String] = [],
-                                  replaying: Bool) {
-        guard !datasetSession.isLoading, !replaying else { return }
-        replay.record(kind: kind, parameters: parameters, invalidating: downstream,
-                      under: ReplayParameterFrame.of(loadedView.specification))
+                                  replaying: Bool,
+                                  stampsDisplayedProduct: Bool = false) {
+        guard !datasetSession.isLoading, !replaying else {
+            replay.forgetProducedStep(kind: kind)
+            return
+        }
+        let step = replay.record(kind: kind, parameters: parameters, invalidating: downstream,
+                                 under: ReplayParameterFrame.of(loadedView.specification))
+        if stampsDisplayedProduct { stampDisplayedProduct(lineageKind: kind, step: step) }
     }
     var recoveryRecord: DatasetRecoveryRecord? = WorkspaceRecoveryStore.recovery()
     var descriptor: DatasetDescriptor?
@@ -371,6 +383,12 @@ final class AppState {
         let persisted = currentScalarPersistenceMetadata
         let domain = domain ?? activeResultDomain
         var provenance = persisted.provenance.merging(extraProvenance) { _, new in new }
+        // The run that made this product (ADR 047 R2), when the session recorded
+        // one — how a displayed or saved map finds its node in the graph.
+        if let lineageKind = SessionLineage.lineageKind(forProductKind: kind),
+           let step = replay.producedStep[lineageKind] {
+            provenance["lineage_step"] = step
+        }
         provenance["display_domain"] = domain.rawValue
         let status = provenance["quantitative_status"].flatMap(ProductQuantitativeStatus.init)
             ?? quantitativeStatus(for: kind, units: valueUnits)
@@ -928,7 +946,23 @@ final class AppState {
 
     /// C4(b): AppState gathers the live ingredients; `ProductWorkflow` dispatches by mode.
     func recordedReplayStep(for mode: AnalysisMode) -> SessionReplayRecord.Step? {
-        ProductWorkflow.recordedReplayStep(for: mode, in: replay.record.steps)
+        let active = ProductWorkflow.recordedReplayStep(for: mode, in: replay.record.steps)
+        // After a rewind (ADR 047 R4) the active step of a kind can differ from
+        // the run whose product is still in memory. The product is judged by ITS
+        // run's settings against the restored controls, so it reads "Computed
+        // with different …" instead of current. Peaks are judged by their own
+        // parameters alone; a product derived from them (strain, orientations,
+        // …) whose own keys happen to agree is still not current — its run is off
+        // the path — so it reads as "no longer part of the recipe" (nil).
+        guard let kind = mode.replayKind, let producer = replay.supersededProducer(kind: kind) else {
+            return active
+        }
+        let step = SessionReplayRecord.Step(kind: producer.kind, parameters: producer.parameters,
+                                            recorded: producer.recorded)
+        if mode == .disks { return step }
+        return ProductWorkflow.stalenessVerdict(
+            recordedStep: step, currentSignature: currentReplaySignature(for: mode),
+            hasProduct: true) == .current ? nil : step
     }
 
     /// The whole recorded pipeline, read-only — the bottom workspace's

@@ -389,4 +389,77 @@ final class LineageGraphLayoutTests: XCTestCase {
         XCTAssertTrue(LineageKindStyle.isSink("export"))
         XCTAssertFalse(LineageKindStyle.isSink("strain"))
     }
+
+    // MARK: - L4: the rewind offer
+
+    /// Mutation it catches: a consequence that omits the products that leave
+    /// the path (or says "deleted"), an offer on the run the session is
+    /// already at, or one that does not come from the plan the rewind uses.
+    func testTheOfferStatesTheConsequenceBeforeTheClick() throws {
+        let model = LineageGraphModel(lineage: branched)
+        // s4 (disks, floor 0.50) is on another branch; s5 (strain) was built on it.
+        guard case .available(let text)? = model.rewindOffer(for: try XCTUnwrap(model.node(id: "s4"))) else {
+            return XCTFail("a run on another branch is rewindable")
+        }
+        XCTAssertTrue(text.contains("Disk detection becomes stale; nothing is deleted."), text)
+        XCTAssertTrue(text.contains("The settings of Disk detection, Strain return to the controls."),
+                      "the strain built on it comes back with its own settings: \(text)")
+        XCTAssertTrue(text.contains("Origin calibration is kept as it is now."),
+                      "origin is not restorable and the pane says so: \(text)")
+        XCTAssertFalse(text.contains("Ellipse") || text.contains("Q scale"),
+                       "an ellipse and a Q scale made before this run stay on the path and are not mentioned: \(text)")
+        XCTAssertTrue(text.contains("Nothing recomputes"), text)
+        XCTAssertFalse(text.lowercased().contains("delete the"), text)
+        XCTAssertNil(model.rewindOffer(for: try XCTUnwrap(model.node(id: "s6"))),
+                     "the current run has nothing to rewind to")
+    }
+
+    /// Two products leaving the path are both named, in path order.
+    /// Mutation it catches: naming only the first kind.
+    func testSeveralStaleProductsAreListed() throws {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "disk_detection", parameters: ["a": "1"], frame: frame)   // s1
+        lineage.recordRun(kind: "strain", parameters: ["b": "1"], frame: frame)           // s2
+        lineage.recordRun(kind: "disk_detection", parameters: ["a": "2"], frame: frame)   // s3
+        lineage.recordRun(kind: "strain", parameters: ["b": "1"], frame: frame)           // s4
+        lineage.recordRun(kind: "acom", parameters: ["c": "1"], frame: frame)             // s5
+        let model = LineageGraphModel(lineage: lineage)
+        guard case .available(let text)? = model.rewindOffer(for: try XCTUnwrap(model.node(id: "s1"))) else {
+            return XCTFail("rewindable")
+        }
+        XCTAssertTrue(text.contains("Disk detection, Strain, Orientation map become stale; nothing is deleted."), text)
+    }
+
+    /// Mutation it catches: offer a button on a v1 run or an export.
+    func testAV1RunAndAnExportGetTheReasonInsteadOfAButton() throws {
+        var record = SessionReplayRecord()
+        record.record(kind: "disk_detection", parameters: ["a": "1"])
+        record.record(kind: "strain", parameters: ["b": "1"])
+        let v1 = LineageGraphModel(lineage: SessionLineage.synthesized(from: record, frame: nil))
+        for id in ["s1", "s2"] {
+            guard case .unavailable(let why)? = v1.rewindOffer(for: try XCTUnwrap(v1.node(id: id))) else {
+                return XCTFail("\(id) is v1: no rewind")
+            }
+            XCTAssertTrue(why.contains("Recorded before lineage"), why)
+        }
+        var lineage = branched
+        lineage.recordRun(kind: "export", parameters: ["format": "png", "file_name": "a.png"], frame: frame)
+        let model = LineageGraphModel(lineage: lineage)
+        guard case .unavailable(let why)? = model.rewindOffer(for: try XCTUnwrap(model.node(id: "s7"))) else {
+            return XCTFail("an export is a sink")
+        }
+        XCTAssertTrue(why.contains("export"), why)
+    }
+
+    /// After a rewind the run whose product is still in memory is another run
+    /// than the active one of its kind, and the ACTIVE run reads stale.
+    /// Mutation it catches: ignore `producedSteps` (nothing is marked), or
+    /// mark a run whose product IS the in-memory one.
+    func testTheActiveRunIsStaleWhenTheProductInMemoryCameFromAnotherRun() {
+        let model = LineageGraphModel(lineage: branched, producedSteps: ["disk_detection": "s4"])
+        XCTAssertEqual(model.state(of: "s6"), .stale, "s6 is the active disks; the peaks in memory are s4's")
+        XCTAssertEqual(model.state(of: "s1"), .current)
+        let fresh = LineageGraphModel(lineage: branched, producedSteps: ["disk_detection": "s6"])
+        XCTAssertEqual(fresh.state(of: "s6"), .current)
+    }
 }

@@ -88,6 +88,17 @@ package nonisolated struct DisplayedProduct {
     package let provenance: [String: String]
     package let overlays: [ProductOverlayDescriptor]
 
+    /// The same product with these provenance keys added (a key already there
+    /// is replaced). Nothing else about it changes — pixels, mask, quality
+    /// fields and origin travel as they are.
+    package func addingProvenance(_ extra: [String: String]) -> DisplayedProduct {
+        DisplayedProduct(
+            origin: origin, kind: kind, displayName: displayName, payload: payload,
+            domain: domain, validityMask: validityMask, qualityFields: qualityFields,
+            sampling: sampling, valueUnits: valueUnits, quantitativeStatus: quantitativeStatus,
+            provenance: provenance.merging(extra) { _, new in new }, overlays: overlays)
+    }
+
     package var width: Int { payload.dimensions.width }
     package var height: Int { payload.dimensions.height }
 

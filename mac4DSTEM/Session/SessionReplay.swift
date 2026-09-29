@@ -45,6 +45,39 @@ package final class SessionReplay {
     /// the record is empty. Consulted once, by the replay executor.
     package private(set) var parameterFrame: ReplayParameterFrame?
 
+    /// Which recorded run made the in-memory product of each analysis kind
+    /// (lineage kind -> node id), so a displayed or saved product can name its
+    /// run (`lineage_step`, R2) and a rewind can tell that a product on screen
+    /// came from a run that is no longer on the active path. Set when a run is
+    /// recorded; forgotten when a run happened that recorded nothing (a replay,
+    /// the automatic pass on open) — a product must never be credited to a
+    /// node whose settings it did not use. Session state, never serialized.
+    package private(set) var producedStep: [String: String] = [:]
+
+    /// A run of this kind happened and recorded no node.
+    package func forgetProducedStep(kind: String) {
+        producedStep[kind] = nil
+    }
+
+    /// The node that made this kind's in-memory product, when ANOTHER node of
+    /// the kind is the active one — the state after a rewind. Nil in every other
+    /// state (including "the kind left the active path", which the recipe
+    /// already reports as a step that is no longer part of it).
+    package func supersededProducer(kind: String) -> SessionLineage.Node? {
+        guard let id = producedStep[kind], let node = lineage.node(id: id),
+              let active = lineage.activeNodes().first(where: { $0.kind == kind }),
+              active.id != id else { return nil }
+        return node
+    }
+
+    /// Rewind (ADR 047 R4): the active path changes, the linear recipe follows
+    /// it, nothing is deleted. The caller has already put the parameters back in
+    /// the controls.
+    package func apply(_ rewind: SessionLineage.Rewind) {
+        lineage.apply(rewind)
+        record = lineage.projection()
+    }
+
     /// What a save should carry: the recipe with the lineage it is the
     /// projection of attached. **Nil when the lineage is empty** — writing
     /// nothing would erase whatever recipe the file already carries (the writer
@@ -85,6 +118,7 @@ package final class SessionReplay {
         let id = lineage.recordRun(kind: kind, parameters: parameters, frame: nodeFrame,
                                    external: external, extraInputs: extraInputs)
         record = lineage.projection()
+        if !SessionLineage.lineageOnlyKinds.contains(kind), !id.isEmpty { producedStep[kind] = id }
         // A calibration or a product node carries no recipe parameters, so it
         // says nothing about the frame the recipe is expressed in. A first
         // recipe step sets the frame; later steps merge — two different
@@ -137,6 +171,9 @@ package final class SessionReplay {
         } else {
             return
         }
+        // The graph was replaced, so the ids the in-memory products were credited
+        // to no longer mean the same runs.
+        producedStep = [:]
         if !record.isEmpty { parameterFrame = frame }
     }
 
@@ -145,5 +182,6 @@ package final class SessionReplay {
         lineage = SessionLineage()
         record = SessionReplayRecord()
         parameterFrame = nil
+        producedStep = [:]
     }
 }

@@ -592,6 +592,273 @@ final class SessionLineageTests: XCTestCase {
         let datacube = try XCTUnwrap(state.recordExportRun(format: "py4dstem_datacube", fileName: "c.h5"))
         XCTAssertEqual(state.replay.lineage.node(id: datacube)?.inputs, [], "source data: no recorded run behind it")
     }
+
+    // MARK: - L4: rewind (R4)
+
+    /// s1 origin, s2 disks (sigma_cc 2), s3 strain on s2, s4 disks (sigma_cc 4) — s2 has a child, so a NEW
+    /// node; strain leaves the path — s5 strain on s4. Active: s1 s4 s5.
+    private var twoBranches: SessionLineage {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "com"], frame: identity, at: date(1))
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(2))
+        lineage.recordRun(kind: "strain", parameters: ["basis_mode": "consensus"], frame: identity, at: date(3))
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "4"], frame: identity, at: date(4))
+        lineage.recordRun(kind: "strain", parameters: ["basis_mode": "consensus"], frame: identity, at: date(5))
+        return lineage
+    }
+
+    /// The plan: ancestry farthest first with the target last, the descendants
+    /// wholly on the path come along, what left and what entered are named —
+    /// and applying it adds, edits and deletes NOT ONE node.
+    ///
+    /// Mutations it catches: a plan that leaves the returning strain out of `restore`
+    /// (the next Run would compute with the live basis, not its own); `apply` that drops the off-path nodes (the count
+    /// and equality fail); `activeNodes` that ignores `pinnedActive` (the
+    /// projection keeps sigma_cc 4 and the ids stay s1 s4 s5); a plan that
+    /// forgets the descendants (s3 missing) or lists the target first.
+    func testARewindMovesTheActivePathAndTouchesNoNode() throws {
+        var lineage = twoBranches
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", "s4", "s5"], "precondition")
+        let plan = try lineage.rewindPlan(to: "s2").get()
+        XCTAssertEqual(plan.activeIDs, ["s1", "s2", "s3"], "ancestry s1, the target s2, the strain built on it")
+        XCTAssertEqual(plan.restore, ["s1", "s2", "s3"],
+                       "farthest ancestor first, the target, then the strain the rewind brings back")
+        XCTAssertEqual(plan.leaving, ["s4", "s5"])
+        XCTAssertEqual(plan.entering, ["s2", "s3"])
+
+        let before = lineage.nodes
+        lineage.apply(plan)
+        XCTAssertEqual(lineage.nodes, before, "nothing added, changed or deleted")
+        XCTAssertEqual(lineage.nodes.count, 5)
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", "s2", "s3"])
+        XCTAssertEqual(lineage.projection().steps.map(\.kind), ["disk_detection", "strain"])
+        XCTAssertEqual(lineage.projection().steps.first?.parameters["sigma_cc"], "2",
+                       "the recipe follows the rewound path")
+        XCTAssertTrue(lineage.isRewound)
+        XCTAssertEqual(lineage.head, "s2")
+        XCTAssertEqual(lineage.node(id: "s4")?.parameters["sigma_cc"], "4", "the other branch is intact")
+    }
+
+    /// Rewinding to where the fold already stands leaves no pin (the file then
+    /// carries no `active` key), and rewinding back restores the fold's answer.
+    /// Mutation it catches: a pin that is never normalised away.
+    func testRewindingBackToTheFoldsPathClearsThePin() throws {
+        var lineage = twoBranches
+        lineage.apply(try lineage.rewindPlan(to: "s2").get())
+        XCTAssertTrue(lineage.isRewound)
+        lineage.apply(try lineage.rewindPlan(to: "s5").get())
+        XCTAssertFalse(lineage.isRewound)
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", "s4", "s5"])
+        XCTAssertEqual(lineage.nodes.count, 5)
+    }
+
+    /// A run after a rewind branches (R3) and takes the rewound path with it:
+    /// its inputs are the REWOUND path's nodes, not the fold's.
+    /// Mutation it catches: `recordRun` choosing inputs from the fold (s4)
+    /// instead of the active path; not repinning after the run.
+    func testARunAfterARewindBranchesFromTheRewoundPath() throws {
+        var lineage = twoBranches
+        lineage.apply(try lineage.rewindPlan(to: "s2").get())
+        let acom = lineage.recordRun(kind: "acom", parameters: ["material": "au"], frame: identity)
+        XCTAssertEqual(lineage.node(id: acom)?.inputs?.map(\.step), ["s2", "s1"],
+                       "peaks from the rewound disks (s2), not from s4")
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", "s2", "s3", acom])
+        XCTAssertTrue(lineage.isRewound)
+
+        // Detecting again supersedes the strain and the ACOM built on s2, and
+        // a same-settings run branches because s2 has children.
+        let again = lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity)
+        XCTAssertNotEqual(again, "s2")
+        XCTAssertEqual(lineage.nodes.count, 7)
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", again])
+        XCTAssertFalse(lineage.isRewound, "the path is the fold's again, so the pin goes")
+    }
+
+    /// Two ancestors of one kind: the one nearer the target is the path's.
+    /// Mutation it catches: choosing the farthest (or the first) — s1 would be
+    /// restored over the origin the strain actually consumed.
+    func testWhereTwoAncestorsShareAKindTheNearerOneWins() throws {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "com"], frame: identity)      // s1
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity)          // s2 <- s1
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "friedel"], frame: identity)  // s3 (s1 has a child)
+        lineage.recordRun(kind: "strain", parameters: ["basis_mode": "consensus"], frame: identity)        // s4 <- s2, s3
+        XCTAssertEqual(lineage.node(id: "s4")?.inputs?.map(\.step), ["s2", "s3"])
+        let plan = try lineage.rewindPlan(to: "s4").get()
+        XCTAssertEqual(plan.activeIDs, ["s2", "s3", "s4"])
+        XCTAssertEqual(plan.restore, ["s2", "s3", "s4"])
+    }
+
+    /// Mutation it catches: allow a v1 node (its inputs are unknown — a rewind
+    /// would assert an ancestry the file never said), allow an export, or
+    /// answer an unknown id with a plan.
+    func testRefusalsNameTheStep() {
+        var record = SessionReplayRecord()
+        record.record(kind: "disk_detection", parameters: ["sigma_cc": "2"])
+        let v1 = SessionLineage.synthesized(from: record, frame: nil)
+        XCTAssertEqual(v1.rewindPlan(to: "s1").failureValue,
+                       .recordedBeforeLineage(step: "s1", kind: "disk_detection"))
+        XCTAssertTrue(v1.rewindPlan(to: "s1").failureValue?.description.contains("s1") == true)
+        XCTAssertFalse(v1.isRewound)
+
+        var live = SessionLineage()
+        live.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity)
+        live.recordRun(kind: "export", parameters: ["format": "png", "file_name": "a.png"], frame: identity)
+        XCTAssertEqual(live.rewindPlan(to: "s2").failureValue, .sink(step: "s2"))
+        XCTAssertEqual(live.rewindPlan(to: "s9").failureValue, .unknownStep("s9"))
+        XCTAssertEqual(live.nodes.count, 2, "a refusal changes nothing")
+    }
+
+    /// The rewound path is a fact of the file: it survives a JSON round trip,
+    /// re-encodes to the same bytes, and a lineage that was never rewound
+    /// writes NO `active` key (every existing file stays byte-identical).
+    /// Mutations it catches: drop `pinnedActive` from `CodingKeys`; encode a
+    /// nil pin as `null`.
+    func testThePinRoundTripsAndAnUnrewoundLineageWritesNoKey() throws {
+        var lineage = twoBranches
+        let plain = try XCTUnwrap(lineage.jsonString)
+        XCTAssertFalse(plain.contains("\"active\""), "an unrewound lineage's bytes are unchanged")
+        lineage.apply(try lineage.rewindPlan(to: "s2").get())
+        let json = try XCTUnwrap(lineage.jsonString)
+        XCTAssertTrue(json.contains("\"active\":[\"s1\",\"s2\",\"s3\"]"), json)
+        let decoded = try XCTUnwrap(SessionLineage.parse(json))
+        XCTAssertEqual(decoded, lineage)
+        XCTAssertEqual(decoded.activeNodes().map(\.id), ["s1", "s2", "s3"])
+        XCTAssertEqual(decoded.jsonString, json)
+        // The writer's own check: the projection follows the pin, so the record
+        // written beside it is accepted.
+        XCTAssertNotNil(try? SessionLineage.writable(json, alongside: lineage.projection()).get())
+    }
+
+    /// Calibration and unrelated products are not the rewind's business: an ellipse
+    /// and a virtual image made BEFORE the disks stay on the path, the strain that
+    /// consumed the ellipse comes back with it, and the next strain records the
+    /// ellipse edge. (The refuter's scenario: o1 e1 v d1 s1 d2 s2.)
+    /// Mutations it catches: a plan that takes every non-ancestor off the path
+    /// (s1 does not qualify without e1; the next strain has no ellipse input).
+    func testACalibrationAndAnUnrelatedProductStayOnThePathAndTheStrainReturnsWithThem() throws {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["m": "com"], frame: identity, at: date(1))   // s1
+        lineage.recordRun(kind: "calibration_ellipse", parameters: ["a_px": "10"], frame: identity, at: date(2)) // s2
+        lineage.recordRun(kind: "virtual_detector", parameters: ["r": "5"], frame: identity, at: date(3))       // s3
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(4))  // s4
+        lineage.recordRun(kind: "strain", parameters: ["g": "A"], frame: identity, at: date(5))                  // s5 <- s4 s1 s2
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "3"], frame: identity, at: date(6))  // s6
+        lineage.recordRun(kind: "strain", parameters: ["g": "B"], frame: identity, at: date(7))                  // s7
+        XCTAssertEqual(lineage.node(id: "s5")?.inputs?.map(\.step), ["s4", "s1", "s2"], "precondition")
+        let plan = try lineage.rewindPlan(to: "s4").get()
+        XCTAssertEqual(plan.activeIDs, ["s1", "s2", "s3", "s4", "s5"])
+        XCTAssertEqual(plan.leaving, ["s6", "s7"], "only the newer detection and its strain leave")
+        XCTAssertEqual(plan.entering, ["s4", "s5"])
+        XCTAssertEqual(plan.restore, ["s1", "s4", "s5"], "the ellipse and the image are not restored: they stay as they are")
+        lineage.apply(plan)
+        let next = lineage.recordRun(kind: "strain", parameters: ["g": "C"], frame: identity, at: date(8))
+        XCTAssertEqual(lineage.node(id: next)?.inputs?.map(\.step), ["s4", "s1", "s2"],
+                       "the ellipse edge is there: the run used the ellipse the app applies")
+    }
+
+    /// A calibration that rests on a run leaving the path leaves with it; the
+    /// others stay. Mutation it catches: keep every held node regardless of its inputs.
+    func testAHeldNodeThatRestsOnALeavingRunLeavesToo() throws {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(1)) // s1
+        lineage.recordRun(kind: "strain", parameters: ["g": "A"], frame: identity, at: date(2))               // s2
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "3"], frame: identity, at: date(3)) // s3
+        lineage.recordRun(kind: "calibration_q", parameters: ["q_pixel_size": "0.01"], frame: identity, at: date(4)) // s4 <- s3
+        XCTAssertEqual(lineage.node(id: "s4")?.inputs?.map(\.step), ["s3"])
+        let plan = try lineage.rewindPlan(to: "s1").get()
+        XCTAssertEqual(plan.activeIDs, ["s1", "s2"])
+        XCTAssertEqual(plan.leaving, ["s3", "s4"])
+    }
+
+    /// The origin fit cannot be put back: rewinding to a run that stood on an
+    /// origin no longer in use refuses by name. Mutation it catches: allow it
+    /// (the path would name a calibration nobody applies).
+    func testARewindPastARefittedOriginRefusesByName() {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["m": "com"], frame: identity, at: date(1))   // s1
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(2))  // s2 <- s1
+        lineage.recordRun(kind: "calibration_origin", parameters: ["m": "friedel"], frame: identity, at: date(3)) // s3 (s1 has a child)
+        XCTAssertEqual(lineage.rewindPlan(to: "s2").failureValue, .originRefitted(step: "s2", origin: "s1"))
+        XCTAssertTrue(lineage.rewindPlan(to: "s2").failureValue?.description.contains("s2") == true)
+    }
+
+    /// A run after a rewind never collapses into an older node: it branches, and the
+    /// run the user went back to keeps its settings. (The refuter's case B.)
+    /// Mutation it catches: drop the "newest node of its kind" condition from the
+    /// collapse rule — s2 would take the parameters of the new run.
+    func testARunAfterARewindNeverOverwritesTheRunWentBackTo() throws {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(1)) // s1
+        lineage.recordRun(kind: "strain", parameters: ["g": "A"], frame: identity, at: date(2))               // s2
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "3"], frame: identity, at: date(3)) // s3
+        lineage.recordRun(kind: "strain", parameters: ["g": "B"], frame: identity, at: date(4))               // s4
+        lineage.apply(try lineage.rewindPlan(to: "s1").get())
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", "s2"], "precondition")
+        let id = lineage.recordRun(kind: "strain", parameters: ["g": "C"], frame: identity, at: date(5))
+        XCTAssertNotEqual(id, "s2")
+        XCTAssertEqual(lineage.node(id: "s2")?.parameters["g"], "A", "the run rewound to is untouched")
+        XCTAssertEqual(lineage.nodes.count, 5)
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s1", id])
+    }
+
+    /// The second refuter's case: a calibration fitted AFTER a run is applied now,
+    /// and the run never used it. Rewinding to the run would put the run on the
+    /// path with the newer ellipse held beside it — and the next Run would compute
+    /// with that ellipse. Refuse, by name. Mutation it catches: delete the
+    /// "applied since" check (the old held-node loop then keeps e1 on the path).
+    func testARewindRefusesWhenACalibrationMadeAfterTheRunIsAppliedNow() throws {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["m": "com"], frame: identity, at: date(1))    // s1
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(2))   // s2
+        lineage.recordRun(kind: "strain", parameters: ["g": "A"], frame: identity, at: date(3))                  // s3 <- s2 s1
+        lineage.recordRun(kind: "calibration_ellipse", parameters: ["a_px": "10"], frame: identity, at: date(4)) // s4
+        lineage.recordRun(kind: "strain", parameters: ["g": "B"], frame: identity, at: date(5))                  // s5 <- s2 s1 s4
+        XCTAssertEqual(lineage.node(id: "s3")?.inputs?.map(\.step), ["s2", "s1"], "precondition: s3 used no ellipse")
+        XCTAssertEqual(lineage.node(id: "s5")?.inputs?.map(\.step), ["s2", "s1", "s4"], "precondition")
+        let refusal = lineage.rewindPlan(to: "s3").failureValue
+        XCTAssertEqual(refusal, .appliedSince(step: "s3", held: "s4", kind: "calibration_ellipse"))
+        XCTAssertTrue(refusal?.description.contains("s3") == true && refusal?.description.contains("s4") == true)
+        XCTAssertNotNil(try? lineage.rewindPlan(to: "s5").get(), "the run that used the ellipse rewinds fine")
+        XCTAssertEqual(lineage.nodes.count, 5)
+    }
+
+    /// The same, reached through an earlier target: d1 rewound to after d2 and s3
+    /// were made, which brings s1 back with the ellipse fitted after it.
+    func testARewindToAnEarlierDetectionRefusesForTheStrainItBringsBack() {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["m": "com"], frame: identity, at: date(1))    // s1
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(2))   // s2
+        lineage.recordRun(kind: "strain", parameters: ["g": "A"], frame: identity, at: date(3))                  // s3
+        lineage.recordRun(kind: "calibration_ellipse", parameters: ["a_px": "10"], frame: identity, at: date(4)) // s4
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "3"], frame: identity, at: date(5))   // s5
+        lineage.recordRun(kind: "strain", parameters: ["g": "B"], frame: identity, at: date(6))                  // s6
+        XCTAssertEqual(lineage.rewindPlan(to: "s2").failureValue,
+                       .appliedSince(step: "s3", held: "s4", kind: "calibration_ellipse"))
+    }
+
+    /// An origin fitted after the run: the run has no origin edge and the live
+    /// origin is not among its inputs. Mutation it catches: the same deleted check.
+    func testARewindRefusesWhenAnOriginWasFittedAfterTheRun() {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "2"], frame: identity, at: date(1))   // s1 (no origin yet)
+        lineage.recordRun(kind: "strain", parameters: ["g": "A"], frame: identity, at: date(2))                  // s2
+        lineage.recordRun(kind: "calibration_origin", parameters: ["m": "com"], frame: identity, at: date(3))   // s3
+        lineage.recordRun(kind: "disk_detection", parameters: ["sigma_cc": "3"], frame: identity, at: date(4))  // s4 <- s3
+        XCTAssertEqual(lineage.rewindPlan(to: "s1").failureValue,
+                       .appliedSince(step: "s1", held: "s3", kind: "calibration_origin"))
+    }
+
+    /// Mutation it catches: delete the `active` check in `validated`.
+    func testAHostileActivePathIsRefusedByName() {
+        func withActive(_ ids: String) -> String {
+            String(lineageJSON(nodes: [nodeJSON(id: "s1")]).dropLast()) + ",\"active\":[\(ids)]}"
+        }
+        XCTAssertNil(refusal(withActive("\"s1\"")))
+        XCTAssertEqual(refusal(withActive("\"s9\"")), .badActive("s9"))
+        XCTAssertEqual(refusal(withActive("\"s1\",\"s1\"")), .badActive("s1"))
+        XCTAssertEqual(refusal(withActive("")), .emptyActive, "an empty path names no run at all")
+    }
 }
 
 private extension Result {

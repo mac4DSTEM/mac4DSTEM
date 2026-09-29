@@ -123,10 +123,13 @@ private struct LineagePane: View {
             lineage: appState.replay.lineage,
             productKind: product?.kind,
             productStep: product?.provenance["lineage_step"],
-            activePathOnly: activePathOnly)
+            activePathOnly: activePathOnly,
+            producedSteps: appState.replay.producedStep)
         VStack(spacing: 0) {
             PaneHeader(title: "Lineage") { headerTrailing(model) }
-            LineageGraphView(model: model)
+            LineageGraphView(model: model, rewind: { step in
+                Task { await appState.rewindLineage(to: step) }
+            })
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             if let product {
                 Divider()

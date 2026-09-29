@@ -405,13 +405,18 @@ nonisolated struct LineageGraphModel {
     ///     provenance `lineage_step`, if it has one. A product that names a run
     ///     other than the active run of its kind makes that active run stale.
     ///   - activePathOnly: hide the nodes on other branches.
+    ///   - producedSteps: lineage kind -> the run that made the in-memory
+    ///     product of that kind (`SessionReplay.producedStep`). After a rewind
+    ///     the active run of a kind can differ from it; that active run is then
+    ///     stale too, whether or not its product is the one on screen.
     init(lineage: SessionLineage, productKind: String? = nil, productStep: String? = nil,
-         activePathOnly: Bool = false) {
+         activePathOnly: Bool = false, producedSteps: [String: String] = [:]) {
         let active = lineage.activeNodes()
         let activeIDs = Set(active.map(\.id))
         self.lineage = lineage
         self.activeIDs = activeIDs
         self.staleIDs = Self.staleSteps(active: active, productKind: productKind, productStep: productStep)
+            .union(active.filter { node in producedSteps[node.kind].map { $0 != node.id } ?? false }.map(\.id))
         let shown = activePathOnly ? lineage.nodes.filter { activeIDs.contains($0.id) } : lineage.nodes
         self.nodes = shown
         self.layout = LineageGraphLayout(items: shown.map { node in
@@ -514,6 +519,95 @@ nonisolated struct LineageGraphModel {
         case "export": node.parameters["format"]
         case "acom": node.parameters["material"]
         default: nil
+        }
+    }
+
+    // MARK: Rewind (R4)
+
+    /// What the detail column says about rewinding to a node.
+    enum RewindOffer: Equatable {
+        /// A "Rewind to Here" button, with the consequence stated before the click.
+        case available(consequence: String)
+        /// No button; why, in one sentence.
+        case unavailable(String)
+    }
+
+    /// nil for the run the session is already at (state `current`): nothing to
+    /// rewind to. Otherwise the offer, decided by the same pure plan the rewind
+    /// itself uses — the sentence and the action cannot disagree.
+    func rewindOffer(for node: SessionLineage.Node) -> RewindOffer? {
+        if node.source == "v1" || node.inputs == nil {
+            return .unavailable("Recorded before lineage: what it stood on was never written down, so it cannot be rewound to.")
+        }
+        if LineageKindStyle.isSink(node.kind) {
+            return .unavailable("An export is a file that left the session; there is no state to return to.")
+        }
+        guard state(of: node.id) != .current else { return nil }
+        switch lineage.rewindPlan(to: node.id) {
+        case .failure(let refusal): return .unavailable(refusal.description)
+        case .success(let plan): return .available(consequence: Self.consequence(of: plan, in: lineage))
+        }
+    }
+
+    /// "Strain, Phase map become stale; nothing is deleted." — the products that
+    /// leave the active path, then what returns to the controls and what does not.
+    static func consequence(of plan: SessionLineage.Rewind, in lineage: SessionLineage) -> String {
+        func kinds(_ ids: [String]) -> [String] {
+            var seen: [String] = []
+            for id in ids {
+                guard let kind = lineage.node(id: id)?.kind else { continue }
+                if !seen.contains(kind) { seen.append(kind) }
+            }
+            return seen
+        }
+        // Calibrations and exports are not products that go stale: a calibration
+        // keeps its live value (said below when it leaves), an export is a file.
+        let productKinds = kinds(plan.leaving).filter { !$0.hasPrefix("calibration_") && $0 != "export" }
+        var parts: [String] = []
+        if productKinds.isEmpty {
+            parts.append("Nothing becomes stale; nothing is deleted.")
+        } else {
+            let names = productKinds.map(productName).joined(separator: ", ")
+            parts.append("\(names) \(productKinds.count == 1 ? "becomes" : "become") stale; nothing is deleted.")
+        }
+        let restored = kinds(plan.restore).filter { restorable.contains($0) }.map(productName)
+        if !restored.isEmpty {
+            parts.append("The settings of \(restored.joined(separator: ", ")) return to the controls.")
+        }
+        let notRestored = kinds(plan.restore).filter { !restorable.contains($0) && $0 != "dpc" }
+        if !notRestored.isEmpty {
+            parts.append("\(notRestored.map(productName).joined(separator: ", ")) \(notRestored.count == 1 ? "is" : "are") kept as \(notRestored.count == 1 ? "it is" : "they are") now.")
+        }
+        // A calibration or unrelated product stays on the path unless it rests on a
+        // run that leaves it (a Q scale measured on the newer peaks). It keeps its
+        // live value either way: only a run's own settings are ever put back.
+        let calibrationsLeaving = kinds(plan.leaving).filter { $0.hasPrefix("calibration_") }
+        if !calibrationsLeaving.isEmpty {
+            parts.append("\(calibrationsLeaving.map(productName).joined(separator: ", ")) rest\(calibrationsLeaving.count == 1 ? "s" : "") on a run that leaves the path; the value in use stays as it is.")
+        }
+        parts.append("Nothing recomputes; run the stale steps from their tasks.")
+        return parts.joined(separator: " ")
+    }
+
+    /// The kinds whose recorded settings go back into live controls on a rewind.
+    private static let restorable: Set<String> = [
+        "virtual_detector", "disk_detection", "strain", "acom", "calibration_ellipse", "calibration_q",
+    ]
+
+    private static func productName(_ kind: String) -> String {
+        switch kind {
+        case "disk_detection": "Disk detection"
+        case "strain": "Strain"
+        case "acom": "Orientation map"
+        case "phase_mapping": "Phase map"
+        case "precipitate_objects": "Objects"
+        case "virtual_detector": "Virtual image"
+        case "dpc": "DPC"
+        case "diffraction_groups": "Groups"
+        case "calibration_origin": "Origin calibration"
+        case "calibration_ellipse": "Ellipse calibration"
+        case "calibration_q": "Q scale"
+        default: LineageKindStyle.shortTitle(kind)
         }
     }
 

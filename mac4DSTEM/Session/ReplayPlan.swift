@@ -250,8 +250,14 @@ package enum ReplayRecordFrameMap {
             // never see the crop offset. Mapped even for a consensus-basis
             // step (where they are informational) so every carried number
             // stays frame-true.
+            // `input_g*` are the basis a manual run indexed with (recorded for
+            // the lineage rewind): the same displacements, so the same role. An
+            // unclassified key refuses the whole step on promote and drops the
+            // recipe from a binned export.
             case "resolved_g1_x", "resolved_g1_y",
-                 "resolved_g2_x", "resolved_g2_y": .length
+                 "resolved_g2_x", "resolved_g2_y",
+                 "input_g1_x", "input_g1_y",
+                 "input_g2_x", "input_g2_y": .length
             default: nil
             }
         case "acom":

@@ -23,8 +23,12 @@
 //  node's REPLACES it when it has no children and no saved product, so slider
 //  exploration stays one node (the v2 S5 "not a keystroke log" rule); anything
 //  else is a new node that becomes active, and the old node stays as another
-//  branch. There is no rewind in L1 (R4 is L4): "active" is derived by the
-//  fold in `activeNodes()`, from the nodes alone, so a file needs no flag.
+//  branch. "Active" is derived by the fold in `activeNodes()` from the nodes
+//  alone — until a REWIND (R4, phase L4), which is a fact the nodes cannot
+//  give: `pinnedActive` (file key `active`) then names the active ids, and
+//  is nil — key omitted, the file byte-identical to L1–L3's — whenever the
+//  fold would say the same. Rewind deletes nothing: `rewindPlan(to:)` is
+//  pure, `apply(_:)` only sets the pin.
 //
 //  ABSENCE IS ABSENCE (R7). `inputs` is optional: nil (key omitted) is a v1
 //  node whose inputs the file never said; `[]` is a node known to consume
@@ -148,13 +152,20 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     /// The node recorded (or collapsed into) last. Not "the active path" — that is derived.
     package private(set) var head: String?
     package private(set) var nodes: [Node] = []
+    /// The active ids after a rewind (R4), in node order; nil = "as the fold
+    /// says" (never rewound, or every rewind since agrees with the fold). The
+    /// linear record's projection follows this, so the two cannot disagree.
+    package private(set) var pinnedActive: [String]?
 
     private enum CodingKeys: String, CodingKey {
         case version, head, nodes
         case nextID = "next_id"
+        case pinnedActive = "active"
     }
 
     package var isEmpty: Bool { nodes.isEmpty }
+    /// True while the active path is one a rewind chose rather than the fold's.
+    package var isRewound: Bool { pinnedActive != nil }
 
     package nonisolated init() {}
 
@@ -223,7 +234,14 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     /// node of a kind already active replaces it IN PLACE; a new kind appends;
     /// and a node first takes its `downstreamKinds` off the path (a removed
     /// kind that returns later is appended, as a deleted step was).
-    package func activeNodes() -> [Node] { Self.activeNodes(in: nodes) }
+    package func activeNodes() -> [Node] { active(in: nodes) }
+
+    /// The fold over `candidates`, restricted to the rewound path when there is one.
+    private func active(in candidates: [Node]) -> [Node] {
+        guard let pinnedActive else { return Self.activeNodes(in: candidates) }
+        let pinned = Set(pinnedActive)
+        return Self.activeNodes(in: candidates.filter { pinned.contains($0.id) })
+    }
 
     private static func activeNodes(in nodes: [Node]) -> [Node] {
         var order: [String] = []
@@ -255,6 +273,201 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         nodes.contains { ($0.inputs ?? []).contains { $0.step == id } }
     }
 
+    // MARK: - Rewind (R4, phase L4)
+
+    /// What a rewind to a node would do. Pure data; `apply(_:)` performs it.
+    package nonisolated struct Rewind: Equatable, Sendable {
+        /// The run rewound to.
+        package let target: String
+        /// The ids of the new active path, in node order.
+        package let activeIDs: [String]
+        /// Whose parameters go back into the live controls: the target's
+        /// ancestors, farthest first (one per kind — the nearest wins), the
+        /// target, then every node the rewind brings back onto the path (in node
+        /// order). Nodes that stay on the path are not restored.
+        package let restore: [String]
+        /// Active now, not after: their products become stale, never deleted.
+        package let leaving: [String]
+        /// Not active now, active after.
+        package let entering: [String]
+    }
+
+    /// Why a rewind was refused — by name, before anything changed.
+    package nonisolated enum RewindRefusal: Error, Equatable, CustomStringConvertible {
+        case unknownStep(String)
+        /// Recorded before lineage: its inputs were never written down, so what
+        /// it stood on cannot be rebuilt (absence is absence, R7).
+        case recordedBeforeLineage(step: String, kind: String)
+        /// An export is a sink: a file that left the session, not a state.
+        case sink(step: String)
+        /// The origin fit in use is not the one this run stood on, and a fit
+        /// cannot be restored (only its mean is recorded): the path would claim
+        /// a calibration the app is not applying.
+        case originRefitted(step: String, origin: String)
+        /// A calibration (or run) of a kind this run's step lists as an input was
+        /// made AFTER it and is applied now, but the run never used it. Rewinding
+        /// and running again would compute with `held`, not as `step` did.
+        case appliedSince(step: String, held: String, kind: String)
+
+        package var description: String {
+            switch self {
+            case .unknownStep(let id):
+                "There is no run \(id) in this session's lineage."
+            case .recordedBeforeLineage(let step, let kind):
+                "\(step) (\(kind)) was recorded before lineage existed: what it consumed was never written down, so a rewind to it cannot say what to restore. Run it again to record it."
+            case .sink(let step):
+                "\(step) is an export — a file that left the session, not a state to return to."
+            case .appliedSince(let step, let held, let kind):
+                "\(held) (\(kind.replacingOccurrences(of: "calibration_", with: "").replacingOccurrences(of: "_", with: " "))) was made after \(step) and is applied now, but \(step) did not use it — running again from \(step) would compute with \(held), not as \(step) did. Clear that calibration first, or rewind to a run made after it."
+            case .originRefitted(let step, let origin):
+                "\(step) was computed on origin calibration \(origin), and the origin was fitted again since. A fit cannot be put back (only its mean is recorded), so a rewind would show a calibration the app is not applying."
+            }
+        }
+    }
+
+    /// The rewind to `id`, precisely (ADR 047 R4):
+    /// - the active path becomes the target's ancestry (through recorded input
+    ///   edges; one node per kind — where two ancestors share a kind, the one
+    ///   nearer the target) plus the target's descendants whose every input is
+    ///   already on it, plus the node every other kind holds now unless it rests
+    ///   on something that left the path (amendment, L4: calibration and
+    ///   unrelated products are not the rewind's business); repeated until none
+    ///   is added;
+    /// - `restore` names the nodes whose settings return to the controls.
+    /// Nothing is deleted and no node is added.
+    package func rewindPlan(to id: String) -> Result<Rewind, RewindRefusal> {
+        guard let target = node(id: id) else { return .failure(.unknownStep(id)) }
+        if target.source == "v1" || target.inputs == nil {
+            return .failure(.recordedBeforeLineage(step: id, kind: target.kind))
+        }
+        if target.kind == "export" { return .failure(.sink(step: id)) }
+
+        let index = Dictionary(uniqueKeysWithValues: nodes.enumerated().map { ($1.id, $0) })
+        // Ancestry by breadth-first search over recorded inputs: depth = distance.
+        var depth: [String: Int] = [id: 0]
+        var frontier = [id]
+        while !frontier.isEmpty {
+            var next: [String] = []
+            for current in frontier {
+                for input in node(id: current)?.inputs ?? [] where depth[input.step] == nil {
+                    depth[input.step] = depth[current]! + 1
+                    next.append(input.step)
+                }
+            }
+            frontier = next
+        }
+        // One node per kind: the nearest to the target; on a tie the later run.
+        var chosen: [String: String] = [:]   // kind -> id
+        let byNearness = depth.keys.sorted {
+            let (a, b) = (depth[$0] ?? 0, depth[$1] ?? 0)
+            return a != b ? a < b : (index[$0] ?? 0) > (index[$1] ?? 0)
+        }
+        for ancestor in byNearness {
+            guard let kind = node(id: ancestor)?.kind, chosen[kind] == nil else { continue }
+            chosen[kind] = ancestor
+        }
+        // The origin fit cannot be restored. If the one this run stood on is not
+        // the one in use, the rewound path would name a calibration nobody applies.
+        if let origin = chosen["calibration_origin"],
+           activeNodes().first(where: { $0.kind == "calibration_origin" })?.id != origin {
+            return .failure(.originRefitted(step: id, origin: origin))
+        }
+        var path = Set(chosen.values)
+        // Farthest ancestor first, the target (depth 0) last.
+        let ancestry = path.sorted {
+            let (a, b) = (depth[$0] ?? 0, depth[$1] ?? 0)
+            return a != b ? a > b : (index[$0] ?? 0) < (index[$1] ?? 0)
+        }
+
+        // Descendants of the target (consumers, transitively).
+        var descendants = Set<String>()
+        var queue = [id]
+        while let current = queue.popLast() {
+            for candidate in nodes where (candidate.inputs ?? []).contains(where: { $0.step == current }) {
+                if descendants.insert(candidate.id).inserted { queue.append(candidate.id) }
+            }
+        }
+        // What else stands on the rewound path: the target's descendants, AND the
+        // node each other kind holds right now (a calibration, a virtual image) —
+        // unless that node rests on something that has left the path (a Q scale
+        // measured on the newer peaks). Kinds outside the target's ancestry are
+        // not the rewind's business; taking them off the path would make the next
+        // run record inputs that omit a calibration the app is applying (false
+        // lineage). A held node whose kind the path already has yields to the
+        // ancestry; between two candidates of a kind, the one held now wins, then
+        // the later run. Repeated until nothing is added.
+        let now = Set(activeNodes().map(\.id))
+        var kinds = Set(chosen.keys)
+        var added = true
+        while added {
+            added = false
+            var best: [String: Node] = [:]
+            for candidate in nodes where !path.contains(candidate.id) && !kinds.contains(candidate.kind)
+                && (descendants.contains(candidate.id) || now.contains(candidate.id)) {
+                guard let inputs = candidate.inputs, inputs.allSatisfy({ path.contains($0.step) }) else { continue }
+                if let held = best[candidate.kind] {
+                    let (heldNow, candidateNow) = (now.contains(held.id), now.contains(candidate.id))
+                    if heldNow && !candidateNow { continue }
+                    if heldNow == candidateNow, (index[held.id] ?? 0) > (index[candidate.id] ?? 0) { continue }
+                }
+                best[candidate.kind] = candidate
+            }
+            for (kind, winner) in best {
+                path.insert(winner.id)
+                kinds.insert(kind)
+                added = true
+            }
+        }
+
+        // A step that can be run again must stand on what will be applied: if the
+        // path holds a node of a kind the step's input rule lists, made after the
+        // step and not among its recorded inputs, the next Run would use it
+        // silently (an ellipse fitted after the strain). Calibrations are not
+        // re-run, so they are exempt. Refusing is simpler and truer than taking
+        // the node off the path: the live value stays applied either way.
+        // Judged for the target and for the nodes the rewind brings back — the
+        // states the user is returning to. An ancestor was already part of what
+        // the target used (it is among the target's recorded inputs).
+        let inNodeOrder = nodes.map(\.id).filter { path.contains($0) }   // deterministic refusal
+        for memberID in inNodeOrder where memberID == id || (!now.contains(memberID) && !ancestry.contains(memberID)) {
+            guard let member = node(id: memberID), let memberInputs = member.inputs,
+                  !member.kind.hasPrefix("calibration_"), member.kind != "export" else { continue }
+            for dependency in Self.inputPolicy[member.kind] ?? [] {
+                for otherID in inNodeOrder {
+                    guard let other = node(id: otherID), other.kind == dependency.kind,
+                          (index[otherID] ?? 0) > (index[memberID] ?? 0),
+                          !memberInputs.contains(where: { $0.step == otherID }) else { continue }
+                    return .failure(.appliedSince(step: memberID, held: otherID, kind: other.kind))
+                }
+            }
+        }
+
+        let ordered = nodes.map(\.id).filter { path.contains($0) }
+        let entering = ordered.filter { !now.contains($0) }
+        // Settings go back for the ancestry and for every node the rewind BRINGS
+        // BACK (a strain returning with its own basis). A node that simply stays
+        // keeps the control it has: that control is its kind's live state.
+        let restore = ancestry + entering.filter { !ancestry.contains($0) }
+        return .success(Rewind(
+            target: id, activeIDs: ordered, restore: restore,
+            leaving: nodes.map(\.id).filter { now.contains($0) && !path.contains($0) },
+            entering: entering))
+    }
+
+    /// Perform a planned rewind: only the active path (and `head`) change.
+    /// Every node, every input edge and every product name stays.
+    package mutating func apply(_ rewind: Rewind) {
+        guard rewind.activeIDs.allSatisfy({ node(id: $0) != nil }) else { return }
+        pinnedActive = normalizedPin(Set(rewind.activeIDs))
+        head = rewind.target
+    }
+
+    /// nil when the fold says the same set (the file then carries no `active`).
+    private func normalizedPin(_ ids: Set<String>) -> [String]? {
+        if ids == Set(Self.activeNodes(in: nodes).map(\.id)) { return nil }
+        return nodes.map(\.id).filter { ids.contains($0) }
+    }
+
     // MARK: - Recording (R1–R3)
 
     /// One run completed. Returns the id of the node that now stands for it
@@ -264,6 +477,27 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     package mutating func recordRun(
         kind: String, parameters: [String: String], frame: Frame?,
         external: [External] = [], extraInputs: [Input] = [], at date: Date = Date()
+    ) -> String {
+        let before = pinnedActive
+        let id = recordRunOnActivePath(kind: kind, parameters: parameters, frame: frame,
+                                       external: external, extraInputs: extraInputs, at: date)
+        if let before, node(id: id)?.kind == kind {
+            // A run after a rewind branches (R3): the new run takes its kind's
+            // place on the rewound path and what it supersedes leaves it — the
+            // fold's rule, applied to the pinned set instead of to all nodes.
+            let leaving = Set([kind] + (Self.downstreamKinds[kind] ?? []))
+            var pinned = Set(before.filter { pinnedID in
+                nodes.first(where: { $0.id == pinnedID }).map { !leaving.contains($0.kind) } ?? false
+            })
+            pinned.insert(id)
+            pinnedActive = normalizedPin(pinned)
+        }
+        return id
+    }
+
+    private mutating func recordRunOnActivePath(
+        kind: String, parameters: [String: String], frame: Frame?,
+        external: [External], extraInputs: [Input], at date: Date
     ) -> String {
         let active = activeNodes()
         var inputs: [Input] = []
@@ -276,7 +510,13 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         let external = external.isEmpty ? Self.externalInputs(kind: kind, parameters: parameters)
                                         : external
 
+        // A run only ever collapses into the NEWEST node of its kind: after a
+        // rewind the active node can be an older one, and a run replacing it in
+        // place would overwrite the settings of the run the user went back to
+        // (ADR 047 amendment, L4). Unrewound, the active node of a kind is always
+        // its newest, so this changes nothing there.
         if let previous = active.first(where: { $0.kind == kind }),
+           nodes.last(where: { $0.kind == kind })?.id == previous.id,
            let index = nodes.firstIndex(where: { $0.id == previous.id }),
            nodes[index].inputs == inputs, nodes[index].external == external,
            nodes[index].product == nil, !hasChildren(previous.id) {
@@ -354,7 +594,7 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
             var changed = true
             while nodes.count >= Self.maximumNodes && changed {
                 changed = false
-                let active = Self.activeNodes(in: nodes).map(\.id)
+                let active = self.active(in: nodes).map(\.id)
                 let activeIDs = Set(active)
                 let consumed = Set(nodes.flatMap { ($0.inputs ?? []).map(\.step) })
                 for index in nodes.indices {
@@ -363,7 +603,7 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
                           !(protectProducts && node.product != nil) else { continue }
                     var trial = nodes
                     trial.remove(at: index)
-                    if Self.activeNodes(in: trial).map(\.id) == active {
+                    if self.active(in: trial).map(\.id) == active {
                         nodes = trial
                         changed = true
                         break
@@ -425,6 +665,8 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         case cycle
         case badHead(String)
         case badNextID(nextID: Int, maxNumericID: Int)
+        case badActive(String)
+        case emptyActive
 
         package var description: String {
             switch self {
@@ -437,6 +679,8 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
             case .danglingInput(let step, let from): "node \(from) consumes \(step), which is not a node"
             case .cycle: "the lineage has a cycle"
             case .badHead(let id): "the lineage head \(id) is not a node"
+            case .emptyActive: "the lineage's active path is empty"
+            case .badActive(let id): "the lineage's active path names \(id), which is not a node (or names it twice)"
             case .badNextID(let next, let maximum): "next_id \(next) is not above the highest id (s\(maximum)) and within \(SessionLineage.maximumNextID)"
             }
         }
@@ -480,6 +724,13 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
         if let head = lineage.head, !seen.contains(head) { return .failure(.badHead(head)) }
         guard lineage.nextID > maximumNumeric, lineage.nextID <= maximumNextID else {
             return .failure(.badNextID(nextID: lineage.nextID, maxNumericID: maximumNumeric))
+        }
+        if let pinned = lineage.pinnedActive {
+            guard !pinned.isEmpty else { return .failure(.emptyActive) }
+            var named = Set<String>()
+            for id in pinned where !seen.contains(id) || !named.insert(id).inserted {
+                return .failure(.badActive(id))
+            }
         }
         guard !lineage.hasCycle() else { return .failure(.cycle) }
         return .success(lineage)

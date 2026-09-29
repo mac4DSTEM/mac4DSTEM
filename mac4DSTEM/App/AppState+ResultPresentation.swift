@@ -314,7 +314,7 @@ extension AppState {
             // `recordReplayStep` suppresses it.
             recordReplayStep(kind: "virtual_detector",
                               parameters: Aperture.replayParameters(shape: shapeMode.rawValue, aperture: ap),
-                              replaying: replaying)
+                              replaying: replaying, stampsDisplayedProduct: true)
             return .published
         } catch {
             if cancellation?.isCancelled == true {

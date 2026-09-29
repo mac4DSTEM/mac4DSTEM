@@ -102,3 +102,56 @@ An independent Gate B on the L1 reader/writer found two defects and four gaps; t
   (`H5Aget_storage_size` = 16 for a 5 MiB string, measured), so the read is bounded by the file's own size.
 - A calibration-only session exports no "recipe not carried" note (an empty projection is not an omission).
 - R5's example: nil fields are omitted, not written as `null` (byte-stable either way; the code omits).
+
+## Amendment — Gate D, 2026-09-30 (L4, rewind; decided by delegation, overrule on sight)
+
+Two independent refuters (Gate D) found that R4 as written ("ancestry plus descendants wholly on it") left the
+path claiming states the app does not apply. The rules they led to:
+
+1. **Format.** The rewound active path is a fact the nodes cannot give, so the lineage JSON gains an optional
+   `active` key (node ids, node order). It is omitted whenever the fold gives the same set — every file
+   written before L4 is byte-identical — and refused when empty, naming an unknown id, or repeating one.
+   `version` stays 2; a build without L4 that reads a saved rewind sees a projection that disagrees with the
+   record and reads the file as v1 with its named note (R7). *Alternative:* a session-only rewind (lost on save,
+   and the record written beside it would disagree with the lineage).
+
+2. **Kinds outside the target's ancestry stay on the path.** The path is the target's ancestry, its descendants
+   wholly on it, and the node every other kind holds now (a calibration, a virtual image) unless that node rests
+   on a run that leaves the path (a Q scale measured on the newer peaks). Calibration and unrelated products do
+   not go stale because disks were rewound, and the next run records the edges of what it actually used.
+   Settings are restored for the ancestry, the target and every node the rewind brings back; nodes that stay keep
+   their live control. *Alternative:* ancestry only (R4 as first written) — takes an ellipse off the path while
+   its value stays applied, a false lineage.
+
+3. **A run after a rewind never collapses (R3) into a node that is not the newest of its kind.** It branches,
+   so the run the user went back to keeps its settings. Unrewound, the active node of a kind is always its
+   newest, so nothing changes there.
+
+4. **Refuse rather than mislead.** A rewind refuses, by name and before any control changes, when
+   (a) the origin fit in use is not the one the run stood on — a fit cannot be restored, only its mean is
+   recorded; (b) a node of a kind that a re-runnable step on the path lists as an input was made *after* that
+   step, is applied now, and is not among the step's recorded inputs (an ellipse fitted after the strain): the
+   next Run would compute with it and the graph would say it did not. Calibrations and exports are exempt (they
+   are not re-run); (c) the recorded disk detection used a probe kernel that is not stored (a vacuum ROI or a
+   separate vacuum scan), or the file's own probe that is not the one loaded; (d) an ACOM step's scale is not the
+   scale that would be in force; (e) the step's detector frame is not the session's. A synthetic kernel is rebuilt.
+   *Alternative for (b):* take the held node off the path and say so — rejected: the live value stays applied
+   either way, so the path would still not describe what runs.
+
+5. **Recording.** A manual-basis strain also records the basis it indexed with (`input_g1_x` … `input_g2_y`);
+   the rewind restores those, replay keeps using the resolved ones. The frame map classifies them as lengths.
+
+**Residuals, named not fixed.** An origin re-fit with identical settings still refuses earlier rewinds (nodes,
+not values, are compared). The synthetic kernel's radius is not compared. A Q scale or phase-mapping node that a
+path member lists but that left the path is not checked beyond the ACOM scale guard. The lineage still has no
+`calibration_rotation` kind and no External edge for a trained detector model; a hand-typed Q is recorded with a
+`peaks` edge it did not consume. "Re-run stale steps" is not offered: the replay executor is the promote path. From the third look (Fable): the held-kinds fill is
+order-blind within one pass — with o d1 s1 e1 s2(used e1) d2 s3, a rewind to d1 lets s1 win "strain" and then refuses
+for e1, though s2 is a consistent strain on d1 (traced, not executed); and a rewind to a detection refuses for a strain
+it would merely bring back, so d1's disks alone cannot be returned to without clearing the ellipse. Both refuse, neither
+misleads.
+
+**Gates.** First rework: 249 passed, exit 0; 12 new tests red on three mutations. Second round (the two refuter
+fixes): 170 passed, exit 0; with the `appliedSince` refusal removed three lineage tests red, with `input_g*` dropped from
+the frame map the binned-view plan test red (2026-09-29, sessions 85a5f653 `l4-g2`, `l4-h2`, `l4-mA..C`, eb2a2d51
+`me/mut.log`, exit 65).

@@ -144,6 +144,53 @@ extension AppState {
         return nil
     }
 
+    /// The strain run controls a recorded strain step puts back — shared by the
+    /// replay executor and the lineage rewind (ADR 047 R4), so the two cannot
+    /// restore different things.
+    func applyStrainControls(_ strainPlan: ReplayStepPlan.StrainReplayPlan) {
+        strain.referenceMode = .wholeScan
+        if let basis = strainPlan.manualBasis {
+            strain.basisMode = .manual
+            strain.g1X = basis.g1x
+            strain.g1Y = basis.g1y
+            strain.g2X = basis.g2x
+            strain.g2Y = basis.g2y
+        } else {
+            strain.basisMode = .automatic
+        }
+    }
+
+    /// What `resolveMaterial` says about a recorded phase model against this
+    /// session — nil when it resolves. Writes nothing.
+    func replayMaterialRefusal(_ acomPlan: ReplayStepPlan.ACOMReplayPlan) -> String? {
+        if case .unavailable(let reason) = acomPlan.resolveMaterial(in: replayMaterials) { return reason }
+        return nil
+    }
+
+    private var replayMaterials: ReplayStepPlan.ACOMReplayPlan.SessionMaterials {
+        .init(
+            importedIDs: Set(acomSession.importedCrystalModels.map(\.id)),
+            // The content check: an imported id is a file stem, so the
+            // recipe's fingerprint must match THIS session's import.
+            importedFingerprints: Dictionary(
+                acomSession.importedCrystalModels.map { ($0.id, $0.contentFingerprint) },
+                uniquingKeysWith: { _, last in last }),
+            customStructure: acomSession.customStructure, customLatticeA: acomSession.customLatticeA,
+            customZ: acomSession.customZ)
+    }
+
+    /// Select the recorded phase model by id (never a fallback crystal), or
+    /// return why it cannot be. Shared by the replay executor and the rewind.
+    func selectReplayMaterial(_ acomPlan: ReplayStepPlan.ACOMReplayPlan) -> String? {
+        switch acomPlan.resolveMaterial(in: replayMaterials) {
+        case .library(let id): acomSession.modelSelection = .library(id)
+        case .imported(let id): acomSession.modelSelection = .imported(id)
+        case .customCubic: acomSession.modelSelection = .customCubic
+        case .unavailable(let reason): return reason
+        }
+        return nil
+    }
+
     private func executeReplayStep(_ plan: ReplayStepPlan) async -> ReplayStepExecution {
         switch plan {
         case .virtualDetector(let shape, let recordedAperture):
@@ -175,16 +222,7 @@ extension AppState {
             return .ran(await runDiskDetection(replaying: true))
 
         case .strain(let strainPlan):
-            strain.referenceMode = .wholeScan
-            if let basis = strainPlan.manualBasis {
-                strain.basisMode = .manual
-                strain.g1X = basis.g1x
-                strain.g1Y = basis.g1y
-                strain.g2X = basis.g2x
-                strain.g2Y = basis.g2y
-            } else {
-                strain.basisMode = .automatic
-            }
+            applyStrainControls(strainPlan)
             if let reason = replayRefusal(for: .strain) { return .refused(reason) }
             return .ran(await runStrainMapping(replaying: true))
 
@@ -194,20 +232,7 @@ extension AppState {
             // because `activate` resets the selection but the fields
             // survive (Gate A finding C4), and it also requires the
             // rehearsed lattice constant (Gate D).
-            switch acomPlan.resolveMaterial(in: .init(
-                importedIDs: Set(acomSession.importedCrystalModels.map(\.id)),
-                // The content check: an imported id is a file stem, so the
-                // recipe's fingerprint must match THIS session's import.
-                importedFingerprints: Dictionary(
-                    acomSession.importedCrystalModels.map { ($0.id, $0.contentFingerprint) },
-                    uniquingKeysWith: { _, last in last }),
-                customStructure: acomSession.customStructure, customLatticeA: acomSession.customLatticeA,
-                customZ: acomSession.customZ)) {
-            case .library(let id): acomSession.modelSelection = .library(id)
-            case .imported(let id): acomSession.modelSelection = .imported(id)
-            case .customCubic: acomSession.modelSelection = .customCubic
-            case .unavailable(let reason): return .refused(reason)
-            }
+            if let reason = selectReplayMaterial(acomPlan) { return .refused(reason) }
             guard resolvedACOMModel?.id == acomPlan.materialID else {
                 return .refused("the recipe's phase model '\(acomPlan.materialID)' is not available in this session — select or import the phase model it names, then run ACOM by hand")
             }
