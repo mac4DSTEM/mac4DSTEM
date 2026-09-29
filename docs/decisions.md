@@ -53,6 +53,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 043 | A fine-tuned detector is judged by detection on held-out labels (non-inferior recall and precision, ANE path), not heatmap equality; supersedes C2's heatmap bars after C2 | 09-28 | live |
 | 044 | Vector matching is the app's one phase-mapping method; Thronsen's four methods are references in tools/, her ANN the one challenger | 09-28 | live |
 | 045 | Areal precipitate density is edge-corrected: each counted object weighted W·H/((W−bx−1)(H−by−1)) (Miles–Lantuéjoul); counts stay integers | 09-28 | live |
+| 046 | Clear the board: training and the lineage graph kept, volumetric density and β″ orientation parked, A3 retired; workspaces follow the data — Prepare · Imaging · Bragg Disks · Crystal Maps · Reconstruction · Results | 09-30 | decided |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

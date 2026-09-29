@@ -112,12 +112,15 @@ Clearing is three moves, in this order.
    narrow-window abort, R–Q parity. Open items that are standing process notes, not defects (the visual baseline, the
    two process gaps, the stale-DerivedData trap, CI waiting for a macOS 27 image, the dylib rebuild path) move to
    `docs/archive/` with one line each where they belong. Target: **board ≤ 8 lanes, `open-items.md` ≤ 25 entries.**
-2. **Decide (15 minutes with the owner): keep, defer or retire** each feature lane — disks claimed per phase, β″
+2. **Decided 2026-09-30 (ADR 046):** training and the lineage graph (a real graph with rewind) kept; volumetric
+   density and β″ orientation maps parked; A3 retired. Originally: **keep, defer or retire** each feature lane — disks claimed per phase, β″
    orientation maps, the lineage graph, volumetric density, on-device training, the full Thronsen reproduction (A3).
    Deferred lanes move to "Later" below and off the board; retired ones are deleted from code in the same session
    (lean-app directive), e.g. the unwired image `segment` path. Hardware-gated work (parallax/ptychography drive, the
    28 GB `--parity` run) waits for the stronger Mac and leaves the board as one "waits on hardware" row.
-3. **Polish (GREEN, one room per session, each drive-verified):**
+3. **Polish (GREEN, one room per session, each drive-verified).** First the workspaces, ADR 046's accepted picture:
+   Prepare · Imaging (+ diffraction groups) · Bragg Disks (detect, labels, training) · Crystal Maps (strain,
+   orientation, phases and precipitates) · Reconstruction (DPC, parallax, ptychography) · Results. Then:
    - *Prepare:* an emptied manual Q discards the file's calibration; voltage "0 kV" when unset; the Friedel ETA that
      only grows (Gate D first — cause unknown).
    - *Phase mapping and precipitates:* refuse or explain an uncalibrated run; the zone-axis tie order; the busy status
