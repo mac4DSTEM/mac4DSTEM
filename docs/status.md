@@ -25,7 +25,7 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, r
 |---|---|---|
 | **Now** | v4.0.0 released 2026-09-23; `main` pushed at `5bd686b` (2026-09-30): the overnight work, the narrow-window fix, the session queue. | — |
 | **Done 2026-09-30** | S1 board; S2 workspaces (driven); S3 number entry (Gate D, driven) and Friedel speed (Core `-O` in Debug); S4 phase mapping needs a physical Q; S5 sessions; S7–S9 register D025/D023/D019 (Gate D, refuted). Unit 980/0/1 = 981. | — |
-| **Next — the session queue** | `ROADMAP.md` › **Session queue**: S6 (much of it Frozen Shell — owner), then S10–S11; then training, then the lineage graph. | `/pickup`. |
+| **Next — clearing the board** | `ROADMAP.md` › **Clearing the board** A–E: A sessions verify on screen and finish S10/S11/S6; B one owner sitting (shell picture, lineage format + mock, training flow, hardware); C on-device training; D lineage graph; E remaining lanes. | `/pickup` (A); owner (B). |
 | **Owner owed** | Overrule on sight: Core `-O` in Debug (`9fe9440`); the shell sidebar-clip check R1 (open-items S6). D1 option (a); the lineage graph's session-file format (when it is registered); Thronsen's written confirmation (ADR 042); the "overrule on sight" list (plan §5). | Owner. |
 | **⚠ Don't run** | Detect All Disks with the **learned** detector on multi-GB cubes (its tiled loop is not pooled). | — |
 | Phase mapping | Unvalidated. T4 one metric short; D1 measured: the shipped max(0.02 Å⁻¹, 1 px) lies inside all four datasets' bands (raw 060 cube: matrix 84.4 % at the app's 0.02); `archive/v4/phase-tolerance-results-2026-09-29.md`. | Owner: option (a). |
