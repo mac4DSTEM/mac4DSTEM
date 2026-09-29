@@ -25,11 +25,11 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, r
 |---|---|---|
 | **Now** | v4.0.0 released 2026-09-23; `main` pushed by the owner after S5; later commits unpushed. | Owner: push. |
 | **Done** | Clearing the board A and B; C through C4 (training in Bragg Disks, MPSGraph, gated + Fable-reviewed); D through L3 (lineage graph in the Lineage pane, Gate B); E: claimed-disks overlay, Al–Mg–Si preset, T4 as a quantity. Unit 1115/0/1 = 1116. | — |
-| **Next** | C5 a full training run on real labels (driven); L4 rewind (Gate D); the claimed-disks drive after a phase-mapping run; Phase C/D/E Fable review. | Session. |
+| **Next** | C5 a full training run on real labels, alone on the machine; L4 rewind — built, refuted by its Gate D refuter (kernel and descendant settings not restored, a false ellipse edge, a test blind to 11 of 12 fields), being fixed. | Session. |
 | **Overrule on sight** | Core `-O` in Debug (`9fe9440`); ADRs 047, 048 (MPSGraph; Core ML for every model; T4 as a quantity); the D025 radius left at R + 0.5. | Owner. |
 | **Owner owed** | D1 option (a); Thronsen's written confirmation (ADR 042); the stronger Mac for the hardware lane. | Owner. |
 | Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048); S10 A and B refuted (`4fe4eac`). | — |
-| **Unverified on screen** | Commit-before-run (`PendingEdits`) and the reopen alert's new wording, after their fixes; a full training run (C5). | Session's drive. |
+| **Unverified on screen** | A full training run (C5; the headless run was stopped when swap filled the disk — rerun alone). | Session's drive. |
 | Carried | R–Q residuals; parallax/ptychography and the 28 GB parity run (hardware); the register's 8 Gate D candidates; the virtual-detector tiled loops; CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.

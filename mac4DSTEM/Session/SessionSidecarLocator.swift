@@ -62,9 +62,19 @@ import DSTEMCore
 /// function rather than duplicating it, and `Session/` may not depend on
 /// `App/` (architecture.md's layering rule) while `App/` may depend on
 /// `Session/`.
+///
+/// The domain and code are for a system `NSError`, where the real cause hides
+/// (-67034 did). The app's own Swift errors already say what happened in their
+/// `errorDescription`; their bridged "domain" is a type name and their code an
+/// enum index, so they read as written (driven 2026-09-30: every refusal read
+/// "mac4DSTEM.SimpleError 1: …" or "DSTEMCore.EllipseCalibration.FitError 0: …").
 package nonisolated func sessionErrorDetail(_ error: Error) -> String {
     let ns = error as NSError
     var text = "\(ns.domain) \(ns.code): \(ns.localizedDescription)"
+    if !(type(of: error) is NSError.Type),
+       let sentence = (error as? LocalizedError)?.errorDescription {
+        text = sentence
+    }
     if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError {
         text += " (underlying: \(underlying.domain) \(underlying.code))"
     }

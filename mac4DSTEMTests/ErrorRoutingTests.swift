@@ -25,6 +25,9 @@ final class ErrorRoutingTests: XCTestCase {
         let state = AppState()
         state.present(SimpleError("The file could not be read."))
         XCTAssertEqual(state.errorMessage, "The file could not be read.")
+        // A Core refusal too: not "DSTEMCore.EllipseCalibration.FitError 0: …".
+        let refusal = EllipseCalibration.FitError.insufficientSignal
+        XCTAssertEqual(AppState.errorDetail(refusal), refusal.errorDescription)
     }
 
     func testSessionLevelFailureStillPresentsModally() {

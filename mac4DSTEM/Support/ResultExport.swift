@@ -178,13 +178,8 @@ extension AppState {
     /// `Session/SessionSidecarLocator.swift`'s `sessionErrorDetail` — that
     /// file needs the identical formatting and `Session/` may not depend on
     /// `App/`, so the canonical body lives there and this is the `App/`-side
-    /// name every existing call site already uses. A `SimpleError` is the
-    /// app's own sentence and has no system cause to name: it reads as
-    /// written, never as "mac4DSTEM.SimpleError 1: …" (driven 2026-09-30).
-    static func errorDetail(_ error: Error) -> String {
-        if let simple = error as? SimpleError { return simple.message }
-        return sessionErrorDetail(error)
-    }
+    /// name every existing call site already uses.
+    static func errorDetail(_ error: Error) -> String { sessionErrorDetail(error) }
 
     private func writableSessionSidecarURL(for descriptor: DatasetDescriptor) -> URL? {
         if let granted = sessionSidecar.grant(for: descriptor) { return granted }
