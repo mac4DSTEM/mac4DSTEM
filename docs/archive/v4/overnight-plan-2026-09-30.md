@@ -112,9 +112,32 @@ open-items shorter (count entries before/after), the Board republished (read it 
 morning report here: what landed (commits), what was seen on screen (shots under `drives-2026-09-30-night-shots/`),
 what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes updated last.
 
-## 4a. Morning report
+## 4a. Morning report (cut short at 00:45 by the usage limit)
 
-(written at the end of the night)
+**Landed (gated, Fable-supervised, driven where it draws):** S17 `c403125`, S13 `f59e65f`, S19 `f73be56`, S16 `e19b32c`,
+S12 `b8b4544`, S23 `08f457a`. YELLOW records: S14 `1c3da28`, S20 `a29359b`, S21 `7d5f0a8` (+ pre-registrations and amendments
+committed before their runs). Unit on the full tree 1278 / 0 / 3 = 1281 (`unit-b2.log`, exit 0).
+**Seen on screen:** drive 1 (S12 a–e, S23), every shot checked by a Fable supervisor (`drives-2026-09-30-night-shots/`).
+**Done, gated, NOT committed (in the working tree):** DEC (decisions 1+2), S15 label-only (+ the durable R–Q row note), S18
+(load tail, promote position, map-shape naming, unrecorded sidecar view), S22 (8 accessibility labels; the probe found no crash).
+Their drive 2A/2B and the block-3 supervisor were running at the cut — read `$SP/drive/report-d2a.md`, `report-d2b.md`,
+`$SP/sup3/verdict.md` (session b119bc6d scratchpad), fix any FIX-FIRST, then commit each with its open-items lines.
+**Not done:** status.md handoff, ROADMAP ticks, the Board republish, open-items lines for S14/S15/S18/S22/DEC.
+
+## 5. Decisions for the owner (decided overnight — overrule on sight)
+
+1. Aperture-centre drag: no dialog; the origin row turns orange with Restore Fitted Origin as its action; a lineage node makes
+   products on the fit read stale (Fable advisor AMEND; DEC, uncommitted).
+2. "Fit anyway" restored on reopen from the sidecar's own lineage node (a/b/θ must match); no wire change (DEC, uncommitted).
+3. `CrystalModelLibrary` kept: the Al–Mg–Si preset uses it (not replay-only).
+4. Origin-gate statistic and the WS2 l-filter deferred (both move shipped verdicts; S14 first; the l-filter's candidate is
+   threshold-free shell assignment).
+5. `scientific` fails closed without real data (`CI` / `MAC4DSTEM_NO_REAL_DATA` skip loudly) — S19.
+6. Info's "Computed this session" retitled "In memory" in a Frozen Shell file, wording only — S12.
+7. S15 label-only: legacy mac4DSTEM exports keep today's R–Q number and carry a named doubt (auto-convert refuted: pre-09-28 the
+   app also re-exported py4DSTEM's sign raw).
+8. S20's pre-registration amended after its reproduction gate failed (37/43 not 26), before any P1–P4 run.
+**Yours:** take S21's patch (after an XCTest, Gate B and a drive) or re-register it; S14's proposed Gate D on the refine step.
 
 ## 5. Decisions for the owner (filled in during the night)
 
@@ -165,3 +188,10 @@ what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes
 - S23 Origin validity wash: excluded positions greyed in Prepare's real-space pane with a count legend, gated by Fit overlay; no
   new control, no Frozen Shell. 8 / 0, two mutations red. Fable supervisor COMMIT (not transposable; 5×4 asymmetric mask); drive
   1: 891 of 8400 = Positions used 7509, toggle, Results and rotation seen; pinch zoom not synthesisable.
+- S14 (YELLOW, `1c3da28`): bar NOT met, no patch. Fable refuter HOLDS on every claim; the seed is not the lever — on bullseye
+  the iterated r + 1.5 CoM walks along the ring (trigger, not cause). Proposed next: a GREEN Gate D on the refine step with
+  non-flat probes. "Plane-fit trimming hides most" refuted on 4 cubes (open-items line still to update).
+- S20 (YELLOW, `a29359b`): candidate F recovers every reproduced off-grid failure but moves demo grain C 0.00 → 1.64°; not
+  proposed (patch archived as NOT PROPOSED). Fable refuter verdict pending at the cut.
+- S21 (YELLOW, `7d5f0a8`): bar met by one rule (bullseye kernel at the probe's outer edge, 0.119/0.020 → 0.781/0.430);
+  ready patch in archive; the Au_ref guard is post hoc. Fable refuter verdict pending at the cut.
