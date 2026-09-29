@@ -29,3 +29,11 @@ entered with no dataset loaded at 915 × 720. **Predicted:** no crash if the min
 the settings column. E3 (only after E1/E2): bisect the minimum by hiding one AI-room section at a time in a scratch
 copy, never in the repo. Nothing ships from this record without a refuter; a fix that touches a Frozen Shell file is
 the owner's.
+
+## E1 + E2 (2026-09-29 02:40, the orchestrator driving; build-pre.log, `e1-pre-crash.ips`)
+
+The pre-night tree `1a76089`, exported with `git archive` and built to scratch DerivedData (Debug), launched alone at
+915 × 720: AI Analysis → Diffraction groups and → Phase mapping with **no dataset** survived (E2, as predicted);
+opening Thronsen A from Recents with Phase mapping selected **aborted** with the identical exception and stack (E1, as
+predicted). **Pre-existing, not tonight's work**; refutation 1 did not fire, refutation 2 did not either (the empty room
+lives). The minimum comes with loaded content. Next: E3, bisect it in a scratch copy.
