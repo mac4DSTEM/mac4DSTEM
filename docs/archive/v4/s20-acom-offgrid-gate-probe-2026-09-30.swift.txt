@@ -1,0 +1,136 @@
+// S20 probe: off-grid ACOM self-recovery. Links a HEAD copy of the production sources (src/).
+import Foundation
+import simd
+
+typealias Spot = (r: Double, azim: Double, weight: Double)
+let scale = 0.008            // A^-1 per px
+let origin: Float = 128
+let lambda200 = 0.02508      // A, 200 kV
+
+func makePlan(wavelength: Double?, count: Int = 200, nAz: Int = 128, blur: Double = 1.5) -> OrientationPlan {
+    OrientationPlan.generate(crystal: .aluminum, kMax: 1.2, nAzimuthal: nAz, zoneAxisCount: count,
+                             azimBlurBins: blur, wavelengthAngstrom: wavelength)!
+}
+
+func peaks(from spots: [Spot], rotDeg: Double, power: Double = 0.25) -> [BraggPeak] {
+    let t = rotDeg * .pi / 180
+    return spots.map { s in
+        let a = s.azim + t
+        let rpx = s.r / scale
+        return BraggPeak(x: origin + Float(rpx * cos(a)), y: origin + Float(rpx * sin(a)),
+                         intensity: Float(pow(s.weight, 1 / power)))
+    }
+}
+func expSpots(_ pk: [BraggPeak], power: Double = 0.25) -> [Spot] {
+    pk.map { p in
+        let dx = Double(p.x - origin), dy = Double(p.y - origin)
+        return (r: (dx * dx + dy * dy).squareRoot() * scale, azim: atan2(dy, dx),
+                weight: pow(Double(max(p.intensity, 0)), power))
+    }
+}
+func angleDeg(_ a: SIMD3<Double>, _ b: SIMD3<Double>) -> Double {
+    acos(max(-1, min(1, simd_dot(a, b)))) * 180 / .pi
+}
+
+// ---- generic polar builder: mode rounded == production; exact == Gaussian at the exact fractional bin
+func polar(_ spots: [Spot], nr: Int, na: Int, rs: Double, blur: Double, kernel: Double, exact: Bool) -> [Float] {
+    if !exact {
+        let g = PolarGeometry(nRadial: nr, nAzimuthal: na, radialScale: rs)
+        var p = OrientationPlan.buildPolar(spots: spots, geometry: g, azimBlurBins: blur, radialKernelInvAngstrom: kernel)
+        OrientationPlan.normalizeUnit(&p); return p
+    }
+    var img = [Float](repeating: 0, count: nr * na)
+    let sig = kernel / rs, reach = max(1, Int((3 * sig).rounded()))
+    let twoPi = 2 * Double.pi
+    let wreach = Int((4 * blur).rounded(.up))
+    for s in spots {
+        let exactR = s.r / rs, rb = Int(exactR.rounded())
+        if rb + reach < 0 || rb - reach >= nr { continue }
+        var a = s.azim.truncatingRemainder(dividingBy: twoPi); if a < 0 { a += twoPi }
+        let fa = a / twoPi * Double(na)
+        let ab0 = Int(fa.rounded())
+        for bin in (rb - reach)...(rb + reach) where bin >= 0 && bin < nr {
+            let dr = (Double(bin) - exactR) / sig
+            let wr = s.weight * exp(-0.5 * dr * dr)
+            for k in (ab0 - wreach)...(ab0 + wreach) {
+                let da = (Double(k) - fa) / blur
+                img[bin * na + ((k % na) + na) % na] += Float(wr * exp(-0.5 * da * da))
+            }
+        }
+    }
+    for r in 0..<nr {
+        var m: Float = 0; for a in 0..<na { m += img[r * na + a] }; m /= Float(na)
+        for a in 0..<na { img[r * na + a] -= m }
+    }
+    OrientationPlan.normalizeUnit(&img); return img
+}
+
+struct Corr { var total: Float; var totalShift: Int; var ringShift: [Int]; var ringVal: [Float]; var ringEnergy: [Float] }
+func correlate(_ e: [Float], _ t: [Float], nr: Int, na: Int, fft: FFT1D) -> Corr {
+    var sumRe = [Float](repeating: 0, count: na), sumIm = sumRe
+    var ringShift = [Int](), ringVal = [Float](), ringEn = [Float]()
+    var re = [Float](repeating: 0, count: na), im = re, er = re, ei = re, tr = re, ti = re
+    func ring(_ img: [Float], _ r: Int, _ outR: inout [Float], _ outI: inout [Float]) {
+        for a in 0..<na { outR[a] = img[r * na + a]; outI[a] = 0 }
+        fft.transform(re: &outR, im: &outI, forward: true)
+    }
+    for r in 0..<nr {
+        ring(e, r, &er, &ei); ring(t, r, &tr, &ti)
+        for a in 0..<na { re[a] = er[a] * tr[a] + ei[a] * ti[a]; im[a] = er[a] * ti[a] - ei[a] * tr[a] }
+        for a in 0..<na { sumRe[a] += re[a]; sumIm[a] += im[a] }
+        fft.transform(re: &re, im: &im, forward: false)
+        var b: Float = -.greatestFiniteMagnitude, bi = 0
+        for a in 0..<na where re[a] > b { b = re[a]; bi = a }
+        var en: Float = 0; for a in 0..<na { en += e[r * na + a] * e[r * na + a] + t[r * na + a] * t[r * na + a] }
+        ringShift.append(bi); ringVal.append(b / Float(na)); ringEn.append(en)
+    }
+    fft.transform(re: &sumRe, im: &sumIm, forward: false)
+    var b: Float = -.greatestFiniteMagnitude, bi = 0
+    for a in 0..<na where sumRe[a] > b { b = sumRe[a]; bi = a }
+    return Corr(total: b / Float(na), totalShift: bi, ringShift: ringShift, ringVal: ringVal, ringEnergy: ringEn)
+}
+
+func f(_ x: Double, _ d: Int = 4) -> String { String(format: "%.\(d)f", x) }
+
+// ---------------- commands
+let args = CommandLine.arguments
+let cmd = args.count > 1 ? args[1] : "gate"
+let lam: Double? = args.contains("wl") ? lambda200 : nil
+
+func runGate(rots: [Double], plan: OrientationPlan, label: String, dumpFail: String? = nil) -> [(Int, Double, Int, Double, Float, Float)] {
+    let matcher = OrientationMatcher(plan: plan)!
+    var fails: [(Int, Double, Int, Double, Float, Float)] = []
+    var perRot: [Double: Int] = [:]
+    for rot in rots {
+        var nf = 0
+        for i in 0..<plan.count {
+            let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+            let pk = peaks(from: spots, rotDeg: rot)
+            guard pk.count >= 2 else { continue }
+            let res = matcher.match(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale)
+            let ang = angleDeg(plan.zoneAxes[res.templateIndex], plan.zoneAxes[i])
+            if ang > 0.5 {
+                nf += 1
+                let sc = matcher.templateScores(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale)
+                fails.append((i, rot, res.templateIndex, ang, res.score, sc[i]))
+            }
+        }
+        perRot[rot] = nf
+        print("\(label) rot \(f(rot,4)) deg: \(nf)/\(plan.count) failures")
+    }
+    return fails
+}
+
+if cmd == "gate" {
+    let plan = makePlan(wavelength: lam)
+    print("wavelength \(String(describing: lam)); templates \(plan.count); azBin \(f(360.0/128,4)) deg")
+    let on = [0.0, 2.8125, 5.625, 8.4375, 11.25]
+    _ = runGate(rots: on, plan: plan, label: "on-grid")
+    let off = runGate(rots: [1.4], plan: plan, label: "off-grid")
+    for x in off.sorted(by: { $0.3 > $1.3 }) {
+        print("  fail t\(x.0) -> t\(x.2) err \(f(x.3,2)) deg  win \(f(Double(x.4),5)) truth \(f(Double(x.5),5))")
+    }
+    let sweep = (1...16).map { 0.35 * Double($0) }
+    let sf = runGate(rots: sweep, plan: plan, label: "sweep")
+    print("sweep total failures \(sf.count) of \(16*plan.count)")
+}
