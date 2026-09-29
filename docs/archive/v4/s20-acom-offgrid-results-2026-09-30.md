@@ -46,3 +46,33 @@ in `tools/lib/sources.manifest`; `swiftc -O -package-name mac4DSTEM`; run `probe
 - The registered next step, if the owner wants it despite the gate: amend the prereg BEFORE reading (state the new gate: e.g. accept
   37-43 as the reproduced count and restate the bar as "recover >= 90 % of the failures at 1.4 deg and across the sweep"), then run
   the dump and P1-P4 (the probe already holds the polar builder, the exact-azimuth deposition and per-ring correlation to extend).
+
+## Part 2 (Amendments 1-2, committed bcb9cd5 / 9aa309e, precede every result below): dump, variants, real cubes
+Probe `s20-acom-offgrid-probe-2-2026-09-30.swift.txt` (adds check/dump/variants/planted/p4 and a spectral scorer; rounded azimuth + 128 shifts reproduces production `templateScores` to 1e-5, 24 patterns x 200 templates, winner 24/24, both plans). Logs (scratchpad, exit 0): dump-*, variants-*, planted-*, harn-*, real/*.
+| Registered claim (population 43 no-wavelength / 37 at 200 kV) | Outcome | Verdict |
+|---|---|---|
+| P1a truth ring-shift spread >= 2 distinct AND winner 1, >= 85 % | 33/43 = 76.7 %; 30/37 = 81.1 % (post-hoc pi-fold: 33/43 unchanged) | NOT met |
+| P1b continuous score truth >= winner, >= 92 % | 43/43, 37/37 = 100 % | met |
+| P2 median spot-count ratio 0.75-1.33; <= 15 % winners > 1.5x | median 1.000 both; 1/43, 0/37 | met (density refuted) |
+| P3 sg down-weighting explains < 1 % of the planted <122> gap | gap 5.13 % / 6.38 % (0.35 deg, winner t80, 13.61 deg); sgWidth 1000 -> 77.8 % / 66.7 %, which also admits every \|sg\| < 0.1 reflection | UNDECIDED (confounded) |
+| P4 512/1024 bins, blur held in degrees | not run: registered "only if P1 holds" and P1a failed | not run |
+P1 (a AND b) is not confirmed; clause b's refutation did not fire, so the quantisation reading is not refuted either. Disclosure: `variants` and `planted` were queued with the dump, before P1 was read, so the fix-class numbers below exist although the registration made them conditional.
+Factorial, failures at 1.4 deg / on-grid (5 x 200) / sweep 0.35 deg x k (3200); production = rounded azimuth, 128 shifts. Recovered counts are of the 43 / 37.
+| variant | no wavelength | 200 kV |
+|---|---|---|
+| rounded/128 (production) | 43 / 0 / 430 | 37 / 0 / 367 |
+| rounded/4x shifts | 26 / 0 / 277 (17 recovered) | 23 / 0 / 231 (14) |
+| exact/128 | 65 / 0 / 294 (12 recovered, 34 new) | 57 / 0 / 232 (10, 30 new) |
+| exact/4x shifts (candidate F) | 0 / 0 / 24 (43; 12 new in sweep) | 0 / 0 / 0 (37) |
+Only the two together fix it. 136 planted patterns (production reproduces the recorded 40 wrong, 18.79 deg; exact/128 30 wrong, 20.10 deg): F leaves 17 wrong (all <123>, 1.39 deg), <122> 12.82 -> 0.00 deg (no wavelength) but 11.47 deg at 200 kV (17/17 wrong); no axis exact today (<100> <111> <012> <112>) becomes wrong.
+F as a scratch-tree patch (exact-azimuth spectra in `OrientationPlan`, 4x zero-padded shifts in `OrientationMatcher`, Metal kernel + params, acom-matching-test scalar reference rewritten as a direct sum; 4 files, 179+/62-): acom-matching-test (Metal parity 2.4e-7, WS2 8/8), acom-orientation-test, acom-convention-test, fit-overlay-test, phase-vector-matching, parity-metric-test all exit 0. The independent convention test improves: Au median matrix error 1.25 -> 0.156 deg (in-plane <20 deg 131 -> 144/144), WS2 0.78 -> 0.156, py4DSTEM external 2.06 -> 0.84 deg (<5 deg 25 -> 27/40). Unit classes NOT run (a second xcodebuild tree cannot share the one DerivedData).
+| Real cube (same detection, known-crystal Q, 200 templates, CPU) | template changed | truth check | matching time |
+|---|---|---|---|
+| demo 10 000 pos, kMax 1.2 | 23.9 % (median 1.64, max 3.34 deg) | A 5.03 deg both; B 6.50 both; **C [111] 0.00 -> 1.64 deg, all 2250 positions (t2 -> t198)** | 1.0 -> 4.5 s |
+| demo, bank kMax 0.9 (= exporter) | 23.2 % | A 0.00 both; B 6.50 both; **C 0.00 -> 1.64 again** | 4.0 s patched |
+| Thronsen A stride3, 1849 pos, no orientation truth | 5.8 % (median 2.19 deg); median score 0.5195 -> 0.5559 | none | 0.19 -> 0.87 s |
+Not run (time, memory): sim_Au, WS2, Si-SiGe, Particle_1, raw Al-Mg-Si, Au_ref, bullseye.
+## Verdict against the amended bar: NOT MET, NO PATCH proposed
+Recovery 100 % (>= 90 %), 0 on-grid regressions, no exact axis made wrong, pinned harnesses inside tolerance: met. The last clause fails: F worsens the demo cube's truth-bearing grain C on every position, unchanged when the bank's kMax matches the exporter (so the phantom-ring account does not explain it; cause not found). Also 4.5x slower CPU matching. The scratch diff (`s20/candidate-F.patch`, `git apply --check` clean) is not a proposal; an owner weighing the synthetic and independent-test gains above grain C would need the unit classes and a refuter first.
+## What a refuter should attack
+Failure definition and pattern (0.5 deg, own spots, weight^4; 43/37 is that definition's count, not 26). P1a's 2 % active-ring rule: 5 of 43 truths show one distinct shift and still lose, so ring-group disagreement is not the whole story. Grain C: t198 vs t2 with noise and the exporter's spot list, or a Float tie. The 12 new sweep failures and 17 planted <123> failures (plan-dependent). Whether the patch equals the spectral probe (only harnesses were run on it, not the probe's 136/3200 grids).

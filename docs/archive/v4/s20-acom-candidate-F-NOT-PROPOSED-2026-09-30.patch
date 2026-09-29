@@ -1,0 +1,460 @@
+diff --git a/mac4DSTEM/Core/Crystal/OrientationMatcher.swift b/mac4DSTEM/Core/Crystal/OrientationMatcher.swift
+index 1fb3bdf..1a6b119 100644
+--- a/mac4DSTEM/Core/Crystal/OrientationMatcher.swift
++++ b/mac4DSTEM/Core/Crystal/OrientationMatcher.swift
+@@ -10,6 +10,11 @@
+ //        The peak of corr over Δφ is the in-plane angle; its height is the
+ //        match score. Best template → orientation; best/second → reliability.
+ //
++//        The correlation is read on a shift grid `OrientationPlan.shiftOversampling`
++//        times finer than the polar image's azimuthal bins (the spectrum is
++//        zero-padded before the inverse FFT) and both sides' ring spectra are
++//        written at exact spot azimuths — see `OrientationPlan.azimuthalSpectra`.
++//
+ //  CALIBRATION: peak radii are in detector pixels; the plan is in Å⁻¹. Pass
+ //  `invAngstromPerPixel` (the Q pixel size) to convert. Without a Q
+ //  calibration this is qualitative — the radial scale must roughly match the
+@@ -94,7 +99,10 @@ package nonisolated final class OrientationMatcher {
+     private let plan: OrientationPlan
+     private let symmetry: ACOMCrystalSymmetry
+     private let geo: PolarGeometry
+-    private let fft: FFT1D
++    /// Inverse transform over the oversampled shift grid.
++    private let shiftFFT: FFT1D
++    private var paddedRe: [Float]
++    private var paddedIm: [Float]
+ 
+     // Scratch (per-ring FFT of the experimental pattern + correlation buffers).
+     private var expRe: [Float]
+@@ -105,11 +113,14 @@ package nonisolated final class OrientationMatcher {
+     private var productIm: [Float]
+ 
+     package init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry = .cubic) {
+-        guard let fft = FFT1D(n: plan.geometry.nAzimuthal) else { return nil }
++        guard let shiftFFT = FFT1D(n: plan.geometry.nAzimuthal * OrientationPlan.shiftOversampling)
++        else { return nil }
+         self.plan = plan
+         self.symmetry = symmetry
+         self.geo = plan.geometry
+-        self.fft = fft
++        self.shiftFFT = shiftFFT
++        paddedRe = [Float](repeating: 0, count: geo.nAzimuthal * OrientationPlan.shiftOversampling)
++        paddedIm = paddedRe
+         let n = geo.nRadial * geo.nAzimuthal
+         expRe = [Float](repeating: 0, count: n)
+         expIm = [Float](repeating: 0, count: n)
+@@ -197,12 +208,8 @@ package nonisolated final class OrientationMatcher {
+                     }
+                 }
+             }
+-            fft.transform(re: &corrRe, im: &corrIm, forward: false)
+-            var localBest: Float = -.greatestFiniteMagnitude
+-            var localBin = 0
+-            for a in 0..<na where corrRe[a] > localBest { localBest = corrRe[a]; localBin = a }
+-            localBest *= invScale
+-            templateScores[t] = localBest
++            let (localBest, localBin) = oversampledPeak()
++            templateScores[t] = localBest * invScale
+             templateBins[t] = UInt32(localBin)
+         }
+         let selected = selectOrientation(
+@@ -216,6 +223,26 @@ package nonisolated final class OrientationMatcher {
+         )
+     }
+ 
++    /// Inverse-transform the summed correlation spectrum `corrRe/corrIm` on the
++    /// oversampled shift grid and return the peak value and its shift index
++    /// (0..<nAzimuthal * shiftOversampling). Spectrum bin k sits at index k for
++    /// k < nAzimuthal/2 and at N - (nAzimuthal - k) otherwise (negative
++    /// frequencies), the rest is zero — an exact band-limited interpolation.
++    private func oversampledPeak() -> (value: Float, bin: Int) {
++        let na = geo.nAzimuthal
++        let total = na * OrientationPlan.shiftOversampling
++        for i in 0..<total { paddedRe[i] = 0; paddedIm[i] = 0 }
++        for k in 0..<na {
++            let index = k < na / 2 ? k : total - (na - k)
++            paddedRe[index] = corrRe[k]; paddedIm[index] = corrIm[k]
++        }
++        shiftFFT.transform(re: &paddedRe, im: &paddedIm, forward: false)
++        var best: Float = -.greatestFiniteMagnitude
++        var bestBin = 0
++        for a in 0..<total where paddedRe[a] > best { best = paddedRe[a]; bestBin = a }
++        return (best, bestBin)
++    }
++
+     /// The experimental polar image for one pattern, after exactly the
+     /// deposition, blur, per-ring mean subtraction and normalisation the
+     /// matcher uses. DIAGNOSTIC: the score is an inner product over this
+@@ -257,21 +284,17 @@ package nonisolated final class OrientationMatcher {
+         var out = [Float](repeating: 0, count: plan.count)
+         for t in 0..<plan.count {
+             let templateOffset = t * nr * na
+-            var corr = [Float](repeating: 0, count: na)
+-            var corrI = [Float](repeating: 0, count: na)
++            for a in 0..<na { corrRe[a] = 0; corrIm[a] = 0 }
+             for r in 0..<nr {
+                 for a in 0..<na {
+                     let i = templateOffset + r * na + a
+                     let er = expRe[r * na + a], ei = expIm[r * na + a]
+                     let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
+-                    corr[a] += er * tr + ei * ti
+-                    corrI[a] += er * ti - ei * tr
++                    corrRe[a] += er * tr + ei * ti
++                    corrIm[a] += er * ti - ei * tr
+                 }
+             }
+-            fft.transform(re: &corr, im: &corrI, forward: false)
+-            var localBest: Float = -.greatestFiniteMagnitude
+-            for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
+-            out[t] = localBest * invScale
++            out[t] = oversampledPeak().value * invScale
+         }
+         return out
+     }
+@@ -302,26 +325,14 @@ package nonisolated final class OrientationMatcher {
+             spots.append((r: r, azim: atan2(dy, dx),
+                           weight: power == 1 ? intensity : pow(intensity, power)))
+         }
+-        var polar = OrientationPlan.buildPolar(
++        let spectra = OrientationPlan.azimuthalSpectra(
+             spots: spots, geometry: geo, azimBlurBins: 1.5,
+             radialKernelInvAngstrom: plan.radialKernelInvAngstrom
+         )
+-        OrientationPlan.normalizeUnit(&polar)
+-        writeRingFFTs(polar)
++        expRe = spectra.re
++        expIm = spectra.im
+         return true
+     }
+-
+-    private func writeRingFFTs(_ polar: [Float]) {
+-        let na = geo.nAzimuthal
+-        var re = [Float](repeating: 0, count: na)
+-        var im = [Float](repeating: 0, count: na)
+-        for r in 0..<geo.nRadial {
+-            let base = r * na
+-            for a in 0..<na { re[a] = polar[base + a]; im[a] = 0 }
+-            fft.transform(re: &re, im: &im, forward: true)
+-            for a in 0..<na { expRe[base + a] = re[a]; expIm[base + a] = im[a] }
+-        }
+-    }
+ }
+ 
+ /// Pick the winning template and the best *distinct* runner-up.
+@@ -373,7 +384,7 @@ private nonisolated func makeOrientationResult(
+     bestTemplate: Int, bestBin: Int, bestScore: Float, secondScore: Float
+ ) -> OrientationResult {
+     guard bestTemplate >= 0 else { return .empty }
+-    let azimuthalCount = plan.geometry.nAzimuthal
++    let azimuthalCount = plan.geometry.nAzimuthal * OrientationPlan.shiftOversampling
+     // The correlation peaks at −θ; negate to report the pattern rotation.
+     let bin = (azimuthalCount - bestBin) % azimuthalCount
+     let angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)
+@@ -395,6 +406,8 @@ private nonisolated struct ACOMMetalParams {
+     package var templates: UInt32
+     package var radial: UInt32
+     package var azimuthal: UInt32
++    /// Output shifts of the inverse transform: azimuthal * shiftOversampling.
++    package var shifts: UInt32
+ }
+ 
+ /// Batched Metal matcher. Polar deposition and forward FFT deliberately remain
+@@ -423,13 +436,14 @@ package nonisolated final class MetalACOMMatcher {
+         // not sharpen it.
+         let engine = MetalEngine.shared
+         let azimuthal = plan.geometry.nAzimuthal
++        let shifts = azimuthal * OrientationPlan.shiftOversampling
+         guard azimuthal > 0, azimuthal & (azimuthal - 1) == 0,
+-              azimuthal <= 1024,
++              shifts <= 1024,
+               let spectrumFunction = engine.library.makeFunction(name: "acomCorrelationSpectrum"),
+               let argmaxFunction = engine.library.makeFunction(name: "acomInverseArgmax"),
+               let spectrum = try? engine.device.makeComputePipelineState(function: spectrumFunction),
+               let argmax = try? engine.device.makeComputePipelineState(function: argmaxFunction),
+-              azimuthal <= argmax.maxTotalThreadsPerThreadgroup,
++              shifts <= argmax.maxTotalThreadsPerThreadgroup,
+               !plan.templateFFTRe.isEmpty,
+               let templateReal = engine.device.makeBuffer(
+                 bytes: plan.templateFFTRe,
+@@ -556,7 +570,8 @@ package nonisolated final class MetalACOMMatcher {
+         var params = ACOMMetalParams(
+             positions: UInt32(positionCount), templates: UInt32(plan.count),
+             radial: UInt32(plan.geometry.nRadial),
+-            azimuthal: UInt32(plan.geometry.nAzimuthal)
++            azimuthal: UInt32(plan.geometry.nAzimuthal),
++            shifts: UInt32(plan.geometry.nAzimuthal * OrientationPlan.shiftOversampling)
+         )
+         guard let spectrumEncoder = command.makeComputeCommandEncoder() else { return nil }
+         spectrumEncoder.setComputePipelineState(spectrumPipeline)
+@@ -581,17 +596,16 @@ package nonisolated final class MetalACOMMatcher {
+         argmaxEncoder.setBuffer(scores, offset: 0, index: 2)
+         argmaxEncoder.setBuffer(bins, offset: 0, index: 3)
+         argmaxEncoder.setBytes(&params, length: MemoryLayout<ACOMMetalParams>.stride, index: 4)
++        let shiftCount = plan.geometry.nAzimuthal * OrientationPlan.shiftOversampling
+         argmaxEncoder.setThreadgroupMemoryLength(
+-            plan.geometry.nAzimuthal * MemoryLayout<Float>.stride, index: 0
++            shiftCount * MemoryLayout<Float>.stride, index: 0
+         )
+         argmaxEncoder.setThreadgroupMemoryLength(
+-            plan.geometry.nAzimuthal * MemoryLayout<UInt32>.stride, index: 1
++            shiftCount * MemoryLayout<UInt32>.stride, index: 1
+         )
+         argmaxEncoder.dispatchThreadgroups(
+             MTLSize(width: 1, height: plan.count, depth: positionCount),
+-            threadsPerThreadgroup: MTLSize(
+-                width: plan.geometry.nAzimuthal, height: 1, depth: 1
+-            )
++            threadsPerThreadgroup: MTLSize(width: shiftCount, height: 1, depth: 1)
+         )
+         argmaxEncoder.endEncoding()
+         command.commit()
+diff --git a/mac4DSTEM/Core/Crystal/OrientationPlan.swift b/mac4DSTEM/Core/Crystal/OrientationPlan.swift
+index 8530325..4d1ae75 100644
+--- a/mac4DSTEM/Core/Crystal/OrientationPlan.swift
++++ b/mac4DSTEM/Core/Crystal/OrientationPlan.swift
+@@ -113,7 +113,7 @@ package nonisolated struct OrientationPlan {
+                          distinctOrientationDeg: Double = 10,
+                          cancellation: AnalysisCancellationToken? = nil) -> OrientationPlan? {
+         guard cancellation?.isCancelled != true else { return nil }
+-        guard let fft = FFT1D(n: nAzimuthal) else { return nil }
++        guard FFT1D(n: nAzimuthal) != nil else { return nil }
+         let geo = PolarGeometry(nRadial: nRadial, nAzimuthal: nAzimuthal,
+                                 radialScale: kMax / Double(nRadial))
+         let reflections = crystal.reflections(kMax: kMax)
+@@ -141,7 +141,12 @@ package nonisolated struct OrientationPlan {
+                                    azimBlurBins: azimBlurBins,
+                                    radialKernelInvAngstrom: radialKernelInvAngstrom)
+             normalizeUnit(&polar)
+-            let (re, im) = ringFFTs(polar, geo: geo, fft: fft)
++            // The matched spectra are written analytically at each spot's exact
++            // azimuth (see `azimuthalSpectra`); `polar` above is kept as the
++            // rounded picture for inspection only.
++            let (re, im) = azimuthalSpectra(
++                spots: spots, geometry: geo, azimBlurBins: azimBlurBins,
++                radialKernelInvAngstrom: radialKernelInvAngstrom)
+             templates.append(polar)
+             allSpots.append(spots.map {
+                 TemplateSpot(r: Float($0.r), azim: Float($0.azim), weight: Float($0.weight))
+@@ -295,6 +300,91 @@ package nonisolated struct OrientationPlan {
+         return img
+     }
+ 
++    /// The correlation's azimuthal shift grid is this many times finer than the
++    /// polar image's `nAzimuthal` bins (the correlation spectrum is zero-padded
++    /// to `nAzimuthal * shiftOversampling` before the inverse transform).
++    ///
++    /// DEVIATION from py4DSTEM, and from this port's own earlier form. py4DSTEM
++    /// (and this port until now) deposit each spot at a rounded/linear azimuthal
++    /// bin and read the correlation only at whole-bin shifts. Off a bin
++    /// boundary the true template then pays a rounding mismatch that differs
++    /// between ring groups, and a wrong template that happens to sit on the
++    /// grid outscores it: 43 of 200 templates failed to recover themselves at a
++    /// 1.4 deg rotation (0 of 200 on-grid). Measured 2026-09-30
++    /// (docs/archive/v4/s20-acom-offgrid-results-2026-09-30.md): neither exact
++    /// azimuth alone (65 of 200 fail) nor a finer shift grid alone (26 of 200)
++    /// fixes it; both together do (0 of 200; 0 on-grid).
++    package static let shiftOversampling = 4
++
++    /// Azimuthal spectrum of every radial ring, ring-major `[nRadial, nAzimuthal]`
++    /// in FFT order, for a list of spots. Each spot is written at its EXACT
++    /// azimuth (no bin rounding): the circular Gaussian blur of `azimBlurBins`
++    /// is applied as its frequency response, the radial spreading is the one
++    /// `buildPolar` uses, each ring's mean (frequency 0) is removed, and the
++    /// whole image is normalised so its L2 norm is 1 (sum |X|^2 = nAzimuthal by
++    /// Parseval). Fed rounded azimuths and an unpadded inverse it reproduces
++    /// `buildPolar` + `normalizeUnit` + `ringFFTs` to ~1e-5.
++    package static func azimuthalSpectra(
++        spots: [(r: Double, azim: Double, weight: Double)],
++        geometry geo: PolarGeometry, azimBlurBins: Double,
++        radialKernelInvAngstrom: Double
++    ) -> (re: [Float], im: [Float]) {
++        let nr = geo.nRadial, na = geo.nAzimuthal
++        var re = [Double](repeating: 0, count: nr * na)
++        var im = [Double](repeating: 0, count: nr * na)
++        // Frequency response of the shipped discrete Gaussian blur.
++        var response = [Double](repeating: 1, count: na)
++        if azimBlurBins > 0 {
++            let radius = max(1, Int((3 * azimBlurBins).rounded()))
++            var taps = [Double](repeating: 0, count: 2 * radius + 1)
++            var sum = 0.0
++            for i in -radius...radius {
++                let v = Double(exp(-Float(i * i) / Float(2 * azimBlurBins * azimBlurBins)))
++                taps[i + radius] = v; sum += v
++            }
++            for k in 0..<na {
++                let signed = k < na / 2 ? k : k - na
++                var acc = 0.0
++                for t in -radius...radius {
++                    acc += taps[t + radius] / sum * cos(2 * Double.pi * Double(signed * t) / Double(na))
++                }
++                response[k] = acc
++            }
++        }
++        let sigmaBins = radialKernelInvAngstrom / geo.radialScale
++        let reach = sigmaBins > 0 ? max(1, Int((3 * sigmaBins).rounded())) : 0
++        let twoPi = 2 * Double.pi
++        var cosine = [Double](repeating: 0, count: na)
++        var sine = [Double](repeating: 0, count: na)
++        for s in spots {
++            let exact = s.r / geo.radialScale
++            let rb = Int(exact.rounded())
++            if rb + reach < 0 || rb - reach >= nr { continue }
++            var a = s.azim.truncatingRemainder(dividingBy: twoPi)
++            if a < 0 { a += twoPi }
++            for k in 0..<na {
++                let signed = Double(k < na / 2 ? k : k - na)
++                cosine[k] = cos(signed * a); sine[k] = -sin(signed * a)
++            }
++            for bin in (rb - reach)...(rb + reach) where bin >= 0 && bin < nr {
++                var w = s.weight
++                if reach > 0 {
++                    let d = (Double(bin) - exact) / sigmaBins
++                    w *= Double(Float(exp(-0.5 * d * d)))
++                }
++                for k in 1..<na {
++                    let g = w * response[k]
++                    re[bin * na + k] += g * cosine[k]
++                    im[bin * na + k] += g * sine[k]
++                }
++            }
++        }
++        var norm2 = 0.0
++        for i in 0..<(nr * na) { norm2 += re[i] * re[i] + im[i] * im[i] }
++        let scale = norm2 > 0 ? (Double(na) / norm2).squareRoot() : 0
++        return (re.map { Float($0 * scale) }, im.map { Float($0 * scale) })
++    }
++
+     /// Azimuthal FFT of every radial ring, ring-major layout.
+     package static func ringFFTs(_ polar: [Float], geo: PolarGeometry, fft: FFT1D)
+         -> (re: [Float], im: [Float]) {
+diff --git a/mac4DSTEM/Shaders/ACOMMatching.metal b/mac4DSTEM/Shaders/ACOMMatching.metal
+index 9abfcbb..222d559 100644
+--- a/mac4DSTEM/Shaders/ACOMMatching.metal
++++ b/mac4DSTEM/Shaders/ACOMMatching.metal
+@@ -7,6 +7,7 @@ struct ACOMParams {
+     uint templates;
+     uint radial;
+     uint azimuthal;
++    uint shifts;     // inverse-transform outputs: azimuthal * shiftOversampling
+ };
+ 
+ // Build the azimuthal correlation spectrum for every
+@@ -43,8 +44,10 @@ kernel void acomCorrelationSpectrum(
+     correlationImaginary[index] = imaginary;
+ }
+ 
+-// Exact inverse DFT over the small (currently 128-bin) azimuthal dimension,
+-// followed by a deterministic threadgroup argmax. One threadgroup handles one
++// Exact inverse DFT of the (currently 128-bin) correlation spectrum on
++// `shifts` output points (the spectrum is band-limited, so more outputs than
++// bins is exact interpolation, negative frequencies included), followed by a
++// deterministic threadgroup argmax. One threadgroup handles one
+ // [position, template] pair. This avoids publishing the full angle cube back
+ // to the CPU and keeps template selection identical to the reference path.
+ kernel void acomInverseArgmax(
+@@ -61,12 +64,15 @@ kernel void acomInverseArgmax(
+     const uint position = group.z;
+     const uint templateIndex = group.y;
+     if (position >= params.positions || templateIndex >= params.templates
+-        || threadIndex >= params.azimuthal) return;
++        || threadIndex >= params.shifts) return;
+     const uint base = (position * params.templates + templateIndex) * params.azimuthal;
+-    const float twoPiOverN = 2.0f * M_PI_F / float(params.azimuthal);
++    const float twoPiOverN = 2.0f * M_PI_F / float(params.shifts);
+     float value = 0.0f;
+     for (uint frequency = 0; frequency < params.azimuthal; ++frequency) {
+-        const float phase = twoPiOverN * float(frequency * threadIndex);
++        // Frequencies at or above azimuthal/2 are the negative ones.
++        const int signedFrequency = frequency < params.azimuthal / 2
++            ? int(frequency) : int(frequency) - int(params.azimuthal);
++        const float phase = twoPiOverN * float(signedFrequency * int(threadIndex));
+         value += correlationReal[base + frequency] * cos(phase)
+             - correlationImaginary[base + frequency] * sin(phase);
+     }
+@@ -74,7 +80,7 @@ kernel void acomInverseArgmax(
+     bins[threadIndex] = threadIndex;
+     threadgroup_barrier(mem_flags::mem_threadgroup);
+ 
+-    for (uint stride = params.azimuthal / 2; stride > 0; stride >>= 1) {
++    for (uint stride = params.shifts / 2; stride > 0; stride >>= 1) {
+         if (threadIndex < stride && scores[threadIndex + stride] > scores[threadIndex]) {
+             scores[threadIndex] = scores[threadIndex + stride];
+             bins[threadIndex] = bins[threadIndex + stride];
+diff --git a/tools/acom-matching-test/main.swift b/tools/acom-matching-test/main.swift
+index 875dfde..2c5c959 100644
+--- a/tools/acom-matching-test/main.swift
++++ b/tools/acom-matching-test/main.swift
+@@ -69,7 +69,6 @@ func vectors(plan: OrientationPlan, crystal: Crystal, width: Int, height: Int) -
+ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
+     -> (template: Int, reportedBin: Int, score: Float, second: Float) {
+     let geo = plan.geometry
+-    guard let fft = FFT1D(n: geo.nAzimuthal) else { fail("FFT setup") }
+     // Mirrors OrientationMatcher.prepareExperimentalFFT, including the plan's
+     // intensity power — the experimental image must be weighted exactly like
+     // the templates it is correlated against.
+@@ -80,16 +79,17 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
+                 weight: plan.intensityPower == 1
+                     ? intensity : pow(intensity, plan.intensityPower))
+     }
+-    // ...and the plan's radial kernel, for the same reason.
+-    var polar = OrientationPlan.buildPolar(
++    // ...and the plan's radial kernel, for the same reason. The spectra are the
++    // production builder's (exact azimuth); what this reference keeps
++    // independent is the correlation, the shift grid and the selection: the
++    // correlation is evaluated by a direct band-limited sum at every one of
++    // nAzimuthal * shiftOversampling shifts, no FFT and no zero-padding.
++    let (experimentalReal, experimentalImaginary) = OrientationPlan.azimuthalSpectra(
+         spots: spots, geometry: geo, azimBlurBins: 1.5,
+         radialKernelInvAngstrom: plan.radialKernelInvAngstrom
+     )
+-    OrientationPlan.normalizeUnit(&polar)
+-    let (experimentalReal, experimentalImaginary) = OrientationPlan.ringFFTs(
+-        polar, geo: geo, fft: fft
+-    )
+     let na = geo.nAzimuthal, nr = geo.nRadial
++    let shifts = na * OrientationPlan.shiftOversampling
+     var correlationReal = [Float](repeating: 0, count: na)
+     var correlationImaginary = [Float](repeating: 0, count: na)
+     // Per-template scores are retained, then reduced by the same
+@@ -112,11 +112,17 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
+                 correlationImaginary[azimuthal] += er * ti - ei * tr
+             }
+         }
+-        fft.transform(re: &correlationReal, im: &correlationImaginary, forward: false)
+         var local: Float = -.greatestFiniteMagnitude
+         var bin = 0
+-        for index in 0..<na where correlationReal[index] > local {
+-            local = correlationReal[index]; bin = index
++        for shift in 0..<shifts {
++            var value = 0.0
++            for k in 0..<na {
++                let signed = Double(k < na / 2 ? k : k - na)
++                let phase = 2 * Double.pi * signed * Double(shift) / Double(shifts)
++                value += Double(correlationReal[k]) * cos(phase)
++                    - Double(correlationImaginary[k]) * sin(phase)
++            }
++            if Float(value) > local { local = Float(value); bin = shift }
+         }
+         local /= Float(na)
+         templateScores[template] = local
+@@ -126,7 +132,7 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
+         zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
+         distinctOrientationRad: plan.distinctOrientationRad
+     )
+-    return (selected.template, (na - selected.bin) % na,
++    return (selected.template, (shifts - selected.bin) % shifts,
+             selected.score, selected.secondScore)
+ }
+ 
+@@ -143,8 +149,9 @@ guard let cpu = OrientationMatching.matchAll(
+ for index in 0..<min(8, fixture.peaks.count) {
+     let scalar = scalarMatch(peaks: fixture.peaks[index], plan: plan)
+     let optimized = cpu.results[index]
+-    let optimizedBin = Int((optimized.inPlaneAngle / (2 * .pi) * Float(plan.geometry.nAzimuthal)).rounded())
+-        % plan.geometry.nAzimuthal
++    let shiftCount = plan.geometry.nAzimuthal * OrientationPlan.shiftOversampling
++    let optimizedBin = Int((optimized.inPlaneAngle / (2 * .pi) * Float(shiftCount)).rounded())
++        % shiftCount
+     guard optimized.templateIndex == scalar.template,
+           optimizedBin == scalar.reportedBin,
+           abs(optimized.score - scalar.score) < 3e-5,

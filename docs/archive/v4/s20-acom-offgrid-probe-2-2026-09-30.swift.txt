@@ -1,0 +1,497 @@
+// S20 probe: off-grid ACOM self-recovery. Links a HEAD copy of the production sources (src/).
+import Foundation
+import simd
+
+typealias Spot = (r: Double, azim: Double, weight: Double)
+let scale = 0.008            // A^-1 per px
+let origin: Float = 128
+let lambda200 = 0.02508      // A, 200 kV
+
+func makePlan(wavelength: Double?, count: Int = 200, nAz: Int = 128, blur: Double = 1.5, sgWidth: Double = 0.03) -> OrientationPlan {
+    OrientationPlan.generate(crystal: .aluminum, kMax: 1.2, nAzimuthal: nAz, zoneAxisCount: count, sgWidth: sgWidth,
+                             azimBlurBins: blur, wavelengthAngstrom: wavelength)!
+}
+
+func peaks(from spots: [Spot], rotDeg: Double, power: Double = 0.25) -> [BraggPeak] {
+    let t = rotDeg * .pi / 180
+    return spots.map { s in
+        let a = s.azim + t
+        let rpx = s.r / scale
+        return BraggPeak(x: origin + Float(rpx * cos(a)), y: origin + Float(rpx * sin(a)),
+                         intensity: Float(pow(s.weight, 1 / power)))
+    }
+}
+func expSpots(_ pk: [BraggPeak], power: Double = 0.25) -> [Spot] {
+    pk.map { p in
+        let dx = Double(p.x - origin), dy = Double(p.y - origin)
+        return (r: (dx * dx + dy * dy).squareRoot() * scale, azim: atan2(dy, dx),
+                weight: pow(Double(max(p.intensity, 0)), power))
+    }
+}
+func angleDeg(_ a: SIMD3<Double>, _ b: SIMD3<Double>) -> Double {
+    acos(max(-1, min(1, simd_dot(a, b)))) * 180 / .pi
+}
+
+// ---- generic polar builder: mode rounded == production; exact == Gaussian at the exact fractional bin
+func polar(_ spots: [Spot], nr: Int, na: Int, rs: Double, blur: Double, kernel: Double, exact: Bool) -> [Float] {
+    if !exact {
+        let g = PolarGeometry(nRadial: nr, nAzimuthal: na, radialScale: rs)
+        var p = OrientationPlan.buildPolar(spots: spots, geometry: g, azimBlurBins: blur, radialKernelInvAngstrom: kernel)
+        OrientationPlan.normalizeUnit(&p); return p
+    }
+    var img = [Float](repeating: 0, count: nr * na)
+    let sig = kernel / rs, reach = max(1, Int((3 * sig).rounded()))
+    let twoPi = 2 * Double.pi
+    let wreach = Int((4 * blur).rounded(.up))
+    for s in spots {
+        let exactR = s.r / rs, rb = Int(exactR.rounded())
+        if rb + reach < 0 || rb - reach >= nr { continue }
+        var a = s.azim.truncatingRemainder(dividingBy: twoPi); if a < 0 { a += twoPi }
+        let fa = a / twoPi * Double(na)
+        let ab0 = Int(fa.rounded())
+        for bin in (rb - reach)...(rb + reach) where bin >= 0 && bin < nr {
+            let dr = (Double(bin) - exactR) / sig
+            let wr = s.weight * exp(-0.5 * dr * dr)
+            for k in (ab0 - wreach)...(ab0 + wreach) {
+                let da = (Double(k) - fa) / blur
+                img[bin * na + ((k % na) + na) % na] += Float(wr * exp(-0.5 * da * da))
+            }
+        }
+    }
+    for r in 0..<nr {
+        var m: Float = 0; for a in 0..<na { m += img[r * na + a] }; m /= Float(na)
+        for a in 0..<na { img[r * na + a] -= m }
+    }
+    OrientationPlan.normalizeUnit(&img); return img
+}
+
+struct Corr { var total: Float; var totalShift: Int; var ringShift: [Int]; var ringVal: [Float]; var ringEnergy: [Float] }
+func correlate(_ e: [Float], _ t: [Float], nr: Int, na: Int, fft: FFT1D) -> Corr {
+    var sumRe = [Float](repeating: 0, count: na), sumIm = sumRe
+    var ringShift = [Int](), ringVal = [Float](), ringEn = [Float]()
+    var re = [Float](repeating: 0, count: na), im = re, er = re, ei = re, tr = re, ti = re
+    func ring(_ img: [Float], _ r: Int, _ outR: inout [Float], _ outI: inout [Float]) {
+        for a in 0..<na { outR[a] = img[r * na + a]; outI[a] = 0 }
+        fft.transform(re: &outR, im: &outI, forward: true)
+    }
+    for r in 0..<nr {
+        ring(e, r, &er, &ei); ring(t, r, &tr, &ti)
+        for a in 0..<na { re[a] = er[a] * tr[a] + ei[a] * ti[a]; im[a] = er[a] * ti[a] - ei[a] * tr[a] }
+        for a in 0..<na { sumRe[a] += re[a]; sumIm[a] += im[a] }
+        fft.transform(re: &re, im: &im, forward: false)
+        var b: Float = -.greatestFiniteMagnitude, bi = 0
+        for a in 0..<na where re[a] > b { b = re[a]; bi = a }
+        var en: Float = 0; for a in 0..<na { en += e[r * na + a] * e[r * na + a] + t[r * na + a] * t[r * na + a] }
+        ringShift.append(bi); ringVal.append(b / Float(na)); ringEn.append(en)
+    }
+    fft.transform(re: &sumRe, im: &sumIm, forward: false)
+    var b: Float = -.greatestFiniteMagnitude, bi = 0
+    for a in 0..<na where sumRe[a] > b { b = sumRe[a]; bi = a }
+    return Corr(total: b / Float(na), totalShift: bi, ringShift: ringShift, ringVal: ringVal, ringEnergy: ringEn)
+}
+
+func f(_ x: Double, _ d: Int = 4) -> String { String(format: "%.\(d)f", x) }
+
+// ---------------- commands
+let args = CommandLine.arguments
+let cmd = args.count > 1 ? args[1] : "gate"
+let lam: Double? = args.contains("wl") ? lambda200 : nil
+
+func runGate(rots: [Double], plan: OrientationPlan, label: String, dumpFail: String? = nil) -> [(Int, Double, Int, Double, Float, Float)] {
+    let matcher = OrientationMatcher(plan: plan)!
+    var fails: [(Int, Double, Int, Double, Float, Float)] = []
+    var perRot: [Double: Int] = [:]
+    for rot in rots {
+        var nf = 0
+        for i in 0..<plan.count {
+            let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+            let pk = peaks(from: spots, rotDeg: rot)
+            guard pk.count >= 2 else { continue }
+            let res = matcher.match(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale)
+            let ang = angleDeg(plan.zoneAxes[res.templateIndex], plan.zoneAxes[i])
+            if ang > 0.5 {
+                nf += 1
+                let sc = matcher.templateScores(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale)
+                fails.append((i, rot, res.templateIndex, ang, res.score, sc[i]))
+            }
+        }
+        perRot[rot] = nf
+        print("\(label) rot \(f(rot,4)) deg: \(nf)/\(plan.count) failures")
+    }
+    return fails
+}
+
+if cmd == "gate" {
+    let plan = makePlan(wavelength: lam)
+    print("wavelength \(String(describing: lam)); templates \(plan.count); azBin \(f(360.0/128,4)) deg")
+    let on = [0.0, 2.8125, 5.625, 8.4375, 11.25]
+    _ = runGate(rots: on, plan: plan, label: "on-grid")
+    let off = runGate(rots: [1.4], plan: plan, label: "off-grid")
+    for x in off.sorted(by: { $0.3 > $1.3 }) {
+        print("  fail t\(x.0) -> t\(x.2) err \(f(x.3,2)) deg  win \(f(Double(x.4),5)) truth \(f(Double(x.5),5))")
+    }
+    let sweep = (1...16).map { 0.35 * Double($0) }
+    let sf = runGate(rots: sweep, plan: plan, label: "sweep")
+    print("sweep total failures \(sf.count) of \(16*plan.count)")
+}
+
+// ================= S20 step 2: dump, variants, planted, P3, P4 =================
+func specBank(_ plan: OrientationPlan, _ c: SpecCfg) -> [Spec] {
+    plan.templateSpots.map { spectrum($0.map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }, c) }
+}
+func cfg(_ plan: OrientationPlan, round: Bool) -> SpecCfg {
+    var c = SpecCfg(); c.nr = plan.geometry.nRadial; c.na = plan.geometry.nAzimuthal
+    c.rs = plan.geometry.radialScale; c.kernel = plan.radialKernelInvAngstrom; c.blur = 1.5; c.roundAz = round
+    return c
+}
+func bestOf(_ e: Spec, _ bank: [Spec], _ sc: SpecScorer) -> (Int, Float, [Float]) {
+    var b: Float = -1e9, bi = -1; var all = [Float](repeating: 0, count: bank.count)
+    for t in 0..<bank.count { let s = sc.score(e, bank[t]).score; all[t] = s; if s > b { b = s; bi = t } }
+    return (bi, b, all)
+}
+func distinctSpan(_ shifts: [Int], _ eE: [Float], _ tE: [Float], total: Int, na: Int, foldPi: Bool = false) -> (Int, Int) {
+    let me = eE.max() ?? 0, mt = tE.max() ?? 0
+    var set = Set<Int>(); var lo = 0, hi = 0
+    for r in 0..<shifts.count where eE[r] >= 0.02 * me && tE[r] >= 0.02 * mt {
+        var d = ((shifts[r] - total + na / 2) % na + na) % na - na / 2
+        if d < -na / 2 { d += na }
+        if foldPi { d = ((d + na / 4) % (na / 2) + na / 2) % (na / 2) - na / 4 }
+        set.insert(d); lo = min(lo, d); hi = max(hi, d)
+    }
+    return (set.count, hi - lo)
+}
+
+if cmd == "check" || cmd == "dump" {
+    let plan = makePlan(wavelength: lam)
+    let matcher = OrientationMatcher(plan: plan)!
+    let cR = cfg(plan, round: true), cE = cfg(plan, round: false)
+    let bankR = specBank(plan, cR), bankE = specBank(plan, cE)
+    let sc1 = SpecScorer(cR, pad: 1), sc16 = SpecScorer(cE, pad: 16)
+    // production population at 1.4 deg
+    var pop: [(Int, Int, Double)] = []
+    for i in 0..<plan.count {
+        let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+        let pk = peaks(from: spots, rotDeg: 1.4)
+        let res = matcher.match(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale)
+        let ang = angleDeg(plan.zoneAxes[res.templateIndex], plan.zoneAxes[i])
+        if ang > 0.5 { pop.append((i, res.templateIndex, ang)) }
+    }
+    print("population at 1.4 deg: \(pop.count)")
+    // equivalence check on the first 12 population members + 12 others
+    var maxDiff: Float = 0; var winAgree = 0, nChk = 0
+    for i in Array(pop.prefix(12).map { $0.0 }) + Array(0..<12) {
+        let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+        let pk = peaks(from: spots, rotDeg: 1.4)
+        let prod = matcher.templateScores(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale)
+        let e = spectrum(expSpots(pk), cR)
+        let (bi, _, all) = bestOf(e, bankR, sc1)
+        for t in 0..<plan.count { maxDiff = max(maxDiff, abs(all[t] - prod[t])) }
+        nChk += 1; if bi == prod.enumerated().max(by: { $0.element < $1.element })!.offset { winAgree += 1 }
+    }
+    print("EQUIVALENCE spectral(rounded, 128) vs production templateScores: max |diff| = \(maxDiff) over \(nChk) patterns x 200 templates; winner agrees \(winAgree)/\(nChk)")
+    if cmd == "dump" {
+        var p1fold = 0, tFold2 = 0, p1a = 0, p1b = 0, contOK = 0, loose = 0, p2ok = 0, big = 0
+        var ratios: [Double] = []
+        print("  i  win err  nTruth nWin  prodT  prodW | truthDistinct/span winDistinct/span | contT contW")
+        var worst: (Int, Int)? = nil
+        for (i, w, ang) in pop.sorted(by: { $0.2 > $1.2 }) {
+            let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+            let pk = peaks(from: spots, rotDeg: 1.4)
+            let eR = spectrum(expSpots(pk), cR), eE = spectrum(expSpots(pk), cE)
+            let st = sc1.score(eR, bankR[i]).score, sw = sc1.score(eR, bankR[w]).score
+            let rt = sc1.ringShifts(eR, bankR[i]), rw = sc1.ringShifts(eR, bankR[w])
+            let (dt, spt) = distinctSpan(rt.shifts, rt.eE, rt.tE, total: rt.total, na: 128)
+            let (dw, spw) = distinctSpan(rw.shifts, rw.eE, rw.tE, total: rw.total, na: 128)
+            let ct = sc16.score(eE, bankE[i]).score, cw = sc16.score(eE, bankE[w]).score
+            let nT = plan.templateSpots[i].count, nW = plan.templateSpots[w].count
+            ratios.append(Double(nW) / Double(nT))
+            if dt >= 2 && dw == 1 { p1a += 1 }
+            let (dtF, _) = distinctSpan(rt.shifts, rt.eE, rt.tE, total: rt.total, na: 128, foldPi: true)
+            let (dwF, _) = distinctSpan(rw.shifts, rw.eE, rw.tE, total: rw.total, na: 128, foldPi: true)
+            if dtF >= 2 && dwF == 1 { p1fold += 1 }
+            if dtF >= 2 { tFold2 += 1 }
+            if dt > dw { loose += 1 }
+            if ct >= cw { contOK += 1 }
+            if Double(nW) > 1.5 * Double(nT) { big += 1 }
+            if worst == nil { worst = (i, w) }
+            print(String(format: "%3d %3d %5.2f  %3d %3d  %.5f %.5f | %d/%d  %d/%d | %.5f %.5f %@", i, w, ang, nT, nW, st, sw, dt, spt, dw, spw, ct, cw, ct >= cw ? "" : "  <-- continuous still loses"))
+        }
+        ratios.sort()
+        let n = Double(pop.count)
+        print("P1a truth>=2 distinct AND winner==1: \(p1a)/\(pop.count) = \(f(100*Double(p1a)/n,1)) %   (registered >= 85 %)")
+        print("POST-HOC (not registered) pi-folded shifts: truth>=2 distinct AND winner==1: \(p1fold)/\(pop.count) = \(f(100*Double(p1fold)/n,1)) %; truth>=2 distinct (any winner): \(tFold2)/\(pop.count)")
+        print("P1a-loose truth distinct > winner distinct: \(loose)/\(pop.count) = \(f(100*Double(loose)/n,1)) %")
+        print("P1b continuous score truth >= winner: \(contOK)/\(pop.count) = \(f(100*Double(contOK)/n,1)) %   (registered >= 92 %; refuted if > 8 % lose)")
+        print("P2 winner/truth spot-count ratio median \(f(ratios[ratios.count/2],3)) min \(f(ratios[0],3)) max \(f(ratios.last!,3)); winners with > 1.5x truth spots: \(big)/\(pop.count) = \(f(100*Double(big)/n,1)) % (registered ratio in 0.75-1.33, <= 15 %)")
+        // full dump of the worst failure
+        if let (i, w) = worst {
+            print("\n=== WORST CASE t\(i) -> t\(w) at 1.4 deg: spots ===")
+            for (label, idx) in [("TRUTH", i), ("WINNER", w)] {
+                print(label, "axis", plan.zoneAxes[idx], "spots", plan.templateSpots[idx].count)
+                for s in plan.templateSpots[idx].sorted(by: { $0.r < $1.r }) {
+                    let fb = Double(s.azim + Float(1.4 * .pi / 180))
+                    var a = fb.truncatingRemainder(dividingBy: 2 * .pi); if a < 0 { a += 2 * .pi }
+                    let fa = a / (2 * .pi) * 128
+                    print(String(format: "  r %.4f A^-1 (ring %.2f) az %.3f deg w %.4f  rotated bin %.3f -> %d (frac off %+.3f)", s.r, Double(s.r) / (1.2 / 32.0), Double(s.azim) * 180.0 / Double.pi, s.weight, fa, Int(fa.rounded()), fa - fa.rounded()))
+                }
+            }
+        }
+    }
+}
+
+if cmd == "variants" {
+    let plan = makePlan(wavelength: lam)
+    let matcher = OrientationMatcher(plan: plan)!
+    let cR = cfg(plan, round: true), cE = cfg(plan, round: false)
+    let bankR = specBank(plan, cR), bankE = specBank(plan, cE)
+    let on = [0.0, 2.8125, 5.625, 8.4375, 11.25]
+    let sweep = (1...16).map { 0.35 * Double($0) }
+    let rots = on + [1.4] + sweep
+    var prodFails: [Double: Set<Int>] = [:]
+    for (name, bank, c, pad) in [("rounded/128 (production)", bankR, cR, 1), ("rounded/4x shifts", bankR, cR, 4), ("exact/128", bankE, cE, 1), ("exact/4x  (candidate F)", bankE, cE, 4)] {
+        let sc = SpecScorer(c, pad: pad)
+        var fails: [Double: Set<Int>] = [:]
+        for rot in rots {
+            var s = Set<Int>()
+            for i in 0..<plan.count {
+                let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+                let e = spectrum(expSpots(peaks(from: spots, rotDeg: rot)), c)
+                let (bi, _, _) = bestOf(e, bank, sc)
+                if angleDeg(plan.zoneAxes[bi], plan.zoneAxes[i]) > 0.5 { s.insert(i) }
+            }
+            fails[rot] = s
+        }
+        if prodFails.isEmpty { prodFails = fails }
+        if name.contains("candidate F") {
+            for rot in [0.35, 1.05] {
+                for i in fails[rot]!.sorted() {
+                    let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+                    let e = spectrum(expSpots(peaks(from: spots, rotDeg: rot)), c)
+                    let (bi, bs, all) = bestOf(e, bank, sc)
+                    print("  F failure at rot \(rot): t\(i) -> t\(bi), \(f(angleDeg(plan.zoneAxes[bi], plan.zoneAxes[i]),3)) deg, winner \(f(Double(bs),5)) truth \(f(Double(all[i]),5)), spots \(plan.templateSpots[i].count) vs \(plan.templateSpots[bi].count)")
+                }
+            }
+        }
+        let onF = on.reduce(0) { $0 + fails[$1]!.count }
+        let f14 = fails[1.4]!
+        let rec = prodFails[1.4]!.subtracting(f14).count
+        let newF = f14.subtracting(prodFails[1.4]!).count
+        let sw = sweep.reduce(0) { $0 + fails[$1]!.count }, swP = sweep.reduce(0) { $0 + prodFails[$1]!.count }
+        let worst = sweep.map { fails[$0]!.count }.max()!
+        let swNew = sweep.reduce(0) { $0 + fails[$1]!.subtracting(prodFails[$1]!).count }
+        print("\(name): on-grid fails \(onF)/1000; 1.4 deg fails \(f14.count) (recovered \(rec) of \(prodFails[1.4]!.count) = \(f(100*Double(rec)/Double(prodFails[1.4]!.count),1)) %, new \(newF)); sweep fails \(sw) of 3200 (production \(swP); new vs production \(swNew)); worst single rotation \(worst); per rot: \(sweep.map { String(fails[$0]!.count) }.joined(separator: " "))")
+    }
+}
+
+// ================= planted patterns (the 2e805f9 plant), P3, P4 =================
+let plantA = 4.0495, plantAstar = 1.0 / 4.0495
+let plantAxes: [(Int, Int, Int)] = [(0,0,1),(0,1,1),(1,1,1),(0,1,2),(1,1,2),(1,2,2),(0,1,3),(1,1,3),(1,2,3)]
+func plantPeaks(_ ax: (Int, Int, Int), rot: Double) -> [BraggPeak] {
+    let n0 = Double(ax.0), n1 = Double(ax.1), n2 = Double(ax.2)
+    let len = (n0*n0 + n1*n1 + n2*n2).squareRoot()
+    let nn = [n0/len, n1/len, n2/len]
+    var seed = 0; for i in 0..<3 where abs(nn[i]) < abs(nn[seed]) { seed = i }
+    var e = [0.0, 0.0, 0.0]; e[seed] = 1
+    let dot = e[0]*nn[0] + e[1]*nn[1] + e[2]*nn[2]
+    var u = [e[0]-dot*nn[0], e[1]-dot*nn[1], e[2]-dot*nn[2]]
+    let un = (u[0]*u[0] + u[1]*u[1] + u[2]*u[2]).squareRoot(); u = u.map { $0 / un }
+    let v = [nn[1]*u[2]-nn[2]*u[1], nn[2]*u[0]-nn[0]*u[2], nn[0]*u[1]-nn[1]*u[0]]
+    let t = rot * Double.pi / 180, c = cos(t), s = sin(t)
+    var out = [BraggPeak(x: origin, y: origin, intensity: 50)]
+    let nmax = Int(1.2 / plantAstar) + 1
+    for h in -nmax...nmax { for k in -nmax...nmax { for l in -nmax...nmax {
+        if h == 0 && k == 0 && l == 0 { continue }
+        let p = (abs(h) % 2, abs(k) % 2, abs(l) % 2)
+        if !(p == (0,0,0) || p == (1,1,1)) { continue }
+        let g = plantAstar * Double(h*h + k*k + l*l).squareRoot()
+        if g > 1.2 { continue }
+        if h*ax.0 + k*ax.1 + l*ax.2 != 0 { continue }
+        let gx = plantAstar * (Double(h)*u[0] + Double(k)*u[1] + Double(l)*u[2])
+        let gy = plantAstar * (Double(h)*v[0] + Double(k)*v[1] + Double(l)*v[2])
+        out.append(BraggPeak(x: Float(128 + (gx*c - gy*s)/0.008), y: Float(128 + (gx*s + gy*c)/0.008),
+                             intensity: Float(1 / (1 + (g/0.6)*(g/0.6)))))
+    } } }
+    return out
+}
+func minAngleToAxis(_ ax: (Int, Int, Int), _ b: SIMD3<Double>) -> Double {
+    var best = 180.0
+    let base = [Double(ax.0), Double(ax.1), Double(ax.2)]
+    let perms = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]]
+    for pm in perms { for sx in [1.0,-1.0] { for sy in [1.0,-1.0] { for sz in [1.0,-1.0] {
+        let v = SIMD3(sx*base[pm[0]], sy*base[pm[1]], sz*base[pm[2]])
+        best = min(best, angleDeg(simd_normalize(v), b))
+    } } } }
+    return best
+}
+func cfgP(_ plan: OrientationPlan, round: Bool, blur: Double) -> SpecCfg { var c = cfg(plan, round: round); c.blur = blur; return c }
+
+if cmd == "planted" {
+    let plan = makePlan(wavelength: lam)
+    let matcher = OrientationMatcher(plan: plan)!
+    let cR = cfg(plan, round: true), cE = cfg(plan, round: false)
+    let bankR = specBank(plan, cR), bankE = specBank(plan, cE)
+    let vars: [(String, [Spec], SpecCfg, Int)] = [("rounded/128 production", bankR, cR, 1), ("rounded/4x", bankR, cR, 4), ("exact/128", bankE, cE, 1), ("exact/4x", bankE, cE, 4)]
+    let scorers = vars.map { SpecScorer($0.2, pad: $0.3) }
+    let rots = (0...16).map { 0.35 * Double($0) }
+    // per variant: [axis: wrong count at 0.5], sums of worst excess
+    var wrong = [[Int]](repeating: [Int](repeating: 0, count: 9), count: 4)
+    var wrong01 = [Int](repeating: 0, count: 4), wrong10 = [Int](repeating: 0, count: 4)
+    var worst = [[Double]](repeating: [Double](repeating: 0, count: 9), count: 4)
+    var total = 0, prodAgree = 0
+    for (ai, ax) in plantAxes.enumerated() {
+        let floor = plan.zoneAxes.map { minAngleToAxis(ax, $0) }.min()!
+        for rot in rots {
+            let pk = plantPeaks(ax, rot: rot)
+            if pk.count < 5 { continue }
+            total += 1
+            let prod = matcher.match(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale).templateIndex
+            for (vi, v) in vars.enumerated() {
+                let e = spectrum(expSpots(pk), v.2)
+                let (bi, _, _) = bestOf(e, v.1, scorers[vi])
+                if vi == 0 && bi == prod { prodAgree += 1 }
+                let excess = minAngleToAxis(ax, plan.zoneAxes[bi]) - floor
+                if excess > 0.5 { wrong[vi][ai] += 1 }
+                if excess > 0.1 { wrong01[vi] += 1 }
+                if excess > 1.0 { wrong10[vi] += 1 }
+                worst[vi][ai] = max(worst[vi][ai], excess)
+            }
+        }
+    }
+    print("planted patterns \(total) (registered harness: 136); spectral rounded/128 winner == production winner: \(prodAgree)/\(total)")
+    for (vi, v) in vars.enumerated() {
+        print("\(v.0): wrong(excess > 0.5 deg) \(wrong[vi].reduce(0,+))/\(total) [>0.1: \(wrong01[vi]), >1.0: \(wrong10[vi])]; sum of per-axis worst excess \(f(worst[vi].reduce(0,+),2)) deg; per axis wrong \(wrong[vi]); worst excess per axis \(worst[vi].map { f($0,2) })")
+    }
+    print("axes: \(plantAxes)")
+    // P3: <122> at 0.35 deg, gap of winner over best bank entry, sg weighting removed
+    for sgw in [0.03, 1000.0] {
+        let p2 = makePlan(wavelength: lam, sgWidth: sgw)
+        let m2 = OrientationMatcher(plan: p2)!
+        let pk = plantPeaks((1,2,2), rot: 0.35)
+        let sc = m2.templateScores(peaks: pk, originX: origin, originY: origin, invAngstromPerPixel: scale)
+        let w = sc.enumerated().max(by: { $0.element < $1.element })!.offset
+        let ang = p2.zoneAxes.map { minAngleToAxis((1,2,2), $0) }
+        let fl = ang.enumerated().min(by: { $0.element < $1.element })!.offset
+        print("P3 <122> 0.35 deg sgWidth \(sgw): winner t\(w) angle \(f(ang[w],2)) deg score \(f(Double(sc[w]),5)); floor entry t\(fl) angle \(f(ang[fl],2)) score \(f(Double(sc[fl]),5)); gap \(f(100*Double(sc[w]/sc[fl]-1),3)) %")
+    }
+}
+
+if cmd == "p4" {
+    let plan0 = makePlan(wavelength: lam)
+    let m0 = OrientationMatcher(plan: plan0)!
+    var pop = Set<Int>()
+    for i in 0..<plan0.count {
+        let spots = plan0.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+        let res = m0.match(peaks: peaks(from: spots, rotDeg: 1.4), originX: origin, originY: origin, invAngstromPerPixel: scale)
+        if angleDeg(plan0.zoneAxes[res.templateIndex], plan0.zoneAxes[i]) > 0.5 { pop.insert(i) }
+    }
+    print("reproduced population \(pop.count)")
+    for (na, blur) in [(128, 1.5), (512, 6.0), (1024, 12.0)] {
+        let plan = makePlan(wavelength: lam, nAz: na, blur: blur)
+        let c = cfgP(plan, round: true, blur: blur)
+        let bank = specBank(plan, c); let sc = SpecScorer(c, pad: 1)
+        let bin = 360.0 / Double(na)
+        for rot in [1.4, 0.25 * bin, 0.5 * bin, 0.75 * bin, 1.5 * bin] {
+            var fails = Set<Int>()
+            for i in 0..<plan.count {
+                let spots = plan.templateSpots[i].map { (r: Double($0.r), azim: Double($0.azim), weight: Double($0.weight)) }
+                let e = spectrum(expSpots(peaks(from: spots, rotDeg: rot)), c)
+                let (bi, _, _) = bestOf(e, bank, sc)
+                if angleDeg(plan.zoneAxes[bi], plan.zoneAxes[i]) > 0.5 { fails.insert(i) }
+            }
+            let rec = pop.subtracting(fails).count
+            print("nAz \(na) blur \(blur) bins: rot \(f(rot,4)) deg (\(f(rot/bin,3)) bins): \(fails.count)/200 failures; of the 1.4-deg population \(rec) not failing here (meaningful at 1.4 deg only)")
+        }
+    }
+}
+
+// ===== src/spec.swift =====
+// Spectral (analytic-azimuth) ring spectra for the S20 probe. Rounded azimuth + P = 1 == production score.
+import Foundation
+import simd
+
+struct SpecCfg { var nr = 32; var na = 128; var rs = 1.2 / 32; var kernel = 0.08; var blur = 1.5; var roundAz = true }
+struct Spec { var re: [Float]; var im: [Float] }   // nr*na, FFT ordering, DC zeroed, sum |X|^2 = na
+
+func blurResp(_ na: Int, _ blur: Double) -> [Double] {
+    let radius = max(1, Int((3 * blur).rounded()))
+    var taps = [Double](repeating: 0, count: 2 * radius + 1); var s = 0.0
+    for i in -radius...radius { let v = Float(exp(-Float(i * i) / Float(2 * blur * blur))); taps[i + radius] = Double(v); s += Double(v) }
+    for i in 0..<taps.count { taps[i] /= s }
+    return (0..<na).map { k in
+        let ks = k < na / 2 ? k : k - na
+        var acc = 0.0
+        for t in -radius...radius { acc += taps[t + radius] * cos(2 * .pi * Double(ks * t) / Double(na)) }
+        return acc
+    }
+}
+
+func spectrum(_ spots: [Spot], _ c: SpecCfg) -> Spec {
+    let nr = c.nr, na = c.na
+    var re = [Double](repeating: 0, count: nr * na), im = re
+    let resp = blurResp(na, c.blur)
+    let sig = c.kernel / c.rs, reach = max(1, Int((3 * sig).rounded()))
+    let twoPi = 2 * Double.pi
+    var cs = [Double](repeating: 0, count: na), sn = cs
+    for s in spots {
+        let exact = s.r / c.rs, rb = Int(exact.rounded())
+        if rb + reach < 0 || rb - reach >= nr { continue }
+        var a = s.azim.truncatingRemainder(dividingBy: twoPi); if a < 0 { a += twoPi }
+        let ab = Int((a / twoPi * Double(na)).rounded()) % na
+        let phi = c.roundAz ? Double(ab) * twoPi / Double(na) : a
+        for k in 0..<na { let ks = Double(k < na / 2 ? k : k - na); cs[k] = cos(ks * phi); sn[k] = -sin(ks * phi) }
+        for bin in (rb - reach)...(rb + reach) where bin >= 0 && bin < nr {
+            let d = (Double(bin) - exact) / sig
+            let w = s.weight * Double(Float(exp(-0.5 * d * d)))
+            for k in 1..<na { let g = w * resp[k]; re[bin * na + k] += g * cs[k]; im[bin * na + k] += g * sn[k] }
+        }
+    }
+    var n2 = 0.0; for i in 0..<(nr * na) { n2 += re[i] * re[i] + im[i] * im[i] }
+    let f = n2 > 0 ? (Double(na) / n2).squareRoot() : 0
+    return Spec(re: re.map { Float($0 * f) }, im: im.map { Float($0 * f) })
+}
+
+final class SpecScorer {
+    let c: SpecCfg; let P: Int; let fft: FFT1D
+    init(_ c: SpecCfg, pad: Int) { self.c = c; P = pad; fft = FFT1D(n: c.na * pad)! }
+    func z(_ e: Spec, _ t: Spec) -> ([Float], [Float]) {
+        let na = c.na
+        var zr = [Float](repeating: 0, count: na), zi = zr
+        for r in 0..<c.nr { let b = r * na
+            for k in 0..<na {
+                zr[k] += e.re[b + k] * t.re[b + k] + e.im[b + k] * t.im[b + k]
+                zi[k] += e.re[b + k] * t.im[b + k] - e.im[b + k] * t.re[b + k]
+            } }
+        return (zr, zi)
+    }
+    func score(_ e: Spec, _ t: Spec) -> (score: Float, shift: Int) {
+        let na = c.na, N = na * P
+        let (zr, zi) = z(e, t)
+        var pr = [Float](repeating: 0, count: N), pi = pr
+        for k in 0..<na { let idx = k < na / 2 ? k : N - (na - k); pr[idx] = zr[k]; pi[idx] = zi[k] }
+        fft.transform(re: &pr, im: &pi, forward: false)
+        var b: Float = -.greatestFiniteMagnitude, bi = 0
+        for a in 0..<N where pr[a] > b { b = pr[a]; bi = a }
+        return (b / Float(na), bi)
+    }
+    // per-ring peak shifts on the native 128 grid (P == 1 only)
+    func ringShifts(_ e: Spec, _ t: Spec) -> (shifts: [Int], eE: [Float], tE: [Float], total: Int) {
+        let na = c.na
+        var sh = [Int](), ee = [Float](), te = [Float]()
+        let fft1 = FFT1D(n: na)!
+        for r in 0..<c.nr { let b = r * na
+            var zr = [Float](repeating: 0, count: na), zi = zr
+            var e2: Float = 0, t2: Float = 0
+            for k in 0..<na {
+                zr[k] = e.re[b + k] * t.re[b + k] + e.im[b + k] * t.im[b + k]
+                zi[k] = e.re[b + k] * t.im[b + k] - e.im[b + k] * t.re[b + k]
+                e2 += e.re[b + k] * e.re[b + k] + e.im[b + k] * e.im[b + k]
+                t2 += t.re[b + k] * t.re[b + k] + t.im[b + k] * t.im[b + k]
+            }
+            fft1.transform(re: &zr, im: &zi, forward: false)
+            var bv: Float = -.greatestFiniteMagnitude, bi = 0
+            for a in 0..<na where zr[a] > bv { bv = zr[a]; bi = a }
+            sh.append(bi); ee.append(e2); te.append(t2)
+        }
+        return (sh, ee, te, score(e, t).shift)
+    }
+}
