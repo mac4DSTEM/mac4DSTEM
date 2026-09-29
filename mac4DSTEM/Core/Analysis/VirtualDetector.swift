@@ -90,7 +90,17 @@ extension DetectorShape {
             return .rectangle(xMin: scanX - r, xMax: scanX + r + 1,
                               yMin: scanY - r, yMax: scanY + r + 1)
         case .circle:
-            return .circle(centerX: Float(scanX) + 0.5, centerY: Float(scanY) + 0.5,
+            // Centred on the selected pixel's CENTRE — `fillRadial` names a
+            // pixel by its integer index, as the drawn ring and py4DSTEM's
+            // `virtualimage.py` np.indices mask do. A `+ 0.5` on the centre
+            // put the mask on the pixel corner, half a pixel off the drawn
+            // ROI in both axes (register D025, Gate D 2026-09-30). The
+            // `+ 0.5` on the radius is unchanged and is NOT the rectangle's
+            // rule: with the strict `<` it takes pixels whose centres lie up
+            // to half a pixel OUTSIDE the drawn ring (R 5: 97 px; `d ≤ R` would
+            // be 81, py4DSTEM's strict `< R` 69). DEVIATION from py4DSTEM;
+            // changing it moves numbers and is its own decision (open-items).
+            return .circle(centerX: Float(scanX), centerY: Float(scanY),
                            radius: radius + 0.5)
         }
     }

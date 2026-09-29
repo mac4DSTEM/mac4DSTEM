@@ -372,6 +372,9 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
         let probeCol0 = d.qx > S ? min(max(Int(probeCentre.x.rounded(.toNearestOrEven)) - S / 2, 0), d.qx - S) : colOrigins[0]
         var probeCrop = [Float](repeating: 0, count: S * S)
         probe.pixels.withUnsafeBufferPointer { Self.window(of: $0.baseAddress!, qy: d.qy, qx: d.qx, row0: probeRow0, col0: probeCol0, into: &probeCrop) }
+        _ = probeCrop.withUnsafeMutableBufferPointer {
+            DiskDetector.fillNonFinite($0.baseAddress!, width: S, height: S, rowStride: S)   // D019
+        }
         guard let kernel = ProbeKernel.flat(
             pattern: DiffractionPattern(qy: S, qx: S, pixels: probeCrop),
             originX: probeCentre.x - Float(probeCol0), originY: probeCentre.y - Float(probeRow0),
@@ -410,6 +413,11 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
                             let pos = job / nWindows
                             let win = shared.windows[job % nWindows]
                             Self.window(of: shared.base + pos * patPix, qy: d.qy, qx: d.qx, row0: win.row0, col0: win.col0, into: &crop)
+                            // The net's own input channel reads the raw crop: one
+                            // NaN there poisoned every input (D019 refuter).
+                            _ = crop.withUnsafeMutableBufferPointer {
+                                DiskDetector.fillNonFinite($0.baseAddress!, width: S, height: S, rowStride: S)
+                            }
                             let corr = crop.withUnsafeBufferPointer { shared.detectors[w].correlation(pattern: $0.baseAddress!, params: params) }
                             let mi = Self.modelInputs(pattern: crop, probe: probeCrop, correlation: corr.raw)
                             for i in 0..<n3 { shared.inputs[b * n3 + i] = mi[i] }

@@ -385,7 +385,11 @@ package nonisolated enum StrainMapping {
                 let radius = hypot(peak.x - x0, peak.y - y0)
                 if radius > minRadius { nearest = min(nearest, radius) }
             }
-            if nearest.isFinite { nearestRadii.append(nearest) }
+            // Only positions that HAVE a non-central peak: the sentinel is
+            // finite, so an `isFinite` test let every empty or central-only
+            // position add 3.4e38, and at half the scan the median exploded
+            // and no basis was found (register D023, Gate D 2026-09-30).
+            if nearest < .greatestFiniteMagnitude { nearestRadii.append(nearest) }
         }
         guard let typicalRadius = median(nearestRadii) else { return nil }
         let clusterTolerance = max(0.5, typicalRadius * 0.18)

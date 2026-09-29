@@ -344,6 +344,9 @@ package nonisolated struct DiskDetectionPatternDiagnostics: Sendable, Equatable 
     package let relativeReferenceIntensity: Float?
     package let relativeReferenceWasAvailable: Bool
     package let correlationMaximum: Float
+    /// Non-finite detector pixels replaced before correlation (D019) — so a
+    /// pattern emptied by bad pixels is not mistaken for vacuum.
+    package var nonFinitePixelCount = 0
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(localMaximumCount: Int, afterAbsoluteThresholdCount: Int, afterRelativeThresholdCount: Int, afterSpacingCount: Int, acceptedCount: Int, wasCountLimited: Bool, relativeReferenceIntensity: Float?, relativeReferenceWasAvailable: Bool, correlationMaximum: Float) {
@@ -827,6 +830,7 @@ package nonisolated final class DiskDetector {
         }
 
         var result = findMaxima(in: smooth, params: params)
+        result.diagnostics.nonFinitePixelCount = nonFinitePixelCount
 
         if params.subpixel != .pixel {
             polyRefine(&result.peaks, in: smooth)
@@ -960,6 +964,41 @@ package nonisolated final class DiskDetector {
 
     // MARK: Stage 1 — hybrid cross correlation
 
+    /// Non-finite pixels the last `crossCorrelate` filled (D019).
+    private var nonFinitePixelCount = 0
+
+    /// Replaces every non-finite pixel of a `width × height` image (rows
+    /// `rowStride` apart) with the median of its finite 8-neighbours, 0 when
+    /// none is finite; returns how many it replaced. Neighbours are read
+    /// before any replacement, so fills never feed each other. The D019
+    /// refuter measured a zero fill moving a peak by up to 1.8 px at
+    /// corrPower 0 where the neighbour median moved it ≤ 0.07 px.
+    package nonisolated static func fillNonFinite(
+        _ p: UnsafeMutablePointer<Float>, width: Int, height: Int, rowStride: Int
+    ) -> Int {
+        var fills: [(index: Int, value: Float)] = []
+        for y in 0..<height {
+            for x in 0..<width where !p[y * rowStride + x].isFinite {
+                var neighbours: [Float] = []
+                for dy in -1...1 {
+                    for dx in -1...1 where dx != 0 || dy != 0 {
+                        let yy = y + dy, xx = x + dx
+                        guard yy >= 0, yy < height, xx >= 0, xx < width else { continue }
+                        let v = p[yy * rowStride + xx]
+                        if v.isFinite { neighbours.append(v) }
+                    }
+                }
+                neighbours.sort()
+                let k = neighbours.count
+                let median: Float = k == 0 ? 0
+                    : k % 2 == 1 ? neighbours[k / 2] : (neighbours[k / 2 - 1] + neighbours[k / 2]) / 2
+                fills.append((y * rowStride + x, median))
+            }
+        }
+        for fill in fills { p[fill.index] = fill.value }
+        return fills.count
+    }
+
     private func crossCorrelate(
         pattern: UnsafePointer<Float>,
         corrPower: Float,
@@ -975,6 +1014,15 @@ package nonisolated final class DiskDetector {
                 buf.baseAddress!.advanced(by: y * px)
                     .update(from: pattern + y * qx, count: qx)
             }
+        }
+        // A non-finite detector pixel (a NaN-masked dead pixel, a gain
+        // division by zero) takes the median of its finite neighbours.
+        // Unguarded, the FFT spread it to every bin, `vDSP_vthres` mapped the
+        // NaN map to all-zero, and the pattern silently lost every peak
+        // (register D019, Gate D 2026-09-30). DEVIATION: py4DSTEM loses the
+        // pattern the same way. A no-op on finite data.
+        nonFinitePixelCount = re.withUnsafeMutableBufferPointer {
+            Self.fillNonFinite($0.baseAddress!, width: qx, height: qy, rowStride: px)
         }
         if sigmaDP > 0 {
             gaussianBlur(src: re, dst: &smooth, sigma: sigmaDP)
