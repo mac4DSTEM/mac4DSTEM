@@ -131,10 +131,10 @@ One line each; full wording as above.
   a file over ~2 GB through an unproven path on the 8 GB Mac** (it kernel-panicked 2026-09-24). Residuals: a vanished volume is a
   SIGBUS crash with no dialog; network volumes keep the old full read.
 
-### Training prerequisites (Session queue S12; ADR 043)
-- **C2** (`archive/v4/c2-mlx-spike-2026-09-28.md`): MLX trains the shipped graph and its weights reach the ANE (15/15 convs);
-  judged by detection on held-out labels. **Owed before C3:** a training step ≤ 2 GB (MLX peaked 2.78 GB at batch 8);
-  criterion 4 through the app's Swift path.
+### Training (ADR 043/048): the app's step loop leaks — Gate D open (2026-09-30)
+- The headless C5 run through the app's Training/ path grew linearly, 227 MB (step 1) → 1313 (100) → 2404 MB (200),
+  ~11 MB/step, and was stopped when swap filled the disk; the spike's step is flat at 1.48 GB (C2.5). The in-app
+  Train Model… (`aa920d0`) shares the loop: do not train in the app until this closes. Mechanism not yet established.
 - **Detector truth** (A2, `tools/disk-detector/labels/bullseye-2026-09-28.json`, 370 centres re-labelled by eye, owner-approved;
   `archive/v4/a2-label-scoring-2026-09-28.md`): net 0.584 / 0.655 at 0.7, 2 px; label-vs-net scatter 1.2 px. **Owed:** an
   inter-labeller check; the classical floor at the app's own settings. The in-app labelling route is untried on real data.
