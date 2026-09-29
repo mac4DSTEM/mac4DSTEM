@@ -58,3 +58,14 @@ worsens the demo cube's truth-bearing grains is not proposed. Otherwise: the dum
 P1 fails if the truth's ring shifts agree (span 1) in most failing cases, or the continuous score loses in > 4 of 26. A fix fails if it
 recovers < 24, regresses on-grid, or breaks <012>/<112>. A null is "not explained", never a mechanism. Thresholds (0.5 deg, 22/26,
 1.5x) belong to this bank and these settings only.
+
+## Amendment 1 (2026-09-30 night, after the gate failed, before any P1-P4 run)
+The gate (record `s20-acom-offgrid-results-2026-09-30.md`, committed 090975b) found 43 (no wavelength) / 37 (200 kV) failures of 200 at
+1.4 deg, not 26, with 0/200 on-grid. Decided by the orchestrator overnight (overrule on sight); nothing but the gate has been run.
+- Reproduced population: those 43 / 37 failures (0.5 deg failure line, 1.4 deg rotation), each plan reported separately; on-grid stays 0/200.
+- P1: "22 of 26" becomes >= 85 % of the reproduced failures with truth per-ring shift span >= 2 and winner span 1; "24 of 26" (continuous
+  score puts truth at or above winner) becomes >= 92 %; the refutation "continuous score still loses in > 4 of 26" becomes > 8 % of them.
+- P2 "at most 4 of 26" and P4 ">= 20 of 26" scale likewise (<= 15 %; >= 77 %); P3 unchanged.
+- Bar: >= 90 % of the reproduced failures recovered (at 1.4 deg and reported across the 0.35 deg x k sweep), 0 on-grid regressions, no axis
+  exact at every rotation today made wrong in the 136 sweep, pinned acom-* harnesses and unit classes within tolerance.
+- Everything else unchanged. Further amendments are appended here before the result they concern is read.
