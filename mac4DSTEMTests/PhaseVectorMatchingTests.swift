@@ -2312,6 +2312,101 @@ final class ZoneAxisFitTests: XCTestCase {
             XCTAssertGreaterThan(fit.totalVectors, 0)
         }
     }
+
+    // MARK: The ranking is a total order (S4, 2026-09-29)
+
+    private func fit(_ axis: SIMD3<Int>, matched: Int,
+                     mean: Double) -> PhaseVectorMatcher.ZoneAxisFit {
+        PhaseVectorMatcher.ZoneAxisFit(
+            zoneAxis: axis, inPlaneRotationRad: 0, matchedVectors: matched,
+            totalVectors: 100, meanDistance: mean, chanceMatchedVectors: 1,
+            sweepMedianFraction: 0)
+    }
+
+    private func ranked(_ fits: [PhaseVectorMatcher.ZoneAxisFit]) -> [SIMD3<Int>] {
+        fits.sorted(by: PhaseVectorMatcher.ZoneAxisFit.ranksBefore).map(\.zoneAxis)
+    }
+
+    /// The axis indices decide ONLY what the score cannot. Each half puts the
+    /// better score on the axis that sorts LATER by indices, so the index key
+    /// would have to lose to it.
+    ///
+    /// Mutations: the axis key moved ahead of the matched count (red on the
+    /// first pair); ahead of the mean distance (red on the second).
+    func testTheAxisTieBreakNeverOverrulesADifferentScore() {
+        let early = SIMD3(-1, -1, 0), late = SIMD3(1, 1, 1)
+        XCTAssertEqual(ranked([fit(early, matched: 9, mean: 0.010),
+                               fit(late, matched: 10, mean: 0.020)]).first, late,
+                       "a fit with fewer matched vectors won on its axis indices")
+        XCTAssertEqual(ranked([fit(early, matched: 10, mean: 0.0101),
+                               fit(late, matched: 10, mean: 0.0100)]).first, late,
+                       "a fit 1e-4 Å⁻¹ further out won on its axis indices")
+    }
+
+    /// A tied family ranks in the same order whatever order it arrives in —
+    /// including when the mean distances differ only in the last bit, which
+    /// is what rotating two symmetry-equivalent reference sets leaves behind.
+    ///
+    /// Mutations: the axis tie-break removed (red: the input order leaks
+    /// through the stable sort); the mean distance compared raw instead of on
+    /// `meanDistanceTieResolution`'s grid (red: the one-ulp-larger [-1 -1 0]
+    /// drops behind [0 -1 1]).
+    func testATiedFamilyRanksTheSameInAnyInputOrder() {
+        let d = 0.012_345_678
+        let family = [
+            fit(SIMD3(0, -1, 1), matched: 39, mean: d),
+            fit(SIMD3(-1, 0, 1), matched: 39, mean: d),
+            fit(SIMD3(-1, -1, 0), matched: 39, mean: d.nextUp),
+            fit(SIMD3(0, -1, -1), matched: 39, mean: d.nextDown),
+            fit(SIMD3(1, 1, 1), matched: 12, mean: 0.001),
+        ]
+        let expected = [SIMD3(-1, -1, 0), SIMD3(-1, 0, 1), SIMD3(0, -1, -1),
+                        SIMD3(0, -1, 1), SIMD3(1, 1, 1)]
+        XCTAssertEqual(ranked(family), expected)
+        XCTAssertEqual(ranked(family.reversed()), expected)
+        XCTAssertEqual(ranked([family[3], family[0], family[4], family[2], family[1]]), expected)
+    }
+
+    /// The sweep itself returns that order: the same planted ⟨110⟩ fitted
+    /// against the same axes listed forwards and backwards must rank them
+    /// identically. Mutation: `fitZoneAxis` back on its own count-then-
+    /// distance closure (red wherever the family ties exactly, since the
+    /// stable sort then keeps each input order).
+    func testTheSweepOrderDoesNotDependOnTheCandidateOrder() {
+        let al = Crystal.aluminum
+        var reference = PhaseReferenceSettings()
+        reference.kMaxInvAngstrom = 1.2
+        let base = PhaseReferenceLibrary.projectedVectors(
+            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            zoneAxis: SIMD3(1, 1, 0), settings: reference)
+        let turned = PhaseReferenceLibrary.rotate(base, by: 37.2 * .pi / 180)
+        let scale = 0.008
+        let originX: Float = 128, originY: Float = 128
+        let peaks: [[BraggPeak]] = (0..<16).map { _ in
+            [BraggPeak(x: originX, y: originY, intensity: 10)]
+                + turned.map { v in
+                    BraggPeak(x: originX + Float(v.q.x / scale),
+                              y: originY + Float(v.q.y / scale), intensity: 1)
+                }
+        }
+        let bragg = BraggVectors(scanWidth: 4, scanHeight: 4, peaks: peaks)
+        let axes = PhaseReferenceLibrary.lowIndexZoneAxes.filter {
+            let m = [abs($0.x), abs($0.y), abs($0.z)].sorted()
+            return m == [0, 1, 1] || m == [0, 0, 1]
+        }
+        XCTAssertGreaterThanOrEqual(axes.count, 6, "too few axes to test the order")
+        func sweep(_ candidates: [SIMD3<Int>]) -> [SIMD3<Int>] {
+            PhaseVectorMatcher.fitZoneAxis(
+                bragg: bragg, crystal: al, referenceSettings: reference,
+                settings: PhaseVectorSettings(), originX: originX, originY: originY,
+                invAngstromPerPixel: scale, candidateAxes: candidates,
+                inPlaneStepDeg: 2).map(\.zoneAxis)
+        }
+        let forwards = sweep(axes)
+        XCTAssertEqual(forwards.count, axes.count)
+        XCTAssertEqual(sweep(axes.reversed()), forwards,
+                       "the ranking followed the order the axes were listed in")
+    }
 }
 
 /// The matrix's last word before a position may be called a precipitate

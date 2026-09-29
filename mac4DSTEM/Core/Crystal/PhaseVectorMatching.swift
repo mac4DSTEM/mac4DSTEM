@@ -520,6 +520,18 @@ package nonisolated enum PhaseVectorMatcher {
 
     /// One candidate beam direction, scored against the scan's own peaks.
     package nonisolated struct ZoneAxisFit: Sendable, Equatable {
+        package init(zoneAxis: SIMD3<Int>, inPlaneRotationRad: Double,
+                     matchedVectors: Int, totalVectors: Int, meanDistance: Double,
+                     chanceMatchedVectors: Double, sweepMedianFraction: Double) {
+            self.zoneAxis = zoneAxis
+            self.inPlaneRotationRad = inPlaneRotationRad
+            self.matchedVectors = matchedVectors
+            self.totalVectors = totalVectors
+            self.meanDistance = meanDistance
+            self.chanceMatchedVectors = chanceMatchedVectors
+            self.sweepMedianFraction = sweepMedianFraction
+        }
+
         package let zoneAxis: SIMD3<Int>
         package let inPlaneRotationRad: Double
         /// Experimental vectors this axis accounts for, across the sample.
@@ -612,6 +624,42 @@ package nonisolated enum PhaseVectorMatcher {
             Double(matchedVectors) >= multiple * chanceMatchedVectors
         }
         package var inPlaneDegrees: Double { inPlaneRotationRad * 180 / .pi }
+
+        /// Mean distances closer than this, in Å⁻¹, rank as equal.
+        ///
+        /// WHY (S4, 2026-09-30): symmetry-equivalent axes tie on matched count
+        /// by construction, and their mean distances then differ only in the
+        /// last bits of the arithmetic that rotated their references — so a
+        /// tied family's order was set by rounding: deterministic for one build
+        /// and peak set, but not a property of the data. Hardening, not the
+        /// fix of the recorded "run-dependent tie order": that came from
+        /// `tools/phase-map-probe` ranking through a Dictionary (hash order
+        /// per process), fixed there (S4 refuter). The bar is far under
+        /// anything a detector resolves: float32 peaks carry ~1e-7 Å⁻¹.
+        package static let meanDistanceTieResolution = 1e-9
+
+        /// The ranking `fitZoneAxis` returns, as a TOTAL order: more matched
+        /// vectors first; then the lower mean distance (compared on the
+        /// `meanDistanceTieResolution` grid); then the axis indices,
+        /// lexicographically ascending — the order `lowIndexZoneAxes` already
+        /// lists one symmetry family in, so a tied family reads as it did
+        /// when it tied exactly (an exact tie ACROSS families may not). The
+        /// last key only ever decides between fits the first two cannot
+        /// tell apart; it never outranks a better count or a closer fit.
+        package static func ranksBefore(_ a: ZoneAxisFit, _ b: ZoneAxisFit) -> Bool {
+            if a.matchedVectors != b.matchedVectors { return a.matchedVectors > b.matchedVectors }
+            let da = rankedDistance(a.meanDistance), db = rankedDistance(b.meanDistance)
+            if da != db { return da < db }
+            if a.zoneAxis.x != b.zoneAxis.x { return a.zoneAxis.x < b.zoneAxis.x }
+            if a.zoneAxis.y != b.zoneAxis.y { return a.zoneAxis.y < b.zoneAxis.y }
+            return a.zoneAxis.z < b.zoneAxis.z
+        }
+
+        /// A grid index, so equality is transitive (a tolerance comparison is
+        /// not, and `sort` needs a strict weak order). Non-finite ranks last.
+        private static func rankedDistance(_ d: Double) -> Double {
+            d.isFinite ? (d / meanDistanceTieResolution).rounded() : .infinity
+        }
     }
 
     /// Rank beam directions by how much of the scan's measured peaks each one
@@ -628,7 +676,8 @@ package nonisolated enum PhaseVectorMatcher {
     /// the family being what cubic symmetry requires, and therefore a check
     /// that the sweep is behaving rather than merely returning something.
     ///
-    /// Ranked by explained fraction, tie-broken on the lower mean distance.
+    /// Ranked by explained fraction, tie-broken on the lower mean distance,
+    /// then on the axis indices (`ZoneAxisFit.ranksBefore`, a total order).
     /// NOT by mean distance alone, for the same reason `fitMatrixOrientation`
     /// is not: an axis explaining one vector at 0.001 Å⁻¹ would beat one
     /// explaining nine at 0.01.
@@ -737,11 +786,7 @@ package nonisolated enum PhaseVectorMatcher {
                         meanDistance: $0.meanDistance, chanceMatchedVectors: $0.chance,
                         sweepMedianFraction: sweepMedian)
         }
-        out.sort {
-            $0.matchedVectors != $1.matchedVectors
-                ? $0.matchedVectors > $1.matchedVectors
-                : $0.meanDistance < $1.meanDistance
-        }
+        out.sort(by: ZoneAxisFit.ranksBefore)
         return out
     }
 

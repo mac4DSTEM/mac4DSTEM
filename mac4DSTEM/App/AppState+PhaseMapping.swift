@@ -88,6 +88,14 @@ extension AppState {
             return .failed("Detect Bragg disks first — phase mapping matches the "
                            + "peaks disk detection finds, it does not find its own.")
         }
+        // The same prerequisite `ProductWorkflow.prerequisiteItems` states,
+        // enforced here too: a caller that skips the button (replay, a test)
+        // must not get the silent all-"not indexed" map the owner got on an
+        // uncalibrated cube (drive 2026-09-24).
+        if let refusal = phaseMappingQScaleRefusal {
+            statusText = refusal
+            return .failed(refusal)
+        }
         guard let definitions = phaseDefinitions() else {
             return .failed(phaseMapping.runRefusal ?? "The phase list is not runnable.")
         }
@@ -415,6 +423,18 @@ extension AppState {
                                      invAngstromPerPixel: scale.invAngstromPerPixel)
     }
 
+    /// Why phase mapping and the zone-axis fit cannot run on the Q scale in
+    /// hand, in one line, or nil when they can. The same predicate as
+    /// `ProductWorkflowReadiness.hasPhysicalACOMScale`, which gates the task's
+    /// button: the scale the matcher reads (`acomScaleSemantics`) must be
+    /// physical, not the exploratory slider value.
+    var phaseMappingQScaleRefusal: String? {
+        let scale = acomScaleSemantics
+        if scale.provenance.isPhysical, scale.invAngstromPerPixel > 0 { return nil }
+        return "Set the Q pixel scale in Prepare first — the phases are in Å⁻¹ and the "
+            + "peaks in detector pixels, so without it every position reads not indexed."
+    }
+
     /// Put the three matching tolerances onto this detector's own grid.
     func scalePhaseMatchingToDetector() {
         guard let resolution = phaseVectorResolution else { return }
@@ -443,6 +463,13 @@ extension AppState {
         guard let rawVectors = resultPresentation.braggVectors else {
             return .failed("Detect Bragg disks first — this fits the axis to the "
                            + "peaks disk detection found.")
+        }
+        // Without a physical Q scale the sweep compares Å⁻¹ references with
+        // pixel vectors through the exploratory slider value, and every axis
+        // reads "at chance" (drive 2026-09-24) — refuse and say why instead.
+        if let refusal = phaseMappingQScaleRefusal {
+            statusText = refusal
+            return .failed(refusal)
         }
         let slot = phaseMapping.phases[matrixIndex]
         let calibrated = calibratedBraggVectors(rawVectors, descriptor: descriptor)
@@ -493,6 +520,9 @@ extension AppState {
         // reached: the winner was written into the phase model regardless
         // (Gate B finding). A winner that is no better than a wrong axis, or
         // than chance, is shown and not written.
+        // `fitZoneAxis` returns a total order (count, mean distance, then the
+        // axis indices), so which three rows show — and which one is written
+        // below — no longer depends on the order the sweep met the axes in.
         phaseMapping.zoneAxisFits = Array(fits.prefix(3))
         guard winner.isInformative(multiple: matching.chanceMatchMultiple) else {
             return .failed("No zone axis stands out for \(slot.model.displayName): the best, "

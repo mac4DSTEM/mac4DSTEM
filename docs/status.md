@@ -24,13 +24,13 @@ Earlier gate rows — the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, r
 | Item | State | Next step, owner |
 |---|---|---|
 | **Now** | v4.0.0 released 2026-09-23; `main` pushed at `5bd686b` (2026-09-30): the overnight work, the narrow-window fix, the session queue. | — |
-| Workspaces (S2) | ADR 046's six built and **driven** 2026-09-30 on a scratch build at 915 and 1470 pt: every room's tasks, settings, toolbar verb, ⌘1–⌘6 names; Group Patterns and Detect All Disks run from the toolbar; the Bragg-disks requirement opens Bragg Disks. Found (pre-existing shell path, S6): an explicitly shown sidebar at 915 pt clips the inspector, then leaves empty strips when widened. | — |
-| **Next — the session queue** | `ROADMAP.md` › **Session queue**: S1, S2 done 2026-09-30; S3 done except a re-drive of the Friedel ETA shape (speed fixed: Core now `-O` in Debug). **S4/S5 in progress** (subagents); S7–S9 diagnoses running; S6 polish; S7–S11 Gate D; then training, then the lineage graph. | `/pickup`. |
-| **Owner owed** | D1 option (a); the lineage graph's session-file format (when it is registered); Thronsen's written confirmation (ADR 042); the "overrule on sight" list (plan §5). | Owner. |
+| **Done 2026-09-30** | S1 board; S2 workspaces (driven); S3 number entry (Gate D, driven) and Friedel speed (Core `-O` in Debug); S4 phase mapping needs a physical Q; S5 sessions; S7–S9 register D025/D023/D019 (Gate D, refuted). Unit 980/0/1 = 981. | — |
+| **Next — the session queue** | `ROADMAP.md` › **Session queue**: S6 (much of it Frozen Shell — owner), then S10–S11; then training, then the lineage graph. | `/pickup`. |
+| **Owner owed** | Overrule on sight: Core `-O` in Debug (`9fe9440`); the shell sidebar-clip check R1 (open-items S6). D1 option (a); the lineage graph's session-file format (when it is registered); Thronsen's written confirmation (ADR 042); the "overrule on sight" list (plan §5). | Owner. |
 | **⚠ Don't run** | Detect All Disks with the **learned** detector on multi-GB cubes (its tiled loop is not pooled). | — |
 | Phase mapping | Unvalidated. T4 one metric short; D1 measured: the shipped max(0.02 Å⁻¹, 1 px) lies inside all four datasets' bands (raw 060 cube: matrix 84.4 % at the app's 0.02); `archive/v4/phase-tolerance-results-2026-09-29.md`. | Owner: option (a). |
-| **Unverified on screen** | — | — |
-| Carried | R–Q residuals; the 28 GB `--parity` run; parallax/ptychography drive; C2's memory and criterion 4; the register's 11 Gate D candidates; Friedel ETA; D2 (raw cube objects — the two probes need bridging first); CI paused (ADR 040). | `open-items.md`. |
+| **Unverified on screen** | S3 typo refusal; S5 reopen wording; S4's phase-mapping refusal line and requirement row. | Owner's drive. |
+| Carried | R–Q residuals; the 28 GB `--parity` run; parallax/ptychography drive; C2's memory and criterion 4; the register's 8 Gate D candidates; the Friedel ETA shape; D2 (raw cube objects — the two probes need bridging first); CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.
 

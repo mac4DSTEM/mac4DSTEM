@@ -215,7 +215,8 @@ extension AnalysisMode {
         case .strain, .acom: .requiresBraggVectors
         case .virtualDetector, .dpc, .ptychography, .singleslicePtychography,
              .diffractionGroups: .phaseContrast
-        // Phase mapping consumes `BraggVectors` and finds none of its own.
+        // Phase mapping consumes `BraggVectors` and finds none of its own
+        // (it also needs a physical Q scale — `prerequisiteItems`).
         case .phaseMapping: .requiresBraggVectors
         }
     }
@@ -551,10 +552,24 @@ enum ProductWorkflow {
                 )
             ]
         case .phaseMapping:
+            // The library is in Å⁻¹ and the peaks are in detector pixels; the
+            // Q scale is the only thing that joins them. Without it the run
+            // used the exploratory slider value and returned 29 241 / 29 241
+            // not indexed with no word of why (owner's drive, 2026-09-24).
+            // Satisfied by the scale the matcher actually reads
+            // (`acomScaleSemantics`), not by `hasQScale`: a Q in mrad with no
+            // voltage is "set" to the checklist and still not convertible.
             return [
                 TaskPrerequisite(
                     id: "braggVectors", title: "Detect Bragg disks first",
                     isSatisfied: readiness.hasBraggVectors, resolution: .task(.disks)
+                ),
+                TaskPrerequisite(
+                    id: "qScale",
+                    title: readiness.hasQScale && !readiness.hasPhysicalACOMScale
+                        ? "Set the accelerating voltage to convert the Q scale from mrad"
+                        : "Set the Q pixel scale",
+                    isSatisfied: readiness.hasPhysicalACOMScale, resolution: .prepare
                 )
             ]
         case .acom:

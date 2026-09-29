@@ -118,20 +118,19 @@ Clearing is three moves, in this order.
 3. **Polish (GREEN, one room per session, each drive-verified).** First the workspaces, ADR 046's accepted picture:
    Prepare · Imaging (+ diffraction groups) · Bragg Disks (detect, labels, training) · Crystal Maps (strain,
    orientation, phases and precipitates) · Reconstruction (DPC, parallax, ptychography) · Results. Then one room per
-   session (S3–S6 below; their items are `docs/open-items.md` § Polish).
-4. **Science, one Gate D per session, after the polish** (S7–S11 below).
+   session (S3–S6 below; their items are `docs/open-items.md` § Polish). 4. **Science, one Gate D per session** (S7–S11).
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
 - [x] **S1 Close** (2026-09-30, `45d1228`): board 7 lanes, open-items 22 entries (see step 1 above).
-- [x] **S2 Workspaces** (2026-09-30): ADR 046's six, `UI/WorkspaceSettings.swift` picks each task's controls; driven at
-  915 and 1470 pt. Its drive found the explicit-show sidebar clip at 915 pt (S6, `docs/open-items.md`).
-- [ ] **S3 Prepare polish:** emptied manual Q discards the file's calibration; voltage "0 kV" when unset; Friedel ETA
-  (Gate D first).
-- [ ] **S4 Phases & precipitates polish:** uncalibrated run refuses or explains; zone-axis tie order; busy status line
-  at narrow widths; the owner's Al-Mg-Si recipe as a preset (`archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`).
-- [ ] **S5 Sessions & sidecars:** retarget, `.h5.h5`, load/promote/replay residuals, the sidecar reader's guard.
+- [x] **S2 Workspaces** (2026-09-30, `d8cb7d2`): ADR 046's six, driven at 915 and 1470 pt.
+- [x] **S3 Prepare** (2026-09-30, `15d2b6c`, `9fe9440`): number entry in any region (Gate D + refuter); Friedel speed
+  (Core `-O` in Debug). Open: re-drive the ETA's falling shape.
+- [x] **S4 Phases & precipitates** (2026-09-30): Q prerequisite; the tie order (the probe's Dictionary; the app ranking made
+  total). Carried: busy status line at narrow widths (Frozen Shell), the Al-Mg-Si recipe preset (owner's run first).
+- [x] **S5 Sessions & sidecars** (2026-09-30, `1fc9f8f`): attribute guard, owned cancel token, reopen; residuals in open-items.
 - [ ] **S6 Inspector kit & view state** (with the Frozen Shell residuals the owner accepts).
-- [ ] **S7–S11 Gate D, one each:** D025, D023, D019, T4's last metric, the learned detector's tiled memory loop.
+- [x] **S7–S9 Gate D** (2026-09-30, `c217038`): D025, D023, D019 fixed with refuters. [ ] **S10–S11:** T4's last metric,
+  the learned detector's tiled memory loop.
 - [ ] **S12 Training** (ADR 043, the C2 route; memory ≤ 2 GB first). **S13 Lineage graph** — pre-register; the
   session-file format (step ids, input edges) is the owner's decision first.
 

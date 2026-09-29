@@ -898,7 +898,13 @@ enum Probe {
                 if let existing = byAxis[entry.zoneAxis], existing.matched >= matched { continue }
                 byAxis[entry.zoneAxis] = record
             }
-            let ranked = byAxis.sorted { $0.value.matched > $1.value.matched }.prefix(5)
+            // A Dictionary iterates in a per-process hash order, so ranking on
+            // `matched` alone listed tied axes differently on every run — the
+            // "run-dependent tie order" of 2026-09-23 (S4 refuter, 2026-09-30).
+            let ranked = byAxis.sorted {
+                $0.value.matched != $1.value.matched ? $0.value.matched > $1.value.matched
+                    : ($0.key.x, $0.key.y, $0.key.z) < ($1.key.x, $1.key.y, $1.key.z)
+            }.prefix(5)
             let peaksInSample = sample.reduce(0) { $0 + $1.count }
             print("  \(sample.count) sampled patterns, \(peaksInSample) vectors outside the direct beam")
             for (axis, record) in ranked {

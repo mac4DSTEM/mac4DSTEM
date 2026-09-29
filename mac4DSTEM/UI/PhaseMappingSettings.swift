@@ -85,7 +85,10 @@ struct PhaseMappingSections: View {
                                                  + "so a fit can be told from a coin toss.") {
                         Task { await appState.findMatrixZoneAxis() }
                     }
-                    .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil)
+                    // No physical Q scale, no fit: every axis would read "at
+                    // chance" (drive 2026-09-24); the run section says why.
+                    .disabled(appState.isBusy || appState.resultPresentation.braggVectors == nil
+                              || appState.phaseMappingQScaleRefusal != nil)
                     .accessibilityIdentifier("phaseMapping.findZoneAxis")
                 }
 
@@ -279,13 +282,20 @@ struct PhaseMappingSections: View {
                       systemImage: "nosign")
                     .font(.caption)
                     .foregroundStyle(.orange)
+            } else if let refusal = appState.phaseMappingQScaleRefusal {
+                Label(refusal, systemImage: "nosign")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
             InspectorActionRow {
                 InspectorAdaptiveButton("Map Phases", systemImage: "square.grid.3x3.topleft.filled") {
                     Task { await appState.runPhaseMapping() }
                 }
-                .disabled(appState.isBusy || product.runRefusal != nil
-                          || appState.resultPresentation.braggVectors == nil)
+                // C4(a): the toolbar's own readiness (Bragg vectors current,
+                // a physical Q scale), plus the phase list's own refusal.
+                .disabled(product.runRefusal != nil || !ProductWorkflow.mayRun(
+                    .phaseMapping, readiness: appState.productWorkflowReadiness,
+                    isBusy: appState.isBusy))
                 .accessibilityIdentifier("phaseMapping.run")
             }
         }

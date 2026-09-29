@@ -121,12 +121,64 @@ final class ProductWorkflowTests: XCTestCase {
     func testPhaseMappingRequiresBraggVectors() {
         XCTAssertEqual(AnalysisMode.phaseMapping.prerequisiteFamily, .requiresBraggVectors)
         let unmet = ProductWorkflow.prerequisiteItems(
-            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: false))
-        XCTAssertEqual(unmet.map(\.id), ["braggVectors"])
+            for: .phaseMapping,
+            readiness: ProductWorkflowReadiness(hasBraggVectors: false, hasPhysicalACOMScale: true))
+        XCTAssertEqual(unmet.map(\.id), ["braggVectors", "qScale"])
         XCTAssertEqual(unmet.first?.isSatisfied, false)
+        XCTAssertEqual(ProductWorkflow.prerequisites(
+            for: .phaseMapping,
+            readiness: ProductWorkflowReadiness(hasBraggVectors: false, hasPhysicalACOMScale: true)),
+            ["Detect Bragg disks first"])
         let met = ProductWorkflow.prerequisiteItems(
-            for: .phaseMapping, readiness: ProductWorkflowReadiness(hasBraggVectors: true))
-        XCTAssertEqual(met.first?.isSatisfied, true)
+            for: .phaseMapping,
+            readiness: ProductWorkflowReadiness(hasBraggVectors: true, hasPhysicalACOMScale: true))
+        XCTAssertTrue(met.allSatisfy(\.isSatisfied))
+    }
+
+    /// The library is in Å⁻¹ and the peaks in detector pixels; without a
+    /// physical Q scale the run matched through the exploratory slider value
+    /// and returned 29 241 / 29 241 not indexed with no word of why (owner's
+    /// drive, 2026-09-24). The task must not be offered until the scale the
+    /// matcher reads is physical.
+    ///
+    /// Mutations: the `qScale` item removed (red: ready with Bragg vectors
+    /// and no scale); satisfied by `hasQScale` instead of
+    /// `hasPhysicalACOMScale` (red: a Q in mrad with no voltage reads ready,
+    /// though it cannot be converted to Å⁻¹).
+    func testPhaseMappingRequiresAPhysicalQScale() {
+        let noScale = ProductWorkflowReadiness(hasBraggVectors: true)
+        XCTAssertEqual(ProductWorkflow.prerequisites(for: .phaseMapping, readiness: noScale),
+                       ["Set the Q pixel scale"])
+        XCTAssertFalse(ProductWorkflow.mayRun(.phaseMapping, readiness: noScale, isBusy: false))
+        let item = ProductWorkflow.prerequisiteItems(for: .phaseMapping, readiness: noScale)
+            .first { $0.id == "qScale" }
+        XCTAssertEqual(item?.resolution, .prepare, "the checklist must point at Prepare")
+
+        let mradWithoutVoltage = ProductWorkflowReadiness(
+            hasQScale: true, hasBraggVectors: true, hasPhysicalACOMScale: false)
+        let unmet = ProductWorkflow.prerequisites(for: .phaseMapping, readiness: mradWithoutVoltage)
+        XCTAssertEqual(unmet.count, 1, "unmet: \(unmet)")
+        XCTAssertTrue(unmet.first?.contains("voltage") == true, "unmet: \(unmet)")
+
+        XCTAssertTrue(ProductWorkflow.mayRun(
+            .phaseMapping,
+            readiness: ProductWorkflowReadiness(hasBraggVectors: true, hasPhysicalACOMScale: true),
+            isBusy: false))
+    }
+
+    /// The run and Find Matrix Zone Axis refuse on the same predicate the
+    /// button reads, so a caller that skips the button (replay) gets a reason
+    /// instead of a silent all-"not indexed" map. Mutation: the refusal
+    /// returning nil for an exploratory scale (red on a fresh state); or
+    /// ignoring a physical one (red after `setManualQPixelSize`).
+    func testPhaseMappingRefusalFollowsThePhysicalQScale() {
+        let state = AppState()
+        XCTAssertEqual(state.acomScaleSemantics.provenance, .exploratory)
+        XCTAssertNotNil(state.phaseMappingQScaleRefusal)
+        XCTAssertFalse(state.productWorkflowReadiness.hasPhysicalACOMScale)
+        state.setManualQPixelSize(0.25)
+        XCTAssertNil(state.phaseMappingQScaleRefusal)
+        XCTAssertTrue(state.productWorkflowReadiness.hasPhysicalACOMScale)
     }
 
     /// The task states that it is unvalidated wherever guidance is shown.

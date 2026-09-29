@@ -104,10 +104,10 @@ One line each; full wording as above.
 - The manual Q field stays visible and editable after a new value (`d3-03b`).
 
 ### S4 Phases & precipitates: an uncalibrated run, tie order, the busy line, the recipe
-- **Phase mapping runs on an uncalibrated cube and says nothing** (owner's drive, 2026-09-24): `datasetA_stride3.h5`, Q unset,
-  29 241 / 29 241 not indexed, Find Matrix Zone Axis "at chance"; with Q 0,1904 nm⁻¹: T1 3680 / θ′ 833 / matrix 22 068. Refuse
-  or say why; the stale zone-axis list also survives a calibration change.
-- Zone-axis ties list in a run-dependent order (unchanged code, pre-e4 vs post-e4k0).
+- Fixed 2026-09-30: phase mapping and Find Matrix Zone Axis now require a physical Q scale (a prerequisite with its route
+  to Prepare; a refusal line — unverified on screen). The stale zone-axis list still survives a calibration change
+  (proposal: store the fit's scale beside `zoneAxisFits`). The "run-dependent tie order" was `tools/phase-map-probe`'s
+  Dictionary, fixed; the app's own ranking is now a total order too.
 - At 1000 pt a busy run clips the status text and hides the metrics line; the panes widen while busy so the inspector
   covers ~110 pt of the phase map (`report-drive3.md` step 4): metrics get truncation priority, split fraction constant.
 - The owner's Al-Mg-Si recipe as a preset (`archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`).
@@ -119,8 +119,7 @@ One line each; full wording as above.
 - **Fabricated provenance on pre-2026-08-18 sidecars**: `AppState+Open.swift:700,893,906` `?? .fullExtent`. Needs a synthesised sidecar.
 - **Promote/replay**: (a) promote lands at (0,0)? (b) fitted origin maps refuse the full-extent restore's shape check; (c)
   parallax/ptychography not in the replay record; (d) a user analysis mid-replay steals Cancel; (e) replay contracts in three places.
-- **Resident**: "freed" bytes never measured. The reopen fix has no test (the recovery store is the real `UserDefaults`).
-- UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
+- **Resident**: "freed" bytes never measured; the reopen fix has no test (the recovery store is real `UserDefaults`). UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
   `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
 
 ### S6 Inspector kit & view state, with the Frozen Shell residuals
