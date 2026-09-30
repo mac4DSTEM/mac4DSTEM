@@ -195,3 +195,8 @@ Their drive 2A/2B and the block-3 supervisor were running at the cut — read `$
   proposed (patch archived as NOT PROPOSED). Fable refuter verdict pending at the cut.
 - S21 (YELLOW, `7d5f0a8`): bar met by one rule (bullseye kernel at the probe's outer edge, 0.119/0.020 → 0.781/0.430);
   ready patch in archive; the Au_ref guard is post hoc. Fable refuter verdict pending at the cut.
+- S18 Promote / replay / load tail (resumed after the cut): a load's tail resets only its own load; promote keeps the scan
+  position (crop offset added); crop-shaped origin maps named on a whole-file reopen; a schema-5 sidecar's view "unrecorded"
+  (adopted only at whole file, refused into a reduced view with its own status line). 22 tests red first, 14 mutations red;
+  Fable supervisor COMMIT; drive 2B saw (b) (d) (f) on screen (orchestrator-reviewed shots; the drive's own supervisor was lost
+  to the usage limit).

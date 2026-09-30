@@ -23,6 +23,28 @@ package nonisolated enum SessionCalibrationFramePolicy: Equatable {
     /// calibration is not adopted, and the reason is surfaced.
     case refuse(reason: String)
 
+    /// The decision for what a sidecar SAYS about its view. A recorded view
+    /// decides as below; an unrecorded one (`SessionViewRecord.unrecorded`)
+    /// is adopted only onto a whole-file load, the frame every pre-recording
+    /// build wrote — never re-referenced into a reduced view, which would
+    /// drive geometry from a full-extent claim nobody made.
+    package static func decide(
+        record: SessionViewRecord, loaded: LoadSpecification
+    ) -> SessionCalibrationFramePolicy {
+        switch record {
+        case .recorded(let specification):
+            return decide(session: specification, loaded: loaded)
+        case .unrecorded:
+            if loaded.isFullExtent { return .identity }
+            return .refuse(reason:
+                "The saved session did not record which view of the file its "
+                + "calibration was measured on (it was saved by an older version), "
+                + "so it cannot be moved into the view loaded now "
+                + "(\(loaded.provenanceSummary ?? "a reduced view")). "
+                + "Reopen the whole file to use it.")
+        }
+    }
+
     package static func decide(
         session: LoadSpecification, loaded: LoadSpecification
     ) -> SessionCalibrationFramePolicy {
@@ -53,13 +75,19 @@ package nonisolated enum SessionCalibrationTranslation {
         package var center: CalibrationReReference.DetectorPoint?
         package var restoredMaps: Bool
         package var invalidated: [CalibrationInvalidation]
+        /// Why saved fitted-origin maps were NOT applied though the sidecar
+        /// carried them (their shape is not this frame's scan extent); nil
+        /// when there were none or they were applied. The mean origin then
+        /// stands in, and the reason is for the reader (S18).
+        package var mapsRefusal: String?
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal).
-        package nonisolated init(calibration: Calibration, center: CalibrationReReference.DetectorPoint? = nil, restoredMaps: Bool, invalidated: [CalibrationInvalidation]) {
+        package nonisolated init(calibration: Calibration, center: CalibrationReReference.DetectorPoint? = nil, restoredMaps: Bool, invalidated: [CalibrationInvalidation], mapsRefusal: String? = nil) {
             self.calibration = calibration
             self.center = center
             self.restoredMaps = restoredMaps
             self.invalidated = invalidated
+            self.mapsRefusal = mapsRefusal
         }
     }
 
@@ -90,6 +118,7 @@ package nonisolated enum SessionCalibrationTranslation {
         if let value = saved.ellipseB { sessionFrame.ellipseB = value }
         if let value = saved.ellipseTheta { sessionFrame.ellipseTheta = value }
         var restoredMaps = false
+        var mapsRefusal: String?
         // Maps are sized against the extent the SESSION's frame describes:
         // the sidecar writer records maps in its live view's frame
         // (`ResultExport`), so an identity restore sizes against the loaded
@@ -111,6 +140,12 @@ package nonisolated enum SessionCalibrationTranslation {
             }
             restoredMaps = true
         }
+        if !restoredMaps, let maps = saved.originMaps, maps.shape.count == 2 {
+            mapsRefusal = "The saved fitted-origin maps cover \(maps.shape[1]) × \(maps.shape[0]) scan positions, "
+                + "but this frame's scan is \(mapExtent.rx) × \(mapExtent.ry), so they were not applied"
+                + (saved.qx0Mean != nil && saved.qy0Mean != nil
+                    ? "; the saved mean origin is used instead." : ".")
+        }
         if !restoredMaps, let qx0 = saved.qx0Mean, let qy0 = saved.qy0Mean {
             sessionFrame.recordedOriginX = Float(qy0)
             sessionFrame.recordedOriginY = Float(qx0)
@@ -120,7 +155,8 @@ package nonisolated enum SessionCalibrationTranslation {
 
         guard case .reReference = policy else {
             return Output(calibration: sessionFrame, center: sessionCenter,
-                          restoredMaps: restoredMaps, invalidated: [])
+                          restoredMaps: restoredMaps, invalidated: [],
+                          mapsRefusal: mapsRefusal)
         }
         guard let view else { return nil }
         let outcome = CalibrationReReference.apply(
@@ -134,7 +170,8 @@ package nonisolated enum SessionCalibrationTranslation {
             calibration: outcome.calibration,
             center: sessionCenter == nil ? nil : outcome.apertureCenter,
             restoredMaps: restoredMaps,
-            invalidated: outcome.invalidated
+            invalidated: outcome.invalidated,
+            mapsRefusal: mapsRefusal
         )
     }
 }
@@ -152,6 +189,22 @@ package nonisolated enum SessionPeakRestore {
     /// The recorded disk-detection step, if the record has one.
     package static func diskStep(in record: SessionReplayRecord?) -> SessionReplayRecord.Step? {
         record?.steps.first { $0.kind == diskStepKind }
+    }
+
+    /// As below, for a sidecar's own view record: disks detected on a view the
+    /// sidecar never recorded cannot be matched to the loaded one.
+    package static func refusalBeforeReading(
+        viewRecord: SessionViewRecord,
+        loadedSpecification: LoadSpecification,
+        replay: SessionReplayRecord?
+    ) -> String? {
+        guard case .recorded(let specification) = viewRecord else {
+            return "Stored disks not used — the session did not record which view they were detected on"
+        }
+        return refusalBeforeReading(
+            sessionSpecification: specification,
+            loadedSpecification: loadedSpecification, replay: replay
+        )
     }
 
     /// The checks that need no peaks read — run first so a sidecar that cannot

@@ -152,20 +152,50 @@ package nonisolated struct SessionSidecarInventory: Sendable, Equatable {
     }
 }
 
+/// Which part of the file a session sidecar says it describes.
+///
+/// The writer records a load specification only for a REDUCED view
+/// (`BraggVectorEMDWriter`: a full-extent save writes no attribute), so
+/// "absent" means two different things by era. From schema 6 (2026-08-24) on
+/// it is the writer's own statement "whole file". Before it — schema 5, which
+/// stayed 5 across the 2026-08-18 specification addition — it is the
+/// absence of any statement, and reading it as the whole file is a claim the
+/// file never made (S18).
+package nonisolated enum SessionViewRecord: Equatable, Sendable {
+    /// The sidecar states the view its products were computed under.
+    case recorded(LoadSpecification)
+    /// A sidecar from before views were recorded: no statement either way.
+    case unrecorded
+
+    /// The first schema whose writer states the view (absence = whole file).
+    package static let firstSchemaThatRecordsTheView = 6
+}
+
 package nonisolated struct SessionSidecarSnapshot: Sendable {
     package let inventory: SessionSidecarInventory
     package let calibration: PixelCalibration?
     package let currentResult: ScalarResultMap?
     package let currentRGBAResult: RGBAResultMap?
-    /// The view these products were computed under. **Nil means full extent**,
-    /// not "unknown": a sidecar written before L6 recorded no specification
-    /// because there was none to record.
+    /// The specification ATTRIBUTE, verbatim: written only for a reduced view,
+    /// so nil is "whole file" from schema 6 and "not recorded" before it —
+    /// read `viewRecord`, never `?? .fullExtent` (S18).
     ///
     /// Reopening re-applies this to the SOURCE file. It is never used to
     /// re-derive from reduced data — the source is what is reopened, and the
     /// specification is applied to it again, which is the whole reason a crop is
     /// a view rather than a new dataset (docs/v2-scope.md §6.1).
     package var loadSpecification: LoadSpecification? = nil
+    /// The sidecar's own schema stamp; nil when absent or unreadable.
+    package var schema: Int? = nil
+    /// What the sidecar says about its view — `loadSpecification` alone cannot
+    /// tell "whole file" from "never recorded" (`SessionViewRecord`).
+    package var viewRecord: SessionViewRecord {
+        if let loadSpecification { return .recorded(loadSpecification) }
+        if let schema, schema >= SessionViewRecord.firstSchemaThatRecordsTheView {
+            return .recorded(.fullExtent)
+        }
+        return .unrecorded
+    }
     /// The recorded analysis pipeline, when the sidecar carries one.
     /// **Nil means "no recipe was recorded"** — absence is absence, never an
     /// empty-but-asserted record (the `?? .fullExtent` lesson). // v2 S5
@@ -180,12 +210,13 @@ package nonisolated struct SessionSidecarSnapshot: Sendable {
     package var lineageNote: String? = nil
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, replayRecord: SessionReplayRecord? = nil, lineage: SessionLineage? = nil, lineageNote: String? = nil) {
+    package nonisolated init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, schema: Int? = nil, replayRecord: SessionReplayRecord? = nil, lineage: SessionLineage? = nil, lineageNote: String? = nil) {
         self.inventory = inventory
         self.calibration = calibration
         self.currentResult = currentResult
         self.currentRGBAResult = currentRGBAResult
         self.loadSpecification = loadSpecification
+        self.schema = schema
         self.replayRecord = replayRecord
         self.lineage = lineage
         self.lineageNote = lineageNote

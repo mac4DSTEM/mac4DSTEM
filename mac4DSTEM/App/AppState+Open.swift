@@ -271,9 +271,9 @@ extension AppState {
             let reader = try await Self.makeReader(for: url)
             beginDatasetLoadingStage("Reading file structure of \(url.lastPathComponent)…")
             let descriptor = try await reader.discoverPrimaryDataset()
-            if datasetSession.loadWasCancelled {
+            if await unwindLoadIfNeeded(owner: load) {
+                // The scope is this call's own, released whoever owns the reset.
                 if accessed { url.stopAccessingSecurityScopedResource() }
-                await discardPartialLoad()
                 finishDatasetLoading(owner: load)
                 return
             }
@@ -294,11 +294,10 @@ extension AppState {
                 specification: recorded ?? .fullExtent,
                 runInitialAnalysis: false
             )
-            if datasetSession.loadWasCancelled || !hasDataset {
+            if await unwindLoadIfNeeded(owner: load, orNoDataset: true) {
                 // `activate` unwinds itself on cancellation; this catches the
                 // case where it did, and stops the open continuing into an
                 // analysis of a dataset that is no longer there.
-                await discardPartialLoad()
                 finishDatasetLoading(owner: load)
                 return
             }
@@ -308,8 +307,7 @@ extension AppState {
             // what left the bar parked at its last stage and then vanishing
             // into a generic operation indicator.
             await runCurrentAnalysis()
-            if datasetSession.loadWasCancelled {
-                await discardPartialLoad()
+            if await unwindLoadIfNeeded(owner: load) {
                 finishDatasetLoading(owner: load)
                 return
             }
@@ -329,12 +327,17 @@ extension AppState {
         descriptor sourceDescriptor: DatasetDescriptor,
         reader: any FourDDataSource,
         specification: LoadSpecification = .fullExtent,
-        runInitialAnalysis: Bool = true
+        runInitialAnalysis: Bool = true,
+        initialScan: ScanPos? = nil
     ) async {
         guard sourceDescriptor.is4D else {
             present(H5Error.unsupportedRank(sourceDescriptor.shape.count))
             return
         }
+        // The load this activation belongs to: every caller brackets it with
+        // `beginDatasetLoading` first. Its cancelled tails reset the session
+        // only while that load is still the current one (S18).
+        let loadOwner = datasetSession.loadCancellation
 
         // Dataset replacement is also a cancellation boundary. The epoch still
         // independently prevents any non-cooperative GPU result from landing.
@@ -377,7 +380,11 @@ extension AppState {
         loadedView.reset()
         sessionLoadSpecification = nil
         datasetSession.publishPreview(nil)
-        selectedScan = ScanPos(x: 0, y: 0)
+        // The scan position a caller carries across the reopen (promote), only
+        // where it is a real position of THIS view; otherwise the origin.
+        selectedScan = initialScan.flatMap { start in
+            (0..<descriptor.rx).contains(start.x) && (0..<descriptor.ry).contains(start.y) ? start : nil
+        } ?? ScanPos(x: 0, y: 0)
         resultPresentation.displayRangeLo = 0
         resultPresentation.displayRangeHi = 1
         resultPresentation.resultGamma = 1
@@ -646,7 +653,7 @@ extension AppState {
         }
         pendingRecovery = nil
 
-        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
+        if await unwindLoadIfNeeded(owner: loadOwner) { return }
         beginDatasetLoadingStage("Checking for a saved session…")
         let sessionSnapshot = await loadSessionSnapshot(for: descriptor)
         beginDatasetLoadingStage("Loading first diffraction pattern…")
@@ -662,11 +669,11 @@ extension AppState {
             statusText = "Loaded \(descriptor.fileName) at \(descriptor.datasetPath)"
             progress = 1
         }
-        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
+        if await unwindLoadIfNeeded(owner: loadOwner) { return }
         await buildDatasetPreview()
-        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
+        if await unwindLoadIfNeeded(owner: loadOwner) { return }
         await preloadResidentCube()
-        if datasetSession.loadWasCancelled { await discardPartialLoad(); return }
+        if await unwindLoadIfNeeded(owner: loadOwner) { return }
         // After the cube is settled and BEFORE the initial analysis, so a
         // reopen straight into Disks shows the restored Bragg map; the status
         // line is re-asserted after it because that analysis (and the load's
@@ -687,13 +694,13 @@ extension AppState {
     /// what vouched for the peaks) and the learned-detector record is not
     /// touched (`learnedDetection.record` is for a completed run). The read
     /// is off the main actor and epoch-guarded like the calibration restore.
-    private func restoreSessionPeaks(
+    func restoreSessionPeaks(
         from snapshot: SessionSidecarSnapshot?, for descriptor: DatasetDescriptor
     ) async -> String? {
         guard let snapshot, snapshot.inventory.hasBraggVectors,
               resultPresentation.braggVectors == nil else { return nil }
         if let reason = SessionPeakRestore.refusalBeforeReading(
-            sessionSpecification: snapshot.loadSpecification ?? .fullExtent,
+            viewRecord: snapshot.viewRecord,
             loadedSpecification: loadedView.specification,
             replay: snapshot.replayRecord
         ) { return reason }
@@ -790,6 +797,25 @@ extension AppState {
     /// identical numbers — the parity harness asserts exactly that.
     func releaseResidentCube() async {
         await residency.release(datasetSession.fourD)
+    }
+
+    /// The tail every load runs after a step that can notice a cancel: true
+    /// means "stop". A load stops when its OWN token is cancelled or the
+    /// current one is, but resets the session only while its own load is still
+    /// the current one — a superseded load's tail must not discard whatever
+    /// load replaced it (S18; the owned cancel token of S5 stopped it clearing
+    /// busy, not this).
+    /// `orNoDataset` also stops (and resets) when `activate` left nothing
+    /// loaded — the failure path that presents its own error.
+    func unwindLoadIfNeeded(
+        owner: AnalysisCancellationToken?, orNoDataset: Bool = false
+    ) async -> Bool {
+        let cancelled = (owner?.isCancelled ?? false) || datasetSession.loadWasCancelled
+        guard cancelled || (orNoDataset && !hasDataset) else { return false }
+        if let owner, datasetSession.loadCancellation === owner {
+            await discardPartialLoad()
+        }
+        return true
     }
 
     /// Unwind a cancelled open back to the welcome screen.
@@ -898,7 +924,15 @@ extension AppState {
             }.value
             guard epoch == datasetSession.epoch else { return nil }
             sessionInventory = snapshot.inventory
-            sessionLoadSpecification = snapshot.loadSpecification ?? .fullExtent
+            // What the sidecar SAYS, not what its absence could be read as:
+            // an unrecorded view is not claimed to be the whole file (S18).
+            switch snapshot.viewRecord {
+            case .recorded(let specification):
+                sessionLoadSpecification = specification
+            case .unrecorded:
+                sessionLoadSpecification = nil
+                activityLog.record("This session was saved before sessions recorded their view, so which part of the file it describes is not recorded. Its calibration is used only on a whole-file load; stored disks are not used.")
+            }
             // A colleague's recipe becomes this session's starting point
             // (v2 S5), so a later save round-trips it instead of replacing
             // it. Nil (no recorded recipe) leaves the live record alone.
@@ -914,7 +948,7 @@ extension AppState {
             if let sessionCalibration = snapshot.calibration {
                 applySessionCalibration(
                     sessionCalibration,
-                    recordedOn: snapshot.loadSpecification ?? .fullExtent,
+                    recordedOn: snapshot.viewRecord,
                     for: descriptor
                 )
             }
@@ -946,13 +980,16 @@ extension AppState {
         // doubled-frame Q scale. Policy first; geometry, when owed, through
         // the same engine the file path uses (below).
         let framePolicy = SessionCalibrationFramePolicy.decide(
-            session: sessionSpecification, loaded: loadedView.specification
+            record: sessionView, loaded: loadedView.specification
         )
         if case .refuse(let reason) = framePolicy {
             loadedView.appendInvalidated([
                 CalibrationInvalidation(field: .sessionCalibration, reason: reason)
             ])
-            statusText = "Session calibration not adopted — it was recorded on a different view"
+            // Name what happened: an older sidecar did not record its view at all (drive, 2026-09-30 night).
+            statusText = sessionView == .unrecorded
+                ? "Session calibration not adopted — the session did not record which view it was measured on"
+                : "Session calibration not adopted — it was recorded on a different view"
             return
         }
         // PHASES 1–2 (P2): pure translation — the sidecar's values into
@@ -976,6 +1013,13 @@ extension AppState {
         let sessionInvalidated = translated.invalidated
         if !sessionInvalidated.isEmpty {
             loadedView.appendInvalidated(sessionInvalidated)
+        }
+        // Saved fitted-origin maps that do not fit this frame's scan are named,
+        // never applied and never dropped in silence; the mean stands in (S18).
+        if let refusal = translated.mapsRefusal {
+            loadedView.appendInvalidated([
+                CalibrationInvalidation(field: .origin, reason: refusal)
+            ])
         }
 
         // PHASE 3: merge — only the fields the sidecar actually carried, from

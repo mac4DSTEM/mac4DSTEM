@@ -43,14 +43,12 @@ extension AppState {
                 specification: pending.configuration.specification,
                 runInitialAnalysis: false
             )
-            if datasetSession.loadWasCancelled || !hasDataset {
-                await discardPartialLoad()
+            if await unwindLoadIfNeeded(owner: load, orNoDataset: true) {
                 finishDatasetLoading(owner: load)
                 return
             }
             await runCurrentAnalysis()
-            if datasetSession.loadWasCancelled {
-                await discardPartialLoad()
+            if await unwindLoadIfNeeded(owner: load) {
                 finishDatasetLoading(owner: load)
                 return
             }
@@ -103,6 +101,14 @@ extension AppState {
         // from the record. Empty ⇒ nothing to restate.
         let lineageBeforePromote = replay.lineage
         let frameBeforePromote = replay.parameterFrame
+        // The user's place survives the reopen: a scan crop is a subset of the
+        // source, so the same scene point is the view position plus the crop's
+        // offset (a detector crop or bin moves no scan index). `activate`
+        // keeps it only where it is a real position of the whole view. // S18
+        let carriedScan = ScanPos(
+            x: selectedScan.x + (loadedView.specification.scanCrop?.xOffset ?? 0),
+            y: selectedScan.y + (loadedView.specification.scanCrop?.yOffset ?? 0)
+        )
         // `!datasetSession.isLoading` is the reentrancy gate: without it, the
         // only protections were the button's `.disabled` (blind to a load
         // that starts after the click renders) and an ordering accident —
@@ -131,10 +137,10 @@ extension AppState {
         await activate(
             descriptor: source, reader: reader,
             specification: .fullExtent,
-            runInitialAnalysis: false
+            runInitialAnalysis: false,
+            initialScan: carriedScan
         )
-        if datasetSession.loadWasCancelled || !hasDataset {
-            await discardPartialLoad()
+        if await unwindLoadIfNeeded(owner: load, orNoDataset: true) {
             finishDatasetLoading(owner: load)
             return
         }
@@ -152,8 +158,7 @@ extension AppState {
         }
         if runReestablishingAnalysis {
             await runCurrentAnalysis()
-            if datasetSession.loadWasCancelled {
-                await discardPartialLoad()
+            if await unwindLoadIfNeeded(owner: load) {
                 finishDatasetLoading(owner: load)
                 return
             }

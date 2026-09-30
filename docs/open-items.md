@@ -108,11 +108,12 @@ One line each; full wording as above.
   candidates)" in Prepare; the Lineage list puts a later origin fit above earlier nodes.
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
-- **A superseded load's tail still runs `discardPartialLoad`** (`AppState+Open.swift:810`) over whatever load is current;
-  the owned cancel token (S5) stops it clearing busy, not the reset. Needs two loads in flight (promote/replay).
-- **Fabricated provenance on pre-2026-08-18 sidecars**: `AppState+Open.swift:696,901,917` `?? .fullExtent`. Needs a synthesised sidecar.
-- **Promote/replay**: (a) promote lands at (0,0)? (b) fitted origin maps refuse the full-extent restore's shape check; (c)
-  parallax/ptychography not in the replay record; (d) a user analysis mid-replay steals Cancel; (e) replay contracts in three places.
+- S18 (2026-09-30 night, driven): a load's tail resets only its own load; promote keeps the scan position (crop offset added);
+  crop-shaped origin maps on a whole-file reopen are named ("Not carried into this view"); a schema-5 sidecar's view is
+  "unrecorded" (adopted only at whole file). Residuals: a schema-5 sidecar's stored disks are refused even at whole file (v1.0.0
+  disks no longer restore — owner); an uncancelled superseded tail still runs on (unreachable by click); (c) parallax/ptychography
+  not in the replay record; (d) a user analysis mid-replay steals Cancel; (e) replay contracts in three places (the recording
+  sites + `ProductWorkflow.currentReplaySignature`, `ReplayRecordFrameMap.role`, `ReplayPlanner.parse`) — a design change.
 - **Resident**: "freed" bytes never measured; the reopen fix has no test (the recovery store is real `UserDefaults`). UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
   `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
 

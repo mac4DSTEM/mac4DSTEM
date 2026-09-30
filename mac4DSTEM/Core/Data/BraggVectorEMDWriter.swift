@@ -614,10 +614,13 @@ package nonisolated enum BraggVectorEMDWriter {
             results: results,
             currentResultID: currentID
         )
+        // The stamp is read like the minimum-reader marker: garbage is absent.
+        let schemaText: String? = (try? readStringAttribute(schemaAttribute, on: root, hdf5: h5)) ?? nil
+        let schemaStamp = schemaText.flatMap { Int($0) }
         return SessionSidecarSnapshot(
             inventory: inventory, calibration: calibration,
             currentResult: currentResult, currentRGBAResult: currentRGBAResult,
-            loadSpecification: specification,
+            loadSpecification: specification, schema: schemaStamp,
             replayRecord: replay,
             lineage: lineage, lineageNote: lineageNote
         )
