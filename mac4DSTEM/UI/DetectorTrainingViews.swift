@@ -64,7 +64,9 @@ struct DetectorTrainingReviewSheet: View {
             }
         }
         .padding(20)
-        .fixedSize()
+        // A fixed width, not `.fixedSize()`: that took the sentence below at its one-line ideal width and the
+        // sheet ran past both window edges (owner's drive, 2026-09-30). 480 pt wraps it in four lines.
+        .frame(width: 480)
         .interactiveDismissDisabled(saving)
     }
 
@@ -72,7 +74,7 @@ struct DetectorTrainingReviewSheet: View {
         let s = outcome.candidate
         return "Judged on \(s.heldOutPositions) held-out positions of \(review.datasetFile): \(s.score.truth) disk centres, "
             + String(format: "match radius %.0f px, threshold %.2f", s.radiusPx, s.threshold)
-            + ", detected with Core ML (Neural Engine preferred). "
+            + ", detected on the Neural Engine. "
             + "Trained on \(outcome.trained.count) other positions; the held-out positions never trained it, and they neighbour the training positions, so this holds for this dataset only."
     }
 

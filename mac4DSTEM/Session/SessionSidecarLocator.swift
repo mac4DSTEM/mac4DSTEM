@@ -390,6 +390,18 @@ extension SessionSidecarLocator {
     /// companion would be the one destructive step in an otherwise reversible
     /// gesture. Moved from `AppState.copySidecarFile` (C7 session 4, budget
     /// relocation).
+    /// One file under two spellings (a symlink, a case-differing path): by file identity, never by path string.
+    /// The test "Save As… chose the sidecar it already had" and "Allow Access… chose this dataset's sidecar" both
+    /// rest on it; a name test would let a sidecar of another cube be read as this one's session.
+    package nonisolated static func isSameFile(_ a: URL, _ b: URL) -> Bool {
+        let ra = a.standardizedFileURL.resolvingSymlinksInPath(), rb = b.standardizedFileURL.resolvingSymlinksInPath()
+        if ra == rb { return true }
+        if let x = try? ra.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           let y = try? rb.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           x.isEqual(y) { return true }
+        return false
+    }
+
     package nonisolated static func copySidecarFile(from current: URL, to url: URL) -> SidecarCopyOutcome {
         let manager = FileManager.default
         guard current != url, manager.fileExists(atPath: current.path) else {

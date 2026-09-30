@@ -51,6 +51,23 @@ final class SidecarRelocationTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "current")
     }
 
+    /// `isSameFile` is what "Allow Access…" trusts before it adopts a chosen file as this dataset's sidecar
+    /// (2026-09-30): identity, not spelling — an alias to the same file passes, a same-named file elsewhere does not.
+    func testSameFileIsByIdentityNotByName() throws {
+        let sidecar = try write("session", to: "cube.mac4dstem.h5")
+        let alias = workDirectory.appendingPathComponent("./cube.mac4dstem.h5")
+        XCTAssertTrue(SessionSidecarLocator.isSameFile(alias, sidecar))
+        let link = workDirectory.appendingPathComponent("link.h5")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: sidecar)
+        XCTAssertTrue(SessionSidecarLocator.isSameFile(link, sidecar), "a symlink names the same file")
+        let other = workDirectory.appendingPathComponent("elsewhere", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        let sameName = other.appendingPathComponent("cube.mac4dstem.h5")
+        try Data("other cube's session".utf8).write(to: sameName)
+        XCTAssertFalse(SessionSidecarLocator.isSameFile(sameName, sidecar), "the same name in another folder is another cube's sidecar")
+        XCTAssertFalse(SessionSidecarLocator.isSameFile(workDirectory.appendingPathComponent("missing.h5"), sidecar))
+    }
+
     func testAMissingSourceIsANormalOutcomeNotAFailure() {
         // First-ever relocation, before any save: there is nothing to copy and
         // that must not read as an error.

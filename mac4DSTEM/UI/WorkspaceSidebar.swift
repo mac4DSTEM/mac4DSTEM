@@ -276,6 +276,13 @@ struct SessionSection: View {
             warning("A saved session beside this dataset could not be read.",
                     detail: reason,
                     identifier: "sidebar.session.unreadable")
+            // The way out, where the warning is (2026-09-30): the sandbox grant the app lacks for a sibling it
+            // never saved from this Mac. One open panel at the file, then the dataset reopens with its session.
+            Button("Allow Access…") { appState.allowAccessToSessionSidecar() }
+                .controlSize(.small)
+                .disabled(appState.isBusy)
+                .help("Choose the session file beside this dataset so mac4DSTEM may read it; the dataset then reopens with its session.")
+                .accessibilityIdentifier("sidebar.session.allowAccess")
         } else if let failure = appState.gates.sidecarRestoreFailure,
                   failure.kind == .doesNotFit {
             warning("The saved session describes a region this file does not have.",

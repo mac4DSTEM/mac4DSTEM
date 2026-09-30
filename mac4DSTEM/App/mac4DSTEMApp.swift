@@ -172,6 +172,12 @@ private struct DatasetCommands: Commands {
                       || appState?.isBusy == true
                       || appState?.gates.mayWriteSidecar != true)
             Divider()
+            Button("Allow Access to Session Sidecar…") {
+                appState?.allowAccessToSessionSidecar()
+            }
+            .disabled(appState?.hasDataset != true
+                      || appState?.isBusy == true
+                      || appState?.sessionSidecar.unreadableReason == nil)
             Button("Change Session Sidecar…") {
                 appState?.saveSessionSidecarAs()
             }

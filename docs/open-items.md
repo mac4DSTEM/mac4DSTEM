@@ -121,6 +121,11 @@ One line each; full wording as above.
   128 px aperture — reproduce, then Gate D (it sets what the virtual image integrates).
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
+**Sidecar access (2026-09-30 night, owner's drive):** on a Mac with no grant (every dataset after a migration or a rebuild that
+lost the container's bookmarks) each session read "could not be read — HDF5 … errno 1"; the only remedy was Save As on the same
+file. Fixed: "Allow Access…" under the sidebar warning and in the Dataset menu (an open panel at the sidecar, the grant
+remembered, the dataset reopened), driven on a scratch build (40 labels restored). Residual: the warning still names HDF5 where
+the sandbox refused; a related-item declaration was tried and refused (the sidecar's extension is the dataset's `.h5`).
 - S18 (2026-09-30 night, driven): a load's tail resets only its own load; promote keeps the scan position (crop offset added);
   crop-shaped origin maps on a whole-file reopen are named ("Not carried into this view"); a schema-5 sidecar's view is
   "unrecorded" (adopted only at whole file). Residuals: a schema-5 sidecar's stored disks are refused even at whole file (v1.0.0

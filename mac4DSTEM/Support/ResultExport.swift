@@ -1069,6 +1069,46 @@ extension AppState {
         return url
     }
 
+    /// The way in for a sidecar this Mac was never granted (owner's drive, 2026-09-30: on a freshly migrated Mac
+    /// every session beside every dataset read "could not be read", errno 1, and the only remedy was the save
+    /// panel above — choose the same file, confirm "Replace", then reopen by hand). An OPEN panel at the sidecar,
+    /// then the grant is remembered and the dataset reopens so the session restores at once. The sandbox fact it
+    /// answers is in `SessionSidecarLocator`'s header; a related-item declaration was tried first and refused
+    /// (the sidecar's own extension is the dataset's `.h5`, so the sandbox never sees it as a related type).
+    func allowAccessToSessionSidecar() {
+        guard let descriptor else { present(SimpleError("No dataset is open.")); return }
+        let expected = sessionSidecar.location(for: descriptor)
+        let panel = NSOpenPanel()
+        panel.title = "Allow Access to the Session Sidecar"
+        panel.message = "Choose \(expected.lastPathComponent) so mac4DSTEM may read the session saved beside this dataset."
+        panel.prompt = "Allow Access"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = expected.deletingLastPathComponent()
+        panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
+        guard panel.runModal() == .OK, let url = panel.url else {
+            statusText = "Session sidecar not read — no file chosen"
+            return
+        }
+        _ = url.startAccessingSecurityScopedResource()
+        // The grant is for THIS dataset's sidecar, by file identity, not by name: a sidecar of another cube
+        // would be read as this one's session.
+        guard SessionSidecarLocator.isSameFile(url, expected) else {
+            present(SimpleError("\(url.lastPathComponent) is not this dataset's session sidecar (\(expected.lastPathComponent)); nothing was read."))
+            return
+        }
+        sessionSidecar.adopt(url, for: descriptor)
+        rememberSidecarGrant(url, for: descriptor, what: "Session sidecar access")
+        // Reopen through the recorded path so the session restores exactly as it would have on open.
+        if let recoveryRecord, let recent = recents.entry(withID: recoveryRecord.datasetID) {
+            statusText = "Access granted — reopening \(descriptor.fileName) with its session"
+            openRecent(recent)
+        } else {
+            statusText = "Access to \(url.lastPathComponent) granted; reopen the dataset to restore its session"
+        }
+    }
+
     /// Re-offer the save panel that `writableSessionSidecarURL` only shows
     /// while no grant exists. Before S1 no bookmark ever resolved, so that
     /// panel appeared on every save; S1 made grants resolve, which armed the
