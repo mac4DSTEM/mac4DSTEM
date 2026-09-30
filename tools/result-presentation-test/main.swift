@@ -29,7 +29,7 @@ require(gaps.points.map(\.y) == [0, 0.5, 1], "log10 scaling")
 require(gaps.nearestIndex(toUnitX: 0.5) == 2, "selection skips gaps")
 
 require(SessionResultPresentation.sampling(row: 0.25, column: 0.5, units: "A")
-        == "sampling 0.25 × 0.5 A/px", "sampling label")
+        == "sampling 0.25 × 0.5 Å/px", "sampling label (stored \"A\" displays as Å since 9925598)")
 require(SessionResultPresentation.sampling(row: nil, column: 1, units: "A") == nil,
         "partial sampling omitted")
 let provenance = SessionResultPresentation.provenance([

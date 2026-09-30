@@ -312,8 +312,10 @@ mac4dstem_sources() {
         )
         ;;
       presentation)
-        # ResultPresentation stands alone (tools/result-presentation-test).
-        want+=("$core/Data/ResultPresentation.swift")
+        # ResultPresentation on the calibration group: its sampling label reads CalibrationUnitConversion
+        # (Calibration.swift, since 9925598) (tools/result-presentation-test).
+        mac4dstem_sources "$repo" calibration
+        want+=("${MAC4DSTEM_SOURCES[@]}" "$core/Data/ResultPresentation.swift")
         ;;
       crystal)
         # Crystal models and CIF import, no indexing (cif-symmetry-test,
