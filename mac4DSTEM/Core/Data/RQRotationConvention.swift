@@ -27,6 +27,21 @@ package enum RQRotationConvention {
     /// app's own sign.
     package static let marker = "py4DSTEM"
 
+    /// True for a datacube this app wrote before 2026-09-28: `authoring_program`
+    /// is "mac4DSTEM" and there is no marker. That identifies the WRITER, not the
+    /// sign of the value: before the conversion the app imported a py4DSTEM
+    /// `QR_rotation` raw and exported it raw, so such a file holds the app's sign
+    /// if the rotation was measured here and py4DSTEM's if it was imported.
+    /// Hence a label, never a conversion (`docs/archive/v4/s15-rq-legacy-exports-2026-09-30.md`).
+    package nonisolated static func isUnmarkedExportOfThisApp(authoringProgram: String?,
+                                                              convention: String?) -> Bool {
+        convention != marker && authoringProgram == "mac4DSTEM"
+    }
+
+    /// Shown wherever such a file's rotation is read.
+    package static let legacyNote =
+        "Sign unrecorded (exported by mac4DSTEM before 2026-09-28): check it before DPC, strain or parallax."
+
     /// py4DSTEM's angle (radians) for the app's internal one.
     package nonisolated static func py4DSTEM(fromApp appRad: Double) -> Double { -appRad }
 

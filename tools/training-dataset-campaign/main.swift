@@ -199,7 +199,10 @@ private func pixelCalibration(
     output.ellipseA = calibration.ellipseA
     output.ellipseB = calibration.ellipseB
     output.ellipseTheta = calibration.ellipseTheta
-    output.qrRotationRad = calibration.rotationRad.map(Double.init)
+    // ADR 040: files carry py4DSTEM's R–Q sign, marked as such.
+    output.qrRotationRad = calibration.rotationRad
+        .map { RQRotationConvention.py4DSTEM(fromApp: Double($0)) }
+    if output.qrRotationRad != nil { output.qrRotationConvention = RQRotationConvention.marker }
     output.probeSemiangle = calibration.probeRadius.map(Double.init)
     return output
 }
@@ -265,7 +268,9 @@ private func evaluate(
         calibration.rPixelSize = imported.rSize
         calibration.rPixelUnits = imported.rUnits
         calibration.transposeQR = imported.qrFlip
-        calibration.rotationRad = imported.qrRotationRad.map(Float.init)
+        // ADR 040: `PixelCalibration.qrRotationRad` is py4DSTEM's sign; the app's is its negative.
+        calibration.rotationRad = imported.qrRotationRad
+            .map { Float(RQRotationConvention.app(fromPy4DSTEM: $0)) }
         calibration.probeRadius = imported.probeSemiangle.map(Float.init)
         calibration.ellipseA = imported.ellipseA
         calibration.ellipseB = imported.ellipseB
@@ -500,11 +505,14 @@ private func evaluate(
             "pass", seconds: rotationSeconds,
             detail: String(
                 format: "%.2f° · transpose %@ · objective %.6g",
-                rotation.rotationRad * 180 / .pi,
+                RQRotationConvention.displayDegrees(fromApp: rotation.rotationRad),
                 rotation.transpose ? "yes" : "no", rotation.objective
             ),
             metrics: [
-                "rotation_degrees": Double(rotation.rotationRad * 180 / .pi),
+                // py4DSTEM's convention (ADR 040), the sign a user reads;
+                // the app-internal angle is its negative.
+                "rotation_degrees": RQRotationConvention.displayDegrees(fromApp: rotation.rotationRad),
+                "rotation_degrees_app_internal": Double(rotation.rotationRad * 180 / .pi),
                 "objective": Double(rotation.objective),
             ]
         )

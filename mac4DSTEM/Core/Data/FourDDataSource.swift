@@ -93,6 +93,11 @@ package nonisolated struct PixelCalibration: Sendable {
     /// convention and this app wrote it (sidecars since 2026-09-28); nil for
     /// older sidecars, which hold the app's own sign (ADR 040).
     package var qrRotationConvention: String? = nil
+    /// Set by `H5Reader` when `qrRotationRad` comes from a datacube this app
+    /// wrote before 2026-09-28, whose sign the file cannot prove
+    /// (`RQRotationConvention.legacyNote`); the value itself is passed through
+    /// unchanged. nil otherwise.
+    package var qrRotationNote: String? = nil
     /// Probe radius returned by py4DSTEM probe-size fitting, in detector px.
     package var probeSemiangle: Double? = nil
     /// Fitted (and optionally measured) per-position origins from py4DSTEM.

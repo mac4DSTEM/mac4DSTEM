@@ -200,3 +200,7 @@ Their drive 2A/2B and the block-3 supervisor were running at the cut — read `$
   (adopted only at whole file, refused into a reduced view with its own status line). 22 tests red first, 14 mutations red;
   Fable supervisor COMMIT; drive 2B saw (b) (d) (f) on screen (orchestrator-reviewed shots; the drive's own supervisor was lost
   to the usage limit).
+- S15 R–Q sign residuals: label-only (the Fable supervisor refuted the auto-convert: pre-09-28 the app re-exported py4DSTEM's sign
+  raw too). An unmarked mac4DSTEM export keeps today's number; its R–Q row says the sign is unrecorded. 5 + 1 tests, mutations red;
+  campaign import/export marked. Drive 2B saw the (long) note on Si-SiGe_calibrated.h5 read-only, md5 unchanged; the shortened
+  text is not yet seen on screen.

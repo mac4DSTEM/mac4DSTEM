@@ -81,6 +81,10 @@ package nonisolated struct CalibrationProvenance: Equatable, Sendable {
     package var rotation: CalibrationValueProvenance?
     package var qScale: CalibrationValueProvenance?
     package var rScale: CalibrationValueProvenance?
+    /// A caveat the file attached to its rotation (S15: an R–Q rotation this app
+    /// exported before 2026-09-28 has an unknown sign). Shown on the R–Q row only
+    /// while `rotation` is still `.importedFile`: measuring or typing it retires it.
+    package var rotationImportNote: String?
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(probe: CalibrationValueProvenance? = nil, ellipse: CalibrationValueProvenance? = nil, rotation: CalibrationValueProvenance? = nil, qScale: CalibrationValueProvenance? = nil, rScale: CalibrationValueProvenance? = nil) {
@@ -338,7 +342,7 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         }
 
         let validRotation = calibration.rotationRad?.isFinite == true
-        let rotationDetail: String
+        var rotationDetail: String
         if let rotation = calibration.rotationRad, rotation.isFinite {
             rotationDetail = String(
                 format: "%.1f°%@", RQRotationConvention.displayDegrees(fromApp: rotation),
@@ -346,6 +350,9 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
             )
         } else {
             rotationDetail = "Scan and detector axes are not aligned"
+        }
+        if provenance.rotation == .importedFile, let note = provenance.rotationImportNote {
+            rotationDetail += "\n" + note
         }
 
         let positiveQ = calibration.qPixelSize.map { $0.isFinite && $0 > 0 } ?? false

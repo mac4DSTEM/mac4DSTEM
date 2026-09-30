@@ -476,6 +476,12 @@ extension AppState {
             calibrationSession.calibration.ellipseB = pc.ellipseB
             calibrationSession.calibration.ellipseTheta = pc.ellipseTheta
             if calibrationSession.calibration.hasRotation { calibrationSession.provenance.rotation = .importedFile }
+            // S15: an R–Q rotation this app exported before 2026-09-28 carries no sign
+            // marker; the value is read as today and the doubt is shown, never resolved.
+            if calibrationSession.calibration.hasRotation, let note = pc.qrRotationNote {
+                calibrationSession.provenance.rotationImportNote = note
+                statusText = note
+            }
             if calibrationSession.calibration.probeRadius.map({ $0.isFinite && $0 > 0 }) == true {
                 calibrationSession.provenance.probe = .importedFile
             }

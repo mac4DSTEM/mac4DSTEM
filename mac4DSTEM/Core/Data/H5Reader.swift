@@ -816,6 +816,14 @@ package actor H5Reader: FourDDataSource {
             out.ellipseB = scalar("b")
             out.ellipseTheta = scalar("theta")
             out.qrRotationRad = scalar("QR_rotation")
+            // ADR 040 residual: the value is passed through unchanged; only a
+            // note says its sign cannot be proven (see RQRotationConvention).
+            if out.qrRotationRad != nil,
+               RQRotationConvention.isUnmarkedExportOfThisApp(
+                   authoringProgram: readStringAttribute("authoring_program", onPath: "/"),
+                   convention: string("QR_rotation_convention")) {
+                out.qrRotationNote = RQRotationConvention.legacyNote
+            }
             out.probeSemiangle = scalar("probe_semiangle")
 
             // py4DSTEM Metadata writes array-valued calibration entries as
