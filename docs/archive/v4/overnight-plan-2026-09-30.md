@@ -112,17 +112,23 @@ open-items shorter (count entries before/after), the Board republished (read it 
 morning report here: what landed (commits), what was seen on screen (shots under `drives-2026-09-30-night-shots/`),
 what is proposed (YELLOW), §5 decisions, what did not fit and why. Memory notes updated last.
 
-## 4a. Morning report (cut short at 00:45 by the usage limit)
+## 4a. Morning report
 
-**Landed (gated, Fable-supervised, driven where it draws):** S17 `c403125`, S13 `f59e65f`, S19 `f73be56`, S16 `e19b32c`,
-S12 `b8b4544`, S23 `08f457a`. YELLOW records: S14 `1c3da28`, S20 `a29359b`, S21 `7d5f0a8` (+ pre-registrations and amendments
-committed before their runs). Unit on the full tree 1278 / 0 / 3 = 1281 (`unit-b2.log`, exit 0).
-**Seen on screen:** drive 1 (S12 a–e, S23), every shot checked by a Fable supervisor (`drives-2026-09-30-night-shots/`).
-**Done, gated, NOT committed (in the working tree):** DEC (decisions 1+2), S15 label-only (+ the durable R–Q row note), S18
-(load tail, promote position, map-shape naming, unrecorded sidecar view), S22 (8 accessibility labels; the probe found no crash).
-Their drive 2A/2B and the block-3 supervisor were running at the cut — read `$SP/drive/report-d2a.md`, `report-d2b.md`,
-`$SP/sup3/verdict.md` (session b119bc6d scratchpad), fix any FIX-FIRST, then commit each with its open-items lines.
-**Not done:** status.md handoff, ROADMAP ticks, the Board republish, open-items lines for S14/S15/S18/S22/DEC.
+**Landed** (each gated, Fable-supervised, driven where it draws): S17 `c403125`, S13 `f59e65f`, S19 `f73be56`, S16 `e19b32c`,
+S12 `b8b4544`, S23 `08f457a`, S18 `64015f0`, S15 `19f5b07`, owner decisions 1–2 `3cb567e`, S22 `53440b3`. Unit 1279 / 0 / 3 =
+1282 (`unit-final.log`); baseline 1205. A usage-limit cut at 00:45 killed two drivers and three refuters; the night resumed at
+02:30 and landed the rest (drive-2 shots reviewed by the orchestrator, not by a Fable supervisor — stated in each commit).
+**Seen on screen** (`drives-2026-09-30-night-shots/`): S12 a–e and its three post-drive strings; S23 wash 891 / 8400; decision 1
+on a from-file and a measured origin; S15's note on Si-SiGe_calibrated.h5 (read-only); S18 promote position, map-shape naming,
+the legacy sidecar at whole file and binned; S22 labels re-probed. **Not seen:** decision 2; the shortened R–Q note text.
+**YELLOW:** S14 bar not met (refuter HOLDS; next: Gate D on the refine step); S20 candidate F recovers every off-grid failure
+but worsens demo grain C — not proposed; S21 bar met, ready patch (Au_ref guard post hoc; S20/S21 refuters cut — owed).
+**Clumsy things recorded with proposals:** open-items S4 "Drive 2026-09-30 night" (β″ twins in the Matrix picker, no way back
+from Show Objects, Re-measure missing, "Loaded with the dataset" after a save…); drive 2 adds: the annulus centre handle cannot
+be dragged while the inner radius is 0; "Not carried into this view" only on the Info tab; the Session section lists a refused
+calibration as loaded; restored units print "A^-1"; the promote status line drops the pattern readout.
+**Open-items:** 21 → 20 headings; closed CIF E2 / #32, objects picture, "Computed this session", Fit anyway, detector move,
+S5 residual bullets, the virtual-detector loops, accessibility (rewritten).
 
 ## 5. Decisions for the owner (decided overnight — overrule on sight)
 
