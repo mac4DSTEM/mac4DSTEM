@@ -134,7 +134,7 @@ One line each; full wording as above.
 
 ### The new Mac (M5 Pro, 64 GB): brought up 2026-09-30 — the three hardware lanes
 Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" retired, the > 2 GB read rule kept until the 28
-GB DM4 is read here) and the owed old-Mac run of the MPSGraph repro: `archive/v4/newmac-gateD-2026-09-30/record.md`. **Lanes:**
+GB DM4 is read here) — `archive/v4/newmac-gateD-2026-09-30/record.md` (chip vs OS for the MPSGraph bug stays open: the old Mac is retired). **Lanes:**
 (1) C5, 500 training steps on ≥ 12 held-out labelled positions and Train Model… driven (the labelled sidecar sits beside the
 bullseye cube); (2) parallax and single-slice ptychography on real data — 8–11 GB asked for a 268 MB cube: a Gate D on the true
 cost, then the owner keeps or removes them; (3) the 28 GB `--parity` run of the raw Al-Mg-Si DM4 (`almgsi-gateD-2026-09-24.md`
@@ -167,8 +167,8 @@ both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need
   at the first red harness.
 - **Learned-detector parity is a same-runtime claim**: skips where no Neural Engine is listed (bars not loosened); a
   CPU-written second fixture would make it a check. With CI's unit job paused (ADR 040) every green gate is local.
-  **M5 Pro (2026-09-30, Gate D, refuter HOLDS):** Core ML's `.all` runs it all on the GPU (aned log) → 8 extra picks, red;
-  forced ANE passes 354/354 (batch 32 only — others fall silently to CPU). Mechanism unknown; owner pick a/b in ROADMAP.
+  **M5 Pro (2026-09-30, Gate D, refuter HOLDS):** Core ML `.all` runs it on the GPU (aned log): 8 extra picks, red; forced ANE
+  354/354 (batch 32 only, else silent CPU). Mechanism unknown; owner: back on the ANE (queued), red on the M5 until then.
 
 ### Accessibility (does NOT block a release — owner decision, 2026-09-11)
 The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` did not recur: a full AX probe of every room

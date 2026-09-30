@@ -127,7 +127,7 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
 - [ ] **Residency returns, measured (ADR 013's condition, owner 2026-09-30):** the knee measured with `tools/residency-sweep` on
   a cube near the budget (the 28 GB raw Al-Mg-Si), then `.automatic` back, no new surface. Pre-registered, not started:
   `archive/v4/residency-preregistration-2026-09-30.md` (three owner decisions at its start).
-- [ ] **Owner pick, M5 learned parity:** (a) the test loads the ANE and asserts it ran, or (b) the app too (`open-items.md`).
+- [ ] **Learned detector back on the ANE (owner, 2026-09-30):** batch-32 guard, test asserts the ANE ran, scan-level checks (`open-items.md`).
 - [ ] **C5 and the hardware lanes (ADR 043/048):** training no longer crashes on the M5 (`9026863`). the 500-step training run on ≥ 12 held-out labelled positions and Train
   Model… driven (the 8 GB Mac's admission refused it, 2.10–2.13 of 2.16 GB); parallax/ptychography on real data (cost Gate
   D, then keep or remove); the 28 GB parity run.

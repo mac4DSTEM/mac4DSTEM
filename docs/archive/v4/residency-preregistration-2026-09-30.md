@@ -15,8 +15,9 @@ not tuned; `measuredWorkingSetFraction` nil "kept as the return path"). This fil
 - `CLAUDE.md` hard rule "Do NOT set `measuredWorkingSetFraction`" and ADR 013 stand until the owner lifts them **in that
   session**; if lifted: a superseding ADR, the rule edited in `CLAUDE.md` (+ `tools/sync-agents-md.sh`).
 - Gate D (a threshold is being set) and an independent refuter reading the sweep's own output, not the diff.
-- Threshold rule: a knee measured on one machine is that machine's. Measure it on **two**: this M5 Pro (64 GB, working set
-  55.7 GB, max buffer 41.7 GB) and the old 8 GB M3 with a cube near its own budget (a ≤ 2 GB file — the old Mac's panic line).
+- Threshold rule: a knee measured on one machine is that machine's. Only this M5 Pro (64 GB, working set 55.7 GB, max buffer
+  41.7 GB) is available — the old 8 GB M3 was retired 2026-09-30 — so the fraction is measured on one machine, and that is
+  decision 2 below, not a footnote.
 
 ## Measurement plan (predictions stated before running)
 1. Data near the budget: the raw Al-Mg-Si DM4 (28 GB on the external SSD); `residency-sweep` reads HDF5 only → convert once to a
@@ -26,8 +27,8 @@ not tuned; `measuredWorkingSetFraction` nil "kept as the return path"). This fil
    **Prediction:** resident beats tiled up to a fraction of the working set, then degrades sharply once Metal pages; the
    knee is expected between 0.5 and 0.8 of 55.7 GB. **Refuted if** there is no knee (resident never faster, or never slower
    before the 41.7 GB buffer cap), or repeats disagree by more than the gap being measured.
-3. The fraction ships only if both machines' knees, as fractions, agree within the margin chosen before the old-Mac run;
-   otherwise the owner chooses (below). A knee that is not clean keeps ADR 013 as it is — that is a result, not a failure.
+3. A knee that is not clean keeps ADR 013 as it is — that is a result, not a failure. A clean knee is this Mac's; how far it
+   travels is the owner's decision 2.
 
 ## Tests written before the change
 `admits` / `resolve` with injected working-set sizes (8 GB and 64 GB) — the same cube streams on one and goes resident on the
@@ -35,5 +36,5 @@ other; `.automatic` never exceeds `maximumBufferLength`; each broken by a one-li
 resident-vs-tiled harness on one real cube.
 
 ## Decisions owed to the owner (at that session's start)
-1. Lift the `CLAUDE.md` rule and ADR 013 for this attempt. 2. One fraction for every Mac, or `.automatic` only above a measured
-machine size if the two knees disagree. 3. Disk for the converted/cropped copies (tens of GB; 779 GB free on 2026-09-30).
+1. Lift the `CLAUDE.md` rule and ADR 013 for this attempt. 2. One machine's fraction for every Mac, or `.automatic` only on
+Macs at least this one's working set (smaller Macs keep streaming, today's behaviour). 3. Disk for the converted/cropped copies (tens of GB; 779 GB free on 2026-09-30).

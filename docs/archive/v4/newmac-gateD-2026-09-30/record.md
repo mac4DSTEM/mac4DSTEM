@@ -83,3 +83,8 @@ Prior record (LearnedDiskDetectorTests.swift:227-238 + open-items "Learned-detec
 | Training admission (2 GiB available) and "quit Claude before training" | ≈ 31.6 GB free + inactive with the app, Xcode and this session resident | Bar **unchanged** (it is the run's own need, not the machine's); the quit-Claude practice **retired** |
 | "Never open > 2 GB through an unproven path" (the 2026-09-24 panic) | No local file > 2 GB (largest: bullseye 2.0 GB). `real-data-acceptance` opens all six local cubes in 30 s, largest child 281 MB RSS (`/usr/bin/time -l`), swap 0 | **Kept** until the 28 GB DM4 is read here (queue: the parity run) — a null on ≤ 2 GB files proves nothing above it |
 | `ResidencyAdmission.measuredWorkingSetFraction` | nil by decision | Untouched; its return is the next queue item, pre-registered |
+
+## 4 — Owner, 2026-09-30 (after the closeout)
+
+(b): the learned detector goes back on the Neural Engine in the app (queued with the refuter's preconditions). The old Mac
+is retired, so the MPSGraph bug's chip-vs-OS question stays open; the fix does not depend on it.
