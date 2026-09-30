@@ -38,7 +38,8 @@ enum CalibrationReadinessRow {
         _ item: CalibrationReadinessItem,
         appState: AppState,
         rScaleFilenameConflict: String?,
-        qScaleUnavailableReason: String
+        qScaleUnavailableReason: String,
+        inPrepare: Bool = false
     ) -> some View {
         // The symbol carries the state's colour (the status word is plain
         // secondary text): a "fit anyway" result is ready but caveated, so
@@ -56,7 +57,9 @@ enum CalibrationReadinessRow {
             title: item.kind.rawValue,
             systemImage: symbol,
             tint: tint,
-            detail: setAsideOrigin ? item.detail + "\n" + originReplacedDetail : item.detail,
+            detail: setAsideOrigin
+                ? item.detail + "\n" + originReplacedDetail(displaced: appState.supersededFittedOrigin?.provenance)
+                : item.detail,
             status: item.status.displayName
         )
         // `unlockSummary` says what this calibration *enables*: on hover and
@@ -94,8 +97,18 @@ enum CalibrationReadinessRow {
                     .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
                 }
             }
-            if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
-                for: item.kind, status: item.status
+            // Prepare only: the same view's Info tab says why the saved
+            // calibration was not carried (Info is far down; the row is here).
+            if inPrepare, let note = CalibrationCarryNotes.rowNote(
+                kind: item.kind, invalidated: appState.loadedView.invalidatedCalibration
+            ) {
+                InspectorWarning(note)
+                    .accessibilityIdentifier("calibration.notCarried.\(item.kind.id)")
+            }
+            if showsAction(
+                kind: item.kind, status: item.status,
+                canRestoreFittedOrigin: appState.canRestoreFittedOrigin,
+                offersRemeasure: inPrepare
             ) {
                 action(
                     appState: appState, kind: item.kind, status: item.status,
@@ -118,10 +131,36 @@ enum CalibrationReadinessRow {
     }
 
     /// The sentence the origin row adds while its fit is set aside. "Recorded
-    /// mean" is the file's own qx0/qy0 mean, which the drag discarded when the
-    /// file had one.
-    static let originReplacedDetail =
-        "Aperture center replaced the fitted origin; the file's recorded mean, if any, was discarded."
+    /// mean" is the file's own qx0/qy0 mean, which the drag discarded — so the
+    /// clause is said only when the displaced maps came from a file; for a fit
+    /// measured in the app it is noise (drive 2A, shot 26).
+    static func originReplacedDetail(displaced: OriginProvenance?) -> String {
+        switch displaced {
+        case .fileMean, .fileMaps:
+            return "Aperture center replaced the fitted origin; the file's recorded mean, if any, was discarded."
+        default:
+            return "Aperture center replaced the fitted origin."
+        }
+    }
+
+    /// The origin row's action verb: a first measurement, or a re-measure once an
+    /// origin exists (the same action either way).
+    static func originActionTitle(status: CalibrationReadinessStatus) -> String {
+        status.isReady ? "Re-measure Origin & Probe" : "Measure Origin & Probe"
+    }
+
+    /// Whether the row carries its action. A row that is not ready always does;
+    /// the scale rows keep their manual editor; and Prepare (not the export
+    /// sheet) keeps a re-measure on a ready origin — unless "Restore Fitted
+    /// Origin" is the row's action, which is what the reader needs then.
+    static func showsAction(
+        kind: CalibrationReadinessKind, status: CalibrationReadinessStatus,
+        canRestoreFittedOrigin: Bool, offersRemeasure: Bool
+    ) -> Bool {
+        if !status.isReady { return true }
+        if PrepareSettings.shouldShowManualScaleEditor(for: kind, status: status) { return true }
+        return kind == .originProbe && offersRemeasure && !canRestoreFittedOrigin
+    }
 
     @ViewBuilder
     static func action(
@@ -133,7 +172,7 @@ enum CalibrationReadinessRow {
         switch kind {
         case .originProbe:
             InspectorActionRow {
-                Button("Measure Origin & Probe") {
+                Button(originActionTitle(status: status)) {
                     PendingEdits.run { await appState.calibrateOrigin() }
                 }
                 .disabled(appState.isBusy)
@@ -237,5 +276,30 @@ enum CalibrationReadinessRow {
             .fixedSize()
             .accessibilityIdentifier(identifier + ".units")
         }
+    }
+}
+
+/// The one line that says a saved calibration was not carried into this view,
+/// where the reader is (Prepare) rather than only at the foot of the Info tab.
+/// The full reason stays in Info › "Not carried into this view".
+enum CalibrationCarryNotes {
+    /// The whole saved session calibration was refused for this view.
+    static func sessionCalibrationRefused(_ invalidated: [CalibrationInvalidation]) -> Bool {
+        invalidated.contains { $0.field == .sessionCalibration }
+    }
+
+    /// One line under the Calibration section's rows, or nil.
+    static func sectionNote(invalidated: [CalibrationInvalidation]) -> String? {
+        sessionCalibrationRefused(invalidated)
+            ? "Saved calibration not applied to this view — see Info › Not carried into this view"
+            : nil
+    }
+
+    /// One line under a row, or nil. Only the origin row has one; a refused
+    /// session calibration is said once for the section, not per row.
+    static func rowNote(kind: CalibrationReadinessKind, invalidated: [CalibrationInvalidation]) -> String? {
+        guard kind == .originProbe, !sessionCalibrationRefused(invalidated),
+              invalidated.contains(where: { $0.field == .origin }) else { return nil }
+        return "Saved origin not applied in full here — see Info › Not carried into this view"
     }
 }

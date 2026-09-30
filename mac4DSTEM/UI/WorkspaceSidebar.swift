@@ -328,14 +328,13 @@ struct SessionSection: View {
             // beside the cube, not from this session's work — short enough
             // to survive a sidebar row's one-line width; the full sentence
             // is on hover, the same choice the next-step hint makes.
-            Text("Loaded with the dataset — from earlier analysis")
+            let wording = SessionSidebarWording.explainer(
+                savedThisSession: appState.sessionSidecar.wroteThisSession)
+            Text(wording.text)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .help("A session sidecar saved beside this dataset. It carries "
-                      + "the calibration and results of earlier analysis, and was "
-                      + "restored when the dataset was opened — nothing here was "
-                      + "computed in this session.")
+                .help(wording.help)
                 .accessibilityIdentifier("sidebar.session.explainer")
 
             // No summary line: the rows below name the same objects it counted.
@@ -348,9 +347,19 @@ struct SessionSection: View {
                 .accessibilityIdentifier("sidebar.session.sidecar")
 
             if appState.sessionInventory.hasCalibration {
-                Label("Calibration", systemImage: "scope")
+                // A calibration the session refused for this view is in the file
+                // and not in use: the row must not read as loaded (drive 2B f2).
+                let refused = CalibrationCarryNotes.sessionCalibrationRefused(
+                    appState.loadedView.invalidatedCalibration)
+                Label(SessionSidebarWording.calibrationRowTitle(refusedForThisView: refused),
+                      systemImage: "scope")
                     .font(.caption)
                     .imageScale(.small)
+                    .foregroundStyle(refused ? Color.secondary : Color.primary)
+                    .lineLimit(1)
+                    .help(refused
+                          ? "The saved calibration was not applied to this view — Info › Not carried into this view says why."
+                          : "")
                     .accessibilityIdentifier("sidebar.session.calibration")
             }
             if appState.sessionInventory.hasBraggVectors {
@@ -444,4 +453,33 @@ struct SessionSection: View {
         return lines.joined(separator: "\n")
     }
 
+}
+
+/// The Session section's two sentences that depend on state, as pure functions
+/// (a view describes UI only).
+enum SessionSidebarWording {
+    /// The line above the sidecar's rows. `savedThisSession` is the sidecar
+    /// seam's own `wroteThisSession`: this app wrote the file since the dataset
+    /// was opened, so "Loaded ... from earlier analysis" would be wrong (drives
+    /// 1 and 2B) — including after a reopen-continue-save. The file may still
+    /// carry earlier analysis; the help says so.
+    static func explainer(savedThisSession: Bool) -> (text: String, help: String) {
+        if savedThisSession {
+            return ("Saved with the dataset",
+                    "A session sidecar written beside this dataset in this session. "
+                    + "It may also carry earlier analysis restored when the dataset was "
+                    + "opened. It is restored the next time the dataset is opened.")
+        }
+        return ("Loaded with the dataset — from earlier analysis",
+                "A session sidecar saved beside this dataset. It carries "
+                + "the calibration and results of earlier analysis, and was "
+                + "restored when the dataset was opened — nothing here was "
+                + "computed in this session.")
+    }
+
+    /// The Calibration row's title: a calibration the file holds but this view
+    /// refused is not "loaded".
+    static func calibrationRowTitle(refusedForThisView: Bool) -> String {
+        refusedForThisView ? "Calibration — not used in this view" : "Calibration"
+    }
 }

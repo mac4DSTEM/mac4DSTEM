@@ -85,8 +85,8 @@ struct PrepareSettings: View {
         if let validity, !validity.isEmpty {
             let total = validity.count
             let kept = validity.reduce(0) { $0 + ($1 ? 1 : 0) }
-            return String(format: "%d of %d positions (%.0f%% excluded as outliers)",
-                          kept, total, excludedPercent)
+            return String(format: "%@ of %@ positions (%.0f%% excluded as outliers)",
+                          SystemMonitor.count(kept), SystemMonitor.count(total), excludedPercent)
         }
         return String(format: "%.0f%% (%.0f%% excluded as outliers)",
                       (1 - Double(excluded)) * 100, excludedPercent)
@@ -144,6 +144,12 @@ struct PrepareSettings: View {
 
         InspectorSection("Calibration") {
             Group {
+                if let note = CalibrationCarryNotes.sectionNote(
+                    invalidated: appState.loadedView.invalidatedCalibration
+                ) {
+                    InspectorWarning(note)
+                        .accessibilityIdentifier("calibration.notCarried.session")
+                }
                 ForEach(report.items) { item in
                     readinessRow(item)
                 }
@@ -476,7 +482,8 @@ struct PrepareSettings: View {
         CalibrationReadinessRow.row(
             item, appState: appState,
             rScaleFilenameConflict: rScaleFilenameConflict,
-            qScaleUnavailableReason: qScaleUnavailableReason
+            qScaleUnavailableReason: qScaleUnavailableReason,
+            inPrepare: true
         )
     }
 

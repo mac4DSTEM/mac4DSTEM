@@ -180,6 +180,10 @@ final class CalibrationDisclosureTests: XCTestCase {
         XCTAssertEqual(
             PrepareSettings.positionsUsedValue(excludedFraction: 0.2, validity: mask),
             "8 of 10 positions (20% excluded as outliers)")
+        // Grouped like every other count on screen (polish, 2026-09-30).
+        let big = [Bool](repeating: true, count: 7_509) + [Bool](repeating: false, count: 891)
+        XCTAssertTrue(PrepareSettings.positionsUsedValue(excludedFraction: 891.0 / 8_400, validity: big)
+            .hasPrefix("7,509 of 8,400 positions"))
         // Restored session, no mask: percentage only, and never the "N of M" form.
         let fallback = PrepareSettings.positionsUsedValue(excludedFraction: 0.2, validity: nil)
         XCTAssertEqual(fallback, "80% (20% excluded as outliers)")

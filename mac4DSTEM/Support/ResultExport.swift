@@ -249,7 +249,7 @@ extension AppState {
             ? (pixel.row ?? pixel.column) : (pixel.column ?? pixel.row)
         let withScale = Self.burnScaleBar(on: cg,
                                       unitsPerDataPixel: sampling,
-                                      unitLabel: sampling != nil ? (pixel.units ?? "px") : "px")
+                                      unitLabel: sampling != nil ? CalibrationUnitConversion.displayLabel(pixel.units ?? "px") : "px")
         let final = Self.publicationFigure(
             image: withScale, title: currentResultDisplayName,
             caption: publicationCaption,
@@ -659,7 +659,7 @@ extension AppState {
         let qSize = calibrationSession.calibration.qPixelSize
         let final = Self.burnScaleBar(on: cg,
                                       unitsPerDataPixel: qSize,
-                                      unitLabel: qSize != nil ? (calibrationSession.calibration.qPixelUnits ?? "1/nm") : "px")
+                                      unitLabel: qSize != nil ? CalibrationUnitConversion.displayLabel(calibrationSession.calibration.qPixelUnits ?? "1/nm") : "px")
         Self.savePNG(final, suggestedName: exportBaseName + "_cbed.png", state: self)
     }
 
@@ -781,6 +781,7 @@ extension AppState {
                 }.value
                 self.reportLineageOmission()
                 guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
+                self.sessionSidecar.noteWritten()
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
                     self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
                 }
@@ -1022,6 +1023,7 @@ extension AppState {
             }.value
             reportLineageOmission()
             guard isCurrentOperation(token), epoch == datasetSession.epoch else { return }
+            sessionSidecar.noteWritten()
             let inventory = try await Task.detached(priority: .utility) {
                 try BraggVectorEMDWriter.loadInventory(from: url)
             }.value
@@ -1161,6 +1163,7 @@ extension AppState {
             let isCurrent = { self.datasetSession.epoch == epoch && self.sessionSidecar.location(for: descriptor) == url }
             let inventoryRefreshError = await self.refreshSessionInventory(from: url, isCurrent: isCurrent)
             guard isCurrent() else { return }
+            self.sessionSidecar.noteWritten()
             if let inventoryRefreshError {
                 self.sessionInventory = .empty
                 self.statusText = "Session sidecar location changed, but Results could not be read: \(inventoryRefreshError)"
@@ -1221,6 +1224,7 @@ extension AppState {
                 }.value
                 self.reportLineageOmission()
                 guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
+                self.sessionSidecar.noteWritten()
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
                     self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
                 }

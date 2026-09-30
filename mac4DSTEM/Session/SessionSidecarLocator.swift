@@ -103,6 +103,15 @@ package final class SessionSidecarLocator {
     /// is reachable"), and deleting it now to re-add it then would be churn.
     package private(set) var hasGrant = false
 
+    /// Whether this app wrote (or re-homed) the open dataset's sidecar since the
+    /// dataset was opened. The Session sidebar says "Saved with the dataset"
+    /// rather than "Loaded ... from earlier analysis" while this is true; the
+    /// file may still carry earlier analysis too. Set by `noteWritten()` after
+    /// a successful write, cleared by `release()` when the dataset changes.
+    package private(set) var wroteThisSession = false
+
+    package func noteWritten() { wroteThisSession = true }
+
     /// Set when a sidecar exists beside the dataset and could not be read, so
     /// the inspector can say the loaded extent may not be the recorded one.
     ///
@@ -260,6 +269,7 @@ package final class SessionSidecarLocator {
         scoped = nil
         hasGrant = false
         unreadableReason = nil
+        wroteThisSession = false
     }
 
     // MARK: - The bookmark key
