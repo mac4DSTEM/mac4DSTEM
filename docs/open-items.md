@@ -57,7 +57,11 @@ has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen)
 ### ACOM / zone-axis science residuals — three measured gaps, no fix attempted
 - **Zone axis up to 12.8° beyond the bank's own sampling** (2026-09-15): winner outscores truth by 0.6–10 %, worst ⟨122⟩; next:
   dump the winner's and the true axis's templates for one failing case.
-- **26 of 200 templates fail to recover themselves off-grid** (2026-09-14) by 1.7–9.3°, 0/200 on-grid; two hypotheses spent; Gate D owed.
+- **Off-grid self-recovery** (S20, 2026-09-30 night): 37–43 of 200 fail at 1.4° (0/200 on-grid, worst 9.3°; the old "26" named no
+  definition). Candidate F (exact azimuth + 4× shifts) sweep 430 → 24; not proposed — its demo grain-C regression was measured at a
+  known-crystal Q 13.5 % low (refuter, `archive/v4/s20-refuter-2026-09-30.md`): a Gate D at true Q settles it.
+- **Known-crystal Q on a cube whose majority grain lacks the reference shell** read the demo cube's Q by the (200)/(111) ratio in
+  the S20 probe and the tool ignored the shell check — check whether the app's calibration path can do the same (Gate D).
 - **Rotation null loses power at the highest noise**: 3/12 refused at sd 0.05 vs 0/60 shuffle null; the demo cube (sd≈0.010) is
   certified 2/60 — "measured −67.5°" recurs ~1 in 30.
 Detail: `archive/v3/open-items-detail-2026-09-16.md`.
