@@ -170,6 +170,73 @@ package struct PhaseMappingSlot: Identifiable, Sendable, Equatable {
     }
 }
 
+extension PhaseMappingSlot {
+    /// The matrix picker's row text for each slot, in list order. A name that
+    /// occurs once stays bare (the Phases rows above already show the zone
+    /// axis); a name shared by two slots — one structure at two zone axes,
+    /// the Al–Mg–Si preset's two β″ — gets its zone axis appended, and a
+    /// name AND axis shared (which `runRefusal` refuses to run) gets a
+    /// running number, so no two rows ever read the same (drive 2026-09-30).
+    package static func pickerLabels(_ slots: [PhaseMappingSlot]) -> [String] {
+        let byName = Dictionary(grouping: slots, by: { $0.model.displayName })
+        let withAxis = slots.map { slot -> String in
+            let name = slot.model.displayName
+            return (byName[name]?.count ?? 0) > 1 ? "\(name) \(slot.zoneAxisText)" : name
+        }
+        var seen: [String: Int] = [:]
+        let totals = Dictionary(withAxis.map { ($0, 1) }, uniquingKeysWith: +)
+        return withAxis.map { label in
+            guard (totals[label] ?? 0) > 1 else { return label }
+            seen[label, default: 0] += 1
+            return "\(label) #\(seen[label]!)"
+        }
+    }
+}
+
+/// Which picture of the finished phase mapping fills the result pane, and the
+/// one button that moves between them. The map, the objects picture and the
+/// match distance are all computed by the run; each is published to the pane
+/// from what is already held, so switching recomputes nothing. Before this
+/// there was a way to each of the other two and no way back to the map except
+/// Map Phases again (drive 2026-09-30).
+package enum PhaseResultPicture: Sendable, Equatable {
+    case phaseMap, objects, distance
+
+    package init?(productKind: String?) {
+        switch productKind {
+        case "phase_map": self = .phaseMap
+        case "precipitate_objects": self = .objects
+        case "phase_match_distance": self = .distance
+        default: return nil
+        }
+    }
+
+    /// What the button that owns `picture` (Show Objects, Show Match Distance)
+    /// reads and does now: its own picture, or — when that picture is already
+    /// the one on screen — "Show Phase Map", the way back.
+    package struct Control: Sendable, Equatable {
+        package let title: String
+        package let systemImage: String
+        package let target: PhaseResultPicture
+    }
+
+    package static func control(owning picture: PhaseResultPicture,
+                                displayedKind: String?) -> Control {
+        if picture != .phaseMap, PhaseResultPicture(productKind: displayedKind) == picture {
+            return Control(title: "Show Phase Map",
+                           systemImage: "square.grid.3x3.topleft.filled", target: .phaseMap)
+        }
+        switch picture {
+        case .phaseMap: return Control(title: "Show Phase Map",
+                                       systemImage: "square.grid.3x3.topleft.filled", target: .phaseMap)
+        case .objects: return Control(title: "Show Objects",
+                                      systemImage: "circle.hexagongrid", target: .objects)
+        case .distance: return Control(title: "Show Match Distance",
+                                       systemImage: "ruler", target: .distance)
+        }
+    }
+}
+
 /// Two small pure functions the classifier picker needs
 /// (`UI/PhaseMappingSettings.swift`) and `AppState+PhaseMapping.swift`'s
 /// provenance writer needs — kept here, in Session, so both are testable

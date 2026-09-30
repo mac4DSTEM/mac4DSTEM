@@ -104,10 +104,16 @@ struct PrecipitateObjectsSection: View {
         }
 
         InspectorActionRow {
-            InspectorAdaptiveButton("Show Objects", systemImage: "circle.hexagongrid",
-                                    help: "Draw the objects over the scan: counted objects in their "
+            // Reads "Show Phase Map" while the objects are on screen — the
+            // way back, without a second row.
+            let showing = PhaseResultPicture.control(
+                owning: .objects, displayedKind: appState.displayedProduct?.kind)
+            InspectorAdaptiveButton(showing.title, systemImage: showing.systemImage,
+                                    help: showing.target == .phaseMap
+                                        ? "Return the result pane to the phase map. Nothing is recomputed."
+                                        : "Draw the objects over the scan: counted objects in their "
                                         + "phase colour, edge and small objects dimmed.") {
-                appState.publishPrecipitateObjectsProduct()
+                appState.showPhaseResult(showing.target)
             }
             .accessibilityIdentifier("precipitates.showObjects")
             InspectorAdaptiveButton("Object Table", systemImage: "tablecells",

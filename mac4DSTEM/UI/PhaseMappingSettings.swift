@@ -2,7 +2,7 @@
 //  PhaseMappingSettings.swift
 //  Role: Crystal Maps' third task (ADR 046) — vector-matched phase mapping.
 //        The phase list, the two settings groups, the run, and the evidence
-//        for the position under the cursor.
+//        for the selected position.
 //
 //  Two things here are deliberate and are the difference between a phase map
 //  a user can defend and a picture:
@@ -14,7 +14,7 @@
 //  • EVERY POSITION CAN BE TAKEN APART. `Evidence` names the phase, how many
 //    of the surviving vectors it explained, the mean distance in Å⁻¹, how many
 //    the matrix took, and what came second. That line is the whole argument
-//    for the colour under the cursor, in physical units.
+//    for the colour at the selected position, in physical units.
 //
 //  And one refusal: the result is badged UNVALIDATED until step 3 of
 //  `docs/v3-features.md#vector-matching` runs. The badge is not decoration — this
@@ -65,8 +65,11 @@ struct PhaseMappingSections: View {
             if product.phases.count > 1 {
                 InspectorRow("Matrix") {
                     Picker("Matrix", selection: matrixSelection) {
-                        ForEach(product.phases) { slot in
-                            Text(slot.model.displayName).tag(slot.id)
+                        // Two slots of one structure (the preset's two β″)
+                        // read identically by name; the zone axis tells them apart.
+                        let labels = PhaseMappingSlot.pickerLabels(product.phases)
+                        ForEach(Array(product.phases.enumerated()), id: \.element.id) { index, slot in
+                            Text(labels[index]).tag(slot.id)
                         }
                     }
                     .labelsHidden()
@@ -371,12 +374,16 @@ struct PhaseMappingSections: View {
                         .multilineTextAlignment(.trailing)
                         .labelsHidden()
                 }
-                .help("The scan position under the cursor, and why it is that colour. \"Show claimed disks\" on the diffraction pane rings the disks each phase claimed there.")
+                .help(PhaseMapPresentation.evidenceHelp)
             }
 
             InspectorActionRow {
-                InspectorAdaptiveButton("Show Match Distance", systemImage: "ruler") {
-                    appState.publishPhaseDistanceProduct()
+                // Reads "Show Phase Map" while the distance is on screen — the
+                // way back, without a second row.
+                let control = PhaseResultPicture.control(
+                    owning: .distance, displayedKind: appState.displayedProduct?.kind)
+                InspectorAdaptiveButton(control.title, systemImage: control.systemImage) {
+                    appState.showPhaseResult(control.target)
                 }
                 .disabled(appState.isBusy)
                 .accessibilityIdentifier("phaseMapping.showDistance")

@@ -375,6 +375,17 @@ extension AppState {
         publishPrecipitateObjectsProduct()
     }
 
+    /// Put one picture of the finished mapping in the result pane, from what
+    /// the run already holds (nothing is recomputed). The way back from the
+    /// objects picture and the match distance to the phase map.
+    func showPhaseResult(_ picture: PhaseResultPicture) {
+        switch picture {
+        case .phaseMap: publishPhaseMapProduct()
+        case .objects: publishPrecipitateObjectsProduct()
+        case .distance: publishPhaseDistanceProduct()
+        }
+    }
+
     /// The distance companion: how far, in Å⁻¹, the winning phase's reference
     /// vectors sat from the measured peaks. The map says which phase; this
     /// says how well, and it is the one a reader can argue with.

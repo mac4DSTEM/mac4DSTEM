@@ -278,6 +278,10 @@ package nonisolated enum PhaseMapPresentation {
             + "match. Check each one's zone axis."
     }
 
+    /// The Evidence row's help. The row follows the SELECTED scan position (the
+    /// one clicked on the map or the scan pane), not the pointer.
+    package static let evidenceHelp = "The selected scan position (click the map to choose one), and why it is that colour. \"Show claimed disks\" on the diffraction pane rings the disks each phase claimed there."
+
     /// The argument for one position's label, in one line, in physical units.
     ///
     /// This is the point of keeping every count on `PhaseVectorResult`. A
