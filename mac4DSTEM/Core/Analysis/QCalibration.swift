@@ -41,6 +41,21 @@ package nonisolated enum QCalibrationShellCheck: Sendable, Equatable {
               expected != 0 else { return nil }
         return abs(observed / expected - 1)
     }
+
+    /// The one phrase every surface uses when the assignment was never
+    /// checked — the Q readiness row, Prepare's "Q shell check" row — or nil
+    /// when a ratio was measured (its numbers are shown instead, unjudged).
+    ///
+    /// Owner decision (ADR 050, "Q calibration picks the wrong ring"; lane Q,
+    /// 2026-09-30): "unchecked" is neither a pass nor a refusal. The scale is
+    /// still used and still `.measuredInApp`; the row says what was not done.
+    /// THRESHOLD-FREE: it fires on `.notSelfChecked` alone. A "disagrees"
+    /// line was measured and did NOT ship — see the note on
+    /// `KnownCrystalQCalibration` (5).
+    package var uncheckedNote: String? {
+        guard case .notSelfChecked(let reason) = self else { return nil }
+        return "Shell ratio unchecked — \(reason)"
+    }
 }
 
 package nonisolated struct QCalibrationEstimate: Sendable {
@@ -110,6 +125,22 @@ package nonisolated enum KnownCrystalQCalibration {
     //    unreliable**: `OriginCalibration.probeSize` counts Bragg disks as
     //    probe area and over-measures 2.15× on the app's own demo
     //    (docs/open-items.md, owed a Gate D session).
+    // 5. **Measured again, on the app's own path, and still no line (lane Q,
+    //    2026-09-30, `tools/q-shell-probe`; run it to reproduce).** The decided
+    //    rule: a "disagrees" line sits at 2H only if 2H < M/2, H = the largest
+    //    |observed/expected − 1| among cubes whose Q is within 3 % of truth
+    //    (taking the recorded 4.07 % of `sim_Au` at a 1 px displacement), M =
+    //    the smallest among mis-assigned cubes. Healthy: `sim_Au` 2.4 %. Mis-
+    //    assigned (Q 12.5–13.5 % low, the (200) ring read as (111), the Al
+    //    [001] majority having no {111}): the demo cube 22.4 %, Thronsen A
+    //    22.5 %, the owner's raw 060 stride-3 cube 18.4 % (23.7 % with his
+    //    ellipse applied), his binned 060 19.0 %; and `polycrystal_2D_WS2` 13.3
+    //    % at Q 55 % low (the reference is (0002); the second "shell" is (0004),
+    //    expected 2.000, seen 1.733). So 2H = 8.1 % against M/2 = 6.7 %: not
+    //    met, and the one healthy cube is n = 1. The mismatch stays a NUMBER
+    //    (`mismatch`, the status line, the "Q shell check" row); only the
+    //    threshold-free `.notSelfChecked` reading is worded "unchecked"
+    //    (`uncheckedNote`).
     //
     // What a later session needs before placing a line here: false-refusal
     // rates on real data, not one dataset under synthetic perturbation, and a
@@ -219,8 +250,10 @@ package nonisolated enum KnownCrystalQCalibration {
         } else if expectedRatio == nil {
             shellCheck = .notSelfChecked("this crystal has only one allowed shell within range")
         } else {
-            shellCheck = .notSelfChecked("only one shell is detectable, so the assumption that the "
-                + "innermost detected peak is the innermost allowed reflection is unchecked")
+            // Short on purpose: it is the tail of a readiness-row sentence. What it
+            // means — the innermost detected peak is ASSUMED to be the innermost
+            // allowed reflection — is the "Q shell check" row's help text.
+            shellCheck = .notSelfChecked("only one shell is detectable")
         }
 
         return QCalibrationEstimate(

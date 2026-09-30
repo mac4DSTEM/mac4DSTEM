@@ -57,11 +57,19 @@ has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen)
 ### ACOM / zone-axis science residuals — three measured gaps, no fix attempted
 - **Zone axis up to 12.8° beyond the bank's own sampling** (2026-09-15): winner outscores truth by 0.6–10 %, worst ⟨122⟩; next:
   dump the winner's and the true axis's templates for one failing case.
-- **Off-grid self-recovery** (S20, 2026-09-30 night): 37–43 of 200 fail at 1.4° (0/200 on-grid, worst 9.3°; the old "26" named no
-  definition). Candidate F (exact azimuth + 4× shifts) sweep 430 → 24; not proposed — its demo grain-C regression was measured at a
-  known-crystal Q 13.5 % low (refuter, `archive/v4/s20-refuter-2026-09-30.md`): a Gate D at true Q settles it.
-- **Known-crystal Q on a cube whose majority grain lacks the reference shell** read the demo cube's Q by the (200)/(111) ratio in
-  the S20 probe and the tool ignored the shell check — check whether the app's calibration path can do the same (Gate D).
+- **Off-grid self-recovery** (S20, 2026-09-30 night): 37–43 of 200 fail at 1.4° (0/200 on-grid, worst 9.3°). Candidate F (exact
+  azimuth + 4× shifts) sweep 430 → 24; closed 2026-09-30 night at true Q (lane Q, `archive/v4/slot1-q-record-2026-09-30.md`): grain C
+  stays t2 (0.00°) under F at Q 0.012, so the S20 regression was the probe's 13.5 %-low Q, not F; F moves grain A 5.03 → 3.18° at
+  kMax 1.2 and costs 3.8× on CPU — After v4.1. Left, undiagnosed, its own Gate D: grain B reads 6.50° (winner t84) in base and
+  patched at both kMax and both Q — invariant under Q, kMax and F, so matcher/plan-side (the bank holds B's axis as t1).
+- **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** — confirmed on the app's own path (lane Q, 2026-09-30
+  night): the owner's raw and binned 060 cubes, the demo cube and Thronsen A read Q 12.5–13.5 % low, shell ratio 1.37–1.43 vs 1.155
+  (the 09-29 "0.006577 / 1.0846" row was the Python lattice fit and an ellipse axis ratio, not this estimator). Shipped: the one-shell
+  case reads "Shell ratio unchecked" (threshold-free); a "disagrees" line did not ship — the pre-registered rule flips on one number
+  on each side (healthy n = 1: 2.4 % measured, 4.07 % recorded; WS₂ 13.3 % is the same failure class until an (00l) filter exists),
+  so on his cube the Q row still reads "Measured" with the ratio beside it — the owner's card. The fix (ring-sequence assignment) is
+  diagnosed in the record: recovers his cube to +0.45 % (ellipse) / +2.5 %, but the fcc √2 self-similarity needs a bounded N or the
+  zone's own ring count — a design pass, not a patch. The caveat is lost on rewind, sidecar restore and re-reference (not persisted).
 - **Rotation null loses power at the highest noise**: 3/12 refused at sd 0.05 vs 0/60 shuffle null; the demo cube (sd≈0.010) is
   certified 2/60 — "measured −67.5°" recurs ~1 in 30.
 Detail: `archive/v3/open-items-detail-2026-09-16.md`.
@@ -74,8 +82,11 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
   >1 px vs a Gaussian-argmax seed. S14 (2026-09-30 night, `archive/v4/s14-*`): a box seed does not meet its bar; trimming does
   NOT hide the offset on Si_SiGe_exp, both bullseye cubes and Au_ref (0.5–2.8 px); on bullseye the refine step's iterated
   r + 1.5 window walks along the ring — confirmed by S14-D (`archive/v4/s14d-*`): bullseye_sim 3.87 → 0.02 px at
-  k = 2, compact cubes ≤ 0.03 px, but the demo fixture moves 1.70 px; no fixed window ships (refuter HOLDS, held-out truth check 0.003 px). Next: the window-sensitivity
-  quantity in Core (median px between k 1.2 and 2.5, strided; < 0.1 s). The demo fixture's origin is pinned by no harness.
+  k = 2, compact cubes ≤ 0.03 px, but the demo fixture moves 1.70 px; no fixed window ships (refuter HOLDS, held-out truth check 0.003 px). Done (lane Q, 2026-09-30 night):
+  `tiledRun.windowSensitivityPixels` — median px between the caller's window and k 2.5 on a strided, byte-bounded sample: compact
+  cubes ≤ 0.07 px, Particle_1 0.34, bullseye 3.8, Au_ref 5.3; 0.84 s on the gzip row-chunked demo cube (I/O). Not surfaced: the demo
+  fixture reads 3.36 px in S14-D's table and was not re-measured — measure it before any display line. The demo fixture's origin is
+  pinned by no harness.
 - **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 

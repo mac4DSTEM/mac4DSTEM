@@ -85,6 +85,21 @@ package nonisolated struct CalibrationProvenance: Equatable, Sendable {
     /// exported before 2026-09-28 has an unknown sign). Shown on the R–Q row only
     /// while `rotation` is still `.importedFile`: measuring or typing it retires it.
     package var rotationImportNote: String?
+    /// What the known-crystal Q calibration could NOT check about the scale it
+    /// produced (lane Q, 2026-09-30): "Shell ratio unchecked — …". Shown on the
+    /// Q row only while that row still describes the value it was written for —
+    /// provenance still `.measuredInApp` AND the scale equal to `pixelSize` — so
+    /// a typed, restored or rewound scale never carries another value's caveat.
+    package var qShellCaveat: QShellCaveat?
+
+    package nonisolated struct QShellCaveat: Equatable, Sendable {
+        package var pixelSize: Double
+        package var text: String
+        package nonisolated init(pixelSize: Double, text: String) {
+            self.pixelSize = pixelSize
+            self.text = text
+        }
+    }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
     package nonisolated init(probe: CalibrationValueProvenance? = nil, ellipse: CalibrationValueProvenance? = nil, rotation: CalibrationValueProvenance? = nil, qScale: CalibrationValueProvenance? = nil, rScale: CalibrationValueProvenance? = nil) {
@@ -376,9 +391,14 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
                 value: $0, units: calibration.rPixelUnits
             )
         } != nil
-        let qDetail: String
+        var qDetail: String
         if validQ, let size = calibration.qPixelSize, let units = calibration.qPixelUnits {
             qDetail = String(format: "%.6g %@/px", size, CalibrationUnitConversion.displayLabel(units))
+            // A caveat, not a verdict: the row keeps `.ready(.measuredInApp)`.
+            if provenance.qScale == .measuredInApp, let caveat = provenance.qShellCaveat,
+               caveat.pixelSize == size {
+                qDetail += "\n" + caveat.text
+            }
         } else if positiveQ, let size = calibration.qPixelSize {
             let units = calibration.qPixelUnits ?? "no units"
             qDetail = CalibrationUnitConversion.isPixelUnit(calibration.qPixelUnits)

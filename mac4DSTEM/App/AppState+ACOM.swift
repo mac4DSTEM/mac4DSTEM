@@ -113,6 +113,11 @@ extension AppState {
         calibrationSession.calibration.qPixelSize = estimate.invAngstromPerPixel
         calibrationSession.calibration.qPixelUnits = "Å⁻¹"
         calibrationSession.provenance.qScale = .measuredInApp
+        // The Q row says what was not checked (lane Q, 2026-09-30): nil for a
+        // measured ratio, whose numbers are shown instead and never judged.
+        calibrationSession.provenance.qShellCaveat = estimate.shellCheck.uncheckedNote.map {
+            CalibrationProvenance.QShellCaveat(pixelSize: estimate.invAngstromPerPixel, text: $0)
+        }
         acomSession.invalidateResult()
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
@@ -123,7 +128,7 @@ extension AppState {
         )
         switch estimate.shellCheck {
         case .notSelfChecked:
-            status += " · shell ratio NOT self-checked"
+            status += " · shell ratio unchecked"
         case .measured(let observed, let expected, _):
             status += String(format: " · shell ratio %.3f vs %.3f predicted", observed, expected)
         }
