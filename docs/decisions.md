@@ -49,7 +49,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 039 | The detector ellipse can be typed in Prepare: py4DSTEM's a (semi-major), b, θ in degrees; applied only by a button; a < b refused | 09-28 | live, driven |
 | 040 | Four owed decisions: T4 object pass bar adopted; R–Q shown/written in py4DSTEM's convention (Gate D owed); Al stays 4.0495 Å with a DEVIATION note; CI unit job paused | 09-28 | live |
 | 041 | The default disk-detection floor is 0.15 % (DEVIATION from py4DSTEM's 0.5 %); supersedes the floor line of 026/038 | 09-28 | live |
-| 042 | Thronsen et al.'s SPED-phase-mapping code: use for ground truth and port (not copy 1:1), per the first author, verbally; written confirmation owed | 09-28 | live |
+| 042 | Thronsen et al.'s SPED-phase-mapping code: use for ground truth and port (not copy 1:1), per the first author, verbally; written confirmation owed | 09-28 | live — owed written confirmation closed 09-30 (ADR 050: no port planned; the truth map is CC BY 4.0 data, attributed in NOTICE) |
 | 043 | A fine-tuned detector is judged by detection on held-out labels (non-inferior recall and precision, ANE path), not heatmap equality; supersedes C2's heatmap bars after C2 | 09-28 | live |
 | 044 | Vector matching is the app's one phase-mapping method; Thronsen's four methods are references in tools/, her ANN the one challenger | 09-28 | live |
 | 045 | Areal precipitate density is edge-corrected: each counted object weighted W·H/((W−bx−1)(H−by−1)) (Miles–Lantuéjoul); counts stay integers | 09-28 | live |
@@ -57,6 +57,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 047 | Lineage: session record v2 (step ids, input edges, parameter snapshots); rewind restores parameters and marks stale, never deletes; the graph lives in the Lineage pane; L4 amendment: an `active` key, held kinds stay on the path, rewind refuses rather than mislead | 09-30 | accepted by delegation |
 | 048 | Clearing the board: training on MPSGraph first (MLX the fallback), the C3 flow, T4's edge-on speckle as a quantity, the hardware lane waits | 09-30 | accepted by delegation |
 | 049 | v4.1 is the plateau: feature list frozen at v4.0.0, half-built lanes finished or removed, the external review the last intake, a five-line exit | 09-30 | accepted |
+| 050 | The owner's sitting: 21 answers — v4.1 = py4DSTEM parity for the shipped features; ptychography, training, raw-data preprocessing and the keep-in-memory control finished; the decision-sheet format kept | 09-30 | accepted |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

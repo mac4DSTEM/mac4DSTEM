@@ -153,10 +153,11 @@ defocus 0) and its difference map diverges — finish (defocus from the parallax
 grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no
 dialog; network volumes keep the full read.
 
-### Scan-fastest DM4 detector pair may be transposed (2026-09-05)
-`Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags `[Rx, Ry, Qy, Qx]` (pattern 480×448); a transposed pattern silently
-flips strain axes and R–Q rotation. Owed: the owner reads width/height in GMS — if 448 wide, flip `DM4Reader.scanFastestStrides`
-(`:194`) and pin an ncempy checksum. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
+### Scan-fastest DM4 detector pair: order unverified against GMS — a named limit (2026-09-05; owner 2026-09-30: leave it)
+`Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags `[Rx, Ry, Qy, Qx]` (pattern 480×448) with one axis order for the
+scan pair and the other for the detector pair; a transposed pattern would silently flip strain axes and R–Q rotation. The owner
+declined the GMS check (ADR 050). Not on the v4.1 path; a session that touches the reader pins an ncempy checksum first.
+Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 
 ### Owed on screen from earlier drives (2026-09-09)
 Still unexercised: the four failure paths (ROI-sum, sidecar inventory refresh, configurator single-pattern preview,

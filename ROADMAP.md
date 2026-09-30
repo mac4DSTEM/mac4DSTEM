@@ -101,30 +101,33 @@ part of the product story: the load-specification and promote workflow,
 provenance that survives export and reopen, refusals that name what failed,
 the session sidecar as a sharing unit.
 
-## v4.1 — the plateau (ADR 049, owner 2026-09-30)
+## v4.1 — the plateau (ADR 049; the owner's sitting, ADR 050)
 
-The feature list is frozen at what v4.0.0 ships. v4.1.0 is that app, finished; nothing under "After v4.1" is started
-before it is released. Exit (all five): `run-tests.sh all` green on the release commit · the "Unverified on screen" row
-empty · no defect in a shipped feature left in `open-items.md` · every half-built lane finished or removed and the
-owner's cards decided · the owner has run one real analysis of his own in the release build.
+The feature list is frozen at what v4.0.0 ships; inside it v4.1 means **parity with py4DSTEM for the shipped features**,
+and four half-built pieces are finished: ptychography (both methods, against py4DSTEM and a ground truth), training as a
+useful feature, preprocessing of raw data in the app, and the one new control — keep the cube in memory. Exit (all five):
+`run-tests.sh all` green on the release commit · the "Unverified on screen" row empty · no defect in a shipped feature
+left in `open-items.md` · the four finishes landed and the owner's cards decided · the owner has run one real analysis of
+his own in the release build. The lanes, their write-sets, gates and order: `archive/v4/v41-plan-2026-09-30.md`.
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30 night — the ANE return, C5's run, the
-parallax/ptychography cost, the 28 GB parity run). The 2026-09-30 "clear the board" sequence it replaced is archived there too.
+parallax/ptychography cost, the 28 GB parity run). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **The last intake — external review, part A:** read-only, may run in the cloud on the pushed repo (brief:
-  `archive/v4/polish-and-review-session-plan.md`). Then one owner sitting: each finding and each of the Board's 18 cards
-  fixed, declined or moved to "After v4.1". After it `open-items.md` only shrinks.
-- [ ] **Fix the picked findings**, one room or module per session, each driven where it draws; then the parked refactors the owner keeps.
-- [ ] **Empty "Unverified on screen"**, the owner's own analysis in a release-candidate build, then **release v4.1.0**
-  (`docs/releasing.md`; the new Mac needs a fresh notary password).
+- [ ] **Slot 1 — P polish room · Q science quick wins · R1 ptychography probe** (plan lanes P, Q, R1). Owner: the cloud review, the File-probe training run, the pixels check, the Si-SiGe re-export.
+- [ ] **Slot 2 — T1 the kernel question · R2+R3 difference map and ground truth · X1+X2 preprocessing** (lanes T, R, X).
+- [ ] **Slot 3 — T2 training effectiveness · R4+R5 parallax residuals and drive · X3 + K1 mocks** for the owner's picture.
+- [ ] **Slot 4 — F the review's findings · K2+K3 the toggle built and driven · T3 the training room.**
+- [ ] **Slot 5 — Z release v4.1.0** (`docs/releasing.md`; the new Mac needs a fresh notary password).
 
 ## After v4.1 — frozen until the owner reopens one
 
 Not debts, and no session picks them up: parity themes 2–7 above and point-group coverage beyond cubic and hexagonal;
 the differentiators not yet built (EDX correlation, live acquisition, the lineage graph with rewind — ADR 047's record v2
 stays as it is); volumetric density and β″ orientation maps (ADR 046); the Al Materials Project comparison (ADR 048);
-phase mapping's validation (it ships badged unvalidated until a dataset with truth passes).
+phase mapping's validation (it ships badged unvalidated until a dataset with truth passes); ACOM candidate F (ADR 050);
+what a resident cube allows beyond v4.1 (live aperture, live detection — a design note first, K4); the built-in crystal
+library's size (the owner: "bloat … for no reason"; the lean audit).
 
 ## How a v3 feature is done
 
