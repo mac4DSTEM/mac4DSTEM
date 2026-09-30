@@ -98,7 +98,7 @@ struct ScaleBar: View {
         guard let units, !units.isEmpty, let along, along.isFinite, along > 0 else {
             return (1, "px")
         }
-        return (along, units)
+        return (along, CalibrationUnitConversion.displayLabel(units))
     }
 
     var body: some View {
@@ -479,6 +479,21 @@ private extension Binding where Value == Float {
 
 // MARK: - Virtual detector overlay
 
+/// Where the annulus's inner-radius handle is drawn. Pure, so the rule that
+/// keeps the centre handle draggable at inner radius 0 is unit-tested rather
+/// than left to the draw order of a ZStack.
+enum ApertureHandleRules {
+    /// The inner handle is drawn at `centre + inner`; at radius 0 it is the
+    /// centre handle's twin and took its drag (drive 2A, 2026-09-30). It is
+    /// PARKED at least `minimum` (one handle diameter, in detector pixels) from
+    /// the centre instead of hidden, because dragging it is the only way to
+    /// raise the inner radius again from 0. Draw position only: `radiusDrag`
+    /// still sets the true radius from the pointer distance.
+    static func innerHandleOffset(inner: Float, minimum: Float) -> Float {
+        max(inner, minimum)
+    }
+}
+
 /// Interactive detector overlay on the CBED view. Renders and lets you drag the
 /// active virtual-detector geometry: an annulus (inner/outer radius), a square
 /// (half-extent = outer), or a single point. The shape matches the selected
@@ -570,13 +585,21 @@ struct ApertureOverlay: View {
             .frame(width: inner * 2, height: inner * 2)
             .position(center)
             .opacity(aperture.inner > 0 ? 1 : 0.35)
-        centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
         handle(color: .yellow)
             .position(x: center.x + outer, y: center.y)
             .gesture(radiusDrag(center: center, scale: radiusScale, isInner: false))
+        // The inner handle at radius 0 sat exactly on the centre handle and
+        // took its drag (drive 2A, 2026-09-30). It is parked one handle
+        // diameter out while the radius is smaller (still draggable, so the
+        // radius can be raised again) and the centre handle is drawn last, so
+        // it stays on top where the two touch.
+        let parked = CGFloat(ApertureHandleRules.innerHandleOffset(
+            inner: aperture.inner,
+            minimum: Float(Self.handleDiameter / max(radiusScale, .leastNonzeroMagnitude)))) * radiusScale
         handle(color: .cyan)
-            .position(x: center.x + inner, y: center.y)
+            .position(x: center.x + parked, y: center.y)
             .gesture(radiusDrag(center: center, scale: radiusScale, isInner: true))
+        centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
     }
 
     @ViewBuilder
@@ -654,10 +677,12 @@ struct ApertureOverlay: View {
                                patternWidth: patternWidth, patternHeight: patternHeight))
     }
 
+    private static let handleDiameter: CGFloat = 12
+
     private func handle(color: Color) -> some View {
         Circle()
             .fill(color)
-            .frame(width: 12, height: 12)
+            .frame(width: Self.handleDiameter, height: Self.handleDiameter)
             .overlay(Circle().stroke(Color.black.opacity(0.6), lineWidth: 1))
             .shadow(radius: 1)
     }

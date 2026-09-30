@@ -82,7 +82,7 @@ package nonisolated enum SessionResultPresentation {
     package static func sampling(row: Double?, column: Double?, units: String?) -> String? {
         guard let row, let column, row.isFinite, column.isFinite,
               row > 0, column > 0 else { return nil }
-        let suffix = (units?.isEmpty == false ? units! : "px") + "/px"
+        let suffix = (units?.isEmpty == false ? CalibrationUnitConversion.displayLabel(units) : "px") + "/px"
         return "sampling \(number(row)) × \(number(column)) \(suffix)"
     }
 

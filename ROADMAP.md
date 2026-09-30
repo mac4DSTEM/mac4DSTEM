@@ -164,8 +164,7 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
 - **Next (owner, 2026-09-30 morning), in order:**
 - [x] **S14-D Gate D on the origin refine step** (2026-09-30): mechanism confirmed (the refine walks along the ring: bullseye_sim
   3.87 px → 0.02 px at window k = 2); bar not met (the demo fixture moves 1.70 px) — no patch; a window-dependence check proposed (owner).
-- [ ] **Polish from the drives** — the non-Frozen-Shell proposals in open-items S4 "Drive 2026-09-30 night" and the drive-2
-  findings, each driven; Frozen Shell ones as mocks for the owner.
+- [x] **Polish from the drives** (2026-09-30): 13 items across three rooms, supervised and driven (drives 3–4); left: open-items S4.
 - [ ] **Full polish and code review by an external agent** — brief and kickoff prompt: `archive/v4/polish-and-review-session-plan.md`.
 
 ## How a v3 feature is done

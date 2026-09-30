@@ -47,7 +47,7 @@ extension AppState {
                 finishDatasetLoading(owner: load)
                 return
             }
-            await runCurrentAnalysis()
+            await runOpeningAnalysis()
             if await unwindLoadIfNeeded(owner: load) {
                 finishDatasetLoading(owner: load)
                 return
@@ -157,7 +157,7 @@ extension AppState {
             return
         }
         if runReestablishingAnalysis {
-            await runCurrentAnalysis()
+            await runOpeningAnalysis()
             if await unwindLoadIfNeeded(owner: load) {
                 finishDatasetLoading(owner: load)
                 return

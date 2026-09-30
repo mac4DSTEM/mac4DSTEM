@@ -343,7 +343,7 @@ struct DiffractionPane: View {
                             ScaleBar(
                                 unitsPerPoint: bar.perPixel * Double(qx)
                                     / Double(box.width) / Double(zp.drawZoom),
-                                unitLabel: bar.unitLabel)
+                                unitLabel: CalibrationUnitConversion.displayLabel(bar.unitLabel))
                         }
                     }
                 } trailing: {

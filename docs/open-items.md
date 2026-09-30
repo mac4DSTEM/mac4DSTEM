@@ -109,11 +109,16 @@ One line each; full wording as above.
   covers ~110 pt of the phase map (original wording, `archive/closed-items-2026-09.md`): metrics get truncation priority,
   split fraction constant.
 - A challenge-turned matrix position shows its disks as unexplained in the claimed-disks overlay (the challenger's axis is not recorded; named in the evidence line since S12).
-- Drive 2026-09-30 night, proposals (shots `archive/v4/drives-2026-09-30-night-shots/`): two β″ variants read identically in the
-  Matrix picker (append the zone axis); no way back from Show Objects to the phase map but re-running; the Evidence help says
-  "under the cursor" but follows the clicked position; "Measure Origin & Probe" leaves Calibration after the first fit (keep a
-  Re-measure); the Session heading says "Loaded with the dataset" right after a save; a fresh cube shows "Phase map (0
-  candidates)" in Prepare; the Lineage list puts a later origin fit above earlier nodes.
+- Polish 2026-09-30 (driven, drives 3–4): the Matrix picker names β″ twins by zone axis; Show Objects / Match Distance swap to
+  "Show Phase Map"; Evidence help names the selected position; a visible Re-measure; "Saved with the dataset" from a real
+  session flag; carried-calibration refusals shown in Prepare; the annulus centre drags; units read Å⁻¹; the promote footer keeps
+  the pattern readout; a fresh cube shows its virtual image; counts grouped. Left (proposals, shots `drives-2026-09-30-night-shots/`):
+  the Lineage list puts a later origin fit above earlier nodes; the S23 legend chip prints ungrouped counts ("60 of 10000"); the
+  crop warning mixes axis orders ("64x60 at (16, 20)" vs "60 × 64 scan"); Info › Provenance shows raw snake_case keys; the
+  configurator's status keeps "Sampling a preview · row 24 of 25"; the origin detail wraps "px" alone; a from-file drag sentence
+  could read "Aperture center replaced the file's origin".
+- **After a detector-bin-2 load the aperture ring sits off-centre** in the 64 × 64 pattern (drive 3, shot 52): likely a stale
+  128 px aperture — reproduce, then Gate D (it sets what the virtual image integrates).
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
 - S18 (2026-09-30 night, driven): a load's tail resets only its own load; promote keeps the scan position (crop offset added);

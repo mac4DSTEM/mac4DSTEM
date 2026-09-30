@@ -178,6 +178,18 @@ package nonisolated enum CalibrationUnitConversion {
         }
     }
 
+    /// The label a stored unit is SHOWN with. A file or a restored session
+    /// keeps the spelling it was written with ("A^-1", "1/nm"); live
+    /// calibration writes the canonical one ("Å⁻¹"), so the same scale read
+    /// two ways on screen (drives 2A/2B, 2026-09-30). Display boundary only —
+    /// nothing stored changes, and a spelling nobody recognises is shown as
+    /// it is rather than guessed.
+    package static func displayLabel(_ units: String?) -> String {
+        canonicalEditableReciprocalUnit(units)
+            ?? canonicalEditableRealUnit(units)
+            ?? units ?? ""
+    }
+
     package static func isPhysicalReciprocalUnit(_ units: String?) -> Bool {
         if normalized(units) == "mrad" { return true }
         return reciprocalInvAngstromPerPixel(value: 1, units: units) != nil
@@ -366,7 +378,7 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         } != nil
         let qDetail: String
         if validQ, let size = calibration.qPixelSize, let units = calibration.qPixelUnits {
-            qDetail = String(format: "%.6g %@/px", size, units)
+            qDetail = String(format: "%.6g %@/px", size, CalibrationUnitConversion.displayLabel(units))
         } else if positiveQ, let size = calibration.qPixelSize {
             let units = calibration.qPixelUnits ?? "no units"
             qDetail = CalibrationUnitConversion.isPixelUnit(calibration.qPixelUnits)
@@ -377,7 +389,7 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         }
         let rDetail: String
         if validR, let size = calibration.rPixelSize, let units = calibration.rPixelUnits {
-            rDetail = String(format: "%.6g %@/px", size, units)
+            rDetail = String(format: "%.6g %@/px", size, CalibrationUnitConversion.displayLabel(units))
         } else if positiveR, let size = calibration.rPixelSize {
             let units = calibration.rPixelUnits ?? "no units"
             rDetail = CalibrationUnitConversion.isPixelUnit(calibration.rPixelUnits)

@@ -306,7 +306,7 @@ extension AppState {
             // workspace has no image yet. Finishing the load before it ran was
             // what left the bar parked at its last stage and then vanishing
             // into a generic operation indicator.
-            await runCurrentAnalysis()
+            await runOpeningAnalysis()
             if await unwindLoadIfNeeded(owner: load) {
                 finishDatasetLoading(owner: load)
                 return
@@ -687,7 +687,7 @@ extension AppState {
         // says what happened to the stored disks.
         let peaksNote = await restoreSessionPeaks(from: sessionSnapshot, for: descriptor)
         if runInitialAnalysis {
-            await runCurrentAnalysis()
+            await runOpeningAnalysis()
         }
         if let peaksNote { statusText = peaksNote }
     }
@@ -1152,7 +1152,7 @@ extension AppState {
             guard epoch == datasetSession.epoch else { return }
             currentPattern = pattern
             patternVersion &+= 1
-            showReadout("Pattern x \(selectedScan.x), y \(selectedScan.y)")   // a readout, not an event
+            showReadout(OpeningAnalysis.patternReadout(selectedScan))   // a readout, not an event
             await detectCurrentPattern()
         } catch {
             present(error)
