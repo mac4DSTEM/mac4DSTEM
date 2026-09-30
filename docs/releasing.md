@@ -101,6 +101,8 @@ pre-notarization ZIP.
 ## Notarize and staple
 
 Store credentials once with `xcrun notarytool store-credentials`, then:
+**Owed before the next release (owner, 2026-09-30):** the M5 Mac has no notary profile — create a new app-specific password
+at appleid.apple.com and run `xcrun notarytool store-credentials mac4dstem-notary` once.
 
 ```sh
 export NOTARY_PROFILE=mac4dstem-notary
