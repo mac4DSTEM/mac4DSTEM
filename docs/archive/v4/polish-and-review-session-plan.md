@@ -83,4 +83,7 @@ Stop and ask on: a moved scientific number, a Frozen Shell change without an acc
 
 ## Log
 
-- (the session appends here)
+- 2026-09-30 night — §4 step 1 done: part A ran in the cloud, read-only, on `02174c9` (the four v4.1 lane areas excluded); the
+  findings table is `review-2026-09-30-findings.md` (78 rows: 21 defects, 41 risks, 16 cleanups; 27 can move a scientific number and
+  are Gate D). Rows 3, 7, 33, 35 go to lanes X, T, R, R. No fix starts until the owner picks rows on a decision sheet (ADR 050); rows
+  1 and 9 carry a reproducible check that ran first (their verdicts are on the sheet).
