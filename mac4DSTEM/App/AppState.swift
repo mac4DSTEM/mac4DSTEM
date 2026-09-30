@@ -1320,9 +1320,11 @@ final class AppState {
     /// Skip a session sidecar for exactly one reopen of this dataset identity.
     var ignoreSessionForDatasetID: String?
 
-    /// Fitted origin maps displaced by a manual aperture-center drag.
+    /// Fitted origin maps displaced by a manual aperture-center drag, with the
+    /// fit's own lineage parameters (a manual record can collapse into the fit's
+    /// node in place, so Restore re-records the fit from these).
     @ObservationIgnored var supersededFittedOrigin:
-        (maps: OriginMaps, provenance: OriginProvenance)?
+        (maps: OriginMaps, provenance: OriginProvenance, lineage: [String: String]?)?
     var canRestoreFittedOrigin = false
 
     // MARK: - Calibration and phase contrast: AppState+Calibration.swift, AppState+PhaseContrast.swift

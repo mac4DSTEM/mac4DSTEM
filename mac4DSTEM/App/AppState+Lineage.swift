@@ -53,6 +53,37 @@ extension AppState {
         recordLineageRun(kind: "calibration_origin", parameters: parameters)
     }
 
+    /// A manual aperture centre just replaced the fitted origin (`updateAperture`,
+    /// once, at the set-aside): the origin in force is now the user's, not the
+    /// fit's, so a strain, ACOM, phase map or DPC that stood on the fit reads
+    /// stale (D068). A node of the kind the fit recorded, `method` "manual".
+    func recordOriginSetAsideRun() {
+        recordLineageRun(kind: "calibration_origin", parameters: ["method": "manual"])
+    }
+
+    /// `restoreFittedOrigin` put the fitted maps back. The lineage's active origin
+    /// must stop saying "manual", and rewind cannot do it (it refuses to restore
+    /// an origin — only its mean is recorded), so the fit is recorded again: the
+    /// parameters of the last non-manual origin run, when the session made one
+    /// (a fit loaded from a sidecar's maps has none: "restored"), with the mean
+    /// now in force. A product that stood on the FIRST fit node still reads stale
+    /// — the numbers are the same, the node is a new one — which errs toward
+    /// "recompute" rather than a false "current".
+    /// `fitParameters` are the fit node's, captured at the set-aside: with no
+    /// product between fit and drag the manual record overwrites that node in
+    /// place, and a search of the lineage would find only "manual".
+    func recordOriginRestoredRun(fitParameters: [String: String]? = nil) {
+        let captured = fitParameters.flatMap { $0["method"] == "manual" ? nil : $0 }
+        var parameters = captured ?? replay.lineage.nodes
+            .last { $0.kind == "calibration_origin" && $0.parameters["method"] != "manual" }?
+            .parameters ?? ["method": "restored"]
+        if let origin = calibrationSession.calibration.meanOrigin {
+            parameters["origin_x_px"] = String(origin.x)
+            parameters["origin_y_px"] = String(origin.y)
+        }
+        recordLineageRun(kind: "calibration_origin", parameters: parameters)
+    }
+
     /// The ellipse in `calibrationSession` was just fitted or typed.
     func recordEllipseCalibrationRun() {
         let calibration = calibrationSession.calibration

@@ -204,3 +204,8 @@ Their drive 2A/2B and the block-3 supervisor were running at the cut — read `$
   raw too). An unmarked mac4DSTEM export keeps today's number; its R–Q row says the sign is unrecorded. 5 + 1 tests, mutations red;
   campaign import/export marked. Drive 2B saw the (long) note on Si-SiGe_calibrated.h5 read-only, md5 unchanged; the shortened
   text is not yet seen on screen.
+- DEC (owner decisions 1 + 2, decided overnight): an aperture-centre drag turns the origin row orange with Restore Fitted Origin
+  as its action and records a manual origin node (products on the fit read stale); Restore re-records the fit from parameters
+  captured at the set-aside (supervisor 3 FIX-FIRST: with nothing computed between, the fit's node lost its parameters — test
+  red first, mutation red); "Fit anyway" restored on reopen from the sidecar's own lineage node. Drive 2A saw decision 1 on a
+  from-file and a measured origin (orange row, Restore, strain stale, radius-only drag stays green). Decision 2 NOT driven.

@@ -92,6 +92,13 @@ struct PrepareSettings: View {
                       (1 - Double(excluded)) * 100, excludedPercent)
     }
 
+    /// After a reopen the fit's own record (`lastEllipseFit`) is gone, so the
+    /// sector count is absent and is not printed as "0/36".
+    static func fitAnywayNote(occupiedBins: Int?) -> String {
+        let sectors = occupiedBins.map { " on \($0)/36 sectors" } ?? ""
+        return "Fitted anyway\(sectors) — rests on your assertion that the annulus held one ring."
+    }
+
     /// Manual Q/R editing stays reachable after the value becomes ready, for
     /// every provenance but one. R has no measurement path in this app. Q's
     /// imported value is exactly the one worth overriding — py4DSTEM's own DM
@@ -227,18 +234,6 @@ struct PrepareSettings: View {
         InspectorSection("Fit diagnostics & advanced correction", expanded: $showsDiagnostics) {
             InspectorValueRow("Aperture center", calibration.originProvenance.displayName)
                 .help("Source of the center used by the virtual-detector aperture. Per-position fitted origins are reported separately.")
-
-            if appState.canRestoreFittedOrigin {
-                InspectorActionRow {
-                    Button {
-                        appState.restoreFittedOrigin()
-                    } label: {
-                        Label("Restore Fitted Origin", systemImage: "arrow.uturn.backward.circle")
-                    }
-                    .disabled(appState.isBusy)
-                    .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
-                }
-            }
 
             InspectorRow("Origin fit") {
                 Picker("Origin fit", selection: $session.originFitFunction) {
@@ -389,7 +384,7 @@ struct PrepareSettings: View {
                 )
                 .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
                 if session.provenance.ellipse == .fitAnyway {
-                    InspectorNote("Fitted anyway on \(session.lastEllipseFit?.occupiedAngularBins ?? 0)/36 sectors — rests on your assertion that the annulus held one ring.")
+                    InspectorNote(Self.fitAnywayNote(occupiedBins: session.lastEllipseFit?.occupiedAngularBins))
                 }
                 if let fit = session.lastEllipseFit {
                     InspectorValueRow("Model", fit.model.rawValue)

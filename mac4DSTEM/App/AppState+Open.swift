@@ -975,8 +975,28 @@ extension AppState {
         }
     }
 
+    /// Owner decision 2 (2026-09-30 night): the "Fit anyway" caveat survives a
+    /// reopen through the lineage the sidecar already carries. The ACTIVE
+    /// `calibration_ellipse` node must say `source` "fitAnyway" AND describe the
+    /// ellipse this sidecar saved (a, b, theta within a relative 1e-6 of the
+    /// SAVED values, before any frame translation) — a node for another ellipse
+    /// is not this one's record. Absent lineage (schema 6, a recipe-only save)
+    /// reads nothing, and the ellipse stays "From session".
+    private func savedEllipseIsFitAnyway(_ saved: PixelCalibration) -> Bool {
+        guard let node = replay.lineage.activeNodes().first(where: { $0.kind == "calibration_ellipse" }),
+              node.parameters["source"] == "fitAnyway",
+              let a = node.parameters["a_px"].flatMap(Double.init), let savedA = saved.ellipseA,
+              let b = node.parameters["b_px"].flatMap(Double.init), let savedB = saved.ellipseB,
+              let thetaDegrees = node.parameters["theta_deg"].flatMap(Double.init),
+              let savedTheta = saved.ellipseTheta else { return false }
+        func same(_ x: Double, _ y: Double) -> Bool {
+            x.isFinite && y.isFinite && abs(x - y) <= 1e-6 * max(abs(x), abs(y))
+        }
+        return same(a, savedA) && same(b, savedB) && same(thetaDegrees * .pi / 180, savedTheta)
+    }
+
     private func applySessionCalibration(
-        _ saved: PixelCalibration, recordedOn sessionSpecification: LoadSpecification,
+        _ saved: PixelCalibration, recordedOn sessionView: SessionViewRecord,
         for descriptor: DatasetDescriptor
     ) {
         // P2 (Gate D): the sidecar's values are in ITS view's frame, not
@@ -1060,7 +1080,9 @@ extension AppState {
             if saved.ellipseB != nil { calibrationSession.calibration.ellipseB = mapped.ellipseB }
             if saved.ellipseTheta != nil { calibrationSession.calibration.ellipseTheta = mapped.ellipseTheta }
             calibrationSession.provenance.ellipse = calibrationSession.calibration.hasEllipse
-                ? (savedEllipseCount == 3 ? .sessionSidecar : .mixed)
+                ? (savedEllipseCount == 3
+                    ? (savedEllipseIsFitAnyway(saved) ? .fitAnyway : .sessionSidecar)
+                    : .mixed)
                 : nil
         }
         if restoredMaps, mapped.origin != nil {
@@ -1182,6 +1204,7 @@ extension AppState {
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         statusText = "Fitted origin restored — \(superseded.provenance.displayName)"
+        recordOriginRestoredRun(fitParameters: superseded.lineage)
         scheduleLiveVirtualDetector()
     }
 
@@ -1195,9 +1218,12 @@ extension AppState {
             // ignore the manual value — so they move to the recoverable
             // superseded slot instead of being destroyed.
             if let displaced = calibrationSession.calibration.origin {
-                supersededFittedOrigin = (displaced, calibrationSession.calibration.originProvenance)
+                let fitLineage = replay.lineage.activeNodes()
+                    .first { $0.kind == "calibration_origin" }?.parameters
+                supersededFittedOrigin = (displaced, calibrationSession.calibration.originProvenance, fitLineage)
                 canRestoreFittedOrigin = true
                 statusText = "Manual aperture center — fitted origin set aside (Restore Fitted Origin in Calibration undoes this)"
+                recordOriginSetAsideRun()
             }
             calibrationSession.calibration.origin = nil
             // The file's recorded mean goes with them (Gate B): v2 S13 gave

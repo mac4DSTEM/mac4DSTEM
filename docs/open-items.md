@@ -34,9 +34,10 @@ named), D021 (parallax stack mean in Double) and D079 (ptychography origin = `Ca
 held (D079's drag symptom is by design; the gap was replay/lineage restore; a pre-fix record whose aperture differs from the
 fit now reproduces a different ptycho result, intended). D098/D004 fixed (one dose scale per pattern; seam
 margins close the unsearched bands; ≤ 256 px byte-identical; `archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md`).
-D020 was P1's IPF fix (`023a5b0`). D068 and D017 fixed (9f5d4eb, `archive/v4/register-D068-D017-2026-09-30.md`). Residuals: aperture
-drag, Restore Fitted Origin and Clear Calibration make no calibration node (a map computed on the fit reads current under
-a manual centre; a run after Clear records the old nodes as inputs — needs a "cleared" lineage state); a Q edit deletes the
+D020 was P1's IPF fix (`023a5b0`). D068 and D017 fixed (9f5d4eb, `archive/v4/register-D068-D017-2026-09-30.md`). Residuals: Clear
+Calibration makes no calibration node (a run after Clear records the old nodes as inputs — needs a "cleared" lineage state;
+an aperture-centre drag and Restore Fitted Origin record nodes since the 2026-09-30 night, and a map on the first fit stays
+stale after Restore); a Q edit deletes the
 ACOM map instead of marking it stale; D069 (an unresolved ACOM model compares no settings); a restored product is not
 labelled as saved anywhere. (`occupiedPositions`: `archive/v4/gateD-occupied-aperture-drag-2026-09-30.md`.)
 
@@ -87,11 +88,9 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 
 ### Other named presentation and trust residuals
 One line each; full wording as above.
-- Ellipse "Fit anyway" mark lost on a session round trip — sidecar wire-format decision.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
-- Moving the detector destroys the origin fit with no durable warning — owner: confirm, banner or refuse.
 
 ## Polish — the Session queue's rooms (S3–S6)
 

@@ -7,7 +7,8 @@
 //        explicitly, so the function stays host-agnostic and both callers
 //        keep their own `Form`/`Section` container unchanged.
 //
-//  `row`'s `LabeledContent` reads `.ready(.fitAnyway)` as a warning — both
+//  `row`'s `LabeledContent` reads `.ready(.fitAnyway)` (and an origin whose fit a
+//  dragged aperture centre set aside, `isWarning`) as a warning — both
 //  hosts must agree on this, since two hand-copied versions once drifted and
 //  let the same calibration show as a plain green success in one and a
 //  warning in the other. It is built on `InspectorStatusRow`
@@ -42,7 +43,7 @@ enum CalibrationReadinessRow {
         // The symbol carries the state's colour (the status word is plain
         // secondary text): a "fit anyway" result is ready but caveated, so
         // it gets the warning triangle, never the green check.
-        let isWarning = item.status == .ready(.fitAnyway)
+        let isWarning = Self.isWarning(item, canRestoreFittedOrigin: appState.canRestoreFittedOrigin)
         let symbol = !item.status.isReady ? "exclamationmark.circle.fill"
             : isWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
         let tint: Color = item.status.isReady && !isWarning ? .green : .orange
@@ -50,11 +51,12 @@ enum CalibrationReadinessRow {
         // content of the row) is on screen unconditionally, wrapping never
         // truncating (S22d: the tail is the caveat) — `InspectorStatusRow`'s
         // `detail` parameter wraps by construction, being ordinary `Text`.
+        let setAsideOrigin = item.kind == .originProbe && appState.canRestoreFittedOrigin
         InspectorStatusRow(
             title: item.kind.rawValue,
             systemImage: symbol,
             tint: tint,
-            detail: item.detail,
+            detail: setAsideOrigin ? item.detail + "\n" + originReplacedDetail : item.detail,
             status: item.status.displayName
         )
         // `unlockSummary` says what this calibration *enables*: on hover and
@@ -78,6 +80,20 @@ enum CalibrationReadinessRow {
                 .font(.caption)
                 .accessibilityIdentifier("calibration.rScale.filenameConflict")
             }
+            // The fit a dragged centre set aside comes back from here — the
+            // row that says it is gone — not from a collapsed disclosure.
+            if setAsideOrigin {
+                InspectorActionRow {
+                    Button {
+                        appState.restoreFittedOrigin()
+                    } label: {
+                        Label("Restore Fitted Origin", systemImage: "arrow.uturn.backward.circle")
+                    }
+                    .disabled(appState.isBusy)
+                    .accessibilityIdentifier("calibration.action.restoreFittedOrigin")
+                    .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
+                }
+            }
             if !item.status.isReady || PrepareSettings.shouldShowManualScaleEditor(
                 for: item.kind, status: item.status
             ) {
@@ -89,6 +105,23 @@ enum CalibrationReadinessRow {
         }
         .padding(.leading, InspectorStatusRow.childIndent)
     }
+
+    /// A ready value that carries a caveat: the ellipse fitted anyway (the
+    /// assertion behind it is the user's), and an origin that a dragged aperture
+    /// centre put in place of a fit (owner decision 1, 2026-09-30 night) — its
+    /// status reads "Mixed" or "Manual", which no reader takes for a loss.
+    /// Warned only while the fit is parked (`canRestoreFittedOrigin`): a manual
+    /// centre with nothing set aside destroyed nothing, and is not orange.
+    static func isWarning(_ item: CalibrationReadinessItem, canRestoreFittedOrigin: Bool) -> Bool {
+        if item.status == .ready(.fitAnyway) { return true }
+        return item.kind == .originProbe && item.status.isReady && canRestoreFittedOrigin
+    }
+
+    /// The sentence the origin row adds while its fit is set aside. "Recorded
+    /// mean" is the file's own qx0/qy0 mean, which the drag discarded when the
+    /// file had one.
+    static let originReplacedDetail =
+        "Aperture center replaced the fitted origin; the file's recorded mean, if any, was discarded."
 
     @ViewBuilder
     static func action(

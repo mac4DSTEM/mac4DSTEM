@@ -456,6 +456,43 @@ final class SessionLineageSidecarTests: XCTestCase {
         XCTAssertNil(try BraggVectorEMDWriter.loadSession(from: target).lineageNote)
     }
 
+    /// Owner decision 1 (2026-09-30 night): the aperture-centre set-aside is a
+    /// lineage node (`calibration_origin`, method "manual"), made by the app's
+    /// own `updateAperture`, and it survives the sidecar with its method and
+    /// the fit it superseded. Mutation it catches: no node recorded at the
+    /// set-aside (the file's lineage then ends at the fit); the method key
+    /// dropped from the manual node.
+    @MainActor
+    func testTheManualOriginNodeTheApertureDragRecordsRoundTripsThroughTheSidecar() throws {
+        let state = AppState()
+        let count = 4
+        state.calibrationSession.calibration.origin = OriginMaps(
+            width: 2, height: 2,
+            measuredX: [Float](repeating: 54.5, count: count), measuredY: [Float](repeating: 69.3, count: count),
+            fittedX: [Float](repeating: 54.5, count: count), fittedY: [Float](repeating: 69.3, count: count))
+        state.calibrationSession.calibration.originProvenance = .fitted
+        state.aperture = Aperture(centerX: 69.3, centerY: 54.5, inner: 0, outer: 20)
+        state.recordOriginCalibrationRun(fitFunction: .plane, method: .centreOfMass, probeRadius: 5, rmsResidual: 0.05)
+        _ = state.replay.record(kind: "strain", parameters: ["basis_mode": "consensus"], under: .detectorIdentity)
+        var raw = state.aperture
+        raw.centerX = 70; raw.centerY = 55
+        state.updateAperture(raw)
+
+        let lineage = state.replay.lineage
+        let path = url("manual-origin")
+        try save(attached(lineage), to: path)
+        XCTAssertNil(BraggVectorEMDWriter.takeLineageOmission(), "the writer accepted the lineage")
+        let read = try XCTUnwrap(try BraggVectorEMDWriter.loadSession(from: path).lineage)
+        // Not `read == lineage`: the file keeps whole seconds, the live run's clock does not.
+        XCTAssertEqual(read.nodes.map(\.id), lineage.nodes.map(\.id))
+        XCTAssertEqual(read.nodes.map(\.kind), lineage.nodes.map(\.kind))
+        XCTAssertEqual(read.nodes.map(\.parameters), lineage.nodes.map(\.parameters))
+        XCTAssertEqual(read.nodes.map(\.inputs), lineage.nodes.map(\.inputs))
+        let origins = read.nodes.filter { $0.kind == "calibration_origin" }
+        XCTAssertEqual(origins.map { $0.parameters["method"] }, ["centreOfMass", "manual"])
+        XCTAssertEqual(read.activeNodes().first { $0.kind == "calibration_origin" }?.parameters["method"], "manual")
+    }
+
     private func nodeJSON(id: String, inputs: [String] = [], kind: String = "strain") -> String {
         let edges = inputs.map { "{\"role\":\"peaks\",\"step\":\"\($0)\"}" }.joined(separator: ",")
         return "{\"external\":[],\"id\":\"\(id)\",\"inputs\":[\(edges)],\"kind\":\"\(kind)\",\"parameters\":{},\"recorded\":1,\"source\":\"live\"}"
@@ -473,5 +510,173 @@ private extension JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
         return decoder
+    }
+}
+
+
+// MARK: - Owner decision 2 (2026-09-30 night): "Fit anyway" survives a reopen
+//
+// The mark lives in `calibrationSession.provenance.ellipse`, which the sidecar
+// never carried; the lineage's `calibration_ellipse` node does (`source`).
+// `applySessionCalibration` reads the ACTIVE node and marks `.fitAnyway` only
+// when the node says so AND its a/b/theta are the values this sidecar saved.
+// Each test opens the demo cube through the real `activate` over a sidecar
+// written by the production writer.
+
+@MainActor
+final class FitAnywayRestoresOnReopenTests: XCTestCase {
+
+    private let a = 10.3, b = 9.9, theta = 0.4
+
+    private func ellipseParameters(a: Double, b: Double, theta: Double, source: String) -> [String: String] {
+        ["a_px": String(a), "b_px": String(b), "theta_deg": String(theta * 180 / .pi), "source": source]
+    }
+
+    private func lineage(_ runs: [(parameters: [String: String], at: Int)]) -> SessionLineage {
+        var lineage = SessionLineage()
+        for run in runs {
+            lineage.recordRun(kind: "calibration_ellipse", parameters: run.parameters, frame: SessionLineage.Frame(),
+                              at: Date(timeIntervalSince1970: TimeInterval(run.at)))
+            // A strain that consumed it: a node with a child never collapses
+            // into its successor (R3), so two ellipse runs stay two nodes.
+            lineage.recordRun(kind: "strain", parameters: ["basis_mode": "consensus"], frame: SessionLineage.Frame(),
+                              at: Date(timeIntervalSince1970: TimeInterval(run.at)))
+        }
+        return lineage
+    }
+
+    /// Save `saved` (with `lineage`, or a lineage-less record) beside the demo
+    /// cube and reopen it.
+    private func reopen(saved: PixelCalibration, lineage: SessionLineage?) async throws -> AppState {
+        let suite = "mac4dstem.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+        let locator = SessionSidecarLocator(defaults: defaults)
+        let source = DemoFourDDataSource()
+        let sourceDescriptor = try await source.discoverPrimaryDataset()
+        let d = try LoadView(source: sourceDescriptor, specification: .fullExtent).descriptor
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FitAnywayRestore-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let sidecar = directory.appendingPathComponent("demo.mac4dstem.h5")
+        locator.adopt(sidecar, for: sourceDescriptor)
+        let record: SessionReplayRecord
+        if let lineage {
+            record = SessionReplayRecord(steps: lineage.projection().steps, lineage: lineage)
+        } else {
+            var plain = SessionReplayRecord()
+            plain.record(kind: "disk_detection", parameters: ["sigma_cc": "2.0"], at: Date(timeIntervalSince1970: 1))
+            record = plain
+        }
+        try BraggVectorEMDWriter.mergeCalibration(
+            saved, qWidth: d.qx, qHeight: d.qy, to: sidecar,
+            loadSpecification: .fullExtent, replayRecord: record)
+
+        let state = AppState(sessionSidecar: locator)
+        let load = state.beginDatasetLoading("Reopening source…")
+        await state.activate(descriptor: sourceDescriptor, reader: source,
+                             specification: .fullExtent, runInitialAnalysis: false)
+        state.finishDatasetLoading(owner: load)
+        return state
+    }
+
+    private var savedEllipse: PixelCalibration {
+        PixelCalibration(ellipseA: a, ellipseB: b, ellipseTheta: theta)
+    }
+
+    /// Mutation it catches: the restore never reads the lineage (the mark is
+    /// lost, as before); reads it but stamps `.sessionSidecar` regardless.
+    func testAFitAnywayEllipseReopensAsFitAnyway() async throws {
+        let state = try await reopen(
+            saved: savedEllipse,
+            lineage: lineage([(ellipseParameters(a: a, b: b, theta: theta, source: "fitAnyway"), 1)]))
+        XCTAssertEqual(state.calibrationSession.calibration.ellipseA, a)
+        XCTAssertEqual(state.calibrationSession.provenance.ellipse, .fitAnyway)
+        XCTAssertEqual(state.calibrationSession.provenance.ellipse?.stateLabel, "Fit anyway")
+    }
+
+    /// The node's source decides, not merely its presence. Mutation it catches:
+    /// any `calibration_ellipse` node with matching values marks fit-anyway.
+    func testAManualEllipseNodeReopensAsFromSession() async throws {
+        let state = try await reopen(
+            saved: savedEllipse,
+            lineage: lineage([(ellipseParameters(a: a, b: b, theta: theta, source: "manual"), 1)]))
+        XCTAssertEqual(state.calibrationSession.provenance.ellipse, .sessionSidecar)
+    }
+
+    /// The node must describe THE saved ellipse: a node whose a differs by 1 %
+    /// is another ellipse's record. Mutation it catches: the values are not
+    /// compared (or compared at a 5 % tolerance).
+    func testANodeWhoseValuesAreNotTheSavedOnesDoesNotMark() async throws {
+        let off = try await reopen(
+            saved: savedEllipse,
+            lineage: lineage([(ellipseParameters(a: a * 1.01, b: b, theta: theta, source: "fitAnyway"), 1)]))
+        XCTAssertEqual(off.calibrationSession.provenance.ellipse, .sessionSidecar, "a off by 1 %")
+        let thetaOff = try await reopen(
+            saved: savedEllipse,
+            lineage: lineage([(ellipseParameters(a: a, b: b, theta: theta + 0.01, source: "fitAnyway"), 1)]))
+        XCTAssertEqual(thetaOff.calibrationSession.provenance.ellipse, .sessionSidecar, "theta off by 0.01 rad")
+    }
+
+    /// The ACTIVE node decides: a fit-anyway node superseded by a typed one
+    /// (the saved values are the typed ellipse). Mutation it catches: the last
+    /// fit-anyway node anywhere in the graph, or the first `calibration_ellipse`
+    /// node, instead of the active one.
+    func testASupersededFitAnywayNodeDoesNotMarkTheTypedEllipse() async throws {
+        let typed = (a: 11.0, b: 10.0, theta: 0.2)
+        let state = try await reopen(
+            saved: PixelCalibration(ellipseA: typed.a, ellipseB: typed.b, ellipseTheta: typed.theta),
+            lineage: lineage([
+                (ellipseParameters(a: a, b: b, theta: theta, source: "fitAnyway"), 1),
+                (ellipseParameters(a: typed.a, b: typed.b, theta: typed.theta, source: "manual"), 2),
+            ]))
+        XCTAssertEqual(state.calibrationSession.provenance.ellipse, .sessionSidecar)
+        // And the other way round: the fit-anyway node is the active one, an
+        // older typed one is not.
+        let reversed = try await reopen(
+            saved: savedEllipse,
+            lineage: lineage([
+                (ellipseParameters(a: typed.a, b: typed.b, theta: typed.theta, source: "manual"), 1),
+                (ellipseParameters(a: a, b: b, theta: theta, source: "fitAnyway"), 2),
+            ]))
+        XCTAssertEqual(reversed.calibrationSession.provenance.ellipse, .fitAnyway)
+    }
+
+    /// The ACTIVE node of a rewound path decides, not the last node in the
+    /// file: a fit-anyway ellipse, a typed one after it, then a rewind to the
+    /// run that stood on the fit-anyway one. The saved values are the fit-anyway
+    /// ellipse's. Mutation it catches: the last `calibration_ellipse` node of
+    /// the graph (the typed one) instead of the active one.
+    func testARewoundPathsActiveNodeDecidesNotTheLastNodeInTheFile() async throws {
+        var rewound = lineage([
+            (ellipseParameters(a: a, b: b, theta: theta, source: "fitAnyway"), 1),
+            (ellipseParameters(a: 11.0, b: 10.0, theta: 0.2, source: "manual"), 2),
+        ])
+        // s1 fit-anyway ellipse, s2 strain on it, s3 typed ellipse, s4 strain on that.
+        rewound.apply(try rewound.rewindPlan(to: "s2").get())
+        XCTAssertEqual(rewound.activeNodes().first { $0.kind == "calibration_ellipse" }?.id, "s1", "precondition")
+        let state = try await reopen(saved: savedEllipse, lineage: rewound)
+        XCTAssertEqual(state.calibrationSession.provenance.ellipse, .fitAnyway)
+    }
+
+    /// A sidecar with no lineage (schema 6, or a recipe-only save) is unchanged:
+    /// "From session". Mutation it catches: defaulting to fit-anyway when there
+    /// is nothing to read.
+    func testASidecarWithNoLineageStillReopensAsFromSession() async throws {
+        let state = try await reopen(saved: savedEllipse, lineage: nil)
+        XCTAssertEqual(state.calibrationSession.calibration.ellipseA, a)
+        XCTAssertEqual(state.calibrationSession.provenance.ellipse, .sessionSidecar)
+    }
+
+    /// After a reopen `lastEllipseFit` is nil, so the note must not print a
+    /// count it does not have ("0/36 sectors"). Mutation it catches: the
+    /// `?? 0` back.
+    func testTheFitAnywayNoteOmitsTheSectorCountItDoesNotHave() {
+        let restored = PrepareSettings.fitAnywayNote(occupiedBins: nil)
+        XCTAssertFalse(restored.contains("0/36"), restored)
+        XCTAssertFalse(restored.contains("/36"), restored)
+        XCTAssertTrue(restored.contains("rests on your assertion"), restored)
+        XCTAssertTrue(PrepareSettings.fitAnywayNote(occupiedBins: 9).contains("9/36 sectors"))
     }
 }
