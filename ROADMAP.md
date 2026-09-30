@@ -127,6 +127,10 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
 - [ ] **New Mac bring-up:** clone, `git config core.hooksPath tools/hooks`, `tools/lib/fetch-py4dstem.sh`, the gating cubes,
   Screen Recording + Accessibility, then `run-tests.sh all` as that machine's baseline; the old 8 GB limits are re-measured,
   not assumed (`open-items.md` › Ready on the new hardware).
+- [ ] **Residency returns, measured (ADR 013's condition, owner 2026-09-30):** run `tools/residency-sweep` on the new Mac
+  (working set 55.7 GB, max buffer 41.7 GB) to measure the knee, then set `measuredWorkingSetFraction` from that run and
+  bring back `.automatic` — no new surface. Every local cube is ≤ 4.2 GB float32, far below any knee; the curve needs a cube
+  near the budget, i.e. the 28 GB raw Al-Mg-Si (DM4: the sweep reads HDF5 only). Numbers are unchanged by residency (parity).
 - [ ] **C5 and the hardware lanes (ADR 043/048):** the 500-step training run on ≥ 12 held-out labelled positions and Train
   Model… driven (the 8 GB Mac's admission refused it, 2.10–2.13 of 2.16 GB); parallax/ptychography on real data (cost Gate
   D, then keep or remove); the 28 GB parity run.
