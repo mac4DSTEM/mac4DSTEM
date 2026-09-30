@@ -38,3 +38,17 @@ resident-vs-tiled harness on one real cube.
 ## Decisions owed to the owner (at that session's start)
 1. Lift the `CLAUDE.md` rule and ADR 013 for this attempt. 2. One machine's fraction for every Mac, or `.automatic` only on
 Macs at least this one's working set (smaller Macs keep streaming, today's behaviour). 3. Disk for the converted/cropped copies (tens of GB; 779 GB free on 2026-09-30).
+
+## Added 2026-09-30 evening (owner discussion + Fable advisor, before any run)
+- **The deliverable is the characterisation itself** (owner: "this knowledge could be useful in the future anyways"): the
+  resident-vs-streamed curve on this Mac is committed under `docs/archive/` whatever ships. Step 0, before the ladder: is
+  resident faster at all? The only timing in the repo is a 134 MB synthetic cube on the retired M3 (S18, 2026-08-27; the
+  resident number varied by half). Resident skips the disk read but keeps the tiled reductions (bit parity), so a single
+  pass may gain little and repeated passes (detection, many virtual images) most — time both kinds.
+- Sizes are `byteCountAsFloat32`: a uint16 file doubles in memory (the 28 GB raw may be 56 GB, above the 41.7 GB buffer cap
+  — then it can only stream; crop below the cap for the upper rungs).
+- Alternatives weighed and parked until the curve exists: a per-open user toggle in `UI/LoadConfigurator.swift` (a room, not
+  frozen; its caption already describes a control that does not exist; needs the drive rule cleared and a mock first); a
+  fixed rule "half the working set" (owner withdrew it: macOS and other apps take a roughly fixed few GB, so half is generous
+  on 64 GB and risky on 8 GB). If resident is not faster, the lean-app outcome is to remove the unreachable "Release cube"
+  button and `fitsResident` and close the line as measured-and-declined.
