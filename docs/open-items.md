@@ -74,7 +74,8 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
   >1 px vs a Gaussian-argmax seed. S14 (2026-09-30 night, `archive/v4/s14-*`): a box seed does not meet its bar; trimming does
   NOT hide the offset on Si_SiGe_exp, both bullseye cubes and Au_ref (0.5–2.8 px); on bullseye the refine step's iterated
   r + 1.5 window walks along the ring — confirmed by S14-D (`archive/v4/s14d-*`): bullseye_sim 3.87 → 0.02 px at
-  k = 2, compact cubes ≤ 0.03 px, but the demo fixture moves 1.70 px; no fixed window ships. Proposed: a per-scan window-dependence check.
+  k = 2, compact cubes ≤ 0.03 px, but the demo fixture moves 1.70 px; no fixed window ships (refuter HOLDS, held-out truth check 0.003 px). Next: the window-sensitivity
+  quantity in Core (median px between k 1.2 and 2.5, strided; < 0.1 s). The demo fixture's origin is pinned by no harness.
 - **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 

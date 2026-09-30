@@ -1,0 +1,8 @@
+odd-odd vacuum-like positions 970 of 2100
+odd-odd plane x [ 1.277831e+02  2.050000e-02 -4.240000e-02] y [ 1.289283e+02 -1.980000e-02 -1.150000e-02]
+record  plane x [ 1.277842e+02  2.050000e-02 -4.240000e-02] y [ 1.28929e+02 -1.98000e-02 -1.16000e-02]
+plane-vs-plane |diff| over the scan: median 0.0027 max 0.0060 px
+ship   vs odd-odd plane: even-even vac median 3.871 p95 4.019 | all vac median 3.872 p95 4.020 || vs record plane: in-sample(ee) 3.869  out-of-sample(not ee) 3.871
+k2.0   vs odd-odd plane: even-even vac median 0.021 p95 0.150 | all vac median 0.021 p95 0.151 || vs record plane: in-sample(ee) 0.021  out-of-sample(not ee) 0.021
+k1.75  vs odd-odd plane: even-even vac median 0.021 p95 0.154 | all vac median 0.021 p95 0.153 || vs record plane: in-sample(ee) 0.022  out-of-sample(not ee) 0.022
+G2.0   vs odd-odd plane: even-even vac median 0.021 p95 0.150 | all vac median 0.021 p95 0.151 || vs record plane: in-sample(ee) 0.021  out-of-sample(not ee) 0.021

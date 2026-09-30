@@ -118,24 +118,28 @@
  },
  {
   "id": "C-s14d",
-  "title": "GO on S14-D, the origin refine Gate D",
-  "urgency": "whenever",
-  "problem": "The beam-origin fit underlies Q calibration, strain and every map. S14 showed a better coarse seed does not fix the misses; the refuter and the new S14-D diagnosis say the lever is the refine step: an iterated centre-of-mass in a window of about 1.2 x probe radius that, on a ring-shaped probe, cuts through the ring, so the true centre is an unstable point and the iteration walks away along the ring. On bullseye_sim the shipped origin is 2.28 px from a recoverable truth.",
-  "context": "S14-D is pre-registered (0645117, nothing run): truth established first on bullseye_sim vacuum positions (~0.05 px, 966 of 2100 sampled positions), exact synthetic fixtures, a disk-only control, the ringed set measured as n = 2 cubes (every other cube's profile rises +0.00 beyond the core; Au_ref is a halo, not a ring). Predictions: shipped error >= 1.5 px on the fixtures, window k = 2 < 0.10 px, compact cubes move < 0.10 px, cost <= 1.25x. Bar: mechanism shown by observation, fix < 0.10 px, no regression, no verdict flip; if met a READY PATCH that is NOT applied - it moves shipped origin numbers on two cubes and you decide. Decision 4 (origin-gate statistic, l-filter) waits behind it.",
+  "title": "S14-D done: build the window check?",
+  "urgency": "soon",
+  "problem": "On ringed (bullseye) probes the origin refine step walks along the ring, so the fitted origin lands ~3.9 px off the truth. A wider window fixes the bullseye but breaks the demo fixture, whose crystal spots it then swallows, so no single window can ship.",
+  "context": "Confirmed with a held-out truth plane: shipped median 3.87 px, window k = 2 gives 0.021 px on bullseye_sim; compact cubes move <= 0.03 px; the demo fixture moves 1.70 px against its exact truth. A per-scan check (origin moved between windows 1.2 and 2.5) flags exactly the four ringed/spotted cubes (3.4-5.3 px) and stays silent on the rest (<= 0.03 px), costing < 0.1 s.",
   "options": [
    {
-    "label": "GO: run it as registered (proposal only)",
-    "consequence": "One night; you get a diagnosis with truth, and at most a patch to decide on."
+    "label": "Build the check as a Core quantity (GREEN)",
+    "consequence": "The log and a fixture test show the number; the on-screen line waits for the drive rule. No verdict changes."
    },
    {
-    "label": "Hold until the new Mac",
-    "consequence": "The calibration holes stay blocked; the 2.28 px error on ringed probes stays shipped."
+    "label": "Close S14-D, build nothing",
+    "consequence": "Bullseye origins stay 3.9 px off with no warning."
+   },
+   {
+    "label": "Feed the check into the origin gate",
+    "consequence": "A verdict change (bullseye flips to blocked): its own Gate D first."
    }
   ],
-  "recommendation": "GO - it has truth, a control and a bounded bar, and the YELLOW rule guarantees it stops at a proposal.",
-  "question": "Already running at your word (GO given after its pre-registration, 0645117) — nothing to decide until its result.",
-  "default_if_silent": "It finishes as a measurement and, only if its bar is met, a ready patch for you.",
-  "source": "docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md sections 1-2, 4, 6; s14-origin-coarse-seed-results-2026-09-30.md sections 3, 7; ROADMAP.md:165"
+  "recommendation": "Build the check as a disclosed Core quantity now; decide later whether it should gate.",
+  "question": "Build the origin window-sensitivity quantity now (yes/no)?",
+  "default_if_silent": "S14-D stays closed as recorded; nothing is built.",
+  "source": "archive/v4/s14d-origin-refine-gateD-2026-09-30.md, s14d-refuter-2026-09-30.md (340eec4)"
  },
  {
   "id": "A4-qshell",
