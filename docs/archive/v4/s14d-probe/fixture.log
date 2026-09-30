@@ -1,0 +1,35 @@
+[MetalEngine] GPU: Apple M3, maxWorkingSet ≈ 5461 MB
+=== F1_template n=60 app probeSize r 7.0222 centre (127.422, 127.497)  win_shipped 8.522
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=7.0221734
+=== F2_diskonly n=25 app probeSize r 2.9352 centre (127.277, 127.593)  win_shipped 4.435
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=2.9351525
+=== F2_diskonly_noisy n=25 app probeSize r 2.9380 centre (127.277, 127.595)  win_shipped 4.438
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=2.938015
+=== F2_rho10p0 n=25 app probeSize r 6.7656 centre (127.475, 127.597)  win_shipped 8.266
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=6.7655663
+=== F2_rho10p0_noisy n=25 app probeSize r 6.7651 centre (127.491, 127.549)  win_shipped 8.265
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=6.7650967
+=== F2_rho12p0 n=25 app probeSize r 7.1881 centre (127.465, 127.464)  win_shipped 8.688
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=7.188131
+=== F2_rho12p0_noisy n=25 app probeSize r 7.1970 centre (127.448, 127.400)  win_shipped 8.697
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=7.1969576
+=== F2_rho6p0 n=25 app probeSize r 5.9089 centre (127.333, 127.599)  win_shipped 7.409
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=5.908894
+=== F2_rho6p0_noisy n=25 app probeSize r 5.9210 centre (127.333, 127.599)  win_shipped 7.421
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=5.920953
+=== F2_rho8p5 n=25 app probeSize r 6.5455 centre (127.197, 127.613)  win_shipped 8.045
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=6.5454893
+=== F2_rho8p5_noisy n=25 app probeSize r 6.5344 centre (127.198, 127.614)  win_shipped 8.034
+   probe-copy vs shipped kernel at 4 passes/floor: max |diff| = 0.0 (bitwise-equal required = 0)
+   r=6.5343876
+peak phys_footprint 88 MB

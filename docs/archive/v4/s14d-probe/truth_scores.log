@@ -1,0 +1,15 @@
+vacuum-like positions 3872 of 8400
+cand    median     p95     max  |err vs truth plane| px, vacuum positions;  all-position |meas - truth plane| median
+ship     3.871   4.021   4.175   all-pos median   3.893
+k1.5     1.631   2.290   2.694   all-pos median   2.033
+k1.75    0.022   0.152   0.528   all-pos median   0.110
+k2.0     0.021   0.150   0.510   all-pos median   0.103
+k2.5     0.021   0.150   0.511   all-pos median   0.101
+k3.0     0.021   0.150   0.511   all-pos median   0.100
+p1       4.768   6.156   6.608   all-pos median   5.236
+py1      4.838   6.228   6.685   all-pos median   5.303
+p10      3.888   4.028   4.290   all-pos median   3.893
+p30      3.891   4.033   4.331   all-pos median   3.905
+G1.2     3.231   3.657   4.039   all-pos median   3.375
+G2.0     0.021   0.150   0.510   all-pos median   0.102
+G3.0     0.021   0.150   0.511   all-pos median   0.100

@@ -1,0 +1,273 @@
+=== fixture  scan 12x12  det 64x64
+   r 6.9294 win_shipped 8.429 probe centre (32.0000, 32.0000)
+   total 0.1s  peak footprint 48 MB  tile rows 12
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 288/288
+   CAND ship FIT rms 0.0018 (PASS) excl 0.0000 meanFit (32.0000, 32.0000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.0012 (PASS) excl 0.0139 meanFit (31.9999, 31.9999) | DMEAS vs ship med 0.0013 p95 0.0037 max 0.005 | DFIT vs ship med 0.0003 max 0.0009
+   CAND k1.75 FIT rms 0.0183 (PASS) excl 0.0000 meanFit (31.9920, 31.9917) | DMEAS vs ship med 0.0465 p95 0.0610 max 0.065 | DFIT vs ship med 0.0276 max 0.0867
+   CAND k2.0 FIT rms 0.1310 (PASS) excl 0.0069 meanFit (30.8000, 30.8030) | DMEAS vs ship med 1.6796 p95 1.8697 max 1.958 | DFIT vs ship med 1.6973 max 1.9102
+   CAND k2.5 FIT rms 0.0629 (PASS) excl 0.0139 meanFit (29.6066, 29.6309) | DMEAS vs ship med 3.3615 p95 3.5144 max 3.528 | DFIT vs ship med 3.3673 max 3.5096
+   CAND k3.0 FIT rms 0.0467 (PASS) excl 0.0139 meanFit (31.4056, 31.4771) | DMEAS vs ship med 0.7891 p95 0.8448 max 0.869 | DFIT vs ship med 0.7916 max 0.8249
+   CAND p1 FIT rms 0.0004 (PASS) excl 0.0208 meanFit (31.9652, 31.9652) | DMEAS vs ship med 0.0493 p95 0.0518 max 0.054 | DFIT vs ship med 0.0492 max 0.0524
+   CAND py1 FIT rms 0.0004 (PASS) excl 0.0208 meanFit (31.9652, 31.9652) | DMEAS vs ship med 0.0493 p95 0.0518 max 0.054 | DFIT vs ship med 0.0492 max 0.0524
+   CAND p10 FIT rms 0.0018 (PASS) excl 0.0000 meanFit (32.0000, 32.0000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND p30 FIT rms 0.0018 (PASS) excl 0.0000 meanFit (32.0000, 32.0000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G1.2 FIT rms 0.0018 (PASS) excl 0.0000 meanFit (32.0000, 32.0000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G2.0 FIT rms 0.1448 (PASS) excl 0.0833 meanFit (31.9995, 32.0004) | DMEAS vs ship med 0.1336 p95 0.6427 max 0.726 | DFIT vs ship med 0.2201 max 0.8031
+   CAND G3.0 FIT rms 0.0129 (PASS) excl 0.0069 meanFit (32.0001, 32.0000) | DMEAS vs ship med 0.0399 p95 0.1184 max 0.140 | DFIT vs ship med 0.0398 max 0.1455
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.000  >1px 0
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 1.6949 p95 1.8126 max 1.825  >1px 144
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.7941 p95 0.8553 max 0.858  >1px 0
+peak phys_footprint 48 MB
+=== WS2  scan 128x128  det 128x128
+   r 1.8584 win_shipped 3.358 probe centre (63.8428, 63.8428)
+   total 2.5s  peak footprint 1215 MB  tile rows 42
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 32768/32768
+   CAND ship FIT rms 0.0014 (PASS) excl 0.1534 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.0014 (PASS) excl 0.1534 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.75 FIT rms 0.0014 (PASS) excl 0.1534 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k2.0 FIT rms 0.0014 (PASS) excl 0.1532 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k2.5 FIT rms 0.0014 (PASS) excl 0.1534 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k3.0 FIT rms 0.0014 (PASS) excl 0.1530 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND p1 FIT rms 0.0014 (PASS) excl 0.1528 meanFit (63.7469, 63.7469) | DMEAS vs ship med 0.0033 p95 0.0034 max 0.004 | DFIT vs ship med 0.0033 max 0.0033
+   CAND py1 FIT rms 0.0011 (PASS) excl 0.1417 meanFit (63.9963, 63.9963) | DMEAS vs ship med 0.3520 p95 0.3522 max 0.355 | DFIT vs ship med 0.3520 max 0.3521
+   CAND p10 FIT rms 0.0014 (PASS) excl 0.1534 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND p30 FIT rms 0.0014 (PASS) excl 0.1534 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G1.2 FIT rms 0.0014 (PASS) excl 0.1534 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G2.0 FIT rms 0.0014 (PASS) excl 0.1532 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G3.0 FIT rms 0.0014 (PASS) excl 0.1530 meanFit (63.7463, 63.7463) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.000  >1px 0
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.000  >1px 0
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.000  >1px 0
+peak phys_footprint 1214 MB
+=== simAu_poly  scan 100x84  det 125x125
+   r 5.1173 win_shipped 6.617 probe centre (63.3134, 63.4864)
+   total 1.7s  peak footprint 1047 MB  tile rows 68
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 16800/16800
+   CAND ship FIT rms 0.5158 (PASS) excl 0.0151 meanFit (63.2747, 63.4770) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.5099 (PASS) excl 0.0139 meanFit (63.2748, 63.4771) | DMEAS vs ship med 0.0062 p95 0.0251 max 0.108 | DFIT vs ship med 0.0005 max 0.0012
+   CAND k1.75 FIT rms 0.5063 (PASS) excl 0.0137 meanFit (63.2746, 63.4771) | DMEAS vs ship med 0.0115 p95 0.0442 max 0.215 | DFIT vs ship med 0.0011 max 0.0032
+   CAND k2.0 FIT rms 0.5020 (PASS) excl 0.0143 meanFit (63.2735, 63.4763) | DMEAS vs ship med 0.0144 p95 0.0567 max 0.375 | DFIT vs ship med 0.0024 max 0.0049
+   CAND k2.5 FIT rms 0.4898 (PASS) excl 0.0137 meanFit (63.2722, 63.4759) | DMEAS vs ship med 0.0185 p95 0.0794 max 0.941 | DFIT vs ship med 0.0033 max 0.0054
+   CAND k3.0 FIT rms 0.4720 (PASS) excl 0.0151 meanFit (63.2708, 63.4747) | DMEAS vs ship med 0.0279 p95 0.1204 max 1.962 | DFIT vs ship med 0.0057 max 0.0089
+   CAND p1 FIT rms 0.6086 (PASS) excl 0.0686 meanFit (62.9813, 63.1853) | DMEAS vs ship med 0.3870 p95 0.8423 max 1.452 | DFIT vs ship med 0.4238 max 0.7750
+   CAND py1 FIT rms 0.6533 (PASS) excl 0.0687 meanFit (62.8596, 63.0603) | DMEAS vs ship med 0.5718 p95 1.0377 max 1.629 | DFIT vs ship med 0.5964 max 0.9952
+   CAND p10 FIT rms 0.5158 (PASS) excl 0.0150 meanFit (63.2748, 63.4773) | DMEAS vs ship med 0.0000 p95 0.0054 max 0.042 | DFIT vs ship med 0.0004 max 0.0005
+   CAND p30 FIT rms 0.5158 (PASS) excl 0.0150 meanFit (63.2748, 63.4773) | DMEAS vs ship med 0.0000 p95 0.0054 max 0.042 | DFIT vs ship med 0.0004 max 0.0005
+   CAND G1.2 FIT rms 0.4369 (PASS) excl 0.0146 meanFit (63.2748, 63.4776) | DMEAS vs ship med 0.0000 p95 0.0074 max 24.903 | DFIT vs ship med 0.0006 max 0.0009
+   CAND G2.0 FIT rms 0.4233 (PASS) excl 0.0137 meanFit (63.2748, 63.4778) | DMEAS vs ship med 0.0142 p95 0.0549 max 24.926 | DFIT vs ship med 0.0016 max 0.0041
+   CAND G3.0 FIT rms 0.3986 (PASS) excl 0.0148 meanFit (63.2734, 63.4783) | DMEAS vs ship med 0.0279 p95 0.1187 max 24.919 | DFIT vs ship med 0.0030 max 0.0063
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0074 max 24.903  >1px 1
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0133 max 24.560  >1px 1
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0009 p95 0.0272 max 22.959  >1px 1
+peak phys_footprint 1046 MB
+=== simAu_nano  scan 100x84  det 125x125
+   r 5.1133 win_shipped 6.613 probe centre (63.2971, 63.4900)
+   total 2.2s  peak footprint 947 MB  tile rows 68
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 16800/16800
+   CAND ship FIT rms 0.3050 (PASS) excl 0.1061 meanFit (63.2717, 63.4829) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.3030 (PASS) excl 0.1023 meanFit (63.2718, 63.4826) | DMEAS vs ship med 0.0021 p95 0.0240 max 0.072 | DFIT vs ship med 0.0005 max 0.0012
+   CAND k1.75 FIT rms 0.3005 (PASS) excl 0.0964 meanFit (63.2716, 63.4824) | DMEAS vs ship med 0.0042 p95 0.0491 max 0.209 | DFIT vs ship med 0.0032 max 0.0079
+   CAND k2.0 FIT rms 0.2977 (PASS) excl 0.0963 meanFit (63.2710, 63.4815) | DMEAS vs ship med 0.0046 p95 0.0558 max 0.380 | DFIT vs ship med 0.0043 max 0.0115
+   CAND k2.5 FIT rms 0.2892 (PASS) excl 0.0951 meanFit (63.2699, 63.4788) | DMEAS vs ship med 0.0052 p95 0.0542 max 1.078 | DFIT vs ship med 0.0047 max 0.0067
+   CAND k3.0 FIT rms 0.2709 (PASS) excl 0.0877 meanFit (63.2699, 63.4787) | DMEAS vs ship med 0.0070 p95 0.0939 max 2.443 | DFIT vs ship med 0.0057 max 0.0120
+   CAND p1 FIT rms 0.3349 (PASS) excl 0.1375 meanFit (63.0170, 63.2301) | DMEAS vs ship med 0.4047 p95 0.7385 max 1.044 | DFIT vs ship med 0.3623 max 0.6754
+   CAND py1 FIT rms 0.3342 (PASS) excl 0.1283 meanFit (62.8875, 63.0980) | DMEAS vs ship med 0.5889 p95 0.9118 max 1.234 | DFIT vs ship med 0.5473 max 0.9157
+   CAND p10 FIT rms 0.3047 (PASS) excl 0.1067 meanFit (63.2722, 63.4832) | DMEAS vs ship med 0.0000 p95 0.0084 max 0.060 | DFIT vs ship med 0.0005 max 0.0011
+   CAND p30 FIT rms 0.3047 (PASS) excl 0.1067 meanFit (63.2722, 63.4832) | DMEAS vs ship med 0.0000 p95 0.0084 max 0.060 | DFIT vs ship med 0.0005 max 0.0011
+   CAND G1.2 FIT rms 0.1409 (PASS) excl 0.1068 meanFit (63.2723, 63.4834) | DMEAS vs ship med 0.0000 p95 0.0102 max 24.696 | DFIT vs ship med 0.0008 max 0.0016
+   CAND G2.0 FIT rms 0.1348 (PASS) excl 0.0962 meanFit (63.2722, 63.4829) | DMEAS vs ship med 0.0045 p95 0.0530 max 24.763 | DFIT vs ship med 0.0040 max 0.0090
+   CAND G3.0 FIT rms 0.1193 (PASS) excl 0.0902 meanFit (63.2732, 63.4835) | DMEAS vs ship med 0.0068 p95 0.0806 max 24.757 | DFIT vs ship med 0.0029 max 0.0060
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0102 max 24.696  >1px 1
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0219 max 24.384  >1px 1
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0439 max 22.316  >1px 1
+peak phys_footprint 946 MB
+=== SiSiGe_exp  scan 50x200  det 128x128
+   r 3.7383 win_shipped 5.238 probe centre (70.4072, 59.1855)
+   total 2.0s  peak footprint 1009 MB  tile rows 27
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 20000/20000
+   CAND ship FIT rms 9.7202 (BLOCK) excl 0.1000 meanFit (69.3133, 54.5009) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 9.7196 (BLOCK) excl 0.1000 meanFit (69.3126, 54.5004) | DMEAS vs ship med 0.0034 p95 0.0122 max 0.199 | DFIT vs ship med 0.0008 max 0.0025
+   CAND k1.75 FIT rms 9.7183 (BLOCK) excl 0.1000 meanFit (69.3108, 54.5003) | DMEAS vs ship med 0.0090 p95 0.0316 max 0.324 | DFIT vs ship med 0.0026 max 0.0065
+   CAND k2.0 FIT rms 9.7160 (BLOCK) excl 0.1000 meanFit (69.3090, 54.5008) | DMEAS vs ship med 0.0148 p95 0.0513 max 0.346 | DFIT vs ship med 0.0042 max 0.0093
+   CAND k2.5 FIT rms 9.7088 (BLOCK) excl 0.1000 meanFit (69.3040, 54.5054) | DMEAS vs ship med 0.0279 p95 0.0942 max 0.545 | DFIT vs ship med 0.0103 max 0.0174
+   CAND k3.0 FIT rms 9.7845 (BLOCK) excl 0.0870 meanFit (69.7270, 54.9870) | DMEAS vs ship med 0.0553 p95 3.9970 max 8.257 | DFIT vs ship med 0.6823 max 2.1461
+   CAND p1 FIT rms 9.7141 (BLOCK) excl 0.1000 meanFit (69.3316, 54.5215) | DMEAS vs ship med 0.0203 p95 0.1718 max 0.484 | DFIT vs ship med 0.0331 max 0.1065
+   CAND py1 FIT rms 9.7255 (BLOCK) excl 0.0999 meanFit (69.3801, 54.5907) | DMEAS vs ship med 0.0260 p95 0.5571 max 0.965 | DFIT vs ship med 0.1214 max 0.3934
+   CAND p10 FIT rms 9.7202 (BLOCK) excl 0.1000 meanFit (69.3133, 54.5009) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.008 | DFIT vs ship med 0.0000 max 0.0000
+   CAND p30 FIT rms 9.7202 (BLOCK) excl 0.1000 meanFit (69.3133, 54.5009) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.008 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G1.2 FIT rms 9.8147 (BLOCK) excl 0.0753 meanFit (70.2034, 56.3888) | DMEAS vs ship med 0.0000 p95 24.0625 max 31.365 | DFIT vs ship med 2.1055 max 5.8703
+   CAND G2.0 FIT rms 9.8108 (BLOCK) excl 0.0754 meanFit (70.1961, 56.3880) | DMEAS vs ship med 0.0175 p95 24.0185 max 31.373 | DFIT vs ship med 2.1031 max 5.8695
+   CAND G3.0 FIT rms 9.7710 (BLOCK) excl 0.0755 meanFit (70.1678, 56.3944) | DMEAS vs ship med 0.0570 p95 22.8890 max 31.372 | DFIT vs ship med 2.0981 max 5.8236
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 24.0625 max 31.365  >1px 1860
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 24.0477 max 31.384  >1px 1860
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 21.6675 max 31.318  >1px 2751
+peak phys_footprint 1009 MB
+=== Particle_1  scan 90x45  det 128x128
+   r 6.1229 win_shipped 7.623 probe centre (64.5763, 70.5527)
+   total 0.6s  peak footprint 551 MB  tile rows 90
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 8100/8100
+   CAND ship FIT rms 18.0587 (BLOCK) excl 0.2617 meanFit (64.3633, 69.9457) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 18.0131 (BLOCK) excl 0.2523 meanFit (64.3646, 69.9335) | DMEAS vs ship med 0.0891 p95 0.7368 max 2.524 | DFIT vs ship med 0.0189 max 0.0497
+   CAND k1.75 FIT rms 17.9402 (BLOCK) excl 0.2444 meanFit (64.3717, 69.9245) | DMEAS vs ship med 0.1702 p95 1.6971 max 5.714 | DFIT vs ship med 0.0467 max 0.1365
+   CAND k2.0 FIT rms 17.8510 (BLOCK) excl 0.2393 meanFit (64.3835, 69.9080) | DMEAS vs ship med 0.2705 p95 2.6672 max 6.341 | DFIT vs ship med 0.0836 max 0.1819
+   CAND k2.5 FIT rms 17.6321 (BLOCK) excl 0.2368 meanFit (64.3980, 69.9102) | DMEAS vs ship med 0.3233 p95 3.3131 max 7.743 | DFIT vs ship med 0.0934 max 0.1846
+   CAND k3.0 FIT rms 17.3632 (BLOCK) excl 0.2504 meanFit (64.3972, 69.9290) | DMEAS vs ship med 0.3118 p95 3.3297 max 11.003 | DFIT vs ship med 0.0549 max 0.1516
+   CAND p1 FIT rms 18.0726 (BLOCK) excl 0.2326 meanFit (64.4334, 69.9407) | DMEAS vs ship med 0.3712 p95 1.5551 max 2.764 | DFIT vs ship med 0.1599 max 0.3549
+   CAND py1 FIT rms 18.0767 (BLOCK) excl 0.2331 meanFit (64.4366, 69.9393) | DMEAS vs ship med 0.3839 p95 1.5591 max 3.049 | DFIT vs ship med 0.1642 max 0.3580
+   CAND p10 FIT rms 18.0534 (BLOCK) excl 0.2664 meanFit (64.3665, 69.9427) | DMEAS vs ship med 0.0000 p95 0.5340 max 1.614 | DFIT vs ship med 0.0159 max 0.0330
+   CAND p30 FIT rms 18.0521 (BLOCK) excl 0.2664 meanFit (64.3668, 69.9429) | DMEAS vs ship med 0.0000 p95 0.5642 max 2.261 | DFIT vs ship med 0.0160 max 0.0349
+   CAND G1.2 FIT rms 18.7270 (BLOCK) excl 0.2462 meanFit (64.3707, 69.9331) | DMEAS vs ship med 0.0226 p95 44.6157 max 121.102 | DFIT vs ship med 0.0361 max 0.0867
+   CAND G2.0 FIT rms 18.1602 (BLOCK) excl 0.2321 meanFit (64.3642, 69.9034) | DMEAS vs ship med 0.3687 p95 43.6387 max 117.270 | DFIT vs ship med 0.1054 max 0.2414
+   CAND G3.0 FIT rms 17.3331 (BLOCK) excl 0.2370 meanFit (64.3878, 69.9080) | DMEAS vs ship med 0.3997 p95 40.9522 max 112.415 | DFIT vs ship med 0.0935 max 0.1958
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0226 p95 44.6157 max 121.102  >1px 705
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0882 p95 42.9920 max 114.418  >1px 1092
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0893 p95 40.0764 max 106.740  >1px 900
+peak phys_footprint 550 MB
+=== Au_ref  scan 205x310  det 64x64
+   r 8.0556 win_shipped 9.667 probe centre (33.7980, 29.6056)
+   total 2.2s  peak footprint 1409 MB  tile rows 70
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 127100/127100
+   CAND ship FIT rms 13.5488 (BLOCK) excl 0.0000 meanFit (33.5278, 29.8363) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 12.8370 (BLOCK) excl 0.0000 meanFit (33.6737, 29.5353) | DMEAS vs ship med 1.0177 p95 3.3696 max 10.496 | DFIT vs ship med 0.3435 max 0.4356
+   CAND k1.75 FIT rms 12.0073 (BLOCK) excl 0.0000 meanFit (33.7220, 29.4589) | DMEAS vs ship med 1.7168 p95 5.6016 max 10.921 | DFIT vs ship med 0.4333 max 0.6251
+   CAND k2.0 FIT rms 10.9460 (BLOCK) excl 0.0000 meanFit (33.7322, 29.4677) | DMEAS vs ship med 2.7812 p95 7.9109 max 14.092 | DFIT vs ship med 0.4266 max 0.6687
+   CAND k2.5 FIT rms 8.7522 (BLOCK) excl 0.0687 meanFit (33.8938, 29.3826) | DMEAS vs ship med 5.2567 p95 11.9108 max 22.599 | DFIT vs ship med 0.6360 max 0.8960
+   CAND k3.0 FIT rms 6.8876 (PASS) excl 0.1268 meanFit (33.8007, 29.4655) | DMEAS vs ship med 6.7412 p95 15.5278 max 31.290 | DFIT vs ship med 0.5107 max 0.9254
+   CAND p1 FIT rms 14.0142 (BLOCK) excl 0.0001 meanFit (33.5563, 30.3503) | DMEAS vs ship med 1.2613 p95 3.1291 max 7.362 | DFIT vs ship med 0.5156 max 0.8285
+   CAND py1 FIT rms 14.0142 (BLOCK) excl 0.0001 meanFit (33.5563, 30.3503) | DMEAS vs ship med 1.2613 p95 3.1291 max 7.362 | DFIT vs ship med 0.5156 max 0.8285
+   CAND p10 FIT rms 13.4197 (BLOCK) excl 0.0000 meanFit (33.6281, 29.5718) | DMEAS vs ship med 0.1916 p95 2.3171 max 6.094 | DFIT vs ship med 0.2888 max 0.3228
+   CAND p30 FIT rms 13.4025 (BLOCK) excl 0.0000 meanFit (33.6677, 29.5308) | DMEAS vs ship med 0.1927 p95 2.9212 max 15.526 | DFIT vs ship med 0.3427 max 0.3665
+   CAND G1.2 FIT rms 12.2768 (BLOCK) excl 0.0002 meanFit (33.8351, 29.5087) | DMEAS vs ship med 1.1676 p95 25.5846 max 67.995 | DFIT vs ship med 0.4540 max 0.6103
+   CAND G2.0 FIT rms 10.2628 (BLOCK) excl 0.0513 meanFit (33.8234, 29.3718) | DMEAS vs ship med 3.3416 p95 24.5647 max 56.756 | DFIT vs ship med 0.6300 max 0.9906
+   CAND G3.0 FIT rms 6.7208 (PASS) excl 0.1731 meanFit (33.8517, 29.5008) | DMEAS vs ship med 6.9045 p95 19.7782 max 50.009 | DFIT vs ship med 0.5127 max 0.9413
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 1.1676 p95 25.5846 max 67.995  >1px 35338
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.2377 p95 20.2734 max 54.612  >1px 18530
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0678 p95 4.9253 max 41.382  >1px 8358
+peak phys_footprint 1409 MB
+=== SiSiGe_cal  scan 77x17  det 448x480
+   r 3.6933 win_shipped 5.193 probe centre (243.3263, 226.8703)
+   total 2.6s  peak footprint 1477 MB  tile rows 24
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 2618/2618
+   CAND ship FIT rms 0.1866 (PASS) excl 0.1574 meanFit (243.3575, 226.7754) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.1893 (PASS) excl 0.1589 meanFit (243.3459, 226.7861) | DMEAS vs ship med 0.0182 p95 0.0245 max 0.041 | DFIT vs ship med 0.0179 max 0.0188
+   CAND k1.75 FIT rms 0.1907 (PASS) excl 0.1627 meanFit (243.3527, 226.7907) | DMEAS vs ship med 0.0178 p95 0.0258 max 0.055 | DFIT vs ship med 0.0177 max 0.0204
+   CAND k2.0 FIT rms 0.1950 (PASS) excl 0.1635 meanFit (243.3582, 226.7847) | DMEAS vs ship med 0.0147 p95 0.0278 max 0.082 | DFIT vs ship med 0.0116 max 0.0181
+   CAND k2.5 FIT rms 0.1995 (PASS) excl 0.1688 meanFit (243.3711, 226.7841) | DMEAS vs ship med 0.0186 p95 0.0398 max 0.114 | DFIT vs ship med 0.0151 max 0.0261
+   CAND k3.0 FIT rms 0.2060 (PASS) excl 0.1658 meanFit (243.3753, 226.7720) | DMEAS vs ship med 0.0215 p95 0.0603 max 0.145 | DFIT vs ship med 0.0158 max 0.0269
+   CAND p1 FIT rms 0.4296 (PASS) excl 0.2383 meanFit (242.9758, 226.5659) | DMEAS vs ship med 0.4279 p95 0.6207 max 0.727 | DFIT vs ship med 0.4362 max 0.4496
+   CAND py1 FIT rms 0.7034 (PASS) excl 0.2208 meanFit (242.5916, 226.2783) | DMEAS vs ship med 0.9145 p95 1.0941 max 1.226 | DFIT vs ship med 0.9150 max 0.9210
+   CAND p10 FIT rms 0.1867 (PASS) excl 0.1574 meanFit (243.3575, 226.7755) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.015 | DFIT vs ship med 0.0001 max 0.0002
+   CAND p30 FIT rms 0.1867 (PASS) excl 0.1574 meanFit (243.3575, 226.7755) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.015 | DFIT vs ship med 0.0001 max 0.0002
+   CAND G1.2 FIT rms 0.1868 (PASS) excl 0.1566 meanFit (243.3575, 226.7757) | DMEAS vs ship med 0.0000 p95 0.0055 max 0.018 | DFIT vs ship med 0.0002 max 0.0006
+   CAND G2.0 FIT rms 0.1950 (PASS) excl 0.1642 meanFit (243.3583, 226.7853) | DMEAS vs ship med 0.0149 p95 0.0278 max 0.082 | DFIT vs ship med 0.0121 max 0.0183
+   CAND G3.0 FIT rms 0.2060 (PASS) excl 0.1658 meanFit (243.3754, 226.7722) | DMEAS vs ship med 0.0215 p95 0.0603 max 0.148 | DFIT vs ship med 0.0158 max 0.0269
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0055 max 0.018  >1px 0
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0038 max 0.012  >1px 0
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0034 max 0.012  >1px 0
+peak phys_footprint 1477 MB
+=== AlMgSi_060  scan 330x330  det 64x64
+   r 2.5403 win_shipped 4.040 probe centre (31.9276, 31.9168)
+   total 2.7s  peak footprint 1419 MB  tile rows 66
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 217800/217800
+   CAND ship FIT rms 0.0571 (PASS) excl 0.0370 meanFit (31.8027, 31.7954) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.0571 (PASS) excl 0.0370 meanFit (31.8027, 31.7954) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.75 FIT rms 0.0587 (PASS) excl 0.0336 meanFit (31.8231, 31.8107) | DMEAS vs ship med 0.0175 p95 0.0262 max 0.046 | DFIT vs ship med 0.0172 max 0.0200
+   CAND k2.0 FIT rms 0.0599 (PASS) excl 0.0325 meanFit (31.7953, 31.7970) | DMEAS vs ship med 0.0106 p95 0.0227 max 0.052 | DFIT vs ship med 0.0063 max 0.0191
+   CAND k2.5 FIT rms 0.0629 (PASS) excl 0.0274 meanFit (31.8120, 31.8105) | DMEAS vs ship med 0.0190 p95 0.0387 max 0.067 | DFIT vs ship med 0.0150 max 0.0323
+   CAND k3.0 FIT rms 0.0624 (PASS) excl 0.0267 meanFit (31.8209, 31.8168) | DMEAS vs ship med 0.0244 p95 0.0492 max 0.091 | DFIT vs ship med 0.0219 max 0.0301
+   CAND p1 FIT rms 0.0518 (PASS) excl 0.0331 meanFit (31.6957, 31.7342) | DMEAS vs ship med 0.1456 p95 0.1701 max 0.236 | DFIT vs ship med 0.1469 max 0.1665
+   CAND py1 FIT rms 0.0456 (PASS) excl 0.0354 meanFit (31.4865, 31.5129) | DMEAS vs ship med 0.4191 p95 0.4689 max 0.565 | DFIT vs ship med 0.4195 max 0.4699
+   CAND p10 FIT rms 0.0572 (PASS) excl 0.0371 meanFit (31.8027, 31.7954) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.024 | DFIT vs ship med 0.0000 max 0.0001
+   CAND p30 FIT rms 0.0572 (PASS) excl 0.0371 meanFit (31.8027, 31.7954) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.024 | DFIT vs ship med 0.0000 max 0.0001
+   CAND G1.2 FIT rms 0.0578 (PASS) excl 0.0356 meanFit (31.8052, 31.7960) | DMEAS vs ship med 0.0000 p95 0.0110 max 0.041 | DFIT vs ship med 0.0014 max 0.0034
+   CAND G2.0 FIT rms 0.0601 (PASS) excl 0.0324 meanFit (31.7964, 31.7972) | DMEAS vs ship med 0.0101 p95 0.0230 max 0.052 | DFIT vs ship med 0.0060 max 0.0191
+   CAND G3.0 FIT rms 0.0624 (PASS) excl 0.0266 meanFit (31.8214, 31.8172) | DMEAS vs ship med 0.0247 p95 0.0494 max 0.091 | DFIT vs ship med 0.0222 max 0.0301
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0110 max 0.041  >1px 0
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0073 max 0.027  >1px 0
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0044 max 0.022  >1px 0
+peak phys_footprint 1419 MB
+=== thronsenA  scan 171x171  det 128x128
+   r 2.8352 win_shipped 4.335 probe centre (63.8183, 63.8137)
+   total 7.0s  peak footprint 1156 MB  tile rows 31
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 58482/58482
+   CAND ship FIT rms 0.0355 (PASS) excl 0.0234 meanFit (63.7860, 63.7770) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.0355 (PASS) excl 0.0234 meanFit (63.7860, 63.7770) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.75 FIT rms 0.0366 (PASS) excl 0.0226 meanFit (63.7857, 63.7712) | DMEAS vs ship med 0.0103 p95 0.0186 max 0.036 | DFIT vs ship med 0.0047 max 0.0152
+   CAND k2.0 FIT rms 0.0366 (PASS) excl 0.0285 meanFit (63.7977, 63.7833) | DMEAS vs ship med 0.0197 p95 0.0297 max 0.063 | DFIT vs ship med 0.0184 max 0.0265
+   CAND k2.5 FIT rms 0.0363 (PASS) excl 0.0265 meanFit (63.7727, 63.7685) | DMEAS vs ship med 0.0210 p95 0.0374 max 0.063 | DFIT vs ship med 0.0191 max 0.0378
+   CAND k3.0 FIT rms 0.0387 (PASS) excl 0.0252 meanFit (63.7799, 63.7734) | DMEAS vs ship med 0.0281 p95 0.0510 max 0.134 | DFIT vs ship med 0.0247 max 0.0553
+   CAND p1 FIT rms 0.0309 (PASS) excl 0.0350 meanFit (63.8210, 63.7931) | DMEAS vs ship med 0.0440 p95 0.0522 max 0.118 | DFIT vs ship med 0.0428 max 0.0491
+   CAND py1 FIT rms 0.0270 (PASS) excl 0.0476 meanFit (63.8631, 63.8704) | DMEAS vs ship med 0.0980 p95 0.1174 max 0.210 | DFIT vs ship med 0.0970 max 0.1105
+   CAND p10 FIT rms 0.0355 (PASS) excl 0.0234 meanFit (63.7861, 63.7770) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.016 | DFIT vs ship med 0.0000 max 0.0000
+   CAND p30 FIT rms 0.0355 (PASS) excl 0.0234 meanFit (63.7861, 63.7770) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.016 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G1.2 FIT rms 0.0355 (PASS) excl 0.0234 meanFit (63.7860, 63.7770) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.017 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G2.0 FIT rms 0.0366 (PASS) excl 0.0285 meanFit (63.7977, 63.7833) | DMEAS vs ship med 0.0197 p95 0.0297 max 0.063 | DFIT vs ship med 0.0184 max 0.0265
+   CAND G3.0 FIT rms 0.0387 (PASS) excl 0.0252 meanFit (63.7799, 63.7734) | DMEAS vs ship med 0.0281 p95 0.0510 max 0.134 | DFIT vs ship med 0.0247 max 0.0553
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.017  >1px 0
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.023  >1px 0
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.018  >1px 0
+peak phys_footprint 1156 MB
+=== demo_cube  scan 100x100  det 128x128
+   r 2.9849 win_shipped 4.485 probe centre (63.5000, 63.5000)
+   total 1.8s  peak footprint 1366 MB  tile rows 54
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 20000/20000
+   CAND ship FIT rms 0.0018 (PASS) excl 0.0060 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 0.0018 (PASS) excl 0.0060 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.75 FIT rms 0.0018 (PASS) excl 0.0049 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0003 p95 0.0007 max 0.001 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k2.0 FIT rms 0.0019 (PASS) excl 0.0058 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0005 p95 0.0010 max 0.002 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k2.5 FIT rms 0.0020 (PASS) excl 0.0067 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0008 p95 0.0017 max 0.003 | DFIT vs ship med 0.0000 max 0.0001
+   CAND k3.0 FIT rms 0.0022 (PASS) excl 0.0062 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0012 p95 0.0026 max 0.005 | DFIT vs ship med 0.0000 max 0.0001
+   CAND p1 FIT rms 0.0026 (PASS) excl 0.0295 meanFit (63.5061, 63.5061) | DMEAS vs ship med 0.0168 p95 0.0173 max 0.022 | DFIT vs ship med 0.0169 max 0.0169
+   CAND py1 FIT rms 0.0020 (PASS) excl 0.0168 meanFit (63.5882, 63.5882) | DMEAS vs ship med 0.1298 p95 0.1308 max 0.134 | DFIT vs ship med 0.1299 max 0.1300
+   CAND p10 FIT rms 0.0018 (PASS) excl 0.0060 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND p30 FIT rms 0.0018 (PASS) excl 0.0060 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G1.2 FIT rms 0.0018 (PASS) excl 0.0060 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G2.0 FIT rms 0.0019 (PASS) excl 0.0058 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0005 p95 0.0010 max 0.002 | DFIT vs ship med 0.0000 max 0.0000
+   CAND G3.0 FIT rms 0.0022 (PASS) excl 0.0062 meanFit (63.5000, 63.5000) | DMEAS vs ship med 0.0012 p95 0.0026 max 0.005 | DFIT vs ship med 0.0000 max 0.0001
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.000  >1px 0
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.000  >1px 0
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0000 max 0.000  >1px 0
+peak phys_footprint 1366 MB
+=== bullseye_polyAu  scan 100x84  det 250x250
+   r 6.8429 win_shipped 8.343 probe centre (126.9815, 127.4815)
+   total 4.6s  peak footprint 1412 MB  tile rows 17
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 16800/16800
+   CAND ship FIT rms 3.2614 (PASS) excl 0.0150 meanFit (125.9882, 125.7908) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 1.7214 (PASS) excl 0.0461 meanFit (126.2371, 126.5338) | DMEAS vs ship med 2.0348 p95 3.3816 max 4.110 | DFIT vs ship med 1.0112 max 2.4241
+   CAND k1.75 FIT rms 0.7998 (PASS) excl 0.0149 meanFit (127.0322, 127.4367) | DMEAS vs ship med 3.7815 p95 4.0099 max 4.515 | DFIT vs ship med 2.2628 max 4.1164
+   CAND k2.0 FIT rms 0.7696 (PASS) excl 0.0133 meanFit (127.0483, 127.4537) | DMEAS vs ship med 3.8135 p95 4.0451 max 4.878 | DFIT vs ship med 2.2861 max 4.1525
+   CAND k2.5 FIT rms 0.7601 (PASS) excl 0.0125 meanFit (127.0472, 127.4543) | DMEAS vs ship med 3.8154 p95 4.0467 max 4.923 | DFIT vs ship med 2.2859 max 4.1542
+   CAND k3.0 FIT rms 0.7511 (PASS) excl 0.0124 meanFit (127.0463, 127.4532) | DMEAS vs ship med 3.8155 p95 4.0417 max 4.893 | DFIT vs ship med 2.2836 max 4.1520
+   CAND p1 FIT rms 3.8895 (PASS) excl 0.0538 meanFit (125.1450, 124.6475) | DMEAS vs ship med 1.5975 p95 2.4078 max 3.211 | DFIT vs ship med 1.4716 max 2.7225
+   CAND py1 FIT rms 3.9379 (PASS) excl 0.0537 meanFit (125.1214, 124.6172) | DMEAS vs ship med 1.6554 p95 2.4723 max 3.246 | DFIT vs ship med 1.5058 max 2.7960
+   CAND p10 FIT rms 3.3956 (PASS) excl 0.0112 meanFit (125.9919, 126.0343) | DMEAS vs ship med 0.4968 p95 1.7208 max 2.998 | DFIT vs ship med 0.2494 max 0.3973
+   CAND p30 FIT rms 3.5715 (PASS) excl 0.0052 meanFit (126.0589, 126.2714) | DMEAS vs ship med 0.5480 p95 3.5026 max 7.128 | DFIT vs ship med 0.4893 max 0.9094
+   CAND G1.2 FIT rms 3.4985 (PASS) excl 0.0001 meanFit (127.1293, 127.4169) | DMEAS vs ship med 4.0226 p95 7.2035 max 8.750 | DFIT vs ship med 2.3395 max 4.1849
+   CAND G2.0 FIT rms 0.7693 (PASS) excl 0.0135 meanFit (127.0492, 127.4557) | DMEAS vs ship med 3.8160 p95 4.0522 max 5.006 | DFIT vs ship med 2.2894 max 4.1565
+   CAND G3.0 FIT rms 0.7509 (PASS) excl 0.0124 meanFit (127.0479, 127.4563) | DMEAS vs ship med 3.8193 p95 4.0534 max 4.962 | DFIT vs ship med 2.2883 max 4.1586
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 4.0226 p95 7.2035 max 8.750  >1px 7611
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0008 p95 0.0191 max 0.131  >1px 0
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0010 p95 0.0278 max 0.141  >1px 0
+peak phys_footprint 1411 MB
+=== bullseye_sim  scan 100x84  det 250x250
+   r 6.7815 win_shipped 8.281 probe centre (127.0082, 127.4992)
+   total 4.1s  peak footprint 1413 MB  tile rows 17
+   COPYCHECK shipped-path vs probe-copy(4 passes, floor): equal floats 16800/16800
+   CAND ship FIT rms 2.7286 (PASS) excl 0.0176 meanFit (125.8188, 125.5412) | DMEAS vs ship med 0.0000 p95 0.0000 max 0.000 | DFIT vs ship med 0.0000 max 0.0000
+   CAND k1.5 FIT rms 1.3815 (PASS) excl 0.0213 meanFit (126.1309, 126.3818) | DMEAS vs ship med 1.8779 p95 3.2877 max 3.735 | DFIT vs ship med 1.3721 max 3.0671
+   CAND k1.75 FIT rms 0.3533 (PASS) excl 0.1340 meanFit (127.0303, 127.4474) | DMEAS vs ship med 3.8186 p95 4.0141 max 4.475 | DFIT vs ship med 2.8815 max 5.0173
+   CAND k2.0 FIT rms 0.2952 (PASS) excl 0.1135 meanFit (127.0410, 127.4643) | DMEAS vs ship med 3.8695 p95 4.0429 max 4.661 | DFIT vs ship med 2.8977 max 5.0245
+   CAND k2.5 FIT rms 0.2885 (PASS) excl 0.1118 meanFit (127.0416, 127.4639) | DMEAS vs ship med 3.8705 p95 4.0406 max 4.646 | DFIT vs ship med 2.8977 max 5.0234
+   CAND k3.0 FIT rms 0.2831 (PASS) excl 0.1112 meanFit (127.0407, 127.4627) | DMEAS vs ship med 3.8675 p95 4.0369 max 4.647 | DFIT vs ship med 2.8965 max 5.0228
+   CAND p1 FIT rms 3.2405 (PASS) excl 0.0182 meanFit (125.0577, 124.3624) | DMEAS vs ship med 1.6250 p95 2.3343 max 2.923 | DFIT vs ship med 1.4049 max 2.4665
+   CAND py1 FIT rms 3.2877 (PASS) excl 0.0181 meanFit (125.0394, 124.3302) | DMEAS vs ship med 1.6792 p95 2.3995 max 2.963 | DFIT vs ship med 1.4417 max 2.5521
+   CAND p10 FIT rms 2.8327 (PASS) excl 0.0175 meanFit (125.8021, 125.7645) | DMEAS vs ship med 0.1397 p95 1.3815 max 2.748 | DFIT vs ship med 0.2277 max 0.4750
+   CAND p30 FIT rms 2.9771 (PASS) excl 0.0173 meanFit (125.8407, 125.9247) | DMEAS vs ship med 0.1397 p95 2.6891 max 6.389 | DFIT vs ship med 0.4094 max 0.5402
+   CAND G1.2 FIT rms 3.1686 (PASS) excl 0.0005 meanFit (127.1396, 127.4665) | DMEAS vs ship med 4.4239 p95 7.3374 max 8.396 | DFIT vs ship med 2.8154 max 5.3744
+   CAND G2.0 FIT rms 0.2910 (PASS) excl 0.1135 meanFit (127.0429, 127.4670) | DMEAS vs ship med 3.8759 p95 4.0510 max 4.675 | DFIT vs ship med 2.9006 max 5.0263
+   CAND G3.0 FIT rms 0.2770 (PASS) excl 0.1120 meanFit (127.0436, 127.4670) | DMEAS vs ship med 3.8770 p95 4.0490 max 4.682 | DFIT vs ship med 2.9001 max 5.0254
+   SEEDSENS ship vs G1.2 (block seed vs Gaussian seed, same window): median 4.4239 p95 7.3374 max 8.396  >1px 8014
+   SEEDSENS k2.0 vs G2.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0360 max 0.159  >1px 0
+   SEEDSENS k3.0 vs G3.0 (block seed vs Gaussian seed, same window): median 0.0000 p95 0.0594 max 0.190  >1px 0
+peak phys_footprint 1413 MB

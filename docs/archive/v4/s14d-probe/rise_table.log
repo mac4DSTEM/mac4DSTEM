@@ -1,0 +1,14 @@
+cube                 r   rise at rho  (mean DP about the app probe centre, 1-px bins, median bg removed)
+AlMgSi_060        2.54   0.00      3
+Au_ref            8.06   0.30     17
+Particle_1        6.12   0.00      7
+SiSiGe_cal        3.69   0.00      4
+SiSiGe_exp        3.74  59.18      9
+WS2               1.86   0.00      2
+bullseye_polyAu   6.84   0.14      8
+bullseye_sim      6.78   0.13      8
+demo_cube         2.98   0.00      6
+fixture           6.93   0.20     16
+simAu_nano        5.11   0.00      6
+simAu_poly        5.12   0.00      6
+thronsenA         2.84   0.00      3

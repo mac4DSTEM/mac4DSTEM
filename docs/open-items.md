@@ -73,7 +73,8 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 - **Coarse block seed lands on the wrong blob on noisy cubes** (Gate B refuter, §9): 28/169, 29/195, 2/169 of three cubes miss by
   >1 px vs a Gaussian-argmax seed. S14 (2026-09-30 night, `archive/v4/s14-*`): a box seed does not meet its bar; trimming does
   NOT hide the offset on Si_SiGe_exp, both bullseye cubes and Au_ref (0.5–2.8 px); on bullseye the refine step's iterated
-  r + 1.5 window walks along the ring (refuter). Next: a Gate D on the refine step with non-flat probes.
+  r + 1.5 window walks along the ring — confirmed by S14-D (`archive/v4/s14d-*`): bullseye_sim 3.87 → 0.02 px at
+  k = 2, compact cubes ≤ 0.03 px, but the demo fixture moves 1.70 px; no fixed window ships. Proposed: a per-scan window-dependence check.
 - **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 

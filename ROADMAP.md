@@ -162,8 +162,8 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
 - [x] **S23 Origin validity overlay** (`08f457a`, driven): excluded positions greyed (new surface, driven).
 - [x] **S14 · S20 · S21 (YELLOW)** (`1c3da28`, `a29359b`, `7d5f0a8`): measured; only S21 proposes a patch (owner).
 - **Next (owner, 2026-09-30 morning), in order:**
-- [ ] **S14-D Gate D on the origin refine step** with ringed probes (`archive/v4/s14d-*`): diagnose, measure, propose — a fix
-  moves shipped origin numbers, so it lands only on the owner's word.
+- [x] **S14-D Gate D on the origin refine step** (2026-09-30): mechanism confirmed (the refine walks along the ring: bullseye_sim
+  3.87 px → 0.02 px at window k = 2); bar not met (the demo fixture moves 1.70 px) — no patch; a window-dependence check proposed (owner).
 - [ ] **Polish from the drives** — the non-Frozen-Shell proposals in open-items S4 "Drive 2026-09-30 night" and the drive-2
   findings, each driven; Frozen Shell ones as mocks for the owner.
 - [ ] **Full polish and code review by an external agent** — brief and kickoff prompt: `archive/v4/polish-and-review-session-plan.md`.
