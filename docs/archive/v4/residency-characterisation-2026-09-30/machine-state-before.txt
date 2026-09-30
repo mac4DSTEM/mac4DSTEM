@@ -1,0 +1,27 @@
+Wed Sep 30 16:40:45 CEST 2026
+ProductName:		macOS ProductVersion:		27.0.1 BuildVersion:		26A434 
+68719476736
+Apple M5 Pro
+total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)
+System-wide memory free percentage: 91%
+Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                   171574.
+Pages active:                                1783637.
+Pages inactive:                              1822200.
+Pages speculative:                              2931.
+Pages throttled:                                   0.
+Pages wired down:                             280559.
+Pages purgeable:                              111445.
+"Translation faults":                      287176663.
+Pages copy-on-write:                         7245172.
+Pages zero filled:                         207175548.
+Pages reactivated:                            758852.
+1250672 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine
+1047616 /System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/MacOS/Safari
+1044096 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+1019536 /System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService
+863264 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+743232 /System/Library/PrivateFrameworks/SiriTTSService.framework/sirittsd
+688624 /Applications/Xcode.app/Contents/MacOS/Xcode
+594896 /System/Library/Frameworks/WebKit.framework/Versions/A/XPCServices/com.apple.WebKit.WebContent.xpc/Contents/MacOS/com.apple.WebKit.WebContent
+/dev/disk3s1s1   926Gi    13Gi   716Gi     2%    484k  4.3G    0%   /

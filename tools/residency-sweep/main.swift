@@ -71,6 +71,192 @@ func byteString(_ bytes: Int) -> String {
         : String(format: "%.0f MB", Double(bytes) / 1_048_576)
 }
 
+// MARK: - Characterisation mode (2026-09-30, "Residency returns, measured")
+//
+//   residency-sweep <file.h5|file.dm4> --characterise --mode streamed|resident
+//                   [--rows N] [--passes K] [--out samples.tsv]
+//   residency-sweep <file> --characterise --mode cached      (page-cache fraction)
+//   residency-sweep <file> --characterise --mode evict       (drop the file's cached pages)
+//
+// ONE PROCESS PER CELL (file, rows, mode), and every sample is written, not a
+// median: the legacy sweep below warms each mode with an untimed pass, which is
+// exactly the pass a "single pass" question is about. Here the first pass is
+// sample 0 and carries the page-cache fraction it started from. The view is a
+// scan crop (rows 0..<N) through `LoadView`, the path the app itself takes, so
+// a DM4 works as well as HDF5. Each sample carries a checksum of the result:
+// resident and streamed must agree bit for bit (invariant I2).
+
+func machInfo() -> (footprintMB: Double, peakMB: Double) {
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+    let kr = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+        }
+    }
+    guard kr == KERN_SUCCESS else { return (.nan, .nan) }
+    return (Double(info.phys_footprint) / 1_048_576, Double(info.ledger_phys_footprint_peak) / 1_048_576)
+}
+
+func swapUsedMB() -> Double {
+    var usage = xsw_usage()
+    var size = MemoryLayout<xsw_usage>.size
+    guard sysctlbyname("vm.swapusage", &usage, &size, nil, 0) == 0 else { return .nan }
+    return Double(usage.xsu_used) / 1_048_576
+}
+
+/// 1 normal, 2 warning, 4 critical.
+func pressureLevel() -> Int {
+    var level: Int32 = 0
+    var size = MemoryLayout<Int32>.size
+    guard sysctlbyname("kern.memorystatus_vm_pressure_level", &level, &size, nil, 0) == 0 else { return -1 }
+    return Int(level)
+}
+
+/// Fraction of the file's first `prefix` of bytes that is in the page cache
+/// (mincore over a read-only mapping; touches no page).
+func cachedFraction(path: String, prefix: Double = 1) -> Double {
+    let fd = open(path, O_RDONLY)
+    guard fd >= 0 else { return .nan }
+    defer { close(fd) }
+    var st = stat()
+    guard fstat(fd, &st) == 0, st.st_size > 0 else { return .nan }
+    let length = max(1, Int(Double(st.st_size) * min(1, max(0, prefix))))
+    guard let base = mmap(nil, length, PROT_READ, MAP_SHARED, fd, 0), base != MAP_FAILED else { return .nan }
+    defer { munmap(base, length) }
+    let page = Int(getpagesize())
+    let pages = (length + page - 1) / page
+    var vec = [CChar](repeating: 0, count: pages)
+    guard mincore(base, length, &vec) == 0 else { return .nan }
+    let inCore = vec.reduce(0) { $0 + (($1 & CChar(MINCORE_INCORE)) != 0 ? 1 : 0) }
+    return Double(inCore) / Double(pages)
+}
+
+/// Ask the kernel to drop the file's cached pages. No privilege needed; the
+/// caller checks `cachedFraction` afterwards rather than believing this.
+func evictFromPageCache(path: String) {
+    let fd = open(path, O_RDONLY)
+    guard fd >= 0 else { return }
+    defer { close(fd) }
+    var st = stat()
+    guard fstat(fd, &st) == 0, st.st_size > 0 else { return }
+    let length = Int(st.st_size)
+    guard let base = mmap(nil, length, PROT_READ, MAP_SHARED, fd, 0), base != MAP_FAILED else { return }
+    _ = msync(base, length, MS_INVALIDATE)
+    munmap(base, length)
+}
+
+func checksum(_ values: [Float]) -> String {
+    var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+    for value in values {
+        hash = (hash ^ UInt64(value.bitPattern)) &* 0x0000_0100_0000_01b3
+    }
+    return String(hash, radix: 16)
+}
+
+func appendLines(_ lines: [String], to path: String) {
+    let text = lines.joined(separator: "\n") + "\n"
+    if let handle = FileHandle(forWritingAtPath: path) {
+        handle.seekToEndOfFile(); handle.write(Data(text.utf8)); handle.closeFile()
+    } else {
+        FileManager.default.createFile(atPath: path, contents: Data(text.utf8))
+    }
+}
+
+if CommandLine.arguments.contains("--characterise") {
+    let args = CommandLine.arguments
+    func value(_ flag: String) -> String? {
+        guard let index = args.firstIndex(of: flag), index + 1 < args.count else { return nil }
+        return args[index + 1]
+    }
+    guard args.count >= 2, FileManager.default.fileExists(atPath: args[1]) else { fail("no such file") }
+    let path = args[1]
+    let mode = value("--mode") ?? ""
+    if mode == "cached" {
+        print(String(format: "cached %.4f", cachedFraction(path: path)))
+        exit(0)
+    }
+    if mode == "evict" {
+        let before = cachedFraction(path: path)
+        evictFromPageCache(path: path)
+        print(String(format: "cached %.4f -> %.4f", before, cachedFraction(path: path)))
+        exit(0)
+    }
+    guard mode == "streamed" || mode == "resident" else { fail("--mode streamed|resident|cached|evict") }
+    let passes = max(1, Int(value("--passes") ?? "") ?? 4)
+
+    let reader: any FourDDataSource = path.lowercased().hasSuffix(".dm4")
+        ? try await DM4Reader(path: path) : try H5Reader(path: path)
+    let full = try await reader.discoverPrimaryDataset()
+    guard full.is4D else { fail("not a 4D dataset: \(full.shapeString)") }
+    let rowCount = min(full.ry, max(1, Int(value("--rows") ?? "") ?? full.ry))
+    let view = try LoadView(
+        source: full,
+        specification: LoadSpecification(
+            scanCrop: rowCount == full.ry ? nil
+                : AxisCrop(yOffset: 0, xOffset: 0, height: rowCount, width: full.rx)))
+    let d = view.descriptor
+    let device = MetalEngine.shared.device
+    let workingSet = Double(device.recommendedMaxWorkingSetSize)
+    let ratio = Double(d.byteCountAsFloat32) / workingSet
+    let megabytes = Double(d.byteCountAsFloat32) / 1_048_576
+    let prefix = Double(rowCount) / Double(full.ry)
+
+    var lines: [String] = []
+    if let out = value("--out"), !FileManager.default.fileExists(atPath: out) {
+        lines.append("file\tdtype\trows\tcube_MB\tratio\tmode\tphase\tpass\tms\tns_per_MB\tcached_before"
+                     + "\tfootprint_MB\tpeak_footprint_MB\tswap_MB\tpressure\tchecksum")
+    }
+    func record(phase: String, pass: Int, ms: Double, cachedBefore: Double, sum: String) {
+        let memory = machInfo()
+        let line = [
+            full.fileName, full.dtypeDescription, "\(rowCount)", String(format: "%.0f", megabytes),
+            String(format: "%.4f", ratio), mode, phase, "\(pass)", String(format: "%.1f", ms),
+            String(format: "%.1f", ms * 1_000_000 / megabytes), String(format: "%.3f", cachedBefore),
+            String(format: "%.0f", memory.footprintMB), String(format: "%.0f", memory.peakMB),
+            String(format: "%.0f", swapUsedMB()), "\(pressureLevel())", sum,
+        ].joined(separator: "\t")
+        lines.append(line)
+        print(line)
+    }
+
+    print("# characterise \(full.fileName) \(full.shapeString) \(full.dtypeDescription)  rows \(rowCount)"
+          + "  cube \(byteString(d.byteCountAsFloat32))  ratio \(String(format: "%.3f", ratio))"
+          + "  working set \(byteString(Int(workingSet)))  maxBuffer \(byteString(device.maxBufferLength))")
+
+    let annulus = DetectorShape.annulus(
+        centerX: Float(d.qx) / 2, centerY: Float(d.qy) / 2,
+        inner: Float(min(d.qx, d.qy)) / 8, outer: Float(min(d.qx, d.qy)) / 4)
+    let array = FourDArray(reader: reader, view: view)
+    if mode == "resident" {
+        await array.setResidencyRequest(.resident)
+        let cached = cachedFraction(path: path, prefix: prefix)
+        var held = false
+        let ms = try await milliseconds { held = try await array.makeResident() }
+        record(phase: "preload", pass: 0, ms: ms, cachedBefore: cached, sum: held ? "held" : "REFUSED")
+        guard held else {
+            if let out = value("--out") { appendLines(lines, to: out) }
+            exit(2)
+        }
+    }
+    for pass in 0..<passes {
+        var cached = cachedFraction(path: path, prefix: prefix)
+        var sum = ""
+        var ms = try await milliseconds {
+            sum = checksum(try await VirtualDetector.tiledImage(data: array, descriptor: d, shape: annulus).pixels)
+        }
+        record(phase: "image", pass: pass, ms: ms, cachedBefore: cached, sum: sum)
+        cached = cachedFraction(path: path, prefix: prefix)
+        ms = try await milliseconds {
+            sum = checksum(try await VirtualDetector.tiledDPStatistics(data: array, descriptor: d).meanDP)
+        }
+        record(phase: "meanDP", pass: pass, ms: ms, cachedBefore: cached, sum: sum)
+    }
+    if mode == "resident" { await array.releaseResident() }
+    if let out = value("--out") { appendLines(lines, to: out) }
+    exit(0)
+}
+
 // MARK: - Arguments
 
 let arguments = CommandLine.arguments

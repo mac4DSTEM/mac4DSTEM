@@ -124,9 +124,8 @@ Clearing is three moves, in this order.
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30, S1–S23, A, B, D, S14-D, polish, new-Mac bring-up).
 
 **Next, in order (owner, 2026-09-30: the new Mac is here):**
-- [ ] **Residency returns, measured (ADR 013's condition, owner 2026-09-30):** the knee measured with `tools/residency-sweep` on
-  a cube near the budget (the 28 GB raw Al-Mg-Si), then `.automatic` back, no new surface. Pre-registered, not started:
-  `archive/v4/residency-preregistration-2026-09-30.md` (three owner decisions at its start).
+- [x] **Residency returns, measured (2026-09-30):** measured, knee not clean, `.automatic` stays dropped (ADR 013 stands).
+  Resident is 20–70 × faster on repeated passes, slower on a single one; record `archive/v4/residency-characterisation-2026-09-30/`.
 - [ ] **Learned detector back on the ANE (owner, 2026-09-30):** batch-32 guard, test asserts the ANE ran, scan-level checks (`open-items.md`).
 - [ ] **C5 and the hardware lanes (ADR 043/048):** training no longer crashes on the M5 (`9026863`). the 500-step training run on ≥ 12 held-out labelled positions and Train
   Model… driven (the 8 GB Mac's admission refused it, 2.10–2.13 of 2.16 GB); parallax/ptychography on real data (cost Gate
