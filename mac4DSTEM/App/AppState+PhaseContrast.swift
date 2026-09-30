@@ -359,10 +359,12 @@ extension AppState {
                     )
                 }
             }
+            // The probe the run starts from is what the fields show (`PtychographySettings.probeAberrations`).
+            let aberrations = ptychography.probeAberrations
             let input = try await PtychographyPreparer.prepare(
                 source: source, view: view, calibration: physical,
-                probeRadiusPixels: aperture.outer, cancellation: token,
-                progress: prepareProgress
+                probeRadiusPixels: aperture.outer, aberrations: aberrations,
+                cancellation: token, progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
             options.method = ptychography.method
@@ -395,9 +397,11 @@ extension AppState {
                   !token.isCancelled else { return }
             phaseContrast.singleslicePtychography = result
             showParallaxProduct(.iterativePhase)
+            // What the run started from is read back from the RESULT (the input `prepare` built), not from the settings, so a
+            // run that did not receive the fields cannot publish them.
             statusText = String(
-                format: "Single-slice ptychography ✓  %@ · %d iterations · error %.6f",
-                result.options.method.rawValue,
+                format: "Single-slice ptychography ✓  %@ · defocus %g Å · %d iterations · error %.6f",
+                result.options.method.rawValue, result.probeAberrations.defocusAngstrom,
                 result.errorHistory.count, result.errorHistory.last ?? .nan
             )
         } catch SingleslicePtychography.ReconstructionError.cancelled {
@@ -424,6 +428,32 @@ extension AppState {
         }
     }
 
+    /// " · defocus -600 Å": the defocus the retained reconstruction's probe started from, so the product says what it was made with.
+    private var ptychographyProbeSuffix: String {
+        phaseContrast.singleslicePtychographyProbe.map {
+            String(format: " · defocus %g Å", $0.defocusAngstrom)
+        } ?? ""
+    }
+
+    /// "Use Parallax Fit": write the probe fields from the parallax aberration fit (`PtychographySettings.useParallaxFit` holds
+    /// the sign rule). Nothing runs; the fields are what the next reconstruction starts from.
+    func usePtychographyProbeFromParallaxFit() {
+        guard let lowOrder = phaseContrast.parallaxAberrationFit else { return }
+        let taken = ptychography.useParallaxFit(
+            lowOrder: lowOrder, higherOrder: phaseContrast.parallaxHigherOrderFit
+        )
+        // The sign rule (defocus = -C1) holds on the rotation branch the fit used; the ptychography runs with the calibrated
+        // rotation, which nothing here checks. Both are shown so the reader can judge.
+        let calibrated = calibrationSession.calibration.rotationRad
+            .map { String(format: "%.2f°", Double($0) * 180 / .pi) } ?? "not set"
+        statusText = String(
+            format: "Probe seeded from the parallax fit ✓  defocus %g Å · C12 %g / %g Å%@ · fit rotation %.2f°, calibrated rotation %@ (valid on the fit's rotation branch; 180° apart, flip the defocus sign)",
+            ptychography.defocusAngstrom, ptychography.c12aAngstrom, ptychography.c12bAngstrom,
+            taken > 0 ? " · +\(taken) higher-order terms" : "",
+            lowOrder.rotationRad * 180 / .pi, calibrated
+        )
+    }
+
     /// The one publish site for every parallax and ptychography product: the
     /// image and its label are chosen together.
     func showParallaxProduct(_ product: ParallaxResultProduct) {
@@ -448,16 +478,16 @@ extension AppState {
             (kind, name, units) = ("parallax_depth", String(format: "Parallax depth %.1f Å", depth), "arbitrary_phase")
         case .iterativePhase:
             image = phaseContrast.singleslicePtychography?.objectPhase()
-            (kind, name, units) = ("ptychography_object_phase", "Ptychography object phase", "rad")
+            (kind, name, units) = ("ptychography_object_phase", "Ptychography object phase" + ptychographyProbeSuffix, "rad")
         case .iterativeAmplitude:
             image = phaseContrast.singleslicePtychography?.objectAmplitude()
-            (kind, name, units) = ("ptychography_object_amplitude", "Ptychography object amplitude", "dimensionless")
+            (kind, name, units) = ("ptychography_object_amplitude", "Ptychography object amplitude" + ptychographyProbeSuffix, "dimensionless")
         case .iterativeProbePhase:
             image = phaseContrast.singleslicePtychography?.probePhase()
-            (kind, name, units) = ("ptychography_probe_phase", "Ptychography probe phase", "rad")
+            (kind, name, units) = ("ptychography_probe_phase", "Ptychography probe phase" + ptychographyProbeSuffix, "rad")
         case .iterativeProbeAmplitude:
             image = phaseContrast.singleslicePtychography?.probeAmplitude()
-            (kind, name, units) = ("ptychography_probe_amplitude", "Ptychography probe amplitude", "dimensionless")
+            (kind, name, units) = ("ptychography_probe_amplitude", "Ptychography probe amplitude" + ptychographyProbeSuffix, "dimensionless")
         }
         guard let image else { return }
         phaseContrast.parallaxResultProduct = product

@@ -3,6 +3,8 @@
 # `diagnostic`: needs a real 4D-STEM cube on local disk; never a gate.
 #
 #   tools/parallax-ptycho-real-probe/run.sh <cube.h5> preprocess|align|kde <auto|factor>|ptycho <gd|dmap> [options]
+#   ptycho probe options: --defocus <A> --c12a <A> --c12b <A>  (py4DSTEM's `defocus`: C10 = -defocus; the parallax fit's C1 implies
+#   defocus = -C1, convention_check.py). The reference side is reference_ptycho.py (py4DSTEM, same float32 cube); compare_ptycho.py tabulates the two.
 #
 # One stage per process (a footprint is a lifetime maximum). The estimator
 # (the `memoryLimit` refusal), the default-option run and the raised-limit run

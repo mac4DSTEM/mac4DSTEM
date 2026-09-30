@@ -44,9 +44,13 @@ package nonisolated struct SingleslicePtychographyInput: Sendable {
     package let objectSamplingColumnAngstrom: Double
     package let initialObject: PtychographyComplexArray
     package let initialProbe: PtychographyComplexArray
+    /// The defocus and aberrations `initialProbe` was built with (lane R1; `PtychographyPreparer.prepare` sets it from the
+    /// `aberrations` it received, so a reader of the result cannot be told a probe the run did not start from). `.init()` for an
+    /// input assembled by hand.
+    package let probeAberrations: PtychographyProbeAberrations
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, amplitudes: [Float], positions: [PtychographyPosition], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, initialObject: PtychographyComplexArray, initialProbe: PtychographyComplexArray) {
+    package nonisolated init(scanHeight: Int, scanWidth: Int, detectorHeight: Int, detectorWidth: Int, amplitudes: [Float], positions: [PtychographyPosition], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, initialObject: PtychographyComplexArray, initialProbe: PtychographyComplexArray, probeAberrations: PtychographyProbeAberrations = PtychographyProbeAberrations()) {
         self.scanHeight = scanHeight
         self.scanWidth = scanWidth
         self.detectorHeight = detectorHeight
@@ -57,6 +61,7 @@ package nonisolated struct SingleslicePtychographyInput: Sendable {
         self.objectSamplingColumnAngstrom = objectSamplingColumnAngstrom
         self.initialObject = initialObject
         self.initialProbe = initialProbe
+        self.probeAberrations = probeAberrations
     }
 }
 
@@ -101,6 +106,8 @@ package nonisolated struct SingleslicePtychographyResult: Sendable {
     package let objectSamplingRowAngstrom: Double
     package let objectSamplingColumnAngstrom: Double
     package let options: SingleslicePtychographyOptions
+    /// The defocus and aberrations the reconstruction's starting probe was built with - copied from the input, never from settings.
+    package let probeAberrations: PtychographyProbeAberrations
 
     package func objectPhase(cropped: Bool = true) -> FloatImage {
         objectImage(cropped: cropped) { atan2($1, $0) }
@@ -171,7 +178,7 @@ package nonisolated struct SingleslicePtychographyResult: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(object: PtychographyComplexArray, probe: PtychographyComplexArray, positions: [PtychographyPosition], errorHistory: [Float], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, options: SingleslicePtychographyOptions) {
+    package nonisolated init(object: PtychographyComplexArray, probe: PtychographyComplexArray, positions: [PtychographyPosition], errorHistory: [Float], objectSamplingRowAngstrom: Double, objectSamplingColumnAngstrom: Double, options: SingleslicePtychographyOptions, probeAberrations: PtychographyProbeAberrations = PtychographyProbeAberrations()) {
         self.object = object
         self.probe = probe
         self.positions = positions
@@ -179,6 +186,7 @@ package nonisolated struct SingleslicePtychographyResult: Sendable {
         self.objectSamplingRowAngstrom = objectSamplingRowAngstrom
         self.objectSamplingColumnAngstrom = objectSamplingColumnAngstrom
         self.options = options
+        self.probeAberrations = probeAberrations
     }
 }
 
@@ -615,7 +623,7 @@ package nonisolated enum SingleslicePtychography {
             positions: input.positions, errorHistory: errors,
             objectSamplingRowAngstrom: input.objectSamplingRowAngstrom,
             objectSamplingColumnAngstrom: input.objectSamplingColumnAngstrom,
-            options: options
+            options: options, probeAberrations: input.probeAberrations
         )
     }
 

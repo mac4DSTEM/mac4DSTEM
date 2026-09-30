@@ -11,6 +11,7 @@
 //    probe <h5> kde <auto|factor>
 //    probe <h5> ptycho <gd|dmap>
 //    options: --kv 200  --origin com|x,y  --probe-radius <px>  --repeat 2  --limit-gib 48  --abort-gib 40
+//             --defocus <A>  --c12a <A>  --c12b <A>   (ptycho: the probe's defocus and astigmatism; py4DSTEM's `defocus`, 0 = in focus)
 //
 //  ONE stage per process: a footprint is a lifetime maximum. Every stage with a
 //  memory option is driven three ways — (1) limit = 1 byte, to read the
@@ -249,8 +250,16 @@ enum ParallaxPtychoRealProbe {
         let ptyIterations = option("--iterations").flatMap { Int($0) }
         let ptyStepSize = option("--step-size").flatMap { Float($0) }
         let ptyNormalizationMinimum = option("--norm-min").flatMap { Float($0) }
+        // The probe the ptychography starts from (lane R1, 2026-09-30): py4DSTEM's `defocus` (C10 = -defocus) and the parallax fit's
+        // cartesian astigmatism, all in Å; default 0 = the in-focus aperture. The parallax fit of THIS cube reports C1 = +663.6, so
+        // its implied defocus is -663.6 (py4DSTEM's forward model C10 = -defocus, utils.py:159-160; convention_check.py).
+        let ptyAberrations = PtychographyProbeAberrations(
+            defocusAngstrom: option("--defocus").flatMap { Double($0) } ?? 0,
+            c12aAngstrom: option("--c12a").flatMap { Double($0) } ?? 0,
+            c12bAngstrom: option("--c12b").flatMap { Double($0) } ?? 0
+        )
         guard args.count >= 2 else {
-            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd|dmap>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40] [--q 1/A per px] [--r A per px] [--rotation-deg d] [--transpose 0|1] [--out dir] [--iterations n] [--step-size s] [--norm-min m]")
+            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd|dmap>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40] [--q 1/A per px] [--r A per px] [--rotation-deg d] [--transpose 0|1] [--out dir] [--iterations n] [--step-size s] [--norm-min m] [--defocus A] [--c12a A] [--c12b A]")
         }
         let path = args[0], stage = args[1]
         let raised = Int(limitGiB * 1_073_741_824)
@@ -473,9 +482,10 @@ enum ParallaxPtychoRealProbe {
             }, run: { limit in
                 var o = PtychographyPreparationOptions(); o.maxResidentBytes = limit
                 return try await PtychographyPreparer.prepare(source: reader, view: view, calibration: physical,
-                                                              probeRadiusPixels: probeRadius, options: o)
+                                                              probeRadiusPixels: probeRadius, aberrations: ptyAberrations, options: o)
             })
             let input = prepared.value
+            log("ptycho probe: defocus \(ptyAberrations.defocusAngstrom) A, C12a \(ptyAberrations.c12aAngstrom) A, C12b \(ptyAberrations.c12bAngstrom) A")
             log("RESULT ptycho prepare: scan \(input.scanHeight) x \(input.scanWidth), detector \(input.detectorHeight) x \(input.detectorWidth), amplitudes \(gb(input.amplitudes.count * 4)) (\(stats(Array(input.amplitudes.prefix(4_000_000))))[first 4M]), object canvas \(input.initialObject.width) x \(input.initialObject.height), probe \(input.initialProbe.width) x \(input.initialProbe.height), sampling \(input.objectSamplingRowAngstrom) x \(input.objectSamplingColumnAngstrom) A/px")
             summary("ptycho prepare", prepared)
             func reconstruct(_ limit: Int) async throws -> SingleslicePtychographyResult {
@@ -512,7 +522,9 @@ enum ParallaxPtychoRealProbe {
                                "method": r.options.method.rawValue, "errorHistory": r.errorHistory.map { Double($0) },
                                "objectSamplingRowAngstrom": r.objectSamplingRowAngstrom, "objectSamplingColumnAngstrom": r.objectSamplingColumnAngstrom,
                                "objectCroppedHeight": ph.height, "objectCroppedWidth": ph.width, "canvasHeight": r.object.height, "canvasWidth": r.object.width,
-                               "rotationDegrees": rotationDegrees, "transpose": transposeQR])
+                               "rotationDegrees": rotationDegrees, "transpose": transposeQR,
+                               "defocusAngstrom": ptyAberrations.defocusAngstrom, "c12aAngstrom": ptyAberrations.c12aAngstrom,
+                               "c12bAngstrom": ptyAberrations.c12bAngstrom])
             }
             summary("ptycho reconstruct \(args[2])", l!, extra: "resident_input=\(gb(input.amplitudes.count * 4))")
             l = nil   // release the first result before the repeats

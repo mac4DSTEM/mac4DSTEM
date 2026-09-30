@@ -114,7 +114,7 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30 night — the ANE return, C5's run, the
 parallax/ptychography cost, the 28 GB parity run). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **Slot 1 — P polish room · Q science quick wins · R1 ptychography probe** (plan lanes P, Q, R1). Owner: the cloud review, the File-probe training run, the pixels check, the Si-SiGe re-export.
+- [x] **Slot 1 — P polish room · Q science quick wins · R1 ptychography probe** — landed 2026-09-30 night (`74a7deca`, `94443434`, R1; plan § Log). The cloud review's findings are in (`archive/v4/review-2026-09-30-findings.md`, rows 1 and 9 reproduced); your picks come from the decision sheet. Owner: the File-probe training run, the pixels check, the Si-SiGe re-export.
 - [ ] **Slot 2 — T1 the kernel question · R2+R3 difference map and ground truth · X1+X2 preprocessing** (lanes T, R, X).
 - [ ] **Slot 3 — T2 training effectiveness · R4+R5 parallax residuals and drive · X3 + K1 mocks** for the owner's picture.
 - [ ] **Slot 4 — F the review's findings · K2+K3 the toggle built and driven · T3 the training room.**

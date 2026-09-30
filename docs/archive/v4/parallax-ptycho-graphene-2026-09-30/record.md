@@ -70,3 +70,9 @@ Parallax is validated against py4DSTEM on this cube in the interior; its edge vi
 open items. Ptychography as shipped is half-built for its own use case: it needs the probe's defocus (py4DSTEM's own
 workflow takes it from the parallax fit, which the app already has to 0.007 %) and a difference map that converges — or
 it comes out (ADR 049: finished or removed). The memory limits are no longer the reason either refuses.
+
+**Amendment (Slot 1 lane R1, 2026-09-30 night; `slot1-r1-record-2026-09-30.md`).** The ptychography table's "defocus 600 (the truth)"
+arm is the WRONG-SIGN arm at rotation 0: py4DSTEM's own convention is `defocus = −aberration_C1`, and its Parallax on a probe built
+from `ComplexProbe(defocus=+500)` returns C1 = −509; on this cube py4DSTEM's 8-iteration error is 2.73e-4 at −600 against 4.47e-4
+at +600. "Its difference map diverges … py4DSTEM's converges" needs other settings: at the same settings py4DSTEM's DM_AP error is
+non-monotone too. The app now takes the defocus; the numbers above the amendment stand as measured. The line "the error histories agree step for step" holds for the first and last iterations only: with the same probe the app and py4DSTEM differ 8–15 % at iterations 4–5 in every arm, defocus 0 included, and both sides' canvases moved between the archived run and R1's (1731 → 1728, 1601 → 1600) with no code change on the canvas files — the archived rows are not reproducible from what was kept (R1's refuter, finding (d)).

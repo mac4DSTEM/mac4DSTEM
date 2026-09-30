@@ -303,7 +303,70 @@ for case in POSITION_CASES:
     }
     position_cases.append(entry)
 
+# ---- R1 (2026-09-30): the initial probe, from py4DSTEM's own ComplexProbe -------------------
+# `PtychographyProbe.build` must equal `ComplexProbe(...).build()._array` (process/phase/utils.py), which is what
+# `_initialize_probe` (ptychographic_methods.py:1099-1112) builds before scaling it to the mean diffraction intensity.
+# The aberrations are given to py4DSTEM in POLAR form (C, phi) and to the app in CARTESIAN form through py4DSTEM's own
+# `polar_aberrations_to_cartesian` (utils.py:2691), so the C12a/C12b <-> C12/phi12 mapping is py4DSTEM's, not ours.
+# `defocus` is py4DSTEM's argument (C10 = -defocus); the app's `defocusAngstrom` is the same number.
+for contract in (
+    'self._parameters[polar_aliases[symbol]] = -value',
+    'cartesian[Ca_name] = polar[modulus_name] * np.cos(',
+    'phi = xp.arctan2(y[None, :], x[:, None])',
+    'array = xp.fft.ifft2(self._evaluate_ctf())',
+    'array = array / xp.sqrt((xp.abs(array) ** 2).sum())',
+    'array = 2 * xp.pi / self._wavelength * array + self._phase_shift',
+):
+    if contract not in utils:
+        raise SystemExit(f"py4DSTEM ComplexProbe contract changed: {contract}")
+
+for _name, _value in [("float_", np.float64), ("int_", np.int64), ("bool_", np.bool_),
+                      ("object_", np.object_), ("str_", np.str_), ("complex_", np.complex128)]:
+    if not hasattr(np, _name):      # numpy 2 removed the aliases the vendored py4DSTEM still imports
+        setattr(np, _name, _value)
+sys.path.insert(0, str(repo / "References/py4DSTEM-dev"))
+from py4DSTEM.process.phase.utils import ComplexProbe, polar_aberrations_to_cartesian  # noqa: E402
+
+PROBE_ENERGY = 80e3
+PROBE_GPTS = (32, 24)           # NON-square, with different samplings: a row/column swap cannot hide
+PROBE_SAMPLING = (0.4, 0.55)
+PROBE_SEMIANGLE_MRAD = 28.0
+PROBE_ROLLOFF_MRAD = 2.0
+PROBE_CASES = [
+    ("in-focus", {}),
+    ("defocus only", {"defocus": 200.0}),
+    ("negative defocus", {"defocus": -350.0}),
+    ("defocus and astigmatism", {"defocus": 200.0, "C12": 80.0, "phi12": 0.3}),
+    ("coma and three-fold", {"defocus": 150.0, "C12": 60.0, "phi12": -0.4,
+                              "C21": 3000.0, "phi21": 0.7, "C23": 2500.0, "phi23": 0.2}),
+    ("every term to fifth order", {
+        "defocus": 120.0, "C12": 50.0, "phi12": 0.25, "C21": 2000.0, "phi21": 0.6, "C23": 1500.0, "phi23": 0.15,
+        "C30": 8.0e4, "C32": 6.0e4, "phi32": 0.4, "C34": 5.0e4, "phi34": 0.12,
+        "C41": 2.0e6, "phi41": 0.5, "C43": 1.5e6, "phi43": 0.3, "C45": 1.0e6, "phi45": 0.1,
+        "C50": 1.5e8, "C52": 1.0e8, "phi52": 0.45, "C54": 8.0e7, "phi54": 0.2, "C56": 6.0e7, "phi56": 0.05}),
+]
+probe_cases = []
+for case_name, case_polar in PROBE_CASES:
+    # (names prefixed: `probe`, `obj`, ... above are the GD reconstruction's and feed the json below)
+    complex_probe = ComplexProbe(energy=PROBE_ENERGY, gpts=PROBE_GPTS, sampling=PROBE_SAMPLING,
+                                 semiangle_cutoff=PROBE_SEMIANGLE_MRAD, rolloff=PROBE_ROLLOFF_MRAD,
+                                 parameters=dict(case_polar))
+    case_cartesian = polar_aberrations_to_cartesian(complex_probe._parameters)   # C10 = -defocus is already in it
+    case_array = complex_probe.build()._array
+    probe_cases.append({
+        "name": case_name, "gptsRow": PROBE_GPTS[0], "gptsColumn": PROBE_GPTS[1],
+        "samplingRow": PROBE_SAMPLING[0], "samplingColumn": PROBE_SAMPLING[1],
+        "energyEV": PROBE_ENERGY, "semiangleMrad": PROBE_SEMIANGLE_MRAD, "rolloffMrad": PROBE_ROLLOFF_MRAD,
+        "polar": {k: float(v) for k, v in case_polar.items()},
+        # py4DSTEM's cartesian terms ("C10", "C12a", "C12b", "C21a", ..., "C30", ...), zeros dropped
+        "cartesian": {k: float(v) for k, v in case_cartesian.items() if v != 0.0},
+        "real": case_array.real.astype(np.float64).ravel().tolist(),
+        "imag": case_array.imag.astype(np.float64).ravel().tolist(),
+    })
+assert probe_cases[-1]["cartesian"]["C56a"] != 0.0
+
 json.dump({
+    "probeCases": probe_cases,
     "scanShape": [2, 2], "probeShape": list(probe_shape),
     "objectShape": list(object_shape), "positions": positions.ravel().tolist(),
     "amplitudes": amplitudes.ravel().tolist(),

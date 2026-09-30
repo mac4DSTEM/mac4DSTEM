@@ -61,6 +61,9 @@ package final class PhaseContrastProduct {
     package var parallaxSubpixel: ParallaxSubpixelResult?
     package var parallaxDepth: ParallaxDepthResult?
     package var singleslicePtychography: SingleslicePtychographyResult?
+    /// The defocus and fitted aberrations the retained reconstruction's probe STARTED from (lane R1), read from the result itself
+    /// (`SingleslicePtychographyResult.probeAberrations`, copied from the input `prepare` built) - there is no second copy to drift.
+    package var singleslicePtychographyProbe: PtychographyProbeAberrations? { singleslicePtychography?.probeAberrations }
 
     // MARK: - Sixteen run controls, plus the selected depth plane and product
 

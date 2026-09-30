@@ -159,8 +159,13 @@ volumes); the parallax/ptychography cost (`archive/v4/parallax-ptycho-cost-2026-
 not an acquisition for them); owner: KEEP, limits now half of RAM (`PhaseContrastMemoryBudget`). **On py4DSTEM's graphene
 cube (`archive/v4/parallax-ptycho-graphene-2026-09-30/`): parallax agrees with py4DSTEM (defocus 663.6 vs 663.7 Å, interior
 BF 1.000) but carries an edge vignette (full-frame 0.36) and fits the (2,1) higher-order terms at ≈ 0 where py4DSTEM gives
-≈ 600 Å; ptychography has NO defocus input (its object is uncorrelated with py4DSTEM's at the true 600 Å, 0.6/0.93 at
-defocus 0) and its difference map diverges — finish (defocus from the parallax fit, DM fixed) or remove: owner's card.** C5's 500-step run done headless
+≈ 600 Å. Ptychography takes a defocus since Slot 1 R1 (2026-09-30 night): the probe carries defocus, C12a/b and the
+higher-order terms, pinned to py4DSTEM's `ComplexProbe` (harness, worst 1.7e-6); "Use Parallax Fit" seeds defocus = −C1 (py4DSTEM's
+rule; a 180° R–Q rotation flips every coefficient — the status line prints both rotations). Residuals for R2/R3: at the same
+defocus the app's object correlates 0.69–0.74 raw (0.79–0.90 low-passed) with py4DSTEM's and the error histories differ 8–15 %
+mid-run (0.88 / 0.94 at defocus 0; the mean-origin DEVIATION is the suspect); the archived comparison rows could not be reproduced
+(that run's py4DSTEM settings are unknown); the difference map is non-monotone in py4DSTEM too at these settings; the probe fields
+are in neither the replay plan nor the sidecar nor the export provenance (`Support/ResultExport.swift`, lane X's file).** C5's 500-step run done headless
 (`archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision
 65.7 → 72.1 %). **Open:** the Train Model… drive is the owner's (a scratch build cannot read his sidecar's labels — the
 grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no

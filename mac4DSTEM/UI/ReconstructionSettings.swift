@@ -150,9 +150,15 @@ private struct DPCSettingsSection: View {
 
 // MARK: - Single-slice ptychography
 
-private struct SingleslicePtychographySection: View {
+struct SingleslicePtychographySection: View {
     @Environment(AppState.self) private var appState
-    @SceneStorage("phase.settings.ptychographyAdvanced.isExpanded") private var showsAdvanced = false
+    @SceneStorage private var showsAdvanced: Bool
+
+    /// `advancedExpanded` is only the first-launch value of the remembered disclosure; a test hosts the view with it open to
+    /// measure its rows (`InspectorWidthBudgetTests`, the same device `PhaseMappingSections` uses).
+    init(advancedExpanded: Bool = false) {
+        _showsAdvanced = SceneStorage(wrappedValue: advancedExpanded, "phase.settings.ptychographyAdvanced.isExpanded")
+    }
 
     var body: some View {
         @Bindable var ptychography = appState.ptychography
@@ -165,6 +171,25 @@ private struct SingleslicePtychographySection: View {
                     }
                 }
                 .labelsHidden()
+            }
+            InspectorRow("Defocus") {
+                NumericField(
+                    "Defocus",
+                    value: $ptychography.defocusAngstrom,
+                    format: .number.precision(.fractionLength(0...1)),
+                    unit: "Å"
+                )
+                .labelsHidden()
+            }
+            .help("The probe's defocus, as py4DSTEM's defocus argument: the probe's C10 is minus this number. A defocused probe needs it; 0 is the in-focus aperture.")
+            InspectorActionRow {
+                InspectorAdaptiveButton(
+                    "Use Parallax Fit", systemImage: "arrow.down.circle",
+                    help: "Fills Defocus and the astigmatism from the parallax aberration fit: defocus is minus the fit's C1 (py4DSTEM's forward model stores C10 = -defocus and its Parallax returns C1 = C10), astigmatism is the fit's C12a and C12b (checked with no transpose only). Valid on the rotation branch the fit used: if the calibrated rotation is about 180° from the fit's, use the opposite defocus sign - the wrong branch reconstructs a conjugated object, and nothing checks it here."
+                ) {
+                    appState.usePtychographyProbeFromParallaxFit()
+                }
+                .disabled(appState.isBusy || appState.phaseContrast.parallaxAberrationFit == nil)
             }
             InspectorActionRow {
                 InspectorAdaptiveButton(
@@ -205,6 +230,29 @@ private struct SingleslicePtychographySection: View {
                 )
                 .labelsHidden()
             }
+            InspectorRow("Astigmatism C12a") {
+                NumericField(
+                    "Astigmatism C12a",
+                    value: $ptychography.c12aAngstrom,
+                    format: .number.precision(.fractionLength(0...1)),
+                    unit: "Å"
+                )
+                .labelsHidden()
+            }
+            InspectorRow("Astigmatism C12b") {
+                NumericField(
+                    "Astigmatism C12b",
+                    value: $ptychography.c12bAngstrom,
+                    format: .number.precision(.fractionLength(0...1)),
+                    unit: "Å"
+                )
+                .labelsHidden()
+            }
+            InspectorRow("Take higher-order terms") {
+                Toggle("Take higher-order terms", isOn: $ptychography.includeHigherOrderFit)
+                    .labelsHidden()
+            }
+            .help("Unverified: when on, Use Parallax Fit also takes the fit's coma and three-fold astigmatism (C21, C23) into the probe. py4DSTEM's own fit returned 0 for a planted C21 of 8000 Å, and on the graphene cube this app's fit reads about 0 where py4DSTEM's reads 600 Å, so those terms are the fit's, not validated. Set it before pressing Use Parallax Fit.")
             InspectorRow("Fix probe") {
                 Toggle("Fix probe", isOn: $ptychography.fixProbe)
                     .labelsHidden()
