@@ -153,7 +153,7 @@ diagnostic=(bragg-spacing-probe origin-fit-diagnostics
   hdf5-race-probe thronsen-dataset cloud-analysis matrix-orientation-probe
   lattice-calibration-probe dm4-parity-probe embedding-profile mlx-training-spike mpsgraph-training-spike
   training-run-probe
-  volumetric-density-test)
+  volumetric-density-test parallax-ptycho-real-probe)
 owner_only=()
 retired=()
 support=(lib release crystal-structures hooks)
@@ -185,6 +185,17 @@ inventory() {
     printf "  %-36s %7s  OVER the 450-word cap — move narrative to docs/archive/\n" "handoff words" "$handoff_words"; rc=1
   else
     printf "  %-36s %7s  (cap 450)\n" "handoff words" "$handoff_words"
+  fi
+  # The learned detector runs on the Neural Engine in the app (owner, 2026-09-30): `loadForComparison` loads it
+  # on another compute unit or batch, for tools and tests only. One app caller would put a Detect All, or the
+  # model a fine-tune is judged against, on other numerics with every unit test green (Gate B, 2026-09-30).
+  echo "== the app loads the learned detector on the Neural Engine only"
+  local comparison_callers
+  comparison_callers=$(grep -rl 'loadForComparison' "$ROOT/mac4DSTEM" | grep -v '/Core/ML/LearnedDiskDetector.swift$' || true)
+  if [[ -n "$comparison_callers" ]]; then
+    echo "  loadForComparison is called from app code: $comparison_callers"; rc=1
+  else
+    echo "  no app caller of loadForComparison"
   fi
   # Unvalidated stays labelled (owner, 2026-09-18): the phase-mapping badge
   # and the export key are load-bearing; a session that drops either would

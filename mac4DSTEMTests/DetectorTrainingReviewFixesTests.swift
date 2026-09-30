@@ -32,6 +32,7 @@ final class DetectorTrainingReviewFixesTests: XCTestCase {
     }
 
     func testAStoredModelLoadsFromItsCompiledCopy() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
         let bundled = try TrainingTestSupport.bundledPackage
         let dir = try TrainingTestSupport.tempDirectory(self)
         let copy = dir.appendingPathComponent("copy.mlpackage")
@@ -39,6 +40,13 @@ final class DetectorTrainingReviewFixesTests: XCTestCase {
         let compiled = try await ModelPackageWriter.compile(packageAt: copy)
         let loaded = try await LearnedDiskDetector.load(assetURL: copy, compiledURL: compiled)
         XCTAssertEqual(loaded.assetSHA256, try LearnedDiskDetector.sha256(ofAsset: bundled), "identity stays the package's tree hash")
+        // the stored-model path is the app's other way in: it must land on the Neural Engine like the first (Gate B, 2026-09-30)
+        XCTAssertEqual(loaded.computeUnits, .cpuAndNeuralEngine)
+        let fixture = try LearnedSwiftFixture.load()
+        let (inputs, _) = fixture.batchInputs(try fixture.fittedDetector(), batch: loaded.batch)
+        let ran = try await LearnedSwiftFixture.neuralEngineEvidence(loaded, inputs: inputs, heat: try await loaded.heatmaps(inputs: inputs))
+        XCTAssertGreaterThan(ran.differingFromCPU, 0, "the stored model's heatmaps equal the CPU's bit for bit")
+        XCTAssertEqual(ran.differingFromNeuralEngine, 0, "the stored model's heatmaps differ from a direct Neural Engine run")
         let empty = dir.appendingPathComponent("empty.mlmodelc", isDirectory: true)
         try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
         do {

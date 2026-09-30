@@ -132,14 +132,15 @@ One line each; full wording as above.
 
 ## Ready on the new hardware (owner, 2026-09-30) — and what still waits on the owner
 
-### The new Mac (M5 Pro, 64 GB): brought up 2026-09-30 — the three hardware lanes
-Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" retired, the > 2 GB read rule kept until the 28
-GB DM4 is read here) — `archive/v4/newmac-gateD-2026-09-30/record.md` (chip vs OS for the MPSGraph bug stays open: the old Mac is retired). **Lanes:**
-(1) C5, 500 training steps on ≥ 12 held-out labelled positions and Train Model… driven (the labelled sidecar sits beside the
-bullseye cube); (2) parallax and single-slice ptychography on real data — 8–11 GB asked for a 268 MB cube: a Gate D on the true
-cost, then the owner keeps or removes them; (3) the 28 GB `--parity` run of the raw Al-Mg-Si DM4 (`almgsi-gateD-2026-09-24.md`
-6, 8). RAM does not fix: a vanished volume is a SIGBUS with no dialog; network volumes keep the full read. Detector truth (A2,
-370 centres, net 0.584 / 0.655): an inter-labeller check owed.
+### The new Mac (M5 Pro, 64 GB): brought up 2026-09-30 — the hardware lanes
+Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" retired) — `archive/v4/newmac-gateD-2026-09-30/record.md`
+(chip vs OS for the MPSGraph bug stays open: the old Mac is retired). **Done 2026-09-30 night:** the 28 GB `--parity` run
+(`archive/v4/parity-28gb-2026-09-30.md`: the app's raw read is right; the "unfiltered" bin-4 cubes are hot-pixel filtered at 15
+detector pixels incl. the direct beam — the owner's files, not the app; the > 2 GB read rule is retired for mapped local
+volumes); the parallax/ptychography cost (`archive/v4/parallax-ptycho-cost-2026-09-30.md`: estimators honest, the 051 cube is
+not an acquisition for them, keep/remove is the owner's). **Open:** (1) C5, 500 training steps on ≥ 12 held-out labelled
+positions and Train Model… driven; the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no
+dialog; network volumes keep the full read.
 
 ### Scan-fastest DM4 detector pair may be transposed (2026-09-05)
 `Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags `[Rx, Ry, Qy, Qx]` (pattern 480×448); a transposed pattern silently
@@ -165,10 +166,12 @@ both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need
 - **Infrastructure**: the 15 s budget gates the pinned datasets only; virtual-image `abs_tol` exceeds one
   fixture's range; `rel_tol` on `diskProbeRadiusPixels` is inert below 50 px; `if not actual:` is unkillable; the runner aborts
   at the first red harness.
-- **Learned-detector parity is a same-runtime claim**: skips where no Neural Engine is listed (bars not loosened); a
-  CPU-written second fixture would make it a check. With CI's unit job paused (ADR 040) every green gate is local.
-  **M5 Pro (2026-09-30, Gate D, refuter HOLDS):** Core ML `.all` runs it on the GPU (aned log): 8 extra picks, red; forced ANE
-  354/354 (batch 32 only, else silent CPU). Mechanism unknown; owner: back on the ANE (queued), red on the M5 until then.
+- **Learned detector on the Neural Engine (2026-09-30 night, Gate D + two refuter passes, `archive/v4/ane-return-2026-09-30/`):**
+  the load asks for `.cpuAndNeuralEngine` and refuses a model the Neural Engine did not run; the parity test is green for the
+  right reason. Residuals: measured on this Mac only (M5 Pro, macOS 27.0.1); a machine with no Neural Engine now refuses the
+  learned detector (was: ran on other numerics unannounced) and re-runs the 0.3 s check on every live preview; the fine-tuning
+  candidate's unit and a partial Neural Engine plan are not pinned by a test; at threshold 0.9 the unit moves up to 5 % of
+  accepted peaks (0.45 % at the shipped 0.7). CI's unit job stays paused (ADR 040); every green gate is local.
 
 ### Accessibility (does NOT block a release — owner decision, 2026-09-11)
 The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` did not recur: a full AX probe of every room

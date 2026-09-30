@@ -12,26 +12,24 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 | Gate | Result |
 |---|---|
+| ANE return + board clearing (2026-09-30 night, M5 Pro) | Unit **1305 / 0 / 4 = 1309**, reconciled with 1309 `func test` (`unit-ane.log`, `GATE_EXIT=0`; the M5 parity test green on the Neural Engine, asserted three ways); `scientific` **51 harnesses, zero FAIL, `GATE_EXIT=0`** (`sci-ane.log`); inventory exit 0. Gate D + two independent refuter passes (`archive/v4/ane-return-2026-09-30/`); the 28 GB parity run (`archive/v4/parity-28gb-2026-09-30.md`, refuted independently); the parallax/ptychography cost (`archive/v4/parallax-ptycho-cost-2026-09-30.md`). |
 | New-Mac baseline (2026-09-30 evening, M5 Pro 64 GB, macOS 27.0.1) | `all` on `9026863`: unit **1302 / 1 / 4 = 1307**, reconciled with 1307 `func test` (`all-newmac.log`, `GATE_EXIT=65` — the one red is the diagnosed M5 learned-parity test; owner: the app back on the ANE). The runner stops there, so `scientific` ran alone after `62c8eda`: **51 harnesses, zero FAIL, `GATE_EXIT=0`** (`sci2-newmac.log`, 7 min 11 s; its first run caught `result-presentation-test` broken by `9925598`); `package-test` exit 0 (`pkg-newmac.log`); inventory exit 0. Gate D: the M5 MPSGraph training crash fixed, the parity failure diagnosed, both refuters HOLD (`archive/v4/newmac-gateD-2026-09-30/`). |
 | S14-D + polish (2026-09-30 day) | Unit **1305 / 0 / 2 = 1307**, reconciled with 1307 `func test` (`unit-polish2.log`, exit 0); inventory exit 0. S14-D (Gate D, refuter HOLDS): the origin refine walks along a ringed probe's ring, no fixed window ships. Polish: 13 items, Fable-supervised (two FIX-FIRST fixed), driven on scratch builds (drives 3–4). Refuters for S20 and S21 landed (`archive/v4/s20-refuter`, `s21-refuter`). |
 
 Earlier gate rows — the 2026-09-30 overnight S12–S23 and v4.0.0-cut `all` rows, the 2026-09-30 clearing and S3 rows, the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, raw Al-Mg-Si calibration, Bragg-restore and overnight 09-29 rows are at [`archive/v4/status-history-2026-09-29.md`](archive/v4/status-history-2026-09-29.md); 2026-09-17 through the 2026-09-23 overnight runs — are archived verbatim at [`archive/v4/status-history-2026-09-23.md`](archive/v4/status-history-2026-09-23.md). The 2026-09-23 night to 2026-09-25 rows are at [`archive/v4/status-history-2026-09-28.md`](archive/v4/status-history-2026-09-28.md). The 2026-09-28 morning's DM4, ellipse, clean-up and diffraction-groups rows are there too, and that day's R–Q, parallax, floor, T4, A2 and C2 rows.
 
-## Handoff — 2026-09-30 evening, the new Mac brought up (after the overnight block S12–S23 and the day's polish)
+## Handoff — 2026-09-30 night, v4.1 is the plateau (ADR 049); the Board's new-Mac cards cleared but C5
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | v4.0.0 released 2026-09-23; pushed through `8b6f93d`; the day's later commits and the new-Mac bring-up (`9026863`, `62c8eda`, closeout) are unpushed. | Owner: push. |
-| **Done (day)** | S14-D Gate D closed as recorded (`340eec4`, refuter `5de09ea`); polish in three rooms (`97af1b2`, `7862138`, `9925598`), driven; S20 and S21 refuters; 18 owner decisions distilled on the Board. | — |
-| **Done (evening)** | New-Mac bring-up: envs recreated from the old Mac, M5 training crash fixed (`9026863`), harness repaired (`62c8eda`), baseline green but the one owner pick, limits re-measured. | — |
-| **Done (night)** | S17 `c403125`, S13 `f59e65f`, S19 `f73be56`, S16 `e19b32c`, S12 `b8b4544`, S23 `08f457a`, S18 `64015f0`, S15 `19f5b07`, owner decisions 1–2 `3cb567e`, S22 `53440b3` (`archive/v4/overnight-plan-2026-09-30.md` log). | — |
-| **Yours** | The Board's "Your decisions" (18 cards, `archive/v4/owner-decisions-2026-09-30.json`): S21 take-after-five-fixes; S20 grain-C Gate D at true Q; S14-D window-sensitivity quantity; D1; the DM4 transpose check. | Owner. |
-| **Done (night 2)** | Residency measured: resident 20–70 × faster on repeated passes, slower on one; knee not clean (slope from 0.45, 3 GB swap at 0.70) → ADR 013 stands. No refuter (owner's word). `archive/v4/residency-characterisation-2026-09-30/`. | Owner: the per-open toggle, or leave. |
-| **Next** | ROADMAP queue: the learned detector back on the ANE (owner's pick), then C5, parallax/ptychography, the 28 GB parity run. The external-agent review can run beside them. | Owner starts them. |
-| **Overrule on sight** | Plan §5 (eight): origin-row warning + Restore; Fit anyway from lineage; `CrystalModelLibrary` kept; gate/l-filter deferred; `scientific` fails closed; "In memory" wording (Frozen Shell); S15 label-only; S20 amendment. Earlier: Core `-O` in Debug; ADRs 047, 048. | Owner. |
-| **Owner owed** | The Board's "Your decisions" (18 cards); Thronsen's written confirmation (ADR 042). | Owner. |
+| **Now** | v4.0.0 released 2026-09-23; pushed through `8cfc1a36`; tonight's commits are unpushed. | Owner: push, then fire the cloud review (brief `archive/v4/polish-and-review-session-plan.md`). |
+| **Decided (night)** | ADR 049: feature list frozen at v4.0.0, v4.1.0 = that app finished, five-line exit; ROADMAP rewritten; the ground rule in `CLAUDE.md`. | Overrule on sight. |
+| **Done (night)** | Learned detector back on the Neural Engine (load refuses a model the ANE did not run; 25–27 % faster than `.all` here; ≤ 0.45 % of accepted peaks move at 0.7); the 28 GB parity run (the app's DM4 read is right; the "unfiltered" cubes are hot-pixel filtered at 15 pixels incl. the direct beam); the parallax/ptychography cost measured (estimators honest; the 051 cube is not an acquisition for them). | Owner: keep or remove parallax/ptychography (recommendation: keep). |
+| **C5** | The 500-step headless run and the Train Model… drive: see the row the session appends below, or `open-items.md` § new Mac. | Session / owner. |
+| **Yours** | The Board's "Your decisions" (18 cards, `archive/v4/owner-decisions-2026-09-30.json`); the external review's findings, one sitting (ADR 049). | Owner. |
+| **Overrule on sight** | ADR 049's freeze list; the recommendation to keep parallax/ptychography; the refusal (not a CPU fallback) on a machine with no Neural Engine; plan §5 (eight) and the earlier list. | Owner. |
 | Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048). | — |
-| **Unverified on screen** | Decision 2 ("Fit anyway" after reopen, needs a ring refused as sparse); S23's pinch zoom and restored-origin branch. | Session. |
+| **Unverified on screen** | Decision 2 ("Fit anyway" after reopen, needs a ring refused as sparse); S23's pinch zoom and restored-origin branch. Nothing drawn changed tonight. | Session. |
 | Carried | Drive proposals and the bin-2 aperture defect (open-items S4); the S20 grain-C and S21 follow-ups (Board cards); CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.

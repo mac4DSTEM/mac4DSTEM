@@ -152,6 +152,14 @@ enum DM4ParityProbe {
         let q = dPre.qx
         var maxAbs: Float = 0, maxRel: Float = 0, maxAbsT: Float = 0, compared = 0, exact = 0
         var worst = (0, 0)
+        // Per detector pixel (2026-09-30): the largest relative difference seen at it over the scan, and how often
+        // the file's value there is the 3×3 local median of the app's binned pattern. The first full run found the
+        // "unfiltered" file differing at a few FIXED detector positions — the owner's notebook runs py4DSTEM's
+        // `filter_hot_pixels` after `bin_Q`, which replaces a fixed mask by that median — so the parity claim is
+        // stated per pixel: which positions ever differ, and what the rest do.
+        var pixelMaxRel = [Float](repeating: 0, count: q * q)
+        var pixelMedianHits = [Int](repeating: 0, count: q * q)
+        var pixelDiffers = [Int](repeating: 0, count: q * q)
         let t0 = Date()
         for y in Swift.stride(from: 0, to: dPre.ry, by: stride) {
             let rowA = try await dm.readScanRow(view, ry: y)
@@ -165,6 +173,18 @@ enum DM4ParityProbe {
                     if diff > maxAbs { maxAbs = diff; worst = (y, x) }
                     let scale = max(abs(b[i]), 1)
                     maxRel = max(maxRel, diff / scale)
+                    pixelMaxRel[i] = max(pixelMaxRel[i], diff / scale)
+                    if diff / scale > 1e-4 {
+                        pixelDiffers[i] += 1
+                        var window: [Float] = []
+                        for yy in max(i / q - 1, 0)...min(i / q + 1, q - 1) {
+                            for xx in max(i % q - 1, 0)...min(i % q + 1, q - 1) { window.append(a[yy * q + xx]) }
+                        }
+                        window.sort()
+                        let n = window.count
+                        let median = n % 2 == 1 ? window[n / 2] : (window[n / 2 - 1] + window[n / 2]) / 2
+                        if abs(median - b[i]) <= 1e-4 * scale { pixelMedianHits[i] += 1 }
+                    }
                     let t = (i % q) * q + i / q              // transposed index
                     maxAbsT = max(maxAbsT, abs(a[t] - b[i]))
                 }
@@ -179,5 +199,15 @@ enum DM4ParityProbe {
         print(String(format: "PARITY: %d patterns compared, %d bit-identical; max |Δ| %.6g at (%d, %d), max relative %.3g; "
                      + "transposed max |Δ| %.6g; %.0f s",
                      compared, exact, maxAbs, worst.0, worst.1, maxRel, maxAbsT, Date().timeIntervalSince(t0)))
+        // The distribution, not a cut-off: every detector position's largest relative difference, sorted. Summation
+        // order alone gives small values (the data has negative pixels, so a 4×4 sum can nearly cancel); a replaced
+        // pixel gives values near 1. The gap between the two is for the reader to see.
+        let order = (0..<(q * q)).sorted { pixelMaxRel[$0] > pixelMaxRel[$1] }
+        print("PER PIXEL: \(pixelMaxRel.filter { $0 == 0 }.count) of \(q * q) detector positions bit-identical in every pattern; "
+              + "the 24 largest per-position max relative differences:")
+        for i in order.prefix(24) {
+            print(String(format: "  (row %d, col %d): max relative %.3g; differs in %d patterns, the file within 1e-4 of the 3×3 median of the binned raw in %d",
+                         i / q, i % q, pixelMaxRel[i], pixelDiffers[i], pixelMedianHits[i]))
+        }
     }
 }

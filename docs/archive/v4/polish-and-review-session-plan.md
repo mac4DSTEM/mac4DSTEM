@@ -9,6 +9,13 @@ as its complete brief. It is written to be read cold. This file is the plan AND 
 Most of the code and every review so far came from one model family. Independent refuters paid for themselves every night
 (2026-09-30: four real defects caught behind green suites). A reviewer from outside that family is the strongest refuter left.
 
+**Part A in the cloud (owner, 2026-09-30; ADR 049 makes this review the last intake before v4.1):** part A is read-only and
+may run in a cloud session on the pushed repo. Such a session cannot build, run a gate or drive the app, and has none of
+`References/`: it returns the findings table in its final message (no branch, no PR), and the fixes are made locally.
+Kickoff: "Read docs/archive/v4/polish-and-review-session-plan.md and do part A only (read-only, no code changes, no branch,
+no PR). Output one findings table: file:line, severity, the observation that shows it, the proposed fix, whether it can
+move a scientific number."
+
 ## 1. Orientation (read in this order, ~30 min)
 
 1. `CLAUDE.md` — the hard rules. They bind you: `main` only, never push (the owner pushes), Frozen Shell files change only
@@ -17,7 +24,7 @@ Most of the code and every review so far came from one model family. Independent
 2. `docs/status.md`, `docs/architecture.md` (layering: `Core/` computes, `Session/` holds state, `UI/` describes, `AppState` is
    the single source of truth), `docs/open-items.md`, `ROADMAP.md`, `docs/decisions.md`.
 3. Build and gates: `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`;
-   `tools/run-tests.sh unit | inventory | core | scientific`. Last reconciled unit count: 1279 / 0 / 3 = 1282 (2026-09-30 night).
+   `tools/run-tests.sh unit | inventory | core | scientific`. The last reconciled unit count is in `docs/status.md` § Last gates.
    Machine: the owner's new Mac (2026-09-30). The old 8 GB Mac's rules (`-jobs 2`, one build at a time, the disk floor) are
    re-measured on it, not assumed; never full-read a file bigger than RAM; delete `Logs/Test/*.xcresult` after reading.
 4. The app: 179 Swift files, ~69 k lines; largest `Core/Data/BraggVectorEMDWriter.swift` (2 935), `Core/Crystal/

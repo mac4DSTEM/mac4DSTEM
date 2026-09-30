@@ -30,7 +30,7 @@ struct LearnedSwiftFixture {
     struct Expected: Decodable {
         struct Settings: Decodable { let minPeakSpacing: Float; let edgeBoundary: Int; let sigma_cc: Float; let maxNumPeaks: Int }
         struct Pattern: Decodable { let picks: [[Double]]; let accepted: [[Double]] }
-        let count: Int; let native_size: Int; let size: Int
+        let count: Int; let native_size: Int; let size: Int; let batch: Int
         let probe_centre: [Double]; let probe_centre_fit: [Double]; let fit_offset: [Int]; let probe_radius: Double
         let threshold: Float; let settings: Settings; let asset: String; let asset_sha256: String
         let inputs_ref_indices: [Int]; let patterns: [Pattern]
@@ -114,8 +114,58 @@ struct LearnedSwiftFixture {
 
     static func loadDetector() async throws -> LearnedDiskDetector {
         guard FileManager.default.fileExists(atPath: assetURL.path) else { throw XCTSkip("no committed asset at \(assetURL.path)") }
-        do { return try await LearnedDiskDetector.load(assetURL: assetURL) }
-        catch { throw XCTSkip("Core ML could not load the asset here: \(error)") }
+        // Where there is no Neural Engine the app's load refuses, by design; there the learned tests skip.
+        // Anywhere else a load that throws is a failure — a skip here once hid a refusal (Gate B, 2026-09-30).
+        try XCTSkipUnless(hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
+        return try await LearnedDiskDetector.load(assetURL: assetURL)
+    }
+
+    static var hasNeuralEngine: Bool {
+        MLComputeDevice.allComputeDevices.contains { if case .neuralEngine = $0 { return true } else { return false } }
+    }
+
+    /// Which unit ran `heat`, by three signals that fail differently (2026-09-30, the third from Gate B).
+    /// The PLAN: the operations Core ML gives a device under the detector's own compute units, and how many it
+    /// puts on the Neural Engine. NOT THE CPU: the same batch through a `.cpuOnly` load, and how many heatmap
+    /// values differ bit for bit — 0 when a batch falls back to the CPU, which the plan does not see. THE NEURAL
+    /// ENGINE ITSELF: the same batch through a model this helper loads from Core ML directly on
+    /// `.cpuAndNeuralEngine`, never through the detector's own load, and how many values differ — not 0 when
+    /// the detector's load put the model anywhere else (the GPU differs from the CPU too, so the second signal
+    /// alone cannot tell it from the Neural Engine).
+    static func neuralEngineEvidence(_ learned: LearnedDiskDetector, inputs: [Float16], heat: [Float16]) async throws
+        -> (plannedOnNeuralEngine: Int, plannedOps: Int, differingFromCPU: Int, differingFromNeuralEngine: Int) {
+        let config = MLModelConfiguration()
+        config.computeUnits = learned.computeUnits
+        let plan = try await MLComputePlan.load(contentsOf: learned.compiledURL, configuration: config)
+        var onEngine = 0, ops = 0
+        if case .program(let program) = plan.modelStructure, let main = program.functions["main"] {
+            for op in main.block.operations {
+                guard let usage = plan.deviceUsage(for: op) else { continue }
+                ops += 1
+                if case .neuralEngine = usage.preferred { onEngine += 1 }
+            }
+        }
+        let cpu = try await LearnedDiskDetector.loadForComparison(assetURL: learned.assetURL, compiledURL: learned.compiledURL, computeUnits: .cpuOnly)
+        let cpuHeat = try await cpu.heatmaps(inputs: inputs)
+        var differing = 0
+        for i in heat.indices where heat[i].bitPattern != cpuHeat[i].bitPattern { differing += 1 }
+
+        let S = LearnedDiskDetector.inputSize
+        let engineConfig = MLModelConfiguration()
+        engineConfig.computeUnits = .cpuAndNeuralEngine
+        let engine = try await MLModel.load(contentsOf: learned.compiledURL, configuration: engineConfig)
+        let x = try MLMultiArray(shape: [learned.batch, 3, S, S].map { NSNumber(value: $0) }, dataType: .float16)
+        x.withUnsafeMutableBytes { dst, _ in inputs.withUnsafeBytes { dst.copyMemory(from: $0) } }
+        let out = try await engine.prediction(from: MLDictionaryFeatureProvider(dictionary: ["x": MLFeatureValue(multiArray: x)]))
+        let array = try XCTUnwrap(out.featureValue(for: "heatmap")?.multiArrayValue)
+        XCTAssertEqual(array.dataType, .float16)
+        XCTAssertEqual(array.count, heat.count)
+        var offEngine = 0
+        array.withUnsafeBytes { raw in
+            let direct = raw.bindMemory(to: Float16.self)
+            for i in heat.indices where heat[i].bitPattern != direct[i].bitPattern { offEngine += 1 }
+        }
+        return (onEngine, ops, differing, offEngine)
     }
 }
 
@@ -224,22 +274,22 @@ final class LearnedDiskDetectorTests: XCTestCase {
     // MARK: 3. The whole learned path reproduces Python's picks and accepted peaks
 
     func testLearnedPathMatchesPythonReference() async throws {
-        // A same-RUNTIME claim, and the gate says so: the fixture was written with
-        // compute units "all" (expected.json) on a Mac with a Neural Engine, and
-        // off it the picks near the threshold round differently. Measured
+        // A same-RUNTIME claim, and the gate says so: the fixture was written on a
+        // Neural Engine (expected.json says compute units "all", which meant the
+        // Neural Engine on the Mac that wrote it, 2026-09-08), and off it the picks
+        // near the threshold round differently. Measured
         // 2026-09-14, and re-measured by a refuter: on GitHub's virtualised
         // macos-26 runner (no Neural Engine) this test failed on two runs of the
         // same commit; here, forced to `.cpuAndGPU`, raw picks land at 346/354
         // (97.7 %) with 8 extras (2.26 %), and at `.cpuOnly` 341/354 with 14 —
         // the two 98 % / 2 % bars, and only those; accepted counts and positions
         // still pass. Skipping where there is no Neural Engine is the truthful
-        // gate; loosening the bars to fit a CPU rounding would not be. What it
-        // does NOT see: a Neural Engine that is present but not used — the probe
-        // is hardware presence, not the unit that executed (open-items.md).
-        let hasNeuralEngine = MLComputeDevice.allComputeDevices.contains {
-            if case .neuralEngine = $0 { return true } else { return false }
-        }
-        try XCTSkipUnless(hasNeuralEngine,
+        // gate; loosening the bars to fit a CPU rounding would not be.
+        // A Neural Engine that is present but not used is seen since 2026-09-30:
+        // on the M5 Pro `.all` ran this model on the GPU (8 extras, this test red),
+        // so the detector asks for the Neural Engine by name and the test asserts
+        // below that it was planned there AND that it executed there.
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine,
                           "no Neural Engine on this machine: the Python reference is a same-runtime "
                           + "fixture and is not reproduced off the ANE (open-items.md, 2026-09-14)")
         let f = try LearnedSwiftFixture.load()
@@ -247,13 +297,22 @@ final class LearnedDiskDetectorTests: XCTestCase {
         let det = try f.fittedDetector()
         let p = f.params()
         let learned = try await LearnedSwiftFixture.loadDetector()
-        XCTAssertEqual(learned.batch, 32)
-        XCTAssertGreaterThanOrEqual(learned.batchMax, 32)
+        XCTAssertEqual(learned.batch, e.batch, "the batch the fixture was predicted at")
+        XCTAssertEqual(learned.computeUnits, .cpuAndNeuralEngine, "the app's default load")
         XCTAssertEqual(learned.assetSHA256, e.asset_sha256)
         let n = f.S * f.S
         let (inputs, smoothed) = f.batchInputs(det, batch: learned.batch)
         let heat = try await learned.heatmaps(inputs: inputs)
         XCTAssertEqual(heat.count, learned.batch * n)
+        // The unit that ran, before any number is compared: matching picks on another unit would be luck.
+        let ran = try await LearnedSwiftFixture.neuralEngineEvidence(learned, inputs: inputs, heat: heat)
+        XCTAssertGreaterThan(ran.plannedOps, 0, "Core ML's plan names a device for no operation")
+        XCTAssertEqual(ran.plannedOnNeuralEngine, ran.plannedOps,
+                       "Core ML plans \(ran.plannedOnNeuralEngine) of \(ran.plannedOps) operations on the Neural Engine")
+        XCTAssertGreaterThan(ran.differingFromCPU, 0,
+                             "the heatmaps equal the CPU's bit for bit: the Neural Engine did not run this batch")
+        XCTAssertEqual(ran.differingFromNeuralEngine, 0,
+                       "\(ran.differingFromNeuralEngine) heatmap values differ from a direct Neural Engine run of the same model")
         var pickHits = 0, pickTotal = 0, pickMine = 0, acceptedCountMatches = 0, positionHits = 0, positionTotal = 0
         var worst: Float = 0
         for i in 0..<e.count {
@@ -282,6 +341,31 @@ final class LearnedDiskDetectorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(acceptedCountMatches, e.count - 1, "accepted counts equal Python's in \(acceptedCountMatches)/\(e.count) patterns")
         XCTAssertGreaterThanOrEqual(Double(positionHits) / Double(positionTotal), 0.98,
                                     "accepted positions within 0.05 px of Python's: \(positionHits)/\(positionTotal), worst \(worst)")
+    }
+
+    /// The guard (2026-09-30): the app's load runs one batch and refuses a model the Neural Engine did not run —
+    /// never a detector that quietly computes on the CPU. Shown with the one case measured to fall back: a batch
+    /// other than the package's default (16 for the shipped 32). If a later macOS serves that batch too this
+    /// test goes red, and that is news: the measurement in `LearnedDiskDetector.batch`'s comment has changed.
+    func testLoadRefusesAModelTheNeuralEngineDidNotRun() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine")
+        let asset = LearnedSwiftFixture.assetURL
+        do {
+            _ = try await LearnedDiskDetector.loadForComparison(assetURL: asset, computeUnits: .cpuAndNeuralEngine, batch: 16)
+            XCTFail("a batch of 16 loaded on the Neural Engine: either it now serves that batch, or the check is gone")
+        } catch LearnedDiskDetectorError.neuralEngineDidNotRun(let batch) {
+            XCTAssertEqual(batch, 16)
+        }
+        // and on the stored-model path, which loads a compiled copy and must run the same check
+        let compiled = try await LearnedSwiftFixture.loadDetector().compiledURL
+        do {
+            _ = try await LearnedDiskDetector.loadForComparison(assetURL: asset, compiledURL: compiled, computeUnits: .cpuAndNeuralEngine, batch: 16)
+            XCTFail("a batch of 16 loaded from a compiled copy: the check does not run on that path")
+        } catch LearnedDiskDetectorError.neuralEngineDidNotRun {}
+        // the refusal is the Neural Engine's alone: the same batch on the CPU is a comparison, and loads
+        let cpu = try await LearnedDiskDetector.loadForComparison(assetURL: asset, computeUnits: .cpuOnly, batch: 16)
+        XCTAssertEqual(cpu.batch, 16)
+        XCTAssertTrue("\(LearnedDiskDetectorError.neuralEngineDidNotRun(batch: 16))".contains("Neural Engine did not run"))
     }
 
     /// The zero-padded tail of a batch must not change the patterns before it (the Neural Engine

@@ -7,7 +7,7 @@
 //   probe resample <scores.json>             §4 only, from a saved scores.json
 //
 // Part 1 — the app's run: DetectorFineTuning.run on all 40 labelled positions (HeldOutSplit decides train/held-out),
-//   500 steps, the fixed recipe, bundled parent, both models on the Neural Engine (.all) at the app's default
+//   500 steps, the fixed recipe, bundled parent, both models on the Neural Engine at the app's default
 //   settings (detectorAdapted from the file probe, threshold 0.7), scored at 2 px; then TrainingPolicy.offer (D7).
 // Part 2 — per-position scores on all 40 positions for: the bundled model, the classical detector at the app's
 //   settings, and OUT-OF-FOLD fine-tuned models (4 folds by hash rank, each trained on the other 30 positions,
@@ -132,7 +132,7 @@ struct TrainingRunProbe {
 
         // ---- Part 1: the app's own run
         let active = try await LearnedDiskDetector.load(assetURL: bundledPackage)
-        say("bundled model loaded (.all), sha \(active.assetSHA256.prefix(12)); footprint \(Int(DetectorTraining.footprintMB())) MB")
+        say("bundled model loaded (Neural Engine), sha \(active.assetSHA256.prefix(12)); footprint \(Int(DetectorTraining.footprintMB())) MB")
         let token = AnalysisCancellationToken()
         var recipe = TrainingRecipe()
         if let n = envNumber("TR_PROBE_STEPS") { recipe.steps = Int(n) }

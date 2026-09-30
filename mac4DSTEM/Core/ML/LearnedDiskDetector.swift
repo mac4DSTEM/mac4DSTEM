@@ -5,9 +5,9 @@
 //  A candidate stage, never a measurement: the net paints a disk-centre heatmap on
 //  three channels (log-normalised pattern, the probe, the classical cross-correlation),
 //  peak-picking on it gives candidates, and the classical detector's own refinement
-//  measures each one (`DiskDetector.refine`). Served through Core ML on the macOS 14
-//  floor with the Neural Engine preferred (owner, 2026-09-07, replacing the Core AI
-//  runtime the branch used). The asset is the verbatim `.mlpackage` in the bundle,
+//  measures each one (`DiskDetector.refine`). Served through Core ML on the Neural
+//  Engine (owner, 2026-09-07, replacing the Core AI runtime the branch used; asked for
+//  by name since 2026-09-30, see `load`). The asset is the verbatim `.mlpackage` in the bundle,
 //  compiled once at load, and its tree hash goes into provenance
 //  (`learned_model_sha256`) — the same number `export.py` records.
 //
@@ -51,11 +51,17 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
 
     package let assetURL: URL
     package let assetSHA256: String
-    /// The batch every call uses: the package's default batch dimension (32). The package
-    /// accepts 1…`batchMax`, but one fixed shape means one Neural Engine specialisation,
-    /// so short batches are zero-padded rather than reshaped.
+    /// The batch every call uses: the package's default batch dimension (32 as shipped), short batches
+    /// zero-padded rather than reshaped. Measured 2026-09-30 on the M5 Pro (macOS 27.0.1): under
+    /// `.cpuAndNeuralEngine` the Neural Engine ran the package's default batch and no other batch tried — every
+    /// other one came back with the CPU's numbers bit for bit, no error, no log line (shipped package, and
+    /// variants with other defaults). Why is not known, so no rule about the number is relied on: `load` runs
+    /// one batch and refuses a model the Neural Engine did not run (`neuralEngineDidNotRun`).
     package let batch: Int
-    package let batchMax: Int
+    /// The compute units the model was loaded with, and the compiled model it was loaded from — what a test
+    /// needs to ask Core ML for its plan and to load the same model beside this one.
+    package let computeUnits: MLComputeUnits
+    package let compiledURL: URL
     /// Where these weights came from, recorded beside `learned_model_sha256` (C4b, ADR 048): "bundled", or
     /// "fine-tuned" with the bundled package's tree hash as its parent. Set by whoever loads the detector,
     /// before it runs; provenance only — no number the detector computes reads either.
@@ -68,18 +74,32 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     private let inputName = "x"
     private let outputName = "heatmap"
 
-    private init(assetURL: URL, sha: String, model: MLModel, batch: Int, batchMax: Int) {
-        self.assetURL = assetURL; self.assetSHA256 = sha; self.model = model
-        self.batch = batch; self.batchMax = batchMax
+    private init(assetURL: URL, sha: String, model: MLModel, batch: Int, computeUnits: MLComputeUnits, compiledURL: URL) {
+        self.assetURL = assetURL; self.assetSHA256 = sha; self.model = model; self.batch = batch
+        self.computeUnits = computeUnits; self.compiledURL = compiledURL
     }
 
     /// Loads the asset: hash the package tree, compile it (Core ML writes the compiled
-    /// model to a temporary location that lives as long as the process), load it with
-    /// the Neural Engine preferred. Slow the first time; never inside a run.
+    /// model to a temporary location that lives as long as the process), load it on
+    /// the Neural Engine. Slow the first time; never inside a run.
+    /// The compute units are `.cpuAndNeuralEngine`, not `.all` (2026-09-30, docs/archive/v4/ane-return-2026-09-30/):
+    /// on the M5 Pro under macOS 27.0.1 `.all` plans and runs this model on the GPU, whose heatmaps differ from
+    /// the Neural Engine's the fixture and the threshold were measured on. Under `.cpuAndNeuralEngine` only the
+    /// CPU can stand in for the Neural Engine, and it does so silently, so the load proves which ran: one fixed
+    /// batch through this model and through a `.cpuOnly` load of it; equal bit for bit means the Neural Engine
+    /// did not run, and the load throws rather than hand back a detector with other numerics.
     /// `compiledURL`: an already compiled `.mlmodelc` of this very package (the model store keeps one);
     /// it is loaded as it is and nothing is compiled. The identity is still the package's tree hash.
     /// A compiled model that cannot be loaded throws — the caller decides whether to fall back.
-    package static func load(assetURL: URL, compiledURL: URL? = nil, preferNeuralEngine: Bool = true) async throws -> LearnedDiskDetector {
+    package static func load(assetURL: URL, compiledURL: URL? = nil) async throws -> LearnedDiskDetector {
+        try await loadForComparison(assetURL: assetURL, compiledURL: compiledURL, computeUnits: .cpuAndNeuralEngine)
+    }
+
+    /// `load` on another compute unit, or at another batch: for the tools and tests that compare units and show
+    /// the refusal. The app never calls it (`run-tests.sh inventory` greps for that) — a detector on another
+    /// unit gives other candidates than the one the threshold was measured with.
+    package static func loadForComparison(assetURL: URL, compiledURL: URL? = nil, computeUnits: MLComputeUnits,
+                                          batch requestedBatch: Int? = nil) async throws -> LearnedDiskDetector {
         let sha = try sha256(ofAsset: assetURL)
         let compiled: URL
         if let compiledURL {
@@ -89,22 +109,33 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
             catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.compileModel(at:)", underlying: error) }
         }
         let config = MLModelConfiguration()
-        config.computeUnits = preferNeuralEngine ? .all : .cpuAndGPU
+        config.computeUnits = computeUnits
         let model: MLModel
         do { model = try await MLModel.load(contentsOf: compiled, configuration: config) }
-        catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.load(contentsOf:) — \(preferNeuralEngine ? "all compute units" : "CPU and GPU")", underlying: error) }
+        catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.load(contentsOf:) — compute units \(computeUnits.rawValue)", underlying: error) }
         let desc = model.modelDescription
         guard let input = desc.inputDescriptionsByName["x"], let c = input.multiArrayConstraint,
               desc.outputDescriptionsByName["heatmap"] != nil,
               c.shape.count == 4, c.shape[1].intValue == 3, c.shape[2].intValue == inputSize, c.shape[3].intValue == inputSize else {
             throw LearnedDiskDetectorError.unexpectedSignature(Array(desc.inputDescriptionsByName.keys), Array(desc.outputDescriptionsByName.keys))
         }
-        let batch = c.shape[0].intValue
-        var batchMax = batch
-        if c.shapeConstraint.type == .range, let range = c.shapeConstraint.sizeRangeForDimension.first?.rangeValue {
-            batchMax = range.location + range.length - 1
+        let detector = LearnedDiskDetector(assetURL: assetURL, sha: sha, model: model, batch: requestedBatch ?? c.shape[0].intValue,
+                                           computeUnits: computeUnits, compiledURL: compiled)
+        if computeUnits == .cpuAndNeuralEngine {
+            let cpuConfig = MLModelConfiguration()
+            cpuConfig.computeUnits = .cpuOnly
+            let cpuModel: MLModel
+            do { cpuModel = try await MLModel.load(contentsOf: compiled, configuration: cpuConfig) }
+            catch { throw LearnedDiskDetectorError.runtime(step: "MLModel.load(contentsOf:) — CPU only, for the Neural Engine check", underlying: error) }
+            let cpu = LearnedDiskDetector(assetURL: assetURL, sha: sha, model: cpuModel, batch: detector.batch,
+                                          computeUnits: .cpuOnly, compiledURL: compiled)
+            let probe = (0..<(detector.batch * 3 * inputSize * inputSize)).map { Float16(abs(sin(Double($0) * 0.0137))) }
+            let ran = try await detector.heatmaps(inputs: probe), onCPU = try await cpu.heatmaps(inputs: probe)
+            guard zip(ran, onCPU).contains(where: { $0.bitPattern != $1.bitPattern }) else {
+                throw LearnedDiskDetectorError.neuralEngineDidNotRun(batch: detector.batch)
+            }
         }
-        return LearnedDiskDetector(assetURL: assetURL, sha: sha, model: model, batch: batch, batchMax: batchMax)
+        return detector
     }
 
     /// `export.py`'s `sha256_tree`: every file under the asset, sorted by relative path,
@@ -582,6 +613,7 @@ package enum LearnedDiskDetectorError: Error, CustomStringConvertible, Localized
     case assetMissing(URL)
     case unexpectedSignature([String], [String])
     case noOutput(String)
+    case neuralEngineDidNotRun(batch: Int)
     case runtime(step: String, underlying: Error)
     package var description: String {
         switch self {
@@ -591,6 +623,8 @@ package enum LearnedDiskDetectorError: Error, CustomStringConvertible, Localized
         case .assetMissing(let u): return "learned detector: no asset at \(u.path)"
         case .unexpectedSignature(let i, let o): return "learned detector: unexpected signature inputs \(i) outputs \(o)"
         case .noOutput(let n): return "learned detector: no output '\(n)'"
+        case .neuralEngineDidNotRun(let batch):
+            return "learned detector: the Neural Engine did not run this model (batch \(batch)); the CPU would give other candidates, so it is not used"
         }
     }
     /// What the app shows: `localizedDescription` of a plain Swift error is the

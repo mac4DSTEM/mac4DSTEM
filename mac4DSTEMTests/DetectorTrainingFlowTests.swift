@@ -217,6 +217,7 @@ final class DetectorTrainingFlowTests: XCTestCase {
     /// makes it active; without the store it is refused, naming the hash and saying it is not on this Mac.
     @MainActor
     func testAReplayFindsAStoredModelByItsHash() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
         let bundled = try TrainingTestSupport.bundledPackage
         let dir = try TrainingTestSupport.tempDirectory(self)
         var weights = try DetectorWeights.load(fromPackage: bundled)

@@ -288,3 +288,28 @@ once *Offer learned detector* is on in Settings). What is missing is training it
 ### Ticked 2026-09-30 evening (new Mac)
 - [x] **New Mac bring-up** (2026-09-30, `9026863`, `62c8eda`, closeout): baseline unit 1302 / 1 / 4, scientific 51 harnesses
   exit 0, package-test exit 0; the M5 training crash fixed; limits re-measured (`archive/v4/newmac-gateD-2026-09-30/`).
+
+### Ticked 2026-09-30 night (residency), and the sequence ADR 049 replaced
+- [x] **Residency returns, measured (2026-09-30):** measured, knee not clean, `.automatic` stays dropped (ADR 013 stands).
+  Resident is 20–70 × faster on repeated passes, slower on a single one; record `archive/v4/residency-characterisation-2026-09-30/`.
+
+Verbatim from `ROADMAP.md` until 2026-09-30 night:
+
+### Next planned sequence — clear the board, then consolidate and polish (2026-09-30)
+
+The owner, 2026-09-30: "clear the board and then start to consolidate and polish for some sessions." The overnight
+session of 2026-09-29 cleared its own list, not the board: most lanes are features or decisions only the owner can take.
+Clearing is three moves, in this order.
+
+1. **Closed 2026-09-30 (S1):** board 18 → 7 lanes (done and parked lanes in its ledger), `open-items.md` 46 → 22
+   entries grouped by polish room; the standing process notes are one line each in `docs/architecture.md`.
+2. **Decided 2026-09-30 (ADR 046):** training and the lineage graph (a real graph with rewind) kept; volumetric
+   density and β″ orientation maps parked; A3 retired. Originally: **keep, defer or retire** each feature lane — disks claimed per phase, β″
+   orientation maps, the lineage graph, volumetric density, on-device training, the full Thronsen reproduction (A3).
+   Deferred lanes move to "Later" below and off the board; retired ones are deleted from code in the same session
+   (lean-app directive), e.g. the unwired image `segment` path. Hardware-gated work (parallax/ptychography drive, the
+   28 GB `--parity` run) waits for the stronger Mac and leaves the board as one "waits on hardware" row.
+3. **Polish (GREEN, one room per session, each drive-verified).** First the workspaces, ADR 046's accepted picture:
+   Prepare · Imaging (+ diffraction groups) · Bragg Disks (detect, labels, training) · Crystal Maps (strain,
+   orientation, phases and precipitates) · Reconstruction (DPC, parallax, ptychography) · Results. Then one room per
+   session (S3–S6 below; their items are `docs/open-items.md` § Polish). 4. **Science, one Gate D per session** (S7–S11).

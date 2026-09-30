@@ -92,6 +92,26 @@ final class LearnedDetectionSessionTests: XCTestCase {
         XCTAssertEqual(probe.pixels.filter { $0 == 1 }.count, expectedOnes)
     }
 
+    // MARK: prepare — the app's way to a detector
+
+    /// The detector the app runs is the one `prepare` hands back, so the unit is asserted here, on it (Gate B,
+    /// 2026-09-30: with the assertion only on the test's own load, a session that loaded on another unit kept
+    /// every test and the inventory grep green). Zero values may differ from a direct Neural Engine run.
+    func testPrepareHandsBackADetectorOnTheNeuralEngine() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
+        guard FileManager.default.fileExists(atPath: LearnedSwiftFixture.assetURL.path) else {
+            throw XCTSkip("no committed asset at \(LearnedSwiftFixture.assetURL.path)")
+        }
+        let session = LearnedDetectionSession()
+        let detector = try await session.prepare(assetURL: LearnedSwiftFixture.assetURL)
+        let fixture = try LearnedSwiftFixture.load()
+        let (inputs, _) = fixture.batchInputs(try fixture.fittedDetector(), batch: detector.batch)
+        let ran = try await LearnedSwiftFixture.neuralEngineEvidence(detector, inputs: inputs, heat: try await detector.heatmaps(inputs: inputs))
+        XCTAssertGreaterThan(ran.differingFromCPU, 0, "prepare() handed back a detector whose heatmaps equal the CPU's bit for bit")
+        XCTAssertEqual(ran.differingFromNeuralEngine, 0,
+                       "\(ran.differingFromNeuralEngine) values differ: prepare() handed back a detector off the Neural Engine")
+    }
+
     // MARK: replayRefusal
 
     func testReplayRefusalForAClassicalRecordSetsClassAndReturnsNil() async {
@@ -103,6 +123,7 @@ final class LearnedDetectionSessionTests: XCTestCase {
     }
 
     func testReplayRefusalForALearnedRecordWithTheShippedHashSucceeds() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
         let f = try LearnedSwiftFixture.load()
         guard FileManager.default.fileExists(atPath: LearnedSwiftFixture.assetURL.path) else {
             throw XCTSkip("no committed asset at \(LearnedSwiftFixture.assetURL.path)")
@@ -118,6 +139,7 @@ final class LearnedDetectionSessionTests: XCTestCase {
     }
 
     func testReplayRefusalForALearnedRecordWithAWrongHashNamesBothPrefixes() async throws {
+        try XCTSkipUnless(LearnedSwiftFixture.hasNeuralEngine, "no Neural Engine on this machine: the learned detector is not loaded off it")
         guard FileManager.default.fileExists(atPath: LearnedSwiftFixture.assetURL.path) else {
             throw XCTSkip("no committed asset at \(LearnedSwiftFixture.assetURL.path)")
         }

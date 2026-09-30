@@ -101,38 +101,37 @@ part of the product story: the load-specification and promote workflow,
 provenance that survives export and reopen, refusals that name what failed,
 the session sidecar as a sharing unit.
 
-## Next planned sequence — clear the board, then consolidate and polish (2026-09-30)
+## v4.1 — the plateau (ADR 049, owner 2026-09-30)
 
-The owner, 2026-09-30: "clear the board and then start to consolidate and polish for some sessions." The overnight
-session of 2026-09-29 cleared its own list, not the board: most lanes are features or decisions only the owner can take.
-Clearing is three moves, in this order.
-
-1. **Closed 2026-09-30 (S1):** board 18 → 7 lanes (done and parked lanes in its ledger), `open-items.md` 46 → 22
-   entries grouped by polish room; the standing process notes are one line each in `docs/architecture.md`.
-2. **Decided 2026-09-30 (ADR 046):** training and the lineage graph (a real graph with rewind) kept; volumetric
-   density and β″ orientation maps parked; A3 retired. Originally: **keep, defer or retire** each feature lane — disks claimed per phase, β″
-   orientation maps, the lineage graph, volumetric density, on-device training, the full Thronsen reproduction (A3).
-   Deferred lanes move to "Later" below and off the board; retired ones are deleted from code in the same session
-   (lean-app directive), e.g. the unwired image `segment` path. Hardware-gated work (parallax/ptychography drive, the
-   28 GB `--parity` run) waits for the stronger Mac and leaves the board as one "waits on hardware" row.
-3. **Polish (GREEN, one room per session, each drive-verified).** First the workspaces, ADR 046's accepted picture:
-   Prepare · Imaging (+ diffraction groups) · Bragg Disks (detect, labels, training) · Crystal Maps (strain,
-   orientation, phases and precipitates) · Reconstruction (DPC, parallax, ptychography) · Results. Then one room per
-   session (S3–S6 below; their items are `docs/open-items.md` § Polish). 4. **Science, one Gate D per session** (S7–S11).
+The feature list is frozen at what v4.0.0 ships. v4.1.0 is that app, finished; nothing under "After v4.1" is started
+before it is released. Exit (all five): `run-tests.sh all` green on the release commit · the "Unverified on screen" row
+empty · no defect in a shipped feature left in `open-items.md` · every half-built lane finished or removed and the
+owner's cards decided · the owner has run one real analysis of his own in the release build.
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30, S1–S23, A, B, D, S14-D, polish, new-Mac bring-up).
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30, S1–S23, A, B, D, S14-D, polish,
+new-Mac bring-up, residency). The 2026-09-30 "clear the board" sequence it replaces is archived there too.
 
-**Next, in order (owner, 2026-09-30: the new Mac is here):**
-- [x] **Residency returns, measured (2026-09-30):** measured, knee not clean, `.automatic` stays dropped (ADR 013 stands).
-  Resident is 20–70 × faster on repeated passes, slower on a single one; record `archive/v4/residency-characterisation-2026-09-30/`.
-- [ ] **Learned detector back on the ANE (owner, 2026-09-30):** batch-32 guard, test asserts the ANE ran, scan-level checks (`open-items.md`).
-- [ ] **C5 and the hardware lanes (ADR 043/048):** training no longer crashes on the M5 (`9026863`). the 500-step training run on ≥ 12 held-out labelled positions and Train
-  Model… driven (the 8 GB Mac's admission refused it, 2.10–2.13 of 2.16 GB); parallax/ptychography on real data (cost Gate
-  D, then keep or remove); the 28 GB parity run.
-- [ ] **Full polish and code review by an external agent:** brief and kickoff prompt `archive/v4/polish-and-review-session-plan.md`.
-- [ ] **E. The remaining lanes:** the Al Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048).
-- The owner's picks from the Board's "Your decisions" (18 cards) are queued here as they come.
+- [x] **Learned detector back on the ANE (2026-09-30 night):** the load refuses a model the Neural Engine did not run, the test
+  asserts the unit three ways, scan-level peaks and throughput measured (`archive/v4/ane-return-2026-09-30/`).
+- [ ] **The last intake — external review, part A:** read-only, may run in the cloud on the pushed repo (brief:
+  `archive/v4/polish-and-review-session-plan.md`). Then one owner sitting: each finding and each of the Board's 18 cards
+  fixed, declined or moved to "After v4.1". After it `open-items.md` only shrinks.
+- [ ] **In-app training (C5), finished or hidden:** the 500-step run on ≥ 12 held-out labelled positions and Train Model… driven.
+- [x] **Parallax and ptychography, the cost measured (2026-09-30 night):** estimators honest, the 051 cube is not an acquisition
+  for them (`archive/v4/parallax-ptycho-cost-2026-09-30.md`); kept or removed is the owner's word (recommendation: keep).
+- [x] **The 28 GB parity run (2026-09-30 night):** the app's raw read is right; the file is hot-pixel filtered
+  (`archive/v4/parity-28gb-2026-09-30.md`).
+- [ ] **Fix the picked findings**, one room or module per session, each driven where it draws; then the parked refactors the owner keeps.
+- [ ] **Empty "Unverified on screen"**, the owner's own analysis in a release-candidate build, then **release v4.1.0**
+  (`docs/releasing.md`; the new Mac needs a fresh notary password).
+
+## After v4.1 — frozen until the owner reopens one
+
+Not debts, and no session picks them up: parity themes 2–7 above and point-group coverage beyond cubic and hexagonal;
+the differentiators not yet built (EDX correlation, live acquisition, the lineage graph with rewind — ADR 047's record v2
+stays as it is); volumetric density and β″ orientation maps (ADR 046); the Al Materials Project comparison (ADR 048);
+phase mapping's validation (it ships badged unvalidated until a dataset with truth passes).
 
 ## How a v3 feature is done
 

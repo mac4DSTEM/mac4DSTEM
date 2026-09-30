@@ -7,7 +7,7 @@
 //  as fp16 at the blob offset the shipped file records (`DetectorWeights.load` reads the same offsets), in
 //  the same OIHW layout, so the model spec, the manifest, the input/output signature and the flexible batch
 //  are the bundled model's own. The head bias is an inline immediate in the spec and stays as shipped.
-//  `LearnedDiskDetector.load(assetURL:)` then compiles and loads the copy on `.all` exactly as it does the
+//  `LearnedDiskDetector.load(assetURL:)` then compiles and loads the copy exactly as it does the
 //  bundled one — the Neural Engine runs it at the shipped speed (C2: 1.00x).
 //
 
