@@ -161,6 +161,12 @@ owner is asked only for decisions, batched into ONE sitting (phase B). Each line
 - [x] **S15 R–Q sign residuals** (`19f5b07`, label-only): pre-2026-09-28 exports refused or labelled, never silently flipped.
 - [x] **S23 Origin validity overlay** (`08f457a`, driven): excluded positions greyed (new surface, driven).
 - [x] **S14 · S20 · S21 (YELLOW)** (`1c3da28`, `a29359b`, `7d5f0a8`): measured; only S21 proposes a patch (owner).
+- **Next (owner, 2026-09-30 morning), in order:**
+- [ ] **S14-D Gate D on the origin refine step** with ringed probes (`archive/v4/s14d-*`): diagnose, measure, propose — a fix
+  moves shipped origin numbers, so it lands only on the owner's word.
+- [ ] **Polish from the drives** — the non-Frozen-Shell proposals in open-items S4 "Drive 2026-09-30 night" and the drive-2
+  findings, each driven; Frozen Shell ones as mocks for the owner.
+- [ ] **Full polish and code review by an external agent** — brief and kickoff prompt: `archive/v4/polish-and-review-session-plan.md`.
 
 ## How a v3 feature is done
 
