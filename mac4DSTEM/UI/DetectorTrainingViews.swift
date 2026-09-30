@@ -65,8 +65,9 @@ struct DetectorTrainingReviewSheet: View {
         }
         .padding(20)
         // A fixed width, not `.fixedSize()`: that took the sentence below at its one-line ideal width and the
-        // sheet ran past both window edges (owner's drive, 2026-09-30). 480 pt wraps it in four lines.
-        .frame(width: 480)
+        // sheet ran past both window edges (owner's drive, 2026-09-30). The inspector's widest width is the
+        // one number the shell already owns for a column of rows like these.
+        .frame(width: LayoutPolicy.inspectorWidth.max)
         .interactiveDismissDisabled(saving)
     }
 
