@@ -137,7 +137,8 @@ Every memory and disk limit in these docs (admission bars, the 1.5 GB disk floor
 unproven path") was measured on the 8 GB Mac; none transfers until re-measured on the new one. **Bring-up:** clone, `git config
 core.hooksPath tools/hooks`, `tools/lib/fetch-py4dstem.sh`, the six gating cubes into `References/training_dataset/`, Screen
 Recording + Accessibility for the session, then `tools/run-tests.sh all` as the new machine's baseline (last on the old: unit
-1305 / 0 / 2 = 1307, `unit-polish2.log`). **Then:** (1) C5, the 500-step training run on ≥ 12 held-out labelled positions and
+1305 / 0 / 2 = 1307, `unit-polish2.log`). Training's bf16 max-pool gradient segfaulted MPSGraph on the M5 — fixed 2026-09-30
+(index-returning pool, byte-identical in f32; old-Mac chip-vs-OS check owed, `archive/v4/newmac-gateD-2026-09-30/`). **Then:** (1) C5, the 500-step training run on ≥ 12 held-out labelled positions and
 Train Model… driven (the step-loop leak is fixed, 10.9 → 0.04 MB/step; the labelled sidecar sits beside the bullseye cube);
 (2) parallax and single-slice ptychography driven on real data — they asked 8–11 GB for a 268 MB cube (30–40×): measure whether
 that is the true cost (a Gate D, not a knob), then the owner keeps or removes them; (3) the 28 GB `--parity` run of the raw
@@ -170,6 +171,11 @@ both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need
   at the first red harness.
 - **Learned-detector parity is a same-runtime claim**: skips where no Neural Engine is listed (bars not loosened); a
   CPU-written second fixture would make it a check. With CI's unit job paused (ADR 040) every green gate is local.
+  **M5 Pro / macOS 27.0.1 (2026-09-30, Gate D, refuter HOLDS):** Core ML's `.all` runs the model 39/39 ops on the GPU, never
+  the ANE (aned log), so the test fails (347/354, 8 extra); forced `.cpuAndNeuralEngine` passes (354/354, 1 extra) — the ANE
+  serves batch 32 only, other batches fall silently to CPU. Accepted peaks identical in every mode on the fixture's 16
+  patterns only. Mechanism unknown. Owner: (a) the test loads the ANE and asserts it ran, or (b) the app too, after scan-level
+  checks (`archive/v4/newmac-gateD-2026-09-30/record.md`).
 
 ### Accessibility (does NOT block a release — owner decision, 2026-09-11)
 The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` did not recur: a full AX probe of every room

@@ -42,10 +42,15 @@ package nonisolated struct DetectorGraph {
     }
     private func silu(_ x: MPSGraphTensor) -> MPSGraphTensor { g.multiplication(x, g.sigmoid(with: x, name: nil), name: nil) }
     private func block(_ x: MPSGraphTensor, _ i: Int) -> MPSGraphTensor { silu(conv(silu(conv(x, i)), i + 1)) }
+    /// The index-returning pool, output 0 only. Plain `maxPooling2D` segfaults MPSGraph on the M5 Pro / macOS 27.0.1 (26A434) when a
+    /// bf16 or f16 pool feeds a convolution and its gradient is taken (null operand encoding PoolMaxGradientOp; Gate D 2026-09-30,
+    /// refuter HOLDS). The mode matters: `.globalFlatten2D` still crashes; `.globalFlatten4D` / int32 does not. Same numbers: loss and
+    /// all 29 gradients byte-identical to the plain pool in f32, and bf16 ties route to the same (first, raster-order) element.
     private func pool(_ x: MPSGraphTensor) -> MPSGraphTensor {
         let d = MPSGraphPooling2DOpDescriptor(kernelWidth: 2, kernelHeight: 2, strideInX: 2, strideInY: 2,
                                               paddingStyle: .TF_VALID, dataLayout: .NCHW)!
-        return g.maxPooling2D(withSourceTensor: x, descriptor: d, name: nil)
+        d.returnIndicesMode = .globalFlatten4D; d.returnIndicesDataType = .int32
+        return g.maxPooling2DReturnIndices(x, descriptor: d, name: nil)[0]
     }
     /// Nearest x2 (`Upsample(scaleFactor: 2, mode: .nearest)`): half-pixel centres, so output 2k and 2k+1 both read input k.
     private func up(_ x: MPSGraphTensor, _ side: Int) -> MPSGraphTensor {

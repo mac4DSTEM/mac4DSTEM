@@ -76,7 +76,9 @@ struct Net {
     private func pool(_ x: MPSGraphTensor) -> MPSGraphTensor {
         let d = MPSGraphPooling2DOpDescriptor(kernelWidth: 2, kernelHeight: 2, strideInX: 2, strideInY: 2,
                                               paddingStyle: .TF_VALID, dataLayout: .NCHW)!
-        return g.maxPooling2D(withSourceTensor: x, descriptor: d, name: nil)
+        // index-returning pool: plain maxPooling2D segfaults bf16/f16 training on the M5 Pro (DetectorGraph.pool has the record)
+        d.returnIndicesMode = .globalFlatten4D; d.returnIndicesDataType = .int32
+        return g.maxPooling2DReturnIndices(x, descriptor: d, name: nil)[0]
     }
     /// Nearest x2 (`Upsample(scaleFactor: 2, mode: .nearest)`): half-pixel centres, so output 2k and 2k+1 both read input k.
     private func up(_ x: MPSGraphTensor, _ side: Int) -> MPSGraphTensor {
