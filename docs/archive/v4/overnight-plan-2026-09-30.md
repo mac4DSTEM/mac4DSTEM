@@ -209,3 +209,5 @@ Their drive 2A/2B and the block-3 supervisor were running at the cut — read `$
   captured at the set-aside (supervisor 3 FIX-FIRST: with nothing computed between, the fit's node lost its parameters — test
   red first, mutation red); "Fit anyway" restored on reopen from the sidecar's own lineage node. Drive 2A saw decision 1 on a
   from-file and a measured origin (orange row, Restore, strain stale, radius-only drag stays green). Decision 2 NOT driven.
+- S22 Accessibility: the AX probe of every room ran without a crash; the controls open-items named already had labels; 8 bare
+  controls labelled (labels only); drive 2A re-probed: every stepper and the Fit overlay checkbox carry a label. Supervisor COMMIT.

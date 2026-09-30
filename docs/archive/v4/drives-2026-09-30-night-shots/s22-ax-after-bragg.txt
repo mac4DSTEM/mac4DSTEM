@@ -1,0 +1,411 @@
+[] AXApplication t=mac4DSTEM @0,0 0x0
+  [0] AXHelpTag @952,78 262x34
+  [1] AXWindow t=mac4DSTEM Demo.h5 id=dataset-AppWindow-1 @0,33 1470x923
+    [1.0] AXGroup @0,33 1470x923
+      [1.0.0] AXSplitGroup @0,33 1470x923
+        [1.0.0.0] AXGroup @0,33 1470x923
+          [1.0.0.0.0] AXSplitGroup id=dataset-AppWindow-1, SidebarNavigationSplitView @0,33 1470x923
+            [1.0.0.0.0.0] AXGroup @0,33 270x923
+              [1.0.0.0.0.0.0] AXScrollArea @0,85 270x871
+                [1.0.0.0.0.0.0.0] AXOutline d=Sidebar @0,85 270x871
+                  [1.0.0.0.0.0.0.0.0] AXRow @0,85 270x19
+                    [1.0.0.0.0.0.0.0.0.0] AXCell @10,85 250x19
+                      [1.0.0.0.0.0.0.0.0.0.0] AXGroup @14,85 254x19
+                        [1.0.0.0.0.0.0.0.0.0.0.0] AXHeading d=Workspace @14,87 61x14
+                  [1.0.0.0.0.0.0.0.1] AXRow @0,104 270x32
+                    [1.0.0.0.0.0.0.0.1.0] AXCell @10,104 250x32
+                      [1.0.0.0.0.0.0.0.1.0.0] AXStaticText v=Prepare h=Inspect and calibrate the dataset id=workspace.prepare @19,110 74x20
+                  [1.0.0.0.0.0.0.0.2] AXRow @0,136 270x32
+                    [1.0.0.0.0.0.0.0.2.0] AXCell @10,136 250x32
+                      [1.0.0.0.0.0.0.0.2.0.0] AXStaticText v=Imaging h=Virtual images and diffraction groups id=workspace.image @20,143 74x17
+                  [1.0.0.0.0.0.0.0.3] AXRow @0,168 270x32
+                    [1.0.0.0.0.0.0.0.3.0] AXCell @10,168 250x32
+                      [1.0.0.0.0.0.0.0.3.0.0] AXStaticText v=Bragg Disks h=Detect Bragg disks and label them id=workspace.braggDisks @20,175 98x17
+                  [1.0.0.0.0.0.0.0.4] AXRow @0,200 270x32
+                    [1.0.0.0.0.0.0.0.4.0] AXCell @10,200 250x32
+                      [1.0.0.0.0.0.0.0.4.0.0] AXStaticText v=Crystal Maps h=Strain, orientation, and phases from Bragg disks id=workspace.map @20,207 105x16
+                  [1.0.0.0.0.0.0.0.5] AXRow @0,232 270x32
+                    [1.0.0.0.0.0.0.0.5.0] AXCell @10,232 250x32
+                      [1.0.0.0.0.0.0.0.5.0.0] AXStaticText v=Reconstruction h=DPC, parallax, and ptychography id=workspace.reconstruct @19,239 118x16
+                  [1.0.0.0.0.0.0.0.6] AXRow @0,264 270x32
+                    [1.0.0.0.0.0.0.0.6.0] AXCell @10,264 250x32
+                      [1.0.0.0.0.0.0.0.6.0.0] AXStaticText v=Results h=Review, save, and export products id=workspace.results @21,271 69x16
+                  [1.0.0.0.0.0.0.0.7] AXRow @0,296 270x32
+                    [1.0.0.0.0.0.0.0.7.0] AXCell @10,296 250x32
+                      [1.0.0.0.0.0.0.0.7.0.0] AXStaticText v=Next: map strain, orientation, or phases in Crystal Maps. h=Next: map strain, orientation, or phases in Crystal Maps. id=workspace.nextStepHint @16,305 235x13
+                  [1.0.0.0.0.0.0.0.8] AXRow @0,341 270x19
+                    [1.0.0.0.0.0.0.0.8.0] AXCell @10,341 250x19
+                      [1.0.0.0.0.0.0.0.8.0.0] AXGroup @14,341 254x19
+                        [1.0.0.0.0.0.0.0.8.0.0.0] AXHeading d=Bragg Disks @14,343 65x14
+                  [1.0.0.0.0.0.0.0.9] AXRow @0,360 270x32
+                    [1.0.0.0.0.0.0.0.9.0] AXCell @10,360 250x32
+                      [1.0.0.0.0.0.0.0.9.0.0] AXStaticText v=Disk detection, computed h=Detect reciprocal-lattice peaks across the scan id=task.Disks @19,366 118x19
+                      [1.0.0.0.0.0.0.0.9.0.1] AXImage d=Disk detection, computed h=Detect reciprocal-lattice peaks across the scan id=task.Disks @240,369 13x13
+                  [1.0.0.0.0.0.0.0.10] AXRow @0,405 270x19
+                    [1.0.0.0.0.0.0.0.10.0] AXCell @10,405 250x19
+                      [1.0.0.0.0.0.0.0.10.0.0] AXGroup @14,405 254x19
+                        [1.0.0.0.0.0.0.0.10.0.0.0] AXHeading d=Dataset @14,407 42x14
+                  [1.0.0.0.0.0.0.0.11] AXRow @0,424 270x60
+                    [1.0.0.0.0.0.0.0.11.0] AXCell @10,424 250x60
+                      [1.0.0.0.0.0.0.0.11.0.0] AXStaticText v=mac4DSTEM Demo.h5, 12 × 12 scan · 64 × 64 detector, Streaming h=mac4DSTEM Demo.h5, mac4DSTEM Demo.h5, mac4DSTEM Demo.h5 id=sidebar.dataset @16,429 167x50
+                  [1.0.0.0.0.0.0.0.12] AXRow @0,497 270x19
+                    [1.0.0.0.0.0.0.0.12.0] AXCell @10,497 250x19
+                      [1.0.0.0.0.0.0.0.12.0.0] AXGroup @14,497 254x19
+                        [1.0.0.0.0.0.0.0.12.0.0.0] AXHeading d=Session id=sidebar.session @14,499 43x14
+                  [1.0.0.0.0.0.0.0.13] AXRow @0,516 270x32
+                    [1.0.0.0.0.0.0.0.13.0] AXCell @10,516 250x32
+                      [1.0.0.0.0.0.0.0.13.0.0] AXStaticText v=Nothing saved with this dataset yet. id=sidebar.session @16,525 173x13
+                  [1.0.0.0.0.0.0.0.14] AXColumn id=ListColumn @10,85 250x871
+            [1.0.0.0.0.1] AXSplitter v=270 @270,85 0x871
+            [1.0.0.0.0.2] AXGroup @0,33 1470x923
+              [1.0.0.0.0.2.0] AXStaticText v=Diffraction (CBED) @278,98 120x16
+              [1.0.0.0.0.2.1] AXStaticText v=64 × 64 h=Detector Qx × Qy — columns × rows. @658,99 43x13
+              [1.0.0.0.0.2.2] AXGroup d=Diffraction pattern @278,307 424x424
+                [1.0.0.0.0.2.2.0] AXUnknown d=9 detected disks at the probe radius @300,330 384x384
+                [1.0.0.0.0.2.2.1] AXStaticText v=0.2 Å⁻¹ @294,700 43x13
+                [1.0.0.0.0.2.2.2] AXButton d=Diffraction colormap and display options h=Colormap and display options for the diffraction pattern id=pane.colormap.diffraction @548,672 146x51
+              [1.0.0.0.0.2.3] AXUnknown d=Resize the diffraction and real-space panes @705,80 10x846
+              [1.0.0.0.0.2.4] AXStaticText v=Bragg vector map h=Bragg vector map id=result.title @719,98 114x16
+              [1.0.0.0.0.2.5] AXStaticText v=Interpretation status: Relative h=Interpretation status of the displayed result id=result.statusBadge @841,99 40x13
+              [1.0.0.0.0.2.6] AXStaticText v=64 × 64 @954,99 43x13
+              [1.0.0.0.0.2.7] AXStaticText v=Detector axes: q y increases right, q x increases down h=py4DSTEM's detector axes: its qy runs along the app's detector columns, its qx down the ro @1006,99 136x13
+              [1.0.0.0.0.2.8] AXGroup d=Bragg vector map id=result.viewer @719,308 423x423
+                [1.0.0.0.0.2.8.0] AXUnknown d=Scan navigator h=Click or drag to update the diffraction pattern id=result.scanNavigator @727,316 118x118
+                [1.0.0.0.0.2.8.1] AXStaticText v=0.2 Å⁻¹ @735,700 43x13
+                [1.0.0.0.0.2.8.2] AXButton d=Result colormap h=Colormap for the result image id=pane.colormap.result @988,672 146x51
+              [1.0.0.0.0.2.9] AXStaticText v=Disks ✓  1,296 peaks (Parabolic subpixel) h=Disks ✓  1,296 peaks (Parabolic subpixel) id=status.bar @280,931 234x15
+              [1.0.0.0.0.2.10] AXStaticText v=Last run · Disk detection — 0 s id=status.footer.lastRun @561,931 172x15
+              [1.0.0.0.0.2.11] AXStaticText v=Apple M3 · 26 MB · streaming id=status.footer.memoryGlance @805,931 190x15
+              [1.0.0.0.0.2.12] AXCheckBox d=Toggle the Output pane v=0 h=Output pane id=status.footer.toggleOutput @1008,930 36x18
+              [1.0.0.0.0.2.13] AXCheckBox d=Toggle the Lineage pane v=0 h=Lineage pane id=status.footer.toggleLineage @1056,930 36x18
+              [1.0.0.0.0.2.14] AXCheckBox d=Toggle bottom pane v=0 h=Show the bottom pane id=status.footer.toggleLog @1104,930 36x18
+        [1.0.0.1] AXSplitter v=1149.5 @1149,85 0x871
+        [1.0.0.2] AXGroup @1150,33 320x923
+          [1.0.0.2.0] AXGroup d=Inspector tab id=inspector.tabPicker @1160,93 300x30
+            [1.0.0.2.0.0] AXButton d=Settings h=Settings — the room's controls @1163,96 147x24
+            [1.0.0.2.0.1] AXButton d=Info h=Info — what the dataset and the product are @1310,96 147x24
+          [1.0.0.2.1] AXScrollArea @1150,131 320x825
+            [1.0.0.2.1.0] AXButton d=Probe kernel v=Expanded @1166,155 288x16
+            [1.0.0.2.1.1] AXStaticText v=Source @1166,182 43x16
+            [1.0.0.2.1.2] AXPopUpButton d=Source v=Synthetic id=disk.kernelSource @1289,179 165x24
+            [1.0.0.2.1.3] AXButton d=Build Kernel h=Build a synthetic bullseye/trench kernel from the detector geometry — no measured probe ne id=disk.generateSyntheticKernel @1166,209 288x24
+            [1.0.0.2.1.4] AXStaticText v=Kernel @1166,239 38x16
+            [1.0.0.2.1.5] AXStaticText v=Synthetic · sigmoid trench · 4.5 px @1246,239 207x16
+              [1.0.0.2.1.5.0] AXStaticText v=Synthetic · sigmoid trench · 4.5 px @1246,239 207x16
+            [1.0.0.2.1.6] AXButton d=Disk detection v=Expanded @1166,283 288x16
+            [1.0.0.2.1.7] AXStaticText v=Detector @1166,310 53x16
+            [1.0.0.2.1.8] AXPopUpButton d=Detector v=Classical h=The neural net proposes candidate positions on the whole pattern; the classical refinement id=disk.detectorClass @1343,307 110x24
+            [1.0.0.2.1.9] AXStaticText v=Current CBED id=disk.currentPeakCount @1166,337 84x16
+            [1.0.0.2.1.10] AXStaticText v=9 peaks id=disk.currentPeakCount @1406,337 47x16
+              [1.0.0.2.1.10.0] AXStaticText v=9 peaks @1406,337 47x16
+            [1.0.0.2.1.11] AXStaticText v=Acceptance funnel h=Edge-qualified local maxima before filters, followed by the final accepted peak count. @1166,359 113x16
+            [1.0.0.2.1.12] AXStaticText v=9 candidates → 9 accepted h=Edge-qualified local maxima before filters, followed by the final accepted peak count. @1288,377 165x16
+              [1.0.0.2.1.12.0] AXStaticText v=9 candidates → 9 accepted @1288,377 165x16
+            [1.0.0.2.1.13] AXStaticText v=absolute 9 · relative 9 · spacing 9 @1166,399 161x13
+            [1.0.0.2.1.14] AXStaticText v=Use the toolbar action to run full-scan detection. @1166,418 236x13
+            [1.0.0.2.1.15] AXStaticText v=Peaks found @1166,437 74x16
+            [1.0.0.2.1.16] AXStaticText v=1,296 @1417,437 36x16
+              [1.0.0.2.1.16.0] AXStaticText v=1,296 @1417,437 36x16
+            [1.0.0.2.1.17] AXStaticText v=Per pattern @1166,459 68x16
+            [1.0.0.2.1.18] AXStaticText v=median 9.0 · range 9–9 @1313,459 141x16
+              [1.0.0.2.1.18.0] AXStaticText v=median 9.0 · range 9–9 @1313,459 141x16
+            [1.0.0.2.1.19] AXButton d=Advanced detection v=Expanded id=disk.advancedDisclosure @1166,503 288x16
+            [1.0.0.2.1.20] AXSlider d=Correlation power v=1 h=Hybrid-correlation exponent: 1 is cross-correlation, 0 is phase-correlation, and intermedi id=disk.advancedDisclosure @1166,555 288x16
+            [1.0.0.2.1.21] AXStaticText v=Subpixel localization id=disk.advancedDisclosure @1166,580 124x16
+            [1.0.0.2.1.22] AXPopUpButton d=Subpixel localization v=Parabolic h=Pixel is fastest; Parabolic is the interactive default; Fourier multicorr uses matrix-DFT  id=disk.advancedDisclosure @1314,577 140x24
+            [1.0.0.2.1.23] AXStaticText v=Maximum peaks h=Maximum number of accepted correlation maxima returned for each diffraction pattern. id=disk.advancedDisclosure @1166,610 98x16
+            [1.0.0.2.1.24] AXStaticText v=70 @1410,611 15x16
+            [1.0.0.2.1.25] AXIncrementor d=Maximum peaks v=70 h=Maximum number of accepted correlation maxima returned for each diffraction pattern. id=disk.advancedDisclosure @1434,607 20x24
+              [1.0.0.2.1.25.0] AXButton @1434,607 20x12
+              [1.0.0.2.1.25.1] AXButton @1434,619 20x12
+            [1.0.0.2.1.26] AXSlider d=Pattern smoothing σ v=0 h=Gaussian σ in detector pixels applied to each diffraction pattern before correlation. Exce id=disk.advancedDisclosure @1166,665 288x16
+            [1.0.0.2.1.27] AXSlider d=Correlation smoothing σ v=2 h=Gaussian σ in detector pixels applied to the correlation map before maxima selection. Zero id=disk.advancedDisclosure @1166,715 288x16
+            [1.0.0.2.1.28] AXStaticText v=Minimum absolute h=Minimum correlation-peak intensity on the absolute correlation scale. Zero disables this d id=disk.advancedDisclosure @1166,741 111x16
+            [1.0.0.2.1.29] AXTextField d=Minimum absolute v=0 h=Minimum correlation-peak intensity on the absolute correlation scale. Zero disables this d id=disk.advancedDisclosure @1357,737 72x24
+            [1.0.0.2.1.30] AXStaticText v=Minimum absolute h=Minimum correlation-peak intensity on the absolute correlation scale. Zero disables this d id=disk.advancedDisclosure @1435,741 18x16
+            [1.0.0.2.1.31] AXStaticText v=Minimum relative h=Minimum peak intensity as a fraction of the selected ranked reference peak. Zero disables  id=disk.advancedDisclosure @1166,771 103x16
+            [1.0.0.2.1.32] AXTextField d=Minimum relative v=0,15 h=Minimum peak intensity as a fraction of the selected ranked reference peak. Zero disables  id=disk.advancedDisclosure @1364,767 72x24
+            [1.0.0.2.1.33] AXStaticText v=Minimum relative h=Minimum peak intensity as a fraction of the selected ranked reference peak. Zero disables  id=disk.advancedDisclosure @1442,771 12x16
+            [1.0.0.2.1.34] AXStaticText v=Reference peak h=Intensity rank used by the relative filter. The UI calls the brightest candidate #1; the p id=disk.advancedDisclosure @1166,800 94x16
+            [1.0.0.2.1.35] AXStaticText v=#1 @1411,801 14x16
+            [1.0.0.2.1.36] AXIncrementor d=Reference peak v=1 h=Intensity rank used by the relative filter. The UI calls the brightest candidate #1; the p id=disk.advancedDisclosure @1434,797 20x24
+              [1.0.0.2.1.36.0] AXButton @1434,797 20x12
+              [1.0.0.2.1.36.1] AXButton @1434,809 20x12
+            [1.0.0.2.1.37] AXStaticText v=Reference outside h=The relative filter's reference is the brightest candidate at least this many pixels from  id=disk.advancedDisclosure @1166,830 110x16
+            [1.0.0.2.1.38] AXStaticText v=0 px @1400,831 26x16
+            [1.0.0.2.1.39] AXIncrementor d=Reference outside v=0 h=The relative filter's reference is the brightest candidate at least this many pixels from  id=disk.advancedDisclosure @1434,827 20x24
+              [1.0.0.2.1.39.0] AXButton @1434,827 20x12
+              [1.0.0.2.1.39.1] AXButton @1434,839 20x12
+            [1.0.0.2.1.40] AXStaticText v=Minimum spacing h=Minimum center-to-center separation in detector pixels. When candidates are closer, the br id=disk.advancedDisclosure @1166,860 106x16
+            [1.0.0.2.1.41] AXStaticText v=5 px @1400,861 26x16
+            [1.0.0.2.1.42] AXIncrementor d=Minimum spacing v=5 h=Minimum center-to-center separation in detector pixels. When candidates are closer, the br id=disk.advancedDisclosure @1434,857 20x24
+              [1.0.0.2.1.42.0] AXButton @1434,857 20x12
+              [1.0.0.2.1.42.1] AXButton @1434,869 20x12
+            [1.0.0.2.1.43] AXStaticText v=Edge exclusion h=Reject maxima whose centers lie within this many detector pixels of an edge. At least one  id=disk.advancedDisclosure @1166,890 91x16
+            [1.0.0.2.1.44] AXStaticText v=2 px @1400,891 26x16
+            [1.0.0.2.1.45] AXIncrementor d=Edge exclusion v=2 h=Reject maxima whose centers lie within this many detector pixels of an edge. At least one  id=disk.advancedDisclosure @1434,887 20x24
+              [1.0.0.2.1.45.0] AXButton @1434,887 20x12
+              [1.0.0.2.1.45.1] AXButton @1434,899 20x12
+            [1.0.0.2.1.46] AXStaticText v=Changes update the rings on the current CBED. Run the toolbar's full-scan action to apply  id=disk.advancedDisclosure @1166,917 271x39
+            [1.0.0.2.1.47] AXButton d=Reset Recommended Settings h=Reset Recommended Settings id=disk.advancedDisclosure @1166,962 288x24
+            [1.0.0.2.1.48] AXButton d=Training labels v=Expanded @1166,1014 288x16
+            [1.0.0.2.1.49] AXStaticText v=Label centres on click @1166,1038 132x16
+            [1.0.0.2.1.50] AXCheckBox d=Label centres on click v=0 h=While on, click the diffraction pane to add a hand-clicked disk centre at the current scan id=disk.labels.toggle @1438,1038 16x16
+            [1.0.0.2.1.51] AXStaticText v=This position id=disk.labels.thisPosition @1166,1060 77x16
+            [1.0.0.2.1.52] AXStaticText v=0 centres id=disk.labels.thisPosition @1396,1060 57x16
+              [1.0.0.2.1.52.0] AXStaticText v=0 centres @1396,1060 57x16
+            [1.0.0.2.1.53] AXStaticText v=Labelled id=disk.labels.total @1166,1082 51x16
+            [1.0.0.2.1.54] AXStaticText v=0 positions · 0 centres id=disk.labels.total @1319,1082 135x16
+              [1.0.0.2.1.54.0] AXStaticText v=0 positions · 0 centres @1319,1082 135x16
+            [1.0.0.2.1.55] AXButton d=Clear This Position h=Remove every hand-clicked centre at the current scan position. id=disk.labels.clearPosition @1166,1104 288x24
+            [1.0.0.2.1.56] AXButton d=Save to Sidecar h=Labels ride with the session calibration save — this writes them to the sidecar beside the id=disk.labels.save @1166,1134 288x25
+            [1.0.0.2.1.57] AXButton d=Export Labels… h=Write the current labels to a standalone file under Documents/mac4DSTEM/disk-labels/, in t id=disk.labels.export @1166,1165 288x25
+            [1.0.0.2.1.58] AXStaticText v=Split h=Positions with at least one centre are split by a hash of the scan position (about 30 % he id=disk.labels.split @1166,1197 27x16
+            [1.0.0.2.1.59] AXStaticText v=Train 0 · Held out 0 h=Positions with at least one centre are split by a hash of the scan position (about 30 % he id=disk.labels.split @1338,1197 116x16
+              [1.0.0.2.1.59.0] AXStaticText v=Train 0 · Held out 0 @1338,1197 116x16
+            [1.0.0.2.1.60] AXButton d=Train Model… h=No positions are labelled yet: turn on Label centres on click and click the disk centres a id=disk.labels.train @1166,1219 288x24
+            [1.0.0.2.1.61] AXStaticText v=No positions are labelled yet: turn on Label centres on click and click the disk centres a @1166,1249 288x26
+            [1.0.0.2.1.62] AXScrollBar v=0 @1452,130 19x827
+              [1.0.0.2.1.62.0] AXValueIndicator v=0 @1461,134 6x578
+              [1.0.0.2.1.62.1] AXButton @1453,131 0x0
+              [1.0.0.2.1.62.2] AXButton @1453,131 0x0
+              [1.0.0.2.1.62.3] AXButton @1461,712 6x240
+              [1.0.0.2.1.62.4] AXButton @1461,134 6x0
+    [1.1] AXToolbar @0,33 1470x52
+      [1.1.0] AXButton d=Hide Sidebar h=Hide Sidebar @226,33 40x52
+      [1.1.1] AXGroup h=/Demo/mac4DSTEM Demo.h5 @556,33 308x52
+        [1.1.1.0] AXStaticText v=mac4DSTEM Demo.h5 · Disk detection · 144 positions h=/Demo/mac4DSTEM Demo.h5 id=toolbar.display.idle @571,52 283x14
+      [1.1.2] AXButton d=Detect All Disks h=Detects Bragg disks at every scan position with the current settings. id=workspace.primaryAction @893,33 114x52
+      [1.1.3] AXButton d=Save to Session h=Save to Session — keeps the displayed result with this dataset, in its session sidecar. It id=workspace.saveToResults @1007,33 41x52
+      [1.1.4] AXButton d=Reveal in Finder h=Reveal the dataset in Finder id=workspace.revealDataset @1048,33 44x52
+      [1.1.5] AXGroup h=Open a dataset, or act on the one that is open @1092,33 54x52
+        [1.1.5.0] AXMenuButton t=Dataset h=Open a dataset, or act on the one that is open id=toolbar.datasetMenu @1097,41 45x36
+      [1.1.6] AXButton d=Hide Inspector h=Hide the inspector id=toolbar.inspectorToggle @1154,33 44x52
+    [1.2] AXButton @18,51 16x16
+    [1.3] AXButton h=this button also has an action to zoom the window @64,51 16x16
+      [1.3.0] AXGroup @65,52 14x14
+        [1.3.0.0] AXGroup @65,52 14x14
+    [1.4] AXButton @41,51 16x16
+  [2] AXMenuBar @0,0 1470x33
+    [2.0] AXMenuBarItem t=Apple @10,0 34x33
+      [2.0.0] AXMenu @0,956 0x0
+        [2.0.0.0] AXMenuItem t=About This Mac id=_aboutThisMacRequested: @0,956 0x0
+        [2.0.0.1] AXMenuItem t=System Information id=_systemInformationRequested: @0,956 0x0
+        [2.0.0.2] AXMenuItem @0,956 0x0
+        [2.0.0.3] AXMenuItem t=System Settings… id=_systemSettingsRequested: @0,956 0x0
+        [2.0.0.4] AXMenuItem t=App Store…, 9 updates id=_appStoreRequested: @0,956 0x0
+        [2.0.0.5] AXMenuItem @0,956 0x0
+        [2.0.0.6] AXMenuItem t=Recent Items id=_recentsRequested: @0,956 0x0
+          [2.0.0.6.0] AXMenu @0,956 0x0
+            [2.0.0.6.0.0] AXMenuItem t=Applications @0,956 0x0
+            [2.0.0.6.0.1] AXMenuItem t=Calculator id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.2] AXMenuItem t=Show “Calculator” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.3] AXMenuItem t=mac4DSTEM id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.4] AXMenuItem t=Show “mac4DSTEM” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.5] AXMenuItem t=mac4DSTEM id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.6] AXMenuItem t=Show “mac4DSTEM” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.7] AXMenuItem t=mac4DSTEM id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.8] AXMenuItem t=Show “mac4DSTEM” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.9] AXMenuItem t=mac4DSTEM id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.10] AXMenuItem t=Show “mac4DSTEM” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.11] AXMenuItem t=mac4DSTEM id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.12] AXMenuItem t=Show “mac4DSTEM” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.13] AXMenuItem t=mac4DSTEM id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.14] AXMenuItem t=Show “mac4DSTEM” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.15] AXMenuItem t=Messages id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.16] AXMenuItem t=Show “Messages” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.17] AXMenuItem t=Safari id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.18] AXMenuItem t=Show “Safari” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.19] AXMenuItem t=System Settings id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.20] AXMenuItem t=Show “System Settings” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.21] AXMenuItem @0,956 0x0
+            [2.0.0.6.0.22] AXMenuItem t=Documents @0,956 0x0
+            [2.0.0.6.0.23] AXMenuItem t=042-thronsen-code-use-permission.md id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.24] AXMenuItem t=Show “042-thronsen-code-use-permission.md” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.25] AXMenuItem t=Abstract_MC25_PL_CO.docx id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.26] AXMenuItem t=Show “Abstract_MC25_PL_CO.docx” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.27] AXMenuItem t=Info.plist id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.28] AXMenuItem t=Show “Info.plist” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.29] AXMenuItem t=LightMAT2027_PL_LMN_4DSTEM.docx id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.30] AXMenuItem t=Show “LightMAT2027_PL_LMN_4DSTEM.docx” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.31] AXMenuItem t=LightMAT2027_PL_LMN_4DSTEM.pptx id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.32] AXMenuItem t=Show “LightMAT2027_PL_LMN_4DSTEM.pptx” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.33] AXMenuItem t=mac4DSTEM id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.34] AXMenuItem t=Show “mac4DSTEM” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.35] AXMenuItem t=mac4DSTEM.entitlements id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.36] AXMenuItem t=Show “mac4DSTEM.entitlements” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.37] AXMenuItem t=PL_LMN_Poster_Klausurtagung_20260928.pptx id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.38] AXMenuItem t=Show “PL_LMN_Poster_Klausurtagung_20260928.pptx” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.39] AXMenuItem t=README.md id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.40] AXMenuItem t=Show “README.md” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.41] AXMenuItem t=Screenshot 2026-09-28 at 20.18.25 id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.42] AXMenuItem t=Show “Screenshot 2026-09-28 at 20.18.25” in Finder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.43] AXMenuItem @0,956 0x0
+            [2.0.0.6.0.44] AXMenuItem t=Servers @0,956 0x0
+            [2.0.0.6.0.45] AXMenuItem t=coLabGROUPS id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.46] AXMenuItem t=defaultGROUPS id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.47] AXMenuItem t=defaultUSERS id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.48] AXMenuItem t=eXtendedGROUPS id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.49] AXMenuItem t=Jessye Schaefer’s Public Folder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.50] AXMenuItem t=Macintosh HD id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.51] AXMenuItem t=Macintosh HD id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.52] AXMenuItem t=Paul Lobpreis’s Public Folder id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.53] AXMenuItem t=paullobpreis id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.54] AXMenuItem t=SSD_250GB id=_recentItemRequested: @0,956 0x0
+            [2.0.0.6.0.55] AXMenuItem @0,956 0x0
+            [2.0.0.6.0.56] AXMenuItem t=Clear Menu id=_clearRecentItemsRequested: @0,956 0x0
+        [2.0.0.7] AXMenuItem @0,956 0x0
+        [2.0.0.8] AXMenuItem t=Force Quit… id=_forceQuitPanelRequested: @0,956 0x0
+        [2.0.0.9] AXMenuItem t=Force Quit mac4DSTEM id=_forceQuitRequested: @0,956 0x0
+        [2.0.0.10] AXMenuItem @0,956 0x0
+        [2.0.0.11] AXMenuItem t=Sleep id=_sleepRequested: @0,956 0x0
+        [2.0.0.12] AXMenuItem t=Restart… id=_restartRequested: @0,956 0x0
+        [2.0.0.13] AXMenuItem t=Restart id=_restartNowRequested: @0,956 0x0
+        [2.0.0.14] AXMenuItem t=Shut Down… id=_shutDownRequested: @0,956 0x0
+        [2.0.0.15] AXMenuItem t=Shut Down id=_shutDownNowRequested: @0,956 0x0
+        [2.0.0.16] AXMenuItem @0,956 0x0
+        [2.0.0.17] AXMenuItem t=Lock Screen id=_lockScreenRequested: @0,956 0x0
+        [2.0.0.18] AXMenuItem t=Log Out Paul Lobpreis… id=_logOutRequested: @0,956 0x0
+        [2.0.0.19] AXMenuItem t=Log Out Paul Lobpreis id=_logOutNowRequested: @0,956 0x0
+        [2.0.0.20] AXMenuItem @0,956 0x0
+    [2.1] AXMenuBarItem t=mac4DSTEM @43,0 104x33
+      [2.1.0] AXMenu @0,956 0x0
+        [2.1.0.0] AXMenuItem t=About mac4DSTEM id=orderFrontStandardAboutPanel: @0,956 0x0
+        [2.1.0.1] AXMenuItem @0,956 0x0
+        [2.1.0.2] AXMenuItem t=Settings… id=menuAction: @0,956 0x0
+        [2.1.0.3] AXMenuItem @0,956 0x0
+        [2.1.0.4] AXMenuItem t=Services @0,956 0x0
+          [2.1.0.4.0] AXMenu @0,956 0x0
+            [2.1.0.4.0.0] AXMenuItem t=Activity Monitor id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.1] AXMenuItem t=Allocations & Leaks id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.2] AXMenuItem t=File Activity id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.3] AXMenuItem t=System Trace id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.4] AXMenuItem t=Time Profile Active Application id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.5] AXMenuItem t=Time Profile App Under Mouse id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.6] AXMenuItem t=Time Profile Entire System id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.7] AXMenuItem t=Toggle Instruments Recording id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.8] AXMenuItem t=Ask Claude id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.9] AXMenuItem t=New Claude Code Session Here id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.10] AXMenuItem t=Send to Claude id=_processRequest: @0,956 0x0
+            [2.1.0.4.0.11] AXMenuItem t=Services Settings… id=_configureServicesMenu: @0,956 0x0
+        [2.1.0.5] AXMenuItem @0,956 0x0
+        [2.1.0.6] AXMenuItem t=Hide mac4DSTEM id=hide: @0,956 0x0
+        [2.1.0.7] AXMenuItem t=Hide Others id=hideOtherApplications: @0,956 0x0
+        [2.1.0.8] AXMenuItem t=Show All id=unhideAllApplications: @0,956 0x0
+        [2.1.0.9] AXMenuItem @0,956 0x0
+        [2.1.0.10] AXMenuItem t=Quit mac4DSTEM id=terminate: @0,956 0x0
+    [2.2] AXMenuBarItem t=File @146,0 42x33
+      [2.2.0] AXMenu @0,956 0x0
+        [2.2.0.0] AXMenuItem t=New Dataset Window id=menuAction: @0,956 0x0
+        [2.2.0.1] AXMenuItem t=Open Dataset… id=menuAction: @0,956 0x0
+        [2.2.0.2] AXMenuItem t=Reopen sim_Au_data_all_binned.h5 id=menuAction: @0,956 0x0
+        [2.2.0.3] AXMenuItem @0,956 0x0
+        [2.2.0.4] AXMenuItem @0,956 0x0
+        [2.2.0.5] AXMenuItem t=Close id=performClose: @0,956 0x0
+        [2.2.0.6] AXMenuItem t=Close All id=closeAll: @0,956 0x0
+        [2.2.0.7] AXMenuItem @0,956 0x0
+        [2.2.0.8] AXMenuItem t=Export Result Image… id=menuAction: @0,956 0x0
+        [2.2.0.9] AXMenuItem t=Export Diffraction Pattern… id=menuAction: @0,956 0x0
+        [2.2.0.10] AXMenuItem t=Preprocess & Export DataCube… id=menuAction: @0,956 0x0
+    [2.3] AXMenuBarItem t=Edit @187,0 44x33
+      [2.3.0] AXMenu @0,956 0x0
+        [2.3.0.0] AXMenuItem t=Undo id=undo: @0,956 0x0
+        [2.3.0.1] AXMenuItem t=Redo id=redo: @0,956 0x0
+        [2.3.0.2] AXMenuItem @0,956 0x0
+        [2.3.0.3] AXMenuItem t=Cut id=cut: @0,956 0x0
+        [2.3.0.4] AXMenuItem t=Copy id=copy: @0,956 0x0
+        [2.3.0.5] AXMenuItem t=Paste id=paste: @0,956 0x0
+        [2.3.0.6] AXMenuItem t=Delete id=delete: @0,956 0x0
+        [2.3.0.7] AXMenuItem t=Select All id=selectAll: @0,956 0x0
+        [2.3.0.8] AXMenuItem @0,956 0x0
+        [2.3.0.9] AXMenuItem t=AutoFill id=_NSMenuItemAutoFillIdentifier @0,956 0x0
+          [2.3.0.9.0] AXMenu @0,956 0x0
+            [2.3.0.9.0.0] AXMenuItem t=Contact… id=_handleInsertFromContactsCommand: @0,956 0x0
+            [2.3.0.9.0.1] AXMenuItem t=Passwords… id=_handleInsertFromPasswordsCommand: @0,956 0x0
+            [2.3.0.9.0.2] AXMenuItem t=Credit Card… id=_handleInsertFromCreditCardsCommand: @0,956 0x0
+        [2.3.0.10] AXMenuItem t=Start Dictation id=startDictation: @0,956 0x0
+        [2.3.0.11] AXMenuItem t=Emoji & Symbols id=orderFrontCharacterPalette: @0,956 0x0
+    [2.4] AXMenuBarItem t=View @230,0 50x33
+      [2.4.0] AXMenu @0,956 0x0
+        [2.4.0.0] AXMenuItem t=Show Tab Bar id=toggleTabBar: @0,956 0x0
+        [2.4.0.1] AXMenuItem t=Show All Tabs id=toggleTabOverview: @0,956 0x0
+        [2.4.0.2] AXMenuItem @0,956 0x0
+        [2.4.0.3] AXMenuItem t=Hide Tools id=menuAction: @0,956 0x0
+        [2.4.0.4] AXMenuItem t=Hide Inspector id=menuAction: @0,956 0x0
+        [2.4.0.5] AXMenuItem t=Show Bottom Pane id=menuAction: @0,956 0x0
+        [2.4.0.6] AXMenuItem t=Enter Full Screen id=toggleFullScreen: @0,956 0x0
+    [2.5] AXMenuBarItem t=Analysis @279,0 71x33
+      [2.5.0] AXMenu @0,956 0x0
+        [2.5.0.0] AXMenuItem t=Run Current Task id=menuAction: @0,956 0x0
+        [2.5.0.1] AXMenuItem t=Cancel Analysis @0,956 0x0
+    [2.6] AXMenuBarItem t=Dataset @349,0 68x33
+      [2.6.0] AXMenu @0,956 0x0
+        [2.6.0.0] AXMenuItem t=Save Current Result to Session Sidecar id=menuAction: @0,956 0x0
+        [2.6.0.1] AXMenuItem t=Save Calibration to Session Sidecar id=menuAction: @0,956 0x0
+        [2.6.0.2] AXMenuItem @0,956 0x0
+        [2.6.0.3] AXMenuItem t=Change Session Sidecar… id=menuAction: @0,956 0x0
+        [2.6.0.4] AXMenuItem t=Ignore Session Sidecar… id=menuAction: @0,956 0x0
+    [2.7] AXMenuBarItem t=Workspace @416,0 88x33
+      [2.7.0] AXMenu @0,956 0x0
+        [2.7.0.0] AXMenuItem t=Go to Prepare id=menuAction: @0,956 0x0
+        [2.7.0.1] AXMenuItem t=Go to Imaging id=menuAction: @0,956 0x0
+        [2.7.0.2] AXMenuItem t=Go to Bragg Disks id=menuAction: @0,956 0x0
+        [2.7.0.3] AXMenuItem t=Go to Crystal Maps id=menuAction: @0,956 0x0
+        [2.7.0.4] AXMenuItem t=Go to Reconstruction id=menuAction: @0,956 0x0
+        [2.7.0.5] AXMenuItem t=Go to Results id=menuAction: @0,956 0x0
+    [2.8] AXMenuBarItem t=Window @503,0 70x33
+      [2.8.0] AXMenu @0,956 0x0
+        [2.8.0.0] AXMenuItem t=Minimize id=performMiniaturize: @0,956 0x0
+        [2.8.0.1] AXMenuItem t=Minimize All id=miniaturizeAll: @0,956 0x0
+        [2.8.0.2] AXMenuItem t=Zoom id=performZoom: @0,956 0x0
+        [2.8.0.3] AXMenuItem t=Zoom All id=zoomAll: @0,956 0x0
+        [2.8.0.4] AXMenuItem t=Fill id=_zoomFill: @0,956 0x0
+        [2.8.0.5] AXMenuItem t=Center id=_zoomCenter: @0,956 0x0
+        [2.8.0.6] AXMenuItem @0,956 0x0
+        [2.8.0.7] AXMenuItem t=Move & Resize @0,956 0x0
+          [2.8.0.7.0] AXMenu @0,956 0x0
+            [2.8.0.7.0.0] AXMenuItem t=Halves @0,956 0x0
+            [2.8.0.7.0.1] AXMenuItem t=Left id=_zoomLeft: @0,956 0x0
+            [2.8.0.7.0.2] AXMenuItem t=Right id=_zoomRight: @0,956 0x0
+            [2.8.0.7.0.3] AXMenuItem t=Top id=_zoomTop: @0,956 0x0
+            [2.8.0.7.0.4] AXMenuItem t=Bottom id=_zoomBottom: @0,956 0x0
+            [2.8.0.7.0.5] AXMenuItem @0,956 0x0
+            [2.8.0.7.0.6] AXMenuItem t=Quarters @0,956 0x0
+            [2.8.0.7.0.7] AXMenuItem t=Top Left id=_zoomTopLeft: @0,956 0x0
+            [2.8.0.7.0.8] AXMenuItem t=Top Right id=_zoomTopRight: @0,956 0x0
+            [2.8.0.7.0.9] AXMenuItem t=Bottom Left id=_zoomBottomLeft: @0,956 0x0
+            [2.8.0.7.0.10] AXMenuItem t=Bottom Right id=_zoomBottomRight: @0,956 0x0
+            [2.8.0.7.0.11] AXMenuItem @0,956 0x0
+            [2.8.0.7.0.12] AXMenuItem t=Arrange @0,956 0x0
+            [2.8.0.7.0.13] AXMenuItem t=Left & Right id=_zoomLeftAndRight: @0,956 0x0
+            [2.8.0.7.0.14] AXMenuItem t=Left & Quarters id=_zoomLeftThreeUp: @0,956 0x0
+            [2.8.0.7.0.15] AXMenuItem t=Right & Left id=_zoomRightAndLeft: @0,956 0x0
+            [2.8.0.7.0.16] AXMenuItem t=Right & Quarters id=_zoomRightThreeUp: @0,956 0x0
+            [2.8.0.7.0.17] AXMenuItem t=Top & Bottom id=_zoomTopAndBottom: @0,956 0x0
+            [2.8.0.7.0.18] AXMenuItem t=Top & Quarters id=_zoomTopThreeUp: @0,956 0x0
+            [2.8.0.7.0.19] AXMenuItem t=Bottom & Top id=_zoomBottomAndTop: @0,956 0x0
+            [2.8.0.7.0.20] AXMenuItem t=Bottom & Quarters id=_zoomBottomThreeUp: @0,956 0x0
+            [2.8.0.7.0.21] AXMenuItem t=Quarters id=_zoomQuarters: @0,956 0x0
+            [2.8.0.7.0.22] AXMenuItem @0,956 0x0
+            [2.8.0.7.0.23] AXMenuItem t=Return to Previous Size id=_zoomUntile: @0,956 0x0
+        [2.8.0.8] AXMenuItem t=Full Screen Tile @0,956 0x0
+          [2.8.0.8.0] AXMenu @0,956 0x0
+            [2.8.0.8.0.0] AXMenuItem t=Left of Screen id=_tileLeft: @0,956 0x0
+            [2.8.0.8.0.1] AXMenuItem t=Right of Screen id=_tileRight: @0,956 0x0
+        [2.8.0.9] AXMenuItem @0,956 0x0
+        [2.8.0.10] AXMenuItem t=Bring All to Front id=arrangeInFront: @0,956 0x0
+        [2.8.0.11] AXMenuItem t=Arrange in Front id=alternateArrangeInFront: @0,956 0x0
+        [2.8.0.12] AXMenuItem t=Remove Window from Set id=_removeWindowFromStageManagerSet: @0,956 0x0
+        [2.8.0.13] AXMenuItem @0,956 0x0
+        [2.8.0.14] AXMenuItem t=Show Previous Tab id=selectPreviousTab: @0,956 0x0
+        [2.8.0.15] AXMenuItem t=Show Next Tab id=selectNextTab: @0,956 0x0
+        [2.8.0.16] AXMenuItem t=Move Tab to New Window id=moveTabToNewWindow: @0,956 0x0
+        [2.8.0.17] AXMenuItem t=Merge All Windows id=mergeAllWindows: @0,956 0x0
+        [2.8.0.18] AXMenuItem @0,956 0x0
+        [2.8.0.19] AXMenuItem @0,956 0x0
+        [2.8.0.20] AXMenuItem t=mac4DSTEM Demo.h5 id=makeKeyAndOrderFront: @0,956 0x0
+    [2.9] AXMenuBarItem t=Help @572,0 49x33
+      [2.9.0] AXMenu @0,956 0x0
+        [2.9.0.0] AXMenuItem t=Send mac4DSTEM Feedback to Apple id=_openFeedbackAssistant: @0,956 0x0
+        [2.9.0.1] AXMenuItem @0,956 0x0
+        [2.9.0.2] AXMenuItem t=mac4DSTEM Help id=showHelp: @0,956 0x0

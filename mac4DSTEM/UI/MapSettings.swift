@@ -514,6 +514,7 @@ private struct AdvancedDiskDetectionSection: View {
                 Stepper(value: maximumPeaksBinding(appState), in: 1...500) {
                     Text("\(appState.diskDetection.diskParams.maxNumPeaks)")
                 }
+                .accessibilityLabel(DiskDetectionParameterID.maximumPeaks.title)
             }
             .help(DiskDetectionParameterID.maximumPeaks.explanation)
 
@@ -570,6 +571,7 @@ private struct AdvancedDiskDetectionSection: View {
                 ) {
                     Text("#\(appState.diskDetection.diskParams.relativeToPeak + 1)")
                 }
+                .accessibilityLabel(DiskDetectionParameterID.relativeReferencePeak.title)
             }
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
@@ -587,6 +589,7 @@ private struct AdvancedDiskDetectionSection: View {
                         appState.diskDetection.diskParams.relativeReferenceMinimumRadiusPx
                     ))
                 }
+                .accessibilityLabel(DiskDetectionParameterID.relativeReferenceMinimumRadius.title)
             }
             .help(DiskDetectionParameterID.relativeReferenceMinimumRadius.explanation)
 
@@ -601,6 +604,7 @@ private struct AdvancedDiskDetectionSection: View {
                         appState.diskDetection.diskParams.minPeakSpacing
                     ))
                 }
+                .accessibilityLabel(DiskDetectionParameterID.minimumPeakSpacing.title)
             }
             .help(DiskDetectionParameterID.minimumPeakSpacing.explanation)
 
@@ -611,6 +615,7 @@ private struct AdvancedDiskDetectionSection: View {
                 ) {
                     Text("\(appState.diskDetection.diskParams.edgeBoundary) px")
                 }
+                .accessibilityLabel(DiskDetectionParameterID.edgeBoundary.title)
             }
             .help(DiskDetectionParameterID.edgeBoundary.explanation)
 
@@ -624,6 +629,7 @@ private struct AdvancedDiskDetectionSection: View {
                     ) {
                         Text("\(appState.diskDetection.diskParams.upsampleFactor)×")
                     }
+                    .accessibilityLabel(DiskDetectionParameterID.upsampleFactor.title)
                 }
                 .help(DiskDetectionParameterID.upsampleFactor.explanation)
             }

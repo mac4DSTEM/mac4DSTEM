@@ -67,7 +67,9 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
   2026-08-28 passes a 15 px-displaced fit); the trimmed fit is blind to clustered contamination ≥ 50 % (a 40 px-off quarter →
   100 % kept, 20.6 px error). Owner: a design pass, `docs/q-calibration-design.md`.
 - **Coarse block seed lands on the wrong blob on noisy cubes** (Gate B refuter, §9): 28/169, 29/195, 2/169 of three cubes miss by
-  >1 px vs a Gaussian-argmax seed; plane-fit trimming hides most. Owner: a design pass before the holes above.
+  >1 px vs a Gaussian-argmax seed. S14 (2026-09-30 night, `archive/v4/s14-*`): a box seed does not meet its bar; trimming does
+  NOT hide the offset on Si_SiGe_exp, both bullseye cubes and Au_ref (0.5–2.8 px); on bullseye the refine step's iterated
+  r + 1.5 window walks along the ring (refuter). Next: a Gate D on the refine step with non-flat probes.
 - **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 
@@ -165,11 +167,10 @@ both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need
   CPU-written second fixture would make it a check. With CI's unit job paused (ADR 040) every green gate is local.
 
 ### Accessibility (does NOT block a release — owner decision, 2026-09-11)
-A live defect, not VoiceOver-only: any AX client resolving labels on the front window trips it and it crashed the owner's
-session twice on 2026-09-08 — `EXC_BAD_ACCESS` at a stack guard page in `AccessibilityNode.accessibilityLabel()` →
-`labelsToResolve` → `resolvedRole(forPlatformElement:)`. **In-body controls report no accessibility label — same bug:**
-`Compute Mean / Max`, `Fit Detector Ellipse`, both image-pane buttons, every `Advanced` disclosure are bare. One Gate D, not
-two fixes. Detail: `archive/v3/open-items-detail-2026-09-16.md`.
+The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` did not recur: a full AX probe of every room
+(2026-09-30 night, scratch build) ran without a crash, and the controls named then already expose labels. The eight bare ones it
+found (detection and group steppers, Fit overlay, Show claimed disks, remove-phase) are labelled (S22). Residual: the whole
+Advanced-detection section shares one identifier (`disk.advancedDisclosure`); the crash's cause was never established.
 
 ### The audit's refactor list, rows 4–13 — most parked
 Open: row 4 (a shared harness `fail` helper — Gate B, a shared bug can green 46 harnesses); rows 6–7, the

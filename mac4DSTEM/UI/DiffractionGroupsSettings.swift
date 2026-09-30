@@ -38,6 +38,7 @@ struct DiffractionGroupsSection: View {
                 ) {
                     Text("\(appState.diffractionGroups.settings.components)")
                 }
+                .accessibilityLabel("Components")
                 .help("Principal components kept from the box-binned patterns.")
                 .accessibilityIdentifier("groups.components")
             }
@@ -49,6 +50,7 @@ struct DiffractionGroupsSection: View {
                 ) {
                     Text("\(appState.diffractionGroups.settings.groups)")
                 }
+                .accessibilityLabel("Groups")
                 .help("k-means group count over the principal-component coordinates.")
                 .accessibilityIdentifier("groups.groups")
             }

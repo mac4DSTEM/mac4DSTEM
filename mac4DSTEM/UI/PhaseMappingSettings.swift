@@ -550,6 +550,7 @@ struct PhaseMappingSections: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Remove \(slot.model.displayName)")
+                .accessibilityLabel("Remove \(slot.model.displayName)")
             }
             zoneAxisField
             if !draft.isEmpty, PhaseMappingSlot.parseZoneAxis(draft) == nil {

@@ -192,6 +192,7 @@ struct DiffractionPane: View {
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .fixedSize()
+                    .accessibilityLabel("Show claimed disks")
                     .help("Ring each detected disk at this scan position in the colour of the phase that claimed it: the matrix, a precipitate phase, or unexplained.")
                     .accessibilityIdentifier("pattern.showClaimedDisks")
             }
