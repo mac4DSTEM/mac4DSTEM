@@ -1,0 +1,416 @@
+[
+ {
+  "id": "push",
+  "title": "Push this morning's four commits",
+  "urgency": "whenever",
+  "problem": "You pushed the overnight work. Since then four small commits landed (the refuters' verdicts, the session plan, the S14-D pre-registration).",
+  "context": "All four are records and plans; no app code changed. The pre-push hook runs inventory and an app build.",
+  "options": [
+   {
+    "label": "Push now",
+    "consequence": "The records are on GitHub before the next session."
+   },
+   {
+    "label": "Push with the next batch",
+    "consequence": "Nothing is at risk; they are docs."
+   }
+  ],
+  "recommendation": "Push with the polish batch later today.",
+  "question": "Push now or with the polish batch?",
+  "default_if_silent": "They go with the next push.",
+  "source": "git log origin/main..HEAD"
+ },
+ {
+  "id": "D1a",
+  "title": "Confirm phase-match tolerance stays as shipped",
+  "urgency": "now",
+  "problem": "The phase-matching tolerance decides whether a detected reflection 'belongs' to a phase. The board lists option (a) as owed to you, but the measurement is done and supports the shipped rule; the row only needs your yes.",
+  "context": "Registered before the run (7f99ded, amended 3f828d5), Opus refuter. The shipped rule R0 = max(0.02 1/A, one detector pixel) lies inside every dataset's band: Thronsen 1.31 % mislabelled at 0.020, demo 97.0 % matrix, binned Al-Mg-Si 8.1 % not indexed (a fixed 0.02 would give 22.2 %), raw Al-Mg-Si 84.4 % matrix. Trap to avoid: at exactly one pixel (0.0190) Thronsen passes every T4 metric and at 0.0200 fails one (theta-prime speckle 7 > 5) - a two-speck margin on one dataset; picking 1 px for that would be tuning to the truth.",
+  "options": [
+   {
+    "label": "(a) Keep R0, change nothing",
+    "consequence": "No number moves; the row closes."
+   },
+   {
+    "label": "(b) Pick a new rule (e.g. 3 px, which also passes all four bands)",
+    "consequence": "Moves a shipped default on every dataset: Gate D, refuter, re-pin of every phase-map harness, for no measured gain."
+   }
+  ],
+  "recommendation": "(a) - R0 is inside every band and no candidate is better everywhere; do not chase the two-speck T4 margin.",
+  "question": "Confirm (a): keep the shipped tolerance? (yes/no)",
+  "default_if_silent": "R0 stays; only the board row lingers.",
+  "source": "docs/archive/v4/phase-tolerance-results-2026-09-29.md; phase-tolerance-registration-2026-09-29.md 'Decision (owner's)'; docs/status.md 'Owner owed'"
+ },
+ {
+  "id": "J-dm4",
+  "title": "Read Si-SiGe.dm4 pattern size in GMS",
+  "urgency": "now",
+  "problem": "For DM4 files whose scan axes are stored fastest, the reader assumes each diffraction pattern is 480 tall x 448 wide. If Digital Micrograph actually stores it the other way, every pattern is transposed: strain axes swap and the R-Q rotation sign flips, silently. Si-SiGe is the strain reference dataset.",
+  "context": "The 2026-09-05 fixture was generated from the code's own model, so it cannot catch this. The survey image (202 x 895 px = 17 wide x 77 tall) confirms DM writes x first for the scan pair; nothing in the commit justifies treating the detector pair differently. A two-minute check in GMS (Image Display Info: width/height of one pattern) settles it; a session then pins an ncempy checksum as the fixture and, if needed, flips DM4Reader.scanFastestStrides (:194).",
+  "options": [
+   {
+    "label": "You read width/height in GMS and reply with the two numbers",
+    "consequence": "Two minutes; settles a possible silent axis swap on every scan-fastest DM4."
+   },
+   {
+    "label": "A session compares against the vendored py4DSTEM/ncempy reader only",
+    "consequence": "Useful as the pinned fixture, but ncempy may share the same assumption; GMS is the authority."
+   },
+   {
+    "label": "Leave it",
+    "consequence": "Strain and R-Q on DM4 stay possibly transposed; the parity run inherits the doubt."
+   }
+  ],
+  "recommendation": "Both: you read GMS (authority), a session pins ncempy (fixture); it is the cheapest open science item on the board.",
+  "question": "In GMS, is one Si-SiGe.dm4 diffraction pattern 448 wide x 480 tall, or 480 wide x 448 tall?",
+  "default_if_silent": "The item stays open; the DM4 axis convention stays unverified.",
+  "source": "docs/open-items.md 'Scan-fastest DM4 detector pair may be transposed'; docs/archive/v3/open-items-detail-2026-09-16.md:674-683; mac4DSTEM/Core/Data/DM4Reader.swift:191-216"
+ },
+ {
+  "id": "B-s21",
+  "title": "Take S21's patch after the refuter's five fixes",
+  "urgency": "soon",
+  "problem": "On the bullseye (ring-shaped probe) cube the app's default detection finds almost none of the labelled disks: the probe-size estimator reads the ring at its first shoulder (6.84 px) where the ring ends at 11 px, so the kernel never matches. S21 measured a rule that builds the kernel at the ring's outer edge for ring-structured probes only. This cube is the learned detector's training set, so the classical baseline C5 is judged against is meaningless until this is fixed.",
+  "context": "Recall/precision at 2 px against 370 hand labels: 0.119/0.020 -> 0.781/0.430 (pre-declared, confirmation half honest); no scalar knob helped; five pinned datasets unchanged. The Fable refuter (f0a3104): headline HOLDS; the 0.25 structure gate is REFUTED as placed (only two points bracket it, bullseye sits 0.028 from a silent fall-back to 12 % recall; 'no gate' is also refuted: Particle_1 would fire and move a pinned cube); the Au_ref guard is post hoc and stays unvalidated; two side effects move a verdict - a pre-patch bullseye replay silently gets the 11 px kernel, and a session reopen skips the rule (mean pattern nil) so the same session drops from 0.78 to 0.12 recall. Five named fixes: replay compares the recorded radius; the reopen path computes the mean pattern or says the rule was skipped; bar moved to 0.5 (margins 0.28/0.39); guard labelled post hoc; XCTests broken first + harness calls the new function + a drive.",
+  "options": [
+   {
+    "label": "Take it with the five fixes, then Gate B and a drive",
+    "consequence": "One night; detection changes only where the mean pattern is ring-structured (bullseye alone among 11 datasets); the bullseye harness pin is re-pinned, stated."
+   },
+   {
+    "label": "Re-register with a second structured-probe dataset with truth",
+    "consequence": "No such dataset exists on this Mac; the item waits indefinitely."
+   },
+   {
+    "label": "Ship the quantity only (no patch)",
+    "consequence": "Bullseye stays undetectable at defaults; C5's classical baseline stays broken."
+   }
+  ],
+  "recommendation": "Take it with the five fixes - the refuter found the failure modes and each has a one-line remedy; the change is confined to a probe class where the current behaviour is already useless.",
+  "question": "Take S21 with the refuter's five fixes (yes), or re-register?",
+  "default_if_silent": "The patch stays archived; bullseye detection stays at 0.12 recall.",
+  "source": "docs/archive/v4/s21-refuter-2026-09-30.md sections 2-5; s21-detection-defaults-results-2026-09-30.md; s21-detection-defaults-proposal-2026-09-30.patch"
+ },
+ {
+  "id": "F-thronsen",
+  "title": "Send the Thronsen licence request",
+  "urgency": "soon",
+  "problem": "ADR 042 records verbal permission from Thronsen's first author to run their code for ground truth and to port it with attribution. The permission is not written, their repository has no LICENSE file, and six people contributed. This repo is public and already ships a truth map derived from their data (NOTICE:107-113), so a reader can see the use but not the permission.",
+  "context": "ADR 042's owed action: 'file the author's written confirmation (an email, or a LICENSE added upstream) under docs/archive/'. The drafted request is in the 2026-09-28 session record (not found as a file in the repo). Method citations to the paper appear in ten Core/Session files; those cite the paper, which needs no licence. No code port from their repository was found.",
+  "options": [
+   {
+    "label": "Email the first author now asking for a LICENSE upstream (covers all six contributors)",
+    "consequence": "One email; strongest outcome. Until the reply, no ported code lands."
+   },
+   {
+    "label": "Ask only for a personal written OK by reply",
+    "consequence": "Covers your use in good faith, not other contributors or downstream readers of a GPL repo."
+   },
+   {
+    "label": "Do nothing until a port is planned",
+    "consequence": "The derived truth map is already public; the gap stays visible."
+   }
+  ],
+  "recommendation": "Send the email this week asking for a LICENSE upstream and file the reply; minutes of your time, and the public repo already relies on the permission.",
+  "question": "Have you sent the request - and if not, send it this week (yes/no)?",
+  "default_if_silent": "ADR 042's caveat stays; no port lands; the truth map stays public on verbal permission.",
+  "source": "docs/decisions/042-code-use-permission.md 'Caveats'; NOTICE:107-113; docs/status.md 'Owner owed'"
+ },
+ {
+  "id": "C-s14d",
+  "title": "GO on S14-D, the origin refine Gate D",
+  "urgency": "whenever",
+  "problem": "The beam-origin fit underlies Q calibration, strain and every map. S14 showed a better coarse seed does not fix the misses; the refuter and the new S14-D diagnosis say the lever is the refine step: an iterated centre-of-mass in a window of about 1.2 x probe radius that, on a ring-shaped probe, cuts through the ring, so the true centre is an unstable point and the iteration walks away along the ring. On bullseye_sim the shipped origin is 2.28 px from a recoverable truth.",
+  "context": "S14-D is pre-registered (0645117, nothing run): truth established first on bullseye_sim vacuum positions (~0.05 px, 966 of 2100 sampled positions), exact synthetic fixtures, a disk-only control, the ringed set measured as n = 2 cubes (every other cube's profile rises +0.00 beyond the core; Au_ref is a halo, not a ring). Predictions: shipped error >= 1.5 px on the fixtures, window k = 2 < 0.10 px, compact cubes move < 0.10 px, cost <= 1.25x. Bar: mechanism shown by observation, fix < 0.10 px, no regression, no verdict flip; if met a READY PATCH that is NOT applied - it moves shipped origin numbers on two cubes and you decide. Decision 4 (origin-gate statistic, l-filter) waits behind it.",
+  "options": [
+   {
+    "label": "GO: run it as registered (proposal only)",
+    "consequence": "One night; you get a diagnosis with truth, and at most a patch to decide on."
+   },
+   {
+    "label": "Hold until the new Mac",
+    "consequence": "The calibration holes stay blocked; the 2.28 px error on ringed probes stays shipped."
+   }
+  ],
+  "recommendation": "GO - it has truth, a control and a bounded bar, and the YELLOW rule guarantees it stops at a proposal.",
+  "question": "Already running at your word (GO given after its pre-registration, 0645117) — nothing to decide until its result.",
+  "default_if_silent": "It finishes as a measurement and, only if its bar is met, a ready patch for you.",
+  "source": "docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md sections 1-2, 4, 6; s14-origin-coarse-seed-results-2026-09-30.md sections 3, 7; ROADMAP.md:165"
+ },
+ {
+  "id": "A4-qshell",
+  "title": "Q calibration can pick the wrong shell",
+  "urgency": "soon",
+  "problem": "Known-crystal Q calibration finds the innermost reflection ring and scales it to the crystal's first allowed reflection. If the ring it should use is missing (2H-WS2 on the basal zone: (0002) is invisible; the demo cube: the majority grain [001] has no {111}), it scales the wrong ring and stamps Q green 'Measured'. The S20 refuter caught the tool doing exactly this on the demo cube (Q 13.5 % low); the WS2 case (2.26x) was known. The night deferred the l-filter and the origin-gate statistic behind S14-D; the new finding says the same mistake may be live in the app.",
+  "context": "The app already measures the shell ratio (AppState+ACOM.swift:113-129) and prints 'shell ratio 1.41 vs 1.155 predicted' or 'NOT self-checked' on the status line, then proceeds and marks Q green; thresholds to refuse were tried and refuted by Gate B. The advisor's candidate fix is threshold-free: assign the reference shell by matching the measured ratio sequence (sqrt3, 2, sqrt7 ...). Both a fix and the origin-gate statistic move shipped Q numbers (YELLOW). The S20 refuter asks for a check of whether the app's Calibration path can make the demo-cube mistake (now in open-items).",
+  "options": [
+   {
+    "label": "Keep both deferred; fund only the GREEN check + label: Q badge reads 'unchecked' when the shell ratio disagrees or only one shell exists",
+    "consequence": "No number moves; the trust badge stops overstating on layered or single-zone cubes; a session verifies the app path on the demo cube."
+   },
+   {
+    "label": "Fund the threshold-free shell-assignment Gate D now",
+    "consequence": "Moves Q on WS2/Mg/beta-double-prime-type cubes; needs S14-D's origins first (both read the same residuals)."
+   },
+   {
+    "label": "Keep both deferred, no label",
+    "consequence": "Q stays green on cubes where it is 13.5 % or 2.26x wrong."
+   }
+  ],
+  "recommendation": "First option - the label is your 'unvalidated stays labelled' rule applied to Q, costs nothing, and the app-path check answers the S20 refuter's question.",
+  "question": "Deferral stands (yes) - and fund the GREEN shell-ratio label plus app-path check now (yes/no)?",
+  "default_if_silent": "Both deferred; Q stays green on affected cubes; the app-path check waits.",
+  "source": "docs/archive/v4/s20-refuter-2026-09-30.md section 4-5; scratchpad decisions/evidence.md section 4b; verdicts.md item 4; docs/open-items.md 'Known-crystal Q on a cube whose majority grain lacks the reference shell'; mac4DSTEM/App/AppState+ACOM.swift:108-132"
+ },
+ {
+  "id": "A1-drag",
+  "title": "Ratify: aperture drag warns, no dialog",
+  "urgency": "soon",
+  "problem": "Dragging the virtual-detector aperture centre silently replaced the fitted beam origin; only a transient status line said so and the Restore button hid in a collapsed section. You had asked: confirmation, banner, or refuse. The night chose banner-style: the Prepare origin row turns orange with 'Restore Fitted Origin' as its action, and the drag is recorded in the lineage so strain/ACOM built on the fit read stale.",
+  "context": "Commit 3cb567e (advisor AMEND; supervisor 3 FIX-FIRST on a lost fit record, fixed). Seen in drive 2A on a from-file and a measured origin: orange row 'Mixed', the sentence, Restore works round trip, radius-only drag stays green, Strain shows the stale clock. Not chosen: a confirm dialog (the drag fires continuously) or refusing centre drags (breaks manual re-centring). Residuals: the file's own recorded mean origin is still destroyed by the drag (only the fitted maps are parked - evidence option D, not taken); the sentence mentions 'the file's recorded mean' even for a measured origin; the Restore button also appears in the Export sheet, unverified on screen.",
+  "options": [
+   {
+    "label": "Keep as landed",
+    "consequence": "Warning + one-click undo, honest staleness; the drag stays fluid."
+   },
+   {
+    "label": "Keep, and park the file's recorded mean too so Restore returns it",
+    "consequence": "Small follow-up (the AppState tuple gains two numbers); removes the last destructive step on this path."
+   },
+   {
+    "label": "Overrule to a dialog or a refusal",
+    "consequence": "Rewrites drag-begin in PaneOverlays and two tests; interrupts a continuous gesture."
+   }
+  ],
+  "recommendation": "Keep, plus the follow-up that parks the file's recorded mean - the only data loss left, no new surface.",
+  "question": "Keep the orange-row-plus-Restore design (yes), and park the file's recorded mean too (yes/no)?",
+  "default_if_silent": "Landed behaviour stands; the file's recorded mean keeps being discarded on a centre drag.",
+  "source": "commit 3cb567e; scratchpad decisions/evidence.md section 1; verdicts.md item 1; sup3/verdict.md section 1; drive2a-report.md steps 14-27"
+ },
+ {
+  "id": "A6-frozen",
+  "title": "Ratify 'In memory' wording in a frozen file",
+  "urgency": "soon",
+  "problem": "Your Frozen Shell rule says WorkspaceInspector.swift changes only against a picture you accepted. S12 changed one section title there from 'Computed this session' to 'In memory' and added a per-row origin ('fitted here', 'restored from session', 'from file', '93,209 peaks - restored'), because the old title claimed restored values were computed here. It invoked 'Rules serve the app' and asks you to overrule on sight.",
+  "context": "Commit b8b4544: the diff in the frozen file is the body of SessionProductsSections only (a title string and a detail argument on the existing row helper); the wording enum lives outside it. Drives 1 and 2A saw it; the first version wrapped 'Bragg disks' one syllable per line, fixed post-drive and re-seen on one line (2A-32). One inconsistency remains in the same section: 'Origin calibration' shows an empty circle when only a mean origin was restored while Prepare says 'From session' (drive 2B, shots 17/21).",
+  "options": [
+   {
+    "label": "Accept the wording (ratify)",
+    "consequence": "Structure and width budget unchanged; the row tells the truth; precedent: wording-only edits to frozen files are allowed when they fix a false claim."
+   },
+   {
+    "label": "Revert to 'Computed this session'",
+    "consequence": "The title is false again for restored sessions."
+   },
+   {
+    "label": "Accept, and allow the empty-circle predicate fix in the same section",
+    "consequence": "One boolean (fitted origin vs any origin); no structure change; a drive to see it."
+   }
+  ],
+  "recommendation": "Accept with the predicate fix - the rule protects structure and width, neither moved.",
+  "question": "Ratify the 'In memory' wording, and allow the empty-circle predicate fix (yes/no)?",
+  "default_if_silent": "The wording stays; the Origin-row inconsistency stays.",
+  "source": "commit b8b4544 (WorkspaceInspector.swift hunk); CLAUDE.md 'Frozen shell'; sup-d1/verdict.md clumsy items 9-10; drive2b-report.md 'Oddities' under S18 (d)"
+ },
+ {
+  "id": "A7-s15",
+  "title": "Ratify R-Q label-only; re-export Si-SiGe",
+  "urgency": "soon",
+  "problem": "A datacube this app exported before 2026-09-28 stores the R-Q rotation with no sign-convention marker, and the app cannot tell whether the stored sign is its own or py4DSTEM's (before that date it also re-exported imported py4DSTEM rotations raw). The night kept today's reading and labels the row 'sign unrecorded' instead of auto-converting.",
+  "context": "Commit 19f5b07; the Fable supervisor refuted auto-convert on the writer's history. The one such file under References, Si-SiGe_calibrated.h5, was measured in the app (its source DM4 has no rotation), so for that file today's reading is the WRONG sign (opens at +88.6 deg where -88.6 deg is right). No test or harness reads its rotation, but any DPC/strain on it does. Fix for that file: re-export it from the app (or re-measure R-Q), which writes the marker. The shortened note text is unverified on screen.",
+  "options": [
+   {
+    "label": "Keep label-only; you re-export Si-SiGe_calibrated.h5 once",
+    "consequence": "General rule stays honest; the one known file is fixed by your hand in a minute."
+   },
+   {
+    "label": "Overrule to auto-convert",
+    "consequence": "Silently flips files imported from py4DSTEM before 09-28 - the refuted option."
+   }
+  ],
+  "recommendation": "Keep, and re-export the one file - the rule cannot know what you know about that file.",
+  "question": "Keep label-only (yes), and will you re-export Si-SiGe_calibrated.h5 to mark its sign?",
+  "default_if_silent": "The label stays; Si-SiGe_calibrated.h5 keeps opening with a flipped R-Q sign.",
+  "source": "docs/archive/v4/s15-rq-legacy-exports-2026-09-30.md; commit 19f5b07; sup3/verdict.md section 2"
+ },
+ {
+  "id": "H-polish",
+  "title": "Which drive proposals need your picture",
+  "urgency": "soon",
+  "problem": "Two drives recorded fifteen clumsy things. Most are wording or small defects a session can fix without touching the five frozen shell files. Two add a control (new on-screen surface), which by your rules needs a mock you accept first, and cannot land while the 'Unverified on screen' row is non-empty (three items now).",
+  "context": "Need your pick (new surface): (1) a way back from 'Show Objects' to the phase map other than re-running (PrecipitateObjectsSection); (2) a 'Re-measure' verb on Prepare once an origin exists - the toolbar's primary verb slot goes empty (ADR 036 toolbar picture). Do NOT need your picture (wording/defect, non-frozen files): two beta-double-prime variants read identically in the Matrix picker (append the zone axis); Evidence help says 'under the cursor' but follows the click; Session heading 'Loaded with the dataset' right after a save and after a refused legacy calibration (WorkspaceSidebar); fresh cube shows 'Phase map (0 candidates)' in Prepare; lineage list order; the annulus centre handle cannot be dragged while the inner radius is 0 (a real defect, PaneOverlays); 'Not carried into this view' only at the bottom of Info (proposal: one orange line in the Prepare origin row, non-frozen); restored units print 'A^-1'; promote drops the 'Pattern x, y' readout; the drag sentence mentions the file's mean for a measured origin; the log says 'recorded on a different view' for a legacy sidecar whose view was never recorded; the ptychography result survives Clear Calibration.",
+  "options": [
+   {
+    "label": "A session fixes the wording/defect list now (no new surface) and mocks the two controls for your pick",
+    "consequence": "One S4/S5 polish session; the two controls wait for your one-line pick on a mock."
+   },
+   {
+    "label": "Fix everything including the two controls without a mock",
+    "consequence": "Breaks 'mock the structure first' and 'Drive before more surface'."
+   },
+   {
+    "label": "Leave all of it",
+    "consequence": "Fifteen known rough edges stay in the release."
+   }
+  ],
+  "recommendation": "First option - respects both UI rules and clears thirteen of fifteen without your time.",
+  "question": "Already running at your word (three implementers, non-Frozen-Shell items). Still yours: do you want mocks for the two new controls (back from Show Objects; a visible Re-measure)?",
+  "default_if_silent": "The proposals stay listed in open-items S4/S5; nothing changes.",
+  "source": "docs/open-items.md S4 'Drive 2026-09-30 night', S5 S18 residuals; drive2a-report.md; drive2b-report.md; sup-d1/verdict.md 'The clumsy list'; CLAUDE.md 'Frozen shell', 'Drive before more surface'; memory owner-design-standards"
+ },
+ {
+  "id": "I-hardware",
+  "title": "What waits for the new Mac, what not",
+  "urgency": "soon",
+  "problem": "Three lanes sit on 'waits on hardware': the 500-step C5 training run plus the in-app Train Model drive; parallax/ptychography keep-or-remove; the 28 GB parity run. One does not actually need the new machine, and one has a Gate D that can start on a cropped cube today.",
+  "context": "C5/Train Model: both drives reached the button and were refused by admission at 2.07-2.13 GB available of 2.16 GB needed - with the Claude app resident; quitting Claude and the browser frees the margin (memory 'training-drive-needs-claude-quit'); the labelled sidecar (40 positions, split 23/17) is beside the bullseye cube. Parallax/ptychography refuse correctly at 8.16 / 11.55 GB for a 268 MB cube (30-40x); the open question is whether that estimate is the true cost - a Gate D runnable on a crop small enough for this Mac. Both ship badged 'undriven on real data'; ROADMAP theme 7 keeps them. The 28 GB parity run is hardware only (never open > 2 GB through an unproven path here: the 09-24 panic).",
+  "options": [
+   {
+    "label": "You run C5 once with Claude and the browser quit; a session runs the memory-estimate Gate D on a crop; parallax/ptychography stay, badged, until driven on the new Mac",
+    "consequence": "Two of three lanes move now; nothing is removed on a guess."
+   },
+   {
+    "label": "Everything waits for the new Mac",
+    "consequence": "The in-app training you asked for 'soon' stays unexercised on real data."
+   },
+   {
+    "label": "Remove parallax/ptychography now under the lean-app directive",
+    "consequence": "Deletes a ROADMAP theme before its first real-data drive; the refusal behaviour is already correct."
+   }
+  ],
+  "recommendation": "First option; and give the sessions the hardware date so the board can plan around it.",
+  "question": "Will you run C5 once with Claude quit, and when does the stronger Mac arrive?",
+  "default_if_silent": "All three lanes wait; parallax/ptychography stay in, badged.",
+  "source": "docs/open-items.md 'Waits on hardware or the owner'; docs/archive/v4/drives-2026-09-30.md; docs/decisions/048-clearing-the-board-decisions.md 'Hardware'; ROADMAP.md:116-117,142-144"
+ },
+ {
+  "id": "D-s20",
+  "title": "S20: Gate D on grain C before judging F",
+  "urgency": "soon",
+  "problem": "ACOM templates fail to recognise themselves when rotated off the azimuth grid (37-43 of 200 at 1.4 deg, worst 9.3 deg). Candidate F (exact azimuth + 4x shift grid) cuts the sweep failures 430 -> 24 and improves three independent tests, but was not proposed because it moved the demo cube's truth grain C by 1.64 deg on all 2250 positions. The refuter has now shown that comparison was made at a wrong Q, so the regression is unestablished, not real.",
+  "context": "S20 refuter (7fa7b89): the probe's known-crystal Q was 0.010386 vs truth 0.012 (13.5 % low) because the majority grain [001] has no {111}, so the (111) reference landed on (200); P1b could not fail by construction; F's honest headline is the sweep (430 -> 24, worst rotation 45 -> 3), not '0 at 1.4 deg' (partly grid alignment). Gains: Au median matrix error 1.25 -> 0.156 deg, WS2 0.78 -> 0.156, py4DSTEM external 2.06 -> 0.84. Costs: 4.5x slower CPU matching (the shipped default backend); unit classes not run. Proposed GREEN step: pin Q to truth in the existing scratch trees (~5 s per demo run), rerun base/patched; if grain B stays 6.50 deg the demo cube is not truth-bearing for ACOM and sim_Au with py4DSTEM records replaces it. Amendment 1 (population restated after the reproduction gate failed) was disclosed and delegated; the old '26' named no definition.",
+  "options": [
+   {
+    "label": "Run the grain-C Gate D at true Q (GREEN, minutes), then decide F on the result",
+    "consequence": "Settles whether F's one regression was the probe's calibration; F re-enters the bar or is parked with a real reason."
+   },
+   {
+    "label": "Park F now without the check",
+    "consequence": "A candidate with the largest measured ACOM gains is dropped on an unestablished regression."
+   },
+   {
+    "label": "Also adopt the rule: a failed reproduction gate closes an item; a new registration is a new item",
+    "consequence": "Prevents amend-and-continue; costs a re-registration when it happens."
+   }
+  ],
+  "recommendation": "Run the true-Q check (it is cheap and already scoped) and adopt the rule; F itself stays unproposed until the check, the 136/3200 grids on the patched tree and the unit classes are done.",
+  "question": "Run the grain-C Gate D at true Q before deciding F (yes/no) - and adopt the failed-gate rule (yes/no)?",
+  "default_if_silent": "F stays parked as NOT PROPOSED; the regression stays unestablished; the amendment stands.",
+  "source": "docs/archive/v4/s20-refuter-2026-09-30.md sections 1, 3-5; s20-acom-offgrid-results-2026-09-30.md 'Part 2'; s20-acom-candidate-F-NOT-PROPOSED-2026-09-30.patch; docs/open-items.md 'Off-grid self-recovery'"
+ },
+ {
+  "id": "A2-fitanyway",
+  "title": "Ratify: 'Fit anyway' restored from lineage",
+  "urgency": "whenever",
+  "problem": "An ellipse fitted anyway on sparse ring coverage carries an orange caveat; after saving and reopening the session it came back green 'From session', the caveat gone. The night restores the mark from the sidecar's own lineage node instead of adding a field to the file format.",
+  "context": "Commit 3cb567e, advisor ENDORSE+AMEND, supervisor COMMIT: the mark is taken only when the ACTIVE calibration_ellipse node says fitAnyway AND its a/b/theta equal the saved values (rel 1e-6), so a hand-typed ellipse after the fit is not mis-stamped; a rewound path counts. No wire change. Limit: pre-schema-7 sidecars have no lineage and keep the old green reading. Not driven - it sits in the 'Unverified on screen' row.",
+  "options": [
+   {
+    "label": "Keep (lineage read, no new field)",
+    "consequence": "Zero format change; correct for every sidecar written since ADR 047."
+   },
+   {
+    "label": "Overrule: explicit ellipse-provenance field (schema 8)",
+    "consequence": "A format bump for a mark the file already carries."
+   }
+  ],
+  "recommendation": "Keep; the mark was already in the file, reading it is the lean fix.",
+  "question": "Keep the lineage-based restore? (yes/no)",
+  "default_if_silent": "Stands; a session drives it to empty the unverified row.",
+  "source": "commit 3cb567e; scratchpad decisions/evidence.md section 2 'KEY FINDING'; sup3/verdict.md section 1"
+ },
+ {
+  "id": "A3-library",
+  "title": "Ratify: built-in crystal library kept",
+  "urgency": "whenever",
+  "problem": "The plan proposed deleting the eight built-in crystal models as 'pre-S5 replay recipes only'. The premise was false.",
+  "context": "The live Al-Mg-Si preset takes its Al matrix from the library (PhaseMappingProduct.swift:490); five tools and 39 test references use it; deleting would have silently turned the preset into a no-op. Advisor ENDORSE keep. Residual: the library-first resolver shadows an imported CIF with the same stem as a built-in id.",
+  "options": [
+   {
+    "label": "Keep",
+    "consequence": "Nothing changes; the resolver residual is a one-line ordering fix when a session touches it."
+   },
+   {
+    "label": "Delete anyway",
+    "consequence": "Replace the preset's matrix source, rewrite tests and tools - for 52 lines."
+   }
+  ],
+  "recommendation": "Keep.",
+  "question": "Keep the library? (yes/no)",
+  "default_if_silent": "Kept.",
+  "source": "scratchpad decisions/evidence.md section 3; verdicts.md item 3; overnight-plan-2026-09-30.md section 5 item 3"
+ },
+ {
+  "id": "A5-scientific",
+  "title": "Ratify: 'scientific' gate fails without data",
+  "urgency": "whenever",
+  "problem": "The real-data acceptance harness used to skip silently (exit 0) when the reference datasets were absent, so a green gate could mean 'nothing ran'. S19 makes it fail; CI or MAC4DSTEM_NO_REAL_DATA skip it loudly ('NOT RUN'); 'all' has no opt-out.",
+  "context": "Commit f73be56, Fable Gate B FIX-FIRST then COMMIT. The same change pins 173 peak positions at 0.05 px on five datasets and went red on a +0.3 px detector mutation the old count-only check missed. Cost: a reader cloning the public repo without References/ sees a red 'scientific' unless they set the variable; run time 60 -> 73 s.",
+  "options": [
+   {
+    "label": "Keep (fail closed)",
+    "consequence": "A green gate always means the data ran; matches 'never widen a gate that fails silently'."
+   },
+   {
+    "label": "Overrule to skip-with-warning",
+    "consequence": "Back to a gate that can be green about nothing."
+   }
+  ],
+  "recommendation": "Keep.",
+  "question": "Keep fail-closed? (yes/no)",
+  "default_if_silent": "Stands.",
+  "source": "commit f73be56; overnight-plan-2026-09-30.md section 5 item 5; CLAUDE.md 'Never widen a gate that fails silently'"
+ },
+ {
+  "id": "G-schema5",
+  "title": "v1.0.0 session disks: refuse or restore",
+  "urgency": "whenever",
+  "problem": "Session sidecars written by v1.0.0 (schema 5, before 2026-08-24) did not record which part of the file they describe. S18 adopts their calibration only on a whole-file load and refuses their stored disks always - so a v1.0.0 session's detected disks no longer come back; they must be re-detected.",
+  "context": "Supervisor 3 checked the writer history: every schema-5 sidecar from a RELEASED build was whole-file (reduced views arrived 08-18 15:58 opt-in, the attribute 53 minutes later, unreleased until v2.5.0 which is schema 6). No sidecar under References/ is schema 5. Relaxing is one line (BraggVectorEMDTypes.swift:193) plus one test expectation. Against relaxing: v1.0.0's detector defaults differ from today's (ADR 041 floor etc.), so silently restoring those disks restores stale science; re-detecting costs seconds (93,209 peaks in 4 s on the demo cube).",
+  "options": [
+   {
+    "label": "Keep the refusal",
+    "consequence": "v1.0.0 disks re-detect with today's detector; nothing silently stale."
+   },
+   {
+    "label": "Relax to whole-file adoption for schema 5",
+    "consequence": "Old disks restore; one line; a theoretical wrong-offset case from one unreleased hour on your Mac."
+   }
+  ],
+  "recommendation": "Keep the refusal unless you have v1.0.0 sessions whose disks you specifically need back.",
+  "question": "Do you have v1.0.0-era session files whose disks you need restored? (no = keep refusal)",
+  "default_if_silent": "Refusal stays.",
+  "source": "commit 64015f0; sup3/verdict.md section 3 'Residual 1'; docs/open-items.md S5 S18 residuals; mac4DSTEM/Core/Data/BraggVectorEMDTypes.swift:186-196"
+ },
+ {
+  "id": "K-earlier",
+  "title": "Ratify earlier overrule-on-sight items",
+  "urgency": "whenever",
+  "problem": "Three earlier delegated decisions are still marked overrule-on-sight: the Core packages build optimised (-O) in Debug; ADR 047 (lineage record v2: one graph, run nodes, rewind restores parameters and marks stale, never deletes); ADR 048 (MPSGraph before MLX for in-app training, the C3 flow, T4 reported as a quantity, hardware waits).",
+  "context": "Core -O: the Debug app linked DSTEMCore at -Onone, 90-180x slower in Core loops (Friedel 38 vs 3572 positions/s); cost: stepping through Core in the debugger is now optimised code. ADR 047 shipped as schema 7, additive, min-reader unchanged - the graph the 2026-09-21 lineage interest asked for. ADR 048: MPSGraph is zero bytes vs about 100 MB of MLX in an 11 MB app; T4's one failing metric (7 > 5 raw speckle) ships as a number under ADR 040's own clause; phase mapping stays badged unvalidated.",
+  "options": [
+   {
+    "label": "Keep all three",
+    "consequence": "Status quo; each reversible and recorded."
+   },
+   {
+    "label": "Overrule one",
+    "consequence": "Name it; the alternative is written in each record."
+   }
+  ],
+  "recommendation": "Keep all three; each follows a rule you set (lean app, pure macOS, unvalidated stays labelled).",
+  "question": "Any of Core -O in Debug / ADR 047 / ADR 048 to overrule? (name it, or 'no')",
+  "default_if_silent": "All stand.",
+  "source": "docs/status.md 'Overrule on sight'; docs/decisions/047-lineage-graph-record-v2.md; 048-clearing-the-board-decisions.md; docs/status.md 'S3 Friedel speed' row"
+ }
+]
