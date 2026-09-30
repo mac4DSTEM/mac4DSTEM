@@ -121,17 +121,14 @@ Clearing is three moves, in this order.
    session (S3–S6 below; their items are `docs/open-items.md` § Polish). 4. **Science, one Gate D per session** (S7–S11).
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30, S1–S23, A, B, D, S14-D, polish).
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30, S1–S23, A, B, D, S14-D, polish, new-Mac bring-up).
 
 **Next, in order (owner, 2026-09-30: the new Mac is here):**
-- [ ] **New Mac bring-up:** clone, `git config core.hooksPath tools/hooks`, `tools/lib/fetch-py4dstem.sh`, the gating cubes,
-  Screen Recording + Accessibility, then `run-tests.sh all` as that machine's baseline; the old 8 GB limits are re-measured,
-  not assumed (`open-items.md` › Ready on the new hardware).
-- [ ] **Residency returns, measured (ADR 013's condition, owner 2026-09-30):** run `tools/residency-sweep` on the new Mac
-  (working set 55.7 GB, max buffer 41.7 GB) to measure the knee, then set `measuredWorkingSetFraction` from that run and
-  bring back `.automatic` — no new surface. Every local cube is ≤ 4.2 GB float32, far below any knee; the curve needs a cube
-  near the budget, i.e. the 28 GB raw Al-Mg-Si (DM4: the sweep reads HDF5 only). Numbers are unchanged by residency (parity).
-- [ ] **C5 and the hardware lanes (ADR 043/048):** the 500-step training run on ≥ 12 held-out labelled positions and Train
+- [ ] **Residency returns, measured (ADR 013's condition, owner 2026-09-30):** the knee measured with `tools/residency-sweep` on
+  a cube near the budget (the 28 GB raw Al-Mg-Si), then `.automatic` back, no new surface. Pre-registered, not started:
+  `archive/v4/residency-preregistration-2026-09-30.md` (three owner decisions at its start).
+- [ ] **Owner pick, M5 learned parity:** (a) the test loads the ANE and asserts it ran, or (b) the app too (`open-items.md`).
+- [ ] **C5 and the hardware lanes (ADR 043/048):** training no longer crashes on the M5 (`9026863`). the 500-step training run on ≥ 12 held-out labelled positions and Train
   Model… driven (the 8 GB Mac's admission refused it, 2.10–2.13 of 2.16 GB); parallax/ptychography on real data (cost Gate
   D, then keep or remove); the 28 GB parity run.
 - [ ] **Full polish and code review by an external agent:** brief and kickoff prompt `archive/v4/polish-and-review-session-plan.md`.

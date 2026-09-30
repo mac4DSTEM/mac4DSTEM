@@ -132,18 +132,14 @@ One line each; full wording as above.
 
 ## Ready on the new hardware (owner, 2026-09-30) — and what still waits on the owner
 
-### The new Mac: bring-up first, then the three hardware lanes
-Every memory and disk limit in these docs (admission bars, the 1.5 GB disk floor, `-jobs 2`, "never open > 2 GB through an
-unproven path") was measured on the 8 GB Mac; none transfers until re-measured on the new one. **Bring-up:** clone, `git config
-core.hooksPath tools/hooks`, `tools/lib/fetch-py4dstem.sh`, the six gating cubes into `References/training_dataset/`, Screen
-Recording + Accessibility for the session, then `tools/run-tests.sh all` as the new machine's baseline (last on the old: unit
-1305 / 0 / 2 = 1307, `unit-polish2.log`). Training's bf16 max-pool gradient segfaulted MPSGraph on the M5 — fixed 2026-09-30
-(index-returning pool, byte-identical in f32; old-Mac chip-vs-OS check owed, `archive/v4/newmac-gateD-2026-09-30/`). **Then:** (1) C5, the 500-step training run on ≥ 12 held-out labelled positions and
-Train Model… driven (the step-loop leak is fixed, 10.9 → 0.04 MB/step; the labelled sidecar sits beside the bullseye cube);
-(2) parallax and single-slice ptychography driven on real data — they asked 8–11 GB for a 268 MB cube (30–40×): measure whether
-that is the true cost (a Gate D, not a knob), then the owner keeps or removes them; (3) the 28 GB `--parity` run of the raw
-Al-Mg-Si DM4 (`almgsi-gateD-2026-09-24.md` 6, 8). Residuals that do not go away with RAM: a vanished volume is a SIGBUS with no
-dialog; network volumes keep the full read. Detector truth (A2, 370 centres, net 0.584 / 0.655): an inter-labeller check owed.
+### The new Mac (M5 Pro, 64 GB): brought up 2026-09-30 — the three hardware lanes
+Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" retired, the > 2 GB read rule kept until the 28
+GB DM4 is read here) and the owed old-Mac run of the MPSGraph repro: `archive/v4/newmac-gateD-2026-09-30/record.md`. **Lanes:**
+(1) C5, 500 training steps on ≥ 12 held-out labelled positions and Train Model… driven (the labelled sidecar sits beside the
+bullseye cube); (2) parallax and single-slice ptychography on real data — 8–11 GB asked for a 268 MB cube: a Gate D on the true
+cost, then the owner keeps or removes them; (3) the 28 GB `--parity` run of the raw Al-Mg-Si DM4 (`almgsi-gateD-2026-09-24.md`
+6, 8). RAM does not fix: a vanished volume is a SIGBUS with no dialog; network volumes keep the full read. Detector truth (A2,
+370 centres, net 0.584 / 0.655): an inter-labeller check owed.
 
 ### Scan-fastest DM4 detector pair may be transposed (2026-09-05)
 `Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags `[Rx, Ry, Qy, Qx]` (pattern 480×448); a transposed pattern silently
@@ -171,11 +167,8 @@ both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need
   at the first red harness.
 - **Learned-detector parity is a same-runtime claim**: skips where no Neural Engine is listed (bars not loosened); a
   CPU-written second fixture would make it a check. With CI's unit job paused (ADR 040) every green gate is local.
-  **M5 Pro / macOS 27.0.1 (2026-09-30, Gate D, refuter HOLDS):** Core ML's `.all` runs the model 39/39 ops on the GPU, never
-  the ANE (aned log), so the test fails (347/354, 8 extra); forced `.cpuAndNeuralEngine` passes (354/354, 1 extra) — the ANE
-  serves batch 32 only, other batches fall silently to CPU. Accepted peaks identical in every mode on the fixture's 16
-  patterns only. Mechanism unknown. Owner: (a) the test loads the ANE and asserts it ran, or (b) the app too, after scan-level
-  checks (`archive/v4/newmac-gateD-2026-09-30/record.md`).
+  **M5 Pro (2026-09-30, Gate D, refuter HOLDS):** Core ML's `.all` runs it all on the GPU (aned log) → 8 extra picks, red;
+  forced ANE passes 354/354 (batch 32 only — others fall silently to CPU). Mechanism unknown; owner pick a/b in ROADMAP.
 
 ### Accessibility (does NOT block a release — owner decision, 2026-09-11)
 The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` did not recur: a full AX probe of every room

@@ -284,3 +284,7 @@ once *Offer learned detector* is on in Settings). What is missing is training it
 - [x] **S14-D Gate D on the origin refine step** (2026-09-30): mechanism confirmed (the refine walks along the ring: bullseye_sim
   3.87 px → 0.02 px at window k = 2); bar not met (the demo fixture moves 1.70 px) — no patch; a window-dependence check proposed (owner).
 - [x] **Polish from the drives** (2026-09-30): 13 items across three rooms, supervised and driven (drives 3–4); left: open-items S4.
+
+### Ticked 2026-09-30 evening (new Mac)
+- [x] **New Mac bring-up** (2026-09-30, `9026863`, `62c8eda`, closeout): baseline unit 1302 / 1 / 4, scientific 51 harnesses
+  exit 0, package-test exit 0; the M5 training crash fixed; limits re-measured (`archive/v4/newmac-gateD-2026-09-30/`).

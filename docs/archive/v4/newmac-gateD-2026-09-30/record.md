@@ -73,3 +73,13 @@ Prior record (LearnedDiskDetectorTests.swift:227-238 + open-items "Learned-detec
    differ 2-4 % between units); measure accepted peaks on real scans before any app change.
    Preconditions (a) test-only: assert ANE executed (heatmap != cpuOnly), assert batch 32, rename the claim, record what .all gives.
    (b) app: gate batch-32-only ANE in code; scan-level accepted peaks on Thronsen A + one more; throughput on Detect All; open item.
+
+## 3 — The 8 GB-era limits, re-measured on the M5 Pro (64 GB, 926 GB SSD), 2026-09-30
+
+| Limit (8 GB Mac) | Measured here | Verdict |
+|---|---|---|
+| Disk floor: 1.5 GB preflight in spikes/probes, 4 / 8 GB `require_free_space` | 790 → 779 GB free across the day's gate runs (≈ 11 GB transient); floors never bind | **Kept** as guards — they stop a near-full disk faking regressions, cost nothing |
+| `-jobs 2` / one heavy job at a time (a working habit, in no tool) | Unit stage at xcodebuild's default parallelism: 52 s; swap 0.00 M after `all`, `scientific` ×2 and `package-test`; 93 % memory free mid-run | **Retired** — default parallelism; parallel agents allowed (the disk guard stays) |
+| Training admission (2 GiB available) and "quit Claude before training" | ≈ 31.6 GB free + inactive with the app, Xcode and this session resident | Bar **unchanged** (it is the run's own need, not the machine's); the quit-Claude practice **retired** |
+| "Never open > 2 GB through an unproven path" (the 2026-09-24 panic) | No local file > 2 GB (largest: bullseye 2.0 GB). `real-data-acceptance` opens all six local cubes in 30 s, largest child 281 MB RSS (`/usr/bin/time -l`), swap 0 | **Kept** until the 28 GB DM4 is read here (queue: the parity run) — a null on ≤ 2 GB files proves nothing above it |
+| `ResidencyAdmission.measuredWorkingSetFraction` | nil by decision | Untouched; its return is the next queue item, pre-registered |
