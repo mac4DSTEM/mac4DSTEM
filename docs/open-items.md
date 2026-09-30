@@ -138,8 +138,10 @@ Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" 
 (`archive/v4/parity-28gb-2026-09-30.md`: the app's raw read is right; the "unfiltered" bin-4 cubes are hot-pixel filtered at 15
 detector pixels incl. the direct beam — the owner's files, not the app; the > 2 GB read rule is retired for mapped local
 volumes); the parallax/ptychography cost (`archive/v4/parallax-ptycho-cost-2026-09-30.md`: estimators honest, the 051 cube is
-not an acquisition for them, keep/remove is the owner's). **Open:** (1) C5, 500 training steps on ≥ 12 held-out labelled
-positions and Train Model… driven; the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no
+not an acquisition for them, keep/remove is the owner's). C5's 500-step run done headless
+(`archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision
+65.7 → 72.1 %). **Open:** the Train Model… drive is the owner's (a scratch build cannot read his sidecar's labels — the
+grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no
 dialog; network volumes keep the full read.
 
 ### Scan-fastest DM4 detector pair may be transposed (2026-09-05)

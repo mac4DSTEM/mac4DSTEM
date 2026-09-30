@@ -117,7 +117,8 @@ new-Mac bring-up, residency). The 2026-09-30 "clear the board" sequence it repla
 - [ ] **The last intake — external review, part A:** read-only, may run in the cloud on the pushed repo (brief:
   `archive/v4/polish-and-review-session-plan.md`). Then one owner sitting: each finding and each of the Board's 18 cards
   fixed, declined or moved to "After v4.1". After it `open-items.md` only shrinks.
-- [ ] **In-app training (C5), finished or hidden:** the 500-step run on ≥ 12 held-out labelled positions and Train Model… driven.
+- [x] **In-app training (C5), the 500-step run (2026-09-30 night):** done headless on 17 held-out positions, D7 declines
+  (`archive/v4/c5-training-run-2026-09-30.md`); the Train Model… drive is the owner's, in his own build (the labels' sidecar grant is his).
 - [x] **Parallax and ptychography, the cost measured (2026-09-30 night):** estimators honest, the 051 cube is not an acquisition
   for them (`archive/v4/parallax-ptycho-cost-2026-09-30.md`); kept or removed is the owner's word (recommendation: keep).
 - [x] **The 28 GB parity run (2026-09-30 night):** the app's raw read is right; the file is hot-pixel filtered

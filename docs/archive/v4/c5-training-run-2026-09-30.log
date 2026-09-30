@@ -1,0 +1,34 @@
+preflight (build): 777061 MB free (need 1536) or a build is running; waiting 60 s (0/10)
+preflight (build): 777071 MB free on /, no xcodebuild / swift-frontend
+compiling DSTEMCore ...
+
+compiling Training + probe ...
+preflight (run): 777059 MB free on /, no xcodebuild / swift-frontend
+labels: 40 positions, 370 centres, sha256 d69f2aa053dabce15703434dc9998f492ba5683f6ccd5a7d0ec5a7e037b87fd6
+cube: /4DSTEM_experiment/data/datacubes/polyAu_4DSTEM/data shape [100, 84, 250, 250]
+probe /4DSTEM_experiment/data/diffractionslices/probe_template/data  r 7.36 centre (125.05, 125.00)  params: minPeakSpacing 7 edgeBoundary 10 minRel 0.0015 sigmaCC 2.0  threshold 0.70
+bundled: /private/var/folders/n_/jp6htt7s4vlcks13k9wqxvf00000gn/T/tr-probe-build.NpuCYv/disk-detector-heatmap-256.mlpackage
+split: train 23 · held out 17 (HeldOutSplit, 30 % by hash)
+bundled model loaded (Neural Engine), sha 0f53d270a6b9; footprint 63 MB
+  preparing 1/23  66 MB
+  preparing 11/23  73 MB
+  preparing 21/23  79 MB
+  step 1/500 loss 7.764e-03  0.517 s/step  296 MB
+  step 100/500 loss 1.866e-03  0.136 s/step  286 MB
+  step 200/500 loss 2.333e-03  0.134 s/step  289 MB
+  step 300/500 loss 1.613e-03  0.134 s/step  289 MB
+  step 400/500 loss 1.262e-03  0.133 s/step  289 MB
+  step 500/500 loss 1.242e-03  0.133 s/step  291 MB
+  writing + loading the candidate
+  judging 1/17
+  judging 5/17
+  judging 9/17
+  judging 13/17
+  judging 17/17
+run finished in 68 s; 0.133 s/step; final step loss 1.242e-03
+HELD-OUT (N = 17 positions, 154 centres; 2 px, threshold 0.7, Neural Engine):
+  bundled    recall 0.5844 (90/154)  precision 0.6569 (90/137)
+  fine-tuned recall 0.5714 (88/154)  precision 0.7213 (88/122)
+D7 verdict: decline("Recall fell from 58.4 % to 57.1 %. The fine-tuned model is not offered.")
+part 1 done. lifetime-max phys_footprint 745 MB; wall 68 s
+PROBE_EXIT=0
