@@ -161,14 +161,11 @@ package nonisolated enum SessionCalibrationTranslation {
         guard let view else { return nil }
         let outcome = CalibrationReReference.apply(
             view, to: sessionFrame, provenance: CalibrationProvenance(),
-            apertureCenter: sessionCenter ?? .init(
-                x: Float(view.descriptor.qx) / 2,
-                y: Float(view.descriptor.qy) / 2
-            )
+            apertureCenter: sessionCenter
         )
         return Output(
             calibration: outcome.calibration,
-            center: sessionCenter == nil ? nil : outcome.apertureCenter,
+            center: outcome.apertureCenter,
             restoredMaps: restoredMaps,
             invalidated: outcome.invalidated,
             mapsRefusal: mapsRefusal

@@ -57,9 +57,9 @@ enum CalibrationReadinessRow {
             title: item.kind.rawValue,
             systemImage: symbol,
             tint: tint,
-            detail: setAsideOrigin
-                ? item.detail + "\n" + originReplacedDetail(displaced: appState.supersededFittedOrigin?.provenance)
-                : item.detail,
+            detail: Self.keepingUnitsWithNumbers(setAsideOrigin
+                ? item.detail + "\n" + originReplacedDetail(displaced: appState.setAsideOriginProvenance)
+                : item.detail),
             status: item.status.displayName
         )
         // `unlockSummary` says what this calibration *enables*: on hover and
@@ -94,7 +94,7 @@ enum CalibrationReadinessRow {
                     }
                     .disabled(appState.isBusy)
                     .accessibilityIdentifier("calibration.action.restoreFittedOrigin")
-                    .help("Reinstates the fitted per-position origin maps that the manual aperture center set aside, and recenters the aperture on their mean.")
+                    .help("Reinstates the origin the manual aperture center set aside — the fitted per-position maps and the file's recorded center — and recenters the aperture on it.")
                 }
             }
             // Prepare only: the same view's Info tab says why the saved
@@ -130,17 +130,23 @@ enum CalibrationReadinessRow {
         return item.kind == .originProbe && item.status.isReady && canRestoreFittedOrigin
     }
 
-    /// The sentence the origin row adds while its fit is set aside. "Recorded
-    /// mean" is the file's own qx0/qy0 mean, which the drag discarded — so the
-    /// clause is said only when the displaced maps came from a file; for a fit
-    /// measured in the app it is noise (drive 2A, shot 26).
+    /// The sentence the origin row adds while its origin is set aside. A file's own
+    /// origin (its fitted maps or its recorded mean) is called the file's, which Restore
+    /// returns whole (owner, ADR 050 card A1 — the drag parks the recorded centre too);
+    /// anything else is the fitted origin.
     static func originReplacedDetail(displaced: OriginProvenance?) -> String {
         switch displaced {
         case .fileMean, .fileMaps:
-            return "Aperture center replaced the fitted origin; the file's recorded mean, if any, was discarded."
+            return "Aperture center replaced the file's origin."
         default:
             return "Aperture center replaced the fitted origin."
         }
+    }
+
+    /// A number and its `px` stay on one line: the origin detail wrapped with "px" alone on
+    /// the last line (drive 3). A no-break space between the digit and the unit, display only.
+    static func keepingUnitsWithNumbers(_ text: String) -> String {
+        text.replacingOccurrences(of: #"(\d) px\b"#, with: "$1\u{00A0}px", options: .regularExpression)
     }
 
     /// The origin row's action verb: a first measurement, or a re-measure once an

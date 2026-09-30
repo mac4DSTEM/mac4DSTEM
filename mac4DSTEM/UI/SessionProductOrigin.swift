@@ -14,6 +14,16 @@ import DSTEMSession
 /// something this session computed (S12; "Computed this session" was a bare
 /// predicate on what exists, 2026-09-11). Pure, so it is unit-tested.
 enum SessionProductOrigin {
+    /// Is an origin in memory at ALL — per-position maps or a recorded, restored or hand-set
+    /// mean? This is the question Prepare's "From session" / "From file" answers
+    /// (`originProvenance` is `.geometricDefault` only when there is none).
+    /// `Calibration.hasFittedOrigin` asks the narrower "are there per-position maps", which
+    /// left this row's circle empty beside Prepare's "From session" after a mean-only restore
+    /// (drive 2B, shots 17/21; owner card A6, ADR 050).
+    static func hasOrigin(_ calibration: Calibration) -> Bool {
+        calibration.originProvenance != .geometricDefault
+    }
+
     static func originCalibration(_ provenance: OriginProvenance) -> String? {
         switch provenance {
         case .fitted: "fitted here"

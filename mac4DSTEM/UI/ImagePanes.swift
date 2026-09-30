@@ -978,7 +978,7 @@ struct RealSpacePane: View {
                 // inspecting a quality field — the viewer is then showing a
                 // scalar viridis map, not the colour-wheel-encoded result.
                 if mapsScanPositions, let trim = originTrim(matching: dims) {
-                    OriginTrimLegend(caption: trim.caption)
+                    OriginTrimLegend(caption: trim.legend)
                 }
 
                 if qualityField == nil, appState.displayedResultKind == "dpc_color" {

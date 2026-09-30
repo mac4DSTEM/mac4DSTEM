@@ -183,3 +183,13 @@ package nonisolated struct FitOverlayPresentation {
         }
     }
 }
+
+extension FitOverlays.OriginTrimOverlay {
+    /// The pane legend: `caption`'s sentence with the app's grouped counts ("60 of 10,000", as
+    /// Info and Prepare already print them; drive 3 found the ungrouped "60 of 10000" beside
+    /// them). Equal to `caption` until a count reaches four digits — pinned in
+    /// `PolishSlot1Tests`, so the two sentences cannot drift.
+    package var legend: String {
+        "\(SystemMonitor.count(excluded)) of \(SystemMonitor.count(total)) positions excluded by the origin fit\u{2019}s robust trim"
+    }
+}

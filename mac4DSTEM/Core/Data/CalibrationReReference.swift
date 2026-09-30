@@ -112,9 +112,10 @@ package nonisolated enum CalibrationReReference {
         package var calibration: Calibration
 
         /// The aperture centre in the view's frame, or **nil when it could not
-        /// be carried** — the direct beam is outside the diffraction crop. Nil
-        /// means "fall back to the geometric default", never "leave it where it
-        /// was": a stale centre is a beam position that is not the beam.
+        /// be carried** — the direct beam is outside the diffraction crop — or
+        /// when none was supplied. For a supplied centre, nil means "fall back to
+        /// the geometric default", never "leave it where it was": a stale centre
+        /// is a beam position that is not the beam.
         package var apertureCenter: DetectorPoint?
         /// Provenance after the move. A re-referenced value keeps its
         /// provenance — a translation loses no trust, and the value still came
@@ -145,14 +146,22 @@ package nonisolated enum CalibrationReReference {
     /// A full-extent view returns its input untouched — the identity that makes
     /// "removing the specification promotes the rehearsal to the full dataset"
     /// literally true (docs/v2-scope.md §6.1).
+    ///
+    /// `apertureCenter` is a position in the SOURCE detector frame, or **nil when
+    /// the caller has none to move**. A geometric default ("the middle of the
+    /// loaded detector") is a VIEW-frame value: passing it here moved it a second
+    /// time — the ring at 7.75 instead of 16 on a 32 px view after bin 2, at the
+    /// crop's corner after a centred crop — and, where the shift left the
+    /// detector, invented a "beam not inside this crop" refusal for a file that
+    /// never recorded a beam. Nil is returned unchanged, with nothing refused.
     package static func apply(
         _ view: LoadView,
         to calibration: Calibration,
         provenance: CalibrationProvenance,
-        apertureCenter: DetectorPoint
+        apertureCenter: DetectorPoint?
     ) -> Outcome {
         var calibration = calibration
-        var apertureCenter: DetectorPoint? = apertureCenter
+        var apertureCenter = apertureCenter
         var invalidated: [CalibrationInvalidation] = []
         let specification = view.specification
         let bin = specification.detectorBin

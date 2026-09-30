@@ -347,6 +347,20 @@ final class LineageGraphLayoutTests: XCTestCase {
         XCTAssertEqual(model.activePathNeighbor(of: "s5", offset: 1), "s1", "from a branch: the path's start")
     }
 
+    /// A refit of the origin after disks were detected on the first fit is a NEW node that
+    /// takes the origin's replay place; the list reads in time order anyway (drive 3).
+    /// Mutation it catches: `activePath` back on `activeNodes()` (["s3", "s2"]).
+    func testTheNarrowListIsInTimeOrderWhenALaterRefitReplacesAnEarlierKind() {
+        var lineage = SessionLineage()
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "friedel"], frame: frame)
+        lineage.recordRun(kind: "disk_detection", parameters: ["floor": "0.50"], frame: frame)
+        lineage.recordRun(kind: "calibration_origin", parameters: ["method": "plane"], frame: frame)
+        XCTAssertEqual(lineage.activeNodes().map(\.id), ["s3", "s2"], "precondition: the replay order is not time order")
+        let model = LineageGraphModel(lineage: lineage)
+        XCTAssertEqual(model.activePath.map(\.id), ["s2", "s3"])
+        XCTAssertEqual(model.activePathNeighbor(of: "s2", offset: 1), "s3", "the arrow keys follow the list")
+    }
+
     /// Mutation it catches: a caption for every session (a live one must not
     /// claim "order only"), or none for v1.
     func testOnlyV1SessionsDrawOrderOnlyConnectors() {

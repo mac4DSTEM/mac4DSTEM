@@ -690,9 +690,8 @@ private struct SessionProductsSections: View {
         // computed (S12; the title used to claim it was).
         InspectorSection("In memory") {
             let calibration = appState.calibrationSession.calibration
-            product("Origin calibration", done: calibration.hasFittedOrigin,
-                    detail: calibration.hasFittedOrigin
-                        ? SessionProductOrigin.originCalibration(calibration.originProvenance) : nil)
+            product("Origin calibration", done: SessionProductOrigin.hasOrigin(calibration),
+                    detail: SessionProductOrigin.originCalibration(calibration.originProvenance))
             product("R–Q rotation", done: calibration.hasRotation,
                     detail: calibration.hasRotation
                         ? SessionProductOrigin.rotation(appState.calibrationSession.provenance.rotation) : nil)

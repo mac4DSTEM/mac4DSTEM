@@ -165,7 +165,8 @@ private struct LineagePane: View {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(product.provenance.sorted { $0.key < $1.key }, id: \.key) { entry in
                         HStack(alignment: .firstTextBaseline, spacing: LayoutPolicy.inspectorRowSpacing) {
-                            Text(entry.key).foregroundStyle(.secondary)
+                            Text(ProvenanceKeyLabel.text(entry.key)).foregroundStyle(.secondary)
+                                .help(entry.key)
                             Text(entry.value).textSelection(.enabled)
                             Spacer(minLength: 0)
                         }
@@ -182,5 +183,25 @@ private struct LineagePane: View {
         }
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .padding(.vertical, 4)
+    }
+}
+
+/// A provenance key as a person reads it. The keys are a data contract (they are written into
+/// exports and sidecars as they are), so the raw key stays in the row's help and only the
+/// label changes: `analysis_mode` reads "Analysis mode"; the phase-map counts
+/// (`count_0_Aluminium (FCC)`) read "Positions: Aluminium (FCC)". A phase name keeps its own
+/// spelling.
+enum ProvenanceKeyLabel {
+    static func text(_ key: String) -> String {
+        if key == "count_not_indexed" { return "Positions: not indexed" }
+        if key == "count_no_peaks" { return "Positions: no peaks" }
+        if key.hasPrefix("count_") {
+            let rest = key.dropFirst("count_".count)
+            if let underscore = rest.firstIndex(of: "_"), Int(rest[..<underscore]) != nil {
+                return "Positions: " + rest[rest.index(after: underscore)...]
+            }
+        }
+        let spaced = key.replacingOccurrences(of: "_", with: " ")
+        return spaced.prefix(1).uppercased() + spaced.dropFirst()
     }
 }

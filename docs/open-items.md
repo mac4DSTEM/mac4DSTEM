@@ -112,13 +112,15 @@ One line each; full wording as above.
 - Polish 2026-09-30 (driven, drives 3–4): the Matrix picker names β″ twins by zone axis; Show Objects / Match Distance swap to
   "Show Phase Map"; Evidence help names the selected position; a visible Re-measure; "Saved with the dataset" from a real
   session flag; carried-calibration refusals shown in Prepare; the annulus centre drags; units read Å⁻¹; the promote footer keeps
-  the pattern readout; a fresh cube shows its virtual image; counts grouped. Left (proposals, shots `drives-2026-09-30-night-shots/`):
-  the Lineage list puts a later origin fit above earlier nodes; the S23 legend chip prints ungrouped counts ("60 of 10000"); the
-  crop warning mixes axis orders ("64x60 at (16, 20)" vs "60 × 64 scan"); Info › Provenance shows raw snake_case keys; the
-  configurator's status keeps "Sampling a preview · row 24 of 25"; the origin detail wraps "px" alone; a from-file drag sentence
-  could read "Aperture center replaced the file's origin".
-- **After a detector-bin-2 load the aperture ring sits off-centre** in the 64 × 64 pattern (drive 3, shot 52): likely a stale
-  128 px aperture — reproduce, then Gate D (it sets what the virtual image integrates).
+  the pattern readout; a fresh cube shows its virtual image; counts grouped. Slot 1 lane P (2026-09-30 night) took the rest of
+  the drives' list (lineage order, legend counts, crop-warning axes, the configurator status, "px", the drag sentence) and the
+  bin-2 aperture default (Gate D: the view-frame default was re-referenced as a source point; `archive/v4/v41-plan-2026-09-30.md`
+  § Log). Left: Info › Provenance shows raw snake_case keys (`WorkspaceInspector.swift:625`, frozen; a wording edit that corrects
+  no false claim — the owner's call, the one-line patch is in the Slot 1 record).
+- Slot 1 P drive residuals (2026-09-30 night, shots in `archive/v4/slot1-p-drive-2026-09-30-shots/`): the legend chip hides while the
+  CBED pane is zoomed; the bottom Lineage/Output pane is ~1.5 rows tall at 1470 × 923 (frozen `WorkspaceView`); the inner-radius
+  handle sits beside the ⊕ centre marker at inner 0; the sidebar session-warning headline truncates; the "Positions used"
+  percentage fallback (> 2 % excluded) was not reached on screen.
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)
 **Sidecar access (2026-09-30 night, owner's drive):** on a Mac with no grant (every dataset after a migration or a rebuild that

@@ -48,10 +48,11 @@ final class PrepareCalibrationPolishTests: XCTestCase {
 
     // MARK: item 2 — the file clause only for a file's origin
 
-    /// Mutations it catches: the file clause on a measured fit; the clause lost
-    /// for a file's maps.
+    /// Mutations it catches: "the file's origin" on a measured fit; the sentence lost
+    /// for a file's maps. (2026-09-30 night, ADR 050 card A1: the drag parks the file's
+    /// recorded centre, so the old "was discarded" clause is gone.)
     func testTheFileClauseIsSaidOnlyForAnOriginThatCameFromAFile() {
-        let file = "Aperture center replaced the fitted origin; the file's recorded mean, if any, was discarded."
+        let file = "Aperture center replaced the file's origin."
         XCTAssertEqual(CalibrationReadinessRow.originReplacedDetail(displaced: .fileMaps), file)
         XCTAssertEqual(CalibrationReadinessRow.originReplacedDetail(displaced: .fileMean), file)
         XCTAssertEqual(CalibrationReadinessRow.originReplacedDetail(displaced: .fitted),

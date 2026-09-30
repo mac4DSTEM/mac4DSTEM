@@ -543,16 +543,20 @@ nonisolated extension LoadSpecification {
     }
 
     /// A short human form for provenance display, or nil at full extent.
+    ///
+    /// Width × height, then the offset with its axes NAMED — the order the sidebar's
+    /// "60 × 64 scan" already uses. It read "scan 64x60 at (16, 20)" (height first, offsets
+    /// as (y, x)) beside it, which drive 3 could not tell from a transposed crop.
     package var provenanceSummary: String? {
         guard !isFullExtent else { return nil }
         var parts: [String] = []
         if let scan = scanCrop {
-            parts.append("scan \(scan.height)x\(scan.width) at (\(scan.yOffset), \(scan.xOffset))")
+            parts.append("scan \(scan.width) \u{00D7} \(scan.height) at (x \(scan.xOffset), y \(scan.yOffset))")
         }
         if let detector = detectorCrop {
-            parts.append("detector \(detector.height)x\(detector.width) at (\(detector.yOffset), \(detector.xOffset))")
+            parts.append("detector \(detector.width) \u{00D7} \(detector.height) at (x \(detector.xOffset), y \(detector.yOffset))")
         }
-        if detectorBin > 1 { parts.append("binned \(detectorBin)x") }
+        if detectorBin > 1 { parts.append("binned \(detectorBin)\u{00D7}") }
         return parts.joined(separator: ", ")
     }
 }

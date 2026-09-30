@@ -28,6 +28,36 @@ final class SessionProductOriginTests: XCTestCase {
         XCTAssertNil(SessionProductOrigin.originCalibration(.geometricDefault), "an unfitted default names nothing")
     }
 
+    /// A6 (owner, ADR 050): the row's circle is empty only when NO origin is in memory. A
+    /// session that restored only a mean origin (no maps) read as absent beside Prepare's
+    /// "From session". Mutations: `hasOrigin` reading `origin != nil` again (the mean-only
+    /// cases go red); always true (the default case goes red); the word and the circle
+    /// disagreeing for any provenance.
+    func testTheOriginRowIsPresentForAnyOriginAndEmptyOnlyForNone() {
+        func calibration(_ provenance: OriginProvenance, maps: Bool = false) -> Calibration {
+            var value = Calibration()
+            value.originProvenance = provenance
+            if maps {
+                value.origin = OriginMaps(width: 1, height: 1, measuredX: nil, measuredY: nil,
+                                          fittedX: [3], fittedY: [4])
+            }
+            return value
+        }
+        XCTAssertFalse(SessionProductOrigin.hasOrigin(Calibration()), "a fresh calibration has none")
+        XCTAssertFalse(SessionProductOrigin.hasOrigin(calibration(.geometricDefault)))
+        XCTAssertTrue(SessionProductOrigin.hasOrigin(calibration(.sessionMean)), "mean only: was an empty circle")
+        XCTAssertTrue(SessionProductOrigin.hasOrigin(calibration(.fileMean)))
+        XCTAssertTrue(SessionProductOrigin.hasOrigin(calibration(.manual)), "a hand-set centre is an origin")
+        XCTAssertTrue(SessionProductOrigin.hasOrigin(calibration(.fitted, maps: true)))
+        XCTAssertTrue(SessionProductOrigin.hasOrigin(calibration(.sessionMaps, maps: true)))
+        // The circle and the word agree for every provenance.
+        for provenance in [OriginProvenance.geometricDefault, .fileMean, .fileMaps, .sessionMean,
+                           .sessionMaps, .fitted, .manual] {
+            XCTAssertEqual(SessionProductOrigin.hasOrigin(calibration(provenance)),
+                           SessionProductOrigin.originCalibration(provenance) != nil, "\(provenance)")
+        }
+    }
+
     func testRotationSaysMeasuredHereOrRestoredOrFromFile() {
         XCTAssertEqual(SessionProductOrigin.rotation(.measuredInApp), "measured here")
         XCTAssertEqual(SessionProductOrigin.rotation(.sessionSidecar), "restored from session")

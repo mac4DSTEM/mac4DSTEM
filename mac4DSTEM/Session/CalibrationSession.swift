@@ -35,6 +35,25 @@ package final class CalibrationSession {
     /// `applyEllipseFit` and `clear()`.
     package var ellipseFitAnywayOffer: Int?
 
+    /// The file's (or a session sidecar's) RECORDED mean beam centre, set aside by a
+    /// centre drag so that Restore returns it — owner, ADR 050 card A1: the drag no longer
+    /// destroys the file's own number. `provenance` is what the origin read as when it was
+    /// set aside (`.fileMean` / `.sessionMean` when no fitted maps stood above it).
+    /// Owner of this slot: this session (not `AppState`); its lifetime is the set-aside
+    /// fitted origin's — `AppState.clearSupersededFittedOrigin()` clears both, `clear()` here.
+    package struct ParkedRecordedOrigin: Equatable, Sendable {
+        package var x: Float
+        package var y: Float
+        package var provenance: OriginProvenance
+
+        package init(x: Float, y: Float, provenance: OriginProvenance) {
+            self.x = x
+            self.y = y
+            self.provenance = provenance
+        }
+    }
+    package var parkedRecordedOrigin: ParkedRecordedOrigin?
+
     package init() {}
 
     /// Take an R–Q rotation fit, or say why not. Returns nil when the fit was
@@ -132,6 +151,7 @@ package final class CalibrationSession {
         provenance = CalibrationProvenance()
         lastEllipseFit = nil
         ellipseFitAnywayOffer = nil
+        parkedRecordedOrigin = nil
     }
 
     /// Is there anything for a clear control to remove? `.unusable` counts: an

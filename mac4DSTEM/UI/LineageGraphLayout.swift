@@ -455,8 +455,10 @@ nonisolated struct LineageGraphModel {
         return nodes.last?.id
     }
 
-    /// The active path in the record's order — the list the narrow pane shows.
-    var activePath: [SessionLineage.Node] { lineage.activeNodes() }
+    /// The active path in the order the runs HAPPENED — the list the narrow pane
+    /// shows. Not `activeNodes()`: that keeps a replaced kind in its first place (the
+    /// replay order), so a second origin fit s4 was listed above s2 and s3 (drive 3).
+    var activePath: [SessionLineage.Node] { lineage.nodes.filter { activeIDs.contains($0.id) } }
 
     /// The next (`offset` 1) or previous (-1) run on the active path — the
     /// narrow list's arrow keys. From a run that is not on the path: its start

@@ -53,7 +53,11 @@ extension AppState {
                     return
                 }
                 switch previewResult {
-                case .success(let preview): pending.preview = preview
+                case .success(let preview):
+                    pending.preview = preview
+                    // The last progress tick ("Sampling a preview · row 24 of 25") would
+                    // otherwise stay in the footer under the drawn previews (drive 3).
+                    statusText = "Preview ready — choose what to load"
                 case .failure(let error):
                     if error is CancellationError {
                         if accessed { url.stopAccessingSecurityScopedResource() }
@@ -448,6 +452,11 @@ extension AppState {
         if let dm4 = reader as? DM4Reader, let note = await dm4.calibrationNote {
             statusText = note
         }
+        // The aperture centre the FILE recorded, in SOURCE detector pixels — the only
+        // aperture position `CalibrationReReference` may move. The default above is a
+        // VIEW-frame value (already binned / cropped); re-referencing it a second time
+        // put the ring at 7.75 on a 32 px view after bin 2 (drive 3, shot 52).
+        var fileApertureCenter: CalibrationReReference.DetectorPoint?
         // Pixel sizes from file metadata (DM4 tags or py4DSTEM EMD bundle).
         if let pc = await reader.pixelCalibration() {
             var rSize = pc.rSize
@@ -494,6 +503,7 @@ extension AppState {
             if let qx0 = pc.qx0Mean, let qy0 = pc.qy0Mean {
                 aperture.centerX = Float(qy0)
                 aperture.centerY = Float(qx0)
+                fileApertureCenter = .init(x: Float(qy0), y: Float(qx0))
                 // The value gets a HOME, not just a provenance label (v2
                 // S13) — stored only in the aperture it would be lost the
                 // moment the user moved the detector, leaving every analysis
@@ -518,6 +528,7 @@ extension AppState {
                 if let origin = calibrationSession.calibration.meanOrigin {
                     aperture.centerX = origin.x
                     aperture.centerY = origin.y
+                    fileApertureCenter = .init(x: origin.x, y: origin.y)
                 }
                 calibrationSession.calibration.originProvenance = .fileMaps
             }
@@ -534,14 +545,14 @@ extension AppState {
         // are pure geometry and they are testable without an AppState.
         let reReferenced = CalibrationReReference.apply(
             view, to: calibrationSession.calibration, provenance: calibrationSession.provenance,
-            apertureCenter: .init(x: aperture.centerX, y: aperture.centerY)
+            apertureCenter: fileApertureCenter
         )
         calibrationSession.calibration = reReferenced.calibration
         calibrationSession.provenance = reReferenced.provenance
         if let center = reReferenced.apertureCenter {
             aperture.centerX = center.x
             aperture.centerY = center.y
-        } else {
+        } else if fileApertureCenter != nil {
             // The beam is not inside the diffraction crop. Fall back to the
             // geometric default rather than leaving the aperture pointed at a
             // detector pixel that is no longer loaded.
@@ -1162,7 +1173,14 @@ extension AppState {
 
     func clearSupersededFittedOrigin() {
         supersededFittedOrigin = nil
+        calibrationSession.parkedRecordedOrigin = nil
         canRestoreFittedOrigin = false
+    }
+
+    /// The provenance of the origin a centre drag set aside — the fitted maps', else the
+    /// file's recorded centre's — for the origin row's sentence.
+    var setAsideOriginProvenance: OriginProvenance? {
+        supersededFittedOrigin?.provenance ?? calibrationSession.parkedRecordedOrigin?.provenance
     }
 
     /// The ONE path that resets the calibration — activation, a cancelled load,
@@ -1189,22 +1207,36 @@ extension AppState {
         acomSession.invalidateResult()
     }
 
-    /// Undo a manual center that displaced fitted origin maps: reinstate the
-    /// maps with their original provenance and recenter the aperture on
-    /// their mean.
+    /// Undo a manual center: reinstate the fitted maps it set aside (with their original
+    /// provenance) and the file's recorded centre it parked, and recenter the aperture on
+    /// them. Either may be absent — a file with only a recorded mean has no maps.
     func restoreFittedOrigin() {
-        guard let superseded = supersededFittedOrigin else { return }
+        let superseded = supersededFittedOrigin
+        let parked = calibrationSession.parkedRecordedOrigin
+        guard superseded != nil || parked != nil else { return }
         clearSupersededFittedOrigin()
-        calibrationSession.calibration.origin = superseded.maps
-        calibrationSession.calibration.originProvenance = superseded.provenance
+        if let superseded {
+            calibrationSession.calibration.origin = superseded.maps
+            calibrationSession.calibration.originProvenance = superseded.provenance
+        }
+        if let parked {
+            calibrationSession.calibration.recordedOriginX = parked.x
+            calibrationSession.calibration.recordedOriginY = parked.y
+            if superseded == nil { calibrationSession.calibration.originProvenance = parked.provenance }
+        }
         if let mean = calibrationSession.calibration.meanOrigin {
             aperture.centerX = mean.x
             aperture.centerY = mean.y
+        } else if let parked {
+            aperture.centerX = parked.x
+            aperture.centerY = parked.y
         }
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
-        statusText = "Fitted origin restored — \(superseded.provenance.displayName)"
-        recordOriginRestoredRun(fitParameters: superseded.lineage)
+        let restored = superseded?.provenance ?? parked?.provenance
+        statusText = "Fitted origin restored — \(restored?.displayName ?? "origin")"
+        // The set-aside recorded a lineage node only for fitted maps (`recordOriginSetAsideRun`).
+        if let superseded { recordOriginRestoredRun(fitParameters: superseded.lineage) }
         scheduleLiveVirtualDetector()
     }
 
@@ -1226,15 +1258,23 @@ extension AppState {
                 recordOriginSetAsideRun()
             }
             calibrationSession.calibration.origin = nil
-            // The file's recorded mean goes with them (Gate B): v2 S13 gave
-            // that value a home of its own but did not clear it here, so
+            // The file's recorded mean leaves the live calibration with them (Gate B): v2 S13
+            // gave that value a home of its own but did not clear it here, so
             // `referenceOrigin` kept returning `.recordedMean` — the FILE's
             // number — while `originProvenance` read `.manual`, and the CoM
             // field and the measured probe kernel silently stopped using the
-            // centre the user had just dragged to. Discarding it here
-            // restores the pre-S13 semantics (the aperture was the only
-            // carrier then); it is not recoverable through
-            // `supersededFittedOrigin`, which holds maps only.
+            // centre the user had just dragged to. It is PARKED, not destroyed
+            // (owner, ADR 050 card A1): Restore returns it. Read before
+            // `originProvenance` is overwritten below.
+            if let x = calibrationSession.calibration.recordedOriginX,
+               let y = calibrationSession.calibration.recordedOriginY {
+                calibrationSession.parkedRecordedOrigin = .init(
+                    x: x, y: y, provenance: calibrationSession.calibration.originProvenance)
+                canRestoreFittedOrigin = true
+                if supersededFittedOrigin == nil {
+                    statusText = "Manual aperture center — the file's recorded center set aside (Restore Fitted Origin in Calibration undoes this)"
+                }
+            }
             calibrationSession.calibration.recordedOriginX = nil
             calibrationSession.calibration.recordedOriginY = nil
             calibrationSession.calibration.originProvenance = .manual
