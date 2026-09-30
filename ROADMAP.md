@@ -121,51 +121,18 @@ Clearing is three moves, in this order.
    session (S3–S6 below; their items are `docs/open-items.md` § Polish). 4. **Science, one Gate D per session** (S7–S11).
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-- [x] **S1 Close** (2026-09-30, `45d1228`): board 7 lanes, open-items 22 entries (see step 1 above).
-- [x] **S2 Workspaces** (2026-09-30, `d8cb7d2`): ADR 046's six, driven at 915 and 1470 pt.
-- [x] **S3 Prepare** (2026-09-30, `15d2b6c`, `9fe9440`): number entry in any region (Gate D + refuter); Friedel speed
-  (Core `-O` in Debug). Open: re-drive the ETA's falling shape.
-- [x] **S4 Phases & precipitates** (2026-09-30): Q prerequisite; the tie order (the probe's Dictionary; the app ranking made
-  total). Carried: busy status line at narrow widths (Frozen Shell), the Al-Mg-Si recipe preset (owner's run first).
-- [x] **S5 Sessions & sidecars** (2026-09-30, `1fc9f8f`): attribute guard, owned cancel token, reopen; residuals in open-items.
-- [x] **S7–S9 Gate D** (2026-09-30, `c217038`): D025, D023, D019 fixed with refuters.
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30, S1–S23, A, B, D, S14-D, polish).
 
-**Clearing the board (owner, 2026-09-30: "make a plan to clear everything").** Sessions drive the app themselves; the
-owner is asked only for decisions, batched into ONE sitting (phase B). Each line lands as commits with its gate.
-- [x] **A. Verify and finish** (2026-09-30): the unverified rows driven (S5 reopen last; it found a defect); S10 A and
-  B refuted (T4 ships as a quantity); S11 flat in the app; S6 both halves; number fields commit on Return, and before
-  any run (`PendingEdits`).
-- [x] **B. The owner's sitting, taken under delegation** (2026-09-30): ADR 047 (lineage), 048 (training on MPSGraph,
-  the C3 flow, T4 as a quantity, hardware waits) — overrule on sight.
-- [ ] **C. On-device training (ADR 043/048).** Done: C2.5 (1.48 GB), the MPSGraph mirror (equals MLX, 4× faster), C4a
-  core + C4b flow in Bragg Disks (split, Train Model…, the D7 sheet, model picker, Remove, provenance), gated and
-  reviewed; the step-loop leak fixed (`7361eea`, 10.9 → 0.04 MB/step). Left: **C5** — a full run on ≥ 12 held-out labelled
-  positions, driven; the minimum N measured. On this 8 GB Mac admission refuses while Claude runs (2.10–2.13 of 2.16 GB,
-  2026-09-30): waits for the new hardware (owner, 2026-09-30).
-- [x] **D. Lineage graph (ADR 047)** (2026-09-30): L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane,
-  L4 Rewind to Here (`34af213`), `lineage_step` on phase maps, objects and groups with stale marking by the active path
-  and the export edge to its own run (`c8cf592`, Fable supervisor, driven). Residuals in open-items.
-- [ ] **E. The remaining lanes.** Done: T4 as a quantity; the claimed-disks overlay and the Al–Mg–Si phase-setup
-  preset, driven on the demo cube (matrix 8 claimed, β″ 6 + 2 unexplained, unmatched 6 unexplained). Left: the Al
-  Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048); hardware.
-- A lane leaves the board when its line here is ticked; the board is cleared when A–E are.
-- **Next block (accepted by the owner 2026-09-30; run as one night, `archive/v4/overnight-plan-2026-09-30.md`)** — GREEN
-  first, YELLOW (measure + propose) last:
-- [x] **S17 Lean sweep** (2026-09-30 night, `c403125`): the stale open-items entries retired; diffraction groups' two-pass path kept or deleted by profile.
-- [x] **S12 Stale marks II** (`b8b4544`, driven): zone-axis stale check (phase, tolerance), objects re-run as a run, "Computed this session".
-- [x] **S13 CIF trust** (`f59e65f`): short symmetry-op lists refused; a symmetry-only second block no longer merges.
-- [x] **S19 Regression net** (`f73be56`): positions not counts; empty globs fail; every check broken first.
-- [x] **S22 Accessibility** (`53440b3`): probe, retire what holds, label what does not.
-- [x] **S16 Virtual-detector tiled loops** (`e19b32c`, flat): measured; fixed only if not flat.
-- [x] **S18 Promote / replay / load tail** (`64015f0`, driven): the superseded-load tail, promote position, restore shape check, provenance.
-- [x] **S15 R–Q sign residuals** (`19f5b07`, label-only): pre-2026-09-28 exports refused or labelled, never silently flipped.
-- [x] **S23 Origin validity overlay** (`08f457a`, driven): excluded positions greyed (new surface, driven).
-- [x] **S14 · S20 · S21 (YELLOW)** (`1c3da28`, `a29359b`, `7d5f0a8`): measured; only S21 proposes a patch (owner).
-- **Next (owner, 2026-09-30 morning), in order:**
-- [x] **S14-D Gate D on the origin refine step** (2026-09-30): mechanism confirmed (the refine walks along the ring: bullseye_sim
-  3.87 px → 0.02 px at window k = 2); bar not met (the demo fixture moves 1.70 px) — no patch; a window-dependence check proposed (owner).
-- [x] **Polish from the drives** (2026-09-30): 13 items across three rooms, supervised and driven (drives 3–4); left: open-items S4.
-- [ ] **Full polish and code review by an external agent** — brief and kickoff prompt: `archive/v4/polish-and-review-session-plan.md`.
+**Next, in order (owner, 2026-09-30: the new Mac is here):**
+- [ ] **New Mac bring-up:** clone, `git config core.hooksPath tools/hooks`, `tools/lib/fetch-py4dstem.sh`, the gating cubes,
+  Screen Recording + Accessibility, then `run-tests.sh all` as that machine's baseline; the old 8 GB limits are re-measured,
+  not assumed (`open-items.md` › Ready on the new hardware).
+- [ ] **C5 and the hardware lanes (ADR 043/048):** the 500-step training run on ≥ 12 held-out labelled positions and Train
+  Model… driven (the 8 GB Mac's admission refused it, 2.10–2.13 of 2.16 GB); parallax/ptychography on real data (cost Gate
+  D, then keep or remove); the 28 GB parity run.
+- [ ] **Full polish and code review by an external agent:** brief and kickoff prompt `archive/v4/polish-and-review-session-plan.md`.
+- [ ] **E. The remaining lanes:** the Al Materials Project comparison in the owner's own build (θ′ and T1 are not in MP; ADR 048).
+- The owner's picks from the Board's "Your decisions" (18 cards) are queued here as they come.
 
 ## How a v3 feature is done
 

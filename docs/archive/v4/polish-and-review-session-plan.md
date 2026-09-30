@@ -18,7 +18,8 @@ Most of the code and every review so far came from one model family. Independent
    the single source of truth), `docs/open-items.md`, `ROADMAP.md`, `docs/decisions.md`.
 3. Build and gates: `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`;
    `tools/run-tests.sh unit | inventory | core | scientific`. Last reconciled unit count: 1279 / 0 / 3 = 1282 (2026-09-30 night).
-   Machine: an 8 GB Mac — `-jobs 2`, one build at a time, never full-read a file bigger than RAM, delete `Logs/Test/*.xcresult`.
+   Machine: the owner's new Mac (2026-09-30). The old 8 GB Mac's rules (`-jobs 2`, one build at a time, the disk floor) are
+   re-measured on it, not assumed; never full-read a file bigger than RAM; delete `Logs/Test/*.xcresult` after reading.
 4. The app: 179 Swift files, ~69 k lines; largest `Core/Data/BraggVectorEMDWriter.swift` (2 935), `Core/Crystal/
    PhaseVectorMatching.swift` (1 698), `Support/ResultExport.swift` (1 614), `App/AppState.swift` (1 457), `UI/MapSettings.swift`
    (1 409). Six workspaces (ADR 046): Prepare · Imaging · Bragg Disks · Crystal Maps · Reconstruction · Results.

@@ -253,3 +253,34 @@ The microprobe re-acquisition (B3) waits for new measurements; the existing scan
 **Already there.** The learned disk detector has run on the Neural Engine since v3.0.0 (Detector: Learned, offered
 once *Offer learned detector* is on in Settings). What is missing is training it on the user's own marks.
 
+## Session-queue lines ticked through 2026-09-30 (moved at that closeout)
+
+- [x] **S1 Close** (2026-09-30, `45d1228`): board 7 lanes, open-items 22 entries (see step 1 above).
+- [x] **S2 Workspaces** (2026-09-30, `d8cb7d2`): ADR 046's six, driven at 915 and 1470 pt.
+- [x] **S3 Prepare** (2026-09-30, `15d2b6c`, `9fe9440`): number entry in any region (Gate D + refuter); Friedel speed
+  (Core `-O` in Debug). Open: re-drive the ETA's falling shape.
+- [x] **S4 Phases & precipitates** (2026-09-30): Q prerequisite; the tie order (the probe's Dictionary; the app ranking made
+  total). Carried: busy status line at narrow widths (Frozen Shell), the Al-Mg-Si recipe preset (owner's run first).
+- [x] **S5 Sessions & sidecars** (2026-09-30, `1fc9f8f`): attribute guard, owned cancel token, reopen; residuals in open-items.
+- [x] **S7–S9 Gate D** (2026-09-30, `c217038`): D025, D023, D019 fixed with refuters.
+- [x] **A. Verify and finish** (2026-09-30): the unverified rows driven (S5 reopen last; it found a defect); S10 A and
+  B refuted (T4 ships as a quantity); S11 flat in the app; S6 both halves; number fields commit on Return, and before
+  any run (`PendingEdits`).
+- [x] **B. The owner's sitting, taken under delegation** (2026-09-30): ADR 047 (lineage), 048 (training on MPSGraph,
+  the C3 flow, T4 as a quantity, hardware waits) — overrule on sight.
+- [x] **D. Lineage graph (ADR 047)** (2026-09-30): L1 record v2 (Gate B, amended), L2/L3 the graph in the Lineage pane,
+  L4 Rewind to Here (`34af213`), `lineage_step` on phase maps, objects and groups with stale marking by the active path
+  and the export edge to its own run (`c8cf592`, Fable supervisor, driven). Residuals in open-items.
+- [x] **S17 Lean sweep** (2026-09-30 night, `c403125`): the stale open-items entries retired; diffraction groups' two-pass path kept or deleted by profile.
+- [x] **S12 Stale marks II** (`b8b4544`, driven): zone-axis stale check (phase, tolerance), objects re-run as a run, "Computed this session".
+- [x] **S13 CIF trust** (`f59e65f`): short symmetry-op lists refused; a symmetry-only second block no longer merges.
+- [x] **S19 Regression net** (`f73be56`): positions not counts; empty globs fail; every check broken first.
+- [x] **S22 Accessibility** (`53440b3`): probe, retire what holds, label what does not.
+- [x] **S16 Virtual-detector tiled loops** (`e19b32c`, flat): measured; fixed only if not flat.
+- [x] **S18 Promote / replay / load tail** (`64015f0`, driven): the superseded-load tail, promote position, restore shape check, provenance.
+- [x] **S15 R–Q sign residuals** (`19f5b07`, label-only): pre-2026-09-28 exports refused or labelled, never silently flipped.
+- [x] **S23 Origin validity overlay** (`08f457a`, driven): excluded positions greyed (new surface, driven).
+- [x] **S14 · S20 · S21 (YELLOW)** (`1c3da28`, `a29359b`, `7d5f0a8`): measured; only S21 proposes a patch (owner).
+- [x] **S14-D Gate D on the origin refine step** (2026-09-30): mechanism confirmed (the refine walks along the ring: bullseye_sim
+  3.87 px → 0.02 px at window k = 2); bar not met (the demo fixture moves 1.70 px) — no patch; a window-dependence check proposed (owner).
+- [x] **Polish from the drives** (2026-09-30): 13 items across three rooms, supervised and driven (drives 3–4); left: open-items S4.

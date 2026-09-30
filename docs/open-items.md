@@ -130,25 +130,19 @@ One line each; full wording as above.
 - **Resident**: "freed" bytes never measured; the reopen fix has no test (the recovery store is real `UserDefaults`). UX: a retarget before any save lasts one dataset change; pre-S4 calibration-only sidecars unrecognisable;
   `calibration.*` identifiers doubled under the export sheet; Recents labels "This Mac". (`.h5.h5`: fixed 2026-09-09, `a8b13c6`.)
 
-## Waits on hardware or the owner
+## Ready on the new hardware (owner, 2026-09-30) — and what still waits on the owner
 
-### Waits on the stronger Mac: parallax/ptychography and the 28 GB parity run
-- **Parallax and ptychography** need 8–11 GB for a 268 MB cube (30–40×): true cost or an over-estimate? A Gate D, not a knob.
-  Both ship **undriven on real data** (release notes say so). Owner (2026-09-28): drive both there, then keep or remove.
-- **The 28 GB `--parity` run** (`almgsi-gateD-2026-09-24.md` 6, 8). The DM4 reader maps on every `MNT_LOCAL` volume
-  (`DM4Reader.readingOptions(forPath:)`; the SSD proved at 3–53 MB, `archive/v4/ssd-subsample-2026-09-29.md`). **Trap: never open
-  a file over ~2 GB through an unproven path on the 8 GB Mac** (it kernel-panicked 2026-09-24). Residuals: a vanished volume is a
-  SIGBUS crash with no dialog; network volumes keep the old full read (origin calibration over a NAS ran at ~3 MB/s, 2026-08-06, uninvestigated).
-
-### Training (ADR 043/048): the step-loop leak fixed (2026-09-30); the full C5 run and the in-app drive owed
-- MPSGraph's autoreleased results piled up in the one detached job: 10.9 MB/step → 0.04 with a per-step pool, losses
-  identical (`archive/v4/training-leak-gateD-2026-09-30.md`). **Owed:** the 500-step C5 run and Train Model… in the app.
-  Both drives (2026-09-30) reached the button set up (40 positions, split 23/17) and were refused by admission: 2.07–2.13
-  GB available of 2.16 needed with the Claude app resident (`archive/v4/drives-2026-09-30.md`). Deferred to the new
-  hardware (owner, 2026-09-30); the labelled sidecar stays beside the bullseye cube.
-- **Detector truth** (A2, `tools/disk-detector/labels/bullseye-2026-09-28.json`, 370 centres re-labelled by eye, owner-approved;
-  `archive/v4/a2-label-scoring-2026-09-28.md`): net 0.584 / 0.655 at 0.7, 2 px; label-vs-net scatter 1.2 px. **Owed:** an
-  inter-labeller check; the classical floor at the app's own settings. The in-app labelling route is untried on real data.
+### The new Mac: bring-up first, then the three hardware lanes
+Every memory and disk limit in these docs (admission bars, the 1.5 GB disk floor, `-jobs 2`, "never open > 2 GB through an
+unproven path") was measured on the 8 GB Mac; none transfers until re-measured on the new one. **Bring-up:** clone, `git config
+core.hooksPath tools/hooks`, `tools/lib/fetch-py4dstem.sh`, the six gating cubes into `References/training_dataset/`, Screen
+Recording + Accessibility for the session, then `tools/run-tests.sh all` as the new machine's baseline (last on the old: unit
+1305 / 0 / 2 = 1307, `unit-polish2.log`). **Then:** (1) C5, the 500-step training run on ≥ 12 held-out labelled positions and
+Train Model… driven (the step-loop leak is fixed, 10.9 → 0.04 MB/step; the labelled sidecar sits beside the bullseye cube);
+(2) parallax and single-slice ptychography driven on real data — they asked 8–11 GB for a 268 MB cube (30–40×): measure whether
+that is the true cost (a Gate D, not a knob), then the owner keeps or removes them; (3) the 28 GB `--parity` run of the raw
+Al-Mg-Si DM4 (`almgsi-gateD-2026-09-24.md` 6, 8). Residuals that do not go away with RAM: a vanished volume is a SIGBUS with no
+dialog; network volumes keep the full read. Detector truth (A2, 370 centres, net 0.584 / 0.655): an inter-labeller check owed.
 
 ### Scan-fastest DM4 detector pair may be transposed (2026-09-05)
 `Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags `[Rx, Ry, Qy, Qx]` (pattern 480×448); a transposed pattern silently
