@@ -39,6 +39,13 @@ and unvalidated rules) and is reversible.
 
 ## Amendments — 2026-09-30 (the build)
 
+- **Hardware (owner, 2026-09-30 night): parallax and ptychography stay, and their memory limits scale with the Mac.** The
+  fixed 1 GiB ceilings were the 8 GB Mac's number; on the M5 Pro they refused what the machine holds with room to spare
+  (cost measured, `archive/v4/parallax-ptycho-cost-2026-09-30.md`). `PhaseContrastMemoryBudget` = half the physical memory,
+  never below 1 GiB; every stage's default reads it; the refusal still names the number. The first suitable test data is
+  py4DSTEM's simulated twisted-bilayer-graphene cube on the owner's SSD (`archive/v4/parallax-ptycho-graphene-2026-09-30/record.md`):
+  parallax agrees with py4DSTEM (defocus to 0.007 %, interior bright field to 1.000); ptychography cannot take the probe's
+  defocus and its difference map diverges — finish (defocus from the parallax fit) or remove is the owner's next card.
 - **Materials Project comparison:** θ′ (Al₂Cu, I-4m2) and T1 (Al₂CuLi, P6/mmm) have no Materials Project entry (only θ,
   mp-998, I4/mcm; a fluorite Al₂Cu, mp-985806; LiAl₂Cu mp-1185307, Fm-3m, not T1) — they come from the paper's CIFs.
   Al (mp-134) is fetched with the owner's key, which lives in the Keychain of the owner's signed build: a scratch build

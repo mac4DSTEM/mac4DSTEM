@@ -152,3 +152,28 @@ final class ParallaxDiffractionOriginTests: XCTestCase {
         XCTAssertEqual(after.qy, 100)
     }
 }
+
+/// The phase-contrast memory budget (2026-09-30): half the machine, never under the 8 GB Mac's 1 GiB, and every
+/// stage's default limit is that number — the fixed 1 GiB refused parallax and ptychography on a 64 GB Mac.
+final class PhaseContrastMemoryBudgetTests: XCTestCase {
+    func testTheBudgetIsHalfThePhysicalMemoryWithTheOldFloor() {
+        let gib: UInt64 = 1_073_741_824
+        XCTAssertEqual(PhaseContrastMemoryBudget.workingLimitBytes(physicalMemory: 64 * gib), Int(32 * gib))
+        XCTAssertEqual(PhaseContrastMemoryBudget.workingLimitBytes(physicalMemory: 8 * gib), Int(4 * gib))
+        XCTAssertEqual(PhaseContrastMemoryBudget.workingLimitBytes(physicalMemory: gib), Int(gib), "never below the floor")
+        XCTAssertEqual(PhaseContrastMemoryBudget.workingLimitBytes(physicalMemory: 0), Int(gib))
+        XCTAssertEqual(PhaseContrastMemoryBudget.workingLimitBytes,
+                       PhaseContrastMemoryBudget.workingLimitBytes(physicalMemory: ProcessInfo.processInfo.physicalMemory))
+    }
+
+    func testEveryStageDefaultsToTheBudget() {
+        let budget = PhaseContrastMemoryBudget.workingLimitBytes
+        XCTAssertEqual(ParallaxPreprocessOptions().maxStackBytes, budget)
+        XCTAssertEqual(ParallaxAlignmentOptions().maxWorkingBytes, budget)
+        XCTAssertEqual(ParallaxSubpixelOptions().maxWorkingBytes, budget)
+        XCTAssertEqual(ParallaxDepthOptions().maxWorkingBytes, budget)
+        XCTAssertEqual(ParallaxAberrationCorrectionOptions().maxWorkingBytes, budget / 2, "the correction kept its half share")
+        XCTAssertEqual(SingleslicePtychographyOptions().maxWorkingBytes, budget)
+        XCTAssertEqual(PtychographyPreparationOptions().maxResidentBytes, budget)
+    }
+}

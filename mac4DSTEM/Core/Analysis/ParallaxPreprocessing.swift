@@ -147,6 +147,19 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
     }
 }
 
+/// The working-memory ceiling every phase-contrast stage refuses above (2026-09-30). It was a fixed 1 GiB in each
+/// options type — the 8 GB Mac's number — so on a 64 GB Mac parallax and ptychography still refused what the machine
+/// holds with room to spare (measured: 8.25 GB and 24.6 GB peaks on the 051 cube, honest estimates). Half the physical
+/// memory, never below the old 1 GiB: the other half is the cube, the app and the system. A stage that needs more than
+/// this is refused with the number, as before; a tool or a test sets its own limit on the options.
+package nonisolated enum PhaseContrastMemoryBudget {
+    package static let floorBytes = 1_073_741_824
+    package static func workingLimitBytes(physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory) -> Int {
+        max(floorBytes, Int(min(physicalMemory / 2, UInt64(Int.max))))
+    }
+    package static let workingLimitBytes = workingLimitBytes()
+}
+
 package nonisolated struct ParallaxPreprocessOptions: Equatable, Sendable {
     package var thresholdIntensity: Float = 0.8
     package var edgeBlend: Float = 16
@@ -155,10 +168,10 @@ package nonisolated struct ParallaxPreprocessOptions: Equatable, Sendable {
     package var paddingX: Int = 32
     /// Nil chooses scan-row tiles bounded to roughly 64 MiB.
     package var tileRows: Int? = nil
-    package var maxStackBytes: Int = 1_073_741_824
+    package var maxStackBytes: Int = PhaseContrastMemoryBudget.workingLimitBytes
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(thresholdIntensity: Float = 0.8, edgeBlend: Float = 16, paddingY: Int = 32, paddingX: Int = 32, tileRows: Int? = nil, maxStackBytes: Int = 1_073_741_824) {
+    package nonisolated init(thresholdIntensity: Float = 0.8, edgeBlend: Float = 16, paddingY: Int = 32, paddingX: Int = 32, tileRows: Int? = nil, maxStackBytes: Int = PhaseContrastMemoryBudget.workingLimitBytes) {
         self.thresholdIntensity = thresholdIntensity
         self.edgeBlend = edgeBlend
         self.paddingY = paddingY

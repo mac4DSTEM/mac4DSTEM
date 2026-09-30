@@ -90,7 +90,7 @@ package nonisolated struct SingleslicePtychographyOptions: Equatable, Sendable {
     package var constrainProbeAmplitude = false
     package var probeAmplitudeRelativeRadius: Float = 0.5
     package var probeAmplitudeRelativeWidth: Float = 0.05
-    package var maxWorkingBytes = 1_073_741_824
+    package var maxWorkingBytes = PhaseContrastMemoryBudget.workingLimitBytes
 }
 
 package nonisolated struct SingleslicePtychographyResult: Sendable {

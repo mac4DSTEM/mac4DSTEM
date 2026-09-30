@@ -14,7 +14,7 @@ package nonisolated struct ParallaxDepthOptions: Equatable, Sendable {
     package var useFullFit = true
     package var informationLimitInvAngstrom: Double? = nil
     package var informationPower: Double = 1
-    package var maxWorkingBytes = 1_073_741_824
+    package var maxWorkingBytes = PhaseContrastMemoryBudget.workingLimitBytes
 }
 
 package nonisolated struct ParallaxDepthResult: Sendable {

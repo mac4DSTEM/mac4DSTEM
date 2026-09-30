@@ -10,7 +10,7 @@ package nonisolated struct PtychographyPreparationOptions: Equatable, Sendable {
     package nonisolated init() {}
 
     package var probeRolloffMrad: Double = 2
-    package var maxResidentBytes = 1_073_741_824
+    package var maxResidentBytes = PhaseContrastMemoryBudget.workingLimitBytes
 }
 
 package nonisolated enum PtychographyPreparer {

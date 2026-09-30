@@ -143,7 +143,11 @@ Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" 
 (`archive/v4/parity-28gb-2026-09-30.md`: the app's raw read is right; the "unfiltered" bin-4 cubes are hot-pixel filtered at 15
 detector pixels incl. the direct beam — the owner's files, not the app; the > 2 GB read rule is retired for mapped local
 volumes); the parallax/ptychography cost (`archive/v4/parallax-ptycho-cost-2026-09-30.md`: estimators honest, the 051 cube is
-not an acquisition for them, keep/remove is the owner's). C5's 500-step run done headless
+not an acquisition for them); owner: KEEP, limits now half of RAM (`PhaseContrastMemoryBudget`). **On py4DSTEM's graphene
+cube (`archive/v4/parallax-ptycho-graphene-2026-09-30/`): parallax agrees with py4DSTEM (defocus 663.6 vs 663.7 Å, interior
+BF 1.000) but carries an edge vignette (full-frame 0.36) and fits the (2,1) higher-order terms at ≈ 0 where py4DSTEM gives
+≈ 600 Å; ptychography has NO defocus input (its object is uncorrelated with py4DSTEM's at the true 600 Å, 0.6/0.93 at
+defocus 0) and its difference map diverges — finish (defocus from the parallax fit, DM fixed) or remove: owner's card.** C5's 500-step run done headless
 (`archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision
 65.7 → 72.1 %). **Open:** the Train Model… drive is the owner's (a scratch build cannot read his sidecar's labels — the
 grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no

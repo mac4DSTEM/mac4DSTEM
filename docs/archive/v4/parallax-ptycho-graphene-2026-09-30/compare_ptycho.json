@@ -1,0 +1,486 @@
+{
+ "pairs": [
+  {
+   "app": "P1/gd",
+   "py": "complex_df600_P1_gd",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -0.17818397283554077,
+    "max": 0.17500080168247223,
+    "std": 0.010578883900940632,
+    "mean": -2.6889456228449506e-05
+   },
+   "py_phase": {
+    "min": -0.08776499330997467,
+    "max": 0.0688667967915535,
+    "std": 0.018490878769932658,
+    "mean": -0.00039310338273128477
+   },
+   "pearson_no_registration_centred_common_crop_trim64": -0.0013705240417836275,
+   "registration_shift_rowcol_px(app->py)": [
+    -21.1,
+    1.85
+   ],
+   "pearson_after_registration": -0.047634855274298366,
+   "compared_shape": [
+    1425,
+    1425
+   ],
+   "rms_diff_offset_removed_rad": 0.021872260618326412,
+   "rms_app_offset_removed": 0.010378919519437825,
+   "rms_py_offset_removed": 0.018764839554799725,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": -0.2904159273110883,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.0031842395374296123,
+   "pearson_after_registration_plane_removed": -0.047634875519478675,
+   "rms_diff_offset_and_plane_removed_rad": 0.021872244652558978,
+   "lstsq_slope_py_on_app(diagnostic)": -0.08612268500244814,
+   "dihedral_pearson_no_registration_central800_diagnostic": {
+    "rot0": 0.0008524239224097104,
+    "rot0_flipud": 0.012837613696327785,
+    "rot90": 0.015013005152099095,
+    "rot90_flipud": 0.0006833743342520893,
+    "rot180": 0.03906702365878312,
+    "rot180_flipud": 0.02710552523921924,
+    "rot270": 0.018385512282563493,
+    "rot270_flipud": 0.04113540155047272
+   }
+  },
+  {
+   "app": "P1/gd",
+   "py": "complex_df0_P1_gd",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -0.17818397283554077,
+    "max": 0.17500080168247223,
+    "std": 0.010578883900940632,
+    "mean": -2.6889456228449506e-05
+   },
+   "py_phase": {
+    "min": -0.16303426027297974,
+    "max": 0.16400276124477386,
+    "std": 0.007974570767767952,
+    "mean": -3.828383474765012e-05
+   },
+   "pearson_no_registration_centred_common_crop_trim64": 0.46487351215999034,
+   "registration_shift_rowcol_px(app->py)": [
+    -0.25,
+    0.35
+   ],
+   "pearson_after_registration": 0.5122375833025778,
+   "compared_shape": [
+    1467,
+    1467
+   ],
+   "rms_diff_offset_removed_rad": 0.008964584922004814,
+   "rms_app_offset_removed": 0.00988636665796981,
+   "rms_py_offset_removed": 0.007939814644606642,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": 0.8720276144882252,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.0005110338832769279,
+   "pearson_after_registration_plane_removed": 0.5122408876080089,
+   "rms_diff_offset_and_plane_removed_rad": 0.008964546524658602,
+   "lstsq_slope_py_on_app(diagnostic)": 0.41138181559805875
+  },
+  {
+   "app": "P1/gd",
+   "py": "potential_df600_P1_gd",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -0.17818397283554077,
+    "max": 0.17500080168247223,
+    "std": 0.010578883900940632,
+    "mean": -2.6889456228449506e-05
+   },
+   "py_phase": {
+    "min": 0.0,
+    "max": 0.09471984952688217,
+    "std": 0.01022734397597795,
+    "mean": 0.011916721302847485
+   },
+   "pearson_no_registration_centred_common_crop_trim64": -0.011773223198111136,
+   "registration_shift_rowcol_px(app->py)": [
+    3.35,
+    50.65
+   ],
+   "pearson_after_registration": 0.053491649123571634,
+   "compared_shape": [
+    1367,
+    1367
+   ],
+   "rms_diff_offset_removed_rad": 0.013722642243247254,
+   "rms_app_offset_removed": 0.00960807892843101,
+   "rms_py_offset_removed": 0.010325163740999798,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": 0.17614742595421679,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.001922694839392525,
+   "pearson_after_registration_plane_removed": 0.053568522148927204,
+   "rms_diff_offset_and_plane_removed_rad": 0.013720655576232393,
+   "lstsq_slope_py_on_app(diagnostic)": 0.05748391953178701
+  },
+  {
+   "app": "P1/gd",
+   "py": "complex_df600_P1_gd_nofixcom",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -0.17818397283554077,
+    "max": 0.17500080168247223,
+    "std": 0.010578883900940632,
+    "mean": -2.6889456228449506e-05
+   },
+   "py_phase": {
+    "min": -0.08826306462287903,
+    "max": 0.06898102164268494,
+    "std": 0.018490396523757648,
+    "mean": -0.00039286515933260164
+   },
+   "pearson_no_registration_centred_common_crop_trim64": -0.0013874498365227526,
+   "registration_shift_rowcol_px(app->py)": [
+    -21.1,
+    1.85
+   ],
+   "pearson_after_registration": -0.04757159524635933,
+   "compared_shape": [
+    1425,
+    1425
+   ],
+   "rms_diff_offset_removed_rad": 0.021871529200733833,
+   "rms_app_offset_removed": 0.010378919519437825,
+   "rms_py_offset_removed": 0.018764648623686056,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": -0.29051706530067417,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.0031841312810446877,
+   "pearson_after_registration_plane_removed": -0.047571616795200465,
+   "rms_diff_offset_and_plane_removed_rad": 0.021871513139482632,
+   "lstsq_slope_py_on_app(diagnostic)": -0.08600743724761965
+  },
+  {
+   "app": "P1/dmap",
+   "py": "complex_df600_P1_dm",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -3.141587972640991,
+    "max": 3.141592025756836,
+    "std": 1.2601790299929905,
+    "mean": 0.05686368233859785
+   },
+   "py_phase": {
+    "min": -0.3837246298789978,
+    "max": 0.45055967569351196,
+    "std": 0.12888956268028284,
+    "mean": -9.361457200796073e-05
+   },
+   "pearson_no_registration_centred_common_crop_trim64": -0.007715761607591943,
+   "registration_shift_rowcol_px(app->py)": [
+    -3.85,
+    -659.8
+   ],
+   "pearson_after_registration": -0.019279143868916996,
+   "compared_shape": [
+    149,
+    149
+   ],
+   "rms_diff_offset_removed_rad": 1.2100256444393653,
+   "rms_app_offset_removed": 1.1970902071244038,
+   "rms_py_offset_removed": 0.15488103870929476,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": -0.28823488016627447,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.08735618388474468,
+   "pearson_after_registration_plane_removed": -0.019375950084403744,
+   "rms_diff_offset_and_plane_removed_rad": 1.2098338806745172,
+   "lstsq_slope_py_on_app(diagnostic)": -0.0024943599154624817
+  },
+  {
+   "app": "P1/dmap",
+   "py": "complex_df0_P1_dm",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -3.141587972640991,
+    "max": 3.141592025756836,
+    "std": 1.2601790299929905,
+    "mean": 0.05686368233859785
+   },
+   "py_phase": {
+    "min": -3.141587734222412,
+    "max": 3.141592502593994,
+    "std": 1.1179794403691656,
+    "mean": -0.07879938549436478
+   },
+   "pearson_no_registration_centred_common_crop_trim64": 0.03128724280364041,
+   "registration_shift_rowcol_px(app->py)": [
+    389.0,
+    5.8
+   ],
+   "pearson_after_registration": -0.07323193111290471,
+   "compared_shape": [
+    691,
+    691
+   ],
+   "rms_diff_offset_removed_rad": 1.6861258102854464,
+   "rms_app_offset_removed": 1.2044829481156483,
+   "rms_py_offset_removed": 1.0950184222136807,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": -0.3465709763038425,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.23973431548823915,
+   "pearson_after_registration_plane_removed": -0.0733926837859016,
+   "rms_diff_offset_and_plane_removed_rad": 1.6860237896435064,
+   "lstsq_slope_py_on_app(diagnostic)": -0.06657654538685483
+  },
+  {
+   "app": "P1/dmap",
+   "py": "potential_df600_P1_dm",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -3.141587972640991,
+    "max": 3.141592025756836,
+    "std": 1.2601790299929905,
+    "mean": 0.05686368233859785
+   },
+   "py_phase": {
+    "min": 0.0,
+    "max": 0.02044674940407276,
+    "std": 0.0021486655435107556,
+    "mean": 0.0019579795486188395
+   },
+   "pearson_no_registration_centred_common_crop_trim64": -0.02142599762746972,
+   "registration_shift_rowcol_px(app->py)": [
+    139.8,
+    82.15
+   ],
+   "pearson_after_registration": -0.03330169293239002,
+   "compared_shape": [
+    1189,
+    1189
+   ],
+   "rms_diff_offset_removed_rad": 1.1702278143903244,
+   "rms_app_offset_removed": 1.170156365529271,
+   "rms_py_offset_removed": 0.0020895452572177223,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": -0.07714876566769957,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.10734970864244762,
+   "pearson_after_registration_plane_removed": -0.032915978002874734,
+   "rms_diff_offset_and_plane_removed_rad": 1.1700903879120468,
+   "lstsq_slope_py_on_app(diagnostic)": -5.946674869620748e-05
+  },
+  {
+   "app": "P2/gd",
+   "py": "complex_df600_P2_gd",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -0.041213881224393845,
+    "max": 0.047633759677410126,
+    "std": 0.00235735057438178,
+    "mean": 2.7117518764489892e-06
+   },
+   "py_phase": {
+    "min": -0.06994874030351639,
+    "max": 0.049894653260707855,
+    "std": 0.015255183055929017,
+    "mean": -1.117693160453209e-05
+   },
+   "pearson_no_registration_centred_common_crop_trim64": 0.0019472967202329124,
+   "registration_shift_rowcol_px(app->py)": [
+    3.9,
+    66.2
+   ],
+   "pearson_after_registration": 0.040915529712221003,
+   "compared_shape": [
+    1335,
+    1335
+   ],
+   "rms_diff_offset_removed_rad": 0.015322345606557099,
+   "rms_app_offset_removed": 0.0023171900299240227,
+   "rms_py_offset_removed": 0.015241224277278564,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": 0.14242754723702053,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.001725549051813899,
+   "pearson_after_registration_plane_removed": 0.04091555803257975,
+   "rms_diff_offset_and_plane_removed_rad": 0.01532234547814645,
+   "lstsq_slope_py_on_app(diagnostic)": 0.26912025199248213,
+   "dihedral_pearson_no_registration_central800_diagnostic": {
+    "rot0": 0.005392428371626682,
+    "rot0_flipud": 0.01325147883267119,
+    "rot90": 0.011305226945150168,
+    "rot90_flipud": -0.000655243048807857,
+    "rot180": 0.03164275178170812,
+    "rot180_flipud": 0.017437588002464827,
+    "rot270": 0.0163201904166647,
+    "rot270_flipud": 0.036683688839303015
+   }
+  },
+  {
+   "app": "P2/gd",
+   "py": "complex_df0_P2_gd",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -0.041213881224393845,
+    "max": 0.047633759677410126,
+    "std": 0.00235735057438178,
+    "mean": 2.7117518764489892e-06
+   },
+   "py_phase": {
+    "min": -0.06411028653383255,
+    "max": 0.06674785166978836,
+    "std": 0.0022866495769636188,
+    "mean": -8.365558864296592e-06
+   },
+   "pearson_no_registration_centred_common_crop_trim64": 0.5682944654453611,
+   "registration_shift_rowcol_px(app->py)": [
+    -0.15,
+    0.35
+   ],
+   "pearson_after_registration": 0.603329391475143,
+   "compared_shape": [
+    1467,
+    1467
+   ],
+   "rms_diff_offset_removed_rad": 0.002028623323236741,
+   "rms_app_offset_removed": 0.0023039484318123785,
+   "rms_py_offset_removed": 0.002249891462097533,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": 0.9297818984122271,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 5.3222774163537434e-05,
+   "pearson_after_registration_plane_removed": 0.603329384518558,
+   "rms_diff_offset_and_plane_removed_rad": 0.002028623314834103,
+   "lstsq_slope_py_on_app(diagnostic)": 0.5891736238404539
+  },
+  {
+   "app": "P2/dmap",
+   "py": "complex_df600_P2_dm",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -3.141592264175415,
+    "max": 3.141592264175415,
+    "std": 2.0587025904109924,
+    "mean": 0.046886316694615675
+   },
+   "py_phase": {
+    "min": -3.141592502593994,
+    "max": 3.1415910720825195,
+    "std": 1.690821026939666,
+    "mean": 0.04746531576538118
+   },
+   "pearson_no_registration_centred_common_crop_trim64": 0.008438794488437533,
+   "registration_shift_rowcol_px(app->py)": [
+    -331.15,
+    -129.15
+   ],
+   "pearson_after_registration": 0.052917640103831966,
+   "compared_shape": [
+    805,
+    805
+   ],
+   "rms_diff_offset_removed_rad": 2.4665105402904124,
+   "rms_app_offset_removed": 1.9282465007626246,
+   "rms_py_offset_removed": 1.6434504260419898,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": 0.13001888396360461,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.2635441485269531,
+   "pearson_after_registration_plane_removed": 0.052899922713683774,
+   "rms_diff_offset_and_plane_removed_rad": 2.4665021251154964,
+   "lstsq_slope_py_on_app(diagnostic)": 0.045101867494318756
+  },
+  {
+   "app": "P2/dmap",
+   "py": "complex_df0_P2_dm",
+   "app_shape": [
+    1603,
+    1603
+   ],
+   "py_shape": [
+    1601,
+    1601
+   ],
+   "app_phase": {
+    "min": -3.141592264175415,
+    "max": 3.141592264175415,
+    "std": 2.0587025904109924,
+    "mean": 0.046886316694615675
+   },
+   "py_phase": {
+    "min": -3.1415884494781494,
+    "max": 3.1415882110595703,
+    "std": 1.7708448756399755,
+    "mean": -0.08781146481604431
+   },
+   "pearson_no_registration_centred_common_crop_trim64": -0.002680673994059891,
+   "registration_shift_rowcol_px(app->py)": [
+    587.9,
+    -126.05
+   ],
+   "pearson_after_registration": 0.019461827911523538,
+   "compared_shape": [
+    293,
+    293
+   ],
+   "rms_diff_offset_removed_rad": 2.665954979257639,
+   "rms_app_offset_removed": 2.0323887332156594,
+   "rms_py_offset_removed": 1.7653223815184542,
+   "SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px(1.25A)_lowpass": 0.26673353030669283,
+   "SUPPLEMENTARY_rms_diff_lowpass_rad": 0.19317219986256753,
+   "pearson_after_registration_plane_removed": 0.019114330498372162,
+   "rms_diff_offset_and_plane_removed_rad": 2.6654497323033954,
+   "lstsq_slope_py_on_app(diagnostic)": 0.01690444344429825
+  }
+ ]
+}

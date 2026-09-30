@@ -23,7 +23,7 @@ package nonisolated struct ParallaxSubpixelOptions: Equatable, Sendable {
     package var positionCorrectionMinimumStep: Float = 0.1
     package var positionCorrectionStepFactor: Float = 0.75
     package var positionCorrectionCheckerboard = false
-    package var maxWorkingBytes = 1_073_741_824
+    package var maxWorkingBytes = PhaseContrastMemoryBudget.workingLimitBytes
 }
 
 package nonisolated struct ParallaxSubpixelResult: Sendable {

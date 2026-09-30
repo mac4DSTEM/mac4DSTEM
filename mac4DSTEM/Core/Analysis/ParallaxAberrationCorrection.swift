@@ -15,7 +15,7 @@ package nonisolated struct ParallaxAberrationCorrectionOptions: Equatable, Senda
     /// current parallax.py signature exposes this value but does not apply it.
     package var qHighpassInvAngstrom: Double? = nil
     package var butterworthOrder = 2
-    package var maxWorkingBytes = 536_870_912
+    package var maxWorkingBytes = PhaseContrastMemoryBudget.workingLimitBytes / 2
 }
 
 package nonisolated struct ParallaxAberrationCorrectionResult: Sendable {

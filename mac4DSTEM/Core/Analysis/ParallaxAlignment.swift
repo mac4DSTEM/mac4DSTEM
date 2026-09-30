@@ -46,7 +46,7 @@ package nonisolated struct ParallaxAlignmentOptions: Equatable, Sendable {
     /// default; the interactive continuation path explicitly selects 8.
     package var upsampleFactor = 1
     /// Peak resident bytes: immutable input stack + output stack/masks + FFT work.
-    package var maxWorkingBytes = 1_073_741_824
+    package var maxWorkingBytes = PhaseContrastMemoryBudget.workingLimitBytes
 }
 
 package nonisolated struct ParallaxAlignmentResult: Sendable {

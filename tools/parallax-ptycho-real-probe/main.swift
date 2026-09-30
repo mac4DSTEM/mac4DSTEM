@@ -131,6 +131,39 @@ func stats(_ pixels: [Float]) -> String {
 
 func fail(_ m: String) -> Never { log("FAIL: \(m)"); exit(1) }
 
+// MARK: - saving the products (--out <dir>): float32 .npy, written with no dependency
+
+nonisolated(unsafe) var outDirectory: String? = nil
+
+/// Writes `pixels` as a little-endian float32 NumPy v1.0 file `<outDirectory>/<name>.npy`, row-major `shape`.
+func saveNPY(_ name: String, _ pixels: [Float], shape: [Int]) {
+    guard let dir = outDirectory else { return }
+    precondition(shape.reduce(1, *) == pixels.count, "npy shape does not match the pixel count")
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let shapeText = shape.count == 1 ? "(\(shape[0]),)" : "(" + shape.map(String.init).joined(separator: ", ") + ")"
+    var header = "{'descr': '<f4', 'fortran_order': False, 'shape': \(shapeText), }"
+    while (10 + header.utf8.count + 1) % 64 != 0 { header += " " }
+    header += "\n"
+    var data = Data([0x93]) + Data("NUMPY".utf8) + Data([1, 0])
+    var headerLength = UInt16(header.utf8.count).littleEndian
+    data.append(Data(bytes: &headerLength, count: 2))
+    data.append(Data(header.utf8))
+    pixels.withUnsafeBufferPointer { data.append(Data(buffer: $0)) }
+    let path = dir + "/" + name + ".npy"
+    do { try data.write(to: URL(fileURLWithPath: path)); log("SAVED \(path) shape \(shape)") }
+    catch { log("SAVE FAILED \(path): \(error)") }
+}
+
+/// A small JSON of scalars beside the arrays: `<outDirectory>/<name>.json`.
+func saveJSON(_ name: String, _ values: [String: Any]) {
+    guard let dir = outDirectory else { return }
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let path = dir + "/" + name + ".json"
+    if let data = try? JSONSerialization.data(withJSONObject: values, options: [.prettyPrinted, .sortedKeys]) {
+        try? data.write(to: URL(fileURLWithPath: path)); log("SAVED \(path)")
+    }
+}
+
 // MARK: - the estimator ladder
 
 struct Ladder<T> {
@@ -206,8 +239,18 @@ enum ParallaxPtychoRealProbe {
         let repeats = Int(option("--repeat") ?? "2") ?? 2
         let limitGiB = Double(option("--limit-gib") ?? "48") ?? 48
         let abortGiB = Double(option("--abort-gib") ?? "40") ?? 40
+        // Calibration of the cube (defaults = the 051 cube this probe was first written for).
+        let qPixel = Double(option("--q") ?? "0.03564271") ?? 0.03564271          // Å⁻¹ per detector pixel
+        let rPixel = Double(option("--r") ?? "100.32583") ?? 100.32583            // Å per scan step
+        let rotationDegrees = Double(option("--rotation-deg") ?? "0") ?? 0         // R–Q rotation fed to the calibration (as a user would set it)
+        let transposeQR = (option("--transpose") ?? "0") == "1"
+        outDirectory = option("--out")
+        // Ptychography options; nil = the app's own defaults (SingleslicePtychographyOptions()).
+        let ptyIterations = option("--iterations").flatMap { Int($0) }
+        let ptyStepSize = option("--step-size").flatMap { Float($0) }
+        let ptyNormalizationMinimum = option("--norm-min").flatMap { Float($0) }
         guard args.count >= 2 else {
-            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd|dmap>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40]")
+            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd|dmap>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40] [--q 1/A per px] [--r A per px] [--rotation-deg d] [--transpose 0|1] [--out dir] [--iterations n] [--step-size s] [--norm-min m]")
         }
         let path = args[0], stage = args[1]
         let raised = Int(limitGiB * 1_073_741_824)
@@ -253,16 +296,16 @@ enum ParallaxPtychoRealProbe {
         mean = []
 
         var calibration = Calibration(originProvenance: .manual)
-        calibration.qPixelSize = 0.03564271; calibration.qPixelUnits = "Å⁻¹"
-        calibration.rPixelSize = 100.32583; calibration.rPixelUnits = "Å"
-        calibration.rotationRad = 0; calibration.transposeQR = false
+        calibration.qPixelSize = qPixel; calibration.qPixelUnits = "Å⁻¹"
+        calibration.rPixelSize = rPixel; calibration.rPixelUnits = "Å"
+        calibration.rotationRad = Float(rotationDegrees * Double.pi / 180); calibration.transposeQR = transposeQR
         let physical = try ParallaxPhysicalCalibration.resolve(
             calibration: calibration, apertureCenterX: origin.x, apertureCenterY: origin.y,
             acceleratingVoltageKV: kv
         )
-        log(String(format: "calibration: Q %.8f 1/A per px, R %.6f A per px, %.0f kV (lambda %.6f A), rotation 0, transpose false, origin (qx row %.4f, qy col %.4f)",
+        log(String(format: "calibration: Q %.8f 1/A per px, R %.6f A per px, %.0f kV (lambda %.6f A), rotation %.4f deg, transpose %@, origin (qx row %.4f, qy col %.4f)",
                    physical.reciprocalSamplingInvAngstrom, physical.scanSamplingAngstrom, kv,
-                   physical.wavelengthAngstrom, physical.originQX, physical.originQY))
+                   physical.wavelengthAngstrom, rotationDegrees, transposeQR ? "true" : "false", physical.originQX, physical.originQY))
         log("baseline footprint before any stage \(gb(footprintBytes()))")
         let baseline = footprintBytes()
 
@@ -304,6 +347,28 @@ enum ParallaxPtychoRealProbe {
             }
             return prior!
         }
+        /// Fits the aberrations exactly as AppState.fitParallaxAberrations does, prints them, saves the aligned BF.
+        func saveAlignedBF(_ pre: ParallaxPreprocessResult, _ a: ParallaxAlignmentResult) {
+            saveNPY("app_alignedBF_padded", a.alignedBF, shape: [a.stackHeight, a.stackWidth])
+            var meta: [String: Any] = ["stackHeight": a.stackHeight, "stackWidth": a.stackWidth, "scanHeight": a.scanHeight, "scanWidth": a.scanWidth,
+                                       "paddedTop": (a.stackHeight - a.scanHeight) / 2, "paddedLeft": (a.stackWidth - a.scanWidth) / 2,
+                                       "errorHistory": a.errorHistory.map { Double($0) }, "complete": a.isComplete]
+            do {
+                let fit = try ParallaxAberrationFitter.fitHigherOrder(preprocessing: pre, alignment: a)
+                let low = fit.lowOrder
+                log(String(format: "FIT lowOrder: C1 %.4f A, C12a %.4f, C12b %.4f, rotation %.6f rad = %.4f deg, rms residual %.5f A, transpose %@",
+                           low.c1Angstrom, low.c12aAngstrom, low.c12bAngstrom, low.rotationRad, low.rotationRad * 180 / .pi,
+                           low.rmsResidualAngstrom, low.forceTranspose ? "true" : "false"))
+                log("FIT higherOrder: terms \(fit.terms.map { "(\($0.radialOrder),\($0.angularOrder),\($0.component))" }) coefficients(A) \(fit.coefficientsAngstrom.map { String(format: "%.4f", $0) }) rms \(fit.rmsResidualAngstrom)")
+                meta["lowOrder"] = ["c1Angstrom": low.c1Angstrom, "c12aAngstrom": low.c12aAngstrom, "c12bAngstrom": low.c12bAngstrom,
+                                    "rotationRad": low.rotationRad, "rotationDeg": low.rotationRad * 180 / .pi, "rmsResidualAngstrom": low.rmsResidualAngstrom,
+                                    "transpose": low.forceTranspose]
+                meta["higherOrderTerms"] = fit.terms.map { [$0.radialOrder, $0.angularOrder, $0.component] }
+                meta["higherOrderCoefficientsAngstrom"] = fit.coefficientsAngstrom
+                meta["higherOrderRmsAngstrom"] = fit.rmsResidualAngstrom
+            } catch { log("FIT FAILED: \(error)") }
+            saveJSON("app_align", meta)
+        }
         func describeAlign(_ a: ParallaxAlignmentResult) -> String {
             "bins \(a.completedBins) of \(a.alignmentSchedule), complete \(a.isComplete), errors \(a.errorHistory.map { String(format: "%.5f", $0) }), max shift \(a.maximumShiftPixels) px; alignedBF: \(stats(a.alignedBF)); shiftedStack \(gb(a.shiftedStack.count * 4)) + masks \(gb(a.shiftedMasks.count * 4))"
         }
@@ -336,6 +401,7 @@ enum ParallaxPtychoRealProbe {
             }, run: { limit in try await alignLoop(pre.value, limit: limit) }))
             log("RESULT align: \(describeAlign(l!.value))")
             summary("align", l!, extra: "resident_prereq=\(gb(pre.value.residentStackByteCount))")
+            saveAlignedBF(pre.value, l!.value)
             l = nil   // release the first result before the repeats
             log("LEAK \("align"): first result released, footprint \(gb(footprintBytes()))")
             try await leakRepeats(name: "align", repeats: repeats - 1, baseline: baseline) {
@@ -380,6 +446,9 @@ enum ParallaxPtychoRealProbe {
                 return nil
             }, run: { limit in try await kde(limit) }))
             log("RESULT kde: \(describeKDE(l!.value))")
+            saveNPY("app_kde_\(args[2])_croppedBF", l!.value.croppedBF.pixels, shape: [l!.value.croppedBF.height, l!.value.croppedBF.width])
+            saveJSON("app_kde_\(args[2])", ["factor": l!.value.upsampleFactor, "width": l!.value.croppedBF.width, "height": l!.value.croppedBF.height,
+                                            "outputSamplingAngstrom": l!.value.outputSamplingAngstrom, "paddedHeight": l!.value.paddedHeight, "paddedWidth": l!.value.paddedWidth])
             let resident = pre.value.residentStackByteCount + aligned.value.shiftedStack.count * 4 + aligned.value.shiftedMasks.count * 4
             summary("kde \(args[2])", l!, extra: "resident_prereq_arrays=\(gb(resident))")
             l = nil   // release the first result before the repeats
@@ -412,6 +481,9 @@ enum ParallaxPtychoRealProbe {
             func reconstruct(_ limit: Int) async throws -> SingleslicePtychographyResult {
                 var o = SingleslicePtychographyOptions()    // PtychographySettings defaults: 8 iterations, step 0.5, ...
                 o.method = method
+                if let v = ptyIterations { o.iterations = v }
+                if let v = ptyStepSize { o.stepSize = v }
+                if let v = ptyNormalizationMinimum { o.normalizationMinimum = v }
                 o.maxWorkingBytes = limit
                 return try await Task.detached(priority: .userInitiated) {
                     try SingleslicePtychography.reconstruct(input: input, options: o)
@@ -427,6 +499,21 @@ enum ParallaxPtychoRealProbe {
                 return nil
             }, run: { limit in try await reconstruct(limit) }))
             log("RESULT ptycho reconstruct: \(describePty(l!.value))")
+            do {
+                let r = l!.value
+                let tag = "app_ptycho_\(args[2])"
+                let ph = r.objectPhase(), am = r.objectAmplitude()
+                saveNPY("\(tag)_objectPhase", ph.pixels, shape: [ph.height, ph.width])
+                saveNPY("\(tag)_objectAmplitude", am.pixels, shape: [am.height, am.width])
+                let pa = r.probeAmplitude(), pp = r.probePhase()
+                saveNPY("\(tag)_probeAmplitude", pa.pixels, shape: [pa.height, pa.width])
+                saveNPY("\(tag)_probePhase", pp.pixels, shape: [pp.height, pp.width])
+                saveJSON(tag, ["iterations": r.options.iterations, "stepSize": Double(r.options.stepSize), "normalizationMinimum": Double(r.options.normalizationMinimum),
+                               "method": r.options.method.rawValue, "errorHistory": r.errorHistory.map { Double($0) },
+                               "objectSamplingRowAngstrom": r.objectSamplingRowAngstrom, "objectSamplingColumnAngstrom": r.objectSamplingColumnAngstrom,
+                               "objectCroppedHeight": ph.height, "objectCroppedWidth": ph.width, "canvasHeight": r.object.height, "canvasWidth": r.object.width,
+                               "rotationDegrees": rotationDegrees, "transpose": transposeQR])
+            }
             summary("ptycho reconstruct \(args[2])", l!, extra: "resident_input=\(gb(input.amplitudes.count * 4))")
             l = nil   // release the first result before the repeats
             log("LEAK \("ptycho \(args[2])"): first result released, footprint \(gb(footprintBytes()))")
