@@ -22,7 +22,7 @@ Earlier gate rows — the 2026-09-30 overnight S12–S23 and v4.0.0-cut `all` ro
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | v4.0.0 released 2026-09-23; pushed through `8cfc1a36`; tonight's commits are unpushed. | Owner: push, then fire the cloud review (brief `archive/v4/polish-and-review-session-plan.md`). |
+| **Now** | v4.0.0 released 2026-09-23; pushed through `8cfc1a36`; tonight's commits (`8d235ae1`, `b0ccf9c9`, this closeout) are unpushed. The Board is republished. | Owner: push, then fire the cloud review (brief `archive/v4/polish-and-review-session-plan.md`); the Train Model… drive; keep or remove parallax/ptychography. |
 | **Decided (night)** | ADR 049: feature list frozen at v4.0.0, v4.1.0 = that app finished, five-line exit; ROADMAP rewritten; the ground rule in `CLAUDE.md`. | Overrule on sight. |
 | **Done (night)** | Learned detector back on the Neural Engine (load refuses a model the ANE did not run; 25–27 % faster than `.all` here; ≤ 0.45 % of accepted peaks move at 0.7); the 28 GB parity run (the app's DM4 read is right; the "unfiltered" cubes are hot-pixel filtered at 15 pixels incl. the direct beam); the parallax/ptychography cost measured (estimators honest; the 051 cube is not an acquisition for them). | Owner: keep or remove parallax/ptychography (recommendation: keep). |
 | **C5** | The 500-step run done headless (68 s, 745 MB peak, D7 declines: recall 58.4 → 57.1 %, precision 65.7 → 72.1 %; `archive/v4/c5-training-run-2026-09-30.md`). | Owner: the Train Model… drive in his own build (~70 s; a scratch build cannot read his sidecar's labels). |

@@ -313,3 +313,13 @@ Clearing is three moves, in this order.
    Prepare · Imaging (+ diffraction groups) · Bragg Disks (detect, labels, training) · Crystal Maps (strain,
    orientation, phases and precipitates) · Reconstruction (DPC, parallax, ptychography) · Results. Then one room per
    session (S3–S6 below; their items are `docs/open-items.md` § Polish). 4. **Science, one Gate D per session** (S7–S11).
+
+### Ticked 2026-09-30 night (ADR 049 queue)
+- [x] **Learned detector back on the ANE (2026-09-30 night):** the load refuses a model the Neural Engine did not run, the test
+  asserts the unit three ways, scan-level peaks and throughput measured (`archive/v4/ane-return-2026-09-30/`).
+- [x] **In-app training (C5), the 500-step run (2026-09-30 night):** done headless on 17 held-out positions, D7 declines
+  (`archive/v4/c5-training-run-2026-09-30.md`); the Train Model… drive is the owner's, in his own build (the labels' sidecar grant is his).
+- [x] **Parallax and ptychography, the cost measured (2026-09-30 night):** estimators honest, the 051 cube is not an acquisition
+  for them (`archive/v4/parallax-ptycho-cost-2026-09-30.md`); kept or removed is the owner's word (recommendation: keep).
+- [x] **The 28 GB parity run (2026-09-30 night):** the app's raw read is right; the file is hot-pixel filtered
+  (`archive/v4/parity-28gb-2026-09-30.md`).

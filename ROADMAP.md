@@ -109,20 +109,12 @@ empty · no defect in a shipped feature left in `open-items.md` · every half-bu
 owner's cards decided · the owner has run one real analysis of his own in the release build.
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30, S1–S23, A, B, D, S14-D, polish,
-new-Mac bring-up, residency). The 2026-09-30 "clear the board" sequence it replaces is archived there too.
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30 night — the ANE return, C5's run, the
+parallax/ptychography cost, the 28 GB parity run). The 2026-09-30 "clear the board" sequence it replaced is archived there too.
 
-- [x] **Learned detector back on the ANE (2026-09-30 night):** the load refuses a model the Neural Engine did not run, the test
-  asserts the unit three ways, scan-level peaks and throughput measured (`archive/v4/ane-return-2026-09-30/`).
 - [ ] **The last intake — external review, part A:** read-only, may run in the cloud on the pushed repo (brief:
   `archive/v4/polish-and-review-session-plan.md`). Then one owner sitting: each finding and each of the Board's 18 cards
   fixed, declined or moved to "After v4.1". After it `open-items.md` only shrinks.
-- [x] **In-app training (C5), the 500-step run (2026-09-30 night):** done headless on 17 held-out positions, D7 declines
-  (`archive/v4/c5-training-run-2026-09-30.md`); the Train Model… drive is the owner's, in his own build (the labels' sidecar grant is his).
-- [x] **Parallax and ptychography, the cost measured (2026-09-30 night):** estimators honest, the 051 cube is not an acquisition
-  for them (`archive/v4/parallax-ptycho-cost-2026-09-30.md`); kept or removed is the owner's word (recommendation: keep).
-- [x] **The 28 GB parity run (2026-09-30 night):** the app's raw read is right; the file is hot-pixel filtered
-  (`archive/v4/parity-28gb-2026-09-30.md`).
 - [ ] **Fix the picked findings**, one room or module per session, each driven where it draws; then the parked refactors the owner keeps.
 - [ ] **Empty "Unverified on screen"**, the owner's own analysis in a release-candidate build, then **release v4.1.0**
   (`docs/releasing.md`; the new Mac needs a fresh notary password).
