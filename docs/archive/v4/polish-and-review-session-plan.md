@@ -12,9 +12,15 @@ Most of the code and every review so far came from one model family. Independent
 **Part A in the cloud (owner, 2026-09-30; ADR 049 makes this review the last intake before v4.1):** part A is read-only and
 may run in a cloud session on the pushed repo. Such a session cannot build, run a gate or drive the app, and has none of
 `References/`: it returns the findings table in its final message (no branch, no PR), and the fixes are made locally.
-Kickoff: "Read docs/archive/v4/polish-and-review-session-plan.md and do part A only (read-only, no code changes, no branch,
-no PR). Output one findings table: file:line, severity, the observation that shows it, the proposed fix, whether it can
-move a scientific number."
+**Two passes (owner, 2026-09-30 night, ADR 050's plan):** the first pass now, on the pushed repo, **excluding the four areas the
+v4.1 lanes rewrite** — `Core/Analysis/Parallax*.swift` and `*Ptychography*.swift` with `UI/ReconstructionSettings.swift`
+and `App/AppState+PhaseContrast.swift` (lane R); `Training/`, `App/AppState+Training.swift`, `UI/DetectorTrainingViews.swift`
+(lane T); `UI/ExportSheet.swift` and the export path of `Support/ResultExport.swift` (lane X); `UI/LoadConfigurator.swift`
+and the residency code in `App/AppState+Open.swift` (lane K). A second, short pass before the release candidate covers the
+diff since the first, i.e. those four pieces once finished.
+Kickoff (first pass): "Read docs/archive/v4/polish-and-review-session-plan.md and do part A only (read-only, no code changes,
+no branch, no PR). Skip the four excluded areas named under 'Two passes'. Output one findings table: file:line, severity,
+the observation that shows it, the proposed fix, whether it can move a scientific number."
 
 ## 1. Orientation (read in this order, ~30 min)
 
