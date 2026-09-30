@@ -1,0 +1,4 @@
+vacuum-like positions 966 of 2100 sampled
+x plane coef (const, d/di(rx-index), d/dj) [ 1.277842e+02  2.050000e-02 -4.240000e-02] resid sd 0.0445 max 0.338
+y plane coef (const, d/di(rx-index), d/dj) [ 1.28929e+02 -1.98000e-02 -1.16000e-02] resid sd 0.045 max 0.332
+truth plane scan mean (x,y): 127.036 127.465

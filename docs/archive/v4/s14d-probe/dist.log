@@ -1,0 +1,14 @@
+Mean of empty slice
+invalid value encountered in scalar divide
+WS2              q=128x128 n=169 r_app=1.86 r_py=1.86 win=3.36 centre=(63.84,63.84) | first gap min at 3.8px (+0.00 of peak), next max at 4.2px (+0.00 of peak) | mass r<=r:0.209  r..win:0.170  win..3r:0.000 (x core)
+SiSiGe_exp       q=128x128 n=169 r_app=3.74 r_py=3.64 win=5.24 centre=(59.43,70.61) | first gap min at 2.2px (+nan of peak), next max at 2.8px (+nan of peak) | mass r<=r:47.4  r..win:2.051  win..3r:197.687 (x core)
+Particle_1       q=128x128 n=195 r_app=6.12 r_py=5.58 win=7.62 centre=(72.42,65.44) | first gap min at 1.8px (+nan of peak), next max at 2.2px (+nan of peak) | mass r<=r:2.72e+05  r..win:0.644  win..3r:5.141 (x core)
+simAu_poly       q=125x125 n=156 r_app=5.12 r_py=5.13 win=6.62 centre=(63.56,63.38) | first gap min at 16.2px (+nan of peak), next max at 16.8px (+nan of peak) | mass r<=r:2.69e+05  r..win:0.139  win..3r:0.140 (x core)
+simAu_nano       q=125x125 n=156 r_app=5.11 r_py=5.15 win=6.61 centre=(63.56,63.38) | first gap min at 2.2px (+nan of peak), next max at 2.8px (+nan of peak) | mass r<=r:3.18e+05  r..win:0.133  win..3r:0.078 (x core)
+bullseye_polyAu  q=250x250 n=156 r_app=6.84 r_py=6.86 win=8.34 centre=(127.61,127.15) | first gap min at 4.2px (+0.23 of peak), next max at 4.8px (+0.24 of peak) | mass r<=r:9.4e+04  r..win:0.736  win..3r:1.671 (x core)
+bullseye_sim     q=250x250 n=156 r_app=6.78 r_py=6.71 win=8.28 centre=(127.59,127.11) | first gap min at 4.2px (+0.22 of peak), next max at 4.8px (+0.24 of peak) | mass r<=r:1.08e+05  r..win:0.748  win..3r:1.650 (x core)
+SiSiGe_cal       q=448x480 n=221 r_app=3.69 r_py=3.70 win=5.19 centre=(226.81,243.26) | first gap min at 1.8px (+0.95 of peak), next max at 2.2px (+1.02 of peak) | mass r<=r:1.61e+03  r..win:0.994  win..3r:8.149 (x core)
+Au_ref           q=64x64 n=169 r_app=8.06 r_py=6.37 win=9.67 centre=(34.07,34.73) | first gap min at 1.8px (+0.31 of peak), next max at 2.2px (+0.88 of peak) | mass r<=r:9.27e+06  r..win:0.397  win..3r:3.482 (x core)
+AlMgSi_060       q=64x64 n=169 r_app=2.54 r_py=2.52 win=4.04 centre=(31.91,31.92) | first gap min at 14.8px (+0.00 of peak), next max at 16.8px (+0.01 of peak) | mass r<=r:1.35e+07  r..win:0.221  win..3r:0.173 (x core)
+thronsenA        q=128x128 n=169 r_app=2.84 r_py=2.83 win=4.34 centre=(63.81,63.82) | first gap min at 20.2px (+0.00 of peak), next max at 24.8px (+0.02 of peak) | mass r<=r:1.41e+06  r..win:0.355  win..3r:0.184 (x core)
+demo_cube        q=128x128 n=169 r_app=2.98 r_py=2.99 win=4.48 centre=(63.50,63.50) | first gap min at 5.8px (+nan of peak), next max at 7.2px (+nan of peak) | mass r<=r:1.39e+06  r..win:0.000  win..3r:0.000 (x core)
