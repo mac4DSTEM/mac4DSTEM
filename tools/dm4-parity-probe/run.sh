@@ -16,7 +16,7 @@ trap 'rm -rf "$WORK"' EXIT
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 . "$REPO/tools/lib/sources.manifest"
-mac4dstem_sources "$REPO" readers
+mac4dstem_sources "$REPO" readers export
 for lib in libhdf5 libsz.2 libaec.0; do
   cp "$REPO/$lib.dylib" "$WORK/"
   codesign -f -s - "$WORK/$lib.dylib" 2>/dev/null

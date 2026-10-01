@@ -30,7 +30,15 @@ struct ExportSheet: View {
     @State private var xEnd: Int
     @State private var yStart: Int
     @State private var yEnd: Int
+    @State private var scanStride = 1
+    @State private var qCropEnabled = false
+    @State private var qRowStart = 0
+    @State private var qRowEnd: Int
+    @State private var qColumnStart = 0
+    @State private var qColumnEnd: Int
     @State private var qBin = 1
+    @State private var hotPixelsEnabled = false
+    @State private var hotPixelThreshold = 8.0
     @State private var showUncalibratedWarning = false
 
     init(descriptor: DatasetDescriptor) {
@@ -39,6 +47,8 @@ struct ExportSheet: View {
         _xEnd = State(initialValue: max(0, descriptor.rx - 1))
         _yStart = State(initialValue: 0)
         _yEnd = State(initialValue: max(0, descriptor.ry - 1))
+        _qRowEnd = State(initialValue: max(0, descriptor.qy - 1))
+        _qColumnEnd = State(initialValue: max(0, descriptor.qx - 1))
     }
 
     // MARK: - What would be written
@@ -51,8 +61,21 @@ struct ExportSheet: View {
         cropEnabled ? yStart..<(yEnd + 1) : 0..<descriptor.ry
     }
 
+    private var qRows: Range<Int> {
+        qCropEnabled ? qRowStart..<(qRowEnd + 1) : 0..<descriptor.qy
+    }
+
+    private var qColumns: Range<Int> {
+        qCropEnabled ? qColumnStart..<(qColumnEnd + 1) : 0..<descriptor.qx
+    }
+
+    // A control's range can shrink under its value (a tighter crop after a
+    // larger stride or bin was set); what is written is the clamped value.
+    private var stride: Int { min(scanStride, max(1, min(scanY.count, scanX.count))) }
+    private var bin: Int { min(qBin, max(1, min(qRows.count, qColumns.count))) }
+
     private var outputShape: [Int] {
-        [scanY.count, scanX.count, descriptor.qy / qBin, descriptor.qx / qBin]
+        [scanY.count / stride, scanX.count / stride, qRows.count / bin, qColumns.count / bin]
     }
 
     private var estimatedBytes: Double {
@@ -77,6 +100,7 @@ struct ExportSheet: View {
                 calibrationSection
                 cropSection
                 binningSection
+                hotPixelSection
                 outputSection
             }
             .formStyle(.grouped)
@@ -158,13 +182,27 @@ struct ExportSheet: View {
                 Stepper("Y end  \(yEnd)", value: $yEnd,
                         in: yStart...max(yStart, descriptor.ry - 1))
             }
+            // py4DSTEM thin_data_real: every Nth position, from the first.
+            Stepper("Scan stride  \(scanStride)×", value: $scanStride,
+                    in: 1...max(1, min(scanY.count, scanX.count)))
         }
     }
 
     private var binningSection: some View {
-        Section("Diffraction binning") {
+        Section("Diffraction crop and binning") {
+            Toggle("Crop detector", isOn: $qCropEnabled)
+            if qCropEnabled {
+                Stepper("Row start  \(qRowStart)", value: $qRowStart,
+                        in: 0...max(0, qRowEnd))
+                Stepper("Row end  \(qRowEnd)", value: $qRowEnd,
+                        in: qRowStart...max(qRowStart, descriptor.qy - 1))
+                Stepper("Column start  \(qColumnStart)", value: $qColumnStart,
+                        in: 0...max(0, qColumnEnd))
+                Stepper("Column end  \(qColumnEnd)", value: $qColumnEnd,
+                        in: qColumnStart...max(qColumnStart, descriptor.qx - 1))
+            }
             Stepper("Integer Q bin  \(qBin)×", value: $qBin,
-                    in: 1...max(1, min(descriptor.qy, descriptor.qx)))
+                    in: 1...max(1, min(qRows.count, qColumns.count)))
             // How the bin is reduced, and what happens to the remainder, are
             // both scientific consequences of the number above.
             Text("Bins are summed to preserve detector counts. Incomplete bottom/right blocks are trimmed, matching py4DSTEM bin_Q.")
@@ -173,13 +211,32 @@ struct ExportSheet: View {
         }
     }
 
+    private var hotPixelSection: some View {
+        Section("Hot pixels") {
+            Toggle("Filter hot pixels", isOn: $hotPixelsEnabled)
+            if hotPixelsEnabled {
+                LabeledContent("Threshold") {
+                    OptionalNumericField(
+                        title: "Threshold", value: hotPixelThreshold,
+                        format: FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0...2))
+                    ) { if $0 > 0 { hotPixelThreshold = $0 } }
+                }
+                // What the filter does, in py4DSTEM's own terms: a replacement
+                // changes counts, so the sheet says which and how many.
+                Text("py4DSTEM filter_hot_pixels, after the bin: pixels above their neighbourhood's second brightest by more than the threshold, in the mean pattern, become each pattern's 3×3 median. The positions found are stored in the file.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var outputSection: some View {
         Section("Output preview") {
             LabeledContent("Shape", value: outputShape.map(String.init).joined(separator: " × "))
             LabeledContent("Float32 data", value: displayByteString(Int(estimatedBytes)))
-            if descriptor.qy % qBin != 0 || descriptor.qx % qBin != 0 {
+            if qRows.count % bin != 0 || qColumns.count % bin != 0 {
                 Label(
-                    "Trims \(descriptor.qy % qBin) detector row(s) and \(descriptor.qx % qBin) column(s)",
+                    "Trims \(qRows.count % bin) detector row(s) and \(qColumns.count % bin) column(s)",
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.caption)
@@ -210,7 +267,10 @@ struct ExportSheet: View {
 
     private func beginExport() {
         let options = CalibratedDataCubeExportOptions(
-            scanY: scanY, scanX: scanX, qBin: qBin, tileRows: 1
+            scanY: scanY, scanX: scanX, qBin: bin, tileRows: 1,
+            scanStride: stride,
+            qCropY: qCropEnabled ? qRows : nil, qCropX: qCropEnabled ? qColumns : nil,
+            hotPixelThreshold: hotPixelsEnabled ? hotPixelThreshold : nil
         )
         dismiss()
         appState.exportCalibratedDataCube(options: options)

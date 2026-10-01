@@ -227,30 +227,70 @@ package nonisolated struct SessionSidecarSnapshot: Sendable {
 /// canonical py4DSTEM EMD file. Ranges use app/HDF5 order `[Ry,Rx]` and Q
 /// binning sums non-overlapping detector blocks, matching py4DSTEM's count-
 /// preserving diffraction binning semantics.
+///
+/// The steps run in py4DSTEM's order for the same calls: real-space crop,
+/// then `thin_data_real` (stride), detector `crop_Q`, `bin_Q`, and last
+/// `filter_hot_pixels` on the binned patterns (the order the owner's own
+/// preprocessed file was made in, docs/archive/v4/parity-28gb-2026-09-30.md).
 package nonisolated struct CalibratedDataCubeExportOptions: Sendable, Equatable {
     package let scanY: Range<Int>
     package let scanX: Range<Int>
     package let qBin: Int
     package let tileRows: Int
+    /// py4DSTEM `thin_data_real`: every `scanStride`-th position of the
+    /// cropped scan, starting at the crop's first, `floor(count / stride)` of
+    /// them per axis (preprocess.py:315-346).
+    package let scanStride: Int
+    /// py4DSTEM `crop_Q`, in the view's detector pixels, first axis (py4DSTEM
+    /// Qx) then second (Qy); `nil` keeps the whole detector. Applied before
+    /// the bin, so the bin's edge remainder is trimmed off the CROPPED extent.
+    package let qCropY: Range<Int>?
+    package let qCropX: Range<Int>?
+    /// py4DSTEM `filter_hot_pixels(thresh)`; `nil` = off (the default).
+    package let hotPixelThreshold: Double?
 
-    package init(scanY: Range<Int>, scanX: Range<Int>, qBin: Int = 1, tileRows: Int = 1) {
+    package init(scanY: Range<Int>, scanX: Range<Int>, qBin: Int = 1, tileRows: Int = 1,
+                 scanStride: Int = 1, qCropY: Range<Int>? = nil, qCropX: Range<Int>? = nil,
+                 hotPixelThreshold: Double? = nil) {
         self.scanY = scanY
         self.scanX = scanX
         self.qBin = qBin
         self.tileRows = tileRows
+        self.scanStride = scanStride
+        self.qCropY = qCropY
+        self.qCropX = qCropX
+        self.hotPixelThreshold = hotPixelThreshold
     }
+
+    /// View scan positions the export keeps, in output order.
+    package var scanYPositions: [Int] { Self.positions(scanY, stride: scanStride) }
+    package var scanXPositions: [Int] { Self.positions(scanX, stride: scanStride) }
+
+    private static func positions(_ range: Range<Int>, stride: Int) -> [Int] {
+        guard stride > 0 else { return [] }
+        return (0..<(range.count / stride)).map { range.lowerBound + $0 * stride }
+    }
+
+    /// True when the export changes the detector frame or thins the scan in a
+    /// way the replay recipe's frame table does not describe.
+    package var reframesRecipe: Bool { scanStride != 1 || qCropY != nil || qCropX != nil }
 }
 
 package nonisolated struct CalibratedDataCubeExportSummary: Sendable, Equatable {
     package let shape: [Int]
     package let discardedQRows: Int
     package let discardedQColumns: Int
+    /// The hot-pixel mask the filter found, `[row, column]` in the exported
+    /// detector; empty when the filter was off or found none.
+    package let hotPixels: [[Int]]
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(shape: [Int], discardedQRows: Int, discardedQColumns: Int) {
+    package nonisolated init(shape: [Int], discardedQRows: Int, discardedQColumns: Int,
+                             hotPixels: [[Int]] = []) {
         self.shape = shape
         self.discardedQRows = discardedQRows
         self.discardedQColumns = discardedQColumns
+        self.hotPixels = hotPixels
     }
 }
 
@@ -277,6 +317,15 @@ package nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
     package var detectorBin: Int
     package var detectorHeight: Int
     package var detectorWidth: Int
+    /// Present only when the export thinned the scan (X2): the source-scan
+    /// stride, so `scan_offset` + `scan_stride` name every position kept.
+    package var scanStride: Int?
+    /// Present only when the hot-pixel filter ran (X2): py4DSTEM's `thresh`
+    /// and the mask it found, `[row, column]` in THIS file's detector — the
+    /// 15 positions of a filtered file are a property of the file, so the
+    /// file says them.
+    package var hotPixelThreshold: Double?
+    package var hotPixels: [[Int]]?
 
     package enum CodingKeys: String, CodingKey {
         case schema
@@ -290,6 +339,9 @@ package nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
         case detectorBin = "detector_bin"
         case detectorHeight = "detector_height"
         case detectorWidth = "detector_width"
+        case scanStride = "scan_stride"
+        case hotPixelThreshold = "hot_pixel_threshold"
+        case hotPixels = "hot_pixels"
     }
 
     /// Compose the view's reduction with the export's. Exact by the floor
@@ -301,22 +353,40 @@ package nonisolated struct DataCubeDerivation: Codable, Sendable, Equatable {
     package static func compose(view: LoadView,
                         options: CalibratedDataCubeExportOptions,
                         outputShape: [Int],
-                        sourceFileName: String?) -> DataCubeDerivation {
+                        sourceFileName: String?,
+                        hotPixels: [[Int]] = []) -> DataCubeDerivation {
         let specification = view.specification
         let scanCrop = specification.scanCrop
         let detectorCrop = view.readDetectorCrop
-        return DataCubeDerivation(
+        // The export's own detector crop is in VIEW pixels, each
+        // `detectorBin` source pixels wide.
+        let viewBin: Int = specification.detectorBin
+        let cropY0: Int = options.qCropY?.lowerBound ?? 0
+        let cropX0: Int = options.qCropX?.lowerBound ?? 0
+        let viewOffsetY: Int = detectorCrop?.yOffset ?? 0
+        let viewOffsetX: Int = detectorCrop?.xOffset ?? 0
+        let scanOffsetY: Int = (scanCrop?.yOffset ?? 0) + options.scanY.lowerBound
+        let scanOffsetX: Int = (scanCrop?.xOffset ?? 0) + options.scanX.lowerBound
+        // Assigned property by property: one 14-argument memberwise call with
+        // arithmetic arguments exceeds the type checker's budget.
+        var derivation = DataCubeDerivation(
             sourceFile: sourceFileName,
-            scanOffsetY: (scanCrop?.yOffset ?? 0) + options.scanY.lowerBound,
-            scanOffsetX: (scanCrop?.xOffset ?? 0) + options.scanX.lowerBound,
+            scanOffsetY: scanOffsetY,
+            scanOffsetX: scanOffsetX,
             scanHeight: outputShape[0],
             scanWidth: outputShape[1],
-            detectorOffsetY: detectorCrop?.yOffset ?? 0,
-            detectorOffsetX: detectorCrop?.xOffset ?? 0,
-            detectorBin: specification.detectorBin * options.qBin,
+            detectorOffsetY: viewOffsetY + cropY0 * viewBin,
+            detectorOffsetX: viewOffsetX + cropX0 * viewBin,
+            detectorBin: viewBin * options.qBin,
             detectorHeight: outputShape[2],
             detectorWidth: outputShape[3]
         )
+        if options.scanStride != 1 { derivation.scanStride = options.scanStride }
+        if let threshold = options.hotPixelThreshold {
+            derivation.hotPixelThreshold = threshold
+            derivation.hotPixels = hotPixels
+        }
+        return derivation
     }
 
     /// Deterministic JSON, same conventions as the other stamped records.

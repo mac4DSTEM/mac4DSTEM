@@ -28,6 +28,13 @@
 //        position of the py4DSTEM-preprocessed file read by the app's
 //        `H5Reader`. Reports max |Δ|, max relative Δ, and the transpose check
 //        (the same comparison with the binned pattern transposed).
+//    --export-parity RAW.dm4 PREPROCESSED.h5 [--bin 4] [--thresh T] [--stride N] [--keep]
+//        X1 (2026-10-01): the app's EXPORT path (`BraggVectorEMDWriter
+//        .writeCalibratedDataCube`: bin, then the optional `filter_hot_pixels`
+//        port at --thresh) writes the raw file to a scratch .h5 under
+//        $TMPDIR, which is then compared with PREPROCESSED.h5 exactly as
+//        --parity compares the LoadView bin. Without --thresh the filter is
+//        off. Prints the mask the filter found.
 //
 import Darwin
 import Foundation
@@ -134,8 +141,10 @@ enum DM4ParityProbe {
             }
             return
         }
-        guard let raw = value("--parity"), let idx = args.firstIndex(of: "--parity"), idx + 2 < args.count
-        else { fail("usage: --open-only RAW.dm4 | --subsample RAW OUT.h5 --stride N | --verify-subsample RAW OUT.h5 --stride N | --parity RAW.dm4 PRE.h5 [--bin 4] [--stride N]") }
+        let exportMode = value("--export-parity") != nil
+        guard let raw = value(exportMode ? "--export-parity" : "--parity"),
+              let idx = args.firstIndex(of: exportMode ? "--export-parity" : "--parity"), idx + 2 < args.count
+        else { fail("usage: --open-only RAW.dm4 | --subsample RAW OUT.h5 --stride N | --verify-subsample RAW OUT.h5 --stride N | --parity RAW.dm4 PRE.h5 [--bin 4] [--stride N] | --export-parity RAW.dm4 PRE.h5 [--bin 4] [--thresh T] [--stride N] [--keep]") }
         let pre = args[idx + 2]
         let bin = Int(value("--bin") ?? "4") ?? 4
         let stride = max(1, Int(value("--stride") ?? "1") ?? 1)
@@ -145,6 +154,34 @@ enum DM4ParityProbe {
         let h5 = try H5Reader(path: pre)
         let dPre = try await h5.discoverPrimaryDataset()
         let preView = LoadView(fullExtentOf: dPre)
+        // X1: the app's export of the raw file, read back through H5Reader, is
+        // side A; otherwise side A is the LoadView bin of the raw file.
+        var exportedReader: H5Reader?
+        var exportedView: LoadView?
+        var exportedURL: URL?
+        if exportMode {
+            let url = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("dm4-export-parity-\(ProcessInfo.processInfo.processIdentifier).h5")
+            exportedURL = url
+            let threshold = value("--thresh").flatMap(Double.init)
+            let options = CalibratedDataCubeExportOptions(
+                scanY: 0..<dRaw.ry, scanX: 0..<dRaw.rx, qBin: bin, tileRows: 1,
+                hotPixelThreshold: threshold
+            )
+            print("export: bin \(bin), hot-pixel threshold \(threshold.map { String($0) } ?? "off"); " + memory())
+            let t = Date()
+            let summary = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+                source: dm, view: LoadView(fullExtentOf: dRaw), calibration: PixelCalibration(),
+                options: options, to: url, sourceFileName: dRaw.fileName
+            )
+            print(String(format: "exported %@ in %.0f s; ", summary.shape.map(String.init).joined(separator: "×"),
+                         Date().timeIntervalSince(t)) + memory())
+            print("MASK: \(summary.hotPixels.count) hot pixels found: "
+                  + summary.hotPixels.map { "(\($0[0]),\($0[1]))" }.joined(separator: " "))
+            let reader = try H5Reader(path: url.path)
+            exportedView = LoadView(fullExtentOf: try await reader.discoverPrimaryDataset())
+            exportedReader = reader
+        }
         print("raw \(dRaw.ry)×\(dRaw.rx)×\(dRaw.qy)×\(dRaw.qx) binned ×\(bin) → \(view.descriptor.qy)×\(view.descriptor.qx); "
               + "preprocessed \(dPre.ry)×\(dPre.rx)×\(dPre.qy)×\(dPre.qx)")
         guard view.descriptor.ry == dPre.ry, view.descriptor.rx == dPre.rx,
@@ -162,7 +199,12 @@ enum DM4ParityProbe {
         var pixelDiffers = [Int](repeating: 0, count: q * q)
         let t0 = Date()
         for y in Swift.stride(from: 0, to: dPre.ry, by: stride) {
-            let rowA = try await dm.readScanRow(view, ry: y)
+            let rowA: [Float]
+            if let exportedReader, let exportedView {
+                rowA = try await exportedReader.readScanRow(exportedView, ry: y)
+            } else {
+                rowA = try await dm.readScanRow(view, ry: y)
+            }
             for x in Swift.stride(from: 0, to: dPre.rx, by: stride) {
                 let a = Array(rowA[(x * q * q)..<((x + 1) * q * q)])
                 let b = try await h5.readPattern(preView, ry: y, rx: x)
@@ -203,6 +245,7 @@ enum DM4ParityProbe {
         // order alone gives small values (the data has negative pixels, so a 4×4 sum can nearly cancel); a replaced
         // pixel gives values near 1. The gap between the two is for the reader to see.
         let order = (0..<(q * q)).sorted { pixelMaxRel[$0] > pixelMaxRel[$1] }
+        if let exportedURL, !args.contains("--keep") { try? FileManager.default.removeItem(at: exportedURL) }
         print("PER PIXEL: \(pixelMaxRel.filter { $0 == 0 }.count) of \(q * q) detector positions bit-identical in every pattern; "
               + "the 24 largest per-position max relative differences:")
         for i in order.prefix(24) {

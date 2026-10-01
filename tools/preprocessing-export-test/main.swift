@@ -4,7 +4,30 @@ actor SyntheticSource: FourDDataSource {
     let descriptor: DatasetDescriptor
     private(set) var largestTile = 0
 
-    init(_ descriptor: DatasetDescriptor) { self.descriptor = descriptor }
+    /// X2: planted hot pixels over a 0...2 background (see `hotBackground`).
+    let hot: Bool
+
+    init(_ descriptor: DatasetDescriptor, hot: Bool = false) {
+        self.descriptor = descriptor
+        self.hot = hot
+    }
+
+    /// Source-detector (row, column) -> added counts, every scan position.
+    /// Under the X2 fixture's crop (rows 2..<18, cols 3..<22) and bin 2 they
+    /// land in the 8 x 9 binned detector at: (6,9) -> (2,3) the hot pixel;
+    /// (6,11) -> (2,4) a dimmer neighbour: not flagged itself, and the hot
+    /// pixel is compared with it, not with the background (py4DSTEM uses the
+    /// SECOND brightest); (8,3) -> (3,0) and (8,19) -> (3,8) a pair on
+    /// opposite edges, so the wrapping window hides the first and a clipped
+    /// window would flag it; (16,19) -> (7,8) the corner pixel, whose median
+    /// window is a clipped 2 x 2. (A 5 x 5 detector let the pixels shield
+    /// each other through the wrap: py4DSTEM itself found nothing.)
+    static let hotAdditions: [[Int]: Float] = [
+        [6, 9]: 5000, [6, 11]: 3000, [8, 3]: 5000, [8, 19]: 4990, [16, 19]: 5000,
+    ]
+    static func hotBackground(sy: Int, sx: Int, qy: Int, qx: Int) -> Float {
+        Float((sy * 5 + sx * 3 + qy * 7 + qx * 2) % 3)
+    }
 
     func discoverPrimaryDataset() throws -> DatasetDescriptor { descriptor }
 
@@ -41,6 +64,13 @@ actor SyntheticSource: FourDDataSource {
             for x in 0..<descriptor.rx {
                 for qy in 0..<descriptor.qy {
                     for qx in 0..<descriptor.qx {
+                        if hot {
+                            let sqy = detectorY + qy, sqx = detectorX + qx
+                            pixels.append(Self.hotBackground(
+                                sy: view.sourceScanY(y), sx: view.sourceScanX(x), qy: sqy, qx: sqx)
+                                + (Self.hotAdditions[[sqy, sqx]] ?? 0))
+                            continue
+                        }
                         pixels.append(Float(
                             view.sourceScanY(y) * 10_000 + view.sourceScanX(x) * 1_000
                                 + (detectorY + qy) * 10 + (detectorX + qx)
@@ -67,11 +97,13 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
 @main
 struct Harness {
     static func main() async throws {
-        guard CommandLine.arguments.count == 3 else {
+        guard CommandLine.arguments.count == 5 else {
             throw NSError(domain: "arguments", code: 1)
         }
         let output = URL(fileURLWithPath: CommandLine.arguments[1])
         let cancelled = URL(fileURLWithPath: CommandLine.arguments[2])
+        let filtered = URL(fileURLWithPath: CommandLine.arguments[3])
+        let unfiltered = URL(fileURLWithPath: CommandLine.arguments[4])
         let descriptor = DatasetDescriptor(
             filePath: "synthetic.dm4", datasetPath: "/synthetic",
             shape: [3, 4, 5, 7], dtypeDescription: "float32", chunkShape: nil
@@ -202,6 +234,50 @@ struct Harness {
         let after = try Data(contentsOf: cancelled)
         try require(after == before,
                     "cancelled export replaced the destination")
+        try await preprocessScenario(filtered: filtered, unfiltered: unfiltered)
         print("preprocessing-export-test: native checks passed")
     }
+}
+
+/// X2: scan stride, detector crop, bin and py4DSTEM's hot-pixel filter, in
+/// py4DSTEM's order, on a fixture whose reference is py4DSTEM's own chain
+/// (verify_py4dstem.py). Two files: filter on and off.
+func preprocessScenario(filtered: URL, unfiltered: URL) async throws {
+    let descriptor = DatasetDescriptor(
+        filePath: "hot.dm4", datasetPath: "/synthetic",
+        shape: [6, 7, 20, 24], dtypeDescription: "float32", chunkShape: nil
+    )
+    let source = SyntheticSource(descriptor, hot: true)
+    var calibration = PixelCalibration(
+        rSize: 2.5, rUnits: "A", qSize: 0.25, qUnits: "A^-1", qrFlip: false
+    )
+    // Binary-exact steps; every origin inside the 8 x 9 binned detector
+    // after the crop shift (first axis offset 2, second offset 3).
+    let qx = (0..<42).map { 5.0 + 0.0625 * Double($0) }
+    let qy = (0..<42).map { 7.0 + 0.0625 * Double($0) }
+    calibration.originMaps = PixelOriginMaps(
+        shape: [6, 7], fittedQX: qx, fittedQY: qy, measuredQX: nil, measuredQY: nil
+    )
+    calibration.qx0Mean = qx.reduce(0, +) / 42
+    calibration.qy0Mean = qy.reduce(0, +) / 42
+    func options(_ threshold: Double?) -> CalibratedDataCubeExportOptions {
+        CalibratedDataCubeExportOptions(
+            scanY: 1..<6, scanX: 0..<7, qBin: 2, tileRows: 2,
+            scanStride: 2, qCropY: 2..<18, qCropX: 3..<22, hotPixelThreshold: threshold
+        )
+    }
+    let on = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+        source: source, view: LoadView(fullExtentOf: descriptor), calibration: calibration,
+        options: options(20), to: filtered
+    )
+    try require(on.shape == [2, 3, 8, 9], "X2 shape \(on.shape)")
+    try require(on.discardedQRows == 0 && on.discardedQColumns == 1, "X2 trim report")
+    try require(on.hotPixels == [[2, 3], [7, 8]], "X2 mask \(on.hotPixels)")
+    let off = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+        source: source, view: LoadView(fullExtentOf: descriptor), calibration: calibration,
+        options: options(nil), to: unfiltered
+    )
+    try require(off.hotPixels.isEmpty, "X2 filter off must report no mask")
+    let maximumTileRows = await source.maximumTileRows()
+    try require(maximumTileRows <= 2, "X2 tile bound")
 }

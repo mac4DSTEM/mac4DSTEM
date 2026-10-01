@@ -23,8 +23,8 @@ xcrun swiftc -package-name mac4DSTEM -parse-as-library -o "$WORK/harness" main.s
   -framework Accelerate -framework Metal
 codesign -f -s - "$WORK/harness" 2>/dev/null
 export MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib"
-"$WORK/harness" "$WORK/calibrated.h5" "$WORK/cancelled.h5" 2>/dev/null
+"$WORK/harness" "$WORK/calibrated.h5" "$WORK/cancelled.h5" "$WORK/filtered.h5" "$WORK/unfiltered.h5" 2>/dev/null
 
 PYTHONPATH="$REPO/References/py4DSTEM-dev" \
   "$PYTHON_BIN" \
-  verify_py4dstem.py "$WORK/calibrated.h5"
+  verify_py4dstem.py "$WORK/calibrated.h5" "$WORK/filtered.h5" "$WORK/unfiltered.h5"

@@ -184,6 +184,15 @@ promote run. There is no automated visual baseline; drives are the evidence (sta
 
 ## Data, harnesses & code hygiene
 
+### Preprocessing export (Slot 2 lane X, 2026-10-01): four named residuals
+Stride, detector crop and py4DSTEM's hot-pixel filter landed (`archive/v4/slot2-x-record-2026-10-01.md`, `-refuter-`). (1) The
+bin's float32 sum order is not numpy's: ≤ 1.14e-4 relative on the 28 GB cube, never bit-identical — owner's call whether to match
+it. (2) The filter's mean is Double where numpy's is float32 (DEVIATION): numpy is 45–230 counts off at 2e5 against thresh 8, so
+inside a bright direct disk py4DSTEM's own mask is partly an accumulation artefact; the 060 match (exactly the 15) is one dataset
+with an unmeasured margin — `--export-parity` could print it. (3) A strided or detector-cropped export carries no replay recipe
+(named in the status line when there is one to omit). (4) The export writes no accelerating voltage: a reopened file reads "Not
+set" (pre-existing, found by the 2026-10-01 drive). Polish from the drive: 1-px crop steppers; the sheet's short scroll area.
+
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads

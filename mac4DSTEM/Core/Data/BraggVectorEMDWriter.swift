@@ -257,7 +257,7 @@ package nonisolated enum BraggVectorEMDWriter {
         // refuses an origin that lands outside the exported detector — the
         // frame-mismatch net for a caller that hands a source-frame
         // calibration with reduced pixels, the py4DSTEM `bin_data_diffraction`
-        // defect this file's own DEVIATION note forbids.
+        // defect the DEVIATION note in `transformedCalibration` describes.
         let descriptor = view.descriptor
         guard options.scanY.lowerBound >= 0,
               options.scanY.upperBound <= descriptor.ry,
@@ -266,22 +266,54 @@ package nonisolated enum BraggVectorEMDWriter {
               !options.scanY.isEmpty, !options.scanX.isEmpty else {
             throw WriterError.invalidDimensions("the real-space crop is outside the source scan")
         }
-        guard options.qBin > 0, options.qBin <= descriptor.qy,
-              options.qBin <= descriptor.qx else {
+        guard options.scanStride > 0,
+              options.scanStride <= min(options.scanY.count, options.scanX.count) else {
+            throw WriterError.invalidDimensions("the scan stride is invalid for the cropped scan")
+        }
+        let cropY = options.qCropY ?? 0..<descriptor.qy
+        let cropX = options.qCropX ?? 0..<descriptor.qx
+        guard cropY.lowerBound >= 0, cropY.upperBound <= descriptor.qy, !cropY.isEmpty,
+              cropX.lowerBound >= 0, cropX.upperBound <= descriptor.qx, !cropX.isEmpty else {
+            throw WriterError.invalidDimensions("the detector crop is outside the detector")
+        }
+        guard options.qBin > 0, options.qBin <= cropY.count,
+              options.qBin <= cropX.count else {
             throw WriterError.invalidDimensions("the diffraction bin factor is invalid")
         }
         guard options.tileRows > 0 else {
             throw WriterError.invalidDimensions("the export tile height must be positive")
         }
-        let outQY = descriptor.qy / options.qBin
-        let outQX = descriptor.qx / options.qBin
+        if let threshold = options.hotPixelThreshold {
+            guard threshold.isFinite, threshold > 0 else {
+                throw WriterError.invalidDimensions("the hot-pixel threshold must be positive")
+            }
+        }
+        let outQY = cropY.count / options.qBin
+        let outQX = cropX.count / options.qBin
         guard outQY > 0, outQX > 0 else {
             throw WriterError.invalidDimensions("the binned diffraction shape is empty")
         }
+        let outputShape = [options.scanYPositions.count, options.scanXPositions.count, outQY, outQX]
+
+        // The hot-pixel mask is found BEFORE anything is written, from the
+        // mean of exactly the patterns the file will hold (py4DSTEM filters
+        // the already cropped, thinned and binned cube), so the file's
+        // provenance can name it and a cancelled or failed mask pass leaves
+        // nothing behind.
+        var hotPixels = [[Int]]()
+        if let threshold = options.hotPixelThreshold {
+            let mean = try await meanPattern(source: source, view: view, options: options,
+                                             outputShape: outputShape,
+                                             cancellation: cancellation, progress: progress)
+            hotPixels = HotPixelFilter.maskIndices(
+                mean: mean, height: outQY, width: outQX, threshold: threshold
+            ).map { [$0 / outQX, $0 % outQX] }
+        }
         let summary = CalibratedDataCubeExportSummary(
-            shape: [options.scanY.count, options.scanX.count, outQY, outQX],
-            discardedQRows: descriptor.qy - outQY * options.qBin,
-            discardedQColumns: descriptor.qx - outQX * options.qBin
+            shape: outputShape,
+            discardedQRows: cropY.count - outQY * options.qBin,
+            discardedQColumns: cropX.count - outQX * options.qBin,
+            hotPixels: hotPixels
         )
 
         try checkCancellation(cancellation)
@@ -304,7 +336,9 @@ package nonisolated enum BraggVectorEMDWriter {
             options: options, outputShape: summary.shape,
             derivation: DataCubeDerivation.compose(view: view, options: options,
                                                    outputShape: summary.shape,
-                                                   sourceFileName: sourceFileName),
+                                                   sourceFileName: sourceFileName,
+                                                   hotPixels: hotPixels),
+            hotPixelMask: hotPixels.map { $0[0] * outQX + $0[1] },
             replayRecord: replayRecord,
             cancellation: cancellation, progress: progress, hdf5: h5
         )
@@ -1360,10 +1394,24 @@ package nonisolated enum BraggVectorEMDWriter {
     ) throws -> PixelCalibration {
         var output = source
         let bin = Double(options.qBin)
+        // py4DSTEM `thin_data_real` scales the real-space pixel size by the
+        // stride (preprocess.py:338).
+        output.rSize = source.rSize.map { $0 * Double(options.scanStride) }
         output.qSize = source.qSize.map { $0 * bin }
-        let transformQ: (Double) -> Double = { ($0 + 0.5) / bin - 0.5 }
-        output.qx0Mean = source.qx0Mean.map(transformQ)
-        output.qy0Mean = source.qy0Mean.map(transformQ)
+        // The origin is a COORDINATE: the detector crop moves its zero (the
+        // first Q axis is the view's detector rows, py4DSTEM Qx), then the
+        // bin's `(x + 0.5) / b - 0.5`.
+        // DEVIATION: py4DSTEM's `crop_data_diffraction` and
+        // `bin_data_diffraction` (preprocess.py:123-136 and the bin) leave
+        // `calibration.origin` untouched, so a py4DSTEM-cropped or -binned
+        // cube carries an origin in the SOURCE frame; this export writes it
+        // in the exported file's own frame (Gate B refuter, 2026-10-01).
+        let cropOffsetX = Double(options.qCropY?.lowerBound ?? 0)   // py4DSTEM qx = first axis
+        let cropOffsetY = Double(options.qCropX?.lowerBound ?? 0)
+        let transformQX: (Double) -> Double = { ($0 - cropOffsetX + 0.5) / bin - 0.5 }
+        let transformQY: (Double) -> Double = { ($0 - cropOffsetY + 0.5) / bin - 0.5 }
+        output.qx0Mean = source.qx0Mean.map(transformQX)
+        output.qy0Mean = source.qy0Mean.map(transformQY)
         output.probeSemiangle = source.probeSemiangle.map { $0 / bin }
         // The ellipse semi-axes are LENGTHS in detector pixels, exactly like
         // the probe radius one line up — omitting them left an export-binned
@@ -1381,7 +1429,7 @@ package nonisolated enum BraggVectorEMDWriter {
                     "the calibration's origin maps describe a \(maps.shape.map(String.init).joined(separator: " × ")) scan but the exported view's scan is \(descriptor.ry) × \(descriptor.rx) — the maps are not in this view's frame, so there is no honest way to export them"
                 )
             }
-            func cropped(_ values: [Double]?) -> [Double]? {
+            func cropped(_ values: [Double]?, _ transformQ: (Double) -> Double) -> [Double]? {
                 // Optional arrays (measured maps) may be absent; a PRESENT
                 // array of the wrong length is the same frame mismatch as a
                 // wrong shape and is refused by the caller's guard above for
@@ -1392,9 +1440,9 @@ package nonisolated enum BraggVectorEMDWriter {
                     return nil
                 }
                 var result = [Double]()
-                result.reserveCapacity(options.scanY.count * options.scanX.count)
-                for y in options.scanY {
-                    for x in options.scanX {
+                result.reserveCapacity(options.scanYPositions.count * options.scanXPositions.count)
+                for y in options.scanYPositions {
+                    for x in options.scanXPositions {
                         result.append(transformQ(values[y * descriptor.rx + x]))
                     }
                 }
@@ -1402,13 +1450,13 @@ package nonisolated enum BraggVectorEMDWriter {
             }
             // Non-optional by the guard above: the fitted maps have the
             // exact counts `cropped` requires.
-            let fittedQX = cropped(maps.fittedQX) ?? []
-            let fittedQY = cropped(maps.fittedQY) ?? []
+            let fittedQX = cropped(maps.fittedQX, transformQX) ?? []
+            let fittedQY = cropped(maps.fittedQY, transformQY) ?? []
             output.originMaps = PixelOriginMaps(
-                shape: [options.scanY.count, options.scanX.count],
+                shape: [options.scanYPositions.count, options.scanXPositions.count],
                 fittedQX: fittedQX, fittedQY: fittedQY,
-                measuredQX: cropped(maps.measuredQX),
-                measuredQY: cropped(maps.measuredQY)
+                measuredQX: cropped(maps.measuredQX, transformQX),
+                measuredQY: cropped(maps.measuredQY, transformQY)
             )
             output.qx0Mean = fittedQX.isEmpty
                 ? output.qx0Mean : fittedQX.reduce(0, +) / Double(fittedQX.count)
@@ -1425,8 +1473,8 @@ package nonisolated enum BraggVectorEMDWriter {
         // what this catches is a source-frame calibration handed in beside
         // reduced pixels — a net, not a proof, and the invariant's real home
         // is L3.
-        let outQX = Double(descriptor.qy / options.qBin)   // py4DSTEM qx extent
-        let outQY = Double(descriptor.qx / options.qBin)   // py4DSTEM qy extent
+        let outQX = Double((options.qCropY?.count ?? descriptor.qy) / options.qBin)   // py4DSTEM qx extent
+        let outQY = Double((options.qCropX?.count ?? descriptor.qx) / options.qBin)   // py4DSTEM qy extent
         func inside(_ value: Double, _ extent: Double) -> Bool {
             value.isFinite && value >= -0.5 && value < extent - 0.5
         }
@@ -1460,12 +1508,12 @@ package nonisolated enum BraggVectorEMDWriter {
         options: CalibratedDataCubeExportOptions,
         outputShape: [Int],
         derivation: DataCubeDerivation?,
+        hotPixelMask: [Int],
         replayRecord: SessionReplayRecord?,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?,
         hdf5 h5: HDF5WriteLibrary
     ) async throws {
-        let descriptor = view.descriptor
         // The setup below creates handles the tile loop uses, so it cannot be
         // one closure under `HDF5Serial.run`; the lock is taken explicitly
         // here and released before the loop's first `await` on the source.
@@ -1548,33 +1596,24 @@ package nonisolated enum BraggVectorEMDWriter {
         setupLocked = false
 
         let outQY = outputShape[2], outQX = outputShape[3]
-        let sourcePatternCount = descriptor.qy * descriptor.qx
-        var sourceY = options.scanY.lowerBound
-        while sourceY < options.scanY.upperBound {
+        let yPositions = options.scanYPositions
+        // With the hot-pixel filter on, the mean pass took the first half of
+        // the progress bar.
+        let progressBase = options.hotPixelThreshold == nil ? 0.0 : 0.5
+        var outRow = 0
+        while outRow < yPositions.count {
             try checkCancellation(cancellation)
-            let endY = min(sourceY + options.tileRows, options.scanY.upperBound)
-            let sourceTile = try await source.readScanTile(view, yRange: sourceY..<endY)
+            // A stride of 1 reads `tileRows` contiguous scan rows at once, as
+            // before; a thinned scan reads the rows it keeps one at a time.
+            let rowsInTile = options.scanStride == 1
+                ? min(options.tileRows, yPositions.count - outRow) : 1
+            let sourceY = yPositions[outRow]
+            let sourceTile = try await source.readScanTile(view, yRange: sourceY..<(sourceY + rowsInTile))
             try checkCancellation(cancellation)
-            var output = [Float](repeating: 0,
-                count: (endY - sourceY) * options.scanX.count * outQY * outQX)
-            for localY in 0..<(endY - sourceY) {
-                for (outX, sourceX) in options.scanX.enumerated() {
-                    let inputBase = (localY * descriptor.rx + sourceX) * sourcePatternCount
-                    let outputBase = (localY * options.scanX.count + outX) * outQY * outQX
-                    for qy in 0..<outQY {
-                        for qx in 0..<outQX {
-                            var sum: Float = 0
-                            for by in 0..<options.qBin {
-                                let row = inputBase + (qy * options.qBin + by) * descriptor.qx
-                                for bx in 0..<options.qBin {
-                                    sum += sourceTile.pixels[row + qx * options.qBin + bx]
-                                }
-                            }
-                            output[outputBase + qy * outQX + qx] = sum
-                        }
-                    }
-                }
-            }
+            let output = reducedTile(sourceTile, localRows: rowsInTile, view: view,
+                                     options: options, outQY: outQY, outQX: outQX,
+                                     hotPixelMask: hotPixelMask)
+            let endY = outRow + rowsInTile
 
             // One tile's write is one operation under the lock; the read of
             // the next tile from the source actor happens outside it.
@@ -1583,8 +1622,8 @@ package nonisolated enum BraggVectorEMDWriter {
                 let targetSpace = h5.h5dgetSpace(dataset)
                 guard targetSpace >= 0 else { throw WriterError.hdf5("opening the output dataspace") }
                 defer { _ = h5.h5sclose(targetSpace) }
-                let start = [hsize_t(sourceY - options.scanY.lowerBound), 0, 0, 0]
-                let count = [hsize_t(endY - sourceY), hsize_t(options.scanX.count),
+                let start = [hsize_t(outRow), 0, 0, 0]
+                let count = [hsize_t(rowsInTile), hsize_t(outputShape[1]),
                              hsize_t(outQY), hsize_t(outQX)]
                 let selected = start.withUnsafeBufferPointer { starts in
                     count.withUnsafeBufferPointer { counts in
@@ -1604,11 +1643,81 @@ package nonisolated enum BraggVectorEMDWriter {
                 _ = h5.h5sclose(memorySpace)
                 guard wrote >= 0 else { throw WriterError.hdf5("writing the output tile") }
             }
-            sourceY = endY
-            progress?(Double(sourceY - options.scanY.lowerBound) / Double(options.scanY.count))
+            outRow = endY
+            progress?(progressBase + (1 - progressBase) * Double(outRow) / Double(yPositions.count))
         }
         try checkCancellation(cancellation)
         progress?(1)
+    }
+
+    /// One tile through the export's per-pattern reduction: scan positions
+    /// thinned to `scanXPositions`, detector cropped (`crop_Q`), then summed
+    /// in `qBin` blocks (`bin_Q`), then — if a mask is given — the hot-pixel
+    /// replacement. `[localRows x outX x outQY x outQX]`, float32.
+    private static func reducedTile(
+        _ tile: FourDScanTile, localRows: Int, view: LoadView,
+        options: CalibratedDataCubeExportOptions, outQY: Int, outQX: Int,
+        hotPixelMask: [Int]
+    ) -> [Float] {
+        let descriptor = view.descriptor
+        let xPositions = options.scanXPositions
+        let cropY0 = options.qCropY?.lowerBound ?? 0
+        let cropX0 = options.qCropX?.lowerBound ?? 0
+        let bin = options.qBin
+        let sourcePatternCount = descriptor.qy * descriptor.qx
+        let patternSize = outQY * outQX
+        var output = [Float](repeating: 0, count: localRows * xPositions.count * patternSize)
+        for localY in 0..<localRows {
+            for (outX, sourceX) in xPositions.enumerated() {
+                let inputBase = (localY * descriptor.rx + sourceX) * sourcePatternCount
+                let outputBase = (localY * xPositions.count + outX) * patternSize
+                for qy in 0..<outQY {
+                    for qx in 0..<outQX {
+                        var sum: Float = 0
+                        for by in 0..<bin {
+                            let row = inputBase + (cropY0 + qy * bin + by) * descriptor.qx
+                            for bx in 0..<bin {
+                                sum += tile.pixels[row + cropX0 + qx * bin + bx]
+                            }
+                        }
+                        output[outputBase + qy * outQX + qx] = sum
+                    }
+                }
+                if !hotPixelMask.isEmpty {
+                    HotPixelFilter.replace(mask: hotPixelMask, in: &output, base: outputBase,
+                                           height: outQY, width: outQX)
+                }
+            }
+        }
+        return output
+    }
+
+    /// Mean of the exported (cropped, thinned, binned) patterns, accumulated in
+    /// Double: the first of the filter's two passes over the source. See the
+    /// DEVIATION note in `HotPixelFilter`.
+    private static func meanPattern(
+        source: any FourDDataSource, view: LoadView,
+        options: CalibratedDataCubeExportOptions, outputShape: [Int],
+        cancellation: AnalysisCancellationToken?,
+        progress: (@Sendable (Double) -> Void)?
+    ) async throws -> [Float] {
+        let outQY = outputShape[2], outQX = outputShape[3]
+        let patternSize = outQY * outQX
+        let yPositions = options.scanYPositions
+        var sums = [Double](repeating: 0, count: patternSize)
+        for (index, sourceY) in yPositions.enumerated() {
+            try checkCancellation(cancellation)
+            let tile = try await source.readScanTile(view, yRange: sourceY..<(sourceY + 1))
+            let reduced = reducedTile(tile, localRows: 1, view: view, options: options,
+                                      outQY: outQY, outQX: outQX, hotPixelMask: [])
+            for pattern in 0..<outputShape[1] {
+                let base = pattern * patternSize
+                for i in 0..<patternSize { sums[i] += Double(reduced[base + i]) }
+            }
+            progress?(0.5 * Double(index + 1) / Double(yPositions.count))
+        }
+        let count = Double(yPositions.count * outputShape[1])
+        return sums.map { Float($0 / count) }
     }
 
     private static func writeFile(

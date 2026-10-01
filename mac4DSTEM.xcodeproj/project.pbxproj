@@ -118,6 +118,7 @@
 				Core/Data/FourDDataSource.swift,
 				Core/Data/H5Reader.swift,
 				Core/Data/HDF5Types.swift,
+				Core/Data/HotPixelFilter.swift,
 				Core/Data/LoadConfiguration.swift,
 				Core/Data/LoadSpecification.swift,
 				Core/Data/ResidentCube.swift,

@@ -73,16 +73,23 @@ extension AppState {
         // and everything else refuses by name. Composing across three
         // frames is real math for a session that wants it; recorded in
         // docs/open-items.md, not improvised here.
-        let (mappedRecipe, recipeOmission) = ReplayRecordFrameMap.exportableRecipe(
-            record: replay.recordForSaving,
-            recordedFrame: replay.parameterFrame,
-            currentSpecification: loadedView.specification,
-            exportBin: options.qBin
-        )
+        //
+        // A thinned scan or a cropped detector moves positions the frame table
+        // has no role for (it knows the bin, not a stride or a crop offset), so
+        // the recipe is left out by name rather than stamped in a frame the
+        // file is not in (X2).
+        let (mappedRecipe, recipeOmission) = options.reframesRecipe && !(replay.recordForSaving?.isEmpty ?? true)
+            ? (nil, "the export thins the scan or crops the detector, which the recipe's frame table does not describe")
+            : ReplayRecordFrameMap.exportableRecipe(
+                record: replay.recordForSaving,
+                recordedFrame: replay.parameterFrame,
+                currentSpecification: loadedView.specification,
+                exportBin: options.qBin
+            )
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Preprocessing export", status: "Writing calibrated DataCube…",
-            totalUnits: options.scanY.count * options.scanX.count
+            totalUnits: options.scanYPositions.count * options.scanXPositions.count
         )
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -111,6 +118,9 @@ extension AppState {
                 var suffix = dropped == 0
                     ? ""
                     : " (trimmed \(summary.discardedQRows) Q row, \(summary.discardedQColumns) Q column)"
+                if options.hotPixelThreshold != nil {
+                    suffix += " · \(summary.hotPixels.count) hot pixel\(summary.hotPixels.count == 1 ? "" : "s") replaced"
+                }
                 if let recipeOmission {
                     // A partial truth stated whole: the file exists and is
                     // correct; the recipe attribute is absent, and this is
