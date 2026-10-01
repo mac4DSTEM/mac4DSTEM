@@ -214,11 +214,8 @@ enum LayoutPolicy {
     /// sheet instead of pushing its footer off screen.
     static let configuratorSheet: (min: CGSize, ideal: CGSize) =
         (CGSize(width: 720, height: 500), CGSize(width: 880, height: 720))
-    static let exportSheet: (min: CGSize, ideal: CGSize) =
-        (CGSize(width: 540, height: 460), CGSize(width: 600, height: 700))
     /// The Materials Project fetch sheet: three fields, a result card, a
-    /// footer — shorter than `exportSheet`, which carries a live output
-    /// preview besides its own footer.
+    /// footer.
     static let materialsProjectSheet: (min: CGSize, ideal: CGSize) =
         (CGSize(width: 460, height: 380), CGSize(width: 520, height: 480))
     /// The Settings window (session S21, `ROADMAP.md` "Settings window,

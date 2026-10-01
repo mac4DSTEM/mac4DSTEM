@@ -172,10 +172,11 @@ struct DatasetMenu: View {
         Menu {
             Button("Open Dataset…") { appState.requestOpenDataset() }
             Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
+            // X3 (owner-accepted mock 2026-10-01): beside Open with Options, with or without a dataset.
+            Button("Preprocess Raw Data…") { appState.requestPreprocessRawData() }
+                .disabled(appState.isBusy)
             if appState.hasDataset {
                 Divider()
-                Button("Preprocess & Export…") { appState.requestPreprocessingExport() }
-                    .disabled(appState.isBusy)
                 Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }
                     .disabled(appState.displayedPattern == nil)
             }

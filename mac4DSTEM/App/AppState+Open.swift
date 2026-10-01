@@ -12,7 +12,11 @@ extension AppState {
     /// uses. Everything done here is cheap: open the reader, discover the
     /// descriptor, sample a strided preview. The expensive pass waits for
     /// `commitPendingLoad`.
-    func openFileForConfiguration(url: URL) {
+    ///
+    /// `preprocess` makes the same pending open the "Preprocess Raw Data…"
+    /// sheet's (X3): the previews and crop are the configurator's, the file
+    /// written is a reduced copy instead of a load.
+    func openFileForConfiguration(url: URL, preprocess: Bool = false) {
         Task {
             let load = beginDatasetLoading("Opening \(url.lastPathComponent)…")
             defer { finishDatasetLoading(owner: load) }
@@ -57,7 +61,9 @@ extension AppState {
                     pending.preview = preview
                     // The last progress tick ("Sampling a preview · row 24 of 25") would
                     // otherwise stay in the footer under the drawn previews (drive 3).
-                    statusText = "Preview ready — choose what to load"
+                    statusText = preprocess
+                        ? "Preview ready — choose what to write"
+                        : "Preview ready — choose what to load"
                 case .failure(let error):
                     if error is CancellationError {
                         if accessed { url.stopAccessingSecurityScopedResource() }
@@ -66,6 +72,7 @@ extension AppState {
                     pending.previewFailure = Self.errorDetail(error)
                     statusText = "Preview unavailable: \(Self.errorDetail(error))"
                 }
+                if preprocess { pending.preprocess = PreprocessDraft(origin: .rawFile) }
                 pending.fetchDefaultSingleDP()
                 if let displaced = promotionRun.replace(with: pending) {
                     displaced.cancelSingleDPFetch()

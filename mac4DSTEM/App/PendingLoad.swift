@@ -101,6 +101,12 @@ final class PendingLoad: Identifiable {
     /// `commitPendingLoad` reads it once and hands it to `activate`.
     var keepInMemory = false
 
+    /// Non-nil when this pending open is the "Preprocess Raw Data…" sheet's
+    /// (X3): the same previews and crop, written to a new file instead of
+    /// loaded. Owner of that sheet's own choices (stride, hot pixels,
+    /// destination, write progress) — nothing of it lives in `AppState`.
+    var preprocess: PreprocessDraft?
+
     /// What the toggle may do for the selection as configured now.
     var keepInMemoryDecision: KeepInMemoryDecision {
         guard let bytes = loadedByteCount else { return .refused }
@@ -138,6 +144,21 @@ final class PendingLoad: Identifiable {
         self.accessedSecurityScope = accessedSecurityScope
         self.fileByteCount = fileByteCount
         self.configuration = LoadConfiguration(source: source)
+    }
+
+    /// The open dataset's CURRENT VIEW as a source (X3, owner 2026-10-01):
+    /// `source` is the view's descriptor and `data` the view-aware array the
+    /// session already holds, so every crop the sheet makes is in view
+    /// coordinates — the frame the export writer and the session calibration
+    /// are in. Nothing here opens a file or a security scope.
+    init(currentView data: FourDArray, reader: any FourDDataSource, url: URL) {
+        self.source = data.view.descriptor
+        self.reader = reader
+        self.data = data
+        self.url = url
+        self.accessedSecurityScope = false
+        self.fileByteCount = nil
+        self.configuration = LoadConfiguration(source: data.view.descriptor)
     }
 
     // MARK: - Display caches

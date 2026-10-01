@@ -1,17 +1,12 @@
 //
 //  ExportSheet.swift
-//  Role: the guided front end for the bounded canonical DataCube writer, in
-//        UI. Defaults are deliberately lossless (full scan, Q bin 1); every
-//        destructive reduction is visible in the output preview before the
-//        save panel appears.
+//  Role: the host that presents "Preprocess Raw Data…" for the dataset that is
+//        open (owner 2026-10-01, answer 2a): the same sheet as for a raw file,
+//        pre-filled with the current view. ContentView's existing hook shows it.
 //
-//  The readiness rows' container is re-authored here rather than shared with
-//  `PrepareSettings`: a settings view's body is a bare set of `Section`s
-//  belonging to the inspector, and this sheet needs the same *data* in its
-//  own `Form`. The row bodies themselves are `CalibrationReadinessRow`
-//  (hygiene audit row 1) — one spelling shared by both hosts — and the
-//  filename-conflict parser and manual-editor visibility policy are shared
-//  too, as pure statics, so only the container differs between the two.
+//  The old Preprocess & Export form — its eight 1-px crop steppers, its own
+//  binning copy and its output preview — is gone: crop is dragged on the
+//  previews and the rest is `PreprocessSheet` (X3).
 //
 
 import SwiftUI
@@ -24,314 +19,26 @@ struct ExportSheet: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     let descriptor: DatasetDescriptor
-
-    @State private var cropEnabled = false
-    @State private var xStart: Int
-    @State private var xEnd: Int
-    @State private var yStart: Int
-    @State private var yEnd: Int
-    @State private var scanStride = 1
-    @State private var qCropEnabled = false
-    @State private var qRowStart = 0
-    @State private var qRowEnd: Int
-    @State private var qColumnStart = 0
-    @State private var qColumnEnd: Int
-    @State private var qBin = 1
-    @State private var hotPixelsEnabled = false
-    @State private var hotPixelThreshold = 8.0
-    @State private var showUncalibratedWarning = false
-
-    init(descriptor: DatasetDescriptor) {
-        self.descriptor = descriptor
-        _xStart = State(initialValue: 0)
-        _xEnd = State(initialValue: max(0, descriptor.rx - 1))
-        _yStart = State(initialValue: 0)
-        _yEnd = State(initialValue: max(0, descriptor.ry - 1))
-        _qRowEnd = State(initialValue: max(0, descriptor.qy - 1))
-        _qColumnEnd = State(initialValue: max(0, descriptor.qx - 1))
-    }
-
-    // MARK: - What would be written
-
-    private var scanX: Range<Int> {
-        cropEnabled ? xStart..<(xEnd + 1) : 0..<descriptor.rx
-    }
-
-    private var scanY: Range<Int> {
-        cropEnabled ? yStart..<(yEnd + 1) : 0..<descriptor.ry
-    }
-
-    private var qRows: Range<Int> {
-        qCropEnabled ? qRowStart..<(qRowEnd + 1) : 0..<descriptor.qy
-    }
-
-    private var qColumns: Range<Int> {
-        qCropEnabled ? qColumnStart..<(qColumnEnd + 1) : 0..<descriptor.qx
-    }
-
-    // A control's range can shrink under its value (a tighter crop after a
-    // larger stride or bin was set); what is written is the clamped value.
-    private var stride: Int { min(scanStride, max(1, min(scanY.count, scanX.count))) }
-    private var bin: Int { min(qBin, max(1, min(qRows.count, qColumns.count))) }
-
-    private var outputShape: [Int] {
-        [scanY.count / stride, scanX.count / stride, qRows.count / bin, qColumns.count / bin]
-    }
-
-    private var estimatedBytes: Double {
-        outputShape.reduce(Double(MemoryLayout<Float>.size)) { $0 * Double($1) }
-    }
-
-    private var readiness: CalibrationReadinessReport {
-        appState.calibrationSession.readiness
-    }
-
-    private var missingCalibrationSummary: String {
-        readiness.missingItems.map(\.kind.rawValue).joined(separator: ", ")
-    }
-
-    // MARK: - Body
+    /// The open view as a pending open; owned here, never in `promotionRun`
+    /// (which is the load configurator's).
+    @State private var pending: PendingLoad?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            title
-            Divider()
-            Form {
-                calibrationSection
-                cropSection
-                binningSection
-                hotPixelSection
-                outputSection
-            }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
-            Divider()
-            footer
-        }
-        // A band, not a fixed size: a short display must shrink the sheet
-        // rather than push its own footer off screen.
-        .frame(
-            minWidth: LayoutPolicy.exportSheet.min.width,
-            idealWidth: LayoutPolicy.exportSheet.ideal.width,
-            minHeight: LayoutPolicy.exportSheet.min.height,
-            idealHeight: LayoutPolicy.exportSheet.ideal.height
-        )
-        .alert("Export with missing calibration?", isPresented: $showUncalibratedWarning) {
-            Button("Keep Calibrating", role: .cancel) {}
-            Button("Export Uncalibrated Anyway", role: .destructive) {
-                beginExport()
-            }
-        } message: {
-            Text("Missing: \(missingCalibrationSummary). Values stay in pixels or are omitted.")
-        }
-    }
-
-    private var title: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Preprocess & Export DataCube")
-                .font(.headline)
-            // Not decoration: what the writer produces, and that it is atomic,
-            // is the guarantee this sheet is asking the user to rely on.
-            Text("Canonical py4DSTEM EMD · float32 · chunked · atomic")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-    }
-
-    // MARK: - Sections
-
-    private var calibrationSection: some View {
-        Section("Calibration readiness") {
-            Group {
-                ForEach(readiness.items) { item in
-                    readinessRow(item)
-                }
-                // The same verdict the dataset card shows.
-                let verdict = appState.calibrationSession.verdict
-                Label(verdict.summary,
-                      systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
-                    .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
-                    .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("calibration.readiness")
-
-            if !readiness.isReady {
-                // The rule the destructive alert below enforces: nothing is
-                // invented to fill a missing field.
-                Text("Missing fields are allowed only after an explicit export warning; no value is invented.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        Group {
+            if let pending {
+                PreprocessSheet(pending: pending, close: { dismiss() }, chooseSource: nil)
+            } else {
+                ProgressView()
             }
         }
-    }
-
-    private var cropSection: some View {
-        Section("Real-space crop") {
-            Toggle("Crop scan", isOn: $cropEnabled)
-            if cropEnabled {
-                Stepper("X start  \(xStart)", value: $xStart,
-                        in: 0...max(0, xEnd))
-                Stepper("X end  \(xEnd)", value: $xEnd,
-                        in: xStart...max(xStart, descriptor.rx - 1))
-                Stepper("Y start  \(yStart)", value: $yStart,
-                        in: 0...max(0, yEnd))
-                Stepper("Y end  \(yEnd)", value: $yEnd,
-                        in: yStart...max(yStart, descriptor.ry - 1))
-            }
-            // py4DSTEM thin_data_real: every Nth position, from the first.
-            Stepper("Scan stride  \(scanStride)×", value: $scanStride,
-                    in: 1...max(1, min(scanY.count, scanX.count)))
-        }
-    }
-
-    private var binningSection: some View {
-        Section("Diffraction crop and binning") {
-            Toggle("Crop detector", isOn: $qCropEnabled)
-            if qCropEnabled {
-                Stepper("Row start  \(qRowStart)", value: $qRowStart,
-                        in: 0...max(0, qRowEnd))
-                Stepper("Row end  \(qRowEnd)", value: $qRowEnd,
-                        in: qRowStart...max(qRowStart, descriptor.qy - 1))
-                Stepper("Column start  \(qColumnStart)", value: $qColumnStart,
-                        in: 0...max(0, qColumnEnd))
-                Stepper("Column end  \(qColumnEnd)", value: $qColumnEnd,
-                        in: qColumnStart...max(qColumnStart, descriptor.qx - 1))
-            }
-            Stepper("Integer Q bin  \(qBin)×", value: $qBin,
-                    in: 1...max(1, min(qRows.count, qColumns.count)))
-            // How the bin is reduced, and what happens to the remainder, are
-            // both scientific consequences of the number above.
-            Text("Bins are summed to preserve detector counts. Incomplete bottom/right blocks are trimmed, matching py4DSTEM bin_Q.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var hotPixelSection: some View {
-        Section("Hot pixels") {
-            Toggle("Filter hot pixels", isOn: $hotPixelsEnabled)
-            if hotPixelsEnabled {
-                LabeledContent("Threshold") {
-                    OptionalNumericField(
-                        title: "Threshold", value: hotPixelThreshold,
-                        format: FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0...2))
-                    ) { if $0 > 0 { hotPixelThreshold = $0 } }
-                }
-                // What the filter does, in py4DSTEM's own terms: a replacement
-                // changes counts, so the sheet says which and how many.
-                Text("py4DSTEM filter_hot_pixels, after the bin: pixels above their neighbourhood's second brightest by more than the threshold, in the mean pattern, become each pattern's 3×3 median. The positions found are stored in the file.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        .onAppear {
+            guard pending == nil else { return }
+            if let made = appState.makeCurrentViewPending(descriptor: descriptor) {
+                pending = made
+            } else {
+                dismiss()
             }
         }
-    }
-
-    private var outputSection: some View {
-        Section("Output preview") {
-            LabeledContent("Shape", value: outputShape.map(String.init).joined(separator: " × "))
-            LabeledContent("Float32 data", value: displayByteString(Int(estimatedBytes)))
-            if qRows.count % bin != 0 || qColumns.count % bin != 0 {
-                Label(
-                    "Trims \(qRows.count % bin) detector row(s) and \(qColumns.count % bin) column(s)",
-                    systemImage: "exclamationmark.triangle"
-                )
-                .font(.caption)
-                .foregroundStyle(.orange)
-            }
-        }
-    }
-
-    // MARK: - Footer
-
-    private var footer: some View {
-        HStack {
-            Spacer()
-            Button("Cancel", role: .cancel) { dismiss() }
-                .keyboardShortcut(.cancelAction)
-            Button("Choose Destination…") {
-                if readiness.isReady {
-                    beginExport()
-                } else {
-                    showUncalibratedWarning = true
-                }
-            }
-            .keyboardShortcut(.defaultAction)
-            .disabled(appState.isBusy)
-        }
-        .padding()
-    }
-
-    private func beginExport() {
-        let options = CalibratedDataCubeExportOptions(
-            scanY: scanY, scanX: scanX, qBin: bin, tileRows: 1,
-            scanStride: stride,
-            qCropY: qCropEnabled ? qRows : nil, qCropX: qCropEnabled ? qColumns : nil,
-            hotPixelThreshold: hotPixelsEnabled ? hotPixelThreshold : nil
-        )
-        dismiss()
-        appState.exportCalibratedDataCube(options: options)
-    }
-
-    // MARK: - Readiness rows
-
-    /// One calibration's readiness row — shared with `PrepareSettings` as
-    /// `CalibrationReadinessRow.row` (hygiene audit row 1 follow-up): a
-    /// duplicate copy here had silently dropped the "fit anyway" orange
-    /// warning; sharing the row prevents that drift from recurring.
-    @ViewBuilder
-    private func readinessRow(_ item: CalibrationReadinessItem) -> some View {
-        CalibrationReadinessRow.row(
-            item, appState: appState,
-            rScaleFilenameConflict: rScaleFilenameConflict,
-            qScaleUnavailableReason: qScaleUnavailableReason
-        )
-    }
-
-    /// A scan-step token in the filename that disagrees with the R pixel scale
-    /// actually in use, if both exist and they differ materially.
-    ///
-    /// File metadata rightly wins over a filename — but a user reading
-    /// `…ss30nm…` while the app quietly uses an imported 49.5 nm/px gets no
-    /// hint the two disagree, and R scale silently rescales every real-space
-    /// axis and scale bar. This surfaces the disagreement without changing the
-    /// precedence. Comparison is done in Å/px so a token in nm and a value in
-    /// Å are not reported as a conflict merely for being in different units.
-    ///
-    /// The parser itself is `PrepareSettings`'s pure static, deliberately
-    /// not a second copy: the regex is pinned by a test, and two spellings of
-    /// it in UI is exactly the drift that produces a warning on one surface
-    /// and silence on the other.
-    private var rScaleFilenameConflict: String? {
-        guard let path = appState.descriptor?.filePath,
-              let size = appState.calibrationSession.calibration.rPixelSize,
-              let inUse = CalibrationUnitConversion.realAngstromPerPixel(
-                  value: size, units: appState.calibrationSession.calibration.rPixelUnits
-              ),
-              let token = PrepareSettings.scanStepAngstromPerPixel(inFilename: path)
-        else { return nil }
-
-        // 5% absorbs rounding in an abbreviated filename token (a file written
-        // as "ss30nm" for a true 30.4 nm step is not a conflict); a genuine
-        // mismatch like 30 vs 49.5 nm is 65% out and still reported.
-        let tolerance = 0.05
-        guard abs(token.angstromPerPixel - inUse) > tolerance * max(token.angstromPerPixel, inUse)
-        else { return nil }
-
-        return "Filename says \(token.text) per scan step, but \(CalibrationUnitConversion.isPixelUnit(appState.calibrationSession.calibration.rPixelUnits) ? "the value in use" : "the imported value") is different. File metadata takes precedence — check which is right before trusting real-space scales."
-    }
-
-    /// Two-part condition (`hasCurrentBraggVectors && resolvedACOMModel != nil`)
-    /// gets a caption naming whichever half is actually missing, so a user who
-    /// has already detected disks isn't told to redo a step they've finished.
-    private var qScaleUnavailableReason: String {
-        if !appState.hasCurrentBraggVectors {
-            return "Detect disks and choose a phase model to calibrate Q from a known crystal."
-        } else {
-            return "Choose a phase model to calibrate Q from a known crystal."
-        }
+        .onDisappear { pending?.cancelSingleDPFetch() }
     }
 }

@@ -30,6 +30,11 @@ struct WorkspaceSidebar: View {
                     } label: {
                         Label("Open with Options…", systemImage: "folder.badge.gearshape")
                     }
+                    Button {
+                        appState.requestPreprocessRawData()
+                    } label: {
+                        Label("Preprocess Raw Data…", systemImage: "gearshape")
+                    }
                 }
             }
 

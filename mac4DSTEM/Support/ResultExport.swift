@@ -27,9 +27,15 @@ extension AppState {
         } catch { return Self.errorDetail(error) }
     }
 
-    /// Export a calibrated, optionally cropped/Q-binned py4DSTEM DataCube.
+    /// Export the open dataset's current view as a calibrated, optionally
+    /// cropped / thinned / Q-binned py4DSTEM DataCube, to a destination the
+    /// "Preprocess Raw Data…" sheet already chose.
     /// Publication is atomic and the source dataset is never opened for write.
-    func exportCalibratedDataCube(options: CalibratedDataCubeExportOptions) {
+    func exportCalibratedDataCube(
+        options: CalibratedDataCubeExportOptions, to url: URL,
+        progress: @escaping @MainActor (Double) -> Void,
+        finish: @escaping @MainActor (DataCubeWriteOutcome) -> Void
+    ) {
         // The export reads through the loaded view, so the reader is never
         // handed a shape without its position in the file. A reduced view
         // exports since v2 S10 — the view's patterns and the session's
@@ -38,19 +44,9 @@ extension AppState {
         // `writeCalibratedDataCube`.
         guard let descriptor, let view = datasetSession.loadView,
               let source = currentDataSourceForExport() else {
-            present(SimpleError("No 4D dataset is open."))
+            finish(.failed("No 4D dataset is open."))
             return
         }
-        let panel = NSSavePanel()
-        panel.title = "Export Calibrated py4DSTEM DataCube"
-        panel.message = "The source stays unchanged. mac4DSTEM writes a new canonical EMD file."
-        panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
-        panel.nameFieldStringValue = exportBaseName + "_calibrated.h5"
-        guard panel.runModal() == .OK, let url = panel.url else {
-            statusText = "Calibrated DataCube export cancelled"
-            return
-        }
-
         let snapshot = sessionPixelCalibration(descriptor: descriptor)
         // The recipe travels with the exported file, re-expressed in the
         // exported file's OWN detector frame (v2 S10) — a further export bin
@@ -86,57 +82,14 @@ extension AppState {
                 currentSpecification: loadedView.specification,
                 exportBin: options.qBin
             )
-        let epoch = datasetSession.epoch
-        let token = beginCancellableOperation(
-            "Preprocessing export", status: "Writing calibrated DataCube…",
-            totalUnits: options.scanYPositions.count * options.scanXPositions.count
+        runDataCubeWrite(
+            DataCubeWriteRequest(
+                source: source, view: view, calibration: snapshot, options: options,
+                destination: url, sourceFileName: descriptor.fileName,
+                recipe: mappedRecipe, recipeOmission: recipeOmission, recordsRun: true
+            ),
+            progress: progress, finish: finish
         )
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            defer { self.finishCancellableOperation(token) }
-            do {
-                let progressUpdate: @Sendable (Double) -> Void = { [weak self] fraction in
-                    Task { @MainActor [weak self] in
-                        self?.updateCancellableOperation(
-                            token, progress: fraction,
-                            status: "Writing calibrated DataCube… \(Int(fraction * 100)) %"
-                        )
-                    }
-                }
-                let summary = try await Task.detached(priority: .userInitiated) {
-                    try await BraggVectorEMDWriter.writeCalibratedDataCube(
-                        source: source, view: view, calibration: snapshot,
-                        options: options, to: url,
-                        sourceFileName: descriptor.fileName,
-                        replayRecord: mappedRecipe,
-                        cancellation: token,
-                        progress: progressUpdate
-                    )
-                }.value
-                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
-                let dropped = summary.discardedQRows + summary.discardedQColumns
-                var suffix = dropped == 0
-                    ? ""
-                    : " (trimmed \(summary.discardedQRows) Q row, \(summary.discardedQColumns) Q column)"
-                if options.hotPixelThreshold != nil {
-                    suffix += " · \(summary.hotPixels.count) hot pixel\(summary.hotPixels.count == 1 ? "" : "s") replaced"
-                }
-                if let recipeOmission {
-                    // A partial truth stated whole: the file exists and is
-                    // correct; the recipe attribute is absent, and this is
-                    // the one carrier of why.
-                    suffix += " · recipe not carried: \(recipeOmission)"
-                }
-                self.statusText = "Exported \(summary.shape.map(String.init).joined(separator: " × ")) DataCube → \(url.lastPathComponent)\(suffix)"
-                self.recordExportRun(format: "py4dstem_datacube", fileName: url.lastPathComponent)   // lineage sink (ADR 047)
-            } catch BraggVectorEMDWriter.WriterError.cancelled {
-                guard self.isCurrentOperation(token) else { return }
-                self.statusText = "Calibrated DataCube export cancelled"
-            } catch {
-                guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
-                self.present(error)
-            }
-        }
     }
 
     /// First save uses a standard panel, defaulted beside the source dataset.

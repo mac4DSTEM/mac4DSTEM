@@ -125,8 +125,11 @@ private struct DatasetCommands: Commands {
             Button("Export Diffraction Pattern…") { appState?.exportDiffractionImage() }
                 .keyboardShortcut("e", modifiers: [.command, .option])
                 .disabled(appState?.displayedPattern == nil)
-            Button("Preprocess & Export DataCube…") { appState?.requestPreprocessingExport() }
-                .disabled(appState?.hasDataset != true || appState?.isBusy == true)
+            // One sheet for a raw file and for the open dataset's current view
+            // (X3): with a cube open it is pre-filled with that view.
+            Button("Preprocess Raw Data…") { appState?.requestPreprocessRawData() }
+                .disabled(appState == nil || appState?.isBusy == true
+                          || appState?.datasetSession.isLoading == true)
         }
         CommandGroup(replacing: .sidebar) {
             // Labels follow what is on screen, and the action acts on it too
