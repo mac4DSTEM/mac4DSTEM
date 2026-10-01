@@ -230,5 +230,43 @@
     "F1 and Q2 are one piece of work: the orientation bank and matcher (row 1) and grain B's 6.5° live in the same code and the same harness.",
     "Q1's fix and Q1's badge line are the same threshold problem seen from two sides: the healthy side has one cube.",
     "R1's residuals are R2/R3 by name; only the sign-flip rule (option b) is new."
-  ]
+  ],
+  "answered": {
+    "date": "2026-10-01",
+    "picks": {
+      "F1": {
+        "pick": "a",
+        "note": "There must be a way to do it in less than 5 sessions..."
+      },
+      "Q1": {
+        "pick": "a",
+        "note": "How does py4DSTEM do it? we are not reinventing the weel, lets get this straight",
+        "not_recommendation": true
+      },
+      "Q2": {
+        "pick": "a"
+      },
+      "R1": {
+        "pick": "a",
+        "amended": "R2 first finds converging py4DSTEM DM settings"
+      },
+      "P1": {
+        "pick": "a"
+      },
+      "P2": {
+        "pick": "a"
+      },
+      "P3": {
+        "pick": "a"
+      }
+    },
+    "acted": {
+      "P1": "hunk applied (UI/WorkspaceInspector.swift Provenance rows: ProvenanceKeyLabel + .help(key))",
+      "P2": "closed",
+      "P3": "Slot 3 polish room",
+      "R1": "lane X4 (probe fields into replay, sidecar, export provenance); R2b: converging py4DSTEM DM settings searched before any removal card",
+      "Q1": "read-only study: how py4DSTEM calibrates Q from a known crystal, and whether it gets [001] Al right — the port follows it, not a new rule",
+      "F1": "lane F: rows 1, 9, 2, 4, 5, 6, 8, 24, 25, 27, 29, Gate D each; Q2 (grain B) folded into row 1's ACOM work"
+    }
+  }
 }

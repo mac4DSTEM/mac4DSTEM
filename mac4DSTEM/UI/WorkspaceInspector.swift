@@ -624,7 +624,8 @@ struct ProductInfoSections: View {
 
             InspectorSection("Provenance") {
                 ForEach(product.provenance.keys.sorted(), id: \.self) { key in
-                    InspectorValueRow(key, product.provenance[key] ?? "", mono: true)
+                    InspectorValueRow(ProvenanceKeyLabel.text(key), product.provenance[key] ?? "", mono: true)
+                        .help(key)
                 }
             }
         }

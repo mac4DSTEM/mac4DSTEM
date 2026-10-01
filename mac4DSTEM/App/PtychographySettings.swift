@@ -45,6 +45,19 @@ final class PtychographySettings {
     /// adds them to the probe.
     private(set) var higherOrderTerms: [PtychographyProbeAberrations.HigherOrderTerm] = []
 
+    /// Take a recorded probe back (saved-control rehydration). The toggle follows the terms, so the fields never show a
+    /// fit's higher-order terms with the toggle off.
+    func setProbe(_ probe: RecordedPtychographyProbe) {
+        defocusAngstrom = probe.defocusAngstrom
+        c12aAngstrom = probe.c12aAngstrom
+        c12bAngstrom = probe.c12bAngstrom
+        higherOrderTerms = probe.higherOrder.map {
+            .init(radialOrder: $0.radialOrder, angularOrder: $0.angularOrder, component: $0.component,
+                  coefficientAngstrom: $0.coefficientAngstrom)
+        }
+        includeHigherOrderFit = !higherOrderTerms.isEmpty
+    }
+
     /// The aberrations the next run builds its probe with.
     var probeAberrations: PtychographyProbeAberrations {
         PtychographyProbeAberrations(

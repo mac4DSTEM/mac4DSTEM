@@ -1000,6 +1000,7 @@ extension AppState {
         if let value = plan.ptychographyProbeAmplitudeWidth {
             ptychography.probeAmplitudeWidth = value
         }
+        if let value = plan.ptychographyProbe { ptychography.setProbe(value) }
         statusText = "Applied saved controls: \(plan.summary). Re-run explicitly to reconstruct."
     }
 
@@ -1606,7 +1607,7 @@ extension AppState {
                     "constrain_probe_amplitude": String(options.constrainProbeAmplitude),
                     "probe_amplitude_radius": String(options.probeAmplitudeRelativeRadius),
                     "probe_amplitude_width": String(options.probeAmplitudeRelativeWidth),
-                ]
+                ].merging(RecordedPtychographyProbe(result.probeAberrations).provenanceEntries) { $1 }
             )
         }
     }
@@ -1665,4 +1666,17 @@ extension AppState {
         return file
     }
 
+}
+
+extension RecordedPtychographyProbe {
+    /// The record of the probe a run started from (`SingleslicePtychographyResult.probeAberrations`).
+    init(_ probe: PtychographyProbeAberrations) {
+        self.init(
+            defocusAngstrom: probe.defocusAngstrom, c12aAngstrom: probe.c12aAngstrom, c12bAngstrom: probe.c12bAngstrom,
+            higherOrder: probe.higherOrder.map {
+                Term(radialOrder: $0.radialOrder, angularOrder: $0.angularOrder, component: $0.component,
+                     coefficientAngstrom: $0.coefficientAngstrom)
+            }
+        )
+    }
 }

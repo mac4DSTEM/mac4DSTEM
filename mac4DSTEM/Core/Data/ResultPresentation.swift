@@ -155,6 +155,9 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
     package var ptychographyConstrainProbeAmplitude: Bool?
     package var ptychographyProbeAmplitudeRadius: Float?
     package var ptychographyProbeAmplitudeWidth: Float?
+    /// The probe the run started from (defocus, C12a/b, higher-order terms). A single-slice record without the keys was
+    /// made in focus, so absent keys parse as the zero probe; present-but-malformed keys parse as nil (nothing applied).
+    package var ptychographyProbe: RecordedPtychographyProbe?
 
     package var appliedSettingNames: [String] {
         var names: [String] = []
@@ -181,6 +184,7 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
         if ptychographyConstrainProbeAmplitude != nil { names.append("probe support") }
         if ptychographyProbeAmplitudeRadius != nil { names.append("support radius") }
         if ptychographyProbeAmplitudeWidth != nil { names.append("support width") }
+        if ptychographyProbe != nil { names.append("probe aberrations") }
         return names
     }
 
@@ -246,6 +250,7 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
             result.ptychographyProbeAmplitudeWidth = boundedFloat(
                 p["probe_amplitude_width"], range: Float.leastNonzeroMagnitude...0.5
             )
+            result.ptychographyProbe = RecordedPtychographyProbe(provenance: p)
         default:
             break
         }
@@ -300,5 +305,83 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
     private static func filterValue(_ text: String?) -> Double? {
         if text?.lowercased() == "off" { return 0 }
         return nonnegativeDouble(text)
+    }
+}
+
+/// The probe a single-slice run started from, as provenance keys (export, sidecar) and back (saved-control rehydration).
+/// Plain numbers on purpose: this file is compiled alone into `tools/result-presentation-test`, so it cannot name the Analysis
+/// type; `PtychographyProbeAberrations` converts at the app seam (`PtychographySettings`, `ResultExport`).
+package nonisolated struct RecordedPtychographyProbe: Equatable, Sendable {
+    package struct Term: Equatable, Sendable {
+        package var radialOrder: Int
+        package var angularOrder: Int
+        package var component: Int
+        package var coefficientAngstrom: Double
+
+        package init(radialOrder: Int, angularOrder: Int, component: Int, coefficientAngstrom: Double) {
+            self.radialOrder = radialOrder
+            self.angularOrder = angularOrder
+            self.component = component
+            self.coefficientAngstrom = coefficientAngstrom
+        }
+    }
+
+    package static let keys = [
+        "probe_defocus_angstrom", "probe_c12a_angstrom", "probe_c12b_angstrom", "probe_higher_order_terms",
+    ]
+
+    package var defocusAngstrom: Double
+    package var c12aAngstrom: Double
+    package var c12bAngstrom: Double
+    package var higherOrder: [Term]
+
+    package init(defocusAngstrom: Double = 0, c12aAngstrom: Double = 0, c12bAngstrom: Double = 0, higherOrder: [Term] = []) {
+        self.defocusAngstrom = defocusAngstrom
+        self.c12aAngstrom = c12aAngstrom
+        self.c12bAngstrom = c12bAngstrom
+        self.higherOrder = higherOrder
+    }
+
+    /// Always written (a zero probe says "in focus" in so many words). Higher-order terms as "m:n:c:coefficient;..." and only
+    /// when there are some.
+    package var provenanceEntries: [String: String] {
+        var entries = [
+            "probe_defocus_angstrom": String(defocusAngstrom),
+            "probe_c12a_angstrom": String(c12aAngstrom),
+            "probe_c12b_angstrom": String(c12bAngstrom),
+        ]
+        if !higherOrder.isEmpty {
+            entries["probe_higher_order_terms"] = higherOrder.map {
+                "\($0.radialOrder):\($0.angularOrder):\($0.component):\($0.coefficientAngstrom)"
+            }.joined(separator: ";")
+        }
+        return entries
+    }
+
+    /// nil when a key is present but malformed; the zero probe when none of the keys exist (a record from before the probe
+    /// was recorded was made in focus).
+    package init?(provenance p: [String: String]) {
+        if Self.keys.allSatisfy({ p[$0] == nil }) {
+            self.init()
+            return
+        }
+        func number(_ key: String) -> Double? {
+            guard let text = p[key] else { return 0 }
+            guard let value = Double(text), value.isFinite else { return nil }
+            return value
+        }
+        guard let defocus = number("probe_defocus_angstrom"), let c12a = number("probe_c12a_angstrom"),
+              let c12b = number("probe_c12b_angstrom") else { return nil }
+        var terms = [Term]()
+        if let text = p["probe_higher_order_terms"] {
+            for item in text.split(separator: ";") {
+                let fields = item.split(separator: ":")
+                guard fields.count == 4, let m = Int(fields[0]), let n = Int(fields[1]), let c = Int(fields[2]),
+                      let value = Double(fields[3]), value.isFinite, m >= 1, n >= 0,
+                      c == 0 || (c == 1 && n > 0) else { return nil }
+                terms.append(Term(radialOrder: m, angularOrder: n, component: c, coefficientAngstrom: value))
+            }
+        }
+        self.init(defocusAngstrom: defocus, c12aAngstrom: c12a, c12bAngstrom: c12b, higherOrder: terms)
     }
 }
