@@ -899,6 +899,11 @@ extension AppState {
 
     func applySelectedSavedControls() {
         guard let plan = selectedSavedControlRehydration else { return }
+        if plan.ptychographyRetiredMethod != nil {
+            // A record made with the difference map (removed 2026-10-01): its controls belong to that algorithm.
+            statusText = "This result was made with the difference map, which is no longer offered; no controls were applied."
+            return
+        }
         if let value = plan.kdeUpsampleFactor { phaseContrast.parallaxKDEUpsampleFactor = value }
         if let value = plan.kdeSigmaPixels { phaseContrast.parallaxKDESigmaPixels = value }
         if let value = plan.kdeLanczosOrder { phaseContrast.parallaxKDELanczosOrder = value }
@@ -919,11 +924,6 @@ extension AppState {
         }
         if let value = plan.depthInformationPower { phaseContrast.parallaxDepthInformationPower = value }
         if let value = plan.ptychographyIterations { ptychography.iterations = value }
-        if plan.ptychographyRetiredMethod != nil {
-            // A record made with the difference map (removed 2026-10-01): its controls belong to that algorithm.
-            statusText = "This result was made with the difference map, which is no longer offered; no controls were applied."
-            return
-        }
         if let value = plan.ptychographyStepSize { ptychography.stepSize = value }
         if let value = plan.ptychographyNormalizationMinimum {
             ptychography.normalizationMinimum = value
@@ -1202,7 +1202,7 @@ extension AppState {
         let labelsJSON: String?
         do {
             labelsJSON = diskCentreLabels.isEmpty
-                ? nil : String(decoding: try diskCentreLabels.encodedJSON(), as: UTF8.self)
+                ? nil : String(decoding: try diskCentreLabels.encodedJSON(frame: DiskCentreLabelStore.frameTag(specification)), as: UTF8.self)
         } catch {
             present(error)
             return

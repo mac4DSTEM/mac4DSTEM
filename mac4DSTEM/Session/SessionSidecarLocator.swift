@@ -394,12 +394,7 @@ extension SessionSidecarLocator {
     /// The test "Save As… chose the sidecar it already had" and "Allow Access… chose this dataset's sidecar" both
     /// rest on it; a name test would let a sidecar of another cube be read as this one's session.
     package nonisolated static func isSameFile(_ a: URL, _ b: URL) -> Bool {
-        let ra = a.standardizedFileURL.resolvingSymlinksInPath(), rb = b.standardizedFileURL.resolvingSymlinksInPath()
-        if ra == rb { return true }
-        if let x = try? ra.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
-           let y = try? rb.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
-           x.isEqual(y) { return true }
-        return false
+        BraggVectorEMDWriter.isSameFile(a, b)
     }
 
     package nonisolated static func copySidecarFile(from current: URL, to url: URL) -> SidecarCopyOutcome {

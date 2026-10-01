@@ -288,24 +288,14 @@ package final class DiskCentreLabelStore {
                 importRefusal = "\(fileName) labels another dataset (\(Self.shortPath(decoded.filePath))), not this one (\(Self.shortPath(filePath))) — nothing imported."
                 return false
             }
-            guard decoded.datasetPath == expectedDataset else {
+            guard Self.normalisedDataset(decoded.datasetPath) == Self.normalisedDataset(expectedDataset) else {
                 importRefusal = "\(fileName) labels the HDF5 dataset \(decoded.datasetPath), not the open one (\(expectedDataset)) — nothing imported."
                 return false
             }
-            // A positive frame mismatch refuses; an ABSENT frame (a hand-written file) is checked by bounds only.
-            if let frame = decoded.frame, frame != expectedFrame {
-                importRefusal = "\(fileName) was labelled in the \(frame) frame, this view is \(expectedFrame) — nothing imported."
-                return false
-            }
-            if let bad = decoded.positions.first(where: { $0.ry < 0 || $0.rx < 0 || $0.ry >= scanY || $0.rx >= scanX }) {
-                importRefusal = "\(fileName) has a position (\(bad.ry), \(bad.rx)) outside this \(scanY) × \(scanX) scan — nothing imported."
-                return false
-            }
-            let outside = decoded.positions.lazy.flatMap { $0.centres }.first {
-                !($0.row >= 0 && $0.col >= 0 && $0.row < Float(detectorY) && $0.col < Float(detectorX))
-            }
-            if let centre = outside {
-                importRefusal = "\(fileName) has a centre (\(centre.row), \(centre.col)) outside this \(detectorY) × \(detectorX) detector — nothing imported."
+            if let line = Self.viewRefusal(decoded.frame, decoded.positions, fileName: fileName, outcome: "nothing imported",
+                                           expectedFrame: expectedFrame, scanY: scanY, scanX: scanX,
+                                           detectorY: detectorY, detectorX: detectorX) {
+                importRefusal = line
                 return false
             }
             ingredient = decoded.ingredient
@@ -317,6 +307,56 @@ package final class DiskCentreLabelStore {
             importRefusal = "\(fileName): \(error.localizedDescription) — nothing imported."
             return false
         }
+    }
+
+    /// `label_centres.py` writes the HDF5 dataset without a leading "/", the app's paths carry one: compare without.
+    private nonisolated static func normalisedDataset(_ path: String) -> String {
+        path.hasPrefix("/") ? String(path.dropFirst()) : path
+    }
+
+    /// The one line saying why labels may not apply in THIS view, or nil. A positive frame mismatch refuses; an
+    /// ABSENT frame (a hand-written file or an older sidecar) is checked by bounds only. Shared by Import and restore.
+    private nonisolated static func viewRefusal(
+        _ frame: String?, _ positions: [Position], fileName: String, outcome: String, expectedFrame: String,
+        scanY: Int, scanX: Int, detectorY: Int, detectorX: Int
+    ) -> String? {
+        if let frame, frame != expectedFrame {
+            return "\(fileName) was labelled in the \(frame) frame, this view is \(expectedFrame) — \(outcome)."
+        }
+        if let bad = positions.first(where: { $0.ry < 0 || $0.rx < 0 || $0.ry >= scanY || $0.rx >= scanX }) {
+            return "\(fileName) has a position (\(bad.ry), \(bad.rx)) outside this \(scanY) × \(scanX) scan — \(outcome)."
+        }
+        let outside = positions.lazy.flatMap { $0.centres }.first {
+            !($0.row >= 0 && $0.col >= 0 && $0.row < Float(detectorY) && $0.col < Float(detectorX))
+        }
+        if let centre = outside {
+            return "\(fileName) has a centre (\(centre.row), \(centre.col)) outside this \(detectorY) × \(detectorX) detector — \(outcome)."
+        }
+        return nil
+    }
+
+    /// Restore the labels a sidecar carries (reopen, promote). Same cube-path rule as `load`; then the labels apply
+    /// only in the view they were clicked in (frame tag; an absent frame by bounds). Otherwise the store stays empty
+    /// — the sidecar keeps them, nothing is applied silently — and `importRefusal` says why. Returns whether applied.
+    @discardableResult
+    package func restore(from data: Data, expecting filePath: String, frame expectedFrame: String,
+                         scanY: Int, scanX: Int, detectorY: Int, detectorX: Int) throws -> Bool {
+        let decoded = try Self.decode(data)
+        guard decoded.filePath == filePath else {
+            throw LabelError.datasetMismatch(expected: filePath, found: decoded.filePath)
+        }
+        if let line = Self.viewRefusal(decoded.frame, decoded.positions, fileName: "The saved disk-centre labels",
+                                       outcome: "not applied", expectedFrame: expectedFrame, scanY: scanY, scanX: scanX,
+                                       detectorY: detectorY, detectorX: detectorX) {
+            importRefusal = line
+            return false
+        }
+        self.filePath = decoded.filePath
+        self.datasetPath = decoded.datasetPath
+        ingredient = decoded.ingredient
+        seed = decoded.seed
+        positions = decoded.positions
+        return true
     }
 
     /// A refusal decided outside the store (the file could not be read): one line, nothing changed.

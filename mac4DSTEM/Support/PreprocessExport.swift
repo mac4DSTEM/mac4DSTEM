@@ -110,6 +110,14 @@ extension AppState {
         finish: @escaping @MainActor (DataCubeWriteOutcome) -> Void
     ) {
         guard var draft = pending.preprocess else { return }
+        if let line = BraggVectorEMDWriter.exportDestinationRefusal(url, sourcePath: pending.url.path) {
+            // Refused before anything starts: the choice is dropped so the next Write asks again.
+            draft.destination = nil
+            draft.failure = line
+            pending.preprocess = draft
+            finish(.failed(line))
+            return
+        }
         let options = draft.options(for: pending.configuration)
         draft.destination = url
         draft.failure = nil

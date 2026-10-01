@@ -610,7 +610,13 @@ extension AppState {
             if let json = try await Task.detached(priority: .utility, operation: {
                 try BraggVectorEMDWriter.loadDiskCentreLabelsJSON(from: labelsURL)
             }).value, labelsEpoch == datasetSession.epoch {
-                try diskCentreLabels.load(from: Data(json.utf8), expecting: descriptor.filePath)
+                if try !diskCentreLabels.restore(
+                    from: Data(json.utf8), expecting: descriptor.filePath,
+                    frame: DiskCentreLabelStore.frameTag(loadedView.specification),
+                    scanY: descriptor.ry, scanX: descriptor.rx, detectorY: descriptor.qy, detectorX: descriptor.qx) {
+                    // Not applied: the sidecar keeps them, and the line says why (never silent).
+                    statusText = diskCentreLabels.importRefusal ?? ""
+                }
             }
         } catch {
             if labelsEpoch == datasetSession.epoch {

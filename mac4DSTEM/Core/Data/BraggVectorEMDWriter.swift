@@ -259,6 +259,10 @@ package nonisolated enum BraggVectorEMDWriter {
         // calibration with reduced pixels, the py4DSTEM `bin_data_diffraction`
         // defect the DEVIATION note in `transformedCalibration` describes.
         let descriptor = view.descriptor
+        // Defence in depth (CR3): the rename below would replace the destination — never the source or its sidecar.
+        if let line = exportDestinationRefusal(destination, sourcePath: descriptor.filePath) {
+            throw WriterError.publishFailed(line)
+        }
         guard options.scanY.lowerBound >= 0,
               options.scanY.upperBound <= descriptor.ry,
               options.scanX.lowerBound >= 0,
@@ -351,6 +355,26 @@ package nonisolated enum BraggVectorEMDWriter {
         }
         published = true
         return summary
+    }
+
+    /// One file under two spellings (a symlink, a case-differing path): by file identity, never by path string.
+    package nonisolated static func isSameFile(_ a: URL, _ b: URL) -> Bool {
+        let ra = a.standardizedFileURL.resolvingSymlinksInPath(), rb = b.standardizedFileURL.resolvingSymlinksInPath()
+        if ra == rb { return true }
+        if let x = try? ra.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           let y = try? rb.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier,
+           x.isEqual(y) { return true }
+        return false
+    }
+
+    /// Why a Preprocess export may not publish to `destination`: it is the source file or that source's session
+    /// sidecar, and the publish renames over it. nil when the destination is safe.
+    package nonisolated static func exportDestinationRefusal(_ destination: URL, sourcePath: String) -> String? {
+        let source = URL(fileURLWithPath: sourcePath)
+        if isSameFile(destination, source) || isSameFile(destination, sessionSidecarURL(forSourcePath: sourcePath)) {
+            return "Choose a different file: the source is never changed."
+        }
+        return nil
     }
 
     /// Add or replace the stable scalar result in a session sidecar. If the
@@ -799,6 +823,13 @@ package nonisolated enum BraggVectorEMDWriter {
         let dataset = path.withCString { h5.h5dopen2(parent, $0, h5DefaultProperty) }
         guard dataset >= 0 else { return nil }
         defer { _ = h5.h5dclose(dataset) }
+        // A foreign sidecar may hold more elements than `count`; H5Dread fills the whole dataspace, so check first.
+        let space = h5.h5dgetSpace(dataset)
+        guard space >= 0 else { throw WriterError.hdf5("reading the shape of dataset \(path)") }
+        defer { _ = h5.h5sclose(space) }
+        guard elementCount(spaceID: space, hdf5: h5) == count else {
+            throw WriterError.hdf5("dataset \(path) does not hold exactly \(count) values")
+        }
         var values = [Int64](repeating: 0, count: count)
         guard values.withUnsafeMutableBytes({
             h5.h5dread(dataset, h5.nativeLongLong, h5EntireDataspace, h5EntireDataspace,

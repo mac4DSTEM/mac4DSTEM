@@ -70,6 +70,8 @@ has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen)
   (v) code review 2026-10-01: for a mirrored win `inPlaneAngle` is "angle + π relative to the mirrored template" (`OrientationMatcher.swift:420-424`, `OrientationResult.swift:676-679`); the `acom_in_plane` map and its export publish it raw with no
   per-pixel mirrored flag, so pixels across a mirror boundary are not comparable (Euler, IPF and FitOverlays handle the flag) — a
   convention to settle (map the mirrored win to its proper-rotation equivalent, or export the flag), Gate D before any number moves.
+  (vi) code review round 3: `selectOrientation` compares forward and mirrored in-plane bins in the runner-up "distinct orientation" test
+  (`OrientationMatcher.swift` ~168, Metal ~310) — can shift `secondScore`/reliability only, never the winner.
 - **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** — confirmed on the app's own path (lane Q, 2026-09-30
   night): the owner's raw and binned 060 cubes, the demo cube and Thronsen A read Q 12.5–13.5 % low, shell ratio 1.37–1.43 vs 1.155
   (the 09-29 "0.006577 / 1.0846" row was the Python lattice fit and an ellipse axis ratio, not this estimator). Shipped: the one-shell
