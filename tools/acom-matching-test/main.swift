@@ -97,30 +97,39 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
     // a template far enough away to be a different orientation.
     var templateScores = [Float](repeating: 0, count: plan.count)
     var templateBins = [UInt32](repeating: 0, count: plan.count)
-    for template in 0..<plan.count {
-        correlationReal = [Float](repeating: 0, count: na)
-        correlationImaginary = [Float](repeating: 0, count: na)
-        let templateOffset = template * nr * na
-        for radial in 0..<nr {
-            let base = radial * na
-            for azimuthal in 0..<na {
-                let index = base + azimuthal
-                let tr = plan.templateFFTRe[templateOffset + index]
-                let ti = plan.templateFFTIm[templateOffset + index]
-                let er = experimentalReal[index], ei = experimentalImaginary[index]
-                correlationReal[azimuthal] += er * tr + ei * ti
-                correlationImaginary[azimuthal] += er * ti - ei * tr
+    // Two passes as the production matcher (review row 1, py4DSTEM
+    // `inversion_symmetry`): the second correlates the azimuth-reversed
+    // experimental image (conjugated ring FFTs) and wins only when strictly
+    // larger.
+    for pass in 0..<2 {
+        let sign: Float = pass == 0 ? 1 : -1
+        for template in 0..<plan.count {
+            correlationReal = [Float](repeating: 0, count: na)
+            correlationImaginary = [Float](repeating: 0, count: na)
+            let templateOffset = template * nr * na
+            for radial in 0..<nr {
+                let base = radial * na
+                for azimuthal in 0..<na {
+                    let index = base + azimuthal
+                    let tr = plan.templateFFTRe[templateOffset + index]
+                    let ti = plan.templateFFTIm[templateOffset + index]
+                    let er = experimentalReal[index], ei = sign * experimentalImaginary[index]
+                    correlationReal[azimuthal] += er * tr + ei * ti
+                    correlationImaginary[azimuthal] += er * ti - ei * tr
+                }
+            }
+            fft.transform(re: &correlationReal, im: &correlationImaginary, forward: false)
+            var local: Float = -.greatestFiniteMagnitude
+            var bin = 0
+            for index in 0..<na where correlationReal[index] > local {
+                local = correlationReal[index]; bin = index
+            }
+            local /= Float(na)
+            if pass == 0 || local > templateScores[template] {
+                templateScores[template] = local
+                templateBins[template] = UInt32(bin)
             }
         }
-        fft.transform(re: &correlationReal, im: &correlationImaginary, forward: false)
-        var local: Float = -.greatestFiniteMagnitude
-        var bin = 0
-        for index in 0..<na where correlationReal[index] > local {
-            local = correlationReal[index]; bin = index
-        }
-        local /= Float(na)
-        templateScores[template] = local
-        templateBins[template] = UInt32(bin)
     }
     let selected = selectOrientation(
         zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,

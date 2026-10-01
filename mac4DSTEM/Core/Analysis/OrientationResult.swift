@@ -587,6 +587,13 @@ package nonisolated struct OrientationResult: Equatable {
     /// Rotation angle of the deterministic cubic fundamental-zone
     /// representative, useful as a scalar orientation diagnostic.
     package var symmetryDisorientationRad: Float = 0
+    /// The winner came from the matcher's conjugated (in-plane mirror) pass:
+    /// the pattern is the x-mirror of template `templateIndex` rotated by
+    /// `inPlaneAngle` (which then carries py4DSTEM's +π), and `euler` already
+    /// carries the beam flip that makes it a proper rotation (py4DSTEM's
+    /// `Orientation.mirror`; review row 1). A template spot at azimuth a
+    /// then sits at π − (a + inPlaneAngle), not a + inPlaneAngle.
+    package var mirrored: Bool = false
 
     /// EBSD-style reliability. Higher values indicate a clearer best match.
     package var reliability: Float {
@@ -605,7 +612,7 @@ package nonisolated struct OrientationResult: Equatable {
     )
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(templateIndex: Int, euler: EulerAngles, inPlaneAngle: Float = 0, score: Float, secondScore: Float, phaseID: Int, symmetryDisorientationRad: Float = 0) {
+    package nonisolated init(templateIndex: Int, euler: EulerAngles, inPlaneAngle: Float = 0, score: Float, secondScore: Float, phaseID: Int, symmetryDisorientationRad: Float = 0, mirrored: Bool = false) {
         self.templateIndex = templateIndex
         self.euler = euler
         self.inPlaneAngle = inPlaneAngle
@@ -613,6 +620,7 @@ package nonisolated struct OrientationResult: Equatable {
         self.secondScore = secondScore
         self.phaseID = phaseID
         self.symmetryDisorientationRad = symmetryDisorientationRad
+        self.mirrored = mirrored
     }
 }
 

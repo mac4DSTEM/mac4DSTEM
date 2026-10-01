@@ -6,6 +6,12 @@
     "K1-default": "a — off on every open",
     "K1-warning": "a — caption only, above 0.5 of RAM",
     "K1-size-line": "a — caption under the label",
-    "drive": "run the drive yourself"
+    "drive": "run the drive yourself",
+    "row1-mirror-pass-after-SB": "re-pin and land (the Au sampled bound at the fixed set's own 116, the mirror-pass cost as the reason)",
+    "X3-mock": "1a 2a 3a 4a — build it (incl. the one-line ContentView sheet hook)",
+    "DM": "a — remove the difference map",
+    "CL": "a — amplitude clamp on by default (Gate D before/after first)",
+    "Q1b": "c — measure >= 3 healthy cubes first, nothing else now",
+    "T1-file-probe-run": "the assistant runs it headless"
   }
 }

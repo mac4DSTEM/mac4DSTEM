@@ -12,8 +12,10 @@ matrices; it does not certify general indexing accuracy or scientific exports.
 
 ## Independent truth and limitations
 
-- Analytic FCC Au: 18 generic template axes × 8 asymmetric in-plane rotations.
-- Analytic hexagonal WS2: 30 axes × the same 8 rotations.
+- Analytic FCC Au: 18 generic template axes × 8 asymmetric in-plane rotations,
+  then the mirror image (x ↔ y) of every axis as its own group — the half of the
+  proper-rotation zone the bank does not sample (review 2026-09-30 row 1).
+- Analytic hexagonal WS2: 30 axes × the same 8 rotations, then their mirrors (y → −y).
 - Frozen external FCC Au: all 40 patterns and original lab matrices from
   py4DSTEM **0.14.17**, seed 7, generated during the interrupted investigation.
 

@@ -9,6 +9,9 @@
 //
 //        The peak of corr over Δφ is the in-plane angle; its height is the
 //        match score. Best template → orientation; best/second → reliability.
+//        A second pass on conj(FFT(exp_ring)) — the azimuth-reversed image —
+//        covers the mirror half of the proper-rotation zone the bank does not
+//        sample (py4DSTEM `inversion_symmetry`; `OrientationResult.mirrored`).
 //
 //  CALIBRATION: peak radii are in detector pixels; the plan is in Å⁻¹. Pass
 //  `invAngstromPerPixel` (the Q pixel size) to convert. Without a Q
@@ -135,75 +138,96 @@ package nonisolated final class OrientationMatcher {
         // different orientation (see selectOrientation).
         var templateScores = [Float](repeating: 0, count: plan.count)
         var templateBins = [UInt32](repeating: 0, count: plan.count)
+        var templateMirrored = [Bool](repeating: false, count: plan.count)
 
-        for t in 0..<plan.count {
-            let templateOffset = t * nr * na
-            // Vectorized full-grid complex multiply:
-            // Template * conj(Experimental) == conj(Experimental) * Template.
-            expRe.withUnsafeMutableBufferPointer { experimentalReal in
-                expIm.withUnsafeMutableBufferPointer { experimentalImaginary in
-                    plan.templateFFTRe.withUnsafeBufferPointer { templateReal in
-                        plan.templateFFTIm.withUnsafeBufferPointer { templateImaginary in
-                            productRe.withUnsafeMutableBufferPointer { outputReal in
-                                productIm.withUnsafeMutableBufferPointer { outputImaginary in
-                                    var experimental = DSPSplitComplex(
-                                        realp: experimentalReal.baseAddress!,
-                                        imagp: experimentalImaginary.baseAddress!
-                                    )
-                                    var template = DSPSplitComplex(
-                                        realp: UnsafeMutablePointer(
-                                            mutating: templateReal.baseAddress! + templateOffset
-                                        ),
-                                        imagp: UnsafeMutablePointer(
-                                            mutating: templateImaginary.baseAddress! + templateOffset
+        // Two passes, as py4DSTEM's `match_orientations` (crystal_ACOM.py:
+        // 1233-1240 the forward correlogram, :1272-1323 `corr_full_inv` on
+        // `np.conj(im_polar_fft)`, :1364-1370 the larger wins per zone axis,
+        // strictly). The bank samples the mirror-reduced triangle, half of the
+        // proper-rotation zone; a beam in the other half produces the 2-D
+        // MIRROR of a template's pattern, which no in-plane rotation reaches.
+        // Conjugating the experimental ring FFTs reverses its azimuth, so the
+        // second pass correlates against the mirrored pattern; the winning
+        // basis is then flipped to the proper rotation that produces that
+        // mirror (makeOrientationResult). Review 2026-09-30 row 1: before this
+        // pass ~half of generic orientations came back 5–60° wrong.
+        for pass in 0..<2 {
+            // vDSP_zvmul's last argument: −1 conjugates the first operand
+            // (conj(E)·T, the forward correlation), +1 leaves it (E·T, the
+            // correlation of the azimuth-reversed image).
+            let conjugateFlag: Int32 = pass == 0 ? -1 : 1
+            for t in 0..<plan.count {
+                let templateOffset = t * nr * na
+                // Vectorized full-grid complex multiply:
+                // Template * conj(Experimental) == conj(Experimental) * Template.
+                expRe.withUnsafeMutableBufferPointer { experimentalReal in
+                    expIm.withUnsafeMutableBufferPointer { experimentalImaginary in
+                        plan.templateFFTRe.withUnsafeBufferPointer { templateReal in
+                            plan.templateFFTIm.withUnsafeBufferPointer { templateImaginary in
+                                productRe.withUnsafeMutableBufferPointer { outputReal in
+                                    productIm.withUnsafeMutableBufferPointer { outputImaginary in
+                                        var experimental = DSPSplitComplex(
+                                            realp: experimentalReal.baseAddress!,
+                                            imagp: experimentalImaginary.baseAddress!
                                         )
+                                        var template = DSPSplitComplex(
+                                            realp: UnsafeMutablePointer(
+                                                mutating: templateReal.baseAddress! + templateOffset
+                                            ),
+                                            imagp: UnsafeMutablePointer(
+                                                mutating: templateImaginary.baseAddress! + templateOffset
+                                            )
+                                        )
+                                        var output = DSPSplitComplex(
+                                            realp: outputReal.baseAddress!,
+                                            imagp: outputImaginary.baseAddress!
+                                        )
+                                        vDSP_zvmul(
+                                            &experimental, 1, &template, 1, &output, 1,
+                                            vDSP_Length(nr * na), conjugateFlag
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Ring sum, ascending in r: contiguous row accumulation via vDSP
+                // instead of a strided column-sum. Per output element the adds
+                // occur in the same r-ascending order as the scalar loop.
+                corrRe.withUnsafeMutableBufferPointer { corrReBuf in
+                    corrIm.withUnsafeMutableBufferPointer { corrImBuf in
+                        productRe.withUnsafeBufferPointer { productReBuf in
+                            productIm.withUnsafeBufferPointer { productImBuf in
+                                vDSP_vclr(corrReBuf.baseAddress!, 1, vDSP_Length(na))
+                                vDSP_vclr(corrImBuf.baseAddress!, 1, vDSP_Length(na))
+                                for r in 0..<nr {
+                                    vDSP_vadd(
+                                        corrReBuf.baseAddress!, 1,
+                                        productReBuf.baseAddress! + r * na, 1,
+                                        corrReBuf.baseAddress!, 1, vDSP_Length(na)
                                     )
-                                    var output = DSPSplitComplex(
-                                        realp: outputReal.baseAddress!,
-                                        imagp: outputImaginary.baseAddress!
-                                    )
-                                    vDSP_zvmul(
-                                        &experimental, 1, &template, 1, &output, 1,
-                                        vDSP_Length(nr * na), -1
+                                    vDSP_vadd(
+                                        corrImBuf.baseAddress!, 1,
+                                        productImBuf.baseAddress! + r * na, 1,
+                                        corrImBuf.baseAddress!, 1, vDSP_Length(na)
                                     )
                                 }
                             }
                         }
                     }
                 }
-            }
-            // Ring sum, ascending in r: contiguous row accumulation via vDSP
-            // instead of a strided column-sum. Per output element the adds
-            // occur in the same r-ascending order as the scalar loop.
-            corrRe.withUnsafeMutableBufferPointer { corrReBuf in
-                corrIm.withUnsafeMutableBufferPointer { corrImBuf in
-                    productRe.withUnsafeBufferPointer { productReBuf in
-                        productIm.withUnsafeBufferPointer { productImBuf in
-                            vDSP_vclr(corrReBuf.baseAddress!, 1, vDSP_Length(na))
-                            vDSP_vclr(corrImBuf.baseAddress!, 1, vDSP_Length(na))
-                            for r in 0..<nr {
-                                vDSP_vadd(
-                                    corrReBuf.baseAddress!, 1,
-                                    productReBuf.baseAddress! + r * na, 1,
-                                    corrReBuf.baseAddress!, 1, vDSP_Length(na)
-                                )
-                                vDSP_vadd(
-                                    corrImBuf.baseAddress!, 1,
-                                    productImBuf.baseAddress! + r * na, 1,
-                                    corrImBuf.baseAddress!, 1, vDSP_Length(na)
-                                )
-                            }
-                        }
-                    }
+                fft.transform(re: &corrRe, im: &corrIm, forward: false)
+                var localBest: Float = -.greatestFiniteMagnitude
+                var localBin = 0
+                for a in 0..<na where corrRe[a] > localBest { localBest = corrRe[a]; localBin = a }
+                localBest *= invScale
+                if pass == 0 || localBest > templateScores[t] {
+                    templateScores[t] = localBest
+                    templateBins[t] = UInt32(localBin)
+                    templateMirrored[t] = pass == 1
                 }
             }
-            fft.transform(re: &corrRe, im: &corrIm, forward: false)
-            var localBest: Float = -.greatestFiniteMagnitude
-            var localBin = 0
-            for a in 0..<na where corrRe[a] > localBest { localBest = corrRe[a]; localBin = a }
-            localBest *= invScale
-            templateScores[t] = localBest
-            templateBins[t] = UInt32(localBin)
         }
         let selected = selectOrientation(
             zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
@@ -212,7 +236,8 @@ package nonisolated final class OrientationMatcher {
         return makeOrientationResult(
             plan: plan, symmetry: symmetry,
             bestTemplate: selected.template, bestBin: selected.bin,
-            bestScore: selected.score, secondScore: selected.secondScore
+            bestScore: selected.score, secondScore: selected.secondScore,
+            mirrored: selected.template >= 0 && templateMirrored[selected.template]
         )
     }
 
@@ -254,24 +279,29 @@ package nonisolated final class OrientationMatcher {
         ) else { return [] }
         let na = geo.nAzimuthal, nr = geo.nRadial
         let invScale = 1 / Float(na)
-        var out = [Float](repeating: 0, count: plan.count)
-        for t in 0..<plan.count {
-            let templateOffset = t * nr * na
-            var corr = [Float](repeating: 0, count: na)
-            var corrI = [Float](repeating: 0, count: na)
-            for r in 0..<nr {
-                for a in 0..<na {
-                    let i = templateOffset + r * na + a
-                    let er = expRe[r * na + a], ei = expIm[r * na + a]
-                    let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
-                    corr[a] += er * tr + ei * ti
-                    corrI[a] += er * ti - ei * tr
+        var out = [Float](repeating: -.greatestFiniteMagnitude, count: plan.count)
+        // Both passes, as `match`: the larger of the forward and the
+        // mirrored (conjugated-experimental) correlation per template.
+        for pass in 0..<2 {
+            let sign: Float = pass == 0 ? 1 : -1
+            for t in 0..<plan.count {
+                let templateOffset = t * nr * na
+                var corr = [Float](repeating: 0, count: na)
+                var corrI = [Float](repeating: 0, count: na)
+                for r in 0..<nr {
+                    for a in 0..<na {
+                        let i = templateOffset + r * na + a
+                        let er = expRe[r * na + a], ei = sign * expIm[r * na + a]
+                        let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
+                        corr[a] += er * tr + ei * ti
+                        corrI[a] += er * ti - ei * tr
+                    }
                 }
+                fft.transform(re: &corr, im: &corrI, forward: false)
+                var localBest: Float = -.greatestFiniteMagnitude
+                for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
+                out[t] = max(out[t], localBest * invScale)
             }
-            fft.transform(re: &corr, im: &corrI, forward: false)
-            var localBest: Float = -.greatestFiniteMagnitude
-            for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
-            out[t] = localBest * invScale
         }
         return out
     }
@@ -370,23 +400,46 @@ package nonisolated func selectOrientation(
 
 private nonisolated func makeOrientationResult(
     plan: OrientationPlan, symmetry: ACOMCrystalSymmetry,
-    bestTemplate: Int, bestBin: Int, bestScore: Float, secondScore: Float
+    bestTemplate: Int, bestBin: Int, bestScore: Float, secondScore: Float,
+    mirrored: Bool = false
 ) -> OrientationResult {
     guard bestTemplate >= 0 else { return .empty }
     let azimuthalCount = plan.geometry.nAzimuthal
     // The correlation peaks at −θ; negate to report the pattern rotation.
+    // The mirrored pass peaks at the same −φ for E(a) = T(−a − φ), the
+    // azimuth-reversed (y-mirrored) template rotated by φ; the proper
+    // rotation that PRODUCES that pattern is built below with φ + π, as
+    // py4DSTEM does (crystal_ACOM.py:1374-1383 `+ np.pi`), because the beam
+    // flip it uses is an x-mirror: beam −n sees g at (g·c1, −g·c2) with the
+    // excitation of −g under +n (Friedel), and substituting h = −g that is
+    // (−h·c1, h·c2) with h's own weight — the x-mirror of the rotated
+    // template, T(π − a − φ). An extra half turn makes it T(−a − φ).
+    // Measured, not assumed: without the π the mirror-zone trials of
+    // tools/acom-mirror-test came back right in template and flag but
+    // 26–35° off in orientation (mirror-fixed.log, 2026-10-01).
     let bin = (azimuthalCount - bestBin) % azimuthalCount
-    let angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)
-    let orientationMatrix = ACOMOrientation.matrix(
+    var angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)
+    if mirrored {
+        angle = (angle + .pi).truncatingRemainder(dividingBy: 2 * .pi)
+    }
+    var orientationMatrix = ACOMOrientation.matrix(
         detectorBasis: plan.detectorBases[bestTemplate], inPlaneAngle: angle
     )
+    if mirrored {
+        // py4DSTEM crystal_ACOM.py:1548-1550, "Rotate 180 degrees around x
+        // axis for projected x-mirroring operation": negate the detector-y
+        // and beam columns — still a proper rotation.
+        orientationMatrix.columns.1 = -orientationMatrix.columns.1
+        orientationMatrix.columns.2 = -orientationMatrix.columns.2
+    }
     let reduced = symmetry.reduce(orientationMatrix)
     return OrientationResult(
         templateIndex: bestTemplate,
         euler: EulerAngles(py4DSTEMOrientationMatrix: reduced.matrix),
         inPlaneAngle: angle,
         score: max(bestScore, 0), secondScore: max(secondScore, 0), phaseID: 0,
-        symmetryDisorientationRad: reduced.disorientationRad
+        symmetryDisorientationRad: reduced.disorientationRad,
+        mirrored: mirrored
     )
 }
 
@@ -495,25 +548,43 @@ package nonisolated final class MetalACOMMatcher {
                     experimentalImaginary.append(contentsOf: repeatElement(0, count: gridCount))
                 }
             }
-            guard let results = runBatch(
+            guard let forward = runBatch(
                 experimentalReal: experimentalReal,
                 experimentalImaginary: experimentalImaginary,
                 positionCount: count
             ) else { return nil }
+            // The mirrored pass (see OrientationMatcher.match): the kernel
+            // computes conj(E)·T, so a negated imaginary part gives E·T —
+            // the correlation of the azimuth-reversed image — unchanged.
+            var conjugatedImaginary = experimentalImaginary
+            vDSP_vneg(experimentalImaginary, 1, &conjugatedImaginary, 1,
+                      vDSP_Length(experimentalImaginary.count))
+            guard let mirror = runBatch(
+                experimentalReal: experimentalReal,
+                experimentalImaginary: conjugatedImaginary,
+                positionCount: count
+            ) else { return nil }
             for local in 0..<count where valid[local] {
                 let offset = local * plan.count
+                var scores = Array(forward.scores[offset..<(offset + plan.count)])
+                var bins = Array(forward.bins[offset..<(offset + plan.count)])
+                var mirrored = [Bool](repeating: false, count: plan.count)
+                for t in 0..<plan.count where mirror.scores[offset + t] > scores[t] {
+                    scores[t] = mirror.scores[offset + t]
+                    bins[t] = mirror.bins[offset + t]
+                    mirrored[t] = true
+                }
                 // Identical selection to the CPU path, including the
                 // distinct-orientation rule for the runner-up.
                 let selected = selectOrientation(
-                    zoneAxes: plan.zoneAxes,
-                    scores: Array(results.scores[offset..<(offset + plan.count)]),
-                    bins: Array(results.bins[offset..<(offset + plan.count)]),
+                    zoneAxes: plan.zoneAxes, scores: scores, bins: bins,
                     distinctOrientationRad: plan.distinctOrientationRad
                 )
                 map.results[lower + local] = makeOrientationResult(
                     plan: plan, symmetry: symmetry,
                     bestTemplate: selected.template, bestBin: selected.bin,
-                    bestScore: selected.score, secondScore: selected.secondScore
+                    bestScore: selected.score, secondScore: selected.secondScore,
+                    mirrored: selected.template >= 0 && mirrored[selected.template]
                 )
             }
             progress?(Double(upper) / Double(total))

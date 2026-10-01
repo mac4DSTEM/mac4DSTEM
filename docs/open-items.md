@@ -62,9 +62,11 @@ has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen)
   stays t2 (0.00°) under F at Q 0.012, so the S20 regression was the probe's 13.5 %-low Q, not F; F moves grain A 5.03 → 3.18° at
   kMax 1.2 and costs 3.8× on CPU — After v4.1. Grain B (6.50°, winner t84): mechanism open — the
   quantisation reading was refuted 2026-10-01 (the sub-bin deposit leaves it at 6.50°; `archive/v4/slot2-sb-refuter-2026-10-01.md`).
-- **Row 1 (mirror pass) held for the owner** (2026-10-01): the port HOLDS (mirror-zone 62 → 3 of 93) and costs ≈ 7/144 Au to the
-  half-turn class — the mirror pass's own cost, not quantisation (the sub-bin port SB missed P3/P4 and is closed; 40-set measurement in
-  `archive/v4/slot2-sb-refuter-2026-10-01.md`). Owner card: re-pin the Au bound from the distribution, or hold. Patch: `slot2-fa-row1-mirror-pass-v2-2026-10-01.patch`.
+- **ACOM mirror pass (row 1) — residuals** (landed 2026-10-01, owner's card): (i) the pass costs ≈ 7/144 Au trials to the half-turn
+  class (no pass: 40-set mean 132.1; with it ≈ 125, min 118; the gate's fixed set 116, pinned) — mechanism open; (ii) the linear
+  sub-bin deposit as a parity step, predicted neutral ±1 on paired seeded sets (`archive/v4/slot2-sb-subbin-deposit-2026-10-01.patch`);
+  (iii) the experiment-side py4DSTEM port (shell grid, arc-length kernel, ring mean in) vs an independent truth; (iv)
+  `ACOMSession.estimatedDuration` ≈ 2× optimistic under the ×2 CPU pass. Predictions quote counts as distributions over angle sets.
 - **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** — confirmed on the app's own path (lane Q, 2026-09-30
   night): the owner's raw and binned 060 cubes, the demo cube and Thronsen A read Q 12.5–13.5 % low, shell ratio 1.37–1.43 vs 1.155
   (the 09-29 "0.006577 / 1.0846" row was the Python lattice fit and an ellipse axis ratio, not this estimator). Shipped: the one-shell
