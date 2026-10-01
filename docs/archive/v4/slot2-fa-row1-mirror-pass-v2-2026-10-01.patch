@@ -1,0 +1,1002 @@
+diff --git a/mac4DSTEM/Core/Analysis/FitOverlays.swift b/mac4DSTEM/Core/Analysis/FitOverlays.swift
+index 1e217a4a..2778a72a 100644
+--- a/mac4DSTEM/Core/Analysis/FitOverlays.swift
++++ b/mac4DSTEM/Core/Analysis/FitOverlays.swift
+@@ -223,7 +223,13 @@ package nonisolated enum FitOverlays {
+             let radiusPx = Float(Double(spot.r) / invAngstromPerPixel)
+             // The direct beam is the origin marker, not a template spot.
+             guard radiusPx > 0.5 else { continue }
+-            let azimuth = spot.azim + result.inPlaneAngle
++            // A mirrored win matched the azimuth-reversed template: the stored
++            // angle is phi0 + pi (OrientationMatcher.makeOrientationResult) and
++            // the pattern satisfies E(a) = T(-a - phi0), so a spot at template
++            // azimuth t sits at -t - phi0 = pi - (t + stored angle).
++            let azimuth = result.mirrored
++                ? Float.pi - (spot.azim + result.inPlaneAngle)
++                : spot.azim + result.inPlaneAngle
+             let point = rawPoint(
+                 calibratedOffsetX: radiusPx * cos(azimuth),
+                 calibratedOffsetY: radiusPx * sin(azimuth),
+diff --git a/mac4DSTEM/Core/Analysis/OrientationResult.swift b/mac4DSTEM/Core/Analysis/OrientationResult.swift
+index a132313e..16aab06f 100644
+--- a/mac4DSTEM/Core/Analysis/OrientationResult.swift
++++ b/mac4DSTEM/Core/Analysis/OrientationResult.swift
+@@ -587,6 +587,13 @@ package nonisolated struct OrientationResult: Equatable {
+     /// Rotation angle of the deterministic cubic fundamental-zone
+     /// representative, useful as a scalar orientation diagnostic.
+     package var symmetryDisorientationRad: Float = 0
++    /// The winner came from the matcher's conjugated (in-plane mirror) pass:
++    /// the pattern is the x-mirror of template `templateIndex` rotated by
++    /// `inPlaneAngle` (which then carries py4DSTEM's +π), and `euler` already
++    /// carries the beam flip that makes it a proper rotation (py4DSTEM's
++    /// `Orientation.mirror`; review row 1). A template spot at azimuth a
++    /// then sits at π − (a + inPlaneAngle), not a + inPlaneAngle.
++    package var mirrored: Bool = false
+ 
+     /// EBSD-style reliability. Higher values indicate a clearer best match.
+     package var reliability: Float {
+@@ -605,7 +612,7 @@ package nonisolated struct OrientationResult: Equatable {
+     )
+ 
+     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+-    package nonisolated init(templateIndex: Int, euler: EulerAngles, inPlaneAngle: Float = 0, score: Float, secondScore: Float, phaseID: Int, symmetryDisorientationRad: Float = 0) {
++    package nonisolated init(templateIndex: Int, euler: EulerAngles, inPlaneAngle: Float = 0, score: Float, secondScore: Float, phaseID: Int, symmetryDisorientationRad: Float = 0, mirrored: Bool = false) {
+         self.templateIndex = templateIndex
+         self.euler = euler
+         self.inPlaneAngle = inPlaneAngle
+@@ -613,6 +620,7 @@ package nonisolated struct OrientationResult: Equatable {
+         self.secondScore = secondScore
+         self.phaseID = phaseID
+         self.symmetryDisorientationRad = symmetryDisorientationRad
++        self.mirrored = mirrored
+     }
+ }
+ 
+diff --git a/mac4DSTEM/Core/Crystal/OrientationMatcher.swift b/mac4DSTEM/Core/Crystal/OrientationMatcher.swift
+index 1fb3bdf8..bcd5f78d 100644
+--- a/mac4DSTEM/Core/Crystal/OrientationMatcher.swift
++++ b/mac4DSTEM/Core/Crystal/OrientationMatcher.swift
+@@ -9,6 +9,9 @@
+ //
+ //        The peak of corr over Δφ is the in-plane angle; its height is the
+ //        match score. Best template → orientation; best/second → reliability.
++//        A second pass on conj(FFT(exp_ring)) — the azimuth-reversed image —
++//        covers the mirror half of the proper-rotation zone the bank does not
++//        sample (py4DSTEM `inversion_symmetry`; `OrientationResult.mirrored`).
+ //
+ //  CALIBRATION: peak radii are in detector pixels; the plan is in Å⁻¹. Pass
+ //  `invAngstromPerPixel` (the Q pixel size) to convert. Without a Q
+@@ -135,75 +138,96 @@ package nonisolated final class OrientationMatcher {
+         // different orientation (see selectOrientation).
+         var templateScores = [Float](repeating: 0, count: plan.count)
+         var templateBins = [UInt32](repeating: 0, count: plan.count)
+-
+-        for t in 0..<plan.count {
+-            let templateOffset = t * nr * na
+-            // Vectorized full-grid complex multiply:
+-            // Template * conj(Experimental) == conj(Experimental) * Template.
+-            expRe.withUnsafeMutableBufferPointer { experimentalReal in
+-                expIm.withUnsafeMutableBufferPointer { experimentalImaginary in
+-                    plan.templateFFTRe.withUnsafeBufferPointer { templateReal in
+-                        plan.templateFFTIm.withUnsafeBufferPointer { templateImaginary in
+-                            productRe.withUnsafeMutableBufferPointer { outputReal in
+-                                productIm.withUnsafeMutableBufferPointer { outputImaginary in
+-                                    var experimental = DSPSplitComplex(
+-                                        realp: experimentalReal.baseAddress!,
+-                                        imagp: experimentalImaginary.baseAddress!
+-                                    )
+-                                    var template = DSPSplitComplex(
+-                                        realp: UnsafeMutablePointer(
+-                                            mutating: templateReal.baseAddress! + templateOffset
+-                                        ),
+-                                        imagp: UnsafeMutablePointer(
+-                                            mutating: templateImaginary.baseAddress! + templateOffset
++        var templateMirrored = [Bool](repeating: false, count: plan.count)
++
++        // Two passes, as py4DSTEM's `match_orientations` (crystal_ACOM.py:
++        // 1233-1240 the forward correlogram, :1272-1323 `corr_full_inv` on
++        // `np.conj(im_polar_fft)`, :1364-1370 the larger wins per zone axis,
++        // strictly). The bank samples the mirror-reduced triangle, half of the
++        // proper-rotation zone; a beam in the other half produces the 2-D
++        // MIRROR of a template's pattern, which no in-plane rotation reaches.
++        // Conjugating the experimental ring FFTs reverses its azimuth, so the
++        // second pass correlates against the mirrored pattern; the winning
++        // basis is then flipped to the proper rotation that produces that
++        // mirror (makeOrientationResult). Review 2026-09-30 row 1: before this
++        // pass ~half of generic orientations came back 5–60° wrong.
++        for pass in 0..<2 {
++            // vDSP_zvmul's last argument: −1 conjugates the first operand
++            // (conj(E)·T, the forward correlation), +1 leaves it (E·T, the
++            // correlation of the azimuth-reversed image).
++            let conjugateFlag: Int32 = pass == 0 ? -1 : 1
++            for t in 0..<plan.count {
++                let templateOffset = t * nr * na
++                // Vectorized full-grid complex multiply:
++                // Template * conj(Experimental) == conj(Experimental) * Template.
++                expRe.withUnsafeMutableBufferPointer { experimentalReal in
++                    expIm.withUnsafeMutableBufferPointer { experimentalImaginary in
++                        plan.templateFFTRe.withUnsafeBufferPointer { templateReal in
++                            plan.templateFFTIm.withUnsafeBufferPointer { templateImaginary in
++                                productRe.withUnsafeMutableBufferPointer { outputReal in
++                                    productIm.withUnsafeMutableBufferPointer { outputImaginary in
++                                        var experimental = DSPSplitComplex(
++                                            realp: experimentalReal.baseAddress!,
++                                            imagp: experimentalImaginary.baseAddress!
+                                         )
+-                                    )
+-                                    var output = DSPSplitComplex(
+-                                        realp: outputReal.baseAddress!,
+-                                        imagp: outputImaginary.baseAddress!
+-                                    )
+-                                    vDSP_zvmul(
+-                                        &experimental, 1, &template, 1, &output, 1,
+-                                        vDSP_Length(nr * na), -1
+-                                    )
++                                        var template = DSPSplitComplex(
++                                            realp: UnsafeMutablePointer(
++                                                mutating: templateReal.baseAddress! + templateOffset
++                                            ),
++                                            imagp: UnsafeMutablePointer(
++                                                mutating: templateImaginary.baseAddress! + templateOffset
++                                            )
++                                        )
++                                        var output = DSPSplitComplex(
++                                            realp: outputReal.baseAddress!,
++                                            imagp: outputImaginary.baseAddress!
++                                        )
++                                        vDSP_zvmul(
++                                            &experimental, 1, &template, 1, &output, 1,
++                                            vDSP_Length(nr * na), conjugateFlag
++                                        )
++                                    }
+                                 }
+                             }
+                         }
+                     }
+                 }
+-            }
+-            // Ring sum, ascending in r: contiguous row accumulation via vDSP
+-            // instead of a strided column-sum. Per output element the adds
+-            // occur in the same r-ascending order as the scalar loop.
+-            corrRe.withUnsafeMutableBufferPointer { corrReBuf in
+-                corrIm.withUnsafeMutableBufferPointer { corrImBuf in
+-                    productRe.withUnsafeBufferPointer { productReBuf in
+-                        productIm.withUnsafeBufferPointer { productImBuf in
+-                            vDSP_vclr(corrReBuf.baseAddress!, 1, vDSP_Length(na))
+-                            vDSP_vclr(corrImBuf.baseAddress!, 1, vDSP_Length(na))
+-                            for r in 0..<nr {
+-                                vDSP_vadd(
+-                                    corrReBuf.baseAddress!, 1,
+-                                    productReBuf.baseAddress! + r * na, 1,
+-                                    corrReBuf.baseAddress!, 1, vDSP_Length(na)
+-                                )
+-                                vDSP_vadd(
+-                                    corrImBuf.baseAddress!, 1,
+-                                    productImBuf.baseAddress! + r * na, 1,
+-                                    corrImBuf.baseAddress!, 1, vDSP_Length(na)
+-                                )
++                // Ring sum, ascending in r: contiguous row accumulation via vDSP
++                // instead of a strided column-sum. Per output element the adds
++                // occur in the same r-ascending order as the scalar loop.
++                corrRe.withUnsafeMutableBufferPointer { corrReBuf in
++                    corrIm.withUnsafeMutableBufferPointer { corrImBuf in
++                        productRe.withUnsafeBufferPointer { productReBuf in
++                            productIm.withUnsafeBufferPointer { productImBuf in
++                                vDSP_vclr(corrReBuf.baseAddress!, 1, vDSP_Length(na))
++                                vDSP_vclr(corrImBuf.baseAddress!, 1, vDSP_Length(na))
++                                for r in 0..<nr {
++                                    vDSP_vadd(
++                                        corrReBuf.baseAddress!, 1,
++                                        productReBuf.baseAddress! + r * na, 1,
++                                        corrReBuf.baseAddress!, 1, vDSP_Length(na)
++                                    )
++                                    vDSP_vadd(
++                                        corrImBuf.baseAddress!, 1,
++                                        productImBuf.baseAddress! + r * na, 1,
++                                        corrImBuf.baseAddress!, 1, vDSP_Length(na)
++                                    )
++                                }
+                             }
+                         }
+                     }
+                 }
++                fft.transform(re: &corrRe, im: &corrIm, forward: false)
++                var localBest: Float = -.greatestFiniteMagnitude
++                var localBin = 0
++                for a in 0..<na where corrRe[a] > localBest { localBest = corrRe[a]; localBin = a }
++                localBest *= invScale
++                if pass == 0 || localBest > templateScores[t] {
++                    templateScores[t] = localBest
++                    templateBins[t] = UInt32(localBin)
++                    templateMirrored[t] = pass == 1
++                }
+             }
+-            fft.transform(re: &corrRe, im: &corrIm, forward: false)
+-            var localBest: Float = -.greatestFiniteMagnitude
+-            var localBin = 0
+-            for a in 0..<na where corrRe[a] > localBest { localBest = corrRe[a]; localBin = a }
+-            localBest *= invScale
+-            templateScores[t] = localBest
+-            templateBins[t] = UInt32(localBin)
+         }
+         let selected = selectOrientation(
+             zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
+@@ -212,7 +236,8 @@ package nonisolated final class OrientationMatcher {
+         return makeOrientationResult(
+             plan: plan, symmetry: symmetry,
+             bestTemplate: selected.template, bestBin: selected.bin,
+-            bestScore: selected.score, secondScore: selected.secondScore
++            bestScore: selected.score, secondScore: selected.secondScore,
++            mirrored: selected.template >= 0 && templateMirrored[selected.template]
+         )
+     }
+ 
+@@ -254,24 +279,29 @@ package nonisolated final class OrientationMatcher {
+         ) else { return [] }
+         let na = geo.nAzimuthal, nr = geo.nRadial
+         let invScale = 1 / Float(na)
+-        var out = [Float](repeating: 0, count: plan.count)
+-        for t in 0..<plan.count {
+-            let templateOffset = t * nr * na
+-            var corr = [Float](repeating: 0, count: na)
+-            var corrI = [Float](repeating: 0, count: na)
+-            for r in 0..<nr {
+-                for a in 0..<na {
+-                    let i = templateOffset + r * na + a
+-                    let er = expRe[r * na + a], ei = expIm[r * na + a]
+-                    let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
+-                    corr[a] += er * tr + ei * ti
+-                    corrI[a] += er * ti - ei * tr
++        var out = [Float](repeating: -.greatestFiniteMagnitude, count: plan.count)
++        // Both passes, as `match`: the larger of the forward and the
++        // mirrored (conjugated-experimental) correlation per template.
++        for pass in 0..<2 {
++            let sign: Float = pass == 0 ? 1 : -1
++            for t in 0..<plan.count {
++                let templateOffset = t * nr * na
++                var corr = [Float](repeating: 0, count: na)
++                var corrI = [Float](repeating: 0, count: na)
++                for r in 0..<nr {
++                    for a in 0..<na {
++                        let i = templateOffset + r * na + a
++                        let er = expRe[r * na + a], ei = sign * expIm[r * na + a]
++                        let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
++                        corr[a] += er * tr + ei * ti
++                        corrI[a] += er * ti - ei * tr
++                    }
+                 }
++                fft.transform(re: &corr, im: &corrI, forward: false)
++                var localBest: Float = -.greatestFiniteMagnitude
++                for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
++                out[t] = max(out[t], localBest * invScale)
+             }
+-            fft.transform(re: &corr, im: &corrI, forward: false)
+-            var localBest: Float = -.greatestFiniteMagnitude
+-            for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
+-            out[t] = localBest * invScale
+         }
+         return out
+     }
+@@ -370,23 +400,46 @@ package nonisolated func selectOrientation(
+ 
+ private nonisolated func makeOrientationResult(
+     plan: OrientationPlan, symmetry: ACOMCrystalSymmetry,
+-    bestTemplate: Int, bestBin: Int, bestScore: Float, secondScore: Float
++    bestTemplate: Int, bestBin: Int, bestScore: Float, secondScore: Float,
++    mirrored: Bool = false
+ ) -> OrientationResult {
+     guard bestTemplate >= 0 else { return .empty }
+     let azimuthalCount = plan.geometry.nAzimuthal
+     // The correlation peaks at −θ; negate to report the pattern rotation.
++    // The mirrored pass peaks at the same −φ for E(a) = T(−a − φ), the
++    // azimuth-reversed (y-mirrored) template rotated by φ; the proper
++    // rotation that PRODUCES that pattern is built below with φ + π, as
++    // py4DSTEM does (crystal_ACOM.py:1374-1383 `+ np.pi`), because the beam
++    // flip it uses is an x-mirror: beam −n sees g at (g·c1, −g·c2) with the
++    // excitation of −g under +n (Friedel), and substituting h = −g that is
++    // (−h·c1, h·c2) with h's own weight — the x-mirror of the rotated
++    // template, T(π − a − φ). An extra half turn makes it T(−a − φ).
++    // Measured, not assumed: without the π the mirror-zone trials of
++    // tools/acom-mirror-test came back right in template and flag but
++    // 26–35° off in orientation (mirror-fixed.log, 2026-10-01).
+     let bin = (azimuthalCount - bestBin) % azimuthalCount
+-    let angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)
+-    let orientationMatrix = ACOMOrientation.matrix(
++    var angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)
++    if mirrored {
++        angle = (angle + .pi).truncatingRemainder(dividingBy: 2 * .pi)
++    }
++    var orientationMatrix = ACOMOrientation.matrix(
+         detectorBasis: plan.detectorBases[bestTemplate], inPlaneAngle: angle
+     )
++    if mirrored {
++        // py4DSTEM crystal_ACOM.py:1548-1550, "Rotate 180 degrees around x
++        // axis for projected x-mirroring operation": negate the detector-y
++        // and beam columns — still a proper rotation.
++        orientationMatrix.columns.1 = -orientationMatrix.columns.1
++        orientationMatrix.columns.2 = -orientationMatrix.columns.2
++    }
+     let reduced = symmetry.reduce(orientationMatrix)
+     return OrientationResult(
+         templateIndex: bestTemplate,
+         euler: EulerAngles(py4DSTEMOrientationMatrix: reduced.matrix),
+         inPlaneAngle: angle,
+         score: max(bestScore, 0), secondScore: max(secondScore, 0), phaseID: 0,
+-        symmetryDisorientationRad: reduced.disorientationRad
++        symmetryDisorientationRad: reduced.disorientationRad,
++        mirrored: mirrored
+     )
+ }
+ 
+@@ -495,25 +548,43 @@ package nonisolated final class MetalACOMMatcher {
+                     experimentalImaginary.append(contentsOf: repeatElement(0, count: gridCount))
+                 }
+             }
+-            guard let results = runBatch(
++            guard let forward = runBatch(
+                 experimentalReal: experimentalReal,
+                 experimentalImaginary: experimentalImaginary,
+                 positionCount: count
+             ) else { return nil }
++            // The mirrored pass (see OrientationMatcher.match): the kernel
++            // computes conj(E)·T, so a negated imaginary part gives E·T —
++            // the correlation of the azimuth-reversed image — unchanged.
++            var conjugatedImaginary = experimentalImaginary
++            vDSP_vneg(experimentalImaginary, 1, &conjugatedImaginary, 1,
++                      vDSP_Length(experimentalImaginary.count))
++            guard let mirror = runBatch(
++                experimentalReal: experimentalReal,
++                experimentalImaginary: conjugatedImaginary,
++                positionCount: count
++            ) else { return nil }
+             for local in 0..<count where valid[local] {
+                 let offset = local * plan.count
++                var scores = Array(forward.scores[offset..<(offset + plan.count)])
++                var bins = Array(forward.bins[offset..<(offset + plan.count)])
++                var mirrored = [Bool](repeating: false, count: plan.count)
++                for t in 0..<plan.count where mirror.scores[offset + t] > scores[t] {
++                    scores[t] = mirror.scores[offset + t]
++                    bins[t] = mirror.bins[offset + t]
++                    mirrored[t] = true
++                }
+                 // Identical selection to the CPU path, including the
+                 // distinct-orientation rule for the runner-up.
+                 let selected = selectOrientation(
+-                    zoneAxes: plan.zoneAxes,
+-                    scores: Array(results.scores[offset..<(offset + plan.count)]),
+-                    bins: Array(results.bins[offset..<(offset + plan.count)]),
++                    zoneAxes: plan.zoneAxes, scores: scores, bins: bins,
+                     distinctOrientationRad: plan.distinctOrientationRad
+                 )
+                 map.results[lower + local] = makeOrientationResult(
+                     plan: plan, symmetry: symmetry,
+                     bestTemplate: selected.template, bestBin: selected.bin,
+-                    bestScore: selected.score, secondScore: selected.secondScore
++                    bestScore: selected.score, secondScore: selected.secondScore,
++                    mirrored: selected.template >= 0 && mirrored[selected.template]
+                 )
+             }
+             progress?(Double(upper) / Double(total))
+diff --git a/mac4DSTEMTests/ACOMRow1MirrorZoneTests.swift b/mac4DSTEMTests/ACOMRow1MirrorZoneTests.swift
+new file mode 100644
+index 00000000..79a11b86
+--- /dev/null
++++ b/mac4DSTEMTests/ACOMRow1MirrorZoneTests.swift
+@@ -0,0 +1,117 @@
++import XCTest
++import simd
++import DSTEMCore
++
++/// Review 2026-09-30 row 1. The ACOM bank samples the mirror-reduced direction
++/// triangle (cubic z ≥ x ≥ y ≥ 0), but orientation equivalence is the proper
++/// rotation group, whose zone is twice that: a beam axis in the other triangle
++/// produces the 2-D MIRROR of a template's pattern, which no in-plane rotation
++/// reproduces. py4DSTEM covers it with `inversion_symmetry` (a conjugated
++/// correlation pass; crystal_ACOM.py:877, :1272-1323, :1548-1550). Before the
++/// port carried that pass, (1,2,3) came back 57° wrong at score 0.90 while its
++/// mirror image (2,1,3) came back right — half of generic orientations.
++///
++/// Truth is independent of the production projection: peak positions are dot
++/// products onto a right-handed basis built here, and the returned matrix is
++/// compared under an independent operator list (as tools/acom-convention-test).
++/// The harness `tools/acom-mirror-test` runs the same check over 200 random
++/// directions, WS2, and measures the cost.
++final class ACOMRow1MirrorZoneTests: XCTestCase {
++
++    private static let wavelength = 0.02508      // 200 kV, what the app passes
++    private static let scale = 0.008, origin = 256.0
++
++    nonisolated private static func properCubicOperators() -> [simd_double3x3] {
++        var result: [simd_double3x3] = []
++        for p in [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]] {
++            for x in [-1.0, 1.0] { for y in [-1.0, 1.0] { for z in [-1.0, 1.0] {
++                var rows = [SIMD3<Double>](repeating: .zero, count: 3)
++                for i in 0..<3 { rows[i][p[i]] = [x, y, z][i] }
++                let m = simd_double3x3(rows: rows)
++                if simd_determinant(m) > 0.5 { result.append(m) }
++            } } }
++        }
++        return result
++    }
++
++    nonisolated private static func misorientationDeg(_ a: simd_double3x3, _ b: simd_double3x3,
++                                                      _ ops: [simd_double3x3]) -> Double {
++        ops.map { op in
++            let m = op * a * b.transpose
++            return acos(max(-1, min(1, (m[0][0] + m[1][1] + m[2][2] - 1) / 2))) * 180 / .pi
++        }.min()!
++    }
++
++    /// Independent pattern for beam `axis` rotated in-plane by `angleDeg`.
++    nonisolated private static func pattern(axis: SIMD3<Double>, angleDeg: Double,
++                                            reflections: [Reflection])
++        -> (truth: simd_double3x3, peaks: [BraggPeak]) {
++        let n = simd_normalize(axis)
++        let seed: SIMD3<Double> = abs(n.z) < 0.8 ? [0, 0, 1] : [1, 0, 0]
++        let f0 = simd_normalize(seed - simd_dot(seed, n) * n)
++        let a = angleDeg * .pi / 180
++        let f1 = simd_normalize(f0 * cos(a) + simd_cross(n, f0) * sin(a))
++        let f2 = simd_cross(n, f1)
++        let peaks: [BraggPeak] = reflections.compactMap { r in
++            let sg = simd_dot(r.g, n) + 0.5 * wavelength * simd_length_squared(r.g)
++            let intensity = r.intensity * exp(-pow(sg / 0.03, 2))
++            guard abs(sg) <= 0.1 && intensity > 0 else { return nil }
++            return BraggPeak(x: Float(origin + simd_dot(r.g, f1) / scale),
++                             y: Float(origin + simd_dot(r.g, f2) / scale), intensity: Float(intensity))
++        }
++        return (simd_double3x3(columns: (f1, f2, n)), peaks)
++    }
++
++    /// Three mirror-triangle axes and two sampled-triangle controls, each at an
++    /// off-grid in-plane angle. Mutations this catches: dropping the conjugated
++    /// pass (mirror trials 27–55° off, `mirrored` never set); negating only one
++    /// column on a mirrored win (an improper matrix — the reducer still returns
++    /// one, 90°+ off); omitting py4DSTEM's +π on the in-plane angle of a
++    /// mirrored win (right template and flag, orientation 26–35° off — the
++    /// first fix attempt, mirror-fixed.log 2026-10-01).
++    func testMirrorTriangleAxesAreRecoveredAndFlaggedSampledOnesAreNot() throws {
++        let crystal = Crystal.aluminum
++        let plan = try XCTUnwrap(OrientationPlan.generate(
++            crystal: crystal, kMax: 1.2, zoneAxisCount: 600, symmetry: .cubic,
++            wavelengthAngstrom: Self.wavelength))
++        let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .cubic))
++        let reflections = crystal.reflections(kMax: 1.2)
++        let ops = Self.properCubicOperators()
++        XCTAssertEqual(ops.count, 24)
++        // Not (1,2,3) / (2,1,3): at 17.3° that pair is in the known in-plane
++        // modulo-π class (both halves 37–38° off on HEAD and after; the
++        // harness logs it), which is not this row.
++        let cases: [(axis: SIMD3<Double>, mirror: Bool)] = [
++            ([1, 4, 6], true), ([1, 3, 5], true), ([2, 5, 7], true),
++            ([5, 2, 7], false), ([7, 3, 9], false),
++        ]
++        var peaksForMetal: [[BraggPeak]] = []
++        var cpuResults: [OrientationResult] = []
++        for (axis, expectMirror) in cases {
++            let (truth, peaks) = Self.pattern(axis: axis, angleDeg: 17.3, reflections: reflections)
++            let result = matcher.match(peaks: peaks, originX: Float(Self.origin),
++                                       originY: Float(Self.origin), invAngstromPerPixel: Self.scale)
++            XCTAssertTrue(plan.zoneAxes.indices.contains(result.templateIndex), "\(axis) matched nothing")
++            let error = Self.misorientationDeg(result.euler.py4DSTEMOrientationMatrix, truth, ops)
++            XCTAssertLessThan(error, 3, "\(axis): misorientation \(error)° (score \(result.score))")
++            XCTAssertEqual(result.mirrored, expectMirror,
++                           "\(axis) \(expectMirror ? "needs" : "must not need") the conjugated pass")
++            peaksForMetal.append(peaks)
++            cpuResults.append(result)
++        }
++
++        // The Metal path carries the same pass: same template, flag and angle.
++        let vectors = BraggVectors(scanWidth: cases.count, scanHeight: 1, peaks: peaksForMetal)
++        guard let metal = OrientationMatching.matchAll(
++            bragg: vectors, plan: plan, originX: Float(Self.origin), originY: Float(Self.origin),
++            invAngstromPerPixel: Self.scale, backend: .metal
++        ) else { throw XCTSkip("Metal matcher unavailable on this machine") }
++        for (index, cpu) in cpuResults.enumerated() {
++            let gpu = metal.results[index]
++            XCTAssertEqual(gpu.templateIndex, cpu.templateIndex, "Metal template at \(index)")
++            XCTAssertEqual(gpu.mirrored, cpu.mirrored, "Metal mirrored flag at \(index)")
++            XCTAssertEqual(gpu.inPlaneAngle, cpu.inPlaneAngle, accuracy: 1e-6, "Metal angle at \(index)")
++            XCTAssertEqual(gpu.score, cpu.score, accuracy: 2e-4, "Metal score at \(index)")
++        }
++    }
++}
+diff --git a/tools/acom-convention-test/README.md b/tools/acom-convention-test/README.md
+index c083afe6..8b4669cf 100644
+--- a/tools/acom-convention-test/README.md
++++ b/tools/acom-convention-test/README.md
+@@ -12,8 +12,10 @@ matrices; it does not certify general indexing accuracy or scientific exports.
+ 
+ ## Independent truth and limitations
+ 
+-- Analytic FCC Au: 18 generic template axes × 8 asymmetric in-plane rotations.
+-- Analytic hexagonal WS2: 30 axes × the same 8 rotations.
++- Analytic FCC Au: 18 generic template axes × 8 asymmetric in-plane rotations,
++  then the mirror image (x ↔ y) of every axis as its own group — the half of the
++  proper-rotation zone the bank does not sample (review 2026-09-30 row 1).
++- Analytic hexagonal WS2: 30 axes × the same 8 rotations, then their mirrors (y → −y).
+ - Frozen external FCC Au: all 40 patterns and original lab matrices from
+   py4DSTEM **0.14.17**, seed 7, generated during the interrupted investigation.
+ 
+diff --git a/tools/acom-convention-test/main.swift b/tools/acom-convention-test/main.swift
+index 96af7c1d..8e45e8cc 100644
+--- a/tools/acom-convention-test/main.swift
++++ b/tools/acom-convention-test/main.swift
+@@ -100,9 +100,20 @@ func analytic(hexagonal: Bool) {
+         if axes.count == 30 { break }
+     }
+     require(axes.count == (hexagonal ? 30 : 18), "\(label) expected generic axes, no empty sweep")
++    // Review row 1 (2026-09-30): the bank samples the mirror-reduced triangle
++    // (cubic z >= x >= y >= 0) / sector (hexagonal 0-30 deg), half of the
++    // proper-rotation zone. Every generic axis above lies in it, so this gate
++    // could not see a beam in the other half. The mirror image of each axis
++    // (x <-> y, or y -> -y for hexagonal) is run as its own group with the
++    // same bounds: no in-plane rotation reproduces its pattern, only the
++    // matcher's conjugated pass does.
++    let mirrorAxes: [SIMD3<Double>] = axes.map {
++        hexagonal ? SIMD3($0.x, -$0.y, $0.z) : SIMD3($0.y, $0.x, $0.z)
++    }
+     let angles = [37.2, 12.5, 100.0, -63.4, 155.0, 211.7, 88.9, -170.3]
++    for (group, groupAxes) in [("sampled", axes), ("mirror", mirrorAxes)] {
+     var errors: [Double] = [], inPlaneErrors: [Double] = []
+-    for axis in axes {
++    for axis in groupAxes {
+         let n = simd_normalize(axis)
+         let seed: SIMD3<Double> = abs(n.z) < 0.8 ? [0,0,1] : [1,0,0]
+         let f0 = simd_normalize(seed - simd_dot(seed, n) * n)
+@@ -123,23 +134,39 @@ func analytic(hexagonal: Bool) {
+             let result = matcher.match(peaks: peaks, originX: 256, originY: 256,
+                                        invAngstromPerPixel: scale)
+             require(plan.zoneAxes.indices.contains(result.templateIndex), "\(label) no skipped failed match")
+-            errors.append(misorientation(result.euler.py4DSTEMOrientationMatrix, truth, ops))
+-            // Auxiliary angle-reporting check; the independent matrix check above
+-            // does not depend on the production detector basis used here.
+-            let basis = plan.detectorBases[result.templateIndex]
+-            let expected = atan2(-simd_dot(f1, basis[1]), simd_dot(f1, basis[0]))
+-            let delta = Double(result.inPlaneAngle) - expected
+-            inPlaneErrors.append(abs(degrees(atan2(sin(delta), cos(delta)))))
++            let reported = result.euler.py4DSTEMOrientationMatrix
++            errors.append(misorientation(reported, truth, ops))
++            // Auxiliary in-plane check: with the beam brought onto the truth
++            // beam by the best symmetry operator, the reported lab-x axis must
++            // lie near f1. Symmetry-aware since row 1 (2026-10-01): a mirrored
++            // win reports the equivalent orientation with the beam flipped, so
++            // the previous template-basis formula (which assumed the identity
++            // operator) read ~180° on 21 of 144 correct sampled-zone trials.
++            var bestOp = matrix_identity_double3x3, bestBeam = Double.infinity
++            for op in ops {
++                let beamError = acos(max(-1, min(1, simd_dot(op * reported[2], n))))
++                if beamError < bestBeam { bestBeam = beamError; bestOp = op }
++            }
++            let c1 = bestOp * reported[0]
++            inPlaneErrors.append(degrees(acos(max(-1, min(1, simd_dot(c1, f1))))))
++            if ProcessInfo.processInfo.environment["ACOM_CONVENTION_DETAIL"] != nil,
++               errors.last! > 3 || inPlaneErrors.last! > 20 {
++                let flag = Mirror(reflecting: result).children.first { $0.label == "mirrored" }?.value as? Bool
++                print(String(format: "DETAIL: %@ %@ axis (%.3f %.3f %.3f) angle %.1f: matrix %.2f° in-plane %.2f° template %d score %.4f mirrored %@",
++                             label, group, n.x, n.y, n.z, angle, errors.last!, inPlaneErrors.last!,
++                             result.templateIndex, result.score, flag.map { $0 ? "yes" : "no" } ?? "n/a"))
++            }
+         }
+     }
+     let expectedCount = hexagonal ? 240 : 144
+     let near = inPlaneErrors.filter { $0 < 20 }.count
+-    require(errors.count == expectedCount, "\(label) every expected trial executed")
+-    print(String(format: "MEASURE: %@ %d trials; median matrix error %.6f deg; in-plane <20 deg %d",
+-                 label, errors.count, median(errors), near))
+-    require(median(errors) < (hexagonal ? 2 : 3), "\(label) independent matrix orientation")
+-    require(near >= (hexagonal ? 240 : 120), "\(label) full-angle recovery, not modulo pi")
+-    print("PASS: \(label) independent projection and returned matrix")
++    require(errors.count == expectedCount, "\(label) \(group) every expected trial executed")
++    print(String(format: "MEASURE: %@ %@ %d trials; median matrix error %.6f deg; in-plane <20 deg %d",
++                 label, group, errors.count, median(errors), near))
++    require(median(errors) < (hexagonal ? 2 : 3), "\(label) \(group) independent matrix orientation")
++    require(near >= (hexagonal ? 240 : 120), "\(label) \(group) full-angle recovery, not modulo pi")
++    }
++    print("PASS: \(label) independent projection and returned matrix, sampled and mirror zone")
+ }
+ 
+ struct Peak: Decodable { let x: Double; let y: Double; let intensity: Double }
+diff --git a/tools/acom-matching-test/main.swift b/tools/acom-matching-test/main.swift
+index 875dfdea..08970f13 100644
+--- a/tools/acom-matching-test/main.swift
++++ b/tools/acom-matching-test/main.swift
+@@ -97,30 +97,39 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
+     // a template far enough away to be a different orientation.
+     var templateScores = [Float](repeating: 0, count: plan.count)
+     var templateBins = [UInt32](repeating: 0, count: plan.count)
+-    for template in 0..<plan.count {
+-        correlationReal = [Float](repeating: 0, count: na)
+-        correlationImaginary = [Float](repeating: 0, count: na)
+-        let templateOffset = template * nr * na
+-        for radial in 0..<nr {
+-            let base = radial * na
+-            for azimuthal in 0..<na {
+-                let index = base + azimuthal
+-                let tr = plan.templateFFTRe[templateOffset + index]
+-                let ti = plan.templateFFTIm[templateOffset + index]
+-                let er = experimentalReal[index], ei = experimentalImaginary[index]
+-                correlationReal[azimuthal] += er * tr + ei * ti
+-                correlationImaginary[azimuthal] += er * ti - ei * tr
++    // Two passes as the production matcher (review row 1, py4DSTEM
++    // `inversion_symmetry`): the second correlates the azimuth-reversed
++    // experimental image (conjugated ring FFTs) and wins only when strictly
++    // larger.
++    for pass in 0..<2 {
++        let sign: Float = pass == 0 ? 1 : -1
++        for template in 0..<plan.count {
++            correlationReal = [Float](repeating: 0, count: na)
++            correlationImaginary = [Float](repeating: 0, count: na)
++            let templateOffset = template * nr * na
++            for radial in 0..<nr {
++                let base = radial * na
++                for azimuthal in 0..<na {
++                    let index = base + azimuthal
++                    let tr = plan.templateFFTRe[templateOffset + index]
++                    let ti = plan.templateFFTIm[templateOffset + index]
++                    let er = experimentalReal[index], ei = sign * experimentalImaginary[index]
++                    correlationReal[azimuthal] += er * tr + ei * ti
++                    correlationImaginary[azimuthal] += er * ti - ei * tr
++                }
++            }
++            fft.transform(re: &correlationReal, im: &correlationImaginary, forward: false)
++            var local: Float = -.greatestFiniteMagnitude
++            var bin = 0
++            for index in 0..<na where correlationReal[index] > local {
++                local = correlationReal[index]; bin = index
++            }
++            local /= Float(na)
++            if pass == 0 || local > templateScores[template] {
++                templateScores[template] = local
++                templateBins[template] = UInt32(bin)
+             }
+         }
+-        fft.transform(re: &correlationReal, im: &correlationImaginary, forward: false)
+-        var local: Float = -.greatestFiniteMagnitude
+-        var bin = 0
+-        for index in 0..<na where correlationReal[index] > local {
+-            local = correlationReal[index]; bin = index
+-        }
+-        local /= Float(na)
+-        templateScores[template] = local
+-        templateBins[template] = UInt32(bin)
+     }
+     let selected = selectOrientation(
+         zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
+diff --git a/tools/acom-mirror-test/main.swift b/tools/acom-mirror-test/main.swift
+new file mode 100644
+index 00000000..15d412a0
+--- /dev/null
++++ b/tools/acom-mirror-test/main.swift
+@@ -0,0 +1,289 @@
++// Row 1 (review 2026-09-30) reproduction and gate: beam axes in the MIRROR
++// half of the proper-rotation zone. The bank samples z ≥ x ≥ y ≥ 0 (cubic) /
++// the 0–30° sector (hexagonal); a direction in the mirror triangle has no
++// template on its proper orbit and its pattern is the 2-D mirror of one — which
++// no in-plane rotation reproduces, so the matcher needs py4DSTEM's conjugated
++// pass (`inversion_symmetry`, crystal_ACOM.py:877, :1272-1323, :1548-1550).
++//
++// Independent truth, as in acom-convention-test: peak positions are dot
++// products onto a right-handed basis built HERE (never production `project`
++// / `detectorBasis`), the orientation is compared as a full matrix under an
++// independent proper-group operator list. Reports CPU time per pattern and
++// CPU/Metal agreement so the second pass is measured, not assumed.
++import Foundation
++import simd
++
++func require(_ condition: Bool, _ message: String) {
++    if !condition { print("FAIL: \(message)"); exit(1) }
++}
++func degrees(_ x: Double) -> Double { x * 180 / .pi }
++func median(_ values: [Double]) -> Double {
++    require(!values.isEmpty && values.allSatisfy(\.isFinite), "finite nonempty statistic")
++    let s = values.sorted(), n = s.count
++    return n % 2 == 0 ? (s[n / 2 - 1] + s[n / 2]) / 2 : s[n / 2]
++}
++func percentile(_ values: [Double], _ p: Double) -> Double {
++    let s = values.sorted()
++    return s[min(s.count - 1, Int((Double(s.count - 1) * p).rounded()))]
++}
++func rotationZ(_ a: Double) -> simd_double3x3 {
++    simd_double3x3(rows: [SIMD3(cos(a), -sin(a), 0), SIMD3(sin(a), cos(a), 0), SIMD3(0, 0, 1)])
++}
++// Independent finite groups; never the app's symmetry reducer.
++func operators(hexagonal: Bool) -> [simd_double3x3] {
++    if hexagonal {
++        return (0..<6).map { rotationZ(Double($0) * .pi / 3) } + (0..<6).map {
++            let a = Double($0) * .pi / 6, x = cos(a), y = sin(a)
++            return simd_double3x3(rows: [SIMD3(2*x*x-1, 2*x*y, 0), SIMD3(2*x*y, 2*y*y-1, 0), SIMD3(0, 0, -1)])
++        }
++    }
++    var result: [simd_double3x3] = []
++    for p in [[0,1,2], [0,2,1], [1,0,2], [1,2,0], [2,0,1], [2,1,0]] {
++        for x in [-1.0, 1.0] { for y in [-1.0, 1.0] { for z in [-1.0, 1.0] {
++            let signs = [x, y, z]
++            var rows = [SIMD3<Double>](repeating: .zero, count: 3)
++            for i in 0..<3 { rows[i][p[i]] = signs[i] }
++            let m = simd_double3x3(rows: rows)
++            if simd_determinant(m) > 0.5 { result.append(m) }
++        } } }
++    }
++    return result
++}
++func proper(_ m: simd_double3x3) -> Bool {
++    let gram = m.transpose * m
++    for row in 0..<3 { for col in 0..<3 {
++        if !m[col][row].isFinite || abs(gram[col][row] - (row == col ? 1 : 0)) > 1e-5 { return false }
++    } }
++    return abs(simd_determinant(m) - 1) < 1e-5
++}
++// Lab axes are columns in crystal coordinates: symmetry acts on the LEFT.
++func misorientation(_ a: simd_double3x3, _ b: simd_double3x3, _ ops: [simd_double3x3]) -> Double {
++    require(proper(a) && proper(b), "orientation must be a finite proper rotation")
++    return ops.map { op in
++        let m = op * a * b.transpose
++        return degrees(acos(max(-1, min(1, (m[0][0] + m[1][1] + m[2][2] - 1) / 2))))
++    }.min()!
++}
++/// Angle between the truth beam and the returned beam under the proper group
++/// (the row's own metric; blind to the in-plane angle).
++func axisError(_ a: simd_double3x3, _ b: simd_double3x3, _ ops: [simd_double3x3]) -> Double {
++    ops.map { op in degrees(acos(max(-1, min(1, simd_dot(op * a.columns.2, b.columns.2))))) }.min()!
++}
++/// Is some proper image of `n` inside the sampled triangle / sector?
++func onSampledZone(_ n: SIMD3<Double>, hexagonal: Bool, ops: [simd_double3x3]) -> Bool {
++    let eps = 1e-9
++    for op in ops {
++        let v = op * n
++        if hexagonal {
++            let az = atan2(v.y, v.x)
++            if v.z >= -eps && az >= -eps && az <= .pi / 6 + eps { return true }
++        } else if v.z >= v.x - eps && v.x >= v.y - eps && v.y >= -eps { return true }
++    }
++    return false
++}
++/// Deterministic xorshift so the random set is the same on every run.
++struct Xorshift: RandomNumberGenerator {
++    var state: UInt64
++    mutating func next() -> UInt64 {
++        state ^= state << 13; state ^= state >> 7; state ^= state << 17; return state
++    }
++}
++func mirroredFlag(_ result: OrientationResult) -> Bool? {
++    // Read through Mirror so this harness compiles against a tree that does
++    // not yet carry the flag (the HEAD reproduction run).
++    Mirror(reflecting: result).children.first { $0.label == "mirrored" }?.value as? Bool
++}
++
++struct Trial {
++    let label: String
++    let truth: simd_double3x3
++    let peaks: [BraggPeak]
++    let sampled: Bool
++}
++
++func makeTrial(label: String, axis: SIMD3<Double>, angleDeg: Double, reflections: [Reflection],
++               wavelength: Double?, scale: Double, origin: Double, ops: [simd_double3x3],
++               hexagonal: Bool) -> Trial {
++    let n = simd_normalize(axis)
++    let seed: SIMD3<Double> = abs(n.z) < 0.8 ? [0, 0, 1] : [1, 0, 0]
++    let f0 = simd_normalize(seed - simd_dot(seed, n) * n)
++    let a = angleDeg * .pi / 180
++    let f1 = simd_normalize(f0 * cos(a) + simd_cross(n, f0) * sin(a))
++    let f2 = simd_cross(n, f1)
++    let truth = simd_double3x3(columns: (f1, f2, n))
++    let curvature = (wavelength ?? 0) / 2
++    let peaks: [BraggPeak] = reflections.compactMap { r in
++        let sg = simd_dot(r.g, n) + curvature * simd_length_squared(r.g)
++        let intensity = r.intensity * exp(-pow(sg / 0.03, 2))
++        guard abs(sg) <= 0.1 && intensity > 0 else { return nil }
++        return BraggPeak(x: Float(origin + simd_dot(r.g, f1) / scale),
++                         y: Float(origin + simd_dot(r.g, f2) / scale), intensity: Float(intensity))
++    }
++    require(peaks.count >= 3, "\(label) informative pattern")
++    return Trial(label: label, truth: truth, peaks: peaks,
++                 sampled: onSampledZone(n, hexagonal: hexagonal, ops: ops))
++}
++
++func run(hexagonal: Bool, wavelength: Double?) -> Bool {
++    let family = hexagonal ? "WS2" : "Al"
++    let tag = "\(family) \(wavelength == nil ? "flat-Ewald" : String(format: "λ %.5f Å", wavelength!))"
++    let ops = operators(hexagonal: hexagonal)
++    require(ops.count == (hexagonal ? 12 : 24) && ops.allSatisfy(proper), "independent symmetry group")
++    let crystal = hexagonal ? Crystal.tungstenDisulfide : Crystal.aluminum
++    let symmetry: ACOMCrystalSymmetry = hexagonal ? .hexagonal : .cubic
++    let kMax = hexagonal ? 1.6 : 1.2, scale = 0.008, origin = 256.0
++    guard let plan = OrientationPlan.generate(crystal: crystal, kMax: kMax, zoneAxisCount: 600,
++                                              symmetry: symmetry, wavelengthAngstrom: wavelength),
++          let matcher = OrientationMatcher(plan: plan, symmetry: symmetry)
++    else { require(false, "\(tag) plan and matcher"); return false }
++    let reflections = crystal.reflections(kMax: kMax)
++
++    // Named axes: five in the sampled zone, their five mirror images.
++    var named: [Trial] = []
++    let cubicSampled: [SIMD3<Double>] = [[2,1,3], [3,1,5], [5,2,7], [4,1,6], [7,3,9]]
++    let hexSampled: [SIMD3<Double>] = (0..<5).map { i in
++        let az = (5 + 4 * Double(i)) * .pi / 180, tilt = (25 + 10 * Double(i)) * .pi / 180   // azimuth 5–21°, inside 0–30°
++        return SIMD3(sin(tilt) * cos(az), sin(tilt) * sin(az), cos(tilt))
++    }
++    for axis in (hexagonal ? hexSampled : cubicSampled) {
++        let mirror: SIMD3<Double> = hexagonal ? SIMD3(axis.x, -axis.y, axis.z) : SIMD3(axis.y, axis.x, axis.z)
++        for (which, v) in [("sampled", axis), ("mirror", mirror)] {
++            let label = hexagonal
++                ? String(format: "%@ (%.3f %.3f %.3f)", which, v.x, v.y, v.z)
++                : String(format: "%@ (%g,%g,%g)", which, v.x, v.y, v.z)
++            named.append(makeTrial(label: label, axis: v, angleDeg: 17.3, reflections: reflections,
++                                   wavelength: wavelength, scale: scale, origin: origin, ops: ops,
++                                   hexagonal: hexagonal))
++        }
++    }
++    require(named.filter(\.sampled).count == 5 && named.filter { !$0.sampled }.count == 5,
++            "\(tag) the named axes split 5 sampled / 5 mirror under the independent zone test")
++
++    // Random directions and in-plane angles, same sequence every run.
++    var rng = Xorshift(state: hexagonal ? 0x9E3779B97F4A7C15 : 0xD1B54A32D192ED03)
++    var random: [Trial] = []
++    while random.count < 200 {
++        let v = SIMD3(Double.random(in: -1...1, using: &rng), Double.random(in: -1...1, using: &rng),
++                      Double.random(in: -1...1, using: &rng))
++        let length = simd_length(v)
++        guard length > 0.2 && length <= 1 else { continue }
++        random.append(makeTrial(label: "random \(random.count)", axis: v / length,
++                                angleDeg: Double.random(in: 0..<360, using: &rng), reflections: reflections,
++                                wavelength: wavelength, scale: scale, origin: origin, ops: ops,
++                                hexagonal: hexagonal))
++    }
++
++    let all = named + random
++    var errors: [Double] = []
++    var results: [OrientationResult] = []
++    let started = Date()
++    for trial in all {
++        let result = matcher.match(peaks: trial.peaks, originX: Float(origin), originY: Float(origin),
++                                   invAngstromPerPixel: scale)
++        require(plan.zoneAxes.indices.contains(result.templateIndex), "\(tag) no skipped failed match")
++        results.append(result)
++        errors.append(misorientation(result.euler.py4DSTEMOrientationMatrix, trial.truth, ops))
++    }
++    // Flat-Ewald templates are exactly π-periodic in azimuth (OrientationPlan
++    // `project`), so the in-plane angle is only known modulo 180° and the
++    // full-matrix misorientation reads 25–40° on half of ANY set. That run
++    // is gated on the beam-axis error instead — the row's own metric — and
++    // the λ runs on the full matrix.
++    let axisErrors = zip(results, all).map { axisError($0.euler.py4DSTEMOrientationMatrix, $1.truth, ops) }
++    let gated = wavelength == nil ? axisErrors : errors
++    let metric = wavelength == nil ? "beam-axis error" : "misorientation"
++    let perPattern = Date().timeIntervalSince(started) / Double(all.count)
++    for (index, trial) in named.enumerated() {
++        let r = results[index]
++        print(String(format: "  %-32@ misorientation %7.2f°  axis %6.2f°  template %3d  score %.3f  mirrored %@",
++                     trial.label, errors[index], axisErrors[index], r.templateIndex, r.score,
++                     mirroredFlag(r).map { $0 ? "yes" : "no" } ?? "n/a"))
++    }
++    let namedSampled = zip(named, gated).filter { $0.0.sampled }.map(\.1)
++    let namedMirror = zip(named, gated).filter { !$0.0.sampled }.map(\.1)
++    let randomErrors = Array(gated[named.count...])
++    let randomSampled = zip(random, randomErrors).filter { $0.0.sampled }.map(\.1)
++    let randomMirror = zip(random, randomErrors).filter { !$0.0.sampled }.map(\.1)
++    let flagged = results.compactMap(mirroredFlag).filter { $0 }.count
++    // Separation of the two passes: the winner template's forward (conj(E)·T)
++    // and mirrored (E·T) best correlations, per trial, split by zone. A
++    // mirrored win on a sampled-zone truth is a tie decided by rounding when
++    // the gap is at float level; a genuine mirror-zone win has a large gap.
++    if let fft = FFT1D(n: plan.geometry.nAzimuthal) {
++        let na = plan.geometry.nAzimuthal, nr = plan.geometry.nRadial
++        var gaps: [String: [Double]] = [:]
++        for (trial, result) in zip(all, results) {
++            guard let e = matcher.experimentalFFT(peaks: trial.peaks, originX: Float(origin), originY: Float(origin),
++                                                  invAngstromPerPixel: scale) else { continue }
++            let off = result.templateIndex * nr * na
++            var best: [Float] = []
++            for sign in [Float(1), Float(-1)] {
++                var re = [Float](repeating: 0, count: na), im = re
++                for r in 0..<nr { for a in 0..<na {
++                    let i = r * na + a, er = e.real[i], ei = sign * e.imaginary[i]
++                    let tr = plan.templateFFTRe[off + i], ti = plan.templateFFTIm[off + i]
++                    re[a] += er * tr + ei * ti; im[a] += er * ti - ei * tr
++                } }
++                fft.transform(re: &re, im: &im, forward: false)
++                best.append(re.max()! / Float(na))
++            }
++            let key = (trial.sampled ? "sampled" : "mirror") + " zone, " + ((mirroredFlag(result) ?? false) ? "mirrored win" : "forward win")
++            gaps[key, default: []].append(Double(best[1] - best[0]))
++        }
++        for key in gaps.keys.sorted() {
++            let g = gaps[key]!.sorted()
++            print(String(format: "MEASURE: %@ pass gap (mirror − forward) %@: n=%d min %.2e median %.2e max %.2e",
++                         tag, key, g.count, g.first!, median(g), g.last!))
++        }
++    }
++    let sampledOver3 = zip(random, randomErrors).filter { $0.0.sampled && $0.1 > 3 }.count
++    let mirrorOver3 = zip(random, randomErrors).filter { !$0.0.sampled && $0.1 > 3 }.count
++    print(String(format: "MEASURE: %@ random > 3°: sampled %d of %d, mirror %d of %d", tag, sampledOver3,
++                 randomSampled.count, mirrorOver3, randomMirror.count))
++    print(String(format: "MEASURE: %@ (%@) named sampled median %.3f° max %.3f°; named mirror median %.3f° max %.3f°",
++                 tag, metric, median(namedSampled), namedSampled.max()!, median(namedMirror), namedMirror.max()!))
++    print(String(format: "MEASURE: %@ (%@) random n=%d (sampled %d / mirror %d): sampled median %.3f° p90 %.3f° max %.3f°; mirror median %.3f° p90 %.3f° max %.3f°; > 3° %d of %d; mirrored flag set on %d",
++                 tag, metric, random.count, randomSampled.count, randomMirror.count,
++                 median(randomSampled), percentile(randomSampled, 0.9), randomSampled.max()!,
++                 median(randomMirror), percentile(randomMirror, 0.9), randomMirror.max()!,
++                 randomErrors.filter { $0 > 3 }.count, randomErrors.count, flagged))
++    print(String(format: "MEASURE: %@ CPU single matcher %.3f ms per pattern (%d templates, %d patterns)",
++                 tag, perPattern * 1000, plan.count, all.count))
++
++    // Metal must carry the same pass: compare choices on every pattern.
++    let vectors = BraggVectors(scanWidth: all.count, scanHeight: 1, peaks: all.map(\.peaks))
++    let metalStart = Date()
++    if let metal = OrientationMatching.matchAll(bragg: vectors, plan: plan, originX: Float(origin),
++                                                originY: Float(origin), invAngstromPerPixel: scale,
++                                                backend: .metal) {
++        let metalSeconds = Date().timeIntervalSince(metalStart)
++        var templateAgree = 0, angleAgree = 0
++        var scoreError: Float = 0
++        for (index, cpu) in results.enumerated() {
++            let gpu = metal.results[index]
++            scoreError = max(scoreError, abs(cpu.score - gpu.score))
++            guard cpu.templateIndex == gpu.templateIndex, mirroredFlag(cpu) == mirroredFlag(gpu) else { continue }
++            templateAgree += 1
++            let raw = abs(cpu.inPlaneAngle - gpu.inPlaneAngle).truncatingRemainder(dividingBy: 2 * .pi)
++            if min(raw, 2 * .pi - raw) < 1e-6 { angleAgree += 1 }
++        }
++        print(String(format: "MEASURE: %@ Metal %.3f ms per pattern; template+flag agreement %d/%d; angle agreement %d; max score error %.2e",
++                     tag, metalSeconds / Double(all.count) * 1000, templateAgree, all.count, angleAgree, scoreError))
++        require(templateAgree >= all.count - 2 && scoreError < 2e-4,
++                "\(tag) CPU/Metal parity (template, mirrored flag, score)")
++    } else {
++        print("MEASURE: \(tag) Metal backend unavailable here; parity not measured")
++    }
++    let sampledOK = median(namedSampled) < 3 && median(randomSampled) < 3
++    let mirrorOK = median(namedMirror) < 3 && median(randomMirror) < 3
++    print("\(mirrorOK && sampledOK ? "PASS" : "FAIL"): \(tag) sampled-zone \(sampledOK ? "recovered" : "LOST"), mirror-zone \(mirrorOK ? "recovered" : "LOST")")
++    return mirrorOK && sampledOK
++}
++
++var allPassed = true
++for wavelength in [nil, 0.02508] as [Double?] {
++    allPassed = run(hexagonal: false, wavelength: wavelength) && allPassed
++}
++allPassed = run(hexagonal: true, wavelength: 0.02508) && allPassed
++require(allPassed, "mirror-zone orientations must be recovered as well as sampled-zone ones")
++print("acom-mirror-test: all passed")
+diff --git a/tools/acom-mirror-test/run.sh b/tools/acom-mirror-test/run.sh
+new file mode 100755
+index 00000000..9943ce11
+--- /dev/null
++++ b/tools/acom-mirror-test/run.sh
+@@ -0,0 +1,24 @@
++#!/bin/zsh
++# Row 1 (2026-09-30 review): mirror-zone orientation recovery, CPU time per
++# pattern and CPU/Metal parity of the conjugated pass. Production sources only.
++set -euo pipefail
++
++ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
++WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-acom-mirror-test.XXXXXX")"
++trap 'rm -rf "$WORK"' EXIT
++. "$(dirname "$0")/../lib/developer-dir.sh"
++resolve_mac4dstem_developer_dir
++
++for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
++  xcrun -sdk macosx metal -c "$source" -o "$WORK/${source:t:r}.air"
++done
++xcrun -sdk macosx metallib "$WORK"/*.air -o "$WORK/default.metallib"
++
++. "$ROOT/tools/lib/sources.manifest"
++mac4dstem_sources "$ROOT" acom
++xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" "$ROOT/tools/acom-mirror-test/main.swift" \
++  "${MAC4DSTEM_SOURCES[@]}" \
++  -framework Accelerate -framework Metal -framework MetalKit
++
++cd "$WORK"
++./harness
+diff --git a/tools/run-tests.sh b/tools/run-tests.sh
+index 1dac4f2f..286a750f 100755
+--- a/tools/run-tests.sh
++++ b/tools/run-tests.sh
+@@ -119,7 +119,7 @@ scientific=(
+   resident-cropped-view
+   disk-detection-test embedding-pca-parity disk-correlation-parity peak-overlay-test fit-overlay-test
+   phase-vector-matching
+-  acom-orientation-test acom-matching-test acom-convention-test parity-metric-test cif-symmetry-test
++  acom-orientation-test acom-matching-test acom-convention-test acom-mirror-test parity-metric-test cif-symmetry-test
+   ws2-crystal-test
+   idpc-test cancellation-test tiled-detection-memory-test virtual-detector-memory-test
+   bragg-export-test sidecar-result-test strain-test strain-frame-test

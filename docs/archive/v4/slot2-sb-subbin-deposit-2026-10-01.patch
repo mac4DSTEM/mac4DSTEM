@@ -1,0 +1,131 @@
+diff --git a/mac4DSTEM/Core/Crystal/OrientationPlan.swift b/mac4DSTEM/Core/Crystal/OrientationPlan.swift
+index 8530325b..eac41689 100644
+--- a/mac4DSTEM/Core/Crystal/OrientationPlan.swift
++++ b/mac4DSTEM/Core/Crystal/OrientationPlan.swift
+@@ -244,12 +244,29 @@ package nonisolated struct OrientationPlan {
+     /// synthetic peaks — template and pattern round identically — but brittle
+     /// on real peaks, where measurement and Q-calibration error move a peak
+     /// across a bin edge and it stops overlapping its own template entirely.
++    ///
++    /// Azimuth is deposited at sub-bin position, as py4DSTEM does, instead of
++    /// rounded to the nearest bin (which discards up to half a bin, 1.4 deg at
++    /// 128 bins, and made the doubled mirror candidate set's quantisation
++    /// penalty exceed the Friedel penalty: row 1 / lane SB): linear
++    /// interpolation between floor and floor+1 (`crystal_ACOM.py:800-818`),
++    /// then the circular blur.
++    /// DEVIATION from py4DSTEM, MEASURED 2026-10-01 (lane SB, logs in
++    /// docs/archive/v4): py4DSTEM interpolates only the TEMPLATES and
++    /// deposits the experiment as a Gaussian at the exact azimuth, evaluated in
++    /// ARC LENGTH (sigma = orientation_kernel_size, `crystal_ACOM.py:1046-1080`).
++    /// This port deposits template and experiment identically (linear, then
++    /// one angular blur for every ring). The Gaussian experiment side was built
++    /// and measured against this: Au in-plane <20 deg 121 both, Al mirror-zone
++    /// >3 deg 4 of 93 (Gaussian) vs 3 of 93 (shared), Au mirror 122 vs 125 — so
++    /// the simpler shared deposit stays (acom-convention-test / acom-mirror-test).
+     package static func buildPolar(spots: [(r: Double, azim: Double, weight: Double)],
+                            geometry geo: PolarGeometry,
+                            azimBlurBins: Double,
+                            radialKernelInvAngstrom: Double = 0) -> [Float] {
+         var img = [Float](repeating: 0, count: geo.nRadial * geo.nAzimuthal)
+         let twoPi = 2 * Double.pi
++        let na = geo.nAzimuthal
+         // σ in bins; ±3σ covers the kernel to <0.5% of its mass.
+         let sigmaBins = radialKernelInvAngstrom / geo.radialScale
+         let reach = sigmaBins > 0 ? max(1, Int((3 * sigmaBins).rounded())) : 0
+@@ -259,10 +276,15 @@ package nonisolated struct OrientationPlan {
+             if rb + reach < 0 || rb - reach >= geo.nRadial { continue }
+             var a = s.azim.truncatingRemainder(dividingBy: twoPi)
+             if a < 0 { a += twoPi }
+-            let ab = Int((a / twoPi * Double(geo.nAzimuthal)).rounded()) % geo.nAzimuthal
++            let af = a / twoPi * Double(na)
++            let lo = Int(af.rounded(.down))
++            let f = af - Double(lo)
++            let b0 = ((lo % na) + na) % na, b1 = (lo + 1) % na
++            let w0 = 1 - f, w1 = f
+             if reach == 0 {
+                 if rb >= 0 && rb < geo.nRadial {
+-                    img[rb * geo.nAzimuthal + ab] += Float(s.weight)
++                    img[rb * na + b0] += Float(s.weight * w0)
++                    img[rb * na + b1] += Float(s.weight * w1)
+                 }
+                 continue
+             }
+@@ -270,7 +292,9 @@ package nonisolated struct OrientationPlan {
+             // radius, so sub-bin position is preserved instead of discarded.
+             for bin in (rb - reach)...(rb + reach) where bin >= 0 && bin < geo.nRadial {
+                 let d = (Double(bin) - exact) / sigmaBins
+-                img[bin * geo.nAzimuthal + ab] += Float(s.weight * exp(-0.5 * d * d))
++                let wr = s.weight * exp(-0.5 * d * d)
++                img[bin * na + b0] += Float(wr * w0)
++                img[bin * na + b1] += Float(wr * w1)
+             }
+         }
+         if azimBlurBins > 0 { blurAzimuthal(&img, geo: geo, sigmaBins: azimBlurBins) }
+diff --git a/mac4DSTEMTests/ACOMSubBinAzimuthDepositionTests.swift b/mac4DSTEMTests/ACOMSubBinAzimuthDepositionTests.swift
+new file mode 100644
+index 00000000..e779d4b6
+--- /dev/null
++++ b/mac4DSTEMTests/ACOMSubBinAzimuthDepositionTests.swift
+@@ -0,0 +1,62 @@
++import XCTest
++import DSTEMCore
++
++/// Lane SB (2026-10-01). `OrientationPlan.buildPolar` used to round every
++/// spot's azimuth to the NEAREST bin; py4DSTEM keeps the sub-bin position
++/// (linear interpolation, crystal_ACOM.py:800-818). With the mirror pass
++/// doubling the candidates, the discarded half bin (1.4 deg at 128 bins)
++/// outweighed the Friedel penalty and Au trials fell into the half-turn class.
++final class ACOMSubBinAzimuthDepositionTests: XCTestCase {
++
++    private let geo = PolarGeometry(nRadial: 4, nAzimuthal: 128, radialScale: 0.1)
++
++    private func ringImage(bins: Double, blur: Double) -> [Float] {
++        // Radius 0.2 = ring 2 exactly.
++        let img = OrientationPlan.buildPolar(
++            spots: [(r: 0.2, azim: bins / 128 * 2 * .pi, weight: 1)], geometry: geo,
++            azimBlurBins: blur, radialKernelInvAngstrom: 0)
++        return Array(img[(2 * 128)..<(3 * 128)])
++    }
++
++    /// Circular centroid of the ring's positive excess, in bins.
++    private func centroid(_ ring: [Float]) -> Double {
++        var c = 0.0, s = 0.0
++        for (i, v) in ring.enumerated() where v > 0 {
++            let a = Double(i) / 128 * 2 * .pi
++            c += Double(v) * cos(a); s += Double(v) * sin(a)
++        }
++        var a = atan2(s, c); if a < 0 { a += 2 * .pi }
++        return a / (2 * .pi) * 128
++    }
++
++    /// A spot half way between two bins is shared equally.
++    func testDepositionIsLinearBetweenBins() {
++        let ring = ringImage(bins: 10.5, blur: 0)
++        XCTAssertEqual(ring[10], ring[11], accuracy: 1e-6)
++        XCTAssertGreaterThan(ring[10], 0.4 * ring.max()!, "both neighbours must carry the spot")
++    }
++
++    /// The deposited position follows the exact azimuth, blurred or not.
++    func testCentroidFollowsTheExactAzimuth() {
++        for blur in [0.0, 1.5] {
++            for frac in [0.0, 0.25, 0.5, 0.75] {
++                XCTAssertEqual(centroid(ringImage(bins: 40 + frac, blur: blur)), 40 + frac,
++                               accuracy: 0.02, "blur \(blur) fraction \(frac)")
++            }
++        }
++    }
++
++    /// Wrap-around: a spot just under 2 pi lands across bin 127 and bin 0.
++    func testDepositionWrapsAcrossTheSeam() {
++        let ring = ringImage(bins: 127.5, blur: 0)
++        XCTAssertEqual(ring[127], ring[0], accuracy: 1e-6)
++        XCTAssertGreaterThan(ring[0], 0.4 * ring.max()!)
++    }
++
++    /// A bin-centre spot is a single-bin deposit, as before: on-grid cases are unchanged.
++    func testBinCentreSpotIsASingleBin() {
++        let ring = ringImage(bins: 40, blur: 0)
++        XCTAssertEqual(ring[40], 1 - 1 / 128, accuracy: 1e-6)
++        XCTAssertEqual(ring[41], -1 / 128, accuracy: 1e-6)
++    }
++}
