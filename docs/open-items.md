@@ -128,6 +128,11 @@ One line each; full wording as above.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
+- **Slot 4½ input** (2026-10-01, `archive/v4/polish-drive-2026-10-01.md`, ranked): the parallax BF preview/aligned panes solid red (diverging map on ≈ 1);
+  the real-space preview black on graphene; Strain's "Quantitative" badge beside an uncalibrated warning; phase-mapping legend, duplicate phase
+  names, stale map; BF/ADF presets ignore the measured probe; Results shows no product list or data export; label export silent into the
+  container; stale "Last run" captions and toolbar verbs; clipped text, locale/unit mixes; a window that resized itself. Plus the memory
+  budget does not subtract a resident cube (code review, owner card).
 - Polish batch from the combined drive (2026-10-01, `archive/v4/drive-combined-2026-10-01.md`), for Slot 4½: the Preprocess save panel
   defaults to the source folder; Provenance "Source product" wraps; Sampling reads "sampling 5 × 5 Å/px"; the sidebar's "Preprocess Raw…"
   truncates; ACOM Info shows no mirrored flag (needed to find a mirrored win).
