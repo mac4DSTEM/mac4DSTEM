@@ -47,7 +47,7 @@ Earlier gate rows — the 2026-09-30 overnight S12–S23 and v4.0.0-cut `all` ro
 | **Yours** | The review's findings, one sitting, on a decision sheet (ADR 050's format); the File-probe training run; the "do my numbers read those pixels?" check; the Si-SiGe re-export; the X3 and K1 mocks when they come. | Owner. |
 | **Overrule on sight** | ADR 049's freeze list; the refusal (not a CPU fallback) on a machine with no Neural Engine; the memory budget at half of RAM; plan §5 (eight) and the earlier list. | Owner. |
 | Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048). | — |
-| **Unverified on screen** | ACOM row 1's mirrored overlay (no mirrored flag in the UI to find one); P2's hover text and the "Resident ·" row; T3 (Import Labels…, the split line), HO (the toggle gone), CR1 when it lands (combined drive 2026-10-01 saw TH, X3, R4, DC, P2's 0.0° and labels: `archive/v4/drive-combined-2026-10-01.md`). | Slot 4½ drive. |
+| **Unverified on screen** | Row 1's mirrored overlay; P2 hover and "Resident ·"; T3, HO, CR1 (`archive/v4/drive-combined-2026-10-01.md` saw the rest). | Slot 4½ drive. |
 | Carried | Drive proposals and the bin-2 aperture defect (open-items S4); the S20 grain-C and S21 follow-ups (Board cards); CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.
