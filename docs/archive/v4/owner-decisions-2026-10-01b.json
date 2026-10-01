@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-01 midday — Slot 2: the difference map, the amplitude clamp, and Q1 after reading py4DSTEM",
+  "groups": [
+    {
+      "key": "science",
+      "title": "Science — each moves a number you read",
+      "why": "Each came out of a measured Slot 2 lane with an independent refuter.",
+      "cards": [
+        {
+          "id": "DM",
+          "title": "The difference map: py4DSTEM's own version diverges too — remove it?",
+          "problem": "You asked to first find py4DSTEM settings under which the difference map converges. Two independent agents looked. The app's DM is py4DSTEM's DM_AP line by line (first-iteration error agrees to 6e-7). It diverges on clean synthetic data with a known answer and on the graphene cube — in py4DSTEM too, at every normalization tried, and in double precision as well, so it is the algorithm, not rounding. The only setting that converges keeps the probe fixed at the exact true probe, which real data never gives you; with a probe 10 % off its error climbs every iteration. py4DSTEM's own tutorials never use it. Gradient descent reaches the known object (Pearson 0.983–0.987 at 32 iterations).",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Remove the difference map",
+              "consequence": "Ptychography offers gradient descent only; the retained exit waves go too (1.98 → 0.73 GB per graphene run); the harness keeps GD's truth bars.",
+              "effort": "½ session",
+              "risk": "none known"
+            },
+            {
+              "key": "b",
+              "label": "Keep it capped (≤ 8 iterations, clamp forced on, small normalization)",
+              "consequence": "It beats GD for a few iterations on synthetic data, then collapses; the cap is a threshold measured on five synthetic fixtures and one cube.",
+              "effort": "1 session + drive",
+              "risk": "a dataset-specific threshold shipped as a rule"
+            },
+            {
+              "key": "c",
+              "label": "Keep as is, labelled \"diverges\"",
+              "consequence": "A method that fails at its defaults stays in the room.",
+              "effort": "0",
+              "risk": "trust"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a. Against: the owner asked for a settings search first; the search covered normalization (1→0.02), fixed probe and float64 — not α = 0 (alternating projections), which the refuter found stable (0.985 at 32 it, below GD at 64). Removing DM removes that too; say so. Omitted: 'diverges in py4DSTEM at every normalization' on graphene rests on two values (1, 0.05); the truth harness starts from the exact probe, so GD's 0.983 is self-consistency, not probe recovery.",
+          "nothing": "DM stays and fails at its defaults."
+        },
+        {
+          "id": "CL",
+          "title": "Amplitude clamp: py4DSTEM always clamps the object to |O| ≤ 1; the app does not by default",
+          "problem": "The 8–15 % mid-run gap between the app's gradient descent and py4DSTEM's on graphene is this one switch: with \"Limit object transmission to 1\" on, the gap is ≤ 1.7 % at every iteration. py4DSTEM applies the clamp unconditionally for complex objects. Turning it on by default changes the amplitude map a user sees on real data (a number moves), so it gets its own diagnosis and a before/after on graphene. Also measured: py4DSTEM's probe-centre fixing (its default on) was off in the comparison — a second switch.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Default on, like py4DSTEM (Gate D first: before/after on graphene and the synthetic)",
+              "consequence": "Parity by default; the toggle stays for anyone who wants it off.",
+              "effort": "hours + refuter",
+              "risk": "a default moves"
+            },
+            {
+              "key": "b",
+              "label": "Keep off; say in the room that py4DSTEM clamps",
+              "consequence": "No number moves; parity needs a click.",
+              "effort": "minutes",
+              "risk": "users compare and see 8–15 %"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a, but not as 'parity by default': py4DSTEM's second default (probe-centre fixing, on) stays off, so a user still sees a gap unless both flip. Evidence holds on one cube, one defocus (1.7 % vs 8.6 % on arm a2; '8–15 %' spans R1's arms). Omitted: the clamp re-splits the probe/object scale on thick or absorbing samples — the before/after must include an Al–Mg–Si cube, not graphene alone; no test pins the old default.",
+          "nothing": "Off; the gap stays unexplained on screen."
+        },
+        {
+          "id": "Q1b",
+          "title": "Q1, after reading py4DSTEM: its method gets [001] Al wrong too",
+          "problem": "py4DSTEM calibrates Q by fitting the whole |F|²-weighted ring pattern of the crystal to a histogram of all detected disks, starting from the pixel size already in the file. On [001] Al (no {111} ring) it lands on the same 13 %-low answer once the start is ≥ 5 % off — in its own fit measure that wrong answer scores better than the truth. Your Al–Mg–Si files carried a Q 1.73× off, so py4DSTEM's start would have been far off. Copying py4DSTEM fixes nothing here; the refuter of Slot 1 proposed a zone-aware rule instead: four equivalent spots at 90° identify [001], whose innermost ring is (200).",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Port py4DSTEM's comb fit (as a refinement from the file's pixel size) and add the zone-aware first-ring rule for [001]/[011]",
+              "consequence": "py4DSTEM's method where it works, plus the one rule that fixes your cubes; both measured on your cubes and the healthy ones first.",
+              "effort": "1–2 sessions + Gate D",
+              "risk": "~8 harnesses re-pinned"
+            },
+            {
+              "key": "b",
+              "label": "Only the zone-aware rule",
+              "consequence": "Fixes the [001] case; no py4DSTEM port.",
+              "effort": "1 session + Gate D",
+              "risk": "a rule of our own, measured on few zones"
+            },
+            {
+              "key": "c",
+              "label": "Stay with your pick (measure ≥ 3 healthy cubes first, nothing else)",
+              "consequence": "Q stays 13 % low on your cubes, labelled with the ratio.",
+              "effort": "0 now",
+              "risk": "science"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick b, then a only if a file prior exists. Against a: the study itself says the port 'is not the fix' — it needs a start within ~5 %, his files are 1.73× off, and curve_fit does not move at the default broadening, so the port ships a bounded grid (a threshold of our own) for ~8 re-pinned harnesses. Omitted: the alias is one-sided (low starts 0.90/0.80→0.866; high starts stay or converge); the zone rule's ring table is fcc-only.",
+          "nothing": "Your pick stands: measure first."
+        }
+      ]
+    }
+  ],
+  "same": [
+    "DM and CL are the ptychography lane's two outcomes; both are measured against a known object (R3) and py4DSTEM."
+  ]
+}
