@@ -129,6 +129,14 @@ phase mapping's validation (it ships badged unvalidated until a dataset with tru
 what a resident cube allows beyond v4.1 (live aperture, live detection — a design note first, K4); the built-in crystal
 library's size (the owner: "bloat … for no reason"; the lean audit).
 
+**References beyond py4DSTEM** (owner, 2026-10-01: "there is more to the picture"; feasibility in
+`docs/archive/v4/second-references-survey-2026-10-01.md`, web docs only, unverified cells marked). The rule until then: py4DSTEM
+is the parity reference; a simulator (abTEM) gives truth; pyxem/orix (orientation), LiberTEM (disks, strain) and PtyRAD
+(ptychography) are optional cross-checks; GMS is read from its documentation only. After the five slots, one pre-registered lane
+in this order: (1) abTEM cubes with truth — disks, strain, orientation, ptychography; widens R3's synthetic and could lift phase
+mapping's "unvalidated" badge; (2) pyxem template matching against ACOM on shared peaks (compare misorientation, not Euler
+angles); (3) PtyRAD on the same simulated cube.
+
 ## How a v3 feature is done
 
 Each feature is pre-registered the way the train's steps were (plan §9–§11 of
