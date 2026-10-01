@@ -121,6 +121,8 @@ One line each; full wording as above.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
+- Keep-in-memory units (K3 drive 2026-10-01, `archive/v4/k3-drive-2026-10-01.md`): one cube reads decimal in the sheet/inspector (668,5 MB, 17,01 GB)
+  and binary in the sidebar (638 MB, 15.84 GB); "GPU working-set limit 53084 MB" a third style; the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube).
 - Drive polish (2026-10-01, `archive/v4/slot2-drive2-2026-10-01.md`): "−0.0°" in the R-Q row and the Reconstruction bar; full-precision
   provenance values (−663.6327265054541) wrap under their label; unit words ("angstrom") in labels; Info › Preview "Real space" black on graphene.
 - Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) replay, lineage

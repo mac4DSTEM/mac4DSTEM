@@ -332,6 +332,7 @@ extension AppState {
         reader: any FourDDataSource,
         specification: LoadSpecification = .fullExtent,
         runInitialAnalysis: Bool = true,
+        keepInMemory: Bool = false,
         initialScan: ScanPos? = nil
     ) async {
         guard sourceDescriptor.is4D else {
@@ -689,7 +690,7 @@ extension AppState {
         if await unwindLoadIfNeeded(owner: loadOwner) { return }
         await buildDatasetPreview()
         if await unwindLoadIfNeeded(owner: loadOwner) { return }
-        await preloadResidentCube()
+        await preloadResidentCube(keepInMemory: keepInMemory)
         if await unwindLoadIfNeeded(owner: loadOwner) { return }
         // After the cube is settled and BEFORE the initial analysis, so a
         // reopen straight into Disks shows the restored Bragg map; the status
@@ -791,11 +792,14 @@ extension AppState {
     /// Does nothing visible when the cube is not admitted, which today is
     /// always — the shipped default request is `.streamed` (`.automatic` was
     /// dropped, v2 S3), and nothing in the UI requests `.resident` yet.
-    private func preloadResidentCube() async {
+    private func preloadResidentCube(keepInMemory: Bool = false) async {
         guard let fourD = datasetSession.fourD, let d = descriptor else { return }
         let totalPatterns = d.ry * d.rx
         guard totalPatterns > 0 else { return }
-        await residency.preload(fourD, cancellation: datasetSession.loadCancellation) { [weak self] fraction in
+        // The per-open "Keep in memory" switch is the only caller that asks
+        // for `.resident`; `preload` stamps the seam's mode, so it is set first.
+        if keepInMemory { await residency.request(.resident, on: fourD) }
+        let held = await residency.preload(fourD, cancellation: datasetSession.loadCancellation) { [weak self] fraction in
             guard let self, self.datasetSession.isLoading else { return }
             let processed = min(
                 totalPatterns, max(0, Int((fraction * Double(totalPatterns)).rounded()))
@@ -808,6 +812,7 @@ extension AppState {
                 )
             )
         }
+        if keepInMemory, !held { statusText = "Could not hold the cube in memory; streaming" }
     }
 
     /// Give the cube's memory back. Streaming resumes on the next pass, with

@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-01",
+  "answered": {
+    "row1-mirror-pass": "b — land row 1 with py4DSTEM's sub-bin azimuth deposition",
+    "K1-refusal-threshold": "a — the GPU working-set limit",
+    "K1-default": "a — off on every open",
+    "K1-warning": "a — caption only, above 0.5 of RAM",
+    "K1-size-line": "a — caption under the label",
+    "drive": "run the drive yourself"
+  }
+}

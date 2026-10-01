@@ -23,6 +23,7 @@
 //
 
 import Foundation
+import Metal
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
@@ -94,6 +95,27 @@ final class PendingLoad: Identifiable {
     /// identity: pressing Load without touching anything is the same load
     /// "Open Dataset…" would have done.
     var configuration: LoadConfiguration
+
+    /// "Keep in memory" for THIS open only (owner 2026-10-01: default off on
+    /// every open, never remembered). Owner of the flag is this pending load;
+    /// `commitPendingLoad` reads it once and hands it to `activate`.
+    var keepInMemory = false
+
+    /// What the toggle may do for the selection as configured now.
+    var keepInMemoryDecision: KeepInMemoryDecision {
+        guard let bytes = loadedByteCount else { return .refused }
+        return KeepInMemoryDecision.decide(
+            cubeBytes: bytes,
+            limitBytes: UInt64(MetalEngine.shared.device.recommendedMaxWorkingSetSize),
+            maxBufferBytes: UInt64(MetalEngine.shared.device.maxBufferLength),
+            physicalMemory: ProcessInfo.processInfo.physicalMemory
+        )
+    }
+
+    /// The switch as it takes effect: a selection the sheet refuses never
+    /// requests residency, whatever the stored flag says (a crop that grew
+    /// back over the limit after the switch was set).
+    var effectiveKeepInMemory: Bool { keepInMemory && keepInMemoryDecision != .refused }
 
     /// Bytes the file occupies on disk, or nil if it could not be read.
     ///
@@ -361,5 +383,30 @@ final class PendingLoad: Identifiable {
         } catch {
             return AppState.errorDetail(error)
         }
+    }
+}
+
+
+/// Whether a cube may be held in memory (owner 2026-10-01). Pure over bytes and
+/// the machine's numbers, so the sheet, the commit and the tests agree. It
+/// lives here, not in `ResidencyAdmission`, whose `measuredWorkingSetFraction`
+/// stays nil by decision.
+enum KeepInMemoryDecision: Equatable {
+    case fits
+    /// Allowed; above ~half of physical RAM, so other apps may be squeezed.
+    case warn
+    /// Above the GPU working-set limit (or one Metal buffer): Load still
+    /// streams, the switch is disabled.
+    case refused
+
+    static let warnFractionOfRAM = 0.5
+
+    static func decide(
+        cubeBytes: Int, limitBytes: UInt64, maxBufferBytes: UInt64, physicalMemory: UInt64
+    ) -> KeepInMemoryDecision {
+        let bytes = UInt64(max(0, cubeBytes))
+        if bytes > min(limitBytes, maxBufferBytes) { return .refused }
+        if Double(bytes) > warnFractionOfRAM * Double(physicalMemory) { return .warn }
+        return .fits
     }
 }

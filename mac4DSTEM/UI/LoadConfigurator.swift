@@ -429,9 +429,36 @@ struct LoadConfigurator: View {
             // Reads return float32 whatever the file stores, so a uint16 file
             // costs twice its own size — the surprise this screen exists to
             // remove.
-            Text("Float32 expansion can exceed file size. Loading into memory moves the wait upfront; analyses still stream in bounded tiles.")
+            keepInMemoryRow
+            Text(pending.effectiveKeepInMemory
+                 ? "Float32 expansion can exceed file size. The cube is read into memory once; analyses then run from it."
+                 : "Float32 expansion can exceed file size. Analyses stream in bounded tiles.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var keepInMemoryRow: some View {
+        let decision = pending.keepInMemoryDecision
+        let cube = pending.loadedByteCount ?? 0
+        Toggle(isOn: Binding(
+            get: { pending.keepInMemory && decision != .refused },
+            set: { pending.keepInMemory = $0 }
+        )) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Keep in memory")
+                Text(decision == .refused
+                     ? "\(displayByteString(cube)) is above the GPU working-set limit; Load streams. Crop or bin to enable."
+                     : "\(displayByteString(cube)) of \(displayByteString(Int(ProcessInfo.processInfo.physicalMemory))) RAM")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(decision == .refused)
+        .accessibilityIdentifier("configurator.keepInMemory")
+        if decision == .warn && pending.keepInMemory {
+            InspectorWarning("More than half of this Mac's memory; other apps may slow down.")
         }
     }
 

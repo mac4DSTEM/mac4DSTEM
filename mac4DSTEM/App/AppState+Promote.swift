@@ -25,6 +25,7 @@ extension AppState {
               pending.directBeamRefusal == nil else { return }
         _ = promotionRun.take()
         pending.cancelSingleDPFetch()
+        let keepInMemory = pending.effectiveKeepInMemory
         Task {
             let load = beginDatasetLoading("Opening \(pending.source.datasetPath)…")
             if let openURL { openURL.stopAccessingSecurityScopedResource() }
@@ -41,7 +42,8 @@ extension AppState {
             await activate(
                 descriptor: pending.source, reader: pending.reader,
                 specification: pending.configuration.specification,
-                runInitialAnalysis: false
+                runInitialAnalysis: false,
+                keepInMemory: keepInMemory
             )
             if await unwindLoadIfNeeded(owner: load, orNoDataset: true) {
                 finishDatasetLoading(owner: load)
