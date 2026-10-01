@@ -1,0 +1,45 @@
+probe ptycho gd on /Volumes/PL_SSD_2TB/4D_STEM_Datacubes/twisted_bilayer_graphene.hdf5
+raised limit 48.000 GB, abort guard 40.0 GiB, repeat 1
+process start footprint 0.002 GB
+dataset 101 x 101 x 128 x 128  (file calibration: nil)
+origin (x col, y row) = (63.6632, 63.6569) [centre of mass of the mean pattern]; mean-pattern CoM (63.6632, 63.6569); probe radius 25.24 px [sqrt(area of pixels >= 0.5*max / pi)]
+calibration: Q 0.02500000 1/A per px, R 5.000000 A per px, 80 kV (lambda 0.041757 A), rotation 0.0000 deg, transpose false, origin (qx row 63.6569, qy col 63.6632)
+baseline footprint before any stage 0.011 GB
+LADDER ptycho prepare: estimator says 0.645 GB (692682752 bytes) [read at limit 668532736]
+MEASURE ptycho prepare [default options, limit 32.000 GB]: 3.71 s  footprint before 0.634 GB  after 0.657 GB  stage peak 0.657 GB
+LADDER ptycho prepare: default limit 32.000 GB PASSED (no refusal)
+ptycho probe: defocus -600.0 A, C12a 0.0 A, C12b 0.0 A
+RESULT ptycho prepare: scan 101 x 101, detector 128 x 128, amplitudes 0.623 GB (n 4000000  min 1.03656e-06  max 0.0234813  mean 0.00293706  nonfinite 0  zeros 0[first 4M]), object canvas 1728 x 1728, probe 128 x 128, sampling 0.3125 x 0.3125 A/px
+SUMMARY stage=ptycho prepare estimator=0.645 GB default_limit=32.000 GB default_refused=no footprint_before=0.634 GB stage_peak=0.657 GB delta=0.023 GB seconds=3.71 peak/(est+before)=0.514 delta/est=0.035 
+LADDER ptycho reconstruct gd: estimator says 0.721 GB (773818368 bytes) [read at limit 1]
+MEASURE ptycho reconstruct gd [default options, limit 32.000 GB]: 24.10 s  footprint before 0.672 GB  after 0.732 GB  stage peak 0.732 GB
+LADDER ptycho reconstruct gd: default limit 32.000 GB PASSED (no refusal)
+RESULT ptycho reconstruct: method Gradient descent, iterations 8, errors ["0.062454", "0.015651", "0.004259", "0.001322", "0.000558", "0.000354", "0.000297", "0.000278"], object canvas 1728 x 1728, probe 128 x 128, objectPhase(cropped): n 2560000  min -0.0725827  max 0.139699  mean -0.00045232  nonfinite 0  zeros 0; objectAmplitude(cropped): n 2560000  min 0.865865  max 1  mean 0.988759  nonfinite 0  zeros 0; probeAmplitude: n 16384  min 1.81362e-07  max 0.000131574  mean 5.05525e-05  nonfinite 0  zeros 0
+SAVED /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/a00d4764-d3a5-4c47-8ef8-dead6b906c64/scratchpad/R/gr/app-gd-c1/app_ptycho_gd_objectPhase.npy shape [1600, 1600]
+SAVED /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/a00d4764-d3a5-4c47-8ef8-dead6b906c64/scratchpad/R/gr/app-gd-c1/app_ptycho_gd_objectAmplitude.npy shape [1600, 1600]
+SAVED /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/a00d4764-d3a5-4c47-8ef8-dead6b906c64/scratchpad/R/gr/app-gd-c1/app_ptycho_gd_probeAmplitude.npy shape [128, 128]
+SAVED /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/a00d4764-d3a5-4c47-8ef8-dead6b906c64/scratchpad/R/gr/app-gd-c1/app_ptycho_gd_probePhase.npy shape [128, 128]
+SAVED /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/a00d4764-d3a5-4c47-8ef8-dead6b906c64/scratchpad/R/gr/app-gd-c1/app_ptycho_gd.json
+SUMMARY stage=ptycho reconstruct gd estimator=0.721 GB default_limit=32.000 GB default_refused=no footprint_before=0.672 GB stage_peak=0.732 GB delta=0.060 GB seconds=24.10 peak/(est+before)=0.526 delta/est=0.084 resident_input=0.623 GB
+LEAK ptycho gd: first result released, footprint 0.742 GB
+LEAK ptycho gd: footprint at repeat start 0.742 GB, baseline 0.011 GB
+LIFETIME sampler peak footprint 0.742 GB; end footprint 0.742 GB
+DONE
+       32.04 real        31.73 user         0.28 sys
+           806699008  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               49508  page reclaims
+                   2  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   8  voluntary context switches
+                3717  involuntary context switches
+        940147017262  instructions retired
+        139075497587  cycles elapsed
+           797279432  peak memory footprint

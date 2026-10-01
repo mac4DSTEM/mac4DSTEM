@@ -1,0 +1,31 @@
+GD clamp ON app vs py -600: ['3.2e-03', '4.2e-03', '4.5e-03', '2.2e-03', '3.7e-03', '1.1e-02', '1.5e-02', '1.7e-02'] max 0.017
+GD clamp off (R1 arm a2) vs py -600: ['3.2e-03', '7.2e-03', '2.5e-02', '8.6e-02', '8.4e-02', '2.4e-02', '1.9e-02', '3.3e-02'] max 0.086
+app-dm-nm1-c1 vs py-dm-m600-nm1 ['3.2e-03', '2.0e-03', '2.5e-01', '1.5e-01', '4.5e-01', '5.0e-02', '2.4e+00', '3.7e-01']
+app-dm-nm1-c0 vs py-dm-m600-nm1 ['3.2e-03', '2.0e-03', '1.7e-01', '9.8e-01', '2.0e+01', '2.1e-01', '1.1e+00', '2.8e-02']
+app-dm-nm0.05-c1 vs py-dm-m600-nm0.05 ['3.2e-03', '3.9e-03', '5.1e-02', '6.4e-03', '5.9e-03', '9.5e-03', '1.4e-04', '5.9e-02']
+GD clamp on -600 vs py -600
+  app_shape                                                              [1600, 1600]
+  py_shape                                                               [1600, 1600]
+  app_phase_std                                                          0.017835
+  py_phase_std                                                           0.016314
+  pearson_no_registration_centred_common_crop_trim64                     0.68838
+  registration_shift_rowcol_px(app->py)                                  [0.0, 0.05]
+  pearson_after_registration                                             0.68701
+  rms_diff_offset_removed_rad                                            0.013555
+  compared_shape                                                         [1466, 1466]
+  SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px_lowpass     0.88619
+  error_relative_difference_max                                          0.017412
+  app errors ['0.0624535', '0.0156512', '0.00425912', '0.00132243', '0.000558133', '0.000354206', '0.00029657', '0.000278069']
+  py  errors ['0.0626519', '0.0157171', '0.00427833', '0.00132529', '0.000556058', '0.000350499', '0.000292184', '0.00027331']
+DM nm0.05 app vs py
+  app_shape                                                              [1600, 1600]
+  py_shape                                                               [1600, 1600]
+  app_phase_std                                                          1.2828
+  py_phase_std                                                           1.2487
+  pearson_no_registration_centred_common_crop_trim64                     0.57656
+  registration_shift_rowcol_px(app->py)                                  [0.1, 0.1]
+  pearson_after_registration                                             0.58958
+  rms_diff_offset_removed_rad                                            1.1359
+  compared_shape                                                         [1466, 1466]
+  SUPPLEMENTARY_pearson_after_registration_gaussian_sigma4px_lowpass     0.25349
+  error_relative_difference_max                                          0.058817

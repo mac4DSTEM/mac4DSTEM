@@ -1,0 +1,58 @@
+py fixp nm0.1 df200  it  8: pearson 0.9827 rms 0.0180 shift ['-0.001', '-0.007'] amp_rms 0.0112
+py fixp nm0.1 df200  it 32: pearson 0.9482 rms 0.0312 shift ['-0.005', '0.009'] amp_rms 0.0151
+py fixp nm1 df200  it  8: pearson 0.2676 rms 0.2154 shift ['0.105', '-0.211'] amp_rms 0.2456
+py fixp nm1 df200  it 32: pearson 0.1687 rms 0.4866 shift ['15.719', '20.406'] amp_rms 0.5522
+py fixp nm0.1 df400  it  8: pearson 0.9794 rms 0.0196 shift ['-0.000', '0.004'] amp_rms 0.0106
+py fixp nm0.1 df400  it 32: pearson 0.9780 rms 0.0209 shift ['-0.007', '-0.016'] amp_rms 0.0188
+py fixp nm1 df400  it  8: pearson 0.2195 rms 0.2952 shift ['-0.061', '-0.667'] amp_rms 0.3533
+py fixp nm1 df400  it 32: pearson 0.2594 rms 0.2422 shift ['-0.192', '-0.885'] amp_rms 0.3095
+py fixp nm0.1 df600  it  8: pearson 0.9800 rms 0.0194 shift ['0.000', '0.005'] amp_rms 0.0051
+py fixp nm0.1 df600  it 32: pearson 0.9707 rms 0.0234 shift ['-0.005', '-0.002'] amp_rms 0.0122
+py fixp nm1 df600  it  8: pearson 0.2040 rms 0.4508 shift ['0.305', '-1.481'] amp_rms 0.4632
+py fixp nm1 df600  it 32: pearson 0.2058 rms 0.4037 shift ['-0.256', '0.173'] amp_rms 0.5233
+py gd s2  it 32: pearson 0.9803 rms 0.0179 shift ['0.003', '0.024'] amp_rms 0.0093
+py dm nm0.02 s2  it  8: pearson 0.9826 rms 0.0166 shift ['0.008', '-0.004'] amp_rms 0.0003
+py dm nm0.02 s2  it 32: pearson 0.0370 rms 0.4516 shift ['2.730', '0.532'] amp_rms 0.2018
+app gd s2  it 32: pearson 0.9804 rms 0.0178 shift ['0.003', '0.024'] amp_rms 0.0094
+app gd s2  vs py4DSTEM seeds/py-gd-s2.json: error rel diff per it ['5.67e-07', '3.92e-04', '5.34e-05', '6.41e-04', '8.42e-04', '8
+app gd s2  it  1 app vs py: max |dphase| 5.187e-03 rad, max |d amp| 5.315e-03, max |d complex| 5.419e-03 (max |py| 1.000)
+app gd s2  it  2 app vs py: max |dphase| 1.119e-02 rad, max |d amp| 1.128e-02, max |d complex| 1.154e-02 (max |py| 1.000)
+app gd s2  it  4 app vs py: max |dphase| 1.807e-02 rad, max |d amp| 1.895e-02, max |d complex| 2.030e-02 (max |py| 1.000)
+app gd s2  it  8 app vs py: max |dphase| 2.122e-02 rad, max |d amp| 2.263e-02, max |d complex| 2.696e-02 (max |py| 1.000)
+app gd s2  it 16 app vs py: max |dphase| 1.374e-02 rad, max |d amp| 1.530e-02, max |d complex| 1.559e-02 (max |py| 1.000)
+app gd s2  it 32 app vs py: max |dphase| 7.373e-03 rad, max |d amp| 7.934e-03, max |d complex| 8.931e-03 (max |py| 1.000)
+app gd s2  final object vs py4DSTEM: max |dphase| 7.373e-03 rad, max |d amplitude| 7.934e-03
+app gd NEG s2  it 32: pearson 0.2033 rms 0.0646 shift ['-21.474', '4.671'] amp_rms 0.0090
+app dm nm0.02 s2  it  8: pearson 0.9855 rms 0.0152 shift ['0.007', '-0.005'] amp_rms 0.0003
+app dm nm0.02 s2  it 32: pearson 0.9760 rms 0.0199 shift ['-0.000', '-0.030'] amp_rms 0.0058
+app dm nm0.02 s2  vs py4DSTEM seeds/py-dm-nm0.02-s2.json: error rel diff per it ['5.67e-07', '2.59e-03', '4.30e-03', '4.16e-03', '3.84e-03', '4.34e-03', '2.34e-03', '3.97e-03',
+app dm nm0.02 s2  it  1 app vs py: max |dphase| 1.486e-02 rad, max |d amp| 1.413e-02, max |d complex| 1.540e-02 (max |py| 1.000)
+app dm nm0.02 s2  it  2 app vs py: max |dphase| 7.612e-03 rad, max |d amp| 1.302e-07, max |d complex| 7.612e-03 (max |py| 1.000)
+app dm nm0.02 s2  it  4 app vs py: max |dphase| 5.968e-03 rad, max |d amp| 1.365e-03, max |d complex| 5.968e-03 (max |py| 1.000)
+app dm nm0.02 s2  it  8 app vs py: max |dphase| 9.025e-03 rad, max |d amp| 1.405e-03, max |d complex| 9.025e-03 (max |py| 1.000)
+app dm nm0.02 s2  it 16 app vs py: max |dphase| 2.062e-02 rad, max |d amp| 1.312e-02, max |d complex| 2.062e-02 (max |py| 1.000)
+app dm nm0.02 s2  it 32 app vs py: max |dphase| 1.183e+00 rad, max |d amp| 5.398e-01, max |d complex| 1.071e+00 (max |py| 1.000)
+app dm nm0.02 s2  final object vs py4DSTEM: max |dphase| 1.183e+00 rad, max |d amplitude| 5.398e-01
+py gd s3  it 32: pearson 0.9873 rms 0.0173 shift ['0.000', '0.001'] amp_rms 0.0105
+py dm nm0.02 s3  it  8: pearson 0.9861 rms 0.0175 shift ['-0.003', '0.006'] amp_rms 0.0007
+py dm nm0.02 s3  it 32: pearson 0.8850 rms 0.0501 shift ['-0.007', '0.009'] amp_rms 0.0093
+app gd s3  it 32: pearson 0.9874 rms 0.0173 shift ['0.000', '0.001'] amp_rms 0.0105
+app gd s3  vs py4DSTEM seeds/py-gd-s3.json: error rel diff per it ['5.67e-07', '3.52e-03', '8.95e-04', '2.16e-03', '4.83e-03', '7
+app gd s3  it  1 app vs py: max |dphase| 5.539e-03 rad, max |d amp| 6.046e-03, max |d complex| 6.140e-03 (max |py| 1.000)
+app gd s3  it  2 app vs py: max |dphase| 9.990e-03 rad, max |d amp| 1.095e-02, max |d complex| 1.150e-02 (max |py| 1.000)
+app gd s3  it  4 app vs py: max |dphase| 1.480e-02 rad, max |d amp| 1.460e-02, max |d complex| 1.535e-02 (max |py| 1.000)
+app gd s3  it  8 app vs py: max |dphase| 1.578e-02 rad, max |d amp| 1.375e-02, max |d complex| 1.514e-02 (max |py| 1.000)
+app gd s3  it 16 app vs py: max |dphase| 8.308e-03 rad, max |d amp| 8.638e-03, max |d complex| 9.169e-03 (max |py| 1.000)
+app gd s3  it 32 app vs py: max |dphase| 2.226e-03 rad, max |d amp| 1.735e-03, max |d complex| 2.235e-03 (max |py| 1.000)
+app gd s3  final object vs py4DSTEM: max |dphase| 2.226e-03 rad, max |d amplitude| 1.735e-03
+app gd NEG s3  it 32: pearson 0.2102 rms 0.0798 shift ['-14.008', '-11.858'] amp_rms 0.0098
+app dm nm0.02 s3  it  8: pearson 0.9881 rms 0.0162 shift ['-0.002', '0.006'] amp_rms 0.0007
+app dm nm0.02 s3  it 32: pearson 0.9881 rms 0.0169 shift ['-0.001', '0.006'] amp_rms 0.0055
+app dm nm0.02 s3  vs py4DSTEM seeds/py-dm-nm0.02-s3.json: error rel diff per it ['5.67e-07', '3.38e-03', '3.36e-03', '4.30e-03', '2.87e-03', '4.02e-03', '1.72e-03', '3.41e-03',
+app dm nm0.02 s3  it  1 app vs py: max |dphase| 1.218e-02 rad, max |d amp| 1.629e-02, max |d complex| 1.657e-02 (max |py| 1.000)
+app dm nm0.02 s3  it  2 app vs py: max |dphase| 8.759e-03 rad, max |d amp| 3.298e-03, max |d complex| 8.759e-03 (max |py| 1.000)
+app dm nm0.02 s3  it  4 app vs py: max |dphase| 5.559e-03 rad, max |d amp| 2.897e-03, max |d complex| 5.559e-03 (max |py| 1.000)
+app dm nm0.02 s3  it  8 app vs py: max |dphase| 9.213e-03 rad, max |d amp| 6.213e-03, max |d complex| 9.213e-03 (max |py| 1.000)
+app dm nm0.02 s3  it 16 app vs py: max |dphase| 2.024e-02 rad, max |d amp| 9.347e-03, max |d complex| 2.024e-02 (max |py| 1.000)
+app dm nm0.02 s3  it 32 app vs py: max |dphase| 9.478e-02 rad, max |d amp| 4.955e-02, max |d complex| 9.405e-02 (max |py| 1.000)
+app dm nm0.02 s3  final object vs py4DSTEM: max |dphase| 9.478e-02 rad, max |d amplitude| 4.955e-02

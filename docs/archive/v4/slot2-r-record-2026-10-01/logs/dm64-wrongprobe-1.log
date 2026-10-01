@@ -1,0 +1,16 @@
+fixture keys: {'name': 'df400-s1', 'seed': 1, 'defocusAngstrom': 400.0, 'energyEV': 80000.0, 'semiangleMrad': 20.0, 'rolloffMrad': 2.0, 'qSamplingInvAngstrom': 0.025, 'scanSamplingAngstrom': 2.0, 'objectSamplingAngstrom': 0.625, 'noiseElectrons': 0.0, 'meanIntensity': 4096000162.6433134}
+df400-s1 defocus x1.00 DM a1 fixP nm0 f64 it1 e=5.27e-03 P=0.897 r=0.061 | it2 e=3.89e-03 P=0.940 r=0.039 | it4 e=3.47e-03 P=0.983 r=0.018 | it8 e=3.04e-03 P=0.996 r=0.009 | it16 e=2.85e-03 P=0.995 r=0.010 | it32 e=2.80e-03 P=0.998 r=0.007
+df400-s1 defocus x1.00 DM a1 joint nm0.02 f64 it1 e=5.27e-03 P=0.897 r=0.061 | it2 e=2.37e-02 P=0.946 r=0.034 | it4 e=2.29e-02 P=0.982 r=0.019 | it8 e=3.79e-02 P=0.988 r=0.015 | it16 e=6.77e-02 P=0.991 r=0.014 | it32 e=1.73e-01 P=0.976 r=0.023
+df400-s1 defocus x1.00 GD joint nm1 f64 it1 e=5.27e-03 P=0.879 r=0.082 | it2 e=3.15e-03 P=0.898 r=0.070 | it4 e=1.57e-03 P=0.923 r=0.053 | it8 e=6.93e-04 P=0.951 r=0.036 | it16 e=1.87e-04 P=0.970 r=0.025 | it32 e=3.87e-05 P=0.985 r=0.017
+df400-s1 defocus x0.90 DM a1 fixP nm0 f64 it1 e=5.27e-03 P=0.889 r=0.063 | it2 e=4.81e-03 P=0.934 r=0.042 | it4 e=8.06e-03 P=0.977 r=0.021 | it8 e=2.33e-02 P=0.989 r=0.015 | it16 e=8.11e-02 P=0.986 r=0.017 | it32 e=1.99e-01 P=0.987 r=0.018
+df400-s1 defocus x0.90 DM a1 joint nm0.02 f64 it1 e=5.27e-03 P=0.889 r=0.063 | it2 e=2.44e-02 P=0.937 r=0.037 | it4 e=2.76e-02 P=0.973 r=0.023 | it8 e=5.58e-02 P=0.981 r=0.020 | it16 e=1.19e-01 P=0.985 r=0.018 | it32 e=2.62e-01 P=0.954 r=0.030
+df400-s1 defocus x0.90 GD joint nm1 f64 it1 e=5.27e-03 P=0.874 r=0.083 | it2 e=3.24e-03 P=0.893 r=0.071 | it4 e=1.77e-03 P=0.918 r=0.055 | it8 e=9.84e-04 P=0.946 r=0.039 | it16 e=5.17e-04 P=0.967 r=0.027 | it32 e=3.50e-04 P=0.981 r=0.020
+df400-s1 defocus x1.10 DM a1 fixP nm0 f64 it1 e=5.27e-03 P=0.885 r=0.063 | it2 e=4.56e-03 P=0.931 r=0.042 | it4 e=7.71e-03 P=0.976 r=0.021 | it8 e=2.18e-02 P=0.990 r=0.014 | it16 e=7.64e-02 P=0.987 r=0.016 | it32 e=1.88e-01 P=0.985 r=0.018
+df400-s1 defocus x1.10 DM a1 joint nm0.02 f64 it1 e=5.27e-03 P=0.885 r=0.063 | it2 e=2.47e-02 P=0.941 r=0.036 | it4 e=2.73e-02 P=0.981 r=0.019 | it8 e=5.22e-02 P=0.989 r=0.015 | it16 e=1.07e-01 P=0.986 r=0.016 | it32 e=1.94e-01 P=0.969 r=0.024
+df400-s1 defocus x1.10 GD joint nm1 f64 it1 e=5.27e-03 P=0.866 r=0.084 | it2 e=3.29e-03 P=0.886 r=0.073 | it4 e=1.85e-03 P=0.913 r=0.057 | it8 e=1.07e-03 P=0.942 r=0.041 | it16 e=5.62e-04 P=0.963 r=0.029 | it32 e=3.36e-04 P=0.976 r=0.022
+df400-s1 defocus x1.25 DM a1 fixP nm0 f64 it1 e=5.27e-03 P=0.818 r=0.072 | it2 e=7.45e-03 P=0.862 r=0.059 | it4 e=2.36e-02 P=0.908 r=0.044 | it8 e=8.61e-02 P=0.908 r=0.045 | it16 e=2.14e-01 P=0.844 r=0.054 | it32 e=4.41e-01 P=0.839 r=0.057
+df400-s1 defocus x1.25 DM a1 joint nm0.02 f64 it1 e=5.27e-03 P=0.818 r=0.072 | it2 e=2.77e-02 P=0.873 r=0.054 | it4 e=4.32e-02 P=0.928 r=0.039 | it8 e=1.09e-01 P=0.927 r=0.038 | it16 e=2.24e-01 P=0.961 r=0.027 | it32 e=3.09e-01 P=0.937 r=0.039
+df400-s1 defocus x1.25 GD joint nm1 f64 it1 e=5.27e-03 P=0.802 r=0.087 | it2 e=3.67e-03 P=0.821 r=0.080 | it4 e=2.64e-03 P=0.847 r=0.070 | it8 e=2.17e-03 P=0.875 r=0.060 | it16 e=1.87e-03 P=0.896 r=0.052 | it32 e=1.59e-03 P=0.907 r=0.046
+real 25.77
+user 23.75
+sys 1.85

@@ -1,0 +1,2 @@
+it 1 (float64): error 0.00526564; vs app max |d| 1.060e-02 (pad region 1.060e-02); vs py max |d| 8.813e-03 (pad region 8.813e-03)
+it 2 (float64): error 0.265808; vs app max |d| 3.207e-02 (pad region 3.207e-02); vs py max |d| 1.999e-02 (pad region 1.999e-02)

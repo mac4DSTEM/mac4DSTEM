@@ -100,6 +100,146 @@ struct Fixture: Decodable {
     let positionCases: [PositionCase]
 }
 
+/// R3 (2026-10-01): truth.py's fixture - a synthetic cube with a KNOWN object and a DEFOCUSED probe, and py4DSTEM's own
+/// SingleslicePtychography runs on bit-identical inputs (positions, float32 amplitudes, the float32 starting probe).
+struct TruthScore: Decodable {
+    let shiftRow: Double, shiftColumn: Double, phaseOffset: Double, pearson: Double, rms: Double
+}
+
+struct TruthRun: Decodable {
+    let method: String
+    let iterations: Int
+    let normalizationMinimum: Float
+    let errors: [Float]
+    let finalReal: [Float]
+    let finalImag: [Float]
+    let truth: TruthScore
+}
+
+struct TruthFixture: Decodable {
+    let name: String
+    let defocusAngstrom: Double, energyEV: Double, semiangleMrad: Double, rolloffMrad: Double
+    let objectSamplingAngstrom: Double
+    let scanShape: [Int], probeShape: [Int], objectShape: [Int]
+    let positions: [Float]
+    let amplitudes: [Float]
+    let probeReal: [Float], probeImag: [Float]
+    let truthReal: [Float], truthImag: [Float]
+    let py4dstem: [TruthRun]
+}
+
+struct TruthDocument: Decodable {
+    let fixtures: [TruthFixture]
+    let py4dstemVersion: String
+}
+
+/// The position-bounds crop `SingleslicePtychographyResult.objectPhase(cropped:)` shows (floor of the minimum, ceil of the maximum).
+func cropBounds(_ positions: [PtychographyPosition], height: Int, width: Int) -> (row0: Int, row1: Int, column0: Int, column1: Int) {
+    let rows = positions.map(\.row), columns = positions.map(\.column)
+    let row0 = max(0, Int(floor(rows.min()!))), column0 = max(0, Int(floor(columns.min()!)))
+    return (row0, max(row0 + 1, min(height, Int(ceil(rows.max()!)))), column0, max(column0 + 1, min(width, Int(ceil(columns.max()!)))))
+}
+
+/// truth.py's `score`, in Swift: the truth is registered onto the object (subpixel shift from the FFT cross-correlation of the
+/// mean-removed phase maps on the crop, parabolic peak; then the global phase offset arg sum(o conj(t)) on the crop), then the
+/// Pearson correlation of the two phase maps and the RMS of the offset-removed wrapped phase difference, both on the crop.
+func scoreAgainstTruth(
+    objectReal: [Float], objectImag: [Float], truthReal: [Float], truthImag: [Float],
+    height: Int, width: Int, positions: [PtychographyPosition]
+) throws -> TruthScore {
+    guard let fft = FFT2D(nx: width, ny: height) else {
+        throw NSError(domain: "singleslice-ptychography-test", code: 3, userInfo: [NSLocalizedDescriptionKey: "no FFT for the object canvas"])
+    }
+    let count = height * width
+    let bounds = cropBounds(positions, height: height, width: width)
+    var phaseObject = [Float](repeating: 0, count: count), phaseTruth = [Float](repeating: 0, count: count)
+    for index in 0..<count {
+        phaseObject[index] = atan2(objectImag[index], objectReal[index])
+        phaseTruth[index] = atan2(truthImag[index], truthReal[index])
+    }
+    var meanObject = 0.0, meanTruth = 0.0, cropCount = 0.0
+    for row in bounds.row0..<bounds.row1 {
+        for column in bounds.column0..<bounds.column1 {
+            meanObject += Double(phaseObject[row * width + column]); meanTruth += Double(phaseTruth[row * width + column]); cropCount += 1
+        }
+    }
+    meanObject /= cropCount; meanTruth /= cropCount
+    var windowedObject = [Float](repeating: 0, count: count), windowedObjectImag = [Float](repeating: 0, count: count)
+    var windowedTruth = [Float](repeating: 0, count: count), windowedTruthImag = [Float](repeating: 0, count: count)
+    for row in bounds.row0..<bounds.row1 {
+        for column in bounds.column0..<bounds.column1 {
+            let index = row * width + column
+            windowedObject[index] = phaseObject[index] - Float(meanObject)
+            windowedTruth[index] = phaseTruth[index] - Float(meanTruth)
+        }
+    }
+    fft.transform(re: &windowedObject, im: &windowedObjectImag, forward: true)
+    fft.transform(re: &windowedTruth, im: &windowedTruthImag, forward: true)
+    var correlationReal = [Float](repeating: 0, count: count), correlationImag = [Float](repeating: 0, count: count)
+    for index in 0..<count {   // object * conj(truth)
+        correlationReal[index] = windowedObject[index] * windowedTruth[index] + windowedObjectImag[index] * windowedTruthImag[index]
+        correlationImag[index] = windowedObjectImag[index] * windowedTruth[index] - windowedObject[index] * windowedTruthImag[index]
+    }
+    fft.transform(re: &correlationReal, im: &correlationImag, forward: false)
+    var best = 0
+    for index in 1..<count where correlationReal[index] > correlationReal[best] { best = index }
+    let peakRow = best / width, peakColumn = best % width
+    func refine(_ k: Int, _ n: Int, _ value: (Int) -> Float) -> Double {
+        let before = Double(value((k - 1 + n) % n)), at = Double(value(k)), after = Double(value((k + 1) % n))
+        let denominator = before - 2 * at + after
+        var shift = Double(k) + (denominator != 0 ? 0.5 * (before - after) / denominator : 0)
+        if shift > Double(n) / 2 { shift -= Double(n) }
+        return shift
+    }
+    let shiftRow = refine(peakRow, height) { correlationReal[$0 * width + peakColumn] }
+    let shiftColumn = refine(peakColumn, width) { correlationReal[peakRow * width + $0] }
+    var shiftedReal = truthReal, shiftedImag = truthImag
+    fft.transform(re: &shiftedReal, im: &shiftedImag, forward: true)
+    for row in 0..<height {
+        for column in 0..<width {
+            let phase = -2 * Double.pi * (Double(FFT2D.fftfreq(row, height)) * shiftRow + Double(FFT2D.fftfreq(column, width)) * shiftColumn)
+            let cosine = Float(cos(phase)), sine = Float(sin(phase))
+            let index = row * width + column
+            let oldReal = shiftedReal[index], oldImag = shiftedImag[index]
+            shiftedReal[index] = oldReal * cosine - oldImag * sine
+            shiftedImag[index] = oldReal * sine + oldImag * cosine
+        }
+    }
+    fft.transform(re: &shiftedReal, im: &shiftedImag, forward: false)
+    var sumReal = 0.0, sumImag = 0.0
+    for row in bounds.row0..<bounds.row1 {
+        for column in bounds.column0..<bounds.column1 {
+            let index = row * width + column
+            sumReal += Double(objectReal[index] * shiftedReal[index] + objectImag[index] * shiftedImag[index])
+            sumImag += Double(objectImag[index] * shiftedReal[index] - objectReal[index] * shiftedImag[index])
+        }
+    }
+    let phaseOffset = atan2(sumImag, sumReal)
+    var differences = [Double](), phasesObject = [Double](), phasesTruth = [Double]()
+    for row in bounds.row0..<bounds.row1 {
+        for column in bounds.column0..<bounds.column1 {
+            let index = row * width + column
+            let productReal = Double(objectReal[index] * shiftedReal[index] + objectImag[index] * shiftedImag[index])
+            let productImag = Double(objectImag[index] * shiftedReal[index] - objectReal[index] * shiftedImag[index])
+            differences.append(atan2(productImag, productReal) - phaseOffset)
+            phasesObject.append(atan2(Double(objectImag[index]), Double(objectReal[index])) - phaseOffset)
+            phasesTruth.append(atan2(Double(shiftedImag[index]), Double(shiftedReal[index])))
+        }
+    }
+    differences = differences.map { atan2(sin($0), cos($0)) }
+    phasesObject = phasesObject.map { atan2(sin($0), cos($0)) }
+    let meanDifference = differences.reduce(0, +) / Double(differences.count)
+    let rms = sqrt(differences.reduce(0.0) { $0 + ($1 - meanDifference) * ($1 - meanDifference) } / Double(differences.count))
+    let meanA = phasesObject.reduce(0, +) / Double(phasesObject.count), meanB = phasesTruth.reduce(0, +) / Double(phasesTruth.count)
+    var covariance = 0.0, varianceA = 0.0, varianceB = 0.0
+    for index in phasesObject.indices {
+        let a = phasesObject[index] - meanA, b = phasesTruth[index] - meanB
+        covariance += a * b; varianceA += a * a; varianceB += b * b
+    }
+    let pearson = varianceA > 0 && varianceB > 0 ? covariance / sqrt(varianceA * varianceB) : .nan
+    return TruthScore(shiftRow: shiftRow, shiftColumn: shiftColumn, phaseOffset: phaseOffset, pearson: pearson, rms: rms)
+}
+
 func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
     if !condition() {
         throw NSError(domain: "singleslice-ptychography-test", code: 1,
@@ -600,6 +740,167 @@ struct Harness {
                 } catch SingleslicePtychography.ReconstructionError.invalidInput {}
             }
             print("PASS: zero aberrations are bit-identical to the pre-R1 probe on \(goldens.count) crops; aberrations reach the prepared probe; \(malformed.count) malformed sets refused")
+        }
+
+        // R3 (2026-10-01) — ground truth. truth.py simulates a cube from a KNOWN pure-phase object with a DEFOCUSED probe (200 / 400 /
+        // 600 A) and runs py4DSTEM's own SingleslicePtychography on bit-identical inputs; here the app's engine runs on the same
+        // inputs and both are scored against the truth. Bars come from the measured distribution over the three defocus values and two
+        // more seeds (lane R report, 2026-10-01: GD truth Pearson 0.980-0.987 at 32 iterations, rms 0.017-0.018 rad; app-py4DSTEM
+        // GD error histories within 1.8e-2, final phase within 1.5e-2 rad; wrong-sign probe 0.12-0.21; DM over 8 iterations within
+        // 2.7e-2 (norm-min 1) and 5.2e-3 (0.02)); each bar sits >= 2.8x outside what was measured. The difference map's convergence
+        // is NOT pinned: on both sides it diverges at norm-min 1 from the first iteration and past ~16 iterations at any
+        // normalization (py4DSTEM's own DM_AP included) - its truth scores are printed for the reader.
+        // Parity needs `constrainObjectAmplitude = true`: py4DSTEM clamps |object| <= 1 on every iteration of a complex object
+        // (ptychographic_constraints.py `_object_constraints` -> `_object_threshold_constraint`, unconditional); the app exposes
+        // that clamp as an option. The clamp-off run is the anti-vacuity control: the parity bar must tell it apart.
+        do {
+            let truth = try JSONDecoder().decode(
+                TruthDocument.self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
+            )
+            try require(truth.fixtures.count >= 3, "the truth fixture has \(truth.fixtures.count) cases, not >= 3 defocus values")
+            var rows = [String]()
+            var defocusValues = Set<Double>()
+            for fixture in truth.fixtures {
+                let det = fixture.probeShape[0], canvas = fixture.objectShape[0]
+                defocusValues.insert(fixture.defocusAngstrom)
+                let positions = stride(from: 0, to: fixture.positions.count, by: 2).map {
+                    PtychographyPosition(row: fixture.positions[$0], column: fixture.positions[$0 + 1])
+                }
+                guard let pyGD = fixture.py4dstem.first(where: { $0.method == "gd" }),
+                      let pyDM1 = fixture.py4dstem.first(where: { $0.method == "dm" && $0.normalizationMinimum == 1 }),
+                      let pyDMSmall = fixture.py4dstem.first(where: { $0.method == "dm" && $0.normalizationMinimum < 1 }) else {
+                    throw NSError(domain: "singleslice-ptychography-test", code: 4,
+                                  userInfo: [NSLocalizedDescriptionKey: "\(fixture.name): truth.py did not run GD, DM(1) and DM(<1)"])
+                }
+                func input(probeReal: [Float], probeImag: [Float]) -> SingleslicePtychographyInput {
+                    SingleslicePtychographyInput(
+                        scanHeight: fixture.scanShape[0], scanWidth: fixture.scanShape[1], detectorHeight: det, detectorWidth: det,
+                        amplitudes: fixture.amplitudes, positions: positions,
+                        objectSamplingRowAngstrom: fixture.objectSamplingAngstrom, objectSamplingColumnAngstrom: fixture.objectSamplingAngstrom,
+                        initialObject: PtychographyComplexArray(width: canvas, height: canvas,
+                                                                real: [Float](repeating: 1, count: canvas * canvas),
+                                                                imaginary: [Float](repeating: 0, count: canvas * canvas)),
+                        initialProbe: PtychographyComplexArray(width: det, height: det, real: probeReal, imaginary: probeImag)
+                    )
+                }
+                func run(_ input: SingleslicePtychographyInput, _ method: SingleslicePtychographyMethod, iterations: Int,
+                         normalizationMinimum: Float, clamp: Bool) throws -> SingleslicePtychographyResult {
+                    var options = SingleslicePtychographyOptions()
+                    options.method = method
+                    options.iterations = iterations
+                    options.stepSize = 0.5
+                    options.projectionParameter = 1
+                    options.normalizationMinimum = normalizationMinimum
+                    options.constrainObjectAmplitude = clamp
+                    return try SingleslicePtychography.reconstruct(input: input, options: options)
+                }
+                func score(_ result: SingleslicePtychographyResult) throws -> TruthScore {
+                    try scoreAgainstTruth(objectReal: result.object.real, objectImag: result.object.imaginary,
+                                          truthReal: fixture.truthReal, truthImag: fixture.truthImag,
+                                          height: canvas, width: canvas, positions: positions)
+                }
+                func relativeGap(_ actual: [Float], _ reference: [Float]) -> Float {
+                    guard actual.count == reference.count else { return .infinity }
+                    return zip(actual, reference).reduce(0) { max($0, abs($1.0 - $1.1) / abs($1.1)) }
+                }
+                func phaseGap(_ result: SingleslicePtychographyResult, _ reference: TruthRun) -> Float {
+                    let bounds = cropBounds(positions, height: canvas, width: canvas)
+                    var worst: Float = 0
+                    for row in bounds.row0..<bounds.row1 {
+                        for column in bounds.column0..<bounds.column1 {
+                            let index = row * canvas + column
+                            let real = result.object.real[index] * reference.finalReal[index] + result.object.imaginary[index] * reference.finalImag[index]
+                            let imag = result.object.imaginary[index] * reference.finalReal[index] - result.object.real[index] * reference.finalImag[index]
+                            worst = max(worst, abs(atan2(imag, real)))
+                        }
+                    }
+                    return worst
+                }
+                // The app's own probe at +/- the fixture's defocus, scaled to the mean diffraction intensity as `prepare` does.
+                func appProbe(sign: Double) throws -> (real: [Float], imag: [Float]) {
+                    guard let fft = FFT2D(nx: det, ny: det) else { throw NSError(domain: "singleslice-ptychography-test", code: 2) }
+                    var probe = try PtychographyProbe.build(
+                        detectorHeight: det, detectorWidth: det,
+                        rowSamplingAngstrom: fixture.objectSamplingAngstrom, columnSamplingAngstrom: fixture.objectSamplingAngstrom,
+                        wavelengthAngstrom: ParallaxPreprocessor.electronWavelengthAngstrom(energyEV: fixture.energyEV),
+                        cutoffRad: fixture.semiangleMrad / 1_000, rolloffRad: fixture.rolloffMrad / 1_000,
+                        aberrations: PtychographyProbeAberrations(defocusAngstrom: sign * fixture.defocusAngstrom), fft: fft
+                    )
+                    let meanIntensity = fixture.amplitudes.reduce(0.0) { $0 + Double($1 * $1) } / Double(positions.count)
+                    var spectrumReal = probe.real, spectrumImag = probe.imaginary
+                    fft.transform(re: &spectrumReal, im: &spectrumImag, forward: true)
+                    let probeIntensity = zip(spectrumReal, spectrumImag).reduce(0.0) { $0 + Double($1.0 * $1.0 + $1.1 * $1.1) }
+                    let scale = Float(sqrt(meanIntensity / probeIntensity))
+                    for index in probe.real.indices { probe.real[index] *= scale; probe.imaginary[index] *= scale }
+                    return (probe.real, probe.imaginary)
+                }
+                let fixtureInput = input(probeReal: fixture.probeReal, probeImag: fixture.probeImag)
+
+                // (1) The Swift scorer agrees with truth.py's on py4DSTEM's own final object (float32 FFT vs float64).
+                let pyScore = try scoreAgainstTruth(objectReal: pyGD.finalReal, objectImag: pyGD.finalImag,
+                                                    truthReal: fixture.truthReal, truthImag: fixture.truthImag,
+                                                    height: canvas, width: canvas, positions: positions)
+                try require(abs(pyScore.pearson - pyGD.truth.pearson) < 2e-3 && abs(pyScore.rms - pyGD.truth.rms) < 1e-3
+                            && abs(pyScore.shiftRow - pyGD.truth.shiftRow) < 0.05 && abs(pyScore.shiftColumn - pyGD.truth.shiftColumn) < 0.05,
+                            "\(fixture.name): the Swift scorer disagrees with truth.py's on py4DSTEM's object (Pearson \(pyScore.pearson) vs \(pyGD.truth.pearson), rms \(pyScore.rms) vs \(pyGD.truth.rms), shift (\(pyScore.shiftRow), \(pyScore.shiftColumn)) vs (\(pyGD.truth.shiftRow), \(pyGD.truth.shiftColumn)))")
+
+                // (2) Gradient descent on the fixture's probe: the same operator as py4DSTEM's, and it reaches the truth.
+                let gd = try run(fixtureInput, .gradientDescent, iterations: pyGD.iterations, normalizationMinimum: 1, clamp: true)
+                let gdGap = relativeGap(gd.errorHistory, pyGD.errors)
+                try require(gdGap < 5e-2, "\(fixture.name): GD error history differs from py4DSTEM's by \(gdGap) (limit 5e-2)")
+                let gdPhaseGap = phaseGap(gd, pyGD)
+                try require(gdPhaseGap < 5e-2, "\(fixture.name): GD final object phase differs from py4DSTEM's by \(gdPhaseGap) rad (limit 5e-2)")
+                let gdScore = try score(gd)
+                try require(gdScore.pearson >= 0.95 && gdScore.rms <= 0.03,
+                            "\(fixture.name): GD does not reach the truth: Pearson \(gdScore.pearson) (>= 0.95), rms \(gdScore.rms) rad (<= 0.03)")
+                try require(abs(gdScore.shiftRow) < 0.2 && abs(gdScore.shiftColumn) < 0.2,
+                            "\(fixture.name): GD object is displaced from the truth by (\(gdScore.shiftRow), \(gdScore.shiftColumn)) px (limit 0.2)")
+
+                // (3) The app's own probe builder at the fixture's defocus gives the same reconstruction; (4) the wrong sign does not.
+                let plus = try appProbe(sign: 1)
+                let gdApp = try run(input(probeReal: plus.real, probeImag: plus.imag), .gradientDescent, iterations: pyGD.iterations,
+                                    normalizationMinimum: 1, clamp: true)
+                let gdAppScore = try score(gdApp)
+                try require(gdAppScore.pearson >= 0.95 && abs(gdAppScore.pearson - gdScore.pearson) < 0.01,
+                            "\(fixture.name): the app-built probe reconstructs differently: Pearson \(gdAppScore.pearson) vs \(gdScore.pearson) with py4DSTEM's probe")
+                let minus = try appProbe(sign: -1)
+                let gdWrongSign = try run(input(probeReal: minus.real, probeImag: minus.imag), .gradientDescent, iterations: pyGD.iterations,
+                                          normalizationMinimum: 1, clamp: true)
+                let wrongScore = try score(gdWrongSign)
+                try require(wrongScore.pearson < 0.5 && wrongScore.pearson < gdScore.pearson - 0.4,
+                            "\(fixture.name): the WRONG-SIGN defocus probe still reaches the truth (Pearson \(wrongScore.pearson) vs \(gdScore.pearson)) - the defocus sign is not being tested")
+
+                // (5) Anti-vacuity: without the clamp the GD history must fail the parity bar (measured 0.20-0.31).
+                let gdOff = try run(fixtureInput, .gradientDescent, iterations: pyGD.iterations, normalizationMinimum: 1, clamp: false)
+                let offGap = relativeGap(gdOff.errorHistory, pyGD.errors)
+                try require(offGap > 0.1, "\(fixture.name): the GD parity bar is VACUOUS - the clamp-off run is within \(offGap) of py4DSTEM")
+
+                // (6) Difference map: the same operator as py4DSTEM's DM_AP over 8 iterations, at the app's default normalization and
+                // at a small one; its truth score is reported, not pinned.
+                var dmRows = [String]()
+                for pyDM in [pyDM1, pyDMSmall] {
+                    let dm = try run(fixtureInput, .differenceMapAlternatingProjections, iterations: pyDM.iterations,
+                                     normalizationMinimum: pyDM.normalizationMinimum, clamp: true)
+                    let gap = relativeGap(dm.errorHistory, pyDM.errors)
+                    // Pinned at the small normalization only (measured <= 5.2e-3 over 8 iterations on 5 fixtures, 10x margin). At
+                    // norm-min 1 the map expands from iteration 1 (2.7e-2 by it 8, 0.27 by it 16 on df200; 25 % at it 3 on graphene),
+                    // so that gap is printed, not pinned (refuter, 2026-10-01): a bar on a chaotic trajectory can go red on a
+                    // different Accelerate build without any port change.
+                    if pyDM.normalizationMinimum < 1 {
+                        try require(gap < 0.05,
+                                    "\(fixture.name): DM (norm-min \(pyDM.normalizationMinimum), \(pyDM.iterations) it) error history differs from py4DSTEM's by \(gap) (limit 0.05)")
+                    }
+                    let dmScore = try score(dm)
+                    dmRows.append(String(format: "DM nm %g: app Pearson %.3f rms %.3f / py4DSTEM %.3f %.3f, histories within %.1e",
+                                         pyDM.normalizationMinimum, dmScore.pearson, dmScore.rms, pyDM.truth.pearson, pyDM.truth.rms, gap))
+                }
+                rows.append(String(format: "  %@: GD Pearson %.4f rms %.4f rad shift (%.3f, %.3f) px [py4DSTEM %.4f %.4f]; app-built probe %.4f; wrong sign %.3f; app-py4DSTEM GD histories within %.1e, phase within %.1e rad (clamp off: %.2f); %@",
+                                   fixture.name, gdScore.pearson, gdScore.rms, gdScore.shiftRow, gdScore.shiftColumn, pyGD.truth.pearson, pyGD.truth.rms,
+                                   gdAppScore.pearson, wrongScore.pearson, gdGap, gdPhaseGap, offGap, dmRows.joined(separator: "; ")))
+            }
+            try require(defocusValues.count >= 3, "only \(defocusValues.count) distinct defocus values - the truth fixture has gone narrow")
+            print("PASS: against a known object with a defocused probe (py4DSTEM \(truth.py4dstemVersion) on bit-identical inputs), \(truth.fixtures.count) fixtures:")
+            rows.forEach { print($0) }
         }
         print("singleslice-ptychography-test: all passed")
     }

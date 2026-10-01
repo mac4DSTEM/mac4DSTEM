@@ -164,7 +164,7 @@ higher-order terms, pinned to py4DSTEM's `ComplexProbe` (harness, worst 1.7e-6);
 rule; a 180° R–Q rotation flips every coefficient — the status line prints both rotations). Residuals for R2/R3: at the same
 defocus the app's object correlates 0.69–0.74 raw (0.79–0.90 low-passed) with py4DSTEM's and the error histories differ 8–15 %
 mid-run (0.88 / 0.94 at defocus 0; the mean-origin DEVIATION is the suspect); the archived comparison rows could not be reproduced
-(that run's py4DSTEM settings are unknown); the difference map is non-monotone in py4DSTEM too at these settings. Since X4 (2026-10-01) the probe
+(that run's py4DSTEM settings are unknown); the difference map diverges in py4DSTEM too (Slot 2 R2: py4DSTEM's DM_AP, intrinsic in float64; owner card DM), and the GD gap is py4DSTEM's unconditional |O| ≤ 1 clamp, an app option off by default (card CL). Since X4 (2026-10-01) the probe
 fields travel as the product's provenance keys (`probe_defocus_angstrom` …), so a saved session restores them and an export names
 them; the replay record carries no ptychography step at all (a rewind does not re-run it).** C5's 500-step run done headless
 (`archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision

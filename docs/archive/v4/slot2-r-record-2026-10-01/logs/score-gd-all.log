@@ -1,0 +1,45 @@
+== neg df200
+  it  8: pearson 0.1085 rms 0.0883 shift ['-0.444', '-9.116'] amp_rms 0.0087
+  it 32: pearson 0.1219 rms 0.0900 shift ['-0.461', '-9.160'] amp_rms 0.0151
+== appprobe gd df200
+  it 32: pearson 0.9833 rms 0.0182 shift ['-0.003', '0.003'] amp_rms 0.0098
+  vs py4DSTEM out/py-same-gd-df200.json: error rel diff per it ['7.19e-07', '1.31e-02', '6.98e-03', '4.03e-05', '7.31e-03', '1.49e-02', '2.12e-02', '2.51e-02', '2.61e-02', '2.50e-02', '2.27e-02', '2.07e-02', '1.90e-02', '1.75e-02', '1.65e-02', '1.57e-02', '1.50e-02', '1.45e-02', '1.42e-02', '1.39e-02', '1.34e-02', '1.30e-02', '1.26e-02', '1.23e-02', '1.20e-02', '1.18e-02', '1.18e-02', '1.18e-02', 
+  final object vs py4DSTEM: max |dphase| 6.562e-03 rad, max |d amplitude| 5.867e-03
+== fixture gd df200
+  it  8: pearson 0.9405 rms 0.0380 shift ['0.002', '0.006'] amp_rms 0.0155
+  it 32: pearson 0.9834 rms 0.0182 shift ['-0.004', '0.003'] amp_rms 0.0097
+  vs py4DSTEM out/py-same-gd-df200.json: error rel diff per it ['5.39e-07', '6.46e-03', '3.87e-03', '1.53e-04', '3.81e-03', '7.88e-03', '1.11e-02', '1.30e-02', '1.33e-02', '1.26e-02', '1.13e-02', '9.94e-03', '8.72e-03', '7.43e-03', '6.10e-03', '4.70e-03', '3.35e-03', '2.05e-03', '8.61e-04', '3.19e-04', '1.38e-03', '2.29e-03', '3.06e-03', '3.70e-03', '4.19e-03', '4.55e-03', '4.72e-03', '4.75e-03', 
+  final object vs py4DSTEM: max |dphase| 5.265e-03 rad, max |d amplitude| 4.280e-03
+== clamp0 gd df200 vs truth
+  it  8: pearson 0.9362 rms 0.0400 shift ['0.003', '0.006'] amp_rms 0.0197
+  it 32: pearson 0.9834 rms 0.0184 shift ['-0.003', '0.002'] amp_rms 0.0060
+== neg df400
+  it  8: pearson 0.1355 rms 0.0842 shift ['-11.612', '12.725'] amp_rms 0.0049
+  it 32: pearson 0.1985 rms 0.0710 shift ['-20.144', '-10.384'] amp_rms 0.0080
+== appprobe gd df400
+  it 32: pearson 0.9853 rms 0.0169 shift ['-0.003', '0.012'] amp_rms 0.0101
+  vs py4DSTEM out/py-same-gd-df400.json: error rel diff per it ['6.19e-07', '2.04e-04', '1.55e-03', '3.85e-03', '5.03e-03', '5.24e-03', '4.88e-03', '4.27e-03', '3.27e-03', '1.68e-03', '5.98e-04', '3.53e-03', '7.02e-03', '1.07e-02', '1.39e-02', '1.64e-02', '1.80e-02', '1.85e-02', '1.80e-02', '1.68e-02', '1.50e-02', '1.29e-02', '1.07e-02', '8.71e-03', '7.01e-03', '5.80e-03', '5.11e-03', '4.96e-03', 
+  final object vs py4DSTEM: max |dphase| 1.459e-02 rad, max |d amplitude| 1.371e-02
+== fixture gd df400
+  it  8: pearson 0.9521 rms 0.0346 shift ['-0.011', '0.021'] amp_rms 0.0143
+  it 32: pearson 0.9851 rms 0.0170 shift ['-0.004', '0.012'] amp_rms 0.0101
+  vs py4DSTEM out/py-same-gd-df400.json: error rel diff per it ['6.19e-07', '2.07e-03', '5.03e-04', '3.51e-03', '5.14e-03', '5.36e-03', '4.61e-03', '3.38e-03', '2.04e-03', '7.13e-04', '6.99e-04', '2.45e-03', '4.41e-03', '6.36e-03', '8.04e-03', '8.98e-03', '9.21e-03', '8.61e-03', '7.38e-03', '5.77e-03', '3.95e-03', '2.09e-03', '3.39e-04', '1.32e-03', '2.80e-03', '4.10e-03', '5.25e-03', '6.18e-03', 
+  final object vs py4DSTEM: max |dphase| 2.221e-03 rad, max |d amplitude| 2.335e-03
+== clamp0 gd df400 vs truth
+  it  8: pearson 0.9484 rms 0.0368 shift ['-0.010', '0.023'] amp_rms 0.0194
+  it 32: pearson 0.9845 rms 0.0175 shift ['-0.004', '0.012'] amp_rms 0.0073
+== neg df600
+  it  8: pearson 0.1293 rms 0.0829 shift ['-17.765', '3.788'] amp_rms 0.0034
+  it 32: pearson 0.1295 rms 0.0828 shift ['-17.829', '3.920'] amp_rms 0.0055
+== appprobe gd df600
+  it 32: pearson 0.9840 rms 0.0176 shift ['0.004', '0.011'] amp_rms 0.0109
+  vs py4DSTEM out/py-same-gd-df600.json: error rel diff per it ['5.84e-07', '3.93e-03', '1.36e-03', '6.71e-03', '1.13e-02', '1.50e-02', '1.78e-02', '2.01e-02', '2.15e-02', '2.21e-02', '2.22e-02', '2.19e-02', '2.17e-02', '2.16e-02', '2.20e-02', '2.30e-02', '2.43e-02', '2.56e-02', '2.70e-02', '2.83e-02', '2.95e-02', '3.06e-02', '3.13e-02', '3.16e-02', '3.15e-02', '3.11e-02', '3.04e-02', '2.96e-02', 
+  final object vs py4DSTEM: max |dphase| 4.182e-03 rad, max |d amplitude| 3.731e-03
+== fixture gd df600
+  it  8: pearson 0.9458 rms 0.0378 shift ['0.003', '0.029'] amp_rms 0.0141
+  it 32: pearson 0.9841 rms 0.0176 shift ['0.003', '0.012'] amp_rms 0.0108
+  vs py4DSTEM out/py-same-gd-df600.json: error rel diff per it ['5.84e-07', '1.23e-03', '1.29e-03', '3.56e-03', '5.12e-03', '6.25e-03', '6.84e-03', '6.94e-03', '6.64e-03', '5.97e-03', '5.05e-03', '4.13e-03', '3.60e-03', '3.44e-03', '3.94e-03', '5.08e-03', '6.97e-03', '9.09e-03', '1.12e-02', '1.32e-02', '1.47e-02', '1.58e-02', '1.67e-02', '1.73e-02', '1.77e-02', '1.78e-02', '1.77e-02', '1.74e-02', 
+  final object vs py4DSTEM: max |dphase| 4.247e-03 rad, max |d amplitude| 4.645e-03
+== clamp0 gd df600 vs truth
+  it  8: pearson 0.9416 rms 0.0399 shift ['0.004', '0.030'] amp_rms 0.0187
+  it 32: pearson 0.9825 rms 0.0187 shift ['0.004', '0.013'] amp_rms 0.0094

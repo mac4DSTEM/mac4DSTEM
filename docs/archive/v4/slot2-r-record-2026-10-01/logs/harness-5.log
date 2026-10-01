@@ -1,0 +1,15 @@
+PASS: every GD error, final complex object/probe, and crop
+PASS: object/probe constraints and centered probe diagnostics
+PASS: retained-exit-wave DM/AP projection method
+PASS: immutable input, invalid options, memory, and cancellation
+PASS: the initial probe equals py4DSTEM's ComplexProbe over 6 cases (worst |delta| / max|probe| = 1.7e-06); 15 planted wrong conventions each rejected (relative separations: C12a and C12b swapped >= 0.47, astigmatism sign >= 1.1, cosine and sine swapped >= 0.28, defocus sign >= 1.2, higher-order sign >= 0.61)
+PASS: scan positions match py4DSTEM's rotate/transpose/clip convention over 8 cases; 21 planted wrong conventions each rejected
+PASS: an integer origin shift equals a circular shift of the resampled amplitudes (rows by 2, columns by 3; separation 2.3354652)
+PASS: zero aberrations are bit-identical to the pre-R1 probe on 2 crops; aberrations reach the prepared probe; 5 malformed sets refused
+PASS: against a known object with a defocused probe (py4DSTEM 0.14.19 on bit-identical inputs), 3 fixtures:
+  defocus 200 A, seed 1: GD Pearson 0.9834 rms 0.0182 rad shift (-0.004, 0.003) px [py4DSTEM 0.9833 0.0182]; app-built probe 0.9833; wrong sign 0.122; app-py4DSTEM GD histories within 1.3e-02, phase within 5.3e-03 rad (clamp off: 0.20); DM nm 1: app Pearson 0.033 rms 1.852 / py4DSTEM 0.047 1.762, histories within 2.7e-02; DM nm 0.02: app Pearson 0.988 rms 0.015 / py4DSTEM 0.989 0.015, histories within 3.2e-03
+  defocus 400 A, seed 1: GD Pearson 0.9851 rms 0.0170 rad shift (-0.004, 0.012) px [py4DSTEM 0.9849 0.0171]; app-built probe 0.9853; wrong sign 0.199; app-py4DSTEM GD histories within 9.2e-03, phase within 2.2e-03 rad (clamp off: 0.27); DM nm 1: app Pearson 0.248 rms 0.223 / py4DSTEM 0.211 0.228, histories within 1.8e-02; DM nm 0.02: app Pearson 0.989 rms 0.014 / py4DSTEM 0.987 0.015, histories within 5.2e-03
+  defocus 600 A, seed 1: GD Pearson 0.9841 rms 0.0176 rad shift (0.003, 0.012) px [py4DSTEM 0.9841 0.0176]; app-built probe 0.9840; wrong sign 0.130; app-py4DSTEM GD histories within 1.8e-02, phase within 4.2e-03 rad (clamp off: 0.31); DM nm 1: app Pearson 0.058 rms 1.018 / py4DSTEM 0.028 1.026, histories within 4.2e-03; DM nm 0.02: app Pearson 0.992 rms 0.012 / py4DSTEM 0.992 0.012, histories within 1.2e-03
+singleslice-ptychography-test: all passed
+EXIT=0
+seconds=232

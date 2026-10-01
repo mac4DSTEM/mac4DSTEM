@@ -22,9 +22,11 @@ resolve_mac4dstem_developer_dir
 resolve_mac4dstem_python "$REPO"
 
 "$PYTHON_BIN" reference.py > "$WORK/expected.json"
+# R3 (2026-10-01): a synthetic cube with a known object and a defocused probe, plus py4DSTEM's own runs on it (truth.py's docstring).
+"$PYTHON_BIN" truth.py > "$WORK/truth.json"
 . "$REPO/tools/lib/sources.manifest"
 mac4dstem_sources "$REPO" ptychography
 xcrun swiftc -package-name mac4DSTEM -parse-as-library -o "$WORK/harness" main.swift \
   "${MAC4DSTEM_SOURCES[@]}" \
   -framework Accelerate
-"$WORK/harness" "$WORK/expected.json"
+"$WORK/harness" "$WORK/expected.json" "$WORK/truth.json"

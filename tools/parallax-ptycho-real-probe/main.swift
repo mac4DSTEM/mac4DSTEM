@@ -250,6 +250,10 @@ enum ParallaxPtychoRealProbe {
         let ptyIterations = option("--iterations").flatMap { Int($0) }
         let ptyStepSize = option("--step-size").flatMap { Float($0) }
         let ptyNormalizationMinimum = option("--norm-min").flatMap { Float($0) }
+        // Lane R2 (2026-10-01): py4DSTEM clamps |object| <= 1 on EVERY iteration for a complex object
+        // (ptychographic_constraints.py `_object_threshold_constraint`, applied unconditionally by `_object_constraints`);
+        // the app exposes the same clamp as `constrainObjectAmplitude`, default off. `--constrain-amplitude 1` matches py4DSTEM.
+        let ptyConstrainAmplitude = (option("--constrain-amplitude") ?? "0") == "1"
         // The probe the ptychography starts from (lane R1, 2026-09-30): py4DSTEM's `defocus` (C10 = -defocus) and the parallax fit's
         // cartesian astigmatism, all in Å; default 0 = the in-focus aperture. The parallax fit of THIS cube reports C1 = +663.6, so
         // its implied defocus is -663.6 (py4DSTEM's forward model C10 = -defocus, utils.py:159-160; convention_check.py).
@@ -259,7 +263,7 @@ enum ParallaxPtychoRealProbe {
             c12bAngstrom: option("--c12b").flatMap { Double($0) } ?? 0
         )
         guard args.count >= 2 else {
-            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd|dmap>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40] [--q 1/A per px] [--r A per px] [--rotation-deg d] [--transpose 0|1] [--out dir] [--iterations n] [--step-size s] [--norm-min m] [--defocus A] [--c12a A] [--c12b A]")
+            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd|dmap>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40] [--q 1/A per px] [--r A per px] [--rotation-deg d] [--transpose 0|1] [--out dir] [--iterations n] [--step-size s] [--norm-min m] [--constrain-amplitude 0|1] [--defocus A] [--c12a A] [--c12b A]")
         }
         let path = args[0], stage = args[1]
         let raised = Int(limitGiB * 1_073_741_824)
@@ -494,6 +498,7 @@ enum ParallaxPtychoRealProbe {
                 if let v = ptyIterations { o.iterations = v }
                 if let v = ptyStepSize { o.stepSize = v }
                 if let v = ptyNormalizationMinimum { o.normalizationMinimum = v }
+                o.constrainObjectAmplitude = ptyConstrainAmplitude
                 o.maxWorkingBytes = limit
                 return try await Task.detached(priority: .userInitiated) {
                     try SingleslicePtychography.reconstruct(input: input, options: o)
@@ -520,6 +525,7 @@ enum ParallaxPtychoRealProbe {
                 saveNPY("\(tag)_probePhase", pp.pixels, shape: [pp.height, pp.width])
                 saveJSON(tag, ["iterations": r.options.iterations, "stepSize": Double(r.options.stepSize), "normalizationMinimum": Double(r.options.normalizationMinimum),
                                "method": r.options.method.rawValue, "errorHistory": r.errorHistory.map { Double($0) },
+                               "constrainObjectAmplitude": r.options.constrainObjectAmplitude,
                                "objectSamplingRowAngstrom": r.objectSamplingRowAngstrom, "objectSamplingColumnAngstrom": r.objectSamplingColumnAngstrom,
                                "objectCroppedHeight": ph.height, "objectCroppedWidth": ph.width, "canvasHeight": r.object.height, "canvasWidth": r.object.width,
                                "rotationDegrees": rotationDegrees, "transpose": transposeQR,

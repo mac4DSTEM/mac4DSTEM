@@ -1,0 +1,16 @@
+MUTATION defocus-sign EXIT=133
+restored /Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/mac4DSTEM/Core/Analysis/PtychographyPreparation.swift byte-identical
+Swift/ErrorType.swift:254: Fatal error: Error raised at top level: Error Domain=singleslice-ptychography-test Code=1 "probe case `defocus only`: max |delta| = 0.12408289685845375 against py4DSTEM's ComplexProbe (limit 6.918161873648019e-07)" UserInfo={NSLocalizedDescription=probe case `defocus only`: max |delta| = 0.12408289685845375 against py4DSTEM's ComplexProbe (limit 6.918161873648019e-07)}
+MUTATION dm-projection-a EXIT=133
+restored /Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/mac4DSTEM/Core/Analysis/SingleslicePtychography.swift byte-identical
+Swift/ErrorType.swift:254: Fatal error: Error raised at top level: Error Domain=singleslice-ptychography-test Code=1 "DM/AP iteration errors differ" UserInfo={NSLocalizedDescription=DM/AP iteration errors differ}
+MUTATION clamp-off EXIT=133
+restored /Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/tools/singleslice-ptychography-test/main.swift byte-identical
+Swift/ErrorType.swift:254: Fatal error: Error raised at top level: Error Domain=singleslice-ptychography-test Code=1 "defocus 200 A, seed 1: GD error history differs from py4DSTEM's by 0.19666266 (limit 5e-2)" UserInfo={NSLocalizedDescription=defocus 200 A, seed 1: GD error history differs from py4DSTEM's by 0.19666266 (limit 5e-2)}
+MUTATION neg-control-off EXIT=133
+restored /Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/tools/singleslice-ptychography-test/main.swift byte-identical
+Swift/ErrorType.swift:254: Fatal error: Error raised at top level: Error Domain=singleslice-ptychography-test Code=1 "defocus 200 A, seed 1: the WRONG-SIGN defocus probe still reaches the truth (Pearson 0.9833401444075422 vs 0.9833626520033301) - the defocus sign is not being tested" UserInfo={NSLocalizedDescription=defocus 200 A, seed 1: the WRONG-SIGN defocus probe still reaches the truth (Pears
+MUTATION scorer-mean EXIT=133
+restored /Users/paullobpreis/GitHub/mac4DSTEM_Organization/mac4DSTEM/tools/singleslice-ptychography-test/main.swift byte-identical
+Swift/ErrorType.swift:254: Fatal error: Error raised at top level: Error Domain=singleslice-ptychography-test Code=1 "defocus 200 A, seed 1: the Swift scorer disagrees with truth.py's on py4DSTEM's object (Pearson 0.9864555962616205 vs 0.9833277729076719, rms 0.018219723960910456 vs 0.018219719636575087, shift (-0.0033054960602071095, 0.0034955393424412496) vs (-0.0033054243477290642, 0.0034955357
+ALL DONE Thu Oct  1 10:16:12 CEST 2026

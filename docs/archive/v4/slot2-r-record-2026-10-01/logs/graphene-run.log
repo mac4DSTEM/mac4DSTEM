@@ -1,0 +1,8 @@
+lock acquired Thu Oct  1 09:58:46 CEST 2026
+py dm nm1 EXIT=0
+py dm nm0.05 EXIT=0
+arm r2a EXIT=0
+arm r2b EXIT=0
+arm r2c EXIT=0
+arm r2d EXIT=0
+done Thu Oct  1 10:05:01 CEST 2026

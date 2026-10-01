@@ -1,0 +1,258 @@
+  it  1: pearson 0.8998 rms 0.0658 shift ['0.001', '0.003'] amp_rms 0.0164
+  it  2: pearson 0.7502 rms 0.0741 shift ['0.008', '-0.028'] amp_rms 0.3636
+  it  4: pearson 0.1277 rms 0.6417 shift ['-2.800', '0.423'] amp_rms 0.9235
+  it  8: pearson 0.3467 rms 0.4780 shift ['0.047', '0.091'] amp_rms 0.2556
+  it 16: pearson 0.1714 rms 0.7920 shift ['-0.009', '-0.004'] amp_rms 0.8104
+  it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.5 df200:   it  8: pearson 0.3771 rms 0.4687 shift ['0.048', '0.084'] amp_rms 0.2652
+   app nm0.5 df200:   it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.5 df200:   vs py4DSTEM sweep/py-dm-nm0.5-df200.json: error rel diff per it ['5.39e-07', '1.41e-04', '1.57e-02', '1.76e-02', '3.27e-03', '3.82e-02', '3.31e-02', '3.53e-02', '3.13e-02', '2.99e-02', '3.08e-02', '3.04e-02', '2.86e-02', '2.61e-02', '2.44e-02', '2.29e-02', '2.15e-02', '1.99e-02', '1.76e-02', '1.55e-02', '1.39e-02', '1.24e-02', '1.10e-02', '9.46e-03', '8.07e-03', '6.79e-03', '2.24e-02', '1.63e-02', '1.63e-02', '1.63e-02', '1.63e-02', '1.63e-02'] max 3.816e-02
+   app nm0.5 df200:   it  1 app vs py: max |dphase| 1.578e-02 rad, max |d amp| 1.807e-02, max |d complex| 1.916e-02 (max |py| 1.000)
+   app nm0.5 df200:   it  2 app vs py: max |dphase| 1.636e-02 rad, max |d amp| 1.416e-02, max |d complex| 1.418e-02 (max |py| 0.771)
+   app nm0.5 df200:   it  4 app vs py: max |dphase| 2.597e+00 rad, max |d amp| 1.754e-02, max |d complex| 1.778e-02 (max |py| 0.250)
+   app nm0.5 df200:   it  8 app vs py: max |dphase| 4.120e-01 rad, max |d amp| 1.432e-01, max |d complex| 2.223e-01 (max |py| 1.000)
+   app nm0.5 df200:   it 16 app vs py: max |dphase| 2.505e+00 rad, max |d amp| 6.215e-02, max |d complex| 2.332e-01 (max |py| 1.000)
+   app nm0.5 df200:   it 32 app vs py: max |dphase| 0.000e+00 rad, max |d amp| 0.000e+00, max |d complex| 0.000e+00 (max |py| 0.000)
+   app nm0.5 df200:   final object vs py4DSTEM: max |dphase| 0.000e+00 rad, max |d amplitude| 0.000e+00
+  it  1: pearson 0.8998 rms 0.0658 shift ['0.001', '0.003'] amp_rms 0.0000
+  it  2: pearson 0.8564 rms 0.0501 shift ['0.022', '-0.002'] amp_rms 0.1182
+  it  4: pearson 0.9460 rms 0.0315 shift ['0.009', '0.007'] amp_rms 0.3205
+  it  8: pearson 0.6042 rms 0.3822 shift ['0.010', '-0.006'] amp_rms 0.1349
+  it 16: pearson 0.4918 rms 0.5190 shift ['0.065', '-0.009'] amp_rms 0.0001
+  it 32: pearson 0.2352 rms 0.0000 shift ['0.181', '-0.229'] amp_rms 1.0000
+   app nm0.2 df200:   it  8: pearson 0.6095 rms 0.3809 shift ['0.013', '-0.008'] amp_rms 0.1376
+   app nm0.2 df200:   it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.2 df200:   vs py4DSTEM sweep/py-dm-nm0.2-df200.json: error rel diff per it ['5.39e-07', '1.04e-03', '7.04e-03', '6.80e-03', '8.67e-03', '1.08e-02', '3.12e-03', '2.80e-02', '3.69e-02', '4.11e-02', '4.42e-02', '4.56e-02', '4.61e-02', '4.63e-02', '4.63e-02', '4.62e-02', '4.61e-02', '4.60e-02', '4.58e-02', '4.57e-02', '4.55e-02', '4.54e-02', '4.52e-02', '4.51e-02', '4.49e-02', '4.48e-02', '4.47e-02', '4.46e-02', '4.45e-02', '4.43e-02', '4.56e-03', '2.48e-02'] max 4.634e-02
+   app nm0.2 df200:   it  1 app vs py: max |dphase| 1.578e-02 rad, max |d amp| 1.268e-07, max |d complex| 1.578e-02 (max |py| 1.000)
+   app nm0.2 df200:   it  2 app vs py: max |dphase| 1.099e-02 rad, max |d amp| 1.260e-02, max |d complex| 1.278e-02 (max |py| 1.000)
+   app nm0.2 df200:   it  4 app vs py: max |dphase| 7.909e-03 rad, max |d amp| 8.753e-03, max |d complex| 8.813e-03 (max |py| 0.900)
+   app nm0.2 df200:   it  8 app vs py: max |dphase| 5.600e-01 rad, max |d amp| 5.462e-02, max |d complex| 6.600e-02 (max |py| 1.000)
+   app nm0.2 df200:   it 16 app vs py: max |dphase| 3.302e-01 rad, max |d amp| 1.287e-07, max |d complex| 3.287e-01 (max |py| 1.000)
+   app nm0.2 df200:   it 32 app vs py: max |dphase| 0.000e+00 rad, max |d amp| 0.000e+00, max |d complex| 0.000e+00 (max |py| 0.000)
+   app nm0.2 df200:   final object vs py4DSTEM: max |dphase| 0.000e+00 rad, max |d amplitude| 0.000e+00
+  it  1: pearson 0.8998 rms 0.0658 shift ['0.001', '0.003'] amp_rms 0.0000
+  it  2: pearson 0.9016 rms 0.0436 shift ['0.010', '-0.001'] amp_rms 0.0252
+  it  4: pearson 0.9662 rms 0.0250 shift ['0.008', '0.006'] amp_rms 0.0202
+  it  8: pearson 0.9673 rms 0.0250 shift ['-0.003', '-0.008'] amp_rms 0.0096
+  it 16: pearson 0.1522 rms 0.3843 shift ['0.019', '0.025'] amp_rms 0.0630
+  it 32: pearson -0.0245 rms 1.2995 shift ['-3.982', '-2.313'] amp_rms 0.0072
+   app nm0.1 df200:   it  8: pearson 0.9675 rms 0.0249 shift ['-0.002', '-0.009'] amp_rms 0.0095
+   app nm0.1 df200:   it 32: pearson -0.0226 rms 1.5011 shift ['-1.113', '11.277'] amp_rms 0.0002
+   app nm0.1 df200:   vs py4DSTEM sweep/py-dm-nm0.1-df200.json: error rel diff per it ['5.39e-07', '3.10e-03', '3.92e-03', '2.13e-03', '6.74e-04', '5.66e-04', '3.20e-04', '4.79e-05', '3.79e-04', '1.70e-03', '2.08e-03', '6.05e-03', '1.32e-02', '2.81e-02', '4.48e-02', '6.12e-02', '6.84e-02', '2.64e-02', '1.69e-02', '1.46e-01', '1.87e-01', '2.29e-01', '2.52e-01', '2.51e-01', '2.82e-01', '3.05e-01', '3.26e-01', '3.45e-01', '3.63e-01', '3.80e-01', '3.97e-01', '4.14e-01'] max 4.137e-01
+   app nm0.1 df200:   it  1 app vs py: max |dphase| 1.578e-02 rad, max |d amp| 1.324e-07, max |d complex| 1.578e-02 (max |py| 1.000)
+   app nm0.1 df200:   it  2 app vs py: max |dphase| 9.788e-03 rad, max |d amp| 1.125e-02, max |d complex| 1.126e-02 (max |py| 1.000)
+   app nm0.1 df200:   it  4 app vs py: max |dphase| 5.964e-03 rad, max |d amp| 6.084e-03, max |d complex| 6.173e-03 (max |py| 1.000)
+   app nm0.1 df200:   it  8 app vs py: max |dphase| 2.151e-02 rad, max |d amp| 1.093e-02, max |d complex| 2.030e-02 (max |py| 1.000)
+   app nm0.1 df200:   it 16 app vs py: max |dphase| 1.493e-01 rad, max |d amp| 5.009e-02, max |d complex| 1.414e-01 (max |py| 1.000)
+   app nm0.1 df200:   it 32 app vs py: max |dphase| 3.102e+00 rad, max |d amp| 2.564e-01, max |d complex| 2.000e+00 (max |py| 1.000)
+   app nm0.1 df200:   final object vs py4DSTEM: max |dphase| 3.102e+00 rad, max |d amplitude| 2.564e-01
+  it  1: pearson 0.8998 rms 0.0658 shift ['0.001', '0.003'] amp_rms 0.0016
+  it  2: pearson 0.9220 rms 0.0411 shift ['0.002', '-0.001'] amp_rms 0.0057
+  it  4: pearson 0.9704 rms 0.0235 shift ['-0.001', '0.007'] amp_rms 0.0060
+  it  8: pearson 0.9837 rms 0.0177 shift ['0.002', '0.000'] amp_rms 0.0058
+  it 16: pearson 0.8135 rms 0.0600 shift ['-0.000', '-0.002'] amp_rms 0.0112
+  it 32: pearson 0.0290 rms 1.1581 shift ['-5.209', '-1.048'] amp_rms 0.0072
+   app nm0.05 df200:   it  8: pearson 0.9839 rms 0.0177 shift ['0.003', '-0.000'] amp_rms 0.0058
+   app nm0.05 df200:   it 32: pearson 0.0268 rms 1.1378 shift ['-25.229', '-15.014'] amp_rms 0.0181
+   app nm0.05 df200:   vs py4DSTEM sweep/py-dm-nm0.05-df200.json: error rel diff per it ['5.39e-07', '3.82e-03', '3.59e-03', '2.20e-03', '1.92e-04', '6.38e-04', '6.83e-07', '2.20e-05', '4.27e-04', '3.84e-04', '4.76e-04', '8.43e-05', '1.45e-04', '1.77e-04', '6.09e-04', '1.67e-03', '3.65e-03', '9.28e-03', '1.84e-02', '2.98e-02', '4.17e-02', '5.90e-02', '3.33e-02', '1.84e-02', '1.78e-01', '2.24e-01', '2.83e-01', '2.44e-01', '2.46e-01', '2.50e-01', '2.56e-01', '2.61e-01'] max 2.833e-01
+   app nm0.05 df200:   it  1 app vs py: max |dphase| 1.578e-02 rad, max |d amp| 1.315e-02, max |d complex| 1.559e-02 (max |py| 1.000)
+   app nm0.05 df200:   it  2 app vs py: max |dphase| 8.842e-03 rad, max |d amp| 7.319e-03, max |d complex| 8.842e-03 (max |py| 1.000)
+   app nm0.05 df200:   it  4 app vs py: max |dphase| 4.609e-03 rad, max |d amp| 4.454e-03, max |d complex| 5.319e-03 (max |py| 1.000)
+   app nm0.05 df200:   it  8 app vs py: max |dphase| 1.191e-02 rad, max |d amp| 7.829e-03, max |d complex| 1.191e-02 (max |py| 1.000)
+   app nm0.05 df200:   it 16 app vs py: max |dphase| 3.102e-02 rad, max |d amp| 2.228e-02, max |d complex| 3.121e-02 (max |py| 1.000)
+   app nm0.05 df200:   it 32 app vs py: max |dphase| 3.122e+00 rad, max |d amp| 4.810e-01, max |d complex| 2.000e+00 (max |py| 1.000)
+   app nm0.05 df200:   final object vs py4DSTEM: max |dphase| 3.122e+00 rad, max |d amplitude| 4.810e-01
+  it  1: pearson 0.8998 rms 0.0658 shift ['0.001', '0.003'] amp_rms 0.0081
+  it  2: pearson 0.9323 rms 0.0404 shift ['-0.002', '-0.001'] amp_rms 0.0010
+  it  4: pearson 0.9748 rms 0.0218 shift ['-0.004', '0.007'] amp_rms 0.0022
+  it  8: pearson 0.9886 rms 0.0146 shift ['0.000', '-0.000'] amp_rms 0.0031
+  it 16: pearson 0.9217 rms 0.0382 shift ['-0.005', '-0.002'] amp_rms 0.0072
+  it 32: pearson 0.0174 rms 1.6717 shift ['-3.662', '-1.269'] amp_rms 0.0677
+   app nm0.02 df200:   it  8: pearson 0.9885 rms 0.0147 shift ['0.001', '-0.000'] amp_rms 0.0032
+   app nm0.02 df200:   it 32: pearson -0.0107 rms 1.5739 shift ['-1.038', '10.374'] amp_rms 0.0616
+   app nm0.02 df200:   vs py4DSTEM sweep/py-dm-nm0.02-df200.json: error rel diff per it ['5.39e-07', '3.19e-03', '2.71e-03', '2.21e-03', '1.04e-03', '9.41e-04', '3.19e-04', '3.92e-04', '1.11e-04', '1.24e-03', '9.78e-04', '5.98e-04', '1.66e-03', '2.36e-03', '3.45e-03', '7.39e-03', '1.20e-02', '2.22e-02', '3.44e-02', '5.30e-02', '7.07e-02', '7.01e-02', '4.42e-02', '5.41e-02', '5.32e-02', '3.10e-02', '4.79e-02', '1.87e-01', '1.80e-01', '2.37e-01', '2.23e-01', '2.26e-01'] max 2.369e-01
+   app nm0.02 df200:   it  1 app vs py: max |dphase| 1.578e-02 rad, max |d amp| 1.787e-02, max |d complex| 1.790e-02 (max |py| 1.000)
+   app nm0.02 df200:   it  2 app vs py: max |dphase| 8.903e-03 rad, max |d amp| 4.516e-03, max |d complex| 8.903e-03 (max |py| 1.000)
+   app nm0.02 df200:   it  4 app vs py: max |dphase| 5.384e-03 rad, max |d amp| 3.253e-03, max |d complex| 5.384e-03 (max |py| 1.000)
+   app nm0.02 df200:   it  8 app vs py: max |dphase| 5.365e-03 rad, max |d amp| 7.763e-03, max |d complex| 7.763e-03 (max |py| 1.000)
+   app nm0.02 df200:   it 16 app vs py: max |dphase| 1.968e-02 rad, max |d amp| 8.811e-03, max |d complex| 1.968e-02 (max |py| 1.000)
+   app nm0.02 df200:   it 32 app vs py: max |dphase| 3.117e+00 rad, max |d amp| 8.814e-01, max |d complex| 2.000e+00 (max |py| 1.000)
+   app nm0.02 df200:   final object vs py4DSTEM: max |dphase| 3.117e+00 rad, max |d amplitude| 8.814e-01
+  it  1: pearson 0.8974 rms 0.0796 shift ['0.001', '0.003'] amp_rms 0.0094
+  it  2: pearson 0.9104 rms 0.0626 shift ['0.004', '0.003'] amp_rms 0.0139
+  it  4: pearson 0.9301 rms 0.0446 shift ['0.004', '0.005'] amp_rms 0.0158
+  it  8: pearson 0.9535 rms 0.0319 shift ['0.001', '0.006'] amp_rms 0.0141
+  it 16: pearson 0.9759 rms 0.0223 shift ['-0.001', '0.006'] amp_rms 0.0101
+  it 32: pearson 0.9905 rms 0.0137 shift ['-0.001', '0.005'] amp_rms 0.0081
+  it  1: pearson 0.8971 rms 0.0608 shift ['-0.011', '0.018'] amp_rms 0.0354
+  it  2: pearson 0.8004 rms 0.0683 shift ['-0.037', '-0.046'] amp_rms 0.3701
+  it  4: pearson 0.2462 rms 0.2892 shift ['0.060', '-0.804'] amp_rms 0.9014
+  it  8: pearson 0.2877 rms 0.3101 shift ['-0.098', '0.194'] amp_rms 0.1322
+  it 16: pearson 0.2801 rms 0.3208 shift ['-0.103', '0.200'] amp_rms 0.0397
+  it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.5 df400:   it  8: pearson 0.2866 rms 0.3127 shift ['-0.110', '0.177'] amp_rms 0.1329
+   app nm0.5 df400:   it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.5 df400:   vs py4DSTEM sweep/py-dm-nm0.5-df400.json: error rel diff per it ['6.19e-07', '8.73e-05', '6.12e-03', '1.15e-02', '1.48e-03', '1.97e-02', '2.32e-02', '2.46e-02', '2.59e-02', '2.64e-02', '2.66e-02', '2.60e-02', '2.63e-02', '2.58e-02', '2.74e-02', '2.85e-02', '3.01e-02', '3.28e-02', '3.53e-02', '3.79e-02', '4.07e-02', '4.32e-02', '4.55e-02', '4.53e-02', '4.77e-02', '4.95e-02', '5.13e-02', '5.08e-02', '5.08e-02', '5.08e-02', '5.08e-02', '5.08e-02'] max 5.133e-02
+   app nm0.5 df400:   it  1 app vs py: max |dphase| 1.256e-02 rad, max |d amp| 1.118e-02, max |d complex| 1.254e-02 (max |py| 1.000)
+   app nm0.5 df400:   it  2 app vs py: max |dphase| 3.308e-02 rad, max |d amp| 1.948e-02, max |d complex| 1.949e-02 (max |py| 0.781)
+   app nm0.5 df400:   it  4 app vs py: max |dphase| 6.763e-01 rad, max |d amp| 1.439e-02, max |d complex| 1.489e-02 (max |py| 0.220)
+   app nm0.5 df400:   it  8 app vs py: max |dphase| 6.083e-01 rad, max |d amp| 7.098e-02, max |d complex| 1.063e-01 (max |py| 1.000)
+   app nm0.5 df400:   it 16 app vs py: max |dphase| 7.519e-01 rad, max |d amp| 2.315e-01, max |d complex| 6.491e-01 (max |py| 1.000)
+   app nm0.5 df400:   it 32 app vs py: max |dphase| 0.000e+00 rad, max |d amp| 0.000e+00, max |d complex| 0.000e+00 (max |py| 0.000)
+   app nm0.5 df400:   final object vs py4DSTEM: max |dphase| 0.000e+00 rad, max |d amplitude| 0.000e+00
+  it  1: pearson 0.8971 rms 0.0608 shift ['-0.011', '0.018'] amp_rms 0.0000
+  it  2: pearson 0.9233 rms 0.0377 shift ['-0.006', '0.007'] amp_rms 0.1224
+  it  4: pearson 0.9446 rms 0.0319 shift ['-0.034', '0.034'] amp_rms 0.3496
+  it  8: pearson 0.7263 rms 0.2313 shift ['0.006', '-0.046'] amp_rms 0.0561
+  it 16: pearson 0.6765 rms 0.2617 shift ['0.010', '-0.041'] amp_rms 0.0000
+  it 32: pearson 0.3393 rms 0.0000 shift ['-23.377', '-45.714'] amp_rms 1.0000
+   app nm0.2 df400:   it  8: pearson 0.7312 rms 0.2276 shift ['0.007', '-0.046'] amp_rms 0.0565
+   app nm0.2 df400:   it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.2 df400:   vs py4DSTEM sweep/py-dm-nm0.2-df400.json: error rel diff per it ['6.19e-07', '9.68e-04', '2.68e-03', '6.67e-03', '7.33e-03', '1.17e-02', '1.40e-03', '2.74e-02', '3.29e-02', '3.62e-02', '3.83e-02', '3.90e-02', '3.91e-02', '3.88e-02', '3.84e-02', '3.79e-02', '3.73e-02', '3.68e-02', '3.64e-02', '3.57e-02', '3.52e-02', '3.46e-02', '3.41e-02', '3.35e-02', '3.29e-02', '3.23e-02', '3.17e-02', '3.11e-02', '3.05e-02', '2.99e-02', '8.40e-02', '2.45e-02'] max 8.398e-02
+   app nm0.2 df400:   it  1 app vs py: max |dphase| 1.256e-02 rad, max |d amp| 1.385e-07, max |d complex| 1.256e-02 (max |py| 1.000)
+   app nm0.2 df400:   it  2 app vs py: max |dphase| 9.424e-03 rad, max |d amp| 8.671e-03, max |d complex| 9.936e-03 (max |py| 0.983)
+   app nm0.2 df400:   it  4 app vs py: max |dphase| 1.270e-02 rad, max |d amp| 8.607e-03, max |d complex| 9.001e-03 (max |py| 0.833)
+   app nm0.2 df400:   it  8 app vs py: max |dphase| 8.366e-02 rad, max |d amp| 4.742e-02, max |d complex| 7.208e-02 (max |py| 1.000)
+   app nm0.2 df400:   it 16 app vs py: max |dphase| 9.892e-02 rad, max |d amp| 1.271e-07, max |d complex| 9.888e-02 (max |py| 1.000)
+   app nm0.2 df400:   it 32 app vs py: max |dphase| 0.000e+00 rad, max |d amp| 0.000e+00, max |d complex| 0.000e+00 (max |py| 0.000)
+   app nm0.2 df400:   final object vs py4DSTEM: max |dphase| 0.000e+00 rad, max |d amplitude| 0.000e+00
+  it  1: pearson 0.8971 rms 0.0608 shift ['-0.011', '0.018'] amp_rms 0.0000
+  it  2: pearson 0.9334 rms 0.0363 shift ['-0.008', '0.018'] amp_rms 0.0198
+  it  4: pearson 0.9683 rms 0.0242 shift ['0.010', '0.019'] amp_rms 0.0189
+  it  8: pearson 0.9699 rms 0.0239 shift ['-0.007', '0.014'] amp_rms 0.0079
+  it 16: pearson 0.9640 rms 0.0266 shift ['-0.002', '0.015'] amp_rms 0.0127
+  it 32: pearson 0.3481 rms 0.1270 shift ['-0.060', '0.229'] amp_rms 0.0219
+   app nm0.1 df400:   it  8: pearson 0.9718 rms 0.0233 shift ['-0.008', '0.013'] amp_rms 0.0079
+   app nm0.1 df400:   it 32: pearson 0.3420 rms 0.1274 shift ['-0.058', '0.233'] amp_rms 0.0142
+   app nm0.1 df400:   vs py4DSTEM sweep/py-dm-nm0.1-df400.json: error rel diff per it ['6.19e-07', '2.52e-03', '3.31e-03', '3.38e-03', '4.92e-04', '2.54e-03', '2.65e-04', '3.79e-04', '7.98e-04', '9.51e-04', '7.72e-05', '2.03e-03', '1.40e-03', '1.30e-03', '4.48e-04', '7.97e-04', '1.10e-03', '2.51e-05', '5.50e-04', '1.17e-03', '2.59e-03', '2.88e-03', '1.87e-03', '3.60e-03', '1.40e-03', '2.78e-03', '2.45e-04', '3.92e-03', '2.97e-04', '5.99e-03', '3.58e-03', '4.79e-03'] max 5.987e-03
+   app nm0.1 df400:   it  1 app vs py: max |dphase| 1.256e-02 rad, max |d amp| 1.301e-07, max |d complex| 1.256e-02 (max |py| 1.000)
+   app nm0.1 df400:   it  2 app vs py: max |dphase| 9.668e-03 rad, max |d amp| 9.137e-03, max |d complex| 1.032e-02 (max |py| 1.000)
+   app nm0.1 df400:   it  4 app vs py: max |dphase| 6.640e-03 rad, max |d amp| 6.279e-03, max |d complex| 6.553e-03 (max |py| 1.000)
+   app nm0.1 df400:   it  8 app vs py: max |dphase| 1.770e-02 rad, max |d amp| 1.318e-02, max |d complex| 1.815e-02 (max |py| 1.000)
+   app nm0.1 df400:   it 16 app vs py: max |dphase| 2.663e-02 rad, max |d amp| 2.234e-02, max |d complex| 2.680e-02 (max |py| 1.000)
+   app nm0.1 df400:   it 32 app vs py: max |dphase| 5.271e-02 rad, max |d amp| 5.560e-02, max |d complex| 6.296e-02 (max |py| 1.000)
+   app nm0.1 df400:   final object vs py4DSTEM: max |dphase| 5.271e-02 rad, max |d amplitude| 5.560e-02
+  it  1: pearson 0.8971 rms 0.0608 shift ['-0.011', '0.018'] amp_rms 0.0021
+  it  2: pearson 0.9382 rms 0.0356 shift ['-0.005', '0.018'] amp_rms 0.0030
+  it  4: pearson 0.9786 rms 0.0202 shift ['0.001', '0.005'] amp_rms 0.0034
+  it  8: pearson 0.9740 rms 0.0220 shift ['-0.012', '0.013'] amp_rms 0.0043
+  it 16: pearson 0.9743 rms 0.0224 shift ['-0.014', '0.006'] amp_rms 0.0071
+  it 32: pearson 0.7145 rms 0.0701 shift ['-0.047', '0.121'] amp_rms 0.0149
+   app nm0.05 df400:   it  8: pearson 0.9767 rms 0.0209 shift ['-0.011', '0.014'] amp_rms 0.0044
+   app nm0.05 df400:   it 32: pearson 0.7031 rms 0.0716 shift ['-0.047', '0.127'] amp_rms 0.0158
+   app nm0.05 df400:   vs py4DSTEM sweep/py-dm-nm0.05-df400.json: error rel diff per it ['6.19e-07', '4.06e-03', '4.56e-03', '4.04e-03', '4.08e-03', '3.24e-03', '2.01e-03', '3.99e-03', '4.42e-03', '5.13e-03', '3.64e-03', '5.88e-03', '3.59e-03', '6.57e-03', '2.37e-03', '6.51e-03', '1.73e-04', '3.48e-03', '2.39e-03', '2.12e-03', '2.04e-03', '2.38e-03', '1.11e-03', '3.15e-03', '2.87e-03', '3.58e-03', '5.73e-03', '4.97e-03', '5.95e-03', '3.43e-03', '3.47e-03', '1.14e-03'] max 6.571e-03
+   app nm0.05 df400:   it  1 app vs py: max |dphase| 1.256e-02 rad, max |d amp| 9.017e-03, max |d complex| 1.256e-02 (max |py| 1.000)
+   app nm0.05 df400:   it  2 app vs py: max |dphase| 9.064e-03 rad, max |d amp| 8.945e-03, max |d complex| 9.064e-03 (max |py| 1.000)
+   app nm0.05 df400:   it  4 app vs py: max |dphase| 6.870e-03 rad, max |d amp| 4.422e-03, max |d complex| 6.870e-03 (max |py| 1.000)
+   app nm0.05 df400:   it  8 app vs py: max |dphase| 1.124e-02 rad, max |d amp| 1.225e-02, max |d complex| 1.310e-02 (max |py| 1.000)
+   app nm0.05 df400:   it 16 app vs py: max |dphase| 3.137e-02 rad, max |d amp| 2.314e-02, max |d complex| 3.065e-02 (max |py| 1.000)
+   app nm0.05 df400:   it 32 app vs py: max |dphase| 2.705e-02 rad, max |d amp| 3.698e-02, max |d complex| 3.840e-02 (max |py| 1.000)
+   app nm0.05 df400:   final object vs py4DSTEM: max |dphase| 2.705e-02 rad, max |d amplitude| 3.698e-02
+  it  1: pearson 0.8971 rms 0.0608 shift ['-0.011', '0.018'] amp_rms 0.0080
+  it  2: pearson 0.9422 rms 0.0354 shift ['-0.010', '0.017'] amp_rms 0.0003
+  it  4: pearson 0.9823 rms 0.0186 shift ['-0.004', '0.007'] amp_rms 0.0008
+  it  8: pearson 0.9873 rms 0.0154 shift ['-0.000', '0.006'] amp_rms 0.0017
+  it 16: pearson 0.9908 rms 0.0140 shift ['-0.012', '0.007'] amp_rms 0.0033
+  it 32: pearson 0.9761 rms 0.0225 shift ['-0.027', '0.025'] amp_rms 0.0067
+   app nm0.02 df400:   it  8: pearson 0.9892 rms 0.0142 shift ['0.000', '0.007'] amp_rms 0.0016
+   app nm0.02 df400:   it 32: pearson 0.9748 rms 0.0229 shift ['-0.027', '0.024'] amp_rms 0.0066
+   app nm0.02 df400:   vs py4DSTEM sweep/py-dm-nm0.02-df400.json: error rel diff per it ['6.19e-07', '3.73e-03', '5.17e-03', '5.04e-03', '3.58e-03', '3.89e-03', '1.57e-03', '3.16e-03', '3.19e-03', '6.81e-03', '4.58e-03', '5.94e-03', '1.80e-03', '5.84e-03', '3.60e-04', '3.96e-03', '9.16e-05', '2.83e-03', '1.85e-03', '2.53e-03', '3.87e-03', '2.78e-03', '2.39e-03', '1.05e-03', '3.65e-04', '8.73e-04', '1.28e-03', '1.67e-03', '1.04e-03', '1.20e-03', '3.97e-04', '1.44e-04'] max 6.810e-03
+   app nm0.02 df400:   it  1 app vs py: max |dphase| 1.256e-02 rad, max |d amp| 1.203e-02, max |d complex| 1.256e-02 (max |py| 1.000)
+   app nm0.02 df400:   it  2 app vs py: max |dphase| 8.245e-03 rad, max |d amp| 4.746e-03, max |d complex| 8.245e-03 (max |py| 1.000)
+   app nm0.02 df400:   it  4 app vs py: max |dphase| 5.457e-03 rad, max |d amp| 2.863e-03, max |d complex| 5.457e-03 (max |py| 1.000)
+   app nm0.02 df400:   it  8 app vs py: max |dphase| 8.363e-03 rad, max |d amp| 4.599e-03, max |d complex| 8.363e-03 (max |py| 1.000)
+   app nm0.02 df400:   it 16 app vs py: max |dphase| 1.404e-02 rad, max |d amp| 1.161e-02, max |d complex| 1.404e-02 (max |py| 1.000)
+   app nm0.02 df400:   it 32 app vs py: max |dphase| 1.725e-02 rad, max |d amp| 1.777e-02, max |d complex| 1.912e-02 (max |py| 1.000)
+   app nm0.02 df400:   final object vs py4DSTEM: max |dphase| 1.725e-02 rad, max |d amplitude| 1.777e-02
+  it  1: pearson 0.8951 rms 0.0764 shift ['-0.011', '0.019'] amp_rms 0.0094
+  it  2: pearson 0.9208 rms 0.0587 shift ['-0.009', '0.016'] amp_rms 0.0130
+  it  4: pearson 0.9452 rms 0.0401 shift ['-0.006', '0.014'] amp_rms 0.0145
+  it  8: pearson 0.9656 rms 0.0273 shift ['-0.002', '0.012'] amp_rms 0.0130
+  it 16: pearson 0.9803 rms 0.0197 shift ['0.000', '0.009'] amp_rms 0.0101
+  it 32: pearson 0.9915 rms 0.0128 shift ['0.001', '0.005'] amp_rms 0.0083
+  it  1: pearson 0.8828 rms 0.0600 shift ['-0.006', '0.037'] amp_rms 0.0630
+  it  2: pearson 0.8068 rms 0.0648 shift ['-0.090', '0.058'] amp_rms 0.3958
+  it  4: pearson 0.3866 rms 0.2658 shift ['-0.059', '-0.128'] amp_rms 0.8781
+  it  8: pearson 0.2038 rms 0.3756 shift ['0.102', '-0.036'] amp_rms 0.2296
+  it 16: pearson 0.1850 rms 0.4086 shift ['0.130', '-0.051'] amp_rms 0.1093
+  it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.5 df600:   it  8: pearson 0.2049 rms 0.3743 shift ['0.110', '-0.020'] amp_rms 0.2271
+   app nm0.5 df600:   it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.5 df600:   vs py4DSTEM sweep/py-dm-nm0.5-df600.json: error rel diff per it ['5.84e-07', '1.46e-04', '1.45e-03', '1.40e-03', '4.78e-04', '1.47e-02', '2.04e-02', '2.51e-02', '2.68e-02', '2.84e-02', '2.80e-02', '2.84e-02', '2.95e-02', '3.02e-02', '3.15e-02', '3.25e-02', '3.36e-02', '3.45e-02', '3.50e-02', '3.68e-02', '3.83e-02', '3.95e-02', '4.13e-02', '4.29e-02', '4.48e-02', '4.68e-02', '4.96e-02', '4.89e-02', '4.89e-02', '4.89e-02', '4.89e-02', '4.89e-02'] max 4.964e-02
+   app nm0.5 df600:   it  1 app vs py: max |dphase| 1.151e-02 rad, max |d amp| 8.933e-03, max |d complex| 1.132e-02 (max |py| 1.000)
+   app nm0.5 df600:   it  2 app vs py: max |dphase| 2.321e-02 rad, max |d amp| 1.167e-02, max |d complex| 1.190e-02 (max |py| 0.813)
+   app nm0.5 df600:   it  4 app vs py: max |dphase| 1.046e-01 rad, max |d amp| 5.939e-03, max |d complex| 6.870e-03 (max |py| 0.256)
+   app nm0.5 df600:   it  8 app vs py: max |dphase| 2.075e-01 rad, max |d amp| 6.346e-02, max |d complex| 6.482e-02 (max |py| 1.000)
+   app nm0.5 df600:   it 16 app vs py: max |dphase| 2.197e-01 rad, max |d amp| 1.590e-01, max |d complex| 1.615e-01 (max |py| 1.000)
+   app nm0.5 df600:   it 32 app vs py: max |dphase| 0.000e+00 rad, max |d amp| 0.000e+00, max |d complex| 0.000e+00 (max |py| 0.000)
+   app nm0.5 df600:   final object vs py4DSTEM: max |dphase| 0.000e+00 rad, max |d amplitude| 0.000e+00
+  it  1: pearson 0.8828 rms 0.0600 shift ['-0.006', '0.037'] amp_rms 0.0017
+  it  2: pearson 0.9210 rms 0.0383 shift ['-0.004', '-0.000'] amp_rms 0.1366
+  it  4: pearson 0.9151 rms 0.0399 shift ['-0.041', '0.050'] amp_rms 0.4030
+  it  8: pearson 0.6505 rms 0.2095 shift ['-0.082', '0.035'] amp_rms 0.0665
+  it 16: pearson 0.6265 rms 0.2181 shift ['-0.076', '0.030'] amp_rms 0.0001
+  it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.2 df600:   it  8: pearson 0.6520 rms 0.2104 shift ['-0.077', '0.037'] amp_rms 0.0667
+   app nm0.2 df600:   it 32: pearson nan rms 0.0000 shift ['0.000', '0.000'] amp_rms 1.0000
+   app nm0.2 df600:   vs py4DSTEM sweep/py-dm-nm0.2-df600.json: error rel diff per it ['5.84e-07', '6.45e-06', '1.10e-03', '1.18e-03', '1.33e-03', '1.85e-03', '7.62e-04', '7.64e-04', '1.01e-03', '1.15e-03', '1.12e-03', '1.10e-03', '1.18e-03', '1.19e-03', '1.16e-03', '9.82e-04', '1.10e-03', '1.04e-03', '1.11e-03', '9.98e-04', '8.55e-04', '9.12e-04', '9.14e-04', '8.64e-04', '8.13e-04', '7.88e-04', '7.74e-04', '7.27e-04', '6.73e-04', '6.07e-04', '2.49e-03', '1.39e-03'] max 2.485e-03
+   app nm0.2 df600:   it  1 app vs py: max |dphase| 1.151e-02 rad, max |d amp| 3.728e-03, max |d complex| 1.151e-02 (max |py| 1.000)
+   app nm0.2 df600:   it  2 app vs py: max |dphase| 8.113e-03 rad, max |d amp| 6.269e-03, max |d complex| 7.228e-03 (max |py| 0.991)
+   app nm0.2 df600:   it  4 app vs py: max |dphase| 1.019e-02 rad, max |d amp| 7.049e-03, max |d complex| 7.430e-03 (max |py| 0.808)
+   app nm0.2 df600:   it  8 app vs py: max |dphase| 5.993e-02 rad, max |d amp| 4.187e-02, max |d complex| 5.268e-02 (max |py| 1.000)
+   app nm0.2 df600:   it 16 app vs py: max |dphase| 7.891e-02 rad, max |d amp| 1.288e-07, max |d complex| 7.889e-02 (max |py| 1.000)
+   app nm0.2 df600:   it 32 app vs py: max |dphase| 0.000e+00 rad, max |d amp| 0.000e+00, max |d complex| 0.000e+00 (max |py| 0.000)
+   app nm0.2 df600:   final object vs py4DSTEM: max |dphase| 0.000e+00 rad, max |d amplitude| 0.000e+00
+  it  1: pearson 0.8828 rms 0.0600 shift ['-0.006', '0.037'] amp_rms 0.0006
+  it  2: pearson 0.9341 rms 0.0361 shift ['0.004', '0.029'] amp_rms 0.0226
+  it  4: pearson 0.9715 rms 0.0231 shift ['0.007', '-0.003'] amp_rms 0.0286
+  it  8: pearson 0.9694 rms 0.0241 shift ['-0.001', '0.036'] amp_rms 0.0431
+  it 16: pearson -0.0452 rms 0.6674 shift ['3.566', '-20.720'] amp_rms 0.7280
+  it 32: pearson 0.0244 rms 1.6407 shift ['-0.395', '-0.177'] amp_rms 0.2931
+   app nm0.1 df600:   it  8: pearson 0.9693 rms 0.0242 shift ['-0.000', '0.035'] amp_rms 0.0437
+   app nm0.1 df600:   it 32: pearson 0.0511 rms 1.7571 shift ['11.045', '-0.422'] amp_rms 0.1430
+   app nm0.1 df600:   vs py4DSTEM sweep/py-dm-nm0.1-df600.json: error rel diff per it ['5.84e-07', '8.61e-05', '1.09e-03', '1.04e-04', '1.89e-05', '1.51e-03', '1.57e-03', '2.32e-03', '3.46e-03', '6.13e-03', '1.09e-02', '2.12e-02', '2.27e-02', '3.69e-02', '1.11e-02', '7.84e-03', '7.56e-02', '4.17e-01', '2.39e-01', '1.84e-01', '1.90e-01', '1.46e-01', '4.49e-01', '1.88e+00', '2.67e+00', '2.96e+00', '3.93e+00', '3.78e+00', '3.94e+00', '3.93e+00', '3.91e+00', '3.87e+00'] max 3.943e+00
+   app nm0.1 df600:   it  1 app vs py: max |dphase| 1.151e-02 rad, max |d amp| 3.561e-03, max |d complex| 1.151e-02 (max |py| 1.000)
+   app nm0.1 df600:   it  2 app vs py: max |dphase| 6.851e-03 rad, max |d amp| 6.678e-03, max |d complex| 7.375e-03 (max |py| 1.000)
+   app nm0.1 df600:   it  4 app vs py: max |dphase| 6.218e-03 rad, max |d amp| 4.569e-03, max |d complex| 6.265e-03 (max |py| 1.000)
+   app nm0.1 df600:   it  8 app vs py: max |dphase| 9.745e-03 rad, max |d amp| 8.176e-03, max |d complex| 1.030e-02 (max |py| 1.000)
+   app nm0.1 df600:   it 16 app vs py: max |dphase| 3.108e+00 rad, max |d amp| 2.661e-01, max |d complex| 3.479e-01 (max |py| 0.783)
+   app nm0.1 df600:   it 32 app vs py: max |dphase| 3.139e+00 rad, max |d amp| 9.852e-01, max |d complex| 2.000e+00 (max |py| 1.000)
+   app nm0.1 df600:   final object vs py4DSTEM: max |dphase| 3.139e+00 rad, max |d amplitude| 9.852e-01
+  it  1: pearson 0.8828 rms 0.0600 shift ['-0.006', '0.037'] amp_rms 0.0019
+  it  2: pearson 0.9392 rms 0.0353 shift ['-0.002', '0.020'] amp_rms 0.0022
+  it  4: pearson 0.9836 rms 0.0177 shift ['0.003', '-0.010'] amp_rms 0.0047
+  it  8: pearson 0.9848 rms 0.0170 shift ['-0.002', '0.012'] amp_rms 0.0021
+  it 16: pearson 0.9810 rms 0.0211 shift ['0.001', '-0.010'] amp_rms 0.0054
+  it 32: pearson 0.9424 rms 0.0353 shift ['0.015', '0.009'] amp_rms 0.0136
+   app nm0.05 df600:   it  8: pearson 0.9850 rms 0.0170 shift ['-0.003', '0.013'] amp_rms 0.0021
+   app nm0.05 df600:   it 32: pearson 0.9433 rms 0.0351 shift ['0.011', '0.013'] amp_rms 0.0135
+   app nm0.05 df600:   vs py4DSTEM sweep/py-dm-nm0.05-df600.json: error rel diff per it ['5.84e-07', '5.76e-04', '1.51e-03', '2.55e-05', '1.18e-06', '3.86e-04', '5.48e-04', '1.51e-04', '5.12e-04', '1.07e-03', '8.20e-04', '1.26e-03', '3.99e-04', '1.12e-03', '6.28e-04', '2.28e-04', '6.83e-04', '4.92e-04', '6.08e-04', '5.00e-04', '4.79e-04', '2.51e-04', '1.29e-03', '1.76e-03', '1.25e-03', '1.30e-03', '1.48e-03', '8.32e-04', '6.02e-04', '1.23e-04', '1.36e-04', '8.28e-04'] max 1.764e-03
+   app nm0.05 df600:   it  1 app vs py: max |dphase| 1.151e-02 rad, max |d amp| 6.130e-03, max |d complex| 1.151e-02 (max |py| 1.000)
+   app nm0.05 df600:   it  2 app vs py: max |dphase| 6.841e-03 rad, max |d amp| 4.738e-03, max |d complex| 6.841e-03 (max |py| 1.000)
+   app nm0.05 df600:   it  4 app vs py: max |dphase| 4.572e-03 rad, max |d amp| 3.813e-03, max |d complex| 4.572e-03 (max |py| 1.000)
+   app nm0.05 df600:   it  8 app vs py: max |dphase| 5.341e-03 rad, max |d amp| 5.440e-03, max |d complex| 5.991e-03 (max |py| 1.000)
+   app nm0.05 df600:   it 16 app vs py: max |dphase| 1.300e-02 rad, max |d amp| 1.225e-02, max |d complex| 1.356e-02 (max |py| 1.000)
+   app nm0.05 df600:   it 32 app vs py: max |dphase| 3.829e-02 rad, max |d amp| 2.631e-02, max |d complex| 4.086e-02 (max |py| 1.000)
+   app nm0.05 df600:   final object vs py4DSTEM: max |dphase| 3.829e-02 rad, max |d amplitude| 2.631e-02
+  it  1: pearson 0.8828 rms 0.0600 shift ['-0.006', '0.037'] amp_rms 0.0076
+  it  2: pearson 0.9420 rms 0.0352 shift ['-0.001', '0.021'] amp_rms 0.0002
+  it  4: pearson 0.9875 rms 0.0156 shift ['0.002', '0.002'] amp_rms 0.0018
+  it  8: pearson 0.9919 rms 0.0124 shift ['0.002', '-0.004'] amp_rms 0.0008
+  it 16: pearson 0.9911 rms 0.0150 shift ['-0.002', '0.003'] amp_rms 0.0028
+  it 32: pearson 0.9767 rms 0.0242 shift ['0.009', '0.021'] amp_rms 0.0087
+   app nm0.02 df600:   it  8: pearson 0.9918 rms 0.0124 shift ['0.002', '-0.004'] amp_rms 0.0007
+   app nm0.02 df600:   it 32: pearson 0.9775 rms 0.0238 shift ['0.007', '0.020'] amp_rms 0.0086
+   app nm0.02 df600:   vs py4DSTEM sweep/py-dm-nm0.02-df600.json: error rel diff per it ['5.84e-07', '7.27e-04', '1.18e-03', '2.81e-04', '6.02e-04', '2.00e-04', '3.72e-04', '1.02e-03', '6.08e-04', '7.47e-04', '2.28e-03', '1.19e-03', '4.45e-04', '9.57e-04', '7.75e-04', '1.44e-03', '1.91e-03', '1.39e-04', '8.03e-04', '1.11e-03', '1.61e-03', '1.75e-03', '1.55e-03', '1.79e-04', '4.97e-04', '4.68e-04', '1.04e-04', '3.78e-06', '3.88e-04', '6.50e-04', '1.50e-03', '2.12e-03'] max 2.279e-03
+   app nm0.02 df600:   it  1 app vs py: max |dphase| 1.151e-02 rad, max |d amp| 8.423e-03, max |d complex| 1.181e-02 (max |py| 1.000)
+   app nm0.02 df600:   it  2 app vs py: max |dphase| 6.913e-03 rad, max |d amp| 2.141e-03, max |d complex| 6.913e-03 (max |py| 1.000)
+   app nm0.02 df600:   it  4 app vs py: max |dphase| 3.161e-03 rad, max |d amp| 3.081e-03, max |d complex| 3.185e-03 (max |py| 1.000)
+   app nm0.02 df600:   it  8 app vs py: max |dphase| 5.185e-03 rad, max |d amp| 2.102e-03, max |d complex| 5.185e-03 (max |py| 1.000)
+   app nm0.02 df600:   it 16 app vs py: max |dphase| 8.751e-03 rad, max |d amp| 8.267e-03, max |d complex| 9.203e-03 (max |py| 1.000)
+   app nm0.02 df600:   it 32 app vs py: max |dphase| 2.024e-02 rad, max |d amp| 1.611e-02, max |d complex| 2.024e-02 (max |py| 1.000)
+   app nm0.02 df600:   final object vs py4DSTEM: max |dphase| 2.024e-02 rad, max |d amplitude| 1.611e-02
+  it  1: pearson 0.8817 rms 0.0756 shift ['-0.006', '0.038'] amp_rms 0.0093
+  it  2: pearson 0.9138 rms 0.0582 shift ['-0.003', '0.032'] amp_rms 0.0125
+  it  4: pearson 0.9425 rms 0.0401 shift ['0.001', '0.024'] amp_rms 0.0141
+  it  8: pearson 0.9659 rms 0.0271 shift ['0.003', '0.016'] amp_rms 0.0133
+  it 16: pearson 0.9813 rms 0.0192 shift ['0.003', '0.009'] amp_rms 0.0106
+  it 32: pearson 0.9914 rms 0.0128 shift ['0.002', '0.004'] amp_rms 0.0086
