@@ -30,10 +30,16 @@ package enum SystemMonitor {
         Double(MetalEngine.shared.device.recommendedMaxWorkingSetSize) / 1_048_576
     }
 
+    /// The GPU working-set limit as text, in the app's one byte style.
+    package static var gpuWorkingSetText: String {
+        byteString(Int(MetalEngine.shared.device.recommendedMaxWorkingSetSize))
+    }
+
     /// Format a byte count as MB or GB.
     package nonisolated static func byteString(_ bytes: Int) -> String {
-        let mb = Double(bytes) / 1_048_576
-        return mb >= 1024 ? String(format: "%.2f GB", mb / 1024) : String(format: "%.0f MB", mb)
+        // One style app-wide: Finder's decimal one (`displayByteString`), so
+        // the sidebar's "Resident" reads like the sheet's and the inspector's.
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 
     /// Status line for a whole-cube pass, in the two quantities a user can

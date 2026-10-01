@@ -370,7 +370,7 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         var rotationDetail: String
         if let rotation = calibration.rotationRad, rotation.isFinite {
             rotationDetail = String(
-                format: "%.1f°%@", RQRotationConvention.displayDegrees(fromApp: rotation),
+                format: "%@%@", RQRotationConvention.displayText(fromApp: rotation),
                 (calibration.transposeQR ?? false) ? " · transposed" : ""
             )
         } else {

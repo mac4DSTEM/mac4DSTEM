@@ -52,4 +52,18 @@ package enum RQRotationConvention {
     package nonisolated static func displayDegrees(fromApp appRad: Float) -> Double {
         py4DSTEM(fromApp: Double(appRad)) * 180 / .pi
     }
+
+    /// A rotation in degrees as printed: a value that rounds to zero at
+    /// `decimals` prints "0.0", never "-0.0" (the py4DSTEM sign flip turns
+    /// +0 into -0, and a tiny negative angle rounds to it). Display only.
+    package nonisolated static func degreesText(_ degrees: Double, decimals: Int = 1) -> String {
+        let text = String(format: "%.\(decimals)f", degrees)
+        let isZero = !text.contains { "123456789".contains($0) }
+        return (isZero ? String(format: "%.\(decimals)f", 0.0) : text) + "°"
+    }
+
+    /// `degreesText` for the app's internal angle, in py4DSTEM's sign.
+    package nonisolated static func displayText(fromApp appRad: Float, decimals: Int = 1) -> String {
+        degreesText(displayDegrees(fromApp: appRad), decimals: decimals)
+    }
 }

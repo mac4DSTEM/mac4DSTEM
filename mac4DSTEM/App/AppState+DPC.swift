@@ -100,8 +100,7 @@ extension AppState {
         // angle, so the display re-derives on the same one rule.
         applyStrainDisplay()
         if applyDPCDisplay() == nil {
-            statusText = String(format: "Rotation flipped → θ = %.1f°",
-                                RQRotationConvention.displayDegrees(fromApp: rotation))
+            statusText = "Rotation flipped → θ = " + RQRotationConvention.displayText(fromApp: rotation)
         }
     }
 

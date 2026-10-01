@@ -311,7 +311,7 @@ struct PrepareSettings: View {
                 let transposed = (calibration.transposeQR ?? false) ? " ⊤" : ""
                 InspectorValueRow(
                     "R–Q rotation",
-                    String(format: "%.1f°%@", RQRotationConvention.displayDegrees(fromApp: rotation), transposed)
+                    RQRotationConvention.displayText(fromApp: rotation) + transposed
                 )
                 InspectorActionRow {
                     Button {

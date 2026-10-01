@@ -167,7 +167,7 @@ private struct LineagePane: View {
                         HStack(alignment: .firstTextBaseline, spacing: LayoutPolicy.inspectorRowSpacing) {
                             Text(ProvenanceKeyLabel.text(entry.key)).foregroundStyle(.secondary)
                                 .help(entry.key)
-                            Text(entry.value).textSelection(.enabled)
+                            Text(ProvenanceValueText.display(entry.value)).textSelection(.enabled).help(entry.value)
                             Spacer(minLength: 0)
                         }
                         .font(.caption.monospaced())
@@ -201,7 +201,37 @@ enum ProvenanceKeyLabel {
                 return "Positions: " + rest[rest.index(after: underscore)...]
             }
         }
-        let spaced = key.replacingOccurrences(of: "_", with: " ")
-        return spaced.prefix(1).uppercased() + spaced.dropFirst()
+        var stem = key
+        var unit = ""
+        for (suffix, symbol) in unitSuffixes where stem.hasSuffix(suffix) {
+            stem = String(stem.dropLast(suffix.count))
+            unit = " (\(symbol))"
+            break
+        }
+        let spaced = stem.replacingOccurrences(of: "_", with: " ")
+        return spaced.prefix(1).uppercased() + spaced.dropFirst() + unit
+    }
+
+    /// Unit words at the end of a key, longest first, as the symbol a reader
+    /// expects: `probe_defocus_angstrom` reads "Probe defocus (Å)".
+    static let unitSuffixes: [(String, String)] = [
+        ("_angstrom_cubed", "Å³"), ("_inv_angstrom", "Å⁻¹"), ("_inv_a", "Å⁻¹"),
+        ("_angstrom", "Å"), ("_mrad", "mrad"), ("_nm", "nm"), ("_deg", "°"), ("_rad", "rad"),
+        ("_px", "px"),
+    ]
+}
+
+/// A provenance value as a person reads it: a long decimal (`10.056641535141353`)
+/// prints at 5 significant figures; anything short, non-numeric or outside
+/// 0.001–99999 is left as written. Display only: the stored value and the
+/// row's help text stay exact.
+enum ProvenanceValueText {
+    static func display(_ raw: String) -> String {
+        let digits = raw.filter(\.isNumber).count
+        guard digits > 7, !raw.contains("e"), !raw.contains("E"),
+              let number = Double(raw), number.isFinite else { return raw }
+        let magnitude = abs(number)
+        guard magnitude >= 0.001, magnitude < 100_000 else { return raw }
+        return String(format: "%.5g", number)
     }
 }
