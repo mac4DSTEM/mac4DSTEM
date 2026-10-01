@@ -35,7 +35,7 @@ final class DetectorTrainingFlowTests: XCTestCase {
         let counts = TrainingPolicy.counts(of: grid)
         XCTAssertEqual(counts, TrainingPolicy.SplitCounts(train: 275, heldOut: 125))
         XCTAssertEqual(counts.labelled, 400)
-        XCTAssertEqual(TrainingPolicy.splitRowText(counts), "Train 275 · Held out 125")
+        XCTAssertEqual(TrainingPolicy.splitRowText(counts), "275 train · 125 held out")
         // a duplicate position is one position
         XCTAssertEqual(TrainingPolicy.counts(of: grid + grid), counts)
         XCTAssertEqual(TrainingPolicy.counts(of: []), TrainingPolicy.SplitCounts(train: 0, heldOut: 0))

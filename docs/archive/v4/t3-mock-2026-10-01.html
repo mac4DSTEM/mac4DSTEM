@@ -1,0 +1,94 @@
+<!doctype html><meta charset="utf-8"><title>T3 training room mock</title>
+<style>
+body{font:13px -apple-system,system-ui,sans-serif;background:#ececec;color:#1d1d1f;margin:24px}
+h1{font-size:17px}h2{font-size:14px;margin:0 0 6px}
+.states{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.state{width:300px}.cap{font-size:12px;color:#555;margin:0 0 8px;min-height:48px}
+.insp{background:#f6f6f6;border:1px solid #d0d0d0;border-radius:8px;padding:8px 12px}
+.sec{font-weight:600;font-size:12px;color:#444;margin:8px 0 4px;display:flex;gap:4px}
+.sec.c{color:#777}
+.row{display:flex;justify-content:space-between;align-items:center;min-height:24px;gap:8px}
+.row .v{color:#555}.row .ctl{font-size:12px}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.b{border:1px solid #c4c4c4;background:#fff;border-radius:6px;padding:2px 8px;font-size:12px}
+.b.off{color:#aaa}.new{outline:2px dashed #0a7aff;outline-offset:1px}
+.warn{color:#d97a00;font-size:11px;margin:3px 0}.note{color:#777;font-size:11px;margin:3px 0}
+.chg{background:#e8f1ff;border-left:3px solid #0a7aff;padding:1px 4px}
+.sheet{background:#fff;border:1px solid #bbb;border-radius:12px;padding:16px;width:300px;box-shadow:0 6px 18px #0003}
+table{border-collapse:collapse}td{padding:3px 14px 3px 0;vertical-align:top}.sm{font-size:11px;color:#666}
+.legend{margin:10px 0;font-size:12px}.legend span{display:inline-block;padding:1px 6px;margin-right:10px}
+.mono{font-family:ui-monospace,monospace;font-size:11px;color:#666}
+.alert{background:#fff;border:1px solid #bbb;border-radius:12px;padding:14px;margin-top:10px;font-size:12px}
+</style>
+<h1>T3 — the training room (Bragg Disks inspector, Settings tab): today plus four changes</h1>
+<div class="legend"><span class="chg">blue bar = wording changed</span><span class="b new">dashed = new control</span> Everything else is today's text from <code>UI/MapSettings.swift</code>, <code>UI/DetectorTrainingViews.swift</code>. Light theme, inspector column ≈ 300 pt.</div>
+<div class="states">
+
+<div class="state"><h2>A · Today, labels present, ring probe</h2>
+<p class="cap">Sections in order: Probe kernel → Disk detection → Advanced (collapsed) → Training labels (collapsed by default). Hint (lane TH) sits in Probe kernel, one section above.</p>
+<div class="insp">
+<div class="sec">▾ Probe kernel</div>
+<div class="row"><span>Kernel source</span><span class="b">Synthetic ⌄</span></div>
+<div class="warn">◌ Ring-shaped probe: its outer edge is at 10 px (now 6.8 px)</div>
+<div class="btns"><span class="b">◌ Use 10 px</span></div>
+<div class="btns"><span class="b">Build Kernel</span></div>
+<div class="sec">▸ Disk detection …</div>
+<div class="sec c">▸ Advanced …</div>
+<div class="sec">▾ Training labels</div>
+<div class="row"><span>Label centres on click</span><span>◯ on</span></div>
+<div class="row"><span>This position</span><span class="v">8 centres</span></div>
+<div class="row"><span>Labelled</span><span class="v">40 positions · 370 centres</span></div>
+<div class="btns"><span class="b">Clear This Position</span><span class="b">Save to Sidecar</span><span class="b">Export Labels…</span></div>
+<div class="row"><span>Split</span><span class="v">Train 23 · Held out 17</span></div>
+<div class="btns"><span class="b">🧠 Train Model…</span></div>
+</div></div>
+
+<div class="state"><h2>B · Proposed: Import beside Export, split reworded</h2>
+<p class="cap">One new button, one reworded value. Hint is NOT repeated here; Train Model's radius is the same one the hint sets. Split text: “23 train · 17 held out”.</p>
+<div class="insp">
+<div class="sec">▾ Training labels</div>
+<div class="row"><span>Label centres on click</span><span>◯ off</span></div>
+<div class="row"><span>This position</span><span class="v">0 centres</span></div>
+<div class="row"><span>Labelled</span><span class="v">40 positions · 370 centres</span></div>
+<div class="btns"><span class="b">Clear This Position</span><span class="b">Save to Sidecar</span></div>
+<div class="btns"><span class="b new">Import Labels…</span><span class="b">Export Labels…</span></div>
+<div class="row chg"><span>Split</span><span class="v">23 train · 17 held out</span></div>
+<div class="btns"><span class="b">🧠 Train Model…</span></div>
+</div>
+<div class="alert"><b>Open panel → choose a .json</b> (same file Export writes: <span class="mono">{cube, dataset, ingredient, frame:"native", seed, positions[], sha256}</span>).
+<hr><b>If it does not fit</b> nothing changes; one orange line in the status bar / note under the buttons:<br>
+<div class="warn">⚠ These labels were clicked on bullseye.h5, not sim_Au.h5. Nothing imported.</div>
+<div class="warn">⚠ 3 of 52 positions lie outside this 16 × 16 scan. Nothing imported.</div>
+<div class="warn">⚠ The file could not be read: not a disk-centre labels file.</div>
+<span class="sm">Fits → <b>replaces</b> the current labels (Undo not offered; Export first) and the status bar says “Imported 40 positions · 370 centres”.</span></div>
+</div></div>
+
+<div class="state"><h2>C · Which positions are held out (scan map)</h2>
+<p class="cap">Option, see notes Q2. Default: no map overlay (the Split row's help says the rule). If wanted: labelled positions drawn on the real-space pane while Label-centres is on.</p>
+<div class="insp">
+<div style="display:grid;grid-template-columns:repeat(16,14px);gap:1px;margin:6px auto;width:max-content" id="g"></div>
+<div class="sm">● train (23) &nbsp; ○ held out (17) &nbsp; · unlabelled</div></div>
+<script>
+const g=document.getElementById('g');for(let i=0;i<256;i++){const c=document.createElement('div');c.style.cssText='height:14px;font-size:10px;text-align:center;line-height:14px;background:#fff';
+const h=(i*2654435761>>>0)%100;if(h<15)c.textContent=h<5?'○':'●',c.style.color=h<5?'#d97a00':'#0a7aff';else c.textContent='·',c.style.color='#ccc';g.appendChild(c)}</script>
+</div>
+</div>
+
+<h2 style="margin-top:26px">D · Review sheet after training (today's, unchanged)</h2>
+<p class="cap" style="min-height:0">Opens by itself as a sheet over the window when a run finishes (<code>MapSettings.swift:50-58</code>); fixed width = inspector max. Return = Keep Current Model. Offer case left, decline case right.</p>
+<div class="states">
+<div class="sheet"><b style="font-size:15px">Fine-Tuned Model</b>
+<table style="margin-top:10px"><tr><td></td><td><b>Active</b><div class="mono">a3f1c9d2</div></td><td><b>Fine-tuned</b><div class="mono">7be04a11</div></td></tr>
+<tr><td>Recall</td><td>66.2 %<div class="sm">102 of 154</div></td><td>70.1 %<div class="sm">108 of 154</div></td></tr>
+<tr><td>Precision</td><td>82.9 %<div class="sm">102 of 123</div></td><td>80.0 %<div class="sm">108 of 135</div></td></tr></table>
+<p class="sm">Judged on 17 held-out positions of bullseye.h5: 154 disk centres, match radius 2 px, threshold 0.70, detected on the Neural Engine. Trained on 23 other positions; the held-out positions never trained it, and they neighbour the training positions, so this holds for this dataset only.</p>
+<div style="font-size:13px">✓ At least as good on recall and precision, and better on one.</div>
+<div style="text-align:right;margin-top:10px"><span class="b" style="border-color:#0a7aff">Keep Current Model</span> <span class="b">Use Fine-Tuned Model</span></div></div>
+<div class="sheet"><b style="font-size:15px">Fine-Tuned Model</b>
+<table style="margin-top:10px"><tr><td></td><td><b>Active</b><div class="mono">a3f1c9d2</div></td><td><b>Fine-tuned</b><div class="mono">7be04a11</div></td></tr>
+<tr><td>Recall</td><td>66.2 %<div class="sm">102 of 154</div></td><td>70.1 %<div class="sm">108 of 154</div></td></tr>
+<tr><td>Precision</td><td>82.9 %<div class="sm">102 of 123</div></td><td>80.0 %<div class="sm">108 of 135</div></td></tr></table>
+<p class="sm">(same “Judged on …” badge)</p>
+<div class="warn">⚠ Precision fell (82.9 % → 80.0 %); not offered. <i>(wording illustrative: the real string comes from TrainingPolicy)</i></div>
+<div style="text-align:right;margin-top:10px"><span class="b" style="border-color:#0a7aff">Keep Current Model</span></div></div>
+</div>

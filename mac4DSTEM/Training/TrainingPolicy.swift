@@ -27,9 +27,9 @@ package nonisolated enum TrainingPolicy {
         return SplitCounts(train: split.train.count, heldOut: split.heldOut.count)
     }
 
-    /// The split row's value: "Train 28 · Held out 12".
+    /// The split row's value: "28 train · 12 held out".
     package static func splitRowText(_ counts: SplitCounts) -> String {
-        "Train \(counts.train) · Held out \(counts.heldOut)"
+        "\(counts.train) train · \(counts.heldOut) held out"
     }
 
     /// Why training is not allowed yet, or nil when it is. The held-out gate comes first: with too few

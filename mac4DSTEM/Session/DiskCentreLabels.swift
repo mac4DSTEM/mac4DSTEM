@@ -176,6 +176,7 @@ package final class DiskCentreLabelStore {
         ingredient = "app"
         seed = 0
         positions = []
+        importRefusal = nil
     }
 
     package enum LabelError: LocalizedError {
@@ -267,6 +268,39 @@ package final class DiskCentreLabelStore {
         ingredient = decoded.ingredient
         seed = decoded.seed
         positions = decoded.positions
+    }
+
+    /// Why the last "Import Labels…" was refused — ONE line the room shows as an `InspectorWarning`
+    /// (T3, owner 2026-10-01: not an alert). Owned here with the labels; cleared by a successful import
+    /// and by `reset`.
+    package private(set) var importRefusal: String?
+
+    /// "Import Labels…": REPLACE every label with the file's (owner 2026-10-01, answer 1a), but only when
+    /// the file's cube path is `filePath` AND every position lies inside the `scanY` × `scanX` scan.
+    /// A refusal changes nothing and sets `importRefusal`.
+    @discardableResult
+    package func importLabels(from data: Data, fileName: String, expecting filePath: String,
+                              scanY: Int, scanX: Int) -> Bool {
+        do {
+            let decoded = try Self.decode(data)
+            guard decoded.filePath == filePath else {
+                importRefusal = "\(fileName) labels another dataset (\(URL(fileURLWithPath: decoded.filePath).lastPathComponent)), not this one — nothing imported."
+                return false
+            }
+            if let bad = decoded.positions.first(where: { $0.ry < 0 || $0.rx < 0 || $0.ry >= scanY || $0.rx >= scanX }) {
+                importRefusal = "\(fileName) has a position (\(bad.ry), \(bad.rx)) outside this \(scanY) × \(scanX) scan — nothing imported."
+                return false
+            }
+            datasetPath = decoded.datasetPath
+            ingredient = decoded.ingredient
+            seed = decoded.seed
+            positions = decoded.positions
+            importRefusal = nil
+            return true
+        } catch {
+            importRefusal = "\(fileName): \(error.localizedDescription) — nothing imported."
+            return false
+        }
     }
 
     /// Write the current labels to `<datasetName>-centres-<stamp>.json` under

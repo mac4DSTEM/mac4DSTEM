@@ -13,6 +13,9 @@
     "CL": "a — amplitude clamp on by default (Gate D before/after first)",
     "Q1b": "c — measure >= 3 healthy cubes first, nothing else now",
     "T1-file-probe-run": "the assistant runs it headless",
-    "T1-kernel-default": "c — offer, don't switch: no default moves; on a ring-structured probe the room shows a hint with the outer-edge number and a one-click 'Use N px' (advisor's pick)"
+    "T1-kernel-default": "c — offer, don't switch: no default moves; on a ring-structured probe the room shows a hint with the outer-edge number and a one-click 'Use N px' (advisor's pick)",
+    "T3-mock": "a a a a — Import replaces labels; no held-out map overlay; no second ring hint; a mismatch is one orange line",
+    "R4-higher-order-toggle": "remove it",
+    "R4-regularize_shifts": "not answered — stays out (ADR 049 freeze)"
   }
 }

@@ -471,7 +471,17 @@ private struct DiskCentreLabelsRows: View {
             }
             .disabled(labels.isEmpty)
             .accessibilityIdentifier("disk.labels.export")
+
+            InspectorAdaptiveButton(
+                "Import Labels…", systemImage: "square.and.arrow.down.on.square",
+                help: "Read a labels file (the JSON Export Labels… writes) and REPLACE the current labels with it. Refused, changing nothing, if the file labels another dataset or a position lies outside this scan."
+            ) {
+                appState.importDiskCentreLabels()
+            }
+            .disabled(appState.descriptor == nil)
+            .accessibilityIdentifier("disk.labels.import")
         }
+        if let refusal = labels.importRefusal { InspectorWarning(refusal) }
 
         // Fine-tune the neural net on these labels (C4b, ADR 048): the split is by a hash of the scan
         // position, so new labels never move a position; the model is judged on the held-out ones.
