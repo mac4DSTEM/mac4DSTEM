@@ -118,6 +118,7 @@ parallax/ptychography cost, the 28 GB parity run). Three lanes may run at once (
 - [ ] **Slot 2 — T1 the kernel question · R2+R3 difference map and ground truth · X1+X2 preprocessing** (lanes T, R, X).
 - [ ] **Slot 3 — T2 training effectiveness · R4+R5 parallax residuals and drive · X3 + K1 mocks** for the owner's picture.
 - [ ] **Slot 4 — F the review's findings · K2+K3 the toggle built and driven · T3 the training room.**
+- [ ] **Slot 4½ — Polish before release** (owner, 2026-10-01): one full drive of every room on real data (Prepare → Imaging → Bragg Disks → Crystal Maps → Reconstruction → Results, the new Keep in memory and Preprocess Raw Data… included) on a scratch build of one commit, every shot reviewed; the defects it finds and the open polish items fixed as one batch; then `run-tests.sh all` on that commit. Nothing new is added; a defect that needs science goes to its own Gate D or is labelled.
 - [ ] **Slot 5 — Z release v4.1.0** (`docs/releasing.md`; the new Mac needs a fresh notary password).
 
 ## After v4.1 — frozen until the owner reopens one
