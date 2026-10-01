@@ -378,11 +378,16 @@ final class AppState {
         kind: String, displayName: String, valueUnits: String, payload: ProductPayload,
         validityMask: [Bool]? = nil, qualityFields: [ProductQualityField] = [],
         overlays: [ProductOverlayDescriptor] = [],
-        domain: ProductDomain? = nil, sampling: ProductSampling? = nil, extraProvenance: [String: String] = [:]
+        domain: ProductDomain? = nil, sampling: ProductSampling? = nil, extraProvenance: [String: String] = [:],
+        ownProvenanceOnly: Bool = false
     ) {
         let persisted = currentScalarPersistenceMetadata
         let domain = domain ?? activeResultDomain
-        var provenance = persisted.provenance.merging(extraProvenance) { _, new in new }
+        // FC2 item 1: a site that decides its whole provenance (the virtual detector) must not
+        // pick up the CURRENT mode's keys: replay, lineage rewind and the opening pass publish
+        // under whatever mode is current, and the executor never switches it.
+        var provenance = (ownProvenanceOnly ? [:] : persisted.provenance)
+            .merging(extraProvenance) { _, new in new }
         // The run that made this product (ADR 047 R2), when the session recorded
         // one — how a displayed or saved map finds its node in the graph.
         if let lineageKind = SessionLineage.lineageKind(forProductKind: kind),

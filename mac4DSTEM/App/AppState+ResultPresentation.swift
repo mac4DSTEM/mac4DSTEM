@@ -211,6 +211,9 @@ extension AppState {
 
         let ap = aperture
         let shapeMode = resultPresentation.virtualShape
+        // FC2 item 3: runs are numbered at start; an older run never lands over a newer one
+        // that already landed (commit after a newer quiet drag). Owner: ResultPresentation.
+        let generation = resultPresentation.nextVDGeneration()
         let d = descriptor
         let maximumTileRows = virtualDetectorProgressTileRows(for: d)
         do {
@@ -301,6 +304,7 @@ extension AppState {
             if quiet, ap != aperture || shapeMode != resultPresentation.virtualShape {
                 return .cancelled
             }
+            guard resultPresentation.claimVDLanding(generation) else { return .cancelled }
             resultPresentation.resultColormap = .viridis
             scanNavigationImage = image
             bumpScanNavigationVersion()
@@ -319,7 +323,8 @@ extension AppState {
                 // analysis_mode is pinned to this product's own mode; it cannot remove stray
                 // keys the CURRENT mode's metadata adds (replay/rewind/opening paths: separate item).
                 extraProvenance: ["analysis_mode": AnalysisMode.virtualDetector.rawValue,
-                                  "quantitative_status": "relative", "virtual_shape": shapeMode.rawValue])
+                                  "quantitative_status": "relative", "virtual_shape": shapeMode.rawValue],
+                ownProvenanceOnly: true)
             if !quiet {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
             }

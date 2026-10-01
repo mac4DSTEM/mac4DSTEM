@@ -128,12 +128,11 @@ One line each; full wording as above.
 - Display residuals after P2 (2026-10-01): the strip's size glance (`LayoutPolicy.glance`, frozen) is 1024-based and its comment
   wrongly calls `displayByteString` 1024-based; the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube); Info › Preview
   "Real space" black on graphene (undiagnosed); `ReconstructionSettings`/`AppState+PhaseContrast` angles still print "−0.0°" (adopt `degreesText`).
-- Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) replay, lineage
+- Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; disk, strain, ACOM and DPC steps still take the current mode's keys] replay, lineage
   rewind and the opening pass publish through `publishProduct`, which keys provenance by `navigation.analysisMode`; the executor
   never switches mode, so a replayed virtual_detector step run under `.disks` carries `source_product=bragg_vector_map` (fixture:
   record a VD step, change mode, replay). (2) `learned_model_sha256` / `learned_model_*` are read live at record time
-  (`LearnedDetection.replayParameters`); a model swap during Detect All would record the new hash for an old-model run. (3) A commit
-  run landing after a newer quiet drag still overwrites it — the mirror of the row-25 race; the guard is quiet-only.
+  (`LearnedDetection.replayParameters`); a model swap during Detect All would record the new hash for an old-model run. (3) fixed 2026-10-01 (lane FC2: VD runs numbered at start; an older run never lands over a newer one).
 
 ## Polish — the Session queue's rooms (S3–S6)
 

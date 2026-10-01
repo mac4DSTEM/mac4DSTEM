@@ -66,6 +66,16 @@ package final class ResultPresentation {
     // pass is in flight; the pending bit requests one latest-state rerun.
     @ObservationIgnored package var vdInFlight = false
     @ObservationIgnored package var vdPending = false
+    /// FC2 item 3: virtual-detector runs are numbered at start; a run may land only if no
+    /// newer-started run has already landed.
+    @ObservationIgnored private var vdStartedGeneration = 0
+    @ObservationIgnored private var vdLandedGeneration = 0
+    package func nextVDGeneration() -> Int { vdStartedGeneration += 1; return vdStartedGeneration }
+    package func claimVDLanding(_ generation: Int) -> Bool {
+        guard generation >= vdLandedGeneration else { return false }
+        vdLandedGeneration = generation
+        return true
+    }
     @ObservationIgnored package var patternInFlight = false
     @ObservationIgnored package var patternPending = false
     @ObservationIgnored package var vdiffInFlight = false
