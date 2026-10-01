@@ -249,6 +249,12 @@ final class PtychographyProbeTests: XCTestCase {
         XCTAssertTrue(state.statusText.contains("defocus -663.6 Å"), state.statusText)
         XCTAssertTrue(state.statusText.contains("fit rotation -0.10°"), state.statusText)
         XCTAssertTrue(state.statusText.contains("calibrated rotation 0.00°"), state.statusText)
+        XCTAssertTrue(state.statusText.contains("0.10° apart"), state.statusText)
+        // A calibration on the other branch reads as such (wrapped, not 359.90°): the 2026-10-01 drive saw the old fixed
+        // "180° apart, flip the defocus sign" printed for two rotations 0.10° apart.
+        state.calibrationSession.calibration.rotationRad = Float.pi
+        state.usePtychographyProbeFromParallaxFit()
+        XCTAssertTrue(state.statusText.contains("179.90° apart"), state.statusText)
     }
 
     // MARK: - The section fits the inspector
