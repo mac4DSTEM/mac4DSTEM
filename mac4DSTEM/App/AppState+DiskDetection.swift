@@ -36,6 +36,19 @@ extension AppState {
         return calibrationSession.calibration.probeRadius
     }
 
+    /// The user's click on the ring-shaped-probe hint (`ProbeRingHint`): the
+    /// probe radius becomes `radius`, recorded as a manual value like any
+    /// other, and a synthetic kernel already built is rebuilt at it. The
+    /// learned path takes its radius from that kernel's reference. Nothing
+    /// calls this but the click; no default moves.
+    func useProbeRadius(_ radius: Float) async {
+        guard radius.isFinite, radius > 0 else { return }
+        calibrationSession.calibration.probeRadius = radius
+        calibrationSession.provenance.probe = .manual
+        refreshDiskDefaultsForMeasuredProbe()
+        if probeKernel?.source == .synthetic { await generateProbeKernel() }
+    }
+
     /// Build the synthetic probe kernel from the calibrated probe radius,
     /// running origin calibration first if needed.
     func generateProbeKernel() async {

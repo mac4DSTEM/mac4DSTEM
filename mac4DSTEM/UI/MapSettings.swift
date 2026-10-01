@@ -132,6 +132,10 @@ private struct DiskDetectionRows: View {
     /// The picked kernel source (see `KernelSource`). Synthetic by default —
     /// the old first button, "Generate Probe Kernel".
     @State private var kernelSource: KernelSource = .synthetic
+    /// The ring-shaped-probe hint (`ProbeRingHint`): DERIVED from the mean
+    /// pattern, owned by this view and recomputed when the pattern changes —
+    /// never stored on AppState, never a default.
+    @State private var ringHint: ProbeRingHint.Result?
 
     private var offeredDetectorClasses: [DetectorClass] {
         preferences.offerLearnedDetector ? DetectorClass.allCases : [.classical]
@@ -174,6 +178,14 @@ private struct DiskDetectionRows: View {
             .labelsHidden()
             .accessibilityIdentifier("disk.kernelSource")
         }
+        .task(id: appState.patternVersion) {
+            guard let mean = appState.meanPattern, let d = appState.descriptor,
+                  mean.qy == d.qy, mean.qx == d.qx else { ringHint = nil; return }
+            let (pixels, qy, qx) = (mean.pixels, mean.qy, mean.qx)
+            ringHint = await Task.detached(priority: .utility) {
+                ProbeRingHint.outerEdge(meanDP: pixels, qy: qy, qx: qx)
+            }.value
+        }
 
         if kernelSource != .synthetic {
             InspectorRow("Measured kernel mode") {
@@ -185,6 +197,23 @@ private struct DiskDetectionRows: View {
                 .labelsHidden()
                 .help("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.")
                 .accessibilityIdentifier("disk.measuredKernelMode")
+            }
+        }
+
+        if let hint = ringHint, let now = appState.calibrationSession.calibration.probeRadius,
+           ProbeRingHint.isWorthOffering(hint, current: now) {
+            InspectorWarning(
+                String(format: "Ring-shaped probe: its outer edge is at %.0f px (now %.1f px)", hint.outerRadius, now),
+                systemImage: "circle.dashed")
+                .help("The probe-size estimate stops at the first ring. A trench kernel built at the outer edge finds the beam on a ring-structured probe; Train Model uses the same radius.")
+            InspectorActionRow {
+                InspectorAdaptiveButton(
+                    String(format: "Use %.0f px", hint.outerRadius), systemImage: "circle.dashed",
+                    help: "Sets the probe radius to the ring's outer edge and rebuilds a synthetic kernel. Nothing changes unless you click."
+                ) {
+                    PendingEdits.run { await appState.useProbeRadius(hint.outerRadius) }
+                }
+                .accessibilityIdentifier("disk.useRingRadius")
             }
         }
 

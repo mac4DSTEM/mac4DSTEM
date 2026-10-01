@@ -81,6 +81,7 @@
 				Core/Analysis/Precipitates/PrecipitateSegmentation.swift,
 				Core/Analysis/Precipitates/PrecipitateStatistics.swift,
 				Core/Analysis/ProbeKernel.swift,
+				Core/Analysis/ProbeRingHint.swift,
 				Core/Analysis/PtychographyPreparation.swift,
 				Core/Analysis/QCalibration.swift,
 				Core/Analysis/RotationCalibration.swift,

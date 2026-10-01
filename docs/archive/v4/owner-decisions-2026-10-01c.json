@@ -12,6 +12,7 @@
     "DM": "a — remove the difference map",
     "CL": "a — amplitude clamp on by default (Gate D before/after first)",
     "Q1b": "c — measure >= 3 healthy cubes first, nothing else now",
-    "T1-file-probe-run": "the assistant runs it headless"
+    "T1-file-probe-run": "the assistant runs it headless",
+    "T1-kernel-default": "c — offer, don't switch: no default moves; on a ring-structured probe the room shows a hint with the outer-edge number and a one-click 'Use N px' (advisor's pick)"
   }
 }
