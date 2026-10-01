@@ -146,6 +146,15 @@ extension AppState {
         }
     }
 
+    /// A progress tick reaches the sheet only while its operation is still the
+    /// current one: a late hop after done/cancel/failure must not put the sheet
+    /// back into "writing" (CR1 item 2).
+    func deliverWriteProgress(_ token: AnalysisCancellationToken, _ fraction: Double,
+                              to progress: @MainActor (Double) -> Void) {
+        guard isCurrentOperation(token) else { return }
+        progress(fraction)
+    }
+
     /// The one write: Core's writer, atomic, cancellable, progress in the
     /// shared operation (its Cancel is `cancelActiveOperation`).
     func runDataCubeWrite(
@@ -170,7 +179,7 @@ extension AppState {
                             token, progress: fraction,
                             status: "Writing preprocessed DataCube… \(Int(fraction * 100)) %"
                         )
-                        progress(fraction)
+                        self?.deliverWriteProgress(token, fraction, to: progress)
                     }
                 }
                 let summary = try await Task.detached(priority: .userInitiated) {
@@ -205,7 +214,7 @@ extension AppState {
                 }
                 let message = "Wrote \(url.lastPathComponent) · "
                     + summary.shape.map(String.init).joined(separator: " × ")
-                    + " · " + displayByteString(summary.shape.reduce(MemoryLayout<Float>.size, *))
+                    + " · " + summary.shape.reduce(MemoryLayout<Float>.size, *).formatted(.byteCount(style: .file))   // same style as UI/LayoutPolicy `displayByteString` (Finder's); Support does not call UI
                     + suffix
                 self.statusText = message
                 if request.recordsRun {

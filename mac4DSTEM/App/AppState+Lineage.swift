@@ -184,6 +184,14 @@ extension AppState {
         resultPresentation.replaceProduct(product.addingProvenance(["lineage_step": step]))
     }
 
+    /// The inverse, for a run that recorded no node (replay, rewind, the opening pass).
+    func unstampDisplayedProduct(lineageKind kind: String) {
+        guard let product = resultPresentation.product, product.origin == .computed,
+              SessionLineage.lineageKind(forProductKind: product.kind) == kind,
+              product.provenance["lineage_step"] != nil else { return }
+        resultPresentation.replaceProduct(product.removingProvenance(["lineage_step"]))
+    }
+
     /// The node a product's `lineage_step` names, when it is a node of `kind`
     /// recorded with lineage. A name that is not a node of this kind (a stale
     /// id from another file) is ignored, and so is a node synthesized from a v1

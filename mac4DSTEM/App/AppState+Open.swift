@@ -819,7 +819,8 @@ extension AppState {
                 )
             )
         }
-        if keepInMemory, !held { statusText = "Could not hold the cube in memory; streaming" }
+        // CR1 4a: a cancelled preload is the user's own Cancel, not a failure to hold.
+        if keepInMemory, !held, !datasetSession.loadWasCancelled { statusText = "Could not hold the cube in memory; streaming" }
     }
 
     /// Give the cube's memory back. Streaming resumes on the next pass, with
@@ -1366,6 +1367,7 @@ extension AppState {
         guard let canonical =
                 CalibrationUnitConversion.canonicalEditableReciprocalUnit(units)
         else { return }
+        if calibrationSession.calibration.qPixelUnits == canonical { return }   // CR1 item 3
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         calibrationSession.calibration.qPixelUnits = canonical

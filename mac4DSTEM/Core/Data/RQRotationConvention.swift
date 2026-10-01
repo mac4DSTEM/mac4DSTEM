@@ -57,6 +57,7 @@ package enum RQRotationConvention {
     /// `decimals` prints "0.0", never "-0.0" (the py4DSTEM sign flip turns
     /// +0 into -0, and a tiny negative angle rounds to it). Display only.
     package nonisolated static func degreesText(_ degrees: Double, decimals: Int = 1) -> String {
+        guard degrees.isFinite else { return "—" }   // CR1 4b: never a fabricated "0.0°"
         let text = String(format: "%.\(decimals)f", degrees)
         let isZero = !text.contains { "123456789".contains($0) }
         return (isZero ? String(format: "%.\(decimals)f", 0.0) : text) + "°"

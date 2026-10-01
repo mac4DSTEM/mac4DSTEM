@@ -99,6 +99,14 @@ package nonisolated struct DisplayedProduct {
             provenance: provenance.merging(extra) { _, new in new }, overlays: overlays)
     }
 
+    package func removingProvenance(_ keys: [String]) -> DisplayedProduct {
+        DisplayedProduct(
+            origin: origin, kind: kind, displayName: displayName, payload: payload,
+            domain: domain, validityMask: validityMask, qualityFields: qualityFields,
+            sampling: sampling, valueUnits: valueUnits, quantitativeStatus: quantitativeStatus,
+            provenance: provenance.filter { !keys.contains($0.key) }, overlays: overlays)
+    }
+
     package var width: Int { payload.dimensions.width }
     package var height: Int { payload.dimensions.height }
 

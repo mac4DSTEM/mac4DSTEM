@@ -340,6 +340,10 @@ final class AppState {
                                   stampsDisplayedProduct: Bool = false) {
         guard !datasetSession.isLoading, !replaying else {
             replay.forgetProducedStep(kind: kind)
+            // CR1 item 1: `publishProduct` stamped this product from the PREVIOUS run's
+            // step before this site recorded; a skipped run made no node, so the
+            // product must name none (a save would credit the wrong run).
+            if stampsDisplayedProduct { unstampDisplayedProduct(lineageKind: kind) }
             return
         }
         let step = replay.record(kind: kind, parameters: parameters, invalidating: downstream,
