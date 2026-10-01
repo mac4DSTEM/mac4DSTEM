@@ -154,8 +154,14 @@ package nonisolated struct ParallaxPhysicalCalibration: Equatable, Sendable {
 /// this is refused with the number, as before; a tool or a test sets its own limit on the options.
 package nonisolated enum PhaseContrastMemoryBudget {
     package static let floorBytes = 1_073_741_824
-    package static func workingLimitBytes(physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory) -> Int {
-        max(floorBytes, Int(min(physicalMemory / 2, UInt64(Int.max))))
+    /// `residentCubeBytes` is the cube the user chose to keep in memory (0 when it is streamed): that cube already
+    /// occupies part of the half, so the stages get half of RAM less the cube, never below the floor (2026-10-01).
+    /// A refusal threshold only — no scientific number moves.
+    package static func workingLimitBytes(
+        physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory, residentCubeBytes: Int = 0
+    ) -> Int {
+        let half = Int(min(physicalMemory / 2, UInt64(Int.max)))
+        return max(floorBytes, half - max(0, residentCubeBytes))
     }
     package static let workingLimitBytes = workingLimitBytes()
 }

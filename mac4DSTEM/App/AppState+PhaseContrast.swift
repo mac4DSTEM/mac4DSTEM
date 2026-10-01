@@ -13,7 +13,24 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
+
 extension AppState {
+    /// The working limit every phase-contrast stage refuses above: half of RAM less the cube the user chose to keep in
+    /// memory (`DatasetResidency.byteCount`, 0 when streamed), never below the 1 GiB floor.
+    var phaseContrastWorkingLimitBytes: Int {
+        PhaseContrastMemoryBudget.workingLimitBytes(residentCubeBytes: residency.isResident ? residency.byteCount : 0)
+    }
+
+    /// A refusal names the resident cube when it reduced the limit; any other failure is presented as before.
+    func presentPhaseContrastFailure(_ error: Error) {
+        let resident = residency.isResident ? residency.byteCount : 0
+        if resident > 0, PhaseContrastMemoryBudget.isMemoryRefusal(error) {
+            presentComputeFailure(SimpleError(PhaseContrastMemoryBudget.refusalMessage(error, residentCubeBytes: resident)))
+        } else {
+            presentComputeFailure(error)
+        }
+    }
+
     /// First parallax slice: build and preview py4DSTEM's normalized virtual-BF
     /// stack and incoherent BF initialization. No iterative reconstruction is
     /// performed or implied by this operation.
@@ -32,7 +49,7 @@ extension AppState {
                 acceleratingVoltageKV: calibrationSession.acceleratingVoltage
             )
         } catch {
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
             return
         }
 
@@ -51,8 +68,10 @@ extension AppState {
                     )
                 }
             }
+            var preprocessOptions = ParallaxPreprocessOptions()
+            preprocessOptions.maxStackBytes = phaseContrastWorkingLimitBytes
             let result = try await ParallaxPreprocessor.run(
-                source: source, view: view, calibration: physical,
+                source: source, view: view, calibration: physical, options: preprocessOptions,
                 cancellation: token, progress: progressUpdate
             )
             guard isCurrentOperation(token), datasetSession.epoch == epoch,
@@ -77,7 +96,7 @@ extension AppState {
             statusText = "Parallax preprocessing cancelled"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
         }
     }
 
@@ -127,6 +146,7 @@ extension AppState {
                 }
             }
             var options = ParallaxAlignmentOptions()
+            options.maxWorkingBytes = phaseContrastWorkingLimitBytes
             options.upsampleFactor = 8
             let prior = phaseContrast.parallaxAlignment
             let result = try await Task.detached(priority: .userInitiated) {
@@ -157,7 +177,7 @@ extension AppState {
             statusText = "Parallax alignment bin \(bin) cancelled; last completed level retained"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
         }
     }
 
@@ -193,7 +213,7 @@ extension AppState {
                 result.lowOrder.rotationRad * 180 / .pi
             )
         } catch {
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
         }
     }
 
@@ -211,6 +231,7 @@ extension AppState {
         defer { finishCancellableOperation(token) }
         do {
             var options = ParallaxSubpixelOptions()
+            options.maxWorkingBytes = phaseContrastWorkingLimitBytes
             options.upsampleFactor = phaseContrast.parallaxKDEUpsampleFactor > 0
                 ? phaseContrast.parallaxKDEUpsampleFactor : nil
             options.kdeSigmaPixels = phaseContrast.parallaxKDESigmaPixels
@@ -254,7 +275,7 @@ extension AppState {
             statusText = "Parallax KDE cancelled; aligned result retained"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
         }
     }
 
@@ -282,6 +303,7 @@ extension AppState {
             }
         }
         var options = ParallaxDepthOptions()
+        options.maxWorkingBytes = phaseContrastWorkingLimitBytes
         options.depthsAngstrom = depths
         options.useFullFit = phaseContrast.parallaxDepthUseFullFit
         options.informationLimitInvAngstrom = phaseContrast.parallaxDepthInformationLimit > 0
@@ -321,7 +343,7 @@ extension AppState {
             statusText = "Parallax depth sectioning cancelled; prior products retained"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
         }
     }
 
@@ -342,7 +364,7 @@ extension AppState {
                 acceleratingVoltageKV: calibrationSession.acceleratingVoltage
             )
         } catch {
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
             return
         }
         let epoch = datasetSession.epoch
@@ -362,12 +384,15 @@ extension AppState {
             }
             // The probe the run starts from is what the fields show (`PtychographySettings.probeAberrations`).
             let aberrations = ptychography.probeAberrations
+            var prepareOptions = PtychographyPreparationOptions()
+            prepareOptions.maxResidentBytes = phaseContrastWorkingLimitBytes
             let input = try await PtychographyPreparer.prepare(
                 source: source, view: view, calibration: physical,
-                probeRadiusPixels: aperture.outer, aberrations: aberrations,
+                probeRadiusPixels: aperture.outer, aberrations: aberrations, options: prepareOptions,
                 cancellation: token, progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
+            options.maxWorkingBytes = phaseContrastWorkingLimitBytes
             options.iterations = ptychography.iterations
             options.stepSize = ptychography.stepSize
             options.normalizationMinimum = ptychography.normalizationMinimum
@@ -408,7 +433,7 @@ extension AppState {
             statusText = "Single-slice ptychography cancelled; prior result retained"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
         }
     }
 
@@ -521,6 +546,7 @@ extension AppState {
         defer { finishCancellableOperation(token) }
         do {
             var options = ParallaxAberrationCorrectionOptions()
+            options.maxWorkingBytes = phaseContrastWorkingLimitBytes / 2   // keeps its half share
             options.qLowpassInvAngstrom = phaseContrast.parallaxQLowpassInvAngstrom != 0
                 ? phaseContrast.parallaxQLowpassInvAngstrom : nil
             options.qHighpassInvAngstrom = phaseContrast.parallaxQHighpassInvAngstrom != 0
@@ -545,7 +571,30 @@ extension AppState {
             statusText = "Parallax phase correction cancelled; fit retained"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
-            presentComputeFailure(error)
+            presentPhaseContrastFailure(error)
         }
+    }
+}
+
+/// App-level: names every stage's error type, which the Core harness groups do not all compile together.
+extension PhaseContrastMemoryBudget {
+    /// A memory refusal from any phase-contrast stage (the stages' own enums stay as they are: the real-probe tools
+    /// match their `(bytes, limit)` payloads).
+    nonisolated static func isMemoryRefusal(_ error: Error) -> Bool {
+        if case ParallaxPreprocessor.PreprocessError.stackTooLarge = error { return true }
+        if case ParallaxAligner.AlignmentError.memoryLimit = error { return true }
+        if case ParallaxSubpixelReconstructor.ReconstructionError.memoryLimit = error { return true }
+        if case ParallaxDepthSectioner.DepthError.memoryLimit = error { return true }
+        if case ParallaxAberrationCorrector.CorrectionError.memoryLimit = error { return true }
+        if case SingleslicePtychography.ReconstructionError.memoryLimit = error { return true }
+        return false
+    }
+
+    /// The refusal's own text, plus — when a resident cube reduced the limit — what the limit is made of.
+    nonisolated static func refusalMessage(_ error: Error, residentCubeBytes: Int) -> String {
+        let base = error.localizedDescription
+        guard residentCubeBytes > 0, isMemoryRefusal(error) else { return base }
+        let cube = ByteCountFormatter.string(fromByteCount: Int64(residentCubeBytes), countStyle: .file)
+        return base + " The limit is half of RAM less the \(cube) cube kept in memory."
     }
 }
