@@ -99,6 +99,9 @@ final class MaterialsProjectSessionTests: XCTestCase {
     /// (2026-09-17, `py4dstem-headtohead-recipe`). The cell/sites here are a
     /// stand-in cubic lattice sized to clear the close-contact gate; only
     /// `formula_pretty` and `symmetry.number` are load-bearing for `check`.
+    // Row 6 (2026-10-01): the MP importer now runs `verifyFamily`, so this fixture must be a REAL
+    // Fm-3m cell. It was four atoms (Li, 2 Al, Cu) in a cubic box — no 3-fold axis, i.e. not cubic —
+    // standing in for the Heusler phase. Now Li 4a, Cu 4b, Al 8c of the conventional cell (Al2CuLi).
     private static let lial2cuJSON = """
     {
       "data": [
@@ -108,10 +111,22 @@ final class MaterialsProjectSessionTests: XCTestCase {
           "structure": {
             "lattice": {"a": 6.0, "b": 6.0, "c": 6.0, "alpha": 90, "beta": 90, "gamma": 90},
             "sites": [
-              {"species": [{"element": "Li", "occu": 1.0}], "abc": [0.0, 0.0, 0.0]},
-              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.5, 0.5, 0.0]},
-              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.5, 0.0, 0.5]},
-              {"species": [{"element": "Cu", "occu": 1.0}], "abc": [0.0, 0.5, 0.5]}
+              {"species": [{"element": "Li", "occu": 1.0}], "abc": [0, 0, 0]},
+              {"species": [{"element": "Li", "occu": 1.0}], "abc": [0, 0.5, 0.5]},
+              {"species": [{"element": "Li", "occu": 1.0}], "abc": [0.5, 0, 0.5]},
+              {"species": [{"element": "Li", "occu": 1.0}], "abc": [0.5, 0.5, 0]},
+              {"species": [{"element": "Cu", "occu": 1.0}], "abc": [0.5, 0.5, 0.5]},
+              {"species": [{"element": "Cu", "occu": 1.0}], "abc": [0.5, 0.0, 0.0]},
+              {"species": [{"element": "Cu", "occu": 1.0}], "abc": [0.0, 0.5, 0.0]},
+              {"species": [{"element": "Cu", "occu": 1.0}], "abc": [0.0, 0.0, 0.5]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.25, 0.25, 0.25]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.25, 0.75, 0.75]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.75, 0.25, 0.75]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.75, 0.75, 0.25]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.75, 0.75, 0.75]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.75, 0.25, 0.25]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.25, 0.75, 0.25]},
+              {"species": [{"element": "Al", "occu": 1.0}], "abc": [0.25, 0.25, 0.75]}
             ]
           },
           "symmetry": {"crystal_system": "cubic", "symbol": "Fm-3m", "number": 225, "point_group": "m-3m", "hall": "-F 4 2 3"}

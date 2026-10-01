@@ -104,12 +104,25 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 - CIF symmetry (S13, 2026-09-30, `CIFImport.spaceGroupOrder`): a list shorter than the named IT group's order is refused; residuals — a group
   named by H-M symbol alone is not checked, a partial list in a primitive-looking cell passes, a primitive C-monoclinic cell with β = 90.00 is falsely refused.
 - ACOM exported Euler angles differ from py4DSTEM/orix by frame rotation `P` — relabel-vs-convert, then Gate B.
+- Lane F-B (2026-10-01, review rows 9/29/24; `archive/v4/slot2-fb-refuter-2026-10-01.md`): (a) a file ellipse with a non-positive semi-axis is now
+  dropped silently by the importers ("No detector-distortion correction"), not refused by name — owner: make it a named refusal
+  (recommended yes; py4DSTEM's `_transform` and `set_ellipse` validate nothing, so a refusal is stricter than py4DSTEM). (b) The
+  count of non-finite pixels filled in both origin paths is not written into provenance (recommended: leave). (c) NEW:
+  `Core/Analysis/ProbeKernel.swift:207,209` (`y < py / 2 ? y : y - py`, same for x) has the odd-N wrap alias row 9 fixed in
+  `MatrixDFTCorrelation` — on odd N the middle row/column reads distance (N+1)/2, not (N-1)/2 (the refuter: "the same odd-N alias
+  slip"; py4DSTEM builds that kernel on a centred meshgrid, so not the same formula). Gate D first; `:274,276` are already right.
 
 ### Other named presentation and trust residuals
 One line each; full wording as above.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
+- Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) replay, lineage
+  rewind and the opening pass publish through `publishProduct`, which keys provenance by `navigation.analysisMode`; the executor
+  never switches mode, so a replayed virtual_detector step run under `.disks` carries `source_product=bragg_vector_map` (fixture:
+  record a VD step, change mode, replay). (2) `learned_model_sha256` / `learned_model_*` are read live at record time
+  (`LearnedDetection.replayParameters`); a model swap during Detect All would record the new hash for an old-model run. (3) A commit
+  run landing after a newer quiet drag still overwrites it — the mirror of the row-25 race; the guard is quiet-only.
 
 ## Polish — the Session queue's rooms (S3–S6)
 

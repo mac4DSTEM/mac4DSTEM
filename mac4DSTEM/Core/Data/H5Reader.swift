@@ -812,9 +812,13 @@ package actor H5Reader: FourDDataSource {
             // per-position qx0/qy0 maps (2D array datasets) are not read here.
             out.qx0Mean = scalar("qx0_mean")
             out.qy0Mean = scalar("qy0_mean")
-            out.ellipseA = scalar("a")
-            out.ellipseB = scalar("b")
-            out.ellipseTheta = scalar("theta")
+            // Row 29: a file ellipse with a non-positive semi-axis is refused whole.
+            if let ellipse = Calibration.acceptedEllipse(
+                a: scalar("a"), b: scalar("b"), theta: scalar("theta")) {
+                out.ellipseA = ellipse.a
+                out.ellipseB = ellipse.b
+                out.ellipseTheta = ellipse.theta
+            }
             out.qrRotationRad = scalar("QR_rotation")
             // ADR 040 residual: the value is passed through unchanged; only a
             // note says its sign cannot be proven (see RQRotationConvention).

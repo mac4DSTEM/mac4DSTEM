@@ -72,6 +72,12 @@ extension AppState {
     }
 
 
+    /// Test seam (review row 25): awaited after the pixels are computed and
+    /// before the run lands, so a test can hold a quiet run back and force the
+    /// ordering "commit lands first, the stale quiet run second" without sleeps.
+    /// Nil in production.
+    static var virtualDetectorBeforeLanding: (@MainActor (_ quiet: Bool, _ aperture: Aperture) async -> Void)?
+
     func scheduleLiveVirtualDetector() {
         guard navigation.analysisMode == .virtualDetector else { return }
         if resultPresentation.vdInFlight { resultPresentation.vdPending = true; return }
@@ -279,31 +285,41 @@ extension AppState {
                     maximumTileRows: maximumTileRows,
                     cancellation: cancellation, progress: progressUpdate)
             }
+            await Self.virtualDetectorBeforeLanding?(quiet, ap)
             guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
             if cancellation?.isCancelled == true {
                 statusText = "Virtual detector cancelled"
                 return .cancelled
             }
+            // Row 25: a quiet (live-drag) run lands only while it still describes the
+            // live aperture and shape. A quiet run that finished after the commit run
+            // (or after a newer drag) is stale: landing it would overwrite the newer
+            // image and record the older aperture with no re-run pending.
+            // DEVIATION (from the review's proposed request counter): a staleness check
+            // on the inputs, because the counter's owner file is outside this lane; the
+            // landed image is the one for the live aperture either way.
+            if quiet, ap != aperture || shapeMode != resultPresentation.virtualShape {
+                return .cancelled
+            }
             resultPresentation.resultColormap = .viridis
             scanNavigationImage = image
             bumpScanNavigationVersion()
-            resultPresentation.bumpResultVersion()
-            // The product value — kind, name, units and status decided HERE,
-            // by the site that computed the pixels, not re-derived later from
-            // strings (v2.5 step 3). Mirrors `currentScalarResultMetadata`'s
-            // `.virtualDetector` case until that switch is deleted.
-            resultPresentation.replaceProduct(DisplayedProduct(
+            // Row 8: published like every other site. The provenance is the MODE's own
+            // (`currentScalarPersistenceMetadata`) plus this site's keys, never the
+            // product that happens to be on screen. The kind, name, units and status are
+            // decided HERE, by the site that computed the pixels (v2.5 step 3).
+            publishProduct(
                 kind: "virtual_\(shapeMode.rawValue.lowercased())",
                 displayName: "Virtual detector · \(shapeMode.rawValue)",
-                payload: .scalar(image), domain: .scan,
+                valueUnits: "intensity", payload: .scalar(image),
+                domain: .scan,
                 sampling: ProductSampling(
                     row: calibrationSession.calibration.rPixelSize, column: calibrationSession.calibration.rPixelSize,
                     units: calibrationSession.calibration.rPixelUnits),
-                valueUnits: "intensity", quantitativeStatus: .relative,
-                // The persistence provenance (aperture etc.) plus this site's own keys.
-                provenance: currentResultPersistenceMetadata.provenance.merging(
-                    ["display_domain": "scan", "quantitative_status": "relative",
-                     "virtual_shape": shapeMode.rawValue]) { _, site in site }))
+                // analysis_mode is pinned to this product's own mode; it cannot remove stray
+                // keys the CURRENT mode's metadata adds (replay/rewind/opening paths: separate item).
+                extraProvenance: ["analysis_mode": AnalysisMode.virtualDetector.rawValue,
+                                  "quantitative_status": "relative", "virtual_shape": shapeMode.rawValue])
             if !quiet {
                 statusText = "Virtual detector ✓  (\(shapeMode.rawValue), \(d.rx) × \(d.ry))"
             }

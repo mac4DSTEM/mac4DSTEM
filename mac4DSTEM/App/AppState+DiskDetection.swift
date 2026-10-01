@@ -270,6 +270,9 @@ extension AppState {
         // NAS tile-read failure to "its FFT plan" — the throwing contract
         // exists to prevent that misattribution.
         let epoch = datasetSession.epoch
+        // The threshold the run uses, captured here (main actor, before the detach) and
+        // recorded below: a value typed during Detect All must not become the run's (row 27).
+        let learnedThreshold = learnedDetection.threshold
         let vectors: BraggVectors?
         do {
             // Gate D P1: run the full-scan detection OFF the main actor.
@@ -284,7 +287,7 @@ extension AppState {
             // main actor explicitly, so it is unchanged.
             let data = fourD
             // Read on the main actor, before the detach below.
-            let (learnedRef, learnedThreshold) = (learnedDetection.probeReference, learnedDetection.threshold)
+            let learnedRef = learnedDetection.probeReference
             let progress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
                     guard let self,
@@ -358,7 +361,7 @@ extension AppState {
         // new detection — a recipe that replays neither the saved maps nor a
         // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
         var replayParameters = params.replayParameters(kernel: kernel)
-        replayParameters.merge(learnedDetection.replayParameters(for: detectorClass)) { _, new in new }
+        replayParameters.merge(learnedDetection.replayParameters(for: detectorClass, threshold: learnedThreshold)) { _, new in new }
         // (Lineage, ADR 047: the same supersession is `SessionLineage.downstreamKinds`,
         // which decides the projection; this list is the call site's own statement of it.)
         recordReplayStep(kind: "disk_detection", parameters: replayParameters,

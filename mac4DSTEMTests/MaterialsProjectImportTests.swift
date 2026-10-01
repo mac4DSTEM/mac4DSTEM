@@ -1016,14 +1016,18 @@ final class MaterialsProjectImportTests: XCTestCase {
             symmetry: MaterialsProjectSymmetry(crystalSystem: "trigonal", symbol: "R-3m", number: 166)
         )
 
-        let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
-        XCTAssertEqual(model.symmetry, .hexagonal)
-        XCTAssertEqual(model.crystal.sites.count, 3)
-        XCTAssertEqual(model.crystal.a, aHex, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.b, aHex, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.c, cHex, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.gammaDeg, 120, accuracy: 1e-6)
-        XCTAssertEqual(model.provenance["materials_project_cell"], "conventional from R-centred primitive")
+        // RE-PINNED 2026-10-01 (lane F-B row 6, review 2026-09-30): this test
+        // pinned `.hexagonal` for R-3m No. 166 — the wrong answer. R-3m is
+        // trigonal (-3m); a hexagonal cell metric does not make it 6/mmm. The
+        // CIF importer's `verifyFamily` refuses it (no 6-fold about c), and the
+        // MP importer now runs the same check (MaterialsProjectImportRow6Tests).
+        XCTAssertThrowsError(try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())) { error in
+            guard case CIFImportError.symmetryNotSupportedByStructure(let family, _)? =
+                error as? CIFImportError else {
+                return XCTFail("expected symmetryNotSupportedByStructure, got \(error)")
+            }
+            XCTAssertEqual(family, "hexagonal")
+        }
     }
 
     /// The live API omits `errors` (and `meta`) on success — the owner's first

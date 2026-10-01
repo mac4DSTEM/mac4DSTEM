@@ -356,8 +356,6 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         }
 
         let validEllipse = calibration.hasEllipse
-            && (calibration.ellipseA ?? 0) > 0
-            && (calibration.ellipseB ?? 0) > 0
         let ellipseDetail: String
         if validEllipse, let a = calibration.ellipseA, let b = calibration.ellipseB,
            let theta = calibration.ellipseTheta {
@@ -888,9 +886,23 @@ package nonisolated struct Calibration: Sendable {
 
     package var hasFittedOrigin: Bool { origin != nil }
     package var hasRotation: Bool { rotationRad != nil }
+    /// The one ellipse predicate (review row 29): finite, both semi-axes positive. Feeds the
+    /// correction, the readiness row and the importers' adoption. `a >= b` is NOT required here:
+    /// py4DSTEM's `_transform` uses e = b/a with no ordering, so an a < b file ellipse is exactly
+    /// corrected; only manual entry enforces the order (`applyManualEllipse`).
     package nonisolated var hasEllipse: Bool {
-        guard let a = ellipseA, let b = ellipseB, let theta = ellipseTheta else { return false }
-        return a.isFinite && b.isFinite && theta.isFinite && abs(a) > .leastNonzeroMagnitude
+        Self.acceptedEllipse(a: ellipseA, b: ellipseB, theta: ellipseTheta) != nil
+    }
+
+    /// The ellipse triple when it is one, nil otherwise — the importers adopt through this, so a
+    /// file with b <= 0 or a <= 0 is refused whole (it would otherwise correct every Bragg vector
+    /// by e = b/a <= 0 while the Ellipse row read "not set").
+    package nonisolated static func acceptedEllipse(
+        a: Double?, b: Double?, theta: Double?
+    ) -> (a: Double, b: Double, theta: Double)? {
+        guard let a, let b, let theta,
+              a.isFinite, b.isFinite, theta.isFinite, a > 0, b > 0 else { return nil }
+        return (a, b, theta)
     }
 
     /// Mean fitted origin, suitable as a default detector center.

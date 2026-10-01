@@ -28,6 +28,34 @@ struct OriginParams {
     float rscale;   // CoM window = max(r * rscale, r + 1.5 px) (py4DSTEM default 1.2)
 };
 
+// Non-finite pixels (review row 24; D019 for detection): bit test, not isfinite(), so fast-math
+// cannot fold it away. A non-finite pixel reads as the median of its finite 8-neighbours (0 when
+// none), neighbours read from the ORIGINAL pattern — DiskDetector.fillNonFinite's rule. Only a
+// non-finite pixel pays for the neighbour walk. DEVIATION: py4DSTEM's get_origin has no such step.
+inline bool isNonFinite(float v) { return (as_type<uint>(v) & 0x7F800000u) == 0x7F800000u; }
+
+inline float pixelFilled(const device float *pat, int x, int y, uint qx, uint qy)
+{
+    const float v = pat[uint(y) * qx + uint(x)];
+    if (!isNonFinite(v)) { return v; }
+    float nb[8];
+    int k = 0;
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            if (dx == 0 && dy == 0) { continue; }
+            const int yy = y + dy, xx = x + dx;
+            if (yy < 0 || yy >= int(qy) || xx < 0 || xx >= int(qx)) { continue; }
+            const float w = pat[uint(yy) * qx + uint(xx)];
+            if (isNonFinite(w)) { continue; }
+            int i = k++;
+            while (i > 0 && nb[i - 1] > w) { nb[i] = nb[i - 1]; --i; }
+            nb[i] = w;
+        }
+    }
+    if (k == 0) { return 0.0f; }
+    return (k % 2 == 1) ? nb[k / 2] : 0.5f * (nb[k / 2 - 1] + nb[k / 2]);
+}
+
 kernel void measureOrigin(const device float  *data   [[buffer(0)]],
                           device float         *outXY  [[buffer(1)]],
                           constant OriginParams &p     [[buffer(2)]],
@@ -58,9 +86,8 @@ kernel void measureOrigin(const device float  *data   [[buffer(0)]],
             const uint xEnd = min(bx + bin, p.qx);
             float s = 0.0f;
             for (uint y = by; y < yEnd; ++y) {
-                const uint rowBase = y * p.qx;
                 for (uint x = bx; x < xEnd; ++x) {
-                    s += pat[rowBase + x];
+                    s += pixelFilled(pat, int(x), int(y), p.qx, p.qy);
                 }
             }
             if (s > bestSum) {
@@ -113,11 +140,10 @@ kernel void measureOrigin(const device float  *data   [[buffer(0)]],
             const float dy = float(y) - cy;
             const float dy2 = dy * dy;
             if (dy2 > win2) { continue; }
-            const uint rowBase = uint(y) * p.qx;
             for (int x = x0; x <= x1; ++x) {
                 const float dx = float(x) - cx;
                 if (dx * dx + dy2 > win2) { continue; }
-                const float I = max(pat[rowBase + uint(x)], 0.0f);
+                const float I = max(pixelFilled(pat, x, y, p.qx, p.qy), 0.0f);
                 sumI  += I;
                 sumIX += I * float(x);
                 sumIY += I * float(y);

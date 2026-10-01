@@ -146,8 +146,11 @@ package nonisolated enum MatrixDFTCorrelation {
         let columnScale = -2 * Float.pi
             / (Float(width) * Float(upsampleFactor))
         for frequencyColumn in 0..<width {
+            // Matches numpy's ifftshift(arange(N)) - floor(N/2), as py4DSTEM's
+            // multicorr.py:186,195. On an odd axis the middle bin is +(N-1)/2, not
+            // -(N+1)/2 (`< width / 2` took the wrong alias; review row 9, 2026-10-01).
             let wrappedFrequency = Float(
-                frequencyColumn < width / 2
+                frequencyColumn < (width + 1) / 2
                     ? frequencyColumn : frequencyColumn - width
             )
             for patchColumn in 0..<patchSize {
@@ -172,7 +175,7 @@ package nonisolated enum MatrixDFTCorrelation {
         for patchRow in 0..<patchSize {
             for frequencyRow in 0..<height {
                 let wrappedFrequency = Float(
-                    frequencyRow < height / 2
+                    frequencyRow < (height + 1) / 2
                         ? frequencyRow : frequencyRow - height
                 )
                 let angle = rowScale * (Float(patchRow) - centerRow)

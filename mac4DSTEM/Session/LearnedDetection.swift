@@ -265,10 +265,13 @@ package final class LearnedDetectionSession {
     /// The provenance `runDiskDetection` merges into its recorded replay
     /// step: `detector_class` always, plus the learned identity when this
     /// run used it.
-    package func replayParameters(for detectorClass: DetectorClass) -> [String: String] {
+    /// `used` is the threshold the run USED (captured before it started): the live
+    /// `threshold` may have been edited during a long Detect All (review row 27). Nil
+    /// (a non-run caller: the current settings) reads the live value.
+    package func replayParameters(for detectorClass: DetectorClass, threshold used: Float? = nil) -> [String: String] {
         var params = ["detector_class": detectorClass.provenanceID]
         if detectorClass == .learned {
-            params["learned_threshold"] = String(threshold)
+            params["learned_threshold"] = String(used ?? threshold)
             params["learned_model_sha256"] = assetSHA256 ?? ""
             // Only a fine-tuned model adds keys: with the bundled model the
             // signature stays byte-identical to the one every session before

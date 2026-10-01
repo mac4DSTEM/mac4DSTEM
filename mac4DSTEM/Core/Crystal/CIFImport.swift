@@ -1062,7 +1062,7 @@ package nonisolated enum CIFImport {
     /// translation: screw axes and glide planes are ordinary in both families,
     /// and requiring `t = 0` would reject HCP magnesium (6₃ about c,
     /// t = (0,0,½)) and diamond silicon — both shipped built-in models.
-    private static func verifyFamily(
+    package static func verifyFamily(
         _ family: ACOMCrystalSymmetry, sites: [AtomSite], coarsestHalfStep: Double
     ) throws {
         // Rotation parts in the *fractional* basis, so they are exact integer

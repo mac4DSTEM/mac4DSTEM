@@ -958,9 +958,15 @@ package nonisolated enum BraggVectorEMDWriter {
         )
         calibration.qx0Mean = try readDoubleDataset("qx0_mean", from: group, hdf5: h5)
         calibration.qy0Mean = try readDoubleDataset("qy0_mean", from: group, hdf5: h5)
-        calibration.ellipseA = try readDoubleDataset("a", from: group, hdf5: h5)
-        calibration.ellipseB = try readDoubleDataset("b", from: group, hdf5: h5)
-        calibration.ellipseTheta = try readDoubleDataset("theta", from: group, hdf5: h5)
+        // Row 29: a file ellipse with a non-positive semi-axis is refused whole.
+        if let ellipse = Calibration.acceptedEllipse(
+            a: try readDoubleDataset("a", from: group, hdf5: h5),
+            b: try readDoubleDataset("b", from: group, hdf5: h5),
+            theta: try readDoubleDataset("theta", from: group, hdf5: h5)) {
+            calibration.ellipseA = ellipse.a
+            calibration.ellipseB = ellipse.b
+            calibration.ellipseTheta = ellipse.theta
+        }
         calibration.qrRotationRad = try readDoubleDataset(
             "QR_rotation", from: group, hdf5: h5
         )

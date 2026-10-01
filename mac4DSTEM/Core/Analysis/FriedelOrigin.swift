@@ -41,6 +41,7 @@ package nonisolated enum FriedelOrigin {
     package static func origin(pattern: [Float], height: Int, width: Int,
                                mask: [Bool]? = nil) -> (row: Float, col: Float)? {
         guard height > 0, width > 0, pattern.count == height * width else { return nil }
+        let pattern = finite(pattern, height: height, width: width)
         let padH = 2 * height, padW = 2 * width
         guard let fft = FFT2D(nx: padW, ny: padH) else { return nil }
 
@@ -88,9 +89,40 @@ package nonisolated enum FriedelOrigin {
     package static func origin(pattern: [Float], height: Int, width: Int,
                                prepared: PreparedBeamstop, fft: FFT2D) -> (row: Float, col: Float)? {
         guard height > 0, width > 0, pattern.count == height * width else { return nil }
+        let pattern = finite(pattern, height: height, width: width)
         let cc = maskedCorrelation(pattern: pattern, height: height, width: width,
                                    prepared: prepared, fft: fft)
         return peak(cc, height: height, width: width)
+    }
+
+    /// The pattern with every non-finite pixel replaced by the median of its finite 8-neighbours
+    /// (`DiskDetector.fillNonFinite`, D019; review row 24). One NaN would otherwise make every
+    /// FFT output NaN, the argmax stay at 0 and the parabola inherit NaN. A no-op, without a
+    /// copy, on finite data. DEVIATION: py4DSTEM's get_origin_friedel has no such step; its
+    /// FFT is NaN-poisoned the same way.
+    private static func finite(_ pattern: [Float], height: Int, width: Int) -> [Float] {
+        guard pattern.contains(where: { !$0.isFinite }) else { return pattern }
+        // Same rule as `DiskDetector.fillNonFinite`, restated here (not called) so the friedel
+        // tool group in tools/lib/sources.manifest keeps compiling without DiskDetection.swift.
+        var copy = pattern
+        for y in 0..<height {
+            for x in 0..<width where !pattern[y * width + x].isFinite {
+                var neighbours: [Float] = []
+                for dy in -1...1 {
+                    for dx in -1...1 where dx != 0 || dy != 0 {
+                        let yy = y + dy, xx = x + dx
+                        guard yy >= 0, yy < height, xx >= 0, xx < width else { continue }
+                        let v = pattern[yy * width + xx]
+                        if v.isFinite { neighbours.append(v) }
+                    }
+                }
+                neighbours.sort()
+                let k = neighbours.count
+                copy[y * width + x] = k == 0 ? 0
+                    : k % 2 == 1 ? neighbours[k / 2] : (neighbours[k / 2 - 1] + neighbours[k / 2]) / 2
+            }
+        }
+        return copy
     }
 
     /// Argmax of the correlation surface + a parabolic subpixel refinement,

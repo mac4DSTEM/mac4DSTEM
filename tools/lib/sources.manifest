@@ -125,7 +125,8 @@ mac4dstem_sources() {
         )
         ;;
       readers)
-        mac4dstem_sources "$repo" data
+        # H5Reader adopts a file ellipse through Calibration.acceptedEllipse (review row 29).
+        mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/HDF5Types.swift"
