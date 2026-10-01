@@ -36,7 +36,7 @@ Earlier gate rows — the 2026-09-30 overnight S12–S23 and v4.0.0-cut `all` ro
 | **Yours** | The review's findings, one sitting, on a decision sheet (ADR 050's format); the File-probe training run; the "do my numbers read those pixels?" check; the Si-SiGe re-export; the X3 and K1 mocks when they come. | Owner. |
 | **Overrule on sight** | ADR 049's freeze list; the refusal (not a CPU fallback) on a machine with no Neural Engine; the memory budget at half of RAM; plan §5 (eight) and the earlier list. | Owner. |
 | Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048). | — |
-| **Unverified on screen** | The reworded "Use Parallax Fit" status line (pinned by a broken-first unit assertion); Info › Provenance labels (card P1, the frozen inspector's one-line hunk, `.help` keeps the raw key) — R1's rows and the X export sheet were seen 2026-10-01 (`archive/v4/slot2-drive-2026-10-01.md`). | Next drive (R5). |
+| **Unverified on screen** | — (emptied 2026-10-01 by a reviewed drive on a scratch build of `b884f8bf`: the "Use Parallax Fit" status line and Info › Provenance labels, `archive/v4/slot2-drive2-2026-10-01.md`). | — |
 | Carried | Drive proposals and the bin-2 aperture defect (open-items S4); the S20 grain-C and S21 follow-ups (Board cards); CI paused (ADR 040). | `open-items.md`. |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.
