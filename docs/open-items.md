@@ -75,6 +75,9 @@ has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen)
   so on his cube the Q row still reads "Measured" with the ratio beside it — the owner's card. The fix (ring-sequence assignment) is
   diagnosed in the record: recovers his cube to +0.45 % (ellipse) / +2.5 %, but the fcc √2 self-similarity needs a bounded N or the
   zone's own ring count — a design pass, not a patch. The caveat is lost on rewind, sidecar restore and re-reference (not persisted).
+  Q1b (owner: measure first, 2026-10-01; `archive/v4/q1b-healthy-cubes-2026-10-01.md`): three healthy cubes, app vs py4DSTEM on the same peaks —
+  Si-SiGe +1.36 / +1.40 %, sim_Au −2.72 / −1.12 %, Au_ref −4.41 / −5.30 %; the alias did not occur, but Au_ref's shell ratio is 10.6 % off
+  (healthy side now {1.7, 2.4, 10.6} %, undiagnosed); NiCu_COPL excluded (file Q 3.57× the app's, undiagnosed). No rule proposed.
 - **Rotation null loses power at the highest noise**: 3/12 refused at sd 0.05 vs 0/60 shuffle null; the demo cube (sd≈0.010) is
   certified 2/60 — "measured −67.5°" recurs ~1 in 30.
 Detail: `archive/v3/open-items-detail-2026-09-16.md`.
