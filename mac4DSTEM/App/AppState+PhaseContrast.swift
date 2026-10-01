@@ -184,12 +184,13 @@ extension AppState {
             )
             phaseContrast.parallaxAberrationFit = result.lowOrder
             phaseContrast.parallaxHigherOrderFit = result
+            // The fit's RMS residual is not shown (lane R4, 2026-10-01): the alignment hands the fit an exactly linear shift field
+            // (py4DSTEM's regularised shifts, parallax.py:1380-1384), so the residual is 0.0000 Å on every dataset - "RMS 0.0000 Å → 0.0000 Å"
+            // was a real zero by construction (graphene: 4e-7 Å), a number that cannot move.
             statusText = String(
-                format: "Recursive aberration fit ✓  %d terms · rotation %.2f° · RMS %.4f Å → %.4f Å",
+                format: "Recursive aberration fit ✓  %d terms · rotation %.2f°",
                 result.terms.count,
-                result.lowOrder.rotationRad * 180 / .pi,
-                result.lowOrder.rmsResidualAngstrom,
-                result.rmsResidualAngstrom
+                result.lowOrder.rotationRad * 180 / .pi
             )
         } catch {
             presentComputeFailure(error)
@@ -367,10 +368,8 @@ extension AppState {
                 cancellation: token, progress: prepareProgress
             )
             var options = SingleslicePtychographyOptions()
-            options.method = ptychography.method
             options.iterations = ptychography.iterations
             options.stepSize = ptychography.stepSize
-            options.projectionParameter = ptychography.projectionParameter
             options.normalizationMinimum = ptychography.normalizationMinimum
             options.fixProbe = ptychography.fixProbe
             options.constrainObjectAmplitude = ptychography.constrainObjectAmplitude
@@ -400,8 +399,8 @@ extension AppState {
             // What the run started from is read back from the RESULT (the input `prepare` built), not from the settings, so a
             // run that did not receive the fields cannot publish them.
             statusText = String(
-                format: "Single-slice ptychography ✓  %@ · defocus %g Å · %d iterations · error %.6f",
-                result.options.method.rawValue, result.probeAberrations.defocusAngstrom,
+                format: "Single-slice ptychography ✓  gradient descent · defocus %g Å · %d iterations · error %.6f",
+                result.probeAberrations.defocusAngstrom,
                 result.errorHistory.count, result.errorHistory.last ?? .nan
             )
         } catch SingleslicePtychography.ReconstructionError.cancelled {

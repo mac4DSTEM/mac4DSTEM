@@ -1269,13 +1269,12 @@ final class PhaseSplitTests: XCTestCase {
     func testSwitchingPhaseTaskNeverClearsAnotherTasksState() {
         let state = AppState()
         state.changeMode(.singleslicePtychography)
-        let other = SingleslicePtychographyMethod.allCases.first { $0 != state.ptychography.method }!
-        state.ptychography.method = other
+        state.ptychography.stepSize = 0.75
         state.changeMode(.ptychography)
-        XCTAssertEqual(state.ptychography.method, other)
+        XCTAssertEqual(state.ptychography.stepSize, 0.75)
         state.changeMode(.dpc)
         state.changeMode(.singleslicePtychography)
-        XCTAssertEqual(state.ptychography.method, other)
+        XCTAssertEqual(state.ptychography.stepSize, 0.75)
     }
 
     /// The seam's own contract (`App/PtychographySettings.swift`'s header):
@@ -1311,13 +1310,11 @@ final class PhaseSplitTests: XCTestCase {
         let state = AppState()
         await state.openDemoFixture()
         state.ptychography.iterations = 42
-        state.ptychography.method = .differenceMapAlternatingProjections
         state.ptychography.stepSize = 0.75
 
         await state.openDemoFixture()
 
         XCTAssertEqual(state.ptychography.iterations, 42)
-        XCTAssertEqual(state.ptychography.method, .differenceMapAlternatingProjections)
         XCTAssertEqual(state.ptychography.stepSize, 0.75)
     }
 }

@@ -919,18 +919,12 @@ extension AppState {
         }
         if let value = plan.depthInformationPower { phaseContrast.parallaxDepthInformationPower = value }
         if let value = plan.ptychographyIterations { ptychography.iterations = value }
-        if let value = plan.ptychographyMethod {
-            switch value {
-            case "gradient-descent": ptychography.method = .gradientDescent
-            case "difference-map_alternating-projections":
-                ptychography.method = .differenceMapAlternatingProjections
-            default: break
-            }
+        if plan.ptychographyRetiredMethod != nil {
+            // A record made with the difference map (removed 2026-10-01): its controls belong to that algorithm.
+            statusText = "This result was made with the difference map, which is no longer offered; no controls were applied."
+            return
         }
         if let value = plan.ptychographyStepSize { ptychography.stepSize = value }
-        if let value = plan.ptychographyProjectionParameter {
-            ptychography.projectionParameter = value
-        }
         if let value = plan.ptychographyNormalizationMinimum {
             ptychography.normalizationMinimum = value
         }
@@ -1547,8 +1541,7 @@ extension AppState {
                 [
                     "source_product": sourceProduct,
                     "engine": "singleslice",
-                    "method": options.method.provenanceName,
-                    "projection_parameter": String(options.projectionParameter),
+                    "method": "gradient-descent",
                     "iterations": String(result.errorHistory.count),
                     "final_error": result.errorHistory.last.map { String($0) } ?? "",
                     "step_size": String(options.stepSize),

@@ -88,9 +88,9 @@ let projection = SessionControlRehydration.parse(kind: "ptychography_probe_phase
     "engine": "singleslice", "method": "difference-map_alternating-projections",
     "projection_parameter": "0.8", "iterations": "5"
 ])
-require(projection.ptychographyMethod == "difference-map_alternating-projections"
-        && projection.ptychographyProjectionParameter == 0.8,
-        "DM/AP method controls")
+require(projection.ptychographyRetiredMethod == "difference-map_alternating-projections"
+        && projection.ptychographyIterations == nil && !projection.isEmpty,
+        "an old DM/AP record parses to the retired-method marker alone")
 
 let malformed = SessionControlRehydration.parse(kind: "parallax_subpixel_bf", provenance: [
     "upsample_factor": "0.5", "kde_sigma_px": "nan", "interpolation": "lanczos_99",

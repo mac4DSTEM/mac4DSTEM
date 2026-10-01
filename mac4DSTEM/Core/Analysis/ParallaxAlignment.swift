@@ -451,10 +451,11 @@ package nonisolated enum ParallaxAligner {
             )
         }
 
-        let stackMean = Float(
-            Double(preprocessing.normalizedStack.reduce(0, +))
-                / Double(preprocessing.normalizedStack.count)
-        )
+        // py4DSTEM `_stack_mean = xp.mean(self._stack_BF_shifted)` (parallax.py:806). Lane R4 (2026-10-01): this was
+        // `Double(stack.reduce(0, +)) / n`, whose `reduce` infers Float and stalls past 2^24 elements - the freeze D021 fixed in
+        // ParallaxPreprocessor.stackMean but left here. On the graphene cube (1961 x 133 x 133 = 34.7 M) it read 0.79375 for 1.0, so every
+        // pixel the shifted masks do not cover (the padding, the window's zero edge) came out 0.79375 instead of 1.0: the "edge vignette".
+        let stackMean = ParallaxPreprocessor.stackMean(preprocessing.normalizedStack)
         let maskSum = preprocessing.edgeWindow.reduce(0, +) * Float(count)
         guard stackMean.isFinite, stackMean > 0, maskSum > 0 else {
             throw AlignmentError.invalidInput("normalization statistics are not positive")

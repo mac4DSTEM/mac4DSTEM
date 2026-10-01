@@ -20,12 +20,11 @@ import DSTEMCore
 @Observable
 final class PtychographySettings {
     var iterations = 8
-    var method: SingleslicePtychographyMethod = .gradientDescent
     var stepSize: Float = 0.5
-    var projectionParameter: Float = 1
     var normalizationMinimum: Float = 1
     var fixProbe = false
-    var constrainObjectAmplitude = false
+    /// On by default, as py4DSTEM does for a complex object (`_object_threshold_constraint`, every iteration; owner, 2026-10-01).
+    var constrainObjectAmplitude = true
     var purePhaseObject = false
     var fixProbeCenterOfMass = false
     var constrainProbeAmplitude = false

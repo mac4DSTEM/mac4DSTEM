@@ -26,6 +26,26 @@ final class ResultPresentationTests: XCTestCase {
         )
     }
 
+    /// The amplitude clamp became ON by default; a record made before carries "false" and Apply Saved Controls must turn
+    /// the clamp OFF for it. Mutation it catches: the apply line for the clamp removed.
+    @MainActor
+    func testApplySavedControlsTurnsTheAmplitudeClampOffForAnOldFalseRecord() {
+        let app = AppState()
+        app.ptychography.constrainObjectAmplitude = true
+        app.publishRestoredProduct(
+            kind: "ptychography_object_phase", displayName: "Object phase", valueUnits: "rad",
+            payload: .scalar(FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 3])),
+            pixelSizeRow: nil, pixelSizeColumn: nil, pixelUnits: nil,
+            provenance: [
+                "engine": "singleslice", "method": "gradient-descent",
+                "iterations": "12", "step_size": "0.25",
+                "constrain_object_amplitude": "false",
+            ])
+        XCTAssertNotNil(app.selectedSavedControlRehydration, "precondition: the record parses")
+        app.applySelectedSavedControls()
+        XCTAssertFalse(app.ptychography.constrainObjectAmplitude)
+    }
+
     func testControlRehydrationRejectsMalformedProvenance() {
         let valid = SessionControlRehydration.parse(
             kind: "ptychography_object_phase",
@@ -57,11 +77,15 @@ final class ResultPresentationTests: XCTestCase {
                 "projection_parameter": "0.8", "iterations": "5",
             ]
         )
+        // The difference map was removed (owner, 2026-10-01): an old record naming it parses to the retired-method marker alone —
+        // none of its other controls (they belong to that algorithm) — and says so by name.
         XCTAssertEqual(
-            projection.ptychographyMethod,
+            projection.ptychographyRetiredMethod,
             "difference-map_alternating-projections"
         )
-        XCTAssertEqual(projection.ptychographyProjectionParameter, 0.8)
+        XCTAssertNil(projection.ptychographyIterations)
+        XCTAssertEqual(projection.summary, "difference map (no longer offered)")
+        XCTAssertFalse(projection.isEmpty)
 
         let malformed = SessionControlRehydration.parse(
             kind: "parallax_subpixel_bf",

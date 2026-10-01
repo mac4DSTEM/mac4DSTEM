@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # reference.py source-locks py4DSTEM's single-slice gradient-descent ptychography operator (overlap
-# projection, object/probe update, the DM operator) across process/phase/ptychographic_methods.py,
+# projection, object/probe update) across process/phase/ptychographic_methods.py,
 # phase_base_class.py, singleslice_ptychography.py, and ptychographic_constraints.py; the Swift
-# harness runs Core/Analysis/SingleslicePtychography.swift's SingleslicePtychography.reconstruct (GD
-# and DM), a position/crop-convention check, error cases, and an origin-shift/circular-shift
+# harness runs Core/Analysis/SingleslicePtychography.swift's SingleslicePtychography.reconstruct (GD)
+# and the position/crop-convention check, error cases, and an origin-shift/circular-shift
 # invariant, and (R1, 2026-09-30) the initial probe against py4DSTEM's own ComplexProbe (defocus, astigmatism, every term to fifth
 # order; reference.py imports References/py4DSTEM-dev for it) plus the aberration-free probe's bit-for-bit hashes from git 02174c9c.
 # Run with no arguments: tools/singleslice-ptychography-test/run.sh. Listed in both the

@@ -90,14 +90,14 @@ package nonisolated enum SessionResultPresentation {
         let order = [
             "depth_angstrom", "upsample_factor", "interpolation", "position_iterations",
             "method", "iterations", "final_error", "step_size",
-            "projection_parameter", "fix_probe", "full_fit",
+            "fix_probe", "full_fit",
             "information_limit_inv_a", "q_lowpass_inv_a", "q_highpass_inv_a"
         ]
         let labels: [String: String] = [
             "depth_angstrom": "depth", "upsample_factor": "upsample",
             "interpolation": "kernel", "position_iterations": "position iters",
             "method": "method", "iterations": "iters", "final_error": "error",
-            "step_size": "step", "projection_parameter": "α",
+            "step_size": "step",
             "fix_probe": "fixed probe", "full_fit": "full CTF",
             "information_limit_inv_a": "info limit", "q_lowpass_inv_a": "low-pass",
             "q_highpass_inv_a": "high-pass"
@@ -114,7 +114,7 @@ package nonisolated enum SessionResultPresentation {
             if raw == "false" { value = "no" }
             if key == "method" {
                 if raw == "gradient-descent" { value = "GD" }
-                if raw == "difference-map_alternating-projections" { value = "DM/AP" }
+                if raw == "difference-map_alternating-projections" { value = "difference map (no longer offered)" }
             }
             parts.append("\(labels[key] ?? key) \(value)")
         }
@@ -144,9 +144,11 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
     package var depthInformationLimit: Double?
     package var depthInformationPower: Double?
     package var ptychographyIterations: Int?
-    package var ptychographyMethod: String?
+    /// Set when the record names the difference map (DM/AP), removed from the app (owner, 2026-10-01): the other controls
+    /// of such a record belong to that algorithm, so nothing else is parsed from it. A gradient-descent record has no method
+    /// control any more — gradient descent is the only method.
+    package var ptychographyRetiredMethod: String?
     package var ptychographyStepSize: Float?
-    package var ptychographyProjectionParameter: Float?
     package var ptychographyNormalizationMinimum: Float?
     package var ptychographyFixProbe: Bool?
     package var ptychographyConstrainObjectAmplitude: Bool?
@@ -173,9 +175,8 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
         if depthInformationLimit != nil { names.append("information limit") }
         if depthInformationPower != nil { names.append("information power") }
         if ptychographyIterations != nil { names.append("ptychography iterations") }
-        if ptychographyMethod != nil { names.append("ptychography method") }
+        if ptychographyRetiredMethod != nil { names.append("difference map (no longer offered)") }
         if ptychographyStepSize != nil { names.append("step") }
-        if ptychographyProjectionParameter != nil { names.append("projection α") }
         if ptychographyNormalizationMinimum != nil { names.append("normalization") }
         if ptychographyFixProbe != nil { names.append("probe update") }
         if ptychographyConstrainObjectAmplitude != nil { names.append("object transmission") }
@@ -221,12 +222,10 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
             }
             switch p["method"] {
             case nil, "gradient-descent":
-                result.ptychographyMethod = "gradient-descent"
+                break
             case "difference-map_alternating-projections":
-                result.ptychographyMethod = "difference-map_alternating-projections"
-                result.ptychographyProjectionParameter = boundedFloat(
-                    p["projection_parameter"], range: 0...1
-                )
+                result.ptychographyRetiredMethod = "difference-map_alternating-projections"
+                return result
             default:
                 return result
             }

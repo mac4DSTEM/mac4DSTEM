@@ -42,7 +42,15 @@ struct CorrectionFixture: Decodable {
     let cases: [CorrectionCaseFixture]
 }
 
+struct LinearFieldFixture: Decodable {
+    let shiftsPixels: [Float]
+    let originOffsetMrad: Double
+    let py4dstemConventionComa: [Double]
+    let consistentComplete: [Double]
+}
+
 struct Fixture: Decodable {
+    let linearField: LinearFieldFixture
     let anglesMrad: [Float]
     let shiftsPixels: [Float]
     let scanSamplingAngstrom: Double
@@ -155,6 +163,28 @@ struct Harness {
             let forcedDescription = expected.forcedDegrees.map { String($0) } ?? "auto"
             print("PASS: transpose=\(expected.forceTranspose) forced=\(forcedDescription)")
         }
+
+        // Lane R4 (2026-10-01): the production path hands the fitter an EXACTLY linear field (py4DSTEM's reconstruct projects its shifts onto
+        // k with no intercept, parallax.py:1380-1384; ours does the same, fitDefaultShiftBasis). On such a field coma and trefoil are not
+        // observable, so a consistent basis returns 0 and a zero residual. py4DSTEM's own fit reports 619 / 599 A on the graphene cube only
+        // because its basis origin (ROI//2) differs from its angle origin (mean of the bright-field pixels) by 0.325 px; the reference's
+        // `py4dstemConventionComa` is that mixed-origin result on this fixture (hundreds of A, proportional to the offset). The pin: ours is 0.
+        let linear = fixture.linearField
+        let linearFit = try ParallaxAberrationFitter.fitHigherOrder(
+            preprocessing: prep,
+            alignment: alignment(Fixture(
+                linearField: linear, anglesMrad: fixture.anglesMrad, shiftsPixels: linear.shiftsPixels,
+                scanSamplingAngstrom: fixture.scanSamplingAngstrom, cases: [], higher: [], correction: fixture.correction))
+        )
+        try require(linear.py4dstemConventionComa.map(abs).max()! > 20,
+                    "the py4DSTEM-convention reference stopped producing a coma (the pin's reason is gone)")
+        try require(linearFit.coefficientsAngstrom[3...].map(abs).max()! < 0.5,
+                    "an exactly linear field produced a coma/trefoil in the fit")
+        try require(maximumError(Array(linearFit.coefficientsAngstrom[0..<3]),
+                                 Array(linear.consistentComplete[0..<3])) < 0.05,
+                    "low-order terms differ on the linear field")
+        try require(linearFit.rmsResidualAngstrom < 1e-3, "an exactly linear field left a residual")
+        print("PASS: exactly linear field -> coma/trefoil 0, residual 0 (py4DSTEM-convention coma \(linear.py4dstemConventionComa.map { Int($0) }) A at \(linear.originOffsetMrad) mrad origin offset)")
 
         for expected in fixture.higher {
             var options = ParallaxHigherOrderAberrationOptions()

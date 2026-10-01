@@ -162,16 +162,7 @@ struct SingleslicePtychographySection: View {
 
     var body: some View {
         @Bindable var ptychography = appState.ptychography
-        let isGradientDescent = ptychography.method == .gradientDescent
         InspectorSection("Single-slice ptychography") {
-            InspectorRow("Method") {
-                Picker("Method", selection: $ptychography.method) {
-                    ForEach(SingleslicePtychographyMethod.allCases) { method in
-                        Text(method.rawValue).tag(method)
-                    }
-                }
-                .labelsHidden()
-            }
             InspectorRow("Defocus") {
                 NumericField(
                     "Defocus",
@@ -194,7 +185,7 @@ struct SingleslicePtychographySection: View {
             InspectorActionRow {
                 InspectorAdaptiveButton(
                     "Reconstruct Object", systemImage: "circle.hexagongrid",
-                    help: "Runs the CPU exact-shape, full-batch py4DSTEM \(ptychography.method.rawValue) reference engine."
+                    help: "Runs the CPU exact-shape, full-batch py4DSTEM gradient-descent reference engine."
                 ) {
                     PendingEdits.run { await appState.runSingleslicePtychography() }
                 }
@@ -212,12 +203,10 @@ struct SingleslicePtychographySection: View {
                 )
                 .labelsHidden()
             }
-            InspectorRow(isGradientDescent ? "Step" : "DM/AP α") {
+            InspectorRow("Step") {
                 NumericField(
-                    isGradientDescent ? "Step" : "DM/AP α",
-                    value: isGradientDescent
-                        ? $ptychography.stepSize
-                        : $ptychography.projectionParameter,
+                    "Step",
+                    value: $ptychography.stepSize,
                     format: .number.precision(.fractionLength(0...3))
                 )
                 .labelsHidden()
@@ -264,6 +253,7 @@ struct SingleslicePtychographySection: View {
                 )
                 .labelsHidden()
             }
+            .help("On by default, as in py4DSTEM, which limits the object to |O| ≤ 1 on every iteration of a complex object. Off lets the amplitude grow above 1.")
             InspectorRow("Pure-phase object") {
                 Toggle(
                     "Pure-phase object",
@@ -672,7 +662,7 @@ private struct ParallaxProductSection: View {
                         "\(iterative.errorHistory.count) iterations"
                     )
                     ScientificHistoryPlot(
-                        title: "\(iterative.options.method.rawValue) error",
+                        title: "Gradient descent error",
                         values: iterative.errorHistory,
                         scale: .logarithmic
                     )

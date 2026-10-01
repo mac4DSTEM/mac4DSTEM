@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """R3 (2026-10-01): a synthetic single-slice cube with a KNOWN object and a DEFOCUSED probe, and py4DSTEM's own
-SingleslicePtychography run on it, so the Swift harness can score the app's gradient descent and difference map against the
-truth AND against py4DSTEM on bit-identical inputs. Prints one JSON document to stdout (run.sh -> $WORK/truth.json).
+SingleslicePtychography run on it, so the Swift harness can score the app's gradient descent against the
+truth AND against py4DSTEM on bit-identical inputs (gradient descent only: the difference map was removed 2026-10-01). Prints one JSON document to stdout (run.sh -> $WORK/truth.json).
 
 The cube: 16 x 16 scan at 2.0 A (3.2 object px), 64 x 64 detector, q 0.025 1/A per px (0.625 A object sampling), 80 keV, semiangle
 20 mrad, rolloff 2 mrad, canvas 112 x 112, pure-phase object of 40 Gaussian "atoms" (0.2-0.6 rad, sigma 0.8 A), noiseless, the
@@ -24,19 +24,12 @@ import numpy as np
 
 repo = pathlib.Path(__file__).resolve().parents[2]
 constraints = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/ptychographic_constraints.py").read_text()
-methods = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/ptychographic_methods.py").read_text()
 for contract in (
     'if self._object_type == "complex":\n            current_object = self._object_threshold_constraint(',
     "amplitude = xp.minimum(xp.abs(current_object), 1.0)",
 ):
     if contract not in constraints:
         raise SystemExit(f"py4DSTEM object-threshold contract changed: {contract}")
-for contract in (
-    "if exit_waves is None:\n            exit_waves = overlap.copy()",
-    "self._exit_waves = None",
-):
-    if contract not in methods:
-        raise SystemExit(f"py4DSTEM DM exit-wave contract changed: {contract}")
 
 for _n, _v in [("float_", np.float64), ("int_", np.int64), ("bool_", np.bool_), ("object_", np.object_), ("str_", np.str_), ("complex_", np.complex128)]:
     if not hasattr(np, _n):      # numpy 2 removed the aliases the vendored py4DSTEM still imports
@@ -57,8 +50,7 @@ for _m in ("singleslice_ptychography", "phase_base_class", "ptychographic_method
 
 ENERGY, SEMIANGLE, ROLLOFF, Q, STEP_A, SCAN, DET, ATOMS, SIGMA_A = 80e3, 20.0, 2.0, 0.025, 2.0, 16, 64, 40, 0.8
 FIXTURES = [(1, 200.0), (1, 400.0), (1, 600.0)]
-GD_ITERATIONS, DM_ITERATIONS = 32, 8
-DM_NORMALIZATION_MINIMA = (1.0, 0.02)
+GD_ITERATIONS = 32
 
 
 def fmt(arr):
@@ -166,7 +158,7 @@ def run_py4dstem(fx, method, iterations, normalization_min):
     assert np.abs(np.asarray(ptycho._amplitudes) - fx["amplitudes"]).max() == 0.0
     assert np.abs(np.asarray(ptycho._probe) - fx["probe"]).max() == 0.0
     assert tuple(ptycho._object.shape) == (fx["canvas"], fx["canvas"])
-    ptycho = ptycho.reconstruct(num_iter=iterations, reconstruction_method=("gradient-descent" if method == "gd" else "DM_AP"),
+    ptycho = ptycho.reconstruct(num_iter=iterations, reconstruction_method="gradient-descent",
                                 reconstruction_parameter=1.0, step_size=0.5, normalization_min=normalization_min, max_batch_size=None,
                                 fix_probe_com=False, fix_probe=False, butterworth_filter=False, gaussian_filter=False, tv_denoise=False,
                                 object_positivity=False, fix_potential_baseline=False, store_iterations=False, progress_bar=False)
@@ -181,7 +173,7 @@ def run_py4dstem(fx, method, iterations, normalization_min):
 fixtures = []
 for seed, defocus in FIXTURES:
     fx = make(seed, defocus)
-    runs = [run_py4dstem(fx, "gd", GD_ITERATIONS, 1.0)] + [run_py4dstem(fx, "dm", DM_ITERATIONS, nm) for nm in DM_NORMALIZATION_MINIMA]
+    runs = [run_py4dstem(fx, "gd", GD_ITERATIONS, 1.0)]
     fixtures.append({
         "name": f"defocus {defocus:g} A, seed {seed}", "seed": seed, "defocusAngstrom": defocus, "energyEV": ENERGY,
         "semiangleMrad": SEMIANGLE, "rolloffMrad": ROLLOFF, "qSamplingInvAngstrom": Q, "scanSamplingAngstrom": STEP_A,

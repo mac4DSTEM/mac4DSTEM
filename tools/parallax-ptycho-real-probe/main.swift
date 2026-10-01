@@ -9,7 +9,7 @@
 //    probe <h5> preprocess
 //    probe <h5> align
 //    probe <h5> kde <auto|factor>
-//    probe <h5> ptycho <gd|dmap>
+//    probe <h5> ptycho <gd>
 //    options: --kv 200  --origin com|x,y  --probe-radius <px>  --repeat 2  --limit-gib 48  --abort-gib 40
 //             --defocus <A>  --c12a <A>  --c12b <A>   (ptycho: the probe's defocus and astigmatism; py4DSTEM's `defocus`, 0 = in focus)
 //
@@ -252,8 +252,8 @@ enum ParallaxPtychoRealProbe {
         let ptyNormalizationMinimum = option("--norm-min").flatMap { Float($0) }
         // Lane R2 (2026-10-01): py4DSTEM clamps |object| <= 1 on EVERY iteration for a complex object
         // (ptychographic_constraints.py `_object_threshold_constraint`, applied unconditionally by `_object_constraints`);
-        // the app exposes the same clamp as `constrainObjectAmplitude`, default off. `--constrain-amplitude 1` matches py4DSTEM.
-        let ptyConstrainAmplitude = (option("--constrain-amplitude") ?? "0") == "1"
+        // the app exposes the same clamp as `constrainObjectAmplitude`, on by default since lane DC (2026-10-01); `--constrain-amplitude 0|1` overrides it.
+        let ptyConstrainAmplitude = option("--constrain-amplitude").map { $0 == "1" }
         // The probe the ptychography starts from (lane R1, 2026-09-30): py4DSTEM's `defocus` (C10 = -defocus) and the parallax fit's
         // cartesian astigmatism, all in Å; default 0 = the in-focus aperture. The parallax fit of THIS cube reports C1 = +663.6, so
         // its implied defocus is -663.6 (py4DSTEM's forward model C10 = -defocus, utils.py:159-160; convention_check.py).
@@ -263,7 +263,7 @@ enum ParallaxPtychoRealProbe {
             c12bAngstrom: option("--c12b").flatMap { Double($0) } ?? 0
         )
         guard args.count >= 2 else {
-            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd|dmap>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40] [--q 1/A per px] [--r A per px] [--rotation-deg d] [--transpose 0|1] [--out dir] [--iterations n] [--step-size s] [--norm-min m] [--constrain-amplitude 0|1] [--defocus A] [--c12a A] [--c12b A]")
+            fail("usage: probe <h5> preprocess | align | kde <auto|factor> | ptycho <gd>  [--kv 200] [--origin com|x,y] [--probe-radius px] [--repeat 2] [--limit-gib 48] [--abort-gib 40] [--q 1/A per px] [--r A per px] [--rotation-deg d] [--transpose 0|1] [--out dir] [--iterations n] [--step-size s] [--norm-min m] [--constrain-amplitude 0|1] [--defocus A] [--c12a A] [--c12b A]")
         }
         let path = args[0], stage = args[1]
         let raised = Int(limitGiB * 1_073_741_824)
@@ -363,6 +363,11 @@ enum ParallaxPtychoRealProbe {
         /// Fits the aberrations exactly as AppState.fitParallaxAberrations does, prints them, saves the aligned BF.
         func saveAlignedBF(_ pre: ParallaxPreprocessResult, _ a: ParallaxAlignmentResult) {
             saveNPY("app_alignedBF_padded", a.alignedBF, shape: [a.stackHeight, a.stackWidth])
+            // Lane R4 (2026-10-01): the measurement the aberration fit sees, so py4DSTEM's fitter can be run on it (reference_parallax.py --inject-shifts).
+            // totalShifts are scan pixels in py4DSTEM's xy_shifts order (row, column); angles in mrad (qx row, qy col); indices in py4DSTEM's xy_inds order.
+            saveNPY("app_total_shifts_px", a.totalShifts.flatMap { [$0.row, $0.column] }, shape: [a.totalShifts.count, 2])
+            saveNPY("app_probe_angles_mrad", pre.probeAnglesMrad.flatMap { [Float($0.qx), Float($0.qy)] }, shape: [pre.probeAnglesMrad.count, 2])
+            saveNPY("app_detector_indices", pre.detectorIndices.flatMap { [Float($0.qx), Float($0.qy)] }, shape: [pre.detectorIndices.count, 2])
             var meta: [String: Any] = ["stackHeight": a.stackHeight, "stackWidth": a.stackWidth, "scanHeight": a.scanHeight, "scanWidth": a.scanWidth,
                                        "paddedTop": (a.stackHeight - a.scanHeight) / 2, "paddedLeft": (a.stackWidth - a.scanWidth) / 2,
                                        "errorHistory": a.errorHistory.map { Double($0) }, "complete": a.isComplete]
@@ -473,8 +478,7 @@ enum ParallaxPtychoRealProbe {
             release(l)
 
         case "ptycho":
-            guard args.count >= 3, ["gd", "dmap"].contains(args[2]) else { fail("ptycho needs gd|dmap") }
-            let method: SingleslicePtychographyMethod = args[2] == "gd" ? .gradientDescent : .differenceMapAlternatingProjections
+            guard args.count >= 3, args[2] == "gd" else { fail("ptycho needs gd (the difference map was removed, lane DC 2026-10-01)") }
             let amplitudeBytes = d.ry * d.rx * d.qy * d.qx * MemoryLayout<Float>.stride
             // Two guards in prepare(): amplitudes alone, then amplitudes + object canvas + probe. A limit equal to the
             // amplitude bytes passes the first and refuses the second, which reads the estimator's final number.
@@ -494,18 +498,17 @@ enum ParallaxPtychoRealProbe {
             summary("ptycho prepare", prepared)
             func reconstruct(_ limit: Int) async throws -> SingleslicePtychographyResult {
                 var o = SingleslicePtychographyOptions()    // PtychographySettings defaults: 8 iterations, step 0.5, ...
-                o.method = method
                 if let v = ptyIterations { o.iterations = v }
                 if let v = ptyStepSize { o.stepSize = v }
                 if let v = ptyNormalizationMinimum { o.normalizationMinimum = v }
-                o.constrainObjectAmplitude = ptyConstrainAmplitude
+                if let v = ptyConstrainAmplitude { o.constrainObjectAmplitude = v }
                 o.maxWorkingBytes = limit
                 return try await Task.detached(priority: .userInitiated) {
                     try SingleslicePtychography.reconstruct(input: input, options: o)
                 }.value
             }
             func describePty(_ r: SingleslicePtychographyResult) -> String {
-                "method \(r.options.method.rawValue), iterations \(r.options.iterations), errors \(r.errorHistory.map { String(format: "%.6f", $0) }), object canvas \(r.object.width) x \(r.object.height), probe \(r.probe.width) x \(r.probe.height), objectPhase(cropped): \(stats(r.objectPhase().pixels)); objectAmplitude(cropped): \(stats(r.objectAmplitude().pixels)); probeAmplitude: \(stats(r.probeAmplitude().pixels))"
+                "method Gradient descent, iterations \(r.options.iterations), errors \(r.errorHistory.map { String(format: "%.6f", $0) }), object canvas \(r.object.width) x \(r.object.height), probe \(r.probe.width) x \(r.probe.height), objectPhase(cropped): \(stats(r.objectPhase().pixels)); objectAmplitude(cropped): \(stats(r.objectAmplitude().pixels)); probeAmplitude: \(stats(r.probeAmplitude().pixels))"
             }
             var l = Optional(try await ladder("ptycho reconstruct \(args[2])", raisedLimit: raised,
                                      defaultLimit: SingleslicePtychographyOptions().maxWorkingBytes,
@@ -524,7 +527,7 @@ enum ParallaxPtychoRealProbe {
                 saveNPY("\(tag)_probeAmplitude", pa.pixels, shape: [pa.height, pa.width])
                 saveNPY("\(tag)_probePhase", pp.pixels, shape: [pp.height, pp.width])
                 saveJSON(tag, ["iterations": r.options.iterations, "stepSize": Double(r.options.stepSize), "normalizationMinimum": Double(r.options.normalizationMinimum),
-                               "method": r.options.method.rawValue, "errorHistory": r.errorHistory.map { Double($0) },
+                               "method": "Gradient descent", "errorHistory": r.errorHistory.map { Double($0) },
                                "constrainObjectAmplitude": r.options.constrainObjectAmplitude,
                                "objectSamplingRowAngstrom": r.objectSamplingRowAngstrom, "objectSamplingColumnAngstrom": r.objectSamplingColumnAngstrom,
                                "objectCroppedHeight": ph.height, "objectCroppedWidth": ph.width, "canvasHeight": r.object.height, "canvasWidth": r.object.width,

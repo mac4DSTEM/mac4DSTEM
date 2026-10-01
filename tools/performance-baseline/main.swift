@@ -569,14 +569,12 @@ func ptychographyInput(
 }
 
 func ptychographyBenchmark(
-    method: SingleslicePtychographyMethod,
     input: SingleslicePtychographyInput = ptychographyInput(),
     iterations: Int = 5,
     repeats: Int,
     warmups: Int
 ) throws -> BenchmarkReport {
     var options = SingleslicePtychographyOptions()
-    options.method = method
     options.iterations = iterations
     options.normalizationMinimum = 0.1
     let patternCount = input.scanHeight * input.scanWidth
@@ -585,13 +583,10 @@ func ptychographyBenchmark(
     var estimatedFloats = input.amplitudes.count + objectCount * 7 + probeCount * 12
     estimatedFloats += patternCount
         * (input.detectorHeight + input.detectorWidth) * 2
-    if method == .differenceMapAlternatingProjections {
-        estimatedFloats += input.amplitudes.count * 2
-    }
     return try measure(
         backend: "Accelerate/vDSP + scalar CPU updates",
         workload: [
-            "method": method.provenanceName,
+            "method": "gradient-descent",
             "scan_positions": patternCount,
             "detector_height": input.detectorHeight,
             "detector_width": input.detectorWidth,
@@ -769,19 +764,9 @@ struct Baseline {
                 repeats: repeats, warmups: warmups
             )),
             ("ptychography_gradient_descent", try ptychographyBenchmark(
-                method: .gradientDescent, repeats: repeats, warmups: warmups
-            )),
-            ("ptychography_dm_ap", try ptychographyBenchmark(
-                method: .differenceMapAlternatingProjections,
                 repeats: repeats, warmups: warmups
             )),
             ("ptychography_gradient_descent_medium", try ptychographyBenchmark(
-                method: .gradientDescent,
-                input: mediumPtychography, iterations: 3,
-                repeats: repeats, warmups: warmups
-            )),
-            ("ptychography_dm_ap_medium", try ptychographyBenchmark(
-                method: .differenceMapAlternatingProjections,
                 input: mediumPtychography, iterations: 3,
                 repeats: repeats, warmups: warmups
             )),

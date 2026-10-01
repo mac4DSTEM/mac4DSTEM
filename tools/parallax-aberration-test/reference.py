@@ -137,9 +137,10 @@ def default_terms():
     return terms
 
 
-def gradient_samples(rotation_rad, terms):
+def gradient_samples(rotation_rad, terms, basis_angles=None):
     c, s = np.cos(-rotation_rad), np.sin(-rotation_rad)
-    u0, v0 = angles[:, 0], angles[:, 1]
+    ang = angles if basis_angles is None else basis_angles
+    u0, v0 = ang[:, 0], ang[:, 1]
     u = u0 * c + v0 * s
     v = -u0 * s + v0 * c
     alpha = np.sqrt(u**2 + v**2)
@@ -206,6 +207,49 @@ def higher_fit(method):
         "coefficients": coefficients.tolist(),
         "fitted": fitted.ravel().tolist(),
         "rms": float(rms),
+    }
+
+
+def linear_field_case(origin_offset_mrad):
+    """The shape the production path hands the fitter (lane R4, 2026-10-01). py4DSTEM's Parallax.reconstruct regularises its shifts onto
+    the span of k WITHOUT an intercept (parallax.py:1380-1384, basis = _kxy), so the measured field is exactly linear in the probe angles
+    (graphene: lstsq residual 7e-7 A, 2026-10-01). On an exactly linear field no coma/trefoil is observable: a consistent basis returns 0
+    (the app, `app`). py4DSTEM's fit evaluates its basis on the ROI fft grid (origin = ROI//2, utils.py:1551-1556) while the angles it
+    regresses on are centred on mean(xy_inds) (parallax.py:473-478): on graphene the two origins differ by 0.325 px = 0.34 mrad, and the
+    (2,1) pair it reports (619 / 599 A) is linear in that offset (sweep in the lane R4 report). `py4dstem_convention` is that mixed-origin fit
+    on this fixture: non-zero, proportional to the offset - the reason the app's 0 is not a defect."""
+    rng = np.random.default_rng(11)
+    transform = np.array([[660.0, 9.0], [11.0, 668.0]])
+    linear_shifts = angles @ transform                       # Angstrom, exactly linear
+    def higher_on(shifts, basis_angles):
+        terms = default_terms()
+        fit_m = np.linalg.lstsq(angles, shifts, rcond=None)[0]
+        rot, ab = polar(fit_m, side="right")
+        rotation_rad = -np.arctan2(rot[1, 0], rot[0, 0])
+        gradients = gradient_samples(rotation_rad, terms, basis_angles)
+        coefficients = np.zeros(len(terms))
+        coefficients[0] = (ab[0, 0] + ab[1, 1]) / 2
+        coefficients[1] = (ab[0, 0] - ab[1, 1]) / 2
+        coefficients[2] = (ab[1, 0] + ab[0, 1]) / 2
+        fitted = np.tensordot(gradients, coefficients, axes=(1, 0))
+        groups = [np.arange(3), np.arange(7)]
+        for indices in groups:
+            delta = (shifts - fitted).T.ravel()
+            matrix = np.vstack((gradients[:, indices, 0], gradients[:, indices, 1]))
+            increment = np.linalg.lstsq(matrix, delta, rcond=None)[0]
+            coefficients[indices] += increment
+            fitted += np.tensordot(gradients[:, indices], increment, axes=(1, 0))
+        return coefficients
+    offset = np.array([origin_offset_mrad, origin_offset_mrad]) / 1000
+    mixed = higher_on(linear_shifts, angles + offset)
+    consistent = higher_on(linear_shifts, angles)
+    if not (np.abs(mixed[3:5]).max() > 20.0 and np.abs(consistent[3:]).max() < 1e-6):
+        raise SystemExit(f"linear-field contract changed: mixed {mixed[3:]}, consistent {consistent[3:]}")
+    return {
+        "shiftsPixels": (linear_shifts / scan_sampling).ravel().tolist(),
+        "originOffsetMrad": origin_offset_mrad,
+        "py4dstemConventionComa": mixed[3:5].tolist(),
+        "consistentComplete": consistent.tolist(),
     }
 
 
@@ -291,6 +335,7 @@ json.dump(
             higher_fit("recursiveExclusive"),
             higher_fit("global"),
         ],
+        "linearField": linear_field_case(0.34),
         "correction": {
             "shape": [height, width],
             "scanShape": [scan_height, scan_width],

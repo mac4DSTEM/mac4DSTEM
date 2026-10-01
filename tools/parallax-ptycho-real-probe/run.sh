@@ -2,11 +2,11 @@
 # Parallax + single-slice ptychography, measured on one real cube (2026-09-30). See main.swift.
 # `diagnostic`: needs a real 4D-STEM cube on local disk; never a gate.
 #
-#   tools/parallax-ptycho-real-probe/run.sh <cube.h5> preprocess|align|kde <auto|factor>|ptycho <gd|dmap> [options]
+#   tools/parallax-ptycho-real-probe/run.sh <cube.h5> preprocess|align|kde <auto|factor>|ptycho gd [options]
 #   ptycho probe options: --defocus <A> --c12a <A> --c12b <A>  (py4DSTEM's `defocus`: C10 = -defocus; the parallax fit's C1 implies
 #   defocus = -C1, convention_check.py). The reference side is reference_ptycho.py (py4DSTEM, same float32 cube); compare_ptycho.py tabulates the two.
 #   --constrain-amplitude 0|1 (lane R2, 2026-10-01): py4DSTEM clamps |object| <= 1 on every iteration of a complex object; 1 matches it
-#   (the app option `constrainObjectAmplitude`); 0 is the app's default. Parity on graphene needs 1 (gr-compare.log in the R2 record).
+#   (the app option `constrainObjectAmplitude`); the app's default is 1 since lane DC (2026-10-01), 0 turns it off (gr-compare.log in the R2 record).
 #
 # One stage per process (a footprint is a lifetime maximum). The estimator
 # (the `memoryLimit` refusal), the default-option run and the raised-limit run

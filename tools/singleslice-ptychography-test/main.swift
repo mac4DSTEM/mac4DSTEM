@@ -90,13 +90,6 @@ struct Fixture: Decodable {
     let constrainedProbeImag: [Float]
     let centeredProbePhase: [Float]
     let centeredProbeAmplitude: [Float]
-    let dmErrors: [Float]
-    let dmObjectReal: [Float]
-    let dmObjectImag: [Float]
-    let dmProbeReal: [Float]
-    let dmProbeImag: [Float]
-    let dmCropPhase: [Float]
-    let dmCropAmplitude: [Float]
     let positionCases: [PositionCase]
 }
 
@@ -252,18 +245,6 @@ func maximumError(_ actual: [Float], _ expected: [Float]) -> Float {
     return zip(actual, expected).reduce(0) { max($0, abs($1.0 - $1.1)) }
 }
 
-func maximumPhaseError(
-    _ actual: [Float], _ expected: [Float], amplitudes: [Float]
-) -> Float {
-    guard actual.count == expected.count, actual.count == amplitudes.count else {
-        return .infinity
-    }
-    return zip(zip(actual, expected), amplitudes).reduce(0) {
-        guard $1.1 > 1e-4 else { return $0 }
-        return max($0, abs(atan2(sin($1.0.0 - $1.0.1), cos($1.0.0 - $1.0.1))))
-    }
-}
-
 @main
 struct Harness {
     static func main() async throws {
@@ -290,6 +271,10 @@ struct Harness {
             )
         )
         var options = SingleslicePtychographyOptions()
+        // Re-pinned 2026-10-01 (lane DC, owner card CL a): the app's default is now the clamp ON, and reference.py's first run
+        // (`reconstruct()`, constrained=False) is the UNCLAMPED operator - so this run says clamp OFF explicitly. The clamped operator
+        // is the next block (`constrainedOptions`, against reference.py's constrained=True run).
+        options.constrainObjectAmplitude = false
         options.iterations = fixture.iterations
         options.stepSize = fixture.stepSize
         options.normalizationMinimum = fixture.normalizationMinimum
@@ -343,32 +328,6 @@ struct Harness {
                     "completed result did not retain exact options")
         print("PASS: object/probe constraints and centered probe diagnostics")
 
-        var dmOptions = options
-        dmOptions.method = .differenceMapAlternatingProjections
-        dmOptions.projectionParameter = 0.8
-        let dm = try SingleslicePtychography.reconstruct(input: input, options: dmOptions)
-        try require(maximumError(dm.errorHistory, fixture.dmErrors) < 2e-5,
-                    "DM/AP iteration errors differ")
-        try require(maximumError(dm.object.real, fixture.dmObjectReal) < 3e-5
-                    && maximumError(dm.object.imaginary, fixture.dmObjectImag) < 3e-5,
-                    "DM/AP object differs")
-        try require(maximumError(dm.probe.real, fixture.dmProbeReal) < 3e-5
-                    && maximumError(dm.probe.imaginary, fixture.dmProbeImag) < 3e-5,
-                    "DM/AP probe differs")
-        let dmPhaseError = maximumPhaseError(
-            dm.objectPhase().pixels, fixture.dmCropPhase,
-            amplitudes: fixture.dmCropAmplitude
-        )
-        try require(dmPhaseError < 3e-4,
-                    "DM/AP object crop differs: \(dmPhaseError)")
-        try require(maximumError(dm.objectAmplitude().pixels,
-                                 fixture.dmCropAmplitude) < 3e-5,
-                    "DM/AP object amplitude crop differs")
-        try require(dm.options.method == .differenceMapAlternatingProjections
-                    && dm.options.projectionParameter == 0.8,
-                    "DM/AP result options differ")
-        print("PASS: retained-exit-wave DM/AP projection method")
-
         var limited = options
         limited.maxWorkingBytes = 1
         do {
@@ -386,12 +345,6 @@ struct Harness {
         do {
             _ = try SingleslicePtychography.reconstruct(input: input, options: invalid)
             try require(false, "invalid probe support width was accepted")
-        } catch SingleslicePtychography.ReconstructionError.invalidOptions {}
-        invalid = dmOptions
-        invalid.projectionParameter = 1.1
-        do {
-            _ = try SingleslicePtychography.reconstruct(input: input, options: invalid)
-            try require(false, "invalid DM/AP alpha was accepted")
         } catch SingleslicePtychography.ReconstructionError.invalidOptions {}
         let cancellation = AnalysisCancellationToken()
         do {
@@ -746,10 +699,9 @@ struct Harness {
         // 600 A) and runs py4DSTEM's own SingleslicePtychography on bit-identical inputs; here the app's engine runs on the same
         // inputs and both are scored against the truth. Bars come from the measured distribution over the three defocus values and two
         // more seeds (lane R report, 2026-10-01: GD truth Pearson 0.980-0.987 at 32 iterations, rms 0.017-0.018 rad; app-py4DSTEM
-        // GD error histories within 1.8e-2, final phase within 1.5e-2 rad; wrong-sign probe 0.12-0.21; DM over 8 iterations within
-        // 2.7e-2 (norm-min 1) and 5.2e-3 (0.02)); each bar sits >= 2.8x outside what was measured. The difference map's convergence
-        // is NOT pinned: on both sides it diverges at norm-min 1 from the first iteration and past ~16 iterations at any
-        // normalization (py4DSTEM's own DM_AP included) - its truth scores are printed for the reader.
+        // GD error histories within 1.8e-2, final phase within 1.5e-2 rad; wrong-sign probe 0.12-0.21);
+        // each bar sits >= 2.8x outside what was measured. The difference map was removed 2026-10-01 (it diverged in py4DSTEM's own
+        // DM_AP too: docs/archive/v4/slot2-r-record-2026-10-01.md), so only gradient descent is scored.
         // Parity needs `constrainObjectAmplitude = true`: py4DSTEM clamps |object| <= 1 on every iteration of a complex object
         // (ptychographic_constraints.py `_object_constraints` -> `_object_threshold_constraint`, unconditional); the app exposes
         // that clamp as an option. The clamp-off run is the anti-vacuity control: the parity bar must tell it apart.
@@ -767,10 +719,9 @@ struct Harness {
                     PtychographyPosition(row: fixture.positions[$0], column: fixture.positions[$0 + 1])
                 }
                 guard let pyGD = fixture.py4dstem.first(where: { $0.method == "gd" }),
-                      let pyDM1 = fixture.py4dstem.first(where: { $0.method == "dm" && $0.normalizationMinimum == 1 }),
-                      let pyDMSmall = fixture.py4dstem.first(where: { $0.method == "dm" && $0.normalizationMinimum < 1 }) else {
+                      fixture.py4dstem.count == 1 else {
                     throw NSError(domain: "singleslice-ptychography-test", code: 4,
-                                  userInfo: [NSLocalizedDescriptionKey: "\(fixture.name): truth.py did not run GD, DM(1) and DM(<1)"])
+                                  userInfo: [NSLocalizedDescriptionKey: "\(fixture.name): truth.py did not run exactly the one GD run"])
                 }
                 func input(probeReal: [Float], probeImag: [Float]) -> SingleslicePtychographyInput {
                     SingleslicePtychographyInput(
@@ -783,13 +734,11 @@ struct Harness {
                         initialProbe: PtychographyComplexArray(width: det, height: det, real: probeReal, imaginary: probeImag)
                     )
                 }
-                func run(_ input: SingleslicePtychographyInput, _ method: SingleslicePtychographyMethod, iterations: Int,
+                func run(_ input: SingleslicePtychographyInput, iterations: Int,
                          normalizationMinimum: Float, clamp: Bool) throws -> SingleslicePtychographyResult {
                     var options = SingleslicePtychographyOptions()
-                    options.method = method
                     options.iterations = iterations
                     options.stepSize = 0.5
-                    options.projectionParameter = 1
                     options.normalizationMinimum = normalizationMinimum
                     options.constrainObjectAmplitude = clamp
                     return try SingleslicePtychography.reconstruct(input: input, options: options)
@@ -845,7 +794,7 @@ struct Harness {
                             "\(fixture.name): the Swift scorer disagrees with truth.py's on py4DSTEM's object (Pearson \(pyScore.pearson) vs \(pyGD.truth.pearson), rms \(pyScore.rms) vs \(pyGD.truth.rms), shift (\(pyScore.shiftRow), \(pyScore.shiftColumn)) vs (\(pyGD.truth.shiftRow), \(pyGD.truth.shiftColumn)))")
 
                 // (2) Gradient descent on the fixture's probe: the same operator as py4DSTEM's, and it reaches the truth.
-                let gd = try run(fixtureInput, .gradientDescent, iterations: pyGD.iterations, normalizationMinimum: 1, clamp: true)
+                let gd = try run(fixtureInput, iterations: pyGD.iterations, normalizationMinimum: 1, clamp: true)
                 let gdGap = relativeGap(gd.errorHistory, pyGD.errors)
                 try require(gdGap < 5e-2, "\(fixture.name): GD error history differs from py4DSTEM's by \(gdGap) (limit 5e-2)")
                 let gdPhaseGap = phaseGap(gd, pyGD)
@@ -858,45 +807,26 @@ struct Harness {
 
                 // (3) The app's own probe builder at the fixture's defocus gives the same reconstruction; (4) the wrong sign does not.
                 let plus = try appProbe(sign: 1)
-                let gdApp = try run(input(probeReal: plus.real, probeImag: plus.imag), .gradientDescent, iterations: pyGD.iterations,
+                let gdApp = try run(input(probeReal: plus.real, probeImag: plus.imag), iterations: pyGD.iterations,
                                     normalizationMinimum: 1, clamp: true)
                 let gdAppScore = try score(gdApp)
                 try require(gdAppScore.pearson >= 0.95 && abs(gdAppScore.pearson - gdScore.pearson) < 0.01,
                             "\(fixture.name): the app-built probe reconstructs differently: Pearson \(gdAppScore.pearson) vs \(gdScore.pearson) with py4DSTEM's probe")
                 let minus = try appProbe(sign: -1)
-                let gdWrongSign = try run(input(probeReal: minus.real, probeImag: minus.imag), .gradientDescent, iterations: pyGD.iterations,
+                let gdWrongSign = try run(input(probeReal: minus.real, probeImag: minus.imag), iterations: pyGD.iterations,
                                           normalizationMinimum: 1, clamp: true)
                 let wrongScore = try score(gdWrongSign)
                 try require(wrongScore.pearson < 0.5 && wrongScore.pearson < gdScore.pearson - 0.4,
                             "\(fixture.name): the WRONG-SIGN defocus probe still reaches the truth (Pearson \(wrongScore.pearson) vs \(gdScore.pearson)) - the defocus sign is not being tested")
 
                 // (5) Anti-vacuity: without the clamp the GD history must fail the parity bar (measured 0.20-0.31).
-                let gdOff = try run(fixtureInput, .gradientDescent, iterations: pyGD.iterations, normalizationMinimum: 1, clamp: false)
+                let gdOff = try run(fixtureInput, iterations: pyGD.iterations, normalizationMinimum: 1, clamp: false)
                 let offGap = relativeGap(gdOff.errorHistory, pyGD.errors)
                 try require(offGap > 0.1, "\(fixture.name): the GD parity bar is VACUOUS - the clamp-off run is within \(offGap) of py4DSTEM")
 
-                // (6) Difference map: the same operator as py4DSTEM's DM_AP over 8 iterations, at the app's default normalization and
-                // at a small one; its truth score is reported, not pinned.
-                var dmRows = [String]()
-                for pyDM in [pyDM1, pyDMSmall] {
-                    let dm = try run(fixtureInput, .differenceMapAlternatingProjections, iterations: pyDM.iterations,
-                                     normalizationMinimum: pyDM.normalizationMinimum, clamp: true)
-                    let gap = relativeGap(dm.errorHistory, pyDM.errors)
-                    // Pinned at the small normalization only (measured <= 5.2e-3 over 8 iterations on 5 fixtures, 10x margin). At
-                    // norm-min 1 the map expands from iteration 1 (2.7e-2 by it 8, 0.27 by it 16 on df200; 25 % at it 3 on graphene),
-                    // so that gap is printed, not pinned (refuter, 2026-10-01): a bar on a chaotic trajectory can go red on a
-                    // different Accelerate build without any port change.
-                    if pyDM.normalizationMinimum < 1 {
-                        try require(gap < 0.05,
-                                    "\(fixture.name): DM (norm-min \(pyDM.normalizationMinimum), \(pyDM.iterations) it) error history differs from py4DSTEM's by \(gap) (limit 0.05)")
-                    }
-                    let dmScore = try score(dm)
-                    dmRows.append(String(format: "DM nm %g: app Pearson %.3f rms %.3f / py4DSTEM %.3f %.3f, histories within %.1e",
-                                         pyDM.normalizationMinimum, dmScore.pearson, dmScore.rms, pyDM.truth.pearson, pyDM.truth.rms, gap))
-                }
-                rows.append(String(format: "  %@: GD Pearson %.4f rms %.4f rad shift (%.3f, %.3f) px [py4DSTEM %.4f %.4f]; app-built probe %.4f; wrong sign %.3f; app-py4DSTEM GD histories within %.1e, phase within %.1e rad (clamp off: %.2f); %@",
+                rows.append(String(format: "  %@: GD Pearson %.4f rms %.4f rad shift (%.3f, %.3f) px [py4DSTEM %.4f %.4f]; app-built probe %.4f; wrong sign %.3f; app-py4DSTEM GD histories within %.1e, phase within %.1e rad (clamp off: %.2f)",
                                    fixture.name, gdScore.pearson, gdScore.rms, gdScore.shiftRow, gdScore.shiftColumn, pyGD.truth.pearson, pyGD.truth.rms,
-                                   gdAppScore.pearson, wrongScore.pearson, gdGap, gdPhaseGap, offGap, dmRows.joined(separator: "; ")))
+                                   gdAppScore.pearson, wrongScore.pearson, gdGap, gdPhaseGap, offGap))
             }
             try require(defocusValues.count >= 3, "only \(defocusValues.count) distinct defocus values - the truth fixture has gone narrow")
             print("PASS: against a known object with a defocused probe (py4DSTEM \(truth.py4dstemVersion) on bit-identical inputs), \(truth.fixtures.count) fixtures:")

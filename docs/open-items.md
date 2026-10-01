@@ -179,17 +179,12 @@ Baseline, limits re-measured (floors kept, `-jobs 2` and "quit Claude to train" 
 (`archive/v4/parity-28gb-2026-09-30.md`: the app's raw read is right; the "unfiltered" bin-4 cubes are hot-pixel filtered at 15
 detector pixels incl. the direct beam — the owner's files, not the app; the > 2 GB read rule is retired for mapped local
 volumes); the parallax/ptychography cost (`archive/v4/parallax-ptycho-cost-2026-09-30.md`: estimators honest, the 051 cube is
-not an acquisition for them); owner: KEEP, limits now half of RAM (`PhaseContrastMemoryBudget`). **On py4DSTEM's graphene
-cube (`archive/v4/parallax-ptycho-graphene-2026-09-30/`): parallax agrees with py4DSTEM (defocus 663.6 vs 663.7 Å, interior
-BF 1.000) but carries an edge vignette (full-frame 0.36) and fits the (2,1) higher-order terms at ≈ 0 where py4DSTEM gives
-≈ 600 Å. Ptychography takes a defocus since Slot 1 R1 (2026-09-30 night): the probe carries defocus, C12a/b and the
-higher-order terms, pinned to py4DSTEM's `ComplexProbe` (harness, worst 1.7e-6); "Use Parallax Fit" seeds defocus = −C1 (py4DSTEM's
-rule; a 180° R–Q rotation flips every coefficient — the status line prints both rotations). Residuals for R2/R3: at the same
-defocus the app's object correlates 0.69–0.74 raw (0.79–0.90 low-passed) with py4DSTEM's and the error histories differ 8–15 %
-mid-run (0.88 / 0.94 at defocus 0; the mean-origin DEVIATION is the suspect); the archived comparison rows could not be reproduced
-(that run's py4DSTEM settings are unknown); the difference map diverges in py4DSTEM too (Slot 2 R2: py4DSTEM's DM_AP, intrinsic in float64; owner card DM), and the GD gap is py4DSTEM's unconditional |O| ≤ 1 clamp, an app option off by default (card CL). Since X4 (2026-10-01) the probe
-fields travel as the product's provenance keys (`probe_defocus_angstrom` …), so a saved session restores them and an export names
-them; the replay record carries no ptychography step at all (a rewind does not re-run it).** C5's 500-step run done headless
+not an acquisition for them); owner: KEEP, limits now half of RAM (`PhaseContrastMemoryBudget`). **On py4DSTEM's graphene cube, 2026-10-01 (R4 + DC, `archive/v4/r4-*`, `dc-*`):** the aligned BF matches py4DSTEM to 3.6e-5
+(the vignette was a Float32 stack-mean reduce; C1 663.42 vs 664.05 Å); the (2,1) pair's ≈ 600 Å is py4DSTEM's basis-origin offset on an
+exactly linear shift field — unobservable in both with the default alignment, the app's 0 labelled (owner: remove the higher-order
+toggle? offer `regularize_shifts`?); the difference map is removed (α = 0 alternating projections with it); the |O| ≤ 1 clamp is on by
+default — GD's gap to py4DSTEM 8.6 → 1.7 % at 8 iterations, growing after (2.3e-2 at 32), `fix_probe_com` still off (5e-4); the object
+still correlates 0.69 with py4DSTEM's. Archived scripts that call `ptycho dmap` or an unflagged `ptycho gd` reproduce only at their commit.** C5's 500-step run done headless
 (`archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision
 65.7 → 72.1 %). **Open:** the Train Model… drive is the owner's (a scratch build cannot read his sidecar's labels — the
 grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no
