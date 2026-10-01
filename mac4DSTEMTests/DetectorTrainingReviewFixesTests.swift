@@ -133,4 +133,139 @@ final class DetectorTrainingReviewFixesTests: XCTestCase {
         XCTAssertNil(session.review)
         XCTAssertFalse(FileManager.default.fileExists(atPath: staging.path))
     }
+
+    // CR4 mutations: (1) `install` calling `sweepStagedCandidates()` directly (no once-flag): testASecondInstallDoesNotSweepTheFirstSessionsStaging;
+    // (2) `discardReview` deleting while `isSaving`: testADatasetChangeMidSaveDoesNotDeleteThePackageUnderTheSave.
+
+    @MainActor
+    private func stage(_ session: DetectorTrainingSession) throws -> URL {
+        let staging = FileManager.default.temporaryDirectory
+            .appendingPathComponent(DetectorTrainingSession.stagingPrefix + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: staging) }
+        let score = TrainedModelRecord.HeldOutScore(modelSHA256: "a", score: DetectionScore(matched: 1, truth: 1, predicted: 1),
+                                                    heldOutPositions: 1, radiusPx: 2, threshold: 0.7)
+        let outcome = DetectorFineTuningOutcome(
+            candidatePackage: staging.appendingPathComponent("model.mlpackage"), candidateSHA256: "b", parentSHA256: "c",
+            trained: [], heldOut: [], recipe: TrainingRecipe(), finalStepLoss: nil, secondsPerStep: 0, active: score, candidate: score)
+        session.present(.init(outcome: outcome, stagingDirectory: staging, datasetFile: "d.h5", datasetPath: "/e",
+                              labelsSHA256: nil, offer: .offer))
+        return staging
+    }
+
+    @MainActor
+    func testASecondInstallDoesNotSweepTheFirstSessionsStaging() throws {
+        let fm = FileManager.default
+        let stale = fm.temporaryDirectory.appendingPathComponent(DetectorTrainingSession.stagingPrefix + "stale-" + UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: stale, withIntermediateDirectories: true)
+        addTeardownBlock { try? fm.removeItem(at: stale) }
+        DetectorTrainingSession.resetSweepForTests()
+        let first = DetectorTrainingSession(storeRoot: try TrainingTestSupport.tempDirectory(self), trash: { _ in })
+        first.install(in: LearnedDetectionSession())
+        XCTAssertFalse(fm.fileExists(atPath: stale.path), "a folder left from before launch is swept once")
+        let live = try stage(first)
+        // a second window's AppState.init
+        DetectorTrainingSession(storeRoot: try TrainingTestSupport.tempDirectory(self), trash: { _ in }).install(in: LearnedDetectionSession())
+        XCTAssertTrue(fm.fileExists(atPath: live.path), "the second window deleted the first window's staged candidate")
+    }
+
+    @MainActor
+    func testADatasetChangeMidSaveDoesNotDeleteThePackageUnderTheSave() throws {
+        let session = DetectorTrainingSession(storeRoot: try TrainingTestSupport.tempDirectory(self), trash: { _ in })
+        let learned = LearnedDetectionSession()
+        session.install(in: learned)
+        let staging = try stage(session)
+        session.setSaving(true)          // adoptFineTunedModel is compiling the package
+        learned.clear()                  // a dataset activates meanwhile
+        XCTAssertNil(session.review, "the sheet still closes")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staging.path), "the package was deleted under the save")
+        session.setSaving(false)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.path), "and it is removed once the save ends")
+    }
+
+    // CR4 #5 mutation: `remove` without the other-window check: testRemoveIsRefusedWhileAnotherWindowHasTheModelActive.
+    @MainActor
+    func testRemoveIsRefusedWhileAnotherWindowHasTheModelActive() throws {
+        let root = try TrainingTestSupport.tempDirectory(self)
+        let trashed = TrainingRecorder<URL>()
+        let a = DetectorTrainingSession(storeRoot: root, trash: { trashed.add($0) }), learnedA = LearnedDetectionSession()
+        let b = DetectorTrainingSession(storeRoot: root, trash: { trashed.add($0) }), learnedB = LearnedDetectionSession()
+        a.install(in: learnedA); b.install(in: learnedB)
+        let entry = try storedModel(a)
+        a.activate(entry, in: learnedA)
+        b.refresh(); b.activate(try XCTUnwrap(b.entry(sha256: entry.record.sha256)), in: learnedB)
+        XCTAssertThrowsError(try a.remove(entry, in: learnedA)) { XCTAssertTrue("\($0)".contains("Another window") || $0.localizedDescription.contains("Another window"), "\($0)") }
+        XCTAssertTrue(trashed.values.isEmpty, "the other window's model was trashed")
+        XCTAssertEqual(learnedA.activeModel?.sha256, entry.record.sha256)
+        b.activate(nil, in: learnedB)
+        XCTAssertNoThrow(try a.remove(entry, in: learnedA))
+        XCTAssertEqual(trashed.values, [entry.directory])
+    }
+
+    // CR4 #3/#4 mutations: (3a) no epoch re-check after `prepareForRun` in runDiskDetection; (3b) none in trainDetectorModel;
+    // (4) `prepare` storing a load whose package is no longer the active one (no `resolvedAssetURL == assetURL` guard).
+
+    @MainActor
+    private func spinUntil(_ condition: () -> Bool) async {
+        var spins = 0
+        while !condition(), spins < 200_000 { await Task.yield(); spins += 1 }
+    }
+
+    @MainActor
+    func testADatasetOpenedDuringThePrepareIsNotDetectedAsTheOldCube() async throws {
+        let state = AppState()
+        var spec = LoadSpecification()
+        spec.scanCrop = AxisCrop(yOffset: 0, xOffset: 0, height: 4, width: 4)
+        await state.openDemoFixture(specification: spec)
+        state.navigation.analysisMode = .disks
+        await state.generateProbeKernel()
+        state.learnedDetection.detectorClass = .learned
+        let run = Task { await state.runDiskDetection() }
+        await spinUntil { state.learnedDetection.preparing }
+        XCTAssertTrue(state.learnedDetection.preparing, "precondition: the first learned run is loading the model")
+        state.datasetSession.beginActivation()   // another dataset opens meanwhile
+        let outcome = await run.value
+        guard case .failed = outcome else { return XCTFail("the old cube's run went on: \(outcome)") }
+        XCTAssertNil(state.resultPresentation.braggVectors, "the old cube's vectors were published")
+        XCTAssertNil(state.replay.record.steps.last { $0.kind == "disk_detection" })
+    }
+
+    @MainActor
+    func testADatasetOpenedDuringThePrepareDoesNotTrainTheOldCube() async throws {
+        let state = AppState()
+        var spec = LoadSpecification()
+        spec.scanCrop = AxisCrop(yOffset: 0, xOffset: 0, height: 4, width: 4)
+        await state.openDemoFixture(specification: spec)
+        state.navigation.analysisMode = .disks
+        await state.generateProbeKernel()
+        for ry in 0..<20 { for rx in 0..<20 { state.diskCentreLabels.add(.init(row: 10, col: 10), ry: ry, rx: rx) } }
+        XCTAssertNil(state.trainModelRefusal, "precondition: training is allowed")
+        let run = Task { await state.trainDetectorModel() }
+        await spinUntil { state.learnedDetection.preparing }
+        XCTAssertTrue(state.learnedDetection.preparing, "precondition: the model is loading")
+        state.datasetSession.beginActivation()
+        await run.value
+        XCTAssertFalse(state.isBusy)
+        XCTAssertNil(state.detectorTraining.review)
+        XCTAssertEqual(state.statusText, "Preparing the neural-net detector…", "the run started on the old cube: \(state.statusText)")
+    }
+
+    @MainActor
+    func testALoadForAReplacedModelNeverBecomesTheSessionsDetector() async throws {
+        let bundled = try TrainingTestSupport.bundledPackage
+        let copy = try TrainingTestSupport.tempDirectory(self).appendingPathComponent("b.mlpackage")
+        try ModelPackageWriter.write(weights: try DetectorWeights.load(fromPackage: bundled), toCopyOf: bundled, at: copy)
+        let learned = LearnedDetectionSession()
+        learned.selectModel(.init(packageURL: copy))                      // B is picked ...
+        let load = Task { try await learned.prepare(assetURL: copy) }     // ... and starts loading
+        await spinUntil { learned.preparing }
+        XCTAssertTrue(learned.preparing, "precondition: B is loading")
+        learned.selectModel(nil)                                          // Bundled is picked before it lands
+        let loadedB = try await load.value
+        XCTAssertNil(learned.assetSHA256, "B's late load wrote its identity over the bundled model's")
+        // the run that used B records B, whatever the session holds now
+        let params = learned.replayParameters(for: .learned, model: loadedB)
+        XCTAssertEqual(params["learned_model_sha256"], loadedB.assetSHA256)
+        XCTAssertEqual(params["learned_model_origin"], "fine-tuned")
+    }
 }

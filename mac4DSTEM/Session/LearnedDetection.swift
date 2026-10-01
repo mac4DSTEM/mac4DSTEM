@@ -196,6 +196,8 @@ package final class LearnedDetectionSession {
         if let cached = detector, cached.assetURL == assetURL { return cached }
         preparing = true
         defer { preparing = false }
+        // Provenance belongs to the model being loaded, read before the await (the active model may change meanwhile).
+        let origin = modelOrigin, parent = activeModel?.parentSHA256
         do {
             // A stored model's compiled copy is used when it loads; otherwise (a copy from another OS, say) compile.
             let precompiled = activeModel?.packageURL == assetURL ? activeModel?.compiledURL : nil
@@ -205,8 +207,11 @@ package final class LearnedDetectionSession {
             } else {
                 loaded = try await LearnedDiskDetector.load(assetURL: assetURL)
             }
-            loaded.origin = modelOrigin
-            loaded.parentSHA256 = activeModel?.parentSHA256
+            loaded.origin = origin
+            loaded.parentSHA256 = parent
+            // CR4: a load whose package is no longer the active one (a model picked and replaced while it
+            // loaded) is handed to its caller but never becomes the session's detector or identity.
+            guard resolvedAssetURL == assetURL else { return loaded }
             detector = loaded
             assetSHA256 = loaded.assetSHA256
             unavailableReason = nil
@@ -268,17 +273,21 @@ package final class LearnedDetectionSession {
     /// `used` is the threshold the run USED (captured before it started): the live
     /// `threshold` may have been edited during a long Detect All (review row 27). Nil
     /// (a non-run caller: the current settings) reads the live value.
-    package func replayParameters(for detectorClass: DetectorClass, threshold used: Float? = nil) -> [String: String] {
+    /// `model` (CR4): the detector the run actually used; its own hash, origin and parent are recorded,
+    /// not whatever the session holds when the step is written.
+    package func replayParameters(for detectorClass: DetectorClass, threshold used: Float? = nil,
+                                  model: LearnedDiskDetector? = nil) -> [String: String] {
         var params = ["detector_class": detectorClass.provenanceID]
         if detectorClass == .learned {
             params["learned_threshold"] = String(used ?? threshold)
-            params["learned_model_sha256"] = assetSHA256 ?? ""
+            params["learned_model_sha256"] = model?.assetSHA256 ?? assetSHA256 ?? ""
             // Only a fine-tuned model adds keys: with the bundled model the
             // signature stays byte-identical to the one every session before
             // 2026-09-30 recorded, so those disks do not turn stale.
-            if modelOrigin != ActiveModel.originBundled {
-                params["learned_model_origin"] = modelOrigin
-                if let parent = activeModel?.parentSHA256 { params["learned_model_parent_sha256"] = parent }
+            let origin = model?.origin ?? modelOrigin
+            if origin != ActiveModel.originBundled {
+                params["learned_model_origin"] = origin
+                if let parent = model != nil ? model?.parentSHA256 : activeModel?.parentSHA256 { params["learned_model_parent_sha256"] = parent }
             }
         }
         return params

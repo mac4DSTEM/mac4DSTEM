@@ -240,7 +240,11 @@ extension AppState {
     @discardableResult
     func runDiskDetection(replaying: Bool = false) async -> AnalysisRunOutcome {
         guard let fourD = datasetSession.fourD, let descriptor else { return .failed("No dataset is loaded") }
+        // CR4: the epoch is taken BEFORE any await, with the cube and descriptor above; every await below
+        // re-checks it, so a dataset opened meanwhile cannot be detected as the old cube or published as the new.
+        let epoch = datasetSession.epoch
         if probeKernel == nil { await generateProbeKernel() }
+        guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
         guard let kernel = probeKernel else {
             return .failed("No probe kernel could be generated")
         }
@@ -269,6 +273,7 @@ extension AppState {
             case .failure(let reason): presentComputeFailure(SimpleError(reason)); return .failed(reason)
             case .success(let loaded): preparedLearned = loaded
             }
+            guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
         }
 
         let cancellation = beginCancellableOperation(
@@ -282,7 +287,6 @@ extension AppState {
         // returned nil for everything, and the guard below then attributed a
         // NAS tile-read failure to "its FFT plan" — the throwing contract
         // exists to prevent that misattribution.
-        let epoch = datasetSession.epoch
         // The threshold the run uses, captured here (main actor, before the detach) and
         // recorded below: a value typed during Detect All must not become the run's (row 27).
         let learnedThreshold = learnedDetection.threshold
@@ -374,7 +378,7 @@ extension AppState {
         // new detection — a recipe that replays neither the saved maps nor a
         // coherent pipeline (Gate B-lite F4). Re-running them re-records them.
         var replayParameters = params.replayParameters(kernel: kernel)
-        replayParameters.merge(learnedDetection.replayParameters(for: detectorClass, threshold: learnedThreshold)) { _, new in new }
+        replayParameters.merge(learnedDetection.replayParameters(for: detectorClass, threshold: learnedThreshold, model: preparedLearned)) { _, new in new }
         // (Lineage, ADR 047: the same supersession is `SessionLineage.downstreamKinds`,
         // which decides the projection; this list is the call site's own statement of it.)
         recordReplayStep(kind: "disk_detection", parameters: replayParameters,

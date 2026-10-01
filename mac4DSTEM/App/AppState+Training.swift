@@ -61,12 +61,16 @@ extension AppState {
         guard trainModelRefusal == nil, let fourD = datasetSession.fourD, let d = descriptor,
               let ref = learnedDetection.probeReference, let bundled = LearnedDiskDetector.bundledAssetURL() else { return }
         detectorTraining.discardReview()
+        // CR4: the epoch with the cube and descriptor captured above, before the prepare await; a dataset
+        // opened meanwhile must not train the old cube on the new dataset's labels.
+        let epoch = datasetSession.epoch
         statusText = "Preparing the neural-net detector…"
         let active: LearnedDiskDetector
         switch await learnedDetection.prepareForRun() {   // slow the first time: before the operation begins
         case .failure(let reason): presentComputeFailure(SimpleError(reason)); return
         case .success(let loaded): active = loaded
         }
+        guard epoch == datasetSession.epoch else { return }
 
         let labels = trainingLabels
         let staging = FileManager.default.temporaryDirectory
@@ -97,7 +101,6 @@ extension AppState {
         pressure.resume()
         defer { pressure.cancel() }
 
-        let epoch = datasetSession.epoch
         let report: @Sendable (DetectorFineTuningStage) -> Void = { [weak self] stage in
             Task { @MainActor [weak self] in self?.showTraining(stage, token: token) }
         }

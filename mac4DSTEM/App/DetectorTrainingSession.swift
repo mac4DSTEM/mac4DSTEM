@@ -41,6 +41,10 @@ final class DetectorTrainingSession {
     private(set) var entries: [TrainedModelStore.Entry] = []
 
     @ObservationIgnored private var store: TrainedModelStore?
+    /// Every window's session in this process (weak): `remove` must not trash a model another window has active.
+    private struct Weak { weak var value: DetectorTrainingSession?; init(_ v: DetectorTrainingSession) { value = v } }
+    @MainActor private static var liveSessions: [Weak] = []
+    @ObservationIgnored private weak var learnedSession: LearnedDetectionSession?
     private let rootOverride: URL?
     @ObservationIgnored private let trash: (@Sendable (URL) throws -> Void)?
 
@@ -82,7 +86,10 @@ final class DetectorTrainingSession {
     /// active again if it is still in the store, EVERY later change of the active model is remembered
     /// (including the one a replay makes), and a dataset change drops a pending review.
     func install(in learned: LearnedDetectionSession) {
-        Self.sweepStagedCandidates()
+        Self.sweepStagedCandidatesOnce()
+        learnedSession = learned
+        Self.liveSessions.removeAll { $0.value == nil }
+        Self.liveSessions.append(Weak(self))
         learned.modelLookup = { [weak self] sha in self?.entry(sha256: sha).map(Self.activeModel(for:)) }
         refresh()
         if let sha = remembered(), let stored = entry(sha256: sha),
@@ -99,7 +106,16 @@ final class DetectorTrainingSession {
     }
 
     /// Moves a stored model to the Trash and makes the bundled model active.
+    /// Refused while another window of this process has the model active: its next run would fail on a
+    /// package that is gone (CR4).
     func remove(_ entry: TrainedModelStore.Entry, in learned: LearnedDetectionSession) throws {
+        let root = try openStore().root
+        for other in Self.liveSessions.compactMap(\.value) where other !== self {
+            if let theirs = other.learnedSession, theirs !== learned, theirs.activeModel?.sha256 == entry.record.sha256,
+               (try? other.openStore())?.root == root {
+                throw SimpleError("Another window is using fine-tuned model \(entry.sha8). Switch that window to another model first.")
+            }
+        }
         try openStore().remove(entry)
         refresh()
         if learned.activeModel?.sha256 == entry.record.sha256 { activate(nil, in: learned) }
@@ -107,6 +123,18 @@ final class DetectorTrainingSession {
 
     /// Candidates staged by a run that never reached a decision (a quit or a crash mid-review) are removed
     /// at the next launch; a live review is dropped when its dataset goes.
+    /// Once per PROCESS: `install` runs for every window's `AppState`, and a second window's init must not
+    /// delete the first window's staged candidate (review pending, training in flight, or adopting). Every
+    /// staging folder this process makes is created after its first install, so one sweep at launch is exact.
+    @MainActor private static var didSweep = false
+    @MainActor static func sweepStagedCandidatesOnce() {
+        guard !didSweep else { return }
+        didSweep = true
+        sweepStagedCandidates()
+    }
+    /// For tests: lets the once-per-process sweep run again.
+    @MainActor static func resetSweepForTests() { didSweep = false }
+
     static func sweepStagedCandidates() {
         let fm = FileManager.default, tmp = fm.temporaryDirectory
         for name in (try? fm.contentsOfDirectory(atPath: tmp.path)) ?? [] where name.hasPrefix(stagingPrefix) {
@@ -141,11 +169,23 @@ final class DetectorTrainingSession {
         self.review = review
     }
 
-    /// Drops the pending review and deletes its staged candidate.
+    /// Drops the pending review and deletes its staged candidate. While "Use Fine-Tuned Model" is compiling
+    /// and saving, that package is being read: the folder's deletion waits until the save ends (`setSaving`).
     func discardReview() {
-        if let review { try? FileManager.default.removeItem(at: review.stagingDirectory) }
+        if let review {
+            if isSaving { deferredDeletions.append(review.stagingDirectory) }
+            else { try? FileManager.default.removeItem(at: review.stagingDirectory) }
+        }
         review = nil
     }
 
-    func setSaving(_ saving: Bool) { isSaving = saving }
+    /// Staging folders whose review was dropped mid-save (e.g. by a dataset change); removed when the save ends.
+    @ObservationIgnored private var deferredDeletions: [URL] = []
+
+    func setSaving(_ saving: Bool) {
+        isSaving = saving
+        guard !saving else { return }
+        for url in deferredDeletions { try? FileManager.default.removeItem(at: url) }
+        deferredDeletions = []
+    }
 }
