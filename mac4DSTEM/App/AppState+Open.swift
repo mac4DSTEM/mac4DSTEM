@@ -1367,7 +1367,8 @@ extension AppState {
         guard let canonical =
                 CalibrationUnitConversion.canonicalEditableReciprocalUnit(units)
         else { return }
-        if calibrationSession.calibration.qPixelUnits == canonical { return }   // CR1 item 3
+        // Same unit, however the file spelled it ("A^-1" from py4DSTEM files is Å⁻¹): CR1 item 3, CR2 item A.
+        if CalibrationUnitConversion.canonicalEditableReciprocalUnit(calibrationSession.calibration.qPixelUnits) == canonical { return }
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         calibrationSession.calibration.qPixelUnits = canonical

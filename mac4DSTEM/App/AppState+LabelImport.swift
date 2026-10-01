@@ -30,12 +30,14 @@ extension AppState {
     func importDiskCentreLabels(from url: URL, descriptor: DatasetDescriptor) {
         let data: Data
         do { data = try Data(contentsOf: url) } catch {
-            diskCentreLabels.importLabels(from: Data(), fileName: url.lastPathComponent,
-                                          expecting: descriptor.filePath, scanY: descriptor.ry, scanX: descriptor.rx)
+            diskCentreLabels.refuseImport("\(url.lastPathComponent): \(error.localizedDescription) — nothing imported.")
             return
         }
         if diskCentreLabels.importLabels(from: data, fileName: url.lastPathComponent,
-                                         expecting: descriptor.filePath, scanY: descriptor.ry, scanX: descriptor.rx) {
+                                         expecting: descriptor.filePath, datasetPath: descriptor.datasetPath,
+                                         frame: DiskCentreLabelStore.frameTag(loadedView.specification),
+                                         scanY: descriptor.ry, scanX: descriptor.rx,
+                                         detectorY: descriptor.qy, detectorX: descriptor.qx) {
             statusText = "Imported disk-centre labels ← \(url.lastPathComponent) (replaced the current labels)"
         }
     }

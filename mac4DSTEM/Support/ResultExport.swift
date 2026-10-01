@@ -949,7 +949,7 @@ extension AppState {
         }
         if let value = plan.ptychographyProbe { ptychography.setProbe(value) }
         let skipped = (plan.ptychographyProbe?.higherOrder.isEmpty == false)
-            ? " The stored higher-order probe terms (C21, C23) were not applied: the probe has none." : ""
+            ? " The stored higher-order probe terms (C21, C23) were not applied: the probe has none, and the applied defocus and C12 came from a fit that also held those terms, so this probe matches neither fit exactly." : ""
         statusText = "Applied saved controls: \(plan.summary). Re-run explicitly to reconstruct.\(skipped)"
     }
 
@@ -1263,7 +1263,8 @@ extension AppState {
         let datasetName = URL(fileURLWithPath: descriptor.filePath)
             .deletingPathExtension().lastPathComponent
         do {
-            let url = try diskCentreLabels.exportForFineTuning(to: folder, datasetName: datasetName)
+            let url = try diskCentreLabels.exportForFineTuning(to: folder, datasetName: datasetName,
+                                                          frame: DiskCentreLabelStore.frameTag(loadedView.specification))
             statusText = "Exported disk-centre labels → \(url.lastPathComponent)"
             return .published
         } catch {

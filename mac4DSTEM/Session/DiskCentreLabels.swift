@@ -201,7 +201,7 @@ package final class DiskCentreLabelStore {
         var cube: String
         var dataset: String
         var ingredient: String
-        var frame: String
+        var frame: String?   // optional on DECODE: a hand-written file may lack it
         var seed: Int
         var positions: [Position]
         var sha256: String?
@@ -219,7 +219,7 @@ package final class DiskCentreLabelStore {
     /// therefore compute different hashes over equal content. That is fine:
     /// `evaluate.py`'s `load_labels` only records the value it finds, it
     /// never recomputes or verifies it.
-    package func encodedJSON() throws -> Data {
+    package func encodedJSON(frame: String = "native") throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let positionsJSON = try encoder.encode(positions)
@@ -229,7 +229,7 @@ package final class DiskCentreLabelStore {
             cube: filePath ?? "",
             dataset: datasetPath ?? "",
             ingredient: ingredient,
-            frame: "native",
+            frame: frame,
             seed: seed,
             positions: positions,
             sha256: sha256
@@ -241,10 +241,10 @@ package final class DiskCentreLabelStore {
     /// used both by `load(from:expecting:)` and directly by tests.
     package static func decode(
         _ data: Data
-    ) throws -> (filePath: String, datasetPath: String, ingredient: String, seed: Int, positions: [Position]) {
+    ) throws -> (filePath: String, datasetPath: String, ingredient: String, seed: Int, positions: [Position], frame: String?) {
         do {
             let document = try JSONDecoder().decode(Document.self, from: data)
-            return (document.cube, document.dataset, document.ingredient, document.seed, document.positions)
+            return (document.cube, document.dataset, document.ingredient, document.seed, document.positions, document.frame)
         } catch let error as LabelError {
             throw error
         } catch {
@@ -280,18 +280,34 @@ package final class DiskCentreLabelStore {
     /// A refusal changes nothing and sets `importRefusal`.
     @discardableResult
     package func importLabels(from data: Data, fileName: String, expecting filePath: String,
-                              scanY: Int, scanX: Int) -> Bool {
+                              datasetPath expectedDataset: String, frame expectedFrame: String,
+                              scanY: Int, scanX: Int, detectorY: Int, detectorX: Int) -> Bool {
         do {
             let decoded = try Self.decode(data)
             guard decoded.filePath == filePath else {
-                importRefusal = "\(fileName) labels another dataset (\(URL(fileURLWithPath: decoded.filePath).lastPathComponent)), not this one — nothing imported."
+                importRefusal = "\(fileName) labels another dataset (\(Self.shortPath(decoded.filePath))), not this one (\(Self.shortPath(filePath))) — nothing imported."
+                return false
+            }
+            guard decoded.datasetPath == expectedDataset else {
+                importRefusal = "\(fileName) labels the HDF5 dataset \(decoded.datasetPath), not the open one (\(expectedDataset)) — nothing imported."
+                return false
+            }
+            // A positive frame mismatch refuses; an ABSENT frame (a hand-written file) is checked by bounds only.
+            if let frame = decoded.frame, frame != expectedFrame {
+                importRefusal = "\(fileName) was labelled in the \(frame) frame, this view is \(expectedFrame) — nothing imported."
                 return false
             }
             if let bad = decoded.positions.first(where: { $0.ry < 0 || $0.rx < 0 || $0.ry >= scanY || $0.rx >= scanX }) {
                 importRefusal = "\(fileName) has a position (\(bad.ry), \(bad.rx)) outside this \(scanY) × \(scanX) scan — nothing imported."
                 return false
             }
-            datasetPath = decoded.datasetPath
+            let outside = decoded.positions.lazy.flatMap { $0.centres }.first {
+                !($0.row >= 0 && $0.col >= 0 && $0.row < Float(detectorY) && $0.col < Float(detectorX))
+            }
+            if let centre = outside {
+                importRefusal = "\(fileName) has a centre (\(centre.row), \(centre.col)) outside this \(detectorY) × \(detectorX) detector — nothing imported."
+                return false
+            }
             ingredient = decoded.ingredient
             seed = decoded.seed
             positions = decoded.positions
@@ -303,17 +319,39 @@ package final class DiskCentreLabelStore {
         }
     }
 
+    /// A refusal decided outside the store (the file could not be read): one line, nothing changed.
+    package func refuseImport(_ line: String) { importRefusal = line }
+
+    /// Parent folder + name, so two same-named cubes in different folders read differently.
+    package nonisolated static func shortPath(_ path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        let parent = url.deletingLastPathComponent().lastPathComponent
+        return parent.isEmpty || parent == "/" ? url.lastPathComponent : "\(parent)/\(url.lastPathComponent)"
+    }
+
+    /// The `frame` a labels file is written in and checked against. Labels are clicked in the pixels of the
+    /// LOADED view, so a file is valid only in the same view: "native" is the full-extent frame (what
+    /// `label_centres.py` writes); any crop or bin makes it name the view, so crops at different offsets differ.
+    /// An old export from a cropped or binned view says "native" and is refused there (its frame is unknowable).
+    package nonisolated static func frameTag(_ spec: LoadSpecification) -> String {
+        if spec.isFullExtent { return "native" }
+        func crop(_ c: AxisCrop?) -> String {
+            c.map { "\($0.yOffset)+\($0.height),\($0.xOffset)+\($0.width)" } ?? "full"
+        }
+        return "view(scan \(crop(spec.scanCrop)); detector \(crop(spec.detectorCrop)); bin \(spec.detectorBin))"
+    }
+
     /// Write the current labels to `<datasetName>-centres-<stamp>.json` under
     /// `folder`, creating the folder if needed, and return the file's URL.
     /// `stamp` is an ISO 8601 timestamp with the colons stripped (`:` is not
     /// safe in a filename).
-    package func exportForFineTuning(to folder: URL, datasetName: String) throws -> URL {
+    package func exportForFineTuning(to folder: URL, datasetName: String, frame: String = "native") throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         let stamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "")
         let url = folder.appendingPathComponent("\(datasetName)-centres-\(stamp).json")
-        try encodedJSON().write(to: url, options: .atomic)
+        try encodedJSON(frame: frame).write(to: url, options: .atomic)
         return url
     }
 }

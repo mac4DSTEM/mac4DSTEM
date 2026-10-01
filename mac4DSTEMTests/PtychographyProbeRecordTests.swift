@@ -62,6 +62,8 @@ final class PtychographyProbeRecordTests: XCTestCase {
         XCTAssertEqual(state.ptychography.probeAberrations,
                        PtychographyProbeAberrations(defocusAngstrom: -663.6, c12aAngstrom: 12.5, c12bAngstrom: -3.25))
         XCTAssertTrue(state.statusText.contains("higher-order probe terms (C21, C23) were not applied"), state.statusText)
+        // CR2 E: it also says the applied defocus and C12 came from a fit that held those terms. Mutation: drop the clause -> red.
+        XCTAssertTrue(state.statusText.contains("matches neither fit exactly"), state.statusText)
     }
 
     /// An old record (no probe keys) was made in focus: it decodes to the zero probe, not to whatever the fields hold now.
