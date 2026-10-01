@@ -1359,6 +1359,11 @@ extension AppState {
         calibrationSession.calibration.qPixelUnits = canonical
         if calibrationSession.calibration.qPixelSize.map({ $0.isFinite && $0 > 0 }) == true {
             calibrationSession.provenance.qScale = .manual
+            // A unit change is a scale change (nm⁻¹ → Å⁻¹ is 10× the Q every
+            // phase-map tolerance reads); the lineage judges staleness by the
+            // active `calibration_q` node, so it gets one here as the size
+            // setter gives it (review 2026-09-30 row 2).
+            recordQCalibrationRun()   // lineage node (ADR 047)
         }
         acomSession.invalidateResult()
         rederiveDisplayedDPCForScaleChange()
@@ -1394,9 +1399,15 @@ extension AppState {
     func setManualAcceleratingVoltage(_ value: Double) {
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
+        let previous = calibrationSession.acceleratingVoltage
         calibrationSession.acceleratingVoltage = value.isFinite && value > 0 ? value : nil
-        if CalibrationUnitConversion.normalized(calibrationSession.calibration.qPixelUnits) == "mrad" {
-            acomSession.invalidateResult()
+        // The orientation plan is generated with this voltage's wavelength
+        // (`generateOrientationPlan`: Ewald curvature of every template), so a
+        // different voltage needs a new plan, not just a new match — and that
+        // covers the mrad-scale case too (review 2026-09-30 row 5). A
+        // same-value commit keeps both, as the Q/R fields do.
+        if calibrationSession.acceleratingVoltage != previous {
+            acomSession.invalidatePlan()
         }
         rederiveDisplayedDPCForScaleChange()
     }

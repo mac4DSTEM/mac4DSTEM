@@ -60,8 +60,12 @@ has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen)
 - **Off-grid self-recovery** (S20, 2026-09-30 night): 37–43 of 200 fail at 1.4° (0/200 on-grid, worst 9.3°). Candidate F (exact
   azimuth + 4× shifts) sweep 430 → 24; closed 2026-09-30 night at true Q (lane Q, `archive/v4/slot1-q-record-2026-09-30.md`): grain C
   stays t2 (0.00°) under F at Q 0.012, so the S20 regression was the probe's 13.5 %-low Q, not F; F moves grain A 5.03 → 3.18° at
-  kMax 1.2 and costs 3.8× on CPU — After v4.1. Left, undiagnosed, its own Gate D: grain B reads 6.50° (winner t84) in base and
-  patched at both kMax and both Q — invariant under Q, kMax and F, so matcher/plan-side (the bank holds B's axis as t1).
+  kMax 1.2 and costs 3.8× on CPU — After v4.1. Grain B (6.50°, winner t84) diagnosed 2026-10-01 (lane F-A, refuter HOLDS WITH
+  CORRECTIONS): the same nearest-bin azimuth class (`OrientationPlan.swift:262` `.rounded()`; py4DSTEM keeps sub-bin position) —
+  exact on-grid, a neighbour off-grid; t84 itself not reproduced; owed: snap one B position's peaks to the bin, rematch, predict t1.
+- **Row 1 (mirror pass) held for the owner** (2026-10-01): the port HOLDS (mirror-zone 62 → 3 of 93 wrong) but costs 15 Au
+  sampled trials to the same quantisation (`acom-convention-test` 116 < 120); options and the patch: `archive/v4/slot2-fa-refuter-2026-10-01.md`,
+  `slot2-fa-row1-mirror-pass-2026-10-01.patch`. Lands with `FitOverlays.swift:226` drawing mirrored wins mirrored.
 - **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** — confirmed on the app's own path (lane Q, 2026-09-30
   night): the owner's raw and binned 060 cubes, the demo cube and Thronsen A read Q 12.5–13.5 % low, shell ratio 1.37–1.43 vs 1.155
   (the 09-29 "0.006577 / 1.0846" row was the Python lattice fit and an ellipse axis ratio, not this estimator). Shipped: the one-shell

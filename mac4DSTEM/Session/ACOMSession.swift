@@ -24,7 +24,19 @@ package final class ACOMSession {
         didSet { if modelSelection != oldValue { invalidatePlan() } }
     }
     /// CIF files imported this run. Session-local, never persisted.
-    package var importedCrystalModels: [CrystalModel] = []
+    /// Re-importing a CIF with the same stem REPLACES its model in place, and
+    /// the selection it re-asserts is a same-value write that `modelSelection`
+    /// ignores — so the plan is invalidated here when the SELECTED imported
+    /// model's revision changes (review 2026-09-30 row 4: a run after a
+    /// re-import with a different cell reused the old crystal's templates).
+    package var importedCrystalModels: [CrystalModel] = [] {
+        didSet {
+            guard case .imported(let id) = modelSelection else { return }
+            let before = oldValue.first { $0.id == id }?.revisionID
+            let after = importedCrystalModels.first { $0.id == id }?.revisionID
+            if before != after { invalidatePlan() }
+        }
+    }
     /// A different scale changes the match, not the plan.
     package var exploratoryScale: Double = 0.01 {
         didSet { if exploratoryScale != oldValue { invalidateResult() } }
