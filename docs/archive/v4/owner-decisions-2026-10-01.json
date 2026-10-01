@@ -1,234 +1,234 @@
 {
- "date": "2026-10-01 — Slot 1 closed (P, Q, R1 landed); the cloud review's findings in hand",
- "groups": [
-  {
-   "key": "science",
-   "title": "Science — each moves a number you read",
-   "why": "A Gate D each; a refuter each; nothing starts until you pick.",
-   "cards": [
+  "date": "2026-10-01 — Slot 1 closed (P, Q, R1 landed); the cloud review's findings in hand",
+  "groups": [
     {
-     "id": "F1",
-     "title": "The review's 78 rows: which get fixed, in what order",
-     "polish": "no",
-     "problem": "The cloud review (read-only, on the pushed repo) found 21 defects, 41 risks and 16 cleanups; 27 rows can move a scientific number. Two carried a reproducible check and both REPRODUCE: row 9 — on any odd detector axis the sub-pixel disk refinement wraps its middle frequency to the wrong alias (the Swift wrap gives −3 where numpy and py4DSTEM's own upsampler give +2), so multicorr peak positions are off on odd crops; row 1 — the orientation bank samples one mirror triangle and the matcher has no conjugated pass, so about half of all generic zone axes land 5–22° off with no refusal (py4DSTEM's inversion pass recovers them to 0.5–1.3°); IPF colour hides it. Rows 3, 7, 33 and 35 sit beside lanes X, T and R and go to them.",
-     "options": [
-      {
-       "key": "a",
-       "label": "Science first: the 11 Gate D defects a user reads (rows 1, 9, 2, 4, 5, 6, 8, 24, 25, 27, 29)",
-       "consequence": "Two supervised sessions (lane F pulled forward into Slot 2); each row a Gate D with a refuter; row 1 also closes grain B on the demo cube.",
-       "effort": "2 sessions",
-       "risk": "science moves — by design, with fixtures"
-      },
-      {
-       "key": "b",
-       "label": "All 21 defects plus the gate rows (21, 50–58)",
-       "consequence": "Three sessions; the gates stop being green about nothing.",
-       "effort": "3 sessions",
-       "risk": "schedule"
-      },
-      {
-       "key": "c",
-       "label": "Only rows 1 and 9 now; the rest after v4.1",
-       "consequence": "One session; 25 known number-movers ship in v4.1.",
-       "effort": "1 session",
-       "risk": "science ships known-wrong"
-      },
-      {
-       "key": "d",
-       "label": "All 78",
-       "consequence": "Five or more sessions; the release slips a slot.",
-       "effort": "5+ sessions",
-       "risk": "schedule"
-      }
-     ],
-     "recommend": "a",
-     "advisor": "ADVISOR_F1",
-     "nothing": "Row 1 keeps half of generic orientations wrong; row 9 keeps odd-crop peaks off; the findings file is the record."
+      "key": "science",
+      "title": "Science — each moves a number you read",
+      "why": "A Gate D each; a refuter each; nothing starts until you pick.",
+      "cards": [
+        {
+          "id": "F1",
+          "title": "The review's 78 rows: which get fixed, in what order",
+          "polish": "no",
+          "problem": "The cloud review (read-only, on the pushed repo) found 21 defects, 41 risks and 16 cleanups; 27 rows can move a scientific number. Two carried a reproducible check and both REPRODUCE: row 9 — on any odd detector axis the sub-pixel disk refinement wraps its middle frequency to the wrong alias (the Swift wrap gives −3 where numpy and py4DSTEM's own upsampler give +2), so multicorr peak positions are off on odd crops; row 1 — the orientation bank samples one mirror triangle and the matcher has no conjugated pass, so about half of all generic zone axes land 5–22° off with no refusal (py4DSTEM's inversion pass recovers them to 0.5–1.3°); IPF colour hides it. Rows 3, 7, 33 and 35 sit beside lanes X, T and R and go to them.",
+          "options": [
+            {
+              "key": "a",
+              "label": "Science first: the 11 Gate D defects a user reads (rows 1, 9, 2, 4, 5, 6, 8, 24, 25, 27, 29)",
+              "consequence": "Two supervised sessions (lane F pulled forward into Slot 2); each row a Gate D with a refuter; row 1 also closes grain B on the demo cube.",
+              "effort": "2 sessions",
+              "risk": "science moves — by design, with fixtures"
+            },
+            {
+              "key": "b",
+              "label": "All 21 defects plus the gate rows (21, 50–58)",
+              "consequence": "Three sessions; the gates stop being green about nothing.",
+              "effort": "3 sessions",
+              "risk": "schedule"
+            },
+            {
+              "key": "c",
+              "label": "Only rows 1 and 9 now; the rest after v4.1",
+              "consequence": "One session; 25 known number-movers ship in v4.1.",
+              "effort": "1 session",
+              "risk": "science ships known-wrong"
+            },
+            {
+              "key": "d",
+              "label": "All 78",
+              "consequence": "Five or more sessions; the release slips a slot.",
+              "effort": "5+ sessions",
+              "risk": "schedule"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a. Against: row 9 is a one-token fix with a reproduced check — land it in hours, not inside a two-session lane; row 1 changes every orientation map and needs its own fixture first. Omitted: silent sidecar loss (row 23) and strain stamped with a stale calibration (row 26) sit in no option but d; the owed second review pass will add rows, so \"two sessions\" is a floor.",
+          "nothing": "Row 1 keeps half of generic orientations wrong; row 9 keeps odd-crop peaks off; the findings file is the record."
+        },
+        {
+          "id": "Q1",
+          "title": "Q calibration on your cubes reads 13 % low and still says \"Measured\"",
+          "polish": "no",
+          "problem": "Measured this night on the app's own path: your raw 060 stride-3 cube reads a shell ratio of 1.367 (1.428 with your ellipse) against 1.155 predicted and Q 12.7 % low; your binned cube 1.374 / −12.5 %; the demo cube 1.413 / −13.45 %; Thronsen A 1.415 / −13.2 %. The (200) ring is read as (111) because your [001] majority has no {111}. What ships now: \"Shell ratio unchecked\" for one-shell estimates (threshold-free), and the ratio beside the Q row. A \"disagrees\" line needs a threshold; the pre-registered rule (a line at twice the healthy maximum only if that is under half the smallest mis-assigned) failed — and it flips on one number per side: healthy sim_Au 2.4 % measured / 4.07 % recorded; mis-assigned WS₂ 13.3 % (the (00l) l-filter case) / 18.4 % yours. So on your cube the Q row still reads \"Measured\". The fix — assign the ring by matching the measured ratio sequence to the crystal's shells — recovers your cube offline to +0.45 % (with ellipse) / +2.5 %, but fcc's √2 self-similarity ((200):(220) = (220):(400)) needs a bounded shell count or the zone's own ring count: a design choice, not a patch.",
+          "options": [
+            {
+              "key": "a",
+              "label": "Ship nothing more now; measure three or more healthy cubes (Si, Cu/Ni, Mg on real zone axes) before any line",
+              "consequence": "Your cube keeps \"Measured\" with the ratio beside it; the line is placed by the rule once the healthy side is more than one cube.",
+              "effort": "hours, when data exist",
+              "risk": "a wrong green badge meanwhile"
+            },
+            {
+              "key": "b",
+              "label": "A line at 8.1 % (twice the recorded healthy maximum)",
+              "consequence": "Catches all six mis-assigned cubes; the one healthy cube sits 3.3× below; n = 1 on the healthy side.",
+              "effort": "1 h",
+              "risk": "a threshold placed on one healthy cube"
+            },
+            {
+              "key": "c",
+              "label": "Fund the ring-assignment fix as its own pre-registered lane in Slot 2",
+              "consequence": "Q on your data becomes right to ~1 %; ~8 harnesses re-pinned; the shell-count bound is a design pass with a refuter.",
+              "effort": "1 day + Gate B",
+              "risk": "science (the fix carries its own threshold)"
+            }
+          ],
+          "recommend": "a+c",
+          "advisor": "Pick a+c. Against: a keeps a green \"Measured\" on every cube you own; a threshold-free middle exists — print \"ratio 1.41, expected 1.15\" on the Q row itself, no verdict — and the sheet does not offer it. Omitted: b is new on-screen surface, barred while R1's rows stay unverified (until R5); the refuter's per-zone first-two-ring table ([001] √2, [011] 1.155) avoids c's N threshold.",
+          "nothing": "Your cubes calibrate 13 % low with a green badge."
+        },
+        {
+          "id": "Q2",
+          "title": "Grain B on the demo cube reads 6.5° off, and nothing you change moves it",
+          "polish": "no",
+          "problem": "At the true Q (0.012) grain B still reads 6.50° (winner template 84) in the shipped matcher and with candidate F, at both kMax — invariant under Q, kMax and F. The bank holds B's axis [101] as its first template, so the cube is truth-bearing and the defect is on the matcher/plan side (B's in-plane angle is off-grid; the probe was flat-Ewald while the app passes a wavelength). Candidate F's grain-C regression was the probe's wrong Q; F stays After v4.1 (3.8× slower on CPU). Grain A reads 5.03° at kMax 1.2 and 0° at 0.9.",
+          "options": [
+            {
+              "key": "a",
+              "label": "Gate D on grain B now, folded into review row 1's orientation work (same code, same harness)",
+              "consequence": "One diagnosis covers both; the demo cube becomes a real orientation fixture.",
+              "effort": "½ session inside F1",
+              "risk": "none"
+            },
+            {
+              "key": "b",
+              "label": "Its own item after row 1 lands",
+              "consequence": "Two passes over the same code.",
+              "effort": "½ session",
+              "risk": "none"
+            },
+            {
+              "key": "c",
+              "label": "Leave it; the demo cube's grains stay a smoke test",
+              "consequence": "A 6.5° known error on the fixture ships.",
+              "effort": "0",
+              "risk": "trust"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a, as a separate prediction. Against: grain B's axis [101] is a bank vertex on the achiral triangle edge, so row 1's mirror pass cannot be B's cause — folding them risks calling B fixed when row 1 goes green. Omitted: the refuter's leads (in-plane angle 0.22 bin off-grid; flat-Ewald harness) point at candidate F, parked After v4.1; grain A's 5.03° at kMax 1.2 is on no card.",
+          "nothing": "6.5° on the fixture, undiagnosed."
+        },
+        {
+          "id": "R1",
+          "title": "Ptychography after R1: the probe is right, the reconstruction is close, two things are not recorded",
+          "polish": "no",
+          "problem": "The probe now takes defocus, C12a/b and the higher-order terms and is pinned to py4DSTEM's ComplexProbe at 1.7e-6; \"Use Parallax Fit\" seeds defocus = −C1 — py4DSTEM's own rule (its Parallax on a probe built at +500 returns C1 = −509; the brief's +C1 was refuted before building). On the graphene cube the app's object at the same defocus correlates 0.69–0.74 raw (0.79–0.90 low-passed) with py4DSTEM's and the final errors agree within 0.1–5.6 %, but the error histories differ 8–15 % mid-run in every arm, even at defocus 0; the archived comparison could not be reproduced (both sides moved). The difference map is non-monotone in py4DSTEM too at these settings. The rule holds on the rotation branch the parallax fit used: a 180° R–Q rotation flips every coefficient and the wrong branch gives a conjugated object; the app applies no rotation guard. The probe fields are in neither the replay plan nor the sidecar nor the export provenance (lane X's file). The higher-order toggle takes the fit's terms, which py4DSTEM's own fit gets wrong on a planted case — labelled unverified.",
+          "options": [
+            {
+              "key": "a",
+              "label": "Land as is; R2 diagnoses the 8–15 % (the mean-origin deviation is the suspect) and first finds converging py4DSTEM DM settings; R3 scores both methods against a synthetic truth; the replay/provenance fields ride with lane X",
+              "consequence": "Ptychography is usable on its own use case now; parity at defocus stays partial until R2.",
+              "effort": "R2 + R3 as planned (Slot 2)",
+              "risk": "none new"
+            },
+            {
+              "key": "b",
+              "label": "Also make \"Use Parallax Fit\" flip the sign when the calibrated R–Q rotation is more than 90° from the fit's",
+              "consequence": "A rule with no measured case yet; wrong on the boundary.",
+              "effort": "hours + a test",
+              "risk": "science on a guess"
+            },
+            {
+              "key": "c",
+              "label": "Hold R1 until the mid-run disagreement is explained",
+              "consequence": "The defocus input stays unavailable meanwhile.",
+              "effort": "—",
+              "risk": "schedule"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a. Against: a replayed run starting in focus reproduces a different reconstruction under the same lineage — a provenance defect in a shipped product; the replay plan lives in Session/, not lane X's export file, so only the export half belongs to X. Omitted: the higher-order toggle ships as an unverified control (hide it until R3 validates); nobody has seen an R1 row on screen until R5.",
+          "nothing": "Landed as is; R2 owns the residual."
+        }
+      ]
     },
     {
-     "id": "Q1",
-     "title": "Q calibration on your cubes reads 13 % low and still says \"Measured\"",
-     "polish": "no",
-     "problem": "Measured this night on the app's own path: your raw 060 stride-3 cube reads a shell ratio of 1.367 (1.428 with your ellipse) against 1.155 predicted and Q 12.7 % low; your binned cube 1.374 / −12.5 %; the demo cube 1.413 / −13.45 %; Thronsen A 1.415 / −13.2 %. The (200) ring is read as (111) because your [001] majority has no {111}. What ships now: \"Shell ratio unchecked\" for one-shell estimates (threshold-free), and the ratio beside the Q row. A \"disagrees\" line needs a threshold; the pre-registered rule (a line at twice the healthy maximum only if that is under half the smallest mis-assigned) failed — and it flips on one number per side: healthy sim_Au 2.4 % measured / 4.07 % recorded; mis-assigned WS₂ 13.3 % (the (00l) l-filter case) / 18.4 % yours. So on your cube the Q row still reads \"Measured\". The fix — assign the ring by matching the measured ratio sequence to the crystal's shells — recovers your cube offline to +0.45 % (with ellipse) / +2.5 %, but fcc's √2 self-similarity ((200):(220) = (220):(400)) needs a bounded shell count or the zone's own ring count: a design choice, not a patch.",
-     "options": [
-      {
-       "key": "a",
-       "label": "Ship nothing more now; measure three or more healthy cubes (Si, Cu/Ni, Mg on real zone axes) before any line",
-       "consequence": "Your cube keeps \"Measured\" with the ratio beside it; the line is placed by the rule once the healthy side is more than one cube.",
-       "effort": "hours, when data exist",
-       "risk": "a wrong green badge meanwhile"
-      },
-      {
-       "key": "b",
-       "label": "A line at 8.1 % (twice the recorded healthy maximum)",
-       "consequence": "Catches all six mis-assigned cubes; the one healthy cube sits 3.3× below; n = 1 on the healthy side.",
-       "effort": "1 h",
-       "risk": "a threshold placed on one healthy cube"
-      },
-      {
-       "key": "c",
-       "label": "Fund the ring-assignment fix as its own pre-registered lane in Slot 2",
-       "consequence": "Q on your data becomes right to ~1 %; ~8 harnesses re-pinned; the shell-count bound is a design pass with a refuter.",
-       "effort": "1 day + Gate B",
-       "risk": "science (the fix carries its own threshold)"
-      }
-     ],
-     "recommend": "a+c",
-     "advisor": "ADVISOR_Q1",
-     "nothing": "Your cubes calibrate 13 % low with a green badge."
-    },
-    {
-     "id": "Q2",
-     "title": "Grain B on the demo cube reads 6.5° off, and nothing you change moves it",
-     "polish": "no",
-     "problem": "At the true Q (0.012) grain B still reads 6.50° (winner template 84) in the shipped matcher and with candidate F, at both kMax — invariant under Q, kMax and F. The bank holds B's axis [101] as its first template, so the cube is truth-bearing and the defect is on the matcher/plan side (B's in-plane angle is off-grid; the probe was flat-Ewald while the app passes a wavelength). Candidate F's grain-C regression was the probe's wrong Q; F stays After v4.1 (3.8× slower on CPU). Grain A reads 5.03° at kMax 1.2 and 0° at 0.9.",
-     "options": [
-      {
-       "key": "a",
-       "label": "Gate D on grain B now, folded into review row 1's orientation work (same code, same harness)",
-       "consequence": "One diagnosis covers both; the demo cube becomes a real orientation fixture.",
-       "effort": "½ session inside F1",
-       "risk": "none"
-      },
-      {
-       "key": "b",
-       "label": "Its own item after row 1 lands",
-       "consequence": "Two passes over the same code.",
-       "effort": "½ session",
-       "risk": "none"
-      },
-      {
-       "key": "c",
-       "label": "Leave it; the demo cube's grains stay a smoke test",
-       "consequence": "A 6.5° known error on the fixture ships.",
-       "effort": "0",
-       "risk": "trust"
-      }
-     ],
-     "recommend": "a",
-     "advisor": "ADVISOR_Q2",
-     "nothing": "6.5° on the fixture, undiagnosed."
-    },
-    {
-     "id": "R1",
-     "title": "Ptychography after R1: the probe is right, the reconstruction is close, two things are not recorded",
-     "polish": "no",
-     "problem": "The probe now takes defocus, C12a/b and the higher-order terms and is pinned to py4DSTEM's ComplexProbe at 1.7e-6; \"Use Parallax Fit\" seeds defocus = −C1 — py4DSTEM's own rule (its Parallax on a probe built at +500 returns C1 = −509; the brief's +C1 was refuted before building). On the graphene cube the app's object at the same defocus correlates 0.69–0.74 raw (0.79–0.90 low-passed) with py4DSTEM's and the final errors agree within 0.1–5.6 %, but the error histories differ 8–15 % mid-run in every arm, even at defocus 0; the archived comparison could not be reproduced (both sides moved). The difference map is non-monotone in py4DSTEM too at these settings. The rule holds on the rotation branch the parallax fit used: a 180° R–Q rotation flips every coefficient and the wrong branch gives a conjugated object; the app applies no rotation guard. The probe fields are in neither the replay plan nor the sidecar nor the export provenance (lane X's file). The higher-order toggle takes the fit's terms, which py4DSTEM's own fit gets wrong on a planted case — labelled unverified.",
-     "options": [
-      {
-       "key": "a",
-       "label": "Land as is; R2 diagnoses the 8–15 % (the mean-origin deviation is the suspect) and first finds converging py4DSTEM DM settings; R3 scores both methods against a synthetic truth; the replay/provenance fields ride with lane X",
-       "consequence": "Ptychography is usable on its own use case now; parity at defocus stays partial until R2.",
-       "effort": "R2 + R3 as planned (Slot 2)",
-       "risk": "none new"
-      },
-      {
-       "key": "b",
-       "label": "Also make \"Use Parallax Fit\" flip the sign when the calibrated R–Q rotation is more than 90° from the fit's",
-       "consequence": "A rule with no measured case yet; wrong on the boundary.",
-       "effort": "hours + a test",
-       "risk": "science on a guess"
-      },
-      {
-       "key": "c",
-       "label": "Hold R1 until the mid-run disagreement is explained",
-       "consequence": "The defocus input stays unavailable meanwhile.",
-       "effort": "—",
-       "risk": "schedule"
-      }
-     ],
-     "recommend": "a",
-     "advisor": "ADVISOR_R1",
-     "nothing": "Landed as is; R2 owns the residual."
+      "key": "polish",
+      "title": "Polish — wording and rooms",
+      "why": "No number moves; a room session or a one-line edit.",
+      "cards": [
+        {
+          "id": "P1",
+          "title": "Info › Provenance still prints raw keys in the frozen inspector",
+          "polish": "yes",
+          "problem": "The Lineage pane now shows labels (\"Analysis mode\"); the Info tab (a frozen file) still prints analysis_mode. A one-line hunk exists in the P record. Your rule allows wording that corrects a FALSE claim in a frozen file; this corrects none.",
+          "options": [
+            {
+              "key": "a",
+              "label": "Apply the hunk (wording-neutral; the raw key stays in the help text)",
+              "consequence": "The two panes agree.",
+              "effort": "minutes + a look",
+              "risk": "none"
+            },
+            {
+              "key": "b",
+              "label": "Leave it until the next accepted picture of that pane",
+              "consequence": "Two spellings of one key.",
+              "effort": "0",
+              "risk": "none"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a. Against: the card itself says this corrects no false claim, so a is you granting an exception to your own frozen-file rule; the commit must name it. Omitted: the drive showed the Lineage pane's provenance disclosure clipped to two lines, so the Info tab is where the full list is actually read — less cosmetic than \"two spellings\". The hunk touches wording only; structure and width hold.",
+          "nothing": "Raw keys stay in Info."
+        },
+        {
+          "id": "P2",
+          "title": "A3: what \"fix the name-shadowing order\" meant",
+          "polish": "yes",
+          "problem": "At the id level no shadowing exists: imported CIFs get an imported_ prefix (now pinned by a test), so no built-in can shadow one. If you meant display names (an imported \"Aluminium (FCC)\" beside the built-in's), the phase list already twins them.",
+          "options": [
+            {
+              "key": "a",
+              "label": "Closed — a failed reproduction closes an item",
+              "consequence": "Nothing changes.",
+              "effort": "0",
+              "risk": "none"
+            },
+            {
+              "key": "b",
+              "label": "You saw something else — name the sighting",
+              "consequence": "A new registration.",
+              "effort": "—",
+              "risk": "—"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a. Against: the imported_ prefix predates lane P (ba6360d6), so the 2026-09-30 card's residual — \"the resolver shadows an imported CIF with a built-in's stem\" — was false when you answered it; closing is right, but say that card misled you. Omitted: your real note was the library's bloat, queued for the lean audit after v4.1; b should name what to look for (display-name twins in the phase list).",
+          "nothing": "Closed."
+        },
+        {
+          "id": "P3",
+          "title": "The drive's five finds for the next polish room",
+          "polish": "yes",
+          "problem": "Seen on the scratch build tonight: the overlay legend chip hides while the CBED pane is zoomed; the bottom Lineage/Output pane is about 1.5 rows tall at 1470 × 923 (frozen shell); the inner-radius handle sits beside the ⊕ centre marker at inner radius 0 and reads as a centre handle; the sidebar session-warning headline truncates; the Materials Project globe raises a keychain password prompt at sheet-open on an ad-hoc-signed build (your signed build: unverified).",
+          "options": [
+            {
+              "key": "a",
+              "label": "One polish room in Slot 3, beside the X3 and K1 mocks",
+              "consequence": "Five items, one drive.",
+              "effort": "one room",
+              "risk": "none"
+            },
+            {
+              "key": "b",
+              "label": "Now, before Slot 2",
+              "consequence": "Delays T1/R2/X1 by a session.",
+              "effort": "one room",
+              "risk": "schedule"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a, except D5. Against: a keychain prompt at sheet-open reads your keychain before you asked for it — if it reproduces on your signed build, it is a defect in a shipped feature, which ADR 049 fixes, not parks. Omitted: D2's bottom pane is frozen shell and needs an accepted picture, not a room; D6 (two windows on relaunch) is on no card; the room waits for R5.",
+          "nothing": "Five rough edges ship."
+        }
+      ]
     }
-   ]
-  },
-  {
-   "key": "polish",
-   "title": "Polish — wording and rooms",
-   "why": "No number moves; a room session or a one-line edit.",
-   "cards": [
-    {
-     "id": "P1",
-     "title": "Info › Provenance still prints raw keys in the frozen inspector",
-     "polish": "yes",
-     "problem": "The Lineage pane now shows labels (\"Analysis mode\"); the Info tab (a frozen file) still prints analysis_mode. A one-line hunk exists in the P record. Your rule allows wording that corrects a FALSE claim in a frozen file; this corrects none.",
-     "options": [
-      {
-       "key": "a",
-       "label": "Apply the hunk (wording-neutral; the raw key stays in the help text)",
-       "consequence": "The two panes agree.",
-       "effort": "minutes + a look",
-       "risk": "none"
-      },
-      {
-       "key": "b",
-       "label": "Leave it until the next accepted picture of that pane",
-       "consequence": "Two spellings of one key.",
-       "effort": "0",
-       "risk": "none"
-      }
-     ],
-     "recommend": "a",
-     "advisor": "ADVISOR_P1",
-     "nothing": "Raw keys stay in Info."
-    },
-    {
-     "id": "P2",
-     "title": "A3: what \"fix the name-shadowing order\" meant",
-     "polish": "yes",
-     "problem": "At the id level no shadowing exists: imported CIFs get an imported_ prefix (now pinned by a test), so no built-in can shadow one. If you meant display names (an imported \"Aluminium (FCC)\" beside the built-in's), the phase list already twins them.",
-     "options": [
-      {
-       "key": "a",
-       "label": "Closed — a failed reproduction closes an item",
-       "consequence": "Nothing changes.",
-       "effort": "0",
-       "risk": "none"
-      },
-      {
-       "key": "b",
-       "label": "You saw something else — name the sighting",
-       "consequence": "A new registration.",
-       "effort": "—",
-       "risk": "—"
-      }
-     ],
-     "recommend": "a",
-     "advisor": "ADVISOR_P2",
-     "nothing": "Closed."
-    },
-    {
-     "id": "P3",
-     "title": "The drive's five finds for the next polish room",
-     "polish": "yes",
-     "problem": "Seen on the scratch build tonight: the overlay legend chip hides while the CBED pane is zoomed; the bottom Lineage/Output pane is about 1.5 rows tall at 1470 × 923 (frozen shell); the inner-radius handle sits beside the ⊕ centre marker at inner radius 0 and reads as a centre handle; the sidebar session-warning headline truncates; the Materials Project globe raises a keychain password prompt at sheet-open on an ad-hoc-signed build (your signed build: unverified).",
-     "options": [
-      {
-       "key": "a",
-       "label": "One polish room in Slot 3, beside the X3 and K1 mocks",
-       "consequence": "Five items, one drive.",
-       "effort": "one room",
-       "risk": "none"
-      },
-      {
-       "key": "b",
-       "label": "Now, before Slot 2",
-       "consequence": "Delays T1/R2/X1 by a session.",
-       "effort": "one room",
-       "risk": "schedule"
-      }
-     ],
-     "recommend": "a",
-     "advisor": "ADVISOR_P3",
-     "nothing": "Five rough edges ship."
-    }
-   ]
-  }
- ],
- "same": [
-  "F1 and Q2 are one piece of work: the orientation bank and matcher (row 1) and grain B's 6.5° live in the same code and the same harness.",
-  "Q1's fix and Q1's badge line are the same threshold problem seen from two sides: the healthy side has one cube.",
-  "R1's residuals are R2/R3 by name; only the sign-flip rule (option b) is new."
- ]
+  ],
+  "same": [
+    "F1 and Q2 are one piece of work: the orientation bank and matcher (row 1) and grain B's 6.5° live in the same code and the same harness.",
+    "Q1's fix and Q1's badge line are the same threshold problem seen from two sides: the healthy side has one cube.",
+    "R1's residuals are R2/R3 by name; only the sign-flip rule (option b) is new."
+  ]
 }
