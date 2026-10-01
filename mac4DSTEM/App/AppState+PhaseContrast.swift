@@ -438,9 +438,7 @@ extension AppState {
     /// the sign rule). Nothing runs; the fields are what the next reconstruction starts from.
     func usePtychographyProbeFromParallaxFit() {
         guard let lowOrder = phaseContrast.parallaxAberrationFit else { return }
-        let taken = ptychography.useParallaxFit(
-            lowOrder: lowOrder, higherOrder: phaseContrast.parallaxHigherOrderFit
-        )
+        ptychography.useParallaxFit(lowOrder: lowOrder)
         // The sign rule (defocus = -C1) holds on the rotation branch the fit used; the ptychography runs with the calibrated
         // rotation, which nothing here checks. Both are shown so the reader can judge.
         // The angle between them is printed, not judged (no 180° case has been measured; the auto-flip is the owner's card R1 c).
@@ -451,9 +449,8 @@ extension AppState {
             return String(format: "%.2f°, %.2f° apart; the sign flips at 180°", degrees, min(apart, 360 - apart))
         } ?? "not set; the sign holds on the fit's rotation"
         statusText = String(
-            format: "Probe seeded from the parallax fit ✓  defocus %g Å · C12 %g / %g Å%@ · fit rotation %.2f°, calibrated rotation %@",
+            format: "Probe seeded from the parallax fit ✓  defocus %g Å · C12 %g / %g Å · fit rotation %.2f°, calibrated rotation %@",
             ptychography.defocusAngstrom, ptychography.c12aAngstrom, ptychography.c12bAngstrom,
-            taken > 0 ? " · +\(taken) higher-order terms" : "",
             fitDegrees, calibrated
         )
     }

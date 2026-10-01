@@ -43,7 +43,8 @@ final class PtychographyProbeRecordTests: XCTestCase {
 
     /// Paths 1+2, sidecar and replay of saved controls: the provenance goes through JSON (the sidecar's own encoding of a
     /// string dictionary), comes back on a restored product, and "Apply" writes the probe into the settings.
-    /// Mutation: drop `ptychography.setProbe(value)` from `applySelectedSavedControls` -> red.
+    /// Mutation: drop `ptychography.setProbe(value)` from `applySelectedSavedControls` -> red; make `setProbe` copy the
+    /// higher-order terms back -> red; drop the status sentence -> red.
     func testSavedProbeComesBackIntoTheSettings() throws {
         let product = try exported(probe)
         let data = try JSONEncoder().encode(product.provenance)
@@ -57,8 +58,10 @@ final class PtychographyProbeRecordTests: XCTestCase {
         let plan = try XCTUnwrap(state.selectedSavedControlRehydration)
         XCTAssertTrue(plan.appliedSettingNames.contains("probe aberrations"))
         state.applySelectedSavedControls()
-        XCTAssertEqual(state.ptychography.probeAberrations, probe)
-        XCTAssertTrue(state.ptychography.includeHigherOrderFit)
+        // The record carries a C21 term; Apply takes defocus and C12 and ignores the term, and says so (control removed 2026-10-01).
+        XCTAssertEqual(state.ptychography.probeAberrations,
+                       PtychographyProbeAberrations(defocusAngstrom: -663.6, c12aAngstrom: 12.5, c12bAngstrom: -3.25))
+        XCTAssertTrue(state.statusText.contains("higher-order probe terms (C21, C23) were not applied"), state.statusText)
     }
 
     /// An old record (no probe keys) was made in focus: it decodes to the zero probe, not to whatever the fields hold now.
@@ -72,7 +75,6 @@ final class PtychographyProbeRecordTests: XCTestCase {
         settings.c12aAngstrom = 4
         settings.setProbe(SessionControlRehydration.parse(kind: "ptychography_object_phase", provenance: old).ptychographyProbe!)
         XCTAssertEqual(settings.probeAberrations, PtychographyProbeAberrations())
-        XCTAssertFalse(settings.includeHigherOrderFit)
 
         old["probe_defocus_angstrom"] = "abc"
         XCTAssertNil(SessionControlRehydration.parse(kind: "ptychography_object_phase", provenance: old).ptychographyProbe)

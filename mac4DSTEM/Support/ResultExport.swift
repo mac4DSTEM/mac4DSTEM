@@ -948,7 +948,9 @@ extension AppState {
             ptychography.probeAmplitudeWidth = value
         }
         if let value = plan.ptychographyProbe { ptychography.setProbe(value) }
-        statusText = "Applied saved controls: \(plan.summary). Re-run explicitly to reconstruct."
+        let skipped = (plan.ptychographyProbe?.higherOrder.isEmpty == false)
+            ? " The stored higher-order probe terms (C21, C23) were not applied: the probe has none." : ""
+        statusText = "Applied saved controls: \(plan.summary). Re-run explicitly to reconstruct.\(skipped)"
     }
 
     func removeSavedSessionResult(_ saved: SessionResultDescriptor) async {

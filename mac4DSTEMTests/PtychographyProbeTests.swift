@@ -167,23 +167,6 @@ final class PtychographyProbeTests: XCTestCase {
         )
     }
 
-    private func higherOrderFit(low: ParallaxAberrationFitResult) -> ParallaxHigherOrderAberrationFitResult {
-        let terms = [
-            ParallaxAberrationTerm(radialOrder: 1, angularOrder: 0, component: 0),
-            ParallaxAberrationTerm(radialOrder: 1, angularOrder: 2, component: 0),
-            ParallaxAberrationTerm(radialOrder: 1, angularOrder: 2, component: 1),
-            ParallaxAberrationTerm(radialOrder: 2, angularOrder: 1, component: 0),
-            ParallaxAberrationTerm(radialOrder: 2, angularOrder: 1, component: 1),
-            ParallaxAberrationTerm(radialOrder: 2, angularOrder: 3, component: 0),
-            ParallaxAberrationTerm(radialOrder: 2, angularOrder: 3, component: 1),
-        ]
-        return ParallaxHigherOrderAberrationFitResult(
-            lowOrder: low, terms: terms,
-            coefficientsAngstrom: [670, 11, 13, 300, -200, 50, 60],
-            fittedShifts: [], rmsResidualAngstrom: 0, fitMethod: .recursive
-        )
-    }
-
     /// The defocus a parallax fit implies is MINUS its C1: py4DSTEM's forward model stores C10 = -defocus (utils.py:159-160) and
     /// E1 (2026-09-30) has its Parallax return C1 = -508.67 for a probe built at `defocus = +500` (the gold-on-carbon tutorial
     /// agrees; the MoS2 notebooks pass +C1 at about 50 A). The astigmatism keeps the fit's signs (E1: C12a/C12b came back with
@@ -191,10 +174,7 @@ final class PtychographyProbeTests: XCTestCase {
     /// Mutation it catches: `-lowOrder.c1Angstrom` -> `lowOrder.c1Angstrom`; negating the astigmatism.
     func testUseParallaxFitTakesMinusC1AndTheFitsAstigmatism() {
         let settings = PtychographySettings()
-        let taken = settings.useParallaxFit(
-            lowOrder: lowOrderFit(c1: 663.6, c12a: 10.1, c12b: 12.8), higherOrder: nil
-        )
-        XCTAssertEqual(taken, 0)
+        settings.useParallaxFit(lowOrder: lowOrderFit(c1: 663.6, c12a: 10.1, c12b: 12.8))
         XCTAssertEqual(settings.defocusAngstrom, -663.6)
         XCTAssertEqual(settings.c12aAngstrom, 10.1)
         XCTAssertEqual(settings.c12bAngstrom, 12.8)
@@ -202,35 +182,15 @@ final class PtychographyProbeTests: XCTestCase {
             defocusAngstrom: -663.6, c12aAngstrom: 10.1, c12bAngstrom: 12.8))
     }
 
-    /// The toggle off ignores the higher-order fit; on, it takes ALL of one fit (the recursive fit's refined defocus and
-    /// astigmatism, not the low-order ones) and keeps the terms for the run; pressing again with it off drops them.
-    /// Mutation it catches: taking the terms with the toggle off; mixing the low-order C1 with the joint fit's terms; keeping
-    /// stale terms.
-    func testHigherOrderTermsFollowTheToggle() {
-        let low = lowOrderFit(c1: 663.6, c12a: 10.1, c12b: 12.8)
-        let high = higherOrderFit(low: low)
+    /// The higher-order control is gone (2026-10-01): the settings carry no higher-order state, and the probe a fit seeds has no
+    /// C21/C23 whatever was stored before. Mutation it catches: restoring a higher-order property/terms on the settings;
+    /// `useParallaxFit` leaving a previously set-back term in the probe is covered by the record test.
+    func testTheSettingsCarryNoHigherOrderState() {
         let settings = PtychographySettings()
-
-        XCTAssertEqual(settings.useParallaxFit(lowOrder: low, higherOrder: high), 0, "toggle off")
-        XCTAssertEqual(settings.defocusAngstrom, -663.6)
+        let labels = Mirror(reflecting: settings).children.compactMap(\.label)
+        XCTAssertFalse(labels.contains { $0.lowercased().contains("higherorder") }, "\(labels)")
+        settings.useParallaxFit(lowOrder: lowOrderFit(c1: 663.6, c12a: 10.1, c12b: 12.8))
         XCTAssertTrue(settings.probeAberrations.higherOrder.isEmpty)
-
-        settings.includeHigherOrderFit = true
-        XCTAssertEqual(settings.useParallaxFit(lowOrder: low, higherOrder: high), 4, "toggle on: C21 and C23, both components")
-        XCTAssertEqual(settings.defocusAngstrom, -670, "the joint fit's own (1,0,0)")
-        XCTAssertEqual(settings.c12aAngstrom, 11)
-        XCTAssertEqual(settings.c12bAngstrom, 13)
-        XCTAssertEqual(settings.probeAberrations.higherOrder.map(\.coefficientAngstrom), [300, -200, 50, 60])
-        XCTAssertEqual(settings.probeAberrations.higherOrder.map(\.radialOrder), [2, 2, 2, 2])
-        XCTAssertEqual(settings.probeAberrations.higherOrder.map(\.angularOrder), [1, 1, 3, 3])
-        XCTAssertEqual(settings.probeAberrations.higherOrder.map(\.component), [0, 1, 0, 1])
-
-        settings.includeHigherOrderFit = false
-        XCTAssertEqual(settings.useParallaxFit(lowOrder: low, higherOrder: high), 0)
-        XCTAssertTrue(settings.probeAberrations.higherOrder.isEmpty, "a copy with the toggle off leaves no terms behind")
-
-        settings.includeHigherOrderFit = true
-        XCTAssertEqual(settings.useParallaxFit(lowOrder: low, higherOrder: nil), 0, "no higher-order fit: nothing to take")
     }
 
     /// The action fills the fields from the stored fit, names what it took (and both rotations, for the reader to judge), and

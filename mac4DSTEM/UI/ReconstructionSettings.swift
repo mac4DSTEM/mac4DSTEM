@@ -237,11 +237,6 @@ struct SingleslicePtychographySection: View {
                 )
                 .labelsHidden()
             }
-            InspectorRow("Take higher-order terms") {
-                Toggle("Take higher-order terms", isOn: $ptychography.includeHigherOrderFit)
-                    .labelsHidden()
-            }
-            .help("Unverified: when on, Use Parallax Fit also takes the fit's coma and three-fold astigmatism (C21, C23) into the probe. py4DSTEM's own fit returned 0 for a planted C21 of 8000 Å, and on the graphene cube this app's fit reads about 0 where py4DSTEM's reads 600 Å, so those terms are the fit's, not validated. Set it before pressing Use Parallax Fit.")
             InspectorRow("Fix probe") {
                 Toggle("Fix probe", isOn: $ptychography.fixProbe)
                     .labelsHidden()

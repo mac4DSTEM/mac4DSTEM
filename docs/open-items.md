@@ -187,8 +187,8 @@ detector pixels incl. the direct beam — the owner's files, not the app; the > 
 volumes); the parallax/ptychography cost (`archive/v4/parallax-ptycho-cost-2026-09-30.md`: estimators honest, the 051 cube is
 not an acquisition for them); owner: KEEP, limits now half of RAM (`PhaseContrastMemoryBudget`). **On py4DSTEM's graphene cube, 2026-10-01 (R4 + DC, `archive/v4/r4-*`, `dc-*`):** the aligned BF matches py4DSTEM to 3.6e-5
 (the vignette was a Float32 stack-mean reduce; C1 663.42 vs 664.05 Å); the (2,1) pair's ≈ 600 Å is py4DSTEM's basis-origin offset on an
-exactly linear shift field — unobservable in both with the default alignment, the app's 0 labelled (owner: remove the higher-order
-toggle? offer `regularize_shifts`?); the difference map is removed (α = 0 alternating projections with it); the |O| ≤ 1 clamp is on by
+exactly linear shift field — unobservable in both with the default alignment, the app's 0 labelled (owner 2026-10-01: the higher-order
+toggle removed; `regularize_shifts` not offered); the difference map is removed (α = 0 alternating projections with it); the |O| ≤ 1 clamp is on by
 default — GD's gap to py4DSTEM 8.6 → 1.7 % at 8 iterations, growing after (2.3e-2 at 32), `fix_probe_com` still off (5e-4); the object
 still correlates 0.69 with py4DSTEM's. Archived scripts that call `ptycho dmap` or an unflagged `ptycho gd` reproduce only at their commit.** C5's 500-step run done headless
 (`archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision
