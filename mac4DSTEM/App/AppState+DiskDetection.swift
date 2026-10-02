@@ -29,6 +29,10 @@ extension AppState {
 
     // MARK: - Disk detection
 
+    /// Test seam (review lane E, c2): awaited by each probe-kernel generator after its last await and before
+    /// its epoch check, so a test can open "another dataset" (advance the epoch) mid-build. Nil in production.
+    static var probeKernelBeforeLanding: (@MainActor () async -> Void)?
+
     /// Runs origin calibration if the radius is unknown; nil on failure.
     /// Shared by the two generators below that need a calibrated radius.
     private func ensureProbeRadius() async -> Float? {
@@ -59,7 +63,11 @@ extension AppState {
     /// running origin calibration first if needed.
     func generateProbeKernel() async {
         guard let descriptor else { return }
+        // Lane E (c2): taken with the descriptor; the await below can outlive this dataset.
+        let epoch = datasetSession.epoch
         guard let radius = await ensureProbeRadius() else { return }
+        await Self.probeKernelBeforeLanding?()
+        guard epoch == datasetSession.epoch else { return }
         let began = ContinuousClock.now
 
         guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
@@ -84,7 +92,10 @@ extension AppState {
     /// normalization makes sum versus mean immaterial.
     func generateMeasuredProbeKernel(mode: ProbeKernelMode = .sigmoidTrench) async {
         guard let d = descriptor, let pattern = displayedPattern else { return }
+        let epoch = datasetSession.epoch   // lane E (c2): with the descriptor and pattern
         guard let radius = await ensureProbeRadius() else { return }
+        await Self.probeKernelBeforeLanding?()
+        guard epoch == datasetSession.epoch else { return }
         let began = ContinuousClock.now
         let origin = calibrationSession.calibration.referenceOrigin(  // single derivation point
             detectorQX: d.qx, detectorQY: d.qy,
@@ -113,6 +124,7 @@ extension AppState {
     /// first candidate on the detector grid is used; the status names it.
     func generateFileProbeKernel(mode: ProbeKernelMode = .flat) async {
         guard let descriptor, let reader = datasetSession.reader else { return }
+        let epoch = datasetSession.epoch   // lane E (c2): with the descriptor and reader
         let candidates: [ProbeCandidate]
         let began = ContinuousClock.now
         do {
@@ -143,6 +155,8 @@ extension AppState {
             presentComputeFailure(SimpleError("The probe image at \(candidate.path) did not yield a usable kernel."))
             return
         }
+        await Self.probeKernelBeforeLanding?()
+        guard epoch == datasetSession.epoch else { return }   // built from another dataset's file
         probeKernel = kernel
         learnedDetection.probeReference = .init(pattern: pattern, centreX: size.x0, centreY: size.y0, radius: size.r, source: .fileProbe)
         recordInstantRun("Probe kernel", since: began)
@@ -160,6 +174,9 @@ extension AppState {
     /// refuses if its detector differs from the loaded dataset's.
     func generateVacuumProbeKernel(fromScan url: URL, mode: ProbeKernelMode = .flat) async {
         guard let descriptor else { return }
+        // Lane E (c2): the vacuum read is long and shows no operation, so Open stays enabled during it;
+        // a kernel checked against THIS descriptor must never land on the next dataset.
+        let epoch = datasetSession.epoch
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -170,6 +187,8 @@ extension AppState {
                 vacuum: vacuumData, vacuumDescriptor: vacuumDescriptor,
                 targetDescriptor: descriptor, mode: mode, probePath: url.lastPathComponent
             )
+            await Self.probeKernelBeforeLanding?()
+            guard epoch == datasetSession.epoch else { return }
             probeKernel = result.kernel
             let pattern = DiffractionPattern(qy: vacuumDescriptor.qy, qx: vacuumDescriptor.qx,
                                              pixels: result.meanDP)
@@ -211,6 +230,13 @@ extension AppState {
         guard navigation.analysisMode == .disks, let kernel = probeKernel,
               let pattern = displayedPattern else {
             if !currentPeaks.isEmpty { currentPeaks = [] }
+            currentDiskDiagnostics = nil
+            return
+        }
+        // Lane E (c2): a kernel built for another detector grid never reaches DiskDetector, whose
+        // `precondition(pattern.count == qy * qx)` would trap — no peaks instead.
+        guard kernel.qx == pattern.qx, kernel.qy == pattern.qy else {
+            currentPeaks = []
             currentDiskDiagnostics = nil
             return
         }
@@ -259,6 +285,12 @@ extension AppState {
         guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
         guard let kernel = probeKernel else {
             return .failed("No probe kernel could be generated")
+        }
+        // Lane E (c2): the same trap as the live overlay, for the whole scan.
+        guard kernel.qx == descriptor.qx, kernel.qy == descriptor.qy else {
+            let reason = "The probe kernel was built for a \(kernel.qx) × \(kernel.qy) detector, not this dataset's \(descriptor.qx) × \(descriptor.qy) — rebuild it"
+            presentComputeFailure(SimpleError(reason))
+            return .failed(reason)
         }
 
         let params = diskDetection.diskParams
@@ -399,7 +431,18 @@ extension AppState {
             vectors: vectors, maximumPeaks: params.maxNumPeaks, parameters: params
         )
         resultPresentation.setBraggPeakCount(vectors.totalPeakCount)
-        showBraggMap(vectors, descriptor: d)
+        // Landed while another room is current (room switching stays open during a run): the vectors are held
+        // and Bragg Disks re-shows the map on return (presentProductForEnteredMode) — never under another room.
+        // An older Bragg map still showing (rooms without an entry rule keep it) would be the one re-shown: drop it.
+        if navigation.analysisMode == .disks {
+            showBraggMap(vectors, descriptor: d)
+        } else {
+            if let kind = resultPresentation.product?.kind, AnalysisMode.owning(productKind: kind) == .disks {
+                resultPresentation.replaceProduct(nil)
+                resultPresentation.bumpResultVersion()
+            }
+            Task { await ensureScanNavigator() }
+        }
         if vectors.totalPeakCount == 0 {
             // An empty result is a dead end unless it points at the
             // evidence: the live acceptance funnel and scan summary in
@@ -419,10 +462,16 @@ extension AppState {
         let calibrated = calibratedBraggVectors(vectors, descriptor: d).vectors
         let bvm = calibrated.map(qy: d.qy, qx: d.qx)
         resultPresentation.resultColormap = .viridis
-        publishProduct(   // its own label
+        // Its own label, frame, sampling and keys whatever room is current (review lane E, c1): a map landing
+        // after a room switch or from a replay is a detector-frame, Q-sampled map, never the current room's.
+        let own = braggMapPersistenceMetadata
+        publishProduct(
             kind: "bragg_vector_map", displayName: "Bragg vector map", valueUnits: "log_intensity",
             payload: .scalar(FloatImage(width: bvm.width, height: bvm.height,
-                                        pixels: bvm.pixels.map { log10(1 + max($0, 0)) })))
+                                        pixels: bvm.pixels.map { log10(1 + max($0, 0)) })),
+            domain: .detector,
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance, ownProvenanceOnly: true)
         Task { await ensureScanNavigator() }
     }
 

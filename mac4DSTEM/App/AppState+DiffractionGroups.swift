@@ -79,19 +79,24 @@ extension AppState {
             ])   // lineage node (ADR 047): the settings that ran, not the clamped counts
 
             let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
+            // Its own room's frame, sampling and keys whatever room is current at landing (review lane E, c1).
+            let own = scanMapPersistenceMetadata(for: .diffractionGroups)
             publishProduct(
                 kind: "diffraction_groups",
                 displayName: DiffractionGroupsProduct.groupMapDisplayName(groups: result.groupCount),
                 valueUnits: "group",
                 payload: .scalar(DiffractionEmbedding.groupMap(result)),
-                extraProvenance: [
+                domain: .scan,
+                sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+                extraProvenance: own.provenance.merging([
                     "quantitative_status": "categorical",
                     "binned_size": String(settings.binnedSize),
                     "components": String(result.componentCount),
                     "groups": String(result.groupCount),
                     "explained_variance_first3_percent": String(format: "%.1f", firstThreePercent),
                     "seed": String(settings.seed),
-                ]
+                ]) { _, new in new },
+                ownProvenanceOnly: true
             )
             statusText = "\(result.groupCount) groups from \(totalPatterns) patterns, "
                 + "first 3 components explain \(String(format: "%.1f", firstThreePercent)) %"
@@ -122,16 +127,20 @@ extension AppState {
         }
         let similarity = DiffractionEmbedding.similarity(to: position, in: result)
         diffractionGroups.referencePosition = position
+        let own = scanMapPersistenceMetadata(for: .diffractionGroups)   // its own room's labels (lane E, c1)
         publishProduct(
             kind: "diffraction_similarity",
             displayName: "Similarity to (\(x), \(y))",
             valueUnits: "cosine",
             payload: .scalar(FloatImage(
                 width: result.scanWidth, height: result.scanHeight, pixels: similarity)),
-            extraProvenance: [
+            domain: .scan,
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance.merging([
                 "quantitative_status": "relative",
                 "reference_x": String(x), "reference_y": String(y),
-            ]
+            ]) { _, new in new },
+            ownProvenanceOnly: true
         )
         statusText = "Similarity to scan position (\(x), \(y))"
         return .published

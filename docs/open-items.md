@@ -141,7 +141,7 @@ One line each; full wording as above.
   "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1); re-entering Diffraction groups does not
   re-show its own map (lane F); `NumberEntryField` commits its shown text on blur, so a format that rounds below the stored digits rounds the value (lane B1).
 - Display residual after P2 (2026-10-01): the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube).
-- Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; disk, strain, ACOM and DPC steps still take the current mode's keys] replay, lineage
+- Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; the disk, diffraction-groups and phase-map steps 2026-10-02, lane E; strain, ACOM and DPC steps still take the current mode's keys] replay, lineage
   rewind and the opening pass publish through `publishProduct`, which keys provenance by `navigation.analysisMode`; the executor
   never switches mode, so a replayed virtual_detector step run under `.disks` carries `source_product=bragg_vector_map` (fixture:
   record a VD step, change mode, replay). (2) `learned_model_sha256` / `learned_model_*` are read live at record time

@@ -1360,6 +1360,28 @@ extension AppState {
         return snapshot
     }
 
+    /// The Bragg vector map's own metadata, whatever room is current (review lane E, c1): a map that lands
+    /// after a room switch, or from a replay, keeps its reciprocal frame, Q sampling and detector identity.
+    var braggMapPersistenceMetadata: (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        var provenance = ["analysis_mode": AnalysisMode.disks.rawValue,
+                          "source_product": "bragg_vector_map", "coordinate_space": "reciprocal"]
+        // C7: the detector's identity travels with the map; the Model row shows the same hash.
+        for key in ["detector_class", "learned_threshold", "learned_model_sha256",
+                    "learned_model_origin", "learned_model_parent_sha256"] {
+            provenance[key] = resultPresentation.braggVectors?.detectionProvenance[key]
+        }
+        let q = calibrationSession.calibration
+        return (q.qPixelSize, q.qPixelSize, q.qPixelUnits, provenance)
+    }
+
+    /// A plain scan map's metadata for an explicit room (lane E, c1): real-space sampling and that
+    /// room's `analysis_mode`, the fallback `currentScalarPersistenceMetadata` gives its own room.
+    func scanMapPersistenceMetadata(for mode: AnalysisMode)
+        -> (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
+        let r = calibrationSession.calibration
+        return (r.rPixelSize, r.rPixelSize, r.rPixelUnits, ["analysis_mode": mode.rawValue])
+    }
+
     var currentScalarPersistenceMetadata:   // internal since v2.5 step 3c: publishLegacy reads it
         (row: Double?, column: Double?, units: String?, provenance: [String: String]) {
         if navigation.analysisMode == .dpc, dpc.dpcDisplay == .idpc {
@@ -1467,23 +1489,10 @@ extension AppState {
                 provenance
             )
         }
-        if navigation.analysisMode == .disks {
-            var provenance = ["analysis_mode": navigation.analysisMode.rawValue,
-                              "source_product": "bragg_vector_map", "coordinate_space": "reciprocal"]
-            // C7: the detector's identity travels with the map; the Model row shows the same hash.
-            for key in ["detector_class", "learned_threshold", "learned_model_sha256",
-                        "learned_model_origin", "learned_model_parent_sha256"] {
-                provenance[key] = resultPresentation.braggVectors?.detectionProvenance[key]
-            }
-            let q = calibrationSession.calibration
-            return (q.qPixelSize, q.qPixelSize, q.qPixelUnits, provenance)
-        }
+        if navigation.analysisMode == .disks { return braggMapPersistenceMetadata }
         // Both modes: single-slice runs in its own (SingleslicePtychographyExportTests).
         guard navigation.analysisMode == .ptychography || navigation.analysisMode == .singleslicePtychography else {
-            return (
-                calibrationSession.calibration.rPixelSize, calibrationSession.calibration.rPixelSize,
-                calibrationSession.calibration.rPixelUnits, ["analysis_mode": navigation.analysisMode.rawValue]
-            )
+            return scanMapPersistenceMetadata(for: navigation.analysisMode)
         }
         switch phaseContrast.parallaxResultProduct {
         case .preprocess:

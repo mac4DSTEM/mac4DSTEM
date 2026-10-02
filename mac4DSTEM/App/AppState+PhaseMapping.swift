@@ -210,14 +210,18 @@ extension AppState {
     func publishPhaseMapProduct() {
         guard let map = phaseMapping.map, let run = phaseMapping.lastRun else { return }
         let candidates = max(0, map.phaseNames.count - 1)
+        // Its own room's sampling and keys whatever room is current at landing (review lane E, c1).
+        let own = scanMapPersistenceMetadata(for: .phaseMapping)
         publishProduct(
             kind: "phase_map",
             displayName: PhaseMappingProduct.mapDisplayName(candidatePhases: candidates),
             valueUnits: "phase",
             payload: .rgba(PhaseMapPresentation.image(map)),
             domain: .scan,
-            extraProvenance: phaseProvenance(map: map, run: run).merging(
-                ["quantitative_status": "categorical"], uniquingKeysWith: { a, _ in a })
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance.merging(phaseProvenance(map: map, run: run).merging(
+                ["quantitative_status": "categorical"], uniquingKeysWith: { a, _ in a })) { _, new in new },
+            ownProvenanceOnly: true
         )
     }
 
