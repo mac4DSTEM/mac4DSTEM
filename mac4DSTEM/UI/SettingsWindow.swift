@@ -204,21 +204,6 @@ private struct AdvancedSettingsSection: View {
     @State private var confirmingReset = false
 
     var body: some View {
-        @Bindable var preferences = preferences
-        Section("Logging") {
-            Picker("Log verbosity", selection: $preferences.logVerbosity) {
-                ForEach(LogVerbosityDefault.allCases) { level in
-                    Text(level.displayName).tag(level)
-                }
-            }
-            .accessibilityIdentifier("settings.advanced.logVerbosity")
-            // No wiring yet: the output strip's `ActivityLog` has one
-            // recording path with no verbosity tiers to switch — see
-            // `Session/AppPreferences.swift`'s `LogVerbosityDefault` doc.
-            // "Reveal Log File" is omitted: the app writes no log file to
-            // disk, only `ActivityLog`'s in-memory, per-window strip.
-        }
-
         Section("Reset") {
             Button("Reset All Settings…", role: .destructive) {
                 confirmingReset = true

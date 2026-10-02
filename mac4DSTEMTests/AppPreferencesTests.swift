@@ -44,7 +44,6 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertTrue(prefs.showScaleBar)
         XCTAssertEqual(prefs.openBehaviour, .direct)
         XCTAssertFalse(prefs.keepAwake)
-        XCTAssertEqual(prefs.logVerbosity, .normal)
         XCTAssertTrue(prefs.offerLearnedDetector)
     }
 
@@ -65,7 +64,6 @@ final class AppPreferencesTests: XCTestCase {
         writer.showScaleBar = false
         writer.openBehaviour = .options
         writer.keepAwake = true
-        writer.logVerbosity = .verbose
         writer.offerLearnedDetector = false
 
         let reader = AppPreferences(defaults: defaults)
@@ -76,7 +74,6 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertFalse(reader.showScaleBar)
         XCTAssertEqual(reader.openBehaviour, .options)
         XCTAssertTrue(reader.keepAwake)
-        XCTAssertEqual(reader.logVerbosity, .verbose)
         XCTAssertFalse(reader.offerLearnedDetector)
     }
 
@@ -114,7 +111,6 @@ final class AppPreferencesTests: XCTestCase {
         prefs.showScaleBar = false
         prefs.openBehaviour = .options
         prefs.keepAwake = true
-        prefs.logVerbosity = .verbose
         prefs.offerLearnedDetector = false
 
         prefs.resetAllToDefaults()
@@ -126,7 +122,6 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertTrue(prefs.showScaleBar)
         XCTAssertEqual(prefs.openBehaviour, .direct)
         XCTAssertFalse(prefs.keepAwake)
-        XCTAssertEqual(prefs.logVerbosity, .normal)
         XCTAssertTrue(prefs.offerLearnedDetector)
     }
 

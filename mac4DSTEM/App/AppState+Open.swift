@@ -1151,6 +1151,17 @@ extension AppState {
     ) {
         let url = sessionSidecar.location(for: descriptor)
         if let map = snapshot.currentResult {
+            // A scan-domain map is drawn over THIS scan, so a sidecar saved on a crop of the
+            // file must not reopen onto the full view (review H1) — the RGBA branch's rule.
+            // Only scan-domain: a detector product (the Bragg vector map, qx × qy) or a
+            // reconstruction has its own grid. The domain is resolved exactly as
+            // `publishRestoredProduct` will label it.
+            let domain = map.provenance["display_domain"].flatMap(ProductDomain.init)
+                ?? activeResultDomain
+            guard domain != .scan || (map.width == descriptor.rx && map.height == descriptor.ry) else {
+                statusText = "Ignored \(url.lastPathComponent): saved scalar map is \(map.width) × \(map.height), expected \(descriptor.rx) × \(descriptor.ry)"
+                return
+            }
             publishRestoredProduct(   // v2.5 step 3b-6
                 kind: map.kind, displayName: map.displayName, valueUnits: map.valueUnits,
                 payload: .scalar(FloatImage(width: map.width, height: map.height, pixels: map.pixels)),

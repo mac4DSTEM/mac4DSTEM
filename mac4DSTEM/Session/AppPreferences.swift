@@ -78,23 +78,6 @@ package enum OpenDatasetBehaviour: String, CaseIterable, Identifiable, Sendable 
     }
 }
 
-/// Store-only today (`docs/status.md`/session report): `App/ActivityLog.swift`
-/// has one recording path with no verbosity tiers to switch between, so this
-/// key has nothing yet to gate. Kept because the Settings row is real product
-/// surface the owner asked for; wiring it is follow-up debt, not a fiction.
-package enum LogVerbosityDefault: String, CaseIterable, Identifiable, Sendable {
-    case normal, verbose
-
-    package var id: String { rawValue }
-
-    package var displayName: String {
-        switch self {
-        case .normal: return "Normal"
-        case .verbose: return "Verbose"
-        }
-    }
-}
-
 @Observable
 @MainActor
 package final class AppPreferences {
@@ -139,10 +122,6 @@ package final class AppPreferences {
         didSet { persist(keepAwake, forKey: Keys.keepAwake) }
     }
 
-    package var logVerbosity: LogVerbosityDefault {
-        didSet { persist(logVerbosity, forKey: Keys.logVerbosity) }
-    }
-
     /// Whether the learned (Core ML) disk detector is offered in the
     /// Detector picker at all (`UI/MapSettings.swift`). `true` is today's
     /// shipped behaviour — the picker always lists it when a bundled asset
@@ -161,7 +140,6 @@ package final class AppPreferences {
         self.showScaleBar = defaults.object(forKey: Keys.showScaleBar) as? Bool ?? true
         self.openBehaviour = Self.decode(Keys.openBehaviour, from: defaults) ?? .direct
         self.keepAwake = defaults.object(forKey: Keys.keepAwake) as? Bool ?? false
-        self.logVerbosity = Self.decode(Keys.logVerbosity, from: defaults) ?? .normal
         self.offerLearnedDetector = defaults.object(forKey: Keys.offerLearnedDetector) as? Bool ?? true
     }
 
@@ -178,7 +156,6 @@ package final class AppPreferences {
         showScaleBar = true
         openBehaviour = .direct
         keepAwake = false
-        logVerbosity = .normal
         offerLearnedDetector = true
         suppressPersistence = false
     }
@@ -207,12 +184,11 @@ package final class AppPreferences {
         static let showScaleBar = "prefs.showScaleBar"
         static let openBehaviour = "prefs.openBehaviour"
         static let keepAwake = "prefs.keepAwake"
-        static let logVerbosity = "prefs.logVerbosity"
         static let offerLearnedDetector = "prefs.offerLearnedDetector"
 
         static let all = [
             appearance, mapColormap, diffractionColormap, intensityDisplay,
-            showScaleBar, openBehaviour, keepAwake, logVerbosity,
+            showScaleBar, openBehaviour, keepAwake,
             offerLearnedDetector,
         ]
     }
