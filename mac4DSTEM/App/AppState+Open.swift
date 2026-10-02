@@ -1392,6 +1392,8 @@ extension AppState {
 
     func setManualRPixelSize(_ value: Double) {
         if Self.isUnchangedManualScale(entered: value, current: manualRPixelSize) { return }
+        let before = calibrationSession.calibration
+        defer { resampleDisplayedProductForRChange(oldSize: before.rPixelSize, oldUnits: before.rPixelUnits) }
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         if value.isFinite && value > 0 {
@@ -1408,6 +1410,8 @@ extension AppState {
     func setManualRPixelUnits(_ units: String) {
         guard let canonical = CalibrationUnitConversion.canonicalEditableRealUnit(units)
         else { return }
+        let before = calibrationSession.calibration
+        defer { resampleDisplayedProductForRChange(oldSize: before.rPixelSize, oldUnits: before.rPixelUnits) }
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         calibrationSession.calibration.rPixelUnits = canonical

@@ -330,3 +330,29 @@ extension AppState {
         return cancellation?.isCancelled == true ? nil : result
     }
 }
+
+extension AppState {
+    /// S5 item 3 (owner card, 2026-10-02): typing the R pixel size must reach the image already on screen.
+    /// A scan product stores its sampling as a snapshot taken when it was computed, so a scale bar, PNG export or
+    /// Save to Results made after the edit kept the old size ("20 px"). The product is replaced, pixels untouched
+    /// (no version bump), only when it TOOK R: computed in this session, scan domain, and its sampling equals the
+    /// R calibration as it was before the edit. Diffraction products (domain `.detector`, Q), reconstruction products
+    /// (parallax, ptychography: domain `.reconstruction`, Å object sampling) and products restored from a sidecar
+    /// never match, so they keep their own sampling.
+    func resampleDisplayedProductForRChange(oldSize: Double?, oldUnits: String?) {
+        guard let product = resultPresentation.product, product.origin == .computed,
+              product.domain == .scan,
+              product.sampling.row == oldSize, product.sampling.column == oldSize,
+              product.sampling.units == oldUnits else { return }
+        let calibration = calibrationSession.calibration
+        let sampling = ProductSampling(row: calibration.rPixelSize, column: calibration.rPixelSize,
+                                       units: calibration.rPixelUnits)
+        guard sampling != product.sampling else { return }
+        resultPresentation.replaceProduct(DisplayedProduct(
+            origin: product.origin, kind: product.kind, displayName: product.displayName,
+            payload: product.payload, domain: product.domain, validityMask: product.validityMask,
+            qualityFields: product.qualityFields, sampling: sampling, valueUnits: product.valueUnits,
+            quantitativeStatus: product.quantitativeStatus, provenance: product.provenance,
+            overlays: product.overlays))
+    }
+}

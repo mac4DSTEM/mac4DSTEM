@@ -83,7 +83,7 @@ package nonisolated enum StrainPresentationFrame: Equatable, Sendable {
                    RQRotationConvention.displayText(fromApp: rotationRad),
                    transposed ? " · transposed" : "")
         case .detector:
-            "Detector x/y — R–Q rotation not calibrated"
+            "Components along detector x/y — R–Q rotation not calibrated"
         }
     }
 }
