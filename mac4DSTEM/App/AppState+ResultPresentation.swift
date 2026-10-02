@@ -244,10 +244,23 @@ extension AppState {
         Task { await runVirtualDetector() }
     }
 
-    private func virtualDetectorProgressTileRows(for descriptor: DatasetDescriptor) -> Int {
-        let bytesPerScanRow = descriptor.rx * descriptor.qy * descriptor.qx * MemoryLayout<Float>.stride
+    /// Rows per streamed tile for the virtual-image pass: 16 MiB tiles, so the
+    /// progress bar ticks. Sized at the READ extent, not the view's — H5's
+    /// hyperslab and DM4's gather allocate the tile pre-bin before
+    /// `LoadView.binned` reduces it, and sizing from the binned descriptor let
+    /// that transient reach bin² × 16 MiB (1 GiB at bin 8; pre-release review
+    /// d1 residual, 2026-10-02). The read extent is the expression
+    /// `FourDArray.scanTileRows` uses. Bin 1: it is the view's extent, so the
+    /// rows are unchanged.
+    /// No number depends on the grouping: both kernels sum one scan position's
+    /// own pattern (VirtualAperture.metal, VirtualMask.metal).
+    /// `static` and not private so `ReviewTileBudgetSiblingsTests` can pin it.
+    static func virtualDetectorProgressTileRows(for view: LoadView) -> Int {
+        let readHeight = view.readDetectorCrop?.height ?? view.source.qy
+        let readWidth = view.readDetectorCrop?.width ?? view.source.qx
+        let bytesPerScanRow = view.descriptor.rx * readHeight * readWidth * MemoryLayout<Float>.stride
         let targetBytes = 16 * 1024 * 1024
-        return max(1, min(descriptor.ry, targetBytes / max(1, bytesPerScanRow)))
+        return max(1, min(view.descriptor.ry, targetBytes / max(1, bytesPerScanRow)))
     }
 
     /// Virtual-detector imaging over the whole cube. The annulus uses the
@@ -281,7 +294,7 @@ extension AppState {
         // that already landed (commit after a newer quiet drag). Owner: ResultPresentation.
         let generation = resultPresentation.nextVDGeneration()
         let d = descriptor
-        let maximumTileRows = virtualDetectorProgressTileRows(for: d)
+        let maximumTileRows = Self.virtualDetectorProgressTileRows(for: fourD.view)
         do {
             let epoch = datasetSession.epoch
             if cancellation?.isCancelled == true {

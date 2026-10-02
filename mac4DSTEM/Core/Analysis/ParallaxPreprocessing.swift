@@ -329,7 +329,7 @@ package nonisolated enum ParallaxPreprocessor {
 
         let detectorCount = descriptor.qy * descriptor.qx
         let scanCount = descriptor.ry * descriptor.rx
-        let tileRows = resolvedTileRows(descriptor: descriptor, requested: options.tileRows)
+        let tileRows = resolvedTileRows(view: view, requested: options.tileRows)
 
         // Pass 1: py4DSTEM `dp_mean = intensities.mean((0,1))`.
         var detectorMean = [Float](repeating: 0, count: detectorCount)
@@ -541,11 +541,23 @@ package nonisolated enum ParallaxPreprocessor {
         }
     }
 
-    private static func resolvedTileRows(
-        descriptor: DatasetDescriptor, requested: Int?
+    /// Rows per streamed tile: 64 MiB tiles at the READ extent, not the view's.
+    /// `source` is the reader itself, whose H5 hyperslab and DM4 gather
+    /// allocate each tile pre-bin before `LoadView.binned` reduces it; sizing
+    /// from the binned descriptor let that transient reach bin² × 64 MiB
+    /// (4 GiB at bin 8; pre-release review d1 residual, 2026-10-02). The read
+    /// extent is the expression `FourDArray.scanTileRows` uses; at bin 1 it is
+    /// the view's, so the rows are unchanged. No number depends on the
+    /// grouping: both passes accumulate pattern by pattern in scan order.
+    /// `package` so `ReviewTileBudgetSiblingsTests` can pin it.
+    package static func resolvedTileRows(
+        view: LoadView, requested: Int?
     ) -> Int {
+        let descriptor = view.descriptor
         if let requested { return max(1, min(descriptor.ry, requested)) }
-        let rowBytes = descriptor.rx * descriptor.qy * descriptor.qx
+        let readHeight = view.readDetectorCrop?.height ?? view.source.qy
+        let readWidth = view.readDetectorCrop?.width ?? view.source.qx
+        let rowBytes = descriptor.rx * readHeight * readWidth
             * MemoryLayout<Float>.stride
         return max(1, min(descriptor.ry, 64 * 1_024 * 1_024 / max(1, rowBytes)))
     }
