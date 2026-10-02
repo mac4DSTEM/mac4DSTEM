@@ -1,0 +1,238 @@
+{
+  "date": "2026-10-02 — Slot 4¾ pre-release review: what needs your word before v4.1.0",
+  "groups": [
+    {
+      "key": "public",
+      "title": "Public claims — what the website and the repo promise",
+      "why": "The repo and mac4dstem.com are public; each of these is false or incomplete today. No number in the app changes.",
+      "cards": [
+        {
+          "id": "W1",
+          "title": "The website: Impressum placeholders, and two false claims",
+          "problem": "Three pages of mac4dstem.com are wrong today. (1) The Impressum shows “[VOLLSTÄNDIGER NAME] / [STRASSE UND HAUSNUMMER]” under its own note that an incomplete Impressum can draw a formal legal warning (abmahnfähig); the privacy policy's controller block has the same placeholders. § 5 DDG may apply to a free private site offering a download; only you can fill your name and an address where you can be served (a service address is acceptable). (2) The privacy policy says “No network requests” — since v4.0.0 the first entry under Add Phase, Materials Project…, sends the user's own API key and the mp-id over HTTPS to api.materialsproject.org when they press Fetch (nothing is fetched otherwise). (3) The Support page says “macOS 14 or later” for a macOS 27 app. The privacy text, the Support page and the home page's wording are rewritten in ../website by this session (not committed, not pushed); the placeholders are yours. SECURITY.md, which said the same as (2), is corrected in the app repo.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Fill name and address in impressum.html and privacy.html, read the prepared privacy/support/home edits, push the website now",
+              "consequence": "All three pages true and complete; the release can link them.",
+              "effort": "25 min, yours",
+              "risk": "none"
+            },
+            {
+              "key": "b",
+              "label": "Push the prepared privacy/support/home edits now; unlink the Impressum and privacy pages until you fill them",
+              "consequence": "No false claim and no visible placeholder; the site then has no Impressum, which may be its own § 5 problem.",
+              "effort": "10 min",
+              "risk": "legal, smaller than today"
+            },
+            {
+              "key": "c",
+              "label": "Leave as is",
+              "consequence": "Placeholders under their own warning, a false privacy statement and a wrong system requirement stay live.",
+              "effort": "0",
+              "risk": "a formal warning; trust"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Two things the card states as certain are contestable: that § 5 DDG applies to a free, non-commercial site run by a private person (the 'geschäftsmäßig' test is arguable — 'may apply'). My pick is still a: a page that carries its own note 'ein unvollständiges Impressum ist abmahnfähig' above live placeholders is worse than either a filled page or none. The prepared privacy.html still carries the same placeholders, so the name and address go into both pages in the same push — and the pages have been live like this since 2026-08-15, through v3.0.0 and v4.0.0: the deadline is now, not the v4.1 announcement. On the privacy text: 'Materials Project…' is the first entry under Add Phase, nothing is fetched unless you choose it; the request carries your key and the mp-id and ordinary HTTP headers — 'no other data about you' is exact. The Materials Project privacy link answers 403 to a script: click it yourself.",
+          "nothing": "The three pages stay as they are."
+        },
+        {
+          "id": "R3",
+          "title": "The README's CI badge has been red on every push since v4.0.0",
+          "problem": "The first thing under the title on GitHub is a red CI badge, and the README says CI runs four jobs on every push. In fact every CI run on main since 2026-09-21 is red (29 in a row): the unit job is paused (ADR 040, `if: false`); the core job fails because Xcode 26 on the runner cannot type-check one long expression (MaterialsProjectImport.swift:318); the scientific job was green on the runner until 09-29 and fails since 09-30 because the runner has no Neural Engine and the learned-detector harnesses now fail there (by your decision the app refuses without one). Every gate does run locally before each release.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Make CI honest: split that one expression (same sums, same order); on CI only, skip the learned-detector harnesses with a loud SKIP line; README sentence, badge text and ci.yml's header say three jobs run, unit paused, learned harnesses skipped on CI",
+              "consequence": "The badge can go green on your next push (it cannot be proven before you push). The local gate is unchanged.",
+              "effort": "1 h + your push",
+              "risk": "a CI-only skip is a narrower gate there — said in the README"
+            },
+            {
+              "key": "b",
+              "label": "Drop the badge; README says CI runs the inventory check and every other gate runs locally before a release",
+              "consequence": "Nothing red on the landing page; CI stays as it is.",
+              "effort": "10 min",
+              "risk": "the repo shows less automation"
+            },
+            {
+              "key": "c",
+              "label": "Leave as is",
+              "consequence": "A red badge and a false sentence on the landing page.",
+              "effort": "0",
+              "risk": "trust"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Checked with gh: every CI push run since 2026-09-21 is red (29 runs); core fails at MaterialsProjectImport.swift:318 on every run back to 09-25; scientific was GREEN on the runner on 09-25 and 09-29 and went red only with the Neural-Engine refusal of 09-30 — so the reds are one compiler-version type-check plus your own decision. 'The Neural-Engine harness' is at least two (the learned half of tiled-detection-memory-test, which failed, and disk-detector, which loads the same asset; the run stops at the first FAIL). 'No number moves' is pinned only indirectly (MaterialsProjectImportTests.swift:699-758). Pick a — ContentView.swift:270-273 already reshaped a closure for the same Xcode timeout — but the README sentence, the badge alt text (README.md:8) and ci.yml's header must all say what runs, or the badge is green about the wrong thing.",
+          "nothing": "The red badge and the four-jobs sentence stay."
+        }
+      ]
+    },
+    {
+      "key": "data",
+      "title": "Your data — sessions that can overwrite each other",
+      "why": "Plain overwrites of your dataset and refused labels are being fixed without a card (lane A). These three need a product choice.",
+      "cards": [
+        {
+          "id": "D1",
+          "title": "scan.dm4 and scan.h5 in one folder share one session file",
+          "problem": "The session file is named from the file stem only, so scan.dm4 and a py4DSTEM-converted scan.h5 in the same folder both map to scan.mac4dstem.h5. Opening scan.h5 adopts scan.dm4's calibration — with a 2×-binned conversion the Q scale is off by 2 — and a save from either replaces the other's recipe, lineage and labels. This session adds an identity check: the session file records the source's name and native shape, and a SHAPE mismatch is refused with a named reason instead of adopted; a same-shape pair (an unbinned conversion) still shares one session, restored with a line naming both files. Change Session Sidecar… will start a fresh file when the current one was refused (today it copies it). What is left for you is the name. Your own Preprocess never creates such a pair (it writes <stem>_preprocessed.h5); py4DSTEM's convert habit does.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Keep the stem name for v4.1; with the check, a binned pair's second file is refused and gets its own session via Dataset › Change Session Sidecar…; a same-shape pair shares one session with a note",
+              "consequence": "The wrong Q scale cannot be adopted; a same-shape pair can still overwrite each other's recipe and labels. No file-name change; every existing session keeps working.",
+              "effort": "0 beyond the check",
+              "risk": "low; the same-shape pair stays shared"
+            },
+            {
+              "key": "b",
+              "label": "After v4.1: new sessions named by the full file name (scan.dm4.mac4dstem.h5), still reading the old stem name",
+              "consequence": "Both files get their own session automatically. A naming change in the session file format (plan §8 is yours).",
+              "effort": "3 h + Gate B",
+              "risk": "medium — two names to find"
+            },
+            {
+              "key": "c",
+              "label": "Leave the silent adoption",
+              "consequence": "The wrong Q scale can be adopted without a word.",
+              "effort": "0",
+              "risk": "a wrong number"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Two premises were overstated and are now corrected on the card: the identity check refuses a SHAPE mismatch only, so a same-shape pair (an unbinned conversion, the commoner case) still shares one session with a note; and Dataset › Change Session Sidecar… COPIES the current session into the new file (ResultExport.swift:1126 → copySidecarFile), so a refused session would be copied and refused again — Change… must start a fresh file when the current one was refused (being fixed with the check). My pick is a for v4.1 on those two conditions. Your own files never collide (Preprocess writes <stem>_preprocessed.h5); it is py4DSTEM's convert habit that makes the pair common for others — queue b after v4.1 if that matters to you.",
+          "nothing": "a — the identity check ships; the name stays."
+        },
+        {
+          "id": "D2",
+          "title": "The same dataset open in two windows: the last save wins silently",
+          "problem": "File › New Dataset Window gives each window its own state. Open the same scan in both, run strain and save in one, run ACOM and save in the other: the second save keeps the first's result, but replaces its recipe, lineage, calibration and (if any) labels with its own. Nothing is refused or reported.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Refuse opening a dataset that is already open in another window, with a line naming that window's dataset (keyed by file identity, so an alias does not slip past)",
+              "consequence": "The overwrite cannot arise. You can no longer open one dataset twice on purpose (two views side by side).",
+              "effort": "1–2 h + test",
+              "risk": "low"
+            },
+            {
+              "key": "b",
+              "label": "Allow both; a save checks whether the session file changed since this window read it and refuses with “another window saved this session”",
+              "consequence": "Both windows stay usable; the second save asks the user to reopen — which discards that window's unsaved work.",
+              "effort": "2–3 h + test",
+              "risk": "medium"
+            },
+            {
+              "key": "c",
+              "label": "Leave; say it in the release notes' known limitations",
+              "consequence": "The overwrite stays possible.",
+              "effort": "5 min",
+              "risk": "lost work"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "The premises hold. But 'brings that window forward' is not a SwiftUI-only job: windows open empty and get their dataset later, so there is no window value to re-open by, and focusing an existing window needs AppKit, which you ruled out on 09-28. Pick a in its honest form: a registry keyed by file identity (so an alias or symlink does not slip past), and the second open is refused with a line naming the other window's dataset — CHANGELOG.md:328-334 already tells users one window per dataset is the supported way. a forbids opening one dataset twice on purpose (two views side by side); b allows it, but its refused window cannot save without reopening, i.e. without discarding its work.",
+          "nothing": "c — a known limitation in the notes."
+        },
+        {
+          "id": "D3",
+          "title": "After Promote, a save relabels results computed on the rehearsal view",
+          "problem": "Results saved from a cropped or binned rehearsal view are carried into the full view after Promote; the sidebar warns once. A later Save to Results writes the full view's description over the whole session file, so on the next reopen the cropped-view results read as if computed on the full scan and the warning is gone. Weakenings: the result shown after Promote is the correct full-extent one, and Results prints each saved node's size, so the misread needs a click on an older, visibly smaller node.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Refuse that save while carried results come from another view, with the remedy named (reopen on the recorded view, or remove the carried results)",
+              "consequence": "No relabelling. The refusal fires both ways: a rehearsal view of a dataset that already holds full-extent results cannot save until those are removed (Remove is in Results).",
+              "effort": "1 h + test",
+              "risk": "low"
+            },
+            {
+              "key": "b",
+              "label": "Stamp each saved result with the view it was computed on, so mixed views coexist (after v4.1)",
+              "consequence": "The honest long-term fix; a session file format change.",
+              "effort": "3 h + Gate B",
+              "risk": "medium"
+            },
+            {
+              "key": "c",
+              "label": "Leave; a known limitation",
+              "consequence": "A cropped result can later read as full-scan.",
+              "effort": "0",
+              "risk": "a wrong label"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "The mechanism holds, but two weakenings belong on the card (now added): the current result after Promote is the correct full-extent one, and Results prints each saved node's size (ResultsSettings.swift:69), so the misread needs a click on an older, visibly smaller node. Pick a — Remove exists in Results, so the remedy is real — and know the refusal fires in both directions. A plain bug to fix without a card, whichever you pick: restoring a saved scalar map has no shape guard while the colour branch refuses a mismatched one (AppState+Open.swift:1157 vs :1168-1171) — being fixed.",
+          "nothing": "c — a known limitation."
+        }
+      ]
+    },
+    {
+      "key": "ui",
+      "title": "A frozen file — the error alert",
+      "why": "The five frozen files change structure only on your word (ADR 035/050).",
+      "cards": [
+        {
+          "id": "U1",
+          "title": "Every error alert offers “Open Another…”, which replaces the open dataset",
+          "problem": "The app's one alert (“Something went wrong”) always shows Copy Details, Open Another… and OK. Under a CIF refusal, a failed PNG export or a session-file refusal, Open Another… opens the dataset picker — and picking a file replaces the open dataset, discarding every unsaved map, label and calibration without a warning. The alert lives in a frozen file (ContentView.swift). Both options change the frozen file's structure (a button behind a condition, or removed) — your answer here is the accepted picture. Session note: the recommendation moved from a to b after the second opinion.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Show Open Another… only when opening a dataset failed (one condition in the frozen file; nothing moves)",
+              "consequence": "The button appears where it helps and nowhere else.",
+              "effort": "30 min + test",
+              "risk": "low"
+            },
+            {
+              "key": "b",
+              "label": "Remove Open Another…; keep Copy Details and OK (File › Open is ⌘O)",
+              "consequence": "Simplest alert; one more step after a failed open.",
+              "effort": "15 min",
+              "risk": "low"
+            },
+            {
+              "key": "c",
+              "label": "Leave",
+              "consequence": "One click after any error can discard unsaved work.",
+              "effort": "0",
+              "risk": "lost work"
+            }
+          ],
+          "recommend": "b",
+          "advisor": "Premises confirmed. My pick is b, not a: a failed open never leaves you without a way to open — the Welcome pane has its own Open Dataset… button and ⌘O is in the File menu — and when another dataset is already open, a failed open keeps it, so 'Open Another…' there carries exactly the hazard a is meant to remove. b adds no new state, and the alert drops to the two buttons every other macOS alert has. Both options change the frozen file's structure, not its wording: your answer on this card is the accepted picture (ADR 035).",
+          "nothing": "c — the button stays on every error."
+        }
+      ]
+    }
+  ],
+  "same": [
+    "Being fixed now without a card (lanes A–G, each test broken first and an independent refuter after): the dataset itself could be chosen as the destination of a session save, Change Session Sidecar… or Export Bundle and replaced; a session file that HDF5 could not open was replaced by an empty one; hand-clicked labels that were refused on reopen were overwritten by the next save; a Bragg map finished after a room switch was saved under the other room's frame and units; a probe kernel built on one dataset could land on the next and crash; a binned view read up to bin² more than its memory budget (16× at bin 4); the ptychography seed line printed the R–Q rotation in the opposite sign to Prepare; the phase-contrast budget ignored stages already held; ⌘R did nothing silently in several rooms; Add Phase added the wrong phase after a refused CIF; an offline Materials Project fetch printed a raw error dump; the exported phase-map PNG did not say unvalidated; DPC angle exports did not say their frame; wording that sent users to the wrong panel; SECURITY.md and the README's “validated catalogue”.",
+    "D1 and the identity check are one problem: the check ships either way; the card is only the name.",
+    "Settings › Advanced › Log verbosity does nothing (saved, read nowhere; its own comment says “No wiring yet”). You asked for that row once (AppPreferences.swift:81-84); under ADR 049 (finish or remove) it is removed in this session unless you say “wire it”.",
+    "Also being fixed now: restoring a saved scalar map has no shape guard, while the colour branch refuses a mismatched one (AppState+Open.swift:1157 vs :1168-1171)."
+  ],
+  "not_carded": [
+    "The crash after Compute Strain: an intermittent AppKit layout loop inside the toolbar (all logged stacks are toolbar items), about once in two days of driving; a stress reproduction is running. Its fix would change a frozen file, so it comes to you as a card once the cause is pinned.",
+    "A second crash, at Quit, inside HDF5's library teardown (your own install on 1 Oct, and once in the test host): diagnosis running; a card or a fix follows.",
+    "The β″ preset's CIF picker: no code difference from ACOM's working picker and four earlier drives worked; the release-candidate drive re-tests it — a failed reproduction closes it.",
+    "Keep-in-memory in two windows at once can exceed the machine's working set (low): registered, after v4.1."
+  ],
+  "answered": {
+    "W1": "c — leave the website as is [not the recommendation]",
+    "R3": "a — make CI honest (split the expression; CI-only loud skip of the learned-detector harnesses; README, badge text and ci.yml header say what runs)",
+    "D1": "c — leave the silent adoption [not the recommendation]; lane B's identity check is archived as a patch, not shipped",
+    "D2": "a — refuse opening a dataset already open in another window, naming it (keyed by file identity)",
+    "D3": "a — refuse that save while carried results come from another view, remedy named",
+    "U1": "b — remove Open Another…; keep Copy Details and OK"
+  }
+}
