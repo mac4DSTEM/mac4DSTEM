@@ -68,8 +68,22 @@ W1 c (leave the website as is) · R3 a (make CI honest) · D1 c (leave the silen
 · D2 a (refuse a dataset already open in another window) · D3 a (refuse a save that would relabel carried results) · U1 b (remove
 "Open Another…"). Log verbosity: removed (ADR 049, folded into the sheet's "same" list).
 
-## Lanes (status at the time of writing; updated at each landing)
+## Lanes — landed (each gated alone on an isolated copy of HEAD + the lane; an independent Fable refuter on each)
 
-A data safety · B sidecar identity (not shipped, D1 c) · C phase-contrast sign + budget · D binned tile budget · E results landing in
-the wrong room / dataset · F first-run UX + export claims · G docs · H restore guard + dead control · R CI honest · I owner cards D2/D3/U1.
-Each lane: tests broken first, an independent refuter, gated alone on an isolated copy of HEAD + the lane.
+| lane | findings | commit | unit (pass / fail / skip = declared) | notes |
+|---|---|---|---|---|
+| H | sheet "same" list; H1 restore guard | `9cb622be` | 1492 / 0 / 3 = 1495 | + its control test run alone 4/4 |
+| G | f2, f4, f5 (docs) | `75703ea7` | docs only | website left as is (W1 c); prepared edits kept in the session scratchpad |
+| E | c1, c2 | `6e9a7fe4` | 1500 / 0 / 3 = 1503 | refuter HOLDS |
+| F | e2, e3, e6, e7, e9, b2, b3 | `26b3f9ef` | 1505 / 0 / 3 = 1508 | |
+| C | b1 (Gate D), d2, b4 | `6d42f602` | 1496 / 0 / 3 = 1499, scientific 52 zero FAIL | Gate D record `../review-c-rotation-gateD-2026-10-02/` |
+| A | a1/b5/e1, a4, a3, e5, c4, e10 | `443dc69c` | 1500 / 0 / 3 = 1503, scientific zero FAIL | |
+| R | f3 (card R3 a) | `7ae5d593` | 1493 / 0 / 3 = 1496, scientific zero FAIL | CI green unproven until pushed |
+| D | d1 (Gate D), d4 | `5babc867` | 1496 / 0 / 3 = 1499, scientific zero FAIL | `../review-d-tile-budget-gateD-2026-10-02.md`; binned mean pattern ±8–10 float32 ulps |
+| B | a2 (card D1 c) | `ac22cc97` | not shipped | `../review-sidecar-identity-2026-10-02.patch` + report |
+| L | d1 residual (two sibling formulas) | `81b599cb` | 1554 / 0 / 3 = 1557, scientific zero FAIL | no bit moves |
+| I | a6, a5, e8 (cards D2 a, D3 a, U1 b) | `d212bf88` | 1558 / 0 / 3 = 1561 | |
+| K | the HDF5 quit race (found by the crash diagnosis), three unguarded session readers | pending | | probe 198/200 crashes on HEAD's code → 0/200 |
+
+Counts are from each lane's own gate (its base commit differs as lanes landed); the release's `run-tests.sh all` on one commit is
+the gate that covers them together.
