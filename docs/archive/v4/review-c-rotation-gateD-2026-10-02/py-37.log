@@ -1,0 +1,5 @@
+PLANTED rot_deg=37 (scipy.ndimage.rotate on (Qx,Qy)) defocus=500 A; q 0.041667 1/A per px; R 1.500 A per px; 80 kV
+PY4DSTEM DPC curl:       rotation -37.000 deg transpose False
+PY4DSTEM DPC divergence: rotation -37.000 deg transpose False
+PY4DSTEM Parallax: rotation_Q_to_R -37.023 deg transpose False C1 -507.18 C12a 1.21 C12b -3.37
+QPIX 0.04166667 RPIX 1.500000 KV 80

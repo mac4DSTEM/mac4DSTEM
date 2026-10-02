@@ -45,7 +45,7 @@ package nonisolated struct ParallaxAlignmentOptions: Equatable, Sendable {
     /// compatibility `alignOneLevel` entry point retains integer peaks by
     /// default; the interactive continuation path explicitly selects 8.
     package var upsampleFactor = 1
-    /// Peak resident bytes: immutable input stack + output stack/masks + FFT work.
+    /// Peak resident bytes: what the level reads (`ParallaxAligner.inputBytesCounted`) + output stack/masks + FFT work.
     package var maxWorkingBytes = PhaseContrastMemoryBudget.workingLimitBytes
 }
 
@@ -70,6 +70,12 @@ package nonisolated struct ParallaxAlignmentResult: Sendable {
     package let stackWidth: Int
 
     package var currentError: Float { errorHistory.last ?? .nan }
+
+    /// Bytes this level keeps while it stays published (the shifted stack and masks and its two planes): the phase-contrast
+    /// budget's held term for the next stage (review d2, 2026-10-02).
+    package var heldByteCount: Int {
+        (shiftedStack.count + shiftedMasks.count + reconstructionMask.count + alignedBF.count) * MemoryLayout<Float>.stride
+    }
 
     package var isComplete: Bool { completedBins == alignmentSchedule }
 
@@ -262,6 +268,16 @@ package nonisolated enum ParallaxAligner {
         )
     }
 
+    /// The held bytes a level counts in its own peak because it reads them: the preprocessed (blended) stack at level 1,
+    /// the prior level's shifted stack and masks after. A caller subtracting what earlier stages hold from the budget
+    /// leaves these out, so nothing is counted twice (review d2, 2026-10-02).
+    package static func inputBytesCounted(
+        preprocessing: ParallaxPreprocessResult, previous: ParallaxAlignmentResult?
+    ) -> Int {
+        guard let previous else { return preprocessing.stackByteCount }
+        return (previous.shiftedStack.count + previous.shiftedMasks.count) * MemoryLayout<Float>.stride
+    }
+
     private static func alignLevel(
         preprocessing: ParallaxPreprocessResult,
         previous: ParallaxAlignmentResult?,
@@ -317,9 +333,13 @@ package nonisolated enum ParallaxAligner {
 
         let stackBytes = preprocessing.stackByteCount
         let fftWorkBytes = planeCount * MemoryLayout<Float>.stride * 12
-        let (threeStacks, overflow1) = stackBytes.multipliedReportingOverflow(by: 3)
-        let (peakBytes, overflow2) = threeStacks.addingReportingOverflow(fftWorkBytes)
-        guard !overflow1, !overflow2 else {
+        // The input (level 1: the preprocessed stack; after: the prior level's stack AND masks, which stay alive while this
+        // level is built) + the new stack and masks. Level 2+ was counted as 3S while 4S was live (review d2, 2026-10-02).
+        let (outputStacks, overflow0) = stackBytes.multipliedReportingOverflow(by: 2)
+        let (stackTotal, overflow1) = outputStacks.addingReportingOverflow(
+            inputBytesCounted(preprocessing: preprocessing, previous: previous))
+        let (peakBytes, overflow2) = stackTotal.addingReportingOverflow(fftWorkBytes)
+        guard !overflow0, !overflow1, !overflow2 else {
             throw AlignmentError.invalidInput("working dimensions overflow")
         }
         guard peakBytes <= options.maxWorkingBytes else {

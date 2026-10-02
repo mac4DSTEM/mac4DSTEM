@@ -156,12 +156,18 @@ package nonisolated enum PhaseContrastMemoryBudget {
     package static let floorBytes = 1_073_741_824
     /// `residentCubeBytes` is the cube the user chose to keep in memory (0 when it is streamed): that cube already
     /// occupies part of the half, so the stages get half of RAM less the cube, never below the floor (2026-10-01).
-    /// A refusal threshold only — no scientific number moves.
+    /// `heldProductBytes` is what earlier phase-contrast stages still hold while the next one runs (the preprocessed
+    /// stacks, the published alignment level), less what that stage counts itself: each stage counts only its own
+    /// working set, so without this term preprocess + alignment + a new level reached all of RAM unrefused (review d2,
+    /// 2026-10-02). A refusal threshold only — no scientific number moves.
     package static func workingLimitBytes(
-        physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory, residentCubeBytes: Int = 0
+        physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory, residentCubeBytes: Int = 0,
+        heldProductBytes: Int = 0
     ) -> Int {
         let half = Int(min(physicalMemory / 2, UInt64(Int.max)))
-        return max(floorBytes, half - max(0, residentCubeBytes))
+        // Each term is clamped to [0, half], so the difference never overflows.
+        let cube = min(half, max(0, residentCubeBytes)), held = min(half, max(0, heldProductBytes))
+        return max(floorBytes, half - cube - held)
     }
     package static let workingLimitBytes = workingLimitBytes()
 }

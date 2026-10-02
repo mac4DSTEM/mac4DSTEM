@@ -176,7 +176,7 @@ struct SingleslicePtychographySection: View {
             InspectorActionRow {
                 InspectorAdaptiveButton(
                     "Use Parallax Fit", systemImage: "arrow.down.circle",
-                    help: "Fills Defocus and the astigmatism from the parallax aberration fit: defocus is minus the fit's C1 (py4DSTEM's forward model stores C10 = -defocus and its Parallax returns C1 = C10), astigmatism is the fit's C12a and C12b (checked with no transpose only). Valid on the rotation branch the fit used: if the calibrated rotation is about 180° from the fit's, use the opposite defocus sign - the wrong branch reconstructs a conjugated object, and nothing checks it here."
+                    help: "Fills Defocus and the astigmatism from the parallax aberration fit: defocus is minus the fit's C1 (py4DSTEM's forward model stores C10 = -defocus and its Parallax returns C1 = C10), astigmatism is the fit's C12a and C12b (checked with no transpose only). Valid on the rotation branch the fit used: if the calibrated rotation (Prepare's R–Q rotation) is about 180° from the Fitted rotation (both in py4DSTEM's sign, as the status line compares them), use the opposite defocus sign - the wrong branch reconstructs a conjugated object, and nothing checks it here."
                 ) {
                     appState.usePtychographyProbeFromParallaxFit()
                 }
@@ -778,10 +778,8 @@ private struct ParallaxAlignmentDetails: View {
                     fit.c12aAngstrom, fit.c12bAngstrom
                 )
             )
-            InspectorValueRow(
-                "Shift-fit RMS",
-                String(format: "%.4f Å", fit.rmsResidualAngstrom)
-            )
+            // No shift-fit residual row (review b4, 2026-10-02): zero by construction on every dataset (lane R4, the status line's
+            // comment in AppState+PhaseContrast.fitParallaxAberrations), a number that cannot move.
             InspectorNote("Diagnostic fit only; calibration and aligned data are unchanged.")
             ParallaxFitDetails()
         }

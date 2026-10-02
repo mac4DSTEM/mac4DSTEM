@@ -16,16 +16,53 @@ import DSTEMSession
 
 extension AppState {
     /// The working limit every phase-contrast stage refuses above: half of RAM less the cube the user chose to keep in
-    /// memory (`DatasetResidency.byteCount`, 0 when streamed), never below the 1 GiB floor.
-    var phaseContrastWorkingLimitBytes: Int {
-        PhaseContrastMemoryBudget.workingLimitBytes(residentCubeBytes: residency.isResident ? residency.byteCount : 0)
+    /// memory (`DatasetResidency.byteCount`, 0 when streamed) and less what earlier stages still hold
+    /// (`phaseContrastHeldBytes`), never below the 1 GiB floor.
+    var phaseContrastWorkingLimitBytes: Int { phaseContrastWorkingLimitBytes(heldBytes: phaseContrastHeldBytes) }
+
+    func phaseContrastWorkingLimitBytes(heldBytes: Int) -> Int {
+        PhaseContrastMemoryBudget.workingLimitBytes(residentCubeBytes: residency.isResident ? residency.byteCount : 0,
+                                                    heldProductBytes: heldBytes)
     }
 
-    /// A refusal names the resident cube when it reduced the limit; any other failure is presented as before.
-    func presentPhaseContrastFailure(_ error: Error) {
+    /// The bytes earlier phase-contrast stages hold while the next one runs (review d2, 2026-10-02; the owner of the products
+    /// is `phaseContrast`, this only reads them): the preprocessed stacks and the published alignment level, which every later
+    /// stage leaves in memory and none counted. The products after the fit (KDE image, depth planes, correction, ptychography)
+    /// are not counted.
+    var phaseContrastHeldBytes: Int {
+        (phaseContrast.parallaxPreprocess?.residentStackByteCount ?? 0)
+            + (phaseContrast.parallaxAlignment?.heldByteCount ?? 0)
+    }
+
+    /// What the next alignment level's limit subtracts: the held stacks less what the level counts in its own peak because it
+    /// reads them (the preprocessed stack at level 1, the published level's stack and masks after), so nothing counts twice.
+    var parallaxAlignmentHeldBytes: Int {
+        guard let preprocessing = phaseContrast.parallaxPreprocess else { return phaseContrastHeldBytes }
+        return max(0, phaseContrastHeldBytes - ParallaxAligner.inputBytesCounted(
+            preprocessing: preprocessing, previous: phaseContrast.parallaxAlignment))
+    }
+
+    /// A re-preview replaces both parallax products, so it releases them BEFORE its run and returns the limit read after the
+    /// release (refuter fix round, 2026-10-02): otherwise the new stacks got half − (old preview 2S + old alignment 2S + planes)
+    /// and a dataset whose stack passed once (S ≤ half/2) was refused on every second preview once S > half/6, with no release
+    /// path short of a calibration or dataset change. The alignment goes first (its didSet drops the fit, KDE, depth and
+    /// correction, as a successful preview always did). Cost: a cancelled or refused re-preview leaves no preview (the status says so).
+    func releaseParallaxProductsForPreview() -> (limitBytes: Int, releasedPreview: Bool) {
+        let released = phaseContrast.parallaxPreprocess != nil
+        phaseContrast.parallaxAlignment = nil
+        phaseContrast.parallaxPreprocess = nil
+        return (phaseContrastWorkingLimitBytes, released)
+    }
+
+    /// A refusal names the resident cube and the held phase-contrast stacks when they reduced the limit (`heldBytes`: what
+    /// the refused stage's limit subtracted, `phaseContrastHeldBytes` unless the stage counted some of it itself); any other
+    /// failure is presented as before.
+    func presentPhaseContrastFailure(_ error: Error, heldBytes: Int? = nil) {
         let resident = residency.isResident ? residency.byteCount : 0
-        if resident > 0, PhaseContrastMemoryBudget.isMemoryRefusal(error) {
-            presentComputeFailure(SimpleError(PhaseContrastMemoryBudget.refusalMessage(error, residentCubeBytes: resident)))
+        let held = heldBytes ?? phaseContrastHeldBytes
+        if resident > 0 || held > 0, PhaseContrastMemoryBudget.isMemoryRefusal(error) {
+            presentComputeFailure(SimpleError(PhaseContrastMemoryBudget.refusalMessage(
+                error, residentCubeBytes: resident, heldProductBytes: held)))
         } else {
             presentComputeFailure(error)
         }
@@ -54,6 +91,7 @@ extension AppState {
         }
 
         let epoch = datasetSession.epoch
+        let release = releaseParallaxProductsForPreview()
         let token = beginCancellableOperation(
             "Parallax preprocessing", status: "Preparing virtual-BF stack…",
             totalUnits: descriptor.ry * 2
@@ -69,7 +107,7 @@ extension AppState {
                 }
             }
             var preprocessOptions = ParallaxPreprocessOptions()
-            preprocessOptions.maxStackBytes = phaseContrastWorkingLimitBytes
+            preprocessOptions.maxStackBytes = release.limitBytes
             let result = try await ParallaxPreprocessor.run(
                 source: source, view: view, calibration: physical, options: preprocessOptions,
                 cancellation: token, progress: progressUpdate
@@ -93,7 +131,9 @@ extension AppState {
             )
         } catch ParallaxPreprocessor.PreprocessError.cancelled {
             guard isCurrentOperation(token) else { return }
-            statusText = "Parallax preprocessing cancelled"
+            statusText = release.releasedPreview
+                ? "Parallax preprocessing cancelled; the previous preview was released"
+                : "Parallax preprocessing cancelled"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
             presentPhaseContrastFailure(error)
@@ -129,6 +169,7 @@ extension AppState {
         let groups = ParallaxAligner.groups(
             detectorIndices: preprocessing.detectorIndices, alignmentBin: bin
         )
+        let alignmentHeldBytes = parallaxAlignmentHeldBytes
         let epoch = datasetSession.epoch
         let token = beginCancellableOperation(
             "Parallax alignment bin \(bin)",
@@ -146,9 +187,10 @@ extension AppState {
                 }
             }
             var options = ParallaxAlignmentOptions()
-            options.maxWorkingBytes = phaseContrastWorkingLimitBytes
-            options.upsampleFactor = 8
             let prior = phaseContrast.parallaxAlignment
+            // The level counts what it reads (the preprocessed stack, or the prior's stack and masks) in its own peak.
+            options.maxWorkingBytes = phaseContrastWorkingLimitBytes(heldBytes: alignmentHeldBytes)
+            options.upsampleFactor = 8
             let result = try await Task.detached(priority: .userInitiated) {
                 try ParallaxAligner.alignNextLevel(
                     preprocessing: preprocessing, previous: prior, options: options,
@@ -177,7 +219,7 @@ extension AppState {
             statusText = "Parallax alignment bin \(bin) cancelled; last completed level retained"
         } catch {
             guard isCurrentOperation(token), datasetSession.epoch == epoch else { return }
-            presentPhaseContrastFailure(error)
+            presentPhaseContrastFailure(error, heldBytes: alignmentHeldBytes)
         }
     }
 
@@ -469,9 +511,13 @@ extension AppState {
         // The sign rule (defocus = -C1) holds on the rotation branch the fit used; the ptychography runs with the calibrated
         // rotation, which nothing here checks. Both are shown so the reader can judge.
         // The angle between them is printed, not judged (no 180° case has been measured; the auto-flip is the owner's card R1 c).
+        // ONE convention, py4DSTEM's (ADR 040), for both angles and their difference: the fit's rotation already is py4DSTEM's
+        // sign, the calibration is held in the app's (its negative). Measured (lane C Gate D, 2026-10-02): a detector rotation
+        // planted at ±37° gives py4DSTEM DPC ∓37.000°, py4DSTEM Parallax ∓37.02°, this fit ∓37.03°, app calibration ±37.10° - so
+        // printing the app's angle beside the fit read "74° apart" (2|θ|) for one branch, ≈180° near |θ| = 90°.
         let fitDegrees = lowOrder.rotationRad * 180 / .pi
         let calibrated = calibrationSession.calibration.rotationRad.map { rad -> String in
-            let degrees = Double(rad) * 180 / .pi
+            let degrees = RQRotationConvention.displayDegrees(fromApp: rad)
             let apart = abs((degrees - fitDegrees).truncatingRemainder(dividingBy: 360))
             return String(format: "%@, %@ apart; the sign flips at 180°",
                           RQRotationConvention.degreesText(degrees, decimals: 2),
@@ -596,12 +642,21 @@ extension PhaseContrastMemoryBudget {
         return false
     }
 
-    /// The refusal's own text, plus — when a resident cube reduced the limit — what the limit is made of.
-    nonisolated static func refusalMessage(_ error: Error, residentCubeBytes: Int) -> String {
+    /// The refusal's own text, plus — when a resident cube or held phase-contrast stacks reduced the limit — what the limit
+    /// is made of.
+    nonisolated static func refusalMessage(_ error: Error, residentCubeBytes: Int, heldProductBytes: Int = 0) -> String {
         let base = error.localizedDescription
-        guard residentCubeBytes > 0, isMemoryRefusal(error) else { return base }
-        let cube = ByteCountFormatter.string(fromByteCount: Int64(residentCubeBytes), countStyle: .file)
-        return base + " The limit is half of RAM less the \(cube) cube kept in memory."
+        guard residentCubeBytes > 0 || heldProductBytes > 0, isMemoryRefusal(error) else { return base }
+        var parts = [String]()
+        if residentCubeBytes > 0 {
+            let cube = ByteCountFormatter.string(fromByteCount: Int64(residentCubeBytes), countStyle: .file)
+            parts.append("the \(cube) cube kept in memory")
+        }
+        if heldProductBytes > 0 {
+            let held = ByteCountFormatter.string(fromByteCount: Int64(heldProductBytes), countStyle: .file)
+            parts.append("the \(held) the parallax preview and alignment already hold")
+        }
+        return base + " The limit is half of RAM less " + parts.joined(separator: " and ") + "."
     }
 }
 

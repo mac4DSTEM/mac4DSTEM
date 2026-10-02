@@ -1,0 +1,4 @@
+dataset ry 40 rx 40 qy 48 qx 48
+APP RotationCalibration curl: rotation -37.100 deg (app internal) transpose false carriesRotation true -> displayText (py4DSTEM sign) 37.100°
+APP RotationCalibration divergence: rotation -37.100 deg transpose false
+APP parallax fitLowOrder: rotation 36.981 deg C1 -507.18 C12a 0.97 C12b -3.45 (BF px 361, bins [16, 8, 4, 2, 1, 1])
