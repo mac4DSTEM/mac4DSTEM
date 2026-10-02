@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml"><img src="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml/badge.svg" alt="CI: unit, scientific, inventory and core gates on every push"></a>
+  <a href="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml"><img src="https://github.com/mac4DSTEM/mac4DSTEM/actions/workflows/ci.yml/badge.svg" alt="CI: scientific, inventory and core jobs on every push (unit paused; the learned-detector check runs locally)"></a>
 </p>
 
 <p align="center">
@@ -71,9 +71,13 @@ notarization and staple details — is quoted from the run that produced it in
 [`docs/releasing.md`](docs/releasing.md) § Releases, with the full history in
 [`CHANGELOG.md`](CHANGELOG.md).
 
-The badge covers four jobs on every push: unit, scientific, the repository's own
-`inventory` review, and `core`, which fails the moment `Core/` reaches up into
-the app.
+The badge covers three jobs on every push: `scientific` (the science harnesses;
+the learned detector's half of one memory gate is skipped there, as the CI runner
+has no Neural Engine), the repository's own `inventory` review, and `core`, which
+fails the moment `Core/` reaches up into the app. The `unit` job is paused
+([ADR 040](docs/decisions/040-four-owner-decisions-2026-09-28.md): the macos-26
+image cannot build a macOS 27 app). Every gate, `unit` included, runs locally
+before each release.
 
 All of that is numerical — the app is tested against known-correct values, not
 against what it draws. What it draws is checked by a person driving it, because

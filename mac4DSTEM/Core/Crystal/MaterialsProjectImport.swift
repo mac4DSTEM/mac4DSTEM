@@ -262,7 +262,7 @@ package nonisolated enum CellStandardisation: Equatable, Sendable {
 /// piece of math from an integer change-of-basis between two real-space
 /// settings, and they are `private` to that file, so this is a second small
 /// implementation by necessity, not a duplicate of the same science.
-private nonisolated enum Matrix3 {
+package nonisolated enum Matrix3 {
     static func determinant(_ m: [[Double]]) -> Double {
         m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
             - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
@@ -314,10 +314,25 @@ private nonisolated enum Matrix3 {
     /// Si case: applying the F matrix this way to the F-centred primitive's
     /// `a/2·(0,1,1), a/2·(1,0,1), a/2·(1,1,0)` reproduces the conventional
     /// cubic `(a,0,0), (0,a,0), (0,0,a)` exactly.
-    static func transformRows(_ oldRows: [SIMD3<Double>], by m: [[Double]]) -> [SIMD3<Double>] {
-        (0..<3).map { i in
-            m[i][0] * oldRows[0] + m[i][1] * oldRows[1] + m[i][2] * oldRows[2]
+    ///
+    /// Written as explicit typed per-term sums, `(t0 + t1) + t2` — exactly the
+    /// left-to-right association the former one-line
+    /// `m[i][0]*r0 + m[i][1]*r1 + m[i][2]*r2` had, so every result is
+    /// bit-identical (pinned by `ReviewCIHonestTests`). That one expression
+    /// made the Xcode 26 type-checker give up ("unable to type-check this
+    /// expression in reasonable time"), which turned the CI `core` job red.
+    package static func transformRows(_ oldRows: [SIMD3<Double>], by m: [[Double]]) -> [SIMD3<Double>] {
+        var newRows: [SIMD3<Double>] = []
+        newRows.reserveCapacity(3)
+        for i in 0..<3 {
+            let row: [Double] = m[i]
+            let term0: SIMD3<Double> = row[0] * oldRows[0]
+            let term1: SIMD3<Double> = row[1] * oldRows[1]
+            let term2: SIMD3<Double> = row[2] * oldRows[2]
+            let partial: SIMD3<Double> = term0 + term1
+            newRows.append(partial + term2)
         }
+        return newRows
     }
 
     /// Row-vector-times-matrix: result_j = Σᵢ `v[i]` · `m[i][j]`. Fractional

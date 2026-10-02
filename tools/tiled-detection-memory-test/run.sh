@@ -34,4 +34,11 @@ xcrun swiftc -package-name mac4DSTEM -O -o "$WORK/harness" main.swift \
 
 cd "$WORK"
 ./harness classical
-./harness learned "$REPO/Models/DiskDetector/disk-detector-heatmap-256.mlpackage"
+# The CI runner is a VM with no Neural Engine, and the app refuses the learned detector
+# without one (owner, 2026-09-30) — so on CI only the learned half is skipped, loudly; the
+# classical half above still gates there. Locally both halves run before every release.
+if [[ -n "${CI:-}" ]]; then
+  echo "    learned half: SKIPPED on CI (no Neural Engine on the runner; the app refuses the learned detector without one — runs locally before every release)"
+else
+  ./harness learned "$REPO/Models/DiskDetector/disk-detector-heatmap-256.mlpackage"
+fi

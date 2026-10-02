@@ -1,21 +1,33 @@
 # CI — the aggregate claim, made mechanical (v2 S21, docs/archive/v2/v2-release.md §8).
 #
-# WHAT RUNS on every push and pull request: the two Track A gates a public
-# checkout can reproduce —
-#   * `tools/run-tests.sh unit`        — the fast XCTest suite
+# WHAT RUNS on every push and pull request — three jobs, each a gate a public
+# checkout can reproduce:
 #   * `tools/run-tests.sh scientific`  — every harness in that script's
 #     `scientific` array (the array is the roster; no count is stated here so
-#     this comment cannot go stale). Each builds its fixtures synthetically or
-#     reads small committed files and compiles production Core/ sources
-#     standalone; the py4DSTEM-parity harnesses among them compare against the
-#     pinned source lock (References/py4DSTEM-dev, fetched by
-#     tools/lib/fetch-py4dstem.sh at one upstream commit), with the
-#     numerical stack pinned by tools/lib/py4dstem-ci-constraints.txt.
+#     this comment cannot go stale), one half of one harness excepted (below).
+#     Each builds its fixtures synthetically or reads small committed files and
+#     compiles production Core/ sources standalone; the py4DSTEM-parity
+#     harnesses among them compare against the pinned source lock
+#     (References/py4DSTEM-dev, fetched by tools/lib/fetch-py4dstem.sh at one
+#     upstream commit), with the numerical stack pinned by
+#     tools/lib/py4dstem-ci-constraints.txt. The runner is a VM with no Neural
+#     Engine and the app refuses the learned detector without one, so
+#     tools/tiled-detection-memory-test prints "learned half: SKIPPED on CI"
+#     and gates its classical half only — the learned half runs locally
+#     before every release. No other roster harness loads the learned model.
+#   * `tools/run-tests.sh inventory`   — the repo's own review (below).
+#   * `tools/run-tests.sh core`        — the package layers (below).
+#
+# PAUSED since 2026-09-28 (ADR 040): `unit`, the fast XCTest suite — the app
+# targets macOS 27 and the macos-26 image cannot build it. It runs locally,
+# with every other gate, before each release.
 #
 # WHAT IS EXCLUDED, AND WHY — silence is never the reason something is
 # missing (docs/archive/v2/v2-release.md §3):
 #   * `real-data-acceptance` — needs gitignored multi-GB acquisitions that
 #     exist only on the release owner's machines.
+#   * The learned half of tiled-detection-memory-test (see above) — no
+#     Neural Engine on the runner; the harness says so in the log.
 #   * `package-test` (the rest of `run-tests.sh all`) — outside the
 #     `unit` + `scientific` gate S21 names; the aggregate `all` claim is
 #     restated by S19, not by this file.
@@ -29,7 +41,7 @@
 #     scripted checklist this line used to name was retired 2026-09-03 and is
 #     archived at docs/archive/v2/visual-acceptance-checklist-2026-09-03.md.
 #
-# ALSO RUNS: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
+# INVENTORY: `tools/run-tests.sh inventory` — the repo's own review. It FAILS
 # on an unclassified `tools/` runner, on a presentation- or UI-contract grep,
 # on a live doc claiming uncommitted work, on an untracked file inside a
 # bundled folder reference, on a truth doc citing a repo path that is not
@@ -47,9 +59,9 @@
 #     macOS 27. That is build/numeric evidence only; no Track B pass has driven
 #     the app on macOS 26 (docs/open-items.md).
 #   * Xcode 26 ships the Metal compiler as a separate downloadable component;
-#     both jobs install it if the image lacks it (the .metal shader compile in
-#     `unit` and the GPU harnesses' `xcrun metal` need it). At runtime the GPU
-#     harnesses assume the Apple Silicon runner's paravirtualized GPU exposes
+#     the scientific job installs it if the image lacks it (the GPU harnesses'
+#     `xcrun metal` need it; so did the .metal compile in `unit`). At runtime
+#     the GPU harnesses assume the Apple Silicon runner's paravirtualized GPU exposes
 #     a Metal device; MetalEngine fails loudly if it does not.
 #   * The job timeouts are margin, not measurement — nothing has timed this
 #     suite off the dev machine. Tighten them from the per-harness timings the
