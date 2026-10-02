@@ -1285,6 +1285,10 @@ private struct ACOMSections: View {
                 .accessibilityLabel("ACOM display mode")
                 .accessibilityIdentifier("acom.display")
             }
+            // Owner card S2 (a), 2026-10-02: label now, settle the convention after v4.1.
+            if appState.acomSession.display == .inPlane {
+                InspectorNote(ACOMDisplayMode.inPlaneConventionNote)
+            }
             // The IPF colour key is drawn over the image, keyed on the
             // *displayed* result actually being an IPF-Z map — a legend
             // belongs with the pixels it decodes, never here.

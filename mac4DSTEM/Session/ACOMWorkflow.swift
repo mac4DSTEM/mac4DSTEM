@@ -14,6 +14,13 @@ package enum ACOMDisplayMode: String, CaseIterable, Identifiable {
     case phi2 = "Euler φ₂"
     case score = "Score"
     package var id: String { rawValue }
+
+    /// The in-plane map publishes each win's angle relative to its matched
+    /// template; a mirrored win (Mirrored: Yes) is relative to the mirror
+    /// image, carrying py4DSTEM's +π — so angles across a mirror boundary are
+    /// not comparable (open-items, ACOM residual (v); owner card S2 a).
+    package static let inPlaneConventionNote =
+        "Angle relative to the matched template — a mirrored match (Mirrored: Yes) is measured from the mirror image (py4DSTEM's convention), so angles across a mirror boundary don't compare."
 }
 
 package enum ACOMQualityPreset: String, CaseIterable, Identifiable {
