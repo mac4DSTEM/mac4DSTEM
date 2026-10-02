@@ -520,7 +520,7 @@ enum ProductWorkflow {
                     id: "diskSettings", title: "Fix the disk-detection settings",
                     isSatisfied: false,
                     resolution: .taskPanel(
-                        "Resolve the errors listed in the Bragg disk controls in the tools panel."
+                        "Resolve the errors shown under Disk detection in the inspector's Settings tab."
                     )
                 ))
             }

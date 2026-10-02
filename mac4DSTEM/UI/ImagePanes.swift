@@ -926,7 +926,7 @@ struct RealSpacePane: View {
             ContentUnavailableView(
                 "No Result Yet",
                 systemImage: "square.grid.3x3",
-                description: Text(pendingInstruction)
+                description: Text(Self.pendingInstruction(for: appState.navigation.analysisMode))
             )
         } else {
             ContentUnavailableView(
@@ -1284,8 +1284,8 @@ struct RealSpacePane: View {
     /// The empty pane names the action that produces ITS result — the old
     /// single string told a pane titled "Bragg vector map" to "adjust the
     /// aperture", which cannot produce one.
-    private var pendingInstruction: String {
-        switch appState.navigation.analysisMode {
+    static func pendingInstruction(for mode: AnalysisMode) -> String {
+        switch mode {
         case .virtualDetector:
             "Adjust the aperture or pick a detector preset to generate an image"
         case .dpc:
@@ -1296,8 +1296,12 @@ struct RealSpacePane: View {
             "Compute Strain after detecting Bragg disks"
         case .acom:
             "Run ACOM after detecting Bragg disks and choosing a material"
-        case .ptychography, .singleslicePtychography:
+        case .ptychography:
             "Prepare the parallax preview to begin reconstruction"
+        case .singleslicePtychography:
+            // Review e7: single-slice is its own task — it needs the datacube
+            // and calibration, never a parallax stage.
+            "Run Reconstruct Object to reconstruct the object and probe from the full datacube"
         case .diffractionGroups:
             "Run Group Patterns to sort scan positions by diffraction similarity"
         case .phaseMapping:

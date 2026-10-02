@@ -344,7 +344,7 @@ struct PrimaryActionButton: View {
         case .braggDisks: "Detects Bragg disks at every scan position with the current settings."
         case .map:
             switch appState.navigation.analysisMode {
-            case .acom: "Runs the selected orientation area and quality shown in the tools panel."
+            case .acom: "Runs the orientation area and quality selected in the inspector."
             case .phaseMapping: "Matches every position's peaks against the phases you named. Unvalidated."
             default: "Runs the selected whole-scan mapping task."
             }

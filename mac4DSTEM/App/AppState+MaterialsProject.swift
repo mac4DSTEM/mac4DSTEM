@@ -127,7 +127,25 @@ extension AppState {
     }
 
     private func describe(_ error: Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+        Self.describeFetchError(error)
+    }
+
+    /// Review e3: URLError / NSError are not `LocalizedError`, so the old
+    /// fallback printed the whole `Error Domain=… UserInfo=…` dump. A network
+    /// failure is one plain sentence; anything else uses its localized text.
+    nonisolated static func describeFetchError(_ error: Error) -> String {
+        if let localized = (error as? LocalizedError)?.errorDescription { return localized }
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost,
+                 .timedOut, .networkConnectionLost, .dnsLookupFailed,
+                 .internationalRoamingOff, .dataNotAllowed:
+                return "Could not reach materialsproject.org — check the network and try again."
+            default:
+                return urlError.localizedDescription
+            }
+        }
+        return String(describing: error)
     }
 
     /// Stores a fetched model exactly where a CIF import goes — mirrors

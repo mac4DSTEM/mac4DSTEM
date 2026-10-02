@@ -183,7 +183,28 @@ extension AppState {
                 return error.localizedDescription
             }
         }
-        publishProduct(kind: kind, displayName: name, valueUnits: units, payload: payload)
+        // Review b3: the vector-derived products name their frame on every
+        // carrier, as strain does (`strainFrameProvenance`). iDPC is not
+        // listed in the finding and keeps its own provenance.
+        let frameKeys = kind == "idpc_phase" || kind == "idpc_qualitative" ? [:] : dpcFrameProvenance
+        publishProduct(kind: kind, displayName: name, valueUnits: units, payload: payload,
+                       extraProvenance: frameKeys)
         return nil
+    }
+
+    /// The frame a DPC magnitude / angle / colour wheel is measured in:
+    /// `scan` when the R–Q rotation was applied to the CoM (`applyDPCDisplay`),
+    /// else `detector` — the same condition as the rotation itself.
+    /// `qr_rotation_deg` is py4DSTEM's sign (ADR 040), as in strain.
+    var dpcFrameProvenance: [String: String] {
+        guard let rotation = calibrationSession.calibration.rotationRad else {
+            return ["dpc_frame": "detector", "dpc_frame_reason": "qr_rotation_not_calibrated"]
+        }
+        var keys: [String: String] = ["dpc_frame": "scan"]
+        let py4DSTEMRad = Float(RQRotationConvention.py4DSTEM(fromApp: Double(rotation)))
+        keys["qr_rotation_deg"] = String(format: "%.1f", py4DSTEMRad * 180 / .pi)
+        keys["qr_rotation_convention"] = RQRotationConvention.marker
+        keys["qr_transposed"] = (calibrationSession.calibration.transposeQR ?? false) ? "true" : "false"
+        return keys
     }
 }

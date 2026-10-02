@@ -463,11 +463,11 @@ struct PhaseMappingSections: View {
                     appState.applyAlMgSiPreset(precipitateCIF: url)
                     return
                 }
-                appState.importCrystalModel(from: url)
-                // `importCrystalModel` appends to the shared imported-model
-                // list, which ACOM owns; take the one it just selected so a
-                // single import serves both rooms.
-                if let model = appState.acomSession.importedCrystalModels.last {
+                // `importCrystalModel` stores into the shared imported-model
+                // list, which ACOM owns, so a single import serves both
+                // rooms; it returns the model it parsed (nil on a refusal),
+                // which is the one to add — never the list's `.last`.
+                if let model = appState.importCrystalModel(from: url) {
                     add(model)
                 }
             case .failure(let error):

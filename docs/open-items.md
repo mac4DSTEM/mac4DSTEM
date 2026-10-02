@@ -131,6 +131,7 @@ One line each; full wording as above.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - Export Data… (S8): py4DSTEM.read takes the RealSlice's dims as pixel indices ("pixels") and its data units as "intensity" — the existing bundle writer's layout; the true sampling and units are in `dim0`/`dim1` and the `mac4dstem_*` attributes (`archive/v4/polish-i-2026-10-02/`).
 - Virtual-detector "Annulus" with inner 0 excludes the exact centre pixel (strict r² > rIn²; ≈ 5e-4 of each graphene pattern); the preview's bright-field disk includes it — py4DSTEM's convention unchecked, Gate D before any number moves (lane D refuter, 2026-10-02).
+- Review lane F residuals (2026-10-02): ⌘R's readiness predicate and the toolbar's private `primaryActionEnabled`/title are two copies (unify in a frozen-shell session); iDPC carries no `dpc_frame`; a detector-frame DPC angle keeps the Quantitative badge with its frame stated, as strain does (owner S1 b).
 - **Crash after Compute Strain** (re-drive 2026-10-02, `archive/v4/polish-redrive-2026-10-02/`): an AppKit layout exception (EXC_BREAKPOINT in
   `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
   after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.

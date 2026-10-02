@@ -1185,10 +1185,54 @@ final class AppState {
         }
     }
 
+    /// Review e6: whether the current room has a primary task at all — the
+    /// same cases in which the toolbar (`WorkspaceView.primaryActionTitle`)
+    /// shows a verb, and the same branches `runPrimaryWorkspaceTask` acts on.
+    var hasPrimaryWorkspaceTask: Bool {
+        switch navigation.workspaceArea {
+        case .prepare:
+            return !calibrationSession.calibration.hasFittedOrigin
+                || !calibrationSession.calibration.hasRotation
+        case .image, .braggDisks:
+            return true
+        case .map:
+            return [.strain, .acom, .phaseMapping].contains(navigation.analysisMode)
+        case .reconstruct:
+            if navigation.analysisMode == .dpc || navigation.analysisMode == .singleslicePtychography {
+                return true
+            }
+            return phaseContrast.parallaxPreprocess == nil
+                || phaseContrast.parallaxAlignment?.isComplete != true
+                || phaseContrast.parallaxHigherOrderFit == nil
+                || phaseContrast.parallaxCorrection == nil
+                || !parallaxStage4IsComplete(phaseContrast)
+        case .results:
+            return false
+        }
+    }
+
+    /// Review e6: the ONE answer to "may the primary task run now" that the
+    /// Analysis › Run Current Task menu item (⌘R) binds to — a verb exists,
+    /// the dataset is open, nothing is running, and (outside Prepare and
+    /// Results, as in the toolbar) `ProductWorkflow.readiness` says ready.
+    var canRunPrimaryWorkspaceTask: Bool {
+        guard hasDataset, !isBusy, hasPrimaryWorkspaceTask else { return false }
+        if navigation.workspaceArea != .prepare && navigation.workspaceArea != .results {
+            guard case .ready = ProductWorkflow.readiness(
+                for: navigation.analysisMode, readiness: productWorkflowReadiness
+            ) else { return false }
+        }
+        return true
+    }
+
     /// The prominent, user-facing action for the current workspace. This is
     /// intentionally separate from `runCurrentAnalysis`, whose legacy contract
-    /// only refreshes lightweight/cached views for some modes.
+    /// only refreshes lightweight/cached views for some modes. A run that
+    /// returns `.failed(reason)` puts the reason in `statusText` (review e6:
+    /// phase mapping's refusals were returned and never shown).
     func runPrimaryWorkspaceTask() async {
+        var outcome: AnalysisRunOutcome?
+        let statusBefore = statusText   // a run that reported its own failure (presentComputeFailure) keeps its richer line
         switch navigation.workspaceArea {
         case .prepare:
             if !calibrationSession.calibration.hasFittedOrigin {
@@ -1198,17 +1242,17 @@ final class AppState {
             }
         case .image:
             if navigation.analysisMode == .diffractionGroups {
-                await runDiffractionGroups()
+                outcome = await runDiffractionGroups()
             } else {
                 await runCurrentAnalysis()
             }
         case .braggDisks:
-            await runDiskDetection()
+            outcome = await runDiskDetection()
         case .map:
             switch navigation.analysisMode {
-            case .strain: await runStrainMapping()
-            case .acom: await runACOM()
-            case .phaseMapping: await runPhaseMapping()
+            case .strain: outcome = await runStrainMapping()
+            case .acom: outcome = await runACOM()
+            case .phaseMapping: outcome = await runPhaseMapping()
             default: break
             }
         case .reconstruct:
@@ -1230,6 +1274,7 @@ final class AppState {
         case .results:
             break
         }
+        if case .failed(let reason)? = outcome, statusText == statusBefore { statusText = reason }
     }
 
     /// One load at a time: the bundled HDF5 is not thread-safe (`ConcurrentOpenRefusalTests`).

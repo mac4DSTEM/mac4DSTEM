@@ -112,7 +112,11 @@ extension AppState {
     /// to keep usable — same category as a corrupt or unreadable dataset
     /// file. `CIFImportError.errorDescription` names the offending tag,
     /// value, symbol, or point group, so the modal shows a specific reason.
-    func importCrystalModel(from url: URL) {
+    /// Returns the model it parsed (nil on a refusal) so a caller adds exactly
+    /// that model — never `importedCrystalModels.last`, which is another
+    /// model after a refusal or an in-place replacement (review e2).
+    @discardableResult
+    func importCrystalModel(from url: URL) -> CrystalModel? {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -126,8 +130,10 @@ extension AppState {
             }
             acomSession.modelSelection = .imported(model.id)
             statusText = "Imported phase model \"\(model.displayName)\" from \(url.lastPathComponent)"
+            return model
         } catch {
             present(error)
+            return nil
         }
     }
     /// Deterministic in-memory dataset shared by UI automation, repeatable

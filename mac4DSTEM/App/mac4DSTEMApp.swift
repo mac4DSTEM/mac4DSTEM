@@ -155,7 +155,8 @@ private struct DatasetCommands: Commands {
                 if let appState { Task { await appState.runPrimaryWorkspaceTask() } }
             }
             .keyboardShortcut("r", modifiers: .command)
-            .disabled(appState?.hasDataset != true || appState?.isBusy == true)
+            // Review e6: the toolbar's own readiness, so ⌘R is never a dead key.
+            .disabled(appState?.canRunPrimaryWorkspaceTask != true)
             Button("Cancel Analysis") { appState?.cancelActiveOperation() }
                 .keyboardShortcut(.cancelAction)
                 .disabled(appState?.canCancelActiveOperation != true)
