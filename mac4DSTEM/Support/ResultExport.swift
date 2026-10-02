@@ -1243,10 +1243,10 @@ extension AppState {
         }
     }
 
-    /// Write the current labels to Documents/mac4DSTEM/disk-labels/ (C7
-    /// session 4) as a standalone file — `label_centres.py`'s own JSON, for
-    /// moving into `tools/disk-detector/labels/`. Distinct from "Save to
-    /// Sidecar", which keeps the labels beside the dataset.
+    /// Export the current labels through a save panel (owner card S4, 2026-10-02) as a standalone file —
+    /// `label_centres.py`'s own JSON, for moving into `tools/disk-detector/labels/`. Distinct from "Save to
+    /// Sidecar", which keeps the labels beside the dataset. The panel opens with today's file name and no
+    /// directory (the macOS default); Cancel writes nothing.
     func exportDiskCentreLabels() -> AnalysisRunOutcome {
         guard let descriptor else {
             return .failed("No dataset is open.")
@@ -1254,17 +1254,26 @@ extension AppState {
         guard !diskCentreLabels.isEmpty else {
             return .failed("No disk-centre labels yet — click some centres first")
         }
-        guard let documentsURL = FileManager.default.urls(
-            for: .documentDirectory, in: .userDomainMask
-        ).first else {
-            return .failed("Could not locate this app's Documents folder")
-        }
-        let folder = documentsURL.appendingPathComponent("mac4DSTEM/disk-labels", isDirectory: true)
         let datasetName = URL(fileURLWithPath: descriptor.filePath)
             .deletingPathExtension().lastPathComponent
+        let frame = DiskCentreLabelStore.frameTag(loadedView.specification)
+        let suggestedName = DiskCentreLabelStore.exportFileName(datasetName: datasetName)
+        let panel = NSSavePanel()
+        panel.title = "Export Disk-Centre Labels"
+        panel.message = "Writes the labels as the JSON tools/disk-detector/label_centres.py uses."
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = suggestedName
+        guard panel.runModal() == .OK, let url = panel.url else {
+            statusText = "Label export cancelled"
+            return .cancelled
+        }
+        return exportDiskCentreLabels(to: url, frame: frame)
+    }
+
+    /// The panel-free half, so a test can drive it: the same bytes `exportForFineTuning` writes, at `url`.
+    func exportDiskCentreLabels(to url: URL, frame: String) -> AnalysisRunOutcome {
         do {
-            let url = try diskCentreLabels.exportForFineTuning(to: folder, datasetName: datasetName,
-                                                          frame: DiskCentreLabelStore.frameTag(loadedView.specification))
+            try diskCentreLabels.encodedJSON(frame: frame).write(to: url, options: .atomic)
             statusText = "Exported disk-centre labels → \(url.lastPathComponent)"
             return .published
         } catch {

@@ -133,6 +133,14 @@ package final class OperationCenter {
         return true
     }
 
+    /// A step too short to run as an operation (probe kernel, aberration fit) reports itself as the last run, so the
+    /// Run tab's "Last run" line never names an earlier, unrelated operation. No busy state, no cancellation. Not
+    /// while an operation runs: `lastFinished` is that run's to set.
+    package func recordInstant(name: String, elapsed: TimeInterval) {
+        guard !isBusy else { return }
+        lastFinished = (name: name, elapsed: elapsed, at: now(), outcome: .completed)
+    }
+
     package func isCurrent(_ token: AnalysisCancellationToken) -> Bool { controller.isCurrent(token) }
 
     /// Accepts progress only from the current, uncancelled operation.

@@ -131,11 +131,9 @@ One line each; full wording as above.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - Export Data… (S8): py4DSTEM.read takes the RealSlice's dims as pixel indices ("pixels") and its data units as "intensity" — the existing bundle writer's layout; the true sampling and units are in `dim0`/`dim1` and the `mac4dstem_*` attributes (`archive/v4/polish-i-2026-10-02/`).
 - Virtual-detector "Annulus" with inner 0 excludes the exact centre pixel (strict r² > rIn²; ≈ 5e-4 of each graphene pattern); the preview's bright-field disk includes it — py4DSTEM's convention unchecked, Gate D before any number moves (lane D refuter, 2026-10-02).
-- **Slot 4½ input** (2026-10-01, `archive/v4/polish-drive-2026-10-01.md`, ranked): label export silent into the
-  container; stale "Last run" captions and toolbar verbs; clipped text, locale/unit mixes; a window that resized itself. Plus the memory
-  budget does not subtract a resident cube (code review, owner card).
-- Polish batch from the combined drive (2026-10-01, `archive/v4/drive-combined-2026-10-01.md`), for Slot 4½: the Preprocess save panel
-  defaults to the source folder (owner S6: leave the macOS default).
+- **Slot 4½ residuals** (2026-10-02; the rest of `archive/v4/polish-drive-2026-10-01.md` fixed): a window that resized itself (unreproduced);
+  "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1); re-entering Diffraction groups does not
+  re-show its own map (lane F); `NumberEntryField` commits its shown text on blur, so a format that rounds below the stored digits rounds the value (lane B1).
 - Display residual after P2 (2026-10-01): the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube).
 - Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; disk, strain, ACOM and DPC steps still take the current mode's keys] replay, lineage
   rewind and the opening pass publish through `publishProduct`, which keys provenance by `navigation.analysisMode`; the executor

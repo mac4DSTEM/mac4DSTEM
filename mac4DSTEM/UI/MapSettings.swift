@@ -465,7 +465,7 @@ private struct DiskCentreLabelsRows: View {
 
             InspectorAdaptiveButton(
                 "Export Labels…", systemImage: "square.and.arrow.up",
-                help: "Write the current labels to a standalone file under Documents/mac4DSTEM/disk-labels/, in the JSON tools/disk-detector/label_centres.py writes."
+                help: "Write the current labels to a JSON file you choose, in the format tools/disk-detector/label_centres.py writes."
             ) {
                 _ = appState.exportDiskCentreLabels()
             }

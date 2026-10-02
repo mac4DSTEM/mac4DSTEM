@@ -49,11 +49,18 @@ extension AppState {
         if probeKernel?.source == .synthetic { await generateProbeKernel() }
     }
 
+    /// An instant step (no operation, no spinner) names itself as the Run tab's "Last run" (owner card S5, 2026-10-02).
+    func recordInstantRun(_ name: String, since began: ContinuousClock.Instant) {
+        let d = began.duration(to: .now).components
+        operationCenter.recordInstant(name: name, elapsed: Double(d.seconds) + Double(d.attoseconds) * 1e-18)
+    }
+
     /// Build the synthetic probe kernel from the calibrated probe radius,
     /// running origin calibration first if needed.
     func generateProbeKernel() async {
         guard let descriptor else { return }
         guard let radius = await ensureProbeRadius() else { return }
+        let began = ContinuousClock.now
 
         guard let kernel = ProbeKernel.synthetic(radius: radius, qy: descriptor.qy, qx: descriptor.qx) else {
             presentComputeFailure(SimpleError("Could not build a probe kernel (radius \(radius) px)."))
@@ -66,6 +73,7 @@ extension AppState {
         learnedDetection.probeReference = .init(
             pattern: LearnedDetectionSession.syntheticProbe(qy: descriptor.qy, qx: descriptor.qx, centre: (x: origin.x, y: origin.y), radius: radius),
             centreX: origin.x, centreY: origin.y, radius: radius, source: .synthetic)
+        recordInstantRun("Probe kernel", since: began)
         statusText = String(format: "Probe kernel ✓  r = %.1f px, trench %.0f–%.0f px",
                             radius, kernel.trenchRadii.inner, kernel.trenchRadii.outer)
         await detectCurrentPattern()
@@ -77,6 +85,7 @@ extension AppState {
     func generateMeasuredProbeKernel(mode: ProbeKernelMode = .sigmoidTrench) async {
         guard let d = descriptor, let pattern = displayedPattern else { return }
         guard let radius = await ensureProbeRadius() else { return }
+        let began = ContinuousClock.now
         let origin = calibrationSession.calibration.referenceOrigin(  // single derivation point
             detectorQX: d.qx, detectorQY: d.qy,
             apertureCentre: (x: aperture.centerX, y: aperture.centerY)
@@ -89,6 +98,7 @@ extension AppState {
         }
         probeKernel = kernel
         learnedDetection.probeReference = .init(pattern: pattern, centreX: origin.x, centreY: origin.y, radius: radius, source: .measured)
+        recordInstantRun("Probe kernel", since: began)
         statusText = String(
             format: "Measured probe kernel ✓  r = %.1f px from current CBED/ROI, %@", radius,
             mode.rawValue.lowercased()
@@ -104,6 +114,7 @@ extension AppState {
     func generateFileProbeKernel(mode: ProbeKernelMode = .flat) async {
         guard let descriptor, let reader = datasetSession.reader else { return }
         let candidates: [ProbeCandidate]
+        let began = ContinuousClock.now
         do {
             candidates = try await reader.probeCandidates(detectorQY: descriptor.qy, detectorQX: descriptor.qx)
         } catch {
@@ -134,6 +145,7 @@ extension AppState {
         }
         probeKernel = kernel
         learnedDetection.probeReference = .init(pattern: pattern, centreX: size.x0, centreY: size.y0, radius: size.r, source: .fileProbe)
+        recordInstantRun("Probe kernel", since: began)
         let others = candidates.count > 1 ? " (\(candidates.count - 1) more in the file)" : ""
         statusText = String(
             format: "File probe kernel ✓  r = %.1f px, %@, from %@%@", size.r,

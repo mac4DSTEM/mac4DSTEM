@@ -198,12 +198,14 @@ extension AppState {
             presentComputeFailure(SimpleError("Complete parallax preprocessing and alignment first."))
             return
         }
+        let began = ContinuousClock.now
         do {
             let result = try ParallaxAberrationFitter.fitHigherOrder(
                 preprocessing: preprocessing, alignment: alignment
             )
             phaseContrast.parallaxAberrationFit = result.lowOrder
             phaseContrast.parallaxHigherOrderFit = result
+            recordInstantRun("Aberration fit", since: began)
             // The fit's RMS residual is not shown (lane R4, 2026-10-01): the alignment hands the fit an exactly linear shift field
             // (py4DSTEM's regularised shifts, parallax.py:1380-1384), so the residual is 0.0000 Å on every dataset - "RMS 0.0000 Å → 0.0000 Å"
             // was a real zero by construction (graphene: 4e-7 Å), a number that cannot move.

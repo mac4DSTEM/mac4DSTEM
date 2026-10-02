@@ -445,7 +445,9 @@ struct PhaseMappingSections: View {
             if !appState.acomSession.importedCrystalModels.isEmpty {
                 Divider()
                 ForEach(appState.acomSession.importedCrystalModels) { model in
-                    Button(importedCrystalModelLabel(model)) { add(model) }
+                    Button(addPhaseMenuLabel(model, alreadyAdded: appState.phaseMapping.phases.contains { $0.model.id == model.id })) {
+                        add(model)
+                    }
                 }
             }
         }
@@ -777,4 +779,11 @@ struct LegendSwatch: View {
         .frame(width: side, height: side)
         .clipShape(shape)
     }
+}
+
+/// The "Add Phase" menu's label for an imported model: a model already in the phase list says why it is offered again
+/// (a second zone axis of one structure is a second phase — `PhaseMappingProduct.add`).
+func addPhaseMenuLabel(_ model: CrystalModel, alreadyAdded: Bool) -> String {
+    let label = importedCrystalModelLabel(model)
+    return alreadyAdded ? "\(label) (another zone axis)" : label
 }

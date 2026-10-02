@@ -387,11 +387,16 @@ package final class DiskCentreLabelStore {
     /// safe in a filename).
     package func exportForFineTuning(to folder: URL, datasetName: String, frame: String = "native") throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        let stamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "")
-        let url = folder.appendingPathComponent("\(datasetName)-centres-\(stamp).json")
+        let url = folder.appendingPathComponent(Self.exportFileName(datasetName: datasetName))
         try encodedJSON(frame: frame).write(to: url, options: .atomic)
         return url
+    }
+
+    /// The export's file name, "<dataset>-centres-<ISO 8601 stamp, no colons>.json" — also the Save panel's suggestion.
+    package static func exportFileName(datasetName: String, date: Date = Date()) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        let stamp = formatter.string(from: date).replacingOccurrences(of: ":", with: "")
+        return "\(datasetName)-centres-\(stamp).json"
     }
 }
