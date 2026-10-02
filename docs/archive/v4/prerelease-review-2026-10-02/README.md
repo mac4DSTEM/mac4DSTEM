@@ -93,8 +93,8 @@ the gate that covers them together.
 The cut is `7ee4419f` (4.1.0 / 8; the v4.1.0 CHANGELOG section, README, CITATION, releasing.md). `run-tests.sh all` on it, on a clean
 tree, ran unit 1570 / 0 / 3 = 1573 (reconciled with 1573 `func test`) and the first 32 scientific harnesses with zero FAIL lines, and
 was stopped at the owner's word inside `datacube-discovery-test` — not a complete gate. Lane K's isolated gate had run all 53
-scientific harnesses with zero FAIL on code identical to the cut (it differs only in version numbers and docs). One complete `all` on
-the commit the release is built from is owed before the Developer ID archive.
+scientific harnesses with zero FAIL on code identical to the cut (it differs only in version numbers and docs). The complete run followed on
+`388634ef` (the cut + docs): unit 1571 / 0 / 2 = 1573, 54 sections, zero FAIL, `GATE_EXIT=0` — the release gate.
 
 ## Not fixed here (registered in `docs/open-items.md`)
 
