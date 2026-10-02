@@ -12,7 +12,7 @@
   <img src="docs/images/strain-map-workspace.png" alt="mac4DSTEM: a convergent-beam diffraction pattern with detected Bragg disks and lattice fit overlay, beside the resulting epsilon-yy strain map, with fit diagnostics in the inspector" width="100%">
 </p>
 
-<p align="center"><sub>Strain in the Crystal Maps workspace.</sub></p>
+<p align="center"><sub>Strain map (screenshot from v2.5.0, 2026-09-04).</sub></p>
 
 ---
 
@@ -56,8 +56,8 @@ Full notes: [`CHANGELOG.md`](CHANGELOG.md).
   live acceptance diagnostics.
 - **Strain** — robust local lattice fitting, with basis consensus, residual and
   indexed fraction on every map.
-- **Orientation** — polar-correlation template matching against a validated
-  catalogue or your own CIF, with reliability and IPF output.
+- **Orientation** — polar-correlation template matching against a structure from
+  the Materials Project (by mp-id) or your own CIF, with reliability and IPF output.
 - **Phase** — DPC, iDPC, parallax, single-slice ptychography.
 - **Export** — EMD Bragg vectors, datacubes and products, readable in py4DSTEM.
 

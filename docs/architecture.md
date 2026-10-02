@@ -87,8 +87,9 @@ silently feeding strain or ACOM.
 robust local lattice fits, component-median reference, εxx/εyy/εxy/θ with
 unfittable positions as explicit no-data.
 **ACOM orientation mapping.** Polar-correlation template matching against a
-validated `CrystalModel` catalogue (cubic presets, HCP magnesium, 2H-WS₂,
-custom cubic, imported CIF). CPU and Metal backends with parity gating,
+`CrystalModel` from the Materials Project (by mp-id) or an imported CIF; the
+built-in library (cubic presets, HCP magnesium, 2H-WS₂, custom cubic) remains
+as a replay resolver only. CPU and Metal backends with parity gating,
 reliability, IPF-Z maps, Bunge Euler output. Physical matching requires
 calibrated Q sampling; otherwise **Exploratory**. Point-group coverage is
 cubic and hexagonal only, by decision: CIFs outside them are refused.
