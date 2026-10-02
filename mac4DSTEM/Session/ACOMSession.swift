@@ -178,8 +178,14 @@ package final class ACOMSession {
         switch scope {
         case .preview: "Preview Orientation"
         case .selectedRegion: "Map Selected Region"
-        case .fullScan: "Run Full Orientation Map"
+        case .fullScan: hasFullScanResult ? "Re-run Full Orientation Map" : "Run Full Orientation Map"
         }
+    }
+
+    /// A full-scan map made with the current quality preset is on screen
+    /// (read from the last-run facts, which `invalidateResult` clears).
+    package var hasFullScanResult: Bool {
+        hasOrientationMap && lastRunScope == .fullScan && lastRunQuality == quality
     }
 
     package var modelSelectionIssue: String? {

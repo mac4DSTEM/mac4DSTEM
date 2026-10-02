@@ -609,7 +609,7 @@ enum ProductWorkflow {
                     isSatisfied: readiness.hasACOMMaterial
                         && readiness.hasSupportedACOMMaterial,
                     resolution: .taskPanel(
-                        "Select the material in the ACOM controls in the tools panel."
+                        "Below: Materials Project… or Import CIF… (or pick an imported model)."
                     )
                 )
             ]
@@ -711,19 +711,19 @@ enum ProductWorkflow {
         switch area {
         case .prepare:
             return calibrationReady
-                ? "Next: create an image, or detect Bragg disks."
+                ? "Next: image, or detect disks."
                 : nil
         case .image:
             return readiness.hasBraggVectors
                 ? nil
-                : "Next: detect Bragg disks to unlock the crystal maps."
+                : "Next: detect Bragg disks."
         case .braggDisks:
             return readiness.hasBraggVectors
-                ? "Next: map strain, orientation, or phases in Crystal Maps."
+                ? "Next: open Crystal Maps."
                 : nil
         case .map:
             return readiness.hasBraggVectors
-                ? "Next: review and export in Results."
+                ? "Next: export in Results."
                 : nil
         case .reconstruct, .results:
             return nil

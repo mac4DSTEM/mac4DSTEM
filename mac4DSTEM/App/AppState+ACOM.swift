@@ -122,9 +122,9 @@ extension AppState {
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         var status = String(
-            format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %d positions",
+            format: "Q calibration ✓  %.6f Å⁻¹/px · first shell %.2f px · %@",
             estimate.invAngstromPerPixel, estimate.observedRadiusPixels,
-            estimate.sampleCount
+            Self.positionCountText(estimate.sampleCount)
         )
         switch estimate.shellCheck {
         case .notSelfChecked:
@@ -135,6 +135,19 @@ extension AppState {
         statusText = status
         recordQCalibrationRun()   // lineage node (ADR 047)
         rederiveDisplayedDPCForScaleChange()
+    }
+
+    /// "1 position" / "N positions" for status text.
+    static func positionCountText(_ n: Int) -> String {
+        n == 1 ? "1 position" : "\(n) positions"
+    }
+
+    /// "Yes"/"No" for whether the match at the selected scan position came from
+    /// the matcher's mirror pass; nil without a match (same rule as `selectedEulerText`).
+    var selectedMirroredText: String? {
+        guard let map = acomSession.orientationMap,
+              map.eulerText(x: selectedScan.x, y: selectedScan.y) != nil else { return nil }
+        return map[selectedScan.x, selectedScan.y].mirrored ? "Yes" : "No"
     }
 
     /// Build the orientation-plan template library for the selected crystal.

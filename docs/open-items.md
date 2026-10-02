@@ -134,7 +134,7 @@ One line each; full wording as above.
   container; stale "Last run" captions and toolbar verbs; clipped text, locale/unit mixes; a window that resized itself. Plus the memory
   budget does not subtract a resident cube (code review, owner card).
 - Polish batch from the combined drive (2026-10-01, `archive/v4/drive-combined-2026-10-01.md`), for Slot 4½: the Preprocess save panel
-  defaults to the source folder (owner S6: leave the macOS default); ACOM Info shows no mirrored flag.
+  defaults to the source folder (owner S6: leave the macOS default).
 - Display residuals after P2 (2026-10-01): the strip's size glance (`LayoutPolicy.glance`, frozen) is 1024-based and its comment
   wrongly calls `displayByteString` 1024-based; the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube).
 - Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; disk, strain, ACOM and DPC steps still take the current mode's keys] replay, lineage

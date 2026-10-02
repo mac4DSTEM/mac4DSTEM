@@ -359,7 +359,7 @@ private struct DiskDetectionRows: View {
                 )
                 .help("Edge-qualified local maxima before filters, followed by the final accepted peak count.")
                 InspectorNote(
-                    "absolute \(diagnostics.afterAbsoluteThresholdCount) · relative \(diagnostics.afterRelativeThresholdCount) · spacing \(diagnostics.afterSpacingCount)"
+                    "\(diagnostics.afterAbsoluteThresholdCount) pass the absolute threshold → \(diagnostics.afterRelativeThresholdCount) the relative → \(diagnostics.afterSpacingCount) after spacing"
                 )
                 if diagnostics.wasCountLimited {
                     InspectorWarning("This pattern was truncated to the configured maximum peak count.")
@@ -983,7 +983,9 @@ private struct ACOMSections: View {
                     .environment(appState)
             }
 
-            if let reason = appState.acomSession.modelSelectionIssue {
+            if appState.acomSession.modelSelection == .none {
+                // The Requirements list already says "choose a phase model".
+            } else if let reason = appState.acomSession.modelSelectionIssue {
                 InspectorWarning(reason, systemImage: "nosign")
             } else if let model = appState.resolvedACOMModel {
                 InspectorValueRow("Symmetry", model.symmetry.displayName)
@@ -1291,6 +1293,10 @@ private struct ACOMSections: View {
                     "\(appState.acomSession.orientationMap?.symmetry.displayName ?? "Symmetry") FZ Euler",
                     text
                 )
+                if let mirrored = appState.selectedMirroredText {
+                    InspectorValueRow("Mirrored", mirrored)
+                        .help("Yes: the pattern matched the mirror image of the template (the matcher's conjugated pass).")
+                }
             }
         }
     }
