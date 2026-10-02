@@ -131,7 +131,13 @@ One line each; full wording as above.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - Export Data… (S8): py4DSTEM.read takes the RealSlice's dims as pixel indices ("pixels") and its data units as "intensity" — the existing bundle writer's layout; the true sampling and units are in `dim0`/`dim1` and the `mac4dstem_*` attributes (`archive/v4/polish-i-2026-10-02/`).
 - Virtual-detector "Annulus" with inner 0 excludes the exact centre pixel (strict r² > rIn²; ≈ 5e-4 of each graphene pattern); the preview's bright-field disk includes it — py4DSTEM's convention unchecked, Gate D before any number moves (lane D refuter, 2026-10-02).
-- **Slot 4½ residuals** (2026-10-02; the rest of `archive/v4/polish-drive-2026-10-01.md` fixed): a window that resized itself (unreproduced);
+- **Crash after Compute Strain** (re-drive 2026-10-02, `archive/v4/polish-redrive-2026-10-02/`): an AppKit layout exception (EXC_BREAKPOINT in
+  `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
+  after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.
+- **Slot 4½ residuals** (2026-10-02; the rest of `archive/v4/polish-drive-2026-10-01.md` fixed): the β″ preset's CIF picker kept Open disabled
+  for the driver (code untouched this session; ACOM's Import CIF worked); opening a cube in the DPC room re-runs DPC and Prepare then shows
+  its wheel (the opening pass runs the current mode); Preprocess Raw Data… is disabled with no window open; the SCAN inset (top-right) still
+  covers map data; a window that resized itself (unreproduced);
   "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1); re-entering Diffraction groups does not
   re-show its own map (lane F); `NumberEntryField` commits its shown text on blur, so a format that rounds below the stored digits rounds the value (lane B1).
 - Display residual after P2 (2026-10-01): the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube).

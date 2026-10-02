@@ -196,6 +196,37 @@ extension AppState {
                 resultPresentation.replaceProduct(nil)
                 resultPresentation.bumpResultVersion()
             }
+        case .strain, .acom, .dpc, .ptychography, .singleslicePtychography:
+            // Polish lane J (owner card S5 a): the same rule for the other rooms. A product of
+            // another room is replaced by this room's own result through the room's own show
+            // function (no compute, no new state), or by nothing.
+            guard let kind = resultPresentation.product?.kind,
+                  AnalysisMode.owning(productKind: kind) != mode else { return }
+            switch mode {
+            case .strain:
+                if strain.map != nil { applyStrainDisplay() }
+            case .acom:
+                if acomSession.orientationMap != nil { applyACOMDisplay() }
+            case .dpc:
+                if comField != nil { _ = applyDPCDisplay() }
+            case .ptychography:
+                let remembered = phaseContrast.parallaxResultProduct
+                showParallaxProduct(remembered.isIterative ? .preprocess : remembered)
+            default:   // .singleslicePtychography
+                let remembered = phaseContrast.parallaxResultProduct
+                showParallaxProduct(remembered.isIterative ? remembered : .iterativePhase)
+            }
+            // Still another room's product (no own result, or its show function declined): clear.
+            if let still = resultPresentation.product?.kind, AnalysisMode.owning(productKind: still) != mode {
+                resultPresentation.replaceProduct(nil)
+                resultPresentation.bumpResultVersion()
+            }
+        case .disks:
+            // Entering another room clears its product (above); coming back re-shows the
+            // Bragg map from the vectors the session still holds. Nothing held: left as is.
+            if let kind = resultPresentation.product?.kind, AnalysisMode.owning(productKind: kind) == .disks { return }
+            guard let vectors = resultPresentation.braggVectors, let d = descriptor else { return }
+            showBraggMap(vectors, descriptor: d)
         default: break
         }
     }
@@ -442,4 +473,30 @@ extension AppState {
     }
 
 
+}
+
+extension AnalysisMode {
+    /// The room a published product's `kind` belongs to; nil for kinds no room owns
+    /// (virtual image, Bragg map, calibration views, ...). Polish lane J (card S5 a).
+    static func owning(productKind kind: String) -> AnalysisMode? {
+        if kind.hasPrefix("strain_") { return .strain }
+        if kind.hasPrefix("acom_") { return .acom }
+        if kind.hasPrefix("dpc_") || kind.hasPrefix("idpc_") { return .dpc }
+        if kind.hasPrefix("parallax_") { return .ptychography }
+        if kind.hasPrefix("ptychography_") { return .singleslicePtychography }
+        if kind.hasPrefix("diffraction_") { return .diffractionGroups }
+        if kind == "bragg_vector_map" || kind == "disk_disagreement" { return .disks }
+        if kind == "phase_map" || kind == "phase_match_distance" || kind == "precipitate_objects" { return .phaseMapping }
+        return nil
+    }
+}
+
+extension ParallaxResultProduct {
+    /// The single-slice ptychography products (kinds "ptychography_*"); the rest are parallax.
+    var isIterative: Bool {
+        switch self {
+        case .iterativePhase, .iterativeAmplitude, .iterativeProbePhase, .iterativeProbeAmplitude: true
+        default: false
+        }
+    }
 }

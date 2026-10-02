@@ -533,10 +533,11 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(state.currentResultDisplayName, "Virtual detector · Annulus")
         XCTAssertEqual(state.displayedProduct?.domain, .scan)
 
+        // owner card S5 (a), 2026-10-02: entering a room clears another room's product; with no DPC
+        // result there is nothing to show, and the VD image is never shown under the DPC room's label.
         state.changeMode(.dpc)
-        XCTAssertEqual(state.currentResultDisplayName, "Virtual detector · Annulus")
-        XCTAssertEqual(state.currentResultKind, "virtual_annulus")
-        XCTAssertEqual(state.displayedProduct?.domain, .scan)
+        XCTAssertNil(state.displayedProduct)
+        XCTAssertNotEqual(state.currentResultDisplayName, "Virtual detector · Annulus")
 
         state.publishProduct(kind: "dpc_magnitude", displayName: "DPC magnitude",
                              valueUnits: "detector_px", payload: .scalar(FloatImage(width: 1, height: 1, pixels: [2])))
@@ -644,10 +645,11 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(state.displayedResultKind, "acom_region_reference")
         XCTAssertEqual(state.displayedResultPixelMetadata.units, "nm")
 
-        XCTAssertEqual(state.resultPresentation.resultImage?.width, 256)
-        XCTAssertEqual(state.resultPresentation.resultImage?.height, 256)
-        XCTAssertEqual(state.currentResultKind, "bragg_vector_map")
-        XCTAssertEqual(state.currentResultPersistenceMetadata.units, "Å⁻¹")
+        // owner card S5 (a), 2026-10-02: entering ACOM with no ACOM result clears the Bragg map from
+        // the underlying result (the reference above still displays). Re-showing it on return to Disks
+        // needs held vectors: PolishJTests.testReturningToDisksReShowsTheBraggMapFromHeldVectors.
+        XCTAssertNil(state.resultPresentation.product)
+        XCTAssertNotEqual(state.currentResultKind, "bragg_vector_map")
     }
 
     func testCalibrationReadinessExplainsWhatEveryFieldUnlocks() {
