@@ -559,9 +559,20 @@ struct ApertureOverlay: View {
 
     // MARK: Shapes
 
+    /// A dark under-stroke beneath every detector outline: a bare yellow line
+    /// vanishes over a bright disk (polish drive 2026-10-01); the halo keeps
+    /// it readable on bright and dark alike. Same hue on top, so nothing about
+    /// the outline's meaning changes.
+    private static let haloColor = Color.black.opacity(0.6)
+    private static let haloWidth: CGFloat = 3.5
+
     @ViewBuilder
     private func circle(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat, radiusScale: CGFloat) -> some View {
         let outer = CGFloat(aperture.outer) * radiusScale
+        Circle()
+            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .frame(width: outer * 2, height: outer * 2)
+            .position(center)
         Circle()
             .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
             .frame(width: outer * 2, height: outer * 2)
@@ -577,9 +588,18 @@ struct ApertureOverlay: View {
         let inner = CGFloat(aperture.inner) * radiusScale
         let outer = CGFloat(aperture.outer) * radiusScale
         Circle()
+            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .frame(width: outer * 2, height: outer * 2)
+            .position(center)
+        Circle()
             .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
+        Circle()
+            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .frame(width: inner * 2, height: inner * 2)
+            .position(center)
+            .opacity(aperture.inner > 0 ? 1 : 0.35)
         Circle()
             .stroke(Color.cyan.opacity(0.9), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
             .frame(width: inner * 2, height: inner * 2)
@@ -607,6 +627,10 @@ struct ApertureOverlay: View {
         // The mask kernel uses `outer` as the half-extent of a square detector.
         let half = CGFloat(aperture.outer) * radiusScale
         Rectangle()
+            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .frame(width: half * 2, height: half * 2)
+            .position(center)
+        Rectangle()
             .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
             .frame(width: half * 2, height: half * 2)
             .position(center)
@@ -629,11 +653,12 @@ struct ApertureOverlay: View {
     @ViewBuilder
     private func point(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) -> some View {
         // Crosshair marking the single detector pixel.
-        Path { p in
+        let cross = Path { p in
             p.move(to: CGPoint(x: center.x - 8, y: center.y)); p.addLine(to: CGPoint(x: center.x + 8, y: center.y))
             p.move(to: CGPoint(x: center.x, y: center.y - 8)); p.addLine(to: CGPoint(x: center.x, y: center.y + 8))
         }
-        .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
+        cross.stroke(Self.haloColor, lineWidth: Self.haloWidth)
+        cross.stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
         centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
     }
 
@@ -1134,5 +1159,99 @@ struct HexagonalIPFLegend: View {
             accessibilityLabelText: "Hexagonal inverse pole figure color key: "
                 + "\(corners[0].label) red, \(corners[1].label) green, \(corners[2].label) blue"
         )
+    }
+}
+
+// MARK: - Categorical legend
+
+/// What a categorical map's colours mean, as swatch rows: the phase map (one
+/// row per phase plus the hatched "Not indexed") and the diffraction-group map
+/// (one swatch per group). A continuous colorbar says nothing for either —
+/// the numbers are labels, not quantities (polish drive 2026-10-01).
+///
+/// Pure rows, so the data path is unit-tested; the view only draws them.
+struct CategoricalLegendRow {
+    let label: String
+    let color: PhaseMapPresentation.RGB
+    /// The second tone of a hatched swatch; nil = solid.
+    let stripe: PhaseMapPresentation.RGB?
+}
+
+enum CategoricalLegendRows {
+    /// The map's own legend minus the matrix sub-row: "of which challenged" is
+    /// a subset of the matrix row, a count for the inspector, not a colour a
+    /// reader needs to decode the map.
+    static func phaseMap(_ map: PhaseMap) -> [CategoricalLegendRow] {
+        PhaseMapPresentation.legend(map)
+            .filter { !$0.label.hasPrefix("of which") }
+            .map { CategoricalLegendRow(label: $0.label, color: $0.color, stripe: $0.stripe) }
+    }
+
+    /// Group `g` (0-based) as the group map paints it: the displayed
+    /// colormap at the value's place in the displayed range, through the
+    /// same gamma the colorbar uses. Labels are 1-based, as the inspector's
+    /// group sizes read.
+    static func groups(count: Int, colormap: ColormapKind, low: Double, high: Double,
+                       gamma: Float) -> [CategoricalLegendRow] {
+        guard count > 0 else { return [] }
+        let lut = Colormaps.lutRGBA(colormap, count: 256)
+        return (0..<count).map { group in
+            let t = high > low ? min(1, max(0, (Double(group) - low) / (high - low))) : 0
+            let mapped = pow(Float(t), 1 / max(gamma, 0.05))
+            let offset = min(255, Int((mapped * 255).rounded())) * 4
+            return CategoricalLegendRow(
+                label: "\(group + 1)", color: (lut[offset], lut[offset + 1], lut[offset + 2]), stripe: nil)
+        }
+    }
+}
+
+/// The swatch legend itself, on the same dark plate the IPF key and the scale
+/// bar use (it sits on scientific image data).
+struct CategoricalLegend: View {
+    let title: String?
+    let rows: [CategoricalLegendRow]
+    /// Group keys are short numbers and flow into a grid; phase names are
+    /// words and stack, one per line.
+    var compactColumns: Int?
+
+    /// A phase name truncates rather than widening the legend over the map.
+    private static let nameWidth: CGFloat = 150
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let title {
+                Text(title).foregroundStyle(.white.opacity(0.75))
+            }
+            if let columns = compactColumns {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6, alignment: .leading),
+                                         count: max(1, min(columns, rows.count))),
+                          alignment: .leading, spacing: 3) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        HStack(spacing: 3) {
+                            LegendSwatch(color: row.color, stripe: row.stripe)
+                            Text(row.label).monospacedDigit()
+                        }
+                    }
+                }
+            } else {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: 5) {
+                        LegendSwatch(color: row.color, stripe: row.stripe)
+                        Text(row.label)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: Self.nameWidth, alignment: .leading)
+                            .help(row.label)
+                    }
+                }
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.white)
+        .padding(7)
+        .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 4))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel((title.map { $0 + ": " } ?? "")
+                            + rows.map(\.label).joined(separator: ", "))
     }
 }

@@ -892,10 +892,15 @@ struct RealSpacePane: View {
 
                 if appState.displayedProduct?.domain != .scan,
                    let navigator = appState.scanNavigationImage {
+                    // Top-trailing, not top-leading: the upper-left of a
+                    // Bragg-vector map is where its data starts, and the
+                    // thumbnail covered it (polish drive 2026-10-01). The
+                    // footer's legend lives at the bottom, so the top-right
+                    // corner is the one both leave free.
                     scanNavigator(navigator)
                         .padding(8)
                         .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .topLeading)
+                               alignment: .topTrailing)
                 }
 
                 footer(dims: dims, box: box, orientation: orientation,
@@ -1012,6 +1017,25 @@ struct RealSpacePane: View {
                                 in: RoundedRectangle(cornerRadius: 4))
                 }
 
+                // Categorical maps are keyed by swatches, not a colorbar: their
+                // values are labels (a phase, a group), so "0 … 5 group" read
+                // as a quantity and sat illegibly over the map.
+                if qualityField == nil, appState.displayedResultKind == "phase_map",
+                   let map = appState.phaseMapping.map {
+                    CategoricalLegend(title: nil, rows: CategoricalLegendRows.phaseMap(map))
+                }
+                let groupRows = qualityField == nil && appState.displayedResultKind == "diffraction_groups"
+                    ? appState.diffractionGroups.result.flatMap { result in
+                        appState.resultDisplayedValueRange.map { range in
+                            CategoricalLegendRows.groups(
+                                count: result.groupCount, colormap: appState.displayedResultColormap,
+                                low: range.low, high: range.high, gamma: appState.displayedResultGamma)
+                        }
+                    } : nil
+                if let groupRows {
+                    CategoricalLegend(title: "Group", rows: groupRows, compactColumns: 6)
+                }
+
                 if let field = qualityField,
                    let range = appState.displayedQualityValueRange {
                     Colorbar(
@@ -1024,7 +1048,7 @@ struct RealSpacePane: View {
                         showsMasked: false
                     )
                     .allowsHitTesting(false)   // plain chip: no control behind it
-                } else if appState.displayedResultImage != nil,
+                } else if groupRows == nil, appState.displayedResultImage != nil,
                           let range = appState.resultDisplayedValueRange {
                     // The chip IS the colormap control — click it. (The
                     // quality-field chip above stays plain: its map is fixed

@@ -282,15 +282,12 @@ struct PhaseMappingSections: View {
         // the bottom pane's own Run tab (F6, `InspectorGroup` — no header,
         // not collapsible).
         InspectorGroup {
-            if let refusal = product.runRefusal {
-                InspectorWarning(refusal, systemImage: "nosign")
-            } else if appState.resultPresentation.braggVectors == nil {
-                InspectorWarning("Detect Bragg disks first — this matches the peaks disk "
-                                 + "detection finds, it does not find its own.",
-                                 systemImage: "nosign")
-            } else if let refusal = appState.phaseMappingQScaleRefusal {
-                InspectorWarning(refusal, systemImage: "nosign")
-            }
+            // What blocks the run is named once, by the Requirements section
+            // at the top of the inspector (Bragg vectors, Q scale, the phase
+            // list — `ProductWorkflow.prerequisiteItems`), which also carries
+            // the buttons that resolve it; repeating it here said it twice
+            // (polish drive 2026-10-01). The button below is disabled by the
+            // same conditions.
             InspectorActionRow {
                 InspectorAdaptiveButton("Map Phases", systemImage: "square.grid.3x3.topleft.filled") {
                     PendingEdits.run { await appState.runPhaseMapping() }
@@ -408,38 +405,7 @@ struct PhaseMappingSections: View {
     }
 
     private func swatch(_ row: PhaseMapPresentation.LegendRow) -> some View {
-        func tone(_ c: PhaseMapPresentation.RGB) -> Color {
-            Color(red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
-        }
-        let side = LayoutPolicy.legendSwatch
-        let shape = RoundedRectangle(cornerRadius: 2)
-        return Canvas { context, _ in
-            guard let second = row.stripe else {
-                context.fill(Path(CGRect(x: 0, y: 0, width: side, height: side)),
-                             with: .color(tone(row.color)))
-                return
-            }
-            // The map's stripe (`isFirstStripeTone`: first tone where
-            // (x + y) % period < period / 2) at 1 pt per map pixel, so the
-            // swatch shows exactly the two tones and the orientation the map
-            // draws; a 12-pt swatch carries four periods.
-            let period = CGFloat(PhaseMapPresentation.stripePeriod)
-            context.fill(Path(CGRect(x: 0, y: 0, width: side, height: side)),
-                         with: .color(tone(second)))
-            var band = Path()
-            var k: CGFloat = 0
-            while k < 2 * side {
-                band.move(to: CGPoint(x: k, y: 0))
-                band.addLine(to: CGPoint(x: k + period / 2, y: 0))
-                band.addLine(to: CGPoint(x: 0, y: k + period / 2))
-                band.addLine(to: CGPoint(x: 0, y: k))
-                band.closeSubpath()
-                k += period
-            }
-            context.fill(band, with: .color(tone(row.color)))
-        }
-        .frame(width: side, height: side)
-        .clipShape(shape)
+        LegendSwatch(color: row.color, stripe: row.stripe)
     }
 
     // MARK: Phase list
@@ -531,6 +497,13 @@ struct PhaseMappingSections: View {
         @State private var draft = ""
         @State private var orientationDraft = ""
 
+        /// The matrix picker's own label (`pickerLabels`): a name another slot
+        /// shares carries its zone axis, so no two rows read the same.
+        private var rowName: String {
+            let labels = PhaseMappingSlot.pickerLabels(appState.phaseMapping.phases)
+            return labels.indices.contains(index) ? labels[index] : slot.model.displayName
+        }
+
         var body: some View {
             @Bindable var product = appState.phaseMapping
             VStack(alignment: .leading, spacing: 2) {
@@ -539,7 +512,7 @@ struct PhaseMappingSections: View {
                     .fill(color)
                     .frame(width: LayoutPolicy.legendSwatch, height: LayoutPolicy.legendSwatch)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(slot.model.displayName)
+                    Text(rowName)
                     Text(slot.isMatrix ? "matrix · zone \(slot.zoneAxisText)"
                                        : "zone \(slot.zoneAxisText)")
                         .font(.caption2).foregroundStyle(.secondary)
@@ -702,20 +675,33 @@ struct PhaseMappingSections: View {
     ///
     /// `help`, when given, is the row's own explanatory paragraph — an
     /// Xcode-style tooltip on the row it explains, rather than inline prose.
+    /// The caller's printf precision (`"%.2f"` → 2 decimals) as the field's
+    /// display format. It is the MINIMUM number of decimals, up to six: the
+    /// field commits what it shows on focus loss, so a format that rounded
+    /// below the stored value's own digits would silently round the stored
+    /// parameter. (`1,600` in a German locale read as sixteen hundred; `1,60`
+    /// and `2,0` do not.) Pure and `static` so the output is unit-tested.
+    static func displayFormat(_ printf: String) -> FloatingPointFormatStyle<Double> {
+        let digits = printf.split(separator: ".").last
+            .flatMap { Int($0.prefix { $0.isNumber }) } ?? 3
+        let minimum = min(max(digits, 0), 6)
+        return .number.precision(.fractionLength(minimum...6))
+    }
+
     @ViewBuilder
     private func parameterField(_ title: String, value: Binding<Double>,
                                 units: String, format: String, help: String? = nil) -> some View {
         if let help {
             InspectorRow(title) {
                 NumericField(title, value: value,
-                             format: .number.precision(.fractionLength(3)), unit: units)
+                             format: Self.displayFormat(format), unit: units)
                     .labelsHidden()
             }
             .help(help)
         } else {
             InspectorRow(title) {
                 NumericField(title, value: value,
-                             format: .number.precision(.fractionLength(3)), unit: units)
+                             format: Self.displayFormat(format), unit: units)
                     .labelsHidden()
             }
         }
@@ -746,5 +732,49 @@ struct PhaseMappingSections: View {
         case .search: "Search"
         case .knownVariants: "Known variants"
         }
+    }
+}
+
+/// One colour key square of a phase-map legend row, solid or striped exactly as
+/// the map paints it. Shared by the inspector's result list and the map pane's
+/// footer legend, so the two cannot drift apart.
+struct LegendSwatch: View {
+    let color: PhaseMapPresentation.RGB
+    /// The second stripe tone; nil = solid.
+    let stripe: PhaseMapPresentation.RGB?
+
+    var body: some View {
+        func tone(_ c: PhaseMapPresentation.RGB) -> Color {
+            Color(red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
+        }
+        let side = LayoutPolicy.legendSwatch
+        let shape = RoundedRectangle(cornerRadius: 2)
+        return Canvas { context, _ in
+            guard let second = stripe else {
+                context.fill(Path(CGRect(x: 0, y: 0, width: side, height: side)),
+                             with: .color(tone(color)))
+                return
+            }
+            // The map's stripe (`isFirstStripeTone`: first tone where
+            // (x + y) % period < period / 2) at 1 pt per map pixel, so the
+            // swatch shows exactly the two tones and the orientation the map
+            // draws; a 12-pt swatch carries four periods.
+            let period = CGFloat(PhaseMapPresentation.stripePeriod)
+            context.fill(Path(CGRect(x: 0, y: 0, width: side, height: side)),
+                         with: .color(tone(second)))
+            var band = Path()
+            var k: CGFloat = 0
+            while k < 2 * side {
+                band.move(to: CGPoint(x: k, y: 0))
+                band.addLine(to: CGPoint(x: k + period / 2, y: 0))
+                band.addLine(to: CGPoint(x: 0, y: k + period / 2))
+                band.addLine(to: CGPoint(x: 0, y: k))
+                band.closeSubpath()
+                k += period
+            }
+            context.fill(band, with: .color(tone(color)))
+        }
+        .frame(width: side, height: side)
+        .clipShape(shape)
     }
 }
