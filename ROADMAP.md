@@ -111,14 +111,9 @@ left in `open-items.md` · the four finishes landed and the owner's cards decide
 his own in the release build. The lanes, their write-sets, gates and order: `archive/v4/v41-plan-2026-09-30.md`.
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-09-30 night — the ANE return, C5's run, the
-parallax/ptychography cost, the 28 GB parity run). Three lanes may run at once (one supervisor each, disjoint write-sets).
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-02 — Slots 1–4½). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [x] **Slot 1 — P polish room · Q science quick wins · R1 ptychography probe** — landed 2026-09-30 night (`74a7deca`, `94443434`, R1; plan § Log). The cloud review's findings are in (`archive/v4/review-2026-09-30-findings.md`, rows 1 and 9 reproduced); your picks come from the decision sheet. Owner: the File-probe training run, the pixels check, the Si-SiGe re-export.
-- [ ] **Slot 2 — T1 the kernel question · R2+R3 difference map and ground truth · X1+X2 preprocessing** (lanes T, R, X).
-- [ ] **Slot 3 — T2 training effectiveness · R4+R5 parallax residuals and drive · X3 + K1 mocks** for the owner's picture.
-- [ ] **Slot 4 — F the review's findings · K2+K3 the toggle built and driven · T3 the training room.**
-- [ ] **Slot 4½ — Polish before release** (owner, 2026-10-01): one full drive of every room on real data (Prepare → Imaging → Bragg Disks → Crystal Maps → Reconstruction → Results, the new Keep in memory and Preprocess Raw Data… included) on a scratch build of one commit, every shot reviewed; the defects it finds and the open polish items fixed as one batch; then `run-tests.sh all` on that commit. Nothing new is added; a defect that needs science goes to its own Gate D or is labelled.
+- [ ] **Slot 4¾ — Full pre-release review** (owner, 2026-10-01): data safety, science claims, concurrency, large cubes, first-run UX, docs; findings fixed or labelled. Start with the unreproduced crash after Compute Strain and the β″ preset picker (`open-items.md`).
 - [ ] **Slot 5 — Z release v4.1.0** (`docs/releasing.md`; the new Mac needs a fresh notary password).
 
 ## After v4.1 — frozen until the owner reopens one
