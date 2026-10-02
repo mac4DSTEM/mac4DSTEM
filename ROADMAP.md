@@ -114,6 +114,7 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-02 — Slots 1–4½). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
 - [x] **Slot 4¾ — Full pre-release review** (owner, 2026-10-01; done 2026-10-02, `docs/archive/v4/prerelease-review-2026-10-02/`): data safety, science claims, concurrency, large cubes, first-run UX, docs; findings fixed or labelled. Start with the unreproduced crash after Compute Strain and the β″ preset picker (`open-items.md`).
+- [ ] **Slot 4⅞ — Polish before release** (owner, 2026-10-02): the plan is `docs/archive/v4/polish-plan-2026-10-02/plan.md` (26 items mapped; lanes N, V, S, R, M, D, F); the owner answers six cards (Q1–Q4, Q6, Q7) first (`docs/archive/v4/owner-decisions-2026-10-02-polish.json`); then a drive with the SSD mounted and one complete `all`.
 - [ ] **Slot 5 — Z release v4.1.0** (`docs/releasing.md`; the new Mac needs a fresh notary password). Cut 2026-10-02 (4.1.0 / 8, `7ee4419f`); `run-tests.sh all` green on `388634ef` (GATE_EXIT=0); the owner notarizes, pushes and tags.
 
 ## After v4.1 — frozen until the owner reopens one

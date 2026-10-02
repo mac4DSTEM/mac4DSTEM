@@ -1,0 +1,234 @@
+{
+  "date": "2026-10-02 — Slot 4⅞ polish before v4.1.0: what needs your word (answer before the polish session)",
+  "groups": [
+    {
+      "key": "behaviour",
+      "title": "Behaviour — what happens when you click",
+      "why": "Plain defects (a typed number silently rounded, a removal that clears unsaved work, a room that re-runs on open, a stale map, a wrong memory figure) are fixed in the session without a card. These change behaviour or add a dialog.",
+      "cards": [
+        {
+          "id": "Q1",
+          "title": "Unplugging the SSD while a DM4 cube is open crashes the app",
+          "problem": "Only the DM4/DM3 reader memory-maps the file; HDF5, EMPAD and MIB read with calls that return errors. If the disk holding an open, streamed DM4 cube is disconnected (yanked, force-ejected, a sleep disconnect), the next read of a pattern or tile crashes the app with no message. A cube kept in memory keeps working; a normal eject is refused by macOS while the file is open, so this needs a disconnect.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "A small guard: the DM4 reader remembers its disk at open and, once it is gone, refuses every read until the file is reopened — “<file> is no longer reachable: its disk was disconnected. Reconnect it and reopen.” (it does not resume on reconnect: the old mapping stays dead)",
+              "consequence": "The common case (disconnect while idle, then click) shows a message instead of crashing; a read already in flight at the instant of the yank can still crash — named in the release notes.",
+              "effort": "2–3 h + test",
+              "risk": "low (reads only; no number moves)"
+            },
+            {
+              "key": "b",
+              "label": "Only a Known-limitations line in the release notes",
+              "consequence": "No code; the crash stays.",
+              "effort": "5 min",
+              "risk": "a crash on a plausible path with your SSD workflow"
+            },
+            {
+              "key": "c",
+              "label": "a, plus a status line when macOS reports the disk gone (“Disk X was disconnected; loaded data is still in memory”)",
+              "consequence": "A proactive message; a new observer; the in-flight race stays.",
+              "effort": "half a day",
+              "risk": "low–medium"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "The premises hold (DM4Reader.swift:57 keeps the whole file mapped, :117-119 names the SIGBUS; nothing observes unmounts; HDF5/EMPAD/MIB read through calls that return errors). The exposure is narrower than it sounds: a cube kept in memory keeps working from RAM, so only a streamed DM4 (or a load in flight) can die. The weak point of a as first written: a 'disk still there' check passes again the moment you plug the SSD back in while the old mapping stays dead — the guard must latch (once gone, refuse until reopened) or compare the volume identity captured at open; the card now says so. My pick is a with the latch, plus the release-notes line regardless; c's observer is filler — the notice arrives after the fact and cannot beat a tile already being read.",
+          "nothing": "b — the limitation is written down; the crash stays."
+        },
+        {
+          "id": "Q2",
+          "title": "“Ignore Session Sidecar…” throws away unsaved work without asking",
+          "problem": "Dataset › Ignore Session Sidecar… reopens the dataset without its saved session, which also discards everything not yet saved (detected disks, maps, unsaved calibration edits). Its ellipsis promises a dialog; there is none. The app has no reliable notion of “unsaved work” today. The inspector's “Reopen Without This Session” (shown when saving is refused) calls the same function, so it gets the same dialog without a frozen-file edit; the dialog therefore says what is lost, not ‘save first’.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Always ask: “Reopen without the saved session? Results not saved to the session are lost.” — Cancel / Reopen (destructive)",
+              "consequence": "One extra click on a rare command; nothing lost by surprise; the ellipsis becomes true.",
+              "effort": "1–2 h + test",
+              "risk": "low"
+            },
+            {
+              "key": "b",
+              "label": "Ask only when there is unsaved work",
+              "consequence": "Fewer dialogs, but needs a new ‘unsaved work’ check; a wrong ‘nothing to lose’ loses data silently.",
+              "effort": "half a day",
+              "risk": "medium"
+            },
+            {
+              "key": "c",
+              "label": "No dialog; drop the ellipsis (“Ignore Session Sidecar”)",
+              "consequence": "Consistent with every other open path, which also replace silently; the loss the drive found stays.",
+              "effort": "5 min",
+              "risk": "lost work"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Verified: the menu item runs a full reopen that only skips the sidecar once; no unsaved-work notion exists anywhere. The inspector's 'Reopen Without This Session' (frozen) calls the same function, so it gets the dialog without a frozen-file edit — and it appears only when saving is already refused, so the dialog must say 'not saved … is lost', never 'save first'. Pick a, with Reopen as the destructive button; b builds a heuristic the plateau does not want, and a wrong 'nothing to lose' loses data silently. This is close to a plain fix — a destructive verb with an ellipsis and no dialog is a defect; c is the only reason it is a card.",
+          "nothing": "c — the title loses its ellipsis."
+        }
+      ]
+    },
+    {
+      "key": "layout",
+      "title": "Layout — what covers what, what fits",
+      "why": "Small layout choices outside the frozen files; each says its cost in points.",
+      "cards": [
+        {
+          "id": "Q3",
+          "title": "The SCAN navigator still covers the map",
+          "problem": "On maps you cannot click to pick a scan position (the Bragg vector map, parallax and ptychography images) a 118-pt SCAN inset sits in the result pane's top-right corner — about 17 % of a 290-pt reconstruction image. It is the only way to scrub the diffraction pattern there, so it cannot simply go.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Move it into the diffraction pane's top-right corner, beside the pattern it drives",
+              "consequence": "Result maps are never covered; the pattern's top-right corner is (in a ~457-pt pane it reaches about 0.68 of the half-width from the centre — unmeasured on real data; the drive decides). Clear win for parallax and ptychography.",
+              "effort": "1–2 h + drive",
+              "risk": "low"
+            },
+            {
+              "key": "b",
+              "label": "Keep it where it is, smaller (76 pt) and slightly translucent",
+              "consequence": "Covers about 7 % instead of 17 %; still over data; halves the scrub precision.",
+              "effort": "30 min",
+              "risk": "low"
+            },
+            {
+              "key": "c",
+              "label": "Make it foldable to a small chip",
+              "consequence": "Uncovers on demand; one more control and state.",
+              "effort": "2 h",
+              "risk": "low"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Verified: the 118-pt inset sits over every non-scan product, and the diffraction pane's top-right corner is free of other overlays today, so the move is mechanically clean. The weak premise was 'the corner is usually empty': in a ~457-pt pane the inset's inner corner reaches ~0.68 of the half-width from the pattern centre — inside a 0.9 outer annulus and over high-order disks — and in Bragg Disks the pattern is the working surface. For parallax and ptychography a is a clear win. Pick a only if the drive shows Bragg Disks with detected disks and a zoomed pattern and nothing is hidden; otherwise b — and b's 76 pt halves the scrub precision.",
+          "nothing": "As today."
+        },
+        {
+          "id": "Q4",
+          "title": "Sidebar session warnings are cut off",
+          "problem": "The sidebar's session warnings cap headline and detail at 3 lines: “The saved session was computed on a different view of thi…”, and the refusal with its remedy is cut mid-sentence; the hover adds “The Info tab carries the full explanation”, which is false for this warning. Session note: the recommendation moved from b to d after the second opinion.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Full headline, the false hover sentence removed, detail still 3 lines with the full text on hover",
+              "consequence": "+1 row only while a warning shows.",
+              "effort": "30 min",
+              "risk": "none"
+            },
+            {
+              "key": "b",
+              "label": "a, and the detail shown in full",
+              "consequence": "+5–6 caption rows (~75 pt) only while a warning shows; the whole remedy readable without hovering.",
+              "effort": "30 min",
+              "risk": "none"
+            },
+            {
+              "key": "c",
+              "label": "Keep the caps; shorten the refusal texts",
+              "consequence": "Touches wording tests pin; may lose the remedy's detail.",
+              "effort": "1 h",
+              "risk": "low"
+            },
+            {
+              "key": "d",
+              "label": "a, and the sidebar's detail becomes one remedy-first line (“Saving is off here. Reopen the dataset, or remove the saved result in Results.”) with the full refusal on hover",
+              "consequence": "Short and actionable; the long refusal stays one hover away; sidebar only.",
+              "effort": "45 min",
+              "risk": "none"
+            }
+          ],
+          "recommend": "d",
+          "advisor": "Verified: headline and detail are capped at 3 lines, and the hover sends to an Info section that holds the two views and a note, not the refusal or its remedy — that sentence goes either way. Against b: the refusal is ~350 characters, 8–9 caption lines at 230 pt, with the remedy at the end — a paragraph in the sidebar is filler by your own bar. The option the first draft dropped (now d): keep 3 lines but make the sidebar's detail a remedy-first line ('Saving is off here. Reopen the dataset, or remove the saved result in Results.') with the full refusal on hover — sidebar only, no refusal wording touched. Pick d.",
+          "nothing": "a."
+        }
+      ]
+    },
+    {
+      "key": "frozen",
+      "title": "Frozen shell — your picture is the permission (ADR 035/050)",
+      "why": "These change structure in a frozen file; your answer is the accepted picture. A false sentence in the promote caption (it says the Mac is kept awake, which is off by default) and a dead toolbar hint are corrected without a card, as wording.",
+      "cards": [
+        {
+          "id": "Q6",
+          "title": "The bottom Lineage/Output area can be dragged to a useless sliver",
+          "problem": "The bottom area's height is a remembered fraction you set by dragging the info bar (the whole bar is the divider; only the row-resize cursor on hover shows that). Nothing stops it at about 1.5 rows, and the app then reopens it that way — the drives saw a sliver and read it as ‘fixed’. The change touches three frozen files (LayoutPolicy, WorkspaceView, WorkspaceNavigation). Also yours: should Lineage be on by default when the area opens? (off today; add a note to your answer)",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "A floor: when open, never under 140 pt (about 3 rows + header), on drag and on restore; a snap-shut below 70 pt only if it comes free",
+              "consequence": "The sliver can no longer happen; the canvas loses at most 140 pt, only when you open the area.",
+              "effort": "half a day + tests + drive",
+              "risk": "low"
+            },
+            {
+              "key": "b",
+              "label": "Open it taller by default (35 % instead of 30 %)",
+              "consequence": "≈ 42 pt less canvas on every open; a dragged sliver still persists.",
+              "effort": "15 min",
+              "risk": "low"
+            },
+            {
+              "key": "c",
+              "label": "Leave it; correct the open item's description",
+              "consequence": "The trap stays.",
+              "effort": "5 min",
+              "risk": "none"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Verified: no floor, the fraction is persisted per window and restored, and the whole info bar is the drag (the row-resize cursor on hover is the only sign). Three frozen files are touched (LayoutPolicy, WorkspaceView, WorkspaceNavigation), so your picture is needed. Against a: the snap-shut adds a second close path with a hidden threshold; the floor plus a clamp on both restore paths already makes the sliver unreachable. Pick a, floor first, snap only if it comes free; and say whether Lineage should be on by default when the area opens (off today; with both panes on it falls to the narrow list under 560 pt).",
+          "nothing": "c."
+        },
+        {
+          "id": "Q7",
+          "title": "“Compute Image” is offered while the image already updates live",
+          "problem": "In Imaging › Virtual detector the toolbar's prominent “Compute Image” (⌘↩) re-runs what is already current: dragging the aperture, the shape picker, the BF/ADF presets and Calibrate Origin all update the image themselves.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Hide the verb in Virtual detector (Group Patterns keeps it); ⌘R disables there in step (AppState's predicate)",
+              "consequence": "One less control that does nothing new; ~110 pt of toolbar width freed; no manual re-run (a failed live run is silent).",
+              "effort": "1 h + tests + drive",
+              "risk": "low"
+            },
+            {
+              "key": "b",
+              "label": "Rename it “Recompute Image” once an image exists (words only)",
+              "consequence": "Keeps a manual refresh; still a redundant verb.",
+              "effort": "30 min",
+              "risk": "none"
+            },
+            {
+              "key": "c",
+              "label": "Keep it; the hint says it re-runs what is already live",
+              "consequence": "As today, labelled.",
+              "effort": "10 min",
+              "risk": "none"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Verified: every path that changes the aperture ends in a run, and the inspector's aperture rows are read-only, so nothing a live run misses can be typed. The cost of a the card names honestly: no visible way to recover from a silent failed live run except nudging a handle, and a frozen-toolbar structure change in release week; ⌘R's predicate (AppState, not frozen) must change in step. Pick a: a verb that re-runs what is already current is filler, and Prepare after calibration already shows an empty slot; the dead hint goes with it. If you want the frozen shell untouched for v4.1, b is honest and costs nothing — not c, which labels the redundancy instead of removing it.",
+          "nothing": "c."
+        }
+      ]
+    }
+  ],
+  "same": [
+    "Fixed in the polish session without a card (each test-first, an independent refuter after): a number field silently rounds what you typed when you leave it (Defocus to 0.1 Å, the learned threshold, the exploratory scale — leaving the room after dragging it even discards the ACOM result); exported datacubes carry no accelerating voltage, so a reopened export reads ‘Not set’ and blocks DPC/parallax/ACOM; removing a saved product clears an unsaved result on screen; opening a cube in the DPC room re-runs DPC; Diffraction groups does not re-show its map; the memory figure counts mapped file pages (23.1 GB for a 15.8 GiB cube) instead of what the app uses; Preprocess Raw Data… is greyed with no window open; the legend chip hides when the pattern is zoomed; the sidecar warning blames HDF5 when macOS's sandbox refused; the promote caption's false ‘keeping this Mac awake’; a dead toolbar hint. Also without a card (the second opinion's call): the annulus' inner handle at radius 0 parks 1.5 handle-widths from the centre marker instead of touching it.",
+    "Closed without work: Info › Provenance already shows labels (landed ceac82b1); the Preprocess 1-px crop steppers belonged to a sheet that no longer exists; the Preprocess form's short scroll area is re-checked in the final drive before anything is changed."
+  ],
+  "not_carded": [
+    "The final drive needs your SSD mounted (graphene, bullseye) and covers what was never seen on screen: a mirrored ACOM pixel, the β″ legend on a run, ADF 3r–6r on a narrow beam, the room-switch rule; plus a README screenshot from a real dataset. Two clicks are yours: choosing the dataset itself in a Save panel and clicking Replace (expect a refusal).",
+    "The website's false claims stay as you decided (W1 c); its version lines are bumped after the DMG exists."
+  ],
+  "answered": {}
+}
