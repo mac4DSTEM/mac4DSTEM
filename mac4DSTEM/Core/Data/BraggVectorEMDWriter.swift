@@ -131,9 +131,15 @@ package nonisolated enum BraggVectorEMDWriter {
     /// partial collection.
     package static func writeScientificBundle(
         maps: [ScalarResultMap], calibration: PixelCalibration, to destination: URL,
+        sourcePath: String? = nil,
         cancellation: AnalysisCancellationToken? = nil
     ) throws {
         HDF5Serial.acquire(); defer { HDF5Serial.release() }
+        // Defence in depth (review 2026-10-02 b5/e1): the rename below replaces the destination — never the source
+        // dataset or its sidecar. Callers that know the source pass it; the panel-level check is the first line.
+        if let sourcePath, let line = exportDestinationRefusal(destination, sourcePath: sourcePath) {
+            throw WriterError.publishFailed(line)
+        }
         guard !maps.isEmpty else {
             throw WriterError.invalidDimensions("a scientific bundle needs at least one field")
         }
@@ -1799,11 +1805,16 @@ package nonisolated enum BraggVectorEMDWriter {
         guard fileID >= 0 else { throw WriterError.hdf5("creating the temporary file") }
         defer { _ = h5.h5fclose(fileID) }
 
-        let existingID: hid_t? = existing.flatMap { source in
+        // An existing sidecar that cannot be opened (locked by a read/write reader such as HDFView, damaged,
+        // unreadable) is an ERROR, never "no file": treating it as absent built a fresh file and renamed it over
+        // every saved result, the vectors, the labels and the recipe (review 2026-10-02 a4).
+        var existingID: hid_t?
+        if let source = existing {
             let id = source.path.withCString {
                 h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
             }
-            return id >= 0 ? id : nil
+            guard id >= 0 else { throw hdf5Failure("opening the existing session sidecar", h5) }
+            existingID = id
         }
         defer {
             if let existingID { _ = h5.h5fclose(existingID) }

@@ -415,22 +415,58 @@ extension SessionSidecarLocator {
            currentIdentity.isEqual(chosenIdentity) {
             return .nothingToCopy
         }
-        var replacedDestination = false
-        do {
-            if manager.fileExists(atPath: url.path) {
-                try manager.removeItem(at: url)
-                replacedDestination = true
-            }
-            try manager.copyItem(at: current, to: url)
-            return .copied
-        } catch {
-            // Honest split: if the replace already removed the destination,
-            // the caller's message must not imply the old destination file
-            // still exists.
-            let removal = replacedDestination
-                ? " The file previously at the chosen destination was removed before the copy failed."
-                : ""
-            return .failed(sessionErrorDetail(error) + removal)
+        // Copy into a scratch file on the destination's volume, THEN rename it over the destination (review
+        // 2026-10-02 a1): the destination is never removed before a complete copy exists, so a failed copy (an
+        // unreadable current sidecar — the very state this remedy is offered for) leaves it untouched. The scratch
+        // directory is the one the writer's publish uses (`.itemReplacementDirectory`: sandbox-writable, same volume).
+        let scratchDirectory = try? manager.url(for: .itemReplacementDirectory, in: .userDomainMask,
+                                                appropriateFor: url, create: true)
+        let temporary = (scratchDirectory ?? url.deletingLastPathComponent())
+            .appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString).tmp")
+        defer {
+            // try? OK: best-effort scratch cleanup; after a successful rename the temporary no longer exists.
+            try? manager.removeItem(at: temporary)
+            if let scratchDirectory { try? manager.removeItem(at: scratchDirectory) }
         }
+        do {
+            try manager.copyItem(at: current, to: temporary)
+        } catch {
+            return .failed(sessionErrorDetail(error) + " The chosen destination was not changed.")
+        }
+        let status = temporary.path.withCString { source in
+            url.path.withCString { target in Darwin.rename(source, target) }
+        }
+        guard status == 0 else {
+            return .failed(String(cString: strerror(errno)) + " The chosen destination was not changed.")
+        }
+        return .copied
+    }
+
+    /// Why the sidecar save panel may not adopt `url`: it is the dataset itself (review 2026-10-02 a1 — a first save
+    /// renamed a session file over the raw cube; Change… removed it). Only the SOURCE is refused: the sidecar's own
+    /// default path is this panel's correct answer, so `BraggVectorEMDWriter.exportDestinationRefusal` (which also
+    /// refuses the sidecar) is the wrong test here. By file identity, so a symlink to the dataset is refused too.
+    package nonisolated static func sidecarDestinationRefusal(_ url: URL, sourcePath: String) -> String? {
+        guard isSameFile(url, URL(fileURLWithPath: sourcePath)) else { return nil }
+        return "Choose a different file: \(url.lastPathComponent) is the dataset itself, which is never changed."
+    }
+
+    /// The cancellable operations (`AppState.beginCancellableOperation` names, `Support/ResultExport.swift`) that
+    /// rewrite the session sidecar. Opening another dataset resets the operation centre and cancels them before
+    /// they publish (review 2026-10-02 c4), so the open commands are refused while one runs.
+    package nonisolated static let saveOperationNames: Set<String> = [
+        "Session sidecar", "Session calibration", "Session result removal",
+    ]
+
+    /// Whether `activeOperation` (the operation centre's current name) is a sidecar save that opening another
+    /// dataset would cancel.
+    package nonisolated static func isSaveInFlight(_ activeOperation: String?) -> Bool {
+        activeOperation.map(saveOperationNames.contains) ?? false
+    }
+
+    /// Whether the sidebar may say "Nothing saved yet" (review 2026-10-02 e10): not while a session file beside the
+    /// dataset could not be read — something IS saved there, and the warning above already says so.
+    package func mayClaimNothingSaved(hasSidecar: Bool) -> Bool {
+        !hasSidecar && unreadableReason == nil
     }
 }

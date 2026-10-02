@@ -1280,6 +1280,11 @@ final class AppState {
     /// One load at a time: the bundled HDF5 is not thread-safe (`ConcurrentOpenRefusalTests`).
     func openFile(url: URL) {
         if datasetSession.isLoading { statusText = "Already opening a dataset — wait for that one to finish, or cancel it."; return }
+        // Every open path funnels here (menus, toolbar, welcome, sidebar, Recents, Finder); opening would cancel an
+        // in-flight sidecar save unwritten (review 2026-10-02 c4).
+        if isBusy, SessionSidecarLocator.isSaveInFlight(activeOperation) {
+            statusText = "Still saving the session sidecar — open \(url.lastPathComponent) when the save finishes"; return
+        }
         Task { await openFileAsync(url: url) }
     }
 

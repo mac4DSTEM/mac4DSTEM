@@ -381,6 +381,15 @@ extension AppState {
             statusText = "Scientific bundle export cancelled"
             return
         }
+        // The rename publish replaces the destination: never the source, its derived sidecar, or the sidecar this
+        // session actually uses (review 2026-10-02 b5/e1; the Export Data… guard, plus a relocated sidecar).
+        let refusal = BraggVectorEMDWriter.exportDestinationRefusal(url, sourcePath: descriptor.filePath)
+            ?? (BraggVectorEMDWriter.isSameFile(url, sessionSidecar.location(for: descriptor))
+                ? "Choose a different file: the session sidecar is never replaced by an export." : nil)
+        if let refusal {
+            present(SimpleError(refusal))
+            return
+        }
         let calibration = sessionPixelCalibration(descriptor: descriptor)
         let token = beginCancellableOperation(
             "Scientific bundle", status: "Writing coherent EMD fields…",
@@ -393,7 +402,7 @@ extension AppState {
                 try await Task.detached(priority: .userInitiated) {
                     try BraggVectorEMDWriter.writeScientificBundle(
                         maps: maps, calibration: calibration, to: url,
-                        cancellation: token
+                        sourcePath: descriptor.filePath, cancellation: token
                     )
                 }.value
                 guard self.isCurrentOperation(token) else { return }
@@ -763,7 +772,12 @@ extension AppState {
                 self.rememberSidecarGrant(url, for: descriptor, what: metadata.displayName)
             } catch BraggVectorEMDWriter.WriterError.cancelled {
                 self.undoLineageProductMark(productMark)
-                guard self.isCurrentOperation(token) else { return }
+                guard self.isCurrentOperation(token) else {
+                    // Same as the calibration save (review 2026-10-02 c4): a superseded save is logged, never silent.
+                    self.activityLog.record("Saving \(metadata.displayName) was cancelled before it was written — "
+                        + "superseded by another dataset or task; nothing was saved to \(url.lastPathComponent)")
+                    return
+                }
                 self.statusText = "Session sidecar save cancelled"
             } catch {
                 self.undoLineageProductMark(productMark)
@@ -1032,6 +1046,11 @@ extension AppState {
         panel.nameFieldStringValue = SessionSidecarFormat.savePanelSeedName(for: suggested)
         panel.allowedContentTypes = [UTType(filenameExtension: "h5") ?? .data]
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        // Never the dataset itself (review 2026-10-02 a1): both callers would write or copy a session over it.
+        if let descriptor, let line = SessionSidecarLocator.sidecarDestinationRefusal(url, sourcePath: descriptor.filePath) {
+            present(SimpleError(line))
+            return nil
+        }
         _ = url.startAccessingSecurityScopedResource()
         return url
     }
@@ -1206,9 +1225,12 @@ extension AppState {
         let recipe = replay.recordForSaving
         // Labels ride along the same way (C7 session 4); nil (an empty
         // store) tells `mergeCalibration` to preserve what the sidecar has.
+        // Review 2026-10-02 a3: labels this view refused to restore are still in the sidecar, and a non-nil value
+        // would replace them. They are kept (nil preserves), the calibration still saves, and the line says so.
+        let labelsWithheld = !diskCentreLabels.isEmpty && diskCentreLabels.sidecarHoldsUnrestoredLabels
         let labelsJSON: String?
         do {
-            labelsJSON = diskCentreLabels.isEmpty
+            labelsJSON = diskCentreLabels.isEmpty || labelsWithheld
                 ? nil : String(decoding: try diskCentreLabels.encodedJSON(frame: DiskCentreLabelStore.frameTag(specification)), as: UTF8.self)
         } catch {
             present(error)
@@ -1236,12 +1258,19 @@ extension AppState {
                     self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
                 }
                 guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
-                self.statusText = inventoryRefreshError.map {
+                let saved = inventoryRefreshError.map {
                     "Saved calibration, but Results could not be refreshed: \($0)"
                 } ?? "Saved calibration → \(url.lastPathComponent)"
+                self.statusText = labelsWithheld ? saved + " · " + DiskCentreLabelStore.withheldLabelsLine : saved
                 self.rememberSidecarGrant(url, for: descriptor, what: "Calibration")
             } catch BraggVectorEMDWriter.WriterError.cancelled {
-                guard self.isCurrentOperation(token) else { return }
+                guard self.isCurrentOperation(token) else {
+                    // Superseded — another dataset was opened (`activate` resets the operation centre). The user
+                    // asked for this save: the durable log says it did not happen (review 2026-10-02 c4).
+                    self.activityLog.record("Session calibration save cancelled before it was written — "
+                        + "superseded by another dataset or task; nothing was saved to \(url.lastPathComponent)")
+                    return
+                }
                 self.statusText = "Session calibration save cancelled"
             } catch {
                 guard self.isCurrentOperation(token) else { return }

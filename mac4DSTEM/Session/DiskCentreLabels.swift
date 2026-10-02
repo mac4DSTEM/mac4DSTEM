@@ -177,6 +177,7 @@ package final class DiskCentreLabelStore {
         seed = 0
         positions = []
         importRefusal = nil
+        sidecarHoldsUnrestoredLabels = false
     }
 
     package enum LabelError: LocalizedError {
@@ -341,6 +342,8 @@ package final class DiskCentreLabelStore {
     @discardableResult
     package func restore(from data: Data, expecting filePath: String, frame expectedFrame: String,
                          scanY: Int, scanX: Int, detectorY: Int, detectorX: Int) throws -> Bool {
+        // Every way out below that applies nothing leaves the sidecar's labels unrestored: flag it first.
+        sidecarHoldsUnrestoredLabels = true
         let decoded = try Self.decode(data)
         guard decoded.filePath == filePath else {
             throw LabelError.datasetMismatch(expected: filePath, found: decoded.filePath)
@@ -351,6 +354,7 @@ package final class DiskCentreLabelStore {
             importRefusal = line
             return false
         }
+        sidecarHoldsUnrestoredLabels = false
         self.filePath = decoded.filePath
         self.datasetPath = decoded.datasetPath
         ingredient = decoded.ingredient
@@ -361,6 +365,21 @@ package final class DiskCentreLabelStore {
 
     /// A refusal decided outside the store (the file could not be read): one line, nothing changed.
     package func refuseImport(_ line: String) { importRefusal = line }
+
+    /// The sidecar holds disk-centre labels this view did not restore (another frame, another cube path, an
+    /// unreadable labels attribute) — review 2026-10-02 a3. A save carrying the store's labels would REPLACE them
+    /// (the writer keeps one labels attribute), so while this is set a sidecar save keeps the sidecar's labels and
+    /// says the new ones were not written. Owned here, with the labels (not `AppState`); set by `restore` on every
+    /// path that applies nothing and by `noteSidecarLabelsNotRestored()`; cleared by `reset` and by a restore that applies.
+    package private(set) var sidecarHoldsUnrestoredLabels = false
+
+    /// The restore never reached `restore` (the labels attribute could not be read from the sidecar).
+    package func noteSidecarLabelsNotRestored() { sidecarHoldsUnrestoredLabels = true }
+
+    /// The status-line clause and the Save to Sidecar help while `sidecarHoldsUnrestoredLabels` holds.
+    package nonisolated static let withheldLabelsLine =
+        "the new disk-centre labels were not written: the sidecar keeps the labels this view did not restore "
+        + "(Export Labels… saves the new ones to a file)"
 
     /// Parent folder + name, so two same-named cubes in different folders read differently.
     package nonisolated static func shortPath(_ path: String) -> String {

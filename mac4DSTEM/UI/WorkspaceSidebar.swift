@@ -388,7 +388,8 @@ struct SessionSection: View {
                     result, isCurrent: result.id == appState.sessionInventory.currentResultID
                 )
             }
-        } else {
+        } else if appState.sessionSidecar.mayClaimNothingSaved(hasSidecar: appState.sessionInventory.hasSidecar) {
+            // Not under "could not be read": a session IS saved there (review 2026-10-02 e10).
             Text("Nothing saved yet")
                 .font(.caption)
                 .foregroundStyle(.secondary)

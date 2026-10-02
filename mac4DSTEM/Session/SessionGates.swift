@@ -196,14 +196,16 @@ package final class SessionGates {
             // names both paths rather than promising re-granting will fix a
             // damaged file — a printed remedy that cannot work is the F1.3h
             // defect (Gate B finding).
+            // The controls named are the ones that exist (review 2026-10-02 e5): "Allow Access…" in the
+            // sidebar's Session section and the Dataset menu, and Dataset › Change Session Sidecar….
             remedy = "If mac4DSTEM has not been granted access to it, "
-                + "re-grant with Change… in the dataset inspector (choosing "
-                + "the same file); if the file itself cannot be read or "
-                + "decoded, move it aside or choose a different companion "
-                + "file with Change…. Then reopen the dataset."
+                + "grant it with Allow Access… (sidebar or Dataset menu); "
+                + "if the file itself cannot be read or decoded, move it "
+                + "aside or choose a different companion file with "
+                + "Dataset › Change Session Sidecar…. Then reopen the dataset."
         case .doesNotFit:
             remedy = "Move the sidecar aside, or choose a different companion "
-                + "file with Change… in the dataset inspector, then reopen "
+                + "file with Dataset › Change Session Sidecar…, then reopen "
                 + "the dataset."
         }
         return "This session could not restore the view recorded in the "

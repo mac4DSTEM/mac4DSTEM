@@ -620,12 +620,14 @@ extension AppState {
                     from: Data(json.utf8), expecting: descriptor.filePath,
                     frame: DiskCentreLabelStore.frameTag(loadedView.specification),
                     scanY: descriptor.ry, scanX: descriptor.rx, detectorY: descriptor.qy, detectorX: descriptor.qx) {
-                    // Not applied: the sidecar keeps them, and the line says why (never silent).
+                    // Not applied: the sidecar keeps them — `restore` flagged the store, so a later save keeps them
+                    // too instead of replacing them (review 2026-10-02 a3) — and the line says why (never silent).
                     statusText = diskCentreLabels.importRefusal ?? ""
                 }
             }
         } catch {
             if labelsEpoch == datasetSession.epoch {
+                diskCentreLabels.noteSidecarLabelsNotRestored()
                 statusText = "Could not restore disk-centre labels: \(Self.errorDetail(error))"
             }
         }

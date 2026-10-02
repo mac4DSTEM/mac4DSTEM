@@ -454,13 +454,19 @@ private struct DiskCentreLabelsRows: View {
             .disabled(thisPosition == 0)
             .accessibilityIdentifier("disk.labels.clearPosition")
 
+            // Gated like every other sidecar rewrite (review 2026-10-02 e5), and closed while the sidecar holds labels
+            // this view did not restore — saving would replace them (a3). The help says which.
             InspectorAdaptiveButton(
                 "Save to Sidecar", systemImage: "square.and.arrow.down",
-                help: "Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration."
+                help: labels.sidecarHoldsUnrestoredLabels
+                    ? "The sidecar holds disk-centre labels this view did not restore; saving would replace them. Export Labels… saves these to a file."
+                    : (appState.gates.sidecarRewriteRefusal()
+                        ?? "Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration.")
             ) {
                 appState.saveCalibrationToSessionSidecar()
             }
-            .disabled(labels.isEmpty)
+            .disabled(labels.isEmpty || appState.isBusy || !appState.gates.mayWriteSidecar
+                      || labels.sidecarHoldsUnrestoredLabels)
             .accessibilityIdentifier("disk.labels.save")
 
             InspectorAdaptiveButton(

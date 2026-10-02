@@ -109,12 +109,16 @@ private struct DatasetCommands: Commands {
             Button("New Dataset Window") { openWindow(id: "dataset") }
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(appState?.datasetSession.isLoading ?? false)
+            // Also closed while a sidecar save runs: opening another dataset cancels it before it is written, and the
+            // labels it carried exist nowhere else (review 2026-10-02 c4). `isBusy` is read first so the menu
+            // re-evaluates when the operation starts and ends.
             Button("Open Dataset…") { appState?.requestOpenDataset() }
                 .keyboardShortcut("o", modifiers: .command)
-                .disabled(appState == nil || appState?.datasetSession.isLoading == true)
+                .disabled(appState == nil || appState?.datasetSession.isLoading == true || sidecarSaveInFlight)
             if let recovery = appState?.recoveryRecord {
                 Button("Reopen \(recoveryName(recovery))") { appState?.reopenLastDataset() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
+                    .disabled(sidecarSaveInFlight)
             }
         }
         CommandGroup(replacing: .importExport) {
@@ -210,6 +214,11 @@ private struct DatasetCommands: Commands {
             // Results is last (owner decision, docs/decisions.md).
             workspaceCommand(.results, key: "6")
         }
+    }
+
+    /// A session-sidecar save is running (review 2026-10-02 c4) — see the Open commands above.
+    private var sidecarSaveInFlight: Bool {
+        appState?.isBusy == true && SessionSidecarLocator.isSaveInFlight(appState?.activeOperation)
     }
 
     private func recoveryName(_ recovery: DatasetRecoveryRecord) -> String {

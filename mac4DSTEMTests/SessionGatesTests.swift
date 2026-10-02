@@ -128,7 +128,7 @@ final class SessionGatesTests: XCTestCase {
         XCTAssertNotNil(unreadable)
         XCTAssertTrue(unreadable?.contains("EPERM story.") == true,
                       "The refusal must carry the restore failure it is protecting")
-        XCTAssertTrue(unreadable?.contains("Change…") == true,
+        XCTAssertTrue(unreadable?.contains("Allow Access…") == true,
                       "The unreadable case's remedy is re-granting access: \(unreadable ?? "nil")")
 
         gates.noteSidecarRestoreFailed(.doesNotFit, message: "Wrong file story.")
