@@ -15,10 +15,10 @@ final class PrepareCalibrationPolishTests: XCTestCase {
 
     /// Mutation it catches: the title ignoring readiness (always "Measure").
     func testTheOriginActionReadsReMeasureOnceAnOriginExists() {
-        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .missing), "Measure Origin & Probe")
-        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .unusable), "Measure Origin & Probe")
-        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .ready(.measuredInApp)), "Re-measure Origin & Probe")
-        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .ready(.importedFile)), "Re-measure Origin & Probe")
+        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .missing), "Calibrate Origin")
+        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .unusable), "Calibrate Origin")
+        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .ready(.measuredInApp)), "Re-calibrate Origin")
+        XCTAssertEqual(CalibrationReadinessRow.originActionTitle(status: .ready(.importedFile)), "Re-calibrate Origin")
     }
 
     /// Mutations it catches: no re-measure on a ready origin in Prepare; the

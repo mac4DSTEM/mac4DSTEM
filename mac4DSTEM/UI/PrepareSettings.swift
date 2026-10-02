@@ -63,7 +63,8 @@ struct PrepareSettings: View {
     static func readinessSummary(readyCount: Int, blockers: [String]) -> String {
         let total = stepOrder.count + 1
         if blockers.isEmpty { return "Quantitative — all \(total) steps set" }
-        return "Quantitative in \(readyCount) of \(total) steps · still needed: " + blockers.joined(separator: ", ")
+        // The count only: each row above already says what it still needs.
+        return "Quantitative in \(readyCount) of \(total) steps"
     }
 
     /// core-data-05: the excluded-fraction disclosure obeys the shared
@@ -153,6 +154,21 @@ struct PrepareSettings: View {
                 ForEach(report.items) { item in
                     readinessRow(item)
                 }
+                // The accelerating voltage is calibration — DPC, parallax and
+                // ptychography all consume it — so it lives with the other
+                // physical scales, not inside one consumer's workflow.
+                // Identifier unchanged on purpose.
+                InspectorRow("Voltage") {
+                    OptionalNumericField(
+                        title: "Accelerating voltage (kV)",
+                        value: appState.calibrationSession.acceleratingVoltage,
+                        format: .number.precision(.fractionLength(0...2)),
+                        unit: "kV",
+                        onCommit: appState.setManualAcceleratingVoltage
+                    )
+                    .labelsHidden()
+                    .accessibilityIdentifier("calibration.acceleratingVoltage")
+                }
                 // The same verdict the dataset card shows.
                 let verdict = session.verdict
                 let ready = report.items.filter { $0.status.isReady }.count
@@ -169,22 +185,6 @@ struct PrepareSettings: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("calibration.readiness")
-
-            // The accelerating voltage is calibration — DPC, parallax and
-            // ptychography all consume it — so it lives with the other
-            // physical scales, not inside one consumer's workflow.
-            // Identifier unchanged on purpose.
-            InspectorRow("Voltage") {
-                OptionalNumericField(
-                    title: "Accelerating voltage (kV)",
-                    value: appState.calibrationSession.acceleratingVoltage,
-                    format: .number.precision(.fractionLength(0...2)),
-                    unit: "kV",
-                    onCommit: appState.setManualAcceleratingVoltage
-                )
-                .labelsHidden()
-                .accessibilityIdentifier("calibration.acceleratingVoltage")
-            }
 
             // The open item this closes: a measured calibration could not be
             // taken back in the app — a wrong ellipse fit or a mistyped scale
@@ -386,7 +386,7 @@ struct PrepareSettings: View {
                let theta = calibration.ellipseTheta {
                 InspectorValueRow(
                     "Correction",
-                    String(format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi)
+                    CalibrationUnitConversion.ellipseSummary(a: a, b: b, thetaDegrees: theta * 180 / .pi)
                 )
                 .help("Applied to calibrated Bragg maps, strain, and ACOM in py4DSTEM's qx/qy convention.")
                 if session.provenance.ellipse == .fitAnyway {

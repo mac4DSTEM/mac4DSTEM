@@ -207,11 +207,13 @@ extension AppState {
             if navigation.analysisMode == .disks, let vectors = resultPresentation.braggVectors {
                 showBraggMap(vectors, descriptor: descriptor)
             }
+            let shape = CalibrationUnitConversion.ellipseSummary(
+                a: fit.a, b: fit.b, thetaDegrees: fit.theta * 180 / .pi)
             statusText = fit.sparseCoverage
-                ? String(format: "Ellipse fitted anyway on %d/36 sectors · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@) — marked Fit anyway",
-                         fit.occupiedAngularBins, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
-                : String(format: "Ellipse ✓  %@ · a %.2f · b %.2f · θ %.1f° · residual %.3f (%@)",
-                         fit.model.rawValue, fit.a, fit.b, fit.theta * 180 / .pi, fit.normalizedResidual, sourceName)
+                ? String(format: "Ellipse fitted anyway on %d/36 sectors · %@ · residual %.3f (%@) — marked Fit anyway",
+                         fit.occupiedAngularBins, shape, fit.normalizedResidual, sourceName)
+                : String(format: "Ellipse ✓  %@ · %@ · residual %.3f (%@)",
+                         fit.model.rawValue, shape, fit.normalizedResidual, sourceName)
             recordEllipseCalibrationRun()   // lineage node (ADR 047)
         } catch {
             if cancellation.isCancelled { statusText = "Ellipse calibration cancelled" }
@@ -235,7 +237,8 @@ extension AppState {
            let descriptor {
             showBraggMap(vectors, descriptor: descriptor)
         }
-        statusText = String(format: "Ellipse set by hand · a %.4g · b %.4g · θ %.1f°", a, b, thetaDegrees)
+        statusText = "Ellipse set by hand · "
+            + CalibrationUnitConversion.ellipseSummary(a: a, b: b, thetaDegrees: thetaDegrees)
         recordEllipseCalibrationRun()   // lineage node (ADR 047)
     }
 

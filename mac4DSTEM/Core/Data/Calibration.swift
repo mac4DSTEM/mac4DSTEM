@@ -200,9 +200,33 @@ package nonisolated enum CalibrationUnitConversion {
     /// nothing stored changes, and a spelling nobody recognises is shown as
     /// it is rather than guessed.
     package static func displayLabel(_ units: String?) -> String {
-        canonicalEditableReciprocalUnit(units)
+        if ["px", "pix", "[pix]", "[px]", "pixel", "pixels"].contains(normalized(units)) { return "px" }
+        return canonicalEditableReciprocalUnit(units)
             ?? canonicalEditableRealUnit(units)
             ?? units ?? ""
+    }
+
+    /// A number as the reader's locale writes it, at most `digits` significant
+    /// digits, no grouping ("0,25" in de_DE, where `%g` always printed "0.25").
+    /// DISPLAY ONLY: provenance, sidecar and export strings keep their own
+    /// locale-free spelling.
+    package static func displayNumber(
+        _ value: Double, digits: Int = 6, locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        guard value.isFinite else { return "—" }
+        return value.formatted(
+            .number.locale(locale).grouping(.never).precision(.significantDigits(1...digits)))
+    }
+
+    /// The detector ellipse as the readiness row, the Prepare row and the status
+    /// line print it. a and b are semi-axes in detector pixels (py4DSTEM's
+    /// qx/qy convention; `CalibrationReReference` rescales them as lengths),
+    /// θ the tilt of the a axis from qx in degrees. Display only.
+    package static func ellipseSummary(
+        a: Double, b: Double, thetaDegrees: Double, locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        "a \(displayNumber(a, digits: 4, locale: locale)) px · b \(displayNumber(b, digits: 4, locale: locale)) px"
+            + " · θ \(RQRotationConvention.degreesText(thetaDegrees))"
     }
 
     package static func isPhysicalReciprocalUnit(_ units: String?) -> Bool {
@@ -212,7 +236,7 @@ package nonisolated enum CalibrationUnitConversion {
 
     package static func isPixelUnit(_ units: String?) -> Bool {
         switch normalized(units) {
-        case "px", "pixel", "pixels", "1", "1/px", "1/pixel", "1/pixels":
+        case "px", "pix", "[pix]", "[px]", "pixel", "pixels", "1", "1/px", "1/pixel", "1/pixels":
             return true
         default:
             return false
@@ -359,9 +383,8 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         let ellipseDetail: String
         if validEllipse, let a = calibration.ellipseA, let b = calibration.ellipseB,
            let theta = calibration.ellipseTheta {
-            ellipseDetail = String(
-                format: "a %.4g · b %.4g · θ %.1f°", a, b, theta * 180 / .pi
-            )
+            ellipseDetail = CalibrationUnitConversion.ellipseSummary(
+                a: a, b: b, thetaDegrees: theta * 180 / .pi)
         } else {
             ellipseDetail = "No detector-distortion correction"
         }
@@ -391,7 +414,7 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         } != nil
         var qDetail: String
         if validQ, let size = calibration.qPixelSize, let units = calibration.qPixelUnits {
-            qDetail = String(format: "%.6g %@/px", size, CalibrationUnitConversion.displayLabel(units))
+            qDetail = "\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px"
             // A caveat, not a verdict: the row keeps `.ready(.measuredInApp)`.
             if provenance.qScale == .measuredInApp, let caveat = provenance.qShellCaveat,
                caveat.pixelSize == size {
@@ -400,18 +423,18 @@ package struct CalibrationReadinessReport: Equatable, Sendable {
         } else if positiveQ, let size = calibration.qPixelSize {
             let units = calibration.qPixelUnits ?? "no units"
             qDetail = CalibrationUnitConversion.isPixelUnit(calibration.qPixelUnits)
-                ? String(format: "Reciprocal dimensions remain in pixels (%.6g %@/px)", size, units)
+                ? "Reciprocal dimensions remain in pixels (\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px)"
                 : "Reciprocal scale lacks supported physical units (\(units))"
         } else {
             qDetail = "Reciprocal dimensions remain in pixels"
         }
         let rDetail: String
         if validR, let size = calibration.rPixelSize, let units = calibration.rPixelUnits {
-            rDetail = String(format: "%.6g %@/px", size, CalibrationUnitConversion.displayLabel(units))
+            rDetail = "\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px"
         } else if positiveR, let size = calibration.rPixelSize {
             let units = calibration.rPixelUnits ?? "no units"
             rDetail = CalibrationUnitConversion.isPixelUnit(calibration.rPixelUnits)
-                ? String(format: "Real-space dimensions remain in pixels (%.6g %@/px)", size, units)
+                ? "Real-space dimensions remain in pixels (\(CalibrationUnitConversion.displayNumber(size)) \(CalibrationUnitConversion.displayLabel(units))/px)"
                 : "Real-space scale lacks supported physical units (\(units))"
         } else {
             rDetail = "Real-space dimensions remain in pixels"

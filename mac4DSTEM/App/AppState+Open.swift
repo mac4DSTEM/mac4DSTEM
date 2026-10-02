@@ -170,7 +170,7 @@ extension AppState {
             // Keep this string's step names in sync with the current
             // workspace titles — it is data, not a UI label, so a rename
             // elsewhere will not catch a stale name here.
-            statusText = "Demo ready — follow Prepare → Imaging → Bragg Disks → Crystal Maps → Results; each task lists anything it still needs"
+            statusText = "Demo ready — start in Prepare"
         } catch {
             present(error)
         }

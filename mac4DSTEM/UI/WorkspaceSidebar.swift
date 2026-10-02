@@ -33,8 +33,9 @@ struct WorkspaceSidebar: View {
                     Button {
                         appState.requestPreprocessRawData()
                     } label: {
-                        Label("Preprocess Raw Data…", systemImage: "gearshape")
+                        Label("Preprocess…", systemImage: "gearshape")
                     }
+                    .help("Preprocess Raw Data…")
                 }
             }
 
@@ -136,7 +137,9 @@ struct WorkspaceSidebar: View {
         return HStack {
             Label {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(mode.productTitle)
+                    // Short in the narrow sidebar; the full title is on hover.
+                    Text(mode == .diffractionGroups ? "Groups" : mode.productTitle)
+                        .lineLimit(1)
                     if mode.isAdvanced {
                         Text("Advanced").font(.caption).foregroundStyle(.secondary)
                     }
@@ -159,7 +162,7 @@ struct WorkspaceSidebar: View {
                         : (unmet == 0 ? Color.secondary : Color.orange))
             }
         }
-        .help(state.staleReason ?? mode.productSubtitle)
+        .help(state.staleReason ?? "\(mode.productTitle) — \(mode.productSubtitle)")
         .accessibilityLabel(taskAccessibilityLabel(mode))
         .accessibilityIdentifier("task.\(mode.id)")
         .accessibilityHint(mode.productSubtitle)
@@ -386,9 +389,10 @@ struct SessionSection: View {
                 )
             }
         } else {
-            Text("Nothing saved with this dataset yet.")
+            Text("Nothing saved yet")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .help("Nothing is saved with this dataset yet.")
                 .accessibilityIdentifier("sidebar.session.empty")
         }
     }

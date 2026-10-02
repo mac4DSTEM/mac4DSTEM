@@ -201,6 +201,6 @@ final class CalibrationDisclosureTests: XCTestCase {
                        "Quantitative — all 6 steps set")
         XCTAssertEqual(
             PrepareSettings.readinessSummary(readyCount: 4, blockers: ["Ellipse distortion: Not set", "Accelerating voltage: Not set"]),
-            "Quantitative in 4 of 6 steps · still needed: Ellipse distortion: Not set, Accelerating voltage: Not set")
+            "Quantitative in 4 of 6 steps")   // Slot 4½ C4: the rows below say what each needs
     }
 }

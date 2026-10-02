@@ -76,7 +76,7 @@ final class UnitDisplayLabelTests: XCTestCase {
         let report = CalibrationReadinessReport.make(
             calibration: calibration, provenance: CalibrationProvenance())
         let q = try XCTUnwrap(report.items.first { $0.kind == .qScale })
-        XCTAssertEqual(q.detail, "0.012 Å⁻¹/px")
+        XCTAssertEqual(q.detail, "\(CalibrationUnitConversion.displayNumber(0.012)) Å⁻¹/px")  // the reader's locale (0,012 in de_DE)
         XCTAssertEqual(calibration.qPixelUnits, "A^-1", "display boundary only")
         XCTAssertEqual(calibration.diffractionScaleBar.unitLabel, "A^-1",
                        "the Core value passes through; the pane normalises it")

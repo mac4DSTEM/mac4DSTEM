@@ -317,7 +317,11 @@ struct InspectorValueRow: View {
         // Mono rows carry provenance: a 17-digit decimal prints rounded, the
         // exact text on hover.
         Text(mono ? ProvenanceValueText.display(value) : value)
-            .help(mono && ProvenanceValueText.display(value) != value ? value : "")
+            .help(mono ? value : "")
+            // Identifiers and provenance values stay on one line (middle
+            // truncation keeps both ends); the full text is on hover.
+            .lineLimit(mono ? 1 : nil)
+            .truncationMode(.middle)
             .monospacedDigit()
             .fontDesign(mono ? .monospaced : .default)
             .foregroundStyle(.secondary)

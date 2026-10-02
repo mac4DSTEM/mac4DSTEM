@@ -149,10 +149,10 @@ enum CalibrationReadinessRow {
         text.replacingOccurrences(of: #"(\d) px\b"#, with: "$1\u{00A0}px", options: .regularExpression)
     }
 
-    /// The origin row's action verb: a first measurement, or a re-measure once an
+    /// The origin row's action verb, the toolbar's own words: a first calibration, or a re-calibration once an
     /// origin exists (the same action either way).
     static func originActionTitle(status: CalibrationReadinessStatus) -> String {
-        status.isReady ? "Re-measure Origin & Probe" : "Measure Origin & Probe"
+        status.isReady ? "Re-calibrate Origin" : "Calibrate Origin"
     }
 
     /// Whether the row carries its action. A row that is not ready always does;

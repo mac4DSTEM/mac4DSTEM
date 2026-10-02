@@ -1,0 +1,309 @@
+{
+  "date": "2026-10-02 — Slot 4½ polish: what needs your word before it is fixed",
+  "groups": [
+    {
+      "key": "trust",
+      "title": "Trust — what a badge or a number claims",
+      "why": "Each changes what a label or export says; no measured value changes unless you pick a Gate D option.",
+      "cards": [
+        {
+          "id": "S1",
+          "title": "Strain says “Quantitative” next to “rotation not calibrated”",
+          "problem": "On a dataset without the R–Q rotation, the Strain map shows a green “Quantitative” badge and, right under it, an orange line saying the detector x/y frame is used because the rotation is not calibrated. The badge comes only from the product type (every strain map is called quantitative); the warning comes from the frame. A user cannot tell which to believe. Changing the badge also changes the status word written into exports and the session file for those maps. Session note: the strain values are real (dimensionless); only their axes are the detector's — so the recommendation moved from a to b after the second opinion.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Badge follows the frame: “Relative” in the detector frame, “Quantitative” only in the calibrated sample frame",
+              "consequence": "Badge and warning agree, but exports of real strain values would read “relative”, which in this app means arbitrary-scale intensity — a mislabel the other way.",
+              "effort": "1–2 h + test",
+              "risk": "exports of uncalibrated strain read differently (correctly)"
+            },
+            {
+              "key": "b",
+              "label": "Keep the badge; reword the orange line: the strain components are along the detector's x/y, rotation and shear refer to the detector axes",
+              "consequence": "Badge and line agree: the values are true strain, only the axes are the detector's. Exports unchanged (the frame is already recorded in them).",
+              "effort": "30 min",
+              "risk": "users may still read the green badge as “fully calibrated”"
+            },
+            {
+              "key": "c",
+              "label": "Leave as is",
+              "consequence": "The drive's #3 defect stays.",
+              "effort": "0",
+              "risk": "trust"
+            }
+          ],
+          "recommend": "b",
+          "advisor": "Pick b, strengthened. The values are real, dimensionless strain; only the axes are the detector's. In this app 'Relative' means arbitrary-scale intensity, so writing it into exports would mislabel real numbers, and the frame is already recorded in exports. Reword the orange line ('components along detector x/y; rotation and shear refer to the detector axes'). One thing a has that b lacks: it blocks numeric comparison of detector-frame against sample-frame maps. If you want that, add it as a separate frame check.",
+          "nothing": "Green badge beside an uncalibrated warning stays."
+        },
+        {
+          "id": "S2",
+          "title": "Orientation maps: the in-plane angle of a mirror-image match",
+          "problem": "Since the mirror-image matching landed (row 1), a pixel can be matched to the mirrored template. Its in-plane angle is then measured relative to the mirrored template, so two neighbouring pixels on either side of a mirror boundary are not comparable in the in-plane map or its export. Euler angles, the IPF map and the overlay already handle it. The Info panel will now show “Mirrored yes/no” for the pixel under the cursor (being built in this session, no number moves). The +π for a mirrored match is py4DSTEM's own convention (OrientationResult.swift ~590), so option b would be a deviation from py4DSTEM.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Label now, settle the convention after v4.1",
+              "consequence": "Info shows Mirrored; the in-plane map's caption says the angle is relative to the matched (possibly mirrored) template, py4DSTEM's convention. No number moves.",
+              "effort": "30 min",
+              "risk": "the raw in-plane map stays hard to compare across a mirror boundary"
+            },
+            {
+              "key": "b",
+              "label": "Convert a mirrored win to its proper-rotation angle now (Gate D, refuter; a DEVIATION from py4DSTEM)",
+              "consequence": "The in-plane map is comparable everywhere; a shipped number moves for mirrored pixels.",
+              "effort": "1 session + refuter",
+              "risk": "a convention decided in a polish session"
+            },
+            {
+              "key": "c",
+              "label": "Add the per-pixel mirrored flag to the exported bundle",
+              "consequence": "Data users can correct it themselves; a new field in the export format.",
+              "effort": "½ session",
+              "risk": "new export surface (ADR 049)"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Agree a. Omitted: the mirrored in-plane angle carrying +π is py4DSTEM's own convention. Option b would therefore be a deviation from py4DSTEM, against ADR 050's parity rule, needing a deviation note and a refuter. The caption should say 'py4DSTEM convention'. c adds little: the bundle's Euler angles already handle mirroring, and the in-plane map is not in the bundle.",
+          "nothing": "The in-plane map stays unlabelled for mirrored pixels."
+        }
+      ]
+    },
+    {
+      "key": "behaviour",
+      "title": "Behaviour — what a button does",
+      "why": "Small changes to what happens on a click; the rule says these come to you.",
+      "cards": [
+        {
+          "id": "S3",
+          "title": "BF / ADF detector presets ignore the measured beam size",
+          "problem": "The BF and ADF presets use fixed fractions of the detector (BF radius 0.20, ADF from 0.25 to 0.55 of half the detector). On graphene the measured beam radius is 25.3 px, so the BF preset (≈13 px) cuts inside the beam and the ADF ring (from ≈16 px) overlaps the bright disk. py4DSTEM has no presets; its virtual-imaging tutorial sets BF by hand and puts ADF from 3× to 6× the measured probe radius.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Presets follow the measured beam: BF = beam radius; ADF from 3× beam radius to 6× (clipped to the detector edge); fall back to today's fractions with a one-line note when no beam is measured",
+              "consequence": "The presets give a real BF and a real ADF image once Prepare has measured the beam. Images from a preset press change; stored results do not.",
+              "effort": "2 h + test",
+              "risk": "a preset image differs from a v4.0 one"
+            },
+            {
+              "key": "b",
+              "label": "Keep the fractions; label the presets “rough”",
+              "consequence": "No behaviour change; the user drags the circle.",
+              "effort": "15 min",
+              "risk": "the default images stay wrong on many cubes"
+            },
+            {
+              "key": "c",
+              "label": "Leave as is",
+              "consequence": "",
+              "effort": "0",
+              "risk": ""
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Pick a, but with the tutorial's numbers: ADF at 3× to 6× the probe radius, not 1.1× (just outside the disk picks up the bright disk's edge). On graphene (beam 25 px, usable radius about 65 px) 3× already runs past the edge, so a clipping rule is needed. Presets also do not move to the measured centre. When it falls back to today's fractions, say so on screen.",
+          "nothing": "The presets keep producing a BF that is not BF on large beams."
+        },
+        {
+          "id": "S4",
+          "title": "Export Labels writes silently inside the app's private folder",
+          "problem": "Training room › Export Labels writes the JSON straight into the app's container (Documents/mac4DSTEM/disk-labels/…) with no Save panel, and the status line is cut off, so a user cannot find the file. Import Labels already uses an Open panel.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Export Labels opens a Save panel, like Import",
+              "consequence": "The user chooses where the file goes; nothing else changes.",
+              "effort": "1 h",
+              "risk": "none known"
+            },
+            {
+              "key": "b",
+              "label": "Keep writing there, add a “Show in Finder” step after the export",
+              "consequence": "No panel; the file is revealed.",
+              "effort": "1 h",
+              "risk": "Finder cannot open the container path on every setup"
+            },
+            {
+              "key": "c",
+              "label": "Leave as is",
+              "consequence": "",
+              "effort": "0",
+              "risk": ""
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Agree a. The button already reads 'Export Labels…' — the ellipsis promises a panel that never opens, so this fixes a broken promise. Files already written into the private folder stay hidden: hand the owner a one-line Terminal command to copy the 66 labels out; do not count on a re-export.",
+          "nothing": "Your own label export stays hard to find (this is also how your 66 labels stay unreadable to the assistant)."
+        },
+        {
+          "id": "S5",
+          "title": "Small wrong labels and a stale map — fix all four?",
+          "problem": "Four places show something that is not true right now: (1) the “Last run” caption still says “Origin calibration · 2 s” after a kernel build, and “Parallax alignment bin 1” after the aberration fit — those steps never report themselves; (2) Phase mapping shows the old Strain map before its first run; (3) after you type R, the image already on screen keeps the pixel size it was computed with — its scale bar stays “20 px”, and a PNG or Save to Results made then also carries “px” — until something recomputes it; (4) the Add Phase menu lists a CIF you already added — that one is deliberate (a second zone axis), so the fix is only to say so in the item (“Al … (another zone axis)”).",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Fix all four",
+              "consequence": "Each shows what is true now; typing R updates the shown image's pixel size. No measured value moves.",
+              "effort": "½ session",
+              "risk": "small: (1) touches how operations are recorded"
+            },
+            {
+              "key": "b",
+              "label": "Fix 2, 3 and 4; leave the caption",
+              "consequence": "",
+              "effort": "2–3 h",
+              "risk": ""
+            },
+            {
+              "key": "c",
+              "label": "Leave them",
+              "consequence": "",
+              "effort": "0",
+              "risk": ""
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Agree a. Item (3) is a data label, not just a caption: the image keeps the pixel size from when it was computed, so a PNG or Save to Results made after typing R carries 'px'. Fix by updating the stored size when R changes. Item (1) is lower risk than stated: those steps only need to clear the 'Last run' line, which starting any recorded operation already does.",
+          "nothing": "Four small untruths stay on screen."
+        },
+        {
+          "id": "S6",
+          "title": "Where the Save panels start",
+          "problem": "Export PNG, Export Bundle and Preprocess Raw Data… set no starting folder, so each Save panel opens wherever macOS last saved. The drive saw them open next to the dataset on the SSD (because it had saved there before). Preprocess writes multi-GB files.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Leave the macOS default (last folder used)",
+              "consequence": "Nothing changes; the item closes as working-as-macOS-intends.",
+              "effort": "0",
+              "risk": "none"
+            },
+            {
+              "key": "b",
+              "label": "Start PNG and bundle exports in one remembered exports folder (Preprocess keeps the macOS default: its files are huge)",
+              "consequence": "Results never land beside raw data unless you choose so.",
+              "effort": "1–2 h",
+              "risk": "a new preference to keep"
+            },
+            {
+              "key": "c",
+              "label": "Start next to the dataset, in a “mac4DSTEM exports” subfolder",
+              "consequence": "Results stay with their dataset, separated.",
+              "effort": "2 h",
+              "risk": "writes a folder onto your SSD"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Agree a. Against b: Preprocess writes multi-GB files; sending it to Documents on the internal disk repeats the disk-full failures of 2026-09-30. c writes onto the raw-data SSD without being asked.",
+          "nothing": "Unchanged; macOS remembers your last folder."
+        }
+      ]
+    },
+    {
+      "key": "frozen",
+      "title": "Frozen shell — wording only",
+      "why": "The five frozen files change only on your word (ADR 035/050).",
+      "cards": [
+        {
+          "id": "S7",
+          "title": "Three word-only edits in frozen files",
+          "problem": "The frozen shell may change wording that corrects a false claim (ADR 050), never structure or width. Three places say something false: (1) “Run DPC” after DPC ran → “Re-run DPC”; (2) “1 positions” in the window's dataset line; (3) the memory glance counts 1024-based and so disagrees with the sidebar's Finder-style (1000-based) figure for the same cube. Also: the status bar cuts long messages (e.g. the parallax fit line) — the full text would go on its hover help. Not on this card: “Compute Image” stays offered while the image updates live — changing that needs a new check in a frozen file, so it needs a picture first (after v4.1).",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "All three, plus the hover help on the status bar",
+              "consequence": "The toolbar and window say what is true; no layout moves.",
+              "effort": "1 h",
+              "risk": "frozen files touched, wording only"
+            },
+            {
+              "key": "b",
+              "label": "Only (1) and (2)",
+              "consequence": "",
+              "effort": "30 min",
+              "risk": ""
+            },
+            {
+              "key": "c",
+              "label": "None",
+              "consequence": "",
+              "effort": "0",
+              "risk": ""
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Item (1) as first written ('Update Image' only when out of date) was not wording — it needs a new staleness check in a frozen file; the session has taken it off this card. Fix (4) properly: the glance is 1024-based and disagrees with the sidebar (1000-based, Finder's); the code's own note asks for one style. Hover help on the status bar is fine.",
+          "nothing": "“Run DPC” after a run and “1 positions” stay."
+        }
+      ]
+    },
+    {
+      "key": "scope",
+      "title": "Scope — the feature freeze",
+      "why": "Anything new is against ADR 049 unless you reopen it.",
+      "cards": [
+        {
+          "id": "S8",
+          "title": "Results: say what is already there",
+          "problem": "The drive missed two things that exist: the Results inspector lists saved products (with A/B compare and remove), and Save to Results stores the full float map with its pixel size and provenance in the session file (HDF5) for any product — so virtual images and DPC can already get out as data. What a first-time user sees instead: only the product on screen, an “Export PNG” button, and “Save to Results” asking for a session file the first time (the empty list even says “Save to Session”). ADR 049 froze the feature list.",
+          "polish": "no",
+          "options": [
+            {
+              "key": "a",
+              "label": "Label it, add nothing: one name (“Save to Results”), a line saying saved products keep their data in the session file, checked to open in h5py",
+              "consequence": "Honest and findable; no new surface.",
+              "effort": "1 h",
+              "risk": "none known"
+            },
+            {
+              "key": "b",
+              "label": "Add a per-product data export (.h5) button",
+              "consequence": "A shortcut for what Save to Results already stores; a new feature against the freeze.",
+              "effort": "1 session + drive",
+              "risk": "release slips"
+            },
+            {
+              "key": "c",
+              "label": "Leave it",
+              "consequence": "",
+              "effort": "0",
+              "risk": "users think there is no data export"
+            }
+          ],
+          "recommend": "a",
+          "advisor": "Agree a, with the premise fixed: Results already lists saved products with A/B compare, and Save to Results stores the full float map with pixel size and provenance in the session HDF5, so virtual images and DPC can get out as data. Check the file opens in h5py first. Make 'Save to Session' and 'Save to Results' one name; the ellipsis is wrong after the first save.",
+          "nothing": "Users keep missing the saved-products list and the data in the session file."
+        }
+      ]
+    }
+  ],
+  "same": [
+    "S5 (3) and the re-drive: the scale-bar fix is checked on screen with S3's presets.",
+    "Already being fixed without a card (colour, wording, layout): the parallax solid-red preview, the phase-map legend and duplicate names, the outline colour, the decimal-comma fields, units and clipped text, the Mirrored row in Info, the Bragg funnel wording, the orientation room's triple requirement."
+  ],
+  "not_carded": [
+    "The graphene real-space preview that renders black: the code already stretches min–max, so the cause is not known — it needs your SSD (PL_SSD_2TB is not mounted) for a diagnosis before any fix.",
+    "The window that grew by itself during Parallax: not reproduced; the re-drive watches for it.",
+    "Preprocess Raw Data greyed with no dataset: the menu greys when no window is focused — re-tested in the re-drive before any card.",
+    "Mixed Å / nm scale bars: each product keeps its own unit; not a trip-over, left."
+  ],
+  "answered": {
+    "S1": "b — keep the badge; reword the orange line (components along the detector's x/y; rotation and shear refer to the detector axes)",
+    "S2": "a — label now (Info › Mirrored; the in-plane caption names py4DSTEM's convention); settle the convention after v4.1",
+    "S3": "a — presets follow the measured beam: BF = beam radius; ADF 3×–6× beam radius clipped to the detector; fractions + a one-line note when no beam is measured",
+    "S4": "a — Export Labels opens a Save panel, like Import",
+    "S5": "a — fix all four",
+    "S6": "a — leave the macOS default",
+    "S7": "a — all three, plus the hover help on the status bar",
+    "S8": "b — add a per-product data export (.h5) button [not the recommendation: the owner reopens ADR 049 for this one item]"
+  }
+}

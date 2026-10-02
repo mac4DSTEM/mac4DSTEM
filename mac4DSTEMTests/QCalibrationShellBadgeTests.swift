@@ -67,7 +67,7 @@ final class QCalibrationShellBadgeTests: XCTestCase {
         let item = try qItem(size: 0.0125, provenance: .measuredInApp, caveat: caveat)
         XCTAssertEqual(item.status, .ready(.measuredInApp),
                        "unchecked is a caveat on a used scale, never a refusal")
-        XCTAssertTrue(item.detail.contains("0.0125"), "the value stays on the row: \(item.detail)")
+        XCTAssertTrue(item.detail.contains(CalibrationUnitConversion.displayNumber(0.0125)), "the value stays on the row (reader's locale): \(item.detail)")
         XCTAssertTrue(item.detail.contains("Shell ratio unchecked — only one shell is detectable"),
                       "the row must say what was not checked: \(item.detail)")
         XCTAssertFalse(

@@ -136,8 +136,7 @@ One line each; full wording as above.
   container; stale "Last run" captions and toolbar verbs; clipped text, locale/unit mixes; a window that resized itself. Plus the memory
   budget does not subtract a resident cube (code review, owner card).
 - Polish batch from the combined drive (2026-10-01, `archive/v4/drive-combined-2026-10-01.md`), for Slot 4½: the Preprocess save panel
-  defaults to the source folder; Provenance "Source product" wraps; Sampling reads "sampling 5 × 5 Å/px"; the sidebar's "Preprocess Raw…"
-  truncates; ACOM Info shows no mirrored flag (needed to find a mirrored win).
+  defaults to the source folder (owner S6: leave the macOS default); Sampling reads "sampling 5 × 5 Å/px"; ACOM Info shows no mirrored flag.
 - Display residuals after P2 (2026-10-01): the strip's size glance (`LayoutPolicy.glance`, frozen) is 1024-based and its comment
   wrongly calls `displayByteString` 1024-based; the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube); Info › Preview
   "Real space" black on graphene (undiagnosed); `ReconstructionSettings`/`AppState+PhaseContrast` angles still print "−0.0°" (adopt `degreesText`).
