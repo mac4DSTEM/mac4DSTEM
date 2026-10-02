@@ -154,6 +154,40 @@ package enum DetectorPreset: String, CaseIterable, Identifiable {
         case .custom:      return nil
         }
     }
+
+    /// Radii that follow the MEASURED beam when one exists (polish lane F,
+    /// owner card S3): BF = 0…r, ADF = 3r…6r, each clipped to the detector
+    /// edge `maxRadius`. The 3×–6× ADF rule is py4DSTEM's virtual-imaging
+    /// tutorial (basics_01_visualization_and_virtualimaging.ipynb, the
+    /// "Annular dark-field imaging" cell: `r_inner = probe_semiangle * 3`,
+    /// `r_outer = probe_semiangle * 6`); the tutorial has no HAADF, so HAADF
+    /// keeps its detector fraction. When there is no valid `probeRadius`, or
+    /// 3r reaches the detector edge (no room for the annulus), the fractions
+    /// of `radii(maxRadius:)` apply unchanged. BF is clipped, not refused,
+    /// when r exceeds the edge.
+    package func radii(
+        maxRadius: Float, probeRadius: Float?
+    ) -> (inner: Float, outer: Float)? {
+        guard let r = probeRadius, r.isFinite, r > 0 else { return radii(maxRadius: maxRadius) }
+        switch self {
+        case .brightField: return (0, min(r, maxRadius))
+        case .adf:
+            guard 3 * r < maxRadius else { return radii(maxRadius: maxRadius) }
+            return (3 * r, min(6 * r, maxRadius))
+        case .haadf, .custom: return radii(maxRadius: maxRadius)
+        }
+    }
+
+    /// True when `radii(maxRadius:probeRadius:)` follows the beam for this
+    /// preset (so the UI can say when a preset fell back to fractions).
+    package func followsBeam(maxRadius: Float, probeRadius: Float?) -> Bool {
+        guard let r = probeRadius, r.isFinite, r > 0 else { return false }
+        switch self {
+        case .brightField: return true
+        case .adf: return 3 * r < maxRadius
+        case .haadf, .custom: return false
+        }
+    }
 }
 
 // MARK: - Tile prefetching (overlap tile I/O with GPU compute)

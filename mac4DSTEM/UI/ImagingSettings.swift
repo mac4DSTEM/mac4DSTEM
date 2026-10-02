@@ -73,6 +73,9 @@ struct ImagingSettings: View {
                     .labelsHidden()
                 }
                 InspectorNote("Drag the detector on the diffraction pane; the real-space image updates live.")
+                if appState.presetProbeRadius == nil {
+                    InspectorNote("Presets use detector fractions — measure the beam in Prepare to fit them.")
+                }
             }
         } else {
             InspectorSection("Region → diffraction") {

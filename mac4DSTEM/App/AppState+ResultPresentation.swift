@@ -165,11 +165,46 @@ extension AppState {
     }
 
 
+    /// The measured beam radius the BF/ADF presets follow (polish lane F, S3):
+    /// the Prepare calibration's probe radius, only when it is a usable number.
+    /// Nil → presets use detector fractions and Imaging says so.
+    var presetProbeRadius: Float? {
+        calibrationSession.calibration.probeRadius.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+    }
+
+    /// Entering Phase mapping or Diffraction groups (S5 item 2): a published
+    /// product survives a task switch, so these two modes showed whatever was
+    /// last on screen (the Strain map before a first phase run). Show the
+    /// mode's own product, or nothing. Diffraction groups' own product is
+    /// republished only by its run, so with a result it is left as is.
+    func presentProductForEnteredMode(_ mode: AnalysisMode) {
+        switch mode {
+        case .phaseMapping:
+            let kind = resultPresentation.product?.kind
+            if phaseMapping.map != nil, phaseMapping.lastRun != nil {
+                if kind != "phase_map", kind != "phase_match_distance", kind != "precipitate_objects" {
+                    publishPhaseMapProduct()
+                }
+            } else if resultPresentation.product != nil {
+                resultPresentation.replaceProduct(nil)
+                resultPresentation.bumpResultVersion()
+            }
+        case .diffractionGroups:
+            // OPEN (lane F report): with a result, the grouping map is not
+            // republished here — that needs the run's settings.
+            if diffractionGroups.result == nil, resultPresentation.product != nil {
+                resultPresentation.replaceProduct(nil)
+                resultPresentation.bumpResultVersion()
+            }
+        default: break
+        }
+    }
+
     /// Apply a standard detector geometry (BF/ADF/HAADF) and recompute.
     func applyDetectorPreset(_ preset: DetectorPreset) {
         guard let descriptor else { return }
         let qMax = Float(min(descriptor.qx, descriptor.qy)) / 2
-        if let radii = preset.radii(maxRadius: qMax) {
+        if let radii = preset.radii(maxRadius: qMax, probeRadius: presetProbeRadius) {
             aperture.inner = radii.inner
             aperture.outer = radii.outer
             resultPresentation.virtualShape = preset == .brightField ? .circle : .annulus

@@ -1167,6 +1167,7 @@ final class AppState {
         // own; the navigation relabel cache that used to live here is gone.
         navigation.analysisMode = mode
         navigation.workspaceArea = mode.workspaceArea
+        presentProductForEnteredMode(mode)   // owner card S5 (2): no stale map before a mode's first run
         if mode == .acom, acomSession.scope == .selectedRegion {
             acomSession.regionSelectionActive = true
             Task { await ensureScanNavigator() }

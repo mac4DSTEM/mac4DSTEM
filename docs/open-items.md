@@ -130,7 +130,7 @@ One line each; full wording as above.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - Virtual-detector "Annulus" with inner 0 excludes the exact centre pixel (strict r² > rIn²; ≈ 5e-4 of each graphene pattern); the preview's bright-field disk includes it — py4DSTEM's convention unchecked, Gate D before any number moves (lane D refuter, 2026-10-02).
-- **Slot 4½ input** (2026-10-01, `archive/v4/polish-drive-2026-10-01.md`, ranked): phase-mapping stale map (legend and duplicate names fixed 2026-10-02, B1); BF/ADF presets ignore the measured probe; Results shows no product list or data export; label export silent into the
+- **Slot 4½ input** (2026-10-01, `archive/v4/polish-drive-2026-10-01.md`, ranked): Results shows no product list or data export; label export silent into the
   container; stale "Last run" captions and toolbar verbs; clipped text, locale/unit mixes; a window that resized itself. Plus the memory
   budget does not subtract a resident cube (code review, owner card).
 - Polish batch from the combined drive (2026-10-01, `archive/v4/drive-combined-2026-10-01.md`), for Slot 4½: the Preprocess save panel
