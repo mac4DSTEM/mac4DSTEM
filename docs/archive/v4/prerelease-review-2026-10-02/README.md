@@ -87,3 +87,19 @@ W1 c (leave the website as is) · R3 a (make CI honest) · D1 c (leave the silen
 
 Counts are from each lane's own gate (its base commit differs as lanes landed); the release's `run-tests.sh all` on one commit is
 the gate that covers them together.
+
+## Release cut and the stopped gate
+
+The cut is `7ee4419f` (4.1.0 / 8; the v4.1.0 CHANGELOG section, README, CITATION, releasing.md). `run-tests.sh all` on it, on a clean
+tree, ran unit 1570 / 0 / 3 = 1573 (reconciled with 1573 `func test`) and the first 32 scientific harnesses with zero FAIL lines, and
+was stopped at the owner's word inside `datacube-discovery-test` — not a complete gate. Lane K's isolated gate had run all 53
+scientific harnesses with zero FAIL on code identical to the cut (it differs only in version numbers and docs). One complete `all` on
+the commit the release is built from is owed before the Developer ID archive.
+
+## Not fixed here (registered in `docs/open-items.md`)
+
+The toolbar layout loop (seen once, not reproduced in 12 000 stress cycles; a fix would touch frozen files — no card without a
+reproduction); the shared-by-stem session file (D1 c); stored disks after a relabelling save; quit latency on a stalled volume; the
+⌘R / toolbar predicate copies; iDPC frame; the preview-stride I/O budget and the post-bin "Streamed" figures; d3 (keep-in-memory across
+windows); the β″ CIF picker (to re-test in a drive). Unverified on screen: every refusal and disabled state these lanes added.
+
