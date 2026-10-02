@@ -1,0 +1,5 @@
+root: RealSlice
+node: result_virtual_image_d434323e attrs: {'emd_group_type': 'array', 'mac4dstem_display_name': 'Virtual image', 'mac4dstem_kind': 'virtual_image', 'mac4dstem_pixel_size_column': '0.5', 'mac4dstem_pixel_size_row': '0.25', 'mac4dstem_pixel_units': 'nm', 'mac4dstem_provenance': '{"detector":"annular","display_domain":"scan"}', 'mac4dstem_storage': 'scalar_f32', 'mac4dstem_value_units': 'counts', 'python_class': 'RealSlice'}
+data: [[-1.2499999968440534e-07, 3.5, 1.0000000150474662e+30], [nan, 0.10000000149011612, 7.0]] dim0: [0.   0.25] dim1: [0.  0.5]
+py4DSTEM: RealSlice (2, 3) float32 [[-1.2499999968440534e-07, 3.5, 1.0000000150474662e+30], [nan, 0.10000000149011612, 7.0]]
+dims: [[0, 1], array([0, 1, 2])] (np.str_('pixels'), np.str_('pixels')) ('dim0', 'dim1')

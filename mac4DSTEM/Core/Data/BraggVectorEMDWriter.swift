@@ -896,6 +896,24 @@ package nonisolated enum BraggVectorEMDWriter {
         return try readRGBAResultMap(nodeName: id, from: root, hdf5: h5)
     }
 
+    /// Read one field back from a file `writeScientificBundle` wrote (the per-product data export
+    /// reads through this in its test). Reuses the sidecar's own node reader, so the values, units,
+    /// pixel sizes and provenance come back exactly as the session reader would give them.
+    package static func loadScientificBundleField(
+        kind: String, from url: URL
+    ) throws -> ScalarResultMap? {
+        HDF5Serial.acquire(); defer { HDF5Serial.release() }
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let h5 = try HDF5WriteLibrary.load()
+        let fileID = url.path.withCString { h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty) }
+        guard fileID >= 0 else { throw hdf5Failure("opening the bundle file", h5) }
+        defer { _ = h5.h5fclose(fileID) }
+        let root = "scientific_bundle_root".withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
+        guard root >= 0 else { throw hdf5Failure("opening the bundle root", h5) }
+        defer { _ = h5.h5gclose(root) }
+        return try readResultMap(nodeName: resultNodeName(forKind: kind), from: root, hdf5: h5)
+    }
+
     /// The hand-clicked disk-centre labels JSON (C7 session 4), or nil when
     /// the sidecar carries none — a missing file, a file with no such
     /// attribute, and a file that predates this feature all read as nil, the

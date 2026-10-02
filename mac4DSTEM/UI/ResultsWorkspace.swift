@@ -83,6 +83,18 @@ struct ResultsWorkspace: View {
             }
             .buttonStyle(.bordered)
             .accessibilityIdentifier("result.exportPNG")
+            // Owner card S8 (b): the float map behind the view, as an EMD RealSlice .h5.
+            Button {
+                appState.exportProductData()
+            } label: {
+                Label("Export Data…", systemImage: "tablecells")
+            }
+            .buttonStyle(.bordered)
+            .disabled(appState.isBusy || appState.resultPresentation.resultImage == nil)
+            .help(appState.productIsColourImageOnly
+                  ? "This view is a colour image; export the scalar maps it is made from"
+                  : "Save the numbers behind this view as an HDF5 (EMD) file")
+            .accessibilityIdentifier("result.exportData")
             // The bundle is a strain/orientation artefact: offered only when
             // one of those maps exists, exactly as before.
             if appState.strain.map != nil || appState.acomSession.hasOrientationMap {
