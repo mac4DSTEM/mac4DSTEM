@@ -364,7 +364,18 @@ package actor FourDArray {
     /// keep total staging within the prior single-tile quarter-of-working-set
     /// bound. `maximumRows` lets parity tests force tiny tiles.
     package func scanTileRows(maximumRows: Int? = nil) -> Int {
-        let bytesPerRow = descriptor.rx * descriptor.qy * descriptor.qx
+        // The READ extent, not the view's: H5's hyperslab and scan-fastest
+        // DM4's gather allocate the whole tile at the pre-bin detector size
+        // before `LoadView.binned` reduces it, so sizing from the binned
+        // descriptor let that transient reach bin² × the budget (16× at bin 4,
+        // the whole cube at bin 8 on an 8 GB Mac; pre-release review d1,
+        // 2026-10-02). For bin 1 the read extent IS the view's, so bin-1 tiles
+        // — and every number computed over them — are unchanged. For bin b it
+        // divides the rows by b², which regroups the cross-tile reducers
+        // (mean pattern, diffraction sum, embedding) in their low bits.
+        let readHeight = view.readDetectorCrop?.height ?? view.source.qy
+        let readWidth = view.readDetectorCrop?.width ?? view.source.qx
+        let bytesPerRow = descriptor.rx * readHeight * readWidth
             * MemoryLayout<Float>.stride
         // TWO bounds, and the host one was missing until v2 S9a.
         //

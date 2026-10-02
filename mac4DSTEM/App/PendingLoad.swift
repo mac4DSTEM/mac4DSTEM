@@ -118,6 +118,17 @@ final class PendingLoad: Identifiable {
         )
     }
 
+    /// Which ceiling refused the switch, from the same machine numbers as
+    /// `keepInMemoryDecision` (nil when it is not refused, or the size is unknown).
+    var keepInMemoryRefusalBound: KeepInMemoryDecision.Bound? {
+        guard let bytes = loadedByteCount else { return nil }
+        return KeepInMemoryDecision.refusingBound(
+            cubeBytes: bytes,
+            limitBytes: UInt64(MetalEngine.shared.device.recommendedMaxWorkingSetSize),
+            maxBufferBytes: UInt64(MetalEngine.shared.device.maxBufferLength)
+        )
+    }
+
     /// The switch as it takes effect: a selection the sheet refuses never
     /// requests residency, whatever the stored flag says (a crop that grew
     /// back over the limit after the switch was set).
@@ -425,9 +436,41 @@ enum KeepInMemoryDecision: Equatable {
     static func decide(
         cubeBytes: Int, limitBytes: UInt64, maxBufferBytes: UInt64, physicalMemory: UInt64
     ) -> KeepInMemoryDecision {
-        let bytes = UInt64(max(0, cubeBytes))
-        if bytes > min(limitBytes, maxBufferBytes) { return .refused }
-        if Double(bytes) > warnFractionOfRAM * Double(physicalMemory) { return .warn }
+        if refusingBound(cubeBytes: cubeBytes, limitBytes: limitBytes,
+                         maxBufferBytes: maxBufferBytes) != nil { return .refused }
+        if Double(max(0, cubeBytes)) > warnFractionOfRAM * Double(physicalMemory) { return .warn }
         return .fits
+    }
+
+    /// The ceiling a refusal is against, with its value, so the caption names
+    /// the number the user must crop or bin under — not the working set when
+    /// the single-buffer limit is the smaller one (pre-release review d4:
+    /// 41.7 GB vs 55.7 GB on an M5 Pro).
+    enum Bound: Equatable {
+        case workingSet(UInt64)
+        case singleBuffer(UInt64)
+    }
+
+    /// The smaller of the two ceilings when the cube is above it, else nil.
+    /// `decide` refuses exactly when this is non-nil. A tie names the working set.
+    static func refusingBound(
+        cubeBytes: Int, limitBytes: UInt64, maxBufferBytes: UInt64
+    ) -> Bound? {
+        let bytes = UInt64(max(0, cubeBytes))
+        guard bytes > min(limitBytes, maxBufferBytes) else { return nil }
+        return maxBufferBytes < limitBytes ? .singleBuffer(maxBufferBytes) : .workingSet(limitBytes)
+    }
+
+    /// The switch's caption when refused. `nil` bound: the selection's size is
+    /// not known (an invalid crop), so no limit is claimed.
+    static func refusalCaption(cubeBytes: Int, bound: Bound?) -> String {
+        switch bound {
+        case .workingSet(let limit):
+            "\(displayByteString(cubeBytes)) is above the GPU working-set limit (\(displayByteString(Int(limit)))); Load streams. Crop or bin to enable."
+        case .singleBuffer(let limit):
+            "\(displayByteString(cubeBytes)) is above the largest single GPU buffer (\(displayByteString(Int(limit)))); Load streams. Crop or bin to enable."
+        case nil:
+            "Size unknown; Load streams."
+        }
     }
 }

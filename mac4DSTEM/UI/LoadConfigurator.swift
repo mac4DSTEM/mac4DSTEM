@@ -145,8 +145,9 @@ struct LoadConfigurator: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Keep in memory")
                 Text(decision == .refused
-                     ? "\(displayByteString(cube)) is above the GPU working-set limit; Load streams. Crop or bin to enable."
-                     : "\(displayByteString(cube)) of \(displayByteString(Int(ProcessInfo.processInfo.physicalMemory))) RAM")
+                     ? KeepInMemoryDecision.refusalCaption(cubeBytes: cube,
+                                                           bound: pending.keepInMemoryRefusalBound)
+                     :"\(displayByteString(cube)) of \(displayByteString(Int(ProcessInfo.processInfo.physicalMemory))) RAM")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
