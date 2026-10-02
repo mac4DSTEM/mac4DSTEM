@@ -437,23 +437,25 @@ enum OperationMetricsFormat {
 
     /// The status strip's memory/residency glance (ADR 034): app resident
     /// memory beside whether the open cube is held in memory or streamed —
-    /// "1.4 GB · resident", "612 MB · streaming". One style throughout UI
-    /// (`displayByteString`/`SystemMonitor.byteString` are 1024-based too),
-    /// but this slot is fixed-width and ticks every 2 s, so it takes the raw
-    /// MB figure rather than a pre-formatted string, the same shape as
-    /// `duration`/`throughput` above.
+    /// "1.4 GB · resident", "612 MB · streaming". One style throughout UI:
+    /// Finder's decimal one (1000-based, `displayByteString`), so this reads
+    /// the same as the sidebar's "Resident". The caller passes DECIMAL
+    /// megabytes (10^6 bytes; `SystemMonitor.residentMemoryMB()` is MiB, so
+    /// it converts at the call site). This slot is fixed-width and ticks every
+    /// 2 s, so it takes the raw MB figure rather than a pre-formatted string,
+    /// the same shape as `duration`/`throughput` above.
     static func glance(residentMB: Double, residency isResident: Bool) -> String {
         let value: String
         // GB before MB, TB before GB: `>=`, not `>`, at each boundary — a
         // dataset that lands EXACTLY on 1 GB or 1 TB reads in the coarser
-        // unit rather than as "1024.0 MB"/"1024.0 GB". The TB branch exists
+        // unit rather than as "1000.0 MB"/"1000.0 GB". The TB branch exists
         // because the GB-only formatter used to read a two-terabyte cube as
-        // "2048.0 GB" — a number no reader parses at a glance the way "2.0
+        // "2000.0 GB" — a number no reader parses at a glance the way "2.0
         // TB" does.
-        if residentMB >= 1024 * 1024 {
-            value = String(format: "%.1f TB", residentMB / (1024 * 1024))
-        } else if residentMB >= 1024 {
-            value = String(format: "%.1f GB", residentMB / 1024)
+        if residentMB >= 1000 * 1000 {
+            value = String(format: "%.1f TB", residentMB / (1000 * 1000))
+        } else if residentMB >= 1000 {
+            value = String(format: "%.1f GB", residentMB / 1000)
         } else {
             value = String(format: "%.0f MB", residentMB)
         }

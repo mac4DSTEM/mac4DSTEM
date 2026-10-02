@@ -308,7 +308,11 @@ struct PrimaryActionButton: View {
             default: nil
             }
         case .reconstruct:
-            if appState.navigation.analysisMode == .dpc { "Run DPC" }
+            if appState.navigation.analysisMode == .dpc {
+                // S7(a): once a DPC step is in the replay record (the same
+                // test the sidebar's task checkmark uses) the verb is "Re-run".
+                Self.dpcActionTitle(hasRun: appState.replay.record.steps.contains { $0.kind == "dpc" })
+            }
             else if appState.navigation.analysisMode == .singleslicePtychography { "Reconstruct Object" }
             else if appState.phaseContrast.parallaxPreprocess == nil { "Prepare Preview" }
             else if appState.phaseContrast.parallaxAlignment?.isComplete != true { "Align Next Level" }
@@ -324,6 +328,8 @@ struct PrimaryActionButton: View {
             nil
         }
     }
+
+    static func dpcActionTitle(hasRun: Bool) -> String { hasRun ? "Re-run DPC" : "Run DPC" }
 
     private var primaryActionHint: String {
         switch appState.navigation.workspaceArea {
@@ -742,7 +748,7 @@ struct StatusBar: View {
             Label {
                 Text(OperationMetricsFormat.glance(
                     engine: SystemMonitor.gpuName,
-                    residentMB: SystemMonitor.residentMemoryMB(),
+                    residentMB: SystemMonitor.residentMemoryMB() * 1.048576,
                     residency: appState.residency.isResident
                 ))
             } icon: {

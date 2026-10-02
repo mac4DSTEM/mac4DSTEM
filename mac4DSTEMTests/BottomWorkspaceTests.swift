@@ -212,7 +212,7 @@ final class BottomWorkspaceTests: XCTestCase {
     /// "2048.0 GB"; the TB branch (G6c) reads it in terabytes instead.
     func testGlanceNamesMultiTerabyteMemoryInTerabytes() {
         XCTAssertEqual(
-            OperationMetricsFormat.glance(residentMB: 2 * 1024 * 1024, residency: true),
+            OperationMetricsFormat.glance(residentMB: 2_000_000, residency: true),   // decimal MB since S7 (Finder's base)
             "2.0 TB · resident")
     }
 }

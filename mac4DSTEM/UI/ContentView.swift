@@ -393,6 +393,6 @@ enum ToolbarDisplayFormat {
     /// "Demo.h5 · Prepare · 144 positions" — the file first (it is the
     /// window's subject), the room, then the scan size.
     static func idle(file: String, room: String, positions: Int) -> String {
-        "\(file) · \(room) · \(SystemMonitor.count(positions)) positions"
+        "\(file) · \(room) · \(SystemMonitor.count(positions)) \(positions == 1 ? "position" : "positions")"
     }
 }
