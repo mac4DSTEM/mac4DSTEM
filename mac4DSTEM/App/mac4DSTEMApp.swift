@@ -76,6 +76,10 @@ private struct DatasetWindow: View {
         // reaching HDF5 twice.
         // UNVERIFIED ON SCREEN: not yet driven from Finder.
         .onOpenURL { appState.openFile(url: $0) }
+        // Review a6 / owner card D2 (a): a closed window lets go of its dataset at once, even if something still
+        // retains its state; a window that appears again is known again (`OpenDatasetRegistry`).
+        .onAppear { appState.enrollInOpenDatasetRegistry() }
+        .onDisappear { OpenDatasetRegistry.withdraw(appState) }
         .frame(minWidth: LayoutPolicy.datasetWindowMinimumSize.width,
                minHeight: LayoutPolicy.datasetWindowMinimumSize.height)
         .task {

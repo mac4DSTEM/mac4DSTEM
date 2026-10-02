@@ -17,7 +17,16 @@ extension AppState {
     /// sheet's (X3): the previews and crop are the configurator's, the file
     /// written is a reduced copy instead of a load.
     func openFileForConfiguration(url: URL, preprocess: Bool = false) {
+        // Review a6 / owner card D2 (a): a dataset another window holds is refused before this window changes, and
+        // the open claims its file while in flight. A Preprocess source is only read — never a session, never its
+        // sidecar — so it is neither refused nor claimed.
+        if !preprocess, let refusal = OpenDatasetRegistry.refusal(opening: url, by: self) {
+            present(SimpleError(refusal))
+            return
+        }
+        if !preprocess { OpenDatasetRegistry.beginOpening(url, by: self) }
         Task {
+            defer { if !preprocess { OpenDatasetRegistry.endOpening(url, by: self) } }
             let load = beginDatasetLoading("Opening \(url.lastPathComponent)…")
             defer { finishDatasetLoading(owner: load) }
             let accessed = url.startAccessingSecurityScopedResource()
@@ -28,6 +37,14 @@ extension AppState {
                 guard source.is4D else {
                     if accessed { url.stopAccessingSecurityScopedResource() }
                     present(H5Error.unsupportedRank(source.shape.count))
+                    return
+                }
+                // Asked again by the dataset's own file: a reader can resolve another one (an EMPAD .xml names its .raw).
+                if !preprocess, let refusal = OpenDatasetRegistry.refusal(
+                    opening: URL(fileURLWithPath: source.filePath), by: self
+                ) {
+                    if accessed { url.stopAccessingSecurityScopedResource() }
+                    present(SimpleError(refusal))
                     return
                 }
                 if datasetSession.loadWasCancelled {
@@ -276,7 +293,33 @@ extension AppState {
         statusText = "Error: \(Self.errorDetail(error))"
     }
 
+    /// The dataset files this window holds, for `OpenDatasetRegistry` (review a6, owner card D2 a): the loaded dataset,
+    /// and an Open with Options… waiting in the configurator (the file picked and the file its reader resolved). A
+    /// Preprocess source is only read, never a session, so it holds nothing.
+    var heldDatasetFilePaths: [String] {
+        var paths = descriptor.map { [$0.filePath] } ?? []
+        if let pending = promotionRun.pendingLoad, pending.preprocess == nil {
+            paths += [pending.url.path, pending.source.filePath]
+        }
+        return paths
+    }
+
+    /// Enrols this window's state graph, weakly, with the process's open-dataset registry — from `init`, and again
+    /// when its window reappears (the window withdraws it on close). Nothing is stored on AppState for it.
+    func enrollInOpenDatasetRegistry() {
+        OpenDatasetRegistry.enroll(self) { [weak self] in self?.heldDatasetFilePaths ?? [] }
+    }
+
     func openFileAsync(url: URL) async {
+        // Review a6 / owner card D2 (a): one dataset, one window — the two windows' saves would replace each other's
+        // session sidecar. Refused before anything of this window changes; this window's own dataset (a reopen,
+        // Open with Options…) is never refused. The open claims its file while in flight (`OpenDatasetRegistry`).
+        if let refusal = OpenDatasetRegistry.refusal(opening: url, by: self) {
+            present(SimpleError(refusal))
+            return
+        }
+        OpenDatasetRegistry.beginOpening(url, by: self)
+        defer { OpenDatasetRegistry.endOpening(url, by: self) }
         let load = beginDatasetLoading("Opening \(url.lastPathComponent)…")
         errorMessage = nil
         defer { finishDatasetLoading(owner: load) }
@@ -292,6 +335,14 @@ extension AppState {
                 // The scope is this call's own, released whoever owns the reset.
                 if accessed { url.stopAccessingSecurityScopedResource() }
                 finishDatasetLoading(owner: load)
+                return
+            }
+            // Asked again by the dataset's own file, before the current dataset is released: a reader can resolve
+            // another one (an EMPAD .xml names its .raw).
+            if let refusal = OpenDatasetRegistry.refusal(opening: URL(fileURLWithPath: descriptor.filePath), by: self) {
+                if accessed { url.stopAccessingSecurityScopedResource() }
+                finishDatasetLoading(owner: load)
+                present(SimpleError(refusal))
                 return
             }
             if let previousOpenURL {

@@ -184,8 +184,15 @@ package final class SessionGates {
     /// only reopening the dataset with its recorded view restored (or
     /// knowably absent) does. No override is offered; the refusal rule says
     /// precision explains a rejection, it never grants an admission.
-    package func sidecarRewriteRefusal() -> String? {
-        guard let failure = sidecarRestoreFailure else { return nil }
+    ///
+    /// Review a5 / owner card D3 (a), 2026-10-02: with the recorded view
+    /// restored, a rewrite is still refused while the sidecar holds results
+    /// computed on ANOTHER view than the loaded one (after Promote, or a
+    /// differently configured open) — see `carriedViewRefusal`.
+    /// `removingKind` names a removal: it is the remedy, allowed when it takes
+    /// out the last such result.
+    package func sidecarRewriteRefusal(removingKind: String? = nil) -> String? {
+        guard let failure = sidecarRestoreFailure else { return carriedViewRefusal(removingKind: removingKind) }
         let remedy: String
         switch failure.kind {
         case .unreadable:
@@ -214,13 +221,97 @@ package final class SessionGates {
             + "it already holds. " + remedy
     }
 
-    /// C4(a): the ONE property every save/remove control that rewrites the
-    /// session sidecar binds `.disabled` to, alongside its own check that the
+    /// C4(a): the ONE property every save control that rewrites the session
+    /// sidecar binds `.disabled` to (a Remove control binds
+    /// `mayRemoveFromSidecar(kind:)`, the same gate), alongside its own check that the
     /// thing it would save actually exists. Before this, "Save to Results"
     /// and the two Remove controls were `.disabled(appState.isBusy)` only —
     /// enabled, then refusing through a modal after the click — while Info
     /// already told the user saving was disabled (§4 finding 2).
     package var mayWriteSidecar: Bool { sidecarRewriteRefusal() == nil }
+
+    /// What a saved result's Remove control binds (review a5 / owner card D3 a):
+    /// the same gate, asked for the removal it is — removing the last result
+    /// saved on another view is the remedy the save refusal names, so it must
+    /// stay enabled where saving is not.
+    package func mayRemoveFromSidecar(kind: String) -> Bool {
+        sidecarRewriteRefusal(removingKind: kind) == nil
+    }
+
+    // MARK: - Would a rewrite relabel results saved on another view?
+
+    /// What the rewrite gate reads about the open session. AppState owns all
+    /// three facts and hands them over through `sessionView`.
+    package struct SessionView: Equatable {
+        package struct SavedResult: Equatable {
+            package var kind: String
+            package var name: String
+            package nonisolated init(kind: String, name: String) {
+                self.kind = kind
+                self.name = name
+            }
+        }
+        /// The view the session sidecar records (`.fullExtent` included); nil
+        /// when there is no sidecar, or it predates recorded views.
+        package var recorded: LoadSpecification?
+        package var loaded: LoadSpecification
+        /// Every result node the sidecar holds.
+        package var savedResults: [SavedResult]
+
+        package nonisolated init(recorded: LoadSpecification?, loaded: LoadSpecification, savedResults: [SavedResult]) {
+            self.recorded = recorded
+            self.loaded = loaded
+            self.savedResults = savedResults
+        }
+    }
+
+    /// Installed once by the owner of the facts (`AppState.init`, the same hook
+    /// shape as its other seams). Nil — a bare `SessionGates`, as in most tests —
+    /// asks nothing.
+    @ObservationIgnored package var sessionView: (@MainActor () -> SessionView?)?
+
+    private func carriedViewRefusal(removingKind: String?) -> String? {
+        sessionView?().flatMap { Self.carriedViewRefusal($0, removingKind: removingKind) }
+    }
+
+    /// Why a rewrite would relabel results saved on another view, or nil.
+    ///
+    /// Every rewrite restates the LOADED view for the whole file, while each
+    /// result node keeps no view of its own: after Promote, Save to Results
+    /// copied the rehearsal's results verbatim under the full-extent label, and
+    /// the next reopen read them as full-scan (review a5). The invariant kept:
+    /// every result in the sidecar was computed on the view it records. So a
+    /// rewrite is allowed when the recorded view IS the loaded one, or when it
+    /// leaves no result from the recorded view behind — a save when none is held,
+    /// a removal when it removes the last. A removal of one of several would
+    /// relabel the rest, so it is refused too (both directions: a rehearsal
+    /// view of a dataset holding full-extent results refuses the same way).
+    /// Stored disks are not counted: their restore refuses a view or shape that
+    /// differs (`SessionPeakRestore`).
+    package static func carriedViewRefusal(_ view: SessionView, removingKind: String? = nil) -> String? {
+        guard let recorded = view.recorded, recorded != view.loaded else { return nil }
+        let carried = view.savedResults
+        let left = removingKind.map { kind in carried.filter { $0.kind != kind } } ?? carried
+        guard !left.isEmpty else { return nil }
+        let views = "saved: \(recorded.provenanceSummary ?? "whole file") · "
+            + "loaded: \(view.loaded.provenanceSummary ?? "whole file")"
+        let reopen = "Reopen the dataset — a plain open restores the saved view —"
+        if let kind = removingKind {
+            let name = carried.first { $0.kind == kind }?.name ?? kind
+            let others = left.count == 1 ? "the other result" : "the \(left.count) other results"
+            return "Removing “\(name)” rewrites the session sidecar as the loaded view, which would relabel "
+                + "\(others) computed on another view of this file (\(views)). \(reopen) and remove them there."
+        }
+        if carried.count == 1 {
+            let name = carried[0].name
+            return "The session sidecar holds “\(name)”, computed on another view of this file (\(views)). "
+                + "Saving now would relabel it as computed on the loaded view. "
+                + "\(reopen) and save there, or remove “\(name)” in Results first."
+        }
+        return "The session sidecar holds \(carried.count) results computed on another view of this file "
+            + "(\(views)). Saving now would relabel them as computed on the loaded view. "
+            + "\(reopen) and save or remove them there."
+    }
 
     // MARK: - May a compute failure stay on the status bar, or does it escalate?
 

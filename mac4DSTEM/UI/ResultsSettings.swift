@@ -106,8 +106,9 @@ struct ResultsSettings: View {
                                      role: .destructive) {
                 pendingResultRemoval = result
             }
-            // C4(a): removal rebuilds the sidecar too — same gate as the saves.
-            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
+            // C4(a): removal rebuilds the sidecar too — same gate as the saves, asked for this removal (review a5:
+            // removing the last result saved on another view stays possible, it is the remedy).
+            .disabled(appState.isBusy || !appState.gates.mayRemoveFromSidecar(kind: result.kind))
             .accessibilityLabel("Remove \(result.displayName)")
         }
     }

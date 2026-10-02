@@ -218,6 +218,17 @@ final class AppState {
             _ = self?.applyDPCDisplay()
         }
         detectorTraining.install(in: learnedDetection)
+        // Review a5 / owner card D3 (a): the sidecar-rewrite gate asks which view the sidecar records, which view is
+        // loaded and what the sidecar holds — this object's facts, read live, the same hook shape as the seams above.
+        gates.sessionView = { [weak self] in
+            guard let self else { return nil }
+            return SessionGates.SessionView(
+                recorded: sessionLoadSpecification, loaded: loadedView.specification,
+                savedResults: sessionInventory.results.map { .init(kind: $0.kind, name: $0.displayName) }
+            )
+        }
+        // Review a6 / owner card D2 (a): every window's state is known, weakly, to the open-dataset registry.
+        enrollInOpenDatasetRegistry()
     }
 
     /// A private, uniquely named `UserDefaults` suite for `init`'s

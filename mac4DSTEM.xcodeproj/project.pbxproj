@@ -145,6 +145,7 @@
 				Session/LoadedView.swift,
 				Session/MaterialsProjectKeyStore.swift,
 				Session/MaterialsProjectSettings.swift,
+				Session/OpenDatasetRegistry.swift,
 				Session/OperationCenter.swift,
 				Session/PhaseContrastProduct.swift,
 				Session/PhaseMapObjectsBridge.swift,

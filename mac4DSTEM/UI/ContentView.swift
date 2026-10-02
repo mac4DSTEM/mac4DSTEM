@@ -111,10 +111,6 @@ struct ContentView: View {
             )
         ) {
             Button("Copy Details") { copyToPasteboard(appState.errorMessage ?? "") }
-            Button("Open Another…") {
-                appState.errorMessage = nil
-                appState.requestOpenDataset()
-            }
             Button("OK", role: .cancel) { appState.errorMessage = nil }
         } message: {
             Text(appState.errorMessage ?? "")

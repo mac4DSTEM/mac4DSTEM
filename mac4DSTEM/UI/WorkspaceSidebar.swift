@@ -298,8 +298,11 @@ struct SessionSection: View {
                     identifier: "sidebar.session.doesNotFit")
         } else if let recorded = appState.sessionLoadSpecification,
                   recorded != appState.loadedView.specification {
+            // When saving is refused because of it (owner card D3 a), the refusal and its remedy are the detail —
+            // the disabled Save controls themselves carry no reason (review lane I refuter, 2026-10-02).
             warning("The saved session was computed on a different view of this file.",
-                    detail: "Session: \(recorded.provenanceSummary ?? "whole file") · "
+                    detail: appState.gates.sidecarRewriteRefusal()
+                        ?? "Session: \(recorded.provenanceSummary ?? "whole file") · "
                         + "loaded: \(appState.loadedView.specification.provenanceSummary ?? "whole file")",
                     identifier: "sidebar.session.provenanceMismatch")
         }
@@ -440,8 +443,9 @@ struct SessionSection: View {
             } label: {
                 Label("Remove \(result.displayName)", systemImage: "trash")
             }
-            // C4(a): removal rebuilds the sidecar too — same gate as the saves.
-            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
+            // C4(a): removal rebuilds the sidecar too — same gate as the saves, asked for this removal (review a5:
+            // removing the last result saved on another view stays possible, it is the remedy).
+            .disabled(appState.isBusy || !appState.gates.mayRemoveFromSidecar(kind: result.kind))
         }
         .accessibilityIdentifier("sidebar.session.result")
     }

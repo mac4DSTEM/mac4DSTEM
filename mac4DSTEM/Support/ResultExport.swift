@@ -761,6 +761,7 @@ extension AppState {
                 self.reportLineageOmission()
                 guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 self.sessionSidecar.noteWritten()
+                self.sessionLoadSpecification = specification   // the file now records this view (review a5)
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
                     self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
                 }
@@ -977,8 +978,9 @@ extension AppState {
     func removeSavedSessionResult(_ saved: SessionResultDescriptor) async {
         guard let descriptor else { return }
         // Removal rebuilds the file, so it is a rewrite too — same gate as
-        // the two save paths. // v2 S7
-        if let refusal = gates.sidecarRewriteRefusal() {
+        // the two save paths, asked for the removal it is: removing the last
+        // result saved on another view is allowed (review a5). // v2 S7
+        if let refusal = gates.sidecarRewriteRefusal(removingKind: saved.kind) {
             present(SimpleError(refusal))
             return
         }
@@ -1005,6 +1007,7 @@ extension AppState {
             reportLineageOmission()
             guard isCurrentOperation(token), epoch == datasetSession.epoch else { return }
             sessionSidecar.noteWritten()
+            sessionLoadSpecification = specification   // the file now records this view (review a5)
             let inventory = try await Task.detached(priority: .utility) {
                 try BraggVectorEMDWriter.loadInventory(from: url)
             }.value
@@ -1254,6 +1257,7 @@ extension AppState {
                 self.reportLineageOmission()
                 guard self.isCurrentOperation(token), self.datasetSession.epoch == epoch else { return }
                 self.sessionSidecar.noteWritten()
+                self.sessionLoadSpecification = specification   // the file now records this view (review a5)
                 let inventoryRefreshError = await self.refreshSessionInventory(from: url) {
                     self.isCurrentOperation(token) && self.datasetSession.epoch == epoch
                 }
