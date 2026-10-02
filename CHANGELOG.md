@@ -1,5 +1,101 @@
 # Changelog
 
+## v4.1.0 — 2026-10-02
+
+**Requires macOS 27 on Apple Silicon**, as v4.0.0. This release finishes and removes more than it adds: the workspaces follow the data, the loose ends of v4.0.0 are closed, and several numbers moved (see "Science changes"). Every item passed the unit, core and inventory gates; "unverified on screen" means exactly that. Anything labelled unvalidated has not passed on a dataset with truth.
+
+### Workspaces and data
+
+- **Workspaces follow the data:** Prepare · Imaging · Bragg Disks · Crystal Maps · Reconstruction · Results.
+- **Preprocess Raw Data… (File menu).** One sheet for a raw file or the open view: scan stride, detector crop and a port of py4DSTEM's hot-pixel filter, matched against py4DSTEM's own chain on one test cube. It refuses to write over the source, a link to it, or its sidecar.
+- **Keep in memory** switch in the load configurator. The phase-contrast memory budget is the larger of 1 GiB and half the RAM minus the resident cube.
+- **Results › Export Data…** writes the scalar product as an EMD RealSlice `.h5`.
+- **Detected Bragg disks are restored** from the session sidecar. **Allow Access…** grants a sidecar the sandbox refused.
+- **Lineage:** products name the run that made them, go stale when off the active path, and **Rewind to Here** restores a run's settings and marks later results stale. A calibration change marks strain, ACOM, phase and DPC results stale.
+- DM4 files are memory-mapped on every local volume.
+
+### Bragg disks
+
+- **On-device training (MPSGraph).** Train a disk detector in the app; **Import Labels…** and **Export Labels…** (a Save panel). The Train Model… flow is unverified on screen.
+- **The learned detector is back on the Neural Engine.** On a Mac without one it refuses rather than run elsewhere.
+- Manual detector-ellipse field (a, b, θ). Ring-probe hint "Use N px". Origin-trim wash in Prepare.
+
+### Crystal maps
+
+- **ACOM mirror pass** (py4DSTEM's inversion symmetry) with a Mirrored Yes/No readout (unverified on screen for a mirrored pixel) and a note saying the in-plane angle is relative to the matched template.
+- **Phase mapping** (unvalidated): claimed-disks overlay, Al-Mg-Si preset (the β″ preset rows and legend unverified on screen), per-phase excitation slab, one structure at two zone axes, a known-variants evidence guard and precipitate objects.
+- Add Phase marks an already-added CIF "(another zone axis)".
+
+### Reconstruction
+
+- Single-slice ptychography probe takes defocus, C12a/b and the parallax aberration fit, recorded in provenance and restored on replay. The ptychography harness is scored against a known object.
+
+### Science changes (numbers can move)
+
+- **Default disk-detection floor 0.5 % → 0.15 %**, a documented deviation from py4DSTEM (ADR 041).
+- **R–Q rotation is shown and written in py4DSTEM's convention** (ADR 040). Exports made before 2026-09-28 say the sign is unrecorded.
+- **Areal precipitate density is edge-corrected** (Miles–Lantuéjoul, ADR 045). The map is unvalidated.
+- Parallax: the bin schedule repeats the finest bin; the aligned-BF vignette is fixed; the stack mean is summed in Double. Ptychography re-centres on the fitted origin, clamps |O| ≤ 1 by default, and loses its difference map and "Take higher-order terms".
+- Strain: a circle ROI is centred; empty positions are out of the median; non-finite pixels are filled; central-beam-only positions no longer enter the strain basis.
+- Learned detector above 256 px: seam margins and one dose scale. Odd-N DFT upsampling wrap fixed. Bin-2 aperture default.
+- Virtual detector presets: BF 0…r and ADF 3r–6r from the measured beam (ADF unverified on screen).
+- CIF import refuses a short symmetry list and a multi-structure file.
+- Number entry: a period is no longer a thousands separator in comma locales.
+
+### Fixes
+
+- A launch crash at a 915-pt window and an abort when opening the then AI Analysis room. Disk-detection GPU memory is flat per tile. A bf16 pooling crash on M5 and a training step-loop leak.
+- Stale maps are no longer shown under another room's label (unverified on screen).
+- Graphene real-space preview no longer black; parallax and ptychography colour maps.
+- The strain line reads "Components along detector x/y — R–Q rotation not calibrated".
+- Three code-review rounds: replay provenance, Q unit guard, label-import checks, two-window and candidate data safety, sidecar attribute guard, cancel token, reopen.
+- Wording and accessibility-label polish across the rooms.
+
+### Found by the pre-release review (2026-10-02)
+
+A whole-app review before this release (six independent reviewers, each finding checked by a second model;
+`docs/archive/v4/prerelease-review-2026-10-02/`) found these, all fixed with a test that fails without the fix:
+
+- **Your data.** The dataset itself could be chosen as the destination of a first session save, Change Session
+  Sidecar… or Export Bundle and be replaced; it is now refused. A session file that HDF5 could not open (for example
+  held open by HDFView) was replaced by an empty one; it is now an error. Hand-clicked labels that were not restored
+  on reopen are kept through the next save. Opening another dataset while a session save runs is refused. A dataset
+  already open in another window is not opened twice (owner's choice), and a save that would relabel results computed
+  on another view is refused (owner's choice).
+- **Results in the right place.** A Bragg vector map, diffraction-groups or phase map that finished after a room switch
+  was labelled and saved with that room's frame and units; a probe kernel built for one dataset could land on the next
+  and crash. A saved map whose shape does not fit the opened view is no longer restored onto it.
+- **Memory.** A binned view read up to bin² more than its memory budget (16× at bin 4) in every streaming pass, the virtual image and parallax preprocessing included. On binned views the mean
+  pattern can differ from 4.0 in its last float32 bits (up to ~1e-6 relative, one cube measured); the max pattern and
+  every unbinned view are bit-identical. The phase-contrast budget now counts stages already held.
+- **Science display.** The ptychography seed line printed the R–Q rotation in the opposite sign to Prepare; both now use
+  py4DSTEM's sign (measured against py4DSTEM). An exported PNG of an unvalidated product says UNVALIDATED on its face;
+  DPC exports name their frame.
+- **First run.** ⌘R did nothing in some rooms without saying why; Add Phase could add the wrong phase after a refused
+  CIF; an offline Materials Project fetch printed a raw error dump; the error alert's "Open Another…" (which replaced the
+  open dataset) is gone; Settings' unused "Log verbosity" is gone.
+- **Quit.** Quitting while a file read was in progress could crash at quit; quit now waits for the read in flight. Malformed values in a session file are refused by name instead of overrunning memory.
+- **Repository.** SECURITY.md now states the one network request (Materials Project, started by you); CI says what it runs.
+
+### Removed
+
+- The Settings engine picker, the unwired image-segmentation path, the ptychography difference map and the higher-order toggle.
+
+### Known limitations
+
+- **Phase mapping and everything derived from it are unvalidated.** The first scored run failed one metric (θ′ edge-on speckle 7, bar 5); the quantity ships, not a verdict (ADR 048).
+- Known-crystal Q reads the (200) ring as (111) on an Al [001] majority, 12.5–13.5 % low; the shell ratio is shown beside it.
+- ACOM's in-plane map mixes the mirrored +π convention; the export has no per-pixel flag.
+- A crash right after Compute Strain was seen once (a layout loop inside the toolbar) and not reproduced in 12,000 stress cycles; the cause is not established.
+- `scan.dm4` and `scan.h5` in one folder share one session file (named from the stem), so opening one can adopt the other's calibration (owner's decision for this release).
+- Unverified on screen: a mirrored ACOM pixel, the β″ preset rows and legend, ADF 3r–6r, the room-switch stale-map rule, Train Model….
+- Export Data… dimensions read as pixels in py4DSTEM; the true sampling is in the file's attributes. The Preprocess export writes no accelerating voltage.
+- Annulus with inner radius 0 excludes the centre pixel; py4DSTEM's convention is unchecked.
+- Quitting waits for a file read in flight: seconds from an internal SSD, longer from a slow external drive.
+- Macs without a Neural Engine cannot run the learned detector. The Neural Engine return was measured on one Mac (M5 Pro, macOS 27.0.1).
+- A Q edit still deletes the ACOM map instead of marking it stale, and Clear Calibration records no calibration node (open-items, 2026-09-30 register residuals).
+- Preprocess deviations from py4DSTEM: the bin sum order is not bit-identical with numpy's float32, and the hot-pixel filter's mean is Double where numpy's is float32.
+
 ## v4.0.0 — 2026-09-23
 
 **Requires macOS 27 on Apple Silicon.** The major version marks the system

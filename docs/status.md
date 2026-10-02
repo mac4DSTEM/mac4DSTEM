@@ -18,18 +18,18 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 Earlier gate rows — the 2026-09-30 evening to 2026-10-01 night rows (new-Mac baseline through X3) are at [`archive/v4/status-history-2026-10-01.md`](archive/v4/status-history-2026-10-01.md); the 2026-09-30 overnight S12–S23 and v4.0.0-cut `all` rows, the 2026-09-30 clearing and S3 rows, the 2026-09-28/29 SSD subsample, stride, areal-edge, T6, raw Al-Mg-Si calibration, Bragg-restore and overnight 09-29 rows are at [`archive/v4/status-history-2026-09-29.md`](archive/v4/status-history-2026-09-29.md); 2026-09-17 through the 2026-09-23 overnight runs — are archived verbatim at [`archive/v4/status-history-2026-09-23.md`](archive/v4/status-history-2026-09-23.md). The 2026-09-23 night to 2026-09-25 rows are at [`archive/v4/status-history-2026-09-28.md`](archive/v4/status-history-2026-09-28.md). The 2026-09-28 morning's DM4, ellipse, clean-up and diffraction-groups rows are there too, and that day's R–Q, parallax, floor, T4, A2 and C2 rows.
 
-## Handoff — 2026-10-02: Slot 4½ (polish) landed and driven; next the full pre-release review, then Slot 5
+## Handoff — 2026-10-02: Slot 4¾ (the whole-app review) landed; v4.1.0 / build 8 cut and gated — yours to notarize, push and tag
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | Slot 4½ done: the ranked drive fixed in 12 gated commits (`ab2bb738`…`7abfe784`), the owner's sheet S1–S8 built (`archive/v4/owner-decisions-2026-10-02.json`), re-driven on graphene, bullseye and the demo cube (`archive/v4/polish-redrive-2026-10-02/`). | Slot 4¾: the full pre-release review. |
-| **Then** | Slot 5 (`all` on one commit, 4.1.0 / build 8, `docs/releasing.md`). | Sessions; the owner the notary password, push, tag. |
-| **Decided today** | S1 b · S2 a · S3 a · S4 a · S5 a · S6 a · S7 a · S8 b (Export Data… — ADR 049 reopened for that one button). | Overrule on sight. |
-| **Yours** | Push; your 66 labels (Export Labels… now opens a Save panel — put them where a session can read them). | Owner. |
-| **Overrule on sight** | ADR 049's freeze list; the refusal (not a CPU fallback) on a machine with no Neural Engine; plan §5 (eight) and the earlier list. | Owner. |
+| **Now** | Slot 4¾ done: 36 findings (35 confirmed by an independent verifier) fixed in 12 gated lanes or decided on your sheet (`archive/v4/prerelease-review-2026-10-02/`); version 4.1.0 / 8, CHANGELOG, README and CITATION in the commit that cut it; `run-tests.sh all` on that commit — see the gate table. | Owner: the Slot 5 steps below. |
+| **Slot 5 — yours** | 1. `xcrun notarytool store-credentials mac4dstem-notary` (new app-specific password); 2. in ONE shell: `export DEVELOPER_ID_APPLICATION='Developer ID Application: Paul Lobpreis (3B8SMSSAX4)'`, rename `build/release/mac4DSTEM.xcarchive` to `mac4DSTEM-4.0.0.xcarchive`, `tools/release/build-developer-id.sh`, `NOTARY_PROFILE=mac4dstem-notary tools/release/notarize.sh <app>`, `tools/release/make-dmg.sh <app>`, `notarize.sh <dmg>`; 3. push `main`, tag `v4.1.0`, push the tag; 4. `gh release create v4.1.0` with `mac4DSTEM.dmg` and the versioned DMG; 5. the website, when you choose (W1 c: unchanged today). | Owner (a session can run 2 once 1 is done). |
+| **Decided today** | W1 c · R3 a · D1 c · D2 a · D3 a · U1 b (`archive/v4/owner-decisions-2026-10-02-review.json`). | Overrule on sight. |
+| **Yours** | Your 66 labels; the Impressum and privacy pages (W1, left as is); 33 crash reports from today's probes in `~/Library/Logs/DiagnosticReports` (`probe-2026-10-02-*`, `mac4DSTEM-2026-10-02-171[78]*`) are test artefacts, not app crashes. | Owner. |
+| **Overrule on sight** | ADR 049's freeze list; the refusal (not a CPU fallback) on a machine with no Neural Engine. | Owner. |
 | Phase mapping | Unvalidated. T4 one metric short, shipped as a quantity (ADR 048). | — |
-| **Unverified on screen** | A mirrored pixel's "Mirrored Yes"; the β″ preset rows and the phase-map legend on a run; ADF 3r–6r (the drive's beam was too wide); lane J's room switches. | Slot 4¾ or the owner. |
-| Carried | `open-items.md` (the crash after Compute Strain; Slot 4½ residuals; ACOM residuals i–vi; grain B; Au_ref ring ratio); CI paused (ADR 040). | — |
+| **Unverified on screen** | A mirrored pixel's "Mirrored Yes"; the β″ preset rows, legend and CIF picker; ADF 3r–6r; lane J's room switches; today's refusals (dataset as a save destination, a dataset open in another window, a save after Promote), the disabled saves and the sidebar remedy line; ⌘R's disabling. | A drive of the release build. |
+| Carried | `open-items.md` (the toolbar layout loop seen once, not reproduced in 12 000 stress cycles; the shared-by-stem session file, D1 c; ACOM residuals; review residuals); CI green unproven until pushed (R3). | — |
 
 Text of record for the 2026-09-16/17 handoff: [`archive/v3/status-handoff-2026-09-18.md`](archive/v3/status-handoff-2026-09-18.md); the day's evidence stays in `open-items.md` and `archive/v3/`.
 

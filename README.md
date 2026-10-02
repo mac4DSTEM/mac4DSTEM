@@ -25,22 +25,24 @@ live view, so you see what a choice does while you make it.
 Algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
 gated against it, so results trace back to the reference implementation.
 
-## New in v4.0.0 (2026-09-23)
+## New in v4.1.0 (2026-10-02)
 
-- **Requires macOS 27.** The major version marks the new system requirement;
-  v3.0.0 stays the download for older systems.
-- **A rebuilt interface, on Apple's own design guidance.** One flat inspector
-  for every step — labels on the left, values at the edge, the step's main
-  action in the toolbar; image contrast in each image's own popover; a window
-  that never lets the inspector cover an image.
-- **Calibration foundation.** A beamstop-tolerant origin (py4DSTEM's
-  `get_origin_friedel` and beamstop mask, at ~1e-6 px parity), an origin
-  validity mask, a probe kernel from a separate vacuum scan, and faster
-  Friedel and R–Q solves proven bit-identical to the serial code.
-- **Materials Project import** by mp-id, standardised to the conventional
-  cell, and an **experimental, unvalidated** known-variants phase classifier —
-  labelled unvalidated in the app. Known limitations are at the end of the
-  v4.0.0 notes.
+- **Workspaces that follow the data:** Prepare · Imaging · Bragg Disks · Crystal
+  Maps · Reconstruction · Results. Results › **Export Data…** writes the product
+  on screen as an EMD RealSlice `.h5`.
+- **Preprocess Raw Data…** crops, strides and hot-pixel-filters a raw file (a
+  port of py4DSTEM's filter) without touching the source; **Keep in memory**
+  for cubes that fit.
+- **Train a Bragg-disk detector in the app** (the Train Model… flow is not yet
+  verified on screen) and run the learned detector on the Neural Engine.
+- **ACOM** gains py4DSTEM's mirror pass; a calibration change marks dependent
+  results stale, with **Rewind to Here** in the lineage.
+- **Numbers that moved:** the default disk-detection floor is 0.15 % (a
+  documented deviation from py4DSTEM), the R–Q rotation follows py4DSTEM's sign,
+  and binned views' mean patterns can differ in their last float32 bits.
+- **A whole-app pre-release review** fixed data-safety, memory and wording
+  defects, each with a test. Phase mapping and its precipitate products stay
+  labelled unvalidated; known limitations are at the end of the v4.1.0 notes.
 
 Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 

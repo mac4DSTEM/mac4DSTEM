@@ -83,7 +83,7 @@ W1 c (leave the website as is) · R3 a (make CI honest) · D1 c (leave the silen
 | B | a2 (card D1 c) | `ac22cc97` | not shipped | `../review-sidecar-identity-2026-10-02.patch` + report |
 | L | d1 residual (two sibling formulas) | `81b599cb` | 1554 / 0 / 3 = 1557, scientific zero FAIL | no bit moves |
 | I | a6, a5, e8 (cards D2 a, D3 a, U1 b) | `d212bf88` | 1558 / 0 / 3 = 1561 | |
-| K | the HDF5 quit race (found by the crash diagnosis), three unguarded session readers | pending | | probe 198/200 crashes on HEAD's code → 0/200 |
+| K | the HDF5 quit race (found by the crash diagnosis), three unguarded session readers | `cbb647a4` | 1570 / 0 / 3 = 1573, scientific 53 zero FAIL | probe 198/200 crashes on the old code → 0/200; `../review-k-hdf5-exit-2026-10-02/` |
 
 Counts are from each lane's own gate (its base commit differs as lanes landed); the release's `run-tests.sh all` on one commit is
 the gate that covers them together.

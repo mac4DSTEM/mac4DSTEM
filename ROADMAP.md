@@ -113,8 +113,8 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-02 — Slots 1–4½). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **Slot 4¾ — Full pre-release review** (owner, 2026-10-01): data safety, science claims, concurrency, large cubes, first-run UX, docs; findings fixed or labelled. Start with the unreproduced crash after Compute Strain and the β″ preset picker (`open-items.md`).
-- [ ] **Slot 5 — Z release v4.1.0** (`docs/releasing.md`; the new Mac needs a fresh notary password).
+- [x] **Slot 4¾ — Full pre-release review** (owner, 2026-10-01; done 2026-10-02, `docs/archive/v4/prerelease-review-2026-10-02/`): data safety, science claims, concurrency, large cubes, first-run UX, docs; findings fixed or labelled. Start with the unreproduced crash after Compute Strain and the β″ preset picker (`open-items.md`).
+- [ ] **Slot 5 — Z release v4.1.0** (`docs/releasing.md`; the new Mac needs a fresh notary password). Cut and gated 2026-10-02 (4.1.0 / 8); the owner notarizes, pushes and tags.
 
 ## After v4.1 — frozen until the owner reopens one
 
