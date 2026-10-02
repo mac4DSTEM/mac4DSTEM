@@ -768,7 +768,7 @@ private struct ParallaxAlignmentDetails: View {
         if let fit = appState.phaseContrast.parallaxAberrationFit {
             InspectorValueRow(
                 "Fitted rotation",
-                String(format: "%.2f°", fit.rotationRad * 180 / .pi)
+                RQRotationConvention.degreesText(fit.rotationRad * 180 / .pi, decimals: 2)
             )
             InspectorValueRow("C1", String(format: "%.1f Å", fit.c1Angstrom))
             InspectorValueRow(

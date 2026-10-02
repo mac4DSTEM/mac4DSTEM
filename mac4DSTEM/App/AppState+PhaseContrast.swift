@@ -208,9 +208,9 @@ extension AppState {
             // (py4DSTEM's regularised shifts, parallax.py:1380-1384), so the residual is 0.0000 Å on every dataset - "RMS 0.0000 Å → 0.0000 Å"
             // was a real zero by construction (graphene: 4e-7 Å), a number that cannot move.
             statusText = String(
-                format: "Recursive aberration fit ✓  %d terms · rotation %.2f°",
+                format: "Recursive aberration fit ✓  %d terms · rotation %@",
                 result.terms.count,
-                result.lowOrder.rotationRad * 180 / .pi
+                RQRotationConvention.degreesText(result.lowOrder.rotationRad * 180 / .pi, decimals: 2)
             )
         } catch {
             presentPhaseContrastFailure(error)
@@ -471,12 +471,14 @@ extension AppState {
         let calibrated = calibrationSession.calibration.rotationRad.map { rad -> String in
             let degrees = Double(rad) * 180 / .pi
             let apart = abs((degrees - fitDegrees).truncatingRemainder(dividingBy: 360))
-            return String(format: "%.2f°, %.2f° apart; the sign flips at 180°", degrees, min(apart, 360 - apart))
+            return String(format: "%@, %@ apart; the sign flips at 180°",
+                          RQRotationConvention.degreesText(degrees, decimals: 2),
+                          RQRotationConvention.degreesText(min(apart, 360 - apart), decimals: 2))
         } ?? "not set; the sign holds on the fit's rotation"
         statusText = String(
-            format: "Probe seeded from the parallax fit ✓  defocus %g Å · C12 %g / %g Å · fit rotation %.2f°, calibrated rotation %@",
+            format: "Probe seeded from the parallax fit ✓  defocus %g Å · C12 %g / %g Å · fit rotation %@, calibrated rotation %@",
             ptychography.defocusAngstrom, ptychography.c12aAngstrom, ptychography.c12bAngstrom,
-            fitDegrees, calibrated
+            RQRotationConvention.degreesText(fitDegrees, decimals: 2), calibrated
         )
     }
 
@@ -520,6 +522,8 @@ extension AppState {
         resultPresentation.resultGamma = 1
         resultPresentation.displayRangeLo = 0
         resultPresentation.displayRangeHi = 1
+        // A product names its own colormap: a diverging one left by iDPC or strain turned values near 1 solid red.
+        resultPresentation.resultColormap = product.displayColormap
         publishProduct(kind: kind, displayName: name, valueUnits: units, payload: .scalar(image))
     }
 
@@ -596,5 +600,15 @@ extension PhaseContrastMemoryBudget {
         guard residentCubeBytes > 0, isMemoryRefusal(error) else { return base }
         let cube = ByteCountFormatter.string(fromByteCount: Int64(residentCubeBytes), countStyle: .file)
         return base + " The limit is half of RAM less the \(cube) cube kept in memory."
+    }
+}
+
+extension ParallaxResultProduct {
+    /// Signed phase products read on a diverging map; brightness-like products (bright field, amplitudes) on the sequential one.
+    var displayColormap: ColormapKind {
+        switch self {
+        case .correctedPhase, .depth, .iterativePhase, .iterativeProbePhase: return .rdbu
+        case .preprocess, .alignment, .subpixel, .iterativeAmplitude, .iterativeProbeAmplitude: return .viridis
+        }
     }
 }

@@ -274,14 +274,14 @@ extension AppState {
         return record
     }
 
-    private var publicationCaption: String {
+    var publicationCaption: String {   // internal: PolishATests reads it
         guard let product = displayedProduct else { return currentResultValueUnits }
         var parts = [
             product.domain.rawValue + " space",
             product.quantitativeStatus.rawValue,
         ]
         if let step = product.sampling.column ?? product.sampling.row {
-            parts.append(String(format: "%.5g %@/px", step, product.sampling.units ?? "px"))
+            parts.append(String(format: "%.5g %@/px", step, product.sampling.units.map { CalibrationUnitConversion.displayLabel($0) } ?? "px"))
         }
         // strain_frame and qr_rotation_deg: a strain figure must name the
         // frame ON ITS FACE — the caption is the one carrier that survives a

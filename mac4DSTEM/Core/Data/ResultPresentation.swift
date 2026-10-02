@@ -83,7 +83,9 @@ package nonisolated enum SessionResultPresentation {
         guard let row, let column, row.isFinite, column.isFinite,
               row > 0, column > 0 else { return nil }
         let suffix = (units?.isEmpty == false ? CalibrationUnitConversion.displayLabel(units) : "px") + "/px"
-        return "sampling \(number(row)) × \(number(column)) \(suffix)"
+        // A square pixel reads "5 Å/px", not "5 × 5 Å/px"; unequal steps keep both.
+        let steps = row == column ? number(row) : "\(number(row)) × \(number(column))"
+        return "sampling \(steps) \(suffix)"
     }
 
     package static func provenance(_ values: [String: String], limit: Int = 3) -> String? {

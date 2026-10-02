@@ -58,9 +58,9 @@ final class UnitDisplayLabelTests: XCTestCase {
     /// catches: `sampling` printing the stored spelling.
     func testTheSamplingLineReadsCanonical() {
         XCTAssertEqual(SessionResultPresentation.sampling(row: 0.012, column: 0.012, units: "A^-1"),
-                       "sampling 0.012 × 0.012 Å⁻¹/px")
+                       "sampling 0.012 Å⁻¹/px")
         XCTAssertEqual(SessionResultPresentation.sampling(row: 2, column: 2, units: nil),
-                       "sampling 2 × 2 px/px")
+                       "sampling 2 px/px")
     }
 
     /// The Prepare readiness detail ("From file 0.012 A^-1/px") and the stored
