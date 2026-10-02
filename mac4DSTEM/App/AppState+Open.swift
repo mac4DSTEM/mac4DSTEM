@@ -429,7 +429,7 @@ extension AppState {
             centerX: Float(descriptor.qx) / 2,
             centerY: Float(descriptor.qy) / 2,
             inner: 0,
-            outer: Float(min(descriptor.qx, descriptor.qy)) / 4
+            outer: Float(defaultBrightFieldRadius(qx: descriptor.qx, qy: descriptor.qy))  // one source with the preview's bright-field disk
         )
         if let rawVoltage = await reader.readDoubleAttribute(
             "accelerating_voltage", onObjectPath: "/"

@@ -130,15 +130,15 @@ One line each; full wording as above.
 - Quantitative badge consults no origin gate outside ACOM — stated limitation; Gate D+B owed.
 - Lineage (ROADMAP D closed 2026-09-30): a map restored from the sidecar has no task-row verdict (the rows read in-memory products); a phase map left by a rewind cannot be re-shown from Results.
 - The single-slice ptychography sampling unit prints "A", not "Å" (presentation).
+- Virtual-detector "Annulus" with inner 0 excludes the exact centre pixel (strict r² > rIn²; ≈ 5e-4 of each graphene pattern); the preview's bright-field disk includes it — py4DSTEM's convention unchecked, Gate D before any number moves (lane D refuter, 2026-10-02).
 - **Slot 4½ input** (2026-10-01, `archive/v4/polish-drive-2026-10-01.md`, ranked): the parallax BF preview/aligned panes solid red (diverging map on ≈ 1);
-  the real-space preview black on graphene; Strain's "Quantitative" badge beside an uncalibrated warning; phase-mapping stale map (legend and duplicate names fixed 2026-10-02, B1); BF/ADF presets ignore the measured probe; Results shows no product list or data export; label export silent into the
+  Strain's "Quantitative" badge beside an uncalibrated warning; phase-mapping stale map (legend and duplicate names fixed 2026-10-02, B1); BF/ADF presets ignore the measured probe; Results shows no product list or data export; label export silent into the
   container; stale "Last run" captions and toolbar verbs; clipped text, locale/unit mixes; a window that resized itself. Plus the memory
   budget does not subtract a resident cube (code review, owner card).
 - Polish batch from the combined drive (2026-10-01, `archive/v4/drive-combined-2026-10-01.md`), for Slot 4½: the Preprocess save panel
   defaults to the source folder (owner S6: leave the macOS default); Sampling reads "sampling 5 × 5 Å/px"; ACOM Info shows no mirrored flag.
 - Display residuals after P2 (2026-10-01): the strip's size glance (`LayoutPolicy.glance`, frozen) is 1024-based and its comment
-  wrongly calls `displayByteString` 1024-based; the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube); Info › Preview
-  "Real space" black on graphene (undiagnosed); `ReconstructionSettings`/`AppState+PhaseContrast` angles still print "−0.0°" (adopt `degreesText`).
+  wrongly calls `displayByteString` 1024-based; the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube); `ReconstructionSettings`/`AppState+PhaseContrast` angles still print "−0.0°" (adopt `degreesText`).
 - Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; disk, strain, ACOM and DPC steps still take the current mode's keys] replay, lineage
   rewind and the opening pass publish through `publishProduct`, which keys provenance by `navigation.analysisMode`; the executor
   never switches mode, so a replayed virtual_detector step run under `.disks` carries `source_product=bragg_vector_map` (fixture:

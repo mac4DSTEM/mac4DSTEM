@@ -1,0 +1,10 @@
+/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/a793c03f-7909-4598-93ea-c7d2364a3389/scratchpad/D/repro.py:16: RuntimeWarning: invalid value encountered in divide
+  lo,hi=v.min(),v.max(); n=(v-lo)/(hi-lo)
+stride 4 affordable 1024
+shape (26, 26) min 1.0 max 1.0 nonfinite 0
+pct 1/50/99 [1. 1. 1.]
+hist of normalized (10 bins) [0 0 0 0 0 0 0 0 0 0]
+top5 [1. 1. 1. 1. 1.] bottom5 [1. 1. 1. 1. 1.]
+argmax (np.int64(0), np.int64(0))
+pattern0 min/max/sum 1.8033842377317838e-13 0.0005309641128405929 0.9999999981315602
+ds min/max sampled 1.5575574029846076e-16 0.0005754095618613064

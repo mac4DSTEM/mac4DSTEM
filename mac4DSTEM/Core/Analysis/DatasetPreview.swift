@@ -35,6 +35,10 @@ package nonisolated struct DatasetPreview: Sendable {
     /// grid (NOT the full scan grid). Its dimensions are the sample's, so it
     /// must never be compared pixel-for-pixel with a real virtual image.
     package let realSpace: FloatImage
+    /// True when `realSpace` is the sum over the default bright-field disk
+    /// instead of the total: a cube whose patterns are each normalised to a constant
+    /// sum has a constant total, so the total shows no image at all.
+    package let realSpaceIsBrightFieldDisk: Bool
     /// Mean and max diffraction pattern over the sampled positions only.
     package let meanDP: DiffractionPattern
     package let maxDP: DiffractionPattern
@@ -53,14 +57,16 @@ package nonisolated struct DatasetPreview: Sendable {
     /// 6th position" tells a user what they are looking at and "5% sampled"
     /// does not.
     package var summary: String {
+        let basis = realSpaceIsBrightFieldDisk
+            ? " · real space: bright-field disk sum (each pattern's total is constant)" : ""
         guard isSampled else {
-            return "Preview · every position"
+            return "Preview · every position" + basis
         }
         let step = strideY == strideX
             ? "every \(ordinal(strideY)) position"
             : "every \(ordinal(strideY)) row, every \(ordinal(strideX)) column"
         return "Sampled preview · \(step) · "
-            + "\(formattedCount(sampledPositions)) of \(formattedCount(totalPositions))"
+            + "\(formattedCount(sampledPositions)) of \(formattedCount(totalPositions))" + basis
     }
 
     /// A position on the SAMPLED grid, converted to source scan coordinates.
@@ -81,7 +87,9 @@ package nonisolated struct DatasetPreview: Sendable {
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(realSpace: FloatImage, meanDP: DiffractionPattern, maxDP: DiffractionPattern, strideY: Int, strideX: Int, sampledPositions: Int, totalPositions: Int) {
+    package nonisolated init(realSpace: FloatImage, meanDP: DiffractionPattern, maxDP: DiffractionPattern, strideY: Int, strideX: Int, sampledPositions: Int, totalPositions: Int,
+                            realSpaceIsBrightFieldDisk: Bool = false) {
+        self.realSpaceIsBrightFieldDisk = realSpaceIsBrightFieldDisk
         self.realSpace = realSpace
         self.meanDP = meanDP
         self.maxDP = maxDP
@@ -157,7 +165,19 @@ package nonisolated enum DatasetPreviewBuilder {
         let sampledXs = Swift.stride(from: 0, to: descriptor.rx, by: steps.x).map { $0 }
         let detectorCount = descriptor.qy * descriptor.qx
 
-        var realSpace = [Float](repeating: 0, count: sampledYs.count * sampledXs.count)
+        var totals = [Double](repeating: 0, count: sampledYs.count * sampledXs.count)
+        var centrals = totals
+        var maxAbsTotal: Double = 0
+        // The bright-field disk: the app's default virtual-detector aperture
+        // (circle at the detector centre, radius min(qx,qy)/4). Used only when
+        // the total is uninformative (below).
+        let diskRadius = defaultBrightFieldRadius(qx: descriptor.qx, qy: descriptor.qy)
+        let diskCx = Double(descriptor.qx) / 2, diskCy = Double(descriptor.qy) / 2
+        let diskIndices: [Int] = (0..<detectorCount).filter { index in
+            let dx = Double(index % descriptor.qx) - diskCx
+            let dy = Double(index / descriptor.qx) - diskCy
+            return dx * dx + dy * dy <= diskRadius * diskRadius
+        }
         var mean = [Double](repeating: 0, count: detectorCount)
         var maximum = [Float](repeating: -.greatestFiniteMagnitude, count: detectorCount)
 
@@ -169,22 +189,40 @@ package nonisolated enum DatasetPreviewBuilder {
                     throw FourDError.allocationFailed
                 }
                 var total: Double = 0
+                var absTotal: Double = 0
                 for index in 0..<detectorCount {
                     let value = pattern.pixels[index]
                     total += Double(value)
+                    absTotal += Double(Swift.abs(value))
                     mean[index] += Double(value)
                     maximum[index] = Swift.max(maximum[index], value)
                 }
-                realSpace[row * sampledXs.count + column] = Float(total)
+                var central: Double = 0
+                for index in diskIndices { central += Double(pattern.pixels[index]) }
+                maxAbsTotal = Swift.max(maxAbsTotal, absTotal)
+                totals[row * sampledXs.count + column] = total
+                centrals[row * sampledXs.count + column] = central
             }
             progress?(Double(row + 1) / Double(sampledYs.count))
         }
 
         let sampled = sampledYs.count * sampledXs.count
         let divisor = Double(Swift.max(1, sampled))
+        // DEVIATION (preview only, nothing stored or exported): the readers
+        // have already rounded every pixel to Float32 (relative error <= 2^-24),
+        // so a position's total is only known to +-2^-24 * sum|p|. When the
+        // spread of the totals is within two totals' worst-case rounding,
+        // 2 * 2^-24 * max sum|p|, the total shows rounding, not an image: the
+        // twisted-bilayer graphene file has unit-sum patterns (totals 1 +- 1e-8)
+        // and displayed solid black. Then the image is the bright-field disk
+        // sum (the default virtual-detector aperture, so it is a subsample of
+        // what the virtual-detector pane shows) and `summary` says so.
+        let spread = (totals.max() ?? 0) - (totals.min() ?? 0)
+        let constantTotal = sampled > 1 && spread <= 2 * 0x1p-24 * maxAbsTotal
+        let source = constantTotal ? centrals : totals
         return DatasetPreview(
             realSpace: FloatImage(
-                width: sampledXs.count, height: sampledYs.count, pixels: realSpace
+                width: sampledXs.count, height: sampledYs.count, pixels: source.map { Float($0) }
             ),
             meanDP: DiffractionPattern(
                 qy: descriptor.qy, qx: descriptor.qx,
@@ -195,7 +233,8 @@ package nonisolated enum DatasetPreviewBuilder {
             ),
             strideY: steps.y, strideX: steps.x,
             sampledPositions: sampled,
-            totalPositions: descriptor.ry * descriptor.rx
+            totalPositions: descriptor.ry * descriptor.rx,
+            realSpaceIsBrightFieldDisk: constantTotal
         )
     }
 }
@@ -205,4 +244,11 @@ package nonisolated enum DatasetPreviewBuilder {
 /// (`Package.swift`).
 package nonisolated func formattedCount(_ value: Int) -> String {
     value.formatted(.number.locale(Locale(identifier: "en_US")))
+}
+
+/// The default bright-field radius, in detector pixels: min(qx, qy) / 4.
+/// The one source for the default aperture `AppState+Open` sets on open
+/// (outer radius, centred at qx/2, qy/2) and the preview's bright-field disk.
+package nonisolated func defaultBrightFieldRadius(qx: Int, qy: Int) -> Double {
+    Double(Swift.min(qx, qy)) / 4
 }
