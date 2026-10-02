@@ -1,0 +1,767 @@
+--- a/mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift
++++ b/mac4DSTEM/Core/Data/BraggVectorEMDWriter.swift
+@@ -46,6 +46,11 @@
+     /// existing value forward rather than erase it (see `writeFile`'s
+     /// `preservedLabelsJSON`).
+     private static let diskCentreLabelsAttribute = "mac4dstem_disk_centre_labels"
++    /// Whose session this is (`SessionSourceIdentity`, review a2 2026-10-02):
++    /// the source's file name and native shape. Additive, like the labels —
++    /// absent on an older file, and a save that hands none carries the
++    /// existing stamp forward rather than erasing it.
++    private static let sourceIdentityAttribute = "mac4dstem_source"
+     /// Derived, never a literal: "5" famously stayed put across a format
+     /// addition (2026-08-18), which is what made the stamp meaningless.
+     /// `SessionSidecarFormat.currentSchema` is the one place the number
+@@ -395,6 +400,7 @@
+         to destination: URL,
+         loadSpecification: LoadSpecification? = nil,
+         replayRecord: SessionReplayRecord? = nil,
++        sourceIdentity: SessionSourceIdentity? = nil,
+         cancellation: AnalysisCancellationToken? = nil,
+         progress: (@Sendable (Double) -> Void)? = nil
+     ) throws {
+@@ -421,6 +427,7 @@
+                     qWidth: qWidth, qHeight: qHeight,
+                     calibration: calibration, preserving: existing, to: destination,
+                     loadSpecification: loadSpecification, replayRecord: replayRecord,
++                    sourceIdentity: sourceIdentity,
+                     cancellation: cancellation, progress: progress)
+     }
+ 
+@@ -433,6 +440,7 @@
+         to destination: URL,
+         loadSpecification: LoadSpecification? = nil,
+         replayRecord: SessionReplayRecord? = nil,
++        sourceIdentity: SessionSourceIdentity? = nil,
+         cancellation: AnalysisCancellationToken? = nil,
+         progress: (@Sendable (Double) -> Void)? = nil
+     ) throws {
+@@ -452,6 +460,7 @@
+                     qWidth: qWidth, qHeight: qHeight,
+                     calibration: calibration, preserving: existing, to: destination,
+                     loadSpecification: loadSpecification, replayRecord: replayRecord,
++                    sourceIdentity: sourceIdentity,
+                     cancellation: cancellation, progress: progress)
+     }
+ 
+@@ -471,6 +480,7 @@
+         // calibration save must never be the thing that erases hand-clicked
+         // labels. A non-nil value replaces it.
+         diskCentreLabelsJSON: String? = nil,
++        sourceIdentity: SessionSourceIdentity? = nil,
+         supportedSchema: Int = SessionSidecarFormat.currentSchema,
+         cancellation: AnalysisCancellationToken? = nil,
+         progress: (@Sendable (Double) -> Void)? = nil
+@@ -489,6 +499,7 @@
+                     calibration: calibration, preserving: existing, to: destination,
+                     loadSpecification: loadSpecification, replayRecord: replayRecord,
+                     diskCentreLabelsJSON: diskCentreLabelsJSON,
++                    sourceIdentity: sourceIdentity,
+                     supportedSchema: supportedSchema,
+                     cancellation: cancellation, progress: progress)
+     }
+@@ -503,6 +514,7 @@
+         from destination: URL,
+         loadSpecification: LoadSpecification? = nil,
+         replayRecord: SessionReplayRecord? = nil,
++        sourceIdentity: SessionSourceIdentity? = nil,
+         cancellation: AnalysisCancellationToken? = nil,
+         progress: (@Sendable (Double) -> Void)? = nil
+     ) throws {
+@@ -518,6 +530,7 @@
+             qWidth: qWidth, qHeight: qHeight, calibration: calibration,
+             preserving: destination, to: destination, removingKind: kind,
+             loadSpecification: loadSpecification, replayRecord: replayRecord,
++            sourceIdentity: sourceIdentity,
+             cancellation: cancellation, progress: progress
+         )
+     }
+@@ -681,13 +694,37 @@
+         // The stamp is read like the minimum-reader marker: garbage is absent.
+         let schemaText: String? = (try? readStringAttribute(schemaAttribute, on: root, hdf5: h5)) ?? nil
+         let schemaStamp = schemaText.flatMap { Int($0) }
+-        return SessionSidecarSnapshot(
++        var snapshot = SessionSidecarSnapshot(
+             inventory: inventory, calibration: calibration,
+             currentResult: currentResult, currentRGBAResult: currentRGBAResult,
+             loadSpecification: specification, schema: schemaStamp,
+             replayRecord: replay,
+             lineage: lineage, lineageNote: lineageNote
+         )
++        // Whose session this is (review a2). Absent ⇒ nil, an older file;
++        // present-but-undecodable ⇒ REFUSE by name, the v2 S7 rule above —
++        // a mangled stamp must not read as "no stamp" and slip past the check.
++        if let json = try readStringAttribute(sourceIdentityAttribute, on: root, hdf5: h5) {
++            guard let identity = SessionSourceIdentity.decoded(from: json) else {
++                throw WriterError.malformedAttribute(name: sourceIdentityAttribute)
++            }
++            snapshot.sourceIdentity = identity
++        }
++        // The peak grid's shape, the one shape an unstamped file records. Read
++        // as evidence only: a grid shape that cannot be read proves nothing,
++        // so it is nil rather than a refusal of the whole session (the peak
++        // restore itself refuses such a grid by name, `loadPeakGrid`).
++        let shapePath = "braggvectors/metadatabundle/_braggvectors_shape/"
++        do {
++            if inventory.hasBraggVectors,
++               let rShape = try readInt64Vector(shapePath + "Rshape", from: root, count: 2, hdf5: h5),
++               let qShape = try readInt64Vector(shapePath + "Qshape", from: root, count: 2, hdf5: h5) {
++                snapshot.storedPeakShape = rShape + qShape
++            }
++        } catch {
++            snapshot.storedPeakShape = nil
++        }
++        return snapshot
+     }
+ 
+     /// The peaks a sidecar's `braggvectors/_v_uncal` holds, with the detector
+@@ -1357,6 +1394,7 @@
+         loadSpecification: LoadSpecification? = nil,
+         replayRecord: SessionReplayRecord? = nil,
+         diskCentreLabelsJSON: String? = nil,
++        sourceIdentity: SessionSourceIdentity? = nil,
+         supportedSchema: Int = SessionSidecarFormat.currentSchema,
+         cancellation: AnalysisCancellationToken?,
+         progress: (@Sendable (Double) -> Void)?
+@@ -1383,6 +1421,7 @@
+             loadSpecification: loadSpecification,
+             replayRecord: replayRecord,
+             diskCentreLabelsJSON: diskCentreLabelsJSON,
++            sourceIdentity: sourceIdentity,
+             supportedSchema: supportedSchema,
+             cancellation: cancellation,
+             progress: progress, hdf5: hdf5
+@@ -1794,6 +1833,7 @@
+         loadSpecification: LoadSpecification?,
+         replayRecord: SessionReplayRecord?,
+         diskCentreLabelsJSON: String?,
++        sourceIdentity: SessionSourceIdentity?,
+         supportedSchema: Int,
+         cancellation: AnalysisCancellationToken?,
+         progress: (@Sendable (Double) -> Void)?,
+@@ -1910,6 +1950,35 @@
+                 )
+             }
+         }
++        // Whose session this is (review a2). A save that names a source whose
++        // SHAPE differs from the stamp already on the file is refused before
++        // anything is published: the rewrite would carry the other dataset's
++        // results, recipe and labels into this one's file under this one's
++        // name (the first-save panel's Replace reaches it). Same shape, other
++        // name (a renamed file) re-stamps. No identity handed in ⇒ the existing
++        // stamp is carried forward, the labels rule above.
++        var sourceIdentityJSON = sourceIdentity?.jsonString
++        if let existingID {
++            let existingRoot = rootPath.withCString {
++                h5.h5gopen2(existingID, $0, h5DefaultProperty)
++            }
++            if existingRoot >= 0 {
++                defer { _ = h5.h5gclose(existingRoot) }
++                let existingJSON = try readStringAttribute(
++                    sourceIdentityAttribute, on: existingRoot, hdf5: h5
++                )
++                if let sourceIdentity, let existingJSON,
++                   let stamped = SessionSourceIdentity.decoded(from: existingJSON),
++                   stamped.shape != sourceIdentity.shape {
++                    throw WriterError.invalidDimensions(
++                        "this session file belongs to \(stamped.fileName) (\(stamped.shapeSummary)), "
++                        + "not to \(sourceIdentity.fileName) (\(sourceIdentity.shapeSummary)). "
++                        + "Nothing was written; choose a different session file."
++                    )
++                }
++                if sourceIdentityJSON == nil { sourceIdentityJSON = existingJSON }
++            }
++        }
+ 
+         let canCopyBragg = vectors == nil && existingID.map {
+             linkExists("\(rootPath)/braggvectors", in: $0, hdf5: h5)
+@@ -2078,6 +2147,11 @@
+         // the rewrite. // C7 session 4
+         if let json = diskCentreLabelsJSON ?? preservedLabelsJSON {
+             try writeStringAttribute(diskCentreLabelsAttribute, value: json,
++                                     on: root, hdf5: h5)
++        }
++        // The source stamp: the caller's, else the one the file carried. // review a2
++        if let json = sourceIdentityJSON {
++            try writeStringAttribute(sourceIdentityAttribute, value: json,
+                                      on: root, hdf5: h5)
+         }
+         if !resultNodeNames.isEmpty {
+--- a/mac4DSTEM/Core/Data/BraggVectorEMDTypes.swift
++++ b/mac4DSTEM/Core/Data/BraggVectorEMDTypes.swift
+@@ -208,6 +208,13 @@
+     /// Set when a lineage was present but disagreed with the record beside it,
+     /// so the file was read as v1. Nil otherwise. // ADR 047 R7
+     package var lineageNote: String? = nil
++    /// Which source the sidecar says it belongs to; nil on a sidecar written
++    /// before the stamp (2026-10-02) — absence asserts nothing. // review a2
++    package var sourceIdentity: SessionSourceIdentity? = nil
++    /// The stored peak grid's `[Rshape, Qshape]` as `[ry, rx, qy, qx]`, when
++    /// the sidecar holds one — the only shape an unstamped sidecar records.
++    /// Nil when absent or unreadable. // review a2
++    package var storedPeakShape: [Int]? = nil
+ 
+     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
+     package nonisolated init(inventory: SessionSidecarInventory, calibration: PixelCalibration?, currentResult: ScalarResultMap?, currentRGBAResult: RGBAResultMap?, loadSpecification: LoadSpecification? = nil, schema: Int? = nil, replayRecord: SessionReplayRecord? = nil, lineage: SessionLineage? = nil, lineageNote: String? = nil) {
+@@ -220,7 +227,64 @@
+         self.replayRecord = replayRecord
+         self.lineage = lineage
+         self.lineageNote = lineageNote
++    }
++}
++
++/// Which source a session sidecar belongs to (Slot 4¾ review finding a2,
++/// 2026-10-02). Two sources in one folder — `scan.dm4` and py4DSTEM's
++/// `scan.h5` — share one sidecar path, so the file itself must say whose
++/// session it is. The NAME, never the path: a moved folder is the same
++/// session, and a screenshot-able attribute must not leak the filesystem
++/// (the `DataCubeDerivation` rule). The NATIVE shape — the file as stored,
++/// not the loaded view — so a cropped, binned or promoted reopen of the same
++/// file still matches. Stamped on the session root as JSON.
++package nonisolated struct SessionSourceIdentity: Codable, Sendable, Equatable {
++    package var fileName: String
++    /// `[ry, rx, qy, qx]` of the source at full extent.
++    package var shape: [Int]
++
++    package enum CodingKeys: String, CodingKey {
++        case fileName = "file_name"
++        case shape
++    }
++
++    package nonisolated init(fileName: String, shape: [Int]) {
++        self.fileName = fileName
++        self.shape = shape
++    }
++
++    /// The identity of `source`, which must be the FILE's descriptor
++    /// (`LoadView.source`), not a reduced view's.
++    package nonisolated init(source: DatasetDescriptor) {
++        self.init(fileName: source.fileName, shape: source.shape)
+     }
++
++    /// "12 × 12 scan of 64 × 64 patterns" (width × height, the app's order).
++    package var shapeSummary: String {
++        guard shape.count == 4 else { return shape.map(String.init).joined(separator: " × ") }
++        return "\(shape[1]) × \(shape[0]) scan of \(shape[3]) × \(shape[2]) patterns"
++    }
++
++    /// Deterministic JSON, same conventions as the other stamped records.
++    package var jsonString: String? {
++        let encoder = JSONEncoder()
++        encoder.outputFormatting = [.sortedKeys]
++        // try? OK: a String and an [Int] cannot fail to encode; nil falls
++        // through to "write no attribute", which reads as an unstamped file.
++        guard let data = try? encoder.encode(self) else { return nil }
++        return String(data: data, encoding: .utf8)
++    }
++
++    /// Nil unless the JSON decodes to a non-empty name and four positive
++    /// extents — the reader refuses anything else by name.
++    package static func decoded(from json: String) -> SessionSourceIdentity? {
++        // try? OK: a decode failure IS the nil this function documents; the
++        // caller turns it into `malformedAttribute`, never into "absent".
++        guard let identity = try? JSONDecoder().decode(Self.self, from: Data(json.utf8)),
++              !identity.fileName.isEmpty, identity.shape.count == 4,
++              identity.shape.allSatisfy({ $0 > 0 }) else { return nil }
++        return identity
++    }
+ }
+ 
+ /// Bounded preprocessing applied while streaming a source datacube into a
+--- a/mac4DSTEM/Session/SessionCalibrationFramePolicy.swift
++++ b/mac4DSTEM/Session/SessionCalibrationFramePolicy.swift
+@@ -243,3 +243,54 @@
+         return nil
+     }
+ }
++
++/// Whether a session sidecar belongs to the file being opened (Slot 4¾ review
++/// finding a2, 2026-10-02). Two sources in one folder (`scan.dm4` and
++/// py4DSTEM's `scan.h5`, often `bin_Q(2)`) share one sidecar path, and the
++/// calibration policy above adopts a whole-file record onto a whole-file load
++/// verbatim — a Q scale off by the bin factor, an origin in the other
++/// detector's pixels, and the other dataset's results and recipe adopted as
++/// this one's. Asked BEFORE anything is restored. Pure, so each branch is
++/// unit-pinned (ReviewSidecarIdentityTests).
++package nonisolated enum SessionSourcePolicy: Equatable {
++    /// The sidecar names this file, or (unstamped) proves nothing against it.
++    case adopt
++    /// Same native shape, another file name — a renamed file. Adopted; the
++    /// note names both files so the reader can judge.
++    case adoptRenamed(note: String)
++    /// The sidecar provably belongs to another source: nothing is restored.
++    case refuse(reason: String)
++
++    /// `recorded` is the sidecar's stamp (nil on a file written before it);
++    /// `storedPeakShape` its peak grid's `[ry, rx, qy, qx]` (nil when none);
++    /// `opened` the identity of the FILE being opened (`LoadView.source`).
++    package static func decide(
++        recorded: SessionSourceIdentity?, storedPeakShape: [Int]?,
++        opened: SessionSourceIdentity
++    ) -> SessionSourcePolicy {
++        if let recorded {
++            guard recorded.shape == opened.shape else {
++                return .refuse(reason:
++                    "The session file was saved for \(recorded.fileName), a \(recorded.shapeSummary); "
++                    + "this file, \(opened.fileName), is a \(opened.shapeSummary). "
++                    + "Its calibration, results and recipe belong to that dataset, so nothing was restored.")
++            }
++            guard recorded.fileName == opened.fileName else {
++                return .adoptRenamed(note:
++                    "The session file was saved for \(recorded.fileName); it was restored onto "
++                    + "\(opened.fileName), which has the same shape (\(opened.shapeSummary)).")
++            }
++            return .adopt
++        }
++        // UNSTAMPED: the only shape such a file records is its peak grid's,
++        // written on some crop or bin of its OWN source — so no axis of it can
++        // exceed that source's. A larger axis is proof of another file; a
++        // smaller or equal one proves nothing, and the file restores as before.
++        guard let stored = storedPeakShape, stored.count == 4, opened.shape.count == 4,
++              zip(stored, opened.shape).contains(where: { $0 > $1 }) else { return .adopt }
++        return .refuse(reason:
++            "The session file's stored disks cover a \(stored[1]) × \(stored[0]) scan on a "
++            + "\(stored[3]) × \(stored[2]) detector — larger than this file, \(opened.fileName) "
++            + "(\(opened.shapeSummary)) — so it belongs to another dataset and nothing was restored.")
++    }
++}
+--- a/mac4DSTEM/App/AppState+Open.swift
++++ b/mac4DSTEM/App/AppState+Open.swift
+@@ -946,6 +946,15 @@
+         statusText = status
+     }
+ 
++    /// The identity a session sidecar is stamped with and checked against
++    /// (review a2): the open FILE's name and native shape — the view's source,
++    /// never the view, so a crop, bin or promote of the same file matches.
++    /// One derivation for the writer and the restore check. Computed, not
++    /// stored: `datasetSession` owns the view it reads.
++    func sessionSourceIdentity(for descriptor: DatasetDescriptor) -> SessionSourceIdentity {
++        SessionSourceIdentity(source: datasetSession.loadView?.source ?? descriptor)
++    }
++
+     private func loadSessionSnapshot(
+         for descriptor: DatasetDescriptor
+     ) async -> SessionSidecarSnapshot? {
+@@ -967,6 +976,24 @@
+                 try BraggVectorEMDWriter.loadSession(from: url)
+             }.value
+             guard epoch == datasetSession.epoch else { return nil }
++            // Whose session is this? (review a2) Asked BEFORE anything is
++            // adopted — scan.dm4 and scan.h5 share one sidecar path. A refusal
++            // restores nothing and arms the rewrite gate (`.doesNotFit`, which
++            // the sidebar and inspector already render), so no save can
++            // replace the other dataset's session.
++            switch SessionSourcePolicy.decide(
++                recorded: snapshot.sourceIdentity, storedPeakShape: snapshot.storedPeakShape,
++                opened: sessionSourceIdentity(for: descriptor)
++            ) {
++            case .refuse(let reason):
++                gates.noteSidecarRestoreFailed(.doesNotFit, message: reason)
++                statusText = reason   // recorded in the activity log by its didSet
++                return nil
++            case .adoptRenamed(let note):
++                statusText = note
++            case .adopt:
++                break
++            }
+             sessionInventory = snapshot.inventory
+             // What the sidecar SAYS, not what its absence could be read as:
+             // an unrecorded view is not claimed to be the whole file (S18).
+--- a/mac4DSTEM/Support/ResultExport.swift
++++ b/mac4DSTEM/Support/ResultExport.swift
+@@ -739,6 +739,8 @@
+                 productMark = self.markLineageProductSaved(
+                     productKind: scalarMap?.kind ?? rgbaMap?.kind ?? metadata.kind)
+                 let recipe = replay.recordForSaving
++                // Whose session this is, stamped on every rewrite (review a2).
++                let sourceIdentity = self.sessionSourceIdentity(for: descriptor)
+                 try await Task.detached(priority: .userInitiated) {
+                     if let scalarMap {
+                         try BraggVectorEMDWriter.mergeResultMap(
+@@ -746,6 +748,7 @@
+                             qWidth: descriptor.qx, qHeight: descriptor.qy,
+                             calibration: pixelCalibration, to: url,
+                             loadSpecification: specification, replayRecord: recipe,
++                            sourceIdentity: sourceIdentity,
+                             cancellation: token, progress: progressUpdate
+                         )
+                     } else if let rgbaMap {
+@@ -754,6 +757,7 @@
+                             qWidth: descriptor.qx, qHeight: descriptor.qy,
+                             calibration: pixelCalibration, to: url,
+                             loadSpecification: specification, replayRecord: recipe,
++                            sourceIdentity: sourceIdentity,
+                             cancellation: token, progress: progressUpdate
+                         )
+                     }
+@@ -994,11 +998,13 @@
+             // recipe like every other rewrite. // v2 S5
+             let specification = loadedView.specification
+             let recipe = replay.recordForSaving
++            let sourceIdentity = sessionSourceIdentity(for: descriptor)   // review a2
+             try await Task.detached(priority: .userInitiated) {
+                 try BraggVectorEMDWriter.removeResult(
+                     kind: saved.kind, qWidth: descriptor.qx, qHeight: descriptor.qy,
+                     calibration: calibration, from: url,
+                     loadSpecification: specification, replayRecord: recipe,
++                    sourceIdentity: sourceIdentity,
+                     cancellation: token
+                 )
+             }.value
+@@ -1223,6 +1229,8 @@
+         // The recipe travels with every publish, captured on the MainActor
+         // before the detached write. // v2 S5
+         let recipe = replay.recordForSaving
++        // Whose session this is, stamped on every rewrite (review a2).
++        let sourceIdentity = sessionSourceIdentity(for: descriptor)
+         // Labels ride along the same way (C7 session 4); nil (an empty
+         // store) tells `mergeCalibration` to preserve what the sidecar has.
+         // Review 2026-10-02 a3: labels this view refused to restore are still in the sidecar, and a non-nil value
+@@ -1248,6 +1256,7 @@
+                         snapshot, qWidth: descriptor.qx, qHeight: descriptor.qy,
+                         to: url, loadSpecification: specification,
+                         replayRecord: recipe, diskCentreLabelsJSON: labelsJSON,
++                        sourceIdentity: sourceIdentity,
+                         cancellation: token
+                     )
+                 }.value
+--- a/mac4DSTEM/App/AppState.swift
++++ b/mac4DSTEM/App/AppState.swift
+@@ -1326,9 +1326,21 @@
+         // so it is said out loud instead. // v2 S1
+         let read: Result<LoadSpecification?, Error>
+         do {
+-            read = .success(try await Task.detached(priority: .utility) {
++            let snapshot = try await Task.detached(priority: .utility) {
+                 try BraggVectorEMDWriter.loadSession(from: url)
+-            }.value.loadSpecification)
++            }.value
++            // Whose session is this? (review a2) Another source's sidecar must
++            // not choose THIS file's view: refused before its crop is applied,
++            // the same verdict `loadSessionSnapshot` reaches after the load.
++            if case .refuse(let reason) = SessionSourcePolicy.decide(
++                recorded: snapshot.sourceIdentity, storedPeakShape: snapshot.storedPeakShape,
++                opened: SessionSourceIdentity(source: source)
++            ) {
++                gates.noteSidecarRestoreFailed(.doesNotFit, message: reason)
++                statusText = reason
++                return nil
++            }
++            read = .success(snapshot.loadSpecification)
+         } catch {
+             read = .failure(error)
+         }
+--- a/mac4DSTEMTests/BraggPeakRestoreTests.swift
++++ b/mac4DSTEMTests/BraggPeakRestoreTests.swift
+@@ -385,7 +385,10 @@
+     }
+ 
+     func testADetectorShapeMismatchLeavesThePeaksNil() async throws {
+-        let opened = try await open(gridDetectorDelta: 2)
++        // A grid on a SMALLER detector (−2): a larger one is now proof of
++        // another dataset and refuses the whole session (review a2), so the
++        // peak check's own refusal is reached only below the file's shape.
++        let opened = try await open(gridDetectorDelta: -2)
+         XCTAssertNil(opened.state.resultPresentation.braggVectors)
+         XCTAssertTrue(opened.state.statusText.contains("detector, not"),
+                       "Status was: \(opened.state.statusText)")
+--- /dev/null
++++ b/mac4DSTEMTests/ReviewSidecarIdentityTests.swift
+@@ -0,0 +1,222 @@
++//
++//  ReviewSidecarIdentityTests.swift
++//  Lane B (Slot 4¾ pre-release review, 2026-10-02, finding a2): a session sidecar says which source it belongs to,
++//  and a sidecar of another source is refused on restore instead of silently adopted.
++//
++
++import XCTest
++import DSTEMCore
++import DSTEMSession
++@testable import mac4DSTEM
++
++@MainActor
++final class ReviewSidecarIdentityTests: XCTestCase {
++
++    private func scratchDirectory() throws -> URL {
++        let directory = FileManager.default.temporaryDirectory
++            .appendingPathComponent("ReviewSidecarIdentity-\(UUID().uuidString)")
++        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
++        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
++        return directory
++    }
++
++    private func peaks(scanWidth: Int, scanHeight: Int) -> BraggVectors {
++        var grid = [[BraggPeak]](repeating: [], count: scanWidth * scanHeight)
++        for index in grid.indices { grid[index] = [BraggPeak(x: 3, y: 4, intensity: 1)] }
++        return BraggVectors(scanWidth: scanWidth, scanHeight: scanHeight, peaks: grid,
++                            detectionProvenance: [:])
++    }
++
++    /// The demo source (12 × 12 scan, 64 × 64 detector), opened with `sidecar` as its session file.
++    private func openDemo(with sidecar: URL,
++                          specification: LoadSpecification = .fullExtent) async throws -> AppState {
++        let suite = "ReviewSidecarIdentity-\(UUID().uuidString)"
++        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
++        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
++        let locator = SessionSidecarLocator(defaults: defaults)
++        let source = DemoFourDDataSource(includesCalibration: false)
++        let descriptor = try await source.discoverPrimaryDataset()
++        locator.adopt(sidecar, for: descriptor)
++        let state = AppState(sessionSidecar: locator)
++        let load = state.beginDatasetLoading("Opening demo…")
++        await state.activate(descriptor: descriptor, reader: source,
++                             specification: specification, runInitialAnalysis: false)
++        state.finishDatasetLoading(owner: load)
++        return state
++    }
++
++    private let foreignCalibration = PixelCalibration(qSize: 0.0123, qUnits: "A^-1",
++                                                      qx0Mean: 64, qy0Mean: 64)
++
++    // MARK: Experiment (Gate D) — runs against HEAD's API
++
++    /// A legacy (unstamped) sidecar whose peaks sit on a 128 × 128 detector cannot belong to a 64 × 64 file.
++    func testExperimentLegacySidecarWithALargerDetectorIsRefusedWhole() async throws {
++        let sidecar = try scratchDirectory().appendingPathComponent("demo.mac4dstem.h5")
++        try BraggVectorEMDWriter.write(vectors: peaks(scanWidth: 12, scanHeight: 12),
++                                       qWidth: 128, qHeight: 128,
++                                       calibration: PixelCalibration(), to: sidecar)
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 128, qHeight: 128, to: sidecar)
++        let state = try await openDemo(with: sidecar)
++        XCTAssertNil(state.calibrationSession.calibration.qPixelSize,
++                     "adopted Q pixel size: \(String(describing: state.calibrationSession.calibration.qPixelSize))")
++        XCTAssertEqual(state.gates.sidecarRestoreFailure?.kind, .doesNotFit,
++                       "gate: \(String(describing: state.gates.sidecarRestoreFailure))")
++        XCTAssertFalse(state.gates.mayWriteSidecar)
++    }
++
++    /// A legacy calibration-only sidecar proves nothing about its source: behaviour as before (adopted).
++    func testExperimentLegacyCalibrationOnlySidecarIsStillAdopted() async throws {
++        let sidecar = try scratchDirectory().appendingPathComponent("demo.mac4dstem.h5")
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 64, qHeight: 64, to: sidecar)
++        let state = try await openDemo(with: sidecar)
++        XCTAssertEqual(try XCTUnwrap(state.calibrationSession.calibration.qPixelSize), 0.0123, accuracy: 1e-12)
++        XCTAssertNil(state.gates.sidecarRestoreFailure)
++        XCTAssertTrue(state.gates.mayWriteSidecar)
++    }
++
++    // MARK: The restore policy (pure)
++
++    private let dm4 = SessionSourceIdentity(fileName: "scan.dm4", shape: [12, 12, 128, 128])
++    private let h5 = SessionSourceIdentity(fileName: "scan.h5", shape: [12, 12, 64, 64])
++
++    /// Mutation: drop the shape guard in `SessionSourcePolicy.decide` -> red.
++    func testAStampOfAnotherShapeIsRefusedNamingBothFiles() {
++        guard case .refuse(let reason) = SessionSourcePolicy.decide(
++            recorded: dm4, storedPeakShape: nil, opened: h5) else {
++            return XCTFail("a 128 × 128 session must not restore onto a 64 × 64 file")
++        }
++        XCTAssertTrue(reason.contains("scan.dm4") && reason.contains("scan.h5"), reason)
++    }
++
++    /// Same native shape, other name: a renamed file — restored, with a note naming both.
++    /// Mutation: compare names before shapes and refuse on a name mismatch -> red.
++    func testASameShapeStampUnderAnotherNameRestoresWithANote() {
++        let renamed = SessionSourceIdentity(fileName: "scan renamed.h5", shape: h5.shape)
++        guard case .adoptRenamed(let note) = SessionSourcePolicy.decide(
++            recorded: h5, storedPeakShape: nil, opened: renamed) else {
++            return XCTFail("a renamed file of the same shape restores")
++        }
++        XCTAssertTrue(note.contains("scan.h5") && note.contains("scan renamed.h5"), note)
++        XCTAssertEqual(SessionSourcePolicy.decide(recorded: h5, storedPeakShape: nil, opened: h5), .adopt)
++    }
++
++    /// Unstamped: only a peak grid LARGER than the file on some axis is proof; a crop/bin-sized or equal one is not.
++    /// Mutation: `>` -> `!=` in the legacy branch -> red (the binned grid is refused).
++    func testAnUnstampedSidecarIsRefusedOnlyOnALargerPeakGrid() {
++        if case .refuse = SessionSourcePolicy.decide(recorded: nil, storedPeakShape: [12, 12, 128, 128], opened: h5) {} else {
++            XCTFail("a 128 × 128 grid cannot belong to a 64 × 64 file")
++        }
++        if case .refuse = SessionSourcePolicy.decide(recorded: nil, storedPeakShape: [13, 12, 64, 64], opened: h5) {} else {
++            XCTFail("a 13-row scan cannot belong to a 12-row file")
++        }
++        XCTAssertEqual(SessionSourcePolicy.decide(recorded: nil, storedPeakShape: [6, 12, 32, 32], opened: h5), .adopt,
++                       "a cropped, binned view's grid is smaller — no proof")
++        XCTAssertEqual(SessionSourcePolicy.decide(recorded: nil, storedPeakShape: h5.shape, opened: h5), .adopt)
++        XCTAssertEqual(SessionSourcePolicy.decide(recorded: nil, storedPeakShape: nil, opened: h5), .adopt,
++                       "a calibration-only legacy file proves nothing")
++        XCTAssertEqual(SessionSourcePolicy.decide(recorded: h5, storedPeakShape: [12, 12, 128, 128], opened: h5), .adopt,
++                       "a stamp, once present, is the evidence")
++    }
++
++    // MARK: The writer round trip
++
++    /// The stamp is written, read back, and carried forward by a save that names no source.
++    /// Mutation: drop the carry-forward (`sourceIdentityJSON = existingJSON`) in writeFile -> red.
++    func testTheStampRoundTripsAndSurvivesASaveThatNamesNoSource() throws {
++        let sidecar = try scratchDirectory().appendingPathComponent("scan.mac4dstem.h5")
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 128, qHeight: 128, to: sidecar,
++                                                  sourceIdentity: dm4)
++        XCTAssertEqual(try BraggVectorEMDWriter.loadSession(from: sidecar).sourceIdentity, dm4)
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 128, qHeight: 128, to: sidecar)
++        XCTAssertEqual(try BraggVectorEMDWriter.loadSession(from: sidecar).sourceIdentity, dm4,
++                       "a save that says nothing about its source must not erase the stamp")
++    }
++
++    /// A save for a source of another shape over a stamped file is refused, and the file is untouched.
++    /// Mutation: delete the throw in writeFile's stamp check -> red.
++    func testASaveForASourceOfAnotherShapeIsRefusedAndTheFileIsUntouched() throws {
++        let sidecar = try scratchDirectory().appendingPathComponent("scan.mac4dstem.h5")
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 128, qHeight: 128, to: sidecar,
++                                                  sourceIdentity: dm4)
++        let before = try Data(contentsOf: sidecar)
++        XCTAssertThrowsError(try BraggVectorEMDWriter.mergeCalibration(
++            PixelCalibration(qSize: 0.0246), qWidth: 64, qHeight: 64, to: sidecar, sourceIdentity: h5)) { error in
++            let text = error.localizedDescription
++            XCTAssertTrue(text.contains("scan.dm4") && text.contains("scan.h5"), text)
++        }
++        XCTAssertEqual(try Data(contentsOf: sidecar), before)
++        // Same shape under another name re-stamps (a renamed file).
++        let renamed = SessionSourceIdentity(fileName: "scan renamed.dm4", shape: dm4.shape)
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 128, qHeight: 128, to: sidecar,
++                                                  sourceIdentity: renamed)
++        XCTAssertEqual(try BraggVectorEMDWriter.loadSession(from: sidecar).sourceIdentity, renamed)
++    }
++
++    /// The unstamped evidence: the peak grid's Rshape + Qshape reach the snapshot.
++    /// Mutation: leave `storedPeakShape` unset in loadSession -> red.
++    func testTheStoredPeakShapeReachesTheSnapshot() throws {
++        let sidecar = try scratchDirectory().appendingPathComponent("scan.mac4dstem.h5")
++        try BraggVectorEMDWriter.write(vectors: peaks(scanWidth: 5, scanHeight: 3), qWidth: 40, qHeight: 30,
++                                       calibration: PixelCalibration(), to: sidecar)
++        XCTAssertEqual(try BraggVectorEMDWriter.loadSession(from: sidecar).storedPeakShape, [3, 5, 30, 40])
++        let calibrationOnly = try scratchDirectory().appendingPathComponent("c.mac4dstem.h5")
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 8, qHeight: 8, to: calibrationOnly)
++        XCTAssertNil(try BraggVectorEMDWriter.loadSession(from: calibrationOnly).storedPeakShape)
++    }
++
++    // MARK: The restore, end to end (demo: "mac4DSTEM Demo.h5", 12 × 12 scan, 64 × 64 detector)
++
++    private var demo: SessionSourceIdentity { SessionSourceIdentity(source: DemoFourDDataSource.descriptor) }
++
++    /// The reviewer's scenario: the sibling's stamped session (bin_Q(2) apart) is refused whole and saves are disabled.
++    /// Mutation: make loadSessionSnapshot ignore `.refuse` -> red.
++    func testAStampedSessionOfASiblingIsRefusedWholeAndSavesAreDisabled() async throws {
++        let sidecar = try scratchDirectory().appendingPathComponent("demo.mac4dstem.h5")
++        let sibling = SessionSourceIdentity(fileName: "mac4DSTEM Demo.dm4", shape: [12, 12, 128, 128])
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 128, qHeight: 128, to: sidecar,
++                                                  sourceIdentity: sibling)
++        let state = try await openDemo(with: sidecar)
++        XCTAssertNil(state.calibrationSession.calibration.qPixelSize, "the sibling's Q scale must not be adopted")
++        XCTAssertEqual(state.gates.sidecarRestoreFailure?.kind, .doesNotFit)
++        XCTAssertTrue(state.gates.sidecarRestoreFailure?.message.contains("mac4DSTEM Demo.dm4") == true)
++        XCTAssertFalse(state.gates.mayWriteSidecar)
++        XCTAssertFalse(state.sessionInventory.hasSidecar, "nothing from the sidecar is adopted")
++    }
++
++    /// The legitimate reopens: the same file whole, binned, and cropped (recorded = loaded), from a sidecar in another
++    /// folder than the source (a moved folder: the path differs, the name does not). None may be refused.
++    /// Mutation: stamp/check the VIEW's shape (`descriptor`) instead of `loadView.source` -> red (the binned reopen).
++    func testTheSameFileReopenedWholeBinnedOrCroppedStillRestores() async throws {
++        let crop = LoadSpecification(scanCrop: AxisCrop(yOffset: 2, xOffset: 1, height: 6, width: 8))
++        let cases: [(recorded: LoadSpecification, loaded: LoadSpecification)] = [
++            (.fullExtent, .fullExtent),
++            (.fullExtent, LoadSpecification(detectorBin: 2)),
++            (crop, crop),
++        ]
++        for (recorded, loaded) in cases {
++            let sidecar = try scratchDirectory().appendingPathComponent("demo.mac4dstem.h5")
++            try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 64, qHeight: 64, to: sidecar,
++                                                      loadSpecification: recorded, sourceIdentity: demo)
++            let state = try await openDemo(with: sidecar, specification: loaded)
++            XCTAssertNil(state.gates.sidecarRestoreFailure, "recorded \(recorded), loaded \(loaded)")
++            XCTAssertTrue(state.gates.mayWriteSidecar)
++            XCTAssertNotNil(state.calibrationSession.calibration.qPixelSize, "recorded \(recorded), loaded \(loaded)")
++        }
++    }
++
++    /// A renamed file of the same shape restores, and the log names both files.
++    /// Mutation: drop the `.adoptRenamed` status line in loadSessionSnapshot -> red.
++    func testARenamedFileRestoresAndTheLogNamesBothFiles() async throws {
++        let sidecar = try scratchDirectory().appendingPathComponent("demo.mac4dstem.h5")
++        let before = SessionSourceIdentity(fileName: "Demo before rename.h5", shape: demo.shape)
++        try BraggVectorEMDWriter.mergeCalibration(foreignCalibration, qWidth: 64, qHeight: 64, to: sidecar,
++                                                  sourceIdentity: before)
++        let state = try await openDemo(with: sidecar)
++        XCTAssertEqual(try XCTUnwrap(state.calibrationSession.calibration.qPixelSize), 0.0123, accuracy: 1e-12)
++        XCTAssertNil(state.gates.sidecarRestoreFailure)
++        XCTAssertTrue(state.activityLog.messages.contains {
++            $0.contains("Demo before rename.h5") && $0.contains("mac4DSTEM Demo.h5")
++        }, "log: \(state.activityLog.messages.suffix(8))")
++    }
++}
+--- /dev/null
++++ b/mac4DSTEMTests/ReviewSidecarIdentityWiringTests.swift
+@@ -0,0 +1,71 @@
++//
++//  ReviewSidecarIdentityWiringTests.swift
++//  Lane B (Slot 4¾ review a2, 2026-10-02): the app's own sidecar saves stamp the source — the half of the identity
++//  check that lives in ResultExport.swift (resultexport-stamp.patch) and AppState.recordedLoadSpecification
++//  (appstate-recorded-spec.patch). Lands WITH both patches, never without them.
++//
++
++import XCTest
++import DSTEMCore
++import DSTEMSession
++@testable import mac4DSTEM
++
++@MainActor
++final class ReviewSidecarIdentityWiringTests: XCTestCase {
++
++    private func isolatedAppState() throws -> AppState {
++        let suite = "mac4dstem.tests.\(UUID().uuidString)"
++        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
++        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
++        return AppState(sessionSidecar: SessionSidecarLocator(defaults: defaults))
++    }
++
++    /// A calibration save from a BINNED view stamps the FILE's name and native shape, not the view's.
++    /// Mutation: drop `sourceIdentity:` from the mergeCalibration call in ResultExport -> red (no stamp).
++    func testACalibrationSaveFromABinnedViewStampsTheFilesNativeIdentity() async throws {
++        let state = try isolatedAppState()
++        await state.openDemoFixture(calibrated: true, specification: LoadSpecification(detectorBin: 2))
++        let descriptor = try XCTUnwrap(state.descriptor)
++        XCTAssertEqual(descriptor.qx, 32, "precondition: the view is binned")
++        let directory = FileManager.default.temporaryDirectory
++            .appendingPathComponent("lane-b-wiring-\(UUID().uuidString)")
++        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
++        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
++        let sidecar = directory.appendingPathComponent("demo.mac4dstem.h5")
++        state.sessionSidecar.adopt(sidecar, for: descriptor)
++
++        state.saveCalibrationToSessionSidecar()
++        let deadline = Date().addingTimeInterval(10)
++        while !state.statusText.contains("Saved calibration"), Date() < deadline {
++            try await Task.sleep(nanoseconds: 20_000_000)
++        }
++        XCTAssertTrue(state.statusText.contains("Saved calibration"), state.statusText)
++        XCTAssertEqual(try BraggVectorEMDWriter.loadSession(from: sidecar).sourceIdentity,
++                       SessionSourceIdentity(source: DemoFourDDataSource.descriptor))
++    }
++
++    /// A sibling's stamped sidecar that records a CROP must not crop this file on open; this file's own does.
++    /// Mutation: drop the source check in `recordedLoadSpecification` -> red (the sibling's crop comes back).
++    func testASiblingsRecordedCropIsNotAppliedToThisFile() async throws {
++        let source = DemoFourDDataSource.descriptor
++        let crop = LoadSpecification(scanCrop: AxisCrop(yOffset: 0, xOffset: 0, height: 6, width: 6))
++        let directory = FileManager.default.temporaryDirectory
++            .appendingPathComponent("lane-b-crop-\(UUID().uuidString)")
++        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
++        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
++        for (identity, expected) in [
++            (SessionSourceIdentity(fileName: "mac4DSTEM Demo.dm4", shape: [12, 12, 128, 128]), nil as LoadSpecification?),
++            (SessionSourceIdentity(source: source), crop),
++        ] {
++            let sidecar = directory.appendingPathComponent("\(UUID().uuidString).mac4dstem.h5")
++            try BraggVectorEMDWriter.mergeCalibration(PixelCalibration(qSize: 0.0123), qWidth: identity.shape[3],
++                                                      qHeight: identity.shape[2], to: sidecar,
++                                                      loadSpecification: crop, sourceIdentity: identity)
++            let state = try isolatedAppState()
++            state.sessionSidecar.adopt(sidecar, forSourcePath: source.filePath)
++            let recorded = await state.recordedLoadSpecification(forSourcePath: source.filePath, source: source)
++            XCTAssertEqual(recorded, expected, identity.fileName)
++            XCTAssertEqual(state.gates.sidecarRestoreFailure?.kind, expected == nil ? .doesNotFit : nil, identity.fileName)
++        }
++    }
++}
