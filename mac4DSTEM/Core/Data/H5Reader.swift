@@ -116,6 +116,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
         (hid_t, UnsafePointer<CChar>?, UnsafeRawPointer?, UnsafeMutableRawPointer?) -> herr_t
     package typealias H5Lvisit2 = @convention(c)
         (hid_t, Int32, Int32, H5Literate, UnsafeMutableRawPointer?) -> herr_t
+    package typealias H5freeMemory = @convention(c) (UnsafeMutableRawPointer?) -> herr_t
 
     package let handle: UnsafeMutableRawPointer
     package let h5open: H5open
@@ -151,6 +152,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     package let h5aread: H5Aread
     package let h5agetSpace: H5AgetSpace
     package let h5lvisit2: H5Lvisit2
+    package let h5freeMemory: H5freeMemory
     package let nativeFloat: hid_t
     package let nativeDouble: hid_t
     package let nativeInt: hid_t
@@ -189,7 +191,8 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
         }
 
         let h5open = try symbol("H5open", as: H5open.self)
-        _ = h5open()
+        // After H5open, never before: HDF5 registers its own atexit teardown in there (HDF5Types.swift).
+        if h5open() >= 0 { HDF5Serial.installExitBarrier() }
         let h5esetAuto2 = try symbol("H5Eset_auto2", as: H5EsetAuto2.self)
         // Missing optional py4DSTEM/EMD paths are normal during discovery.
         // HDF5 otherwise writes a full native stack to stderr for each probe;
@@ -231,6 +234,7 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
             h5aread: try symbol("H5Aread", as: H5Aread.self),
             h5agetSpace: try symbol("H5Aget_space", as: H5AgetSpace.self),
             h5lvisit2: try symbol("H5Lvisit2", as: H5Lvisit2.self),
+            h5freeMemory: try symbol("H5free_memory", as: H5freeMemory.self),
             nativeFloat: try global("H5T_NATIVE_FLOAT_g", as: hid_t.self),
             nativeDouble: try global("H5T_NATIVE_DOUBLE_g", as: hid_t.self),
             nativeInt: try global("H5T_NATIVE_INT_g", as: hid_t.self),
@@ -1015,8 +1019,9 @@ package actor H5Reader: FourDDataSource {
         }
     }
 
-    /// Shared string decode: variable-length strings read a malloc'd char*
-    /// (freed here); fixed-length read into a sized buffer.
+    /// Shared string decode: variable-length strings read a char* the library
+    /// allocated (freed here with H5free_memory, as HDF5 documents for its own
+    /// allocations, not with free()); fixed-length read into a sized buffer.
     /// The memory type is a copy of the file's own type — HDF5 has no
     /// conversion path between UTF-8 and ASCII string types, so reading
     /// h5py's UTF-8 strings through an ASCII H5T_C_S1 copy fails outright.
@@ -1029,7 +1034,7 @@ package actor H5Reader: FourDDataSource {
             var cString: UnsafeMutablePointer<CChar>?
             let status = withUnsafeMutableBytes(of: &cString) { read(memType, $0.baseAddress) }
             guard status >= 0, let cString else { return nil }
-            defer { free(cString) }
+            defer { _ = hdf5.h5freeMemory(cString) }
             return String(cString: cString)
         }
         let size = hdf5.h5tgetSize(fileType)

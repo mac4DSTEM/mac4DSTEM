@@ -1056,6 +1056,22 @@ package nonisolated enum BraggVectorEMDWriter {
         return hasValue ? calibration : nil
     }
 
+    /// The three readers below hand `H5Dread` ONE value on the stack, and it writes the WHOLE dataset there: a
+    /// foreign or hand-edited sidecar with a 3-element `a` overran it (review 2026-10-02, the stack twin of the
+    /// Qshape overrun `readInt64Vector` refuses). Refused by name; an empty dataset too, never read as 0.
+    private static func requireOneElement(
+        _ dataset: hid_t, _ name: String, hdf5 h5: HDF5WriteLibrary
+    ) throws {
+        let space = h5.h5dgetSpace(dataset)
+        guard space >= 0 else { throw WriterError.hdf5("reading the shape of dataset \(name)") }
+        defer { _ = h5.h5sclose(space) }
+        // HDF5's own count: 1 for a scalar or shape (1,), 0 for a NULL dataspace (h5py.Empty), which also has rank 0
+        // and so counts as one value in elementCount — and H5Dread then transfers nothing.
+        guard h5.h5sgetSimpleExtentNpoints(space) == 1 else {
+            throw WriterError.hdf5("reading dataset \(name), which does not hold exactly one value")
+        }
+    }
+
     private static func readDoubleDataset(
         _ name: String, from group: hid_t, hdf5 h5: HDF5WriteLibrary
     ) throws -> Double? {
@@ -1063,6 +1079,7 @@ package nonisolated enum BraggVectorEMDWriter {
         let dataset = name.withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
         guard dataset >= 0 else { return nil }
         defer { _ = h5.h5dclose(dataset) }
+        try requireOneElement(dataset, name, hdf5: h5)
         var value = 0.0
         guard withUnsafeMutablePointer(to: &value, {
             h5.h5dread(dataset, h5.nativeDouble, h5EntireDataspace, h5EntireDataspace,
@@ -1078,6 +1095,7 @@ package nonisolated enum BraggVectorEMDWriter {
         let dataset = name.withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
         guard dataset >= 0 else { return nil }
         defer { _ = h5.h5dclose(dataset) }
+        try requireOneElement(dataset, name, hdf5: h5)
         var value = false
         guard withUnsafeMutablePointer(to: &value, {
             h5.h5dread(dataset, h5.nativeHBool, h5EntireDataspace, h5EntireDataspace,
@@ -1096,6 +1114,13 @@ package nonisolated enum BraggVectorEMDWriter {
         let type = h5.h5dgetType(dataset)
         guard type >= 0 else { throw WriterError.hdf5("opening dataset type \(name)") }
         defer { _ = h5.h5tclose(type) }
+        // Read in the file's OWN type into one pointer: only what the writer writes — one variable-length
+        // string — fits it; a fixed-length string or a number would overrun it or land in it as an address.
+        // (H5Tis_variable_str is false for every non-string type, so it is the whole type check.)
+        try requireOneElement(dataset, name, hdf5: h5)
+        guard h5.h5tisVariableStr(type) > 0 else {
+            throw WriterError.hdf5("reading dataset \(name), which is not one variable-length string")
+        }
         var pointer: UnsafeMutablePointer<CChar>?
         guard withUnsafeMutablePointer(to: &pointer, {
             h5.h5dread(dataset, type, h5EntireDataspace, h5EntireDataspace,
@@ -2859,6 +2884,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     package typealias H5Dclose = @convention(c) (hid_t) -> herr_t
     package typealias H5SgetSimpleExtentNdims = @convention(c) (hid_t) -> Int32
     package typealias H5SgetSimpleExtentDims = @convention(c) (hid_t, UnsafeMutablePointer<hsize_t>?, UnsafeMutablePointer<hsize_t>?) -> Int32
+    package typealias H5SgetSimpleExtentNpoints = @convention(c) (hid_t) -> Int64
     package typealias H5Tcreate = @convention(c) (Int32, Int) -> hid_t
     package typealias H5Tinsert = @convention(c) (hid_t, UnsafePointer<CChar>?, Int, hid_t) -> herr_t
     package typealias H5TvlenCreate = @convention(c) (hid_t) -> hid_t
@@ -2908,6 +2934,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     package let h5dclose: H5Dclose
     package let h5sgetSimpleExtentNdims: H5SgetSimpleExtentNdims
     package let h5sgetSimpleExtentDims: H5SgetSimpleExtentDims
+    package let h5sgetSimpleExtentNpoints: H5SgetSimpleExtentNpoints
     package let h5tcreate: H5Tcreate
     package let h5tinsert: H5Tinsert
     package let h5tvlenCreate: H5TvlenCreate
@@ -3030,7 +3057,8 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
             return pointer.assumingMemoryBound(to: type).pointee
         }
         let h5open = try symbol("H5open", as: H5open.self)
-        _ = h5open()
+        // After H5open, never before: HDF5 registers its own atexit teardown in there (HDF5Types.swift).
+        if h5open() >= 0 { HDF5Serial.installExitBarrier() }
         // Looked up leniently: the error-stack detail is diagnostic, and losing
         // it must never turn into a failure to open a sidecar at all.
         let h5eprint2 = dlsym(handle, "H5Eprint2").map {
@@ -3060,6 +3088,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
             h5dclose: try symbol("H5Dclose", as: H5Dclose.self),
             h5sgetSimpleExtentNdims: try symbol("H5Sget_simple_extent_ndims", as: H5SgetSimpleExtentNdims.self),
             h5sgetSimpleExtentDims: try symbol("H5Sget_simple_extent_dims", as: H5SgetSimpleExtentDims.self),
+            h5sgetSimpleExtentNpoints: try symbol("H5Sget_simple_extent_npoints", as: H5SgetSimpleExtentNpoints.self),
             h5tcreate: try symbol("H5Tcreate", as: H5Tcreate.self),
             h5tinsert: try symbol("H5Tinsert", as: H5Tinsert.self),
             h5tvlenCreate: try symbol("H5Tvlen_create", as: H5TvlenCreate.self),

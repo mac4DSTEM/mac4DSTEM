@@ -134,6 +134,7 @@ scientific=(
   disk-detector
   rotation-parity-test
   friedel-origin-test
+  hdf5-exit-race-test
 )
 campaign=(
   parallax-preprocessing-test parallax-alignment-test parallax-aberration-test
