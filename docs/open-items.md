@@ -171,8 +171,7 @@ One line each; full wording as above.
   the pattern readout; a fresh cube shows its virtual image; counts grouped. Slot 1 lane P (2026-09-30 night) took the rest of
   the drives' list (lineage order, legend counts, crop-warning axes, the configurator status, "px", the drag sentence) and the
   bin-2 aperture default (Gate D: the view-frame default was re-referenced as a source point; `archive/v4/v41-plan-2026-09-30.md`
-  § Log). Left: Info › Provenance shows raw snake_case keys (`WorkspaceInspector.swift:625`, frozen; a wording edit that corrects
-  no false claim — the owner's call, the one-line patch is in the Slot 1 record).
+  § Log). [Info › Provenance labels: landed `ceac82b1`.]
 - Slot 1 P drive residuals (2026-09-30 night, shots in `archive/v4/slot1-p-drive-2026-09-30-shots/`): [the bottom area's sliver: a 140-pt floor since
   Slot 4⅞ lane F, owner Q6 a]; the "Positions used"
   percentage fallback (> 2 % excluded) was not reached on screen.
@@ -235,7 +234,7 @@ it. (2) The filter's mean is Double where numpy's is float32 (DEVIATION): numpy 
 inside a bright direct disk py4DSTEM's own mask is partly an accumulation artefact; the 060 match (exactly the 15) is one dataset
 with an unmeasured margin — `--export-parity` could print it. (3) A strided or detector-cropped export carries no replay recipe
 (named in the status line when there is one to omit). (4) Since Slot 4⅞ lane V the export carries the
-accelerating voltage; a session voltage above 1000 kV is stamped as typed and reopens divided by 1000 (the opener's eV rule). Polish from the drive: 1-px crop steppers; the sheet's short scroll area.
+accelerating voltage; a session voltage above 1000 kV is stamped as typed and reopens divided by 1000 (the opener's eV rule). Polish from the drive: the sheet's short scroll area (the 1-px crop steppers went with the old sheet, `de05c943`).
 
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection

@@ -172,6 +172,29 @@ Close P6a (already landed ceac82b1) and P10b-steppers (sheet gone) in open-items
 2. **One complete `tools/run-tests.sh all`** on the release commit, then status, open-items, CHANGELOG (the polish lines), the Board.
 3. Slot 5 as written in `docs/status.md` (notary password → archive → notarize → DMG → push, tag, release; website version lines).
 
+## Record — the polish session (2026-10-04)
+
+Owner's answers: Q1 a (latching, from the session prompt), Q2 a (the paste left it blank; the session took the recommendation —
+overrule on sight), Q3 a, Q4 d, Q6 a (Lineage stays off by default), Q7 a. Mid-session the owner cut cost: no second refuter pass,
+R3 deferred to open-items, a narrow drive. Each lane: a Sonnet implementer (tests red first, predictions before runs), an independent
+Fable refuter in its own HEAD + patch copy, a fix round, then a gate alone on an isolated copy of HEAD + the lane's hunks.
+
+| Lane | Items | Commit | Unit gate (passed / failed / skipped) | Refuter |
+|---|---|---|---|---|
+| M | P5b, P5d, P7b, P7c | `d415970d` | 1580 / 0 / 2 = 1582 | holds with corrections |
+| S | P3b (Gate D), P5c | `068b39b6` | 1591 / 0 / 2 = 1593 | holds |
+| V | P10a (Gate B) | `76f01764` | 1578 / 0 / 2 = 1580, scientific 0 FAIL | holds |
+| R | P4a, P4b, Go to <room> | `3ec593ac` | 1607 / 0 / 2 = 1609 | holds with corrections |
+| N | P1, P10c (Gate D, `lane-N-drive/`) | `7faae9f6` | 1598 / 0 / 2 = 1600 | holds with corrections |
+| D | P2 = Q1 a (Gate B, `lane-D-probe/`) | `4400487a` | 1603 / 0 / 2 = 1605, scientific 0 FAIL | holds with corrections |
+| R2 | P4c = Q3 a | `b714c125` | 1639 / 0 / 2 = 1641 | holds |
+| S2 | P3a = Q2 a, P5a + P7a = Q4 d | `3d2297d1` | 1655 / 0 / 2 = 1657 | holds |
+| F | P6b = Q6 a, P6c + P6d-2 = Q7 a, P6d-1 | `a1a8d234` | 1669 / 0 / 2 = 1671 | holds with corrections |
+
+Docs-only closes: P6a (landed `ceac82b1`), P10b-steppers (the sheet is gone). New, registered not fixed: the two room-switch defects
+lane N's drive saw (R3, deferred by the owner); the lanes' residuals in `open-items.md`. `run-tests.sh all` on `a1a8d234`: unit
+1669 / 0 / 2 = 1671 reconciled, 54 sections, zero FAIL, `GATE_EXIT=0`.
+
 ## The prompt for the polish session
 
 ```text
