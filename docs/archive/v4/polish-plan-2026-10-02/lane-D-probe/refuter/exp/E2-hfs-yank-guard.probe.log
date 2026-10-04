@@ -1,0 +1,21 @@
+readingOptions == alwaysMapped: true
+pre-yank readPattern(0,0) OK, 16384 px, first=0.0 last=16383.0
+[open] statfs(path)  OK  fsid=16777238,25 type=hfs
+[open] stat(path)    OK  dev=16777238 ino=22
+[open] fstatfs(fd)  OK  fsid=16777238,25 type=hfs on=/Volumes/mac4dstemDref
+[open] fstat(fd)    OK  dev=16777238 ino=22 nlink=1
+[open] pread(fd,1B@0)        OK
+[open] pread(fd,1B@30MB)     OK
+[open] F_GETPATH(fd)  OK  /Volumes/mac4dstemDref/cube.dm4
+READY
+[after-yank] statfs(path)  FAIL errno=2 (No such file or directory)
+[after-yank] stat(path)    FAIL errno=2 (No such file or directory)
+[after-yank] fstatfs(fd)  FAIL errno=45 (Operation not supported)
+[after-yank] fstat(fd)    FAIL errno=9 (Bad file descriptor)
+[after-yank] pread(fd,1B@0)        FAIL errno=5 (Input/output error)
+[after-yank] pread(fd,1B@30MB)     FAIL errno=5 (Input/output error)
+[after-yank] F_GETPATH(fd)  FAIL errno=9 (Bad file descriptor)
+reading pattern (0,0) ...
+readPattern(0,0) THREW: cube.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.
+reading pattern (31,31) ...
+readPattern(31,31) THREW: cube.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.

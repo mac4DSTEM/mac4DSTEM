@@ -1,0 +1,52 @@
+Started erase on disk5
+Unmounting disk
+Erasing
+Volume name      : M4DREF
+Partition offset : 0 sectors (0 bytes)
+Volume size      : 131072 sectors (67108864 bytes)
+Bytes per sector : 512
+Bytes per cluster: 4096
+FAT offset       : 128 sectors (65536 bytes)
+# FAT sectors    : 128
+Number of FATs   : 1
+Cluster offset   : 256 sectors (131072 bytes)
+# Clusters       : 16352
+Volume Serial #  : 6ac22cb2
+Bitmap start     : 2
+Bitmap file size : 2044
+Upcase start     : 3
+Upcase file size : 5836
+Root start       : 5
+Mounting disk
+Finished erase on disk5 (M4DREF)
+ram disk /dev/disk5 (ExFAT) volume device /dev/disk5 mounted at /Volumes/M4DREF mount line: /dev/disk5 on /Volumes/M4DREF (exfat, local, nodev, nosuid, noowners, noatime, fskit, mounted by paullobpreis)
+wrote /Volumes/M4DREF/cube.dm4
+--- soft: diskutil unmount /Volumes/M4DREF (expected to be refused: file mapped/open)
+Volume M4DREF on disk5 failed to unmount: dissented by PID 94485 (<scratchpad>/probes/probe-head)
+Dissenter parent PPID 94427 (/bin/zsh)
+soft unmount exit=1
+--- diskutil unmount force /Volumes/M4DREF
+Volume M4DREF on disk5 force-unmounted
+force unmount exit=0
+--- diskutil mount /dev/disk5 (same device, same file, same inode)
+Volume M4DREF on /dev/disk5 mounted
+mount exit=0 : 9 -rwx------@ 1 paullobpreis  staff  33554757 Oct  4 12:38 /Volumes/M4DREF/cube.dm4
+--- probe exit status: 138  (138 = SIGBUS, 139 = SIGSEGV, 0 = clean)
+readingOptions == alwaysMapped: true
+pre-yank readPattern(0,0) OK, 16384 px, first=0.0 last=16383.0
+[open] statfs(path)  OK  fsid=16777238,24 type=exfat
+[open] stat(path)    OK  dev=16777238 ino=9
+[open] fstatfs(fd)  OK  fsid=16777238,24 type=exfat on=/Volumes/M4DREF
+[open] fstat(fd)    OK  dev=16777238 ino=9 nlink=1
+[open] pread(fd,1B@0)        OK
+[open] pread(fd,1B@30MB)     OK
+[open] F_GETPATH(fd)  OK  /Volumes/M4DREF/cube.dm4
+READY
+[after-unmount] statfs(path)  FAIL errno=2 (No such file or directory)
+[after-unmount] stat(path)    FAIL errno=2 (No such file or directory)
+[after-unmount] fstatfs(fd)  FAIL errno=45 (Operation not supported)
+[after-unmount] fstat(fd)    FAIL errno=9 (Bad file descriptor)
+[after-unmount] pread(fd,1B@0)        FAIL errno=5 (Input/output error)
+[after-unmount] pread(fd,1B@30MB)     FAIL errno=5 (Input/output error)
+[after-unmount] F_GETPATH(fd)  FAIL errno=9 (Bad file descriptor)
+reading pattern (0,0) ...

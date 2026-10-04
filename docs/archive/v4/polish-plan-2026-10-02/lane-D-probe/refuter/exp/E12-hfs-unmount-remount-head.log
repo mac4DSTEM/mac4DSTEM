@@ -1,0 +1,37 @@
+Started erase on disk5
+Unmounting disk
+Erasing
+Initialized /dev/rdisk5 as a 64 MB case-insensitive HFS Plus volume
+Mounting disk
+Finished erase on disk5 (mac4dstemDref)
+ram disk /dev/disk5 (HFS+) volume device /dev/disk5 mounted at /Volumes/mac4dstemDref mount line: /dev/disk5 on /Volumes/mac4dstemDref (hfs, local, nodev, nosuid, noowners, mounted by paullobpreis)
+wrote /Volumes/mac4dstemDref/cube.dm4
+--- soft: diskutil unmount /Volumes/mac4dstemDref (expected to be refused: file mapped/open)
+Volume mac4dstemDref on disk5 failed to unmount: dissented by PID 95218 (<scratchpad>/probes/probe-head)
+Dissenter parent PPID 95109 (/bin/zsh)
+soft unmount exit=1
+--- diskutil unmount force /Volumes/mac4dstemDref
+Volume mac4dstemDref on disk5 force-unmounted
+force unmount exit=0
+--- diskutil mount /dev/disk5 (same device, same file, same inode)
+Volume mac4dstemDref on /dev/disk5 mounted
+mount exit=0 : 20 -rw-r--r--@ 1 paullobpreis  staff  33554757 Oct  4 12:39 /Volumes/mac4dstemDref/cube.dm4
+--- probe exit status: 138  (138 = SIGBUS, 139 = SIGSEGV, 0 = clean)
+readingOptions == alwaysMapped: true
+pre-yank readPattern(0,0) OK, 16384 px, first=0.0 last=16383.0
+[open] statfs(path)  OK  fsid=16777238,25 type=hfs
+[open] stat(path)    OK  dev=16777238 ino=20
+[open] fstatfs(fd)  OK  fsid=16777238,25 type=hfs on=/Volumes/mac4dstemDref
+[open] fstat(fd)    OK  dev=16777238 ino=20 nlink=1
+[open] pread(fd,1B@0)        OK
+[open] pread(fd,1B@30MB)     OK
+[open] F_GETPATH(fd)  OK  /Volumes/mac4dstemDref/cube.dm4
+READY
+[after-unmount] statfs(path)  FAIL errno=2 (No such file or directory)
+[after-unmount] stat(path)    FAIL errno=2 (No such file or directory)
+[after-unmount] fstatfs(fd)  FAIL errno=45 (Operation not supported)
+[after-unmount] fstat(fd)    FAIL errno=9 (Bad file descriptor)
+[after-unmount] pread(fd,1B@0)        FAIL errno=5 (Input/output error)
+[after-unmount] pread(fd,1B@30MB)     FAIL errno=5 (Input/output error)
+[after-unmount] F_GETPATH(fd)  FAIL errno=9 (Bad file descriptor)
+reading pattern (0,0) ...

@@ -209,8 +209,11 @@ default — GD's gap to py4DSTEM 8.6 → 1.7 % at 8 iterations, growing after (2
 still correlates 0.69 with py4DSTEM's. Archived scripts that call `ptycho dmap` or an unflagged `ptycho gd` reproduce only at their commit.** C5's 500-step run done headless
 (`archive/v4/c5-training-run-2026-09-30.md`: 68 s, 745 MB peak, D7 declines the candidate — recall 58.4 → 57.1 %, precision
 65.7 → 72.1 %). **Open:** the Train Model… drive is the owner's (a scratch build cannot read his sidecar's labels — the
-grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A vanished volume is still a SIGBUS with no
-dialog; network volumes keep the full read.
+grant is his build's bookmark, C10); the inter-labeller check on the 370 centres. A DM4 whose disk is disconnected refuses
+every later read until reopened (Slot 4⅞ lane D: a held descriptor + latch, measured on HFS+/APFS/exFAT RAM disks,
+`archive/v4/polish-plan-2026-10-02/lane-D-probe/`); a read in flight at the yank can still crash; the probe is unit-blind — any change to
+the reader's held descriptor re-runs `lane-D-probe/drive.sh`; after the latch each pattern click re-presents the alert (no dedupe).
+Network volumes keep the full read.
 
 ### Scan-fastest DM4 detector pair: order unverified against GMS — a named limit (2026-09-05; owner 2026-09-30: leave it)
 `Si-SiGe.dm4` stores its scan pair fastest; the reader maps tags `[Rx, Ry, Qy, Qx]` (pattern 480×448) with one axis order for the

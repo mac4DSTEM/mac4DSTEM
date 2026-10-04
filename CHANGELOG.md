@@ -95,6 +95,8 @@ Rough edges left after the review, each fixed with a test that fails without it 
 - A number field no longer rounds its value when you merely click into it or leave the room: a Defocus seeded by Use Parallax
   Fit kept only 0.1 Å, and leaving Orientation after dragging the exploratory scale discarded the ACOM map. Preprocess's Write
   uses the threshold you just typed (a mouse click on Write wrote the previous one).
+- A DM4 cube whose disk is disconnected (an SSD pulled while the cube streams) no longer crashes the app on the next read: it says
+  "<file> is no longer reachable: its disk was disconnected. Reconnect it and reopen." and keeps refusing until reopened.
 
 ### Removed
 
@@ -111,6 +113,7 @@ Rough edges left after the review, each fixed with a test that fails without it 
 - Export Data… dimensions read as pixels in py4DSTEM; the true sampling is in the file's attributes.
 - Annulus with inner radius 0 excludes the centre pixel; py4DSTEM's convention is unchecked.
 - Quitting waits for a file read in flight: seconds from an internal SSD, longer from a slow external drive.
+- A disk disconnected at the very instant a DM4 read is in flight can still crash the app.
 - Macs without a Neural Engine cannot run the learned detector. The Neural Engine return was measured on one Mac (M5 Pro, macOS 27.0.1).
 - A Q edit still deletes the ACOM map instead of marking it stale, and Clear Calibration records no calibration node (open-items, 2026-09-30 register residuals).
 - Preprocess deviations from py4DSTEM: the bin sum order is not bit-identical with numpy's float32, and the hot-pixel filter's mean is Double where numpy's is float32.

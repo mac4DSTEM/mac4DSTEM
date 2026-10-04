@@ -19,6 +19,10 @@ package enum DM4Error: LocalizedError {
     case noDatacube
     case unsupportedDataType(Int)
     case truncated
+    /// The disk a memory-mapped file came from is gone (file name only, never
+    /// the folders above it). Raised by every read after the first one that
+    /// finds it gone — see `DM4Reader.requireDiskAlive()`.
+    case volumeGone(String)
 
     package var errorDescription: String? {
         switch self {
@@ -27,7 +31,67 @@ package enum DM4Error: LocalizedError {
         case .noDatacube: return "No 4D (or scan-shaped 3D) datacube was found in this DM file."
         case .unsupportedDataType(let t): return "Unsupported DM image data type \(t)."
         case .truncated: return "The DM file ended unexpectedly while parsing."
+        case .volumeGone(let name):
+            return "\(name) is no longer reachable: its disk was disconnected. Reconnect it and reopen."
         }
+    }
+}
+
+/// Whether the disk a memory-mapped file came from is still there (Slot 4⅞,
+/// open-items "DM4 on a disconnected volume").
+///
+/// MEASURED on a RAM disk (HFS+, `hdiutil detach -force`, macOS 27.0.1; probe
+/// and logs in `docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/`): a path
+/// probe is the wrong tool. `statfs(path)` fails after the yank, but passes again with
+/// the SAME `f_fsid`, `st_dev` and `st_ino` once a volume of that name is back
+/// with the file copied to the same path, while the old mapping is still dead
+/// (the next page touched is a SIGBUS). A descriptor opened BEFORE the yank is
+/// dead for good: `fstat` fails with EBADF (`pread` with EIO) after the yank
+/// and again after the remount. So the witness is a descriptor, opened before
+/// the file is mapped and kept for the reader's life; it also survives the user
+/// renaming the file in Finder, which a path probe would report as a loss.
+package nonisolated struct MappingLiveness: Sendable {
+    /// `true` while the disk answers. The reader latches the first `false`.
+    package let isAlive: @Sendable () -> Bool
+
+    package init(_ isAlive: @escaping @Sendable () -> Bool) {
+        self.isAlive = isAlive
+    }
+
+    /// Opens `path` read-only and keeps the descriptor until the last copy of
+    /// this value is gone. THROWS `DM4Error.cannotOpen` when it cannot be
+    /// opened: a mapped file whose disk cannot be watched is refused, never
+    /// read unguarded (Slot 4⅞ fix round: this returned `nil` and the reader
+    /// then mapped the file with no guard at all, a gate that failed silently).
+    package static func descriptor(path: String) throws -> MappingLiveness {
+        let held = HeldDescriptor(path: path)
+        guard held.descriptor >= 0 else {
+            throw DM4Error.cannotOpen(
+                "\(displayFileName(path)) — its disk could not be watched: "
+                + String(cString: strerror(held.failure)))
+        }
+        return MappingLiveness { held.answers }
+    }
+
+    private nonisolated final class HeldDescriptor: Sendable {
+        let descriptor: Int32
+        /// `errno` of the open, read at once; 0 when it succeeded.
+        let failure: Int32
+        init(path: String) {
+            let fd = open(path, O_RDONLY | O_CLOEXEC)
+            descriptor = fd
+            failure = fd >= 0 ? 0 : errno
+        }
+        /// THE REAL PROBE IS UNIT-BLIND (refuter, 2026-10-04): swapping `fstat`
+        /// for `fcntl(F_GETFD)` keeps every unit test green and still dies with
+        /// a SIGBUS after a forced unmount; only a force-ejected RAM disk shows
+        /// it. After ANY change to this class, re-run
+        /// `docs/archive/v4/polish-plan-2026-10-02/lane-D-probe/drive.sh`.
+        var answers: Bool {
+            var info = stat()
+            return fstat(descriptor, &info) == 0
+        }
+        deinit { if descriptor >= 0 { close(descriptor) } }
     }
 }
 
@@ -58,6 +122,16 @@ package actor DM4Reader: FourDDataSource {
     package let filePath: String
     private let layoutCell = LayoutCell()
 
+    /// Non-nil only when the file is MAPPED (`.alwaysMapped`): a file read into
+    /// memory (a network volume) is valid after its disk is gone and needs no
+    /// guard. Owner: this reader; one descriptor per open reader.
+    private let liveness: MappingLiveness?
+    /// THE LATCH (owner card Q1 = a, 2026-10-04): set by the first read that
+    /// finds the disk gone, never cleared. A plain "is the volume there" check
+    /// would pass again the moment the disk is plugged back in, while the old
+    /// mapping is still dead.
+    private var diskGone = false
+
     private var descriptor: DatasetDescriptor?
     private var dataOffset = 0        // byte offset of the datacube blob
     private var imageDataType = 0     // Gatan ImageData.DataType code
@@ -85,7 +159,20 @@ package actor DM4Reader: FourDDataSource {
     // Async so the init is actor-isolated and may call parse(), which
     // mutates actor state; a synchronous actor init is nonisolated and
     // such a call is an error in Swift 6 language mode.
-    package init(path: String) async throws {
+    //
+    // `liveness` replaces the real descriptor check, for tests; like the real
+    // one it applies only when the file is mapped.
+    package init(path: String, liveness injected: MappingLiveness? = nil) async throws {
+        // The descriptor is opened BEFORE the file is mapped, so it can only
+        // belong to the disk the mapping comes from. If the open below throws,
+        // the last copy of it goes out of scope and closes it.
+        // `readingOptions` is asked twice (here, and by the one open below,
+        // which `run-tests.sh inventory` pins): same path, same answer.
+        let isMapped = Self.readingOptions(forPath: path) == .alwaysMapped
+        let watch = Result<MappingLiveness?, Error> {
+            guard isMapped else { return nil }
+            return try injected ?? MappingLiveness.descriptor(path: path)
+        }
         // The underlying error travels with the refusal (v2 S7 audit): the
         // old `try?` collapsed EPERM, ENOENT and a short read into one
         // pathless "cannot open". How the file is held is
@@ -97,6 +184,11 @@ package actor DM4Reader: FourDDataSource {
             throw DM4Error.cannotOpen(
                 "\(displayFileName(path)) — \(error.localizedDescription)")
         }
+        // The file is mapped but its disk cannot be watched (the descriptor
+        // failed while the open above succeeded: EMFILE, a permission race):
+        // refuse, never read it unguarded. The open's own error, above, wins
+        // whenever both fail.
+        self.liveness = try watch.get()
         self.filePath = path
         try parse()
     }
@@ -116,7 +208,10 @@ package actor DM4Reader: FourDDataSource {
     /// `binfactor > 1`) and its `mem="MEMMAP"` (`:123-124`) both read through
     /// ncempy's `np.memmap` (`ncempy/io/dm.py:1195`). If the volume disappears
     /// while mapped, the next page touched is a SIGBUS: the app crashes
-    /// without a dialog, not a thrown `DM4Error`.
+    /// without a dialog, not a thrown `DM4Error`. Since Slot 4⅞ every read
+    /// first asks `requireDiskAlive()` and, once the disk is gone, throws
+    /// `DM4Error.volumeGone` for the rest of the reader's life; a read already
+    /// in flight at the moment of the yank can still crash.
     ///
     /// DEVIATION: ncempy maps on every volume. A network volume (no
     /// `MNT_LOCAL`) keeps `.mappedIfSafe` here, the old behaviour, because a
@@ -312,7 +407,15 @@ package actor DM4Reader: FourDDataSource {
             && view.descriptor.rx == rx
     }
 
+    /// One check per public read (not per decode: a tile is many decodes and the
+    /// check is a syscall). Latches on the first failure; see `diskGone`.
+    private func requireDiskAlive() throws {
+        if !diskGone, let liveness, !liveness.isAlive() { diskGone = true }
+        if diskGone { throw DM4Error.volumeGone(displayFileName(filePath)) }
+    }
+
     package func readPattern(_ view: LoadView, ry scanY: Int, rx scanX: Int) throws -> [Float] {
+        try requireDiskAlive()
         try view.requireSource(shape: [ry, rx, qy, qx])
         guard scanY >= 0, scanY < view.descriptor.ry,
               scanX >= 0, scanX < view.descriptor.rx else {
@@ -323,6 +426,7 @@ package actor DM4Reader: FourDDataSource {
     }
 
     package func readScanRow(_ view: LoadView, ry scanY: Int) throws -> [Float] {
+        try requireDiskAlive()
         try view.requireSource(shape: [ry, rx, qy, qx])
         guard scanY >= 0, scanY < view.descriptor.ry else { throw DM4Error.truncated }
         return try scanRow(view, viewY: scanY)
@@ -369,6 +473,7 @@ package actor DM4Reader: FourDDataSource {
 
     package func readScanTile(_ view: LoadView,
                       yRange: Range<Int>) throws -> FourDScanTile {
+        try requireDiskAlive()
         try view.requireSource(shape: [ry, rx, qy, qx])
         let lower = max(0, yRange.lowerBound)
         let upper = min(view.descriptor.ry, yRange.upperBound)

@@ -1,0 +1,30 @@
+readingOptions == alwaysMapped: true
+pre-yank readPattern(0,0) OK, 16384 px, first=0.0 last=16383.0
+[open] statfs(path)  OK  fsid=16777238,24 type=exfat
+[open] stat(path)    OK  dev=16777238 ino=9
+[open] fstatfs(fd)  OK  fsid=16777238,24 type=exfat on=/Volumes/M4DREF
+[open] fstat(fd)    OK  dev=16777238 ino=9 nlink=1
+[open] pread(fd,1B@0)        OK
+[open] pread(fd,1B@30MB)     OK
+[open] F_GETPATH(fd)  OK  /Volumes/M4DREF/cube.dm4
+READY
+[after-unmount] statfs(path)  FAIL errno=2 (No such file or directory)
+[after-unmount] stat(path)    FAIL errno=2 (No such file or directory)
+[after-unmount] fstatfs(fd)  FAIL errno=45 (Operation not supported)
+[after-unmount] fstat(fd)    FAIL errno=9 (Bad file descriptor)
+[after-unmount] pread(fd,1B@0)        FAIL errno=5 (Input/output error)
+[after-unmount] pread(fd,1B@30MB)     FAIL errno=5 (Input/output error)
+[after-unmount] F_GETPATH(fd)  FAIL errno=9 (Bad file descriptor)
+reading pattern (0,0) ...
+readPattern(0,0) THREW: cube.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.
+[after-remount] statfs(path)  OK  fsid=16777238,24 type=exfat
+[after-remount] stat(path)    OK  dev=16777238 ino=9
+[after-remount] fstatfs(fd)  FAIL errno=45 (Operation not supported)
+[after-remount] fstat(fd)    FAIL errno=9 (Bad file descriptor)
+[after-remount] pread(fd,1B@0)        FAIL errno=5 (Input/output error)
+[after-remount] pread(fd,1B@30MB)     FAIL errno=5 (Input/output error)
+[after-remount] F_GETPATH(fd)  FAIL errno=9 (Bad file descriptor)
+reading pattern (0,0) ...
+readPattern(0,0) THREW: cube.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.
+reading pattern (31,31) ...
+readPattern(31,31) THREW: cube.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.

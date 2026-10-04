@@ -1,0 +1,49 @@
+Started erase on disk5
+Unmounting disk
+Erasing
+Volume name      : M4DREF
+Partition offset : 0 sectors (0 bytes)
+Volume size      : 131072 sectors (67108864 bytes)
+Bytes per sector : 512
+Bytes per cluster: 4096
+FAT offset       : 128 sectors (65536 bytes)
+# FAT sectors    : 128
+Number of FATs   : 1
+Cluster offset   : 256 sectors (131072 bytes)
+# Clusters       : 16352
+Volume Serial #  : 6ac22ca0
+Bitmap start     : 2
+Bitmap file size : 2044
+Upcase start     : 3
+Upcase file size : 5836
+Root start       : 5
+Mounting disk
+Finished erase on disk5 (M4DREF)
+ram disk /dev/disk5 (ExFAT) volume device /dev/disk5 mounted at /Volumes/M4DREF mount line: /dev/disk5 on /Volumes/M4DREF (exfat, local, nodev, nosuid, noowners, noatime, fskit, mounted by paullobpreis)
+wrote /Volumes/M4DREF/cube.dm4
+--- yank: hdiutil detach -force /dev/disk5
+hdiutil: WARNING: 'hdiutil detach -force ...' is deprecated. Please use 'diskutil eject force ...' instead.
+"disk5" ejected.
+detach exit=0
+--- probe exit status: 0  (138 = SIGBUS, 139 = SIGSEGV, 0 = clean)
+readingOptions == alwaysMapped: true
+pre-yank readPattern(0,0) OK, 16384 px, first=0.0 last=16383.0
+[open] statfs(path)  OK  fsid=16777238,24 type=exfat
+[open] stat(path)    OK  dev=16777238 ino=9
+[open] fstatfs(fd)  OK  fsid=16777238,24 type=exfat on=/Volumes/M4DREF
+[open] fstat(fd)    OK  dev=16777238 ino=9 nlink=1
+[open] pread(fd,1B@0)        OK
+[open] pread(fd,1B@30MB)     OK
+[open] F_GETPATH(fd)  OK  /Volumes/M4DREF/cube.dm4
+READY
+[after-yank] statfs(path)  FAIL errno=2 (No such file or directory)
+[after-yank] stat(path)    FAIL errno=2 (No such file or directory)
+[after-yank] fstatfs(fd)  FAIL errno=45 (Operation not supported)
+[after-yank] fstat(fd)    FAIL errno=9 (Bad file descriptor)
+[after-yank] pread(fd,1B@0)        FAIL errno=5 (Input/output error)
+[after-yank] pread(fd,1B@30MB)     FAIL errno=5 (Input/output error)
+[after-yank] F_GETPATH(fd)  FAIL errno=9 (Bad file descriptor)
+reading pattern (0,0) ...
+readPattern(0,0) THREW: cube.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.
+reading pattern (31,31) ...
+readPattern(31,31) THREW: cube.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.
