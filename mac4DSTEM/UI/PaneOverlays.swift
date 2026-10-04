@@ -485,12 +485,23 @@ private extension Binding where Value == Float {
 enum ApertureHandleRules {
     /// The inner handle is drawn at `centre + inner`; at radius 0 it is the
     /// centre handle's twin and took its drag (drive 2A, 2026-09-30). It is
-    /// PARKED at least `minimum` (one handle diameter, in detector pixels) from
-    /// the centre instead of hidden, because dragging it is the only way to
+    /// PARKED at least `minimum` (`parkedMinimum`: 1.5 handle diameters, in
+    /// detector pixels) from the centre instead of hidden, because dragging it is the only way to
     /// raise the inner radius again from 0. Draw position only: `radiusDrag`
     /// still sets the true radius from the pointer distance.
     static func innerHandleOffset(inner: Float, minimum: Float) -> Float {
         max(inner, minimum)
+    }
+
+    /// How far out the parked handle sits, in handle diameters. One diameter put
+    /// the cyan handle exactly touching the centre ⊕, so the two read as one
+    /// control; 1.5 leaves a half-diameter (6 pt) gap (owner, 2026-10-04).
+    static let parkingDiameters: CGFloat = 1.5
+
+    /// The `minimum` handed to `innerHandleOffset`, in detector pixels: the
+    /// parking distance in points over the pane's points-per-pixel.
+    static func parkedMinimum(handleDiameter: CGFloat, radiusScale: CGFloat) -> Float {
+        Float(parkingDiameters * handleDiameter / max(radiusScale, .leastNonzeroMagnitude))
     }
 }
 
@@ -609,13 +620,14 @@ struct ApertureOverlay: View {
             .position(x: center.x + outer, y: center.y)
             .gesture(radiusDrag(center: center, scale: radiusScale, isInner: false))
         // The inner handle at radius 0 sat exactly on the centre handle and
-        // took its drag (drive 2A, 2026-09-30). It is parked one handle
-        // diameter out while the radius is smaller (still draggable, so the
+        // took its drag (drive 2A, 2026-09-30). It is parked 1.5 handle
+        // diameters out while the radius is smaller (still draggable, so the
         // radius can be raised again) and the centre handle is drawn last, so
-        // it stays on top where the two touch.
+        // it stays on top where the two meet.
         let parked = CGFloat(ApertureHandleRules.innerHandleOffset(
             inner: aperture.inner,
-            minimum: Float(Self.handleDiameter / max(radiusScale, .leastNonzeroMagnitude)))) * radiusScale
+            minimum: ApertureHandleRules.parkedMinimum(
+                handleDiameter: Self.handleDiameter, radiusScale: radiusScale))) * radiusScale
         handle(color: .cyan)
             .position(x: center.x + parked, y: center.y)
             .gesture(radiusDrag(center: center, scale: radiusScale, isInner: true))
@@ -888,15 +900,13 @@ struct PatternFitOverlay: View {
                 }
             }
             .frame(width: box.width, height: box.height)
-
-            legend
-                .padding(6)
         }
         .frame(width: box.width, height: box.height)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Fit overlay")
-        .accessibilityValue(legendText)
+        .accessibilityValue(Self.legendText(
+            strain: strain, template: template, originPoint: originPoint, ellipse: ellipse))
     }
 
     // MARK: - Coordinate mapping
@@ -1022,7 +1032,15 @@ struct PatternFitOverlay: View {
 
     // MARK: - Legend
 
-    private var legendText: String {
+    /// The key to what the overlay draws; empty when it draws nothing. Static and
+    /// pure so the chip (`PatternFitLegend`, placed by the pane OUTSIDE the zoom)
+    /// and this overlay's accessibility value read the one string.
+    static func legendText(
+        strain: FitOverlays.StrainOverlay?,
+        template: FitOverlays.TemplateOverlay?,
+        originPoint: (x: Float, y: Float)?,
+        ellipse: [FitOverlays.Marker]
+    ) -> String {
         if let strain {
             if let residual = strain.localResidualPixels {
                 return String(
@@ -1043,9 +1061,17 @@ struct PatternFitOverlay: View {
         if !ellipse.isEmpty { parts.append("◌ fitted ellipse") }
         return parts.joined(separator: " · ")
     }
+}
 
-    private var legend: some View {
-        Text(legendText)
+/// The fit overlay's key chip. Screen-space chrome, like the scale bar and the
+/// colorbar: the pane places it at its top-leading corner OUTSIDE the zoomed,
+/// clipped layer (P7b), so it stays put and keeps its size at any zoom. The
+/// overlay's own accessibility value carries the same text, so it is hidden here.
+struct PatternFitLegend: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
             .font(.caption2)
             .foregroundStyle(.white)
             .padding(.horizontal, 7)
@@ -1053,6 +1079,7 @@ struct PatternFitOverlay: View {
             // Legibility plate over the pattern, as on the scale bar: this
             // key is read against arbitrary diffraction intensity.
             .background(Color.black.opacity(0.48), in: Capsule())
+            .accessibilityHidden(true)
     }
 }
 

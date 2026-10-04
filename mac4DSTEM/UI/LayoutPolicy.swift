@@ -435,15 +435,18 @@ enum OperationMetricsFormat {
         "\(engine) · " + glance(residentMB: residentMB, residency: isResident)
     }
 
-    /// The status strip's memory/residency glance (ADR 034): app resident
-    /// memory beside whether the open cube is held in memory or streamed —
+    /// The status strip's memory/residency glance (ADR 034): app memory (the
+    /// process's physical footprint, Activity Monitor's Memory column — not
+    /// the mapped cube's clean file pages) beside whether the open cube is
+    /// held in memory or streamed —
     /// "1.4 GB · resident", "612 MB · streaming". One style throughout UI:
     /// Finder's decimal one (1000-based, `displayByteString`), so this reads
     /// the same as the sidebar's "Resident". The caller passes DECIMAL
-    /// megabytes (10^6 bytes; `SystemMonitor.residentMemoryMB()` is MiB, so
-    /// it converts at the call site). This slot is fixed-width and ticks every
-    /// 2 s, so it takes the raw MB figure rather than a pre-formatted string,
-    /// the same shape as `duration`/`throughput` above.
+    /// megabytes (10^6 bytes; `SystemMonitor.residentMemoryMB()` returns the
+    /// footprint in MiB, so it converts at the call site). This slot is
+    /// fixed-width and ticks every 2 s, so it takes the raw MB figure rather
+    /// than a pre-formatted string, the same shape as `duration`/`throughput`
+    /// above.
     static func glance(residentMB: Double, residency isResident: Bool) -> String {
         let value: String
         // GB before MB, TB before GB: `>=`, not `>`, at each boundary — a

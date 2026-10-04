@@ -77,6 +77,16 @@ A whole-app review before this release (six independent reviewers, each finding 
 - **Quit.** Quitting while a file read was in progress could crash at quit; quit now waits for the read in flight. Malformed values in a session file are refused by name instead of overrunning memory.
 - **Repository.** SECURITY.md now states the one network request (Materials Project, started by you); CI says what it runs.
 
+### Polish before release (2026-10-04)
+
+Rough edges left after the review, each fixed with a test that fails without it and checked by a second model
+(`docs/archive/v4/polish-plan-2026-10-02/`):
+
+- The status strip shows the app's memory (Activity Monitor's Memory column), not the pages of a memory-mapped cube
+  (it read 23.1 GB for a 15.8 GiB cube). Open Dataset… and Preprocess Raw Data… work with no dataset window open — they
+  open one. The fit overlay's key stays in the diffraction pane's corner when you zoom; the annulus' inner handle no longer
+  touches the centre handle at inner radius 0.
+
 ### Removed
 
 - The Settings engine picker, the unwired image-segmentation path, the ptychography difference map and the higher-order toggle.

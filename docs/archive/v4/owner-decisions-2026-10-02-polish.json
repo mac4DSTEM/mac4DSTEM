@@ -230,5 +230,12 @@
     "The final drive needs your SSD mounted (graphene, bullseye) and covers what was never seen on screen: a mirrored ACOM pixel, the β″ legend on a run, ADF 3r–6r on a narrow beam, the room-switch rule; plus a README screenshot from a real dataset. Two clicks are yours: choosing the dataset itself in a Save panel and clicking Replace (expect a refusal).",
     "The website's false claims stay as you decided (W1 c); its version lines are bumped after the DMG exists."
   ],
-  "answered": {}
+  "answered": {
+    "Q1": "a — the DM4 reader refuses every read once its disk is gone, and the guard latches until the file is reopened (given in the session prompt, 2026-10-04; the sheet's paste left it blank)",
+    "Q2": "a — always ask before reopening without the saved session (the sheet's paste left it blank; the session took the recommendation, 2026-10-04 — overrule on sight)",
+    "Q3": "a — move the SCAN navigator into the diffraction pane's top-right corner",
+    "Q4": "d — full headline, the false hover sentence removed, and the sidebar's detail one remedy-first line with the full refusal on hover",
+    "Q6": "a — a floor of 140 pt when the bottom area is open, on drag and on restore; a snap-shut below 70 pt only if it comes free; Lineage stays off by default (no note given)",
+    "Q7": "a — hide Compute Image in Virtual detector (Group Patterns keeps it); ⌘R disables there in step"
+  }
 }

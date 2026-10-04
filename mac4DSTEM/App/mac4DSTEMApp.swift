@@ -45,6 +45,8 @@ extension AppAppearance {
 private struct DatasetWindow: View {
     let preferences: AppPreferences
     let recents: RecentDatasets
+    /// A File-menu action asked for while no window was focused (`MenuActionRelay`).
+    let menuRelay: MenuActionRelay
     @State private var appState: AppState
     @State private var loadedLaunchFixture = false
 
@@ -56,9 +58,10 @@ private struct DatasetWindow: View {
     /// changes while Settings is open, which is the whole point of
     /// `@Observable` here. See `AppState.preferences`'s own doc for why
     /// `AppState` needs it at all rather than reading it only from views.
-    init(preferences: AppPreferences, recents: RecentDatasets) {
+    init(preferences: AppPreferences, recents: RecentDatasets, menuRelay: MenuActionRelay) {
         self.preferences = preferences
         self.recents = recents
+        self.menuRelay = menuRelay
         _appState = State(initialValue: AppState(preferences: preferences, recents: recents))
     }
 
@@ -82,6 +85,11 @@ private struct DatasetWindow: View {
         .onDisappear { OpenDatasetRegistry.withdraw(appState) }
         .frame(minWidth: LayoutPolicy.datasetWindowMinimumSize.width,
                minHeight: LayoutPolicy.datasetWindowMinimumSize.height)
+        // "Open Dataset…" / "Preprocess Raw Data…" chosen with no window focused opened this one; a
+        // `.task`, so the content's own request observers exist before the action fires.
+        .task {
+            if let action = menuRelay.take() { MenuActionRelay.run(action, in: appState) }
+        }
         .task {
                 guard !loadedLaunchFixture,
                       ProcessInfo.processInfo.arguments.contains("--demo-fixture") else {
@@ -99,6 +107,9 @@ private struct DatasetWindow: View {
 private struct DatasetCommands: Commands {
     @FocusedValue(\.appState) private var appState
     @Environment(\.openWindow) private var openWindow
+    let menuRelay: MenuActionRelay
+
+    init(menuRelay: MenuActionRelay) { self.menuRelay = menuRelay }
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -116,9 +127,13 @@ private struct DatasetCommands: Commands {
             // Also closed while a sidecar save runs: opening another dataset cancels it before it is written, and the
             // labels it carried exist nowhere else (review 2026-10-02 c4). `isBusy` is read first so the menu
             // re-evaluates when the operation starts and ends.
-            Button("Open Dataset…") { appState?.requestOpenDataset() }
+            // With no window focused (none open, or Settings / the object table key) it opens one and
+            // runs there (`MenuActionRelay`), so it is enabled then too.
+            Button("Open Dataset…") { perform(.openDataset) }
                 .keyboardShortcut("o", modifiers: .command)
-                .disabled(appState == nil || appState?.datasetSession.isLoading == true || sidecarSaveInFlight)
+                .disabled(!MenuActionRelay.isEnabled(
+                    hasFocusedWindow: appState != nil,
+                    blocked: appState?.datasetSession.isLoading == true || sidecarSaveInFlight))
             if let recovery = appState?.recoveryRecord {
                 Button("Reopen \(recoveryName(recovery))") { appState?.reopenLastDataset() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
@@ -135,9 +150,10 @@ private struct DatasetCommands: Commands {
                 .disabled(appState?.displayedPattern == nil)
             // One sheet for a raw file and for the open dataset's current view
             // (X3): with a cube open it is pre-filled with that view.
-            Button("Preprocess Raw Data…") { appState?.requestPreprocessRawData() }
-                .disabled(appState == nil || appState?.isBusy == true
-                          || appState?.datasetSession.isLoading == true)
+            Button("Preprocess Raw Data…") { perform(.preprocess) }
+                .disabled(!MenuActionRelay.isEnabled(
+                    hasFocusedWindow: appState != nil,
+                    blocked: appState?.isBusy == true || appState?.datasetSession.isLoading == true))
         }
         CommandGroup(replacing: .sidebar) {
             // Labels follow what is on screen, and the action acts on it too
@@ -220,6 +236,16 @@ private struct DatasetCommands: Commands {
         }
     }
 
+    /// Runs `action` in the focused window, or — with none — asks for it and opens a window that takes it.
+    private func perform(_ action: MenuActionRelay.Action) {
+        if let appState {
+            MenuActionRelay.run(action, in: appState)
+        } else {
+            menuRelay.request(action)
+            openWindow(id: "dataset")
+        }
+    }
+
     /// A session-sidecar save is running (review 2026-10-02 c4) — see the Open commands above.
     private var sidecarSaveInFlight: Bool {
         appState?.isBusy == true && SessionSidecarLocator.isSaveInFlight(appState?.activeOperation)
@@ -250,17 +276,20 @@ struct mac4DSTEMApp: App {
     // (`PrecipitateTableSelection`). App-scoped because the table is a separate
     // scene holding a snapshot, not a link to any one window's AppState.
     @State private var tableSelection = PrecipitateTableSelection()
+    // File-menu actions asked for while no dataset window is focused (`MenuActionRelay`): read by the
+    // commands, taken by the window they open.
+    @State private var menuRelay = MenuActionRelay()
 
     var body: some Scene {
         WindowGroup("mac4DSTEM", id: "dataset") {
-            DatasetWindow(preferences: preferences, recents: recents)
+            DatasetWindow(preferences: preferences, recents: recents, menuRelay: menuRelay)
                 .environment(tableSelection)
         }
             .defaultSize(width: LayoutPolicy.datasetWindowIdealSize.width,
                          height: LayoutPolicy.datasetWindowIdealSize.height)
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
-            .commands { DatasetCommands() }
+            .commands { DatasetCommands(menuRelay: menuRelay) }
         // The object table (`UI/PrecipitateObjectsWindow.swift`): a snapshot
         // value, so it needs no reference to the dataset window's AppState and
         // can stay open beside the map. Opened from the Precipitates section.

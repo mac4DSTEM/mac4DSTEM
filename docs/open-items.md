@@ -144,11 +144,11 @@ One line each; full wording as above.
   after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.
 - **Slot 4½ residuals** (2026-10-02; the rest of `archive/v4/polish-drive-2026-10-01.md` fixed): [the β″ preset's CIF picker closed 2026-10-02: the RC drive
   opened and applied it — the earlier report does not reproduce]; opening a cube in the DPC room re-runs DPC and Prepare then shows
-  its wheel (the opening pass runs the current mode); Preprocess Raw Data… is disabled with no window open; the SCAN inset (top-right) still
+  its wheel (the opening pass runs the current mode); the SCAN inset (top-right) still
   covers map data; a window that resized itself (unreproduced);
   "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1); re-entering Diffraction groups does not
   re-show its own map (lane F); `NumberEntryField` commits its shown text on blur, so a format that rounds below the stored digits rounds the value (lane B1).
-- Display residual after P2 (2026-10-01): the strip's memory counts mapped-file pages (23.1 GB for a 15.8 GiB cube).
+- Lane M residuals (2026-10-04): ⌘O / Preprocess Raw Data… with Settings or the object table key open a second dataset window (`openWindow` always creates one, as New Dataset Window does there); `PhaseClaimOverlay`'s legend and note still sit inside the zoomed layer (the fit chip's old defect); rename `residentMemoryMB` → `appMemoryMiB` when the frozen shell next opens.
 - Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; the disk, diffraction-groups and phase-map steps 2026-10-02, lane E; strain, ACOM and DPC steps still take the current mode's keys] replay, lineage
   rewind and the opening pass publish through `publishProduct`, which keys provenance by `navigation.analysisMode`; the executor
   never switches mode, so a replayed virtual_detector step run under `.disks` carries `source_product=bragg_vector_map` (fixture:
@@ -172,9 +172,8 @@ One line each; full wording as above.
   bin-2 aperture default (Gate D: the view-frame default was re-referenced as a source point; `archive/v4/v41-plan-2026-09-30.md`
   § Log). Left: Info › Provenance shows raw snake_case keys (`WorkspaceInspector.swift:625`, frozen; a wording edit that corrects
   no false claim — the owner's call, the one-line patch is in the Slot 1 record).
-- Slot 1 P drive residuals (2026-09-30 night, shots in `archive/v4/slot1-p-drive-2026-09-30-shots/`): the legend chip hides while the
-  CBED pane is zoomed; the bottom Lineage/Output pane is ~1.5 rows tall at 1470 × 923 (frozen `WorkspaceView`); the inner-radius
-  handle sits beside the ⊕ centre marker at inner 0; the sidebar session-warning headline truncates; the "Positions used"
+- Slot 1 P drive residuals (2026-09-30 night, shots in `archive/v4/slot1-p-drive-2026-09-30-shots/`): the bottom Lineage/Output pane
+  is ~1.5 rows tall at 1470 × 923 (frozen `WorkspaceView`); the sidebar session-warning headline truncates; the "Positions used"
   percentage fallback (> 2 % excluded) was not reached on screen.
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)

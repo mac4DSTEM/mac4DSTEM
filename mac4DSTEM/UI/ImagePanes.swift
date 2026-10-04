@@ -213,6 +213,11 @@ struct DiffractionPane: View {
             let qx = pattern.qx, qy = pattern.qy
             let box = LayoutPolicy.fitted(in: size, aspect: CGFloat(qx) / CGFloat(qy))
             let norm = appState.normalizedPatternPixels()   // cached per patternVersion
+            // Fit verification: read once for the overlay (in the zoomed layer) and its key chip (outside it).
+            let fit = appState.fitOverlays
+            let fitLegend = PatternFitOverlay.legendText(
+                strain: fit.strain, template: fit.template,
+                originPoint: fit.originPoint, ellipse: fit.ellipse)
 
             ZStack {
                 ZStack {
@@ -294,7 +299,6 @@ struct DiffractionPane: View {
 
                     // Fit verification: measured peaks against the fitted model
                     // (strain lattice / ACOM template / origin + ellipse).
-                    let fit = appState.fitOverlays
                     let fitStrain = fit.strain
                     let fitTemplate = fit.template
                     let fitOrigin = fit.originPoint
@@ -359,6 +363,17 @@ struct DiffractionPane: View {
                             )
                         }
                     }
+                }
+
+                // The fit overlay's key, at the pane's top-leading corner and OUTSIDE the zoomed, clipped
+                // layer: drawn in image space it was scaled and clipped away when zoomed (P7b). The
+                // diffraction pane has nothing else in this corner (the scale bar and colorbar are at the
+                // bottom; the SCAN inset is the real-space pane's, top-trailing).
+                if !fitLegend.isEmpty {
+                    PatternFitLegend(text: fitLegend)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .allowsHitTesting(false)
                 }
             }
             .frame(width: box.width, height: box.height)
