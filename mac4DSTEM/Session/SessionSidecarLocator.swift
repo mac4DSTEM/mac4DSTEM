@@ -112,6 +112,13 @@ package final class SessionSidecarLocator {
 
     package func noteWritten() { wroteThisSession = true }
 
+    /// "Reopen Without the Saved Session" was asked for and the window is waiting for the answer (owner card
+    /// Q2 a, 2026-10-04: always ask — the reopen replaces the dataset, so everything computed in this window and
+    /// not saved to the session is lost). Raised by `AppState.reopenIgnoringSessionSidecar()`, shown by
+    /// `ReopenWithoutSessionDialog` on the window, lowered by its buttons and by `release()` (a dataset change
+    /// makes the question moot). Here, on the per-window seam of "the session sidecar", not on `AppState`.
+    package var confirmsIgnore = false
+
     /// Set when a sidecar exists beside the dataset and could not be read, so
     /// the inspector can say the loaded extent may not be the recorded one.
     ///
@@ -270,6 +277,7 @@ package final class SessionSidecarLocator {
         hasGrant = false
         unreadableReason = nil
         wroteThisSession = false
+        confirmsIgnore = false
     }
 
     // MARK: - The bookmark key
@@ -310,35 +318,23 @@ package enum SessionSidecarReadFailure: Equatable {
         return text.contains("errno = 1,") ? .notPermitted : .unreadable
     }
 
-    /// What to tell the user, naming the remedy rather than the mechanism. The remedy is the control that
-    /// exists for it: with the sidecar unreadable every save is refused (`sidecarRewriteRefusal`), so "save
-    /// the session once" could never work, and the Save commands live in the Dataset menu, not File.
-    ///
-    /// Production asks `reason(sidecar:error:)`, the one text API; this is the sandbox class's fixed sentence that
-    /// `reason` returns. The `.unreadable` arm is not reached from production (that class's text is its raw detail,
-    /// built in `reason`); it stays only while `FinalPolishS2Tests` asks this on `.notPermitted` — when that test
-    /// asks `reason` instead, the method and the arm go.
-    package func explanation(sidecar: String) -> String {
-        switch self {
-        case .notPermitted:
-            return "\(sidecar) sits beside this dataset but mac4DSTEM has not been granted access "
-                + "to it by macOS. Choose Allow Access… (sidebar or Dataset menu) and pick that "
-                + "file; the dataset then reopens with its session."
-        case .unreadable:
-            return "\(sidecar) could not be read."
-        }
-    }
-
     /// The ONE sentence for "a sidecar is there and could not be read", asked by both places that learn it
     /// (`recordedOutcome` at open, and `AppState.loadSessionSnapshot` in `activate`) — two writers used to say
     /// two things and the later one, the raw HDF5 error stack, won (P5c). A sandbox refusal gets the remedy
     /// and none of the mechanism (the stack goes to the activity log); any other failure keeps its raw
     /// detail, the only clue there is.
+    ///
+    /// The sandbox sentence names the remedy rather than the mechanism, and the remedy is the control that
+    /// exists for it: with the sidecar unreadable every save is refused (`sidecarRewriteRefusal`), so "save
+    /// the session once" could never work, and the Save commands live in the Dataset menu, not File.
     package static func reason(sidecar: String, error: Error) -> String {
-        let failure = classify(error)
-        switch failure {
-        case .notPermitted: return failure.explanation(sidecar: sidecar)
-        case .unreadable: return "Could not restore \(sidecar): \(sessionErrorDetail(error))"
+        switch classify(error) {
+        case .notPermitted:
+            return "\(sidecar) sits beside this dataset but mac4DSTEM has not been granted access "
+                + "to it by macOS. Choose Allow Access… (sidebar or Dataset menu) and pick that "
+                + "file; the dataset then reopens with its session."
+        case .unreadable:
+            return "Could not restore \(sidecar): \(sessionErrorDetail(error))"
         }
     }
 }

@@ -71,6 +71,8 @@ private struct DatasetWindow: View {
             .environment(preferences)
             .environment(recents)
             .preferredColorScheme(preferences.appearance.colorScheme)
+            // "Ignore Session Sidecar…" / "Reopen Without This Session" ask before they act (owner card Q2 a).
+            .reopenWithoutSessionDialog(appState)
         .focusedSceneValue(\.appState, appState)
         // Info.plist declares CFBundleDocumentTypes, which puts mac4DSTEM in
         // Finder's "Open With" — this is the handler that requires.

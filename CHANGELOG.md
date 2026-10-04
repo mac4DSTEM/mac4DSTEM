@@ -99,6 +99,8 @@ Rough edges left after the review, each fixed with a test that fails without it 
   "<file> is no longer reachable: its disk was disconnected. Reconnect it and reopen." and keeps refusing until reopened.
 - The SCAN navigator sits in the diffraction pane's corner, beside the pattern it drives, instead of over the Bragg vector map or
   a reconstruction.
+- Dataset › Ignore Session Sidecar… (and the inspector's Reopen Without This Session) asks first and says what is lost. The sidebar's
+  session warnings show their whole headline and put the way out first, with the full explanation on hover.
 
 ### Removed
 

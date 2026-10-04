@@ -249,14 +249,42 @@ extension AppState {
 
 
 
+    /// "Ignore Session Sidecar…" (Dataset menu) and the inspector's "Reopen Without This Session": ASKS, never
+    /// acts (owner card Q2 a, 2026-10-04). The reopen replaces the dataset, so every product computed in this
+    /// window and not saved to the session goes with it; the app has no "unsaved work" test, and a wrong
+    /// "nothing to lose" would lose data silently, so the answer is always asked for. Raises the window's flag;
+    /// `ReopenWithoutSessionDialog` shows the question and `confirmReopenIgnoringSessionSidecar()` is the Reopen.
+    /// A dataset with no recorded reopen path is told so here, not after the question.
     func reopenIgnoringSessionSidecar() {
+        guard reopenableRecent() != nil else { return }
+        sessionSidecar.confirmsIgnore = true
+    }
+
+    /// The confirmed reopen: the dataset opens again with the saved session left aside for this one open
+    /// (`ignoreSessionForDatasetID`, consumed by `loadSessionSnapshot`). The sidecar file is untouched.
+    func confirmReopenIgnoringSessionSidecar() {
+        sessionSidecar.confirmsIgnore = false
+        guard let recent = reopenableRecent() else { return }
+        ignoreSessionForDatasetID = recent.id
+        openRecent(recent)
+    }
+
+    /// The Recents entry this window's dataset reopens from, or an alert naming that there is none.
+    private func reopenableRecent() -> RecentDataset? {
         guard let recoveryRecord,
               let recent = recents.entry(withID: recoveryRecord.datasetID) else {
             present(SimpleError("The current dataset has no recorded reopen path."))
-            return
+            return nil
         }
-        ignoreSessionForDatasetID = recent.id
-        openRecent(recent)
+        return recent
+    }
+
+    /// The session file beside the open dataset, by name, when one is there — what the reopen question tells
+    /// the user stays on disk. Through the sidecar seam (a granted, renamed sidecar is the one in use).
+    var existingSessionSidecarName: String? {
+        guard let descriptor else { return nil }
+        let url = sessionSidecar.location(for: descriptor)
+        return FileManager.default.fileExists(atPath: url.path) ? url.lastPathComponent : nil
     }
 
 

@@ -275,52 +275,61 @@ struct SessionSection: View {
     }
 
     /// The three states in which the saved session and the loaded data do not
-    /// agree. Each is carried verbatim from the inspector's own wording, so
-    /// the two surfaces cannot drift into describing the same state
-    /// differently; the full explanation and the way out stay in Info.
+    /// agree. The headline names the state; the line under it is the way out
+    /// (`SessionSidebarWording`, one short line, owner card Q4 d), and the full
+    /// refusal is on hover — the Info tab does not carry it.
     @ViewBuilder
     private var warnings: some View {
         if let reason = appState.sessionSidecar.unreadableReason {
-            warning("A saved session beside this dataset could not be read.",
-                    detail: reason,
+            let text = SessionSidebarWording.unreadableDetail(reason: reason)
+            warning(SessionSidebarWording.unreadableHeadline,
+                    detail: text.shown, fullDetail: text.full,
                     identifier: "sidebar.session.unreadable")
             // The way out, where the warning is (2026-09-30): the sandbox grant the app lacks for a sibling it
             // never saved from this Mac. One open panel at the file, then the dataset reopens with its session.
-            Button("Allow Access…") { appState.allowAccessToSessionSidecar() }
+            Button(SessionSidebarWording.allowAccessTitle) { appState.allowAccessToSessionSidecar() }
                 .controlSize(.small)
                 .disabled(appState.isBusy)
                 .help("Choose the session file beside this dataset so mac4DSTEM may read it; the dataset then reopens with its session.")
                 .accessibilityIdentifier("sidebar.session.allowAccess")
         } else if let failure = appState.gates.sidecarRestoreFailure,
                   failure.kind == .doesNotFit {
-            warning("The saved session describes a region this file does not have.",
+            warning(SessionSidebarWording.doesNotFitHeadline,
                     detail: failure.message,
+                    fullDetail: failure.message,
                     identifier: "sidebar.session.doesNotFit")
         } else if let recorded = appState.sessionLoadSpecification,
                   recorded != appState.loadedView.specification {
-            // When saving is refused because of it (owner card D3 a), the refusal and its remedy are the detail —
-            // the disabled Save controls themselves carry no reason (review lane I refuter, 2026-10-02).
-            warning("The saved session was computed on a different view of this file.",
-                    detail: appState.gates.sidecarRewriteRefusal()
-                        ?? "Session: \(recorded.provenanceSummary ?? "whole file") · "
-                        + "loaded: \(appState.loadedView.specification.provenanceSummary ?? "whole file")",
+            // When saving is refused because of it (owner card D3 a), the refusal is on hover and the line shown
+            // is its remedy (owner card Q4 d) — the disabled Save controls themselves carry no reason (review
+            // lane I refuter, 2026-10-02). In this branch the refusal is the carried-view one: a failed restore
+            // leaves `sessionLoadSpecification` nil, or is the branch above.
+            let text = SessionSidebarWording.differentViewDetail(
+                refusal: appState.gates.sidecarRewriteRefusal(),
+                saved: recorded.provenanceSummary ?? "whole file",
+                loaded: appState.loadedView.specification.provenanceSummary ?? "whole file")
+            warning(SessionSidebarWording.differentViewHeadline,
+                    detail: text.shown, fullDetail: text.full,
                     identifier: "sidebar.session.provenanceMismatch")
         }
     }
 
+    /// `detail` is the one short line shown; `fullDetail` is the whole text, on hover with the headline.
+    /// The headline is uncapped (it wraps, at most 64 characters — `SessionSidebarWording`); the detail keeps
+    /// three caption lines so the row cannot grow past them.
     private func warning(
-        _ headline: String, detail: String, identifier: String
+        _ headline: String, detail: String, fullDetail: String, identifier: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Label(headline, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
-                .lineLimit(3)
+                .lineLimit(nil)
             Text(detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
         }
-        .help("\(headline)\n\n\(detail)\n\nThe Info tab carries the full explanation.")
+        .help(SessionSidebarWording.warningHelp(headline: headline, detail: fullDetail))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(identifier)
     }
@@ -476,9 +485,44 @@ struct SessionSection: View {
 
 }
 
-/// The Session section's two sentences that depend on state, as pure functions
+/// The Session section's sentences that depend on state, as pure functions
 /// (a view describes UI only).
 enum SessionSidebarWording {
+    // The three warning headlines. At most 64 characters each: they wrap, uncapped, at the narrowest sidebar
+    // (a 64-character one needs four lines there; the old three-line cap cut it at "different view of thi…").
+    static let unreadableHeadline = "A saved session beside this dataset could not be read."
+    static let doesNotFitHeadline = "The saved session describes a region this file does not have."
+    static let differentViewHeadline = "The saved session was computed on a different view of this file."
+
+    /// The title of the sidebar button that grants access to the sidecar — the one the warning's line points at.
+    static let allowAccessTitle = "Allow Access…"
+
+    /// The sidebar's line for a session saved on another view, `shown` under the headline and `full` on hover.
+    /// With saving refused (`refusal` is `SessionGates.sidecarRewriteRefusal()`, about 350 characters whose
+    /// remedy sits at the END and was cut off at three lines) the remedy comes first, in one line, and the
+    /// refusal is the hover; without a refusal it is the two views. The owner's wording (card Q4 d, 2026-10-04).
+    static func differentViewDetail(refusal: String?, saved: String, loaded: String) -> (shown: String, full: String) {
+        guard let refusal else {
+            let views = "Session: \(saved) · loaded: \(loaded)"
+            return (views, views)
+        }
+        return ("Saving is off here. Reopen the dataset, or remove the saved result in Results.", refusal)
+    }
+
+    /// The line under "could not be read". A sandbox refusal — `SessionSidecarReadFailure.notPermitted`'s
+    /// sentence, which names `allowAccessTitle` — shows the remedy alone (the button is right below) and the
+    /// sentence on hover; any other failure keeps its own text, the only clue there is.
+    static func unreadableDetail(reason: String) -> (shown: String, full: String) {
+        guard reason.contains(allowAccessTitle) else { return (reason, reason) }
+        return ("Not granted access by macOS. Choose \(allowAccessTitle) below and pick that file.", reason)
+    }
+
+    /// The hover: the headline and the whole text. (It used to end "The Info tab carries the full
+    /// explanation." — false: Info holds neither the refusal nor its remedy.)
+    static func warningHelp(headline: String, detail: String) -> String {
+        "\(headline)\n\n\(detail)"
+    }
+
     /// The line above the sidecar's rows. `savedThisSession` is the sidecar
     /// seam's own `wroteThisSession`: this app wrote the file since the dataset
     /// was opened, so "Loaded ... from earlier analysis" would be wrong (drives
