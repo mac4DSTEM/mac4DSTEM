@@ -37,7 +37,7 @@ Ranked by value to a working microscopist.
 | 3 | **Strain where disk detection fails** — the peak-finding path finds no basis on three of four training datasets (`docs/archive/qc-run-findings-2026-08.md` §9.2/§10.3) | whole-pattern fitting; user-supplied reference lattice (absolute strain); strain from the ACOM solution | medium–large · — |
 | 4 | **From maps to the numbers a paper reports** | grain segmentation (size distribution, boundary misorientation, twin fraction); multi-phase identification (which phase is where); full point-group coverage | medium · point-group coverage first |
 | 5 | **Interoperability** | read a native py4DSTEM EMD (probe, Bragg vectors, calibration); the notebook export | medium · pinned py4DSTEM env exists |
-| 6 | **Detector realism** | per-position detector shift (the origin map exists); arbitrary detector masks (the GPU path takes a weight image); hot-pixel filtering; ARINA reader, MIB packed modes | small each · — |
+| 6 | **Detector realism** | per-position detector shift (the origin map exists); arbitrary detector masks (the GPU path takes a weight image); ARINA reader, MIB packed modes (hot-pixel filtering landed in Preprocess, 2026-10-01) | small each · — |
 | 7 | **Phase-contrast depth** | direct ptychography (SSB / OBF / WDD); mixed-state; probe-position correction | large · — |
 
 The v3.1 calibration foundation's pre-registration and landing notes are in `docs/archive/v4/roadmap-history.md`.
@@ -75,18 +75,13 @@ is its own product").
   (`docs/archive/v3/precipitate-overnight-2026-09-23.md`). Owner: pre-register
   the guard as a two-parameter rule and measure it on a second dataset before
   it ships as a flag (`docs/status.md` § Handoff).
-- **EDX correlation** (2026-08-26) — a data-model change before a feature: a
-  second signal with its own reader and units, registered onto the scan grid
-  with the transform recorded. Unclaimed.
+- **EDX correlation** (2026-08-26; owner 2026-10-04: the one feature he has in mind after a stable product, v5 or v6 —
+  ADR 051) — a data-model change before a feature: a second signal with its own reader and units, registered onto the
+  scan grid with the transform recorded. Unclaimed.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
-- **Lineage graph with real rewind** (owner, 2026-09-21) — every derived
-  product shows its inputs as a graph, and clicking a node rewinds the
-  parameter state, not a text history. Nothing exists today beyond the
-  linear `SessionReplayRecord` and per-product provenance; a record with
-  step ids and input edges (a sidecar wire-format decision, owed) comes
-  first, a lineage list in Results second, the graph view only after the
-  drive row is empty. Unclaimed, unscheduled — follows the window design
-  above.
+- **Lineage graph with real rewind** (owner, 2026-09-21) — landed on `main` 2026-09-29 (`aa920d08`, ADR 047: session
+  record v2 with step ids and input edges; the graph in the Lineage pane; Rewind to Here restores parameters and marks
+  later products stale); ships with the next release.
 - **Learned disk candidates** (owner, 2026-09-05; Core ML on the Neural
   Engine, 2026-09-07) — the first ML feature, **shipped in v3.0.0**
   (2026-09-11, `docs/releasing.md` § Releases). Pre-registration and the
@@ -111,17 +106,19 @@ left in `open-items.md` · the four finishes landed and the owner's cards decide
 his own in the release build. The lanes, their write-sets, gates and order: `archive/v4/v41-plan-2026-09-30.md`.
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-02 — Slots 1–4½). Three lanes may run at once (one supervisor each, disjoint write-sets).
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-04 — Slots 4¾, 4⅞; Slot 5 superseded by ADR 051). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [x] **Slot 4¾ — Full pre-release review** (owner, 2026-10-01; done 2026-10-02, `docs/archive/v4/prerelease-review-2026-10-02/`): data safety, science claims, concurrency, large cubes, first-run UX, docs; findings fixed or labelled. Start with the unreproduced crash after Compute Strain and the β″ preset picker (`open-items.md`).
-- [ ] **Slot 4⅞ — Polish before release** (owner, 2026-10-02): nine lanes landed and gated 2026-10-04 (`d415970d` … `a1a8d234`, record in `docs/archive/v4/polish-plan-2026-10-02/plan.md` § Record); `all` green on `a1a8d234`; left: the drive (the screen was locked).
-- [ ] **Slot 5 — Z release v4.1.0** (`docs/releasing.md`; the new Mac needs a fresh notary password). Cut 2026-10-02 (4.1.0 / 8, `7ee4419f`); after the polish `run-tests.sh all` green on `a1a8d234` (GATE_EXIT=0); the owner notarizes, pushes and tags.
+- [ ] **The owner's drive** (owner, 2026-10-04, ADR 051): he uses the app on his own data over the coming days; his finds are the
+  next polish slot's registrations, put to him as one sheet. No release before it.
+- [ ] **Next polish slot** — from the owner's finds; carried candidates in `docs/open-items.md` (the deferred room-switch class first).
+- [ ] **Release** — version decided then ("v4.5 or something", ADR 051); `docs/releasing.md`; the new Mac needs a fresh notary
+  password; the cut 4.1.0 / 8 (`7ee4419f`) and the CHANGELOG heading move to the chosen number.
 
 ## After v4.1 — frozen until the owner reopens one
 
 Not debts, and no session picks them up: parity themes 2–7 above and point-group coverage beyond cubic and hexagonal;
-the differentiators not yet built (EDX correlation, live acquisition, the lineage graph with rewind — ADR 047's record v2
-stays as it is); volumetric density and β″ orientation maps (ADR 046); the Al Materials Project comparison (ADR 048);
+the differentiators not yet built (EDX correlation — the owner's next feature after a stable product, ADR 051 — and live
+acquisition); volumetric density and β″ orientation maps (ADR 046); the Al Materials Project comparison (ADR 048);
 phase mapping's validation (it ships badged unvalidated until a dataset with truth passes); ACOM candidate F (ADR 050);
 what a resident cube allows beyond v4.1 (live aperture, live detection — a design note first, K4); the built-in crystal
 library's size (the owner: "bloat … for no reason"; the lean audit).

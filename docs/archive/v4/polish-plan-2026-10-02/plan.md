@@ -190,7 +190,9 @@ Fable refuter in its own HEAD + patch copy, a fix round, then a gate alone on an
 | R2 | P4c = Q3 a | `b714c125` | 1639 / 0 / 2 = 1641 | holds |
 | S2 | P3a = Q2 a, P5a + P7a = Q4 d | `3d2297d1` | 1655 / 0 / 2 = 1657 | holds |
 | F | P6b = Q6 a, P6c + P6d-2 = Q7 a, P6d-1 | `a1a8d234` | 1669 / 0 / 2 = 1671 | holds with corrections |
+| P | the drive's find: the SCAN inset on non-square scans | `95359efb` | 1676 / 0 / 2 = 1678 | holds with corrections |
 
+Driven on screen 2026-10-04 (`archive/v4/polish-drive-2026-10-04/`). The release waits for the owner's own drive (ADR 051).
 Docs-only closes: P6a (landed `ceac82b1`), P10b-steppers (the sheet is gone). New, registered not fixed: the two room-switch defects
 lane N's drive saw (R3, deferred by the owner); the lanes' residuals in `open-items.md`. `run-tests.sh all` on `a1a8d234`: unit
 1669 / 0 / 2 = 1671 reconciled, 54 sections, zero FAIL, `GATE_EXIT=0`.

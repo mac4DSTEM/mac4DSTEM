@@ -58,6 +58,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 048 | Clearing the board: training on MPSGraph first (MLX the fallback), the C3 flow, T4's edge-on speckle as a quantity, the hardware lane waits | 09-30 | accepted by delegation |
 | 049 | v4.1 is the plateau: feature list frozen at v4.0.0, half-built lanes finished or removed, the external review the last intake, a five-line exit | 09-30 | accepted |
 | 050 | The owner's sitting: 21 answers — v4.1 = py4DSTEM parity for the shipped features; ptychography, training, raw-data preprocessing and the keep-in-memory control finished; the decision-sheet format kept | 09-30 | accepted |
+| 051 | The release waits for the owner's own drive and more polish (version decided then, "v4.5 or something"); EDX after a stable product (v5/v6) | 10-04 | accepted |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of
