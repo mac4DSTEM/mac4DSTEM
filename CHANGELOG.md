@@ -98,7 +98,7 @@ Rough edges left after the review, each fixed with a test that fails without it 
 - A DM4 cube whose disk is disconnected (an SSD pulled while the cube streams) no longer crashes the app on the next read: it says
   "<file> is no longer reachable: its disk was disconnected. Reconnect it and reopen." and keeps refusing until reopened.
 - The SCAN navigator sits in the diffraction pane's corner, beside the pattern it drives, instead of over the Bragg vector map or
-  a reconstruction.
+  a reconstruction, and keeps to a 118-pt box on non-square scans (a 17 × 77 scan drew it 534 pt tall over the pattern).
 - Dataset › Ignore Session Sidecar… (and the inspector's Reopen Without This Session) asks first and says what is lost. The sidebar's
   session warnings show their whole headline and put the way out first, with the full explanation on hover.
 - The bottom Lineage/Output area keeps at least 140 pt when open (about three rows), on drag and on reopen; a drag below 70 pt

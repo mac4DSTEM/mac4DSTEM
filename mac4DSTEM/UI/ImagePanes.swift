@@ -424,16 +424,15 @@ struct DiffractionPane: View {
 /// polish drive 2026-10-01; owner card Q3 a, 2026-10-04).
 ///
 /// A scientific thumbnail of the scan, not a control: it stays small and out of
-/// the pattern's way, at one fixed width.
+/// the pattern's way, at the scan's aspect ratio inside one fixed box (its longer
+/// side is `ScanNavigatorPlacement.maxSide`; a 17 x 77 scan once drew 534 pt tall).
 struct ScanNavigatorInset: View {
     @Environment(AppState.self) private var appState
     let image: FloatImage
 
-    private static let width: CGFloat = 118
-
     var body: some View {
-        let width = Self.width
-        let height = width * CGFloat(image.height) / CGFloat(max(image.width, 1))
+        let size = ScanNavigatorPlacement.size(rx: image.width, ry: image.height)
+        let width = size.width, height = size.height
         ZStack {
             MetalImageView(
                 pixels: image.normalized(),
@@ -462,9 +461,9 @@ struct ScanNavigatorInset: View {
         .border(.white.opacity(0.55))
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-            let x = Int(value.location.x / width * CGFloat(image.width))
-            let y = Int(value.location.y / max(height, 1) * CGFloat(image.height))
-            appState.scrubTo(x: x, y: y)
+            let at = ScanNavigatorPlacement.scanPosition(at: value.location, in: size,
+                                                         rx: image.width, ry: image.height)
+            appState.scrubTo(x: at.x, y: at.y)
         })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Scan navigator")
