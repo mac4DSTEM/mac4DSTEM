@@ -29,6 +29,7 @@ and Si-SiGe_calibrated. The first attempt (17:34–18:16) reached nothing: the s
 | ADF 3r–6r | bullseye r = 6.84: 20.4 / 40.9 px (`B-15`); graphene r = 25.3 > edge/3: ADF falls back to fractions (16–35 px, inside the BF disk) with no line saying so (`B-06`) | pass on bullseye; graphene's silent fallback registered |
 | Defocus precision after Use Parallax Fit (N) | seed −663.422 Å; after a room switch and a field click the run's title says −663.422 Å, provenance −663.42 (`B-40`, `B-43`) | pass |
 | SCAN inset on reconstructions (R2) | parallax BF and single-slice phase uncovered, the inset scrubs (`B-40`) | pass |
+| SCAN inset after lane P (scratch build of `95359efb`, `reportP.md`) | Si-SiGe 17 × 77: 29.0 × 118.0 pt, "SCAN" on one line, rings and colour bar uncovered; a drag down the strip moves y 1 → 32 → 76 (`P-03`, `P-03b`); the demo cube still 118 × 118 | pass |
 | README hero | `hero-strain-candidate.jpg` — Si-SiGe Strain ε_xx, window-only, 1470 × 923; a tall narrow map (17 × 77) | candidate — the owner's call |
 
 No crash report, no self-resize, the demo cube byte-unchanged. New, minor (open-items): the ADF fallback is silent; the seed status line
