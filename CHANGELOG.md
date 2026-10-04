@@ -101,6 +101,9 @@ Rough edges left after the review, each fixed with a test that fails without it 
   a reconstruction.
 - Dataset › Ignore Session Sidecar… (and the inspector's Reopen Without This Session) asks first and says what is lost. The sidebar's
   session warnings show their whole headline and put the way out first, with the full explanation on hover.
+- The bottom Lineage/Output area keeps at least 140 pt when open (about three rows), on drag and on reopen; a drag below 70 pt
+  closes it. Imaging › Virtual detector no longer offers Compute Image (the image updates as you drag; Group Patterns keeps its
+  button, ⌘R follows). The promote caption no longer claims the Mac is kept awake (that is a setting, off by default).
 
 ### Removed
 

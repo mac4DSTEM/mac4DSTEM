@@ -1209,7 +1209,11 @@ final class AppState {
         case .prepare:
             return !calibrationSession.calibration.hasFittedOrigin
                 || !calibrationSession.calibration.hasRotation
-        case .image, .braggDisks:
+        case .image:
+            // Owner card Q7 a: only Group Patterns has a verb; the virtual image is live
+            // (`PrimaryActionButton.imagingActionTitle` is the toolbar's copy of this answer).
+            return navigation.analysisMode == .diffractionGroups
+        case .braggDisks:
             return true
         case .map:
             return [.strain, .acom, .phaseMapping].contains(navigation.analysisMode)
@@ -1257,10 +1261,9 @@ final class AppState {
                 await calibrateRotation()
             }
         case .image:
+            // Q7 a: the virtual detector has no verb — its image is live (`hasPrimaryWorkspaceTask`).
             if navigation.analysisMode == .diffractionGroups {
                 outcome = await runDiffractionGroups()
-            } else {
-                await runCurrentAnalysis()
             }
         case .braggDisks:
             outcome = await runDiskDetection()

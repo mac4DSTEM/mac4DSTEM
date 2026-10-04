@@ -137,15 +137,15 @@ One line each; full wording as above.
 - Binned views, tile budget (review d1, 2026-10-02, `archive/v4/review-d-tile-budget-gateD-2026-10-02.md`): `FourDArray.scanTileRows` now budgets at the pre-bin read extent; the binned mean pattern moves by up to 8–10 float32 ulps (~1e-6 relative, one cube; max pattern bit-identical; bin 1 byte-identical). The virtual-image progress tiles and parallax preprocessing size at the read extent too (lane L; products bit-identical for any grouping). Left: `DatasetPreviewBuilder.stride` sizes a 64 MB I/O budget from post-bin bytes (b² more disk read on binned views, no transient), and the "Streamed" byte figures (`AppState+ResultPresentation`, `SystemMonitor`) show post-bin bytes, b² under the bytes read.
 - HDF5 at quit (2026-10-02, `archive/v4/review-k-hdf5-exit-2026-10-02/`): quitting during an HDF5 call crashed in teardown (probe 198/200 on the old code); quit now waits for the call in flight — one tile read at the scan-tile budget, 1–2 s on NVMe, ~30 s from a 150 MB/s external drive, unbounded on a stalled volume (Force Quit is safe: publishes are temp + rename). Not reproduced: the 10-01 abort in H5FL at exit with no thread in HDF5 — that process was the pre-push hook's unsigned build, which LaunchServices launches like the app (the hook can rebuild an app the owner is running).
 - Owner cards D2/D3 residuals (lane I, 2026-10-02): stored Bragg disks are not a "carried result" — after a relabelling save (rehearsal A with disks saved → Open with Options… a same-size crop B → Save Calibration, allowed since no result maps) a reopen restores A's disks at B's positions (same shape, other offset passes `SessionPeakRestore.refusal`); no fix without a Remove for disks (card D3 b). The open-window registry withdraws on `.onDisappear`; whether a hidden window tab fires it is unverified (it re-enrols on `.onAppear`).
-- Review lane F residuals (2026-10-02): ⌘R's readiness predicate and the toolbar's private `primaryActionEnabled`/title are two copies (unify in a frozen-shell session); iDPC carries no `dpc_frame`; a detector-frame DPC angle keeps the Quantitative badge with its frame stated, as strain does (owner S1 b).
+- Review lane F residuals (2026-10-02): ⌘R's readiness predicate and the toolbar's private `primaryActionEnabled`/title are two copies (unify in a frozen-shell session; lane F pinned the imaging arm to agree); iDPC carries no `dpc_frame`; a detector-frame DPC angle keeps the Quantitative badge with its frame stated, as strain does (owner S1 b).
 - **Crash after Compute Strain** (re-drive 2026-10-02, `archive/v4/polish-redrive-2026-10-02/`): an AppKit layout exception (EXC_BREAKPOINT in
   `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
   after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.
 - **Slot 4½ residuals** (2026-10-02; the rest of `archive/v4/polish-drive-2026-10-01.md` fixed): [the β″ preset's CIF picker closed 2026-10-02: the RC drive
   opened and applied it — the earlier report does not reproduce]; [the SCAN inset moved into the
   diffraction pane, Slot 4⅞ lane R2 (owner Q3 a); its height follows the scan aspect (a 4:1 scan gives 472 pt); with no product shown
-  only the arrow keys move the position]; a window that resized itself (unreproduced);
-  "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1).
+  only the arrow keys move the position]; a window that resized itself (unreproduced). Since Q7 a (lane F) Virtual detector
+  has no toolbar verb: after another room cleared its image, Imaging shows "No Result Yet" until an aperture edit or a preset re-runs it.
 - Number fields (lane N, 2026-10-04, a declared trade-off): while a finer value is stored, typing exactly the text the field shows (0,03 over 0.0275) is a no-op; 0,030 or 0.03 set it.
 - Lane R residuals (2026-10-04): Origin calibration in Prepare still runs the remembered task's analysis (`AppState+Calibration.swift` ~:130 — under Disks the Bragg map replaces the virtual image). Decided by the session (overrule on sight): a map restored from the sidecar at open is covered by the opening virtual image under every remembered task, as it already was under Virtual detector; it stays in the Results list.
 - Room switches, seen on lane N's drive (2026-10-04, scratch build of a841f9ae, shots 44 and 50 in `archive/v4/polish-plan-2026-10-02/lane-N-drive/`; deferred by the owner for cost, Gate D before any fix): after an ACOM preview, Imaging › Virtual imaging kept showing the ACOM map; with an ACOM full scan held (exploratory Q), Crystal Maps › Strain → Orientation showed "No Result Yet" (`presentProductForEnteredMode` has no `.virtualDetector` case; the Orientation branch unexplained).
@@ -173,8 +173,8 @@ One line each; full wording as above.
   bin-2 aperture default (Gate D: the view-frame default was re-referenced as a source point; `archive/v4/v41-plan-2026-09-30.md`
   § Log). Left: Info › Provenance shows raw snake_case keys (`WorkspaceInspector.swift:625`, frozen; a wording edit that corrects
   no false claim — the owner's call, the one-line patch is in the Slot 1 record).
-- Slot 1 P drive residuals (2026-09-30 night, shots in `archive/v4/slot1-p-drive-2026-09-30-shots/`): the bottom Lineage/Output pane
-  is ~1.5 rows tall at 1470 × 923 (frozen `WorkspaceView`); the "Positions used"
+- Slot 1 P drive residuals (2026-09-30 night, shots in `archive/v4/slot1-p-drive-2026-09-30-shots/`): [the bottom area's sliver: a 140-pt floor since
+  Slot 4⅞ lane F, owner Q6 a]; the "Positions used"
   percentage fallback (> 2 % excluded) was not reached on screen.
 
 ### S5 Sessions & sidecars: residuals (the guard, cancel token and reopen fixed 2026-09-30)

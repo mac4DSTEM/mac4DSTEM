@@ -121,13 +121,14 @@ final class ReviewUXTests: XCTestCase {
         XCTAssertFalse(state.canRunPrimaryWorkspaceTask)
     }
 
-    /// Results has no verb; Image (virtual detector) needs only the cube. Mutation: drop `hasPrimaryWorkspaceTask` from the guard -> Results true.
+    /// Results has no verb; Image (Group Patterns) needs only the cube — the virtual detector has no verb since the
+    /// owner's card Q7 a (`FinalPolishFTests`). Mutation: drop `hasPrimaryWorkspaceTask` from the guard -> Results true.
     func testRunCurrentTaskNeedsAVerbAndADataset() async {
         let state = AppState()
         XCTAssertFalse(state.canRunPrimaryWorkspaceTask, "no dataset")
         await state.openDemoFixture(calibrated: false)
         state.navigation.workspaceArea = .image
-        state.navigation.analysisMode = .virtualDetector
+        state.navigation.analysisMode = .diffractionGroups
         XCTAssertTrue(state.canRunPrimaryWorkspaceTask)
         state.navigation.workspaceArea = .results
         XCTAssertFalse(state.hasPrimaryWorkspaceTask)

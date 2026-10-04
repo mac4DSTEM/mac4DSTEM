@@ -19,9 +19,10 @@ import DSTEMSession
 /// `ProcessAreaLayout.heights(fraction:available:)` turns
 /// `appState.navigation.processFraction` into the canvas and process area's
 /// shares of what is left after the infobar: 0 hides the process area, 1
-/// hides the canvas — the owner's two extremes. The process area's height
-/// depends on nothing but that fraction, so switching its tab
-/// (`BottomWorkspace`) can never move the bar.
+/// hides the canvas — the owner's two extremes; an open area is never drawn
+/// under `LayoutPolicy.processAreaMinimumHeight` (owner card Q6 a). The
+/// process area's height depends on nothing but that fraction and the column,
+/// so switching its tab (`BottomWorkspace`) can never move the bar.
 struct WorkspaceView: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("workspace.processFraction") private var savedProcessFraction = 0.0
@@ -65,6 +66,10 @@ struct WorkspaceView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .onAppear {
+            // Both saved fractions come back as stored: they are relative to a
+            // column height this window may not have, so the floor is applied
+            // where they are drawn (`ProcessAreaLayout.height`), which covers
+            // these two restores, the toggle's and a window that shrank.
             appState.navigation.lastProcessFraction = savedLastProcessFraction
             appState.navigation.processFraction = savedProcessFraction
         }
@@ -294,10 +299,7 @@ struct PrimaryActionButton: View {
             else if !appState.calibrationSession.calibration.hasRotation { "Measure R–Q Rotation" }
             else { nil }
         case .image:
-            // C4(a): every other task's title is its own verb — "Detect All
-            // Disks", "Compute Strain", "Run DPC" — imaging's was the one
-            // holdover generic label.
-            appState.navigation.analysisMode == .diffractionGroups ? "Group Patterns" : "Compute Image"
+            Self.imagingActionTitle(for: appState.navigation.analysisMode)
         case .braggDisks:
             "Detect All Disks"
         case .map:
@@ -331,16 +333,24 @@ struct PrimaryActionButton: View {
 
     static func dpcActionTitle(hasRun: Bool) -> String { hasRun ? "Re-run DPC" : "Run DPC" }
 
+    /// Imaging's one verb (owner card Q7 a, 2026-10-04). The virtual image is
+    /// already current whenever what it depends on changes — an aperture drag
+    /// (live, then once more at its end), the shape picker, BF/ADF/HAADF, a
+    /// recentred origin and the opening pass all run it — so a "Compute
+    /// Image" button there only repeated the pass. Group Patterns is the one
+    /// imaging task that waits for a click and keeps its verb.
+    /// `AppState.hasPrimaryWorkspaceTask` (⌘R, ⌘↩) mirrors this.
+    static func imagingActionTitle(for mode: AnalysisMode) -> String? {
+        mode == .diffractionGroups ? "Group Patterns" : nil
+    }
+
     private var primaryActionHint: String {
         switch appState.navigation.workspaceArea {
         case .prepare:
             appState.calibrationSession.calibration.hasFittedOrigin
                 ? "Solves scan-to-detector rotation for quantitative vector output."
                 : "Fits the unscattered-beam origin across the scan."
-        case .image:
-            appState.navigation.analysisMode == .diffractionGroups
-                ? "Runs PCA and k-means over every scan position's diffraction pattern."
-                : "Runs the selected imaging task with the current settings."
+        case .image: "Runs PCA and k-means over every scan position's diffraction pattern."
         case .braggDisks: "Detects Bragg disks at every scan position with the current settings."
         case .map:
             switch appState.navigation.analysisMode {
@@ -354,7 +364,7 @@ struct PrimaryActionButton: View {
             case .singleslicePtychography: "Runs the iterative single-slice reconstruction on the full datacube."
             default: "Runs the next incomplete parallax stage."
             }
-        case .results: "Adds the visible result to the reusable dataset session."
+        case .results: ""   // no verb here (`primaryActionTitle` is nil), so no hint is ever read
         }
     }
 

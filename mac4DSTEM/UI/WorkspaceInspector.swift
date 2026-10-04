@@ -954,21 +954,26 @@ private struct InspectorDiagnosticsSections: View {
 /// re-derived only when the recipe or its frame changes, and so the caption
 /// and the executor read the SAME pure plan: a promise the run is already
 /// known to break is stated as the halt it will be, before the click.
-private struct PromoteRunCaption: View {
+struct PromoteRunCaption: View {
     let record: SessionReplayRecord
     let frame: ReplayParameterFrame?
+
+    /// The caption's sentence. It says nothing about keeping the Mac awake:
+    /// that happens only when Settings › General's keep-awake is on, and it is
+    /// off by default, so the old clause was false before the click on a
+    /// default install (polish lane F, P6d-1).
+    static func replaySentence(count: Int, titles: String) -> String {
+        "Then replays this session's \(count) recorded "
+            + (count == 1 ? "analysis" : "analyses")
+            + " in order (\(titles)). A step that fails halts the run."
+    }
 
     var body: some View {
         if !record.steps.isEmpty {
             let planned = ReplayPlanner.plan(record, frame: frame ?? .unknown)
             let titles = planned.map(\.title).joined(separator: ", ")
             let count = planned.count
-            // The keep-awake honesty limit is stated where the decision is
-            // made: an idle-sleep assertion does not survive a closed lid.
-            Text("Then replays this session's \(count) recorded "
-                 + (count == 1 ? "analysis" : "analyses")
-                 + " in order (\(titles)), keeping this Mac awake while it "
-                 + "runs (lid open). A step that fails halts the run.")
+            Text(Self.replaySentence(count: count, titles: titles))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("inspector.promoteReplayCaption")

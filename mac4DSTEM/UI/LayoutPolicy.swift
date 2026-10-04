@@ -174,6 +174,20 @@ enum LayoutPolicy {
     /// "default ideal" (docs/archive/v4/window-design.md §6).
     static let processAreaIdealFraction: Double = 0.3
 
+    /// The least an OPEN process area is ever drawn at (owner card Q6 a,
+    /// 2026-10-04): the 26-pt pane header, about three list rows and the
+    /// provenance line. A drag, a restored fraction or a window that shrank
+    /// can no longer leave a header-only sliver. At the window's minimum
+    /// height (640) the column keeps over 200 pt of canvas beside it.
+    static let processAreaMinimumHeight: CGFloat = 140
+
+    /// A drag below this height closes the area — half the floor, so the
+    /// bottom edge still hides it as it always did. The snap is live: it
+    /// follows every drag sample, so the area shuts the moment a sample
+    /// proposes less and comes back at the floor if the pointer returns
+    /// before release.
+    static let processAreaSnapShutHeight: CGFloat = processAreaMinimumHeight / 2
+
     /// The engine · memory · residency glance slot in the infobar — a
     /// constant width, like the metrics slot (011), so a changing figure
     /// never reflows the strip. Sized to fit the engine's name
@@ -269,12 +283,29 @@ enum ProcessAreaLayout {
     /// `fraction` is the process area's share of `available` — the centre
     /// column's height with the canvas header and the infobar already
     /// removed. 0 hides the process area entirely; 1 hides the canvas
-    /// entirely.
+    /// entirely; anything between is drawn at least
+    /// `LayoutPolicy.processAreaMinimumHeight` tall (see `height`).
     static func heights(fraction: Double, available: CGFloat) -> (canvas: CGFloat, process: CGFloat) {
-        let clampedFraction = min(max(fraction, 0), 1)
         let usable = max(available, 0)
-        let process = usable * CGFloat(clampedFraction)
+        let process = height(fraction: fraction, available: usable)
         return (usable - process, process)
+    }
+
+    /// The height an OPEN area is drawn at for a stored fraction: 0 stays 0,
+    /// anything above it is floored at `LayoutPolicy.processAreaMinimumHeight`
+    /// and capped at the column (a fraction over 1, or a column shorter than
+    /// the floor, gives the area all of it — never a negative canvas). The
+    /// floor is applied HERE, where a fraction is consumed, not where it is
+    /// stored: a stored fraction is relative to a column height it cannot
+    /// know, so a clamp at restore time would be wrong on every other window
+    /// size. Every path — the drag, the toggle's and ⌃⌘L's restore of
+    /// `lastProcessFraction`, the scene's saved `processFraction`, a value
+    /// an older version stored — therefore draws at 140 pt or more.
+    static func height(fraction: Double, available: CGFloat) -> CGFloat {
+        let usable = max(available, 0)
+        let share = usable * CGFloat(fraction)
+        guard share > 0 else { return 0 }
+        return min(max(share, LayoutPolicy.processAreaMinimumHeight), usable)
     }
 
     /// The infobar's own toggle button: open → always shuts (0); shut →
@@ -286,11 +317,19 @@ enum ProcessAreaLayout {
 
     /// A drag on the infobar. SwiftUI's `translation` grows downward, and
     /// the process area sits BELOW the bar, so dragging down shrinks it —
-    /// the delta is subtracted from the fraction the drag started at.
+    /// the delta is subtracted from the height the drag started at (the
+    /// RENDERED height of `start`, so grabbing a stored sliver does not
+    /// jump). Under `processAreaSnapShutHeight` the area closes (0); up to
+    /// `processAreaMinimumHeight` it holds at the floor; above, it follows
+    /// the pointer, capped at the column. It runs on every drag sample, so
+    /// the close is live and reversible until release, and the fraction the
+    /// navigation remembers (`lastProcessFraction`) is the last open value
+    /// the drag passed through — the floor, when the drag closed the area.
     static func fraction(afterDrag translation: CGFloat, available: CGFloat, from start: Double) -> Double {
         guard available > 0 else { return start }
-        let delta = Double(translation) / Double(available)
-        return min(max(start - delta, 0), 1)
+        let proposed = height(fraction: start, available: available) - translation
+        if proposed < LayoutPolicy.processAreaSnapShutHeight { return 0 }
+        return Double(min(max(proposed, LayoutPolicy.processAreaMinimumHeight), available) / available)
     }
 }
 
