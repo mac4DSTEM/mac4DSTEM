@@ -1056,10 +1056,12 @@ extension AppState {
             // in particular exists to be READ: without this, a too-new
             // sidecar opens as a dataset with no results and no reason
             // (Gate B-lite F7, v2 S5).
-            sessionSidecar.noteUnreadable(
-                "Could not restore \(url.lastPathComponent): \(Self.errorDetail(error))"
-            )
-            statusText = "Could not restore \(url.lastPathComponent): \(Self.errorDetail(error))"
+            // The sentence is the one `recordedOutcome` wrote a moment ago (P5c); the raw error is the
+            // diagnostic, so it goes to the log and not over the warning.
+            let reason = SessionSidecarReadFailure.reason(sidecar: url.lastPathComponent, error: error)
+            sessionSidecar.noteUnreadable(reason)
+            activityLog.record("\(url.lastPathComponent) could not be read: \(Self.errorDetail(error))")
+            statusText = reason
             return nil
         }
     }

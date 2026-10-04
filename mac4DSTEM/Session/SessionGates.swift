@@ -238,6 +238,30 @@ package final class SessionGates {
         sidecarRewriteRefusal(removingKind: kind) == nil
     }
 
+    /// Does removing a saved result take what is ON SCREEN away? Only when the screen shows THAT saved
+    /// result: a product restored from the sidecar (`displayedOrigin`) while it is the one in view
+    /// (`currentID`, the in-session selection the inventory carries). A live product computed this session
+    /// is not what was removed, and neither is a different saved result in view — replacing either with the
+    /// file's current result wiped a never-saved image (RC drive 2026-10-02 D3). Lane S, P3b.
+    package nonisolated static func removalDisplacesDisplay(
+        displayedOrigin: ProductOrigin?, currentID: String?, removedID: String
+    ) -> Bool {
+        displayedOrigin == .restoredFromSidecar && currentID == removedID
+    }
+
+    /// The inventory a removal leaves: the file's own, reread — except that the saved result in view (the
+    /// in-session selection, `inView`) stays marked as the current one while the reread still holds it,
+    /// because the screen still shows it. When the removed result was the one in view it is not in the reread
+    /// and the file's own current stands.
+    package nonisolated static func inventory(
+        _ reread: SessionSidecarInventory, keepingInView inView: String?
+    ) -> SessionSidecarInventory {
+        guard let inView, reread.results.contains(where: { $0.id == inView }) else { return reread }
+        return SessionSidecarInventory(
+            hasSidecar: reread.hasSidecar, hasBraggVectors: reread.hasBraggVectors,
+            hasCalibration: reread.hasCalibration, results: reread.results, currentResultID: inView)
+    }
+
     // MARK: - Would a rewrite relabel results saved on another view?
 
     /// What the rewrite gate reads about the open session. AppState owns all

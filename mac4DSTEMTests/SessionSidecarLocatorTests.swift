@@ -126,11 +126,13 @@ final class SessionSidecarLocatorTests: XCTestCase {
         XCTAssertEqual(failure, .notPermitted,
                        "errno 1 / EPERM is the sandbox refusing a file the app was never granted")
 
-        let explanation = failure.explanation(sidecar: "sim_Au.mac4dstem.h5")
-        XCTAssertTrue(explanation.contains("not been granted access"),
+        let reason = SessionSidecarReadFailure.reason(sidecar: "sim_Au.mac4dstem.h5", error: SimpleError(Self.observedDenial))
+        XCTAssertTrue(reason.contains("not been granted access"),
                       "the message must name the cause, not the mechanism")
-        XCTAssertTrue(explanation.contains("Save Calibration to Session Sidecar"),
-                      "and it must name the remedy — a refusal the user cannot act on is just a log line")
+        XCTAssertTrue(reason.contains("Allow Access"),
+                      "and it must name the remedy that exists — a refusal the user cannot act on is just a log line "
+                      + "(the old one pointed at a save, which the unreadable sidecar's own gate refuses)")
+        XCTAssertFalse(reason.contains("Save Calibration"), "the stale remedy is gone")
     }
 
     func testAnOrdinaryPermissionErrorIsNotReportedAsASandboxDenial() {

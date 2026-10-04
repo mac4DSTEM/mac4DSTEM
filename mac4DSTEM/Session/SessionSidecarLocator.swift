@@ -310,16 +310,35 @@ package enum SessionSidecarReadFailure: Equatable {
         return text.contains("errno = 1,") ? .notPermitted : .unreadable
     }
 
-    /// What to tell the user, naming the remedy rather than the mechanism.
+    /// What to tell the user, naming the remedy rather than the mechanism. The remedy is the control that
+    /// exists for it: with the sidecar unreadable every save is refused (`sidecarRewriteRefusal`), so "save
+    /// the session once" could never work, and the Save commands live in the Dataset menu, not File.
+    ///
+    /// Production asks `reason(sidecar:error:)`, the one text API; this is the sandbox class's fixed sentence that
+    /// `reason` returns. The `.unreadable` arm is not reached from production (that class's text is its raw detail,
+    /// built in `reason`); it stays only while `FinalPolishS2Tests` asks this on `.notPermitted` — when that test
+    /// asks `reason` instead, the method and the arm go.
     package func explanation(sidecar: String) -> String {
         switch self {
         case .notPermitted:
-            return "\(sidecar) sits beside this dataset but mac4DSTEM has not been "
-                + "granted access to it. Save the session once (File ▸ Save Calibration "
-                + "to Session Sidecar) and choose that file, which grants access for "
-                + "future opens."
+            return "\(sidecar) sits beside this dataset but mac4DSTEM has not been granted access "
+                + "to it by macOS. Choose Allow Access… (sidebar or Dataset menu) and pick that "
+                + "file; the dataset then reopens with its session."
         case .unreadable:
             return "\(sidecar) could not be read."
+        }
+    }
+
+    /// The ONE sentence for "a sidecar is there and could not be read", asked by both places that learn it
+    /// (`recordedOutcome` at open, and `AppState.loadSessionSnapshot` in `activate`) — two writers used to say
+    /// two things and the later one, the raw HDF5 error stack, won (P5c). A sandbox refusal gets the remedy
+    /// and none of the mechanism (the stack goes to the activity log); any other failure keeps its raw
+    /// detail, the only clue there is.
+    package static func reason(sidecar: String, error: Error) -> String {
+        let failure = classify(error)
+        switch failure {
+        case .notPermitted: return failure.explanation(sidecar: sidecar)
+        case .unreadable: return "Could not restore \(sidecar): \(sessionErrorDetail(error))"
         }
     }
 }
@@ -365,7 +384,7 @@ extension SessionSidecarLocator {
             // nothing to read", and the whole point of this type is that the
             // caller cannot accidentally treat them alike.
             return .unreadable(
-                SessionSidecarReadFailure.classify(error).explanation(sidecar: sidecar)
+                SessionSidecarReadFailure.reason(sidecar: sidecar, error: error)
                     + " Loading the whole dataset."
             )
         case .success(let specification):

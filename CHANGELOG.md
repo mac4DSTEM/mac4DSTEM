@@ -86,6 +86,8 @@ Rough edges left after the review, each fixed with a test that fails without it 
   (it read 23.1 GB for a 15.8 GiB cube). Open Dataset… and Preprocess Raw Data… work with no dataset window open — they
   open one. The fit overlay's key stays in the diffraction pane's corner when you zoom; the annulus' inner handle no longer
   touches the centre handle at inner radius 0.
+- Removing a saved result no longer clears an unsaved image on screen, or a different saved result you are viewing. A session
+  file macOS will not let the app read is explained by what to do (Allow Access…), not by an HDF5 error; the raw error is in the Log.
 
 ### Removed
 

@@ -112,10 +112,11 @@ extension AppState {
     /// `saveCurrentResultToSessionSidecar` had always stored one. The two paths
     /// were indistinguishable to the user and differed only in that.
     ///
-    /// Worse, the refusal S1 added tells the user to *"Save the session once
+    /// Worse, the refusal S1 added told the user to *"Save the session once
     /// (File ▸ Save Calibration to Session Sidecar)… which grants access for
     /// future opens"* — naming the one path that did not. The app printed a
-    /// remedy that could not work.
+    /// remedy that could not work. (That remedy was retired by Slot 4⅞ lane S:
+    /// the sandbox sentence now names Allow Access…, the control that exists.)
     ///
     /// Called only AFTER atomic publication: Foundation cannot bookmark a URL
     /// that does not exist yet, which is why this is a separate step rather than
@@ -1012,11 +1013,16 @@ extension AppState {
                 try BraggVectorEMDWriter.loadInventory(from: url)
             }.value
             guard isCurrentOperation(token), epoch == datasetSession.epoch else { return }
-            sessionInventory = inventory
-            if let currentID = inventory.currentResultID,
+            // Decided BEFORE the reread replaces the in-session selection (P3b): the screen changes only when it
+            // showed the removed result; a live image, or another saved result in view, stays as it is.
+            let inView = sessionInventory.currentResultID
+            let displaced = SessionGates.removalDisplacesDisplay(
+                displayedOrigin: resultPresentation.product?.origin, currentID: inView, removedID: saved.id)
+            sessionInventory = SessionGates.inventory(inventory, keepingInView: inView)
+            if displaced, let currentID = inventory.currentResultID,
                let current = inventory.results.first(where: { $0.id == currentID }) {
                 await selectSavedSessionResult(current)
-            } else {
+            } else if displaced {
                 resultPresentation.replaceProduct(nil)
                 resultPresentation.bumpResultVersion()
             }
