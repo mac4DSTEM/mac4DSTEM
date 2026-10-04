@@ -274,10 +274,23 @@ struct PreprocessSheet: View {
         }
     }
 
+    /// The draft as Write reads it. A click on Write does not take focus from a
+    /// Mac text field (see `NumberEntryField`), so a Threshold typed but not
+    /// yet committed is only registered in `PendingEdits`; it is committed
+    /// first — before the readiness check, the alert and the writer's snapshot
+    /// of `pending.preprocess` — or the file records the old threshold (Gate D
+    /// 2026-10-04: typed 20, mouse-clicked Write, the file said 8). Static so
+    /// the order is unit-tested.
+    static func draftForWrite(_ pending: PendingLoad) -> PreprocessDraft {
+        PendingEdits.commitAll()
+        // The same fallback as `draft` above: keep the two in step.
+        return pending.preprocess ?? PreprocessDraft(origin: .rawFile)
+    }
+
     private func write() {
         // The rule the alert enforces: nothing is invented to fill a missing
         // calibration field. Only the open view has a session calibration.
-        if draft.showsCalibrationReadiness, !appState.calibrationSession.readiness.isReady {
+        if Self.draftForWrite(pending).showsCalibrationReadiness, !appState.calibrationSession.readiness.isReady {
             showUncalibratedWarning = true
         } else {
             beginWrite()

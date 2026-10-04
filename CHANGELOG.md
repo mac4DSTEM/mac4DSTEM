@@ -92,6 +92,9 @@ Rough edges left after the review, each fixed with a test that fails without it 
   reopened export no longer reads "Not set" and DPC, parallax and ACOM run on it.
 - Opening a dataset shows its virtual image whatever task was last used (it ran that task, e.g. a whole-scan DPC). Go to <room>
   and the shortcuts show that room's own result; Diffraction groups shows its map again when you return to it.
+- A number field no longer rounds its value when you merely click into it or leave the room: a Defocus seeded by Use Parallax
+  Fit kept only 0.1 Å, and leaving Orientation after dragging the exploratory scale discarded the ACOM map. Preprocess's Write
+  uses the threshold you just typed (a mouse click on Write wrote the previous one).
 
 ### Removed
 

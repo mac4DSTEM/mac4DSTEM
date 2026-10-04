@@ -25,8 +25,8 @@ final class PolishB1Tests: XCTestCase {
         XCTAssertEqual(shown("%.3f", 0.5), "0,500")
     }
 
-    /// Mutation: the format's maximum drops to the minimum (`fractionLength(p...p)`) — the field commits what
-    /// it shows on focus loss, so a stored 0.0275 would be re-stored as 0.028.
+    /// Mutation: the format's maximum drops to the minimum (`fractionLength(p...p)`) — a stored 0.0275 would be
+    /// SHOWN as 0,03 (display only since lane N: the field no longer commits the text it shows).
     func testDisplayNeverRoundsBelowTheStoredDigits() throws {
         for value in [0.0275, 1.234, 0.123456] {
             let text = shown("%.2f", value)

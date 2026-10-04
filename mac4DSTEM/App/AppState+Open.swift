@@ -1405,23 +1405,12 @@ extension AppState {
         return calibrationSession.calibration.rPixelSize
     }
 
-    /// True when a value committed from the manual Q/R field is the value
-    /// already in effect, as far as the field can show. The field renders
-    /// `.fractionLength(0...6)` and hands back what it parsed on Return, so a
-    /// Return on an untouched "0,1904" (restored from the session) arrives as
-    /// the same number rounded to six places. The tolerance is half a unit of
-    /// that last displayed digit (5e-7, in the unit shown): finer than that the
-    /// user cannot have typed a different value, coarser would swallow one.
-    /// Committing what is already there is not an edit and must not change
-    /// provenance. Nil `current` (no value in an editable unit) is never
-    /// "unchanged".
-    static func isUnchangedManualScale(entered: Double, current: Double?) -> Bool {
-        guard let current, entered.isFinite, current.isFinite else { return false }
-        return abs(entered - current) <= 5e-7
-    }
-
+    /// Only the manual Q/R fields call this (`CalibrationReadinessRow`), through
+    /// `NumberEntryField`, whose `resolve` never commits the text a field shows
+    /// for the value in effect — so a Return or blur on an untouched "0,1904"
+    /// (restored from the session) does not arrive here, and no unchanged-value
+    /// guard is needed (P1, 2026-10-04: it replaced a 5e-7 tolerance here).
     func setManualQPixelSize(_ value: Double) {
-        if Self.isUnchangedManualScale(entered: value, current: manualQPixelSize) { return }
         phaseContrast.parallaxPreprocess = nil
         phaseContrast.parallaxAlignment = nil
         if value.isFinite && value > 0 {
@@ -1463,7 +1452,6 @@ extension AppState {
     }
 
     func setManualRPixelSize(_ value: Double) {
-        if Self.isUnchangedManualScale(entered: value, current: manualRPixelSize) { return }
         let before = calibrationSession.calibration
         defer { resampleDisplayedProductForRChange(oldSize: before.rPixelSize, oldUnits: before.rPixelUnits) }
         phaseContrast.parallaxPreprocess = nil

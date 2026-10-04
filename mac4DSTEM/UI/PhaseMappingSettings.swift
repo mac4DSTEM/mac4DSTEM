@@ -678,11 +678,12 @@ struct PhaseMappingSections: View {
     /// `help`, when given, is the row's own explanatory paragraph — an
     /// Xcode-style tooltip on the row it explains, rather than inline prose.
     /// The caller's printf precision (`"%.2f"` → 2 decimals) as the field's
-    /// display format. It is the MINIMUM number of decimals, up to six: the
-    /// field commits what it shows on focus loss, so a format that rounded
-    /// below the stored value's own digits would silently round the stored
-    /// parameter. (`1,600` in a German locale read as sixteen hundred; `1,60`
-    /// and `2,0` do not.) Pure and `static` so the output is unit-tested.
+    /// display format. It is the MINIMUM number of decimals, up to six, so the
+    /// field shows the stored value's own digits instead of rounding what the
+    /// reader sees (0.0275 is not shown as 0,03). A display choice only: the
+    /// field no longer commits the text it shows (`NumberEntryField.resolve`).
+    /// (`1,600` in a German locale read as sixteen hundred; `1,60` and `2,0`
+    /// do not.) Pure and `static` so the output is unit-tested.
     static func displayFormat(_ printf: String) -> FloatingPointFormatStyle<Double> {
         let digits = printf.split(separator: ".").last
             .flatMap { Int($0.prefix { $0.isNumber }) } ?? 3

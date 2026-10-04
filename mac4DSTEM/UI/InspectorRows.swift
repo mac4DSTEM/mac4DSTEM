@@ -791,12 +791,23 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     enum Resolution: Equatable { case keep, set(Value?) }
 
     /// What a committed text does — pure, so the rule is testable without a
-    /// host: empty keeps (or clears, when `emptyClears`); a text that does not
-    /// parse keeps; the same value keeps (no provenance flip); else sets.
+    /// host: empty keeps (or clears, when `emptyClears`); the text the field
+    /// shows for the current value keeps; a text that does not parse keeps; the
+    /// same value keeps (no provenance flip); else sets.
+    ///
+    /// The shown text is not an edit (Gate D 2026-10-04): the field commits on
+    /// blur, Return and teardown, and a format that shows fewer digits than the
+    /// value has (a Defocus of 12.346 shown 12,3; a Float-backed 0.3, which is
+    /// 0.30000001) would otherwise store its own rounding every time the field
+    /// was merely left — and an Exploratory scale dragged to 0.0125597 lost its
+    /// ACOM result to the 0.0126 it showed. Declared trade-off: while a finer
+    /// value is stored, typing exactly the shown text is a no-op (`0,030` or
+    /// `0.03` still set it).
     static func resolve(typed raw: String, current: Value?, emptyClears: Bool,
                         entry: DecimalEntryFormat<Format>) -> Resolution {
         let typed = raw.trimmingCharacters(in: .whitespaces)
         if typed.isEmpty { return emptyClears && current != nil ? .set(nil) : .keep }
+        if let current, typed == entry.format(current) { return .keep }
         guard let parsed = try? entry.parseStrategy.parse(typed), parsed != current else { return .keep }
         return .set(parsed)
     }

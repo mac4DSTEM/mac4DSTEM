@@ -665,8 +665,20 @@ final class ProductWorkflowTests: XCTestCase {
 
     /// Drive 3 step 3 (2026-09-29): Return in the Manual field with the value
     /// untouched flipped "From session" to "Manual". Committing what is already
-    /// in effect is not an edit; committing a different value still is.
+    /// in effect is not an edit; committing a different value still is. The rule
+    /// is the field's (`NumberEntryField.resolve`: the text a field shows for the
+    /// value in effect commits nothing — lane N, P1, 2026-10-04, which replaced a
+    /// 5e-7 tolerance in the setters), so each commit here goes through it as
+    /// `OptionalNumericField` does.
+    /// Mutation: delete the shown-text guard in `NumberEntryField.resolve` -> red (0,1904 is read back as 0.1904).
     func testCommittingTheUnchangedManualScaleKeepsProvenance() {
+        typealias Field = NumberEntryField<Double, FloatingPointFormatStyle<Double>>
+        let entry = DecimalEntryFormat(FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0...6)))
+        func commit(_ typed: String, current: Double?, _ set: (Double) -> Void) {
+            if case .set(let value?) = Field.resolve(typed: typed, current: current, emptyClears: false, entry: entry) {
+                set(value)
+            }
+        }
         let state = AppState()
         state.calibrationSession.calibration.qPixelSize = 0.1904
         state.calibrationSession.calibration.qPixelUnits = "nm⁻¹"
@@ -675,23 +687,23 @@ final class ProductWorkflowTests: XCTestCase {
         state.calibrationSession.calibration.rPixelUnits = "nm"
         state.calibrationSession.provenance.rScale = .sessionSidecar
 
-        // The same number, and the same number as the field re-parses it
-        // (six displayed places): both are "unchanged".
-        state.setManualQPixelSize(0.1904)
+        // Return on the field's own text: the value in effect, and a finer one
+        // the field shows at six places: both are "unchanged".
+        commit(entry.format(0.1904), current: state.manualQPixelSize, state.setManualQPixelSize)
         XCTAssertEqual(state.calibrationSession.provenance.qScale, .sessionSidecar)
-        state.calibrationSession.calibration.qPixelSize = 0.19040012 // shown as 0,190400
-        state.setManualQPixelSize(0.1904)
+        state.calibrationSession.calibration.qPixelSize = 0.19040012 // shown as 0,1904
+        commit(entry.format(0.19040012), current: state.manualQPixelSize, state.setManualQPixelSize)
         XCTAssertEqual(state.calibrationSession.provenance.qScale, .sessionSidecar)
         XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, 0.19040012,
                        "an unchanged commit must not rewrite the stored value either")
-        state.setManualRPixelSize(0.5)
+        commit(entry.format(0.5), current: state.manualRPixelSize, state.setManualRPixelSize)
         XCTAssertEqual(state.calibrationSession.provenance.rScale, .sessionSidecar)
 
         // A different value, even by one displayed digit, is an edit.
-        state.setManualQPixelSize(0.190401)
+        commit("0.190401", current: state.manualQPixelSize, state.setManualQPixelSize)
         XCTAssertEqual(state.calibrationSession.provenance.qScale, .manual)
         XCTAssertEqual(state.calibrationSession.calibration.qPixelSize, 0.190401)
-        state.setManualRPixelSize(0.25)
+        commit("0.25", current: state.manualRPixelSize, state.setManualRPixelSize)
         XCTAssertEqual(state.calibrationSession.provenance.rScale, .manual)
         XCTAssertEqual(state.calibrationSession.calibration.rPixelSize, 0.25)
     }
