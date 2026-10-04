@@ -85,7 +85,7 @@ package actor DemoFourDDataSource: FourDDataSource {
     }
 
     package func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? {
-        name == "accelerating_voltage" ? 200 : nil
+        name == AcceleratingVoltage.attributeName ? 200 : nil
     }
 
     package func pixelCalibration() -> PixelCalibration? {

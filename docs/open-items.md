@@ -231,8 +231,8 @@ bin's float32 sum order is not numpy's: ≤ 1.14e-4 relative on the 28 GB cube, 
 it. (2) The filter's mean is Double where numpy's is float32 (DEVIATION): numpy is 45–230 counts off at 2e5 against thresh 8, so
 inside a bright direct disk py4DSTEM's own mask is partly an accumulation artefact; the 060 match (exactly the 15) is one dataset
 with an unmeasured margin — `--export-parity` could print it. (3) A strided or detector-cropped export carries no replay recipe
-(named in the status line when there is one to omit). (4) The export writes no accelerating voltage: a reopened file reads "Not
-set" (pre-existing, found by the 2026-10-01 drive). Polish from the drive: 1-px crop steppers; the sheet's short scroll area.
+(named in the status line when there is one to omit). (4) Since Slot 4⅞ lane V the export carries the
+accelerating voltage; a session voltage above 1000 kV is stamped as typed and reopens divided by 1000 (the opener's eV rule). Polish from the drive: 1-px crop steppers; the sheet's short scroll area.
 
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection

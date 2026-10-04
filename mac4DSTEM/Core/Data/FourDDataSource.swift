@@ -62,6 +62,26 @@ package nonisolated struct PixelOriginMaps: Sendable {
     }
 }
 
+/// The accelerating voltage as the app holds it (kV) and as a file's root
+/// attribute spells it. ONE rule for both directions: the opener
+/// (`AppState.activate`) and the export's raw-file door read the attribute
+/// through `kilovolts(fromAttribute:)`, and the datacube writer stamps the same
+/// `attributeName`, so the spelling and the unit rule cannot drift between a
+/// file the app wrote and a file it opens.
+package nonisolated enum AcceleratingVoltage {
+    /// The HDF5 root attribute ("/"): a scalar double.
+    package static let attributeName = "accelerating_voltage"
+
+    /// py4DSTEM metadata commonly stores eV while microscope UIs and DM tags
+    /// expose kV (a DM4's "Microscope Info.Voltage" is in volts): one app
+    /// convention, kV. Values above 1000 are read as eV. Deliberately no
+    /// finite/positive filter here — the opener has always taken the stored
+    /// number as is, and `CalibrationSession.hasUsableVoltage` judges it.
+    package static func kilovolts(fromAttribute raw: Double) -> Double {
+        raw > 1_000 ? raw / 1_000 : raw
+    }
+}
+
 /// Pixel-size calibration read from the file, when the format carries it
 /// (DM4 does; plain HDF5 usually doesn't). Units are the file's own strings
 /// (Gatan: "nm" real-space, "1/nm" diffraction).

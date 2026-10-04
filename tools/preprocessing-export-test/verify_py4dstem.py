@@ -5,6 +5,13 @@ import py4DSTEM
 
 cube = py4DSTEM.read(sys.argv[1])
 assert isinstance(cube, py4DSTEM.DataCube)
+# P10a: the export carries mac4DSTEM's accelerating_voltage root attribute (kV, a native double); py4DSTEM.read
+# above is undisturbed by it (emdfile reads only emd_group_type / version_* / UUID from the file root), and
+# h5py -- an independent reader -- sees the number the harness wrote.
+import h5py
+with h5py.File(sys.argv[1], "r") as _f:
+    assert _f.attrs["accelerating_voltage"] == 300.0, dict(_f.attrs)
+    assert _f.attrs["accelerating_voltage"].dtype == np.float64
 assert cube.data.shape == (2, 3, 2, 3)
 
 expected = np.empty((2, 3, 2, 3), dtype=np.float32)
@@ -78,6 +85,10 @@ assert not np.array_equal(ref_on, ref_off)
 
 got_on = py4DSTEM.read(filtered_path)
 got_off = py4DSTEM.read(unfiltered_path)
+# P10a: written without a voltage, the files carry no accelerating_voltage attribute (nothing invented).
+for _p in (filtered_path, unfiltered_path):
+    with h5py.File(_p, "r") as _f:
+        assert "accelerating_voltage" not in _f.attrs, dict(_f.attrs)
 np.testing.assert_array_equal(got_on.data, ref_on)     # bit for bit, float32
 np.testing.assert_array_equal(got_off.data, ref_off)
 assert got_on.data.dtype == np.float32

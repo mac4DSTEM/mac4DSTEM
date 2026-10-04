@@ -84,7 +84,10 @@ extension AppState {
             )
         runDataCubeWrite(
             DataCubeWriteRequest(
-                source: source, view: view, calibration: snapshot, options: options,
+                source: source, view: view, calibration: snapshot,
+                // The session's voltage (a file's own or a manual entry; PixelCalibration holds none), so the
+                // reopened file is not "Not set".
+                acceleratingVoltageKV: calibrationSession.acceleratingVoltage, options: options,
                 destination: url, sourceFileName: descriptor.fileName,
                 recipe: mappedRecipe, recipeOmission: recipeOmission, recordsRun: true
             ),

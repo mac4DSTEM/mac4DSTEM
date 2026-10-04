@@ -23,6 +23,9 @@ struct DataCubeWriteRequest {
     let source: any FourDDataSource
     let view: LoadView
     let calibration: PixelCalibration
+    /// kV, or nil when there is none to carry — the session's value for the open view, the source file's own for a
+    /// raw file. The writer stamps it only when finite and positive; nothing is invented.
+    let acceleratingVoltageKV: Double?
     let options: CalibratedDataCubeExportOptions
     let destination: URL
     let sourceFileName: String?
@@ -140,11 +143,16 @@ extension AppState {
             // is invented to fill one.
             Task { @MainActor in
                 let calibration = await pending.reader.pixelCalibration() ?? PixelCalibration()
+                // The source's own voltage (an H5 root attribute, a DM4's Microscope Info.Voltage), read and
+                // normalised by the rule the opener uses; a reader that has none (vendor raw) stays nil.
+                let voltage = await pending.reader.readDoubleAttribute(
+                    AcceleratingVoltage.attributeName, onObjectPath: "/"
+                ).map(AcceleratingVoltage.kilovolts(fromAttribute:))
                 runDataCubeWrite(
                     DataCubeWriteRequest(
                         source: pending.reader,
                         view: LoadView(fullExtentOf: pending.source),
-                        calibration: calibration, options: options,
+                        calibration: calibration, acceleratingVoltageKV: voltage, options: options,
                         destination: url, sourceFileName: pending.source.fileName,
                         recipe: nil, recipeOmission: nil, recordsRun: false
                     ),
@@ -194,6 +202,7 @@ extension AppState {
                     try await BraggVectorEMDWriter.writeCalibratedDataCube(
                         source: request.source, view: request.view,
                         calibration: request.calibration,
+                        acceleratingVoltageKV: request.acceleratingVoltageKV,
                         options: options, to: url,
                         sourceFileName: request.sourceFileName,
                         replayRecord: request.recipe,

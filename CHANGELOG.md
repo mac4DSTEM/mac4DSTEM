@@ -88,6 +88,8 @@ Rough edges left after the review, each fixed with a test that fails without it 
   touches the centre handle at inner radius 0.
 - Removing a saved result no longer clears an unsaved image on screen, or a different saved result you are viewing. A session
   file macOS will not let the app read is explained by what to do (Allow Access…), not by an HDF5 error; the raw error is in the Log.
+- Preprocess Raw Data… writes the accelerating voltage (the session's, or the raw file's own) into the exported file, so a
+  reopened export no longer reads "Not set" and DPC, parallax and ACOM run on it.
 
 ### Removed
 
@@ -101,7 +103,7 @@ Rough edges left after the review, each fixed with a test that fails without it 
 - A crash right after Compute Strain was seen once (a layout loop inside the toolbar) and not reproduced in 12,000 stress cycles; the cause is not established.
 - `scan.dm4` and `scan.h5` in one folder share one session file (named from the stem), so opening one can adopt the other's calibration (owner's decision for this release).
 - Unverified on screen: a mirrored ACOM pixel, the β″ preset rows and legend, ADF 3r–6r, the room-switch stale-map rule, Train Model….
-- Export Data… dimensions read as pixels in py4DSTEM; the true sampling is in the file's attributes. The Preprocess export writes no accelerating voltage.
+- Export Data… dimensions read as pixels in py4DSTEM; the true sampling is in the file's attributes.
 - Annulus with inner radius 0 excludes the centre pixel; py4DSTEM's convention is unchecked.
 - Quitting waits for a file read in flight: seconds from an internal SSD, longer from a slow external drive.
 - Macs without a Neural Engine cannot run the learned detector. The Neural Engine return was measured on one Mac (M5 Pro, macOS 27.0.1).

@@ -234,10 +234,14 @@ package nonisolated enum BraggVectorEMDWriter {
     /// Stream a real-space crop through an optional integer detector bin into
     /// a canonical float32 py4DSTEM DataCube. Source reads and destination
     /// writes stay bounded by `tileRows`; the final file appears atomically.
+    /// `acceleratingVoltageKV` (the session's, or the raw file's own) is stamped
+    /// as the root attribute `accelerating_voltage` only when finite and
+    /// positive; nil, 0 or NaN writes nothing (no value is invented).
     package static func writeCalibratedDataCube(
         source: any FourDDataSource,
         view: LoadView,
         calibration: PixelCalibration,
+        acceleratingVoltageKV: Double? = nil,
         options: CalibratedDataCubeExportOptions,
         to destination: URL,
         sourceFileName: String? = nil,
@@ -350,6 +354,7 @@ package nonisolated enum BraggVectorEMDWriter {
                                                    hotPixels: hotPixels),
             hotPixelMask: hotPixels.map { $0[0] * outQX + $0[1] },
             replayRecord: replayRecord,
+            acceleratingVoltageKV: acceleratingVoltageKV,
             cancellation: cancellation, progress: progress, hdf5: h5
         )
         try checkCancellation(cancellation)
@@ -1596,6 +1601,7 @@ package nonisolated enum BraggVectorEMDWriter {
         derivation: DataCubeDerivation?,
         hotPixelMask: [Int],
         replayRecord: SessionReplayRecord?,
+        acceleratingVoltageKV: Double?,
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?,
         hdf5 h5: HDF5WriteLibrary
@@ -1621,6 +1627,18 @@ package nonisolated enum BraggVectorEMDWriter {
         try writeStringAttribute("UUID", value: UUID().uuidString, on: fileID, hdf5: h5)
         try writeStringAttribute("authoring_program", value: "mac4DSTEM", on: fileID, hdf5: h5)
         try writeStringAttribute("authoring_user", value: "", on: fileID, hdf5: h5)
+        // The accelerating voltage, in kV, as the file-root attribute `AcceleratingVoltage` names — the one
+        // spelling mac4DSTEM's opener reads back (`AppState.activate`), so a reopened export is not "Not set".
+        // Absence is absence: a usable value (finite, > 0) is written, never a placeholder (owner 2026-10-01, 1a).
+        // DEVIATION from py4DSTEM: its EMD files keep no voltage anywhere (py4DSTEM-dev f050d207: only
+        // `read_dm.py:76-86` reads a DM "Microscope Info.Voltage", to convert mrad to 1/A, and stores none), and its
+        // functions take eV (`electron_wavelength_angstrom(E_eV)`). This attribute is app-level, ignored by
+        // `py4DSTEM.read` (emdfile `read.py` names the root attributes it uses: emd_group_type, version_*, UUID);
+        // our reader takes kV or eV (> 1000) alike.
+        if let acceleratingVoltageKV, acceleratingVoltageKV.isFinite, acceleratingVoltageKV > 0 {
+            try writeScalarAttribute(AcceleratingVoltage.attributeName, value: acceleratingVoltageKV,
+                                     type: h5.nativeDouble, on: fileID, hdf5: h5)
+        }
 
         let root = try createGroup("datacube_root", in: fileID, hdf5: h5)
         defer { HDF5Serial.run { _ = h5.h5gclose(root) } }

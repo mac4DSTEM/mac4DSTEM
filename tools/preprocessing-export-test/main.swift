@@ -160,7 +160,7 @@ struct Harness {
         )
         let summary = try await BraggVectorEMDWriter.writeCalibratedDataCube(
             source: source, view: LoadView(fullExtentOf: descriptor),
-            calibration: calibration,
+            calibration: calibration, acceleratingVoltageKV: 300,
             options: options, to: output
         )
         try require(summary.shape == [2, 3, 2, 3], "wrong output shape")
@@ -172,6 +172,9 @@ struct Harness {
         let reader = try H5Reader(path: output.path)
         let exported = try await reader.discoverPrimaryDataset()
         try require(exported.shape == summary.shape, "native reader shape mismatch")
+        // P10a: an export reopened reads the voltage it was written with (kV, the opener's own attribute).
+        let storedVoltage = await reader.readDoubleAttribute(AcceleratingVoltage.attributeName, onObjectPath: "/")
+        try require(storedVoltage == 300, "the exported file must carry accelerating_voltage = 300 kV, read \(String(describing: storedVoltage))")
         try require(exported.chunkShape == [1, 1, 2, 3], "unexpected HDF5 chunks")
         for outY in 0..<2 {
             let row = try await reader.readScanRow(LoadView(fullExtentOf: exported), ry: outY)
@@ -278,6 +281,10 @@ func preprocessScenario(filtered: URL, unfiltered: URL) async throws {
         options: options(nil), to: unfiltered
     )
     try require(off.hotPixels.isEmpty, "X2 filter off must report no mask")
+    // P10a: this export was handed no voltage, and the file says none — nothing is invented.
+    let offVoltage = try await H5Reader(path: unfiltered.path)
+        .readDoubleAttribute(AcceleratingVoltage.attributeName, onObjectPath: "/")
+    try require(offVoltage == nil, "an export written without a voltage must not carry one, read \(String(describing: offVoltage))")
     let maximumTileRows = await source.maximumTileRows()
     try require(maximumTileRows <= 2, "X2 tile bound")
 }

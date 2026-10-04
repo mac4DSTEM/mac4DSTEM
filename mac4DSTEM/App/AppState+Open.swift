@@ -489,11 +489,10 @@ extension AppState {
             outer: Float(defaultBrightFieldRadius(qx: descriptor.qx, qy: descriptor.qy))  // one source with the preview's bright-field disk
         )
         if let rawVoltage = await reader.readDoubleAttribute(
-            "accelerating_voltage", onObjectPath: "/"
+            AcceleratingVoltage.attributeName, onObjectPath: "/"
         ) {
-            // py4DSTEM metadata commonly stores eV while microscope UI and
-            // DM tags may expose kV. Keep one app convention: kV.
-            calibrationSession.acceleratingVoltage = rawVoltage > 1_000 ? rawVoltage / 1_000 : rawVoltage
+            // One app convention, kV — the rule (eV above 1000) is Core's, shared with the preprocessing export.
+            calibrationSession.acceleratingVoltage = AcceleratingVoltage.kilovolts(fromAttribute: rawVoltage)
         } else {
             calibrationSession.acceleratingVoltage = nil
         }
