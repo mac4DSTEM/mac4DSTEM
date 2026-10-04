@@ -175,8 +175,11 @@ extension AppState {
     /// Entering Phase mapping or Diffraction groups (S5 item 2): a published
     /// product survives a task switch, so these two modes showed whatever was
     /// last on screen (the Strain map before a first phase run). Show the
-    /// mode's own product, or nothing. Diffraction groups' own product is
-    /// republished only by its run, so with a result it is left as is.
+    /// mode's own product, or nothing. Diffraction groups re-shows its map
+    /// from the retained result and the settings it ran with
+    /// (`publishDiffractionGroupsProduct`, polish lane R, P4b); a group or
+    /// similarity map already on screen is left alone, and with no result the
+    /// Imaging room's own virtual image is too.
     func presentProductForEnteredMode(_ mode: AnalysisMode) {
         switch mode {
         case .phaseMapping:
@@ -190,9 +193,17 @@ extension AppState {
                 resultPresentation.bumpResultVersion()
             }
         case .diffractionGroups:
-            // OPEN (lane F report): with a result, the grouping map is not
-            // republished here — that needs the run's settings.
-            if diffractionGroups.result == nil, resultPresentation.product != nil {
+            if diffractionGroups.result != nil {
+                // The room's own map, from what the session retains (lastRunSettings keeps the run's
+                // settings). A group or similarity map already on screen stays — the phase-mapping
+                // branch's guard — so entering the room never overwrites a similarity map.
+                if let kind = resultPresentation.product?.kind,
+                   AnalysisMode.owning(productKind: kind) == .diffractionGroups { return }
+                publishDiffractionGroupsProduct()
+            } else if let kind = resultPresentation.product?.kind, !kind.hasPrefix("virtual_") {
+                // No grouping yet: another room's map goes. The virtual image stays — both ways in (`changeMode`,
+                // `selectWorkspace`) set the area first, so under this task the room is Imaging and the image
+                // is its own; nothing re-shows it once cleared (polish lane R, fix round).
                 resultPresentation.replaceProduct(nil)
                 resultPresentation.bumpResultVersion()
             }

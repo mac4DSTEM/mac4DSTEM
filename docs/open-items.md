@@ -143,11 +143,10 @@ One line each; full wording as above.
   `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
   after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.
 - **Slot 4½ residuals** (2026-10-02; the rest of `archive/v4/polish-drive-2026-10-01.md` fixed): [the β″ preset's CIF picker closed 2026-10-02: the RC drive
-  opened and applied it — the earlier report does not reproduce]; opening a cube in the DPC room re-runs DPC and Prepare then shows
-  its wheel (the opening pass runs the current mode); the SCAN inset (top-right) still
+  opened and applied it — the earlier report does not reproduce]; the SCAN inset (top-right) still
   covers map data; a window that resized itself (unreproduced);
-  "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1); re-entering Diffraction groups does not
-  re-show its own map (lane F); `NumberEntryField` commits its shown text on blur, so a format that rounds below the stored digits rounds the value (lane B1).
+  "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1); `NumberEntryField` commits its shown text on blur, so a format that rounds below the stored digits rounds the value (lane B1).
+- Lane R residuals (2026-10-04): Origin calibration in Prepare still runs the remembered task's analysis (`AppState+Calibration.swift` ~:130 — under Disks the Bragg map replaces the virtual image). Decided by the session (overrule on sight): a map restored from the sidecar at open is covered by the opening virtual image under every remembered task, as it already was under Virtual detector; it stays in the Results list.
 - Room switches, seen on lane N's drive (2026-10-04, scratch build of a841f9ae; deferred by the owner for cost, Gate D before any fix): after an ACOM preview, Imaging › Virtual imaging kept showing the ACOM map; with an ACOM full scan held (exploratory Q), Crystal Maps › Strain → Orientation showed "No Result Yet" (`presentProductForEnteredMode` has no `.virtualDetector` case; the Orientation branch unexplained).
 - Lane M residuals (2026-10-04): ⌘O / Preprocess Raw Data… with Settings or the object table key open a second dataset window (`openWindow` always creates one, as New Dataset Window does there); `PhaseClaimOverlay`'s legend and note still sit inside the zoomed layer (the fit chip's old defect); rename `residentMemoryMB` → `appMemoryMiB` when the frozen shell next opens.
 - Lane F-C (2026-10-01, review rows 8/25/27; `archive/v4/slot2-fc-refuter-2026-10-01.md`), all pre-existing, registered not fixed: (1) [the VD step fixed 2026-10-01, lane FC2; the disk, diffraction-groups and phase-map steps 2026-10-02, lane E; strain, ACOM and DPC steps still take the current mode's keys] replay, lineage

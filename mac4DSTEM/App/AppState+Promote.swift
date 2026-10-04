@@ -86,8 +86,9 @@ extension AppState {
     /// lesson: a test that cannot reach the call site pins the pure decision
     /// and not the path the app takes. // v2 S3
     /// `runReestablishingAnalysis: false` is the replay path's option (v2 S6):
-    /// when a recorded pipeline is about to replay, the current-mode pass
-    /// would be a redundant whole-cube run — at promote scale, a real cost —
+    /// when a recorded pipeline is about to replay, the opening pass (the
+    /// virtual image, whatever task is remembered — polish lane R, P4a) would
+    /// be a redundant whole-cube run — at promote scale, a real cost —
     /// immediately overwritten by the recipe's own first step.
     func promoteToFullExtent(runReestablishingAnalysis: Bool = true) async {
         // The recipe SURVIVES a promote: same session, same dataset — the

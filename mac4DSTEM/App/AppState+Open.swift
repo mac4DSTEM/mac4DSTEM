@@ -763,11 +763,12 @@ extension AppState {
         if await unwindLoadIfNeeded(owner: loadOwner) { return }
         await preloadResidentCube(keepInMemory: keepInMemory)
         if await unwindLoadIfNeeded(owner: loadOwner) { return }
-        // After the cube is settled and BEFORE the initial analysis, so a
-        // reopen straight into Disks shows the restored Bragg map; the status
-        // line is re-asserted after it because that analysis (and the load's
-        // own stage lines) would otherwise overwrite the one sentence that
-        // says what happened to the stored disks.
+        // After the cube is settled, before the opening pass. That pass shows
+        // only the virtual image (Prepare's own result): restored disks reach
+        // the screen when Bragg Disks is entered, not here. The status line is
+        // re-asserted after the pass because that analysis (and the load's own
+        // stage lines) would otherwise overwrite the one sentence that says
+        // what happened to the stored disks.
         let peaksNote = await restoreSessionPeaks(from: sessionSnapshot, for: descriptor)
         if runInitialAnalysis {
             await runOpeningAnalysis()

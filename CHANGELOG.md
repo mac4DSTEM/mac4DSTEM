@@ -90,6 +90,8 @@ Rough edges left after the review, each fixed with a test that fails without it 
   file macOS will not let the app read is explained by what to do (Allow Access…), not by an HDF5 error; the raw error is in the Log.
 - Preprocess Raw Data… writes the accelerating voltage (the session's, or the raw file's own) into the exported file, so a
   reopened export no longer reads "Not set" and DPC, parallax and ACOM run on it.
+- Opening a dataset shows its virtual image whatever task was last used (it ran that task, e.g. a whole-scan DPC). Go to <room>
+  and the shortcuts show that room's own result; Diffraction groups shows its map again when you return to it.
 
 ### Removed
 

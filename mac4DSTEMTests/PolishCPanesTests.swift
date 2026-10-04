@@ -86,18 +86,6 @@ final class UnitDisplayLabelTests: XCTestCase {
 /// Drives 1 and 2B.
 @MainActor
 final class OpeningAnalysisTests: XCTestCase {
-    /// Mutation it catches: any of the three conditions dropped.
-    func testTheVirtualImageIsOnlyForAnEmptyPrepareUnderAnotherTask() {
-        XCTAssertTrue(OpeningAnalysis.needsVirtualImage(
-            hasProduct: false, area: .prepare, mode: .phaseMapping))
-        XCTAssertFalse(OpeningAnalysis.needsVirtualImage(
-            hasProduct: true, area: .prepare, mode: .phaseMapping), "an image already shows")
-        XCTAssertFalse(OpeningAnalysis.needsVirtualImage(
-            hasProduct: false, area: .map, mode: .phaseMapping), "a task's own room keeps its empty state")
-        XCTAssertFalse(OpeningAnalysis.needsVirtualImage(
-            hasProduct: false, area: .prepare, mode: .virtualDetector), "it already tried")
-    }
-
     /// Mutation it catches: the position restated at the origin, with no
     /// image, or never.
     func testThePatternReadoutIsRestoredOnlyOffTheOriginWithAnImage() {
@@ -109,8 +97,8 @@ final class OpeningAnalysisTests: XCTestCase {
 
     /// Drive 1, shots 52-54: a cube opened after a phase-map session titled
     /// its pane "Phase map (0 candidates)" over "No Result Yet". Through the
-    /// real open path. Mutation it catches: `activate` running only
-    /// `runCurrentAnalysis` (the stale task's no-op).
+    /// real open path. Mutation it catches: the opening pass running the
+    /// remembered task (`runCurrentAnalysis`, the stale task's no-op).
     func testACubeOpenedUnderAStaleTaskShowsItsVirtualImage() async {
         let state = AppState()
         state.navigation.analysisMode = .phaseMapping

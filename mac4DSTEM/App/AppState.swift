@@ -1193,6 +1193,11 @@ final class AppState {
         if let preferred = area.defaultAnalysisMode,
            !area.analysisModes.contains(navigation.analysisMode) {
             changeMode(preferred)
+        } else if !area.analysisModes.isEmpty {
+            // The current task already belongs to the destination (menu Go to <room>, the shortcuts),
+            // so `changeMode` did not run: present the room's own result here, as it would
+            // (polish lane R). Idempotent by design — an own product on screen is left alone.
+            presentProductForEnteredMode(navigation.analysisMode)
         }
     }
 

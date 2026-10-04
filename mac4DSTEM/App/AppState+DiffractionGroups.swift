@@ -78,33 +78,49 @@ extension AppState {
                 "seed": String(settings.seed),
             ])   // lineage node (ADR 047): the settings that ran, not the clamped counts
 
-            let firstThreePercent = result.explainedVariance.prefix(3).reduce(0, +) * 100
-            // Its own room's frame, sampling and keys whatever room is current at landing (review lane E, c1).
-            let own = scanMapPersistenceMetadata(for: .diffractionGroups)
-            publishProduct(
-                kind: "diffraction_groups",
-                displayName: DiffractionGroupsProduct.groupMapDisplayName(groups: result.groupCount),
-                valueUnits: "group",
-                payload: .scalar(DiffractionEmbedding.groupMap(result)),
-                domain: .scan,
-                sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
-                extraProvenance: own.provenance.merging([
-                    "quantitative_status": "categorical",
-                    "binned_size": String(settings.binnedSize),
-                    "components": String(result.componentCount),
-                    "groups": String(result.groupCount),
-                    "explained_variance_first3_percent": String(format: "%.1f", firstThreePercent),
-                    "seed": String(settings.seed),
-                ]) { _, new in new },
-                ownProvenanceOnly: true
-            )
+            publishDiffractionGroupsProduct()
             statusText = "\(result.groupCount) groups from \(totalPatterns) patterns, "
-                + "first 3 components explain \(String(format: "%.1f", firstThreePercent)) %"
+                + "first 3 components explain \(String(format: "%.1f", Self.firstThreePercent(of: result))) %"
             return .published
         } catch {
             presentComputeFailure(error)
             return .failed(error.localizedDescription)
         }
+    }
+
+    /// The retained grouping result as the room's own product: published by the run that made it, and again when
+    /// Diffraction groups is entered with another room's product on screen (`presentProductForEnteredMode`).
+    /// Reads only what the session holds — `result` and the settings it ran with (`lastRunSettings`, never the
+    /// panel's live ones) — so a republish computes nothing and carries the run's own provenance; `lineage_step`
+    /// comes from `replay.producedStep`, which a room switch leaves alone. The categorical map is drawn on
+    /// viridis: a Strain map leaves RdBu on the shared colormap. Nothing retained: nothing published.
+    func publishDiffractionGroupsProduct() {
+        guard let result = diffractionGroups.result, let settings = diffractionGroups.lastRunSettings else { return }
+        // Its own room's frame, sampling and keys whatever room is current at landing (review lane E, c1).
+        let own = scanMapPersistenceMetadata(for: .diffractionGroups)
+        resultPresentation.resultColormap = .viridis
+        publishProduct(
+            kind: "diffraction_groups",
+            displayName: DiffractionGroupsProduct.groupMapDisplayName(groups: result.groupCount),
+            valueUnits: "group",
+            payload: .scalar(DiffractionEmbedding.groupMap(result)),
+            domain: .scan,
+            sampling: ProductSampling(row: own.row, column: own.column, units: own.units),
+            extraProvenance: own.provenance.merging([
+                "quantitative_status": "categorical",
+                "binned_size": String(settings.binnedSize),
+                "components": String(result.componentCount),
+                "groups": String(result.groupCount),
+                "explained_variance_first3_percent": String(format: "%.1f", Self.firstThreePercent(of: result)),
+                "seed": String(settings.seed),
+            ]) { _, new in new },
+            ownProvenanceOnly: true
+        )
+    }
+
+    /// Percent of the total variance the first three retained components explain (the status line and the provenance).
+    private static func firstThreePercent(of result: DiffractionEmbedding.Result) -> Float {
+        result.explainedVariance.prefix(3).reduce(0, +) * 100
     }
 
     /// Cosine-similarity map to the currently selected real-space scan
