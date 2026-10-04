@@ -116,7 +116,8 @@ Rough edges left after the review, each fixed with a test that fails without it 
 - ACOM's in-plane map mixes the mirrored +π convention; the export has no per-pixel flag.
 - A crash right after Compute Strain was seen once (a layout loop inside the toolbar) and not reproduced in 12,000 stress cycles; the cause is not established.
 - `scan.dm4` and `scan.h5` in one folder share one session file (named from the stem), so opening one can adopt the other's calibration (owner's decision for this release).
-- Unverified on screen: a mirrored ACOM pixel, the β″ preset rows and legend, ADF 3r–6r, the room-switch stale-map rule, Train Model….
+- Unverified on screen: Train Model…. Room switches still have gaps: Imaging can keep showing another room's map, and Strain or Orientation can read "No Result Yet" while their result is held (seen 2026-10-04; deferred).
+- On a beam whose 3r reaches the detector edge (e.g. a ptychography cube) the ADF preset falls back to detector fractions without saying so.
 - Export Data… dimensions read as pixels in py4DSTEM; the true sampling is in the file's attributes.
 - Annulus with inner radius 0 excludes the centre pixel; py4DSTEM's convention is unchecked.
 - Quitting waits for a file read in flight: seconds from an internal SSD, longer from a slow external drive.
