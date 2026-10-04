@@ -97,6 +97,8 @@ Rough edges left after the review, each fixed with a test that fails without it 
   uses the threshold you just typed (a mouse click on Write wrote the previous one).
 - A DM4 cube whose disk is disconnected (an SSD pulled while the cube streams) no longer crashes the app on the next read: it says
   "<file> is no longer reachable: its disk was disconnected. Reconnect it and reopen." and keeps refusing until reopened.
+- The SCAN navigator sits in the diffraction pane's corner, beside the pattern it drives, instead of over the Bragg vector map or
+  a reconstruction.
 
 ### Removed
 

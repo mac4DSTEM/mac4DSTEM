@@ -143,8 +143,9 @@ One line each; full wording as above.
   `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
   after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.
 - **Slot 4½ residuals** (2026-10-02; the rest of `archive/v4/polish-drive-2026-10-01.md` fixed): [the β″ preset's CIF picker closed 2026-10-02: the RC drive
-  opened and applied it — the earlier report does not reproduce]; the SCAN inset (top-right) still
-  covers map data; a window that resized itself (unreproduced);
+  opened and applied it — the earlier report does not reproduce]; [the SCAN inset moved into the
+  diffraction pane, Slot 4⅞ lane R2 (owner Q3 a); its height follows the scan aspect (a 4:1 scan gives 472 pt); with no product shown
+  only the arrow keys move the position]; a window that resized itself (unreproduced);
   "Compute Image" offered while the image is live (frozen toolbar — needs a picture, after v4.1).
 - Number fields (lane N, 2026-10-04, a declared trade-off): while a finer value is stored, typing exactly the text the field shows (0,03 over 0.0275) is a no-op; 0,030 or 0.03 set it.
 - Lane R residuals (2026-10-04): Origin calibration in Prepare still runs the remembered task's analysis (`AppState+Calibration.swift` ~:130 — under Disks the Bragg map replaces the virtual image). Decided by the session (overrule on sight): a map restored from the sidecar at open is covered by the opening virtual image under every remembered task, as it already was under Virtual detector; it stays in the Results list.

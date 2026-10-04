@@ -327,6 +327,20 @@ struct DiffractionPane: View {
                 .border(Color.white.opacity(0.08))
                 .zoomPan($zp, box: box)
 
+                // The scan navigator, for a result whose pixels cannot be clicked to choose a
+                // scan position (a Bragg-vector map, a reconstruction): top-trailing, beside the
+                // pattern it drives, and OUTSIDE the zoomed, clipped layer so it keeps its size
+                // and its corner at any zoom and a drag on it never pans the pattern. It used to
+                // cover the result map (owner card Q3 a, 2026-10-04).
+                if ScanNavigatorPlacement.isShown(domain: appState.displayedProduct?.domain,
+                                                  hasImage: appState.scanNavigationImage != nil),
+                   let navigator = appState.scanNavigationImage {
+                    ScanNavigatorInset(image: navigator)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: .topTrailing)
+                }
+
                 // Calibrated q-space scale bar (px fallback), zoom-aware, and
                 // the intensity legend — one bottom row so they cannot collide
                 // on a narrow pane.
@@ -368,7 +382,7 @@ struct DiffractionPane: View {
                 // The fit overlay's key, at the pane's top-leading corner and OUTSIDE the zoomed, clipped
                 // layer: drawn in image space it was scaled and clipped away when zoomed (P7b). The
                 // diffraction pane has nothing else in this corner (the scale bar and colorbar are at the
-                // bottom; the SCAN inset is the real-space pane's, top-trailing).
+                // bottom; the SCAN navigator, when shown, is at the opposite, top-trailing corner).
                 if !fitLegend.isEmpty {
                     PatternFitLegend(text: fitLegend)
                         .padding(6)
@@ -398,6 +412,65 @@ struct DiffractionPane: View {
 
     private var logScaleLabel: String {
         appState.logScale ? "intensity · log display" : "intensity"
+    }
+}
+
+/// A small map of the scan with the selected position marked, to click or drag
+/// in: a detector-domain or reconstruction result cannot be clicked to pick a
+/// scan position, so the scan gets one of its own (`ScanNavigatorPlacement`
+/// decides when). Drawn by `DiffractionPane`, at its top-trailing corner, beside
+/// the pattern it drives; in the real-space pane it covered the result's data
+/// (the lattice of a reconstruction, the upper right of a Bragg-vector map:
+/// polish drive 2026-10-01; owner card Q3 a, 2026-10-04).
+///
+/// A scientific thumbnail of the scan, not a control: it stays small and out of
+/// the pattern's way, at one fixed width.
+struct ScanNavigatorInset: View {
+    @Environment(AppState.self) private var appState
+    let image: FloatImage
+
+    private static let width: CGFloat = 118
+
+    var body: some View {
+        let width = Self.width
+        let height = width * CGFloat(image.height) / CGFloat(max(image.width, 1))
+        ZStack {
+            MetalImageView(
+                pixels: image.normalized(),
+                width: image.width, height: image.height,
+                contentVersion: appState.scanNavigationVersion,
+                colormap: .viridis
+            )
+            .frame(width: width, height: height)
+            let x = (CGFloat(appState.selectedScan.x) + 0.5) / CGFloat(image.width) * width
+            let y = (CGFloat(appState.selectedScan.y) + 0.5) / CGFloat(image.height) * height
+            Circle().stroke(.white, lineWidth: 1.5)
+                .background(Circle().stroke(.black, lineWidth: 3))
+                .frame(width: 9, height: 9)
+                .position(x: x, y: y)
+        }
+        .frame(width: width, height: height)
+        .background(.black)
+        .overlay(alignment: .topLeading) {
+            Text("SCAN")
+                // Fixed, not Dynamic Type: the navigator it labels is a fixed
+                // scientific thumbnail, so a growing label would overrun it.
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white)
+                .padding(3)
+        }
+        .border(.white.opacity(0.55))
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+            let x = Int(value.location.x / width * CGFloat(image.width))
+            let y = Int(value.location.y / max(height, 1) * CGFloat(image.height))
+            appState.scrubTo(x: x, y: y)
+        })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Scan navigator")
+        .accessibilityValue("Selected scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y)")
+        .accessibilityHint("Click or drag to update the diffraction pattern")
+        .accessibilityIdentifier("result.scanNavigator")
     }
 }
 
@@ -433,10 +506,6 @@ struct RealSpacePane: View {
     /// round is not this legend — so it takes a size, as the pane's other
     /// scientific overlays do. Same size as the view this replaces.
     private static let colorWheelLegendSize: CGFloat = 54
-
-    /// The scan navigator is a scientific thumbnail of the scan, not a control:
-    /// it has to stay small and out of the result's way. Same width as before.
-    private static let scanNavigatorWidth: CGFloat = 118
 
     /// Zoomed in means pan owns a plain drag and the marker owns its handle
     /// (backlog #35). See `RealSpacePointerPolicy` for why zooming *out* is
@@ -905,19 +974,6 @@ struct RealSpacePane: View {
                 .border(Color.white.opacity(0.08))
                 .zoomPan($zp, box: box)
 
-                if appState.displayedProduct?.domain != .scan,
-                   let navigator = appState.scanNavigationImage {
-                    // Top-trailing, not top-leading: the upper-left of a
-                    // Bragg-vector map is where its data starts, and the
-                    // thumbnail covered it (polish drive 2026-10-01). The
-                    // footer's legend lives at the bottom, so the top-right
-                    // corner is the one both leave free.
-                    scanNavigator(navigator)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .topTrailing)
-                }
-
                 footer(dims: dims, box: box, orientation: orientation,
                        qualityField: qualityField, effZoom: effZoom)
             }
@@ -1085,50 +1141,6 @@ struct RealSpacePane: View {
     }
 
     // MARK: Overlays
-
-    /// A detector-domain result cannot be clicked to pick a scan position, so
-    /// the scan gets its own small map to scrub in.
-    private func scanNavigator(_ image: FloatImage) -> some View {
-        let width = Self.scanNavigatorWidth
-        let height = width * CGFloat(image.height) / CGFloat(max(image.width, 1))
-        return ZStack {
-            MetalImageView(
-                pixels: image.normalized(),
-                width: image.width, height: image.height,
-                contentVersion: appState.scanNavigationVersion,
-                colormap: .viridis
-            )
-            .frame(width: width, height: height)
-            let x = (CGFloat(appState.selectedScan.x) + 0.5) / CGFloat(image.width) * width
-            let y = (CGFloat(appState.selectedScan.y) + 0.5) / CGFloat(image.height) * height
-            Circle().stroke(.white, lineWidth: 1.5)
-                .background(Circle().stroke(.black, lineWidth: 3))
-                .frame(width: 9, height: 9)
-                .position(x: x, y: y)
-        }
-        .frame(width: width, height: height)
-        .background(.black)
-        .overlay(alignment: .topLeading) {
-            Text("SCAN")
-                // Fixed, not Dynamic Type: the navigator it labels is a fixed
-                // scientific thumbnail, so a growing label would overrun it.
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
-                .padding(3)
-        }
-        .border(.white.opacity(0.55))
-        .contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-            let x = Int(value.location.x / width * CGFloat(image.width))
-            let y = Int(value.location.y / max(height, 1) * CGFloat(image.height))
-            appState.scrubTo(x: x, y: y)
-        })
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Scan navigator")
-        .accessibilityValue("Selected scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y)")
-        .accessibilityHint("Click or drag to update the diffraction pattern")
-        .accessibilityIdentifier("result.scanNavigator")
-    }
 
     /// Hue wheel matching `DPC.colorWheelRGBA` (hue = atan2(cy,cx)/2π + 0.5),
     /// brightness growing with magnitude → dark centre.
