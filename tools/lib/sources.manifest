@@ -132,6 +132,7 @@ mac4dstem_sources() {
           "$core/Data/HDF5Types.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/DM4Reader.swift"
+          "$core/Data/DM4Experiment.swift"
           "$core/Data/VendorRawReaders.swift"
           "$core/Data/DemoFourDDataSource.swift"
         )

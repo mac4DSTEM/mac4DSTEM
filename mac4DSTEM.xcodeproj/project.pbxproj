@@ -115,6 +115,7 @@
 				Core/Data/DiffractionPattern.swift,
 				Core/Data/DisplayedProduct.swift,
 				Core/Data/DM4Reader.swift,
+				Core/Data/DM4Experiment.swift,
 				Core/Data/FourDArray.swift,
 				Core/Data/FourDDataSource.swift,
 				Core/Data/H5Reader.swift,

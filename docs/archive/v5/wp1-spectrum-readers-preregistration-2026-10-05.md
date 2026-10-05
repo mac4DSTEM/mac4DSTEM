@@ -107,3 +107,13 @@ independent reviewer reads the parity harness's own output, not the diff.
 
 The room and its mock, quantification, the registration record, MSA and `.hspy` (WP1b, small), Bruker `.bcf`, and
 Oxford `.h5oina`.
+
+## Addendum 2026-10-05: lane B outcome
+
+- **Where the scan's rectangle lives.** `Spectrum Image Rect` (top, left, bottom, right) sits on the SI objects, not on
+  the survey: `SI.Acquisition.Survey Image.Spectrum Image Rect`, next to `.Unique Image ID`. Measured on the owner's 036
+  and 134. Its aspect equals the scan's (0.693 / 0.611).
+- **Bit parity with rsciio.** Both surveys match byte for byte (max |Δ| 0).
+- **Header-only listing.** It goes through a `FileHandle` on every volume: 212 kB read for the 17 GB 036.
+- **The shipped reader's string-tag fault.** The independent review found the type-18 desync in `DM4Reader`
+  (`open-items.md`), and lane B reproduced it on a synthetic file.
