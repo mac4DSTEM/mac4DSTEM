@@ -3,54 +3,226 @@
  "source": "docs/archive/v5/edx-dossier-2026-10-05.md",
  "open": [
   {
-   "id": "V5-5",
-   "title": "k-factors: what quantification can honestly ship",
-   "urgency": "soon",
-   "problem": "No k-factor source exists: Velox exports none, the owner's notebooks used placeholders, and theoretical k needs cross-sections and data rights. Without k there is no at% on any of his data.",
-   "context": "Theoretical k from NIST EPQ data is public domain with a notice (third-party rights inside EPQ unverified). An internal standard would need a homogeneous solution-treated sample of the same alloy (existence unverified). Velox's own 20 % k rule. Count ratios (Mg/Si, enrichment over the matrix blank) need no k.",
+   "id": "V5-Q1",
+   "title": "Which fit method is the default",
+   "urgency": "now",
+   "problem": "Every result names one fit method (your option 3). Least squares can be checked exactly against HyperSpy; Poisson maximum likelihood is the textbook choice at low counts. On pooled spectra (thousands of counts per peak) they probably agree.",
+   "context": "Velox's own working SI default is 'least square (Empirical)'; no vendor offers the switch. The 2.9 % LS–ML gap is a FePt number, not yours.",
    "options": [
     {
-     "label": "a — primary outputs k-free (net counts, Mg/Si count ratios, enrichment over the matrix blank, with intervals); typed k with source and date optional; theoretical k a later sheet",
-     "consequence": "Honest numbers on day one, no data-rights blocker; no at% until a k source exists."
+     "label": "a — least squares now, Poisson under Expert",
+     "consequence": "0 extra sessions; low risk; pinnable."
     },
     {
-     "label": "b — theoretical k from EPQ data in v5.0",
-     "consequence": "at% on day one, +2-3 sessions, rights check on Bote-Salvat/Henke, 20 % systematic shown separately."
+     "label": "b — Poisson now",
+     "consequence": "+0.5 session; cannot be pinned against HyperSpy; chosen before measuring."
     },
     {
-     "label": "c — measure k on a lab standard first",
-     "consequence": "Best accuracy; needs a standard the lab may not have and microscope time."
+     "label": "c — a, plus a pre-registered LS-vs-Poisson measurement on your Al-Mg-Si pools; switch only if the gap matters (> ½ the counting σ of Mg/Si)",
+     "consequence": "+0.5 session; decides on your data."
     }
    ],
-   "recommendation": "a, because the decisive quantity for the owner's phases is a ratio and a ratio needs no k; b is pre-registered as v5.x.",
-   "second_opinion": "The second opinion raised this as the missing decision M9 and the critic as P0-4; both agree the primary outputs must be k-free.",
-   "question": "Do you accept ratios and enrichment as the v5.0 quantities, with at% deferred to a k source you approve?",
-   "default_if_silent": "a.",
-   "source": "dossier §5.1, §8.4 C",
-   "status": "Not answered (owner 2026-10-05, ADR 053): what do Velox, GMS and HyperSpy do? It goes to the quantification design session (docs/archive/v5/quant-design-brief-2026-10-05.md). Velox computes k from three cross-section models, so 'no k source' was too narrow."
+   "recommendation": "c.",
+   "second_opinion": "The Fable draft picked Poisson; the reviewer says measure first (threshold rule).",
+   "question": "a, b or c?",
+   "default_if_silent": "c.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
   },
   {
-   "id": "V5-7",
-   "title": "Parity and data-rights policy for the eXSpy port",
-   "urgency": "soon",
-   "problem": "Which numbers are parity pins, which loss function the app uses, and where the line energies and mass-absorption data come from.",
-   "context": "Integer window pins and closed-form CL/absorption pins are exact; LS model fits are a tolerance; HyperSpy's ML-poisson depends on optimiser and start (FePt Pt Lα 15229.7 vs 15351.6) so it cannot be pinned. exspy's line energies match Bearden to ≤0.022 % for Mg/Al/Si/Cu/O/Zr. Both exspy's FFAST MACs and its Chantler line energies are NIST SRD data with unclear terms; NIST EPQ ships both under a public-domain notice; xraylib is BSD-3. Repo rule: no user-visible parity toggle, inline DEVIATION notes.",
+   "id": "V5-Q2",
+   "title": "How the background under Mg, Al and Si is modelled",
+   "urgency": "now",
+   "problem": "Mg, Al and Si sit ~240 eV apart with ~80–100 eV peak width, so clean background windows barely fit; the Al absorption edge (1.56 keV) sits between Al and Si — the decisive region for both your questions.",
+   "context": "Velox: 'Empirical' (a fitted Bethe-Heitler continuum) or polynomial windows. A physical continuum needs the Super-X detector-efficiency curve, which we do not have.",
    "options": [
     {
-     "label": "a — exspy tables verbatim for parity; pins on windows, CL, absorption and LS fits only; science default Poisson-ML via IRLS; MACs and line energies sourced from EPQ with its notice; one science default, provenance names the estimator, no mode switch",
-     "consequence": "Clean licence chain, no dead parity pins, one more table to maintain (EPQ copy) with per-line DEVIATIONs where it differs."
+     "label": "a — physical continuum (espm-style)",
+     "consequence": "2 sessions; needs a detector-efficiency curve; high risk."
     },
     {
-     "label": "b — exspy tables and MACs copied as GPL data; LS everywhere; two user-visible modes",
-     "consequence": "Fastest port; rights question on NIST data unresolved; a toggle the no-filler rule forbids; LS bias at low counts."
+     "label": "b — fitted whole-spectrum continuum with the Al-edge step, like Velox's Empirical",
+     "consequence": "1.5 sessions; medium risk; acceptance: flat residual 1.1–1.9 keV on your matrix spectrum."
+    },
+    {
+     "label": "c — polynomial in windows",
+     "consequence": "1 session; poor in this region; kept under Expert for parity."
     }
    ],
-   "recommendation": "a, because it resolves the rights question and the unpinnable-ML problem at once.",
-   "second_opinion": "The second opinion rejected the two-mode switch and the second line table, and set parity on LS only; the critic widened the NIST question to the line table (C17).",
-   "question": "Approve a: EPQ-sourced tables, LS-only parity, Poisson-ML default, provenance instead of a mode switch?",
+   "recommendation": "b default, c under Expert, a later.",
+   "second_opinion": "The Fable draft picked a; the reviewer disagrees (missing efficiency, Al edge).",
+   "question": "a, b or c as the default?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
+  },
+  {
+   "id": "V5-Q3",
+   "title": "at% in v5.0, and from which k",
+   "urgency": "now",
+   "problem": "Every vendor shows at%; HyperSpy makes you type k. A computed k needs cross-sections, fluorescence yields, line weights and the detector's efficiency curve. Your first question (Si enrichment, boundary vs cell) is a ratio of ratios and needs no k.",
+   "context": "Velox computes k from Brown-Powell (default), Bote-Salvat or Schreiber-Wims and assumes ±20 %. No ζ-factor and no calibrated probe current exist for your instrument.",
+   "options": [
+    {
+     "label": "a — computed Brown-Powell k + typed k; at% badged 'unvalidated' on screen and in every export; k-free ratio shown above; at% on regions only; detector efficiency a named, sourced input; no ζ in the menu",
+     "consequence": "3 sessions; low risk with the badge."
+    },
+    {
+     "label": "b — ratios plus typed k only",
+     "consequence": "1 session; below every vendor."
+    }
+   ],
+   "recommendation": "a.",
+   "second_opinion": "Both reviewers agree on a; the reviewer adds: efficiency named, ζ removed from the menu, at% on regions only, Bote-Salvat only after a data-rights check.",
+   "question": "a or b?",
    "default_if_silent": "a.",
-   "source": "dossier §5.1, §7",
-   "status": "Not answered (owner 2026-10-05, ADR 053): the user must be able to choose the fit, or it is a black box; orient on Velox/GMS. The 'no mode switch' resolution is reopened; it goes to the quantification design session."
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
+  },
+  {
+   "id": "V5-Q4",
+   "title": "Energy axis and detector resolution",
+   "urgency": "soon",
+   "problem": "If the file's energy axis or peak width is off by 5–10 eV, the Mg/Al split goes wrong.",
+   "context": "eXSpy fits with fixed centres and widths. Velox has 'optimized spectrum fit' + Re-measure.",
+   "options": [
+    {
+     "label": "a — trust the file",
+     "consequence": "0 sessions; medium risk."
+    },
+    {
+     "label": "b — refine offset, gain and width on the pooled spectrum, show file vs refined",
+     "consequence": "1 session; low risk."
+    },
+    {
+     "label": "c — b plus frame-by-frame drift tracking",
+     "consequence": "2+ sessions; only if first-vs-last frames show drift."
+    }
+   ],
+   "recommendation": "b.",
+   "second_opinion": "Missed by the Fable draft, hidden under Expert in the UX study.",
+   "question": "a, b or c?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
+  },
+  {
+   "id": "V5-Q5",
+   "title": "Comparing regions fairly (live time and dead time)",
+   "urgency": "soon",
+   "problem": "Your spectrum images ran at 48–60 % dead time. Boundary vs interior, or file vs file, is only fair if both are normalised the same way.",
+   "context": "Approach E in the dossier specifies live-time-weighted pooling; both drafts dropped it. Whether Velox stores live time per pixel is unknown.",
+   "options": [
+    {
+     "label": "a — compare ratios within one region only",
+     "consequence": "0 sessions."
+    },
+    {
+     "label": "b — normalise by per-pixel live time when the file has it, else by Al Kα, and say which on the result",
+     "consequence": "1 session."
+    }
+   ],
+   "recommendation": "b.",
+   "second_opinion": "Missed by both drafts. Your question: does Velox store live time per pixel?",
+   "question": "a or b?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
+  },
+  {
+   "id": "V5-Q6",
+   "title": "Element identification",
+   "urgency": "soon",
+   "problem": "Your 190330 element list contains Ar — probably the Al sum peak, which shows how Auto ID misleads. Ga from FIB sits next to Mg; Cu may be grid or real (Q phase).",
+   "context": "Velox: Auto ID that drops manual picks when toggled. AZtec: candidate lists. HyperSpy: manual.",
+   "options": [
+    {
+     "label": "a — Auto ID on, like the vendors",
+     "consequence": "Familiar; misattributions pass silently."
+    },
+    {
+     "label": "b — manual, a proposer adds nothing without a click",
+     "consequence": "Safe; slower first five minutes."
+    },
+    {
+     "label": "c — the proposer runs on open, conflicts named ('Al sum or Ar?', 'Ga from FIB?'), one click accepts; Cu defaults to Quantify",
+     "consequence": "1.5 sessions; low risk."
+    }
+   ],
+   "recommendation": "c.",
+   "second_opinion": "The UX study wanted a, the Fable draft b; the reviewer merged them.",
+   "question": "a, b or c?",
+   "default_if_silent": "c.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
+  },
+  {
+   "id": "V5-Q7",
+   "title": "Spurious signal under Mg and Si",
+   "urgency": "soon",
+   "problem": "The Al peak's low-energy tail lies under Mg, and the detector itself adds a little Si (internal fluorescence) — which pushes your Si enrichment ratio toward 1.",
+   "context": "No vendor handles the tail explicitly. In Al-Mg-Si the matrix holds Mg and Si, so a 'Mg-free control region' does not exist.",
+   "options": [
+    {
+     "label": "a — subtract the matrix pool (result labelled 'excess over matrix')",
+     "consequence": "1 session; does not remove Si fluorescence from a ratio."
+    },
+    {
+     "label": "b — a, plus one five-minute pure-Al spectrum on the same Super-X to measure the tail and Si fluorescence once",
+     "consequence": "+1 session and one acquisition by you."
+    },
+    {
+     "label": "c — plain fit, badged",
+     "consequence": "0 sessions."
+    }
+   ],
+   "recommendation": "b.",
+   "second_opinion": "The Fable draft had a with an impossible control; the reviewer adds the pure-Al reference.",
+   "question": "a, b or c?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
+  },
+  {
+   "id": "V5-Q8",
+   "title": "Inspector layout of the Spectroscopy room",
+   "urgency": "soon",
+   "problem": "How many controls you see at once, and where.",
+   "context": "Vendor study: one inspector of 22 rows. Quant draft: one panel of ~9 rows without the energy axis or regions. Both hide nothing important but differ on where.",
+   "options": [
+    {
+     "label": "a — one inspector, 22 rows",
+     "consequence": "Everything in one place; AZtec's eight-field problem, vertically."
+    },
+    {
+     "label": "b — one Quantify panel, ~9 rows",
+     "consequence": "Lean; misses the energy axis and regions."
+    },
+    {
+     "label": "c — five sidebar steps (Spectrum image · Elements & maps · Regions · Quantify · Export), each its own inspector of ≤ 7 rows; k and absorption visible; one toolbar verb 'Quantify', the fit live",
+     "consequence": "Costed in points in the mock first."
+    }
+   ],
+   "recommendation": "c.",
+   "second_opinion": "Reviewer's merge of both drafts.",
+   "question": "a, b or c for the mock?",
+   "default_if_silent": "c.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
+  },
+  {
+   "id": "V5-Q9",
+   "title": "Thickness",
+   "urgency": "whenever",
+   "problem": "Absorption and error bars need a thickness ± σ.",
+   "context": "Your GMS joint run can include an EELS t/λ map; converting t/λ to nm needs a mean-free-path model (one more named choice).",
+   "options": [
+    {
+     "label": "a — typed ± σ now",
+     "consequence": "0.5 session."
+    },
+    {
+     "label": "b — a plus reading the EELS t/λ map from the GMS run",
+     "consequence": "+1 session."
+    }
+   ],
+   "recommendation": "a now, b with your GMS run.",
+   "second_opinion": "Both drafts and the reviewer agree.",
+   "question": "a or b?",
+   "default_if_silent": "a now, b later.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
   },
   {
    "id": "V5-8",
@@ -76,31 +248,7 @@
    "second_opinion": "The second opinion agreed on table-only B* and on deferring G/F, but narrowed B*'s reach (beta-double-prime variants probably inseparable; Mg/Si and Cu the robust signals) and asked for the separability matrix first.",
    "question": "a, b or c for v5.0?",
    "default_if_silent": "b, with B* contingent on the separability matrix showing a separable pair.",
-   "source": "dossier §5.4, §5.5",
-   "status": "Waits for the quantification design session (ADR 053)."
-  },
-  {
-   "id": "V5-10",
-   "title": "Thickness input and whether Spectroscopy includes EELS",
-   "urgency": "whenever",
-   "problem": "Absorption, the projection fraction f and the density goal all need a thickness per field or per object; the room name invites the question whether EELS (13 GB of owner SIs already exist) is in scope.",
-   "context": "The GIF Continuum gives an EELS low-loss t/λ map at the same field cheaply; the DM SI reader built for EDS reads an EELS SI with signalType .eels at no extra cost; EELS analysis (zero-loss, t/λ, edges) is a separate port with its own GOS data that downloads from Zenodo.",
-   "options": [
-    {
-     "label": "a — thickness typed ± σ or imported from an EELS t/λ map as a scalar image; EELS analysis explicitly out of v5.0",
-     "consequence": "No new science; one importer; the room name is honest if the docs say so."
-    },
-    {
-     "label": "b — EELS t/λ computed in-app from a low-loss SI",
-     "consequence": "+3-5 sessions, GOS/data-rights work, a second parity target."
-    }
-   ],
-   "recommendation": "a, because v5.0 needs the number, not the method.",
-   "second_opinion": "The critic raised it as P1-11; no other report dissented.",
-   "question": "Typed/imported thickness only, with EELS named out of scope for v5.0?",
-   "default_if_silent": "a.",
-   "source": "dossier §6, §10",
-   "status": "Waits for the quantification design session (ADR 053)."
+   "source": "dossier §5.4, §5.5"
   }
  ],
  "answered": [
@@ -253,6 +401,79 @@
    "default_if_silent": "a.",
    "source": "dossier §5.1, §6",
    "answer": "Owner 2026-10-05 (ADR 053): a. The badged four-detector geometric correction, with σ propagated; refused only when geometry or tilt is unknown."
+  },
+  {
+   "id": "V5-5",
+   "title": "k-factors: what quantification can honestly ship",
+   "urgency": "soon",
+   "problem": "No k-factor source exists: Velox exports none, the owner's notebooks used placeholders, and theoretical k needs cross-sections and data rights. Without k there is no at% on any of his data.",
+   "context": "Theoretical k from NIST EPQ data is public domain with a notice (third-party rights inside EPQ unverified). An internal standard would need a homogeneous solution-treated sample of the same alloy (existence unverified). Velox's own 20 % k rule. Count ratios (Mg/Si, enrichment over the matrix blank) need no k.",
+   "options": [
+    {
+     "label": "a — primary outputs k-free (net counts, Mg/Si count ratios, enrichment over the matrix blank, with intervals); typed k with source and date optional; theoretical k a later sheet",
+     "consequence": "Honest numbers on day one, no data-rights blocker; no at% until a k source exists."
+    },
+    {
+     "label": "b — theoretical k from EPQ data in v5.0",
+     "consequence": "at% on day one, +2-3 sessions, rights check on Bote-Salvat/Henke, 20 % systematic shown separately."
+    },
+    {
+     "label": "c — measure k on a lab standard first",
+     "consequence": "Best accuracy; needs a standard the lab may not have and microscope time."
+    }
+   ],
+   "recommendation": "a, because the decisive quantity for the owner's phases is a ratio and a ratio needs no k; b is pre-registered as v5.x.",
+   "second_opinion": "The second opinion raised this as the missing decision M9 and the critic as P0-4; both agree the primary outputs must be k-free.",
+   "question": "Do you accept ratios and enrichment as the v5.0 quantities, with at% deferred to a k source you approve?",
+   "default_if_silent": "a.",
+   "source": "dossier §5.1, §8.4 C",
+   "answer": "Superseded 2026-10-05 by cards V5-Q1–V5-Q3 (quantification design session)."
+  },
+  {
+   "id": "V5-7",
+   "title": "Parity and data-rights policy for the eXSpy port",
+   "urgency": "soon",
+   "problem": "Which numbers are parity pins, which loss function the app uses, and where the line energies and mass-absorption data come from.",
+   "context": "Integer window pins and closed-form CL/absorption pins are exact; LS model fits are a tolerance; HyperSpy's ML-poisson depends on optimiser and start (FePt Pt Lα 15229.7 vs 15351.6) so it cannot be pinned. exspy's line energies match Bearden to ≤0.022 % for Mg/Al/Si/Cu/O/Zr. Both exspy's FFAST MACs and its Chantler line energies are NIST SRD data with unclear terms; NIST EPQ ships both under a public-domain notice; xraylib is BSD-3. Repo rule: no user-visible parity toggle, inline DEVIATION notes.",
+   "options": [
+    {
+     "label": "a — exspy tables verbatim for parity; pins on windows, CL, absorption and LS fits only; science default Poisson-ML via IRLS; MACs and line energies sourced from EPQ with its notice; one science default, provenance names the estimator, no mode switch",
+     "consequence": "Clean licence chain, no dead parity pins, one more table to maintain (EPQ copy) with per-line DEVIATIONs where it differs."
+    },
+    {
+     "label": "b — exspy tables and MACs copied as GPL data; LS everywhere; two user-visible modes",
+     "consequence": "Fastest port; rights question on NIST data unresolved; a toggle the no-filler rule forbids; LS bias at low counts."
+    }
+   ],
+   "recommendation": "a, because it resolves the rights question and the unpinnable-ML problem at once.",
+   "second_opinion": "The second opinion rejected the two-mode switch and the second line table, and set parity on LS only; the critic widened the NIST question to the line table (C17).",
+   "question": "Approve a: EPQ-sourced tables, LS-only parity, Poisson-ML default, provenance instead of a mode switch?",
+   "default_if_silent": "a.",
+   "source": "dossier §5.1, §7",
+   "answer": "Superseded 2026-10-05: fit = option 3 (ADR 053); default method → V5-Q1; data rights → V5-Q3."
+  },
+  {
+   "id": "V5-10",
+   "title": "Thickness input and whether Spectroscopy includes EELS",
+   "urgency": "whenever",
+   "problem": "Absorption, the projection fraction f and the density goal all need a thickness per field or per object; the room name invites the question whether EELS (13 GB of owner SIs already exist) is in scope.",
+   "context": "The GIF Continuum gives an EELS low-loss t/λ map at the same field cheaply; the DM SI reader built for EDS reads an EELS SI with signalType .eels at no extra cost; EELS analysis (zero-loss, t/λ, edges) is a separate port with its own GOS data that downloads from Zenodo.",
+   "options": [
+    {
+     "label": "a — thickness typed ± σ or imported from an EELS t/λ map as a scalar image; EELS analysis explicitly out of v5.0",
+     "consequence": "No new science; one importer; the room name is honest if the docs say so."
+    },
+    {
+     "label": "b — EELS t/λ computed in-app from a low-loss SI",
+     "consequence": "+3-5 sessions, GOS/data-rights work, a second parity target."
+    }
+   ],
+   "recommendation": "a, because v5.0 needs the number, not the method.",
+   "second_opinion": "The critic raised it as P1-11; no other report dissented.",
+   "question": "Typed/imported thickness only, with EELS named out of scope for v5.0?",
+   "default_if_silent": "a.",
+   "source": "dossier §6, §10",
+   "answer": "Superseded 2026-10-05 by card V5-Q9."
   }
  ]
 }
