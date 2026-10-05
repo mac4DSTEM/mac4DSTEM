@@ -16,6 +16,11 @@ Builds on ADR 052. Nothing here is implemented yet.
    field. In parallel he asks Thermo, Gatan and Bruker service whether GMS can drive Super-X, and what that costs. If they
    confirm, a small STEMx test (`.dm4` and `.dm5`) settles the file layout and the identity/lag check. The science numbers
    come from the R4 data. The same-file GMS reader stays conditional.
+   **Amended the same evening (owner):** GMS already drives the Super-X in his lab. It can acquire 4D-STEM, EDX and EELS
+   in one run, so he records that dataset on his next TEM visit. The dossier's finding 7 ("speculative for this lab") is
+   overruled by the owner's own knowledge. The same-file GMS `.dm4` (route R1) becomes the primary joint input, and R4
+   and the service question are dropped. Plain Velox spectrum images, and GMS 4D runs beside separate Velox EDX maps,
+   stay in scope (see item 3).
 3. **V5-3: the window opens a spectrum image on its own, and the room mock shows it now.** The mock shows two layouts: EDX
    attached to a 4D cube, and EDX with no cube. Shortcuts: Spectroscopy ⌘6, Results ⌘7 (Results stays last). The window
    currently assumes a 4D cube (`hasDataset == is4D`), so this costs about 3–4 sessions. The frozen-shell rule (ADR 035)
@@ -42,5 +47,5 @@ Builds on ADR 052. Nothing here is implemented yet.
 - Parity and the UI are separate questions. The parity harness may still pin least-squares fits only, because
   HyperSpy's Poisson-ML output depends on the optimiser and the start. That is a test rule, not a limit on what the app
   offers.
-- On the owner's side: book R4, ask service, and export the GMS help pages (EDS / Elemental Quantification, STEM SI) on
+- On the owner's side: record one GMS 4D-STEM + EDX (+ EELS) run, with HAADF ticked as a scan signal, so a HAADF on the scan grid is stored too; export the GMS help pages (EDS / Elemental Quantification, STEM SI) on
   a GMS PC. Those pages are the one source the design session cannot get any other way.

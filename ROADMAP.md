@@ -109,8 +109,8 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — v4.5.0 released). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **v5.0 — the EDX suite** (ADR 052, 053) — the quantification design session (`docs/archive/v5/quant-design-brief-2026-10-05.md`) answers the four open cards; then its
-  pre-registration (§ How a feature is done) and the Spectroscopy room's mock; then `/pickup` with the first work package named.
+- [ ] **v5.0 — the EDX suite** (ADR 052, 053) — the quantification design session (`docs/archive/v5/quant-design-brief-2026-10-05.md`) answers the four open cards; WP1, headless readers, is pre-registered
+  (`docs/archive/v5/wp1-spectrum-readers-preregistration-2026-10-05.md`); then the room's pre-registration (§ How a feature is done) and its mock; then `/pickup` with the work package named.
 
 ## After v4.1 — frozen until the owner reopens one
 
