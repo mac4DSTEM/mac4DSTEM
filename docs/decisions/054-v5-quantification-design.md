@@ -60,3 +60,20 @@ was answered as recommended.
   - the GMS help pages.
 - Next for the sessions: the Spectroscopy room mock (from `ux-study.md` and item 8), then the room's and the eXSpy core
   port's pre-registrations (P0–P3: tables, FWHM, windows, CL, absorption, statistics).
+
+## The mock's first review (owner, same evening)
+
+On the first mock (`docs/archive/v5/spectroscopy-mock-2026-10-05/`):
+
+- Element roles are set in a **periodic table** in the Elements & maps inspector, as in Velox's Periodic Table panel.
+  Click toggles Quantify; right-click gives Quantify · Fit only · Off · Lines. Proposer suggestions show as marked cells.
+  The map's thumbnail tiles show the role only as a symbol. (This replaces the owner's first answer, roles on the tiles.)
+- **Velox is the reference for layout and interaction** (owner: "quite intuitive, we can orient ourselves by it"), except
+  for two weaknesses. Auto ID never drops manual picks, and there is no "Apply to SI" step: the fit is live.
+- Screen 1: map and results table side by side on top, the spectrum full width below. The explanatory text beside the
+  map is cut.
+- The draw tools sit in the map pane's header, and the toolbar stays as the app has it.
+- Export has no second toolbar verb: an "Export…" button in the Export step, and File › Export.
+- Regions stay in the sidebar.
+
+The revised mock follows. The room is built only once the owner accepts it (ADR 035).

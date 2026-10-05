@@ -206,6 +206,13 @@ accelerating voltage; a session voltage above 1000 kV is stamped as typed and re
 public rsciio Velox files (`archive/v5/edx-research-2026-10-05/velox-emd-repro/`); not driven. The fix is a named refusal (Velox tree,
 `signal_type`, energy units) under Gate B, or the v5.0 spectrum reader itself. Owner: v4.5 ships as it stands (ADR 052).
 
+### DM4 string tags (type 18) read one length too many (2026-10-05) — not reproduced; needs Gate D
+`DM4Reader.readDataTag` (`Core/Data/DM4Reader.swift`, case 18) reads a `u32be` length after the info array. In rsciio
+(`digitalmicrograph/_api.py`, `parse_string_definition`) the length is the info array's second entry, with nothing after it.
+If a file holds a type-18 tag, the walk would desync from that tag on. It is found by reading the code (the lane B review,
+2026-10-05), not on a file. The owner's GMS files open fine, which suggests GMS writes text as uint16 arrays (type 20), not
+type 18. Next: find or build a DM4 with a type-18 tag and reproduce before any change (Gate D: cause not established on data).
+
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads
