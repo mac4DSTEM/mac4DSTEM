@@ -236,6 +236,21 @@ The room shell (lane R) and the views (lane V) are in. The views are wired to th
 - **A cancelled 4D open in a window that has a spectrum image** leaves a withheld room selected (the backstop view
   shows).
 
+### Element proposer held back: rebuild on the WP3 fit (2026-10-05)
+WP3 lane T's proposer (Poisson-GLM continuum, line-list exclusion, a shadow rule) was not landed. Fable's re-check
+(the session scratchpad's `reviewT2/`) found three faults:
+- **An unrealistic test continuum.** On a Kramers × window-absorption continuum, a 0.3 % Mg reads as a large negative
+  net.
+- **A false Mg from a Ga Lα tail** at ×100 dose, the round-1 pattern again.
+- **An unlisted O Kα** biases listed neighbours by up to −40 L_D.
+
+The Al K edge also biases Mg and Si. All four are overlap and continuum-model problems that the WP3 model fit
+handles. Next: rebuild the proposer on lane F's fit, with these cases as its tests.
+
+Statistics nits carried:
+- A negative live time should be treated as corrupt (fall back with the reason).
+- The "coverage 0.68 even at net 0" note was measured at B = 100.
+
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads
