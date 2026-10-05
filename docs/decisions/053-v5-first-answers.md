@@ -49,3 +49,15 @@ Builds on ADR 052. Nothing here is implemented yet.
   offers.
 - On the owner's side: record one GMS 4D-STEM + EDX (+ EELS) run, with HAADF ticked as a scan signal, so a HAADF on the scan grid is stored too; export the GMS help pages (EDS / Elemental Quantification, STEM SI) on
   a GMS PC. Those pages are the one source the design session cannot get any other way.
+
+## Answered later the same evening (owner)
+
+- **The fit (V5-7, part):** option 3. One fit method is the default and is named on every result; the estimator
+  choice (least squares, Poisson maximum likelihood) sits behind an expert disclosure. This follows the vendors, none
+  of which exposes an estimator (`docs/archive/v5/quant-design-2026-10-05/columns.md`), while keeping the method
+  inspectable. The rest of V5-5/V5-7 (k source, background, errors, settings) stays with the design session.
+- **WP1's three decisions, as recommended:** the rsciio fixtures are fetched by script into `References/`; Velox's own
+  element maps are ignored (the app computes its own from the stream); frames are summed at decode over a chosen range.
+- **Parallel work** (owner): the readers are built now by Sonnet 5.5 implementers in parallel lanes, reviewed where a
+  number or shipped behaviour moves. The Spectroscopy room must be at least as good as Velox, AZtec, ESPRIT and GMS in
+  UI and UX, and stay simple, robust, pure macOS/SwiftUI and scientifically correct.
