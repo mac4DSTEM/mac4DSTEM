@@ -56,6 +56,43 @@ where this implementation departs.
     Both licensed under the GNU General Public License v3.0 or later
 
 ================================================================================
+NIST EPQ data (EDX quantification)
+================================================================================
+
+`mac4DSTEM/Resources/Spectroscopy/FFastMAC.csv` (mass absorption coefficients) and
+`LineWeights.csv` (X-ray line weights) are copied verbatim from the NIST EPQ library,
+https://github.com/usnistgov/EPQ, commit 249dd3f8 (`tools/lib/fetch-epq.sh` re-fetches
+and verifies them). The EPQ licence (LicenseFile.txt, sha256 2e749d6d…c16) reads:
+
+    This software was developed by employees of the National Institute of Standards
+    and Technology (NIST), an agency of the Federal Government. Pursuant to title 17
+    United States Code Section 105, works of NIST employees are not subject to
+    copyright protection in the United States and are considered to be in the public
+    domain. Permission to freely use, copy, modify, and distribute this software and
+    its documentation without fee is hereby granted, provided that this notice and
+    disclaimer of warranty appears in all copies.
+    THE SOFTWARE IS PROVIDED 'AS IS' WITHOUT ANY WARRANTY OF ANY KIND, EITHER
+    EXPRESSED, IMPLIED, OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, ANY WARRANTY THAT
+    THE SOFTWARE WILL CONFORM TO SPECIFICATIONS, ANY IMPLIED WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND FREEDOM FROM INFRINGEMENT,
+    AND ANY WARRANTY THAT THE DOCUMENTATION WILL CONFORM TO THE SOFTWARE, OR ANY
+    WARRANTY THAT THE SOFTWARE WILL BE ERROR FREE. IN NO EVENT SHALL NIST BE LIABLE FOR
+    ANY DAMAGES, INCLUDING, BUT NOT LIMITED TO, DIRECT, INDIRECT, SPECIAL OR
+    CONSEQUENTIAL DAMAGES, ARISING OUT OF, RESULTING FROM, OR IN ANY WAY CONNECTED WITH
+    THIS SOFTWARE, WHETHER OR NOT BASED UPON WARRANTY, CONTRACT, TORT, OR OTHERWISE,
+    WHETHER OR NOT INJURY WAS SUSTAINED BY PERSONS OR PROPERTY OR OTHERWISE, AND
+    WHETHER OR NOT LOSS WAS SUSTAINED FROM, OR AROSE OUT OF THE RESULTS OF, OR USE OF,
+    THE SOFTWARE OR SERVICES PROVIDED HEREUNDER.
+
+The mass absorption coefficients inside EPQ are the FFAST tabulation (NIST Standard
+Reference Database 66, Chantler et al.); their own terms were flagged as unclear by the
+v5.0 research (docs/archive/v5/edx-research-2026-10-05/reports/validation.md §2) and are
+carried here as a recorded risk. The element table in
+`mac4DSTEM/Core/Spectroscopy/Quant/QuantElementData.swift` (atomic weights and densities)
+comes from eXSpy's elements data (GPL-3.0-or-later; see the eXSpy section above).
+
+================================================================================
+
 Bundled third-party libraries
 ================================================================================
 

@@ -254,3 +254,24 @@ WP2 S delivers what it can, and `tools/demo-edx/` is extended before any lane st
 
 Bote-Salvat (rights), an espm physical continuum, Poisson-PCA, NMF, per-object pooling on sequential data, EELS t/λ,
 and frame-by-frame drift tracking.
+
+## Addendum 2026-10-05: corrections found by lane K, confirmed by Fable
+
+1. **The FePt pin pairing was wrong in this pre-registration.**
+
+   | Windows | at% |
+   |---|---|
+   | 2754 / 15090 (background-subtracted) | 15.409297 |
+   | 3710 / 15872 (raw) | 18.9171866 |
+   | 2800.0213 / 14921.183 (model fit) | 15.77546544 |
+
+   `validation.md` §1b had it right. The tests pin all three.
+2. **The k_AB formula above has σ_A and σ_B swapped.** For a thin film, I_i = N_i σ_i ω_i a_i ε_i with N_i = C_i/A_i, so
+   k_AB = (A_A σ_B ω_B a_B ε_B)/(A_B σ_A ω_A a_A ε_A). eXSpy's per-element k_i = A_i/(σ_i ω_i a_i ε_i) gives
+   k_A/k_B = k_AB exactly. It is the textbook k_AB after a ratio, the same convention as Velox and Bruker (k_Si ≡ 1), so
+   typed Velox values go in unchanged. The UI says "k-factors relative to <reference>".
+3. **With a reference element (k ≡ 1, σ_k = 0)**, the Mg/Si term is 20 %, not the "about 28 %" of flag 5. That figure
+   holds only for two independent typed k.
+4. **Computed k uses Bote-Salvat + Krause 1979 + EPQ's SDD efficiency model**, not Brown-Powell (ADR 054 addendum: no
+   licence-clean Brown-Powell source).
+5. **K2 and `cases_quant.py` are deferred.** K2 waits for simulator S2's per-segment absorption truth.
