@@ -39,6 +39,23 @@ the underlying methods:
 
 
 ================================================================================
+eXSpy and HyperSpy (EDX spectroscopy)
+================================================================================
+
+The X-ray line table (`mac4DSTEM/Core/Spectroscopy/XRayLineData.swift`: line
+energies from Chantler 2005, relative line weights from the EPQ library, both as
+eXSpy ships them), the detector line-width law, and the integration and
+background window rules are ported from eXSpy, with HyperSpy's channel rounding
+and slicing. They are validated against it, and carry inline `DEVIATION` notes
+where this implementation departs.
+
+    eXSpy — https://github.com/hyperspy/exspy, commit 7185a4d1
+    Copyright (C) 2007-2026 The eXSpy developers
+    HyperSpy — https://github.com/hyperspy/hyperspy, version 2.4.0
+    Copyright (C) The HyperSpy developers
+    Both licensed under the GNU General Public License v3.0 or later
+
+================================================================================
 Bundled third-party libraries
 ================================================================================
 
