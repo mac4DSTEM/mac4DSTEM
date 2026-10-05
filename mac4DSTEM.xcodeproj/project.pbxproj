@@ -129,6 +129,7 @@
 				Core/Data/SessionLineage.swift,
 				Core/Data/SessionReplayRecord.swift,
 				Core/Data/VendorRawReaders.swift,
+				Core/Data/VeloxEMDReader.swift,
 				Core/ML/LearnedDiskDetection.swift,
 				Core/ML/LearnedDiskDetector.swift,
 				Core/Workflow/AnalysisOperationController.swift,

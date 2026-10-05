@@ -214,6 +214,13 @@ throwaway test): one type-18 tag anywhere makes `DM4Reader(path:)` throw `.trunc
 type 18. No owner file has one so far. A GMS joint 4D + EDX file might, so this blocks nothing yet but should be fixed with a
 fixture before that file arrives (the mechanism is proven, so no Gate D is needed; the fix is `DM4Experiment`'s reading).
 
+### Velox parity is a local diagnostic, not a CI gate (2026-10-05)
+`tools/velox-parity` checks the new `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
+frame counts) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's
+Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` once CI can install them, or once the
+truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
+Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
+
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads
