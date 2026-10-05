@@ -1,8 +1,8 @@
 # Changelog
 
-## v4.1.0 — 2026-10-02
+## v4.5.0 — 2026-10-05
 
-**Requires macOS 27 on Apple Silicon**, as v4.0.0. This release finishes and removes more than it adds: the workspaces follow the data, the loose ends of v4.0.0 are closed, and several numbers moved (see "Science changes"). Every item passed the unit, core and inventory gates; "unverified on screen" means exactly that. Anything labelled unvalidated has not passed on a dataset with truth.
+**Requires macOS 27 on Apple Silicon**, as v4.0.0. Cut 2026-10-02 as 4.1.0 and never published; released as v4.5.0 as it stands (owner, 2026-10-05, ADR 052). This release finishes and removes more than it adds: the workspaces follow the data, the loose ends of v4.0.0 are closed, and several numbers moved (see "Science changes"). Every item passed the unit, core and inventory gates; "unverified on screen" means exactly that. Anything labelled unvalidated has not passed on a dataset with truth.
 
 ### Workspaces and data
 
@@ -22,8 +22,8 @@
 
 ### Crystal maps
 
-- **ACOM mirror pass** (py4DSTEM's inversion symmetry) with a Mirrored Yes/No readout (unverified on screen for a mirrored pixel) and a note saying the in-plane angle is relative to the matched template.
-- **Phase mapping** (unvalidated): claimed-disks overlay, Al-Mg-Si preset (the β″ preset rows and legend unverified on screen), per-phase excitation slab, one structure at two zone axes, a known-variants evidence guard and precipitate objects.
+- **ACOM mirror pass** (py4DSTEM's inversion symmetry) with a Mirrored Yes/No readout and a note saying the in-plane angle is relative to the matched template.
+- **Phase mapping** (unvalidated): claimed-disks overlay, Al-Mg-Si preset, per-phase excitation slab, one structure at two zone axes, a known-variants evidence guard and precipitate objects.
 - Add Phase marks an already-added CIF "(another zone axis)".
 
 ### Reconstruction
@@ -38,14 +38,15 @@
 - Parallax: the bin schedule repeats the finest bin; the aligned-BF vignette is fixed; the stack mean is summed in Double. Ptychography re-centres on the fitted origin, clamps |O| ≤ 1 by default, and loses its difference map and "Take higher-order terms".
 - Strain: a circle ROI is centred; empty positions are out of the median; non-finite pixels are filled; central-beam-only positions no longer enter the strain basis.
 - Learned detector above 256 px: seam margins and one dose scale. Odd-N DFT upsampling wrap fixed. Bin-2 aperture default.
-- Virtual detector presets: BF 0…r and ADF 3r–6r from the measured beam (ADF unverified on screen).
+- Virtual detector presets: BF 0…r and ADF 3r–6r from the measured beam.
 - CIF import refuses a short symmetry list and a multi-structure file.
 - Number entry: a period is no longer a thousands separator in comma locales.
 
 ### Fixes
 
 - A launch crash at a 915-pt window and an abort when opening the then AI Analysis room. Disk-detection GPU memory is flat per tile. A bf16 pooling crash on M5 and a training step-loop leak.
-- Stale maps are no longer shown under another room's label (unverified on screen).
+- A map that finishes after a room switch keeps its own room's label (see "Results in the right place" below; other room-switch gaps are under Known limitations).
+- The hexagonal IPF key names its corners the right way round (labels only; the v4.0.0 known issue). A radius-only aperture drag keeps the fitted origin. Single-slice ptychography exports carry the object sampling, not the scan pixel size. The ACOM plan is rebuilt after a CIF re-import or a voltage edit.
 - Graphene real-space preview no longer black; parallax and ptychography colour maps.
 - The strain line reads "Components along detector x/y — R–Q rotation not calibrated".
 - Three code-review rounds: replay provenance, Q unit guard, label-import checks, two-window and candidate data safety, sidecar attribute guard, cancel token, reopen.
@@ -61,7 +62,7 @@ A whole-app review before this release (six independent reviewers, each finding 
   held open by HDFView) was replaced by an empty one; it is now an error. Hand-clicked labels that were not restored
   on reopen are kept through the next save. Opening another dataset while a session save runs is refused. A dataset
   already open in another window is not opened twice (owner's choice), and a save that would relabel results computed
-  on another view is refused (owner's choice).
+  on another view is refused (owner's choice). The refusal at macOS's Replace prompt is unverified on screen.
 - **Results in the right place.** A Bragg vector map, diffraction-groups or phase map that finished after a room switch
   was labelled and saved with that room's frame and units; a probe kernel built for one dataset could land on the next
   and crash. A saved map whose shape does not fit the opened view is no longer restored onto it.
@@ -116,7 +117,11 @@ Rough edges left after the review, each fixed with a test that fails without it 
 - ACOM's in-plane map mixes the mirrored +π convention; the export has no per-pixel flag.
 - A crash right after Compute Strain was seen once (a layout loop inside the toolbar) and not reproduced in 12,000 stress cycles; the cause is not established.
 - `scan.dm4` and `scan.h5` in one folder share one session file (named from the stem), so opening one can adopt the other's calibration (owner's decision for this release).
-- Unverified on screen: Train Model…. Room switches still have gaps: Imaging can keep showing another room's map, and Strain or Orientation can read "No Result Yet" while their result is held (seen 2026-10-04; deferred).
+- Unverified on screen: Train Model…. Room switches still have gaps: Imaging can keep showing another room's map (Go to Imaging can show the Bragg vector map), Strain or Orientation can read "No Result Yet" while their result is held, Imaging reads "No Result Yet" after another room cleared its image until an aperture edit, and the ptychography pane can be titled "Parallax aligned BF" before a run (seen 2026-10-04; deferred).
+- **Velox `.emd` files are not supported** (EDX is v5.0, ADR 052): the reader opens a Velox file as a meaningless one-row cube built from its HAADF image stack (reproduced at the reader on 9 of 10 public Velox test files, 2026-10-05, not driven in the app; a single-spectrum file is refused).
+- After a save that relabels a view, a reopen can restore stored Bragg disks from the earlier view at the new view's positions (same shape, other offset).
+- A 2H-WS₂-type reference shell on a [0001] zone can pick an invisible (0002) ring, a predicted 2.26× Q mis-scale with no warning.
+- Small: the ptychography seed line cuts at "defo…" (hover shows it); the ACOM Q read-out uses a decimal point beside comma fields; shrinking the window to its floor can collapse the sidebar for good.
 - On a beam whose 3r reaches the detector edge (e.g. a ptychography cube) the ADF preset falls back to detector fractions without saying so.
 - Export Data… dimensions read as pixels in py4DSTEM; the true sampling is in the file's attributes.
 - Annulus with inner radius 0 excludes the centre pixel; py4DSTEM's convention is unchecked.

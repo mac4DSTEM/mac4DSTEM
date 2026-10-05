@@ -75,9 +75,10 @@ is its own product").
   (`docs/archive/v3/precipitate-overnight-2026-09-23.md`). Owner: pre-register
   the guard as a two-parameter rule and measure it on a second dataset before
   it ships as a flag (`docs/status.md` § Handoff).
-- **EDX correlation** (2026-08-26; owner 2026-10-04: the one feature he has in mind after a stable product, v5 or v6 —
-  ADR 051) — a data-model change before a feature: a second signal with its own reader and units, registered onto the
-  scan grid with the transform recorded. Unclaimed.
+- **EDX suite — v5.0** (2026-08-26; owner 2026-10-05, ADR 052) — "4D-STEM + EDX" (one scan, a diffraction pattern and an EDX
+  spectrum at every probe position) and plain EDX spectrum images, in a seventh room "Spectroscopy", ported from
+  HyperSpy/eXSpy/RosettaSciIO. A data-model change before a feature: a second signal with its own reader and units, registered
+  onto the scan grid with the transform recorded. The full picture and the options: `docs/archive/v5/edx-dossier-2026-10-05.md`. No method chosen.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
 - **Lineage graph with real rewind** (owner, 2026-09-21) — landed on `main` 2026-09-29 (`aa920d08`, ADR 047: session
   record v2 with step ids and input edges; the graph in the Lineage pane; Rewind to Here restores parameters and marks
@@ -106,19 +107,17 @@ left in `open-items.md` · the four finishes landed and the owner's cards decide
 his own in the release build. The lanes, their write-sets, gates and order: `archive/v4/v41-plan-2026-09-30.md`.
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-04 — Slots 4¾, 4⅞; Slot 5 superseded by ADR 051). Three lanes may run at once (one supervisor each, disjoint write-sets).
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — the drive and polish lines, superseded by ADR 052). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **The owner's drive** (owner, 2026-10-04, ADR 051): he uses the app on his own data over the coming days; his finds are the
-  next polish slot's registrations, put to him as one sheet. No release before it.
-- [ ] **Next polish slot** — from the owner's finds; carried candidates in `docs/open-items.md` (the deferred room-switch class first).
-- [ ] **Release** — version decided then ("v4.5 or something", ADR 051); `docs/releasing.md`; the new Mac needs a fresh notary
-  password; the cut 4.1.0 / 8 (`7ee4419f`) and the CHANGELOG heading move to the chosen number.
+- [ ] **Release v4.5** (owner, 2026-10-05, ADR 052: as it stands, no drive first) — the cut is 4.5.0 / 8; `docs/releasing.md`;
+  the new Mac needs a fresh notary password (owner), then a session can build and notarize; the owner pushes, tags, publishes.
+- [ ] **v5.0 — the EDX suite** (ADR 052) — the owner answers the v5.0 cards on the Board (from `docs/archive/v5/edx-dossier-2026-10-05.md`); then its
+  pre-registration (§ How a feature is done) and the Spectroscopy room's mock; then `/pickup` with the first work package named.
 
 ## After v4.1 — frozen until the owner reopens one
 
 Not debts, and no session picks them up: parity themes 2–7 above and point-group coverage beyond cubic and hexagonal;
-the differentiators not yet built (EDX correlation — the owner's next feature after a stable product, ADR 051 — and live
-acquisition); volumetric density and β″ orientation maps (ADR 046); the Al Materials Project comparison (ADR 048);
+the differentiator not yet built (live acquisition; EDX left this list for v5.0, ADR 052); volumetric density and β″ orientation maps (ADR 046); the Al Materials Project comparison (ADR 048);
 phase mapping's validation (it ships badged unvalidated until a dataset with truth passes); ACOM candidate F (ADR 050);
 what a resident cube allows beyond v4.1 (live aperture, live detection — a design note first, K4); the built-in crystal
 library's size (the owner: "bloat … for no reason"; the lean audit).

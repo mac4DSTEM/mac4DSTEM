@@ -201,6 +201,11 @@ with an unmeasured margin — `--export-parity` could print it. (3) A strided or
 (named in the status line when there is one to omit). (4) Since Slot 4⅞ lane V the export carries the
 accelerating voltage; a session voltage above 1000 kV is stamped as typed and reopens divided by 1000 (the opener's eV rule). Polish from the drive: the sheet's short scroll area (the 1-px crop steppers went with the old sheet, `de05c943`).
 
+### Velox `.emd` opens as a one-row cube (2026-10-05) — release-noted in v4.5; v5.0 work package 1
+`H5Reader.discoverPrimaryDataset` takes a Velox file's HAADF image stack (`/Data/Image/<id>/Data`, rank 3) as a one-row cube: 9 of 10
+public rsciio Velox files (`archive/v5/edx-research-2026-10-05/velox-emd-repro/`); not driven. The fix is a named refusal (Velox tree,
+`signal_type`, energy units) under Gate B, or the v5.0 spectrum reader itself. Owner: v4.5 ships as it stands (ADR 052).
+
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads

@@ -1,0 +1,6 @@
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.exec_prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+elements: ['Al', 'Cu', 'Li'] lines: ['Al_Ka', 'Cu_Ka']
+Li lines near energy 0.054: []
+T1 Al2CuLi true at%: {'Al': 50.0, 'Cu': 25.0, 'Li': 25.0} -> EDX-normalised at%: {'Al': 66.7, 'Cu': 33.3}
+theta' Al2Cu true at%: {'Al': 66.7, 'Cu': 33.3} -> EDX-normalised at%: {'Al': 66.7, 'Cu': 33.3}

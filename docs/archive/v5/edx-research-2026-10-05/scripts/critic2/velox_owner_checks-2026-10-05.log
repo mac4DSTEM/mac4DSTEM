@@ -1,0 +1,50 @@
+===== STEM HAADF 1841 28500 x 20260603.emd
+ image (2048, 2048, 1) {'Optics.SpotIndex': '7', 'Optics.BeamConvergence': '0.0020999999999999999', 'Optics.Apertures.Aperture-1.Diameter': '6.9999999999999994e-05', 'Optics.ScreenCurrent': '2.599714744681274e-10', 'Optics.ProbeMode': '2', 'Stage.AlphaTilt': '-0.29448242337199532', 'BinaryResult.Detector': 'HAADF'}
+===== SI HAADF 1122 130 kx 20260603.emd
+ image (2048, 682, 120) {'Optics.SpotIndex': '5', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '1.779091160803465e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0.12709375911950582', 'BinaryResult.Detector': 'HAADF'}
+  frame 0: A13=0 A23=0 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=6.3399999999999999/12.001295568263046
+  frame 15: A13=-0.00077823572792112827 A23=0.0045393127948045731 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=101.72999999999999/195.00139729391648
+  frame 30: A13=-0.00080220302334055305 A23=0.005945244338363409 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=196.92250000000001/378.00127443830536
+  frame 45: A13=-0.00087369780521839857 A23=0.0065578743815422058 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=291.89249999999998/560.00133420589998
+  frame 60: A13=-0.0017118153627961874 A23=0.0060188225470483303 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=387.48250000000007/743.00132545206031
+  frame 75: A13=-0.001800909754820168 A23=0.0058822724968194962 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=482.97750000000002/926.00135201543571
+  frame 90: A13=-0.0020851260051131248 A23=0.0058558038435876369 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=578.13499999999999/1109.0012566287696
+  frame 105: A13=-0.0024710062425583601 A23=0.0057524940930306911 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=674.03999999999996/1292.0012475730734
+  frame 119: A13=-0.0028827500063925982 A23=0.0048669138923287392 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=763.5524999999999/1463.0007911659873
+ image (2048, 682, 1) {'Optics.SpotIndex': '5', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '1.779091160803465e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0.12709375911950582', 'BinaryResult.Detector': 'SuperXG1'}
+ image (2048, 682, 1) {'Optics.SpotIndex': '5', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '1.779091160803465e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0.12709375911950582', 'BinaryResult.Detector': 'SuperXG1'}
+ image (2048, 682, 1) {'Optics.SpotIndex': '5', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '1.779091160803465e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0.12709375911950582', 'BinaryResult.Detector': 'SuperXG1'}
+  summed spectrum total=18254568 zero-peak(|E|<=150 eV)=2.00%
+===== SI HAADF 1606 130 kx 20260512.emd
+ image (1024, 1024, 1) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.010500000000000001', 'Optics.Apertures.Aperture-1.Diameter': '6.9999999999999994e-05', 'Optics.ScreenCurrent': '2.2419548428955389e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0', 'BinaryResult.Detector': 'SuperXG1'}
+ image (1024, 1024, 1) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.010500000000000001', 'Optics.Apertures.Aperture-1.Diameter': '6.9999999999999994e-05', 'Optics.ScreenCurrent': '2.2419548428955389e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0', 'BinaryResult.Detector': 'SuperXG1'}
+ image (1024, 1024, 30) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.010500000000000001', 'Optics.Apertures.Aperture-1.Diameter': '6.9999999999999994e-05', 'Optics.ScreenCurrent': '2.2293455076343416e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0', 'BinaryResult.Detector': 'HAADF'}
+  frame 0: A13=0 A23=0 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=1.967625/5.0012877048336621
+  frame 3: A13=-0.002056455472484231 A23=-0.0009650526917539537 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=9.5544899999999995/23.900997654300458
+  frame 6: A13=-0.0027505920734256506 A23=0.00042970682261511683 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=16.755255000000002/42.001518924220107
+  frame 9: A13=-0.0033714764285832644 A23=0.00062537303892895579 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=23.957505000000005/60.00109240595242
+  frame 12: A13=-0.0038832244463264942 A23=0.0004531947779469192 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=31.070655000000002/78.001703658246882
+  frame 15: A13=-0.0041167875751852989 A23=0.00032667384948581457 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=38.205337499999992/96.001188998907594
+  frame 18: A13=-0.0038164285942912102 A23=0.00079079309944063425 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=45.309577500000003/114.00094298872489
+  frame 21: A13=-0.0036745790857821703 A23=0.0012084216577932239 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=52.521480000000011/132.00135984769705
+  frame 24: A13=-0.0035981270484626293 A23=0.0016988953575491905 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=60.081614999999999/151.00105256135839
+  frame 27: A13=-0.0033810753375291824 A23=0.0016514711314812303 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=67.212585000000004/169.00159227449547
+  frame 29: A13=-0.0033724773675203323 A23=0.0020701868925243616 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=71.94973499999999/181.00102207420693
+ image (1024, 1024, 1) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.010500000000000001', 'Optics.Apertures.Aperture-1.Diameter': '6.9999999999999994e-05', 'Optics.ScreenCurrent': '2.2419548428955389e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '0', 'BinaryResult.Detector': 'SuperXG1'}
+  summed spectrum total=3563517 zero-peak(|E|<=150 eV)=3.04%
+===== SI HAADF 1610.emd
+ image (1024, 1024, 1) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '5.2245487233431491e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '4.258603374866165e-05', 'BinaryResult.Detector': 'SuperXG1'}
+ image (1024, 1024, 27) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '5.2540991390214195e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '4.258603374866165e-05', 'BinaryResult.Detector': 'HAADF'}
+  frame 0: A13=0 A23=0 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=2.1550000000000002/5.001149154313584
+  frame 3: A13=0.00054836831986904144 A23=-0.00047683692537248135 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=9.8424999999999994/23.000730484223503
+  frame 6: A13=0.0007061511860229075 A23=-0.0017713755369186401 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=17.547500000000003/41.00180206231996
+  frame 9: A13=0.00069489009911194444 A23=-0.0030813487246632576 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=25.774999999999999/60.001027205707679
+  frame 12: A13=0.0006563811912201345 A23=-0.0045204195193946362 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=33.092499999999994/77.00152133904399
+  frame 15: A13=0.00039514823583886027 A23=-0.0058052041567862034 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=41.284999999999997/96.001230956472497
+  frame 18: A13=0.00022969811107032001 A23=-0.0071456907317042351 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=49.019999999999996/114.00066196359592
+  frame 21: A13=0.00021934538381174207 A23=-0.0085425134748220444 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=56.322499999999991/131.00122401385386
+  frame 24: A13=0.00025851666578091681 A23=-0.0098660793155431747 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=64.514999999999986/150.00078511961377
+  frame 26: A13=0.00020656197739299387 A23=-0.010813269764184952 xc_vs_mean_4xbin=[0, 0] Live/Real(det5)=69.227499999999992/161.00111927086809
+ image (1024, 1024, 1) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '5.2245487233431491e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '4.258603374866165e-05', 'BinaryResult.Detector': 'SuperXG1'}
+ image (1024, 1024, 1) {'Optics.SpotIndex': '3', 'Optics.BeamConvergence': '0.015000000000000001', 'Optics.Apertures.Aperture-1.Diameter': '0.0001', 'Optics.ScreenCurrent': '5.2245487233431491e-09', 'Optics.ProbeMode': '1', 'Stage.AlphaTilt': '4.258603374866165e-05', 'BinaryResult.Detector': 'SuperXG1'}
+  summed spectrum total=554120 zero-peak(|E|<=150 eV)=6.23%

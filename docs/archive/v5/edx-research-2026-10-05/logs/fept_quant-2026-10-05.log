@@ -1,0 +1,17 @@
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.exec_prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+bg windows keV: [[5.576092, 5.71406, 6.679836, 6.817804], [8.462966, 8.626155, 9.768478, 9.931667]]
+integration windows keV: [[6.265932, 6.541868], [9.278911, 9.605289]]
+window intensities: [2754.0, 15090.0]
+
+  0%|          | 0/5 [00:00<?, ?it/s]
+100%|██████████| 5/5 [00:00<00:00, 8767.36it/s]
+CL window at%: [15.409297, 84.590703] wt%: [4.956176, 95.043824]
+model components: ['background_order_6', 'Cu_Ka', 'Cu_Kb', 'Cu_La', 'Cu_Lb1', 'Cu_Lb3', 'Cu_Ll', 'Cu_Ln', 'Fe_Ka', 'Fe_Kb', 'Fe_La', 'Fe_Lb3', 'Fe_Ll', 'Fe_Ln', 'Pt_La', 'Pt_Lb1', 'Pt_Lb2', 'Pt_Lb3', 'Pt_Lb4', 'Pt_Lg1', 'Pt_Lg3', 'Pt_Ll', 'Pt_Ln', 'Pt_Ma', 'Pt_M2N4', 'Pt_M3O4', 'Pt_M3O5', 'Pt_Mb', 'Pt_Mg', 'Pt_Mz']
+model intensities: [2800.0213, 14921.183]
+
+  0%|          | 0/5 [00:00<?, ?it/s]
+100%|██████████| 5/5 [00:00<00:00, 20722.85it/s]
+CL model at%: [15.775466, 84.224534]
+model reduced chi2 (ls): 921.3672657196407
+ML-poisson (Nelder-Mead) intensities: [2780.635, 15511.3524]

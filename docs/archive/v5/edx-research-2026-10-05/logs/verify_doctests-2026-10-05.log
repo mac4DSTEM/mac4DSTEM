@@ -1,0 +1,38 @@
+== EDS_SEM_TM002 shape (1024,) int32 axis -0.1 0.01 keV 1024 sum 1000279.0
+ elements ['Al', 'C', 'Cu', 'Mn', 'Zr'] lines None
+ instrument {'SEM': {'beam_current': np.float64(0.0), 'beam_energy': np.float64(10.0), 'microscope': 'Nvision40 Carl Zeiss', 'Detector': {'EDS': {'azimuth_angle': np.float64(0.0), 'detector': 'X-max 80 Oxford Instrument', 'elevation_angle': np.float64(37.0), 'energy_resolution_MnKa': np.float64(130.0), 'live_time': np.float64(19.997292), 'real_time': np.float64(39.593745)}}, 'Stage': {'tilt_alpha': np.float64(0.0)}}}
+ TOA 36.99999999999999
+[33;20mWARNING | Hyperspy | Numba is not installed, falling back to non-accelerated implementation. (hyperspy.decorators:256)[0m
+[33;20mWARNING | Hyperspy | Numba is not installed, falling back to non-accelerated implementation. (hyperspy.decorators:256)[0m
+[33;20mWARNING | Hyperspy | Numba is not installed, falling back to non-accelerated implementation. (hyperspy.decorators:256)[0m
+[33;20mWARNING | Hyperspy | Numba is not installed, falling back to non-accelerated implementation. (hyperspy.decorators:256)[0m
+[33;20mWARNING | Hyperspy | Numba is not installed, falling back to non-accelerated implementation. (hyperspy.decorators:256)[0m
+[33;20mWARNING | Hyperspy | Numba is not installed, falling back to non-accelerated implementation. (hyperspy.decorators:256)[0m
+[33;20mWARNING | Hyperspy | Numba is not installed, falling back to non-accelerated implementation. (hyperspy.decorators:256)[0m
+ default get_lines_intensity [('Al_Ka', 84163.0), ('C_Ka', 89063.0), ('Cu_La', 96117.0), ('Mn_La', 96700.0), ('Zr_La', 99075.0)]
+ add_lines -> ['Al_Ka', 'C_Ka', 'Cu_La', 'Mn_La', 'Zr_La']
+ est. integration windows (2xFWHM) [('Al_Ka', 84163.0), ('C_Ka', 89063.0), ('Cu_La', 96117.0), ('Mn_La', 96700.0), ('Zr_La', 99075.0)]
+ background windows [5,2] [('Al_Ka', 69287.28571428571), ('C_Ka', 77683.0), ('Cu_La', 83885.30769230769), ('Mn_La', 85734.0), ('Zr_La', 82215.85714285714)]
+ Mn_Ka default [('Mn_Ka', 52773.0)]
+ Mn_Ka iw=2.1 [('Mn_Ka', 53597.0)]
+ Mn only bw [('Mn_Ka', 46716.0)]
+ TOA tilt20 57.0
+== EDS_TEM_FePt_nanoparticles shape (992,) uint32 axis 0.169315 0.020028 keV 992 sum 205795.0
+ elements ['Fe', 'Pt'] lines None
+ instrument {'TEM': {'acquisition_mode': 'STEM', 'beam_energy': np.float64(200.0), 'microscope': 'TecnaiOsiris 200 kV D658 AnalyticalTwin', 'Detector': {'EDS': {'azimuth_angle': np.float64(0.0), 'detector': 'Super-X 4 detectors Brucker', 'elevation_angle': np.float64(22.0), 'energy_resolution_MnKa': np.float64(133.312296)}}, 'Stage': {'tilt_alpha': np.float64(0.0)}}}
+ TOA 22.0
+ default get_lines_intensity [('Fe_Ka', 3710.0), ('Pt_La', 15872.0)]
+ add_lines -> ['Fe_Ka', 'Pt_La']
+ est. integration windows (2xFWHM) [('Fe_Ka', 3710.0), ('Pt_La', 15872.0)]
+ background windows [5,2] [('Fe_Ka', 2754.0), ('Pt_La', 15090.0)]
+ Mn_Ka default [('Mn_Ka', 966.0)]
+ Mn_Ka iw=2.1 [('Mn_Ka', 966.0)]
+ Mn only bw [('Mn_Ka', -119.0)]
+ TOA tilt20 42.0
+FWHM Al_Ka 0.07661266213883969
+FWHM Fe_Ka 0.13477017474204
+FWHM Pt_La 0.16049454819401188
+FWHM C_Ka 0.05334557151254451
+FWHM Cu_Ka 0.14924057759202086
+take_off_angle(0,0,35) 34.99999999999999
+take_off_angle(20,0,18) 37.99999999999999

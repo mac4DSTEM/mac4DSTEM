@@ -1,0 +1,173 @@
+## 17008 MB 2024-04-29T16:03 ./4D_STEM_Datacubes/036_STEM SI.dm4
+   obj 1 Image Of 036_STEM SI [278, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.00178', 'µm'), ('0.00178', 'µm')]
+   obj 3 Diffraction SI [512, 512, 106, 153] dt 2 [('0.07299', '1/nm'), ('0.07299', '1/nm'), ('0.00591', 'µm'), ('0.00591', 'µm')]
+## 563 MB 2026-09-05T01:04 ./4D_STEM_Datacubes/Si-SiGe.dm4
+   obj 1 Image Of Si-SiGe [85, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 Si-SiGe [17, 77, 448, 480] dt 10 [('2.0', 'nm'), ('2.0', 'nm'), ('0.06208', '1/nm'), ('0.06208', '1/nm')]
+## 17189 MB 2026-06-30T18:00 ./NAS_Backup/00_inbox/4DSTEM_170330/ROI_1/raw/SI data (1)/055_STEM SI.dm4
+   obj 1 Image Of 055_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.09753', 'nm'), ('0.09753', 'nm')]
+   obj 3 Diffraction SI [256, 256, 256, 256] dt 2 [('0.08910', '1/nm'), ('0.08910', '1/nm'), ('0.50542', 'nm'), ('0.50542', 'nm')]
+## 17189 MB 2026-06-30T18:22 ./NAS_Backup/00_inbox/4DSTEM_170330/ROI_2/raw/SI data (2)/056_STEM SI.dm4
+   obj 1 Image Of 056_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.19202', 'nm'), ('0.19202', 'nm')]
+   obj 3 Diffraction SI [256, 256, 256, 256] dt 2 [('0.08910', '1/nm'), ('0.08910', '1/nm'), ('0.00157', 'µm'), ('0.00157', 'µm')]
+## 28902 MB 2026-06-30T19:02 ./NAS_Backup/00_inbox/4DSTEM_170330/ROI_3/raw/SI data (3)/057_STEM SI.dm4
+   obj 1 Image Of 057_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.38405', 'nm'), ('0.38405', 'nm')]
+   obj 3 Diffraction SI [256, 256, 334, 330] dt 2 [('0.08910', '1/nm'), ('0.08910', '1/nm'), ('0.00188', 'µm'), ('0.00188', 'µm')]
+## 28556 MB 2026-06-30T19:36 ./NAS_Backup/00_inbox/4DSTEM_170330/ROI_4/raw/SI data (4)/058_STEM SI.dm4
+   obj 1 Image Of 058_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.38405', 'nm'), ('0.38405', 'nm')]
+   obj 3 Diffraction SI [256, 256, 330, 330] dt 2 [('0.08910', '1/nm'), ('0.08910', '1/nm'), ('0.00167', 'µm'), ('0.00167', 'µm')]
+## 28556 MB 2026-06-30T19:52 ./NAS_Backup/00_inbox/4DSTEM_170330/ROI_4/raw/SI data (4)_corrected/058_STEM SI.dm4
+   obj 1 Image Of 058_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.38405', 'nm'), ('0.38405', 'nm')]
+   obj 3 Diffraction SI [256, 256, 330, 330] dt 2 [('0.08910', '1/nm'), ('0.08910', '1/nm'), ('0.00167', 'µm'), ('0.00167', 'µm')]
+## 28556 MB 2026-06-30T21:02 ./NAS_Backup/00_inbox/4DSTEM_170330/ROI_5/raw/SI data (7)/060_STEM SI.dm4
+   obj 1 Image Of 060_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.27310', 'nm'), ('0.27310', 'nm')]
+   obj 3 Diffraction SI [256, 256, 330, 330] dt 2 [('0.11435', '1/nm'), ('0.11435', '1/nm'), ('0.00153', 'µm'), ('0.00153', 'µm')]
+## 17182 MB 2026-06-29T18:06 ./NAS_Backup/01_projects/GRK_LMW_LPBF_AlMgSi/CA_DA_190330/4DSTEM_190330/Workspace 1/051_STEM SI.dm4
+   obj 1 Image Of 051_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.00250', 'µm'), ('0.00250', 'µm')]
+   obj 3 Diffraction SI [512, 512, 128, 128] dt 2 [('0.04455', '1/nm'), ('0.04455', '1/nm'), ('0.01003', 'µm'), ('0.01003', 'µm')]
+## 1147 MB 2025-03-25T16:44 ./NAS_Backup/01_projects/LMN_EM_General/EELS_TiO_2_ref_20250325/134_STEM SI.dm4
+   obj 1 Image Of 134_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 HAADF Image (SI Survey) [2048, 2048] dt 10 [('0.38405', 'nm'), ('0.38405', 'nm')]
+   obj 3 HAADF Image [206, 337] dt 2 [('0.00164', 'µm'), ('0.00164', 'µm')]
+   obj 4 EELS LL SI [206, 337, 2048] dt 2 [('0.00164', 'µm'), ('0.00164', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [206, 337, 2048] dt 2 [('0.00164', 'µm'), ('0.00164', 'µm'), ('0.3', 'eV')]
+## 13100 MB 2025-03-26T14:37 ./NAS_Backup/01_projects/LMN_EM_General/EELS_TiO_2_ref_20250325/135_STEM SI.dm4
+   obj 1 Image Of 135_STEM SI [278, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 HAADF Image (SI Survey) [1024, 1024] dt 10 [('0.00111', 'µm'), ('0.00111', 'µm')]
+   obj 3 HAADF Image [918, 900] dt 2 [('0.00101', 'µm'), ('0.00101', 'µm')]
+   obj 4 EELS LL SI [918, 900, 1980] dt 2 [('0.00101', 'µm'), ('0.00101', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [918, 900, 1980] dt 2 [('0.00101', 'µm'), ('0.00101', 'µm'), ('0.3', 'eV')]
+## 12982 MB 2025-03-26T14:42 ./NAS_Backup/01_projects/LMN_EM_General/EELS_TiO_2_ref_20250325/136_STEM SI.dm4
+   obj 1 Image Of 136_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 HAADF Image (SI Survey) [2048, 2048] dt 10 [('0.77784', 'nm'), ('0.77784', 'nm')]
+   obj 3 HAADF Image [1216, 673] dt 2 [('0.00113', 'µm'), ('0.00113', 'µm')]
+   obj 4 EELS LL SI [1216, 673, 1980] dt 2 [('0.00113', 'µm'), ('0.00113', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [1216, 673, 1980] dt 2 [('0.00113', 'µm'), ('0.00113', 'µm'), ('0.3', 'eV')]
+## 71 MB 2025-02-20T18:05 ./NAS_Backup/01_projects/LMN_EM_General/Ti_NTs_Setareh/Gatanrechner/SI data (6)/122_STEM SI.dm4
+   obj 1 Image Of 122_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 HAADF Image (SI Survey) [2048, 2048] dt 10 [('0.38405', 'nm'), ('0.38405', 'nm')]
+   obj 3 HAADF Image [36, 108] dt 2 [('0.00509', 'µm'), ('0.00509', 'µm')]
+   obj 4 EELS LL SI [36, 108, 1980] dt 2 [('0.00509', 'µm'), ('0.00509', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [36, 108, 1980] dt 2 [('0.00509', 'µm'), ('0.00509', 'µm'), ('0.3', 'eV')]
+## 2800 MB 2024-09-18T19:51 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ-1/SI data (1)/005_STEM SI.dm4
+   obj 1 Image Of 005_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.00877', 'µm'), ('0.00877', 'µm')]
+   obj 3 EELS LL SI [386, 448, 2020] dt 2 [('0.02035', 'µm'), ('0.02035', 'µm'), ('0.75', 'eV')]
+   obj 4 EELS HL SI [386, 448, 2020] dt 2 [('0.02035', 'µm'), ('0.02035', 'µm'), ('0.75', 'eV')]
+## 1453 MB 2024-09-19T12:57 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ/SI data (1)/STEM SI processed.dm4
+   obj 1 Image Of STEM SI processed [249, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.00438', 'µm'), ('0.00438', 'µm')]
+   obj 3 EELS LL SI (aligned) [287, 320, 1963] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+   obj 4 EELS HL SI (aligned) [287, 320, 1963] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+## 77 MB 2024-09-19T15:12 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ/SI data (19092024)/PCA Analysis (100).dm4
+   obj 1 Image Of PCA Analysis (100) [249, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 Signal SI denoised_Scores [287, 320, 100] dt 12 [('0.02194', 'µm'), ('0.02194', 'µm'), ('1.0', '')]
+   obj 3 Signal SI denoised_Loadings [1953, 1, 100] dt 12 [('0.3', 'eV'), ('1.0', ''), ('1.0', '')]
+   obj 4 Eigenvalues [100] dt 12 [('1.0', '')]
+## 1453 MB 2024-09-19T15:12 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ/SI data (19092024)/STEM SI processed.dm4
+   obj 1 Image Of STEM SI processed [125, 192] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.00438', 'µm'), ('0.00438', 'µm')]
+   obj 3 EELS LL SI (aligned) [287, 320, 1963] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+   obj 4 EELS HL SI (aligned) [287, 320, 1963] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+## 1465 MB 2024-09-19T15:12 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ/SI data (19092024)/STEM SI.dm4
+   obj 1 Image Of STEM SI [124, 192] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.00438', 'µm'), ('0.00438', 'µm')]
+   obj 3 EELS LL SI [287, 320, 1980] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+   obj 4 EELS HL SI [287, 320, 1980] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+## 719 MB 2024-09-19T15:12 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ/SI data (19092024)/Signal SI denoised Varimax-recombined.dm4
+   obj 1 Image Of Signal SI denoised Varimax-recombined [344, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 Signal SI denoised Varimax-recombined [287, 320, 1953] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+## 719 MB 2024-09-19T15:12 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ/SI data (19092024)/Signal SI denoised.dm4
+   obj 1 Image Of Signal SI denoised [344, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 Signal SI denoised [287, 320, 1953] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+## 719 MB 2024-09-19T15:12 ./NAS_Backup/01_projects/LMN_EM_General/for_Flamur/Paderborn_backup/Paderborn Resultate EELS/PB-FH-UA-PZ/SI data (19092024)/Signal SI.dm4
+   obj 1 Image Of Signal SI [344, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 Signal SI [287, 320, 1953] dt 2 [('0.02194', 'µm'), ('0.02194', 'µm'), ('0.3', 'eV')]
+## 17008 MB 2024-04-29T16:03 ./NAS_Backup/01_projects/LMN_MA_4DSTEM/unbinned_datacubes/036_STEM SI.dm4
+   obj 1 Image Of 036_STEM SI [278, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.00178', 'µm'), ('0.00178', 'µm')]
+   obj 3 Diffraction SI [512, 512, 106, 153] dt 2 [('0.07299', '1/nm'), ('0.07299', '1/nm'), ('0.00591', 'µm'), ('0.00591', 'µm')]
+## 41952 MB 2025-02-14T10:42 ./NAS_Backup/01_projects/LMN_MA_4DSTEM/unbinned_datacubes/COPL_Ni65Cu35_C_ROI6_240911_aper_70_conv_2.1_spot_6_CL_35_stepsize_3_r_x_200_r_y_200_GIF_512x512.dm4
+   obj 1 Image Of 049_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.00175', 'µm'), ('0.00175', 'µm')]
+   obj 3 Diffraction SI [512, 512, 200, 200] dt 2 [('0.09801', '1/nm'), ('0.09801', '1/nm'), ('0.00303', 'µm'), ('0.00303', 'µm')]
+## 210 MB 2025-12-04T13:22 ./NAS_Backup/01_projects/LMN_NOVA_EELS/EELS_1/SI data (1)(9)/142_STEM SI.dm4
+   obj 1 Image Of 142_STEM SI [278, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.00620', 'µm'), ('0.00620', 'µm')]
+   obj 3 ADF Image [112, 111] dt 2 [('0.03498', 'µm'), ('0.03498', 'µm')]
+   obj 4 EELS LL SI [112, 111, 2020] dt 2 [('0.03498', 'µm'), ('0.03498', 'µm'), ('0.75', 'eV')]
+   obj 5 EELS HL SI [112, 111, 2020] dt 2 [('0.03498', 'µm'), ('0.03498', 'µm'), ('0.75', 'eV')]
+## 1211 MB 2025-12-04T14:18 ./NAS_Backup/01_projects/LMN_NOVA_EELS/EELS_2/SI data (2)(2)/143_STEM SI.dm4
+   obj 1 Image Of 143_STEM SI [278, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.00620', 'µm'), ('0.00620', 'µm')]
+   obj 3 ADF Image [432, 172] dt 2 [('0.00451', 'µm'), ('0.00451', 'µm')]
+   obj 4 EELS LL SI [432, 172, 2020] dt 2 [('0.00451', 'µm'), ('0.00451', 'µm'), ('0.75', 'eV')]
+   obj 5 EELS HL SI [432, 172, 2020] dt 2 [('0.00451', 'µm'), ('0.00451', 'µm'), ('0.75', 'eV')]
+## 1211 MB 2025-12-04T14:20 ./NAS_Backup/01_projects/LMN_NOVA_EELS/EELS_2/SI data (2)(2)/143_STEM SI_1.dm4
+   obj 1 Image Of 143_STEM SI_1 [278, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [2048, 2048] dt 10 [('0.00620', 'µm'), ('0.00620', 'µm')]
+   obj 3 ADF Image [432, 172] dt 2 [('0.00451', 'µm'), ('0.00451', 'µm')]
+   obj 4 EELS LL SI [432, 172, 2020] dt 2 [('0.00451', 'µm'), ('0.00451', 'µm'), ('0.75', 'eV')]
+   obj 5 EELS HL SI [432, 172, 2020] dt 2 [('0.00451', 'µm'), ('0.00451', 'µm'), ('0.75', 'eV')]
+## 1458 MB 2025-12-04T16:11 ./NAS_Backup/01_projects/LMN_NOVA_EELS/EELS_3/SI data (4)/145_STEM SI.dm4
+   obj 1 Image Of 145_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.00155', 'µm'), ('0.00155', 'µm')]
+   obj 3 ADF Image [300, 300] dt 2 [('0.00360', 'µm'), ('0.00360', 'µm')]
+   obj 4 EELS LL SI [300, 300, 2020] dt 2 [('0.00360', 'µm'), ('0.00360', 'µm'), ('0.75', 'eV')]
+   obj 5 EELS HL SI [300, 300, 2020] dt 2 [('0.00360', 'µm'), ('0.00360', 'µm'), ('0.75', 'eV')]
+## 1514 MB 2025-04-24T12:43 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415/EELS1/151_STEM SI.dm4
+   obj 1 Image Of 151_STEM SI [249, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.00111', 'µm'), ('0.00111', 'µm')]
+   obj 3 ADF Image [202, 472] dt 2 [('0.00203', 'µm'), ('0.00203', 'µm')]
+   obj 4 EELS LL SI [202, 472, 1980] dt 2 [('0.00203', 'µm'), ('0.00203', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [202, 472, 1980] dt 2 [('0.00203', 'µm'), ('0.00203', 'µm'), ('0.3', 'eV')]
+## 2225 MB 2025-04-24T15:50 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415/EELS1/152_STEM SI processed.dm4
+   obj 1 Image Of 152_STEM SI processed [249, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.79617', 'nm'), ('0.79617', 'nm')]
+   obj 3 ADF Image [374, 375] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm')]
+   obj 4 EELS LL SI (aligned) [374, 375, 1978] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI (aligned) [374, 375, 1978] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+## 2226 MB 2025-04-15T14:58 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415/EELS2/152_STEM SI.dm4
+   obj 1 Image Of 152_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.79617', 'nm'), ('0.79617', 'nm')]
+   obj 3 ADF Image [374, 375] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm')]
+   obj 4 EELS LL SI [374, 375, 1980] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [374, 375, 1980] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+## 1270 MB 2025-04-15T15:13 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415/EELS3/153_STEM SI.dm4
+   obj 1 Image Of 153_STEM SI [139, 192] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.79617', 'nm'), ('0.79617', 'nm')]
+   obj 3 ADF Image [100, 800] dt 2 [('0.97072', 'nm'), ('0.97072', 'nm')]
+   obj 4 EELS LL SI [100, 800, 1980] dt 2 [('0.97072', 'nm'), ('0.97072', 'nm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [100, 800, 1980] dt 2 [('0.97072', 'nm'), ('0.97072', 'nm'), ('0.3', 'eV')]
+## 1514 MB 2025-11-06T14:28 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415_EELS/EELS1/151_STEM SI.dm4
+   obj 1 Image Of 151_STEM SI [249, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.00111', 'µm'), ('0.00111', 'µm')]
+   obj 3 ADF Image [202, 472] dt 2 [('0.00203', 'µm'), ('0.00203', 'µm')]
+   obj 4 EELS LL SI [202, 472, 1980] dt 2 [('0.00203', 'µm'), ('0.00203', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [202, 472, 1980] dt 2 [('0.00203', 'µm'), ('0.00203', 'µm'), ('0.3', 'eV')]
+## 2225 MB 2025-11-06T14:30 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415_EELS/EELS1/152_STEM SI processed.dm4
+   obj 1 Image Of 152_STEM SI processed [249, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.79617', 'nm'), ('0.79617', 'nm')]
+   obj 3 ADF Image [374, 375] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm')]
+   obj 4 EELS LL SI (aligned) [374, 375, 1978] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI (aligned) [374, 375, 1978] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+## 2226 MB 2025-11-06T14:32 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415_EELS/EELS2/152_STEM SI.dm4
+   obj 1 Image Of 152_STEM SI [277, 384] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.79617', 'nm'), ('0.79617', 'nm')]
+   obj 3 ADF Image [374, 375] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm')]
+   obj 4 EELS LL SI [374, 375, 1980] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [374, 375, 1980] dt 2 [('0.00196', 'µm'), ('0.00196', 'µm'), ('0.3', 'eV')]
+## 1270 MB 2025-11-06T14:33 ./NAS_Backup/01_projects/LOT_Quadrature_Project/HP087/20250415_EELS/EELS3/153_STEM SI.dm4
+   obj 1 Image Of 153_STEM SI [139, 192] dt 23 [('1.0', ''), ('1.0', '')]
+   obj 2 ADF Image (SI Survey) [1024, 1024] dt 10 [('0.79617', 'nm'), ('0.79617', 'nm')]
+   obj 3 ADF Image [100, 800] dt 2 [('0.97072', 'nm'), ('0.97072', 'nm')]
+   obj 4 EELS LL SI [100, 800, 1980] dt 2 [('0.97072', 'nm'), ('0.97072', 'nm'), ('0.3', 'eV')]
+   obj 5 EELS HL SI [100, 800, 1980] dt 2 [('0.97072', 'nm'), ('0.97072', 'nm'), ('0.3', 'eV')]

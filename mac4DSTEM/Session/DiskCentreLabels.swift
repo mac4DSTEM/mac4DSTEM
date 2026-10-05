@@ -327,8 +327,12 @@ package final class DiskCentreLabelStore {
         if let bad = positions.first(where: { $0.ry < 0 || $0.rx < 0 || $0.ry >= scanY || $0.rx >= scanX }) {
             return "\(fileName) has a position (\(bad.ry), \(bad.rx)) outside this \(scanY) × \(scanX) scan — \(outcome)."
         }
-        let outside = positions.lazy.flatMap { $0.centres }.first {
-            !($0.row >= 0 && $0.col >= 0 && $0.row < Float(detectorY) && $0.col < Float(detectorX))
+        // Split for the type checker: CI's Swift timed out on the one-expression form (2026-10-04 run 37228021225).
+        let rows = Float(detectorY), cols = Float(detectorX)
+        func isInside(_ c: Centre) -> Bool { c.row >= 0 && c.col >= 0 && c.row < rows && c.col < cols }
+        var outside: Centre?
+        for position in positions where outside == nil {
+            outside = position.centres.first { !isInside($0) }
         }
         if let centre = outside {
             return "\(fileName) has a centre (\(centre.row), \(centre.col)) outside this \(detectorY) × \(detectorX) detector — \(outcome)."

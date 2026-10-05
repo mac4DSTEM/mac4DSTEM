@@ -1,0 +1,11 @@
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.exec_prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+EDS_TEM_FePt_nanoparticles is_binned True res 133.312296
+  Fe_Ka E=6.4039 FWHM=0.137968 window idx (304, 318) sum=3710  bg-sub=2754.0000
+  Pt_La E=9.4421 FWHM=0.163189 window idx (455, 471) sum=15872  bg-sub=15090.0000
+EDS_SEM_TM002 is_binned True res 130.0
+  Al_Ka E=1.4865 FWHM=0.076613 window idx (151, 166) sum=84163  bg-sub=63805.0000
+  C_Ka E=0.2774 FWHM=0.053355 window idx (32, 43) sum=89063  bg-sub=82321.0000
+  Cu_La E=0.9295 FWHM=0.066910 window idx (96, 110) sum=96117  bg-sub=50589.0000
+  Mn_La E=0.63316 FWHM=0.061124 window idx (67, 79) sum=96700  bg-sub=34929.0000
+  Zr_La E=2.0423 FWHM=0.085200 window idx (206, 223) sum=99075  bg-sub=65513.2222

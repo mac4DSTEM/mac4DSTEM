@@ -16,7 +16,7 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 
 ## Hard rules
 
-- **What the app is** (owner, 2026-09-30): pure macOS, simple, reliable, an intuitive UI/UX — and scientifically correct. No filler: every control, number and sentence earns its place or goes. v4.1 is the plateau (ADR 049): the feature list is frozen, sessions finish or remove, they do not add.
+- **What the app is** (owner, 2026-09-30): pure macOS, simple, reliable, an intuitive UI/UX — and scientifically correct. No filler: every control, number and sentence earns its place or goes. v4.1 is the plateau (ADR 049): the feature list is frozen, sessions finish or remove, they do not add — until v4.5 ships; then v5.0 is the EDX suite, the one reopened theme (ADR 052).
 - **Rules serve the app** (owner, 2026-09-29): a rule that would make the app worse — less simple, robust, correct or intuitive — is not followed; the commit names the rule and says why. Rules are changed here, not worked around quietly.
 - Views describe UI only; loading, parsing and compute live in `Core/`. `AppState` is the single source of truth until the plan's stores replace it.
 - New stored state in `AppState` names its owner first; `inventory` now reports (not blocks) growth of `AppState.swift` + `Support/ResultExport.swift`, and a commit that grows them says why no other home would do.

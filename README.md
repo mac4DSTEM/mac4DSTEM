@@ -25,7 +25,7 @@ live view, so you see what a choice does while you make it.
 Algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
 gated against it, so results trace back to the reference implementation.
 
-## New in v4.1.0 (2026-10-02)
+## New in v4.5.0 (2026-10-05)
 
 - **Workspaces that follow the data:** Prepare · Imaging · Bragg Disks · Crystal
   Maps · Reconstruction · Results. Results › **Export Data…** writes the product
@@ -40,9 +40,11 @@ gated against it, so results trace back to the reference implementation.
 - **Numbers that moved:** the default disk-detection floor is 0.15 % (a
   documented deviation from py4DSTEM), the R–Q rotation follows py4DSTEM's sign,
   and binned views' mean patterns can differ in their last float32 bits.
+- **Polish before release:** number fields keep what you type, exports carry the
+  accelerating voltage, and a DM4 on a disconnected disk refuses instead of crashing.
 - **A whole-app pre-release review** fixed data-safety, memory and wording
   defects, each with a test. Phase mapping and its precipitate products stay
-  labelled unvalidated; known limitations are at the end of the v4.1.0 notes.
+  labelled unvalidated; known limitations are at the end of the v4.5.0 notes.
 
 Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 

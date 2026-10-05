@@ -1,0 +1,4 @@
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.exec_prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+elements with zero energies/macs: 90 {'Ru': (1, [214], 215, 1), 'Re': (1, [763], 764, 1), 'Ra': (1, [749], 750, 1), 'Rb': (1, [166], 167, 1), 'Rn': (1, [770], 771, 1), 'Rh': (1, [213], 214, 1), 'Be': (1, [166], 167, 1), 'Ba': (1, [233], 234, 1)}
+missing elements vs Z<=92: ['H', 'He']

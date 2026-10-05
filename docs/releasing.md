@@ -8,7 +8,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 ## Release contract
 
 - Bundle identifier: `com.mac4dstem.mac4DSTEM`
-- Version/build: `4.1.0` / `8`, cut 2026-10-02 (the owner notarizes, pushes and tags). Previously `4.0.0` / `7` (2026-09-23), `3.0.0` / `6` (2026-09-11), `2.5.1` / `5` (2026-09-04; v2.5.0 was `2.5` / `4` the same day, build 3 its superseded 2026-09-03 artefact). A driven bug cuts v3.0.x, a landed science number v3.1.0 (`docs/decisions/007-versioning-and-release-naming.md`). v2.0.0 was named 2026-09-02, never built, superseded by v2.5.0
+- Version/build: `4.5.0` / `8`, cut 2026-10-05 — the unpublished `4.1.0` / `8` cut of 2026-10-02 renamed, released as it stands (ADR 052; the owner notarizes, pushes and tags). Previously `4.0.0` / `7` (2026-09-23), `3.0.0` / `6` (2026-09-11), `2.5.1` / `5` (2026-09-04; v2.5.0 was `2.5` / `4` the same day, build 3 its superseded 2026-09-03 artefact). A driven bug cuts v3.0.x, a landed science number v3.1.0 (`docs/decisions/007-versioning-and-release-naming.md`). v2.0.0 was named 2026-09-02, never built, superseded by v2.5.0
 - Minimum system: **macOS 27** (`MACOSX_DEPLOYMENT_TARGET = 27.0`,
   `Package.swift: .macOS("27.0")`, raised from 14 on 2026-09-22 —
   `decisions.md` 008). Published as the requirement it is; development and

@@ -1,0 +1,249 @@
+{
+ "date": "2026-10-05",
+ "source": "docs/archive/v5/edx-dossier-2026-10-05.md",
+ "open": [
+  {
+   "id": "V5-1",
+   "title": "Name the science question v5.0 must answer",
+   "urgency": "now",
+   "problem": "Nobody has written down what EDX is for. The candidates pick different methods, different acquisitions and different truth data.",
+   "context": "Candidates: (a) Mg/Si ratio per precipitate class (beta-double-prime vs beta-prime/U/B-prime); (b) Cu-bearing Q; (c) Si segregation at LPBF cell boundaries (chemistry without a diffraction boundary; the case where diffraction-guided smoothing fails); (d) solute depletion in matrix or PFZ. The owner's data hold 11-19 counts per pixel with sub-count Mg/Si, so every answer is a pooled one.",
+   "options": [
+    {
+     "label": "a — Mg/Si per precipitate class",
+     "consequence": "Needs per-object or per-phase pooling on a registered pair, a separability matrix from the CIFs, the Al-Mg-Si CIF set; strategy S2. Effort +3-5 sessions over S1, medium risk (counts and registration)."
+    },
+    {
+     "label": "b — Cu-bearing Q identification",
+     "consequence": "Cu is the one clearly separable signal; S1 plus the B* table. Lower risk than a."
+    },
+    {
+     "label": "c — Si segregation at cell boundaries",
+     "consequence": "Plain EDX on existing Velox files plus EELS thickness; no joint method needed on day one; G must not be used. Lowest effort."
+    },
+    {
+     "label": "d — matrix/PFZ depletion",
+     "consequence": "Plain EDX, region pools, matrix blank; S1 only. Low effort."
+    }
+   ],
+   "recommendation": "c first then a, because c is answerable on the 104 existing files the week the baseline lands, and a is the question the app's own precipitate pipeline is built around but needs an acquisition and a separability check first.",
+   "second_opinion": "The completeness critic put this as P0-1: the choice picks S1 vs S2 and the acquisition route, so it goes first on the sheet. The second opinion warned that B* can relabel real beta-double-prime needles unless a separability matrix is computed before it is built.",
+   "question": "Which one question should v5.0 answer first on your data?",
+   "default_if_silent": "c then a; S1 is built, S2 pre-registered.",
+   "source": "dossier §1, §5.5, §10"
+  },
+  {
+   "id": "V5-2",
+   "title": "Acquisition route and the first joint field",
+   "urgency": "now",
+   "problem": "No usable 4D + EDX pair exists. The route that gets one decides the input path (same-file GMS vs cross-file registration) and the count regime.",
+   "context": "R1 GMS STEMx + Super-X needs a second Esprit install, an ExternControl licence, IO firmware and a DDC swap (GMS EDS guide :724-869), unverified on a Velox-2.15 Talos G1. R2 Velox 4D-STEM needs Ceta-2 + the 4D option, never used. R3 Velox scan triggering an external camera (Duran 2023 on a Talos F200X + Merlin). R4 sequential: GMS 4D, then a Velox SI at the same field and tilt, possible today; registration works on the 190330 pair (peak 41.4, mirror + 90°). At the owner's 4D optics (0.26 nA) a simultaneous scan yields ~25-85 counts/px and 2-180x fewer X-rays per object area than his existing SIs.",
+   "options": [
+    {
+     "label": "a — R4 now: EDX SI at the 051 field and tilt, full stream, EELS t/λ map, two currents; ask service about R1/R2 in parallel",
+     "consequence": "One microscope session, no new licence; gives the first registered pair, thickness and the Al-sum/Ar test; the same-file reader stays conditional."
+    },
+    {
+     "label": "b — wait for R1 (STEMx + Super-X) before any joint work",
+     "consequence": "Blocks WP 4 and 9 for an unknown time and cost; fewer X-rays per object than R4; cleanest registration (identity + lag check)."
+    },
+    {
+     "label": "c — both: R4 first, then a small STEMx test (.dm4 and .dm5) if service confirms",
+     "consequence": "Two sessions; settles the file layout, identity/lag check and dm5 question; the science number still comes from R4 data."
+    }
+   ],
+   "recommendation": "c, because R4 gives value immediately and the STEMx test is only for layout and the identity check, not for the science number.",
+   "second_opinion": "The second opinion called the GMS same-file path speculative for this lab and the sequential route the likely real one; the critic added R3 and the per-area count deficit and asked the owner to get service answers before (i-a) is scheduled.",
+   "question": "Do you book the R4 session at the 051 field now, and will you ask Thermo/Gatan/Bruker about R1/R2 and cost?",
+   "default_if_silent": "c; (i-a) stays conditional in the plan.",
+   "source": "dossier §4.2, §8.4"
+  },
+  {
+   "id": "V5-3",
+   "title": "Spectrum-only window and the Spectroscopy room mock",
+   "urgency": "now",
+   "problem": "Every EDX file the owner has is a plain spectrum image, but the app's window assumes a 4D cube (hasDataset == is4D, 29 uses in 13 files; the content branch is always two 4D panes). Without a spectrum-only window v5.0 runs on none of his data until he re-acquires.",
+   "context": "The shell is frozen (ADR 035): WorkspaceView must change for a seventh room anyway (exhaustive switches), so the window structure must be in the mock the owner accepts. Width floor stays 915 pt if the spectrum pane accepts 180 pt; a wider floor moves the sidebar maximum and breaks NavigationSeamTests. Keyboard: Spectroscopy ⌘6 and Results ⌘7, or ⌘7 after Results.",
+   "options": [
+    {
+     "label": "a — spectrum-only window in v5.0, shown in the room mock now",
+     "consequence": "+3-4 sessions incl. the primary-signal split; the mock shows both the attached and the spectrum-only layout; day-one value on 104 files."
+    },
+    {
+     "label": "b — attach-only in v5.0; plain SI later",
+     "consequence": "Smaller frozen-shell change now, but opening a 1-29 GB cube just to look at a spectrum, and the shell is reopened again later at the same cost."
+    }
+   ],
+   "recommendation": "a, because it is the only path to day-one value and ADR 035 makes a second reopening expensive.",
+   "second_opinion": "Both the second opinion (§2.6) and the critic (P0-3) overruled the inputs analysis' 'owner's call, later slot' on this point.",
+   "question": "Does the room mock include a spectrum-only window, and which digit shortcut does Results keep?",
+   "default_if_silent": "a; Spectroscopy ⌘6, Results ⌘7 (Results stays last).",
+   "source": "dossier §4.1, §9.2"
+  },
+  {
+   "id": "V5-4",
+   "title": "Data model: two signals plus a registration record, no dense cube",
+   "urgency": "soon",
+   "problem": "Which representation holds an EDX spectrum image beside a 4D cube, where pooling happens, and whether a per-machine CSR cache is required.",
+   "context": "M2 (two linked signals + Codable ScanRegistration against the 4D source grid, composed at use) is the only model that fits the owner's different-grid pairs. The Velox stream decodes once into a CSR store (0.24 GB vs 26.5 GB dense); Python decode of the 3.2 GB stream takes ~10 s. The record must allow a reflection (the 190330 pair registers at mirror + 90°). Velox already drift-corrects, so no frame re-alignment.",
+   "options": [
+    {
+     "label": "a — M2; pool by transporting masks onto the native spectrum grid; no dense cube; CSR cache optional until Swift decode is measured",
+     "consequence": "Count-exact Poisson sums, no 1.8 GB cube, no new residency pressure on 8 GB Macs; a per-pixel joint method later needs the resampled cube added then."
+    },
+    {
+     "label": "b — M2 with M3 as a dense cache on the 4D grid (64 GB Macs), cache required from the first increment",
+     "consequence": "Fast per-pixel fits later; +1.07-1.8 GB resident, combined-budget work now, cache purge policy against the lean-app directive."
+    }
+   ],
+   "recommendation": "a, because it is simpler, exact, and defers the cube until a method needs it.",
+   "second_opinion": "The second opinion proposed the mask-transport variant and dropping the frame alignment; the inputs analysis had M3 as a cache and a FrameAlignment record. The critic measured the decode time that makes the cache decision live.",
+   "question": "Approve M2 with mask transport and reflections, with the cache decided after a Swift decode measurement?",
+   "default_if_silent": "a.",
+   "source": "dossier §4.1, §4.3, §4.4"
+  },
+  {
+   "id": "V5-5",
+   "title": "k-factors: what quantification can honestly ship",
+   "urgency": "soon",
+   "problem": "No k-factor source exists: Velox exports none, the owner's notebooks used placeholders, and theoretical k needs cross-sections and data rights. Without k there is no at% on any of his data.",
+   "context": "Theoretical k from NIST EPQ data is public domain with a notice (third-party rights inside EPQ unverified). An internal standard would need a homogeneous solution-treated sample of the same alloy (existence unverified). Velox's own 20 % k rule. Count ratios (Mg/Si, enrichment over the matrix blank) need no k.",
+   "options": [
+    {
+     "label": "a — primary outputs k-free (net counts, Mg/Si count ratios, enrichment over the matrix blank, with intervals); typed k with source and date optional; theoretical k a later sheet",
+     "consequence": "Honest numbers on day one, no data-rights blocker; no at% until a k source exists."
+    },
+    {
+     "label": "b — theoretical k from EPQ data in v5.0",
+     "consequence": "at% on day one, +2-3 sessions, rights check on Bote-Salvat/Henke, 20 % systematic shown separately."
+    },
+    {
+     "label": "c — measure k on a lab standard first",
+     "consequence": "Best accuracy; needs a standard the lab may not have and microscope time."
+    }
+   ],
+   "recommendation": "a, because the decisive quantity for the owner's phases is a ratio and a ratio needs no k; b is pre-registered as v5.x.",
+   "second_opinion": "The second opinion raised this as the missing decision M9 and the critic as P0-4; both agree the primary outputs must be k-free.",
+   "question": "Do you accept ratios and enrichment as the v5.0 quantities, with at% deferred to a k source you approve?",
+   "default_if_silent": "a.",
+   "source": "dossier §5.1, §8.4 C"
+  },
+  {
+   "id": "V5-6",
+   "title": "Absorption correction on summed Super-X G1 data",
+   "urgency": "soon",
+   "problem": "The owner's files hold one summed stream from four detectors. Refusing correction leaves Mg/Si biased by +3 % (30 nm) to +15-19 % (150 nm); correcting needs a geometry model the vendor does per segment.",
+   "context": "Velox metadata carries azimuth 45/135/225/315°, elevation 22°, stage α/β and holder type; summing hides only per-quadrant shadowing. The bias is the same order as the gap between beta-double-prime composition models. Thickness comes typed ± σ or from an EELS t/λ map.",
+   "options": [
+    {
+     "label": "a — four-detector geometric average, badged, with per-quadrant take-off spread and thickness σ propagated; refuse only when geometry or tilt is unknown",
+     "consequence": "Removes most of the bias; a residual shadowing systematic is shown as a term; ~1 session on top of the parity port."
+    },
+    {
+     "label": "b — refuse on summed data, show the uncorrected ratio and the estimated bias",
+     "consequence": "No new physics, but every Mg/Si on his data carries a 3-19 % known bias."
+    }
+   ],
+   "recommendation": "a, because the quantity of interest is the ratio and the bias is computable from the file.",
+   "second_opinion": "The methods analysis said refuse; the second opinion (C9) and the critic (C7, C8) computed the bias and the available geometry and recommended the badged correction.",
+   "question": "Ship the badged four-detector correction, or refuse and show the bias?",
+   "default_if_silent": "a.",
+   "source": "dossier §5.1, §6"
+  },
+  {
+   "id": "V5-7",
+   "title": "Parity and data-rights policy for the eXSpy port",
+   "urgency": "soon",
+   "problem": "Which numbers are parity pins, which loss function the app uses, and where the line energies and mass-absorption data come from.",
+   "context": "Integer window pins and closed-form CL/absorption pins are exact; LS model fits are a tolerance; HyperSpy's ML-poisson depends on optimiser and start (FePt Pt Lα 15229.7 vs 15351.6) so it cannot be pinned. exspy's line energies match Bearden to ≤0.022 % for Mg/Al/Si/Cu/O/Zr. Both exspy's FFAST MACs and its Chantler line energies are NIST SRD data with unclear terms; NIST EPQ ships both under a public-domain notice; xraylib is BSD-3. Repo rule: no user-visible parity toggle, inline DEVIATION notes.",
+   "options": [
+    {
+     "label": "a — exspy tables verbatim for parity; pins on windows, CL, absorption and LS fits only; science default Poisson-ML via IRLS; MACs and line energies sourced from EPQ with its notice; one science default, provenance names the estimator, no mode switch",
+     "consequence": "Clean licence chain, no dead parity pins, one more table to maintain (EPQ copy) with per-line DEVIATIONs where it differs."
+    },
+    {
+     "label": "b — exspy tables and MACs copied as GPL data; LS everywhere; two user-visible modes",
+     "consequence": "Fastest port; rights question on NIST data unresolved; a toggle the no-filler rule forbids; LS bias at low counts."
+    }
+   ],
+   "recommendation": "a, because it resolves the rights question and the unpinnable-ML problem at once.",
+   "second_opinion": "The second opinion rejected the two-mode switch and the second line table, and set parity on LS only; the critic widened the NIST question to the line table (C17).",
+   "question": "Approve a: EPQ-sourced tables, LS-only parity, Poisson-ML default, provenance instead of a mode switch?",
+   "default_if_silent": "a.",
+   "source": "dossier §5.1, §7"
+  },
+  {
+   "id": "V5-8",
+   "title": "Joint-method scope for v5.0",
+   "urgency": "soon",
+   "problem": "Which joint approaches ship in v5.0 versus later, given 25-85 counts/px at 4D conditions, an unvalidated phase map underneath, and per-phase scores not retained today.",
+   "context": "E (pooling over objects/phases/groups/ROIs with the matrix blank) needs only a registered pair. B* needs an additive per-phase score output (PhaseVectorResult keeps winner + one runner-up; its score is a distance) and a separability matrix; a combined posterior needs a per-dataset calibration the threshold rule forbids shipping blind. D is cheap (PCA and k-means exist) and not pure noise at 2x2 binning. G and F have no precedent and synthetic-only truth.",
+   "options": [
+    {
+     "label": "a — E per phase/region (+H, I, K); per-object E only on simultaneous or sub-object-registered data; nothing else in v5.0",
+     "consequence": "Smallest honest product; ~2-3 sessions after the baseline; the arbitration question waits."
+    },
+    {
+     "label": "b — a plus the B* table (no posterior) after per-phase score retention and a separability matrix, plus D behind an exploratory badge",
+     "consequence": "+5-7 sessions; the open TESCAN-equivalent, inspectable; Gate B on the additive output; badges stack on the unvalidated phase map."
+    },
+    {
+     "label": "c — b plus G in v5.0",
+     "consequence": "+6-10 sessions with no precedent; risk of smoothing away cell-boundary segregation; synthetic-only truth."
+    }
+   ],
+   "recommendation": "b, because the table ships quantities and defers the calibration, and D costs little; G waits for a planted-segregation test.",
+   "second_opinion": "The second opinion agreed on table-only B* and on deferring G/F, but narrowed B*'s reach (beta-double-prime variants probably inseparable; Mg/Si and Cu the robust signals) and asked for the separability matrix first.",
+   "question": "a, b or c for v5.0?",
+   "default_if_silent": "b, with B* contingent on the separability matrix showing a separable pair.",
+   "source": "dossier §5.4, §5.5"
+  },
+  {
+   "id": "V5-10",
+   "title": "Thickness input and whether Spectroscopy includes EELS",
+   "urgency": "whenever",
+   "problem": "Absorption, the projection fraction f and the density goal all need a thickness per field or per object; the room name invites the question whether EELS (13 GB of owner SIs already exist) is in scope.",
+   "context": "The GIF Continuum gives an EELS low-loss t/λ map at the same field cheaply; the DM SI reader built for EDS reads an EELS SI with signalType .eels at no extra cost; EELS analysis (zero-loss, t/λ, edges) is a separate port with its own GOS data that downloads from Zenodo.",
+   "options": [
+    {
+     "label": "a — thickness typed ± σ or imported from an EELS t/λ map as a scalar image; EELS analysis explicitly out of v5.0",
+     "consequence": "No new science; one importer; the room name is honest if the docs say so."
+    },
+    {
+     "label": "b — EELS t/λ computed in-app from a low-loss SI",
+     "consequence": "+3-5 sessions, GOS/data-rights work, a second parity target."
+    }
+   ],
+   "recommendation": "a, because v5.0 needs the number, not the method.",
+   "second_opinion": "The critic raised it as P1-11; no other report dissented.",
+   "question": "Typed/imported thickness only, with EELS named out of scope for v5.0?",
+   "default_if_silent": "a.",
+   "source": "dossier §6, §10"
+  }
+ ],
+ "answered": [
+  {
+   "id": "V5-9",
+   "title": "v4.5 remainder that touches v5: the Velox .emd open, reopening the freeze, EDX = 5.0.0",
+   "urgency": "now",
+   "problem": "The shipped v4.x app probably opens any Velox .emd as a one-row datacube (emulated from H5Reader's ordering, not driven); .emd is a registered Finder type and the owner has 2149 such files. ADR 049 freezes EDX; ADR 051 says v5 or v6; CI on main is red.",
+   "context": "A named refusal is a reader change + discovery-test cases under Gate B (1-2 sessions, can land in the v4.5 polish). CLAUDE.md asks for a reproducing observation before calling it a defect; the public velox_emd_version11 file is the reproduction fixture. The CI failure is a mechanical type-check split with no Gate D trigger.",
+   "options": [
+    {
+     "label": "a — reproduce on the public v11 file, land the refusal under Gate B in v4.5, fix CI, amend ADR 007 (EDX = 5.0.0) and reopen ADR 049 for v5 in the same sheet",
+     "consequence": "One small lane before the cut; the owner's drive does not trip over it; v5 may start its ADRs and mocks."
+    },
+    {
+     "label": "b — release-note the .emd behaviour; fix CI; defer the ADR amendments to the v5 kickoff",
+     "consequence": "No code before the cut; a known nonsense result ships; the freeze stays until a later sheet."
+    }
+   ],
+   "recommendation": "a, because the refusal is cheap, the reproduction is a one-file test, and the amendments cost three markdown lines.",
+   "second_opinion": "The second opinion (C11) insisted on reproduction before calling it a defect and judged the other two 'defects' to be hardening; the critic (C20, P0-6) emulated the open and listed the three v4.5 sequencing questions.",
+   "question": "Refusal in v4.5 or a release note; and may v5 ADRs and mocks start before v4.5 ships?",
+   "default_if_silent": "a; v5 ADRs and mocks start after the owner's drive, Core work after the cut.",
+   "source": "dossier §1, §9.1; v45 list",
+   "answer": "Owner 2026-10-05: v4.5 ships as it stands, no drive first (ADR 052) — the Velox .emd behaviour is release-noted (reproduced at the reader), ADR 049's freeze lifts for EDX after v4.5, EDX = 5.0.0 (ADR 007 amendment), the CI split landed in the cut."
+  }
+ ]
+}

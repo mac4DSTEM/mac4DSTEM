@@ -1,0 +1,63 @@
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.exec_prefix, expected <scratch>/edx/venv, got <scratch>/edx/scripts/../venv
+== 71GPa_experimental_data.hspy 4826704 bytes <LazyEDSTEMSpectrum, title: EDX, dimensions: (201, 201|2048)> uint8
+    _HyperSpy.Folding.unfolded = False
+    _HyperSpy.Folding.signal_unfolded = False
+    _HyperSpy.Folding.original_shape = None
+    _HyperSpy.Folding.original_axes_manager = None
+    General.date = 2019-03-04
+    General.original_filename = 71 GPa_subsolidus_3phases_1st test.bcf
+    General.time = 01:48:00
+    General.title = EDX
+    General.FileIO.0.operation = load
+    General.FileIO.0.io_plugin = rsciio.hspy
+    General.FileIO.0.hyperspy_version = 2.4.0
+    General.FileIO.0.timestamp = 2026-10-05T12:23:13.090705+02:00
+    Signal.quantity = X-rays (Counts)
+    Signal.signal_type = EDS_TEM
+    Acquisition_instrument.TEM.beam_energy = 200
+    Acquisition_instrument.TEM.magnification = 110000
+    Acquisition_instrument.TEM.Detector.EDS.azimuth_angle = 45.0
+    Acquisition_instrument.TEM.Detector.EDS.detector_type = Custom type
+    Acquisition_instrument.TEM.Detector.EDS.elevation_angle = 22.0
+    Acquisition_instrument.TEM.Detector.EDS.energy_resolution_MnKa = 130.0
+    Acquisition_instrument.TEM.Detector.EDS.real_time = 111.50676
+    Acquisition_instrument.TEM.Stage.tilt_alpha = 0.0
+    Sample.name = map 2
+    Sample.elements = ['Al', 'Ca', 'Fe', 'Hf', 'Lu', 'Mg', 'Nd', 'O', 'Si', 'Sm', 'U']
+    Sample.xray_lines = ['Al_Ka', 'Ca_Ka', 'Fe_Ka', 'Hf_La', 'Lu_La', 'Mg_Ka', 'Nd_La', 'O_Ka', 'Si_Ka', 'Sm_La', 'U_Ma']
+   energy axis -0.47195 0.01 keV 2048
+   nav width 201 0.00171653641628399 µm
+   nav height 201 0.00171653641628399 µm
+   counts/pixel: mean 176.53 median 176.0 min 101 max 249 ; frac channels zero 0.9547 ; max channel value 19 ; integer-valued True
+== 88_ES-LP_G8_selection2_cropped2.hspy 680193 bytes <LazyEDSTEMSpectrum, title: EDX, dimensions: (80, 80|1917)> uint8
+    _HyperSpy.Folding.unfolded = False
+    _HyperSpy.Folding.signal_unfolded = False
+    _HyperSpy.Folding.original_shape = None
+    _HyperSpy.Folding.original_axes_manager = None
+    General.date = 2020-07-29
+    General.original_filename = 88_ES-LP_G8_selection2.bcf
+    General.time = 21:50:46
+    General.title = EDX
+    General.FileIO.0.operation = load
+    General.FileIO.0.io_plugin = rsciio.hspy
+    General.FileIO.0.hyperspy_version = 2.4.0
+    General.FileIO.0.timestamp = 2026-10-05T12:23:13.289948+02:00
+    Signal.quantity = X-rays (Counts)
+    Signal.signal_type = EDS_TEM
+    Acquisition_instrument.TEM.beam_energy = 200
+    Acquisition_instrument.TEM.magnification = 20000
+    Acquisition_instrument.TEM.Detector.EDS.azimuth_angle = 45.0
+    Acquisition_instrument.TEM.Detector.EDS.detector_type = Custom type
+    Acquisition_instrument.TEM.Detector.EDS.elevation_angle = 22.0
+    Acquisition_instrument.TEM.Detector.EDS.energy_resolution_MnKa = 130.0
+    Acquisition_instrument.TEM.Detector.EDS.live_time = 28.085
+    Acquisition_instrument.TEM.Detector.EDS.real_time = 410.87199999999996
+    Acquisition_instrument.TEM.Stage.tilt_alpha = 0.0
+    Sample.name = map 1
+    Sample.elements = ['Al', 'Ca', 'Fe', 'Hf', 'Lu', 'Mg', 'Nd', 'O', 'Si', 'Sm', 'U']
+    Sample.xray_lines = ['Al_Ka', 'Ca_Ka', 'Fe_Ka', 'Hf_La', 'Lu_La', 'Mg_Ka', 'Nd_La', 'O_Ka', 'Si_Ka', 'Sm_La', 'U_Ma']
+   energy axis 0.83151949728 0.01000467828 keV 1917
+   nav width 80 0.00985911335721014 µm
+   nav height 80 0.00985911335721014 µm
+   counts/pixel: mean 112.01 median 112.0 min 8 max 227 ; frac channels zero 0.9678 ; max channel value 21 ; integer-valued True

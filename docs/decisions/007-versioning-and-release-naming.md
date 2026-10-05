@@ -31,6 +31,11 @@ A version number should describe what happened, not a schedule. Tagging the
 Gate D closeout let consolidation start on `main` without waiting for a DMG;
 naming v3.0.0 instead of v2.7.0 keeps the rule (feature → major) honest.
 
+## Amendment 2026-10-05 (owner, ADR 052)
+
+The v4.1 train ships as **4.5.0** (the rule alone would give 4.1.0; the owner named it). Next: a driven bug cuts 4.5.1, a landed
+science number 4.6.0, and the EDX suite — a feature — is **5.0.0**.
+
 ## Governs
 
 `CHANGELOG.md` version headers, `CITATION.cff`, `docs/releasing.md`.

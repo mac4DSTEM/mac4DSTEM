@@ -1,0 +1,50 @@
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.prefix, expected <scratch>/edx/venv, got <scratch>/edx/exspy/../venv
+<frozen site>:101: RuntimeWarning: Unexpected value in sys.exec_prefix, expected <scratch>/edx/venv, got <scratch>/edx/exspy/../venv
+Downloading data from 'https://zenodo.org/records/7645765/files/Segger_Guzzinati_Kohl_1.5.0.gosh' to file '~/Library/Caches/pooch/98377f09553a5f8727f09c669abbef83-Segger_Guzzinati_Kohl_1.5.0.gosh'.
+Downloading data from 'https://zenodo.org/records/12800856/files/Dirac_GOS_compact.gosh' to file '~/Library/Caches/pooch/31889db061d4cf17d0867a5e32a75f7a-Dirac_GOS_compact.gosh'.
+Downloading data from 'https://zenodo.org/records/6599071/files/Segger_Guzzinati_Kohl_1.0.0.gos' to file '~/Library/Caches/pooch/325fc9f5fde9188b9cf2b20fffa21414-Segger_Guzzinati_Kohl_1.0.0.gos'.
+Checking if GOS files need downloading...
+GOS files available.
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+Matplotlib: 3.11.2
+Freetype: 2.14.3
+rootdir: <scratch>/edx/exspy
+configfile: pyproject.toml
+plugins: cov-7.1.0, xdist-3.8.0, platformdirs-4.12.3, mpl-0.19.0
+created: 4/4 workers
+4 workers [238 items]
+
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 90%]
+......................                                                   [100%]Matplotlib is building the font cache; this may take a moment.
+
+=============================== warnings summary ===============================
+exspy/tests/models/test_edsmodel.py: 308 warnings
+  <scratch>/edx/venv/lib/python3.14/site-packages/hyperspy/external/mpfit/mpfit.py:971: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    fjac.shape = [n, n]
+
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_calibrate_xray_energy
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_calibrate_xray_weight
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_calibrate_xray_width
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_lazy_calibrate_xray_energy
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_lazy_calibrate_xray_weight
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_lazy_calibrate_xray_width
+  <scratch>/edx/venv/lib/python3.14/site-packages/hyperspy/external/mpfit/mpfit.py:1991: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    r.shape = [n, n]
+
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_calibrate_xray_energy
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_calibrate_xray_weight
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_calibrate_xray_width
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_lazy_calibrate_xray_energy
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_lazy_calibrate_xray_weight
+exspy/tests/models/test_edsmodel.py::TestlineFit::test_lazy_calibrate_xray_width
+  <scratch>/edx/venv/lib/python3.14/site-packages/hyperspy/external/mpfit/mpfit.py:1229: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    cv.shape = [n, n]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 238 passed, 320 warnings in 9.82s =======================

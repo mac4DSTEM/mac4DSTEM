@@ -14,7 +14,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 004 | Gate B independent review | 08-18, 08-31, 09-02 | live |
 | 005 | Inventory is the review | 09-02 | live |
 | 006 | py4DSTEM pin and DEVIATION notes | 09-03, 09-14 | live |
-| 007 | Versioning and release naming; a raised system requirement is a major | 09-02, 09-03, 09-11, 09-22 | live |
+| 007 | Versioning and release naming; a raised system requirement is a major; the v4.1 train ships as 4.5.0, EDX is 5.0.0 | 09-02, 09-03, 09-11, 09-22, 10-05 | live |
 | 008 | macOS floor and arm64-only | 09-04, 09-11, 09-22 | live (floor raised 14→27 09-22; v3.0.0 stays for older systems) |
 | 009 | UI contract | 09-03, 09-04, 09-07 | live (09-03 AppKit superseded) |
 | 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `docs/archive/v4/window-design.md` §6) |
@@ -58,7 +58,8 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 048 | Clearing the board: training on MPSGraph first (MLX the fallback), the C3 flow, T4's edge-on speckle as a quantity, the hardware lane waits | 09-30 | accepted by delegation |
 | 049 | v4.1 is the plateau: feature list frozen at v4.0.0, half-built lanes finished or removed, the external review the last intake, a five-line exit | 09-30 | accepted |
 | 050 | The owner's sitting: 21 answers — v4.1 = py4DSTEM parity for the shipped features; ptychography, training, raw-data preprocessing and the keep-in-memory control finished; the decision-sheet format kept | 09-30 | accepted |
-| 051 | The release waits for the owner's own drive and more polish (version decided then, "v4.5 or something"); EDX after a stable product (v5/v6) | 10-04 | accepted |
+| 051 | The release waits for the owner's own drive and more polish (version decided then, "v4.5 or something"); EDX after a stable product (v5/v6) | 10-04 | item 1 superseded by 052 |
+| 052 | v4.5 ships as it stands (the 4.1.0 / 8 cut renamed 4.5.0, no drive first); v5.0 is the EDX suite — "4D-STEM + EDX", a seventh room "Spectroscopy", a HyperSpy/eXSpy port; no implementation until the owner answers the v5.0 cards | 10-05 | accepted |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

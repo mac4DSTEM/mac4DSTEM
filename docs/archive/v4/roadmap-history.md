@@ -334,3 +334,9 @@ Clearing is three moves, in this order.
 - [x] **Slot 4¾ — Full pre-release review** (owner, 2026-10-01; done 2026-10-02, `docs/archive/v4/prerelease-review-2026-10-02/`): data safety, science claims, concurrency, large cubes, first-run UX, docs; findings fixed or labelled. Start with the unreproduced crash after Compute Strain and the β″ preset picker (`open-items.md`).
 - [x] **Slot 4⅞ — Polish before release** (owner, 2026-10-02): nine lanes landed and gated 2026-10-04 (`d415970d` … `a1a8d234`, record in `docs/archive/v4/polish-plan-2026-10-02/plan.md` § Record), driven on screen (`archive/v4/polish-drive-2026-10-04/`), the drive's inset fix (lane P) and one `all` after it.
 - [x] **Slot 5 — Z release v4.1.0** — superseded 2026-10-04 by ADR 051 (the release waits for the owner's drive and more polish).
+
+## Closed 2026-10-05 (ADR 052: v4.5 as it stands)
+
+- [—] **The owner's drive** (ADR 051) — superseded 2026-10-05: the owner releases v4.5 as it stands, no drive first.
+- [—] **Next polish slot** (from the drive's finds) — superseded with it; the carried candidates stay in `open-items.md` and the v4.5 notes.
+- [—] **Release, version decided then** — decided: v4.5.0 / 8 (the 4.1.0 / 8 cut renamed); the release line is back in the ROADMAP queue.

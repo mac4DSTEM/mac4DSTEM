@@ -1,0 +1,4 @@
+LS (lm)                                  Fe_Ka=   2800.02 Pt_La=  14921.18 poissonNLL=-300250.466
+ML-poisson NM from LS start              Fe_Ka=   2724.37 Pt_La=  15229.72 poissonNLL=-300267.700
+ML-poisson L-BFGS-B from LS start        Fe_Ka=   2800.02 Pt_La=  14921.18 poissonNLL=-300250.466
+ML-poisson Powell from LS start          Fe_Ka=       nan Pt_La=       nan poissonNLL=nan
