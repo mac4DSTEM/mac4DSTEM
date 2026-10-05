@@ -77,3 +77,17 @@ On the first mock (`docs/archive/v5/spectroscopy-mock-2026-10-05/`):
 - Regions stay in the sidebar.
 
 The revised mock follows. The room is built only once the owner accepts it (ADR 035).
+
+## Corrections from the WP3 pre-registration (session, Fable 5.1 review, 2026-10-05; owner overrules on sight)
+
+- **Item 7, second half, is wrong.** The detector's Si internal-fluorescence peak cannot be tied to Al Kα: Al Kα
+  (1.487 keV) lies below the Si K edge (1.839 keV). It is tied to the integrated counts above 1.84 keV. The Al Kα tail
+  stays tied to Al Kα.
+- **"Four-detector geometric average" (ADR 053 item 5) becomes "four-detector weighted transmission".** The summed
+  stream's exact correction is 1/T̄ with T̄ = Σ Ω_d T_d / Σ Ω_d. The geometric mean is reported only as a comparison.
+- **Item 2's Expert option is eXSpy's whole-range sixth-order polynomial** (the parity path), not Velox-style
+  polynomial windows.
+- **Least squares is unweighted** (hyperspy `ls`), and every result's footer says so.
+- **Garwood intervals are used at every count.** The "~20 counts" switch was a threshold, and it is dropped.
+
+Record: `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md` § Flags.
