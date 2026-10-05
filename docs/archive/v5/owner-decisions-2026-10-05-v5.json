@@ -3,228 +3,6 @@
  "source": "docs/archive/v5/edx-dossier-2026-10-05.md",
  "open": [
   {
-   "id": "V5-Q1",
-   "title": "Which fit method is the default",
-   "urgency": "now",
-   "problem": "Every result names one fit method (your option 3). Least squares can be checked exactly against HyperSpy; Poisson maximum likelihood is the textbook choice at low counts. On pooled spectra (thousands of counts per peak) they probably agree.",
-   "context": "Velox's own working SI default is 'least square (Empirical)'; no vendor offers the switch. The 2.9 % LS–ML gap is a FePt number, not yours.",
-   "options": [
-    {
-     "label": "a — least squares now, Poisson under Expert",
-     "consequence": "0 extra sessions; low risk; pinnable."
-    },
-    {
-     "label": "b — Poisson now",
-     "consequence": "+0.5 session; cannot be pinned against HyperSpy; chosen before measuring."
-    },
-    {
-     "label": "c — a, plus a pre-registered LS-vs-Poisson measurement on your Al-Mg-Si pools; switch only if the gap matters (> ½ the counting σ of Mg/Si)",
-     "consequence": "+0.5 session; decides on your data."
-    }
-   ],
-   "recommendation": "c.",
-   "second_opinion": "The Fable draft picked Poisson; the reviewer says measure first (threshold rule).",
-   "question": "a, b or c?",
-   "default_if_silent": "c.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q2",
-   "title": "How the background under Mg, Al and Si is modelled",
-   "urgency": "now",
-   "problem": "Mg, Al and Si sit ~240 eV apart with ~80–100 eV peak width, so clean background windows barely fit; the Al absorption edge (1.56 keV) sits between Al and Si — the decisive region for both your questions.",
-   "context": "Velox: 'Empirical' (a fitted Bethe-Heitler continuum) or polynomial windows. A physical continuum needs the Super-X detector-efficiency curve, which we do not have.",
-   "options": [
-    {
-     "label": "a — physical continuum (espm-style)",
-     "consequence": "2 sessions; needs a detector-efficiency curve; high risk."
-    },
-    {
-     "label": "b — fitted whole-spectrum continuum with the Al-edge step, like Velox's Empirical",
-     "consequence": "1.5 sessions; medium risk; acceptance: flat residual 1.1–1.9 keV on your matrix spectrum."
-    },
-    {
-     "label": "c — polynomial in windows",
-     "consequence": "1 session; poor in this region; kept under Expert for parity."
-    }
-   ],
-   "recommendation": "b default, c under Expert, a later.",
-   "second_opinion": "The Fable draft picked a; the reviewer disagrees (missing efficiency, Al edge).",
-   "question": "a, b or c as the default?",
-   "default_if_silent": "b.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q3",
-   "title": "at% in v5.0, and from which k",
-   "urgency": "now",
-   "problem": "Every vendor shows at%; HyperSpy makes you type k. A computed k needs cross-sections, fluorescence yields, line weights and the detector's efficiency curve. Your first question (Si enrichment, boundary vs cell) is a ratio of ratios and needs no k.",
-   "context": "Velox computes k from Brown-Powell (default), Bote-Salvat or Schreiber-Wims and assumes ±20 %. No ζ-factor and no calibrated probe current exist for your instrument.",
-   "options": [
-    {
-     "label": "a — computed Brown-Powell k + typed k; at% badged 'unvalidated' on screen and in every export; k-free ratio shown above; at% on regions only; detector efficiency a named, sourced input; no ζ in the menu",
-     "consequence": "3 sessions; low risk with the badge."
-    },
-    {
-     "label": "b — ratios plus typed k only",
-     "consequence": "1 session; below every vendor."
-    }
-   ],
-   "recommendation": "a.",
-   "second_opinion": "Both reviewers agree on a; the reviewer adds: efficiency named, ζ removed from the menu, at% on regions only, Bote-Salvat only after a data-rights check.",
-   "question": "a or b?",
-   "default_if_silent": "a.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q4",
-   "title": "Energy axis and detector resolution",
-   "urgency": "soon",
-   "problem": "If the file's energy axis or peak width is off by 5–10 eV, the Mg/Al split goes wrong.",
-   "context": "eXSpy fits with fixed centres and widths. Velox has 'optimized spectrum fit' + Re-measure.",
-   "options": [
-    {
-     "label": "a — trust the file",
-     "consequence": "0 sessions; medium risk."
-    },
-    {
-     "label": "b — refine offset, gain and width on the pooled spectrum, show file vs refined",
-     "consequence": "1 session; low risk."
-    },
-    {
-     "label": "c — b plus frame-by-frame drift tracking",
-     "consequence": "2+ sessions; only if first-vs-last frames show drift."
-    }
-   ],
-   "recommendation": "b.",
-   "second_opinion": "Missed by the Fable draft, hidden under Expert in the UX study.",
-   "question": "a, b or c?",
-   "default_if_silent": "b.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q5",
-   "title": "Comparing regions fairly (live time and dead time)",
-   "urgency": "soon",
-   "problem": "Your spectrum images ran at 48–60 % dead time. Boundary vs interior, or file vs file, is only fair if both are normalised the same way.",
-   "context": "Approach E in the dossier specifies live-time-weighted pooling; both drafts dropped it. Whether Velox stores live time per pixel is unknown.",
-   "options": [
-    {
-     "label": "a — compare ratios within one region only",
-     "consequence": "0 sessions."
-    },
-    {
-     "label": "b — normalise by per-pixel live time when the file has it, else by Al Kα, and say which on the result",
-     "consequence": "1 session."
-    }
-   ],
-   "recommendation": "b.",
-   "second_opinion": "Missed by both drafts. Your question: does Velox store live time per pixel?",
-   "question": "a or b?",
-   "default_if_silent": "b.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q6",
-   "title": "Element identification",
-   "urgency": "soon",
-   "problem": "Your 190330 element list contains Ar — probably the Al sum peak, which shows how Auto ID misleads. Ga from FIB sits next to Mg; Cu may be grid or real (Q phase).",
-   "context": "Velox: Auto ID that drops manual picks when toggled. AZtec: candidate lists. HyperSpy: manual.",
-   "options": [
-    {
-     "label": "a — Auto ID on, like the vendors",
-     "consequence": "Familiar; misattributions pass silently."
-    },
-    {
-     "label": "b — manual, a proposer adds nothing without a click",
-     "consequence": "Safe; slower first five minutes."
-    },
-    {
-     "label": "c — the proposer runs on open, conflicts named ('Al sum or Ar?', 'Ga from FIB?'), one click accepts; Cu defaults to Quantify",
-     "consequence": "1.5 sessions; low risk."
-    }
-   ],
-   "recommendation": "c.",
-   "second_opinion": "The UX study wanted a, the Fable draft b; the reviewer merged them.",
-   "question": "a, b or c?",
-   "default_if_silent": "c.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q7",
-   "title": "Spurious signal under Mg and Si",
-   "urgency": "soon",
-   "problem": "The Al peak's low-energy tail lies under Mg, and the detector itself adds a little Si (internal fluorescence) — which pushes your Si enrichment ratio toward 1.",
-   "context": "No vendor handles the tail explicitly. In Al-Mg-Si the matrix holds Mg and Si, so a 'Mg-free control region' does not exist.",
-   "options": [
-    {
-     "label": "a — subtract the matrix pool (result labelled 'excess over matrix')",
-     "consequence": "1 session; does not remove Si fluorescence from a ratio."
-    },
-    {
-     "label": "b — a, plus one five-minute pure-Al spectrum on the same Super-X to measure the tail and Si fluorescence once",
-     "consequence": "+1 session and one acquisition by you."
-    },
-    {
-     "label": "c — plain fit, badged",
-     "consequence": "0 sessions."
-    }
-   ],
-   "recommendation": "b.",
-   "second_opinion": "The Fable draft had a with an impossible control; the reviewer adds the pure-Al reference.",
-   "question": "a, b or c?",
-   "default_if_silent": "b.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q8",
-   "title": "Inspector layout of the Spectroscopy room",
-   "urgency": "soon",
-   "problem": "How many controls you see at once, and where.",
-   "context": "Vendor study: one inspector of 22 rows. Quant draft: one panel of ~9 rows without the energy axis or regions. Both hide nothing important but differ on where.",
-   "options": [
-    {
-     "label": "a — one inspector, 22 rows",
-     "consequence": "Everything in one place; AZtec's eight-field problem, vertically."
-    },
-    {
-     "label": "b — one Quantify panel, ~9 rows",
-     "consequence": "Lean; misses the energy axis and regions."
-    },
-    {
-     "label": "c — five sidebar steps (Spectrum image · Elements & maps · Regions · Quantify · Export), each its own inspector of ≤ 7 rows; k and absorption visible; one toolbar verb 'Quantify', the fit live",
-     "consequence": "Costed in points in the mock first."
-    }
-   ],
-   "recommendation": "c.",
-   "second_opinion": "Reviewer's merge of both drafts.",
-   "question": "a, b or c for the mock?",
-   "default_if_silent": "c.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
-   "id": "V5-Q9",
-   "title": "Thickness",
-   "urgency": "whenever",
-   "problem": "Absorption and error bars need a thickness ± σ.",
-   "context": "Your GMS joint run can include an EELS t/λ map; converting t/λ to nm needs a mean-free-path model (one more named choice).",
-   "options": [
-    {
-     "label": "a — typed ± σ now",
-     "consequence": "0.5 session."
-    },
-    {
-     "label": "b — a plus reading the EELS t/λ map from the GMS run",
-     "consequence": "+1 session."
-    }
-   ],
-   "recommendation": "a now, b with your GMS run.",
-   "second_opinion": "Both drafts and the reviewer agree.",
-   "question": "a or b?",
-   "default_if_silent": "a now, b later.",
-   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)"
-  },
-  {
    "id": "V5-8",
    "title": "Joint-method scope for v5.0",
    "urgency": "soon",
@@ -474,6 +252,237 @@
    "default_if_silent": "a.",
    "source": "dossier §6, §10",
    "answer": "Superseded 2026-10-05 by card V5-Q9."
+  },
+  {
+   "id": "V5-Q1",
+   "title": "Which fit method is the default",
+   "urgency": "now",
+   "problem": "Every result names one fit method (your option 3). Least squares can be checked exactly against HyperSpy; Poisson maximum likelihood is the textbook choice at low counts. On pooled spectra (thousands of counts per peak) they probably agree.",
+   "context": "Velox's own working SI default is 'least square (Empirical)'; no vendor offers the switch. The 2.9 % LS–ML gap is a FePt number, not yours.",
+   "options": [
+    {
+     "label": "a — least squares now, Poisson under Expert",
+     "consequence": "0 extra sessions; low risk; pinnable."
+    },
+    {
+     "label": "b — Poisson now",
+     "consequence": "+0.5 session; cannot be pinned against HyperSpy; chosen before measuring."
+    },
+    {
+     "label": "c — a, plus a pre-registered LS-vs-Poisson measurement on your Al-Mg-Si pools; switch only if the gap matters (> ½ the counting σ of Mg/Si)",
+     "consequence": "+0.5 session; decides on your data."
+    }
+   ],
+   "recommendation": "c.",
+   "second_opinion": "The Fable draft picked Poisson; the reviewer says measure first (threshold rule).",
+   "question": "a, b or c?",
+   "default_if_silent": "c.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — c."
+  },
+  {
+   "id": "V5-Q2",
+   "title": "How the background under Mg, Al and Si is modelled",
+   "urgency": "now",
+   "problem": "Mg, Al and Si sit ~240 eV apart with ~80–100 eV peak width, so clean background windows barely fit; the Al absorption edge (1.56 keV) sits between Al and Si — the decisive region for both your questions.",
+   "context": "Velox: 'Empirical' (a fitted Bethe-Heitler continuum) or polynomial windows. A physical continuum needs the Super-X detector-efficiency curve, which we do not have.",
+   "options": [
+    {
+     "label": "a — physical continuum (espm-style)",
+     "consequence": "2 sessions; needs a detector-efficiency curve; high risk."
+    },
+    {
+     "label": "b — fitted whole-spectrum continuum with the Al-edge step, like Velox's Empirical",
+     "consequence": "1.5 sessions; medium risk; acceptance: flat residual 1.1–1.9 keV on your matrix spectrum."
+    },
+    {
+     "label": "c — polynomial in windows",
+     "consequence": "1 session; poor in this region; kept under Expert for parity."
+    }
+   ],
+   "recommendation": "b default, c under Expert, a later.",
+   "second_opinion": "The Fable draft picked a; the reviewer disagrees (missing efficiency, Al edge).",
+   "question": "a, b or c as the default?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — b default, c under Expert, a later."
+  },
+  {
+   "id": "V5-Q3",
+   "title": "at% in v5.0, and from which k",
+   "urgency": "now",
+   "problem": "Every vendor shows at%; HyperSpy makes you type k. A computed k needs cross-sections, fluorescence yields, line weights and the detector's efficiency curve. Your first question (Si enrichment, boundary vs cell) is a ratio of ratios and needs no k.",
+   "context": "Velox computes k from Brown-Powell (default), Bote-Salvat or Schreiber-Wims and assumes ±20 %. No ζ-factor and no calibrated probe current exist for your instrument.",
+   "options": [
+    {
+     "label": "a — computed Brown-Powell k + typed k; at% badged 'unvalidated' on screen and in every export; k-free ratio shown above; at% on regions only; detector efficiency a named, sourced input; no ζ in the menu",
+     "consequence": "3 sessions; low risk with the badge."
+    },
+    {
+     "label": "b — ratios plus typed k only",
+     "consequence": "1 session; below every vendor."
+    }
+   ],
+   "recommendation": "a.",
+   "second_opinion": "Both reviewers agree on a; the reviewer adds: efficiency named, ζ removed from the menu, at% on regions only, Bote-Salvat only after a data-rights check.",
+   "question": "a or b?",
+   "default_if_silent": "a.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — a."
+  },
+  {
+   "id": "V5-Q4",
+   "title": "Energy axis and detector resolution",
+   "urgency": "soon",
+   "problem": "If the file's energy axis or peak width is off by 5–10 eV, the Mg/Al split goes wrong.",
+   "context": "eXSpy fits with fixed centres and widths. Velox has 'optimized spectrum fit' + Re-measure.",
+   "options": [
+    {
+     "label": "a — trust the file",
+     "consequence": "0 sessions; medium risk."
+    },
+    {
+     "label": "b — refine offset, gain and width on the pooled spectrum, show file vs refined",
+     "consequence": "1 session; low risk."
+    },
+    {
+     "label": "c — b plus frame-by-frame drift tracking",
+     "consequence": "2+ sessions; only if first-vs-last frames show drift."
+    }
+   ],
+   "recommendation": "b.",
+   "second_opinion": "Missed by the Fable draft, hidden under Expert in the UX study.",
+   "question": "a, b or c?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — b."
+  },
+  {
+   "id": "V5-Q5",
+   "title": "Comparing regions fairly (live time and dead time)",
+   "urgency": "soon",
+   "problem": "Your spectrum images ran at 48–60 % dead time. Boundary vs interior, or file vs file, is only fair if both are normalised the same way.",
+   "context": "Approach E in the dossier specifies live-time-weighted pooling; both drafts dropped it. Whether Velox stores live time per pixel is unknown.",
+   "options": [
+    {
+     "label": "a — compare ratios within one region only",
+     "consequence": "0 sessions."
+    },
+    {
+     "label": "b — normalise by per-pixel live time when the file has it, else by Al Kα, and say which on the result",
+     "consequence": "1 session."
+    }
+   ],
+   "recommendation": "b.",
+   "second_opinion": "Missed by both drafts. Your question: does Velox store live time per pixel?",
+   "question": "a or b?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — b."
+  },
+  {
+   "id": "V5-Q6",
+   "title": "Element identification",
+   "urgency": "soon",
+   "problem": "Your 190330 element list contains Ar — probably the Al sum peak, which shows how Auto ID misleads. Ga from FIB sits next to Mg; Cu may be grid or real (Q phase).",
+   "context": "Velox: Auto ID that drops manual picks when toggled. AZtec: candidate lists. HyperSpy: manual.",
+   "options": [
+    {
+     "label": "a — Auto ID on, like the vendors",
+     "consequence": "Familiar; misattributions pass silently."
+    },
+    {
+     "label": "b — manual, a proposer adds nothing without a click",
+     "consequence": "Safe; slower first five minutes."
+    },
+    {
+     "label": "c — the proposer runs on open, conflicts named ('Al sum or Ar?', 'Ga from FIB?'), one click accepts; Cu defaults to Quantify",
+     "consequence": "1.5 sessions; low risk."
+    }
+   ],
+   "recommendation": "c.",
+   "second_opinion": "The UX study wanted a, the Fable draft b; the reviewer merged them.",
+   "question": "a, b or c?",
+   "default_if_silent": "c.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — c."
+  },
+  {
+   "id": "V5-Q7",
+   "title": "Spurious signal under Mg and Si",
+   "urgency": "soon",
+   "problem": "The Al peak's low-energy tail lies under Mg, and the detector itself adds a little Si (internal fluorescence) — which pushes your Si enrichment ratio toward 1.",
+   "context": "No vendor handles the tail explicitly. In Al-Mg-Si the matrix holds Mg and Si, so a 'Mg-free control region' does not exist.",
+   "options": [
+    {
+     "label": "a — subtract the matrix pool (result labelled 'excess over matrix')",
+     "consequence": "1 session; does not remove Si fluorescence from a ratio."
+    },
+    {
+     "label": "b — a, plus one five-minute pure-Al spectrum on the same Super-X to measure the tail and Si fluorescence once",
+     "consequence": "+1 session and one acquisition by you."
+    },
+    {
+     "label": "c — plain fit, badged",
+     "consequence": "0 sessions."
+    }
+   ],
+   "recommendation": "b.",
+   "second_opinion": "The Fable draft had a with an impossible control; the reviewer adds the pure-Al reference.",
+   "question": "a, b or c?",
+   "default_if_silent": "b.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — b."
+  },
+  {
+   "id": "V5-Q8",
+   "title": "Inspector layout of the Spectroscopy room",
+   "urgency": "soon",
+   "problem": "How many controls you see at once, and where.",
+   "context": "Vendor study: one inspector of 22 rows. Quant draft: one panel of ~9 rows without the energy axis or regions. Both hide nothing important but differ on where.",
+   "options": [
+    {
+     "label": "a — one inspector, 22 rows",
+     "consequence": "Everything in one place; AZtec's eight-field problem, vertically."
+    },
+    {
+     "label": "b — one Quantify panel, ~9 rows",
+     "consequence": "Lean; misses the energy axis and regions."
+    },
+    {
+     "label": "c — five sidebar steps (Spectrum image · Elements & maps · Regions · Quantify · Export), each its own inspector of ≤ 7 rows; k and absorption visible; one toolbar verb 'Quantify', the fit live",
+     "consequence": "Costed in points in the mock first."
+    }
+   ],
+   "recommendation": "c.",
+   "second_opinion": "Reviewer's merge of both drafts.",
+   "question": "a, b or c for the mock?",
+   "default_if_silent": "c.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — c."
+  },
+  {
+   "id": "V5-Q9",
+   "title": "Thickness",
+   "urgency": "whenever",
+   "problem": "Absorption and error bars need a thickness ± σ.",
+   "context": "Your GMS joint run can include an EELS t/λ map; converting t/λ to nm needs a mean-free-path model (one more named choice).",
+   "options": [
+    {
+     "label": "a — typed ± σ now",
+     "consequence": "0.5 session."
+    },
+    {
+     "label": "b — a plus reading the EELS t/λ map from the GMS run",
+     "consequence": "+1 session."
+    }
+   ],
+   "recommendation": "a now, b with your GMS run.",
+   "second_opinion": "Both drafts and the reviewer agree.",
+   "question": "a or b?",
+   "default_if_silent": "a now, b later.",
+   "source": "docs/archive/v5/quant-design-2026-10-05/ (columns, proposal-draft, ux-study, second-opinion)",
+   "answer": "Owner 2026-10-05 (ADR 054): as recommended — a now, b with your GMS run."
   }
  ]
 }
