@@ -14,11 +14,17 @@ import DSTEMSession
 enum WorkspaceRoute: Hashable, Identifiable {
     case workspace(WorkspaceArea)
     case task(AnalysisMode)
+    /// One of the Spectroscopy room's five steps (ADR 054 item 8). The step
+    /// selection is the room's own (`SpectroscopySession.selectedStep`), so
+    /// `current(_:)` — a function of navigation alone — names the room, and
+    /// `AppState.workspaceRoute` resolves it to the step.
+    case spectroscopyStep(SpectroscopyStep)
 
     var id: String {
         switch self {
         case .workspace(let area): "workspace.\(area.rawValue)"
         case .task(let mode): "task.\(mode.id)"
+        case .spectroscopyStep(let step): "spectroscopy.\(step.rawValue)"
         }
     }
 
@@ -27,6 +33,7 @@ enum WorkspaceRoute: Hashable, Identifiable {
         switch self {
         case .workspace(let area): area
         case .task(let mode): mode.workspaceArea
+        case .spectroscopyStep: .spectroscopy
         }
     }
 
@@ -36,6 +43,7 @@ enum WorkspaceRoute: Hashable, Identifiable {
         switch self {
         case .workspace(let area): area.title
         case .task(let mode): mode.productTitle
+        case .spectroscopyStep(let step): step.title
         }
     }
 
@@ -43,6 +51,7 @@ enum WorkspaceRoute: Hashable, Identifiable {
         switch self {
         case .workspace(let area): area.subtitle
         case .task(let mode): mode.productSubtitle
+        case .spectroscopyStep: WorkspaceArea.spectroscopy.subtitle
         }
     }
 
@@ -50,6 +59,7 @@ enum WorkspaceRoute: Hashable, Identifiable {
         switch self {
         case .workspace(let area): area.systemImage
         case .task(let mode): mode.systemImage
+        case .spectroscopyStep(let step): step.systemImage
         }
     }
 
@@ -70,11 +80,20 @@ extension AppState {
     /// stores nothing of its own.
     var workspaceRoute: Binding<WorkspaceRoute?> {
         Binding(
-            get: { WorkspaceRoute.current(self.navigation) },
+            get: {
+                let route = WorkspaceRoute.current(self.navigation)
+                // The Spectroscopy room is represented by its selected step, as
+                // a room with tasks is by its task.
+                return route == .workspace(.spectroscopy)
+                    ? .spectroscopyStep(self.spectroscopy.selectedStep) : route
+            },
             set: { route in
                 switch route {
                 case .workspace(let area):
                     self.selectWorkspace(area)
+                case .spectroscopyStep(let step):
+                    self.selectWorkspace(.spectroscopy)
+                    self.spectroscopy.selectedStep = step
                 case .task(let mode):
                     if self.navigation.workspaceArea != mode.workspaceArea {
                         self.selectWorkspace(mode.workspaceArea)

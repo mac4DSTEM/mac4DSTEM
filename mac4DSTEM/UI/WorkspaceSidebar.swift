@@ -18,7 +18,7 @@ struct WorkspaceSidebar: View {
 
     var body: some View {
         List(selection: appState.workspaceRoute) {
-            if !appState.hasDataset {
+            if !appState.hasDocument {
                 Section("Dataset") {
                     Button {
                         appState.requestOpenDataset()
@@ -41,7 +41,13 @@ struct WorkspaceSidebar: View {
 
             Section("Workspace") {
                 ForEach(WorkspaceArea.allCases) { area in
+                    // A 4D room in a spectrum-only window is listed, greyed and
+                    // not selectable: the list keeps its seven rows and its
+                    // shortcuts, and nothing leads into an empty room.
+                    let withheld = appState.isWorkspaceWithheld(area)
                     workspaceRow(area).tag(WorkspaceRoute.workspace(area))
+                        .disabled(withheld)
+                        .selectionDisabled(withheld)
                 }
                 if let hint = ProductWorkflow.nextStepHint(
                     for: appState.navigation.workspaceArea,
@@ -82,6 +88,10 @@ struct WorkspaceSidebar: View {
                 }
             }
 
+            if area == .spectroscopy {
+                SpectroscopySidebarSections()
+            }
+
             SessionSection(pendingResultRemoval: $pendingResultRemoval)
         }
         .listStyle(.sidebar)
@@ -118,7 +128,9 @@ struct WorkspaceSidebar: View {
     private func workspaceRow(_ area: WorkspaceArea) -> some View {
         Label(area.title, systemImage: area.systemImage)
             .badge(area == .results ? appState.sessionInventory.results.count : 0)
-            .help(area.subtitle)
+            .help(appState.isWorkspaceWithheld(area)
+                  ? "\(area.title) works on a 4D-STEM scan; this window holds a spectrum image only."
+                  : area.subtitle)
             .accessibilityLabel(area.title)
             .accessibilityIdentifier("workspace.\(area.rawValue)")
             .accessibilityHint(area.subtitle)
@@ -217,6 +229,54 @@ struct WorkspaceSidebar: View {
         let unmet = taskUnmetCount(mode)
         if unmet == 0 { return "\(mode.productTitle), ready" }
         return "\(mode.productTitle), \(unmet) requirement\(unmet == 1 ? "" : "s") missing"
+    }
+}
+
+// MARK: - The Spectroscopy room's steps and regions
+
+/// The Spectroscopy room's sidebar (ADR 054 item 8; mock v3): the five steps,
+/// selectable like a room's tasks, then the regions. A region row is a button,
+/// not a selection tag — the List has one selection, and it is the step; the
+/// region the spectrum describes is marked instead, as the mock shows both.
+struct SpectroscopySidebarSections: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        Section(WorkspaceArea.spectroscopy.title) {
+            ForEach(SpectroscopyStep.allCases) { step in
+                Label(step.title, systemImage: step.systemImage)
+                    .accessibilityIdentifier("spectroscopy.step.\(step.rawValue)")
+                    .tag(WorkspaceRoute.spectroscopyStep(step))
+            }
+        }
+        let regions = appState.spectroscopy.regions
+        if !regions.isEmpty {
+            Section("Regions") {
+                ForEach(regions) { region in
+                    regionRow(region, isSelected: region.id == appState.spectroscopy.selectedRegionID)
+                }
+            }
+        }
+    }
+
+    private func regionRow(_ region: SpectroscopyRegion, isSelected: Bool) -> some View {
+        Button {
+            appState.spectroscopy.selectedRegionID = region.id
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Label(region.name, systemImage: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                    .lineLimit(1)
+                Text("\(SystemMonitor.count(region.pixelCount)) px")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(region.name)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("spectroscopy.region.\(region.id)")
     }
 }
 

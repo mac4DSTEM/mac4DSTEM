@@ -55,7 +55,8 @@ the detector: implementation and follow-up review are continuing elsewhere.
 ## 3. Product direction and placement in the app
 
 Built on the branch 2026-09-07 (unverified on screen): an **AI Analysis**
-workspace in the left sidebar between Phase and Results (⌘5), icon
+workspace in the left sidebar between Phase and Results (⌘5 then; ADR 046 retired it, and its
+tasks now sit in Imaging ⌘2, Bragg Disks ⌘3 and Crystal Maps ⌘4), icon
 `sparkles`, tasks Precipitates / Diffraction groups / Learned disks, the
 same two panes as Imaging, its own inspector. The main app carries none of
 the AI controls: Bragg disks runs the classical detector only. The name and

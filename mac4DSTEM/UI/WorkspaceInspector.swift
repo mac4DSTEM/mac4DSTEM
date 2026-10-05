@@ -192,6 +192,9 @@ private struct InspectorSettingsTab: View {
             // (owner decisions — see `DisplaySettingsSections`'s deletion
             // note and `SessionProductsSections` below).
             .environment(\.inspectorScope, "settings")
+        } else if appState.isSpectrumOnly {
+            // A spectrum-only window (v5.0 WP2): the room's step, or one line, never "No dataset loaded".
+            SpectrumOnlySettingsTab()
         } else {
             ContentUnavailableView(
                 "No dataset loaded",
@@ -313,6 +316,14 @@ private struct InspectorInfoTab: View {
             // and the Settings tab's own "Dataset" actions section — two
             // different facts that happen to share a title — remember their
             // expansion separately.
+            .environment(\.inspectorScope, "info")
+        } else if let metadata = appState.spectroscopy.metadata {
+            ScrollView {
+                VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
+                    SpectrumImageInfoSection(metadata: metadata)
+                }
+                .padding()
+            }
             .environment(\.inspectorScope, "info")
         } else {
             ContentUnavailableView(

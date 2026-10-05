@@ -19,6 +19,9 @@ final class MenuActionRelay {
     enum Action: Equatable {
         case openDataset
         case preprocess
+        /// A file chosen in a spectrum-only window, opened in a new one
+        /// (`AppState.routesOpenToNewWindow`); `configure` is Open with Options.
+        case openFile(URL, configure: Bool)
     }
 
     private(set) var pendingAction: Action?
@@ -43,6 +46,8 @@ final class MenuActionRelay {
         switch action {
         case .openDataset: appState.requestOpenDataset()
         case .preprocess: appState.requestPreprocessRawData()
+        case .openFile(let url, let configure):
+            if configure { appState.openFileForConfiguration(url: url) } else { appState.openFile(url: url) }
         }
     }
 

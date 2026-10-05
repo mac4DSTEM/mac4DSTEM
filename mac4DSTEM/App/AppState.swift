@@ -908,6 +908,11 @@ final class AppState {
     /// live on `navigation`; the recovery persist that the old `navigation.analysisMode`
     /// didSet performed is wired through `navigation.onModeChange` in `init`.
     let navigation = WorkspaceNavigation()
+    /// Owner: `SpectroscopySession` (v5.0 WP2) — the spectrum image and the room's state; a window's second
+    /// document, beside the 4D owners. The rest is in `AppState+Spectroscopy.swift`.
+    let spectroscopy = SpectroscopySession()
+    /// Set by the window (`DatasetWindow`): opens a file in a NEW window — see `routesOpenToNewWindow`.
+    @ObservationIgnored var openInNewWindow: ((_ url: URL, _ configure: Bool) -> Void)?
 
     /// v2.5 step 5b: owned by `OperationCenter`; forwarded for the readers.
     /// No default expression (unlike most of this file's stored properties):
@@ -1189,6 +1194,7 @@ final class AppState {
     /// scan operations are always launched from an explicit action in their
     /// task panel, so moving around the app is immediate and side-effect free.
     func selectWorkspace(_ area: WorkspaceArea) {
+        guard !isWorkspaceWithheld(area) else { return }   // a 4D room in a spectrum-only window
         navigation.workspaceArea = area
         if let preferred = area.defaultAnalysisMode,
            !area.analysisModes.contains(navigation.analysisMode) {
@@ -1226,7 +1232,7 @@ final class AppState {
                 || phaseContrast.parallaxHigherOrderFit == nil
                 || phaseContrast.parallaxCorrection == nil
                 || !parallaxStage4IsComplete(phaseContrast)
-        case .results:
+        case .spectroscopy, .results:   // Spectroscopy's Quantify waits for WP3
             return false
         }
     }
@@ -1290,7 +1296,7 @@ final class AppState {
             } else if !parallaxStage4IsComplete(phaseContrast) {
                 await upsampleParallaxBF()
             }
-        case .results:
+        case .spectroscopy, .results:
             break
         }
         if case .failed(let reason)? = outcome, statusText == statusBefore { statusText = reason }
@@ -1298,6 +1304,7 @@ final class AppState {
 
     /// One load at a time: the bundled HDF5 is not thread-safe (`ConcurrentOpenRefusalTests`).
     func openFile(url: URL) {
+        if routesOpenToNewWindow(url, configure: false) { return }   // a spectrum-only window (v5.0 WP2)
         if datasetSession.isLoading { statusText = "Already opening a dataset — wait for that one to finish, or cancel it."; return }
         // Every open path funnels here (menus, toolbar, welcome, sidebar, Recents, Finder); opening would cancel an
         // in-flight sidecar save unwritten (review 2026-10-02 c4).

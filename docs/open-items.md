@@ -221,6 +221,21 @@ Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` onc
 truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
+### Spectroscopy room, as landed in WP2 (2026-10-05): unverified on screen and known gaps
+The room shell (lane R) and the views (lane V) are in. The views are wired to the room only in step R2.
+- **Not seen on screen.** The AppKit-backed controls (segmented pickers, numeric fields, the draw tools), the Review
+  popover and the hover readout have not been driven on screen. `ImageRenderer` cannot draw them. A scratch-build drive
+  follows the wiring.
+- **The hover's nearest-line cut-off is a fixed 0.1 keV.** Derive it from the session's FWHM, or show Δ instead.
+- **The map header title truncates at 1000 pt** next to the draw tools and the menu.
+- **The ColorMix fills one Path per pixel.** Make it a CGImage raster before real 256²+ maps.
+- **The plain mouse wheel does not zoom.** Pinch and ⌃-wheel do, as in `ZoomPan.swift`, a SwiftUI limit. The owner may
+  want plain-wheel zoom.
+- **⌘6 in a 4D window opens a dead-end room** until Velox/DM4 routing opens spectrum images.
+- `InspectorWidthBudgetTests` measures the placeholder, not lane V's inspectors. R2 re-measures.
+- **A cancelled 4D open in a window that has a spectrum image** leaves a withheld room selected (the backstop view
+  shows).
+
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads

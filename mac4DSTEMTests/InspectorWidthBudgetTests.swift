@@ -205,6 +205,6 @@ final class InspectorWidthBudgetTests: XCTestCase {
                 measured += 1
             }
         }
-        XCTAssertEqual(measured, AnalysisMode.allCases.count + 2, "every task, plus Prepare and Results")
+        XCTAssertEqual(measured, AnalysisMode.allCases.count + 3, "every task, plus Prepare, Spectroscopy and Results")
     }
 }

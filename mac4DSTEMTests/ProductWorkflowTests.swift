@@ -111,7 +111,7 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertEqual(WorkspaceArea.map.defaultAnalysisMode, .strain)
         // Accessibility identifiers are `workspace.<rawValue>`; the old ones keep their spelling.
         XCTAssertEqual(WorkspaceArea.allCases.map(\.rawValue),
-                       ["prepare", "image", "braggDisks", "map", "reconstruct", "results"])
+                       ["prepare", "image", "braggDisks", "map", "reconstruct", "spectroscopy", "results"])
     }
 
     /// Phase mapping matches the peaks disk detection finds and looks for none
@@ -237,7 +237,7 @@ final class ProductWorkflowTests: XCTestCase {
         // (voltage-only: DPC first, ptychography behind it).
         XCTAssertEqual(
             WorkspaceArea.allCases.map(\.title),
-            ["Prepare", "Imaging", "Bragg Disks", "Crystal Maps", "Reconstruction", "Results"]
+            ["Prepare", "Imaging", "Bragg Disks", "Crystal Maps", "Reconstruction", "Spectroscopy", "Results"]
         )
         XCTAssertEqual(WorkspaceArea.braggDisks.defaultAnalysisMode, .disks)
         XCTAssertEqual(WorkspaceArea.reconstruct.defaultAnalysisMode, .dpc)
@@ -511,7 +511,7 @@ final class ProductWorkflowTests: XCTestCase {
         )
 
         // Workspaces with no tasks must not claim to need captions.
-        for area in [WorkspaceArea.prepare, .results] {
+        for area in [WorkspaceArea.prepare, .spectroscopy, .results] {
             XCTAssertTrue(area.taskFamilyGroups.isEmpty, "\(area)")
             XCTAssertFalse(area.showsTaskFamilyLabels, "\(area)")
         }

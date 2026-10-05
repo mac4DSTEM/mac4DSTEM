@@ -17,6 +17,8 @@ extension AppState {
     /// sheet's (X3): the previews and crop are the configurator's, the file
     /// written is a reduced copy instead of a load.
     func openFileForConfiguration(url: URL, preprocess: Bool = false) {
+        // A Preprocess source is only read into a sheet, never opened as this window's document.
+        if !preprocess, routesOpenToNewWindow(url, configure: true) { return }
         // Review a6 / owner card D2 (a): a dataset another window holds is refused before this window changes, and
         // the open claims its file while in flight. A Preprocess source is only read — never a session, never its
         // sidecar — so it is neither refused nor claimed.

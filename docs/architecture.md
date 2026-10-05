@@ -49,10 +49,13 @@ this class of defect — a narrowed, not closed, blind spot per
 
 ## What it does, by subsystem
 
-**Workflow.** Six workspaces that follow the data (ADR 046) — **Prepare /
-Imaging / Bragg Disks / Crystal Maps / Reconstruction / Results** (`⌘1…⌘6`;
+**Workflow.** Seven workspaces that follow the data (ADR 046, 055) — **Prepare /
+Imaging / Bragg Disks / Crystal Maps / Reconstruction / Spectroscopy / Results** (`⌘1…⌘7`;
 `App/ProductWorkflow.swift`'s `WorkspaceArea`; `UI/WorkspaceSettings.swift`
-picks each task's inspector controls). Navigation is side-effect free; whole-scan work starts
+picks each task's inspector controls). A window holds a 4D cube, an EDX spectrum
+image (`Session/SpectroscopySession.swift`), or both: `hasDataset` still means a
+4D cube, `hasDocument` either; a spectrum-only window offers Spectroscopy and
+Results and greys the 4D rooms (`App/AppState+Spectroscopy.swift`). Navigation is side-effect free; whole-scan work starts
 only from an explicit primary action, runs detached with live progress and
 Cancel, and reports in the infobar.
 

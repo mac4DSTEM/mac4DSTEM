@@ -13,6 +13,9 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     case braggDisks
     case map
     case reconstruct
+    /// v5.0 (ADR 053 item 3, 054 item 8, 055): EDX spectrum images, with or
+    /// without a 4D cube. Before Results, which stays last.
+    case spectroscopy
     case results
 
     var id: String { rawValue }
@@ -20,8 +23,8 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     // Case names and raw values keep their v1 identities —
     // `image`/`map`/`reconstruct` (docs/s22-ux-design.md §4.2) — so the
     // accessibility identifiers `workspace.<rawValue>` survive relabeling;
-    // only the presented names and task assignment change. The six rooms
-    // follow the data (ADR 046): disks first, then everything that consumes
+    // only the presented names and task assignment change. The seven rooms
+    // follow the data (ADR 046, 055): disks first, then everything that consumes
     // them; "AI Analysis" held vector matching and PCA, neither of them
     // machine learning, and is gone.
     var title: String {
@@ -31,6 +34,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .braggDisks: "Bragg Disks"
         case .map: "Crystal Maps"
         case .reconstruct: "Reconstruction"
+        case .spectroscopy: "Spectroscopy"
         case .results: "Results"
         }
     }
@@ -42,6 +46,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .braggDisks: "Detect Bragg disks and label them"
         case .map: "Strain, orientation, and phases from Bragg disks"
         case .reconstruct: "DPC, parallax, and ptychography"
+        case .spectroscopy: "EDX spectrum images, alone or with the 4D scan"
         case .results: "Review, save, and export products"
         }
     }
@@ -53,13 +58,17 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
         case .braggDisks: "circle.grid.3x3"
         case .map: "map"
         case .reconstruct: "waveform.path.ecg.rectangle"
+        case .spectroscopy: "chart.bar.xaxis"
         case .results: "square.grid.2x2"
         }
     }
 
     var analysisModes: [AnalysisMode] {
         switch self {
-        case .prepare, .results: []
+        // Spectroscopy's five steps are its own (`SpectroscopyStep`), not
+        // AnalysisModes: they never enter the 4D task, readiness or replay
+        // plumbing.
+        case .prepare, .spectroscopy, .results: []
         // Both need nothing but the cube: an image first, then grouping
         // (PCA + k-means), which a user reaches for before they know which
         // phases to name.
@@ -93,6 +102,30 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
     /// Reconstruct (one task) and Image (two tasks, one family) both looked
     /// like. Keyed on family count rather than task count for that reason.
     var showsTaskFamilyLabels: Bool { taskFamilyGroups.count > 1 }
+
+    /// The Go to <room> shortcut, ⌘1…⌘7 in list order: Spectroscopy ⌘6,
+    /// Results ⌘7 (ADR 053 item 3). Derived, so the menu and the list cannot
+    /// disagree.
+    var shortcutDigit: Character {
+        Character(String((Self.allCases.firstIndex(of: self) ?? 0) + 1))
+    }
+
+    /// Whether this room works on the 4D cube. A window holding only a spectrum
+    /// image (ADR 053 item 3) has no cube, so these rooms have nothing to show.
+    var needsFourDCube: Bool {
+        switch self {
+        case .prepare, .image, .braggDisks, .map, .reconstruct: true
+        case .spectroscopy, .results: false
+        }
+    }
+
+    /// Whether the window can enter this room with what it holds. Without any
+    /// document no room is available — the Go to items were disabled then
+    /// before Spectroscopy existed, and stay so; with a 4D cube every room is.
+    func isAvailable(hasFourDCube: Bool, hasSpectrumImage: Bool) -> Bool {
+        if hasFourDCube { return true }
+        return hasSpectrumImage && !needsFourDCube
+    }
 }
 
 /// The scientific algorithm a task runs. `WorkspaceArea` above names the
@@ -725,7 +758,7 @@ enum ProductWorkflow {
             return readiness.hasBraggVectors
                 ? "Next: export in Results."
                 : nil
-        case .reconstruct, .results:
+        case .reconstruct, .spectroscopy, .results:
             return nil
         }
     }

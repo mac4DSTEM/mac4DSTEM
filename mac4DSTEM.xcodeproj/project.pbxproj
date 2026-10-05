@@ -169,6 +169,7 @@
 				Session/SessionGates.swift,
 				Session/SessionReplay.swift,
 				Session/SessionSidecarLocator.swift,
+				Session/SpectroscopySession.swift,
 				Session/StrainProduct.swift,
 				Session/SystemMonitor.swift,
 				Session/WorkspaceRecovery.swift,

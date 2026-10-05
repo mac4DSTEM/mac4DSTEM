@@ -49,6 +49,7 @@ private struct DatasetWindow: View {
     let menuRelay: MenuActionRelay
     @State private var appState: AppState
     @State private var loadedLaunchFixture = false
+    @Environment(\.openWindow) private var openWindow
 
     /// `preferences` is handed in (not `AppPreferences()` as a default, the
     /// `materialsProject`/`sessionSidecar` shape) because it must be the
@@ -83,7 +84,15 @@ private struct DatasetWindow: View {
         .onOpenURL { appState.openFile(url: $0) }
         // Review a6 / owner card D2 (a): a closed window lets go of its dataset at once, even if something still
         // retains its state; a window that appears again is known again (`OpenDatasetRegistry`).
-        .onAppear { appState.enrollInOpenDatasetRegistry() }
+        .onAppear {
+            appState.enrollInOpenDatasetRegistry()
+            // A 4D file opened while this window holds only a spectrum image goes to a new window
+            // (`AppState.routesOpenToNewWindow`), which takes it through the relay as a menu action.
+            appState.openInNewWindow = { [menuRelay, openWindow] url, configure in
+                menuRelay.request(.openFile(url, configure: configure))
+                openWindow(id: "dataset")
+            }
+        }
         .onDisappear { OpenDatasetRegistry.withdraw(appState) }
         .frame(minWidth: LayoutPolicy.datasetWindowMinimumSize.width,
                minHeight: LayoutPolicy.datasetWindowMinimumSize.height)
@@ -103,6 +112,18 @@ private struct DatasetWindow: View {
                 )
                 await appState.openDemoFixture(calibrated: !uncalibrated)
             }
+        #if DEBUG
+        // The spectrum-only window, before the readers land (v5.0 WP2): metadata only.
+        // Once per PROCESS, not per window: a second window (a 4D file opened from the
+        // spectrum-only one goes to a new window) must not become spectrum-only too and
+        // route its own open onward again.
+        .task {
+            guard !DemoSpectrumImageSource.openedAtLaunch,
+                  ProcessInfo.processInfo.arguments.contains("--demo-spectrum-fixture") else { return }
+            DemoSpectrumImageSource.openedAtLaunch = true
+            appState.openSpectrumImage(DemoSpectrumImageSource())
+        }
+        #endif
     }
 }
 
@@ -227,14 +248,11 @@ private struct DatasetCommands: Commands {
             }
         }
         CommandMenu("Workspace") {
-            workspaceCommand(.prepare, key: "1")
-            workspaceCommand(.image, key: "2")
-            workspaceCommand(.braggDisks, key: "3")
-            workspaceCommand(.map, key: "4")
-            workspaceCommand(.reconstruct, key: "5")
-            // Results is 6: the rooms are ordered by the pipeline, and
-            // Results is last (owner decision, docs/decisions.md).
-            workspaceCommand(.results, key: "6")
+            // ⌘1…⌘7 in list order: the rooms follow the pipeline,
+            // Spectroscopy is ⌘6 and Results stays last, ⌘7 (ADR 053 item 3).
+            ForEach(WorkspaceArea.allCases) { area in
+                workspaceCommand(area, key: KeyEquivalent(area.shortcutDigit))
+            }
         }
     }
 
@@ -261,7 +279,9 @@ private struct DatasetCommands: Commands {
     private func workspaceCommand(_ area: WorkspaceArea, key: KeyEquivalent) -> some View {
         Button("Go to \(area.title)") { appState?.selectWorkspace(area) }
             .keyboardShortcut(key, modifiers: .command)
-            .disabled(appState?.hasDataset != true)
+            // A spectrum-only window offers Spectroscopy and Results; with a
+            // 4D cube every room; with nothing open, none (as before).
+            .disabled(appState?.isWorkspaceAvailable(area) != true)
     }
 }
 

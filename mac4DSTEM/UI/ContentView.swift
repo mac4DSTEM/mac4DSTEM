@@ -15,7 +15,7 @@ import DSTEMSession
 ///
 /// **The shape** is Xcode's:
 ///
-/// - **Left** is navigation and nothing else: five workspaces and their
+/// - **Left** is navigation and nothing else: seven workspaces and their
 ///   tasks, in a source list narrow enough to stay narrow.
 /// - **Centre** owns the breadcrumb/action header, science panes, infobar,
 ///   and the process area below that draggable bar.
@@ -166,7 +166,7 @@ struct ContentView: View {
         // reads "Prepare › dataset", and drawing the title too would
         // duplicate it 30 pt above. Xcode's toolbar carries no title either;
         // its jump bar does.
-        .navigationTitle(appState.descriptor?.fileName ?? "mac4DSTEM")
+        .navigationTitle(appState.descriptor?.fileName ?? appState.spectroscopy.metadata?.fileName ?? "mac4DSTEM")
         .toolbar(removing: .title)
     }
 
@@ -365,6 +365,21 @@ struct ToolbarRunDisplay: View {
             // the text rather than hugging it (owner decision, on a real
             // cube).
             .padding(.horizontal, LayoutPolicy.toolbarDisplayPadding)
+        } else if let metadata = appState.spectroscopy.metadata, !appState.datasetSession.isLoading {
+            // A spectrum-only window (v5.0 WP2): the same display, its grid in pixels.
+            Text(ToolbarDisplayFormat.idleSpectrumImage(
+                file: metadata.fileName,
+                room: WorkspaceRoute.current(appState.navigation).title,
+                width: metadata.scanWidth, height: metadata.scanHeight
+            ))
+            .font(.subheadline)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .help(metadata.filePath)
+            .accessibilityIdentifier("toolbar.display.idle")
+            .frame(minWidth: LayoutPolicy.toolbarDisplayMinimumWidth,
+                   maxWidth: LayoutPolicy.toolbarDisplayWidth)
+            .padding(.horizontal, LayoutPolicy.toolbarDisplayPadding)
         }
     }
 
@@ -390,5 +405,11 @@ enum ToolbarDisplayFormat {
     /// window's subject), the room, then the scan size.
     static func idle(file: String, room: String, positions: Int) -> String {
         "\(file) · \(room) · \(SystemMonitor.count(positions)) \(positions == 1 ? "position" : "positions")"
+    }
+
+    /// "Al-Mg-Si_190330.emd · Spectroscopy · 256 × 256 px" — a spectrum image
+    /// with no cube (the room mock's screen 1).
+    static func idleSpectrumImage(file: String, room: String, width: Int, height: Int) -> String {
+        "\(file) · \(room) · \(width) × \(height) px"
     }
 }

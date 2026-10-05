@@ -91,3 +91,21 @@ The revised mock follows. The room is built only once the owner accepts it (ADR 
 - **Garwood intervals are used at every count.** The "~20 counts" switch was a threshold, and it is dropped.
 
 Record: `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md` § Flags.
+
+## Brown-Powell has no licence-clean source; computed k uses Bote-Salvat (session, 2026-10-05; owner overrules on sight)
+
+- **What the research found** (Sonnet, `bp/report.md` in the session scratchpad):
+  - No licence-clean, citable implementation of the Brown-Powell cross-section exists. NIST EPQ has none, xraylib has
+    none, and the Velox manual names it without coefficients.
+  - EPQ (public domain, 17 USC 105, commit 249dd3f8) carries Bote-Salvat 2008 (PRA 77, 042701), valid to 1 GeV, so
+    Mg/Al/Si K at 200 kV is in range.
+  - EPQ also carries Krause 1979 fluorescence yields and an SDD efficiency model.
+- **Decision.** Computed k uses **Bote-Salvat + Krause 1979 + EPQ's efficiency model.**
+  - It is labelled by name and badged unvalidated.
+  - A DEVIATION note says it is not Velox's Brown-Powell default. Velox's manual says Bote-Salvat tends to underestimate
+    light-element atomic fractions.
+  - Typed k stays.
+  - WP3's Q3, the Velox cross-check on one pooled matrix spectrum, measures the gap before any computed at% loses its
+    badge.
+- **Why this costs the owner's first question nothing.** Si enrichment at cell boundaries is a ratio of ratios, so k
+  cancels.

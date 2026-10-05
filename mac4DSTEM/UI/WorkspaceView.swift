@@ -85,8 +85,19 @@ struct WorkspaceView: View {
     private var content: some View {
         if appState.datasetSession.isLoading {
             loadingState
-        } else if !appState.hasDataset {
+        } else if !appState.hasDocument {
             WelcomeWorkspace()
+        } else if appState.navigation.workspaceArea == .spectroscopy {
+            // v5.0 WP2: lane V's views replace the placeholder (R2).
+            SpectroscopyRoomPlaceholder()
+        } else if appState.isSpectrumOnly {
+            // A spectrum image and no cube: Results has nothing of the 4D
+            // kind to review, and a 4D room is withheld (`isWorkspaceWithheld`).
+            if appState.navigation.workspaceArea == .results {
+                SpectrumOnlyResultsPlaceholder()
+            } else {
+                FourDRoomUnavailable()
+            }
         } else if appState.navigation.workspaceArea == .results {
             ResultsWorkspace()
         } else {
@@ -231,7 +242,7 @@ struct PrimaryActionButton: View {
         // The header only ever existed while a dataset was open and settled;
         // the toolbar item follows the same rule, so the load's own progress
         // (centre column) is never shadowed by a second bar up here.
-        if appState.hasDataset && !appState.datasetSession.isLoading {
+        if (appState.hasDataset || isSpectroscopyWithImage) && !appState.datasetSession.isLoading {
             if appState.isBusy {
                 operationProgress
             } else if let actionTitle = primaryActionTitle {
@@ -292,6 +303,11 @@ struct PrimaryActionButton: View {
         return primaryActionHint
     }
 
+    /// The Spectroscopy room's one verb (ADR 054 item 8). It records a replay
+    /// step once WP3 builds the quantification; until then it is shown and
+    /// disabled, with the reason on hover.
+    static let spectroscopyActionTitle = "Quantify"
+
     private var primaryActionTitle: String? {
         switch appState.navigation.workspaceArea {
         case .prepare:
@@ -326,6 +342,8 @@ struct PrimaryActionButton: View {
             // (`ParallaxStageSections`), so the toolbar offers no button
             // rather than a permanently disabled "Reconstruction Ready" one.
             else { nil }
+        case .spectroscopy:
+            appState.hasSpectrumImage ? Self.spectroscopyActionTitle : nil
         case .results:
             nil
         }
@@ -364,12 +382,21 @@ struct PrimaryActionButton: View {
             case .singleslicePtychography: "Runs the iterative single-slice reconstruction on the full datacube."
             default: "Runs the next incomplete parallax stage."
             }
+        case .spectroscopy: "Quantification is not built yet (v5.0 WP3)."
         case .results: ""   // no verb here (`primaryActionTitle` is nil), so no hint is ever read
         }
     }
 
+    /// The Spectroscopy room with a spectrum image open — the one place the
+    /// verb shows without a 4D cube.
+    private var isSpectroscopyWithImage: Bool {
+        appState.navigation.workspaceArea == .spectroscopy && appState.hasSpectrumImage
+    }
+
     private var primaryActionEnabled: Bool {
         guard appState.hasDataset, !appState.isBusy else { return false }
+        // Quantify waits for WP3 (`AppState.hasPrimaryWorkspaceTask` agrees).
+        if appState.navigation.workspaceArea == .spectroscopy { return false }
         if appState.navigation.workspaceArea != .prepare && appState.navigation.workspaceArea != .results {
             // The same answer the checklist and replay get.
             guard case .ready = ProductWorkflow.readiness(
