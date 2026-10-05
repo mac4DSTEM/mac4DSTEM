@@ -1,0 +1,857 @@
+{
+ "updated": "2026-10-04 evening — the polish landed, gated and driven on screen; the release waits for your own drive (ADR 051)",
+ "release": {
+  "version": "4.0.0",
+  "build": "7",
+  "date": "2026-09-23",
+  "floor": "macOS 27, Apple silicon",
+  "next": "No release yet (ADR 051): you drive the app over the coming days, a polish slot follows from your finds (one sheet), then the release — version decided then (\"v4.5 or something\"). EDX comes after a stable product (v5 or v6). Nothing is pushed."
+ },
+ "gates": [
+  {
+   "name": "Automated tests",
+   "value": "1676 pass, 0 fail",
+   "detail": "run-tests all on 6456d623 (the polish + the drive's inset fix), 2026-10-04; 2 skipped on purpose; reconciled with 1678 tests by name.",
+   "state": "ok"
+  },
+  {
+   "name": "Science checks",
+   "value": "all pass",
+   "detail": "Same run: every science check, the real-data acceptance on your cubes and the release-package audit — zero failures, exit 0.",
+   "state": "ok"
+  },
+  {
+   "name": "Code layout checks",
+   "value": "pass",
+   "detail": "Inventory on every commit, last on the closeout commit.",
+   "state": "ok"
+  },
+  {
+   "name": "GitHub automatic tests",
+   "value": "red → fixed?",
+   "detail": "Every CI run since 09-21 was red. Fixed today (your R3 a): one slow expression split, the learned half of one check skipped on CI. Green only after you push.",
+   "state": "warn"
+  }
+ ],
+ "stages": [
+  "Planned",
+  "Built",
+  "Checked",
+  "Released"
+ ],
+ "lanes": [
+  {
+   "name": "Small display fixes",
+   "note": "Polishing session done 2026-10-02; the review added wording fixes (⌘R, \"tools panel\", the single-slice empty state, UNVALIDATED on exported phase maps).",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "done",
+   "flag": ""
+  },
+  {
+   "name": "Pixel size (Q) calibration",
+   "note": "Measured on three healthy cubes: the app is off by 1–4 %, the same as py4DSTEM. One ring ratio on Au_ref is still unexplained. No rule has been changed.",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "measured · no change proposed",
+   "flag": ""
+  },
+  {
+   "name": "Training the detector on your labels",
+   "note": "Cause found: the default disk shape read the ring's inner edge on your ring-shaped beam. The ring hint now offers the outer edge with one click, and changes nothing on normal cubes. Training settings were measured: none beats run-to-run noise. The training room can now import labels. Your 66 labels still need exporting so training can be measured on them.",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "hint and label import built · your labels next",
+   "flag": ""
+  },
+  {
+   "name": "Reconstruction (ptychography, parallax)",
+   "note": "Parallax's edge-darkening is fixed (it now matches py4DSTEM) and its one unobservable term is labelled. The failing difference-map method is removed. The transmission limit is on by default, as in py4DSTEM. The useless higher-order toggle is gone. The parallax preview's solid red is fixed (2026-10-02).",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "built and checked · preview fixed",
+   "flag": ""
+  },
+  {
+   "name": "Preprocess raw data",
+   "note": "Cropping, taking every Nth scan point, binning and the hot-pixel filter export files that match py4DSTEM bit for bit, also on your 28 GB file. The \"Preprocess Raw Data…\" window is built from your approved mock; Preprocess can no longer overwrite its own source file.",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "built · seen on screen in the drive",
+   "flag": ""
+  },
+  {
+   "name": "Keep the cube in memory",
+   "note": "New switch when you open a dataset, off by default. The 17 GB cube loads in about 2 minutes; a virtual image then takes 1 second instead of 4 (seen on screen). The memory limit for reconstruction now leaves room for a cube kept in memory.",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "built and seen on screen",
+   "flag": ""
+  },
+  {
+   "name": "Precipitate analysis (your science)",
+   "note": "Matches each position to the known phases, then counts objects and writes a table. It is one measure short of its pass mark, so it stays labelled unvalidated. Your Al–Mg–Si cube is calibrated from its own lattice; β″ needles still break into pieces. New data in microprobe mode is yours to acquire.",
+   "states": [
+    "done",
+    "done",
+    "partial",
+    "partial"
+   ],
+   "tag": "unchanged in v4.1",
+   "flag": ""
+  },
+  {
+   "name": "Fixes from the reviews",
+   "note": "Three review rounds (CR1–CR4) and today's whole-app review: six reviewers, every finding checked by a second model — 36 found, 35 confirmed, fixed in 12 tested lanes or decided on your sheet. Your dataset can no longer be overwritten by a save or an export; results finished after a room switch keep their own labels; binned views stay within their memory budget; quitting during a file read no longer crashes. Seen on screen in the release-candidate drive, except the dataset-as-destination refusal (behind macOS's Replace click).",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "landed and seen on screen",
+   "flag": ""
+  },
+  {
+   "name": "Polish before release",
+   "note": "Nine lanes plus one from the drive, each tested red-first and attacked by a second model, then driven on screen on the demo cube and your graphene, bullseye and Si-SiGe: number fields keep what you typed (Defocus −663.422 Å kept into the run), exports carry the voltage, a pulled SSD no longer crashes a DM4, opening runs only the virtual image, the SCAN inset sits beside the pattern (capped at 118 pt on tall scans), the memory figure equals Activity Monitor's, your Q2–Q7 picks built. Left: room switches can still show another room's map (deferred).",
+   "states": [
+    "done",
+    "done",
+    "done",
+    "none"
+   ],
+   "tag": "landed and seen on screen",
+   "flag": ""
+  }
+ ],
+ "decisions": [],
+ "milestones": [
+  {
+   "date": "2026-08-06",
+   "label": "v1.0.0",
+   "text": "First signed release."
+  },
+  {
+   "date": "2026-09-04",
+   "label": "v2.5",
+   "text": "Interface rebuilt in SwiftUI."
+  },
+  {
+   "date": "2026-09-11",
+   "label": "v3.0.0",
+   "text": "Learned disk detection on the Neural Engine."
+  },
+  {
+   "date": "2026-09-23",
+   "label": "v4.0.0",
+   "text": "macOS 27, the rebuilt interface, calibration foundation."
+  },
+  {
+   "date": "2026-09-28",
+   "label": "main",
+   "text": "Crash fixed, object table, areal density, Bragg disks restored from a saved session."
+  },
+  {
+   "date": "2026-09-30",
+   "label": "main",
+   "text": "New M5 Mac set up; detector back on the Neural Engine; 28 GB file checked against py4DSTEM."
+  },
+  {
+   "date": "2026-09-30",
+   "label": "plan",
+   "text": "v4.1 agreed as the plateau: finish what is half built, add nothing new."
+  },
+  {
+   "date": "2026-10-01",
+   "label": "main",
+   "text": "Ptychography probe with defocus; polish list; the code review's 78 findings logged."
+  },
+  {
+   "date": "2026-10-01",
+   "label": "main",
+   "text": "Preprocessing export, ptychography checked against a known answer, ten review fixes."
+  },
+  {
+   "date": "2026-10-01",
+   "label": "main",
+   "text": "Mirror-image matching, display polish, cause of the ring-beam training failure, Q measured on three cubes."
+  },
+  {
+   "date": "2026-10-01",
+   "label": "today",
+   "text": "Parallax and reconstruction fixes, preprocess window, training-room label import, three review rounds fixed, every-room polish drive."
+  },
+  {
+   "date": "2026-10-02",
+   "label": "main",
+   "text": "Polishing session: the first-time-user list fixed, Export Data…, full test run green."
+  },
+  {
+   "date": "2026-10-02",
+   "label": "main",
+   "text": "The whole-app review: 35 confirmed findings fixed or decided; v4.1.0 / 8 cut."
+  },
+  {
+   "date": "2026-10-04",
+   "label": "main",
+   "text": "Polish before release: nine lanes landed and tested; full test run green on a1a8d234."
+  },
+  {
+   "date": "2026-10-04",
+   "label": "plan",
+   "text": "Release after your own drive and more polish (ADR 051); EDX after a stable product."
+  }
+ ],
+ "journey": [
+  {
+   "x": "search rule",
+   "v": 26.0,
+   "note": "first run"
+  },
+  {
+   "x": "",
+   "v": 13.24,
+   "note": ""
+  },
+  {
+   "x": "",
+   "v": 6.64,
+   "note": ""
+  },
+  {
+   "x": "0.1 % threshold",
+   "v": 4.21,
+   "note": "search rule, 09-16"
+  },
+  {
+   "x": "known variants",
+   "v": 18.11,
+   "note": "refuted as predicted",
+   "refuted": true
+  },
+  {
+   "x": "floor 0",
+   "v": 2.64,
+   "note": "T1's weak reflections restored"
+  },
+  {
+   "x": "T1 relationship",
+   "v": 2.67,
+   "note": ""
+  },
+  {
+   "x": "θ′ slab 0.3",
+   "v": 1.81,
+   "note": ""
+  },
+  {
+   "x": "evidence guard",
+   "v": 1.45,
+   "note": "shipped on"
+  },
+  {
+   "x": "0.15 % floor + guard",
+   "v": 1.31,
+   "note": "your working floor"
+  }
+ ],
+ "plan": {
+  "registered": "2026-10-02",
+  "source": "ROADMAP.md, v4.1 plan",
+  "tracks": [
+   {
+    "name": "v4.1 in five slots",
+    "goal": "v4.1 means the shipped features agree with py4DSTEM, and four half-built pieces get finished. All the building and polishing is done; your own drive decides what the next polish slot fixes before the release.",
+    "steps": [
+     {
+      "id": "1",
+      "title": "Polish, pixel-size check, ptychography probe",
+      "detail": "Done. The bin-2 aperture default was fixed, the pixel-size mistake on Al [001] was measured, and ptychography now accepts a defocus.",
+      "where": "assistant",
+      "gate": "tests and a check by a second reviewer",
+      "state": "done"
+     },
+     {
+      "id": "2",
+      "title": "Preprocessing export, review fixes, mirror matching, training question",
+      "detail": "Done today: preprocessing export, the review fixes, mirror-image matching, and the cause of the 0-of-82 training result.",
+      "where": "assistant",
+      "gate": "tests and a check by a second reviewer",
+      "state": "done"
+     },
+     {
+      "id": "3",
+      "title": "Preprocess window, parallax fixes, difference map, ring-beam hint",
+      "detail": "Done. The \"Preprocess Raw Data…\" window, parallax's edge-darkening fix, the difference-map method removed with the transmission limit on by default, and the ring-beam hint with its one-click radius. Driven together on a scratch build.",
+      "where": "assistant",
+      "gate": "tests, then one combined drive",
+      "state": "done"
+     },
+     {
+      "id": "4",
+      "title": "Training measurements, training window, keep-in-memory",
+      "detail": "Done. Training settings measured (none beats noise), label import added to the training room, the useless higher-order toggle removed, the memory limit made to leave room for a kept cube.",
+      "where": "assistant",
+      "gate": "measured on committed labels",
+      "state": "done"
+     },
+     {
+      "id": "4½",
+      "title": "Polishing session",
+      "detail": "Done 2026-10-02. Every room's first-time-user problems fixed or labelled; your eight answers built (incl. Export Data…); re-driven on your data; one full test run green.",
+      "where": "assistant, then you look",
+      "gate": "full test run",
+      "state": "done"
+     },
+     {
+      "id": "4¾",
+      "title": "Full review before release",
+      "detail": "Done 2026-10-02. Six reviewers (data safety, science claims, concurrency, big cubes, first run, docs), each finding checked by a second model: 36 found, 35 confirmed. Fixed in 12 lanes, each tested alone with a refuter; your six answers built (the website and the shared session file left as they are). Crash reports read: the 'crash after Compute Strain' did not reproduce in 12 000 tries; a real crash at quit was found and fixed.",
+      "where": "assistant",
+      "gate": "review findings fixed",
+      "state": "done"
+     },
+     {
+      "id": "4⅞",
+      "title": "Polish before release",
+      "detail": "Done 2026-10-04: nine lanes (number entry, export voltage, session safety, rooms, the DM4 disk guard, memory figure and menus, the SCAN inset, the discard dialog and sidebar lines, two frozen-shell picks), each tested and refuted, gated alone; driven on screen on the demo cube and your data; the drive's one fix (the inset on tall scans) landed; full test run green.",
+      "where": "assistant",
+      "gate": "tests per lane, a drive, one full run",
+      "state": "done"
+     },
+     {
+      "id": "5a",
+      "title": "Your drive",
+      "detail": "You use the app on your own data over the coming days. Your finds become the next polish slot's list, put to you as one sheet.",
+      "where": "you",
+      "gate": "your verdict",
+      "state": "next"
+     },
+     {
+      "id": "5",
+      "title": "Release (later)",
+      "detail": "Deferred by you (ADR 051): you drive first, a polish slot follows, then the release — version decided then (v4.5?). Steps unchanged: notary password, signed archive, notarization, disk image; you push, tag and publish.",
+      "where": "assistant, then you",
+      "gate": "the release checklist",
+      "state": "waits",
+      "waits": "your drive"
+     }
+    ]
+   }
+  ],
+  "sessions": "Next: your drive (the coming days); then a polish slot from your finds; then the release, version decided then. EDX after a stable product (v5/v6). The website stays as it is until the release."
+ },
+ "closed": [
+  {
+   "date": "2026-10-04",
+   "state": "done",
+   "text": "The polish drive: every polish lane seen on screen on the demo cube and your graphene, bullseye and Si-SiGe, plus the long-unverified items — \"Mirrored Yes\" on a pixel, the β″ legend on a run, ADF 3r–6r on bullseye, rooms re-showing their own results. One fix from it: the SCAN inset no longer grows to 534 pt on a 17 × 77 scan (95359efb). Registered: Imaging can keep another room's map; the ADF preset's silent fallback on graphene; small wording."
+  },
+  {
+   "date": "2026-10-04",
+   "state": "done",
+   "text": "Polish before release: an unedited number field no longer rounds its value (Defocus kept 0.1 Å; leaving Orientation discarded the ACOM map — seen on screen first); Preprocess writes the threshold you typed; exports carry the accelerating voltage; a DM4 whose disk is pulled refuses with a message (measured on RAM disks: 6/6 crashed before, 6/6 refused after); removing a saved result keeps unsaved work; opening runs only the virtual image; Diffraction groups and Go to <room> show their own result; the SCAN inset sits beside the pattern; the strip shows the app's real memory; Open Dataset… works with no window; Ignore Session Sidecar… asks first; sidebar warnings fit; the bottom area keeps 140 pt; Virtual detector without Compute Image; the promote caption no longer claims keep-awake."
+  },
+  {
+   "date": "2026-10-02",
+   "state": "done",
+   "text": "Whole-app review before release: your dataset can no longer be chosen as a save or export destination; an unreadable session file is no longer silently replaced; refused labels survive a save; maps finished after a room switch keep their own frame; a probe kernel cannot land on the next dataset; binned views read within budget; the ptychography seed line uses py4DSTEM's sign; quitting during a read no longer crashes; ⌘R, Add Phase and the Materials Project error behave; SECURITY.md and the README say what is true."
+  },
+  {
+   "date": "2026-10-02",
+   "state": "done",
+   "text": "Polishing session: parallax preview no longer red, graphene preview no longer black, map legends, beam-sized presets, Export Data…, label Save panel, honest captions and wording everywhere; one full test run green."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Parallax's edge-darkening fixed (it now matches py4DSTEM to 4 digits). The difference map is removed. py4DSTEM's transmission limit is on by default, which cut the gap to py4DSTEM from 8.6 % to 1.7 %."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "The useless \"higher-order terms\" toggle is removed: with the default alignment those terms cannot be measured, so it could change nothing."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Training room: \"Import Labels…\" added. Wrong files are refused with one line and nothing changes."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Ring-probe hint: on a ring-shaped beam the app offers the outer-edge radius with a one-click \"Use N px\". Solid beams show nothing; no default moved."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Three code-review rounds fixed (CR1–CR4): Preprocess can no longer overwrite its own source file; a second window no longer deletes a trained model; opening a dataset mid-run no longer mixes two datasets; label import checks its file; the memory limit now leaves room for a cube kept in memory."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Drove every room of the app on real data. The ranked list of what a first-time user trips over is the polish session's work."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Found why \"Train Model\" found 0 of 82 disks on the ring-shaped beam: the app reads the ring's inner edge. The outer edge gives 78 % recall on the classical detector, and no normal cube changes."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Pixel-size (Q) calibration measured on three healthy cubes: errors 1–4 %, about the same as py4DSTEM. One ring ratio on Au_ref is unexplained."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Display polish: \"0.0°\" instead of \"−0.0°\", shorter provenance numbers, unit symbols, one size style. Two more fixes for replayed detector steps and overlapping runs."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Orientation maps now also test the mirror-image match, as py4DSTEM does. Grains near mirror orientations that were wrongly matched went from 62 of 93 to 3. The overlay draws mirrored matches correctly. It costs a few of the gold test cases (the gold test went from 120 to 116, with the reason written down). Not yet seen on screen."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "A \"sub-bin azimuth\" idea was tested and rejected: it missed its written predictions, so nothing shipped from it."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "New \"Keep in memory\" switch when opening a dataset. Off by default. The 17 GB cube loads into memory in about 2 minutes, and a virtual image then takes 1 second instead of 4. Seen on screen."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "The two items waiting to be seen on screen were checked: the parallax status line (it prints the angle between the fit and your calibration) and the provenance labels."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Ten fixes from the code review, for example ellipse checks, an edge case in the sub-pixel shift, orientation plan refresh after a crystal re-import or voltage change, and the record of virtual detectors."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Ptychography was checked against a known answer. The difference-map method turned out to fail in py4DSTEM too."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "Probe settings are now saved with results, and the preprocessing export (crop, stride, bin, hot-pixel filter) matches py4DSTEM bit for bit on the 28 GB file."
+  },
+  {
+   "date": "2026-10-01",
+   "state": "done",
+   "text": "The first batch of v4.1 work: small polish, the pixel-size check on your cubes, and the ptychography probe with defocus. The code review's 78 findings were written down."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "done",
+   "text": "Materials Project import shipped in v4.0.0. Nothing left to build there."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "done",
+   "text": "Parallax agrees with py4DSTEM on its own graphene test cube (defocus 663.6 vs 663.7 Å)."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "done",
+   "text": "Saved sessions that said \"could not be read\" now open: an Allow Access… button asks macOS once and remembers."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "done",
+   "text": "The learned detector runs on the Neural Engine again on the new Mac; the 28 GB file read was confirmed correct. Keeping a cube in memory was measured: 20–70 times faster for repeated passes."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "done",
+   "text": "The new M5 Pro Mac is set up. The training crash on it was found and fixed."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "done",
+   "text": "Lineage graph with Rewind to Here: you can step back to an earlier point of your analysis."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "done",
+   "text": "The crash in a narrow window is fixed. Bragg disks are now kept in a saved session."
+  },
+  {
+   "date": "2026-09-28",
+   "state": "done",
+   "text": "Rotation between real and diffraction space now follows py4DSTEM's sign convention: on a real cube py4DSTEM +80.0°, the app +80.1°. Files exported before 2026-09-28 need re-exporting."
+  },
+  {
+   "date": "2026-09-28",
+   "state": "done",
+   "text": "Ground truth: the disk labels were re-made, and the published vector analysis is reproduced at 99.99 %."
+  },
+  {
+   "date": "2026-09-23",
+   "state": "done",
+   "text": "Calibration foundation and the new interface on macOS 27, shipped in v4.0.0."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "parked",
+   "text": "β″ orientation maps are not planned: known variants already label β″ on [001] Al."
+  },
+  {
+   "date": "2026-09-30",
+   "state": "parked",
+   "text": "Density per volume waits for a measured foil thickness. The app reports density per area, edge-corrected."
+  }
+ ],
+ "owner_decisions": [
+  {
+   "id": "2",
+   "title": "Your new notary password",
+   "urgency": "whenever",
+   "question": "Will you set it up on the new Mac?",
+   "default_if_silent": "The release cannot be signed for download.",
+   "problem": "Apple must approve the app (notarization). That needs an app-specific password stored once with notarytool. The assistant must not enter passwords.",
+   "context": "xcrun notarytool store-credentials mac4dstem-notary — then a session can build, notarize and package with your signing identity.",
+   "options": [
+    {
+     "label": "Create it and store it",
+     "consequence": "About 10 minutes, no risk."
+    }
+   ],
+   "recommendation": "Before the release (ADR 051: after your drive)",
+   "source": "docs/releasing.md"
+  },
+  {
+   "id": "3",
+   "title": "Push, tag, publish",
+   "urgency": "soon",
+   "question": "Will you push when the installer is ready?",
+   "default_if_silent": "Everything stays on your Mac; nothing is public.",
+   "problem": "All work is committed on main, unpushed. Only you push, tag and publish the GitHub release (asset name mac4DSTEM.dmg).",
+   "context": "GitHub Desktop does not push tags; that step is separate. CI should turn green on this push (R3).",
+   "options": [
+    {
+     "label": "Push, tag v4.1.0, gh release create",
+     "consequence": "Makes v4.1.0 public."
+    }
+   ],
+   "recommendation": "After the release build",
+   "source": "docs/releasing.md"
+  },
+  {
+   "id": "4",
+   "title": "Your 66 labels",
+   "urgency": "whenever",
+   "question": "Will you export them?",
+   "default_if_silent": "Training is measured on the 40 committed labels only.",
+   "problem": "They live inside the app. Export Labels… now asks where to save.",
+   "context": "Not needed for the release.",
+   "options": [
+    {
+     "label": "Export them",
+     "consequence": "Lets training be measured on your labels."
+    }
+   ],
+   "recommendation": "After the release",
+   "source": "docs/status.md"
+  }
+ ],
+ "answers": [
+  [
+   "Release plan, 2026-10-04 (ADR 051)",
+   "No release now: you drive the app first, more polish follows, then the release as \"v4.5 or something\". A stable product first; afterwards EDX together with 4D-STEM (v5 or v6)."
+  ],
+  [
+   "Polish cards (Q1–Q7), 2026-10-04",
+   "Q1 a (the guard latches) · Q2 a (taken by the session — your paste left it blank; overrule on sight) · Q3 a · Q4 d · Q6 a (Lineage stays off) · Q7 a. Mid-session, for cost: no second refuter pass, the two room-switch defects deferred, a narrow drive."
+  ],
+  [
+   "Pre-release review sheet, 2026-10-02",
+   "W1 c (website as is) · R3 a (CI honest) · D1 c (shared session file left; the check archived) · D2 a · D3 a · U1 b."
+  ],
+  [
+   "Polish sheet (S1–S8), 2026-10-02",
+   "S1 b · S2 a · S3 a · S4 a · S5 a · S6 a · S7 a · S8 b (Export Data… — you reopened the freeze for this one item)."
+  ],
+  [
+   "Difference map (card DM)",
+   "a — remove it; the alternating-projection method goes with it. Done."
+  ],
+  [
+   "Transmission limit (card CL)",
+   "a — on by default, as py4DSTEM. Done."
+  ],
+  [
+   "Q calibration measured (card Q1b)",
+   "c — measure on healthy cubes first. Done: errors 1–4 %."
+  ],
+  [
+   "Preprocess, Keep in memory, training-room mocks (X3, K1, T3)",
+   "Accepted: 1a 2a 3a 4a, 1a 2a 3a 4a and a a a a. All built."
+  ],
+  [
+   "ACOM row 1 re-pin",
+   "Re-pin and land it. Done."
+  ],
+  [
+   "Ring-beam kernel (card c)",
+   "Offer, don't switch. Done: the ring hint."
+  ],
+  [
+   "Higher-order toggle (after R4)",
+   "Remove it: it could change nothing. Done."
+  ],
+  [
+   "Memory budget",
+   "\"Just decide this\": half of RAM minus the cube kept in memory. Done."
+  ],
+  [
+   "ACOM mirror matching (row 1)",
+   "Re-pin the test and land it. Done: grains near mirror orientations went from 62 of 93 wrong to 3."
+  ],
+  [
+   "Preprocess Raw Data window",
+   "Mock accepted (1a 2a 3a 4a): \"build it\". Built."
+  ],
+  [
+   "Difference-map method",
+   "Remove it. Done."
+  ],
+  [
+   "Transmission limit",
+   "Switch it on by default. Done."
+  ],
+  [
+   "Pixel-size (Q) calibration",
+   "Measure on healthy cubes first (option c). Nothing changes until then."
+  ],
+  [
+   "Training run with the measured beam image",
+   "The assistant ran it, so you do not have to. Done: the radius click is worth about 0.4 recall, no training setting beats noise."
+  ],
+  [
+   "Review's 78 rows (F1)",
+   "a — science first; 'there must be a way in less than 5 sessions'"
+  ],
+  [
+   "Q calibration (Q1)",
+   "a — and 'how does py4DSTEM do it?': the study answered it (card Q1b)"
+  ],
+  [
+   "Grain B (Q2)",
+   "a — folded into row 1's orientation work"
+  ],
+  [
+   "Ptychography after R1 (R1)",
+   "a — amended: converging py4DSTEM DM settings searched first"
+  ],
+  [
+   "Info › Provenance labels (P1)",
+   "a — applied, your exception to the frozen-file rule"
+  ],
+  [
+   "Name shadowing (P2)",
+   "a — closed, a failed reproduction closes an item"
+  ],
+  [
+   "Five drive finds (P3)",
+   "a — one polish room in Slot 3"
+  ],
+  [
+   "Start the cloud review",
+   "now"
+  ],
+  [
+   "Phase-match tolerance",
+   "keep R0"
+  ],
+  [
+   "Aperture drag",
+   "keep + park the file's centre"
+  ],
+  [
+   "'In memory' wording",
+   "ratify + empty-circle fix; precedent written into the rule"
+  ],
+  [
+   "R–Q sign on old exports",
+   "label-only; you re-export Si-SiGe"
+  ],
+  [
+   "'Fit anyway' from lineage",
+   "keep"
+  ],
+  [
+   "Built-in crystal library",
+   "keep + name-shadowing fix — 'i may change this later, bloat for no reason'"
+  ],
+  [
+   "Real-data gate fails closed",
+   "keep"
+  ],
+  [
+   "v1.0.0 session disks",
+   "keep the refusal"
+  ],
+  [
+   "Core -O · ADR 047 · ADR 048",
+   "keep all three"
+  ],
+  [
+   "Candidate F",
+   "run the true-Q check; rule: a failed reproduction closes an item"
+  ],
+  [
+   "Thronsen licence",
+   "nothing until a port — the issue leaves the repo (CC BY data stays attributed)"
+  ],
+  [
+   "Si-SiGe.dm4 axis order in GMS",
+   "leave it — a named limit"
+  ],
+  [
+   "Train again with File probe",
+   "run it — 'this feature has to be good … a priority'"
+  ],
+  [
+   "'Unfiltered' cubes",
+   "check whether reported numbers read those pixels; raw-data preprocessing joins v4.1.0"
+  ],
+  [
+   "Ptychography",
+   "finish both methods, diagnose the difference map, compare with py4DSTEM, find a ground truth — parity is the goal"
+  ],
+  [
+   "Ring-shaped beams",
+   "take the patch — but first: 'py4DSTEM does it, no? figure out why and how', without compromising normal probes"
+  ],
+  [
+   "Q picks the wrong ring",
+   "badge 'unchecked'; check the app path on the demo cube and your raw cube"
+  ],
+  [
+   "Polish list",
+   "ratify the two controls by looking; one room session; bin-2 defect first"
+  ],
+  [
+   "Beam-centre self-check",
+   "build the number, no verdict change"
+  ],
+  [
+   "Keep the cube in memory",
+   "mock the toggle — 'we should definitely have this option'; explore beyond v4.1"
+  ]
+ ],
+ "today": [
+  [
+   "Polish landed",
+   "Nine lanes, each with its own tests (red first), an independent second model trying to break it, and its own full unit gate; your Q1–Q7 answers built.",
+   "d415970d … a1a8d234"
+  ],
+  [
+   "Driven on screen",
+   "Every lane seen on the demo cube and your graphene, bullseye and Si-SiGe; the carried items too: \"Mirrored Yes\", the β″ legend, ADF 3r–6r. Twenty-five shots kept with the record.",
+   "441fd9d3 · polish-drive-2026-10-04"
+  ],
+  [
+   "Number fields",
+   "A typed or fitted number is no longer rounded when you merely leave a field or a room — the ptychography Defocus −663.422 Å now reaches the run intact.",
+   "7faae9f6"
+  ],
+  [
+   "Your data and work",
+   "A DM4 on a pulled SSD refuses instead of crashing; removing a saved result keeps unsaved work; Ignore Session Sidecar… asks first.",
+   "4400487a · 068b39b6 · 3d2297d1"
+  ],
+  [
+   "Rooms",
+   "Opening runs only the virtual image; Go to <room> and Diffraction groups show their own result; the SCAN inset sits beside the pattern and stays small on tall scans.",
+   "3ec593ac · b714c125 · 95359efb"
+  ],
+  [
+   "Your frozen-shell picks",
+   "The bottom area keeps 140 pt; Virtual detector without Compute Image; the promote caption no longer claims keep-awake.",
+   "a1a8d234"
+  ],
+  [
+   "Full test run green",
+   "1676 pass, 0 fail, all science checks, the real-data acceptance and the release-package audit, on 6456d623.",
+   "closeout"
+  ],
+  [
+   "Release deferred",
+   "Your call (ADR 051): drive first, polish more, then release (v4.5?). EDX later.",
+   "ADR 051"
+  ]
+ ],
+ "todo": [
+  [
+   "Drive the app",
+   "On your own data, over the coming days; note what trips you up.",
+   "now"
+  ],
+  [
+   "Polish slot",
+   "From your finds, put to you as one sheet; the deferred room-switch gaps first.",
+   "next"
+  ],
+  [
+   "Release",
+   "Version decided then (v4.5?); notary password, installer, push, tag, publish.",
+   "later"
+  ],
+  [
+   "EDX with 4D-STEM",
+   "After a stable product (v5 or v6).",
+   "later"
+  ]
+ ],
+ "waiting": [
+  [
+   "Your drive",
+   "The next polish slot starts from it."
+  ],
+  [
+   "Overrule on sight",
+   "Q2 a, and a restored map covered by the opening image."
+  ],
+  [
+   "Two Replace clicks",
+   "The dataset chosen as a save or export destination (on a copy) — expect a refusal."
+  ]
+ ],
+ "_html": {
+  "<h2 id=\"h-wait\">Four things</h2>": "<h2 id=\"h-wait\">Three things</h2>",
+  "Left for you: the notary password, then push, tag and publish; the release gate is green. All questions are answered; your answers are listed below.": "Left for you: the notary password, then push, tag and publish; the release gate is green. All questions are answered; your answers are listed below."
+ }
+}
