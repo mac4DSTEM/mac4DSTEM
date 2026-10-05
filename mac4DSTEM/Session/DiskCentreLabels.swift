@@ -331,8 +331,8 @@ package final class DiskCentreLabelStore {
         let rows = Float(detectorY), cols = Float(detectorX)
         func isInside(_ c: Centre) -> Bool { c.row >= 0 && c.col >= 0 && c.row < rows && c.col < cols }
         var outside: Centre?
-        for position in positions where outside == nil {
-            outside = position.centres.first { !isInside($0) }
+        for position in positions {
+            if let centre = position.centres.first(where: { !isInside($0) }) { outside = centre; break }
         }
         if let centre = outside {
             return "\(fileName) has a centre (\(centre.row), \(centre.col)) outside this \(detectorY) × \(detectorX) detector — \(outcome)."
