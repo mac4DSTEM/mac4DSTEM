@@ -37,3 +37,30 @@ rules in the session's `LANE-RULES.md`: tests first, each broken once, predictio
 
 Fitting (LS / ML), k-factors, absorption, live-time normalisation, the registration record, pooling by phase or object.
 Those are WP3, built on these pieces against ADR 054.
+
+## Addendum 2026-10-05: lane S outcome (simulator v1)
+
+**S1 held on content, and one shape prediction was wrong.**
+
+- rsciio and `DM4Experiment`/`DM4Reader` read back every array as written: the SHA-256 values are equal, and so are
+  the hspy pair and the single-file variant.
+- rsciio returns the EDS SI as (4096, 48, 64), not the predicted (48, 64, 4096). That is DM's native 3-D SI layout
+  with energy slowest, the same layout the owner's EELS SI 134 has by dims.
+
+**S2 held statistically.** 293 checks: 96.9 % inside exact 95 % intervals, none outside 99.9 %.
+
+**The sub-prediction "the window method recovers truth line counts within 5 %" is refuted.** It is a property of the
+estimator, not the generator. The mechanism is measured by Fable on the noise-free expected spectrum:
+
+| Line | Bias (counts/px) | Cause |
+|---|---|---|
+| Mg Kα | −1.18 | −1.165 from the Al Kα Gaussian foot in the right side window |
+| Si Kα | −1.27 | −1.06 from the Al Kα foot in the left side window, −0.19 from Al Kβ inside it |
+
+The Al tail and the edge step are negligible in both. Mg and Si Kα sit only 3.2 FWHM from Al Kα, while the side
+windows are ±1.5–2.5 FWHM. This is why WP3 fits a model.
+
+**What the simulator still lacks for WP3** (Fable's review). v1 applies the Al-edge step to the continuum only, so its
+"true k" is absorption-free and about 10 % inconsistent on Mg/Si. It also has none of the following: a perturbed
+energy axis, a live-time or N ladder, planted sum, Ga or escape peaks, or a second grid. These are lane S2 (WP3
+§ truth), which runs before WP3's K2/F/T/M simulator tests.

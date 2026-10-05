@@ -155,7 +155,7 @@ diagnostic=(bragg-spacing-probe origin-fit-diagnostics
   lattice-calibration-probe dm4-parity-probe embedding-profile mlx-training-spike mpsgraph-training-spike
   training-run-probe q-shell-probe
   volumetric-density-test parallax-ptycho-real-probe
-  velox-parity edx-pins)
+  velox-parity edx-pins demo-edx)
 owner_only=()
 retired=()
 support=(lib release crystal-structures hooks)
