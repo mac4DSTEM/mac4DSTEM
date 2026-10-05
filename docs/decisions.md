@@ -60,6 +60,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 050 | The owner's sitting: 21 answers — v4.1 = py4DSTEM parity for the shipped features; ptychography, training, raw-data preprocessing and the keep-in-memory control finished; the decision-sheet format kept | 09-30 | accepted |
 | 051 | The release waits for the owner's own drive and more polish (version decided then, "v4.5 or something"); EDX after a stable product (v5/v6) | 10-04 | item 1 superseded by 052 |
 | 052 | v4.5 ships as it stands (the 4.1.0 / 8 cut renamed 4.5.0, no drive first); v5.0 is the EDX suite — "4D-STEM + EDX", a seventh room "Spectroscopy", a HyperSpy/eXSpy port; no implementation until the owner answers the v5.0 cards | 10-05 | accepted |
+| 053 | v5.0's first five answers: science question c then a; R4 first, then a STEMx test; a spectrum-only window in the room mock (⌘6, Results ⌘7); M2 with mask transport; badged four-detector absorption. k-factors and fit policy go to a quantification design session (the user chooses the fit; orient on Velox/GMS) | 10-05 | accepted |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

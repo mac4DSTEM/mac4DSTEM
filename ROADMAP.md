@@ -78,7 +78,7 @@ is its own product").
 - **EDX suite — v5.0** (2026-08-26; owner 2026-10-05, ADR 052) — "4D-STEM + EDX" (one scan, a diffraction pattern and an EDX
   spectrum at every probe position) and plain EDX spectrum images, in a seventh room "Spectroscopy", ported from
   HyperSpy/eXSpy/RosettaSciIO. A data-model change before a feature: a second signal with its own reader and units, registered
-  onto the scan grid with the transform recorded. The full picture and the options: `docs/archive/v5/edx-dossier-2026-10-05.md`. No method chosen.
+  onto the scan grid with the transform recorded. The full picture and the options: `docs/archive/v5/edx-dossier-2026-10-05.md`. First answers: ADR 053; quantification still open.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
 - **Lineage graph with real rewind** (owner, 2026-09-21) — landed on `main` 2026-09-29 (`aa920d08`, ADR 047: session
   record v2 with step ids and input edges; the graph in the Lineage pane; Rewind to Here restores parameters and marks
@@ -109,7 +109,7 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — v4.5.0 released). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **v5.0 — the EDX suite** (ADR 052) — the owner answers the v5.0 cards on the Board (from `docs/archive/v5/edx-dossier-2026-10-05.md`); then its
+- [ ] **v5.0 — the EDX suite** (ADR 052, 053) — the quantification design session (`docs/archive/v5/quant-design-brief-2026-10-05.md`) answers the four open cards; then its
   pre-registration (§ How a feature is done) and the Spectroscopy room's mock; then `/pickup` with the first work package named.
 
 ## After v4.1 — frozen until the owner reopens one
