@@ -39,7 +39,7 @@ This skill only makes sure you enter them correctly.
    driving anyway. Say which you took and why.
 3. Before any work, restate in one short block: the target's scope, its gate
    (unit / unit+scientific / Gate D / Gate B), what it deletes, which release
-   it lands in (a driven bug cuts v4.0.x, a landed science number v4.1.0 —
+   it lands in (a driven bug cuts v4.5.1, a landed science number v4.6.0, the EDX suite v5.0.0 —
    `docs/releasing.md`), and any decision the user makes in-step. A feature
    is pre-registered first (`ROADMAP.md`'s "How a v3 feature is done" section).
 4. Non-negotiables (each has burned this repo): Gate D before any fix

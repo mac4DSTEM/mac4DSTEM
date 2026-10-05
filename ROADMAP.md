@@ -72,9 +72,9 @@ is its own product").
   part — the headline number stands, but it is not parameter-free (it rides
   a (count, pair-radius) ridge) and the object-table evidence it cited is
   spurious-singleton removal, not repaired detection
-  (`docs/archive/v3/precipitate-overnight-2026-09-23.md`). Owner: pre-register
-  the guard as a two-parameter rule and measure it on a second dataset before
-  it ships as a flag (`docs/status.md` § Handoff).
+  (`docs/archive/v3/precipitate-overnight-2026-09-23.md`). The owner then
+  shipped it on at k ≥ 1 (ADR 038, 2026-09-23 night); it first reaches users
+  in v4.5.0, inside phase mapping's unvalidated badge.
 - **EDX suite — v5.0** (2026-08-26; owner 2026-10-05, ADR 052) — "4D-STEM + EDX" (one scan, a diffraction pattern and an EDX
   spectrum at every probe position) and plain EDX spectrum images, in a seventh room "Spectroscopy", ported from
   HyperSpy/eXSpy/RosettaSciIO. A data-model change before a feature: a second signal with its own reader and units, registered
@@ -82,7 +82,7 @@ is its own product").
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
 - **Lineage graph with real rewind** (owner, 2026-09-21) — landed on `main` 2026-09-29 (`aa920d08`, ADR 047: session
   record v2 with step ids and input edges; the graph in the Lineage pane; Rewind to Here restores parameters and marks
-  later products stale); ships with the next release.
+  later products stale); ships in v4.5.0.
 - **Learned disk candidates** (owner, 2026-09-05; Core ML on the Neural
   Engine, 2026-09-07) — the first ML feature, **shipped in v3.0.0**
   (2026-09-11, `docs/releasing.md` § Releases). Pre-registration and the
@@ -110,7 +110,8 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — the drive and polish lines, superseded by ADR 052). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
 - [ ] **Release v4.5** (owner, 2026-10-05, ADR 052: as it stands, no drive first) — the cut is 4.5.0 / 8; `docs/releasing.md`;
-  the new Mac needs a fresh notary password (owner), then a session can build and notarize; the owner pushes, tags, publishes.
+  the notary profile is stored on the new Mac; a session builds and notarizes from the release commit and records it in `docs/releasing.md` § Releases;
+  the owner pushes, tags `v4.5.0`, publishes the GitHub release (asset `mac4DSTEM.dmg`) and pushes the website.
 - [ ] **v5.0 — the EDX suite** (ADR 052) — the owner answers the v5.0 cards on the Board (from `docs/archive/v5/edx-dossier-2026-10-05.md`); then its
   pre-registration (§ How a feature is done) and the Spectroscopy room's mock; then `/pickup` with the first work package named.
 
