@@ -62,6 +62,10 @@ def spec(e, comp):
     y += 0.0018*comp['Al']*math.exp(-((e-1.60)/0.08)**2) if e>1.5 else 0
     return y
 
+def bgonly(e):
+    bg = 38*math.exp(-(e-0.5)/0.9)+14
+    return bg*(0.82 if e>=1.5596 else 1.0)
+
 def plot(W,H,res_h,comp,over=None,xmin=0.5,xmax=2.4,ymin=10,ymax=2e5,markers=True,fit=True,seed=1,legend=None, resid_label=True):
     rnd = random.Random(seed)
     L,R,T = 46,12,10
@@ -81,8 +85,8 @@ def plot(W,H,res_h,comp,over=None,xmin=0.5,xmax=2.4,ymin=10,ymax=2e5,markers=Tru
         xx=X(xt); o.append(f'<line x1="{xx:.1f}" x2="{xx:.1f}" y1="{T}" y2="{T+ph}" stroke="#f1f1f1"/>'); xt=round(xt+0.2,2)
     # markers
     if markers:
-        for nm,mu,c in [('Cu Lα',0.930,COL['Cu']),('Ga Lα',1.098,'#999'),('Mg Kα',1.254,COL['Mg']),('Al Kα',1.486,COL['Al']),('Si Kα',1.740,COL['Si'])]:
-            xx=X(mu); o.append(f'<line x1="{xx:.1f}" x2="{xx:.1f}" y1="{T}" y2="{T+ph}" stroke="{c}" stroke-width="1" stroke-dasharray="3 3" opacity=".75"/><text x="{xx+3:.1f}" y="{T+10}" fill="{c}" font-weight="600">{nm}</text>')
+        for nm,mu,c in [('Cu Lα',0.930,COL['Cu']),('Ga Lα?',1.098,'#9a9a9a'),('Mg Kα',1.254,COL['Mg']),('Al Kα',1.486,COL['Al']),('Si Kα',1.740,COL['Si'])]:
+            xx=X(mu); o.append(f'<line x1="{xx:.1f}" x2="{xx:.1f}" y1="{T}" y2="{T+ph}" stroke="{c}" stroke-width="1" stroke-dasharray="3 3" opacity=".75"/><text x="{xx+3:.1f}" y="{T+10}" fill="{c}" font-weight="{'400' if '?' in nm else '600'}" font-style="{'italic' if '?' in nm else 'normal'}">{nm}<title>{'Possible Ga L from FIB preparation. A suggestion, not an included element: accept it in Elements and maps to fit it.' if '?' in nm else nm}</title></text>')
         xx=X(1.5596); o.append(f'<line x1="{xx:.1f}" x2="{xx:.1f}" y1="{T+ph-34}" y2="{T+ph}" stroke="#888" stroke-dasharray="1 2"/><text x="{xx+2:.1f}" y="{T+ph-24}" fill="#888" font-size="9">Al K edge</text>')
     # data (grey steps)
     pts=[];fitp=[];resid=[]
@@ -99,6 +103,8 @@ def plot(W,H,res_h,comp,over=None,xmin=0.5,xmax=2.4,ymin=10,ymax=2e5,markers=Tru
     if over:
         d2=' '.join(f'{X(a):.1f},{Y(spec(a,over)):.1f}' for a,_ in pts)
         o.append(f'<polyline points="{d2}" fill="none" stroke="{over["col"]}" stroke-width="1.3" stroke-dasharray="4 2"/>')
+    dbg=' '.join(f'{X(a):.1f},{Y(bgonly(a)):.1f}' for a,_ in pts)
+    o.append(f'<polyline points="{dbg}" fill="none" stroke="#a9772a" stroke-width="1.2" stroke-dasharray="1.5 2.5"/>')
     if fit:
         d3=' '.join(f'{X(a):.1f},{Y(b):.1f}' for a,b in fitp)
         o.append(f'<polyline points="{d3}" fill="none" stroke="#0a60ff" stroke-width="1.4"/>')
@@ -195,18 +201,20 @@ def dp(S):
     o.append('</svg>'); return ''.join(o)
 
 # ---------- chrome ----------
-def toolbar(verb="Quantify", tools_on=0, display="Al-Mg-Si_190330.emd · Spectroscopy · 256 × 256 px", linked=False):
-    tools=''.join(f'<span class="tool{" on" if i==tools_on else ""}">{icon(k,"#444")}</span>' for i,k in enumerate(['point','rect','ellipse','poly','line']))
-    return f'''<div class="tb"><div class="tl"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+def toolbar(verb="Quantify", tools_on=0, display="Al-Mg-Si_190330.emd · Spectroscopy · 256 × 256 px", linked=False, W=1280, IW=320, dleft=None, dw=330):
+    cube=W-IW-44; fol=cube-36; sav=fol-36; vb=sav-104
+    if dleft is None: dleft=vb-dw-24
+    return f'''<div class="tb" style="width:{W}px"><div class="tl"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
 <div class="tbicon" style="left:92px">{icon('sidebar','#555',18)}</div>
-<div class="tbdisp" style="left:250px;width:330px">{display}</div>
-<div class="tools" style="left:606px">{tools}</div>
-<div class="verb" style="left:770px">{verb}</div>
-<div class="tbicon" style="left:872px">{icon('save','#555',18)}</div>
-<div class="tbicon" style="left:908px">{icon('folder','#555',18)}</div>
-<div class="tbicon" style="left:944px">{icon('cube','#555',18)}</div>
-<div class="tbicon" style="left:1236px">{icon('inspector','#555',18)}</div>
-<div class="tbtip" style="left:606px">draw tools: point · rectangle · ellipse · polygon · line</div></div>'''
+<div class="tbdisp" style="left:{dleft}px;width:{dw}px">{display}</div>
+<div class="verb" style="left:{vb}px">{verb}</div>
+<div class="tbicon" style="left:{sav}px">{icon('save','#555',18)}</div>
+<div class="tbicon" style="left:{fol}px">{icon('folder','#555',18)}</div>
+<div class="tbicon" style="left:{cube}px">{icon('cube','#555',18)}</div>
+<div class="tbicon" style="left:{W-44}px">{icon('inspector','#555',18)}</div></div>'''
+
+def tools_hdr(on=1):
+    return '<span class="tools2">'+''.join(f'<span class="tool{" on" if i==on else ""}">{icon(k,"#444",14)}</span>' for i,k in enumerate(['point','rect','ellipse','poly','line']))+'</span>'
 
 ROOMS=['Prepare','Imaging','Bragg Disks','Crystal Maps','Reconstruction','Spectroscopy','Results']
 RIC=['scope','','','','','','']
@@ -225,8 +233,8 @@ def sidebar(step, regions, selreg):
     h+='</div>'
     return h
 
-def statusstrip(left):
-    return f'<div class="ss"><span>{left}</span><span class="sr">Metal · 3.1 GB · resident</span></div>'
+def statusstrip(left,W=1280):
+    return f'<div class="ss" style="width:{W}px"><span>{left}</span><span class="sr">Metal · 3.1 GB · resident</span></div>'
 
 def pane_hdr(title, right='', left_x=0, w=0, top=0):
     return f'<div class="ph" style="left:{left_x}px;top:{top}px;width:{w}px"><span class="phl">{title}</span><span class="phr">{right}</span></div>'
@@ -234,51 +242,47 @@ def pane_hdr(title, right='', left_x=0, w=0, top=0):
 def tgl(t,on): return f'<span class="tg{" on" if on else ""}">{t}</span>'
 
 # ---------- SCREEN 1 ----------
-def screen1():
-    CX=230; CW=730; top=52
+def screen1(step=3, insp=None, wid='s1', W=1280, sb=True, IW=320, SBW=230):
+    CX=SBW if sb else 0; CW=W-CX-IW; top=52; th=330; MW=290
     regs=[('#9aa0a6','Whole map','65 536','41.2 M'),('#8e8e93','Matrix (drawn)','52 900','31.6 M'),(COL['Mg'],'β″ precipitates (drawn)','1 842','4.31 M'),(COL['Cu'],'Cu-rich (drawn)','212','0.52 M')]
-    o=[f'<div class="win" id="s1">{toolbar("Quantify",1)}{sidebar(3,regs,2)}']
-    # map pane
-    mh=242
-    o.append(f'<div class="pane" style="left:{CX}px;top:{top}px;width:{CW}px;height:{mh}px">')
-    o.append(f'<div class="ph"><span class="phl">Map · ColorMix · net counts</span><span class="phr">{tgl("Overlay",True)}{tgl("Regions",True)}{tgl("Units ▾",False)}</span></div>')
-    o.append(f'<div style="position:absolute;left:8px;top:28px">{map_pane_img(170)}</div>')
-    # map legend and units
-    o.append('<div class="maplg" style="left:196px;top:34px"><b>ColorMix</b> — 3 of 5 maps in the mix<br><span class="sm">Unit: net counts per 3 × 3 kernel (live time not stored per pixel — see Regions) · negative values clipped for display only</span><br><br><span class="sm">Selected region: <b style="color:#e8590c">β″ precipitates</b> — polygon, 1 842 px</span><br><span class="sm">Display smoothing is on the map only; the fit uses raw counts.</span></div>')
-    # thumb strip
-    th=''
-    for el,ct in [('Al',COL['Al']),('Mg',COL['Mg']),('Si',COL['Si']),('Cu',COL['Cu']),('O','#999')]:
-        on = el in ('Al','Mg','Si')
-        th+=f'<span class="thumb{" on" if on else ""}"><span class="tm" style="background:linear-gradient(135deg,#111,{ct})"></span><span class="tc">{chk(on) }</span><span class="tn" style="color:{ct if on else "#888"}">{el}</span></span>'
-    o.append(f'<div class="strip" style="left:8px;top:{28+170+6}px">{th}<span class="sm" style="margin-left:6px;align-self:center">tick = in the mix · click a thumbnail = show that map alone</span></div>')
-    o.append('</div>')
-    # spectrum pane
-    sy=top+mh; sh=272
-    o.append(f'<div class="pane" style="left:{CX}px;top:{sy}px;width:{CW}px;height:{sh}px;border-top:1px solid var(--sep)">')
-    o.append(f'<div class="ph"><span class="phl">Spectrum · β″ precipitates (pooled) <span class="sm">· ○ Matrix, norm. to Al Kα</span></span><span class="phr">{tgl("Fit",True)}{tgl("Residual",True)}{tgl("Overlay",True)}{tgl("Log",True)}{tgl("Markers",True)}</span></div>')
-    o.append(f'<div style="position:absolute;left:0;top:26px">{plot(CW,sh-26,34,PREC,over=MATn,seed=2)}</div>')
+    sbh=sidebar(step,regs,2).replace('class="sb"',f'class="sb" style="width:{SBW}px"') if sb else ''
+    o=[f'<div class="win" id="{wid}" style="width:{W}px">{toolbar("Quantify",W=W,IW=IW,dw=330 if W>1000 else 190)}{sbh}']
+    o.append(f'<div class="pane" style="left:{CX}px;top:{top}px;width:{MW}px;height:{th}px;border-right:1px solid var(--sep);overflow:visible">')
+    o.append(f'<div class="ph"><span class="phl">Map · ColorMix</span><span class="phr">{tools_hdr(1)}<span class="tg" style="margin-left:4px">⋯</span></span></div>')
+    o.append(f'<div style="position:absolute;left:{(MW-246)//2}px;top:32px">{map_pane_img(246)}</div>')
+    th_=''
+    def sym(role,c):
+        if role=='Quantify': return f'<svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3.6" fill="{c}"/></svg>'
+        if role=='Fit only': return '<svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3.2" fill="none" stroke="#777" stroke-width="1.3"/></svg>'
+        return ''
+    for el,ct,on,role in [('Al',COL['Al'],True,'Quantify'),('Mg',COL['Mg'],True,'Quantify'),('Si',COL['Si'],True,'Quantify'),('Cu',COL['Cu'],False,'Quantify'),('O','#999',False,'Fit only')]:
+        th_+=f'<span class="tile{" on" if on else ""}" title="{el} · {role} (set in the periodic table)"><span class="tt" style="background:linear-gradient(135deg,#111,{ct})">{chk(on)}</span><span class="nm">{el}{sym(role,ct)}</span></span>'
+    o.append(f'<div style="position:absolute;left:7px;top:284px;display:flex;gap:4px">{th_}</div>')
     o.append('</div>')
     # results
-    ry=sy+sh; rh=714-mh-sh
-    o.append(f'<div class="pane" style="left:{CX}px;top:{ry}px;width:{CW}px;height:{rh}px;border-top:1px solid var(--sep)">')
-    o.append(f'<div class="ph"><span class="phl">Results · β″ precipitates (pooled)</span><span class="phr">{seg(["at%","wt%"],0)}</span></div>')
-    cols=[(10,'Element',90),(100,'Net counts ± σ',150),(250,'k-free ratio (to Al Kα)',160),(410,'at% ± σ',110),(520,'',190)]
-    hdr=''.join(f'<span style="position:absolute;left:{x}px;width:{w}px">{t}</span>' for x,t,w in cols[:4])
-    hdr+=f'<span style="position:absolute;left:520px;top:2px">{badge("unvalidated")}</span><span class="sm" style="position:absolute;left:600px;top:4px">k-free ratio is above at%</span>'
+    RX=CX+MW; RW=CW-MW
+    o.append(f'<div class="pane" style="left:{RX}px;top:{top}px;width:{RW}px;height:{th}px">')
+    o.append(f'<div class="ph"><span class="phl">Results · β″ pooled{badge("unvalidated")}</span><span class="phr">{seg(["at%","wt%"],0)}</span></div>')
+    hdr=''.join(f'<span style="position:absolute;left:{x}px">{t}</span>' for x,t in [(10,'Element'),(96,'Net counts ± σ'),(230,'k-free ratio'),(350,'at% ± σ')])
     o.append(f'<div class="th">{hdr}</div>')
     data=[('Al',COL['Al'],'412 380 ± 650','1','88.1 ± 0.9',False),('Mg',COL['Mg'],'9 840 ± 130','0.0239 ± 0.0003','5.6 ± 1.1',True),('Si',COL['Si'],'9 010 ± 125','0.0219 ± 0.0003','5.1 ± 1.0',False),('Cu',COL['Cu'],'2 100 ± 60','0.0051 ± 0.0001','1.2 ± 0.3',False)]
     yy=48
-    for el,c,n,k,a,ex in data:
-        o.append(f'<div class="tr" style="top:{yy-2}px"><span style="position:absolute;left:10px;display:flex;align-items:center;gap:6px">{icon("s_q","#aaa",1) if False else ""}<svg width="10" height="10"><path d="M2 2.5 5 5.5 8 2.5" fill="none" stroke="#666" stroke-width="1.4" transform="{"" if ex else "rotate(-90 5 5)"}"/></svg>{dot(c,4)}<b>{el}</b></span>'
-                 f'<span style="position:absolute;left:100px" class="mono">{n}</span><span style="position:absolute;left:250px" class="mono">{k}</span><span style="position:absolute;left:410px" class="mono"><b>{a}</b></span></div>')
+    for el,c,n,k,a_,ex in data:
+        o.append(f'<div class="tr" style="top:{yy-2}px"><span style="position:absolute;left:10px;display:flex;align-items:center;gap:6px"><svg width="10" height="10"><path d="M2 2.5 5 5.5 8 2.5" fill="none" stroke="#666" stroke-width="1.4" transform="{"" if ex else "rotate(-90 5 5)"}"/></svg>{dot(c,4)}<b>{el}</b></span><span style="position:absolute;left:96px" class="mono">{n}</span><span style="position:absolute;left:230px" class="mono">{k}</span><span style="position:absolute;left:350px" class="mono"><b>{a_}</b></span></div>')
         yy+=24
         if ex:
-            o.append(f'<div class="sig" style="top:{yy-2}px">σ (Mg, 1σ): counting 0.6 % · fit 0.4 % · k 20 % flat · absorption 3 % · thickness 4 % → ±1.1 at% (k dominates)</div>'); yy+=24
+            o.append(f'<div class="sig" style="top:{yy-2}px;height:38px;line-height:17px;white-space:normal;padding-top:2px">Mg σ terms: counting 0.6 % · fit 0.4 % · k-factor 20 % flat<br>absorption 3 % · thickness 4 % → ±1.1 at% (k dominates)</div>'); yy+=40
+    o.append(f'<div style="position:absolute;left:10px;top:{yy+8}px;font-size:12px;border-top:1px solid var(--sep);padding-top:8px;right:10px">Mg / Si net ratio <b class="mono">1.092 ± 0.021</b> <span class="sm">· k-free, counting only</span></div>')
+    o.append('</div>')
+    # spectrum
+    sy=top+th; sh=714-th
+    o.append(f'<div class="pane" style="left:{CX}px;top:{sy}px;width:{CW}px;height:{sh}px;border-top:1px solid var(--sep)">')
+    o.append(f'<div class="ph"><span class="phl">Spectrum · β″ pooled <span class="sm">· ○ matrix, norm. to Al Kα</span></span><span class="phr">{tgl("Spectrum",True)}{tgl("Background",True)}{tgl("Model",True)}{tgl("Residual",True)}{tgl("Overlay",True)}{tgl("Log",True)}</span></div>')
+    o.append(f'<div style="position:absolute;left:0;top:26px">{plot(CW,sh-26-26,44,PREC,over=MATn,seed=2)}</div>')
     o.append(f'<div class="foot">Least squares · empirical continuum + Al edge · Brown-Powell k (ε Super-X G1) · absorption 80 ± 15 nm · no escape peaks {badge("unvalidated")}</div>')
     o.append('</div>')
-    # inspector
-    o.append(inspector_quantify())
-    o.append(statusstrip('Last run · Quantify — 0.4 s'))
+    o.append((insp or inspector_quantify()).replace('class="insp"',f'class="insp" style="left:{W-IW}px;width:{IW}px"'))
+    o.append(statusstrip('Last run · Quantify — 0.4 s',W))
     o.append('</div>')
     return ''.join(o)
 
@@ -299,21 +303,21 @@ def inspector_quantify(expert=False):
 def screen2():
     CX=230; CW=730; top=52
     regs=[('#8aa6cf','Al matrix (phase)','52 900','31.6 M'),(COL['Mg'],'β″ (phase)','1 842','4.31 M'),(COL['Cu'],'Q (phase)','212','0.52 M'),('#e8590c','Needle 3 (object)','96','0.23 M')]
-    o=[f'<div class="win" id="s2">{toolbar("Quantify",1,"Al-Mg-Si_190330 · Spectroscopy · 256 × 256 scan + EDX")}{sidebar(2,regs,1)}']
+    o=[f'<div class="win" id="s2">{toolbar("Quantify",1,"Al-Mg-Si_190330 · Spectroscopy · scan + EDX")}{sidebar(2,regs,1)}']
     # notice
-    o.append(f'<div class="notice" style="left:{CX}px;top:{top}px;width:{CW}px">{icon("warn","#f5a623",15)}<span><b>Scan shapes differ</b> — 4D 256 × 256, EDX 256 × 255 (flyback). Aligned top-left; last row has no spectrum, excluded from pooling.</span><span class="lnk">Details…</span></div>')
+    o.append(f'<div class="notice" style="left:{CX}px;top:{top}px;width:{CW}px">{icon("warn","#f5a623",15)}<span style="white-space:nowrap"><b>Scan shapes differ</b> — 4D 256×256, EDX 256×255 (flyback): last row has no spectrum, excluded</span><span class="lnk" style="flex:none">Details</span></div>')
     ty=top+30
     pw1=365
     # scan pane
     o.append(f'<div class="pane" style="left:{CX}px;top:{ty}px;width:{pw1}px;height:300px">'
-             f'<div class="ph"><span class="phl">Scan · phase map {badge("unvalidated")}</span><span class="phr">{tgl("Regions",True)}{tgl("Cursor",True)}</span></div>'
+             f'<div class="ph"><span class="phl">Scan · phase map {badge("unvalidated")}</span><span class="phr">{tools_hdr(0)}</span></div>'
              f'<div style="position:absolute;left:{(pw1-262)//2}px;top:30px">{phasemap(262)}</div></div>')
     o.append(f'<div class="pane" style="left:{CX+pw1}px;top:{ty}px;width:{CW-pw1}px;height:300px;border-left:1px solid var(--sep)">'
              f'<div class="ph"><span class="phl">Diffraction · cursor (142, 87)</span><span class="phr">{tgl("Mean of region",False)}</span></div>'
              f'<div style="position:absolute;left:{(CW-pw1-262)//2}px;top:30px">{dp(262)}</div></div>')
     sy=ty+300; sh=714-30-300
     o.append(f'<div class="pane" style="left:{CX}px;top:{sy}px;width:{CW}px;height:{sh}px;border-top:1px solid var(--sep)">'
-             f'<div class="ph"><span class="phl">Spectrum · β″ pooled over 1 842 px <span class="sm">· ○ Al matrix, normalised to Al Kα</span></span><span class="phr">{tgl("Fit",True)}{tgl("Residual",True)}{tgl("Overlay",True)}{tgl("Log",True)}</span></div>'
+             f'<div class="ph"><span class="phl">Spectrum · β″ pooled, 1 842 px <span class="sm">· ○ matrix, norm. to Al Kα</span></span><span class="phr">{tgl("Spectrum",True)}{tgl("Background",True)}{tgl("Model",True)}{tgl("Residual",True)}{tgl("Overlay",True)}{tgl("Log",True)}</span></div>'
              f'<div style="position:absolute;left:0;top:26px">{plot(CW,sh-26,40,PREC,over=MATn,seed=5)}</div></div>')
     # inspector
     r=insp_tabs()
@@ -321,44 +325,82 @@ def screen2():
     r+=row('Phase', pop('β″ (Mg₅Si₆)',130)+badge())
     r+=row('Pixels', '<span class="v mono">1 842 · 2.8 %</span>')
     r+=row('Counts', '<span class="v mono">4.31 M</span>')
-    r+=row('Live time', '<span class="v mono">612 s · per pixel</span>')
+    r+=row('Live time', '<span class="v mono">37 s total · 20 ms/px mean</span>')
     r+=row('Line width', pop('3 px',70)+stepper(), 'dim')
     r+=row('Compare', pop('Al Kα · live time',160))
-    o.append(f'<div class="insp">{r}<div class="note">Line width appears only for a drawn line (7th row, hidden here). “Compare” names its basis: live time when the file stores it, otherwise the Al Kα reference.</div></div>')
+    o.append(f'<div class="insp">{r}<div class="note">Line width appears only for a drawn line (7th row). “Compare” names its basis: live time when the file stores it, otherwise the Al Kα reference.</div></div>')
     o.append(statusstrip('Last run · Phase map — 3.2 s'))
     o.append('</div>')
     return ''.join(o)
 
+
+ROWS=[
+ [(0,'H'),(17,'He')],
+ [(0,'Li'),(1,'Be'),(12,'B'),(13,'C'),(14,'N'),(15,'O'),(16,'F'),(17,'Ne')],
+ [(0,'Na'),(1,'Mg'),(12,'Al'),(13,'Si'),(14,'P'),(15,'S'),(16,'Cl'),(17,'Ar')],
+ [(i,e) for i,e in enumerate('K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split())],
+ [(i,e) for i,e in enumerate('Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe'.split())],
+ [(0,'Cs'),(1,'Ba'),(2,'*')]+[(i+3,e) for i,e in enumerate('Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn'.split())],
+ [(0,'Fr'),(1,'Ra'),(2,'**')]+[(i+3,e) for i,e in enumerate('Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og'.split())],
+]
+QSET={'Al':COL['Al'],'Mg':COL['Mg'],'Si':COL['Si'],'Cu':COL['Cu']}
+FSET={'O'}
+SSET={'Ar':'Al sum or Ar?','Ga':'Ga L from FIB?'}
+NOMEAS={'H','He','Li','Be'}
+def ptable(top=8, X0=16, menu=False, bubbles=True):
+    o=[]
+    for r,row_ in enumerate(ROWS):
+        for c,e in row_:
+            x=X0+c*16; y=top+r*16
+            if e in('*','**'):
+                o.append(f'<div class="pc x" style="left:{x}px;top:{y}px">{e}</div>'); continue
+            if e in QSET: o.append(f'<div class="pc q" style="left:{x}px;top:{y}px;background:{QSET[e]}" title="{e} · Quantify">{e}</div>')
+            elif e in FSET: o.append(f'<div class="pc f" style="left:{x}px;top:{y}px" title="{e} · Fit only (deconvolution only)">{e}</div>')
+            elif e in SSET: o.append(f'<div class="pc s" style="left:{x}px;top:{y}px" title="{SSET[e]}">{e}<i>?</i></div>')
+            elif e in NOMEAS: o.append(f'<div class="pc x" style="left:{x}px;top:{y}px" title="{e}: no usable line in a Super-X EDX spectrum (below the window cut-off)">{e}</div>')
+            else: o.append(f'<div class="pc o" style="left:{x}px;top:{y}px" title="{e} · Off">{e}</div>')
+    yb=top+7*16+4
+    o.append(f'<div class="row" style="position:absolute;left:4px;top:{yb}px;height:18px;width:312px;font-size:10.5px;color:#555"><svg width="10" height="10" style="margin-right:5px"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="#666" stroke-width="1.5"/></svg>Lanthanides · actinides</div>')
+    yl=yb+20
+    o.append(f'<div class="lgd" style="top:{yl}px"><span><b style="background:{COL["Mg"]}"></b>Quantify</span><span><b style="border:1.4px solid #777;background:#fff"></b>Fit only</span><span><b style="border:1.4px dotted #666;background:#fff"></b>Suggested ?</span><span><b style="background:#eeeef1"></b>Off</span></div>')
+    if bubbles:
+        o.append(f'<div class="bub" style="left:{X0+3*16}px;top:{top-1}px">Ga: from FIB?</div>')
+        o.append(f'<div class="bub" style="left:{X0+8*16+2}px;top:{top-1}px">Ar: Al sum or Ar?</div>')
+    if menu:
+        mx=X0+1*16+10; my=top+2*16+16
+        o.append(f'<div class="menu" style="left:{mx}px;top:{my}px;width:124px;z-index:8"><div style="font-size:10px;color:#888;height:16px;line-height:16px">Mg</div><div>✓ Quantify</div><div class="hl">Fit only</div><div>Off</div><div class="sep"></div><div>Lines  ▸  <span style="color:#888">K</span></div></div>')
+    return f'<div class="pt" style="height:{yl+22}px">{"".join(o)}</div>', yl+22
+
 # ---------- SCREEN 3 strip ----------
 def card(title, rows_html, nrows, pts, extra=''):
     return f'<div class="card"><div class="ct">{title}</div><div class="insp flat">{rows_html}</div><div class="cost"><b>{nrows} rows</b> × 28 pt = <b>{pts} pt</b>{extra}</div></div>'
+
+def inspector_elements():
+    tbl,h=ptable(8,16,menu=True)
+    rows=row('Suggestions','<span class="v">2 pending · Ar, Ga</span><span class="mini">Review</span>')+row('Map shows',pop('Net counts',120))+row('Smoothing',pop('3 × 3 · σ 1 px',120))
+    return f'<div class="insp">{insp_tabs()}{tbl}<div style="height:6px"></div>{rows}</div>'
+
 def strip():
     c=[]
-    r=row('Source', '<span class="v">EDX only · 256 × 256</span>')
-    r+=row('Registration', '<span class="v">linked scan: 256 × 255 ⚠</span>')
+    r=row('Source', '<span class="v" title="Linked to the 4D scan: EDX 256 × 255 vs scan 256 × 256 (hover: details)">Linked 4D · shape differs</span>'+icon('warn','#f5a623',13))
     r+=row('Frame range', field('1',40)+'<span class="v" style="margin:0 4px">–</span>'+field('24',40)+'<span class="v" style="margin-left:4px">of 24</span>')
     r+=row('Energy axis', pop('Refined',90)+'<span class="v mono" style="margin-left:6px">+4 eV, 9.98 eV/ch</span>')
     r+=row('Counts / px', '<svg width="120" height="18"><g fill="#8aa6cf">'+''.join(f'<rect x="{i*6}" y="{18-h}" width="5" height="{h}"/>' for i,h in enumerate([16,13,10,8,6,5,3,2,2,1]))+'</g></svg><span class="v mono" style="margin-left:6px">median 11</span>')
-    r+=row('Live / dead', '<span class="v mono">612 s · dead 52 %</span>')
+    r+=row('Live / dead', '<span class="v mono">1311 s total · dead 52 %</span>')
     r+=row('Geometry', '<span class="v">TOA 18° · 4 det. · 0.12 sr</span>')
-    c.append(card('1 · Spectrum image', r, 7, 196, '<br><span class="sm">5 of 7 are readouts; the histogram row is drawn at 28 pt too</span>'))
-    r=row('Elements','<span class="v">5 · click role</span>')
-    for el,ctc,role in [('Al',COL['Al'],'Quantify'),('Mg',COL['Mg'],'Quantify'),('Si',COL['Si'],'Quantify'),('Cu',COL['Cu'],'Quantify')]:
-        r+=f'<div class="row sub"><span style="display:flex;align-items:center;gap:6px;margin-left:14px">{dot(ctc,4)}<b>{el}</b></span><span class="ctl">{pop(role,92)}</span></div>'
-    r+=row('Suggested','<span class="v">Ga L? Ar = Al sum?</span><span class="mini">Add</span>')
-    r+=row('Map shows', pop('Net counts',110))
-    r+=row('Smoothing', pop('3 × 3 · σ 1 px',110))
-    c.append(card('2 · Elements &amp; maps', r, 8, 224, '<br><span class="sm">4 controls + a 4-line element list (4 × 28 pt). Over the 7 cap by one while the list is open — see questions</span>'))
-    r=row('Source', pop('Phase',110))+row('Phase', pop('β″ (Mg₅Si₆)',110)+badge())+row('Pixels','<span class="v mono">1 842</span>')+row('Counts','<span class="v mono">4.31 M</span>')+row('Live time','<span class="v mono">612 s</span>')+row('Line width',pop('3 px',60),'dim')+row('Compare',pop('Al Kα · live time',140))
-    c.append(card('3 · Regions', r, 7, 196, '<br><span class="sm">6 rows in use (168 pt); the 7th, Line width, appears only for a drawn line</span>'))
+    c.append(card('1 · Spectrum image', r, 6, 168, '<br><span class="sm">5 of 6 are readouts. Source merges source + registration; the warning icon opens the shapes on hover</span>'))
+    c.append(card('2 · Elements &amp; maps', '<div class="row"><span class="v">Periodic table + 3 rows: drawn in screen 4</span></div>', 3, 84, ' + table 168 pt = <b>252 pt</b>'))
+    r=row('Source', pop('Phase',110))+row('Phase', pop('β″ (Mg₅Si₆)',110)+badge())+row('Pixels','<span class="v mono">1 842</span>')+row('Counts','<span class="v mono">4.31 M</span>')+row('Live time','<span class="v mono">37 s · 20 ms/px</span>')+row('Line width',pop('3 px',60),'dim')+row('Compare',pop('Al Kα · live time',140))
+    c.append(card('3 · Regions', r, 6, 168, '<br><span class="sm">6 rows in use (168 pt); the 7th, Line width (dimmed), appears only for a drawn line = 196 pt</span>'))
     r=row('Method', pop('Mg/Si in Al',110))+row('Background', pop('Empirical + Al edge',150))+row('k-factors', pop('Brown-Powell',110))+row('Absorption', chk()+'<span class="v" style="margin-left:6px">4 det.</span>')+row('Thickness', field('80',46)+'<span class="v" style="margin:0 3px">±</span>'+field('15',40)+'<span class="v"> nm</span>')+row('Fit quality','<span class="v mono">χ²ᵣ 1.04</span>')+disc('Expert',True)
     r+=row('Estimator', pop('Least squares',110))+row('σ_k', field('20',44)+'<span class="v"> %</span>')+row('Poly order', pop('4',60))+row('Energy axis', pop('Refined',90)+'<span class="v">·</span>'+chk(True)+'<span class="v">lock</span>')
     c.append(card('4 · Quantify (Expert open)', r, 11, 308, '<br><span class="sm">7 rows closed = 196 pt; Expert adds 4 = 308 pt</span>'))
-    r=row('Format', pop('CSV',100))+row('Include', chk()+'<span class="v" style="margin-left:6px">method and σ terms</span>')
-    c.append(card('5 · Export', r, 2, 56, '<br><span class="sm">Verb in the toolbar reads “Export…” on this step (question 2)</span>'))
+    r=row('Format', pop('CSV',100))+row('Include', chk()+'<span class="v" style="margin-left:6px">method and σ terms</span>')+row('', '<span class="btn">Export…</span>')
+    c.append(card('5 · Export', r, 3, 84, '<br><span class="sm">Plain (non-prominent) button; the toolbar verb stays Quantify. Also File › Export…</span>'))
     return '<div class="stripwrap">'+''.join(c)+'</div>'
 
 CSS = '''
+.pt{position:relative;width:320px;background:#f6f6f8}.pc{position:absolute;width:16px;height:16px;font-size:8.5px;line-height:16px;text-align:center;border-radius:3px;box-sizing:border-box;font-weight:600}.pc.q{color:#fff}.pc.f{border:1.4px solid #777;line-height:13px;color:#333;background:#fff}.pc.s{border:1.4px dotted #666;line-height:13px;color:#333;background:#fff}.pc.o{background:#e9e9ee;border:1px solid #d9d9df;line-height:14px;color:#555;font-weight:500}.pc.x{color:#c3c3c8;font-weight:500}.pc.s i{position:absolute;right:-1px;top:-6px;font-size:7px;font-style:normal;color:#a35a00;background:#fff0d6;border-radius:4px;padding:0 2px;line-height:9px}.bub{position:absolute;background:#2b2b2e;color:#fff;font-size:10.5px;padding:3px 7px;border-radius:5px;white-space:nowrap;z-index:6}.menu .sep{height:1px;background:#e2e2e6;margin:3px 2px;padding:0}.menu .dis{color:#999}.lgd{position:absolute;left:16px;font-size:10px;color:#555;display:flex;gap:10px;align-items:center}.lgd span{display:inline-flex;align-items:center;gap:3px}.lgd b{display:inline-block;width:10px;height:10px;border-radius:2px;box-sizing:border-box}.panel{display:flex;gap:0;width:max-content;border:1px solid var(--sep);border-radius:8px;overflow:hidden;background:#fff}.pcol{width:230px;background:#eeeef2;padding:6px 8px}.pins{width:320px;background:#f6f6f8;border-left:1px solid var(--sep);position:relative}.card .row.tall{height:auto}
 :root{--sep:#d9d9de;--bg:#f6f6f8;--ink:#1d1d1f;--sec:#6e6e73;--acc:#0a60ff}
 *{box-sizing:border-box}
 body{margin:0;background:#e9e9ee;font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;font-size:13px;color:var(--ink)}
@@ -371,7 +413,7 @@ h1{font-size:18px;margin:6px 0 2px} .banner{background:#fff3cd;border:1px solid 
 .tbicon{position:absolute;top:14px;width:28px;height:24px;display:flex;align-items:center;justify-content:center}
 .tbdisp{position:absolute;top:12px;height:28px;border-radius:14px;background:#e8e8ed;display:flex;align-items:center;justify-content:center;font-size:12px;color:#444;white-space:nowrap;overflow:hidden}
 .tools{position:absolute;top:11px;height:30px;border-radius:15px;background:#e8e8ed;display:flex;padding:2px;gap:0}
-.tool{width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:13px}.tool.on{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.tools2{display:inline-flex;background:#e8e8ed;border-radius:11px;padding:1px;margin-left:4px}.tools2 .tool{width:24px;height:20px;border-radius:10px}.tool{width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:13px}.tool.on{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18)}
 .tbtip{position:absolute;top:38px;font-size:9px;color:#999;display:none}
 .verb{position:absolute;top:11px;height:30px;padding:0 16px;border-radius:15px;background:var(--acc);color:#fff;font-weight:600;font-size:13px;display:flex;align-items:center}
 .sb{position:absolute;left:0;top:52px;width:230px;height:714px;background:#eeeef2;border-right:1px solid var(--sep);padding:6px 8px;overflow:hidden}
@@ -398,7 +440,7 @@ h1{font-size:18px;margin:6px 0 2px} .banner{background:#fff3cd;border:1px solid 
 .note{font-size:11px;color:var(--sec);padding:10px 14px;line-height:1.35}
 .pane{position:absolute;background:#fff;overflow:hidden}
 .ph{white-space:nowrap;position:absolute;left:0;top:0;right:0;height:26px;background:#f6f6f8;border-bottom:1px solid var(--sep);display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:11px;font-weight:600;color:#444}
-.phr{display:flex;gap:4px;align-items:center;font-weight:400}.sm{font-size:10.5px;color:var(--sec);font-weight:400}
+.phr{display:flex;gap:4px;align-items:center;font-weight:400}.tile{width:52px;height:40px;border:1px solid #d3d3d8;border-radius:6px;background:#fff;overflow:hidden;position:relative}.tile.on{border-color:#b5cdf7}.tile .tt{display:block;height:22px;position:relative}.tile .tt .cb{position:absolute;left:3px;top:3px;width:12px;height:12px;border-radius:3px}.tile .nm{display:flex;justify-content:space-between;align-items:center;padding:0 4px 0 6px;height:16px;font-size:11px;font-weight:600;color:#333}.rg{display:inline-flex;width:14px;height:12px;border-radius:6px;background:#ececf0;align-items:center;justify-content:center}.menu{position:absolute;width:104px;background:#fff;border:1px solid #cfcfd4;border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:3px;font-size:12px;z-index:5}.menu div{height:20px;line-height:20px;padding:0 8px;border-radius:4px}.menu .hl{background:#0a60ff;color:#fff}.btn{display:inline-flex;height:22px;align-items:center;padding:0 12px;border:1px solid #cfcfd4;border-radius:6px;background:#fff;font-size:12px;box-shadow:0 1px 1px rgba(0,0,0,.08)}.sm{font-size:10.5px;color:var(--sec);font-weight:400}
 .tg{padding:1px 7px;border-radius:9px;font-size:10.5px;color:#666;border:1px solid #d3d3d8;background:#fff}.tg.on{background:#e3edff;color:#0a3fa8;border-color:#b5cdf7}
 .maplg{position:absolute;font-size:11px;line-height:1.5;width:500px;color:#333}
 .strip{position:absolute;display:flex;gap:6px;align-items:stretch;height:34px}
@@ -419,15 +461,19 @@ h2{font-size:15px;margin:22px 0 4px}
 html=f'''<!doctype html><html><head><meta charset="utf-8"><title>Spectroscopy room mock</title><style>{CSS}</style></head><body><div class="page">
 <div class="banner">MOCK — numbers illustrative. Static picture for structure review; no app code. Light appearance, 1:1 points, window 1280 × 800.</div>
 <h1>Spectroscopy room — mac4DSTEM v5.0 (ADR 054 item 8)</h1>
-<div class="cap1">Anatomy copied from the live shell: toolbar 52 (display · draw tools · verb · icons), sidebar 230, inspector 320, pane headers 26, status strip 34. Sidebar keeps the real two sections (Workspace rooms; the room's tasks) and adds Regions.</div>
+<div class="cap1">Anatomy copied from the live shell: toolbar 52 (display · verb · icons), sidebar 230, inspector 320, pane headers 26, status strip 34. Sidebar keeps the real two sections (Workspace rooms; the room's tasks) and adds Regions.</div>
 <h2>Screen 1 — spectrum image alone · step “Quantify”</h2>
 {screen1()}
-<div class="ann">Content 730 pt: map 242 (header 26 + image 170 + thumbnail strip 34 + gaps) · spectrum 272 (largest) · results 200. Inspector rows 7 × 28 = 196 pt under the 40-pt tab capsule; the toolbar verb is the only filled button.</div>
+<div class="ann">Content 730 × 714 pt: top row 330 (map pane 290 wide: header 26 + 246-pt square image + 40-pt tile strip; results 440 wide) · spectrum 384 (header 26 + plot 332 + fit footer 26). Draw tools sit in the map header; the Cu role menu is drawn open for illustration. Inspector 7 rows × 28 = 196 pt; the toolbar verb is the only filled button.</div>
 <h2>Screen 2 — linked to a 4D scan · step “Regions”</h2>
 {screen2()}
-<div class="ann">Content: registration notice 30 · scan | diffraction 300 · pooled spectrum 354. Inspector 6 rows (+1 conditional) = 168 pt (196).</div>
+<div class="ann">Content: registration notice 30 · scan (draw tools in its header) | diffraction 300 · pooled spectrum 354. Inspector 6 rows (+1 conditional) = 168 pt (196).</div>
+<h2>Screen 4 — Elements &amp; maps step selected (periodic table in place)</h2>
+{screen1(1, inspector_elements(), "s4")}
+
+<div class="ann">Inspector: periodic table 18 × 16-pt cells (288 pt wide) = <b>168 pt</b> (7 rows × 16 + collapsed f-block row + legend + padding) plus 3 rows × 28 = 84 pt → <b>252 pt</b>. Click a cell: Quantify ↔ Off. Right-click: Quantify · Fit only · Off · Lines (menu drawn open on Mg). Hover bubbles on the dotted cells are drawn for illustration. H, He, Li, Be are greyed (reason on hover). Lanthanides/actinides sit in a collapsed row (not omitted). Auto ID never removes a pick; there is no Apply step, the fit is live.</div>
 <h2>Screen 3 — the other steps' inspectors (rows only)</h2>
 {strip()}
-</div></body></html>'''
+<h2>Narrow checks (915 pt)</h2><div class="ann">A: policy behaviour (sidebar collapses below 1095, inspector 320). B: sidebar 190 + inspector 280 both kept.</div>{screen1(3,None,'s915a',915,False,320)}<div style="height:14px"></div>{screen1(3,None,'s915b',915,True,280,190)}</div></body></html>'''
 open('/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/728f2f43-fd1b-42d1-b3b3-d9a24002fb3e/scratchpad/mock/spectroscopy-mock.html','w').write(html)
 print(len(html))
