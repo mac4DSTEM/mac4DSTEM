@@ -107,11 +107,8 @@ left in `open-items.md` · the four finishes landed and the owner's cards decide
 his own in the release build. The lanes, their write-sets, gates and order: `archive/v4/v41-plan-2026-09-30.md`.
 
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
-Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — the drive and polish lines, superseded by ADR 052). Three lanes may run at once (one supervisor each, disjoint write-sets).
+Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — v4.5.0 released). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **Release v4.5** (owner, 2026-10-05, ADR 052: as it stands, no drive first) — the cut is 4.5.0 / 8; `docs/releasing.md`;
-  the notary profile is stored on the new Mac; a session builds and notarizes from the release commit and records it in `docs/releasing.md` § Releases;
-  the owner pushes, tags `v4.5.0`, publishes the GitHub release (asset `mac4DSTEM.dmg`) and pushes the website.
 - [ ] **v5.0 — the EDX suite** (ADR 052) — the owner answers the v5.0 cards on the Board (from `docs/archive/v5/edx-dossier-2026-10-05.md`); then its
   pre-registration (§ How a feature is done) and the Spectroscopy room's mock; then `/pickup` with the first work package named.
 

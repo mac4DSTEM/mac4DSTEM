@@ -340,3 +340,9 @@ Clearing is three moves, in this order.
 - [—] **The owner's drive** (ADR 051) — superseded 2026-10-05: the owner releases v4.5 as it stands, no drive first.
 - [—] **Next polish slot** (from the drive's finds) — superseded with it; the carried candidates stay in `open-items.md` and the v4.5 notes.
 - [—] **Release, version decided then** — decided: v4.5.0 / 8 (the 4.1.0 / 8 cut renamed); the release line is back in the ROADMAP queue.
+
+## Ticked 2026-10-05 (v4.5.0 released)
+
+- [x] **Release v4.5** (owner, 2026-10-05, ADR 052: as it stands, no drive first) — the cut is 4.5.0 / 8; `docs/releasing.md`;
+  the notary profile is stored on the new Mac; a session builds and notarizes from the release commit and records it in `docs/releasing.md` § Releases;
+  the owner pushes, tags `v4.5.0`, publishes the GitHub release (asset `mac4DSTEM.dmg`) and pushes the website. — released 2026-10-05 (`docs/releasing.md` § Releases).
