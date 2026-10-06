@@ -12,7 +12,7 @@ bytes, an empty label means "unnamed, numbered one-based by position".
   info   = [typeCode]                     a scalar
            [20, elemTypeCode, length]     an array (a string is an array of ushort)
 
-Type codes: 2 int16, 3 int32, 4 uint16, 5 uint32, 6 float32, 7 float64, 8 bool/uint8.
+Type codes (struct fields too; 11 = int64, as in the owner's Spectrum Image Rect / Unique Image ID structs): 2 int16, 3 int32, 4 uint16, 5 uint32, 6 float32, 7 float64, 8 bool/uint8.
 Strings are ushort arrays (what GMS writes); type-18 string tags are NOT used (DM4Reader
 desyncs on them, see laneB report 2). Calibration Origin/Scale are float32, as in the real
 GMS EDS file (RosettaSciIO reads 0.004999999888 for a 5 eV channel).
@@ -23,7 +23,7 @@ from typing import List, Tuple, Union
 import numpy as np
 
 _CODES = {"i16": (2, "<i2"), "i32": (3, "<i4"), "u16": (4, "<u2"), "u32": (5, "<u4"),
-          "f32": (6, "<f4"), "f64": (7, "<f8"), "u8": (8, "<u1")}
+          "i64": (11, "<i8"), "f32": (6, "<f4"), "f64": (7, "<f8"), "u8": (8, "<u1")}
 
 
 class Group:
@@ -44,6 +44,10 @@ class Group:
     def string(self, label, s):
         return self.add(Array(label, "u16", np.frombuffer(s.encode("utf-16-le"), dtype="<u2")))
 
+    def struct(self, label, kind, values):
+        """A type-15 struct of equal-typed fields (info [15, 0, n, 0, code, ...]); how the owner's files store the rect and IDs."""
+        return self.add(Struct(label, kind, list(values)))
+
     def array(self, label, kind, a):
         return self.add(Array(label, kind, np.ascontiguousarray(a)))
 
@@ -51,6 +55,11 @@ class Group:
 class Value:
     def __init__(self, label, kind, v):
         self.label, self.kind, self.v = label, kind, v
+
+
+class Struct:
+    def __init__(self, label, kind, values):
+        self.label, self.kind, self.values = label, kind, values
 
 
 class Array:
@@ -92,6 +101,11 @@ def _encode(node) -> Chunks:
         code, dt = _CODES[node.kind]
         payload = np.asarray(node.v, dtype=dt).tobytes()
         return _tag(21, node.label, _data_body([code], _b(payload)))
+    if isinstance(node, Struct):
+        code, dt = _CODES[node.kind]
+        info = [15, 0, len(node.values)] + [x for _ in node.values for x in (0, code)]
+        payload = np.asarray(node.values, dtype=dt).tobytes()
+        return _tag(21, node.label, _data_body(info, _b(payload)))
     if isinstance(node, Array):
         code, dt = _CODES[node.kind]
         a = np.asarray(node.a, dtype=dt)

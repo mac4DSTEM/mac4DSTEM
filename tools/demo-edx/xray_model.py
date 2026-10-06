@@ -26,9 +26,12 @@ LINES = {
            "La": (0.9295, 1.0), "Lb1": (0.9494, 0.03197), "Lb3": (1.0225, 0.00114),
            "Ll": (0.8113, 0.08401), "Ln": (0.8312, 0.01984)},
     "O": {"Ka": (0.5249, 1.0)},
+    # Ga L lines (FIB damage), xray_lines.json:1038 block; the K lines are not modelled
+    "Ga": {"La": (1.098, 1.0), "Lb1": (1.1249, 0.16704), "Lb3": (1.1948, 0.0461),
+           "Ll": (0.9573, 0.0544), "Ln": (0.9842, 0.02509)},
 }
 MN_KA = 5.8987          # xray_lines.json:1735 block, Mn Ka (keV)
-ATOMIC_NUMBER = {"Al": 13, "Mg": 12, "Si": 14, "Cu": 29, "O": 8}
+ATOMIC_NUMBER = {"Al": 13, "Mg": 12, "Si": 14, "Cu": 29, "O": 8, "Ga": 31}
 AL_K_EDGE = 1.5596      # keV, the Al Kb energy of the table; the absorption step sits here
 
 
@@ -43,10 +46,9 @@ def family(element: str, line: str) -> str:
 
 
 # MODEL sensitivities s (counts per unit n*G for the family's first line; detector efficiency baked in). GUESS values.
-SENSITIVITY = {"Al_K": 1.00, "Mg_K": 0.55, "Si_K": 1.20, "Cu_K": 0.18, "Cu_L": 0.80, "O_K": 0.30}
+SENSITIVITY = {"Al_K": 1.00, "Mg_K": 0.55, "Si_K": 1.20, "Cu_K": 0.18, "Cu_L": 0.80, "O_K": 0.30, "Ga_L": 0.70}
 G_COUNTS = 32.4            # Al Ka counts per pixel for n_Al = 1, thickness 1 (=> ~32 per matrix pixel)
 CONTINUUM_TOTAL_Z13 = 8.0  # continuum counts per pixel (all channels, E > 0) for a pixel with sum(n Z) = 13
-AL_STEP = 0.15             # fractional continuum step at the Al K edge for a pure-Al pixel (x_Al = 1)
 AL_KA_TAIL_FRACTION = 0.015
 AL_KA_TAIL_LAMBDA_KEV = 0.12
 SI_INTERNAL_FRACTION = 0.004   # Si Ka internal-fluorescence counts per count above the Si K edge (1.839 keV)
@@ -86,17 +88,6 @@ def detector_efficiency(e):
     return out
 
 
-def continuum_shape(axis: Axis, beam_kev: float, x_al: float) -> np.ndarray:
-    """Kramers-like (E0-E)/E x efficiency x Al K-edge step, per channel, UNnormalised (counts via normalise below)."""
-    e = axis.centre
-    shape = np.zeros_like(e)
-    ok = (e > 0.05) & (e < beam_kev)
-    shape[ok] = (beam_kev - e[ok]) / e[ok]
-    shape *= detector_efficiency(e)
-    step = 1.0 - AL_STEP * x_al * 0.5 * (1.0 + erf((e - AL_K_EDGE) / 0.015))
-    return shape * step * axis.disp_kev
-
-
 class RecipeSpec:
     """One EDX recipe: atoms per unit thickness (n), a thickness factor, and whether the sample exists."""
 
@@ -104,67 +95,6 @@ class RecipeSpec:
         self.name, self.n, self.thickness_factor = name, dict(n), thickness_factor
         self.oxide = oxide_o_per_metal
         self.vacuum = vacuum
-
-
-def base_spectrum(spec: RecipeSpec, axis: Axis, beam_kev=200.0, fwhm_mnka_ev=130.0,
-                  tail=True, si_internal=True):
-    """(mean spectrum of one pixel of thickness 1 WITHOUT the stray peaks, the stray spectrum, truth). Truth: per-line Gaussian intensities (before
-    the Al Ka tail is split off), the continuum total and the model features included."""
-    mean = np.zeros(axis.n)
-    lines = {}
-    n_el = dict(spec.n)
-    metals = sum(spec.n.values())
-    if metals > 0:
-        n_el["O"] = spec.oxide * metals
-    t = spec.thickness_factor
-    for el, ls in LINES.items():
-        n = n_el.get(el, 0.0)
-        if n <= 0 or spec.vacuum:
-            continue
-        for ln, (e0, w) in ls.items():
-            intensity = t * G_COUNTS * n * SENSITIVITY[family(el, ln)] * w
-            g = intensity
-            if tail and el == "Al" and ln == "Ka":
-                g = intensity * (1.0 - AL_KA_TAIL_FRACTION)
-                sigma = fwhm_kev(e0, fwhm_mnka_ev) / (2 * math.sqrt(2 * math.log(2)))
-                near = axis.centre < e0 + 0.5
-                x = np.where(near, axis.centre - e0, 0.0)
-                # exponential shelf below the peak; its onset is smoothed by the line's own Gaussian CDF
-                shelf = np.where(near, np.exp(x / AL_KA_TAIL_LAMBDA_KEV) * 0.5 * (1 - erf(x / (sigma * math.sqrt(2)))), 0.0)
-                shelf *= intensity * AL_KA_TAIL_FRACTION / shelf.sum()
-                mean += shelf
-            mean += g * axis.gaussian(e0, fwhm_kev(e0, fwhm_mnka_ev))
-            lines[f"{el}_{ln}"] = {"energy_keV": e0, "weight": w, "mean_counts": intensity,
-                                   "gaussian_counts": g, "fwhm_eV": 1000 * fwhm_kev(e0, fwhm_mnka_ev)}
-    # continuum
-    nz = sum(n_el.get(e, 0.0) * ATOMIC_NUMBER[e] for e in n_el)
-    x_al = n_el.get("Al", 0.0) / max(sum(n_el.values()), 1e-12)
-    cont_total = 0.0
-    if not spec.vacuum:
-        shape = continuum_shape(axis, beam_kev, x_al)
-        ref = continuum_shape(axis, beam_kev, 0.0)
-        cont_total = t * CONTINUUM_TOTAL_Z13 * nz / 13.0
-        mean += shape / ref.sum() * cont_total
-        cont_total = float((shape / ref.sum() * cont_total).sum())
-    else:
-        shape = continuum_shape(axis, beam_kev, 0.0)
-        mean += shape / shape.sum() * VACUUM_CONTINUUM_PER_PIXEL
-    # Si internal fluorescence: a fraction of everything above the Si K edge reappears as a Si Ka peak
-    si_int = 0.0
-    if si_internal:
-        above = mean[axis.centre > SI_K_EDGE].sum()
-        si_int = SI_INTERNAL_FRACTION * above
-        e0 = LINES["Si"]["Ka"][0]
-        mean += si_int * axis.gaussian(e0, fwhm_kev(e0, fwhm_mnka_ev))
-    stray, stray_mean = {}, np.zeros(axis.n)
-    # stray (NOT scaled by thickness): holder Cu K in every pixel, vacuum included. Returned separately.
-    for ln in ("Ka", "Kb"):
-        e0, w = LINES["Cu"][ln]
-        c = STRAY_CU_KA_PER_PIXEL * w
-        stray_mean += c * axis.gaussian(e0, fwhm_kev(e0, fwhm_mnka_ev))
-        stray[f"Cu_{ln}"] = c
-    return mean, stray_mean, {"lines": lines, "continuum_counts_per_pixel": cont_total, "si_internal_Ka_counts": si_int,
-                  "stray_counts_per_pixel": stray, "n_atoms": n_el}
 
 
 # ---- phases (atom fractions; Q = Al3Cu2Mg9Si7, beta'' = Mg5Si6, matrix = Al with 0.6 at% Mg and 0.6 at% Si) -------
@@ -178,7 +108,7 @@ PRECIP_THICKNESS_FACTOR = 1.3     # a precipitate pixel is 1.3x as thick as matr
 
 def mix(a, b, v):
     out = {}
-    for k in set(a) | set(b):
+    for k in sorted(set(a) | set(b)):                 # sorted: str hashing is randomised per run, and dict order changes float sums
         out[k] = (1 - v) * a.get(k, 0.0) + v * b.get(k, 0.0)
     return out
 
@@ -186,6 +116,8 @@ def mix(a, b, v):
 def edx_spec(recipe: str) -> RecipeSpec:
     if recipe == "vacuum":
         return RecipeSpec(recipe, {}, 1.0, vacuum=True)
+    if recipe == "beta_pure":      # K2 pool: full-fraction Mg5Si6 (no matrix), 3 t (at 1.3 t the uncorrected Mg/Si bias is only 2.7 %)
+        return RecipeSpec(recipe, dict(BETA), 3.0)
     if recipe == "precip_Q":
         return RecipeSpec(recipe, mix(MATRIX, Q_PHASE, PRECIP_VOLUME_FRACTION), PRECIP_THICKNESS_FACTOR)
     if recipe.startswith("precip_"):
@@ -198,7 +130,7 @@ def phase_of(recipe: str) -> str:
         return "vacuum"
     if recipe == "precip_Q":
         return "Q"
-    if recipe.startswith("precip_"):
+    if recipe.startswith("precip_") or recipe == "beta_pure":
         return "beta''"
     return "Al"
 

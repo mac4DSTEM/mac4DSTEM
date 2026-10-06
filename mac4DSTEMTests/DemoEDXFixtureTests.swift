@@ -3,7 +3,7 @@ import CryptoKit
 import DSTEMCore
 
 /// v5.0 WP2 lane S: the simulated 4D-STEM + EDX dataset (`tools/demo-edx/`). The fixture is the TINY variant
-/// (6 x 4 scan, 16 x 16 detector, 512 channels at 20 eV; 115 kB) written by `sim_edx.py --tiny` in the GMS
+/// (6 x 4 scan, 16 x 16 detector, 512 channels at 20 eV, a perturbed energy axis, two 30 %-dead rows; 123 kB) written by `sim_edx.py --tiny` in the GMS
 /// multi-object layout of `docs/archive/v5/4d-edx-file-structure-2026-10-05.md` §4a, next to its truth file.
 /// The truth carries the SHA-256 of every array as WRITTEN (C order of the logical shape), so these tests compare
 /// what our readers return to what the generator wrote, and the scan is not square (6 != 4) so an axis swap shows.
@@ -68,15 +68,17 @@ final class DemoEDXFixtureTests: XCTestCase {
         let eds = try object(objects, .eds)
         let tags = try XCTUnwrap(eds.eds)
         XCTAssertEqual(tags.azimuthDegrees, 45)
-        XCTAssertEqual(tags.elevationDegrees, 18)
+        XCTAssertEqual(tags.elevationDegrees, 22, "the planted physics (round 3), not the Titan file's 18")
         XCTAssertEqual(try XCTUnwrap(tags.solidAngle), 0.7, accuracy: 1e-6)
         XCTAssertEqual(try XCTUnwrap(tags.realTime), 6 * 4 * 1.0e-3, accuracy: 1e-6)
-        XCTAssertEqual(try XCTUnwrap(tags.liveTime), 6 * 4 * 1.0e-3 * 0.95, accuracy: 1e-6)
-        // Energy axis: E = (i - 23.9) * 0.02 keV on 512 channels (the tiny file's 20 eV pitch).
+        // Two of the four scan rows are 30 % dead (live 0.70), two 5 % dead (0.95): the scalar is real x mean live fraction 0.825.
+        XCTAssertEqual(try XCTUnwrap(tags.liveTime), 6 * 4 * 1.0e-3 * 0.825, accuracy: 1e-6)
+        // Energy axis of the FILE: the generator's axis (E = (i - 23.9) * 0.02 keV, 512 channels) perturbed by E_file = 1.002 E_true - 10 eV,
+        // so scale 0.02004 keV and origin 23.9 + 0.010 / 0.02004 = 24.399.
         let energy = try XCTUnwrap(eds.axes[2])
         XCTAssertEqual(energy.units, "keV")
-        XCTAssertEqual(energy.origin, 23.9, accuracy: 1e-5)
-        XCTAssertEqual(energy.scale, 0.02, accuracy: 1e-7)
+        XCTAssertEqual(energy.origin, 24.399, accuracy: 1e-4)
+        XCTAssertEqual(energy.scale, 0.02004, accuracy: 1e-7)
         XCTAssertEqual(try XCTUnwrap(eds.axes[0]).units, "nm")
         XCTAssertEqual(try XCTUnwrap(eds.axes[0]).scale, 5, accuracy: 1e-6)
         let diffraction = try object(objects, .diffraction)
