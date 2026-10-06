@@ -75,7 +75,7 @@ final class SpectroscopyRoomModel {
     /// The shown at% / wt% was computed without the absorption correction (off, or refused): the column header says so.
     var abundanceWithoutAbsorption = false
     var fitFailure: String?
-    /// "Whole map, for comparison: Mg 0.9 ± 0.2 · Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%": the same method on the whole map, shown
+    /// "Whole map, same listed elements, for comparison: Mg 0.9 ± 0.2 · Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%": the same method on the whole map, shown
     /// under a region's numbers; nil for the whole map itself, before Quantify and when no at% was computed.
     var wholeMapLine: String?
     /// What the Export… menu (the panel's header, the inspector's Export section) is writing and what it last said.

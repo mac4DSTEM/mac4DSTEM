@@ -95,52 +95,60 @@ final class SpectroscopyUnlistedLineTests: XCTestCase {
 
     // MARK: P4
 
-    /// P4: listed O, Si, Ti, Ni on the S2c pool. The check names Ge, Cu and Ga (Cu and Ga as sum-peak questions: they must
-    /// count) and withholds at% because Ti, held at the bound, moves by far more than its sigma. The shown result has no at%,
-    /// no k-free ratio, the reason in the footer and the export. A dismissed Cu is not named again.
+    /// P4 (A2): listed O, Si, Ti, Ni on the S2c pool. The check names Ge, Cu and Ga (Cu and Ga as sum-peak questions: they must
+    /// count; all far from a listed line, so elements). Ti, held at the bound, moves by far more than its sigma, and since A2 that
+    /// BLANKS NOTHING: at% and the k-free ratio stay on every row, the caveat names the unlisted elements and the largest move,
+    /// and the export carries it. `moves` are the numbers the old test asserted (Ti, same bar).
     /// Mutations (each alone): the candidates filtered to `!hasSumPeakQuestion` - red (Cu, Ga missing); the bar `> row.sigma`
-    /// changed to `> 1e12` - red (nothing withheld); `withholding` leaving `kFreeRatio` - red; the dismissed filter removed - red.
-    func testP4FourListedNamesGeCuGaAndWithholdsAtPercent() throws {
+    /// changed to `> 1e12` - red (nothing moves); blanking at% again (the deleted `blankAbundance`, 94e26370) - red (T3); the dismissed filter removed - red.
+    func testP4FourListedNamesGeCuGaAndKeepsAtPercentWithACaveat() throws {
         let input = Self.input(seed: 0, elements: Self.four)
         let q = try PooledQuantifier.run(input, tables: Q.tables)
         XCTAssertTrue(q.hasAbundance, q.abundanceRefusal ?? "")
         let proposal = try UnlistedLineChecker.propose(counts: input.counts.map { Double($0) }, quantification: q)
         let check = UnlistedLineChecker.check(proposal: proposal, input: input, quantification: q)
-        let names = Set(check.names)
-        XCTAssertTrue(names.isSuperset(of: ["Ge", "Cu", "Ga"]), "named: \(check.names); \(check.summary)")
+        // Real Cu K-alpha is 563 eV = 3.0 FWHM from the listed Ni K-alpha (its K-beta, 217 eV away, is not a reference): an element.
+        XCTAssertTrue(Set(check.elementNames).isSuperset(of: ["Ge", "Cu", "Ga"]), "named: \(check.names); \(check.summary)")
+        XCTAssertTrue(check.candidates.filter { $0.element == "Cu" }.allSatisfy { $0.besideLine == nil && $0.sumPeakQuestion }, check.summary)
         XCTAssertTrue(check.withholds, check.summary)
         let ti = try XCTUnwrap(check.moves.first { $0.element == "Ti" }, check.summary)
         XCTAssertGreaterThan(abs(ti.after - ti.before), ti.sigma)
         note("P4 seed 0: " + check.summary + " | " + q.rows.map { String(format: "%@ %.0f±%.0f", $0.element, $0.net, $0.sigma) }.joined(separator: ", "))
 
         let shown = UnlistedLineChecker.withholding(q, check)
-        XCTAssertFalse(shown.hasAbundance)
-        XCTAssertTrue(shown.rows.allSatisfy { $0.atomicPercent == nil && $0.weightPercent == nil && $0.kFreeRatio == nil })
+        XCTAssertTrue(shown.hasAbundance, "A2: the check never blanks at%")
+        XCTAssertEqual(shown.rows.map(\.atomicPercent), q.rows.map(\.atomicPercent))
+        XCTAssertEqual(shown.rows.map(\.kFreeRatio), q.rows.map(\.kFreeRatio))
+        XCTAssertTrue(shown.rows.contains { $0.atomicPercent != nil })
         XCTAssertEqual(shown.rows.map(\.net), q.rows.map(\.net), "the nets stay")
-        XCTAssertNil(QuantifyPresentation.ratioLine(shown))
-        XCTAssertTrue(try XCTUnwrap(shown.abundanceRefusal).contains("Ti"))
-        XCTAssertFalse(shown.footerLines.contains { $0.contains("withheld") }, "the reason is the note, not repeated in the footer")
+        let caveat = try XCTUnwrap(shown.abundanceCaveat)
+        XCTAssertTrue(caveat.hasPrefix("assumes the listed elements only; unlisted: "), caveat)
+        for el in ["Ge", "Cu", "Ga"] { XCTAssertTrue(caveat.contains("\(el) (net "), caveat) }
+        XCTAssertTrue(caveat.contains("largest move"), caveat)
         XCTAssertTrue(check.summary.contains("largest move"), check.summary)
         let csv = SpectroscopyExport.csv(shown, regionName: "synthetic")
         XCTAssertTrue(csv.contains("# unlisted-line check: found Ge"), csv)
-        XCTAssertTrue(csv.contains("# validation: net counts only; at% and k-free ratios withheld"))
+        XCTAssertTrue(csv.contains("# at% caveat: assumes the listed elements only"), csv)
+        XCTAssertFalse(csv.contains("withheld"))
         let tiRow = try XCTUnwrap(csv.split(separator: "\n").first { $0.hasPrefix("Ti,Ti_Ka,") }).split(separator: ",", omittingEmptySubsequences: false)
-        XCTAssertEqual(tiRow[4], ""); XCTAssertEqual(tiRow[6], "")
-        XCTAssertEqual(QuantifyPresentation.unlistedNote(check).candidates.count, check.names.count)
+        XCTAssertNotEqual(tiRow[6], "", "at% is exported")
+        // A beside candidate has no element number: the room offers "Add" only for elements (A2).
+        XCTAssertEqual(QuantifyPresentation.unlistedNote(check).candidates.count, check.elementNames.count)
 
-        // A person switched Cu Off: the same proposal, Cu no longer named.
+        // A person switched Ga and Cu Off: the same proposal, neither is a candidate any more.
         var dismissedInput = input
         dismissedInput.method.elements.append(.init(symbol: "Cu", role: .off, isManual: true))
+        dismissedInput.method.elements.append(.init(symbol: "Ga", role: .off, isManual: true))
         var qd = q; qd.method = dismissedInput.method
         let without = UnlistedLineChecker.check(proposal: proposal, input: dismissedInput, quantification: qd)
-        XCTAssertFalse(without.names.contains("Cu"), without.summary)
-        XCTAssertTrue(without.names.contains("Ge"))
+        XCTAssertFalse(without.candidates.contains { $0.element == "Cu" || $0.element == "Ga" }, without.summary)
+        XCTAssertTrue(without.elementNames.contains("Ge"))
     }
 
     // MARK: P5
 
     /// P5: the complete list. Over seeds 0-2 at% is never withheld; where the proposer makes a (chance) proposal, it is named
-    /// and the refit moves no quantified net by more than its sigma. Measured seeds are in the lane report.
+    /// (beside the Al K split: as an unexplained excess, never as an element) and the refit moves no quantified net by more than its sigma. Measured seeds are in the lane report.
     /// Mutation: `withholds` true whenever a candidate exists - red on a seed with a chance proposal.
     func testP5CompleteListNamesAChanceProposalButDoesNotWithhold() throws {
         var namedSomewhere = false
@@ -151,7 +159,8 @@ final class SpectroscopyUnlistedLineTests: XCTestCase {
             let check = UnlistedLineChecker.check(proposal: proposal, input: input, quantification: q)
             note("P5 seed \(seed): " + check.summary + " | moves \(check.moves.count)")
             XCTAssertFalse(check.withholds, "seed \(seed): \(check.summary)")
-            if !check.candidates.isEmpty { XCTAssertTrue(check.summary.contains("largest move"), check.summary) }
+            XCTAssertFalse(check.names.contains("Lu"), "seed \(seed): a chance Lu is never named as an element: \(check.names)")
+            if !check.elementNames.isEmpty { XCTAssertTrue(check.summary.contains("largest move"), check.summary) }
             XCTAssertTrue(UnlistedLineChecker.withholding(q, check).hasAbundance)
             if !check.candidates.isEmpty {
                 namedSomewhere = true
@@ -168,6 +177,102 @@ final class SpectroscopyUnlistedLineTests: XCTestCase {
         XCTAssertTrue(check.names.contains("Ca"), check.summary)
         XCTAssertFalse(check.withholds, check.summary)
         XCTAssertTrue(namedSomewhere || check.names.contains("Ca"))
+    }
+
+    // MARK: A2 (Gate D 2026-10-06: ship the quantity, label what is beside a listed line)
+
+    private func groups(_ elements: [String]) -> [FitLineGroup] {
+        EDSLineModel.build(elements: elements, axis: Self.pool.axis, beamEnergy: Self.pool.beam, resolutionMnKaEV: 130, escapePeaks: false).groups
+    }
+
+    /// T1: `neighbour` is a geometry rule on the STRONGEST (alpha) line of each listed group, +-2 FWHM(E) at the candidate's energy, nearest in
+    /// FWHM units; a split edge within +-1 FWHM only when no group qualifies; never a beta line. Lu 1.581 keV is 1.15 FWHM from Al K-alpha
+    /// (FWHM 78 eV at 130 eV Mn); with Al and Si listed Al K-alpha is still the nearest (Si K-alpha 1.87 FWHM, also inside). Cu K-alpha 8.041
+    /// is 3.0 FWHM from Ni K-alpha (Ni K-beta, 217 eV away, is no reference): nil. Hf L-alpha 7.899 is 0.75 FWHM from Cu K-alpha.
+    /// Mutations: (m1) measure against every line of the group -> the Cu/Ni case returns "Ni K\u{03B1}"; (m2) `2 * fwhm` -> `1 * fwhm` ->
+    /// the Lu/Al case is nil. Each red before the test is trusted.
+    func testT1NeighbourIsAGeometryRule() throws {
+        let al = groups(["Al"])
+        let n = try XCTUnwrap(UnlistedLineChecker.neighbour(energyKeV: 1.581, listedGroups: al, resolutionMnKaEV: 130, edges: [], nets: ["Al_Ka": 6000]))
+        XCTAssertEqual(n.line, "Al K\u{03B1}"); XCTAssertEqual(n.net, 6000)
+        XCTAssertEqual(UnlistedLineChecker.neighbour(energyKeV: 1.581, listedGroups: groups(["Al", "Si"]), resolutionMnKaEV: 130, edges: [])?.line, "Al K\u{03B1}")
+        XCTAssertNil(UnlistedLineChecker.neighbour(energyKeV: 2.957, listedGroups: al, resolutionMnKaEV: 130, edges: []))
+        XCTAssertNil(UnlistedLineChecker.neighbour(energyKeV: 8.041, listedGroups: groups(["Ni"]), resolutionMnKaEV: 130, edges: []), "Cu beside Ni K-beta is not beside Ni")
+        XCTAssertEqual(UnlistedLineChecker.neighbour(energyKeV: 7.899, listedGroups: groups(["Cu"]), resolutionMnKaEV: 130, edges: [])?.line, "Cu K\u{03B1}")
+        XCTAssertNil(UnlistedLineChecker.neighbour(energyKeV: 7.899, listedGroups: groups(["Si"]), resolutionMnKaEV: 130, edges: []))
+        let split = UnlistedLineChecker.neighbour(energyKeV: 1.581, listedGroups: groups(["Si"]), resolutionMnKaEV: 130, edges: [1.5596])
+        XCTAssertEqual(split?.line, "the continuum split at 1.560 keV"); XCTAssertEqual(split?.net, 0)
+        XCTAssertNil(UnlistedLineChecker.neighbour(energyKeV: 1.65, listedGroups: groups(["O"]), resolutionMnKaEV: 130, edges: [1.5596]), "1.14 FWHM from the edge: clear")
+    }
+
+    /// T2: a Lu M-alpha beside a listed line is named as an unexplained excess beside it, never as Lu, and not refitted. Then a planted Lu M-alpha at 20 % of a listed Al K-alpha (the spec said 1 %: at 1 % the refit with Lu moves Al by 0.07 sigma and the proposer does not find it), large enough that a refit WITH it moves Al by more
+    /// than sigma (asserted, so the case is a test of the rule), is still beside Al K-alpha and moves nothing.
+    /// Mutation: let beside candidates into the refit (`elements` -> `candidates` in `check`'s refit) - red on the planted case.
+    func testT2BesideCandidatesAreExcessesNotElementsAndNeverRefitted() throws {
+        // The spec's seed-0 chance Lu M-alpha is gone from this tree (P5 seeds 0-2 now propose nothing), so the case is planted:
+        // Lu M-alpha 3 000 counts at 1.581 keV on the seven-element list. Si K-alpha (listed, 159 eV away = 1.9 FWHM at the fit's
+        // refined width) is the nearest line, so the excess is "beside Si K-alpha" - lines come before the split edge.
+        let input0 = Self.input(seed: 0, elements: Self.seven, plant: ["Lu_Ma": 3000])
+        let q0 = try PooledQuantifier.run(input0, tables: Q.tables)
+        let c0 = UnlistedLineChecker.check(proposal: try UnlistedLineChecker.propose(counts: input0.counts.map { Double($0) }, quantification: q0),
+                                           input: input0, quantification: q0)
+        note("T2 split: " + c0.summary)
+        let lu0 = try XCTUnwrap(c0.candidates.first { $0.element == "Lu" }, "premise: the planted Lu is proposed: \(c0.summary)")
+        XCTAssertEqual(lu0.besideLine, "Si K\u{03B1}", c0.summary)
+        XCTAssertNotNil(lu0.fractionOfNeighbour)
+        XCTAssertTrue(lu0.shownName.hasPrefix("unexplained excess beside Si K\u{03B1}: "), lu0.shownName)
+        XCTAssertFalse(c0.names.contains { $0.contains("Lu") }, "\(c0.names)")
+        XCTAssertFalse(c0.elementNames.contains("Lu"))
+        XCTAssertFalse(c0.withholds, c0.summary)
+        XCTAssertTrue(c0.summary.contains("proposer's label Lu M\u{03B1}"), c0.summary)
+        XCTAssertTrue(try XCTUnwrap(UnlistedLineChecker.withholding(q0, c0).abundanceCaveat).contains("excess beside Si K\u{03B1} (net "))
+
+        // Planted: Al listed, Al K-alpha 100 000, Lu M-alpha 20 000 (20 %).
+        let withAl = Self.seven + [("Al", .quantify)]
+        let plant = ["Al_Ka": 100_000.0, "Lu_Ma": 20_000.0]
+        let input = Self.input(seed: 0, elements: withAl, plant: plant)
+        let q = try PooledQuantifier.run(input, tables: Q.tables)
+        let check = UnlistedLineChecker.check(proposal: try UnlistedLineChecker.propose(counts: input.counts.map { Double($0) }, quantification: q),
+                                              input: input, quantification: q)
+        // The premise: a refit WITH Lu as Fit only moves Al by more than its sigma.
+        var with = input; with.method.elements.append(.init(symbol: "Lu", role: .fitOnly, isManual: false)); with.refinement = q.refinement
+        let qLu = try PooledQuantifier.run(with, tables: nil)
+        let alBefore = try XCTUnwrap(q.rows.first { $0.element == "Al" }), alAfter = try XCTUnwrap(qLu.rows.first { $0.element == "Al" })
+        note("T2 planted: Al \(alBefore.net) +- \(alBefore.sigma) -> \(alAfter.net) with Lu; " + check.summary)
+        XCTAssertGreaterThan(abs(alAfter.net - alBefore.net), alBefore.sigma, "premise: the planted Lu matters to Al")
+        let lu = try XCTUnwrap(check.candidates.first { $0.element == "Lu" }, check.summary)
+        XCTAssertEqual(lu.besideLine, "Al K\u{03B1}")
+        XCTAssertNotNil(lu.fractionOfNeighbour)
+        XCTAssertFalse(check.withholds, check.summary)
+        XCTAssertTrue(check.moves.isEmpty, check.summary)
+        XCTAssertFalse(check.names.contains("Lu"))
+        XCTAssertTrue(check.names.contains { $0.hasPrefix("unexplained excess beside Al K\u{03B1}: ") && $0.contains("% of Al K\u{03B1}") }, "\(check.names)")
+        XCTAssertTrue(UnlistedLineChecker.withholding(q, check).hasAbundance)
+    }
+
+    /// T3: ship the quantity. The same P4 check as before names Ge, Cu, Ga and moves Ti; at% is non-nil on every row that had one
+    /// and the caveat names the unlisted elements and the largest move; while the check runs the at% is shown with "running".
+    /// Mutation: `withholding` blanks at% again when `c.withholds` - red; `holding` blanking - red.
+    func testT3TheQuantityShipsWithTheCaveat() throws {
+        let input = Self.input(seed: 0, elements: Self.four)
+        let q = try PooledQuantifier.run(input, tables: Q.tables)
+        let check = UnlistedLineChecker.check(proposal: try UnlistedLineChecker.propose(counts: input.counts.map { Double($0) }, quantification: q),
+                                              input: input, quantification: q)
+        XCTAssertTrue(check.withholds)
+        XCTAssertEqual(Set(check.moves.map(\.element)).contains("Ti"), true, check.summary)
+        let shown = UnlistedLineChecker.withholding(q, check)
+        XCTAssertEqual(shown.rows.map(\.atomicPercent), q.rows.map(\.atomicPercent))
+        XCTAssertEqual(shown.rows.map(\.weightPercent), q.rows.map(\.weightPercent))
+        XCTAssertTrue(shown.rows.allSatisfy { $0.atomicPercent != nil })
+        XCTAssertNil(shown.abundanceRefusal)
+        XCTAssertTrue(try XCTUnwrap(shown.abundanceCaveat).contains("Ge (net "))
+        let holding = UnlistedLineChecker.holding(q)
+        XCTAssertEqual(holding.rows.map(\.atomicPercent), q.rows.map(\.atomicPercent))
+        XCTAssertEqual(holding.abundanceCaveat, "unlisted-line check running")
+        XCTAssertTrue(holding.unlistedCheckPending)
+        // A complete list with nothing found carries no caveat, and the replaced caveat leaves no trace.
+        let landed = UnlistedLineChecker.withholding(holding, UnlistedLineCheck(candidates: [], moves: []))
+        XCTAssertNil(landed.abundanceCaveat); XCTAssertFalse(landed.unlistedCheckPending)
     }
 
     // MARK: The room
@@ -188,13 +293,14 @@ final class SpectroscopyUnlistedLineTests: XCTestCase {
         XCTAssertTrue(pending.checking)
         // Pending: the nets only; at%, the k-free ratios and the Mg/Si line wait, and no second note repeats "checking".
         XCTAssertFalse(c.model.results.isEmpty)
-        XCTAssertTrue(c.model.results.allSatisfy { !$0.hasAbundance && !$0.hasKFree })
-        XCTAssertNil(c.model.ratioLine); XCTAssertNil(c.model.abundanceNote)
+        // A2: the numbers are shown at once (the caveat says the check is running).
+        let pendingAtomic = c.model.results.map(\.hasAbundance)
         XCTAssertTrue(c.model.resultsFooter.contains(PooledQuantifier.sigmaScopeLine))
         let early = try XCTUnwrap(c.model.export.csv)
-        XCTAssertTrue(early.contains("# unlisted-line check: check not finished when this was exported; at% omitted"))
+        XCTAssertTrue(early.contains("# unlisted-line check: check not finished when this was exported"))
+        XCTAssertTrue(early.contains("# at% caveat: unlisted-line check running"))
         let al = try XCTUnwrap(early.split(separator: "\n").first { $0.hasPrefix("Al,Al_Ka,") }).split(separator: ",", omittingEmptySubsequences: false)
-        XCTAssertEqual(al[6], ""); XCTAssertEqual(al[4], "")
+        XCTAssertEqual(al[6] != "", pendingAtomic.first == true)
         // The user's map mode survives the check landing.
         c.model.mapMode = .atomic
         await c.checkTask?.value
@@ -205,7 +311,8 @@ final class SpectroscopyUnlistedLineTests: XCTestCase {
         let csv = try XCTUnwrap(c.model.export.csv)
         XCTAssertFalse(csv.contains("not finished"))
         XCTAssertTrue(csv.contains("# unlisted-line check: "))
-        XCTAssertEqual(c.model.results.allSatisfy(\.hasAbundance), !csv.contains("withheld by the unlisted-line check"))
+        XCTAssertEqual(c.model.results.map(\.hasAbundance), pendingAtomic, "the check landing blanks nothing")
+        XCTAssertFalse(csv.contains("withheld"))
     }
 
     /// A check from an older fit never lands: `landCheck` with a stale generation leaves the shown note; the current one lands.

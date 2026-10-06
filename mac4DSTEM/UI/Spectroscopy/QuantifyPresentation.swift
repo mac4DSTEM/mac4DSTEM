@@ -131,7 +131,7 @@ nonisolated struct UnlistedLineNote: Equatable, Sendable {
 
 nonisolated enum QuantifyPresentation {
     static func unlistedNote(_ c: UnlistedLineCheck) -> UnlistedLineNote {
-        UnlistedLineNote(text: c.line, detail: c.summary, candidates: c.names.compactMap { PeriodicLayout.z(of: $0) })
+        UnlistedLineNote(text: c.line, detail: c.summary, candidates: c.elementNames.compactMap { PeriodicLayout.z(of: $0) })
     }
 
     /// The weak-line bias note is the fit's own, 600 characters long; the room shows the sentence and keeps the text as help.
@@ -172,7 +172,7 @@ nonisolated enum QuantifyPresentation {
         return "counting (fit covariance) \(rel.map { String(format: "%.1f %%", $0 * 100) } ?? "n/a") of the area"
     }
 
-    /// "Whole map, for comparison: Mg 0.9 ± 0.2 · Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%": the quantified rows of the same method on the
+    /// "Whole map, same listed elements, for comparison: Mg 0.9 ± 0.2 · Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%": the quantified rows of the same method on the
     /// whole map. nil when no at% was computed (a refusal) or no row has one.
     static func wholeMapLine(_ q: PooledQuantification) -> String? {
         guard q.hasAbundance else { return nil }
@@ -180,13 +180,12 @@ nonisolated enum QuantifyPresentation {
             guard r.failure == nil, let a = r.atomicPercent, let s = r.atomicSigma else { return nil }
             return "\(r.element) " + String(format: "%.1f \u{00B1} %.1f", a, s)
         }
-        return cells.isEmpty ? nil : "Whole map, for comparison: " + cells.joined(separator: " \u{00B7} ") + " at%"
+        return cells.isEmpty ? nil : "Whole map, same listed elements, for comparison: " + cells.joined(separator: " \u{00B7} ") + " at%"
     }
 
     /// The ratio line: Mg / Si when both are quantified and measured, else nothing (the column carries the rest).
     static func ratioLine(_ q: PooledQuantification) -> RatioLine? {
-        guard q.unlistedCheck?.withholds != true, !q.unlistedCheckPending,   // a k-free ratio: held and withheld with them
-              let mg = q.rows.first(where: { $0.element == "Mg" && $0.failure == nil && $0.net > 0 }),
+        guard let mg = q.rows.first(where: { $0.element == "Mg" && $0.failure == nil && $0.net > 0 }),
               let si = q.rows.first(where: { $0.element == "Si" && $0.failure == nil && $0.net > 0 }),
               let gi = q.fit.groupIDs.firstIndex(of: mg.groupID), let gj = q.fit.groupIDs.firstIndex(of: si.groupID) else { return nil }
         let ratio = mg.net / si.net

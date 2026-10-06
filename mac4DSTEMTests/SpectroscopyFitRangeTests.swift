@@ -217,8 +217,7 @@ final class SpectroscopyFitRangeTests: XCTestCase {
 
     // MARK: P4
 
-    /// P4: the unlisted-line check at the new default. Four listed (O, Si, Ti, Ni): Ti at the bound, Ge, Cu and Ga named, at%
-    /// withheld, Ti's move many sigma (harness: +27.5 ... +29.4 against the 4-element row's sigma; E2's +27.8 ... +29.0 divided by
+    /// P4: the unlisted-line check at the new default. Four listed (O, Si, Ti, Ni): Ti at the bound, Ge, Cu and Ga named (A2: at% is shown with a caveat, not withheld), Ti's move many sigma (harness: +27.5 ... +29.4 against the 4-element row's sigma; E2's +27.8 ... +29.0 divided by
     /// the 7-element sigma). Mutation M1 (above) - red, through the pinned default (fitTo == 20); the withholding decision itself holds at
     /// both ranges, so this test guards the F1 premise at the default.
     func testP4TheUnlistedCheckStillWithholdsAtTheDefault() throws {

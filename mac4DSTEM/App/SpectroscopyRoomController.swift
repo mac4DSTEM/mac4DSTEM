@@ -87,7 +87,7 @@ final class SpectroscopyRoomController {
     /// The computed-k and absorption data files, read once (Resources/Spectroscopy); nil when the bundle lacks them.
     private nonisolated static let tables: QuantificationTables? = QuantificationTables.bundled()
     @ObservationIgnored private(set) var lastFit: PooledQuantification?
-    /// The whole-map comparison line, held until the region's own unlisted-line check has finished and not withheld (`present`).
+    /// The whole-map comparison line, shown with the region's fit (A2: the check blanks no at%, so it gates nothing; `present`).
     @ObservationIgnored private var heldWholeLine: String?
     @ObservationIgnored private var pendingWaiters: [CheckedContinuation<Void, Never>] = []
 
@@ -825,12 +825,12 @@ final class SpectroscopyRoomController {
         m.results = QuantifyPresentation.rows(fit)
         m.ratioLine = QuantifyPresentation.ratioLine(fit)
         // The whole-map at% is a number like the region's own: not shown while the check runs, not after it withholds.
-        m.wholeMapLine = (fit.unlistedCheckPending || fit.unlistedCheck?.withholds == true) ? nil : heldWholeLine
+        m.wholeMapLine = heldWholeLine
         m.validation = fit.hasAbundance ? PooledQuantification.abundanceValidation : nil
         m.fitWarnings = QuantifyPresentation.warnings(fit.warnings)
         if case .applied = fit.absorption { m.abundanceWithoutAbsorption = false } else { m.abundanceWithoutAbsorption = fit.hasAbundance }
         // While the check runs its own line says "checking…"; a second note would repeat it.
-        m.abundanceNote = fit.unlistedCheckPending ? nil : fit.abundanceRefusal.map { "at% not computed: \($0)" }
+        m.abundanceNote = fit.abundanceRefusal.map { "at% not computed: \($0)" } ?? fit.abundanceCaveat.map { "at% caveat: \($0)" }   // A2: at% is never blanked by the check; the caveat rides with it
         m.resultsFooter = fit.footerLines.joined(separator: "\n")
         m.fitFooter = QuantifyPresentation.plotFooter(fit)
         let regionName = session?.regions.first { $0.id == region }?.name ?? "Whole map"

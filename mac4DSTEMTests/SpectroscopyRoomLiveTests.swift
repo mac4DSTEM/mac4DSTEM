@@ -518,7 +518,7 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
     }
 
     /// The comparison line: a region's quantification shows the same method on the whole map; the whole map shows none.
-    /// Mutations: the line computed for region 0 as well — red; the gate in `present` removed (`m.wholeMapLine = heldWholeLine`) — red.
+    /// Mutations: the line computed for region 0 as well — red; the caveat dropped from `m.abundanceNote` in `present` — red.
     func testARegionsQuantificationCarriesAWholeMapComparisonLine() async throws {
         let (state, c, _) = open()
         for z in [13, 29] { c.model.elements.set(z, .quantify) }
@@ -529,18 +529,16 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         XCTAssertNil(c.model.wholeMapLine, "the whole map is its own comparison")
         c.editRegion(.rectangle(PixelRect(x0: 0, y0: 0, x1: 4, y1: 3)), final: true)
         await c.lastRefresh?.value
-        // R4c: the line is a number like the region's own: nil while the unlisted-line check is pending.
-        if c.model.unlisted?.checking == true {
-            XCTAssertNil(c.model.wholeMapLine, "no whole-map at% while the region's check runs")
-        }
+        // A2: the region's at% is shown at once (the check blanks nothing), so the comparison line is not gated by the check either.
         try await waitFor("the comparison line") { c.model.wholeMapLine != nil }
-        XCTAssertTrue(c.model.wholeMapLine?.hasPrefix("Whole map, for comparison: ") == true)
+        XCTAssertTrue(c.model.wholeMapLine?.hasPrefix("Whole map, same listed elements, for comparison: ") == true)
         XCTAssertTrue(c.model.wholeMapLine?.hasSuffix(" at%") == true)
-        // ... and nil again when the check withholds the region's own numbers.
+        // ... and it stays when the check names a candidate that moves a net: A2 ships the quantity, the caveat reaches the model.
         let fit = try XCTUnwrap(c.lastFit)
         let zr = UnlistedLineCheck.Candidate(element: "Zr", group: "Zr_La", net: 900, detectionLimit: 400, sumPeakQuestion: false)
         c.landCheck(UnlistedLineChecker.withholding(fit, UnlistedLineCheck(candidates: [zr], moves: [.init(element: "Al", before: 100, after: 400, sigma: 10)])), region: c.model.selectedRegion ?? 0, generation: c.generation)
-        XCTAssertNil(c.model.wholeMapLine, "a withheld check withholds the whole-map line too")
+        XCTAssertNotNil(c.model.wholeMapLine, "a check that moves a net blanks no at%, so the whole-map line stays")
+        XCTAssertTrue(c.model.abundanceNote?.hasPrefix("at% caveat: assumes the listed elements only; unlisted: Zr (net 900)") == true, c.model.abundanceNote ?? "nil")
     }
 
     /// The tile grid and the whole room draw for both aspects (the GMS demo and the owner's strip), wide and narrow. A smoke
