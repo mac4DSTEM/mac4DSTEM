@@ -269,8 +269,6 @@ add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthet
   test still lets the candidate absorb the pile-up (`.union([g.id])`), and a sum label attaches on energy coincidence alone.
 - **Kβ/Kα excess makes phantoms** (Lu Mα, Re Mα on the simulator, whose forward model depletes Kα parents only); real
   absorption can do the same on the owner's pools. Join order can ban a candidate silently.
-- **The fit's reported σ is ~19 % conservative on the strongest line** (the sandwich counts bound columns free);
-  a passive-set sandwich would fix the reported σ, the proposer's null keeps the full design.
 
 Statistics nits carried:
 - A negative live time should be treated as corrupt (fall back with the reason).
@@ -283,8 +281,9 @@ counts low per pooled spectrum on both synthetic generators (30 seeds; laneF rep
 tail (supplying the true tail as a reference shape: −301 → +35). Si Kα also reads low: −164 of 1879 counts (−8.7 %) on
 A4's recipe-A pool (4 seeds; measured there only, not yet in the fit's warning). The fit's warnings carry the Mg number. The remedy is
 measured: the owner's pure-Al reference spectrum (tail shape and tie fraction). Q2 (the owner's matrix pool: flat
-residual AND continuum vs poly-6 vs window agree within σ) is still owed. The LS covariance over-predicts σ on the
-strongest line by ≈ 20 % (bound-active columns counted free), so limits are conservative there.
+residual AND continuum vs poly-6 vs window agree within σ) is still owed. The reported σ is a passive-set sandwich
+(lane Σ): it matches the scatter of a strong line (SD/σ 1.035), but is 5–8 % small on a weak Mg line under LS and ~12 %
+small under Poisson-ML (one fixture; mechanism and an ML scatter test owed). A bound line keeps the full-design σ.
 
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
