@@ -78,7 +78,7 @@ is its own product").
 - **EDX suite — v5.0** (2026-08-26; owner 2026-10-05, ADR 052) — "4D-STEM + EDX" (one scan, a diffraction pattern and an EDX
   spectrum at every probe position) and plain EDX spectrum images, in a seventh room "Spectroscopy", ported from
   HyperSpy/eXSpy/RosettaSciIO. A data-model change before a feature: a second signal with its own reader and units, registered
-  onto the scan grid with the transform recorded. The full picture and the options: `docs/archive/v5/edx-dossier-2026-10-05.md`. First answers: ADR 053; quantification still open.
+  onto the scan grid with the transform recorded. The full picture and the options: `docs/archive/v5/edx-dossier-2026-10-05.md`. Decided: ADR 053–055. Built: see the session queue below.
 - **Live acquisition · copilot** — named, nothing designed. Unclaimed.
 - **Lineage graph with real rewind** (owner, 2026-09-21) — landed on `main` 2026-09-29 (`aa920d08`, ADR 047: session
   record v2 with step ids and input edges; the graph in the Lineage pane; Rewind to Here restores parameters and marks
@@ -109,8 +109,10 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — v4.5.0 released). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **v5.0 — the EDX suite** (ADR 052, 053) — the quantification design session (`docs/archive/v5/quant-design-brief-2026-10-05.md`) answers the four open cards; WP1, headless readers, is pre-registered
-  (`docs/archive/v5/wp1-spectrum-readers-preregistration-2026-10-05.md`); then the room's pre-registration (§ How a feature is done) and its mock; then `/pickup` with the work package named.
+- [ ] **v5.0 — the EDX suite** (ADR 052–055) — built on `main` 2026-10-05/06 and not yet driven: WP1 readers, WP2
+  (room, views, simulator, wiring) and the WP3 core (fit, k-factors, absorption, statistics, method, registration, pools).
+  Next, in order: the proposer on the fit and Quantify wired into the room (lanes P and R3), a scratch-build drive, then the
+  owner's joint GMS run and pure-Al spectrum for Q1–Q3 (`docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
 
 ## After v4.1 — frozen until the owner reopens one
 
