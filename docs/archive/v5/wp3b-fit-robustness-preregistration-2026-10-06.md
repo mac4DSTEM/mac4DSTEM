@@ -55,3 +55,25 @@ counts per pool), not 5–50× weaker.
 - A model-uncertainty σ term: its own registration.
 - Reading the Velox `SpectrumImage` live and real times, and the GMS tilt and segments: their own reader gates.
 - A pure-Al reference for the Al Kα tail: owed by the owner.
+
+## Addendum 2026-10-06: F2/F3 outcome — refuted, item closed
+
+Lane F23 measured each candidate with a harness on the app's own Core files before writing tests. That departs from
+the test-first rule, because the harness refuted the design first. Logs and refuted code are kept in the session
+scratchpad. Nothing landed.
+
+- **The pristine code reproduces every diagnosis number:** dip model/data 0.066 at channel 174; P2 Ti 2757 (z −2.28);
+  P3 spread 47 %.
+- **P1 is refuted for every F2 variant.** With 4 listed elements the last channel below the Si K split reads 0.843 / 0.828,
+  with joint = step = 0. The collapse survives as a V-shaped notch, and it is not the generator's 3 % Si step. With a
+  complete list the old code already passes (1.011), so the dip follows from D1, the unlisted lines.
+- **P2 is met** by every F3 choice, with or without F2: mean of 5 seeds 3019–3041.
+- **P3 is met only structurally by F2.** An inactive step column decouples the two sides of a split, so the two F3 choices
+  read Ti 3797 vs 3203. Without F2 the spread is 24.7 % / 47.1 % (refuted).
+- **P6 is refuted for F2-A.** Eight tests went red. The weak-line S cell at 1 % moved −310 → −459 (band −450…−150), and
+  the registered selection score went 402 → 459.
+- **New finding:** splitting at the specimen's own edges makes the continuum local. The 4-element synthetic fit then reads
+  Ti 3032 / 3295 (truth 3000) and the real one 3432, which undercuts F1's P4 premise for any future local form.
+
+F1 is unaffected, because it runs on today's fit. A continuum change is a new registration. The seeded generator
+`tools/edx-pins/realistic_l_sim.py`, which reproduces the dip and the P2 bias, is kept for it.

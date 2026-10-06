@@ -252,7 +252,8 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **The fit is fragile on real spectra (diagnosed, refuted, pre-registered as WP3b):** unlisted strong lines (Ge, Cu, Ga) are
   absorbed by the continuum and hold Ti at 0; the order-5 upper segment is too stiff to 80 keV; the segments are uncoupled
   at a fixed Al-edge split (a collapse at 1.557 keV); σ is counting only (~±20 % model spread). Fixes F1–F3:
-  `docs/archive/v5/wp3b-fit-robustness-preregistration-2026-10-06.md`.
+  `docs/archive/v5/wp3b-fit-robustness-preregistration-2026-10-06.md`. F2/F3 refuted 2026-10-06 (addendum there): the
+  continuum fix needs a new registration; F1 continues.
 - **The refined axis is poor on a sparse pool.** On the 24-px tiny fixture (~700 counts) the refinement found −3.0 eV, +0.58 % gain
   against a planted +10 eV, −0.2 %; the areas stay within 2σ of truth either way. Shown file vs refined, never hidden; no minimum-counts
   rule was invented (threshold rule). Measure on a real pool before trusting a refined axis below ~10⁴ counts.
