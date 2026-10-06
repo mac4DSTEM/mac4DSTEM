@@ -63,6 +63,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 053 | v5.0's first five answers: science question c then a; R4 first, then a STEMx test; a spectrum-only window in the room mock (⌘6, Results ⌘7); M2 with mask transport; badged four-detector absorption. k-factors and fit policy go to a quantification design session (the user chooses the fit; orient on Velox/GMS) | 10-05 | accepted |
 | 054 | v5.0 quantification and room layout: LS default until an LS–ML gap is measured on the owner's pools; fitted empirical continuum with the Al edge; at% badged from Brown-Powell or typed k; energy-axis refinement; live-time normalisation; proposer with named conflicts; pure-Al reference for the Al tail and Si fluorescence; five steps, ≤ 7 rows each, one verb Quantify | 10-05 | accepted |
 | 055 | Build the Spectroscopy room now against mock v3 (changes on the go); "Unverified on screen" does not block it (rule amended); a simulated 4D-STEM + EDX dataset (.dm4 + .hspy) unlocks the plan; the owner's Velox files are the real test set | 10-05 | accepted |
+| 056 | The Spectroscopy room becomes one window (Velox): maps grid owns the content, static left sidebar ("EDX"), steps as inspector sections, two-band periodic table in the inspector, regions live on the map, Auto ID maps on open, quant beside the spectrum | 10-06 | accepted |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of
