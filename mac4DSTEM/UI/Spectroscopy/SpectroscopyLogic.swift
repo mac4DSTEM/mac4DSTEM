@@ -293,6 +293,8 @@ nonisolated struct SpectrumSeries: Equatable, Sendable {
     var background: [Double]
     var model: [Double]
     var overlay: [Double]?           // e.g. the matrix, normalised to Al Kα
+    /// The channels the fit covered (R3): the model, background and residual are drawn there only. nil = every channel.
+    var fitChannels: Range<Int>? = nil
 
     var count: Int { data.count }
     /// WP2 has no fit yet: a series may carry data only. Curves whose length differs from the
@@ -348,5 +350,11 @@ nonisolated struct ResultRow: Equatable, Identifiable, Sendable {
     var conflictNote: String? = nil
     /// Why there is no number (no line on the axis, a window outside it).
     var failure: String? = nil
+    /// The weight-percent form of `sigmaTerms` (R3); nil takes `sigmaTerms`.
+    var sigmaTermsWeight: String? = nil
+    /// False when no at% / wt% was computed for this row (no k source, absorption-independent): the cells show "—".
+    var hasAbundance = true
+    /// False when the row has no k-free ratio (a failed line).
+    var hasKFree = true
     var id: Int { z }
 }

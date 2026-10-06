@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DSTEMCore
+#endif
 
 // The five steps' inspector content (ADR 054 §8): one flat stack per step, label left /
 // control right (the app's `InspectorRow` kit), ≤ 7 rows each, no prominent button (the
@@ -50,6 +53,7 @@ struct SpectrumImageInspector: View {
             // then the axis is the file's, and there is nothing to choose.
             if model.isLive {
                 if let r = s.energyAxisReadout { InspectorValueRow("Energy axis", r) }
+                if let r = s.energyAxisRefined { InspectorValueRow("Refined", r) }
             } else {
                 InspectorRow("Energy axis") {
                     HStack(spacing: 6) {
@@ -180,47 +184,108 @@ struct RegionsInspector: View {
     }
 }
 
-/// 4 · Quantify — up to six visible rows; ▸ Expert adds four.
+/// 4 · Quantify — at most seven visible rows (Background, k-factors, Typed k, Absorption, Thickness, σ thickness, Beam
+/// energy; the last two only when they apply); ▸ Expert adds four. The fit is live: every row re-fits the pooled
+/// spectrum once the Quantify verb has run (ADR 054 item 8), so there is no Apply here.
 struct QuantifyInspector: View {
     @Bindable var model: SpectroscopyRoomModel
+    @State private var editingTyped = false
     var body: some View {
         let q = model.quantify
         InspectorGroup {
-            if model.isLive {
-                InspectorNote("Quantification lands with WP3. The results table shows window net counts until then.")
-            } else {
-            ChoiceRow(label: "Method", value: $model.quantify.method, options: ["Mg/Si in Al · LS · BS k", "Custom"])
-            ChoiceRow(label: "Background", value: $model.quantify.background, options: ["Empirical + Al edge", "Polynomial windows"])
-            ChoiceRow(label: "k-factors", value: $model.quantify.kFactors, options: ["Bote-Salvat (computed)", "Typed (with source)"])
-            InspectorRow("Absorption") {
-                Toggle(q.absorptionNote ?? "", isOn: $model.quantify.absorption).toggleStyle(.checkbox)
+            InspectorRow("Background") {
+                Picker("Background", selection: $model.quantify.background) {
+                    Text("Empirical").tag(QuantificationMethod.Background.empiricalWithAlEdge)
+                    Text("Polynomial").tag(QuantificationMethod.Background.wholeRangePolynomial6)
+                }.labelsHidden().fixedSize()
+                .help("Empirical: a fitted whole-spectrum continuum with the Al K edge step. Polynomial: eXSpy's whole-range polynomial (Expert order).")
             }
+            InspectorRow("k-factors") {
+                Picker("k-factors", selection: $model.quantify.kSource) {
+                    Text("Computed").tag(QuantificationMethod.KFactorSource.computed)
+                    Text("Typed").tag(QuantificationMethod.KFactorSource.typed)
+                }.labelsHidden().fixedSize()
+                .help("Computed: Bote-Salvat cross-section, Krause yield, EPQ detector model (unvalidated). Typed: your k with its source and date.")
+            }
+            if q.kSource == .typed {
+                InspectorActionRow { Button("Typed k…") { editingTyped = true } }
+            }
+            InspectorRow("Absorption") {
+                Toggle("Absorption", isOn: $model.quantify.absorption).labelsHidden().toggleStyle(.checkbox)
+            }
+            if let note = q.absorptionNote { InspectorNote(note) }
             InspectorRow("Thickness") {
-                HStack(spacing: 4) {
-                    OptionalNumericField(title: "Thickness", value: q.thickness, format: FloatingPointFormatStyle<Double>.number, prompt: "—") {
-                        model.quantify.thickness = max($0, 0)
-                    }
-                    Text("±")
-                    OptionalNumericField(title: "Thickness σ", value: q.thicknessSigma, format: FloatingPointFormatStyle<Double>.number, unit: "nm", prompt: "—") {
-                        model.quantify.thicknessSigma = max($0, 0)
+                OptionalNumericField(title: "Thickness", value: q.thickness, format: FloatingPointFormatStyle<Double>.number, unit: "nm", prompt: "—") {
+                    model.quantify.thickness = max($0, 0)
+                }
+            }
+            InspectorRow("± σ") {
+                OptionalNumericField(title: "Thickness σ", value: q.thicknessSigma, format: FloatingPointFormatStyle<Double>.number, unit: "nm", prompt: "—") {
+                    model.quantify.thicknessSigma = max($0, 0)
+                }
+            }
+            if q.asksBeamEnergy {
+                InspectorRow("Beam energy") {
+                    OptionalNumericField(title: "Beam energy", value: q.beamEnergy, format: FloatingPointFormatStyle<Double>.number, unit: "keV", prompt: "—") {
+                        model.quantify.beamEnergy = max($0, 0)
                     }
                 }
             }
-            if let chi = q.chiSquared {
-                InspectorRow("Fit quality") { Text("χ²ᵣ \(String(format: "%.2f", chi))").monospacedDigit() }
-            }
             InspectorSection("Expert", expanded: $model.quantify.expertOpen) {
-                ChoiceRow(label: "Estimator", value: $model.quantify.estimator, options: ["Least squares", "Poisson ML"])
+                InspectorRow("Estimator") {
+                    Picker("Estimator", selection: $model.quantify.estimator) {
+                        Text("Least squares").tag(QuantificationMethod.Estimator.leastSquares)
+                        Text("Poisson ML").tag(QuantificationMethod.Estimator.poissonMaximumLikelihood)
+                    }.labelsHidden().fixedSize()
+                }
                 InspectorRow("σ_k") {
                     OptionalNumericField(title: "σ_k", value: q.sigmaK, format: FloatingPointFormatStyle<Double>.number, unit: "%") {
                         model.quantify.sigmaK = min(max($0, 0), 100)
                     }
                 }
-                InspectorRow("Poly order") { Stepper("\(q.polyOrder)", value: $model.quantify.polyOrder, in: 0...8) }
-                InspectorRow("Lock energy axis") { Toggle("Lock energy axis", isOn: $model.quantify.energyLock).labelsHidden().toggleStyle(.checkbox) }
-            }
+                if q.background == .wholeRangePolynomial6 {
+                    InspectorRow("Poly order") { Stepper("\(q.polyOrder)", value: $model.quantify.polyOrder, in: 0...8) }
+                }
+                InspectorRow("Lock energy axis") { Toggle("Lock energy axis", isOn: $model.quantify.lockEnergyAxis).labelsHidden().toggleStyle(.checkbox) }
             }
         }
+        .sheet(isPresented: $editingTyped) { TypedKSheet(model: model) { editingTyped = false } }
+    }
+}
+
+/// The typed k table (ADR 054 item 3): one k per quantified element relative to the reference (C ∝ k·I, eXSpy's
+/// convention), with the source, the date and a relative σ per factor. Without a source and a date it is not a k.
+struct TypedKSheet: View {
+    @Bindable var model: SpectroscopyRoomModel
+    var onDone: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Typed k-factors").font(.headline)
+            Text("k relative to the reference element, C ∝ k·I (as in eXSpy and Cliff-Lorimer). A k without its source and date is not accepted.")
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
+                GridRow { Text("Element"); Text("k"); Text("σ_k %") }.font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                ForEach($model.quantify.typed) { $e in
+                    GridRow {
+                        Text(e.element).fontWeight(.semibold)
+                        OptionalNumericField(title: "k \(e.element)", value: e.k, format: FloatingPointFormatStyle<Double>.number, prompt: "—") { e.k = max($0, 0) }
+                        OptionalNumericField(title: "σ_k \(e.element)", value: e.sigmaPercent, format: FloatingPointFormatStyle<Double>.number, prompt: "flat") {
+                            e.sigmaPercent = min(max($0, 0), 100)
+                        }
+                    }
+                }
+            }
+            LabeledContent("Reference") {
+                Picker("Reference", selection: Binding(get: { model.quantify.typedReference ?? "" }, set: { model.quantify.typedReference = $0.isEmpty ? nil : $0 })) {
+                    Text("none").tag("")
+                    ForEach(model.quantify.typed) { Text($0.element).tag($0.element) }
+                }.labelsHidden().fixedSize()
+            }
+            LabeledContent("Source") { TextField("Source", text: $model.quantify.typedSource, prompt: Text("citation or file")).labelsHidden().frame(width: 260) }
+            LabeledContent("Date") { TextField("Date", text: $model.quantify.typedDate, prompt: Text("YYYY-MM-DD")).labelsHidden().frame(width: 120) }
+            HStack { Spacer(); Button("Done", action: onDone).keyboardShortcut(.defaultAction) }
+        }
+        .padding(20).frame(minWidth: 420)
     }
 }
 

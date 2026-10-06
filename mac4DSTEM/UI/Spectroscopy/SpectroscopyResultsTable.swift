@@ -8,8 +8,15 @@ enum ResultFormat {
     /// The k-free ratio and abundance cells of a row. Until WP3 fits a spectrum there is neither: "—", never a number.
     static func fitCells(_ row: ResultRow, unit: AbundanceUnit, hasFit: Bool) -> (kFree: String, abundance: String) {
         guard hasFit else { return ("—", "—") }
+        let abundance = row.hasAbundance
+            ? (unit == .atomic ? plusMinus(row.atPercent, row.atSigma, digits: 1) : plusMinus(row.wtPercent, row.wtSigma, digits: 1)) : "—"
+        guard row.hasKFree else { return ("—", abundance) }
         return (row.kFreeSigma.map { String(format: "%.4f ± %.4f", row.kFreeRatio, $0) } ?? "1",
-                unit == .atomic ? plusMinus(row.atPercent, row.atSigma, digits: 1) : plusMinus(row.wtPercent, row.wtSigma, digits: 1))
+                abundance)
+    }
+    /// The abundance column's header; at% computed without the absorption correction says so in the column itself.
+    static func abundanceHeader(unit: AbundanceUnit, noAbsorption: Bool) -> String {
+        "\(unit.rawValue) ± σ" + (noAbsorption ? " · no absorption" : "")
     }
     /// 412380 -> "412 380" (thin grouping, as the mock prints counts).
     static func counts(_ v: Double) -> String {
@@ -43,7 +50,7 @@ struct SpectroscopyResultsTable: View {
                 Group {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
                         GridRow {
-                            Text("Element"); Text("Net counts ± σ"); Text("k-free ratio"); Text("\(model.unit.rawValue) ± σ")
+                            Text("Element"); Text("Net counts ± σ"); Text("k-free ratio"); Text(ResultFormat.abundanceHeader(unit: model.unit, noAbsorption: model.abundanceWithoutAbsorption))
                         }.font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                         Divider().gridCellUnsizedAxes(.horizontal)
                         ForEach(model.results) { row in
@@ -74,7 +81,7 @@ struct SpectroscopyResultsTable: View {
                             }
                             if model.expandedRows.contains(row.z) {
                                 GridRow {
-                                    Text("\(PeriodicLayout.symbol(row.z)) σ terms: \(row.sigmaTerms)")
+                                    Text("\(PeriodicLayout.symbol(row.z)) σ terms: \(model.unit == .weight ? (row.sigmaTermsWeight ?? row.sigmaTerms) : row.sigmaTerms)")
                                         .font(.caption).foregroundStyle(.secondary)
                                         .padding(.leading, 8)
                                         .overlay(alignment: .leading) { Rectangle().fill(Color.accentColor.opacity(0.5)).frame(width: 2) }
@@ -88,8 +95,20 @@ struct SpectroscopyResultsTable: View {
                         Text("Pick elements in the periodic table (Elements & maps) to see their window net counts here.")
                             .font(.callout).foregroundStyle(.secondary)
                     }
+                    if let why = model.fitFailure {
+                        Label(why, systemImage: "xmark.circle").font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let note = model.abundanceNote {
+                        Label(note, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    ForEach(Array(model.fitWarnings.enumerated()), id: \.offset) { _, w in
+                        Label(w.text, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true).help(w.detail ?? w.text)
+                    }
                     if !model.resultsFooter.isEmpty {
-                        Text(model.resultsFooter).font(.caption).foregroundStyle(.secondary)
+                        Text(model.resultsFooter).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                     if model.hasFit, let r = model.ratioLine {
                         Divider()

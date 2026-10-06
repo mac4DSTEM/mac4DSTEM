@@ -211,11 +211,12 @@ final class InspectorWidthBudgetTests: XCTestCase {
     /// The Spectroscopy room's five step inspectors, measured as lane V built them (the fixture shows every row) and as
     /// the room shows them for an opened spectrum image, with the longest strings the readers can produce (same-scan
     /// source, detector readouts, a drawn region). Replaces the placeholder this file measured before WP2 R2.
-    /// The Quantify step is measured live only: its fixture rows are WP3's design and the Thickness row is 284.5 pt
-    /// (open-items, "Spectroscopy room, as landed in WP2").
+    /// The Quantify step (R3) is measured as the fixture shows it AND in its widest live state: typed k, a typed beam energy,
+    /// Expert open on the polynomial background, the longest absorption note a fit can produce. The Thickness row that was
+    /// 284.5 pt in WP2 is two rows now (value, ± σ).
     /// Mutation: the periodic table's cell raised back to 16 pt (306 pt wide) — red.
     func testTheSpectroscopyStepInspectorsFitTheNarrowestColumn() throws {
-        for step in SpectroscopyStep.allCases where step != .quantify {
+        for step in SpectroscopyStep.allCases {
             let fixture = SpectroscopyRoomModel.fixture
             assertFits("Spectroscopy / \(step.title) (fixture, every row)",
                        minimumWidth(SpectroscopyStepInspector(step: step, model: fixture), state: AppState()))
@@ -232,6 +233,13 @@ final class InspectorWidthBudgetTests: XCTestCase {
         model.image.sourceWarning = true; model.image.sourceNote = "Not registered: the EDS scan is 256 × 255 px, the 4D scan 171 × 171 px."
         model.image.countsMedian = "median 1311"; model.image.countsHistogram = [9, 8, 6, 4, 3, 2, 1.4, 1, 0.6, 0.4]
         model.regionSettings = RegionSettings(source: "Drawn", pixels: "65 536 · 100.0 %", counts: "123.45 M")
+        var widest = QuantifySettings()
+        widest.kSource = .typed; widest.fileBeamKnown = false; widest.beamEnergy = 200; widest.expertOpen = true
+        widest.background = .wholeRangePolynomial6; widest.thickness = 80; widest.thicknessSigma = 15
+        widest.absorptionNote = "four-detector weighted transmission, 4 segments (take-off 21.6\u{2013}68.3\u{00B0}), thickness 80 \u{00B1} 15 nm, badged"
+        widest.quality = "reduced deviance 1.04"
+        model.quantify = widest
+        model.image.energyAxisRefined = "+10.0 eV, gain -0.200 %, FWHM 131 eV (not used)"
         for step in SpectroscopyStep.allCases {
             state.spectroscopy.selectedStep = step
             assertFits("Spectroscopy / \(step.title) (opened image)", minimumWidth(SpectroscopyInspectorHost(), state: state))

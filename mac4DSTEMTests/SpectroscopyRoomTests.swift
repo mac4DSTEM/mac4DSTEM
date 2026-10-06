@@ -196,13 +196,18 @@ final class SpectroscopyRoomTests: XCTestCase {
                        "Al-Mg-Si_190330.emd · Spectroscopy · 256 × 256 px")
     }
 
-    /// The verb is Quantify; it cannot run until WP3 builds the quantification.
-    func testTheRoomsVerbIsQuantifyAndDoesNotRunYet() {
+    /// The verb is Quantify; with a spectrum image it exists, and it can run once an element is switched on.
+    /// Mutation: `canQuantify` true without elements - red.
+    func testTheRoomsVerbIsQuantifyAndRunsOnceAnElementIsOn() {
         let state = AppState()
         state.openSpectrumImage(StubSpectrumImage())
         XCTAssertEqual(PrimaryActionButton.spectroscopyActionTitle, "Quantify")
-        XCTAssertFalse(state.hasPrimaryWorkspaceTask)
+        XCTAssertTrue(state.hasPrimaryWorkspaceTask)
         XCTAssertFalse(state.canRunPrimaryWorkspaceTask)
+        XCTAssertNotNil(state.spectroscopyRoom.quantifyBlocker)
+        state.spectroscopyRoom.model.elements.set(13, .quantify)
+        XCTAssertTrue(state.canRunPrimaryWorkspaceTask)
+        XCTAssertNil(state.spectroscopyRoom.quantifyBlocker)
     }
     // MARK: - Round 2 (coordinator's items 2 and 4)
 

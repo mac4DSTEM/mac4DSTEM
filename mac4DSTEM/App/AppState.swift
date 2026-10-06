@@ -1236,7 +1236,9 @@ final class AppState {
                 || phaseContrast.parallaxHigherOrderFit == nil
                 || phaseContrast.parallaxCorrection == nil
                 || !parallaxStage4IsComplete(phaseContrast)
-        case .spectroscopy, .results:   // Spectroscopy's Quantify waits for WP3
+        case .spectroscopy:   // Quantify (v5.0 R3)
+            return hasSpectrumImage
+        case .results:
             return false
         }
     }
@@ -1246,6 +1248,8 @@ final class AppState {
     /// the dataset is open, nothing is running, and (outside Prepare and
     /// Results, as in the toolbar) `ProductWorkflow.readiness` says ready.
     var canRunPrimaryWorkspaceTask: Bool {
+        // The Spectroscopy room's Quantify runs on a spectrum image alone, with no 4D cube and no readiness check.
+        if navigation.workspaceArea == .spectroscopy { return hasSpectrumImage && !isBusy && spectroscopyRoom.canQuantify }
         guard hasDataset, !isBusy, hasPrimaryWorkspaceTask else { return false }
         if navigation.workspaceArea != .prepare && navigation.workspaceArea != .results {
             guard case .ready = ProductWorkflow.readiness(
@@ -1300,7 +1304,14 @@ final class AppState {
             } else if !parallaxStage4IsComplete(phaseContrast) {
                 await upsampleParallaxBF()
             }
-        case .spectroscopy, .results:
+        case .spectroscopy:
+            // Quantify: fit the selected region and record the step (ADR 054 item 8); the fit is live after this.
+            if await spectroscopyRoom.quantify() {
+                let region = spectroscopy.regions.first { $0.id == spectroscopy.selectedRegionID }
+                spectroscopy.recordQuantification(in: replay, regionKind: region?.kind.rawValue ?? "wholeMap",
+                                                  regionName: region?.name ?? "Whole map")
+            }
+        case .results:
             break
         }
         if case .failed(let reason)? = outcome, statusText == statusBefore { statusText = reason }

@@ -48,6 +48,14 @@ final class SpectroscopyRoomModel {
     var validation: String?
     var unvalidated: Bool { ValidationState.isUnvalidated(validation) }
     var ratioLine: RatioLine?
+    /// Under the table (R3): the fit's warnings, why no at% was computed, why there is no fit at all.
+    var fitWarnings: [FitWarning] = []
+    var abundanceNote: String?
+    /// The shown at% / wt% was computed without the absorption correction (off, or refused): the column header says so.
+    var abundanceWithoutAbsorption = false
+    var fitFailure: String?
+    /// A fit is running (the numbers shown are the previous ones until it lands).
+    var isFitting = false
     var fitFooter = ""
     /// False until WP3 fits a spectrum: the table then shows window net counts only, "—" in the k-free and at% columns.
     var hasFit = true
@@ -121,6 +129,8 @@ struct SpectrumImageSettings {
     var framesReadout: String?
     var energyAxis = "File"
     var energyAxisReadout: String?
+    /// The pooled fit's refinement of that axis (file vs refined, ADR 054 item 4); nil before a fit.
+    var energyAxisRefined: String?
     var countsHistogram: [Double] = []
     var countsMedian: String?
     var liveDead: String?
@@ -136,21 +146,6 @@ struct RegionSettings {
     var lineWidth = 3
     var isLine = false                         // Line width appears only for a drawn line
     var compare: String?
-}
-
-struct QuantifySettings {
-    var method = ""
-    var background = "Empirical + Al edge"     // ADR 054 §2
-    var kFactors = "Bote-Salvat (computed)"   // ADR 054 §3
-    var absorption = true
-    var absorptionNote: String?
-    var thickness: Double?, thicknessSigma: Double?
-    var chiSquared: Double?
-    var expertOpen = false
-    var estimator = "Least squares"            // ADR 054 §1
-    var sigmaK: Double? = 20                   // flat 20 % (second opinion C4)
-    var polyOrder = 6   // eXSpy's whole-range parity polynomial (ADR 054 corrections)
-    var energyLock = false
 }
 
 struct ExportSettings {
@@ -219,8 +214,8 @@ extension SpectroscopyRoomModel {
             liveDead: "1311 s total · dead 52 %", geometry: "TOA 18° · 4 det. · 0.12 sr")
         m.regionSettings = RegionSettings(source: "Phase", phase: "β″ (Mg₅Si₆)", pixels: "1 842 · 2.8 %", counts: "4.31 M",
                                           liveTime: "37 s · 20 ms/px", compare: "Al Kα · live time")
-        m.quantify.method = "Mg/Si in Al · LS · BS k"; m.quantify.absorptionNote = "4 detectors · TOA from file"
-        m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.chiSquared = 1.04
+        m.quantify.absorptionNote = "4 detectors · TOA from file"
+        m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.quality = "χ²ᵣ 1.04 (Pearson)"
         m.smoothing = "3 × 3 · σ 1 px"
         m.ratioLine = RatioLine(label: "Mg / Si net ratio", value: 1.092, sigma: 0.021, note: "k-free, counting only")
         m.fitFooter = "Least squares · empirical continuum + Al edge · Bote-Salvat k (ε Super-X G1) · absorption 80 ± 15 nm · no escape peaks"

@@ -15,6 +15,7 @@ struct SpectroscopyRoomHost: View {
             SpectroscopyRoomContent(model: controller.model)
                 .onChange(of: controller.model.elements) { controller.elementsChanged() }
                 .onChange(of: controller.model.selectedRegion) { controller.regionPicked() }
+                .onChange(of: controller.model.quantify) { controller.quantifySettingsChanged() }
                 .onChange(of: appState.hasDataset, initial: true) { _, present in controller.setFourDCube(present) }
                 .accessibilityIdentifier("spectroscopy.room")
         } else {

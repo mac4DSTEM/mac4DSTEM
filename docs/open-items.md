@@ -225,7 +225,6 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **Not seen on screen.** Nothing of the wired room has been driven: the drag that draws a rectangle/ellipse region, the raster map,
   the region picker, the AppKit-backed controls, the Review popover, the hover. A scratch-build drive of a Velox file and the simulated
   `.dm4` is owed (and of the 3.6 s open's spinner and Cancel).
-- **Quantify's fixture Thickness row is 284.5 pt** (> the 248 pt column); live the step is one note. WP3 must fit it.
 - **The map's scale bar is not drawn** (a true-length bar needs a pixel size on a fixed-width map). Regions: rectangle and ellipse only.
 - **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do. The map header title truncates at 1000 pt.
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
@@ -243,6 +242,22 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   pruned-file message (before routing it would have opened as a cube).
 - **GMS EDS geometry is not read yet:** `DM4EDSDetectorTags` reads azimuth/elevation/solid angle but not `EDS.Detector Info.Stage
   tilt` nor a multi-segment list, so a GMS EDS shows one detector and no tilt; WP3's absorption needs both for GMS files.
+
+### Quantify verb wired (R3, 2026-10-06): unverified on screen and known gaps
+- **Not seen on screen.** The Quantify step's rows (Typed k sheet, Beam energy row, Expert), the fit curves and residual over the plot,
+  the warnings under the table and the toolbar verb are unit-tested and width-measured, not driven.
+- **The refined axis is poor on a sparse pool.** On the 24-px tiny fixture (~700 counts) the refinement found −3.0 eV, +0.58 % gain
+  against a planted +10 eV, −0.2 %; the areas stay within 2σ of truth either way. Shown file vs refined, never hidden; no minimum-counts
+  rule was invented (threshold rule). Measure on a real pool before trusting a refined axis below ~10⁴ counts.
+- **GMS: no beam energy or tilt reaches the method.** The EDS reader sets no `beamEnergyKeV` (the room asks for it, typed, in Quantify)
+  and the absorption is refused for every GMS file until the tilt and the four segments are read. at% is then computed WITHOUT absorption,
+  and every row and the footer say so.
+- **at% needs a K line per quantified element** (the computed k covers K lines only); an element with only an L group (Ga) is Fit only.
+- **Live-time normalisation (ADR 054 item 5) is not applied** in the quantification (it is a region-comparison control; Regions' Compare row
+  still names its basis only). The absorption σ term is the spread between the weighted and the geometric mean transmission.
+- **Axis-refinement recovery is unpre-registered (S1).** Pre-register recovery-versus-counts on lane S's dose ladder before any refined axis is trusted below ~10⁴ counts; the σ terms carry no axis term.
+- **The absorption test checks plumbing only (S4).** Add a truth-geometry test on the A-phase pool against `phases_at_pct`, asserting that Si Kα rises relative to Al under the correction. The "absorption model spread (AM vs GM)" is a proxy kept out of the σ; a real term needs a sourced σ_μ.
+- **Fixed in passing:** a removed region's cached spectrum stayed under its id, and the next drawn region reuses the highest id.
 
 ### Element proposer held back: rebuild on the WP3 fit (2026-10-05)
 WP3 lane T's proposer (Poisson-GLM continuum, line-list exclusion, a shadow rule) was not landed. Fable's re-check

@@ -83,7 +83,7 @@ struct SpectrumPlotView: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
-            Text(model.series.hasModel ? model.fitFooter : "no fit yet").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+            Text(model.series.hasModel ? model.fitFooter : (model.isLive ? "no fit yet · Quantify fits the selected region" : "no fit yet")).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 4)
             if model.series.hasModel && model.unvalidated { UnvalidatedBadge() }
         }
@@ -205,18 +205,21 @@ struct SpectrumPlotView: View {
 
         // curves, clipped to the frame
         var clip = ctx; clip.clip(to: Path(main))
-        func curve(_ ys: [Double], _ color: Color, width: CGFloat, dash: [CGFloat] = []) {
+        func curve(_ ys: [Double], _ color: Color, width: CGFloat, dash: [CGFloat] = [], within: Range<Int>? = nil) {
             var p = Path()
-            for i in i0...i1 {
+            // The model and the background exist only where the fit ran (R3): outside it nothing is drawn.
+            let lo = max(i0, within?.lowerBound ?? i0), hi = min(i1, (within?.upperBound ?? (i1 + 1)) - 1)
+            guard hi > lo else { return }
+            for i in lo...hi {
                 let pt = CGPoint(x: X(s.energy(i)), y: Y(ys[i]))
-                if i == i0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                if i == lo { p.move(to: pt) } else { p.addLine(to: pt) }
             }
             clip.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: width, lineJoin: .round, dash: dash))
         }
         if L.overlay, s.hasOverlay, let o = s.overlay { curve(o, .gray, width: 1.2, dash: [4, 3]) }
         if L.spectrum { curve(s.data, Color.primary.opacity(0.45), width: 0.8) }
-        if L.model, s.hasModel { curve(s.model, .blue, width: 1.8) }
-        if L.background, s.hasBackground { curve(s.background, .orange.opacity(0.9), width: 1, dash: [1, 2]) }
+        if L.model, s.hasModel { curve(s.model, .blue, width: 1.8, within: s.fitChannels) }
+        if L.background, s.hasBackground { curve(s.background, .orange.opacity(0.9), width: 1, dash: [1, 2], within: s.fitChannels) }
         if !s.hasModel {
             ctx.draw(Text("no fit yet").font(.callout).foregroundStyle(.secondary), at: CGPoint(x: main.midX, y: main.midY - 20))
         }
@@ -246,10 +249,11 @@ struct SpectrumPlotView: View {
             var rc = ctx; rc.clip(to: Path(res))
             let r = s.residual
             var p = Path()
-            for i in i0...i1 {
+            let rLo = max(i0, s.fitChannels?.lowerBound ?? i0), rHi = min(i1, (s.fitChannels?.upperBound ?? (i1 + 1)) - 1)
+            for i in rLo...max(rLo, rHi) where i <= rHi {
                 let v = min(max(r[i], -ResidualNormalisation.frame), ResidualNormalisation.frame)
                 let pt = CGPoint(x: X(s.energy(i)), y: zero - CGFloat(v / ResidualNormalisation.frame) * res.height / 2)
-                if i == i0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                if i == rLo { p.move(to: pt) } else { p.addLine(to: pt) }
                 if ResidualNormalisation.isClipped(r[i]) {     // clipped at the frame: a red dot says so
                     rc.fill(Path(ellipseIn: CGRect(x: pt.x - 1.8, y: pt.y - 1.8, width: 3.6, height: 3.6)), with: .color(.red))
                 }

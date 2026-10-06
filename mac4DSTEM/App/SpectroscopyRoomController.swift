@@ -30,11 +30,18 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
     private var spectra: [Int: [UInt64]] = [:]
     private var maps: [String: [Double]] = [:]
     private var pixelTotals: [UInt64]?
+    private var refinements: [String: AxisRefinementResult] = [:]
 
     func spectrum(_ region: Int) -> [UInt64]? { lock.withLock { spectra[region] } }
     func setSpectrum(_ s: [UInt64], _ region: Int) { lock.withLock { spectra[region] = s } }
     func map(_ key: String) -> [Double]? { lock.withLock { maps[key] } }
     func setMap(_ m: [Double], _ key: String) { lock.withLock { maps[key] = m } }
+    func refinement(_ key: String) -> AxisRefinementResult? { lock.withLock { refinements[key] } }
+    func setRefinement(_ r: AxisRefinementResult, _ key: String) { lock.withLock { refinements[key] = r } }
+    /// A region that is gone takes its spectrum and its refinements with it: its id may be given to a new one.
+    func forget(region: Int) {
+        lock.withLock { spectra[region] = nil; for k in refinements.keys where k.hasPrefix("\(region)|") { refinements[k] = nil } }
+    }
     func totals() -> [UInt64]? { lock.withLock { pixelTotals } }
     func setTotals(_ t: [UInt64]) { lock.withLock { pixelTotals = t } }
 
@@ -58,6 +65,17 @@ final class SpectroscopyRoomController {
     @ObservationIgnored private var hasFourDCube = false
     /// The element selection last acted on: the view's change callback also fires for the reset `bind` makes.
     @ObservationIgnored private var lastElements = ElementSelection()
+    /// The Quantify verb has run: the pooled fit is live from here on (every setting re-fits, no Apply).
+    @ObservationIgnored private(set) var quantifyActive = false
+    /// The computed-k and absorption data files, read once (Resources/Spectroscopy); nil when the bundle lacks them.
+    private nonisolated static let tables: QuantificationTables? = QuantificationTables.bundled()
+    @ObservationIgnored private var lastFit: PooledQuantification?
+    @ObservationIgnored private var pendingWaiters: [CheckedContinuation<Void, Never>] = []
+
+    /// The verb may run: a spectrum image is bound and at least one element is switched on.
+    var canQuantify: Bool { model.isLive && !model.elements.activeZ.isEmpty }
+    /// Why the verb is disabled, for its hover; nil when it can run.
+    var quantifyBlocker: String? { model.isLive && model.elements.activeZ.isEmpty ? "Pick elements in Elements & maps first." : nil }
 
     init() {
         let empty = SpectrumSeries(energyStart: 0, energyStep: 0.01, data: [0, 0], background: [], model: [], overlay: nil)
@@ -72,6 +90,8 @@ final class SpectroscopyRoomController {
         self.session = session
         self.hasFourDCube = hasFourDCube
         cache = SpectrumComputeCache()
+        quantifyActive = false
+        lastFit = nil
         seenTiles = []
         regionCounts = [:]
         generation += 1
@@ -87,6 +107,12 @@ final class SpectroscopyRoomController {
         lastElements = m.elements
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
         m.expandedRows = []
+        m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
+        m.validation = nil
+        var qs = QuantifySettings(method: session.method, fileBeamKnown: meta.beamEnergyKeV != nil)
+        qs.syncTypedElements(session.method.elements.filter { $0.role == .quantify }.map(\.symbol))
+        if qs.typedDate.isEmpty { qs.typedDate = Self.today() }
+        m.quantify = qs
         m.scaleBar = ""   // a bar of true length needs a pixel size on a fixed-width map: not drawn
         m.gridWidth = source.nx; m.gridHeight = source.ny
         m.backdrop = Self.normalised(source.scanImage, count: source.nx * source.ny)
@@ -129,7 +155,55 @@ final class SpectroscopyRoomController {
         guard model.elements != lastElements else { return }
         lastElements = model.elements
         mirrorElementsToSession()
+        model.quantify.syncTypedElements(model.elements.quantified.map { PeriodicLayout.symbol($0) })
         refresh()
+    }
+
+    // MARK: Quantify
+
+    /// The settings last written into the session's method: a change that leaves them equal (the results writing the fit
+    /// quality back into the same struct, the typed table following the elements) must not re-fit.
+    @ObservationIgnored private var lastApplied: QuantificationMethod?
+
+    /// Writes the inspector's controls into the session's method; true when the method changed.
+    @discardableResult
+    private func applySettingsToSession() -> Bool {
+        guard let session else { return false }
+        var m = session.method
+        model.quantify.apply(to: &m)
+        var previous = lastApplied
+        previous?.elements = m.elements
+        if m == previous { return false }
+        lastApplied = m
+        session.method = m
+        return true
+    }
+
+    /// The Quantify inspector changed. After the verb has run the pooled fit follows live (no Apply).
+    func quantifySettingsChanged() {
+        guard applySettingsToSession(), quantifyActive else { return }
+        refresh()
+    }
+
+    /// The Quantify verb: fits the selected region's pooled spectrum with the session's method and, from now on, keeps it
+    /// live. Returns true when a fit landed; the caller records the replay step (`recordQuantification`) then. The
+    /// session's method takes the run's own (a computed k's source string filled in), so the record names it.
+    func quantify() async -> Bool {
+        guard canQuantify, let session else { return false }
+        quantifyActive = true
+        model.quantify.syncTypedElements(model.elements.quantified.map { PeriodicLayout.symbol($0) })
+        applySettingsToSession()
+        guard let task = refresh() else { return false }
+        await task.value
+        guard !model.isFitting, model.fitFailure == nil, let fit = lastFit else { return false }
+        session.method = fit.method
+        lastApplied = nil   // the filled method differs from the controls' by the k source only; the next edit re-applies
+        return true
+    }
+
+    private static func today() -> String {
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withFullDate]
+        return f.string(from: Date())
     }
 
     /// The region picker changed `model.selectedRegion`.
@@ -158,6 +232,7 @@ final class SpectroscopyRoomController {
     func removeRegion(id: Int) {
         guard let session else { return }
         session.removeRegion(id: id)
+        cache.forget(region: id)
         regionCounts[id] = nil
         syncRegionsFromSession()
         refresh()
@@ -192,6 +267,15 @@ final class SpectroscopyRoomController {
         let picks: [(symbol: String, family: XRayFamily?)]
         let beam: Double?
         let firstPass: Bool
+        /// Set once the Quantify verb has run: the pooled fit of this region with this method.
+        let quantify: QuantifyRequest?
+    }
+
+    private struct QuantifyRequest: Sendable {
+        let method: QuantificationMethod
+        let metadata: SpectrumImageMetadata
+        let regionName: String
+        let pixelCount: Int
     }
 
     private struct Output: Sendable {
@@ -201,24 +285,37 @@ final class SpectroscopyRoomController {
         let counts: [LineNetCount?]
         let maps: [[Double]?]
         let pixelTotals: [UInt64]?
+        let fit: PooledQuantification?
+        let fitFailure: String?
     }
 
-    /// Recomputes everything the current selection shows. Cheap when nothing it needs is new.
-    func refresh() {
-        guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }) else { return }
+    /// Recomputes everything the current selection shows. Cheap when nothing it needs is new; the pooled fit (after the
+    /// Quantify verb) is the one pass that always runs, its axis refinement cached per region, elements and background.
+    @discardableResult
+    func refresh() -> Task<Void, Never>? {
+        guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }) else { return nil }
         generation += 1
         let gen = generation
         let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
             (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
         }
+        var quantify: QuantifyRequest?
+        if quantifyActive {
+            quantify = QuantifyRequest(method: session.method, metadata: source.metadata, regionName: region.name, pixelCount: region.pixelCount)
+            model.isFitting = true
+        }
         let request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
-                              beam: source.metadata.beamEnergyKeV, firstPass: cache.totals() == nil)
+                              beam: source.metadata.beamEnergyKeV, firstPass: cache.totals() == nil, quantify: quantify)
         let cache = cache
-        Task.detached(priority: .userInitiated) {
+        let task = Task.detached(priority: .userInitiated) {
             let out = Self.compute(request, cache: cache)
             await MainActor.run { [weak self] in self?.apply(out, generation: gen) }
         }
+        lastRefresh = task
+        return task
     }
+    /// The newest recompute, so a caller (the verb, a test) can wait for it.
+    @ObservationIgnored private(set) var lastRefresh: Task<Void, Never>?
 
     private nonisolated static func compute(_ r: Request, cache: SpectrumComputeCache) -> Output {
         let spectrum: [UInt64]
@@ -241,7 +338,22 @@ final class SpectroscopyRoomController {
             for (w, m) in zip(missing, fresh) { if let w = w.window, let m { cache.setMap(m, SpectrumComputeCache.key(w)) } }
         }
         let maps: [[Double]?] = windows.map { w in w.window.flatMap { cache.map(SpectrumComputeCache.key($0)) } }
-        return Output(region: r.region, spectrum: spectrum, windows: windows, counts: counts, maps: maps, pixelTotals: totals)
+        var fit: PooledQuantification?
+        var failure: String?
+        if let q = r.quantify {
+            // The refinement does not depend on the estimator, k or absorption: it is keyed by what it does depend on.
+            let on = q.method.elements.filter { $0.role != .off }.map(\.symbol).sorted().joined(separator: ",")
+            let key = "\(r.region)|\(on)|\(q.method.background.rawValue)|\(q.method.polynomialOrder ?? 6)|\(q.method.beamEnergyKeV ?? r.beam ?? 0)"
+            let input = PooledQuantificationInput(counts: spectrum, axis: r.source.energyAxis, method: q.method, metadata: q.metadata,
+                                                  regionName: q.regionName, pixelCount: q.pixelCount, refinement: cache.refinement(key))
+            do {
+                let res = try PooledQuantifier.run(input, tables: Self.tables)
+                if let rr = res.refinement, input.refinement == nil { cache.setRefinement(rr, key) }
+                fit = res
+            } catch { failure = (error as? LocalizedError)?.errorDescription ?? "\(error)" }
+        }
+        return Output(region: r.region, spectrum: spectrum, windows: windows, counts: counts, maps: maps, pixelTotals: totals,
+                      fit: fit, fitFailure: failure)
     }
 
     private func apply(_ out: Output, generation gen: Int) {
@@ -255,11 +367,12 @@ final class SpectroscopyRoomController {
         // Spectrum of the selected region.
         m.series = SpectrumSeries(energyStart: axis.offset, energyStep: axis.scale,
                                   data: out.spectrum.map { Double($0) }, background: [], model: [], overlay: nil)
+        if let fit = out.fit { m.series = QuantifyPresentation.series(data: out.spectrum, axis: axis, fit) }
         let region = session.regions.first { $0.id == out.region }
         let name = region?.name ?? "Whole map"
         let pixels = region?.pixelCount ?? source.nx * source.ny
         m.spectrumTitle = "Spectrum · \(name)"
-        m.spectrumSubtitle = "\(Self.counts(total)) counts · \(pixels) px · window sums only, no fit"
+        m.spectrumSubtitle = "\(Self.counts(total)) counts · \(pixels) px · " + (out.fit != nil ? "fitted" : "window sums only, no fit")
         m.resultsTitle = "Results · \(name)"
         m.regionSettings.source = region?.kind == .drawn ? "Drawn" : "Whole map"
         m.regionSettings.pixels = "\(pixels) · \(String(format: "%.1f", 100 * Double(pixels) / Double(max(source.nx * source.ny, 1)))) %"
@@ -295,12 +408,47 @@ final class SpectroscopyRoomController {
             }
         }
         m.results = rows
+        applyFit(out, source: source)
         m.tiles = tiles
         m.tileRevision += 1
         // A tile that is gone loses its tick and its "seen" mark, so it is ticked again when it comes back.
         let present = Set(tiles.map(\.z))
         seenTiles.formIntersection(present)
         m.mixed.formIntersection(present)
+    }
+
+    /// The pooled fit's numbers into the model: the table's rows, the footers, the warnings, the plot, the readouts.
+    private func applyFit(_ out: Output, source: any SpectrumImageSource) {
+        let m = model
+        m.isFitting = false
+        guard quantifyActive else { return }
+        m.fitFailure = out.fitFailure
+        guard let fit = out.fit else {
+            // No fit (no element, no beam energy, an empty region): the window sums stay, the reason is shown.
+            m.hasFit = false; m.validation = nil; m.ratioLine = nil; m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false
+            lastFit = nil
+            return
+        }
+        lastFit = fit
+        m.hasFit = true
+        m.mapMode = .netCounts
+        m.results = QuantifyPresentation.rows(fit)
+        m.ratioLine = QuantifyPresentation.ratioLine(fit)
+        m.validation = fit.hasAbundance ? PooledQuantification.abundanceValidation : nil
+        m.fitWarnings = QuantifyPresentation.warnings(fit.warnings)
+        if case .applied = fit.absorption { m.abundanceWithoutAbsorption = false } else { m.abundanceWithoutAbsorption = fit.hasAbundance }
+        m.abundanceNote = fit.abundanceRefusal.map { "at% not computed: \($0)" }
+        m.resultsFooter = fit.footerLines.joined(separator: "\n")
+        m.fitFooter = QuantifyPresentation.plotFooter(fit)
+        m.quantify.quality = "\(fit.qualityLabel) \(String(format: "%.2f", fit.quality))"
+        switch fit.absorption {
+        case .off: m.quantify.absorptionNote = nil
+        case .applied(let s): m.quantify.absorptionNote = s
+        case .refused(let why): m.quantify.absorptionNote = "not applied: \(why)"
+        }
+        let axisText = QuantifyPresentation.axisReadouts(fit)
+        m.image.energyAxisReadout = axisText.file
+        m.image.energyAxisRefined = axisText.refined
     }
 
     // MARK: Pure helpers

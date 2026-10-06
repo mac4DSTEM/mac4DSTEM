@@ -77,15 +77,17 @@ struct ColorMixMapView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text("Map · \(model.mapUnits)").font(.callout.weight(.semibold)).lineLimit(1).help("Map · \(model.mapLabel)")
+            Text("Map · \(model.mapUnits)").font(.callout.weight(.semibold)).lineLimit(1)
+                .help(model.isLive ? "Window net counts. at% is computed on pooled regions only (the table), never per pixel." : "Map · \(model.mapLabel)")
             // an at% map carries the same validation badge as the table (ADR 054 §3)
             if model.mapMode == .atomic && model.unvalidated { UnvalidatedBadge() }
             Spacer(minLength: 4)
             Picker("Draw tool", selection: $model.drawTool) {
                 ForEach(DrawTool.drawable, id: \.self) { Image(systemName: $0.symbol).tag($0).help($0.rawValue.capitalized) }
             }.pickerStyle(.segmented).labelsHidden().controlSize(.small).fixedSize()
-            // At% maps come with the fit (WP3); until then the map is net counts and there is nothing to choose.
-            if model.hasFit {
+            // At% maps are never computed for a real spectrum image (ADR 054 item 3: at% on pooled regions only), so the
+            // choice is not offered there; the map is the window net counts and the header says what at% is computed on.
+            if model.hasFit && !model.isLive {
                 Picker("Map shows", selection: $model.mapMode) {
                     ForEach(MapMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }

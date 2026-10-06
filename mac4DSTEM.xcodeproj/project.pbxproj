@@ -148,6 +148,7 @@
 				Core/Spectroscopy/Quant/MassAbsorption.swift,
 				Core/Spectroscopy/Quant/QuantElementData.swift,
 				Core/Spectroscopy/Quant/QuantError.swift,
+				Core/Spectroscopy/Quant/PooledQuantification.swift,
 				Core/Spectroscopy/Quant/TakeOff.swift,
 				Core/Spectroscopy/Quant/ZetaFactor.swift,
 				Core/Spectroscopy/Statistics/CountingInterval.swift,

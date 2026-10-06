@@ -297,6 +297,7 @@ struct PrimaryActionButton: View {
     /// The hint, unless a requirement is what is holding the action back —
     /// then the requirement, because that is the question the user has.
     private var helpText: String {
+        if appState.navigation.workspaceArea == .spectroscopy, !primaryActionEnabled, let why = appState.spectroscopyRoom.quantifyBlocker { return why }
         if !primaryActionEnabled, let first = appState.unmetRequirements.first {
             return first.title
         }
@@ -382,7 +383,7 @@ struct PrimaryActionButton: View {
             case .singleslicePtychography: "Runs the iterative single-slice reconstruction on the full datacube."
             default: "Runs the next incomplete parallax stage."
             }
-        case .spectroscopy: "Quantification is not built yet (v5.0 WP3)."
+        case .spectroscopy: "Fits the selected region's pooled spectrum with the Quantify settings and records the step; the fit then follows every setting."
         case .results: ""   // no verb here (`primaryActionTitle` is nil), so no hint is ever read
         }
     }
@@ -394,9 +395,9 @@ struct PrimaryActionButton: View {
     }
 
     private var primaryActionEnabled: Bool {
+        // Quantify (v5.0 R3) needs a spectrum image and an element, not a 4D cube (`AppState.canRunPrimaryWorkspaceTask` agrees).
+        if appState.navigation.workspaceArea == .spectroscopy { return !appState.isBusy && appState.canRunPrimaryWorkspaceTask }
         guard appState.hasDataset, !appState.isBusy else { return false }
-        // Quantify waits for WP3 (`AppState.hasPrimaryWorkspaceTask` agrees).
-        if appState.navigation.workspaceArea == .spectroscopy { return false }
         if appState.navigation.workspaceArea != .prepare && appState.navigation.workspaceArea != .results {
             // The same answer the checklist and replay get.
             guard case .ready = ProductWorkflow.readiness(
