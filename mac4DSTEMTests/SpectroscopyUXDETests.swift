@@ -27,11 +27,13 @@ final class SpectroscopyUXDETests: XCTestCase {
         XCTAssertEqual(QuantifyPresentation.beamEnergyHelp(nil), "Beam energy")
     }
 
-    /// #9: 22-pt cells, 11-pt symbols, the 10-column band inside the inspector's 248-pt minimum.
-    func testPeriodicTableCellsAreADR056SizeAndFit() {
-        XCTAssertEqual(PeriodicTableView.Metrics.cell, 22)
-        XCTAssertEqual(PeriodicTableView.Metrics.symbolSize, 11)
-        XCTAssertEqual(PeriodicTableView.Metrics.bandWidth, 238)
-        XCTAssertLessThanOrEqual(PeriodicTableView.Metrics.bandWidth, 248)
+    /// Spec 2 D-9 (was #9, ADR 056's 22-pt cells): the table scales with the width and never asks for more than the inspector's
+    /// narrowest content column, 248 pt, nor sets a symbol under 9 pt.
+    /// Mutation: `PeriodicTableGrid.minimumWidth` raised to 300 - red.
+    func testPeriodicTableFitsTheNarrowestColumnAndScales() {
+        XCTAssertLessThanOrEqual(PeriodicTableGrid.minimumWidth, 248)
+        XCTAssertEqual(PeriodicTableGrid.cellSize(width: 248), (248 - 17 * 2) / 18, accuracy: 1e-9)
+        XCTAssertEqual(PeriodicTableGrid.cellSize(width: 400), (400 - 17 * 2) / 18, accuracy: 1e-9)
+        XCTAssertGreaterThanOrEqual(PeriodicTableGrid.symbolSize(cell: PeriodicTableGrid.cellSize(width: 248)), 9)
     }
 }

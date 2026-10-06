@@ -1,24 +1,91 @@
 import SwiftUI
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DSTEMCore
+#endif
 
-/// The periodic table of the Elements section (ADR 056, mock v2.1): two bands, main groups over transition metals, the rest
-/// folded. States by fill only, no legend: mapped (accent fill), proposed (accent outline), fit only (hollow), off (a quiet
-/// well), not detectable (dim). Click toggles Quantify / Off, or accepts a proposal; right-click gives the role and the line
-/// family; the state and its reason are the cell's help.
+/// The periodic table's own shape (spec 2 D-9): 18 columns, periods 1 to 6, the lanthanide slot in period 6 column 3 left empty
+/// as the fold's place; the f-block and period 7 stay folded below (`PeriodicLayout.folded`, unchanged). Data and metrics are
+/// pure so a test can hold them; `PeriodicLayout` (lane C's file) is not edited.
+nonisolated enum PeriodicTableGrid {
+    static let columns = 18
+    static let gap: CGFloat = 2
+    /// Period 1 to 6, group 1 to 18 (0-based columns); nil is an empty place. Period 6 column 2 is the lanthanide slot.
+    static let rows: [[Int?]] = [
+        [1] + [Int?](repeating: nil, count: 16) + [2],
+        [3, 4] + [Int?](repeating: nil, count: 10) + Array(5...10).map { Optional($0) },
+        [11, 12] + [Int?](repeating: nil, count: 10) + Array(13...18).map { Optional($0) },
+        Array(19...36).map { Optional($0) },
+        Array(37...54).map { Optional($0) },
+        [55, 56, nil] + Array(72...86).map { Optional($0) },
+    ]
+    /// The narrowest width the grid asks for (a 10-pt cell); the inspector's narrowest content column is 248 pt, so it always
+    /// fits. Below this the cells would not hold a symbol; above it they grow with the width.
+    static let minimumWidth: CGFloat = 18 * 10 + 17 * 2
+    /// The width a parent that proposes none (a probe, a preview) gets: the inspector's narrowest content column.
+    static let idealWidth: CGFloat = 248
+
+    /// cell = (width - 17 gaps) / 18.
+    static func cellSize(width: CGFloat) -> CGFloat { (max(width, minimumWidth) - CGFloat(columns - 1) * gap) / CGFloat(columns) }
+    /// 0.5 x the cell, clamped to 9...13 pt. The floor is 9 pt, not the app's 10: the owner's wish for this table (2026-10-06).
+    static func symbolSize(cell: CGFloat) -> CGFloat { min(max(0.5 * cell, 9), 13) }
+    /// The height of `rowCount` rows of square cells at this width.
+    static func height(width: CGFloat, rowCount: Int) -> CGFloat {
+        rowCount > 0 ? CGFloat(rowCount) * cellSize(width: width) + CGFloat(rowCount - 1) * gap : 0
+    }
+}
+
+/// Lays its subviews out in `columns` columns of square cells that fill the proposed width (`PeriodicTableGrid`).
+struct PeriodicGridLayout: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let w = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? PeriodicTableGrid.idealWidth
+        let width = max(w, PeriodicTableGrid.minimumWidth)
+        let rows = (subviews.count + PeriodicTableGrid.columns - 1) / PeriodicTableGrid.columns
+        return CGSize(width: width, height: PeriodicTableGrid.height(width: width, rowCount: rows))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let cell = PeriodicTableGrid.cellSize(width: bounds.width)
+        for (i, view) in subviews.enumerated() {
+            let col = i % PeriodicTableGrid.columns, row = i / PeriodicTableGrid.columns
+            view.place(at: CGPoint(x: bounds.minX + CGFloat(col) * (cell + PeriodicTableGrid.gap),
+                                   y: bounds.minY + CGFloat(row) * (cell + PeriodicTableGrid.gap)),
+                       proposal: ProposedViewSize(width: cell, height: cell))
+        }
+    }
+}
+
+/// What a right-click on an element lists under "Lines": a family's alpha and beta line with their energies.
+nonisolated enum ElementLines {
+    /// "K \u{00B7} K\u{03B1} 1.487 \u{00B7} K\u{03B2} 1.560 keV" (3 decimals; the alpha and the first beta line of the family in the line
+    /// table); nil when the family has neither for this element (the menu entry is disabled).
+    static func title(family: LineFamily, z: Int) -> String? {
+        let f = family.rawValue
+        let lines = XRayLines.lines(of: PeriodicLayout.symbol(z)).filter { $0.family.rawValue == f }
+        func pick(_ greek: String, _ letter: String) -> String? {
+            guard let l = lines.first(where: { $0.name == f + letter }) ?? lines.first(where: { $0.name.hasPrefix(f + letter) }) else { return nil }
+            return "\(f)\(greek) " + String(format: "%.3f", l.energy)
+        }
+        let parts = [pick("\u{03B1}", "a"), pick("\u{03B2}", "b")].compactMap { $0 }
+        return parts.isEmpty ? nil : ([f] + parts).joined(separator: " \u{00B7} ") + " keV"
+    }
+}
+
+/// The periodic table of the Elements section (ADR 056, spec 2 D-9). States by fill only, no legend: mapped (accent fill),
+/// proposed (accent outline), fit only (hollow), off (a quiet well), not detectable (dim). Click toggles Quantify / Off; right-click
+/// gives the role and the line family with its energies; hovering a cell highlights that element's lines in the spectrum.
 struct PeriodicTableView: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var foldedOpen = false
-
-    /// A 10-column band of 22-pt cells and 2-pt gaps is 238 pt, inside the inspector's narrowest content column, 248 pt
-    /// (`InspectorWidthBudgetTests`); ADR 056 asked for about 22 pt, symbols 11 pt (UX lane DE #9).
-    enum Metrics {
-        static let cell: CGFloat = 22, gap: CGFloat = 2, corner: CGFloat = 4, symbolSize: CGFloat = 11
-        static var bandWidth: CGFloat { CGFloat(PeriodicLayout.transitionColumns) * (cell + gap) - gap }
-    }
+    /// The grid's laid-out width, for the symbol size (the cell size follows it, `PeriodicTableGrid`).
+    @State private var width = PeriodicTableGrid.idealWidth
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.gap) {
-            band(PeriodicLayout.mainGroup, columns: PeriodicLayout.mainGroupColumns)
-            band(PeriodicLayout.transition, columns: PeriodicLayout.transitionColumns)
+        VStack(alignment: .leading, spacing: PeriodicTableGrid.gap) {
+            PeriodicGridLayout {
+                ForEach(Array(PeriodicTableGrid.rows.joined().enumerated()), id: \.offset) { _, z in
+                    if let z { cell(z) } else { Color.clear }
+                }
+            }
             // The fold is a row in the inspector sections' own vocabulary: leading chevron, secondary label, the whole row toggles.
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) { foldedOpen.toggle() }
@@ -35,42 +102,32 @@ struct PeriodicTableView: View {
             .padding(.top, 4)
             .help("Lanthanides, and period 7 with the actinides")
             if foldedOpen {
-                let perRow = PeriodicLayout.transitionColumns
-                ForEach(Array(stride(from: 0, to: PeriodicLayout.folded.count, by: perRow)), id: \.self) { start in
-                    HStack(spacing: Metrics.gap) {
-                        ForEach(PeriodicLayout.folded[start..<min(start + perRow, PeriodicLayout.folded.count)], id: \.self) { cell($0) }
-                    }
+                PeriodicGridLayout {
+                    ForEach(PeriodicLayout.folded, id: \.self) { cell($0) }
                 }
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spectroscopy.periodicTable")
-    }
-
-    private func band(_ rows: [[Int?]], columns: Int) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.gap) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(spacing: Metrics.gap) {
-                    ForEach(Array(row.enumerated()), id: \.offset) { _, z in
-                        if let z { cell(z) } else { Color.clear.frame(width: Metrics.cell, height: Metrics.cell) }
-                    }
-                }
-            }
-        }
-        .frame(width: Metrics.bandWidth, alignment: .center)
     }
 
     private func cell(_ z: Int) -> some View {
         let state = model.elements.cellState(z)
         let sym = PeriodicLayout.symbol(z)
+        let size = PeriodicTableGrid.symbolSize(cell: PeriodicTableGrid.cellSize(width: width))
         return Text(sym)
-            .font(.system(size: Metrics.symbolSize, weight: .semibold))
-            .frame(width: Metrics.cell, height: Metrics.cell)
+            .font(.system(size: size, weight: .semibold))
+            .lineLimit(1).minimumScaleFactor(0.8)   // a two-letter symbol at 9 pt in the narrowest cell (11.9 pt) sits on the edge
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(Self.ink(state))
-            .background(RoundedRectangle(cornerRadius: Metrics.corner).fill(Self.fill(state)))
-            .overlay(RoundedRectangle(cornerRadius: Metrics.corner).strokeBorder(Self.border(state), lineWidth: 1.2))
+            .background(RoundedRectangle(cornerRadius: Self.corner).fill(Self.fill(state)))
+            .overlay(RoundedRectangle(cornerRadius: Self.corner).strokeBorder(Self.border(state), lineWidth: 1.2))
             .contentShape(Rectangle())
             .onTapGesture { model.elements.click(z) }
+            .onHover { inside in
+                if inside { model.highlightedZ = z } else if model.highlightedZ == z { model.highlightedZ = nil }
+            }
             .contextMenu {
                 if PeriodicLayout.isAvailable(z) {
                     ForEach(ElementRole.allCases, id: \.self) { r in
@@ -79,7 +136,9 @@ struct PeriodicTableView: View {
                     Divider()
                     Menu("Lines") {
                         ForEach(LineFamily.allCases, id: \.self) { f in
-                            Toggle(f.rawValue, isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
+                            let title = ElementLines.title(family: f, z: z)
+                            Toggle(title ?? f.rawValue, isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
+                                .disabled(title == nil)
                         }
                     }
                 } else { Text(ElementSelection.unavailableReason(z: z) ?? "") }
@@ -88,6 +147,8 @@ struct PeriodicTableView: View {
             .accessibilityLabel("\(sym), \(Self.describe(state))")
             .accessibilityAddTraits(.isButton)
     }
+
+    private static let corner: CGFloat = 3
 
     // MARK: look
 
@@ -134,4 +195,4 @@ extension PeriodicLayout {
     static func isAvailable(_ z: Int) -> Bool { ElementSelection.unavailableReason(z: z) == nil }
 }
 
-#Preview("Periodic table") { PeriodicTableView(model: .fixture).padding().frame(width: 280) }
+#Preview("Periodic table") { PeriodicTableView(model: .fixture).padding().frame(width: 320) }

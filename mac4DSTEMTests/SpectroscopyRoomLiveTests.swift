@@ -441,30 +441,25 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         try await waitFor("no overlay") { m.series.overlay == nil }
     }
 
-    /// R10: with proposals and nothing picked, the first spectrum carries a muted marker per proposed element; accepting one
-    /// turns it into the coloured marker of a picked element (no muted duplicate).
-    /// Mutations: `proposedMarkers` dropped from `apply`'s marker list - red; the accepted element still in `proposedWindows` - red.
-    func testProposedElementsAreMarkedMutedAndAcceptingColoursThem() async throws {
+    /// R10 (spec 2 D-3 changed it): Auto ID applies its picks, so the first spectrum carries the picked element's COLOURED marker
+    /// and no muted duplicate; a later pick elsewhere re-runs `apply` and keeps it.
+    /// Mutations: the picks not applied (the landing maps proposals only) - red; `proposedMarkers` kept for an applied pick - red.
+    func testAnAppliedPickCarriesTheColouredMarkerNotAMutedOne() async throws {
         let Cu = 29
         let (_, on, _) = open(autoID: true)
-        try await waitFor("the proposals' tiles") { on.model.tiles.contains { $0.z == Cu && $0.proposed } }
-        let muted = on.model.markers.filter { $0.kind == .proposed }
-        let cu = try XCTUnwrap(muted.first { $0.elementZ == Cu }, "Cu K\u{03B1} is marked muted before anything is picked")
-        XCTAssertEqual(cu.label, "Cu K\u{03B1}")
-        XCTAssertEqual(muted.count, on.model.elements.suggestions.count, "one muted marker per proposal")
-        // a pick elsewhere re-runs `apply`: the other proposals keep their muted markers
-        on.model.elements.click(13); on.elementsChanged()
-        try await waitFor("Al's row and Cu still muted") { on.model.results.count == 1 && on.model.markers.contains { $0.elementZ == Cu && $0.kind == .proposed } }
-        on.model.elements.click(Cu); on.elementsChanged()
-        try await waitFor("Cu's row") { on.model.results.count == 2 && on.model.markers.contains { $0.elementZ == Cu && $0.kind == .line } }
-        XCTAssertFalse(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .proposed }, "an accepted proposal is not also muted")
+        try await waitFor("Cu's row") { on.model.results.contains { $0.z == Cu } }
+        XCTAssertTrue(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .line }, "Cu K\u{03B1} is a picked element's marker")
+        XCTAssertFalse(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .proposed }, "an applied pick is not also muted")
+        on.model.elements.click(26); on.elementsChanged()   // a pick elsewhere re-runs `apply`: Cu keeps its marker
+        try await waitFor("Fe's row") { on.model.results.contains { $0.z == 26 } }
+        XCTAssertTrue(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .line })
     }
 
-    /// Auto ID on open: after the first sums, the proposer runs; its proposals are mapped as PROPOSED tiles, outside the
-    /// ColorMix and the table, and a proposal moves no listed number. Accept lists them.
-    /// Mutations: proposals windowed together with the listed elements for the rows (Al's net moves) — red; a proposed tile ticked
-    /// into the mix — red; the open not running Auto ID — red.
-    func testAutoIDOnOpenMapsProposalsWithoutMovingAListedNumber() async throws {
+    /// Auto ID on open: after the first sums, the proposer runs and its picks are applied (spec 2 D-3): the planted Cu line is a
+    /// row and a tile at once, nothing is left proposed, and the rows are those of the same picks made by hand.
+    /// Mutations: the open not running Auto ID - red; the picks not applied - red; the picks' rows computed apart from the listed
+    /// elements (so they differ from the hand-picked ones) - red.
+    func testAutoIDOnOpenPicksAndMapsWithoutMovingAListedNumber() async throws {
         let Al = 13, Cu = 29
         // reference: Auto ID off, Al listed
         let (_, off, _) = open(autoID: false)
@@ -475,40 +470,59 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         let (_, on, _) = open(autoID: true)
         try await waitFor("Auto ID's outcome") { on.model.autoID.outcome != nil || on.model.autoID.failure != nil }
         XCTAssertNil(on.model.autoID.failure)
-        let proposed = on.model.elements.suggestions.map(\.z)
-        XCTAssertTrue(proposed.contains(Cu), "the planted Cu line is proposed (got \(proposed.map { PeriodicLayout.symbol($0) }))")
-        try await waitFor("the proposals' tiles") { on.model.tiles.contains { $0.z == Cu && $0.proposed } }
-        XCTAssertTrue(on.model.elements.quantified.isEmpty, "nothing is quantified until the person says so")
-        XCTAssertFalse(on.model.mixed.contains(Cu), "a proposed tile is never ticked into the mix")
-        XCTAssertTrue(on.model.results.isEmpty, "no row for a proposal")
-        // accept Al by hand: its net count equals the reference's, with proposals present
-        on.model.elements.click(Al); on.elementsChanged()
-        try await waitFor("Al's row beside the proposals") { on.model.results.count == 1 && on.model.tiles.contains { $0.z == Cu && $0.proposed } }
-        let withProposals = try XCTUnwrap(on.model.results.first)
-        XCTAssertEqual(withProposals.netCounts, reference.netCounts, accuracy: 1e-9, "a proposal moved a listed number")
-        XCTAssertEqual(withProposals.netSigma, reference.netSigma, accuracy: 1e-9)
-        // Accept: the proposal becomes a mapped, quantified element
-        on.model.acceptProposed(); on.elementsChanged()
-        try await waitFor("the accepted tile") { on.model.tiles.contains { $0.z == Cu && !$0.proposed } && on.model.results.contains { $0.z == Cu } }
-        XCTAssertTrue(on.model.elements.suggestions.isEmpty)
+        try await waitFor("Cu's row and tile") { on.model.results.contains { $0.z == Cu } && on.model.tiles.contains { $0.z == Cu && !$0.proposed } }
+        XCTAssertTrue(on.model.elements.suggestions.isEmpty, "applied, not left to accept")
+        XCTAssertFalse(on.model.tiles.contains { $0.proposed }, "no proposed tile")
+        XCTAssertTrue(on.model.mixed.contains(Cu))
+        // The picks are listed elements like any other (a neighbour's window can legitimately move a net count), so the invariant
+        // is: the same elements picked by hand give exactly the same rows.
+        let picked = on.model.elements.activeZ
+        XCTAssertTrue(picked.contains(Cu))
+        let (_, hand, _) = open(autoID: false)
+        for z in picked { hand.model.elements.click(z) }
+        hand.elementsChanged()
+        try await waitFor("the hand-picked rows") { hand.model.results.count == on.model.results.count && hand.model.tiles.count == on.model.tiles.count }
+        for row in on.model.results {
+            let other = try XCTUnwrap(hand.model.results.first { $0.z == row.z })
+            XCTAssertEqual(row.netCounts, other.netCounts, accuracy: 1e-9, "Auto ID's pick \(row.z) differs from the same pick by hand")
+            XCTAssertEqual(row.netSigma, other.netSigma, accuracy: 1e-9)
+        }
+        XCTAssertNotEqual(reference.netCounts, 0, "the Al-only reference is a real measurement")
     }
 
-    /// R4c (Gate B 2026-10-06 section 4): Auto ID landing maps its proposals without a refresh: the fit's in-flight unlisted-line
-    /// check (`checkTask`) and `generation` are untouched, so nothing is re-fitted and "checking" does not restart.
-    /// Mutation: the landing calls `elementsChanged()` instead of `proposalsChanged()` - red (generation moves, the check is replaced).
-    func testALandingAutoIDLeavesTheUnlistedLineCheckAlone() async throws {
+    /// R4c (Gate B 2026-10-06 section 4), as spec 2 D-3 changed it: a landing that APPLIES a pick changes the listed elements, so
+    /// the live fit follows (a refresh: Cu joins the table and the fit's check restarts); a landing with nothing to apply maps
+    /// the proposals only and leaves `generation` and the in-flight unlisted-line check alone.
+    /// Mutation: the applied landing calling `proposalsChanged()` and not `elementsChanged()` (Cu never reaches the fit) - red.
+    func testALandingAutoIDRefitsOnlyWhenItAppliedAPick() async throws {
         let (_, c, _) = open(autoID: false)
         c.model.elements.click(13); c.elementsChanged()
         let ok = await c.quantify()
         XCTAssertTrue(ok, c.model.fitFailure ?? "")
-        let check = try XCTUnwrap(c.checkTask, "the fit started its check")
         let generation = c.generation
         c.runAutoID()
         try await waitFor("Auto ID's outcome") { c.model.autoID.outcome != nil || c.model.autoID.failure != nil }
         XCTAssertNil(c.model.autoID.failure)
-        try await waitFor("the proposals' tiles") { c.model.tiles.contains { $0.z == 29 && $0.proposed } }
-        XCTAssertEqual(c.generation, generation, "no refresh: the generation did not move")
-        XCTAssertEqual(c.checkTask, check, "the in-flight check was not cancelled or replaced")
+        XCTAssertTrue(c.model.elements.quantified.contains(29), "the planted Cu line is picked")
+        XCTAssertGreaterThan(c.generation, generation, "a pick changed the listed elements: the fit followed")
+        try await waitFor("Cu in the fit") { c.model.results.contains { $0.z == 29 } }
+        await c.checkTask?.value
+        // Run again until a run finds nothing new to apply (each run may list more elements): that landing neither refreshes nor
+        // starts a new fit and check.
+        var settled = false
+        for _ in 0..<6 {
+            await c.checkTask?.value
+            try await waitFor("the fit to land") { !c.model.isFitting }
+            let before = (c.generation, c.checkTask)
+            c.runAutoID()
+            XCTAssertTrue(c.model.autoID.running)
+            try await waitFor("the next run") { !c.model.autoID.running }
+            if c.generation == before.0 {
+                XCTAssertEqual(c.checkTask, before.1, "the check was not cancelled or replaced")
+                settled = true; break
+            }
+        }
+        XCTAssertTrue(settled, "Auto ID settles: a run with nothing new to apply")
     }
 
     /// Auto ID off: nothing runs on open.

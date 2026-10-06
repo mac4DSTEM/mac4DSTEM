@@ -1,6 +1,6 @@
 //
 //  SpectroscopyUXABTests.swift
-//  UX lane AB (spec 2026-10-06): the proposal cap, the opening zoom, the tile tick that accepts, the tile motion rule and
+//  UX lane AB (spec 2026-10-06): the proposal cap, the opening zoom, the tile motion rule and
 //  the ColorMix header. Each test names the mutation it catches.
 //
 
@@ -49,7 +49,6 @@ final class SpectroscopyUXABTests: XCTestCase {
         let zs = [29, 13, 8, 63, 67, 72, 27]   // Cu Al O Eu Ho Hf Co, strongest first
         m.elements = ElementSelection(suggestions: zs.map { ElementSuggestion(z: $0, reason: "", proposedRole: .quantify) })
         XCTAssertEqual(m.shownProposals.map(\.z), [29, 13, 8])
-        XCTAssertEqual(ElementsSection.acceptTitle(m.shownProposals.map { PeriodicLayout.symbol($0.z) }), "Accept Cu, Al, O")
         m.acceptProposed()
         XCTAssertEqual(Set(m.elements.activeZ), [29, 13, 8])
         XCTAssertEqual(m.elements.suggestions.map(\.z), [63, 67, 72, 27], "the rest stay proposed")
@@ -66,18 +65,17 @@ final class SpectroscopyUXABTests: XCTestCase {
         XCTAssertEqual(SpectrumAutoZoom.range(markers: m, domain: 0...80, minimumSpan: 0.04).upperBound, 69.3, accuracy: 1e-9, "no ceiling known: as before")
     }
 
-    /// #2: ticking a proposed tile accepts the proposal (role applied, suggestion gone); ticking a real tile toggles the mix.
-    /// Mutation: `tickTile` always toggles the mix - red.
-    @MainActor func testTickingAProposedTileAcceptsIt() {
+    /// Spec 2 D-2 (was UX #2's tick): clicking a tile picks it into the ColorMix, it no longer accepts a proposal (Auto ID applies its
+    /// picks; the periodic table's click is the other way in).
+    /// Mutation: `pick` calling `elements.click` - red.
+    @MainActor func testClickingATileTogglesTheMixAndLeavesTheProposalsAlone() {
         let m = SpectroscopyRoomModel(series: SpectrumSeries(energyStart: 0, energyStep: 0.01, data: [1], background: [], model: [], overlay: nil))
         let cu = 29, al = 13
         m.elements = ElementSelection(suggestions: [ElementSuggestion(z: cu, reason: "Cu", proposedRole: .quantify)])
-        let proposed = MapTile(z: cu, width: 1, height: 1, values: [1], proposed: true)
-        m.tickTile(proposed)
-        XCTAssertEqual(m.elements.role(cu), .quantify)
-        XCTAssertTrue(m.elements.suggestions.isEmpty)
-        XCTAssertFalse(m.mixed.contains(cu), "the mix follows once the element's own tile lands")
-        m.tickTile(MapTile(z: al, width: 1, height: 1, values: [1]))
+        m.pick(.element(cu))
+        XCTAssertNotEqual(m.elements.role(cu), .quantify)
+        XCTAssertFalse(m.elements.suggestions.isEmpty)
+        m.pick(.element(al))
         XCTAssertTrue(m.mixed.contains(al))
     }
 
@@ -96,14 +94,5 @@ final class SpectroscopyUXABTests: XCTestCase {
         XCTAssertTrue(help.contains("Mg not ticked"), help)
         XCTAssertTrue(help.contains("O \u{00B7} Al \u{00B7} Si"), help)
         XCTAssertFalse(ColorMixHeader.help(mixed: ["O"], notMixed: []).contains("not ticked"))
-    }
-}
-
-extension SpectroscopyUXABTests {
-    /// #2/#8: the Proposed row shows the tile-bearing symbols, then "+n" for the rest.
-    /// Mutation: the "+n" count computed as `symbols.count` - red.
-    func testProposedRowNamesTheCappedListAndCountsTheRest() {
-        XCTAssertEqual(ElementsSection.proposedList(["Cu", "Al", "O", "Eu", "Hf", "Co", "Ho"]), "Cu, Al, O +4")
-        XCTAssertEqual(ElementsSection.proposedList(["Cu", "Al"]), "Cu, Al")
     }
 }

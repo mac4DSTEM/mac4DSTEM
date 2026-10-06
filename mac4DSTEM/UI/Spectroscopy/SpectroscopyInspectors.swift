@@ -5,72 +5,89 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-// The room's inspector (ADR 056): one flat stack of sections, label left / control right (the app's `InspectorRow` kit), at
-// most seven rows each, no prominent button (the toolbar verb is Quantify and is not drawn here), colour only on symbols.
-// Elements, Region and Fit are open; Map display, Export and Expert start closed. A row whose value the session has not
-// supplied is hidden: nothing is shown that was not measured. Numbers are typed through `OptionalNumericField` (locale-safe,
-// commits on Return/blur).
+// The room's inspector (ADR 056, spec 2 D-5): one flat stack of sections, label left / control right (the app's `InspectorRow`
+// kit), no prominent button (the toolbar verb is Quantify and is not drawn here), colour only on symbols. Elements, Region,
+// Results and Quantification are open; Fitting and Export start closed. A row whose value the session has not supplied is
+// hidden: nothing is shown that was not measured. Numbers are typed through `OptionalNumericField` (locale-safe, commits on
+// Return/blur).
 
 /// The Settings tab's content in the Spectroscopy room. Separate from the host so a test can lay it out without an `AppState`.
 struct SpectroscopyInspectorSections: View {
     @Bindable var model: SpectroscopyRoomModel
-    @State private var mapDisplayOpen: Bool
     @State private var exportOpen: Bool
+
+    /// The sections, in the order they are drawn (spec 2 D-5): the single source of both.
+    enum Part: CaseIterable {
+        case elements, region, results, quantification, fitting, export
+        var title: String {
+            switch self {
+            case .elements: "Elements"
+            case .region: "Region"
+            case .results: "Results"
+            case .quantification: "Quantification"
+            case .fitting: "Fitting"
+            case .export: "Export"
+            }
+        }
+    }
 
     init(model: SpectroscopyRoomModel, startOpen: Bool = false) {
         self.model = model
-        _mapDisplayOpen = State(initialValue: startOpen)
         _exportOpen = State(initialValue: startOpen)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutPolicy.inspectorSectionSpacing) {
-            InspectorSection("Elements") { ElementsSection(model: model) }
-            InspectorSection("Region") { RegionSection(model: model) }
-            InspectorSection("Fit") { FitSection(model: model) }
-            InspectorSection("Map display", expanded: $mapDisplayOpen) { MapDisplaySection(model: model) }
-            InspectorSection("Export", expanded: $exportOpen) { ExportSection(model: model) }
-            InspectorSection("Expert", expanded: $model.quantify.expertOpen) { ExpertSection(model: model) }
+            ForEach(Part.allCases, id: \.self) { part in section(part) }
+        }
+    }
+
+    @ViewBuilder private func section(_ part: Part) -> some View {
+        switch part {
+        case .elements: InspectorSection(part.title) { ElementsSection(model: model) }
+        case .region: InspectorSection(part.title) { RegionSection(model: model) }
+        case .results: InspectorSection(part.title) { ResultsSection(model: model) }
+        case .quantification: InspectorSection(part.title) { QuantificationSection(model: model) }
+        case .fitting: InspectorSection(part.title, expanded: $model.quantify.expertOpen) { FittingSection(model: model) }
+        case .export: InspectorSection(part.title, expanded: $exportOpen) { ExportSection(model: model) }
         }
     }
 }
 
-/// Elements: the periodic table, Auto ID, and what it proposed.
+/// Elements: the periodic table, the maps' int / net switch, and Auto ID with what it picked.
 struct ElementsSection: View {
     @Bindable var model: SpectroscopyRoomModel
     var body: some View {
         PeriodicTableView(model: model)
-        InspectorRow("Auto ID") {
-            HStack(spacing: 6) {
-                if model.autoID.running {
+        InspectorRow("Maps") {
+            Picker("Map shows", selection: $model.mapMode) {
+                ForEach(MapMode.allCases.filter(\.isAvailable), id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .help("int: the line's window sum. net: less its background windows. wt% and at% are computed on regions (the Results section), not per pixel.")
+            .accessibilityIdentifier("spectroscopy.mapMode")
+        }
+        // The proposer is unvalidated, so its badge stands in this row whatever the run's state (CLAUDE.md, "unvalidated stays
+        // labelled"); the button (or, while it runs, the progress and Cancel) is the row under it.
+        InspectorRow("Auto ID") { UnvalidatedBadge() }
+            .help("Proposes elements from the spectrum when an image opens and picks them (the proposer is unvalidated). Remove a wrong pick in the table.")
+        InspectorActionRow {
+            if model.autoID.running {
+                HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
                     Button("Cancel") { model.onCancelAutoID?() }
-                } else if model.autoID.outcome != nil { UnvalidatedBadge() }   // proposals are on screen before any fit: the label stays (CLAUDE.md "unvalidated stays labelled")
-                Toggle("Auto ID", isOn: Binding(get: { model.autoIDEnabled }, set: { on in
-                    model.autoIDEnabled = on
-                    if on, !model.autoID.running { model.onAutoID?() }
-                })).labelsHidden().toggleStyle(.switch).controlSize(.small)
+                }
+            } else {
+                InspectorAdaptiveButton("Auto ID", systemImage: "sparkles",
+                                        help: "Propose elements from this spectrum and pick them; the unvalidated proposer's reasons are on the Picked row.") { model.onAutoID?() }
+                    .disabled(model.onAutoID == nil)
+                    .accessibilityIdentifier("spectroscopy.autoID")
             }
         }
-        // UX #8: the switch only. The room's unvalidated badge stands once, on the quantification header (and on a phase's
-        // Region row); this help names the proposer's status.
-        .help("Proposes elements from the spectrum when an image opens (the proposer is unvalidated): the proposals are mapped, marked proposed and left unquantified until you accept them. Your picks are never changed.")
         if let o = model.autoID.outcome {
-            let s = model.elements.suggestions
-            InspectorRow("Proposed") {
-                Text(s.isEmpty ? "none" : Self.proposedList(s.map { PeriodicLayout.symbol($0.z) })).foregroundStyle(.secondary).lineLimit(1)
-            }
-            .help(Self.notes(o, s))
-            // UX #2: the one Accept, on its own row. Ticking a proposed tile accepts that one.
-            if !s.isEmpty {
-                InspectorActionRow {
-                    InspectorAdaptiveButton(
-                        Self.acceptTitle(model.shownProposals.map { PeriodicLayout.symbol($0.z) }), systemImage: "checkmark.circle",
-                        help: "Map and quantify the proposed elements that have a tile, with the role the proposer suggested; the others stay proposed. Tick a proposed tile to accept just that one."
-                    ) { model.acceptProposed() }
-                }
-            }
-            // R7 (wp3e F3.1): a proposal beside a listed line is a misfit, named so, with no tile and no Accept.
+            InspectorValueRow("Picked", Self.pickedList(o))
+                .help(Self.notes(o, o.suggestions))
+            // R7 (wp3e F3.1): a proposal beside a listed line is a misfit, named so, with no tile.
             let excesses = model.autoIDExcesses
             if !excesses.isEmpty {
                 InspectorNote(excesses.map(\.title).joined(separator: "; ")).help(excesses.map(\.detail).joined(separator: "\n"))
@@ -79,16 +96,12 @@ struct ElementsSection: View {
         if let why = model.autoID.failure { InspectorNote(why) }
     }
 
-    /// "Accept Cu, Al, O": the symbols the button accepts (the ones with a tile).
-    static func acceptTitle(_ shown: [String]) -> String { "Accept " + shown.joined(separator: ", ") }
-
-    /// "Cu, Al, O +4": the first `ProposedTileCap.maximum` (the ones with a tile), then how many more the table still marks.
-    static func proposedList(_ symbols: [String]) -> String {
-        let shown = symbols.prefix(ProposedTileCap.maximum).joined(separator: ", ")
-        return symbols.count > ProposedTileCap.maximum ? shown + " +\(symbols.count - ProposedTileCap.maximum)" : shown
+    /// "Al, Si, Mg": what the last run picked, in its order (strongest first); "none" when it found nothing.
+    static func pickedList(_ o: AutoIDOutcome) -> String {
+        o.suggestions.isEmpty ? "none" : o.suggestions.map { PeriodicLayout.symbol($0.z) }.joined(separator: ", ")
     }
 
-    /// The proposer's own words, as the row's hover: each proposal's reason, the sum-peak questions, what it did not test.
+    /// The proposer's own words, as the row's hover: each pick's reason, the sum-peak questions, what it did not test.
     static func notes(_ o: AutoIDOutcome, _ s: [ElementSuggestion]) -> String {
         var lines = s.map { "\(PeriodicLayout.symbol($0.z)): \($0.reason)" }
         lines += o.excesses.map(\.detail)
@@ -99,12 +112,19 @@ struct ElementsSection: View {
     }
 }
 
-/// Region: where the spectrum comes from, what it holds, what to compare it with, and Pin.
+/// Region: the drawing tool, where the spectrum comes from, what to compare it with, and Pin.
 struct RegionSection: View {
     @Bindable var model: SpectroscopyRoomModel
 
     var body: some View {
         let r = model.regionSettings
+        InspectorRow("Tool") {
+            Picker("Region tool", selection: $model.drawTool) {
+                ForEach(DrawTool.allCases, id: \.self) { Image(systemName: $0.symbol).imageScale(.medium).tag($0).help(Self.toolHelp($0)) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .accessibilityIdentifier("spectroscopy.regionTool")
+        }
         if model.regions.count > 1 {
             InspectorRow("Source") {
                 Picker("Source", selection: Binding(get: { model.selectedRegion ?? 0 }, set: { model.selectedRegion = $0 })) {
@@ -119,7 +139,6 @@ struct RegionSection: View {
                 HStack(spacing: 6) { Text(phase).foregroundStyle(.secondary); if model.unvalidated { UnvalidatedBadge() } }
             }
         }
-        if let p = r.pixels { InspectorValueRow("Pixels", p + (r.counts.map { " \u{00B7} \($0) counts" } ?? "")) }
         InspectorRow("Compare with") {
             Picker("Compare with", selection: $model.compare) {
                 ForEach(CompareBasis.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -137,12 +156,19 @@ struct RegionSection: View {
         if model.image.sourceWarning, let note = model.image.sourceNote { InspectorNote(note) }
     }
 
+    /// What each drawing tool does, as the segment's hover.
+    static func toolHelp(_ t: DrawTool) -> String {
+        t == .rectangle ? "Rectangle: drag on the ColorMix"
+            : t == .polygon ? "Polygon: click the corners, then the first corner again"
+            : "\(t.rawValue.capitalized): drag on the ColorMix"
+    }
+
     /// "Drawn rectangle" for the live region, the pool's own name otherwise.
     static func sourceTitle(_ r: RegionSummary) -> String { r.isDrawn ? "Drawn region" : r.name }
 }
 
-/// Fit: the settings every pooled fit follows (live after Quantify, ADR 054 item 8: no Apply).
-struct FitSection: View {
+/// Quantification: the settings every pooled fit follows (live after Quantify, ADR 054 item 8: no Apply).
+struct QuantificationSection: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var editingTyped = false
     var body: some View {
@@ -152,7 +178,7 @@ struct FitSection: View {
                 Text("Empirical").tag(QuantificationMethod.Background.empiricalWithAlEdge)
                 Text("Polynomial").tag(QuantificationMethod.Background.wholeRangePolynomial6)
             }.labelsHidden().fixedSize()
-            .help("Empirical: a fitted whole-spectrum continuum with the Al K edge step. Polynomial: eXSpy's whole-range polynomial (Expert order).")
+            .help("Empirical: a fitted whole-spectrum continuum with the Al K edge step. Polynomial: eXSpy's whole-range polynomial (order under Fitting).")
         }
         InspectorRow("k-factors") {
             HStack(spacing: 6) {
@@ -189,61 +215,53 @@ struct FitSection: View {
     }
 }
 
-/// Map display: the active map's colour, contrast window and gamma (the same controls as the popover on its tile's chip), and
-/// one reset for every map. The ColorMix has none of its own: it follows its elements. (Smoothing and binning are not applied
-/// to the maps yet, so they are not drawn.)
-struct MapDisplaySection: View {
-    @Bindable var model: SpectroscopyRoomModel
-    var body: some View {
-        let map = model.active, pixels = model.pixels(of: map)
-        if map == .colorMix {
-            InspectorNote("Click a map to set its colour, contrast and gamma. The ColorMix follows its elements.")
-        } else {
-            InspectorValueRow("Map", model.mapTitle(map))
-            switch map {
-            case .element(let z):
-                InspectorRow("Colour") { ColorPicker("Colour", selection: model.colorBinding(z), supportsOpacity: false).labelsHidden() }
-            case .haadf:
-                InspectorRow("Colormap") { Picker("Colormap", selection: $model.haadfColormap) { ColormapChoices() }.labelsHidden().pickerStyle(.menu) }
-            case .colorMix: EmptyView()
-            }
-            if !pixels.isEmpty {
-                let display = model.displayBinding(map)
-                HistogramView(pixels: pixels, version: model.tileRevision, rangeLo: display.lo, rangeHi: display.hi)
-                    .help("Drag the handles to set this map's contrast window.")
-                AdjustmentSlider("Gamma", value: display.gamma.mapGammaDouble, in: 0.2...3, defaultValue: 1.0)
-            }
-        }
-        InspectorRow("All maps") {
-            Button("Reset") { model.elementColors = [:]; model.mapDisplays = [:]; model.haadfColormap = .gray }
-                .disabled(model.elementColors.isEmpty && model.mapDisplays.isEmpty && model.haadfColormap == .gray)
-                .help("Back to the default colours, each map\u{2019}s default contrast window and gamma 1")
-        }
-    }
-}
-
-/// Export: the results table as CSV and the method as JSON (the same menu as the panel's header).
+/// Export: the results table as CSV, the method as JSON, and the shown spectrum as CSV (the only place that writes them).
 struct ExportSection: View {
     @Bindable var model: SpectroscopyRoomModel
+    static let csvTitle = "Results CSV\u{2026}", jsonTitle = "Method JSON\u{2026}", spectrumTitle = "Spectrum CSV\u{2026}"
+
+    /// What each button hands the save panel; nil until its text exists (the button is then off).
+    static func resultsExport(_ e: ExportSettings) -> PendingExport? { e.csv.map { PendingExport(text: $0, isJSON: false, name: e.fileStem) } }
+    static func methodExport(_ e: ExportSettings) -> PendingExport? { e.methodJSON.map { PendingExport(text: $0, isJSON: true, name: e.fileStem + "-method") } }
+    static func spectrumExport(_ e: ExportSettings) -> PendingExport? { e.spectrumCSV.map { PendingExport(text: $0, isJSON: false, name: e.fileStem + "-spectrum") } }
+
     var body: some View {
-        if let elements = model.export.elements, let hash = model.export.methodHash {
-            InspectorValueRow("Elements", elements)
-            InspectorValueRow("Method", hash, mono: true)
+        let e = model.export
+        VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
+            if let elements = e.elements { InspectorValueRow("Elements", elements) }
             InspectorActionRow {
-                Button(ExportMenu.csvTitle) { if let t = model.export.csv { model.pendingExport = PendingExport(text: t, isJSON: false, name: model.export.fileStem) } }
+                Button(Self.csvTitle) { model.pendingExport = Self.resultsExport(e) }
+                    .disabled(Self.resultsExport(e) == nil)
                     .help("The results table: element, line, net counts, k-free ratio, at%, each with its \u{03C3}, the flags and the estimator; the fit's provenance and the unvalidated badge in the header lines")
-                Button(ExportMenu.jsonTitle) { if let t = model.export.methodJSON { model.pendingExport = PendingExport(text: t, isJSON: true, name: model.export.fileStem + "-method") } }
+                    .accessibilityIdentifier("spectroscopy.export.results")
+                Button(Self.jsonTitle) { model.pendingExport = Self.methodExport(e) }
+                    .disabled(Self.methodExport(e) == nil)
                     .help("The quantification method in its own sorted-keys encoding, with its SHA-256")
+                    .accessibilityIdentifier("spectroscopy.export.method")
             }
+            InspectorActionRow {
+                Button(Self.spectrumTitle) { model.pendingExport = Self.spectrumExport(e) }
+                    .disabled(Self.spectrumExport(e) == nil)
+                    .help("The shown spectrum: energy, counts, and the model and background where fitted")
+                    .accessibilityIdentifier("spectroscopy.export.spectrum")
+            }
+            if Self.resultsExport(e) == nil { InspectorNote("Once Quantify has run, the results table and the method can be written.") }
             if let saved = model.exportNote { InspectorNote(saved) }
-        } else {
-            InspectorNote("Once Quantify has run, this writes the results table as CSV and the method as JSON.")
+        }
+        .fileExporter(isPresented: Binding(get: { model.pendingExport != nil }, set: { if !$0 { model.pendingExport = nil } }),
+                      document: SpectroscopyTextDocument(text: model.pendingExport?.text ?? ""),
+                      contentType: model.pendingExport?.isJSON == false ? .commaSeparatedText : .json,
+                      defaultFilename: model.pendingExport?.name ?? "spectroscopy") { result in
+            switch result {
+            case .success(let url): model.exportNote = "Saved \(url.lastPathComponent)"
+            case .failure(let error): model.exportNote = "Could not save: \(error.localizedDescription)"
+            }
         }
     }
 }
 
-/// Expert: the fit's own knobs. "Fit to" is lane C's (WP3c): emptying it returns to the default range.
-struct ExpertSection: View {
+/// Fitting: the fit's own knobs. "Fit to" is lane C's (WP3c): emptying it returns to the default range.
+struct FittingSection: View {
     @Bindable var model: SpectroscopyRoomModel
     var body: some View {
         let q = model.quantify

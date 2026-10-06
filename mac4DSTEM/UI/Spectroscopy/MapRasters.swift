@@ -79,7 +79,7 @@ enum MapScaleBar {
     }
 }
 
-/// The bar, bottom-left on the map, on a thin material so it reads on any map.
+/// The bar, bottom-left on the map, on glass so it reads on any map.
 struct MapScaleBarView: View {
     let plan: MapScaleBar.Plan
     var body: some View {
@@ -89,7 +89,7 @@ struct MapScaleBarView: View {
         }
         .foregroundStyle(.primary)   // vibrant on the thin material
         .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))   // UX #11: material only over a map
+        .glassEffect(.regular, in: .rect(cornerRadius: 6))   // spec 2 D-8: glass only over a map
         .environment(\.colorScheme, .dark)
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -118,18 +118,24 @@ enum MapBitmap {
     static func q(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * 255).rounded()))) }
 }
 
-/// The mixed map as one bitmap (a pixel per scan pixel). When no element is ticked the scan image (HAADF, grey) stands in,
-/// so regions can be drawn before any element is chosen.
+/// The mixed map as one bitmap (a pixel per scan pixel). `backdrop` is the HAADF under the mix (spec 2 D-2): empty means none, the
+/// mix then sits on black (a pixel with no element is black). With one, it shows grey where the elements leave room, so a
+/// full-strength element hides it. With no element ticked the backdrop alone stands in, so regions can be drawn before any element
+/// is chosen; with neither there is no image.
 enum ColorMixRaster {
     static func image(tiles: [MapTile], mixed: Set<Int>, colors: [Int: ColorMixComposite.RGB],
                       backdrop: [Float], width: Int, height: Int, displays: [Int: MapDisplay] = [:]) -> CGImage? {
         guard width > 0, height > 0 else { return nil }
         let ticked = tiles.contains { mixed.contains($0.z) && !$0.proposed }
-        guard ticked || backdrop.count == width * height else { return nil }
+        let hasBackdrop = backdrop.count == width * height
+        guard ticked || hasBackdrop else { return nil }
         return MapBitmap.image(width: width, height: height) { i in
-            let c: ColorMixComposite.RGB
+            var c: ColorMixComposite.RGB = (0, 0, 0)
             if ticked { c = ColorMixComposite.rgb(at: i, tiles: tiles, mixed: mixed, colors: colors, displays: displays) }
-            else { let g = Double(backdrop[i]); c = (g, g, g) }
+            if hasBackdrop {
+                let g = Double(backdrop[i]), room = 1 - max(c.r, c.g, c.b)
+                c = (c.r + g * room, c.g + g * room, c.b + g * room)
+            }
             return (MapBitmap.q(c.r), MapBitmap.q(c.g), MapBitmap.q(c.b))
         }
     }
@@ -163,6 +169,8 @@ final class ColorMixRasterCache {
         var revision: Int, mixed: Set<Int>, width: Int, height: Int, backdropCount: Int
         /// The colours and contrast windows of the ticked maps (`MapStyle.stamp`); 0 when the caller sets none.
         var style: Int = 0
+        /// The HAADF tile's outline: the backdrop under the mix is on or off.
+        var mixHAADF: Bool = true
     }
     private var key: Key?
     private var image: CGImage?

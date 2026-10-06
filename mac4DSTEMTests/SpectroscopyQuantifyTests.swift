@@ -316,7 +316,12 @@ final class SpectroscopyQuantifyTests: XCTestCase {
         let hash = try XCTUnwrap(steps[0].parameters["method_hash"])
         XCTAssertEqual(hash, state.spectroscopy.method.hash, "the recorded step names the fitted method, kSource filled")
         XCTAssertEqual(steps[0].parameters["region_kind"], "wholeMap")
-        XCTAssertTrue(try XCTUnwrap(steps[0].parameters["method"]).contains("Bote-Salvat"))
+        // Spec 2 D-11: `method` is the short hash, the JSON the restore needs sits under `method_json`, and the readable keys are there.
+        XCTAssertEqual(steps[0].parameters["method"], String(hash.prefix(8)))
+        XCTAssertTrue(try XCTUnwrap(steps[0].parameters["method_json"]).contains("Bote-Salvat"))
+        XCTAssertEqual(steps[0].parameters["k_factors"], "Computed"); XCTAssertEqual(steps[0].parameters["background"], "Empirical")
+        XCTAssertEqual(steps[0].parameters["absorption"], "on"); XCTAssertEqual(steps[0].parameters["beam_energy_kev"], "200")
+        XCTAssertEqual(steps[0].parameters["elements"], "O, Mg, Al, Si, Cu, Ga")
     }
 
     /// After the verb the fit is live: a setting changes the numbers without another press, and an unchanged setting

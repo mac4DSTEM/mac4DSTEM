@@ -4,9 +4,9 @@ import DSTEMCore
 #endif
 
 // Auto ID's pure half (v5.0 WP3 lane W, ADR 054 §6): the element proposer's `ProposalResult` (Core) -> what the
-// Elements & maps step and the spectrum show. The proposer RETURNS candidates and edits nothing; here they become
-// `ElementSuggestion`s (a named conflict, one click to accept), sum-peak questions become suspect markers, and the
-// refusals and notes stay compact. No SwiftUI, no compute; unit-tested in `SpectroscopyAutoIDTests`.
+// Elements section and the spectrum show. The proposer RETURNS candidates and edits nothing; here they become
+// `ElementSuggestion`s (the controller picks them, spec 2 D-3; the inspector's Picked row lists them with their reasons),
+// sum-peak questions stay in the row's hover (their plot markers retire), and the refusals and notes stay compact. No SwiftUI, no compute; unit-tested in `SpectroscopyAutoIDTests`.
 
 /// A pile-up question: an energy that is a sum peak or a candidate element, never offered as an element.
 nonisolated struct AutoIDSuspect: Equatable, Sendable {

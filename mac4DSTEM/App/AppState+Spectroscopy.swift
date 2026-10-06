@@ -63,7 +63,25 @@ extension AppState {
     /// lands on the 4D cube's room as before and the Spectroscopy room is then one ⌘6 away.
     func attachSpectrumImage(_ source: any SpectrumImageSource) {
         spectroscopy.open(source)
+        wireSpectroscopyOperations()
         spectroscopyRoom.bind(source, session: spectroscopy, hasFourDCube: hasDataset)
+    }
+
+    /// Quantify and Auto ID run as operations (spec 2 D-12): the room's controller holds no `AppState`, so it is handed the two
+    /// calls. The status line says what runs and is put back when it ends, if nothing else has replaced it meanwhile.
+    func wireSpectroscopyOperations() {
+        final class Status { var before = ""; var shown = "" }
+        let status = Status()
+        spectroscopyRoom.operation = { [weak self] name, line in
+            guard let self else { return AnalysisCancellationToken() }
+            status.before = self.statusText; status.shown = line
+            return self.beginCancellableOperation(name, status: line)
+        }
+        spectroscopyRoom.finishOperation = { [weak self] token in
+            guard let self else { return }
+            self.finishCancellableOperation(token)
+            if self.statusText == status.shown { self.statusText = status.before }
+        }
     }
 
     /// v5.0 WP2: the shipped-behaviour change. A Velox EMD (it used to open as a one-row cube, open-items) or a DM4 whose

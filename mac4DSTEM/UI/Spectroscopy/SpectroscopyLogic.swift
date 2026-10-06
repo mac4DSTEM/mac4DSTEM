@@ -169,7 +169,8 @@ nonisolated struct SpectrumLayers: Equatable, Sendable {
     /// The pinned regions' comparison curves (drawn faint, `pinOpacity`).
     var pins = true
     static let pinOpacity = 0.6
-    var log = true
+    /// Spec 2 D-6: linear by default (the owner); the Show menu's toggle switches to log.
+    var log = false
 }
 
 /// The visible energy window, always inside the spectrum's own range. Zoom is about a
@@ -181,10 +182,26 @@ nonisolated struct SpectrumViewport: Equatable, Sendable {
     /// keV; two channels of the spectrum (`SpectrumSeries.energyStep`), so zooming never
     /// shows less than a line's worth of data.
     var minimumSpan: Double
+    /// Spec 2 D-6: the manual y stretch. 1 is auto; above 1 the drawn top is the auto top divided by it (peaks grow). A vertical
+    /// drag in the y-axis gutter sets it; it is not part of the energy window, so `clamp()` and the zoom leave it alone.
+    var yScale = 1.0
+    static let yScaleRange: ClosedRange<Double> = 1...50
+    /// Points of upward drag that double the stretch.
+    static let yScalePointsPerDoubling = 60.0
 
     init(domain: ClosedRange<Double>, minimumSpan: Double = 0.02) {
         self.domain = domain; self.minimumSpan = minimumSpan; lo = domain.lowerBound; hi = domain.upperBound
     }
+
+    /// The y stretch after a vertical drag of `dragDY` points (screen y: negative is up) that began at `start`: cumulative from the
+    /// drag's start, clamped to `yScaleRange`.
+    static func yScale(from start: Double, dragDY: Double) -> Double {
+        let v = start * pow(2, -dragDY / yScalePointsPerDoubling)
+        guard v.isFinite else { return start }
+        return min(max(v, yScaleRange.lowerBound), yScaleRange.upperBound)
+    }
+    /// The drawn top of the y axis for an automatic top (counts in linear, the top decade's value in log), never below `floor`.
+    func scaledTop(_ auto: Double, floor: Double = 0) -> Double { max(auto / yScale, floor) }
 
     var span: Double { hi - lo }
     mutating func reset() { lo = domain.lowerBound; hi = domain.upperBound }
@@ -401,10 +418,11 @@ nonisolated enum MapMode: String, CaseIterable, Sendable {
 }
 /// The region tools in the grid header: a rectangle, or a polygon closed by a click on its first vertex.
 nonisolated enum DrawTool: String, CaseIterable, Sendable {
-    case rectangle, polygon
+    case rectangle, ellipse = "Ellipse", polygon
     var symbol: String {
         switch self {
         case .rectangle: "rectangle.dashed"
+        case .ellipse: "oval"
         case .polygon: "pentagon"
         }
     }

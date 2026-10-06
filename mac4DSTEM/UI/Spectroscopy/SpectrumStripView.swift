@@ -7,7 +7,8 @@ import SwiftUI
 ///
 /// Interaction follows Velox where pure SwiftUI allows: pinch (and the wheel with ⌃, as
 /// macOS synthesises it — `ZoomPan.swift` documents why no AppKit scroll monitor is used)
-/// zooms the energy axis about the pointer, drag pans, double-click or Home resets.
+/// zooms the energy axis about the pointer, drag pans, a vertical drag in the y-axis gutter stretches the counts axis,
+/// double-click shows the full range (0 to where 99.5 % of the counts lie, at most 20 keV), Home returns to the lines' span.
 /// DEVIATION from Velox: a plain mouse wheel does not zoom (needs an AppKit event
 /// monitor); open question for the owner.
 struct SpectrumStripView: View {
@@ -18,6 +19,8 @@ struct SpectrumStripView: View {
 
     @State private var dragStart: SpectrumViewport?
     @State private var pinchStart: SpectrumViewport?
+    /// The y stretch when a drag that began in the y-axis gutter started (that drag stretches instead of panning).
+    @State private var yStart: Double?
     @State private var hover: CGPoint?
     /// Names the label layout left out in the current view; said in the plot's help.
     @State private var hiddenLabels: [String] = []
@@ -48,6 +51,7 @@ struct SpectrumStripView: View {
                 Text(model.spectrumTitle).fontWeight(.semibold)
                 Text("· \(model.spectrumSubtitle)").foregroundStyle(.secondary)
             }.font(.callout).lineLimit(1).truncationMode(.tail)
+                .help("Drag to resize the maps and the spectrum")
             Spacer(minLength: 8)
             pinChips
             showMenu
@@ -104,24 +108,29 @@ struct SpectrumStripView: View {
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 2)
                     .onChanged { v in
+                        if v.startLocation.x < Metrics.left {      // began in the y-axis gutter: stretch the counts axis
+                            let start = yStart ?? model.viewport.yScale
+                            yStart = start
+                            model.viewport.yScale = SpectrumViewport.yScale(from: start, dragDY: Double(v.translation.height))
+                            return
+                        }
                         let start = dragStart ?? model.viewport
                         dragStart = start
                         var vp = start
                         vp.pan(byFraction: -Double(v.translation.width / max(plotWidth(size), 1)))
                         model.viewport = vp; model.viewportIsManual = true
                     }
-                    .onEnded { _ in dragStart = nil })
+                    .onEnded { _ in dragStart = nil; yStart = nil })
                 .simultaneousGesture(MagnifyGesture()
                     .onChanged { g in
                         let start = pinchStart ?? model.viewport
                         pinchStart = start
                         var vp = start
-                        let a = Double((g.startLocation.x - Metrics.left) / max(plotWidth(size), 1))
-                        vp.zoom(factor: Double(g.magnification), anchor: min(max(a, 0), 1))
+                        vp.zoom(factor: Double(g.magnification), anchor: SpectrumStripLogic.anchor(startX: g.startLocation.x, plotLeft: Metrics.left, plotWidth: plotWidth(size)))
                         model.viewport = vp; model.viewportIsManual = true
                     }
                     .onEnded { _ in pinchStart = nil })
-                .onTapGesture(count: 2) { resetViewport() }
+                .onTapGesture(count: 2) { showFullRange() }
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let p): hover = p
@@ -132,7 +141,8 @@ struct SpectrumStripView: View {
                 .focusEffectDisabled()
                 .focused($focused)
                 .onKeyPress(.home) { resetViewport(); return .handled }
-                .help("Pinch to zoom, drag to pan, double-click or Home to reset\n"
+                .help("Pinch to zoom, drag to pan, drag in the counts axis to stretch it\n"
+                      + "Double-click: the full range · Home: the lines' span\n"
                       + "The whole map's spectrum and each pin's are scaled to the region's total counts: a comparison of shapes, not of intensities.\n"
                       + "Residual: (data − model)/√model in σ, clipped at ±3; a tick on the edge marks a clipped channel."
                       + (hiddenLabels.isEmpty ? "" : "\nNames left out where lines crowd: " + hiddenLabels.joined(separator: ", ")))
@@ -141,9 +151,18 @@ struct SpectrumStripView: View {
 
     private func plotWidth(_ size: CGSize) -> CGFloat { size.width - Metrics.left - Metrics.right }
 
-    /// Back to the span of the listed lines (the opening view), which the viewport follows again.
+    /// Double-click: 0 to the energy below which 99.5 % of the counts lie (at most 20 keV), and the counts axis back to auto.
+    /// The view stays where the person put it (manual) until Home.
+    private func showFullRange() {
+        let r = SpectrumStripLogic.fullRange(domain: model.series.domain, minimumSpan: model.viewport.minimumSpan, countsEnergy: SpectrumAutoZoom.countsEnergy(data: model.series.data, energyStart: model.series.energyStart, energyStep: model.series.energyStep))
+        model.viewportIsManual = true
+        model.viewport.lo = r.lowerBound; model.viewport.hi = r.upperBound; model.viewport.yScale = 1
+    }
+
+    /// Home: back to the span of the listed lines (the opening view), which the viewport follows again; the counts axis to auto.
     private func resetViewport() {
         model.viewportIsManual = false
+        model.viewport.yScale = 1
         let r = SpectrumAutoZoom.range(markers: model.markers, domain: model.series.domain, minimumSpan: model.viewport.minimumSpan, countsEnergy: SpectrumAutoZoom.countsEnergy(data: model.series.data, energyStart: model.series.energyStart, energyStep: model.series.energyStep), fitEnd: model.fitEndKeV)
         model.viewport.lo = r.lowerBound; model.viewport.hi = r.upperBound
     }
@@ -172,11 +191,13 @@ struct SpectrumStripView: View {
         let logRange = SpectrumYRange.log(minPositive: yMinPos, maximum: yMax)
         let logLo = L.log ? logRange.lo : 0
         let logHi = logRange.hi
-        let yTop = L.log ? logHi : yMax * 1.1
+        // The y stretch (`viewport.yScale`) divides the automatic top; in log the top decade moves down, never below two times the floor.
+        let yTop = vp.scaledTop(yMax * 1.1)
+        let logHiDrawn = vp.scaledTop(logHi, floor: logLo * 2)
         func X(_ e: Double) -> CGFloat { main.minX + CGFloat(vp.fraction(of: e)) * main.width }
         func Y(_ v: Double) -> CGFloat {
             if L.log {
-                let t = (log10(max(v, logLo)) - log10(logLo)) / max(log10(logHi) - log10(logLo), 1e-9)
+                let t = (log10(max(v, logLo)) - log10(logLo)) / max(log10(logHiDrawn) - log10(logLo), 1e-9)
                 return main.maxY - CGFloat(t) * main.height
             }
             return main.maxY - CGFloat(v / yTop) * main.height
@@ -203,7 +224,7 @@ struct SpectrumStripView: View {
         for l in xAxis.labels { ctx.draw(Text(l.text).font(axisFont).foregroundStyle(axisInk), at: CGPoint(x: l.x, y: axisY)) }
         ctx.draw(Text(xAxis.unit.text).font(axisFont).foregroundStyle(axisInk), at: CGPoint(x: xAxis.unit.trailing, y: axisY), anchor: .trailing)
         if L.log {
-            for e in AxisTicks.logDecades(lo: logLo, hi: logHi) {
+            for e in AxisTicks.logDecades(lo: logLo, hi: logHiDrawn) {
                 let y = Y(pow(10, Double(e)))
                 hline(y, main.minX, main.maxX, grid)
                 ctx.draw(Text("10\(Self.superscript(e))").font(axisFont).foregroundStyle(axisInk),
@@ -252,20 +273,21 @@ struct SpectrumStripView: View {
         if L.background, s.hasBackground { curve(s.background, .orange.opacity(0.9), width: 1, dash: [1, 2], within: s.fitChannels) }
 
         // line markers: lines first, names staggered into rows by `MarkerLabelLayout`
-        let visible = MarkerLabelLayout.inView(model.markers, lo: vp.lo, hi: vp.hi)
+        // Suspects are not drawn (spec 2 D-3); a highlighted element's lines are thicker and their names bold (D-15).
+        let visible = SpectrumStripLogic.drawnMarkers(model.markers, lo: vp.lo, hi: vp.hi)
+        let highlightedZ = model.highlightedZ
         for m in visible {
             let x = X(m.energy)
             let color = Self.markerColor(m, model: model)
             var p = Path(); p.move(to: CGPoint(x: x, y: main.minY)); p.addLine(to: CGPoint(x: x, y: main.maxY))
             ctx.stroke(p, with: .color(color.opacity(0.8)),
-                       style: StrokeStyle(lineWidth: 0.8, dash: m.kind == .edge ? [1, 2] : [4, 3]))
+                       style: StrokeStyle(lineWidth: SpectrumStripLogic.lineWidth(m, highlightedZ: highlightedZ), dash: m.kind == .edge ? [1, 2] : [4, 3]))
         }
         let layout = MarkerLabelLayout.place(visible.filter { $0.kind != .edge }.map { ($0.label, X($0.energy), $0.priority) }, minX: main.minX, maxX: main.maxX)
         for m in visible {
             let x = X(m.energy)
             let color = Self.markerColor(m, model: model)
-            var t = Text(m.label).font(.system(size: m.kind == .edge || m.kind == .suspect ? 10 : 11, weight: m.kind == .line ? .semibold : .regular)).foregroundStyle(color)
-            if m.kind == .suspect { t = t.italic() }
+            let t = Text(m.label).font(.system(size: m.kind == .edge ? 10 : 11, weight: SpectrumStripLogic.isHighlighted(m, highlightedZ: highlightedZ) ? .bold : (m.kind == .line ? .semibold : .regular))).foregroundStyle(color)
             if m.kind == .edge {   // the edge label sits low, by the curve, so it never collides with the line names
                 ctx.draw(t, at: CGPoint(x: x + 2, y: main.maxY - 40), anchor: .leading)
             } else if let pl = layout.placed.first(where: { $0.label == m.label }) {
@@ -337,6 +359,26 @@ struct SpectrumStripView: View {
     static func superscript(_ n: Int) -> String {
         let map: [Character: Character] = ["0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻"]
         return String(String(n).map { map[$0] ?? $0 })
+    }
+}
+
+/// The strip's pure decisions (spec 2 item 7); the drawing only applies them.
+nonisolated enum SpectrumStripLogic {
+    /// The markers that get a line and a name: inside the window, and never a suspect (spec 2 D-3).
+    static func drawnMarkers(_ markers: [LineMarker], lo: Double, hi: Double) -> [LineMarker] {
+        MarkerLabelLayout.inView(markers, lo: lo, hi: hi).filter { $0.kind != .suspect }
+    }
+    /// A marker of the highlighted element (hovered or clicked tile or periodic-table cell).
+    static func isHighlighted(_ m: LineMarker, highlightedZ: Int?) -> Bool { highlightedZ != nil && m.elementZ == highlightedZ }
+    static func lineWidth(_ m: LineMarker, highlightedZ: Int?) -> CGFloat { isHighlighted(m, highlightedZ: highlightedZ) ? 1.8 : 0.8 }
+    /// Double-click: from the axis start to where 99.5 % of the counts lie (floor 2 keV, cap 20 keV): the opening view with no line.
+    static func fullRange(domain: ClosedRange<Double>, minimumSpan: Double, countsEnergy: Double?) -> ClosedRange<Double> {
+        SpectrumAutoZoom.range(markers: [], domain: domain, minimumSpan: minimumSpan, countsEnergy: countsEnergy)
+    }
+    /// The pinch anchor: the gesture's start x (in the plot view's own space, the space `draw` lays the frame out in) as a
+    /// fraction of the frame's width, clamped to the frame.
+    static func anchor(startX: CGFloat, plotLeft: CGFloat, plotWidth: CGFloat) -> Double {
+        min(max(Double((startX - plotLeft) / max(plotWidth, 1)), 0), 1)
     }
 }
 

@@ -22,6 +22,12 @@ struct HistogramView: View {
     /// Optional contrast-window bindings in [0, 1] (fraction of the range).
     var rangeLo: Binding<Float>? = nil
     var rangeHi: Binding<Float>? = nil
+    /// The value a pixel of 1.0 stands for (counts at the tile's maximum, say):
+    /// the readouts show `value * scale` and the window edges are typed in the
+    /// same units. 1 keeps today's readouts.
+    var scale: Float = 1
+    /// The readouts' unit ("counts"); empty shows none.
+    var unit: String = ""
 
     private static let binCount = 96
     private static let barHeight: CGFloat = 100
@@ -31,6 +37,9 @@ struct HistogramView: View {
     @State private var useLog = false
     @State private var bins: [Int] = []
     @State private var stats: (min: Float, max: Float, mean: Float)?
+    /// Which window edge is being typed (true = low), nil when none.
+    @State private var editingLow: Bool?
+    @FocusState private var editFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -83,11 +92,11 @@ struct HistogramView: View {
 
             if let stats {
                 HStack {
-                    readout("min", stats.min)
+                    edgeReadout("min", isLow: true, stats: stats)
                     Spacer()
                     readout("mean", stats.mean)
                     Spacer()
-                    readout("max", stats.max)
+                    edgeReadout("max", isLow: false, stats: stats)
                 }
                 .font(.caption2.monospaced())
                 .foregroundStyle(.secondary)
@@ -164,8 +173,63 @@ struct HistogramView: View {
     private func readout(_ label: String, _ value: Float) -> some View {
         VStack(spacing: 1) {
             Text(label).foregroundStyle(.tertiary)
-            Text(String(format: "%.3g", value))
+            Text(HistogramReadout.text(value: value, scale: scale, unit: unit))
         }
+    }
+
+    /// The min / max readout. With range bindings and a real span it shows the
+    /// contrast window's edge — the data's own min / max while the window is
+    /// full — and a click turns it into a numeric field in the same units
+    /// (Return or blur commits, Escape cancels).
+    @ViewBuilder
+    private func edgeReadout(_ label: String, isLow: Bool,
+                             stats: (min: Float, max: Float, mean: Float)) -> some View {
+        if let lo = rangeLo, let hi = rangeHi, stats.max > stats.min {
+            let own = isLow ? lo : hi
+            let other = isLow ? hi : lo
+            let edge = HistogramReadout.edge(fraction: own.wrappedValue, dataMin: stats.min, dataMax: stats.max)
+            VStack(spacing: 1) {
+                Text(label).foregroundStyle(.tertiary)
+                if editingLow == isLow {
+                    edgeField(edge: edge, own: own, other: other, isLow: isLow, stats: stats)
+                } else {
+                    Button {
+                        editingLow = isLow
+                    } label: {
+                        Text(HistogramReadout.text(value: edge, scale: scale, unit: unit))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Click to type the window's \(isLow ? "low" : "high") value")
+                    .accessibilityIdentifier(isLow ? "histogram.min" : "histogram.max")
+                }
+            }
+        } else {
+            readout(label, isLow ? stats.min : stats.max)
+        }
+    }
+
+    private func edgeField(edge: Float, own: Binding<Float>, other: Binding<Float>, isLow: Bool,
+                           stats: (min: Float, max: Float, mean: Float)) -> some View {
+        let format: FloatingPointFormatStyle<Float> = scale > 1
+            ? .number.precision(.fractionLength(0))
+            : .number.precision(.significantDigits(1...6))
+        return NumberEntryField(title: isLow ? "Window low" : "Window high",
+                                value: edge * HistogramReadout.safeScale(scale), format: format) { typed in
+            if let typed {
+                own.wrappedValue = HistogramReadout.commit(
+                    typed: typed, scale: scale, other: other.wrappedValue, isLow: isLow,
+                    dataMin: stats.min, dataMax: stats.max)
+            }
+            editingLow = nil
+        }
+        .textFieldStyle(.roundedBorder)
+        .multilineTextAlignment(.trailing)
+        .frame(width: LayoutPolicy.numericFieldWidth)
+        .focused($editFocused)
+        .onAppear { editFocused = true }
+        .onChange(of: editFocused) { _, focused in if !focused { editingLow = nil } }
+        .onKeyPress(.escape) { editingLow = nil; return .handled }
+        .accessibilityIdentifier(isLow ? "histogram.min.field" : "histogram.max.field")
     }
 
     private func draw(context: GraphicsContext, size: CGSize) {
@@ -229,5 +293,47 @@ struct HistogramView: View {
             counts[idx] += 1
         }
         bins = counts
+    }
+}
+
+/// The histogram readouts' text and the window edge a typed value maps to —
+/// pure, so the rules are testable without a view.
+enum HistogramReadout {
+    /// A non-positive scale is meaningless; 1 stands in.
+    static func safeScale(_ scale: Float) -> Float { scale > 0 ? scale : 1 }
+
+    /// `value * scale` with `unit`: grouped whole numbers once a 1.0 stands
+    /// for more than 1 (counts), "%.3g" as ever at scale 1 (or below).
+    static func text(value: Float, scale: Float, unit: String) -> String {
+        let number: String
+        if scale > 1 {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            formatter.maximumFractionDigits = 0
+            formatter.usesGroupingSeparator = true
+            formatter.groupingSeparator = "\u{202F}"   // a narrow no-break space: "4 120"
+            formatter.groupingSize = 3
+            number = formatter.string(from: NSNumber(value: Double(value * scale).rounded())) ?? "0"
+        } else {
+            number = String(format: "%.3g", value * safeScale(scale))
+        }
+        return unit.isEmpty ? number : number + " " + unit
+    }
+
+    /// The pixel value at a window fraction of the data range.
+    static func edge(fraction: Float, dataMin: Float, dataMax: Float) -> Float {
+        dataMin + fraction * (dataMax - dataMin)
+    }
+
+    /// The window fraction a typed value (in `scale` units) stands for, clamped
+    /// to 0...1 and kept 0.01 clear of the other edge. `dataMin`/`dataMax`
+    /// default to 0...1 (pixels already normalised to the scale).
+    static func commit(typed: Float, scale: Float, other: Float, isLow: Bool,
+                       dataMin: Float = 0, dataMax: Float = 1) -> Float {
+        let span = dataMax - dataMin
+        guard span > 0 else { return isLow ? 0 : 1 }
+        let fraction = min(max((typed / safeScale(scale) - dataMin) / span, 0), 1)
+        return isLow ? min(fraction, max(other - 0.01, 0))
+                     : max(fraction, min(other + 0.01, 1))
     }
 }

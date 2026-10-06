@@ -42,8 +42,23 @@ nonisolated enum MapGridLayout {
     /// The ColorMix is at least this many times a tile's area (it is the dominant map).
     static let dominance: CGFloat = 2.5
 
+    /// The ColorMix keeps at least this share of the block's width when the person drags the divider (side-by-side kind).
+    static let minimumMixFraction: CGFloat = 0.2
+
+    /// The ColorMix's width fraction after a drag of the vertical divider by `translation` points: the fraction at drag start
+    /// plus the cumulative translation over the block width, kept in `minimumMixFraction...1` (the plan clamps it again to
+    /// what fits: a tile column and the data's aspect). Cumulative from the start, so a drag is reversible.
+    static func mixFraction(afterDrag translation: CGFloat, available: CGFloat, from start: CGFloat) -> CGFloat {
+        guard available > 0 else { return start }
+        return min(max(start + translation / available, minimumMixFraction), 1)
+    }
+
     /// `aspect` = width / height of the scan; `tileCount` = HAADF + elements + proposals (the ColorMix is extra).
-    static func plan(tileCount n: Int, aspect: CGFloat, in avail: CGSize) -> Plan {
+    /// `mixFraction` (nil = the rule above: the ColorMix as large as the block allows) is the share of the block's width the
+    /// person gave the ColorMix with the divider. It overrides the rule's width, never below `minimumMixFraction` of the width,
+    /// never so wide that a tile column of `minimumTileSide` no longer fits beside it or the ColorMix (at the data's aspect) is
+    /// taller than the block. It does not apply to the stacked kind (a narrow block has no divider).
+    static func plan(tileCount n: Int, aspect: CGFloat, in avail: CGSize, mixFraction: CGFloat? = nil) -> Plan {
         let a = max(aspect, 0.05), g = gap, floorSide = minimumTileSide
         guard avail.width > 0, avail.height > 0 else {
             return Plan(kind: .sideBySide, colorMix: .zero, tileArea: .zero, tiles: [CGRect](repeating: .zero, count: n), tileContent: .zero, scroll: .none, size: .zero)
@@ -61,8 +76,16 @@ nonisolated enum MapGridLayout {
             if mw < avail.width / 2 { return stacked(n: n, a: a, avail: avail) }
             mh = mw / a
         }
+        if let f = mixFraction {
+            // The widest the ColorMix can be: leaves one tile column and keeps the data's aspect inside the block's height.
+            let upper = min(avail.width - g - minTileW, fit(a, avail.width, avail.height).0)
+            mw = min(max(f * avail.width, minimumMixFraction * avail.width), upper)
+            mh = mw / a
+        }
         let gw = avail.width - g - mw, gh = avail.height
-        let cap = (mw * mh / dominance).squareRoot() * a.squareRoot()   // tile width at which tile area = mix area / dominance
+        // Tile width at which tile area = mix area / dominance; with a dragged divider the person chose the shares, so the
+        // tiles fill the column they were given (drive 2026-10-07: a one-column strip beside a shrunk ColorMix otherwise).
+        let cap = mixFraction == nil ? (mw * mh / dominance).squareRoot() * a.squareRoot() : .infinity
         func tileWidth(columns c: Int) -> (w: CGFloat, fitsHeight: Bool) {
             let r = (n + c - 1) / c
             let byWidth = (gw - CGFloat(c - 1) * g) / CGFloat(c)
@@ -119,32 +142,48 @@ nonisolated enum MapGridLayout {
 
 // MARK: - The room's two bands
 
-/// R5: the room is two bands that never scroll as a whole - the maps block on top (about 58 % of the height, as in the mock)
-/// and the spectrum + quantification row below it, which keeps at least `minimumBottomHeight`. The ColorMix and the tiles
-/// are fitted INSIDE the maps block; when the tiles cannot fit at the floor, the tile grid alone scrolls (`MapGridLayout`).
+/// R5, spec 2 (D-4, D-7): the room is two bands that never scroll as a whole - the maps block on top (the grid alone, about
+/// 58 % of the height until the person drags the spectrum's header row) and the spectrum, full width, below it. The ColorMix and
+/// the tiles are fitted INSIDE the maps block; when the tiles cannot fit at the floor, the tile grid alone scrolls (`MapGridLayout`).
 nonisolated enum SpectroscopyRoomPlan {
     struct Plan: Equatable {
         var mapsHeight: CGFloat
         var bottomHeight: CGFloat
-        /// What the grid may use inside the maps block (the block less its header and padding).
+        /// What the grid may use inside the maps block (the block less its padding).
         var gridAvail: CGSize
         var maps: MapGridLayout.Plan
-        var quantWidth: CGFloat
     }
 
+    /// The maps block's share of the height when the person has not dragged the divider (`SpectroscopyRoomModel.mapsFraction` nil).
     static let mapsFraction: CGFloat = 0.58
+    /// The spectrum band's height at the DEFAULT split only; a dragged split goes down to its header row (`headerHeight`).
     static let minimumBottomHeight: CGFloat = 220
     static let gridPadding: CGFloat = 8
-    static let quantWidth: (min: CGFloat, fraction: CGFloat, max: CGFloat) = (300, 0.36, 420)
 
-    static func make(room: CGSize, headerHeight: CGFloat, tileCount n: Int, aspect: CGFloat) -> Plan {
-        let bottom = min(max(room.height * (1 - mapsFraction), minimumBottomHeight), room.height)
+    /// The maps fraction after the spectrum's header row is dragged by `translation` points (the `StatusBar` shape): the
+    /// fraction at drag start plus the cumulative translation over the room's height, kept in 0...1 - 0 hides the maps, the top
+    /// of the range leaves the spectrum its header row (`bottomFloor`, so the person can always drag it back).
+    static func fraction(afterDrag translation: CGFloat, available: CGFloat, from start: CGFloat, bottomFloor: CGFloat = 0) -> CGFloat {
+        guard available > 0 else { return start }
+        let top = min(max(1 - bottomFloor / available, 0), 1)
+        return min(max(start + translation / available, 0), top)
+    }
+
+    /// `headerHeight` is the spectrum's header row (plus its rule): the least the bottom band keeps. `mapsFraction` nil = the
+    /// default split (`mapsFraction`, the band keeping `minimumBottomHeight`); a value is the person's, clamped to 0...1 with the
+    /// bottom band never below `headerHeight`. `mixFraction` goes to `MapGridLayout.plan`.
+    static func make(room: CGSize, headerHeight: CGFloat, tileCount n: Int, aspect: CGFloat,
+                     mapsFraction given: CGFloat? = nil, mixFraction: CGFloat? = nil) -> Plan {
+        let bottom: CGFloat
+        if let f = given {
+            bottom = min(max(room.height * (1 - min(max(f, 0), 1)), headerHeight), room.height)
+        } else {
+            bottom = min(max(room.height * (1 - mapsFraction), minimumBottomHeight), room.height)
+        }
         let maps = max(room.height - bottom, 0)
-        let avail = CGSize(width: max(room.width - 2 * gridPadding, 0), height: max(maps - headerHeight - 2 * gridPadding, 0))
-        let grid = MapGridLayout.plan(tileCount: n, aspect: aspect, in: avail)
-        // Half the width at most, so the spectrum keeps the other half in a small window.
-        let quant = min(min(max(room.width * quantWidth.fraction, quantWidth.min), quantWidth.max), room.width / 2)
-        return Plan(mapsHeight: maps, bottomHeight: bottom, gridAvail: avail, maps: grid, quantWidth: quant)
+        let avail = CGSize(width: max(room.width - 2 * gridPadding, 0), height: max(maps - 2 * gridPadding, 0))
+        let grid = MapGridLayout.plan(tileCount: n, aspect: aspect, in: avail, mixFraction: mixFraction)
+        return Plan(mapsHeight: maps, bottomHeight: bottom, gridAvail: avail, maps: grid)
     }
 }
 

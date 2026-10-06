@@ -163,7 +163,7 @@ private struct LineagePane: View {
         DisclosureGroup(isExpanded: $showsProvenance) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
-                    ForEach(product.provenance.sorted { $0.key < $1.key }, id: \.key) { entry in
+                    ForEach(product.provenance.filter { !ProvenanceKeyLabel.hiddenKeys.contains($0.key) }.sorted { $0.key < $1.key }, id: \.key) { entry in
                         HStack(alignment: .firstTextBaseline, spacing: LayoutPolicy.inspectorRowSpacing) {
                             Text(ProvenanceKeyLabel.text(entry.key)).foregroundStyle(.secondary)
                                 .help(entry.key)
@@ -192,6 +192,9 @@ private struct LineagePane: View {
 /// (`count_0_Aluminium (FCC)`) read "Positions: Aluminium (FCC)". A phase name keeps its own
 /// spelling.
 enum ProvenanceKeyLabel {
+    /// Keys a reader is not shown (owner, 2026-10-06: no hash or JSON "in the user's face"): the quantification method's JSON
+    /// and its full hash stay in the record for the restore and the export; the short `method` key still names the run.
+    static let hiddenKeys: Set<String> = ["method_json", "method_hash"]
     static func text(_ key: String) -> String {
         if key == "count_not_indexed" { return "Positions: not indexed" }
         if key == "count_no_peaks" { return "Positions: no peaks" }
@@ -216,7 +219,7 @@ enum ProvenanceKeyLabel {
     /// expects: `probe_defocus_angstrom` reads "Probe defocus (Å)".
     static let unitSuffixes: [(String, String)] = [
         ("_angstrom_cubed", "Å³"), ("_inv_angstrom", "Å⁻¹"), ("_inv_a", "Å⁻¹"),
-        ("_angstrom", "Å"), ("_mrad", "mrad"), ("_nm", "nm"), ("_deg", "°"), ("_rad", "rad"),
+        ("_angstrom", "Å"), ("_mrad", "mrad"), ("_nm", "nm"), ("_kev", "keV"), ("_deg", "°"), ("_rad", "rad"),
         ("_px", "px"),
     ]
 }

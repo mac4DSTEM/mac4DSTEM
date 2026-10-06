@@ -167,6 +167,9 @@ final class SpectroscopyRoomModel {
         return o.excesses
     }
 
+    /// Spec 2 D-3: the controller applies the run's picks right after the landing, which changes the listed set; the excesses
+    /// were judged against the list AFTER those picks, so re-mark it (else `autoIDExcesses` goes stale at once, R8).
+    func markListedAfterPicks() { autoID.listedAtRun = elements.activeZ }
     /// The run could not be made (no beam energy, a rank-deficient design): the earlier outcome stays, the reason shows.
     func failAutoID(token: Int, message: String) {
         guard token == autoID.token, autoID.running else { return }

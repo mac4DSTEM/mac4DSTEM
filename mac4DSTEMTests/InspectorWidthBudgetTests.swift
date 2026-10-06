@@ -216,10 +216,11 @@ final class InspectorWidthBudgetTests: XCTestCase {
     /// The Spectroscopy room's inspector (ADR 056), every section open, measured as the fixture shows it and as the room shows
     /// it for an opened spectrum image with the longest strings the readers and the fit can produce (typed k, a typed beam
     /// energy, the polynomial background, the longest absorption note, a proposal run, a registration warning).
-    /// Mutation: the periodic table's cell raised from 21 to 26 pt (10 columns, 288 pt) — red.
+    /// The periodic table fills whatever width it is given (spec 2 D-9), so it fits by construction.
+    /// Mutation: `PeriodicTableGrid.minimumWidth` raised from 214 to 300 pt — red.
     func testTheSpectroscopyInspectorFitsTheNarrowestColumn() throws {
         let fixture = SpectroscopyRoomModel.fixture
-        fixture.export = ExportSettings(csv: "x", methodJSON: "{}", elements: "Mg, Al, Si, Cu", methodHash: "1a2b3c4d")
+        fixture.export = ExportSettings(csv: "x", methodJSON: "{}", elements: "Mg, Al, Si, Cu", methodHash: "1a2b3c4d", spectrumCSV: "e,c")
         fixture.quantify.expertOpen = true
         assertFits("Spectroscopy inspector (fixture, every row)",
                    minimumWidth(SpectroscopyInspectorSections(model: fixture, startOpen: true), state: AppState()))
@@ -230,13 +231,14 @@ final class InspectorWidthBudgetTests: XCTestCase {
             widths.append("\(name) \(w)")
             assertFits("Spectroscopy / \(name) (fixture)", w)
         }
-        probe("Elements", ElementsSection(model: fixture)); probe("Region", RegionSection(model: fixture)); probe("Fit", FitSection(model: fixture))
-        probe("Map display", MapDisplaySection(model: fixture)); probe("Expert", ExpertSection(model: fixture))   // Export: its flexible buttons have no width of their own (below)
+        probe("Elements", ElementsSection(model: fixture)); probe("Region", RegionSection(model: fixture))
+        probe("Results", ResultsSection(model: fixture)); probe("Quantification", QuantificationSection(model: fixture))
+        probe("Fitting", FittingSection(model: fixture))   // Export: its flexible buttons have no width of their own (below)
         try? widths.joined(separator: "\n").write(toFile: NSTemporaryDirectory() + "spectroscopy-section-widths.txt", atomically: true, encoding: .utf8)
         // Export's button row stacks at 248 pt, so the real view's minimum is the probe floor (a flexible button has no width of
         // its own). Its honest width is the stacked buttons at their intrinsic size.
         assertFits("Export buttons, stacked",
-                   minimumWidth(VStack { Button(ExportMenu.csvTitle) {}; Button(ExportMenu.jsonTitle) {} }.fixedSize(), state: AppState()))
+                   minimumWidth(VStack { Button(ExportSection.csvTitle) {}; Button(ExportSection.jsonTitle) {}; Button(ExportSection.spectrumTitle) {} }.fixedSize(), state: AppState()))
 
         let state = AppState()
         state.openSpectrumImage(DemoSpectrumImageSource.make())

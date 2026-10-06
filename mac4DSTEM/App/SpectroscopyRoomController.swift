@@ -91,6 +91,46 @@ final class SpectroscopyRoomController {
     @ObservationIgnored private var heldWholeLine: String?
     @ObservationIgnored private var pendingWaiters: [CheckedContinuation<Void, Never>] = []
 
+    /// The window's operation hooks (spec 2 D-12), set by `AppState`: the controller holds no `AppState`. `operation` begins a
+    /// cancellable operation (the infobar's bar, elapsed time and Stop) and returns its token; `finishOperation` ends it. Nil
+    /// in a controller used alone (a test): the runs then go on unbracketed, as before.
+    @ObservationIgnored var operation: (@MainActor (_ name: String, _ status: String) -> AnalysisCancellationToken)?
+    @ObservationIgnored var finishOperation: (@MainActor (AnalysisCancellationToken) -> Void)?
+
+    /// One running operation: its token and the task that turns the infobar's Stop (a cancelled token) into the run's own cancel.
+    @MainActor final class RunningOperation {
+        let token: AnalysisCancellationToken
+        var watcher: Task<Void, Never>?
+        var finished = false
+        init(token: AnalysisCancellationToken) { self.token = token }
+    }
+    @ObservationIgnored private var autoIDOperation: RunningOperation?
+    /// The Quantify verb is between its start and its end: an Auto ID restart waits for it (a new operation would cancel this one).
+    @ObservationIgnored private var quantifying = false
+    @ObservationIgnored private var quantifyStopped = false
+
+    /// Begins the operation named, or returns nil when no hook is set. `onStop` runs on the main actor when the token is cancelled
+    /// (the infobar's Stop, or another operation replacing this one); the watcher polls at 10 Hz and ends with the operation.
+    private func beginOperation(_ name: String, _ status: String, onStop: @escaping @MainActor () -> Void) -> RunningOperation? {
+        guard let operation else { return nil }
+        let run = RunningOperation(token: operation(name, status))
+        run.watcher = Task { @MainActor in
+            while !Task.isCancelled {
+                if run.token.isCancelled { onStop(); return }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }
+        return run
+    }
+
+    /// Ends `run` once: the watcher stops and the window's operation is finished (every path out calls this).
+    private func endOperation(_ run: RunningOperation?) {
+        guard let run, !run.finished else { return }
+        run.finished = true
+        run.watcher?.cancel()
+        finishOperation?(run.token)
+    }
+
     /// The verb may run: a spectrum image is bound and at least one element is switched on.
     var canQuantify: Bool { model.isLive && !model.elements.activeZ.isEmpty }
     /// Why the verb is disabled, for its hover; nil when it can run.
@@ -153,6 +193,7 @@ final class SpectroscopyRoomController {
         m.image = Self.imageSettings(meta, axis: axis, hasFourDCube: hasFourDCube)
         m.regionSettings = RegionSettings()
         autoIDTask?.cancel(); autoIDTask = nil
+        endOperation(autoIDOperation); autoIDOperation = nil
         m.resetAutoID()
         m.onAutoID = { [weak self] in self?.runAutoID() }
         m.onCancelAutoID = { [weak self] in self?.cancelAutoID() }
@@ -215,12 +256,15 @@ final class SpectroscopyRoomController {
     /// overtaken by an edit (`refresh` cancels it). Suggestions and suspect markers; nothing is applied (ADR 054 §6).
     func runAutoID() {
         guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }),
-              !model.autoID.running else { return }
+              !model.autoID.running, !quantifying else { return }
         let token = model.beginAutoID()
         guard let beam = session.method.beamEnergyKeV ?? source.metadata.beamEnergyKeV, beam > 0 else {
-            model.failAutoID(token: token, message: "Auto ID needs the beam energy: the file does not state it. Type it in Quantify.")
+            model.failAutoID(token: token, message: "Auto ID needs the beam energy: the file does not state it. Type it under Quantification.")
             return
         }
+        // D-12: the run is an operation (infobar bar, elapsed time, Stop); every way out ends it (`endOperation`).
+        let run = beginOperation("Auto ID", "Identifying elements…") { [weak self] in self?.cancelAutoID() }
+        autoIDOperation = run
         let current = model.elements.activeZ.map { PeriodicLayout.symbol($0) }
         let mask = session.mask(of: region)
         let regionID = region.id, name = region.name
@@ -240,17 +284,36 @@ final class SpectroscopyRoomController {
                                                     resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
                 let result = try ElementProposer().propose(counts: spectrum.map { Double($0) }, axis: source.energyAxis, settings: settings)
                 outcome = AutoIDPresentation.outcome(result, region: name, beside: AutoIDPresentation.besideCheck(settings: settings, axis: source.energyAxis))
-            } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note
+            } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note (whoever cancelled it ended the operation)
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
+                guard let self else { return }
+                if self.autoIDOperation === run { self.autoIDOperation = nil }
+                self.endOperation(run)   // this run's own operation, never a newer run's
                 if let outcome {
-                    // R4c: the proposals' maps only (`proposalsChanged`): no listed pick moved, so the fit and its in-flight
-                    // unlisted-line check are left alone.
-                    if self?.model.finishAutoID(token: token, outcome: outcome) == true { self?.proposalsChanged() }
-                } else { self?.model.failAutoID(token: token, message: failure ?? "Auto ID failed.") }
+                    // D-3: the suggestions are applied (picked, mapped at once); with none to apply, R4c's proposals' maps only
+                    // (`proposalsChanged`): no listed pick moved, so the fit and its in-flight unlisted-line check are left alone.
+                    if self.model.finishAutoID(token: token, outcome: outcome) {
+                        if self.applyAutoIDPicks() { self.model.markListedAfterPicks(); self.elementsChanged() } else { self.proposalsChanged() }
+                    }
+                } else { self.model.failAutoID(token: token, message: failure ?? "Auto ID failed.") }
             }
         }
+    }
+
+    /// D-3: Auto ID applies its picks. Every suggestion the run left standing becomes a pick through the table's own click (the
+    /// proposed role: Quantify, or Fit only for a FIB question). `finishAutoID` has already dropped the suggestions of an
+    /// element the person decided (`ElementSelection.manual`, which an Off by hand is part of), and that is checked again here:
+    /// a person's own Off is never re-added, by this run or the next. True when a pick was made.
+    @discardableResult
+    func applyAutoIDPicks() -> Bool {
+        var applied = false
+        for s in model.elements.suggestions where !model.elements.manual.contains(s.z) {
+            model.elements.click(s.z)
+            applied = true
+        }
+        return applied
     }
 
     @ObservationIgnored private var proposalToken = 0
@@ -286,7 +349,7 @@ final class SpectroscopyRoomController {
         var tiles = m.tiles.filter { !$0.proposed }
         for (i, w) in windows.enumerated() {
             guard let z = PeriodicLayout.z(of: w.element), let map = maps[i] else { continue }
-            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), proposed: true))
+            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), scale: Self.scale(of: map), proposed: true))
         }
         m.tiles = tiles
         m.tileRevision += 1
@@ -316,6 +379,7 @@ final class SpectroscopyRoomController {
     func cancelAutoID() {
         autoIDTask?.cancel()
         autoIDTask = nil
+        endOperation(autoIDOperation); autoIDOperation = nil
         model.cancelAutoID()
     }
 
@@ -350,6 +414,15 @@ final class SpectroscopyRoomController {
     /// session's method takes the run's own (a computed k's source string filled in), so the record names it.
     func quantify() async -> Bool {
         guard canQuantify, let session else { return false }
+        // D-12: the verb is an operation (infobar bar, elapsed time, Stop). Stop puts the room back as it was and records nothing.
+        let wasActive = quantifyActive
+        quantifying = true; quantifyStopped = false
+        let run = beginOperation("Quantify", "Fitting the spectrum…") { [weak self] in self?.stopQuantify(restoring: wasActive) }
+        defer {
+            endOperation(run)
+            quantifying = false
+            if autoIDRestart { autoIDRestart = false; runAutoID() }   // held back while the verb ran (`apply`)
+        }
         quantifyActive = true
         model.quantify.syncTypedElements(model.elements.quantified.map { PeriodicLayout.symbol($0) })
         applySettingsToSession()
@@ -361,10 +434,20 @@ final class SpectroscopyRoomController {
             guard let latest = lastRefresh, latest != task else { break }
             task = latest
         }
-        guard !model.isFitting, model.fitFailure == nil, let fit = lastFit else { return false }
+        guard !quantifyStopped, !model.isFitting, model.fitFailure == nil, let fit = lastFit else { return false }
         session.method = fit.method
         lastApplied = nil   // the filled method differs from the controls' by the k source only; the next edit re-applies
         return true
+    }
+
+    /// The infobar's Stop during the verb: the fit that is running is superseded (a refresh bumps `generation`, so its answer
+    /// is dropped) and the room returns to what it showed before the verb; no step is recorded (`quantify` answers false).
+    private func stopQuantify(restoring wasActive: Bool) {
+        guard quantifying, !quantifyStopped else { return }
+        quantifyStopped = true
+        quantifyActive = wasActive
+        if !wasActive { lastFit = nil }
+        refresh()
     }
 
     private static func today() -> String {
@@ -450,6 +533,7 @@ final class SpectroscopyRoomController {
             m.spectrumSubtitle = "\(Self.counts(total)) counts · \(region.pixelCount) px · live"
             m.regionSettings.pixels = "\(region.pixelCount)"
             m.regionSettings.counts = Self.counts(total)
+            updateSpectrumCSV(regionName: region.name)
         }
         if livePending { livePending = false; scheduleLiveSum() }
     }
@@ -742,7 +826,7 @@ final class SpectroscopyRoomController {
 
     private func apply(_ out: Output, generation gen: Int) {
         guard gen == generation, let source, let session else { return }
-        defer { if autoIDRestart { autoIDRestart = false; runAutoID() } }
+        defer { if autoIDRestart && !quantifying { autoIDRestart = false; runAutoID() } }   // not while the verb runs: a new operation would cancel its own
         let m = model
         let axis = source.energyAxis
         let total = out.spectrum.reduce(UInt64(0), &+)
@@ -790,7 +874,7 @@ final class SpectroscopyRoomController {
             }
             if let map = out.maps[i] {
                 tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map),
-                                     notMeasuredWhy: out.counts[i]?.notAMeasurementText))
+                                     notMeasuredWhy: out.counts[i]?.notAMeasurementText, scale: Self.scale(of: map)))
                 // R10: a picked element goes into the mix (a picture); its not-a-measurement note stays on the tile and the row. The user may untick.
                 if seenTiles.insert(z).inserted { m.mixed.insert(z) }
             }
@@ -800,7 +884,7 @@ final class SpectroscopyRoomController {
         // Auto ID's proposals: a dimmed tile each (the evidence), never ticked into the ColorMix, never a row.
         for (i, w) in out.proposedWindows.enumerated() {
             guard let z = PeriodicLayout.z(of: w.element), let map = out.proposedMaps[i] else { continue }
-            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), proposed: true))
+            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), scale: Self.scale(of: map), proposed: true))
         }
         m.tiles = tiles
         m.tileRevision += 1
@@ -814,6 +898,15 @@ final class SpectroscopyRoomController {
             let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series), fitEnd: fitEnd(for: source))
             m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
         }
+        updateSpectrumCSV(regionName: name)   // after `applyFit`, which rebuilds `export`
+    }
+
+    /// The shown spectrum as the Export section's "Spectrum CSV…" (spec 2 D-14): rebuilt whenever the series changes, so it is
+    /// there before any fit. Also names the files' default stem, which `ExportSettings()` resets.
+    private func updateSpectrumCSV(regionName: String) {
+        guard let source else { return }
+        model.export.spectrumCSV = SpectrumCSV.text(model.series, imageName: source.metadata.fileName, regionName: regionName)
+        model.export.fileStem = SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName)
     }
 
     /// The pooled fit's numbers into the model: the table's rows, the footers, the warnings, the plot, the readouts.
@@ -860,6 +953,7 @@ final class SpectroscopyRoomController {
         m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName), methodJSON: SpectroscopyExport.methodJSON(fit.method),
                                   elements: SpectroscopyExport.elementsLine(fit), methodHash: SpectroscopyExport.shortHash(fit.method),
                                   fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))
+        updateSpectrumCSV(regionName: regionName)
         m.quantify.quality = fit.qualityText
         switch fit.absorption {
         case .off: m.quantify.absorptionNote = nil
@@ -882,6 +976,10 @@ final class SpectroscopyRoomController {
         guard let v, v.count == count, let lo = v.min(), let hi = v.max(), hi > lo else { return [] }
         return v.map { ($0 - lo) / (hi - lo) }
     }
+
+    /// What a 1.0 stands for in `normalised(_:)`'s picture: the map's maximum, in the map's own unit (net or integrated counts).
+    /// 0 for a map with no positive pixel, which `normalised` draws as all zeros. The histogram shows real values with it.
+    static func scale(of map: [Double]) -> Float { Float(max(map.max() ?? 0, 0)) }
 
     /// A net-count map as 0...1 (negative net counts are drawn as 0): presentation scaling, not a result.
     private static func normalised(_ map: [Double]) -> [Float] {
@@ -964,4 +1062,34 @@ final class SpectroscopyRoomController {
         if !g.isEmpty { s.geometry = g.joined(separator: " · ") }
         return s
     }
+}
+
+/// The shown spectrum as CSV text (spec 2 D-14): `energy_kev,counts` and, where a fit is shown, `model,background`. The header
+/// names the region and the file, as the results CSV does. Pure; the export button only hands it to a save panel.
+nonisolated enum SpectrumCSV {
+    static func text(_ s: SpectrumSeries, imageName: String, regionName: String) -> String {
+        let withModel = s.hasModel, withBackground = s.hasBackground
+        var out = ["# mac4DSTEM Spectroscopy spectrum, region: \(regionName)", "# file: \(imageName)"]
+        if withModel || withBackground {
+            out.append("# model and background are the pooled fit's (Quantify); channels outside its fit range have none")
+        }
+        var columns = ["energy_kev", "counts"]
+        if withModel { columns.append("model") }
+        if withBackground { columns.append("background") }
+        out.append(columns.joined(separator: ","))
+        let fitted = s.fitChannels
+        for i in 0..<s.data.count {
+            var f = [num(s.energy(i)), count(s.data[i])]
+            let inFit = fitted?.contains(i) ?? true
+            if withModel { f.append(inFit ? num(s.model[i]) : "") }
+            if withBackground { f.append(inFit ? num(s.background[i]) : "") }
+            out.append(f.joined(separator: ","))
+        }
+        return out.joined(separator: "\n") + "\n"
+    }
+
+    /// Six significant digits with a period, whatever the locale (the results CSV's rule).
+    private static func num(_ v: Double) -> String { v.isFinite ? String(format: "%.6g", v) : "" }
+    /// A summed count is whole: written as an integer (6 digits would round a large one).
+    private static func count(_ v: Double) -> String { v.rounded() == v && abs(v) < 1e15 ? String(format: "%.0f", v) : num(v) }
 }

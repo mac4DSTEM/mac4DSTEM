@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 #endif
@@ -20,8 +19,10 @@ enum ResultFormat {
     }
     /// The abundance column's header; at% computed without the absorption correction says so in the column itself.
     static func abundanceHeader(unit: AbundanceUnit, noAbsorption: Bool) -> String {
-        "\(unit.rawValue) ± σ" + (noAbsorption ? " · no absorption" : "")
+        "\(unit.rawValue) ± σ" + (noAbsorption ? " " + noAbsorptionLabel : "")
     }
+    /// The honesty label of an at% computed without the absorption correction.
+    static let noAbsorptionLabel = "· no absorption"
     /// R6: the Net ± σ cell as parts, so it is one line at the panel's minimum width and never wraps ("88 515 / ± 413" in
     /// drive 2): grouped digits with a narrow no-break space (U+202F) around the sign. A long pair (more than `compactAbove`
     /// characters of digits and grouping) sets σ in a smaller secondary style rather than wrapping or truncating.
@@ -38,89 +39,54 @@ enum ResultFormat {
     }
 }
 
-/// The quantification panel beside the spectrum (ADR 056): Element · Net ± σ · at% ± σ, "unvalidated" in the header with
-/// Export…, the k-free ratio line, the unlisted-line check, a whole-map comparison line, and one method line that opens onto
-/// the fit's own footer (the fit range and its sensitivity, the k source, the absorption). A row's warnings and its σ terms sit
-/// behind a "!" and the row's hover, not under every row.
-struct QuantPanelView: View {
+/// The inspector's Results section (spec 2 D-4; it was the panel beside the spectrum): the unvalidated badge in the first row,
+/// Element · Net ± σ · at% ± σ with "· no absorption" in the column header, the k-free ratio line, the fit quality, the
+/// unlisted-line / at% caveat, a whole-map comparison line, and one Method line that opens onto the fit's own footer (the fit
+/// range and its sensitivity, the k source, the absorption). A row's warnings and its σ terms sit behind a "!" and the row's hover.
+/// Rows only: the section's own stack spaces them (`InspectorSection`).
+struct ResultsSection: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var methodOpen = false
 
+    /// The badge row: a fitted result is unvalidated until a dataset with truth says otherwise (CLAUDE.md, "unvalidated stays labelled").
+    static func showsBadge(_ model: SpectroscopyRoomModel) -> Bool { model.hasFit && model.unvalidated }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider()
-            ViewThatFits(in: .vertical) {
-                content
-                ScrollView(.vertical) { content }
-            }
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
-        .accessibilityIdentifier("spectroscopy.quant")
-        .fileExporter(isPresented: Binding(get: { model.pendingExport != nil }, set: { if !$0 { model.pendingExport = nil } }),
-                      document: SpectroscopyTextDocument(text: model.pendingExport?.text ?? ""),
-                      contentType: model.pendingExport?.isJSON == false ? .commaSeparatedText : .json,
-                      defaultFilename: model.pendingExport?.name ?? "spectroscopy") { result in
-            switch result {
-            case .success(let url): model.exportNote = "Saved \(url.lastPathComponent)"
-            case .failure(let error): model.exportNote = "Could not save: \(error.localizedDescription)"
-            }
-        }
-    }
-
-    // MARK: header
-
-    private var header: some View {
-        HStack(spacing: 6) {
-            Text("Region").font(.callout.weight(.semibold)).lineLimit(1)
-            if model.hasFit && model.unvalidated { UnvalidatedBadge() }
-            Spacer(minLength: 4)
-            ExportMenu(model: model)
-        }
-        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-        .frame(height: LayoutPolicy.paneHeaderHeight)
-    }
-
-    // MARK: content
-
-    private var content: some View {
         let block = QuantifyPresentation.unlistedBlock(model.unlisted, abundanceNote: model.abundanceNote)
         let candidates = block.line?.candidates ?? []
-        return VStack(alignment: .leading, spacing: 8) {
-            if model.results.isEmpty {
-                Text(QuantifyPresentation.emptyText(isLive: model.isLive, hasProposals: !model.elements.suggestions.isEmpty))
-                    .font(.callout).foregroundStyle(.secondary)
-            } else { table }
-            if let r = model.ratioLine, model.hasFit {
-                HStack(spacing: 4) {
-                    Text(r.label)
-                    Text(String(format: "%.3f \u{00B1} %.3f", r.value, r.sigma)).monospacedDigit()
-                    Text("\u{2014} k-free").foregroundStyle(.secondary)
-                }
-                .font(.callout).help(r.note)
+        if Self.showsBadge(model) { InspectorRow("Result") { UnvalidatedBadge() } }
+        if model.results.isEmpty {
+            Text(QuantifyPresentation.emptyText(isLive: model.isLive, hasProposals: !model.elements.suggestions.isEmpty))
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        } else { table }
+        if let r = model.ratioLine, model.hasFit {
+            HStack(spacing: 4) {
+                Text(r.label)
+                Text(String(format: "%.3f \u{00B1} %.3f", r.value, r.sigma)).monospacedDigit()
+                Text("\u{2014} k-free").foregroundStyle(.secondary)
             }
-            if model.hasFit, let q = model.quantify.quality {
-                // UX lane DE (#6): the misfit is a result row like the ratio, regular weight, not a bold caption.
-                HStack(spacing: 6) {
-                    Text("Fit quality")
-                    Text(QuantifyPresentation.fitQualityValue(q)).monospacedDigit()
-                }
-                .font(.callout)
-                .help("Reduced chi-square of this fit. Every \u{03C3} shown is counting statistics at 1; the farther this is above 1, the more the model misses the spectrum beyond counting noise.")
-            }
-            // One caveat line; its two buttons live in the Method disclosure below.
-            if let u = block.line { caveat(u) }
-            if let why = model.fitFailure { quietLabel(why, "xmark.circle") }
-            if let note = block.note { quietLabel(note, "info.circle") }
-            if !model.results.isEmpty && !model.hasFit && model.fitFailure == nil {
-                Text("Quantify fits this region and adds at%.").font(.caption).foregroundStyle(.secondary)
-            }
-            if (model.hasFit && (!model.fitFooter.isEmpty || !model.resultsFooter.isEmpty || !model.fitWarnings.isEmpty)) || !candidates.isEmpty {
-                methodDisclosure(candidates: candidates)
-            }
-            if let line = model.wholeMapLine { Text(line).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+            .font(.callout).help(r.note)
         }
-        .padding(10).frame(maxWidth: .infinity, alignment: .topLeading)
+        if model.hasFit, let q = model.quantify.quality {
+            // UX lane DE (#6): the misfit is a result row like the ratio, regular weight, not a bold caption.
+            HStack(spacing: 6) {
+                Text("Fit quality")
+                Text(QuantifyPresentation.fitQualityValue(q)).monospacedDigit()
+            }
+            .font(.callout)
+            .help("Reduced chi-square of this fit. Every \u{03C3} shown is counting statistics at 1; the farther this is above 1, the more the model misses the spectrum beyond counting noise.")
+        }
+        // One caveat line; its two buttons live in the Method disclosure below.
+        if let u = block.line { caveat(u) }
+        if let why = model.fitFailure { quietLabel(why, "xmark.circle") }
+        if let note = block.note { quietLabel(note, "info.circle") }
+        if !model.results.isEmpty && !model.hasFit && model.fitFailure == nil {
+            Text("Quantify fits this region and adds at%.").font(.caption).foregroundStyle(.secondary)
+        }
+        if (model.hasFit && (!model.fitFooter.isEmpty || !model.resultsFooter.isEmpty || !model.fitWarnings.isEmpty)) || !candidates.isEmpty {
+            methodDisclosure(candidates: candidates)
+        }
+        if let line = model.wholeMapLine { Text(line).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
     }
 
     private func quietLabel(_ text: String, _ symbol: String) -> some View {
@@ -131,10 +97,15 @@ struct QuantPanelView: View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
             GridRow {
                 Text("Element"); Text("Net \u{00B1} \u{03C3}")
-                Menu {
-                    Picker("Unit", selection: $model.unit) { ForEach(AbundanceUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
-                } label: { Text(ResultFormat.abundanceHeader(unit: model.unit, noAbsorption: model.abundanceWithoutAbsorption)) }
-                .menuStyle(.borderlessButton).fixedSize().help("at% or wt%")
+                // The unit menu and, under it, "· no absorption" when the at% was computed without the correction: two lines so the
+                // column stays inside the inspector's narrowest width, the label always visible (never a hover).
+                VStack(alignment: .leading, spacing: 0) {
+                    Menu {
+                        Picker("Unit", selection: $model.unit) { ForEach(AbundanceUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
+                    } label: { Text(ResultFormat.abundanceHeader(unit: model.unit, noAbsorption: false)) }
+                    .menuStyle(.borderlessButton).fixedSize().help("at% or wt%")
+                    if model.abundanceWithoutAbsorption { Text(ResultFormat.noAbsorptionLabel).accessibilityLabel(ResultFormat.noAbsorptionLabel) }
+                }
             }.font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             Divider().gridCellUnsizedAxes(.horizontal)
             ForEach(model.results) { row in
@@ -214,28 +185,6 @@ struct QuantPanelView: View {
     }
 }
 
-/// The panel header's Export…: the results table as CSV and the method as JSON, written from the last fit
-/// (`SpectroscopyExport`, Core). Before a fit there is nothing to write and the menu is off.
-struct ExportMenu: View {
-    @Bindable var model: SpectroscopyRoomModel
-    static let csvTitle = "Results CSV\u{2026}", jsonTitle = "Method JSON\u{2026}"
-
-    var body: some View {
-        let e = model.export
-        Menu("Export\u{2026}") {
-            Button(Self.csvTitle) { if let t = e.csv { model.pendingExport = PendingExport(text: t, isJSON: false, name: e.fileStem) } }
-                .help("The results table: element, line, net counts, k-free ratio, at%, each with its \u{03C3}, the flags and the estimator")
-            Button(Self.jsonTitle) { if let t = e.methodJSON { model.pendingExport = PendingExport(text: t, isJSON: true, name: e.fileStem + "-method") } }
-                .help("The quantification method in its own sorted-keys encoding, with its SHA-256")
-        }
-        .menuStyle(.borderlessButton).fixedSize().controlSize(.small)
-        .disabled(e.csv == nil || e.methodJSON == nil)
-        .help(e.csv == nil ? "Once Quantify has run, this writes the results table as CSV and the method as JSON." : "Write the results table or the method")
-        .accessibilityIdentifier("spectroscopy.export")
-    }
-}
-
-#Preview("Quant panel") {
-    let m = SpectroscopyRoomModel.fixture
-    return QuantPanelView(model: m).frame(width: 360, height: 300)
+#Preview("Results") {
+    ScrollView { InspectorGroup { ResultsSection(model: .fixture) }.padding() }.frame(width: 320, height: 500)
 }

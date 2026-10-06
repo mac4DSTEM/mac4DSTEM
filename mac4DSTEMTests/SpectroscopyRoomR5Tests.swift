@@ -65,13 +65,6 @@ final class SpectroscopyRoomPlanTests: XCTestCase {
         XCTAssertEqual(MapGridLayout.plan(tileCount: 0, aspect: 1, in: CGSize(width: 900, height: 400)).colorMix.minX, 0)
         XCTAssertEqual(MapGridLayout.plan(tileCount: 5, aspect: 4.0 / 3.0, in: CGSize(width: 1000, height: 400)).colorMix.minX, 0)
     }
-
-    /// The quantification panel never takes more than half the row, so the spectrum keeps the other half.
-    /// Mutation: the `room.width / 2` cap removed - red.
-    func testTheQuantPanelLeavesHalfTheRowToTheSpectrum() {
-        let p = SpectroscopyRoomPlan.make(room: CGSize(width: 500, height: 700), headerHeight: header, tileCount: 2, aspect: 1)
-        XCTAssertLessThanOrEqual(p.quantWidth, 250.01)
-    }
 }
 
 final class ColorMixCaptionTests: XCTestCase {

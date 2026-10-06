@@ -221,19 +221,20 @@ Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` onc
 truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
-### Spectroscopy room (rebuilt to ADR 056, polished 2026-10-06): live gaps
-- **State:** driven six times by the session on the owner's Velox SI 1339 (`archive/v5/room-drive-2-2026-10-06.md`; the
-  landings' gate rows in `status.md`); UX spec of record `archive/v5/ux-spec-2026-10-06.md`. Owner's own look owed.
-- **Auto ID on real Al pools:** misses Si (clear 1.74 keV peak) and Mg (unlisted L_D 256 k, ×72), proposes Eu/Hf/Ho; the
-  "Hf+Hf sum? (or Zr Kα)" label stays (WP3e D1 failed its pre-landing print, closed — `archive/v5/wp3e-results-2026-10-06/`).
-  F3.2 (L_D × √χ²ᵣ) refuted as a default. Next: a new registration. `suggestedRole` is unused.
-- **Not yet seen on screen:** the open's spinner and Cancel, Export's save panels, the UX-pass hover texts. New windows
-  open at 1280×800 (frozen shell — owner picture). After accepting, the next three proposals (Eu, Hf, Co) take the tile slots.
+### Spectroscopy room (ADR 056 + spec 2 / ADR 057, 2026-10-07): live gaps
+- **State:** spec 2 landed and driven by the session (`archive/v5/room-drive-3-2026-10-07.md`; gate row in `status.md`). Owner's own
+  look owed, and his pictures: shell glass, a wider inspector for the 18-column table, "Compute Image", EDX products in the
+  Results room / Save to Session for an EMD opened alone, per-line fitting (`archive/v5/ux-spec-2-2026-10-06.md` §4).
+- **Auto ID on real Al pools:** misses Si and Mg, proposes Eu/Hf/Ho — and since spec 2 it APPLIES its picks, so SI 1339 opens with
+  seven elements mapped (Cu, Al, O, Eu, Hf, Co, Ho); the person unpicks. F3.2 refuted as a default; next: a new registration. The
+  sum-peak questions are no longer drawn on the plot; they live in the Picked row's hover. `suggestedRole` is unused.
+- **Not yet seen on screen:** Export's save panels (Spectrum CSV…), the Fitting section, a polygon closed by double-click, ⎋ on a
+  draft, the editable histogram field, Reduce Transparency on the glass capsules. New windows open at 1280×800 (frozen shell).
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).
-- Regions: rectangle and polygon.
-- **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do. The map header title truncates at 1000 pt.
+- Regions: rectangle, ellipse and polygon, on the ColorMix only; ⌫ removes the live one.
+- **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do.
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
   withheld room selected. A new 4D open does not clear an earlier spectrum image of the window.
 - **`Data Order Swapped` = 1 on an EDS object is refused** (its meaning for an SI is unmeasured); a real joint file that sets it
@@ -280,11 +281,11 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **Absorption checked against truth (A4):** on the simulator's 80 nm recipe-A pool, exact areas recover truth within a derived bound (Si −13.2 % uncorrected → −0.3 %), and on fitted areas the app's T matches the simulator's own path integral (4 seeds). The "absorption model spread (AM vs GM)" stays a proxy kept out of the σ; a real term needs a sourced σ_μ.
 - **Fixed in passing:** a removed region's cached spectrum stayed under its id, and the next drawn region reuses the highest id.
 
-### Element proposer + Auto ID (2026-10-06): unvalidated on real data, Auto ID unseen on screen
+### Element proposer + Auto ID (2026-10-06): unvalidated on real data
 `Core/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
 add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only. Auto ID (Elements & maps) runs it
 on the selected region and the file's axis, cancellably; suggestions never touch manual picks. Open:
-- **Auto ID gaps:** not driven (a lane shot showed Tm proposed on an Al-Mg-Si spectrum); `holeRegionNote` and detected sum peaks are not drawn; it uses the file axis, not a refined
+- **Auto ID gaps:** driven 2026-10-07 (Tm, Cu picked on the synthetic Al-Mg-Si cube); `holeRegionNote` is not drawn; it uses the file axis, not a refined
   one; `suggestedRole` in Core is now unused by the room (one source of truth owed).
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.
