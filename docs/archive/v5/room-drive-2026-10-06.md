@@ -19,8 +19,8 @@ switch; at the 915 pt minimum the layout stacks and the inspector does not clip.
 ## Found
 | # | Shot | Finding | Kind |
 |---|---|---|---|
-| 1 | 10, 11 | Region 1: the window method finds Ti 3058 ± 153, the fit holds Ti at 0; the continuum lies above the data 3–20 keV, χ²ᵣ 2417 | science, cause open (Gate D) |
-| 2 | 11, 12 | The model drops to ~1 count at ≈ 1.84 keV when escape peaks are fitted (absent without them) | science, cause open (Gate D) |
+| 1 | 10, 11 | Region 1: the window method finds Ti 3058 ± 153, the fit holds Ti at 0; the continuum lies above the data 3–20 keV, χ²ᵣ 2417 | science, diagnosed (unlisted Ge/Cu/Ga) — WP3b |
+| 2 | 11, 12 | The model drops to ~1 % of the data at 1.557 keV (corrected 2026-10-06 from "≈ 1.84 keV, with escape peaks": the continuum's lower segment collapses at the uncoupled Al-edge split; escape peaks play no part) | science, diagnosed — WP3b |
 | 3 | 16, 23 | Prepare shows 200 kV for the joint file; Quantify says the file gives no beam energy | wiring |
 | 4 | 16, 18, 22, 24-room-3 | Status bar "Looking for an EDS spectrum image…" never clears after the attach | wiring |
 | 5 | 13 | Export says "lands with quantification (WP3): there is no fit to export yet" while a fit exists | false text |
