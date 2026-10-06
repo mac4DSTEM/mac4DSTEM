@@ -8,10 +8,10 @@ struct PeriodicTableView: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var foldedOpen = false
 
-    /// A 10-column band of 21-pt cells and 2-pt gaps is 228 pt, inside the inspector's narrowest content column, 248 pt
-    /// (`InspectorWidthBudgetTests`).
+    /// A 10-column band of 22-pt cells and 2-pt gaps is 238 pt, inside the inspector's narrowest content column, 248 pt
+    /// (`InspectorWidthBudgetTests`); ADR 056 asked for about 22 pt, symbols 11 pt (UX lane DE #9).
     enum Metrics {
-        static let cell: CGFloat = 21, gap: CGFloat = 2, corner: CGFloat = 4
+        static let cell: CGFloat = 22, gap: CGFloat = 2, corner: CGFloat = 4, symbolSize: CGFloat = 11
         static var bandWidth: CGFloat { CGFloat(PeriodicLayout.transitionColumns) * (cell + gap) - gap }
     }
 
@@ -19,15 +19,20 @@ struct PeriodicTableView: View {
         VStack(alignment: .leading, spacing: Metrics.gap) {
             band(PeriodicLayout.mainGroup, columns: PeriodicLayout.mainGroupColumns)
             band(PeriodicLayout.transition, columns: PeriodicLayout.transitionColumns)
+            // The fold is a row in the inspector sections' own vocabulary: leading chevron, secondary label, the whole row toggles.
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) { foldedOpen.toggle() }
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).rotationEffect(.degrees(foldedOpen ? 90 : 0))
-                    Text("La\u{2013}Lu \u{00B7} Ac\u{2013}Lr").font(.caption)
-                }.foregroundStyle(.secondary).contentShape(Rectangle())
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).rotationEffect(.degrees(foldedOpen ? 90 : 0))
+                        .accessibilityHidden(true)
+                    Text("Lanthanides and actinides")
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.secondary).contentShape(Rectangle())
             }
             .buttonStyle(.plain).accessibilityValue(foldedOpen ? "Expanded" : "Collapsed")
+            .padding(.top, 4)
             .help("Lanthanides, and period 7 with the actinides")
             if foldedOpen {
                 let perRow = PeriodicLayout.transitionColumns
@@ -59,7 +64,7 @@ struct PeriodicTableView: View {
         let state = model.elements.cellState(z)
         let sym = PeriodicLayout.symbol(z)
         return Text(sym)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: Metrics.symbolSize, weight: .semibold))
             .frame(width: Metrics.cell, height: Metrics.cell)
             .foregroundStyle(Self.ink(state))
             .background(RoundedRectangle(cornerRadius: Metrics.corner).fill(Self.fill(state)))

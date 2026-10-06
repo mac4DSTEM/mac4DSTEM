@@ -269,6 +269,7 @@ final class SpectroscopyRoomController {
             (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
         }
         let proposed: [(symbol: String, family: XRayFamily?)] = model.elements.suggestions.filter { !listed.contains($0.z) }
+            .prefix(ProposedTileCap.maximum)   // UX #1: a display count; the suggestions arrive strongest first
             .map { (PeriodicLayout.symbol($0.z), nil) }
         let integrated = model.mapMode == .integrated, beam = source.metadata.beamEnergyKeV
         let cache = cache
@@ -293,9 +294,14 @@ final class SpectroscopyRoomController {
         // R10: the proposals' muted markers land with their tiles (this path does not run `apply`).
         m.markers = m.markers.filter { $0.kind != .proposed } + Self.proposedMarkers(for: windows, axis: source.energyAxis, beam: source.metadata.beamEnergyKeV)
         if !m.viewportIsManual {
-            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan)
+            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series))
             m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
         }
+    }
+
+    /// The opening view's fallback end (UX #5): where 99.5 % of the shown spectrum's counts lie.
+    private static func countsEnergy(_ s: SpectrumSeries) -> Double? {
+        SpectrumAutoZoom.countsEnergy(data: s.data, energyStart: s.energyStart, energyStep: s.energyStep)
     }
 
     func cancelAutoID() {
@@ -619,6 +625,7 @@ final class SpectroscopyRoomController {
         }
         let listed = Set(model.elements.activeZ)
         let proposed: [(symbol: String, family: XRayFamily?)] = model.elements.suggestions.filter { !listed.contains($0.z) }
+            .prefix(ProposedTileCap.maximum)   // UX #1: a display count; the suggestions arrive strongest first
             .map { (PeriodicLayout.symbol($0.z), nil) }
         var quantify: QuantifyRequest?
         if quantifyActive {
@@ -795,7 +802,7 @@ final class SpectroscopyRoomController {
         // The active map is one that exists: a tile that went away hands the outline back to the ColorMix.
         if case .element(let z) = m.active, !tiles.contains(where: { $0.z == z }) { m.active = .colorMix }
         if !m.viewportIsManual {
-            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan)
+            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series))
             m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
         }
     }

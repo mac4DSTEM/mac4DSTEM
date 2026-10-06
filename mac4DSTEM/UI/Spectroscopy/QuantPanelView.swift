@@ -84,7 +84,9 @@ struct QuantPanelView: View {
     // MARK: content
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let block = QuantifyPresentation.unlistedBlock(model.unlisted, abundanceNote: model.abundanceNote)
+        let candidates = block.line?.candidates ?? []
+        return VStack(alignment: .leading, spacing: 8) {
             if model.results.isEmpty {
                 Text(QuantifyPresentation.emptyText(isLive: model.isLive, hasProposals: !model.elements.suggestions.isEmpty))
                     .font(.callout).foregroundStyle(.secondary)
@@ -92,24 +94,30 @@ struct QuantPanelView: View {
             if let r = model.ratioLine, model.hasFit {
                 HStack(spacing: 4) {
                     Text(r.label)
-                    Text(String(format: "%.3f \u{00B1} %.3f", r.value, r.sigma)).fontWeight(.semibold).monospacedDigit()
+                    Text(String(format: "%.3f \u{00B1} %.3f", r.value, r.sigma)).monospacedDigit()
                     Text("\u{2014} k-free").foregroundStyle(.secondary)
                 }
                 .font(.callout).help(r.note)
             }
             if model.hasFit, let q = model.quantify.quality {
-                // R7 (wp3e item 2): the misfit is a result, not the tail of a caption: always on its own line under the table.
-                Text(q).font(.callout).fontWeight(.semibold).monospacedDigit()
-                    .help("Reduced chi-square of this fit. Every \u{03C3} shown is counting statistics at 1; the farther this is above 1, the more the model misses the spectrum beyond counting noise.")
+                // UX lane DE (#6): the misfit is a result row like the ratio, regular weight, not a bold caption.
+                HStack(spacing: 6) {
+                    Text("Fit quality")
+                    Text(QuantifyPresentation.fitQualityValue(q)).monospacedDigit()
+                }
+                .font(.callout)
+                .help("Reduced chi-square of this fit. Every \u{03C3} shown is counting statistics at 1; the farther this is above 1, the more the model misses the spectrum beyond counting noise.")
             }
-            let block = QuantifyPresentation.unlistedBlock(model.unlisted, abundanceNote: model.abundanceNote)
-            if let u = block.line { unlisted(u) }
+            // One caveat line; its two buttons live in the Method disclosure below.
+            if let u = block.line { caveat(u) }
             if let why = model.fitFailure { quietLabel(why, "xmark.circle") }
             if let note = block.note { quietLabel(note, "info.circle") }
             if !model.results.isEmpty && !model.hasFit && model.fitFailure == nil {
                 Text("Quantify fits this region and adds at%.").font(.caption).foregroundStyle(.secondary)
             }
-            if model.hasFit, !model.fitFooter.isEmpty || !model.resultsFooter.isEmpty || !model.fitWarnings.isEmpty { methodDisclosure }
+            if (model.hasFit && (!model.fitFooter.isEmpty || !model.resultsFooter.isEmpty || !model.fitWarnings.isEmpty)) || !candidates.isEmpty {
+                methodDisclosure(candidates: candidates)
+            }
             if let line = model.wholeMapLine { Text(line).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
         }
         .padding(10).frame(maxWidth: .infinity, alignment: .topLeading)
@@ -158,26 +166,32 @@ struct QuantPanelView: View {
         return t.lineLimit(1).minimumScaleFactor(0.7)
     }
 
-    private func unlisted(_ u: UnlistedLineNote) -> some View {
-        HStack(spacing: 6) {
-            Label(u.text, systemImage: u.checking ? "hourglass" : (u.candidates.isEmpty ? "checkmark.circle" : "exclamationmark.triangle"))
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .help(u.detail ?? u.text)
-            if !u.candidates.isEmpty {
-                Button("Add as Fit only") { model.onAddUnlistedAsFitOnly?() }
-                    .help("List the named elements as Fit only: their lines are modelled, they get no at%.")
-                Button("Dismiss") { model.onDismissUnlisted?() }
-                    .help("Switch the named elements Off: they are not named again for this spectrum image.")
-            }
-        }
-        .controlSize(.small)
+    /// The unlisted-line / at% caveat as one quiet line (never truncated; the full detail is the hover).
+    private func caveat(_ u: UnlistedLineNote) -> some View {
+        Label(u.text, systemImage: u.checking ? "hourglass" : (u.candidates.isEmpty ? "checkmark.circle" : "exclamationmark.triangle"))
+            .font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .help(u.detail ?? u.text)
     }
 
-    /// One method line (estimator, continuum, fit quality) that opens onto the fit's own footer lines and warnings.
-    private var methodDisclosure: some View {
+    /// "Method": the caveat's two buttons (own row, trailing), then the fit's footer lines and warnings. The fit's one-line
+    /// label (estimator, continuum) is the first line inside, so nothing is cut off in a closed label.
+    private func methodDisclosure(candidates: [Int]) -> some View {
         DisclosureGroup(isExpanded: $methodOpen) {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
+                if !candidates.isEmpty {
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        Button("Add as Fit only") { model.onAddUnlistedAsFitOnly?() }
+                            .help("List the named elements as Fit only: their lines are modelled, they get no at%.")
+                        Button("Dismiss") { model.onDismissUnlisted?() }
+                            .help("Switch the named elements Off: they are not named again for this spectrum image.")
+                    }
+                    .buttonStyle(.bordered).controlSize(.small)
+                }
+                if model.hasFit, !model.fitFooter.isEmpty {
+                    Text(model.fitFooter).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 ForEach(Array(model.resultsFooter.split(separator: "\n").enumerated()), id: \.offset) { _, line in
                     Text(String(line)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
@@ -189,10 +203,10 @@ struct QuantPanelView: View {
             .textSelection(.enabled).padding(.top, 3)
         } label: {
             HStack(spacing: 6) {
-                Text(model.fitFooter.isEmpty ? "Method" : model.fitFooter).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
-                if !model.fitWarnings.isEmpty {
+                Text("Method").font(.caption).foregroundStyle(.secondary)
+                if !model.fitWarnings.isEmpty || !candidates.isEmpty {
                     Image(systemName: "exclamationmark.triangle").font(.caption).foregroundStyle(.secondary)
-                        .help("\(model.fitWarnings.count) warning\(model.fitWarnings.count == 1 ? "" : "s"): open the method line")
+                        .help(candidates.isEmpty ? "\(model.fitWarnings.count) warning\(model.fitWarnings.count == 1 ? "" : "s"): open Method" : "Unlisted lines: open Method for the choices")
                 }
             }
         }

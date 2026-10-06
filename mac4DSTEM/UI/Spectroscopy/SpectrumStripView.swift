@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The spectrum strip (ADR 056): a header (title, one "Show" menu), the Canvas plot on a log axis opening on the listed lines'
-/// energy span, the ±3σ residual strip, and one quiet caption saying what each curve is. The whole map's spectrum (grey)
-/// and each pin's (its own colour) are scaled to the region's counts: a comparison of shapes.
+/// energy span, and the ±3σ residual strip. No caption: the Show menu carries the legend as coloured symbols and the whole
+/// map's curve is named at its end. The whole map's spectrum (grey) and each pin's (its own colour) are scaled to the
+/// region's counts: a comparison of shapes.
 ///
 /// Interaction follows Velox where pure SwiftUI allows: pinch (and the wheel with ⌃, as
 /// macOS synthesises it — `ZoomPan.swift` documents why no AppKit scroll monitor is used)
@@ -19,7 +20,7 @@ struct SpectrumStripView: View {
     @State private var hiddenLabels: [String] = []
     @FocusState private var focused: Bool
 
-    private enum PlotMetrics { static let pinDot: CGFloat = 7, footerHeight: CGFloat = 26 }
+    private enum PlotMetrics { static let pinDot: CGFloat = 7, tick: CGFloat = 4 }
     private enum Metrics {
         static let left: CGFloat = 46, right: CGFloat = 8, top: CGFloat = 6
         static let axisBand: CGFloat = 20
@@ -32,8 +33,6 @@ struct SpectrumStripView: View {
             header
             Divider()
             plot
-            Divider()
-            footer
         }
         .accessibilityIdentifier("spectroscopy.spectrum")
     }
@@ -56,11 +55,11 @@ struct SpectrumStripView: View {
 
     private var showMenu: some View {
         Menu("Show") {
-            Toggle("Spectrum", isOn: $model.layers.spectrum)
-            Toggle("Background", isOn: $model.layers.background)
-            Toggle("Model", isOn: $model.layers.model)
-            Toggle("Residual", isOn: $model.layers.residual)
-            Toggle("Pins", isOn: $model.layers.pins)
+            Toggle(isOn: $model.layers.spectrum) { Self.legendLabel("Spectrum", Color.primary) }
+            Toggle(isOn: $model.layers.background) { Self.legendLabel("Background", Color.orange) }
+            Toggle(isOn: $model.layers.model) { Self.legendLabel("Model", Color.blue) }
+            Toggle(isOn: $model.layers.residual) { Self.legendLabel("Residual", Color.secondary) }
+            Toggle(isOn: $model.layers.pins) { Self.legendLabel("Pins", Color.pink) }
             Divider()
             Toggle("Log scale", isOn: $model.layers.log)
         }
@@ -80,15 +79,9 @@ struct SpectrumStripView: View {
         }
     }
 
-    /// One quiet line: what each curve is. The grey and the pins are scaled to the region's counts (said on hover).
-    private var footer: some View {
-        HStack(spacing: 8) {
-            Text("grey: whole map · white: region · blue: model · dotted: background")
-                .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
-                .help("The whole map's spectrum and each pin's are scaled to the region's total counts: a comparison of shapes, not of intensities.")
-        }
-        .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-        .frame(height: PlotMetrics.footerHeight)
+    /// A Show-menu row led by a symbol in the curve's colour: the legend, so no sentence sits under the plot.
+    private static func legendLabel(_ title: String, _ color: Color) -> some View {
+        Label { Text(title) } icon: { Image(systemName: "circle.fill").symbolRenderingMode(.palette).foregroundStyle(color) }
     }
 
     // MARK: plot
@@ -129,7 +122,9 @@ struct SpectrumStripView: View {
                 .focusEffectDisabled()
                 .focused($focused)
                 .onKeyPress(.home) { resetViewport(); return .handled }
-                .help("Pinch to zoom, drag to pan, double-click or Home to reset"
+                .help("Pinch to zoom, drag to pan, double-click or Home to reset\n"
+                      + "The whole map's spectrum and each pin's are scaled to the region's total counts: a comparison of shapes, not of intensities.\n"
+                      + "Residual: (data − model)/√model in σ, clipped at ±3; a tick on the edge marks a clipped channel."
                       + (hiddenLabels.isEmpty ? "" : "\nNames left out where lines crowd: " + hiddenLabels.joined(separator: ", ")))
         }
     }
@@ -139,7 +134,7 @@ struct SpectrumStripView: View {
     /// Back to the span of the listed lines (the opening view), which the viewport follows again.
     private func resetViewport() {
         model.viewportIsManual = false
-        let r = SpectrumAutoZoom.range(markers: model.markers, domain: model.series.domain, minimumSpan: model.viewport.minimumSpan)
+        let r = SpectrumAutoZoom.range(markers: model.markers, domain: model.series.domain, minimumSpan: model.viewport.minimumSpan, countsEnergy: SpectrumAutoZoom.countsEnergy(data: model.series.data, energyStart: model.series.energyStart, energyStep: model.series.energyStep))
         model.viewport.lo = r.lowerBound; model.viewport.hi = r.upperBound
     }
 
@@ -177,42 +172,45 @@ struct SpectrumStripView: View {
             return main.maxY - CGFloat(v / yTop) * main.height
         }
 
-        // frame + grid
-        let grid = Color.primary.opacity(0.08), axisInk = Color.secondary
-        ctx.stroke(Path(main), with: .color(Color.primary.opacity(0.25)), lineWidth: 0.5)
+        // axes: a baseline and a left axis, tick marks, decade lines only (log); no box
+        let grid = Color.primary.opacity(0.06), axisInk = Color.secondary, axisLine = Color.primary.opacity(0.25)
+        let axisFont = Font.system(size: 10)
+        func hline(_ y: CGFloat, _ x0: CGFloat, _ x1: CGFloat, _ c: Color) {
+            var p = Path(); p.move(to: CGPoint(x: x0, y: y)); p.addLine(to: CGPoint(x: x1, y: y)); ctx.stroke(p, with: .color(c), lineWidth: 0.5)
+        }
+        func vline(_ x: CGFloat, _ y0: CGFloat, _ y1: CGFloat, _ c: Color) {
+            var p = Path(); p.move(to: CGPoint(x: x, y: y0)); p.addLine(to: CGPoint(x: x, y: y1)); ctx.stroke(p, with: .color(c), lineWidth: 0.5)
+        }
+        hline(main.maxY, main.minX, main.maxX, axisLine)
+        vline(main.minX, main.minY, main.maxY, axisLine)
         let xTarget = max(3, Int(main.width / 80))
         let xStep = AxisTicks.niceStep(lo: vp.lo, hi: vp.hi, target: xTarget)
         let xTicks = AxisTicks.linear(lo: vp.lo, hi: vp.hi, target: xTarget)
-        for e in xTicks {
-            var p = Path(); p.move(to: CGPoint(x: X(e), y: main.minY)); p.addLine(to: CGPoint(x: X(e), y: main.maxY))
-            ctx.stroke(p, with: .color(grid), lineWidth: 0.5)
-        }
+        for e in xTicks { vline(X(e), main.maxY, main.maxY + PlotMetrics.tick, axisLine) }
         // The unit is the axis title, in the left gutter under the counts labels, where no tick label sits.
         let xAxis = AxisTicks.xLabels(ticks: xTicks, x: { X($0) }, step: xStep, unit: "keV", unitTrailing: main.minX - 8)
-        let axisY = size.height - Metrics.axisBand / 2 + 1
-        for l in xAxis.labels { ctx.draw(Text(l.text).font(.system(size: 9)).foregroundStyle(axisInk), at: CGPoint(x: l.x, y: axisY)) }
-        ctx.draw(Text(xAxis.unit.text).font(.system(size: 9)).foregroundStyle(axisInk), at: CGPoint(x: xAxis.unit.trailing, y: axisY), anchor: .trailing)
+        let axisY = size.height - Metrics.axisBand / 2 + 3
+        for l in xAxis.labels { ctx.draw(Text(l.text).font(axisFont).foregroundStyle(axisInk), at: CGPoint(x: l.x, y: axisY)) }
+        ctx.draw(Text(xAxis.unit.text).font(axisFont).foregroundStyle(axisInk), at: CGPoint(x: xAxis.unit.trailing, y: axisY), anchor: .trailing)
         if L.log {
             for e in AxisTicks.logDecades(lo: logLo, hi: logHi) {
                 let y = Y(pow(10, Double(e)))
-                var p = Path(); p.move(to: CGPoint(x: main.minX, y: y)); p.addLine(to: CGPoint(x: main.maxX, y: y))
-                ctx.stroke(p, with: .color(grid), lineWidth: 0.5)
-                ctx.draw(Text("10\(Self.superscript(e))").font(.system(size: 9)).foregroundStyle(axisInk),
+                hline(y, main.minX, main.maxX, grid)
+                ctx.draw(Text("10\(Self.superscript(e))").font(axisFont).foregroundStyle(axisInk),
                          at: CGPoint(x: main.minX - 16, y: y))
             }
         } else {
             for v in AxisTicks.linear(lo: 0, hi: yTop, target: 5) {
                 let y = Y(v)
-                var p = Path(); p.move(to: CGPoint(x: main.minX, y: y)); p.addLine(to: CGPoint(x: main.maxX, y: y))
-                ctx.stroke(p, with: .color(grid), lineWidth: 0.5)
-                ctx.draw(Text(Self.format(v)).font(.system(size: 9)).foregroundStyle(axisInk),
+                hline(y, main.minX - PlotMetrics.tick, main.minX, axisLine)
+                ctx.draw(Text(Self.format(v)).font(axisFont).foregroundStyle(axisInk),
                          at: CGPoint(x: main.minX - 16, y: y))
             }
         }
         // y-axis title
         var vctx = ctx
         vctx.translateBy(x: 8, y: main.midY); vctx.rotate(by: .degrees(-90))
-        vctx.draw(Text("counts / \(Int((s.energyStep * 1000).rounded())) eV").font(.system(size: 9)).foregroundStyle(axisInk), at: .zero)
+        vctx.draw(Text("counts / \(Int((s.energyStep * 1000).rounded())) eV").font(axisFont).foregroundStyle(axisInk), at: .zero)
 
         // curves, clipped to the frame
         var clip = ctx; clip.clip(to: Path(main))
@@ -228,7 +226,13 @@ struct SpectrumStripView: View {
             clip.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: width, lineJoin: .round, dash: dash))
         }
         let total = s.data.reduce(0, +)
-        if s.hasOverlay, let o = s.overlay { curve(o, Color.secondary.opacity(0.7), width: 1) }
+        if s.hasOverlay, let o = s.overlay {
+            curve(o, Color.secondary.opacity(0.7), width: 1)
+            // named directly at its right end (the last visible channel), above the curve; never in a caption
+            let k = min(i1, o.count - 1)
+            let end = CGPoint(x: min(X(s.energy(k)), main.maxX) - 4, y: min(max(Y(o[k]) - 8, main.minY + 8), main.maxY - 8))
+            ctx.draw(Text("whole map").font(axisFont).foregroundStyle(axisInk), at: end, anchor: .trailing)
+        }
         for pin in model.pins where L.pins && pin.spectrum.count == s.count {
             let t = pin.spectrum.reduce(0, +)
             if t > 0, total > 0 { let k = total / t; curve(pin.spectrum.map { $0 * k }, pin.tint.opacity(SpectrumLayers.pinOpacity), width: 1) }
@@ -238,7 +242,7 @@ struct SpectrumStripView: View {
         if L.background, s.hasBackground { curve(s.background, .orange.opacity(0.9), width: 1, dash: [1, 2], within: s.fitChannels) }
 
         // line markers: lines first, names staggered into rows by `MarkerLabelLayout`
-        let visible = model.markers.filter { $0.energy >= vp.lo && $0.energy <= vp.hi }
+        let visible = MarkerLabelLayout.inView(model.markers, lo: vp.lo, hi: vp.hi)
         for m in visible {
             let x = X(m.energy)
             let color = Self.markerColor(m, model: model)
@@ -250,25 +254,26 @@ struct SpectrumStripView: View {
         for m in visible {
             let x = X(m.energy)
             let color = Self.markerColor(m, model: model)
-            var t = Text(m.label).font(.system(size: m.kind == .edge ? 9 : 10, weight: m.kind == .line ? .semibold : .regular)).foregroundStyle(color)
+            var t = Text(m.label).font(.system(size: m.kind == .edge || m.kind == .suspect ? 10 : 11, weight: m.kind == .line ? .semibold : .regular)).foregroundStyle(color)
             if m.kind == .suspect { t = t.italic() }
             if m.kind == .edge {   // the edge label sits low, by the curve, so it never collides with the line names
                 ctx.draw(t, at: CGPoint(x: x + 2, y: main.maxY - 40), anchor: .leading)
             } else if let pl = layout.placed.first(where: { $0.label == m.label }) {
-                let y = main.minY + 8 + CGFloat(pl.row) * 11
+                let y = main.minY + 8 + CGFloat(pl.row) * 12
                 ctx.draw(t, at: CGPoint(x: pl.leading ? x + 2 : x - 2, y: y), anchor: pl.leading ? .leading : .trailing)
             }
         }
         if layout.left != hiddenLabels { DispatchQueue.main.async { hiddenLabels = layout.left } }
 
-        // residual strip
+        // residual strip: a zero line, the ±3 clip values at the left axis, no red; a clipped channel is a tick on the edge
         if L.residual {
-            ctx.stroke(Path(res), with: .color(Color.primary.opacity(0.25)), lineWidth: 0.5)
+            vline(res.minX, res.minY, res.maxY, axisLine)
+            hline(res.maxY, res.minX, res.maxX, axisLine)
             let zero = res.midY
-            var z = Path(); z.move(to: CGPoint(x: res.minX, y: zero)); z.addLine(to: CGPoint(x: res.maxX, y: zero))
-            ctx.stroke(z, with: .color(grid), lineWidth: 0.5)
-            ctx.draw(Text("res σ").font(.system(size: 9)).foregroundStyle(axisInk), at: CGPoint(x: res.minX - 16, y: zero))
-            ctx.draw(Text("±3").font(.system(size: 8)).foregroundStyle(axisInk), at: CGPoint(x: res.maxX - 8, y: res.minY + 6))
+            hline(zero, res.minX, res.maxX, grid)
+            ctx.draw(Text("σ").font(axisFont).foregroundStyle(axisInk), at: CGPoint(x: res.minX - 16, y: zero))
+            ctx.draw(Text("+3").font(axisFont).foregroundStyle(axisInk), at: CGPoint(x: res.minX - 16, y: res.minY + 6))
+            ctx.draw(Text("−3").font(axisFont).foregroundStyle(axisInk), at: CGPoint(x: res.minX - 16, y: res.maxY - 6))
             var rc = ctx; rc.clip(to: Path(res))
             let r = s.residual
             var p = Path()
@@ -277,8 +282,11 @@ struct SpectrumStripView: View {
                 let v = min(max(r[i], -ResidualNormalisation.frame), ResidualNormalisation.frame)
                 let pt = CGPoint(x: X(s.energy(i)), y: zero - CGFloat(v / ResidualNormalisation.frame) * res.height / 2)
                 if i == rLo { p.move(to: pt) } else { p.addLine(to: pt) }
-                if ResidualNormalisation.isClipped(r[i]) {     // clipped at the frame: a red dot says so
-                    rc.fill(Path(ellipseIn: CGRect(x: pt.x - 1.8, y: pt.y - 1.8, width: 3.6, height: 3.6)), with: .color(.red))
+                let side = ResidualNormalisation.clipSide(r[i])
+                if side != 0 {     // clipped at the frame: a small tick on that edge says so, in the secondary colour
+                    let edge = side > 0 ? res.minY : res.maxY, inward: CGFloat = side > 0 ? 1 : -1
+                    var t = Path(); t.move(to: CGPoint(x: pt.x, y: edge)); t.addLine(to: CGPoint(x: pt.x, y: edge + inward * PlotMetrics.tick))
+                    rc.stroke(t, with: .color(Color.secondary), lineWidth: 1)
                 }
             }
             rc.stroke(p, with: .color(Color.primary.opacity(0.6)), lineWidth: 0.8)

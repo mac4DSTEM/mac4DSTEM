@@ -243,8 +243,8 @@ nonisolated enum AxisTicks {
         return s.hasPrefix("-") && !s.contains(where: { $0 != "-" && $0 != "0" && $0 != "." }) ? String(s.dropFirst()) : s
     }
 
-    /// Estimated text width of a 9 pt axis label, points (digits and the point are about 5 pt).
-    static func labelWidth(_ text: String) -> CGFloat { CGFloat(text.count) * 5 + 2 }
+    /// Estimated text width of a 10 pt axis label, points (digits and the point are about 5.6 pt).
+    static func labelWidth(_ text: String) -> CGFloat { CGFloat(text.count) * 5.6 + 2 }
 
     /// The x-axis labels to draw. The unit is the axis title in the left gutter, right-aligned to `unitTrailing` (so it never
     /// meets the last label); a tick label whose box would reach it is left out.
@@ -284,6 +284,8 @@ nonisolated enum ResidualNormalisation {
     static let frame = 3.0
     /// A residual beyond ±3 is drawn at the frame edge and marked as clipped.
     static func isClipped(_ v: Double) -> Bool { abs(v) > frame }
+    /// Which frame edge a clipped residual sits on: +1 top, -1 bottom, 0 not clipped. The strip draws a small tick there.
+    static func clipSide(_ v: Double) -> Int { isClipped(v) ? (v > 0 ? 1 : -1) : 0 }
 }
 
 /// Validation state as the session reports it (`validation:"none"` for every at% product,
@@ -360,8 +362,14 @@ nonisolated enum MarkerLabelLayout {
     static let rows = 3
     static let gap: CGFloat = 3
 
-    /// Estimated text width of a 10 pt semibold label.
-    static func width(_ label: String) -> CGFloat { CGFloat(label.count) * 6 + 4 }
+    /// Estimated text width of an 11 pt semibold label.
+    static func width(_ label: String) -> CGFloat { CGFloat(label.count) * 6.6 + 4 }
+
+    /// The markers whose energy lies inside the viewport: only these get a line and a name (a suspect's name never floats
+    /// in the plot for a marker the reader cannot see).
+    static func inView(_ markers: [LineMarker], lo: Double, hi: Double) -> [LineMarker] {
+        markers.filter { $0.energy >= lo && $0.energy <= hi }
+    }
 
     static func place(_ markers: [(label: String, x: CGFloat, priority: Int)], minX: CGFloat, maxX: CGFloat) -> Result {
         var occupied = [[ClosedRange<CGFloat>]](repeating: [], count: rows)

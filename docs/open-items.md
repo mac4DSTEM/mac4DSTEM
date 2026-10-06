@@ -231,7 +231,9 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   "not a measurement" note stays); proposals draw muted line markers; Auto ID lists sort by net/L_D. WP3e D1 (only
   listed/proposed parents) FAILED its pre-landing print (`archive/v5/wp3e-results-2026-10-06/`): closed, a new
   registration if pursued — the "Hf+Hf sum? (or Zr Kα)" label stays. F3.2 refuted as a default. Mg unlisted is
-  undetectable by the proposer on real Al pools (L_D 256 k, ×72). `suggestedRole` unused;
+  undetectable by the proposer on real Al pools (L_D 256 k, ×72); Si (a clear 1.74 keV peak on 1339) is not proposed
+  either. UX pass (Fable spec, 2026-10-06): ≤ 3 proposed tiles, tick-to-accept + one Accept button, quiet chart, one-voice
+  quant panel, 22-pt periodic table, materials only on map overlays. `suggestedRole` unused;
   new windows at 1280×800 (frozen shell). Not yet seen: the open's spinner and Cancel, Export's save panels.
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,

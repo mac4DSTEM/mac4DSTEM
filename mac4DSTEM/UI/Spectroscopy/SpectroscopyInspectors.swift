@@ -45,23 +45,31 @@ struct ElementsSection: View {
                 if model.autoID.running {
                     ProgressView().controlSize(.small)
                     Button("Cancel") { model.onCancelAutoID?() }
-                } else if model.autoID.outcome != nil { UnvalidatedBadge() }
+                } else if model.autoID.outcome != nil { UnvalidatedBadge() }   // proposals are on screen before any fit: the label stays (CLAUDE.md "unvalidated stays labelled")
                 Toggle("Auto ID", isOn: Binding(get: { model.autoIDEnabled }, set: { on in
                     model.autoIDEnabled = on
                     if on, !model.autoID.running { model.onAutoID?() }
                 })).labelsHidden().toggleStyle(.switch).controlSize(.small)
             }
         }
-        .help("Proposes elements from the spectrum when an image opens: the proposals are mapped, marked proposed and left unquantified until you accept them. Your picks are never changed.")
+        // UX #8: the switch only. The room's unvalidated badge stands once, on the quantification header (and on a phase's
+        // Region row); this help names the proposer's status.
+        .help("Proposes elements from the spectrum when an image opens (the proposer is unvalidated): the proposals are mapped, marked proposed and left unquantified until you accept them. Your picks are never changed.")
         if let o = model.autoID.outcome {
             let s = model.elements.suggestions
             InspectorRow("Proposed") {
-                HStack(spacing: 8) {
-                    Text(s.isEmpty ? "none" : s.map { PeriodicLayout.symbol($0.z) }.joined(separator: ", ")).foregroundStyle(.secondary).lineLimit(1)
-                    if !s.isEmpty { Button("Accept") { model.acceptProposed() }.buttonStyle(.link) }
-                }
+                Text(s.isEmpty ? "none" : Self.proposedList(s.map { PeriodicLayout.symbol($0.z) })).foregroundStyle(.secondary).lineLimit(1)
             }
             .help(Self.notes(o, s))
+            // UX #2: the one Accept, on its own row. Ticking a proposed tile accepts that one.
+            if !s.isEmpty {
+                InspectorActionRow {
+                    InspectorAdaptiveButton(
+                        "Accept proposed", systemImage: "checkmark.circle",
+                        help: "Map and quantify every proposed element with the role the proposer suggested. Tick a proposed tile to accept just that one."
+                    ) { model.acceptProposed() }
+                }
+            }
             // R7 (wp3e F3.1): a proposal beside a listed line is a misfit, named so, with no tile and no Accept.
             let excesses = model.autoIDExcesses
             if !excesses.isEmpty {
@@ -69,6 +77,12 @@ struct ElementsSection: View {
             }
         }
         if let why = model.autoID.failure { InspectorNote(why) }
+    }
+
+    /// "Cu, Al, O +4": the first `ProposedTileCap.maximum` (the ones with a tile), then how many more the table still marks.
+    static func proposedList(_ symbols: [String]) -> String {
+        let shown = symbols.prefix(ProposedTileCap.maximum).joined(separator: ", ")
+        return symbols.count > ProposedTileCap.maximum ? shown + " +\(symbols.count - ProposedTileCap.maximum)" : shown
     }
 
     /// The proposer's own words, as the row's hover: each proposal's reason, the sum-peak questions, what it did not test.
@@ -150,26 +164,24 @@ struct FitSection: View {
         InspectorRow("Absorption") {
             Toggle("Absorption", isOn: $model.quantify.absorption).labelsHidden().toggleStyle(.checkbox)
         }
-        if let note = q.absorptionNote { InspectorNote(note) }
+        if let note = QuantifyPresentation.absorptionNoteText(q.absorptionNote) { InspectorNote(note) }
         InspectorRow("Thickness") {
             OptionalNumericField(title: "Thickness", value: q.thickness, format: FloatingPointFormatStyle<Double>.number, unit: "nm", prompt: "\u{2014}") {
                 model.quantify.thickness = max($0, 0)
             }
         }
         if q.thickness != nil {
-            InspectorRow("\u{00B1} \u{03C3}") {
+            InspectorRow("\u{03C3}") {
                 OptionalNumericField(title: "Thickness \u{03C3}", value: q.thicknessSigma, format: FloatingPointFormatStyle<Double>.number, unit: "nm", prompt: "\u{2014}") {
                     model.quantify.thicknessSigma = max($0, 0)
                 }
             }
         }
         InspectorRow("Beam energy") {
-            HStack(spacing: 6) {
-                if let p = q.beamPhrase { Text(p).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                OptionalNumericField(title: "Beam energy", value: q.shownBeam, format: FloatingPointFormatStyle<Double>.number, unit: "keV", prompt: "\u{2014}") {
-                    model.quantify.beamEnergy = max($0, 0)
-                }
+            OptionalNumericField(title: "Beam energy", value: q.shownBeam, format: FloatingPointFormatStyle<Double>.number, unit: "keV", prompt: "\u{2014}") {
+                model.quantify.beamEnergy = max($0, 0)
             }
+            .help(QuantifyPresentation.beamEnergyHelp(q.beamPhrase))
         }
     }
 }

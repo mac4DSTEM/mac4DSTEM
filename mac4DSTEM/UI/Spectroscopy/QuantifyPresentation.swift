@@ -130,6 +130,31 @@ nonisolated struct UnlistedLineNote: Equatable, Sendable {
 }
 
 nonisolated enum QuantifyPresentation {
+    /// UX lane DE (#7): the Fit inspector's absorption note in one short line. The fit's refusal text ("not applied: no thickness
+    /// is typed (nm): type one in the Quantify inspector") names an inspector that no longer exists; the row says what is
+    /// so: absorption is off, and why. An applied note (the geometry and thickness) stands as the fit states it.
+    static func absorptionNoteText(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let prefix = "not applied: "
+        guard raw.hasPrefix(prefix) else { return raw }
+        let why = String(raw.dropFirst(prefix.count))
+        if why.hasPrefix("no thickness is typed") { return "Off: no thickness typed." }
+        return "Off: " + why
+    }
+
+    /// UX lane DE (#6): the "Fit quality" row's value. "\u{03C7}\u{00B2}\u{1D63} 3318 (Pearson)" reads "\u{03C7}\u{00B2}\u{1D63} 3318 \u{00B7} Pearson"; a value without a
+    /// trailing estimator name ("reduced deviance 1.02") is unchanged. The number is the fit's own text, never reformatted.
+    static func fitQualityValue(_ q: String) -> String {
+        guard q.hasSuffix(")"), let open = q.range(of: " (", options: .backwards) else { return q }
+        let name = q[open.upperBound..<q.index(before: q.endIndex)]
+        return String(q[..<open.lowerBound]) + " \u{00B7} " + name
+    }
+
+    /// UX lane DE (#7): the beam-energy field's hover: where the shown value came from ("from the file"), or the plain name.
+    static func beamEnergyHelp(_ phrase: String?) -> String {
+        phrase.map { "Beam energy, \($0)" } ?? "Beam energy"
+    }
+
     /// The quant panel's sentence while there is no row (R10): with Auto ID's proposals on the table it says to accept them.
     static func emptyText(isLive: Bool, hasProposals: Bool) -> String {
         guard isLive else { return "No results yet." }

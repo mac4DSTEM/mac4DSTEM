@@ -79,16 +79,18 @@ enum MapScaleBar {
     }
 }
 
-/// The bar, bottom-left on the map: white with a dark halo so it reads on any map.
+/// The bar, bottom-left on the map, on a thin material so it reads on any map.
 struct MapScaleBarView: View {
     let plan: MapScaleBar.Plan
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(plan.label).font(.caption2.weight(.semibold))
+            Text(plan.label).font(.caption.weight(.semibold))
             Rectangle().frame(width: CGFloat(plan.lengthPoints), height: 3)
         }
-        .foregroundStyle(.white)
-        .shadow(color: .black, radius: 1).shadow(color: .black, radius: 1)
+        .foregroundStyle(.primary)   // vibrant on the thin material
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))   // UX #11: material only over a map
+        .environment(\.colorScheme, .dark)
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .allowsHitTesting(false)

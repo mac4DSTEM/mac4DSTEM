@@ -23,8 +23,9 @@ struct MapsHeader: View {
             .pickerStyle(.segmented).labelsHidden().controlSize(.small).fixedSize()
             .help("int: the line's window sum. net: less its background windows. wt% and at% are computed on regions (the quantification panel), not per pixel.")
             .accessibilityIdentifier("spectroscopy.mapMode")
+            Divider().frame(height: 14)   // UX #10: the two pickers read as one tool group
             Picker("Region tool", selection: $model.drawTool) {
-                ForEach(DrawTool.allCases, id: \.self) { Image(systemName: $0.symbol).tag($0).help($0 == .rectangle ? "Rectangle: drag on a map" : "Polygon: click the corners, then the first corner again") }
+                ForEach(DrawTool.allCases, id: \.self) { Image(systemName: $0.symbol).imageScale(.medium).tag($0).help($0 == .rectangle ? "Rectangle: drag on a map" : "Polygon: click the corners, then the first corner again") }
             }
             .pickerStyle(.segmented).labelsHidden().controlSize(.small).fixedSize()
             .accessibilityIdentifier("spectroscopy.regionTool")
@@ -59,6 +60,7 @@ extension SpectroscopyRoomModel {
 /// (`MapGridLayout`). Exactly one tile is active (the accent outline); the tick on an element tile means "in the ColorMix".
 struct MapsGridView: View {
     @Bindable var model: SpectroscopyRoomModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let plan: MapGridLayout.Plan
     @State private var mixCache = ColorMixRasterCache()
     @State private var tileCache = MapTileRasterCache()
@@ -87,6 +89,7 @@ struct MapsGridView: View {
             }
         }
         .frame(width: plan.tileContent.width, height: plan.tileContent.height, alignment: .topLeading)
+        .animation(TileMotion.animation(reduceMotion: reduceMotion), value: model.tiles.map(\.id))   // the one animation in the room
         switch plan.scroll {
         case .none: content
         case .vertical: ScrollView(.vertical) { content }
@@ -144,14 +147,14 @@ struct MapsGridView: View {
 }
 
 private enum TileMetrics {
-    static let corner: CGFloat = 5
+    static let corner: CGFloat = 6
     static let handle: CGFloat = 6
     static let reach: CGFloat = 7          // a handle's grab radius, points
     static let click: CGFloat = 3          // travel below which a press is a click
     static let chip: CGFloat = 12
 }
 
-/// One map: the bitmap at the scan's aspect, its header (tick, name, colour chip, or "proposed · Accept"), the accent outline
+/// One map: the bitmap at the scan's aspect, its header (tick, name, colour chip, or "proposed"), the accent outline
 /// when it is the active map, and the live region on it. A press on any tile makes it active; a drag draws, moves or resizes
 /// the one live region (drawing on a tile makes it active too).
 struct MapTileView: View {
@@ -181,16 +184,22 @@ struct MapTileView: View {
                     .contentShape(Rectangle())
                     .gesture(drag(size))
                 if map == .colorMix, !model.tiles.contains(where: { model.mixed.contains($0.z) && !$0.proposed }) {
-                    // A small label on a quiet capsule: it reads on the grey scan image that stands in, whatever its brightness.
-                    Text("Pick elements to map").font(.caption).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(.black.opacity(0.6), in: Capsule())
+                    // A small label on a thin material capsule (UX #11: material only over a map): it reads on the grey scan image that stands in.
+                    Text("Pick elements to map").font(.callout).lineLimit(1).minimumScaleFactor(0.7)
+                        .overlayCapsule()
                         .frame(maxWidth: .infinity, maxHeight: .infinity).allowsHitTesting(false)
                 }
                 if (map == .colorMix || isActive), !proposed, let px = model.scanPixel, model.gridWidth > 0,
                    let plan = MapScaleBar.plan(pixelSize: px.size, unit: px.unit, pointsPerPixel: size.width / CGFloat(model.gridWidth),
                                                targetPoints: min(64, size.width * 0.3)) {
                     MapScaleBarView(plan: plan)
+                }
+                if isActive, let a = regionLabelAnchor(size) {
+                    Text("Region \u{00B7} \(model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0) px \u{00B7} live").font(.callout).lineLimit(1)
+                        .overlayCapsule()
+                        .fixedSize()
+                        .position(x: a.x, y: a.y)
+                        .allowsHitTesting(false)
                 }
                 header
                 if proposed {
@@ -222,25 +231,27 @@ struct MapTileView: View {
 
     private var header: some View {
         HStack(spacing: 4) {
-            if let t = tile, !t.proposed {
-                Toggle("In the ColorMix: \(title)", isOn: Binding(get: { model.mixed.contains(t.z) }, set: { _ in model.toggleMix(t.z) }))
+            if let t = tile {
+                // UX #2: the same box on a proposed tile; ticking it accepts the proposal (the proposer's role: map and quantify).
+                Toggle(t.proposed ? "Accept \(title)" : "In the ColorMix: \(title)",
+                       isOn: Binding(get: { !t.proposed && model.mixed.contains(t.z) }, set: { _ in model.tickTile(t) }))
                     .labelsHidden().toggleStyle(.checkbox).controlSize(.mini)
                     .environment(\.colorScheme, .dark)   // the tile is dark whatever the appearance: an unticked box stays visible on it
-                    .help(t.notMeasuredWhy.map { "In the ColorMix, but not a measurement: \($0)" } ?? "Include \(title) in the ColorMix")
+                    .help(t.proposed ? (model.elements.suggestions.first { $0.z == t.z }?.reason ?? "Auto ID proposes \(title)") + "\nTick to accept \(title): map and quantify it."
+                          : t.notMeasuredWhy.map { "In the ColorMix, but not a measurement: \($0)" } ?? "Include \(title) in the ColorMix")
             }
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).shadow(radius: 1)
             if map == .colorMix {
                 Spacer(minLength: 4)
                 let own = model.tiles.filter { !$0.proposed }
-                Text(ColorMixCaption.text(mixed: own.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) },
-                                          notMixed: own.filter { !model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }))
-                    .font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.head)
-            } else if proposed, let t = tile {
+                let mixed = own.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
+                let notMixed = own.filter { !model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
+                // UX #10: the mixed symbols only; what is not ticked is on its own tile's box and in this help.
+                Text(ColorMixHeader.text(mixed: mixed)).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.head)
+                    .help(ColorMixHeader.help(mixed: mixed, notMixed: notMixed))
+            } else if proposed {
                 Spacer(minLength: 4)
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 4) { Text("proposed").foregroundStyle(.white.opacity(0.85)).fixedSize(); accept(t) }
-                    accept(t)
-                }.font(.caption).lineLimit(1)   // R4c: no .fixedSize() here, it made the fit test unconstrained and the words wrapped
+                Text("proposed").font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
             } else {
                 Spacer(minLength: 4)
                 chip
@@ -251,12 +262,6 @@ struct MapTileView: View {
         .contentShape(Rectangle())
         .onTapGesture { model.active = map }   // the header sits above the bitmap's gesture: a press on it still picks the map
         .background(alignment: .top) { LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom).allowsHitTesting(false) }
-    }
-
-    private func accept(_ t: MapTile) -> some View {
-        Button("Accept") { model.elements.click(t.z) }
-            .buttonStyle(.link).fixedSize()
-            .help(model.elements.suggestions.first { $0.z == t.z }?.reason ?? "Accept \(title)")
     }
 
     /// The colour chip is a button on every non-proposed map but the ColorMix: it makes the tile active and opens its popover.
@@ -281,7 +286,6 @@ struct MapTileView: View {
             let r = CGRect(x: p.x - TileMetrics.handle / 2, y: p.y - TileMetrics.handle / 2, width: TileMetrics.handle, height: TileMetrics.handle)
             ctx.fill(Path(r), with: .color(.white)); ctx.stroke(Path(r), with: .color(.black.opacity(0.6)), lineWidth: 0.5)
         }
-        var labelAt = CGPoint(x: 4, y: 4)
         if let shape = model.regionOutline {
             switch shape {
             case .rectangle(let r), .ellipse(let r):
@@ -290,20 +294,13 @@ struct MapTileView: View {
                 for p in [CGPoint(x: rr.minX, y: rr.minY), CGPoint(x: rr.midX, y: rr.minY), CGPoint(x: rr.maxX, y: rr.minY),
                           CGPoint(x: rr.minX, y: rr.midY), CGPoint(x: rr.maxX, y: rr.midY),
                           CGPoint(x: rr.minX, y: rr.maxY), CGPoint(x: rr.midX, y: rr.maxY), CGPoint(x: rr.maxX, y: rr.maxY)] { handleDot(p) }
-                labelAt = CGPoint(x: rr.minX, y: max(rr.minY - 8, 18))
             case .polygon(let v):
                 var p = Path()
                 for (i, q) in v.enumerated() { i == 0 ? p.move(to: pt(q)) : p.addLine(to: pt(q)) }
                 p.closeSubpath()
                 ctx.stroke(p, with: .color(.white), style: dash)
                 for q in v { handleDot(pt(q)) }
-                if let top = v.min(by: { $0.y < $1.y }) { labelAt = CGPoint(x: pt(top).x, y: max(pt(top).y - 8, 18)) }
             }
-            let live = model.regions.first { $0.id == model.selectedRegion }
-            let text = Text("Region · \(live?.pixels ?? 0) px · live").font(.caption).foregroundStyle(.white)
-            let r = CGRect(x: labelAt.x, y: labelAt.y - 8, width: 118, height: 16)
-            ctx.fill(Path(roundedRect: r, cornerRadius: 3), with: .color(.black.opacity(0.55)))
-            ctx.draw(text, at: CGPoint(x: r.minX + 5, y: r.midY), anchor: .leading)
         }
         if model.layers.pins {
             for pin in model.pins {   // a pinned region stays visible on the map, faint, in the pin's own colour
@@ -325,6 +322,22 @@ struct MapTileView: View {
             ctx.stroke(p, with: .color(.white), style: dash)
             for q in draft { handleDot(pt(q)) }
         }
+    }
+
+    /// Where the live region's label sits (its centre-left), above the region's top edge; nil without a region.
+    private func regionLabelAnchor(_ size: CGSize) -> CGPoint? {
+        let g = model.gridSize
+        guard g.w > 0, g.h > 0, let shape = model.regionOutline else { return nil }
+        let cw = size.width / CGFloat(g.w), ch = size.height / CGFloat(g.h)
+        let top: CGPoint
+        switch shape {
+        case .rectangle(let r), .ellipse(let r): top = CGPoint(x: CGFloat(r.x0) * cw, y: CGFloat(r.y0) * ch)
+        case .polygon(let v):
+            guard let t = v.min(by: { $0.y < $1.y }) else { return nil }
+            top = CGPoint(x: CGFloat(t.x) * cw, y: CGFloat(t.y) * ch)
+        }
+        // The capsule is about 120 x 20 pt; `position` takes its centre.
+        return CGPoint(x: min(max(top.x + 60, 64), max(size.width - 64, 64)), y: max(top.y - 8, 28))
     }
 
     // MARK: gestures
@@ -490,5 +503,36 @@ struct ColormapChoices: View {
         ForEach(ColormapKind.allCases) { kind in
             Label { Text(kind.displayName) } icon: { Image(nsImage: Colormaps.swatch(kind)).clipShape(RoundedRectangle(cornerRadius: 2)) }.tag(kind)
         }
+    }
+}
+
+extension SpectroscopyRoomModel {
+    /// The tile's box: on a proposed tile it accepts the proposal (the proposer's role: map and quantify, the same as the
+    /// periodic table's click); on a real tile it adds or removes the element from the ColorMix.
+    func tickTile(_ t: MapTile) {
+        if t.proposed { elements.click(t.z) } else { toggleMix(t.z) }
+    }
+}
+
+/// The one animation in the room (UX #12): tiles moving when one is accepted or goes. Reduce Motion: none.
+enum TileMotion {
+    static func animation(reduceMotion: Bool) -> Animation? { reduceMotion ? nil : .snappy }
+}
+
+/// The ColorMix header: the mixed symbols; what is not ticked is named in the header's help.
+nonisolated enum ColorMixHeader {
+    static func text(mixed: [String]) -> String { ColorMixCaption.text(mixed: mixed, notMixed: []) }
+    static func help(mixed: [String], notMixed: [String]) -> String {
+        let t = ColorMixCaption.text(mixed: mixed, notMixed: notMixed)
+        return t.isEmpty ? "The ColorMix: tick an element on its tile to add it." : "The ColorMix: " + t
+    }
+}
+
+extension View {
+    /// A thin system material capsule for text drawn over a map (UX #11): dark whatever the appearance, so it reads on any map.
+    func overlayCapsule() -> some View {
+        self.padding(.horizontal, 10).padding(.vertical, 3)
+            .background(.ultraThinMaterial, in: Capsule())
+            .environment(\.colorScheme, .dark)
     }
 }

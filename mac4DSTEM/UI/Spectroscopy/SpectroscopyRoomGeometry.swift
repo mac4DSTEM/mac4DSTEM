@@ -269,13 +269,36 @@ nonisolated enum RegionEditing {
 
 // MARK: - The spectrum's opening range
 
+/// How many Auto ID proposals get a tile (UX spec #1): a DISPLAY count, not a threshold on the data. The proposals arrive
+/// strongest first (net / L_D, `AutoIDPresentation.bySignificance`); the periodic table and the inspector's Proposed row
+/// still list every one of them.
+nonisolated enum ProposedTileCap {
+    static let maximum = 3
+    static func apply<T>(_ strongestFirst: [T]) -> [T] { Array(strongestFirst.prefix(maximum)) }
+}
+
 nonisolated enum SpectrumAutoZoom {
-    /// The energy span the listed lines occupy with room to read their names, inside the axis; without a line, the first 20
-    /// keV an EDX spectrum is read in (a Velox axis runs to 80 keV). Never narrower than `minimumSpan`.
-    static func range(markers: [LineMarker], domain: ClosedRange<Double>, minimumSpan: Double) -> ClosedRange<Double> {
-        let energies = markers.filter { $0.kind == .line }.map(\.energy)
+    /// The energy below which `fraction` of the counts lie (nil without counts): where an opening view with no line ends.
+    static func countsEnergy(data: [Double], energyStart: Double, energyStep: Double, fraction: Double = 0.995) -> Double? {
+        let total = data.reduce(0) { $0 + max($1, 0) }
+        guard total > 0 else { return nil }
+        var run = 0.0
+        for (i, d) in data.enumerated() {
+            run += max(d, 0)
+            if run >= fraction * total { return energyStart + Double(i) * energyStep }
+        }
+        return energyStart + Double(data.count - 1) * energyStep
+    }
+
+    /// The energy span the listed lines and Auto ID's proposed lines occupy with room to read their names, inside the axis;
+    /// without a line, up to the energy below which 99.5 % of the counts lie (floor 2 keV, cap 20 keV: the first 20 keV an
+    /// EDX spectrum is read in, a Velox axis runs to 80), or those 20 keV when the counts are not known. Never narrower
+    /// than `minimumSpan`.
+    static func range(markers: [LineMarker], domain: ClosedRange<Double>, minimumSpan: Double, countsEnergy: Double? = nil) -> ClosedRange<Double> {
+        let energies = markers.filter { $0.kind == .line || $0.kind == .proposed }.map(\.energy)
         guard let lo = energies.min(), let hi = energies.max() else {
-            let top = min(domain.upperBound, max(20, domain.lowerBound + minimumSpan))
+            let end = min(20, max(2, countsEnergy ?? 20))
+            let top = min(domain.upperBound, max(end, domain.lowerBound + minimumSpan))
             return domain.lowerBound...top
         }
         var a = max(domain.lowerBound, lo - 0.4)
