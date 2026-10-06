@@ -56,7 +56,7 @@ struct ResultsSection: View {
         let candidates = block.line?.candidates ?? []
         if Self.showsBadge(model) { InspectorRow("Result") { UnvalidatedBadge() } }
         if model.results.isEmpty {
-            Text(QuantifyPresentation.emptyText(isLive: model.isLive, hasProposals: !model.elements.suggestions.isEmpty))
+            Text(QuantifyPresentation.emptyText(isLive: model.isLive))
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         } else { table }
         if let r = model.ratioLine, model.hasFit {

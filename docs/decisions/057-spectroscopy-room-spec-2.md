@@ -31,5 +31,6 @@ controls live and how the maps, the table and Auto ID behave.
 
 ## Consequences
 Built overnight by six Sonnet lanes on disjoint files, merged and gated as one landing, driven by the session on the synthetic
-4D-EDX cube and the owner's Velox SI 1339 (`docs/archive/v5/room-drive-3-2026-10-07.md`). Dead code the amendments retire
-(`active`, the proposed-tile pipeline, the two-band layout) is removed in the same session's clean-up commit.
+4D-EDX cube and the owner's Velox SI 1339 (`docs/archive/v5/room-drive-3-2026-10-07.md`). Dead code the amendments retired
+(`active`, the proposed-tile pipeline, the suspect and proposed marker kinds, the two-band layout, the Auto ID switch) was removed in
+the same session's clean-up commit (−283 lines).

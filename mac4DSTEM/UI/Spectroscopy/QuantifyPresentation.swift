@@ -155,11 +155,9 @@ nonisolated enum QuantifyPresentation {
         phrase.map { "Beam energy, \($0)" } ?? "Beam energy"
     }
 
-    /// The quant panel's sentence while there is no row (R10): with Auto ID's proposals on the table it says to accept them.
-    static func emptyText(isLive: Bool, hasProposals: Bool) -> String {
-        guard isLive else { return "No results yet." }
-        return hasProposals ? "Accept the proposed elements or pick in the periodic table to see their net counts."
-                            : "Pick elements in the periodic table to see their window net counts here."
+    /// The Results section's sentence while there is no row (R10).
+    static func emptyText(isLive: Bool) -> String {
+        isLive ? "Pick elements in the periodic table to see their window net counts here." : "No results yet."
     }
 
     /// One block, not two (R8): the unlisted-line line and the at% caveat said the same thing. While the check runs the one line

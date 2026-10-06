@@ -39,17 +39,13 @@ nonisolated struct AutoIDOutcome: Equatable, Sendable {
     var region: String
     var suggestions: [ElementSuggestion]
     var suspects: [AutoIDSuspect]
-    /// Proposals beside a listed line: shown as excesses, no tile, no Accept.
+    /// Proposals beside a listed line: shown as excesses, no tile.
     var excesses: [AutoIDExcess] = []
     /// Elements the proposer did not test and the periodic table does not already grey (H to Be).
     var notTested: [AutoIDRefusal]
     /// The look-elsewhere line, the misfit line, the lowest-tested-line floor: the proposer's own words.
     var notes: [String]
 
-    var suspectMarkers: [LineMarker] {
-        suspects.map { LineMarker(label: $0.label, energy: $0.energy, elementZ: nil, kind: .suspect,
-                                  fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: $0.energy)) }
-    }
     var hasDetails: Bool { !suspects.isEmpty || !excesses.isEmpty || !notTested.isEmpty || !notes.isEmpty }
 }
 

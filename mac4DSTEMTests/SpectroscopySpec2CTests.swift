@@ -1,7 +1,7 @@
 import XCTest
 @testable import mac4DSTEM
 
-/// Spec 2 lane C: the spectrum strip's pure decisions (linear default, full range, y stretch, zoom edges, suspects, highlight).
+/// Spec 2 lane C: the spectrum strip's pure decisions (linear default, full range, y stretch, zoom edges, highlight).
 /// The drawing is verified on screen by the supervisor's drive.
 final class SpectroscopySpec2CTests: XCTestCase {
     private func marker(_ label: String, _ e: Double, _ kind: LineMarker.Kind, z: Int? = nil) -> LineMarker {
@@ -98,15 +98,6 @@ final class SpectroscopySpec2CTests: XCTestCase {
         XCTAssertEqual(SpectrumStripLogic.anchor(startX: 10, plotLeft: 46, plotWidth: 400), 0, "in the gutter: the left edge")
         XCTAssertEqual(SpectrumStripLogic.anchor(startX: 900, plotLeft: 46, plotWidth: 400), 1, "right of the frame: the right edge")
         XCTAssertEqual(SpectrumStripLogic.anchor(startX: 100, plotLeft: 46, plotWidth: 0), 1, "a collapsed frame does not divide by zero")
-    }
-
-    /// A suspect is never drawn (no line, no name); lines, proposals and the edge are, inside the window only.
-    /// Mutation: the suspect filter dropped, or the window filter dropped - red.
-    func testSuspectsAreNotInTheDrawnMarkers() {
-        let ms = [marker("Cu Kα", 8.05, .line, z: 29), marker("Hf+Hf sum?", 9.0, .suspect), marker("Ga Lα?", 1.1, .suspect, z: 31),
-                  marker("Mg Kα", 1.25, .proposed, z: 12), marker("Al K edge", 1.56, .edge), marker("Ti Kα", 4.5, .line, z: 22)]
-        XCTAssertEqual(SpectrumStripLogic.drawnMarkers(ms, lo: 0, hi: 10).map(\.label), ["Cu Kα", "Mg Kα", "Al K edge", "Ti Kα"])
-        XCTAssertEqual(SpectrumStripLogic.drawnMarkers(ms, lo: 0, hi: 5).map(\.label), ["Mg Kα", "Al K edge", "Ti Kα"])
     }
 
     /// The highlighted element's markers are 1.8 pt and bold; the others 0.8 pt; nothing is highlighted when nothing is set.

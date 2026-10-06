@@ -8,20 +8,6 @@ import CoreGraphics
 // from the session (lane R) through `SpectroscopyRoomModel`. Unit-tested in
 // `SpectroscopyViewModelTests`.
 
-// MARK: - Layout
-
-/// What the ColorMix's header says it mixes (R5). There is no cap on the number of elements: every ticked element is added in
-/// its own colour. A picked element whose line is not a measurement (background above signal) starts unticked; the header
-/// names it so a missing colour is explained, not silent.
-nonisolated enum ColorMixCaption {
-    static func text(mixed: [String], notMixed: [String]) -> String {
-        let base = mixed.joined(separator: " · ")
-        guard !notMixed.isEmpty else { return base }
-        let off = notMixed.joined(separator: ", ") + " not ticked"
-        return base.isEmpty ? off : base + " (" + off + ")"
-    }
-}
-
 // MARK: - Elements
 
 /// What an element does in the fit (ADR 054 §6).
@@ -128,10 +114,8 @@ nonisolated struct ElementSelection: Equatable, Sendable {
     }
 }
 
-/// The periodic table's symbols and its two-band layout (ADR 056): the main groups (H to Rn, 8 columns) above the transition
-/// metals (Sc to Hg, 10 columns, the lanthanide place under Sc and Y left empty), with period 7 and the f-block folded into
-/// one "La\u{2013}Lu \u{00B7} Ac\u{2013}Lr" disclosure. Two bands are what fits the inspector's narrowest column at a cell a
-/// finger can hit; the full 18 columns would need 400 pt for the same cells.
+/// The periodic table's symbols and the folded places (the grid itself is `PeriodicTableGrid`): period 7 and the f-block
+/// stay folded into one "La\u{2013}Lu \u{00B7} Ac\u{2013}Lr" disclosure.
 nonisolated enum PeriodicLayout {
     static let symbols: [String] = ("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr "
         + "Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu "
@@ -141,23 +125,6 @@ nonisolated enum PeriodicLayout {
     static func symbol(_ z: Int) -> String { symbols[z - 1] }
     static func z(of symbol: String) -> Int? { symbols.firstIndex(of: symbol).map { $0 + 1 } }
 
-    static let mainGroupColumns = 8, transitionColumns = 10
-
-    /// Rows of the main-group band (periods 1 to 6); nil is an empty place.
-    static let mainGroup: [[Int?]] = [
-        [1, nil, nil, nil, nil, nil, nil, 2],
-        Array(3...10).map { Optional($0) },
-        Array(11...18).map { Optional($0) },
-        [19, 20] + Array(31...36).map { Optional($0) },
-        [37, 38] + Array(49...54).map { Optional($0) },
-        [55, 56] + Array(81...86).map { Optional($0) },
-    ]
-    /// Rows of the transition band: Sc to Zn, Y to Cd, Hf to Hg under Ti to Zn (column 0 holds the folded lanthanides).
-    static let transition: [[Int?]] = [
-        Array(21...30).map { Optional($0) },
-        Array(39...48).map { Optional($0) },
-        [nil] + Array(72...80).map { Optional($0) },
-    ]
     /// The folded places: La to Lu, then period 7 (Fr to Og).
     static let folded: [Int] = Array(57...71) + Array(87...118)
 }
@@ -353,11 +320,11 @@ nonisolated struct SpectrumSeries: Equatable, Sendable {
 }
 
 nonisolated struct LineMarker: Equatable, Identifiable, Sendable {
-    enum Kind: Sendable { case line, suspect, edge, proposed }   // edge: the Al K edge, grey and dotted; proposed: an Auto ID proposal, muted dashed
-    var label: String                // "Mg Kα", "Ga Lα?", "Al K edge"
+    enum Kind: Sendable { case line, edge }   // edge: the Al K edge, grey and dotted
+    var label: String                // "Mg Kα", "Al K edge"
     var energy: Double
     var elementZ: Int?
-    var kind: Kind = .line           // .suspect: dashed grey italic, "Ga Lα?"
+    var kind: Kind = .line
     /// The detector's line width here, keV. The hover's nearest-line cut-off is this one value (nil: `SpectrumHover.lineTolerance`).
     var fwhm: Double? = nil
     /// Which label survives a collision: higher first (the chosen K\u{03B1}-type line of a quantified element beats a satellite or a fit-only element).
@@ -382,8 +349,7 @@ nonisolated enum MarkerLabelLayout {
     /// Estimated text width of an 11 pt semibold label.
     static func width(_ label: String) -> CGFloat { CGFloat(label.count) * 6.6 + 4 }
 
-    /// The markers whose energy lies inside the viewport: only these get a line and a name (a suspect's name never floats
-    /// in the plot for a marker the reader cannot see).
+    /// The markers whose energy lies inside the viewport: only these get a line and a name.
     static func inView(_ markers: [LineMarker], lo: Double, hi: Double) -> [LineMarker] {
         markers.filter { $0.energy >= lo && $0.energy <= hi }
     }

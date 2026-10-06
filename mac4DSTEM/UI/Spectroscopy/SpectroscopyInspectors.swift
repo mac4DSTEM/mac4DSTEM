@@ -87,7 +87,7 @@ struct ElementsSection: View {
         if let o = model.autoID.outcome {
             InspectorValueRow("Picked", Self.pickedList(o))
                 .help(Self.notes(o, o.suggestions))
-            // R7 (wp3e F3.1): a proposal beside a listed line is a misfit, named so, with no tile.
+            // R7 (wp3e F3.1): an excess beside a listed line is a misfit, named so, with no tile.
             let excesses = model.autoIDExcesses
             if !excesses.isEmpty {
                 InspectorNote(excesses.map(\.title).joined(separator: "; ")).help(excesses.map(\.detail).joined(separator: "\n"))

@@ -7,14 +7,14 @@ final class SpectroscopyUXCTests: XCTestCase {
         LineMarker(label: label, energy: e, elementZ: nil, kind: kind)
     }
 
-    /// A marker (and so its label, a suspect's included) is drawn only when its energy is inside the viewport.
+    /// A marker (and so its label) is drawn only when its energy is inside the viewport.
     /// Mutation: `inView` always true - red.
     func testOnlyMarkersInViewAreDrawn() {
-        let ms = [marker("Cu Kα", 8.05, .line), marker("Hf+Hf sum?", 15.0, .suspect), marker("Mg Kα", 1.25, .line)]
+        let ms = [marker("Cu Kα", 8.05, .line), marker("Hf Kα", 15.0, .line), marker("Mg Kα", 1.25, .line)]
         let v = MarkerLabelLayout.inView(ms, lo: 0.2, hi: 10)
         XCTAssertEqual(v.map(\.label), ["Cu Kα", "Mg Kα"])
-        XCTAssertEqual(MarkerLabelLayout.inView(ms, lo: 14, hi: 20).map(\.label), ["Hf+Hf sum?"])
-        XCTAssertEqual(MarkerLabelLayout.inView(ms, lo: 15, hi: 20).map(\.label), ["Hf+Hf sum?"], "the bound itself is in view")
+        XCTAssertEqual(MarkerLabelLayout.inView(ms, lo: 14, hi: 20).map(\.label), ["Hf Kα"])
+        XCTAssertEqual(MarkerLabelLayout.inView(ms, lo: 15, hi: 20).map(\.label), ["Hf Kα"], "the bound itself is in view")
         XCTAssertTrue(MarkerLabelLayout.inView(ms, lo: 9, hi: 12).isEmpty)
     }
 

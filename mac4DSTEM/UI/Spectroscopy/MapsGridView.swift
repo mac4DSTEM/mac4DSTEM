@@ -20,7 +20,7 @@ extension SpectroscopyRoomModel {
         return (gridWidth, gridHeight)
     }
     var hasHAADF: Bool { gridWidth > 0 && backdrop.count == gridWidth * gridHeight }
-    /// HAADF first, then the elements (the quantified ones, then Auto ID's proposals).
+    /// HAADF first, then the elements.
     var gridItems: [MapGridItem] { (hasHAADF ? [.haadf] : []) + tiles.map { .element($0) } }
     var gridAspect: CGFloat { let g = gridSize; return g.w > 0 && g.h > 0 ? CGFloat(g.w) / CGFloat(g.h) : 1 }
 }
@@ -81,7 +81,7 @@ struct MapsGridView: View {
         var colors: [Int: ColorMixComposite.RGB] = [:]
         var displays: [Int: MapDisplay] = [:]
         var style = Hasher()
-        for t in model.tiles where model.mixed.contains(t.z) && !t.proposed {
+        for t in model.tiles where model.mixed.contains(t.z) {
             let c = Self.rgb(model.color(t.z))
             colors[t.z] = c
             let d = model.display(.element(t.z))
@@ -158,7 +158,7 @@ struct MapTileView: View {
             let size = geo.size
             ZStack(alignment: .topLeading) {
                 canvas(size)
-                if map == .colorMix, !model.tiles.contains(where: { model.mixed.contains($0.z) && !$0.proposed }) {
+                if map == .colorMix, !model.tiles.contains(where: { model.mixed.contains($0.z) }) {
                     // A small label on a glass capsule (spec 2 D-8: glass only over a map).
                     Text("Pick elements to map").font(.callout).lineLimit(1).minimumScaleFactor(0.7)
                         .overlayCapsule()
@@ -235,9 +235,8 @@ struct MapTileView: View {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).shadow(radius: 1)
             Spacer(minLength: 4)
             if map == .colorMix {
-                let own = model.tiles.filter { !$0.proposed }
-                let mixed = own.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
-                let notMixed = own.filter { !model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
+                let mixed = model.tiles.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
+                let notMixed = model.tiles.filter { !model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
                 // UX #10: the mixed symbols only; what is not in the mix is in this help.
                 Text(ColorMixHeader.text(mixed: mixed)).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.head)
                     .help(ColorMixHeader.help(mixed: mixed, notMixed: notMixed))
@@ -577,17 +576,20 @@ extension SpectroscopyRoomModel {
     }
 }
 
-/// The one animation in the room (UX #12): tiles moving when one is accepted or goes. Reduce Motion: none.
+/// The one animation in the room (UX #12): tiles moving when one comes or goes. Reduce Motion: none.
 enum TileMotion {
     static func animation(reduceMotion: Bool) -> Animation? { reduceMotion ? nil : .snappy }
 }
 
-/// The ColorMix header: the mixed symbols; what is not ticked is named in the header's help.
+/// The ColorMix header: the mixed symbols, no cap; what is not picked into the mix is named in the header's help (a picked
+/// element whose line is not a measurement starts out of the mix, so a missing colour is explained, not silent).
 nonisolated enum ColorMixHeader {
-    static func text(mixed: [String]) -> String { ColorMixCaption.text(mixed: mixed, notMixed: []) }
+    static func text(mixed: [String]) -> String { mixed.joined(separator: " \u{00B7} ") }
     static func help(mixed: [String], notMixed: [String]) -> String {
-        let t = ColorMixCaption.text(mixed: mixed, notMixed: notMixed)
-        return t.isEmpty ? "The ColorMix: click an element's tile to add it." : "The ColorMix: " + t
+        let base = text(mixed: mixed)
+        guard !notMixed.isEmpty else { return base.isEmpty ? "The ColorMix: click an element's tile to add it." : "The ColorMix: " + base }
+        let off = notMixed.joined(separator: ", ") + " not ticked"
+        return "The ColorMix: " + (base.isEmpty ? off : base + " (" + off + ")")
     }
 }
 

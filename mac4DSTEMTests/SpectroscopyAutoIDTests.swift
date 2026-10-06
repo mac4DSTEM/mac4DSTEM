@@ -1,7 +1,6 @@
 //
 //  SpectroscopyAutoIDTests.swift
-//  v5.0 WP3 lane W — Auto ID in the Spectroscopy room: the proposer's `ProposalResult` -> suggestions, suspect markers
-//  and notes (`AutoIDPresentation`), and the view-model rules around them (`SpectroscopyRoomModel`): manual picks are
+//  v5.0 WP3 lane W — Auto ID in the Spectroscopy room: the proposer's `ProposalResult` -> suggestions and notes (`AutoIDPresentation`), and the view-model rules around them (`SpectroscopyRoomModel`): manual picks are
 //  never touched, a cancelled run changes nothing, the new row fits the inspector column. No compute, no app driving.
 //  Every test names the mutation it catches; break each one before trusting it.
 //
@@ -56,9 +55,8 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         let s = try! XCTUnwrap(o.suspects.first)
         XCTAssertEqual(o.suspects.count, 1)
         XCTAssertTrue(s.question.contains("Al+Al sum"), "the conflict's own text is carried: \(s.question)")
-        XCTAssertEqual(o.suspectMarkers.map(\.kind), [.suspect])
-        XCTAssertEqual(o.suspectMarkers[0].energy, 2.957, accuracy: 1e-9)
-        XCTAssertTrue(o.suspectMarkers[0].label.hasPrefix("Al+Al sum?"), "R7: the sum leads, the candidate follows in brackets")
+        XCTAssertEqual(s.energy, 2.957, accuracy: 1e-9)
+        XCTAssertTrue(s.label.hasPrefix("Al+Al sum?"), "R7: the sum leads, the candidate follows in brackets")
     }
 
     /// Mutation: the reason is the generic "n x L_D" text for every candidate (conflict text dropped), or the Cu question
@@ -106,12 +104,11 @@ final class SpectroscopyAutoIDTests: XCTestCase {
     }
 
     /// Mutation: `AutoIDSuspect.label` back to `ElementWindows.label(ofLineID: c.group) + "?"` (the candidate leads) - red.
-    func testASumPeakSuspectMarkerLeadsWithTheSum() throws {
+    func testASumPeakSuspectLeadsWithTheSum() throws {
         let o = AutoIDPresentation.outcome(proposal([argonOnSum]), region: "r")
         let s = try XCTUnwrap(o.suspects.first)
         XCTAssertTrue(s.label.hasPrefix("Al+Al sum?"), s.label)
         XCTAssertTrue(s.label.hasSuffix("(or Ar K\u{03B1})"), s.label)
-        XCTAssertEqual(o.suspectMarkers[0].label, s.label)
     }
 
     /// A candidate 94 eV above Al K-alpha (Lu M-alpha, the WP3d excess) with Al listed is named as an excess beside Al K-alpha,
@@ -246,15 +243,14 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         XCTAssertEqual(m.elements.suggestions.map(\.z), [Ga])
     }
 
-    /// Mutation: suspect markers appended without removing the previous run's, or kind `.line`.
-    func testSuspectMarkersAreReplacedByARunAndLeaveLineMarkersAlone() {
+    /// A run draws no marker of its own: the sum-peak questions stay in the outcome (the Picked row's hover), the markers are the picks'.
+    /// Mutation: `finishAutoID` appending the suspects as markers - red.
+    func testARunLeavesTheMarkersAlone() {
         let m = model()
         m.markers = [LineMarker(label: "Mg Kα", energy: 1.254, elementZ: Mg)]
         m.finishAutoID(token: m.beginAutoID(), outcome: AutoIDPresentation.outcome(proposal([argonOnSum]), region: "A"))
-        XCTAssertEqual(m.markers.filter { $0.kind == .suspect }.count, 1)
-        m.finishAutoID(token: m.beginAutoID(), outcome: AutoIDPresentation.outcome(proposal([]), region: "B"))
-        XCTAssertEqual(m.markers.filter { $0.kind == .suspect }.count, 0)
-        XCTAssertEqual(m.markers.filter { $0.kind == .line }.map(\.label), ["Mg Kα"])
+        XCTAssertEqual(m.autoID.outcome?.suspects.count, 1)
+        XCTAssertEqual(m.markers.map(\.label), ["Mg Kα"])
     }
 
     /// Mutation: `failAutoID` leaves `running` set, or clears the earlier outcome.
@@ -295,8 +291,8 @@ final class SpectroscopyAutoIDTests: XCTestCase {
     /// Mutation: runAutoID drops the beam guard (proposes with beam 0 or 200 regardless).
     func testWithoutABeamEnergyAutoIDSaysSoAndProposesNothing() {
         let state = AppState()
-        state.spectroscopyRoom.model.autoIDEnabled = false   // the run is started by hand: Auto ID on open would be a second one
         state.openSpectrumImage(SpectroscopyRoomTests.StubSpectrumImage())
+        state.spectroscopyRoom.autoIDOnOpen?.cancel()   // these tests drive Auto ID by hand, or not at all
         let c = state.spectroscopyRoom
         c.model.elements.click(Al)
         c.runAutoID()
@@ -305,12 +301,14 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         XCTAssertNil(c.model.autoID.outcome)
     }
 
+    /// The refresh cancels the run at once and the cancelled run is a silent discard. (Auto ID is always on, so the refresh also
+    /// restarts it when it lands: `testAClickDuringARunRestartsIt`; only the state at the cancel is asserted here.)
     /// Mutation: `refresh()` stops cancelling a running Auto ID (the `if model.autoID.running { cancelAutoID() }` line removed):
-    /// the zero-count spectrum then lands an outcome or a failure note.
+    /// the run is still going right after the refresh.
     func testARunCancelledByRefreshLandsNothingAndLeavesNoNote() async {
         let state = AppState()
-        state.spectroscopyRoom.model.autoIDEnabled = false   // the run is started by hand: Auto ID on open would be a second one
         state.openSpectrumImage(SpectroscopyRoomTests.StubSpectrumImage())
+        state.spectroscopyRoom.autoIDOnOpen?.cancel()   // these tests drive Auto ID by hand, or not at all
         let c = state.spectroscopyRoom
         c.model.elements.click(Al)
         state.spectroscopy.method.beamEnergyKeV = 200
@@ -318,11 +316,10 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         XCTAssertTrue(c.model.autoID.running, "precondition: the run started")
         let task = c.autoIDTask
         c.refresh()                                  // an element or region edit
-        await task?.value
-        for _ in 0..<5 { await Task.yield() }        // a late MainActor hop would land here
         XCTAssertFalse(c.model.autoID.running)
         XCTAssertNil(c.model.autoID.outcome, "nothing landed")
         XCTAssertNil(c.model.autoID.failure, "a cancel is a silent discard, not a failure")
+        await task?.value
         XCTAssertTrue(c.model.elements.suggestions.isEmpty)
     }
 

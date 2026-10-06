@@ -23,8 +23,8 @@ final class SpectroscopySpec2BTests: XCTestCase {
         XCTAssertFalse(m.mixed.contains(13)); XCTAssertFalse(m.isInMix(.element(13)))
     }
 
-    /// The HAADF tile toggles the backdrop; the ColorMix tile is not a picker; `active` is never written.
-    /// Mutations: HAADF toggling `mixed` instead - red; `pick(.colorMix)` toggling the backdrop - red; `pick` writing `active` - red.
+    /// The HAADF tile toggles the backdrop; the ColorMix tile is not a picker.
+    /// Mutations: HAADF toggling `mixed` instead - red; `pick(.colorMix)` toggling the backdrop - red.
     func testClickingTheHAADFTileTogglesTheBackdropOnly() {
         let m = model()
         XCTAssertTrue(m.mixHAADF)
@@ -34,9 +34,6 @@ final class SpectroscopySpec2BTests: XCTestCase {
         XCTAssertTrue(m.mixHAADF)
         m.pick(.colorMix)
         XCTAssertTrue(m.mixHAADF); XCTAssertTrue(m.mixed.isEmpty)
-        XCTAssertEqual(m.active, .colorMix)
-        m.pick(.element(12))
-        XCTAssertEqual(m.active, .colorMix, "a pick never moves the retired active map")
     }
 
     private func tile() -> MapTile { MapTile(z: 13, width: 3, height: 1, values: [1, 0, 0]) }

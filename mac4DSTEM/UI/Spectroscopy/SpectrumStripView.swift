@@ -274,7 +274,7 @@ struct SpectrumStripView: View {
 
         // line markers: lines first, names staggered into rows by `MarkerLabelLayout`
         // Suspects are not drawn (spec 2 D-3); a highlighted element's lines are thicker and their names bold (D-15).
-        let visible = SpectrumStripLogic.drawnMarkers(model.markers, lo: vp.lo, hi: vp.hi)
+        let visible = MarkerLabelLayout.inView(model.markers, lo: vp.lo, hi: vp.hi)
         let highlightedZ = model.highlightedZ
         for m in visible {
             let x = X(m.energy)
@@ -326,12 +326,11 @@ struct SpectrumStripView: View {
         drawHover(ctx, size, main)
     }
 
-    /// A proposal is secondary-coloured (muted), a suspect or the edge grey, a line its element's colour.
+    /// The edge is grey, a line its element's colour.
     private static func markerColor(_ m: LineMarker, model: SpectroscopyRoomModel) -> Color {
         switch m.kind {
         case .line: return model.color(m.elementZ ?? 0)
-        case .proposed: return .secondary
-        case .suspect, .edge: return .gray
+        case .edge: return .gray
         }
     }
 
@@ -364,10 +363,6 @@ struct SpectrumStripView: View {
 
 /// The strip's pure decisions (spec 2 item 7); the drawing only applies them.
 nonisolated enum SpectrumStripLogic {
-    /// The markers that get a line and a name: inside the window, and never a suspect (spec 2 D-3).
-    static func drawnMarkers(_ markers: [LineMarker], lo: Double, hi: Double) -> [LineMarker] {
-        MarkerLabelLayout.inView(markers, lo: lo, hi: hi).filter { $0.kind != .suspect }
-    }
     /// A marker of the highlighted element (hovered or clicked tile or periodic-table cell).
     static func isHighlighted(_ m: LineMarker, highlightedZ: Int?) -> Bool { highlightedZ != nil && m.elementZ == highlightedZ }
     static func lineWidth(_ m: LineMarker, highlightedZ: Int?) -> CGFloat { isHighlighted(m, highlightedZ: highlightedZ) ? 1.8 : 0.8 }

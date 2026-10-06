@@ -184,10 +184,9 @@ final class SpectroscopyRoomGeometryTests: XCTestCase {
     // MARK: spectrum range
 
     /// The strip opens on the listed lines: Mg Kα to Cu Kα gives about 0.85 to 8.7 keV, not the axis's 80.
-    /// Mutation: the markers' kinds not filtered (a suspect's energy widens it) or the padding dropped — red.
+    /// Mutation: the padding dropped — red.
     func testTheStripOpensOnTheListedLines() {
-        let m = [LineMarker(label: "Mg Kα", energy: 1.254, elementZ: 12), LineMarker(label: "Cu Kα", energy: 8.04, elementZ: 29),
-                 LineMarker(label: "Ar Kα?", energy: 40, elementZ: nil, kind: .suspect)]
+        let m = [LineMarker(label: "Mg Kα", energy: 1.254, elementZ: 12), LineMarker(label: "Cu Kα", energy: 8.04, elementZ: 29)]
         let r = SpectrumAutoZoom.range(markers: m, domain: 0...80, minimumSpan: 0.04)
         XCTAssertEqual(r.lowerBound, 0.854, accuracy: 1e-9); XCTAssertEqual(r.upperBound, 8.844, accuracy: 1e-9)
         XCTAssertEqual(SpectrumAutoZoom.range(markers: [], domain: 0...80, minimumSpan: 0.04), 0...20, "no lines: the first 20 keV")
@@ -196,24 +195,10 @@ final class SpectroscopyRoomGeometryTests: XCTestCase {
     }
 }
 
-// MARK: - The room: active map, colour and contrast
+// MARK: - The room: colour and contrast
 
 @MainActor
 final class SpectroscopyRoomMapsTests: XCTestCase {
-    /// Exactly one map is active, and ticking a tile (in the ColorMix) is a different thing: it never moves the outline.
-    /// Mutation: `toggleMix` setting `active` — red.
-    func testTheTickIsNotTheActiveMap() {
-        let m = SpectroscopyRoomModel.fixture
-        XCTAssertEqual(m.active, .colorMix)
-        m.active = .element(12)
-        let before = m.mixed
-        m.toggleMix(13); m.toggleMix(14)
-        XCTAssertNotEqual(m.mixed, before, "the ticks changed")
-        XCTAssertEqual(m.active, .element(12), "and the outline did not move")
-        m.active = .haadf
-        XCTAssertEqual(m.active, .haadf, "one value: setting it replaces the old one")
-    }
-
     private func tiles() -> [MapTile] {
         [MapTile(z: 12, width: 4, height: 1, values: [1, 0.5, 0.25, 0]), MapTile(z: 13, width: 4, height: 1, values: [0, 0.5, 1, 1])]
     }
@@ -276,15 +261,6 @@ final class SpectroscopyRoomMapsTests: XCTestCase {
         XCTAssertEqual(win[4], 0, "0.5 is the window's floor")
     }
 
-    /// The ColorMix leaves a proposed tile out, whatever its tick.
-    /// Mutation: the `!t.proposed` filter removed from the composite — red.
-    func testAProposedTileNeverEntersTheMix() throws {
-        var t = tiles()
-        t[1].proposed = true
-        let img = try bytes(ColorMixRaster.image(tiles: t, mixed: [12, 13], colors: [12: (1, 0, 0), 13: (0, 0, 1)], backdrop: [], width: 4, height: 1))
-        for px in 0..<4 { XCTAssertEqual(img[px * 4 + 2], 0, "no blue from the proposed Al") }
-    }
-
     /// The map modes: only int and net are maps; wt% and at% are region quantities (ADR 054 item 3).
     func testOnlyIntAndNetAreMapModes() {
         XCTAssertEqual(MapMode.allCases.filter(\.isAvailable), [.integrated, .netCounts])
@@ -339,9 +315,9 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
     private func open(autoID: Bool = false) -> (AppState, SpectroscopyRoomController, LoadedSpectrumImage) {
         let state = AppState()
         keep.append(state)
-        state.spectroscopyRoom.model.autoIDEnabled = autoID
         let image = Self.image()
         state.openSpectrumImage(image)
+        if !autoID { state.spectroscopyRoom.autoIDOnOpen?.cancel() }   // Auto ID on open always runs; a test about something else stops it
         return (state, state.spectroscopyRoom, image)
     }
 
@@ -441,15 +417,14 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         try await waitFor("no overlay") { m.series.overlay == nil }
     }
 
-    /// R10 (spec 2 D-3 changed it): Auto ID applies its picks, so the first spectrum carries the picked element's COLOURED marker
-    /// and no muted duplicate; a later pick elsewhere re-runs `apply` and keeps it.
-    /// Mutations: the picks not applied (the landing maps proposals only) - red; `proposedMarkers` kept for an applied pick - red.
+    /// R10 (spec 2 D-3 changed it): Auto ID applies its picks, so the first spectrum carries the picked element's COLOURED marker;
+    /// a later pick elsewhere re-runs `apply` and keeps it.
+    /// Mutation: the picks not applied - red.
     func testAnAppliedPickCarriesTheColouredMarkerNotAMutedOne() async throws {
         let Cu = 29
         let (_, on, _) = open(autoID: true)
         try await waitFor("Cu's row") { on.model.results.contains { $0.z == Cu } }
         XCTAssertTrue(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .line }, "Cu K\u{03B1} is a picked element's marker")
-        XCTAssertFalse(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .proposed }, "an applied pick is not also muted")
         on.model.elements.click(26); on.elementsChanged()   // a pick elsewhere re-runs `apply`: Cu keeps its marker
         try await waitFor("Fe's row") { on.model.results.contains { $0.z == 26 } }
         XCTAssertTrue(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .line })
@@ -470,9 +445,8 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         let (_, on, _) = open(autoID: true)
         try await waitFor("Auto ID's outcome") { on.model.autoID.outcome != nil || on.model.autoID.failure != nil }
         XCTAssertNil(on.model.autoID.failure)
-        try await waitFor("Cu's row and tile") { on.model.results.contains { $0.z == Cu } && on.model.tiles.contains { $0.z == Cu && !$0.proposed } }
+        try await waitFor("Cu's row and tile") { on.model.results.contains { $0.z == Cu } && on.model.tiles.contains { $0.z == Cu } }
         XCTAssertTrue(on.model.elements.suggestions.isEmpty, "applied, not left to accept")
-        XCTAssertFalse(on.model.tiles.contains { $0.proposed }, "no proposed tile")
         XCTAssertTrue(on.model.mixed.contains(Cu))
         // The picks are listed elements like any other (a neighbour's window can legitimately move a net count), so the invariant
         // is: the same elements picked by hand give exactly the same rows.
@@ -491,9 +465,9 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
     }
 
     /// R4c (Gate B 2026-10-06 section 4), as spec 2 D-3 changed it: a landing that APPLIES a pick changes the listed elements, so
-    /// the live fit follows (a refresh: Cu joins the table and the fit's check restarts); a landing with nothing to apply maps
-    /// the proposals only and leaves `generation` and the in-flight unlisted-line check alone.
-    /// Mutation: the applied landing calling `proposalsChanged()` and not `elementsChanged()` (Cu never reaches the fit) - red.
+    /// the live fit follows (a refresh: Cu joins the table and the fit's check restarts); a landing with nothing to apply leaves
+    /// `generation` and the in-flight unlisted-line check alone.
+    /// Mutation: the applied landing not calling `elementsChanged()` (Cu never reaches the fit) - red.
     func testALandingAutoIDRefitsOnlyWhenItAppliedAPick() async throws {
         let (_, c, _) = open(autoID: false)
         c.model.elements.click(13); c.elementsChanged()
@@ -525,22 +499,12 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         XCTAssertTrue(settled, "Auto ID settles: a run with nothing new to apply")
     }
 
-    /// Auto ID off: nothing runs on open.
-    /// Mutation: `autoIDOnOpen` ignoring the switch (`true ? Task {…} : nil`) — red.
-    func testAutoIDOffRunsNothingOnOpen() async throws {
-        let (_, off, _) = open(autoID: false)
-        try await waitFor("the first sums") { self.total(off.model) > 0 }
-        try await Task.sleep(nanoseconds: 300_000_000)
-        XCTAssertFalse(off.model.autoID.running); XCTAssertNil(off.model.autoID.outcome); XCTAssertNil(off.model.autoID.failure)
-    }
-
     /// A click made while a run is going does not lose the run: the refresh the click causes cancels it and it starts again
-    /// when that refresh lands (the switch is on). Started by hand here so the open's own run cannot make this vacuous.
-    /// Mutation: `autoIDRestart = model.autoIDEnabled` made `= false` in `refresh` — red (no outcome ever lands).
+    /// when that refresh lands. Started by hand here so the open's own run cannot make this vacuous.
+    /// Mutation: `autoIDRestart = true` made `= false` in `refresh` — red (no outcome ever lands).
     func testAClickDuringARunRestartsIt() async throws {
         let (_, c, _) = open(autoID: false)
         try await waitFor("the first sums") { self.total(c.model) > 0 }
-        c.model.autoIDEnabled = true
         c.runAutoID()
         XCTAssertTrue(c.model.autoID.running, "precondition: the run started")
         c.model.elements.click(13); c.elementsChanged()      // the refresh cancels the run
@@ -548,18 +512,18 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         XCTAssertFalse(c.model.autoID.running)
     }
 
-    /// Opening a spectrum image resets the per-image view state: colours, contrast, pins, the active map, the live region.
+    /// Opening a spectrum image resets the per-image view state: colours, contrast, pins, the live region.
     /// Mutation: `bind` not clearing `elementColors` — red.
     func testBindingAnImageStartsTheViewStateOver() async throws {
         let (state, c, _) = open()
         c.model.elementColors[13] = .purple; c.model.mapDisplays[.haadf] = MapDisplay(lo: 0.3, hi: 1, gamma: 2)
-        c.model.active = .element(13); c.model.haadfColormap = .viridis
+        c.model.haadfColormap = .viridis
         c.editRegion(.rectangle(PixelRect(x0: 0, y0: 0, x1: 2, y1: 2)), final: true)
         c.pinRegion()
         state.openSpectrumImage(Self.image())
         let m = c.model
         XCTAssertTrue(m.elementColors.isEmpty); XCTAssertTrue(m.mapDisplays.isEmpty); XCTAssertTrue(m.pins.isEmpty)
-        XCTAssertEqual(m.active, .colorMix); XCTAssertEqual(m.haadfColormap, .gray); XCTAssertNil(c.liveRegionID); XCTAssertNil(m.regionOutline)
+        XCTAssertEqual(m.haadfColormap, .gray); XCTAssertNil(c.liveRegionID); XCTAssertNil(m.regionOutline)
     }
 
     /// The comparison line: a region's quantification shows the same method on the whole map; the whole map shows none.
@@ -593,8 +557,7 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
             let m = SpectroscopyRoomModel.fixture
             m.gridWidth = w; m.gridHeight = h
             m.backdrop = [Float](repeating: 0.5, count: w * h)
-            m.tiles = [13, 12, 14, 29].map { z in MapTile(z: z, width: w, height: h, values: [Float](repeating: 0.5, count: w * h)) }
-                + [MapTile(z: 8, width: w, height: h, values: [Float](repeating: 0.1, count: w * h), proposed: true)]
+            m.tiles = [13, 12, 14, 29, 8].map { z in MapTile(z: z, width: w, height: h, values: [Float](repeating: 0.5, count: w * h)) }
             m.mixed = [13, 12, 14]
             m.regionOutline = .rectangle(PixelRect(x0: 1, y0: 1, x1: max(2, w / 3), y1: max(2, h / 3)))
             for width: CGFloat in [1100, 600] {
@@ -666,8 +629,8 @@ final class SpectroscopyLiveRegionCostTests: XCTestCase {
         meta.beamEnergyKeV = 200
         let image = LoadedSpectrumImage(image: big, metadata: meta, energyAxis: EnergyAxis(offset: 0, scale: 0.02, size: big.channels))
         let state = AppState()
-        state.spectroscopyRoom.model.autoIDEnabled = false
         state.openSpectrumImage(image)
+        state.spectroscopyRoom.autoIDOnOpen?.cancel()   // these tests drive Auto ID by hand, or not at all
         let c = state.spectroscopyRoom, m = c.model
         let end = Date().addingTimeInterval(60)
         while m.series.data.reduce(0, +) == 0, Date() < end { try await Task.sleep(nanoseconds: 50_000_000) }

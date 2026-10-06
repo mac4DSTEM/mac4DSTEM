@@ -130,21 +130,10 @@ final class SpectroscopyViewModelTests: XCTestCase {
         XCTAssertEqual(ResidualNormalisation.normalised(data: [40], model: [16])[0], 6, accuracy: 1e-12)
     }
 
-    // Mutation: Lu back among the transition metals, a band row one cell too long, or an element placed twice or never.
-    func testPeriodicBandsPlaceEveryElementOnceAndFitTheirColumns() {
+    // Mutation: a symbol dropped or inserted (the table is a list of 118).
+    func testPeriodicSymbols() {
         XCTAssertEqual(PeriodicLayout.symbols.count, 118)
         XCTAssertEqual(PeriodicLayout.symbol(14), "Si"); XCTAssertEqual(PeriodicLayout.z(of: "Cu"), 29)
-        for row in PeriodicLayout.mainGroup { XCTAssertEqual(row.count, PeriodicLayout.mainGroupColumns) }
-        for row in PeriodicLayout.transition { XCTAssertEqual(row.count, PeriodicLayout.transitionColumns) }
-        let placed = (PeriodicLayout.mainGroup + PeriodicLayout.transition).flatMap { $0 }.compactMap { $0 } + PeriodicLayout.folded
-        XCTAssertEqual(placed.sorted(), Array(1...118), "every element once")
-        XCTAssertEqual(PeriodicLayout.mainGroup[0], [1, nil, nil, nil, nil, nil, nil, 2])
-        XCTAssertEqual(PeriodicLayout.transition[2].first!, nil, "the lanthanide place under Sc and Y is empty; Hf sits under Ti")
-        XCTAssertEqual(PeriodicLayout.transition[2][1], 72)
-        XCTAssertTrue(PeriodicLayout.folded.contains(71) && PeriodicLayout.folded.contains(57) && !PeriodicLayout.transition.flatMap { $0 }.contains(71))
-        // Cu, the 8 keV line the mock shows, is in the transition band; Si and Al are in the main group.
-        XCTAssertTrue(PeriodicLayout.transition.flatMap { $0 }.contains(29))
-        XCTAssertTrue(PeriodicLayout.mainGroup.flatMap { $0 }.contains(14))
     }
 
     // Mutation: the fixture's unvalidated flag is dropped.

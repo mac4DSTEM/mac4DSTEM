@@ -166,7 +166,7 @@ final class SpectroscopyRoomController {
         m.elements = ElementSelection()
         lastElements = m.elements
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
-        m.active = .colorMix; m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
+        m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
         m.mapMode = .netCounts; m.pins = []; m.compare = .wholeMap; m.viewportIsManual = false
         liveRegionID = nil; livePending = false
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
@@ -203,16 +203,17 @@ final class SpectroscopyRoomController {
         m.onUnpin = { [weak self] id in self?.unpin(id) }
         syncRegionsFromSession()
         let first = refresh()
-        // ADR 056 item 6: Auto ID runs on open, after the first sums have landed; its proposals are mapped, marked proposed
-        // and left unquantified. It needs the beam energy, so a file without one says so (the Auto ID row).
+        // ADR 057 item 4: Auto ID runs on open, after the first sums have landed, and applies its picks. It needs the beam
+        // energy, so a file without one says so (the Auto ID row).
         autoIDOnOpen?.cancel()
-        autoIDOnOpen = m.autoIDEnabled ? Task { [weak self] in
+        autoIDOnOpen = Task { [weak self] in
             await first?.value
             guard !Task.isCancelled else { return }
             self?.runAutoID()
-        } : nil
+        }
     }
-    @ObservationIgnored private var autoIDOnOpen: Task<Void, Never>?
+    /// Internal read so a test about something else can cancel the open's run before it starts.
+    @ObservationIgnored private(set) var autoIDOnOpen: Task<Void, Never>?
     @ObservationIgnored private var autoIDRestart = false
 
     func unbind() {
@@ -220,7 +221,6 @@ final class SpectroscopyRoomController {
         autoIDOnOpen?.cancel(); autoIDOnOpen = nil
         cancelAutoID()
         checkTask?.cancel(); checkTask = nil
-        proposalTask?.cancel(); proposalToken += 1
         source = nil
         session = nil
         model.isLive = false
@@ -253,7 +253,7 @@ final class SpectroscopyRoomController {
 
     /// Auto ID: the element proposer on the selected region's spectrum with the listed elements as the current set. 0.4 to
     /// 20 s depending on the channel count, so it runs detached and lands only if it was not cancelled, superseded or
-    /// overtaken by an edit (`refresh` cancels it). Suggestions and suspect markers; nothing is applied (ADR 054 §6).
+    /// overtaken by an edit (`refresh` cancels it). Its picks are applied at once (ADR 057 item 4).
     func runAutoID() {
         guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }),
               !model.autoID.running, !quantifying else { return }
@@ -292,10 +292,10 @@ final class SpectroscopyRoomController {
                 if self.autoIDOperation === run { self.autoIDOperation = nil }
                 self.endOperation(run)   // this run's own operation, never a newer run's
                 if let outcome {
-                    // D-3: the suggestions are applied (picked, mapped at once); with none to apply, R4c's proposals' maps only
-                    // (`proposalsChanged`): no listed pick moved, so the fit and its in-flight unlisted-line check are left alone.
+                    // D-3: the suggestions are applied (picked, mapped at once); with none to apply no listed pick moved, so the
+                    // fit and its in-flight unlisted-line check are left alone (the view's change callback must not refresh for the suggestions).
                     if self.model.finishAutoID(token: token, outcome: outcome) {
-                        if self.applyAutoIDPicks() { self.model.markListedAfterPicks(); self.elementsChanged() } else { self.proposalsChanged() }
+                        if self.applyAutoIDPicks() { self.model.markListedAfterPicks(); self.elementsChanged() } else { self.lastElements = self.model.elements }
                     }
                 } else { self.model.failAutoID(token: token, message: failure ?? "Auto ID failed.") }
             }
@@ -314,52 +314,6 @@ final class SpectroscopyRoomController {
             applied = true
         }
         return applied
-    }
-
-    @ObservationIgnored private var proposalToken = 0
-    @ObservationIgnored private(set) var proposalTask: Task<Void, Never>?
-
-    /// Auto ID has landed: the proposals' dimmed tiles are (re)computed under their own token. No `generation` bump and no
-    /// `checkTask` reset (the listed picks did not change, so the fit and its unlisted-line check are still the right ones);
-    /// a `refresh` supersedes it by bumping the token, its own output carrying the proposals.
-    func proposalsChanged() {
-        guard let source else { return }
-        lastElements = model.elements   // the suggestions are part of the selection; the view's change callback must not refresh for them
-        proposalToken += 1
-        let token = proposalToken
-        let listed = Set(model.elements.activeZ)
-        let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
-            (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
-        }
-        let proposed: [(symbol: String, family: XRayFamily?)] = model.elements.suggestions.filter { !listed.contains($0.z) }
-            .prefix(ProposedTileCap.maximum)   // UX #1: a display count; the suggestions arrive strongest first
-            .map { (PeriodicLayout.symbol($0.z), nil) }
-        let integrated = model.mapMode == .integrated, beam = source.metadata.beamEnergyKeV
-        let cache = cache
-        proposalTask?.cancel()
-        proposalTask = Task.detached(priority: .userInitiated) {
-            let (windows, maps) = Self.proposalMaps(source: source, picks: picks, proposed: proposed, integrated: integrated, beam: beam, cache: cache)
-            await MainActor.run { [weak self] in self?.landProposals(windows, maps, token: token) }
-        }
-    }
-
-    private func landProposals(_ windows: [LineWindow], _ maps: [[Double]?], token: Int) {
-        guard token == proposalToken, let source else { return }
-        let m = model
-        var tiles = m.tiles.filter { !$0.proposed }
-        for (i, w) in windows.enumerated() {
-            guard let z = PeriodicLayout.z(of: w.element), let map = maps[i] else { continue }
-            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), scale: Self.scale(of: map), proposed: true))
-        }
-        m.tiles = tiles
-        m.tileRevision += 1
-        if case .element(let z) = m.active, !tiles.contains(where: { $0.z == z }) { m.active = .colorMix }
-        // R10: the proposals' muted markers land with their tiles (this path does not run `apply`).
-        m.markers = m.markers.filter { $0.kind != .proposed } + Self.proposedMarkers(for: windows, axis: source.energyAxis, beam: source.metadata.beamEnergyKeV)
-        if !m.viewportIsManual {
-            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series), fitEnd: fitEnd(for: source))
-            m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
-        }
     }
 
     /// The fit range's end for the opening view's ceiling: the Quantify default (min(axis end, beam, 20 keV)) or the typed one.
@@ -665,8 +619,6 @@ final class SpectroscopyRoomController {
         let region: Int
         let mask: PixelMask?
         let picks: [(symbol: String, family: XRayFamily?)]
-        /// Auto ID's proposals that are not listed: their maps only (never a row, never a marker).
-        let proposed: [(symbol: String, family: XRayFamily?)]
         let integrated: Bool
         let beam: Double?
         let firstPass: Bool
@@ -689,9 +641,6 @@ final class SpectroscopyRoomController {
         let windows: [LineWindow]
         let counts: [LineNetCount?]
         let maps: [[Double]?]
-        /// The proposals' windows and maps, in `Request.proposed` order.
-        let proposedWindows: [LineWindow]
-        let proposedMaps: [[Double]?]
         let pixelTotals: [UInt64]?
         let fit: PooledQuantification?
         let fitInput: PooledQuantificationInput?
@@ -707,26 +656,21 @@ final class SpectroscopyRoomController {
         guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }) else { return nil }
         if model.autoID.running {   // the elements or the region changed under it: its answer is about the old ones
             cancelAutoID()
-            autoIDRestart = model.autoIDEnabled   // the open's run is not lost to a click made while it ran: it starts again below
+            autoIDRestart = true   // the open's run is not lost to a click made while it ran: it starts again below
         }
         checkTask?.cancel(); checkTask = nil         // about the previous fit; the next fit starts its own
         generation += 1
-        proposalToken += 1                           // this refresh's output carries the proposals
         let gen = generation
         let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
             (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
         }
-        let listed = Set(model.elements.activeZ)
-        let proposed: [(symbol: String, family: XRayFamily?)] = model.elements.suggestions.filter { !listed.contains($0.z) }
-            .prefix(ProposedTileCap.maximum)   // UX #1: a display count; the suggestions arrive strongest first
-            .map { (PeriodicLayout.symbol($0.z), nil) }
         var quantify: QuantifyRequest?
         if quantifyActive {
             quantify = QuantifyRequest(method: session.method, metadata: source.metadata, regionName: region.name, pixelCount: region.pixelCount)
             model.isFitting = true
         }
         let request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
-                              proposed: proposed, integrated: model.mapMode == .integrated,
+                              integrated: model.mapMode == .integrated,
                               beam: source.metadata.beamEnergyKeV, firstPass: cache.totals() == nil, quantify: quantify)
         let cache = cache
         let task = Task.detached(priority: .userInitiated) {
@@ -748,15 +692,6 @@ final class SpectroscopyRoomController {
             for (w, m) in zip(missing, fresh) { if let w = w.window, let m { cache.setMap(m, SpectrumComputeCache.key(w, integrated: integrated)) } }
         }
         return ws.map { w in w.window.flatMap { cache.map(SpectrumComputeCache.key($0, integrated: integrated)) } }
-    }
-
-    /// The proposals' windows and maps, in `proposed` order (windowed together with the listed picks, for their maps only).
-    private nonisolated static func proposalMaps(source: any SpectrumImageSource, picks: [(symbol: String, family: XRayFamily?)],
-                                                 proposed: [(symbol: String, family: XRayFamily?)], integrated: Bool, beam: Double?,
-                                                 cache: SpectrumComputeCache) -> ([LineWindow], [[Double]?]) {
-        let all = ElementWindows.build(elements: picks + proposed, axis: source.energyAxis, beamEnergyKeV: beam)
-        let ws = Array(all.suffix(proposed.count))
-        return (ws, mapsFor(ws, source: source, integrated: integrated, cache: cache))
     }
 
     private nonisolated static func compute(_ r: Request, cache: SpectrumComputeCache) -> Output {
@@ -782,13 +717,6 @@ final class SpectroscopyRoomController {
         let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
         func mapsFor(_ ws: [LineWindow]) -> [[Double]?] { Self.mapsFor(ws, source: r.source, integrated: r.integrated, cache: cache) }
         let maps = mapsFor(windows)
-        // The proposals are windowed together with the listed elements (neighbouring lines merge their background windows,
-        // eXSpy's rule) but ONLY for their own maps: the listed elements' windows, rows and net counts above are built
-        // without them, so a proposal never moves a listed number.
-        var proposedWindows: [LineWindow] = [], proposedMaps: [[Double]?] = []
-        if !r.proposed.isEmpty {
-            (proposedWindows, proposedMaps) = Self.proposalMaps(source: r.source, picks: r.picks, proposed: r.proposed, integrated: r.integrated, beam: r.beam, cache: cache)
-        }
         var fit: PooledQuantification?
         var fitInput: PooledQuantificationInput?
         var failure: String?
@@ -820,7 +748,7 @@ final class SpectroscopyRoomController {
             } catch { failure = (error as? LocalizedError)?.errorDescription ?? "\(error)" }
         }
         return Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
-                      proposedWindows: proposedWindows, proposedMaps: proposedMaps, pixelTotals: totals,
+                      pixelTotals: totals,
                       fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)
     }
 
@@ -853,8 +781,6 @@ final class SpectroscopyRoomController {
         // Markers: the chosen family's lines of every active element.
         m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV,
                                  quantified: Set(m.elements.quantified.map { PeriodicLayout.symbol($0) }))
-            + Self.proposedMarkers(for: out.proposedWindows, axis: axis, beam: source.metadata.beamEnergyKeV)
-            + (m.autoID.outcome?.suspectMarkers ?? [])
 
         // Rows, tiles: the quantified elements only (fit-only ones shape the windows, not the table).
         var rows: [ResultRow] = [], tiles: [MapTile] = []
@@ -881,19 +807,12 @@ final class SpectroscopyRoomController {
         }
         m.results = rows
         applyFit(out, source: source)
-        // Auto ID's proposals: a dimmed tile each (the evidence), never ticked into the ColorMix, never a row.
-        for (i, w) in out.proposedWindows.enumerated() {
-            guard let z = PeriodicLayout.z(of: w.element), let map = out.proposedMaps[i] else { continue }
-            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), scale: Self.scale(of: map), proposed: true))
-        }
         m.tiles = tiles
         m.tileRevision += 1
         // A tile that is gone loses its tick and its "seen" mark, so it is ticked again when it comes back.
-        let present = Set(tiles.filter { !$0.proposed }.map(\.z))
+        let present = Set(tiles.map(\.z))
         seenTiles.formIntersection(present)
         m.mixed.formIntersection(present)
-        // The active map is one that exists: a tile that went away hands the outline back to the ColorMix.
-        if case .element(let z) = m.active, !tiles.contains(where: { $0.z == z }) { m.active = .colorMix }
         if !m.viewportIsManual {
             let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series), fitEnd: fitEnd(for: source))
             m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
@@ -951,7 +870,7 @@ final class SpectroscopyRoomController {
         m.fitFooter = QuantifyPresentation.plotFooter(fit)
         let regionName = session?.regions.first { $0.id == region }?.name ?? "Whole map"
         m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName), methodJSON: SpectroscopyExport.methodJSON(fit.method),
-                                  elements: SpectroscopyExport.elementsLine(fit), methodHash: SpectroscopyExport.shortHash(fit.method),
+                                  elements: SpectroscopyExport.elementsLine(fit),
                                   fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))
         updateSpectrumCSV(regionName: regionName)
         m.quantify.quality = fit.qualityText
@@ -999,19 +918,6 @@ final class SpectroscopyRoomController {
                                       fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy),
                                       priority: (l.id == w.id ? 2 : 0) + (quantified.contains(w.element) ? 1 : 0)))
             }
-        }
-        return out
-    }
-
-    /// Auto ID's proposals on the first spectrum (R10): each proposed element's own line, muted and dashed, named like a picked
-    /// one ("Al Kα", no "?": that is a suspect's). Accepting turns it into a coloured marker through `markers`.
-    static func proposedMarkers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?) -> [LineMarker] {
-        var out: [LineMarker] = []
-        for w in windows {
-            guard let l = XRayLines.line(w.id), let z = PeriodicLayout.z(of: w.element),
-                  XRayLines.linesInRange([l.id], axis: axis, beamEnergy: beam).isEmpty == false else { continue }
-            out.append(LineMarker(label: ElementWindows.label(ofLineID: l.id), energy: l.energy, elementZ: z, kind: .proposed,
-                                  fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy)))
         }
         return out
     }

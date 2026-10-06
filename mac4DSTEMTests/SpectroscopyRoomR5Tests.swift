@@ -67,16 +67,7 @@ final class SpectroscopyRoomPlanTests: XCTestCase {
     }
 }
 
-final class ColorMixCaptionTests: XCTestCase {
-    /// There is no cap: four ticked elements are four names; an unticked one is named, not silently dropped.
-    /// Mutation: `prefix(3)` on the names (a cap) or the `notMixed` clause dropped - red.
-    func testCaptionNamesEveryTickedElementAndTheUntickedOnes() {
-        XCTAssertEqual(ColorMixCaption.text(mixed: ["O", "Mg", "Al", "Si"], notMixed: []), "O · Mg · Al · Si")
-        XCTAssertEqual(ColorMixCaption.text(mixed: ["O", "Al", "Si"], notMixed: ["Mg"]), "O · Al · Si (Mg not ticked)")
-        XCTAssertEqual(ColorMixCaption.text(mixed: [], notMixed: ["Mg"]), "Mg not ticked")
-        XCTAssertEqual(ColorMixCaption.text(mixed: [], notMixed: []), "")
-    }
-
+final class ColorMixCompositeTests: XCTestCase {
     /// The composite adds every ticked element, each in its own colour (four here), and clamps; a fourth element is not ignored.
     /// Mutation: the composite loop stopping after three tiles - red.
     func testFourTickedElementsAreAllMixed() {

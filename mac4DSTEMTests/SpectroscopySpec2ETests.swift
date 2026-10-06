@@ -20,8 +20,8 @@ final class SpectroscopySpec2ETests: XCTestCase {
     private func open(autoID: Bool = false) -> (AppState, SpectroscopyRoomController) {
         let state = AppState()
         keep.append(state)
-        state.spectroscopyRoom.model.autoIDEnabled = autoID
         state.openSpectrumImage(SpectroscopyRoomLiveRegionTests.image())
+        if !autoID { state.spectroscopyRoom.autoIDOnOpen?.cancel() }   // Auto ID on open always runs; a test about something else stops it
         return (state, state.spectroscopyRoom)
     }
 
@@ -76,16 +76,15 @@ final class SpectroscopySpec2ETests: XCTestCase {
         XCTAssertEqual(m.elements.role(31), .fitOnly); XCTAssertEqual(m.elements.role(Cu), .quantify)
     }
 
-    /// The whole run on a real spectrum: the planted Cu line is picked at once, its row and tile exist, nothing is left proposed.
-    /// Mutation: the landing calls `proposalsChanged()` and never `applyAutoIDPicks()` - red.
+    /// The whole run on a real spectrum: the planted Cu line is picked at once, its row and tile exist, nothing is left suggested.
+    /// Mutation: the landing never calls `applyAutoIDPicks()` - red.
     func testARunPicksWhatItFoundAndMapsItAtOnce() async throws {
         let (_, c) = open(autoID: true)
         try await waitFor("Auto ID's outcome") { c.model.autoID.outcome != nil || c.model.autoID.failure != nil }
         XCTAssertNil(c.model.autoID.failure)
         XCTAssertTrue(c.model.elements.quantified.contains(Cu), "the planted Cu line is picked")
         XCTAssertTrue(c.model.elements.suggestions.isEmpty)
-        try await waitFor("Cu's tile and row") { c.model.tiles.contains { $0.z == self.Cu && !$0.proposed } && c.model.results.contains { $0.z == self.Cu } }
-        XCTAssertFalse(c.model.tiles.contains { $0.proposed }, "no proposed tile is left")
+        try await waitFor("Cu's tile and row") { c.model.tiles.contains { $0.z == self.Cu } && c.model.results.contains { $0.z == self.Cu } }
         XCTAssertTrue(c.model.mixed.contains(Cu), "a picked element goes into the mix")
     }
 
@@ -99,6 +98,7 @@ final class SpectroscopySpec2ETests: XCTestCase {
         XCTAssertNil(c.model.autoID.failure)
         XCTAssertEqual(c.model.elements.role(Cu), .off)
         XCTAssertFalse(c.model.elements.suggestions.contains { $0.z == Cu })
+        XCTAssertFalse(c.model.tiles.contains { $0.z == Cu }, "a person's Off gets no tile")
         c.runAutoID()
         XCTAssertTrue(c.model.autoID.running)
         try await waitFor("the second run") { !c.model.autoID.running }
@@ -141,8 +141,8 @@ final class SpectroscopySpec2ETests: XCTestCase {
     /// Mutation: the finish moved after the failure `return` (no `defer`) - red.
     func testAFailedQuantifyStillFinishesItsOperation() async {
         let state = AppState(); keep.append(state)
-        state.spectroscopyRoom.model.autoIDEnabled = false
         state.openSpectrumImage(SpectroscopyRoomTests.StubSpectrumImage())
+        state.spectroscopyRoom.autoIDOnOpen?.cancel()   // these tests drive Auto ID by hand, or not at all
         let c = state.spectroscopyRoom
         c.model.elements.set(Al, .quantify); c.elementsChanged()
         let r = record(c)
@@ -201,8 +201,8 @@ final class SpectroscopySpec2ETests: XCTestCase {
     /// Without the beam energy the run fails at once and never begins an operation (nothing to show or stop).
     func testAnInstantFailureBeginsNoOperation() {
         let state = AppState(); keep.append(state)
-        state.spectroscopyRoom.model.autoIDEnabled = false
         state.openSpectrumImage(SpectroscopyRoomTests.StubSpectrumImage())
+        state.spectroscopyRoom.autoIDOnOpen?.cancel()   // these tests drive Auto ID by hand, or not at all
         let c = state.spectroscopyRoom
         let r = record(c)
         c.runAutoID()
@@ -214,8 +214,8 @@ final class SpectroscopySpec2ETests: XCTestCase {
     /// Mutation: `wireSpectroscopyOperations` not called in `attachSpectrumImage` - red.
     func testTheWindowWiresTheHooksToItsOperationCenter() throws {
         let state = AppState(); keep.append(state)
-        state.spectroscopyRoom.model.autoIDEnabled = false
         state.openSpectrumImage(SpectroscopyRoomLiveRegionTests.image())
+        state.spectroscopyRoom.autoIDOnOpen?.cancel()   // these tests drive Auto ID by hand, or not at all
         let c = state.spectroscopyRoom
         let before = state.statusText
         let token = try XCTUnwrap(c.operation)("Quantify", "Fitting the spectrum…")

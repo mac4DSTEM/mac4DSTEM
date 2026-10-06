@@ -22,10 +22,8 @@ final class SpectroscopyRoomModel {
     var elements = ElementSelection()
     var mapMode: MapMode = .netCounts
     var smoothing = "None"
-    var mixed: Set<Int> = []                   // tiles whose checkbox is on: included in the ColorMix (not "active")
+    var mixed: Set<Int> = []                   // tiles picked into the ColorMix
     var tiles: [MapTile] = []
-    /// The one map the person is working on, drawn with the accent outline; separate from the tick (ADR 056 addendum).
-    var active: ActiveMap = .colorMix
     /// Colour per element the person chose in the active map's popover; absent: `ElementPalette`. View state: the element
     /// states the replay record keeps (`QuantificationMethod.ElementState`) hold no colour and a colour is not a method
     /// setting, so it lives (and is lost with the window) here, reset when a spectrum image is bound.
@@ -48,8 +46,6 @@ final class SpectroscopyRoomModel {
 
     // Auto ID (the Elements & maps step's proposer run; the compute is the controller's)
     private(set) var autoID = AutoIDState()
-    /// Auto ID runs when a spectrum image opens (ADR 056 item 6); off, nothing is proposed until it is switched on.
-    var autoIDEnabled = true
     var onAutoID: (() -> Void)?
     var onCancelAutoID: (() -> Void)?
 
@@ -147,8 +143,8 @@ final class SpectroscopyRoomModel {
         return autoID.token
     }
 
-    /// The run's result: suggestions by `rerunAutoID` (a person's picks are never touched, nothing is applied silently),
-    /// sum-peak questions as suspect markers. False, and nothing changes, when the run was cancelled or superseded.
+    /// The run's result: suggestions by `rerunAutoID` (a person's picks are never touched; the controller applies them), the
+    /// sum-peak questions stay in the outcome. False, and nothing changes, when the run was cancelled or superseded.
     @discardableResult
     func finishAutoID(token: Int, outcome: AutoIDOutcome) -> Bool {
         guard token == autoID.token, autoID.running else { return false }
@@ -156,7 +152,6 @@ final class SpectroscopyRoomModel {
         autoID.outcome = outcome
         autoID.listedAtRun = elements.activeZ   // R8: the excesses were judged against this list (see `autoIDExcesses`)
         elements.rerunAutoID(accepted: [:], suggestions: outcome.suggestions)
-        markers = markers.filter { $0.kind != .suspect } + outcome.suspectMarkers
         return true
     }
 
@@ -188,7 +183,6 @@ final class SpectroscopyRoomModel {
         let t = autoID.token + 1
         autoID = AutoIDState()
         autoID.token = t
-        markers = markers.filter { $0.kind != .suspect }
     }
 
     func toggleMix(_ z: Int) { if mixed.contains(z) { mixed.remove(z) } else { mixed.insert(z) } }
@@ -207,13 +201,6 @@ final class SpectroscopyRoomModel {
     }
     @ObservationIgnored private var defaultDisplays: [ActiveMap: (revision: Int, count: Int, display: MapDisplay)] = [:]
 
-    /// Proposed elements take the role the proposer suggested, one click for all (the inspector's Accept).
-    /// Only the proposals that have a tile (`ProposedTileCap`, strongest first) are accepted; the rest stay proposed.
-    var shownProposals: [ElementSuggestion] {
-        let listed = Set(elements.activeZ)
-        return ProposedTileCap.apply(elements.suggestions.filter { !listed.contains($0.z) })
-    }
-    func acceptProposed() { for s in shownProposals { elements.click(s.z) } }
 }
 
 /// A text file the save panel is about to write (the results CSV or the method JSON).
@@ -239,12 +226,10 @@ struct MapTile: Identifiable {
     var notMeasuredWhy: String? = nil
     /// Counts at value 1 (the tile's own maximum; 1 when unknown): the histogram's real values (spec 2 D-13).
     var scale: Float = 1
-    /// An Auto ID proposal not yet accepted: mapped so the evidence is visible, dimmed, never in the ColorMix, never quantified.
-    var proposed = false
     var id: Int { z }
 }
 
-/// Which map is active: the one tile with the accent outline, whose colour, contrast and gamma the popover edits.
+/// Which map a display setting belongs to: a tile's chip popover edits its colour, contrast and gamma.
 enum ActiveMap: Hashable, Sendable {
     case haadf, colorMix
     case element(Int)
@@ -326,7 +311,6 @@ struct ExportSettings {
     var csv: String?
     var methodJSON: String?
     var elements: String?
-    var methodHash: String?
     /// The shown spectrum as CSV (energy, counts, and the model and background where fitted): available whenever a spectrum is shown.
     var spectrumCSV: String?
     var fileStem = "spectroscopy"
@@ -365,7 +349,6 @@ extension SpectroscopyRoomModel {
             suggestions: [ElementSuggestion(z: 31, reason: "Ga: from FIB?"), ElementSuggestion(z: 18, reason: "Ar: Al sum or Ar?")])
         m.markers = [
             LineMarker(label: "Cu Lα", energy: 0.93, elementZ: 29),
-            LineMarker(label: "Ga Lα?", energy: 1.10, elementZ: 31, kind: .suspect),
             LineMarker(label: "Mg Kα", energy: 1.254, elementZ: 12),
             LineMarker(label: "Al Kα", energy: 1.487, elementZ: 13),
             LineMarker(label: "Al K edge", energy: 1.5596, elementZ: 13, kind: .edge),

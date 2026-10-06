@@ -13,7 +13,7 @@ enum ColorMixComposite {
     /// `colors` is resolved once per draw by the caller (one entry per ticked tile).
     static func rgb(at index: Int, tiles: [MapTile], mixed: Set<Int>, colors: [Int: RGB], displays: [Int: MapDisplay] = [:]) -> RGB {
         var r = 0.0, g = 0.0, b = 0.0
-        for t in tiles where mixed.contains(t.z) && !t.proposed && index < t.values.count {
+        for t in tiles where mixed.contains(t.z) && index < t.values.count {
             guard let c = colors[t.z] else { continue }
             let raw = t.values[index]
             let v = Double(displays[t.z].map { $0.apply(raw) } ?? raw)
@@ -126,7 +126,7 @@ enum ColorMixRaster {
     static func image(tiles: [MapTile], mixed: Set<Int>, colors: [Int: ColorMixComposite.RGB],
                       backdrop: [Float], width: Int, height: Int, displays: [Int: MapDisplay] = [:]) -> CGImage? {
         guard width > 0, height > 0 else { return nil }
-        let ticked = tiles.contains { mixed.contains($0.z) && !$0.proposed }
+        let ticked = tiles.contains { mixed.contains($0.z) }
         let hasBackdrop = backdrop.count == width * height
         guard ticked || hasBackdrop else { return nil }
         return MapBitmap.image(width: width, height: height) { i in

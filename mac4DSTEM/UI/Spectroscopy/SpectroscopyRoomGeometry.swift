@@ -11,7 +11,7 @@ import DSTEMCore
 // MARK: - The maps grid
 
 /// R6: the ColorMix is ALWAYS the dominant map (the mock's wide-b): at the leading side, at the data's own aspect and as tall
-/// as the maps block allows; HAADF and the element / proposed tiles sit in a grid beside it, each at the data's aspect (the
+/// as the maps block allows; HAADF and the element tiles sit in a grid beside it, each at the data's aspect (the
 /// owner's Velox strip is 215 x 926 px, the GMS demo 64 x 48). Tiles may be small (Velox's are); when they still do not fit
 /// the block at the floor, the TILE grid scrolls inside its own area (vertically) and the ColorMix stays put. Only in a
 /// genuinely narrow block - no tile column fits beside a ColorMix of at least half the width - the ColorMix goes on top and
@@ -53,7 +53,7 @@ nonisolated enum MapGridLayout {
         return min(max(start + translation / available, minimumMixFraction), 1)
     }
 
-    /// `aspect` = width / height of the scan; `tileCount` = HAADF + elements + proposals (the ColorMix is extra).
+    /// `aspect` = width / height of the scan; `tileCount` = HAADF + elements (the ColorMix is extra).
     /// `mixFraction` (nil = the rule above: the ColorMix as large as the block allows) is the share of the block's width the
     /// person gave the ColorMix with the divider. It overrides the rule's width, never below `minimumMixFraction` of the width,
     /// never so wide that a tile column of `minimumTileSide` no longer fits beside it or the ColorMix (at the data's aspect) is
@@ -308,14 +308,6 @@ nonisolated enum RegionEditing {
 
 // MARK: - The spectrum's opening range
 
-/// How many Auto ID proposals get a tile (UX spec #1): a DISPLAY count, not a threshold on the data. The proposals arrive
-/// strongest first (net / L_D, `AutoIDPresentation.bySignificance`); the periodic table and the inspector's Proposed row
-/// still list every one of them.
-nonisolated enum ProposedTileCap {
-    static let maximum = 3
-    static func apply<T>(_ strongestFirst: [T]) -> [T] { Array(strongestFirst.prefix(maximum)) }
-}
-
 nonisolated enum SpectrumAutoZoom {
     /// The energy below which `fraction` of the counts lie (nil without counts): where an opening view with no line ends.
     static func countsEnergy(data: [Double], energyStart: Double, energyStep: Double, fraction: Double = 0.995) -> Double? {
@@ -329,14 +321,14 @@ nonisolated enum SpectrumAutoZoom {
         return energyStart + Double(data.count - 1) * energyStep
     }
 
-    /// The energy span the listed lines and Auto ID's proposed lines occupy with room to read their names, inside the axis;
+    /// The energy span the listed lines occupy with room to read their names, inside the axis;
     /// without a line, up to the energy below which 99.5 % of the counts lie (floor 2 keV, cap 20 keV: the first 20 keV an
     /// EDX spectrum is read in, a Velox axis runs to 80), or those 20 keV when the counts are not known. Never narrower
     /// than `minimumSpan`. A line above the view's ceiling does not stretch it (the person can still zoom out): the ceiling is
     /// the fit range's end when it is known (`fitEnd`), else the counts energy (floor 2 keV), else none.
     static func range(markers: [LineMarker], domain: ClosedRange<Double>, minimumSpan: Double, countsEnergy: Double? = nil, fitEnd: Double? = nil) -> ClosedRange<Double> {
         let ceiling = fitEnd ?? countsEnergy.map { max(2, $0) } ?? .infinity
-        let energies = markers.filter { $0.kind == .line || $0.kind == .proposed }.map(\.energy).filter { $0 <= ceiling }
+        let energies = markers.filter { $0.kind == .line }.map(\.energy).filter { $0 <= ceiling }
         guard let lo = energies.min(), let hi = energies.max() else {
             let end = min(20, max(2, countsEnergy ?? 20))
             let top = min(domain.upperBound, max(end, domain.lowerBound + minimumSpan))
