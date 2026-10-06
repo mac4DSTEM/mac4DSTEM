@@ -137,15 +137,21 @@ final class SpectroscopyViewModelTests: XCTestCase {
         XCTAssertEqual(ResidualNormalisation.normalised(data: [40], model: [16])[0], 6, accuracy: 1e-12)
     }
 
-    // Mutation: a lanthanide lands in the main body; Lu leaves group 3.
-    func testPeriodicGeometry() {
+    // Mutation: Lu back among the transition metals, a band row one cell too long, or an element placed twice or never.
+    func testPeriodicBandsPlaceEveryElementOnceAndFitTheirColumns() {
         XCTAssertEqual(PeriodicLayout.symbols.count, 118)
         XCTAssertEqual(PeriodicLayout.symbol(14), "Si"); XCTAssertEqual(PeriodicLayout.z(of: "Cu"), 29)
-        XCTAssertTrue(PeriodicLayout.position(14) == (2, 13)); XCTAssertTrue(PeriodicLayout.position(2) == (0, 17))
-        XCTAssertTrue(PeriodicLayout.position(71) == (5, 2)); XCTAssertTrue(PeriodicLayout.position(57) == (7, 2))
-        XCTAssertTrue(PeriodicLayout.position(118) == (6, 17))
-        var seen = Set<[Int]>()
-        for z in 1...118 { let p = PeriodicLayout.position(z); XCTAssertTrue(seen.insert([p.row, p.column]).inserted, "Z=\(z) collides") }
+        for row in PeriodicLayout.mainGroup { XCTAssertEqual(row.count, PeriodicLayout.mainGroupColumns) }
+        for row in PeriodicLayout.transition { XCTAssertEqual(row.count, PeriodicLayout.transitionColumns) }
+        let placed = (PeriodicLayout.mainGroup + PeriodicLayout.transition).flatMap { $0 }.compactMap { $0 } + PeriodicLayout.folded
+        XCTAssertEqual(placed.sorted(), Array(1...118), "every element once")
+        XCTAssertEqual(PeriodicLayout.mainGroup[0], [1, nil, nil, nil, nil, nil, nil, 2])
+        XCTAssertEqual(PeriodicLayout.transition[2].first!, nil, "the lanthanide place under Sc and Y is empty; Hf sits under Ti")
+        XCTAssertEqual(PeriodicLayout.transition[2][1], 72)
+        XCTAssertTrue(PeriodicLayout.folded.contains(71) && PeriodicLayout.folded.contains(57) && !PeriodicLayout.transition.flatMap { $0 }.contains(71))
+        // Cu, the 8 keV line the mock shows, is in the transition band; Si and Al are in the main group.
+        XCTAssertTrue(PeriodicLayout.transition.flatMap { $0 }.contains(29))
+        XCTAssertTrue(PeriodicLayout.mainGroup.flatMap { $0 }.contains(14))
     }
 
     // Mutation: the fixture's unvalidated flag is dropped.
@@ -186,7 +192,7 @@ final class SpectroscopyViewModelTests: XCTestCase {
         let zeros = SpectrumSeries(energyStart: 0.5, energyStep: 0.01, data: [Double](repeating: 0, count: 50),
                                    background: [], model: [], overlay: nil)
         let m = SpectroscopyRoomModel(series: zeros)
-        XCTAssertNotNil(ImageRenderer(content: SpectrumPlotView(model: m, narrow: false).frame(width: 600, height: 300)).cgImage)
+        XCTAssertNotNil(ImageRenderer(content: SpectrumStripView(model: m).frame(width: 600, height: 300)).cgImage)
     }
 
     // Mutation: decimals fixed at 1, or derived from the range instead of the step.
@@ -244,13 +250,9 @@ final class SpectroscopyViewModelTests: XCTestCase {
             let rep = NSBitmapImageRep(cgImage: img)
             try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: "\(dir)/\(name).png"))
         }
-        let m = SpectroscopyRoomModel.fixture; m.expandedRows = [12]
+        let m = SpectroscopyRoomModel.fixture
         try render("room-wide", 1000, 740, SpectroscopyRoomContent(model: m))
         try render("room-narrow", 600, 900, SpectroscopyRoomContent(model: m))
-        let inspectors = VStack(alignment: .leading, spacing: 12) {
-            ElementsInspector(model: m); QuantifyInspector(model: m)
-        }.padding(12)
-        try render("inspector-elements-quantify", 320, 640, inspectors)
-        try render("inspector-others", 320, 520, VStack(alignment: .leading) { SpectrumImageInspector(model: m); RegionsInspector(model: m); ExportInspector(model: m) }.padding(12))
+        try render("inspector", 320, 900, SpectroscopyInspectorSections(model: m, startOpen: true).padding(12))
     }
 }

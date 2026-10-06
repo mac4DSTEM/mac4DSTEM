@@ -65,7 +65,7 @@ enum WorkspaceArea: String, CaseIterable, Identifiable, Sendable {
 
     var analysisModes: [AnalysisMode] {
         switch self {
-        // Spectroscopy's five steps are its own (`SpectroscopyStep`), not
+        // Spectroscopy's tools are its own (`SpectroscopyTool`), not
         // AnalysisModes: they never enter the 4D task, readiness or replay
         // plumbing.
         case .prepare, .spectroscopy, .results: []

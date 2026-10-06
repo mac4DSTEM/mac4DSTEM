@@ -36,6 +36,8 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
     func spectrum(_ region: Int) -> [UInt64]? { lock.withLock { spectra[region] } }
     func setSpectrum(_ s: [UInt64], _ region: Int) { lock.withLock { spectra[region] = s } }
     func map(_ key: String) -> [Double]? { lock.withLock { maps[key] } }
+    /// The "int" mode's maps are another quantity on the same windows: keyed apart from the net ones.
+    static func key(_ w: ResolvedWindow, integrated: Bool) -> String { (integrated ? "int|" : "") + key(w) }
     func setMap(_ m: [Double], _ key: String) { lock.withLock { maps[key] = m } }
     func refinement(_ key: String) -> AxisRefinementResult? { lock.withLock { refinements[key] } }
     func setRefinement(_ r: AxisRefinementResult, _ key: String) { lock.withLock { refinements[key] = r } }
@@ -84,13 +86,15 @@ final class SpectroscopyRoomController {
     @ObservationIgnored private(set) var quantifyActive = false
     /// The computed-k and absorption data files, read once (Resources/Spectroscopy); nil when the bundle lacks them.
     private nonisolated static let tables: QuantificationTables? = QuantificationTables.bundled()
-    @ObservationIgnored private var lastFit: PooledQuantification?
+    @ObservationIgnored private(set) var lastFit: PooledQuantification?
+    /// The whole-map comparison line, held until the region's own unlisted-line check has finished and not withheld (`present`).
+    @ObservationIgnored private var heldWholeLine: String?
     @ObservationIgnored private var pendingWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// The verb may run: a spectrum image is bound and at least one element is switched on.
     var canQuantify: Bool { model.isLive && !model.elements.activeZ.isEmpty }
     /// Why the verb is disabled, for its hover; nil when it can run.
-    var quantifyBlocker: String? { model.isLive && model.elements.activeZ.isEmpty ? "Pick elements in Elements & maps first." : nil }
+    var quantifyBlocker: String? { model.isLive && model.elements.activeZ.isEmpty ? "Pick elements in the periodic table first." : nil }
 
     init() {
         let empty = SpectrumSeries(energyStart: 0, energyStep: 0.01, data: [0, 0], background: [], model: [], overlay: nil)
@@ -106,7 +110,7 @@ final class SpectroscopyRoomController {
         self.hasFourDCube = hasFourDCube
         cache = SpectrumComputeCache()
         quantifyActive = false
-        lastFit = nil
+        lastFit = nil; heldWholeLine = nil
         seenTiles = []
         regionCounts = [:]
         generation += 1
@@ -121,9 +125,11 @@ final class SpectroscopyRoomController {
         m.elements = ElementSelection()
         lastElements = m.elements
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
-        m.expandedRows = []
+        m.active = .colorMix; m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
+        m.mapMode = .netCounts; m.pins = []; m.compare = .wholeMap; m.viewportIsManual = false
+        liveRegionID = nil; livePending = false
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
-        m.validation = nil
+        m.validation = nil; m.wholeMapLine = nil; m.pendingExport = nil; m.exportNote = nil
         checkTask?.cancel(); checkTask = nil
         m.unlisted = nil
         m.onAddUnlistedAsFitOnly = { [weak self] in self?.addUnlistedAsFitOnly() }
@@ -134,7 +140,6 @@ final class SpectroscopyRoomController {
         qs.syncTypedElements(session.method.elements.filter { $0.role == .quantify }.map(\.symbol))
         if qs.typedDate.isEmpty { qs.typedDate = Self.today() }
         m.quantify = qs
-        m.scaleBar = ""   // a bar of true length needs a pixel size on a fixed-width map: not drawn
         m.gridWidth = source.nx; m.gridHeight = source.ny
         m.backdrop = Self.normalised(source.scanImage, count: source.nx * source.ny)
         m.tileRevision += 1
@@ -150,16 +155,30 @@ final class SpectroscopyRoomController {
         m.resetAutoID()
         m.onAutoID = { [weak self] in self?.runAutoID() }
         m.onCancelAutoID = { [weak self] in self?.cancelAutoID() }
-        m.onDrawRegion = { [weak self] shape in self?.addRegion(shape) }
+        m.onRegionEdit = { [weak self] shape, final in self?.editRegion(shape, final: final) }
         m.onRemoveRegion = { [weak self] id in self?.removeRegion(id: id) }
+        m.onPin = { [weak self] in self?.pinRegion() }
+        m.onUnpin = { [weak self] id in self?.unpin(id) }
         syncRegionsFromSession()
-        refresh()
+        let first = refresh()
+        // ADR 056 item 6: Auto ID runs on open, after the first sums have landed; its proposals are mapped, marked proposed
+        // and left unquantified. It needs the beam energy, so a file without one says so (the Auto ID row).
+        autoIDOnOpen?.cancel()
+        autoIDOnOpen = m.autoIDEnabled ? Task { [weak self] in
+            await first?.value
+            guard !Task.isCancelled else { return }
+            self?.runAutoID()
+        } : nil
     }
+    @ObservationIgnored private var autoIDOnOpen: Task<Void, Never>?
+    @ObservationIgnored private var autoIDRestart = false
 
     func unbind() {
         generation += 1
+        autoIDOnOpen?.cancel(); autoIDOnOpen = nil
         cancelAutoID()
         checkTask?.cancel(); checkTask = nil
+        proposalTask?.cancel(); proposalToken += 1
         source = nil
         session = nil
         model.isLive = false
@@ -224,10 +243,52 @@ final class SpectroscopyRoomController {
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }
             await MainActor.run { [weak self] in
-                if let outcome { self?.model.finishAutoID(token: token, outcome: outcome) }
-                else { self?.model.failAutoID(token: token, message: failure ?? "Auto ID failed.") }
+                if let outcome {
+                    // R4c: the proposals' maps only (`proposalsChanged`): no listed pick moved, so the fit and its in-flight
+                    // unlisted-line check are left alone.
+                    if self?.model.finishAutoID(token: token, outcome: outcome) == true { self?.proposalsChanged() }
+                } else { self?.model.failAutoID(token: token, message: failure ?? "Auto ID failed.") }
             }
         }
+    }
+
+    @ObservationIgnored private var proposalToken = 0
+    @ObservationIgnored private(set) var proposalTask: Task<Void, Never>?
+
+    /// Auto ID has landed: the proposals' dimmed tiles are (re)computed under their own token. No `generation` bump and no
+    /// `checkTask` reset (the listed picks did not change, so the fit and its unlisted-line check are still the right ones);
+    /// a `refresh` supersedes it by bumping the token, its own output carrying the proposals.
+    func proposalsChanged() {
+        guard let source else { return }
+        lastElements = model.elements   // the suggestions are part of the selection; the view's change callback must not refresh for them
+        proposalToken += 1
+        let token = proposalToken
+        let listed = Set(model.elements.activeZ)
+        let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
+            (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
+        }
+        let proposed: [(symbol: String, family: XRayFamily?)] = model.elements.suggestions.filter { !listed.contains($0.z) }
+            .map { (PeriodicLayout.symbol($0.z), nil) }
+        let integrated = model.mapMode == .integrated, beam = source.metadata.beamEnergyKeV
+        let cache = cache
+        proposalTask?.cancel()
+        proposalTask = Task.detached(priority: .userInitiated) {
+            let (windows, maps) = Self.proposalMaps(source: source, picks: picks, proposed: proposed, integrated: integrated, beam: beam, cache: cache)
+            await MainActor.run { [weak self] in self?.landProposals(windows, maps, token: token) }
+        }
+    }
+
+    private func landProposals(_ windows: [LineWindow], _ maps: [[Double]?], token: Int) {
+        guard token == proposalToken, let source else { return }
+        let m = model
+        var tiles = m.tiles.filter { !$0.proposed }
+        for (i, w) in windows.enumerated() {
+            guard let z = PeriodicLayout.z(of: w.element), let map = maps[i] else { continue }
+            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), proposed: true))
+        }
+        m.tiles = tiles
+        m.tileRevision += 1
+        if case .element(let z) = m.active, !tiles.contains(where: { $0.z == z }) { m.active = .colorMix }
     }
 
     func cancelAutoID() {
@@ -270,8 +331,14 @@ final class SpectroscopyRoomController {
         quantifyActive = true
         model.quantify.syncTypedElements(model.elements.quantified.map { PeriodicLayout.symbol($0) })
         applySettingsToSession()
-        guard let task = refresh() else { return false }
-        await task.value
+        guard var task = refresh() else { return false }
+        // Wait for the NEWEST recompute: Auto ID landing (or an edit) while the fit runs starts another that replaces this one's
+        // answer, and the verb must report the fit that stands, not the one that was overtaken.
+        while true {
+            await task.value
+            guard let latest = lastRefresh, latest != task else { break }
+            task = latest
+        }
         guard !model.isFitting, model.fitFailure == nil, let fit = lastFit else { return false }
         session.method = fit.method
         lastApplied = nil   // the filled method differs from the controls' by the k source only; the next edit re-applies
@@ -300,10 +367,78 @@ final class SpectroscopyRoomController {
         refresh()
     }
 
-    func addRegion(_ shape: SpectrumRegionShape) {
-        guard let session, session.addDrawnRegion(shape) != nil else { return }
+    // MARK: Live region (ADR 056)
+
+    /// The one region the person is working with: drawn on a map, then moved and resized in place. Its id is fixed from the
+    /// first edit; Pin freezes copies of it, so the live one is never a list.
+    @ObservationIgnored private(set) var liveRegionID: Int?
+    @ObservationIgnored private var liveBusy = false
+    @ObservationIgnored private var livePending = false
+    /// Measurement for the report and the tests: spectra summed while the pointer was down, and the time they took.
+    @ObservationIgnored private(set) var liveSums = 0
+    @ObservationIgnored private(set) var liveSumSeconds = 0.0
+
+    /// A shape drawn, moved or resized on a map. While the pointer is down (`final` false) only the spectrum follows: one
+    /// sum at a time, the newest shape waiting, so a drag over a 926 x 215 x 4096 store never queues a backlog. At the end
+    /// (`final`) the whole selection is recomputed: the net counts, the maps' region numbers and, after Quantify, the fit.
+    func editRegion(_ shape: SpectrumRegionShape, final: Bool) {
+        guard let session, source != nil else { return }
+        if let id = liveRegionID, session.regions.contains(where: { $0.id == id }) {
+            guard session.replaceShape(ofRegion: id, with: shape) else { return }
+        } else {
+            guard let r = session.addDrawnRegion(shape) else { return }
+            liveRegionID = r.id
+        }
+        session.selectedRegionID = liveRegionID
         syncRegionsFromSession()
-        refresh()
+        if final {
+            if let id = liveRegionID { cache.forget(region: id); regionCounts[id] = nil }
+            refresh()
+        } else { scheduleLiveSum() }
+    }
+
+    private func scheduleLiveSum() {
+        guard let source, let session, let id = session.selectedRegionID,
+              let region = session.regions.first(where: { $0.id == id }) else { return }
+        if liveBusy { livePending = true; return }
+        liveBusy = true
+        let mask = session.mask(of: region)
+        let gen = generation
+        let started = Date()
+        Task.detached(priority: .userInitiated) {
+            let sum = source.sum(mask: mask)
+            await MainActor.run { [weak self] in self?.landLiveSum(sum, region: id, generation: gen, started: started) }
+        }
+    }
+
+    private func landLiveSum(_ sum: [UInt64], region id: Int, generation gen: Int, started: Date) {
+        liveBusy = false
+        liveSums += 1; liveSumSeconds += Date().timeIntervalSince(started)
+        // A newer full recompute (the drag ended, an element changed) has bumped `generation`: its answer replaces this one.
+        if gen == generation, let source, let session, session.selectedRegionID == id,
+           let region = session.regions.first(where: { $0.id == id }) {
+            let m = model
+            let total = sum.reduce(UInt64(0), &+)
+            // The fit's curves belong to the old shape: they return with the final recompute.
+            var s = SpectrumSeries(energyStart: source.energyAxis.offset, energyStep: source.energyAxis.scale,
+                                   data: sum.map { Double($0) }, background: [], model: [], overlay: nil)
+            s.overlay = overlay(for: total, whole: cache.spectrum(0))
+            m.series = s
+            m.spectrumTitle = "Spectrum · \(region.name)"
+            m.spectrumSubtitle = "\(Self.counts(total)) counts · \(region.pixelCount) px · live"
+            m.regionSettings.pixels = "\(region.pixelCount)"
+            m.regionSettings.counts = Self.counts(total)
+        }
+        if livePending { livePending = false; scheduleLiveSum() }
+    }
+
+    /// The comparison overlay: the whole map's spectrum scaled so its total equals the region's (a shape comparison).
+    private func overlay(for total: UInt64, whole: [UInt64]?) -> [Double]? {
+        guard model.compare == .wholeMap, let whole, model.selectedRegion != 0 else { return nil }
+        let w = whole.reduce(UInt64(0), &+)
+        guard w > 0, total > 0 else { return nil }
+        let k = Double(total) / Double(w)
+        return whole.map { Double($0) * k }
     }
 
     func removeRegion(id: Int) {
@@ -311,9 +446,27 @@ final class SpectroscopyRoomController {
         session.removeRegion(id: id)
         cache.forget(region: id)
         regionCounts[id] = nil
+        if liveRegionID == id { liveRegionID = nil }
         syncRegionsFromSession()
         refresh()
     }
+
+    // MARK: Pins
+
+    /// Pin: freezes a copy of the live region (its spectrum, scaled in the overlay to the live region's counts), up to three.
+    /// The live rectangle moves on; a pin stays until it is unpinned.
+    func pinRegion() {
+        let m = model
+        guard m.pins.count < SpectroscopyRoomModel.maximumPins, let session,
+              let region = session.regions.first(where: { $0.id == session.selectedRegionID }),
+              let spectrum = cache.spectrum(region.id) else { return }
+        let used = Set(m.pins.map(\.id))
+        let id = (0..<SpectroscopyRoomModel.maximumPins).first { !used.contains($0) } ?? 0
+        m.pins.append(PinnedRegion(id: id, label: "Pin \(id + 1)", tint: PinnedRegion.tints[id % PinnedRegion.tints.count],
+                                   shape: region.shape, pixels: region.pixelCount, spectrum: spectrum.map { Double($0) }))
+    }
+
+    func unpin(_ id: Int) { model.pins.removeAll { $0.id == id } }
 
     /// The listed elements, then the ones a person switched Off (role `.off`, manual): the method records them, so the
     /// replay step says which elements the unlisted-line check was told to leave out.
@@ -406,6 +559,9 @@ final class SpectroscopyRoomController {
         let region: Int
         let mask: PixelMask?
         let picks: [(symbol: String, family: XRayFamily?)]
+        /// Auto ID's proposals that are not listed: their maps only (never a row, never a marker).
+        let proposed: [(symbol: String, family: XRayFamily?)]
+        let integrated: Bool
         let beam: Double?
         let firstPass: Bool
         /// Set once the Quantify verb has run: the pooled fit of this region with this method.
@@ -422,13 +578,20 @@ final class SpectroscopyRoomController {
     private struct Output: Sendable {
         let region: Int
         let spectrum: [UInt64]
+        /// The whole map's spectrum (the comparison overlay), nil until it has been summed once.
+        let whole: [UInt64]?
         let windows: [LineWindow]
         let counts: [LineNetCount?]
         let maps: [[Double]?]
+        /// The proposals' windows and maps, in `Request.proposed` order.
+        let proposedWindows: [LineWindow]
+        let proposedMaps: [[Double]?]
         let pixelTotals: [UInt64]?
         let fit: PooledQuantification?
         let fitInput: PooledQuantificationInput?
         let fitFailure: String?
+        /// The same method on the whole map (for a region's comparison line); nil for the whole map or without a fit.
+        let wholeLine: String?
     }
 
     /// Recomputes everything the current selection shows. Cheap when nothing it needs is new; the pooled fit (after the
@@ -436,19 +599,27 @@ final class SpectroscopyRoomController {
     @discardableResult
     func refresh() -> Task<Void, Never>? {
         guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }) else { return nil }
-        if model.autoID.running { cancelAutoID() }   // the elements or the region changed under it: its answer is about the old ones
+        if model.autoID.running {   // the elements or the region changed under it: its answer is about the old ones
+            cancelAutoID()
+            autoIDRestart = model.autoIDEnabled   // the open's run is not lost to a click made while it ran: it starts again below
+        }
         checkTask?.cancel(); checkTask = nil         // about the previous fit; the next fit starts its own
         generation += 1
+        proposalToken += 1                           // this refresh's output carries the proposals
         let gen = generation
         let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
             (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
         }
+        let listed = Set(model.elements.activeZ)
+        let proposed: [(symbol: String, family: XRayFamily?)] = model.elements.suggestions.filter { !listed.contains($0.z) }
+            .map { (PeriodicLayout.symbol($0.z), nil) }
         var quantify: QuantifyRequest?
         if quantifyActive {
             quantify = QuantifyRequest(method: session.method, metadata: source.metadata, regionName: region.name, pixelCount: region.pixelCount)
             model.isFitting = true
         }
         let request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
+                              proposed: proposed, integrated: model.mapMode == .integrated,
                               beam: source.metadata.beamEnergyKeV, firstPass: cache.totals() == nil, quantify: quantify)
         let cache = cache
         let task = Task.detached(priority: .userInitiated) {
@@ -460,6 +631,26 @@ final class SpectroscopyRoomController {
     }
     /// The newest recompute, so a caller (the verb, a test) can wait for it.
     @ObservationIgnored private(set) var lastRefresh: Task<Void, Never>?
+
+    /// Only windows whose map is not cached are computed.
+    private nonisolated static func mapsFor(_ ws: [LineWindow], source: any SpectrumImageSource, integrated: Bool, cache: SpectrumComputeCache) -> [[Double]?] {
+        let missing = ws.filter { w in w.window.map { cache.map(SpectrumComputeCache.key($0, integrated: integrated)) == nil } ?? false }
+        if !missing.isEmpty {
+            let fresh = integrated ? ElementWindows.integratedMaps(image: source, windows: missing)
+                                   : ElementWindows.maps(image: source, windows: missing)
+            for (w, m) in zip(missing, fresh) { if let w = w.window, let m { cache.setMap(m, SpectrumComputeCache.key(w, integrated: integrated)) } }
+        }
+        return ws.map { w in w.window.flatMap { cache.map(SpectrumComputeCache.key($0, integrated: integrated)) } }
+    }
+
+    /// The proposals' windows and maps, in `proposed` order (windowed together with the listed picks, for their maps only).
+    private nonisolated static func proposalMaps(source: any SpectrumImageSource, picks: [(symbol: String, family: XRayFamily?)],
+                                                 proposed: [(symbol: String, family: XRayFamily?)], integrated: Bool, beam: Double?,
+                                                 cache: SpectrumComputeCache) -> ([LineWindow], [[Double]?]) {
+        let all = ElementWindows.build(elements: picks + proposed, axis: source.energyAxis, beamEnergyKeV: beam)
+        let ws = Array(all.suffix(proposed.count))
+        return (ws, mapsFor(ws, source: source, integrated: integrated, cache: cache))
+    }
 
     private nonisolated static func compute(_ r: Request, cache: SpectrumComputeCache) -> Output {
         let spectrum: [UInt64]
@@ -473,22 +664,35 @@ final class SpectroscopyRoomController {
             cache.setTotals(t)
             totals = t
         }
+        // The comparison overlay's spectrum: the whole map, summed once (region 0 is the whole map, `SpectroscopySession.open`).
+        var whole: [UInt64]?
+        if r.region == 0 { whole = spectrum } else if let w = cache.spectrum(0) { whole = w } else {
+            let w = r.source.sum(mask: nil)
+            cache.setSpectrum(w, 0)
+            whole = w
+        }
         let windows = ElementWindows.build(elements: r.picks, axis: r.source.energyAxis, beamEnergyKeV: r.beam)
         let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
-        // Only windows whose map is not cached are computed.
-        let missing = windows.filter { w in w.window.map { cache.map(SpectrumComputeCache.key($0)) == nil } ?? false }
-        if !missing.isEmpty {
-            let fresh = ElementWindows.maps(image: r.source, windows: missing)
-            for (w, m) in zip(missing, fresh) { if let w = w.window, let m { cache.setMap(m, SpectrumComputeCache.key(w)) } }
+        func mapsFor(_ ws: [LineWindow]) -> [[Double]?] { Self.mapsFor(ws, source: r.source, integrated: r.integrated, cache: cache) }
+        let maps = mapsFor(windows)
+        // The proposals are windowed together with the listed elements (neighbouring lines merge their background windows,
+        // eXSpy's rule) but ONLY for their own maps: the listed elements' windows, rows and net counts above are built
+        // without them, so a proposal never moves a listed number.
+        var proposedWindows: [LineWindow] = [], proposedMaps: [[Double]?] = []
+        if !r.proposed.isEmpty {
+            (proposedWindows, proposedMaps) = Self.proposalMaps(source: r.source, picks: r.picks, proposed: r.proposed, integrated: r.integrated, beam: r.beam, cache: cache)
         }
-        let maps: [[Double]?] = windows.map { w in w.window.flatMap { cache.map(SpectrumComputeCache.key($0)) } }
         var fit: PooledQuantification?
         var fitInput: PooledQuantificationInput?
         var failure: String?
+        var wholeLine: String?
         if let q = r.quantify {
             // The refinement does not depend on the estimator, k or absorption: it is keyed by what it does depend on.
-            let on = q.method.elements.filter { $0.role != .off }.map(\.symbol).sorted().joined(separator: ",")
-            let key = "\(r.region)|\(on)|\(q.method.background.rawValue)|\(q.method.polynomialOrder ?? 6)|\(q.method.beamEnergyKeV ?? r.beam ?? 0)|\(q.method.fitToKeV.map { "\($0)" } ?? "default")"
+            func refinementKey(_ region: Int) -> String {
+                let on = q.method.elements.filter { $0.role != .off }.map(\.symbol).sorted().joined(separator: ",")
+                return "\(region)|\(on)|\(q.method.background.rawValue)|\(q.method.polynomialOrder ?? 6)|\(q.method.beamEnergyKeV ?? r.beam ?? 0)|\(q.method.fitToKeV.map { "\($0)" } ?? "default")"
+            }
+            let key = refinementKey(r.region)
             let input = PooledQuantificationInput(counts: spectrum, axis: r.source.energyAxis, method: q.method, metadata: q.metadata,
                                                   regionName: q.regionName, pixelCount: q.pixelCount, refinement: cache.refinement(key))
             do {
@@ -496,14 +700,26 @@ final class SpectroscopyRoomController {
                 if let rr = res.refinement, input.refinement == nil { cache.setRefinement(rr, key) }
                 fit = res
                 fitInput = input
+                // The comparison line: the same method on the whole map (a failure there only drops the line).
+                if r.region != 0, let w = whole {
+                    let wkey = refinementKey(0)
+                    let wInput = PooledQuantificationInput(counts: w, axis: r.source.energyAxis, method: q.method, metadata: q.metadata,
+                                                           regionName: "Whole map", pixelCount: r.source.nx * r.source.ny, refinement: cache.refinement(wkey))
+                    if let wres = try? PooledQuantifier.run(wInput, tables: Self.tables) {
+                        if let rr = wres.refinement, wInput.refinement == nil { cache.setRefinement(rr, wkey) }
+                        wholeLine = QuantifyPresentation.wholeMapLine(wres)
+                    }
+                }
             } catch { failure = (error as? LocalizedError)?.errorDescription ?? "\(error)" }
         }
-        return Output(region: r.region, spectrum: spectrum, windows: windows, counts: counts, maps: maps, pixelTotals: totals,
-                      fit: fit, fitInput: fitInput, fitFailure: failure)
+        return Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
+                      proposedWindows: proposedWindows, proposedMaps: proposedMaps, pixelTotals: totals,
+                      fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)
     }
 
     private func apply(_ out: Output, generation gen: Int) {
         guard gen == generation, let source, let session else { return }
+        defer { if autoIDRestart { autoIDRestart = false; runAutoID() } }
         let m = model
         let axis = source.energyAxis
         let total = out.spectrum.reduce(UInt64(0), &+)
@@ -514,6 +730,7 @@ final class SpectroscopyRoomController {
         m.series = SpectrumSeries(energyStart: axis.offset, energyStep: axis.scale,
                                   data: out.spectrum.map { Double($0) }, background: [], model: [], overlay: nil)
         if let fit = out.fit { m.series = QuantifyPresentation.series(data: out.spectrum, axis: axis, fit) }
+        m.series.overlay = overlay(for: total, whole: out.whole)
         let region = session.regions.first { $0.id == out.region }
         let name = region?.name ?? "Whole map"
         let pixels = region?.pixelCount ?? source.nx * source.ny
@@ -521,7 +738,7 @@ final class SpectroscopyRoomController {
         m.spectrumSubtitle = "\(Self.counts(total)) counts · \(pixels) px"
         m.resultsTitle = "Results · \(name)"
         m.regionSettings.source = region?.kind == .drawn ? "Drawn" : "Whole map"
-        m.regionSettings.pixels = "\(pixels) · \(String(format: "%.1f", 100 * Double(pixels) / Double(max(source.nx * source.ny, 1)))) %"
+        m.regionSettings.pixels = "\(pixels)"
         m.regionSettings.counts = Self.counts(total)
 
         if let t = out.pixelTotals { Self.applyPixelStats(t, to: m) }
@@ -557,12 +774,23 @@ final class SpectroscopyRoomController {
         }
         m.results = rows
         applyFit(out, source: source)
+        // Auto ID's proposals: a dimmed tile each (the evidence), never ticked into the ColorMix, never a row.
+        for (i, w) in out.proposedWindows.enumerated() {
+            guard let z = PeriodicLayout.z(of: w.element), let map = out.proposedMaps[i] else { continue }
+            tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map), proposed: true))
+        }
         m.tiles = tiles
         m.tileRevision += 1
         // A tile that is gone loses its tick and its "seen" mark, so it is ticked again when it comes back.
-        let present = Set(tiles.map(\.z))
+        let present = Set(tiles.filter { !$0.proposed }.map(\.z))
         seenTiles.formIntersection(present)
         m.mixed.formIntersection(present)
+        // The active map is one that exists: a tile that went away hands the outline back to the ColorMix.
+        if case .element(let z) = m.active, !tiles.contains(where: { $0.z == z }) { m.active = .colorMix }
+        if !m.viewportIsManual {
+            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan)
+            m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
+        }
     }
 
     /// The pooled fit's numbers into the model: the table's rows, the footers, the warnings, the plot, the readouts.
@@ -573,13 +801,14 @@ final class SpectroscopyRoomController {
         m.fitFailure = out.fitFailure
         guard let fit = out.fit else {
             // No fit (no element, no beam energy, an empty region): the window sums stay, the reason is shown.
+            m.wholeMapLine = nil; heldWholeLine = nil
             m.export = ExportSettings(); m.hasFit = false; m.validation = nil; m.ratioLine = nil; m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false
             m.unlisted = nil
             lastFit = nil
             return
         }
         lastFit = fit
-        m.mapMode = .netCounts   // a fresh fit; the check landing later keeps whatever the user picked since
+        heldWholeLine = out.wholeLine   // shown by `present` under the ratio line's gate
         if let input = out.fitInput {
             present(UnlistedLineChecker.holding(fit), region: out.region)
             startUnlistedCheck(fit, input: input, region: out.region)
@@ -595,6 +824,8 @@ final class SpectroscopyRoomController {
         m.hasFit = true
         m.results = QuantifyPresentation.rows(fit)
         m.ratioLine = QuantifyPresentation.ratioLine(fit)
+        // The whole-map at% is a number like the region's own: not shown while the check runs, not after it withholds.
+        m.wholeMapLine = (fit.unlistedCheckPending || fit.unlistedCheck?.withholds == true) ? nil : heldWholeLine
         m.validation = fit.hasAbundance ? PooledQuantification.abundanceValidation : nil
         m.fitWarnings = QuantifyPresentation.warnings(fit.warnings)
         if case .applied = fit.absorption { m.abundanceWithoutAbsorption = false } else { m.abundanceWithoutAbsorption = fit.hasAbundance }

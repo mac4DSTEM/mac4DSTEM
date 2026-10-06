@@ -221,15 +221,14 @@ Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` onc
 truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
-### Spectroscopy room, as wired in WP2 R2 (2026-10-05): unverified on screen and known gaps
-- **Driven 2026-10-06** (`docs/archive/v5/room-drive-2026-10-06.md`): opens, picks, rectangle region, ColorMix, hover seen;
-  13 findings there; 3–13 fixed by lane U (unseen — a re-drive is owed). Not yet seen: the ellipse region, the Review popover,
-  the open's spinner and Cancel, the Export step's two save panels.
+### Spectroscopy room, rebuilt to ADR 056 (R4b + R4c, 2026-10-06): unverified on screen and known gaps
+- **Rebuilt** against mock v2.1: maps grid, one "EDX" tool row, inspector sections, live regions (rectangle, polygon), Pin ≤ 3,
+  quant beside the spectrum. Only a lane's scratch-build shots so far; they showed a stale second sidebar highlight (Prepare +
+  EDX) once, untraced. Not yet seen: the open's spinner and Cancel, Export's save panels.
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
-  its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164);
-  `SpectrumPlotView` writes the hidden-label state from inside its draw closure.
-- **The map's scale bar is not drawn** (a true-length bar needs a pixel size on a fixed-width map). Regions: rectangle and ellipse only.
+  its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).
+- **The map's scale bar is not drawn** (a true-length bar needs a pixel size on a fixed-width map). Regions: rectangle and polygon.
 - **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do. The map header title truncates at 1000 pt.
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
   withheld room selected. A new 4D open does not clear an earlier spectrum image of the window.
@@ -281,7 +280,7 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 `Core/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
 add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only. Auto ID (Elements & maps) runs it
 on the selected region and the file's axis, cancellably; suggestions never touch manual picks. Open:
-- **Auto ID gaps:** not driven; `holeRegionNote` and detected sum peaks are not drawn; it uses the file axis, not a refined
+- **Auto ID gaps:** not driven (a lane shot showed Tm proposed on an Al-Mg-Si spectrum); `holeRegionNote` and detected sum peaks are not drawn; it uses the file axis, not a refined
   one; `suggestedRole` in Core is now unused by the room (one source of truth owed).
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.

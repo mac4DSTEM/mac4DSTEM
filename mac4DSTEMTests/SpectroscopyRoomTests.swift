@@ -45,14 +45,14 @@ final class SpectroscopyRoomTests: XCTestCase {
         XCTAssertEqual(WorkspaceArea.spectroscopy.subtitle,
                        "EDX spectrum images, alone or with the 4D scan")
         XCTAssertTrue(WorkspaceArea.spectroscopy.analysisModes.isEmpty,
-                      "its steps are not AnalysisModes: they never enter the 4D task plumbing")
+                      "its tools are not AnalysisModes: they never enter the 4D task plumbing")
     }
 
-    /// The five steps of ADR 054 item 8, in order; the room opens on the first.
-    func testTheRoomHasTheFiveStepsOfADR054() {
-        XCTAssertEqual(SpectroscopyStep.allCases.map(\.title),
-                       ["Spectrum image", "Elements & maps", "Regions", "Quantify", "Export"])
-        XCTAssertEqual(SpectroscopySession().selectedStep, .spectrumImage)
+    /// ADR 056: the sidebar lists one tool under the room, "EDX" (EELS later); no steps, no regions.
+    /// Mutation: the tool's title back to a step name, or a second case added without a reader — red.
+    func testTheRoomListsOneToolEDX() {
+        XCTAssertEqual(SpectroscopyTool.allCases.map(\.title), ["EDX"])
+        XCTAssertEqual(SpectroscopySession().selectedTool, .edx)
     }
 
     // MARK: - The session owner's defaults (ADR 054)
@@ -70,19 +70,18 @@ final class SpectroscopyRoomTests: XCTestCase {
         XCTAssertNil(method.thickness, "item 9: no thickness is assumed")
     }
 
-    /// Opening seeds the whole map as the one region, at the first step; the method survives.
+    /// Opening seeds the whole map as the one region; the method survives.
     /// Mutation: `open` not seeding the whole-map region — red.
     func testOpeningASpectrumImageStartsTheRoomOverOnTheWholeMap() {
         let session = SpectroscopySession()
         XCTAssertNil(session.source)
         XCTAssertTrue(session.regions.isEmpty)
-        session.selectedStep = .quantify
         session.elements = [SpectroscopyElement(symbol: "Mg", role: .quantify, isManual: true)]
         session.method.estimator = .poissonMaximumLikelihood
 
         session.open(StubSpectrumImage(width: 256, height: 255))
         XCTAssertEqual(session.metadata?.fileName, "stub.emd")
-        XCTAssertEqual(session.selectedStep, .spectrumImage)
+        XCTAssertEqual(session.selectedTool, .edx)
         XCTAssertTrue(session.elements.isEmpty)
         XCTAssertEqual(session.regions.map(\.name), ["Whole map"])
         XCTAssertEqual(session.regions.first?.pixelCount, 256 * 255)
@@ -171,20 +170,20 @@ final class SpectroscopyRoomTests: XCTestCase {
 
     // MARK: - Sidebar selection
 
-    /// A step row selects the room and the step; reading the route back gives the step.
+    /// The tool row selects the room and the tool; reading the route back gives the tool, and the room's own row lands on it.
     /// Mutation: the binding's getter returning `.workspace(.spectroscopy)` — red.
-    func testTheSidebarSelectsSpectroscopySteps() {
+    func testTheSidebarSelectsTheSpectroscopyTool() {
         let state = AppState()
-        state.workspaceRoute.wrappedValue = .spectroscopyStep(.quantify)
+        state.workspaceRoute.wrappedValue = .spectroscopyTool(.edx)
         XCTAssertEqual(state.navigation.workspaceArea, .spectroscopy)
-        XCTAssertEqual(state.spectroscopy.selectedStep, .quantify)
-        XCTAssertEqual(state.workspaceRoute.wrappedValue, .spectroscopyStep(.quantify))
+        XCTAssertEqual(state.spectroscopy.selectedTool, .edx)
+        XCTAssertEqual(state.workspaceRoute.wrappedValue, .spectroscopyTool(.edx))
 
-        // The room's own row lands on the step last selected.
         state.selectWorkspace(.prepare)
         state.workspaceRoute.wrappedValue = .workspace(.spectroscopy)
-        XCTAssertEqual(state.workspaceRoute.wrappedValue, .spectroscopyStep(.quantify))
-        XCTAssertEqual(WorkspaceRoute.spectroscopyStep(.regions).area, .spectroscopy)
+        XCTAssertEqual(state.workspaceRoute.wrappedValue, .spectroscopyTool(.edx))
+        XCTAssertEqual(WorkspaceRoute.spectroscopyTool(.edx).area, .spectroscopy)
+        XCTAssertEqual(WorkspaceRoute.spectroscopyTool(.edx).title, "EDX")
     }
 
     // MARK: - The toolbar

@@ -1,124 +1,127 @@
 import SwiftUI
 
-/// The periodic table of the Elements & maps inspector (mock screen 4). Click toggles
-/// Quantify/Off; right-click gives Quantify · Fit only · Off · Lines ▸ K/L/M. Cell look:
-/// filled colour = Quantify, outlined = Fit only, dotted + "?" = suggested (with its
-/// reason as help), plain = Off, faint = unavailable.
+/// The periodic table of the Elements section (ADR 056, mock v2.1): two bands, main groups over transition metals, the rest
+/// folded. States by fill only, no legend: mapped (accent fill), proposed (accent outline), fit only (hollow), off (a quiet
+/// well), not detectable (dim). Click toggles Quantify / Off, or accepts a proposal; right-click gives the role and the line
+/// family; the state and its reason are the cell's help.
 struct PeriodicTableView: View {
     @Bindable var model: SpectroscopyRoomModel
-    @State private var fBlockOpen = false
+    @State private var foldedOpen = false
 
-    /// 18 columns of (cell + gap) must fit the inspector's narrowest content column, 248 pt
-    /// (`InspectorWidthBudgetTests`): 18 x 13 = 234. At 16 pt it was 306 and pushed the inspector past its minimum.
-    static let cell: CGFloat = 12, gap: CGFloat = 1
+    /// A 10-column band of 21-pt cells and 2-pt gaps is 228 pt, inside the inspector's narrowest content column, 248 pt
+    /// (`InspectorWidthBudgetTests`).
+    enum Metrics {
+        static let cell: CGFloat = 21, gap: CGFloat = 2, corner: CGFloat = 4
+        static var bandWidth: CGFloat { CGFloat(PeriodicLayout.transitionColumns) * (cell + gap) - gap }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            suggestionBubbles
-            ZStack(alignment: .topLeading) {
-                ForEach(1...118, id: \.self) { z in
-                    let p = PeriodicLayout.position(z)
-                    if !PeriodicLayout.isFBlock(z) || fBlockOpen {
-                        cell(z).offset(x: CGFloat(p.column) * (Self.cell + Self.gap),
-                                       y: (p.row > 6 ? Double(p.row) + 0.5 : Double(p.row)) * (Self.cell + Self.gap))
+        VStack(alignment: .leading, spacing: Metrics.gap) {
+            band(PeriodicLayout.mainGroup, columns: PeriodicLayout.mainGroupColumns)
+            band(PeriodicLayout.transition, columns: PeriodicLayout.transitionColumns)
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { foldedOpen.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).rotationEffect(.degrees(foldedOpen ? 90 : 0))
+                    Text("La\u{2013}Lu \u{00B7} Ac\u{2013}Lr").font(.caption)
+                }.foregroundStyle(.secondary).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).accessibilityValue(foldedOpen ? "Expanded" : "Collapsed")
+            .help("Lanthanides, and period 7 with the actinides")
+            if foldedOpen {
+                let perRow = PeriodicLayout.transitionColumns
+                ForEach(Array(stride(from: 0, to: PeriodicLayout.folded.count, by: perRow)), id: \.self) { start in
+                    HStack(spacing: Metrics.gap) {
+                        ForEach(PeriodicLayout.folded[start..<min(start + perRow, PeriodicLayout.folded.count)], id: \.self) { cell($0) }
                     }
                 }
             }
-            .frame(width: 18 * (Self.cell + Self.gap), height: (fBlockOpen ? 9.5 : 7) * (Self.cell + Self.gap), alignment: .topLeading)
-            DisclosureGroup(isExpanded: $fBlockOpen) { EmptyView() } label: {
-                Text("Lanthanides · actinides").font(.caption2).foregroundStyle(.secondary)
-            }.font(.caption2)
-            legend
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spectroscopy.periodicTable")
     }
 
-    @ViewBuilder private var suggestionBubbles: some View {
-        let s = model.elements.suggestions
-        if !s.isEmpty {
-            HStack(spacing: 4) {
-                ForEach(s, id: \.z) { Text($0.reason).font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Capsule().fill(Color.primary.opacity(0.1))) }
+    private func band(_ rows: [[Int?]], columns: Int) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.gap) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: Metrics.gap) {
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, z in
+                        if let z { cell(z) } else { Color.clear.frame(width: Metrics.cell, height: Metrics.cell) }
+                    }
+                }
             }
         }
+        .frame(width: Metrics.bandWidth, alignment: .center)
     }
 
     private func cell(_ z: Int) -> some View {
         let state = model.elements.cellState(z)
         let sym = PeriodicLayout.symbol(z)
         return Text(sym)
-            .font(.system(size: 7.5, weight: .semibold))
-            .frame(width: Self.cell, height: Self.cell)
+            .font(.system(size: 10, weight: .semibold))
+            .frame(width: Metrics.cell, height: Metrics.cell)
             .foregroundStyle(Self.ink(state))
-            .background(RoundedRectangle(cornerRadius: 3).fill(Self.fill(state, z)))
-            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Self.border(state), style: Self.borderStyle(state)))
-            .overlay(alignment: .topTrailing) {
-                if case .suggested = state { Text("?").font(.system(size: 7, weight: .bold)).foregroundStyle(.orange).offset(x: 2, y: -4) }
-            }
+            .background(RoundedRectangle(cornerRadius: Metrics.corner).fill(Self.fill(state)))
+            .overlay(RoundedRectangle(cornerRadius: Metrics.corner).strokeBorder(Self.border(state), lineWidth: 1.2))
             .contentShape(Rectangle())
             .onTapGesture { model.elements.click(z) }
             .contextMenu {
                 if PeriodicLayout.isAvailable(z) {
                     ForEach(ElementRole.allCases, id: \.self) { r in
-                        Toggle(r.title, isOn: Binding(get: { model.elements.role(z) == r },
-                                                       set: { _ in model.elements.set(z, r) }))
+                        Toggle(r.title, isOn: Binding(get: { model.elements.role(z) == r }, set: { _ in model.elements.set(z, r) }))
                     }
                     Divider()
                     Menu("Lines") {
                         ForEach(LineFamily.allCases, id: \.self) { f in
-                            Toggle(f.rawValue, isOn: Binding(get: { model.elements.family(z) == f },
-                                                              set: { _ in model.elements.setFamily(z, f) }))
+                            Toggle(f.rawValue, isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
                         }
                     }
                 } else { Text(ElementSelection.unavailableReason(z: z) ?? "") }
             }
             .help(Self.help(state, sym, proposed: model.elements.suggestions.first { $0.z == z }?.proposedRole))
             .accessibilityLabel("\(sym), \(Self.describe(state))")
+            .accessibilityAddTraits(.isButton)
     }
 
-    private var legend: some View {
-        HStack(spacing: 8) {
-            legendItem(.quantify, "Quantify"); legendItem(.fitOnly, "Fit only")
-            legendItem(.suggested(""), "Suggested ?"); legendItem(.off, "Off")
-        }.font(.caption2).foregroundStyle(.secondary)
-    }
-    private func legendItem(_ s: PeriodicCellState, _ t: String) -> some View {
-        HStack(spacing: 3) {
-            RoundedRectangle(cornerRadius: 2).fill(Self.fill(s, 12))
-                .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(Self.border(s), style: Self.borderStyle(s)))
-                .frame(width: 9, height: 9)
-            Text(t)
-        }
-    }
+    // MARK: look
 
-    static func fill(_ s: PeriodicCellState, _ z: Int) -> Color {
+    static func fill(_ s: PeriodicCellState) -> Color {
         switch s {
-        case .quantify: ElementPalette.color(z)
-        case .fitOnly, .suggested: Color.clear
+        case .quantify: .accentColor
         case .off: Color.primary.opacity(0.06)
-        case .unavailable: .clear
+        case .fitOnly, .suggested, .unavailable: .clear
         }
     }
     static func ink(_ s: PeriodicCellState) -> Color {
-        switch s { case .quantify: .white; case .unavailable: Color.primary.opacity(0.25); default: .primary }
+        switch s {
+        case .quantify: .white
+        case .unavailable: Color.primary.opacity(0.25)
+        default: .primary
+        }
     }
     static func border(_ s: PeriodicCellState) -> Color {
-        switch s { case .fitOnly: Color.primary.opacity(0.6); case .suggested: Color.primary.opacity(0.6)
-                   case .off: Color.primary.opacity(0.12); default: .clear }
-    }
-    static func borderStyle(_ s: PeriodicCellState) -> StrokeStyle {
-        if case .suggested = s { return StrokeStyle(lineWidth: 1.2, dash: [1.5, 1.5]) }
-        return StrokeStyle(lineWidth: 1.2)
+        switch s {
+        case .suggested: .accentColor
+        case .fitOnly: Color.primary.opacity(0.6)
+        default: .clear
+        }
     }
     static func help(_ s: PeriodicCellState, _ sym: String, proposed: ElementRole? = nil) -> String {
         switch s {
-        case .suggested(let r): "\(r) — click to set \((proposed ?? .quantify).title)"
+        case .suggested(let r): "\(sym) · proposed (\(r)) — click to map"
         case .unavailable(let r): "\(sym): \(r)"
         default: "\(sym) · \(describe(s)) — click toggles, right-click for more"
         }
     }
     static func describe(_ s: PeriodicCellState) -> String {
-        switch s { case .quantify: "quantify"; case .fitOnly: "fit only"; case .off: "off"
-                   case .suggested(let r): "suggested, \(r)"; case .unavailable: "unavailable" }
+        switch s {
+        case .quantify: "mapped"
+        case .fitOnly: "fit only"
+        case .off: "off"
+        case .suggested(let r): "proposed, \(r)"
+        case .unavailable: "not detectable"
+        }
     }
 }
 
@@ -126,4 +129,4 @@ extension PeriodicLayout {
     static func isAvailable(_ z: Int) -> Bool { ElementSelection.unavailableReason(z: z) == nil }
 }
 
-#Preview("Periodic table") { PeriodicTableView(model: .fixture).padding().frame(width: 320) }
+#Preview("Periodic table") { PeriodicTableView(model: .fixture).padding().frame(width: 280) }

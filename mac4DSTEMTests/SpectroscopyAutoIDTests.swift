@@ -191,11 +191,11 @@ final class SpectroscopyAutoIDTests: XCTestCase {
     // MARK: Width
 
     /// Mutation: the Auto ID row's button label gets a fixed 300-pt text, or the running state grows a second fixed-size text.
-    func testTheElementsInspectorStillFitsTheNarrowestColumnWhileIdleRunningAndAfterARun() {
+    func testTheInspectorStillFitsTheNarrowestColumnWhileIdleRunningAndAfterARun() {
         let budget = LayoutPolicy.inspectorWidth.min - 2 * 16
         func width(_ m: SpectroscopyRoomModel) -> CGFloat {
             let state = AppState()
-            let host = NSHostingController(rootView: SpectroscopyStepInspector(step: .elementsAndMaps, model: m).environment(state).environment(state.preferences))
+            let host = NSHostingController(rootView: SpectroscopyInspectorSections(model: m, startOpen: true).environment(state).environment(state.preferences))
             return host.sizeThatFits(in: CGSize(width: 1, height: 10_000)).width
         }
         let m = model()
@@ -215,6 +215,7 @@ final class SpectroscopyAutoIDTests: XCTestCase {
     /// Mutation: runAutoID drops the beam guard (proposes with beam 0 or 200 regardless).
     func testWithoutABeamEnergyAutoIDSaysSoAndProposesNothing() {
         let state = AppState()
+        state.spectroscopyRoom.model.autoIDEnabled = false   // the run is started by hand: Auto ID on open would be a second one
         state.openSpectrumImage(SpectroscopyRoomTests.StubSpectrumImage())
         let c = state.spectroscopyRoom
         c.model.elements.click(Al)
@@ -228,6 +229,7 @@ final class SpectroscopyAutoIDTests: XCTestCase {
     /// the zero-count spectrum then lands an outcome or a failure note.
     func testARunCancelledByRefreshLandsNothingAndLeavesNoNote() async {
         let state = AppState()
+        state.spectroscopyRoom.model.autoIDEnabled = false   // the run is started by hand: Auto ID on open would be a second one
         state.openSpectrumImage(SpectroscopyRoomTests.StubSpectrumImage())
         let c = state.spectroscopyRoom
         c.model.elements.click(Al)

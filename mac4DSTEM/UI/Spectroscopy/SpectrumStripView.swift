@@ -1,16 +1,16 @@
 import SwiftUI
 
-/// The spectrum pane: a header (title, layer toggles that fold into one "Show" menu when
-/// narrow), the Canvas plot, the ±3σ residual strip, and the fit footer.
+/// The spectrum strip (ADR 056): a header (title, one "Show" menu), the Canvas plot on a log axis opening on the listed lines'
+/// energy span, the ±3σ residual strip, and one quiet caption saying what each curve is. The whole map's spectrum (grey)
+/// and each pin's (its own colour) are scaled to the region's counts: a comparison of shapes.
 ///
 /// Interaction follows Velox where pure SwiftUI allows: pinch (and the wheel with ⌃, as
 /// macOS synthesises it — `ZoomPan.swift` documents why no AppKit scroll monitor is used)
 /// zooms the energy axis about the pointer, drag pans, double-click or Home resets.
 /// DEVIATION from Velox: a plain mouse wheel does not zoom (needs an AppKit event
 /// monitor); open question for the owner.
-struct SpectrumPlotView: View {
+struct SpectrumStripView: View {
     @Bindable var model: SpectroscopyRoomModel
-    var narrow: Bool
 
     @State private var dragStart: SpectrumViewport?
     @State private var pinchStart: SpectrumViewport?
@@ -19,6 +19,7 @@ struct SpectrumPlotView: View {
     @State private var hiddenLabels: [String] = []
     @FocusState private var focused: Bool
 
+    private enum PlotMetrics { static let pinDot: CGFloat = 7, footerHeight: CGFloat = 26 }
     private enum Metrics {
         static let left: CGFloat = 46, right: CGFloat = 8, top: CGFloat = 6
         static let axisBand: CGFloat = 20
@@ -34,40 +35,23 @@ struct SpectrumPlotView: View {
             Divider()
             footer
         }
+        .accessibilityIdentifier("spectroscopy.spectrum")
     }
 
     // MARK: header
 
     private var header: some View {
         HStack(spacing: 8) {
-            (Text(model.spectrumTitle).fontWeight(.semibold)
-             + Text(" · ").foregroundStyle(.secondary)
-             + Text(model.spectrumSubtitle).foregroundStyle(.secondary))
-                .font(.callout).lineLimit(1).truncationMode(.tail)
+            HStack(spacing: 4) {
+                Text(model.spectrumTitle).fontWeight(.semibold)
+                Text("· \(model.spectrumSubtitle)").foregroundStyle(.secondary)
+            }.font(.callout).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
-            if narrow { showMenu } else { chips }
+            pinChips
+            showMenu
         }
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .frame(height: LayoutPolicy.paneHeaderHeight)
-    }
-
-    private var chips: some View {
-        HStack(spacing: 4) {
-            chip("Spectrum", \.spectrum); chip("Background", \.background); chip("Model", \.model)
-            chip("Residual", \.residual); chip("Overlay", \.overlay); chip("Log", \.log)
-        }
-    }
-
-    private func chip(_ title: String, _ key: WritableKeyPath<SpectrumLayers, Bool>) -> some View {
-        let on = model.layers[keyPath: key]
-        return Button { model.layers[keyPath: key].toggle() } label: {
-            Text(title).font(.caption)
-                .padding(.horizontal, 8).padding(.vertical, 2)
-                .foregroundStyle(on ? Color.accentColor : Color.secondary)
-                .background(Capsule().fill(on ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05)))
-                .overlay(Capsule().strokeBorder(on ? Color.accentColor.opacity(0.5) : Color.primary.opacity(0.15)))
-        }
-        .buttonStyle(.plain).accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private var showMenu: some View {
@@ -76,21 +60,35 @@ struct SpectrumPlotView: View {
             Toggle("Background", isOn: $model.layers.background)
             Toggle("Model", isOn: $model.layers.model)
             Toggle("Residual", isOn: $model.layers.residual)
-            Toggle("Overlay", isOn: $model.layers.overlay)
+            Toggle("Pins", isOn: $model.layers.pins)
             Divider()
             Toggle("Log scale", isOn: $model.layers.log)
         }
         .menuStyle(.button).controlSize(.small).fixedSize()
+        .accessibilityIdentifier("spectroscopy.show")
     }
 
+    private var pinChips: some View {
+        HStack(spacing: 6) {
+            ForEach(model.pins) { pin in
+                Button { model.onUnpin?(pin.id) } label: {
+                    HStack(spacing: 3) { Circle().fill(pin.tint).frame(width: PlotMetrics.pinDot, height: PlotMetrics.pinDot); Text(pin.label); Image(systemName: "xmark").font(.caption2) }
+                }
+                .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+                .help("Unpin \(pin.label): \(pin.pixels) px")
+            }
+        }
+    }
+
+    /// One quiet line: what each curve is. The grey and the pins are scaled to the region's counts (said on hover).
     private var footer: some View {
         HStack(spacing: 8) {
-            Text(model.series.hasModel ? model.fitFooter : "no fit yet · Quantify fits the selected region").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
-            Spacer(minLength: 4)
-            if model.series.hasModel && model.unvalidated { UnvalidatedBadge() }
+            Text("grey: whole map · white: region · blue: model · dotted: background")
+                .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                .help("The whole map's spectrum and each pin's are scaled to the region's total counts: a comparison of shapes, not of intensities.")
         }
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
-        .frame(height: 26)
+        .frame(height: PlotMetrics.footerHeight)
     }
 
     // MARK: plot
@@ -107,7 +105,7 @@ struct SpectrumPlotView: View {
                         dragStart = start
                         var vp = start
                         vp.pan(byFraction: -Double(v.translation.width / max(plotWidth(size), 1)))
-                        model.viewport = vp
+                        model.viewport = vp; model.viewportIsManual = true
                     }
                     .onEnded { _ in dragStart = nil })
                 .simultaneousGesture(MagnifyGesture()
@@ -117,10 +115,10 @@ struct SpectrumPlotView: View {
                         var vp = start
                         let a = Double((g.startLocation.x - Metrics.left) / max(plotWidth(size), 1))
                         vp.zoom(factor: Double(g.magnification), anchor: min(max(a, 0), 1))
-                        model.viewport = vp
+                        model.viewport = vp; model.viewportIsManual = true
                     }
                     .onEnded { _ in pinchStart = nil })
-                .onTapGesture(count: 2) { model.viewport.reset() }
+                .onTapGesture(count: 2) { resetViewport() }
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let p): hover = p
@@ -128,14 +126,22 @@ struct SpectrumPlotView: View {
                     }
                 }
                 .focusable()
+                .focusEffectDisabled()
                 .focused($focused)
-                .onKeyPress(.home) { model.viewport.reset(); return .handled }
+                .onKeyPress(.home) { resetViewport(); return .handled }
                 .help("Pinch to zoom, drag to pan, double-click or Home to reset"
                       + (hiddenLabels.isEmpty ? "" : "\nNames left out where lines crowd: " + hiddenLabels.joined(separator: ", ")))
         }
     }
 
     private func plotWidth(_ size: CGSize) -> CGFloat { size.width - Metrics.left - Metrics.right }
+
+    /// Back to the span of the listed lines (the opening view), which the viewport follows again.
+    private func resetViewport() {
+        model.viewportIsManual = false
+        let r = SpectrumAutoZoom.range(markers: model.markers, domain: model.series.domain, minimumSpan: model.viewport.minimumSpan)
+        model.viewport.lo = r.lowerBound; model.viewport.hi = r.upperBound
+    }
 
     private func draw(_ ctx: GraphicsContext, _ size: CGSize) {
         var L = model.layers
@@ -221,8 +227,13 @@ struct SpectrumPlotView: View {
             }
             clip.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: width, lineJoin: .round, dash: dash))
         }
-        if L.overlay, s.hasOverlay, let o = s.overlay { curve(o, .gray, width: 1.2, dash: [4, 3]) }
-        if L.spectrum { curve(s.data, Color.primary.opacity(0.45), width: 0.8) }
+        let total = s.data.reduce(0, +)
+        if s.hasOverlay, let o = s.overlay { curve(o, Color.secondary.opacity(0.7), width: 1) }
+        for pin in model.pins where L.pins && pin.spectrum.count == s.count {
+            let t = pin.spectrum.reduce(0, +)
+            if t > 0, total > 0 { let k = total / t; curve(pin.spectrum.map { $0 * k }, pin.tint.opacity(SpectrumLayers.pinOpacity), width: 1) }
+        }
+        if L.spectrum { curve(s.data, Color.primary.opacity(0.85), width: 0.9) }
         if L.model, s.hasModel { curve(s.model, .blue, width: 1.8, within: s.fitChannels) }
         if L.background, s.hasBackground { curve(s.background, .orange.opacity(0.9), width: 1, dash: [1, 2], within: s.fitChannels) }
 
@@ -231,7 +242,7 @@ struct SpectrumPlotView: View {
         for m in visible {
             let x = X(m.energy)
             let grey = m.kind != .line
-            let color: Color = grey ? .gray : ElementPalette.color(m.elementZ ?? 0)
+            let color: Color = grey ? .gray : model.color(m.elementZ ?? 0)
             var p = Path(); p.move(to: CGPoint(x: x, y: main.minY)); p.addLine(to: CGPoint(x: x, y: main.maxY))
             ctx.stroke(p, with: .color(color.opacity(0.8)),
                        style: StrokeStyle(lineWidth: 0.8, dash: m.kind == .edge ? [1, 2] : [4, 3]))
@@ -240,7 +251,7 @@ struct SpectrumPlotView: View {
         for m in visible {
             let x = X(m.energy)
             let grey = m.kind != .line
-            let color: Color = grey ? .gray : ElementPalette.color(m.elementZ ?? 0)
+            let color: Color = grey ? .gray : model.color(m.elementZ ?? 0)
             var t = Text(m.label).font(.system(size: m.kind == .edge ? 9 : 10, weight: m.kind == .line ? .semibold : .regular)).foregroundStyle(color)
             if m.kind == .suspect { t = t.italic() }
             if m.kind == .edge {   // the edge label sits low, by the curve, so it never collides with the line names
@@ -317,9 +328,6 @@ struct UnvalidatedBadge: View {
     }
 }
 
-#Preview("Spectrum, wide") {
-    SpectrumPlotView(model: .fixture, narrow: false).frame(width: 760, height: 300)
-}
-#Preview("Spectrum, narrow") {
-    SpectrumPlotView(model: .fixture, narrow: true).frame(width: 520, height: 300)
+#Preview("Spectrum strip") {
+    SpectrumStripView(model: .fixture).frame(width: 640, height: 300)
 }

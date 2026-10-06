@@ -254,6 +254,7 @@ final class SpectroscopyQuantifyTests: XCTestCase {
     /// The controller holds its session weakly: the caller keeps the AppState alive for the length of the test.
     private func openedRoom() throws -> (AppState, SpectroscopyRoomController) {
         let state = AppState()
+        state.spectroscopyRoom.model.autoIDEnabled = false   // these tests are about Quantify, not Auto ID on open
         state.openSpectrumImage(try Self.image())
         let c = state.spectroscopyRoom
         for z in [13, 12, 14, 29] { c.model.elements.set(z, .quantify) }

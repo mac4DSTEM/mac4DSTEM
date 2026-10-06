@@ -329,12 +329,12 @@ final class SpectrumImageOpeningTests: XCTestCase {
         controller.elementsChanged()
         try await waitFor("the whole map's row and spectrum", state: { "results \(model.results.count), spectrum sum \(model.series.data.reduce(0, +)), expected \(image.sum(mask: nil).reduce(0, +))" }) { model.results.count == 1 && model.series.data.reduce(0, +) == Double(image.sum(mask: nil).reduce(0, +)) }
         let rect = SpectrumRegionShape.rectangle(PixelRect(x0: 0, y0: 0, x1: 3, y1: 2))
-        model.onDrawRegion?(rect)
+        model.onRegionEdit?(rect, true)
         let regionTotal = Double(image.sum(mask: rect.mask(nx: 6, ny: 4)).reduce(0, +))
         try await waitFor("the region's spectrum", state: { "sum \(model.series.data.reduce(0, +)), expected \(regionTotal), regions \(model.regions.count)" }) { model.series.data.reduce(0, +) == regionTotal }
         XCTAssertEqual(model.regions.count, 2)
         XCTAssertEqual(model.spectrumTitle, "Spectrum · Region 1")
-        XCTAssertEqual(model.regionSettings.pixels?.hasPrefix("6 "), true)
+        XCTAssertEqual(model.regionSettings.pixels, "6")
         XCTAssertEqual(model.regionOutline, rect)
         model.selectedRegion = 0
         controller.regionPicked()
@@ -390,10 +390,9 @@ final class SpectrumImageOpeningTests: XCTestCase {
 
     /// A drag on the map spans whole pixels, ends included, clamped to the grid.
     func testADragSpansTheStartAndEndPixels() {
-        let size = CGSize(width: 60, height: 40)      // a 6 x 4 grid at 10 pt a pixel
-        let r = ColorMixMapView.pixelRect(CGPoint(x: 15, y: 5), CGPoint(x: 44, y: 29), size: size, grid: (6, 4))
+        let r = RegionEditing.drawnRect(from: PixelPoint(x: 1.5, y: 0.5), to: PixelPoint(x: 4.4, y: 2.9), grid: (6, 4))
         XCTAssertEqual(r, PixelRect(x0: 1, y0: 0, x1: 5, y1: 3))
-        XCTAssertEqual(ColorMixMapView.pixelRect(CGPoint(x: -20, y: -20), CGPoint(x: 99, y: 99), size: size, grid: (6, 4)),
+        XCTAssertEqual(RegionEditing.drawnRect(from: PixelPoint(x: -2, y: -2), to: PixelPoint(x: 9.9, y: 9.9), grid: (6, 4)),
                        PixelRect(x0: 0, y0: 0, x1: 6, y1: 4))
     }
 
@@ -427,7 +426,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
         let state = AppState()
         state.openSpectrumImage(try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: Self.dm4, fourD: nil)))
         let controller = state.spectroscopyRoom, model = controller.model
-        model.onDrawRegion?(.rectangle(PixelRect(x0: 0, y0: 0, x1: 3, y1: 2)))
+        model.onRegionEdit?(.rectangle(PixelRect(x0: 0, y0: 0, x1: 3, y1: 2)), true)
         try await waitFor("Region 1", state: { model.spectrumTitle }) { model.spectrumTitle == "Spectrum · Region 1" }
         controller.selectRegion(id: 0)
         XCTAssertEqual(model.selectedRegion, 0)

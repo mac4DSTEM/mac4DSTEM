@@ -2,6 +2,7 @@ import SwiftUI
 import Observation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+import DSTEMSession
 #endif
 
 /// The room's view-model: what every Spectroscopy view reads and edits. It holds NO
@@ -14,27 +15,43 @@ import DSTEMCore
 /// session swaps them when `mapMode` changes; the composite does not convert.
 ///
 /// Seam for lane R: replace the `fixture` values by the session's, keep the property
-/// names. The five `*Settings` structs are the inspectors' controls, one per step.
+/// names. The `*Settings` structs are the inspector sections' controls (ADR 056: one window, no steps).
 @MainActor @Observable
 final class SpectroscopyRoomModel {
     // Elements & maps
     var elements = ElementSelection()
     var mapMode: MapMode = .netCounts
     var smoothing = "None"
-    var mixed: Set<Int> = []                   // tiles whose checkbox is on
+    var mixed: Set<Int> = []                   // tiles whose checkbox is on: included in the ColorMix (not "active")
     var tiles: [MapTile] = []
+    /// The one map the person is working on, drawn with the accent outline; separate from the tick (ADR 056 addendum).
+    var active: ActiveMap = .colorMix
+    /// Colour per element the person chose in the active map's popover; absent: `ElementPalette`. View state: the element
+    /// states the replay record keeps (`QuantificationMethod.ElementState`) hold no colour and a colour is not a method
+    /// setting, so it lives (and is lost with the window) here, reset when a spectrum image is bound.
+    var elementColors: [Int: Color] = [:]
+    /// Contrast window and gamma per map (HAADF and each element); absent: the full range, gamma 1. View state, as above.
+    var mapDisplays: [ActiveMap: MapDisplay] = [:]
+    var haadfColormap: ColormapKind = .gray
     /// Bumped whenever `tiles` or `backdrop` are replaced, so the map's bitmap is rebuilt by identity, not by comparing arrays.
     var tileRevision = 0
 
     // Auto ID (the Elements & maps step's proposer run; the compute is the controller's)
     private(set) var autoID = AutoIDState()
+    /// Auto ID runs when a spectrum image opens (ADR 056 item 6); off, nothing is proposed until it is switched on.
+    var autoIDEnabled = true
     var onAutoID: (() -> Void)?
     var onCancelAutoID: (() -> Void)?
 
-    // Regions
+    // Regions: one live region on the active map; pins are frozen copies of it (ADR 056)
     var regions: [RegionSummary] = []
     var selectedRegion: Int?
     var drawTool: DrawTool = .rectangle
+    var pins: [PinnedRegion] = []
+    static let maximumPins = 3
+    var compare: CompareBasis = .wholeMap
+    /// The viewport follows the listed lines until the person pans or zooms it (reset returns it to them).
+    var viewportIsManual = false
 
     // Spectrum
     var series: SpectrumSeries
@@ -47,7 +64,6 @@ final class SpectroscopyRoomModel {
     // Results
     var results: [ResultRow] = []
     var unit: AbundanceUnit = .atomic
-    var expandedRows: Set<Int> = []
     var resultsTitle = "Results"
     /// The session's `validation` string for the shown at% (ADR 054 §3: "none"). nil = unknown.
     var validation: String?
@@ -59,6 +75,12 @@ final class SpectroscopyRoomModel {
     /// The shown at% / wt% was computed without the absorption correction (off, or refused): the column header says so.
     var abundanceWithoutAbsorption = false
     var fitFailure: String?
+    /// "Whole map, for comparison: Mg 0.9 ± 0.2 · Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%": the same method on the whole map, shown
+    /// under a region's numbers; nil for the whole map itself, before Quantify and when no at% was computed.
+    var wholeMapLine: String?
+    /// What the Export… menu (the panel's header, the inspector's Export section) is writing and what it last said.
+    var pendingExport: PendingExport?
+    var exportNote: String?
     /// The unlisted-line check (WP3b F1): "checking…" until it lands, then what it found; nil before a fit. Its two buttons
     /// call the controller: the named elements become Fit only, or are dismissed (switched Off by the person).
     var unlisted: UnlistedLineNote?
@@ -81,8 +103,12 @@ final class SpectroscopyRoomModel {
     /// The selected region's shape, outlined on the map; nil for the whole map.
     var regionOutline: SpectrumRegionShape?
     /// Set by the controller: a shape drawn on the map becomes a region; a region is removed.
-    var onDrawRegion: ((SpectrumRegionShape) -> Void)?
+    /// A shape drawn, moved or resized on a map; `final` is false while the pointer is still down (the spectrum follows,
+    /// the numbers wait for the end).
+    var onRegionEdit: ((SpectrumRegionShape, _ final: Bool) -> Void)?
     var onRemoveRegion: ((Int) -> Void)?
+    var onPin: (() -> Void)?
+    var onUnpin: ((Int) -> Void)?
 
     // Inspectors
     var image = SpectrumImageSettings()
@@ -90,7 +116,6 @@ final class SpectroscopyRoomModel {
     var quantify = QuantifySettings()
     var export = ExportSettings()
     var mapLabel = "ColorMix"
-    var scaleBar = ""                          // empty: no scale bar drawn
 
     init(series: SpectrumSeries) {
         self.series = series
@@ -98,7 +123,7 @@ final class SpectroscopyRoomModel {
     }
 
     /// Map units shown in the map header.
-    var mapUnits: String { mapMode == .atomic ? "at%" : "counts" }
+    var mapUnits: String { mapMode.units }
 
     // MARK: Auto ID
 
@@ -144,7 +169,20 @@ final class SpectroscopyRoomModel {
     }
 
     func toggleMix(_ z: Int) { if mixed.contains(z) { mixed.remove(z) } else { mixed.insert(z) } }
-    func toggleExpanded(_ z: Int) { if expandedRows.contains(z) { expandedRows.remove(z) } else { expandedRows.insert(z) } }
+
+    /// The colour of element `z` everywhere (tile, ColorMix, markers, table): the person's, else the palette's.
+    func color(_ z: Int) -> Color { elementColors[z] ?? ElementPalette.color(z) }
+    func display(_ map: ActiveMap) -> MapDisplay { mapDisplays[map] ?? MapDisplay() }
+
+    /// Proposed elements take the role the proposer suggested, one click for all (the inspector's Accept).
+    func acceptProposed() { for s in elements.suggestions { elements.click(s.z) } }
+}
+
+/// A text file the save panel is about to write (the results CSV or the method JSON).
+struct PendingExport: Equatable {
+    var text: String
+    var isJSON: Bool
+    var name: String
 }
 
 struct AutoIDState: Equatable {
@@ -160,7 +198,42 @@ struct MapTile: Identifiable {
     var values: [Float]                        // 0...1, row-major
     /// Why the tile is not ticked into the ColorMix by default: its window method says "not a measurement" (s\u{00B7}B \u{2265} G).
     var notMeasuredWhy: String? = nil
+    /// An Auto ID proposal not yet accepted: mapped so the evidence is visible, dimmed, never in the ColorMix, never quantified.
+    var proposed = false
     var id: Int { z }
+}
+
+/// Which map is active: the one tile with the accent outline, whose colour, contrast and gamma the popover edits.
+enum ActiveMap: Hashable, Sendable {
+    case haadf, colorMix
+    case element(Int)
+}
+
+/// Contrast window (fractions of the map's own range) and gamma of one map: presentation only, never written to a product.
+struct MapDisplay: Equatable, Sendable {
+    var lo: Float = 0, hi: Float = 1, gamma: Float = 1
+    var isIdentity: Bool { lo == 0 && hi == 1 && gamma == 1 }
+    /// 0...1 in, 0...1 out: the window, then the exponent the colour bar uses (`pow(fraction, 1 / gamma)`).
+    func apply(_ v: Float) -> Float {
+        guard !isIdentity else { return v }
+        let span = max(hi - lo, 1e-6)
+        return pow(min(max((v - lo) / span, 0), 1), 1 / max(gamma, 0.05))
+    }
+}
+
+/// What the spectrum's grey overlay is: nothing, or the whole map's spectrum scaled to the region's counts.
+enum CompareBasis: String, CaseIterable, Sendable { case none = "None", wholeMap = "Whole map" }
+
+/// A frozen copy of the live region (Pin, ADR 056 addendum): its own spectrum, overlaid in its own colour while the live
+/// rectangle moves on.
+struct PinnedRegion: Identifiable, Equatable {
+    var id: Int
+    var label: String
+    var tint: Color
+    var shape: SpectrumRegionShape?
+    var pixels: Int
+    var spectrum: [Double]
+    static let tints: [Color] = [.yellow, .pink, .teal]
 }
 
 struct RegionSummary: Identifiable, Equatable {
@@ -205,9 +278,6 @@ struct RegionSettings {
     var pixels: String?
     var counts: String?
     var liveTime: String?
-    var lineWidth = 3
-    var isLine = false                         // Line width appears only for a drawn line
-    var compare: String?
 }
 
 /// What the Export step will write, built by Core from the last fit (`SpectroscopyExport`); all nil until Quantify has run.
@@ -272,14 +342,14 @@ extension SpectroscopyRoomModel {
             ResultRow(z: 29, netCounts: 2_100, netSigma: 60, kFreeRatio: 0.0051, kFreeSigma: 0.0001, atPercent: 1.2, atSigma: 0.3, wtPercent: 3.0, wtSigma: 0.8, sigmaTerms: "counting 1.3 % · fit 0.9 % · k-factor 20 % flat → ±0.3 at%")]
         m.validation = "none"
         m.spectrumTitle = "Spectrum · β″ pooled"; m.spectrumSubtitle = "matrix, norm. to Al Kα"
-        m.resultsTitle = "Results · β″ pooled"; m.scaleBar = "50 nm"
+        m.resultsTitle = "Results · β″ pooled"
         m.image = SpectrumImageSettings(
             source: "Linked 4D · shape differs", sourceWarning: true, frameLo: 1, frameHi: 24, frames: 24,
             energyAxis: "Refined", energyAxisReadout: "+4 eV, 9.98 eV/ch",
             countsHistogram: [9, 8, 6, 4, 3, 2, 1.4, 1, 0.6, 0.4], countsMedian: "median 11",
             liveDead: "1311 s total · dead 52 %", geometry: "TOA 18° · 4 det. · 0.12 sr")
         m.regionSettings = RegionSettings(source: "Phase", phase: "β″ (Mg₅Si₆)", pixels: "1 842 · 2.8 %", counts: "4.31 M",
-                                          liveTime: "37 s · 20 ms/px", compare: "Al Kα · live time")
+                                          liveTime: "37 s · 20 ms/px")
         m.quantify.absorptionNote = "4 detectors · TOA from file"
         m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.quality = "χ²ᵣ 1.04 (Pearson)"
         m.smoothing = "3 × 3 · σ 1 px"

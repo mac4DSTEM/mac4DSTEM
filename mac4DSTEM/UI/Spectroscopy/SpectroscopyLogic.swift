@@ -15,6 +15,8 @@ import CoreGraphics
 nonisolated enum SpectroscopyLayout {
     static let narrowThreshold: CGFloat = 760
     static func isNarrow(contentWidth: CGFloat) -> Bool { contentWidth < narrowThreshold }
+    /// The stacked layout's ColorMix is at most this tall, so the spectrum and the table stay within a short scroll.
+    static func narrowColorMixHeight(roomHeight: CGFloat) -> CGFloat { roomHeight * 0.4 }
 }
 
 // MARK: - Elements
@@ -123,8 +125,10 @@ nonisolated struct ElementSelection: Equatable, Sendable {
     }
 }
 
-/// Periodic-table geometry: 18 columns, f-block as a collapsed extra row (La–Yb, Ac–No;
-/// Lu and Lr sit in group 3).
+/// The periodic table's symbols and its two-band layout (ADR 056): the main groups (H to Rn, 8 columns) above the transition
+/// metals (Sc to Hg, 10 columns, the lanthanide place under Sc and Y left empty), with period 7 and the f-block folded into
+/// one "La\u{2013}Lu \u{00B7} Ac\u{2013}Lr" disclosure. Two bands are what fits the inspector's narrowest column at a cell a
+/// finger can hit; the full 18 columns would need 400 pt for the same cells.
 nonisolated enum PeriodicLayout {
     static let symbols: [String] = ("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr "
         + "Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu "
@@ -134,33 +138,34 @@ nonisolated enum PeriodicLayout {
     static func symbol(_ z: Int) -> String { symbols[z - 1] }
     static func z(of symbol: String) -> Int? { symbols.firstIndex(of: symbol).map { $0 + 1 } }
 
-    /// (row, column), both 0-based; row 7/8 (0-based 7, 8) are the f-block rows.
-    static func position(_ z: Int) -> (row: Int, column: Int) {
-        switch z {
-        case 1: return (0, 0)
-        case 2: return (0, 17)
-        case 3...4: return (1, z - 3)
-        case 5...10: return (1, z - 5 + 12)
-        case 11...12: return (2, z - 11)
-        case 13...18: return (2, z - 13 + 12)
-        case 19...36: return (3, z - 19)
-        case 37...54: return (4, z - 37)
-        case 55...56: return (5, z - 55)
-        case 57...70: return (7, z - 57 + 2)
-        case 71...86: return (5, z - 71 + 2)
-        case 87...88: return (6, z - 87)
-        case 89...102: return (8, z - 89 + 2)
-        default: return (6, z - 103 + 2)
-        }
-    }
+    static let mainGroupColumns = 8, transitionColumns = 10
 
-    static func isFBlock(_ z: Int) -> Bool { (57...70).contains(z) || (89...102).contains(z) }
+    /// Rows of the main-group band (periods 1 to 6); nil is an empty place.
+    static let mainGroup: [[Int?]] = [
+        [1, nil, nil, nil, nil, nil, nil, 2],
+        Array(3...10).map { Optional($0) },
+        Array(11...18).map { Optional($0) },
+        [19, 20] + Array(31...36).map { Optional($0) },
+        [37, 38] + Array(49...54).map { Optional($0) },
+        [55, 56] + Array(81...86).map { Optional($0) },
+    ]
+    /// Rows of the transition band: Sc to Zn, Y to Cd, Hf to Hg under Ti to Zn (column 0 holds the folded lanthanides).
+    static let transition: [[Int?]] = [
+        Array(21...30).map { Optional($0) },
+        Array(39...48).map { Optional($0) },
+        [nil] + Array(72...80).map { Optional($0) },
+    ]
+    /// The folded places: La to Lu, then period 7 (Fr to Og).
+    static let folded: [Int] = Array(57...71) + Array(87...118)
 }
 
 // MARK: - Spectrum axes
 
 nonisolated struct SpectrumLayers: Equatable, Sendable {
-    var spectrum = true, background = true, model = true, residual = true, overlay = true
+    var spectrum = true, background = true, model = true, residual = true
+    /// The pinned regions' comparison curves (drawn faint, `pinOpacity`).
+    var pins = true
+    static let pinOpacity = 0.6
     var log = true
 }
 
@@ -375,19 +380,21 @@ nonisolated enum MarkerLabelLayout {
 // MARK: - Results
 
 nonisolated enum AbundanceUnit: String, CaseIterable, Sendable { case atomic = "at%", weight = "wt%" }
-nonisolated enum MapMode: String, CaseIterable, Sendable { case netCounts = "Net counts", atomic = "at%" }
+/// What the maps show (the grid header's switch). `integrated` is the signal window's sum, `netCounts` the same less its
+/// background windows. at% and wt% are computed on pooled regions only (ADR 054 item 3, a pooled fit has a σ and a pixel's
+/// counts have none worth a composition), so the two are listed but never offered for the maps.
+nonisolated enum MapMode: String, CaseIterable, Sendable {
+    case integrated = "int", netCounts = "net", weight = "wt%", atomic = "at%"
+    var isAvailable: Bool { self == .integrated || self == .netCounts }
+    var units: String { self == .integrated ? "integrated counts" : (self == .netCounts ? "net counts" : rawValue) }
+}
+/// The region tools in the grid header: a rectangle, or a polygon closed by a click on its first vertex.
 nonisolated enum DrawTool: String, CaseIterable, Sendable {
-    /// What a drag on the map can draw today.
-    static let drawable: [DrawTool] = [.rectangle, .ellipse]
-
-    case point, rectangle, ellipse, polygon, line
+    case rectangle, polygon
     var symbol: String {
         switch self {
-        case .point: "scope"
         case .rectangle: "rectangle.dashed"
-        case .ellipse: "circle.dashed"
         case .polygon: "pentagon"
-        case .line: "line.diagonal"
         }
     }
 }

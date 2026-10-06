@@ -28,34 +28,24 @@ import Observation
 // v5.0 WP2 R2): one protocol now carries the counts, the energy axis and the file's own metadata, so the session's
 // opaque reference and Core's compute protocol are the same thing.
 
-// MARK: - The room's five steps (ADR 054 item 8)
+// MARK: - The room's tools (ADR 056)
 
-package enum SpectroscopyStep: String, CaseIterable, Identifiable, Sendable {
-    case spectrumImage
-    case elementsAndMaps
-    case regions
-    case quantify
-    case export
+/// The tools the Spectroscopy room lists under its sidebar row, as the other rooms list theirs. One today; EELS is the
+/// next (ADR 056). The room is one window, so a tool is a whole workspace, not a step.
+package enum SpectroscopyTool: String, CaseIterable, Identifiable, Sendable {
+    case edx
 
     package var id: String { rawValue }
 
     package var title: String {
         switch self {
-        case .spectrumImage: "Spectrum image"
-        case .elementsAndMaps: "Elements & maps"
-        case .regions: "Regions"
-        case .quantify: "Quantify"
-        case .export: "Export"
+        case .edx: "EDX"
         }
     }
 
     package var systemImage: String {
         switch self {
-        case .spectrumImage: "square.grid.3x3"
-        case .elementsAndMaps: "circle.circle"
-        case .regions: "square.dashed"
-        case .quantify: "sum"
-        case .export: "square.and.arrow.up"
+        case .edx: "waveform.path.ecg"
         }
     }
 }
@@ -115,8 +105,8 @@ package final class SpectroscopySession {
     /// The opened spectrum image; nil when the window holds none.
     package private(set) var source: (any SpectrumImageSource)?
 
-    /// The step the sidebar has selected and the inspector shows.
-    package var selectedStep: SpectroscopyStep = .spectrumImage
+    /// The tool the sidebar has selected.
+    package var selectedTool: SpectroscopyTool = .edx
 
     /// The element roles live in the method (they are part of what a quantification step records);
     /// this is the same list, so there is one copy.
@@ -134,13 +124,13 @@ package final class SpectroscopySession {
     package var metadata: SpectrumImageMetadata? { source?.metadata }
 
     /// Takes a spectrum image as this window's, and starts the room over on it:
-    /// the first step, no elements yet (the proposer runs on open, WP3), and the
+    /// no elements yet (the proposer runs on open, WP3), and the
     /// whole map as the one region. The method is kept — it is the user's
     /// choice, not a property of the file (as `DiffractionGroupsProduct`
     /// keeps its run controls across datasets).
     package func open(_ source: any SpectrumImageSource) {
         self.source = source
-        selectedStep = .spectrumImage
+        selectedTool = .edx
         elements = []
         let whole = SpectroscopyRegion(id: 0, name: "Whole map", kind: .wholeMap,
                                        pixelCount: source.metadata.pixelCount)
@@ -162,6 +152,18 @@ package final class SpectroscopySession {
         return region
     }
 
+    /// Moves a drawn region to a new shape in place (the live region follows the pointer): same id, same name, the pixel
+    /// count of the new mask. A shape that holds no pixel changes nothing. False for the whole map and for an unknown id.
+    @discardableResult
+    package func replaceShape(ofRegion id: Int, with shape: SpectrumRegionShape) -> Bool {
+        guard let source, let i = regions.firstIndex(where: { $0.id == id }), regions[i].kind == .drawn else { return false }
+        let count = shape.mask(nx: source.nx, ny: source.ny).reduce(0) { $0 + ($1 ? 1 : 0) }
+        guard count > 0 else { return false }
+        regions[i].shape = shape
+        regions[i].pixelCount = count
+        return true
+    }
+
     /// Removes a drawn region (never the whole map); the whole map becomes the selection if it was the removed one.
     package func removeRegion(id: Int) {
         guard let r = regions.first(where: { $0.id == id }), r.kind != .wholeMap else { return }
@@ -178,7 +180,7 @@ package final class SpectroscopySession {
     /// Lets go of the spectrum image and everything derived from it.
     package func close() {
         source = nil
-        selectedStep = .spectrumImage
+        selectedTool = .edx
         elements = []
         regions = []
         selectedRegionID = nil

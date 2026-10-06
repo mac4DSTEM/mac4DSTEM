@@ -232,51 +232,19 @@ struct WorkspaceSidebar: View {
     }
 }
 
-// MARK: - The Spectroscopy room's steps and regions
+// MARK: - The Spectroscopy room's tools
 
-/// The Spectroscopy room's sidebar (ADR 054 item 8; mock v3): the five steps,
-/// selectable like a room's tasks, then the regions. A region row is a button,
-/// not a selection tag — the List has one selection, and it is the step; the
-/// region the spectrum describes is marked instead, as the mock shows both.
+/// The Spectroscopy room's sidebar (ADR 056): its tools, selectable like another room's tasks. One today, "EDX"; the
+/// steps, the region list and the dataset rows of the first build are gone, the sidebar is static.
 struct SpectroscopySidebarSections: View {
-    @Environment(AppState.self) private var appState
-
     var body: some View {
         Section(WorkspaceArea.spectroscopy.title) {
-            ForEach(SpectroscopyStep.allCases) { step in
-                Label(step.title, systemImage: step.systemImage)
-                    .accessibilityIdentifier("spectroscopy.step.\(step.rawValue)")
-                    .tag(WorkspaceRoute.spectroscopyStep(step))
+            ForEach(SpectroscopyTool.allCases) { tool in
+                Label(tool.title, systemImage: tool.systemImage)
+                    .accessibilityIdentifier("spectroscopy.tool.\(tool.rawValue)")
+                    .tag(WorkspaceRoute.spectroscopyTool(tool))
             }
         }
-        let regions = appState.spectroscopy.regions
-        if !regions.isEmpty {
-            Section("Regions") {
-                ForEach(regions) { region in
-                    regionRow(region, isSelected: region.id == appState.spectroscopy.selectedRegionID)
-                }
-            }
-        }
-    }
-
-    private func regionRow(_ region: SpectroscopyRegion, isSelected: Bool) -> some View {
-        Button {
-            appState.spectroscopyRoom.selectRegion(id: region.id)   // the room follows (round 2): not the session alone
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Label(region.name, systemImage: isSelected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
-                    .lineLimit(1)
-                Text("\(SystemMonitor.count(region.pixelCount)) px")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(region.name)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityIdentifier("spectroscopy.region.\(region.id)")
     }
 }
 
