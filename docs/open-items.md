@@ -259,16 +259,18 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **The absorption test checks plumbing only (S4).** Add a truth-geometry test on the A-phase pool against `phases_at_pct`, asserting that Si Kα rises relative to Al under the correction. The "absorption model spread (AM vs GM)" is a proxy kept out of the σ; a real term needs a sourced σ_μ.
 - **Fixed in passing:** a removed region's cached spectrum stayed under its id, and the next drawn region reuses the highest id.
 
-### Element proposer held back: rebuild on the WP3 fit (2026-10-05)
-WP3 lane T's proposer (Poisson-GLM continuum, line-list exclusion, a shadow rule) was not landed. Fable's re-check
-(the session scratchpad's `reviewT2/`) found three faults:
-- **An unrealistic test continuum.** On a Kramers × window-absorption continuum, a 0.3 % Mg reads as a large negative
-  net.
-- **A false Mg from a Ga Lα tail** at ×100 dose, the round-1 pattern again.
-- **An unlisted O Kα** biases listed neighbours by up to −40 L_D.
-
-The Al K edge also biases Mg and Si. All four are overlap and continuum-model problems that the WP3 model fit
-handles. Next: rebuild the proposer on lane F's fit, with these cases as its tests.
+### Element proposer landed, unvalidated on real data, not wired (2026-10-06)
+`Core/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
+add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only; no room reads it yet. Open:
+- **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
+  by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.
+- **Look-elsewhere:** ≈ 0.055 chance elements per spectrum at 114 groups (measured 7/162); stated in the notes.
+- **Sum-peak phantoms** (Rh, Sn, Sr at 300 counts/px) go to `sumPeakQuestions`, never `proposed`; their single-candidate
+  test still lets the candidate absorb the pile-up (`.union([g.id])`), and a sum label attaches on energy coincidence alone.
+- **Kβ/Kα excess makes phantoms** (Lu Mα, Re Mα on the simulator, whose forward model depletes Kα parents only); real
+  absorption can do the same on the owner's pools. Join order can ban a candidate silently.
+- **The fit's reported σ is ~19 % conservative on the strongest line** (the sandwich counts bound columns free);
+  a passive-set sandwich would fix the reported σ, the proposer's null keeps the full design.
 
 Statistics nits carried:
 - A negative live time should be treated as corrupt (fall back with the reason).
