@@ -348,6 +348,9 @@ final class SpectroscopyRoomController {
 
     /// Runs the check for a fit that just landed: the proposer (5-20 s at 4096 channels, cached per `unlistedKey`) and one
     /// refit, detached and cancellable. The table says "checking…" meanwhile; the verb has already returned.
+    /// WP3c: the same task then runs the range-sensitivity refit (`FitRangeSensitivityCheck`, one fit to the axis end, only
+    /// when the axis runs past the default range) and the two land together, so a fit gets one task, one generation guard,
+    /// one proposer run, and the footer changes once.
     /// DEVIATION (simplicity): Auto ID's run is not reused. It proposes on the file's axis with the default continuum and
     /// width, the check on the fit's refined axis and the inspector's continuum, so their inputs are rarely identical.
     private func startUnlistedCheck(_ fit: PooledQuantification, input: PooledQuantificationInput, region: Int) {
@@ -369,7 +372,11 @@ final class SpectroscopyRoomController {
             } catch ProposerError.cancelled { return   // superseded by a newer fit: a silent discard
             } catch { check = .failed((error as? LocalizedError)?.errorDescription ?? "\(error)") }
             if Task.isCancelled { return }
-            let shown = UnlistedLineChecker.withholding(fit, check)
+            var shown = UnlistedLineChecker.withholding(fit, check)
+            if let s = FitRangeSensitivityCheck.run(input: input, quantification: fit) {
+                if Task.isCancelled { return }
+                shown = FitRangeSensitivityCheck.attaching(shown, s)
+            }
             await MainActor.run { [weak self] in self?.landCheck(shown, region: region, generation: gen) }
         }
     }
@@ -481,7 +488,7 @@ final class SpectroscopyRoomController {
         if let q = r.quantify {
             // The refinement does not depend on the estimator, k or absorption: it is keyed by what it does depend on.
             let on = q.method.elements.filter { $0.role != .off }.map(\.symbol).sorted().joined(separator: ",")
-            let key = "\(r.region)|\(on)|\(q.method.background.rawValue)|\(q.method.polynomialOrder ?? 6)|\(q.method.beamEnergyKeV ?? r.beam ?? 0)"
+            let key = "\(r.region)|\(on)|\(q.method.background.rawValue)|\(q.method.polynomialOrder ?? 6)|\(q.method.beamEnergyKeV ?? r.beam ?? 0)|\(q.method.fitToKeV.map { "\($0)" } ?? "default")"
             let input = PooledQuantificationInput(counts: spectrum, axis: r.source.energyAxis, method: q.method, metadata: q.metadata,
                                                   regionName: q.regionName, pixelCount: q.pixelCount, refinement: cache.refinement(key))
             do {

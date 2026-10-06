@@ -258,7 +258,12 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   (margins: 26.7–33 σ when missing; 0.3–0.9 σ for a chance or real harmless extra — the planted Ca case sits at 0.9 σ).
   Open: a Lu Mα proposal sits on the Al-K-split notch on every synthetic run (count it on real Al-free data);
   "Dismiss" = Off, so a hand-toggled Off element is also excluded; each element click with Quantify active starts a
-  5–20 s proposer run (cancelled by the next). WP3c (default fit range 20 keV) is registered next.
+  5–20 s proposer run (cancelled by the next).
+- **WP3c landed:** the default fit stops at min(axis end, beam, 20 keV), named in the footer; Expert "Fit to" types
+  another; above 20 keV a named statement says how much each line moves if fitted to the axis end. A replayed step
+  recorded on an 80 keV axis before WP3c re-fits at 20 keV (same method hash; the footer shows the range). Open: on the
+  GMS demo (axis 20.03 keV) locking the axis turns on a trivial ±0.0 % statement; below 0.2 keV the Expert field
+  silently resets to the default (Core's refusal with a reason is unreachable from it).
 - **The refined axis is poor on a sparse pool.** On the 24-px tiny fixture (~700 counts) the refinement found −3.0 eV, +0.58 % gain
   against a planted +10 eV, −0.2 %; the areas stay within 2σ of truth either way. Shown file vs refined, never hidden; no minimum-counts
   rule was invented (threshold rule). Measure on a real pool before trusting a refined axis below ~10⁴ counts.

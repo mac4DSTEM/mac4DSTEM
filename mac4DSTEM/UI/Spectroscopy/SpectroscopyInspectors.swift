@@ -212,7 +212,7 @@ struct RegionsInspector: View {
 }
 
 /// 4 · Quantify — at most seven visible rows (Background, k-factors, Typed k, Absorption, Thickness, σ thickness, Beam
-/// energy; the last two only when they apply); ▸ Expert adds four. The fit is live: every row re-fits the pooled
+/// energy; the last two only when they apply); ▸ Expert adds five (Fit to, WP3c). The fit is live: every row re-fits the pooled
 /// spectrum once the Quantify verb has run (ADR 054 item 8), so there is no Apply here.
 struct QuantifyInspector: View {
     @Bindable var model: SpectroscopyRoomModel
@@ -275,6 +275,18 @@ struct QuantifyInspector: View {
                     InspectorRow("Poly order") { Stepper("\(q.polyOrder)", value: $model.quantify.polyOrder, in: 0...8) }
                 }
                 InspectorRow("Lock energy axis") { Toggle("Lock energy axis", isOn: $model.quantify.lockEnergyAxis).labelsHidden().toggleStyle(.checkbox) }
+                InspectorRow("Fit to") {
+                    // Emptying the field returns to the default (the Excitation slab pattern, PhaseMappingSettings).
+                    HStack(spacing: 6) {
+                        NumberEntryField(title: "Fit to", value: q.fitTo, format: FloatingPointFormatStyle<Double>.number, prompt: "default",
+                                         emptyClears: true) { v in model.quantify.fitTo = v.flatMap { $0 > 0.2 ? $0 : nil } }
+                            .labelsHidden().textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing)
+                            .frame(width: LayoutPolicy.numericFieldWidth)
+                        Text("keV").foregroundStyle(.secondary).fixedSize()
+                    }
+                    .accessibilityLabel("Fit to")
+                    .help("Upper end of the fitted range. Empty: the default, the axis end or the beam energy but at most 20 keV, the range the continuum's orders were measured on. The results footer names the range used; past 20 keV the continuum is unmeasured.")
+                }
             }
         }
         .sheet(isPresented: $editingTyped) { TypedKSheet(model: model) { editingTyped = false } }

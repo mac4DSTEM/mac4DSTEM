@@ -33,6 +33,8 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
     var sigmaK: Double? = 20
     var polyOrder = 6
     var lockEnergyAxis = false
+    /// Expert (WP3c): the typed upper end of the fitted range, keV; nil is the default, min(axis end, beam energy, 20 keV).
+    var fitTo: Double?
     /// Typed beam energy (keV); asked only when the file does not state one.
     var beamEnergy: Double?
     var fileBeamKnown = true
@@ -56,6 +58,7 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
         sigmaK = m.sigmaK * 100
         polyOrder = m.polynomialOrder ?? 6
         lockEnergyAxis = m.lockEnergyAxis == true
+        fitTo = m.fitToKeV
         beamEnergy = m.beamEnergyKeV
         self.fileBeamKnown = fileBeamKnown
         self.fileBeam = fileBeam; self.fileBeamPhrase = fileBeamPhrase
@@ -75,6 +78,8 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
         m.sigmaK = min(max(sigmaK ?? 20, 0), 100) / 100
         m.polynomialOrder = polyOrder == 6 ? nil : polyOrder
         m.lockEnergyAxis = lockEnergyAxis ? true : nil
+        // An empty field, or a value not above the 0.2 keV start, is the default (never a key in the method's JSON).
+        m.fitToKeV = fitTo.flatMap { $0.isFinite && $0 > 0.2 ? $0 : nil }
         // A value that differs from the source's is typed and overrides it; the same value stays the source's.
         m.beamEnergyKeV = fileBeamKnown && beamEnergy == fileBeam ? nil : beamEnergy
         switch kSource {
@@ -155,6 +160,8 @@ nonisolated enum QuantifyPresentation {
             if r.atBound && r.failure == nil {
                 row.conflictNote = "held at 0 by the non-negativity bound: the line is not detected, read the \u{03C3} as an upper-limit scale"
             }
+            // WP3c: a row that is not on K-alpha says which line it is on and why.
+            if let n = r.lineNote, r.failure == nil { row.conflictNote = [row.conflictNote, n].compactMap { $0 }.joined(separator: "; ") }
             return row
         }
     }

@@ -154,6 +154,7 @@
 				Core/Spectroscopy/Quant/CompositionConversion.swift,
 				Core/Spectroscopy/Quant/DetectorEfficiency.swift,
 				Core/Spectroscopy/Quant/EPQLineWeights.swift,
+				Core/Spectroscopy/Quant/FitRange.swift,
 				Core/Spectroscopy/Quant/FourDetectorAbsorption.swift,
 				Core/Spectroscopy/Quant/KFactorSource.swift,
 				Core/Spectroscopy/Quant/KrauseFluorescenceYield.swift,
