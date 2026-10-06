@@ -256,7 +256,7 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **Live-time normalisation (ADR 054 item 5) is not applied** in the quantification (it is a region-comparison control; Regions' Compare row
   still names its basis only). The absorption σ term is the spread between the weighted and the geometric mean transmission.
 - **Axis-refinement recovery is unpre-registered (S1).** Pre-register recovery-versus-counts on lane S's dose ladder before any refined axis is trusted below ~10⁴ counts; the σ terms carry no axis term.
-- **The absorption test checks plumbing only (S4).** Add a truth-geometry test on the A-phase pool against `phases_at_pct`, asserting that Si Kα rises relative to Al under the correction. The "absorption model spread (AM vs GM)" is a proxy kept out of the σ; a real term needs a sourced σ_μ.
+- **Absorption checked against truth (A4):** on the simulator's 80 nm recipe-A pool, exact areas recover truth within a derived bound (Si −13.2 % uncorrected → −0.3 %), and on fitted areas the app's T matches the simulator's own path integral (4 seeds). The "absorption model spread (AM vs GM)" stays a proxy kept out of the σ; a real term needs a sourced σ_μ.
 - **Fixed in passing:** a removed region's cached spectrum stayed under its id, and the next drawn region reuses the highest id.
 
 ### Element proposer landed, unvalidated on real data, not wired (2026-10-06)
@@ -280,7 +280,8 @@ Statistics nits carried:
 The default continuum (Kramers × non-negative Bernstein (9,5), split at the Al K edge) recovers a weak Mg Kα about 300
 counts low per pooled spectrum on both synthetic generators (30 seeds; laneF report2/3: A −295 ± 31 / −402 ± 33 at
 0.3 % / 1 %, lane S's simulator −310 ± 23). On the simulator the whole deficit is the unmodelled Al Kα incomplete-charge
-tail (supplying the true tail as a reference shape: −301 → +35). The fit's warnings carry the number. The remedy is
+tail (supplying the true tail as a reference shape: −301 → +35). Si Kα also reads low: −164 of 1879 counts (−8.7 %) on
+A4's recipe-A pool (4 seeds; measured there only, not yet in the fit's warning). The fit's warnings carry the Mg number. The remedy is
 measured: the owner's pure-Al reference spectrum (tail shape and tie fraction). Q2 (the owner's matrix pool: flat
 residual AND continuum vs poly-6 vs window agree within σ) is still owed. The LS covariance over-predicts σ on the
 strongest line by ≈ 20 % (bound-active columns counted free), so limits are conservative there.
