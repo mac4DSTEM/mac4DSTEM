@@ -222,9 +222,10 @@ truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third priv
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
 ### Spectroscopy room, rebuilt to ADR 056 (R4b + R4c, 2026-10-06): unverified on screen and known gaps
-- **Rebuilt** against mock v2.1: maps grid, one "EDX" tool row, inspector sections, live regions (rectangle, polygon), Pin ≤ 3,
-  quant beside the spectrum. Only a lane's scratch-build shots so far; they showed a stale second sidebar highlight (Prepare +
-  EDX) once, untraced. Not yet seen: the open's spinner and Cancel, Export's save panels.
+- **Rebuilt** against mock v2.1, then fixed from two session drives (`docs/archive/v5/room-drive-2-2026-10-06.md`): the room
+  keeps the spectrum + quant on screen, one sidebar row, the chip popover. Open: the ColorMix is not the dominant map (the
+  150-pt tile floor stacks it), net ± σ cells wrap, a false "Ar Kα?" on sum peaks, χ²ᵣ 3318 unflagged, new windows at
+  1280×800 (frozen shell). Not yet seen: the open's spinner and Cancel, Export's save panels.
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).

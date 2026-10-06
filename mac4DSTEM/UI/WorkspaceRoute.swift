@@ -63,6 +63,14 @@ enum WorkspaceRoute: Hashable, Identifiable {
         }
     }
 
+    /// R5: what the sidebar `List` is rebuilt on. Entering or leaving the Spectroscopy room (its own section appears or goes) and
+    /// a window turning spectrum-only (the 4D rows become disabled, `selectionDisabled`) both left the table holding the row it
+    /// had selected before - "Prepare" highlighted beside "EDX" (drive shots 26, 34). A new identity makes the table take its
+    /// selection from the binding alone, so exactly one row reads as selected.
+    static func sidebarListIdentity(area: WorkspaceArea, spectrumOnly: Bool) -> String {
+        "\(area == .spectroscopy ? "room" : "plain")-\(spectrumOnly ? "spectrum" : "4d")"
+    }
+
     /// The route currently selected, read from the navigation seam.
     static func current(_ navigation: WorkspaceNavigation) -> WorkspaceRoute {
         let area = navigation.workspaceArea

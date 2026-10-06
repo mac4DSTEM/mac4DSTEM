@@ -73,13 +73,6 @@ final class SpectroscopyViewModelTests: XCTestCase {
         XCTAssertEqual(e.role(Si), .quantify)
     }
 
-    // Mutation: threshold `<` becomes `<=`, or the constant drifts from 760.
-    func testNarrowLayoutSwitchesAt760() {
-        XCTAssertEqual(SpectroscopyLayout.narrowThreshold, 760)
-        XCTAssertTrue(SpectroscopyLayout.isNarrow(contentWidth: 759.9))
-        XCTAssertFalse(SpectroscopyLayout.isNarrow(contentWidth: 760))
-    }
-
     // Mutation: floor/ceil swapped, or the epsilon dropped (10^3 exactly is a tick).
     func testLogDecadeTicks() {
         XCTAssertEqual(AxisTicks.logDecades(lo: 10, hi: 1e5), [1, 2, 3, 4, 5])

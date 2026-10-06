@@ -71,28 +71,22 @@ final class SpectroscopyRoomGeometryTests: XCTestCase {
         XCTAssertEqual(wide.colorMix.width, 400, accuracy: 0.01)
     }
 
-    /// R4c: at 700 x 480 with five 4:3 tiles the area score alone picks one column of ~119-pt tiles beside a huge ColorMix
-    /// (Gate B shot 10-a). The room hands over to the stacked layout instead; the mock's own block is kept.
-    /// Mutation: `minimumTileSide` made 0 - red (the sliver arrangement is kept).
+    /// R4c + R5: at 700 x 480 with five 4:3 tiles the area score alone picks one column of ~119-pt tiles beside a huge ColorMix
+    /// (Gate B shot 10-a). The layout now picks the best arrangement whose tiles stay at the floor (two columns of ~206 pt),
+    /// and hands over to the stacked one - which scrolls inside the maps block - only when none does.
+    /// Mutation: `minimumSide: minimumTileSide` in `layout` made 0 - red (the sliver arrangement is kept).
     func testTilesNeverShrinkBelowTheFloorBeforeStacking() {
         let a = 4.0 / 3.0, avail = CGSize(width: 700, height: 480)
         let raw = MapGridLayout.arrange(tileCount: 5, aspect: a, in: avail)
         XCTAssertLessThan(raw.tiles.map(\.width).min() ?? 0, MapGridLayout.minimumTileSide, "premise: the unguarded arrangement is too small")
         let l = MapGridLayout.layout(tileCount: 5, aspect: a, in: avail, maxColorMixHeight: 192)
-        XCTAssertTrue(l.stacked || (l.arrangement.tiles.map(\.width).min() ?? 0) >= MapGridLayout.minimumTileSide)
-        XCTAssertTrue(l.stacked, "here the stacked layout takes over")
-        XCTAssertLessThanOrEqual(l.arrangement.colorMix.height, 192.01)
+        XCTAssertFalse(l.stacked, "a floor-respecting side-by-side arrangement exists here")
+        XCTAssertGreaterThanOrEqual(l.arrangement.tiles.map(\.width).min() ?? 0, MapGridLayout.minimumTileSide)
+        let tiny = MapGridLayout.layout(tileCount: 5, aspect: a, in: CGSize(width: 400, height: 260), maxColorMixHeight: 100)
+        XCTAssertTrue(tiny.stacked, "nothing fits at the floor: stacked (the block scrolls)")
+        XCTAssertLessThanOrEqual(tiny.arrangement.colorMix.height, 100.01)
         let mock = MapGridLayout.layout(tileCount: 6, aspect: a, in: CGSize(width: 1000, height: 400), maxColorMixHeight: 160)
         XCTAssertFalse(mock.stacked, "the mock's 2 x 3 block stays side by side")
-    }
-
-    /// The stacked ColorMix is capped at 0.4 of the room's height.
-    /// Mutation: the factor 0.4 made 1 - red.
-    func testTheNarrowColorMixIsCappedAtFortyPercentOfTheRoom() {
-        let cap = SpectroscopyLayout.narrowColorMixHeight(roomHeight: 900)
-        XCTAssertEqual(cap, 360, accuracy: 0.01)
-        let a = MapGridLayout.stacked(tileCount: 5, aspect: 215.0 / 926.0, width: 400, maxColorMixHeight: cap)
-        XCTAssertEqual(a.colorMix.height, 360, accuracy: 0.01)
     }
 
     /// Pins are a layer, on by default, drawn faint.

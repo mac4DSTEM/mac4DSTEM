@@ -95,6 +95,7 @@ struct WorkspaceSidebar: View {
             SessionSection(pendingResultRemoval: $pendingResultRemoval)
         }
         .listStyle(.sidebar)
+        .id(WorkspaceRoute.sidebarListIdentity(area: appState.navigation.workspaceArea, spectrumOnly: appState.isSpectrumOnly))
         // One material per column, and it is AppKit's — a `.sidebar` List
         // paints a second one inside the scroll view that composites
         // differently where the sidebar item's own material already shows

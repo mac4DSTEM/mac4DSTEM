@@ -168,12 +168,32 @@ struct FitSection: View {
     }
 }
 
-/// Map display: the settings of the maps as a whole. Each map's colour, contrast and gamma are in its own popover (the chip on
-/// the active tile); this resets them. (Smoothing and binning are not applied to the maps yet, so they are not drawn.)
+/// Map display: the active map's colour, contrast window and gamma (the same controls as the popover on its tile's chip), and
+/// one reset for every map. The ColorMix has none of its own: it follows its elements. (Smoothing and binning are not applied
+/// to the maps yet, so they are not drawn.)
 struct MapDisplaySection: View {
     @Bindable var model: SpectroscopyRoomModel
     var body: some View {
-        InspectorRow("Colour and contrast") {
+        let map = model.active, pixels = model.pixels(of: map)
+        if map == .colorMix {
+            InspectorNote("Click a map to set its colour, contrast and gamma. The ColorMix follows its elements.")
+        } else {
+            InspectorValueRow("Map", model.mapTitle(map))
+            switch map {
+            case .element(let z):
+                InspectorRow("Colour") { ColorPicker("Colour", selection: model.colorBinding(z), supportsOpacity: false).labelsHidden() }
+            case .haadf:
+                InspectorRow("Colormap") { Picker("Colormap", selection: $model.haadfColormap) { ColormapChoices() }.labelsHidden().pickerStyle(.menu) }
+            case .colorMix: EmptyView()
+            }
+            if !pixels.isEmpty {
+                let display = model.displayBinding(map)
+                HistogramView(pixels: pixels, version: model.tileRevision, rangeLo: display.lo, rangeHi: display.hi)
+                    .help("Drag the handles to set this map's contrast window.")
+                AdjustmentSlider("Gamma", value: display.gamma.mapGammaDouble, in: 0.2...3, defaultValue: 1.0)
+            }
+        }
+        InspectorRow("All maps") {
             Button("Reset") { model.elementColors = [:]; model.mapDisplays = [:]; model.haadfColormap = .gray }
                 .disabled(model.elementColors.isEmpty && model.mapDisplays.isEmpty && model.haadfColormap == .gray)
                 .help("Back to the default colours, the full contrast window and gamma 1 on every map")

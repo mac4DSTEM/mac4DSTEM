@@ -167,6 +167,10 @@ struct MapTileView: View {
                     .opacity(proposed ? 0.55 : 1)
                     .contentShape(Rectangle())
                     .gesture(drag(size))
+                if map == .colorMix, !model.tiles.contains(where: { model.mixed.contains($0.z) && !$0.proposed }) {
+                    Text("Pick elements to map").font(.callout).foregroundStyle(.white.opacity(0.6)).shadow(radius: 1)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity).allowsHitTesting(false)
+                }
                 header
                 if proposed {
                     RoundedRectangle(cornerRadius: TileMetrics.corner).strokeBorder(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
@@ -200,13 +204,16 @@ struct MapTileView: View {
             if let t = tile, !t.proposed {
                 Toggle("In the ColorMix: \(title)", isOn: Binding(get: { model.mixed.contains(t.z) }, set: { _ in model.toggleMix(t.z) }))
                     .labelsHidden().toggleStyle(.checkbox).controlSize(.mini)
+                    .environment(\.colorScheme, .dark)   // the tile is dark whatever the appearance: an unticked box stays visible on it
                     .help(t.notMeasuredWhy.map { "Not in the ColorMix by default (tick it to add): \($0)" } ?? "Include \(title) in the ColorMix")
             }
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).shadow(radius: 1)
             if map == .colorMix {
                 Spacer(minLength: 4)
-                Text(model.tiles.filter { model.mixed.contains($0.z) && !$0.proposed }.map { PeriodicLayout.symbol($0.z) }.joined(separator: " · "))
-                    .font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                let own = model.tiles.filter { !$0.proposed }
+                Text(ColorMixCaption.text(mixed: own.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) },
+                                          notMixed: own.filter { !model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }))
+                    .font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.head)
             } else if proposed, let t = tile {
                 Spacer(minLength: 4)
                 ViewThatFits(in: .horizontal) {
@@ -220,6 +227,8 @@ struct MapTileView: View {
         }
         .padding(.horizontal, 5).padding(.vertical, 3)
         .frame(maxWidth: .infinity, alignment: .topLeading)
+        .contentShape(Rectangle())
+        .onTapGesture { model.active = map }   // the header sits above the bitmap's gesture: a press on it still picks the map
         .background(alignment: .top) { LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom).allowsHitTesting(false) }
     }
 
@@ -229,15 +238,9 @@ struct MapTileView: View {
             .help(model.elements.suggestions.first { $0.z == t.z }?.reason ?? "Accept \(title)")
     }
 
+    /// The colour chip is a button on every non-proposed map but the ColorMix: it makes the tile active and opens its popover.
     @ViewBuilder private var chip: some View {
-        if isActive {
-            MapDisplayChip(model: model, map: map, title: title)
-        } else {
-            switch map {
-            case .element(let z): RoundedRectangle(cornerRadius: 2).fill(model.color(z)).frame(width: TileMetrics.chip, height: TileMetrics.chip)
-            default: EmptyView()
-            }
-        }
+        if map != .colorMix { MapDisplayChip(model: model, map: map, title: title) }
     }
 
     // MARK: drawing
@@ -280,6 +283,20 @@ struct MapTileView: View {
             let r = CGRect(x: labelAt.x, y: labelAt.y - 8, width: 118, height: 16)
             ctx.fill(Path(roundedRect: r, cornerRadius: 3), with: .color(.black.opacity(0.55)))
             ctx.draw(text, at: CGPoint(x: r.minX + 5, y: r.midY), anchor: .leading)
+        }
+        if model.layers.pins {
+            for pin in model.pins {   // a pinned region stays visible on the map, faint, in the pin's own colour
+                guard let shape = pin.shape else { continue }
+                var path = Path()
+                switch shape {
+                case .rectangle(let r): path = Path(rect(r))
+                case .ellipse(let r): path = Path(ellipseIn: rect(r))
+                case .polygon(let v):
+                    for (i, q) in v.enumerated() { i == 0 ? path.move(to: pt(q)) : path.addLine(to: pt(q)) }
+                    path.closeSubpath()
+                }
+                ctx.stroke(path, with: .color(pin.tint.opacity(SpectrumLayers.pinOpacity)), lineWidth: 1.2)
+            }
         }
         if draft.count > 0 {
             var p = Path()
@@ -368,7 +385,7 @@ struct MapDisplayChip: View {
     @State private var isPresented = false
 
     var body: some View {
-        Button { isPresented.toggle() } label: { swatch }
+        Button { model.active = map; isPresented.toggle() } label: { swatch.frame(minWidth: 20, minHeight: 20).contentShape(Rectangle()) }
             .buttonStyle(.plain)
             .help("Colour, contrast and gamma of \(title)")
             .accessibilityLabel("Display of \(title)")
@@ -394,50 +411,63 @@ struct MapDisplayChip: View {
     }
 }
 
-private extension Binding where Value == Float {
-    var asDouble: Binding<Double> { Binding<Double>(get: { Double(wrappedValue) }, set: { wrappedValue = Float($0) }) }
+extension Binding where Value == Float {
+    var mapGammaDouble: Binding<Double> { Binding<Double>(get: { Double(wrappedValue) }, set: { wrappedValue = Float($0) }) }
+}
+
+extension SpectroscopyRoomModel {
+    /// One map's contrast window and gamma as a binding; the identity is stored as absent. Setting one map's display never
+    /// touches another's (`mapDisplays` is keyed by the map).
+    func displayBinding(_ map: ActiveMap) -> Binding<MapDisplay> {
+        Binding(get: { self.display(map) }, set: { self.mapDisplays[map] = $0.isIdentity ? nil : $0 })
+    }
+    /// The map's own values, the histogram's input.
+    func pixels(of map: ActiveMap) -> [Float] {
+        switch map {
+        case .haadf: backdrop
+        case .element(let z): tiles.first { $0.z == z }?.values ?? []
+        case .colorMix: []
+        }
+    }
+    func colorBinding(_ z: Int) -> Binding<Color> { Binding(get: { self.color(z) }, set: { self.elementColors[z] = $0 }) }
+    func mapTitle(_ map: ActiveMap) -> String {
+        switch map { case .haadf: "HAADF"; case .colorMix: "ColorMix"; case .element(let z): PeriodicLayout.symbol(z) }
+    }
 }
 
 struct MapDisplayPopover: View {
     @Bindable var model: SpectroscopyRoomModel
     let map: ActiveMap
 
-    private var display: Binding<MapDisplay> {
-        Binding(get: { model.display(map) }, set: { model.mapDisplays[map] = $0.isIdentity ? nil : $0 })
-    }
-
-    /// The map's own values, the histogram's input.
-    private var pixels: [Float] {
-        switch map {
-        case .haadf: model.backdrop
-        case .element(let z): model.tiles.first { $0.z == z }?.values ?? []
-        case .colorMix: []
-        }
-    }
-
     var body: some View {
+        let display = model.displayBinding(map)
+        let pixels = model.pixels(of: map)
         Form {
             Section {
                 switch map {
                 case .element(let z):
-                    ColorPicker("Colour", selection: Binding(get: { model.color(z) }, set: { model.elementColors[z] = $0 }), supportsOpacity: false)
+                    ColorPicker("Colour", selection: model.colorBinding(z), supportsOpacity: false)
                 case .haadf:
-                    Picker("Colormap", selection: $model.haadfColormap) {
-                        ForEach(ColormapKind.allCases) { kind in
-                            Label { Text(kind.displayName) } icon: { Image(nsImage: Colormaps.swatch(kind)).clipShape(RoundedRectangle(cornerRadius: 2)) }.tag(kind)
-                        }
-                    }.pickerStyle(.menu)
+                    Picker("Colormap", selection: $model.haadfColormap) { ColormapChoices() }.pickerStyle(.menu)
                 case .colorMix: EmptyView()
                 }
             }
             if !pixels.isEmpty {
                 Section("Histogram") {
-                    HistogramView(pixels: pixels, version: model.tileRevision,
-                                  rangeLo: display.lo, rangeHi: display.hi)
+                    HistogramView(pixels: pixels, version: model.tileRevision, rangeLo: display.lo, rangeHi: display.hi)
                         .help("Drag the handles to set this map's contrast window.")
-                    AdjustmentSlider("Gamma", value: display.gamma.asDouble, in: 0.2...3, defaultValue: 1.0)
+                    AdjustmentSlider("Gamma", value: display.gamma.mapGammaDouble, in: 0.2...3, defaultValue: 1.0)
                 }
             }
+        }
+    }
+}
+
+/// The HAADF colormap menu's items, each with its swatch.
+struct ColormapChoices: View {
+    var body: some View {
+        ForEach(ColormapKind.allCases) { kind in
+            Label { Text(kind.displayName) } icon: { Image(nsImage: Colormaps.swatch(kind)).clipShape(RoundedRectangle(cornerRadius: 2)) }.tag(kind)
         }
     }
 }

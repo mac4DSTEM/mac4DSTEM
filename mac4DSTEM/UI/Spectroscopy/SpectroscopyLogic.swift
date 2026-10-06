@@ -10,13 +10,16 @@ import CoreGraphics
 
 // MARK: - Layout
 
-/// ADR 055 §1: below about 760 pt of content the results table stacks under the map
-/// and the spectrum header's toggles fold into one "Show" menu.
-nonisolated enum SpectroscopyLayout {
-    static let narrowThreshold: CGFloat = 760
-    static func isNarrow(contentWidth: CGFloat) -> Bool { contentWidth < narrowThreshold }
-    /// The stacked layout's ColorMix is at most this tall, so the spectrum and the table stay within a short scroll.
-    static func narrowColorMixHeight(roomHeight: CGFloat) -> CGFloat { roomHeight * 0.4 }
+/// What the ColorMix's header says it mixes (R5). There is no cap on the number of elements: every ticked element is added in
+/// its own colour. A picked element whose line is not a measurement (background above signal) starts unticked; the header
+/// names it so a missing colour is explained, not silent.
+nonisolated enum ColorMixCaption {
+    static func text(mixed: [String], notMixed: [String]) -> String {
+        let base = mixed.joined(separator: " · ")
+        guard !notMixed.isEmpty else { return base }
+        let off = notMixed.joined(separator: ", ") + " not ticked"
+        return base.isEmpty ? off : base + " (" + off + ")"
+    }
 }
 
 // MARK: - Elements
