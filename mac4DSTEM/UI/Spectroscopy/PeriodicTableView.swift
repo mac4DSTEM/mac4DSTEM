@@ -71,7 +71,7 @@ struct PeriodicTableView: View {
                     }
                 } else { Text(ElementSelection.unavailableReason(z: z) ?? "") }
             }
-            .help(Self.help(state, sym))
+            .help(Self.help(state, sym, proposed: model.elements.suggestions.first { $0.z == z }?.proposedRole))
             .accessibilityLabel("\(sym), \(Self.describe(state))")
     }
 
@@ -109,9 +109,9 @@ struct PeriodicTableView: View {
         if case .suggested = s { return StrokeStyle(lineWidth: 1.2, dash: [1.5, 1.5]) }
         return StrokeStyle(lineWidth: 1.2)
     }
-    static func help(_ s: PeriodicCellState, _ sym: String) -> String {
+    static func help(_ s: PeriodicCellState, _ sym: String, proposed: ElementRole? = nil) -> String {
         switch s {
-        case .suggested(let r): "\(r) — click to quantify"
+        case .suggested(let r): "\(r) — click to set \((proposed ?? .quantify).title)"
         case .unavailable(let r): "\(sym): \(r)"
         default: "\(sym) · \(describe(s)) — click toggles, right-click for more"
         }

@@ -259,9 +259,12 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **Absorption checked against truth (A4):** on the simulator's 80 nm recipe-A pool, exact areas recover truth within a derived bound (Si −13.2 % uncorrected → −0.3 %), and on fitted areas the app's T matches the simulator's own path integral (4 seeds). The "absorption model spread (AM vs GM)" stays a proxy kept out of the σ; a real term needs a sourced σ_μ.
 - **Fixed in passing:** a removed region's cached spectrum stayed under its id, and the next drawn region reuses the highest id.
 
-### Element proposer landed, unvalidated on real data, not wired (2026-10-06)
+### Element proposer + Auto ID (2026-10-06): unvalidated on real data, Auto ID unseen on screen
 `Core/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
-add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only; no room reads it yet. Open:
+add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only. Auto ID (Elements & maps) runs it
+on the selected region and the file's axis, cancellably; suggestions never touch manual picks. Open:
+- **Auto ID gaps:** not driven; `holeRegionNote` and detected sum peaks are not drawn; it uses the file axis, not a refined
+  one; `suggestedRole` in Core is now unused by the room (one source of truth owed).
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.
 - **Look-elsewhere:** ≈ 0.055 chance elements per spectrum at 114 groups (measured 7/162); stated in the notes.

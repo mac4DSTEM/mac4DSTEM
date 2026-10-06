@@ -125,6 +125,10 @@ final class SpectroscopyRoomController {
         if m.viewport.hi > 20 { m.viewport.hi = max(20, m.viewport.lo + m.viewport.minimumSpan) }
         m.image = Self.imageSettings(meta, axis: axis, hasFourDCube: hasFourDCube)
         m.regionSettings = RegionSettings()
+        autoIDTask?.cancel(); autoIDTask = nil
+        m.resetAutoID()
+        m.onAutoID = { [weak self] in self?.runAutoID() }
+        m.onCancelAutoID = { [weak self] in self?.cancelAutoID() }
         m.onDrawRegion = { [weak self] shape in self?.addRegion(shape) }
         m.onRemoveRegion = { [weak self] id in self?.removeRegion(id: id) }
         syncRegionsFromSession()
@@ -133,6 +137,7 @@ final class SpectroscopyRoomController {
 
     func unbind() {
         generation += 1
+        cancelAutoID()
         source = nil
         session = nil
         model.isLive = false
@@ -157,6 +162,56 @@ final class SpectroscopyRoomController {
         mirrorElementsToSession()
         model.quantify.syncTypedElements(model.elements.quantified.map { PeriodicLayout.symbol($0) })
         refresh()
+    }
+
+    // MARK: Auto ID
+
+    @ObservationIgnored private(set) var autoIDTask: Task<Void, Never>?
+
+    /// Auto ID: the element proposer on the selected region's spectrum with the listed elements as the current set. 0.4 to
+    /// 20 s depending on the channel count, so it runs detached and lands only if it was not cancelled, superseded or
+    /// overtaken by an edit (`refresh` cancels it). Suggestions and suspect markers; nothing is applied (ADR 054 §6).
+    func runAutoID() {
+        guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }),
+              !model.autoID.running else { return }
+        let token = model.beginAutoID()
+        guard let beam = session.method.beamEnergyKeV ?? source.metadata.beamEnergyKeV, beam > 0 else {
+            model.failAutoID(token: token, message: "Auto ID needs the beam energy: the file does not state it. Type it in Quantify.")
+            return
+        }
+        let current = model.elements.activeZ.map { PeriodicLayout.symbol($0) }
+        let mask = session.mask(of: region)
+        let regionID = region.id, name = region.name
+        let cache = cache
+        autoIDTask = Task.detached(priority: .userInitiated) {
+            let spectrum: [UInt64]
+            if let s = cache.spectrum(regionID) { spectrum = s } else {
+                spectrum = source.sum(mask: mask)
+                cache.setSpectrum(spectrum, regionID)
+            }
+            var outcome: AutoIDOutcome?
+            var failure: String?
+            do {
+                // DEVIATION: the file's axis and the default continuum (empirical, Al K step), not the Quantify inspector's
+                // choices: Auto ID screens, it does not quantify.
+                let settings = FitSettings.standard(elements: current, axis: source.energyAxis,
+                                                    resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
+                let result = try ElementProposer().propose(counts: spectrum.map { Double($0) }, axis: source.energyAxis, settings: settings)
+                outcome = AutoIDPresentation.outcome(result, region: name)
+            } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note
+            } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
+            if Task.isCancelled { return }
+            await MainActor.run { [weak self] in
+                if let outcome { self?.model.finishAutoID(token: token, outcome: outcome) }
+                else { self?.model.failAutoID(token: token, message: failure ?? "Auto ID failed.") }
+            }
+        }
+    }
+
+    func cancelAutoID() {
+        autoIDTask?.cancel()
+        autoIDTask = nil
+        model.cancelAutoID()
     }
 
     // MARK: Quantify
@@ -294,6 +349,7 @@ final class SpectroscopyRoomController {
     @discardableResult
     func refresh() -> Task<Void, Never>? {
         guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }) else { return nil }
+        if model.autoID.running { cancelAutoID() }   // the elements or the region changed under it: its answer is about the old ones
         generation += 1
         let gen = generation
         let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
@@ -381,7 +437,7 @@ final class SpectroscopyRoomController {
         if let t = out.pixelTotals { Self.applyPixelStats(t, to: m) }
 
         // Markers: the chosen family's lines of every active element.
-        m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV)
+        m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV) + (m.autoID.outcome?.suspectMarkers ?? [])
 
         // Rows, tiles: the quantified elements only (fit-only ones shape the windows, not the table).
         var rows: [ResultRow] = [], tiles: [MapTile] = []

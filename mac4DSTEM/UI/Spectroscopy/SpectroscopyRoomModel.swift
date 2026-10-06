@@ -26,6 +26,11 @@ final class SpectroscopyRoomModel {
     /// Bumped whenever `tiles` or `backdrop` are replaced, so the map's bitmap is rebuilt by identity, not by comparing arrays.
     var tileRevision = 0
 
+    // Auto ID (the Elements & maps step's proposer run; the compute is the controller's)
+    private(set) var autoID = AutoIDState()
+    var onAutoID: (() -> Void)?
+    var onCancelAutoID: (() -> Void)?
+
     // Regions
     var regions: [RegionSummary] = []
     var selectedRegion: Int?
@@ -90,8 +95,58 @@ final class SpectroscopyRoomModel {
     /// Map units shown in the map header.
     var mapUnits: String { mapMode == .atomic ? "at%" : "counts" }
 
+    // MARK: Auto ID
+
+    /// A run starts; its token is the only one whose result may land (a newer run or a cancel invalidates it).
+    func beginAutoID() -> Int {
+        autoID.token += 1
+        autoID.running = true
+        autoID.failure = nil
+        return autoID.token
+    }
+
+    /// The run's result: suggestions by `rerunAutoID` (a person's picks are never touched, nothing is applied silently),
+    /// sum-peak questions as suspect markers. False, and nothing changes, when the run was cancelled or superseded.
+    @discardableResult
+    func finishAutoID(token: Int, outcome: AutoIDOutcome) -> Bool {
+        guard token == autoID.token, autoID.running else { return false }
+        autoID.running = false
+        autoID.outcome = outcome
+        elements.rerunAutoID(accepted: [:], suggestions: outcome.suggestions)
+        markers = markers.filter { $0.kind != .suspect } + outcome.suspectMarkers
+        return true
+    }
+
+    /// The run could not be made (no beam energy, a rank-deficient design): the earlier outcome stays, the reason shows.
+    func failAutoID(token: Int, message: String) {
+        guard token == autoID.token, autoID.running else { return }
+        autoID.running = false
+        autoID.failure = message
+    }
+
+    /// Invalidates the running token; elements, markers and the earlier outcome are exactly as they were.
+    func cancelAutoID() {
+        autoID.token += 1
+        autoID.running = false
+    }
+
+    /// The image changed under the room: nothing proposed for the old one stays.
+    func resetAutoID() {
+        let t = autoID.token + 1
+        autoID = AutoIDState()
+        autoID.token = t
+        markers = markers.filter { $0.kind != .suspect }
+    }
+
     func toggleMix(_ z: Int) { if mixed.contains(z) { mixed.remove(z) } else { mixed.insert(z) } }
     func toggleExpanded(_ z: Int) { if expandedRows.contains(z) { expandedRows.remove(z) } else { expandedRows.insert(z) } }
+}
+
+struct AutoIDState: Equatable {
+    var running = false
+    var outcome: AutoIDOutcome?
+    var failure: String?
+    fileprivate(set) var token = 0
 }
 
 struct MapTile: Identifiable {

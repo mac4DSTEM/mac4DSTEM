@@ -11,7 +11,7 @@ import DSTEMSession
 final class SpectroscopyRoomTests: XCTestCase {
 
     /// A spectrum image with nothing behind it but its metadata: every sum is zero.
-    private final class StubSpectrumImage: SpectrumImageSource {
+    final class StubSpectrumImage: SpectrumImageSource {
         let metadata: SpectrumImageMetadata
         nonisolated let energyAxis = EnergyAxis(offset: -0.48, scale: 0.005, size: 4096)
         nonisolated let scanImage: [Float]? = nil

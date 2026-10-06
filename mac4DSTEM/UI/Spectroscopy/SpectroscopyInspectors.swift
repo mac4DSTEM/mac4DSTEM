@@ -94,6 +94,7 @@ private struct CountsSparkline: View {
 struct ElementsInspector: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var reviewing = false
+    @State private var detailsOpen = false
     var body: some View {
         InspectorGroup {
             PeriodicTableView(model: model)
@@ -104,6 +105,31 @@ struct ElementsInspector: View {
                         .foregroundStyle(.secondary).lineLimit(1)
                     Button("Review") { reviewing = true }.disabled(s.isEmpty)
                         .popover(isPresented: $reviewing, arrowEdge: .bottom) { SuggestionReview(model: model) }
+                }
+            }
+            InspectorRow("Auto ID") {
+                HStack(spacing: 6) {
+                    if model.autoID.running {
+                        ProgressView().controlSize(.small)
+                        Text("Proposing…").foregroundStyle(.secondary).lineLimit(1)
+                        Button("Cancel") { model.onCancelAutoID?() }
+                    } else {
+                        // The proposer is unvalidated on real data (the same word the at% carries).
+                        if model.autoID.outcome != nil { UnvalidatedBadge() }
+                        Button("Run") { model.onAutoID?() }.disabled(model.onAutoID == nil)
+                            .help("Proposes elements from the selected region's spectrum, on the file's axis (Quantify refines the axis unless it is locked). Your picks are never changed; each suggestion waits for one click.")
+                    }
+                }
+            }
+            if let why = model.autoID.failure { InspectorNote(why) }
+            if let o = model.autoID.outcome, o.hasDetails {
+                InspectorSection("Auto ID notes · \(o.region)", expanded: $detailsOpen) {
+                    ForEach(o.suspects, id: \.label) { InspectorNote("\($0.label) \($0.question)") }
+                    if !o.notTested.isEmpty {
+                        InspectorNote("Not tested: \(o.notTested.map(\.element).joined(separator: ", "))")
+                            .help(o.notTested.map { "\($0.element): \($0.reason)" }.joined(separator: "\n"))
+                    }
+                    ForEach(o.notes, id: \.self) { InspectorNote($0) }
                 }
             }
             if !model.isLive {
