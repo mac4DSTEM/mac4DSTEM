@@ -1,0 +1,285 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Spectroscopy room — mock v2</title>
+<style>
+:root{--win:#1f1f21;--sb:#28282a;--pane:#1b1b1d;--hdr:#242426;--sep:#39393c;--ink:#e6e6e8;--sec:#9a9a9f;--acc:#0a84ff;--acc2:rgba(10,132,255,.22);--insp:248px}
+body.a{--insp:364px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;font-size:13px;color:var(--ink);-webkit-font-smoothing:antialiased}
+.win{position:relative;background:var(--win);overflow:hidden;width:1470px;height:923px}
+body.narrow .win{width:915px}
+/* toolbar */
+.tb{height:52px;display:flex;align-items:center;padding:0 14px;gap:10px;background:#2b2b2d;border-bottom:1px solid #141416}
+.tl{display:flex;gap:8px;margin-right:14px}.tl i{width:12px;height:12px;border-radius:6px;display:block}
+.tbtn{width:34px;height:30px;border-radius:9px;background:#3a3a3d;display:flex;align-items:center;justify-content:center;color:#ddd;flex:none}
+.crumb{height:30px;padding:0 16px;border-radius:9px;background:#343436;display:flex;align-items:center;color:#cfcfd2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.verb{height:30px;padding:0 16px;border-radius:9px;background:var(--acc);color:#fff;font-weight:600;display:flex;align-items:center}
+.grow{flex:1}
+/* columns */
+.cols{position:absolute;left:0;top:52px;right:0;bottom:24px;display:flex}
+.sb{width:230px;flex:none;background:var(--sb);border-right:1px solid #141416;padding:8px 8px;overflow:hidden}
+.sh{font-size:11px;font-weight:600;color:var(--sec);padding:6px 8px 3px}
+.si{height:28px;display:flex;align-items:center;gap:9px;padding:0 8px;border-radius:7px;color:#e0e0e3}.si.on{background:var(--acc2);color:#fff}
+.si svg{flex:none}.si .k{margin-left:auto;color:#6d6d72;font-size:11px}
+.si.sub{padding-left:31px;color:#d6d6da;font-size:12.5px}.si.sub.on{background:var(--acc);color:#fff}
+.content{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--pane);position:relative}
+.insp{width:var(--insp);flex:none;background:var(--sb);border-left:1px solid #141416;padding:8px 10px;overflow:hidden;position:relative}
+/* panes */
+.pane{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--sep);border-bottom:1px solid var(--sep)}
+.pane:last-child{border-right:0}
+.ph{height:30px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--hdr);border-bottom:1px solid var(--sep);font-weight:600;white-space:nowrap}
+.ph .sub{font-weight:400;color:var(--sec)}
+.ph .sp{flex:1}
+.seg{display:inline-flex;background:#343437;border-radius:6px;padding:2px;font-weight:500;font-size:12px}
+.seg span{padding:1px 9px;border-radius:5px;color:#bdbdc2}.seg .on{background:#5a5a5e;color:#fff}
+.tool{width:26px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:#cfcfd2}.tool.on{background:var(--acc2);color:var(--acc)}
+.body{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+canvas{image-rendering:pixelated;display:block}
+/* maps grid */
+#gridPane{flex:none}
+.grid{display:grid;gap:8px;padding:10px;justify-content:center}
+.tile{position:relative;border-radius:6px;overflow:hidden;background:#0e0e10;border:1px solid #3a3a3c}
+.tile.on{border-color:var(--acc)}
+.tile.pr{border-style:dashed;border-color:#5a5a5e}
+.tile .lab{position:absolute;left:0;right:0;top:0;height:22px;background:rgba(0,0,0,.5);font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;padding:0 6px}
+.tile .lab .sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.tile .lab .sw.o{background:transparent;border:1.5px solid var(--acc)}
+.tile .lab .m{font-weight:400;color:#c8c8cc;margin-left:auto}
+.tile .lab .ac{font-weight:500;color:var(--acc);margin-left:auto}
+.cb{width:13px;height:13px;border-radius:3px;border:1px solid #8a8a8e;display:inline-flex;align-items:center;justify-content:center;flex:none;background:rgba(0,0,0,.3)}
+.cb.on{background:var(--acc);border-color:var(--acc)}
+.mixlab{position:absolute;left:0;right:0;bottom:0;height:22px;background:rgba(0,0,0,.45);font-size:11px;display:flex;align-items:center;gap:10px;padding:0 8px;color:#d8d8dc}
+.mixlab i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
+/* periodic table */
+.pt{display:grid;gap:1.5px;--c:18px;grid-template-columns:repeat(18,var(--c));grid-auto-rows:var(--c);justify-content:center;padding:4px 0 2px}
+.pt.mg{grid-template-columns:repeat(8,var(--c))}.pt.tr{grid-template-columns:repeat(10,var(--c))}
+body.b .pt,body.narrow .pt{--c:21px;gap:2px}
+.el{border-radius:3px;background:#3a3a3d;color:#d4d4d8;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;position:relative;border:1px solid transparent}
+body.b .el,body.narrow .el{font-size:11px}
+.el.nd{background:#2a2a2c;color:#55555a;font-weight:500}
+.el.in{background:var(--acc);color:#fff}
+.el.fo{background:transparent;border-color:#8a8a8e;color:#e6e6e8}
+.el.pr{background:transparent;border-color:var(--acc);color:#8fc0ff}
+.fb{height:24px;display:flex;align-items:center;gap:6px;font-size:12px;color:#c8c8cc;padding:0 2px}
+.tip{position:absolute;background:#3e3e42;border:1px solid #555;border-radius:6px;padding:4px 8px;font-size:11px;color:#e6e6e8;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.5);z-index:3}
+.tip::after{content:"";position:absolute;left:14px;bottom:-5px;width:8px;height:8px;background:#3e3e42;border-right:1px solid #555;border-bottom:1px solid #555;transform:rotate(45deg)}
+.lnk{color:var(--acc);font-weight:500}
+/* results */
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{font-weight:500;color:var(--sec);font-size:11px;text-align:right;padding:6px 8px 4px;border-bottom:1px solid var(--sep)}
+td{padding:5px 8px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td b{font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:6px;vertical-align:0}
+.badge{display:inline-block;font-size:10.5px;font-weight:600;color:#f3c26b;background:rgba(245,166,35,.18);border-radius:8px;padding:1px 7px}
+.note{font-size:11px;color:var(--sec);padding:6px 10px;line-height:15px}
+/* inspector */
+.itabs{height:26px;border-radius:7px;background:#3a3a3d;display:flex;padding:2px;margin:2px 0 8px}
+.itabs span{flex:1;text-align:center;line-height:22px;border-radius:5px;color:#bdbdc2;font-size:12px}.itabs .on{background:#5a5a5e;color:#fff;font-weight:600}
+.grp{display:flex;align-items:center;gap:6px;height:26px;font-weight:600;font-size:13px}
+.grp .sub{font-weight:400;color:var(--sec);font-size:12px}
+.ir{height:26px;display:flex;align-items:center;font-size:12.5px}
+.ir .l{color:#d0d0d4;flex:1;white-space:nowrap}
+.ir .v{color:#e6e6e8;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.ir .v .sec{color:var(--sec)}
+.pop{display:inline-flex;align-items:center;gap:8px;height:22px;padding:0 6px 0 9px;border-radius:6px;background:#48484c;font-size:12px}
+.fld{display:inline-flex;align-items:center;justify-content:flex-end;height:22px;width:62px;padding:0 8px;border-radius:6px;background:#2d2d2f;border:1px solid #4a4a4e;font-size:12px}
+.unit{color:var(--sec);font-size:12px;width:22px}
+.tog{width:34px;height:20px;border-radius:10px;background:#34c759;position:relative}.tog::after{content:"";position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:8px;background:#fff}
+.hint{font-size:11px;color:var(--sec);line-height:14px;padding:0 0 4px}
+.isep{height:1px;background:#3f3f42;margin:5px 0}
+.rg{height:30px;display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:6px;font-size:12.5px}
+.rg.on{background:var(--acc2)}.rg.dim{opacity:.5}
+.rg .n{flex:1}.rg small{color:var(--sec);font-size:11px}
+.rg svg{flex:none}
+/* status */
+.status{position:absolute;left:0;right:0;bottom:0;height:24px;display:flex;align-items:center;padding:0 12px;font-size:11.5px;color:var(--sec);background:#232325;border-top:1px solid #141416;gap:16px}
+/* layouts */
+.rowB{flex:1;min-height:0;display:flex}
+#specPane{flex:1}
+#resPane{width:316px;flex:none}
+body.narrow .cols{overflow:hidden}
+body.narrow .content{overflow-y:scroll}
+body.narrow .rowB{flex-direction:column;flex:none}
+body.narrow #resPane{width:auto}
+body.narrow .pane{border-right:0}
+body.narrow .crumb{max-width:260px}
+body.narrow .crumb .ell{display:none}
+.showpop{display:none}body.narrow #specTog{display:none}body.narrow .showpop{display:inline-flex}body.narrow #specPane{height:300px;flex:none}body.narrow .ph .sub.w{display:none}
+.scrollbar{position:absolute;right:2px;width:7px;border-radius:4px;background:rgba(255,255,255,.28);display:none}
+body.narrow .scrollbar{display:block}
+.ptA{display:block}.ptB{display:none}
+body.b .ptA,body.narrow .ptA{display:none}body.b .ptB,body.narrow .ptB{display:block}
+</style></head>
+<body class="wide a">
+<div class="win">
+  <div class="tb">
+    <div class="tl"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+    <div class="tbtn" title="Toggle sidebar"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="14" height="12" rx="2.5"/><path d="M6 1v12"/></svg></div>
+    <div class="grow"></div>
+    <div class="crumb">AlMgSi_4D_EDX.dm4 · Spectroscopy<span class="ell"> · 64 × 48 scan · EDX 64 × 48</span></div>
+    <div class="grow"></div>
+    <div class="verb">Quantify</div>
+    <div class="tbtn"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1 3h5l1.5 2H15v8H1z"/></svg></div>
+    <div class="tbtn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 1.5 14 5v6L8 14.5 2 11V5z"/><path d="M2 5l6 3 6-3M8 8v6.5"/></svg></div>
+    <div class="tbtn" style="margin-left:6px"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="14" height="12" rx="2.5"/><path d="M10 1v12"/></svg></div>
+  </div>
+
+  <div class="cols">
+    <div class="sb">
+      <div class="sh">Workspace</div>
+      <div class="si"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="5.5"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>Prepare<span class="k">⌘1</span></div>
+      <div class="si"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="5.5"/><path d="M4 9c1-3 5-3 6 0"/></svg>Imaging<span class="k">⌘2</span></div>
+      <div class="si"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/><circle cx="11" cy="3" r="1.5"/><circle cx="3" cy="7" r="1.5"/><circle cx="7" cy="7" r="1.5"/><circle cx="11" cy="7" r="1.5"/><circle cx="3" cy="11" r="1.5"/><circle cx="7" cy="11" r="1.5"/><circle cx="11" cy="11" r="1.5"/></svg>Bragg Disks<span class="k">⌘3</span></div>
+      <div class="si"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1 3l4-1.5 4 1.5 4-1.5v9l-4 1.5-4-1.5-4 1.5z"/></svg>Crystal Maps<span class="k">⌘4</span></div>
+      <div class="si"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="2" width="12" height="10" rx="2"/><path d="M3 9l2-3 2 2 2-4 2 3"/></svg>Reconstruction<span class="k">⌘5</span></div>
+      <div class="si on" style="background:none;color:#e0e0e3"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="6" width="2.5" height="7"/><rect x="4.5" y="2" width="2.5" height="11"/><rect x="8" y="8" width="2.5" height="5"/><rect x="11.5" y="4" width="2.5" height="9"/></svg>Spectroscopy<span class="k">⌘6</span></div>
+      <div class="si sub on">EDX</div>
+      <div class="si"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>Results<span class="k">⌘7</span></div>
+    </div>
+
+    <div class="content" id="content">
+      <div class="pane" id="gridPane">
+        <div class="ph">Maps <span class="sub">· net counts</span><span class="sp"></span>
+          <span class="seg"><span>int</span><span class="on">net</span><span>wt%</span><span>at%</span></span>
+          <span class="tool on" title="Rectangle region"><svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="12" height="10" stroke-dasharray="2.4 1.6"/></svg></span>
+          <span class="tool" title="Polygon region"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 11 3.5 4 8 2.5 12 6.5 9.5 12Z"/></svg></span>
+        </div>
+        <div class="grid" id="grid"></div>
+      </div>
+      <div class="rowB">
+        <div class="pane" id="specPane">
+          <div class="ph">Spectrum <span class="sub">· Region · 572 px · live</span><span class="sp"></span>
+            <span class="seg" id="specTog"><span class="on">Spectrum</span><span class="on">Background</span><span class="on">Model</span><span class="on">Residual</span></span><span class="pop showpop">Show <svg width="7" height="10" viewBox="0 0 7 10"><path d="M1 3.5 3.5 1 6 3.5M1 6.5 3.5 9 6 6.5" fill="none" stroke="#ccc" stroke-width="1.2"/></svg></span>
+          </div>
+          <div class="body" id="specBody"></div>
+        </div>
+        <div class="pane" id="resPane">
+          <div class="ph">Region <span class="badge">unvalidated</span><span class="sp"></span><span class="lnk" style="font-weight:500">Export…</span></div>
+          <table>
+            <tr><th>Element</th><th>Net ± σ</th><th>at% ± σ</th></tr>
+            <tr><td><span class="dot" style="background:#2fd36b"></span><b>Mg</b></td><td>235 ± 45</td><td><b>1.6 ± 0.4</b></td></tr>
+            <tr><td><span class="dot" style="background:#4f8ef7"></span><b>Al</b></td><td>14 328 ± 257</td><td><b>95.3 ± 0.8</b></td></tr>
+            <tr><td><span class="dot" style="background:#ff5a5a"></span><b>Si</b></td><td>475 ± 28</td><td><b>3.1 ± 0.6</b></td></tr>
+          </table>
+          <div class="note"><b style="color:#e6e6e8">Mg / Si net ratio 0.494 ± 0.100</b> — k-free<br>at%: computed k (Bote-Salvat) · no absorption (no thickness typed)<br>least squares · empirical continuum · χ²ᵣ 1.43</div>
+          <div class="note" style="border-top:1px solid var(--sep)">Whole map, for comparison: Mg 0.9 ± 0.2 · Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%</div>
+        </div>
+      </div>
+      <div class="scrollbar" id="sbar"></div>
+    </div>
+
+    <div class="insp" id="insp">
+      <div class="itabs"><span class="on">Settings</span><span>Info</span></div>
+      <div class="grp"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="#aaa" stroke-width="1.5"/></svg>Elements</div>
+      <div class="ptA"><div class="pt" id="ptA"></div></div>
+      <div class="ptB"><div class="pt mg" id="ptMg"></div><div class="pt tr" id="ptTr" style="padding-top:6px"></div>
+        <div class="fb"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="#aaa" stroke-width="1.5"/></svg>La–Lu · Ac–Lr</div></div>
+      <div class="tip" id="tip">Cu · proposed (Kα 8.04 keV) · click to map</div>
+      <div class="ir"><span class="l">Auto ID</span><span class="v"><span class="tog"></span></span></div>
+      <div class="ir"><span class="l">Proposed</span><span class="v">O, Cu <span class="lnk" style="margin-left:4px">Accept</span></span></div>
+      <div class="isep"></div>
+      <div class="grp"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="#aaa" stroke-width="1.5"/></svg>Region</div>
+      <div class="ir"><span class="l">Source</span><span class="v"><span class="pop">Drawn rectangle <svg width="7" height="10" viewBox="0 0 7 10"><path d="M1 3.5 3.5 1 6 3.5M1 6.5 3.5 9 6 6.5" fill="none" stroke="#ccc" stroke-width="1.2"/></svg></span></span></div>
+      <div class="ir"><span class="l">Pixels</span><span class="v">572 <span class="sec">· 20 561 counts</span></span></div>
+      <div class="ir"><span class="l">Compare with</span><span class="v"><span class="pop">Whole map <svg width="7" height="10" viewBox="0 0 7 10"><path d="M1 3.5 3.5 1 6 3.5M1 6.5 3.5 9 6 6.5" fill="none" stroke="#ccc" stroke-width="1.2"/></svg></span></span></div>
+      <div class="ir"><span class="l">Keep this region</span><span class="v"><span class="lnk">Pin</span></span></div>
+      <div class="isep"></div>
+      <div class="grp"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="#aaa" stroke-width="1.5"/></svg>Fit</div>
+      <div class="ir"><span class="l">Background</span><span class="v"><span class="pop">Empirical <svg width="7" height="10" viewBox="0 0 7 10"><path d="M1 3.5 3.5 1 6 3.5M1 6.5 3.5 9 6 6.5" fill="none" stroke="#ccc" stroke-width="1.2"/></svg></span></span></div>
+      <div class="ir"><span class="l">k-factors</span><span class="v"><span class="pop">Computed <svg width="7" height="10" viewBox="0 0 7 10"><path d="M1 3.5 3.5 1 6 3.5M1 6.5 3.5 9 6 6.5" fill="none" stroke="#ccc" stroke-width="1.2"/></svg></span></span></div>
+      <div class="ir"><span class="l">Absorption</span><span class="v"><span class="cb on" style="background:var(--acc)"><svg width="9" height="9" viewBox="0 0 10 10"><path d="M1.8 5.4 4 7.6 8.2 2.4" fill="none" stroke="#fff" stroke-width="1.7"/></svg></span></span></div>
+      <div class="ir"><span class="l">Thickness</span><span class="v"><span class="fld" style="color:#77777c">—</span><span class="unit">nm</span></span></div>
+      <div class="ir"><span class="l">Beam energy</span><span class="v">200 kV <span class="sec">· from the file</span></span></div>
+      <div class="isep"></div>
+      <div class="grp"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="#aaa" stroke-width="1.5"/></svg>Map display</div>
+      <div class="grp"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="#aaa" stroke-width="1.5"/></svg>Export</div>
+      <div class="grp"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2 6.5 5 3.5 8" fill="none" stroke="#aaa" stroke-width="1.5"/></svg>Expert</div>
+    </div>
+  </div>
+  <div class="status"><span>Opened AlMgSi_4D_EDX.dm4 · EDX attached to the 4D scan</span><span class="grow"></span><span>Apple M5 Pro · 537 MB · streaming</span></div>
+</div>
+
+<script>
+// ---------- seeded placeholder data (no owner data) ----------
+let seed=11; const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff};
+const W=64,H=48;
+const al=new Float32Array(W*H), mg=new Float32Array(W*H), si=new Float32Array(W*H), cu=new Float32Array(W*H), ox=new Float32Array(W*H), haadf=new Float32Array(W*H);
+for(let i=0;i<W*H;i++){al[i]=0.75+0.25*rnd();haadf[i]=0.45+0.1*rnd();ox[i]=0.15*rnd()+(i%W<3||i%W>W-4?0.5:0)}
+for(let n=0;n<26;n++){const x0=Math.floor(rnd()*W),y0=Math.floor(rnd()*H),L=4+Math.floor(rnd()*10),v=rnd()<0.5;
+  for(let k=0;k<L;k++){const x=v?x0:x0+k,y=v?y0+k:y0;if(x<W&&y<H){const i=y*W+x;mg[i]=Math.min(1,mg[i]+0.6+0.4*rnd());si[i]=Math.min(1,si[i]+0.5+0.5*rnd());al[i]*=0.45;haadf[i]+=0.25}}}
+for(let n=0;n<7;n++){const x=Math.floor(rnd()*W),y=Math.floor(rnd()*H);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const X=x+dx,Y=y+dy;if(X>=0&&X<W&&Y>=0&&Y<H){const i=Y*W+X;cu[i]=0.7+0.3*rnd();haadf[i]+=0.4;al[i]*=0.5}}}
+const noisy=a=>a.map(v=>Math.max(0,v+(rnd()-0.5)*0.35));
+const MG=noisy(mg),SI=noisy(si),AL=noisy(al),CU=noisy(cu),OX=noisy(ox),HA=haadf.map(v=>Math.min(1,v+(rnd()-0.5)*0.08));
+const COL={HAADF:[220,220,220],Mg:[47,211,107],Al:[79,142,247],Si:[255,90,90],Cu:[240,160,32],O:[190,120,255]};
+function draw(cv,chan,colr,cw,ch,dim){cv.width=W;cv.height=H;cv.style.width=cw+'px';cv.style.height=ch+'px';const g=cv.getContext('2d');const img=g.createImageData(W,H);const f=dim?0.45:1;
+  for(let i=0;i<W*H;i++){const v=Math.min(1,chan[i])*f;img.data[4*i]=colr[0]*v;img.data[4*i+1]=colr[1]*v;img.data[4*i+2]=colr[2]*v;img.data[4*i+3]=255}g.putImageData(img,0,0)}
+function drawMix(cv,cw,ch){cv.width=W;cv.height=H;cv.style.width=cw+'px';cv.style.height=ch+'px';const g=cv.getContext('2d');const img=g.createImageData(W,H);
+  for(let i=0;i<W*H;i++){const a=0.8*Math.min(1,AL[i]),m=0.85*Math.min(1,MG[i]),q=0.85*Math.min(1,SI[i]);const r=Math.max(a*COL.Al[0],m*COL.Mg[0],q*COL.Si[0])/255,gg=Math.max(a*COL.Al[1],m*COL.Mg[1],q*COL.Si[1])/255,b=Math.max(a*COL.Al[2],m*COL.Mg[2],q*COL.Si[2])/255;
+    img.data[4*i]=Math.min(255,r*255);img.data[4*i+1]=Math.min(255,gg*255);img.data[4*i+2]=Math.min(255,b*255);img.data[4*i+3]=255}g.putImageData(img,0,0)}
+const narrow=document.body.classList.contains('narrow');
+// ---------- maps grid ----------
+const content=document.getElementById('content'),grid=document.getElementById('grid');
+const inner=content.clientWidth-20;
+let th,tw,mixW,mixH;
+if(narrow){mixW=inner;mixH=Math.round(mixW*3/4);tw=Math.floor((inner-8)/2);th=Math.round(tw*3/4);
+  grid.style.gridTemplateColumns=`${tw}px ${tw}px`;grid.style.gridTemplateRows=`${mixH}px ${th}px ${th}px ${th}px`}
+else{th=Math.floor((inner-37.33)*3/20);tw=Math.round(th*4/3);mixH=3*th+16;mixW=Math.round(mixH*4/3);
+  grid.style.gridTemplateColumns=`${mixW}px ${tw}px ${tw}px`;grid.style.gridTemplateRows=`${th}px ${th}px ${th}px`}
+const chk='<svg width="9" height="9" viewBox="0 0 10 10"><path d="M1.8 5.4 4 7.6 8.2 2.4" fill="none" stroke="#fff" stroke-width="1.7"/></svg>';
+function tile(name,chan,state){const d=document.createElement('div');d.className='tile'+(state==='on'?' on':state==='pr'?' pr':'');d.style.width=tw+'px';d.style.height=th+'px';
+  const c=document.createElement('canvas');draw(c,chan,COL[name],tw,th,state==='pr');d.appendChild(c);
+  const l=document.createElement('div');l.className='lab';const k=COL[name];
+  if(state==='pr'){l.innerHTML=`<span class="sw o"></span>${name}<span class="m">proposed</span><span class="lnk" style="font-weight:500;margin-left:6px">Accept</span>`}
+  else{l.innerHTML=`<span class="cb${state==='on'?' on':''}">${state==='on'?chk:''}</span>${name}<span class="sw" style="background:rgb(${k[0]},${k[1]},${k[2]});margin-left:auto"></span>`}
+  d.appendChild(l);return d}
+const mix=document.createElement('div');mix.className='tile';mix.style.width=mixW+'px';mix.style.height=mixH+'px';mix.style.borderColor='#4a4a4e';
+if(!narrow)mix.style.gridRow='1 / 4';else mix.style.gridColumn='1 / 3';
+mix.innerHTML=`<div class="lab">ColorMix<span class="m">Mg · Al · Si</span></div><div class="mixlab"><span><i style="background:#2fd36b"></i>Mg</span><span><i style="background:#4f8ef7"></i>Al</span><span><i style="background:#ff5a5a"></i>Si</span><span style="margin-left:auto;border-bottom:2px solid #fff;padding-bottom:1px;width:60px;text-align:left">50 nm</span></div>`;
+const s=mixW/W;mix.innerHTML+=`<div style="position:absolute;left:${14*s}px;top:${9*s}px;width:${26*s}px;height:${22*s}px;border:1.5px dashed #fff;box-shadow:0 0 0 1px rgba(0,0,0,.6)"><span style="position:absolute;left:0;top:-18px;font-size:11px;background:rgba(0,0,0,.6);padding:0 4px;border-radius:3px;white-space:nowrap">Region · 572 px</span><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;left:-4px;top:-4px"></i><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;right:-4px;top:-4px"></i><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;left:-4px;bottom:-4px"></i><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;right:-4px;bottom:-4px"></i><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;left:calc(50% - 4px);top:-4px"></i><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;left:calc(50% - 4px);bottom:-4px"></i><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;left:-4px;top:calc(50% - 4px)"></i><i style="position:absolute;width:7px;height:7px;background:#fff;border:1px solid #000;border-radius:1px;right:-4px;top:calc(50% - 4px)"></i></div>`;
+const mc=document.createElement('canvas');drawMix(mc,mixW,mixH);mix.insertBefore(mc,mix.firstChild);
+grid.appendChild(mix);
+[['HAADF',HA,''],['Mg',MG,'on'],['Al',AL,'on'],['Si',SI,'on'],['O',OX,'pr'],['Cu',CU,'pr']].forEach(([n,ch,st])=>grid.appendChild(tile(n,ch,st)));
+// ---------- periodic table ----------
+const nd=new Set(["H","He","Li","Be","Fr","Ra","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Cn","Nh","Fl","Mc","Lv","Ts","Og","Tc","Po","At","Rn","Xe","Kr","Ar","Ne"]);
+const inc=new Set(["Mg","Al","Si"]),prop=new Set(["O","Cu"]),fo=new Set(["Fe"]);
+function cell(e,host){const d=document.createElement('div');if(!e){d.style.visibility='hidden'}else{d.className='el'+(nd.has(e)?' nd':'')+(inc.has(e)?' in':'')+(prop.has(e)?' pr':'')+(fo.has(e)?' fo':'');d.textContent=e;d.dataset.e=e;
+  if(e==='*'||e==='**'){d.className='el nd';d.textContent=e==='*'?'La–Lu':'Ac–Lr';d.style.fontSize='7px'}}host.appendChild(d);return d}
+const rowsA=[["H","","","","","","","","","","","","","","","","","He"],["Li","Be","","","","","","","","","","","B","C","N","O","F","Ne"],["Na","Mg","","","","","","","","","","","Al","Si","P","S","Cl","Ar"],["K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr"],["Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe"],["Cs","Ba","*","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl","Pb","Bi","Po","At","Rn"],["Fr","Ra","**","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Cn","Nh","Fl","Mc","Lv","Ts","Og"]];
+const rowsMg=[["H","","","","","","","He"],["Li","Be","B","C","N","O","F","Ne"],["Na","Mg","Al","Si","P","S","Cl","Ar"],["K","Ca","Ga","Ge","As","Se","Br","Kr"],["Rb","Sr","In","Sn","Sb","Te","I","Xe"],["Cs","Ba","Tl","Pb","Bi","Po","At","Rn"]];
+const rowsTr=[["Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn"],["Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd"],["Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","*"]];
+const A=document.getElementById('ptA'),Mg_=document.getElementById('ptMg'),Tr=document.getElementById('ptTr');
+rowsA.forEach(r=>r.forEach(e=>cell(e,A)));rowsMg.forEach(r=>r.forEach(e=>cell(e,Mg_)));rowsTr.forEach(r=>r.forEach(e=>{if(e==='*'){const d=document.createElement('div');d.style.visibility='hidden';Tr.appendChild(d)}else cell(e,Tr)}));
+// hover tooltip on Cu (the visible table only)
+setTimeout(()=>{const insp=document.getElementById('insp');const vis=[...insp.querySelectorAll('.el')].filter(d=>d.dataset.e==='Cu'&&d.offsetParent!==null)[0];const tip=document.getElementById('tip');
+  if(vis){const r=vis.getBoundingClientRect(),b=insp.getBoundingClientRect();tip.style.left=Math.max(8,r.left-b.left-10)+'px';tip.style.top=(r.top-b.top-30)+'px';vis.style.boxShadow='0 0 0 1.5px #fff inset';vis.style.borderColor='#fff'}
+  // ensure tooltip stays inside the inspector
+  const tr=tip.getBoundingClientRect(),ib=insp.getBoundingClientRect();if(tr.right>ib.right-6)tip.style.left=(parseFloat(tip.style.left)-(tr.right-ib.right+6))+'px'},0);
+// ---------- spectrum (SVG) ----------
+function gauss(x,m,h,fw){const s=fw/2.355;return h*Math.exp(-0.5*((x-m)/s)**2)}
+function model(e,c){let bg=c.bg*(1.2*Math.exp(-(e-0.4)/1.6)+0.18);if(e>=1.5596)bg*=0.84;let y=bg;
+  [[0.525,c.O,0.07],[0.93,c.Cu,0.075],[1.254,c.Mg,0.085],[1.487,c.Al,0.092],[1.740,c.Si,0.098],[8.04,c.Cu*0.9,0.15],[8.90,c.Cu*0.15,0.16]].forEach(([m,h,fw])=>y+=gauss(e,m,h,fw));return y}
+function bgOnly(e,c){let bg=c.bg*(1.2*Math.exp(-(e-0.4)/1.6)+0.18);if(e>=1.5596)bg*=0.84;return bg}
+function poisson(l){if(l>50)return Math.max(0,Math.round(l+Math.sqrt(l)*(rnd()+rnd()+rnd()+rnd()+rnd()+rnd()-3)*1.41));let L=Math.exp(-l),k=0,p=1;do{k++;p*=rnd()}while(p>L);return k-1}
+const reg={bg:40,O:60,Cu:30,Mg:1100,Al:14000,Si:1400},whole={bg:30,O:50,Cu:40,Mg:500,Al:16000,Si:700};
+const sp=document.getElementById('specBody');
+function spectrum(){const Wd=sp.clientWidth,Hd=sp.clientHeight;const L=44,R=34,T=22,resH=Hd<300?30:40,B=22;const pw=Wd-L-R,ph=Hd-T-resH-B-6;
+  const xmin=0.2,xmax=10,ymin=0.5,ymax=3e4;const X=e=>L+(e-xmin)/(xmax-xmin)*pw,Y=v=>T+ph-(Math.log10(Math.max(v,ymin))-Math.log10(ymin))/(Math.log10(ymax)-Math.log10(ymin))*ph;
+  let o=[`<svg width="${Wd}" height="${Hd}" font-family="-apple-system,Helvetica Neue" font-size="10" fill="#9a9a9f">`];
+  for(let d=0;d<=4;d++){const v=Math.pow(10,d);o.push(`<line x1="${L}" x2="${Wd-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#3a3a3c"/><text x="${L-5}" y="${Y(v)+3}" text-anchor="end">10${'⁰¹²³⁴'[d]}</text>`)}
+  for(let e=1;e<=10;e++){o.push(`<line x1="${X(e)}" x2="${X(e)}" y1="${T}" y2="${T+ph}" stroke="#2e2e30"/><text x="${X(e)}" y="${Hd-6}" text-anchor="middle">${e}</text>`)}
+  o.push(`<text x="${X(10)+10}" y="${Hd-6}" text-anchor="start">keV</text><text transform="translate(11,${T+ph/2}) rotate(-90)" text-anchor="middle">counts / 5 eV</text>`);
+  const wholeP=[],regP=[],modP=[],bgP=[],res=[];
+  for(let e=xmin;e<=xmax;e+=0.005){const mw=model(e,whole)*0.6,mr=model(e,reg);const cw=poisson(mw),cr=poisson(mr);wholeP.push(`${X(e).toFixed(1)},${Y(cw).toFixed(1)}`);regP.push(`${X(e).toFixed(1)},${Y(cr).toFixed(1)}`);modP.push(`${X(e).toFixed(1)},${Y(mr).toFixed(1)}`);bgP.push(`${X(e).toFixed(1)},${Y(bgOnly(e,reg)).toFixed(1)}`);res.push([X(e),(cr-mr)/Math.sqrt(Math.max(mr,1))])}
+  o.push(`<polyline points="${wholeP.join(' ')}" fill="none" stroke="#6b6b70" stroke-width="1" opacity=".7"/>`);
+  o.push(`<polyline points="${regP.join(' ')}" fill="none" stroke="#d8d8dc" stroke-width="1"/>`);
+  o.push(`<polyline points="${bgP.join(' ')}" fill="none" stroke="#f0a020" stroke-width="1" stroke-dasharray="3 3"/>`);
+  o.push(`<polyline points="${modP.join(' ')}" fill="none" stroke="#3b8cff" stroke-width="1.6"/>`);
+  [[0.525,'O Kα','#c8c8cc',0,1],[0.93,'Cu Lα','#f0a020',1,1],[1.254,'Mg Kα','#2fd36b',0,0],[1.487,'Al Kα','#4f8ef7',1,0],[1.740,'Si Kα','#ff5a5a',2,0],[8.04,'Cu Kα','#f0a020',0,1]].forEach(([e,t,c,st,dim])=>{o.push(`<line x1="${X(e)}" x2="${X(e)}" y1="${T-2}" y2="${T+ph}" stroke="${c}" stroke-dasharray="3 3" opacity="${dim?.5:.9}"/><text x="${X(e)+3}" y="${T+9+st*12}" fill="${c}" font-weight="600" opacity="${dim?.6:1}">${t}</text>`)});
+  const r0=T+ph+6,rm=r0+resH/2;o.push(`<rect x="${L}" y="${r0}" width="${pw}" height="${resH}" fill="#202022"/><line x1="${L}" x2="${Wd-R}" y1="${rm}" y2="${rm}" stroke="#3a3a3c"/><text x="${L-5}" y="${rm+3}" text-anchor="end">res σ</text><text x="${Wd-R-2}" y="${r0+9}" text-anchor="end">±3</text>`);
+  o.push(`<polyline points="${res.map(([x,v])=>`${x.toFixed(1)},${(rm-Math.max(-3,Math.min(3,v))*(resH/2-2)/3).toFixed(1)}`).join(' ')}" fill="none" stroke="#b0b0b5" stroke-width=".8"/>`);
+  o.push(`<text x="${Wd-R}" y="${T+ph-5}" text-anchor="end" fill="#9a9a9f">grey: whole map · white: region · blue: model · dotted: background</text></svg>`);
+  sp.innerHTML=o.join('')}
+spectrum();
+if(narrow){const c=document.querySelector('.content');const sb=document.getElementById('sbar');const vis=c.clientHeight,tot=c.scrollHeight;sb.style.top=(52+4)+'px';sb.style.height=Math.max(30,vis*vis/tot)+'px'}
+</script>
+</body></html>
