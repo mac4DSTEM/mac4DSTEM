@@ -109,10 +109,11 @@ his own in the release build. The lanes, their write-sets, gates and order: `arc
 **Session queue** — each `/pickup` takes the first unchecked line; its closeout ticks it here and moves the handoff.
 Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 2026-10-05 — v4.5.0 released). Three lanes may run at once (one supervisor each, disjoint write-sets).
 
-- [ ] **v5.0 — the EDX suite** (ADR 052–055) — built on `main` 2026-10-05/06 and not yet driven: WP1 readers, WP2
-  (room, views, simulator, wiring) and the WP3 core (fit, k-factors, absorption, statistics, method, registration, pools).
-  Next, in order: the proposer on the fit and Quantify wired into the room (lanes P and R3), a scratch-build drive, then the
-  owner's joint GMS run and pure-Al spectrum for Q1–Q3 (`docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
+- [ ] **v5.0 — the EDX suite** (ADR 052–056) — Core science built, gated and Fable-checked on `main` (readers, simulator,
+  fit, k, absorption, statistics, method/replay, pools, proposer, Auto ID, unlisted-line check, Export, default fit range).
+  The owner drove the room 2026-10-06 and rejected its structure; ADR 056 + mock v2.1 (accepted) define the rebuild.
+  Next, in order: the room rebuild (lane R4), its drive by the owner, the real Al-Si-Mg check vs Velox, then validation
+  with the owner's joint GMS run and pure-Al spectrum (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
 
 ## After v4.1 — frozen until the owner reopens one
 
