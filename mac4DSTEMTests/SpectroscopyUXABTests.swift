@@ -42,6 +42,30 @@ final class SpectroscopyUXABTests: XCTestCase {
         XCTAssertNil(SpectrumAutoZoom.countsEnergy(data: [0, 0, 0], energyStart: 0, energyStep: 0.01), "no counts: no energy")
     }
 
+    /// U2: "Accept proposed" accepts only the proposals that have a tile (the capped list); the other four stay proposed, unlisted.
+    /// Mutation: `acceptProposed` loops over `elements.suggestions` instead of `shownProposals` - red.
+    @MainActor func testAcceptProposedAcceptsOnlyTheShownTiles() {
+        let m = SpectroscopyRoomModel(series: SpectrumSeries(energyStart: 0, energyStep: 0.01, data: [1], background: [], model: [], overlay: nil))
+        let zs = [29, 13, 8, 63, 67, 72, 27]   // Cu Al O Eu Ho Hf Co, strongest first
+        m.elements = ElementSelection(suggestions: zs.map { ElementSuggestion(z: $0, reason: "", proposedRole: .quantify) })
+        XCTAssertEqual(m.shownProposals.map(\.z), [29, 13, 8])
+        XCTAssertEqual(ElementsSection.acceptTitle(m.shownProposals.map { PeriodicLayout.symbol($0.z) }), "Accept Cu, Al, O")
+        m.acceptProposed()
+        XCTAssertEqual(Set(m.elements.activeZ), [29, 13, 8])
+        XCTAssertEqual(m.elements.suggestions.map(\.z), [63, 67, 72, 27], "the rest stay proposed")
+    }
+
+    /// U2: a line above the fit range's end does not stretch the opening view; with no fit range the counts energy is the ceiling.
+    /// Mutation: the `<= ceiling` filter dropped - red.
+    func testOpeningZoomIgnoresLinesAboveTheFitEnd() {
+        let m = [LineMarker(label: "Cu K\u{03B1}", energy: 8.04, elementZ: 29),
+                 LineMarker(label: "Hf K\u{03B2}", energy: 63, elementZ: 72, kind: .proposed)]
+        let r = SpectrumAutoZoom.range(markers: m, domain: 0...80, minimumSpan: 0.04, fitEnd: 20)
+        XCTAssertEqual(r.upperBound, 8.844, accuracy: 1e-9)
+        XCTAssertEqual(SpectrumAutoZoom.range(markers: m, domain: 0...80, minimumSpan: 0.04, countsEnergy: 12).upperBound, 8.844, accuracy: 1e-9)
+        XCTAssertEqual(SpectrumAutoZoom.range(markers: m, domain: 0...80, minimumSpan: 0.04).upperBound, 69.3, accuracy: 1e-9, "no ceiling known: as before")
+    }
+
     /// #2: ticking a proposed tile accepts the proposal (role applied, suggestion gone); ticking a real tile toggles the mix.
     /// Mutation: `tickTile` always toggles the mix - red.
     @MainActor func testTickingAProposedTileAcceptsIt() {

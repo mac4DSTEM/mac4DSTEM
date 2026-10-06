@@ -65,8 +65,8 @@ struct ElementsSection: View {
             if !s.isEmpty {
                 InspectorActionRow {
                     InspectorAdaptiveButton(
-                        "Accept proposed", systemImage: "checkmark.circle",
-                        help: "Map and quantify every proposed element with the role the proposer suggested. Tick a proposed tile to accept just that one."
+                        Self.acceptTitle(model.shownProposals.map { PeriodicLayout.symbol($0.z) }), systemImage: "checkmark.circle",
+                        help: "Map and quantify the proposed elements that have a tile, with the role the proposer suggested; the others stay proposed. Tick a proposed tile to accept just that one."
                     ) { model.acceptProposed() }
                 }
             }
@@ -78,6 +78,9 @@ struct ElementsSection: View {
         }
         if let why = model.autoID.failure { InspectorNote(why) }
     }
+
+    /// "Accept Cu, Al, O": the symbols the button accepts (the ones with a tile).
+    static func acceptTitle(_ shown: [String]) -> String { "Accept " + shown.joined(separator: ", ") }
 
     /// "Cu, Al, O +4": the first `ProposedTileCap.maximum` (the ones with a tile), then how many more the table still marks.
     static func proposedList(_ symbols: [String]) -> String {

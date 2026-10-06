@@ -221,24 +221,18 @@ Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` onc
 truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
-### Spectroscopy room, rebuilt to ADR 056 (R4b + R4c, 2026-10-06): unverified on screen and known gaps
-- **Rebuilt** against mock v2.1, then fixed from two session drives (`docs/archive/v5/room-drive-2-2026-10-06.md`): the room
-  keeps the spectrum + quant on screen, one sidebar row, the chip popover. R6 (driven): the ColorMix is the dominant map, tiles
-  to its right (96-pt floor, the tile grid scrolls alone), net ± σ on one line. WP3e (R7, unverified on screen): χ²ᵣ shown beside the result and in the footer/Export;
-  sum-peak markers lead with the sum; Auto ID calls A2's beside rule (an excess, never a tile) and shows net/L_D + χ²ᵣ.
-  R8 (driven): Al no longer its own excess beside its K-edge split; maps default to a 0.5–99.5 % stretch; one
-  caveat block; a scale bar from the file's pixel size. R10: a picked element is always in the ColorMix (its
-  "not a measurement" note stays); proposals draw muted line markers; Auto ID lists sort by net/L_D. WP3e D1 (only
-  listed/proposed parents) FAILED its pre-landing print (`archive/v5/wp3e-results-2026-10-06/`): closed, a new
-  registration if pursued — the "Hf+Hf sum? (or Zr Kα)" label stays. F3.2 refuted as a default. Mg unlisted is
-  undetectable by the proposer on real Al pools (L_D 256 k, ×72); Si (a clear 1.74 keV peak on 1339) is not proposed
-  either. UX pass (Fable spec, 2026-10-06): ≤ 3 proposed tiles, tick-to-accept + one Accept button, quiet chart, one-voice
-  quant panel, 22-pt periodic table, materials only on map overlays. `suggestedRole` unused;
-  new windows at 1280×800 (frozen shell). Not yet seen: the open's spinner and Cancel, Export's save panels.
+### Spectroscopy room (rebuilt to ADR 056, polished 2026-10-06): live gaps
+- **State:** driven six times by the session on the owner's Velox SI 1339 (`archive/v5/room-drive-2-2026-10-06.md`; the
+  landings' gate rows in `status.md`); UX spec of record `archive/v5/ux-spec-2026-10-06.md`. Owner's own look owed.
+- **Auto ID on real Al pools:** misses Si (clear 1.74 keV peak) and Mg (unlisted L_D 256 k, ×72), proposes Eu/Hf/Ho; the
+  "Hf+Hf sum? (or Zr Kα)" label stays (WP3e D1 failed its pre-landing print, closed — `archive/v5/wp3e-results-2026-10-06/`).
+  F3.2 (L_D × √χ²ᵣ) refuted as a default. Next: a new registration. `suggestedRole` is unused.
+- **Not yet seen on screen:** the open's spinner and Cancel, Export's save panels, the UX-pass hover texts. New windows
+  open at 1280×800 (frozen shell — owner picture). After accepting, the next three proposals (Eu, Hf, Co) take the tile slots.
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).
-- **The map's scale bar is not drawn** (a true-length bar needs a pixel size on a fixed-width map). Regions: rectangle and polygon.
+- Regions: rectangle and polygon.
 - **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do. The map header title truncates at 1000 pt.
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
   withheld room selected. A new 4D open does not clear an earlier spectrum image of the window.
@@ -246,7 +240,7 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   needs the layout measured. Counts must be whole numbers (a float-averaged SI is refused). Detector resolution for the windows is
   assumed 130 eV at Mn Kα until the file or WP3 supplies it.
 - **A line whose background windows hold at least its signal (s·B >= G) shows "—" and the reason**, whichever other elements are
-  selected (it is not auto-ticked into the mix). Seen on the owner's `References/EDX` file, which is NOT Al-Mg-Si (Velox mapped O,
+  selected (since R10 it is still ticked into the mix; the note stays). Seen on the owner's `References/EDX` file, which is NOT Al-Mg-Si (Velox mapped O,
   Si, Ti, Ni, Ge, In, Sn): Al is absent there, so its windows sit on Ge/Si peaks and its net is negative; "Mg" there is mostly Ge Lα.
   Those numbers are not Al-Mg-Si results. The merge of neighbouring background windows moved the Mg and Si numbers, not the Al sign.
 - **A GMS EDS SI with `Data Order Swapped` = 1 is refused until one is measured** (expected for real GMS files, which write the tag).

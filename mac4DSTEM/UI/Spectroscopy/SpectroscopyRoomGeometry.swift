@@ -293,9 +293,11 @@ nonisolated enum SpectrumAutoZoom {
     /// The energy span the listed lines and Auto ID's proposed lines occupy with room to read their names, inside the axis;
     /// without a line, up to the energy below which 99.5 % of the counts lie (floor 2 keV, cap 20 keV: the first 20 keV an
     /// EDX spectrum is read in, a Velox axis runs to 80), or those 20 keV when the counts are not known. Never narrower
-    /// than `minimumSpan`.
-    static func range(markers: [LineMarker], domain: ClosedRange<Double>, minimumSpan: Double, countsEnergy: Double? = nil) -> ClosedRange<Double> {
-        let energies = markers.filter { $0.kind == .line || $0.kind == .proposed }.map(\.energy)
+    /// than `minimumSpan`. A line above the view's ceiling does not stretch it (the person can still zoom out): the ceiling is
+    /// the fit range's end when it is known (`fitEnd`), else the counts energy (floor 2 keV), else none.
+    static func range(markers: [LineMarker], domain: ClosedRange<Double>, minimumSpan: Double, countsEnergy: Double? = nil, fitEnd: Double? = nil) -> ClosedRange<Double> {
+        let ceiling = fitEnd ?? countsEnergy.map { max(2, $0) } ?? .infinity
+        let energies = markers.filter { $0.kind == .line || $0.kind == .proposed }.map(\.energy).filter { $0 <= ceiling }
         guard let lo = energies.min(), let hi = energies.max() else {
             let end = min(20, max(2, countsEnergy ?? 20))
             let top = min(domain.upperBound, max(end, domain.lowerBound + minimumSpan))

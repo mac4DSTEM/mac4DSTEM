@@ -294,9 +294,18 @@ final class SpectroscopyRoomController {
         // R10: the proposals' muted markers land with their tiles (this path does not run `apply`).
         m.markers = m.markers.filter { $0.kind != .proposed } + Self.proposedMarkers(for: windows, axis: source.energyAxis, beam: source.metadata.beamEnergyKeV)
         if !m.viewportIsManual {
-            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series))
+            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series), fitEnd: fitEnd(for: source))
             m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
         }
+    }
+
+    /// The fit range's end for the opening view's ceiling: the Quantify default (min(axis end, beam, 20 keV)) or the typed one.
+    private func fitEnd(for source: any SpectrumImageSource) -> Double? {
+        guard let beam = session?.method.beamEnergyKeV ?? source.metadata.beamEnergyKeV, beam > 0, let method = session?.method else { return nil }
+        let axis = source.energyAxis
+        let end = FitRangeChoice(method: method, fileAxis: axis, usedAxis: axis, beamEnergy: beam).toKeV
+        model.fitEndKeV = end
+        return end
     }
 
     /// The opening view's fallback end (UX #5): where 99.5 % of the shown spectrum's counts lie.
@@ -802,7 +811,7 @@ final class SpectroscopyRoomController {
         // The active map is one that exists: a tile that went away hands the outline back to the ColorMix.
         if case .element(let z) = m.active, !tiles.contains(where: { $0.z == z }) { m.active = .colorMix }
         if !m.viewportIsManual {
-            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series))
+            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series), fitEnd: fitEnd(for: source))
             m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
         }
     }

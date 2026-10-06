@@ -134,7 +134,7 @@ struct SpectrumStripView: View {
     /// Back to the span of the listed lines (the opening view), which the viewport follows again.
     private func resetViewport() {
         model.viewportIsManual = false
-        let r = SpectrumAutoZoom.range(markers: model.markers, domain: model.series.domain, minimumSpan: model.viewport.minimumSpan, countsEnergy: SpectrumAutoZoom.countsEnergy(data: model.series.data, energyStart: model.series.energyStart, energyStep: model.series.energyStep))
+        let r = SpectrumAutoZoom.range(markers: model.markers, domain: model.series.domain, minimumSpan: model.viewport.minimumSpan, countsEnergy: SpectrumAutoZoom.countsEnergy(data: model.series.data, energyStart: model.series.energyStart, energyStep: model.series.energyStep), fitEnd: model.fitEndKeV)
         model.viewport.lo = r.lowerBound; model.viewport.hi = r.upperBound
     }
 

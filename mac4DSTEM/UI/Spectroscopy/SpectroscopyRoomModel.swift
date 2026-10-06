@@ -54,6 +54,8 @@ final class SpectroscopyRoomModel {
     var compare: CompareBasis = .wholeMap
     /// The viewport follows the listed lines until the person pans or zooms it (reset returns it to them).
     var viewportIsManual = false
+    /// The upper end of the fit range (keV) once the controller knows it: lines above it do not stretch the opening view.
+    var fitEndKeV: Double?
 
     // Spectrum
     var series: SpectrumSeries
@@ -195,7 +197,12 @@ final class SpectroscopyRoomModel {
     @ObservationIgnored private var defaultDisplays: [ActiveMap: (revision: Int, count: Int, display: MapDisplay)] = [:]
 
     /// Proposed elements take the role the proposer suggested, one click for all (the inspector's Accept).
-    func acceptProposed() { for s in elements.suggestions { elements.click(s.z) } }
+    /// Only the proposals that have a tile (`ProposedTileCap`, strongest first) are accepted; the rest stay proposed.
+    var shownProposals: [ElementSuggestion] {
+        let listed = Set(elements.activeZ)
+        return ProposedTileCap.apply(elements.suggestions.filter { !listed.contains($0.z) })
+    }
+    func acceptProposed() { for s in shownProposals { elements.click(s.z) } }
 }
 
 /// A text file the save panel is about to write (the results CSV or the method JSON).
