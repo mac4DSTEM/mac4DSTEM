@@ -37,6 +37,14 @@ final class SpectroscopyRoomModel {
     var scanPixel: (size: Double, unit: String)?
     /// Bumped whenever `tiles` or `backdrop` are replaced, so the map's bitmap is rebuilt by identity, not by comparing arrays.
     var tileRevision = 0
+    /// The HAADF backdrop under the ColorMix (spec 2 D-2: the HAADF tile's outline toggles it); off, the mix sits on black.
+    var mixHAADF = true
+    /// The element whose lines the spectrum emphasises (spec 2 D-15): set by a click or hover on its tile or table cell; nil: none.
+    var highlightedZ: Int?
+    /// Scene state (spec 2 D-7): the maps block's share of the room's height, and the ColorMix's share of the maps block's width;
+    /// nil = the plan's own default (`SpectroscopyRoomPlan.mapsFraction`, `MapGridLayout`). Neither is a method setting.
+    var mapsFraction: CGFloat?
+    var mixFraction: CGFloat?
 
     // Auto ID (the Elements & maps step's proposer run; the compute is the controller's)
     private(set) var autoID = AutoIDState()
@@ -226,6 +234,8 @@ struct MapTile: Identifiable {
     var values: [Float]                        // 0...1, row-major
     /// Why the tile's map is a picture and not a measurement (it is still in the ColorMix; the note stays): its window method says "not a measurement" (s\u{00B7}B \u{2265} G).
     var notMeasuredWhy: String? = nil
+    /// Counts at value 1 (the tile's own maximum; 1 when unknown): the histogram's real values (spec 2 D-13).
+    var scale: Float = 1
     /// An Auto ID proposal not yet accepted: mapped so the evidence is visible, dimmed, never in the ColorMix, never quantified.
     var proposed = false
     var id: Int { z }
@@ -314,6 +324,8 @@ struct ExportSettings {
     var methodJSON: String?
     var elements: String?
     var methodHash: String?
+    /// The shown spectrum as CSV (energy, counts, and the model and background where fitted): available whenever a spectrum is shown.
+    var spectrumCSV: String?
     var fileStem = "spectroscopy"
 }
 

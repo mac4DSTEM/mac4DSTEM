@@ -12,6 +12,9 @@ import SwiftUI
 /// monitor); open question for the owner.
 struct SpectrumStripView: View {
     @Bindable var model: SpectroscopyRoomModel
+    /// Spec 2 D-7: the header's empty area is the room's horizontal divider. The room binds this (the translation so far and
+    /// whether the drag ended); the strip itself knows nothing of the maps block.
+    var onHeaderDrag: ((CGSize, Bool) -> Void)? = nil
 
     @State private var dragStart: SpectrumViewport?
     @State private var pinchStart: SpectrumViewport?
@@ -51,6 +54,13 @@ struct SpectrumStripView: View {
         }
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .frame(height: LayoutPolicy.paneHeaderHeight)
+        // The controls sit above this: the empty header is the grab zone (the infobar pattern, `StatusBar`).
+        .background {
+            Color.clear.contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { onHeaderDrag?($0.translation, false) }
+                    .onEnded { onHeaderDrag?($0.translation, true) })
+        }
     }
 
     private var showMenu: some View {
