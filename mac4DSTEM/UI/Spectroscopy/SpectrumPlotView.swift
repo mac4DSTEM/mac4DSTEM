@@ -15,6 +15,8 @@ struct SpectrumPlotView: View {
     @State private var dragStart: SpectrumViewport?
     @State private var pinchStart: SpectrumViewport?
     @State private var hover: CGPoint?
+    /// Names the label layout left out in the current view; said in the plot's help.
+    @State private var hiddenLabels: [String] = []
     @FocusState private var focused: Bool
 
     private enum Metrics {
@@ -83,7 +85,7 @@ struct SpectrumPlotView: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
-            Text(model.series.hasModel ? model.fitFooter : (model.isLive ? "no fit yet · Quantify fits the selected region" : "no fit yet")).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+            Text(model.series.hasModel ? model.fitFooter : "no fit yet · Quantify fits the selected region").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 4)
             if model.series.hasModel && model.unvalidated { UnvalidatedBadge() }
         }
@@ -128,7 +130,8 @@ struct SpectrumPlotView: View {
                 .focusable()
                 .focused($focused)
                 .onKeyPress(.home) { model.viewport.reset(); return .handled }
-                .help("Pinch to zoom, drag to pan, double-click or Home to reset")
+                .help("Pinch to zoom, drag to pan, double-click or Home to reset"
+                      + (hiddenLabels.isEmpty ? "" : "\nNames left out where lines crowd: " + hiddenLabels.joined(separator: ", ")))
         }
     }
 
@@ -173,14 +176,16 @@ struct SpectrumPlotView: View {
         ctx.stroke(Path(main), with: .color(Color.primary.opacity(0.25)), lineWidth: 0.5)
         let xTarget = max(3, Int(main.width / 80))
         let xStep = AxisTicks.niceStep(lo: vp.lo, hi: vp.hi, target: xTarget)
-        for e in AxisTicks.linear(lo: vp.lo, hi: vp.hi, target: xTarget) {
+        let xTicks = AxisTicks.linear(lo: vp.lo, hi: vp.hi, target: xTarget)
+        for e in xTicks {
             var p = Path(); p.move(to: CGPoint(x: X(e), y: main.minY)); p.addLine(to: CGPoint(x: X(e), y: main.maxY))
             ctx.stroke(p, with: .color(grid), lineWidth: 0.5)
-            let at = CGPoint(x: X(e), y: size.height - Metrics.axisBand / 2 + 1)
-            ctx.draw(Text(AxisTicks.label(e, step: xStep)).font(.system(size: 9)).foregroundStyle(axisInk), at: at)
         }
-        ctx.draw(Text("keV").font(.system(size: 9)).foregroundStyle(axisInk),
-                 at: CGPoint(x: main.maxX - 8, y: size.height - Metrics.axisBand / 2 + 1))
+        // The unit is the axis title, in the left gutter under the counts labels, where no tick label sits.
+        let xAxis = AxisTicks.xLabels(ticks: xTicks, x: { X($0) }, step: xStep, unit: "keV", unitTrailing: main.minX - 8)
+        let axisY = size.height - Metrics.axisBand / 2 + 1
+        for l in xAxis.labels { ctx.draw(Text(l.text).font(.system(size: 9)).foregroundStyle(axisInk), at: CGPoint(x: l.x, y: axisY)) }
+        ctx.draw(Text(xAxis.unit.text).font(.system(size: 9)).foregroundStyle(axisInk), at: CGPoint(x: xAxis.unit.trailing, y: axisY), anchor: .trailing)
         if L.log {
             for e in AxisTicks.logDecades(lo: logLo, hi: logHi) {
                 let y = Y(pow(10, Double(e)))
@@ -220,23 +225,32 @@ struct SpectrumPlotView: View {
         if L.spectrum { curve(s.data, Color.primary.opacity(0.45), width: 0.8) }
         if L.model, s.hasModel { curve(s.model, .blue, width: 1.8, within: s.fitChannels) }
         if L.background, s.hasBackground { curve(s.background, .orange.opacity(0.9), width: 1, dash: [1, 2], within: s.fitChannels) }
-        if !s.hasModel {
-            ctx.draw(Text("no fit yet").font(.callout).foregroundStyle(.secondary), at: CGPoint(x: main.midX, y: main.midY - 20))
-        }
 
-        // line markers
-        for m in model.markers where m.energy >= vp.lo && m.energy <= vp.hi {
+        // line markers: lines first, names staggered into rows by `MarkerLabelLayout`
+        let visible = model.markers.filter { $0.energy >= vp.lo && $0.energy <= vp.hi }
+        for m in visible {
             let x = X(m.energy)
             let grey = m.kind != .line
             let color: Color = grey ? .gray : ElementPalette.color(m.elementZ ?? 0)
             var p = Path(); p.move(to: CGPoint(x: x, y: main.minY)); p.addLine(to: CGPoint(x: x, y: main.maxY))
             ctx.stroke(p, with: .color(color.opacity(0.8)),
                        style: StrokeStyle(lineWidth: 0.8, dash: m.kind == .edge ? [1, 2] : [4, 3]))
+        }
+        let layout = MarkerLabelLayout.place(visible.filter { $0.kind != .edge }.map { ($0.label, X($0.energy), $0.priority) }, minX: main.minX, maxX: main.maxX)
+        for m in visible {
+            let x = X(m.energy)
+            let grey = m.kind != .line
+            let color: Color = grey ? .gray : ElementPalette.color(m.elementZ ?? 0)
             var t = Text(m.label).font(.system(size: m.kind == .edge ? 9 : 10, weight: m.kind == .line ? .semibold : .regular)).foregroundStyle(color)
             if m.kind == .suspect { t = t.italic() }
-            // the edge label sits low, by the curve, so it never collides with the line names
-            ctx.draw(t, at: CGPoint(x: x + 2, y: m.kind == .edge ? main.maxY - 40 : main.minY + 8), anchor: .leading)
+            if m.kind == .edge {   // the edge label sits low, by the curve, so it never collides with the line names
+                ctx.draw(t, at: CGPoint(x: x + 2, y: main.maxY - 40), anchor: .leading)
+            } else if let pl = layout.placed.first(where: { $0.label == m.label }) {
+                let y = main.minY + 8 + CGFloat(pl.row) * 11
+                ctx.draw(t, at: CGPoint(x: pl.leading ? x + 2 : x - 2, y: y), anchor: pl.leading ? .leading : .trailing)
+            }
         }
+        if layout.left != hiddenLabels { DispatchQueue.main.async { hiddenLabels = layout.left } }
 
         // residual strip
         if L.residual {

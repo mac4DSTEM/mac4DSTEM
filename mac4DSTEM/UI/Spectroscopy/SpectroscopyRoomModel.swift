@@ -153,6 +153,8 @@ struct MapTile: Identifiable {
     var z: Int
     var width: Int, height: Int
     var values: [Float]                        // 0...1, row-major
+    /// Why the tile is not ticked into the ColorMix by default: its window method says "not a measurement" (s\u{00B7}B \u{2265} G).
+    var notMeasuredWhy: String? = nil
     var id: Int { z }
 }
 
@@ -203,9 +205,13 @@ struct RegionSettings {
     var compare: String?
 }
 
+/// What the Export step will write, built by Core from the last fit (`SpectroscopyExport`); all nil until Quantify has run.
 struct ExportSettings {
-    var format = "CSV"
-    var includeMethod = true
+    var csv: String?
+    var methodJSON: String?
+    var elements: String?
+    var methodHash: String?
+    var fileStem = "spectroscopy"
 }
 
 // MARK: - Illustrative fixture

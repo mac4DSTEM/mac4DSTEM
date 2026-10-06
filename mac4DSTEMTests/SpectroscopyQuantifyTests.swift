@@ -206,8 +206,10 @@ final class SpectroscopyQuantifyTests: XCTestCase {
 
     func testARunWithoutABeamEnergyOrElementsIsRefused() throws {
         let image = try Self.image()
-        var m = Self.method(); m.beamEnergyKeV = nil          // the GMS object does not state it
-        XCTAssertThrowsError(try PooledQuantifier.run(Self.input(m, image: image), tables: Self.tables)) {
+        var meta = image.metadata; meta.beamEnergyKeV = nil           // a file that states no beam energy (the simulated GMS file now does)
+        let bare = LoadedSpectrumImage(image: image.image, metadata: meta, energyAxis: image.energyAxis, scanImage: image.scanImage)
+        var m = Self.method(); m.beamEnergyKeV = nil
+        XCTAssertThrowsError(try PooledQuantifier.run(Self.input(m, image: bare), tables: Self.tables)) {
             XCTAssertTrue(($0 as? QuantificationRefusal)?.reason.contains("beam energy") == true)
         }
         XCTAssertThrowsError(try PooledQuantifier.run(Self.input(Self.method(elements: []), image: image), tables: Self.tables))
@@ -240,7 +242,7 @@ final class SpectroscopyQuantifyTests: XCTestCase {
         let back = QuantifySettings(method: m, fileBeamKnown: false)
         XCTAssertEqual(back.polyOrder, 4); XCTAssertEqual(back.sigmaK ?? 0, 30, accuracy: 1e-9); XCTAssertEqual(back.typedSource, "src")
         // A file that states its beam energy never has the typed one written into the method.
-        var known = s; known.fileBeamKnown = true
+        var known = s; known.fileBeamKnown = true; known.fileBeam = 200
         var m2 = QuantificationMethod(); known.apply(to: &m2); XCTAssertNil(m2.beamEnergyKeV)
         // Computed k clears the typed values.
         var c = s; c.kSource = .computed
@@ -260,19 +262,14 @@ final class SpectroscopyQuantifyTests: XCTestCase {
         return (state, c)
     }
 
-    /// The fixture's GMS EDS object states no beam energy: the verb refuses with that reason, and the inspector asks for it.
-    /// Typing it runs the fit; the table then holds fitted areas, the k-free column, at% badged unvalidated, the sigma-term
+    /// The simulated GMS EDS object states its beam energy (Microscope Info.Voltage): the inspector does not ask, and the verb fits.
+    /// The table holds the table then holds fitted areas, the k-free column, at% badged unvalidated, the sigma-term
     /// line and the warnings; the replay records ONE quantification step whose method hash is the fitted method's.
     /// Mutation: `recordQuantification` not called in `runPrimaryWorkspaceTask` - red.
     func testTheVerbFitsRecordsTheStepAndShowsTheResults() async throws {
         let (state, c) = try openedRoom()
-        XCTAssertTrue(c.model.quantify.asksBeamEnergy)
-        let refused = await c.quantify()
-        XCTAssertFalse(refused)
-        XCTAssertTrue(try XCTUnwrap(c.model.fitFailure).contains("beam energy"))
+        XCTAssertEqual(c.model.quantify.shownBeam, 200); XCTAssertEqual(c.model.quantify.beamPhrase, "from the file")
         XCTAssertFalse(c.model.hasFit)
-
-        c.model.quantify.beamEnergy = 200
         state.navigation.workspaceArea = .spectroscopy
         await state.runPrimaryWorkspaceTask()
         let m = c.model

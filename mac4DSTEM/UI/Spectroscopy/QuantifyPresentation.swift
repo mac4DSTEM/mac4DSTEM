@@ -36,6 +36,9 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
     /// Typed beam energy (keV); asked only when the file does not state one.
     var beamEnergy: Double?
     var fileBeamKnown = true
+    /// The beam energy the file (or the 4D cube of the same run) states, and the phrase saying which; shown pre-filled.
+    var fileBeam: Double?
+    var fileBeamPhrase: String?
     var typed: [TypedKEntry] = []
     var typedSource = ""
     var typedDate = ""
@@ -43,7 +46,7 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
 
     init() {}
 
-    init(method m: QuantificationMethod, fileBeamKnown: Bool) {
+    init(method m: QuantificationMethod, fileBeamKnown: Bool, fileBeam: Double? = nil, fileBeamPhrase: String? = nil) {
         background = m.background
         kSource = m.kFactorSource
         absorption = m.absorptionCorrection
@@ -55,6 +58,7 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
         lockEnergyAxis = m.lockEnergyAxis == true
         beamEnergy = m.beamEnergyKeV
         self.fileBeamKnown = fileBeamKnown
+        self.fileBeam = fileBeam; self.fileBeamPhrase = fileBeamPhrase
         typedSource = m.kSource
         typedDate = m.kFactorSource == .typed ? m.kDate : ""
         typedReference = m.kReference
@@ -71,7 +75,8 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
         m.sigmaK = min(max(sigmaK ?? 20, 0), 100) / 100
         m.polynomialOrder = polyOrder == 6 ? nil : polyOrder
         m.lockEnergyAxis = lockEnergyAxis ? true : nil
-        m.beamEnergyKeV = fileBeamKnown ? nil : beamEnergy
+        // A value that differs from the source's is typed and overrides it; the same value stays the source's.
+        m.beamEnergyKeV = fileBeamKnown && beamEnergy == fileBeam ? nil : beamEnergy
         switch kSource {
         case .typed:
             m.kSource = typedSource
@@ -92,8 +97,13 @@ nonisolated struct QuantifySettings: Equatable, Sendable {
         if let r = typedReference, !quantified.contains(r) { typedReference = nil }
     }
 
-    /// Beam energy is needed from the user exactly when the file has none.
-    var asksBeamEnergy: Bool { !fileBeamKnown }
+    /// What the Beam energy row shows: the typed value, else the source's.
+    var shownBeam: Double? { beamEnergy ?? fileBeam }
+    /// Where the shown value came from, for the row.
+    var beamPhrase: String? {
+        if let b = beamEnergy, b != fileBeam { return BeamEnergySource.typed.phrase }
+        return fileBeamPhrase
+    }
 }
 
 /// A warning under the results: a short sentence and, when the fit's own text is long, the whole of it as the hover.
@@ -169,8 +179,17 @@ nonisolated enum QuantifyPresentation {
         return (file, String(format: "%+.1f eV, gain %+.3f %%, FWHM %.0f eV%@", r.offsetShiftEV, r.gainShift * 100, r.resolutionMnKaEV, used ? "" : " (not used)"))
     }
 
-    /// The plot's one-line footer: the estimator and background by name, the fit quality.
+    /// The plot's one-line footer: the estimator, the continuum form and the fit quality, each a whole token. The fit's own
+    /// labels run on (`continuum: Kramers×ε(…)×Bernstein(9,5), split at …; orders chosen on synthetic data`); the footer keeps
+    /// the form and leaves the rest to the results footer.
     static func plotFooter(_ q: PooledQuantification) -> String {
-        "\(q.fit.methodLabel) \u{00B7} \(q.fit.backgroundLabel.components(separatedBy: ",").first ?? q.fit.backgroundLabel) \u{00B7} \(q.qualityLabel) \(String(format: "%.2f", q.quality))"
+        "\(q.fit.methodLabel) \u{00B7} \(shortBackground(q.fit.backgroundLabel)) \u{00B7} \(q.qualityLabel) \(String(format: "%.2f", q.quality))"
+    }
+
+    /// The background label up to its form: before ", split at", ", no edge split" or the first "; ", else before the first comma.
+    static func shortBackground(_ label: String) -> String {
+        let cuts = [", split at", ", no edge split", "; "].compactMap { label.range(of: $0)?.lowerBound }
+        if label.hasPrefix("continuum:"), let cut = cuts.min() { return String(label[..<cut]) }
+        return label.components(separatedBy: ",").first ?? label
     }
 }

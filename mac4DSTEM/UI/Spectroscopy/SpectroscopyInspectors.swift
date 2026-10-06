@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 #endif
@@ -250,9 +251,10 @@ struct QuantifyInspector: View {
                     model.quantify.thicknessSigma = max($0, 0)
                 }
             }
-            if q.asksBeamEnergy {
-                InspectorRow("Beam energy") {
-                    OptionalNumericField(title: "Beam energy", value: q.beamEnergy, format: FloatingPointFormatStyle<Double>.number, unit: "keV", prompt: "—") {
+            InspectorRow("Beam energy") {
+                HStack(spacing: 6) {
+                    if let p = q.beamPhrase { Text(p).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                    OptionalNumericField(title: "Beam energy", value: q.shownBeam, format: FloatingPointFormatStyle<Double>.number, unit: "keV", prompt: "—") {
                         model.quantify.beamEnergy = max($0, 0)
                     }
                 }
@@ -315,18 +317,48 @@ struct TypedKSheet: View {
     }
 }
 
-/// 5 · Export — a plain (non-prominent) button; the toolbar verb stays Quantify.
+/// A text file the save panel writes (the results CSV, the method JSON).
+struct SpectroscopyTextDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText, .json] }
+    var text: String
+    init(text: String) { self.text = text }
+    init(configuration: ReadConfiguration) throws {
+        text = configuration.file.regularFileContents.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: Data(text.utf8)) }
+}
+
+/// 5 · Export — the results table as CSV and the method as JSON, written from the last fit (`SpectroscopyExport`, Core). A
+/// plain (non-prominent) pair of buttons; the toolbar verb stays Quantify. Before a fit there is nothing to write, and the
+/// step says what it will write.
 struct ExportInspector: View {
     @Bindable var model: SpectroscopyRoomModel
-    var onExport: () -> Void = {}
+    static let csvTitle = "Results CSV\u{2026}", jsonTitle = "Method JSON\u{2026}"
+    private struct Pending { var text: String; var type: UTType; var name: String }
+    @State private var pending: Pending?
+    @State private var saved: String?
     var body: some View {
         InspectorGroup {
-            if model.isLive {
-                InspectorNote("Export lands with quantification (WP3): there is no fit to export yet.")
+            if let elements = model.export.elements, let hash = model.export.methodHash, let csv = model.export.csv, let json = model.export.methodJSON {
+                InspectorValueRow("Elements", elements)
+                InspectorValueRow("Method", hash, mono: true)
+                InspectorActionRow {
+                    Button(Self.csvTitle) { pending = Pending(text: csv, type: .commaSeparatedText, name: model.export.fileStem) }
+                        .help("The results table: element, line, net counts, k-free ratio, at%, each with its σ, the flags and the estimator; the fit's provenance and the unvalidated badge in the header lines")
+                    Button(Self.jsonTitle) { pending = Pending(text: json, type: .json, name: model.export.fileStem + "-method") }
+                        .help("The quantification method in its own sorted-keys encoding, with its SHA-256")
+                }
+                if let saved { InspectorNote(saved) }
             } else {
-                ChoiceRow(label: "Format", value: $model.export.format, options: ["CSV", "JSON", "PNG (spectrum)"])
-                InspectorRow("Include") { Toggle("method and σ terms", isOn: $model.export.includeMethod).toggleStyle(.checkbox) }
-                InspectorActionRow { Button("Export…", action: onExport) }
+                InspectorNote("Once Quantify has run, this step writes the results table as CSV and the method as JSON.")
+            }
+        }
+        .fileExporter(isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }),
+                      document: SpectroscopyTextDocument(text: pending?.text ?? ""), contentType: pending?.type ?? .json,
+                      defaultFilename: pending?.name ?? "spectroscopy") { result in
+            switch result {
+            case .success(let url): saved = "Saved \(url.lastPathComponent)"
+            case .failure(let error): saved = "Could not save: \(error.localizedDescription)"
             }
         }
     }

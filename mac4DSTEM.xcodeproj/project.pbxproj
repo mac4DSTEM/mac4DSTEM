@@ -169,6 +169,7 @@
 				Core/Spectroscopy/Registration/RegistrationRecordM2.swift,
 				Core/Spectroscopy/SpectrumImage.swift,
 				Core/Spectroscopy/SpectrumImageOpening.swift,
+				Core/Spectroscopy/SpectroscopyExport.swift,
 				Core/Spectroscopy/SpectrumImageSource.swift,
 				Core/Spectroscopy/SpectrumQuantities.swift,
 				Core/Spectroscopy/Statistics/CountingInterval.swift,

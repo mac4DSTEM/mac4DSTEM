@@ -16,6 +16,7 @@ struct ElementTileStrip: View {
                         Toggle("Mix \(PeriodicLayout.symbol(tile.z))", isOn: Binding(
                             get: { model.mixed.contains(tile.z) }, set: { _ in model.toggleMix(tile.z) }))
                             .labelsHidden().toggleStyle(.checkbox).controlSize(.mini).padding(2)
+                            .help(tile.notMeasuredWhy.map { "Not in the ColorMix by default (tick it to add): \($0)" } ?? "Show \(PeriodicLayout.symbol(tile.z)) in the ColorMix")
                     }
                     HStack(spacing: 0) {
                         Text(PeriodicLayout.symbol(tile.z)).font(.caption.weight(.semibold))

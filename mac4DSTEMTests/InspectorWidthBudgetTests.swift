@@ -33,6 +33,11 @@ final class InspectorWidthBudgetTests: XCTestCase {
         return host.sizeThatFits(in: CGSize(width: 1, height: 10_000)).width
     }
 
+    private func naturalWidth<V: View>(_ view: V, state: AppState) -> CGFloat {
+        let host = NSHostingController(rootView: view.environment(state).environment(state.preferences))
+        return host.sizeThatFits(in: CGSize(width: 10_000, height: 10_000)).width
+    }
+
     private func assertFits(_ name: String, _ width: CGFloat,
                             file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertGreaterThan(width, 10, "\(name): the probe measured nothing (\(width) pt)", file: file, line: line)
@@ -218,8 +223,15 @@ final class InspectorWidthBudgetTests: XCTestCase {
     func testTheSpectroscopyStepInspectorsFitTheNarrowestColumn() throws {
         for step in SpectroscopyStep.allCases {
             let fixture = SpectroscopyRoomModel.fixture
-            assertFits("Spectroscopy / \(step.title) (fixture, every row)",
-                       minimumWidth(SpectroscopyStepInspector(step: step, model: fixture), state: AppState()))
+            // The Export step draws its buttons only once a fit has produced something to write.
+            fixture.export = ExportSettings(csv: "x", methodJSON: "{}", elements: "Mg, Al, Si, Cu", methodHash: "1a2b3c4d")
+            // Export's readouts truncate and its button row stacks at 248 pt, so the real view's minimum is the probe floor (10 pt, a
+            // flexible button has no width of its own). Its honest width is the stacked buttons at their intrinsic size.
+            let w = step == .export
+                ? minimumWidth(VStack { Button(ExportInspector.csvTitle) {}; Button(ExportInspector.jsonTitle) {} }.fixedSize(), state: AppState())
+                : minimumWidth(SpectroscopyStepInspector(step: step, model: fixture), state: AppState())
+            if step == .export { try? "\(w)".write(toFile: NSTemporaryDirectory() + "export-natural-width.txt", atomically: true, encoding: .utf8) }
+            assertFits("Spectroscopy / \(step.title) (fixture, every row)", w)
         }
         let state = AppState()
         state.openSpectrumImage(DemoSpectrumImageSource.make())

@@ -121,16 +121,26 @@ extension AppState {
         guard url.pathExtension.lowercased() == "dm4" else { return }
         let path = url.path
         let identity = GMSFourDIdentity(objectIndex: Self.gmsObjectIndex(descriptor.datasetPath),
-                                        scanWidth: descriptor.rx, scanHeight: descriptor.ry)
-        statusText = "Looking for an EDS spectrum image in \(url.lastPathComponent)…"
+                                        scanWidth: descriptor.rx, scanHeight: descriptor.ry,
+                                        voltageKV: calibrationSession.hasUsableVoltage ? calibrationSession.acceleratingVoltage : nil)
+        // The status line says what is going on; it must not outlive it: every way out replaces it (success, none, failure, a
+        // different window document) — the line is put back to what it said before only if it still says this.
+        let looking = "Looking for an EDS spectrum image in \(url.lastPathComponent)…"
+        let before = statusText
+        statusText = looking
         let result: Result<LoadedSpectrumImage?, Error> = await Task.detached(priority: .userInitiated) {
             Result { try SpectrumImageOpener.openGMSEDS(path: path, fourD: identity) }
         }.value
         // The cube is already showing (this runs after the load finished): attach only if it is still this window's cube.
-        guard self.descriptor?.filePath == descriptor.filePath, hasDataset else { return }
+        guard self.descriptor?.filePath == descriptor.filePath, hasDataset else {
+            if statusText == looking { statusText = before }
+            return
+        }
         switch result {
-        case .success(let image?): attachSpectrumImage(image)
-        case .success(nil): break
+        case .success(let image?):
+            attachSpectrumImage(image)
+            statusText = "Attached the EDS spectrum image of \(url.lastPathComponent)"
+        case .success(nil): if statusText == looking { statusText = before }
         case .failure(let error): statusText = "The EDS spectrum image in \(url.lastPathComponent) was not attached: \(error.localizedDescription)"
         }
     }

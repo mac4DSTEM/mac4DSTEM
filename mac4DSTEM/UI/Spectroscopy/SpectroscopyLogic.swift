@@ -229,7 +229,25 @@ nonisolated enum AxisTicks {
         return min(6, max(0, Int((-log10(step) - 1e-9).rounded(.up))))
     }
 
-    static func label(_ v: Double, step: Double) -> String { String(format: "%.\(decimals(forStep: step))f", v) }
+    /// A tick's text. A value that rounds to zero is "0", never "-0" (the energy offset leaves a tick at -1e-16).
+    static func label(_ v: Double, step: Double) -> String {
+        let s = String(format: "%.\(decimals(forStep: step))f", v)
+        return s.hasPrefix("-") && !s.contains(where: { $0 != "-" && $0 != "0" && $0 != "." }) ? String(s.dropFirst()) : s
+    }
+
+    /// Estimated text width of a 9 pt axis label, points (digits and the point are about 5 pt).
+    static func labelWidth(_ text: String) -> CGFloat { CGFloat(text.count) * 5 + 2 }
+
+    /// The x-axis labels to draw. The unit is the axis title in the left gutter, right-aligned to `unitTrailing` (so it never
+    /// meets the last label); a tick label whose box would reach it is left out.
+    static func xLabels(ticks: [Double], x: (Double) -> CGFloat, step: Double, unit: String, unitTrailing: CGFloat) -> (labels: [(text: String, x: CGFloat)], unit: (text: String, trailing: CGFloat)) {
+        let unitLeft = unitTrailing - labelWidth(unit)
+        let kept = ticks.compactMap { e -> (text: String, x: CGFloat)? in
+            let t = label(e, step: step), cx = x(e)
+            return cx - labelWidth(t) / 2 > unitTrailing + 2 || cx + labelWidth(t) / 2 < unitLeft - 2 ? (t, cx) : nil
+        }
+        return (kept, (unit, unitTrailing))
+    }
 
     static func linear(lo: Double, hi: Double, target: Int = 6) -> [Double] {
         guard hi > lo, target > 0 else { return [] }
@@ -315,7 +333,43 @@ nonisolated struct LineMarker: Equatable, Identifiable, Sendable {
     var kind: Kind = .line           // .suspect: dashed grey italic, "Ga Lα?"
     /// The detector's line width here, keV. The hover's nearest-line cut-off is this one value (nil: `SpectrumHover.lineTolerance`).
     var fwhm: Double? = nil
+    /// Which label survives a collision: higher first (the chosen K\u{03B1}-type line of a quantified element beats a satellite or a fit-only element).
+    var priority = 0
     var id: String { label }
+}
+
+/// Where the line-marker names go. Names are staggered into a few rows; one that still collides in every row is left out
+/// (its marker line stays) and reported, so the plot can say which. Pure: the plot only draws what this returns.
+nonisolated enum MarkerLabelLayout {
+    struct Placement: Equatable {
+        var label: String
+        var row: Int
+        var x: CGFloat              // the marker line's x
+        var leading: Bool           // text starts right of the line (false: it ends left of it, at the frame's edge)
+    }
+    struct Result: Equatable { var placed: [Placement]; var left: [String] }
+
+    static let rows = 3
+    static let gap: CGFloat = 3
+
+    /// Estimated text width of a 10 pt semibold label.
+    static func width(_ label: String) -> CGFloat { CGFloat(label.count) * 6 + 4 }
+
+    static func place(_ markers: [(label: String, x: CGFloat, priority: Int)], minX: CGFloat, maxX: CGFloat) -> Result {
+        var occupied = [[ClosedRange<CGFloat>]](repeating: [], count: rows)
+        var placed: [Placement] = [], left: [String] = []
+        let order = markers.sorted { $0.priority != $1.priority ? $0.priority > $1.priority : $0.x < $1.x }
+        for m in order {
+            let w = width(m.label)
+            let leading = m.x + 2 + w <= maxX
+            let span = leading ? (m.x + 2)...(m.x + 2 + w) : max(minX, m.x - 2 - w)...(m.x - 2)
+            if let r = (0..<rows).first(where: { row in !occupied[row].contains { $0.lowerBound < span.upperBound + gap && span.lowerBound < $0.upperBound + gap } }) {
+                occupied[r].append(span)
+                placed.append(Placement(label: m.label, row: r, x: m.x, leading: leading))
+            } else { left.append(m.label) }
+        }
+        return Result(placed: placed, left: left)
+    }
 }
 
 // MARK: - Results

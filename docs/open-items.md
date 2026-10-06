@@ -223,7 +223,12 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
 ### Spectroscopy room, as wired in WP2 R2 (2026-10-05): unverified on screen and known gaps
 - **Driven 2026-10-06** (`docs/archive/v5/room-drive-2026-10-06.md`): opens, picks, rectangle region, ColorMix, hover seen;
-  13 findings there. Not yet seen: the ellipse region, the Review popover, the open's spinner and Cancel.
+  13 findings there; 3–13 fixed by lane U (unseen — a re-drive is owed). Not yet seen: the ellipse region, the Review popover,
+  the open's spinner and Cancel, the Export step's two save panels.
+- **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
+  live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
+  its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164);
+  `SpectrumPlotView` writes the hidden-label state from inside its draw closure.
 - **The map's scale bar is not drawn** (a true-length bar needs a pixel size on a fixed-width map). Regions: rectangle and ellipse only.
 - **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do. The map header title truncates at 1000 pt.
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a

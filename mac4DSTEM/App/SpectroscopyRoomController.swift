@@ -101,7 +101,7 @@ final class SpectroscopyRoomController {
         let axis = source.energyAxis
         m.isLive = true
         m.hasFit = false
-        m.resultsFooter = "window net counts; no fit yet"
+        m.resultsFooter = "window net counts"
         m.fitFooter = ""
         m.elements = ElementSelection()
         lastElements = m.elements
@@ -109,7 +109,9 @@ final class SpectroscopyRoomController {
         m.expandedRows = []
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
         m.validation = nil
-        var qs = QuantifySettings(method: session.method, fileBeamKnown: meta.beamEnergyKeV != nil)
+        m.export = ExportSettings()
+        var qs = QuantifySettings(method: session.method, fileBeamKnown: meta.beamEnergyKeV != nil,
+                              fileBeam: meta.beamEnergyKeV, fileBeamPhrase: meta.beamEnergyKeV == nil ? nil : meta.beamEnergySource.phrase)
         qs.syncTypedElements(session.method.elements.filter { $0.role == .quantify }.map(\.symbol))
         if qs.typedDate.isEmpty { qs.typedDate = Self.today() }
         m.quantify = qs
@@ -428,7 +430,7 @@ final class SpectroscopyRoomController {
         let name = region?.name ?? "Whole map"
         let pixels = region?.pixelCount ?? source.nx * source.ny
         m.spectrumTitle = "Spectrum · \(name)"
-        m.spectrumSubtitle = "\(Self.counts(total)) counts · \(pixels) px · " + (out.fit != nil ? "fitted" : "window sums only, no fit")
+        m.spectrumSubtitle = "\(Self.counts(total)) counts · \(pixels) px"
         m.resultsTitle = "Results · \(name)"
         m.regionSettings.source = region?.kind == .drawn ? "Drawn" : "Whole map"
         m.regionSettings.pixels = "\(pixels) · \(String(format: "%.1f", 100 * Double(pixels) / Double(max(source.nx * source.ny, 1)))) %"
@@ -437,7 +439,8 @@ final class SpectroscopyRoomController {
         if let t = out.pixelTotals { Self.applyPixelStats(t, to: m) }
 
         // Markers: the chosen family's lines of every active element.
-        m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV) + (m.autoID.outcome?.suspectMarkers ?? [])
+        m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV,
+                                 quantified: Set(m.elements.quantified.map { PeriodicLayout.symbol($0) })) + (m.autoID.outcome?.suspectMarkers ?? [])
 
         // Rows, tiles: the quantified elements only (fit-only ones shape the windows, not the table).
         var rows: [ResultRow] = [], tiles: [MapTile] = []
@@ -458,7 +461,8 @@ final class SpectroscopyRoomController {
                                       wtPercent: 0, wtSigma: 0, sigmaTerms: "", failure: w.failure))
             }
             if let map = out.maps[i] {
-                tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map)))
+                tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map),
+                                     notMeasuredWhy: out.counts[i]?.notAMeasurementText))
                 // A line that is not a measurement is never ticked into the mix on its own; the user may still tick it.
                 if seenTiles.insert(z).inserted, !notMeasured { m.mixed.insert(z) }
             }
@@ -481,7 +485,7 @@ final class SpectroscopyRoomController {
         m.fitFailure = out.fitFailure
         guard let fit = out.fit else {
             // No fit (no element, no beam energy, an empty region): the window sums stay, the reason is shown.
-            m.hasFit = false; m.validation = nil; m.ratioLine = nil; m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false
+            m.export = ExportSettings(); m.hasFit = false; m.validation = nil; m.ratioLine = nil; m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false
             lastFit = nil
             return
         }
@@ -496,6 +500,10 @@ final class SpectroscopyRoomController {
         m.abundanceNote = fit.abundanceRefusal.map { "at% not computed: \($0)" }
         m.resultsFooter = fit.footerLines.joined(separator: "\n")
         m.fitFooter = QuantifyPresentation.plotFooter(fit)
+        let regionName = session?.regions.first { $0.id == out.region }?.name ?? "Whole map"
+        m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName), methodJSON: SpectroscopyExport.methodJSON(fit.method),
+                                  elements: SpectroscopyExport.elementsLine(fit), methodHash: SpectroscopyExport.shortHash(fit.method),
+                                  fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))
         m.quantify.quality = "\(fit.qualityLabel) \(String(format: "%.2f", fit.quality))"
         switch fit.absorption {
         case .off: m.quantify.absorptionNote = nil
@@ -526,14 +534,16 @@ final class SpectroscopyRoomController {
         return map.map { Float(max($0, 0) / hi) }
     }
 
-    static func markers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?) -> [LineMarker] {
+    /// `priority` decides which name survives a collision: the window's own line (K\u{03B1}) over its satellites, a quantified element over a fit-only one.
+    static func markers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?, quantified: Set<String> = []) -> [LineMarker] {
         var out: [LineMarker] = []
         for w in windows {
             guard let chosen = XRayLines.line(w.id), let z = PeriodicLayout.z(of: w.element) else { continue }
             for l in XRayLines.lines(of: w.element) where l.family == chosen.family && l.weight >= 0.05 {
                 guard XRayLines.linesInRange([l.id], axis: axis, beamEnergy: beam).isEmpty == false else { continue }
                 out.append(LineMarker(label: ElementWindows.label(ofLineID: l.id), energy: l.energy, elementZ: z,
-                                      fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy)))
+                                      fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy),
+                                      priority: (l.id == w.id ? 2 : 0) + (quantified.contains(w.element) ? 1 : 0)))
             }
         }
         return out
@@ -566,9 +576,13 @@ final class SpectroscopyRoomController {
         s.energyAxisReadout = "\(String(format: "%.3f", axis.lowValue))–\(String(format: "%.3f", axis.highValue)) keV · \(String(format: "%.2f", axis.scale * 1000)) eV/ch · from the file"
         // Live and real time are shown as the file stored them: their meaning differs by file and is not interpreted.
         if let d = meta.detectors.first(where: { $0.liveTime != nil || $0.realTime != nil }) {
-            let live = d.liveTime.map { "live \(String(format: "%g", $0)) s" }
-            let real = d.realTime.map { "real \(String(format: "%g", $0)) s" }
-            s.liveDead = ([live, real].compactMap { $0 }.joined(separator: " · ")) + " (as stored, semantics unverified)"
+            if (d.liveTime ?? 0) <= 0 && (d.realTime ?? 0) <= 0 {
+                s.liveDead = "not read: the stream metadata records 0 s"   // the stream stores 0; the SpectrumImage record holds the times (open item: reader)
+            } else {
+                let live = d.liveTime.map { "live \(String(format: "%g", $0)) s" }
+                let real = d.realTime.map { "real \(String(format: "%g", $0)) s" }
+                s.liveDead = ([live, real].compactMap { $0 }.joined(separator: " · ")) + " (as stored, semantics unverified)"
+            }
         }
         var g: [String] = []
         if !meta.detectors.isEmpty { g.append(meta.detectors.count == 1 ? "1 detector" : "\(meta.detectors.count) detectors") }

@@ -301,7 +301,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
         for symbol in ["Al", "Mg", "Si", "Cu", "O"] { model.elements.click(try XCTUnwrap(PeriodicLayout.z(of: symbol))) }
         state.spectroscopyRoom.elementsChanged()
         try await waitFor { model.results.count == 5 }
-        XCTAssertEqual(model.resultsFooter, "window net counts; no fit yet")
+        XCTAssertEqual(model.resultsFooter, "window net counts")
         XCTAssertEqual(model.tiles.count, 5)
         XCTAssertEqual(model.mixed, Set(model.results.filter { $0.failure == nil }.map(\.z)),
                        "a new tile is ticked into the mix, unless its line is not a measurement")
@@ -309,7 +309,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
         // The whole-map Al row is the exact window net count of the whole-map spectrum.
         let spectrum = image.sum(mask: nil)
         // Windows are built for the whole set (neighbouring lines merge their background windows), by Z as the room does.
-        let windows = ElementWindows.build(elements: ["O", "Mg", "Al", "Si", "Cu"].map { ($0, nil) }, axis: image.energyAxis, beamEnergyKeV: nil)
+        let windows = ElementWindows.build(elements: ["O", "Mg", "Al", "Si", "Cu"].map { ($0, nil) }, axis: image.energyAxis, beamEnergyKeV: image.metadata.beamEnergyKeV)
         let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
         let expected = try XCTUnwrap(counts[2])
         let al = try XCTUnwrap(model.results.first { $0.z == 13 })
