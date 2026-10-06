@@ -84,6 +84,8 @@ nonisolated struct ElementSelection: Equatable, Sendable {
     }
 
     var quantified: [Int] { roles.filter { $0.value == .quantify }.keys.sorted() }
+    /// Quantified and fit-only elements, by Z: the ones whose lines are windowed, marked and (for the first) tabulated.
+    var activeZ: [Int] { roles.filter { $0.value != .off }.keys.sorted() }
 
     /// Left click: Quantify <-> Off. On a pending suggestion the click applies that
     /// suggestion's proposed role (ADR 054 §6: one click accepts one suggestion).
@@ -269,7 +271,7 @@ nonisolated enum ValidationState {
 }
 
 /// What the cursor is over: the channel's energy and counts, and the nearest line marker
-/// within `lineTolerance` keV (about one detector FWHM at 1.5 keV).
+/// within its own FWHM (`LineMarker.fwhm`), or `lineTolerance` keV when the marker carries none.
 nonisolated enum SpectrumHover {
     static let lineTolerance = 0.1
     struct Sample: Equatable { var energy: Double; var counts: Double; var line: String? }
@@ -278,7 +280,8 @@ nonisolated enum SpectrumHover {
         let e = viewport.energy(atFraction: f)
         let ch = min(series.count - 1, max(0, Int(((e - series.energyStart) / series.energyStep).rounded())))
         let near = markers.filter { $0.kind != .edge }.min { abs($0.energy - e) < abs($1.energy - e) }
-        let line = near.flatMap { abs($0.energy - e) <= lineTolerance ? $0.label : nil }
+        // The cut-off is the marker's own FWHM when it has one (a Mg Kα marker 60 eV wide, a Cu Kα one 160 eV).
+        let line = near.flatMap { abs($0.energy - e) <= ($0.fwhm ?? lineTolerance) ? $0.label : nil }
         return Sample(energy: series.energy(ch), counts: series.data[ch], line: line)
     }
 }
@@ -308,6 +311,8 @@ nonisolated struct LineMarker: Equatable, Identifiable, Sendable {
     var energy: Double
     var elementZ: Int?
     var kind: Kind = .line           // .suspect: dashed grey italic, "Ga Lα?"
+    /// The detector's line width here, keV. The hover's nearest-line cut-off is this one value (nil: `SpectrumHover.lineTolerance`).
+    var fwhm: Double? = nil
     var id: String { label }
 }
 
@@ -316,6 +321,9 @@ nonisolated struct LineMarker: Equatable, Identifiable, Sendable {
 nonisolated enum AbundanceUnit: String, CaseIterable, Sendable { case atomic = "at%", weight = "wt%" }
 nonisolated enum MapMode: String, CaseIterable, Sendable { case netCounts = "Net counts", atomic = "at%" }
 nonisolated enum DrawTool: String, CaseIterable, Sendable {
+    /// What a drag on the map can draw today.
+    static let drawable: [DrawTool] = [.rectangle, .ellipse]
+
     case point, rectangle, ellipse, polygon, line
     var symbol: String {
         switch self {
@@ -336,5 +344,9 @@ nonisolated struct ResultRow: Equatable, Identifiable, Sendable {
     var wtPercent: Double, wtSigma: Double
     /// "counting 0.6 % · fit 0.4 % · k-factor 20 % flat · absorption 3 % · thickness 4 % → ±1.1 at%"
     var sigmaTerms: String
+    /// "background overlaps Si Kα": another line a background window of this one lies on (a report, never a correction).
+    var conflictNote: String? = nil
+    /// Why there is no number (no line on the axis, a window outside it).
+    var failure: String? = nil
     var id: Int { z }
 }

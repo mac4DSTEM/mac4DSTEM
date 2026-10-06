@@ -1,0 +1,380 @@
+//
+//  SpectroscopyRoomController.swift
+//  Role: Binds the Spectroscopy room's view model (`SpectroscopyRoomModel`, lane V) to the session owner
+//        (`SpectroscopySession`) and the opened spectrum image (v5.0 WP2 R2). It decides nothing scientific: it asks
+//        `Core` for sums, windows and maps, off the main actor, and puts what comes back into the model.
+//
+//  Owner: the room's PRESENTATION state (what the views show: tiles, rows, markers, the selected region's spectrum).
+//  The facts (the image, the regions, the element roles, the selection) stay in `SpectroscopySession`; the model
+//  mirrors them and the controller writes the user's edits back. `AppState` holds one instance because the model
+//  carries SwiftUI types (it cannot live in DSTEMSession) and must outlive the room view, so the maps and the regions
+//  survive a change of room.
+//
+//  Compute: a 1.7 GB Velox file is ~100 M events; one whole-map sum scans them all. Every pass runs in a detached task
+//  and lands only if no newer request was made meanwhile (`generation`); spectra per region and net-count maps per
+//  line window are cached (`SpectrumComputeCache`), so a new element set computes only the windows it has not seen.
+//
+
+import CoreGraphics
+import Foundation
+import Observation
+import SwiftUI
+#if canImport(DSTEMCore)
+import DSTEMCore
+import DSTEMSession
+#endif
+
+/// Spectra by region and maps by line window. Locked: written by detached tasks, read by the next one.
+nonisolated final class SpectrumComputeCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var spectra: [Int: [UInt64]] = [:]
+    private var maps: [String: [Double]] = [:]
+    private var pixelTotals: [UInt64]?
+
+    func spectrum(_ region: Int) -> [UInt64]? { lock.withLock { spectra[region] } }
+    func setSpectrum(_ s: [UInt64], _ region: Int) { lock.withLock { spectra[region] = s } }
+    func map(_ key: String) -> [Double]? { lock.withLock { maps[key] } }
+    func setMap(_ m: [Double], _ key: String) { lock.withLock { maps[key] = m } }
+    func totals() -> [UInt64]? { lock.withLock { pixelTotals } }
+    func setTotals(_ t: [UInt64]) { lock.withLock { pixelTotals = t } }
+
+    /// One window's map key: the channel ranges decide the map, nothing else does.
+    static func key(_ w: ResolvedWindow) -> String {
+        ([w.signal] + (w.background.map { [$0.left, $0.right] } ?? [])).map { "\($0.lowerBound)-\($0.upperBound)" }.joined(separator: "|")
+            + (w.background.map { "|s\($0.scale)" } ?? "")
+    }
+}
+
+@MainActor @Observable
+final class SpectroscopyRoomController {
+    let model: SpectroscopyRoomModel
+
+    @ObservationIgnored private weak var session: SpectroscopySession?
+    @ObservationIgnored private var source: (any SpectrumImageSource)?
+    @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var cache = SpectrumComputeCache()
+    @ObservationIgnored private var seenTiles = Set<Int>()
+    @ObservationIgnored private var regionCounts: [Int: UInt64] = [:]
+    @ObservationIgnored private var hasFourDCube = false
+    /// The element selection last acted on: the view's change callback also fires for the reset `bind` makes.
+    @ObservationIgnored private var lastElements = ElementSelection()
+
+    init() {
+        let empty = SpectrumSeries(energyStart: 0, energyStep: 0.01, data: [0, 0], background: [], model: [], overlay: nil)
+        model = SpectroscopyRoomModel(series: empty)
+    }
+
+    // MARK: Binding
+
+    /// Starts the room over on `source` (the session has just opened it). Everything shown is recomputed.
+    func bind(_ source: any SpectrumImageSource, session: SpectroscopySession, hasFourDCube: Bool) {
+        self.source = source
+        self.session = session
+        self.hasFourDCube = hasFourDCube
+        cache = SpectrumComputeCache()
+        seenTiles = []
+        regionCounts = [:]
+        generation += 1
+
+        let m = model
+        let meta = source.metadata
+        let axis = source.energyAxis
+        m.isLive = true
+        m.hasFit = false
+        m.resultsFooter = "window net counts; no fit yet"
+        m.fitFooter = ""
+        m.elements = ElementSelection()
+        lastElements = m.elements
+        m.mixed = []; m.tiles = []; m.results = []; m.markers = []
+        m.expandedRows = []
+        m.scaleBar = ""   // a bar of true length needs a pixel size on a fixed-width map: not drawn
+        m.gridWidth = source.nx; m.gridHeight = source.ny
+        m.backdrop = Self.normalised(source.scanImage, count: source.nx * source.ny)
+        m.tileRevision += 1
+        m.regionOutline = nil
+        m.series = SpectrumSeries(energyStart: axis.offset, energyStep: axis.scale,
+                                  data: [Double](repeating: 0, count: axis.size), background: [], model: [], overlay: nil)
+        m.viewport = SpectrumViewport(domain: m.series.domain, minimumSpan: 2 * axis.scale)
+        // A Velox axis runs to 80 keV (4096 channels of 20 eV): the first view is the 20 keV an EDX spectrum is read in.
+        if m.viewport.hi > 20 { m.viewport.hi = max(20, m.viewport.lo + m.viewport.minimumSpan) }
+        m.image = Self.imageSettings(meta, axis: axis, hasFourDCube: hasFourDCube)
+        m.regionSettings = RegionSettings()
+        m.onDrawRegion = { [weak self] shape in self?.addRegion(shape) }
+        m.onRemoveRegion = { [weak self] id in self?.removeRegion(id: id) }
+        syncRegionsFromSession()
+        refresh()
+    }
+
+    func unbind() {
+        generation += 1
+        source = nil
+        session = nil
+        model.isLive = false
+    }
+
+    /// The window gained or lost its 4D cube after the image was opened: the Source row follows.
+    func setFourDCube(_ present: Bool) {
+        guard present != hasFourDCube, let source else { hasFourDCube = present; return }
+        hasFourDCube = present
+        let readouts = Self.imageSettings(source.metadata, axis: source.energyAxis, hasFourDCube: present)
+        model.image.source = readouts.source
+        model.image.sourceWarning = readouts.sourceWarning
+        model.image.sourceNote = readouts.sourceNote
+    }
+
+    // MARK: Edits
+
+    /// The element roles or lines changed in the periodic table.
+    func elementsChanged() {
+        guard model.elements != lastElements else { return }
+        lastElements = model.elements
+        mirrorElementsToSession()
+        refresh()
+    }
+
+    /// The region picker changed `model.selectedRegion`.
+    func regionPicked() {
+        guard let session, let id = model.selectedRegion, id != session.selectedRegionID,
+              session.regions.contains(where: { $0.id == id }) else { return }
+        session.selectedRegionID = id
+        syncRegionsFromSession()
+        refresh()
+    }
+
+    /// A region chosen anywhere (the sidebar's rows, the picker): the session, the model and the numbers all follow.
+    func selectRegion(id: Int) {
+        guard let session, session.regions.contains(where: { $0.id == id }) else { return }
+        session.selectedRegionID = id
+        syncRegionsFromSession()
+        refresh()
+    }
+
+    func addRegion(_ shape: SpectrumRegionShape) {
+        guard let session, session.addDrawnRegion(shape) != nil else { return }
+        syncRegionsFromSession()
+        refresh()
+    }
+
+    func removeRegion(id: Int) {
+        guard let session else { return }
+        session.removeRegion(id: id)
+        regionCounts[id] = nil
+        syncRegionsFromSession()
+        refresh()
+    }
+
+    private func mirrorElementsToSession() {
+        guard let session else { return }
+        session.elements = model.elements.activeZ.map { z in
+            let role = model.elements.role(z)
+            return SpectroscopyElement(symbol: PeriodicLayout.symbol(z),
+                                       role: role == .quantify ? .quantify : .fitOnly,
+                                       isManual: model.elements.manual.contains(z))
+        }
+    }
+
+    private func syncRegionsFromSession() {
+        guard let session else { return }
+        model.regions = session.regions.map { r in
+            RegionSummary(id: r.id, name: r.name, pixels: r.pixelCount,
+                          counts: Double(regionCounts[r.id] ?? 0) / 1e6, tint: .gray, isDrawn: r.kind == .drawn)
+        }
+        model.selectedRegion = session.selectedRegionID
+        model.regionOutline = session.regions.first { $0.id == session.selectedRegionID }?.shape
+    }
+
+    // MARK: Compute
+
+    private struct Request: Sendable {
+        let source: any SpectrumImageSource
+        let region: Int
+        let mask: PixelMask?
+        let picks: [(symbol: String, family: XRayFamily?)]
+        let beam: Double?
+        let firstPass: Bool
+    }
+
+    private struct Output: Sendable {
+        let region: Int
+        let spectrum: [UInt64]
+        let windows: [LineWindow]
+        let counts: [LineNetCount?]
+        let maps: [[Double]?]
+        let pixelTotals: [UInt64]?
+    }
+
+    /// Recomputes everything the current selection shows. Cheap when nothing it needs is new.
+    func refresh() {
+        guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }) else { return }
+        generation += 1
+        let gen = generation
+        let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
+            (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
+        }
+        let request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
+                              beam: source.metadata.beamEnergyKeV, firstPass: cache.totals() == nil)
+        let cache = cache
+        Task.detached(priority: .userInitiated) {
+            let out = Self.compute(request, cache: cache)
+            await MainActor.run { [weak self] in self?.apply(out, generation: gen) }
+        }
+    }
+
+    private nonisolated static func compute(_ r: Request, cache: SpectrumComputeCache) -> Output {
+        let spectrum: [UInt64]
+        if let s = cache.spectrum(r.region) { spectrum = s } else {
+            spectrum = r.source.sum(mask: r.mask)
+            cache.setSpectrum(spectrum, r.region)
+        }
+        var totals: [UInt64]?
+        if r.firstPass {
+            let t = r.source.windowSums([0..<r.source.channels])[0]
+            cache.setTotals(t)
+            totals = t
+        }
+        let windows = ElementWindows.build(elements: r.picks, axis: r.source.energyAxis, beamEnergyKeV: r.beam)
+        let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
+        // Only windows whose map is not cached are computed.
+        let missing = windows.filter { w in w.window.map { cache.map(SpectrumComputeCache.key($0)) == nil } ?? false }
+        if !missing.isEmpty {
+            let fresh = ElementWindows.maps(image: r.source, windows: missing)
+            for (w, m) in zip(missing, fresh) { if let w = w.window, let m { cache.setMap(m, SpectrumComputeCache.key(w)) } }
+        }
+        let maps: [[Double]?] = windows.map { w in w.window.flatMap { cache.map(SpectrumComputeCache.key($0)) } }
+        return Output(region: r.region, spectrum: spectrum, windows: windows, counts: counts, maps: maps, pixelTotals: totals)
+    }
+
+    private func apply(_ out: Output, generation gen: Int) {
+        guard gen == generation, let source, let session else { return }
+        let m = model
+        let axis = source.energyAxis
+        let total = out.spectrum.reduce(UInt64(0), &+)
+        regionCounts[out.region] = total
+        syncRegionsFromSession()
+
+        // Spectrum of the selected region.
+        m.series = SpectrumSeries(energyStart: axis.offset, energyStep: axis.scale,
+                                  data: out.spectrum.map { Double($0) }, background: [], model: [], overlay: nil)
+        let region = session.regions.first { $0.id == out.region }
+        let name = region?.name ?? "Whole map"
+        let pixels = region?.pixelCount ?? source.nx * source.ny
+        m.spectrumTitle = "Spectrum · \(name)"
+        m.spectrumSubtitle = "\(Self.counts(total)) counts · \(pixels) px · window sums only, no fit"
+        m.resultsTitle = "Results · \(name)"
+        m.regionSettings.source = region?.kind == .drawn ? "Drawn" : "Whole map"
+        m.regionSettings.pixels = "\(pixels) · \(String(format: "%.1f", 100 * Double(pixels) / Double(max(source.nx * source.ny, 1)))) %"
+        m.regionSettings.counts = Self.counts(total)
+
+        if let t = out.pixelTotals { Self.applyPixelStats(t, to: m) }
+
+        // Markers: the chosen family's lines of every active element.
+        m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV)
+
+        // Rows, tiles: the quantified elements only (fit-only ones shape the windows, not the table).
+        var rows: [ResultRow] = [], tiles: [MapTile] = []
+        let quantified = Set(m.elements.quantified.map { PeriodicLayout.symbol($0) })
+        for (i, w) in out.windows.enumerated() where quantified.contains(w.element) {
+            guard let z = PeriodicLayout.z(of: w.element) else { continue }
+            var notMeasured = false
+            if let c = out.counts[i] {
+                notMeasured = c.backgroundExceedsSignal
+                let bg = c.background.map { ", B = \(Self.counts($0)), s = \(String(format: "%.3f", c.scale ?? 0))" } ?? " (no background window)"
+                rows.append(ResultRow(
+                    z: z, netCounts: c.net, netSigma: c.sigma, kFreeRatio: 0, kFreeSigma: nil, atPercent: 0, atSigma: 0,
+                    wtPercent: 0, wtSigma: 0,
+                    sigmaTerms: "σ² = G + s²B with G = \(Self.counts(c.signal))\(bg) · \(ElementWindows.label(ofLineID: c.id))",
+                    conflictNote: ElementWindows.conflictNote(w.conflicts), failure: c.notAMeasurementText))
+            } else {
+                rows.append(ResultRow(z: z, netCounts: 0, netSigma: 0, kFreeRatio: 0, kFreeSigma: nil, atPercent: 0, atSigma: 0,
+                                      wtPercent: 0, wtSigma: 0, sigmaTerms: "", failure: w.failure))
+            }
+            if let map = out.maps[i] {
+                tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map)))
+                // A line that is not a measurement is never ticked into the mix on its own; the user may still tick it.
+                if seenTiles.insert(z).inserted, !notMeasured { m.mixed.insert(z) }
+            }
+        }
+        m.results = rows
+        m.tiles = tiles
+        m.tileRevision += 1
+        // A tile that is gone loses its tick and its "seen" mark, so it is ticked again when it comes back.
+        let present = Set(tiles.map(\.z))
+        seenTiles.formIntersection(present)
+        m.mixed.formIntersection(present)
+    }
+
+    // MARK: Pure helpers
+
+    private static func counts(_ v: UInt64) -> String {
+        v >= 1_000_000 ? String(format: "%.2f M", Double(v) / 1e6) : ResultFormat.counts(Double(v))
+    }
+
+    /// Greys for the scan image: 0...1 between its own min and max; empty when absent or flat.
+    private static func normalised(_ v: [Float]?, count: Int) -> [Float] {
+        guard let v, v.count == count, let lo = v.min(), let hi = v.max(), hi > lo else { return [] }
+        return v.map { ($0 - lo) / (hi - lo) }
+    }
+
+    /// A net-count map as 0...1 (negative net counts are drawn as 0): presentation scaling, not a result.
+    private static func normalised(_ map: [Double]) -> [Float] {
+        let hi = map.max() ?? 0
+        guard hi > 0 else { return [Float](repeating: 0, count: map.count) }
+        return map.map { Float(max($0, 0) / hi) }
+    }
+
+    static func markers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?) -> [LineMarker] {
+        var out: [LineMarker] = []
+        for w in windows {
+            guard let chosen = XRayLines.line(w.id), let z = PeriodicLayout.z(of: w.element) else { continue }
+            for l in XRayLines.lines(of: w.element) where l.family == chosen.family && l.weight >= 0.05 {
+                guard XRayLines.linesInRange([l.id], axis: axis, beamEnergy: beam).isEmpty == false else { continue }
+                out.append(LineMarker(label: ElementWindows.label(ofLineID: l.id), energy: l.energy, elementZ: z,
+                                      fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy)))
+            }
+        }
+        return out
+    }
+
+    private static func applyPixelStats(_ totals: [UInt64], to m: SpectroscopyRoomModel) {
+        guard !totals.isEmpty else { return }
+        let sorted = totals.sorted()
+        let median = sorted[sorted.count / 2]
+        m.image.countsMedian = "median \(median)"
+        let hi = Double(sorted.last ?? 1)
+        var bins = [Double](repeating: 0, count: 10)
+        for t in totals { bins[min(9, Int(Double(t) / max(hi, 1) * 10))] += 1 }
+        m.image.countsHistogram = bins
+    }
+
+    /// The Spectrum image step's readouts, from what the file says (nothing is invented: a missing value hides its row).
+    static func imageSettings(_ meta: SpectrumImageMetadata, axis: EnergyAxis, hasFourDCube: Bool) -> SpectrumImageSettings {
+        var s = SpectrumImageSettings()
+        if meta.sameScanAs4DCube {
+            s.source = "same scan as the 4D cube (one GMS run)"
+        } else if hasFourDCube {
+            s.source = "not registered to the 4D scan"
+            s.sourceWarning = true
+            s.sourceNote = meta.registrationNote ?? "Not registered to the 4D scan: the registration record comes with WP3."
+        }
+        if let f = meta.frames {
+            s.framesReadout = "\(f) summed" + (meta.partialFramePixels > 0 ? " + a partial frame (\(meta.partialFramePixels) px)" : "")
+        }
+        s.energyAxisReadout = "\(String(format: "%.3f", axis.lowValue))–\(String(format: "%.3f", axis.highValue)) keV · \(String(format: "%.2f", axis.scale * 1000)) eV/ch · from the file"
+        // Live and real time are shown as the file stored them: their meaning differs by file and is not interpreted.
+        if let d = meta.detectors.first(where: { $0.liveTime != nil || $0.realTime != nil }) {
+            let live = d.liveTime.map { "live \(String(format: "%g", $0)) s" }
+            let real = d.realTime.map { "real \(String(format: "%g", $0)) s" }
+            s.liveDead = ([live, real].compactMap { $0 }.joined(separator: " · ")) + " (as stored, semantics unverified)"
+        }
+        var g: [String] = []
+        if !meta.detectors.isEmpty { g.append(meta.detectors.count == 1 ? "1 detector" : "\(meta.detectors.count) detectors") }
+        let els = meta.detectors.compactMap(\.elevationDegrees)
+        if let lo = els.min(), let hi = els.max() {
+            g.append(lo == hi ? String(format: "elev. %.0f°", lo) : String(format: "elev. %.0f–%.0f°", lo, hi))
+        }
+        if let a = meta.alphaTiltDegrees { g.append(String(format: "α %.1f°", a)) }
+        if let b = meta.betaTiltDegrees { g.append(String(format: "β %.1f°", b)) }
+        if !g.isEmpty { s.geometry = g.joined(separator: " · ") }
+        return s
+    }
+}

@@ -911,6 +911,10 @@ final class AppState {
     /// Owner: `SpectroscopySession` (v5.0 WP2) — the spectrum image and the room's state; a window's second
     /// document, beside the 4D owners. The rest is in `AppState+Spectroscopy.swift`.
     let spectroscopy = SpectroscopySession()
+    /// Owner: `SpectroscopyRoomController` — the room's presentation state, bound to `spectroscopy`. Held here because its
+    /// model carries SwiftUI types (so it cannot live in DSTEMSession) and must outlive the room view; no other home
+    /// would do. Everything else is in `AppState+Spectroscopy.swift`.
+    let spectroscopyRoom = SpectroscopyRoomController()
     /// Set by the window (`DatasetWindow`): opens a file in a NEW window — see `routesOpenToNewWindow`.
     @ObservationIgnored var openInNewWindow: ((_ url: URL, _ configure: Bool) -> Void)?
 

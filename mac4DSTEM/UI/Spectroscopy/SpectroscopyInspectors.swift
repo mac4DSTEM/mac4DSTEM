@@ -29,18 +29,12 @@ struct SpectrumImageInspector: View {
         let s = model.image
         InspectorGroup {
             if let source = s.source {
-                InspectorRow("Source") {
-                    HStack(spacing: 4) {
-                        Text(source).foregroundStyle(.secondary)
-                        if s.sourceWarning {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                                .help("Scan shapes differ — the shapes are in Info").accessibilityLabel("Scan shapes differ")
-                        }
-                    }
-                }
+                InspectorValueRow("Source", source)
+                if s.sourceWarning, let note = s.sourceNote { InspectorNote(note) }
             }
+            if let v = s.framesReadout { InspectorValueRow("Frames", v) }
             if let frames = s.frames {
-                InspectorRow("Frames of \(frames)") {
+                InspectorRow("Frames") {   // "of N" is the help: the label plus two 72-pt fields did not fit 248 pt
                     HStack(spacing: 4) {
                         OptionalNumericField(title: "First frame", value: s.frameLo, format: IntegerFormatStyle<Int>.number.grouping(.never)) {
                             model.image.frameLo = min(max($0, 1), s.frameHi ?? frames)
@@ -49,15 +43,20 @@ struct SpectrumImageInspector: View {
                         OptionalNumericField(title: "Last frame", value: s.frameHi, format: IntegerFormatStyle<Int>.number.grouping(.never)) {
                             model.image.frameHi = min(max($0, s.frameLo ?? 1), frames)
                         }
-                    }
+                    }.help("First and last frame of \(frames)")
                 }
             }
-            // The one Energy axis readout of the room (the Expert lock refers to this).
-            InspectorRow("Energy axis") {
-                HStack(spacing: 6) {
-                    if let r = s.energyAxisReadout { Text(r).foregroundStyle(.secondary).lineLimit(1) }
-                    Picker("Energy axis", selection: $model.image.energyAxis) { Text("File").tag("File"); Text("Refined").tag("Refined") }
-                        .labelsHidden().fixedSize()
+            // The one Energy axis readout of the room (the Expert lock refers to this). Refinement is WP3's: until
+            // then the axis is the file's, and there is nothing to choose.
+            if model.isLive {
+                if let r = s.energyAxisReadout { InspectorValueRow("Energy axis", r) }
+            } else {
+                InspectorRow("Energy axis") {
+                    HStack(spacing: 6) {
+                        if let r = s.energyAxisReadout { Text(r).foregroundStyle(.secondary).lineLimit(1) }
+                        Picker("Energy axis", selection: $model.image.energyAxis) { Text("File").tag("File"); Text("Refined").tag("Refined") }
+                            .labelsHidden().fixedSize()
+                    }
                 }
             }
             if let median = s.countsMedian {
@@ -103,7 +102,9 @@ struct ElementsInspector: View {
                         .popover(isPresented: $reviewing, arrowEdge: .bottom) { SuggestionReview(model: model) }
                 }
             }
-            ChoiceRow(label: "Smoothing", value: $model.smoothing, options: ["None", "3 × 3 · σ 1 px", "5 × 5 · σ 1.5 px"])
+            if !model.isLive {
+                ChoiceRow(label: "Smoothing", value: $model.smoothing, options: ["None", "3 × 3 · σ 1 px", "5 × 5 · σ 1.5 px"])
+            }
         }
     }
 }
@@ -138,7 +139,22 @@ struct RegionsInspector: View {
     var body: some View {
         let r = model.regionSettings
         InspectorGroup {
-            ChoiceRow(label: "Source", value: $model.regionSettings.source, options: ["Drawn", "Phase", "Object"])
+            if model.isLive {
+                // Regions come from the map (drag a rectangle or ellipse) until the 4D scan's phases are registered (WP3).
+                InspectorRow("Region") {
+                    Picker("Region", selection: Binding(get: { model.selectedRegion ?? -1 }, set: { model.selectedRegion = $0 })) {
+                        ForEach(model.regions) { Text($0.name).tag($0.id) }
+                    }.labelsHidden().fixedSize()
+                }
+                InspectorValueRow("Source", r.source)
+                if model.regions.first(where: { $0.id == model.selectedRegion })?.isDrawn == true {
+                    InspectorActionRow {
+                        Button("Remove region") { if let id = model.selectedRegion { model.onRemoveRegion?(id) } }
+                    }
+                }
+            } else {
+                ChoiceRow(label: "Source", value: $model.regionSettings.source, options: ["Drawn", "Phase", "Object"])
+            }
             if let phase = r.phase {
                 InspectorRow("Phase") {
                     HStack(spacing: 6) {
@@ -170,6 +186,9 @@ struct QuantifyInspector: View {
     var body: some View {
         let q = model.quantify
         InspectorGroup {
+            if model.isLive {
+                InspectorNote("Quantification lands with WP3. The results table shows window net counts until then.")
+            } else {
             ChoiceRow(label: "Method", value: $model.quantify.method, options: ["Mg/Si in Al · LS · BP k", "Custom"])
             ChoiceRow(label: "Background", value: $model.quantify.background, options: ["Empirical + Al edge", "Polynomial windows"])
             ChoiceRow(label: "k-factors", value: $model.quantify.kFactors, options: ["Brown-Powell (computed)", "Typed (with source)"])
@@ -200,6 +219,7 @@ struct QuantifyInspector: View {
                 InspectorRow("Poly order") { Stepper("\(q.polyOrder)", value: $model.quantify.polyOrder, in: 0...8) }
                 InspectorRow("Lock energy axis") { Toggle("Lock energy axis", isOn: $model.quantify.energyLock).labelsHidden().toggleStyle(.checkbox) }
             }
+            }
         }
     }
 }
@@ -210,9 +230,13 @@ struct ExportInspector: View {
     var onExport: () -> Void = {}
     var body: some View {
         InspectorGroup {
-            ChoiceRow(label: "Format", value: $model.export.format, options: ["CSV", "JSON", "PNG (spectrum)"])
-            InspectorRow("Include") { Toggle("method and σ terms", isOn: $model.export.includeMethod).toggleStyle(.checkbox) }
-            InspectorActionRow { Button("Export…", action: onExport) }
+            if model.isLive {
+                InspectorNote("Export lands with quantification (WP3): there is no fit to export yet.")
+            } else {
+                ChoiceRow(label: "Format", value: $model.export.format, options: ["CSV", "JSON", "PNG (spectrum)"])
+                InspectorRow("Include") { Toggle("method and σ terms", isOn: $model.export.includeMethod).toggleStyle(.checkbox) }
+                InspectorActionRow { Button("Export…", action: onExport) }
+            }
         }
     }
 }

@@ -4,55 +4,9 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-// PLACEHOLDERS (v5.0 WP2 lane R). The Spectroscopy room's real views — the
-// map, the spectrum plot, the periodic table, the results table and each
-// step's inspector — are lane V's (`UI/Spectroscopy/`), wired in by R2. These
-// stand in so the shell can be built and seen: plain, labelled, and saying
-// nothing about the data that the data has not said.
-
-/// The centre column in the Spectroscopy room.
-struct SpectroscopyRoomPlaceholder: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        if let metadata = appState.spectroscopy.metadata {
-            ContentUnavailableView {
-                Label("Spectroscopy · \(appState.spectroscopy.selectedStep.title)",
-                      systemImage: appState.spectroscopy.selectedStep.systemImage)
-            } description: {
-                Text(SpectroscopyPlaceholderFormat.summary(metadata))
-                if let note = SpectroscopyPlaceholderFormat.registrationNote(hasFourDCube: appState.hasDataset) {
-                    Label(note, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .accessibilityIdentifier("spectroscopy.notRegistered")
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityIdentifier("spectroscopy.placeholder")
-        } else {
-            ContentUnavailableView(
-                "No spectrum image",
-                systemImage: WorkspaceArea.spectroscopy.systemImage,
-                description: Text("Open an EDX spectrum image to work in this room.")
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityIdentifier("spectroscopy.noSpectrumImage")
-        }
-    }
-}
-
-/// The inspector's Settings tab in the Spectroscopy room: the selected step.
-struct SpectroscopyInspectorPlaceholder: View {
-    @Environment(AppState.self) private var appState
-
-    var body: some View {
-        let step = appState.spectroscopy.selectedStep
-        InspectorSection(step.title) {
-            InspectorNote("This step's controls are not built yet.")
-        }
-        .accessibilityIdentifier("spectroscopy.inspector.\(step.rawValue)")
-    }
-}
+// The views of a window that holds only a spectrum image, around the Spectroscopy room (`UI/Spectroscopy/`): what
+// its other rooms and tabs say, and the Info tab's section. The room's own views are lane V's, wired in by
+// `SpectroscopyRoomHost` / `SpectroscopyInspectorHost` (v5.0 WP2 R2).
 
 /// The Settings tab in a window that holds only a spectrum image: the
 /// Spectroscopy room's step, or one line saying there is nothing to set — the
@@ -114,7 +68,7 @@ struct SpectrumOnlyResultsPlaceholder: View {
     }
 }
 
-/// The Info tab for a spectrum image: what the file says it is.
+/// The Info tab for a spectrum image: what the file says it is, as stored.
 struct SpectrumImageInfoSection: View {
     let metadata: SpectrumImageMetadata
 
@@ -122,8 +76,18 @@ struct SpectrumImageInfoSection: View {
         InspectorSection("Spectrum image") {
             InspectorValueRow("File", metadata.fileName)
             InspectorValueRow("Scan", "\(metadata.scanWidth) × \(metadata.scanHeight) px", mono: true)
+            if let size = metadata.scanPixelSize, let unit = metadata.scanPixelUnit {
+                InspectorValueRow("Pixel size", "\(size.formatted(.number.precision(.significantDigits(1...4)))) \(unit)", mono: true)
+            }
             InspectorValueRow("Channels", "\(metadata.channelCount)", mono: true)
             InspectorValueRow("Energy axis", SpectroscopyPlaceholderFormat.energyAxis(metadata), mono: true)
+            if let f = metadata.frames { InspectorValueRow("Frames", "\(f)", mono: true) }
+            if let i = metadata.instrument { InspectorValueRow("Instrument", i) }
+            if let b = metadata.beamEnergyKeV { InspectorValueRow("Beam", "\(b.formatted()) keV", mono: true) }
+            ForEach(Array(metadata.detectors.enumerated()), id: \.offset) { _, d in
+                InspectorValueRow(d.name, SpectroscopyPlaceholderFormat.detector(d), mono: true)
+            }
+            if let note = metadata.registrationNote { InspectorNote(note) }
         }
     }
 }
@@ -134,6 +98,12 @@ enum SpectroscopyPlaceholderFormat {
     /// no pixel of one may be read as a pixel of the other.
     static func registrationNote(hasFourDCube: Bool) -> String? {
         hasFourDCube ? "Not registered to the 4D scan: the registration record comes with WP3." : nil
+    }
+
+    /// "az 45° · el 18° · 0.7 sr (as stored)": only what the file wrote.
+    static func detector(_ d: SpectrumDetectorSegment) -> String {
+        [d.azimuthDegrees.map { String(format: "az %.0f°", $0) }, d.elevationDegrees.map { String(format: "el %.0f°", $0) },
+         d.solidAngle.map { "\($0.formatted()) sr" }].compactMap { $0 }.joined(separator: " · ")
     }
 
     /// "64 × 64 px · 2048 channels · 0–20.48 keV".

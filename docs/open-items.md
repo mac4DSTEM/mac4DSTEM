@@ -201,10 +201,10 @@ with an unmeasured margin — `--export-parity` could print it. (3) A strided or
 (named in the status line when there is one to omit). (4) Since Slot 4⅞ lane V the export carries the
 accelerating voltage; a session voltage above 1000 kV is stamped as typed and reopens divided by 1000 (the opener's eV rule). Polish from the drive: the sheet's short scroll area (the 1-px crop steppers went with the old sheet, `de05c943`).
 
-### Velox `.emd` opens as a one-row cube (2026-10-05) — release-noted in v4.5; v5.0 work package 1
-`H5Reader.discoverPrimaryDataset` takes a Velox file's HAADF image stack (`/Data/Image/<id>/Data`, rank 3) as a one-row cube: 9 of 10
-public rsciio Velox files (`archive/v5/edx-research-2026-10-05/velox-emd-repro/`); not driven. The fix is a named refusal (Velox tree,
-`signal_type`, energy units) under Gate B, or the v5.0 spectrum reader itself. Owner: v4.5 ships as it stands (ADR 052).
+### Velox `.emd` opened as a one-row cube — fixed in v5.0 (WP2 R2), not driven
+`openFileAsync` / `openFileForConfiguration` now ask `SpectrumImageOpener.kind` first: a Velox EMD (and a DM4 whose only 3D object is
+an EDS SI) opens as a spectrum image in the Spectroscopy room, never as a cube; every other file reaches the 4D open untouched. Gate B
+(Fable) passed after round 2 (the sniff now runs inside the security scope, so Recents reopen as spectrum images too). A spectrum image is not added to Recents (they carry sidecar semantics).
 
 ### DM4 string tags (type 18) read one length too many (2026-10-05) — reproduced on a synthetic file
 `DM4Reader.readDataTag` (`Core/Data/DM4Reader.swift`, case 18) reads a `u32be` length after the info array. In rsciio
@@ -221,20 +221,28 @@ Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` onc
 truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
-### Spectroscopy room, as landed in WP2 (2026-10-05): unverified on screen and known gaps
-The room shell (lane R) and the views (lane V) are in. The views are wired to the room only in step R2.
-- **Not seen on screen.** The AppKit-backed controls (segmented pickers, numeric fields, the draw tools), the Review
-  popover and the hover readout have not been driven on screen. `ImageRenderer` cannot draw them. A scratch-build drive
-  follows the wiring.
-- **The hover's nearest-line cut-off is a fixed 0.1 keV.** Derive it from the session's FWHM, or show Δ instead.
-- **The map header title truncates at 1000 pt** next to the draw tools and the menu.
-- **The ColorMix fills one Path per pixel.** Make it a CGImage raster before real 256²+ maps.
-- **The plain mouse wheel does not zoom.** Pinch and ⌃-wheel do, as in `ZoomPan.swift`, a SwiftUI limit. The owner may
-  want plain-wheel zoom.
-- **⌘6 in a 4D window opens a dead-end room** until Velox/DM4 routing opens spectrum images.
-- `InspectorWidthBudgetTests` measures the placeholder, not lane V's inspectors. R2 re-measures.
-- **A cancelled 4D open in a window that has a spectrum image** leaves a withheld room selected (the backstop view
-  shows).
+### Spectroscopy room, as wired in WP2 R2 (2026-10-05): unverified on screen and known gaps
+- **Not seen on screen.** Nothing of the wired room has been driven: the drag that draws a rectangle/ellipse region, the raster map,
+  the region picker, the AppKit-backed controls, the Review popover, the hover. A scratch-build drive of a Velox file and the simulated
+  `.dm4` is owed (and of the 3.6 s open's spinner and Cancel).
+- **Quantify's fixture Thickness row is 284.5 pt** (> the 248 pt column); live the step is one note. WP3 must fit it.
+- **The map's scale bar is not drawn** (a true-length bar needs a pixel size on a fixed-width map). Regions: rectangle and ellipse only.
+- **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do. The map header title truncates at 1000 pt.
+- **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
+  withheld room selected. A new 4D open does not clear an earlier spectrum image of the window.
+- **`Data Order Swapped` = 1 on an EDS object is refused** (its meaning for an SI is unmeasured); a real joint file that sets it
+  needs the layout measured. Counts must be whole numbers (a float-averaged SI is refused). Detector resolution for the windows is
+  assumed 130 eV at Mn Kα until the file or WP3 supplies it.
+- **A line whose background windows hold at least its signal (s·B >= G) shows "—" and the reason**, whichever other elements are
+  selected (it is not auto-ticked into the mix). Seen on the owner's `References/EDX` file, which is NOT Al-Mg-Si (Velox mapped O,
+  Si, Ti, Ni, Ge, In, Sn): Al is absent there, so its windows sit on Ge/Si peaks and its net is negative; "Mg" there is mostly Ge Lα.
+  Those numbers are not Al-Mg-Si results. The merge of neighbouring background windows moved the Mg and Si numbers, not the Al sign.
+- **A GMS EDS SI with `Data Order Swapped` = 1 is refused until one is measured** (expected for real GMS files, which write the tag).
+- **Window rule:** a window holding a 4D cube sends a Velox/EDS file open to a NEW window (as a spectrum-only window does for a cube);
+  the joint GMS attach is the one exception. A Velox file with `/Data/SpectrumImage` but no stream is routed too and refused with the
+  pruned-file message (before routing it would have opened as a cube).
+- **GMS EDS geometry is not read yet:** `DM4EDSDetectorTags` reads azimuth/elevation/solid angle but not `EDS.Detector Info.Stage
+  tilt` nor a multi-segment list, so a GMS EDS shows one detector and no tilt; WP3's absorption needs both for GMS files.
 
 ### Element proposer held back: rebuild on the WP3 fit (2026-10-05)
 WP3 lane T's proposer (Poisson-GLM continuum, line-list exclusion, a shadow rule) was not landed. Fable's re-check

@@ -207,4 +207,34 @@ final class InspectorWidthBudgetTests: XCTestCase {
         }
         XCTAssertEqual(measured, AnalysisMode.allCases.count + 3, "every task, plus Prepare, Spectroscopy and Results")
     }
+
+    /// The Spectroscopy room's five step inspectors, measured as lane V built them (the fixture shows every row) and as
+    /// the room shows them for an opened spectrum image, with the longest strings the readers can produce (same-scan
+    /// source, detector readouts, a drawn region). Replaces the placeholder this file measured before WP2 R2.
+    /// The Quantify step is measured live only: its fixture rows are WP3's design and the Thickness row is 284.5 pt
+    /// (open-items, "Spectroscopy room, as landed in WP2").
+    /// Mutation: the periodic table's cell raised back to 16 pt (306 pt wide) — red.
+    func testTheSpectroscopyStepInspectorsFitTheNarrowestColumn() throws {
+        for step in SpectroscopyStep.allCases where step != .quantify {
+            let fixture = SpectroscopyRoomModel.fixture
+            assertFits("Spectroscopy / \(step.title) (fixture, every row)",
+                       minimumWidth(SpectroscopyStepInspector(step: step, model: fixture), state: AppState()))
+        }
+        let state = AppState()
+        state.openSpectrumImage(DemoSpectrumImageSource.make())
+        let model = state.spectroscopyRoom.model
+        var meta = try XCTUnwrap(state.spectroscopy.metadata)
+        meta.sameScanAs4DCube = true
+        meta.frames = 1607; meta.partialFramePixels = 12345
+        meta.alphaTiltDegrees = -16.87; meta.betaTiltDegrees = 0
+        meta.detectors = (1...4).map { SpectrumDetectorSegment(name: "SuperXG1\($0)", azimuthDegrees: 45, elevationDegrees: 22, solidAngle: 0.7, liveTime: 1311.5, realTime: 1500) }
+        model.image = SpectroscopyRoomController.imageSettings(meta, axis: EnergyAxis(offset: -1.93221348, scale: 0.02, size: 1024), hasFourDCube: true)
+        model.image.sourceWarning = true; model.image.sourceNote = "Not registered: the EDS scan is 256 × 255 px, the 4D scan 171 × 171 px."
+        model.image.countsMedian = "median 1311"; model.image.countsHistogram = [9, 8, 6, 4, 3, 2, 1.4, 1, 0.6, 0.4]
+        model.regionSettings = RegionSettings(source: "Drawn", pixels: "65 536 · 100.0 %", counts: "123.45 M")
+        for step in SpectroscopyStep.allCases {
+            state.spectroscopy.selectedStep = step
+            assertFits("Spectroscopy / \(step.title) (opened image)", minimumWidth(SpectroscopyInspectorHost(), state: state))
+        }
+    }
 }

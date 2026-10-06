@@ -261,7 +261,7 @@ struct SpectroscopySidebarSections: View {
 
     private func regionRow(_ region: SpectroscopyRegion, isSelected: Bool) -> some View {
         Button {
-            appState.spectroscopy.selectedRegionID = region.id
+            appState.spectroscopyRoom.selectRegion(id: region.id)   // the room follows (round 2): not the session alone
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Label(region.name, systemImage: isSelected ? "largecircle.fill.circle" : "circle")

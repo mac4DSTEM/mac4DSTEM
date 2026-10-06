@@ -8,7 +8,9 @@ struct PeriodicTableView: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var fBlockOpen = false
 
-    static let cell: CGFloat = 16, gap: CGFloat = 1
+    /// 18 columns of (cell + gap) must fit the inspector's narrowest content column, 248 pt
+    /// (`InspectorWidthBudgetTests`): 18 x 13 = 234. At 16 pt it was 306 and pushed the inspector past its minimum.
+    static let cell: CGFloat = 12, gap: CGFloat = 1
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -44,7 +46,7 @@ struct PeriodicTableView: View {
         let state = model.elements.cellState(z)
         let sym = PeriodicLayout.symbol(z)
         return Text(sym)
-            .font(.system(size: 8.5, weight: .semibold))
+            .font(.system(size: 7.5, weight: .semibold))
             .frame(width: Self.cell, height: Self.cell)
             .foregroundStyle(Self.ink(state))
             .background(RoundedRectangle(cornerRadius: 3).fill(Self.fill(state, z)))

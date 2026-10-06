@@ -29,6 +29,7 @@ extension AppState {
         if !preprocess { OpenDatasetRegistry.beginOpening(url, by: self) }
         Task {
             defer { if !preprocess { OpenDatasetRegistry.endOpening(url, by: self) } }
+            if !preprocess, await openAsSpectrumImageIfApplicable(url) { return }   // v5.0 WP2: there are no load options for a spectrum image
             let load = beginDatasetLoading("Opening \(url.lastPathComponent)…")
             defer { finishDatasetLoading(owner: load) }
             let accessed = url.startAccessingSecurityScopedResource()
@@ -341,6 +342,8 @@ extension AppState {
     }
 
     func openFileAsync(url: URL) async {
+        // v5.0 WP2: a Velox EMD (or a DM4 with an EDS spectrum image and no cube) opens as a spectrum image, never as a cube.
+        if await openAsSpectrumImageIfApplicable(url) { return }
         // Review a6 / owner card D2 (a): one dataset, one window — the two windows' saves would replace each other's
         // session sidecar. Refused before anything of this window changes; this window's own dataset (a reopen,
         // Open with Options…) is never refused. The open claims its file while in flight (`OpenDatasetRegistry`).
@@ -414,7 +417,9 @@ extension AppState {
             // leaves Recents untouched — a cancelled file is one you did not
             // want, and putting it at the top of the list is backwards.
             rememberOpenedDataset(url)
+            // v5.0 WP2: a GMS file's EDS spectrum image comes with its 4D cube (same run), as the window's second document.
             finishDatasetLoading(owner: load)
+            await attachGMSSpectrumImage(of: url, descriptor: descriptor)   // after the cube shows (round 2)
         } catch {
             if accessed { url.stopAccessingSecurityScopedResource() }
             present(error)
@@ -1010,7 +1015,7 @@ extension AppState {
     /// A named phase with no knowable denominator: spinner, no percentage.
     /// Deliberately does **not** fabricate a fraction — see the
     /// `datasetSession.loadingProgress` doc comment.
-    private func beginDatasetLoadingStage(_ status: String) {
+    func beginDatasetLoadingStage(_ status: String) {
         guard datasetSession.isLoading else { return }
         datasetSession.beginLoadingStage(status)
         if activeOperation == nil { progress = nil }

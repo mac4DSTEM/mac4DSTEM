@@ -1,5 +1,8 @@
 import SwiftUI
 import Observation
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DSTEMCore
+#endif
 
 /// The room's view-model: what every Spectroscopy view reads and edits. It holds NO
 /// loading or fitting — lane R's `SpectroscopySession` fills the series, regions and
@@ -20,6 +23,8 @@ final class SpectroscopyRoomModel {
     var smoothing = "None"
     var mixed: Set<Int> = []                   // tiles whose checkbox is on
     var tiles: [MapTile] = []
+    /// Bumped whenever `tiles` or `backdrop` are replaced, so the map's bitmap is rebuilt by identity, not by comparing arrays.
+    var tileRevision = 0
 
     // Regions
     var regions: [RegionSummary] = []
@@ -44,6 +49,22 @@ final class SpectroscopyRoomModel {
     var unvalidated: Bool { ValidationState.isUnvalidated(validation) }
     var ratioLine: RatioLine?
     var fitFooter = ""
+    /// False until WP3 fits a spectrum: the table then shows window net counts only, "—" in the k-free and at% columns.
+    var hasFit = true
+    var resultsFooter = ""
+
+    /// Bound to a real spectrum image by `SpectroscopyRoomController` (false for the fixture): the controls that
+    /// have nothing behind them yet (smoothing, the at% map, Quantify, Export) are not drawn.
+    var isLive = false
+    /// The spectrum image's own grid, and its HAADF on it (0...1, row-major, empty when the file has none).
+    var gridWidth = 0
+    var gridHeight = 0
+    var backdrop: [Float] = []
+    /// The selected region's shape, outlined on the map; nil for the whole map.
+    var regionOutline: SpectrumRegionShape?
+    /// Set by the controller: a shape drawn on the map becomes a region; a region is removed.
+    var onDrawRegion: ((SpectrumRegionShape) -> Void)?
+    var onRemoveRegion: ((Int) -> Void)?
 
     // Inspectors
     var image = SpectrumImageSettings()
@@ -78,6 +99,8 @@ struct RegionSummary: Identifiable, Equatable {
     var pixels: Int
     var counts: Double                         // millions
     var tint: Color
+    /// A region the user drew (removable); the whole map is not.
+    var isDrawn = false
 }
 
 struct RatioLine: Equatable {
@@ -91,7 +114,11 @@ struct RatioLine: Equatable {
 struct SpectrumImageSettings {
     var source: String?
     var sourceWarning = false
+    /// Hover text of the warning mark: what is not registered and why.
+    var sourceNote: String?
     var frameLo: Int?, frameHi: Int?, frames: Int?
+    /// A read-only "Frames" row ("1607 summed"), for a file whose frame range cannot be changed after the open.
+    var framesReadout: String?
     var energyAxis = "File"
     var energyAxisReadout: String?
     var countsHistogram: [Double] = []

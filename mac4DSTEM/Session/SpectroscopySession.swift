@@ -6,9 +6,9 @@
 //        `let spectroscopy = SpectroscopySession()`, with no forwarding
 //        properties; views read `appState.spectroscopy.…`.
 //
-//  Nothing here computes a number. The spectrum image is an opaque reference
-//  (`SpectrumImageSource`) until the readers of lanes A and C supply one; the
-//  room's views (lane V) and the quantification (WP3) read and write this.
+//  Nothing here computes a number. The spectrum image is a `SpectrumImageSource`
+//  (Core), supplied by the Velox and GMS readers; the room's controller computes
+//  from it and the quantification (WP3) will read and write this.
 //
 //  Why its own owner and not AppState: a spectrum image is a second kind of
 //  document in the window (ADR 053 item 3, M2 item 4), independent of the 4D
@@ -24,52 +24,9 @@ import Observation
 
 // MARK: - The spectrum image, as the room sees it
 
-/// What the shell needs to know about an opened EDX spectrum image: its file,
-/// its scan grid and its energy axis. The numbers are the file's own, as read.
-package struct SpectrumImageMetadata: Equatable, Sendable {
-    package var fileName: String
-    package var filePath: String
-    /// Scan columns × rows of the spectrum image's own grid (M2: the native
-    /// grid, never resampled onto the 4D scan's).
-    package var scanWidth: Int
-    package var scanHeight: Int
-    /// Energy channels per spectrum.
-    package var channelCount: Int
-    /// The energy axis as the file states it: E(i) = offset + i · dispersion.
-    /// Refinement on the pooled spectrum (ADR 054 item 4) is shown beside it,
-    /// never written over it.
-    package var energyOffsetEV: Double
-    package var energyDispersionEV: Double
-    /// Real-space pixel size, when the file carries one.
-    package var scanPixelSize: Double?
-    package var scanPixelUnit: String?
-
-    package nonisolated init(
-        fileName: String, filePath: String, scanWidth: Int, scanHeight: Int,
-        channelCount: Int, energyOffsetEV: Double, energyDispersionEV: Double,
-        scanPixelSize: Double? = nil, scanPixelUnit: String? = nil
-    ) {
-        self.fileName = fileName
-        self.filePath = filePath
-        self.scanWidth = scanWidth
-        self.scanHeight = scanHeight
-        self.channelCount = channelCount
-        self.energyOffsetEV = energyOffsetEV
-        self.energyDispersionEV = energyDispersionEV
-        self.scanPixelSize = scanPixelSize
-        self.scanPixelUnit = scanPixelUnit
-    }
-
-    package nonisolated var pixelCount: Int { scanWidth * scanHeight }
-}
-
-/// An opened EDX spectrum image. The shell holds it as an opaque reference:
-/// readers (the Velox sparse store, a GMS DM4 EDS SI) conform and add their
-/// own data access; the room's computations ask for what they need through
-/// the conforming type, not through this protocol.
-package protocol SpectrumImageSource: AnyObject, Sendable {
-    nonisolated var metadata: SpectrumImageMetadata { get }
-}
+// `SpectrumImageMetadata` and `SpectrumImageSource` moved to Core (`Core/Spectroscopy/SpectrumImageSource.swift`,
+// v5.0 WP2 R2): one protocol now carries the counts, the energy axis and the file's own metadata, so the session's
+// opaque reference and Core's compute protocol are the same thing.
 
 // MARK: - The room's five steps (ADR 054 item 8)
 
@@ -149,12 +106,15 @@ package struct SpectroscopyRegion: Equatable, Identifiable, Sendable {
     package var name: String
     package var kind: Kind
     package var pixelCount: Int
+    /// The drawn shape on the spectrum image's grid; nil for the whole map (and for regions transported from the 4D scan).
+    package var shape: SpectrumRegionShape?
 
-    package nonisolated init(id: Int, name: String, kind: Kind, pixelCount: Int) {
+    package nonisolated init(id: Int, name: String, kind: Kind, pixelCount: Int, shape: SpectrumRegionShape? = nil) {
         self.id = id
         self.name = name
         self.kind = kind
         self.pixelCount = pixelCount
+        self.shape = shape
     }
 }
 
@@ -245,6 +205,33 @@ package final class SpectroscopySession {
                                        pixelCount: source.metadata.pixelCount)
         regions = [whole]
         selectedRegionID = whole.id
+    }
+
+    /// Adds a drawn region and selects it. The pixel count is the mask's; a shape that holds no pixel adds nothing.
+    @discardableResult
+    package func addDrawnRegion(_ shape: SpectrumRegionShape) -> SpectroscopyRegion? {
+        guard let source else { return nil }
+        let count = shape.mask(nx: source.nx, ny: source.ny).reduce(0) { $0 + ($1 ? 1 : 0) }
+        guard count > 0 else { return nil }
+        let id = (regions.map(\.id).max() ?? -1) + 1
+        let n = regions.filter { $0.kind == .drawn }.count + 1
+        let region = SpectroscopyRegion(id: id, name: "Region \(n)", kind: .drawn, pixelCount: count, shape: shape)
+        regions.append(region)
+        selectedRegionID = id
+        return region
+    }
+
+    /// Removes a drawn region (never the whole map); the whole map becomes the selection if it was the removed one.
+    package func removeRegion(id: Int) {
+        guard let r = regions.first(where: { $0.id == id }), r.kind != .wholeMap else { return }
+        regions.removeAll { $0.id == id }
+        if selectedRegionID == id { selectedRegionID = regions.first?.id }
+    }
+
+    /// The mask of a region on the open spectrum image: nil (every pixel) for the whole map.
+    package func mask(of region: SpectroscopyRegion) -> PixelMask? {
+        guard let source, let shape = region.shape else { return nil }
+        return shape.mask(nx: source.nx, ny: source.ny)
     }
 
     /// Lets go of the spectrum image and everything derived from it.

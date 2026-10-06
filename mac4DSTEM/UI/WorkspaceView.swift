@@ -88,8 +88,8 @@ struct WorkspaceView: View {
         } else if !appState.hasDocument {
             WelcomeWorkspace()
         } else if appState.navigation.workspaceArea == .spectroscopy {
-            // v5.0 WP2: lane V's views replace the placeholder (R2).
-            SpectroscopyRoomPlaceholder()
+            // v5.0 WP2: the room, wired by R2.
+            SpectroscopyRoomHost()
         } else if appState.isSpectrumOnly {
             // A spectrum image and no cube: Results has nothing of the 4D
             // kind to review, and a 4D room is withheld (`isWorkspaceWithheld`).

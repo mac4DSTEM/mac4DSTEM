@@ -10,13 +10,22 @@ import DSTEMSession
 @MainActor
 final class SpectroscopyRoomTests: XCTestCase {
 
-    /// A spectrum image with nothing behind it but its metadata.
+    /// A spectrum image with nothing behind it but its metadata: every sum is zero.
     private final class StubSpectrumImage: SpectrumImageSource {
         let metadata: SpectrumImageMetadata
+        nonisolated let energyAxis = EnergyAxis(offset: -0.48, scale: 0.005, size: 4096)
+        nonisolated let scanImage: [Float]? = nil
+        nonisolated var ny: Int { metadata.scanHeight }
+        nonisolated var nx: Int { metadata.scanWidth }
+        nonisolated var channels: Int { metadata.channelCount }
         init(width: Int = 256, height: Int = 255) {
             metadata = SpectrumImageMetadata(
                 fileName: "stub.emd", filePath: "/tmp/stub.emd", scanWidth: width, scanHeight: height,
                 channelCount: 4096, energyOffsetEV: -480, energyDispersionEV: 5)
+        }
+        nonisolated func sum(mask: PixelMask?) -> [UInt64] { [UInt64](repeating: 0, count: channels) }
+        nonisolated func windowSums(_ ranges: [Range<Int>]) -> [[UInt64]] {
+            [[UInt64]](repeating: [UInt64](repeating: 0, count: nx * ny), count: ranges.count)
         }
     }
 
