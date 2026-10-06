@@ -215,10 +215,14 @@ struct QuantificationSection: View {
     }
 }
 
-/// Export: the results table as CSV, the method as JSON, and the shown spectrum as CSV (the only place that writes them).
+/// Export: the results table as CSV, the method as JSON, the shown spectrum as CSV, and the maps as PNG files and one CSV
+/// (the only place that writes them).
 struct ExportSection: View {
     @Bindable var model: SpectroscopyRoomModel
-    static let csvTitle = "Results CSV\u{2026}", jsonTitle = "Method JSON\u{2026}", spectrumTitle = "Spectrum CSV\u{2026}"
+    @State private var pickingFolder = false
+    static let csvTitle = "Results CSV\u{2026}", jsonTitle = "Method JSON\u{2026}", spectrumTitle = "Spectrum CSV\u{2026}", mapsTitle = "Maps\u{2026}"
+    /// The Maps button is on whenever there is an element map to write (no fit needed).
+    static func canExportMaps(_ model: SpectroscopyRoomModel) -> Bool { !model.tiles.isEmpty }
 
     /// What each button hands the save panel; nil until its text exists (the button is then off).
     static func resultsExport(_ e: ExportSettings) -> PendingExport? { e.csv.map { PendingExport(text: $0, isJSON: false, name: e.fileStem) } }
@@ -244,6 +248,20 @@ struct ExportSection: View {
                     .disabled(Self.spectrumExport(e) == nil)
                     .help("The shown spectrum: energy, counts, and the model and background where fitted")
                     .accessibilityIdentifier("spectroscopy.export.spectrum")
+                Button(Self.mapsTitle) { pickingFolder = true }
+                    .disabled(!Self.canExportMaps(model))
+                    .help("Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel, and the net-count maps as one CSV, into a folder you pick")
+                    .accessibilityIdentifier("spectroscopy.export.maps")
+                    .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder]) { result in
+                        switch result {
+                        case .success(let folder):
+                            do {
+                                let names = try MapsExport.write(try MapsExport.files(model), to: folder)
+                                model.exportNote = MapsExport.note(written: names, folder: folder)
+                            } catch { model.exportNote = "Could not write the maps: \(error.localizedDescription)" }
+                        case .failure(let error): model.exportNote = "Could not write the maps: \(error.localizedDescription)"
+                        }
+                    }
             }
             if Self.resultsExport(e) == nil { InspectorNote("Once Quantify has run, the results table and the method can be written.") }
             if let saved = model.exportNote { InspectorNote(saved) }

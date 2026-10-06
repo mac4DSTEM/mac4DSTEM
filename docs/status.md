@@ -12,6 +12,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 | Gate | Result |
 |---|---|
+| Maps export (2026-10-07, lane J) | On main after the port: unit **2123 / 0 / 3 = 2126** run by name (`gateJ/unit.log`; `func test` 2127: one declaration is not a method the runner lists), exit 0; core 0; build 0. Lane mutations 13/13 red. Driven on SI 1339: Export → Maps… → folder → "Wrote 10 files to out": nine 1024² PNGs as displayed and one maps.csv (x, y, net counts per element). |
 | Spec 2 clean-up (2026-10-07, lane G) | On main after the port (the lane's tree byte-identical): unit **2112 / 0 / 3 = 2115** = `func test` count, exit 0 (`gateG/unit.log`); core 0. Lane mutations 5/5 red. −283 lines; no behaviour the drive record saw changed. |
 | Spec 2 landing (2026-10-07, lanes A–F + supervisor merge; ADR 057) | Fresh gate copy (main 8a063cef + six lanes + merge edits + three drive fixes): unit **2121 / 0 / 3 = 2124** = `func test` count, exit 0 (`gate1/unit2.log`); core 0; Debug build 0. Lane mutations A 13, B 9, C 10, D 11, E 20, F 10, each red in its lane. Driven by the session on the synthetic cube and the owner's Velox SI 1339 (`archive/v5/room-drive-3-2026-10-07.md`): every spec-2 drive check seen but the five named there. |
 | Lane U2 (2026-10-06) | Fresh gate copy (main + U2): unit 2057 run by name / 0 failed / 3 skipped, exit 0 (`gateU2/unit.log`); core 0. Mutations 2/2 red. Driven on the owner's Velox SI 1339: "Accept Cu, Al, O" accepts only the shown tiles, at% computed for all five, zoom 0–9.5 keV. |

@@ -314,6 +314,8 @@ struct ExportSettings {
     /// The shown spectrum as CSV (energy, counts, and the model and background where fitted): available whenever a spectrum is shown.
     var spectrumCSV: String?
     var fileStem = "spectroscopy"
+    /// The maps' file stem: the image's own name, no region (the maps are the whole scan). Set by the controller with the spectrum.
+    var mapsStem = "spectroscopy"
 }
 
 // MARK: - Illustrative fixture

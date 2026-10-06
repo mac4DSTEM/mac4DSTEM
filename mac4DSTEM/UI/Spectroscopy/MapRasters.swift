@@ -1,4 +1,6 @@
 import SwiftUI
+import ImageIO
+import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
@@ -114,6 +116,13 @@ enum MapBitmap {
                        space: CGColorSpaceCreateDeviceRGB(),
                        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+    }
+    /// The bitmap as PNG bytes at its own pixel grid (no resampling, no chrome); nil if the encoder refuses. The Maps export's one encoder.
+    static func pngData(_ image: CGImage) -> Data? {
+        let out = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, image, nil)
+        return CGImageDestinationFinalize(dest) ? out as Data : nil
     }
     static func q(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * 255).rounded()))) }
 }

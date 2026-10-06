@@ -228,8 +228,8 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **Auto ID on real Al pools:** misses Si and Mg, proposes Eu/Hf/Ho — and since spec 2 it APPLIES its picks, so SI 1339 opens with
   seven elements mapped (Cu, Al, O, Eu, Hf, Co, Ho); the person unpicks. F3.2 refuted as a default; next: a new registration. The
   sum-peak questions are no longer drawn on the plot; they live in the Picked row's hover. `suggestedRole` is unused.
-- **Not yet seen on screen:** Export's save panels (Spectrum CSV…), the Fitting section, a polygon closed by double-click, ⎋ on a
-  draft, the editable histogram field, Reduce Transparency on the glass capsules. New windows open at 1280×800 (frozen shell).
+- **Seen in drive 2 (2026-10-07):** Spectrum CSV… and Maps… save panels, Fitting, polygon close by double-click, ⎋ on a draft, the
+  ellipse tool. **Not yet seen:** Reduce Transparency on the glass capsules; the histogram field after lane K's fix. New windows open at 1280×800 (frozen shell).
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).

@@ -826,6 +826,7 @@ final class SpectroscopyRoomController {
         guard let source else { return }
         model.export.spectrumCSV = SpectrumCSV.text(model.series, imageName: source.metadata.fileName, regionName: regionName)
         model.export.fileStem = SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName)
+        model.export.mapsStem = MapsExport.stem(imageName: source.metadata.fileName)
     }
 
     /// The pooled fit's numbers into the model: the table's rows, the footers, the warnings, the plot, the readouts.
