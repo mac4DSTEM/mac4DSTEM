@@ -295,6 +295,18 @@ Statistics nits carried:
 - A negative live time should be treated as corrupt (fall back with the reason).
 - The "coverage 0.68 even at net 0" note was measured at B = 100.
 
+### Real Al-Si-Mg check (2026-10-06): Quantify is not usable on the owner's LPBF data yet — the next science item
+Headless run of the app's path on three of the owner's Velox SIs (private, read in place; numbers from the session's
+`realAlMgSi/` logs). Maps: Al and Si match Velox's map SHAPE (Spearman ρ ≥ .83; Velox's `*-net.tif` exports are 8-bit RGB,
+so no count parity is possible). Quantify: **at% is withheld on every pool of every file** — the unlisted-line check
+names implausible heavy elements (Lu/Tm/Er Mα, Hf Lα…) off a +45…+66 σ residual just above Al Kα (unmodelled Al Kα
+shape, hypothesis) and candidates at 6–16 keV move Mg by 2–25 σ through the shared continuum. **The continuum has no Si
+K edge** (data at 1.83–1.95 keV are 0.58–0.71 of it, −13…−28 σ/channel; `Continuum.swift` has only the Al edge; likely the
+detector's Si). The axis refinement depends on the element list (+27…+36 eV vs ≈ 0). Window-method Mg in the matrix reads
+above the fit (its right window sits below the Al K edge drop). The unlisted check costs 23–437 s per pool. Next: a Gate D
+on the Si-edge continuum and the Al Kα shape (owner's pure-Al spectrum helps), and a bar for implausible candidates;
+until then F1 withholds correctly but makes the room unusable on Al alloys.
+
 ### Weak lines beside Al Kα read low in the WP3 fit (2026-10-06) — badged, unmeasured on real data
 The default continuum (Kramers × non-negative Bernstein (9,5), split at the Al K edge) recovers a weak Mg Kα about 300
 counts low per pooled spectrum on both synthetic generators (30 seeds; laneF report2/3: A −295 ± 31 / −402 ± 33 at
