@@ -86,7 +86,7 @@ struct QuantPanelView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             if model.results.isEmpty {
-                Text(model.isLive ? "Pick elements in the periodic table to see their window net counts here." : "No results yet.")
+                Text(QuantifyPresentation.emptyText(isLive: model.isLive, hasProposals: !model.elements.suggestions.isEmpty))
                     .font(.callout).foregroundStyle(.secondary)
             } else { table }
             if let r = model.ratioLine, model.hasFit {

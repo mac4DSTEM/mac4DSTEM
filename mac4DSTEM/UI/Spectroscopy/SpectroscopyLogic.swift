@@ -334,7 +334,7 @@ nonisolated struct SpectrumSeries: Equatable, Sendable {
 }
 
 nonisolated struct LineMarker: Equatable, Identifiable, Sendable {
-    enum Kind: Sendable { case line, suspect, edge }   // edge: the Al K edge, grey and dotted
+    enum Kind: Sendable { case line, suspect, edge, proposed }   // edge: the Al K edge, grey and dotted; proposed: an Auto ID proposal, muted dashed
     var label: String                // "Mg Kα", "Ga Lα?", "Al K edge"
     var energy: Double
     var elementZ: Int?

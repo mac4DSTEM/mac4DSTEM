@@ -303,8 +303,8 @@ final class SpectrumImageOpeningTests: XCTestCase {
         try await waitFor { model.results.count == 5 }
         XCTAssertEqual(model.resultsFooter, "window net counts")
         XCTAssertEqual(model.tiles.count, 5)
-        XCTAssertEqual(model.mixed, Set(model.results.filter { $0.failure == nil }.map(\.z)),
-                       "a new tile is ticked into the mix, unless its line is not a measurement")
+        XCTAssertEqual(model.mixed, Set(model.results.map(\.z)),
+                       "R10: a picked element is ticked into the mix, whether or not its line is a measurement (the note stays on tile and row)")
         for r in model.results { XCTAssertNil(r.kFreeSigma); XCTAssertEqual(r.atPercent, 0) }
         // The whole-map Al row is the exact window net count of the whole-map spectrum.
         let spectrum = image.sum(mask: nil)
@@ -479,7 +479,9 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(row.failure).hasPrefix("not a measurement: the background windows"))
         XCTAssertTrue(row.sigmaTerms.contains("G = ") && row.sigmaTerms.contains("B = ") && row.sigmaTerms.contains("s = "))
         XCTAssertEqual(model.tiles.map(\.z), [13])
-        XCTAssertFalse(model.mixed.contains(13), "not auto-ticked into the mix")
+        // R10 (changed from "not auto-ticked"): the mix is a picture, the note is the honesty label; a picked element is in the mix.
+        XCTAssertTrue(model.mixed.contains(13), "R10: a picked element is ticked into the mix even when its line is not a measurement")
+        XCTAssertNotNil(model.tiles.first?.notMeasuredWhy, "the tile keeps its not-a-measurement note")
     }
 
     /// One window rule: a window that holds a 4D cube sends a spectrum-image file to a NEW window and attaches nothing.

@@ -226,7 +226,7 @@ struct MapTileView: View {
                 Toggle("In the ColorMix: \(title)", isOn: Binding(get: { model.mixed.contains(t.z) }, set: { _ in model.toggleMix(t.z) }))
                     .labelsHidden().toggleStyle(.checkbox).controlSize(.mini)
                     .environment(\.colorScheme, .dark)   // the tile is dark whatever the appearance: an unticked box stays visible on it
-                    .help(t.notMeasuredWhy.map { "Not in the ColorMix by default (tick it to add): \($0)" } ?? "Include \(title) in the ColorMix")
+                    .help(t.notMeasuredWhy.map { "In the ColorMix, but not a measurement: \($0)" } ?? "Include \(title) in the ColorMix")
             }
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).shadow(radius: 1)
             if map == .colorMix {

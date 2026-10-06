@@ -290,6 +290,12 @@ final class SpectroscopyRoomController {
         m.tiles = tiles
         m.tileRevision += 1
         if case .element(let z) = m.active, !tiles.contains(where: { $0.z == z }) { m.active = .colorMix }
+        // R10: the proposals' muted markers land with their tiles (this path does not run `apply`).
+        m.markers = m.markers.filter { $0.kind != .proposed } + Self.proposedMarkers(for: windows, axis: source.energyAxis, beam: source.metadata.beamEnergyKeV)
+        if !m.viewportIsManual {
+            let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan)
+            m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
+        }
     }
 
     func cancelAutoID() {
@@ -746,16 +752,16 @@ final class SpectroscopyRoomController {
 
         // Markers: the chosen family's lines of every active element.
         m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV,
-                                 quantified: Set(m.elements.quantified.map { PeriodicLayout.symbol($0) })) + (m.autoID.outcome?.suspectMarkers ?? [])
+                                 quantified: Set(m.elements.quantified.map { PeriodicLayout.symbol($0) }))
+            + Self.proposedMarkers(for: out.proposedWindows, axis: axis, beam: source.metadata.beamEnergyKeV)
+            + (m.autoID.outcome?.suspectMarkers ?? [])
 
         // Rows, tiles: the quantified elements only (fit-only ones shape the windows, not the table).
         var rows: [ResultRow] = [], tiles: [MapTile] = []
         let quantified = Set(m.elements.quantified.map { PeriodicLayout.symbol($0) })
         for (i, w) in out.windows.enumerated() where quantified.contains(w.element) {
             guard let z = PeriodicLayout.z(of: w.element) else { continue }
-            var notMeasured = false
             if let c = out.counts[i] {
-                notMeasured = c.backgroundExceedsSignal
                 let bg = c.background.map { ", B = \(Self.counts($0)), s = \(String(format: "%.3f", c.scale ?? 0))" } ?? " (no background window)"
                 rows.append(ResultRow(
                     z: z, netCounts: c.net, netSigma: c.sigma, kFreeRatio: 0, kFreeSigma: nil, atPercent: 0, atSigma: 0,
@@ -769,8 +775,8 @@ final class SpectroscopyRoomController {
             if let map = out.maps[i] {
                 tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map),
                                      notMeasuredWhy: out.counts[i]?.notAMeasurementText))
-                // A line that is not a measurement is never ticked into the mix on its own; the user may still tick it.
-                if seenTiles.insert(z).inserted, !notMeasured { m.mixed.insert(z) }
+                // R10: a picked element goes into the mix (a picture); its not-a-measurement note stays on the tile and the row. The user may untick.
+                if seenTiles.insert(z).inserted { m.mixed.insert(z) }
             }
         }
         m.results = rows
@@ -879,6 +885,19 @@ final class SpectroscopyRoomController {
                                       fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy),
                                       priority: (l.id == w.id ? 2 : 0) + (quantified.contains(w.element) ? 1 : 0)))
             }
+        }
+        return out
+    }
+
+    /// Auto ID's proposals on the first spectrum (R10): each proposed element's own line, muted and dashed, named like a picked
+    /// one ("Al Kα", no "?": that is a suspect's). Accepting turns it into a coloured marker through `markers`.
+    static func proposedMarkers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?) -> [LineMarker] {
+        var out: [LineMarker] = []
+        for w in windows {
+            guard let l = XRayLines.line(w.id), let z = PeriodicLayout.z(of: w.element),
+                  XRayLines.linesInRange([l.id], axis: axis, beamEnergy: beam).isEmpty == false else { continue }
+            out.append(LineMarker(label: ElementWindows.label(ofLineID: l.id), energy: l.energy, elementZ: z, kind: .proposed,
+                                  fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy)))
         }
         return out
     }

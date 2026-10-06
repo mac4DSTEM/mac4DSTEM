@@ -148,6 +148,30 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(AutoIDPresentation.outcome(proposal([candidate("Mg", "Mg_Ka", energy: 1.254)]), region: "r").suggestions.first).reason.contains("\u{03C7}"))
     }
 
+    // MARK: D3 (wp3e Gate D2): suggestions, excesses and suspects are ordered by net / L_D, strongest first
+
+    /// A hand-built result may list a 1.2 x L_D candidate before a 3.0 x one; the room shows the strong one first in each list, and
+    /// equal significance keeps the proposer's order (a stable sort).
+    /// Mutation: drop the sort in `AutoIDPresentation.outcome` (iterate `r.proposed` and `r.sumPeakQuestions` as given) - red.
+    func testSuggestionsExcessesAndSuspectsAreSortedBySignificanceStably() throws {
+        func sumQ(_ el: String, net: Double) -> ElementCandidate {
+            candidate(el, "\(el)_Ka", energy: 2.957, net: net,
+                      conflicts: LineConflicts.conflicts(element: el, line: "\(el)_Ka", lineEnergyKeV: 2.957, parents: alSum))
+        }
+        let weakMg = candidate("Mg", "Mg_Ka", energy: 1.254, net: 360)             // 1.2 x L_D
+        let strongSi = candidate("Si", "Si_Ka", energy: 1.740, net: 900)           // 3.0 x
+        let tieP = candidate("P", "P_Ka", energy: 2.013, net: 900)                 // 3.0 x, after Si in the input
+        let weakLu = candidate("Lu", "Lu_Ma", energy: 1.581, net: 360)
+        let strongTm = candidate("Tm", "Tm_Ma", energy: 1.462, net: 900)
+        let r = proposal([weakMg, strongSi, tieP, weakLu, strongTm, sumQ("Ar", net: 360), sumQ("K", net: 900)], chi: 2)
+        let o = AutoIDPresentation.outcome(r, region: "r", beside: { e, _ in (e > 1.45 && e < 1.6) ? "Al K\u{03B1}" : nil })
+        XCTAssertEqual(o.suggestions.map(\.z), [14, 15, 12], "Si and P (3.0 x, input order) before Mg (1.2 x)")
+        XCTAssertEqual(o.excesses.map(\.proposerLabel), ["Tm M\u{03B1}", "Lu M\u{03B1}"], "3.0 x before 1.2 x")
+        XCTAssertEqual(o.suspects.map(\.energy).count, 2)
+        XCTAssertTrue(o.suspects[0].label.hasSuffix("(or K K\u{03B1})"), "3.0 x first: \(o.suspects[0].label)")
+        XCTAssertTrue(o.suspects[1].label.hasSuffix("(or Ar K\u{03B1})"), o.suspects[1].label)
+    }
+
     // MARK: Model rules
 
     private func model() -> SpectroscopyRoomModel {

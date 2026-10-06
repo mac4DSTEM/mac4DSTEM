@@ -441,6 +441,25 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         try await waitFor("no overlay") { m.series.overlay == nil }
     }
 
+    /// R10: with proposals and nothing picked, the first spectrum carries a muted marker per proposed element; accepting one
+    /// turns it into the coloured marker of a picked element (no muted duplicate).
+    /// Mutations: `proposedMarkers` dropped from `apply`'s marker list - red; the accepted element still in `proposedWindows` - red.
+    func testProposedElementsAreMarkedMutedAndAcceptingColoursThem() async throws {
+        let Cu = 29
+        let (_, on, _) = open(autoID: true)
+        try await waitFor("the proposals' tiles") { on.model.tiles.contains { $0.z == Cu && $0.proposed } }
+        let muted = on.model.markers.filter { $0.kind == .proposed }
+        let cu = try XCTUnwrap(muted.first { $0.elementZ == Cu }, "Cu K\u{03B1} is marked muted before anything is picked")
+        XCTAssertEqual(cu.label, "Cu K\u{03B1}")
+        XCTAssertEqual(muted.count, on.model.elements.suggestions.count, "one muted marker per proposal")
+        // a pick elsewhere re-runs `apply`: the other proposals keep their muted markers
+        on.model.elements.click(13); on.elementsChanged()
+        try await waitFor("Al's row and Cu still muted") { on.model.results.count == 1 && on.model.markers.contains { $0.elementZ == Cu && $0.kind == .proposed } }
+        on.model.elements.click(Cu); on.elementsChanged()
+        try await waitFor("Cu's row") { on.model.results.count == 2 && on.model.markers.contains { $0.elementZ == Cu && $0.kind == .line } }
+        XCTAssertFalse(on.model.markers.contains { $0.elementZ == Cu && $0.kind == .proposed }, "an accepted proposal is not also muted")
+    }
+
     /// Auto ID on open: after the first sums, the proposer runs; its proposals are mapped as PROPOSED tiles, outside the
     /// ColorMix and the table, and a proposal moves no listed number. Accept lists them.
     /// Mutations: proposals windowed together with the listed elements for the rows (Al's net moves) — red; a proposed tile ticked

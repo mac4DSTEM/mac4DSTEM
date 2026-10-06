@@ -241,8 +241,7 @@ struct SpectrumStripView: View {
         let visible = model.markers.filter { $0.energy >= vp.lo && $0.energy <= vp.hi }
         for m in visible {
             let x = X(m.energy)
-            let grey = m.kind != .line
-            let color: Color = grey ? .gray : model.color(m.elementZ ?? 0)
+            let color = Self.markerColor(m, model: model)
             var p = Path(); p.move(to: CGPoint(x: x, y: main.minY)); p.addLine(to: CGPoint(x: x, y: main.maxY))
             ctx.stroke(p, with: .color(color.opacity(0.8)),
                        style: StrokeStyle(lineWidth: 0.8, dash: m.kind == .edge ? [1, 2] : [4, 3]))
@@ -250,8 +249,7 @@ struct SpectrumStripView: View {
         let layout = MarkerLabelLayout.place(visible.filter { $0.kind != .edge }.map { ($0.label, X($0.energy), $0.priority) }, minX: main.minX, maxX: main.maxX)
         for m in visible {
             let x = X(m.energy)
-            let grey = m.kind != .line
-            let color: Color = grey ? .gray : model.color(m.elementZ ?? 0)
+            let color = Self.markerColor(m, model: model)
             var t = Text(m.label).font(.system(size: m.kind == .edge ? 9 : 10, weight: m.kind == .line ? .semibold : .regular)).foregroundStyle(color)
             if m.kind == .suspect { t = t.italic() }
             if m.kind == .edge {   // the edge label sits low, by the curve, so it never collides with the line names
@@ -286,6 +284,15 @@ struct SpectrumStripView: View {
             rc.stroke(p, with: .color(Color.primary.opacity(0.6)), lineWidth: 0.8)
         }
         drawHover(ctx, size, main)
+    }
+
+    /// A proposal is secondary-coloured (muted), a suspect or the edge grey, a line its element's colour.
+    private static func markerColor(_ m: LineMarker, model: SpectroscopyRoomModel) -> Color {
+        switch m.kind {
+        case .line: return model.color(m.elementZ ?? 0)
+        case .proposed: return .secondary
+        case .suspect, .edge: return .gray
+        }
     }
 
     /// Cursor guide and readout (Velox shows the same): energy, counts, nearest line.

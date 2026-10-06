@@ -12,6 +12,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 | Gate | Result |
 |---|---|
+| R10 + WP3e D3 (2026-10-06) | Fresh gate copy (main + R10 + the D3 sort): unit 2041 run by name, 0 failed, 3 skipped (2037 "passed on" lines + one split by parallel output), exit 0 (`gateR10/unit.log`); core 0. Lane mutations R10 6/6, D3 1/1 red. WP3e D1 failed its pre-landing print → closed (evidence in `archive/v5/wp3e-results-2026-10-06/`). |
 | Room polish R8 (2026-10-06) | Fresh gate copy (main + R8): unit **2032 / 0 / 3 = 2036** = `func test` count, exit 0 (`gateR8/unit.log`); core 0. Lane mutations 7/7 red. Driven on the owner's Velox SI 1339: Al proposed on open (no false excess), ColorMix and tiles stretched, scale bar "200 nm", one caveat block. |
 | WP3e no-Gate-D items R7 (2026-10-06) | Fresh gate copy (main + R7): unit **2025 / 0 / 3 = 2028** = `func test` count, exit 0 (`gateR7/unit.log`); core 0. Lane mutations 4/4 red. No file under `Fit/`; `ProposalResult.reducedChiSquared` added (existing value). Unverified on screen (the drive was stopped: a keystroke sequence lost focus). |
 | Room polish R6 (2026-10-06) | Fresh gate copy (main + R6): unit **2021 / 0 / 3 = 2024** = `func test` count, exit 0 (`gateR6/unit.log`); core 0. Lane mutations 8/8 red. Supervisor kept the at% header's "· no absorption" in words (R6 had moved it to a hover). Driven on the owner's Velox SI 1339: ColorMix dominant, tiles beside, net ± σ one line, caveat shown. |

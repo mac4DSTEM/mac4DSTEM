@@ -217,7 +217,7 @@ struct MapTile: Identifiable {
     var z: Int
     var width: Int, height: Int
     var values: [Float]                        // 0...1, row-major
-    /// Why the tile is not ticked into the ColorMix by default: its window method says "not a measurement" (s\u{00B7}B \u{2265} G).
+    /// Why the tile's map is a picture and not a measurement (it is still in the ColorMix; the note stays): its window method says "not a measurement" (s\u{00B7}B \u{2265} G).
     var notMeasuredWhy: String? = nil
     /// An Auto ID proposal not yet accepted: mapped so the evidence is visible, dimmed, never in the ColorMix, never quantified.
     var proposed = false

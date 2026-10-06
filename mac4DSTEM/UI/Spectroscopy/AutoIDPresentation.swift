@@ -82,11 +82,16 @@ nonisolated enum AutoIDPresentation {
         }
     }
 
+    /// Strongest first (net / L_D, D3 of wp3e Gate D2); equal significance keeps the given order.
+    static func bySignificance(_ cs: [ElementCandidate]) -> [ElementCandidate] {
+        cs.enumerated().sorted { $0.element.significance != $1.element.significance ? $0.element.significance > $1.element.significance : $0.offset < $1.offset }.map(\.element)
+    }
+
     /// `beside` answers "what listed line is this energy (of this element) next to?" (nil = nothing): see `besideCheck`.
     static func outcome(_ r: ProposalResult, region: String, beside: (Double, String) -> String? = { _, _ in nil }) -> AutoIDOutcome {
         var suggestions: [ElementSuggestion] = []
         var excesses: [AutoIDExcess] = []
-        for c in r.proposed {   // NOT `candidates.filter(\.isProposed)`: a sum-peak question is not a finding
+        for c in bySignificance(r.proposed) {   // NOT `candidates.filter(\.isProposed)`: a sum-peak question is not a finding
             let stats = stats(c, chiSquared: r.reducedChiSquared)
             if let line = beside(c.energyKeV, c.element) {   // F3.1: a misfit of that line's shape or the continuum, not a detected element
                 excesses.append(AutoIDExcess(beside: line, proposerLabel: UnlistedLineChecker.displayName(c.group), stats: stats))
@@ -100,7 +105,7 @@ nonisolated enum AutoIDPresentation {
             let role: ElementRole = c.conflicts.contains { $0.kind == .fibContamination } ? .fitOnly : .quantify
             suggestions.append(ElementSuggestion(z: z, reason: reason, proposedRole: role))
         }
-        let suspects: [AutoIDSuspect] = r.sumPeakQuestions.map { c in
+        let suspects: [AutoIDSuspect] = bySignificance(r.sumPeakQuestions).map { c in
             let sums = c.conflicts.filter { $0.kind == .sumPeak }
             let lead = sums.map(sumLabel).joined(separator: " / ")
             return AutoIDSuspect(label: "\(lead)? (or \(ElementWindows.label(ofLineID: c.group)))", energy: c.energyKeV,

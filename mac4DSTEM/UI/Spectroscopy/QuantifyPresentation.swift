@@ -130,6 +130,13 @@ nonisolated struct UnlistedLineNote: Equatable, Sendable {
 }
 
 nonisolated enum QuantifyPresentation {
+    /// The quant panel's sentence while there is no row (R10): with Auto ID's proposals on the table it says to accept them.
+    static func emptyText(isLive: Bool, hasProposals: Bool) -> String {
+        guard isLive else { return "No results yet." }
+        return hasProposals ? "Accept the proposed elements or pick in the periodic table to see their net counts."
+                            : "Pick elements in the periodic table to see their window net counts here."
+    }
+
     /// One block, not two (R8): the unlisted-line line and the at% caveat said the same thing. While the check runs the one line
     /// is the check's; with candidates the one line is the caveat sentence (it names what is unlisted and the largest move, the
     /// buttons stay); otherwise the unlisted line stands and the note (a refusal, say) stays beside it. The export is untouched.
