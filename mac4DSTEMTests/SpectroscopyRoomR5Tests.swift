@@ -24,14 +24,11 @@ final class SpectroscopyRoomPlanTests: XCTestCase {
             let tag = "\(what) in \(Int(room.width)) x \(Int(room.height))"
             XCTAssertGreaterThanOrEqual(p.bottomHeight, 220 - 0.01, "\(tag): the spectrum row keeps its minimum", file: file, line: line)
             XCTAssertEqual(p.mapsHeight + p.bottomHeight, room.height, accuracy: 0.01, "\(tag): the two bands are the room", file: file, line: line)
-            if !p.scrolls {
-                for r in [p.arrangement.colorMix] + p.arrangement.tiles {
-                    XCTAssertLessThanOrEqual(r.maxY, p.gridAvail.height + 0.01, "\(tag): every tile inside the maps block", file: file, line: line)
-                    XCTAssertLessThanOrEqual(r.maxX, p.gridAvail.width + 0.01, "\(tag): inside the width", file: file, line: line)
-                }
-            } else {
-                XCTAssertGreaterThan(p.arrangement.size.height, p.gridAvail.height, "\(tag): scrolls only because it is taller than the block", file: file, line: line)
-            }
+            // R6: the plan's maps block is a ColorMix + a tile container, both inside `gridAvail`; the tile grid alone may scroll.
+            XCTAssertLessThanOrEqual(p.maps.colorMix.maxX, p.gridAvail.width + 0.01, "\(tag): ColorMix inside the width", file: file, line: line)
+            XCTAssertLessThanOrEqual(p.maps.colorMix.maxY, p.gridAvail.height + 0.01, "\(tag): ColorMix inside the block", file: file, line: line)
+            XCTAssertLessThanOrEqual(p.maps.tileArea.maxX, p.gridAvail.width + 0.01, "\(tag): tiles inside the width", file: file, line: line)
+            XCTAssertLessThanOrEqual(p.maps.tileArea.maxY, p.gridAvail.height + 0.01, "\(tag): tiles inside the block", file: file, line: line)
         }
     }
 
@@ -43,36 +40,30 @@ final class SpectroscopyRoomPlanTests: XCTestCase {
     /// Mutation: `minimumBottomHeight` made 0 - red.
     func testTheTallVeloxStripKeepsTheSpectrumRowOnScreen() { check(5, 215.0 / 926.0, "strip x5"); check(1, 215.0 / 926.0, "strip x1") }
 
-    /// A square scan at 1470 x 923 side by side (the mock's behaviour) rather than scrolling: nothing scrolls and tiles stay at
-    /// or above the floor.
-    /// Mutation: `layout` ignoring the floor when choosing columns (`minimumSide: 0`) - red (a sliver arrangement is kept).
+    /// R6 REPLACES testTilesStayAtTheFloorBeforeAnythingScrolls, testATooSmallBlockScrollsInsideItselfOnly and
+    /// testTheArrangementStartsAtItsOwnOrigin (they asserted the 150-pt floor, the block scrolling and `arrange`).
+    /// A square scan at 1470 x 923 side by side: nothing scrolls, tiles at or above the (96 pt) floor.
+    /// Mutation: `minimumTileSide` set to 400 - red (the block cannot hold 5 tiles at 400, so they scroll).
     func testTilesStayAtTheFloorBeforeAnythingScrolls() {
         let p = SpectroscopyRoomPlan.make(room: CGSize(width: 1470, height: 923), headerHeight: header, tileCount: 5, aspect: 1)
-        XCTAssertFalse(p.scrolls)
-        XCTAssertGreaterThanOrEqual(p.arrangement.tiles.map { max($0.width, $0.height) }.min() ?? 0, MapGridLayout.minimumTileSide)
-        // 8 tiles in a 920-wide column: the best-scoring column count (5) leaves 144 pt tiles, the floor picks 4 instead.
-        let q = SpectroscopyRoomPlan.make(room: CGSize(width: 920, height: 830), headerHeight: header, tileCount: 8, aspect: 1)
-        XCTAssertGreaterThanOrEqual(q.arrangement.tiles.map { max($0.width, $0.height) }.min() ?? 0, MapGridLayout.minimumTileSide)
-        XCTAssertFalse(q.scrolls)
+        XCTAssertEqual(p.maps.scroll, .none)
+        XCTAssertGreaterThanOrEqual(p.maps.tiles.map { max($0.width, $0.height) }.min() ?? 0, MapGridLayout.minimumTileSide - 0.01)
     }
 
-    /// When even the floor cannot fit, the block scrolls and the room does not: the plan's bands still add up.
-    /// Mutation: `scrolls` always false - red.
-    func testATooSmallBlockScrollsInsideItselfOnly() {
-        let p = SpectroscopyRoomPlan.make(room: CGSize(width: 560, height: 700), headerHeight: header, tileCount: 8, aspect: 1)
-        XCTAssertTrue(p.scrolls)
+    /// When even the floor cannot fit, only the tile grid scrolls and the room does not: the plan's bands still add up.
+    /// Mutation: `scroll` always .none - red.
+    func testATooSmallBlockScrollsTheTileGridOnly() {
+        let p = SpectroscopyRoomPlan.make(room: CGSize(width: 560, height: 700), headerHeight: header, tileCount: 20, aspect: 1)
+        XCTAssertNotEqual(p.maps.scroll, .none)
         XCTAssertGreaterThanOrEqual(p.bottomHeight, 220)
+        XCTAssertEqual(p.mapsHeight + p.bottomHeight, 700, accuracy: 0.01)
     }
 
-    /// An arrangement is relative to its own top-left (the view centres it): the demo's ColorMix is no longer pushed right of
-    /// its frame (drive shot 01: ~470 pt empty at its left).
-    /// Mutation: the n == 0 ColorMix x set back to `(avail.width - w) / 2` - red.
-    func testTheArrangementStartsAtItsOwnOrigin() {
-        let alone = MapGridLayout.arrange(tileCount: 0, aspect: 1, in: CGSize(width: 900, height: 400))
-        XCTAssertEqual(alone.colorMix.minX, 0)
-        let many = MapGridLayout.arrange(tileCount: 5, aspect: 4.0 / 3.0, in: CGSize(width: 1000, height: 400))
-        XCTAssertEqual(many.colorMix.minX, 0)
-        XCTAssertLessThanOrEqual(many.size.width, 1000.01)
+    /// The plan is relative to the block's own top-left: the ColorMix starts at 0 (drive shot 01: ~470 pt empty at its left).
+    /// Mutation: the ColorMix x set to `(avail.width - mw) / 2` - red.
+    func testThePlanStartsAtItsOwnOrigin() {
+        XCTAssertEqual(MapGridLayout.plan(tileCount: 0, aspect: 1, in: CGSize(width: 900, height: 400)).colorMix.minX, 0)
+        XCTAssertEqual(MapGridLayout.plan(tileCount: 5, aspect: 4.0 / 3.0, in: CGSize(width: 1000, height: 400)).colorMix.minX, 0)
     }
 
     /// The quantification panel never takes more than half the row, so the spectrum keeps the other half.
@@ -144,5 +135,22 @@ final class SpectroscopySidebarSelectionTests: XCTestCase {
         XCTAssertNotEqual(id(.prepare, true), id(.spectroscopy, true), "entering the room")
         XCTAssertNotEqual(id(.prepare, false), id(.prepare, true), "the window turning spectrum-only")
         XCTAssertEqual(id(.prepare, false), id(.image, false), "moving between 4D rooms keeps the list (and its keyboard focus)")
+    }
+}
+
+/// R6: the quant table's Net ± σ cell is one line, never wrapped or truncated (drive 2: "88 515 / ± 413", "250 367 ±…").
+final class QuantNetCellTests: XCTestCase {
+    /// The parts carry the narrow no-break spaces (U+202F) around the sign, so no line break can fall inside the pair; a long
+    /// pair is flagged compact (σ smaller and secondary), a short one is not.
+    /// Mutation: the separator made " ± " with ordinary spaces, or `compactAbove` raised to 99 - red.
+    func testTheCellIsOneUnbreakablePairAndALongOneIsCompact() {
+        let short = ResultFormat.netCell(88_515, 413)
+        XCTAssertEqual(short.net, "88\u{202F}515"); XCTAssertEqual(short.sigma, "413")
+        XCTAssertEqual(short.separator, "\u{202F}\u{00B1}\u{202F}")
+        XCTAssertFalse(short.compact)
+        let long = ResultFormat.netCell(6_155_340, 3_905)
+        XCTAssertEqual(long.net, "6\u{202F}155\u{202F}340")
+        XCTAssertTrue(long.compact)
+        for c in [short, long] { XCTAssertFalse((c.net + c.separator + c.sigma).contains(" "), "no breaking space anywhere in the cell") }
     }
 }

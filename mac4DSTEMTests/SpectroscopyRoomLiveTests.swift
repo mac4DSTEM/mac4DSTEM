@@ -14,79 +14,97 @@ import DSTEMSession
 // MARK: - Pure geometry
 
 final class SpectroscopyRoomGeometryTests: XCTestCase {
-    private func assertValid(_ a: MapGridLayout.Arrangement, aspect: CGFloat, in avail: CGSize, count: Int, _ what: String,
+    /// R6 REPLACED the R4/R5 tests of `MapGridLayout.arrange` / `stacked` / `layout` (testTheDemoAspectGivesTheMocksBlock,
+    /// testTheVeloxStripKeepsItsAspectAndFits, testNoTilesLeavesTheColorMixAlone, testTheStackedArrangementCapsATallColorMix,
+    /// testTilesNeverShrinkBelowTheFloorBeforeStacking): those asserted the area-score arrangement and the 150-pt floor, which
+    /// let the ColorMix shrink to tile size (drive 2, shot r5-01). Their successors below assert the dominant ColorMix.
+    private func assertValid(_ p: MapGridLayout.Plan, aspect: CGFloat, in avail: CGSize, count: Int, _ what: String,
                              file: StaticString = #filePath, line: UInt = #line) {
-        let all = [a.colorMix] + a.tiles
-        XCTAssertEqual(a.tiles.count, count, what, file: file, line: line)
-        for r in all {
-            XCTAssertEqual(r.width / r.height, aspect, accuracy: 1e-4, "\(what): a tile keeps the data's aspect", file: file, line: line)
+        XCTAssertEqual(p.tiles.count, count, what, file: file, line: line)
+        XCTAssertEqual(p.colorMix.width / p.colorMix.height, aspect, accuracy: 1e-3, "\(what): the ColorMix keeps the data's aspect", file: file, line: line)
+        for r in p.tiles { XCTAssertEqual(r.width / r.height, aspect, accuracy: 1e-3, "\(what): a tile keeps the data's aspect", file: file, line: line) }
+        let box = CGRect(origin: .zero, size: avail)
+        XCTAssertTrue(box.insetBy(dx: -0.01, dy: -0.01).contains(p.colorMix), "\(what): the ColorMix is inside the block", file: file, line: line)
+        XCTAssertTrue(box.insetBy(dx: -0.01, dy: -0.01).contains(p.tileArea), "\(what): the tile container is inside the block", file: file, line: line)
+        XCTAssertFalse(p.colorMix.intersects(p.tileArea.insetBy(dx: 0.5, dy: 0.5)), "\(what): the ColorMix is never inside the tile grid", file: file, line: line)
+        for (i, r) in p.tiles.enumerated() {
             XCTAssertGreaterThanOrEqual(r.minX, -0.01, what, file: file, line: line); XCTAssertGreaterThanOrEqual(r.minY, -0.01, what, file: file, line: line)
-            XCTAssertLessThanOrEqual(r.maxX, avail.width + 0.01, "\(what): inside the width", file: file, line: line)
-            XCTAssertLessThanOrEqual(r.maxY, avail.height + 0.01, "\(what): inside the height", file: file, line: line)
+            XCTAssertLessThanOrEqual(r.maxX, p.tileContent.width + 0.01, "\(what): tile \(i) inside its content", file: file, line: line)
+            XCTAssertLessThanOrEqual(r.maxY, p.tileContent.height + 0.01, "\(what): tile \(i) inside its content", file: file, line: line)
+            // No tile clipped: along the axis that does not scroll it is inside the container; along the scrolling one it is reached by scrolling.
+            if p.scroll != .vertical { XCTAssertLessThanOrEqual(r.maxY, p.tileArea.height + 0.01, "\(what): tile \(i) not clipped vertically", file: file, line: line) }
+            if p.scroll != .horizontal { XCTAssertLessThanOrEqual(r.maxX, p.tileArea.width + 0.01, "\(what): tile \(i) not clipped horizontally", file: file, line: line) }
+            if p.scroll == .none { XCTAssertLessThanOrEqual(p.tileContent.height, p.tileArea.height + 0.01, what, file: file, line: line) }
+            XCTAssertGreaterThanOrEqual(max(r.width, r.height), MapGridLayout.minimumTileSide - 0.01, "\(what): tile \(i) at or above the floor", file: file, line: line)
         }
-        for i in 0..<all.count { for j in (i + 1)..<max(all.count, i + 1) where all[i].intersects(all[j].insetBy(dx: 0.5, dy: 0.5)) {
+        for i in 0..<p.tiles.count { for j in (i + 1)..<max(p.tiles.count, i + 1) where p.tiles[i].intersects(p.tiles[j].insetBy(dx: 0.5, dy: 0.5)) {
             XCTFail("\(what): tiles \(i) and \(j) overlap", file: file, line: line)
         } }
-        XCTAssertGreaterThanOrEqual(a.colorMix.width, (a.tiles.first?.width ?? 0) - 0.5, "\(what): the ColorMix is the large one", file: file, line: line)
+        if let t = p.tiles.first { XCTAssertGreaterThanOrEqual(p.colorMix.width * p.colorMix.height, 2.5 * t.width * t.height - 0.5, "\(what): the ColorMix is the dominant map", file: file, line: line) }
     }
 
-    /// The GMS demo (64 x 48) in the mock's 1470-wide window: the ColorMix beside a 2-column, 3-row block of tiles, as drawn.
-    /// Mutation: the aspect ignored (tiles squared) or the column search dropped (one column) — red.
+    /// The GMS demo (64 x 48) in the mock's 1470-wide window: the ColorMix beside a 2-column, 3-row block of tiles, as drawn,
+    /// the ColorMix the full height.
+    /// Mutation: the aspect ignored (tiles squared) or the column search dropped (one column) - red.
     func testTheDemoAspectGivesTheMocksBlock() {
         let avail = CGSize(width: 1000, height: 400)
-        let a = MapGridLayout.arrange(tileCount: 6, aspect: 64.0 / 48.0, in: avail)
-        assertValid(a, aspect: 64.0 / 48.0, in: avail, count: 6, "demo")
-        let columns = Set(a.tiles.map { $0.minX.rounded() }).count, rows = Set(a.tiles.map { $0.minY.rounded() }).count
+        let p = MapGridLayout.plan(tileCount: 6, aspect: 64.0 / 48.0, in: avail)
+        assertValid(p, aspect: 64.0 / 48.0, in: avail, count: 6, "demo")
+        let columns = Set(p.tiles.map { $0.minX.rounded() }).count, rows = Set(p.tiles.map { $0.minY.rounded() }).count
         XCTAssertEqual([columns, rows], [2, 3], "two columns of three rows, like the mock")
-        XCTAssertEqual(a.colorMix.height, avail.height, accuracy: 0.5, "the ColorMix takes the full height")
+        XCTAssertEqual(p.colorMix.height, avail.height, accuracy: 0.5, "the ColorMix takes the full height")
+        XCTAssertEqual(p.kind, .sideBySide); XCTAssertEqual(p.scroll, .none)
     }
 
-    /// The owner's Velox strip (215 x 926 px): tall slivers, each at the data's aspect, all inside the room, none overlapping.
-    /// Mutation: the height bound dropped from the tile width — red (tiles overflow).
-    func testTheVeloxStripKeepsItsAspectAndFits() {
-        for aspect in [CGFloat(215.0 / 926.0), CGFloat(926.0 / 215.0)] {
-            for count in [1, 4, 7] {
-                for avail in [CGSize(width: 1000, height: 400), CGSize(width: 700, height: 300), CGSize(width: 360, height: 260)] {
-                    let a = MapGridLayout.arrange(tileCount: count, aspect: aspect, in: avail)
-                    assertValid(a, aspect: aspect, in: avail, count: count, "strip \(aspect) x\(count) in \(avail)")
-                }
+    /// The drive's cases (R6): a square 1024^2 scan with 5, 9 and 12 tiles and the 215 x 926 strip with 5, in the maps blocks
+    /// of a 1470 x 923 window's column, 1280 x 800 and 1000 x 800 (the plan's own `gridAvail`): the ColorMix is the dominant,
+    /// leading map, never inside the tile grid, and no tile is clipped. Mutation: `dominance` 2.5 -> 0.5 or the tile cap
+    /// removed (`min(byWidth, byHeight, cap)` -> without cap) - red for one or two tiles (a tile as big as the ColorMix).
+    func testTheColorMixDominatesInTheDrivesRooms() {
+        let header = LayoutPolicy.paneHeaderHeight + 1
+        let rooms = [CGSize(width: 1100, height: 923), CGSize(width: 1470 - 460, height: 923), CGSize(width: 1280 - 380, height: 800), CGSize(width: 1000 - 380, height: 800), CGSize(width: 1000, height: 800)]
+        for room in rooms {
+            for (n, aspect) in [(1, CGFloat(1)), (2, 1), (5, 1), (9, 1), (12, 1), (5, 215.0 / 926.0)] {
+                let plan = SpectroscopyRoomPlan.make(room: room, headerHeight: header, tileCount: n, aspect: aspect)
+                let tag = "\(n) tiles aspect \(aspect) in \(Int(room.width)) x \(Int(room.height))"
+                assertValid(plan.maps, aspect: aspect, in: plan.gridAvail, count: n, tag)
+                XCTAssertEqual(plan.maps.kind, .sideBySide, "\(tag): side by side while a tile column fits beside the ColorMix")
+                XCTAssertEqual(plan.maps.colorMix.minX, 0, "\(tag): the ColorMix is the leading map")
+                XCTAssertLessThanOrEqual(plan.maps.colorMix.maxX, plan.maps.tileArea.minX + 0.01)
             }
         }
     }
 
+    /// Too many tiles for the block at the floor: the tile grid scrolls vertically inside its own area, the ColorMix keeps its
+    /// size (drive shot r5-01: it was shrunk to tile size).
+    /// Mutation: the scroll branch's fallback (`best == nil`) given the ColorMix a smaller size, or `scroll` always .none - red.
+    func testTooManyTilesScrollTheTileGridNotTheColorMix() {
+        let avail = CGSize(width: 640, height: 300)
+        let few = MapGridLayout.plan(tileCount: 2, aspect: 1, in: avail)
+        let many = MapGridLayout.plan(tileCount: 30, aspect: 1, in: avail)
+        XCTAssertEqual(many.scroll, .vertical)
+        XCTAssertGreaterThan(many.tileContent.height, many.tileArea.height)
+        XCTAssertEqual(many.colorMix, few.colorMix, "the ColorMix does not shrink for the tiles")
+        assertValid(many, aspect: 1, in: avail, count: 30, "30 tiles")
+    }
+
+    /// A genuinely narrow block (no tile column beside a ColorMix of half the width): the ColorMix on top, the tiles in a
+    /// horizontally scrolling row beneath it, never clipped by the block's bottom.
+    /// Mutation: the narrow test `mw < avail.width / 2` made false - red (it stays side by side).
+    func testANarrowBlockStacksWithAHorizontalTileRow() {
+        let avail = CGSize(width: 190, height: 420)
+        let p = MapGridLayout.plan(tileCount: 5, aspect: 1, in: avail)
+        XCTAssertEqual(p.kind, .stacked)
+        XCTAssertLessThanOrEqual(p.colorMix.maxY, p.tileArea.minY)
+        XCTAssertEqual(p.scroll, .horizontal)
+        XCTAssertLessThanOrEqual(p.tileArea.maxY, avail.height + 0.01)
+        XCTAssertGreaterThanOrEqual(p.colorMix.width * p.colorMix.height, 2.5 * p.tiles[0].width * p.tiles[0].height)
+        XCTAssertGreaterThan(p.colorMix.width, p.tiles[0].width * 1.5)
+    }
+
     func testNoTilesLeavesTheColorMixAlone() {
-        let a = MapGridLayout.arrange(tileCount: 0, aspect: 1, in: CGSize(width: 300, height: 200))
-        XCTAssertEqual(a.colorMix.height, 200, accuracy: 0.5); XCTAssertTrue(a.tiles.isEmpty)
-    }
-
-    /// Narrow: the ColorMix across, the tiles two across beneath it, in the width given; a tall scan is capped in height.
-    /// Mutation: the cap removed — red.
-    func testTheStackedArrangementCapsATallColorMix() {
-        let a = MapGridLayout.stacked(tileCount: 5, aspect: 215.0 / 926.0, width: 400, maxColorMixHeight: 480)
-        XCTAssertEqual(a.colorMix.height, 480, accuracy: 0.01)
-        XCTAssertEqual(a.tiles.count, 5)
-        XCTAssertEqual(Set(a.tiles.map { $0.minX.rounded() }).count, 2)
-        for r in a.tiles { XCTAssertLessThanOrEqual(r.maxX, 400.01); XCTAssertEqual(r.width / r.height, 215.0 / 926.0, accuracy: 1e-4) }
-        let wide = MapGridLayout.stacked(tileCount: 2, aspect: 4.0 / 3.0, width: 400, maxColorMixHeight: 480)
-        XCTAssertEqual(wide.colorMix.width, 400, accuracy: 0.01)
-    }
-
-    /// R4c + R5: at 700 x 480 with five 4:3 tiles the area score alone picks one column of ~119-pt tiles beside a huge ColorMix
-    /// (Gate B shot 10-a). The layout now picks the best arrangement whose tiles stay at the floor (two columns of ~206 pt),
-    /// and hands over to the stacked one - which scrolls inside the maps block - only when none does.
-    /// Mutation: `minimumSide: minimumTileSide` in `layout` made 0 - red (the sliver arrangement is kept).
-    func testTilesNeverShrinkBelowTheFloorBeforeStacking() {
-        let a = 4.0 / 3.0, avail = CGSize(width: 700, height: 480)
-        let raw = MapGridLayout.arrange(tileCount: 5, aspect: a, in: avail)
-        XCTAssertLessThan(raw.tiles.map(\.width).min() ?? 0, MapGridLayout.minimumTileSide, "premise: the unguarded arrangement is too small")
-        let l = MapGridLayout.layout(tileCount: 5, aspect: a, in: avail, maxColorMixHeight: 192)
-        XCTAssertFalse(l.stacked, "a floor-respecting side-by-side arrangement exists here")
-        XCTAssertGreaterThanOrEqual(l.arrangement.tiles.map(\.width).min() ?? 0, MapGridLayout.minimumTileSide)
-        let tiny = MapGridLayout.layout(tileCount: 5, aspect: a, in: CGSize(width: 400, height: 260), maxColorMixHeight: 100)
-        XCTAssertTrue(tiny.stacked, "nothing fits at the floor: stacked (the block scrolls)")
-        XCTAssertLessThanOrEqual(tiny.arrangement.colorMix.height, 100.01)
-        let mock = MapGridLayout.layout(tileCount: 6, aspect: a, in: CGSize(width: 1000, height: 400), maxColorMixHeight: 160)
-        XCTAssertFalse(mock.stacked, "the mock's 2 x 3 block stays side by side")
+        let p = MapGridLayout.plan(tileCount: 0, aspect: 1, in: CGSize(width: 300, height: 200))
+        XCTAssertEqual(p.colorMix.height, 200, accuracy: 0.5); XCTAssertTrue(p.tiles.isEmpty); XCTAssertEqual(p.tileArea, .zero)
     }
 
     /// Pins are a layer, on by default, drawn faint.

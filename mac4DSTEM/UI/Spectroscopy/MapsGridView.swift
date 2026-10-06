@@ -59,26 +59,39 @@ extension SpectroscopyRoomModel {
 /// (`MapGridLayout`). Exactly one tile is active (the accent outline); the tick on an element tile means "in the ColorMix".
 struct MapsGridView: View {
     @Bindable var model: SpectroscopyRoomModel
-    let arrangement: MapGridLayout.Arrangement
+    let plan: MapGridLayout.Plan
     @State private var mixCache = ColorMixRasterCache()
     @State private var tileCache = MapTileRasterCache()
 
     var body: some View {
-        let items = model.gridItems
         ZStack(alignment: .topLeading) {
             MapTileView(model: model, map: .colorMix, title: "ColorMix", image: colorMixImage(), tile: nil)
-                .frame(width: arrangement.colorMix.width, height: arrangement.colorMix.height)
-                .offset(x: arrangement.colorMix.minX, y: arrangement.colorMix.minY)
-            ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                if i < arrangement.tiles.count {
-                    let r = arrangement.tiles[i]
-                    tileView(item)
-                        .frame(width: r.width, height: r.height)
-                        .offset(x: r.minX, y: r.minY)
+                .frame(width: plan.colorMix.width, height: plan.colorMix.height)
+                .offset(x: plan.colorMix.minX, y: plan.colorMix.minY)
+            if !plan.tiles.isEmpty {
+                tileGrid.frame(width: plan.tileArea.width, height: plan.tileArea.height, alignment: .topLeading)
+                    .offset(x: plan.tileArea.minX, y: plan.tileArea.minY)
+            }
+        }
+        .frame(width: plan.size.width, height: plan.size.height, alignment: .topLeading)
+    }
+
+    /// The tiles in their own container: it scrolls along `plan.scroll` when they do not fit, the ColorMix never does.
+    @ViewBuilder private var tileGrid: some View {
+        let content = ZStack(alignment: .topLeading) {
+            ForEach(Array(model.gridItems.enumerated()), id: \.element.id) { i, item in
+                if i < plan.tiles.count {
+                    let r = plan.tiles[i]
+                    tileView(item).frame(width: r.width, height: r.height).offset(x: r.minX, y: r.minY)
                 }
             }
         }
-        .frame(width: arrangement.size.width, height: arrangement.size.height, alignment: .topLeading)
+        .frame(width: plan.tileContent.width, height: plan.tileContent.height, alignment: .topLeading)
+        switch plan.scroll {
+        case .none: content
+        case .vertical: ScrollView(.vertical) { content }
+        case .horizontal: ScrollView(.horizontal) { content }
+        }
     }
 
     @ViewBuilder private func tileView(_ item: MapGridItem) -> some View {
@@ -168,7 +181,10 @@ struct MapTileView: View {
                     .contentShape(Rectangle())
                     .gesture(drag(size))
                 if map == .colorMix, !model.tiles.contains(where: { model.mixed.contains($0.z) && !$0.proposed }) {
-                    Text("Pick elements to map").font(.callout).foregroundStyle(.white.opacity(0.6)).shadow(radius: 1)
+                    // A small label on a quiet capsule: it reads on the grey scan image that stands in, whatever its brightness.
+                    Text("Pick elements to map").font(.caption).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(.black.opacity(0.6), in: Capsule())
                         .frame(maxWidth: .infinity, maxHeight: .infinity).allowsHitTesting(false)
                 }
                 header

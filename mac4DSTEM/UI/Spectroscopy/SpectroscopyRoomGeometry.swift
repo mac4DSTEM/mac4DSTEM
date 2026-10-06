@@ -10,106 +10,106 @@ import DSTEMCore
 
 // MARK: - The maps grid
 
-/// The ColorMix is large and the other tiles (HAADF, one per element) sit beside it, every tile keeping the data's aspect
-/// (the owner's Velox strip is 215 x 926 px, the GMS demo 64 x 48): the arrangement is the one that uses the most area of
-/// the room that is given (the geometric mean of the ColorMix's and a tile's areas), so a tall sliver of a scan gives a row of tall tiles and a 4:3 scan the mock's 2 x 3 block.
+/// R6: the ColorMix is ALWAYS the dominant map (the mock's wide-b): at the leading side, at the data's own aspect and as tall
+/// as the maps block allows; HAADF and the element / proposed tiles sit in a grid beside it, each at the data's aspect (the
+/// owner's Velox strip is 215 x 926 px, the GMS demo 64 x 48). Tiles may be small (Velox's are); when they still do not fit
+/// the block at the floor, the TILE grid scrolls inside its own area (vertically) and the ColorMix stays put. Only in a
+/// genuinely narrow block - no tile column fits beside a ColorMix of at least half the width - the ColorMix goes on top and
+/// the tiles form one horizontally scrolling row beneath it. Never a ColorMix shrunk to tile size, never a tile clipped.
 nonisolated enum MapGridLayout {
-    struct Arrangement: Equatable {
+    enum Kind: Equatable { case sideBySide, stacked }
+    enum Scroll: Equatable { case none, vertical, horizontal }
+
+    struct Plan: Equatable {
+        var kind: Kind
+        /// The ColorMix, in the maps block's coordinates (top-left origin).
         var colorMix: CGRect
+        /// The container of the tile grid, in the same coordinates (`.zero` with no tiles). It scrolls along `scroll`.
+        var tileArea: CGRect
+        /// The tiles, relative to the top-left of the tile grid's content (which scrolls inside `tileArea`).
         var tiles: [CGRect]
-        /// The extent actually used; the rects are relative to its top-left, the view centres it in what it was given.
+        var tileContent: CGSize
+        var scroll: Scroll
+        /// The extent used; the view puts it at the block's top-left.
         var size: CGSize
     }
 
     static let gap: CGFloat = 8
 
-    /// R4c: a tile is never smaller than this on its long side (the width of landscape data): below it the arrangement
-    /// hands over to the stacked layout (the room scrolls) rather than shrink tiles to slivers beside a huge ColorMix.
-    static let minimumTileSide: CGFloat = 150
+    /// A tile's long side (the width of landscape data) is never below this: a Velox tile is small, but not a sliver.
+    static let minimumTileSide: CGFloat = 96
 
-    /// R5: the maps block is a bounded region (`avail`). The side-by-side arrangement whose tiles stay at or above the floor
-    /// (the best-scoring one that does, so a window that is a little too small for five columns takes four); when none does,
-    /// the stacked arrangement, which is taller than `avail` and so scrolls inside the block (`scrolls`) - never the room.
-    static func layout(tileCount n: Int, aspect: CGFloat, in avail: CGSize, maxColorMixHeight: CGFloat) -> (arrangement: Arrangement, stacked: Bool) {
-        if let a = arrange(tileCount: n, aspect: aspect, in: avail, minimumSide: minimumTileSide) { return (a, false) }
-        return (stacked(tileCount: n, aspect: aspect, width: avail.width, maxColorMixHeight: maxColorMixHeight, columns: stackedColumns(aspect: aspect, width: avail.width, tileCount: n)), true)
-    }
-
-    /// As many tile columns as keep a tile's long side at the floor (at least two while there are two tiles to share a row).
-    static func stackedColumns(aspect: CGFloat, width: CGFloat, tileCount n: Int) -> Int {
-        let a = max(aspect, 0.05)
-        var c = max(min(n, 2), 1)
-        while c < n {
-            let tw = (width - CGFloat(c) * gap) / CGFloat(c + 1)    // the width one more column would leave each tile
-            if max(tw, tw / a) < minimumTileSide { break }
-            c += 1
-        }
-        return c
-    }
+    /// The ColorMix is at least this many times a tile's area (it is the dominant map).
+    static let dominance: CGFloat = 2.5
 
     /// `aspect` = width / height of the scan; `tileCount` = HAADF + elements + proposals (the ColorMix is extra).
-    static func arrange(tileCount n: Int, aspect: CGFloat, in avail: CGSize) -> Arrangement {
-        arrange(tileCount: n, aspect: aspect, in: avail, minimumSide: 0) ?? fallback(tileCount: n, aspect: aspect, in: avail)
-    }
-
-    /// nil when no column count keeps every tile's long side at `minimumSide`.
-    private static func arrange(tileCount n: Int, aspect: CGFloat, in avail: CGSize, minimumSide: CGFloat) -> Arrangement? {
-        let a = max(aspect, 0.05), g = gap
-        guard avail.width > 0, avail.height > 0 else { return Arrangement(colorMix: .zero, tiles: [CGRect](repeating: .zero, count: n), size: .zero) }
+    static func plan(tileCount n: Int, aspect: CGFloat, in avail: CGSize) -> Plan {
+        let a = max(aspect, 0.05), g = gap, floorSide = minimumTileSide
+        guard avail.width > 0, avail.height > 0 else {
+            return Plan(kind: .sideBySide, colorMix: .zero, tileArea: .zero, tiles: [CGRect](repeating: .zero, count: n), tileContent: .zero, scroll: .none, size: .zero)
+        }
         if n == 0 {
             let (w, h) = fit(a, avail.width, avail.height)
-            return Arrangement(colorMix: CGRect(x: 0, y: 0, width: w, height: h), tiles: [], size: CGSize(width: w, height: h))
+            return Plan(kind: .sideBySide, colorMix: CGRect(x: 0, y: 0, width: w, height: h), tileArea: .zero, tiles: [], tileContent: .zero, scroll: .none, size: CGSize(width: w, height: h))
         }
-        var best: (score: CGFloat, c: Int, tw: CGFloat, mw: CGFloat, mh: CGFloat)?
-        for c in 1...n {
+        let minTileW = min(floorSide, floorSide * a)        // the narrowest tile whose long side is at the floor
+        // The ColorMix as large as the block allows, leaving one tile column beside it.
+        var (mw, mh) = fit(a, avail.width, avail.height)
+        if avail.width - g - mw < minTileW {
+            mw = avail.width - g - minTileW
+            // No tile column beside a ColorMix of at least half the width: the narrow case.
+            if mw < avail.width / 2 { return stacked(n: n, a: a, avail: avail) }
+            mh = mw / a
+        }
+        let gw = avail.width - g - mw, gh = avail.height
+        let cap = (mw * mh / dominance).squareRoot() * a.squareRoot()   // tile width at which tile area = mix area / dominance
+        func tileWidth(columns c: Int) -> (w: CGFloat, fitsHeight: Bool) {
             let r = (n + c - 1) / c
-            let twHeight = ((avail.height - CGFloat(r - 1) * g) / CGFloat(r)) * a
-            let twWidth = (avail.width - CGFloat(c) * g) / CGFloat(c + 1)     // the ColorMix is at least one tile wide
-            let tw = min(twHeight, twWidth)
-            guard tw > 1, max(tw, tw / a) >= minimumSide else { continue }
-            var mw = min(a * avail.height, avail.width - CGFloat(c) * (tw + g))
-            var mh = mw / a
-            if mh > avail.height { mh = avail.height; mw = mh * a }
-            guard mw >= tw - 0.5 else { continue }
-            let th = tw / a
-            // Geometric mean of the two sizes: the ColorMix and a tile each count, so a huge ColorMix beside slivers loses.
-            let score = (mw * mh).squareRoot() * (tw * th).squareRoot()
-            if best == nil || score > best!.score { best = (score, c, tw, mw, mh) }
+            let byWidth = (gw - CGFloat(c - 1) * g) / CGFloat(c)
+            let byHeight = ((gh - CGFloat(r - 1) * g) / CGFloat(r)) * a
+            let w = min(byWidth, byHeight, cap)
+            return (w, max(w, w / a) >= floorSide - 0.01)
         }
-        guard let b = best else { return nil }
-        return place(c: b.c, n: n, tw: b.tw, a: a, mw: b.mw, mh: b.mh, avail: avail)
+        // The columns that fit the block without scrolling, the largest tiles first; else the most columns that keep the
+        // floor (the least scrolling).
+        var best: (c: Int, w: CGFloat)?
+        for c in 1...n {
+            let t = tileWidth(columns: c)
+            if t.fitsHeight, best == nil || t.w > best!.w + 0.01 { best = (c, t.w) }
+        }
+        var scroll: Scroll = .none
+        if best == nil {
+            for c in 1...n {
+                let byWidth = min((gw - CGFloat(c - 1) * g) / CGFloat(c), cap)
+                if max(byWidth, byWidth / a) >= floorSide - 0.01 { best = (c, byWidth) }
+            }
+            scroll = .vertical
+        }
+        let c = best?.c ?? 1
+        let tw = max(best?.w ?? min(gw, cap), 1)
+        let th = tw / a, r = (n + c - 1) / c
+        let tiles = (0..<n).map { i in CGRect(x: CGFloat(i % c) * (tw + g), y: CGFloat(i / c) * (th + g), width: tw, height: th) }
+        let content = CGSize(width: CGFloat(c) * tw + CGFloat(c - 1) * g, height: CGFloat(r) * th + CGFloat(r - 1) * g)
+        let area = CGRect(x: mw + g, y: 0, width: gw, height: gh)
+        return Plan(kind: .sideBySide, colorMix: CGRect(x: 0, y: 0, width: mw, height: mh), tileArea: area, tiles: tiles,
+                    tileContent: content, scroll: scroll, size: CGSize(width: avail.width, height: avail.height))
     }
 
-    /// Too small for the rule: one column, whatever fits.
-    private static func fallback(tileCount n: Int, aspect: CGFloat, in avail: CGSize) -> Arrangement {
-        let a = max(aspect, 0.05), g = gap
-        let tw = max(((avail.height - CGFloat(n - 1) * g) / CGFloat(n)) * a, 1)
-        return place(c: 1, n: n, tw: tw, a: a, mw: max(avail.width - tw - g, 1), mh: max((avail.width - tw - g) / a, 1), avail: avail)
-    }
-
-    private static func place(c: Int, n: Int, tw: CGFloat, a: CGFloat, mw: CGFloat, mh: CGFloat, avail: CGSize) -> Arrangement {
-        let g = gap, th = tw / a, r = (n + c - 1) / c
-        let blockW = mw + g + CGFloat(c) * tw + CGFloat(c - 1) * g
-        let blockH = max(mh, CGFloat(r) * th + CGFloat(r - 1) * g)
-        let x0: CGFloat = 0     // R5: the view centres the block in its frame; an offset here pushed it right of that frame
-        let tiles = (0..<n).map { i in
-            CGRect(x: x0 + mw + g + CGFloat(i % c) * (tw + g), y: CGFloat(i / c) * (th + g), width: tw, height: th)
-        }
-        return Arrangement(colorMix: CGRect(x: x0, y: 0, width: mw, height: mh), tiles: tiles, size: CGSize(width: blockW, height: blockH))
-    }
-
-    /// Narrow windows: the ColorMix across the full width (at most `maxColorMixHeight` tall), the tiles two across beneath it.
-    static func stacked(tileCount n: Int, aspect: CGFloat, width: CGFloat, maxColorMixHeight: CGFloat, columns: Int = 2) -> Arrangement {
-        let a = max(aspect, 0.05), g = gap
-        let (mw, mh) = fit(a, width, maxColorMixHeight)
-        var rects: [CGRect] = []
-        let tw = (width - CGFloat(columns - 1) * g) / CGFloat(columns), th = tw / a
-        for i in 0..<n {
-            rects.append(CGRect(x: CGFloat(i % columns) * (tw + g), y: mh + g + CGFloat(i / columns) * (th + g), width: tw, height: th))
-        }
-        let rows = (n + columns - 1) / columns
-        return Arrangement(colorMix: CGRect(x: (width - mw) / 2, y: 0, width: mw, height: mh), tiles: rects,
-                           size: CGSize(width: width, height: mh + (n > 0 ? g + CGFloat(rows) * th + CGFloat(rows - 1) * g : 0)))
+    /// Narrow block: the ColorMix across the top (at the data's aspect, at most 65 % of the height unless the tile row
+    /// needs less), the tiles in one row beneath it, which scrolls horizontally.
+    private static func stacked(n: Int, a: CGFloat, avail: CGSize) -> Plan {
+        let g = gap
+        let minRow = min(minimumTileSide, minimumTileSide / a)              // the row's least height: a tile at the floor
+        let mixMax = max(min(avail.height * 0.65, avail.height - g - minRow), 1)
+        let (mw, mh) = fit(a, avail.width, mixMax)
+        let rowH = max(min(avail.height - mh - g, mh / dominance.squareRoot()), 1)   // a tile stays well under the ColorMix
+        let tw = rowH * a
+        let tiles = (0..<n).map { i in CGRect(x: CGFloat(i) * (tw + g), y: 0, width: tw, height: rowH) }
+        let content = CGSize(width: CGFloat(n) * tw + CGFloat(n - 1) * g, height: rowH)
+        let scrolls = content.width > avail.width + 0.5
+        return Plan(kind: .stacked, colorMix: CGRect(x: 0, y: 0, width: mw, height: mh),
+                    tileArea: CGRect(x: 0, y: mh + g, width: avail.width, height: rowH), tiles: tiles, tileContent: content,
+                    scroll: scrolls ? .horizontal : .none, size: avail)
     }
 
     private static func fit(_ a: CGFloat, _ w: CGFloat, _ h: CGFloat) -> (CGFloat, CGFloat) {
@@ -121,16 +121,14 @@ nonisolated enum MapGridLayout {
 
 /// R5: the room is two bands that never scroll as a whole - the maps block on top (about 58 % of the height, as in the mock)
 /// and the spectrum + quantification row below it, which keeps at least `minimumBottomHeight`. The ColorMix and the tiles
-/// are fitted INSIDE the maps block (scaled down to the tile floor); when they cannot fit, the block alone scrolls.
+/// are fitted INSIDE the maps block; when the tiles cannot fit at the floor, the tile grid alone scrolls (`MapGridLayout`).
 nonisolated enum SpectroscopyRoomPlan {
     struct Plan: Equatable {
         var mapsHeight: CGFloat
         var bottomHeight: CGFloat
         /// What the grid may use inside the maps block (the block less its header and padding).
         var gridAvail: CGSize
-        var arrangement: MapGridLayout.Arrangement
-        /// The arrangement is taller than `gridAvail`: the maps block scrolls.
-        var scrolls: Bool
+        var maps: MapGridLayout.Plan
         var quantWidth: CGFloat
     }
 
@@ -143,11 +141,10 @@ nonisolated enum SpectroscopyRoomPlan {
         let bottom = min(max(room.height * (1 - mapsFraction), minimumBottomHeight), room.height)
         let maps = max(room.height - bottom, 0)
         let avail = CGSize(width: max(room.width - 2 * gridPadding, 0), height: max(maps - headerHeight - 2 * gridPadding, 0))
-        let l = MapGridLayout.layout(tileCount: n, aspect: aspect, in: avail, maxColorMixHeight: avail.height * 0.7)
+        let grid = MapGridLayout.plan(tileCount: n, aspect: aspect, in: avail)
         // Half the width at most, so the spectrum keeps the other half in a small window.
         let quant = min(min(max(room.width * quantWidth.fraction, quantWidth.min), quantWidth.max), room.width / 2)
-        return Plan(mapsHeight: maps, bottomHeight: bottom, gridAvail: avail, arrangement: l.arrangement,
-                    scrolls: l.arrangement.size.height > avail.height + 0.5, quantWidth: quant)
+        return Plan(mapsHeight: maps, bottomHeight: bottom, gridAvail: avail, maps: grid, quantWidth: quant)
     }
 }
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The room's centre (ADR 056, mock v2.1): the maps block on top, the spectrum strip and the quantification panel side by
 /// side below. The two bands never scroll as a whole (`SpectroscopyRoomPlan`): the spectrum and the table are always on
-/// screen, the grid is fitted inside the maps block, and only that block scrolls when its tiles cannot fit.
+/// screen, the grid is fitted inside the maps block, and only the tile grid scrolls (inside its own area) when its tiles cannot fit.
 struct SpectroscopyRoomContent: View {
     @Bindable var model: SpectroscopyRoomModel
 
@@ -29,13 +29,9 @@ struct SpectroscopyRoomContent: View {
         }
     }
 
-    @ViewBuilder private func grid(_ plan: SpectroscopyRoomPlan.Plan) -> some View {
-        let block = MapsGridView(model: model, arrangement: plan.arrangement).padding(SpectroscopyRoomPlan.gridPadding)
-        if plan.scrolls {
-            ScrollView(.vertical) { block.frame(maxWidth: .infinity, alignment: .top) }
-        } else {
-            block.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        }
+    private func grid(_ plan: SpectroscopyRoomPlan.Plan) -> some View {
+        MapsGridView(model: model, plan: plan.maps).padding(SpectroscopyRoomPlan.gridPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
