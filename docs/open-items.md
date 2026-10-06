@@ -305,7 +305,9 @@ K edge** (data at 1.83–1.95 keV are 0.58–0.71 of it, −13…−28 σ/channe
 detector's Si). The axis refinement depends on the element list (+27…+36 eV vs ≈ 0). Window-method Mg in the matrix reads
 above the fit (its right window sits below the Al K edge drop). The unlisted check costs 23–437 s per pool. Next: a Gate D
 on the Si-edge continuum and the Al Kα shape (owner's pure-Al spectrum helps), and a bar for implausible candidates;
-until then F1 withholds correctly but makes the room unusable on Al alloys.
+until then F1 withholds correctly but makes the room unusable on Al alloys. Pre-registered as WP3d
+(`docs/archive/v5/wp3d-al-alloy-fit-preregistration-2026-10-06.md`): the Al Kα excess is a constant 0.53–0.59 % of Al Kα
+in all nine pools (an Al K line-shape property, not Lu/Tm/Er); the Si-region deficit spans 1.65–2.4 keV, so likely one mechanism.
 
 ### Weak lines beside Al Kα read low in the WP3 fit (2026-10-06) — badged, unmeasured on real data
 The default continuum (Kramers × non-negative Bernstein (9,5), split at the Al K edge) recovers a weak Mg Kα about 300
