@@ -159,6 +159,8 @@ nonisolated enum SpectroscopyRoomPlan {
     /// The spectrum band's height at the DEFAULT split only; a dragged split goes down to its header row (`headerHeight`).
     static let minimumBottomHeight: CGFloat = 220
     static let gridPadding: CGFloat = 8
+    /// A maps block shorter than this is treated as 0: nothing is drawn and the spectrum header sits at the top.
+    static let minimumMapsHeight: CGFloat = 48
 
     /// The maps fraction after the spectrum's header row is dragged by `translation` points (the `StatusBar` shape): the
     /// fraction at drag start plus the cumulative translation over the room's height, kept in 0...1 - 0 hides the maps, the top
@@ -174,17 +176,28 @@ nonisolated enum SpectroscopyRoomPlan {
     /// bottom band never below `headerHeight`. `mixFraction` goes to `MapGridLayout.plan`.
     static func make(room: CGSize, headerHeight: CGFloat, tileCount n: Int, aspect: CGFloat,
                      mapsFraction given: CGFloat? = nil, mixFraction: CGFloat? = nil) -> Plan {
-        let bottom: CGFloat
+        var bottom: CGFloat
         if let f = given {
             bottom = min(max(room.height * (1 - min(max(f, 0), 1)), headerHeight), room.height)
         } else {
             bottom = min(max(room.height * (1 - mapsFraction), minimumBottomHeight), room.height)
         }
-        let maps = max(room.height - bottom, 0)
+        var maps = max(room.height - bottom, 0)
+        // A maps block under `minimumMapsHeight` shows nothing but clipped tile headers: it is not drawn at all (drive 2026-10-07).
+        if maps < minimumMapsHeight { maps = 0; bottom = room.height }
         let avail = CGSize(width: max(room.width - 2 * gridPadding, 0), height: max(maps - 2 * gridPadding, 0))
         let grid = MapGridLayout.plan(tileCount: n, aspect: aspect, in: avail, mixFraction: mixFraction)
         return Plan(mapsHeight: maps, bottomHeight: bottom, gridAvail: avail, maps: grid)
     }
+}
+
+// MARK: - The spectrum plot's floor
+
+nonisolated enum SpectrumPlotFit {
+    /// The plot area's least height at which axes, the residual strip and labels are drawn; under it the header row alone remains
+    /// (a spectrum dragged to its floor was drawn squashed into about 30 pt, drive 2026-10-07).
+    static let minimumHeight: CGFloat = 80
+    static func draws(plotHeight: CGFloat) -> Bool { plotHeight >= minimumHeight }
 }
 
 // MARK: - The live region

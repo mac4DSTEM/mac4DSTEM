@@ -39,7 +39,6 @@ struct HistogramView: View {
     @State private var stats: (min: Float, max: Float, mean: Float)?
     /// Which window edge is being typed (true = low), nil when none.
     @State private var editingLow: Bool?
-    @FocusState private var editFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -214,21 +213,19 @@ struct HistogramView: View {
             ? .number.precision(.fractionLength(0))
             : .number.precision(.significantDigits(1...6))
         return NumberEntryField(title: isLow ? "Window low" : "Window high",
-                                value: edge * HistogramReadout.safeScale(scale), format: format) { typed in
+                                value: edge * HistogramReadout.safeScale(scale), format: format,
+                                focusOnAppear: true, onFinish: { editingLow = nil }) { typed in
             if let typed {
                 own.wrappedValue = HistogramReadout.commit(
                     typed: typed, scale: scale, other: other.wrappedValue, isLow: isLow,
                     dataMin: stats.min, dataMax: stats.max)
             }
-            editingLow = nil
         }
+        .labelsHidden()   // the title stays for accessibility; drawn beside the field it wrapped ("Win-dow high")
         .textFieldStyle(.roundedBorder)
+        .controlSize(.small)
         .multilineTextAlignment(.trailing)
         .frame(width: LayoutPolicy.numericFieldWidth)
-        .focused($editFocused)
-        .onAppear { editFocused = true }
-        .onChange(of: editFocused) { _, focused in if !focused { editingLow = nil } }
-        .onKeyPress(.escape) { editingLow = nil; return .handled }
         .accessibilityIdentifier(isLow ? "histogram.min.field" : "histogram.max.field")
     }
 

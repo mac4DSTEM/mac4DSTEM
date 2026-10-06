@@ -739,6 +739,12 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     let format: Format
     var prompt: String?
     var emptyClears = false
+    /// The field takes keyboard focus when it appears (a readout that turns into a field on a click: the next keystrokes
+    /// are its own, drive 2026-10-07). Off, as everywhere else, for a field in a form.
+    var focusOnAppear = false
+    /// Called after every commit or cancel (Return, blur, Escape), whether or not a value was set: the owner of a transient
+    /// field takes it away again.
+    var onFinish: (() -> Void)?
     let onCommit: (Value?) -> Void
 
     @State private var text = ""
@@ -754,8 +760,12 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
             .onSubmit(commit)
             .onChange(of: isFocused) { _, focused in if !focused { commit() } }
             // Escape abandons the edit, as in any Mac text field.
-            .onExitCommand { PendingEdits.forget(editID); text = shown }
-            .onAppear { text = shown }
+            .onExitCommand { PendingEdits.forget(editID); text = shown; onFinish?() }
+            .onAppear {
+                text = shown
+                // After the field is in the window: a focus set in the same pass is dropped.
+                if focusOnAppear { DispatchQueue.main.async { isFocused = true } }
+            }
             // Torn down mid-edit (task or room switch): the edit still lands.
             .onDisappear(perform: commit)
             // Only a commit or an outside change moves `value` now, so the
@@ -786,6 +796,7 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
             onCommit(newValue)
         }
         text = shown
+        onFinish?()
     }
 
     enum Resolution: Equatable { case keep, set(Value?) }

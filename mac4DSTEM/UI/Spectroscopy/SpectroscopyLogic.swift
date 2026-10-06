@@ -1,5 +1,8 @@
 import Foundation
 import CoreGraphics
+#if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DSTEMCore
+#endif
 
 // The Spectroscopy room's pure half (v5.0 WP2 lane V, ADR 054/055): everything the
 // views decide that is not drawing — element roles, the "Auto ID never drops manual
@@ -56,9 +59,12 @@ nonisolated struct ElementSelection: Equatable, Sendable {
         self.suggestions = suggestions
     }
 
-    /// No lines below Z = 5 at an EDX window.
+    /// No lines below Z = 5 at an EDX window; and none for an element the X-ray line table carries without lines
+    /// (Hs, Og, Np, Pu, Am ...): a pick there could never fit or map anything (drive 2026-10-07).
     static func unavailableReason(z: Int) -> String? {
-        z <= 4 ? "No usable X-ray line at this detector window" : nil
+        if z <= 4 { return "No usable X-ray line at this detector window" }
+        guard PeriodicLayout.symbols.indices.contains(z - 1) else { return nil }
+        return XRayLines.lines(of: PeriodicLayout.symbol(z)).isEmpty ? "No X-ray line in the table" : nil
     }
 
     func role(_ z: Int) -> ElementRole { roles[z] ?? .off }

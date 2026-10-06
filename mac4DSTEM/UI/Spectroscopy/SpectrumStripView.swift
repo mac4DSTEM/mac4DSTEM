@@ -88,7 +88,7 @@ struct SpectrumStripView: View {
                     HStack(spacing: 3) { Circle().fill(pin.tint).frame(width: PlotMetrics.pinDot, height: PlotMetrics.pinDot); Text(pin.label); Image(systemName: "xmark").font(.caption2) }
                 }
                 .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
-                .help("Unpin \(pin.label): \(pin.pixels) px")
+                .help("Unpin \(pin.label): \(ResultFormat.counts(Double(pin.pixels))) px")
             }
         }
     }
@@ -168,6 +168,7 @@ struct SpectrumStripView: View {
     }
 
     private func draw(_ ctx: GraphicsContext, _ size: CGSize) {
+        guard SpectrumPlotFit.draws(plotHeight: size.height) else { return }     // the floor: the header row alone
         var L = model.layers
         let s = model.series
         if !s.hasModel { L.residual = false }     // no fit: no model curve, no residual strip

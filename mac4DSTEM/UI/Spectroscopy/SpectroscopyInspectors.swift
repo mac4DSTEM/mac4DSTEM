@@ -79,14 +79,14 @@ struct ElementsSection: View {
                 }
             } else {
                 InspectorAdaptiveButton("Auto ID", systemImage: "sparkles",
-                                        help: "Propose elements from this spectrum and pick them; the unvalidated proposer's reasons are on the Picked row.") { model.onAutoID?() }
+                                        help: "Propose elements from this spectrum and pick them; the unvalidated proposer's reasons are on the Found row.") { model.onAutoID?() }
                     .disabled(model.onAutoID == nil)
                     .accessibilityIdentifier("spectroscopy.autoID")
             }
         }
         if let o = model.autoID.outcome {
-            InspectorValueRow("Picked", Self.pickedList(o))
-                .help(Self.notes(o, o.suggestions))
+            InspectorValueRow(Self.foundTitle, Self.pickedList(o))
+                .help(Self.foundHelp + "\n" + Self.notes(o, o.suggestions))
             // R7 (wp3e F3.1): an excess beside a listed line is a misfit, named so, with no tile.
             let excesses = model.autoIDExcesses
             if !excesses.isEmpty {
@@ -102,6 +102,10 @@ struct ElementsSection: View {
     }
 
     /// The proposer's own words, as the row's hover: each pick's reason, the sum-peak questions, what it did not test.
+    /// The Found row's help (the row lists Auto ID's outcome, not the current picks: the person may have removed one since).
+    static let foundTitle = "Found"
+    static let foundHelp = "What Auto ID found and picked; remove a wrong one in the table"
+
     static func notes(_ o: AutoIDOutcome, _ s: [ElementSuggestion]) -> String {
         var lines = s.map { "\(PeriodicLayout.symbol($0.z)): \($0.reason)" }
         lines += o.excesses.map(\.detail)

@@ -229,7 +229,7 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   seven elements mapped (Cu, Al, O, Eu, Hf, Co, Ho); the person unpicks. F3.2 refuted as a default; next: a new registration. The
   sum-peak questions are no longer drawn on the plot; they live in the Picked row's hover. `suggestedRole` is unused.
 - **Seen in drive 2 (2026-10-07):** Spectrum CSV… and Maps… save panels, Fitting, polygon close by double-click, ⎋ on a draft, the
-  ellipse tool. **Not yet seen:** Reduce Transparency on the glass capsules; the histogram field after lane K's fix. New windows open at 1280×800 (frozen shell).
+  ellipse tool. **Not yet seen:** Reduce Transparency on the glass capsules. Still ungrouped: the inspector's region pixel count and the frames readout (lane K named them). New windows open at 1280×800 (frozen shell).
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).

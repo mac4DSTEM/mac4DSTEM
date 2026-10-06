@@ -484,7 +484,7 @@ final class SpectroscopyRoomController {
             s.overlay = overlay(for: total, whole: cache.spectrum(0))
             m.series = s
             m.spectrumTitle = "Spectrum · \(region.name)"
-            m.spectrumSubtitle = "\(Self.counts(total)) counts · \(region.pixelCount) px · live"
+            m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(region.pixelCount))) px · live"
             m.regionSettings.pixels = "\(region.pixelCount)"
             m.regionSettings.counts = Self.counts(total)
             updateSpectrumCSV(regionName: region.name)
@@ -770,7 +770,7 @@ final class SpectroscopyRoomController {
         let name = region?.name ?? "Whole map"
         let pixels = region?.pixelCount ?? source.nx * source.ny
         m.spectrumTitle = "Spectrum · \(name)"
-        m.spectrumSubtitle = "\(Self.counts(total)) counts · \(pixels) px"
+        m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(pixels))) px"
         m.resultsTitle = "Results · \(name)"
         m.regionSettings.source = region?.kind == .drawn ? "Drawn" : "Whole map"
         m.regionSettings.pixels = "\(pixels)"

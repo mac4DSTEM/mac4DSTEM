@@ -170,7 +170,7 @@ struct MapTileView: View {
                     MapScaleBarView(plan: plan)
                 }
                 if carriesRegion, let a = regionLabelAnchor(size) {
-                    Text("Region \u{00B7} \(model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0) px \u{00B7} live").font(.callout).lineLimit(1)
+                    Text(Self.regionCaption(pixels: model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0)).font(.callout).lineLimit(1)
                         .overlayCapsule()
                         .fixedSize()
                         .position(x: a.x, y: a.y)
@@ -229,6 +229,12 @@ struct MapTileView: View {
     }
 
     // MARK: header
+
+    /// The live region's capsule text; the pixel count is grouped like the spectrum header's and the results table's
+    /// (`ResultFormat.counts`), never by the person's locale ("160.400" in a German one).
+    static func regionCaption(pixels: Int) -> String {
+        "Region \u{00B7} \(ResultFormat.counts(Double(pixels))) px \u{00B7} live"
+    }
 
     private var header: some View {
         HStack(spacing: 4) {
