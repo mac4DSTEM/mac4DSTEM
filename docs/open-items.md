@@ -222,9 +222,8 @@ truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third priv
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 
 ### Spectroscopy room, as wired in WP2 R2 (2026-10-05): unverified on screen and known gaps
-- **Not seen on screen.** Nothing of the wired room has been driven: the drag that draws a rectangle/ellipse region, the raster map,
-  the region picker, the AppKit-backed controls, the Review popover, the hover. A scratch-build drive of a Velox file and the simulated
-  `.dm4` is owed (and of the 3.6 s open's spinner and Cancel).
+- **Driven 2026-10-06** (`docs/archive/v5/room-drive-2026-10-06.md`): opens, picks, rectangle region, ColorMix, hover seen;
+  13 findings there. Not yet seen: the ellipse region, the Review popover, the open's spinner and Cancel.
 - **The map's scale bar is not drawn** (a true-length bar needs a pixel size on a fixed-width map). Regions: rectangle and ellipse only.
 - **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do. The map header title truncates at 1000 pt.
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
@@ -244,8 +243,9 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   tilt` nor a multi-segment list, so a GMS EDS shows one detector and no tilt; WP3's absorption needs both for GMS files.
 
 ### Quantify verb wired (R3, 2026-10-06): unverified on screen and known gaps
-- **Not seen on screen.** The Quantify step's rows (Typed k sheet, Beam energy row, Expert), the fit curves and residual over the plot,
-  the warnings under the table and the toolbar verb are unit-tested and width-measured, not driven.
+- **Driven 2026-10-06:** the verb, fit curves, residual, warnings, Beam energy row and Expert seen; the Typed k sheet not. Two fit
+  findings on the owner's Velox file are in Gate D: Ti held at 0 under an over-high continuum (window: 3058 ± 153), and a dip to
+  ~1 count at 1.84 keV with escape peaks fitted.
 - **The refined axis is poor on a sparse pool.** On the 24-px tiny fixture (~700 counts) the refinement found −3.0 eV, +0.58 % gain
   against a planted +10 eV, −0.2 %; the areas stay within 2σ of truth either way. Shown file vs refined, never hidden; no minimum-counts
   rule was invented (threshold rule). Measure on a real pool before trusting a refined axis below ~10⁴ counts.
