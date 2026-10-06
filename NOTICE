@@ -84,6 +84,16 @@ and verifies them). The EPQ licence (LicenseFile.txt, sha256 2e749d6d…c16) rea
     WHETHER OR NOT LOSS WAS SUSTAINED FROM, OR AROSE OUT OF THE RESULTS OF, OR USE OF,
     THE SOFTWARE OR SERVICES PROVIDED HEREUNDER.
 
+Also from EPQ, for computed k-factors (labelled unvalidated in the app):
+`SalvatXionA.csv`, `SalvatXionB.csv` and `xionUis.csv` (the Bote-Salvat inner-shell
+ionisation cross-section coefficients and edge energies; EPQ's
+AbsoluteIonizationCrossSection.java credits D. Bote, F. Salvat, A. Jablonski and
+C. J. Powell, September 2008, under the same 17 USC 105 notice; Bote and Salvat,
+Phys. Rev. A 77, 042701 (2008); Bote et al., At. Data Nucl. Data Tables 95, 871 (2009)),
+and `Krause1979.csv` (fluorescence yields from M. O. Krause, J. Phys. Chem. Ref. Data 8,
+307 (1979), as tabulated in EPQ; third-party measured data carried with its citation,
+its own terms unverified — a recorded risk like FFAST below).
+
 The mass absorption coefficients inside EPQ are the FFAST tabulation (NIST Standard
 Reference Database 66, Chantler et al.); their own terms were flagged as unclear by the
 v5.0 research (docs/archive/v5/edx-research-2026-10-05/reports/validation.md §2) and are
