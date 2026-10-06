@@ -259,6 +259,15 @@ Statistics nits carried:
 - A negative live time should be treated as corrupt (fall back with the reason).
 - The "coverage 0.68 even at net 0" note was measured at B = 100.
 
+### Weak lines beside Al Kα read low in the WP3 fit (2026-10-06) — badged, unmeasured on real data
+The default continuum (Kramers × non-negative Bernstein (9,5), split at the Al K edge) recovers a weak Mg Kα about 300
+counts low per pooled spectrum on both synthetic generators (30 seeds; laneF report2/3: A −295 ± 31 / −402 ± 33 at
+0.3 % / 1 %, lane S's simulator −310 ± 23). On the simulator the whole deficit is the unmodelled Al Kα incomplete-charge
+tail (supplying the true tail as a reference shape: −301 → +35). The fit's warnings carry the number. The remedy is
+measured: the owner's pure-Al reference spectrum (tail shape and tie fraction). Q2 (the owner's matrix pool: flat
+residual AND continuum vs poly-6 vs window agree within σ) is still owed. The LS covariance over-predicts σ on the
+strongest line by ≈ 20 % (bound-active columns counted free), so limits are conservative there.
+
 ### Misc data-layer items, low priority
 C3 drive leftovers: staleness (f). HDF5 runs under one lock: thread-safety rests on one 2026-08-19 `nm` inspection
 (`H5is_library_threadsafe` called nowhere); a sidecar write can block a caller for seconds. Standing limits: ptychography pads
