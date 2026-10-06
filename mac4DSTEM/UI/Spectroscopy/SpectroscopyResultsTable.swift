@@ -91,6 +91,21 @@ struct SpectroscopyResultsTable: View {
                             }
                         }
                     }
+                    if let u = model.unlisted {
+                        HStack(spacing: 6) {
+                            Label(u.text, systemImage: u.checking ? "hourglass" : (u.candidates.isEmpty ? "checkmark.circle" : "exclamationmark.triangle"))
+                                .font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .help(u.detail ?? u.text)
+                            if !u.candidates.isEmpty {
+                                Button("Add as Fit only") { model.onAddUnlistedAsFitOnly?() }
+                                    .help("List the named elements as Fit only: their lines are modelled, they get no at%.")
+                                Button("Dismiss") { model.onDismissUnlisted?() }
+                                    .help("Switch the named elements Off: they are not named again for this spectrum image.")
+                            }
+                        }
+                        .controlSize(.small)
+                    }
                     if model.isLive && model.results.isEmpty {
                         Text("Pick elements in the periodic table (Elements & maps) to see their window net counts here.")
                             .font(.callout).foregroundStyle(.secondary)

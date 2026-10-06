@@ -272,6 +272,7 @@ final class SpectroscopyQuantifyTests: XCTestCase {
         XCTAssertFalse(c.model.hasFit)
         state.navigation.workspaceArea = .spectroscopy
         await state.runPrimaryWorkspaceTask()
+        await c.checkTask?.value   // WP3b F1: at% is held until the unlisted-line check lands
         let m = c.model
         XCTAssertTrue(m.hasFit); XCTAssertNil(m.fitFailure)
         XCTAssertEqual(m.results.map { PeriodicLayout.symbol($0.z) }, ["Mg", "Al", "Si", "Cu"].sorted { PeriodicLayout.z(of: $0)! < PeriodicLayout.z(of: $1)! })
@@ -362,6 +363,7 @@ final class SpectroscopyQuantifyTests: XCTestCase {
         c.model.quantify.beamEnergy = 200
         let ok = await c.quantify()
         XCTAssertTrue(ok)
+        await c.checkTask?.value   // WP3b F1: at% is held until the unlisted-line check lands
         XCTAssertTrue(c.model.abundanceWithoutAbsorption, "GMS: absorption refused, at% shown and marked")
     }
 

@@ -31,6 +31,7 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
     private var maps: [String: [Double]] = [:]
     private var pixelTotals: [UInt64]?
     private var refinements: [String: AxisRefinementResult] = [:]
+    private var proposals: [String: ProposalResult] = [:]
 
     func spectrum(_ region: Int) -> [UInt64]? { lock.withLock { spectra[region] } }
     func setSpectrum(_ s: [UInt64], _ region: Int) { lock.withLock { spectra[region] = s } }
@@ -38,12 +39,26 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
     func setMap(_ m: [Double], _ key: String) { lock.withLock { maps[key] = m } }
     func refinement(_ key: String) -> AxisRefinementResult? { lock.withLock { refinements[key] } }
     func setRefinement(_ r: AxisRefinementResult, _ key: String) { lock.withLock { refinements[key] = r } }
-    /// A region that is gone takes its spectrum and its refinements with it: its id may be given to a new one.
+    /// The unlisted-line check's proposer runs, keyed by region, listed elements and fit settings (`unlistedKey`).
+    func proposal(_ key: String) -> ProposalResult? { lock.withLock { proposals[key] } }
+    func setProposal(_ p: ProposalResult, _ key: String) { lock.withLock { proposals[key] = p } }
+    /// A region that is gone takes its spectrum, its refinements and its proposer runs with it: its id may be given to a new one.
     func forget(region: Int) {
-        lock.withLock { spectra[region] = nil; for k in refinements.keys where k.hasPrefix("\(region)|") { refinements[k] = nil } }
+        lock.withLock {
+            spectra[region] = nil
+            for k in refinements.keys where k.hasPrefix("\(region)|") { refinements[k] = nil }
+            for k in proposals.keys where k.hasPrefix("\(region)|") { proposals[k] = nil }
+        }
     }
     func totals() -> [UInt64]? { lock.withLock { pixelTotals } }
     func setTotals(_ t: [UInt64]) { lock.withLock { pixelTotals = t } }
+
+    /// The proposer's inputs for the unlisted-line check: the region's spectrum, the axis the fit used and the proposer's
+    /// settings (listed elements, width, range, continuum, escape; least squares). The estimator, k, absorption and the
+    /// dismissed elements do not change the proposal, so a dismissal or an estimator switch reuses it.
+    static func unlistedKey(region: Int, _ q: PooledQuantification) -> String {
+        "\(region)|\(q.usedAxis)|\(UnlistedLineChecker.proposerSettings(q))"
+    }
 
     /// One window's map key: the channel ranges decide the map, nothing else does.
     static func key(_ w: ResolvedWindow) -> String {
@@ -58,7 +73,7 @@ final class SpectroscopyRoomController {
 
     @ObservationIgnored private weak var session: SpectroscopySession?
     @ObservationIgnored private var source: (any SpectrumImageSource)?
-    @ObservationIgnored private var generation = 0
+    @ObservationIgnored private(set) var generation = 0
     @ObservationIgnored private var cache = SpectrumComputeCache()
     @ObservationIgnored private var seenTiles = Set<Int>()
     @ObservationIgnored private var regionCounts: [Int: UInt64] = [:]
@@ -109,6 +124,10 @@ final class SpectroscopyRoomController {
         m.expandedRows = []
         m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false; m.fitFailure = nil; m.isFitting = false; m.ratioLine = nil
         m.validation = nil
+        checkTask?.cancel(); checkTask = nil
+        m.unlisted = nil
+        m.onAddUnlistedAsFitOnly = { [weak self] in self?.addUnlistedAsFitOnly() }
+        m.onDismissUnlisted = { [weak self] in self?.dismissUnlisted() }
         m.export = ExportSettings()
         var qs = QuantifySettings(method: session.method, fileBeamKnown: meta.beamEnergyKeV != nil,
                               fileBeam: meta.beamEnergyKeV, fileBeamPhrase: meta.beamEnergyKeV == nil ? nil : meta.beamEnergySource.phrase)
@@ -140,6 +159,7 @@ final class SpectroscopyRoomController {
     func unbind() {
         generation += 1
         cancelAutoID()
+        checkTask?.cancel(); checkTask = nil
         source = nil
         session = nil
         model.isLive = false
@@ -295,14 +315,71 @@ final class SpectroscopyRoomController {
         refresh()
     }
 
+    /// The listed elements, then the ones a person switched Off (role `.off`, manual): the method records them, so the
+    /// replay step says which elements the unlisted-line check was told to leave out.
     private func mirrorElementsToSession() {
         guard let session else { return }
-        session.elements = model.elements.activeZ.map { z in
+        let listed = model.elements.activeZ.map { z in
             let role = model.elements.role(z)
             return SpectroscopyElement(symbol: PeriodicLayout.symbol(z),
                                        role: role == .quantify ? .quantify : .fitOnly,
                                        isManual: model.elements.manual.contains(z))
         }
+        let off = model.elements.manual.filter { model.elements.role($0) == .off }.sorted()
+            .map { SpectroscopyElement(symbol: PeriodicLayout.symbol($0), role: .off, isManual: true) }
+        session.elements = listed + off
+    }
+
+    // MARK: Unlisted lines (WP3b F1)
+
+    @ObservationIgnored private(set) var checkTask: Task<Void, Never>?
+
+    /// The named elements become Fit only (the periodic table's own role change, so a person's pick is recorded as theirs).
+    func addUnlistedAsFitOnly() {
+        for z in model.unlisted?.candidates ?? [] { model.elements.set(z, .fitOnly) }
+        elementsChanged()
+    }
+
+    /// The named elements are switched Off by the person: the check leaves them out from now on (until listed again).
+    func dismissUnlisted() {
+        for z in model.unlisted?.candidates ?? [] { model.elements.set(z, .off) }
+        elementsChanged()
+    }
+
+    /// Runs the check for a fit that just landed: the proposer (5-20 s at 4096 channels, cached per `unlistedKey`) and one
+    /// refit, detached and cancellable. The table says "checking…" meanwhile; the verb has already returned.
+    /// DEVIATION (simplicity): Auto ID's run is not reused. It proposes on the file's axis with the default continuum and
+    /// width, the check on the fit's refined axis and the inspector's continuum, so their inputs are rarely identical.
+    private func startUnlistedCheck(_ fit: PooledQuantification, input: PooledQuantificationInput, region: Int) {
+        checkTask?.cancel()
+        model.unlisted = .checkingNote
+        let gen = generation
+        let cache = cache
+        let key = SpectrumComputeCache.unlistedKey(region: region, fit)
+        checkTask = Task.detached(priority: .utility) {
+            var check: UnlistedLineCheck
+            do {
+                let proposal: ProposalResult
+                if let p = cache.proposal(key) { proposal = p } else {
+                    proposal = try UnlistedLineChecker.propose(counts: input.counts.map { Double($0) }, quantification: fit)
+                    cache.setProposal(proposal, key)
+                }
+                if Task.isCancelled { return }
+                check = UnlistedLineChecker.check(proposal: proposal, input: input, quantification: fit)
+            } catch ProposerError.cancelled { return   // superseded by a newer fit: a silent discard
+            } catch { check = .failed((error as? LocalizedError)?.errorDescription ?? "\(error)") }
+            if Task.isCancelled { return }
+            let shown = UnlistedLineChecker.withholding(fit, check)
+            await MainActor.run { [weak self] in self?.landCheck(shown, region: region, generation: gen) }
+        }
+    }
+
+    /// A finished check lands only on the fit it was run for: any newer refresh (a new fit, a setting, an element) has
+    /// bumped `generation`, and its answer is about the old fit.
+    func landCheck(_ shown: PooledQuantification, region: Int, generation gen: Int) {
+        guard gen == generation, quantifyActive, let check = shown.unlistedCheck else { return }
+        present(shown, region: region)
+        model.unlisted = QuantifyPresentation.unlistedNote(check)
     }
 
     private func syncRegionsFromSession() {
@@ -343,6 +420,7 @@ final class SpectroscopyRoomController {
         let maps: [[Double]?]
         let pixelTotals: [UInt64]?
         let fit: PooledQuantification?
+        let fitInput: PooledQuantificationInput?
         let fitFailure: String?
     }
 
@@ -352,6 +430,7 @@ final class SpectroscopyRoomController {
     func refresh() -> Task<Void, Never>? {
         guard let source, let session, let region = session.regions.first(where: { $0.id == session.selectedRegionID }) else { return nil }
         if model.autoID.running { cancelAutoID() }   // the elements or the region changed under it: its answer is about the old ones
+        checkTask?.cancel(); checkTask = nil         // about the previous fit; the next fit starts its own
         generation += 1
         let gen = generation
         let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
@@ -397,6 +476,7 @@ final class SpectroscopyRoomController {
         }
         let maps: [[Double]?] = windows.map { w in w.window.flatMap { cache.map(SpectrumComputeCache.key($0)) } }
         var fit: PooledQuantification?
+        var fitInput: PooledQuantificationInput?
         var failure: String?
         if let q = r.quantify {
             // The refinement does not depend on the estimator, k or absorption: it is keyed by what it does depend on.
@@ -408,10 +488,11 @@ final class SpectroscopyRoomController {
                 let res = try PooledQuantifier.run(input, tables: Self.tables)
                 if let rr = res.refinement, input.refinement == nil { cache.setRefinement(rr, key) }
                 fit = res
+                fitInput = input
             } catch { failure = (error as? LocalizedError)?.errorDescription ?? "\(error)" }
         }
         return Output(region: r.region, spectrum: spectrum, windows: windows, counts: counts, maps: maps, pixelTotals: totals,
-                      fit: fit, fitFailure: failure)
+                      fit: fit, fitInput: fitInput, fitFailure: failure)
     }
 
     private func apply(_ out: Output, generation gen: Int) {
@@ -486,21 +567,35 @@ final class SpectroscopyRoomController {
         guard let fit = out.fit else {
             // No fit (no element, no beam energy, an empty region): the window sums stay, the reason is shown.
             m.export = ExportSettings(); m.hasFit = false; m.validation = nil; m.ratioLine = nil; m.fitWarnings = []; m.abundanceNote = nil; m.abundanceWithoutAbsorption = false
+            m.unlisted = nil
             lastFit = nil
             return
         }
         lastFit = fit
+        m.mapMode = .netCounts   // a fresh fit; the check landing later keeps whatever the user picked since
+        if let input = out.fitInput {
+            present(UnlistedLineChecker.holding(fit), region: out.region)
+            startUnlistedCheck(fit, input: input, region: out.region)
+        } else {
+            present(fit, region: out.region)
+        }
+    }
+
+    /// A fit's numbers into the model (the reported fit, then again with the unlisted-line check attached).
+    private func present(_ fit: PooledQuantification, region: Int) {
+        guard let source else { return }
+        let m = model
         m.hasFit = true
-        m.mapMode = .netCounts
         m.results = QuantifyPresentation.rows(fit)
         m.ratioLine = QuantifyPresentation.ratioLine(fit)
         m.validation = fit.hasAbundance ? PooledQuantification.abundanceValidation : nil
         m.fitWarnings = QuantifyPresentation.warnings(fit.warnings)
         if case .applied = fit.absorption { m.abundanceWithoutAbsorption = false } else { m.abundanceWithoutAbsorption = fit.hasAbundance }
-        m.abundanceNote = fit.abundanceRefusal.map { "at% not computed: \($0)" }
+        // While the check runs its own line says "checking…"; a second note would repeat it.
+        m.abundanceNote = fit.unlistedCheckPending ? nil : fit.abundanceRefusal.map { "at% not computed: \($0)" }
         m.resultsFooter = fit.footerLines.joined(separator: "\n")
         m.fitFooter = QuantifyPresentation.plotFooter(fit)
-        let regionName = session?.regions.first { $0.id == out.region }?.name ?? "Whole map"
+        let regionName = session?.regions.first { $0.id == region }?.name ?? "Whole map"
         m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName), methodJSON: SpectroscopyExport.methodJSON(fit.method),
                                   elements: SpectroscopyExport.elementsLine(fit), methodHash: SpectroscopyExport.shortHash(fit.method),
                                   fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))

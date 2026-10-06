@@ -163,6 +163,7 @@
 				Core/Spectroscopy/Quant/QuantError.swift,
 				Core/Spectroscopy/Quant/SDDEfficiency.swift,
 				Core/Spectroscopy/Quant/TakeOff.swift,
+				Core/Spectroscopy/Quant/UnlistedLineCheck.swift,
 				Core/Spectroscopy/Quant/ZetaFactor.swift,
 				Core/Spectroscopy/Registration/MaskTransport.swift,
 				Core/Spectroscopy/Registration/PoolBuilder.swift,

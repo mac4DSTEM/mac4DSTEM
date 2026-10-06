@@ -253,7 +253,12 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   absorbed by the continuum and hold Ti at 0; the order-5 upper segment is too stiff to 80 keV; the segments are uncoupled
   at a fixed Al-edge split (a collapse at 1.557 keV); σ is counting only (~±20 % model spread). Fixes F1–F3:
   `docs/archive/v5/wp3b-fit-robustness-preregistration-2026-10-06.md`. F2/F3 refuted 2026-10-06 (addendum there): the
-  continuum fix needs a new registration; F1 continues.
+  continuum fix needs a new registration; F1 continues. F1 landed: after each fit the proposer names unlisted lines
+  (incl. sum-peak questions) and at% waits for it; at% is withheld when a refit with them moves a listed net by > σ
+  (margins: 26.7–33 σ when missing; 0.3–0.9 σ for a chance or real harmless extra — the planted Ca case sits at 0.9 σ).
+  Open: a Lu Mα proposal sits on the Al-K-split notch on every synthetic run (count it on real Al-free data);
+  "Dismiss" = Off, so a hand-toggled Off element is also excluded; each element click with Quantify active starts a
+  5–20 s proposer run (cancelled by the next). WP3c (default fit range 20 keV) is registered next.
 - **The refined axis is poor on a sparse pool.** On the 24-px tiny fixture (~700 counts) the refinement found −3.0 eV, +0.58 % gain
   against a planted +10 eV, −0.2 %; the areas stay within 2σ of truth either way. Shown file vs refined, never hidden; no minimum-counts
   rule was invented (threshold rule). Measure on a real pool before trusting a refined axis below ~10⁴ counts.

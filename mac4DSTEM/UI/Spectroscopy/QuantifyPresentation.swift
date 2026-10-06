@@ -112,7 +112,23 @@ nonisolated struct FitWarning: Equatable, Sendable {
     var detail: String?
 }
 
+/// The unlisted-line check's line under the table (WP3b F1): pending, its finding, and the elements its two buttons act on.
+nonisolated struct UnlistedLineNote: Equatable, Sendable {
+    var text: String
+    /// The export's sentence (each candidate's group, net and L_D; what the refit did), as the hover.
+    var detail: String?
+    /// Z of the named candidates: what "Fit only" and "Dismiss" act on.
+    var candidates: [Int] = []
+    var checking = false
+
+    static let checkingNote = UnlistedLineNote(text: "checking for unlisted lines\u{2026}", detail: nil, checking: true)
+}
+
 nonisolated enum QuantifyPresentation {
+    static func unlistedNote(_ c: UnlistedLineCheck) -> UnlistedLineNote {
+        UnlistedLineNote(text: c.line, detail: c.summary, candidates: c.names.compactMap { PeriodicLayout.z(of: $0) })
+    }
+
     /// The weak-line bias note is the fit's own, 600 characters long; the room shows the sentence and keeps the text as help.
     static func warnings(_ raw: [String]) -> [FitWarning] {
         raw.map { w in
@@ -151,7 +167,8 @@ nonisolated enum QuantifyPresentation {
 
     /// The ratio line: Mg / Si when both are quantified and measured, else nothing (the column carries the rest).
     static func ratioLine(_ q: PooledQuantification) -> RatioLine? {
-        guard let mg = q.rows.first(where: { $0.element == "Mg" && $0.failure == nil && $0.net > 0 }),
+        guard q.unlistedCheck?.withholds != true, !q.unlistedCheckPending,   // a k-free ratio: held and withheld with them
+              let mg = q.rows.first(where: { $0.element == "Mg" && $0.failure == nil && $0.net > 0 }),
               let si = q.rows.first(where: { $0.element == "Si" && $0.failure == nil && $0.net > 0 }),
               let gi = q.fit.groupIDs.firstIndex(of: mg.groupID), let gj = q.fit.groupIDs.firstIndex(of: si.groupID) else { return nil }
         let ratio = mg.net / si.net

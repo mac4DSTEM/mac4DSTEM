@@ -59,6 +59,11 @@ final class SpectroscopyRoomModel {
     /// The shown at% / wt% was computed without the absorption correction (off, or refused): the column header says so.
     var abundanceWithoutAbsorption = false
     var fitFailure: String?
+    /// The unlisted-line check (WP3b F1): "checking…" until it lands, then what it found; nil before a fit. Its two buttons
+    /// call the controller: the named elements become Fit only, or are dismissed (switched Off by the person).
+    var unlisted: UnlistedLineNote?
+    var onAddUnlistedAsFitOnly: (() -> Void)?
+    var onDismissUnlisted: (() -> Void)?
     /// A fit is running (the numbers shown are the previous ones until it lands).
     var isFitting = false
     var fitFooter = ""
