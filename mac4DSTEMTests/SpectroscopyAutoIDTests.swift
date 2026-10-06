@@ -58,7 +58,7 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         XCTAssertTrue(s.question.contains("Al+Al sum"), "the conflict's own text is carried: \(s.question)")
         XCTAssertEqual(o.suspectMarkers.map(\.kind), [.suspect])
         XCTAssertEqual(o.suspectMarkers[0].energy, 2.957, accuracy: 1e-9)
-        XCTAssertTrue(o.suspectMarkers[0].label.hasSuffix("?"))
+        XCTAssertTrue(o.suspectMarkers[0].label.hasPrefix("Al+Al sum?"), "R7: the sum leads, the candidate follows in brackets")
     }
 
     /// Mutation: the reason is the generic "n x L_D" text for every candidate (conflict text dropped), or the Cu question
@@ -90,6 +90,62 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         let o = AutoIDPresentation.outcome(r, region: "r")
         XCTAssertTrue(o.suggestions.isEmpty)
         XCTAssertEqual(o.notes, ["Look-elsewhere: 114 line groups tested"])
+    }
+
+    // MARK: R7 (wp3e): sum-first markers, beside-a-line excesses, net / L_D and chi-square on every suggestion
+
+    private func proposal(_ candidates: [ElementCandidate], chi: Double) -> ProposalResult {
+        ProposalResult(candidates: candidates, sumPeaks: [], refused: [], currie: .standard, notes: [], passes: 1, settled: true, reducedChiSquared: chi)
+    }
+
+    /// The beside rule on the quant panel's own settings: Al listed, a 10 eV/channel axis, the default continuum.
+    private var alListedBeside: (Double) -> String? {
+        let axis = EnergyAxis(offset: 0, scale: 0.01, size: 2000)
+        let settings = FitSettings.standard(elements: ["Al"], axis: axis, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: 200)
+        return AutoIDPresentation.besideCheck(settings: settings, axis: axis)
+    }
+
+    /// Mutation: `AutoIDSuspect.label` back to `ElementWindows.label(ofLineID: c.group) + "?"` (the candidate leads) - red.
+    func testASumPeakSuspectMarkerLeadsWithTheSum() throws {
+        let o = AutoIDPresentation.outcome(proposal([argonOnSum]), region: "r")
+        let s = try XCTUnwrap(o.suspects.first)
+        XCTAssertTrue(s.label.hasPrefix("Al+Al sum?"), s.label)
+        XCTAssertTrue(s.label.hasSuffix("(or Ar K\u{03B1})"), s.label)
+        XCTAssertEqual(o.suspectMarkers[0].label, s.label)
+    }
+
+    /// A candidate 94 eV above Al K-alpha (Lu M-alpha, the WP3d excess) with Al listed is named as an excess beside Al K-alpha,
+    /// with no suggestion; one clear of every listed line stays a suggestion.
+    /// Mutation: drop the `continue` after the excess is appended (the same candidate also becomes a suggestion) - red.
+    func testACandidateBesideAListedLineIsAnExcessNeverASuggestion() throws {
+        let lu = candidate("Lu", "Lu_Ma", energy: 1.581, net: 4513, limit: 2073)
+        let mg = candidate("Mg", "Mg_Ka", energy: 1.254)
+        let o = AutoIDPresentation.outcome(proposal([lu, mg], chi: 54.8), region: "r", beside: alListedBeside)
+        XCTAssertEqual(o.suggestions.map(\.z), [Mg], "Lu is not offered as an element")
+        let e = try XCTUnwrap(o.excesses.first)
+        XCTAssertEqual(o.excesses.count, 1)
+        XCTAssertEqual(e.title, "unexplained excess beside Al K\u{03B1}")
+        XCTAssertEqual(e.proposerLabel, "Lu M\u{03B1}")
+        XCTAssertTrue(e.detail.contains("net 4 513 counts"), e.detail)
+        XCTAssertTrue(o.hasDetails)
+        // The default (no check supplied) changes nothing: both are suggestions.
+        XCTAssertEqual(AutoIDPresentation.outcome(proposal([lu, mg]), region: "r").suggestions.count, 2)
+    }
+
+    /// Every suggestion (a plain one, one with a named conflict) and every suspect carries net, net / L_D and the fit's chi-square.
+    /// Mutation: `stats` dropped from the conflict branch of `reason` (Cu keeps only its question) - red.
+    func testEverySuggestionCarriesNetOverLDAndTheFitsChiSquared() throws {
+        let o = AutoIDPresentation.outcome(proposal([candidate("Mg", "Mg_Ka", energy: 1.254), copper, argonOnSum], chi: 54.8), region: "r")
+        let byZ = Dictionary(uniqueKeysWithValues: o.suggestions.map { ($0.z, $0) })
+        for z in [Mg, Cu] {
+            let r = try XCTUnwrap(byZ[z]).reason
+            XCTAssertTrue(r.contains("net 900 counts, 3.0 \u{00D7} L_D"), r)
+            XCTAssertTrue(r.contains("\u{03C7}\u{00B2}\u{1D63} 54.8 (Pearson)"), r)
+        }
+        XCTAssertTrue(try XCTUnwrap(byZ[Cu]).reason.contains("grid"), "the question stays")
+        XCTAssertTrue(try XCTUnwrap(o.suspects.first).stats.contains("\u{03C7}\u{00B2}\u{1D63} 54.8 (Pearson)"))
+        // A hand-built result has no chi-square: the clause is absent, not "nil".
+        XCTAssertFalse(try XCTUnwrap(AutoIDPresentation.outcome(proposal([candidate("Mg", "Mg_Ka", energy: 1.254)]), region: "r").suggestions.first).reason.contains("\u{03C7}"))
     }
 
     // MARK: Model rules

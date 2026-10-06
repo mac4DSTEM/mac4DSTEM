@@ -187,7 +187,7 @@ final class SpectroscopyLaneUTests: XCTestCase {
         XCTAssertTrue(parts[1].hasPrefix("continuum: Kramers") && parts[1].hasSuffix(")"), parts[1])
         XCTAssertFalse(parts[1].contains("split") || parts[1].contains(";"))
         XCTAssertEqual(parts[1].filter { $0 == "(" }.count, parts[1].filter { $0 == ")" }.count, "no open parenthesis")
-        XCTAssertTrue(parts[2].hasPrefix("\u{03C7}\u{00B2}\u{1D63} (Pearson) "))
+        XCTAssertTrue(parts[2].hasPrefix("\u{03C7}\u{00B2}\u{1D63} ") && parts[2].hasSuffix(" (Pearson)"), parts[2])   // R7: the number sits before "(Pearson)"
         XCTAssertEqual(QuantifyPresentation.shortBackground("continuum: Kramers\u{00D7}Bernstein(9,5), no edge split; orders chosen on synthetic data"),
                        "continuum: Kramers\u{00D7}Bernstein(9,5)")
         XCTAssertEqual(QuantifyPresentation.shortBackground("background: polynomial order 6 over the fitted range, signed coefficients"), "background: polynomial order 6 over the fitted range")

@@ -62,6 +62,10 @@ struct ElementsSection: View {
                 }
             }
             .help(Self.notes(o, s))
+            // R7 (wp3e F3.1): a proposal beside a listed line is a misfit, named so, with no tile and no Accept.
+            if !o.excesses.isEmpty {
+                InspectorNote(o.excesses.map(\.title).joined(separator: "; ")).help(o.excesses.map(\.detail).joined(separator: "\n"))
+            }
         }
         if let why = model.autoID.failure { InspectorNote(why) }
     }
@@ -69,7 +73,8 @@ struct ElementsSection: View {
     /// The proposer's own words, as the row's hover: each proposal's reason, the sum-peak questions, what it did not test.
     static func notes(_ o: AutoIDOutcome, _ s: [ElementSuggestion]) -> String {
         var lines = s.map { "\(PeriodicLayout.symbol($0.z)): \($0.reason)" }
-        lines += o.suspects.map { "\($0.label) \($0.question)" }
+        lines += o.excesses.map(\.detail)
+        lines += o.suspects.map { "\($0.label) \($0.question) \($0.stats)" }
         if !o.notTested.isEmpty { lines.append("Not tested: " + o.notTested.map { "\($0.element) (\($0.reason))" }.joined(separator: ", ")) }
         lines += o.notes
         return lines.joined(separator: "\n")

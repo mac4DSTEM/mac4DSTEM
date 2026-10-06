@@ -238,7 +238,7 @@ final class SpectroscopyRoomController {
                 let settings = FitSettings.standard(elements: current, axis: source.energyAxis,
                                                     resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
                 let result = try ElementProposer().propose(counts: spectrum.map { Double($0) }, axis: source.energyAxis, settings: settings)
-                outcome = AutoIDPresentation.outcome(result, region: name)
+                outcome = AutoIDPresentation.outcome(result, region: name, beside: AutoIDPresentation.besideCheck(settings: settings, axis: source.energyAxis))
             } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }
@@ -837,7 +837,7 @@ final class SpectroscopyRoomController {
         m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName), methodJSON: SpectroscopyExport.methodJSON(fit.method),
                                   elements: SpectroscopyExport.elementsLine(fit), methodHash: SpectroscopyExport.shortHash(fit.method),
                                   fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))
-        m.quantify.quality = "\(fit.qualityLabel) \(String(format: "%.2f", fit.quality))"
+        m.quantify.quality = fit.qualityText
         switch fit.absorption {
         case .off: m.quantify.absorptionNote = nil
         case .applied(let s): m.quantify.absorptionNote = s

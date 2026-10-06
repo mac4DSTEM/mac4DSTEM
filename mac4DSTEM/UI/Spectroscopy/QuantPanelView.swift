@@ -97,6 +97,11 @@ struct QuantPanelView: View {
                 }
                 .font(.callout).help(r.note)
             }
+            if model.hasFit, let q = model.quantify.quality {
+                // R7 (wp3e item 2): the misfit is a result, not the tail of a caption: always on its own line under the table.
+                Text(q).font(.callout).fontWeight(.semibold).monospacedDigit()
+                    .help("Reduced chi-square of this fit. Every \u{03C3} shown is counting statistics at 1; the farther this is above 1, the more the model misses the spectrum beyond counting noise.")
+            }
             if let u = model.unlisted { unlisted(u) }
             if let why = model.fitFailure { quietLabel(why, "xmark.circle") }
             if let note = model.abundanceNote { quietLabel(note, "info.circle") }

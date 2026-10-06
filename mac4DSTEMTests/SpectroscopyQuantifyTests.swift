@@ -40,6 +40,27 @@ final class SpectroscopyQuantifyTests: XCTestCase {
                                   regionName: "Whole map", pixelCount: image.metadata.pixelCount)
     }
 
+    // MARK: - R7 (wp3e item 2): the misfit is shown and exported
+
+    /// "chi2_r 54.8 (Pearson)" beside the result and the footer line "sigma is counting statistics at chi2_r = 1; this fit is at <x>",
+    /// which the export carries. Mutation: drop `footer.append(sigmaFitLine(...))` in `PooledQuantifier.run` - red.
+    func testTheFitsChiSquaredIsShownAndExportedBesideTheSigmaScope() throws {
+        let r = try PooledQuantifier.run(Self.input(Self.method(), image: try Self.image()), tables: Self.tables)
+        let x = PooledQuantifier.qualityText(label: r.qualityLabel, value: r.quality)
+        XCTAssertEqual(r.qualityText, x)
+        XCTAssertTrue(x.hasPrefix("\u{03C7}\u{00B2}\u{1D63} ") && x.hasSuffix(" (Pearson)"), x)
+        let value = x.dropFirst(4).dropLast(" (Pearson)".count)
+        XCTAssertEqual(Double(value) ?? -1, r.quality, accuracy: 0.5)
+        let line = try XCTUnwrap(r.footerLines.first { $0.hasPrefix("\u{03C3} is counting statistics at \u{03C7}\u{00B2}\u{1D63} = 1; this fit is at ") }, "\(r.footerLines)")
+        XCTAssertTrue(line.hasSuffix(String(value) + " (Pearson)"), line)
+        XCTAssertTrue(SpectroscopyExport.csv(r, regionName: "w").contains("# " + line))
+        // The formatting: 2 decimals under 10, 1 under 100, none above; a deviance fit says so.
+        XCTAssertEqual(PooledQuantifier.qualityText(label: "\u{03C7}\u{00B2}\u{1D63} (Pearson)", value: 54.83), "\u{03C7}\u{00B2}\u{1D63} 54.8 (Pearson)")
+        XCTAssertEqual(PooledQuantifier.qualityText(label: "\u{03C7}\u{00B2}\u{1D63} (Pearson)", value: 3318.4), "\u{03C7}\u{00B2}\u{1D63} 3318 (Pearson)")
+        XCTAssertEqual(PooledQuantifier.qualityText(label: "reduced deviance", value: 1.024), "reduced deviance 1.02")
+        XCTAssertEqual(PooledQuantifier.sigmaFitLine(label: "reduced deviance", value: 1.024), "\u{03C3} is counting statistics at reduced deviance = 1; this fit is at 1.02")
+    }
+
     // MARK: - The pooled fit against truth
 
     /// The fixture's pooled whole map (24 px, ~700 counts): every quantified area lies within 2 sigma of the planted truth.

@@ -217,7 +217,7 @@ nonisolated enum QuantifyPresentation {
     /// labels run on (`continuum: Kramers×ε(…)×Bernstein(9,5), split at …; orders chosen on synthetic data`); the footer keeps
     /// the form and leaves the rest to the results footer.
     static func plotFooter(_ q: PooledQuantification) -> String {
-        "\(q.fit.methodLabel) \u{00B7} \(shortBackground(q.fit.backgroundLabel)) \u{00B7} \(q.qualityLabel) \(String(format: "%.2f", q.quality))"
+        "\(q.fit.methodLabel) \u{00B7} \(shortBackground(q.fit.backgroundLabel)) \u{00B7} \(q.qualityText)"
     }
 
     /// The background label up to its form: before ", split at", ", no edge split" or the first "; ", else before the first comma.
