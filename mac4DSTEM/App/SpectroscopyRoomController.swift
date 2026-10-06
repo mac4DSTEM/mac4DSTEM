@@ -119,6 +119,7 @@ final class SpectroscopyRoomController {
         let meta = source.metadata
         let axis = source.energyAxis
         m.isLive = true
+        m.scanPixel = meta.scanPixelSize.flatMap { size in meta.scanPixelUnit.map { (size, $0) } }
         m.hasFit = false
         m.resultsFooter = "window net counts"
         m.fitFooter = ""

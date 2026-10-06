@@ -377,4 +377,17 @@ final class SpectroscopyUnlistedLineTests: XCTestCase {
         XCTAssertEqual(state.spectroscopy.method.elements.first { $0.symbol == "Zr" }?.role, .fitOnly)
         XCTAssertEqual(state.spectroscopy.method.elements.first { $0.symbol == "Lu" }?.role, .off)
     }
+
+    /// R8: Al K-alpha (1.4865 keV) sits 73 eV below the Al K edge the continuum is split at: with nothing listed it is Al itself, not
+    /// "an excess beside the split". Lu M-alpha (1.581) with only Si listed still is. Si K-alpha at the Si edge (1.839, when split).
+    /// Mutation: drop `&& !(element != nil && edgeOwner($0) == element)` in `neighbour` - the Al case returns the split line, red.
+    func testR8TheOwnerOfASplitEdgeIsNeverBesideIt() {
+        XCTAssertNil(UnlistedLineChecker.neighbour(energyKeV: 1.4865, listedGroups: [], resolutionMnKaEV: 130, edges: [1.5596], element: "Al"))
+        XCTAssertEqual(UnlistedLineChecker.neighbour(energyKeV: 1.4865, listedGroups: [], resolutionMnKaEV: 130, edges: [1.5596], element: "Lu")?.line,
+                       "the continuum split at 1.560 keV", "another element there is still beside the split")
+        XCTAssertEqual(UnlistedLineChecker.neighbour(energyKeV: 1.581, listedGroups: groups(["Si"]), resolutionMnKaEV: 130, edges: [1.5596], element: "Lu")?.line,
+                       "the continuum split at 1.560 keV")
+        XCTAssertNil(UnlistedLineChecker.neighbour(energyKeV: 1.7400, listedGroups: [], resolutionMnKaEV: 130, edges: [1.839], element: "Si"))
+        XCTAssertEqual(UnlistedLineChecker.edgeOwner(1.5596), "Al"); XCTAssertNil(UnlistedLineChecker.edgeOwner(3.0))
+    }
 }

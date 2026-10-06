@@ -23,6 +23,80 @@ enum ColorMixComposite {
     }
 }
 
+/// The default display window of a map (R8, Velox-like): a robust percentile stretch, not min to max, so one hot pixel or a
+/// handful of bright ones cannot push every other pixel to black. Presentation only; the values are untouched.
+enum MapContrast {
+    /// The 0.5 to 99.5 percent window of the finite values (NaN and infinities ignored), as a `MapDisplay` of gamma 1. Sorted
+    /// from at most 65 536 evenly strided samples (exact for any map up to that size). When the stretch collapses (a sparse map
+    /// whose 99.5 % is its floor) the window runs to the maximum; a flat or empty map is the identity.
+    static func defaultWindow(of values: [Float], low: Double = 0.005, high: Double = 0.995) -> MapDisplay {
+        let stride = max(1, values.count / 65_536)
+        var s: [Float] = []
+        s.reserveCapacity(values.count / stride + 1)
+        var i = 0
+        while i < values.count { if values[i].isFinite { s.append(values[i]) }; i += stride }
+        guard s.count > 1 else { return MapDisplay() }
+        s.sort()
+        func q(_ p: Double) -> Float { s[min(s.count - 1, max(0, Int((p * Double(s.count - 1)).rounded())))] }
+        let lo = q(low)
+        var hi = q(high)
+        if hi <= lo { hi = s[s.count - 1] }
+        guard hi > lo else { return MapDisplay() }
+        return MapDisplay(lo: lo, hi: hi, gamma: 1)
+    }
+}
+
+/// The scale bar of a map (R8, Velox-style): a round length (1, 2 or 5 times a power of ten) near a target on-screen size, in the
+/// unit the reader gave (nm, \u{00B5}m, \u{00C5}...). Pure: the pixel size comes from the file (Velox metres, GMS axis calibration);
+/// a file that states none gets no bar, none is invented.
+enum MapScaleBar {
+    struct Plan: Equatable { var label: String; var lengthPoints: Double }
+
+    /// Nanometres per unit for the length units a reader reports; nil for anything else.
+    static func nanometres(per unit: String) -> Double? {
+        switch unit.trimmingCharacters(in: .whitespaces) {
+        case "nm": 1
+        case "\u{00B5}m", "\u{03BC}m", "um", "micron", "microns": 1000
+        case "m": 1e9
+        case "mm": 1e6
+        case "\u{00C5}", "A", "Angstrom": 0.1
+        case "pm": 0.001
+        default: nil
+        }
+    }
+
+    /// `pixelSize` per scan pixel in `unit`; `pointsPerPixel` the map's drawn size; the bar aims at `targetPoints`.
+    static func plan(pixelSize: Double, unit: String, pointsPerPixel: Double, targetPoints: Double = 64) -> Plan? {
+        guard pixelSize > 0, pixelSize.isFinite, pointsPerPixel > 0, pointsPerPixel.isFinite, targetPoints > 0 else { return nil }
+        guard let nm = nanometres(per: unit) else {
+            let nice = ScaleBar.nice125(targetPoints * pixelSize / pointsPerPixel)
+            return Plan(label: "\(ScaleBar.format(nice)) \(unit)", lengthPoints: nice / (pixelSize / pointsPerPixel))
+        }
+        let nmPerPoint = pixelSize * nm / pointsPerPixel
+        let nice = ScaleBar.nice125(targetPoints * nmPerPoint)
+        let label = nice >= 1000 ? "\(ScaleBar.format(nice / 1000)) \u{00B5}m" : "\(ScaleBar.format(nice)) nm"
+        return Plan(label: label, lengthPoints: nice / nmPerPoint)
+    }
+}
+
+/// The bar, bottom-left on the map: white with a dark halo so it reads on any map.
+struct MapScaleBarView: View {
+    let plan: MapScaleBar.Plan
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(plan.label).font(.caption2.weight(.semibold))
+            Rectangle().frame(width: CGFloat(plan.lengthPoints), height: 3)
+        }
+        .foregroundStyle(.white)
+        .shadow(color: .black, radius: 1).shadow(color: .black, radius: 1)
+        .padding(8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Scale bar \(plan.label)")
+    }
+}
+
 /// A bitmap of `width x height` pixels from a per-pixel colour, drawn scaled with nearest-neighbour sampling: a map is one
 /// image draw, not a path per scan pixel.
 enum MapBitmap {

@@ -226,7 +226,8 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   keeps the spectrum + quant on screen, one sidebar row, the chip popover. R6 (driven): the ColorMix is the dominant map, tiles
   to its right (96-pt floor, the tile grid scrolls alone), net ± σ on one line. WP3e (R7, unverified on screen): χ²ᵣ shown beside the result and in the footer/Export;
   sum-peak markers lead with the sum; Auto ID calls A2's beside rule (an excess, never a tile) and shows net/L_D + χ²ᵣ.
-  Open: WP3e 1b (phantom sum parents) and F3.2 (L_D under a poor fit) in Gate D; `suggestedRole` unused;
+  R8 (driven): Al no longer its own excess beside its K-edge split; maps default to a 0.5–99.5 % stretch; one
+  caveat block; a scale bar from the file's pixel size. Open: WP3e 1b (phantom sum parents) in a lane; `suggestedRole` unused;
   new windows at 1280×800 (frozen shell). Not yet seen: the open's spinner and Cancel, Export's save panels.
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,

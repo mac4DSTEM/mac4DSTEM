@@ -72,23 +72,23 @@ nonisolated enum AutoIDPresentation {
 
     /// What a candidate at an energy sits beside (a listed alpha line within +-2 FWHM, a split edge within +-1), as the quant
     /// panel's check computes it; nil when it is clear. `listed` is the fit's own element list, axis and width.
-    static func besideCheck(settings: FitSettings, axis: EnergyAxis) -> (Double) -> String? {
+    static func besideCheck(settings: FitSettings, axis: EnergyAxis) -> (Double, String) -> String? {
         let listed = EDSLineModel.build(elements: settings.elements, axis: axis, beamEnergy: settings.beamEnergy,
                                         resolutionMnKaEV: settings.resolutionMnKaEV, escapePeaks: settings.escapePeaks).groups
         var edges: [Double] = []
         if case .continuum(let form) = settings.background { edges = form.edges }
-        return { e in
-            UnlistedLineChecker.neighbour(energyKeV: e, listedGroups: listed, resolutionMnKaEV: settings.resolutionMnKaEV, edges: edges)?.line
+        return { e, element in
+            UnlistedLineChecker.neighbour(energyKeV: e, listedGroups: listed, resolutionMnKaEV: settings.resolutionMnKaEV, edges: edges, element: element)?.line
         }
     }
 
-    /// `beside` answers "what listed line is this energy next to?" (nil = nothing): see `besideCheck`.
-    static func outcome(_ r: ProposalResult, region: String, beside: (Double) -> String? = { _ in nil }) -> AutoIDOutcome {
+    /// `beside` answers "what listed line is this energy (of this element) next to?" (nil = nothing): see `besideCheck`.
+    static func outcome(_ r: ProposalResult, region: String, beside: (Double, String) -> String? = { _, _ in nil }) -> AutoIDOutcome {
         var suggestions: [ElementSuggestion] = []
         var excesses: [AutoIDExcess] = []
         for c in r.proposed {   // NOT `candidates.filter(\.isProposed)`: a sum-peak question is not a finding
             let stats = stats(c, chiSquared: r.reducedChiSquared)
-            if let line = beside(c.energyKeV) {   // F3.1: a misfit of that line's shape or the continuum, not a detected element
+            if let line = beside(c.energyKeV, c.element) {   // F3.1: a misfit of that line's shape or the continuum, not a detected element
                 excesses.append(AutoIDExcess(beside: line, proposerLabel: UnlistedLineChecker.displayName(c.group), stats: stats))
                 continue
             }

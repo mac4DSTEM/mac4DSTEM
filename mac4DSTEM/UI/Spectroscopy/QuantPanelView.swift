@@ -102,9 +102,10 @@ struct QuantPanelView: View {
                 Text(q).font(.callout).fontWeight(.semibold).monospacedDigit()
                     .help("Reduced chi-square of this fit. Every \u{03C3} shown is counting statistics at 1; the farther this is above 1, the more the model misses the spectrum beyond counting noise.")
             }
-            if let u = model.unlisted { unlisted(u) }
+            let block = QuantifyPresentation.unlistedBlock(model.unlisted, abundanceNote: model.abundanceNote)
+            if let u = block.line { unlisted(u) }
             if let why = model.fitFailure { quietLabel(why, "xmark.circle") }
-            if let note = model.abundanceNote { quietLabel(note, "info.circle") }
+            if let note = block.note { quietLabel(note, "info.circle") }
             if !model.results.isEmpty && !model.hasFit && model.fitFailure == nil {
                 Text("Quantify fits this region and adds at%.").font(.caption).foregroundStyle(.secondary)
             }

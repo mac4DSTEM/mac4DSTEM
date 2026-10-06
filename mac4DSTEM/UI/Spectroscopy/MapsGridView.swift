@@ -187,6 +187,11 @@ struct MapTileView: View {
                         .background(.black.opacity(0.6), in: Capsule())
                         .frame(maxWidth: .infinity, maxHeight: .infinity).allowsHitTesting(false)
                 }
+                if (map == .colorMix || isActive), !proposed, let px = model.scanPixel, model.gridWidth > 0,
+                   let plan = MapScaleBar.plan(pixelSize: px.size, unit: px.unit, pointsPerPixel: size.width / CGFloat(model.gridWidth),
+                                               targetPoints: min(64, size.width * 0.3)) {
+                    MapScaleBarView(plan: plan)
+                }
                 header
                 if proposed {
                     RoundedRectangle(cornerRadius: TileMetrics.corner).strokeBorder(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
@@ -435,7 +440,7 @@ extension SpectroscopyRoomModel {
     /// One map's contrast window and gamma as a binding; the identity is stored as absent. Setting one map's display never
     /// touches another's (`mapDisplays` is keyed by the map).
     func displayBinding(_ map: ActiveMap) -> Binding<MapDisplay> {
-        Binding(get: { self.display(map) }, set: { self.mapDisplays[map] = $0.isIdentity ? nil : $0 })
+        Binding(get: { self.display(map) }, set: { self.mapDisplays[map] = $0 == self.defaultDisplay(map) ? nil : $0 })
     }
     /// The map's own values, the histogram's input.
     func pixels(of map: ActiveMap) -> [Float] {

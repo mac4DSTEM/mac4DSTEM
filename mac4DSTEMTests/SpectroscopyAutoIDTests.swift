@@ -99,7 +99,7 @@ final class SpectroscopyAutoIDTests: XCTestCase {
     }
 
     /// The beside rule on the quant panel's own settings: Al listed, a 10 eV/channel axis, the default continuum.
-    private var alListedBeside: (Double) -> String? {
+    private var alListedBeside: (Double, String) -> String? {
         let axis = EnergyAxis(offset: 0, scale: 0.01, size: 2000)
         let settings = FitSettings.standard(elements: ["Al"], axis: axis, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: 200)
         return AutoIDPresentation.besideCheck(settings: settings, axis: axis)
@@ -300,5 +300,32 @@ final class SpectroscopyAutoIDTests: XCTestCase {
         XCTAssertNil(c.model.autoID.outcome, "nothing landed")
         XCTAssertNil(c.model.autoID.failure, "a cancel is a silent discard, not a failure")
         XCTAssertTrue(c.model.elements.suggestions.isEmpty)
+    }
+
+    // MARK: R8
+
+    /// Fresh open, nothing listed: Al K-alpha sits at the Al split edge and is a SUGGESTION, not an excess.
+    /// Mutation: `besideCheck` passes `nil` instead of `element` to `neighbour` - Al becomes an excess, red.
+    func testR8AlOnItsOwnEdgeIsASuggestionWithNothingListed() {
+        let axis = EnergyAxis(offset: 0, scale: 0.01, size: 2000)
+        let settings = FitSettings.standard(elements: [], axis: axis, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: 200)
+        let o = AutoIDPresentation.outcome(proposal([candidate("Al", "Al_Ka", energy: 1.4865)], chi: 2),
+                                           region: "r", beside: AutoIDPresentation.besideCheck(settings: settings, axis: axis))
+        XCTAssertEqual(o.suggestions.map(\.z), [Al]); XCTAssertTrue(o.excesses.isEmpty)
+    }
+
+    /// The note under Proposed follows the picks: an excess judged against one list is not shown once the list changes.
+    /// Mutation: `autoIDExcesses` returns `o.excesses` unconditionally - red.
+    func testR8ExcessNoteGoesStaleWhenPicksChange() {
+        let m = model()
+        m.elements.click(Al)
+        let lu = candidate("Lu", "Lu_Ma", energy: 1.581, net: 4513, limit: 2073)
+        let t = m.beginAutoID()
+        m.finishAutoID(token: t, outcome: AutoIDPresentation.outcome(proposal([lu], chi: 2), region: "r", beside: alListedBeside))
+        XCTAssertEqual(m.autoIDExcesses.count, 1)
+        m.elements.click(Mg)
+        XCTAssertTrue(m.autoIDExcesses.isEmpty)
+        m.elements.click(Mg)
+        XCTAssertEqual(m.autoIDExcesses.count, 1, "back to the list it was judged against")
     }
 }

@@ -63,8 +63,9 @@ struct ElementsSection: View {
             }
             .help(Self.notes(o, s))
             // R7 (wp3e F3.1): a proposal beside a listed line is a misfit, named so, with no tile and no Accept.
-            if !o.excesses.isEmpty {
-                InspectorNote(o.excesses.map(\.title).joined(separator: "; ")).help(o.excesses.map(\.detail).joined(separator: "\n"))
+            let excesses = model.autoIDExcesses
+            if !excesses.isEmpty {
+                InspectorNote(excesses.map(\.title).joined(separator: "; ")).help(excesses.map(\.detail).joined(separator: "\n"))
             }
         }
         if let why = model.autoID.failure { InspectorNote(why) }
@@ -201,7 +202,7 @@ struct MapDisplaySection: View {
         InspectorRow("All maps") {
             Button("Reset") { model.elementColors = [:]; model.mapDisplays = [:]; model.haadfColormap = .gray }
                 .disabled(model.elementColors.isEmpty && model.mapDisplays.isEmpty && model.haadfColormap == .gray)
-                .help("Back to the default colours, the full contrast window and gamma 1 on every map")
+                .help("Back to the default colours, each map\u{2019}s default contrast window and gamma 1")
         }
     }
 }

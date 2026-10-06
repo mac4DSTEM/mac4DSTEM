@@ -12,6 +12,7 @@ What that train left behind is the shape the app has now — `DSTEMCore` and `DS
 
 | Gate | Result |
 |---|---|
+| Room polish R8 (2026-10-06) | Fresh gate copy (main + R8): unit **2032 / 0 / 3 = 2036** = `func test` count, exit 0 (`gateR8/unit.log`); core 0. Lane mutations 7/7 red. Driven on the owner's Velox SI 1339: Al proposed on open (no false excess), ColorMix and tiles stretched, scale bar "200 nm", one caveat block. |
 | WP3e no-Gate-D items R7 (2026-10-06) | Fresh gate copy (main + R7): unit **2025 / 0 / 3 = 2028** = `func test` count, exit 0 (`gateR7/unit.log`); core 0. Lane mutations 4/4 red. No file under `Fit/`; `ProposalResult.reducedChiSquared` added (existing value). Unverified on screen (the drive was stopped: a keystroke sequence lost focus). |
 | Room polish R6 (2026-10-06) | Fresh gate copy (main + R6): unit **2021 / 0 / 3 = 2024** = `func test` count, exit 0 (`gateR6/unit.log`); core 0. Lane mutations 8/8 red. Supervisor kept the at% header's "· no absorption" in words (R6 had moved it to a hover). Driven on the owner's Velox SI 1339: ColorMix dominant, tiles beside, net ± σ one line, caveat shown. |
 | Room drive fixes R5 (2026-10-06) | Fresh gate copy (main + R5): unit **2020 / 0 / 3 = 2023** = `func test` count, exit 0 (`gateR5/unit.log`); core 0. Lane mutations 12/12 red. Driven by the supervisor on the owner's Velox SI (build of the same tree): fixes seen, open items listed in the drive record. |

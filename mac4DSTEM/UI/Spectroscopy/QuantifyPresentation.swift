@@ -130,6 +130,20 @@ nonisolated struct UnlistedLineNote: Equatable, Sendable {
 }
 
 nonisolated enum QuantifyPresentation {
+    /// One block, not two (R8): the unlisted-line line and the at% caveat said the same thing. While the check runs the one line
+    /// is the check's; with candidates the one line is the caveat sentence (it names what is unlisted and the largest move, the
+    /// buttons stay); otherwise the unlisted line stands and the note (a refusal, say) stays beside it. The export is untouched.
+    static func unlistedBlock(_ u: UnlistedLineNote?, abundanceNote: String?) -> (line: UnlistedLineNote?, note: String?) {
+        guard let u else { return (nil, abundanceNote) }
+        let caveat = abundanceNote?.hasPrefix("at% caveat: ") == true
+        if u.checking { return (u, caveat ? nil : abundanceNote) }
+        if !u.candidates.isEmpty, caveat, let n = abundanceNote {
+            var merged = u; merged.text = n
+            return (merged, nil)
+        }
+        return (u, abundanceNote)
+    }
+
     static func unlistedNote(_ c: UnlistedLineCheck) -> UnlistedLineNote {
         UnlistedLineNote(text: c.line, detail: c.summary, candidates: c.elementNames.compactMap { PeriodicLayout.z(of: $0) })
     }

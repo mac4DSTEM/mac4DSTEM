@@ -33,6 +33,8 @@ final class SpectroscopyRoomModel {
     /// Contrast window and gamma per map (HAADF and each element); absent: the full range, gamma 1. View state, as above.
     var mapDisplays: [ActiveMap: MapDisplay] = [:]
     var haadfColormap: ColormapKind = .gray
+    /// The scan's real-space pixel size and unit when the file states one (Velox, GMS); nil: no scale bar (none is invented).
+    var scanPixel: (size: Double, unit: String)?
     /// Bumped whenever `tiles` or `backdrop` are replaced, so the map's bitmap is rebuilt by identity, not by comparing arrays.
     var tileRevision = 0
 
@@ -142,9 +144,17 @@ final class SpectroscopyRoomModel {
         guard token == autoID.token, autoID.running else { return false }
         autoID.running = false
         autoID.outcome = outcome
+        autoID.listedAtRun = elements.activeZ   // R8: the excesses were judged against this list (see `autoIDExcesses`)
         elements.rerunAutoID(accepted: [:], suggestions: outcome.suggestions)
         markers = markers.filter { $0.kind != .suspect } + outcome.suspectMarkers
         return true
+    }
+
+    /// The excesses of the latest outcome, while the listed elements are the ones it was run against: an excess is "beside a
+    /// listed line", so once a pick changes the list the sentence is stale and goes (R8; Auto ID's next run rejudges).
+    var autoIDExcesses: [AutoIDExcess] {
+        guard let o = autoID.outcome, autoID.listedAtRun == elements.activeZ else { return [] }
+        return o.excesses
     }
 
     /// The run could not be made (no beam energy, a rank-deficient design): the earlier outcome stays, the reason shows.
@@ -172,7 +182,17 @@ final class SpectroscopyRoomModel {
 
     /// The colour of element `z` everywhere (tile, ColorMix, markers, table): the person's, else the palette's.
     func color(_ z: Int) -> Color { elementColors[z] ?? ElementPalette.color(z) }
-    func display(_ map: ActiveMap) -> MapDisplay { mapDisplays[map] ?? MapDisplay() }
+    /// The person's window for the map, else its default: a robust percentile stretch of its own values (`MapContrast`), kept
+    /// per tile revision so the sort runs once per map and not per draw.
+    func display(_ map: ActiveMap) -> MapDisplay { mapDisplays[map] ?? defaultDisplay(map) }
+    func defaultDisplay(_ map: ActiveMap) -> MapDisplay {
+        if let c = defaultDisplays[map], c.revision == tileRevision, c.count == pixels(of: map).count { return c.display }
+        let px = pixels(of: map)
+        let d = MapContrast.defaultWindow(of: px)
+        defaultDisplays[map] = (tileRevision, px.count, d)
+        return d
+    }
+    @ObservationIgnored private var defaultDisplays: [ActiveMap: (revision: Int, count: Int, display: MapDisplay)] = [:]
 
     /// Proposed elements take the role the proposer suggested, one click for all (the inspector's Accept).
     func acceptProposed() { for s in elements.suggestions { elements.click(s.z) } }
@@ -189,6 +209,7 @@ struct AutoIDState: Equatable {
     var running = false
     var outcome: AutoIDOutcome?
     var failure: String?
+    var listedAtRun: [Int] = []
     fileprivate(set) var token = 0
 }
 

@@ -249,7 +249,7 @@ final class SpectroscopyRoomMapsTests: XCTestCase {
         let model = SpectroscopyRoomModel.fixture
         model.mapDisplays[.element(12)] = windowed
         XCTAssertEqual(model.display(.element(12)), windowed)
-        XCTAssertEqual(model.display(.element(13)), identity)
+        XCTAssertEqual(model.display(.element(13)), model.defaultDisplay(.element(13)), "another map stays at its own default window (R8)")
         model.elementColors[12] = .purple
         XCTAssertNotEqual(model.color(12), ElementPalette.color(12)); XCTAssertEqual(model.color(13), ElementPalette.color(13))
     }
