@@ -65,7 +65,7 @@ package final class SessionReplay {
     /// their "product" is the live value a rewind restores, never a stale one.
     /// Exports are sinks.
     package static let lineageOnlyProductKinds: Set<String> = [
-        "diffraction_groups", "phase_mapping", "precipitate_objects",
+        "diffraction_groups", "phase_mapping", "precipitate_objects", "quantification",
     ]
 
     /// Rewind (ADR 047 R4): the active path changes, the linear recipe follows

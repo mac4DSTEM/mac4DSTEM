@@ -189,9 +189,9 @@ struct QuantifyInspector: View {
             if model.isLive {
                 InspectorNote("Quantification lands with WP3. The results table shows window net counts until then.")
             } else {
-            ChoiceRow(label: "Method", value: $model.quantify.method, options: ["Mg/Si in Al · LS · BP k", "Custom"])
+            ChoiceRow(label: "Method", value: $model.quantify.method, options: ["Mg/Si in Al · LS · BS k", "Custom"])
             ChoiceRow(label: "Background", value: $model.quantify.background, options: ["Empirical + Al edge", "Polynomial windows"])
-            ChoiceRow(label: "k-factors", value: $model.quantify.kFactors, options: ["Brown-Powell (computed)", "Typed (with source)"])
+            ChoiceRow(label: "k-factors", value: $model.quantify.kFactors, options: ["Bote-Salvat (computed)", "Typed (with source)"])
             InspectorRow("Absorption") {
                 Toggle(q.absorptionNote ?? "", isOn: $model.quantify.absorption).toggleStyle(.checkbox)
             }

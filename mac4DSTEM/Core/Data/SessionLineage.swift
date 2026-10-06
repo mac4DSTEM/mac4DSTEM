@@ -177,6 +177,9 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     package static let lineageOnlyKinds: Set<String> = [
         "calibration_origin", "calibration_ellipse", "calibration_q",
         "diffraction_groups", "phase_mapping", "precipitate_objects", "export",
+        // v5.0 WP3 lane M: a spectrum quantification is not a 4D analysis the replay planner can run
+        // (it needs the spectrum image), so an older build's linear record never carries it.
+        "quantification",
     ]
 
     /// What a re-run of a kind takes off the active path: **the mapping that
@@ -187,7 +190,10 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     /// calibration was refitted, and the projection must equal it (R6).
     package static let downstreamKinds: [String: [String]] = [
         "disk_detection": ["strain", "acom", "phase_mapping", "precipitate_objects"],
-        "phase_mapping": ["precipitate_objects"],
+        // A quantification pooled by phases or objects stands on the phase map: re-running it (or the
+        // objects) takes the quantification off the path, as it does the objects (WP3 round 3).
+        "phase_mapping": ["precipitate_objects", "quantification"],
+        "precipitate_objects": ["quantification"],
     ]
 
     package nonisolated struct Dependency: Sendable {
@@ -215,6 +221,12 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
                           Dependency(role: "calibration", kind: "calibration_ellipse"),
                           Dependency(role: "calibration", kind: "calibration_q")],
         "precipitate_objects": [Dependency(role: "phases", kind: "phase_mapping")],
+        // Pooling by phase or object reads those 4D products through the registration record M2
+        // (`QuantificationStep`); a whole-map or drawn-region quantification has neither edge. No
+        // calibration edge: the 4D origin/ellipse/Q do not enter a spectrum fit, and an edge to them
+        // would make a rewind refuse over a calibration the quantification never used.
+        "quantification": [Dependency(role: "phases", kind: "phase_mapping"),
+                           Dependency(role: "objects", kind: "precipitate_objects")],
     ]
 
     /// The kinds whose product is judged by the calibration nodes it consumed

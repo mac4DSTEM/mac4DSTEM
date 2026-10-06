@@ -141,7 +141,7 @@ struct RegionSettings {
 struct QuantifySettings {
     var method = ""
     var background = "Empirical + Al edge"     // ADR 054 §2
-    var kFactors = "Brown-Powell (computed)"   // ADR 054 §3
+    var kFactors = "Bote-Salvat (computed)"   // ADR 054 §3
     var absorption = true
     var absorptionNote: String?
     var thickness: Double?, thicknessSigma: Double?
@@ -219,11 +219,11 @@ extension SpectroscopyRoomModel {
             liveDead: "1311 s total · dead 52 %", geometry: "TOA 18° · 4 det. · 0.12 sr")
         m.regionSettings = RegionSettings(source: "Phase", phase: "β″ (Mg₅Si₆)", pixels: "1 842 · 2.8 %", counts: "4.31 M",
                                           liveTime: "37 s · 20 ms/px", compare: "Al Kα · live time")
-        m.quantify.method = "Mg/Si in Al · LS · BP k"; m.quantify.absorptionNote = "4 detectors · TOA from file"
+        m.quantify.method = "Mg/Si in Al · LS · BS k"; m.quantify.absorptionNote = "4 detectors · TOA from file"
         m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.chiSquared = 1.04
         m.smoothing = "3 × 3 · σ 1 px"
         m.ratioLine = RatioLine(label: "Mg / Si net ratio", value: 1.092, sigma: 0.021, note: "k-free, counting only")
-        m.fitFooter = "Least squares · empirical continuum + Al edge · Brown-Powell k (ε Super-X G1) · absorption 80 ± 15 nm · no escape peaks"
+        m.fitFooter = "Least squares · empirical continuum + Al edge · Bote-Salvat k (ε Super-X G1) · absorption 80 ± 15 nm · no escape peaks"
         return m
     }
 }

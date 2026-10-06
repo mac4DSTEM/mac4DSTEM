@@ -62,31 +62,11 @@ package enum SpectroscopyStep: String, CaseIterable, Identifiable, Sendable {
 
 // MARK: - Elements
 
-/// An element's role in the fit (ADR 054 item 6): quantified, fitted only (its
-/// lines are modelled so they do not leak into neighbours, but it gets no
-/// at%), or off.
-package enum SpectroscopyElementRole: String, CaseIterable, Sendable {
-    case quantify
-    case fitOnly
-    case off
-}
-
-package struct SpectroscopyElement: Equatable, Identifiable, Sendable {
-    /// The element symbol, e.g. "Mg".
-    package var symbol: String
-    package var role: SpectroscopyElementRole
-    /// Picked by the user. The proposer never drops a manual pick (owner,
-    /// ADR 054 "The mock's first review").
-    package var isManual: Bool
-
-    package var id: String { symbol }
-
-    package nonisolated init(symbol: String, role: SpectroscopyElementRole, isManual: Bool) {
-        self.symbol = symbol
-        self.role = role
-        self.isManual = isManual
-    }
-}
+/// An element's role in the fit (ADR 054 item 6) and the element row itself: the types live with the
+/// method (`QuantificationMethod`, Core), because the element states are part of what a replay step
+/// records. These names are the room's.
+package typealias SpectroscopyElementRole = QuantificationMethod.ElementRole
+package typealias SpectroscopyElement = QuantificationMethod.ElementState
 
 // MARK: - Regions
 
@@ -118,55 +98,11 @@ package struct SpectroscopyRegion: Equatable, Identifiable, Sendable {
     }
 }
 
-// MARK: - The quantification method (ADR 054 items 1–3, 9)
+// MARK: - The quantification method (ADR 054 items 1-3, 9)
 
-package struct SpectroscopyQuantificationMethod: Equatable, Sendable {
-    /// Item 1: least squares, unweighted, is the named default; Poisson
-    /// maximum likelihood sits under Expert.
-    package enum Estimator: String, CaseIterable, Sendable {
-        /// Least squares, unweighted.
-        case leastSquares
-        case poissonMaximumLikelihood
-    }
-
-    /// Item 2: a fitted whole-spectrum empirical continuum with the Al K-edge
-    /// step (Velox's "Empirical") by default.
-    package enum Background: String, CaseIterable, Sendable {
-        case empiricalWithAlEdge
-        /// eXSpy's whole-range sixth-order polynomial, the parity path, under Expert.
-        case wholeRangePolynomial6
-    }
-
-    /// Item 3: a computed Brown-Powell k, or a typed k with its source. No ζ in
-    /// the menu.
-    package enum KFactorSource: String, CaseIterable, Sendable {
-        case brownPowell
-        case typed
-    }
-
-    /// Item 9: typed ± σ now, in nanometres.
-    package struct Thickness: Equatable, Sendable {
-        package var nanometres: Double
-        package var sigmaNanometres: Double
-
-        package nonisolated init(nanometres: Double, sigmaNanometres: Double) {
-            self.nanometres = nanometres
-            self.sigmaNanometres = sigmaNanometres
-        }
-    }
-
-    package var estimator: Estimator = .leastSquares
-    package var background: Background = .empiricalWithAlEdge
-    package var kFactorSource: KFactorSource = .brownPowell
-    /// ADR 053 item 5: four-detector weighted transmission (solid-angle-weighted
-    /// mean), badged; on by default, and refused (by the quantification, not
-    /// here) when geometry or tilt is unknown.
-    package var absorptionCorrection = true
-    /// Unset until the user types one: no thickness is assumed.
-    package var thickness: Thickness?
-
-    package nonisolated init() {}
-}
+/// The method value is Core's (`QuantificationMethod`): Codable, byte-stable, hashed, recorded as the
+/// replay step "quantification". Defaults are ADR 054's, unchanged by the move.
+package typealias SpectroscopyQuantificationMethod = QuantificationMethod
 
 // MARK: - The owner
 
@@ -182,7 +118,12 @@ package final class SpectroscopySession {
     /// The step the sidebar has selected and the inspector shows.
     package var selectedStep: SpectroscopyStep = .spectrumImage
 
-    package var elements: [SpectroscopyElement] = []
+    /// The element roles live in the method (they are part of what a quantification step records);
+    /// this is the same list, so there is one copy.
+    package var elements: [SpectroscopyElement] {
+        get { method.elements }
+        set { method.elements = newValue }
+    }
 
     package var regions: [SpectroscopyRegion] = []
     /// The region the spectrum and the results describe.
