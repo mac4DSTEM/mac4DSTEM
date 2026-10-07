@@ -117,7 +117,7 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   through its first Gate D loop against his Velox selections (ADR 060: 34 / 45 %; one hygiene rule ships, two held for a truth
   set that tests their risk). WP4b refuted both held rules on DTSA-II's Qual set, a risk simulator and his files (ADR 062: nothing
   ships); the eXSpy quantification pins agree (4cc5581c). V5-8 answered b (ADR 061). Next, in order: E wired into the room
-  (pre-registration, Gate B), the 4D Quantify rows in Results once the drive clears, then B*'s prerequisites (per-phase score,
+  (E1 registered 2026-10-08, `docs/archive/v5/e1-pooling-preregistration-2026-10-08.md`; built after the owner's cards E1–E6), the 4D Quantify rows in Results once the drive clears, then B*'s prerequisites (per-phase score,
   separability matrix); validation with the owner's joint GMS run and a pure-Al foil from his detector (Q1–Q3,
   `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
 - [ ] **A total repo clean-up** (owner, 2026-10-08) — after EDX (v5.0) and possibly EELS are in place: one pass that leaves the repo as
