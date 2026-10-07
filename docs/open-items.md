@@ -206,14 +206,6 @@ accelerating voltage; a session voltage above 1000 kV is stamped as typed and re
 an EDS SI) opens as a spectrum image in the Spectroscopy room, never as a cube; every other file reaches the 4D open untouched. Gate B
 (Fable) passed after round 2 (the sniff now runs inside the security scope, so Recents reopen as spectrum images too). A spectrum image is not added to Recents (they carry sidecar semantics).
 
-### DM4 string tags (type 18) read one length too many (2026-10-05) — reproduced on a synthetic file
-`DM4Reader.readDataTag` (`Core/Data/DM4Reader.swift`, case 18) reads a `u32be` length after the info array. In rsciio
-(`digitalmicrograph/_api.py`, `parse_string_definition`) the length is the info array's second entry, with nothing after it.
-If a file holds a type-18 tag, the walk would desync from that tag on. Reproduced 2026-10-05 on a synthetic DM4 (lane B, a
-throwaway test): one type-18 tag anywhere makes `DM4Reader(path:)` throw `.truncated`. The owner's GMS files open fine, which suggests GMS writes text as uint16 arrays (type 20), not
-type 18. No owner file has one so far. A GMS joint 4D + EDX file might, so this blocks nothing yet but should be fixed with a
-fixture before that file arrives (the mechanism is proven, so no Gate D is needed; the fix is `DM4Experiment`'s reading).
-
 ### Velox parity is a local diagnostic, not a CI gate (2026-10-05)
 `tools/velox-parity` checks the new `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
 frame counts) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's
