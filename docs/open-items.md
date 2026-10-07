@@ -364,8 +364,9 @@ their owner items (keyboard Label centres, region/crop drags, comparison cursor,
 Lanes X, Y (2026-10-08) fixed the audits' no-new-surface rows; their checks are rows X1–X3, Y1–Y5 of `archive/v5/swiftui-review-verification-2026-10-07.md` (unverified on screen). `.help` is also the VO hint (`help(_:)`), so 1st-check #28 is withdrawn.
 Apple-docs checks 2026-10-08 (drafts by Haiku readers, citations spot-checked): `archive/v5/liquid-glass-check-2026-10-08.md` (glass used as
 documented; drive light appearance, Reduce Transparency, disabled-chip dimming; map-overlay glass vs the content-layer rule is the owner's D-8),
-`api-deprecation-sweep-2026-10-08.md` (nothing deprecated the compiler misses; 6 Number/DateFormatters → FormatStyle, display only; 4 AppKit
-uses vs the SwiftUI-only rule), `coreml-vs-coreai-2026-10-08.md` (answered: Core ML stays, ADR 063).
+`api-deprecation-sweep-2026-10-08.md` (nothing deprecated the compiler misses; 6 Number/DateFormatters → FormatStyle, display only, done by lane V; 4 AppKit
+uses vs the SwiftUI-only rule: the swatch and the label-import panel are SwiftUI since lane A2; MetalImageView stays; Reveal in Finder keeps
+`NSWorkspace.activateFileViewerSelecting` (no SwiftUI call selects a file in Finder; decided for the owner, overrule on sight)), `coreml-vs-coreai-2026-10-08.md` (answered: Core ML stays, ADR 063).
 
 ### The audit's refactor list, rows 4–13 — most parked
 Open: row 4 (a shared harness `fail` helper — Gate B, a shared bug can green 46 harnesses); rows 6–7, the
