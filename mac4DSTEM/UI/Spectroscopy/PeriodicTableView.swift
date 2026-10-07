@@ -79,6 +79,8 @@ struct PeriodicTableView: View {
     @State private var foldedOpen = false
     /// The grid's laid-out width, for the symbol size (the cell size follows it, `PeriodicTableGrid`).
     @State private var width = PeriodicTableGrid.idealWidth
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var rotorSpace
 
     var body: some View {
         VStack(alignment: .leading, spacing: PeriodicTableGrid.gap) {
@@ -89,7 +91,7 @@ struct PeriodicTableView: View {
             }
             // The fold is a row in the inspector sections' own vocabulary: leading chevron, secondary label, the whole row toggles.
             Button {
-                withAnimation(.easeInOut(duration: 0.15)) { foldedOpen.toggle() }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { foldedOpen.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right").font(.caption.weight(.semibold)).rotationEffect(.degrees(foldedOpen ? 90 : 0))
@@ -111,51 +113,73 @@ struct PeriodicTableView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spectroscopy.periodicTable")
+        // VoiceOver rotor: jump between the mapped elements of a 90-cell table.
+        .accessibilityRotor("Mapped") {
+            ForEach(model.elements.quantified, id: \.self) { z in
+                AccessibilityRotorEntry(Text(PeriodicLayout.symbol(z)), id: z, in: rotorSpace)
+            }
+        }
     }
 
     private func cell(_ z: Int) -> some View {
         let state = model.elements.cellState(z)
         let sym = PeriodicLayout.symbol(z)
         let size = PeriodicTableGrid.symbolSize(cell: PeriodicTableGrid.cellSize(width: width))
-        return Text(sym)
-            .font(.system(size: size, weight: .semibold))
-            .lineLimit(1).minimumScaleFactor(0.8)   // a two-letter symbol at 9 pt in the narrowest cell (11.9 pt) sits on the edge
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .foregroundStyle(Self.ink(state))
-            .background(RoundedRectangle(cornerRadius: Self.corner).fill(Self.fill(state)))
-            .overlay(RoundedRectangle(cornerRadius: Self.corner).strokeBorder(Self.border(state), lineWidth: 1.2))
-            .contentShape(Rectangle())
-            .onTapGesture { model.elements.click(z) }
-            .onHover { inside in
-                if inside { model.highlightedZ = z } else if model.highlightedZ == z { model.highlightedZ = nil }
-            }
-            .contextMenu {
-                if PeriodicLayout.isAvailable(z) {
-                    ForEach(ElementRole.allCases, id: \.self) { r in
-                        Toggle(r.title, isOn: Binding(get: { model.elements.role(z) == r }, set: { _ in model.elements.set(z, r) }))
-                    }
-                    Divider()
-                    Menu("Lines") {
-                        ForEach(LineFamily.allCases, id: \.self) { f in
-                            let items = ElementLines.items(family: f, z: z)
-                            if !items.isEmpty {
-                                // The family row sets the family (the fit takes whole families either way); under it the lines the maps sum
-                                // and the spectrum marks.
-                                Toggle("\(f.rawValue) lines", isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
-                                ForEach(items, id: \.id) { item in
-                                    Toggle(item.title, isOn: Binding(get: { model.elements.checkedLines(z).contains(item.id) },
-                                                                     set: { _ in model.elements.toggleLine(z, item.id) }))
-                                }
-                                Divider()
+        // A native Button: Tab (Full Keyboard Access) reaches every cell and Space presses it; the 90+ tab stops are accepted. The
+        // plain style adds no padding or hover fill, so the cell looks as it did. An unavailable cell stays enabled on purpose:
+        // `.disabled` would dim its own ink and could drop the hover and the right-click reason; its click is already inert in
+        // `ElementSelection.click` / `.set`, and it offers no VoiceOver role actions.
+        return Button { model.elements.click(z) } label: {
+            Text(sym)
+                .font(.system(size: size, weight: .semibold))
+                .lineLimit(1).minimumScaleFactor(0.8)   // a two-letter symbol at 9 pt in the narrowest cell (11.9 pt) sits on the edge
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .foregroundStyle(Self.ink(state))
+                .background(RoundedRectangle(cornerRadius: Self.corner).fill(Self.fill(state)))
+                .overlay(RoundedRectangle(cornerRadius: Self.corner).strokeBorder(Self.border(state), lineWidth: 1.2))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            if inside { model.highlightedZ = z } else if model.highlightedZ == z { model.highlightedZ = nil }
+        }
+        .contextMenu {
+            if PeriodicLayout.isAvailable(z) {
+                ForEach(ElementRole.allCases, id: \.self) { r in
+                    Toggle(r.title, isOn: Binding(get: { model.elements.role(z) == r }, set: { _ in model.elements.set(z, r) }))
+                }
+                Divider()
+                Menu("Lines") {
+                    ForEach(LineFamily.allCases, id: \.self) { f in
+                        let items = ElementLines.items(family: f, z: z)
+                        if !items.isEmpty {
+                            // The family row sets the family (the fit takes whole families either way); under it the lines the maps sum
+                            // and the spectrum marks.
+                            Toggle("\(f.rawValue) lines", isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
+                            ForEach(items, id: \.id) { item in
+                                Toggle(item.title, isOn: Binding(get: { model.elements.checkedLines(z).contains(item.id) },
+                                                                 set: { _ in model.elements.toggleLine(z, item.id) }))
                             }
+                            Divider()
                         }
-                        Button("Default lines") { model.elements.resetLines(z) }.disabled(!model.elements.hasChosenLines(z))
                     }
-                } else { Text(ElementSelection.unavailableReason(z: z) ?? "") }
-            }
-            .help(Self.help(state, sym, proposed: model.elements.suggestions.first { $0.z == z }?.proposedRole))
-            .accessibilityLabel("\(sym), \(Self.describe(state))")
-            .accessibilityAddTraits(.isButton)
+                    Button("Default lines") { model.elements.resetLines(z) }.disabled(!model.elements.hasChosenLines(z))
+                }
+            } else { Text(ElementSelection.unavailableReason(z: z) ?? "") }
+        }
+        .help(Self.help(state, sym, proposed: model.elements.suggestions.first { $0.z == z }?.proposedRole))
+        .accessibilityLabel(sym)
+        .accessibilityValue(Self.describe(state))
+        // The right-click roles, as VoiceOver actions (the menu's Lines submenu stays right-click).
+        .accessibilityActions {
+            ForEach(Self.roleActions(z: z), id: \.self) { r in Button(r.title) { model.elements.set(z, r) } }
+        }
+        .accessibilityRotorEntry(id: z, in: rotorSpace)
+    }
+
+    /// The role actions VoiceOver offers on a cell: the context menu's role rows (none on a not-detectable element).
+    static func roleActions(z: Int) -> [ElementRole] {
+        PeriodicLayout.isAvailable(z) ? ElementRole.allCases : []
     }
 
     private static let corner: CGFloat = 3
