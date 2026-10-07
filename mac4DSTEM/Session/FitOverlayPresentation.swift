@@ -193,3 +193,59 @@ extension FitOverlays.OriginTrimOverlay {
         "\(SystemMonitor.count(excluded)) of \(SystemMonitor.count(total)) positions excluded by the origin fit\u{2019}s robust trim"
     }
 }
+
+/// The last value computed for a key, handed back while the key stays equal.
+///
+/// A pane body re-runs on every zoom or hover tick; work that depends only on
+/// a session value (a mask walk, an outline) must not run per tick (SwiftUI
+/// review 2026-10-07, F1). One entry, not a dictionary: the pane shows one
+/// scan at a time, and a new key replaces the old. Owned by `AppState` as
+/// `@ObservationIgnored`, so filling it inside a body read invalidates nothing.
+package final class LastValueCache<Key: Equatable, Value> {
+    private var entry: (key: Key, value: Value)?
+    /// How many times `compute` has actually run (a test's window on the cache).
+    package private(set) var computeCount = 0
+
+    package init() {}
+
+    package func value(for key: Key, compute: () -> Value) -> Value {
+        if let entry, entry.key == key { return entry.value }
+        let value = compute()
+        computeCount += 1
+        entry = (key, value)
+        return value
+    }
+}
+
+/// `FitOverlays.originTrimOverlay` remembered against what it reads: the scan
+/// shape and the origin maps' validity mask. Walking the mask is O(scan)
+/// (65k-262k reads), so the real-space pane asks here, not Core, on every body.
+/// The key keeps the mask's array, which shares the calibration's buffer, so an
+/// unchanged mask compares equal by buffer identity without a walk; a refit
+/// replaces the mask and the entry recomputes.
+package final class OriginTrimOverlayCache {
+    private struct Key: Equatable {
+        var scanWidth: Int
+        var scanHeight: Int
+        var originWidth: Int?
+        var originHeight: Int?
+        var validity: [Bool]?
+    }
+
+    private let cache = LastValueCache<Key, FitOverlays.OriginTrimOverlay?>()
+    package var computeCount: Int { cache.computeCount }
+
+    package init() {}
+
+    package func overlay(
+        origins: OriginMaps?, scanWidth: Int, scanHeight: Int
+    ) -> FitOverlays.OriginTrimOverlay? {
+        let key = Key(scanWidth: scanWidth, scanHeight: scanHeight,
+                      originWidth: origins?.width, originHeight: origins?.height,
+                      validity: origins?.originValidity)
+        return cache.value(for: key) {
+            FitOverlays.originTrimOverlay(
+                origins: origins, scanWidth: scanWidth, scanHeight: scanHeight)
+        }
+    }
+}

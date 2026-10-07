@@ -1554,4 +1554,44 @@ final class AppState {
             invAngstromPerPixel: acomScale
         )
     }
+
+    /// Remembered per (scan shape, origin validity mask): the mask walk is
+    /// O(scan), and the real-space pane reads the overlay on every zoom or
+    /// hover tick (review 2026-10-07, F1).
+    let originTrimCache = OriginTrimOverlayCache()
+
+    /// `fitOverlays.originTrim` — same gate (the Fit overlay toggle, Prepare, a
+    /// descriptor), same overlay — but computed once per input change rather
+    /// than once per read.
+    var originTrimOverlay: FitOverlays.OriginTrimOverlay? {
+        guard showFitOverlay, navigation.workspaceArea == .prepare,
+              let d = descriptor else { return nil }
+        return originTrimCache.overlay(
+            origins: calibrationSession.calibration.origin, scanWidth: d.rx, scanHeight: d.ry)
+    }
+
+    /// The object table's outline for the scan pane, remembered per
+    /// (classification run, selected ids); the outline is O(selected pixels)
+    /// and was rebuilt on every body.
+    @ObservationIgnored private let highlightOutlineCache =
+        LastValueCache<HighlightOutlineKey, [PrecipitateHighlight.Edge]>()
+    var highlightOutlineComputeCount: Int { highlightOutlineCache.computeCount }
+
+    private struct HighlightOutlineKey: Equatable {
+        var source: UUID?
+        var ids: Set<Int>
+    }
+
+    func cachedPrecipitateHighlightOutline(for selection: PrecipitateTableSelection)
+        -> [PrecipitateHighlight.Edge] {
+        // The cheap gates first, exactly `precipitateHighlightOutline`'s: a
+        // stale selection, another window's run or another picture is empty
+        // and never reaches the cache.
+        guard displayedProduct?.kind == "precipitate_objects",
+              let source = precipitateClassification.sourceID, selection.sourceID == source,
+              !selection.objectIDs.isEmpty else { return [] }
+        return highlightOutlineCache.value(
+            for: HighlightOutlineKey(source: source, ids: selection.objectIDs)
+        ) { precipitateHighlightOutline(for: selection) }
+    }
 }

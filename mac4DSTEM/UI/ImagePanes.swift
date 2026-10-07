@@ -494,7 +494,12 @@ struct RealSpacePane: View {
     /// The object table's selection (nil where no app scene provides it).
     @Environment(PrecipitateTableSelection.self) private var tableSelection: PrecipitateTableSelection?
     @State private var zp = ZoomPan()
-    @State private var cursorSample: ProductSample?
+    /// The pointer's sample lives in a reference holder that THIS view never
+    /// reads: a hover tick writes it, and only `CursorReadout` and
+    /// `CursorAccessibilityValue` (which read it) re-evaluate. As `@State`
+    /// value it re-ran the whole pane body — overlays, caches, legend — on
+    /// every pointer move (review 2026-10-07, F1).
+    @State private var cursor = CursorSampleModel()
 
     /// Name of the image+overlay container's coordinate space. The scan-marker
     /// handle reads its drag here rather than in `.local`, which for a
@@ -557,7 +562,9 @@ struct RealSpacePane: View {
     /// (`FitOverlayPresentation.originTrim` decides; the pane only draws).
     private func originTrim(matching dims: (width: Int, height: Int))
         -> FitOverlays.OriginTrimOverlay? {
-        guard let trim = appState.fitOverlays.originTrim,
+        // `appState.originTrimOverlay` is `fitOverlays.originTrim`, remembered
+        // against the origin mask instead of re-walked on every body.
+        guard let trim = appState.originTrimOverlay,
               trim.width == dims.width, trim.height == dims.height else { return nil }
         return trim
     }
@@ -613,15 +620,8 @@ struct RealSpacePane: View {
             .accessibilityIdentifier("result.title")
     }
 
-    @ViewBuilder
     private var cursorReadout: some View {
-        if let sample = cursorSample {
-            Text(sample.accessibilityText)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .accessibilityIdentifier("result.cursorReadout")
-        }
+        CursorReadout(model: cursor)
     }
 
     private var compactHeader: some View {
@@ -875,6 +875,8 @@ struct RealSpacePane: View {
             let norm = qualityField != nil
                 ? appState.normalizedQualityPixels() : appState.normalizedResultPixels()
             let effZoom = zp.drawZoom
+            // Read once per body; the legend (footer) takes the same value.
+            let trim = mapsScanPositions ? originTrim(matching: dims) : nil
 
             ZStack {
                 // Image + overlays share ONE scaled container, so the marker,
@@ -930,7 +932,7 @@ struct RealSpacePane: View {
                     // Positions the origin fit's robust trim excluded (S23):
                     // a wash in the shared container, so it follows zoom,
                     // rotation and mirroring with the image it marks.
-                    if mapsScanPositions, let trim = originTrim(matching: dims) {
+                    if let trim {
                         OriginTrimWash(overlay: trim)
                             .frame(width: imageBox.width, height: imageBox.height)
                             .allowsHitTesting(false)
@@ -939,7 +941,7 @@ struct RealSpacePane: View {
                     // Objects selected in the object table (an overlay, not a
                     // published product: never saved or compared).
                     if let tableSelection {
-                        let edges = appState.precipitateHighlightOutline(for: tableSelection)
+                        let edges = appState.cachedPrecipitateHighlightOutline(for: tableSelection)
                         if !edges.isEmpty {
                             objectHighlight(edges, box: imageBox, imgW: dims.width,
                                             imgH: dims.height, zoom: effZoom)
@@ -957,9 +959,9 @@ struct RealSpacePane: View {
                             Int(location.x / max(imageBox.width, 1) * CGFloat(dims.width))))
                         let y = min(dims.height - 1, max(0,
                             Int(location.y / max(imageBox.height, 1) * CGFloat(dims.height))))
-                        cursorSample = appState.displayedProduct?.sample(x: x, y: y)
+                        cursor.sample = appState.displayedProduct?.sample(x: x, y: y)
                     case .ended:
-                        cursorSample = nil
+                        cursor.sample = nil
                     }
                 }
                 .rotationEffect(.degrees(orientation.degrees))
@@ -974,7 +976,7 @@ struct RealSpacePane: View {
                 .zoomPan($zp, box: box)
 
                 footer(dims: dims, box: box, orientation: orientation,
-                       qualityField: qualityField, effZoom: effZoom)
+                       qualityField: qualityField, effZoom: effZoom, trim: trim)
             }
             .frame(width: box.width, height: box.height)
             // Centred, as Preview centres a photo. Top-pinning was tried
@@ -986,9 +988,11 @@ struct RealSpacePane: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel(appState.displayedResultName)
             .accessibilityIdentifier("result.viewer")
-            .accessibilityValue(cursorSample?.accessibilityText ?? (mapsScanPositions
-                ? "Selected scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(dims.width) by \(dims.height) pixels"
-                : "\(dims.width) by \(dims.height) pixels"))
+            .modifier(CursorAccessibilityValue(
+                model: cursor,
+                fallback: mapsScanPositions
+                    ? "Selected scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(dims.width) by \(dims.height) pixels"
+                    : "\(dims.width) by \(dims.height) pixels"))
             .accessibilityHint(mapsScanPositions
                 ? "Use arrow keys to move the selected scan position; Shift moves ten pixels"
                 : "Scientific image; scan-position selection is unavailable")
@@ -1022,7 +1026,8 @@ struct RealSpacePane: View {
         box: CGSize,
         orientation: RealSpaceDisplayOrientation,
         qualityField: ProductQualityField?,
-        effZoom: CGFloat
+        effZoom: CGFloat,
+        trim: FitOverlays.OriginTrimOverlay?
     ) -> some View {
         let pixel = appState.displayedResultPixelMetadata
         let sampling = ScaleBar.footerSampling(
@@ -1052,7 +1057,7 @@ struct RealSpacePane: View {
                 // Direction legend for the DPC colour wheel. Suppressed while
                 // inspecting a quality field — the viewer is then showing a
                 // scalar viridis map, not the colour-wheel-encoded result.
-                if mapsScanPositions, let trim = originTrim(matching: dims) {
+                if let trim {
                     OriginTrimLegend(caption: trim.legend)
                 }
 
@@ -1391,5 +1396,42 @@ struct ActivePaneOutline: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
+    }
+}
+
+// MARK: - Cursor readout
+
+/// The real-space pointer's current sample. A reference, so the pane can hold
+/// it without reading it; see `RealSpacePane.cursor`.
+@Observable
+final class CursorSampleModel {
+    var sample: ProductSample?
+}
+
+/// The header's pointer readout: the only view (besides the accessibility
+/// value) that re-evaluates when the pointer moves.
+private struct CursorReadout: View {
+    let model: CursorSampleModel
+
+    var body: some View {
+        if let sample = model.sample {
+            Text(sample.accessibilityText)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .accessibilityIdentifier("result.cursorReadout")
+        }
+    }
+}
+
+/// VoiceOver value of the viewer: the sample under the pointer, else the
+/// pane's static description. A modifier so the read happens here, not in the
+/// pane's body.
+private struct CursorAccessibilityValue: ViewModifier {
+    let model: CursorSampleModel
+    let fallback: String
+
+    func body(content: Content) -> some View {
+        content.accessibilityValue(model.sample?.accessibilityText ?? fallback)
     }
 }
