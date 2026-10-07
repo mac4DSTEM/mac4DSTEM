@@ -427,6 +427,30 @@ final class AppState {
     var scanNavigationImage: FloatImage?
     var scanNavigationVersion = 0
     func bumpScanNavigationVersion() { scanNavigationVersion &+= 1 }
+
+    /// The navigator inset's display-normalised pixels, remembered per scan
+    /// navigation version. `normalized()` is O(scan) and the inset's body ran it
+    /// on every scrub tick (review 2026-10-07, F4). The pixels are in the key as
+    /// well as the version: they share the image's buffer, so an unchanged image
+    /// compares by identity without a walk, and an image replaced without a bump
+    /// (a dataset reopen resets the version to 0) cannot be served stale.
+    @ObservationIgnored private let scanNavigationNormCache =
+        LastValueCache<ScanNavigationNormKey, [Float]>()
+    var scanNavigationNormComputeCount: Int { scanNavigationNormCache.computeCount }
+
+    private struct ScanNavigationNormKey: Equatable {
+        var version: Int
+        var width: Int
+        var height: Int
+        var pixels: [Float]
+    }
+
+    func normalizedScanNavigationPixels(of image: FloatImage) -> [Float] {
+        scanNavigationNormCache.value(for: ScanNavigationNormKey(
+            version: scanNavigationVersion, width: image.width, height: image.height,
+            pixels: image.pixels)
+        ) { image.normalized() }
+    }
     /// Set only while `resultPresentation.resultImage` is the scalar map restored from the stable
     /// session sidecar. New scientific results clear it at publication.
     /// Read-only inventory of supported objects in the stable companion file.

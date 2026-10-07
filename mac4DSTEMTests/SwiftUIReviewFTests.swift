@@ -160,4 +160,25 @@ final class SwiftUIReviewFTests: XCTestCase {
         let b = AppState.displayedResultVersion(regionReference: true, scanNavigation: 10, result: 4)
         XCTAssertNotEqual(a, b, "a new region-reference image still bumps the version")
     }
+
+    // MARK: F4 - the navigator's normalised pixels are computed per version, not per scrub tick
+
+    func testTheScanNavigatorNormalisesOncePerVersionAndImage() {
+        let state = AppState()
+        let a = FloatImage(width: 2, height: 2, pixels: [0, 1, 2, 4])
+        let first = state.normalizedScanNavigationPixels(of: a)
+        XCTAssertEqual(first, a.normalized())
+        for _ in 0..<30 { XCTAssertEqual(state.normalizedScanNavigationPixels(of: a), first) }
+        XCTAssertEqual(state.scanNavigationNormComputeCount, 1, "scrubbing must not re-normalise")
+
+        state.bumpScanNavigationVersion()
+        _ = state.normalizedScanNavigationPixels(of: a)
+        XCTAssertEqual(state.scanNavigationNormComputeCount, 2, "a new navigation version recomputes")
+
+        // Same version, different pixels (a reopen resets the version to 0).
+        let b = FloatImage(width: 2, height: 2, pixels: [4, 2, 1, 0])
+        XCTAssertEqual(state.normalizedScanNavigationPixels(of: b), b.normalized())
+        XCTAssertNotEqual(state.normalizedScanNavigationPixels(of: b), first)
+        XCTAssertEqual(state.scanNavigationNormComputeCount, 3)
+    }
 }

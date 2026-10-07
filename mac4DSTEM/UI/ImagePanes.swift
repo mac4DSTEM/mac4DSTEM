@@ -438,7 +438,7 @@ struct ScanNavigatorInset: View {
         let width = size.width, height = size.height
         ZStack {
             MetalImageView(
-                pixels: image.normalized(),
+                pixels: appState.normalizedScanNavigationPixels(of: image),
                 width: image.width, height: image.height,
                 contentVersion: appState.scanNavigationVersion,
                 colormap: .viridis
