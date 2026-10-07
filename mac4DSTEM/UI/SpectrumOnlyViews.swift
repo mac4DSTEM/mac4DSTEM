@@ -128,12 +128,8 @@ enum SpectroscopyPlaceholderFormat {
     /// A number in the person's locale with a narrow no-break space for the thousands (as the results table groups counts),
     /// a true minus, and no digits past `fraction`.
     static func number(_ v: Double, fraction: ClosedRange<Int>, locale: Locale) -> String {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal; f.locale = locale
-        f.usesGroupingSeparator = true; f.groupingSeparator = "\u{202F}"; f.groupingSize = 3
-        f.minimumFractionDigits = fraction.lowerBound; f.maximumFractionDigits = fraction.upperBound
-        let body = f.string(from: NSNumber(value: abs(v))) ?? String(abs(v))
-        let isZero = f.string(from: NSNumber(value: 0)) == body
+        let body = ResultFormat.grouped(abs(v), fraction: fraction, locale: locale)
+        let isZero = ResultFormat.grouped(0, fraction: fraction, locale: locale) == body
         return v < 0 && !isZero ? "\u{2212}" + body : body
     }
 

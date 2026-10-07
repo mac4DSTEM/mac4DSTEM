@@ -446,11 +446,7 @@ nonisolated enum SpectrumReadout {
     }
 
     /// 1380 -> "1 380" (thin grouping, as `ResultFormat.counts`).
-    static func counts(_ v: Double) -> String {
-        let f = NumberFormatter(); f.numberStyle = .decimal; f.groupingSeparator = "\u{202F}"; f.usesGroupingSeparator = true
-        f.locale = Locale(identifier: "en_US"); f.maximumFractionDigits = 0
-        return f.string(from: NSNumber(value: v)) ?? String(Int(v))
-    }
+    static func counts(_ v: Double) -> String { ResultFormat.counts(v) }
 
     /// Counts per pixel: three decimals below 10 ("0,027"), one below 100, none above.
     static func perPixel(_ v: Double, locale: Locale = .current) -> String {

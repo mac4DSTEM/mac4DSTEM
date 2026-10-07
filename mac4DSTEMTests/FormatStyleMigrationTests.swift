@@ -37,4 +37,61 @@ final class FormatStyleMigrationTests: XCTestCase {
             XCTAssertEqual(MaterialsProjectImportSheet.displayDate(instant(iso), locale: de, timeZone: utc), deStrings[i], "de_DE \(iso)")
         }
     }
+
+    // MARK: - Numbers (C2)
+
+    private let nnbsp = "\u{202F}"
+
+    /// HistogramReadout's counts line at scale > 1: whole numbers, thin grouping, a hyphen-minus for negatives.
+    func testHistogramCountsReadoutIsUnchanged() {
+        let cases: [(value: Float, scale: Float, expected: String)] = [
+            (1, 4120, "4\(nnbsp)120"), (0.5, 4120, "2\(nnbsp)060"), (0, 4120, "0"), (-1, 4120, "-4\(nnbsp)120"),
+            (0.123, 9999, "1\(nnbsp)230"), (1, 999.5, "1\(nnbsp)000"), (3, 1.5, "5"), (1, 1_000_000_000, "1\(nnbsp)000\(nnbsp)000\(nnbsp)000"),
+            (-2.5, 1000, "-2\(nnbsp)500"),
+        ]
+        for locale in [en, de] {
+            for c in cases {
+                XCTAssertEqual(HistogramReadout.text(value: c.value, scale: c.scale, unit: "", locale: locale), c.expected,
+                               "\(locale.identifier) \(c.value) x \(c.scale)")
+            }
+        }
+        XCTAssertEqual(HistogramReadout.text(value: 1, scale: 4120, unit: "counts", locale: en), "4\(nnbsp)120 counts")
+    }
+
+    /// SpectroscopyPlaceholderFormat.number: a decimal in the locale's own mark, a true minus (U+2212), half-even at the last digit.
+    func testSpectrumNumberReadoutIsUnchanged() {
+        let enUpTo3: [(Double, String)] = [
+            (20, "20"), (2.5, "2.5"), (0.0275, "0.028"), (-0.0001, "0"), (-1932.4, "\u{2212}1\(nnbsp)932.4"),
+            (1234567.891, "1\(nnbsp)234\(nnbsp)567.891"), (0.5, "0.5"), (1.0625, "1.062"), (0.125, "0.125"), (-20, "\u{2212}20"),
+            (0, "0"), (1e6, "1\(nnbsp)000\(nnbsp)000"), (2.0005, "2"), (100, "100"), (4, "4"),
+        ]
+        let deUpTo3: [(Double, String)] = [
+            (20, "20"), (2.5, "2,5"), (0.0275, "0,028"), (-0.0001, "0"), (-1932.4, "\u{2212}1\(nnbsp)932,4"),
+            (1234567.891, "1\(nnbsp)234\(nnbsp)567,891"), (0.5, "0,5"), (1.0625, "1,062"), (0.125, "0,125"), (-20, "\u{2212}20"),
+            (0, "0"), (1e6, "1\(nnbsp)000\(nnbsp)000"), (2.0005, "2"), (100, "100"), (4, "4"),
+        ]
+        for (v, expected) in enUpTo3 {
+            XCTAssertEqual(SpectroscopyPlaceholderFormat.number(v, fraction: 0...3, locale: en), expected, "en_US 0...3 \(v)")
+        }
+        for (v, expected) in deUpTo3 {
+            XCTAssertEqual(SpectroscopyPlaceholderFormat.number(v, fraction: 0...3, locale: de), expected, "de_DE 0...3 \(v)")
+        }
+        XCTAssertEqual(SpectroscopyPlaceholderFormat.number(1234567.891, fraction: 0...2, locale: en), "1\(nnbsp)234\(nnbsp)567.89")
+        XCTAssertEqual(SpectroscopyPlaceholderFormat.number(1234567.891, fraction: 0...2, locale: de), "1\(nnbsp)234\(nnbsp)567,89")
+        XCTAssertEqual(SpectroscopyPlaceholderFormat.number(0.0275, fraction: 0...2, locale: en), "0.03")
+        XCTAssertEqual(SpectroscopyPlaceholderFormat.number(0.0275, fraction: 0...2, locale: de), "0,03")
+    }
+
+    /// The counts cells (ResultFormat.counts, SpectrumReadout.counts): en_US grouping, whole numbers, half-even on .5.
+    func testCountsCellsAreUnchanged() {
+        let cases: [(Double, String)] = [
+            (412380, "412\(nnbsp)380"), (0, "0"), (2.5, "2"), (3.5, "4"), (1234.5, "1\(nnbsp)234"), (999999.5, "1\(nnbsp)000\(nnbsp)000"),
+            (-4120, "-4\(nnbsp)120"), (-2.5, "-2"), (1e12, "1\(nnbsp)000\(nnbsp)000\(nnbsp)000\(nnbsp)000"), (0.4, "0"),
+            (1380, "1\(nnbsp)380"), (1.5, "2"),
+        ]
+        for (v, expected) in cases {
+            XCTAssertEqual(ResultFormat.counts(v), expected, "ResultFormat.counts \(v)")
+            XCTAssertEqual(SpectrumReadout.counts(v), expected, "SpectrumReadout.counts \(v)")
+        }
+    }
 }

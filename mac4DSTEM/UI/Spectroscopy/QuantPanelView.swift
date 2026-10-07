@@ -31,12 +31,14 @@ enum ResultFormat {
         let n = counts(net), s = counts(sigma)
         return (n, s, "\u{202F}\u{00B1}\u{202F}", n.count + s.count > compactAbove)
     }
-    /// 412380 -> "412 380" (thin grouping, as the mock prints counts).
-    static func counts(_ v: Double) -> String {
-        let f = NumberFormatter(); f.numberStyle = .decimal; f.groupingSeparator = "\u{202F}"; f.usesGroupingSeparator = true
-        f.locale = Locale(identifier: "en_US"); f.maximumFractionDigits = 0
-        return f.string(from: NSNumber(value: v)) ?? String(Int(v))
+    /// Digits grouped with a narrow no-break space (U+202F), in `locale`'s digits, decimal mark and minus sign. FormatStyle has no
+    /// grouping-separator option, so the locale's own thousands mark is swapped for U+202F (pinned by `FormatStyleMigrationTests`).
+    nonisolated static func grouped(_ v: Double, fraction: ClosedRange<Int> = 0...0, locale: Locale) -> String {
+        v.formatted(.number.precision(.fractionLength(fraction)).locale(locale))
+            .replacingOccurrences(of: locale.groupingSeparator ?? ",", with: "\u{202F}")
     }
+    /// 412380 -> "412 380" (thin grouping, as the mock prints counts).
+    nonisolated static func counts(_ v: Double) -> String { grouped(v, locale: Locale(identifier: "en_US")) }
 }
 
 /// The inspector's Results section (spec 2 D-4; it was the panel beside the spectrum): the unvalidated badge in the first row,

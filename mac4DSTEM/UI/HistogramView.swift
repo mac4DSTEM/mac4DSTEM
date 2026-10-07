@@ -301,16 +301,10 @@ enum HistogramReadout {
 
     /// `value * scale` with `unit`: grouped whole numbers once a 1.0 stands
     /// for more than 1 (counts), "%.3g" as ever at scale 1 (or below).
-    static func text(value: Float, scale: Float, unit: String) -> String {
+    static func text(value: Float, scale: Float, unit: String, locale: Locale = .current) -> String {
         let number: String
         if scale > 1 {
-            let formatter = NumberFormatter()
-            formatter.numberStyle = .decimal
-            formatter.maximumFractionDigits = 0
-            formatter.usesGroupingSeparator = true
-            formatter.groupingSeparator = "\u{202F}"   // a narrow no-break space: "4 120"
-            formatter.groupingSize = 3
-            number = formatter.string(from: NSNumber(value: Double(value * scale).rounded())) ?? "0"
+            number = ResultFormat.grouped(Double(value * scale).rounded(), locale: locale)   // "4 120" (narrow no-break space)
         } else {
             number = String(format: "%.3g", value * safeScale(scale))
         }
