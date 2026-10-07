@@ -18,6 +18,43 @@ import UniformTypeIdentifiers
 /// is `NumericField`, and the body is `InspectorSection`s of `InspectorRow`s
 /// (`UI/InspectorRows.swift`), the utility-pane vocabulary the whole
 /// inspector shares (034).
+/// What the ring-hint task reads, as a cheap `Hashable` identity: the mean
+/// pattern's dimensions and a strided sample of its pixels, plus the
+/// descriptor dimensions it is checked against. The task used to be keyed on
+/// `AppState.patternVersion`, which colormap, log scale, display mode and the
+/// region radius also bump, so each of those re-ran the ring search on the
+/// whole mean pattern for nothing.
+///
+/// Safe because a stale key can only keep a hint the pattern still earns:
+/// the mean pattern is replaced only by a recomputation (same data, same
+/// pixels, same hint) and is set to nil on every dataset change, which moves
+/// the key to nil and back before any new pattern is keyed. A collision would
+/// need a different mean pattern of the same size agreeing on every sampled
+/// pixel, and even then the hint is only an offer the user clicks.
+struct ProbeRingHintKey: Hashable {
+    let qy: Int
+    let qx: Int
+    let sampleDigest: Int
+
+    /// Nil when the hint cannot be computed (no mean pattern, no descriptor,
+    /// or the two disagree on shape) — the same condition the task checks.
+    static func make(mean: DiffractionPattern?, descriptorQy: Int?, descriptorQx: Int?) -> ProbeRingHintKey? {
+        guard let mean, let descriptorQy, let descriptorQx,
+              mean.qy == descriptorQy, mean.qx == descriptorQx else { return nil }
+        var hasher = Hasher()
+        let count = mean.pixels.count
+        hasher.combine(count)
+        let stride = max(1, count / 256)
+        var i = 0
+        while i < count {
+            hasher.combine(mean.pixels[i].bitPattern)
+            i += stride
+        }
+        if count > 0 { hasher.combine(mean.pixels[count - 1].bitPattern) }
+        return ProbeRingHintKey(qy: mean.qy, qx: mean.qx, sampleDigest: hasher.finalize())
+    }
+}
+
 struct MapSettings: View {
     @Environment(AppState.self) private var appState
     @SceneStorage("map.settings.trainingLabels.isExpanded") private var showsTrainingLabels = false
@@ -178,13 +215,21 @@ private struct DiskDetectionRows: View {
             .labelsHidden()
             .accessibilityIdentifier("disk.kernelSource")
         }
-        .task(id: appState.patternVersion) {
+        .task(id: ProbeRingHintKey.make(mean: appState.meanPattern,
+                                        descriptorQy: appState.descriptor?.qy,
+                                        descriptorQx: appState.descriptor?.qx)) {
             guard let mean = appState.meanPattern, let d = appState.descriptor,
                   mean.qy == d.qy, mean.qx == d.qx else { ringHint = nil; return }
             let (pixels, qy, qx) = (mean.pixels, mean.qy, mean.qx)
-            ringHint = await Task.detached(priority: .utility) {
+            // The compute is synchronous CPU, so it leaves the main actor;
+            // `Task.detached` does not inherit this task's cancellation, so
+            // it is forwarded by hand and re-checked before the write.
+            let work = Task.detached(priority: .utility) {
                 ProbeRingHint.outerEdge(meanDP: pixels, qy: qy, qx: qx)
-            }.value
+            }
+            let hint = await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
+            guard !Task.isCancelled else { return }
+            ringHint = hint
         }
 
         if kernelSource != .synthetic {
