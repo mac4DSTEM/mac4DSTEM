@@ -241,6 +241,11 @@ extension AppState {
     /// Widened from `private` (seam 3, docs/archive/v4/appstate-seams-plan.md):
     /// `App/AppState+DiskDetection.swift`'s `generateVacuumProbeKernel` calls
     /// it from outside this file.
+    /// `@concurrent`: construction is file I/O (HDF5's `dlopen`, `HDF5Serial.acquire` — which waits behind another
+    /// window's multi-second Velox read — and `H5Fopen`), so it always runs off the main actor; as a default
+    /// main-actor function it blocked the UI thread behind that lock. The readers are actors, so the value
+    /// that comes back crosses the hop safely.
+    @concurrent
     static func makeReader(for url: URL) async throws -> any FourDDataSource {
         switch url.pathExtension.lowercased() {
         case "dm4", "dm3": return try await DM4Reader(path: url.path)
