@@ -69,7 +69,7 @@ package nonisolated struct ProductOverlayDescriptor: Equatable, Sendable {
 /// Where a product came from. Not persisted: a re-saved restored product is
 /// a fresh write. Lets persistence tell a live result from one read back
 /// without a parallel `restored*` field set (v2.5 step 3d).
-package enum ProductOrigin: Equatable, Sendable {
+package nonisolated enum ProductOrigin: Equatable, Sendable {
     case computed
     case restoredFromSidecar
 }
