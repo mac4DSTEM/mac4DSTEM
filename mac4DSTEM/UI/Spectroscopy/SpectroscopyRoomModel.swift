@@ -132,6 +132,8 @@ final class SpectroscopyRoomModel {
     var quantify = QuantifySettings()
     var export = ExportSettings()
     var mapLabel = "ColorMix"
+    /// The live region's colour: its outline on the ColorMix, its curve in the spectrum and its capsule share it (pins keep their tints).
+    static let liveRegionColor = Color.accentColor
 
     init(series: SpectrumSeries) {
         self.series = series
@@ -326,6 +328,8 @@ struct ExportSettings {
     var fileStem = "spectroscopy"
     /// The maps' file stem: the image's own name, no region (the maps are the whole scan). Set by the controller with the spectrum.
     var mapsStem = "spectroscopy"
+    /// Maps… writes the scale bar into the PNGs (the owner's choice; the CSV never has one).
+    var scaleBar = true
 }
 
 // MARK: - Illustrative fixture

@@ -1,0 +1,3027 @@
+{
+ "source": "Velox 2.15.0.45 (EMD v9), the owner's SI HAADF 1339 65000 x 20260508.emd, Operations/ImageQuantificationOperation.elementProperties, read 2026-10-07; beam 200 kV",
+ "note": "atomicShellFamily = the family Velox quantifies with at this beam energy; xrayTransitions = the transitions it fits/marks (Siegbahn: L3-K = Ka1, L2-K = Ka2, M3-K = Kb1, M5-L3 = La1, M4-L2 = Lb1, N5-L3 = Lb2, N7-M5 = Ma1); includeInAutoPeakId = Auto ID candidate",
+ "elements": [
+  {
+   "Z": 1,
+   "symbol": "H",
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 2,
+   "symbol": "He",
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 3,
+   "symbol": "Li",
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 4,
+   "symbol": "Be",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 5,
+   "symbol": "B",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 6,
+   "symbol": "C",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 7,
+   "symbol": "N",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 8,
+   "symbol": "O",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 9,
+   "symbol": "F",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 10,
+   "symbol": "Ne",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 11,
+   "symbol": "Na",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 12,
+   "symbol": "Mg",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 13,
+   "symbol": "Al",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 14,
+   "symbol": "Si",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 15,
+   "symbol": "P",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 16,
+   "symbol": "S",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 17,
+   "symbol": "Cl",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 18,
+   "symbol": "Ar",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 19,
+   "symbol": "K",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 20,
+   "symbol": "Ca",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 21,
+   "symbol": "Sc",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    },
+    {
+     "M1": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 22,
+   "symbol": "Ti",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    },
+    {
+     "M1": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 23,
+   "symbol": "V",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    },
+    {
+     "M1": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 24,
+   "symbol": "Cr",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    },
+    {
+     "M1": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 25,
+   "symbol": "Mn",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    },
+    {
+     "M1": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 26,
+   "symbol": "Fe",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    },
+    {
+     "M1": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 27,
+   "symbol": "Co",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    },
+    {
+     "M1": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 28,
+   "symbol": "Ni",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 29,
+   "symbol": "Cu",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "M1": "L3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 30,
+   "symbol": "Zn",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 31,
+   "symbol": "Ga",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 32,
+   "symbol": "Ge",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 33,
+   "symbol": "As",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 34,
+   "symbol": "Se",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 35,
+   "symbol": "Br",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 36,
+   "symbol": "Kr",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 37,
+   "symbol": "Rb",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 38,
+   "symbol": "Sr",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 39,
+   "symbol": "Y",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 40,
+   "symbol": "Zr",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 41,
+   "symbol": "Nb",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 42,
+   "symbol": "Mo",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 43,
+   "symbol": "Tc",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 44,
+   "symbol": "Ru",
+   "family": "K",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 45,
+   "symbol": "Rh",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 46,
+   "symbol": "Pd",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 47,
+   "symbol": "Ag",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 48,
+   "symbol": "Cd",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 49,
+   "symbol": "In",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 50,
+   "symbol": "Sn",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 51,
+   "symbol": "Sb",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 52,
+   "symbol": "Te",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 53,
+   "symbol": "I",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 54,
+   "symbol": "Xe",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 55,
+   "symbol": "Cs",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 56,
+   "symbol": "Ba",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 57,
+   "symbol": "La",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 58,
+   "symbol": "Ce",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 59,
+   "symbol": "Pr",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 60,
+   "symbol": "Nd",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 61,
+   "symbol": "Pm",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    },
+    {
+     "N5": "M3"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 62,
+   "symbol": "Sm",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 63,
+   "symbol": "Eu",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 64,
+   "symbol": "Gd",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 65,
+   "symbol": "Tb",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 66,
+   "symbol": "Dy",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "M3": "L1"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 67,
+   "symbol": "Ho",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 68,
+   "symbol": "Er",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 69,
+   "symbol": "Tm",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 70,
+   "symbol": "Yb",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    },
+    {
+     "N2": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 71,
+   "symbol": "Lu",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 72,
+   "symbol": "Hf",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 73,
+   "symbol": "Ta",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 74,
+   "symbol": "W",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "N3": "K"
+    },
+    {
+     "M2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 75,
+   "symbol": "Re",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "N3": "K"
+    },
+    {
+     "M2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 76,
+   "symbol": "Os",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "N3": "K"
+    },
+    {
+     "M2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 77,
+   "symbol": "Ir",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "N3": "K"
+    },
+    {
+     "M2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 78,
+   "symbol": "Pt",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "N3": "K"
+    },
+    {
+     "M2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 79,
+   "symbol": "Au",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M3": "K"
+    },
+    {
+     "M2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 80,
+   "symbol": "Hg",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 81,
+   "symbol": "Tl",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 82,
+   "symbol": "Pb",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 83,
+   "symbol": "Bi",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 84,
+   "symbol": "Po",
+   "family": "L",
+   "transitions": [
+    {
+     "L3": "K"
+    },
+    {
+     "L2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 85,
+   "symbol": "At",
+   "family": "L",
+   "transitions": [
+    {
+     "L2": "K"
+    },
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 86,
+   "symbol": "Rn",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 87,
+   "symbol": "Fr",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 88,
+   "symbol": "Ra",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 89,
+   "symbol": "Ac",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 90,
+   "symbol": "Th",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 91,
+   "symbol": "Pa",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 92,
+   "symbol": "U",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 93,
+   "symbol": "Np",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 94,
+   "symbol": "Pu",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 95,
+   "symbol": "Am",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 96,
+   "symbol": "Cm",
+   "family": "L",
+   "transitions": [
+    {
+     "M5": "L3"
+    },
+    {
+     "M4": "L3"
+    },
+    {
+     "M4": "L2"
+    },
+    {
+     "N5": "L3"
+    },
+    {
+     "N7": "M5"
+    },
+    {
+     "N6": "M4"
+    }
+   ],
+   "autoID": false,
+   "quantify": true
+  },
+  {
+   "Z": 97,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 98,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 99,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 100,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 101,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 102,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 103,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  },
+  {
+   "Z": 104,
+   "symbol": null,
+   "family": "K",
+   "transitions": [],
+   "autoID": true,
+   "quantify": true
+  }
+ ],
+ "ownerSettings1339": {
+  "imageQuant": {
+   "quantificationMode": "NetIntensity",
+   "backgroundCorrection": {
+    "backgroundWindows": "",
+    "useManualBackgroundWindows": "false",
+    "backgroundModel": "None",
+    "backgroundModelModeled": {
+     "useBackgroundWindows": "true"
+    },
+    "backgroundModelMultiPoly": {
+     "useBackgroundWindows": "true",
+     "peakOrder": "1",
+     "backgroundOrder": "2"
+    }
+   },
+   "ionizationCrossSectionModel": "Brown_Powell",
+   "absorptionCorrection": {
+    "useAbsorptionCorrection": "false",
+    "sampleThickness": "4.9999999999999998e-08",
+    "useDensity": "false",
+    "density": "1",
+    "calibrationError": "5"
+   },
+   "useQuantificationKernelFilter": "false",
+   "quantificationKernelFilter": "Mean",
+   "quantificationKernelFilterSize": "3",
+   "useSpectralFilter": "false"
+  },
+  "spectrumQuantBackgroundWindowsEV": [
+   [
+    747.7865200000001,
+    867.7865200000001
+   ],
+   [
+    2247.78652,
+    2467.78652
+   ],
+   [
+    2587.78652,
+    2727.78652
+   ],
+   [
+    3307.78652,
+    5667.78652
+   ],
+   [
+    6087.78652,
+    6227.78652
+   ],
+   [
+    6647.78652,
+    7687.78652
+   ],
+   [
+    8387.78652,
+    8587.78652
+   ],
+   [
+    9647.78652,
+    10347.78652
+   ],
+   [
+    10747.78652,
+    10967.78652
+   ],
+   [
+    11327.78652,
+    12387.78652
+   ],
+   [
+    12847.78652,
+    15427.78652
+   ],
+   [
+    16027.78652,
+    17387.78652
+   ],
+   [
+    17887.78652,
+    18967.78652
+   ],
+   [
+    19467.78652,
+    24807.78652
+   ],
+   [
+    25467.78652,
+    79987.78652
+   ]
+  ],
+  "spectrumQuantBackgroundModel": "MultiPoly",
+  "elementSelection": [
+   "Mg",
+   "Al",
+   "Si"
+  ]
+ }
+}
