@@ -31,4 +31,13 @@ final class AccessibilityDriveFixesTests: XCTestCase {
         XCTAssertEqual(SpectrumStripLogic.unpinHint, "Removes the pin")
         XCTAssertFalse(SpectrumStripLogic.unpinHint.contains("pixel"))
     }
+
+    /// X4: the image pane's hint is one brief phrase, one sentence, and names the zoom actions.
+    func testImagePaneHintIsOneBriefPhrase() {
+        let hint = ZoomPan.accessibilityHint
+        XCTAssertEqual(hint.filter { $0 == "." }.count, 1, "one sentence")
+        XCTAssertTrue(hint.hasSuffix("."))
+        XCTAssertLessThanOrEqual(hint.count, 60)
+        XCTAssertTrue(hint.contains("Zoom in") && hint.contains("Zoom out"))
+    }
 }

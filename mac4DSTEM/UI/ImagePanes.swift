@@ -403,7 +403,7 @@ struct DiffractionPane: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Diffraction pattern")
             .accessibilityValue("Scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(qx) by \(qy) detector pixels")
-            .accessibilityHint("Pinch to zoom, drag to pan, or double click to reset. The Zoom in, Zoom out and Reset zoom actions do the same.")
+            .accessibilityHint(ZoomPan.accessibilityHint)
             .zoomPanAccessibilityActions($zp, box: box)
         } else {
             ContentUnavailableView(

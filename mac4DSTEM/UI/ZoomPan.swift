@@ -46,6 +46,9 @@ struct ZoomPan: Equatable {
     /// is pulled back inside the pane as `.onEnded` does).
     static let accessibilityStepFactor: CGFloat = 2
 
+    /// The pane's spoken hint: one brief outcome phrase (the gestures are for the pointer; VoiceOver has the actions).
+    static let accessibilityHint = "Zoom with the Zoom in and Zoom out actions."
+
     mutating func step(by factor: CGFloat, in box: CGSize) {
         zoom = Self.clampZoom(zoom * factor)
         offset = Self.clampedOffset(offset, zoom: zoom, in: box)
