@@ -15,4 +15,14 @@ final class AccessibilityDriveFixesTests: XCTestCase {
         XCTAssertFalse(SpectrumStripLogic.zoomKeyAccepts([.shift, .control]))
         XCTAssertFalse(SpectrumStripLogic.zoomKeyAccepts([.shift, .option]))
     }
+
+    /// X2: the scan preview's spoken value is the position without the visible caption's "click" clause, and the steppers' names
+    /// carry the pane they belong to.
+    func testScanPreviewSpokenValueAndStepperNames() {
+        XCTAssertEqual(ScanPickStepping.spokenValue(position: (ry: 29, rx: 8)), "Pattern at scan (29, 8)")
+        XCTAssertFalse(ScanPickStepping.spokenValue(position: (ry: 1, rx: 2)).localizedCaseInsensitiveContains("click"))
+        XCTAssertEqual(ScanPickStepping.spokenValue(position: nil), "No pattern picked")
+        XCTAssertEqual(ScanPickStepping.stepperLabel(axis: "Scan X"), "Scan X, real-space preview")
+        XCTAssertEqual(ScanPickStepping.stepperLabel(axis: "Scan Y"), "Scan Y, real-space preview")
+    }
 }

@@ -64,7 +64,7 @@ struct ReductionPreviewPanes: View {
                         cropSpaceWidth: pending.source.rx,
                         cropSpaceHeight: pending.source.ry,
                         pick: ScanPickAccessibility(
-                            value: singlePatternCaption,
+                            value: ScanPickStepping.spokenValue(position: pending.singleDPPosition),
                             x: ScanPickStepping.sampledIndex(source: pending.singleDPPosition?.rx ?? 0,
                                                              stride: preview.strideX, count: realSpace.width),
                             y: ScanPickStepping.sampledIndex(source: pending.singleDPPosition?.ry ?? 0,
@@ -409,6 +409,16 @@ enum ScanPickStepping {
     static func sampledIndex(source: Int, stride: Int, count: Int) -> Int {
         max(0, min(max(count - 1, 0), source / max(stride, 1)))
     }
+
+    /// What VoiceOver hears as the preview's value: the picked position, without the visible caption's "click the scan preview"
+    /// clause (a VoiceOver user cannot click; the two steppers beside it are the way to change it).
+    static func spokenValue(position: (ry: Int, rx: Int)?) -> String {
+        guard let position else { return "No pattern picked" }
+        return "Pattern at scan (\(position.ry), \(position.rx))"
+    }
+
+    /// The steppers' spoken names carry the pane they belong to, so each is understood on its own.
+    static func stepperLabel(axis: String) -> String { "\(axis), real-space preview" }
 }
 
 /// Label, value and "Scan X / Scan Y" steppers for the real-space preview.
@@ -424,21 +434,23 @@ private struct ScanPickAccessibilityModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if let pick, let onTap {
+            // The representation replaces the element's own accessibility, so the title and the picked position ride on the
+            // representation's container (`.contain`: the two steppers stay its children, adjustable) and in the steppers' names.
             content
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(title)
-                .accessibilityValue(pick.value)
                 .accessibilityRepresentation {
                     VStack {
-                        Stepper("Scan X", value: Binding(
+                        Stepper(ScanPickStepping.stepperLabel(axis: "Scan X"), value: Binding(
                             get: { pick.x },
                             set: { onTap(Double($0), Double(pick.y)) }),
                                 in: 0...max(0, pick.width - 1))
-                        Stepper("Scan Y", value: Binding(
+                        Stepper(ScanPickStepping.stepperLabel(axis: "Scan Y"), value: Binding(
                             get: { pick.y },
                             set: { onTap(Double(pick.x), Double($0)) }),
                                 in: 0...max(0, pick.height - 1))
                     }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel(title)
+                    .accessibilityValue(pick.value)
                 }
         } else {
             content
