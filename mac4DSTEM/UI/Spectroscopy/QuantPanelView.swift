@@ -31,14 +31,12 @@ enum ResultFormat {
         let n = counts(net), s = counts(sigma)
         return (n, s, "\u{202F}\u{00B1}\u{202F}", n.count + s.count > compactAbove)
     }
-    /// Digits grouped with a narrow no-break space (U+202F), in `locale`'s digits, decimal mark and minus sign. FormatStyle has no
-    /// grouping-separator option, so the locale's own thousands mark is swapped for U+202F (pinned by `FormatStyleMigrationTests`).
+    /// Narrow-space grouping (`SpectrumReadout.grouped`, kept beside the spectrum logic so tools/ harnesses compile without views).
     nonisolated static func grouped(_ v: Double, fraction: ClosedRange<Int> = 0...0, locale: Locale) -> String {
-        v.formatted(.number.precision(.fractionLength(fraction)).locale(locale))
-            .replacingOccurrences(of: locale.groupingSeparator ?? ",", with: "\u{202F}")
+        SpectrumReadout.grouped(v, fraction: fraction, locale: locale)
     }
     /// 412380 -> "412 380" (thin grouping, as the mock prints counts).
-    nonisolated static func counts(_ v: Double) -> String { grouped(v, locale: Locale(identifier: "en_US")) }
+    nonisolated static func counts(_ v: Double) -> String { SpectrumReadout.counts(v) }
 }
 
 /// The inspector's Results section (spec 2 D-4; it was the panel beside the spectrum): the unvalidated badge in the first row,

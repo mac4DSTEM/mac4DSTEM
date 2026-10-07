@@ -445,8 +445,16 @@ nonisolated enum SpectrumReadout {
         e.formatted(.number.precision(.fractionLength(decimals)).grouping(.never).locale(locale))
     }
 
-    /// 1380 -> "1 380" (thin grouping, as `ResultFormat.counts`).
-    static func counts(_ v: Double) -> String { ResultFormat.counts(v) }
+    /// 1380 -> "1 380" (thin grouping; `ResultFormat.counts` is this). Lives here, not in QuantPanelView, so the
+    /// autoid-velox-check harness (the `readers` group plus this file) compiles without the view.
+    static func counts(_ v: Double) -> String { grouped(v, locale: Locale(identifier: "en_US")) }
+
+    /// Digits grouped with a narrow no-break space (U+202F), in `locale`'s digits, decimal mark and minus sign. FormatStyle has no
+    /// grouping-separator option, so the locale's own thousands mark is swapped for U+202F (pinned by `FormatStyleMigrationTests`).
+    static func grouped(_ v: Double, fraction: ClosedRange<Int> = 0...0, locale: Locale) -> String {
+        v.formatted(.number.precision(.fractionLength(fraction)).locale(locale))
+            .replacingOccurrences(of: locale.groupingSeparator ?? ",", with: "\u{202F}")
+    }
 
     /// Counts per pixel: three decimals below 10 ("0,027"), one below 100, none above.
     static func perPixel(_ v: Double, locale: Locale = .current) -> String {
