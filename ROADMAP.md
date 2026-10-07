@@ -115,10 +115,11 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   as Fit only, cursor candidates, counts/px, windows, range readout) and to his drive findings (ADR 059: Compute Image, glass
   buttons and chips, spectrum weight and colour, zoom gestures, scale bars, Velox line families with α/β picks). Auto ID went
   through its first Gate D loop against his Velox selections (ADR 060: 34 / 45 %; one hygiene rule ships, two held for a truth
-  set that tests their risk). Next, in order: WP4b (the held rules on DTSA-II's Qual set + the simulator + his files,
-  `docs/archive/v5/reference-software-sheet-2026-10-07.md`), the eXSpy quantification pins, then validation with the owner's
-  joint GMS run and pure-Al spectrum (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`); V5-8 answered b (ADR 061):
-  E wired into the room (pre-registration, Gate B), the 4D Quantify rows in Results, then B*'s prerequisites (per-phase score, separability matrix).
+  set that tests their risk). WP4b refuted both held rules on DTSA-II's Qual set, a risk simulator and his files (ADR 062: nothing
+  ships); the eXSpy quantification pins agree (4cc5581c). V5-8 answered b (ADR 061). Next, in order: E wired into the room
+  (pre-registration, Gate B), the 4D Quantify rows in Results once the drive clears, then B*'s prerequisites (per-phase score,
+  separability matrix); validation with the owner's joint GMS run and a pure-Al foil from his detector (Q1–Q3,
+  `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
 
 ## After v4.1 — frozen until the owner reopens one
 

@@ -295,11 +295,12 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 `Core/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
 add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only. Auto ID (Elements & maps) runs it
 on the selected region and the file's axis, cancellably; suggestions never touch manual picks. Open:
-- **Auto ID vs Velox (WP4, ADR 060, 2026-10-07):** 78 of the owner's files, truth = his Velox selections: baseline 34,1 / 45,5 %. Shipped: R1's Z ≥ 89 half only; its beside-K half (whole R1: 39,6 / 45,5 %) is held — the refuter found the sample never tests its risk and the line table has Hf/Cu, Pt/Ga, Ta/Cu, Pb/As pairs where it drops a real element with no K fallback; re-register with an evidence guard on a set that holds such a case.
-  R2 (L/M ≥ 3 L_D) lifts precision on every set measured but the registered hold-out is 9 June Al-Mg-Si files, not an independent set → a new
-  registration on DTSA-II's Qual set + the simulator (`reference-software-sheet-2026-10-07.md`). R3 refuted (Ar from Al pile-up on the ladder).
-  Mg is missed on the whole map in 37 of 38 Al-Mg-Si files (a trace in the pool); on the Mg-richest 1 % of pixels 10 of 19. Owed when the SSD is
-  back: 43 file dates and 7 H4 files (`tools/autoid-velox-check/run.sh --h4`, then `wp4.py`). Four files make the proposer throw `rankDeficient`.
+- **Auto ID vs Velox (WP4 ADR 060, WP4b ADR 062):** shipped: never Z ≥ 89 (34,1 → 39,6 % precision on the owner's 78 files). WP4b refuted
+  both held rules on sets that test their risk (`archive/v5/wp4b-results-2026-10-07.md`): the beside-K drop with an evidence guard drops true
+  Hf beside Cu and Pt beside Ga (an L family's L_D is larger at equal area, so net/L_D is not comparable across families); R2 lost 4 Velox hits
+  in-sample, while DTSA-II's Qual set favours it (precision 53,9 → 81,3 %, 8 hard-class hits lost). Next registrations, if wanted: a beside-K
+  test on β-line or line-shape evidence; R2 on independent 200 kV truth. Mg is missed on the whole map in 37 of 38 Al-Mg-Si files (a trace in
+  the pool; H4 was selection-biased). Six Velox entries throw `ProposerError` 2 (0944, 1121, 1140, 1253 — one copy of 1253 scores).
 - **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.
@@ -357,20 +358,15 @@ both object axes (`DEVIATION`); `bragg-spacing-probe` and `residency-sweep` need
   accepted peaks (0.45 % at the shipped 0.7). CI's unit job stays paused (ADR 040); every green gate is local.
 
 ### Accessibility (does NOT block a release — owner decision, 2026-09-11)
-The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` did not recur: a full AX probe of every room
-(2026-09-30 night, scratch build) ran without a crash, and the controls named then already expose labels. The eight bare ones it
-found (detection and group steppers, Fit overlay, Show claimed disks, remove-phase) are labelled (S22). Residual: the whole
-Advanced-detection section shares one identifier (`disk.advancedDisclosure`); the crash's cause was never established.
-2026-10-07: synthetic scratch drive verified divider keys/AX actions, picker clicks and the spectrum unit summary
-(`archive/v5/swiftui-accessibility-drive-2026-10-07.md`). Tab skipped the native picker button under current configuration;
-keyboard activation and spoken VoiceOver remain owed. Compact map labels clipped at the reopened floor; no fix attempted.
+The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` never recurred (full AX probe 2026-09-30); its cause was never
+established. Advanced detection shares one identifier (`disk.advancedDisclosure`). Everything newer is in the 2026-10-07 entry below.
 
-### SwiftUI review residuals (2026-10-07) — what the 22 fix commits left out
-Two inspectors re-read the scan position per scrub (`WorkspaceInspector.swift` ~:446 is frozen: needs the owner's picture). Swift 6
-strict checking is unmeasured (estimate medium; `MetalEngine`, `SpectrumImageSource` not `Sendable`; one strict build counting
-warnings per module makes it a number). The configurator crop and the ColorMix region are drag-only for the keyboard; the pin chip is
-~14 pt; `SpectrumImageSettings`' file readouts are written and tested but read by no view. Open drive rows:
-`archive/v5/swiftui-review-verification-2026-10-07.md`.
+### SwiftUI review residuals, drives and audits (2026-10-07)
+Swift 6 measured: 64 diagnostics, 3,5–5 sessions, not Metal (`archive/v5/swift6-cost-2026-10-07.md`); the owner schedules it or not. Frozen:
+two inspectors re-read the scan position per scrub (`WorkspaceInspector.swift` ~:446). Drive rows: `archive/v5/swiftui-review-verification-2026-10-07.md`
+(6 open). Audits with drive checks and fix lists: `archive/v5/swiftui-a11y-apple-docs-check-2026-10-07.md`, `a11y-rooms-apple-docs-audit-2026-10-07.md`;
+their owner items (keyboard Label centres, region/crop drags, comparison cursor, visible disabled reasons, visible wording) wait for his word.
+Stale "Auto ID needs the beam energy" note: `failAutoID` (`SpectroscopyRoomController.swift` ~:287) is never cleared when a beam energy is typed.
 
 ### The audit's refactor list, rows 4–13 — most parked
 Open: row 4 (a shared harness `fail` helper — Gate B, a shared bug can green 46 harnesses); rows 6–7, the
