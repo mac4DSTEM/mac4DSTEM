@@ -128,7 +128,11 @@ package nonisolated final class MetalEngine {
     package let displayPSO: MTLRenderPipelineState
     package let displayRGBAPSO: MTLRenderPipelineState
 
-    // Compute pipelines, built lazily on first use (each forces its own shader).
+    // Compute pipelines, built eagerly in init (each compiles its own shader).
+    // They were `lazy var` until 2026-10-07: the engine is `nonisolated` and
+    // reached from several detached jobs, and a `lazy var` first touched by
+    // two of them at once is a data race. Immutable `let`s built once under
+    // the `static let shared` initialiser (thread-safe) have no such window.
     //
     // try? OK (v2 S7 audit): the functions are compiled into the bundled
     // metallib at build time, so a nil here means the pipeline genuinely
@@ -137,24 +141,12 @@ package nonisolated final class MetalEngine {
     // its own and THROWS `MetalError.functionMissing` naming the shader
     // rather than computing without it; a `try?` here only defers that
     // named refusal from init time to first use.
-    private(set) lazy var virtualAperturePSO: MTLComputePipelineState? = {
-        try? makeCompute("virtualAperture")
-    }()
-    private(set) lazy var virtualMaskPSO: MTLComputePipelineState? = {
-        try? makeCompute("virtualMaskSum")
-    }()
-    private(set) lazy var virtualDiffractionPSO: MTLComputePipelineState? = {
-        try? makeCompute("virtualDiffraction")
-    }()
-    private(set) lazy var dpStatisticsPSO: MTLComputePipelineState? = {
-        try? makeCompute("dpStatistics")
-    }()
-    private(set) lazy var measureOriginPSO: MTLComputePipelineState? = {
-        try? makeCompute("measureOrigin")
-    }()
-    private(set) lazy var centerOfMassPSO: MTLComputePipelineState? = {
-        try? makeCompute("centerOfMass")
-    }()
+    package let virtualAperturePSO: MTLComputePipelineState?
+    package let virtualMaskPSO: MTLComputePipelineState?
+    package let virtualDiffractionPSO: MTLComputePipelineState?
+    package let dpStatisticsPSO: MTLComputePipelineState?
+    package let measureOriginPSO: MTLComputePipelineState?
+    package let centerOfMassPSO: MTLComputePipelineState?
 
     /// Bound in place of optional buffers a kernel will not read
     /// (Metal validation requires every referenced slot to have a binding).
@@ -188,12 +180,19 @@ package nonisolated final class MetalEngine {
         self.displayPSO = display(fragment: "colormapFragment")
         self.displayRGBAPSO = display(fragment: "rgbaFragment")
 
-        print("[MetalEngine] GPU: \(dev.name), maxWorkingSet ≈ \(dev.recommendedMaxWorkingSetSize / 1_048_576) MB")
-    }
+        // Compute pipelines (nil stays the stored contract, see above).
+        func compute(_ name: String) -> MTLComputePipelineState? {
+            guard let fn = lib.makeFunction(name: name) else { return nil }
+            return try? dev.makeComputePipelineState(function: fn)
+        }
+        self.virtualAperturePSO = compute("virtualAperture")
+        self.virtualMaskPSO = compute("virtualMaskSum")
+        self.virtualDiffractionPSO = compute("virtualDiffraction")
+        self.dpStatisticsPSO = compute("dpStatistics")
+        self.measureOriginPSO = compute("measureOrigin")
+        self.centerOfMassPSO = compute("centerOfMass")
 
-    private func makeCompute(_ name: String) throws -> MTLComputePipelineState {
-        guard let fn = library.makeFunction(name: name) else { throw MetalError.functionMissing(name) }
-        return try device.makeComputePipelineState(function: fn)
+        print("[MetalEngine] GPU: \(dev.name), maxWorkingSet ≈ \(dev.recommendedMaxWorkingSetSize / 1_048_576) MB")
     }
 
     // MARK: Dispatch — Virtual Detector (analytic annulus, interactive path)
