@@ -102,6 +102,17 @@ final class SpectroscopyQuantifyTests: XCTestCase {
         XCTAssertLessThan(w.text.count, 200)
     }
 
+    /// The room's weak-line sentence quotes the neighbour that was measured: Mg's ≈ 300 counts when Mg is fitted, Si's own −164 of
+    /// 1 879 when Si is the only weak neighbour. Mutation: drop the Si branch (Si-only fits quote Mg's 300) - red.
+    func testTheWeakLineSentenceQuotesTheFittedNeighbour() {
+        let si = QuantifyPresentation.weakLineSentence(elements: ["Al", "Si"])
+        XCTAssertTrue(si.contains("Si K\u{03B1}") && si.contains("164"), si)
+        XCTAssertFalse(si.contains("300"), si)
+        for elements in [["Al", "Mg"], ["Al", "Mg", "Si"], []] {
+            XCTAssertTrue(QuantifyPresentation.weakLineSentence(elements: elements).contains("\u{2248} 300"), "\(elements)")
+        }
+    }
+
     /// The Expert estimator is Poisson ML; the footer names it and the quality is a deviance.
     /// Mutation: `method.estimator` ignored in `settings(axis:)` - red.
     func testPoissonMLIsNamedAndReportsADeviance() throws {

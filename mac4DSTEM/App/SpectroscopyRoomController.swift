@@ -914,7 +914,7 @@ final class SpectroscopyRoomController {
         // The whole-map at% is a number like the region's own: not shown while the check runs, not after it withholds.
         m.wholeMapLine = heldWholeLine
         m.validation = fit.hasAbundance ? PooledQuantification.abundanceValidation : nil
-        m.fitWarnings = QuantifyPresentation.warnings(fit.warnings)
+        m.fitWarnings = QuantifyPresentation.warnings(fit.warnings, elements: fit.rows.map(\.element))
         if case .applied = fit.absorption { m.abundanceWithoutAbsorption = false } else { m.abundanceWithoutAbsorption = fit.hasAbundance }
         // While the check runs its own line says "checking…"; a second note would repeat it.
         m.abundanceNote = fit.abundanceRefusal.map { "at% not computed: \($0)" } ?? fit.abundanceCaveat.map { "at% caveat: \($0)" }   // A2: at% is never blanked by the check; the caveat rides with it

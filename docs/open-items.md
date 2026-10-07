@@ -233,7 +233,7 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   seen: Reduce Transparency on the glass shell (light appearance seen in drive 7, 2026-10-08: readable, chip on/off distinct). Still ungrouped: the frames readout. New windows open at 1280×800 (frozen shell).
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
-  its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).
+  its own gate); the weak-line note quoted Mg's ≈ 300 counts also when only Si was the neighbour (fixed 2026-10-08: such a fit quotes Si's −164 of 1 879).
 - Regions: rectangle, ellipse and polygon, on the ColorMix only; ⌫ removes the live one.
 - **Plain mouse wheel does not zoom** (SwiftUI limit; pinch, ⌃-wheel, a drag in the keV row, ⌘-drag box and "Zoom to range" do, ADR 059).
   A wheel would need an AppKit event view: the owner decided 2026-10-07 14:45 "zoom is fine like this, no AppKit in this app" — closed, not a defect.
@@ -327,7 +327,7 @@ The default continuum (Kramers × non-negative Bernstein (9,5), split at the Al 
 counts low per pooled spectrum on both synthetic generators (30 seeds; laneF report2/3: A −295 ± 31 / −402 ± 33 at
 0.3 % / 1 %, lane S's simulator −310 ± 23). On the simulator the whole deficit is the unmodelled Al Kα incomplete-charge
 tail (supplying the true tail as a reference shape: −301 → +35). Si Kα also reads low: −164 of 1879 counts (−8.7 %) on
-A4's recipe-A pool (4 seeds; measured there only, not yet in the fit's warning). The fit's warnings carry the Mg number. The remedy is
+A4's recipe-A pool (4 seeds; measured there only; the room's sentence quotes it when Si is the only weak neighbour). The fit's warnings carry the Mg number. The remedy is
 measured: the owner's pure-Al reference spectrum (tail shape and tie fraction). Q2 (the owner's matrix pool: flat
 residual AND continuum vs poly-6 vs window agree within σ) is still owed. The reported σ is a passive-set sandwich
 (lane Σ): it matches the scatter of a strong line (SD/σ 1.035), but is 5–8 % small on a weak Mg line under LS and ~12 %

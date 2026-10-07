@@ -180,12 +180,21 @@ nonisolated enum QuantifyPresentation {
     }
 
     /// The weak-line bias note is the fit's own, 600 characters long; the room shows the sentence and keeps the text as help.
-    static func warnings(_ raw: [String]) -> [FitWarning] {
+    /// `elements` are the fit's rows: the ≈ 300 counts were measured on Mg, so a fit whose only weak neighbour is Si quotes Si's own
+    /// measurement instead (open-items, "Weak lines beside Al Kα": −164 of 1 879 counts on A4's recipe-A pool, 4 seeds).
+    static func warnings(_ raw: [String], elements: [String] = []) -> [FitWarning] {
         raw.map { w in
             w == ContinuumForm.weakLineBiasNote
-                ? FitWarning(text: "Weak-line bias: a weak line beside Al K\u{03B1} reads low by \u{2248} 300 counts per pooled spectrum on synthetic data; unmeasured on real data.", detail: w)
+                ? FitWarning(text: weakLineSentence(elements: elements), detail: w)
                 : FitWarning(text: w, detail: nil)
         }
+    }
+
+    static func weakLineSentence(elements: [String]) -> String {
+        if elements.contains("Si"), !elements.contains("Mg") {
+            return "Weak-line bias: Si K\u{03B1} beside Al K\u{03B1} read 164 of 1\u{202F}879 counts low (\u{2212}8.7 %) on one synthetic recipe; unmeasured on real data."
+        }
+        return "Weak-line bias: a weak line beside Al K\u{03B1} reads low by \u{2248} 300 counts per pooled spectrum on synthetic data; unmeasured on real data."
     }
 
     /// The table's rows for a fit. Window maps are untouched; these are the fitted areas.

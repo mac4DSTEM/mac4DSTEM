@@ -78,3 +78,4 @@ Audit row numbers are `a11y-rooms-apple-docs-audit-2026-10-07.md`'s. No visible 
 | D2-1 | A GMS .dm4 opened before (v4.5.0) still opens with the same calibration (552063e8). | NOT RUN: needs one of the owner's GMS files (read-only; left for his drive). |
 | P2a | Crystal Maps › Orientation › Engine & Q scale: the Q scale reads with the locale's decimal mark (0,0275 Å⁻¹/px in German), same digits (c01deeac). | |
 | P2c | Crystal Maps › Phase mapping with claimed disks shown: zooming the pattern leaves the legend and the single-position note in place and the same size; rings track the disks; legend clear of the fit key (d67145f7). | |
+| WL-1 | A Quantify with Al + Si picked and no Mg: the weak-line warning reads "Si Kα beside Al Kα read 164 of 1 879 counts low…"; with Mg picked it reads "≈ 300 counts"; the hover keeps the full note. | |
