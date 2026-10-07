@@ -1219,11 +1219,7 @@ final class AppState {
         case .prepare:
             return !calibrationSession.calibration.hasFittedOrigin
                 || !calibrationSession.calibration.hasRotation
-        case .image:
-            // Owner card Q7 a: only Group Patterns has a verb; the virtual image is live
-            // (`PrimaryActionButton.imagingActionTitle` is the toolbar's copy of this answer).
-            return navigation.analysisMode == .diffractionGroups
-        case .braggDisks:
+        case .image, .braggDisks:
             return true
         case .map:
             return [.strain, .acom, .phaseMapping].contains(navigation.analysisMode)
@@ -1275,9 +1271,11 @@ final class AppState {
                 await calibrateRotation()
             }
         case .image:
-            // Q7 a: the virtual detector has no verb — its image is live (`hasPrimaryWorkspaceTask`).
+            // Compute Image (owner 2026-10-07, "yes compute image should be back!"): the full-detector pass, recorded as a step.
             if navigation.analysisMode == .diffractionGroups {
                 outcome = await runDiffractionGroups()
+            } else {
+                outcome = await runVirtualDetector()
             }
         case .braggDisks:
             outcome = await runDiskDetection()
@@ -1309,7 +1307,8 @@ final class AppState {
             if await spectroscopyRoom.quantify() {
                 let region = spectroscopy.regions.first { $0.id == spectroscopy.selectedRegionID }
                 spectroscopy.recordQuantification(in: replay, regionKind: region?.kind.rawValue ?? "wholeMap",
-                                                  regionName: region?.name ?? "Whole map")
+                                                  regionName: region?.name ?? "Whole map",
+                                                  extra: spectroscopyRoom.mapLinesParameters)   // the chosen map lines, a readable key
             }
         case .results:
             break

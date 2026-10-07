@@ -64,6 +64,9 @@ nonisolated struct ElementSelection: Equatable, Sendable {
     private(set) var manual: Set<Int> = []
     private(set) var suggestions: [ElementSuggestion] = []
     private(set) var families: [Int: LineFamily] = [:]
+    /// The lines the person checked per element (ids like "Al_Ka", "Al_Kb"), all of the family in `families`; absent = the
+    /// family's alpha line. They are what the maps sum and the spectrum marks; the fit takes whole families either way.
+    private(set) var lines: [Int: Set<String>] = [:]
 
     init(roles: [Int: ElementRole] = [:], manual: Set<Int> = [], suggestions: [ElementSuggestion] = []) {
         self.roles = roles
@@ -80,7 +83,19 @@ nonisolated struct ElementSelection: Equatable, Sendable {
     }
 
     func role(_ z: Int) -> ElementRole { roles[z] ?? .off }
-    func family(_ z: Int) -> LineFamily { families[z] ?? .K }
+    /// The family a map and the markers use: the person's, else Velox's rule (`ElementWindows.defaultFamily`: K up to Ru, L above).
+    func family(_ z: Int) -> LineFamily {
+        families[z] ?? LineFamily(rawValue: ElementWindows.defaultFamily(of: PeriodicLayout.symbol(z)).rawValue) ?? .K
+    }
+
+    /// The lines a map and the markers use for this element, as the menu shows them: the checked ones, else the family's alpha line.
+    func checkedLines(_ z: Int) -> Set<String> {
+        if let l = lines[z], !l.isEmpty { return l }
+        return ["\(PeriodicLayout.symbol(z))_\(family(z).rawValue)a"]
+    }
+
+    /// True when the person chose a family or lines for this element (so its tile and its provenance say which).
+    func hasChosenLines(_ z: Int) -> Bool { families[z] != nil || !(lines[z] ?? []).isEmpty }
 
     func cellState(_ z: Int) -> PeriodicCellState {
         if let why = Self.unavailableReason(z: z) { return .unavailable(why) }
@@ -113,7 +128,24 @@ nonisolated struct ElementSelection: Equatable, Sendable {
         suggestions.removeAll { $0.z == z }
     }
 
-    mutating func setFamily(_ z: Int, _ family: LineFamily) { families[z] = family }
+    /// The family row: that family's alpha line, the checked lines of any family dropped.
+    mutating func setFamily(_ z: Int, _ family: LineFamily) { families[z] = family; lines[z] = nil }
+
+    /// A line item of the Lines menu: check or uncheck it. Lines of one family at a time: a line of another family starts a new
+    /// set in its family. Unchecking the last line (or checking back to the alpha alone) is the family's alpha line, which is
+    /// what no checked line means.
+    mutating func toggleLine(_ z: Int, _ id: String) {
+        guard let line = XRayLines.line(id), line.element == PeriodicLayout.symbol(z),
+              let f = LineFamily(rawValue: line.family.rawValue) else { return }
+        var set: Set<String> = f == family(z) ? checkedLines(z) : []
+        if set.contains(id) { set.remove(id) } else { set.insert(id) }
+        families[z] = f.rawValue == ElementWindows.defaultFamily(of: line.element).rawValue ? nil : f
+        let alpha = "\(line.element)_\(f.rawValue)a"
+        lines[z] = (set.isEmpty || set == [alpha]) ? nil : set
+    }
+
+    /// "Default lines": the rule's family and its alpha line.
+    mutating func resetLines(_ z: Int) { families[z] = nil; lines[z] = nil }
 
     /// The Review popover: accept ONE pending suggestion with the role the person picked
     /// on its row. A person's earlier choice for that element is never overwritten; the

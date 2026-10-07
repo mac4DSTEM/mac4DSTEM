@@ -100,14 +100,14 @@ final class SpectroscopySpec2CTests: XCTestCase {
         XCTAssertEqual(SpectrumStripLogic.anchor(startX: 100, plotLeft: 46, plotWidth: 0), 1, "a collapsed frame does not divide by zero")
     }
 
-    /// The highlighted element's markers are 1.8 pt and bold; the others 0.8 pt; nothing is highlighted when nothing is set.
+    /// The highlighted element's markers are 2.2 pt and bold; the others 1.2 pt; nothing is highlighted when nothing is set.
     /// Mutation: width swapped, or nil matching a nil elementZ (the edge) - red.
     func testHighlightedElementsDrawThicker() {
         let cu = marker("Cu Kα", 8.05, .line, z: 29), ti = marker("Ti Kα", 4.5, .line, z: 22), edge = marker("Al K edge", 1.56, .edge)
-        XCTAssertEqual(SpectrumStripLogic.lineWidth(cu, highlightedZ: 29), 1.8)
-        XCTAssertEqual(SpectrumStripLogic.lineWidth(ti, highlightedZ: 29), 0.8)
-        XCTAssertEqual(SpectrumStripLogic.lineWidth(cu, highlightedZ: nil), 0.8)
-        XCTAssertEqual(SpectrumStripLogic.lineWidth(edge, highlightedZ: nil), 0.8, "no highlight: a marker with no element is not highlighted")
+        XCTAssertEqual(SpectrumStripLogic.lineWidth(cu, highlightedZ: 29), 2.2)
+        XCTAssertEqual(SpectrumStripLogic.lineWidth(ti, highlightedZ: 29), 1.2)
+        XCTAssertEqual(SpectrumStripLogic.lineWidth(cu, highlightedZ: nil), 1.2)
+        XCTAssertEqual(SpectrumStripLogic.lineWidth(edge, highlightedZ: nil), 1.2, "no highlight: a marker with no element is not highlighted")
         XCTAssertTrue(SpectrumStripLogic.isHighlighted(cu, highlightedZ: 29))
         XCTAssertFalse(SpectrumStripLogic.isHighlighted(ti, highlightedZ: 29))
         XCTAssertFalse(SpectrumStripLogic.isHighlighted(edge, highlightedZ: nil))

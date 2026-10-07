@@ -1,5 +1,6 @@
 import SwiftUI
 import ImageIO
+import CoreText
 import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
@@ -81,6 +82,20 @@ enum MapScaleBar {
     }
 }
 
+extension MapScaleBar {
+    /// The shortest bar a map carries, in points (screen) or pixels (export).
+    static let minimumLengthPoints: Double = 32
+
+    /// The bar for one map of `width` points (or export pixels) drawn at `pointsPerPixel`: the round length nearest 0.3 of the width
+    /// (at most 64, at least the minimum), so a smaller tile gets a shorter bar. A map narrower than twice the minimum length has
+    /// no room for a bar and its label: none is drawn. No pixel size, no bar.
+    static func tilePlan(pixelSize: Double, unit: String, pointsPerPixel: Double, width: Double) -> Plan? {
+        guard width >= 2 * minimumLengthPoints else { return nil }
+        return plan(pixelSize: pixelSize, unit: unit, pointsPerPixel: pointsPerPixel,
+                    targetPoints: min(64, max(minimumLengthPoints, width * 0.3)))
+    }
+}
+
 /// The bar, bottom-left on the map, on glass so it reads on any map.
 struct MapScaleBarView: View {
     let plan: MapScaleBar.Plan
@@ -125,6 +140,36 @@ enum MapBitmap {
         return CGImageDestinationFinalize(dest) ? out as Data : nil
     }
     static func q(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * 255).rounded()))) }
+
+    /// The bitmap with a scale bar drawn into its bottom-left corner, at the bitmap's own pixel size (the export has no points):
+    /// a white bar with a dark outline, 8 px in from the left and bottom edges, its label above it in 12 px white text with a
+    /// 1 px dark shadow. Every other pixel is the image's own. `plan.lengthPoints` is read as pixels. nil if the context fails.
+    static func addingScaleBar(to image: CGImage, plan: MapScaleBar.Plan) -> CGImage? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0,
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .none
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let inset: CGFloat = 8, barHeight: CGFloat = 3
+        let length = CGFloat(max(1, plan.lengthPoints.rounded()))
+        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0.85))
+        ctx.fill(CGRect(x: inset - 1, y: inset - 1, width: length + 2, height: barHeight + 2))
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        ctx.fill(CGRect(x: inset, y: inset, width: length, height: barHeight))
+        let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, 12, nil) ?? CTFontCreateWithName("Helvetica-Bold" as CFString, 12, nil)
+        let attributes: [CFString: Any] = [kCTFontAttributeName: font, kCTForegroundColorFromContextAttributeName: kCFBooleanTrue as Any]
+        guard let text = CFAttributedStringCreate(nil, plan.label as CFString, attributes as CFDictionary) else { return nil }
+        let line = CTLineCreateWithAttributedString(text)
+        let base = CGPoint(x: inset, y: inset + barHeight + 4)
+        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0.85))
+        ctx.textPosition = CGPoint(x: base.x + 1, y: base.y - 1)
+        CTLineDraw(line, ctx)
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        ctx.textPosition = base
+        CTLineDraw(line, ctx)
+        return ctx.makeImage()
+    }
 }
 
 /// The mixed map as one bitmap (a pixel per scan pixel). `backdrop` is the HAADF under the mix (spec 2 D-2): empty means none, the

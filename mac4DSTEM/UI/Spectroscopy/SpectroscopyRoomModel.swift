@@ -238,6 +238,8 @@ struct MapTile: Identifiable {
     var notMeasuredWhy: String? = nil
     /// Counts at value 1 (the tile's own maximum; 1 when unknown): the histogram's real values (spec 2 D-13).
     var scale: Float = 1
+    /// "Al Kα+Kβ": the lines the person chose for this map (nil = the default line, which says nothing).
+    var lineLabel: String? = nil
     var id: Int { z }
 }
 

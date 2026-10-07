@@ -72,7 +72,7 @@ struct MapsGridView: View {
         case .haadf:
             MapTileView(model: model, map: .haadf, title: "HAADF", image: haadfImage(), tile: nil)
         case .element(let t):
-            MapTileView(model: model, map: .element(t.z), title: PeriodicLayout.symbol(t.z), image: elementImage(t), tile: t)
+            MapTileView(model: model, map: .element(t.z), title: t.lineLabel ?? PeriodicLayout.symbol(t.z), image: elementImage(t), tile: t)
         }
     }
 
@@ -147,6 +147,18 @@ struct MapTileView: View {
         case handle(RegionHandle, start: SpectrumRegionShape)
     }
 
+    /// The live region's outline width; a pin's is thinner (its tint says which it is).
+    static let liveOutlineWidth: CGFloat = 2
+    static let pinOutlineWidth: CGFloat = 1.6
+
+    /// The scale bar of this map at its own points per pixel; nil without a pixel size, without a grid, or when the map is too
+    /// narrow for one (`MapScaleBar.tilePlan`). Every map carries one: the ColorMix, the HAADF and each element.
+    private func scaleBarPlan(_ size: CGSize) -> MapScaleBar.Plan? {
+        let g = model.gridSize
+        guard let px = model.scanPixel, g.w > 0 else { return nil }
+        return MapScaleBar.tilePlan(pixelSize: px.size, unit: px.unit, pointsPerPixel: Double(size.width) / Double(g.w), width: Double(size.width))
+    }
+
     /// Regions live on the ColorMix only (spec 2 D-1).
     static func carriesRegion(_ map: ActiveMap) -> Bool { map == .colorMix }
 
@@ -164,13 +176,13 @@ struct MapTileView: View {
                         .overlayCapsule()
                         .frame(maxWidth: .infinity, maxHeight: .infinity).allowsHitTesting(false)
                 }
-                if carriesRegion, let px = model.scanPixel, model.gridWidth > 0,
-                   let plan = MapScaleBar.plan(pixelSize: px.size, unit: px.unit, pointsPerPixel: size.width / CGFloat(model.gridWidth),
-                                               targetPoints: min(64, size.width * 0.3)) {
-                    MapScaleBarView(plan: plan)
-                }
+                if let plan = scaleBarPlan(size) { MapScaleBarView(plan: plan) }
                 if carriesRegion, let a = regionLabelAnchor(size) {
-                    Text(Self.regionCaption(pixels: model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0)).font(.callout).lineLimit(1)
+                    HStack(spacing: 5) {
+                        Image(systemName: "circle.fill").imageScale(.small).foregroundStyle(SpectroscopyRoomModel.liveRegionColor)
+                        Text(Self.regionCaption(pixels: model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0))
+                    }
+                    .font(.callout).lineLimit(1)
                         .overlayCapsule()
                         .fixedSize()
                         .position(x: a.x, y: a.y)
@@ -290,16 +302,17 @@ struct MapTileView: View {
         let cw = size.width / CGFloat(g.w), ch = size.height / CGFloat(g.h)
         func pt(_ p: PixelPoint) -> CGPoint { CGPoint(x: CGFloat(p.x) * cw, y: CGFloat(p.y) * ch) }
         func rect(_ r: PixelRect) -> CGRect { CGRect(x: CGFloat(r.x0) * cw, y: CGFloat(r.y0) * ch, width: CGFloat(r.width) * cw, height: CGFloat(r.height) * ch) }
-        let dash = StrokeStyle(lineWidth: 1.2, dash: [4, 3])
+        let live = SpectroscopyRoomModel.liveRegionColor
+        let dash = StrokeStyle(lineWidth: Self.liveOutlineWidth, dash: [4, 3])
         func handleDot(_ p: CGPoint) {
             let r = CGRect(x: p.x - TileMetrics.handle / 2, y: p.y - TileMetrics.handle / 2, width: TileMetrics.handle, height: TileMetrics.handle)
-            ctx.fill(Path(r), with: .color(.white)); ctx.stroke(Path(r), with: .color(.black.opacity(0.6)), lineWidth: 0.5)
+            ctx.fill(Path(r), with: .color(live)); ctx.stroke(Path(r), with: .color(.white), lineWidth: 1)
         }
         if let shape = model.regionOutline {
             switch shape {
             case .rectangle(let r), .ellipse(let r):
                 let rr = rect(r)
-                ctx.stroke(shape.isEllipse ? Path(ellipseIn: rr) : Path(rr), with: .color(.white), style: dash)
+                ctx.stroke(shape.isEllipse ? Path(ellipseIn: rr) : Path(rr), with: .color(live), style: dash)
                 for p in [CGPoint(x: rr.minX, y: rr.minY), CGPoint(x: rr.midX, y: rr.minY), CGPoint(x: rr.maxX, y: rr.minY),
                           CGPoint(x: rr.minX, y: rr.midY), CGPoint(x: rr.maxX, y: rr.midY),
                           CGPoint(x: rr.minX, y: rr.maxY), CGPoint(x: rr.midX, y: rr.maxY), CGPoint(x: rr.maxX, y: rr.maxY)] { handleDot(p) }
@@ -307,7 +320,7 @@ struct MapTileView: View {
                 var p = Path()
                 for (i, q) in v.enumerated() { i == 0 ? p.move(to: pt(q)) : p.addLine(to: pt(q)) }
                 p.closeSubpath()
-                ctx.stroke(p, with: .color(.white), style: dash)
+                ctx.stroke(p, with: .color(live), style: dash)
                 for q in v { handleDot(pt(q)) }
             }
         }
@@ -322,13 +335,13 @@ struct MapTileView: View {
                     for (i, q) in v.enumerated() { i == 0 ? path.move(to: pt(q)) : path.addLine(to: pt(q)) }
                     path.closeSubpath()
                 }
-                ctx.stroke(path, with: .color(pin.tint.opacity(SpectrumLayers.pinOpacity)), lineWidth: 1.2)
+                ctx.stroke(path, with: .color(pin.tint.opacity(SpectrumLayers.pinOpacity)), lineWidth: Self.pinOutlineWidth)
             }
         }
         if draft.count > 0 {
             var p = Path()
             for (i, q) in draft.enumerated() { i == 0 ? p.move(to: pt(q)) : p.addLine(to: pt(q)) }
-            ctx.stroke(p, with: .color(.white), style: dash)
+            ctx.stroke(p, with: .color(live), style: dash)
             for q in draft { handleDot(pt(q)) }
         }
     }

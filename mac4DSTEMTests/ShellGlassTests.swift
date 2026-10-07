@@ -1,8 +1,8 @@
 //
 //  ShellGlassTests.swift
 //  Lane L5 (Velox sheet row 8c): the dataset menu's "Preprocess Raw Data…" is a 4D-STEM verb, so a window that holds a
-//  spectrum image and no 4D cube does not offer it. The glass itself (window material, flat centre column) is blind to a
-//  hosted-layout test; what is testable is the rule that decides the menu's items. Each test names its mutation.
+//  spectrum image and no 4D cube does not offer it. The shell's glass (flat columns, `.glass` buttons since lane L6, 2026-10-07)
+//  is blind to a hosted-layout test; what is testable is the rule that decides the menu's items. Each test names its mutation.
 //
 
 import XCTest

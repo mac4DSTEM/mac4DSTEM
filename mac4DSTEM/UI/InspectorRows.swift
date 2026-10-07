@@ -481,7 +481,7 @@ struct InspectorActionRow<Content: View>: View {
 /// A section action that never truncates: the full `Label` when the button
 /// has room, the symbol alone when it does not, with the title kept on
 /// `.help` and as the accessibility label. `ViewThatFits` is the durable
-/// pattern for this, not a stopgap. A plain bordered push button — the
+/// pattern for this, not a stopgap. A glass push button (`.glass`) — the
 /// room's one prominent action is its toolbar verb (HIG, Buttons).
 struct InspectorAdaptiveButton: View {
     private let title: String
@@ -511,6 +511,7 @@ struct InspectorAdaptiveButton: View {
                 Image(systemName: systemImage)
             }
         }
+        .buttonStyle(.glass)   // Liquid Glass like Xcode's buttons (owner 2026-10-07); the toolbar verb is `.glassProminent`
         .help(help ?? title)
         .accessibilityLabel(title)
     }
@@ -549,6 +550,7 @@ struct InspectorAdaptiveMenu<Content: View>: View {
                 Image(systemName: systemImage)
             }
         }
+        .buttonStyle(.glass)   // matches the adaptive button beside it
         .help(help ?? title)
         .accessibilityLabel(title)
     }

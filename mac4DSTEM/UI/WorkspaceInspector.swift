@@ -106,10 +106,12 @@ struct WorkspaceInspector: View {
             }
         }
         .padding(LayoutPolicy.inspectorTabInset)
-        // A system material, not glass: the inspector itself is a glass pane
-        // (ADR 058) and the HIG rules out glass on glass. No manual rim,
-        // shadow or highlight layered on top to fake a look.
-        .background(.thinMaterial, in: .capsule)
+        // Plain `.glassEffect` — no manual rim, shadow or highlight layered
+        // on top to fake the look: a hand-built approximation (rim, shadow,
+        // top-down highlight) read as "not the real deal, made to look like
+        // it" against this capsule's flat background. The system material
+        // alone is simpler and more robust than approximating it.
+        .glassEffect(.regular, in: .capsule)
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Inspector tab")
@@ -131,10 +133,6 @@ struct WorkspaceInspector: View {
         // centres it — the tab bar sat mid-column at launch (owner
         // feedback).
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // Liquid Glass (ADR 058, mock A): the inspector is a glass pane like the sidebar (`WorkspaceSidebar`); the tab capsule
-        // inside it is a material, not glass (HIG: no glass on glass).
-        .glassEffect(.regular, in: .rect(cornerRadius: LayoutPolicy.shellGlassCornerRadius))
-        .padding(LayoutPolicy.shellGlassInset)
         // The one inspector toggle, in the inspector's own toolbar section:
         // it stays in the toolbar, once, while the column is hidden
         // (measured 2026-09-22), so it needs no fallback and a fallback

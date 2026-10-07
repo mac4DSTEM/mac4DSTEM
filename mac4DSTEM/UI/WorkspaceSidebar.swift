@@ -98,21 +98,16 @@ struct WorkspaceSidebar: View {
         .id(WorkspaceRoute.sidebarListIdentity(area: appState.navigation.workspaceArea, spectrumOnly: appState.isSpectrumOnly))
         // One material per column, and it is the system's — a `.sidebar` List
         // paints a second one inside the scroll view that composites
-        // differently where the sidebar's own glass already shows
-        // (`ContentView.splitWindow` puts one material behind the window; no
-        // test can see it, a hosted layout is blind to materials, so this
-        // line is held by review and the drive). The row selection capsule is drawn by the
-        // table, not by this background, so hiding it costs nothing visible.
+        // differently where the sidebar's own material already shows. No test
+        // can see it (a hosted layout is blind to materials), so this line is
+        // held by review and the drive. The row selection capsule is drawn by
+        // the table, not by this background, so hiding it costs nothing
+        // visible. The glass lives on the buttons, not on a floating pane: the
+        // owner tried the pane (ADR 058 §5) and preferred the flat column.
         .scrollContentBackground(.hidden)
         // Bounce only when there is something to scroll, so elastic
         // overscroll can never park the clip origin above the top.
         .scrollBounceBehavior(.basedOnSize)
-        // Liquid Glass (ADR 058, mock A; owner 2026-10-07 "where is the liquid glass?"): the sidebar is a glass pane floating
-        // over the window's thin material, inset from the column (HIG Materials: glass is the navigation layer, floating above
-        // content; one glass per pane, no hand-built rim or shadow — the system draws the rim). Reduce Transparency: the system
-        // frosts it. Seen on screen 2026-10-07 (drive 5, dark appearance).
-        .glassEffect(.regular, in: .rect(cornerRadius: LayoutPolicy.shellGlassCornerRadius))
-        .padding(LayoutPolicy.shellGlassInset)
         .confirmationDialog(
             "Remove Saved Result?",
             isPresented: Binding(

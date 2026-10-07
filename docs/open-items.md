@@ -122,8 +122,8 @@ One line each; full wording as above.
 - **Crash after Compute Strain** (re-drive 2026-10-02, `archive/v4/polish-redrive-2026-10-02/`): an AppKit layout exception (EXC_BREAKPOINT in
   `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
   after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.
-- **Residuals (2026-10-02/04)**: a window that resized itself (unreproduced). Since Q7 a (lane F) Virtual detector has no toolbar
-  verb: after another room cleared its image, Imaging shows "No Result Yet" until an aperture edit or a preset re-runs it.
+- **Residuals (2026-10-02/04)**: a window that resized itself (unreproduced). The virtual detector's toolbar verb (Compute Image) is
+  back since ADR 059 (owner, 2026-10-07); the "No Result Yet" after another room cleared the image is answered by it.
 - Number fields (lane N, 2026-10-04, a declared trade-off): while a finer value is stored, typing exactly the text the field shows (0,03 over 0.0275) is a no-op; 0,030 or 0.03 set it.
 - Lane R residuals (2026-10-04): Origin calibration in Prepare still runs the remembered task's analysis (`AppState+Calibration.swift` ~:130 — under Disks the Bragg map replaces the virtual image). Decided by the session (overrule on sight): a map restored from the sidecar at open is covered by the opening virtual image under every remembered task, as it already was under Virtual detector; it stays in the Results list.
 - Room switches, seen on lane N's drive (2026-10-04, scratch build of a841f9ae, shots 44 and 50 in `archive/v4/polish-plan-2026-10-02/lane-N-drive/`; deferred by the owner for cost, Gate D before any fix): after an ACOM preview, Imaging › Virtual imaging kept showing the ACOM map; with an ACOM full scan held (exploratory Q), Crystal Maps › Strain → Orientation showed "No Result Yet" (`presentProductForEnteredMode` has no `.virtualDetector` case; the Orientation branch unexplained). The polish drive (2026-10-04, `archive/v4/polish-drive-2026-10-04/`) saw both again plus Go to Imaging showing the Bragg vector map, Strain "No Result Yet" after an Orientation visit with no result (3×), and the ptychography pane titled "Parallax aligned BF" over "No Result Yet" before a run.
@@ -228,6 +228,12 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 - **Auto ID on real Al pools:** misses Si and Mg, proposes Eu/Hf/Ho — and since spec 2 it APPLIES its picks, so SI 1339 opens with
   seven elements mapped (Cu, Al, O, Eu, Hf, Co, Ho) — since ADR 058 the L/M-line picks (Eu, Hf, Ho) land as Fit only, so at% is computed at once; the person unpicks. F3.2 refuted as a default; next: a new registration. The
   sum-peak questions are no longer drawn on the plot; they live in the Picked row's hover. `suggestedRole` is unused.
+- **Owner's drive of ADR 058 (2026-10-07 12:30, `archive/v5/owner-drive-findings-2026-10-07.md`) → ADR 059**, landed unverified on screen by the
+  session (his copy was running): Compute Image back; flat columns, glass buttons; spectrum weight and one colour per region; the Show menu
+  as an inspector section; zoom gestures; scale bars on every map and in exports; line families = Velox's 20 keV boundary (defaults move for
+  Z ≥ 45 only) with α/β per element for maps and markers; Auto ID measured against Velox's selections (`archive/v5/autoid-velox-check-2026-10-07.md`).
+  Kα+Kβ of one element: the later window is clipped so no channel counts twice (Gate B, supervisor). Live-region colour = the accent, the
+  same as a tile's in-mix outline (lane L8 noted the clash; a drive decides).
 - **Drive 5 (2026-10-07 midday, ADR 058 landing, `archive/v5/room-drive-5-2026-10-07.md`):** every drive-4 finding but one is closed
   (smoothed maps, fit-only picks, named peaks, Absorption, the 4D verb); the ⚠ beside element names carries `.help` in code and was not
   hovered with a real mouse. The live-time Info row was removed: the reader's segment LiveTime is "as read, semantics unverified" (sheet
@@ -237,7 +243,8 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).
 - Regions: rectangle, ellipse and polygon, on the ColorMix only; ⌫ removes the live one.
-- **Plain mouse wheel does not zoom** (SwiftUI limit); pinch and ⌃-wheel do.
+- **Plain mouse wheel does not zoom** (SwiftUI limit; pinch, ⌃-wheel, a drag in the keV row, ⌘-drag box and "Zoom to range" do, ADR 059).
+  A wheel needs an AppKit event view, which the owner's 2026-09-28 SwiftUI-only rule forbids; his call (asked 2026-10-07).
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
   withheld room selected. A new 4D open does not clear an earlier spectrum image of the window.
 - **`Data Order Swapped` = 1 on an EDS object is refused** (its meaning for an SI is unmeasured); a real joint file that sets it

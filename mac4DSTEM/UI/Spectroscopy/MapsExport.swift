@@ -23,11 +23,12 @@ enum MapsExport {
     }
 
     /// "<stem>-<label>.png", or "<stem>-<label>-net-3x3.png" when the picture went through a display kernel: the file says what it
-    /// shows. The CSV never carries a tag (it is raw).
-    nonisolated static func pngName(stem: String, label: String, mode: MapMode = .netCounts, smoothing: MapSmoothing = .none) -> String {
-        guard smoothing != .none else { return "\(stem)-\(label).png" }
-        let m = String(mode.rawValue.filter { $0.isLetter || $0.isNumber })
-        return "\(stem)-\(label)-\(m)-\(smoothing.fileTag).png"
+    /// shows; "-scalebar" last when the scale bar is drawn into it. The CSV never carries a tag (it is raw).
+    nonisolated static func pngName(stem: String, label: String, mode: MapMode = .netCounts, smoothing: MapSmoothing = .none,
+                                    scaleBar: Bool = false) -> String {
+        var name = "\(stem)-\(label)"
+        if smoothing != .none { name += "-" + String(mode.rawValue.filter { $0.isLetter || $0.isNumber }) + "-" + smoothing.fileTag }
+        return name + (scaleBar ? "-scalebar" : "") + ".png"
     }
     nonisolated static func csvName(stem: String) -> String { "\(stem)-maps.csv" }
 
@@ -67,15 +68,22 @@ enum MapsExport {
     }
 
     /// Every file the room's maps make: the HAADF (when the file has one), each element, the ColorMix (when something is
-    /// ticked or a HAADF stands behind it), and the CSV; images are the same ones the screen draws.
+    /// ticked or a HAADF stands behind it), and the CSV; images are the same ones the screen draws. With `export.scaleBar` on and
+    /// a pixel size from the file, each PNG carries the scale bar drawn into its bitmap (one pixel per scan pixel, so the bar's
+    /// length in pixels is the round length over the pixel size) and its name says "-scalebar"; a map too narrow for a bar, or a
+    /// file with no pixel size, is written as it is and named so. The CSV never changes.
     static func files(_ model: SpectroscopyRoomModel) throws -> [File] {
         let stem = model.export.mapsStem
         var out: [File] = []
-        func add(_ label: String, _ image: CGImage?, tagged: Bool = true) throws {
-            guard let image else { return }
+        let pixel = model.export.scaleBar ? model.scanPixel : nil
+        func add(_ label: String, _ source: CGImage?, tagged: Bool = true) throws {
+            guard var image = source else { return }
+            var barred = false
+            if let px = pixel, let plan = MapScaleBar.tilePlan(pixelSize: px.size, unit: px.unit, pointsPerPixel: 1, width: Double(image.width)),
+               let drawn = MapBitmap.addingScaleBar(to: image, plan: plan) { image = drawn; barred = true }
             guard let data = MapBitmap.pngData(image) else { throw Failure("Could not encode \(label).") }
             out.append(File(name: pngName(stem: stem, label: label, mode: tagged ? model.mapMode : .netCounts,
-                                          smoothing: tagged ? model.smoothing : .none), data: data))
+                                          smoothing: tagged ? model.smoothing : .none, scaleBar: barred), data: data))
         }
         if model.hasHAADF {
             try add("HAADF", ElementTileRaster.haadf(values: model.backdrop, width: model.gridWidth, height: model.gridHeight,

@@ -82,6 +82,10 @@ final class SpectroscopyRoomController {
     @ObservationIgnored private var hasFourDCube = false
     /// The element selection last acted on: the view's change callback also fires for the reset `bind` makes.
     @ObservationIgnored private var lastElements = ElementSelection()
+    /// The lines each quantified element's map used ("Al Kα+Kβ"), keyed by Z, as of the last compute; `mapLinesParameters` records them.
+    @ObservationIgnored private(set) var mapLineSummaries: [Int: String] = [:]
+    /// The same for the elements whose family or lines the person chose: what a tile header names.
+    @ObservationIgnored private(set) var tileLineLabels: [Int: String] = [:]
     /// The Quantify verb has run: the pooled fit is live from here on (every setting re-fits, no Apply).
     @ObservationIgnored private(set) var quantifyActive = false
     /// The computed-k and absorption data files, read once (Resources/Spectroscopy); nil when the bundle lacks them.
@@ -165,6 +169,7 @@ final class SpectroscopyRoomController {
         m.fitFooter = ""
         m.elements = ElementSelection()
         lastElements = m.elements
+        mapLineSummaries = [:]; tileLineLabels = [:]
         m.mixed = []; m.tiles = []; m.results = []; m.markers = []
         m.elementColors = [:]; m.mapDisplays = [:]; m.haadfColormap = .gray
         m.mapMode = .netCounts; m.pins = []; m.compare = .wholeMap; m.viewportIsManual = false
@@ -640,7 +645,7 @@ final class SpectroscopyRoomController {
         let source: any SpectrumImageSource
         let region: Int
         let mask: PixelMask?
-        let picks: [(symbol: String, family: XRayFamily?)]
+        let picks: [ElementWindows.Pick]
         let integrated: Bool
         let beam: Double?
         let firstPass: Bool
@@ -683,9 +688,7 @@ final class SpectroscopyRoomController {
         checkTask?.cancel(); checkTask = nil         // about the previous fit; the next fit starts its own
         generation += 1
         let gen = generation
-        let picks: [(symbol: String, family: XRayFamily?)] = model.elements.activeZ.map { z in
-            (PeriodicLayout.symbol(z), model.elements.families[z].map { XRayFamily(rawValue: $0.rawValue)! })
-        }
+        let picks = Self.picks(for: model.elements)
         var quantify: QuantifyRequest?
         if quantifyActive {
             quantify = QuantifyRequest(method: session.method, metadata: source.metadata, regionName: region.name, pixelCount: region.pixelCount)
@@ -735,7 +738,7 @@ final class SpectroscopyRoomController {
             cache.setSpectrum(w, 0)
             whole = w
         }
-        let windows = ElementWindows.build(elements: r.picks, axis: r.source.energyAxis, beamEnergyKeV: r.beam)
+        let windows = ElementWindows.build(picks: r.picks, axis: r.source.energyAxis, beamEnergyKeV: r.beam)
         let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
         func mapsFor(_ ws: [LineWindow]) -> [[Double]?] { Self.mapsFor(ws, source: r.source, integrated: r.integrated, cache: cache) }
         let maps = mapsFor(windows)
@@ -804,13 +807,19 @@ final class SpectroscopyRoomController {
 
         // Markers: the chosen family's lines of every active element.
         m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV,
-                                 quantified: Set(m.elements.quantified.map { PeriodicLayout.symbol($0) }))
+                                 quantified: Set(m.elements.quantified.map { PeriodicLayout.symbol($0) }),
+                                 picked: Set(m.elements.activeZ.flatMap { m.elements.lines[$0] ?? [] }))
 
-        // Rows, tiles: the quantified elements only (fit-only ones shape the windows, not the table).
+        // Rows, tiles: the quantified elements only (fit-only ones shape the windows, not the table). An element with two
+        // checked lines has two windows: its row is the first one that has counts (named in its sigma terms), its tile the SUM of
+        // its lines' maps, each net of its own background.
         var rows: [ResultRow] = [], tiles: [MapTile] = []
         let quantified = Set(m.elements.quantified.map { PeriodicLayout.symbol($0) })
-        for (i, w) in out.windows.enumerated() where quantified.contains(w.element) {
+        var done = Set<String>()
+        for w in out.windows where quantified.contains(w.element) && done.insert(w.element).inserted {
             guard let z = PeriodicLayout.z(of: w.element) else { continue }
+            let group = out.windows.indices.filter { out.windows[$0].element == w.element }
+            let i = group.first { out.counts[$0] != nil } ?? group[0]
             if let c = out.counts[i] {
                 let bg = c.background.map { ", B = \(Self.counts($0)), s = \(String(format: "%.3f", c.scale ?? 0))" } ?? " (no background window)"
                 rows.append(ResultRow(
@@ -822,15 +831,19 @@ final class SpectroscopyRoomController {
                 rows.append(ResultRow(z: z, netCounts: 0, netSigma: 0, kFreeRatio: 0, kFreeSigma: nil, atPercent: 0, atSigma: 0,
                                       wtPercent: 0, wtSigma: 0, sigmaTerms: "", failure: w.failure))
             }
-            if let map = out.maps[i] {
+            if let map = Self.summed(group.compactMap { out.maps[$0] }) {
                 // Row 1a: the kernel is applied to the SIGNED map and the clamp comes after; the tile keeps the raw counts.
                 let shown = Self.display(of: map, width: source.nx, height: source.ny, smoothing: m.smoothing)
                 tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: shown.values, counts: map,
-                                     notMeasuredWhy: out.counts[i]?.notAMeasurementText, scale: shown.scale))
+                                     notMeasuredWhy: group.compactMap { out.counts[$0]?.notAMeasurementText }.first, scale: shown.scale))
                 // R10: a picked element goes into the mix (a picture); its not-a-measurement note stays on the tile and the row. The user may untick.
                 if seenTiles.insert(z).inserted { m.mixed.insert(z) }
             }
         }
+        let lines = Self.mapLines(windows: out.windows, quantified: quantified)
+        mapLineSummaries = lines
+        tileLineLabels = lines.filter { m.elements.hasChosenLines($0.key) }
+        for i in tiles.indices { tiles[i].lineLabel = tileLineLabels[tiles[i].z] }   // "Al Kα+Kβ" on the tile only when the person chose lines
         m.results = rows
         applyFit(out, source: source)
         m.tiles = tiles
@@ -942,6 +955,39 @@ final class SpectroscopyRoomController {
         return (normalised(shown), scale(of: shown))
     }
 
+    /// The windows' picks: every listed element (quantified or fit only) with its family and the lines the person checked.
+    static func picks(for e: ElementSelection) -> [ElementWindows.Pick] {
+        e.activeZ.map { z in
+            ElementWindows.Pick(symbol: PeriodicLayout.symbol(z), family: e.families[z].map { XRayFamily(rawValue: $0.rawValue)! },
+                                lines: (e.lines[z] ?? []).sorted())
+        }
+    }
+
+    /// The lines of each quantified element's map, "Al Kα+Kβ", keyed by Z: what the windows really are (a checked line off the
+    /// axis is not there), in energy order.
+    static func mapLines(windows: [LineWindow], quantified: Set<String>) -> [Int: String] {
+        var out: [Int: String] = [:]
+        for symbol in Set(windows.map(\.element)) where quantified.contains(symbol) {
+            guard let z = PeriodicLayout.z(of: symbol),
+                  let text = ElementWindows.summary(ofLineIDs: windows.filter { $0.element == symbol && $0.window != nil }.map(\.id)) else { continue }
+            out[z] = text
+        }
+        return out
+    }
+
+    /// The lineage key of a Quantify step: which lines the maps used ("Al Kα+Kβ, Cu Kα"), additive beside the method's own keys.
+    /// Empty before any map exists.
+    var mapLinesParameters: [String: String] {
+        mapLineSummaries.isEmpty ? [:] : ["map_lines": mapLineSummaries.sorted { $0.key < $1.key }.map(\.value).joined(separator: ", ")]
+    }
+
+    /// The sum of the maps of one element's lines (pixel by pixel); nil for none. One map is returned as it is.
+    static func summed(_ maps: [[Double]]) -> [Double]? {
+        guard var total = maps.first else { return nil }
+        for m in maps.dropFirst() { for p in total.indices { total[p] += m[p] } }
+        return total
+    }
+
     /// The line and background windows the net maps use, as energy bands: one signal band per line window and its two background
     /// bands, from the windows' channel ranges through the axis. A channel is as wide as the axis step and centred on its energy,
     /// so channels `a..<b` cover `energy(a) - step/2` to `energy(b) - step/2`. A line with no window (no line on the axis) has none.
@@ -963,16 +1009,28 @@ final class SpectroscopyRoomController {
         return out
     }
 
-    /// `priority` decides which name survives a collision: the window's own line (K\u{03B1}) over its satellites, a quantified element over a fit-only one.
-    static func markers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?, quantified: Set<String> = []) -> [LineMarker] {
+    /// `priority` decides which name survives a collision: the window's own line (Kα) over its satellites, a quantified element over a fit-only one.
+    /// `picked` are the lines the person checked: an element with any of them marks exactly those, one marker each; every other
+    /// element marks its window's family, as before.
+    static func markers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?, quantified: Set<String> = [],
+                        picked: Set<String> = []) -> [LineMarker] {
         var out: [LineMarker] = []
+        let elementsWithPicks = Set(windows.filter { picked.contains($0.id) }.map(\.element))
         for w in windows {
             guard let chosen = XRayLines.line(w.id), let z = PeriodicLayout.z(of: w.element) else { continue }
+            let bonus = quantified.contains(w.element) ? 1 : 0
+            func marker(_ l: XRayLine, own: Bool) -> LineMarker {
+                LineMarker(label: ElementWindows.label(ofLineID: l.id), energy: l.energy, elementZ: z,
+                           fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy),
+                           priority: (own ? 2 : 0) + bonus)
+            }
+            if elementsWithPicks.contains(w.element) {
+                if picked.contains(w.id) { out.append(marker(chosen, own: true)) }
+                continue
+            }
             for l in XRayLines.lines(of: w.element) where l.family == chosen.family && l.weight >= 0.05 {
                 guard XRayLines.linesInRange([l.id], axis: axis, beamEnergy: beam).isEmpty == false else { continue }
-                out.append(LineMarker(label: ElementWindows.label(ofLineID: l.id), energy: l.energy, elementZ: z,
-                                      fwhm: XRayLines.fwhm(resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, atEnergy: l.energy),
-                                      priority: (l.id == w.id ? 2 : 0) + (quantified.contains(w.element) ? 1 : 0)))
+                out.append(marker(l, own: l.id == w.id))
             }
         }
         return out

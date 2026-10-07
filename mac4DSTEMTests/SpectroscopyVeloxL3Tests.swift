@@ -225,15 +225,17 @@ final class SpectroscopyVeloxL3Tests: XCTestCase {
     }
 
     /// The gesture code itself: the ⌥ range drag is the only gesture that passes `optionHeld: true`, and it is gated by
-    /// `.modifiers(.option)`; the plain pan passes false. A source check, because SwiftUI gestures cannot be driven in a unit run.
+    /// `.modifiers(.option)`; the plain pan passes false, and the ⌘ zoom box is the one gesture gated by `.modifiers(.command)`. A source check, because SwiftUI gestures cannot be driven in a unit run.
     /// Mutation: `.modifiers(.option)` removed from the range gesture (⌥-less drags would select a range), red.
     func testTheRangeGestureIsGatedByOption() throws {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("mac4DSTEM/UI/Spectroscopy/SpectrumStripView.swift")
         let src = try String(contentsOf: url, encoding: .utf8)
         XCTAssertEqual(src.components(separatedBy: "optionHeld: true").count - 1, 1)
-        XCTAssertEqual(src.components(separatedBy: "optionHeld: false").count - 1, 1)
-        let r = try XCTUnwrap(src.range(of: "drag(v, size, optionHeld: true)"))
+        XCTAssertEqual(src.components(separatedBy: "optionHeld: false").count - 1, 2, "the plain pan and the ⌘ zoom box")
+        let r = try XCTUnwrap(src.range(of: "drag(v, size, optionHeld: true, commandHeld: false)"))
         XCTAssertTrue(src[r.upperBound...].prefix(160).contains(".modifiers(.option)"))
+        let c = try XCTUnwrap(src.range(of: "drag(v, size, optionHeld: false, commandHeld: true)"))
+        XCTAssertTrue(src[c.upperBound...].prefix(160).contains(".modifiers(.command)"), "the zoom box is gated by ⌘")
     }
 }

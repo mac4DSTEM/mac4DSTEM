@@ -3,16 +3,18 @@ import SwiftUI
 import DSTEMCore
 #endif
 
-/// The spectrum strip (ADR 056): a header (title, one "Show" menu), the Canvas plot on a log axis opening on the listed lines'
-/// energy span, and the ±3σ residual strip. No caption: the Show menu carries the legend as coloured symbols and the whole
-/// map's curve is named at its end. The whole map's spectrum (grey) and each pin's (its own colour) are scaled to the
+/// The spectrum strip (ADR 056): a header (title, the pins), the Canvas plot on a log axis opening on the listed lines'
+/// energy span, and the ±3σ residual strip. No caption: the whole map's curve is named at its end. The layers (Show) live in the
+/// settings pane, bound to `model.layers`. A region's spectrum is drawn in the live region's colour (the map outline's). The whole map's spectrum (grey) and each pin's (its own colour) are scaled to the
 /// region's counts: a comparison of shapes.
 ///
 /// Interaction follows Velox where pure SwiftUI allows: pinch (and the wheel with ⌃, as
 /// macOS synthesises it — `ZoomPan.swift` documents why no AppKit scroll monitor is used)
-/// zooms the energy axis about the pointer, drag pans, a vertical drag in the y-axis gutter stretches the counts axis,
+/// zooms the energy axis about the pointer, drag pans, a vertical drag in the y-axis gutter stretches the counts axis, a
+/// horizontal drag in the x-axis row (keV) zooms about where it began (right = in), ⌘-drag draws a zoom box,
 /// double-click shows the full range (0 to where 99.5 % of the counts lie, at most 20 keV), Home returns to the lines' span.
-/// ⌥-drag reads the counts of an energy range (the range marker; ⎋ or a click clears it); the cursor readout names the lines the
+/// ⌥-drag reads the counts of an energy range (the range marker; ⎋ or a click clears it; its right-click menu starts with "Zoom
+/// to" it); the cursor readout names the lines the
 /// energy could be, and a right-click lists them (a listed one adds its element).
 /// DEVIATION from Velox: a plain mouse wheel does not zoom (needs an AppKit event
 /// monitor); open question for the owner.
@@ -26,6 +28,11 @@ struct SpectrumStripView: View {
     @State private var pinchStart: SpectrumViewport?
     /// The y stretch when a drag that began in the y-axis gutter started (that drag stretches instead of panning).
     @State private var yStart: Double?
+    /// The viewport when a drag in the x-axis row began (that drag zooms about its start).
+    @State private var zoomStart: SpectrumViewport?
+    /// The ⌘-drag's zoom box, keV; nil: none.
+    @State private var bandFrom: Double?
+    @State private var bandTo: Double?
     @State private var hover: CGPoint?
     /// Where the pointer last was over the plot (kept when it leaves, so a right-click menu is built for that energy).
     @State private var lastHoverX: CGFloat?
@@ -64,7 +71,6 @@ struct SpectrumStripView: View {
                 .help("Drag to resize the maps and the spectrum")
             Spacer(minLength: 8)
             pinChips
-            showMenu
         }
         .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
         .frame(height: LayoutPolicy.paneHeaderHeight)
@@ -75,24 +81,6 @@ struct SpectrumStripView: View {
                     .onChanged { onHeaderDrag?($0.translation, false) }
                     .onEnded { onHeaderDrag?($0.translation, true) })
         }
-    }
-
-    private var showMenu: some View {
-        Menu("Show") {
-            Toggle(isOn: $model.layers.spectrum) { Self.legendLabel("Spectrum", Color.primary) }
-            Toggle(isOn: $model.layers.background) { Self.legendLabel("Background", Color.orange) }
-            Toggle(isOn: $model.layers.model) { Self.legendLabel("Model", Color.blue) }
-            Toggle(isOn: $model.layers.residual) { Self.legendLabel("Residual", Color.secondary) }
-            Toggle(isOn: $model.layers.pins) { Self.legendLabel("Pins", Color.pink) }
-            Divider()
-            Toggle("Log scale", isOn: $model.layers.log)
-            Toggle("Per pixel", isOn: $model.layers.perPixel).disabled(model.spectrumPixels <= 0)
-                .help("Counts per pooled pixel: a region's size falls out of a comparison.")
-            Toggle("Windows", isOn: $model.layers.windows).disabled(model.windowBands.isEmpty)
-                .help("The line and background windows the net maps use. The fit's background (orange) is the Empirical continuum \u{2014} a different model.")
-        }
-        .menuStyle(.button).controlSize(.small).fixedSize()
-        .accessibilityIdentifier("spectroscopy.show")
     }
 
     private var pinChips: some View {
@@ -107,11 +95,6 @@ struct SpectrumStripView: View {
         }
     }
 
-    /// A Show-menu row led by a symbol in the curve's colour: the legend, so no sentence sits under the plot.
-    private static func legendLabel(_ title: String, _ color: Color) -> some View {
-        Label { Text(title) } icon: { Image(systemName: "circle.fill").symbolRenderingMode(.palette).foregroundStyle(color) }
-    }
-
     // MARK: plot
 
     private var plot: some View {
@@ -121,13 +104,18 @@ struct SpectrumStripView: View {
                 .frame(width: size.width, height: size.height)
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 2)
-                    .onChanged { v in drag(v, size, optionHeld: false) }
-                    .onEnded { _ in dragStart = nil; yStart = nil })
+                    .onChanged { v in drag(v, size, optionHeld: false, commandHeld: false) }
+                    .onEnded { _ in endDrag() })
                 // ⌥ is what separates the range marker from the pan: this gesture only begins with ⌥ held and then wins.
                 .highPriorityGesture(DragGesture(minimumDistance: 2)
-                    .onChanged { v in drag(v, size, optionHeld: true) }
-                    .onEnded { _ in dragStart = nil; yStart = nil }
+                    .onChanged { v in drag(v, size, optionHeld: true, commandHeld: false) }
+                    .onEnded { _ in endDrag() }
                     .modifiers(.option))
+                // ⌘ draws the zoom box (horizontal only); on release the viewport is its energy span.
+                .highPriorityGesture(DragGesture(minimumDistance: 2)
+                    .onChanged { v in drag(v, size, optionHeld: false, commandHeld: true) }
+                    .onEnded { v in finishBand(v); endDrag() }
+                    .modifiers(.command))
                 .simultaneousGesture(TapGesture().onEnded { clearRange() })
                 .simultaneousGesture(MagnifyGesture()
                     .onChanged { g in
@@ -151,9 +139,11 @@ struct SpectrumStripView: View {
                 .onKeyPress(.home) { resetViewport(); return .handled }
                 .onKeyPress(.escape) { if rangeFrom == nil { return .ignored }; clearRange(); return .handled }
                 .contextMenu { candidateMenu(size) }
-                .help("Pinch to zoom, drag to pan, drag in the counts axis to stretch it\n"
-                      + "Double-click: the full range · Home: the lines' span · \u{2325}-drag: the counts in an energy range (\u{238B} or a click clears it)\n"
-                      + "Right-click: the lines the energy could be\n"
+                .help("Pinch or \u{2303}-wheel: zoom · drag: pan · drag in the counts axis: stretch it\n"
+                      + "Drag in the keV row: zoom about where you began (right = in)\n"
+                      + "\u{2318}-drag: zoom to a box · \u{2325}-drag: the counts in an energy range (\u{238B} or a click clears it)\n"
+                      + "Double-click: the full range · Home: the lines' span\n"
+                      + "Right-click: the lines the energy could be (after \u{2325}-drag: Zoom to the range)\n"
                       + "The whole map's spectrum and each pin's are scaled to the region's total counts: a comparison of shapes, not of intensities.\n"
                       + "Residual: (data − model)/√model in σ, clipped at ±3; a tick on the edge marks a clipped channel."
                       + (hiddenLabels.isEmpty ? "" : "\nNames left out where lines crowd: " + hiddenLabels.joined(separator: ", ")))
@@ -163,8 +153,9 @@ struct SpectrumStripView: View {
     private func plotWidth(_ size: CGSize) -> CGFloat { size.width - Metrics.left - Metrics.right }
 
     /// One drag step: the counts axis (it began in the gutter), the pan, or the range marker (⌥), as `SpectrumStripLogic.dragMode` says.
-    private func drag(_ v: DragGesture.Value, _ size: CGSize, optionHeld: Bool) {
-        switch SpectrumStripLogic.dragMode(optionHeld: optionHeld, startX: v.startLocation.x, plotLeft: Metrics.left) {
+    private func drag(_ v: DragGesture.Value, _ size: CGSize, optionHeld: Bool, commandHeld: Bool) {
+        switch SpectrumInteraction.dragMode(optionHeld: optionHeld, commandHeld: commandHeld, startX: v.startLocation.x, startY: v.startLocation.y,
+                                            plotLeft: Metrics.left, gutterTop: size.height - Metrics.axisBand) {
         case .stretchY:
             let start = yStart ?? model.viewport.yScale
             yStart = start
@@ -175,11 +166,37 @@ struct SpectrumStripView: View {
             var vp = start
             vp.pan(byFraction: -Double(v.translation.width / max(plotWidth(size), 1)))
             model.viewport = vp; model.viewportIsManual = true
+        case .zoomX:
+            let start = zoomStart ?? model.viewport
+            zoomStart = start
+            var vp = start
+            vp.zoom(factor: SpectrumInteraction.zoomFactor(dx: Double(v.translation.width)),
+                    anchor: SpectrumStripLogic.anchor(startX: v.startLocation.x, plotLeft: Metrics.left, plotWidth: plotWidth(size)))
+            model.viewport = vp; model.viewportIsManual = true
+        case .band:
+            focused = true
+            let r = SpectrumStripLogic.rangeEnergies(startX: v.startLocation.x, endX: v.location.x, plotLeft: Metrics.left, plotWidth: plotWidth(size), viewport: model.viewport)
+            bandFrom = r.from; bandTo = r.to
         case .range:
             focused = true
             let r = SpectrumStripLogic.rangeEnergies(startX: v.startLocation.x, endX: v.location.x, plotLeft: Metrics.left, plotWidth: plotWidth(size), viewport: model.viewport)
             rangeFrom = r.from; rangeTo = r.to
         }
+    }
+
+    private func endDrag() { dragStart = nil; yStart = nil; zoomStart = nil; bandFrom = nil; bandTo = nil }
+
+    /// The ⌘-drag ended: the viewport is the box's energy span (at least 10 channels); a box under 4 points is a click, not a zoom.
+    private func finishBand(_ v: DragGesture.Value) {
+        guard abs(v.translation.width) >= 4, let a = bandFrom, let b = bandTo else { return }
+        applyWindow(from: a, to: b)
+    }
+
+    /// Show the energy window of `a`...`b` (widened to 10 channels, kept inside the domain); the counts axis stays as it is.
+    private func applyWindow(from a: Double, to b: Double) {
+        guard let w = SpectrumInteraction.bandWindow(from: a, to: b, domain: model.series.domain, channel: model.series.energyStep) else { return }
+        model.viewportIsManual = true
+        model.viewport.lo = w.lowerBound; model.viewport.hi = w.upperBound
     }
 
     private func clearRange() { rangeFrom = nil; rangeTo = nil }
@@ -190,6 +207,10 @@ struct SpectrumStripView: View {
         let f = SpectrumStripLogic.anchor(startX: lastHoverX ?? Metrics.left, plotLeft: Metrics.left, plotWidth: plotWidth(size))
         let e = model.viewport.energy(atFraction: f)
         let found = SpectrumHover.candidates(at: e, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, listed: model.elements.activeZ)
+        if let a = rangeFrom, let b = rangeTo, a != b {
+            Button(SpectrumInteraction.zoomToRangeTitle(from: a, to: b)) { applyWindow(from: a, to: b) }
+            Divider()
+        }
         if found.isEmpty {
             Button("No tabulated line within \u{00B1} 1 FWHM") {}.disabled(true)
         } else {
@@ -239,6 +260,7 @@ struct SpectrumStripView: View {
         func scaled(_ a: [Double]) -> [Double] { div == 1 ? a : SpectrumScale.perPixel(a, pixels: model.spectrumPixels) }
         let data = scaled(s.data), modelCurve = s.hasModel ? scaled(s.model) : [], backgroundCurve = s.hasBackground ? scaled(s.background) : []
         let overlay = s.overlay.map(scaled)
+        let role = SpectrumInteraction.curveRole(isLive: model.isLive, selectedRegion: model.selectedRegion)
 
         // y range over what is visible
         var yMax = unit, yMinPos = Double.infinity
@@ -334,15 +356,22 @@ struct SpectrumStripView: View {
         }
         for pin in model.pins where L.pins && pin.spectrum.count == s.count {
             let t = pin.spectrum.reduce(0, +)
-            if t > 0, total > 0 { let k = total / t; curve(pin.spectrum.map { $0 * k / div }, pin.tint.opacity(SpectrumLayers.pinOpacity), width: 1) }
+            if t > 0, total > 0 { let k = total / t; curve(pin.spectrum.map { $0 * k / div }, pin.tint.opacity(SpectrumLayers.pinOpacity), width: SpectrumInteraction.Width.pin) }
         }
-        if L.spectrum { curve(data, Color.primary.opacity(0.85), width: 0.9) }
-        if L.model, s.hasModel { curve(modelCurve, .blue, width: 1.8, within: s.fitChannels) }
-        if L.background, s.hasBackground { curve(backgroundCurve, .orange.opacity(0.9), width: 1, dash: [1, 2], within: s.fitChannels) }
+        if L.spectrum { curve(data, SpectrumInteraction.curveColor(role), width: SpectrumInteraction.Width.spectrum) }
+        if L.model, s.hasModel { curve(modelCurve, .blue, width: SpectrumInteraction.Width.model, within: s.fitChannels) }
+        if L.background, s.hasBackground { curve(backgroundCurve, .orange.opacity(0.9), width: SpectrumInteraction.Width.background, dash: [2, 3], within: s.fitChannels) }
         // The range marker's band (selection: the accent colour).
         if let a = rangeFrom, let b = rangeTo {
             let x0 = X(min(a, b)), x1 = X(max(a, b))
             clip.fill(Path(CGRect(x: x0, y: main.minY, width: max(x1 - x0, 1), height: main.height)), with: .color(Color.accentColor.opacity(0.15)))
+        }
+        // The zoom box (⌘-drag): the accent colour, edged, so it reads as a box to zoom into.
+        if let a = bandFrom, let b = bandTo {
+            let x0 = X(min(a, b)), x1 = X(max(a, b))
+            let box = CGRect(x: x0, y: main.minY, width: max(x1 - x0, 1), height: main.height)
+            clip.fill(Path(box), with: .color(Color.accentColor.opacity(0.18)))
+            clip.stroke(Path(box), with: .color(Color.accentColor.opacity(0.8)), lineWidth: 1)
         }
 
         // line markers: lines first, names staggered into rows by `MarkerLabelLayout`
@@ -360,7 +389,7 @@ struct SpectrumStripView: View {
         for m in visible {
             let x = X(m.energy)
             let color = Self.markerColor(m, model: model)
-            let t = Text(m.label).font(.system(size: m.kind == .edge ? 10 : 11, weight: SpectrumStripLogic.isHighlighted(m, highlightedZ: highlightedZ) ? .bold : (m.kind == .line ? .semibold : .regular))).foregroundStyle(color)
+            let t = Text(m.label).font(.system(size: m.kind == .edge ? 10 : SpectrumInteraction.Width.markerLabel, weight: SpectrumStripLogic.isHighlighted(m, highlightedZ: highlightedZ) ? .bold : (m.kind == .line ? .semibold : .regular))).foregroundStyle(color)
             if m.kind == .edge {   // the edge label sits low, by the curve, so it never collides with the line names
                 ctx.draw(t, at: CGPoint(x: x + 2, y: main.maxY - 40), anchor: .leading)
             } else if let pl = layout.placed.first(where: { $0.label == m.label }) {
@@ -396,7 +425,7 @@ struct SpectrumStripView: View {
             }
             rc.stroke(p, with: .color(Color.primary.opacity(0.6)), lineWidth: 0.8)
         }
-        drawHover(ctx, size, main, divisor: div)
+        drawHover(ctx, size, main, divisor: div, role: role)
     }
 
     /// The edge is grey, a line its element's colour.
@@ -409,7 +438,7 @@ struct SpectrumStripView: View {
 
     /// Cursor guide and readout (Velox shows the same): energy, counts, the lines it could be. While a range is marked the
     /// readout is the range's: its energies, counts and share of the region.
-    private func drawHover(_ ctx: GraphicsContext, _ size: CGSize, _ main: CGRect, divisor: Double) {
+    private func drawHover(_ ctx: GraphicsContext, _ size: CGSize, _ main: CGRect, divisor: Double, role: SpectrumInteraction.CurveRole) {
         let vp = model.viewport
         func x(of e: Double) -> CGFloat { main.minX + CGFloat(vp.fraction(of: e)) * main.width }
         var parts: [String] = []
@@ -429,6 +458,10 @@ struct SpectrumStripView: View {
             parts = [SpectrumReadout.rangeText(from: a, to: b, counts: r.counts, fraction: r.fraction, divisor: divisor)]
             anchor = min(max(x(of: max(a, b)), main.minX), main.maxX)
         }
+        if let a = bandFrom, let b = bandTo {     // the zoom box's own energies, while it is drawn
+            parts = [SpectrumReadout.energy(min(a, b), decimals: 2) + "\u{2013}" + SpectrumReadout.energy(max(a, b), decimals: 2) + " keV"]
+            anchor = min(max(x(of: max(a, b)), main.minX), main.maxX)
+        }
         guard let ax = anchor, !parts.isEmpty else { return }
         let font = Font.system(size: 10).monospacedDigit()
         // The box grows to the text (at most `SpectrumReadout.widthCap`; trailing names go, with "…").
@@ -437,7 +470,10 @@ struct SpectrumStripView: View {
         let left = ax < main.midX ? ax + 6 : ax - 6 - width
         let box = CGRect(x: min(max(left, main.minX), max(main.maxX - width, main.minX)), y: main.minY + 18, width: width, height: 16)
         ctx.fill(Path(roundedRect: box, cornerRadius: 3), with: .color(Color(white: 0.5).opacity(0.18)))
-        ctx.draw(Text(text).font(font).foregroundStyle(Color.primary), at: CGPoint(x: box.minX + 4, y: box.midY), anchor: .leading)
+        // The energy leads the text; with a region shown it follows the region curve's colour.
+        let head = text.components(separatedBy: SpectrumReadout.separator).first ?? text
+        let readout = Text("\(Text(head).foregroundStyle(SpectrumInteraction.readoutEnergyColor(role)))\(Text(String(text.dropFirst(head.count))).foregroundStyle(Color.primary))")
+        ctx.draw(readout.font(font), at: CGPoint(x: box.minX + 4, y: box.midY), anchor: .leading)
     }
 
     static func format(_ v: Double) -> String {
@@ -452,7 +488,7 @@ struct SpectrumStripView: View {
 }
 
 /// What a drag on the plot does, by where it began and whether ⌥ is held (the gesture code asks this; nothing else decides).
-nonisolated enum SpectrumDragMode: Equatable, Sendable { case pan, stretchY, range }
+nonisolated enum SpectrumDragMode: Equatable, Sendable { case pan, stretchY, range, zoomX, band }
 
 /// The strip's pure decisions (spec 2 item 7); the drawing only applies them.
 nonisolated enum SpectrumStripLogic {
@@ -469,7 +505,7 @@ nonisolated enum SpectrumStripLogic {
     }
     /// A marker of the highlighted element (hovered or clicked tile or periodic-table cell).
     static func isHighlighted(_ m: LineMarker, highlightedZ: Int?) -> Bool { highlightedZ != nil && m.elementZ == highlightedZ }
-    static func lineWidth(_ m: LineMarker, highlightedZ: Int?) -> CGFloat { isHighlighted(m, highlightedZ: highlightedZ) ? 1.8 : 0.8 }
+    static func lineWidth(_ m: LineMarker, highlightedZ: Int?) -> CGFloat { isHighlighted(m, highlightedZ: highlightedZ) ? SpectrumInteraction.Width.markerHighlighted : SpectrumInteraction.Width.marker }
     /// Double-click: from the axis start to where 99.5 % of the counts lie (floor 2 keV, cap 20 keV): the opening view with no line.
     static func fullRange(domain: ClosedRange<Double>, minimumSpan: Double, countsEnergy: Double?) -> ClosedRange<Double> {
         SpectrumAutoZoom.range(markers: [], domain: domain, minimumSpan: minimumSpan, countsEnergy: countsEnergy)

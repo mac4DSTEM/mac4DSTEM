@@ -18,11 +18,12 @@ struct SpectroscopyInspectorSections: View {
 
     /// The sections, in the order they are drawn (spec 2 D-5): the single source of both.
     enum Part: CaseIterable {
-        case elements, region, results, quantification, fitting, export
+        case elements, region, spectrum, results, quantification, fitting, export
         var title: String {
             switch self {
             case .elements: "Elements"
             case .region: "Region"
+            case .spectrum: "Spectrum"
             case .results: "Results"
             case .quantification: "Quantification"
             case .fitting: "Fitting"
@@ -46,6 +47,7 @@ struct SpectroscopyInspectorSections: View {
         switch part {
         case .elements: InspectorSection(part.title) { ElementsSection(model: model) }
         case .region: InspectorSection(part.title) { RegionSection(model: model) }
+        case .spectrum: InspectorSection(part.title) { SpectrumLayersSection(model: model) }
         case .results: InspectorSection(part.title) { ResultsSection(model: model) }
         case .quantification: InspectorSection(part.title) { QuantificationSection(model: model) }
         case .fitting: InspectorSection(part.title, expanded: $model.quantify.expertOpen) { FittingSection(model: model) }
@@ -210,6 +212,109 @@ struct RegionSection: View {
     static func sourceTitle(_ r: RegionSummary) -> String { r.isDrawn ? "Drawn region" : r.name }
 }
 
+/// The five curves the spectrum can draw, each with the colour it is drawn in (the legend the Show menu had) and the layer it
+/// switches.
+enum CurveLayer: CaseIterable {
+    case spectrum, background, model, residual, pins
+    var title: String {
+        switch self {
+        case .spectrum: "Spectrum"
+        case .background: "Background"
+        case .model: "Model"
+        case .residual: "Residual"
+        case .pins: "Pins"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .spectrum: .primary
+        case .background: .orange
+        case .model: .blue
+        case .residual: .secondary
+        case .pins: .pink
+        }
+    }
+    var keyPath: WritableKeyPath<SpectrumLayers, Bool> {
+        switch self {
+        case .spectrum: \.spectrum
+        case .background: \.background
+        case .model: \.model
+        case .residual: \.residual
+        case .pins: \.pins
+        }
+    }
+    var help: String {
+        switch self {
+        case .spectrum: "The pooled spectrum of the live region"
+        case .background: "The fit's background: the Empirical continuum or the polynomial"
+        case .model: "The fitted model, the sum of every fitted line on that background"
+        case .residual: "Spectrum less model"
+        case .pins: "The pinned regions' spectra and their outlines on the ColorMix"
+        }
+    }
+}
+
+/// The spectrum's vertical scale, as the segmented picker shows it: the model keeps one Bool.
+enum LayerScale: CaseIterable {
+    case linear, log
+    init(log: Bool) { self = log ? .log : .linear }
+    var isLog: Bool { self == .log }
+    var title: String { self == .log ? "Log" : "Linear" }
+}
+
+/// Spectrum: what the plot draws (the Show menu's content, as buttons): the five curves, the vertical scale, counts per pixel
+/// and the net maps' windows.
+struct SpectrumLayersSection: View {
+    @Bindable var model: SpectroscopyRoomModel
+
+    /// Counts per pooled pixel needs the region's pixel count.
+    static func perPixelEnabled(_ model: SpectroscopyRoomModel) -> Bool { model.spectrumPixels > 0 }
+    /// The windows need a map to take them from.
+    static func windowsEnabled(_ model: SpectroscopyRoomModel) -> Bool { !model.windowBands.isEmpty }
+    static let perPixelHelp = "Counts per pooled pixel: a region's size falls out of a comparison."
+    static let windowsHelp = "The line and background windows the net maps use. The fit's background (orange) is the Empirical continuum \u{2014} a different model."
+
+    /// Three buttons, then two: five in a row do not fit the narrowest inspector.
+    private static let rows: [[CurveLayer]] = [[.spectrum, .background, .model], [.residual, .pins]]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
+            Text("Curves")
+            ForEach(Self.rows.indices, id: \.self) { r in
+                ControlGroup {
+                    ForEach(Self.rows[r], id: \.self) { layer in
+                        Toggle(isOn: Binding(get: { model.layers[keyPath: layer.keyPath] }, set: { model.layers[keyPath: layer.keyPath] = $0 })) {
+                            Label { Text(layer.title) } icon: {
+                                Image(systemName: "circle.fill").symbolRenderingMode(.palette).foregroundStyle(layer.color)
+                            }
+                        }
+                        .toggleStyle(.button)
+                        .help(layer.help)
+                        .accessibilityIdentifier("spectroscopy.layers.\(layer.title.lowercased())")
+                    }
+                }
+            }
+        }
+        InspectorRow("Scale") {
+            Picker("Scale", selection: Binding(get: { LayerScale(log: model.layers.log) }, set: { model.layers.log = $0.isLog })) {
+                ForEach(LayerScale.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .accessibilityIdentifier("spectroscopy.layers.scale")
+        }
+        InspectorRow("Counts") {
+            Toggle("Per pixel", isOn: $model.layers.perPixel).toggleStyle(.checkbox)
+                .disabled(!Self.perPixelEnabled(model)).help(Self.perPixelHelp)
+                .accessibilityIdentifier("spectroscopy.layers.perpixel")
+        }
+        InspectorRow("Windows") {
+            Toggle("Windows", isOn: $model.layers.windows).labelsHidden().toggleStyle(.checkbox)
+                .disabled(!Self.windowsEnabled(model)).help(Self.windowsHelp)
+                .accessibilityIdentifier("spectroscopy.layers.windows")
+        }
+    }
+}
+
 /// Quantification: the settings every pooled fit follows (live after Quantify, ADR 054 item 8: no Apply).
 struct QuantificationSection: View {
     @Bindable var model: SpectroscopyRoomModel
@@ -282,6 +387,13 @@ struct ExportSection: View {
     /// What each button hands the save panel; nil until its text exists (the button is then off).
     static func resultsExport(_ e: ExportSettings) -> PendingExport? { e.csv.map { PendingExport(text: $0, isJSON: false, name: e.fileStem) } }
     static func methodExport(_ e: ExportSettings) -> PendingExport? { e.methodJSON.map { PendingExport(text: $0, isJSON: true, name: e.fileStem + "-method") } }
+    /// The scale bar needs a pixel size from the file; without one the box is off and unticked (as Absorption without a thickness).
+    static func scaleBarEnabled(_ model: SpectroscopyRoomModel) -> Bool { model.scanPixel != nil }
+    static func scaleBarShown(_ model: SpectroscopyRoomModel) -> Bool { model.export.scaleBar && scaleBarEnabled(model) }
+    static func scaleBarHelp(_ model: SpectroscopyRoomModel) -> String {
+        scaleBarEnabled(model) ? "Draws the scale bar into the map PNGs and adds -scalebar to their names; the CSV never has one."
+            : "This file states no pixel size, so there is no scale to draw."
+    }
     static func spectrumExport(_ e: ExportSettings) -> PendingExport? { e.spectrumCSV.map { PendingExport(text: $0, isJSON: false, name: e.fileStem + "-spectrum") } }
 
     var body: some View {
@@ -298,6 +410,13 @@ struct ExportSection: View {
                     .help("The quantification method in its own sorted-keys encoding, with its SHA-256")
                     .accessibilityIdentifier("spectroscopy.export.method")
             }
+            InspectorRow("Scale bar") {
+                Toggle("Scale bar", isOn: Binding(get: { Self.scaleBarShown(model) }, set: { model.export.scaleBar = $0 }))
+                    .labelsHidden().toggleStyle(.checkbox)
+                    .disabled(!Self.scaleBarEnabled(model))
+                    .help(Self.scaleBarHelp(model))
+                    .accessibilityIdentifier("spectroscopy.export.scalebar")
+            }
             InspectorActionRow {
                 Button(Self.spectrumTitle) { model.pendingExport = Self.spectrumExport(e) }
                     .disabled(Self.spectrumExport(e) == nil)
@@ -305,7 +424,7 @@ struct ExportSection: View {
                     .accessibilityIdentifier("spectroscopy.export.spectrum")
                 Button(Self.mapsTitle) { pickingFolder = true }
                     .disabled(!Self.canExportMaps(model))
-                    .help("Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel, and the net-count maps as one CSV, into a folder you pick")
+                    .help("Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel, with the scale bar when it is on, and the net-count maps as one CSV, into a folder you pick")
                     .accessibilityIdentifier("spectroscopy.export.maps")
                     .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder]) { result in
                         switch result {

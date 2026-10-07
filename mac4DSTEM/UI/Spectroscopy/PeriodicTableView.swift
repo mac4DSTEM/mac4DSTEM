@@ -54,25 +54,26 @@ struct PeriodicGridLayout: Layout {
     }
 }
 
-/// What a right-click on an element lists under "Lines": a family's alpha and beta line with their energies.
+/// What a right-click on an element lists under "Lines" for one family: a checkable item per line the table has for it.
 nonisolated enum ElementLines {
-    /// "K \u{00B7} K\u{03B1} 1.487 \u{00B7} K\u{03B2} 1.560 keV" (3 decimals; the alpha and the first beta line of the family in the line
-    /// table); nil when the family has neither for this element (the menu entry is disabled).
-    static func title(family: LineFamily, z: Int) -> String? {
-        let f = family.rawValue
-        let lines = XRayLines.lines(of: PeriodicLayout.symbol(z)).filter { $0.family.rawValue == f }
-        func pick(_ greek: String, _ letter: String) -> String? {
-            guard let l = lines.first(where: { $0.name == f + letter }) ?? lines.first(where: { $0.name.hasPrefix(f + letter) }) else { return nil }
-            return "\(f)\(greek) " + String(format: "%.3f", l.energy)
-        }
-        let parts = [pick("\u{03B1}", "a"), pick("\u{03B2}", "b")].compactMap { $0 }
-        return parts.isEmpty ? nil : ([f] + parts).joined(separator: " \u{00B7} ") + " keV"
+    struct Item: Equatable { var id: String; var title: String }
+
+    /// A line weaker than this against its family's alpha is not offered: its window would hold noise (the same 1 % bar the window
+    /// conflict check uses for candidate lines).
+    static let minimumWeight = 0.01
+
+    /// "Kα 1,487 keV" per line, the table's order (alpha first), the energy in the person's locale (3 decimals); empty when
+    /// the family has no line for this element (the menu then leaves the family out).
+    static func items(family: LineFamily, z: Int, locale: Locale = .current) -> [Item] {
+        XRayLines.lines(of: PeriodicLayout.symbol(z))
+            .filter { $0.family.rawValue == family.rawValue && $0.weight >= minimumWeight }
+            .map { Item(id: $0.id, title: "\(ElementWindows.shortLabel(ofLineID: $0.id)) \(SpectrumReadout.energy($0.energy, locale: locale)) keV") }
     }
 }
 
 /// The periodic table of the Elements section (ADR 056, spec 2 D-9). States by fill only, no legend: mapped (accent fill),
 /// proposed (accent outline), fit only (hollow), off (a quiet well), not detectable (dim). Click toggles Quantify / Off; right-click
-/// gives the role and the line family with its energies; hovering a cell highlights that element's lines in the spectrum.
+/// gives the role and, per line family, its lines to check (what the maps sum and the spectrum marks); hovering a cell highlights that element's lines in the spectrum.
 struct PeriodicTableView: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var foldedOpen = false
@@ -136,10 +137,19 @@ struct PeriodicTableView: View {
                     Divider()
                     Menu("Lines") {
                         ForEach(LineFamily.allCases, id: \.self) { f in
-                            let title = ElementLines.title(family: f, z: z)
-                            Toggle(title ?? f.rawValue, isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
-                                .disabled(title == nil)
+                            let items = ElementLines.items(family: f, z: z)
+                            if !items.isEmpty {
+                                // The family row sets the family (the fit takes whole families either way); under it the lines the maps sum
+                                // and the spectrum marks.
+                                Toggle("\(f.rawValue) lines", isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
+                                ForEach(items, id: \.id) { item in
+                                    Toggle(item.title, isOn: Binding(get: { model.elements.checkedLines(z).contains(item.id) },
+                                                                     set: { _ in model.elements.toggleLine(z, item.id) }))
+                                }
+                                Divider()
+                            }
                         }
+                        Button("Default lines") { model.elements.resetLines(z) }.disabled(!model.elements.hasChosenLines(z))
                     }
                 } else { Text(ElementSelection.unavailableReason(z: z) ?? "") }
             }

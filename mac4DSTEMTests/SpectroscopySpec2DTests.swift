@@ -14,11 +14,12 @@ final class SpectroscopySpec2DTests: XCTestCase {
 
     // MARK: sections
 
-    /// D-5: Elements, Region, Results, Quantification, Fitting, Export, in that order; Map display and Expert are gone.
+    /// D-5: Elements, Region, Results, Quantification, Fitting, Export, in that order; Map display and Expert are gone. The
+    /// drive findings of 2026-10-07 added Spectrum (the Show menu's toggles) after Region.
     /// Mutation: two cases of `Part` swapped (Region before Elements) - red.
-    func testTheInspectorHasSixSectionsInOrder() {
+    func testTheInspectorHasSevenSectionsInOrder() {
         XCTAssertEqual(SpectroscopyInspectorSections.Part.allCases.map(\.title),
-                       ["Elements", "Region", "Results", "Quantification", "Fitting", "Export"])
+                       ["Elements", "Region", "Spectrum", "Results", "Quantification", "Fitting", "Export"])
     }
 
     // MARK: Auto ID
@@ -48,22 +49,25 @@ final class SpectroscopySpec2DTests: XCTestCase {
 
     // MARK: Lines menu
 
-    /// "K · Kα 1.487 · Kβ 1.560 keV" for Al, computed from the line table here too (never a literal the table has not given).
-    /// Mutation: the beta line taken from the first line of the family instead of the Kb line (or 2 decimals) - red.
-    func testLinesTitleListsAlphaAndBetaWithThreeDecimals() throws {
+    /// L9: the Lines menu lists one item per line of the family ("Kα 1.487 keV", "Kβ 1.560 keV" for Al, 3 decimals, the energies
+    /// from the line table here too, never a literal the table has not given; the reading is the plot's, `SpectrumReadout.energy`, in the person's locale); this was the family row's single title before.
+    /// Mutation: the beta item taken from the first line of the family instead of the Kb line (or 2 decimals) - red.
+    func testLinesItemsListEachLineWithThreeDecimals() throws {
         let al = XRayLines.lines(of: "Al")
         let ka = try XCTUnwrap(al.first { $0.name == "Ka" }), kb = try XCTUnwrap(al.first { $0.name == "Kb" })
-        XCTAssertEqual(ElementLines.title(family: .K, z: 13),
-                       "K \u{00B7} K\u{03B1} \(String(format: "%.3f", ka.energy)) \u{00B7} K\u{03B2} \(String(format: "%.3f", kb.energy)) keV")
-        XCTAssertTrue(try XCTUnwrap(ElementLines.title(family: .K, z: 13)).hasPrefix("K \u{00B7} K\u{03B1} 1.48"))
-        // A family the table has no line for is nil (the entry is disabled); so is an element with no lines at all.
-        XCTAssertNil(ElementLines.title(family: .L, z: 13))
-        XCTAssertNil(ElementLines.title(family: .K, z: 1))
-        // Cu has all three families' alpha lines; the L family reads La and Lb1.
+        let en = Locale(identifier: "en_US")
+        XCTAssertEqual(ElementLines.items(family: .K, z: 13, locale: en).map(\.title),
+                       ["K\u{03B1} \(SpectrumReadout.energy(ka.energy, locale: en)) keV", "K\u{03B2} \(SpectrumReadout.energy(kb.energy, locale: en)) keV"])
+        XCTAssertEqual(ElementLines.items(family: .K, z: 13, locale: en).map(\.id), ["Al_Ka", "Al_Kb"])
+        XCTAssertTrue(try XCTUnwrap(ElementLines.items(family: .K, z: 13, locale: en).first).title.hasPrefix("K\u{03B1} 1.48"))
+        // A family the table has no line for lists nothing (the menu leaves it out); so does an element with no lines at all.
+        XCTAssertTrue(ElementLines.items(family: .L, z: 13).isEmpty)
+        XCTAssertTrue(ElementLines.items(family: .K, z: 1).isEmpty)
+        // Cu has all three families' alpha lines; the L family reads La and Lb1 first.
         let cu = XRayLines.lines(of: "Cu")
         let la = try XCTUnwrap(cu.first { $0.name == "La" }), lb = try XCTUnwrap(cu.first { $0.name == "Lb1" })
-        XCTAssertEqual(ElementLines.title(family: .L, z: 29),
-                       "L \u{00B7} L\u{03B1} \(String(format: "%.3f", la.energy)) \u{00B7} L\u{03B2} \(String(format: "%.3f", lb.energy)) keV")
+        let cuL = ElementLines.items(family: .L, z: 29, locale: en).map(\.title)
+        XCTAssertEqual(Array(cuL.prefix(2)), ["L\u{03B1} \(SpectrumReadout.energy(la.energy, locale: en)) keV", "L\u{03B2}1 \(SpectrumReadout.energy(lb.energy, locale: en)) keV"])
     }
 
     // MARK: grid

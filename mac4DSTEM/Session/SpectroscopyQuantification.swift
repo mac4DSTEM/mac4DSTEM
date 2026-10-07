@@ -30,7 +30,7 @@ extension SpectroscopySession {
     /// cannot be rebuilt from readable keys and a hash (a hash is not invertible), so the JSON stays, under `method_json`, and
     /// `restoreQuantification` reads it from there (and from `method`, as steps recorded before this wrote it).
     package func quantificationParameters(registration: RegistrationRecordM2? = nil, regionKind: String = "wholeMap",
-                                          regionName: String = "Whole map") -> [String: String] {
+                                          regionName: String = "Whole map", extra: [String: String] = [:]) -> [String: String] {
         let step = quantificationStep(registration: registration, regionKind: regionKind, regionName: regionName)
         var p = step.parameters
         let m = method
@@ -46,6 +46,7 @@ extension SpectroscopySession {
         if m.background == .wholeRangePolynomial6, let order = m.polynomialOrder { p["polynomial_order"] = "\(order)" }
         let listed = m.elements.filter { $0.role != .off }.map(\.symbol)
         if !listed.isEmpty { p["elements"] = listed.joined(separator: ", ") }
+        for (k, v) in extra where p[k] == nil { p[k] = v }   // additive keys the room records (e.g. `map_lines`); never one the step owns
         return p
     }
 
@@ -57,10 +58,10 @@ extension SpectroscopySession {
     @discardableResult
     package func recordQuantification(in replay: SessionReplay, registration: RegistrationRecordM2? = nil,
                                       regionKind: String = "wholeMap",
-                                      regionName: String = "Whole map") -> String {
+                                      regionName: String = "Whole map", extra: [String: String] = [:]) -> String {
         replay.record(kind: QuantificationStep.kind,
                       parameters: quantificationParameters(registration: registration, regionKind: regionKind,
-                                                           regionName: regionName),
+                                                           regionName: regionName, extra: extra),
                       under: .unknown)
     }
 

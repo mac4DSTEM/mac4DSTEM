@@ -266,11 +266,12 @@ struct PrimaryActionButton: View {
                 // Prominent only when it can run: on macOS 27 a disabled
                 // `.borderedProminent` in the toolbar's glass still draws the
                 // accent fill, so a blocked verb read as ready (drive,
-                // 2026-09-30). Disabled, it takes the siblings' `.bordered`.
+                // 2026-09-30). Disabled, it takes the plain `.glass` of its siblings.
+                // Liquid Glass like Xcode's (owner 2026-10-07).
                 if primaryActionEnabled {
-                    primaryAction(actionTitle).buttonStyle(.borderedProminent)
+                    primaryAction(actionTitle).buttonStyle(.glassProminent)
                 } else {
-                    primaryAction(actionTitle).buttonStyle(.bordered).disabled(true)
+                    primaryAction(actionTitle).buttonStyle(.glass).disabled(true)
                 }
             }
         }
@@ -369,15 +370,11 @@ struct PrimaryActionButton: View {
 
     static func dpcActionTitle(hasRun: Bool) -> String { hasRun ? "Re-run DPC" : "Run DPC" }
 
-    /// Imaging's one verb (owner card Q7 a, 2026-10-04). The virtual image is
-    /// already current whenever what it depends on changes — an aperture drag
-    /// (live, then once more at its end), the shape picker, BF/ADF/HAADF, a
-    /// recentred origin and the opening pass all run it — so a "Compute
-    /// Image" button there only repeated the pass. Group Patterns is the one
-    /// imaging task that waits for a click and keeps its verb.
-    /// `AppState.hasPrimaryWorkspaceTask` (⌘R, ⌘↩) mirrors this.
-    static func imagingActionTitle(for mode: AnalysisMode) -> String? {
-        mode == .diffractionGroups ? "Group Patterns" : nil
+    /// Imaging's verb: Group Patterns keeps its own, the virtual detector's is "Compute Image" — back on the owner's word
+    /// (2026-10-07; lane F had removed it on 2026-10-04 because the live image already runs on every aperture edit, and the
+    /// owner wants the button). `AppState.hasPrimaryWorkspaceTask` (⌘R, ⌘↩) is true for both modes.
+    static func imagingActionTitle(for mode: AnalysisMode) -> String {
+        mode == .diffractionGroups ? "Group Patterns" : "Compute Image"
     }
 
     private var primaryActionHint: String {
@@ -386,7 +383,10 @@ struct PrimaryActionButton: View {
             appState.calibrationSession.calibration.hasFittedOrigin
                 ? "Solves scan-to-detector rotation for quantitative vector output."
                 : "Fits the unscattered-beam origin across the scan."
-        case .image: "Runs PCA and k-means over every scan position's diffraction pattern."
+        case .image:
+            appState.navigation.analysisMode == .diffractionGroups
+                ? "Runs PCA and k-means over every scan position's diffraction pattern."
+                : "Runs the selected imaging task with the current settings."
         case .braggDisks: "Detects Bragg disks at every scan position with the current settings."
         case .map:
             switch appState.navigation.analysisMode {

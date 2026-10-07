@@ -3,8 +3,9 @@
 //  Lane F (Slot 4⅞ polish, 2026-10-04): the frozen shell, by the owner's answers.
 //  P6b (card Q6 a) — an open bottom area is never drawn under 140 pt, on drag and on every restore; a drag
 //        below 70 pt closes it (live: on every drag sample, reversible until release).
-//  P6c + P6d-2 (card Q7 a) — Imaging › Virtual detector has no toolbar verb and ⌘R disables with it; Group
-//        Patterns keeps both; the detector presets still publish a product.
+//  P6c + P6d-2 (card Q7 a, 2026-10-04) — Imaging › Virtual detector had no toolbar verb; the owner brought "Compute
+//        Image" back on 2026-10-07 (lane L6, `SpectroscopyDriveL6Tests`), so these assertions now pin the verb in both
+//        modes; the detector presets still publish a product.
 //  P6d-1 — the Promote caption says nothing about keeping the Mac awake (that is off by default).
 //  Each test names the mutation it catches.
 //
@@ -188,37 +189,33 @@ final class FinalPolishFTests: XCTestCase {
 
     // MARK: - P6c + P6d-2: the imaging verb
 
-    /// The toolbar's title: Group Patterns only. Mutation: restore `: "Compute Image"` for the other modes -> red.
-    func testOnlyGroupPatternsKeepsAnImagingVerb() {
-        XCTAssertNil(PrimaryActionButton.imagingActionTitle(for: .virtualDetector))
+    /// The toolbar's title: Group Patterns keeps its own, the virtual detector's is "Compute Image" again.
+    /// Mutation: return nil for `.virtualDetector` (the 2026-10-04 state) -> red.
+    func testBothImagingModesCarryAVerb() {
+        XCTAssertEqual(PrimaryActionButton.imagingActionTitle(for: .virtualDetector), "Compute Image")
         XCTAssertEqual(PrimaryActionButton.imagingActionTitle(for: .diffractionGroups), "Group Patterns")
     }
 
-    /// ⌘R and ⌘↩ disable in step with the toolbar: for EVERY mode, the imaging room has a primary task exactly
-    /// when the toolbar shows a title. Mutation: restore `case .image, .braggDisks: return true` in
+    /// ⌘R and ⌘↩ follow the toolbar: the imaging room has a primary task in both of its modes.
+    /// Mutation: restore `return navigation.analysisMode == .diffractionGroups` in
     /// `AppState.hasPrimaryWorkspaceTask` -> red at the virtual detector.
     func testTheMenuPredicateMirrorsTheToolbarTitleForEveryImagingMode() {
         let state = AppState()
         state.navigation.workspaceArea = .image
-        for mode in AnalysisMode.allCases {
+        for mode in [AnalysisMode.virtualDetector, .diffractionGroups] {
             state.navigation.analysisMode = mode
-            XCTAssertEqual(state.hasPrimaryWorkspaceTask,
-                           PrimaryActionButton.imagingActionTitle(for: mode) != nil, "\(mode)")
+            XCTAssertTrue(state.hasPrimaryWorkspaceTask, "\(mode)")
         }
-        state.navigation.analysisMode = .virtualDetector
-        XCTAssertFalse(state.hasPrimaryWorkspaceTask)
-        state.navigation.analysisMode = .diffractionGroups
-        XCTAssertTrue(state.hasPrimaryWorkspaceTask)
     }
 
-    /// With a dataset open: ⌘R is disabled in the virtual detector and enabled for Group Patterns (the
-    /// cube is all it needs); the other rooms' verbs are untouched. Mutation: as above.
-    func testRunCurrentTaskIsDisabledInTheVirtualDetectorAndEnabledForGroups() async {
+    /// With a dataset open: ⌘R is enabled in the virtual detector and for Group Patterns; the other rooms' verbs
+    /// are untouched. Mutation: as above.
+    func testRunCurrentTaskIsEnabledInTheVirtualDetectorAndForGroups() async {
         let state = AppState()
         await state.openDemoFixture(calibrated: false)
         state.navigation.workspaceArea = .image
         state.navigation.analysisMode = .virtualDetector
-        XCTAssertFalse(state.canRunPrimaryWorkspaceTask, "the image is live; ⌘R has nothing to add")
+        XCTAssertTrue(state.canRunPrimaryWorkspaceTask, "Compute Image is back")
         state.navigation.analysisMode = .diffractionGroups
         XCTAssertTrue(state.canRunPrimaryWorkspaceTask)
         state.navigation.workspaceArea = .braggDisks
@@ -226,19 +223,16 @@ final class FinalPolishFTests: XCTestCase {
         XCTAssertTrue(state.canRunPrimaryWorkspaceTask, "Detect All Disks keeps its verb")
     }
 
-    /// The programmatic run honours the same answer: nothing runs in the virtual detector (no second pass,
-    /// so the scan image is not republished). Mutation: restore the `else { await runCurrentAnalysis() }`
-    /// in `runPrimaryWorkspaceTask`'s `.image` branch -> `scanNavigationVersion` moves.
-    func testRunningThePrimaryTaskInTheVirtualDetectorRunsNothing() async {
+    /// The programmatic run honours the same answer: the full-detector pass runs and republishes the scan image.
+    /// Mutation: delete the virtual-detector call in `runPrimaryWorkspaceTask`'s `.image` branch -> `scanNavigationVersion` stays.
+    func testRunningThePrimaryTaskInTheVirtualDetectorRunsTheDetector() async {
         let state = AppState()
         await state.openDemoFixture(calibrated: false)
         state.navigation.workspaceArea = .image
         state.navigation.analysisMode = .virtualDetector
         let version = state.scanNavigationVersion
-        let status = state.statusText
         await state.runPrimaryWorkspaceTask()
-        XCTAssertEqual(state.scanNavigationVersion, version, "no second virtual-detector pass")
-        XCTAssertEqual(state.statusText, status)
+        XCTAssertGreaterThan(state.scanNavigationVersion, version, "the verb ran the virtual detector")
     }
 
     /// Without a button the image is still produced: a detector preset runs the detector itself. Mutation:
