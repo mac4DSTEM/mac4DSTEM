@@ -132,9 +132,10 @@ struct ResultsSection: View {
     /// One line, monospaced digits; a long pair sets σ smaller and secondary (`ResultFormat.netCell`).
     private func netCell(_ row: ResultRow) -> some View {
         let c = ResultFormat.netCell(row.netCounts, row.netSigma)
+        let sigma: Text = c.compact ? Text(c.sigma).font(.caption).foregroundStyle(.secondary) : Text(c.sigma)
+        let separator = Text(c.separator).foregroundStyle(.secondary)
         let t: Text = row.failure != nil ? Text("\u{2014}")
-            : Text(c.net) + Text(c.separator).foregroundStyle(.secondary)
-              + (c.compact ? Text(c.sigma).font(.caption).foregroundStyle(.secondary) : Text(c.sigma))
+            : Text("\(Text(c.net))\(separator)\(sigma)")
         return t.lineLimit(1).minimumScaleFactor(0.7)
     }
 
