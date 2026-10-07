@@ -590,11 +590,11 @@ private struct SpectrumKeys: ViewModifier {
             .onKeyPress(.leftArrow, phases: [.down, .repeat]) { _ in perform(.panLeft); return .handled }
             .onKeyPress(.rightArrow, phases: [.down, .repeat]) { _ in perform(.panRight); return .handled }
             .onKeyPress(characters: CharacterSet(charactersIn: "+="), phases: [.down, .repeat]) { press in
-                if press.modifiers.contains(.command) { return .ignored }
+                if !SpectrumStripLogic.zoomKeyAccepts(press.modifiers) { return .ignored }
                 perform(.zoomIn); return .handled
             }
             .onKeyPress(characters: CharacterSet(charactersIn: "-"), phases: [.down, .repeat]) { press in
-                if press.modifiers.contains(.command) { return .ignored }
+                if !SpectrumStripLogic.zoomKeyAccepts(press.modifiers) { return .ignored }
                 perform(.zoomOut); return .handled
             }
     }
@@ -649,6 +649,11 @@ nonisolated enum SpectrumStripLogic {
         let visible = MarkerLabelLayout.inView(markers, lo: vp.lo, hi: vp.hi).filter { $0.kind != .edge }
         return MarkerLabelLayout.place(visible.map { ($0.label, plotLeft + CGFloat(vp.fraction(of: $0.energy)) * plotWidth, $0.priority) },
                                        minX: plotLeft, maxX: plotLeft + plotWidth)
+    }
+    /// Whether a +/=/- press zooms: not with ⌘, ⌃ or ⌥ held (those belong to the window's zoom and to the system; the key then
+    /// passes on); ⇧ is allowed because some layouts type "+" with it.
+    static func zoomKeyAccepts(_ modifiers: EventModifiers) -> Bool {
+        modifiers.intersection([.command, .control, .option]).isEmpty
     }
     /// A pin chip's button removes the pin; its spoken name says so.
     static func unpinLabel(_ pinLabel: String) -> String { "Unpin \(pinLabel)" }
