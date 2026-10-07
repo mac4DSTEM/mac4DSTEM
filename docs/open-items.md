@@ -365,6 +365,13 @@ Advanced-detection section shares one identifier (`disk.advancedDisclosure`); th
 (`archive/v5/swiftui-accessibility-drive-2026-10-07.md`). Tab skipped the native picker button under current configuration;
 keyboard activation and spoken VoiceOver remain owed. Compact map labels clipped at the reopened floor; no fix attempted.
 
+### SwiftUI review residuals (2026-10-07) — what the 22 fix commits left out
+Two inspectors re-read the scan position per scrub (`WorkspaceInspector.swift` ~:446 is frozen: needs the owner's picture). Swift 6
+strict checking is unmeasured (estimate medium; `MetalEngine`, `SpectrumImageSource` not `Sendable`; one strict build counting
+warnings per module makes it a number). The configurator crop and the ColorMix region are drag-only for the keyboard; the pin chip is
+~14 pt; `SpectrumImageSettings`' file readouts are written and tested but read by no view. Open drive rows:
+`archive/v5/swiftui-review-verification-2026-10-07.md`.
+
 ### The audit's refactor list, rows 4–13 — most parked
 Open: row 4 (a shared harness `fail` helper — Gate B, a shared bug can green 46 harnesses); rows 6–7, the
 **resultexport-split and braggvector-emd-writer-split**, each prepared and parked (the HDF5-adjacent split: four
