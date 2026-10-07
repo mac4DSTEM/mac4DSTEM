@@ -145,10 +145,16 @@ if "ts" in verdict:
     print(f"- H5 (c): ghosts: false picks the baseline makes {bf}; removed by R1b {len(removed_false(grow, 'R1b'))}")
     pf = sum(len([e for e in j["configs"]["w4b_base"] if e not in j["truth"]]) for j in P)
     print(f"  pairs: false picks the baseline makes {pf}; removed by R1b {len(removed_false(prow, 'R1b'))}")
-    r2lost = []
-    for r in lost(prow, "R2") + lost(prow, "R1bR2"):
-        r2lost.append(r)
-    print(f"- H6 (b): true elements lost by R2 / R1b+R2 on T-S pairs: {len(r2lost)} (the registered observation counts only those with PLANTED net/L_D >= 3; see the table of pairs for each case's planted values)")
+    # The registered observation counts only true elements whose PLANTED net/L_D >= 3 (the candidate's own net/L_D is printed beside each).
+    planted = {}
+    for j in P:
+        m = j["meta"]; name_ = f"{m['pair']} r{m['ratio']} {m['doseLabel']}"
+        planted[(name_, m["L"])] = m["plantedSignificanceL"]; planted[(name_, m["K"])] = m["plantedSignificanceK"]
+    # R2's own losses: every R2 drop, and the R1bR2 drops that R2 (not the beside-K guard) made.
+    r2all = lost(prow, "R2") + [r for r in lost(prow, "R1bR2") if r["why"].startswith("R2")]
+    r2lost = [r for r in r2all if planted.get((r["file"], r["element"]), 0) >= 3]
+    print(f"- H6 (b): true elements lost by R2 (R2's own drops, incl. the R1b+R2 set) on T-S pairs with PLANTED net/L_D >= 3: {len(r2lost)} "
+          f"(all true losses, any planted level: {len(r2all)}; the planted level of each is in the pairs table)")
     for r in r2lost: print("    ", r["file"], r["rule set"], r["element"], f"candidate net/L_D {r['sig']:.2f}", r["why"])
 if "tq" in verdict:
     Q, s_all, byclass, qrows = verdict["tq"]
