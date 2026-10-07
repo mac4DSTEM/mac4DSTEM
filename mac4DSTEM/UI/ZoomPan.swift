@@ -54,6 +54,24 @@ struct ZoomPan: Equatable {
         offset = Self.clampedOffset(offset, zoom: zoom, in: box)
     }
 
+    /// The VoiceOver pan actions: the view moves over the image in the named direction (so the image content moves the other
+    /// way, as in the spectrum strip's "Pan left"). One step is a fifth of the pane.
+    enum PanDirection: CaseIterable { case left, right, up, down }
+    static let accessibilityPanFraction: CGFloat = 1.0 / 5.0
+
+    /// Through the same clamp as a drag: never past the image's edge, and a no-op at zoom 1 (nothing to pan).
+    mutating func pan(_ direction: PanDirection, in box: CGSize) {
+        let dx = box.width * Self.accessibilityPanFraction, dy = box.height * Self.accessibilityPanFraction
+        var proposed = offset
+        switch direction {
+        case .left: proposed.width += dx
+        case .right: proposed.width -= dx
+        case .up: proposed.height += dy
+        case .down: proposed.height -= dy
+        }
+        offset = Self.clampedOffset(proposed, zoom: zoom, in: box)
+    }
+
     /// Pure, so the rule itself is unit-testable without a view.
     static func clampedOffset(
         _ proposed: CGSize, zoom: CGFloat, in size: CGSize
@@ -160,6 +178,10 @@ private struct ZoomPanAccessibilityActions: ViewModifier {
             .accessibilityAction(named: "Zoom out") {
                 state.step(by: 1 / ZoomPan.accessibilityStepFactor, in: box)
             }
+            .accessibilityAction(named: "Pan left") { state.pan(.left, in: box) }
+            .accessibilityAction(named: "Pan right") { state.pan(.right, in: box) }
+            .accessibilityAction(named: "Pan up") { state.pan(.up, in: box) }
+            .accessibilityAction(named: "Pan down") { state.pan(.down, in: box) }
             .accessibilityAction(named: "Reset zoom") {
                 resetZoom(state: &state, reduceMotion: reduceMotion)
             }
@@ -167,7 +189,7 @@ private struct ZoomPanAccessibilityActions: ViewModifier {
 }
 
 extension View {
-    /// "Zoom in", "Zoom out" and "Reset zoom" as accessibility actions, for the
+    /// "Zoom in", "Zoom out", "Pan left/right/up/down" and "Reset zoom" as accessibility actions, for the
     /// same `state` and `box` the pane's `.zoomPan` uses.
     func zoomPanAccessibilityActions(_ state: Binding<ZoomPan>, box: CGSize) -> some View {
         modifier(ZoomPanAccessibilityActions(state: state, box: box))

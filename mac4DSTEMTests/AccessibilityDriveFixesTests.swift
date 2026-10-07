@@ -40,4 +40,25 @@ final class AccessibilityDriveFixesTests: XCTestCase {
         XCTAssertLessThanOrEqual(hint.count, 60)
         XCTAssertTrue(hint.contains("Zoom in") && hint.contains("Zoom out"))
     }
+
+    /// X5: a pan step is a fifth of the pane, in the named direction, clamped to the image; nothing at zoom 1.
+    func testPanStepMovesAFifthAndStaysInsideThePane() {
+        let box = CGSize(width: 400, height: 200)
+        var z = ZoomPan(); z.zoom = 2     // allowed offset: +-100 x, +-50 y
+        z.pan(.left, in: box);  XCTAssertEqual(z.offset, CGSize(width: 80, height: 0))
+        z.pan(.right, in: box); XCTAssertEqual(z.offset, .zero)
+        z.pan(.right, in: box); XCTAssertEqual(z.offset, CGSize(width: -80, height: 0))
+        z.pan(.up, in: box);    XCTAssertEqual(z.offset, CGSize(width: -80, height: 40))
+        z.pan(.down, in: box);  z.pan(.down, in: box)
+        XCTAssertEqual(z.offset, CGSize(width: -80, height: -40))
+        // Repeated steps stop at the edge instead of leaving the pane.
+        for _ in 0..<10 { z.pan(.right, in: box); z.pan(.down, in: box) }
+        XCTAssertEqual(z.offset, CGSize(width: -100, height: -50))
+        for _ in 0..<10 { z.pan(.left, in: box); z.pan(.up, in: box) }
+        XCTAssertEqual(z.offset, CGSize(width: 100, height: 50))
+        // Unzoomed: nothing to pan.
+        var flat = ZoomPan()
+        for d in ZoomPan.PanDirection.allCases { flat.pan(d, in: box) }
+        XCTAssertEqual(flat.offset, .zero)
+    }
 }
