@@ -93,7 +93,13 @@ private struct DatasetWindow: View {
                 openWindow(id: "dataset")
             }
         }
-        .onDisappear { OpenDatasetRegistry.withdraw(appState) }
+        // The same event stops the window's running job (`windowClosed`): a closed window must not keep computing
+        // for a dataset nobody can see. `onDisappear` fires when the hosting view leaves its window; a window
+        // that merely hides, minimises or loses focus keeps its content in place and does not fire it.
+        .onDisappear {
+            OpenDatasetRegistry.withdraw(appState)
+            appState.windowClosed()
+        }
         .frame(minWidth: LayoutPolicy.datasetWindowMinimumSize.width,
                minHeight: LayoutPolicy.datasetWindowMinimumSize.height)
         // "Open Dataset…" / "Preprocess Raw Data…" chosen with no window focused opened this one; a

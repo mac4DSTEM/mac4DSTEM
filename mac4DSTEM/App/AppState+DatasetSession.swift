@@ -104,6 +104,17 @@ extension AppState {
         WorkspaceRecoveryStore.saveRecovery(record)
     }
 
+    /// The window is closing: stop what it is running. Without this a running ACOM, ptychography or detection
+    /// job kept the CPU busy, and the cube alive through the job's captures, until it ended on its own.
+    /// Cooperative, like every Stop: the operation's token is cancelled (`reset` also frees the busy state and
+    /// the keep-awake assertion), a dataset load in flight is asked to unwind, and a bound spectroscopy room
+    /// lets go of its source and cancels its Auto ID / check runs. Called from the window's `onDisappear`.
+    func windowClosed() {
+        operationCenter.reset()
+        cancelDatasetLoad()
+        if spectroscopyRoom.model.isLive { spectroscopyRoom.unbind() }
+    }
+
     func selectDataset(_ descriptor: DatasetDescriptor) {
         guard let reader = datasetSession.reader else { return }
         Task {
