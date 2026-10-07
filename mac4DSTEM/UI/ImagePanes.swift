@@ -427,6 +427,53 @@ struct DiffractionPane: View {
 /// (the lattice of a reconstruction, the upper right of a Bragg-vector map:
 /// polish drive 2026-10-01; owner card Q3 a, 2026-10-04).
 ///
+/// One step of the scan position, by name: the accessibility twin of a click on the scan image (the marker handle in the
+/// real-space pane and the navigator inset both offer it; `AppState.scrubTo` clamps to the scan).
+enum ScanMove: CaseIterable {
+    case left, right, up, down
+    var delta: (dx: Int, dy: Int) {
+        switch self {
+        case .left: (-1, 0)
+        case .right: (1, 0)
+        case .up: (0, -1)
+        case .down: (0, 1)
+        }
+    }
+    var actionName: String {
+        switch self {
+        case .left: "Move scan left"
+        case .right: "Move scan right"
+        case .up: "Move scan up"
+        case .down: "Move scan down"
+        }
+    }
+}
+
+/// The adjustable action (increment = right, decrement = left) and the four "Move scan …" actions, for any element that stands
+/// for the scan position.
+private struct ScanMoveAccessibilityActions: ViewModifier {
+    @Environment(AppState.self) private var appState
+
+    private func move(_ m: ScanMove) {
+        appState.scrubTo(x: appState.selectedScan.x + m.delta.dx, y: appState.selectedScan.y + m.delta.dy)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: move(.right)
+                case .decrement: move(.left)
+                @unknown default: break
+                }
+            }
+            .accessibilityAction(named: ScanMove.left.actionName) { move(.left) }
+            .accessibilityAction(named: ScanMove.right.actionName) { move(.right) }
+            .accessibilityAction(named: ScanMove.up.actionName) { move(.up) }
+            .accessibilityAction(named: ScanMove.down.actionName) { move(.down) }
+    }
+}
+
 /// A scientific thumbnail of the scan, not a control: it stays small and out of
 /// the pattern's way, at the scan's aspect ratio inside one fixed box (its longer
 /// side is `ScanNavigatorPlacement.maxSide`; a 17 x 77 scan once drew 534 pt tall).
@@ -473,6 +520,8 @@ struct ScanNavigatorInset: View {
         .accessibilityLabel("Scan navigator")
         .accessibilityValue("Selected scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y)")
         .accessibilityHint("Click or drag to update the diffraction pattern")
+        // Clicking is the pointer's way; the same adjustable and Move-scan actions as the main pane's marker are the other.
+        .modifier(ScanMoveAccessibilityActions())
         .accessibilityIdentifier("result.scanNavigator")
     }
 }
@@ -1233,28 +1282,7 @@ struct RealSpacePane: View {
         .accessibilityHint(
             "Adjust to move horizontally, or use the named actions to move in any direction"
         )
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment:
-                appState.scrubTo(x: appState.selectedScan.x + 1, y: appState.selectedScan.y)
-            case .decrement:
-                appState.scrubTo(x: appState.selectedScan.x - 1, y: appState.selectedScan.y)
-            @unknown default:
-                break
-            }
-        }
-        .accessibilityAction(named: "Move scan left") {
-            appState.scrubTo(x: appState.selectedScan.x - 1, y: appState.selectedScan.y)
-        }
-        .accessibilityAction(named: "Move scan right") {
-            appState.scrubTo(x: appState.selectedScan.x + 1, y: appState.selectedScan.y)
-        }
-        .accessibilityAction(named: "Move scan up") {
-            appState.scrubTo(x: appState.selectedScan.x, y: appState.selectedScan.y - 1)
-        }
-        .accessibilityAction(named: "Move scan down") {
-            appState.scrubTo(x: appState.selectedScan.x, y: appState.selectedScan.y + 1)
-        }
+        .modifier(ScanMoveAccessibilityActions())
         .accessibilityIdentifier("result.scanMarkerHandle")
     }
 

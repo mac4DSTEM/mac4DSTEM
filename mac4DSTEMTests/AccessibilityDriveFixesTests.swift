@@ -61,4 +61,15 @@ final class AccessibilityDriveFixesTests: XCTestCase {
         for d in ZoomPan.PanDirection.allCases { flat.pan(d, in: box) }
         XCTAssertEqual(flat.offset, .zero)
     }
+
+    /// X6: the scan moves (shared by the marker handle and the navigator inset) are one pixel in the named direction (y grows
+    /// downwards), under the names the main pane has always had.
+    func testScanMovesStepOnePixelUnderTheKnownNames() {
+        XCTAssertEqual(ScanMove.left.delta.dx, -1); XCTAssertEqual(ScanMove.left.delta.dy, 0)
+        XCTAssertEqual(ScanMove.right.delta.dx, 1); XCTAssertEqual(ScanMove.right.delta.dy, 0)
+        XCTAssertEqual(ScanMove.up.delta.dx, 0);    XCTAssertEqual(ScanMove.up.delta.dy, -1)
+        XCTAssertEqual(ScanMove.down.delta.dx, 0);  XCTAssertEqual(ScanMove.down.delta.dy, 1)
+        XCTAssertEqual(ScanMove.allCases.map(\.actionName),
+                       ["Move scan left", "Move scan right", "Move scan up", "Move scan down"])
+    }
 }
