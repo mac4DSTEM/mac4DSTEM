@@ -111,9 +111,13 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
 
 - [ ] **v5.0 — the EDX suite** (ADR 052–056) — Core science built, gated and Fable-checked on `main` (readers, simulator,
   fit, k, absorption, statistics, method/replay, pools, proposer, Auto ID, unlisted-line check, Export, default fit range).
-  The owner drove the room 2026-10-06 and rejected its structure; ADR 056 + mock v2.1 (accepted) define the rebuild.
-  Next, in order: the room rebuild (lane R4), its drive by the owner, the real Al-Si-Mg check vs Velox, then validation
-  with the owner's joint GMS run and pure-Al spectrum (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
+  The room was rebuilt to the owner's picture (ADR 056–057), brought to Velox's daily use (ADR 058: display kernel, no-k picks
+  as Fit only, cursor candidates, counts/px, windows, range readout) and to his drive findings (ADR 059: Compute Image, glass
+  buttons and chips, spectrum weight and colour, zoom gestures, scale bars, Velox line families with α/β picks). Auto ID went
+  through its first Gate D loop against his Velox selections (ADR 060: 34 / 45 %; one hygiene rule ships, two held for a truth
+  set that tests their risk). Next, in order: WP4b (the held rules on DTSA-II's Qual set + the simulator + his files,
+  `docs/archive/v5/reference-software-sheet-2026-10-07.md`), the eXSpy quantification pins, then validation with the owner's
+  joint GMS run and pure-Al spectrum (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
 
 ## After v4.1 — frozen until the owner reopens one
 
