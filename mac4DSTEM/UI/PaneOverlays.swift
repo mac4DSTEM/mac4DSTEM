@@ -456,11 +456,9 @@ struct ColormapChip<Chip: View>: View {
         }
     }
 
-    /// `Colormaps.swatch` returns `NSImage`, and the project targets macOS
-    /// only (`Package.swift`: `platforms: [.macOS("27.0")]`), so there is no
-    /// platform split to make here.
+    /// `Colormaps.swatch` returns a SwiftUI `Image` built from the LUT.
     private func swatch(_ kind: ColormapKind) -> some View {
-        Image(nsImage: Colormaps.swatch(kind))
+        Colormaps.swatch(kind)
             .clipShape(RoundedRectangle(cornerRadius: 2))
     }
 }

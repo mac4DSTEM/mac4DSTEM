@@ -1,4 +1,4 @@
-import AppKit
+import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
@@ -92,28 +92,61 @@ private extension Double {
 }
 
 extension Colormaps {
+    /// Swatch size in points (and pixels at 1x).
+    static let swatchWidth = 44
+    static let swatchHeight = 12
+
+    /// RGBA bytes of the swatch, row-major: column `x` is the LUT entry at
+    /// `x` (left = first colour), repeated down every row. Pure, so a test
+    /// can pin the ends and the middle against `lutRGBA`.
+    static func swatchRGBA(_ kind: ColormapKind) -> [UInt8] {
+        let lut = lutRGBA(kind, count: swatchWidth)
+        var bytes = [UInt8](repeating: 255, count: swatchWidth * swatchHeight * 4)
+        for y in 0..<swatchHeight {
+            for x in 0..<swatchWidth {
+                let source = x * 4
+                let target = (y * swatchWidth + x) * 4
+                bytes[target] = lut[source]
+                bytes[target + 1] = lut[source + 1]
+                bytes[target + 2] = lut[source + 2]
+            }
+        }
+        return bytes
+    }
+
     /// D3 (owner decision): small gradient swatches for the colorbar-chip
     /// menu, built once per colormap from the same LUT the renderer uses —
-    /// the menu shows the actual mapping, not a name.
-    @MainActor private static var swatchCache: [ColormapKind: NSImage] = [:]
+    /// the menu shows the actual mapping, not a name. Drawn as a CGImage
+    /// (no AppKit: owner rule, SwiftUI only), shown pixel-exact with
+    /// `.interpolation(.none)` so each column stays one crisp point wide.
+    @MainActor private static var swatchCache: [ColormapKind: CGImage] = [:]
 
-    @MainActor static func swatch(_ kind: ColormapKind) -> NSImage {
-        if let cached = swatchCache[kind] { return cached }
-        let width = 44, height = 12
-        let lut = lutRGBA(kind, count: width)
-        let image = NSImage(size: NSSize(width: width, height: height))
-        image.lockFocus()
-        for x in 0..<width {
-            let offset = x * 4
-            NSColor(
-                calibratedRed: CGFloat(lut[offset]) / 255,
-                green: CGFloat(lut[offset + 1]) / 255,
-                blue: CGFloat(lut[offset + 2]) / 255, alpha: 1
-            ).setFill()
-            NSRect(x: x, y: 0, width: 1, height: height).fill()
+    @MainActor static func swatch(_ kind: ColormapKind) -> Image {
+        let image: CGImage
+        if let cached = swatchCache[kind] {
+            image = cached
+        } else {
+            image = swatchCGImage(kind)
+            swatchCache[kind] = image
         }
-        image.unlockFocus()
-        swatchCache[kind] = image
+        return Image(decorative: image, scale: 1).interpolation(.none)
+    }
+
+    /// The swatch as a `CGImage` (sRGB, 8 bits per channel, `swatchRGBA` bytes).
+    static func swatchCGImage(_ kind: ColormapKind) -> CGImage {
+        guard let provider = CGDataProvider(data: Data(swatchRGBA(kind)) as CFData),
+              let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let image = CGImage(
+                width: swatchWidth, height: swatchHeight,
+                bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: swatchWidth * 4,
+                space: space,
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                provider: provider, decode: nil, shouldInterpolate: false,
+                intent: .defaultIntent
+              )
+        else {
+            preconditionFailure("A \(swatchWidth)x\(swatchHeight) RGBA swatch always builds")
+        }
         return image
     }
 }

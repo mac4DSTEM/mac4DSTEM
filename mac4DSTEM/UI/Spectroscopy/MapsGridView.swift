@@ -542,7 +542,7 @@ struct MapDisplayChip: View {
             RoundedRectangle(cornerRadius: 2).fill(model.color(z)).frame(width: TileMetrics.chip, height: TileMetrics.chip)
                 .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(.white.opacity(0.8), lineWidth: 0.5))
         default:
-            Image(nsImage: Colormaps.swatch(model.haadfColormap)).clipShape(RoundedRectangle(cornerRadius: 2))
+            Colormaps.swatch(model.haadfColormap).clipShape(RoundedRectangle(cornerRadius: 2))
                 .frame(width: TileMetrics.chip * 2, height: TileMetrics.chip)
         }
     }
@@ -621,7 +621,7 @@ struct MapDisplayPopover: View {
 struct ColormapChoices: View {
     var body: some View {
         ForEach(ColormapKind.allCases) { kind in
-            Label { Text(kind.displayName) } icon: { Image(nsImage: Colormaps.swatch(kind)).clipShape(RoundedRectangle(cornerRadius: 2)) }.tag(kind)
+            Label { Text(kind.displayName) } icon: { Colormaps.swatch(kind).clipShape(RoundedRectangle(cornerRadius: 2)) }.tag(kind)
         }
     }
 }
