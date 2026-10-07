@@ -238,6 +238,9 @@ final class SpectroscopyRoomController {
 
     // MARK: Edits
 
+    /// The display kernel changed (Elements › Smooth): the tiles are rebuilt from the raw maps; nothing is recomputed.
+    func smoothingChanged() {}
+
     /// The element roles or lines changed in the periodic table.
     func elementsChanged() {
         guard model.elements != lastElements else { return }

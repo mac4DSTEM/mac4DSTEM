@@ -14,6 +14,7 @@ struct SpectroscopyRoomHost: View {
             let controller = appState.spectroscopyRoom
             SpectroscopyRoomContent(model: controller.model)
                 .onChange(of: controller.model.elements) { controller.elementsChanged() }
+                .onChange(of: controller.model.smoothing) { controller.smoothingChanged() }
                 .onChange(of: controller.model.selectedRegion) { controller.regionPicked() }
                 .onChange(of: controller.model.quantify) { controller.quantifySettingsChanged() }
                 .onChange(of: controller.model.mapMode) { controller.refresh() }

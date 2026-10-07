@@ -21,7 +21,9 @@ final class SpectroscopyRoomModel {
     // Elements & maps
     var elements = ElementSelection()
     var mapMode: MapMode = .netCounts
-    var smoothing = "None"
+    /// The display kernel of the element maps (Velox pre-filter, display only here): the controller applies it to the signed net
+    /// map before the clamp; the raw map and the export are untouched; every tile names it.
+    var smoothing: MapSmoothing = .none
     var mixed: Set<Int> = []                   // tiles picked into the ColorMix
     var tiles: [MapTile] = []
     /// Colour per element the person chose in the active map's popover; absent: `ElementPalette`. View state: the element
@@ -67,6 +69,12 @@ final class SpectroscopyRoomModel {
     var layers = SpectrumLayers()
     var viewport: SpectrumViewport
     var spectrumTitle = "Spectrum"
+    /// The pixels pooled into `series` (the region's, or the whole map's): the "counts / px" unit divides by it. 0 = unknown.
+    var spectrumPixels = 0
+    /// The line and background windows the net maps use, as energy bands the spectrum can draw (Show › Windows).
+    var windowBands: [WindowBand] = []
+    /// A candidate line picked from the spectrum's cursor menu (the periodic table's own click, set by the controller).
+    var onPickElement: ((Int) -> Void)?
     var spectrumSubtitle = ""
 
     // Results
@@ -221,7 +229,9 @@ struct AutoIDState: Equatable {
 struct MapTile: Identifiable {
     var z: Int
     var width: Int, height: Int
-    var values: [Float]                        // 0...1, row-major
+    var values: [Float]                        // 0...1, row-major (the smoothed map when a kernel is set)
+    /// The raw signed counts the file gave (net or integrated), unsmoothed, row-major; what an export writes. Empty for the fixture.
+    var counts: [Double] = []
     /// Why the tile's map is a picture and not a measurement (it is still in the ColorMix; the note stays): its window method says "not a measurement" (s\u{00B7}B \u{2265} G).
     var notMeasuredWhy: String? = nil
     /// Counts at value 1 (the tile's own maximum; 1 when unknown): the histogram's real values (spec 2 D-13).
@@ -380,7 +390,7 @@ extension SpectroscopyRoomModel {
                                           liveTime: "37 s · 20 ms/px")
         m.quantify.absorptionNote = "4 detectors · TOA from file"
         m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.quality = "χ²ᵣ 1.04 (Pearson)"
-        m.smoothing = "3 × 3 · σ 1 px"
+        m.smoothing = .none
         m.ratioLine = RatioLine(label: "Mg / Si net ratio", value: 1.092, sigma: 0.021, note: "k-free, counting only")
         m.fitFooter = "Least squares · empirical continuum + Al edge · Bote-Salvat k (ε Super-X G1) · absorption 80 ± 15 nm · no escape peaks"
         return m

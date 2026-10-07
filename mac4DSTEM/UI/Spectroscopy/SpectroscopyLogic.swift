@@ -33,6 +33,18 @@ nonisolated struct ElementSuggestion: Equatable, Sendable {
     var z: Int
     var reason: String            // "Ga: from FIB?", "Ar: Al sum or Ar?"
     var proposedRole: ElementRole = .quantify
+    /// The proposer's own bar, net / L_D (1 = just detectable); 0 when unknown.
+    var significance: Double = 0
+}
+
+/// An energy band of a window a net map uses: the signal window of a line, or one of its two background windows.
+nonisolated struct WindowBand: Equatable, Sendable, Identifiable {
+    enum Kind: Sendable { case signal, background }
+    var id: String                   // "Al_Ka.signal", "Al_Ka.left"
+    var elementZ: Int?
+    var label: String                // "Al Kα"
+    var range: ClosedRange<Double>   // keV
+    var kind: Kind
 }
 
 /// How one periodic-table cell is drawn (mock screen 4).
@@ -144,6 +156,10 @@ nonisolated struct SpectrumLayers: Equatable, Sendable {
     static let pinOpacity = 0.6
     /// Spec 2 D-6: linear by default (the owner); the Show menu's toggle switches to log.
     var log = false
+    /// Counts per pooled pixel instead of counts (the region's size falls out of a comparison).
+    var perPixel = false
+    /// The line and background windows the net maps use, as faint bands.
+    var windows = false
 }
 
 /// The visible energy window, always inside the spectrum's own range. Zoom is about a
