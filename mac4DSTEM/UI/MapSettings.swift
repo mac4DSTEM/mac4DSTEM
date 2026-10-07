@@ -1303,7 +1303,7 @@ private struct ACOMSections: View {
         }
         InspectorValueRow(
             "Q scale",
-            String(format: "%.6g Å⁻¹/px", semantics.invAngstromPerPixel)
+            ACOMQScaleReadout.text(semantics.invAngstromPerPixel)
         )
         InspectorValueRow("Provenance", semantics.provenance.displayName)
 
@@ -1549,4 +1549,13 @@ private func relativePeakRankBinding(_ appState: AppState) -> Binding<Int> {
             appState.diskDetection.diskParams = params
         }
     )
+}
+
+/// The ACOM Q-scale read-out in the locale's own decimal mark. `String(format:)`
+/// printed a period beside the comma fields of a German region (polish drive
+/// 2026-10-04). Six significant digits, as the old `%.6g` gave, trailing zeros dropped.
+nonisolated enum ACOMQScaleReadout {
+    static func text(_ invAngstromPerPixel: Double, locale: Locale = .current) -> String {
+        invAngstromPerPixel.formatted(.number.precision(.significantDigits(1...6)).locale(locale)) + " Å⁻¹/px"
+    }
 }
