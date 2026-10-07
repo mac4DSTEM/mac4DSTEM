@@ -93,3 +93,24 @@ Not obtained. ADR 050 requires an independent second opinion on decision sheets;
   §5's main argument, and the proposed spike must check it first (a doc-metadata gap or a real platform limit).
 - CONFIRMED: the overview sends non-neural-network models to Core ML; it does not call Core ML deprecated.
 - Second opinion still owed (ADR 050) before this goes to the owner.
+
+## Independent second opinion (Haiku reader, 2026-10-08; ADR 050)
+
+**Verdict.** I agree with staying on Core ML, but not for the reason in the sheet's section 5, and the spike as written could mislead.
+
+**What the sheet gets wrong or omits**
+
+1. macOS availability is open and is the first fact to settle. The Core AI module page lists macOS 27.0+ (documentation/CoreAI/CoreAI.md). `AIModel`, `AIModelAsset`, `SpecializationOptions` and `ComputeUnitKind` list only iOS, iPadOS, tvOS, visionOS and watchOS (documentation/CoreAI/aimodel.md; SpecializationOptions.md; ComputeUnitKind.md). This is probably a documentation gap, but it is unproven, and section 5 depends on it.
+2. Section 5 overstates the Core ML gap. `.cpuAndNeuralEngine` is already an explicit Neural Engine request (documentation/CoreML/mlcomputeunits.md). What is missing is verification, which the repo does at load (mac4DSTEM/Core/ML/LearnedDiskDetector.swift:124-136). Core AI's `preferredComputeUnitKind` is documented only as "preferred" (documentation/CoreAI/managing-model-specialization-and-caching.md), so it is not a stronger guarantee.
+3. The sheet omits `MLComputePlan`, available on macOS 14.4+ (documentation/CoreML/mlcomputeplan-1w21n.md). The Core AI placement check it should name is the Core AI instrument (documentation/CoreAI/inspecting-debugging-and-profiling-core-ai-models.md).
+4. The Core ML constraint comes from the writer, not the trainer. `ModelPackageWriter` writes `.mlpackage` (mac4DSTEM/Training/ModelPackageWriter.swift:14, 63-70). `AIModelAsset` reads summaries and edits metadata, and I found no authoring API (documentation/CoreAI/aimodelasset.md).
+5. The label count conflicts across sources: the sheet says 40 positions, ADR 014 says 306 centres (docs/decisions/014-learned-disk-detector.md:14-16), and docs/open-items.md:176 says 370. The spike must state which set it uses.
+
+**Spike design flaws**
+
+- Batch: Core ML's Neural Engine served only batch 32 (docs/archive/v4/ane-return-2026-09-30/record.md, E1; docs/archive/v4/newmac-gateD-2026-09-30/record.md:48-53). Compare at batch 32 and confirm placement in both runtimes, or a silent fallback looks like parity.
+- Conversion: a coreai-torch export is a different artifact. Use the same weights and separate conversion error from runtime error.
+- Fixture parity is weak: raw picks differ 2-4% between units (ane-return record, Experiment 2 and refuter note). Compare accepted scan-level peaks, as ADR 043 requires.
+- Speed: report warm per-pattern time apart from specialization, and record the macOS build (27.0.1 only so far).
+
+**Pick.** Option (a). The spike's first step should be the macOS availability check and a one-pattern placement probe. If the probe fails, the spike ends and (a) stands. I would not choose (c): two runtimes double the held-out work that ADR 043 requires per backend (docs/decisions/043-fine-tuned-models-judged-by-detection.md:21-26).
