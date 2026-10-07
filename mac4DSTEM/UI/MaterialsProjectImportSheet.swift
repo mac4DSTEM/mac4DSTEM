@@ -170,7 +170,7 @@ struct MaterialsProjectImportSheet: View {
     private func provenanceText(
         _ document: MaterialsProjectDocument, fetchedAt: Date, model: CrystalModel
     ) -> String {
-        var line = "Materials Project \(document.materialID), fetched \(Self.displayDateFormatter.string(from: fetchedAt))"
+        var line = "Materials Project \(document.materialID), fetched \(Self.displayDate(fetchedAt))"
             + " — DFT-relaxed cell, typically ~1% off measured."
         if let cellNote = model.provenance["materials_project_cell"] {
             line += " \(cellNote)"
@@ -247,10 +247,15 @@ struct MaterialsProjectImportSheet: View {
         dismiss()
     }
 
-    private static let displayDateFormatter: DateFormatter = {
+    /// The fetch time on the provenance line: medium date, short time, in the person's locale and time zone (both injectable
+    /// for the pins in `FormatStyleMigrationTests`). Stays a DateFormatter: `Date.FormatStyle(date: .abbreviated, time: .shortened)`
+    /// matches it in en_US but prints "8. Okt. 2026, 0:00" where this prints "08.10.2026, 00:00" in de_DE.
+    static func displayDate(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        return formatter
-    }()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        return formatter.string(from: date)
+    }
 }

@@ -99,18 +99,19 @@ final class ActivityLog {
         guard !suppressed else { return }
         guard !message.isEmpty, !message.hasSuffix("%") else { return }
         if lines.last?.text.hasSuffix(message) == true { return }
-        lines.append(Line(id: nextID, text: "\(Self.clock.string(from: now()))  \(message)"))
+        lines.append(Line(id: nextID, text: "\(Self.clockText(now()))  \(message)"))
         nextID += 1
         if lines.count > Self.capacity {
             lines.removeFirst(lines.count - Self.capacity)
         }
     }
 
-    private static let clock: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        return f
-    }()
+    /// The status line's clock: "HH:mm:ss" in the person's locale and time zone (both injectable for the pins in `FormatStyleMigrationTests`).
+    static func clockText(_ date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        date.formatted(Date.VerbatimFormatStyle(
+            format: "\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits):\(second: .twoDigits)",
+            locale: locale, timeZone: timeZone, calendar: locale.calendar))
+    }
 
     /// The row a `ScrollViewReader` should scroll to for these lines — the
     /// newest one's id, or none for an empty log. Pulled out so the output
