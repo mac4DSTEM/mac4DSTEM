@@ -320,13 +320,20 @@ struct RegionSettings {
     var liveTime: String?
 }
 
+/// The file and the region a spectrum CSV is about (its header lines).
+struct SpectrumLabel: Equatable {
+    var imageName: String
+    var regionName: String
+}
+
 /// What the Export step will write, built by Core from the last fit (`SpectroscopyExport`); all nil until Quantify has run.
 struct ExportSettings {
     var csv: String?
     var methodJSON: String?
     var elements: String?
-    /// The shown spectrum as CSV (energy, counts, and the model and background where fitted): available whenever a spectrum is shown.
-    var spectrumCSV: String?
+    /// What names the shown spectrum's CSV, set once a spectrum is shown. The CSV itself is built when it is exported
+    /// (`ExportSection.spectrumExport`, from `series`), not on every live-drag tick; nil until a spectrum is shown (the button is off).
+    var spectrumOf: SpectrumLabel?
     var fileStem = "spectroscopy"
     /// The maps' file stem: the image's own name, no region (the maps are the whole scan). Set by the controller with the spectrum.
     var mapsStem = "spectroscopy"

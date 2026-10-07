@@ -220,7 +220,7 @@ final class InspectorWidthBudgetTests: XCTestCase {
     /// Mutation: `PeriodicTableGrid.minimumWidth` raised from 214 to 300 pt — red.
     func testTheSpectroscopyInspectorFitsTheNarrowestColumn() throws {
         let fixture = SpectroscopyRoomModel.fixture
-        fixture.export = ExportSettings(csv: "x", methodJSON: "{}", elements: "Mg, Al, Si, Cu", spectrumCSV: "e,c")
+        fixture.export = ExportSettings(csv: "x", methodJSON: "{}", elements: "Mg, Al, Si, Cu", spectrumOf: SpectrumLabel(imageName: "a", regionName: "b"))
         fixture.quantify.expertOpen = true
         assertFits("Spectroscopy inspector (fixture, every row)",
                    minimumWidth(SpectroscopyInspectorSections(model: fixture, startOpen: true), state: AppState()))

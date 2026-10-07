@@ -111,4 +111,41 @@ final class SwiftUIReviewETests: XCTestCase {
         c.unbind()
         XCTAssertTrue(task.isCancelled)
     }
+
+    // MARK: E2 - the spectrum CSV is built when it is exported
+
+    private func openRoom() -> SpectroscopyRoomController {
+        let state = AppState(); keep.append(state)
+        state.openSpectrumImage(SpectroscopyRoomLiveRegionTests.image())
+        state.spectroscopyRoom.autoIDOnOpen?.cancel()
+        return state.spectroscopyRoom
+    }
+
+    private func waitFor(_ what: String, timeout: TimeInterval = 30, _ condition: () -> Bool) async throws {
+        let end = Date().addingTimeInterval(timeout)
+        while !condition() {
+            if Date() > end { return XCTFail("timed out waiting for \(what)") }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+    }
+
+    /// The export is the CSV of the series shown when the button is pressed, with the file and region of the label: the same text
+    /// `SpectrumCSV.text` gives for the shown series (no stored copy to go stale), off until a spectrum is shown.
+    /// Mutation: `spectrumExport` handing out a text captured earlier (a stored copy) instead of the shown series - red;
+    /// `canExportSpectrum` always true - red.
+    func testTheSpectrumCSVIsBuiltFromTheShownSeriesWhenExported() async throws {
+        let c = openRoom()
+        XCTAssertFalse(ExportSection.canExportSpectrum(SpectroscopyRoomController().model.export), "no spectrum, no export")
+        XCTAssertNil(ExportSection.spectrumExport(SpectroscopyRoomController().model))
+        try await waitFor("the first spectrum") { ExportSection.canExportSpectrum(c.model.export) }
+        let m = c.model
+        let first = try XCTUnwrap(ExportSection.spectrumExport(m))
+        XCTAssertEqual(first.text, SpectrumCSV.text(m.series, imageName: "synthetic", regionName: "Whole map"))
+        XCTAssertEqual(first.name, "synthetic_Whole_map-spectrum")
+        // The series changes with no controller call (a live tick lands only the series): the next export is the changed series.
+        m.series.data[0] += 7
+        let second = try XCTUnwrap(ExportSection.spectrumExport(m))
+        XCTAssertNotEqual(second.text, first.text)
+        XCTAssertEqual(second.text, SpectrumCSV.text(m.series, imageName: "synthetic", regionName: "Whole map"))
+    }
 }

@@ -321,24 +321,25 @@ final class SpectroscopySpec2ETests: XCTestCase {
     }
 
     /// The room fills it with no fit, follows the region, and keeps it (four columns) after Quantify rebuilds the export.
-    /// Mutations: `updateSpectrumCSV` not called in `apply` - red; not called in `present` - red (Quantify wipes it).
+    /// Mutations: `updateSpectrumStems` not called in `apply` - red; not called in `present` - red (Quantify wipes the label).
     func testTheRoomKeepsTheSpectrumCSVCurrentFromTheFirstSpectrum() async throws {
         let (_, c) = open()
-        try await waitFor("the first spectrum") { c.model.export.spectrumCSV != nil }
-        let first = try XCTUnwrap(c.model.export.spectrumCSV)
+        let csv = { ExportSection.spectrumExport(c.model)?.text }   // built when exported
+        try await waitFor("the first spectrum") { csv() != nil }
+        let first = try XCTUnwrap(csv())
         XCTAssertTrue(first.contains("region: Whole map")); XCTAssertTrue(first.contains("# file: synthetic"))
         XCTAssertTrue(first.contains("energy_kev,counts\n"), "no fit, two columns")
         XCTAssertEqual(first.split(separator: "\n").count, 3 + c.model.series.data.count)
         XCTAssertEqual(c.model.export.fileStem, "synthetic_Whole_map")
         let a = SpectrumRegionShape.rectangle(PixelRect(x0: 0, y0: 0, x1: 4, y1: 3))
         c.editRegion(a, final: true)
-        try await waitFor("the region's spectrum") { c.model.export.spectrumCSV?.contains("region: Region 1") == true }
-        XCTAssertNotEqual(c.model.export.spectrumCSV, first)
+        try await waitFor("the region's spectrum") { csv()?.contains("region: Region 1") == true }
+        XCTAssertNotEqual(csv(), first)
         c.model.elements.set(Al, .quantify); c.elementsChanged()
         let ok = await c.quantify()
         XCTAssertTrue(ok, c.model.fitFailure ?? "")
         await c.checkTask?.value
-        let fitted = try XCTUnwrap(c.model.export.spectrumCSV, "Quantify rebuilds `export`; the spectrum survives it")
+        let fitted = try XCTUnwrap(csv(), "Quantify rebuilds `export`; the spectrum survives it")
         XCTAssertTrue(fitted.contains("energy_kev,counts,model,background\n"))
         XCTAssertNotNil(c.model.export.csv, "the results CSV is there too")
     }

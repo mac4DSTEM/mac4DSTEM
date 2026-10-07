@@ -140,13 +140,17 @@ final class SpectroscopySpec2DTests: XCTestCase {
     /// D-14: Results CSV and Method JSON wait for the fit; Spectrum CSV needs only a shown spectrum, and is named "<stem>-spectrum".
     /// Mutation: the spectrum name built with "-method", or `spectrumExport` also waiting for the fit's csv - red.
     func testExportButtonsHandOutWhatExistsAndNameIt() throws {
-        var e = ExportSettings()
-        e.fileStem = "Al-Mg-Si"
-        XCTAssertNil(ExportSection.resultsExport(e)); XCTAssertNil(ExportSection.methodExport(e)); XCTAssertNil(ExportSection.spectrumExport(e))
-        e.spectrumCSV = "energy_keV,counts\n0.0,1\n"
+        let model = SpectroscopyRoomModel(series: SpectrumSeries(energyStart: 0, energyStep: 0.5, data: [1, 2], background: [], model: [], overlay: nil))
+        model.export.fileStem = "Al-Mg-Si"
+        var e = model.export
+        XCTAssertNil(ExportSection.resultsExport(e)); XCTAssertNil(ExportSection.methodExport(e)); XCTAssertNil(ExportSection.spectrumExport(model))
+        XCTAssertFalse(ExportSection.canExportSpectrum(e))
+        model.export.spectrumOf = SpectrumLabel(imageName: "a.emd", regionName: "Whole map")
+        e = model.export
         XCTAssertNil(ExportSection.resultsExport(e), "no fit yet")
-        let s = try XCTUnwrap(ExportSection.spectrumExport(e))
-        XCTAssertEqual(s, PendingExport(text: "energy_keV,counts\n0.0,1\n", isJSON: false, name: "Al-Mg-Si-spectrum"))
+        XCTAssertTrue(ExportSection.canExportSpectrum(e))
+        let s = try XCTUnwrap(ExportSection.spectrumExport(model))
+        XCTAssertEqual(s, PendingExport(text: SpectrumCSV.text(model.series, imageName: "a.emd", regionName: "Whole map"), isJSON: false, name: "Al-Mg-Si-spectrum"))
         e.csv = "a,b"; e.methodJSON = "{}"
         XCTAssertEqual(ExportSection.resultsExport(e), PendingExport(text: "a,b", isJSON: false, name: "Al-Mg-Si"))
         XCTAssertEqual(ExportSection.methodExport(e), PendingExport(text: "{}", isJSON: true, name: "Al-Mg-Si-method"))

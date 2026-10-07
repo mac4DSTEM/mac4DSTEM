@@ -524,7 +524,7 @@ final class SpectroscopyRoomController {
             m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(region.pixelCount))) px · live"
             m.regionSettings.pixels = "\(region.pixelCount)"
             m.regionSettings.counts = Self.counts(total)
-            updateSpectrumCSV(regionName: region.name)
+            updateSpectrumStems(regionName: region.name)
         }
         if livePending { livePending = false; scheduleLiveSum() }
     }
@@ -876,16 +876,20 @@ final class SpectroscopyRoomController {
             let r = SpectrumAutoZoom.range(markers: m.markers, domain: m.series.domain, minimumSpan: m.viewport.minimumSpan, countsEnergy: Self.countsEnergy(m.series), fitEnd: fitEnd(for: source))
             m.viewport.lo = r.lowerBound; m.viewport.hi = r.upperBound
         }
-        updateSpectrumCSV(regionName: name)   // after `applyFit`, which rebuilds `export`
+        updateSpectrumStems(regionName: name)   // after `applyFit`, which rebuilds `export`
     }
 
-    /// The shown spectrum as the Export section's "Spectrum CSV…" (spec 2 D-14): rebuilt whenever the series changes, so it is
-    /// there before any fit. Also names the files' default stem, which `ExportSettings()` resets.
-    private func updateSpectrumCSV(regionName: String) {
+    /// The Export section's "Spectrum CSV…" (spec 2 D-14) is there from the first spectrum: this names it (file and region) and the
+    /// files' default stems, which `ExportSettings()` resets. The CSV text is built when it is exported, not here: this runs on
+    /// every live-drag tick, so it assigns only what changed (an unchanged value would still notify the views).
+    private func updateSpectrumStems(regionName: String) {
         guard let source else { return }
-        model.export.spectrumCSV = SpectrumCSV.text(model.series, imageName: source.metadata.fileName, regionName: regionName)
-        model.export.fileStem = SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName)
-        model.export.mapsStem = MapsExport.stem(imageName: source.metadata.fileName)
+        let label = SpectrumLabel(imageName: source.metadata.fileName, regionName: regionName)
+        if model.export.spectrumOf != label { model.export.spectrumOf = label }
+        let stem = SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName)
+        if model.export.fileStem != stem { model.export.fileStem = stem }
+        let maps = MapsExport.stem(imageName: source.metadata.fileName)
+        if model.export.mapsStem != maps { model.export.mapsStem = maps }
     }
 
     /// The pooled fit's numbers into the model: the table's rows, the footers, the warnings, the plot, the readouts.
@@ -932,7 +936,7 @@ final class SpectroscopyRoomController {
         m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName), methodJSON: SpectroscopyExport.methodJSON(fit.method),
                                   elements: SpectroscopyExport.elementsLine(fit),
                                   fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))
-        updateSpectrumCSV(regionName: regionName)
+        updateSpectrumStems(regionName: regionName)
         m.quantify.quality = fit.qualityText
         switch fit.absorption {
         case .off: m.quantify.absorptionNote = nil

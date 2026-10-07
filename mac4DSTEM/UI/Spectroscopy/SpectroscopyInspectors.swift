@@ -410,7 +410,13 @@ struct ExportSection: View {
         scaleBarEnabled(model) ? "Draws the scale bar into the map PNGs and adds -scalebar to their names; the CSV never has one."
             : "This file states no pixel size, so there is no scale to draw."
     }
-    static func spectrumExport(_ e: ExportSettings) -> PendingExport? { e.spectrumCSV.map { PendingExport(text: $0, isJSON: false, name: e.fileStem + "-spectrum") } }
+    /// The Spectrum CSV button is on once a spectrum is shown (no fit needed); its text is built here, when it is pressed.
+    static func canExportSpectrum(_ e: ExportSettings) -> Bool { e.spectrumOf != nil }
+    static func spectrumExport(_ model: SpectroscopyRoomModel) -> PendingExport? {
+        guard let label = model.export.spectrumOf else { return nil }
+        return PendingExport(text: SpectrumCSV.text(model.series, imageName: label.imageName, regionName: label.regionName),
+                             isJSON: false, name: model.export.fileStem + "-spectrum")
+    }
 
     var body: some View {
         let e = model.export
@@ -434,8 +440,8 @@ struct ExportSection: View {
                     .accessibilityIdentifier("spectroscopy.export.scalebar")
             }
             InspectorActionRow {
-                Button(Self.spectrumTitle) { model.pendingExport = Self.spectrumExport(e) }
-                    .disabled(Self.spectrumExport(e) == nil)
+                Button(Self.spectrumTitle) { model.pendingExport = Self.spectrumExport(model) }
+                    .disabled(!Self.canExportSpectrum(e))
                     .help("The shown spectrum: energy, counts, and the model and background where fitted")
                     .accessibilityIdentifier("spectroscopy.export.spectrum")
                 Button(Self.mapsTitle) { pickingFolder = true }
