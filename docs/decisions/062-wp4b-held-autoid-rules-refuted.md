@@ -15,5 +15,7 @@ pairs (truth by construction) and the owner's Velox selections (agreement).
 3. `ProposalRules.shipped` unchanged (Z ≥ 89 never); the guard stays as an option for the measurement tool, off everywhere.
 
 ## Consequences
+Correction to ADR 060 §3: "R2 loses no hit anywhere" was wrong — on the 78 files R2 alone gives 180 hits against the baseline's 184
+(`wp4-autoid-results-2026-10-07.md`, the same 4 hits WP4b lost). Nothing new ships; ADR 060's Z ≥ 89 rule stays.
 `docs/archive/v5/wp4b-results-2026-10-07.md` holds every number and caveat. Auto ID keeps its `unvalidated` badge and shows net/L_D beside
 each pick. A better beside-K test (β-line or line-shape evidence) and R2 on 200 kV truth are the next registrations if the owner wants them.

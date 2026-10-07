@@ -367,7 +367,11 @@ two inspectors re-read the scan position per scrub (`WorkspaceInspector.swift` ~
 (6 open). Audits with drive checks and fix lists: `archive/v5/swiftui-a11y-apple-docs-check-2026-10-07.md`, `a11y-rooms-apple-docs-audit-2026-10-07.md`;
 their owner items (keyboard Label centres, region/crop drags, comparison cursor, visible disabled reasons, visible wording) wait for his word.
 First to drive (code-read, unverified): zone-axis and "Parallel to matrix" fields spoken by their placeholder; Bragg/ACOM steppers may drop their value; Q/R manual-scale fields share one label; aperture + scan-pick `accessibilityRepresentation` keep label/value? `.help` is also the VO hint (`help(_:)`), so 1st-check #28 is withdrawn.
-Stale "Auto ID needs the beam energy" note: `failAutoID` (`SpectroscopyRoomController.swift` ~:287) is never cleared when a beam energy is typed.
+Apple-docs checks 2026-10-08 (drafts by Haiku readers, citations spot-checked): `archive/v5/liquid-glass-check-2026-10-08.md` (glass used as
+documented; drive light appearance, Reduce Transparency, disabled-chip dimming; map-overlay glass vs the content-layer rule is the owner's D-8),
+`api-deprecation-sweep-2026-10-08.md` (nothing deprecated the compiler misses; 6 Number/DateFormatters → FormatStyle, display only; 4 AppKit
+uses vs the SwiftUI-only rule), `coreml-vs-coreai-2026-10-08.md` (stay on Core ML, decide by a spike; Core AI's Neural Engine targeting is not
+listed for macOS in Apple's page; second opinion owed before it goes to the owner).
 
 ### The audit's refactor list, rows 4–13 — most parked
 Open: row 4 (a shared harness `fail` helper — Gate B, a shared bug can green 46 harnesses); rows 6–7, the
