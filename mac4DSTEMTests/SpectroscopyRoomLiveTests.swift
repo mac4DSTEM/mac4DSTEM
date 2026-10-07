@@ -354,7 +354,7 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         // the end of the drag: the full recompute (rows follow, the region's counts, the settled title)
         c.editRegion(last, final: true)
         try await waitFor("the settled spectrum") { !m.spectrumSubtitle.hasSuffix("live") && abs(self.total(m) - expected) < 0.5 }
-        XCTAssertEqual(m.regionSettings.pixels, "6")
+        XCTAssertEqual(m.spectrumPixels, 6)
         XCTAssertEqual(m.regions.count, 2)
     }
 
@@ -371,7 +371,7 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         c.editRegion(b, final: true)
         let expected = Double(image.sum(mask: b.mask(nx: 8, ny: 6)).reduce(0, +))
         try await waitFor("shape b") { abs(self.total(m) - expected) < 0.5 }
-        XCTAssertEqual(m.regionSettings.pixels, "12")
+        XCTAssertEqual(m.spectrumPixels, 12)
     }
 
     /// Pin copies the live region's spectrum; the live region moves on without touching it; at most three; unpin drops one.

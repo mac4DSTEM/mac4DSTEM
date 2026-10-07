@@ -306,18 +306,14 @@ struct SpectrumImageSettings {
     var energyAxisReadout: String?
     /// The pooled fit's refinement of that axis (file vs refined, ADR 054 item 4); nil before a fit.
     var energyAxisRefined: String?
-    var countsHistogram: [Double] = []
-    var countsMedian: String?
     var liveDead: String?
     var geometry: String?
 }
 
+/// The Region section's observed settings: only what a view reads (the phase row). The region's pixel count and counts are the
+/// spectrum strip's (`spectrumPixels`, `spectrumSubtitle`); nothing written on a live-drag tick lives here.
 struct RegionSettings {
-    var source = "Drawn"
     var phase: String?
-    var pixels: String?
-    var counts: String?
-    var liveTime: String?
 }
 
 /// The file and the region a spectrum CSV is about (its header lines).
@@ -397,10 +393,8 @@ extension SpectroscopyRoomModel {
         m.image = SpectrumImageSettings(
             source: "Linked 4D · shape differs", sourceWarning: true, frameLo: 1, frameHi: 24, frames: 24,
             energyAxis: "Refined", energyAxisReadout: "+4 eV, 9.98 eV/ch",
-            countsHistogram: [9, 8, 6, 4, 3, 2, 1.4, 1, 0.6, 0.4], countsMedian: "median 11",
             liveDead: "1311 s total · dead 52 %", geometry: "TOA 18° · 4 det. · 0.12 sr")
-        m.regionSettings = RegionSettings(source: "Phase", phase: "β″ (Mg₅Si₆)", pixels: "1 842 · 2.8 %", counts: "4.31 M",
-                                          liveTime: "37 s · 20 ms/px")
+        m.regionSettings = RegionSettings(phase: "β″ (Mg₅Si₆)")
         m.quantify.absorptionNote = "4 detectors · TOA from file"
         m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.quality = "χ²ᵣ 1.04 (Pearson)"
         m.smoothing = .none

@@ -29,7 +29,6 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
     private let lock = NSLock()
     private var spectra: [Int: [UInt64]] = [:]
     private var maps: [String: [Double]] = [:]
-    private var pixelTotals: [UInt64]?
     private var refinements: [String: AxisRefinementResult] = [:]
     private var proposals: [String: ProposalResult] = [:]
 
@@ -52,8 +51,6 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
             for k in proposals.keys where k.hasPrefix("\(region)|") { proposals[k] = nil }
         }
     }
-    func totals() -> [UInt64]? { lock.withLock { pixelTotals } }
-    func setTotals(_ t: [UInt64]) { lock.withLock { pixelTotals = t } }
 
     /// The proposer's inputs for the unlisted-line check: the region's spectrum, the axis the fit used and the proposer's
     /// settings (listed elements, width, range, continuum, escape; least squares). The estimator, k, absorption and the
@@ -255,12 +252,14 @@ final class SpectroscopyRoomController {
     func smoothingChanged() {
         let m = model
         guard !m.tiles.isEmpty else { return }
-        for i in m.tiles.indices where !m.tiles[i].counts.isEmpty {
-            let t = m.tiles[i]
+        var tiles = m.tiles   // one assignment: the views are told once, not twice per tile
+        for i in tiles.indices where !tiles[i].counts.isEmpty {
+            let t = tiles[i]
             let shown = Self.display(of: t.counts, width: t.width, height: t.height, smoothing: m.smoothing)
-            m.tiles[i].values = shown.values
-            m.tiles[i].scale = shown.scale
+            tiles[i].values = shown.values
+            tiles[i].scale = shown.scale
         }
+        m.tiles = tiles
         m.tileRevision += 1
     }
 
@@ -522,8 +521,6 @@ final class SpectroscopyRoomController {
             m.spectrumPixels = region.pixelCount
             m.spectrumTitle = "Spectrum · \(region.name)"
             m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(region.pixelCount))) px · live"
-            m.regionSettings.pixels = "\(region.pixelCount)"
-            m.regionSettings.counts = Self.counts(total)
             updateSpectrumStems(regionName: region.name)
         }
         if livePending { livePending = false; scheduleLiveSum() }
@@ -658,7 +655,6 @@ final class SpectroscopyRoomController {
         let picks: [ElementWindows.Pick]
         let integrated: Bool
         let beam: Double?
-        let firstPass: Bool
         /// Set once the Quantify verb has run: the pooled fit of this region with this method.
         let quantify: QuantifyRequest?
     }
@@ -678,7 +674,6 @@ final class SpectroscopyRoomController {
         let windows: [LineWindow]
         let counts: [LineNetCount?]
         let maps: [[Double]?]
-        let pixelTotals: [UInt64]?
         let fit: PooledQuantification?
         let fitInput: PooledQuantificationInput?
         let fitFailure: String?
@@ -706,7 +701,7 @@ final class SpectroscopyRoomController {
         }
         let request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
                               integrated: model.mapMode == .integrated,
-                              beam: source.metadata.beamEnergyKeV, firstPass: cache.totals() == nil, quantify: quantify)
+                              beam: source.metadata.beamEnergyKeV, quantify: quantify)
         let cache = cache
         // The previous recompute is about a selection that no longer stands (its answer would be dropped by the generation check):
         // cancel it so its remaining stages do not run. A cancelled task returns early and lands nothing.
@@ -741,12 +736,6 @@ final class SpectroscopyRoomController {
         if let s = cache.spectrum(r.region) { spectrum = s } else {
             spectrum = r.source.sum(mask: r.mask)
             cache.setSpectrum(spectrum, r.region)
-        }
-        var totals: [UInt64]?
-        if r.firstPass {
-            let t = r.source.windowSums([0..<r.source.channels])[0]
-            cache.setTotals(t)
-            totals = t
         }
         // The comparison overlay's spectrum: the whole map, summed once (region 0 is the whole map, `SpectroscopySession.open`).
         var whole: [UInt64]?
@@ -793,7 +782,6 @@ final class SpectroscopyRoomController {
         }
         if cancelled() { return nil }
         return Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
-                      pixelTotals: totals,
                       fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)
     }
 
@@ -819,11 +807,6 @@ final class SpectroscopyRoomController {
         m.spectrumTitle = "Spectrum · \(name)"
         m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(pixels))) px"
         m.resultsTitle = "Results · \(name)"
-        m.regionSettings.source = region?.kind == .drawn ? "Drawn" : "Whole map"
-        m.regionSettings.pixels = "\(pixels)"
-        m.regionSettings.counts = Self.counts(total)
-
-        if let t = out.pixelTotals { Self.applyPixelStats(t, to: m) }
 
         // Markers: the chosen family's lines of every active element.
         m.markers = Self.markers(for: out.windows, axis: axis, beam: source.metadata.beamEnergyKeV,
@@ -1066,17 +1049,6 @@ final class SpectroscopyRoomController {
             }
         }
         return out
-    }
-
-    private static func applyPixelStats(_ totals: [UInt64], to m: SpectroscopyRoomModel) {
-        guard !totals.isEmpty else { return }
-        let sorted = totals.sorted()
-        let median = sorted[sorted.count / 2]
-        m.image.countsMedian = "median \(median)"
-        let hi = Double(sorted.last ?? 1)
-        var bins = [Double](repeating: 0, count: 10)
-        for t in totals { bins[min(9, Int(Double(t) / max(hi, 1) * 10))] += 1 }
-        m.image.countsHistogram = bins
     }
 
     /// The Spectrum image step's readouts, from what the file says (nothing is invented: a missing value hides its row).

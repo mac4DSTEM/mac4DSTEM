@@ -108,6 +108,7 @@ struct ResultsSection: View {
                 }
             }.font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             Divider().gridCellUnsizedAxes(.horizontal)
+            let unit = model.unit, hasFit = model.hasFit   // read once, not in every row's closure
             ForEach(model.results) { row in
                 GridRow {
                     HStack(spacing: 4) {
@@ -120,10 +121,10 @@ struct ResultsSection: View {
                         }
                     }
                     netCell(row)
-                    Text(ResultFormat.fitCells(row, unit: model.unit, hasFit: model.hasFit).abundance).fontWeight(.semibold)
+                    Text(ResultFormat.fitCells(row, unit: unit, hasFit: hasFit).abundance).fontWeight(.semibold)
                 }
                 .monospacedDigit()
-                .help("\(PeriodicLayout.symbol(row.z)) \u{03C3} terms: \(model.unit == .weight ? (row.sigmaTermsWeight ?? row.sigmaTerms) : row.sigmaTerms)")
+                .help("\(PeriodicLayout.symbol(row.z)) \u{03C3} terms: \(unit == .weight ? (row.sigmaTermsWeight ?? row.sigmaTerms) : row.sigmaTerms)")
             }
         }
     }

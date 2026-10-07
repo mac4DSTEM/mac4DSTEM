@@ -41,7 +41,7 @@ final class SwiftUIReviewETests: XCTestCase {
                                                            regionName: "Whole map", pixelCount: image.metadata.pixelCount)
         }
         let r = SpectroscopyRoomController.Request(source: image, region: region, mask: nil, picks: SpectroscopyRoomController.picks(for: sel),
-                                                   integrated: false, beam: 200, firstPass: true, quantify: q)
+                                                   integrated: false, beam: 200, quantify: q)
         return (r, SpectrumComputeCache())
     }
 
@@ -147,5 +147,50 @@ final class SwiftUIReviewETests: XCTestCase {
         let second = try XCTUnwrap(ExportSection.spectrumExport(m))
         XCTAssertNotEqual(second.text, first.text)
         XCTAssertEqual(second.text, SpectrumCSV.text(m.series, imageName: "synthetic", regionName: "Whole map"))
+    }
+
+    // MARK: E3 - observation
+
+    /// Counts the changes of whatever `read` reads, each one synchronously as it is made (the tracking re-arms itself).
+    private final class ChangeCounter: @unchecked Sendable {
+        let read: () -> Void
+        var changes = 0
+        init(_ read: @escaping () -> Void) { self.read = read }
+        func arm() { withObservationTracking(read) { [self] in changes += 1; arm() } }
+    }
+    private func countChanges(_ read: @escaping () -> Void) -> ChangeCounter {
+        let counter = ChangeCounter(read)
+        counter.arm()
+        return counter
+    }
+
+    /// A tile's smoothing change is told to the views once, not twice per tile (values, scale).
+    /// Mutation: `smoothingChanged` writing `m.tiles[i]` in the loop again - red (2 per tile).
+    func testSmoothingTheTilesIsOneChangeNotOnePerTile() {
+        let c = SpectroscopyRoomController(); let m = c.model
+        let counts: [Double] = (0..<12).map { Double($0 % 5) - 1 }
+        m.tiles = [13, 12, 14].map { MapTile(z: $0, width: 4, height: 3, values: [Float](repeating: 0, count: 12), counts: counts) }
+        m.smoothing = .none
+        let seen = countChanges { _ = m.tiles }
+        c.smoothingChanged()
+        XCTAssertEqual(seen.changes, 1, "three tiles, one notification")
+        let expected = SpectroscopyRoomController.display(of: counts, width: 4, height: 3, smoothing: m.smoothing)
+        XCTAssertTrue(m.tiles.allSatisfy { $0.values == expected.values && $0.scale == expected.scale }, "every tile follows")
+    }
+
+    /// The Region section reads the phase only: a spectrum landing and a region edit write nothing it observes.
+    /// Mutation: `apply` (or the live tick) writing `m.regionSettings` again - red.
+    func testLandingASpectrumDoesNotTouchTheRegionSectionsSettings() async throws {
+        let c = openRoom()
+        let m = c.model
+        try await waitFor("the first spectrum") { ExportSection.canExportSpectrum(m.export) }
+        await c.lastRefresh?.value
+        let seen = countChanges { _ = m.regionSettings.phase }
+        let rect = SpectrumRegionShape.rectangle(PixelRect(x0: 0, y0: 0, x1: 4, y1: 3))
+        c.editRegion(rect, final: false)
+        c.editRegion(rect, final: true)
+        try await waitFor("the region's spectrum") { m.spectrumTitle == "Spectrum \u{00B7} Region 1" && !m.spectrumSubtitle.hasSuffix("live") }
+        await c.lastRefresh?.value
+        XCTAssertEqual(seen.changes, 0, "no write to regionSettings on a landing")
     }
 }

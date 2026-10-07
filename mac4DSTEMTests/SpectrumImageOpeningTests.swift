@@ -334,7 +334,7 @@ final class SpectrumImageOpeningTests: XCTestCase {
         try await waitFor("the region's spectrum", state: { "sum \(model.series.data.reduce(0, +)), expected \(regionTotal), regions \(model.regions.count)" }) { model.series.data.reduce(0, +) == regionTotal }
         XCTAssertEqual(model.regions.count, 2)
         XCTAssertEqual(model.spectrumTitle, "Spectrum · Region 1")
-        XCTAssertEqual(model.regionSettings.pixels, "6")
+        XCTAssertEqual(model.spectrumPixels, 6)
         XCTAssertEqual(model.regionOutline, rect)
         model.selectedRegion = 0
         controller.regionPicked()

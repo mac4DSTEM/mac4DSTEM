@@ -244,7 +244,7 @@ final class InspectorWidthBudgetTests: XCTestCase {
         state.openSpectrumImage(DemoSpectrumImageSource.make())
         let model = state.spectroscopyRoom.model
         model.image.sourceWarning = true; model.image.sourceNote = "Not registered: the EDS scan is 256 × 255 px, the 4D scan 171 × 171 px."
-        model.regionSettings = RegionSettings(source: "Drawn", pixels: "65536", counts: "123.45 M")
+        model.regionSettings = RegionSettings(phase: "β″ (Mg₅Si₆)")
         var widest = QuantifySettings()
         widest.kSource = .typed; widest.fileBeamKnown = false; widest.beamEnergy = 200; widest.expertOpen = true
         widest.background = .wholeRangePolynomial6; widest.thickness = 80; widest.thicknessSigma = 15
