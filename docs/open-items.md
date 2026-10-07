@@ -300,7 +300,10 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   Hf beside Cu and Pt beside Ga (an L family's L_D is larger at equal area, so net/L_D is not comparable across families); R2 lost 4 Velox hits
   in-sample, while DTSA-II's Qual set favours it (precision 53,9 → 81,3 %, 8 hard-class hits lost). Next registrations, if wanted: a beside-K
   test on β-line or line-shape evidence; R2 on independent 200 kV truth. Mg is missed on the whole map in 37 of 38 Al-Mg-Si files (a trace in
-  the pool; H4 was selection-biased). Six Velox entries throw `ProposerError` 2 (0944, 1121, 1140, 1253 — one copy of 1253 scores).
+  the pool; H4 was selection-biased).
+- **Duplicate sum-peak columns (diagnosed 2026-10-08):** six Velox entries fail Auto ID with `rankDeficient` because two pile-up pairs share one
+  energy and give identical design columns (`archive/v5/proposer-rankdeficient-diagnosis-2026-10-08.md`); fix registered in
+  `sum-column-dedup-preregistration-2026-10-08.md`.
 - **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.
