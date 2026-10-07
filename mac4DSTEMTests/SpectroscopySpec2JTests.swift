@@ -18,7 +18,7 @@ final class SpectroscopySpec2JTests: XCTestCase {
         let al = tile(13, [0, 0.5, 0.25, 1], scale: 200), si = tile(14, [1, 0, 0.5, 0.1], scale: 10)
         let text = try MapsExport.csv(stem: "demo", mode: .netCounts, tiles: [al, si], symbol: sym)
         let lines = text.split(separator: "\n").map(String.init)
-        XCTAssertEqual(lines.filter { $0.hasPrefix("#") }.count, 2)
+        XCTAssertEqual(lines.filter { $0.hasPrefix("#") }.count, 3, "file, mode and units, what the numbers are")
         XCTAssertTrue(lines[0].contains("demo"))
         XCTAssertTrue(lines[1].contains("net") && lines[1].contains("net counts"), "the header names the mode and the units")
         let body = lines.filter { !$0.hasPrefix("#") }

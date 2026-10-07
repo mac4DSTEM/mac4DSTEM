@@ -201,6 +201,10 @@ final class SpectroscopyRoomController {
         m.onRemoveRegion = { [weak self] id in self?.removeRegion(id: id) }
         m.onPin = { [weak self] in self?.pinRegion() }
         m.onUnpin = { [weak self] id in self?.unpin(id) }
+        // A candidate picked from the spectrum's cursor menu is the periodic table's own click (the Host's change callback follows).
+        m.onPickElement = { [weak self] z in self?.model.elements.click(z) }
+        m.spectrumPixels = source.nx * source.ny
+        m.windowBands = []
         syncRegionsFromSession()
         let first = refresh()
         // ADR 057 item 4: Auto ID runs on open, after the first sums have landed, and applies its picks. It needs the beam
@@ -238,8 +242,20 @@ final class SpectroscopyRoomController {
 
     // MARK: Edits
 
-    /// The display kernel changed (Elements › Smooth): the tiles are rebuilt from the raw maps; nothing is recomputed.
-    func smoothingChanged() {}
+    /// The display kernel changed (Elements › Smooth): every tile's picture is rebuilt from its raw counts with the new kernel
+    /// (filter first, clamp after), so a change back to none returns the first picture exactly. Nothing is recomputed: no sums, no
+    /// spectra, no fit, and the raw counts, the backdrop and the ColorMix's membership are untouched. A fixture tile has no counts and stays.
+    func smoothingChanged() {
+        let m = model
+        guard !m.tiles.isEmpty else { return }
+        for i in m.tiles.indices where !m.tiles[i].counts.isEmpty {
+            let t = m.tiles[i]
+            let shown = Self.display(of: t.counts, width: t.width, height: t.height, smoothing: m.smoothing)
+            m.tiles[i].values = shown.values
+            m.tiles[i].scale = shown.scale
+        }
+        m.tileRevision += 1
+    }
 
     /// The element roles or lines changed in the periodic table.
     func elementsChanged() {
@@ -269,6 +285,7 @@ final class SpectroscopyRoomController {
         let run = beginOperation("Auto ID", "Identifying elements…") { [weak self] in self?.cancelAutoID() }
         autoIDOperation = run
         let current = model.elements.activeZ.map { PeriodicLayout.symbol($0) }
+        let computedK = model.quantify.kSource == .computed   // a computed k covers K lines only (`AutoIDPresentation.outcome`)
         let mask = session.mask(of: region)
         let regionID = region.id, name = region.name
         let cache = cache
@@ -286,7 +303,8 @@ final class SpectroscopyRoomController {
                 let settings = FitSettings.standard(elements: current, axis: source.energyAxis,
                                                     resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
                 let result = try ElementProposer().propose(counts: spectrum.map { Double($0) }, axis: source.energyAxis, settings: settings)
-                outcome = AutoIDPresentation.outcome(result, region: name, beside: AutoIDPresentation.besideCheck(settings: settings, axis: source.energyAxis))
+                outcome = AutoIDPresentation.outcome(result, region: name, beside: AutoIDPresentation.besideCheck(settings: settings, axis: source.energyAxis),
+                                                     computedK: computedK)
             } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note (whoever cancelled it ended the operation)
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }
@@ -486,6 +504,7 @@ final class SpectroscopyRoomController {
                                    data: sum.map { Double($0) }, background: [], model: [], overlay: nil)
             s.overlay = overlay(for: total, whole: cache.spectrum(0))
             m.series = s
+            m.spectrumPixels = region.pixelCount
             m.spectrumTitle = "Spectrum · \(region.name)"
             m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(region.pixelCount))) px · live"
             m.regionSettings.pixels = "\(region.pixelCount)"
@@ -772,6 +791,8 @@ final class SpectroscopyRoomController {
         let region = session.regions.first { $0.id == out.region }
         let name = region?.name ?? "Whole map"
         let pixels = region?.pixelCount ?? source.nx * source.ny
+        m.spectrumPixels = pixels
+        m.windowBands = Self.windowBands(for: out.windows, axis: axis)
         m.spectrumTitle = "Spectrum · \(name)"
         m.spectrumSubtitle = "\(Self.counts(total)) counts · \(ResultFormat.counts(Double(pixels))) px"
         m.resultsTitle = "Results · \(name)"
@@ -802,8 +823,10 @@ final class SpectroscopyRoomController {
                                       wtPercent: 0, wtSigma: 0, sigmaTerms: "", failure: w.failure))
             }
             if let map = out.maps[i] {
-                tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: Self.normalised(map),
-                                     notMeasuredWhy: out.counts[i]?.notAMeasurementText, scale: Self.scale(of: map)))
+                // Row 1a: the kernel is applied to the SIGNED map and the clamp comes after; the tile keeps the raw counts.
+                let shown = Self.display(of: map, width: source.nx, height: source.ny, smoothing: m.smoothing)
+                tiles.append(MapTile(z: z, width: source.nx, height: source.ny, values: shown.values, counts: map,
+                                     notMeasuredWhy: out.counts[i]?.notAMeasurementText, scale: shown.scale))
                 // R10: a picked element goes into the mix (a picture); its not-a-measurement note stays on the tile and the row. The user may untick.
                 if seenTiles.insert(z).inserted { m.mixed.insert(z) }
             }
@@ -909,6 +932,35 @@ final class SpectroscopyRoomController {
         let hi = map.max() ?? 0
         guard hi > 0 else { return [Float](repeating: 0, count: map.count) }
         return map.map { Float(max($0, 0) / hi) }
+    }
+
+    /// A tile's picture and its scale from the raw signed map: the display kernel first, then the clamp of negatives to 0 and the
+    /// stretch to the map's own maximum (`normalised`). Filtering the clamped values instead would inflate a sparse map, since
+    /// a negative pixel beside a positive one would no longer cancel. Display only: the raw map is what the tile keeps.
+    static func display(of map: [Double], width: Int, height: Int, smoothing: MapSmoothing) -> (values: [Float], scale: Float) {
+        let shown = smoothing.apply(map, width: width, height: height)
+        return (normalised(shown), scale(of: shown))
+    }
+
+    /// The line and background windows the net maps use, as energy bands: one signal band per line window and its two background
+    /// bands, from the windows' channel ranges through the axis. A channel is as wide as the axis step and centred on its energy,
+    /// so channels `a..<b` cover `energy(a) - step/2` to `energy(b) - step/2`. A line with no window (no line on the axis) has none.
+    static func windowBands(for windows: [LineWindow], axis: EnergyAxis) -> [WindowBand] {
+        func band(_ r: Range<Int>) -> ClosedRange<Double> {
+            let lo = axis.energy(ofChannel: r.lowerBound) - axis.scale / 2
+            return lo...max(lo, axis.energy(ofChannel: r.upperBound) - axis.scale / 2)
+        }
+        var out: [WindowBand] = []
+        for w in windows {
+            guard let r = w.window else { continue }
+            let z = PeriodicLayout.z(of: w.element), label = ElementWindows.label(ofLineID: w.id)
+            out.append(WindowBand(id: w.id + ".signal", elementZ: z, label: label, range: band(r.signal), kind: .signal))
+            if let b = r.background {
+                out.append(WindowBand(id: w.id + ".left", elementZ: z, label: label, range: band(b.left), kind: .background))
+                out.append(WindowBand(id: w.id + ".right", elementZ: z, label: label, range: band(b.right), kind: .background))
+            }
+        }
+        return out
     }
 
     /// `priority` decides which name survives a collision: the window's own line (K\u{03B1}) over its satellites, a quantified element over a fit-only one.

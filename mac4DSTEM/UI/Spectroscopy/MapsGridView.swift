@@ -236,6 +236,16 @@ struct MapTileView: View {
         "Region \u{00B7} \(ResultFormat.counts(Double(pixels))) px \u{00B7} live"
     }
 
+    /// The header's kernel text on an element tile ("net \u{00B7} 3 \u{00D7} 3"); nil when nothing is smoothed.
+    static func kernelText(mode: MapMode, smoothing: MapSmoothing) -> String? {
+        smoothing == .none ? nil : "\(mode.rawValue) \u{00B7} \(smoothing.label)"
+    }
+
+    /// The help on that text.
+    static func kernelHelp(smoothing: MapSmoothing) -> String? {
+        smoothing == .none ? nil : "Displayed through a \(smoothing.label) count-conserving kernel; the raw map is what the export writes."
+    }
+
     private var header: some View {
         HStack(spacing: 4) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).shadow(radius: 1)
@@ -244,9 +254,15 @@ struct MapTileView: View {
                 let mixed = model.tiles.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
                 let notMixed = model.tiles.filter { !model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
                 // UX #10: the mixed symbols only; what is not in the mix is in this help.
-                Text(ColorMixHeader.text(mixed: mixed)).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.head)
+                Text(ColorMixHeader.text(mixed: mixed, smoothing: model.smoothing)).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1).truncationMode(.head)
                     .help(ColorMixHeader.help(mixed: mixed, notMixed: notMixed))
             } else {
+                if case .element = map, let kernel = Self.kernelText(mode: model.mapMode, smoothing: model.smoothing) {
+                    // Row 1a: the tile names the kernel it went through; the raw map is what the export writes.
+                    Text(kernel).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                        .help(Self.kernelHelp(smoothing: model.smoothing) ?? "")
+                        .accessibilityIdentifier("spectroscopy.tile.kernel")
+                }
                 chip
             }
         }
@@ -501,6 +517,12 @@ extension SpectroscopyRoomModel {
         if case .element(let z) = map, let t = tiles.first(where: { $0.z == z }), t.scale > 0 { return t.scale }
         return 1
     }
+    /// The histogram section's title: an element map under a display kernel says its values are smoothed (the unit string is
+    /// repeated on every readout, so the title carries it once).
+    func histogramTitle(_ map: ActiveMap) -> String {
+        if case .element = map, smoothing != .none { return "Histogram \u{00B7} smoothed, \(smoothing.label)" }
+        return "Histogram"
+    }
     func histogramUnit(_ map: ActiveMap) -> String {
         if case .element = map { return "counts" }
         return ""
@@ -542,7 +564,7 @@ struct MapDisplayPopover: View {
                 }
             }
             if !pixels.isEmpty {
-                Section("Histogram") {
+                Section(model.histogramTitle(map)) {
                     HistogramView(pixels: pixels, version: model.tileRevision, rangeLo: display.lo, rangeHi: display.hi,
                                   scale: model.histogramScale(map), unit: model.histogramUnit(map))
                         .help("Drag the handles to set this map's contrast window.")
@@ -590,7 +612,11 @@ enum TileMotion {
 /// The ColorMix header: the mixed symbols, no cap; what is not picked into the mix is named in the header's help (a picked
 /// element whose line is not a measurement starts out of the mix, so a missing colour is explained, not silent).
 nonisolated enum ColorMixHeader {
-    static func text(mixed: [String]) -> String { mixed.joined(separator: " \u{00B7} ") }
+    /// The mixed symbols, then the display kernel once ("O \u{00B7} Mg \u{00B7} Al \u{00B7} Si \u{00B7} 3 \u{00D7} 3"); nothing when nothing is mixed.
+    static func text(mixed: [String], smoothing: MapSmoothing = .none) -> String {
+        let names = mixed.joined(separator: " \u{00B7} ")
+        return names.isEmpty || smoothing == .none ? names : names + " \u{00B7} " + smoothing.label
+    }
     static func help(mixed: [String], notMixed: [String]) -> String {
         let base = text(mixed: mixed)
         guard !notMixed.isEmpty else { return base.isEmpty ? "The ColorMix: click an element's tile to add it." : "The ColorMix: " + base }

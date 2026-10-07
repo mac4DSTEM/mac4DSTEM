@@ -4,10 +4,10 @@ import DSTEMCore
 
 /// UX lane DE: the quant panel's one voice, the Fit inspector's wording, the periodic table's size.
 final class SpectroscopyUXDETests: XCTestCase {
-    /// #7: the stale "Quantify inspector" text is gone; an applied note and other refusals keep their meaning.
+    /// #7: the stale "Quantify inspector" text is gone; an applied note and other refusals keep their meaning. Velox row 8a: the
+    /// missing thickness has no note at all now (the Absorption box is disabled instead).
     func testAbsorptionNoteIsOneShortTruthfulLine() {
-        XCTAssertEqual(QuantifyPresentation.absorptionNoteText("not applied: no thickness is typed (nm): type one in the Quantify inspector"),
-                       "Off: no thickness typed.")
+        XCTAssertNil(QuantifyPresentation.absorptionNoteText("not applied: no thickness is typed (nm): type one in the Quantify inspector"))
         XCTAssertEqual(QuantifyPresentation.absorptionNoteText("not applied: the mass-absorption table is not available"),
                        "Off: the mass-absorption table is not available")
         XCTAssertEqual(QuantifyPresentation.absorptionNoteText("4 detectors \u{00B7} TOA from file"), "4 detectors \u{00B7} TOA from file")

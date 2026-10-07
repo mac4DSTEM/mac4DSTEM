@@ -130,15 +130,16 @@ nonisolated struct UnlistedLineNote: Equatable, Sendable {
 }
 
 nonisolated enum QuantifyPresentation {
-    /// UX lane DE (#7): the Fit inspector's absorption note in one short line. The fit's refusal text ("not applied: no thickness
-    /// is typed (nm): type one in the Quantify inspector") names an inspector that no longer exists; the row says what is
-    /// so: absorption is off, and why. An applied note (the geometry and thickness) stands as the fit states it.
+    /// UX lane DE (#7), Velox row 8a: the Fit inspector's absorption note in one short line. The fit's refusal text ("not applied: no
+    /// thickness is typed (nm): ...") names an inspector that no longer exists, and the missing thickness is now said by the
+    /// disabled Absorption box itself, so that refusal has no note. Another refusal reads "Off: why"; an applied note (the geometry
+    /// and thickness) stands as the fit states it.
     static func absorptionNoteText(_ raw: String?) -> String? {
         guard let raw else { return nil }
         let prefix = "not applied: "
         guard raw.hasPrefix(prefix) else { return raw }
         let why = String(raw.dropFirst(prefix.count))
-        if why.hasPrefix("no thickness is typed") { return "Off: no thickness typed." }
+        if why.hasPrefix("no thickness is typed") { return nil }
         return "Off: " + why
     }
 

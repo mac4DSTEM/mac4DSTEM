@@ -47,6 +47,11 @@ enum LayoutPolicy {
     /// (2026-09-30: SwiftUI does not shrink a column whose maximum drops).
     static let inspectorWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (280, 320, 460)
 
+    /// Liquid Glass on the shell (ADR 058, mock A): the sidebar and the inspector are glass panes floating over the window's
+    /// thin material, inset from the column edges by this much, with this corner radius. The centre column is flat content.
+    static let shellGlassInset: CGFloat = 8
+    static let shellGlassCornerRadius: CGFloat = 12
+
     /// The width a science pane should keep before the sidebar steps aside:
     /// narrower than this, the window collapses the sidebar, as Xcode hides
     /// its navigator (owner's decision 2026-09-30). Above `imagePaneMinimum`,

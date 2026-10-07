@@ -274,9 +274,10 @@ nonisolated enum AxisTicks {
 /// Counts-axis range for the log plot. `minPositive` is +∞ when no visible channel has a
 /// positive count (an empty window); the floor then falls back to 1 so no coordinate is NaN.
 nonisolated enum SpectrumYRange {
-    static func log(minPositive: Double, maximum: Double) -> (lo: Double, hi: Double) {
-        let lo = minPositive.isFinite && minPositive > 0 ? max(1, pow(10, floor(log10(minPositive)))) : 1
-        let top = maximum.isFinite && maximum > 0 ? maximum * 1.05 : 10
+    /// `unit` is what one raw count is in the plotted unit (1 for counts, 1/pixels per pixel): the floor of the axis.
+    static func log(minPositive: Double, maximum: Double, unit: Double = 1) -> (lo: Double, hi: Double) {
+        let lo = minPositive.isFinite && minPositive > 0 ? max(unit, pow(10, floor(log10(minPositive)))) : unit
+        let top = maximum.isFinite && maximum > 0 ? maximum * 1.05 : 10 * unit
         return (lo, max(pow(10, ceil(log10(top))), lo * 10))
     }
 }
@@ -304,19 +305,164 @@ nonisolated enum ValidationState {
     }
 }
 
-/// What the cursor is over: the channel's energy and counts, and the nearest line marker
-/// within its own FWHM (`LineMarker.fwhm`), or `lineTolerance` keV when the marker carries none.
+/// What the cursor is over: the channel's energy and counts, the nearest line marker within its own FWHM
+/// (`LineMarker.fwhm`, or `lineTolerance` keV when the marker carries none), and the tabulated lines the energy could be
+/// (`candidates`, Velox's cursor identification, sheet row 3a).
 nonisolated enum SpectrumHover {
     static let lineTolerance = 0.1
-    struct Sample: Equatable { var energy: Double; var counts: Double; var line: String? }
-    static func sample(series: SpectrumSeries, viewport: SpectrumViewport, fraction f: Double, markers: [LineMarker]) -> Sample? {
+    /// The Si Kα energy an escape peak lies below its parent line (the Si(Li)/SDD crystal's escape), keV.
+    static let siEscapeKeV = 1.740
+    /// How many names the readout shows after the counts.
+    static let namesShown = 3
+
+    /// A line, a pile-up sum or a Si escape that lies within one detector FWHM of the cursor.
+    struct Candidate: Equatable, Sendable {
+        enum Kind: Sendable { case line, sum, escape }
+        var z: Int
+        var label: String            // "Ar Kα", "Al Kα+Kα sum", "Cu Kα esc"
+        var energy: Double           // keV
+        var kind: Kind
+    }
+
+    struct Sample: Equatable {
+        var energy: Double
+        var counts: Double
+        var line: String?
+        var candidates: [Candidate] = []
+    }
+
+    /// The α lines of the table (Ka, La, Ma), H and He excluded (their "lines" are ionisation energies).
+    private static let alphaLines: [XRayLine] = XRayLines.all.filter {
+        ($0.name == "Ka" || $0.name == "La" || $0.name == "Ma") && !XRayLines.notRealLines.contains($0.element)
+    }
+
+    /// Every α line within ± 1 FWHM of `e` (the width law at the line's own energy, 0.1 keV where the law has none), closest
+    /// first; plus, for the `listed` elements' α lines, the pile-up sum (2 E) and the Si escape (E − 1.740 keV) when within the
+    /// same tolerance. A listed element's own line comes before every other; sums and escapes follow by distance with the rest.
+    static func candidates(at e: Double, resolutionMnKaEV: Double, listed: [Int]) -> [Candidate] {
+        func tolerance(_ at: Double) -> Double { XRayLines.fwhm(resolutionMnKaEV: resolutionMnKaEV, atEnergy: at) ?? lineTolerance }
+        let listedSet = Set(listed)
+        var out: [Candidate] = []
+        for l in alphaLines {
+            let greek = String(l.name.prefix(1)) + "\u{03B1}"
+            if abs(l.energy - e) <= tolerance(l.energy) {
+                out.append(Candidate(z: l.atomicNumber, label: "\(l.element) \(greek)", energy: l.energy, kind: .line))
+            }
+            guard listedSet.contains(l.atomicNumber) else { continue }
+            let sum = 2 * l.energy
+            if abs(sum - e) <= tolerance(sum) {
+                out.append(Candidate(z: l.atomicNumber, label: "\(l.element) \(greek)+\(greek) sum", energy: sum, kind: .sum))
+            }
+            let esc = l.energy - siEscapeKeV
+            if esc > 0, abs(esc - e) <= tolerance(esc) {
+                out.append(Candidate(z: l.atomicNumber, label: "\(l.element) \(greek) esc", energy: esc, kind: .escape))
+            }
+        }
+        func rank(_ c: Candidate) -> Int { c.kind == .line && listedSet.contains(c.z) ? 0 : 1 }
+        return out.sorted {
+            if rank($0) != rank($1) { return rank($0) < rank($1) }
+            let d0 = abs($0.energy - e), d1 = abs($1.energy - e)
+            return d0 != d1 ? d0 < d1 : $0.z < $1.z
+        }
+    }
+
+    static func sample(series: SpectrumSeries, viewport: SpectrumViewport, fraction f: Double, markers: [LineMarker],
+                       resolutionMnKaEV: Double = ElementWindows.defaultResolutionMnKaEV, listed: [Int] = []) -> Sample? {
         guard series.count > 0, f >= 0, f <= 1, series.energyStep > 0 else { return nil }
         let e = viewport.energy(atFraction: f)
         let ch = min(series.count - 1, max(0, Int(((e - series.energyStart) / series.energyStep).rounded())))
         let near = markers.filter { $0.kind != .edge }.min { abs($0.energy - e) < abs($1.energy - e) }
         // The cut-off is the marker's own FWHM when it has one (a Mg Kα marker 60 eV wide, a Cu Kα one 160 eV).
         let line = near.flatMap { abs($0.energy - e) <= ($0.fwhm ?? lineTolerance) ? $0.label : nil }
-        return Sample(energy: series.energy(ch), counts: series.data[ch], line: line)
+        return Sample(energy: series.energy(ch), counts: series.data[ch], line: line,
+                      candidates: candidates(at: e, resolutionMnKaEV: resolutionMnKaEV, listed: listed))
+    }
+
+    /// The range marker (⌥-drag, sheet row 13a): the counts of the channels whose energy lies in `from...to` (either order),
+    /// and their share of the series' total. A series with no counts has fraction 0.
+    static func range(series: SpectrumSeries, from: Double, to: Double) -> (counts: Double, fraction: Double) {
+        guard series.count > 0, series.energyStep > 0 else { return (0, 0) }
+        let lo = min(from, to), hi = max(from, to)
+        let i0 = max(0, Int(ceil((lo - series.energyStart) / series.energyStep - 1e-9)))
+        let i1 = min(series.count - 1, Int(floor((hi - series.energyStart) / series.energyStep + 1e-9)))
+        let counts = i1 >= i0 ? series.data[i0...i1].reduce(0, +) : 0
+        let total = series.data.reduce(0, +)
+        return (counts, total > 0 ? counts / total : 0)
+    }
+}
+
+/// Counts per pooled pixel (Show › Per pixel): a region's size falls out of a comparison. Pure; the drawing divides curves and
+/// readouts by `divisor`. Fits, the residual and every export stay in counts.
+nonisolated enum SpectrumScale {
+    /// 1 (no scaling) unless the toggle is on and the pooled pixel count is known.
+    static func divisor(perPixel: Bool, pixels: Int) -> Double { perPixel && pixels > 0 ? Double(pixels) : 1 }
+    /// `v` per pixel; unchanged when the pixel count is unknown (0), never a division by zero.
+    static func perPixel(_ v: [Double], pixels: Int) -> [Double] { pixels > 0 ? v.map { $0 / Double(pixels) } : v }
+}
+
+/// How a window band of the net maps is drawn (Show \u{203A} Windows): faint, so the spectrum stays the picture. The signal window
+/// takes 8 % of its element's colour, a background window 5 % grey; no labels.
+nonisolated enum WindowBandStyle {
+    static func opacity(_ kind: WindowBand.Kind) -> Double { kind == .signal ? 0.08 : 0.05 }
+}
+
+/// The plot's readout text: the cursor's, and the range marker's. Numbers in the person's locale (a decimal comma in German),
+/// pixel counts grouped like the spectrum header's (a thin space).
+nonisolated enum SpectrumReadout {
+    static func energy(_ e: Double, decimals: Int = 3, locale: Locale = .current) -> String {
+        e.formatted(.number.precision(.fractionLength(decimals)).grouping(.never).locale(locale))
+    }
+
+    /// 1380 -> "1 380" (thin grouping, as `ResultFormat.counts`).
+    static func counts(_ v: Double) -> String {
+        let f = NumberFormatter(); f.numberStyle = .decimal; f.groupingSeparator = "\u{202F}"; f.usesGroupingSeparator = true
+        f.locale = Locale(identifier: "en_US"); f.maximumFractionDigits = 0
+        return f.string(from: NSNumber(value: v)) ?? String(Int(v))
+    }
+
+    /// Counts per pixel: three decimals below 10 ("0,027"), one below 100, none above.
+    static func perPixel(_ v: Double, locale: Locale = .current) -> String {
+        let d = abs(v) < 10 ? 3 : (abs(v) < 100 ? 1 : 0)
+        return v.formatted(.number.precision(.fractionLength(d)).grouping(.never).locale(locale))
+    }
+
+    /// "2,957 keV", "1 380 counts" (or "0,027 counts/px" with `pixels` > 0 and `perPixel`), then the names: the marker's own line
+    /// first (today's nearest-listed rule), then the candidates, at most `SpectrumHover.namesShown` in all.
+    static func parts(_ s: SpectrumHover.Sample, divisor: Double = 1, locale: Locale = .current) -> [String] {
+        var out = [energy(s.energy, locale: locale) + " keV",
+                   divisor == 1 ? counts(s.counts) + " counts" : perPixel(s.counts / divisor, locale: locale) + " counts/px"]
+        var names: [String] = []
+        if let l = s.line { names.append(l) }
+        for c in s.candidates where !names.contains(c.label) { names.append(c.label) }
+        out += names.prefix(SpectrumHover.namesShown)
+        return out
+    }
+
+    /// "1,40–1,60 keV · 61 230 counts · 15,4 % of the region".
+    static func rangeText(from: Double, to: Double, counts c: Double, fraction: Double, divisor: Double = 1, locale: Locale = .current) -> String {
+        let lo = min(from, to), hi = max(from, to)
+        let share = (fraction * 100).formatted(.number.precision(.fractionLength(1)).grouping(.never).locale(locale))
+        return [energy(lo, decimals: 2, locale: locale) + "\u{2013}" + energy(hi, decimals: 2, locale: locale) + " keV",
+                divisor == 1 ? counts(c) + " counts" : perPixel(c / divisor, locale: locale) + " counts/px",
+                share + " % of the region"].joined(separator: " \u{00B7} ")
+    }
+
+    /// The counts axis title: "counts / 20 eV", or "counts / px / 20 eV" per pixel.
+    static func yAxisTitle(channelEV: Int, perPixel: Bool) -> String { "counts / \(perPixel ? "px / " : "")\(channelEV) eV" }
+
+    static let separator = " \u{00B7} "
+    /// The readout box's widest text, points.
+    static let widthCap: CGFloat = 320
+
+    /// The parts joined, the trailing ones dropped (and "…" added) until the text is no wider than `cap` by `width`; the first
+    /// part (the energy) is never dropped.
+    static func fit(_ parts: [String], cap: CGFloat = widthCap, width: (String) -> CGFloat) -> String {
+        var kept = parts
+        while true {
+            let text = kept.joined(separator: separator) + (kept.count < parts.count ? "\u{2026}" : "")
+            if kept.count <= 1 || width(text) <= cap { return text }
+            kept.removeLast()
+        }
     }
 }
 

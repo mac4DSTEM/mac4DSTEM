@@ -67,6 +67,17 @@ struct ElementsSection: View {
             .help("int: the line's window sum. net: less its background windows. wt% and at% are computed on regions (the Results section), not per pixel.")
             .accessibilityIdentifier("spectroscopy.mapMode")
         }
+        // Row 1a: a display kernel on the maps (the fixture has no maps behind it, so no row there).
+        if model.isLive {
+            InspectorRow("Smooth") {
+                Picker("Smooth", selection: $model.smoothing) {
+                    ForEach(MapSmoothing.allCases, id: \.self) { Text(Self.smoothingTitle($0)).tag($0) }
+                }
+                .pickerStyle(.menu).labelsHidden().fixedSize()
+                .help(Self.smoothingHelp)
+                .accessibilityIdentifier("spectroscopy.smoothing")
+            }
+        }
         // The proposer is unvalidated, so its badge stands in this row whatever the run's state (CLAUDE.md, "unvalidated stays
         // labelled"); the button (or, while it runs, the progress and Cancel) is the row under it.
         InspectorRow("Auto ID") { UnvalidatedBadge() }
@@ -85,8 +96,8 @@ struct ElementsSection: View {
             }
         }
         if let o = model.autoID.outcome {
-            InspectorValueRow(Self.foundTitle, Self.pickedList(o))
-                .help(Self.foundHelp + "\n" + Self.notes(o, o.suggestions))
+            InspectorValueRow(Self.foundTitle, Self.foundText(o))
+                .help(Self.foundHover(o))
             // R7 (wp3e F3.1): an excess beside a listed line is a misfit, named so, with no tile.
             let excesses = model.autoIDExcesses
             if !excesses.isEmpty {
@@ -96,9 +107,37 @@ struct ElementsSection: View {
         if let why = model.autoID.failure { InspectorNote(why) }
     }
 
-    /// "Al, Si, Mg": what the last run picked, in its order (strongest first); "none" when it found nothing.
-    static func pickedList(_ o: AutoIDOutcome) -> String {
-        o.suggestions.isEmpty ? "none" : o.suggestions.map { PeriodicLayout.symbol($0.z) }.joined(separator: ", ")
+    /// The Smooth menu's entries: the kernel as a tile names it, "None" for the raw map.
+    static func smoothingTitle(_ s: MapSmoothing) -> String { s == .none ? "None" : s.label }
+    static let smoothingHelp = "A count-conserving kernel on the displayed maps only (Velox's pre-filter). The raw map, the spectra, the fit and the export are untouched; every tile names the kernel."
+
+    /// "Cu 41, Al 380, O 12, Eu 1,1": what the last run picked, in its order (strongest first), each with its net / L_D (one
+    /// decimal below 10, none above; the symbol alone when the proposer gave none). A pick applied as Fit only (a line without a
+    /// computed k) says so, since it gets no at%. "none" when it found nothing.
+    static func foundText(_ o: AutoIDOutcome, locale: Locale = .current) -> String {
+        guard !o.suggestions.isEmpty else { return "none" }
+        return o.suggestions.map { s in
+            var t = PeriodicLayout.symbol(s.z)
+            if s.significance > 0 { t += " " + significanceText(s.significance, locale: locale) }
+            if s.proposedRole == .fitOnly { t += " (fit only)" }
+            return t
+        }.joined(separator: ", ")
+    }
+
+    /// Rounded first, so 9.96 reads "10" and not "10.0".
+    static func significanceText(_ v: Double, locale: Locale) -> String {
+        let digits = (v * 10).rounded() / 10 < 10 ? 1 : 0
+        return v.formatted(.number.locale(locale).precision(.fractionLength(digits)).grouping(.never))
+    }
+
+    /// The number's definition, the hover's first line.
+    static func significanceLine(locale: Locale = .current) -> String {
+        "net / L_D: 1 = just detectable (Currie, \u{03B1} = \u{03B2} = \(0.05.formatted(.number.locale(locale))))"
+    }
+
+    /// The Found row's hover: the number's definition, then the row's help and the proposer's reasons.
+    static func foundHover(_ o: AutoIDOutcome, locale: Locale = .current) -> String {
+        significanceLine(locale: locale) + "\n" + foundHelp + "\n" + notes(o, o.suggestions)
     }
 
     /// The proposer's own words, as the row's hover: each pick's reason, the sum-peak questions, what it did not test.
@@ -175,6 +214,12 @@ struct RegionSection: View {
 struct QuantificationSection: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var editingTyped = false
+
+    /// The absorption correction needs a thickness; until one is typed the box is disabled.
+    static func absorptionEnabled(_ q: QuantifySettings) -> Bool { q.thickness != nil }
+    /// What the box shows: the stored choice once a thickness is typed, unticked before (the fit does not correct then).
+    static func absorptionShown(_ q: QuantifySettings) -> Bool { q.absorption && q.thickness != nil }
+    static let absorptionHelp = "Needs a thickness; the box follows it."
     var body: some View {
         let q = model.quantify
         InspectorRow("Background") {
@@ -194,8 +239,14 @@ struct QuantificationSection: View {
                 .help("Computed: Bote-Salvat cross-section, Krause yield, EPQ detector model (unvalidated). Typed: your k with its source and date.")
             }
         }        .sheet(isPresented: $editingTyped) { TypedKSheet(model: model) { editingTyped = false } }
+        // Row 8a: without a thickness the correction cannot run, so the box is off and cannot be ticked; the stored choice
+        // (`quantify.absorption`, a provenance key) is not written by this and is shown again once a thickness is typed.
         InspectorRow("Absorption") {
-            Toggle("Absorption", isOn: $model.quantify.absorption).labelsHidden().toggleStyle(.checkbox)
+            Toggle("Absorption", isOn: Binding(get: { Self.absorptionShown(q) }, set: { model.quantify.absorption = $0 }))
+                .labelsHidden().toggleStyle(.checkbox)
+                .disabled(!Self.absorptionEnabled(q))
+                .help(Self.absorptionHelp)
+                .accessibilityIdentifier("spectroscopy.absorption")
         }
         if let note = QuantifyPresentation.absorptionNoteText(q.absorptionNote) { InspectorNote(note) }
         InspectorRow("Thickness") {

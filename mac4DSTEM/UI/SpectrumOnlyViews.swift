@@ -81,12 +81,18 @@ struct SpectrumImageInfoSection: View {
             }
             InspectorValueRow("Channels", "\(metadata.channelCount)", mono: true)
             InspectorValueRow("Energy axis", SpectroscopyPlaceholderFormat.energyAxis(metadata), mono: true)
+            InspectorValueRow("Dispersion", SpectroscopyPlaceholderFormat.dispersion(metadata), mono: true)
+            InspectorValueRow("Offset", SpectroscopyPlaceholderFormat.offset(metadata), mono: true)
             if let f = metadata.frames { InspectorValueRow("Frames", "\(f)", mono: true) }
             if let i = metadata.instrument { InspectorValueRow("Instrument", i) }
             if let b = metadata.beamEnergyKeV { InspectorValueRow("Beam", "\(b.formatted()) keV", mono: true) }
+            if let stage = SpectroscopyPlaceholderFormat.stage(metadata) { InspectorValueRow("Stage", stage, mono: true) }
             ForEach(Array(metadata.detectors.enumerated()), id: \.offset) { _, d in
                 InspectorValueRow(d.name, SpectroscopyPlaceholderFormat.detector(d), mono: true)
             }
+            // No live-time row: the reader records the segments' LiveTime/RealTime as read, semantics unverified (cumulative in
+            // one file, per frame in another; 4,7 s on a 43-frame SI is not the acquisition's live time). `liveTime(_:)` waits for
+            // the reader change the sheet's row 4a names.
             if let note = metadata.registrationNote { InspectorNote(note) }
         }
     }
@@ -117,5 +123,48 @@ enum SpectroscopyPlaceholderFormat {
         let end = (m.energyOffsetEV + Double(m.channelCount) * m.energyDispersionEV) / 1000
         return "\(start.formatted(.number.precision(.fractionLength(0...3))))–"
             + "\(end.formatted(.number.precision(.fractionLength(0...3)))) keV"
+    }
+
+    /// A number in the person's locale with a narrow no-break space for the thousands (as the results table groups counts),
+    /// a true minus, and no digits past `fraction`.
+    static func number(_ v: Double, fraction: ClosedRange<Int>, locale: Locale) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal; f.locale = locale
+        f.usesGroupingSeparator = true; f.groupingSeparator = "\u{202F}"; f.groupingSize = 3
+        f.minimumFractionDigits = fraction.lowerBound; f.maximumFractionDigits = fraction.upperBound
+        let body = f.string(from: NSNumber(value: abs(v))) ?? String(abs(v))
+        let isZero = f.string(from: NSNumber(value: 0)) == body
+        return v < 0 && !isZero ? "\u{2212}" + body : body
+    }
+
+    /// "20 eV/ch": the file's dispersion.
+    static func dispersion(_ m: SpectrumImageMetadata, locale: Locale = .current) -> String {
+        number(m.energyDispersionEV, fraction: 0...3, locale: locale) + " eV/ch"
+    }
+
+    /// "\u{2212}1 932 eV": the file's offset (energy of the first channel).
+    static func offset(_ m: SpectrumImageMetadata, locale: Locale = .current) -> String {
+        number(m.energyOffsetEV, fraction: 0...2, locale: locale) + " eV"
+    }
+
+    /// "\u{03B1} 7,3\u{00B0} \u{00B7} \u{03B2} 0,0\u{00B0}": the stage tilts the file wrote; nil when it wrote neither.
+    static func stage(_ m: SpectrumImageMetadata, locale: Locale = .current) -> String? {
+        let parts = [("\u{03B1}", m.alphaTiltDegrees), ("\u{03B2}", m.betaTiltDegrees)].compactMap { name, v in
+            v.map { "\(name) \(number($0, fraction: 1...1, locale: locale))\u{00B0}" }
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
+    /// "4 187,7 s \u{00B7} real 1 423,1 s": the detectors' live time (a range when the segments differ), then the real time when
+    /// the file has one; nil when no detector carries a live time (semantics as stored, unverified).
+    static func liveTime(_ m: SpectrumImageMetadata, locale: Locale = .current) -> String? {
+        func span(_ values: [Double]) -> String? {
+            guard let lo = values.min(), let hi = values.max() else { return nil }
+            let a = number(lo, fraction: 1...1, locale: locale)
+            return lo == hi ? a : a + "\u{2013}" + number(hi, fraction: 1...1, locale: locale)
+        }
+        guard let live = span(m.detectors.compactMap(\.liveTime)) else { return nil }
+        let real = span(m.detectors.compactMap(\.realTime)).map { " \u{00B7} real \($0) s" } ?? ""
+        return live + " s" + real
     }
 }

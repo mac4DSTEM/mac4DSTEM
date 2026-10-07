@@ -127,6 +127,9 @@ struct ContentView: View {
                 )
         } detail: {
             WorkspaceView()
+                // The centre column is content, not navigation: flat and
+                // opaque over the window's material (HIG: no glass in content).
+                .background(.background)
                 // Declared on the detail column, not on the split view.
                 // Measured 2026-09-22 on macOS 27: with the title removed,
                 // a toolbar declared on the split view laid these
@@ -168,6 +171,17 @@ struct ContentView: View {
         // its jump bar does.
         .navigationTitle(appState.descriptor?.fileName ?? appState.spectroscopy.metadata?.fileName ?? "mac4DSTEM")
         .toolbar(removing: .title)
+        // Liquid Glass (ADR 058, mock A; owner 2026-10-07 "where is the liquid
+        // glass?"). The sidebar and the inspector draw themselves as glass
+        // panes (`WorkspaceSidebar`, `WorkspaceInspector`); glass shows what
+        // is behind it, so the window itself takes the thinnest system
+        // material and the desktop reads faintly through the panes. The
+        // centre column stays flat content (`.background(.background)` on the
+        // detail column above; HIG: no glass in content). Widths and
+        // structure unchanged (ADR 035). Reduce Transparency: the system
+        // frosts both. A `.regularMaterial` on the window alone was tried
+        // first and read flat on screen (2026-10-07).
+        .containerBackground(.ultraThinMaterial, for: .window)
     }
 
     /// What the split view shows and what a click writes are both intent

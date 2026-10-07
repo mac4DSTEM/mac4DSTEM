@@ -180,6 +180,20 @@ struct WorkspaceView: View {
 
 // MARK: - The toolbar's room actions
 
+/// Row 8c of the Velox sheet (ADR 058): "Preprocess Raw Data…" writes a reduced 4D cube, so a window that holds a spectrum
+/// image and no cube does not offer it. Open Dataset… and Open with Options… always stay: they are the way out of such a
+/// window. Pure, so it is tested (`ShellGlassTests`); the File menu asks the same question (`DatasetCommands`).
+enum DatasetMenuRule {
+    static func showsPreprocessRawData(hasSpectrumImage: Bool, hasCube: Bool) -> Bool {
+        !(hasSpectrumImage && !hasCube)
+    }
+
+    /// The same question asked of a window: the flags the Spectroscopy room itself reads (`isSpectrumOnly`).
+    @MainActor static func showsPreprocessRawData(in appState: AppState) -> Bool {
+        showsPreprocessRawData(hasSpectrumImage: appState.hasSpectrumImage, hasCube: appState.hasDataset)
+    }
+}
+
 /// The window-level dataset switcher in the standard toolbar.
 struct DatasetMenu: View {
     @Environment(AppState.self) private var appState
@@ -188,9 +202,12 @@ struct DatasetMenu: View {
         Menu {
             Button("Open Dataset…") { appState.requestOpenDataset() }
             Button("Open with Options…") { appState.requestOpenDatasetWithOptions() }
-            // X3 (owner-accepted mock 2026-10-01): beside Open with Options, with or without a dataset.
-            Button("Preprocess Raw Data…") { appState.requestPreprocessRawData() }
-                .disabled(appState.isBusy)
+            // X3 (owner-accepted mock 2026-10-01): beside Open with Options, with or without a dataset — except in a
+            // spectrum-only window (row 8c).
+            if DatasetMenuRule.showsPreprocessRawData(in: appState) {
+                Button("Preprocess Raw Data…") { appState.requestPreprocessRawData() }
+                    .disabled(appState.isBusy)
+            }
             if appState.hasDataset {
                 Divider()
                 Button("Export Diffraction PNG…") { appState.exportDiffractionImage() }

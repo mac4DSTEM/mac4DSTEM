@@ -83,8 +83,18 @@ nonisolated enum AutoIDPresentation {
         cs.enumerated().sorted { $0.element.significance != $1.element.significance ? $0.element.significance > $1.element.significance : $0.offset < $1.offset }.map(\.element)
     }
 
+    /// Why a pick is applied as Fit only when the k-factors are computed and its line group is an L or M one.
+    static let noComputedKPrefix = "fit only (no computed k for L/M lines): "
+
+    /// Whether a computed k can quantify this line group ("Eu_La" is an L group, "Cu_Ka" a K one). A group the line table
+    /// does not know is not judged here.
+    static func isKGroup(_ group: String) -> Bool { XRayLines.line(group).map { $0.family == .K } ?? true }
+
     /// `beside` answers "what listed line is this energy (of this element) next to?" (nil = nothing): see `besideCheck`.
-    static func outcome(_ r: ProposalResult, region: String, beside: (Double, String) -> String? = { _, _ in nil }) -> AutoIDOutcome {
+    /// `computedK`: the Quantification k-factors are Computed, which cover K lines only (the sheet's row 2c); with a Typed k the
+    /// person's own factor may cover any line, so the old rule holds.
+    static func outcome(_ r: ProposalResult, region: String, beside: (Double, String) -> String? = { _, _ in nil },
+                        computedK: Bool = false) -> AutoIDOutcome {
         var suggestions: [ElementSuggestion] = []
         var excesses: [AutoIDExcess] = []
         for c in bySignificance(r.proposed) {   // NOT `candidates.filter(\.isProposed)`: a sum-peak question is not a finding
@@ -95,11 +105,15 @@ nonisolated enum AutoIDPresentation {
             }
             guard let z = PeriodicLayout.z(of: c.element), ElementSelection.unavailableReason(z: z) == nil else { continue }
             let questions = c.conflicts.map(\.question)
-            let reason = questions.isEmpty ? stats : stats + ". " + questions.joined(separator: " ")
-            // DEVIATION (the brief, ADR 054 §6): every suggestion proposes Quantify, not the proposer's Fit only default
-            // for all but Cu; except a FIB question, whose own remedy is "keep Ga fitted but excluded from Quantify".
-            let role: ElementRole = c.conflicts.contains { $0.kind == .fibContamination } ? .fitOnly : .quantify
-            suggestions.append(ElementSuggestion(z: z, reason: reason, proposedRole: role))
+            // DEVIATION (the brief, ADR 054 §6; the sheet's row 2c): every suggestion proposes Quantify, not the proposer's Fit only
+            // default for all but Cu, except a FIB question (its own remedy is "keep Ga fitted but excluded from Quantify") and, with
+            // a computed k, a pick whose lines are L or M: no k exists for them, so it is fitted for the lines it takes from its
+            // neighbours and never enters at% (Velox's deconvolution-only). A role, not a number: no at% is renormalised.
+            let noK = computedK && !isKGroup(c.group)
+            let fib = c.conflicts.contains { $0.kind == .fibContamination }
+            let role: ElementRole = (noK || fib) ? .fitOnly : .quantify
+            let reason = (noK ? noComputedKPrefix : "") + (questions.isEmpty ? stats : stats + ". " + questions.joined(separator: " "))
+            suggestions.append(ElementSuggestion(z: z, reason: reason, proposedRole: role, significance: c.significance))
         }
         let suspects: [AutoIDSuspect] = bySignificance(r.sumPeakQuestions).map { c in
             let sums = c.conflicts.filter { $0.kind == .sumPeak }

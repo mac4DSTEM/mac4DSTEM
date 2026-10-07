@@ -142,6 +142,7 @@
 				Core/Spectroscopy/Fit/LinearDesign.swift,
 				Core/Spectroscopy/Fit/PoissonMLFit.swift,
 				Core/Spectroscopy/Fit/ReferenceShapes.swift,
+				Core/Spectroscopy/MapSmoothing.swift,
 				Core/Spectroscopy/Method/QuantificationMethod.swift,
 				Core/Spectroscopy/Method/QuantificationStep.swift,
 				Core/Spectroscopy/Proposer/ElementProposer.swift,

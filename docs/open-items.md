@@ -226,13 +226,13 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   look owed, and his pictures: shell glass, a wider inspector for the 18-column table, "Compute Image", EDX products in the
   Results room / Save to Session for an EMD opened alone, per-line fitting (`archive/v5/ux-spec-2-2026-10-06.md` §4).
 - **Auto ID on real Al pools:** misses Si and Mg, proposes Eu/Hf/Ho — and since spec 2 it APPLIES its picks, so SI 1339 opens with
-  seven elements mapped (Cu, Al, O, Eu, Hf, Co, Ho); the person unpicks. F3.2 refuted as a default; next: a new registration. The
+  seven elements mapped (Cu, Al, O, Eu, Hf, Co, Ho) — since ADR 058 the L/M-line picks (Eu, Hf, Ho) land as Fit only, so at% is computed at once; the person unpicks. F3.2 refuted as a default; next: a new registration. The
   sum-peak questions are no longer drawn on the plot; they live in the Picked row's hover. `suggestedRole` is unused.
-- **Drive 4 (2026-10-07 morning, SI 1339, `archive/v5/room-drive-4-2026-10-07.md`):** maps are dot fields at ≤ 13 counts/px (no spatial
-  filter anywhere); Auto ID's Eu/Ho picks blank every at% until unpicked; the 2.96 keV peak (Ar Kα or Al pile-up) is unnamed on screen;
-  Absorption ✓ beside "Off: no thickness typed."; ⚠ beside element names shows no tooltip; "Preprocess Raw Data…" in the EDX room's
-  dataset menu. Each is a row of `archive/v5/velox-parity-sheet-2026-10-07.md` (owner answers by option). Not yet seen: Reduce
-  Transparency on the glass capsules. Still ungrouped: the frames readout. New windows open at 1280×800 (frozen shell).
+- **Drive 5 (2026-10-07 midday, ADR 058 landing, `archive/v5/room-drive-5-2026-10-07.md`):** every drive-4 finding but one is closed
+  (smoothed maps, fit-only picks, named peaks, Absorption, the 4D verb); the ⚠ beside element names carries `.help` in code and was not
+  hovered with a real mouse. The live-time Info row was removed: the reader's segment LiveTime is "as read, semantics unverified" (sheet
+  row 4a, a reader change). The cursor's candidate list is by distance only (Ac Mα can lead on an Al alloy; the person picks). Not yet
+  seen: Reduce Transparency and light appearance on the glass shell. Still ungrouped: the frames readout. New windows open at 1280×800 (frozen shell).
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).

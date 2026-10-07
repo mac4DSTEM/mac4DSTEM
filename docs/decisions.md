@@ -65,6 +65,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 055 | Build the Spectroscopy room now against mock v3 (changes on the go); "Unverified on screen" does not block it (rule amended); a simulated 4D-STEM + EDX dataset (.dm4 + .hspy) unlocks the plan; the owner's Velox files are the real test set | 10-05 | accepted |
 | 056 | The Spectroscopy room becomes one window (Velox): maps grid owns the content, static left sidebar ("EDX"), steps as inspector sections, two-band periodic table in the inspector, regions live on the map, Auto ID maps on open, quant beside the spectrum | 10-06 | accepted |
 | 057 | Spec 2 from the owner's bullet list: controls in the inspector, results table in the inspector (056 §7 reversed), tiles as pickers with regions on the ColorMix only, Auto ID a button that applies its picks, 18-column periodic table, linear spectrum with two draggable dividers, Quantify as an operation, glass only over maps | 10-07 | accepted (delegated) |
+| 058 | The Velox sheet's recommendations built (display kernel on maps, no-k picks as Fit only, cursor candidates, counts/px, windows, range readout, honest rows) and Liquid Glass on the sidebar and inspector (mock A; frozen-shell materials only, widths unchanged) | 10-07 | accepted (owner) |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

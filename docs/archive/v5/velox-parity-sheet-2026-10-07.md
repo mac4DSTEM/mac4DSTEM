@@ -1,5 +1,8 @@
 # Spectroscopy room vs Velox — the decision sheet (2026-10-07 morning, main e15356cc)
 
+**Landed 2026-10-07 midday (ADR 058, the owner's go on the recommendations):** rows 1a, 2a, 2c, 3a, 4b, 8a, 8c, 9a (live time withheld), 10a, 13a;
+plus the glass shell (mock A). Open, one Gate D each when the owner asks: 5a, 6b, 7a, 11a, 12a, 14a. Drive: `room-drive-5-2026-10-07.md`.
+
 Sources: the session's drive 4 on the owner's SI 1339 (`room-drive-4-2026-10-07.md`); the Velox 3.15 manual as carved from
 the owner's installer on 2026-10-05 (`edx-research-2026-10-05/reports/velox.md` — the installer at
 `…/02_methods/Software/Velox/Velox_3.15.0.1027.exe` is Inno Setup; the manual, release notes and the 68 English Tips are what

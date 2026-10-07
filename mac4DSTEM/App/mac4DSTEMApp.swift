@@ -176,7 +176,9 @@ private struct DatasetCommands: Commands {
             Button("Preprocess Raw Data…") { perform(.preprocess) }
                 .disabled(!MenuActionRelay.isEnabled(
                     hasFocusedWindow: appState != nil,
-                    blocked: appState?.isBusy == true || appState?.datasetSession.isLoading == true))
+                    blocked: appState?.isBusy == true || appState?.datasetSession.isLoading == true)
+                    // Row 8c (ADR 058): a 4D verb has nothing to act on in a spectrum-only window (`DatasetMenuRule`).
+                    || appState.map { !DatasetMenuRule.showsPreprocessRawData(in: $0) } == true)
         }
         CommandGroup(replacing: .sidebar) {
             // Labels follow what is on screen, and the action acts on it too

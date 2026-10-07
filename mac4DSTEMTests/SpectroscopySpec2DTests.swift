@@ -32,8 +32,8 @@ final class SpectroscopySpec2DTests: XCTestCase {
     /// The Picked row lists the outcome's suggestions in the outcome's order, whatever the picks are now.
     /// Mutation: the list sorted by Z (Mg, Al, Si) - red.
     func testPickedListsTheOutcomesElementsInItsOrder() {
-        XCTAssertEqual(ElementsSection.pickedList(outcome([13, 14, 12])), "Al, Si, Mg")
-        XCTAssertEqual(ElementsSection.pickedList(outcome([])), "none")
+        XCTAssertEqual(ElementsSection.foundText(outcome([13, 14, 12]), locale: Locale(identifier: "en_US")), "Al, Si, Mg")
+        XCTAssertEqual(ElementsSection.foundText(outcome([]), locale: Locale(identifier: "en_US")), "none")
     }
 
     /// Its hover keeps every reason, the sum-peak question, the not-tested entry and the proposer's notes.

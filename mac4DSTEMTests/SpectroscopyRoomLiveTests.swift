@@ -453,7 +453,8 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         let picked = on.model.elements.activeZ
         XCTAssertTrue(picked.contains(Cu))
         let (_, hand, _) = open(autoID: false)
-        for z in picked { hand.model.elements.click(z) }
+        // The roles are the run's own: an L or M pick has no computed k and is Fit only (Velox sheet row 2c), so it has no row.
+        for z in picked { hand.model.elements.set(z, on.model.elements.role(z)) }
         hand.elementsChanged()
         try await waitFor("the hand-picked rows") { hand.model.results.count == on.model.results.count && hand.model.tiles.count == on.model.tiles.count }
         for row in on.model.results {
