@@ -231,6 +231,13 @@ private struct DiskDetectionRows: View {
             guard !Task.isCancelled else { return }
             ringHint = hint
         }
+        // The ring-probe warning below appears without any focus change: say so. On the row above, which stays on screen.
+        .announcing(ringHint.flatMap { hint in
+            appState.calibrationSession.calibration.probeRadius.flatMap {
+                ProbeRingHint.isWorthOffering(hint, current: $0)
+                    ? RoomAccessibilityText.ringProbe(outerRadius: Double(hint.outerRadius)) : nil
+            }
+        })
 
         if kernelSource != .synthetic {
             InspectorRow("Measured kernel mode") {

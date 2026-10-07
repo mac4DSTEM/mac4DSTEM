@@ -537,17 +537,23 @@ struct PhaseMappingSections: View {
                 .accessibilityLabel("Remove \(slot.model.displayName)")
             }
             zoneAxisField
+                .announcing(RoomAccessibilityText.malformedCaption(
+                    draft: draft, parses: PhaseMappingSlot.parseZoneAxis(draft) != nil,
+                    caption: RoomAccessibilityText.zoneAxisMalformed), after: .seconds(1.5))
             if !draft.isEmpty, PhaseMappingSlot.parseZoneAxis(draft) == nil {
-                Text("A zone axis is three integers, like 0 1 0.")
+                Text(RoomAccessibilityText.zoneAxisMalformed)
                     .font(.caption2).foregroundStyle(.orange)
             }
             if !slot.isMatrix {
                 orientationRelationshipField
+                    .announcing(RoomAccessibilityText.malformedCaption(
+                        draft: orientationDraft,
+                        parses: PhaseMappingSlot.parseOrientationRelationships(orientationDraft) != nil,
+                        caption: RoomAccessibilityText.relationshipMalformed), after: .seconds(1.5))
                 excitationSlabField
                 if !orientationDraft.isEmpty,
                    PhaseMappingSlot.parseOrientationRelationships(orientationDraft) == nil {
-                    Text("A relationship is pairs like (002) ∥ (200); planes in "
-                         + "parentheses, directions in square brackets.")
+                    Text(RoomAccessibilityText.relationshipMalformed)
                         .font(.caption2).foregroundStyle(.orange)
                 }
             }

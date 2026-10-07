@@ -589,6 +589,7 @@ private struct ParallaxStageSections: View {
             content()
                 .disabled(!(active || complete))
         }
+        .announcing(complete ? RoomAccessibilityText.stageComplete(title: title) : nil)
         .accessibilityIdentifier("reconstruct.stage.\(number)")
     }
 

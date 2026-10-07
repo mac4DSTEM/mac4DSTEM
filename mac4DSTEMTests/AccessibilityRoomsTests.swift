@@ -121,4 +121,36 @@ final class AccessibilityRoomsTests: XCTestCase {
         // The real Use Parallax Fit tooltip has no early sentence break; its explicit hint is passed instead.
         XCTAssertEqual(RoomAccessibilityText.briefHint(from: "  Short one.  "), "Short one")
     }
+
+    // MARK: - Y4 announcements
+
+    /// Mutation: announce the radius unrounded or in "px" -> red.
+    func testRingProbeAnnouncementSpeaksTheRoundedRadiusInFull() {
+        XCTAssertEqual(RoomAccessibilityText.ringProbe(outerRadius: 11.6), "Ring-shaped probe: its outer edge is at 12 pixels")
+        XCTAssertEqual(RoomAccessibilityText.ringProbe(outerRadius: 1.2), "Ring-shaped probe: its outer edge is at 1 pixel")
+    }
+
+    /// Mutation: drop the stage title from the sentence -> red.
+    func testStageCompleteAnnouncementNamesTheStage() {
+        XCTAssertEqual(RoomAccessibilityText.stageComplete(title: "Align Bright-Field Images"), "Align Bright-Field Images complete")
+    }
+
+    /// Mutation: report a caption for an empty draft or for a valid one (-> red), or never report one.
+    func testMalformedCaptionOnlyForANonEmptyUnparsableDraft() {
+        let caption = RoomAccessibilityText.zoneAxisMalformed
+        XCTAssertNil(RoomAccessibilityText.malformedCaption(draft: "", parses: false, caption: caption))
+        XCTAssertNil(RoomAccessibilityText.malformedCaption(draft: "0 1 0", parses: true, caption: caption))
+        XCTAssertEqual(RoomAccessibilityText.malformedCaption(draft: "0 1", parses: false, caption: caption), caption)
+        // The real parsers agree with the rule.
+        XCTAssertNotNil(PhaseMappingSlot.parseZoneAxis("0 1 0"))
+        XCTAssertNil(PhaseMappingSlot.parseZoneAxis("0 1"))
+    }
+
+    /// The captions are drawn from these constants now: the on-screen wording must not have moved.
+    /// Mutation: edit either constant -> red.
+    func testPhaseCaptionsKeepTheirOnScreenWording() {
+        XCTAssertEqual(RoomAccessibilityText.zoneAxisMalformed, "A zone axis is three integers, like 0 1 0.")
+        XCTAssertEqual(RoomAccessibilityText.relationshipMalformed,
+                       "A relationship is pairs like (002) ∥ (200); planes in parentheses, directions in square brackets.")
+    }
 }

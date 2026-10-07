@@ -224,7 +224,13 @@ struct LineageGraphView: View {
         }
         // At an edge of the graph the key is consumed, not passed up: the scan
         // position's arrow-key stepping must not fire from here.
-        if let next { selectedID = next }
+        if let next {
+            selectedID = next
+            // VoiceOver focus stays on the graph while the arrow keys move the selection: say where it went.
+            if let node = model.node(id: next) {
+                AccessibilityNotification.Announcement(model.accessibilityLabel(for: node)).post()
+            }
+        }
         return .handled
     }
 

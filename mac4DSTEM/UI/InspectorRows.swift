@@ -1100,6 +1100,23 @@ nonisolated enum RoomAccessibilityText {
     /// The exact text behind a rounded provenance value, or nil when the display shows it whole.
     static func exactValue(raw: String, displayed: String) -> String? { raw == displayed ? nil : raw }
 
+    /// Announced when the ring-probe suggestion appears in Bragg Disks (a warning that shows up without any focus change).
+    static func ringProbe(outerRadius: Double) -> String {
+        "Ring-shaped probe: its outer edge is at \(pixels(outerRadius.rounded()))"
+    }
+
+    /// Announced when a Reconstruction stage turns complete.
+    static func stageComplete(title: String) -> String { "\(title) complete" }
+
+    /// The orange captions under the phase fields, one source for the screen and the announcement.
+    static let zoneAxisMalformed = "A zone axis is three integers, like 0 1 0."
+    static let relationshipMalformed = "A relationship is pairs like (002) ∥ (200); planes in parentheses, directions in square brackets."
+
+    /// The caption a typed field shows (and VoiceOver announces) while its text does not parse; nil when empty or valid.
+    static func malformedCaption(draft: String, parses: Bool, caption: String) -> String? {
+        (!draft.isEmpty && !parses) ? caption : nil
+    }
+
     /// A saved product's state value: "Shown" for the product on screen, empty otherwise.
     static func shownValue(isCurrent: Bool) -> String { isCurrent ? "Shown" : "" }
 }
@@ -1108,5 +1125,34 @@ extension View {
     /// A tooltip for the pointer and a separate one-phrase hint for VoiceOver (`help(_:)` alone speaks the whole tooltip as the hint).
     func tooltip(_ help: String, hint: String) -> some View {
         self.help(help).accessibilityHint(hint)
+    }
+}
+
+/// Posts a VoiceOver announcement when `message` changes to a new, non-nil text; never on appearance and never for a repeat.
+/// `delay` holds the announcement back and drops it if the message changes again meanwhile (a field being typed into).
+/// Attach it to a view that stays on screen: a view that appears together with its message has no earlier value to differ from.
+private struct AnnouncesChanges: ViewModifier {
+    let message: String?
+    let delay: Duration
+    @State private var pending: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        content.onChange(of: message) { _, new in
+            pending?.cancel()
+            guard let new else { return }
+            pending = Task { @MainActor in
+                if delay > .zero {
+                    try? await Task.sleep(for: delay)
+                    if Task.isCancelled { return }
+                }
+                AccessibilityNotification.Announcement(new).post()
+            }
+        }
+    }
+}
+
+extension View {
+    func announcing(_ message: String?, after delay: Duration = .zero) -> some View {
+        modifier(AnnouncesChanges(message: message, delay: delay))
     }
 }
