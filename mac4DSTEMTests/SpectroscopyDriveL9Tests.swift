@@ -271,4 +271,15 @@ final class SpectroscopyDriveL9Tests: XCTestCase {
         let two = ElementWindows.build(picks: [.init(symbol: "Al"), .init(symbol: "Mg")], axis: axis, beamEnergyKeV: 200)
         XCTAssertEqual(two.compactMap { $0.window?.signal }.count, 2)
     }
+
+    /// Supervisor (drive 6): an element without a line pick marks at most its alpha and the two strongest other lines of the family
+    /// (Hf L has nine above 5 %). Mutation: the cap removed → red.
+    func testAnUnpickedElementMarksAtMostThreeLinesOfItsFamily() {
+        let axis = EnergyAxis(offset: 0, scale: 0.02, size: 2048)
+        let marks = SpectroscopyRoomController.markers(for: ElementWindows.build(picks: [.init(symbol: "Hf")], axis: axis, beamEnergyKeV: 200),
+                                                       axis: axis, beam: 200)
+        XCTAssertEqual(marks.count, SpectroscopyRoomController.familyMarkerCap)
+        XCTAssertEqual(marks.first?.label, "Hf L\u{03B1}", "the window's own line leads")
+        XCTAssertEqual(Set(marks.map(\.label)), ["Hf L\u{03B1}", "Hf L\u{03B2}1", "Hf L\u{03B2}2"], "then the two strongest")
+    }
 }

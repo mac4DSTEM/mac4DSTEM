@@ -1012,6 +1012,9 @@ final class SpectroscopyRoomController {
     /// `priority` decides which name survives a collision: the window's own line (Kα) over its satellites, a quantified element over a fit-only one.
     /// `picked` are the lines the person checked: an element with any of them marks exactly those, one marker each; every other
     /// element marks its window's family, as before.
+    /// How many lines of one family are marked for an element without a line pick: the alpha and the two strongest others.
+    static let familyMarkerCap = 3
+
     static func markers(for windows: [LineWindow], axis: EnergyAxis, beam: Double?, quantified: Set<String> = [],
                         picked: Set<String> = []) -> [LineMarker] {
         var out: [LineMarker] = []
@@ -1028,7 +1031,12 @@ final class SpectroscopyRoomController {
                 if picked.contains(w.id) { out.append(marker(chosen, own: true)) }
                 continue
             }
-            for l in XRayLines.lines(of: w.element) where l.family == chosen.family && l.weight >= 0.05 {
+            // The family's strongest lines only (at least 5 % of the alpha, at most `familyMarkerCap`): an L family has nine lines
+            // above 5 % (Hf) and labelling them all crowds the plot (drive 6, 2026-10-07); the person checks more under Lines.
+            let family = XRayLines.lines(of: w.element).filter { $0.family == chosen.family && $0.weight >= 0.05 }
+                .sorted { ($0.id == w.id ? 2 : 1, $0.weight) > ($1.id == w.id ? 2 : 1, $1.weight) }
+                .prefix(Self.familyMarkerCap)
+            for l in family {
                 guard XRayLines.linesInRange([l.id], axis: axis, beamEnergy: beam).isEmpty == false else { continue }
                 out.append(marker(l, own: l.id == w.id))
             }

@@ -856,3 +856,157 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
         .accessibilityLabel(title)
     }
 }
+
+// MARK: - Glass chips
+
+/// How a `GlassChipGroup` answers a tap: `single` is a picker (one chip on, a tap on the one that is on keeps it), `multi` is a
+/// set of toggles.
+nonisolated enum GlassChipMode: Sendable { case single, multi }
+
+/// The selection logic of a chip group, pure so a test can hold it without a host.
+nonisolated enum GlassChipSelection {
+    /// The chips that are on after a tap on `id`. A disabled chip does nothing; in `single` mode the tapped chip becomes the only
+    /// one on (and stays on when it already was: a picker has no empty state); in `multi` mode it toggles.
+    static func tapped<ID: Hashable>(_ id: ID, on: Set<ID>, mode: GlassChipMode, enabled: Bool = true) -> Set<ID> {
+        guard enabled else { return on }
+        switch mode {
+        case .single: return [id]
+        case .multi:
+            var next = on
+            if next.remove(id) == nil { next.insert(id) }
+            return next
+        }
+    }
+
+    /// A single-choice value as the set a group reads and writes: the value alone on the way in; on the way out the chip tapped.
+    static func single<ID: Hashable>(_ value: Binding<ID>) -> Binding<Set<ID>> {
+        Binding(get: { [value.wrappedValue] }, set: { if let chosen = $0.first { value.wrappedValue = chosen } })
+    }
+}
+
+/// One chip: what it says, what it is called to VoiceOver, and the colour it lights in.
+struct GlassChip<ID: Hashable>: Identifiable {
+    let id: ID
+    var title: String
+    /// False for a chip that is its symbol alone (the region tools); the title is then its accessibility label.
+    var showsTitle = true
+    /// An SF Symbol drawn before the title, in `symbolColor` when that is set (a curve's own colour: the legend).
+    var symbol: String?
+    var symbolColor: Color?
+    /// The glass tint while the chip is on; nil lights it in the accent colour (a plain choice).
+    var tint: Color?
+    var help: String?
+    var enabled = true
+    var accessibilityID: String?
+}
+
+/// The chip rows' wrapping, pure so a test can hold it: chips left to right, a new row when the next would pass `maxWidth`. A
+/// zero width gives one chip per row, so the widest chip is the row's minimum width (the inspector's width budget reads that).
+nonisolated enum GlassChipFlow {
+    static func arrange(sizes: [CGSize], maxWidth: CGFloat, spacing: CGFloat, lineSpacing: CGFloat) -> (origins: [CGPoint], size: CGSize) {
+        var origins: [CGPoint] = []
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
+        for s in sizes {
+            if x > 0, x + s.width > maxWidth { x = 0; y += rowHeight + lineSpacing; rowHeight = 0 }
+            origins.append(CGPoint(x: x, y: y))
+            x += s.width
+            widest = max(widest, x)
+            x += spacing
+            rowHeight = max(rowHeight, s.height)
+        }
+        return (origins, CGSize(width: widest, height: sizes.isEmpty ? 0 : y + rowHeight))
+    }
+}
+
+private struct GlassChipFlowLayout: Layout {
+    var spacing: CGFloat
+    var lineSpacing: CGFloat
+
+    private func arranged(_ proposal: ProposedViewSize, _ subviews: Subviews) -> (origins: [CGPoint], size: CGSize) {
+        GlassChipFlow.arrange(sizes: subviews.map { $0.sizeThatFits(.unspecified) },
+                              maxWidth: proposal.width ?? .infinity, spacing: spacing, lineSpacing: lineSpacing)
+    }
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arranged(proposal, subviews).size
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let placed = arranged(ProposedViewSize(width: bounds.width, height: nil), subviews)
+        for (subview, origin) in zip(subviews, placed.origins) {
+            subview.place(at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y), anchor: .topLeading, proposal: .unspecified)
+        }
+    }
+}
+
+/// A row of capsule chips on Liquid Glass, the way Apple describes glass on a custom control ("Applying Liquid Glass to custom
+/// views"): quiet at rest — an untinted capsule — and alive under the pointer, which the system does (`interactive()`; nothing is
+/// drawn by hand). A chip that is on takes a tint: its own colour, or the accent for a plain choice (the accent means selection).
+///
+/// One `GlassEffectContainer` per group and none nested: Apple's performance rule is few containers. The container's spacing is
+/// less than the chips' own gap, so the capsules never blend at rest (a larger one would merge them). Chips are buttons, so Space
+/// and Return work, and an `isSelected` trait says which are on. Text 12 pt (above the 10 pt floor).
+struct GlassChipGroup<ID: Hashable>: View {
+    let chips: [GlassChip<ID>]
+    var mode: GlassChipMode = .single
+    @Binding var selection: Set<ID>
+    /// The group's own accessibility identifier; each chip keeps its `accessibilityID`.
+    var identifier: String?
+
+    /// The gap between chips, and the container's blend distance (smaller, so nothing merges at rest).
+    static var gap: CGFloat { 8 }
+    static var containerSpacing: CGFloat { 6 }
+    static var minimumHeight: CGFloat { 24 }
+    /// A tint over glass reads at about half strength; the full colour would swallow the label.
+    static var tintOpacity: Double { 0.55 }
+
+    /// What a tap does to the selection (the button's action; a test calls it).
+    func tap(_ id: ID) {
+        guard let chip = chips.first(where: { $0.id == id }) else { return }
+        selection = GlassChipSelection.tapped(id, on: selection, mode: mode, enabled: chip.enabled)
+    }
+
+    var body: some View {
+        GlassEffectContainer(spacing: Self.containerSpacing) {
+            GlassChipFlowLayout(spacing: Self.gap, lineSpacing: 6) {
+                ForEach(chips) { chip in
+                    ChipButton(chip: chip, isOn: selection.contains(chip.id)) { tap(chip.id) }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(identifier ?? "")
+    }
+
+    private struct ChipButton: View {
+        let chip: GlassChip<ID>
+        let isOn: Bool
+        let action: () -> Void
+
+        private var glass: Glass {
+            let base = Glass.regular
+            guard isOn else { return base.interactive(chip.enabled) }
+            return base.tint((chip.tint ?? .accentColor).opacity(GlassChipGroup.tintOpacity)).interactive(chip.enabled)
+        }
+
+        var body: some View {
+            Button(action: action) {
+                HStack(spacing: 5) {
+                    if let symbol = chip.symbol {
+                        Image(systemName: symbol).symbolRenderingMode(.monochrome).foregroundStyle(chip.symbolColor ?? .primary)
+                    }
+                    if chip.showsTitle { Text(chip.title).fixedSize() }
+                }
+                .font(.system(size: 12))
+                .padding(.horizontal, 10)
+                .frame(minHeight: GlassChipGroup.minimumHeight)
+                .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+            .glassEffect(glass, in: .capsule)
+            .disabled(!chip.enabled)
+            .help(chip.help ?? "")
+            .accessibilityLabel(chip.title)
+            .accessibilityAddTraits(isOn ? .isSelected : [])
+            .accessibilityIdentifier(chip.accessibilityID ?? "")
+        }
+    }
+}

@@ -62,12 +62,7 @@ struct ElementsSection: View {
     var body: some View {
         PeriodicTableView(model: model)
         InspectorRow("Maps") {
-            Picker("Map shows", selection: $model.mapMode) {
-                ForEach(MapMode.allCases.filter(\.isAvailable), id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented).labelsHidden().fixedSize()
-            .help("int: the line's window sum. net: less its background windows. wt% and at% are computed on regions (the Results section), not per pixel.")
-            .accessibilityIdentifier("spectroscopy.mapMode")
+            GlassChipGroup(chips: Self.mapChips, mode: .single, selection: Self.mapSelection(model), identifier: "spectroscopy.mapMode")
         }
         // Row 1a: a display kernel on the maps (the fixture has no maps behind it, so no row there).
         if model.isLive {
@@ -107,6 +102,17 @@ struct ElementsSection: View {
             }
         }
         if let why = model.autoID.failure { InspectorNote(why) }
+    }
+
+    /// The maps' int / net choice as chips (wt% and at% are not per-pixel, so they are not offered).
+    static let mapHelp = "int: the line's window sum. net: less its background windows. wt% and at% are computed on regions (the Results section), not per pixel."
+    static var mapChips: [GlassChip<MapMode>] {
+        MapMode.allCases.filter(\.isAvailable).map {
+            GlassChip(id: $0, title: $0.rawValue, help: mapHelp, accessibilityID: "spectroscopy.mapMode." + $0.rawValue)
+        }
+    }
+    static func mapSelection(_ model: SpectroscopyRoomModel) -> Binding<Set<MapMode>> {
+        GlassChipSelection.single(Binding(get: { model.mapMode }, set: { model.mapMode = $0 }))
     }
 
     /// The Smooth menu's entries: the kernel as a tile names it, "None" for the raw map.
@@ -164,11 +170,7 @@ struct RegionSection: View {
     var body: some View {
         let r = model.regionSettings
         InspectorRow("Tool") {
-            Picker("Region tool", selection: $model.drawTool) {
-                ForEach(DrawTool.allCases, id: \.self) { Image(systemName: $0.symbol).imageScale(.medium).tag($0).help(Self.toolHelp($0)) }
-            }
-            .pickerStyle(.segmented).labelsHidden().fixedSize()
-            .accessibilityIdentifier("spectroscopy.regionTool")
+            GlassChipGroup(chips: Self.toolChips, mode: .single, selection: Self.toolSelection(model), identifier: "spectroscopy.regionTool")
         }
         if model.regions.count > 1 {
             InspectorRow("Source") {
@@ -201,7 +203,18 @@ struct RegionSection: View {
         if model.image.sourceWarning, let note = model.image.sourceNote { InspectorNote(note) }
     }
 
-    /// What each drawing tool does, as the segment's hover.
+    /// The three tools as symbol chips; the tool's name is the accessibility label.
+    static var toolChips: [GlassChip<DrawTool>] {
+        DrawTool.allCases.map {
+            GlassChip(id: $0, title: $0.rawValue.capitalized, showsTitle: false, symbol: $0.symbol, help: toolHelp($0),
+                      accessibilityID: "spectroscopy.regionTool." + $0.rawValue)
+        }
+    }
+    static func toolSelection(_ model: SpectroscopyRoomModel) -> Binding<Set<DrawTool>> {
+        GlassChipSelection.single(Binding(get: { model.drawTool }, set: { model.drawTool = $0 }))
+    }
+
+    /// What each drawing tool does, as the chip's hover.
     static func toolHelp(_ t: DrawTool) -> String {
         t == .rectangle ? "Rectangle: drag on the ColorMix"
             : t == .polygon ? "Polygon: click the corners, then the first corner again"
@@ -254,7 +267,7 @@ enum CurveLayer: CaseIterable {
     }
 }
 
-/// The spectrum's vertical scale, as the segmented picker shows it: the model keeps one Bool.
+/// The spectrum's vertical scale, as the Linear / Log chips show it: the model keeps one Bool.
 enum LayerScale: CaseIterable {
     case linear, log
     init(log: Bool) { self = log ? .log : .linear }
@@ -262,7 +275,7 @@ enum LayerScale: CaseIterable {
     var title: String { self == .log ? "Log" : "Linear" }
 }
 
-/// Spectrum: what the plot draws (the Show menu's content, as buttons): the five curves, the vertical scale, counts per pixel
+/// Spectrum: what the plot draws (the Show menu's content, as glass chips): the five curves, the vertical scale, counts per pixel
 /// and the net maps' windows.
 struct SpectrumLayersSection: View {
     @Bindable var model: SpectroscopyRoomModel
@@ -274,43 +287,46 @@ struct SpectrumLayersSection: View {
     static let perPixelHelp = "Counts per pooled pixel: a region's size falls out of a comparison."
     static let windowsHelp = "The line and background windows the net maps use. The fit's background (orange) is the Empirical continuum \u{2014} a different model."
 
-    /// Three buttons, then two: five in a row do not fit the narrowest inspector.
-    private static let rows: [[CurveLayer]] = [[.spectrum, .background, .model], [.residual, .pins]]
+    /// The five curves as multi chips, each lit in its own colour (the legend the Show menu had).
+    static var curveChips: [GlassChip<CurveLayer>] {
+        CurveLayer.allCases.map {
+            GlassChip(id: $0, title: $0.title, symbol: "circle.fill", symbolColor: $0.color, tint: $0.color, help: $0.help,
+                      accessibilityID: "spectroscopy.layers.\($0.title.lowercased())")
+        }
+    }
+    static func curveSelection(_ model: SpectroscopyRoomModel) -> Binding<Set<CurveLayer>> {
+        Binding(get: { Set(CurveLayer.allCases.filter { model.layers[keyPath: $0.keyPath] }) },
+                set: { on in for layer in CurveLayer.allCases { model.layers[keyPath: layer.keyPath] = on.contains(layer) } })
+    }
+
+    static var scaleChips: [GlassChip<LayerScale>] {
+        LayerScale.allCases.map { GlassChip(id: $0, title: $0.title, accessibilityID: "spectroscopy.layers.scale." + $0.title.lowercased()) }
+    }
+    static func scaleSelection(_ model: SpectroscopyRoomModel) -> Binding<Set<LayerScale>> {
+        GlassChipSelection.single(Binding(get: { LayerScale(log: model.layers.log) }, set: { model.layers.log = $0.isLog }))
+    }
+
+    /// The two overlays that need something to show: one group, each chip on or off, disabled until it has its data.
+    enum Overlay: CaseIterable { case perPixel, windows }
+    static func overlayChips(_ model: SpectroscopyRoomModel) -> [GlassChip<Overlay>] {
+        [GlassChip(id: .perPixel, title: "Per pixel", help: perPixelHelp, enabled: perPixelEnabled(model), accessibilityID: "spectroscopy.layers.perpixel"),
+         GlassChip(id: .windows, title: "Windows", help: windowsHelp, enabled: windowsEnabled(model), accessibilityID: "spectroscopy.layers.windows")]
+    }
+    static func overlaySelection(_ model: SpectroscopyRoomModel) -> Binding<Set<Overlay>> {
+        Binding(get: { Set(Overlay.allCases.filter { $0 == .perPixel ? model.layers.perPixel : model.layers.windows }) },
+                set: { on in model.layers.perPixel = on.contains(.perPixel); model.layers.windows = on.contains(.windows) })
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
             Text("Curves")
-            ForEach(Self.rows.indices, id: \.self) { r in
-                ControlGroup {
-                    ForEach(Self.rows[r], id: \.self) { layer in
-                        Toggle(isOn: Binding(get: { model.layers[keyPath: layer.keyPath] }, set: { model.layers[keyPath: layer.keyPath] = $0 })) {
-                            Label { Text(layer.title) } icon: {
-                                Image(systemName: "circle.fill").symbolRenderingMode(.palette).foregroundStyle(layer.color)
-                            }
-                        }
-                        .toggleStyle(.button)
-                        .help(layer.help)
-                        .accessibilityIdentifier("spectroscopy.layers.\(layer.title.lowercased())")
-                    }
-                }
-            }
+            GlassChipGroup(chips: Self.curveChips, mode: .multi, selection: Self.curveSelection(model))
         }
         InspectorRow("Scale") {
-            Picker("Scale", selection: Binding(get: { LayerScale(log: model.layers.log) }, set: { model.layers.log = $0.isLog })) {
-                ForEach(LayerScale.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented).labelsHidden().fixedSize()
-            .accessibilityIdentifier("spectroscopy.layers.scale")
+            GlassChipGroup(chips: Self.scaleChips, mode: .single, selection: Self.scaleSelection(model), identifier: "spectroscopy.layers.scale")
         }
-        InspectorRow("Counts") {
-            Toggle("Per pixel", isOn: $model.layers.perPixel).toggleStyle(.checkbox)
-                .disabled(!Self.perPixelEnabled(model)).help(Self.perPixelHelp)
-                .accessibilityIdentifier("spectroscopy.layers.perpixel")
-        }
-        InspectorRow("Windows") {
-            Toggle("Windows", isOn: $model.layers.windows).labelsHidden().toggleStyle(.checkbox)
-                .disabled(!Self.windowsEnabled(model)).help(Self.windowsHelp)
-                .accessibilityIdentifier("spectroscopy.layers.windows")
+        InspectorRow("Display") {
+            GlassChipGroup(chips: Self.overlayChips(model), mode: .multi, selection: Self.overlaySelection(model))
         }
     }
 }
