@@ -361,8 +361,9 @@ The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` did 
 (2026-09-30 night, scratch build) ran without a crash, and the controls named then already expose labels. The eight bare ones it
 found (detection and group steppers, Fit overlay, Show claimed disks, remove-phase) are labelled (S22). Residual: the whole
 Advanced-detection section shares one identifier (`disk.advancedDisclosure`); the crash's cause was never established.
-2026-10-07: Spectroscopy picker canvases use native buttons; dividers have keyboard/adjustable actions and the spectrum a
-region/range/units summary. Full VoiceOver traversal remains owed; the source changes do not establish spoken behavior.
+2026-10-07: synthetic scratch drive verified divider keys/AX actions, picker clicks and the spectrum unit summary
+(`archive/v5/swiftui-accessibility-drive-2026-10-07.md`). Tab skipped the native picker button under current configuration;
+keyboard activation and spoken VoiceOver remain owed. Compact map labels clipped at the reopened floor; no fix attempted.
 
 ### The audit's refactor list, rows 4–13 — most parked
 Open: row 4 (a shared harness `fail` helper — Gate B, a shared bug can green 46 harnesses); rows 6–7, the
