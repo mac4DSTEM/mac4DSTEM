@@ -526,7 +526,9 @@ struct ApertureOverlay: View, Equatable {
     /// object for the life of the window — so a "new" closure is never a
     /// different one. A caller that captured changing state would have to leave
     /// `.equatable()` off.
-    nonisolated static func == (lhs: ApertureOverlay, rhs: ApertureOverlay) -> Bool {
+    /// Main-actor isolated like the view: `Aperture`'s own `Equatable` is (Core's default isolation), and SwiftUI's
+    /// `EquatableView` compares on the main actor.
+    static func == (lhs: ApertureOverlay, rhs: ApertureOverlay) -> Bool {
         lhs.aperture == rhs.aperture && lhs.shape == rhs.shape
             && lhs.patternWidth == rhs.patternWidth && lhs.patternHeight == rhs.patternHeight
     }
