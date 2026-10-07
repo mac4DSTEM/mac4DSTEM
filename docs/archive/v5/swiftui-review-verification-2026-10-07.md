@@ -57,3 +57,19 @@ VoiceOver Actions rotor (VO-Cmd-Space) on the element.
 | V30 | Bragg Disks › Probe kernel ring warning still appears; colormap / log / display-mode / region-radius toggles do not recompute it; a new dataset updates it. || PASS (drive 3, calibrationData_bullseyeProbe): after Compute Mean and Calibrate Origin, Bragg Disks shows "Ring-shaped probe: its outer edge is at 11 px". Toggle-recompute not observable on screen. |
 | V31 | Load configurator, VO on "Scan · real space": reads title + caption; Scan X / Scan Y steppers move the picked position and the single-pattern pane follows; click-to-pick and drag-to-crop unchanged. || Partial (drive 3, sim_Au configurator): Scan X / Scan Y steppers exposed and adjustable (7 → 8 moved the pick (90, 21) → (90, 24); Y 30 → 29 → (87, 24)); visible layout unchanged. FAIL on context: the representation dropped the pane's title and caption, VO meets bare "Scan X 8" (Apple-docs check row 19) → lane X fix. |
 | V32 | Inspector slider with a default: VO actions list "Reset to default" and it resets; increment/decrement still work on the combined element. || PASS (drive 1, gamma slider): actions Increment, Decrement, Reset to default; reset 2.49 → 1, increment 1 → 1.28. |
+
+## Accessibility audit fixes (2026-10-08: lane X `d2778ac1..f73db02f`, lane Y `50f7cfbd..c7155146`)
+
+Audit row numbers are `a11y-rooms-apple-docs-audit-2026-10-07.md`'s. No visible text changed; tooltips must still show in full.
+
+| ID | Check | Result |
+|---|---|---|
+| X1 | Spectrum: ⌃= / ⌥= / ⌥- no longer zoom; plain + = − still do (V22's drive-3 finding). | |
+| X2 | Configurator "Scan · real space": VO reads the pane title and caption before "Scan X" (V31's FAIL). | |
+| X3 | Image panes: VO actions Pan left/right/up/down move the view; the navigator inset offers move-scan actions; the pin chip and pane hints are short. | |
+| Y1 | Names: Zone axis / Parallel to matrix (4.1, 4.2); "Q / R pixel size" fields and "… unit per pixel" pickers (1.1); ACOM Center X/Y, Half-size and Phase model with its value (4.5, 4.6); the Lineage graph reads "Run graph" + summary and its nodes stay separate; Output and Lineage titles are headings (7.4, 7.5). | |
+| Y2 | Values: the five Bragg steppers and Upsample speak name + value ("peak 2", "12 pixels") (3.2); ellipse/annulus fields speak units (1.2); the shown saved product says "Shown" (6.1); stage headers say Complete / Current step / Pending (5.1); the slab field's hint names the global value and typing still echoes (4.3); a rounded provenance value speaks its exact text once (7.6). | |
+| Y3 | Hints: a short hint replaces the long tooltip text on Flip 180, Fit/Apply Ellipse, origin method, kernel mode, Detector, Threshold, Split, Defocus and the parameter fields; readiness rows speak their unlock hint; the verdict symbol is silent (1.3–1.5, 3.4, 4.7, 5.3, 5.5). | |
+| Y4 | Announcements, each spoken once: the ring-probe warning (3.6); a stage finishing (5.2); a malformed zone axis or relationship after a ~1.5 s pause, not per keystroke (4.4); Lineage arrow-key selection, with a click speaking nothing extra (7.2). | |
+| Y5 | Reconstruction history plot: Tab reaches it with a visible ring, ←/→ step the sample (held keys repeat) without moving the scan position (5.4); Results comparison: VO zoom in/out and "Reset zoom" move every panel, pinch still works (6.3). | |
+| V-F1 | FormatStyle swap (lane V `3cdfe1bc..0c4da322`): Output lines start "14:03:22" (24 h); the histogram counts edge, the spectrum header/cursor readouts, Dispersion/Offset and the Results Net ± σ cells group with a narrow space and show the same numbers as before; the Materials Project "fetched …" line unchanged. | |
