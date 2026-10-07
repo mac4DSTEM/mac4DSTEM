@@ -181,4 +181,38 @@ final class SwiftUIReviewFTests: XCTestCase {
         XCTAssertNotEqual(state.normalizedScanNavigationPixels(of: b), first)
         XCTAssertEqual(state.scanNavigationNormComputeCount, 3)
     }
+
+    // MARK: F5 - zoom actions go through the pinch's own clamp
+
+    func testZoomStepsDoubleAndHalveAndStopAtTheLimits() {
+        let box = CGSize(width: 400, height: 300)
+        var zp = ZoomPan()
+        zp.step(by: ZoomPan.accessibilityStepFactor, in: box)
+        XCTAssertEqual(zp.zoom, 2)
+        zp.step(by: 1 / ZoomPan.accessibilityStepFactor, in: box)
+        XCTAssertEqual(zp.zoom, 1)
+        for _ in 0..<20 { zp.step(by: ZoomPan.accessibilityStepFactor, in: box) }
+        XCTAssertEqual(zp.zoom, ZoomPan.maximumZoom, "zoom in stops at the pinch's maximum")
+        for _ in 0..<20 { zp.step(by: 1 / ZoomPan.accessibilityStepFactor, in: box) }
+        XCTAssertEqual(zp.zoom, ZoomPan.minimumZoom, "zoom out stops at the pinch's minimum")
+    }
+
+    func testZoomingOutPullsAPannedImageBackInsidePane() {
+        let box = CGSize(width: 400, height: 300)
+        var zp = ZoomPan()
+        zp.step(by: 4, in: box)                                  // zoom 4: limit (150, 112.5)
+        zp.offset = CGSize(width: 150, height: -112.5)           // panned to the corner
+        zp.step(by: 0.5, in: box)                                // zoom 2: limit (100, 75)
+        XCTAssertEqual(zp.offset, CGSize(width: 100, height: -75))
+        zp.step(by: 0.5, in: box)                                // zoom 1: the image fits
+        XCTAssertEqual(zp.offset, .zero)
+    }
+
+    func testResetZoomRestoresTheDefaultState() {
+        var zp = ZoomPan()
+        zp.step(by: 8, in: CGSize(width: 100, height: 100))
+        zp.offset = CGSize(width: 5, height: 5)
+        zp.reset()
+        XCTAssertEqual(zp, ZoomPan())
+    }
 }

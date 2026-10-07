@@ -41,6 +41,16 @@ struct ZoomPan: Equatable {
         min(maximumZoom, max(minimumZoom, zoom))
     }
 
+    /// One step of the VoiceOver / keyboard-free zoom actions: a factor of 2
+    /// per step, through the same clamp as a pinch (`clampZoom`, then the pan
+    /// is pulled back inside the pane as `.onEnded` does).
+    static let accessibilityStepFactor: CGFloat = 2
+
+    mutating func step(by factor: CGFloat, in box: CGSize) {
+        zoom = Self.clampZoom(zoom * factor)
+        offset = Self.clampedOffset(offset, zoom: zoom, in: box)
+    }
+
     /// Pure, so the rule itself is unit-testable without a view.
     static func clampedOffset(
         _ proposed: CGSize, zoom: CGFloat, in size: CGSize
@@ -65,7 +75,13 @@ private struct ZoomPanModifier: ViewModifier {
             .gesture(
                 SimultaneousGesture(
                     MagnifyGesture()
-                        .onChanged { state.liveZoom = $0.magnification }
+                        .onChanged { value in
+                            // Skip a write that changes nothing: each one
+                            // re-evaluates the pane.
+                            if state.liveZoom != value.magnification {
+                                state.liveZoom = value.magnification
+                            }
+                        }
                         .onEnded { value in
                             state.zoom = ZoomPan.clampZoom(state.zoom * value.magnification)
                             state.liveZoom = 1
@@ -86,10 +102,13 @@ private struct ZoomPanModifier: ViewModifier {
                             let allowed = ZoomPan.clampedOffset(
                                 proposed, zoom: state.effectiveZoom, in: box
                             )
-                            state.liveOffset = CGSize(
+                            let live = CGSize(
                                 width: allowed.width - state.offset.width,
                                 height: allowed.height - state.offset.height
                             )
+                            // Pinned at an edge the drag keeps reporting the
+                            // same clamped value; do not re-publish it.
+                            if state.liveOffset != live { state.liveOffset = live }
                         }
                         .onEnded { value in
                             let proposed = CGSize(
@@ -104,12 +123,53 @@ private struct ZoomPanModifier: ViewModifier {
                 )
             )
             .onTapGesture(count: 2) {
-                withAnimation(.snappy) { state.reset() }
+                resetZoom(state: &state, reduceMotion: reduceMotion)
+            }
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+}
+
+/// Reset, animated only when the reader has not asked for Reduce Motion.
+@MainActor
+private func resetZoom(state: inout ZoomPan, reduceMotion: Bool) {
+    if reduceMotion {
+        state.reset()
+    } else {
+        withAnimation(.snappy) { state.reset() }
+    }
+}
+
+/// The zoom gestures' accessible twins: pinch, drag-to-pan-only and
+/// double-click gave VoiceOver and Switch Control users no way to zoom or to
+/// reset. Applied to the pane's accessibility container, where the actions are
+/// listed (review 2026-10-07, F5). Nothing is drawn.
+private struct ZoomPanAccessibilityActions: ViewModifier {
+    @Binding var state: ZoomPan
+    let box: CGSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityAction(named: "Zoom in") {
+                state.step(by: ZoomPan.accessibilityStepFactor, in: box)
+            }
+            .accessibilityAction(named: "Zoom out") {
+                state.step(by: 1 / ZoomPan.accessibilityStepFactor, in: box)
+            }
+            .accessibilityAction(named: "Reset zoom") {
+                resetZoom(state: &state, reduceMotion: reduceMotion)
             }
     }
 }
 
 extension View {
+    /// "Zoom in", "Zoom out" and "Reset zoom" as accessibility actions, for the
+    /// same `state` and `box` the pane's `.zoomPan` uses.
+    func zoomPanAccessibilityActions(_ state: Binding<ZoomPan>, box: CGSize) -> some View {
+        modifier(ZoomPanAccessibilityActions(state: state, box: box))
+    }
+
     /// Pinch to zoom, drag to pan, double-click to reset. `box` is the
     /// drawn image's size, which is what the pan clamp is measured against.
     func zoomPan(_ state: Binding<ZoomPan>, box: CGSize) -> some View {

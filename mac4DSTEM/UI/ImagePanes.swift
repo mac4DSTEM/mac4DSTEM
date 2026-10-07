@@ -403,7 +403,8 @@ struct DiffractionPane: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Diffraction pattern")
             .accessibilityValue("Scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(qx) by \(qy) detector pixels")
-            .accessibilityHint("Pinch to zoom, drag to pan, or double click to reset")
+            .accessibilityHint("Pinch to zoom, drag to pan, or double click to reset. The Zoom in, Zoom out and Reset zoom actions do the same.")
+            .zoomPanAccessibilityActions($zp, box: box)
         } else {
             ContentUnavailableView(
                 "No Diffraction Pattern",
@@ -999,6 +1000,7 @@ struct RealSpacePane: View {
             .accessibilityHint(mapsScanPositions
                 ? "Use arrow keys to move the selected scan position; Shift moves ten pixels"
                 : "Scientific image; scan-position selection is unavailable")
+            .zoomPanAccessibilityActions($zp, box: box)
         } else if appState.hasDataset {
             ContentUnavailableView(
                 "No Result Yet",
