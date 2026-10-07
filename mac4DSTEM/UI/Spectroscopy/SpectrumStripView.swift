@@ -101,6 +101,9 @@ struct SpectrumStripView: View {
                 }
                 .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
                 .help("Unpin \(pin.label): \(ResultFormat.counts(Double(pin.pixels))) px")
+                // A click removes the pin; VoiceOver would otherwise read the dot, the name and the glyph's "xmark".
+                .accessibilityLabel(SpectrumStripLogic.unpinLabel(pin.label))
+                .accessibilityHint("\(ResultFormat.counts(Double(pin.pixels))) pixels")
             }
         }
     }
@@ -110,11 +113,9 @@ struct SpectrumStripView: View {
     private var plot: some View {
         GeometryReader { geo in
             let size = geo.size
-            Canvas { ctx, size in draw(ctx, size) }
+            accessiblePlot(Canvas { ctx, size in draw(ctx, size) }
                 .frame(width: size.width, height: size.height)
-                .contentShape(Rectangle())
-                .accessibilityElement()
-                .accessibilityLabel(spectrumAccessibilitySummary)
+                .contentShape(Rectangle()))
                 .gesture(DragGesture(minimumDistance: 2)
                     .onChanged { v in drag(v, size, optionHeld: false, commandHeld: false) }
                     .onEnded { _ in endDrag() })
@@ -145,11 +146,7 @@ struct SpectrumStripView: View {
                     case .ended: hover = nil
                     }
                 }
-                .focusable()
-                .focusEffectDisabled()
-                .focused($focused)
-                .onKeyPress(.home) { resetViewport(); return .handled }
-                .onKeyPress(.escape) { if rangeFrom == nil { return .ignored }; clearRange(); return .handled }
+                .modifier(keyboard)
                 .contextMenu { candidateMenu(size) }
                 .help("Pinch or \u{2303}-wheel: zoom · drag: pan · drag in the counts axis: stretch it\n"
                       + "Drag in the keV row: zoom about where you began (right = in)\n"
@@ -162,17 +159,41 @@ struct SpectrumStripView: View {
         }
     }
 
+    /// Focus and the keys: Home and ⎋ as before, and the keyboard's pan and zoom, the same viewport the mouse paths set
+    /// (⌘ is left to the menus).
+    private var keyboard: some ViewModifier { SpectrumKeys(focused: $focused, perform: perform, reset: resetViewport, escape: escapeKey) }
+    private func escapeKey() -> KeyPress.Result { if rangeFrom == nil { return .ignored }; clearRange(); return .handled }
+
+    /// The focus ring and the accessibility element: the plot's label, its changing value and the named view actions.
+    private func accessiblePlot<V: View>(_ plot: V) -> some View {
+        plot
+                // The focus ring (the system one is off, below): a thin inset accent stroke, drawn only while focused, no layout.
+                .overlay { if focused { Rectangle().inset(by: 1).stroke(Color.accentColor.opacity(0.7), lineWidth: 1.5).allowsHitTesting(false) } }
+                .accessibilityElement()
+                .accessibilityLabel(spectrumAccessibility.label)
+                .accessibilityValue(spectrumAccessibility.value)
+                .accessibilityAction(named: "Zoom in") { perform(.zoomIn) }
+                .accessibilityAction(named: "Zoom out") { perform(.zoomOut) }
+                .accessibilityAction(named: "Pan left") { perform(.panLeft) }
+                .accessibilityAction(named: "Pan right") { perform(.panRight) }
+                .accessibilityAction(named: "Show full range") { showFullRange() }
+                .accessibilityAction(named: "Reset view") { resetViewport() }
+    }
+
     private func plotWidth(_ size: CGSize) -> CGFloat { size.width - Metrics.left - Metrics.right }
 
-    /// A stable VoiceOver description of the plotted data. Hover readouts remain visual/context-menu feedback and never
-    /// generate accessibility announcements while the pointer moves.
-    private var spectrumAccessibilitySummary: String {
-        let lo = SpectrumReadout.energy(model.viewport.lo)
-        let hi = SpectrumReadout.energy(model.viewport.hi)
-        let perPixel = model.layers.perPixel && model.spectrumPixels > 0
-        let unit = perPixel ? "counts per pixel" : "counts"
-        let subtitle = model.spectrumSubtitle.isEmpty ? "" : " \(model.spectrumSubtitle)."
-        return "\(model.spectrumTitle).\(subtitle) Energy from \(lo) to \(hi) keV. Y axis in \(unit)."
+    /// VoiceOver's description of the plotted data: a stable label, and the changing energy span and axis unit as its value.
+    /// Hover readouts remain visual/context-menu feedback and never generate accessibility announcements while the pointer moves.
+    private var spectrumAccessibility: (label: String, value: String) {
+        SpectrumStripLogic.accessibility(title: model.spectrumTitle, subtitle: model.spectrumSubtitle,
+                                         lo: model.viewport.lo, hi: model.viewport.hi,
+                                         perPixel: model.layers.perPixel && model.spectrumPixels > 0)
+    }
+
+    /// A keyboard or VoiceOver pan/zoom step: the viewport the mouse paths set, and it stays where the person put it (manual).
+    private func perform(_ a: SpectrumStripLogic.ViewAction) {
+        model.viewport = SpectrumStripLogic.apply(a, to: model.viewport)
+        model.viewportIsManual = true
     }
 
     /// One drag step: the counts axis (it began in the gutter), the pan, or the range marker (⌥), as `SpectrumStripLogic.dragMode` says.
@@ -510,6 +531,32 @@ struct SpectrumStripView: View {
     }
 }
 
+/// The plot's focus and key handling (split out of the plot's long modifier chain, which the type checker would not take).
+private struct SpectrumKeys: ViewModifier {
+    var focused: FocusState<Bool>.Binding
+    var perform: (SpectrumStripLogic.ViewAction) -> Void
+    var reset: () -> Void
+    var escape: () -> KeyPress.Result
+    func body(content: Content) -> some View {
+        content
+            .focusable()
+            .focusEffectDisabled()
+            .focused(focused)
+            .onKeyPress(.home) { reset(); return .handled }
+            .onKeyPress(.escape) { escape() }
+            .onKeyPress(.leftArrow, phases: [.down, .repeat]) { _ in perform(.panLeft); return .handled }
+            .onKeyPress(.rightArrow, phases: [.down, .repeat]) { _ in perform(.panRight); return .handled }
+            .onKeyPress(characters: CharacterSet(charactersIn: "+="), phases: [.down, .repeat]) { press in
+                if press.modifiers.contains(.command) { return .ignored }
+                perform(.zoomIn); return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "-"), phases: [.down, .repeat]) { press in
+                if press.modifiers.contains(.command) { return .ignored }
+                perform(.zoomOut); return .handled
+            }
+    }
+}
+
 /// What a drag on the plot does, by where it began and whether ⌥ is held (the gesture code asks this; nothing else decides).
 nonisolated enum SpectrumDragMode: Equatable, Sendable { case pan, stretchY, range, zoomX, band }
 
@@ -526,6 +573,28 @@ nonisolated enum SpectrumStripLogic {
         (viewport.energy(atFraction: anchor(startX: startX, plotLeft: plotLeft, plotWidth: plotWidth)),
          viewport.energy(atFraction: anchor(startX: endX, plotLeft: plotLeft, plotWidth: plotWidth)))
     }
+    /// What the keyboard (arrows, + and -) and VoiceOver's named actions do to the energy window.
+    enum ViewAction: Equatable, Sendable { case zoomIn, zoomOut, panLeft, panRight }
+    /// One step zooms by this factor about the window's centre, or pans by this fraction of the visible width.
+    static let zoomStep = 1.5, panStep = 0.2
+    static func apply(_ a: ViewAction, to viewport: SpectrumViewport) -> SpectrumViewport {
+        var vp = viewport
+        switch a {
+        case .zoomIn: vp.zoom(factor: zoomStep, anchor: 0.5)
+        case .zoomOut: vp.zoom(factor: 1 / zoomStep, anchor: 0.5)
+        case .panLeft: vp.pan(byFraction: -panStep)
+        case .panRight: vp.pan(byFraction: panStep)
+        }
+        return vp
+    }
+    /// The plot's accessibility label (stable while the view moves) and value (the energy span and the counts unit).
+    static func accessibility(title: String, subtitle: String, lo: Double, hi: Double, perPixel: Bool, locale: Locale = .current) -> (label: String, value: String) {
+        let label = subtitle.isEmpty ? title : "\(title), \(subtitle)"
+        let unit = perPixel ? "counts per pixel" : "counts"
+        return (label, "Energy from \(SpectrumReadout.energy(lo, locale: locale)) to \(SpectrumReadout.energy(hi, locale: locale)) keV. Y axis in \(unit).")
+    }
+    /// A pin chip's button removes the pin; its spoken name says so.
+    static func unpinLabel(_ pinLabel: String) -> String { "Unpin \(pinLabel)" }
     /// A marker of the highlighted element (hovered or clicked tile or periodic-table cell).
     static func isHighlighted(_ m: LineMarker, highlightedZ: Int?) -> Bool { highlightedZ != nil && m.elementZ == highlightedZ }
     static func lineWidth(_ m: LineMarker, highlightedZ: Int?) -> CGFloat { isHighlighted(m, highlightedZ: highlightedZ) ? SpectrumInteraction.Width.markerHighlighted : SpectrumInteraction.Width.marker }
