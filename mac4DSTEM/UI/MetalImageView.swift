@@ -105,6 +105,31 @@ struct MetalImageView {
         self.gamma = gamma
     }
 
+    /// Everything that decides what the pane draws, minus the pixel arrays
+    /// (their `contentVersion` stands in for them). `updateMetalView` skips the
+    /// redraw when this equals what the coordinator last applied, so a SwiftUI
+    /// update that changed nothing the pane shows (a hover or pan tick
+    /// elsewhere in the room) does not re-encode a frame.
+    struct AppliedState: Equatable {
+        var contentVersion: Int
+        var width: Int
+        var height: Int
+        var colormap: ColormapKind
+        var displayLo: Float
+        var displayHi: Float
+        /// The gamma the shader receives (`max(gamma, 0.05)`), not the raw one.
+        var effectiveGamma: Float
+        var hasRGBA: Bool
+    }
+
+    /// The state this view asks the coordinator to show.
+    var appliedState: AppliedState {
+        AppliedState(
+            contentVersion: contentVersion, width: width, height: height,
+            colormap: colormap, displayLo: displayLo, displayHi: displayHi,
+            effectiveGamma: max(gamma, 0.05), hasRGBA: rgba != nil)
+    }
+
     fileprivate func makeMetalView(_ coordinator: Coordinator) -> MTKView {
         let view = ScaleAwareMTKView(frame: .zero, device: MetalEngine.shared.device)
         view.colorPixelFormat = .bgra8Unorm            // must match displayPSO
@@ -127,6 +152,11 @@ struct MetalImageView {
         )
         coordinator.displayRange = SIMD2<Float>(displayLo, displayHi)
         coordinator.gamma = max(gamma, 0.05)
+        // Redraw only when something the pane shows changed (a size or scale
+        // change redraws through `drawableSizeWillChange` and the window hooks).
+        let state = appliedState
+        guard coordinator.lastApplied != state else { return }
+        coordinator.lastApplied = state
         view.needsDisplay = true
     }
 
@@ -160,6 +190,9 @@ struct MetalImageView {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             matchWindowScale()
+            // An update that arrived before the view had a window drew nothing
+            // (and updates no longer redraw unconditionally), so draw on entry.
+            if window != nil { needsDisplay = true }
         }
         override func viewDidChangeBackingProperties() {
             super.viewDidChangeBackingProperties()
@@ -169,6 +202,7 @@ struct MetalImageView {
         override func didMoveToWindow() {
             super.didMoveToWindow()
             matchWindowScale()
+            if window != nil { setNeedsDisplay() }
         }
         #endif
     }
@@ -176,14 +210,22 @@ struct MetalImageView {
     // MARK: - Coordinator (the MTKView delegate / renderer)
 
     final class Coordinator: NSObject, MTKViewDelegate {
-        var colormap: ColormapKind = .viridis { didSet { lutDirty = true } }
+        /// Setting the same colormap again (every SwiftUI update does) must not
+        /// rebuild the LUT and allocate a new texture.
+        var colormap: ColormapKind = .viridis {
+            didSet { if colormap != oldValue { lutDirty = true } }
+        }
+        /// What the last requested redraw was for; nil until the first update
+        /// and again after a draw that could not present, so the next update
+        /// draws.
+        var lastApplied: AppliedState?
         var displayRange = SIMD2<Float>(0, 1)
         var gamma: Float = 1
 
         private var dataTexture: MTLTexture?
         private var rgbaTexture: MTLTexture?
         private var lutTexture: MTLTexture?
-        private var lutDirty = true
+        private(set) var lutDirty = true
         private var version = Int.min
 
         func updateContentIfNeeded(
@@ -210,14 +252,22 @@ struct MetalImageView {
             }
         }
 
-        private func rebuildLUTIfNeeded() {
+        func rebuildLUTIfNeeded() {
             guard lutDirty || lutTexture == nil else { return }
             lutTexture = MetalEngine.shared.device.makeLUTTexture(
                 rgba: Colormaps.lutRGBA(colormap, count: 256))
             lutDirty = false
         }
 
-        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { }
+        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+            // `updateMetalView` no longer redraws on every update, so a resize
+            // or a backing-scale change asks for its own frame.
+            #if os(macOS)
+            view.needsDisplay = true
+            #else
+            view.setNeedsDisplay()
+            #endif
+        }
 
         func draw(in view: MTKView) {
             rebuildLUTIfNeeded()
@@ -226,7 +276,12 @@ struct MetalImageView {
                   let drawable = view.currentDrawable,
                   let buffer = MetalEngine.shared.queue.makeCommandBuffer(),
                   let encoder = buffer.makeRenderCommandEncoder(descriptor: descriptor)
-            else { return }
+            else {
+                // Nothing was presented (no window or drawable yet): forget the
+                // applied state so the next update draws instead of being skipped.
+                lastApplied = nil
+                return
+            }
 
             let engine = MetalEngine.shared
             if rgbaTexture != nil {
