@@ -645,9 +645,14 @@ package actor DM4Reader: FourDDataSource {
             let value = reader.value(encType)
             numbers[path] = value
 
-        case 18:                                        // string
-            let len = Int(reader.u32be())
-            _ = reader.bytes(len)
+        case 18:                                        // string: info [18, length], then `length` bytes
+            // The length is the info array's second entry; nothing follows the info
+            // array (rosettasciio `parse_string_definition`). Reading a further u32
+            // here desynced the walk from the next tag. Stored in `strings`, as the
+            // axis-units strings are, so a units string written as type 18 is read.
+            let len = info.count >= 2 ? Int(clamping: info[1]) : 0
+            guard len <= reader.remaining else { throw DM4Error.truncated }
+            strings[path] = String(decoding: reader.bytes(len), as: UTF8.self)
 
         case 15:                                        // struct — skip its data
             let nFields = info.count >= 3 ? Int(info[2]) : 0
