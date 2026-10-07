@@ -70,6 +70,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 060 | Auto ID gains a named rule step (raw result kept, withheld picks named); R1's actinide half ships (Z ≥ 89 never); its beside-K half held by the refuter (would drop Hf beside a Cu grid, Pt beside Ga on a lamella, no K fallback); R2 closed on a non-independent hold-out (not shown wrong); R3 refuted on the dose ladder (Ar released from Al pile-up) | 10-07 | accepted (Gate D, refuted) |
 | 061 | V5-8 answered b (E, then the B* table with no posterior once a separability matrix shows a separable pair, D behind an exploratory badge; G and F out of v5.0); inspector stays 320; EDX Quantify rows in Results for the 4D case, an EMD alone stays Export-only; glass buttons, Compute Image and per-line maps-only confirmed | 10-07 | accepted (owner) |
 | 062 | WP4b: the beside-K drop with an evidence guard refuted (drops true Hf beside Cu, Pt beside Ga: L-family L_D is larger at equal area) and R2 refuted in-sample on the Velox set (favoured on DTSA-II's Qual set); nothing ships, shipped rules unchanged | 10-07 | accepted (Gate D, refuted) |
+| 063 | The learned disk detector stays on Core ML; a Core AI spike (macOS availability first, then placement, speed and scan-level parity at batch 32) runs at the next detector change; ADR 014's 'ANE only through Core ML' corrected | 10-08 | accepted (owner) |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

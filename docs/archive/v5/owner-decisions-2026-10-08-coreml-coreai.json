@@ -1,0 +1,78 @@
+{
+ "date": "2026-10-08: Core ML or Core AI for the learned disk detector",
+ "storageKey": "mac4dstem-decisions-2026-10-08-coreai",
+ "lede": "One question, parked by you on 2026-09-23 to be re-decided later. A draft sheet and an independent second opinion both checked Apple's documentation through the docs MCP; both recommend staying on Core ML and deciding by a short measured spike.",
+ "cards": [
+  {
+   "id": "C1",
+   "title": "Core ML or Core AI for the learned disk detector",
+   "status": "open",
+   "context": [
+    "The learned disk detector (a 256 px U-Net) runs on the Neural Engine through Core ML. On the M5 Pro, Core ML's automatic setting ran it on the GPU, and the Neural Engine served only one batch size; the app now checks at load that the Neural Engine really ran it and refuses otherwise. Why the scheduler behaves that way is not established.",
+    "Apple's Core AI framework (macOS 27) can run the same kind of model and documents a way to prefer the Neural Engine. But its pages for that targeting list iOS, iPadOS, tvOS, visionOS and watchOS — not macOS — and the option is only a preference, not a guarantee. Core ML's `.cpuAndNeuralEngine` is already an explicit request, and the app already verifies placement.",
+    "Your in-app fine-tuning writes a Core ML package; Core AI has no on-device writer, so moving fully to Core AI would drop or split that path.",
+    "Code this unlocks: a — nothing now, a spike later (about one session). b — port the runtime (about 110 lines exist in history), a PyTorch export, and a Gate D because the numbers move (3–4 sessions). c — both behind one protocol (4–5 sessions) and twice the held-out validation."
+   ],
+   "glossary": [
+    {
+     "term": "Neural Engine (ANE)",
+     "meaning": "Apple's on-chip accelerator for neural networks; fast and power-efficient for inference."
+    },
+    {
+     "term": "spike",
+     "meaning": "a short, time-boxed measurement to settle a question before committing to a change."
+    },
+    {
+     "term": "batch 32",
+     "meaning": "the number of patterns run at once; the only size the Neural Engine served on the M5."
+    }
+   ],
+   "question": "Stay on Core ML, move to Core AI, or support both?",
+   "options": [
+    {
+     "key": "a",
+     "label": "Stay on Core ML; run a spike at the next detector change",
+     "what": "Nothing changes now. The spike first checks Core AI's macOS availability and Neural Engine placement for one pattern; only if Core AI wins on placement, speed and detection parity (batch 32, same weights, scan-level peaks) is the runtime reopened.",
+     "effort": "0 now; about 1 session for the spike",
+     "risk": "low; the Core ML workaround stays until then"
+    },
+    {
+     "key": "b",
+     "label": "Move the bundled detector to Core AI",
+     "what": "Core AI's tools and a preferred-Neural-Engine setting; fine-tuned models would still need Core ML.",
+     "effort": "3–4 sessions + Gate D",
+     "risk": "high: new framework, macOS targeting undocumented, numbers move"
+    },
+    {
+     "key": "c",
+     "label": "Both runtimes behind one protocol",
+     "what": "Choose per model; compare side by side during a migration.",
+     "effort": "4–5 sessions",
+     "risk": "highest upkeep; every backend needs its own held-out validation (ADR 043)"
+    }
+   ],
+   "recommend": "a",
+   "recommendWhy": "Core ML already requests and verifies the Neural Engine; Core AI's advantage is undocumented on macOS and its targeting is only a preference. A spike settles it cheaply when the detector next changes.",
+   "advisor": "Agrees with a, on corrected grounds: Core AI's preferredComputeUnitKind is not a stronger guarantee than Core ML's explicit request plus the app's load check, and Core AI's model pages list no macOS availability. The spike must start with that availability check and a one-pattern placement probe, compare at batch 32 with placement confirmed in both runtimes, keep the same weights, and judge scan-level peaks — or a silent fallback would look like parity. Not c: two runtimes double the held-out work.",
+   "nothing": "a — Core ML stays, the spike waits for the next detector change.",
+   "sources": [
+    "docs/archive/v5/coreml-vs-coreai-2026-10-08.md",
+    "docs/decisions/014-learned-disk-detector.md",
+    "docs/decisions/043-fine-tuned-models-judged-by-detection.md",
+    "docs/decisions/048-clearing-the-board-decisions.md",
+    "Apple: documentation/CoreAI/ComputeUnitKind.md",
+    "Apple: documentation/CoreML/mlcomputeunits.md"
+   ],
+   "images": []
+  }
+ ],
+ "not_carded": [
+  "Answered on 2026-10-07 night (ADR 061): V5-8 = b; P2 keep 320; P4 = b; P1, P3, P5 confirmed.",
+  "Swift 6 (64 diagnostics, 3.5–5 sessions) is a scheduling question for you, not a card: say when you want it."
+ ],
+ "footer": "docs/archive/v5/coreml-vs-coreai-2026-10-08.md (sheet, supervisor check and independent second opinion), ADR 014, 043, 048, and Apple's Core AI and Core ML documentation via the docs MCP. Nothing here changes the app; your answer does.",
+ "answers": {
+  "C1": "a",
+  "answered": "2026-10-08, by the owner, pasted from the decision page"
+ }
+}
