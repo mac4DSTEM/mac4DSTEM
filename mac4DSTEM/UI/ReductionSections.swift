@@ -63,6 +63,13 @@ struct ReductionPreviewPanes: View {
                         crop: pending.configuration.scanCrop,
                         cropSpaceWidth: pending.source.rx,
                         cropSpaceHeight: pending.source.ry,
+                        pick: ScanPickAccessibility(
+                            value: singlePatternCaption,
+                            x: ScanPickStepping.sampledIndex(source: pending.singleDPPosition?.rx ?? 0,
+                                                             stride: preview.strideX, count: realSpace.width),
+                            y: ScanPickStepping.sampledIndex(source: pending.singleDPPosition?.ry ?? 0,
+                                                             stride: preview.strideY, count: realSpace.height),
+                            width: realSpace.width, height: realSpace.height),
                         onTap: { imageX, imageY in
                             // The preview owns its own stride, so IT does the
                             // sampled-grid → source conversion — the view
@@ -184,6 +191,7 @@ struct ReductionPreviewPanes: View {
         crop: AxisCrop?,
         cropSpaceWidth: Int,
         cropSpaceHeight: Int,
+        pick: ScanPickAccessibility? = nil,
         onTap: ((Double, Double) -> Void)? = nil,
         onDrag: @escaping (DragRectangle) -> Void
     ) -> some View {
@@ -271,6 +279,10 @@ struct ReductionPreviewPanes: View {
                 minHeight: LayoutPolicy.imagePaneMinimum,
                 maxHeight: LayoutPolicy.thumbnailMaximumHeight
             )
+            // Picking a pattern is otherwise click-only. For VoiceOver and the
+            // keyboard the preview becomes a labelled element with two
+            // steppers on the same `onTap` path; nothing is drawn.
+            .modifier(ScanPickAccessibilityModifier(title: title, pick: pick, onTap: onTap))
             .accessibilityIdentifier(identifier)
         }
     }
@@ -371,6 +383,65 @@ struct ReductionSizeRow: View {
     var body: some View {
         LabeledContent(label) {
             Text(value).monospacedDigit()
+        }
+    }
+}
+
+
+/// The picked scan position of the real-space preview, in the PREVIEW's
+/// sampled grid (what `onTap` takes), with the grid's size — the state the
+/// accessibility steppers read and move. Plain values; the view builds one
+/// per body pass from `PendingLoad`.
+struct ScanPickAccessibility {
+    let value: String
+    let x: Int
+    let y: Int
+    let width: Int
+    let height: Int
+}
+
+enum ScanPickStepping {
+    /// A source scan coordinate as an index on the preview's sampled grid:
+    /// the inverse of `DatasetPreview.sourcePosition` (which multiplies by
+    /// the stride), clamped into the grid so a position past the last sample
+    /// (the scan size is not always a multiple of the stride) still lands on a
+    /// valid stepper value.
+    static func sampledIndex(source: Int, stride: Int, count: Int) -> Int {
+        max(0, min(max(count - 1, 0), source / max(stride, 1)))
+    }
+}
+
+/// Label, value and "Scan X / Scan Y" steppers for the real-space preview.
+/// Each step calls the pane's own `onTap` with the new sampled position — the
+/// click path — so the stride conversion stays `DatasetPreview`'s. A step
+/// issues one pattern fetch; `PendingLoad.fetchSingleDP` cancels the fetch it
+/// supersedes, so holding a stepper key issues no pile of reads and needs no
+/// debounce of its own.
+private struct ScanPickAccessibilityModifier: ViewModifier {
+    let title: String
+    let pick: ScanPickAccessibility?
+    let onTap: ((Double, Double) -> Void)?
+
+    func body(content: Content) -> some View {
+        if let pick, let onTap {
+            content
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(title)
+                .accessibilityValue(pick.value)
+                .accessibilityRepresentation {
+                    VStack {
+                        Stepper("Scan X", value: Binding(
+                            get: { pick.x },
+                            set: { onTap(Double($0), Double(pick.y)) }),
+                                in: 0...max(0, pick.width - 1))
+                        Stepper("Scan Y", value: Binding(
+                            get: { pick.y },
+                            set: { onTap(Double(pick.x), Double($0)) }),
+                                in: 0...max(0, pick.height - 1))
+                    }
+                }
+        } else {
+            content
         }
     }
 }

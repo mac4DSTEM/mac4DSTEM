@@ -82,4 +82,28 @@ final class SwiftUIReviewGTests: XCTestCase {
         XCTAssertNotEqual(state.patternVersion, version, "the old key moved on a display toggle")
         XCTAssertEqual(key, ProbeRingHintKey.make(mean: state.meanPattern, descriptorQy: 8, descriptorQx: 8))
     }
+
+    // MARK: - G3 scan-preview pick stepping
+
+    /// The steppers show a position on the preview's sampled grid: the source
+    /// coordinate divided by the stride (the inverse of `sourcePosition`),
+    /// clamped into the grid. Mutations: drop the clamp -> the past-the-end
+    /// case is red; multiply instead of divide -> the stride case is red.
+    func testScanPickSampledIndexInvertsTheStrideAndClamps() {
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: 0, stride: 4, count: 10), 0)
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: 12, stride: 4, count: 10), 3)
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: 13, stride: 4, count: 10), 3, "between samples rounds down")
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: 41, stride: 4, count: 10), 9, "past the last sample clamps")
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: 7, stride: 0, count: 10), 7, "a zero stride is read as 1")
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: 5, stride: 1, count: 0), 0, "an empty grid has index 0")
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: -3, stride: 2, count: 5), 0)
+
+        // Round trip through the preview's own conversion.
+        let d = DiffractionPattern(qy: 1, qx: 1, pixels: [0])
+        let preview = DatasetPreview(realSpace: FloatImage(width: 10, height: 6, pixels: [Float](repeating: 0, count: 60)),
+                                     meanDP: d, maxDP: d, strideY: 3, strideX: 4, sampledPositions: 60, totalPositions: 720)
+        let src = preview.sourcePosition(forSampledX: 7, sampledY: 5)
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: src.rx, stride: 4, count: 10), 7)
+        XCTAssertEqual(ScanPickStepping.sampledIndex(source: src.ry, stride: 3, count: 6), 5)
+    }
 }
