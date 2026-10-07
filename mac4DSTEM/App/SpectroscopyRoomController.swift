@@ -317,17 +317,18 @@ final class SpectroscopyRoomController {
             } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note (whoever cancelled it ended the operation)
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }
+            let finalOutcome = outcome, finalFailure = failure   // immutable copies for the main-actor closure (no mutable capture)
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 if self.autoIDOperation === run { self.autoIDOperation = nil }
                 self.endOperation(run)   // this run's own operation, never a newer run's
-                if let outcome {
+                if let outcome = finalOutcome {
                     // D-3: the suggestions are applied (picked, mapped at once); with none to apply no listed pick moved, so the
                     // fit and its in-flight unlisted-line check are left alone (the view's change callback must not refresh for the suggestions).
                     if self.model.finishAutoID(token: token, outcome: outcome) {
                         if self.applyAutoIDPicks() { self.model.markListedAfterPicks(); self.elementsChanged() } else { self.lastElements = self.model.elements }
                     }
-                } else { self.model.failAutoID(token: token, message: failure ?? "Auto ID failed.") }
+                } else { self.model.failAutoID(token: token, message: finalFailure ?? "Auto ID failed.") }
             }
         }
     }
@@ -624,7 +625,8 @@ final class SpectroscopyRoomController {
                 if Task.isCancelled { return }
                 shown = FitRangeSensitivityCheck.attaching(shown, s)
             }
-            await MainActor.run { [weak self] in self?.landCheck(shown, region: region, generation: gen) }
+            let finalShown = shown   // immutable copy for the main-actor closure (no mutable capture)
+            await MainActor.run { [weak self] in self?.landCheck(finalShown, region: region, generation: gen) }
         }
     }
 
