@@ -87,7 +87,7 @@ struct PhaseMappingSections: View {
                     InspectorAdaptiveButton("Find Matrix Zone Axis", systemImage: "scope",
                                              help: "Symmetry-equivalent axes should tie exactly. They are shown "
                                                  + "so a fit can be told from a coin toss.") {
-                        PendingEdits.run { await appState.findMatrixZoneAxis() }
+                        PendingEdits.run { _ = await appState.findMatrixZoneAxis() }
                     }
                     // No physical Q scale, no fit: every axis would read "at
                     // chance" (drive 2026-09-24); the run section says why.
