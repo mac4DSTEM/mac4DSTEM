@@ -1117,6 +1117,21 @@ nonisolated enum RoomAccessibilityText {
         (!draft.isEmpty && !parses) ? caption : nil
     }
 
+    /// The sample a history plot moves to for a step of `offset` (±1) along its finite samples, from `current` (the plot's selection,
+    /// or the last sample when none is chosen). Clamped at both ends; nil when there is no finite sample. Shared by the adjustable
+    /// action (VoiceOver) and the arrow keys (full keyboard access), so both move the same way.
+    static func steppedSample(finiteIndices indices: [Int], current: Int?, offset: Int) -> Int? {
+        guard !indices.isEmpty else { return nil }
+        let from = current ?? indices[indices.count - 1]
+        let position = indices.firstIndex(of: from) ?? indices.count - 1
+        return indices[min(indices.count - 1, max(0, position + offset))]
+    }
+
+    /// The comparison panels' shared zoom after a VoiceOver / keyboard zoom step: doubled or halved, between 1 and `maximum`.
+    static func steppedZoom(_ zoom: Double, zoomIn: Bool, maximum: Double) -> Double {
+        min(maximum, max(1, zoomIn ? zoom * 2 : zoom / 2))
+    }
+
     /// A saved product's state value: "Shown" for the product on screen, empty otherwise.
     static func shownValue(isCurrent: Bool) -> String { isCurrent ? "Shown" : "" }
 }

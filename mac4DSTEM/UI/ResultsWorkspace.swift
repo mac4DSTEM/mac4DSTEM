@@ -340,6 +340,16 @@ struct ProductComparisonView: View {
                 }
             }
             .frame(minHeight: LayoutPolicy.comparisonPaneMinimum)   // science: a comparison pane
+            // The pinch has no keyboard or VoiceOver twin otherwise; the zoom is shared by all panels.
+            .accessibilityZoomAction { action in
+                switch action.direction {
+                case .zoomIn, .zoomOut:
+                    zoom = CGFloat(RoomAccessibilityText.steppedZoom(
+                        Double(zoom), zoomIn: action.direction == .zoomIn, maximum: Double(ZoomPan.maximumZoom)))
+                @unknown default: break
+                }
+            }
+            .accessibilityAction(named: "Reset zoom") { zoom = 1 }
             if let cursor, let sample = product.sample(x: cursor.x, y: cursor.y) {
                 Text(sample.accessibilityText).font(.caption2.monospacedDigit()).lineLimit(1)
             } else {

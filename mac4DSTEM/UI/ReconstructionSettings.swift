@@ -917,18 +917,24 @@ private struct ScientificHistoryPlot: View {
                 })
             }
             .frame(height: LayoutPolicy.diagnosticPlotHeight)
+            // Full keyboard access: Tab to the plot (the system focus ring shows), Left / Right step the selected sample, as the
+            // VoiceOver adjustable action below does. A held key repeats.
+            .focusable()
+            .onKeyPress(phases: [.down, .repeat]) { press in
+                switch press.key {
+                case .leftArrow: return stepSelection(by: -1)
+                case .rightArrow: return stepSelection(by: 1)
+                default: return .ignored
+                }
+            }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
             .accessibilityValue(selectionLabel)
             .accessibilityHint("Adjust to inspect finite samples")
             .accessibilityAdjustableAction { direction in
-                let indices = geometry.points.map(\.index)
-                guard !indices.isEmpty else { return }
-                let current = effectiveSelection ?? indices[indices.count - 1]
-                let position = indices.firstIndex(of: current) ?? indices.count - 1
                 switch direction {
-                case .increment: selectedIndex = indices[min(indices.count - 1, position + 1)]
-                case .decrement: selectedIndex = indices[max(0, position - 1)]
+                case .increment: _ = stepSelection(by: 1)
+                case .decrement: _ = stepSelection(by: -1)
                 @unknown default: break
                 }
             }
@@ -944,6 +950,14 @@ private struct ScientificHistoryPlot: View {
     }
 
     private var effectiveSelection: Int? { selectedIndex ?? geometry.points.last?.index }
+
+    /// Move the selection by one finite sample; `.ignored` when the plot has none (the key then passes on).
+    private func stepSelection(by offset: Int) -> KeyPress.Result {
+        guard let next = RoomAccessibilityText.steppedSample(
+            finiteIndices: geometry.points.map(\.index), current: effectiveSelection, offset: offset) else { return .ignored }
+        selectedIndex = next
+        return .handled
+    }
 
     private var selectionLabel: String {
         guard let point = geometry.point(at: effectiveSelection) else { return "No finite samples" }

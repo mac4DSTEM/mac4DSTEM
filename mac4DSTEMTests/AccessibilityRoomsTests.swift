@@ -153,4 +153,34 @@ final class AccessibilityRoomsTests: XCTestCase {
         XCTAssertEqual(RoomAccessibilityText.relationshipMalformed,
                        "A relationship is pairs like (002) ∥ (200); planes in parentheses, directions in square brackets.")
     }
+
+    // MARK: - Y5 keyboard and zoom
+
+    /// Mutation: no clamp at the ends (index out of range / wrong sample), a step of the wrong sign, or ignoring the gaps in
+    /// `finiteIndices` (stepping by 1 in the index instead of by one finite sample) -> red.
+    func testSteppedSampleMovesAlongFiniteSamplesAndClamps() {
+        let finite = [0, 1, 3, 4]   // sample 2 was not finite
+        XCTAssertEqual(RoomAccessibilityText.steppedSample(finiteIndices: finite, current: 1, offset: 1), 3, "skips the gap")
+        XCTAssertEqual(RoomAccessibilityText.steppedSample(finiteIndices: finite, current: 3, offset: -1), 1)
+        XCTAssertEqual(RoomAccessibilityText.steppedSample(finiteIndices: finite, current: 4, offset: 1), 4, "clamped at the end")
+        XCTAssertEqual(RoomAccessibilityText.steppedSample(finiteIndices: finite, current: 0, offset: -1), 0, "clamped at the start")
+    }
+
+    /// Mutation: start from the first sample instead of the last when nothing is selected, or when the selection is no longer
+    /// finite; or return a sample for an empty series -> red.
+    func testSteppedSampleStartsFromTheLastSampleAndHandlesNoSamples() {
+        let finite = [0, 1, 3, 4]
+        XCTAssertEqual(RoomAccessibilityText.steppedSample(finiteIndices: finite, current: nil, offset: -1), 3)
+        XCTAssertEqual(RoomAccessibilityText.steppedSample(finiteIndices: finite, current: 2, offset: -1), 3,
+                       "a selection that is no longer finite is treated as the last sample")
+        XCTAssertNil(RoomAccessibilityText.steppedSample(finiteIndices: [], current: nil, offset: 1))
+    }
+
+    /// Mutation: lose the lower bound (zoom below 1 would shrink the shared panels), the upper bound, or swap in/out -> red.
+    func testSteppedZoomDoublesHalvesAndStaysInRange() {
+        XCTAssertEqual(RoomAccessibilityText.steppedZoom(1, zoomIn: true, maximum: 64), 2)
+        XCTAssertEqual(RoomAccessibilityText.steppedZoom(8, zoomIn: false, maximum: 64), 4)
+        XCTAssertEqual(RoomAccessibilityText.steppedZoom(1, zoomIn: false, maximum: 64), 1, "never below 1")
+        XCTAssertEqual(RoomAccessibilityText.steppedZoom(48, zoomIn: true, maximum: 64), 64, "never above the maximum")
+    }
 }
