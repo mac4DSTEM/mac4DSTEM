@@ -362,7 +362,7 @@ The 2026-09-08 `EXC_BAD_ACCESS` in `AccessibilityNode.accessibilityLabel()` neve
 established. Advanced detection shares one identifier (`disk.advancedDisclosure`). Everything newer is in the 2026-10-07 entry below.
 
 ### SwiftUI review residuals, drives and audits (2026-10-07)
-Swift 6 measured: 64 diagnostics, 3,5–5 sessions, not Metal (`archive/v5/swift6-cost-2026-10-07.md`); the owner schedules it or not. Frozen:
+Swift 6 measured: 64 diagnostics, 3,5–5 sessions, not Metal (`archive/v5/swift6-cost-2026-10-07.md`); the owner schedules it or not. If yes, order: D+E statics/conformance (0.5), A counters via `Mutex` (1), B+C `nonisolated` + pointer box in Origin/RotationCalibration (1.5, Gate B, bit-compare), then v6 one module at a time (Training already builds; the v6 error count is a first wave only); tests and `tools/` unmeasured. Frozen:
 two inspectors re-read the scan position per scrub (`WorkspaceInspector.swift` ~:446). Drive rows: `archive/v5/swiftui-review-verification-2026-10-07.md`
 (6 open). Audits with drive checks and fix lists: `archive/v5/swiftui-a11y-apple-docs-check-2026-10-07.md`, `a11y-rooms-apple-docs-audit-2026-10-07.md`;
 their owner items (keyboard Label centres, region/crop drags, comparison cursor, visible disabled reasons, visible wording) wait for his word.
