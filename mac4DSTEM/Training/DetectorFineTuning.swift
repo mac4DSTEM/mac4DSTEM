@@ -94,6 +94,7 @@ package nonisolated enum DetectorFineTuning {
     /// The registered match radius (`DetectionScorer.defaultRadius`, 2 px).
     package static let matchRadius = DetectionScorer.defaultRadius
 
+    @concurrent
     package static func run(
         _ request: DetectorFineTuningRequest, cancellation: AnalysisCancellationToken,
         progress: @escaping @Sendable (DetectorFineTuningStage) -> Void

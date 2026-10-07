@@ -258,13 +258,12 @@ package final class LearnedDetectionSession {
               let assetURL = resolvedAssetURL,
               let learned = try? await prepare(assetURL: assetURL) else { return nil }
         let currentThreshold = threshold
-        return await Task.detached(priority: .userInitiated) {
-            await learned.detect(
-                pattern: pattern, probe: ref.pattern,
-                probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
-                kernelSource: ref.source, params: params, threshold: currentThreshold
-            )
-        }.value
+        // `detect` is `@concurrent`: off the main actor by its own declaration.
+        return await learned.detect(
+            pattern: pattern, probe: ref.pattern,
+            probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
+            kernelSource: ref.source, params: params, threshold: currentThreshold
+        )
     }
 
     /// The provenance `runDiskDetection` merges into its recorded replay

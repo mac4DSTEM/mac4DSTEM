@@ -204,7 +204,7 @@ extension LearnedDiskDetector {
     /// window grid — which are identical across tiles since the window origins
     /// are fixed by `probeCentre` and `probeRadius`, not by scan row) — never
     /// recomputed.
-    /// `nonisolated` is load-bearing, not decoration (Gate D, fix-a
+    /// `@concurrent` (it was `nonisolated`, which is not enough under SE-0461) is load-bearing, not decoration (Gate D, fix-a
     /// `gateD-A2.md`): the project builds with
     /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, and without the keyword
     /// this member — declared in an extension in a file OTHER than the
@@ -214,7 +214,8 @@ extension LearnedDiskDetector {
     /// (measured: 5 of 5 progress callbacks on the main thread, and the
     /// owner's frozen run at 847/847 main-thread samples). The classical twin
     /// says it too: `TiledDiskDetection.detectAll(data:…)`.
-    package nonisolated func detectAll(
+    @concurrent
+    package func detectAll(
         data: FourDArray, descriptor d: DatasetDescriptor,
         probe: DiffractionPattern, probeCentre: (x: Float, y: Float), probeRadius: Float,
         kernelSource: ProbeKernelSource = .measured, params: DiskDetectionParams,

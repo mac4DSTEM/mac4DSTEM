@@ -49,20 +49,15 @@ extension AppState {
         }
 
         do {
-            // Off the main actor, exactly like the classical full-scan
-            // detection (`AppState.swift:4907`). `DiffractionEmbedding.compute`
-            // is `nonisolated async`; under SE-0461 a nonisolated async
-            // callee runs on its CALLER's executor, so awaiting it directly
-            // from this `@MainActor` method would run the whole embedding on
-            // the main thread and starve the progress hop above (measured
-            // 698/698 main-thread samples; Gate D
-            // `docs/archive/v3/ai-gateD-2026-09-06/gateD-A2.md`).
-            let computed = try await Task.detached(priority: .userInitiated) {
-                try await DiffractionEmbedding.compute(
-                    data: fourD, descriptor: descriptor, settings: settings,
-                    cancellation: cancellation, progress: progressUpdate
-                )
-            }.value
+            // Off the main actor: `DiffractionEmbedding.compute` is `@concurrent`. A plain `nonisolated async`
+            // callee runs on its CALLER's executor under SE-0461, so awaiting it from this `@MainActor` method
+            // would run the whole embedding on the main thread and starve the progress hop above (measured
+            // 698/698 main-thread samples; Gate D `docs/archive/v3/ai-gateD-2026-09-06/gateD-A2.md`). The
+            // callee carries the attribute now, so no caller has to remember a `Task.detached`.
+            let computed = try await DiffractionEmbedding.compute(
+                data: fourD, descriptor: descriptor, settings: settings,
+                cancellation: cancellation, progress: progressUpdate
+            )
             guard let result = computed else {
                 statusText = "Diffraction groups cancelled"
                 return .cancelled

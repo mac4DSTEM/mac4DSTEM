@@ -86,12 +86,11 @@ extension AppState {
                     self.statusText = "Calibrating origin…"
                 }
             }
-            let result = try await Task.detached(priority: .userInitiated) {
-                try await OriginCalibration.tiledRun(
-                    data: data, descriptor: d, fitFunction: fitFn, originMethod: method,
-                    cancellation: cancellation, progress: progress
-                )
-            }.value
+            // `tiledRun` is `@concurrent`: it runs off the main actor by its own declaration.
+            let result = try await OriginCalibration.tiledRun(
+                data: data, descriptor: d, fitFunction: fitFn, originMethod: method,
+                cancellation: cancellation, progress: progress
+            )
             guard epoch == datasetSession.epoch else { return }
             if cancellation.isCancelled {
                 statusText = "Origin calibration cancelled"

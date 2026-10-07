@@ -105,9 +105,8 @@ extension AppState {
             Task { @MainActor [weak self] in self?.showTraining(stage, token: token) }
         }
         do {
-            let outcome = try await Task.detached(priority: .userInitiated) {
-                try await DetectorFineTuning.run(request, cancellation: token, progress: report)
-            }.value
+            // `DetectorFineTuning.run` is `@concurrent`: off the main actor by its own declaration.
+            let outcome = try await DetectorFineTuning.run(request, cancellation: token, progress: report)
             guard epoch == datasetSession.epoch else {
                 try? FileManager.default.removeItem(at: staging)
                 return

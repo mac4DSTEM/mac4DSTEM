@@ -394,6 +394,7 @@ package nonisolated final class LearnedDiskDetector: @unchecked Sendable {
     /// current CBED is exactly what the full scan would find there (owner's
     /// drive, 2026-09-07: the rings must be checkable before Detect All).
     /// Returns nil where `detectAll` would (invalid params, probe of another size).
+    @concurrent
     package func detect(
         pattern: DiffractionPattern, probe: DiffractionPattern, probeCentre: (x: Float, y: Float),
         probeRadius: Float, kernelSource: ProbeKernelSource = .measured,

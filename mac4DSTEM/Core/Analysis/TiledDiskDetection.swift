@@ -69,7 +69,8 @@ extension DiskDetection {
     ///
     /// Returns nil ONLY on cancellation — every failure throws a
     /// `FullScanError` naming what failed and where. // v2 S7
-    package nonisolated static func detectAll(
+    @concurrent
+    package static func detectAll(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         kernel: ProbeKernel,

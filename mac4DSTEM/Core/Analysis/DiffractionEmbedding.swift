@@ -164,6 +164,7 @@ package nonisolated enum DiffractionEmbedding {
     /// Stream the cube once (twice only when the memory budget refuses
     /// caching), embed every pattern, PCA the embeddings, then k-means the
     /// coordinates. Returns nil ONLY on cancellation.
+    @concurrent
     package static func compute(
         data: FourDArray,
         descriptor d: DatasetDescriptor,

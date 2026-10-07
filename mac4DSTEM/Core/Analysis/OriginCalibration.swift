@@ -545,7 +545,8 @@ package nonisolated enum OriginCalibration {
     /// verdict: how far the refine step's answer moves between the shipped
     /// window and a wide one, on a strided sample. nil when it could not be
     /// measured. Nothing gates on it; see `windowSensitivityPixels(data:…)`.
-    package nonisolated static func tiledRun(
+    @concurrent
+    package static func tiledRun(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
         fitFunction: OriginFitFunction = .plane,

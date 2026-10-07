@@ -213,16 +213,15 @@ package nonisolated final class DetectorTrainer: @unchecked Sendable {
     /// only feeds the before / after loss. `availableMemory` defaults to `DetectorTraining.availableMemoryBytes()` (free + inactive pages); it
     /// throws `insufficientMemory` below 2 GB before any GPU memory is allocated. `cancellation` is checked
     /// before every micro-batch and throws `.cancelled`.
+    @concurrent
     package func train(
         samples: [TrainingSample], heldOut: [TrainingSample] = [],
         availableMemory: @escaping @Sendable () -> Int = { DetectorTraining.availableMemoryBytes() },
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (TrainingProgress) -> Void)? = nil
     ) async throws -> TrainingResult {
-        try await Task.detached(priority: .userInitiated) { [self] in
-            try trainBlocking(samples: samples, heldOut: heldOut, availableMemory: availableMemory,
-                              cancellation: cancellation, progress: progress)
-        }.value
+        try trainBlocking(samples: samples, heldOut: heldOut, availableMemory: availableMemory,
+                          cancellation: cancellation, progress: progress)
     }
 
     private static func activationType(_ name: String) throws -> MPSDataType {
@@ -347,7 +346,7 @@ package nonisolated final class DetectorTrainer: @unchecked Sendable {
         let t0 = Date()
         for step in 1 ... r.steps {
             // One autorelease pool per step. MPSGraph hands back autoreleased objects (the result dictionary, its
-            // MPSGraphTensorData and the buffers behind them, the bridged NSData of every feed); `Task.detached` runs this whole
+            // MPSGraphTensorData and the buffers behind them, the bridged NSData of every feed); `@concurrent` `train` runs this whole
             // loop as ONE job, so without the pool none of it is released until training returns — 10.9 MB of physical
             // footprint per step (5.7 GB at 500 steps), measured 2026-09-29; with it the slope is ~0 (tools/training-run-probe, TR_PROBE_TRAIN_ONLY=1).
             let stepLoss: Double = try autoreleasepool {

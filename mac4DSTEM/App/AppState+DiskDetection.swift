@@ -336,18 +336,18 @@ extension AppState {
         let learnedThreshold = learnedDetection.threshold
         let vectors: BraggVectors?
         do {
-            // Gate D P1: run the full-scan detection OFF the main actor.
-            // `detectAll` is nonisolated async but ran on the caller's
+            // Gate D P1: run the full-scan detection OFF the main actor. Both `detectAll`s are `@concurrent`
+            // (no caller detaches any more). Without that, a nonisolated async callee ran on the caller's
             // executor, and its `concurrentPerform` then conscripted the
             // MAIN thread as a dispatch_apply worker for each tile's entire
             // CPU-FFT workload — measured live during a frozen run:
             // 2518/2519 main-thread samples inside FFT2D.transform, AX ping
-            // 7 s, progress unpaintable, Cancel dead (2026-09-01). The
-            // detached task keeps the worker pool saturated while the
-            // runloop stays free; the progress closure already hops to the
-            // main actor explicitly, so it is unchanged.
+            // 7 s, progress unpaintable, Cancel dead (2026-09-01). Running off the main actor keeps the
+            // worker pool saturated while the runloop stays free; the progress closure already hops to the
+            // main actor explicitly, so it is unchanged. Priority is the caller's (a plain await inherits it;
+            // the UI-started task is already user-initiated), where the detach pinned `.userInitiated`.
             let data = fourD
-            // Read on the main actor, before the detach below.
+            // Read on the main actor, before the hop off it.
             let learnedRef = learnedDetection.probeReference
             let progress: @Sendable (Double) -> Void = { [weak self] fraction in
                 Task { @MainActor [weak self] in
@@ -360,24 +360,20 @@ extension AppState {
             }
             switch detectorClass {
             case .classical:
-                vectors = try await Task.detached(priority: .userInitiated) {
-                    try await DiskDetection.detectAll(
-                        data: data, descriptor: d, kernel: kernel,
-                        params: params, cancellation: cancellation,
-                        progress: progress
-                    )
-                }.value
+                vectors = try await DiskDetection.detectAll(
+                    data: data, descriptor: d, kernel: kernel,
+                    params: params, cancellation: cancellation,
+                    progress: progress
+                )
             case .learned:
                 guard let learned = preparedLearned, let ref = learnedRef else {
                     throw SimpleError("The learned detector is not ready — this is a defect; please report it.") }
-                vectors = try await Task.detached(priority: .userInitiated) {
-                    try await learned.detectAll(
-                        data: data, descriptor: d, probe: ref.pattern,
-                        probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
-                        kernelSource: ref.source, params: params, threshold: learnedThreshold,
-                        cancellation: cancellation, progress: progress
-                    )
-                }.value
+                vectors = try await learned.detectAll(
+                    data: data, descriptor: d, probe: ref.pattern,
+                    probeCentre: (x: ref.centreX, y: ref.centreY), probeRadius: ref.radius,
+                    kernelSource: ref.source, params: params, threshold: learnedThreshold,
+                    cancellation: cancellation, progress: progress
+                )
             }
         } catch {
             guard datasetSession.epoch == epoch else { return .failed("The dataset changed during the run") }
