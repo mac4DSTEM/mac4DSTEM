@@ -133,7 +133,7 @@ final class SpectroscopyRoomModel {
     var export = ExportSettings()
     var mapLabel = "ColorMix"
     /// The live region's colour: its outline on the ColorMix, its curve in the spectrum and its capsule share it (pins keep their tints).
-    static let liveRegionColor = Color.accentColor
+    nonisolated static let liveRegionColor = Color.accentColor
 
     init(series: SpectrumSeries) {
         self.series = series

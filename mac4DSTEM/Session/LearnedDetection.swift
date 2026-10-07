@@ -90,7 +90,7 @@ package final class LearnedDetectionSession {
     /// model it was fine-tuned from. Sendable plain data — the store's record stays in the app layer.
     package struct ActiveModel: Equatable, Sendable {
         package static let originBundled = "bundled"
-        package static let originFineTuned = "fine-tuned"
+        package nonisolated static let originFineTuned = "fine-tuned"
 
         package var packageURL: URL
         /// A compiled copy of `packageURL` (the store's), loaded instead of recompiling; nil compiles.

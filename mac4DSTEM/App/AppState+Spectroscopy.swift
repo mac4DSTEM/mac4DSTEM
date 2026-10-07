@@ -95,7 +95,7 @@ extension AppState {
     /// The security-scope calls and the sniff, injectable so a test can see the order. The sniff MUST run inside the scope: for
     /// a sandboxed Recents or Reopen bookmark URL it cannot read the file outside it, answers `.other`, and the 4D open would
     /// take the Velox HAADF stack for a one-row cube (the shipped defect).
-    struct SpectrumOpenAccess {
+    nonisolated struct SpectrumOpenAccess {
         var start: (URL) -> Bool = { $0.startAccessingSecurityScopedResource() }
         var stop: (URL) -> Void = { $0.stopAccessingSecurityScopedResource() }
         var kind: @Sendable (String) -> SpectrumFileKind = { SpectrumImageOpener.kind(ofFileAt: $0) }

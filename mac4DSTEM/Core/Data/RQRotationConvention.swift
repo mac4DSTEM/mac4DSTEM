@@ -25,7 +25,7 @@ package enum RQRotationConvention {
     /// The value written beside `QR_rotation` in files this app writes, so a
     /// reader can tell them from sidecars written before 2026-09-28 in the
     /// app's own sign.
-    package static let marker = "py4DSTEM"
+    package nonisolated static let marker = "py4DSTEM"
 
     /// True for a datacube this app wrote before 2026-09-28: `authoring_program`
     /// is "mac4DSTEM" and there is no marker. That identifies the WRITER, not the
@@ -39,7 +39,7 @@ package enum RQRotationConvention {
     }
 
     /// Shown wherever such a file's rotation is read.
-    package static let legacyNote =
+    package nonisolated static let legacyNote =
         "Sign unrecorded (exported by mac4DSTEM before 2026-09-28): check it before DPC, strain or parallax."
 
     /// py4DSTEM's angle (radians) for the app's internal one.
