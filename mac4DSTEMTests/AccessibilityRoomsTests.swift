@@ -94,4 +94,31 @@ final class AccessibilityRoomsTests: XCTestCase {
         XCTAssertEqual(RoomAccessibilityText.shownValue(isCurrent: true), "Shown")
         XCTAssertEqual(RoomAccessibilityText.shownValue(isCurrent: false), "")
     }
+
+    // MARK: - Y3 one-phrase hints taken from long tooltips
+
+    /// Mutation: return the whole tooltip, or keep the closing period -> red.
+    func testBriefHintIsTheFirstSentenceWithoutItsPeriod() {
+        XCTAssertEqual(RoomAccessibilityText.briefHint(
+            from: "Sets the probe radius to the ring's outer edge. Nothing changes unless you click."),
+                       "Sets the probe radius to the ring's outer edge")
+        XCTAssertEqual(RoomAccessibilityText.briefHint(
+            from: "Fills Defocus and the astigmatism from the parallax fit: defocus is minus the fit's C1."),
+                       "Fills Defocus and the astigmatism from the parallax fit")
+        XCTAssertEqual(RoomAccessibilityText.briefHint(from: "Compute Mean / Max; also computed by origin calibration."),
+                       "Compute Mean / Max")
+        XCTAssertEqual(RoomAccessibilityText.briefHint(from: "Remove saved result"), "Remove saved result")
+        XCTAssertEqual(RoomAccessibilityText.briefHint(from: "Runs the reference engine."), "Runs the reference engine")
+    }
+
+    /// Mutation: drop the nil guard's empty result (a button without a tooltip would repeat its own title), or raise the
+    /// limit so a long unbroken tooltip is spoken whole -> red.
+    func testBriefHintIsEmptyWithoutATooltipOrWhenTheFirstSentenceIsLong() {
+        XCTAssertEqual(RoomAccessibilityText.briefHint(from: nil), "")
+        let long = String(repeating: "word ", count: 30) + "end."
+        XCTAssertGreaterThan(long.count, RoomAccessibilityText.briefHintLimit)
+        XCTAssertEqual(RoomAccessibilityText.briefHint(from: long), "")
+        // The real Use Parallax Fit tooltip has no early sentence break; its explicit hint is passed instead.
+        XCTAssertEqual(RoomAccessibilityText.briefHint(from: "  Short one.  "), "Short one")
+    }
 }

@@ -499,19 +499,24 @@ struct InspectorAdaptiveButton: View {
     private let title: String
     private let systemImage: String
     private let help: String?
+    private let hint: String?
     private let role: ButtonRole?
     private let action: () -> Void
 
+    /// `help` is the tooltip and may run long; `hint` is the one-phrase VoiceOver hint (`help(_:)` is also the hint, and Apple asks
+    /// for "a brief phrase"). Without `hint`, the hint is the first sentence of `help` when that is short enough, else none.
     init(
         _ title: String,
         systemImage: String,
         help: String? = nil,
+        hint: String? = nil,
         role: ButtonRole? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.systemImage = systemImage
         self.help = help
+        self.hint = hint
         self.role = role
         self.action = action
     }
@@ -526,6 +531,7 @@ struct InspectorAdaptiveButton: View {
         .buttonStyle(.glass)   // Liquid Glass like Xcode's buttons (owner 2026-10-07); the toolbar verb is `.glassProminent`
         .help(help ?? title)
         .accessibilityLabel(title)
+        .accessibilityHint(hint ?? RoomAccessibilityText.briefHint(from: help))
     }
 }
 
@@ -565,6 +571,7 @@ struct InspectorAdaptiveMenu<Content: View>: View {
         .buttonStyle(.glass)   // matches the adaptive button beside it
         .help(help ?? title)
         .accessibilityLabel(title)
+        .accessibilityHint(RoomAccessibilityText.briefHint(from: help))
     }
 }
 
@@ -600,6 +607,7 @@ struct InspectorStatusRow: View {
     private let tint: Color
     private let detail: String?
     private let status: String
+    private let hint: String?
 
     /// The status symbol's slot and the gap after it. `childIndent` is where
     /// the title text starts: a row's own controls (a manual value, a
@@ -609,7 +617,9 @@ struct InspectorStatusRow: View {
     static let symbolSpacing: CGFloat = 8
     static var childIndent: CGFloat { symbolWidth + symbolSpacing }
 
-    init(title: String, systemImage: String, tint: Color = .secondary, detail: String? = nil, status: String) {
+    init(title: String, systemImage: String, tint: Color = .secondary, detail: String? = nil, status: String,
+         hint: String? = nil) {
+        self.hint = hint
         self.title = title
         self.systemImage = systemImage
         self.tint = tint
@@ -638,6 +648,8 @@ struct InspectorStatusRow: View {
                 .fixedSize()
         }
         .accessibilityElement(children: .combine)
+        // On the element that takes focus: a hint on a `.contain` parent is not what VoiceOver reads from the child.
+        .accessibilityHint(hint ?? "")
     }
 }
 
@@ -1041,6 +1053,21 @@ private struct ResetActionModifier: ViewModifier {
 /// What VoiceOver says for values the screen shows as symbols, abbreviations or a prompt — pure strings, so a test can hold them
 /// (docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md, group Y2). Nothing here is drawn.
 nonisolated enum RoomAccessibilityText {
+    /// The longest hint left as it is: Apple asks for "a brief phrase" ("Purchases the item").
+    static let briefHintLimit = 100
+
+    /// A one-phrase VoiceOver hint taken from a tooltip: its first sentence (up to ". ", ": " or "; "), without the closing
+    /// period; none when there is no tooltip or that sentence is longer than `briefHintLimit` (the tooltip keeps the full text).
+    static func briefHint(from help: String?) -> String {
+        guard let help else { return "" }
+        var sentence = help.trimmingCharacters(in: .whitespacesAndNewlines)
+        for separator in [". ", ": ", "; "] {
+            if let range = sentence.range(of: separator) { sentence = String(sentence[..<range.lowerBound]) }
+        }
+        while sentence.hasSuffix(".") { sentence.removeLast() }
+        return sentence.count <= briefHintLimit ? sentence : ""
+    }
+
     /// A pixel count spoken in full ("px" is read letter by letter): "1 pixel", "12 pixels".
     static func pixels(_ value: Double) -> String {
         let text = value == value.rounded() ? String(Int(value)) : String(format: "%g", value)
@@ -1075,4 +1102,11 @@ nonisolated enum RoomAccessibilityText {
 
     /// A saved product's state value: "Shown" for the product on screen, empty otherwise.
     static func shownValue(isCurrent: Bool) -> String { isCurrent ? "Shown" : "" }
+}
+
+extension View {
+    /// A tooltip for the pointer and a separate one-phrase hint for VoiceOver (`help(_:)` alone speaks the whole tooltip as the hint).
+    func tooltip(_ help: String, hint: String) -> some View {
+        self.help(help).accessibilityHint(hint)
+    }
 }

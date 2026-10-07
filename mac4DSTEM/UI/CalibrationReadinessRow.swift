@@ -60,13 +60,13 @@ enum CalibrationReadinessRow {
             detail: Self.keepingUnitsWithNumbers(setAsideOrigin
                 ? item.detail + "\n" + originReplacedDetail(displaced: appState.setAsideOriginProvenance)
                 : item.detail),
-            status: item.status.displayName
+            status: item.status.displayName,
+            hint: item.kind.unlockSummary   // on the status element: VoiceOver does not read a `.contain` parent's hint from its child
         )
         // `unlockSummary` says what this calibration *enables*: on hover and
         // in the accessibility description, not permanently under six rows.
         .help("\(item.detail)\n\n\(item.kind.unlockSummary)")
         .accessibilityElement(children: .contain)
-        .accessibilityHint(item.kind.unlockSummary)
         .accessibilityIdentifier("calibration.item.\(item.kind.id)")
 
         // The row's own warning and controls indent to its title, so they
@@ -208,7 +208,8 @@ enum CalibrationReadinessRow {
                     }
                     .disabled(appState.isBusy)
                     .accessibilityIdentifier("calibration.action.qCrystal")
-                    .help("Selected ACOM phase model: \(model.displayName)")
+                    .tooltip("Selected ACOM phase model: \(model.displayName)",
+                             hint: "Calibrates the Q scale from \(model.displayName)")
                 }
                 manualScale(
                     name: "Q pixel size",

@@ -180,6 +180,7 @@ struct PrepareSettings: View {
                 } icon: {
                     Image(systemName: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                         .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+                        .accessibilityHidden(true)   // the sentence beside it says the same
                 }
                 .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
             }
@@ -256,10 +257,11 @@ struct PrepareSettings: View {
                     }
                 }
                 .labelsHidden()
-                .help("Centre of mass is the fast default. Friedel finds the beam through a "
+                .tooltip("Centre of mass is the fast default. Friedel finds the beam through a "
                     + "beamstop by the pattern's own symmetry, auto-masking the stop (py4DSTEM "
                     + "get_origin_friedel + get_beamstop_mask). Slower — an FFT per pattern — and "
-                    + "opt-in for data whose direct beam is occluded.")
+                    + "opt-in for data whose direct beam is occluded.",
+                    hint: "Centre of mass is fast; Friedel is for an occluded direct beam")
             }
             InspectorActionRow {
                 Button {
@@ -319,7 +321,8 @@ struct PrepareSettings: View {
                     } label: {
                         Label("Flip 180°", systemImage: "arrow.uturn.left.circle")
                     }
-                    .help("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.")
+                    .tooltip("The curl method cannot distinguish θ from θ + 180°. If iDPC contrast is inverted, flip it here.",
+                             hint: "Flips inverted iDPC contrast")
                 }
             }
         }
@@ -358,7 +361,8 @@ struct PrepareSettings: View {
                     Label("Fit Ellipse", systemImage: "oval")
                 }
                 .disabled(appState.isBusy)
-                .help("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.")
+                .tooltip("Fits the detector-shaped Bragg map when displayed; otherwise fits the scan-mean diffraction pattern. The annulus must contain a ring with broad angular coverage.",
+                         hint: "The annulus must contain a ring with broad angular coverage")
             }
 
             // Offered only while the last fit was refused for coverage between
@@ -462,7 +466,7 @@ struct PrepareSettings: View {
             }
             .disabled(appState.isBusy || !(a > 0 && b > 0))
             .accessibilityIdentifier("calibration.ellipse.applyManual")
-            .help(help)
+            .tooltip(help, hint: "Applies the ellipse entered above")
         }
         .onChange(of: [calibration.ellipseA, calibration.ellipseB, calibration.ellipseTheta]) {
             ellipseDraftA = nil

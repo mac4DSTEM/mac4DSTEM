@@ -171,12 +171,14 @@ struct SingleslicePtychographySection: View {
                     unit: "Å"
                 )
                 .labelsHidden()
+                .accessibilityHint("The probe's defocus; zero is the in-focus aperture")
             }
             .help("The probe's defocus, as py4DSTEM's defocus argument: the probe's C10 is minus this number. A defocused probe needs it; 0 is the in-focus aperture.")
             InspectorActionRow {
                 InspectorAdaptiveButton(
                     "Use Parallax Fit", systemImage: "arrow.down.circle",
-                    help: "Fills Defocus and the astigmatism from the parallax aberration fit: defocus is minus the fit's C1 (py4DSTEM's forward model stores C10 = -defocus and its Parallax returns C1 = C10), astigmatism is the fit's C12a and C12b (checked with no transpose only). Valid on the rotation branch the fit used: if the calibrated rotation (Prepare's R–Q rotation) is about 180° from the Fitted rotation (both in py4DSTEM's sign, as the status line compares them), use the opposite defocus sign - the wrong branch reconstructs a conjugated object, and nothing checks it here."
+                    help: "Fills Defocus and the astigmatism from the parallax aberration fit: defocus is minus the fit's C1 (py4DSTEM's forward model stores C10 = -defocus and its Parallax returns C1 = C10), astigmatism is the fit's C12a and C12b (checked with no transpose only). Valid on the rotation branch the fit used: if the calibrated rotation (Prepare's R–Q rotation) is about 180° from the Fitted rotation (both in py4DSTEM's sign, as the status line compares them), use the opposite defocus sign - the wrong branch reconstructs a conjugated object, and nothing checks it here.",
+                    hint: "Fills defocus and astigmatism from the fit; check the rotation branch sign"
                 ) {
                     appState.usePtychographyProbeFromParallaxFit()
                 }
@@ -247,6 +249,7 @@ struct SingleslicePtychographySection: View {
                     isOn: $ptychography.constrainObjectAmplitude
                 )
                 .labelsHidden()
+                .accessibilityHint("Limits the object amplitude to 1 on every iteration")
             }
             .help("On by default, as in py4DSTEM, which limits the object to |O| ≤ 1 on every iteration of a complex object. Off lets the amplitude grow above 1.")
             InspectorRow("Pure-phase object") {
@@ -255,6 +258,7 @@ struct SingleslicePtychographySection: View {
                     isOn: $ptychography.purePhaseObject
                 )
                 .labelsHidden()
+                .accessibilityHint("Sets the object amplitude to one after every iteration")
             }
             .help("Sets reconstructed object amplitude to one after every iteration.")
             if !ptychography.fixProbe {

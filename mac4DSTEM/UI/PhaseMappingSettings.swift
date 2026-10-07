@@ -349,6 +349,7 @@ struct PhaseMappingSections: View {
                     Text(String(format: "%.0f %% of vectors, median", 100 * explained))
                         .monospacedDigit()
                         .labelsHidden()
+                        .accessibilityHint("How much of each matrix position's signal the matrix explains; there is no threshold")
                 }
                 .help("How much of each matrix position's detected signal the matrix "
                       + "itself accounts for. Near 100 % the matrix explains the pattern; "
@@ -370,6 +371,7 @@ struct PhaseMappingSections: View {
                         .font(.caption)
                         .multilineTextAlignment(.trailing)
                         .labelsHidden()
+                        .accessibilityHint(RoomAccessibilityText.briefHint(from: PhaseMapPresentation.evidenceHelp))
                 }
                 .help(PhaseMapPresentation.evidenceHelp)
             }
@@ -440,7 +442,7 @@ struct PhaseMappingSections: View {
             Divider()
             Section("Presets") {
                 Button("Al–Mg–Si (β″ needles)…") { importsAlMgSiPreset = true; showCIFImporter = true }
-                    .help(Self.alMgSiPresetHelp)
+                    .tooltip(Self.alMgSiPresetHelp, hint: "Replaces the phase list with Al and your β″ CIF at two zones")
             }
             if !appState.acomSession.importedCrystalModels.isEmpty {
                 Divider()
@@ -668,6 +670,7 @@ struct PhaseMappingSections: View {
                 .labelsHidden()
                 // The title string is the placeholder; without this VoiceOver names the field "Any rotation".
                 .accessibilityLabel("Parallel to matrix")
+                .accessibilityHint("A plane or direction parallel to the matrix's; empty allows any rotation")
             }
             .help("This phase's plane (hkl) or direction [uvw] that lies parallel "
                   + "to the matrix's, as an orientation relationship is written; "
@@ -707,6 +710,7 @@ struct PhaseMappingSections: View {
                 NumericField(title, value: value,
                              format: Self.displayFormat(format), unit: units)
                     .labelsHidden()
+                    .accessibilityHint(RoomAccessibilityText.briefHint(from: help))
             }
             .help(help)
         } else {
@@ -724,6 +728,7 @@ struct PhaseMappingSections: View {
             InspectorRow(title) {
                 NumericField(title, value: value, format: .number)
                     .labelsHidden()
+                    .accessibilityHint(RoomAccessibilityText.briefHint(from: help))
             }
             .help(help)
         } else {

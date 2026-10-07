@@ -240,7 +240,8 @@ private struct DiskDetectionRows: View {
                     }
                 }
                 .labelsHidden()
-                .help("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.")
+                .tooltip("Flat uses the probe as it is — py4DSTEM's recommendation for bullseye and other structured probes, and it needs no radius. Sigmoid trench subtracts a ring from the probe radius to twice it so the correlation responds to the disk edge; it is only as good as that radius.",
+                         hint: "Flat uses the probe as it is; sigmoid trench follows the disk edge")
                 .accessibilityIdentifier("disk.measuredKernelMode")
             }
         }
@@ -319,7 +320,8 @@ private struct DiskDetectionRows: View {
             }
             .labelsHidden()
             .accessibilityIdentifier("disk.detectorClass")
-            .help("The neural net proposes candidate positions on the whole pattern; the classical refinement still measures every one.")
+            .tooltip("The neural net proposes candidate positions on the whole pattern; the classical refinement still measures every one.",
+                     hint: "The neural net proposes candidates; classical refinement measures each")
             .onChange(of: learned.detectorClass) { _, _ in PendingEdits.run { await appState.detectCurrentPattern() } }
             .onChange(of: learned.threshold) { _, _ in PendingEdits.run { await appState.detectCurrentPattern() } }
             .onChange(of: preferences.offerLearnedDetector) { _, offered in
@@ -334,6 +336,7 @@ private struct DiskDetectionRows: View {
                     "Threshold", value: learnedThresholdBinding(appState),
                     format: .number.precision(.fractionLength(2))
                 )
+                .accessibilityHint("Pick threshold on the heatmap, 0.3 to 0.99; lower accepts more")
             }
             .accessibilityIdentifier("disk.learnedThreshold")
             .help("The pick threshold on the neural net's heatmap, 0.3–0.99. Lower accepts more candidates; the classical refinement still filters them.")
@@ -538,6 +541,7 @@ private struct DiskCentreLabelsRows: View {
         // position, so new labels never move a position; the model is judged on the held-out ones.
         let refusal = appState.trainModelRefusal
         InspectorValueRow("Split", TrainingPolicy.splitRowText(appState.trainingSplit))
+            .accessibilityHint("About 30 percent of labelled positions are held out to judge the model")
             .help("Positions with at least one centre are split by a hash of the scan position (about 30 % held out), never by centre, so adding labels never moves a position between the sets. The held-out positions judge the fine-tuned model; they never train it.")
             .accessibilityIdentifier("disk.labels.split")
 
