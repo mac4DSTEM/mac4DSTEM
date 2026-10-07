@@ -1,0 +1,466 @@
+{
+ "date": "2026-10-07 night: card V5-8 and the spec-2 pictures",
+ "storageKey": "mac4dstem-decisions-2026-10-07-v5-8-pictures",
+ "lede": "Six questions, context first. Three are real choices: how far v5.0 goes with joint 4D-STEM + EDX (card V5-8), the inspector's width for the periodic table, and where EDX results and an EMD's own session live. Three were settled by your word on 7 October (the glass on buttons, Compute Image back, per-line choice for maps only) and need only a confirm or a reopen. Each card says what you would get, effort and risk, a recommendation and an independent second opinion.",
+ "cards": [
+  {
+   "id": "V5-8",
+   "title": "Joint-method scope for v5.0",
+   "status": "open",
+   "context": [
+    "Your GMS run will record, at every probe position, a diffraction pattern and an EDX spectrum. \"Joint methods\" are the ways the app can use both signals together. This card asks which of them ship in v5.0 and which wait for a later release.",
+    "Counts decide what is honest. At your 4D settings (0.26 nA, 10–20 ms per pixel) the estimate is 25–85 X-ray counts per pixel, about 70 % of them Al Kα; your existing spectrum images hold 11–19. Mg and Si give less than one count per pixel, so no per-pixel chemistry is possible: every honest number is a sum over many pixels (a pool) with a Poisson interval. Methods that pool need no per-pixel floor; methods that work per pixel (D, G, F) need roughly 10–100 counts after binning. The 25–85 figure is an estimate from Velox optics metadata and stays unverified until the first GMS run exists.",
+    "What is already built. Core holds E's substrate from WP3: the registration record (M2), mask transport onto the spectrum's own grid, and a pool builder that sums whole pixels by phase, object, drawn region or whole map, each pool carrying its source's badge. Nothing in the app calls it yet: the room pools drawn regions and the whole map only. The GMS attach exists and was driven on the simulated AlMgSi_4D_EDX.dm4. The phase map is still unvalidated (one T4 metric failed), and the phase matcher still keeps only the winner and one runner-up with a distance score, so B* still needs a new additive Core output.",
+    "What changed since the card was written (2026-10-05). First, you amended ADR 053 the same evening: GMS drives the Super-X in your lab, so the joint file is one simultaneous GMS run (route R1), not a sequential pair. Under option a's own wording (\"per-object E only on simultaneous … data\") that makes per-object pooling allowed from the first real file, and registration becomes an identity plus a lag check. Second, the quantification design draft (Q12) proposed option a and ADR 054 recorded V5-8 as still open. Third, ADR 058 and the Velox sheet call \"the proposer on real Al pools\" V5-8 — a mislabel; that work is WP4/WP4b, not this card. None of this changes the card's recommendation or its condition.",
+    "The industry comparison you asked for (ADR 053 steer). Velox, GMS and HyperSpy pool spectra over drawn regions only; none pools over diffraction-defined objects or phases with Poisson intervals and detection limits (E), none has an open arbitration table (TESCAN's is closed and TENSOR-only), none ships a joint clustering. E is the app's differentiator and has a truth path (synthetic cube, YAlO₃, your GMS run). B* and D are unprecedented, which is also their risk.",
+    "Code this answer unlocks. Every option stays outside the frozen shell. a wires the existing pool builder into the room (UI/Spectroscopy, App/AppState+Spectroscopy) under a pre-registration and Gate B. b adds an additive per-phase score to Core/Crystal/PhaseVectorMatching (Gate B), a separability tool under tools/, the table in the inspector's Results section, and a Poisson-PCA block for D. c adds a new convex solver under Gate D."
+   ],
+   "glossary": [
+    {
+     "term": "joint 4D-STEM + EDX",
+     "meaning": "One scan that records a diffraction pattern and an EDX spectrum at each probe position (ADR 052). Never \"5D\"."
+    },
+    {
+     "term": "counts per pixel",
+     "meaning": "X-rays detected at one probe position. 25–85 expected at your 4D settings; 11–19 in your existing spectrum images; Mg and Si below one. Pooling adds them up."
+    },
+    {
+     "term": "pool",
+     "meaning": "A set of pixels whose spectra are summed: a precipitate object, a phase verdict, a diffraction group, a drawn region, or the whole map. A pooled count is a count, so Poisson statistics apply."
+    },
+    {
+     "term": "matrix blank",
+     "meaning": "The pool of pixels the phase map calls Al matrix. Subtracting it from an object's pool gives \"excess over matrix\"; it also absorbs the Al Kα tail under Mg Kα."
+    },
+    {
+     "term": "simultaneous vs sequential",
+     "meaning": "Simultaneous: diffraction and EDX from the same scan (your GMS run, route R1) — pixels match by construction. Sequential: a separate EDX map registered afterwards (route R4) — a residual of a few nm remains."
+    },
+    {
+     "term": "registered pair",
+     "meaning": "A 4D cube and an EDX map with a recorded transform between their grids (the M2 record, reflections allowed). Needed before any pooling across the two."
+    },
+    {
+     "term": "E — diffraction-guided pooling",
+     "meaning": "Sum the EDX spectra over pools the diffraction defines (object, phase, group, region, matrix). Reports net counts per line with intervals and detection limits, k-free Mg/Si ratios, excess over the matrix blank, the projection fraction f, and the registration's effect. Needs no per-pixel counts."
+    },
+    {
+     "term": "B* — arbitration table",
+     "meaning": "For each pool, one row per candidate phase: the diffraction score beside the EDX likelihood of that phase's composition and the pairwise ratios, plus a \"would have seen it\" flag (A) and an \"EDX cannot separate these\" flag. Absorbs approaches A and C. The two columns stay side by side; no combined verdict."
+    },
+    {
+     "term": "A",
+     "meaning": "\"Would have seen\": given the pool's counts, would a candidate phase's elements have shown above the detection limit? Shipped as a flag inside B*."
+    },
+    {
+     "term": "C",
+     "meaning": "Running the phase matcher only on EDX-surviving candidates. Not built: it would move phase-map numbers (Gate D) and the matcher scores all candidates anyway."
+    },
+    {
+     "term": "posterior",
+     "meaning": "One combined probability per phase from diffraction and EDX together. Needs a calibration that is a property of each dataset, so it is not shipped blind (threshold rule); the table ships the two columns instead."
+    },
+    {
+     "term": "D — joint clustering",
+     "meaning": "Cluster pixels on diffraction embedding plus EDX principal components (Duran 2023 / Parish 2022). At 25–85 counts per pixel the EDX part is near noise unless binned; an agreement score (ARI) against diffraction-only clustering says how much EDX added. Exploratory badge."
+    },
+    {
+     "term": "G — diffraction-regularised maps",
+     "meaning": "Smooth each element map where the diffraction says \"same grain\", with an effective-counts readout. Its known failure: chemistry with no diffraction boundary (grain-boundary segregation) is smoothed away — your first science question. ADR 053 forbids G for it."
+    },
+    {
+     "term": "F — shared-abundance factorisation",
+     "meaning": "One set of components explaining both signals. Diffraction has no honest linear mixing (orientation changes the pattern), so F collapses to G on abundances. Research after G."
+    },
+    {
+     "term": "H — masks both ways",
+     "meaning": "An EDX map masks the orientation/phase map, and a 4D map masks the EDX map (Gatan's demonstrated joint step). Display only; part of E."
+    },
+    {
+     "term": "I — channelling angle",
+     "meaning": "Each pool's misorientation from the nearest low-index zone axis (from ACOM), shown beside its EDX numbers because quantification near a zone axis is biased. No threshold."
+    },
+    {
+     "term": "J — reverse pooling",
+     "meaning": "EDX-defined pixels (net Si above a shown count) give a pooled diffraction pattern sent to the matcher. Unverified whether the virtual detector exposes the region-mean pattern; not in any option."
+    },
+    {
+     "term": "K — thickness into density",
+     "meaning": "A per-pool mass thickness from EDX (ζ) feeds the registered volumetric density with a per-object thickness. Needs a labelled probe current (Velox's is uncalibrated, GMS writes 0.0)."
+    },
+    {
+     "term": "separability matrix",
+     "meaning": "From the Al-Mg-Si CIFs: which candidate pairs differ in detectable composition by more than a pool can resolve, with k ± 20 % and the spread of stoichiometry models. Expected: β″/U2/B′ inseparable; β′ (Mg:Si ≈ 1.8) and Cu-bearing Q separable."
+    },
+    {
+     "term": "per-phase score retention",
+     "meaning": "Today the matcher keeps the best and one runner-up phase; B* needs every candidate's score, added as a new output without moving the winner (additive, Gate B)."
+    },
+    {
+     "term": "L_D",
+     "meaning": "Detection limit (Currie): the net count a line needs before it is called present."
+    },
+    {
+     "term": "f — projection fraction",
+     "meaning": "The share of the foil thickness a precipitate occupies along the beam. The app shows it and the error blow-up of dividing by it; never hidden."
+    },
+    {
+     "term": "unvalidated badge",
+     "meaning": "A product that has not passed on one dataset with truth is marked validation: none on screen and in exports. A pool inherits its source's badge, so pooling by the phase map is as unvalidated as the phase map."
+    },
+    {
+     "term": "Gate B / Gate D",
+     "meaning": "Gate B: an independent review before a Core change lands. Gate D: a diagnosis with a prediction, an experiment and an independent refuter — required when a scientific number can move."
+    },
+    {
+     "term": "session",
+     "meaning": "The effort unit of the plan: one gated lane with a refuter and docs, roughly one night of parallel agents."
+    },
+    {
+     "term": "S1 / S2 / S3",
+     "meaning": "The dossier's strategies: S1 = baseline + readers + registration + E (+H, I, K); S2 = S1 + B* table; S3 = S1 + D then G/F."
+    }
+   ],
+   "question": "Which joint methods ship in v5.0 — a, b or c?",
+   "options": [
+    {
+     "key": "a",
+     "label": "E per phase, object and region (+H, I, K); nothing else in v5.0",
+     "what": "In a 4D window's Spectroscopy room you pick a phase, an object, a diffraction group or a drawn region and get its pooled spectrum: net counts per line with intervals and L_D, k-free Mg/Si ratios, excess over the matrix blank, f, the registration residual, masks both ways, the channelling angle, and a per-pool thickness into the density once a probe current is labelled. Per-object pooling is allowed on the GMS run because it is simultaneous. EDX never says which phase a needle is.",
+     "effort": "The card says about 2–3 sessions after the baseline. The pool builder, mask transport and registration record already exist in Core unwired, so the real cost is wiring, a pre-registration (new science number) and Gate B — probably the low end, unmeasured.",
+     "risk": "Low. Pools are whole-pixel sums with exact Poisson statistics. The one risk is pooling by an unvalidated phase map, which the badge carries; pooling by group or drawn region avoids it. K waits for a labelled probe current."
+    },
+    {
+     "key": "b",
+     "label": "a + the B* table (no posterior) after score retention and a separability matrix, + D behind an exploratory badge",
+     "what": "Beside each pool a sortable table: per candidate phase the diffraction score, the EDX likelihood of that composition and the pairwise ratios, a \"would have seen\" flag and \"EDX cannot separate these\" where the CIFs say so. Plus a joint clustering map with an agreement score against diffraction-only clustering. The two columns stay side by side; no combined verdict.",
+     "effort": "+5–7 sessions: the additive per-phase score (Gate B), the separability tool, the table, then about 2 for D. B* is built only if the matrix shows a separable pair.",
+     "risk": "Medium. B* rides on the unvalidated phase map, so badges stack. The card's second opinion expects β″/U2/B′ inseparable by EDX and only β′ and Cu-bearing Q separable, so the table may read \"cannot separate\" on your main question. D at 25–85 counts per pixel is mostly diffraction plus noise unless binned; the ARI shows that. The posterior stays forbidden until a dataset calibrates it."
+    },
+    {
+     "key": "c",
+     "label": "b + G (diffraction-regularised maps) in v5.0",
+     "what": "Smoother per-element maps wherever the diffraction says \"same grain\", with an effective-counts readout per pixel.",
+     "effort": "+6–10 sessions with no precedent; synthetic truth only (a planted segregation line must survive).",
+     "risk": "High. G smooths away chemistry that has no diffraction boundary — Si segregation at cell boundaries, your first science question (ADR 053 forbids G there). Gate D plus pre-registration."
+    }
+   ],
+   "recommend": "b",
+   "recommendWhy": "The card's recommendation, unchanged by anything since: the table ships quantities and defers the calibration, D costs little, and G waits for a planted-segregation test. B* stays conditional on the separability matrix showing a separable pair.",
+   "advisor": "Independent view (this session): choose a for v5.0, and pre-register B*'s two prerequisites — the additive per-phase score and the separability matrix — as the first item after it; leave D out until a real joint file exists. Reasons. (1) The card's own second opinion doubts B*'s reach on your question (β″ variants inseparable); the separability matrix is cheap and answers whether B* is worth 5–7 sessions, so compute it and decide then — option b half-says this already. (2) D adds a badged surface to a room you called \"horrible\" three days ago and have reworked four times since; a second badge dilutes the one the phase map already carries. (3) The first GMS run does not exist, so b's sessions would be built against the simulator alone — the pattern whose cost the 10-06 drive showed. Where I agree with the card: never G in v5.0, never a posterior. Practically, a now plus the two registrations equals b's first half; the difference is that D and the table wait for your data.",
+   "nothing": "b with B* contingent on the separability matrix (the card's recorded default). Until that matrix exists this equals a in what gets built.",
+   "sources": [
+    "docs/archive/v5/owner-decisions-2026-10-05-v5.json#V5-8",
+    "docs/archive/v5/edx-dossier-2026-10-05.md#5.4",
+    "docs/archive/v5/edx-dossier-2026-10-05.md#5.5",
+    "docs/archive/v5/edx-dossier-2026-10-05.md#1 finding 3",
+    "docs/archive/v5/edx-dossier-2026-10-05.md#6 Counts",
+    "docs/archive/v5/edx-dossier-2026-10-05.md#9.3 WP 9–11",
+    "docs/archive/v5/edx-research-2026-10-05/reports/fable-methods.md#2.0–2.2",
+    "docs/archive/v5/edx-research-2026-10-05/reports/fable-methods.md#3",
+    "docs/archive/v5/edx-research-2026-10-05/reports/second-opinion.md#5 item 6",
+    "docs/archive/v5/edx-research-2026-10-05/reports/second-opinion.md#6 M7, Strategy",
+    "docs/archive/v5/edx-research-2026-10-05/reports/completeness-critic.md#C3, C6",
+    "docs/decisions/053-v5-first-answers.md#2 amendment",
+    "docs/decisions/054-v5-quantification-design.md#Consequences",
+    "docs/archive/v5/quant-design-2026-10-05/proposal-draft.md#Q12",
+    "docs/decisions/058-velox-parity-sheet-and-glass-shell.md#Consequences (mislabel)",
+    "docs/status.md#Handoff v5.0 science",
+    "mac4DSTEM/Core/Spectroscopy/Registration/PoolBuilder.swift#header",
+    "mac4DSTEM/Core/Crystal/PhaseVectorMatching.swift#352-360",
+    "mac4DSTEM/App/AppState+Spectroscopy.swift#138 attachGMSSpectrumImage"
+   ],
+   "images": []
+  },
+  {
+   "id": "P2",
+   "title": "Inspector width for the periodic table",
+   "status": "open",
+   "context": [
+    "The shell's inspector is 280 pt minimum, 320 ideal, 460 maximum (LayoutPolicy). The periodic table has the table's own shape, 18 columns, and scales with whatever width the inspector has (ADR 057 §5): a cell is (content width − 34) / 18, and the symbol is half the cell, clamped to 9–13 pt — the 9-pt floor was your wish on 2026-10-06.",
+    "In numbers from the code: at the 320 ideal the cells are about 14 pt with 9-pt symbols; at 380 about 17 pt, still 9-pt symbols (the symbol only grows once a cell passes 18 pt); dragged to the 460 maximum about 22 pt with 11-pt symbols. The mocks' README quotes 15 and 19 px for the same two widths — the same picture, measured on the mock rather than the code.",
+    "Nothing settled this since the spec: ADR 058 and 059 left widths unchanged (sidebar 230, inspector 320). You drove the room with this table at 320 on 2026-10-07 and your eight findings did not mention it.",
+    "Code this answer unlocks. a: nothing. b: one constant in UI/LayoutPolicy.swift (frozen; inspectorWidth.ideal 320 → 380), which raises the derived window floor from 915 to 975 pt and changes NavigationSeamTests and InspectorWidthBudgetTests. A saved inspector width stays valid either way."
+   ],
+   "glossary": [
+    {
+     "term": "ideal width",
+     "meaning": "The width a column opens at and returns to; the window's minimum width is the sum of the ideals plus two 180-pt image panes (ADR 035)."
+    },
+    {
+     "term": "content column",
+     "meaning": "The inspector's width minus its insets — what the table actually gets; 248 pt at the 280 minimum."
+    }
+   ],
+   "question": "Keep the inspector's ideal at 320 pt, or raise it to 380 for the periodic table?",
+   "options": [
+    {
+     "key": "a",
+     "label": "Keep 320 (drag to 460 when wanted)",
+     "what": "Today's shell; cells about 14 pt; a drag makes them up to 22 pt and the width is remembered.",
+     "effort": "None.",
+     "risk": "None beyond a first-open table some would call tight."
+    },
+    {
+     "key": "b",
+     "label": "Raise the ideal to 380",
+     "what": "Cells about 17 pt on first open, symbols unchanged at 9 pt; the centre column loses 60 pt (about 6.5 % at 1470 wide).",
+     "effort": "S — one constant in a frozen file plus two test files.",
+     "risk": "The window floor rises to 975 pt, so a 915-pt window is no longer reachable; every room's inspector widens, not only Spectroscopy's."
+    }
+   ],
+   "recommend": "a",
+   "recommendWhy": "The mocks' README's recommendation: it answers nothing the drag cannot, at zero layout cost; take 380 only if 14-pt cells prove too small in a real window.",
+   "advisor": "Independent view: a, on different evidence from the README. First, you have already used this table at 320 in a real window (the 12:30 drive) and did not list it among eight findings. Second, 380 buys 3 pt of cell and no larger symbols, because the symbol clamp holds 9 pt until cells pass 18 pt — the lever that would actually make the table easier to read is the symbol clamp in the room file, not the shell's width. Third, a wider ideal is a shell-wide change for one room's control. (The README's own counter-view — the main control should not need a drag — is fair, but it argues for a bigger symbol floor, which is a room change, not a shell change.)",
+   "nothing": "a",
+   "sources": [
+    "docs/archive/v5/ux-spec-2-2026-10-06.md#4 item 2",
+    "docs/archive/v5/shell-mocks-2026-10-07/README.md",
+    "docs/decisions/057-spectroscopy-room-spec-2.md#5",
+    "docs/decisions/035-frozen-shell.md#amended",
+    "docs/decisions/058-velox-parity-sheet-and-glass-shell.md#5",
+    "docs/archive/v5/owner-drive-findings-2026-10-07.md",
+    "mac4DSTEM/UI/LayoutPolicy.swift#29-48",
+    "mac4DSTEM/UI/Spectroscopy/PeriodicTableView.swift#22-30"
+   ],
+   "images": [
+    {
+     "src": "(published beside the page; rendered from docs/archive/v5/shell-mocks-2026-10-07/mock-A-glass-shell.html)",
+     "alt": "Mock A: the Spectroscopy room with the inspector at 320 pt",
+     "caption": "Mock A, inspector 320 pt (today's ideal). Ignore the glass panes: ADR 059 replaced them with flat columns and glass buttons. Compare the inspector width only."
+    },
+    {
+     "src": "(published beside the page; rendered from docs/archive/v5/shell-mocks-2026-10-07/mock-B-wide-inspector.html)",
+     "alt": "Mock B: the same room with the inspector at 380 pt",
+     "caption": "Mock B, inspector 380 pt: cells about 17 pt, the centre column 60 pt narrower. Same caveat about the glass."
+    }
+   ]
+  },
+  {
+   "id": "P4",
+   "title": "EDX results in Results, and a session for an EMD opened alone",
+   "status": "open",
+   "context": [
+    "Your bullet 25 asked for two things: EDX products listed in the Results room, and \"Save to Session\" for a Velox EMD opened on its own; you added that Results needs rework. Spec 2 took the UI part only: Export once (results CSV, method JSON, spectrum CSV), so an EMD opened alone can hand its spectrum out.",
+    "What stands today. In a 4D window, Quantify records a replay step (method, registration, region) in that window's session record, with readable keys in the lineage. A spectrum-only window has no session record at all: a spectrum image is not added to Recents because Recents carry sidecar semantics a spectrum image does not have yet. The Results room lists no EDX product in either case. So regions, pins, element picks and the fitted method of an EMD opened alone are gone when the window closes; the CSV cannot restore a region.",
+    "Nothing since the spec settled this; ADR 058 and 059 touched the room, not the session model. It is not a frozen-shell item: the Session package and UI/ResultsWorkspace.swift are free files. The one shell touch to avoid is a new product domain in WorkspaceInspector (frozen); listing under an existing domain avoids it.",
+    "Code this answer unlocks. a: Session (a sidecar beside the EMD, schema bump, back-compat tests), App/AppState+Spectroscopy, UI/ResultsWorkspace.swift. b: UI/ResultsWorkspace.swift and the existing 4D record only. c: nothing until your Results sketch."
+   ],
+   "glossary": [
+    {
+     "term": "session record / sidecar",
+     "meaning": "The .mac4dstem file beside a dataset holding its steps, parameters and products (ADR 047); the app's sharing unit, and what Recents and Rewind read."
+    },
+    {
+     "term": "Results room",
+     "meaning": "The seventh room (⌘7) listing a window's products for comparison and export."
+    },
+    {
+     "term": "product domain",
+     "meaning": "The inspector's grouping of products (frozen file); the dossier advised not to add a case for EDX."
+    }
+   ],
+   "question": "Persist an EMD's own session and list EDX products, list them for the 4D case only, or wait for your Results picture?",
+   "options": [
+    {
+     "key": "a",
+     "label": "A sidecar for spectrum-only windows + EDX rows in Results",
+     "what": "Reopen an EMD and find its regions, pins, element picks, method and Quantify steps; it appears in Recents; each Quantify step is a row in the Results room (both cases).",
+     "effort": "M — 2–3 sessions: Session model, schema version, back-compat tests, Gate B.",
+     "risk": "Medium: a schema change touches every sidecar; the Results row may move again under your rework picture (cheap)."
+    },
+    {
+     "key": "b",
+     "label": "Results rows for the attached (4D) case only; EMD alone stays Export-only",
+     "what": "In a 4D window the Quantify steps show in Results beside the other products. An EMD alone keeps CSV/JSON export, nothing persists.",
+     "effort": "S — one session; the record already exists.",
+     "risk": "Low; leaves the persistence gap for your 104 standalone files."
+    },
+    {
+     "key": "c",
+     "label": "Wait for the Results rework picture",
+     "what": "Nothing now; the session asks you for a sketch of what Results should be, then builds to it.",
+     "effort": "None now.",
+     "risk": "The gap stays through the next drives."
+    }
+   ],
+   "recommend": "b",
+   "recommendWhy": "Cheap and uses the record that exists; a product model built before your Results rework picture would be rebuilt. a follows once V5-8 is answered and the Results sketch exists.",
+   "advisor": "Independent view: a first, before the Results picture. The loss a scientist feels is persistence, not listing: open an EMD tomorrow and the regions, pins, picks and method are gone, and nothing but a re-drive brings them back. Every other file the app opens has a sidecar; a spectrum image without one is the odd one out, and your 104 standalone Velox files are the day-one data (ADR 053). The Results row is a list entry that moves cheaply under a rework; a record that was never written cannot be recovered. Keep the Results listing minimal (one row per Quantify step under the existing products) and let the rework picture rearrange it later.",
+   "nothing": "b now; a is proposed as the first v5.0 item after V5-8; the Results rework waits for your sketch.",
+   "sources": [
+    "docs/archive/v5/ux-spec-2-2026-10-06.md#4 item 4",
+    "docs/archive/v5/ux-spec-2-2026-10-06.md#1 D-14",
+    "docs/decisions/057-spectroscopy-room-spec-2.md#8",
+    "docs/archive/v5/edx-dossier-2026-10-05.md#9.2",
+    "docs/decisions/047-lineage-graph-record-v2.md",
+    "mac4DSTEM/Session/SpectroscopyQuantification.swift#1-35",
+    "mac4DSTEM/App/AppState+Spectroscopy.swift#94",
+    "docs/open-items.md#Spectroscopy room (EMD opens as a spectrum image; not added to Recents)",
+    "mac4DSTEM/UI/ResultsWorkspace.swift (no EDX product)"
+   ],
+   "images": []
+  },
+  {
+   "id": "P1",
+   "title": "Liquid Glass on the shell",
+   "status": "settled",
+   "context": [
+    "The morning of 2026-10-07 put glass on the sidebar and inspector panes (mock A, ADR 058 §5). At 12:30 you drove it and said you preferred flat columns with only the buttons in glass. ADR 059 §2 built that: flat columns; the inspector's action buttons in the glass style; the toolbar verb in prominent glass, as Xcode 26 does. No pane glass.",
+    "What stands in code: the toolbar verb uses .glassProminent (enabled) or .glass (disabled) in UI/WorkspaceView.swift; the inspector's capsule control uses a plain glass effect in UI/WorkspaceInspector.swift. Both mocks (A and B) show pane glass and are superseded on this point.",
+    "Not yet seen by you after the landing: your own copy was running, so the session did not drive it; light appearance and Reduce Transparency on the glass buttons are unverified on screen.",
+    "Code this answer unlocks. Confirm: nothing. Reopen (pane glass back): UI/WorkspaceView.swift, UI/ContentView.swift and UI/WorkspaceInspector.swift — all frozen (ADR 035), so only against a picture you accept; mock A would be that picture."
+   ],
+   "glossary": [
+    {
+     "term": "Liquid Glass",
+     "meaning": "macOS 26's translucent material. The HIG puts it on the navigation layer and controls, not on content."
+    },
+    {
+     "term": "frozen shell",
+     "meaning": "Five files (ContentView, WorkspaceView, WorkspaceInspector, LayoutPolicy, WorkspaceNavigation) change only against a picture you have accepted (ADR 035)."
+    }
+   ],
+   "question": "Confirm flat columns with glass buttons (ADR 059 §2), or reopen pane glass?",
+   "options": [
+    {
+     "key": "confirm",
+     "label": "flat columns, glass buttons",
+     "what": "What is on main now. Drive it in your next look (light appearance, Reduce Transparency).",
+     "effort": "None.",
+     "risk": "None."
+    },
+    {
+     "key": "reopen",
+     "label": "glass panes again (mock A)",
+     "what": "Sidebar and inspector as glass panes inset from their columns over a thin window material.",
+     "effort": "S — one lane in three frozen files, against mock A.",
+     "risk": "You judged it worse on screen at 12:30; Reduce Transparency frosts it; a window material alone read flat to the session."
+    }
+   ],
+   "recommend": "confirm",
+   "recommendWhy": "Built on your word, matches Xcode 26 and the HIG, and the only on-screen evidence (yours) is against pane glass.",
+   "advisor": "Independent view: confirm. The HIG places glass on the navigation layer and on controls; a sidebar that is itself a floating pane competes with the maps for attention, and the session's own note that a window material alone read flat means the pane version had no good middle setting. Nothing new has been seen since 12:30 that would justify a third shell change in one day. One caveat: confirm it after you have seen the glass buttons in light appearance, which nobody has.",
+   "nothing": "confirm",
+   "sources": [
+    "docs/archive/v5/ux-spec-2-2026-10-06.md#4 item 1",
+    "docs/archive/v5/shell-mocks-2026-10-07/README.md",
+    "docs/archive/v5/owner-drive-findings-2026-10-07.md#bullet 2",
+    "docs/decisions/058-velox-parity-sheet-and-glass-shell.md#5",
+    "docs/decisions/059-the-owners-drive-of-the-velox-landing.md#2",
+    "docs/decisions/035-frozen-shell.md",
+    "docs/status.md#Handoff v5.0 room",
+    "mac4DSTEM/UI/WorkspaceView.swift#272-274",
+    "mac4DSTEM/UI/WorkspaceInspector.swift#109-114"
+   ],
+   "images": []
+  },
+  {
+   "id": "P3",
+   "title": "“Compute Image” in Imaging",
+   "status": "settled",
+   "context": [
+    "Your own card of 2026-10-04 removed the verb (the virtual image is live, so no verb). At 12:30 on 2026-10-07 you asked for it back (\"yes compute image should be back!\"). ADR 059 §1 restored it as Imaging's verb for the virtual detector: it runs the detector as a recorded step that the lineage and Rewind can replay; the live preview stays. Group Patterns keeps its own verb.",
+    "In code: UI/WorkspaceView.swift names the verb \"Compute Image\" for every Imaging mode except diffraction groups. Not yet seen on screen by anyone after the landing (status: \"Compute Image (needs a 4D window)\").",
+    "Code this answer unlocks. Confirm: nothing. Reopen (remove again): UI/WorkspaceView.swift, frozen."
+   ],
+   "glossary": [
+    {
+     "term": "recorded step",
+     "meaning": "An entry in the session record (ADR 047) with its parameters; Rewind to Here restores it. A live preview records nothing."
+    }
+   ],
+   "question": "Confirm Compute Image as Imaging's recorded verb (ADR 059 §1), or reopen its removal?",
+   "options": [
+    {
+     "key": "confirm",
+     "label": "the verb stays, the preview stays",
+     "what": "What is on main now; drive it in a 4D window.",
+     "effort": "None.",
+     "risk": "None."
+    },
+    {
+     "key": "reopen",
+     "label": "remove the verb again (your 10-04 card)",
+     "what": "Imaging with the live preview only; no recorded virtual-detector step.",
+     "effort": "S, one frozen file.",
+     "risk": "The third flip of one control in three days; the lineage loses the virtual image as a step."
+    }
+   ],
+   "recommend": "confirm",
+   "recommendWhy": "Built on your word; a verb that records a step is what every other room has (ADR 054 item 8, one toolbar verb) and what the lineage needs.",
+   "advisor": "Independent view: confirm. The 10-04 removal optimised for \"no filler\" and treated the preview and the step as the same thing; they are not — the step is the unit the session record, Rewind and export share, and a preview cannot be rewound to. Your 12:30 reaction (\"something is off\") is the on-screen evidence that the verb carries meaning for the person at the keyboard. Confirm it once you have clicked it in a 4D window, which nobody has since the landing.",
+   "nothing": "confirm",
+   "sources": [
+    "docs/archive/v5/ux-spec-2-2026-10-06.md#4 item 3",
+    "docs/archive/v5/owner-drive-findings-2026-10-07.md#bullet 1",
+    "docs/decisions/059-the-owners-drive-of-the-velox-landing.md#1",
+    "docs/decisions/054-v5-quantification-design.md#8",
+    "docs/status.md#Handoff v5.0 room",
+    "mac4DSTEM/UI/WorkspaceView.swift#373-377"
+   ],
+   "images": []
+  },
+  {
+   "id": "P5",
+   "title": "Per-line selection in the fit",
+   "status": "settled",
+   "context": [
+    "Your bullet 15 asked to choose α and β lines separately, as Velox does. ADR 059 §6 gave you that for maps and markers (right-click › Lines; the chosen lines are recorded under map_lines), which is also what Velox does: its guide says line choices affect maps and markers only, never the fit. The fit keeps whole line families.",
+    "Letting a single line out of the fit would move numbers, so it is a science registration under Gate D, not a picture. It is not on this sheet; say so if you want it registered."
+   ],
+   "glossary": [
+    {
+     "term": "line family",
+     "meaning": "All the lines of one shell (K: Kα, Kβ …) with fixed intensity ratios; the fit scales the family as one."
+    }
+   ],
+   "question": "Nothing to answer now — α/β per element for maps and markers is built; per-line fitting would be a later Gate D registration.",
+   "options": [
+    {
+     "key": "confirm",
+     "label": "not now",
+     "what": "Maps and markers per line as built; the fit by families.",
+     "effort": "None.",
+     "risk": "None."
+    },
+    {
+     "key": "reopen",
+     "label": "Register per-line fitting now",
+     "what": "A pre-registration with predictions on the simulator and your pools, before any code.",
+     "effort": "M — Gate D lane.",
+     "risk": "A changed number on every fit; must be measured against the family fit first."
+    }
+   ],
+   "recommend": "confirm",
+   "recommendWhy": "Velox fits families too; the per-line choice you asked for is where Velox has it.",
+   "advisor": "Independent view: confirm. A single free line in a family removes the physics constraint that makes weak lines beside Al Kα fittable at all; the WP3d record already shows Mg and Si reading low under the present continuum, and a per-line fit would add a degree of freedom exactly where the data cannot support one.",
+   "nothing": "confirm",
+   "sources": [
+    "docs/archive/v5/ux-spec-2-2026-10-06.md#4 item 5",
+    "docs/decisions/059-the-owners-drive-of-the-velox-landing.md#6",
+    "docs/archive/v5/owner-drive-findings-2026-10-07.md#bullet 9",
+    "docs/open-items.md#Weak lines beside Al Kα"
+   ],
+   "images": []
+  }
+ ],
+ "not_carded": [
+  "Which answers unlock which code (the frozen-shell rule): Rule (CLAUDE.md, ADR 035): UI/ContentView.swift, UI/WorkspaceView.swift, UI/WorkspaceInspector.swift, UI/LayoutPolicy.swift and App/WorkspaceNavigation.swift change only against a picture you have accepted. ADR 055 let them change for the seventh room against the accepted mock; ADR 058 and 059 amended 035 for shell materials only; wording that corrects a false claim may change, structure and width may not.",
+  "V5-8 (any option): no frozen file. a wires Core's pool builder into the room; b adds Core outputs, a tool and an inspector table; c a new Core solver. All under Gate B or D, none against a picture.",
+  "Glass: confirm touches nothing; reopen touches WorkspaceView, ContentView and WorkspaceInspector and needs an accepted picture (mock A). Inspector width: a touches nothing; b changes one constant in LayoutPolicy (frozen) and raises the window floor 915 → 975, with two test files. Compute Image: confirm touches nothing (it is in WorkspaceView already); reopen touches WorkspaceView.",
+  "EDX results / session: a and b live in Session and UI/ResultsWorkspace.swift, both free; only a new product domain would touch the frozen WorkspaceInspector, and the plan avoids it. Per-line fit: Core/Spectroscopy/Fit under Gate D, no shell file.",
+  "WP4b (Auto ID rules) and the eXSpy quantification pins are running tonight under their own pre-registrations; their results come with the closeout, not as cards.",
+  "A public pure-Al spectrum does not settle the Al Kα shape or the detector's Si edge: only a pure-Al thin foil on your own microscope does (same session and settings, per-detector export)."
+ ],
+ "footer": "docs/archive/v5/owner-decisions-2026-10-05-v5.json (card V5-8), the dossier docs/archive/v5/edx-dossier-2026-10-05.md §5.4–5.5, ux-spec-2 §4, the shell mocks' README, ADR 035, 053, 054, 057, 058 and 059, and the code paths named on each card. Context and second opinions written 2026-10-07 night by an independent reader that did not write the recommendations. Nothing here changes the app; your answers do.",
+ "answers": {
+  "V5-8": "b",
+  "P2": "a",
+  "P4": "b",
+  "P1": "confirm",
+  "P3": "confirm",
+  "P5": "confirm",
+  "answered": "2026-10-07 night, by the owner, pasted from the decision page"
+ }
+}

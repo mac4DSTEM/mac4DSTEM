@@ -117,7 +117,8 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   through its first Gate D loop against his Velox selections (ADR 060: 34 / 45 %; one hygiene rule ships, two held for a truth
   set that tests their risk). Next, in order: WP4b (the held rules on DTSA-II's Qual set + the simulator + his files,
   `docs/archive/v5/reference-software-sheet-2026-10-07.md`), the eXSpy quantification pins, then validation with the owner's
-  joint GMS run and pure-Al spectrum (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
+  joint GMS run and pure-Al spectrum (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`); V5-8 answered b (ADR 061):
+  E wired into the room (pre-registration, Gate B), the 4D Quantify rows in Results, then B*'s prerequisites (per-phase score, separability matrix).
 
 ## After v4.1 — frozen until the owner reopens one
 
