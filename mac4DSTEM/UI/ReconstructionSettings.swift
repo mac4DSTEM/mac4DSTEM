@@ -579,12 +579,12 @@ private struct ParallaxStageSections: View {
         InspectorSection(
             title,
             icon: Image(systemName: complete ? "checkmark.circle.fill" : "\(number).circle"),
-            emphasized: active
+            emphasized: active,
+            status: RoomAccessibilityText.stageStatus(complete: complete, active: active)
         ) {
             content()
                 .disabled(!(active || complete))
         }
-        .accessibilityValue(complete ? "Complete" : (active ? "Current step" : "Pending"))
         .accessibilityIdentifier("reconstruct.stage.\(number)")
     }
 

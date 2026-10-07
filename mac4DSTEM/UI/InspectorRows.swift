@@ -60,6 +60,8 @@ struct InspectorSection<Content: View>: View {
     private let title: String
     private let icon: Image?
     private let emphasized: Bool
+    /// Spoken with the header ("Complete" on a finished stage); never drawn.
+    private let status: String?
     private let externalExpanded: Binding<Bool>?
     private let content: Content
     @Environment(\.inspectorScope) private var scope
@@ -68,12 +70,14 @@ struct InspectorSection<Content: View>: View {
         _ title: String,
         icon: Image? = nil,
         emphasized: Bool = false,
+        status: String? = nil,
         expanded: Binding<Bool>? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.icon = icon
         self.emphasized = emphasized
+        self.status = status
         self.externalExpanded = expanded
         self.content = content()
     }
@@ -87,12 +91,12 @@ struct InspectorSection<Content: View>: View {
 
     var body: some View {
         if let externalExpanded {
-            InspectorSectionBody(title: title, icon: icon, emphasized: emphasized,
+            InspectorSectionBody(title: title, icon: icon, emphasized: emphasized, status: status,
                                   isExpanded: externalExpanded, content: content)
         } else {
             InspectorSectionRemembering(
                 key: Self.sceneStorageKey(scope: scope, title: title),
-                title: title, icon: icon, emphasized: emphasized, content: content)
+                title: title, icon: icon, emphasized: emphasized, status: status, content: content)
         }
     }
 }
@@ -110,19 +114,21 @@ private struct InspectorSectionRemembering<Content: View>: View {
     private let title: String
     private let icon: Image?
     private let emphasized: Bool
+    private let status: String?
     @SceneStorage private var isExpanded: Bool
     private let content: Content
 
-    init(key: String, title: String, icon: Image?, emphasized: Bool, content: Content) {
+    init(key: String, title: String, icon: Image?, emphasized: Bool, status: String?, content: Content) {
         self.title = title
         self.icon = icon
         self.emphasized = emphasized
+        self.status = status
         self._isExpanded = SceneStorage(wrappedValue: true, key)
         self.content = content
     }
 
     var body: some View {
-        InspectorSectionBody(title: title, icon: icon, emphasized: emphasized,
+        InspectorSectionBody(title: title, icon: icon, emphasized: emphasized, status: status,
                               isExpanded: $isExpanded, content: content)
     }
 }
@@ -134,6 +140,7 @@ private struct InspectorSectionBody<Content: View>: View {
     let title: String
     let icon: Image?
     let emphasized: Bool
+    let status: String?
     let isExpanded: Binding<Bool>
     let content: Content
 
@@ -176,7 +183,7 @@ private struct InspectorSectionBody<Content: View>: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(.isHeader)
-        .accessibilityValue(isExpanded.wrappedValue ? "Expanded" : "Collapsed")
+        .accessibilityValue(RoomAccessibilityText.sectionHeaderValue(status: status, expanded: isExpanded.wrappedValue))
     }
 }
 
@@ -1029,4 +1036,43 @@ private struct ResetActionModifier: ViewModifier {
             content
         }
     }
+}
+
+/// What VoiceOver says for values the screen shows as symbols, abbreviations or a prompt — pure strings, so a test can hold them
+/// (docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md, group Y2). Nothing here is drawn.
+nonisolated enum RoomAccessibilityText {
+    /// A pixel count spoken in full ("px" is read letter by letter): "1 pixel", "12 pixels".
+    static func pixels(_ value: Double) -> String {
+        let text = value == value.rounded() ? String(Int(value)) : String(format: "%g", value)
+        return value == 1 ? "1 pixel" : "\(text) pixels"
+    }
+
+    /// The upsampling factor the stepper shows as "16×".
+    static func upsampleFactor(_ factor: Int) -> String { "\(factor) times" }
+
+    /// The relative-reference peak the stepper shows as "#2" (the model stores it zero-based).
+    static func referencePeak(zeroBasedIndex: Int) -> String { "peak \(zeroBasedIndex + 1)" }
+
+    /// A section header's value: the stage status when it has one, then whether it is open.
+    static func sectionHeaderValue(status: String?, expanded: Bool) -> String {
+        [status, expanded ? "Expanded" : "Collapsed"].compactMap { $0 }.joined(separator: ", ")
+    }
+
+    /// The Reconstruction stage status (was a value on the stage's container, where a header button's focus does not reach it).
+    static func stageStatus(complete: Bool, active: Bool) -> String {
+        complete ? "Complete" : (active ? "Current step" : "Pending")
+    }
+
+    /// The hint of a field that falls back to a global value when empty: the prompt that shows the value is grey text only.
+    /// `globalText` is the value as the field would type it.
+    static func globalFallbackHint(isEmpty: Bool, globalText: String, unit: String) -> String {
+        isEmpty ? "Empty: using the global value \(globalText) \(unit)"
+                : "Clear the field to use the global value \(globalText) \(unit)"
+    }
+
+    /// The exact text behind a rounded provenance value, or nil when the display shows it whole.
+    static func exactValue(raw: String, displayed: String) -> String? { raw == displayed ? nil : raw }
+
+    /// A saved product's state value: "Shown" for the product on screen, empty otherwise.
+    static func shownValue(isCurrent: Bool) -> String { isCurrent ? "Shown" : "" }
 }

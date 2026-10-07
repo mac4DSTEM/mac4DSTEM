@@ -335,7 +335,7 @@ struct PrepareSettings: View {
             // label do not fit the column's minimum width.
             InspectorRow("Fit annulus inner") {
                 NumericField(
-                    "Inner fit radius",
+                    "Inner fit radius in pixels",
                     value: $session.ellipseFitInnerRadius,
                     format: .number.precision(.fractionLength(0...2)),
                     unit: "px"
@@ -344,7 +344,7 @@ struct PrepareSettings: View {
             }
             InspectorRow("Fit annulus outer") {
                 NumericField(
-                    "Outer fit radius",
+                    "Outer fit radius in pixels",
                     value: $session.ellipseFitOuterRadius,
                     format: .number.precision(.fractionLength(0...2)),
                     unit: "px"
@@ -423,7 +423,7 @@ struct PrepareSettings: View {
         let help = "Enter an ellipse by hand in py4DSTEM's convention: semi-axes a (the longer) and b in detector pixels, θ the tilt of the a axis from qx (the row axis) in degrees — the numbers the Correction line shows. Only b/a and θ change the correction; a and b size the drawn ring."
         InspectorRow("Semi-axis a") {
             NumericField(
-                "Semi-axis a",
+                "Semi-axis a in pixels",
                 value: Binding(get: { a }, set: { ellipseDraftA = $0 }),
                 format: .number.precision(.fractionLength(0...4)),
                 unit: "px"
@@ -434,7 +434,7 @@ struct PrepareSettings: View {
         .help(help)
         InspectorRow("Semi-axis b") {
             NumericField(
-                "Semi-axis b",
+                "Semi-axis b in pixels",
                 value: Binding(get: { b }, set: { ellipseDraftB = $0 }),
                 format: .number.precision(.fractionLength(0...4)),
                 unit: "px"
@@ -445,7 +445,7 @@ struct PrepareSettings: View {
         .help(help)
         InspectorRow("θ") {
             NumericField(
-                "Ellipse angle θ",
+                "Ellipse angle θ in degrees",
                 value: Binding(get: { thetaDegrees }, set: { ellipseDraftThetaDegrees = $0 }),
                 format: .number.precision(.fractionLength(0...3)),
                 unit: "°"

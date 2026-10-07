@@ -81,6 +81,7 @@ struct ResultsSettings: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityValue(RoomAccessibilityText.shownValue(isCurrent: isCurrent))
         .accessibilityHint("Displays this saved result")
         .accessibilityIdentifier("session.savedResult")
 

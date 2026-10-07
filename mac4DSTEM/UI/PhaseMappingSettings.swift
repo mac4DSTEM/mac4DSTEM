@@ -632,6 +632,10 @@ struct PhaseMappingSections: View {
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .frame(width: LayoutPolicy.numericFieldWidth)
+                    // The grey prompt that shows the global value is not spoken; a hint, not a value, so what is typed is still read.
+                    .accessibilityHint(RoomAccessibilityText.globalFallbackHint(
+                        isEmpty: slot.excitationSlabInvAngstrom == nil,
+                        globalText: DecimalEntryFormat(format).format(global), unit: "per ångström"))
                     Text("Å⁻¹")
                         .foregroundStyle(.secondary)
                         .fixedSize()

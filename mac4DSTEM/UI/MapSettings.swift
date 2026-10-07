@@ -605,6 +605,7 @@ private struct AdvancedDiskDetectionSection: View {
                     Text("\(appState.diskDetection.diskParams.maxNumPeaks)")
                 }
                 .accessibilityLabel(DiskDetectionParameterID.maximumPeaks.title)
+                .accessibilityValue("\(appState.diskDetection.diskParams.maxNumPeaks)")
             }
             .help(DiskDetectionParameterID.maximumPeaks.explanation)
 
@@ -662,6 +663,8 @@ private struct AdvancedDiskDetectionSection: View {
                     Text("#\(appState.diskDetection.diskParams.relativeToPeak + 1)")
                 }
                 .accessibilityLabel(DiskDetectionParameterID.relativeReferencePeak.title)
+                .accessibilityValue(RoomAccessibilityText.referencePeak(
+                    zeroBasedIndex: appState.diskDetection.diskParams.relativeToPeak))
             }
             .help(DiskDetectionParameterID.relativeReferencePeak.explanation)
 
@@ -680,6 +683,8 @@ private struct AdvancedDiskDetectionSection: View {
                     ))
                 }
                 .accessibilityLabel(DiskDetectionParameterID.relativeReferenceMinimumRadius.title)
+                .accessibilityValue(RoomAccessibilityText.pixels(
+                    Double(appState.diskDetection.diskParams.relativeReferenceMinimumRadiusPx.rounded())))
             }
             .help(DiskDetectionParameterID.relativeReferenceMinimumRadius.explanation)
 
@@ -695,6 +700,8 @@ private struct AdvancedDiskDetectionSection: View {
                     ))
                 }
                 .accessibilityLabel(DiskDetectionParameterID.minimumPeakSpacing.title)
+                .accessibilityValue(RoomAccessibilityText.pixels(
+                    Double(appState.diskDetection.diskParams.minPeakSpacing.rounded())))
             }
             .help(DiskDetectionParameterID.minimumPeakSpacing.explanation)
 
@@ -706,6 +713,7 @@ private struct AdvancedDiskDetectionSection: View {
                     Text("\(appState.diskDetection.diskParams.edgeBoundary) px")
                 }
                 .accessibilityLabel(DiskDetectionParameterID.edgeBoundary.title)
+                .accessibilityValue(RoomAccessibilityText.pixels(Double(appState.diskDetection.diskParams.edgeBoundary)))
             }
             .help(DiskDetectionParameterID.edgeBoundary.explanation)
 
@@ -720,6 +728,7 @@ private struct AdvancedDiskDetectionSection: View {
                         Text("\(appState.diskDetection.diskParams.upsampleFactor)×")
                     }
                     .accessibilityLabel(DiskDetectionParameterID.upsampleFactor.title)
+                    .accessibilityValue(RoomAccessibilityText.upsampleFactor(appState.diskDetection.diskParams.upsampleFactor))
                 }
                 .help(DiskDetectionParameterID.upsampleFactor.explanation)
             }
@@ -1210,6 +1219,7 @@ private struct ACOMSections: View {
                     Text("\(appState.selectedScan.x)")
                 }
                 .accessibilityLabel("Center X")
+                .accessibilityValue("\(appState.selectedScan.x)")
             }
             InspectorRow("Center Y") {
                 Stepper(
@@ -1222,6 +1232,7 @@ private struct ACOMSections: View {
                     Text("\(appState.selectedScan.y)")
                 }
                 .accessibilityLabel("Center Y")
+                .accessibilityValue("\(appState.selectedScan.y)")
             }
             InspectorRow("Half-size") {
                 Stepper(
@@ -1231,6 +1242,7 @@ private struct ACOMSections: View {
                     Text("\(appState.acomSession.regionRadius) px")
                 }
                 .accessibilityLabel("Half-size")
+                .accessibilityValue(RoomAccessibilityText.pixels(Double(appState.acomSession.regionRadius)))
             }
             InspectorNote("The orange square is matched at full spatial resolution.")
         } else if appState.acomSession.scope == .preview {
