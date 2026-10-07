@@ -148,6 +148,7 @@
 				Core/Spectroscopy/Proposer/ElementProposer.swift,
 				Core/Spectroscopy/Proposer/FitNullVariance.swift,
 				Core/Spectroscopy/Proposer/LineConflicts.swift,
+				Core/Spectroscopy/Proposer/ProposalRules.swift,
 				Core/Spectroscopy/Quant/AbsorptionCorrection.swift,
 				Core/Spectroscopy/Quant/BoteSalvatCrossSection.swift,
 				Core/Spectroscopy/Quant/BrownPowellK.swift,

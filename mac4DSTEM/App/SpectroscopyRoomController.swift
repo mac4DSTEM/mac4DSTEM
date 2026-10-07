@@ -308,8 +308,11 @@ final class SpectroscopyRoomController {
                 let settings = FitSettings.standard(elements: current, axis: source.energyAxis,
                                                     resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
                 let result = try ElementProposer().propose(counts: spectrum.map { Double($0) }, axis: source.energyAxis, settings: settings)
+                // WP4 (2026-10-07): the shipped rule set (R1 hygiene only; R2 and R3 refuted as registered) re-selects the proposer's
+                // candidates; the raw result stays beside the picks and every withheld pick is named in the notes.
+                let ruled = ProposalRules.shipped.apply(result, resolutionMnKaEV: settings.resolutionMnKaEV)
                 outcome = AutoIDPresentation.outcome(result, region: name, beside: AutoIDPresentation.besideCheck(settings: settings, axis: source.energyAxis),
-                                                     computedK: computedK)
+                                                     computedK: computedK, rules: ruled)
             } catch ProposerError.cancelled { return   // cancelled or overtaken: a silent discard, no note (whoever cancelled it ended the operation)
             } catch { failure = "Auto ID could not fit this spectrum: \((error as? LocalizedError)?.errorDescription ?? "\(error)")" }
             if Task.isCancelled { return }

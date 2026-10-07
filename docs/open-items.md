@@ -295,8 +295,12 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
 `Core/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
 add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only. Auto ID (Elements & maps) runs it
 on the selected region and the file's axis, cancellably; suggestions never touch manual picks. Open:
-- **Auto ID gaps:** driven 2026-10-07 (Tm, Cu picked on the synthetic Al-Mg-Si cube); `holeRegionNote` is not drawn; it uses the file axis, not a refined
-  one; `suggestedRole` in Core is now unused by the room (one source of truth owed).
+- **Auto ID vs Velox (WP4, ADR 060, 2026-10-07):** 78 of the owner's files, truth = his Velox selections: baseline 34,1 / 45,5 %. Shipped: R1's Z ≥ 89 half only; its beside-K half (whole R1: 39,6 / 45,5 %) is held — the refuter found the sample never tests its risk and the line table has Hf/Cu, Pt/Ga, Ta/Cu, Pb/As pairs where it drops a real element with no K fallback; re-register with an evidence guard on a set that holds such a case.
+  R2 (L/M ≥ 3 L_D) lifts precision on every set measured but the registered hold-out is 9 June Al-Mg-Si files, not an independent set → a new
+  registration on DTSA-II's Qual set + the simulator (`reference-software-sheet-2026-10-07.md`). R3 refuted (Ar from Al pile-up on the ladder).
+  Mg is missed on the whole map in 37 of 38 Al-Mg-Si files (a trace in the pool); on the Mg-richest 1 % of pixels 10 of 19. Owed when the SSD is
+  back: 43 file dates and 7 H4 files (`tools/autoid-velox-check/run.sh --h4`, then `wp4.py`). Four files make the proposer throw `rankDeficient`.
+- **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.
 - **Look-elsewhere:** ≈ 0.055 chance elements per spectrum at 114 groups (measured 7/162); stated in the notes.

@@ -93,11 +93,14 @@ nonisolated enum AutoIDPresentation {
     /// `beside` answers "what listed line is this energy (of this element) next to?" (nil = nothing): see `besideCheck`.
     /// `computedK`: the Quantification k-factors are Computed, which cover K lines only (the sheet's row 2c); with a Typed k the
     /// person's own factor may cover any line, so the old rule holds.
+    /// `rules`: the registered post-selection (`ProposalRules.apply`); nil keeps the proposer's own picks. With it the picks, the
+    /// sum-peak questions and the notes are the ruled ones, each pick a rule acted on says which in its reason, and every pick a rule
+    /// withheld is named in the notes (never silently gone).
     static func outcome(_ r: ProposalResult, region: String, beside: (Double, String) -> String? = { _, _ in nil },
-                        computedK: Bool = false) -> AutoIDOutcome {
+                        computedK: Bool = false, rules: RuledProposal? = nil) -> AutoIDOutcome {
         var suggestions: [ElementSuggestion] = []
         var excesses: [AutoIDExcess] = []
-        for c in bySignificance(r.proposed) {   // NOT `candidates.filter(\.isProposed)`: a sum-peak question is not a finding
+        for c in bySignificance(rules?.picks ?? r.proposed) {   // NOT `candidates.filter(\.isProposed)`: a sum-peak question is not a finding
             let stats = stats(c, chiSquared: r.reducedChiSquared)
             if let line = beside(c.energyKeV, c.element) {   // F3.1: a misfit of that line's shape or the continuum, not a detected element
                 excesses.append(AutoIDExcess(beside: line, proposerLabel: UnlistedLineChecker.displayName(c.group), stats: stats))
@@ -112,10 +115,11 @@ nonisolated enum AutoIDPresentation {
             let noK = computedK && !isKGroup(c.group)
             let fib = c.conflicts.contains { $0.kind == .fibContamination }
             let role: ElementRole = (noK || fib) ? .fitOnly : .quantify
-            let reason = (noK ? noComputedKPrefix : "") + (questions.isEmpty ? stats : stats + ". " + questions.joined(separator: " "))
+            var reason = (noK ? noComputedKPrefix : "") + (questions.isEmpty ? stats : stats + ". " + questions.joined(separator: " "))
+            if let rule = rules?.ruleReason(for: c.element) { reason += (reason.hasSuffix(".") ? " " : ". ") + rule }
             suggestions.append(ElementSuggestion(z: z, reason: reason, proposedRole: role, significance: c.significance))
         }
-        let suspects: [AutoIDSuspect] = bySignificance(r.sumPeakQuestions).map { c in
+        let suspects: [AutoIDSuspect] = bySignificance(rules?.heldQuestions ?? r.sumPeakQuestions).map { c in
             let sums = c.conflicts.filter { $0.kind == .sumPeak }
             let lead = sums.map(sumLabel).joined(separator: " / ")
             return AutoIDSuspect(label: "\(lead)? (or \(ElementWindows.label(ofLineID: c.group)))", energy: c.energyKeV,
@@ -123,6 +127,26 @@ nonisolated enum AutoIDPresentation {
         }
         let notTested = r.refused.filter { !LineConflicts.refusedElements.contains($0.element) }
             .map { AutoIDRefusal(element: $0.element, reason: $0.reason) }
-        return AutoIDOutcome(region: region, suggestions: suggestions, suspects: suspects, excesses: excesses, notTested: notTested, notes: r.notes)
+        return AutoIDOutcome(region: region, suggestions: suggestions, suspects: suspects, excesses: excesses, notTested: notTested,
+                             notes: r.notes + (rules.map(ruleNotes) ?? []))
+    }
+
+    /// The rules' own lines for the notes: which picks each withheld (with the number), which were released, and where the cuts
+    /// come from. Empty when no rule is on.
+    static func ruleNotes(_ p: RuledProposal) -> [String] {
+        guard !p.rules.isNone else { return [] }
+        var lines: [String] = []
+        if !p.withheld.isEmpty {
+            lines.append("Withheld by the rules: " + p.withheld.map { w in
+                "\(UnlistedLineChecker.displayName(w.candidate.group)) (\(w.rule.rawValue), \(w.why))"
+            }.joined(separator: ", ") + ".")
+        }
+        if !p.released.isEmpty {
+            lines.append("Released from the sum-peak hold (R3): " + p.released.map { UnlistedLineChecker.displayName($0.candidate.group) }.joined(separator: ", ") + ".")
+        }
+        lines.append("Rules " + ProposalRules.Rule.allCases.filter { rule in
+            switch rule { case .hygiene: p.rules.hygiene; case .corroboration: p.rules.corroboration; case .release: p.rules.release }
+        }.map(\.rawValue).joined(separator: ", ") + " " + ProposalRules.source + ".")
+        return lines
     }
 }
