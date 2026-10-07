@@ -22,4 +22,12 @@ final class SwiftUIReviewCTests: XCTestCase {
         sel.click(1)
         XCTAssertEqual(sel.roles, before)
     }
+
+    /// The ColorMix canvas reads "No region" without an outline and the capsule's own caption (grouped pixel count) with one.
+    /// Mutation: `regionValue` returns the caption unconditionally - red on the no-outline assertion.
+    func testColorMixValueIsNoRegionOrTheCaption() {
+        XCTAssertEqual(MapTileView.regionValue(hasOutline: false, pixels: 1234), "No region")
+        XCTAssertEqual(MapTileView.regionValue(hasOutline: true, pixels: 1234), MapTileView.regionCaption(pixels: 1234))
+        XCTAssertTrue(MapTileView.regionValue(hasOutline: true, pixels: 0).hasPrefix("Region"))
+    }
 }

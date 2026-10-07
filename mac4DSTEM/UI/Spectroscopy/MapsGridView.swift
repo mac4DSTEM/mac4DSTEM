@@ -214,15 +214,27 @@ struct MapTileView: View {
             c.gesture(drag(size))
                 .accessibilityLabel("ColorMix")
                 .simultaneousGesture(TapGesture(count: 2).onEnded { closePolygon(size) })
+                .accessibilityValue(Self.regionValue(hasOutline: model.regionOutline != nil,
+                                                     pixels: model.regions.first { $0.id == model.selectedRegion }?.pixels ?? 0))
+                // The region is drawn with the mouse only; what the keyboard and VoiceOver can do is remove it, as Delete does.
+                .accessibilityActions { if RegionKeys.removableID(model.regions) != nil { Button("Clear region") { clearRegion() } } }
                 .focusable()
                 .focused($focused)
                 .focusEffectDisabled()
+                // The system ring is off (it would draw outside the tile's clip); a thin stroke just inside the canvas, only while
+                // focused, says where keyboard focus is. No layout change.
+                .overlay {
+                    if focused {
+                        RoundedRectangle(cornerRadius: TileMetrics.corner).inset(by: 3)
+                            .stroke(Color.accentColor, lineWidth: 1.5).allowsHitTesting(false)
+                    }
+                }
                 // Both delete keys. Drive 2026-10-07: `KeyEquivalent.delete` matched only the forward-delete key; the
                 // Backspace key arrives as the BS character, so it is matched by its character here.
                 .onKeyPress { press in
                     guard press.key == .delete || press.key == .deleteForward || press.characters == "\u{8}" || press.characters == "\u{7F}",
-                          let id = RegionKeys.removableID(model.regions) else { return .ignored }
-                    model.onRemoveRegion?(id)
+                          RegionKeys.removableID(model.regions) != nil else { return .ignored }
+                    clearRegion()
                     return .handled
                 }
                 .onKeyPress(.escape) {
@@ -240,6 +252,16 @@ struct MapTileView: View {
                 .accessibilityAddTraits(inMix ? .isSelected : [])
                 .help(inMix ? "Remove \(title) from the ColorMix" : "Add \(title) to the ColorMix")
         }
+    }
+
+    /// The Delete key's and the "Clear region" action's one path: remove the drawn region, if there is one.
+    private func clearRegion() {
+        if let id = RegionKeys.removableID(model.regions) { model.onRemoveRegion?(id) }
+    }
+
+    /// The ColorMix canvas's VoiceOver value: the capsule's own text while a region is outlined, else "No region".
+    static func regionValue(hasOutline: Bool, pixels: Int) -> String {
+        hasOutline ? regionCaption(pixels: pixels) : "No region"
     }
 
     static func key(_ m: ActiveMap) -> String {
@@ -267,6 +289,7 @@ struct MapTileView: View {
     private var header: some View {
         HStack(spacing: 4) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white).shadow(radius: 1)
+                .accessibilityHidden(map != .colorMix)   // the tile's own Button already carries this name
             Spacer(minLength: 4)
             if map == .colorMix {
                 let mixed = model.tiles.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
