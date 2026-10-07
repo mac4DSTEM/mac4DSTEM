@@ -616,6 +616,17 @@ nonisolated struct LineageGraphModel {
         }
     }
 
+    /// The graph container's spoken value, so VoiceOver can say what the picture holds before the reader walks it node by node:
+    /// "5 steps, 1 stale, 1 on another branch". Counts the shown nodes; a clause is left out when its count is 0.
+    var accessibilitySummary: String {
+        let stale = nodes.filter { state(of: $0.id) == .stale }.count
+        let branch = nodes.filter { state(of: $0.id) == .branch }.count
+        var parts = ["\(nodes.count) \(nodes.count == 1 ? "step" : "steps")"]
+        if stale > 0 { parts.append("\(stale) stale") }
+        if branch > 0 { parts.append("\(branch) on another branch") }
+        return parts.joined(separator: ", ")
+    }
+
     /// "Step s5, Disk detection, stale" — the node button's accessibility label.
     func accessibilityLabel(for node: SessionLineage.Node) -> String {
         "Step \(node.id), \(LineageKindStyle.fullTitle(node.kind)), \(state(of: node.id).phrase)"

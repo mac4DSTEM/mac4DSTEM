@@ -1117,6 +1117,8 @@ private struct ACOMSections: View {
                 } label: {
                     Text(acomPhaseModelValueText(model))
                 }
+                .accessibilityLabel("Phase model")
+                .accessibilityValue(acomPhaseModelValueText(model))
                 .accessibilityIdentifier("acom.phaseModelName")
             } else {
                 Text(acomPhaseModelValueText(model))
@@ -1207,6 +1209,7 @@ private struct ACOMSections: View {
                 ) {
                     Text("\(appState.selectedScan.x)")
                 }
+                .accessibilityLabel("Center X")
             }
             InspectorRow("Center Y") {
                 Stepper(
@@ -1218,6 +1221,7 @@ private struct ACOMSections: View {
                 ) {
                     Text("\(appState.selectedScan.y)")
                 }
+                .accessibilityLabel("Center Y")
             }
             InspectorRow("Half-size") {
                 Stepper(
@@ -1226,6 +1230,7 @@ private struct ACOMSections: View {
                 ) {
                     Text("\(appState.acomSession.regionRadius) px")
                 }
+                .accessibilityLabel("Half-size")
             }
             InspectorNote("The orange square is matched at full spatial resolution.")
         } else if appState.acomSession.scope == .preview {

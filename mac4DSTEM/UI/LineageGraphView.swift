@@ -118,6 +118,10 @@ struct LineageGraphView: View {
         .focused($isFocused)
         .onKeyPress(phases: .down) { handleArrowKey($0, inGraph: true) }
         .onChange(of: selected?.id) { _, id in reveal(id) }
+        // A named container whose nodes stay separate elements; its value says what the picture holds.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Run graph")
+        .accessibilityValue(model.accessibilitySummary)
     }
 
     private var graphCanvas: some View {

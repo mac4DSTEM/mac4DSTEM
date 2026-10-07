@@ -44,6 +44,7 @@ private struct PaneHeader<Action: View>: View {
             Text(title)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             action()
         }

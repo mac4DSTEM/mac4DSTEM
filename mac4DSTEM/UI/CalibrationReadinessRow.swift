@@ -211,6 +211,7 @@ enum CalibrationReadinessRow {
                     .help("Selected ACOM phase model: \(model.displayName)")
                 }
                 manualScale(
+                    name: "Q pixel size",
                     value: appState.manualQPixelSize,
                     units: appState.manualQPixelUnits,
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
@@ -223,6 +224,7 @@ enum CalibrationReadinessRow {
                 // Why the crystal route is unavailable is guidance about a
                 // path you cannot take yet: on hover and in the hint.
                 manualScale(
+                    name: "Q pixel size",
                     value: appState.manualQPixelSize,
                     units: appState.manualQPixelUnits,
                     unitOptions: CalibrationUnitConversion.editableReciprocalUnits,
@@ -237,6 +239,7 @@ enum CalibrationReadinessRow {
             // app; the field is the only control offered, and the sentence
             // is on hover.
             manualScale(
+                name: "R pixel size",
                 value: appState.manualRPixelSize,
                 units: appState.manualRPixelUnits,
                 unitOptions: CalibrationUnitConversion.editableRealUnits,
@@ -253,6 +256,7 @@ enum CalibrationReadinessRow {
     /// minimum width.
     @ViewBuilder
     static func manualScale(
+        name: String,
         value: Double?, units: String, unitOptions: [String], identifier: String,
         help: String,
         onChange: @escaping (Double) -> Void,
@@ -262,7 +266,7 @@ enum CalibrationReadinessRow {
         // every other row in the card, not flush left as they did before.
         InspectorRow("Manual") {
             OptionalNumericField(
-                title: "Manual scale",
+                title: name,   // Q or R: the visible row title ("Manual") does not say which
                 value: value,
                 format: .number.precision(.fractionLength(0...6)),
                 onCommit: onChange
@@ -273,7 +277,7 @@ enum CalibrationReadinessRow {
         .help(help)
         .accessibilityHint(help)
         InspectorRow("Unit per pixel") {
-            Picker("Unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
+            Picker("\(name) unit per pixel", selection: Binding(get: { units }, set: onUnitChange)) {
                 ForEach(unitOptions, id: \.self) { unit in
                     Text(unit).tag(unit)
                 }
