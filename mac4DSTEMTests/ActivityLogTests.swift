@@ -117,16 +117,18 @@ final class ActivityLogTests: XCTestCase {
 
     // MARK: - Where the output strip scrolls to
 
-    /// The output strip scrolls on `.onChange` of the count, which never
-    /// fires the first time the panel appears — it opens scrolled to its
-    /// top instead of its newest line. The fix reads this pure index on
+    /// The output strip scrolls on `.onChange` of the newest line's id, which
+    /// never fires the first time the panel appears — it opens scrolled to its
+    /// top instead of its newest line. The fix reads this pure rule on
     /// `.onAppear` too, so it has to be right for a log with nothing in it
     /// as well as one already full.
-    func testScrollTargetIsTheLastIndexOrNilWhenEmpty() {
-        XCTAssertNil(ActivityLog.scrollTarget(forCount: 0))
-        XCTAssertEqual(ActivityLog.scrollTarget(forCount: 1), 0)
-        XCTAssertEqual(ActivityLog.scrollTarget(forCount: 5), 4)
-        XCTAssertEqual(ActivityLog.scrollTarget(forCount: ActivityLog.capacity), ActivityLog.capacity - 1)
+    func testScrollTargetIsTheNewestLineIdOrNilWhenEmpty() {
+        let log = ActivityLog(now: { Date(timeIntervalSinceReferenceDate: 0) })
+        XCTAssertNil(ActivityLog.scrollTarget(for: log.lines))
+        log.record("one")
+        XCTAssertEqual(ActivityLog.scrollTarget(for: log.lines), log.lines.last?.id)
+        for i in 0..<(ActivityLog.capacity + 5) { log.record("line \(i)") }
+        XCTAssertEqual(ActivityLog.scrollTarget(for: log.lines), log.lines.last?.id)
     }
 
     /// The stamp is the injected clock's, not the wall clock's.

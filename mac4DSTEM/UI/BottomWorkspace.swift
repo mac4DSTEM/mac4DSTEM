@@ -72,20 +72,20 @@ private struct OutputPane: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 1) {
-                        ForEach(Array(appState.activityLog.messages.enumerated()), id: \.offset) { index, line in
-                            Text(line)
+                        ForEach(appState.activityLog.lines) { line in
+                            Text(line.text)
                                 .font(.callout.monospaced())
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .textSelection(.enabled)
-                                .id(index)
+                                .id(line.id)
                         }
                     }
                     .padding(.horizontal, LayoutPolicy.infobarHorizontalPadding)
                     .padding(.vertical, 4)
                 }
-                .onChange(of: appState.activityLog.messages.count) {
-                    if let target = ActivityLog.scrollTarget(forCount: appState.activityLog.messages.count) {
+                .onChange(of: appState.activityLog.lines.last?.id) {
+                    if let target = ActivityLog.scrollTarget(for: appState.activityLog.lines) {
                         proxy.scrollTo(target, anchor: .bottom)
                     }
                 }
@@ -93,7 +93,7 @@ private struct OutputPane: View {
                     // `.onChange` never fires the first time the panel
                     // appears; the rows may not exist yet on this tick, so
                     // the scroll is deferred a runloop turn.
-                    guard let target = ActivityLog.scrollTarget(forCount: appState.activityLog.messages.count) else { return }
+                    guard let target = ActivityLog.scrollTarget(for: appState.activityLog.lines) else { return }
                     DispatchQueue.main.async {
                         proxy.scrollTo(target, anchor: .bottom)
                     }

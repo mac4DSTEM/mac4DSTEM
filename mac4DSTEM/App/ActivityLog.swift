@@ -12,7 +12,7 @@
 //  Views read `activityLog.messages`; no forwarding properties on `AppState`.
 //
 //  `@Observable` here is load-bearing, not ceremony: `WorkspaceView`'s output
-//  strip reads `messages` and scrolls on its count, and without observation
+//  strip reads `lines` and scrolls on the newest line's id, and without observation
 //  the strip goes silently stale. `ActivityLogTests` pins the whole chain
 //  with `withObservationTracking` rather than trusting the annotation.
 //
@@ -21,8 +21,27 @@ import Foundation
 
 @Observable
 final class ActivityLog {
+    /// One log line with an identity that belongs to the line, not to its
+    /// position. At capacity the oldest line is dropped for every new one, so
+    /// a position-keyed row (the old `id: \.offset`) changed identity on every
+    /// line below the drop: all 300 rows re-rendered, a text selection landed
+    /// on the neighbouring line, and the count-keyed auto-scroll stopped
+    /// firing because the count stays 300.
+    struct Line: Identifiable, Equatable {
+        /// Monotonic across the log's life (not reset by `clear`), so an id
+        /// is never reused by a later line.
+        let id: Int
+        let text: String
+    }
+
     /// Oldest first, newest last — the order the strip scrolls in.
-    private(set) var messages: [String] = []
+    private(set) var lines: [Line] = []
+
+    /// The log as plain strings, for every caller that reads text only.
+    var messages: [String] { lines.map(\.text) }
+
+    /// The next line's id. Not observed: only `lines` drives the view.
+    @ObservationIgnored private var nextID = 0
 
     /// An unbounded log is a memory leak with a scroll bar. A long run writes
     /// thousands of lines and nobody reads past the last screenful.
@@ -58,7 +77,7 @@ final class ActivityLog {
     /// Empties the log. The bottom workspace's Output tab "Clear" button
     /// (ADR 034) — a deliberate user action, not a rule this file enforces
     /// on its own, so it is a plain removal with no suppression bookkeeping.
-    func clear() { messages.removeAll() }
+    func clear() { lines.removeAll() }
 
     /// Record one status event.
     ///
@@ -79,10 +98,11 @@ final class ActivityLog {
         suppressNextRecord = false
         guard !suppressed else { return }
         guard !message.isEmpty, !message.hasSuffix("%") else { return }
-        if messages.last?.hasSuffix(message) == true { return }
-        messages.append("\(Self.clock.string(from: now()))  \(message)")
-        if messages.count > Self.capacity {
-            messages.removeFirst(messages.count - Self.capacity)
+        if lines.last?.text.hasSuffix(message) == true { return }
+        lines.append(Line(id: nextID, text: "\(Self.clock.string(from: now()))  \(message)"))
+        nextID += 1
+        if lines.count > Self.capacity {
+            lines.removeFirst(lines.count - Self.capacity)
         }
     }
 
@@ -92,14 +112,14 @@ final class ActivityLog {
         return f
     }()
 
-    /// The row a `ScrollViewReader` should scroll to for a log holding
-    /// `count` lines — the newest one, or none for an empty log. Pulled out
-    /// so the output strip's `.onAppear` (the panel opening scrolled to the
-    /// top instead of the newest line) and its `.onChange` of the count can
-    /// share one rule instead of restating "`count - 1`, unless there is
-    /// nothing" at each call site.
-    static func scrollTarget(forCount count: Int) -> Int? {
-        count > 0 ? count - 1 : nil
+    /// The row a `ScrollViewReader` should scroll to for these lines — the
+    /// newest one's id, or none for an empty log. Pulled out so the output
+    /// strip's `.onAppear` (the panel opening scrolled to the top instead of
+    /// the newest line) and its `.onChange` of the newest id share one rule.
+    /// The id, not the count: at capacity the count stops changing while the
+    /// newest id keeps moving.
+    static func scrollTarget(for lines: [Line]) -> Int? {
+        lines.last?.id
     }
 }
 
