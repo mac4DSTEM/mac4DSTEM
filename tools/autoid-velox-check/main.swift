@@ -60,20 +60,32 @@ let ruleConfigs: [(name: String, rules: ProposalRules)] = [
     ("R3", ProposalRules(hygiene: false, corroboration: false, release: true)),
     ("R1R2", ProposalRules(hygiene: true, corroboration: true, release: false)),
     ("R1R2R3", .registered),
+    // WP4b (docs/archive/v5/wp4b-autoid-rules-preregistration-2026-10-07.md): the baseline is what ships today (`ProposalRules.shipped`). The keys carry
+    // a prefix because "R2" above already means R2 alone WITHOUT the actinide half (WP4's key, kept so wp4.py still reads old outputs).
+    ("w4b_base", .shipped),
+    ("w4b_R1b", ProposalRules(hygiene: true, besideK: true, besideKGuard: true, corroboration: false, release: false)),
+    ("w4b_R2", ProposalRules(hygiene: true, besideK: false, corroboration: true, release: false)),
+    ("w4b_R1bR2", ProposalRules(hygiene: true, besideK: true, besideKGuard: true, corroboration: true, release: false)),
 ]
+
+/// What a rule set withheld, with the number it was withheld at (WP4b's "every true element dropped is named").
+func withheldRows(_ ruled: RuledProposal) -> [[String: Any]] {
+    ruled.withheld.map { ["element": $0.candidate.element, "group": $0.candidate.group, "rule": $0.rule.rawValue, "why": $0.why, "significance": $0.candidate.significance] }
+}
 
 /// One proposer run as the room runs it (`SpectroscopyRoomController.runAutoID`): no listed elements, the file's axis, the default
 /// resolution; returns the result and what each rule set picks.
-func propose(counts: [UInt64], axis: EnergyAxis, beam: Double) throws -> (result: ProposalResult, settings: FitSettings, configs: [String: [String]], registered: RuledProposal) {
-    let settings = FitSettings.standard(elements: [], axis: axis, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, beamEnergy: beam)
+func propose(counts: [UInt64], axis: EnergyAxis, beam: Double, resolution: Double = ElementWindows.defaultResolutionMnKaEV) throws -> (result: ProposalResult, settings: FitSettings, configs: [String: [String]], registered: RuledProposal, withheldBy: [String: [[String: Any]]]) {
+    let settings = FitSettings.standard(elements: [], axis: axis, resolutionMnKaEV: resolution, beamEnergy: beam)
     let result = try ElementProposer().propose(counts: counts.map { Double($0) }, axis: axis, settings: settings)
     let beside = AutoIDPresentation.besideCheck(settings: settings, axis: axis)
-    var configs: [String: [String]] = [:]
+    var configs: [String: [String]] = [:], withheldBy: [String: [[String: Any]]] = [:]
     for (name, rules) in ruleConfigs {
-        let ruled = rules.isNone ? nil : rules.apply(result, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV)
+        let ruled = rules.isNone ? nil : rules.apply(result, resolutionMnKaEV: resolution)
         configs[name] = AutoIDPresentation.outcome(result, region: "", beside: beside, rules: ruled).suggestions.map { PeriodicLayout.symbol($0.z) }
+        if let ruled { withheldBy[name] = withheldRows(ruled) }
     }
-    return (result, settings, configs, ProposalRules.registered.apply(result, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV))
+    return (result, settings, configs, ProposalRules.registered.apply(result, resolutionMnKaEV: resolution), withheldBy)
 }
 
 func candidateRows(_ result: ProposalResult, picked: Set<Int>, excessLabels: Set<String>) -> [[String: Any]] {
@@ -147,7 +159,7 @@ func analyse(path: String, truth: [String]?, outDir: String?, index: Int, withH4
                                    "truth": truth ?? [], "picks": outcome.suggestions.map { PeriodicLayout.symbol($0.z) },
                                    "chi2r": result.reducedChiSquared ?? NSNull(), "passes": result.passes, "settled": result.settled,
                                    "sumPeakQuestions": result.sumPeakQuestions.map { $0.element }, "candidates": rows,
-                                   "configs": run.configs, "acquired": date.iso ?? NSNull(), "acquiredSource": date.source,
+                                   "configs": run.configs, "withheldBy": run.withheldBy, "acquired": date.iso ?? NSNull(), "acquiredSource": date.source,
                                    "withheld": run.registered.withheld.map { ["element": $0.candidate.element, "rule": $0.rule.rawValue, "why": $0.why] },
                                    "released": run.registered.released.map { $0.candidate.element }]
         if withH4, let t = truth, alMgSiTruthRule(t), let h = try? h4(source: source, beam: beam) { meta["h4"] = h }
@@ -211,13 +223,14 @@ func runLadder(dir: String, outDir: String?) {
         let start = Date()
         do {
             let axis = EnergyAxis(offset: offset, scale: scale, size: counts.count)
-            let run = try propose(counts: counts, axis: axis, beam: beam)
+            // WP4b: a set whose own header states the detector resolution says so in `resolutionMnKaEV`; otherwise the harness default.
+            let run = try propose(counts: counts, axis: axis, beam: beam, resolution: meta["resolutionMnKaEV"] as? Double ?? ElementWindows.defaultResolutionMnKaEV)
             let outcome = AutoIDPresentation.outcome(run.result, region: "", beside: AutoIDPresentation.besideCheck(settings: run.settings, axis: axis))
             let rows = candidateRows(run.result, picked: Set(outcome.suggestions.map(\.z)), excessLabels: Set(outcome.excesses.map(\.proposerLabel)))
             if let outDir {
                 let meta2: [String: Any] = ["file": m, "region": meta["region"] ?? i, "dose": meta["dose"] ?? NSNull(), "beamKeV": beam, "offsetKeV": offset, "scaleKeV": scale,
                                             "channels": counts.count, "totalCounts": counts.reduce(0, +), "truth": truth, "picks": outcome.suggestions.map { PeriodicLayout.symbol($0.z) },
-                                            "chi2r": run.result.reducedChiSquared ?? NSNull(), "candidates": rows, "configs": run.configs,
+                                            "chi2r": run.result.reducedChiSquared ?? NSNull(), "candidates": rows, "configs": run.configs, "withheldBy": run.withheldBy, "meta": meta,
                                             "withheld": run.registered.withheld.map { ["element": $0.candidate.element, "rule": $0.rule.rawValue, "why": $0.why] },
                                             "released": run.registered.released.map { $0.candidate.element }]
                 try? JSONSerialization.data(withJSONObject: meta2, options: [.prettyPrinted, .sortedKeys]).write(to: URL(fileURLWithPath: "\(outDir)/ladder\(String(format: "%02d", i)).json"))
