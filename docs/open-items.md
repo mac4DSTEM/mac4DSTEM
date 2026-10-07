@@ -244,7 +244,7 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).
 - Regions: rectangle, ellipse and polygon, on the ColorMix only; ⌫ removes the live one.
 - **Plain mouse wheel does not zoom** (SwiftUI limit; pinch, ⌃-wheel, a drag in the keV row, ⌘-drag box and "Zoom to range" do, ADR 059).
-  A wheel needs an AppKit event view, which the owner's 2026-09-28 SwiftUI-only rule forbids; his call (asked 2026-10-07).
+  A wheel would need an AppKit event view: the owner decided 2026-10-07 14:45 "zoom is fine like this, no AppKit in this app" — closed, not a defect.
 - **⌘6 in a 4D window with no spectrum image opens a "No spectrum image" room.** A cancelled 4D open in a window that has one leaves a
   withheld room selected. A new 4D open does not clear an earlier spectrum image of the window.
 - **`Data Order Swapped` = 1 on an EDS object is refused** (its meaning for an SI is unmeasured); a real joint file that sets it
