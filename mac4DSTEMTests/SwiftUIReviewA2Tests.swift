@@ -39,4 +39,16 @@ final class SwiftUIReviewA2Tests: XCTestCase {
             XCTAssertEqual(data.map { Array($0) }, Colormaps.swatchRGBA(kind), "\(kind)")
         }
     }
+
+    /// A3: "Import Labels…" reads the file its `.fileImporter` returns. The read
+    /// hands back the file's bytes unchanged (the security-scoped access is
+    /// held only around the read).
+    @MainActor func testPickedLabelFileReadReturnsTheFileBytes() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("a2-labels-\(UUID().uuidString).json")
+        let payload = Data(#"{"centres": [[1.5, 2.25]]}"#.utf8)
+        try payload.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertEqual(try AppState.readPickedLabelFile(at: url), payload)
+    }
 }

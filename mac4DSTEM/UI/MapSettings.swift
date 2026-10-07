@@ -476,6 +476,7 @@ private struct DiskDetectionRows: View {
 /// method, per the view/Core split.
 private struct DiskCentreLabelsRows: View {
     @Environment(AppState.self) private var appState
+    @State private var importingLabels = false
 
     var body: some View {
         @Bindable var labels = appState.diskCentreLabels
@@ -537,10 +538,24 @@ private struct DiskCentreLabelsRows: View {
                 "Import Labels…", systemImage: "square.and.arrow.down.on.square",
                 help: "Read a labels file (the JSON Export Labels… writes) and REPLACE the current labels with it. Refused, changing nothing, if the file labels another dataset or a position lies outside this scan."
             ) {
-                appState.importDiskCentreLabels()
+                importingLabels = true
             }
             .disabled(appState.descriptor == nil)
             .accessibilityIdentifier("disk.labels.import")
+            .fileImporter(
+                isPresented: $importingLabels,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first, let descriptor = appState.descriptor {
+                        appState.importDiskCentreLabels(from: url, descriptor: descriptor)
+                    }
+                case .failure(let error):
+                    appState.present(error)
+                }
+            }
         }
         if let refusal = labels.importRefusal { InspectorWarning(refusal) }
 
