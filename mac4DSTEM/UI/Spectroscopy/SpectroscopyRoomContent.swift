@@ -24,7 +24,9 @@ struct SpectroscopyRoomContent: View {
                     .clipped()
                 SpectrumStripView(model: model, onHeaderDrag: { translation, ended in
                     dragSplit(translation.height, ended: ended, plan: plan, room: geo.size)
-                })
+                }, onHeaderAdjust: { direction in
+                    adjustSplit(direction, plan: plan, room: geo.size)
+                }, headerValue: splitValue(plan, room: geo.size))
                 .frame(height: plan.bottomHeight)
                 .overlay(alignment: .top) { Divider() }
             }
@@ -49,6 +51,35 @@ struct SpectroscopyRoomContent: View {
         if ended { mapsStart = nil }
     }
 
+    /// Keyboard and VoiceOver adjustments start from the rendered split, so a stored value clipped by the room's current
+    /// geometry never creates a dead zone. The same fraction function clamps the requested adjustment as pointer dragging.
+    private func adjustSplit(_ direction: AccessibilityAdjustmentDirection, plan: SpectroscopyRoomPlan.Plan, room: CGSize) {
+        guard room.height > 0 else { return }
+        let current = plan.mapsHeight / room.height
+        let sign: CGFloat
+        switch direction {
+        case .increment: sign = 1
+        case .decrement: sign = -1
+        @unknown default: return
+        }
+        // A first increment must clear the maps' visibility floor; otherwise every step starts again at rendered zero.
+        let step = plan.mapsHeight == 0 && sign > 0
+            ? max(room.height * 0.05, SpectroscopyRoomPlan.minimumMapsHeight + 1)
+            : room.height * 0.05
+        model.mapsFraction = SpectroscopyRoomPlan.fraction(
+            afterDrag: sign * step,
+            available: room.height,
+            from: current,
+            bottomFloor: headerFloor
+        )
+    }
+
+    private func splitValue(_ plan: SpectroscopyRoomPlan.Plan, room: CGSize) -> String {
+        guard room.height > 0 else { return "Maps and spectrum" }
+        let mapsPercent = Int((100 * plan.mapsHeight / room.height).rounded())
+        return "Maps \(mapsPercent)%, spectrum \(100 - mapsPercent)%"
+    }
+
     /// The vertical divider between the ColorMix and the tile column (side-by-side kind only): a 1-pt rule in a grab zone of
     /// `LayoutPolicy.dividerGrabWidth`, centred in the gap, the height of the tile area.
     @ViewBuilder private func mixHandle(_ plan: SpectroscopyRoomPlan.Plan) -> some View {
@@ -67,11 +98,29 @@ struct SpectroscopyRoomContent: View {
                         model.mixFraction = MapGridLayout.mixFraction(afterDrag: value.translation.width, available: width, from: start)
                     }
                     .onEnded { _ in mixStart = nil })
+                .accessibilityElement()
+                .focusable()
+                .onKeyPress(.leftArrow) { adjustMix(.decrement, maps: maps, width: width); return .handled }
+                .onKeyPress(.rightArrow) { adjustMix(.increment, maps: maps, width: width); return .handled }
                 .accessibilityLabel("Resize the ColorMix")
+                .accessibilityValue("\(Int((maps.colorMix.width / max(width, 1) * 100).rounded()))% of map width")
+                .accessibilityAdjustableAction { adjustMix($0, maps: maps, width: width) }
                 .accessibilityIdentifier("spectroscopy.mixDivider")
                 .padding(.leading, SpectroscopyRoomPlan.gridPadding + maps.colorMix.maxX + MapGridLayout.gap / 2 - grab / 2)
                 .padding(.top, SpectroscopyRoomPlan.gridPadding)
         }
+    }
+
+    private func adjustMix(_ direction: AccessibilityAdjustmentDirection, maps: MapGridLayout.Plan, width: CGFloat) {
+        guard width > 0 else { return }
+        let sign: CGFloat
+        switch direction {
+        case .increment: sign = 1
+        case .decrement: sign = -1
+        @unknown default: return
+        }
+        let current = maps.colorMix.width / width
+        model.mixFraction = MapGridLayout.mixFraction(afterDrag: sign * width * 0.05, available: width, from: current)
     }
 }
 

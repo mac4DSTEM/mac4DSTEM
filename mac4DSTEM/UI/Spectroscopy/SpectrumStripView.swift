@@ -23,6 +23,8 @@ struct SpectrumStripView: View {
     /// Spec 2 D-7: the header's empty area is the room's horizontal divider. The room binds this (the translation so far and
     /// whether the drag ended); the strip itself knows nothing of the maps block.
     var onHeaderDrag: ((CGSize, Bool) -> Void)? = nil
+    var onHeaderAdjust: ((AccessibilityAdjustmentDirection) -> Void)? = nil
+    var headerValue: String = ""
 
     @State private var dragStart: SpectrumViewport?
     @State private var pinchStart: SpectrumViewport?
@@ -80,6 +82,14 @@ struct SpectrumStripView: View {
                 .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
                     .onChanged { onHeaderDrag?($0.translation, false) }
                     .onEnded { onHeaderDrag?($0.translation, true) })
+                .accessibilityElement()
+                .focusable()
+                .onKeyPress(.upArrow) { onHeaderAdjust?(.decrement); return .handled }
+                .onKeyPress(.downArrow) { onHeaderAdjust?(.increment); return .handled }
+                .accessibilityLabel("Resize maps and spectrum")
+                .accessibilityValue(headerValue)
+                .accessibilityAdjustableAction { onHeaderAdjust?($0) }
+                .accessibilityIdentifier("spectroscopy.headerDivider")
         }
     }
 
@@ -103,6 +113,8 @@ struct SpectrumStripView: View {
             Canvas { ctx, size in draw(ctx, size) }
                 .frame(width: size.width, height: size.height)
                 .contentShape(Rectangle())
+                .accessibilityElement()
+                .accessibilityLabel(spectrumAccessibilitySummary)
                 .gesture(DragGesture(minimumDistance: 2)
                     .onChanged { v in drag(v, size, optionHeld: false, commandHeld: false) }
                     .onEnded { _ in endDrag() })
@@ -151,6 +163,17 @@ struct SpectrumStripView: View {
     }
 
     private func plotWidth(_ size: CGSize) -> CGFloat { size.width - Metrics.left - Metrics.right }
+
+    /// A stable VoiceOver description of the plotted data. Hover readouts remain visual/context-menu feedback and never
+    /// generate accessibility announcements while the pointer moves.
+    private var spectrumAccessibilitySummary: String {
+        let lo = SpectrumReadout.energy(model.viewport.lo)
+        let hi = SpectrumReadout.energy(model.viewport.hi)
+        let perPixel = model.layers.perPixel && model.spectrumPixels > 0
+        let unit = perPixel ? "counts per pixel" : "counts"
+        let subtitle = model.spectrumSubtitle.isEmpty ? "" : " \(model.spectrumSubtitle)."
+        return "\(model.spectrumTitle).\(subtitle) Energy from \(lo) to \(hi) keV. Y axis in \(unit)."
+    }
 
     /// One drag step: the counts axis (it began in the gutter), the pan, or the range marker (⌥), as `SpectrumStripLogic.dragMode` says.
     private func drag(_ v: DragGesture.Value, _ size: CGSize, optionHeld: Bool, commandHeld: Bool) {

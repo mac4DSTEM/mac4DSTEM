@@ -204,8 +204,6 @@ struct MapTileView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityAddTraits(inMix ? .isSelected : [])
-        .accessibilityLabel(title + (inMix ? ", in the ColorMix" : ""))
         .accessibilityIdentifier("spectroscopy.tile.\(Self.key(map))")
     }
 
@@ -214,6 +212,7 @@ struct MapTileView: View {
         let c = Canvas { ctx, sz in draw(ctx, sz) }.contentShape(Rectangle())
         if carriesRegion {
             c.gesture(drag(size))
+                .accessibilityLabel("ColorMix")
                 .simultaneousGesture(TapGesture(count: 2).onEnded { closePolygon(size) })
                 .focusable()
                 .focused($focused)
@@ -232,7 +231,14 @@ struct MapTileView: View {
                     return .handled
                 }
         } else {
-            c.onTapGesture { model.pick(map) }
+            // A tile is a picker. A native button keeps click behavior while
+            // exposing its action and selection state to VoiceOver and keyboard.
+            Button { model.pick(map) } label: { c }
+                .buttonStyle(.plain)
+                .accessibilityLabel(title)
+                .accessibilityValue(inMix ? "In the ColorMix" : "Not in the ColorMix")
+                .accessibilityAddTraits(inMix ? .isSelected : [])
+                .help(inMix ? "Remove \(title) from the ColorMix" : "Add \(title) to the ColorMix")
         }
     }
 
