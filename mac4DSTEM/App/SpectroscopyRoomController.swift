@@ -152,6 +152,7 @@ final class SpectroscopyRoomController {
         self.source = source
         self.session = session
         self.hasFourDCube = hasFourDCube
+        lastRefresh?.cancel()   // the previous image's recompute is about a source that is gone
         cache = SpectrumComputeCache()
         quantifyActive = false
         lastFit = nil; heldWholeLine = nil
@@ -216,7 +217,7 @@ final class SpectroscopyRoomController {
         // energy, so a file without one says so (the Auto ID row).
         autoIDOnOpen?.cancel()
         autoIDOnOpen = Task { [weak self] in
-            await first?.value
+            if let first { await self?.awaitNewestRefresh(from: first) }   // a click during the open's sums cancels them: wait for the ones that stand
             guard !Task.isCancelled else { return }
             self?.runAutoID()
         }
@@ -230,6 +231,7 @@ final class SpectroscopyRoomController {
         autoIDOnOpen?.cancel(); autoIDOnOpen = nil
         cancelAutoID()
         checkTask?.cancel(); checkTask = nil
+        lastRefresh?.cancel()
         source = nil
         session = nil
         model.isLive = false
@@ -409,18 +411,23 @@ final class SpectroscopyRoomController {
         quantifyActive = true
         model.quantify.syncTypedElements(model.elements.quantified.map { PeriodicLayout.symbol($0) })
         applySettingsToSession()
-        guard var task = refresh() else { return false }
-        // Wait for the NEWEST recompute: Auto ID landing (or an edit) while the fit runs starts another that replaces this one's
-        // answer, and the verb must report the fit that stands, not the one that was overtaken.
+        guard let first = refresh() else { return false }
+        await awaitNewestRefresh(from: first)
+        guard !quantifyStopped, !model.isFitting, model.fitFailure == nil, let fit = lastFit else { return false }
+        session.method = fit.method
+        lastApplied = nil   // the filled method differs from the controls' by the k source only; the next edit re-applies
+        return true
+    }
+
+    /// Waits for the NEWEST recompute: Auto ID landing (or an edit) while one runs starts another, which cancels this one (it returns
+    /// early, landing nothing) and replaces its answer; a caller must report the state that stands, not the one that was overtaken.
+    private func awaitNewestRefresh(from first: Task<Void, Never>) async {
+        var task = first
         while true {
             await task.value
             guard let latest = lastRefresh, latest != task else { break }
             task = latest
         }
-        guard !quantifyStopped, !model.isFitting, model.fitFailure == nil, let fit = lastFit else { return false }
-        session.method = fit.method
-        lastApplied = nil   // the filled method differs from the controls' by the k source only; the next edit re-applies
-        return true
     }
 
     /// The infobar's Stop during the verb: the fit that is running is superseded (a refresh bumps `generation`, so its answer
@@ -644,7 +651,7 @@ final class SpectroscopyRoomController {
 
     // MARK: Compute
 
-    private struct Request: Sendable {
+    struct Request: Sendable {
         let source: any SpectrumImageSource
         let region: Int
         let mask: PixelMask?
@@ -656,14 +663,14 @@ final class SpectroscopyRoomController {
         let quantify: QuantifyRequest?
     }
 
-    private struct QuantifyRequest: Sendable {
+    struct QuantifyRequest: Sendable {
         let method: QuantificationMethod
         let metadata: SpectrumImageMetadata
         let regionName: String
         let pixelCount: Int
     }
 
-    private struct Output: Sendable {
+    struct Output: Sendable {
         let region: Int
         let spectrum: [UInt64]
         /// The whole map's spectrum (the comparison overlay), nil until it has been summed once.
@@ -701,8 +708,11 @@ final class SpectroscopyRoomController {
                               integrated: model.mapMode == .integrated,
                               beam: source.metadata.beamEnergyKeV, firstPass: cache.totals() == nil, quantify: quantify)
         let cache = cache
+        // The previous recompute is about a selection that no longer stands (its answer would be dropped by the generation check):
+        // cancel it so its remaining stages do not run. A cancelled task returns early and lands nothing.
+        lastRefresh?.cancel()
         let task = Task.detached(priority: .userInitiated) {
-            let out = Self.compute(request, cache: cache)
+            guard let out = Self.compute(request, cache: cache), !Task.isCancelled else { return }
             await MainActor.run { [weak self] in self?.apply(out, generation: gen) }
         }
         lastRefresh = task
@@ -722,7 +732,11 @@ final class SpectroscopyRoomController {
         return ws.map { w in w.window.flatMap { cache.map(SpectrumComputeCache.key($0, integrated: integrated)) } }
     }
 
-    private nonisolated static func compute(_ r: Request, cache: SpectrumComputeCache) -> Output {
+    /// The staged work of one recompute. `cancelled` is polled between the stages (sum, maps, the fit, the comparison fit); a
+    /// cancelled recompute returns nil and lands nothing. A stage that finished has cached its whole result, a stage that did
+    /// not has cached nothing, so the next recompute reuses exactly what is complete.
+    nonisolated static func compute(_ r: Request, cache: SpectrumComputeCache, cancelled: @Sendable () -> Bool = { Task.isCancelled }) -> Output? {
+        if cancelled() { return nil }
         let spectrum: [UInt64]
         if let s = cache.spectrum(r.region) { spectrum = s } else {
             spectrum = r.source.sum(mask: r.mask)
@@ -741,10 +755,12 @@ final class SpectroscopyRoomController {
             cache.setSpectrum(w, 0)
             whole = w
         }
+        if cancelled() { return nil }
         let windows = ElementWindows.build(picks: r.picks, axis: r.source.energyAxis, beamEnergyKeV: r.beam)
         let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
         func mapsFor(_ ws: [LineWindow]) -> [[Double]?] { Self.mapsFor(ws, source: r.source, integrated: r.integrated, cache: cache) }
         let maps = mapsFor(windows)
+        if cancelled() { return nil }
         var fit: PooledQuantification?
         var fitInput: PooledQuantificationInput?
         var failure: String?
@@ -764,7 +780,7 @@ final class SpectroscopyRoomController {
                 fit = res
                 fitInput = input
                 // The comparison line: the same method on the whole map (a failure there only drops the line).
-                if r.region != 0, let w = whole {
+                if r.region != 0, let w = whole, !cancelled() {
                     let wkey = refinementKey(0)
                     let wInput = PooledQuantificationInput(counts: w, axis: r.source.energyAxis, method: q.method, metadata: q.metadata,
                                                            regionName: "Whole map", pixelCount: r.source.nx * r.source.ny, refinement: cache.refinement(wkey))
@@ -775,6 +791,7 @@ final class SpectroscopyRoomController {
                 }
             } catch { failure = (error as? LocalizedError)?.errorDescription ?? "\(error)" }
         }
+        if cancelled() { return nil }
         return Output(region: r.region, spectrum: spectrum, whole: whole, windows: windows, counts: counts, maps: maps,
                       pixelTotals: totals,
                       fit: fit, fitInput: fitInput, fitFailure: failure, wholeLine: wholeLine)

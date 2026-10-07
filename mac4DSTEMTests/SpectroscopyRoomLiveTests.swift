@@ -413,7 +413,7 @@ final class SpectroscopyRoomLiveRegionTests: XCTestCase {
         try await waitFor("the overlay") { abs(self.total(m) - aTotal) < 0.5 && m.series.overlay != nil }
         XCTAssertEqual(m.series.overlay?.reduce(0, +) ?? 0, aTotal, accuracy: 1.0)
         m.compare = .none
-        c.refresh()?.cancel()
+        c.refresh()   // discardable: the recompute lands (a cancelled one would not)
         try await waitFor("no overlay") { m.series.overlay == nil }
     }
 
