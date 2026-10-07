@@ -397,6 +397,11 @@ struct AdjustmentSlider: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label)
         .accessibilityValue(Text(value, format: format))
+        // Double-clicking the label was the only way to reset; this is the
+        // same reset for VoiceOver and the keyboard. Present only when there
+        // is a default to reset to. Whether the combined element still offers
+        // the slider's increment/decrement needs a VoiceOver check.
+        .modifier(ResetActionModifier(isOffered: defaultValue != nil, reset: resetToDefault))
     }
 
     @ViewBuilder
@@ -1007,6 +1012,21 @@ struct GlassChipGroup<ID: Hashable>: View {
             .accessibilityLabel(chip.title)
             .accessibilityAddTraits(isOn ? .isSelected : [])
             .accessibilityIdentifier(chip.accessibilityID ?? "")
+        }
+    }
+}
+
+/// "Reset to default" as an accessibility action, attached only when offered.
+private struct ResetActionModifier: ViewModifier {
+    let isOffered: Bool
+    let reset: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isOffered {
+            content.accessibilityAction(named: "Reset to default", reset)
+        } else {
+            content
         }
     }
 }
