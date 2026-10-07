@@ -301,7 +301,7 @@ struct DiffractionPane: View {
 
                     // Phase mapping: which phase claimed each detected disk here.
                     if claimedDisksAvailable, showClaimedDisks {
-                        PhaseClaimLayer(patternWidth: qx, patternHeight: qy, box: box)
+                        PhaseClaimLayer(patternWidth: qx, patternHeight: qy, box: box, part: .rings)
                     }
 
                     // Fit verification: measured peaks against the fitted model
@@ -391,6 +391,12 @@ struct DiffractionPane: View {
                         .padding(6)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .allowsHitTesting(false)
+                }
+
+                // The claimed-disk legend and note: the same unzoomed slot, so they keep their size
+                // and corner at any zoom (P2c). Drawn inside the zoom transform they scaled with it.
+                if claimedDisksAvailable, showClaimedDisks {
+                    PhaseClaimLayer(patternWidth: qx, patternHeight: qy, box: box, part: .legend)
                 }
             }
             .frame(width: box.width, height: box.height)

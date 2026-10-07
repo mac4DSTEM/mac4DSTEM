@@ -66,7 +66,14 @@ private struct ClaimStyle {
 // MARK: - Drawing
 
 /// The rings and their legend. Pure drawing over values.
+///
+/// Two parts, drawn by two layers: the rings sit in the zoomed layer (they belong to
+/// the image), the legend and note in the unzoomed one beside the fit key (P2c, polish
+/// drive 2026-10-04). Inside the zoom transform the legend scaled and moved with the pattern.
 struct PhaseClaimOverlay: View {
+    enum Part: Equatable { case rings, legend }
+
+    let part: Part
     let peaks: [BraggPeak]
     /// One per peak, same order (`PhaseVectorMatcher.claims`).
     let claims: [PhaseDiskClaim]
@@ -78,34 +85,43 @@ struct PhaseClaimOverlay: View {
     let patternHeight: Int
     let box: CGSize
 
+    @ViewBuilder
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Canvas { context, _ in
-                let radius = PeakOverlayGeometry.radius(
-                    probeRadius: probeRadius,
-                    patternWidth: patternWidth, patternHeight: patternHeight, box: box)
-                // Least informative first, so a claimed ring is never hidden
-                // under a neighbour's.
-                for rank in 0..<4 {
-                    for (peak, claim) in zip(peaks, claims) where Self.drawRank(claim) == rank {
-                        let style = ClaimStyle.style(for: claim, matrixPhaseIndex: matrixPhaseIndex)
-                        let c = PeakOverlayGeometry.center(
-                            x: peak.x, y: peak.y,
-                            patternWidth: patternWidth, patternHeight: patternHeight, box: box)
-                        draw(at: c, radius: radius, style: style, in: &context)
-                    }
-                }
-            }
-            .frame(width: box.width, height: box.height)
-
+        switch part {
+        case .rings:
+            rings
+        case .legend:
             legend
                 .padding(6)
+                .frame(width: box.width, height: box.height, alignment: .topTrailing)
+                .allowsHitTesting(false)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Claimed disks")
+                .accessibilityValue(legendText)
+        }
+    }
+
+    private var rings: some View {
+        Canvas { context, _ in
+            let radius = PeakOverlayGeometry.radius(
+                probeRadius: probeRadius,
+                patternWidth: patternWidth, patternHeight: patternHeight, box: box)
+            // Least informative first, so a claimed ring is never hidden
+            // under a neighbour's.
+            for rank in 0..<4 {
+                for (peak, claim) in zip(peaks, claims) where Self.drawRank(claim) == rank {
+                    let style = ClaimStyle.style(for: claim, matrixPhaseIndex: matrixPhaseIndex)
+                    let c = PeakOverlayGeometry.center(
+                        x: peak.x, y: peak.y,
+                        patternWidth: patternWidth, patternHeight: patternHeight, box: box)
+                    draw(at: c, radius: radius, style: style, in: &context)
+                }
+            }
         }
         .frame(width: box.width, height: box.height)
         .allowsHitTesting(false)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Claimed disks")
-        .accessibilityValue(legendText)
+        // The legend half carries the label and value for the whole overlay.
+        .accessibilityHidden(true)
     }
 
     private static func drawRank(_ claim: PhaseDiskClaim) -> Int {
@@ -211,6 +227,8 @@ struct PhaseClaimLayer: View {
     let patternWidth: Int
     let patternHeight: Int
     let box: CGSize
+    /// Which half this layer draws (see `PhaseClaimOverlay.Part`); the note belongs to the legend half.
+    let part: PhaseClaimOverlay.Part
 
     @State private var claims: [PhaseDiskClaim] = []
     @State private var claimedPeakCount = 0
@@ -254,11 +272,13 @@ struct PhaseClaimLayer: View {
                 if let map = appState.phaseMapping.map,
                    !peaks.isEmpty, claims.count == peaks.count, claimedPeakCount == peaks.count {
                     PhaseClaimOverlay(
+                        part: part,
                         peaks: peaks, claims: claims,
                         phaseNames: map.phaseNames, matrixPhaseIndex: map.matrixPhaseIndex,
                         probeRadius: appState.probeKernel?.probeRadius,
                         patternWidth: patternWidth, patternHeight: patternHeight, box: box)
-                } else if let message = displayedNote(patternShowsPosition: fit.patternShowsSelectedPosition,
+                } else if part == .legend,
+                          let message = displayedNote(patternShowsPosition: fit.patternShowsSelectedPosition,
                                                       hasPeaks: !peaks.isEmpty) {
                     Text(message)
                         .font(.caption2)
