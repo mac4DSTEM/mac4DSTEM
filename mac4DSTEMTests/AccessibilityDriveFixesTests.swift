@@ -25,4 +25,10 @@ final class AccessibilityDriveFixesTests: XCTestCase {
         XCTAssertEqual(ScanPickStepping.stepperLabel(axis: "Scan X"), "Scan X, real-space preview")
         XCTAssertEqual(ScanPickStepping.stepperLabel(axis: "Scan Y"), "Scan Y, real-space preview")
     }
+
+    /// X3: the pin chip's hint says what happens, not a pixel count (the count is its value).
+    func testPinChipHintSaysWhatHappens() {
+        XCTAssertEqual(SpectrumStripLogic.unpinHint, "Removes the pin")
+        XCTAssertFalse(SpectrumStripLogic.unpinHint.contains("pixel"))
+    }
 }

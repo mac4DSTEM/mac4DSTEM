@@ -103,7 +103,9 @@ struct SpectrumStripView: View {
                 .help("Unpin \(pin.label): \(ResultFormat.counts(Double(pin.pixels))) px")
                 // A click removes the pin; VoiceOver would otherwise read the dot, the name and the glyph's "xmark".
                 .accessibilityLabel(SpectrumStripLogic.unpinLabel(pin.label))
-                .accessibilityHint("\(ResultFormat.counts(Double(pin.pixels))) pixels")
+                // The hint says what happens (Apple); the pixel count is the value.
+                .accessibilityHint(SpectrumStripLogic.unpinHint)
+                .accessibilityValue("\(ResultFormat.counts(Double(pin.pixels))) pixels")
             }
         }
     }
@@ -657,6 +659,7 @@ nonisolated enum SpectrumStripLogic {
     }
     /// A pin chip's button removes the pin; its spoken name says so.
     static func unpinLabel(_ pinLabel: String) -> String { "Unpin \(pinLabel)" }
+    static let unpinHint = "Removes the pin"
     /// A marker of the highlighted element (hovered or clicked tile or periodic-table cell).
     static func isHighlighted(_ m: LineMarker, highlightedZ: Int?) -> Bool { highlightedZ != nil && m.elementZ == highlightedZ }
     static func lineWidth(_ m: LineMarker, highlightedZ: Int?) -> CGFloat { isHighlighted(m, highlightedZ: highlightedZ) ? SpectrumInteraction.Width.markerHighlighted : SpectrumInteraction.Width.marker }
