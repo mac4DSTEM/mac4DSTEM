@@ -366,6 +366,7 @@ Swift 6 measured: 64 diagnostics, 3,5–5 sessions, not Metal (`archive/v5/swift
 two inspectors re-read the scan position per scrub (`WorkspaceInspector.swift` ~:446). Drive rows: `archive/v5/swiftui-review-verification-2026-10-07.md`
 (6 open). Audits with drive checks and fix lists: `archive/v5/swiftui-a11y-apple-docs-check-2026-10-07.md`, `a11y-rooms-apple-docs-audit-2026-10-07.md`;
 their owner items (keyboard Label centres, region/crop drags, comparison cursor, visible disabled reasons, visible wording) wait for his word.
+First to drive (code-read, unverified): zone-axis and "Parallel to matrix" fields spoken by their placeholder; Bragg/ACOM steppers may drop their value; Q/R manual-scale fields share one label; aperture + scan-pick `accessibilityRepresentation` keep label/value? `.help` is also the VO hint (`help(_:)`), so 1st-check #28 is withdrawn.
 Stale "Auto ID needs the beam energy" note: `failAutoID` (`SpectroscopyRoomController.swift` ~:287) is never cleared when a beam energy is typed.
 
 ### The audit's refactor list, rows 4–13 — most parked
