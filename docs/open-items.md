@@ -121,7 +121,7 @@ One line each; full wording as above.
 - Review lane F residuals (2026-10-02): ⌘R's readiness predicate and the toolbar's private `primaryActionEnabled`/title are two copies (unify in a frozen-shell session; lane F pinned the imaging arm to agree); iDPC carries no `dpc_frame`; a detector-frame DPC angle keeps the Quantitative badge with its frame stated, as strain does (owner S1 b).
 - **Crash after Compute Strain** (re-drive 2026-10-02, `archive/v4/polish-redrive-2026-10-02/`): an AppKit layout exception (EXC_BREAKPOINT in
   `_layoutSubtreeWithOldSize`, `~/Library/Logs/DiagnosticReports/mac4DSTEM-2026-10-02-133933.ips`) right after Compute Strain on the demo cube,
-  after a label export and Detect All; not reproduced on a fresh launch. Cause not established — Gate D before any fix.
+  after a label export and Detect All; not reproduced on a fresh launch, nor in drive 7 (2026-10-08: Detect All then Compute Strain, no label export). Cause not established — Gate D before any fix.
 - **Residuals (2026-10-02/04)**: a window that resized itself (unreproduced). The virtual detector's toolbar verb (Compute Image) is
   back since ADR 059 (owner, 2026-10-07); the "No Result Yet" after another room cleared the image is answered by it.
 - Number fields (lane N, 2026-10-04, a declared trade-off): while a finer value is stored, typing exactly the text the field shows (0,03 over 0.0275) is a no-op; 0,030 or 0.03 set it.
@@ -230,7 +230,7 @@ Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
   (smoothed maps, fit-only picks, named peaks, Absorption, the 4D verb); the ⚠ beside element names carries `.help` in code and was not
   hovered with a real mouse. The live-time Info row was removed: the reader's segment LiveTime is "as read, semantics unverified" (sheet
   row 4a, a reader change). The cursor's candidate list is by distance only (Ac Mα can lead on an Al alloy; the person picks). Not yet
-  seen: Reduce Transparency and light appearance on the glass shell. Still ungrouped: the frames readout. New windows open at 1280×800 (frozen shell).
+  seen: Reduce Transparency on the glass shell (light appearance seen in drive 7, 2026-10-08: readable, chip on/off distinct). Still ungrouped: the frames readout. New windows open at 1280×800 (frozen shell).
 - **From lane U's review:** the cube's kV is captured once at attach (a later Prepare edit does not reach the EDS); Velox
   live/real times sit in `/Data/SpectrumImage` (4187.7 / 1423.1 s on the owner's file) and are not read (a reader change,
   its own gate); the weak-line note quotes Mg's ≈ 300 counts also when only Si is the neighbour (A4: Si −164).
@@ -361,9 +361,9 @@ Swift 6 measured: 64 diagnostics, 3,5–5 sessions, not Metal (`archive/v5/swift
 two inspectors re-read the scan position per scrub (`WorkspaceInspector.swift` ~:446). Drive rows: `archive/v5/swiftui-review-verification-2026-10-07.md`
 (6 open). Audits with drive checks and fix lists: `archive/v5/swiftui-a11y-apple-docs-check-2026-10-07.md`, `a11y-rooms-apple-docs-audit-2026-10-07.md`;
 their owner items (keyboard Label centres, region/crop drags, comparison cursor, visible disabled reasons, visible wording) wait for his word.
-Lanes X, Y (2026-10-08) fixed the audits' no-new-surface rows; their checks are rows X1–X3, Y1–Y5 of `archive/v5/swiftui-review-verification-2026-10-07.md` (unverified on screen). `.help` is also the VO hint (`help(_:)`), so 1st-check #28 is withdrawn.
+Drive 7 finds (2026-10-08, minor): the unit text beside a `NumericField` repeats the field's spoken title ("px" reads "Inner fit radius in pixels"; frozen `LayoutPolicy`), and the display popover's Colormap picker has no spoken name. Lanes X, Y (2026-10-08) fixed the audits' no-new-surface rows; their checks are rows X1–X3, Y1–Y5 of `archive/v5/swiftui-review-verification-2026-10-07.md` (unverified on screen). `.help` is also the VO hint (`help(_:)`), so 1st-check #28 is withdrawn.
 Apple-docs checks 2026-10-08 (drafts by Haiku readers, citations spot-checked): `archive/v5/liquid-glass-check-2026-10-08.md` (glass used as
-documented; drive light appearance, Reduce Transparency, disabled-chip dimming; map-overlay glass vs the content-layer rule is the owner's D-8),
+documented; light appearance seen in drive 7 (per-process `-NSRequiresAquaSystemAppearance YES`); Reduce Transparency owed; map-overlay glass vs the content-layer rule is the owner's D-8),
 `api-deprecation-sweep-2026-10-08.md` (nothing deprecated the compiler misses; 6 Number/DateFormatters → FormatStyle, display only, done by lane V; 4 AppKit
 uses vs the SwiftUI-only rule: the swatch and the label-import panel are SwiftUI since lane A2; MetalImageView stays; Reveal in Finder keeps
 `NSWorkspace.activateFileViewerSelecting` (no SwiftUI call selects a file in Finder; decided for the owner, overrule on sight)), `coreml-vs-coreai-2026-10-08.md` (answered: Core ML stays, ADR 063).
