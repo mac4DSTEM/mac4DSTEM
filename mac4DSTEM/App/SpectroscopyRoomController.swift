@@ -283,7 +283,7 @@ final class SpectroscopyRoomController {
               !model.autoID.running, !quantifying else { return }
         let token = model.beginAutoID()
         guard let beam = session.method.beamEnergyKeV ?? source.metadata.beamEnergyKeV, beam > 0 else {
-            model.failAutoID(token: token, message: "Auto ID needs the beam energy: the file does not state it. Type it under Quantification.")
+            model.failAutoID(token: token, message: SpectroscopyRoomModel.autoIDNeedsBeamNote)
             return
         }
         // D-12: the run is an operation (infobar bar, elapsed time, Stop); every way out ends it (`endOperation`).
@@ -389,7 +389,11 @@ final class SpectroscopyRoomController {
 
     /// The Quantify inspector changed. After the verb has run the pooled fit follows live (no Apply).
     func quantifySettingsChanged() {
-        guard applySettingsToSession(), quantifyActive else { return }
+        let changed = applySettingsToSession()
+        // A beam energy typed under Quantification answers Auto ID's "needs the beam energy" note. It does not re-run Auto ID
+        // (a run starts on open, on a pick or region change, and on the button); the button is enabled and the note is gone.
+        if changed, let beam = session?.method.beamEnergyKeV ?? source?.metadata.beamEnergyKeV, beam > 0 { model.clearAutoIDBeamNote() }
+        guard changed, quantifyActive else { return }
         refresh()
     }
 

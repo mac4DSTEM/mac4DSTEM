@@ -182,6 +182,13 @@ final class SpectroscopyRoomModel {
         autoID.failure = message
     }
 
+    /// The reason Auto ID gives when no beam energy is known (the run's failure and the one note a typed beam energy retires).
+    nonisolated static let autoIDNeedsBeamNote = "Auto ID needs the beam energy: the file does not state it. Type it under Quantification."
+    /// A beam energy became available: the note that asked for it goes. Any other failure stays (it is about something else).
+    func clearAutoIDBeamNote() {
+        if autoID.failure == Self.autoIDNeedsBeamNote { autoID.failure = nil }
+    }
+
     /// Invalidates the running token; elements, markers and the earlier outcome are exactly as they were.
     func cancelAutoID() {
         autoID.token += 1
