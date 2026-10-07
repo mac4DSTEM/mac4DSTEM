@@ -676,7 +676,24 @@ final class AppState {
     }
 
     var displayedResultVersion: Int {
-        showsACOMRegionReference ? scanNavigationVersion : resultPresentation.resultVersion
+        Self.displayedResultVersion(
+            regionReference: showsACOMRegionReference,
+            scanNavigation: scanNavigationVersion,
+            result: resultPresentation.resultVersion)
+    }
+
+    /// Both counters are small and independent, and both feed ONE
+    /// `MetalImageView` (which skips the texture upload when the version it is
+    /// given is unchanged). Toggling the region reference with equal counters
+    /// would have kept the previous texture on screen, so the reference's
+    /// counter is salted into its own range, as the quality-field mode already
+    /// does with `0x4000_0000` (review 2026-10-07, F3).
+    nonisolated static let regionReferenceVersionSalt = 0x2000_0000
+
+    nonisolated static func displayedResultVersion(
+        regionReference: Bool, scanNavigation: Int, result: Int
+    ) -> Int {
+        regionReference ? scanNavigation &+ regionReferenceVersionSalt : result
     }
 
     var displayedResultPixelMetadata:

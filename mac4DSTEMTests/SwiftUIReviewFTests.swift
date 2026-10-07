@@ -138,4 +138,26 @@ final class SwiftUIReviewFTests: XCTestCase {
         XCTAssertNotEqual(overlay(height: 128), overlay(height: 256))
         XCTAssertEqual(sink, 0)
     }
+
+    // MARK: F3 - the region reference and the result never share a version
+
+    func testTheRegionReferenceAndTheResultNeverShareAVersion() {
+        for counter in [0, 1, 2, 7, 1_000, 65_535] {
+            let result = AppState.displayedResultVersion(
+                regionReference: false, scanNavigation: counter, result: counter)
+            let reference = AppState.displayedResultVersion(
+                regionReference: true, scanNavigation: counter, result: counter)
+            XCTAssertNotEqual(result, reference,
+                              "equal counters (\(counter)) must not let the viewer skip the texture upload")
+            // The quality-field mode adds 0x4000_0000 to whichever it shows.
+            XCTAssertNotEqual(result &+ 0x4000_0000, reference &+ 0x4000_0000)
+        }
+    }
+
+    func testTheDisplayedVersionStillFollowsItsOwnCounter() {
+        XCTAssertEqual(AppState.displayedResultVersion(regionReference: false, scanNavigation: 9, result: 4), 4)
+        let a = AppState.displayedResultVersion(regionReference: true, scanNavigation: 9, result: 4)
+        let b = AppState.displayedResultVersion(regionReference: true, scanNavigation: 10, result: 4)
+        XCTAssertNotEqual(a, b, "a new region-reference image still bumps the version")
+    }
 }
