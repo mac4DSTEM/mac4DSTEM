@@ -120,6 +120,8 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   (pre-registration, Gate B), the 4D Quantify rows in Results once the drive clears, then B*'s prerequisites (per-phase score,
   separability matrix); validation with the owner's joint GMS run and a pure-Al foil from his detector (Q1–Q3,
   `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
+- [ ] **A total repo clean-up** (owner, 2026-10-08) — after EDX (v5.0) and possibly EELS are in place: one pass that leaves the repo as
+  small and clear as the app (retired code, tools, archive and docs), planned as its own slot.
 
 ## After v4.1 — frozen until the owner reopens one
 
