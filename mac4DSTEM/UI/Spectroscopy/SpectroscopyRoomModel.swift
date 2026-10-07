@@ -295,19 +295,12 @@ struct RatioLine: Equatable {
 // MARK: - Inspector settings (≤ 7 rows per step; ADR 054 §8)
 
 struct SpectrumImageSettings {
-    var source: String?
     var sourceWarning = false
     /// Hover text of the warning mark: what is not registered and why.
     var sourceNote: String?
-    var frameLo: Int?, frameHi: Int?, frames: Int?
-    /// A read-only "Frames" row ("1607 summed"), for a file whose frame range cannot be changed after the open.
-    var framesReadout: String?
-    var energyAxis = "File"
-    var energyAxisReadout: String?
-    /// The pooled fit's refinement of that axis (file vs refined, ADR 054 item 4); nil before a fit.
+    var frameLo: Int?, frameHi: Int?
+    /// The pooled fit's refinement of the energy axis (file vs refined, ADR 054 item 4); nil before a fit.
     var energyAxisRefined: String?
-    var liveDead: String?
-    var geometry: String?
 }
 
 /// The Region section's observed settings: only what a view reads (the phase row). The region's pixel count and counts are the
@@ -390,10 +383,7 @@ extension SpectroscopyRoomModel {
         m.validation = "none"
         m.spectrumTitle = "Spectrum · β″ pooled"; m.spectrumSubtitle = "matrix, norm. to Al Kα"
         m.resultsTitle = "Results · β″ pooled"
-        m.image = SpectrumImageSettings(
-            source: "Linked 4D · shape differs", sourceWarning: true, frameLo: 1, frameHi: 24, frames: 24,
-            energyAxis: "Refined", energyAxisReadout: "+4 eV, 9.98 eV/ch",
-            liveDead: "1311 s total · dead 52 %", geometry: "TOA 18° · 4 det. · 0.12 sr")
+        m.image = SpectrumImageSettings(sourceWarning: true, frameLo: 1, frameHi: 24)
         m.regionSettings = RegionSettings(phase: "β″ (Mg₅Si₆)")
         m.quantify.absorptionNote = "4 detectors · TOA from file"
         m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.quality = "χ²ᵣ 1.04 (Pearson)"

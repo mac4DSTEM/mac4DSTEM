@@ -193,7 +193,7 @@ final class SpectroscopyRoomController {
         m.viewport = SpectrumViewport(domain: m.series.domain, minimumSpan: 2 * axis.scale)
         // A Velox axis runs to 80 keV (4096 channels of 20 eV): the first view is the 20 keV an EDX spectrum is read in.
         if m.viewport.hi > 20 { m.viewport.hi = max(20, m.viewport.lo + m.viewport.minimumSpan) }
-        m.image = Self.imageSettings(meta, axis: axis, hasFourDCube: hasFourDCube)
+        m.image = Self.imageSettings(meta, hasFourDCube: hasFourDCube)
         m.regionSettings = RegionSettings()
         autoIDTask?.cancel(); autoIDTask = nil
         endOperation(autoIDOperation); autoIDOperation = nil
@@ -238,8 +238,7 @@ final class SpectroscopyRoomController {
     func setFourDCube(_ present: Bool) {
         guard present != hasFourDCube, let source else { hasFourDCube = present; return }
         hasFourDCube = present
-        let readouts = Self.imageSettings(source.metadata, axis: source.energyAxis, hasFourDCube: present)
-        model.image.source = readouts.source
+        let readouts = Self.imageSettings(source.metadata, hasFourDCube: present)
         model.image.sourceWarning = readouts.sourceWarning
         model.image.sourceNote = readouts.sourceNote
     }
@@ -928,9 +927,7 @@ final class SpectroscopyRoomController {
         case .applied(let s): m.quantify.absorptionNote = s
         case .refused(let why): m.quantify.absorptionNote = "not applied: \(why)"
         }
-        let axisText = QuantifyPresentation.axisReadouts(fit)
-        m.image.energyAxisReadout = axisText.file
-        m.image.energyAxisRefined = axisText.refined
+        m.image.energyAxisRefined = QuantifyPresentation.axisRefinement(fit)
     }
 
     // MARK: Pure helpers
@@ -1053,39 +1050,13 @@ final class SpectroscopyRoomController {
         return out
     }
 
-    /// The Spectrum image step's readouts, from what the file says (nothing is invented: a missing value hides its row).
-    static func imageSettings(_ meta: SpectrumImageMetadata, axis: EnergyAxis, hasFourDCube: Bool) -> SpectrumImageSettings {
+    /// The Spectrum image step's registration warning: set when the image sits beside a 4D cube it was not registered to.
+    static func imageSettings(_ meta: SpectrumImageMetadata, hasFourDCube: Bool) -> SpectrumImageSettings {
         var s = SpectrumImageSettings()
-        if meta.sameScanAs4DCube {
-            s.source = "same scan as the 4D cube (one GMS run)"
-        } else if hasFourDCube {
-            s.source = "not registered to the 4D scan"
+        if !meta.sameScanAs4DCube && hasFourDCube {
             s.sourceWarning = true
             s.sourceNote = meta.registrationNote ?? "Not registered to the 4D scan: the registration record comes with WP3."
         }
-        if let f = meta.frames {
-            s.framesReadout = "\(f) summed" + (meta.partialFramePixels > 0 ? " + a partial frame (\(meta.partialFramePixels) px)" : "")
-        }
-        s.energyAxisReadout = "\(String(format: "%.3f", axis.lowValue))–\(String(format: "%.3f", axis.highValue)) keV · \(String(format: "%.2f", axis.scale * 1000)) eV/ch · from the file"
-        // Live and real time are shown as the file stored them: their meaning differs by file and is not interpreted.
-        if let d = meta.detectors.first(where: { $0.liveTime != nil || $0.realTime != nil }) {
-            if (d.liveTime ?? 0) <= 0 && (d.realTime ?? 0) <= 0 {
-                s.liveDead = "not read: the stream metadata records 0 s"   // the stream stores 0; the SpectrumImage record holds the times (open item: reader)
-            } else {
-                let live = d.liveTime.map { "live \(String(format: "%g", $0)) s" }
-                let real = d.realTime.map { "real \(String(format: "%g", $0)) s" }
-                s.liveDead = ([live, real].compactMap { $0 }.joined(separator: " · ")) + " (as stored, semantics unverified)"
-            }
-        }
-        var g: [String] = []
-        if !meta.detectors.isEmpty { g.append(meta.detectors.count == 1 ? "1 detector" : "\(meta.detectors.count) detectors") }
-        let els = meta.detectors.compactMap(\.elevationDegrees)
-        if let lo = els.min(), let hi = els.max() {
-            g.append(lo == hi ? String(format: "elev. %.0f°", lo) : String(format: "elev. %.0f–%.0f°", lo, hi))
-        }
-        if let a = meta.alphaTiltDegrees { g.append(String(format: "α %.1f°", a)) }
-        if let b = meta.betaTiltDegrees { g.append(String(format: "β %.1f°", b)) }
-        if !g.isEmpty { s.geometry = g.joined(separator: " · ") }
         return s
     }
 }

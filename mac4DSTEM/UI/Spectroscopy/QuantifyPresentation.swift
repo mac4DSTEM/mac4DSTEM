@@ -249,13 +249,12 @@ nonisolated enum QuantifyPresentation {
         return s
     }
 
-    /// The Spectrum image step's "file vs refined" readouts.
-    static func axisReadouts(_ q: PooledQuantification) -> (file: String, refined: String?) {
-        let file = String(format: "%.3f\u{2013}%.3f keV \u{00B7} %.2f eV/ch \u{00B7} from the file", q.fileAxis.lowValue, q.fileAxis.highValue, q.fileAxis.scale * 1000)
-        if q.axisLocked { return (file, "locked: the file's axis is used") }
-        guard let r = q.refinement else { return (file, "not refined") }
+    /// The Spectrum image step's note on the energy-axis refinement (file vs refined).
+    static func axisRefinement(_ q: PooledQuantification) -> String {
+        if q.axisLocked { return "locked: the file's axis is used" }
+        guard let r = q.refinement else { return "not refined" }
         let used = q.usedAxis == r.refinedAxis
-        return (file, String(format: "%+.1f eV, gain %+.3f %%, FWHM %.0f eV%@", r.offsetShiftEV, r.gainShift * 100, r.resolutionMnKaEV, used ? "" : " (not used)"))
+        return String(format: "%+.1f eV, gain %+.3f %%, FWHM %.0f eV%@", r.offsetShiftEV, r.gainShift * 100, r.resolutionMnKaEV, used ? "" : " (not used)")
     }
 
     /// The plot's one-line footer: the estimator, the continuum form and the fit quality, each a whole token. The fit's own

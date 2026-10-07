@@ -266,21 +266,6 @@ final class SpectroscopyLaneUTests: XCTestCase {
         XCTAssertTrue(SpectroscopyExport.csv(r, regionName: "Whole map").contains("axis refinement residual (RSS)"), "kept in the export")
     }
 
-    // MARK: 12 - live time
-
-    /// A file that records 0 s says "not stored", one that records a time says it. Mutation: the zero test removed - red.
-    func testAZeroLiveTimeReadsNotStored() {
-        var meta = SpectrumImageMetadata(fileName: "v.emd", filePath: "", scanWidth: 1, scanHeight: 1, channelCount: 1, energyOffsetEV: 0, energyDispersionEV: 10)
-        let axis = EnergyAxis(offset: 0, scale: 0.01, size: 1)
-        meta.detectors = [SpectrumDetectorSegment(name: "SuperXG11", liveTime: 0, realTime: 0)]
-        XCTAssertEqual(SpectroscopyRoomController.imageSettings(meta, axis: axis, hasFourDCube: false).liveDead, "not read: the stream metadata records 0 s")
-        meta.detectors = [SpectrumDetectorSegment(name: "SuperXG11", liveTime: 0.5, realTime: 0.75)]
-        XCTAssertEqual(SpectroscopyRoomController.imageSettings(meta, axis: axis, hasFourDCube: false).liveDead,
-                       "live 0.5 s \u{00B7} real 0.75 s (as stored, semantics unverified)")
-        meta.detectors = [SpectrumDetectorSegment(name: "EDS")]
-        XCTAssertNil(SpectroscopyRoomController.imageSettings(meta, axis: axis, hasFourDCube: false).liveDead)
-    }
-
     // MARK: 8 - marker priority (feeds the layout above)
 
     /// The marker priority: the window's own line of a quantified element ranks above its satellite and above a fit-only element.

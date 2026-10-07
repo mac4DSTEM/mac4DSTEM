@@ -342,21 +342,15 @@ final class SpectrumImageOpeningTests: XCTestCase {
         XCTAssertNil(model.regionOutline)
     }
 
-    /// The Source row says how the spectrum image relates to the cube.
+    /// The registration warning shows only for an image beside a cube it is not the same scan as.
     func testTheSourceRowSaysSameScanOrNotRegistered() throws {
         let image = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: Self.dm4, fourD: nil))
         var meta = image.metadata
-        XCTAssertNil(SpectroscopyRoomController.imageSettings(meta, axis: image.energyAxis, hasFourDCube: false).source)
-        let beside = SpectroscopyRoomController.imageSettings(meta, axis: image.energyAxis, hasFourDCube: true)
-        XCTAssertEqual(beside.source, "not registered to the 4D scan")
+        XCTAssertFalse(SpectroscopyRoomController.imageSettings(meta, hasFourDCube: false).sourceWarning)
+        let beside = SpectroscopyRoomController.imageSettings(meta, hasFourDCube: true)
         XCTAssertTrue(beside.sourceWarning)
         meta.sameScanAs4DCube = true
-        let same = SpectroscopyRoomController.imageSettings(meta, axis: image.energyAxis, hasFourDCube: true)
-        XCTAssertEqual(same.source, "same scan as the 4D cube (one GMS run)")
-        XCTAssertFalse(same.sourceWarning)
-        XCTAssertTrue(try XCTUnwrap(same.liveDead).contains("as stored"))
-        let elevation = try XCTUnwrap(((try truth()["forward_model"] as? [String: Any])?["absorption"] as? [String: Any])?["elevation_deg"] as? Double)
-        XCTAssertEqual(same.geometry, "1 detector · elev. \(Int(elevation))°")
+        XCTAssertFalse(SpectroscopyRoomController.imageSettings(meta, hasFourDCube: true).sourceWarning)
     }
 
     /// The hover's cut-off is the marker's own FWHM: a cursor 70 eV from a line 40 eV wide names no line, and one 30 eV away does.

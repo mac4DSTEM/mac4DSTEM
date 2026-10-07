@@ -141,7 +141,6 @@ final class SpectroscopyViewModelTests: XCTestCase {
         let m = SpectroscopyRoomModel.fixture
         XCTAssertTrue(m.unvalidated)
         XCTAssertFalse(m.elements.manual.contains(Cu), "Cu is a default, not a manual pick")
-        XCTAssertEqual(SpectroscopyRoomModel(series: m.series).image.liveDead, nil, "defaults carry no readouts")
         XCTAssertNil(SpectroscopyRoomModel(series: m.series).quantify.quality)
         XCTAssertNil(SpectroscopyRoomModel(series: m.series).quantify.thickness)
         XCTAssertEqual(m.elements.cellState(Cu), .quantify)
