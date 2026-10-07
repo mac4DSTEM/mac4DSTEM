@@ -215,9 +215,15 @@ struct DiffractionPane: View {
             let norm = appState.normalizedPatternPixels()   // cached per patternVersion
             // Fit verification: read once for the overlay (in the zoomed layer) and its key chip (outside it).
             let fit = appState.fitOverlays
+            // Each of these is computed on read (geometry is rebuilt), so they
+            // are read ONCE per body and shared by the overlay and its key.
+            let fitStrain = fit.strain
+            let fitTemplate = fit.template
+            let fitOrigin = fit.originPoint
+            let fitEllipse = fit.ellipse
             let fitLegend = PatternFitOverlay.legendText(
-                strain: fit.strain, template: fit.template,
-                originPoint: fit.originPoint, ellipse: fit.ellipse)
+                strain: fitStrain, template: fitTemplate,
+                originPoint: fitOrigin, ellipse: fitEllipse)
 
             ZStack {
                 ZStack {
@@ -242,6 +248,7 @@ struct DiffractionPane: View {
                             onEdited: { appState.updateAperture($0) },
                             onCommit: { appState.commitApertureChange() }
                         )
+                        .equatable()
                     }
 
                     // Detected Bragg disks for the current pattern (Disks mode).
@@ -299,10 +306,6 @@ struct DiffractionPane: View {
 
                     // Fit verification: measured peaks against the fitted model
                     // (strain lattice / ACOM template / origin + ellipse).
-                    let fitStrain = fit.strain
-                    let fitTemplate = fit.template
-                    let fitOrigin = fit.originPoint
-                    let fitEllipse = fit.ellipse
                     if fitStrain != nil || fitTemplate != nil
                         || fitOrigin != nil || !fitEllipse.isEmpty {
                         PatternFitOverlay(

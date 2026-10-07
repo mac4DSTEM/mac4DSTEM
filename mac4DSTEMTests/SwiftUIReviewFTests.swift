@@ -111,4 +111,31 @@ final class SwiftUIReviewFTests: XCTestCase {
         XCTAssertEqual(runs, 3)
         XCTAssertEqual(cache.computeCount, 3)
     }
+
+    // MARK: F2 - the aperture overlay compares on its values, not its closures
+
+    private func overlay(_ aperture: Aperture = Aperture(centerX: 64, centerY: 64, inner: 5, outer: 20),
+                         shape: VirtualShapeMode = .annulus,
+                         width: Int = 128, height: Int = 128,
+                         onEdited: @escaping (Aperture) -> Void = { _ in }) -> ApertureOverlay {
+        ApertureOverlay(aperture: aperture, shape: shape, patternWidth: width, patternHeight: height,
+                        onEdited: onEdited, onCommit: {})
+    }
+
+    func testTheApertureOverlayIgnoresFreshClosuresButNotItsValues() {
+        var sink = 0
+        // Two separately built closures: the pane builds new ones every body.
+        XCTAssertEqual(overlay(onEdited: { _ in sink += 1 }), overlay(onEdited: { _ in sink += 2 }))
+        let base = Aperture(centerX: 64, centerY: 64, inner: 5, outer: 20)
+        for changed in [Aperture(centerX: 65, centerY: 64, inner: 5, outer: 20),
+                        Aperture(centerX: 64, centerY: 65, inner: 5, outer: 20),
+                        Aperture(centerX: 64, centerY: 64, inner: 6, outer: 20),
+                        Aperture(centerX: 64, centerY: 64, inner: 5, outer: 21)] {
+            XCTAssertNotEqual(overlay(base), overlay(changed), "\(changed) must redraw the overlay")
+        }
+        XCTAssertNotEqual(overlay(shape: .annulus), overlay(shape: .circle))
+        XCTAssertNotEqual(overlay(width: 128), overlay(width: 256))
+        XCTAssertNotEqual(overlay(height: 128), overlay(height: 256))
+        XCTAssertEqual(sink, 0)
+    }
 }

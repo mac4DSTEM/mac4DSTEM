@@ -509,13 +509,27 @@ enum ApertureHandleRules {
 /// active virtual-detector geometry: an annulus (inner/outer radius), a square
 /// (half-extent = outer), or a single point. The shape matches the selected
 /// `VirtualShapeMode` so what you see is what the kernel integrates.
-struct ApertureOverlay: View {
+struct ApertureOverlay: View, Equatable {
     let aperture: Aperture
     let shape: VirtualShapeMode
     let patternWidth: Int
     let patternHeight: Int
     var onEdited: (Aperture) -> Void
     var onCommit: () -> Void
+
+    /// Value inputs only, so `.equatable()` skips the body while the aperture,
+    /// shape and detector size are unchanged (every zoom tick re-evaluates the
+    /// pane, and two closures made this view never compare equal). The closures
+    /// are deliberately NOT compared: the one call site passes
+    /// `{ appState.updateAperture($0) }` and `{ appState.commitApertureChange() }`,
+    /// which capture only the environment's `AppState` reference — the same
+    /// object for the life of the window — so a "new" closure is never a
+    /// different one. A caller that captured changing state would have to leave
+    /// `.equatable()` off.
+    nonisolated static func == (lhs: ApertureOverlay, rhs: ApertureOverlay) -> Bool {
+        lhs.aperture == rhs.aperture && lhs.shape == rhs.shape
+            && lhs.patternWidth == rhs.patternWidth && lhs.patternHeight == rhs.patternHeight
+    }
 
     var body: some View {
         GeometryReader { geometry in
