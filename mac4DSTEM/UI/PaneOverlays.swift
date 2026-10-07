@@ -379,6 +379,8 @@ struct ColormapChip<Chip: View>: View {
                     }
                 }
                 .pickerStyle(.menu)
+                // In this Form the menu reached the AX tree with no name of its own (drive 7: value "Viridis" only).
+                .accessibilityLabel("Colormap")
             }
             if pane == .diffraction, let pattern = appState.displayedPattern {
                 Section("Histogram") {
