@@ -1,0 +1,152 @@
+From 526c6d7408e490a0f5cd0e48ad8866e0aa3ca3a5 Mon Sep 17 00:00:00 2001
+From: Paullo9 <paullobpreis@icloud.com>
+Date: Thu, 8 Oct 2026 03:35:17 +0200
+Subject: [PATCH] Stop a pile-up column that is identical to a one-component
+ column
+
+Auto ID threw rankDeficient when a pile-up pair's energy equals a candidate's one-component column: V K-alpha escape
+3.2125 keV = Tb M-alpha + Ir M-alpha on a spectral axis ending at 5.115 keV. V's group is then one line and one escape,
+so the escape column and the pile-up column are one Gaussian each: two identical design columns. sumColumns checked
+sums against listed and claiming alpha energies only, never against escapes.
+ElementProposer.sumColumns now skips a pair whose energy equals (1e-9 keV) a current or pool group's one-line line
+column or one-entry escape column. Multi-component columns are never compared; the energy stays the candidate's.
+Registered: docs/archive/v5/sum-escape-identical-preregistration-2026-10-08.md (diagnosis: sum-escape-coincidence-diagnosis-2026-10-08).
+Gate D: registered item; the mechanism is reproduced (lane N probe: rankDeficient at amplitudes 0, 100, 300, 1000, 3000, 40000
+on the 5.115 keV axis). The rule drops a pile-up column only at a one-component energy. Refuter owed.
+Gate (lane copy): unit 2371/0/3 = 2374, GATE_EXIT=0, core GATE_EXIT=0; mutation: SumEscapeIdenticalTests.testVKaEscape... red on
+removing the rule (rankDeficient at amplitudes 0, 300, 40000; old code); testSrPlusBaSum... red when the one-component condition is
+ignored (Tb_La's nine-line alpha column dropped the Sr+Ba column at 300 counts).
+Probe (throwaway, not committed): NonSumCoincidenceProbeTests on the fixed code: cases A-C and E1-E3b identical to before (23 of 29
+NSPROBE lines); Case D's six lines change from THREW rankDeficient to SCORED.
+Unverified on screen: nothing on screen; a drive later checks an Auto ID run on a V/Tb/Ir axis at about 5.1 keV.
+
+Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>
+---
+ .../Proposer/ElementProposer.swift            |  7 ++
+ mac4DSTEMTests/SumEscapeIdenticalTests.swift  | 92 +++++++++++++++++++
+ 2 files changed, 99 insertions(+)
+ create mode 100644 mac4DSTEMTests/SumEscapeIdenticalTests.swift
+
+diff --git a/mac4DSTEM/Core/Spectroscopy/Proposer/ElementProposer.swift b/mac4DSTEM/Core/Spectroscopy/Proposer/ElementProposer.swift
+index 1ce2227..362420d 100644
+--- a/mac4DSTEM/Core/Spectroscopy/Proposer/ElementProposer.swift
++++ b/mac4DSTEM/Core/Spectroscopy/Proposer/ElementProposer.swift
+@@ -269,10 +269,17 @@ package nonisolated struct ElementProposer: Sendable {
+         func sumColumns(_ parents: [SumParent], claiming claimers: Set<String>) -> [FitLineGroup] {
+             var claimed = currentGroups.map { $0.lines[0].energy }
+             claimed += poolGroups.filter { claimers.contains($0.id) }.map { $0.lines[0].energy }
++            // A group whose line list has one line, or whose escape list has one entry, has a ONE-COMPONENT design column: one
++            // Gaussian at that energy. A pair at exactly that energy would be an identical column (rankDeficient), so it is not
++            // added, whether or not the group claims (registration: docs/archive/v5/sum-escape-identical-preregistration-2026-10-08.md).
++            let oneComponent = (currentGroups + poolGroups).flatMap { g -> [Double] in
++                (g.lines.count == 1 ? [g.lines[0].energy] : []) + (g.escapes.count == 1 ? [g.escapes[0].energy] : [])
++            }
+             var pairs: [[(label: String, energyKeV: Double, elements: [String])]] = []
+             for e in LineConflicts.sumEnergies(parents: parents) {
+                 guard e.energyKeV > lo, e.energyKeV < hi, e.energyKeV < s.beamEnergy,
+                       !claimed.contains(where: { abs($0 - e.energyKeV) <= LineConflicts.sumPeakToleranceKeV }),
++                      !oneComponent.contains(where: { abs($0 - e.energyKeV) <= exactSumToleranceKeV }),
+                       XRayLines.fwhm(resolutionMnKaEV: s.resolutionMnKaEV, atEnergy: e.energyKeV) != nil else { continue }
+                 // The first pair at an energy owns the column (its energy is the column's).
+                 if let k = pairs.firstIndex(where: { abs($0[0].energyKeV - e.energyKeV) <= exactSumToleranceKeV }) {
+diff --git a/mac4DSTEMTests/SumEscapeIdenticalTests.swift b/mac4DSTEMTests/SumEscapeIdenticalTests.swift
+new file mode 100644
+index 0000000..98375e0
+--- /dev/null
++++ b/mac4DSTEMTests/SumEscapeIdenticalTests.swift
+@@ -0,0 +1,92 @@
++import XCTest
++import DSTEMCore
++
++/// Auto ID failed with `ProposerError.rankDeficient` on a pile-up pair whose energy equals a ONE-COMPONENT column of a candidate:
++/// V K-alpha escape 3.2125 keV = Tb M-alpha + Ir M-alpha, on a spectral axis ending at 5.115 keV. There V's group is V K-alpha
++/// alone, so its escape column is one Gaussian at 3.2125 keV, and the pile-up column is the same Gaussian. Registered fix:
++/// `docs/archive/v5/sum-escape-identical-preregistration-2026-10-08.md` (a pair is not added as a column when a current or pool
++/// group has a one-component column at its energy). The spectra are generated from the fit's own line model with seeded
++/// Gaussian-approximated counting noise, as in `SumColumnDedupTests`.
++final class SumEscapeIdenticalTests: XCTestCase {
++
++    private struct SplitMix64 {
++        var state: UInt64
++        mutating func next() -> UInt64 {
++            state &+= 0x9E3779B97F4A7C15
++            var z = state
++            z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
++            z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
++            return z ^ (z >> 31)
++        }
++        mutating func uniform() -> Double { (Double(next() >> 11) + 0.5) / Double(1 << 53) }
++        mutating func normal() -> Double { (-2 * log(uniform())).squareRoot() * cos(2 * Double.pi * uniform()) }
++    }
++
++    /// The 1500-channel test axis (0 to 14.99 keV) and the short axis that ends between V K-alpha and V K-beta (top 5.115 keV).
++    private static let axis = EnergyAxis(offset: 0, scale: 0.01, size: 1500)
++    private static let shortAxis = EnergyAxis(offset: 0, scale: 0.005, size: 1024)
++
++    /// Kramers x window continuum (as SpectroscopyProposerTests), E0 = 200 keV, plus the planted line areas (counts) of the fit's own groups.
++    private static func spectrum(_ axis: EnergyAxis, areas: [String: Double], seed: UInt64) -> [Double] {
++        let energies = (0..<axis.size).map { axis.energy(ofChannel: $0) }
++        var mean = energies.map { e -> Double in
++            guard e >= 0.2 else { return 0 }
++            let x = max(e, 0.05)
++            return (60 * max(200 - e, 0) / x * exp(-pow(0.30 / x, 3)) * 0.02 + 0.5) * 20
++        }
++        for (id, area) in areas {
++            let el = String(id.prefix { $0 != "_" })
++            let g = EDSLineModel.build(elements: [el], axis: axis, beamEnergy: 200, resolutionMnKaEV: 130).groups.first { $0.id == id }!
++            let col = EDSLineModel.column(of: g.lines, energies: energies, scale: axis.scale)
++            for i in mean.indices { mean[i] += area * col[i] }
++        }
++        var rng = SplitMix64(state: seed)
++        return mean.map { max(0, ($0 + $0.squareRoot() * rng.normal()).rounded()) }
++    }
++
++    private static func settings(_ axis: EnergyAxis) -> FitSettings {
++        FitSettings.standard(elements: [], axis: axis, resolutionMnKaEV: 130, beamEnergy: 200)
++    }
++
++    // MARK: Case D: a pile-up pair equal to a one-component escape column
++
++    /// V K-alpha escape 3.2125 keV = Tb M-alpha 1.2326 + Ir M-alpha 1.9799. Without the fix every amplitude throws `rankDeficient`
++    /// (the pile-up column and V's escape column are identical design columns); with it the run scores and no pile-up column
++    /// sits at 3.2125 keV. Amplitude 0: V pruned. 300: V in the window. 40 000: V claims the energy.
++    func testVKaEscapeEqualToTbMaPlusIrMaScoresOnAShortAxis() throws {
++        let sum = XRayLines.line("Tb_Ma")!.energy + XRayLines.line("Ir_Ma")!.energy
++        let escape = XRayLines.line("V_Ka")!.energy - XRayLines.line("Si_Ka")!.energy
++        XCTAssertEqual(sum, escape, accuracy: 1e-6, "the premise: the pile-up energy is V K-alpha's escape energy")
++        let g = EDSLineModel.build(elements: ["V"], axis: Self.shortAxis, beamEnergy: 200, resolutionMnKaEV: 130).groups.first { $0.id == "V_Ka" }!
++        XCTAssertEqual(g.lines.count, 1, "the premise: V K-alpha is the only line of its group on this axis")
++        XCTAssertEqual(g.escapes.count, 1, "the premise: its escape column is one Gaussian")
++        for amp in [0.0, 300, 40000] {
++            let counts = Self.spectrum(Self.shortAxis, areas: ["Tb_Ma": 40000, "Ir_Ma": 40000, "V_Ka": amp], seed: 24)
++            let r: ProposalResult
++            do {
++                r = try ElementProposer(pool: ["Tb", "Ir", "V", "Mg", "Al", "Fe"])
++                    .propose(counts: counts, axis: Self.shortAxis, settings: Self.settings(Self.shortAxis))
++            } catch {
++                XCTFail("amplitude \(amp): the run must score, not throw: \(error) (old code: rankDeficient)")
++                continue
++            }
++            XCTAssertFalse(r.sumPeaks.contains { abs($0.energyKeV - sum) <= LineConflicts.sumPeakToleranceKeV },
++                           "amplitude \(amp): no pile-up column at the one-component escape energy: \(r.sumPeaks.map(\.label))")
++        }
++    }
++
++    // MARK: Multi-line groups keep their pile-up column
++
++    /// Tb L-alpha 6.2728 = Sr L-alpha + Ba L-alpha. Tb's group has nine lines, so its column is not one Gaussian and the
++    /// pile-up column at its energy stays (Tb at 300 counts is in the window, not claiming). The rule must not fire here.
++    func testSrPlusBaSumAtAMultiLineGroupsAlphaKeepsItsColumn() throws {
++        let sum = XRayLines.line("Sr_La")!.energy + XRayLines.line("Ba_La")!.energy
++        XCTAssertEqual(sum, XRayLines.line("Tb_La")!.energy, accuracy: 1e-6, "the premise")
++        let counts = Self.spectrum(Self.axis, areas: ["Sr_La": 40000, "Ba_La": 40000, "Tb_La": 300], seed: 21)
++        let r = try ElementProposer(pool: ["Sr", "Ba", "Tb", "Mg", "Al", "Fe"])
++            .propose(counts: counts, axis: Self.axis, settings: Self.settings(Self.axis))
++        let col = try XCTUnwrap(r.sumPeaks.first { abs($0.energyKeV - sum) <= LineConflicts.sumPeakToleranceKeV },
++                                "a column at the Sr+Ba energy; labels: \(r.sumPeaks.map(\.label))")
++        XCTAssertEqual(Set(col.elements), ["Sr", "Ba"])
++    }
++}
+-- 
+2.54.0 (Apple Git-157)
+

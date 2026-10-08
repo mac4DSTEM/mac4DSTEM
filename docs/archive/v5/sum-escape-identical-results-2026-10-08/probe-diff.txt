@@ -1,0 +1,14 @@
+24,29c24,29
+< NSPROBE D V_Ka amp=0 | THREW rankDeficient | sum=3.2125
+< NSPROBE D V_Ka amp=100 | THREW rankDeficient | sum=3.2125
+< NSPROBE D V_Ka amp=300 | THREW rankDeficient | sum=3.2125
+< NSPROBE D V_Ka amp=1000 | THREW rankDeficient | sum=3.2125
+< NSPROBE D V_Ka amp=3000 | THREW rankDeficient | sum=3.2125
+< NSPROBE D V_Ka amp=40000 | THREW rankDeficient | sum=3.2125
+---
+> NSPROBE D V_Ka amp=0 | SCORED | net=84.6 L_C=410.4 L_D=823.5 proposed=false | sumColumns=["Ir+Ir sum @3.9598 net=0.0", "Tb+Tb sum @2.4652 net=0.0"] | passes=2 settled=true
+> NSPROBE D V_Ka amp=100 | SCORED | net=182.8 L_C=410.4 L_D=823.5 proposed=false | sumColumns=["Ir+Ir sum @3.9598 net=0.0", "Tb+Tb sum @2.4652 net=0.0"] | passes=2 settled=true
+> NSPROBE D V_Ka amp=300 | SCORED | net=384.6 L_C=410.4 L_D=823.5 proposed=false | sumColumns=["Ir+Ir sum @3.9598 net=0.0", "Tb+Tb sum @2.4652 net=0.0"] | passes=2 settled=true
+> NSPROBE D V_Ka amp=1000 | SCORED | net=1084.2 L_C=410.4 L_D=823.5 proposed=true | sumColumns=["Ir+Ir sum @3.9598 net=0.0", "Tb+Tb sum @2.4652 net=0.0"] | passes=2 settled=true
+> NSPROBE D V_Ka amp=3000 | SCORED | net=3087.4 L_C=410.4 L_D=823.5 proposed=true | sumColumns=["Ir+Ir sum @3.9598 net=0.0", "Tb+Tb sum @2.4652 net=0.0"] | passes=2 settled=true
+> NSPROBE D V_Ka amp=40000 | SCORED | net=40119.1 L_C=410.4 L_D=823.5 proposed=true | sumColumns=["Ir+Ir sum @3.9598 net=0.0", "Tb+Tb sum @2.4652 net=0.0"] | passes=2 settled=true
