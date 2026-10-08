@@ -1,0 +1,168 @@
+import XCTest
+import DSTEMCore
+
+/// THROWAWAY diagnosis probe (lane N, Gate D step 1). Not for landing.
+/// Question: does an exact pile-up sum that equals a NON-sum candidate's line make the joint design rank deficient?
+/// Each case plants two parents (their sum is the pile-up energy) and a target element whose line (or escape) sits at exactly that energy.
+/// The target's amplitude is swept so that its net can fall in the window L_C < net < L_D, where the sum column is not blocked.
+final class NonSumCoincidenceProbeTests: XCTestCase {
+
+    private struct SplitMix64 {
+        var state: UInt64
+        mutating func next() -> UInt64 {
+            state &+= 0x9E3779B97F4A7C15
+            var z = state
+            z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+            z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+            return z ^ (z >> 31)
+        }
+        mutating func uniform() -> Double { (Double(next() >> 11) + 0.5) / Double(1 << 53) }
+        mutating func normal() -> Double { (-2 * log(uniform())).squareRoot() * cos(2 * Double.pi * uniform()) }
+    }
+
+    private static let axis = EnergyAxis(offset: 0, scale: 0.01, size: 1500)
+    private static let energies = (0..<axis.size).map { axis.energy(ofChannel: $0) }
+
+    private static func spectrum(areas: [String: Double], seed: UInt64) -> [Double] {
+        var mean = energies.map { e -> Double in
+            guard e >= 0.2 else { return 0 }
+            let x = max(e, 0.05)
+            return (60 * max(200 - e, 0) / x * exp(-pow(0.30 / x, 3)) * 0.02 + 0.5) * 20
+        }
+        for (id, area) in areas {
+            let el = String(id.prefix { $0 != "_" })
+            let g = EDSLineModel.build(elements: [el], axis: axis, beamEnergy: 200, resolutionMnKaEV: 130).groups.first { $0.id == id }!
+            let col = EDSLineModel.column(of: g.lines, energies: energies, scale: axis.scale)
+            for i in mean.indices { mean[i] += area * col[i] }
+        }
+        var rng = SplitMix64(state: seed)
+        return mean.map { max(0, ($0 + $0.squareRoot() * rng.normal()).rounded()) }
+    }
+
+    private static func settings() -> FitSettings {
+        FitSettings.standard(elements: [], axis: axis, resolutionMnKaEV: 130, beamEnergy: 200)
+    }
+
+    /// Appends one line to the lane's probe file (test stdout does not reach the xcodebuild log).
+    private static func emit(_ line: String) {
+        let path = "/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/27415fc8-785a-4cd2-93b8-7a7bf28311ae/scratchpad/laneN/probe-out.txt"
+        let data = (line + "\n").data(using: .utf8)!
+        if let h = FileHandle(forWritingAtPath: path) { h.seekToEndOfFile(); h.write(data); h.closeFile() }
+        else { FileManager.default.createFile(atPath: path, contents: data) }
+    }
+
+    private func probe(_ label: String, target: String, sumEnergy: Double, planted: [String: Double], pool: [String], seed: UInt64) {
+        let el = String(target.prefix { $0 != "_" })
+        let g = EDSLineModel.build(elements: [el], axis: Self.axis, beamEnergy: 200, resolutionMnKaEV: 130).groups.first { $0.id == target }!
+        let shape = "target \(target): group lines=\(g.lines.map(\.id)) escapes=\(g.escapes.map(\.id))"
+        do {
+            let r = try ElementProposer(pool: pool).propose(counts: Self.spectrum(areas: planted, seed: seed), axis: Self.axis, settings: Self.settings())
+            let c = r.candidates.first { $0.group == target }
+            let cText = c.map { String(format: "net=%.1f L_C=%.1f L_D=%.1f proposed=%@ sumQ=%@", $0.net, $0.criticalLevel, $0.detectionLimit, "\($0.isProposed)", "\($0.hasSumPeakQuestion)") } ?? "no candidate"
+            let sums = r.sumPeaks.map { String(format: "%@ @%.4f net=%.1f", $0.label, $0.energyKeV, $0.net) }
+            Self.emit("NSPROBE \(label) | \(shape) | SCORED | \(cText) | sumColumns=\(sums) | passes=\(r.passes) settled=\(r.settled) | sumE=\(sumEnergy)")
+        } catch {
+            Self.emit("NSPROBE \(label) | \(shape) | THREW \(error)")
+        }
+    }
+
+    /// Case A: Tb L-alpha (6.2728) = Sr L-alpha + Ba L-alpha, a direct alpha coincidence. Tb's group is multi-line.
+    func testCaseATbLaEqualsSrLaPlusBaLa() {
+        let sum = XRayLines.line("Sr_La")!.energy + XRayLines.line("Ba_La")!.energy
+        XCTAssertEqual(sum, XRayLines.line("Tb_La")!.energy, accuracy: 1e-6, "premise")
+        for amp in [0.0, 100, 300, 1000, 3000, 40000] {
+            probe("A amp=\(Int(amp))", target: "Tb_La", sumEnergy: sum,
+                  planted: ["Sr_La": 40000, "Ba_La": 40000, "Tb_La": amp], pool: ["Sr", "Ba", "Tb", "Mg", "Al", "Fe"], seed: 21)
+        }
+    }
+
+    /// Case B: Lu L-alpha escape (7.6556 - 1.7397 = 5.9159) = Ti K-alpha + Er M-alpha. Lu's group carries an escape column.
+    func testCaseBLuLaEscapeEqualsTiKaPlusErMa() {
+        let sum = XRayLines.line("Ti_Ka")!.energy + XRayLines.line("Er_Ma")!.energy
+        XCTAssertEqual(sum, XRayLines.line("Lu_La")!.energy - XRayLines.line("Si_Ka")!.energy, accuracy: 1e-6, "premise")
+        for amp in [0.0, 100, 300, 1000, 3000, 40000] {
+            probe("B amp=\(Int(amp))", target: "Lu_La", sumEnergy: sum,
+                  planted: ["Ti_Ka": 40000, "Er_Ma": 40000, "Lu_La": amp], pool: ["Ti", "Er", "Lu", "Mg", "Al", "Fe"], seed: 22)
+        }
+    }
+
+    /// Case C: Au L-alpha escape (9.7130 - 1.7397 = 7.9733) = Mg K-alpha + Ho L-alpha.
+    func testCaseCAuLaEscapeEqualsMgKaPlusHoLa() {
+        let sum = XRayLines.line("Mg_Ka")!.energy + XRayLines.line("Ho_La")!.energy
+        XCTAssertEqual(sum, XRayLines.line("Au_La")!.energy - XRayLines.line("Si_Ka")!.energy, accuracy: 1e-6, "premise")
+        for amp in [0.0, 100, 300, 1000, 3000, 40000] {
+            probe("C amp=\(Int(amp))", target: "Au_La", sumEnergy: sum,
+                  planted: ["Mg_Ka": 40000, "Ho_La": 40000, "Au_La": amp], pool: ["Mg", "Ho", "Au", "Al", "Fe"], seed: 23)
+        }
+    }
+
+    // MARK: Case D: a spectral axis that ends between V K-alpha (4.952) and V K-beta (5.427) keV
+
+    /// On this axis V's group is V K-alpha alone (K-beta is beyond the axis), so the V escape column is ONE Gaussian at
+    /// 4.9522 - 1.7397 = 3.2125 keV, the same energy as the pile-up of Tb M-alpha (1.2326) + Ir M-alpha (1.9799).
+    /// The sum column is blocked only by ALPHA energies of claiming candidates (claimed list), never by an escape energy,
+    /// so this sum is not blocked whatever V's net is.
+    private static let axisD = EnergyAxis(offset: 0, scale: 0.005, size: 1024)
+
+    private static func spectrumOn(_ axis: EnergyAxis, areas: [String: Double], seed: UInt64) -> [Double] {
+        let en = (0..<axis.size).map { axis.energy(ofChannel: $0) }
+        var mean = en.map { e -> Double in
+            guard e >= 0.2 else { return 0 }
+            let x = max(e, 0.05)
+            return (60 * max(200 - e, 0) / x * exp(-pow(0.30 / x, 3)) * 0.02 + 0.5) * 20
+        }
+        for (id, area) in areas {
+            let el = String(id.prefix { $0 != "_" })
+            let g = EDSLineModel.build(elements: [el], axis: axis, beamEnergy: 200, resolutionMnKaEV: 130).groups.first { $0.id == id }!
+            let col = EDSLineModel.column(of: g.lines, energies: en, scale: axis.scale)
+            for i in mean.indices { mean[i] += area * col[i] }
+        }
+        var rng = SplitMix64(state: seed)
+        return mean.map { max(0, ($0 + $0.squareRoot() * rng.normal()).rounded()) }
+    }
+
+    func testCaseDVKaEscapeIsOneGaussianOnAShortAxis() {
+        let sum = XRayLines.line("Tb_Ma")!.energy + XRayLines.line("Ir_Ma")!.energy
+        XCTAssertEqual(sum, XRayLines.line("V_Ka")!.energy - XRayLines.line("Si_Ka")!.energy, accuracy: 1e-6, "premise")
+        let g = EDSLineModel.build(elements: ["V"], axis: Self.axisD, beamEnergy: 200, resolutionMnKaEV: 130).groups.first { $0.id == "V_Ka" }!
+        Self.emit("NSPROBE D shape | axis top=\(Self.axisD.highValue) | V_Ka group lines=\(g.lines.map(\.id)) escapes=\(g.escapes.map(\.id)) escape E=\(g.escapes.map { String(format: "%.4f", $0.energy) })")
+        let settings = FitSettings.standard(elements: [], axis: Self.axisD, resolutionMnKaEV: 130, beamEnergy: 200)
+        for amp in [0.0, 100, 300, 1000, 3000, 40000] {
+            let counts = Self.spectrumOn(Self.axisD, areas: ["Tb_Ma": 40000, "Ir_Ma": 40000, "V_Ka": amp], seed: 24)
+            do {
+                let r = try ElementProposer(pool: ["Tb", "Ir", "V", "Mg", "Al", "Fe"]).propose(counts: counts, axis: Self.axisD, settings: settings)
+                let c = r.candidates.first { $0.group == "V_Ka" }
+                let cText = c.map { String(format: "net=%.1f L_C=%.1f L_D=%.1f proposed=%@", $0.net, $0.criticalLevel, $0.detectionLimit, "\($0.isProposed)") } ?? "no candidate"
+                let sums = r.sumPeaks.map { String(format: "%@ @%.4f net=%.1f", $0.label, $0.energyKeV, $0.net) }
+                Self.emit("NSPROBE D V_Ka amp=\(Int(amp)) | SCORED | \(cText) | sumColumns=\(sums) | passes=\(r.passes) settled=\(r.settled)")
+            } catch {
+                Self.emit("NSPROBE D V_Ka amp=\(Int(amp)) | THREW \(error) | sum=\(sum)")
+            }
+        }
+    }
+
+    // MARK: Case D controls: each removes one condition of the failure
+
+    private func runD(_ tag: String, axis: EnergyAxis, areas: [String: Double], pool: [String], seed: UInt64) {
+        let counts = Self.spectrumOn(axis, areas: areas, seed: seed)
+        let settings = FitSettings.standard(elements: [], axis: axis, resolutionMnKaEV: 130, beamEnergy: 200)
+        do {
+            let r = try ElementProposer(pool: pool).propose(counts: counts, axis: axis, settings: settings)
+            let sums = r.sumPeaks.map { String(format: "%@ @%.4f net=%.1f", $0.label, $0.energyKeV, $0.net) }
+            Self.emit("NSPROBE D-control \(tag) | axis top=\(axis.highValue) | SCORED | sumColumns=\(sums) | passes=\(r.passes)")
+        } catch {
+            Self.emit("NSPROBE D-control \(tag) | axis top=\(axis.highValue) | THREW \(error)")
+        }
+    }
+
+    /// E1: no parents planted (no pile-up sum is possible). E2: V not in the pool. E3: the same planted spectrum on an axis that
+    /// reaches V K-beta (top 5.5 keV): V's group has two lines and its escape column is not a single Gaussian.
+    func testCaseDControls() {
+        let parents: [String: Double] = ["Tb_Ma": 40000, "Ir_Ma": 40000]
+        runD("E1 no parents, V 40000", axis: Self.axisD, areas: ["V_Ka": 40000], pool: ["Tb", "Ir", "V", "Mg", "Al", "Fe"], seed: 25)
+        runD("E2 V not in pool, V 40000", axis: Self.axisD, areas: parents.merging(["V_Ka": 40000]) { a, _ in a }, pool: ["Tb", "Ir", "Mg", "Al", "Fe"], seed: 26)
+        let long = EnergyAxis(offset: 0, scale: 0.005, size: 1100)
+        runD("E3 axis top 5.5, V 40000", axis: long, areas: parents.merging(["V_Ka": 40000]) { a, _ in a }, pool: ["Tb", "Ir", "V", "Mg", "Al", "Fe"], seed: 27)
+        runD("E3b axis top 5.5, V 0", axis: long, areas: parents, pool: ["Tb", "Ir", "V", "Mg", "Al", "Fe"], seed: 27)
+    }
+}
