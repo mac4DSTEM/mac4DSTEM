@@ -294,8 +294,8 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   test on β-line or line-shape evidence; R2 on independent 200 kV truth. Mg is missed on the whole map in 37 of 38 Al-Mg-Si files (a trace in
   the pool; H4 was selection-biased).
 - **Duplicate sum-peak columns (diagnosed 2026-10-08):** six Velox entries fail Auto ID with `rankDeficient` because two pile-up pairs share one
-  energy and give identical design columns (`archive/v5/proposer-rankdeficient-diagnosis-2026-10-08.md`); fix registered in
-  `sum-column-dedup-preregistration-2026-10-08.md`.
+  energy and give identical design columns (`archive/v5/proposer-rankdeficient-diagnosis-2026-10-08.md`); the tolerance-wide fix was refuted (changed 75 of 88 scoring entries;
+  `sum-column-dedup-results-2026-10-08.md`); an exact-duplicate fix is registered (`sum-column-exact-dedup-preregistration-2026-10-08.md`).
 - **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.

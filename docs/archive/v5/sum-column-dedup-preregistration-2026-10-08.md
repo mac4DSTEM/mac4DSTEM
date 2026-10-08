@@ -18,3 +18,7 @@ energy. (P3) A synthetic spectrum with Dy, Ti, Cs and Ho planted throws `rankDef
 **Refuting observations.** Any of the six still failing; any other entry's picks changing; the synthetic case passing without the fix.
 **Gate.** Unit + core; the synthetic test broken once (fix removed → rankDeficient); live T-V re-run (read-only on the owner's drive);
 an independent refuter compares old and new runs entry by entry. The Auto ID `unvalidated` badge stays.
+
+## Result (2026-10-08 night): refuted, closed
+P1 and P3 held; P2 failed: candidates changed in 75 of 88 scored entries and picks in 27, every change traced to a near merge
+(`sum-column-dedup-results-2026-10-08.md`). Nothing landed. The exact-duplicate rule is a new item.
