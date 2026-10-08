@@ -168,9 +168,12 @@ struct ResultsSection: View {
                 ForEach(Array(model.resultsFooter.split(separator: "\n").enumerated()), id: \.offset) { _, line in
                     Text(String(line)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
-                ForEach(Array(model.fitWarnings.enumerated()), id: \.offset) { _, w in
+                // Keyed by text as well as place: keyed by place alone, a changed warning kept the row and its Label's
+                // accessibility value went stale (drive 8: the screen read Mg's sentence, VoiceOver the earlier Si one).
+                ForEach(Array(model.fitWarnings.enumerated()), id: \.offset) { i, w in
                     Label(w.text, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true).help(w.detail ?? w.text)
+                        .id("\(i)\u{1F}\(w.text)")
                 }
             }
             .textSelection(.enabled).padding(.top, 3)
