@@ -430,7 +430,7 @@ private struct DiskDetectionRows: View {
 
         ForEach(
             Array(appState.diskDetectionValidationIssues.enumerated()), id: \.offset
-        ) { _, issue in
+        ) { i, issue in
             Label(
                 issue.message,
                 systemImage: issue.severity == .error
@@ -438,6 +438,8 @@ private struct DiskDetectionRows: View {
             )
             .font(.caption)
             .foregroundStyle(issue.severity == .error ? Color.red : Color.orange)
+            // Keyed by text too: a row kept by place kept a stale accessibility value (seen on the Method warnings, drive 8).
+            .id("\(i)\u{1F}\(issue.message)")
         }
 
         InspectorNote("Use the toolbar action to run full-scan detection.")
