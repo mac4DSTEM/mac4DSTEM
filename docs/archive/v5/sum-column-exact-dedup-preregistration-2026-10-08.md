@@ -17,3 +17,11 @@ cannot fire in it. (P3) The synthetic Dy/Ti/Cs/Ho spectrum throws `rankDeficient
 The six entries' picks against Velox's selections are reported, not gated (no bar; one rerun).
 **Gate.** Unit + core; the synthetic test broken once (rule removed → `rankDeficient`); a live T-V re-run read-only on the owner's drive,
 compared entry by entry with the 2026-10-07 run; an independent read-only refuter on the logs. The Auto ID `unvalidated` badge stays.
+
+## Result (2026-10-08 night): P1, P2, P3 held; landed (77c12faa)
+Lane S2 (Haiku 5.5): the six entries score (94 scored, no failed line); 88 of 88 entries that scored on 2026-10-07 are identical in every
+recorded field; the synthetic case throws without the rule and scores with it; each of the three tests red on its own mutation. An
+independent refuter (Haiku 5.5, read-only) re-ran the comparison and a full-JSON check: **upheld, with notes** — an exact sum equal to a
+non-sum column (another element's line or a Si escape; 13 such table coincidences) is not handled and still fails the run (a new item);
+five of the six now end with `settled` false. Picks on the six: 20 hits of 48 against 37 Velox elements (0944: 1 of 6); `unvalidated`
+stays. Evidence: `sum-column-exact-dedup-results-2026-10-08/` (lane report, refuter, census of the unhandled case).
