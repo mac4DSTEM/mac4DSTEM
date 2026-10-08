@@ -299,7 +299,8 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   narrower one was: a candidate's single-line Si-escape column at an exact pile-up energy (V Kα escape 3.2125 = Tb Mα + Ir Mα) throws
   `rankDeficient` at every amplitude, reachable only when the axis tops out between ≈ 5.0 and 5.4 keV (not on the owner's 20 keV files);
   sums are never checked against escapes, and such a pair raises no sum-peak question either. A first fix was refuted on
-  scope (it also dropped real pile-ups beside an inactive candidate; `archive/v5/sum-escape-identical-preregistration-2026-10-08.md` § Result); next: a registration scoped to the pass's design.
+  scope; the design-scoped one held (`archive/v5/sum-escape-design-scoped-preregistration-2026-10-08.md` § Result) and is HELD for card A1:
+  its line branch would fold a real Cd+Tl pile-up into La on 33.5–37.8 keV axes (escape-only is the alternative).
 - **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.

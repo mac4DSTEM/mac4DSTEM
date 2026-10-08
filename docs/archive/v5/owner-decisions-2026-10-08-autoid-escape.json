@@ -1,0 +1,57 @@
+{
+ "date": "2026-10-08",
+ "cards": [
+  {
+   "id": "A1",
+   "title": "Auto ID on short or 35 keV spectra: which pile-up fix lands",
+   "status": "open",
+   "context": [
+    "Auto ID now runs on all your Velox files. Two rare coincidences can still stop a run with 'rank deficient': a pile-up (two photons counted as one) at exactly the energy of a one-peak column. (1) V Kα's silicon-escape peak = Tb Mα + Ir Mα (3.2125 keV), only when the spectrum's axis tops out around 5.0–5.4 keV. (2) La Kα = Cd Kα + Tl Lα (33.4419 keV), only when the axis tops out around 33.5–37.8 keV. None of your files has such an axis.",
+    "A fix is built and tested: the run no longer fails, the 94 files that already score are byte-identical, and an independent check agreed. But in case (2) the pile-up's counts would be fitted as La, so La could be proposed when only Cd and Tl are there. In case (1) the escape column takes the counts and V's own number does not change."
+   ],
+   "glossary": [
+    {
+     "term": "pile-up (sum peak)",
+     "meaning": "two photons arriving together and counted as one at the sum of their energies."
+    },
+    {
+     "term": "escape peak",
+     "meaning": "a copy of a line 1.74 keV lower, when the detector's silicon emits its own X-ray."
+    }
+   ],
+   "question": "Land the fix for both cases, for the escape case only, or neither?",
+   "options": [
+    {
+     "key": "a",
+     "label": "Escape case only",
+     "what": "A new registration that keeps the escape branch and drops the line branch; one more lane and live check (about 1 hour). Case (2) keeps failing with a clear error.",
+     "effort": "≈ 1 h, a session's lane",
+     "risk": "low: no element's own number can rise"
+    },
+    {
+     "key": "b",
+     "label": "Both cases, as built",
+     "what": "Land the held patch; state the La limitation in the notes; add a La / Cd+Tl test.",
+     "effort": "≈ 15 min",
+     "risk": "a false La is possible on 33.5–37.8 keV axes"
+    },
+    {
+     "key": "c",
+     "label": "Neither",
+     "what": "Keep today's behaviour: on those axes Auto ID stops with 'rank deficient'.",
+     "effort": "0",
+     "risk": "a failed run, never a wrong one"
+    }
+   ],
+   "recommend": "a",
+   "recommendWhy": "A failed run is honest; a silent false element is not. The escape case gains a run with no risk to any element's own number.",
+   "advisor": "The independent refuter (Haiku 5.5) upheld the built fix's tests and numbers, found the La coincidence, and asked for your choice: accept the line branch with the limitation stated, or restrict it to escapes. It noted the line branch has no test yet.",
+   "nothing": "c — today's behaviour stays.",
+   "sources": [
+    "docs/archive/v5/sum-escape-design-scoped-preregistration-2026-10-08.md",
+    "docs/archive/v5/sum-escape-design-scoped-results-2026-10-08/refuter.md"
+   ],
+   "images": []
+  }
+ ]
+}
