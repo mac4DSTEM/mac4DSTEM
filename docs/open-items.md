@@ -206,6 +206,10 @@ accelerating voltage; a session voltage above 1000 kV is stamped as typed and re
 an EDS SI) opens as a spectrum image in the Spectroscopy room, never as a cube; every other file reaches the 4D open untouched. Gate B
 (Fable) passed after round 2 (the sniff now runs inside the security scope, so Recents reopen as spectrum images too). A spectrum image is not added to Recents (they carry sidecar semantics).
 
+### SpectroKit backlog (ADR 064, 2026-10-12)
+`VeloxEMDReader` reads a plain Velox `Data/Image` dataset (macTEM ADR 004 D1). Lands in SpectroKit after the v5.0 cut, or in-tree before
+it as an EDX fix. Owner: the extraction slot.
+
 ### Velox parity is a local diagnostic, not a CI gate (2026-10-05)
 `tools/velox-parity` checks the new `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
 frame counts) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's

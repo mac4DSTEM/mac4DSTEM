@@ -51,6 +51,7 @@ is not loaded here: do not assume a fact is remembered.
 - **A failed reproduction gate closes an item** (owner, ADR 050): a new registration is a new item — never amend-and-continue.
 - **Decisions are put to the owner as a sheet** (owner, ADR 050): each problem in plain words, the options with effort and risk, a recommendation and an independent second opinion; he answers by option. The Board's cards are that sheet's source.
 - **Unvalidated stays labelled** (owner, 2026-09-18): phase mapping, and any product that self-reports `validation:"none"`, ships badged unvalidated and is never called validated in a release note or doc until it passes on one dataset with truth; `inventory` greps the badge and the key.
+- **SpectroKit boundary** (owner, 2026-10-12, ADR 064): until the v5.0 cut, no new 4D coupling in `Core/Spectroscopy/` (except `Registration/`), `Core/Data/VeloxEMDReader.swift` or `Core/Data/HDF5Types.swift` — a new 4D hook goes behind a seam in the 4D layer; EDX fixes there are welcome. At the cut those paths freeze to extraction work.
 - Decisions are a file in `docs/decisions/` plus a row in `docs/decisions.md`; the pre-2026-09-16 log is verbatim in `docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`.
 - What code already enforces: `run-tests.sh core` holds the layering; `run-tests.sh inventory` holds the UI contract greps, harness manifest, tools classification, NOTICE hashes, AGENTS sync and the size report.
 

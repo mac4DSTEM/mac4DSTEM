@@ -120,6 +120,8 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   (E1 registered 2026-10-08, `docs/archive/v5/e1-pooling-preregistration-2026-10-08.md`; built after the owner's cards E1–E6), the 4D Quantify rows in Results once the drive clears, then B*'s prerequisites (per-phase score,
   separability matrix); validation with the owner's joint GMS run and a pure-Al foil from his detector (Q1–Q3,
   `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`).
+- [ ] **SpectroKit extraction** (owner, 2026-10-12, ADR 064) — at the v5.0 cut: the standalone spectroscopy paths freeze and SpectroKit is
+  extracted from the v5.0 tag with history; mac4DSTEM then imports it and keeps 4D × spectroscopy correlation.
 - [ ] **A total repo clean-up** (owner, 2026-10-08) — after EDX (v5.0) and possibly EELS are in place: one pass that leaves the repo as
   small and clear as the app (retired code, tools, archive and docs), planned as its own slot.
 
