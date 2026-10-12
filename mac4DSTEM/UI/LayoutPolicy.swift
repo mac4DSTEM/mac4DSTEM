@@ -354,14 +354,6 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
         self.unit = unit
     }
 
-    /// The title with the unit folded in, so VoiceOver speaks "KDE σ, px"
-    /// where the drawn unit is hidden from accessibility. No unit, no change.
-    static func spokenLabel(_ title: String, unit: String?) -> String {
-        unit.map { "\(title), \($0)" } ?? title
-    }
-
-    private var spokenTitle: String { Self.spokenLabel(title, unit: unit) }
-
     var body: some View {
         HStack(spacing: 6) {
             // Commits on Return or focus loss, either decimal separator
@@ -378,7 +370,7 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
                 // The unit is spoken with the field, not as a separate
                 // element after it (the titles do not all carry it: "KDE σ"
                 // has none, "Semi-axis a in pixels" does not name "px").
-                .accessibilityLabel(spokenTitle)
+                .accessibilityLabel(NumericFieldSpeech.label(title, unit: unit))
             if let unit {
                 // The unit is part of the number's meaning: it never
                 // truncates and never wraps.
@@ -388,7 +380,27 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
                     .accessibilityHidden(true)
             }
         }
-        .accessibilityLabel(title)
+    }
+}
+
+/// What VoiceOver says for a number field with a drawn unit. The unit is hidden
+/// from accessibility and folded into the field's spoken label, unless the title
+/// already names it: "Energy (keV)" + "keV" and "Semi-axis a in pixels" + "px"
+/// are spoken once.
+enum NumericFieldSpeech {
+    static func label(_ title: String, unit: String?) -> String {
+        guard let unit, !unit.isEmpty else { return title }
+        return namesUnit(title, unit) ? title : "\(title), \(unit)"
+    }
+
+    /// Whether the title already says the unit: as a separate word or inside
+    /// parentheses (case-insensitive), or "px" as "pixel" in the title.
+    static func namesUnit(_ title: String, _ unit: String) -> Bool {
+        if unit.lowercased() == "px", title.localizedCaseInsensitiveContains("pixel") {
+            return true
+        }
+        let spaced = " " + title.lowercased().map { "(),;:".contains($0) ? " " : String($0) }.joined() + " "
+        return spaced.contains(" " + unit.lowercased() + " ")
     }
 }
 

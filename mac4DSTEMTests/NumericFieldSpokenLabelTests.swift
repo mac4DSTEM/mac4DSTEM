@@ -1,21 +1,30 @@
 import XCTest
 @testable import mac4DSTEM
 
-/// SwiftUI-review residual A2 (drive 7, VoiceOver): a NumericField's drawn unit
-/// is hidden from accessibility and folded into the field's spoken label, so
-/// the unit is not lost where the title does not carry it.
+/// SwiftUI-review residual A2 (drive 7, VoiceOver): a number field's drawn unit
+/// is hidden from accessibility and folded into the field's spoken label, unless
+/// the title already names it.
 final class NumericFieldSpokenLabelTests: XCTestCase {
 
-    private typealias Field = NumericField<Double, FloatingPointFormatStyle<Double>>
+    func testUnitIsFoldedIntoTheSpokenLabelWhenTheTitleDoesNotNameIt() {
+        XCTAssertEqual(NumericFieldSpeech.label("KDE σ", unit: "px"), "KDE σ, px")
+        XCTAssertEqual(NumericFieldSpeech.label("Minimum size", unit: "px"), "Minimum size, px")
+        XCTAssertEqual(NumericFieldSpeech.label("σ_k", unit: "%"), "σ_k, %")
+    }
 
-    func testUnitIsFoldedIntoTheSpokenLabel() {
-        XCTAssertEqual(Field.spokenLabel("KDE σ", unit: "px"), "KDE σ, px")
-        XCTAssertEqual(Field.spokenLabel("Minimum size", unit: "px"), "Minimum size, px")
-        XCTAssertEqual(Field.spokenLabel("σ_k", unit: "%"), "σ_k, %")
+    func testTitleThatAlreadyNamesTheUnitIsNotRepeated() {
+        XCTAssertEqual(NumericFieldSpeech.label("Semi-axis a in pixels", unit: "px"), "Semi-axis a in pixels")
+        XCTAssertEqual(NumericFieldSpeech.label("Energy (keV)", unit: "keV"), "Energy (keV)")
+        XCTAssertEqual(NumericFieldSpeech.label("Thickness (nm)", unit: "nm"), "Thickness (nm)")
     }
 
     func testNoUnitLeavesTheTitleAlone() {
-        XCTAssertEqual(Field.spokenLabel("Inner fit radius in pixels", unit: nil),
+        XCTAssertEqual(NumericFieldSpeech.label("Inner fit radius in pixels", unit: nil),
                        "Inner fit radius in pixels")
+    }
+
+    func testAUnitInsideAnotherWordIsNotCountedAsNamed() {
+        // "nm" is inside "Enmesh" but is not a separate word.
+        XCTAssertEqual(NumericFieldSpeech.label("Enmesh", unit: "nm"), "Enmesh, nm")
     }
 }
