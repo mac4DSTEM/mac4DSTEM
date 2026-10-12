@@ -82,9 +82,9 @@ Audit row numbers are `a11y-rooms-apple-docs-audit-2026-10-07.md`'s. No visible 
 | WID-2 | Bragg Disks: change a detection setting so a validation message changes text; the AX value of the message row follows the visible text (same fix as WL-1's). | |
 | R1 | 2026-10-12 lanes (VoiceOver actions only, nothing drawn): Prepare scan preview — VO actions "Crop: move top/bottom/left/right edge …" and "Reset scan crop" change the crop rectangle exactly as a drag; the value ends "Crop x a–b, y c–d" (b0cd101d). | |
 | R2 | Bragg Disks › Label centres on: diffraction pane VO actions "Move label cursor …" change the spoken cursor; "Label centre here" adds a centre (count +1), again removes it (28b39155). | |
-| R3 | Results comparison: VO value of a panel is the sample at its centre; "Move sample cursor …" changes it; the pointer readout is unchanged (fd4752f2). | |
+| R3 | Results comparison: VO value of a panel is the sample at its centre; "Move sample cursor …" changes it; the panel is one element named "A · <product>", the colour scale still readable inside; the pointer readout is unchanged (fd4752f2, b1a231f9). | |
 | R4 | Disabled Export Data / Save to Results / Label-centres toggle / Save to Sidecar: VO on the dimmed control speaks its name, then the reason (07dac5b5, ddc19b98). | |
 | R5 | Spectrum plot: VO-⌘-Space lists "Add Al Kα (1.49 keV)"-style actions for the span's centre; one adds the element as the right-click menu does; none when nothing is near (ae7453a2). | |
-| R6 | A number field with a unit ("KDE σ", px) speaks "KDE σ, px" once; "Semi-axis a in pixels" speaks no extra "px"; the drawn unit is silent (5ce32290..f1c9ffb0). | |
+| R6 | A number field with a unit ("KDE σ", px) speaks "KDE σ, px" once; "Semi-axis a in pixels" and "Ellipse angle θ in degrees" speak no extra unit; the drawn unit is silent (5ce32290..f1c9ffb0, fe3bc6f3). | |
 | R7 | Scrubbing the scan position updates Info › Current scan position rows as before (05012f15). | |
-| R8 | Crystal Maps › Orientation: Area picker and region rows behave as before while scrubbing (f431f0b1). | |
+| R8 | Crystal Maps › Orientation: Area picker and region rows and the Work / Expected rows behave as before while scrubbing (f431f0b1, 05bf59cc). | |
