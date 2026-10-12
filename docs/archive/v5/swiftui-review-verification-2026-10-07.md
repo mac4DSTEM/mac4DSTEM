@@ -85,6 +85,6 @@ Audit row numbers are `a11y-rooms-apple-docs-audit-2026-10-07.md`'s. No visible 
 | R3 | Results comparison: VO value of a panel is the sample at its centre; "Move sample cursor …" changes it; the panel is one element named "A · <product>", the colour scale still readable inside; the pointer readout is unchanged (fd4752f2, b1a231f9). | |
 | R4 | Disabled Export Data / Save to Results / Label-centres toggle / Save to Sidecar: VO on the dimmed control speaks its name, then the reason (07dac5b5, ddc19b98). | |
 | R5 | Spectrum plot: VO-⌘-Space lists "Add Al Kα (1.49 keV)"-style actions for the span's centre; one adds the element as the right-click menu does; none when nothing is near (ae7453a2). | |
-| R6 | A number field with a unit ("KDE σ", px) speaks "KDE σ, px" once; "Semi-axis a in pixels" and "Ellipse angle θ in degrees" speak no extra unit; the drawn unit is silent (5ce32290..f1c9ffb0, fe3bc6f3). | |
-| R7 | Scrubbing the scan position updates Info › Current scan position rows as before (05012f15). | |
+| R6 | A number field with a unit ("KDE σ", px) speaks "KDE σ, px" once; "Semi-axis a in pixels" and "Ellipse angle θ in degrees" speak no extra unit; the drawn unit is silent (5ce32290..f1c9ffb0, fe3bc6f3). | Partly (drive 9): pixels and degrees titles spoken once, no separate unit element; a title without the unit not yet checked |
+| R7 | Scrubbing the scan position updates Info › Current scan position rows as before (05012f15). | PASS on screen (drive 9, 2026-10-12, scratch build of 179d2b9c): x/y follow Move scan; the AX tree read 0, 0 (stale; see open-items) |
 | R8 | Crystal Maps › Orientation: Area picker and region rows and the Work / Expected rows behave as before while scrubbing (f431f0b1, 05bf59cc). | |

@@ -27,3 +27,4 @@ Moved from `docs/status.md` 2026-10-12:
 | Gate | Result |
 |---|---|
 | Overnight merged gate (2026-10-08, `79a9c4a5`: lanes X, Y, Z, V, D2, A2, P2 and the harness fix on `main`) | unit **2365 / 0 / 3 = 2368** = `func test` count, core 0, inventory 0, `scientific` exit 0, 53 sections, zero FAIL lines (`gateM3/*.log`). Earlier the same night on `0c4da322`: unit 2359 / 0 / 3, core 0, inventory 0 (`gateM/*.log`). |
+| SwiftUI drive 7 (2026-10-08 overnight, scratch build of f62fa311) | Read through the AX tree, pid-pinned, drive lock held: X1 keys, Y3 hints (tooltips keep full text), V-F1 numbers, A2 swatches and label sheet, light appearance (per-process flag) pass; Y1/Y2 partly (Q/R names, units, stepper values in AXValueDescription); Y4/Y5, 6.1, D2-1 not run. Compute Strain crash not reproduced. Rows in `archive/v5/swiftui-review-verification-2026-10-07.md`. |
