@@ -222,7 +222,7 @@ extension AppState {
             caption: publicationCaption,
             valueRange: resultDisplayedValueRange,
             valueUnits: currentResultValueUnits, colormap: resultPresentation.resultColormap,
-            masksNoData: masksNoData
+            masksNoData: masksNoData, gamma: resultPresentation.resultGamma
         )
         // The FULL provenance record travels in the PNG metadata beside the
         // burned caption (v2 S7): everything the figure renders, plus the

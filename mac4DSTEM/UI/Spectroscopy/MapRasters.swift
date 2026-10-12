@@ -212,8 +212,7 @@ enum ElementTileRaster {
         guard width > 0, height > 0, values.count == width * height else { return nil }
         let lut = Colormaps.lutRGBA(colormap)
         return MapBitmap.image(width: width, height: height) { i in
-            let k = min(255, max(0, Int((display.apply(values[i]) * 255).rounded())))
-            return (lut[k * 4], lut[k * 4 + 1], lut[k * 4 + 2])
+            Colormaps.sampleRGB(lut, Double(display.apply(values[i])))   // the shader's linear-filter lookup
         }
     }
 }

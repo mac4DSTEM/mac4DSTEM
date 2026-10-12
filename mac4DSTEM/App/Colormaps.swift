@@ -23,6 +23,21 @@ enum Colormaps {
         return output
     }
 
+    /// The colour the Metal sampler returns for a normalised value `v` (after window and gamma)
+    /// on the 256-texel LUT: linear filter, clamp-to-edge, so texel centres sit at (i + 0.5) / 256.
+    /// Matches Colormaps.metal's sampler so an export equals the screen. `lut` is RGBA, 256 texels.
+    nonisolated static func sampleRGB(_ lut: [UInt8], _ v: Double) -> (UInt8, UInt8, UInt8) {
+        let p = min(max(v * 256 - 0.5, 0), 255)
+        let i0 = Int(p.rounded(.down))
+        let i1 = min(i0 + 1, 255)
+        let t = p - Double(i0)
+        func channel(_ c: Int) -> UInt8 {
+            let a = Double(lut[i0 * 4 + c]), b = Double(lut[i1 * 4 + c])
+            return UInt8(Swift.min(Swift.max((a + (b - a) * t).rounded(), 0), 255))
+        }
+        return (channel(0), channel(1), channel(2))
+    }
+
     private static func sample(
         _ stops: [(Double, Double, Double, Double)],
         at t: Double

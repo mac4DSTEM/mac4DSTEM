@@ -53,7 +53,7 @@ extension AppState {
     static func publicationFigure(
         image: CGImage, title: String, caption: String,
         valueRange: (low: Double, high: Double)?, valueUnits: String,
-        colormap: ColormapKind, masksNoData: Bool = false
+        colormap: ColormapKind, masksNoData: Bool = false, gamma: Float = 1
     ) -> CGImage {
         let margin: CGFloat = 18
         let colorbarWidth: CGFloat = valueRange == nil ? 0 : 76
@@ -115,11 +115,10 @@ extension AppState {
             let barY = imageRect.minY
             let barHeight = imageRect.height
             for index in 0..<256 {
-                let offset = index * 4
+                let (red, green, blue) = colorbarRowRGB(lut, fraction: Double(index) / 255, gamma: gamma)
                 NSColor(
-                    red: CGFloat(lut[offset]) / 255,
-                    green: CGFloat(lut[offset + 1]) / 255,
-                    blue: CGFloat(lut[offset + 2]) / 255, alpha: 1
+                    red: CGFloat(red) / 255, green: CGFloat(green) / 255,
+                    blue: CGFloat(blue) / 255, alpha: 1
                 ).setFill()
                 NSRect(x: barX, y: barY + CGFloat(index) / 256 * barHeight,
                        width: 14, height: max(1, barHeight / 256 + 0.5)).fill()
@@ -156,6 +155,13 @@ extension AppState {
         return bitmap.cgImage ?? image
     }
 
+    /// The colour of a colorbar row at value `fraction` of the window: the same gamma and
+    /// LUT lookup the image pixels get, so the bar labels the image at any gamma.
+    nonisolated static func colorbarRowRGB(_ lut: [UInt8], fraction: Double,
+                                           gamma: Float) -> (UInt8, UInt8, UInt8) {
+        Colormaps.sampleRGB(lut, pow(fraction, 1 / Double(max(gamma, 0.05))))
+    }
+
     /// Normalized [0,1] scalar pixels → packed RGBA via the colormap LUT,
     /// with the same contrast window the shader applies on screen. Negative
     /// sentinel pixels (FloatImage.invalidDisplayValue) render as the same
@@ -172,10 +178,8 @@ extension AppState {
             }
             let clipped = min(max((raw - lo) / span, 0), 1)
             let v = pow(clipped, 1 / max(gamma, 0.05))
-            let li = Int((v * 255).rounded()) * 4
-            out[4 * i]     = lut[li]
-            out[4 * i + 1] = lut[li + 1]
-            out[4 * i + 2] = lut[li + 2]
+            let (r, g, b) = Colormaps.sampleRGB(lut, Double(v))   // the shader's linear-filter lookup
+            out[4 * i] = r; out[4 * i + 1] = g; out[4 * i + 2] = b
         }
         return out
     }
