@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// Seam 4 (docs/archive/v4/appstate-seams-plan.md), the last of the night's four

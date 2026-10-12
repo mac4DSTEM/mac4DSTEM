@@ -25,10 +25,12 @@ Since 2026-09-03 this is a module boundary, not a convention: `Package.swift`
 builds `Core/` as `DSTEMCore` and `Session/` as `DSTEMSession`, standalone
 SwiftPM targets whose own comment states the purpose: `swift build` fails the
 moment `Core/` reaches upward into `App/`, `UI/` or `Support/` — run as
-`tools/run-tests.sh core`. The Xcode app target compiles the *same* files
-directly, via an explicit exception list in `project.pbxproj` enumerating
-every `Core/`/`Session/` file, so package and app target never drift apart
-file-for-file. Declarations use the `package` access level throughout (app
+`tools/run-tests.sh core`. The Xcode app target does not compile them a
+second time: an explicit exception list in `project.pbxproj` excludes every
+`Core/`/`Session/` file from the app target, which links the packages
+instead. A `Session/` file missing from that list is compiled into both
+(`DPCProduct.swift` and `DiskDetectionProduct.swift` were, until 2026-10-12);
+check `mac4DSTEM.SwiftFileList` under DerivedData. Declarations use the `package` access level throughout (app
 and test targets set `SWIFT_PACKAGE_NAME = mac4dstem`); a file compiled into
 both the app target and a standalone `tools/` harness guards the imports
 with `#if canImport(DSTEMCore) import DSTEMCore import DSTEMSession #endif`

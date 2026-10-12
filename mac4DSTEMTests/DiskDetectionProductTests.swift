@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import DSTEMSession
 @testable import mac4DSTEM
 
 /// Seam 3 (docs/archive/v4/appstate-seams-plan.md): `DiskDetectionProduct` owns
