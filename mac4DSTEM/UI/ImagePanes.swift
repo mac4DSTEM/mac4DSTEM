@@ -43,6 +43,8 @@ struct DiffractionPane: View {
     /// nothing but this pane's own footer (and `RealSpacePane`'s) needs it.
     @Environment(AppPreferences.self) private var preferences
     @State private var zp = ZoomPan()
+    /// The VoiceOver label cursor (audit 3.1): VoiceOver-only state, drawn nowhere. nil until first used (starts at the centre).
+    @State private var labelCursor: DiskLabelCursor.Pixel?
     /// "Show claimed disks" (phase-mapping task): a per-viewer display
     /// preference, so it lives with the view and not in `AppState`.
     @AppStorage("phaseMapping.showClaimedDisks") private var showClaimedDisks = true
@@ -211,6 +213,8 @@ struct DiffractionPane: View {
     private func content(in size: CGSize) -> some View {
         if let pattern = appState.displayedPattern {
             let qx = pattern.qx, qy = pattern.qy
+            // The same condition that draws the click catcher for labelling below (Disks mode, toggle on).
+            let labelActive = appState.navigation.analysisMode == .disks && appState.diskCentreLabels.labelling
             let box = LayoutPolicy.fitted(in: size, aspect: CGFloat(qx) / CGFloat(qy))
             let norm = appState.normalizedPatternPixels()   // cached per patternVersion
             // Fit verification: read once for the overlay (in the zoomed layer) and its key chip (outside it).
@@ -408,9 +412,17 @@ struct DiffractionPane: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Diffraction pattern")
-            .accessibilityValue("Scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(qx) by \(qy) detector pixels")
+            .accessibilityValue(
+                "Scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(qx) by \(qy) detector pixels"
+                + (labelActive
+                    ? "; " + DiskLabelCursor.spokenValue(DiskLabelCursor.resolved(labelCursor, patternWidth: qx, patternHeight: qy))
+                    : "")
+            )
             .accessibilityHint(ZoomPan.accessibilityHint)
             .zoomPanAccessibilityActions($zp, box: box)
+            .modifier(LabelCursorAccessibilityActions(
+                cursor: $labelCursor, active: labelActive, patternWidth: qx, patternHeight: qy
+            ))
         } else {
             ContentUnavailableView(
                 "No Diffraction Pattern",
@@ -477,6 +489,86 @@ private struct ScanMoveAccessibilityActions: ViewModifier {
             .accessibilityAction(named: ScanMove.right.actionName) { move(.right) }
             .accessibilityAction(named: ScanMove.up.actionName) { move(.up) }
             .accessibilityAction(named: ScanMove.down.actionName) { move(.down) }
+    }
+}
+
+/// The VoiceOver cursor for "Label centres on click" (audit 3.1). The click catcher that labels a
+/// disk centre is a pointer-only route; this is its keyboard and VoiceOver twin: a pattern pixel the
+/// named actions move, and "Label centre here" passes to the SAME `AppState.toggleDiskCentre` a click
+/// calls. Pure, so the step and the clamp are unit-tested. The cursor is drawn nowhere.
+///
+/// `toggleDiskCentre` is a toggle (add, or remove the centre within 3 px), so "Label centre here" also
+/// removes a label that is already there, exactly as a click does; there is no separate removal action.
+enum DiskLabelCursor {
+    struct Pixel: Equatable {
+        var x: Int
+        var y: Int
+    }
+
+    /// One cursor step: 1/50 of the pattern side, at least one pixel.
+    nonisolated static func step(extent: Int) -> Int { max(1, extent / 50) }
+
+    /// Clamp to the pattern's pixels, 0 ... extent - 1 (a click's own bounds check).
+    nonisolated static func clamped(_ p: Pixel, patternWidth: Int, patternHeight: Int) -> Pixel {
+        Pixel(x: min(max(0, p.x), max(0, patternWidth - 1)),
+              y: min(max(0, p.y), max(0, patternHeight - 1)))
+    }
+
+    /// The cursor where it is, or the pattern centre before it has been moved.
+    nonisolated static func resolved(_ stored: Pixel?, patternWidth: Int, patternHeight: Int) -> Pixel {
+        clamped(stored ?? Pixel(x: max(0, patternWidth - 1) / 2, y: max(0, patternHeight - 1) / 2),
+                patternWidth: patternWidth, patternHeight: patternHeight)
+    }
+
+    /// One named step from `p`, clamped to the pattern. Up is y - 1, as the pane draws it.
+    nonisolated static func moved(_ p: Pixel, by move: ScanMove,
+                                  patternWidth: Int, patternHeight: Int) -> Pixel {
+        let sx = step(extent: patternWidth), sy = step(extent: patternHeight)
+        return clamped(Pixel(x: p.x + move.delta.dx * sx, y: p.y + move.delta.dy * sy),
+                       patternWidth: patternWidth, patternHeight: patternHeight)
+    }
+
+    /// The cursor's spoken position, shown as the diffraction pane's accessibility value.
+    nonisolated static func spokenValue(_ p: Pixel) -> String {
+        "Label cursor x \(p.x), y \(p.y) px"
+    }
+}
+
+/// The four "Move label cursor …" actions and "Label centre here", present only while labelling is on in
+/// Disks mode: the same condition that draws the click catcher. "Label centre here" calls the same
+/// `toggleDiskCentre(atPatternRow:col:)` the tap calls, with the cursor's pixel.
+private struct LabelCursorAccessibilityActions: ViewModifier {
+    @Environment(AppState.self) private var appState
+    @Binding var cursor: DiskLabelCursor.Pixel?
+    let active: Bool
+    let patternWidth: Int
+    let patternHeight: Int
+
+    private var current: DiskLabelCursor.Pixel {
+        DiskLabelCursor.resolved(cursor, patternWidth: patternWidth, patternHeight: patternHeight)
+    }
+
+    private func move(_ m: ScanMove) {
+        cursor = DiskLabelCursor.moved(current, by: m, patternWidth: patternWidth, patternHeight: patternHeight)
+    }
+
+    private func label() {
+        let p = current
+        _ = appState.toggleDiskCentre(atPatternRow: Float(p.y), col: Float(p.x))
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if active {
+            content
+                .accessibilityAction(named: "Move label cursor left") { move(.left) }
+                .accessibilityAction(named: "Move label cursor right") { move(.right) }
+                .accessibilityAction(named: "Move label cursor up") { move(.up) }
+                .accessibilityAction(named: "Move label cursor down") { move(.down) }
+                .accessibilityAction(named: "Label centre here") { label() }
+        } else {
+            content
+        }
     }
 }
 
