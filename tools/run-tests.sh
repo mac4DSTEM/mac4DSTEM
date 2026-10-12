@@ -434,12 +434,25 @@ inventory() {
   return $rc
 }
 
-core_build() {
+core_build() (
   # The package layers (Package.swift, v2.5 step 2): DSTEMCore (Core/) and
   # DSTEMSession (Session/). Fails the moment either reaches upward into
   # App/, UI/ or Support/, or Core reaches into Session.
-  ( cd "$ROOT" && swift build 2>&1 | grep -vE '^\[[0-9]+/[0-9]+\]' ) && echo "core: DSTEMCore + DSTEMSession built"
-}
+  # The exit is taken from swift build itself, not from a pipe: under
+  # pipefail, grep -v that selects nothing (a clean build of progress lines
+  # only) returned 1 and reported a false failure (2026-10-12).
+  local work log rc=0
+  work="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-core-build.XXXXXX")"
+  trap 'rm -rf "$work"' EXIT
+  log="$work/swift-build.log"
+  cd "$ROOT"
+  swift build > "$log" 2>&1 && rc=0 || rc=$?
+  grep -vE '^\[[0-9]+/[0-9]+\]' "$log" || true
+  if [ "$rc" -eq 0 ]; then
+    echo "core: DSTEMCore + DSTEMSession built"
+  fi
+  return "$rc"
+)
 
 case "${1:-unit}" in
   inventory) inventory ;;
