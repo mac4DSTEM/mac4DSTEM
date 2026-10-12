@@ -5,6 +5,36 @@ struct Fixture: Decodable {
     let profileCases: [ProfileCase]
     let overlapCase: ProfileCase
     let spotCases: [SpotCase]
+    let sweepCases: [SweepCase]
+}
+/// One ring of the clean sweep (2026-10-12): the pixels sit in a raw float32
+/// file written by reference.py, `optimum*` is scipy's minimum of fit1D's own
+/// objective from fit1D's own start.
+struct SweepCase: Decodable {
+    let name: String
+    let file: String
+    let height: Int
+    let width: Int
+    let radius: Double
+    let eps: Double
+    let gapDegrees: Double
+    let centerQX: Double
+    let centerQY: Double
+    let startQX: Double
+    let startQY: Double
+    let a: Double
+    let b: Double
+    /// nil on a circle, where the angle is undefined.
+    let theta: Double?
+    let innerRadius: Double
+    let outerRadius: Double
+    let sampleCount: Int
+    let occupiedBins: Int
+    let optimumCenterQX: Double
+    let optimumCenterQY: Double
+    let optimumA: Double
+    let optimumB: Double
+    let optimumTheta: Double
 }
 struct SpotCase: Decodable {
     let name: String
@@ -307,6 +337,100 @@ do {
 } catch {
     // The seed-centre mutation lands here: moreThanOneRing(38.2, 44.5).
     fail("spotty_ring_6_azimuths seeded 3.2 px off was refused: \(error)")
+}
+
+// THE CLEAN SWEEP (2026-10-12). Every ring below is a clean plant that has an
+// optimum, and fit1D must find it. Its LM stop rule once tested convergence only
+// after an ACCEPTED step; at the optimum the cost change of a step is roundoff,
+// every step was refused, damping grew until the candidate equalled the point,
+// and the 100-pass cap threw didNotConverge on about one clean ring in seven
+// (docs/archive/v5/ellipse-stop-rule-gateD-2026-10-12.md). None of the cases
+// above is big enough to hit it. Four checks per ring, in the order tried:
+//   - it FITS (a throw is a FAIL naming the ring and the error; every ring is
+//     tried before the run stops, so the count is in the log),
+//   - fit1D reads the pixels scipy was given (annulus pixel count and occupied
+//     angular bins equal reference.py's),
+//   - the centre is within 0.05 px of the plant's,
+//   - fit1D equals scipy's optimum of the same objective (the weighted conic
+//     (A dx^2 + B dx dy + C dy^2 - 1) * I, same samples, same start): centre
+//     1e-5 px, a and b 1e-7 relative, theta 1e-6 rad (not on a circle, where
+//     it is undefined). Measured 2026-10-12 on these 48 rings: at most 1.1e-7
+//     px, 6.4e-10 and 1.7e-8 rad, against 7e-8 px and 2.6e-10 between scipy's
+//     own two parameter scalings, so each tolerance sits 60x or more above the
+//     agreement. This is also what pins the OBJECTIVE: an unweighted or
+//     sqrt-weighted variant lands on a different minimum and fails here, not
+//     at the plant.
+// The radius bias is printed, never gated: the objective's minimum sits at
+// R (1 + 1.75 (s/R)^2) on a ring of width s (an r dr measure, the conic's r^2,
+// the squared intensity), and py4DSTEM's fit_ellipse_1D has the same objective.
+let sweepCentreTolerance = 1e-5
+let sweepAxesTolerance = 1e-7
+let sweepThetaTolerance = 1e-6
+var sweepFailures = [String]()
+var sweepFailedRings = Set<String>()
+var worstPlant = 0.0, worstCentre = 0.0, worstAxes = 0.0, worstTheta = 0.0
+var biasByRadius = [Double: (clean: [Double], gapped: [Double])]()
+guard !fixture.sweepCases.isEmpty else { fail("the clean sweep is empty") }
+for test in fixture.sweepCases {
+    let pixels = try Data(contentsOf: URL(fileURLWithPath: test.file)).withUnsafeBytes {
+        Array($0.bindMemory(to: Float.self))
+    }
+    guard pixels.count == test.height * test.width else {
+        fail("\(test.name) fixture file holds \(pixels.count) pixels, expected \(test.height * test.width)")
+    }
+    let pattern = DiffractionPattern(qy: test.height, qx: test.width, pixels: pixels)
+    let fit: EllipseCalibrationFit
+    do {
+        fit = try EllipseCalibration.fit1D(
+            pattern: pattern, centerQX: test.startQX, centerQY: test.startQY,
+            innerRadius: test.innerRadius, outerRadius: test.outerRadius)
+    } catch {
+        sweepFailures.append("\(test.name) was refused: \(error)")
+        sweepFailedRings.insert(test.name)
+        continue
+    }
+    if fit.sampleCount != test.sampleCount || fit.occupiedAngularBins != test.occupiedBins {
+        sweepFailures.append("\(test.name) reads \(fit.sampleCount) pixels in \(fit.occupiedAngularBins) bins, "
+                             + "reference.py \(test.sampleCount) in \(test.occupiedBins)")
+        sweepFailedRings.insert(test.name)
+    }
+    let plant = max(abs(fit.centerQX - test.centerQX), abs(fit.centerQY - test.centerQY))
+    let centre = max(abs(fit.centerQX - test.optimumCenterQX), abs(fit.centerQY - test.optimumCenterQY))
+    let axes = max(abs(fit.a - test.optimumA) / test.optimumA, abs(fit.b - test.optimumB) / test.optimumB)
+    let theta = test.theta == nil ? 0 : angleError(fit.theta, test.optimumTheta)
+    worstPlant = max(worstPlant, plant); worstCentre = max(worstCentre, centre)
+    worstAxes = max(worstAxes, axes); worstTheta = max(worstTheta, theta)
+    if plant >= 0.05 {
+        sweepFailures.append("\(test.name) centre is \(plant) px from the plant (limit 0.05)")
+        sweepFailedRings.insert(test.name)
+    }
+    if centre >= sweepCentreTolerance || axes >= sweepAxesTolerance || theta >= sweepThetaTolerance {
+        sweepFailures.append("\(test.name) differs from scipy's optimum: centre \(centre) px, "
+                             + "axes \(axes) relative, theta \(theta) rad; fit1D \(fit)")
+        sweepFailedRings.insert(test.name)
+    }
+    let bias = (fit.a + fit.b) / 2 / test.radius - 1
+    if test.gapDegrees == 0 {
+        biasByRadius[test.radius, default: ([], [])].clean.append(bias)
+    } else {
+        biasByRadius[test.radius, default: ([], [])].gapped.append(bias)
+    }
+}
+guard sweepFailures.isEmpty else {
+    fail("clean sweep: \(sweepFailedRings.count) of \(fixture.sweepCases.count) rings failed\n  "
+         + sweepFailures.joined(separator: "\n  "))
+}
+print(String(format: "PASS: clean sweep, %d rings fitted: centre within %.3f px of the plant; against "
+             + "scipy's optimum at most %.2e px, %.2e relative in a and b, %.2e rad in theta",
+             fixture.sweepCases.count, worstPlant, worstCentre, worstAxes, worstTheta))
+func percent(_ values: [Double]) -> String {
+    values.isEmpty ? "     -" : String(format: "%+.4f", 100 * values.reduce(0, +) / Double(values.count))
+}
+for radius in biasByRadius.keys.sorted() {
+    let bias = biasByRadius[radius]!
+    print(String(format: "INFO: radius bias (a+b)/2 over R at R %3.0f px, s 3 px: unbroken ring %@ %%, "
+                 + "60 degree arc missing %@ %%; 1.75 (s/R)^2 = %.4f %%",
+                 radius, percent(bias.clean), percent(bias.gapped), 100 * 1.75 * pow(3 / radius, 2)))
 }
 
 print("ellipse-calibration-test: all passed")

@@ -53,6 +53,39 @@ the ratio, at −3.5 (s/R)² ε of the distortion ε; the absolute a and b are d
 (`fitAmorphousRing` seeded by the conic, as `fitBestAvailable` runs it) holds the plant's model exactly, so its (a + b)/2 is
 within 0.01 % of R on the same rings, and `fitBestAvailable` accepts the profile there.
 
-## Results
+## Results (2026-10-12, M5 Pro; numpy 2.5.0, scipy 1.18.0)
 
-(Added after the run.)
+Written by a Sonnet lane, refuted by an independent Sonnet agent that rebuilt old (`git show HEAD`) and new `fit1D` with its own
+harness and its own scipy comparison. "ABC rel" below is max |ΔA, ΔB, ΔC| / ‖(A, B, C)‖, since B ≈ 0 on a circle. Session logs
+are named, not kept: `lanes/E/run-orig-clean.log`, `analysis-old.txt`, `p3-report.txt`, `bias.txt`; the refuter's `lanes/E-refute/`.
+
+**Item 1.** R0, R1, R2 not refuted; the diagnosis stands, and the fix landed as designed.
+- P1 held: this tree's `fit1D` refuses 12 of macTEM's 84 clean plants `didNotConverge`, the same 12 names as macTEM's run (the
+  refuter: also 14 of its 144 noisy plants).
+- P2 (a) held: 94–97 consecutive cost refusals end every refused case; (b) held: final damping 1.2e91–3.7e92; (c) held: the last
+  accepted point is within 2.5e-7 px and 1.9e-9 ABC rel of scipy's optimum (the refuter: 2.5e-7 px, 2.5e-9 on all 26); the cost
+  change of a refused step is at most 7.4e-14 on costs of 3–8. **(d) did not hold:** the proposed (damped) step is below 1e-10 at
+  the first refusal in 9 cases and only at the sixth in 3 (first steps 1.8e-10, 6.4e-10, 3.0e-10).
+- P3: 0 of 84 refused (the refuter: 0 of 228); the 12 return exactly their P2(c) point. **"Bit-identical on most" did not hold:**
+  33 of 72 formerly accepted fits are bit-identical; 39 stop one tiny step earlier, because the old loop refused a step under 1e-10
+  before a later accepted one. Their largest differences, 2.9e-8 px, 1.6e-10 relative in a and b, 6.7e-9 rad in θ (ε > 0), are
+  inside the registered bounds except a strict relative-1e-9 reading of θ. One existing harness line changes in its 17th digit.
+- The refuter's adversarial corpus (720 plants: noise with gradients and hot pixels, sparse rings and arcs fitted anyway, starts
+  8–20 px off, 1024–2048 px detectors, intensity scales 1e-3–1e15) found no fit the old code accepted that the new one refuses or
+  moves by more than 2.9e-8 px; a refused-branch threshold of 1e-4 still stays within 1e-6 px of scipy. Outside this item:
+  contiguous arcs fitted anyway still end `didNotConverge` in 54 of its 150 (slow descent, ~68 accepted steps in 100 passes).
+- Fixture: `tools/ellipse-calibration-test` plants 48 clean rings; the old rule refuses 7 of them (red), the new fits all 48 within
+  0.037 px of the plant and 1.1e-7 px / 6.4e-10 / 1.7e-8 rad of scipy. A weight exponent of 0.98 fails all 48 (the objective is
+  pinned). It does not pin the stop point: "no accepted number moves" rests on the measurement above. `EllipseStopRuleTests` fits four
+  96 × 96 rings the old rule refused (red on it in the Debug build).
+
+**Item 2.** Measurement held; the profile-path prediction did not.
+- `fit1D`'s (a + b)/2 over R, gap-free rings: +0.2456 / 0.1093 / 0.0803 / 0.0615 / 0.0394 % at R 80 / 120 / 140 / 160 / 200 px
+  against 1.75 (s/R)² = 0.2461 / 0.1094 / 0.0804 / 0.0615 / 0.0394 %; a 60° gap adds 0.002–0.011 points. Held.
+- **Profile path did not hold:** `fitBestAvailable` kept the profile on 59 of 84 and fell back to the conic on 25 (residual
+  0.235–0.336 > 0.22; 24 gapped, 1 gap-free); 20 of the 59 are beyond 0.01 %. The refuter, seeding the profile at the plant: the
+  gap-free shortfall (0.019 % on two rings, the one fallback) is the optimiser from the conic seed, not the model; gapped rings carry
+  a model bias up to 0.067 %.
+- On these plants a/b is exact (the ring width scales with the elliptical radius); the registered ratio term −3.5 (s/R)² ε held to
+  about 2 % on 24 constant-width plants. Not measured: background and annulus width, which a scratch model of the objective says
+  dominate the bias; that is a question for its own registration, not a result.

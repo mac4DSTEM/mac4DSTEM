@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
-"""Source-lock py4DSTEM conic/profile conventions and emit synthetic rings."""
+"""Source-lock py4DSTEM conic/profile conventions and emit synthetic rings.
+
+    reference.py <sweep-dir> > expected.json
+
+Besides the small ring, profile, overlap and spotty-ring fixtures (inline in the
+JSON), it plants a CLEAN SWEEP of single rings (numpy, written as raw float32
+files into <sweep-dir>; 2026-10-12) and solves each with scipy: the optimum of
+fit1D's own objective, which the harness holds `fit1D` to. See `sweep_cases`."""
 import json
 import math
 import pathlib
+import sys
 
+import numpy as np
+
+if len(sys.argv) != 2:
+    raise SystemExit("usage: reference.py <sweep-dir> > expected.json")
 repo = pathlib.Path(__file__).resolve().parents[2]
 ellipse_source = (repo / "References/py4DSTEM-dev/py4DSTEM/process/calibration/ellipse.py").read_text()
 coordinate_source = (repo / "References/py4DSTEM-dev/py4DSTEM/process/utils/elliptical_coords.py").read_text()
@@ -273,6 +285,163 @@ spot_cases = [
                  whyAnyway="ACCEPTED AND WRONG: two radii in every sector blend past the check"),
 ]
 
+# THE CLEAN SWEEP (2026-10-12). fit1D's stop rule once threw didNotConverge AT
+# the optimum on about one clean planted ring in seven (the cost change of a
+# step there is roundoff, so every step was refused; docs/archive/v5/
+# ellipse-stop-rule-gateD-2026-10-12.md). The cases above are small and never
+# hit it; these are big enough to, and the harness requires every one to fit.
+# A grid, not a selection: two detector sizes, three ring radii each, a circle
+# and two real ellipticities (1 %, 3 %), an unbroken ring and one with a 60
+# degree arc missing, the rotation walking through a fixed list. Each ring is
+# the profile exp(-(r - R)^2 / 2 s^2) about the conic of (a, b, theta), R =
+# (a + b) / 2 exactly, s = 3 px, the centre off the pixel grid. fit1D starts
+# 1.3 px / -0.9 px from the plant (a click's error) with the annulus
+# (b - 20, a + 20) about that start.
+SWEEP_SIGMA = 3.0
+SWEEP_START = (1.3, -0.9)
+SWEEP_MARGIN = 20.0
+SWEEP_THETAS = (20.0, 45.0, 67.5, 90.0, 112.5, 135.0, 160.0)
+SWEEP_SIZES = (((512, 512), (80, 140, 200)), ((384, 512), (80, 120, 160)))
+
+
+def conic_abc(a, b, theta):
+    sin2, cos2 = math.sin(theta) ** 2, math.cos(theta) ** 2
+    return (sin2 / b**2 + cos2 / a**2,
+            2 * (b**2 - a**2) * math.sin(theta) * math.cos(theta) / (a**2 * b**2),
+            cos2 / b**2 + sin2 / a**2)
+
+
+def axes_of(A, B, C):
+    """(a, b, theta) from the quadratic form by numpy's symmetric eigensolver:
+    a along the eigenvector of the smaller eigenvalue, in (qx, qy), mod pi."""
+    values, vectors = np.linalg.eigh(np.array([[A, B / 2.0], [B / 2.0, C]]))
+    major = vectors[:, 0]
+    return (1.0 / math.sqrt(values[0]), 1.0 / math.sqrt(values[1]),
+            math.atan2(major[1], major[0]) % math.pi)
+
+
+def angle_gap(x, y):
+    d = abs(x - y) % math.pi
+    return min(d, math.pi - d)
+
+
+def sweep_plan():
+    plan, k, turn = [], 0, 0
+    for (height, width), radii in SWEEP_SIZES:
+        for radius in radii:
+            for eps in (0.0, 0.01, 0.03):
+                for gap in (0, 60):
+                    for _ in range(1 if eps < 0.03 else 2):
+                        theta = None
+                        if eps > 0:
+                            theta = math.radians(SWEEP_THETAS[turn % len(SWEEP_THETAS)])
+                            turn += 1
+                        b = 2.0 * radius / (2.0 + eps)
+                        plan.append(dict(
+                            height=height, width=width, radius=radius, eps=eps, gap=gap,
+                            a=b * (1.0 + eps), b=b, theta=theta,
+                            qx0=height / 2.0 + 0.37 + 4.0 * math.sin(1.3 * k + 0.2),
+                            qy0=width / 2.0 - 0.41 + 4.0 * math.cos(1.9 * k + 0.7),
+                            gap_start=(53.0 * k + 17.0) % 360.0))
+                        k += 1
+    return plan
+
+
+def sweep_image(c):
+    qx, qy = np.mgrid[0:c["height"], 0:c["width"]].astype(np.float64)
+    dx, dy = qx - c["qx0"], qy - c["qy0"]
+    A, B, C = conic_abc(c["a"], c["b"], c["theta"] or 0.0)
+    elliptical_radius = np.sqrt(np.maximum(0.0, A * dx * dx + B * dx * dy + C * dy * dy))
+    distance = (elliptical_radius - 1.0) * (c["a"] + c["b"]) / 2.0
+    image = np.exp(-(distance * distance) / (2.0 * SWEEP_SIGMA**2))
+    if c["gap"] > 0:
+        angle = np.degrees(np.arctan2(dy, dx)) % 360.0
+        image[((angle - c["gap_start"]) % 360.0) < c["gap"]] = 0.0
+    return image.astype("<f4")
+
+
+def sweep_samples(image, c):
+    """The annulus fit1D reads: radius > inner and <= outer about the START
+    centre, finite pixels, (qx, qy) the absolute row and column."""
+    sx, sy = c["qx0"] + SWEEP_START[0], c["qy0"] + SWEEP_START[1]
+    qx, qy = np.mgrid[0:c["height"], 0:c["width"]].astype(np.float64)
+    radius = np.hypot(qx - sx, qy - sy)
+    inside = (radius > c["inner"]) & (radius <= c["outer"]) & np.isfinite(image)
+    return qx[inside], qy[inside], image[inside].astype(np.float64), sx, sy
+
+
+def sweep_coverage(x, y, v, sx, sy):
+    strong = v >= v.min() + 0.2 * (v.max() - v.min())
+    angle = np.arctan2(y[strong] - sy, x[strong] - sx) % (2 * math.pi)
+    return len(np.unique(np.minimum(35, (angle / (2 * math.pi) * 36).astype(int))))
+
+
+def sweep_optimum(x, y, v, sx, sy, c):
+    """(x0, y0, A, B, C) minimising sum(((A dx^2 + B dx dy + C dy^2 - 1) v)^2),
+    from fit1D's start; two parameter scalings must agree."""
+    try:
+        from scipy.optimize import least_squares
+    except ImportError:
+        raise SystemExit("reference.py: the clean sweep needs scipy for the optimum of the objective")
+
+    def residual(p):
+        dx, dy = x - p[0], y - p[1]
+        return (p[2] * dx * dx + p[3] * dx * dy + p[4] * dy * dy - 1.0) * v
+
+    r = (c["inner"] + c["outer"]) / 2.0
+    p0 = [sx, sy, 1 / r**2, 0.0, 1 / r**2]
+    solutions = [least_squares(residual, p0, method="lm", xtol=1e-15, ftol=1e-15, gtol=1e-15,
+                               x_scale=scale, max_nfev=5000).x
+                 for scale in ("jac", [1.0, 1.0, 1e-5, 1e-5, 1e-5])]
+    spread_abc = float(np.max(np.abs(solutions[0][2:] - solutions[1][2:])) / np.linalg.norm(solutions[0][2:]))
+    spread_centre = float(np.max(np.abs(solutions[0][:2] - solutions[1][:2])))
+    if spread_abc > 1e-7 or spread_centre > 1e-5:
+        raise SystemExit("reference.py: scipy's optimum for %s is not stable under rescaling "
+                         "(ABC %g, centre %g px)" % (c["name"], spread_abc, spread_centre))
+    return solutions[0], spread_abc, spread_centre
+
+
+def sweep_cases(directory):
+    directory = pathlib.Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    cases, spreads = [], []
+    for c in sweep_plan():
+        c["name"] = "sweep-%dx%d-r%d-e%g-t%s-g%d" % (
+            c["height"], c["width"], c["radius"], c["eps"] * 100,
+            "NA" if c["theta"] is None else "%g" % math.degrees(c["theta"]), c["gap"])
+        c["inner"], c["outer"] = c["b"] - SWEEP_MARGIN, c["a"] + SWEEP_MARGIN
+        # The plant survives the conic round trip (the convention fit1D inverts).
+        if c["theta"] is not None:
+            a, b, theta = axes_of(*conic_abc(c["a"], c["b"], c["theta"]))
+            if abs(a - c["a"]) > 1e-9 or abs(b - c["b"]) > 1e-9 or angle_gap(theta, c["theta"]) > 1e-9:
+                raise SystemExit("reference.py: %s: (a, b, theta) do not survive the conic round trip" % c["name"])
+        image = sweep_image(c)
+        x, y, v, sx, sy = sweep_samples(image, c)
+        bins = sweep_coverage(x, y, v, sx, sy)
+        if bins < 30:
+            raise SystemExit("reference.py: %s holds %d of 36 angular bins, below the 30 fit1D needs; "
+                             "the plant is wrong" % (c["name"], bins))
+        optimum, spread_abc, spread_centre = sweep_optimum(x, y, v, sx, sy, c)
+        spreads.append((spread_abc, spread_centre))
+        a, b, theta = axes_of(*optimum[2:])
+        path = directory / (c["name"] + ".f32")
+        image.tofile(path)
+        cases.append({
+            "name": c["name"], "file": str(path.resolve()),
+            "height": c["height"], "width": c["width"], "radius": c["radius"], "eps": c["eps"],
+            "gapDegrees": c["gap"], "centerQX": c["qx0"], "centerQY": c["qy0"],
+            "startQX": sx, "startQY": sy, "a": c["a"], "b": c["b"], "theta": c["theta"],
+            "innerRadius": c["inner"], "outerRadius": c["outer"],
+            "sampleCount": int(len(v)), "occupiedBins": bins,
+            "optimumCenterQX": float(optimum[0]), "optimumCenterQY": float(optimum[1]),
+            "optimumA": a, "optimumB": b, "optimumTheta": theta,
+        })
+    print("reference.py: clean sweep, %d rings in %s (scipy 'jac' vs fixed scaling: ABC spread %.2g, "
+          "centre spread %.2g px at most)" % (len(cases), directory, max(s[0] for s in spreads),
+                                              max(s[1] for s in spreads)), file=sys.stderr)
+    return cases
+
+
 json.dump({
     "cases": [
         ring("non_square_rotated", 72, 110, 34.5, 58.25, 24, 17, 0.42, 1.1),
@@ -284,5 +453,6 @@ json.dump({
     ],
     "overlapCase": overlap_case,
     "spotCases": spot_cases,
-}, fp=__import__("sys").stdout, separators=(",", ":"))
+    "sweepCases": sweep_cases(sys.argv[1]),
+}, fp=sys.stdout, separators=(",", ":"))
 print()

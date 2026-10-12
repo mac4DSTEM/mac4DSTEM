@@ -118,6 +118,17 @@ package nonisolated enum EllipseCalibration {
     /// Port of py4DSTEM `fit_ellipse_1D`'s operative model:
     /// `(A dx² + B dx dy + C dy² - 1) * intensity`.
     /// Coordinates deliberately stay in py4DSTEM order (qx=row, qy=column).
+    ///
+    /// RADIUS BIAS, a property of the port, not a deviation (2026-10-12,
+    /// macTEM's report): the objective's minimum lies OUTSIDE a ring's peak.
+    /// For a Gaussian ring of width s at radius R, no background, an annulus
+    /// many s wide, (a + b)/2 = R (1 + 1.75 (s/R)²) — the r dr measure, the
+    /// conic's r² and the squared intensity (R_f² = ∫r⁵I² dr / ∫r³I² dr).
+    /// `tools/ellipse-calibration-test` prints it (+0.2456 % at R 80 px, s 3 px).
+    /// That is a floor, not a correction: background and the annulus width
+    /// move it, and the coefficient is the Gaussian's. The app applies only
+    /// b/a and θ (`Calibration.ellipseTransform`), so a and b are not a
+    /// calibrated ring radius (`archive/v5/ellipse-stop-rule-gateD-2026-10-12.md`).
     package static func fit1D(
         pattern: DiffractionPattern,
         centerQX: Double,
@@ -296,10 +307,10 @@ package nonisolated enum EllipseCalibration {
                 continue
             }
             let trial = costAndNormal(candidate, buildNormal: false)
+            let relativeStep = sqrt(delta.reduce(0) { $0 + $1 * $1 })
+                / max(1, sqrt(candidate.reduce(0) { $0 + $1 * $1 }))
             if trial.cost < current.cost {
                 parameters = candidate
-                let relativeStep = sqrt(delta.reduce(0) { $0 + $1 * $1 })
-                    / max(1, sqrt(parameters.reduce(0) { $0 + $1 * $1 }))
                 current = costAndNormal(parameters, buildNormal: true)
                 damping = max(1e-12, damping / 3)
                 if relativeStep < 1e-10 {
@@ -307,6 +318,21 @@ package nonisolated enum EllipseCalibration {
                     break
                 }
             } else {
+                // STOP RULE ON A REFUSED STEP TOO (2026-10-12). At the optimum
+                // the cost change of a proposed step is roundoff, so the test
+                // above refuses it, damping grows x10 per pass, the step shrinks
+                // until the candidate equals the point, and with `converged`
+                // set only on an accepted step the 100-pass cap threw
+                // didNotConverge AT the optimum: 12 of 84 clean planted rings
+                // (macTEM's report, `docs/archive/v5/ellipse-stop-rule-gateD-2026-10-12.md`).
+                // A step this small that roundoff will not let lower the cost is
+                // converged; the fit returns the last accepted point. py4DSTEM's
+                // `leastsq` (MINPACK) tests its xtol whether or not the step is
+                // accepted.
+                if relativeStep < 1e-10 {
+                    converged = true
+                    break
+                }
                 damping *= 10
             }
         }
