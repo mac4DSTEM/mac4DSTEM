@@ -1,0 +1,7 @@
+area 0.0 completed proposed=["Cd", "Tl"] questions=[] La=58.35413263895779 sums=[("Cd+Tl sum", 0.0), ("Tl+Tl sum", 0.0)]
+area 40.0 completed proposed=["Cd", "Tl"] questions=[] La=58.38713353553346 sums=[("Cd+Tl sum", 20.207588425329455), ("Tl+Tl sum", 0.0)]
+area 80.0 completed proposed=["Cd", "Tl"] questions=[] La=61.996127760805535 sums=[("Cd+Tl sum", 60.51902511311687), ("Tl+Tl sum", 0.0)]
+area 120.0 threw rankDeficient
+area 160.0 threw rankDeficient
+area 200.0 threw rankDeficient
+area 240.0 completed proposed=["Cd", "Tl"] questions=["La"] La=224.02426935921406 sums=[("Tl+Tl sum", 0.0)]
