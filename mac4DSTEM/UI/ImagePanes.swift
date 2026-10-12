@@ -447,7 +447,7 @@ struct DiffractionPane: View {
 ///
 /// One step of the scan position, by name: the accessibility twin of a click on the scan image (the marker handle in the
 /// real-space pane and the navigator inset both offer it; `AppState.scrubTo` clamps to the scan).
-enum ScanMove: CaseIterable {
+nonisolated enum ScanMove: CaseIterable {
     case left, right, up, down
     var delta: (dx: Int, dy: Int) {
         switch self {
