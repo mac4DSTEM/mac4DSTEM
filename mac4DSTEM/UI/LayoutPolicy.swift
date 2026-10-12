@@ -354,6 +354,14 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
         self.unit = unit
     }
 
+    /// The title with the unit folded in, so VoiceOver speaks "KDE σ, px"
+    /// where the drawn unit is hidden from accessibility. No unit, no change.
+    static func spokenLabel(_ title: String, unit: String?) -> String {
+        unit.map { "\(title), \($0)" } ?? title
+    }
+
+    private var spokenTitle: String { Self.spokenLabel(title, unit: unit) }
+
     var body: some View {
         HStack(spacing: 6) {
             // Commits on Return or focus loss, either decimal separator
@@ -367,12 +375,17 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
                 .frame(width: LayoutPolicy.numericFieldWidth)
+                // The unit is spoken with the field, not as a separate
+                // element after it (the titles do not all carry it: "KDE σ"
+                // has none, "Semi-axis a in pixels" does not name "px").
+                .accessibilityLabel(spokenTitle)
             if let unit {
                 // The unit is part of the number's meaning: it never
                 // truncates and never wraps.
                 Text(unit)
                     .foregroundStyle(.secondary)
                     .fixedSize()
+                    .accessibilityHidden(true)
             }
         }
         .accessibilityLabel(title)
