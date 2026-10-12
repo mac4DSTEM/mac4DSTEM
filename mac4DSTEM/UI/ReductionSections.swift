@@ -64,12 +64,18 @@ struct ReductionPreviewPanes: View {
                         cropSpaceWidth: pending.source.rx,
                         cropSpaceHeight: pending.source.ry,
                         pick: ScanPickAccessibility(
-                            value: ScanPickStepping.spokenValue(position: pending.singleDPPosition),
+                            value: ScanPickStepping.spokenValue(position: pending.singleDPPosition)
+                                + ". " + ScanCropEdgeStepping.spokenValue(pending.configuration.scanCrop),
                             x: ScanPickStepping.sampledIndex(source: pending.singleDPPosition?.rx ?? 0,
                                                              stride: preview.strideX, count: realSpace.width),
                             y: ScanPickStepping.sampledIndex(source: pending.singleDPPosition?.ry ?? 0,
                                                              stride: preview.strideY, count: realSpace.height),
                             width: realSpace.width, height: realSpace.height),
+                        cropEdit: ScanCropEdit(
+                            crop: pending.configuration.scanCrop,
+                            source: pending.source,
+                            strideY: preview.strideY, strideX: preview.strideX,
+                            commit: { pending.configuration.scanCrop = $0 }),
                         onTap: { imageX, imageY in
                             // The preview owns its own stride, so IT does the
                             // sampled-grid → source conversion — the view
@@ -192,6 +198,7 @@ struct ReductionPreviewPanes: View {
         cropSpaceWidth: Int,
         cropSpaceHeight: Int,
         pick: ScanPickAccessibility? = nil,
+        cropEdit: ScanCropEdit? = nil,
         onTap: ((Double, Double) -> Void)? = nil,
         onDrag: @escaping (DragRectangle) -> Void
     ) -> some View {
@@ -282,7 +289,7 @@ struct ReductionPreviewPanes: View {
             // Picking a pattern is otherwise click-only. For VoiceOver and the
             // keyboard the preview becomes a labelled element with two
             // steppers on the same `onTap` path; nothing is drawn.
-            .modifier(ScanPickAccessibilityModifier(title: title, pick: pick, onTap: onTap))
+            .modifier(ScanPickAccessibilityModifier(title: title, pick: pick, onTap: onTap, cropEdit: cropEdit))
             .accessibilityIdentifier(identifier)
         }
     }
@@ -421,6 +428,77 @@ enum ScanPickStepping {
     static func stepperLabel(axis: String) -> String { "\(axis), real-space preview" }
 }
 
+/// The scan crop as VoiceOver edits it: the same binding the drag commits.
+/// `crop` is what the pane draws; `commit` writes `PendingLoad.configuration`.
+struct ScanCropEdit {
+    let crop: AxisCrop?
+    let source: DatasetDescriptor
+    let strideY: Int
+    let strideX: Int
+    let commit: (AxisCrop?) -> Void
+}
+
+/// One edge of the scan crop moved by one step, through the drag's own model
+/// call — `LoadConfiguration.scanCrop` — so the clamp to the scan, the
+/// "covers everything is no crop" rule and the nil for full extent are the
+/// drag's, not a second copy. The step is 1/20 of the scan dimension, at
+/// least one scan position; an edge never closes below one preview sample
+/// (`stride` scan positions), the smallest selection a drag can make.
+enum ScanCropEdgeStepping {
+    enum Move: CaseIterable {
+        case topDown, topUp, bottomDown, bottomUp, leftRight, leftLeft, rightRight, rightLeft
+
+        var name: String {
+            switch self {
+            case .topDown: "Crop: move top edge down"
+            case .topUp: "Crop: move top edge up"
+            case .bottomDown: "Crop: move bottom edge down"
+            case .bottomUp: "Crop: move bottom edge up"
+            case .leftRight: "Crop: move left edge right"
+            case .leftLeft: "Crop: move left edge left"
+            case .rightRight: "Crop: move right edge right"
+            case .rightLeft: "Crop: move right edge left"
+            }
+        }
+    }
+
+    /// `crop` with one edge moved. nil means the whole scan, as the drag reports it.
+    static func moved(_ crop: AxisCrop?, move: Move, source: DatasetDescriptor,
+                      strideY: Int, strideX: Int) -> AxisCrop? {
+        let ry = source.ry, rx = source.rx
+        guard ry > 0, rx > 0 else { return nil }
+        let current = crop ?? AxisCrop(yOffset: 0, xOffset: 0, height: ry, width: rx)
+        let minY = min(max(1, strideY), ry), minX = min(max(1, strideX), rx)
+        let stepY = max(1, ry / 20), stepX = max(1, rx / 20)
+        var y0 = current.yOffset, y1 = current.yOffset + current.height
+        var x0 = current.xOffset, x1 = current.xOffset + current.width
+        // Each edge only ever moves in the direction named: a crop already past
+        // a limit (a sub-stride sliver at the scan's edge) stays where it is.
+        switch move {
+        case .topDown: y0 = max(y0, min(y0 + stepY, y1 - minY))
+        case .topUp: y0 = min(y0, max(y0 - stepY, 0))
+        case .bottomDown: y1 = max(y1, min(y1 + stepY, ry))
+        case .bottomUp: y1 = min(y1, max(y1 - stepY, y0 + minY))
+        case .leftRight: x0 = max(x0, min(x0 + stepX, x1 - minX))
+        case .leftLeft: x0 = min(x0, max(x0 - stepX, 0))
+        case .rightRight: x1 = max(x1, min(x1 + stepX, rx))
+        case .rightLeft: x1 = min(x1, max(x1 - stepX, x0 + minX))
+        }
+        // Source coordinates, so the stride is 1: the rectangle's last pixel is `y1 - 1`.
+        return LoadConfiguration.scanCrop(
+            from: DragRectangle(startX: Double(x0), startY: Double(y0),
+                                endX: Double(x1 - 1), endY: Double(y1 - 1)),
+            strideY: 1, strideX: 1, source: source
+        )
+    }
+
+    /// The crop as VoiceOver speaks it, in source scan positions (inclusive).
+    static func spokenValue(_ crop: AxisCrop?) -> String {
+        guard let crop else { return "Crop: whole scan" }
+        return "Crop x \(crop.xOffset)–\(crop.xOffset + crop.width - 1), y \(crop.yOffset)–\(crop.yOffset + crop.height - 1)"
+    }
+}
+
 /// Label, value and "Scan X / Scan Y" steppers for the real-space preview.
 /// Each step calls the pane's own `onTap` with the new sampled position — the
 /// click path — so the stride conversion stays `DatasetPreview`'s. A step
@@ -431,6 +509,7 @@ private struct ScanPickAccessibilityModifier: ViewModifier {
     let title: String
     let pick: ScanPickAccessibility?
     let onTap: ((Double, Double) -> Void)?
+    let cropEdit: ScanCropEdit?
 
     func body(content: Content) -> some View {
         if let pick, let onTap {
@@ -451,6 +530,20 @@ private struct ScanPickAccessibilityModifier: ViewModifier {
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel(title)
                     .accessibilityValue(pick.value)
+                    // The crop's keyboard and VoiceOver route: one action per edge and direction, each
+                    // through the drag's own commit. Nothing is drawn.
+                    .accessibilityActions {
+                        if let cropEdit {
+                            ForEach(ScanCropEdgeStepping.Move.allCases, id: \.self) { move in
+                                Button(move.name) {
+                                    cropEdit.commit(ScanCropEdgeStepping.moved(
+                                        cropEdit.crop, move: move, source: cropEdit.source,
+                                        strideY: cropEdit.strideY, strideX: cropEdit.strideX))
+                                }
+                            }
+                            Button("Reset scan crop") { cropEdit.commit(nil) }
+                        }
+                    }
                 }
         } else {
             content
