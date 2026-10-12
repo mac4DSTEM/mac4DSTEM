@@ -1117,6 +1117,33 @@ private struct ACOMScopeControls: View {
 /// ACOM's complete user-facing contract. Keeping material, scale semantics,
 /// work scope, and result diagnostics together prevents a physically labelled
 /// output from being assembled out of unrelated controls elsewhere.
+/// ACOM's Work and Expected rows and the full-scan suggestion. Their reads reach `selectedScan` through
+/// `acomWorkPositionCount` (a preview is centred on the scan position), so they sit in a child view: a
+/// scan-position scrub re-runs only this body. Read inline in `ACOMSections.body` they kept the whole
+/// section depending on the scan position (review O5a, 2026-10-12; the earlier split f431f0b1 claimed
+/// this and was incomplete).
+private struct ACOMWorkControls: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        InspectorValueRow("Work", appState.acomWorkSummary)
+            .accessibilityIdentifier("acom.work")
+        InspectorValueRow("Expected", appState.acomEstimatedDurationText)
+            .accessibilityIdentifier("acom.expected")
+        if let suggestion = appState.acomFullScanSuggestion {
+            // The sentence wraps as a caption; the button stays short.
+            InspectorNote(suggestion)
+            InspectorActionRow {
+                InspectorAdaptiveButton("Use Full Scan", systemImage: "square.grid.3x3") {
+                    appState.acomSession.scope = .fullScan
+                }
+                .disabled(appState.isBusy)
+                .accessibilityIdentifier("acom.suggestFullScan")
+            }
+        }
+    }
+}
+
 private struct ACOMSections: View {
     @Environment(AppState.self) private var appState
     @State private var showCIFImporter = false
@@ -1211,22 +1238,7 @@ private struct ACOMSections: View {
                 .help("Measured on 136 planted aluminium patterns across nine zone axes and two azimuthal bins of in-plane rotation (2026-09-15). The angles are the total error against the planted axis: the template bank's own spacing accounts for at most 0.8° of the 13.6°; the rest comes from the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin.")
 
             ACOMScopeControls()
-
-            InspectorValueRow("Work", appState.acomWorkSummary)
-                .accessibilityIdentifier("acom.work")
-            InspectorValueRow("Expected", appState.acomEstimatedDurationText)
-                .accessibilityIdentifier("acom.expected")
-            if let suggestion = appState.acomFullScanSuggestion {
-                // The sentence wraps as a caption; the button stays short.
-                InspectorNote(suggestion)
-                InspectorActionRow {
-                    InspectorAdaptiveButton("Use Full Scan", systemImage: "square.grid.3x3") {
-                        appState.acomSession.scope = .fullScan
-                    }
-                    .disabled(appState.isBusy)
-                    .accessibilityIdentifier("acom.suggestFullScan")
-                }
-            }
+            ACOMWorkControls()
         }
 
         InspectorSection("Engine & Q scale", expanded: $showsEngine) {
