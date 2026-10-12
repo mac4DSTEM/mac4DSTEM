@@ -188,6 +188,34 @@ final class DM4ExperimentTests: XCTestCase {
 
     // MARK: Listing
 
+    func testMetaDataFormatAndSignalAreReportedVerbatim() throws {
+        let with: [Node] = [.group("Meta Data", [.text("Format", "Spectrum image"), .text("Signal", "X-ray")])]
+        let data = Self.file(imageList: [
+            Self.object(name: "a", dataType: 2, dims: [2, 3], axes: [Self.um, Self.um],
+                        blobType: 6, blob: Self.f32s([1, 2, 3, 4, 5, 6]), count: 6, tags: with),
+            Self.object(name: "b", dataType: 2, dims: [2, 3], axes: [Self.um, Self.um],
+                        blobType: 6, blob: Self.f32s([1, 2, 3, 4, 5, 6]), count: 6, tags: []),
+        ])
+        let o = try DM4Experiment.list(data: data)
+        XCTAssertEqual(o[0].metaDataFormat, "Spectrum image")
+        XCTAssertEqual(o[0].metaDataSignal, "X-ray")
+        XCTAssertNil(o[1].metaDataFormat)
+        XCTAssertNil(o[1].metaDataSignal)
+    }
+
+    /// Decoded read-only from the fixture's bytes: the four objects carry Format "Image", "Image",
+    /// "Diffraction image", "Spectrum image"; only the last carries Signal "X-ray".
+    func testTheRealEDSFixtureCarriesSpectrumImageAndXRay() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/demo-edx-tiny.dm4")
+        let objects = try DM4Experiment.list(data: try Data(contentsOf: url))
+        let si = try XCTUnwrap(objects.first { $0.role == .eds })
+        XCTAssertEqual(si.metaDataFormat, "Spectrum image")
+        XCTAssertEqual(si.metaDataSignal, "X-ray")
+        XCTAssertEqual(objects.filter { $0.metaDataFormat == "Spectrum image" }.count, 1)
+        XCTAssertEqual(objects.filter { $0.metaDataSignal != nil }.count, 1)
+    }
+
     func testRolesAreListedFromTheExperimentLabels() throws {
         let objects = try DM4Experiment.list(data: fullFile())
         XCTAssertEqual(objects.map(\.index), [1, 2, 3, 4, 5])
