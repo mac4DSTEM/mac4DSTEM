@@ -92,7 +92,9 @@ package nonisolated enum SessionResultPresentation {
         return "sampling \(steps) \(suffix)"
     }
 
-    package static func provenance(_ values: [String: String], limit: Int = 3) -> String? {
+    package static func provenance(
+        _ values: [String: String], limit: Int = 3, locale: Locale = .autoupdatingCurrent
+    ) -> String? {
         let order = [
             "depth_angstrom", "upsample_factor", "interpolation", "position_iterations",
             "method", "iterations", "final_error", "step_size",
@@ -112,7 +114,7 @@ package nonisolated enum SessionResultPresentation {
         for key in order {
             guard parts.count < max(0, limit), let raw = values[key], !raw.isEmpty else { continue }
             var value = raw
-            if let number = Double(raw), number.isFinite { value = self.number(number) }
+            if let number = Double(raw), number.isFinite { value = self.number(number, locale: locale) }
             if key == "depth_angstrom" { value += " Å" }
             if ["information_limit_inv_a", "q_lowpass_inv_a", "q_highpass_inv_a"].contains(key),
                raw != "off" { value += " Å⁻¹" }
@@ -128,7 +130,7 @@ package nonisolated enum SessionResultPresentation {
     }
 
     /// C-format digits as ever (en output unchanged); only the decimal separator
-    /// follows the locale. provenance() shares this and so reads in the locale too.
+    /// follows the locale (sampling and provenance take it, for a test to pin).
     private static func number(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
         let magnitude = abs(value)
         let text: String

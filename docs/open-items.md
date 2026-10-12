@@ -383,3 +383,6 @@ constants file is deliberately NOT taken (a bad line there kills every gate). `.
 2026-09-29) against the constraint-loop rule: the one suspect, the zoom badge (`ImagePanes.swift:662`, in the header's
 `ViewThatFits`), is not armed by reading — monospaced digits, so its width changes only when the digit count does, and it
 is inserted once per pinch, not per tick; never seen to abort. Unverified on screen; the rule stays a review item.
+Colour and zoom (2026-10-12, from macTEM): exports sample the LUT as the shader does (291fe352); the on-screen `Colorbar`
+(`PaneOverlays.swift:226`, 128 entries) and categorical legend (`:1245`) still take the nearest entry (cosmetic). Zoom is a layer
+transform on a pane-sized drawable (`drawableSize` at 16× on a 4k image never read); shader zoom = every overlay's transform (M–L).

@@ -28,14 +28,14 @@ require(gaps.points.map(\.index) == [0, 2, 5], "valid log indices")
 require(gaps.points.map(\.y) == [0, 0.5, 1], "log10 scaling")
 require(gaps.nearestIndex(toUnitX: 0.5) == 2, "selection skips gaps")
 
-require(SessionResultPresentation.sampling(row: 0.25, column: 0.5, units: "A")
+require(SessionResultPresentation.sampling(row: 0.25, column: 0.5, units: "A", locale: Locale(identifier: "en_US"))
         == "sampling 0.25 × 0.5 Å/px", "sampling label (stored \"A\" displays as Å since 9925598)")
 require(SessionResultPresentation.sampling(row: nil, column: 1, units: "A") == nil,
         "partial sampling omitted")
 let provenance = SessionResultPresentation.provenance([
     "source_product": "ptychography_object_phase", "iterations": "8",
     "final_error": "0.00001234", "step_size": "0.5", "fix_probe": "true"
-])
+], locale: Locale(identifier: "en_US"))
 require(provenance == "iters 8 · error 1.23e-05 · step 0.5", "priority provenance")
 
 let kde = SessionControlRehydration.parse(kind: "parallax_subpixel_bf", provenance: [
