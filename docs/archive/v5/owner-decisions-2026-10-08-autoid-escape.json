@@ -4,7 +4,7 @@
   {
    "id": "A1",
    "title": "Auto ID on short or 35 keV spectra: which pile-up fix lands",
-   "status": "open",
+   "status": "settled",
    "context": [
     "Auto ID now runs on all your Velox files. Two rare coincidences can still stop a run with 'rank deficient': a pile-up (two photons counted as one) at exactly the energy of a one-peak column. (1) V Kα's silicon-escape peak = Tb Mα + Ir Mα (3.2125 keV), only when the spectrum's axis tops out around 5.0–5.4 keV. (2) La Kα = Cd Kα + Tl Lα (33.4419 keV), only when the axis tops out around 33.5–37.8 keV. None of your files has such an axis.",
     "A fix is built and tested: the run no longer fails, the 94 files that already score are byte-identical, and an independent check agreed. But in case (2) the pile-up's counts would be fitted as La, so La could be proposed when only Cd and Tl are there. In case (1) the escape column takes the counts and V's own number does not change."
@@ -51,7 +51,8 @@
     "docs/archive/v5/sum-escape-design-scoped-preregistration-2026-10-08.md",
     "docs/archive/v5/sum-escape-design-scoped-results-2026-10-08/refuter.md"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   }
  ]
 }

@@ -6,7 +6,7 @@
   {
    "id": "E1",
    "title": "Build E in one step, or E1 first",
-   "status": "open",
+   "status": "settled",
    "context": [
     "ADR 061 lists E 'with H, I, K'. Pooled spectra (E1) need nothing new. H's outline, I (the channelling angle), K/dose and 'excess over the matrix' each need an input that does not exist yet: a misorientation function from the ACOM output, a probe current your files don't carry (Velox marks it uncalibrated, GMS writes 0), and a defined scale for subtracting the matrix (scaling by Al Kα would remove the signal it is meant to show).",
     "Also worth knowing: the phase map is still badged unvalidated (one T4 metric failed on 2026-09-28). E1 is where its labels first become pooled counts that feed Quantify, so those results carry the same badge."
@@ -54,12 +54,13 @@
     "docs/decisions/061-v5-8-scope-and-spec-2-pictures.md",
     "docs/archive/v5/edx-dossier-2026-10-05.md"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   },
   {
    "id": "E2",
    "title": "How a single precipitate object is chosen",
-   "status": "open",
+   "status": "settled",
    "context": [
     "A real 4D window holds hundreds of precipitate objects; the Source picker becomes unusable above about 30 entries. ADR 061 names object pools, and mock v2.1 shows an 'object pool' entry."
    ],
@@ -96,12 +97,13 @@
     "docs/archive/v5/ux-spec-2-2026-10-06.md",
     "owner-decisions-2026-10-07-v5-8-and-pictures.json"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   },
   {
    "id": "E3",
    "title": "What the Source picker lists",
-   "status": "open",
+   "status": "settled",
    "context": [
     "Today the picker lists drawn regions and Whole map. With E it gains phases, and maybe diffraction groups."
    ],
@@ -142,12 +144,13 @@
    "sources": [
     "docs/archive/v5/spectroscopy-mock-v2.1-2026-10-06"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   },
   {
    "id": "E4",
    "title": "The positions the matcher did not index",
-   "status": "open",
+   "status": "settled",
    "context": [
     "Some scan positions get no phase. Their summed spectrum is what makes 'the phase pools add up to the whole map' visible, and it can show what the matcher missed."
    ],
@@ -183,12 +186,13 @@
    "sources": [
     "E draft context §2.3"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   },
   {
    "id": "E5",
    "title": "When a 4D map may pool EDX pixels",
-   "status": "open",
+   "status": "settled",
    "context": [
     "The app can only state 'same scan': a GMS joint file with the same Experiment ID and an equal grid, mapped one to one. There is no lag check. ADR 053 (amended) names 'identity + lag check'. A phase map made on a strided or cropped view has a smaller grid than the spectrum image."
    ],
@@ -229,12 +233,13 @@
    "sources": [
     "docs/decisions/053-*.md"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   },
   {
    "id": "E6",
    "title": "Anything new drawn on screen in E1",
-   "status": "open",
+   "status": "settled",
    "context": [
     "H's first half, 'a 4D map masks the EDX map', could draw a pool's outline on the ColorMix. The other half (an EDX map masks the phase map) belongs in Crystal Maps. Extra numbers beside a pool (excess, f, dose, residual) have no picture yet. Every on-screen piece of E1 adds a row to 'Unverified on screen', and no further surface lands until a drive clears it."
    ],
@@ -261,12 +266,13 @@
    "advisor": "Agrees with a.",
    "nothing": "a.",
    "sources": [],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   },
   {
    "id": "A1",
    "title": "Auto ID on short or 35 keV spectra: which pile-up fix lands",
-   "status": "open",
+   "status": "settled",
    "context": [
     "Auto ID now runs on all your Velox files. Two rare coincidences can still stop a run with 'rank deficient': a pile-up (two photons counted as one) at exactly the energy of a one-peak column. (1) V Kα's silicon-escape peak = Tb Mα + Ir Mα (3.2125 keV), only when the spectrum's axis tops out around 5.0–5.4 keV. (2) La Kα = Cd Kα + Tl Lα (33.4419 keV), only when the axis tops out around 33.5–37.8 keV. None of your files has such an axis.",
     "A fix is built and tested: the run no longer fails, the 94 files that already score are byte-identical, and an independent check agreed. But in case (2) the pile-up's counts would be fitted as La, so La could be proposed when only Cd and Tl are there. In case (1) the escape column takes the counts and V's own number does not change."
@@ -313,7 +319,8 @@
     "docs/archive/v5/sum-escape-design-scoped-preregistration-2026-10-08.md",
     "docs/archive/v5/sum-escape-design-scoped-results-2026-10-08/refuter.md"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   }
  ],
  "not_carded": [

@@ -72,6 +72,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 062 | WP4b: the beside-K drop with an evidence guard refuted (drops true Hf beside Cu, Pt beside Ga: L-family L_D is larger at equal area) and R2 refuted in-sample on the Velox set (favoured on DTSA-II's Qual set); nothing ships, shipped rules unchanged | 10-07 | accepted (Gate D, refuted) |
 | 063 | The learned disk detector stays on Core ML; a Core AI spike (macOS availability first, then placement, speed and scan-level parity at batch 32) runs at the next detector change; ADR 014's 'ANE only through Core ML' corrected | 10-08 | accepted (owner) |
 | 064 | Standalone EDX (later EELS) moves to SpectroKit (SpectroCore / SpectroEDX / SpectroEELS); v5.0 ships on it (amended same day): features in-tree, feature-complete freeze + extraction with history, switch to the tag (560 EDX tests move), validation on the SpectroKit build, then release; until the freeze no new 4D coupling in `Core/Spectroscopy/` (not `Registration/`), `VeloxEMDReader`, `HDF5Types` | 10-12 | accepted (owner) |
+| 065 | Owner sheets E1–E6, A1, M1, all **a**: E1 pooling first (pool by class, sectioned Source picker, 'Not indexed' pool badged, identity-only same-scan pooling, nothing new drawn); H, I, K, excess stay v5.0 registrations; Auto ID pile-up fix for the escape case only; the ellipse radius bias closed with its note | 10-12 | accepted (owner) |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of

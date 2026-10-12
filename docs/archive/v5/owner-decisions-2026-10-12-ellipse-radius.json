@@ -4,7 +4,7 @@
   {
    "id": "M1",
    "title": "The ellipse fit's radius reads high, as py4DSTEM's does: close it with a note, or measure more",
-   "status": "open",
+   "status": "settled",
    "context": [
     "macTEM found that the detector-ellipse fit (the Conic model, a port of py4DSTEM fit_ellipse_1D) puts a ring's radius slightly outside its peak, by 1.75 (s/R)², s the ring's width and R its radius. Measured here on clean rings: +0.25 % at R 80 px with s 3 px, +0.04 % at R 200. py4DSTEM has the same objective, so this is a property of the method, not a porting error.",
     "Nothing in this app uses the radius itself: the correction applies only b/a and the angle. On a ring whose width grows with its radius b/a came out exact; on a constant-width ring it under-reads the distortion by 3.5 (s/R)² of itself (0.5 % of a 3 % distortion at s/R 0.04). The a and b in the status line and Prepare are py4DSTEM's semi-axes, not a calibrated ring radius; the manual-entry help already says only b/a and the angle are applied.",
@@ -50,7 +50,8 @@
     "docs/archive/v5/ellipse-stop-rule-gateD-2026-10-12.md",
     "mac4DSTEM/Core/Analysis/EllipseCalibration.swift (the note on fit1D)"
    ],
-   "images": []
+   "images": [],
+   "answer": "Owner 2026-10-12 (ADR 065): a, as recommended."
   }
  ]
 }
