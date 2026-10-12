@@ -393,10 +393,18 @@ enum NumericFieldSpeech {
         return namesUnit(title, unit) ? title : "\(title), \(unit)"
     }
 
+    /// A unit that a title may spell out in words instead: "px" as "pixel",
+    /// "°" as "degree". Keys are lowercased units.
+    static let unitWords: [String: String] = [
+        "px": "pixel",
+        "°": "degree",
+    ]
+
     /// Whether the title already says the unit: as a separate word or inside
-    /// parentheses (case-insensitive), or "px" as "pixel" in the title.
+    /// parentheses (case-insensitive), or as its spelled-out word in the title
+    /// (see `unitWords`).
     static func namesUnit(_ title: String, _ unit: String) -> Bool {
-        if unit.lowercased() == "px", title.localizedCaseInsensitiveContains("pixel") {
+        if let word = unitWords[unit.lowercased()], title.localizedCaseInsensitiveContains(word) {
             return true
         }
         let spaced = " " + title.lowercased().map { "(),;:".contains($0) ? " " : String($0) }.joined() + " "

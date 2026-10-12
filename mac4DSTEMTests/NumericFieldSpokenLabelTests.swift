@@ -18,6 +18,13 @@ final class NumericFieldSpokenLabelTests: XCTestCase {
         XCTAssertEqual(NumericFieldSpeech.label("Thickness (nm)", unit: "nm"), "Thickness (nm)")
     }
 
+    func testDegreeSignIsNamedByTheWordDegree() {
+        // "°" is spoken as "degree": a title that says degrees does not repeat the sign.
+        XCTAssertEqual(NumericFieldSpeech.label("Ellipse angle θ in degrees", unit: "°"),
+                       "Ellipse angle θ in degrees")
+        XCTAssertEqual(NumericFieldSpeech.label("Tilt", unit: "°"), "Tilt, °")
+    }
+
     func testNoUnitLeavesTheTitleAlone() {
         XCTAssertEqual(NumericFieldSpeech.label("Inner fit radius in pixels", unit: nil),
                        "Inner fit radius in pixels")
