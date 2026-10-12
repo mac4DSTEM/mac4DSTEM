@@ -93,6 +93,8 @@ One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) an
 - Region circle radius: the mask takes centres up to ½ px outside the drawn ring (`R + 0.5`, strict `<`; R 5: 97 px vs `d ≤ R` 81, py4DSTEM 69) — own Gate D (D025 refuter).
 - Bullseye detection accepts noise: outer-edge probe size for structured probes open.
 - Twisted bilayer graphene finds only the beam at defaults — Gate D with a per-pattern funnel.
+- Ellipse `fit1D` on a contiguous arc fitted anyway still ends `didNotConverge` in 54 of 150 of a refuter's arcs (2026-10-12): slow descent,
+  ~68 accepted steps in 100 passes — not the roundoff stop fixed that day (`archive/v5/ellipse-stop-rule-gateD-2026-10-12.md`); a refusal, never a wrong fit.
 - Learned detector above 256 px: the anchor measured 2026-09-29, no change (same disks; a zeroed probe channel bit-identical); < 256 px with an off-centre probe still scales by the crop's maximum (kept for byte-identity) — owner.
 - #18 training campaign can't reproduce the app's Si_SiGe strain — two candidate fixes, own Gate B.
 - CIF symmetry (S13, 2026-09-30, `CIFImport.spaceGroupOrder`): a list shorter than the named IT group's order is refused; residuals — a group
@@ -206,13 +208,9 @@ accelerating voltage; a session voltage above 1000 kV is stamped as typed and re
 an EDS SI) opens as a spectrum image in the Spectroscopy room, never as a cube; every other file reaches the 4D open untouched. Gate B
 (Fable) passed after round 2 (the sniff now runs inside the security scope, so Recents reopen as spectrum images too). A spectrum image is not added to Recents (they carry sidecar semantics).
 
-### SpectroKit backlog (ADR 064, 2026-10-12)
-`VeloxEMDReader` reads a plain Velox `Data/Image` dataset (macTEM ADR 004 D1). Lands in SpectroKit after the v5.0 cut, or in-tree before
-it as an EDX fix. Owner: the extraction slot.
-
 ### Velox parity is a local diagnostic, not a CI gate (2026-10-05)
 `tools/velox-parity` checks the new `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
-frame counts) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's
+frame counts; since 2026-10-12 also every frame of the 27 image stacks via `images()` / `readImageFrame`) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's
 Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` once CI can install them, or once the
 truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
