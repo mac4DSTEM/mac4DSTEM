@@ -105,8 +105,11 @@ struct ScaleBar: View {
         if unitsPerPoint > 0, unitsPerPoint.isFinite {
             let nice = Self.nice125(unitsPerPoint * Self.targetPoints)
             let lengthPt = CGFloat(nice / unitsPerPoint)
+            let shown = Self.ladder(nice, unit: unitLabel)
             VStack(alignment: .leading, spacing: 3) {
-                Text("\(Self.format(nice)) \(unitLabel)")
+                // verbatim: the label is data, not a localisation key.
+                Text(verbatim: "\(Self.format(shown.value)) \(shown.unit)")
+                    .accessibilityLabel(Self.spokenLabel(value: shown.value, unit: shown.unit))
                 Rectangle()
                     .frame(width: lengthPt, height: 2)
             }
@@ -119,6 +122,53 @@ struct ScaleBar: View {
             .background(Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
             .allowsHitTesting(false)
         }
+    }
+
+    /// The length unit the bar is READ in: nm / µm / mm only, chosen so the
+    /// number lies in [1, 1000). The bar's drawn length is untouched; the
+    /// number is the same length written in a neighbouring unit (×1000 steps,
+    /// re-snapped to the 1-2-5 value so no float residue like 20.000000000000004
+    /// reaches the label). Å, pm, reciprocal units, mrad and px are left alone;
+    /// so is anything unrecognised. Presentation only.
+    static func ladder(_ value: Double, unit: String) -> (value: Double, unit: String) {
+        let rungs = ["nm", "\u{00B5}m", "mm"]
+        let canonical: String
+        switch unit {
+        case "nm", "nanometre", "nanometres", "nanometer", "nanometers": canonical = "nm"
+        case "\u{00B5}m", "\u{03BC}m", "um": canonical = "\u{00B5}m"
+        case "mm": canonical = "mm"
+        default: return (value, unit)
+        }
+        guard value > 0, value.isFinite, var index = rungs.firstIndex(of: canonical) else {
+            return (value, unit)
+        }
+        var v = value
+        while v >= 1000, index < rungs.count - 1 { v /= 1000; index += 1 }
+        while v < 1, index > 0 { v *= 1000; index -= 1 }
+        return (index == rungs.firstIndex(of: canonical) ? value : nice125(v), rungs[index])
+    }
+
+    /// The unit as VoiceOver should say it ("nm" is read letter by letter
+    /// otherwise). Covers every spelling `CalibrationUnitConversion.displayLabel`
+    /// can hand the bar; an unknown unit is spoken as written.
+    static func spokenUnit(_ unit: String) -> String {
+        switch unit {
+        case "nm": return "nanometres"
+        case "\u{00B5}m", "\u{03BC}m", "um": return "micrometres"
+        case "mm": return "millimetres"
+        case "pm": return "picometres"
+        case "\u{00C5}", "A": return "\u{00E5}ngstr\u{00F6}ms"
+        case "1/nm", "nm\u{207B}\u{00B9}", "nm^-1": return "inverse nanometres"
+        case "1/\u{00C5}", "\u{00C5}\u{207B}\u{00B9}", "A^-1": return "inverse \u{00E5}ngstr\u{00F6}ms"
+        case "mrad": return "milliradians"
+        case "px": return "pixels"
+        default: return unit
+        }
+    }
+
+    /// "Scale bar, 10 nanometres" - the number as the bar prints it.
+    static func spokenLabel(value: Double, unit: String, locale: Locale = .autoupdatingCurrent) -> String {
+        "Scale bar, \(format(value, locale: locale)) \(spokenUnit(unit))"
     }
 
     /// Round to the nearest 1 / 2 / 5 × 10ⁿ.

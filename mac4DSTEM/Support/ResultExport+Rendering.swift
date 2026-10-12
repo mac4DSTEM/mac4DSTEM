@@ -210,7 +210,9 @@ extension AppState {
         let barHeight = CGFloat(max(3, outH / 150))
         let fontSize = CGFloat(max(11, outH / 28))
 
-        let text = "\(ScaleBar.format(nice, locale: Locale(identifier: "en_US_POSIX"))) \(unitLabel)" as NSString
+        // The same unit ladder as the on-screen bar, so an export reads what the pane read.
+        let shown = ScaleBar.ladder(nice, unit: unitLabel)
+        let text = "\(ScaleBar.format(shown.value, locale: Locale(identifier: "en_US_POSIX"))) \(shown.unit)" as NSString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .medium),
             .foregroundColor: NSColor.white,
