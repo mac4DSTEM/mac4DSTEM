@@ -339,7 +339,9 @@ package actor DM4Reader: FourDDataSource {
         data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             guard let base = raw.baseAddress else { return }
             let origin = base + dataOffset
-            func sweep<T>(_: T.Type, _ toFloat: (T) -> Float) {
+            // `out` is inout, not captured: Swift 6 region isolation rejects a captured
+            // local mutated through withUnsafeMutableBufferPointer ("sending 'out'").
+            func sweep<T>(_ out: inout [Float], _: T.Type, _ toFloat: (T) -> Float) {
                 out.withUnsafeMutableBufferPointer { out in
                     let (majorCount, minorCount) = majorIsX ? (width, height) : (height, width)
                     for major in 0..<majorCount {
@@ -355,8 +357,8 @@ package actor DM4Reader: FourDDataSource {
                     }
                 }
             }
-            func transpose<T>(_: T.Type, _ toFloat: (T) -> Float) {
-                if count < block { return sweep(T.self, toFloat) }
+            func transpose<T>(_ out: inout [Float], _: T.Type, _ toFloat: (T) -> Float) {
+                if count < block { return sweep(&out, T.self, toFloat) }
                 out.withUnsafeMutableBufferPointer { out in
                     for outY in 0..<height {
                         let rowBase = (cropY + outY) * strides.qy
@@ -383,14 +385,14 @@ package actor DM4Reader: FourDDataSource {
                 }
             }
             switch imageDataType {
-            case 1:  transpose(Int16.self) { Float($0) }
-            case 10: transpose(UInt16.self) { Float($0) }
-            case 7:  transpose(Int32.self) { Float($0) }
-            case 11: transpose(UInt32.self) { Float($0) }
-            case 6:  transpose(UInt8.self) { Float($0) }
-            case 9:  transpose(Int8.self) { Float($0) }
-            case 2:  transpose(Float.self) { $0 }
-            case 12: transpose(Double.self) { Float($0) }
+            case 1:  transpose(&out, Int16.self) { Float($0) }
+            case 10: transpose(&out, UInt16.self) { Float($0) }
+            case 7:  transpose(&out, Int32.self) { Float($0) }
+            case 11: transpose(&out, UInt32.self) { Float($0) }
+            case 6:  transpose(&out, UInt8.self) { Float($0) }
+            case 9:  transpose(&out, Int8.self) { Float($0) }
+            case 2:  transpose(&out, Float.self) { $0 }
+            case 12: transpose(&out, Double.self) { Float($0) }
             default: break
             }
         }
