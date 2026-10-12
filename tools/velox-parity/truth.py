@@ -12,6 +12,11 @@ is the default frame range and, for a multi-frame file, frames [1, n) and [0, 1)
 Each of the three zips ships `.npy` truth arrays beside some files; where one
 exists, rsciio's output is checked against it first, so the comparator is validated
 before the app is (docs/archive/ parity-comparator-validation).
+
+Every Velox file, stream or not, also gets its image stacks written: each signal rsciio
+returns for the `Data/Image` groups (`select_type="images"`, `load_SI_image_stack=True`),
+as little-endian float32 frames (frame, y, x) with the axes' scale, offset and units and
+the `BinaryResult` fields they come from. See `image_stacks`.
 """
 import json
 import logging
@@ -23,6 +28,7 @@ import numpy as np
 
 logging.disable(logging.CRITICAL)
 from rsciio.emd import file_reader  # noqa: E402
+from rsciio.utils._units import convert_units  # noqa: E402
 import rsciio  # noqa: E402
 
 
@@ -43,6 +49,73 @@ def frame_count(path):
         s = f["Data/SpectrumImage"]
         k = next(iter(s))
         return int(json.loads(s[k]["SpectrumImageSettings"][0])["endFramePosition"])
+
+
+def image_stacks(path, out, k):
+    """Everything the Swift side compares about the `Data/Image` groups of one file.
+
+    rsciio reads the groups in `h5py`'s iteration order (`_get_keys_from_group` is `list(group.keys())`),
+    which is name order; the Swift reader lists them in the same order, so the stacks are keyed by position
+    and carry their group name. Each stack's frames are checked here against `h5py`'s own read of the group
+    (so position i is the group named by `ids[i]`, whatever rsciio does with it), then written as float32.
+    Returns the manifest fields `imageOnly`, `imageStacks` and, when the comparison cannot be made, `imageError`
+    (a file or group rsciio cannot return as an image is recorded, never skipped silently)."""
+    with h5py.File(path) as f:
+        data = f["Data"]
+        ids = list(data["Image"].keys()) if "Image" in data else []
+        # What `VeloxEMDReader.isVeloxEMD` asks: a spectrum stream or a spectrum image is there.
+        found = {"imageOnly": "SpectrumStream" not in data and "SpectrumImage" not in data and bool(ids), "imageStacks": []}
+        if ids != sorted(ids):
+            found["imageError"] = f"Data/Image iterates {ids}, not in name order"
+            return found
+        if not ids:
+            return found
+        try:
+            signals = file_reader(path, select_type="images", load_SI_image_stack=True)
+        except Exception as e:
+            found["imageError"] = repr(e)
+            return found
+        if len(signals) != len(ids):
+            found["imageError"] = f"rsciio returned {len(signals)} image signals for {len(ids)} groups"
+            return found
+        for i, (gid, sig) in enumerate(zip(ids, signals)):
+            arr = np.asarray(sig["data"])
+            names = [a["name"] for a in sig["axes"]]
+            if arr.ndim not in (2, 3) or names[-2:] != ["y", "x"] or (arr.ndim == 3) != (names[0] == "Time"):
+                found["imageError"] = f"{gid}: axes {names} for data of shape {arr.shape}"
+                return found
+            stack = arr if arr.ndim == 3 else arr[np.newaxis]          # (frame, y, x); rsciio squeezes a one-frame stack
+            raw = data["Image"][gid]["Data"]                              # (y, x, frame) as stored
+            compound = raw.dtype.names is not None                        # Velox FFT and DPC images: rsciio returns complex
+            if not compound and not np.array_equal(np.moveaxis(raw[()], 2, 0), stack):
+                found["imageError"] = f"{gid}: rsciio's frames are not h5py's frames of the same group"
+                return found
+            br = sig["original_metadata"].get("BinaryResult", {})
+            ax = {a["name"]: a for a in sig["axes"]}
+            stored = lambda key: key in br
+            entry = {
+                "id": gid, "dtype": str(stack.dtype), "shape": list(stack.shape), "file": None,
+                "axes": [{"name": a["name"], "scale": float(a["scale"]), "offset": float(a["offset"]), "units": a["units"], "size": a["size"]}
+                         for a in sig["axes"]],
+                "detector": br.get("Detector", ""),
+                "pixelSizeStored": stored("PixelSize"), "offsetStored": stored("Offset"),
+                "unitX": br.get("PixelUnitX"), "unitY": br.get("PixelUnitY"),
+            }
+            if stored("PixelSize"):
+                # rsciio's axes, back in metres by its own unit registry (it converts x with PixelUnitX and compacts the unit).
+                entry["metres"] = {
+                    "scaleX": convert_units(float(ax["x"]["scale"]), ax["x"]["units"], "m"),
+                    "scaleY": convert_units(float(ax["y"]["scale"]), ax["y"]["units"], "m"),
+                    "offsetX": convert_units(float(ax["x"]["offset"]), ax["x"]["units"], "m"),
+                    "offsetY": convert_units(float(ax["y"]["offset"]), ax["y"]["units"], "m"),
+                }
+            if stack.dtype.kind in "iuf":
+                f32 = np.ascontiguousarray(stack.astype("<f4"))
+                f32.tofile(os.path.join(out, f"{k}.stack{i}.f32"))
+                entry["file"] = f"{k}.stack{i}.f32"
+                entry["floatExact"] = bool(np.array_equal(f32.astype(np.float64), stack.astype(np.float64), equal_nan=True))
+            found["imageStacks"].append(entry)
+    return found
 
 
 def read_case(path, **kw):
@@ -93,6 +166,7 @@ def main():
             rel = os.path.relpath(path, data_dir)
             entry = {"file": rel, "stream": has_stream(path), "cases": []}
             manifest["files"].append(entry)
+            entry.update(image_stacks(path, out, len(manifest["files"]) - 1))
             if not entry["stream"]:
                 continue
             nfr = frame_count(path)
@@ -134,7 +208,8 @@ def main():
         json.dump(manifest, fh, indent=1)
     for n, ok in npy_checks:
         print(f"truth: rsciio vs shipped {n}: {'equal' if ok else 'DIFFERENT'}")
-    print(f"truth: rsciio {rsciio.__version__}, {sum(1 for e in manifest['files'] if e['stream'])} files with a stream, wrote {out}")
+    print(f"truth: rsciio {rsciio.__version__}, {sum(1 for e in manifest['files'] if e['stream'])} files with a stream, "
+          f"{sum(len(e['imageStacks']) for e in manifest['files'])} image stacks, wrote {out}")
 
 
 if __name__ == "__main__":

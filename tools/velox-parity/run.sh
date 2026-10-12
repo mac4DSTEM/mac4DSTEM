@@ -3,7 +3,10 @@
 # rosettasciio's test data (the fei_emd_files and velox_* zips, fetched with the pinned
 # rosettasciio by tools/lib/fetch-rsciio.sh, unzipped into References/velox-parity/) is read by
 # rsciio (truth.py, sum_frames=True) and by Core/Data/VeloxEMDReader.swift (main.swift), and the
-# dense spectrum image, the energy axis and the scan image are compared count for count.
+# dense spectrum image, the energy axis and the scan image are compared count for count. The same
+# files' image stacks (rsciio's select_type="images" signals, one per Data/Image group) are compared
+# with images() and readImageFrame: every frame of every stack equal value for value, shape, detector
+# name, element type, pixel size and offset in metres (relative 1e-12), isVeloxFile / isVeloxEMD.
 # Pass condition: final line "velox-parity: all passed", exit 0. A FAIL line exits 1.
 #
 #   tools/velox-parity/run.sh            the gate
