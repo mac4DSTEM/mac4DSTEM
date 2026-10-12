@@ -5,9 +5,9 @@ import DSTEMSession
 
 /// R16 (S22 feedback, 2026-09-01): panning may reveal the image's edge but
 /// must never push the image out of the pane. Pins the pure rule the
-/// gesture/scroll handlers all route through — |offset| ≤ size·(1 − 1/zoom)/2,
-/// derived from the display shader's 1/zoom-wide sampling window
-/// (`Colormaps.metal:33`).
+/// gesture/scroll handlers all route through — |offset| ≤ size·(zoom − 1)/2,
+/// the scaled image's overhang per side (the views offset in screen points
+/// after `scaleEffect`).
 final class ZoomPanClampTests: XCTestCase {
 
     func testPanIsBlockedAtOneXAndBelow() {
@@ -24,12 +24,12 @@ final class ZoomPanClampTests: XCTestCase {
 
     func testZoomedPanStopsExactlyAtTheEdge() {
         let size = CGSize(width: 400, height: 300)
-        // zoom 2 → limit size·(1 − 1/2)/2 = size/4 = (100, 75).
+        // zoom 2 → limit size·(2 − 1)/2 = size/2 = (200, 150).
         let clamped = ZoomPan.clampedOffset(
             CGSize(width: 500, height: -500), zoom: 2, in: size
         )
-        XCTAssertEqual(clamped.width, 100)
-        XCTAssertEqual(clamped.height, -75)
+        XCTAssertEqual(clamped.width, 200)
+        XCTAssertEqual(clamped.height, -150)
         // Inside the band, the pan passes through untouched.
         XCTAssertEqual(
             ZoomPan.clampedOffset(CGSize(width: 40, height: -60), zoom: 2, in: size),
@@ -37,13 +37,31 @@ final class ZoomPanClampTests: XCTestCase {
         )
     }
 
+    func testZoomFourReachesItsOwnEdge() {
+        let size = CGSize(width: 400, height: 300)
+        // zoom 4 → limit size·3/2 = (600, 450): the scaled image's far edge meets the pane edge.
+        XCTAssertEqual(
+            ZoomPan.clampedOffset(CGSize(width: 5000, height: -5000), zoom: 4, in: size),
+            CGSize(width: 600, height: -450)
+        )
+    }
+
+    func testMidRangePanPassesThroughUnclamped() {
+        let size = CGSize(width: 400, height: 300)
+        // zoom 1.5 → limit (100, 75): (60, −70) is inside it and must not be pulled back.
+        XCTAssertEqual(
+            ZoomPan.clampedOffset(CGSize(width: 60, height: -70), zoom: 1.5, in: size),
+            CGSize(width: 60, height: -70)
+        )
+    }
+
     func testZoomingOutPullsAPannedImageBackInside() {
         let size = CGSize(width: 400, height: 400)
-        // Panned to the zoom-4 limit (150pt), then the zoom drops to 2:
-        // the limit is now 100pt and the offset must come back with it.
+        // Panned to the zoom-4 limit (600pt), then the zoom drops to 2:
+        // the limit is now 200pt and the offset must come back with it.
         XCTAssertEqual(
-            ZoomPan.clampedOffset(CGSize(width: 150, height: 150), zoom: 2, in: size),
-            CGSize(width: 100, height: 100)
+            ZoomPan.clampedOffset(CGSize(width: 600, height: 600), zoom: 2, in: size),
+            CGSize(width: 200, height: 200)
         )
     }
 }

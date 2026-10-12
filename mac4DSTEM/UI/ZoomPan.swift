@@ -9,11 +9,12 @@ import SwiftUI
 /// synthesises magnification from a mouse wheel with the modifier, so the
 /// monitor bought one input at the cost of a global event trap.
 ///
-/// The clamp is the science-relevant part and is kept verbatim in behaviour:
-/// the display shader samples a `1/zoom`-wide UV window centred at
-/// `0.5 + offset/viewSize`, so the window stays inside the image exactly
-/// while `|offset| <= size * (1 - 1/zoom) / 2` per axis. Panning can
-/// therefore never push the image out of its own pane.
+/// The clamp is the science-relevant part. The views scale the image about
+/// its centre (`scaleEffect(drawZoom)`) and then offset it in screen points
+/// (`offset(effectiveOffset)`), so the scaled image is `size * zoom` wide and
+/// one edge reaches the pane's edge exactly when `|offset| = size * (zoom - 1) / 2`
+/// per axis. The clamp stops there, so panning can never push the image out
+/// of its own pane.
 struct ZoomPan: Equatable {
     var zoom: CGFloat = 1
     var offset: CGSize = .zero
@@ -77,7 +78,9 @@ struct ZoomPan: Equatable {
         _ proposed: CGSize, zoom: CGFloat, in size: CGSize
     ) -> CGSize {
         guard zoom > 1, size.width > 0, size.height > 0 else { return .zero }
-        let fraction = (1 - 1 / zoom) / 2
+        // The offset is applied after scaleEffect, in screen points, so the
+        // limit is the scaled overhang per side: size * (zoom - 1) / 2.
+        let fraction = (zoom - 1) / 2
         let maxX = size.width * fraction
         let maxY = size.height * fraction
         return CGSize(width: min(max(proposed.width, -maxX), maxX),

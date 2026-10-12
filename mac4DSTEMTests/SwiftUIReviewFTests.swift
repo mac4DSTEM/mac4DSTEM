@@ -200,10 +200,10 @@ final class SwiftUIReviewFTests: XCTestCase {
     func testZoomingOutPullsAPannedImageBackInsidePane() {
         let box = CGSize(width: 400, height: 300)
         var zp = ZoomPan()
-        zp.step(by: 4, in: box)                                  // zoom 4: limit (150, 112.5)
-        zp.offset = CGSize(width: 150, height: -112.5)           // panned to the corner
-        zp.step(by: 0.5, in: box)                                // zoom 2: limit (100, 75)
-        XCTAssertEqual(zp.offset, CGSize(width: 100, height: -75))
+        zp.step(by: 4, in: box)                                  // zoom 4: limit (600, 450)
+        zp.offset = CGSize(width: 600, height: -450)             // panned to the corner
+        zp.step(by: 0.5, in: box)                                // zoom 2: limit (200, 150)
+        XCTAssertEqual(zp.offset, CGSize(width: 200, height: -150))
         zp.step(by: 0.5, in: box)                                // zoom 1: the image fits
         XCTAssertEqual(zp.offset, .zero)
     }
