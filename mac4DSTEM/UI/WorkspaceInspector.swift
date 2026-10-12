@@ -345,7 +345,9 @@ struct DatasetInfoSections: View {
         dimensionsSection
         previewSection
         loadedViewSection
-        currentScanPositionSection
+        // Its own view: it alone reads the scan position, so a scrub
+        // invalidates this child and not the parent body (see the struct).
+        CurrentScanPositionSection()
         apertureSection
     }
 
@@ -441,26 +443,6 @@ struct DatasetInfoSections: View {
     }
 
     @ViewBuilder
-    private var currentScanPositionSection: some View {
-        InspectorSection("Current scan position") {
-            InspectorValueRow("x (Rx)", "\(appState.selectedScan.x)")
-            InspectorValueRow("y (Ry)", "\(appState.selectedScan.y)")
-            // The statistics are of the pattern ON SCREEN, which in Mean, Max
-            // or ROI mode is not this position's pattern; the row says which
-            // (UI review finding b — the only other flag was the pane
-            // header, one tab away).
-            if let (lowerBound, upperBound) = appState.patternMinMax {
-                let noun = PatternSourceLabel.noun(
-                    mode: appState.patternDisplayMode,
-                    roiSummed: appState.realSpaceShape != .point
-                        && appState.resultPresentation.virtualDiffractionPattern != nil)
-                InspectorValueRow("\(noun) min", String(format: "%.3g", lowerBound))
-                InspectorValueRow("\(noun) max", String(format: "%.3g", upperBound))
-            }
-        }
-    }
-
-    @ViewBuilder
     private var apertureSection: some View {
         InspectorSection("Aperture (detector px)") {
             InspectorValueRow("Center x", String(format: "%.1f", appState.aperture.centerX))
@@ -496,6 +478,36 @@ struct DatasetInfoSections: View {
         .thumbnailCapped()
         .clipShape(.rect(cornerRadius: 4))
         .accessibilityIdentifier("preview.\(label.replacingOccurrences(of: " ", with: ""))")
+    }
+}
+
+/// The one part of the Info tab that depends on the scan position: the
+/// position itself and the min/max of the pattern on screen, which is the
+/// pattern AT that position in Point mode. Kept out of `DatasetInfoSections`'
+/// body on purpose. A body reads every `@Observable` property it touches, so
+/// the parent re-evaluated on every scrub tick even though only these rows
+/// change. Here the scrub invalidates this child alone; the rows drawn are
+/// unchanged.
+private struct CurrentScanPositionSection: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        InspectorSection("Current scan position") {
+            InspectorValueRow("x (Rx)", "\(appState.selectedScan.x)")
+            InspectorValueRow("y (Ry)", "\(appState.selectedScan.y)")
+            // The statistics are of the pattern ON SCREEN, which in Mean, Max
+            // or ROI mode is not this position's pattern; the row says which
+            // (UI review finding b — the only other flag was the pane
+            // header, one tab away).
+            if let (lowerBound, upperBound) = appState.patternMinMax {
+                let noun = PatternSourceLabel.noun(
+                    mode: appState.patternDisplayMode,
+                    roiSummed: appState.realSpaceShape != .point
+                        && appState.resultPresentation.virtualDiffractionPattern != nil)
+                InspectorValueRow("\(noun) min", String(format: "%.3g", lowerBound))
+                InspectorValueRow("\(noun) max", String(format: "%.3g", upperBound))
+            }
+        }
     }
 }
 
