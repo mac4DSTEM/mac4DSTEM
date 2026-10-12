@@ -1007,6 +1007,71 @@ func acomPhaseModelSourceLabel(source: CrystalModelSource, id: String) -> String
     }
 }
 
+/// ACOM's Area picker and, for a selected region, its centre and half-size. A child view on purpose:
+/// the reads here (`scope`, `descriptor`, `selectedScan`, `regionRadius`) invalidate this body only. Read
+/// inline in `ACOMSections.body` they re-ran the whole ACOM section on every scan-position change
+/// (review O5a, 2026-10-12).
+private struct ACOMScopeControls: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        @Bindable var session = appState.acomSession
+        // A menu, not three segments: the segmented row does not fit the
+        // column (measured 2026-09-03).
+        InspectorRow("Area") {
+            Picker("Area", selection: $session.scope) {
+                ForEach(ACOMRunScope.allCases) { scope in
+                    Text(scope.rawValue).tag(scope)
+                }
+            }
+            .labelsHidden()
+            .accessibilityIdentifier("acom.scope")
+        }
+
+        if appState.acomSession.scope == .selectedRegion, let descriptor = appState.descriptor {
+            InspectorRow("Center X") {
+                Stepper(
+                    value: Binding(
+                        get: { appState.selectedScan.x },
+                        set: { appState.selectScan(x: $0, y: appState.selectedScan.y) }
+                    ),
+                    in: 0...max(0, descriptor.rx - 1)
+                ) {
+                    Text("\(appState.selectedScan.x)")
+                }
+                .accessibilityLabel("Center X")
+                .accessibilityValue("\(appState.selectedScan.x)")
+            }
+            InspectorRow("Center Y") {
+                Stepper(
+                    value: Binding(
+                        get: { appState.selectedScan.y },
+                        set: { appState.selectScan(x: appState.selectedScan.x, y: $0) }
+                    ),
+                    in: 0...max(0, descriptor.ry - 1)
+                ) {
+                    Text("\(appState.selectedScan.y)")
+                }
+                .accessibilityLabel("Center Y")
+                .accessibilityValue("\(appState.selectedScan.y)")
+            }
+            InspectorRow("Half-size") {
+                Stepper(
+                    value: $session.regionRadius,
+                    in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
+                ) {
+                    Text("\(appState.acomSession.regionRadius) px")
+                }
+                .accessibilityLabel("Half-size")
+                .accessibilityValue(RoomAccessibilityText.pixels(Double(appState.acomSession.regionRadius)))
+            }
+            InspectorNote("The orange square is matched at full spatial resolution.")
+        } else if appState.acomSession.scope == .preview {
+            InspectorNote("Samples at most 32 × 32 positions, then expands coarse blocks for a rapid whole-field check.")
+        }
+    }
+}
+
 /// ACOM's complete user-facing contract. Keeping material, scale semantics,
 /// work scope, and result diagnostics together prevents a physically labelled
 /// output from being assembled out of unrelated controls elsewhere.
@@ -1103,7 +1168,7 @@ private struct ACOMSections: View {
             InspectorNote("Orientation accuracy, measured on aluminium at 200 templates: exact to the bank's spacing on most zone axes, up to 1.9° off on ⟨011⟩ and 13.6° off on ⟨122⟩. Not measured for other phases; more templates measured worse.")
                 .help("Measured on 136 planted aluminium patterns across nine zone axes and two azimuthal bins of in-plane rotation (2026-09-15). The angles are the total error against the planted axis: the template bank's own spacing accounts for at most 0.8° of the 13.6°; the rest comes from the score preferring a wrong template when the true one's ring groups straddle an azimuthal bin.")
 
-            scopeControls
+            ACOMScopeControls()
 
             InspectorValueRow("Work", appState.acomWorkSummary)
                 .accessibilityIdentifier("acom.work")
@@ -1218,64 +1283,6 @@ private struct ACOMSections: View {
             )
         }
         InspectorNote("Custom models are single-element cubic cells; other phases need a validated model.")
-    }
-
-    @ViewBuilder
-    private var scopeControls: some View {
-        @Bindable var session = appState.acomSession
-        // A menu, not three segments: the segmented row does not fit the
-        // column (measured 2026-09-03).
-        InspectorRow("Area") {
-            Picker("Area", selection: $session.scope) {
-                ForEach(ACOMRunScope.allCases) { scope in
-                    Text(scope.rawValue).tag(scope)
-                }
-            }
-            .labelsHidden()
-            .accessibilityIdentifier("acom.scope")
-        }
-
-        if appState.acomSession.scope == .selectedRegion, let descriptor = appState.descriptor {
-            InspectorRow("Center X") {
-                Stepper(
-                    value: Binding(
-                        get: { appState.selectedScan.x },
-                        set: { appState.selectScan(x: $0, y: appState.selectedScan.y) }
-                    ),
-                    in: 0...max(0, descriptor.rx - 1)
-                ) {
-                    Text("\(appState.selectedScan.x)")
-                }
-                .accessibilityLabel("Center X")
-                .accessibilityValue("\(appState.selectedScan.x)")
-            }
-            InspectorRow("Center Y") {
-                Stepper(
-                    value: Binding(
-                        get: { appState.selectedScan.y },
-                        set: { appState.selectScan(x: appState.selectedScan.x, y: $0) }
-                    ),
-                    in: 0...max(0, descriptor.ry - 1)
-                ) {
-                    Text("\(appState.selectedScan.y)")
-                }
-                .accessibilityLabel("Center Y")
-                .accessibilityValue("\(appState.selectedScan.y)")
-            }
-            InspectorRow("Half-size") {
-                Stepper(
-                    value: $session.regionRadius,
-                    in: 4...max(4, min(descriptor.rx, descriptor.ry) / 2)
-                ) {
-                    Text("\(appState.acomSession.regionRadius) px")
-                }
-                .accessibilityLabel("Half-size")
-                .accessibilityValue(RoomAccessibilityText.pixels(Double(appState.acomSession.regionRadius)))
-            }
-            InspectorNote("The orange square is matched at full spatial resolution.")
-        } else if appState.acomSession.scope == .preview {
-            InspectorNote("Samples at most 32 × 32 positions, then expands coarse blocks for a rapid whole-field check.")
-        }
     }
 
     @ViewBuilder
