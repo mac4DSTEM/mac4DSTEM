@@ -471,6 +471,40 @@ private struct DiskDetectionRows: View {
     }
 }
 
+/// Why a disabled control in the disk-centre labels rows is off. One source for both the `.help`
+/// tooltip and the VoiceOver value/label, so the two cannot diverge. VoiceOver skips a disabled
+/// element's hint, so the reason also goes into the element's value or label (review audit 3.3,
+/// 2026-10-12). Nil while the control is enabled.
+enum DiskCentreControlReason {
+    static let saveToSidecarEnabledHelp = "Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration."
+
+    /// The labelling toggle needs a dataset and the Current pattern display (one scan position to label).
+    static func labelling(hasDataset: Bool, onCurrentPattern: Bool) -> String? {
+        if !hasDataset { return "Open a dataset to label its disk centres." }
+        if !onCurrentPattern {
+            return "Only available on the Current pattern display, where there is one scan position to label."
+        }
+        return nil
+    }
+
+    /// Save to Sidecar is refused for these reasons, checked in this order. `sidecarRefusal` is the gate's
+    /// own refusal text (non-nil exactly when `mayWriteSidecar` is false).
+    static func saveToSidecar(
+        isEmpty: Bool,
+        isBusy: Bool,
+        holdsUnrestoredLabels: Bool,
+        sidecarRefusal: String?
+    ) -> String? {
+        if holdsUnrestoredLabels {
+            return "The sidecar holds disk-centre labels this view did not restore; saving would replace them. Export Labels… saves these to a file."
+        }
+        if let sidecarRefusal { return sidecarRefusal }
+        if isBusy { return "Unavailable while another task is running." }
+        if isEmpty { return "There are no labelled centres to save yet." }
+        return nil
+    }
+}
+
 /// Hand-clicked disk-centre labels (C7 session 4): the click-mode toggle,
 /// this position's and the dataset's counts, and the three actions that read
 /// or write them. State lives in `AppState.diskCentreLabels`
@@ -485,12 +519,17 @@ private struct DiskCentreLabelsRows: View {
         let ry = appState.selectedScan.y, rx = appState.selectedScan.x
         let thisPosition = labels.centres(ry: ry, rx: rx).count
 
+        let toggleReason = DiskCentreControlReason.labelling(
+            hasDataset: appState.descriptor != nil,
+            onCurrentPattern: appState.patternDisplayMode == .current
+        )
         InspectorRow("Label centres on click") {
             Toggle("Label centres on click", isOn: $labels.labelling)
                 .labelsHidden()
-                .disabled(appState.descriptor == nil || appState.patternDisplayMode != .current)
+                .disabled(toggleReason != nil)
                 .accessibilityIdentifier("disk.labels.toggle")
-                .help("While on, click the diffraction pane to add a hand-clicked disk centre at the current scan position, or click near an existing one to remove it. Only available on the Current pattern display, where there is one scan position to label.")
+                .accessibilityLabel(toggleReason.map { "Label centres on click. \($0)" } ?? "Label centres on click")
+                .help(toggleReason ?? "While on, click the diffraction pane to add a hand-clicked disk centre at the current scan position, or click near an existing one to remove it. Only available on the Current pattern display, where there is one scan position to label.")
         }
 
         InspectorValueRow("This position", "\(thisPosition) centres")
@@ -514,17 +553,20 @@ private struct DiskCentreLabelsRows: View {
 
             // Gated like every other sidecar rewrite (review 2026-10-02 e5), and closed while the sidecar holds labels
             // this view did not restore — saving would replace them (a3). The help says which.
+            let saveReason = DiskCentreControlReason.saveToSidecar(
+                isEmpty: labels.isEmpty,
+                isBusy: appState.isBusy,
+                holdsUnrestoredLabels: labels.sidecarHoldsUnrestoredLabels,
+                sidecarRefusal: appState.gates.sidecarRewriteRefusal()
+            )
             InspectorAdaptiveButton(
                 "Save to Sidecar", systemImage: "square.and.arrow.down",
-                help: labels.sidecarHoldsUnrestoredLabels
-                    ? "The sidecar holds disk-centre labels this view did not restore; saving would replace them. Export Labels… saves these to a file."
-                    : (appState.gates.sidecarRewriteRefusal()
-                        ?? "Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration.")
+                help: saveReason ?? DiskCentreControlReason.saveToSidecarEnabledHelp
             ) {
                 appState.saveCalibrationToSessionSidecar()
             }
-            .disabled(labels.isEmpty || appState.isBusy || !appState.gates.mayWriteSidecar
-                      || labels.sidecarHoldsUnrestoredLabels)
+            .disabled(saveReason != nil)
+            .accessibilityValue(saveReason ?? "")
             .accessibilityIdentifier("disk.labels.save")
 
             InspectorAdaptiveButton(
