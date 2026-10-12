@@ -871,13 +871,15 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
                 .frame(width: LayoutPolicy.numericFieldWidth)
+                // The unit is spoken with the field (see NumericFieldSpeech).
+                .accessibilityLabel(NumericFieldSpeech.label(title, unit: unit))
             if let unit {
                 Text(unit)
                     .foregroundStyle(.secondary)
                     .fixedSize()
+                    .accessibilityHidden(true)
             }
         }
-        .accessibilityLabel(title)
     }
 }
 
