@@ -268,7 +268,7 @@ enum CurveLayer: CaseIterable {
 }
 
 /// The spectrum's vertical scale, as the Linear / Log chips show it: the model keeps one Bool.
-enum LayerScale: CaseIterable {
+nonisolated enum LayerScale: CaseIterable, Sendable {
     case linear, log
     init(log: Bool) { self = log ? .log : .linear }
     var isLog: Bool { self == .log }

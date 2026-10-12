@@ -905,7 +905,8 @@ nonisolated enum GlassChipSelection {
     }
 
     /// A single-choice value as the set a group reads and writes: the value alone on the way in; on the way out the chip tapped.
-    static func single<ID: Hashable>(_ value: Binding<ID>) -> Binding<Set<ID>> {
+    /// `Sendable`: the Binding's closures are `@Sendable` and capture the value and its metatype (four Swift 6 warnings without it).
+    static func single<ID: Hashable & Sendable>(_ value: Binding<ID>) -> Binding<Set<ID>> {
         Binding(get: { [value.wrappedValue] }, set: { if let chosen = $0.first { value.wrappedValue = chosen } })
     }
 }
