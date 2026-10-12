@@ -341,6 +341,11 @@ struct ProductComparisonView: View {
             }
         }
         .padding()
+        // A sample cursor is a pixel index into one product; a new product in
+        // either slot makes the old cursor meaningless, so it starts again at centre.
+        .onChange(of: [a, b].map { "\($0.kind)|\($0.displayName)|\($0.width)x\($0.height)" }) { _, _ in
+            sampleCursors = [:]
+        }
         .accessibilityIdentifier("result.comparison")
     }
 
@@ -438,6 +443,11 @@ struct ProductComparisonView: View {
                 }
             }
             .frame(minHeight: LayoutPolicy.comparisonPaneMinimum)   // science: a comparison pane
+            // The panel's own VoiceOver element. MetalImageView exposes nothing, so without this the
+            // value and actions below land on the colorbar or on nothing. `.contain`, not `.ignore`:
+            // the colorbar's range and units are spoken content, so it stays reachable beneath.
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("\(rendered.label) · \(product.displayName)")
             // The pinch has no keyboard or VoiceOver twin otherwise; the zoom is shared by all panels.
             .accessibilityZoomAction { action in
                 switch action.direction {
