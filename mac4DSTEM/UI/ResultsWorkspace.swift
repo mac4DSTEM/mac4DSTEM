@@ -389,12 +389,14 @@ struct ProductComparisonView: View {
                 // each product to the pane, so the two things being COMPARED
                 // were both distorted — in the view whose entire purpose is
                 // comparing them, and where a difference map is offered
-                // beside them.
-                .aspectRatio(
-                    CGFloat(product.width) / CGFloat(max(product.height, 1)),
-                    contentMode: .fit
-                )
-                .scaleEffect(max(1, zoom * liveZoom))
+                // beside them. The fit and the centre-anchored zoom are done
+                // by the shader (`MetalDisplayTransform`), not by a SwiftUI
+                // `scaleEffect`: that would grow the drawable with the zoom.
+                .displayTransform(MetalDisplayTransform(
+                    paneSize: size,
+                    imageBox: ComparisonHoverMapping.fittedSize(
+                        paneSize: size, imageWidth: product.width, imageHeight: product.height),
+                    zoom: max(1, zoom * liveZoom)))
                 .frame(width: size.width, height: size.height)
                 .clipped()
                 .contentShape(Rectangle())

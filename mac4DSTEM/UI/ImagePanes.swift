@@ -33,9 +33,11 @@ enum PatternSourceLabel {
 /// - The fitted image is pinned to the TOP of the available space rather than
 ///   centred, so the header sits directly above the image instead of across a
 ///   band of slack.
-/// - Zoom is SwiftUI's own `scaleEffect`/`offset`; `MetalImageView` no longer
-///   takes a zoom or an offset, so there is one transform rather than two that
-///   can disagree.
+/// - Zoom is SwiftUI's `scaleEffect`/`offset` for the overlays, and the SAME
+///   map for the image, applied by the vertex shader (`MetalDisplayTransform`,
+///   built from the same zoom and offset). The image is not inside the scaled
+///   layer because a scaled `MTKView` grows its drawable with the zoom
+///   (measured 2026-10-12: 914² px at 1x, 14656² at 16x, ~1.3 GB resident).
 struct DiffractionPane: View {
     @Environment(AppState.self) private var appState
     /// "Show scale bar" (session S21, `Session/AppPreferences.swift`) — read
@@ -231,17 +233,9 @@ struct DiffractionPane: View {
 
             ZStack {
                 ZStack {
-                    MetalImageView(
-                        pixels: norm,
-                        width: qx, height: qy,
-                        contentVersion: appState.patternVersion,
-                        colormap: appState.patternColormap,
-                        displayLo: appState.patternDisplayRangeLo,
-                        displayHi: appState.patternDisplayRangeHi,
-                        gamma: appState.patternGamma
-                    )
-                    .frame(width: box.width, height: box.height)
-                    .background(Color.black)
+                    // The image itself is drawn BEHIND this layer, by the shader (see
+                    // the `.background` below); this layer carries the overlays.
+                    Color.clear.frame(width: box.width, height: box.height)
 
                     // Interactive annular aperture (Virtual Detector only).
                     if appState.navigation.analysisMode == .virtualDetector {
@@ -329,6 +323,25 @@ struct DiffractionPane: View {
                 .scaleEffect(zp.drawZoom)
                 .offset(zp.effectiveOffset)
                 .frame(width: box.width, height: box.height)
+                .background {
+                    // Pane-sized and untransformed: the shader applies the zoom and
+                    // offset (`MetalDisplayTransform`) so the drawable stays pane-sized
+                    // at any zoom. Inside the clip, behind the overlays.
+                    MetalImageView(
+                        pixels: norm,
+                        width: qx, height: qy,
+                        contentVersion: appState.patternVersion,
+                        colormap: appState.patternColormap,
+                        displayLo: appState.patternDisplayRangeLo,
+                        displayHi: appState.patternDisplayRangeHi,
+                        gamma: appState.patternGamma
+                    )
+                    .displayTransform(MetalDisplayTransform(
+                        paneSize: box, imageBox: box,
+                        zoom: zp.drawZoom, offset: zp.effectiveOffset))
+                    .frame(width: box.width, height: box.height)
+                    .allowsHitTesting(false)
+                }
                 .clipped()
                 .contentShape(Rectangle())
                 .border(Color.white.opacity(0.08))
@@ -1042,20 +1055,10 @@ struct RealSpacePane: View {
                 // hand-rolling an inversion that could drift from the forward
                 // transform.
                 ZStack {
-                    MetalImageView(
-                        pixels: norm,
-                        width: dims.width, height: dims.height,
-                        contentVersion: qualityField != nil
-                            ? appState.displayedResultVersion &+ 0x4000_0000
-                            : appState.displayedResultVersion,
-                        colormap: qualityField != nil ? .viridis : appState.displayedResultColormap,
-                        rgba: qualityField != nil ? nil : appState.displayedResultRGBA?.rgba,
-                        displayLo: qualityField != nil ? 0 : appState.displayedResultRangeLo,
-                        displayHi: qualityField != nil ? 1 : appState.displayedResultRangeHi,
-                        gamma: qualityField != nil ? 1 : appState.displayedResultGamma
-                    )
-                    .frame(width: imageBox.width, height: imageBox.height)
-                    .background(Color.black)
+                    // The image is drawn behind this layer by the shader (the
+                    // `.background` below); this layer holds the overlays and, via the
+                    // frame, the layout size the rotation and mirror act on.
+                    Color.clear.frame(width: imageBox.width, height: imageBox.height)
 
                     // Who owns a plain drag here depends on zoom (#35). At zoom
                     // 1 the whole pane scrubs, exactly as before. Zoomed in, the
@@ -1121,6 +1124,31 @@ struct RealSpacePane: View {
                 .scaleEffect(effZoom)
                 .offset(zp.effectiveOffset)
                 .frame(width: box.width, height: box.height)
+                .background {
+                    // Pane-sized and untransformed; the shader applies the rotation,
+                    // mirror, zoom and offset the SwiftUI layer above applies to the
+                    // overlays (`MetalDisplayTransform`), so the drawable does not
+                    // grow with the zoom. Nothing is painted behind it: the shader
+                    // draws every in-image pixel, and what lies outside is transparent.
+                    MetalImageView(
+                        pixels: norm,
+                        width: dims.width, height: dims.height,
+                        contentVersion: qualityField != nil
+                            ? appState.displayedResultVersion &+ 0x4000_0000
+                            : appState.displayedResultVersion,
+                        colormap: qualityField != nil ? .viridis : appState.displayedResultColormap,
+                        rgba: qualityField != nil ? nil : appState.displayedResultRGBA?.rgba,
+                        displayLo: qualityField != nil ? 0 : appState.displayedResultRangeLo,
+                        displayHi: qualityField != nil ? 1 : appState.displayedResultRangeHi,
+                        gamma: qualityField != nil ? 1 : appState.displayedResultGamma
+                    )
+                    .displayTransform(MetalDisplayTransform(
+                        paneSize: box, imageBox: imageBox,
+                        zoom: effZoom, offset: zp.effectiveOffset,
+                        rotationDegrees: orientation.degrees, mirrored: mirrored))
+                    .frame(width: box.width, height: box.height)
+                    .allowsHitTesting(false)
+                }
                 .clipped()
                 .contentShape(Rectangle())
                 .border(Color.white.opacity(0.08))

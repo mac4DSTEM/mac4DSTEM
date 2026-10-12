@@ -28,10 +28,13 @@ import DSTEMSession
 /// `makeMetalView`/`updateMetalView`, and only the two-line platform
 /// conformance differs, so an iOS target needs no rewrite.
 ///
-/// Unlike its predecessor this view takes **no zoom or offset**: UI zooms
-/// with SwiftUI's own `scaleEffect` (every previous call site already passed
-/// `zoom: 1, offset: .zero`), so there is one transform in the app rather
-/// than two that can disagree.
+/// A zoomed pane does NOT scale this view with SwiftUI's `scaleEffect`: that
+/// raised the hosted layer's scale and the drawable followed it (914² at 1×,
+/// 14656² at 16× on a 458 pt pane, 1.3 GB resident, measured 2026-10-12). The
+/// view stays pane-sized and untransformed behind the overlay layer, and the
+/// vertex shader draws the image through one `MetalDisplayTransform` that
+/// inverts the same zoom, offset, rotation and mirroring SwiftUI applies to
+/// the overlays. `nil` means the whole image over the view's own bounds.
 struct MetalImageView {
     /// A version derived from the pixel VALUES and the dimensions. O(n)
     /// FNV-1a — call it where the pixels are produced, once per image, never
@@ -82,6 +85,14 @@ struct MetalImageView {
     var displayLo: Float
     var displayHi: Float
     var gamma: Float
+    /// Where the image sits in the pane; nil = the whole image over the view.
+    var displayTransform: MetalDisplayTransform?
+
+    func displayTransform(_ transform: MetalDisplayTransform) -> MetalImageView {
+        var copy = self
+        copy.displayTransform = transform
+        return copy
+    }
 
     init(
         pixels: [Float],
@@ -120,6 +131,7 @@ struct MetalImageView {
         /// The gamma the shader receives (`max(gamma, 0.05)`), not the raw one.
         var effectiveGamma: Float
         var hasRGBA: Bool
+        var displayTransform: MetalDisplayTransform?
     }
 
     /// The state this view asks the coordinator to show.
@@ -127,7 +139,8 @@ struct MetalImageView {
         AppliedState(
             contentVersion: contentVersion, width: width, height: height,
             colormap: colormap, displayLo: displayLo, displayHi: displayHi,
-            effectiveGamma: max(gamma, 0.05), hasRGBA: rgba != nil)
+            effectiveGamma: max(gamma, 0.05), hasRGBA: rgba != nil,
+            displayTransform: displayTransform)
     }
 
     fileprivate func makeMetalView(_ coordinator: Coordinator) -> MTKView {
@@ -135,11 +148,12 @@ struct MetalImageView {
         view.colorPixelFormat = .bgra8Unorm            // must match displayPSO
         view.clearColor = MTLClearColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
         view.framebufferOnly = true
+        view.layer?.isOpaque = false                    // outside the image the fragment is transparent
         view.isPaused = true                            // redraw only on demand
         view.enableSetNeedsDisplay = true
         view.delegate = coordinator
-        // The pane zooms with a layer transform; nearest magnification keeps
-        // data pixels crisp instead of interpolating science that is not there.
+        // The shader samples the data texture nearest, so zoomed data pixels
+        // stay crisp; this keeps the layer itself from interpolating either.
         view.layer?.magnificationFilter = .nearest
         return view
     }
@@ -152,6 +166,7 @@ struct MetalImageView {
         )
         coordinator.displayRange = SIMD2<Float>(displayLo, displayHi)
         coordinator.gamma = max(gamma, 0.05)
+        coordinator.displayTransform = displayTransform
         // Redraw only when something the pane shows changed (a size or scale
         // change redraws through `drawableSizeWillChange` and the window hooks).
         let state = appliedState
@@ -221,6 +236,7 @@ struct MetalImageView {
         var lastApplied: AppliedState?
         var displayRange = SIMD2<Float>(0, 1)
         var gamma: Float = 1
+        var displayTransform: MetalDisplayTransform?
 
         private var dataTexture: MTLTexture?
         private var rgbaTexture: MTLTexture?
@@ -295,11 +311,12 @@ struct MetalImageView {
                 return
             }
 
-            // Identity transform: UI zooms and pans with SwiftUI's own
-            // `scaleEffect`/`offset`, so the shader draws the whole image.
-            var transform = SIMD4<Float>(1, 0, 0, 0)
+            // Two rows (pane-normalised q -> image uv); identity without a transform.
+            let identityRows = (SIMD4<Float>(1, 0, 0, 0), SIMD4<Float>(0, 1, 0, 0))
+            let r = displayTransform?.shaderRows() ?? identityRows
+            var rows = [r.0, r.1]
             encoder.setVertexBytes(
-                &transform, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
+                &rows, length: 2 * MemoryLayout<SIMD4<Float>>.stride, index: 0)
 
             if let rgbaTexture {
                 encoder.setFragmentTexture(rgbaTexture, index: 0)

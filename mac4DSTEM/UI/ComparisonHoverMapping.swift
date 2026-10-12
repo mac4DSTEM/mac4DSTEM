@@ -9,6 +9,19 @@ import DSTEMSession
 /// hovers. Kept as one pure function, separate from the draw code, so the
 /// mapping can be pinned in a headless test (ui-06).
 enum ComparisonHoverMapping {
+    /// The size the aspect-fit draws an image at inside a pane (centred, before
+    /// any zoom): the one fit both the draw call (`MetalDisplayTransform.imageBox`)
+    /// and `sourcePixel` use, so they cannot disagree.
+    nonisolated static func fittedSize(
+        paneSize: CGSize, imageWidth: Int, imageHeight: Int
+    ) -> CGSize {
+        guard imageWidth > 0, imageHeight > 0 else { return .zero }
+        let scale = min(paneSize.width / CGFloat(imageWidth),
+                        paneSize.height / CGFloat(imageHeight))
+        return CGSize(width: CGFloat(imageWidth) * scale,
+                      height: CGFloat(imageHeight) * scale)
+    }
+
     /// Maps a pointer in pane coordinates to the source pixel it hovers,
     /// or nil when the pointer is over letterbox rather than image.
     static func sourcePixel(
@@ -27,10 +40,9 @@ enum ComparisonHoverMapping {
         )
         // Then undo the aspect fit: the drawn rect is centred at scale
         // min(paneW/imgW, paneH/imgH).
-        let scale = min(paneSize.width / CGFloat(imageWidth),
-                        paneSize.height / CGFloat(imageHeight))
-        let drawn = CGSize(width: CGFloat(imageWidth) * scale,
-                           height: CGFloat(imageHeight) * scale)
+        let drawn = fittedSize(paneSize: paneSize, imageWidth: imageWidth,
+                               imageHeight: imageHeight)
+        let scale = drawn.width / CGFloat(imageWidth)
         let origin = CGPoint(x: (paneSize.width - drawn.width) / 2,
                              y: (paneSize.height - drawn.height) / 2)
         let sx = (unzoomed.x - origin.x) / scale

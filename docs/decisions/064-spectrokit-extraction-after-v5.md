@@ -1,6 +1,6 @@
 # 064 — Standalone EDX (later EELS) moves to SpectroKit, extracted from the v5.0 tag
 
-**Date:** 2026-10-12 · **Status:** accepted (owner; macTEM ADR 003, `docs/decisions/003-spectrokit.md` in the macTEM repo) · **Amends:** 052 (where the EDX suite lives after v5.0)
+**Date:** 2026-10-12 · **Status:** accepted (owner; macTEM ADR 003 "SpectroKit", in the macTEM repo) · **Amends:** 052 (where the EDX suite lives after v5.0)
 
 ## Context
 macTEM, the suite's second app, needs the same standalone EDX machinery mac4DSTEM built for v5.0. Copying it would fork the
