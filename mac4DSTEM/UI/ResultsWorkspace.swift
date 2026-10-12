@@ -193,6 +193,40 @@ struct ComparisonPanel: Identifiable {
     }
 }
 
+/// A pixel position in one comparison panel's own product.
+struct ComparisonSamplePoint: Equatable {
+    let x: Int
+    let y: Int
+}
+
+/// The VoiceOver-only sample cursor of a comparison panel. It is drawn
+/// nowhere: it starts at the panel's centre and moves in steps of a twentieth
+/// of the image (at least one pixel), clamped inside it. Pure, so the step and
+/// the clamp are pinned by a unit test.
+nonisolated enum ComparisonSampleCursor {
+    enum Direction: Equatable { case left, right, up, down }
+
+    static func centre(width: Int, height: Int) -> ComparisonSamplePoint {
+        ComparisonSamplePoint(x: max(0, min(width - 1, width / 2)),
+                              y: max(0, min(height - 1, height / 2)))
+    }
+
+    static func stepped(_ point: ComparisonSamplePoint, _ direction: Direction,
+                        width: Int, height: Int) -> ComparisonSamplePoint {
+        guard width > 0, height > 0 else { return ComparisonSamplePoint(x: 0, y: 0) }
+        let dx = max(1, width / 20), dy = max(1, height / 20)
+        var x = point.x, y = point.y
+        switch direction {
+        case .left: x -= dx
+        case .right: x += dx
+        case .up: y -= dy
+        case .down: y += dy
+        }
+        return ComparisonSamplePoint(x: min(max(x, 0), width - 1),
+                                     y: min(max(y, 0), height - 1))
+    }
+}
+
 /// A and B side by side, with A − B beside them when the two products are
 /// numerically comparable at all.
 ///
@@ -208,6 +242,9 @@ struct ProductComparisonView: View {
     @State private var zoom: CGFloat = 1
     @State private var liveZoom: CGFloat = 1
     @State private var cursor: (x: Int, y: Int)?
+    /// VoiceOver's sample cursor per panel, keyed by the panel's label. Absent
+    /// until first moved, when it sits at the panel centre.
+    @State private var sampleCursors: [String: ComparisonSamplePoint] = [:]
 
     private let panels: [ComparisonPanel]
 
@@ -265,6 +302,27 @@ struct ProductComparisonView: View {
         }
         .padding()
         .accessibilityIdentifier("result.comparison")
+    }
+
+    /// The panel's static caption, shown when no sample is under the pointer.
+    private func staticCaption(_ product: DisplayedProduct) -> String {
+        "\(product.domain.rawValue) · \(product.valueUnits)"
+    }
+
+    /// The VoiceOver value of a panel: the sample at its sample cursor, else the caption.
+    private func voSampleText(_ rendered: ComparisonPanel) -> String {
+        let product = rendered.product
+        let point = sampleCursors[rendered.id]
+            ?? ComparisonSampleCursor.centre(width: product.width, height: product.height)
+        return product.sample(x: point.x, y: point.y)?.accessibilityText ?? staticCaption(product)
+    }
+
+    private func moveSampleCursor(_ rendered: ComparisonPanel, _ direction: ComparisonSampleCursor.Direction) {
+        let product = rendered.product
+        let current = sampleCursors[rendered.id]
+            ?? ComparisonSampleCursor.centre(width: product.width, height: product.height)
+        sampleCursors[rendered.id] = ComparisonSampleCursor.stepped(
+            current, direction, width: product.width, height: product.height)
     }
 
     private func panel(_ rendered: ComparisonPanel) -> some View {
@@ -350,10 +408,17 @@ struct ProductComparisonView: View {
                 }
             }
             .accessibilityAction(named: "Reset zoom") { zoom = 1 }
+            // The pointer's readout, for VoiceOver too: the sample at the VO-only
+            // cursor, through the same `product.sample` the hover readout uses.
+            .accessibilityValue(voSampleText(rendered))
+            .accessibilityAction(named: "Move sample cursor left") { moveSampleCursor(rendered, .left) }
+            .accessibilityAction(named: "Move sample cursor right") { moveSampleCursor(rendered, .right) }
+            .accessibilityAction(named: "Move sample cursor up") { moveSampleCursor(rendered, .up) }
+            .accessibilityAction(named: "Move sample cursor down") { moveSampleCursor(rendered, .down) }
             if let cursor, let sample = product.sample(x: cursor.x, y: cursor.y) {
                 Text(sample.accessibilityText).font(.caption2.monospacedDigit()).lineLimit(1)
             } else {
-                Text("\(product.domain.rawValue) · \(product.valueUnits)")
+                Text(staticCaption(product))
                     .font(.caption2).foregroundStyle(.secondary)
             }
         }
