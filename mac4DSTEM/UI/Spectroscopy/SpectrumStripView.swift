@@ -183,6 +183,15 @@ struct SpectrumStripView: View {
                 .accessibilityAction(named: "Pan right") { perform(.panRight) }
                 .accessibilityAction(named: "Show full range") { showFullRange() }
                 .accessibilityAction(named: "Reset view") { resetViewport() }
+                // The candidate lines at the centre of the visible span (the energy the keyboard user has panned to): the same list
+                // and the same pick as the right-click menu. A candidate that is only a sum or an escape is not a pick, so it is
+                // left out; no candidate, no action.
+                .accessibilityActions {
+                    ForEach(SpectrumStripLogic.candidates(at: SpectrumStripLogic.queryEnergy(viewport: model.viewport), listed: model.elements.activeZ)
+                        .filter { $0.kind == .line }, id: \.label) { c in
+                        Button("Add \(c.label) (\(SpectrumReadout.energy(c.energy)) keV)") { model.onPickElement?(c.z) }
+                    }
+                }
     }
 
     private func plotWidth(_ size: CGSize) -> CGFloat { size.width - Metrics.left - Metrics.right }
@@ -272,7 +281,7 @@ struct SpectrumStripView: View {
     @ViewBuilder private func candidateMenu(_ size: CGSize, hoverX: CGFloat?) -> some View {
         let f = SpectrumStripLogic.anchor(startX: hoverX ?? Metrics.left, plotLeft: Metrics.left, plotWidth: plotWidth(size))
         let e = model.viewport.energy(atFraction: f)
-        let found = SpectrumHover.candidates(at: e, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, listed: model.elements.activeZ)
+        let found = SpectrumStripLogic.candidates(at: e, listed: model.elements.activeZ)
         if let a = rangeFrom, let b = rangeTo, a != b {
             Button(SpectrumInteraction.zoomToRangeTitle(from: a, to: b)) { applyWindow(from: a, to: b) }
             Divider()
@@ -656,6 +665,12 @@ nonisolated enum SpectrumStripLogic {
     /// passes on); ⇧ is allowed because some layouts type "+" with it.
     static func zoomKeyAccepts(_ modifiers: EventModifiers) -> Bool {
         modifiers.intersection([.command, .control, .option]).isEmpty
+    }
+    /// The energy the candidate lines are looked up at from the keyboard and VoiceOver: the centre of the visible span.
+    static func queryEnergy(viewport vp: SpectrumViewport) -> Double { vp.energy(atFraction: 0.5) }
+    /// The tabulated lines an energy could be: the one list the right-click menu and the accessibility actions both build.
+    static func candidates(at e: Double, listed: [Int]) -> [SpectrumHover.Candidate] {
+        SpectrumHover.candidates(at: e, resolutionMnKaEV: ElementWindows.defaultResolutionMnKaEV, listed: listed)
     }
     /// A pin chip's button removes the pin; its spoken name says so.
     static func unpinLabel(_ pinLabel: String) -> String { "Unpin \(pinLabel)" }
