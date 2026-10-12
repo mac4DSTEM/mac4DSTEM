@@ -26,3 +26,13 @@ laneS2 harness are not on this Mac, so it is NOT re-run; the argument is derived
 **Refuting observations.** Case D throwing; P2 without its Tb+Ir column; P3 with La proposed, or at 0 the Cd+Tl column gone; A–C/E changing.
 **Gate.** Unit + core in an isolated copy; breaks: remove the escape exclusion → Case D red; scope pool-wide → P2 red; re-add the line
 branch → P3 red. Independent refuter (supervisor). The Auto ID `unvalidated` badge stays. Live re-run: owed, stated, not faked.
+
+## Addendum (2026-10-12, AFTER the first code runs; supervisor's wording): P3's HEAD measurement corrected
+Order, from the lane's logs: the escape-only code went green (23:38) and the line-branch mutation did NOT turn the first P3 test red
+(`mut-line`, 23:39). Only then were the levels rescanned on the escape-only code, the line branch and HEAD (23:39–23:40). So P3 below
+is an observation of the built code, not a prediction; it is kept because it pins HEAD's behaviour, and the refuter judges it.
+The three-level measurement above missed the throw. A scan of the planted pile-up on HEAD's own ElementProposer (scratch copy; area 0 / 40 / 80
+complete, **120 / 160 / 200 throw `rankDeficient`**, 240 completes with La a sum-peak question) shows the refuter's case is real: La
+active, not claiming, the pair an identical column. With the LINE branch the same runs complete (La net 106–185, pair dropped).
+P3 therefore reads: 160 counts throws `rankDeficient` (as HEAD); 0 counts keeps the Cd+Tl column; 2 000 counts leaves La a sum-peak
+question; La is never in `proposed`. The refuting observation for P3 now also includes "160 completes".
