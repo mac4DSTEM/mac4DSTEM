@@ -48,4 +48,27 @@ final class ResultsAccessibilityTests: XCTestCase {
                                                       .down, width: 200, height: 100),
                        ComparisonSamplePoint(x: 199, y: 99))
     }
+
+    /// G2: Export Data is enabled exactly when nothing runs and a result image exists.
+    func testExportDataReasonIsNilOnlyWhenEnabled() {
+        XCTAssertNil(ResultsActionReason.exportData(isBusy: false, hasResultImage: true))
+        XCTAssertEqual(ResultsActionReason.exportData(isBusy: true, hasResultImage: true),
+                       ResultsActionReason.busy)
+        XCTAssertEqual(ResultsActionReason.exportData(isBusy: false, hasResultImage: false),
+                       "No result to export yet.")
+        XCTAssertEqual(ResultsActionReason.exportData(isBusy: true, hasResultImage: false),
+                       ResultsActionReason.busy, "a busy app is named first")
+    }
+
+    /// G2: Save to Results is enabled exactly when nothing runs and the gate gives no refusal;
+    /// a refusal is spoken as the gate's own text, and busy is named first.
+    func testSaveToResultsReasonIsNilOnlyWhenEnabled() {
+        XCTAssertNil(ResultsActionReason.saveToResults(isBusy: false, sidecarRefusal: nil))
+        XCTAssertEqual(ResultsActionReason.saveToResults(isBusy: true, sidecarRefusal: nil),
+                       ResultsActionReason.busy)
+        XCTAssertEqual(ResultsActionReason.saveToResults(isBusy: true, sidecarRefusal: "refused"),
+                       ResultsActionReason.busy, "a busy app is named first")
+        XCTAssertEqual(ResultsActionReason.saveToResults(isBusy: false, sidecarRefusal: "refused"),
+                       "refused", "the gate's own refusal text, unchanged")
+    }
 }

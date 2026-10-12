@@ -90,10 +90,12 @@ struct ResultsWorkspace: View {
                 Label("Export Data…", systemImage: "tablecells")
             }
             .buttonStyle(.bordered)
-            .disabled(appState.isBusy || appState.resultPresentation.resultImage == nil)
+            .disabled(exportDataReason != nil)
             .help(appState.productIsColourImageOnly
                   ? "This view is a colour image; export the scalar maps it is made from"
                   : "Save the numbers behind this view as an HDF5 (EMD) file")
+            // VoiceOver hears the reason on the dimmed button; nothing is drawn.
+            .accessibilityValue(exportDataReason ?? "")
             .accessibilityIdentifier("result.exportData")
             // The bundle is a strain/orientation artefact: offered only when
             // one of those maps exists, exactly as before.
@@ -115,10 +117,48 @@ struct ResultsWorkspace: View {
             .buttonStyle(.borderedProminent)
             // C4(a): the sidecar-rewrite gate, beside busy — see
             // `SaveResultButton` in `WorkspaceView.swift`.
-            .disabled(appState.isBusy || !appState.gates.mayWriteSidecar)
+            .disabled(saveToResultsReason != nil)
+            .accessibilityValue(saveToResultsReason ?? "")
             .accessibilityIdentifier("result.saveSession")
         }
         .padding()
+    }
+
+    /// The same conditions that disable Export Data, as a reason (nil when enabled).
+    private var exportDataReason: String? {
+        ResultsActionReason.exportData(
+            isBusy: appState.isBusy,
+            hasResultImage: appState.resultPresentation.resultImage != nil)
+    }
+
+    /// The same conditions that disable Save to Results, as a reason (nil when enabled).
+    /// The refusal is the gate's own text: `mayWriteSidecar` is `sidecarRewriteRefusal() == nil`.
+    private var saveToResultsReason: String? {
+        ResultsActionReason.saveToResults(
+            isBusy: appState.isBusy,
+            sidecarRefusal: appState.gates.sidecarRewriteRefusal())
+    }
+}
+
+/// Why Export Data and Save to Results are disabled, in words VoiceOver can
+/// speak on the dimmed button. nil when the button is enabled. The buttons'
+/// `.disabled` binds to the same nil-ness, so the reason and the state cannot
+/// drift apart.
+nonisolated enum ResultsActionReason {
+    static let busy = "Unavailable while another task is running."
+
+    /// Export Data is disabled when no result image exists yet (a colour-only
+    /// view has no scalar map, but its image is still a result).
+    static func exportData(isBusy: Bool, hasResultImage: Bool) -> String? {
+        if isBusy { return busy }
+        return hasResultImage ? nil : "No result to export yet."
+    }
+
+    /// Save to Results takes the gate's own refusal text, so the reason and the
+    /// gate cannot disagree in wording.
+    static func saveToResults(isBusy: Bool, sidecarRefusal: String?) -> String? {
+        if isBusy { return busy }
+        return sidecarRefusal
     }
 }
 
