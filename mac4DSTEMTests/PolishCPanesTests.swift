@@ -57,7 +57,8 @@ final class UnitDisplayLabelTests: XCTestCase {
     /// Info › Product › Sampling (the one wording authority). Mutation it
     /// catches: `sampling` printing the stored spelling.
     func testTheSamplingLineReadsCanonical() {
-        XCTAssertEqual(SessionResultPresentation.sampling(row: 0.012, column: 0.012, units: "A^-1"),
+        XCTAssertEqual(SessionResultPresentation.sampling(row: 0.012, column: 0.012, units: "A^-1",
+                                                                locale: Locale(identifier: "en_US")),
                        "sampling 0.012 Å⁻¹/px")
         XCTAssertEqual(SessionResultPresentation.sampling(row: 2, column: 2, units: nil),
                        "sampling 2 px/px")

@@ -79,7 +79,8 @@ enum MapsExport {
         func add(_ label: String, _ source: CGImage?, tagged: Bool = true) throws {
             guard var image = source else { return }
             var barred = false
-            if let px = pixel, let plan = MapScaleBar.tilePlan(pixelSize: px.size, unit: px.unit, pointsPerPixel: 1, width: Double(image.width)),
+            if let px = pixel, let plan = MapScaleBar.tilePlan(pixelSize: px.size, unit: px.unit, pointsPerPixel: 1, width: Double(image.width),
+                                                                    locale: Locale(identifier: "en_US_POSIX")),
                let drawn = MapBitmap.addingScaleBar(to: image, plan: plan) { image = drawn; barred = true }
             guard let data = MapBitmap.pngData(image) else { throw Failure("Could not encode \(label).") }
             out.append(File(name: pngName(stem: stem, label: label, mode: tagged ? model.mapMode : .netCounts,

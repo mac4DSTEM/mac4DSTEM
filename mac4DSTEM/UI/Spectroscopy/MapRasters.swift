@@ -69,15 +69,16 @@ enum MapScaleBar {
     }
 
     /// `pixelSize` per scan pixel in `unit`; `pointsPerPixel` the map's drawn size; the bar aims at `targetPoints`.
-    static func plan(pixelSize: Double, unit: String, pointsPerPixel: Double, targetPoints: Double = 64) -> Plan? {
+    static func plan(pixelSize: Double, unit: String, pointsPerPixel: Double, targetPoints: Double = 64,
+                     locale: Locale = .autoupdatingCurrent) -> Plan? {
         guard pixelSize > 0, pixelSize.isFinite, pointsPerPixel > 0, pointsPerPixel.isFinite, targetPoints > 0 else { return nil }
         guard let nm = nanometres(per: unit) else {
             let nice = ScaleBar.nice125(targetPoints * pixelSize / pointsPerPixel)
-            return Plan(label: "\(ScaleBar.format(nice)) \(unit)", lengthPoints: nice / (pixelSize / pointsPerPixel))
+            return Plan(label: "\(ScaleBar.format(nice, locale: locale)) \(unit)", lengthPoints: nice / (pixelSize / pointsPerPixel))
         }
         let nmPerPoint = pixelSize * nm / pointsPerPixel
         let nice = ScaleBar.nice125(targetPoints * nmPerPoint)
-        let label = nice >= 1000 ? "\(ScaleBar.format(nice / 1000)) \u{00B5}m" : "\(ScaleBar.format(nice)) nm"
+        let label = nice >= 1000 ? "\(ScaleBar.format(nice / 1000, locale: locale)) \u{00B5}m" : "\(ScaleBar.format(nice, locale: locale)) nm"
         return Plan(label: label, lengthPoints: nice / nmPerPoint)
     }
 }
@@ -88,11 +89,12 @@ extension MapScaleBar {
 
     /// The bar for one map of `width` points (or export pixels) drawn at `pointsPerPixel`: the round length nearest 0.3 of the width
     /// (at most 64, at least the minimum), so a smaller tile gets a shorter bar. A map narrower than twice the minimum length has
-    /// no room for a bar and its label: none is drawn. No pixel size, no bar.
-    static func tilePlan(pixelSize: Double, unit: String, pointsPerPixel: Double, width: Double) -> Plan? {
+    /// no room for a bar and its label: none is drawn. No pixel size, no bar. A burned-in export passes `en_US_POSIX`.
+    static func tilePlan(pixelSize: Double, unit: String, pointsPerPixel: Double, width: Double,
+                         locale: Locale = .autoupdatingCurrent) -> Plan? {
         guard width >= 2 * minimumLengthPoints else { return nil }
         return plan(pixelSize: pixelSize, unit: unit, pointsPerPixel: pointsPerPixel,
-                    targetPoints: min(64, max(minimumLengthPoints, width * 0.3)))
+                    targetPoints: min(64, max(minimumLengthPoints, width * 0.3)), locale: locale)
     }
 }
 

@@ -131,10 +131,15 @@ struct ScaleBar: View {
         return nice * base
     }
 
-    static func format(_ value: Double) -> String {
-        if value >= 10 { return String(format: "%.0f", value) }
-        if value >= 1 { return String(format: "%g", value) }
-        return String(format: "%.3g", value)
+    /// The bar's number in the reader's locale ("0,05" in de_DE). The digits are
+    /// the C-format ones the bar always printed; only the decimal separator is
+    /// localised, so en output is byte-identical. Exports burn with en_US_POSIX.
+    static func format(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
+        let text: String
+        if value >= 10 { text = String(format: "%.0f", value) }
+        else if value >= 1 { text = String(format: "%g", value) }
+        else { text = String(format: "%.3g", value) }
+        return text.replacingOccurrences(of: ".", with: locale.decimalSeparator ?? ".")
     }
 }
 

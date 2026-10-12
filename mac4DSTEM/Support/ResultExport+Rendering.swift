@@ -206,7 +206,7 @@ extension AppState {
         let barHeight = CGFloat(max(3, outH / 150))
         let fontSize = CGFloat(max(11, outH / 28))
 
-        let text = "\(ScaleBar.format(nice)) \(unitLabel)" as NSString
+        let text = "\(ScaleBar.format(nice, locale: Locale(identifier: "en_US_POSIX"))) \(unitLabel)" as NSString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .medium),
             .foregroundColor: NSColor.white,

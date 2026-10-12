@@ -79,12 +79,16 @@ package nonisolated struct ScientificSeriesGeometry: Equatable, Sendable {
 
 /// Compact labels for arbitrary-shape persisted scientific results.
 package nonisolated enum SessionResultPresentation {
-    package static func sampling(row: Double?, column: Double?, units: String?) -> String? {
+    package static func sampling(
+        row: Double?, column: Double?, units: String?, locale: Locale = .autoupdatingCurrent
+    ) -> String? {
         guard let row, let column, row.isFinite, column.isFinite,
               row > 0, column > 0 else { return nil }
         let suffix = (units?.isEmpty == false ? CalibrationUnitConversion.displayLabel(units) : "px") + "/px"
         // A square pixel reads "5 Å/px", not "5 × 5 Å/px"; unequal steps keep both.
-        let steps = row == column ? number(row) : "\(number(row)) × \(number(column))"
+        let steps = row == column
+            ? number(row, locale: locale)
+            : "\(number(row, locale: locale)) × \(number(column, locale: locale))"
         return "sampling \(steps) \(suffix)"
     }
 
@@ -123,11 +127,15 @@ package nonisolated enum SessionResultPresentation {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    private static func number(_ value: Double) -> String {
+    /// C-format digits as ever (en output unchanged); only the decimal separator
+    /// follows the locale. provenance() shares this and so reads in the locale too.
+    private static func number(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
         let magnitude = abs(value)
-        if magnitude != 0, magnitude < 0.001 { return String(format: "%.2e", value) }
-        if magnitude >= 1_000 { return String(format: "%.3g", value) }
-        return String(format: "%.4g", value)
+        let text: String
+        if magnitude != 0, magnitude < 0.001 { text = String(format: "%.2e", value) }
+        else if magnitude >= 1_000 { text = String(format: "%.3g", value) }
+        else { text = String(format: "%.4g", value) }
+        return text.replacingOccurrences(of: ".", with: locale.decimalSeparator ?? ".")
     }
 }
 
