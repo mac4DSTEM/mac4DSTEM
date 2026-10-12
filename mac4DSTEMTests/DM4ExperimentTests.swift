@@ -203,6 +203,36 @@ final class DM4ExperimentTests: XCTestCase {
         XCTAssertNil(o[1].metaDataSignal)
     }
 
+    /// Each object's own `ImageTags` reach it as two maps, the prefix removed, so a consumer reads one
+    /// image's microscope and DataBar tags without a second parser. Eleven objects, so `ImageList.1.` sits
+    /// beside `ImageList.10.` and `.11.`; the maps are compared whole, so a stray key of any kind shows.
+    func testEachObjectExposesItsOwnImageTags() throws {
+        let objects: [Node] = (1...11).map { n in
+            var microscope: [Node] = [.float("Probe Current", Float(n) / 4)]
+            var dataBar: [Node] = [.text("Device Name", "Camera \(n)")]
+            if n == 1 {
+                microscope.insert(.float("Voltage", 200_000), at: 0)
+                dataBar.insert(.text("Acquisition Date", "10/12/2026 9:14:03 AM"), at: 0)
+            }
+            return Self.object(
+                name: "o\(n)", dataType: 2, dims: [2, 3], axes: [Self.um, Self.um],
+                blobType: 6, blob: Self.f32s([1, 2, 3, 4, 5, 6]), count: 6,
+                tags: [.group("Microscope Info", microscope), .group("DataBar", dataBar)])
+        }
+        let o = try DM4Experiment.list(data: Self.file(imageList: objects))
+        XCTAssertEqual(o.map(\.index), Array(1...11))
+        XCTAssertEqual(o[0].voltage, 200_000)
+        XCTAssertEqual(o[0].imageTagNumbers, ["Microscope Info.Voltage": 200_000, "Microscope Info.Probe Current": 0.25])
+        XCTAssertEqual(o[0].imageTagStrings, ["DataBar.Acquisition Date": "10/12/2026 9:14:03 AM",
+                                              "DataBar.Device Name": "Camera 1"])
+        for object in o.dropFirst() {
+            let n = object.index
+            XCTAssertNil(object.voltage, "object \(n)")
+            XCTAssertEqual(object.imageTagNumbers, ["Microscope Info.Probe Current": Double(Float(n) / 4)], "object \(n)")
+            XCTAssertEqual(object.imageTagStrings, ["DataBar.Device Name": "Camera \(n)"], "object \(n)")
+        }
+    }
+
     /// Decoded read-only from the fixture's bytes: the four objects carry Format "Image", "Image",
     /// "Diffraction image", "Spectrum image"; only the last carries Signal "X-ray".
     func testTheRealEDSFixtureCarriesSpectrumImageAndXRay() throws {
@@ -214,6 +244,11 @@ final class DM4ExperimentTests: XCTestCase {
         XCTAssertEqual(si.metaDataSignal, "X-ray")
         XCTAssertEqual(objects.filter { $0.metaDataFormat == "Spectrum image" }.count, 1)
         XCTAssertEqual(objects.filter { $0.metaDataSignal != nil }.count, 1)
+        // On the real file the tag map carries the same voltage the walk reads, on every object that has one.
+        XCTAssertTrue(objects.contains { $0.voltage != nil })
+        for object in objects where object.voltage != nil {
+            XCTAssertEqual(object.imageTagNumbers["Microscope Info.Voltage"], object.voltage, "object \(object.index)")
+        }
     }
 
     func testRolesAreListedFromTheExperimentLabels() throws {
