@@ -84,6 +84,15 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 - **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 
+### The ellipse Fit accepts wrong profile fits on noisy rings — Gate D open, step 1 reproduced (2026-10-13)
+`fitAmorphousRing` starts both ring sigmas at py4DSTEM's `(ro − ri)/4`; on noisy planted rings `fitBestAvailable` then accepts
+profile fits off by up to 48 % in R, 0.51 in b/a and 40 px in the centre (35 and 32 of macTEM's two 144-plant noisy sets;
+each costs 1.3–3.4× the true ring). About half are the dead ring macTEM reported (I1 → 0, sigmas at 0.25 px), the rest
+drift off centre with live sigmas. The app applies b/a and θ to every Bragg vector; no refusal catches either kind. Clean
+rings are unaffected. Unmeasured: real patterns (P5, Au_ref) and how noisy a mean pattern or Bragg-vector map gets.
+Record: `archive/v5/ring-sigma-start-gateD-2026-10-13.md` (registered `ce245821`). Next: step 2 (candidates (a) a
+half-maximum start, (b) refuse a sigma at its bound) as held patches, refuter, then card M2 — the owner's; nothing lands first.
+
 ### Other named science residuals
 One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) and `archive/v4/open-items-detail-2026-09-25.md`.
 - T1 [0 -4 1]: 252 not-indexed positions are detection noise (a Friedel pair 2.5–5.2° off); levers (centroiding, tolerance, accept) are the owner's.

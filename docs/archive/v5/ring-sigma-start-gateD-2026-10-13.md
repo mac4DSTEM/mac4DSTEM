@@ -38,6 +38,19 @@ normalised residual of any model (a ring-less constant scores 0.17–0.26 agains
 **What would be built.** Candidates (a) and (b) as held patches with a fixture (a noisy plant red on HEAD), gated, not
 applied. The owner chooses on card M2: (a), (b), both, or neither.
 
-## Results
+## Results — partial: step 1 only (2026-10-13, M5 Pro; the session ended before steps 2–5)
 
-(Added after the run.)
+A Sonnet lane ran this tree's `fitBestAvailable` (HEAD `ce245821`, default arguments, macTEM's centre guess and annulus) on
+macTEM's refuter plant sets (`refuter/plants_a.py`, `plants_b.py` at macTEM `6c1f4d4`; 144 noisy plants each, 3 and 10 %
+noise). The harness and the analysis are in `ring-sigma-start-gateD-2026-10-13/` (`scan-main.swift`, `build.sh`, `an.py`);
+its output, `head-noisy-summary.txt`. "Wrong" = an accepted profile fit off by more than 1 % in (a + b)/2.
+
+- **R0 not refuted, P1 held:** 35 of 144 (set A) and 32 of 144 (set B) accepted profile fits are wrong — macTEM counted 16 on
+  set A because its wrapper refused 19 more for a/b − 1 > 0.093 (16 + 19 = 35); this app has no such refusal. Off by up to 48 % in R, 0.51 in b/a (what the
+  app applies), 1.56 rad in θ, 40 px in the centre. The conic seed was within 1.3 % on every one.
+- **R1 not refuted, P2 held:** every wrong fit costs 1.30–3.42× the true ring's model on the same pixels (35 of 35, 32 of 32).
+- **Not as diagnosed:** only 17 of 35 and 18 of 32 are the dead ring (I1 below a tenth of its start, or a ring sigma ≤ 0.30
+  px). The rest keep ring sigmas of 2–7 px and drift 10–40 px off centre, mostly 10 %-noise rings with a 60° gap. So
+  candidate (b) alone cannot catch about half; whether (a) rescues them is P3, not yet run.
+- Clean plants (84): 59 profile, 25 conic fallbacks (residual 0.235–0.336), as lane E measured on 2026-10-12.
+- Not run: R2, P3, P4, P5 (candidates, Au_ref), the held patches, the fixture, the refuter. The next session resumes at step 2.
