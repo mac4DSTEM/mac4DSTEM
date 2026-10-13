@@ -305,6 +305,8 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   sums were never checked against escapes. Escape case fixed (5b696589, card A1 a, `archive/v5/sum-escape-only-results-2026-10-12/`);
   the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
   `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
+- **Drive 13 (2026-10-13):** the Label-centres toggle's AX label reads "Label centres on click, Label centres on click"; the main
+  window once left the screen and the AX tree mid-drive (process alive, cause not established); ⌘O opened a second window each time.
 - **E1 pools (2026-10-13):** with a cube but no registration the Phases section shows the registration sentence, not the Crystal Maps
   line; `PoolCatalogue.isUnvalidated` repeats Core's predicate; membership is ≥ ½ beside no class (moot under the identity). Undriven.
 - **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
