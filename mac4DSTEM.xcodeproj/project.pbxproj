@@ -145,7 +145,7 @@
 				Core/Spectroscopy/Fit/ReferenceShapes.swift,
 				Core/Spectroscopy/MapSmoothing.swift,
 				Core/Spectroscopy/Method/QuantificationMethod.swift,
-				Core/Spectroscopy/Method/QuantificationStep.swift,
+				Core/Spectroscopy/Registration/QuantificationStep.swift,
 				Core/Spectroscopy/Proposer/ElementProposer.swift,
 				Core/Spectroscopy/Proposer/FitNullVariance.swift,
 				Core/Spectroscopy/Proposer/LineConflicts.swift,

@@ -1,5 +1,6 @@
 //
 //  QuantificationStep.swift
+//  Lives in Registration/ (stays in the app): it references RegistrationRecordM2, so it is a lineage step, not spectroscopy (SpectroKit S1, edge E4).
 //  Role: What the replay step "quantification" records (ADR 047 R1, ADR 054 item 8: the Quantify verb
 //        writes one step): the method, the registration the pooling used, and which region was pooled.
 //        Flat string-to-string parameters, the convention of every step (`SessionLineage.Node`).
