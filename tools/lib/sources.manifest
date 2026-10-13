@@ -130,6 +130,7 @@ mac4dstem_sources() {
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/HDF5Types.swift"
+          "$core/Data/SessionSidecarFormat.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/DM4Reader.swift"
           "$core/Data/DM4Error.swift"
@@ -382,6 +383,7 @@ mac4dstem_sources() {
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/HDF5Types.swift"
+          "$core/Data/SessionSidecarFormat.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
