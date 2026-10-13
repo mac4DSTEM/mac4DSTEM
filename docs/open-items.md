@@ -305,8 +305,11 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   sums were never checked against escapes. Escape case fixed (5b696589, card A1 a, `archive/v5/sum-escape-only-results-2026-10-12/`);
   the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
   `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
-- **Drive 13 (2026-10-13):** the Label-centres toggle's AX label reads "Label centres on click, Label centres on click"; the main
-  window once left the screen and the AX tree mid-drive (process alive, cause not established); ⌘O opened a second window each time.
+- **Drive 13 (2026-10-13):** ⌘O opened a second window each time. The main window that "left the screen and the AX tree" was
+  seen again on 2026-10-13 off the current Space (CG: present, not on screen) while the owner used Mail: likely a Space switch, not a
+  defect. A doubled VoiceOver name ("X, X") is fixed at five sites: on macOS an `.accessibilityLabel` is APPENDED to the title of a
+  checkbox Toggle, a pop-up or a segmented Picker, a Stepper (measured on a scratch app; Buttons, text fields, switches, Menus and a
+  Picker in a Form replace it). A new control names itself through its hidden title, not an extra label.
 - **E1 pools (2026-10-13):** with a cube but no registration the Phases section shows the registration sentence, not the Crystal Maps
   line; `PoolCatalogue.isUnvalidated` repeats Core's predicate; membership is ≥ ½ beside no class (moot under the identity). Undriven.
 - **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.

@@ -524,11 +524,12 @@ private struct DiskCentreLabelsRows: View {
             onCurrentPattern: appState.patternDisplayMode == .current
         )
         InspectorRow("Label centres on click") {
-            Toggle("Label centres on click", isOn: $labels.labelling)
+            // The spoken name is the control's own (hidden) title: on macOS a checkbox, pop-up or segmented control APPENDS
+            // .accessibilityLabel to its title ("X, X"; drive 13, measured on a scratch app 2026-10-13).
+            Toggle(toggleReason.map { "Label centres on click. \($0)" } ?? "Label centres on click", isOn: $labels.labelling)
                 .labelsHidden()
                 .disabled(toggleReason != nil)
                 .accessibilityIdentifier("disk.labels.toggle")
-                .accessibilityLabel(toggleReason.map { "Label centres on click. \($0)" } ?? "Label centres on click")
                 .help(toggleReason ?? "While on, click the diffraction pane to add a hand-clicked disk centre at the current scan position, or click near an existing one to remove it. Only available on the Current pattern display, where there is one scan position to label.")
         }
 
@@ -1427,7 +1428,7 @@ private struct ACOMSections: View {
             // an explicit choice here is recorded and a later completed map
             // never silently promotes IPF·Z over it.
             InspectorRow("Display") {
-                Picker("Display", selection: Binding(
+                Picker("ACOM display mode", selection: Binding(
                     get: { appState.acomSession.display },
                     set: { appState.selectACOMDisplay($0) }
                 )) {
@@ -1436,10 +1437,8 @@ private struct ACOMSections: View {
                     }
                 }
                 .labelsHidden()
-                // "Display" alone collides with a section header of the same
-                // name; the accessibility label disambiguates for VoiceOver and
-                // label-based automation queries.
-                .accessibilityLabel("ACOM display mode")
+                // "Display" alone collides with a section header of the same name, so the hidden title says
+                // "ACOM display mode"; it is the spoken name (an .accessibilityLabel would be appended: "Display, …").
                 .accessibilityIdentifier("acom.display")
             }
             // Owner card S2 (a), 2026-10-02: label now, settle the convention after v4.1.

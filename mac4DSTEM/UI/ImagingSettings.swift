@@ -46,7 +46,7 @@ struct ImagingSettings: View {
         if appState.activePane == .diffraction {
             InspectorSection("Detector → real space") {
                 InspectorRow("Shape") {
-                    Picker("Shape", selection: $resultPresentation.virtualShape) {
+                    Picker("Detector shape", selection: $resultPresentation.virtualShape) {
                         ForEach(VirtualShapeMode.allCases) { shape in
                             Image(systemName: Self.symbol(shape))
                                 .accessibilityLabel(shape.rawValue)
@@ -57,7 +57,7 @@ struct ImagingSettings: View {
                     .labelsHidden()
                     .help("The detector geometry drawn on the diffraction pane: "
                           + "circle, annulus, rectangle, or a single pixel.")
-                    .accessibilityLabel("Detector shape")
+                    // The hidden title is the spoken name; an .accessibilityLabel is appended to it ("Shape, Detector shape").
                 }
                 // Conventional STEM abbreviations; full names in the
                 // buttons' help and accessibility labels.
@@ -80,7 +80,7 @@ struct ImagingSettings: View {
         } else {
             InspectorSection("Region → diffraction") {
                 InspectorRow("Shape") {
-                    Picker("Shape", selection: $appState.realSpaceShape) {
+                    Picker("Region shape", selection: $appState.realSpaceShape) {
                         ForEach(RegionShape.allCases) { shape in
                             Image(systemName: Self.symbol(shape))
                                 .accessibilityLabel(shape.rawValue)
@@ -91,7 +91,6 @@ struct ImagingSettings: View {
                     .labelsHidden()
                     .help("The scan region summed into the diffraction pattern: "
                           + "one position, a rectangle, or a circle.")
-                    .accessibilityLabel("Region shape")
                 }
 
                 if appState.realSpaceShape != .point, let d = appState.descriptor {

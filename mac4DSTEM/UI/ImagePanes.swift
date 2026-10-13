@@ -178,8 +178,7 @@ struct DiffractionPane: View {
                 }
                 .labelsHidden()
                 .fixedSize()
-                .accessibilityLabel("Pattern source")
-                .accessibilityIdentifier("pattern.displayMode")
+                .accessibilityIdentifier("pattern.displayMode")   // spoken name = the hidden title (a label would double it)
             }
 
             if appState.fitOverlays.isAvailable {
