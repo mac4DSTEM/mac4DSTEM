@@ -305,6 +305,8 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   sums were never checked against escapes. Escape case fixed (5b696589, card A1 a, `archive/v5/sum-escape-only-results-2026-10-12/`);
   the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
   `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
+- **Drive 14 (2026-10-13):** disabled without a reason: Save to Session, Export Labels…, Align Next Level, Fit Aberrations. The ACOM
+  Work and Euler rows' parent AXValue stays stale (child text and screen correct) — drive 8's stale-Label pattern; its `.id` fix applies.
 - **Drive 13 (2026-10-13):** ⌘O opened a second window each time. The main window that "left the screen and the AX tree" was
   seen again on 2026-10-13 off the current Space (CG: present, not on screen) while the owner used Mail: likely a Space switch, not a
   defect. A doubled VoiceOver name ("X, X") is fixed at five sites: on macOS an `.accessibilityLabel` is APPENDED to the title of a
