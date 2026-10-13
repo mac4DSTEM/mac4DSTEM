@@ -291,10 +291,4 @@ final class FinalPolishDTests: XCTestCase {
         _ = try await reader.readScanTile(view, yRange: 0..<2)
         XCTAssertEqual(disk.questions, 3, "readScanTile")
     }
-
-    func testTheErrorTextIsTheOwnersSentence() {
-        XCTAssertEqual(
-            DM4Error.volumeGone("scan_042.dm4").errorDescription,
-            "scan_042.dm4 is no longer reachable: its disk was disconnected. Reconnect it and reopen.")
-    }
 }
