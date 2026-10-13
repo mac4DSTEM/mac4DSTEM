@@ -49,3 +49,14 @@ Recorded from macTEM's consumer contract (`spectrokit-consumer-contract-2026-10-
   counts about 140–150 Core-only of ~560, against §3.3's 560, so §3.3's delta is re-measured by test name at the switch, not assumed;
   `Bundle.main` tables; the rsciio `049e7d70` pin, missing from SpectroKit's CLAUDE.md.
 
+## Amendment 2026-10-13 (2) — the slot plan's four decisions (owner, by option; second opinion agreed with each)
+From `docs/archive/v5/spectrokit-slot-plan-2026-10-13.md`:
+1. **SpectroCore owns `DM4Experiment` and `DM4Error`** (one GMS parser for the suite): `DM4Error` is split out of `DM4Reader.swift`;
+   `Core/Data/DM4Experiment.swift` joins the moving set; the 4D `DM4Reader` stays and imports them; macTEM drops its copies.
+2. **Cancel and progress are closures with defaults** on every long call: `cancelled: @Sendable () -> Bool = { Task.isCancelled }`
+   and an optional `progress` closure, as the room's compute already takes them.
+3. **`SessionSidecarFormat` stays in mac4DSTEM**, split out of `HDF5Types.swift` into its own file; the rest of `HDF5Types.swift`
+   moves, its shared `HDF5Serial` lock public in SpectroCore and imported by the 4D readers.
+4. **The extracted history is merged into SpectroKit's existing `main`** (its three commits are on GitHub; nothing is rewritten
+   or force-pushed); the `.DS_Store` is deleted in a normal commit.
+
