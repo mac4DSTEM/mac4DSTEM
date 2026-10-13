@@ -324,6 +324,9 @@ struct RegionSettings: Equatable {
     /// The selected pool's own badge (`SpectrumPool.isUnvalidated`): a phase and a Not indexed pool are unvalidated, a group is not
     /// called validated either and carries none. Not the fit's `validation`, which reads nil as unvalidated.
     var phaseUnvalidated = false
+    /// How the selected pool reached the spectrum grid (card E5 a): the registration's own note, "same scan, identity; no lag
+    /// check". nil for a drawn region and the whole map.
+    var registrationNote: String?
 }
 
 /// The file and the region a spectrum CSV is about (its header lines).

@@ -43,6 +43,10 @@ final class ScaleBarUnitTests: XCTestCase {
     /// Mutation: spokenUnit returns the unit as written - "Scale bar, 10 nm", red.
     func testSpokenLabelSaysTheUnitInFull() {
         XCTAssertEqual(ScaleBar.spokenLabel(value: 10, unit: "nm", locale: en), "Scale bar, 10 nanometres")
+        // Drive 12: the bar reaches exactly 1 and said "1 nanometres". Mutation: drop the singular rule - red.
+        XCTAssertEqual(ScaleBar.spokenLabel(value: 1, unit: "nm", locale: en), "Scale bar, 1 nanometre")
+        XCTAssertEqual(ScaleBar.spokenLabel(value: 1, unit: "\u{00C5}\u{207B}\u{00B9}", locale: en), "Scale bar, 1 inverse \u{00E5}ngstr\u{00F6}m")
+        XCTAssertEqual(ScaleBar.spokenLabel(value: 1, unit: "furlong", locale: en), "Scale bar, 1 furlong")
         let table: [(String, String)] = [
             ("\u{00B5}m", "micrometres"), ("\u{00C5}", "\u{00E5}ngstr\u{00F6}ms"),
             ("1/nm", "inverse nanometres"), ("nm\u{207B}\u{00B9}", "inverse nanometres"),

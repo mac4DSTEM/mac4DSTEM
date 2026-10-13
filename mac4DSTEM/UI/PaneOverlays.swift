@@ -168,7 +168,10 @@ struct ScaleBar: View {
 
     /// "Scale bar, 10 nanometres" - the number as the bar prints it.
     static func spokenLabel(value: Double, unit: String, locale: Locale = .autoupdatingCurrent) -> String {
-        "Scale bar, \(format(value, locale: locale)) \(spokenUnit(unit))"
+        // "1 nanometre", not "1 nanometres": the bar's 1-2-5 values reach exactly 1.
+        let spoken = spokenUnit(unit)
+        let unitWords = value == 1 && spoken != unit && spoken.hasSuffix("s") ? String(spoken.dropLast()) : spoken
+        return "Scale bar, \(format(value, locale: locale)) \(unitWords)"
     }
 
     /// Round to the nearest 1 / 2 / 5 × 10ⁿ.

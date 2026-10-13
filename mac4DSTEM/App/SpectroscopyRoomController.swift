@@ -668,6 +668,7 @@ final class SpectroscopyRoomController {
         let pool = session.poolCatalogue.pools.first { $0.id == session.selectedRegionID }
         var settings = RegionSettings()
         if let pool, pool.kind != .group { settings = RegionSettings(phase: pool.name, phaseUnvalidated: pool.isUnvalidated) }
+        if pool != nil { settings.registrationNote = session.registration?.sourceNote }
         if model.regionSettings != settings { model.regionSettings = settings }
         if model.poolNotes != session.poolCatalogue.notes { model.poolNotes = session.poolCatalogue.notes }
     }

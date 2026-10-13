@@ -317,13 +317,14 @@ final class SpectroscopyPoolsTests: XCTestCase {
         XCTAssertTrue(pools.filter { $0.kind != .group }.allSatisfy { $0.isUnvalidated })
         XCTAssertFalse(PoolCatalogue.isUnvalidated(validation: nil))
         _ = await shown(c, pool: 1000)
-        XCTAssertEqual(c.model.regionSettings, RegionSettings(phase: "A", phaseUnvalidated: true))
+        let identity = "same scan, identity; no lag check"   // card E5 a: every pool says how it reached the spectrum grid
+        XCTAssertEqual(c.model.regionSettings, RegionSettings(phase: "A", phaseUnvalidated: true, registrationNote: identity))
         _ = await shown(c, pool: 1900)
-        XCTAssertEqual(c.model.regionSettings, RegionSettings(phase: "Not indexed", phaseUnvalidated: true))
+        XCTAssertEqual(c.model.regionSettings, RegionSettings(phase: "Not indexed", phaseUnvalidated: true, registrationNote: identity))
         _ = await shown(c, pool: 2000)
-        XCTAssertEqual(c.model.regionSettings, RegionSettings(), "a group has no phase row and no badge")
+        XCTAssertEqual(c.model.regionSettings, RegionSettings(registrationNote: identity), "a group has no phase row and no badge, and says its registration")
         _ = await shown(c, pool: 0)
-        XCTAssertEqual(c.model.regionSettings, RegionSettings())
+        XCTAssertEqual(c.model.regionSettings, RegionSettings(), "the whole map states no registration")
         let group = try XCTUnwrap(state.spectroscopy.regions.first { $0.id == 2000 })
         XCTAssertEqual(state.spectroscopy.quantificationParameters(registration: state.spectroscopy.registration(of: group),
                                                                    regionKind: group.kind.rawValue, regionName: group.name)["region_kind"], "group")

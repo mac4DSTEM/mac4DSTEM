@@ -189,6 +189,7 @@ struct RegionSection: View {
         } else {
             InspectorValueRow("Source", "Whole map")
         }
+        if let note = r.registrationNote { InspectorNote(note) }   // card E5 a: a pool says how it reached the spectrum grid
         if let phase = r.phase {
             InspectorRow("Phase") {
                 HStack(spacing: 6) { Text(phase).foregroundStyle(.secondary); if r.phaseUnvalidated { UnvalidatedBadge() } }
