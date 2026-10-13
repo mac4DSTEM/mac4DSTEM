@@ -25,3 +25,7 @@ by the catalogue's generation (`testAComputePastItsCancelCheckCannotRecacheAForg
 `Session/PoolCatalogue.swift`; the identity claim is tied to the cube it was stated for; the picker is sectioned only when pools or notes exist.
 **Open, non-blocking:** with a cube but no registration the Phases section shows the registration sentence, not the Crystal Maps line;
 `PoolCatalogue.isUnvalidated` repeats Core's predicate. **Unverified on screen.**
+
+**2026-10-13, card P4 b:** the Quantify step now records its result (`result_at`, `result_unit`, `result_wt`, `validation=none`) so the
+Results room can list it. The four recordings were regenerated with `TEST_RUNNER_E1_RECORD_DIR`: each gains exactly those four lines;
+no existing line changed (diff checked line by line), so H7's "no existing number moves" still holds.

@@ -117,7 +117,7 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   through its first Gate D loop against his Velox selections (ADR 060: 34 / 45 %; one hygiene rule ships, two held for a truth
   set that tests their risk). WP4b refuted both held rules on DTSA-II's Qual set, a risk simulator and his files (ADR 062: nothing
   ships); the eXSpy quantification pins agree (4cc5581c). V5-8 answered b (ADR 061). E1 pooling landed 2026-10-13 (ADR 065,
-  `docs/archive/v5/e1-results-2026-10-12/`; E1b single objects after a mock). Next, in order (ADR 066): the 4D Quantify rows in Results, then
+  `docs/archive/v5/e1-results-2026-10-12/`; E1b single objects after a mock). The 4D Quantify rows in Results landed 2026-10-13 (card P4 b). Next (ADR 066):
   the SpectroKit slot below, then the release on the SpectroKit build. No microscope validation in v5.0: EDX quantification ships
   badged unvalidated; B* (per-phase score, separability matrix) and D, and H, I, K and excess, come after v5.0.
 - [ ] **SpectroKit extraction** (owner, 2026-10-12, ADR 064, 066) — after v5.0's features (the 4D Quantify rows), before the release: feature-complete freeze

@@ -58,6 +58,10 @@ method_hash=8e195793b75ea86d4a303c663cbb35e325afe83007b666954f89c3966442e464
 method_json={"absorptionCorrection":true,"background":"empiricalWithAlEdge","beamEnergyKeV":200,"elements":[{"isManual":true,"role":"quantify","symbol":"Mg"},{"isManual":true,"role":"quantify","symbol":"Al"},{"isManual":true,"role":"quantify","symbol":"Si"}],"estimator":"leastSquares","kDate":"EPQ 249dd3f8 + Krause 1979 + FFAST","kFactorSource":"computed","kSource":"computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not the owner's Super-X calibration; FFAST MACs","sigmaK":0.2,"typedK":[],"version":1}
 region_kind=wholeMap
 region_name=Whole map
+result_at=
+result_unit=at%
+result_wt=
+validation=none
 == spectrum csv
 # mac4DSTEM Spectroscopy spectrum, region: Whole map
 # file: Demo spectrum image

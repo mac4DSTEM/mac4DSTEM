@@ -1350,7 +1350,7 @@ final class AppState {
                 spectroscopy.recordQuantification(in: replay, registration: region.flatMap { spectroscopy.registration(of: $0) },
                                                   regionKind: region?.kind.rawValue ?? "wholeMap",
                                                   regionName: region?.name ?? "Whole map",
-                                                  extra: spectroscopyRoom.mapLinesParameters)   // the chosen map lines, a readable key
+                                                  extra: spectroscopyRoom.mapLinesParameters.merging(spectroscopyRoom.resultParameters) { a, _ in a })   // the chosen map lines, a readable key
             }
         case .results:
             break

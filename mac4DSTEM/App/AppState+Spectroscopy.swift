@@ -210,6 +210,89 @@ extension AppState {
     }
 }
 
+// MARK: Quantify rows in Results (owner card P4 b, ADR 061 §3)
+
+/// What a recorded Quantify step shows in the Results room of a 4D window: one row per step, read from the step's own
+/// parameters (nothing is recomputed). The result strings are the room's table cells (`ResultFormat.fitCells`), written into the
+/// step when the run lands (`SpectroscopyRoomController.resultParameters`), so a step recorded before this wrote none says so.
+struct QuantificationRow: Identifiable, Equatable {
+    struct Entry: Equatable { let key: String; let value: String }
+    /// The lineage node's id.
+    let id: String
+    /// What was quantified: "Whole map", "Region 1 · drawn region", "A · phase pool", "Not indexed pool", "Group 1 · group pool".
+    let title: String
+    /// "Polynomial background · Computed k · Least squares".
+    let method: String
+    /// "Al 97.6 ± 0.5 · Si 1.5 ± 0.3 at%", or why there is none.
+    let result: String
+    /// The badge: the fit's own validation is "none", or the pool is a phase / Not indexed pool (the phase map is unvalidated).
+    let unvalidated: Bool
+    /// The step's readable keys (not the method JSON or the registration record).
+    let parameters: [Entry]
+}
+
+enum QuantificationRows {
+    /// The Quantify steps of `lineage`, newest first. A run whose inputs are unchanged collapses into the previous step
+    /// (`SessionLineage.recordRun`, ADR 047 R3), so a rerun of the same step is one row, as the lineage says.
+    static func rows(in lineage: SessionLineage) -> [QuantificationRow] {
+        lineage.nodes.filter { $0.kind == QuantificationStep.kind }.reversed().map { row($0) }
+    }
+
+    static func regionLabel(kind: String, name: String) -> String {
+        switch kind {
+        case "wholeMap": return "Whole map"
+        case "drawn": return "\(name) \u{00B7} drawn region"
+        case "phase": return "\(name) \u{00B7} phase pool"
+        case "group": return "\(name) \u{00B7} group pool"
+        case "notIndexed": return "Not indexed pool"
+        case "object": return "\(name) \u{00B7} object"
+        default: return name
+        }
+    }
+
+    static func row(_ node: SessionLineage.Node) -> QuantificationRow {
+        let p = node.parameters
+        let kind = p["region_kind"] ?? "wholeMap"
+        let method = ["background", "k_factors", "estimator"].compactMap { p[$0] }
+        let unit = p["result_unit"] ?? "at%"
+        let result: String
+        if let at = p["result_at"], !at.isEmpty { result = "\(at) \(unit)" }
+        else if p["result_at"] != nil { result = "no at% computed" }
+        else { result = "no result recorded in this step" }
+        let hidden: Set<String> = ["method_json", "registration", "result_at", "result_wt", "result_unit"]
+        let shown = p.filter { !hidden.contains($0.key) }.sorted { $0.key < $1.key }.map { QuantificationRow.Entry(key: $0.key, value: $0.value) }
+        var entries = shown
+        if let wt = p["result_wt"], !wt.isEmpty { entries.insert(.init(key: "result_wt%", value: wt), at: 0) }
+        return QuantificationRow(
+            id: node.id, title: regionLabel(kind: kind, name: p["region_name"] ?? "Whole map"),
+            method: method.isEmpty ? "method not recorded" : method.joined(separator: " \u{00B7} "), result: result,
+            unvalidated: p["validation"] == "none" || kind == "phase" || kind == "notIndexed", parameters: entries)
+    }
+}
+
+extension AppState {
+    /// The Results room's Quantify rows. Only a window with a 4D cube has them; an EMD opened alone stays Export-only (P4 b).
+    var quantificationRows: [QuantificationRow] { hasDataset ? QuantificationRows.rows(in: replay.lineage) : [] }
+}
+
+extension SpectroscopyRoomController {
+    /// The shown fit's numbers as step keys, from the same cells the Results table prints: `result_at` / `result_wt` ("Al 97.6 ± 0.5
+    /// · Si 1.5 ± 0.3", elements with a number only), `result_unit` (at% and, when the correction was off, its honesty label) and
+    /// `validation` ("none" while the fit is unvalidated). Empty before a fit.
+    var resultParameters: [String: String] {
+        guard model.hasFit else { return [:] }
+        func line(_ unit: AbundanceUnit) -> String {
+            model.results.filter { $0.hasAbundance && $0.failure == nil }
+                .map { "\(PeriodicLayout.symbol($0.z)) \(ResultFormat.fitCells($0, unit: unit, hasFit: true).abundance)" }
+                .joined(separator: " \u{00B7} ")
+        }
+        var p = ["result_at": line(.atomic), "result_wt": line(.weight),
+                 "result_unit": "at%" + (model.abundanceWithoutAbsorption ? " " + ResultFormat.noAbsorptionLabel : "")]
+        if model.unvalidated { p["validation"] = "none" }
+        return p
+    }
+}
+
 #if DEBUG
 /// A small synthetic spectrum image (32 x 32 px, 1024 channels of 10 eV; an Al matrix with a Mg-Si blob), so the room can be
 /// seen without a file: `--demo-spectrum-fixture` opens it in a fresh window (`DatasetWindow`, the `--demo-fixture` shape).

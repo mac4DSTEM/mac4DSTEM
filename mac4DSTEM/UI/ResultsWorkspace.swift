@@ -47,6 +47,13 @@ struct ResultsWorkspace: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
+            // Owner card P4 (b): the Quantify steps of this window's 4D session, one row each. No row without a 4D cube.
+            let quantifications = appState.quantificationRows
+            if !quantifications.isEmpty {
+                Divider()
+                QuantificationRowsList(rows: quantifications)
+            }
+
             if let a = appState.comparisonProductA, let b = appState.comparisonProductB {
                 Divider()
                 ProductComparisonView(a: a, b: b)
@@ -137,6 +144,43 @@ struct ResultsWorkspace: View {
         ResultsActionReason.saveToResults(
             isBusy: appState.isBusy,
             sidecarRefusal: appState.gates.sidecarRewriteRefusal())
+    }
+}
+
+/// The Quantify steps recorded in this window's session, newest first: what was quantified, the method, the at% the Spectroscopy
+/// room's table showed, the unvalidated badge, and the step's readable keys behind a disclosure. Read from the record; no fit runs here.
+struct QuantificationRowsList: View {
+    let rows: [QuantificationRow]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Quantifications").font(.headline)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(rows) { row in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 8) {
+                                Text(row.title).fontWeight(.semibold)
+                                if row.unvalidated { UnvalidatedBadge() }
+                            }
+                            Text(row.result).font(.callout.monospacedDigit()).selectableText(row.result)
+                            Text(row.method).font(.caption).foregroundStyle(.secondary)
+                            DisclosureGroup("Parameters") {
+                                ForEach(row.parameters, id: \.key) { entry in
+                                    let line = "\(entry.key): \(entry.value)"
+                                    Text(line).font(.caption2.monospaced()).selectableText(line)
+                                }
+                            }
+                            .font(.caption)
+                        }
+                        .accessibilityElement(children: .contain)
+                    }
+                }
+            }
+            .frame(maxHeight: 200)
+        }
+        .padding()
+        .accessibilityIdentifier("result.quantifications")
     }
 }
 

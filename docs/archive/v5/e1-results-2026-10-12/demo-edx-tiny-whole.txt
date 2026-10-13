@@ -61,6 +61,10 @@ method_hash=6546b797506d15cab4ba3707773a866103db444d3c6ffa756e3f2473cd891dc4
 method_json={"absorptionCorrection":true,"background":"empiricalWithAlEdge","elements":[{"isManual":true,"role":"fitOnly","symbol":"O"},{"isManual":true,"role":"quantify","symbol":"Mg"},{"isManual":true,"role":"quantify","symbol":"Al"},{"isManual":true,"role":"quantify","symbol":"Si"},{"isManual":true,"role":"quantify","symbol":"Cu"},{"isManual":true,"role":"fitOnly","symbol":"Ga"}],"estimator":"leastSquares","kDate":"EPQ 249dd3f8 + Krause 1979 + FFAST","kFactorSource":"computed","kSource":"computed: Bote-Salvat 2008 (NIST EPQ tables, PRA 77 042701), edges DHS xionUis.csv; not Velox's Brown-Powell default; omega: Krause 1979 (NIST EPQ Krause1979.csv); epsilon: EPQ getDefaultSDDProperties (Au 0.0 nm, Al 10.0 nm, Si dead layer 0.0 µm, Si 450.0 µm); generic SDD model, not the owner's Super-X calibration; FFAST MACs","sigmaK":0.2,"typedK":[],"version":1}
 region_kind=wholeMap
 region_name=Whole map
+result_at=Mg 5.2 ± 1.4 · Al 85.3 ± 2.4 · Si 8.7 ± 2.1 · Cu 0.8 ± 0.5
+result_unit=at% · no absorption
+result_wt=Mg 4.6 ± 1.3 · Al 84.6 ± 2.5 · Si 9.0 ± 2.1 · Cu 1.8 ± 1.0
+validation=none
 == spectrum csv
 # mac4DSTEM Spectroscopy spectrum, region: Whole map
 # file: demo-edx-tiny.dm4
