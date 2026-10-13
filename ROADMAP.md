@@ -117,11 +117,10 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   through its first Gate D loop against his Velox selections (ADR 060: 34 / 45 %; one hygiene rule ships, two held for a truth
   set that tests their risk). WP4b refuted both held rules on DTSA-II's Qual set, a risk simulator and his files (ADR 062: nothing
   ships); the eXSpy quantification pins agree (4cc5581c). V5-8 answered b (ADR 061). E1 pooling landed 2026-10-13 (ADR 065,
-  `docs/archive/v5/e1-results-2026-10-12/`; E1b single objects after a mock). Next, in order: the 4D Quantify rows in Results, then B*'s prerequisites (per-phase score,
-  separability matrix); then the SpectroKit slot below; then validation with the owner's joint GMS run and a pure-Al foil
-  from his detector (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`) on the app built on SpectroKit;
-  then the release (ADR 064: v5.0 ships on SpectroKit).
-- [ ] **SpectroKit extraction** (owner, 2026-10-12, ADR 064) — after v5.0's features, before its validation: feature-complete freeze
+  `docs/archive/v5/e1-results-2026-10-12/`; E1b single objects after a mock). Next, in order (ADR 066): the 4D Quantify rows in Results, then
+  the SpectroKit slot below, then the release on the SpectroKit build. No microscope validation in v5.0: EDX quantification ships
+  badged unvalidated; B* (per-phase score, separability matrix) and D, and H, I, K and excess, come after v5.0.
+- [ ] **SpectroKit extraction** (owner, 2026-10-12, ADR 064, 066) — after v5.0's features (the 4D Quantify rows), before the release: feature-complete freeze
   (extraction commits only: 4D seams split, API `public`); SpectroKit extracted from the freeze commit with history, tagged 0.1.0
   only once a room can import it (ADR 064 amendment: no `unsafeFlags`, per-block HDF5 lock, cancel and progress on long calls);
   mac4DSTEM switches to the tag (the EDX tests that move — 560 or macTEM's ~140–150, counted by name), app build + pre-push hook pass,
