@@ -35,3 +35,17 @@ science; the owner chose one shared library instead.
 - SpectroKit's first backlog item: `VeloxEMDReader` reads a plain Velox `Data/Image` dataset (macTEM ADR 004 D1) — in
   `open-items.md` until SpectroKit has its own tracker.
 - The extraction is its own slot after the features and before validation and the release (`ROADMAP.md`).
+
+## Amendment 2026-10-13 — the owner's decisions for SpectroKit's first tag (macTEM ADR 009)
+Recorded from macTEM's consumer contract (`spectrokit-consumer-contract-2026-10-12.md` in the macTEM repo's archive); no code now.
+- **a. 0.1.0 waits until a room can import and use it:** no `unsafeFlags` in SpectroKit's `Package.swift` (SwiftPM refuses them in a
+  versioned dependency; `FitLinearAlgebra` needs them today); the HDF5 lock held per block, not for a whole Velox read; cancel and
+  progress on every long call.
+- **b. macTEM v1 reads Velox AND GMS DM4 EDS spectrum images.** GMS's beam energy (not read) and absorption (refused) are v1 gaps for
+  SpectroKit. Cliff–Lorimer only in v1; ζ stays internal, gated, not public in 0.1.0.
+- **c. The staged compute pipeline and its cache stay in each app**; SpectroKit owning them is noted for later.
+- **d. Open for the extraction slot to settle** (macTEM's recommendation, not decided): Velox, HDF5 and metadata in SpectroCore; public
+  types that collide with macTEM's copies (`DM4Experiment`, `DM4Error`, `displayFileName`); which EDX tests actually move — macTEM
+  counts about 140–150 Core-only of ~560, against §3.3's 560, so §3.3's delta is re-measured by test name at the switch, not assumed;
+  `Bundle.main` tables; the rsciio `049e7d70` pin, missing from SpectroKit's CLAUDE.md.
+

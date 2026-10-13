@@ -122,8 +122,9 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   from his detector (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`) on the app built on SpectroKit;
   then the release (ADR 064: v5.0 ships on SpectroKit).
 - [ ] **SpectroKit extraction** (owner, 2026-10-12, ADR 064) — after v5.0's features, before its validation: feature-complete freeze
-  (extraction commits only: 4D seams split, API `public`); SpectroKit extracted from the freeze commit with history, tagged 0.1.0;
-  mac4DSTEM switches to the tag (its 560 EDX tests move — state the unit-count delta by name), app build + pre-push hook pass,
+  (extraction commits only: 4D seams split, API `public`); SpectroKit extracted from the freeze commit with history, tagged 0.1.0
+  only once a room can import it (ADR 064 amendment: no `unsafeFlags`, per-block HDF5 lock, cancel and progress on long calls);
+  mac4DSTEM switches to the tag (the EDX tests that move — 560 or macTEM's ~140–150, counted by name), app build + pre-push hook pass,
   the in-tree copy deleted. mac4DSTEM keeps 4D × spectroscopy correlation.
 - [ ] **A total repo clean-up** (owner, 2026-10-08) — after EDX (v5.0) and possibly EELS are in place: one pass that leaves the repo as
   small and clear as the app (retired code, tools, archive and docs), planned as its own slot.
