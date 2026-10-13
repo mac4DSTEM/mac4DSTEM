@@ -20,12 +20,12 @@ final class SpectroscopyLaneUTests: XCTestCase {
     /// The EDS object's own voltage wins (volts -> kV); else the cube's, only when it is one run; else nothing.
     /// Mutation: `sameRun` ignored in `BeamEnergy.resolve` - red.
     func testTheBeamEnergySourceIsTheObjectsThenTheSameRunCubes() {
-        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: 200_000, cubeKV: 300, sameRun: true)?.keV, 200)
-        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: 200_000, cubeKV: 300, sameRun: true)?.source, .file)
-        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: nil, cubeKV: 200, sameRun: true)?.source, .fourDCube)
-        XCTAssertNil(BeamEnergy.resolve(rawObjectVoltage: nil, cubeKV: 200, sameRun: false), "another run's voltage is not this file's")
-        XCTAssertNil(BeamEnergy.resolve(rawObjectVoltage: 0, cubeKV: nil, sameRun: true))
-        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: 0, cubeKV: 200, sameRun: true)?.source, .fourDCube, "a stored 0 is no voltage")
+        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: 200_000, suppliedKV: 300, suppliedAs: .fourDCube, sameRun: true)?.keV, 200)
+        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: 200_000, suppliedKV: 300, suppliedAs: .fourDCube, sameRun: true)?.source, .file)
+        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: nil, suppliedKV: 200, suppliedAs: .fourDCube, sameRun: true)?.source, .fourDCube)
+        XCTAssertNil(BeamEnergy.resolve(rawObjectVoltage: nil, suppliedKV: 200, suppliedAs: .fourDCube, sameRun: false), "another run's voltage is not this file's")
+        XCTAssertNil(BeamEnergy.resolve(rawObjectVoltage: 0, suppliedKV: nil, suppliedAs: .fourDCube, sameRun: true))
+        XCTAssertEqual(BeamEnergy.resolve(rawObjectVoltage: 0, suppliedKV: 200, suppliedAs: .fourDCube, sameRun: true)?.source, .fourDCube, "a stored 0 is no voltage")
     }
 
     /// The provenance line names the value and its source; a typed value overrides and says so.

@@ -137,6 +137,7 @@ mac4dstem_sources() {
           "$core/Data/DM4Experiment.swift"
           "$core/Data/VeloxEMDReader.swift"
           "$core/Spectroscopy/SpectroCancellation.swift"
+          "$core/Spectroscopy/SpectroFileName.swift"
           "$core/Data/VendorRawReaders.swift"
           "$core/Data/DemoFourDDataSource.swift"
         )
