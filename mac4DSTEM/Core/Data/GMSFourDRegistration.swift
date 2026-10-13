@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SpectroCore
 
 /// The 4D cube a GMS file's EDS object may be registered to.
 package nonisolated struct GMSFourDIdentity: Equatable, Sendable {
@@ -21,12 +22,14 @@ package nonisolated struct GMSFourDIdentity: Equatable, Sendable {
     }
 }
 
-extension BeamEnergySource {
+// `nonisolated`: both types are SpectroKit's (nonisolated by default there); in this MainActor-default module an
+// extension of a type from another module does not take the type's isolation, as it did while both were in DSTEMCore.
+nonisolated extension BeamEnergySource {
     /// The 4D cube of the same GMS run (same Experiment ID and scan grid), when the EDS object states no voltage.
     package static let fourDCube = BeamEnergySource.supplied(label: "the 4D cube, same run")
 }
 
-extension SpectrumImageOpener {
+nonisolated extension SpectrumImageOpener {
     /// The EDS spectrum image of a GMS DM4, or nil when the file has none. With `fourD`, the image is registered to that cube
     /// BY IDENTITY when both objects carry the same Experiment ID and the EDS grid equals the cube's scan grid
     /// (`sameScanAs4DCube`); otherwise it is still attached, with the reason in `registrationNote`. The beam energy is the EDS

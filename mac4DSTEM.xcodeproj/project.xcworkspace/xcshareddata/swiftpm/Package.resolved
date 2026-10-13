@@ -1,0 +1,15 @@
+{
+  "originHash" : "650c330dfa90c55c7d24081b2b3b3779586822f92d56b71798a596be1f7be3ef",
+  "pins" : [
+    {
+      "identity" : "spectrokit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mac4DSTEM/SpectroKit",
+      "state" : {
+        "revision" : "f7a40fc699c12afd3d98bb1a8cfcc48860ed6ade",
+        "version" : "0.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}

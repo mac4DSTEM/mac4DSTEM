@@ -16,6 +16,7 @@ import XCTest
 @testable import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+import SpectroCore
 
 @MainActor
 enum E1Recording {

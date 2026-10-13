@@ -2,7 +2,7 @@
 # Velox EMD reader parity (v5.0 WP1, 2026-10-05). `scientific`: every public Velox file in
 # rosettasciio's test data (the fei_emd_files and velox_* zips, fetched with the pinned
 # rosettasciio by tools/lib/fetch-rsciio.sh, unzipped into References/velox-parity/) is read by
-# rsciio (truth.py, sum_frames=True) and by Core/Data/VeloxEMDReader.swift (main.swift), and the
+# rsciio (truth.py, sum_frames=True) and by SpectroKit's VeloxEMDReader (main.swift; Sources/SpectroCore/Data/), and the
 # dense spectrum image, the energy axis and the scan image are compared count for count. The same
 # files' image stacks (rsciio's select_type="images" signals, one per Data/Image group) are compared
 # with images() and readImageFrame: every frame of every stack equal value for value, shape, detector
@@ -48,9 +48,11 @@ for l in libhdf5 libsz.2 libaec.0; do
 done
 
 . "$REPO/tools/lib/sources.manifest"
-mac4dstem_sources "$REPO" readers
-xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "${MAC4DSTEM_SOURCES[@]}" main.swift "${MAC4DSTEM_ISOLATION_FLAGS[@]}" -framework Accelerate
+# The reader is SpectroKit's since S4 and this harness reaches its `package` API (readSpectrumImage, markersPerFrame,
+# ...), so it compiles as part of SpectroKit's package against the pinned module, with no mac4DSTEM source.
+spectrokit_module "$REPO"
+xcrun swiftc -package-name spectrokit -O -parse-as-library -o "$WORK/harness" \
+  "${SPECTROKIT_FLAGS[@]}" main.swift "${MAC4DSTEM_ISOLATION_FLAGS[@]}" -framework Accelerate
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
 if [[ "${1:-}" == "owner" ]]; then

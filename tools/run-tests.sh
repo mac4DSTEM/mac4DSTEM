@@ -76,12 +76,17 @@ unit_tests() (
   # -only-testing scopes this to the fast unit-test target (the retired
   # UI-test target was deleted 2026-09-02; the flag stays so a future test
   # target cannot silently join every normal run).
+  # SWIFT_OPTIMIZATION_LEVEL=-O (S4, 2026-10-13): SpectroKit is a versioned
+  # dependency and cannot carry its own Debug -O, so in Debug Xcode builds it
+  # -Onone (the 936 MB Velox read 20.3 s vs 1.0 s). A command-line setting is
+  # the one that reaches a package target; it also makes the test target -O
+  # (the app and DSTEMCore already are). Testability stays on (Debug).
   LLVM_PROFILE_FILE="$work/default-%p.profraw" \
     xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
       -configuration Debug -destination 'platform=macOS' \
       -derivedDataPath "$work/DerivedData" \
       -only-testing:mac4DSTEMTests \
-      CODE_SIGNING_ALLOWED=NO -quiet
+      SWIFT_OPTIMIZATION_LEVEL=-O CODE_SIGNING_ALLOWED=NO -quiet
 )
 
 run_harnesses() {

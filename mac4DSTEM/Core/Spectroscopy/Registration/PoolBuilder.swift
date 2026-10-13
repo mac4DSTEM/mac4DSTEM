@@ -12,6 +12,7 @@
 //
 
 import Foundation
+import SpectroCore
 
 package nonisolated struct PooledSpectrum: Sendable, Equatable {
     /// "Al", "beta''", "object 7", "Drawn 1" — the region's name.

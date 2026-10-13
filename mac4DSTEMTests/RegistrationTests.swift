@@ -8,6 +8,7 @@
 
 import XCTest
 import DSTEMCore
+import SpectroCore
 
 final class RegistrationTests: XCTestCase {
 
@@ -309,18 +310,15 @@ final class RegistrationTests: XCTestCase {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: path), "References/demo-edx not generated")
         let f = try fixture()
         let objects = try DM4Experiment.list(path: path)
-        let eds = try XCTUnwrap(objects.first { $0.role == .eds })
-        XCTAssertEqual(eds.dimensions, [32, 24, 4096])
-        let handle = try FileHandle(forReadingFrom: URL(fileURLWithPath: path))
-        defer { try? handle.close() }
-        try handle.seek(toOffset: UInt64(eds.dataOffset))
-        let raw = try XCTUnwrap(try handle.read(upToCount: eds.dataByteCount))
-        let cube: [UInt32] = raw.withUnsafeBytes { Array($0.bindMemory(to: UInt32.self)) }
-        // File order is (channel, y, x), x fastest; the image wants (y, x, channel).
-        let nx = 32, ny = 24, nch = 4096
-        var dense = [UInt32](repeating: 0, count: nx * ny * nch)
-        for c in 0..<nch { for p in 0..<(nx * ny) { dense[p * nch + c] = cube[c * nx * ny + p] } }
-        let image = DenseSpectrumImage(ny: ny, nx: nx, channels: nch, counts: dense)
+        XCTAssertNotNil(objects.first { $0.role == .eds })
+        // The cube through SpectroKit's public GMS reader (S4): 0.1.0 keeps the object's byte layout (`dimensions`,
+        // `dataOffset`, `dataByteCount`) `package`, so the hand decode of the (channel, y, x) block that stood here
+        // cannot be written outside the library. The reader is the app's own path and is pinned in SpectroKit
+        // (DM4ExperimentSpectro); the truth this test compares against is still the generator's.
+        let loaded = try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: path))
+        let nx = 32, ny = 24
+        XCTAssertEqual([loaded.nx, loaded.ny, loaded.channels], [nx, ny, 4096])
+        let image = loaded.image
 
         let t = try MaskTransport.transport(labels: f.labels4D, classCount: f.names.count, registration: f.registration)
         let pools = try PoolBuilder.pools(image: image, transported: t, names: f.names, kind: "phase",

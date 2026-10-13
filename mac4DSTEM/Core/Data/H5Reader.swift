@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import SpectroCore
 
 nonisolated private let h5ReadOnly: UInt32 = 0x0000
 nonisolated private let h5DefaultProperty: hid_t = 0

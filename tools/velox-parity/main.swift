@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import SpectroCore
 
 // tools/velox-parity — VeloxEMDReader against rosettasciio, count for count (WP1 prediction P1).
 //
@@ -303,7 +304,7 @@ func runOwner(path: String, truthDir: String) throws {
     let truthData = try Data(contentsOf: URL(fileURLWithPath: truthDir + "/owner.json"))
     let truth = try JSONSerialization.jsonObject(with: truthData) as! [String: Any]
     let reader = VeloxEMDReader(path: path)
-    print("owner file: \(displayFileName(path))")
+    print("owner file: \((path as NSString).lastPathComponent)")
 
     // P2: pixel ends per frame.
     if let perFrame = try reader.markersPerFrame() {

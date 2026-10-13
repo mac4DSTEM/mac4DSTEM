@@ -2,6 +2,7 @@ import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import SpectroCore
 #endif
 
 /// The window's two documents (v5.0 WP2, ADR 053 item 3): a 4D cube, an EDX

@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 @testable import mac4DSTEM
+@testable import SpectroCore
 
 /// Velox sheet, lane L2 (2026-10-07): the inspector's Smooth row (1a), the Found row's net / L_D (2a), the Absorption row (8a)
 /// and the Info tab's rows (9a). Pure strings and rules; the views only place them.

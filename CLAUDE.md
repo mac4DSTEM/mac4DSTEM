@@ -43,14 +43,15 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 - **A failed reproduction gate closes an item** (owner, ADR 050): a new registration is a new item — never amend-and-continue.
 - **Decisions are put to the owner as a sheet** (owner, ADR 050): each problem in plain words, the options with effort and risk, a recommendation and an independent second opinion; he answers by option. The Board's cards are that sheet's source.
 - **Unvalidated stays labelled** (owner, 2026-09-18): phase mapping, and any product that self-reports `validation:"none"`, ships badged unvalidated and is never called validated in a release note or doc until it passes on one dataset with truth; `inventory` greps the badge and the key.
-- **SpectroKit boundary** (owner, 2026-10-12, ADR 064, amended 10-13): until the feature-complete freeze before v5.0, no new 4D coupling in `Core/Spectroscopy/` (except `Registration/`), `Core/Data/VeloxEMDReader.swift`, `Core/Data/HDF5Types.swift` (not `SessionSidecarFormat`, which stays) or `Core/Data/DM4Experiment.swift` + `DM4Error` — a new 4D hook goes behind a seam in the 4D layer; EDX fixes there are welcome. At the freeze those paths take extraction commits only; v5.0 ships on the SpectroKit tag.
+- **SpectroKit** (ADR 064, 067): standalone EDX (readers, fit, quantification, the HDF5 lock, `DM4Experiment`/`DM4Error`) is SpectroKit's, imported at an exact tag (`Package.swift`, 0.1.0); a fix to it lands there and arrives by a tag bump, gated here. 4D × spectroscopy stays here. The Run configuration is `Develop` so SpectroKit builds optimised; keep its name.
+- **Suite board** (`https://claude.ai/artifact/EdMG2EVb6t9ah3SmbrVykv`, the owner's one view of mac4DSTEM, SpectroKit and macTEM; the per-repo boards are retired, no longer updated): at closeout update only this repo's row, `lanes/mac4dstem`, with `ArtifactData` `update` pinned to the version just read: `step` {label, status done|running|next|blocked|waiting, detail}, `now`, `next`, `waitsOn`, `session` (open|idle), `head`, `unpushed`, `tests`, `waiting` (the owner's to-dos, {text, size}), `done` (newest first, {date, text, ref}), `open`, `pickup` {prompt: the exact prompt the owner pastes to start the next session, provide: what the owner must bring or decide first}, `updatedAt` (UTC ISO), `updatedBy`. A cloud routine refreshes the rows from GitHub daily at 05:00 UTC and never touches `session` or `unpushed`.
 - Decisions are a file in `docs/decisions/` plus a row in `docs/decisions.md`; the pre-2026-09-16 log is verbatim in `docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`.
 - What code already enforces: `run-tests.sh core` holds the layering; `run-tests.sh inventory` holds the UI contract greps, harness manifest, tools classification, NOTICE hashes, AGENTS sync and the size report.
 
 ## Build / test
 
 ```sh
-xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build
+xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build   # the scheme's Run config, Develop
 tools/run-tests.sh unit | scientific | all | inventory | core | benchmark | campaign   # inventory = the repo's own review
 tools/free-space.sh                                     # exit-69 remedy
 git config core.hooksPath tools/hooks                   # once per clone: pre-push runs inventory + an app build

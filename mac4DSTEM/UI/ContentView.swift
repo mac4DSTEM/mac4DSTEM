@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import SpectroCore
 #endif
 
 /// The app's window: a SwiftUI-only shell.

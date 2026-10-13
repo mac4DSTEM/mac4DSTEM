@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 import DSTEMCore
 @testable import mac4DSTEM
+import SpectroCore
 
 /// Spec 2 lane B: the maps as pickers (D-2), regions on the ColorMix only (D-1), highlight (D-15), region editing (D-16).
 @MainActor

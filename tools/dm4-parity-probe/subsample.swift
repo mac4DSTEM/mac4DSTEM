@@ -28,6 +28,7 @@
 //
 import Darwin
 import Foundation
+import SpectroCore
 
 /// Peak `phys_footprint` of the process so far (the kernel's own ledger),
 /// which is what a full read into anonymous memory grows. A mapped file's

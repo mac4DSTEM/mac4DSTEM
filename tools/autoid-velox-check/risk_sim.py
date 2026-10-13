@@ -7,7 +7,7 @@ Needs numpy (the py4dstem env: ~/miniconda3/envs/py4dstem/bin/python). Writes `m
     risk_sim.py ld <harness --ladder --out dir> <ld.json>   reads the calibration run: L_D (counts of the alpha-line area) per element
     risk_sim.py gen <dir> <ld.json>                 the registered cases: true pairs and ghosts
 
-What is planted. The WHOLE family of each planted element, from the app's own line table (mac4DSTEM/Core/Spectroscopy/XRayLineData.swift, which is eXSpy's
+What is planted. The WHOLE family of each planted element, from the app's own line table (SpectroKit's Spectroscopy/XRayLineData.swift, in .build/checkouts/SpectroKit/Sources/SpectroCore; which is eXSpy's
 table: energies and weights relative to the family's alpha line): K family (Ka, Kb) for the K element, every L line (La, Lb1.., Lg.., Ll, Ln) for the L element,
 each line at area = alpha-area x table weight, as a unit-area Gaussian of the app's width law, integrated over each channel. The M family, Si-escape peaks and
 the K lines of the L elements (Hf Ka 55.8 keV ...) are NOT planted (stated limitation). The registered "L/M : K line-area ratio" is read as ALPHA area : ALPHA
@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "../demo-edx"))
 import xray_model as xm          # Axis, fwhm_kev, detector_efficiency (the demo-edx forward model)
 
-TABLE = os.path.join(HERE, "../../mac4DSTEM/Core/Spectroscopy/XRayLineData.swift")
+TABLE = os.path.join(HERE, "../../.build/checkouts/SpectroKit/Sources/SpectroCore/Spectroscopy/XRayLineData.swift")
 LINES = {}
 for z, el, name, e, w in re.findall(r"^(\d+) (\w+) (\w+) ([\d.eE+-]+) ([\d.eE+-]+)$", open(TABLE).read(), re.M):
     LINES.setdefault(el, []).append((name, float(e), float(w)))

@@ -22,6 +22,7 @@ import SwiftUI
 #if canImport(DSTEMCore)
 import DSTEMCore
 import DSTEMSession
+import SpectroCore
 #endif
 
 /// Spectra by region and maps by line window. Locked: written by detached tasks, read by the next one.
@@ -96,7 +97,7 @@ final class SpectroscopyRoomController {
     @ObservationIgnored private(set) var tileLineLabels: [Int: String] = [:]
     /// The Quantify verb has run: the pooled fit is live from here on (every setting re-fits, no Apply).
     @ObservationIgnored private(set) var quantifyActive = false
-    /// The computed-k and absorption data files, read once (Resources/Spectroscopy); nil when the bundle lacks them.
+    /// The computed-k and absorption data files, read once (SpectroKit's resource bundle, inside the app); nil when it lacks them.
     private nonisolated static let tables: QuantificationTables? = QuantificationTables.bundled()
     @ObservationIgnored private(set) var lastFit: PooledQuantification?
     /// The whole-map comparison line, shown with the region's fit (A2: the check blanks no at%, so it gates nothing; `present`).

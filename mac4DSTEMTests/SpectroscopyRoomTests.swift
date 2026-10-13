@@ -3,6 +3,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import SpectroCore
 
 /// v5.0 WP2 lane R: the seventh room (ADR 053 item 3, 054 item 8, 055), its
 /// session owner, and the spectrum-only window. No 4D behaviour may change:

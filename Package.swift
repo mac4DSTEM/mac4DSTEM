@@ -18,9 +18,15 @@ let package = Package(
         .library(name: "DSTEMSession", targets: ["DSTEMSession"]),
         .library(name: "DSTEMTraining", targets: ["DSTEMTraining"]),
     ],
+    // Standalone EDX (readers, fit, quantification, the HDF5 lock) lives in SpectroKit since S4 (ADR 064).
+    // Exact: v5.0 ships on this tag; a new tag is a deliberate bump, gated like any other change.
+    dependencies: [
+        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.1.0"),
+    ],
     targets: [
         .target(
             name: "DSTEMCore",
+            dependencies: [.product(name: "SpectroCore", package: "SpectroKit")],
             path: "mac4DSTEM/Core",
             swiftSettings: [
                 // Accelerate's CURRENT LAPACK interface, which is what
@@ -57,7 +63,7 @@ let package = Package(
         // replay, sidecar location, recovery, residency — no SwiftUI, no AppState.
         .target(
             name: "DSTEMSession",
-            dependencies: ["DSTEMCore"],
+            dependencies: ["DSTEMCore", .product(name: "SpectroCore", package: "SpectroKit")],
             path: "mac4DSTEM/Session",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore

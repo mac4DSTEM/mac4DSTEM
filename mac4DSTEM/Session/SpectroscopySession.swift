@@ -21,10 +21,11 @@ import Foundation
 import DSTEMCore
 #endif
 import Observation
+import SpectroCore
 
 // MARK: - The spectrum image, as the room sees it
 
-// `SpectrumImageMetadata` and `SpectrumImageSource` moved to Core (`Core/Spectroscopy/SpectrumImageSource.swift`,
+// `SpectrumImageMetadata` and `SpectrumImageSource` moved to Core (`Core/Spectroscopy/SpectrumImageSource.swift`, SpectroKit's since S4,
 // v5.0 WP2 R2): one protocol now carries the counts, the energy axis and the file's own metadata, so the session's
 // opaque reference and Core's compute protocol are the same thing.
 

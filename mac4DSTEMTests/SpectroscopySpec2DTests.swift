@@ -3,6 +3,7 @@ import SwiftUI
 import XCTest
 import DSTEMCore
 @testable import mac4DSTEM
+import SpectroCore
 
 /// Spec 2 lane D (2026-10-06 night): the inspector's six sections, Auto ID's Picked row, the periodic table in the table's own shape
 /// with its Lines energies, the Results badge, and the Export section's three buttons.

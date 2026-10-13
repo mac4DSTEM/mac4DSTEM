@@ -4,7 +4,7 @@ Writes mac4DSTEMTests/Fixtures/eds-unlisted-sim.json: the EXPECTED pooled spectr
 Poisson noise) of the refuter's S2c recipe (refuteD/exp/main2.swift "synthdip2", 2026-10-06): Ti K-alpha 3000 counts among
 strong Ge, Cu and Ga lines, O, Si and Ni, with the unlisted L lines at the intensities seen in the real Velox window (Ge L 5e5,
 Ga L 3e5, Cu L 1e5), on the Velox axis (4096 x 20 eV from -1.932 keV), beam 200 kV.
-  * Lines: eXSpy xray_lines.json 7185a4d (as mac4DSTEM/Core/Spectroscopy/XRayLineData.swift), each family's lines at its
+  * Lines: eXSpy xray_lines.json 7185a4d (as SpectroKit's XRayLineData.swift), each family's lines at its
     weight times the family's area; Gaussians integrated over the channel, FWHM by eXSpy's law at 130 eV (Mn K-alpha).
   * Continuum: NOT the fit's form (Kramers x Bernstein): 1500 (3/E) (E0-E)/(E0-3) (1 - exp(-(E/0.5)^2.4)) exp(-(E-3)/12).
   * No escape or sum peaks are planted.

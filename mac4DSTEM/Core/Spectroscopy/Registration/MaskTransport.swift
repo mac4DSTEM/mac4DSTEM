@@ -24,6 +24,7 @@
 //
 
 import Foundation
+import SpectroCore
 
 package nonisolated struct MaskTransportError: Error, Equatable, CustomStringConvertible {
     package let description: String

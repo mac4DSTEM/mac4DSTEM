@@ -5,7 +5,7 @@
 # The bundled libhdf5 is Threadsafety OFF; exit() runs HDF5's own atexit
 # teardown (H5_term_library), which `HDF5Serial` used to leave unguarded, so a
 # Task still inside H5Dread raced it and the process died at quit. The fix is
-# the quit barrier in `HDF5Serial` (Core/Data/HDF5Types.swift); main.swift says
+# the quit barrier in `HDF5Serial` (SpectroKit, Sources/SpectroCore/Data/HDF5Types.swift); main.swift says
 # how it works.
 #
 # Two checks, both gated:

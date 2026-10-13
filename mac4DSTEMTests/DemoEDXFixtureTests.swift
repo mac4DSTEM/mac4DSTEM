@@ -1,6 +1,7 @@
 import XCTest
 import CryptoKit
 import DSTEMCore
+@testable import SpectroCore
 
 /// v5.0 WP2 lane S: the simulated 4D-STEM + EDX dataset (`tools/demo-edx/`). The fixture is the TINY variant
 /// (6 x 4 scan, 16 x 16 detector, 512 channels at 20 eV, a perturbed energy axis, two 30 %-dead rows; 123 kB) written by `sim_edx.py --tiny` in the GMS

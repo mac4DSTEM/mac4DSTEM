@@ -2,6 +2,7 @@ import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import SpectroCore
 #endif
 
 // The views of a window that holds only a spectrum image, around the Spectroscopy room (`UI/Spectroscopy/`): what

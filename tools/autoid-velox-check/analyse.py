@@ -2,7 +2,7 @@
 """Offline analysis of a `tools/autoid-velox-check/run.sh --out <dir>` run (lane L10, 2026-10-07): which picks are false and why, which of
 Velox's elements are missed and why, and what three candidate rules would do to precision and recall on exactly this data.
 
-    analyse.py <out dir> [<XRayLineData.swift>] [--dedupe]      (numpy only; the default line table is mac4DSTEM/Core/Spectroscopy/XRayLineData.swift)
+    analyse.py <out dir> [<XRayLineData.swift>] [--dedupe]      (numpy only; the default line table is SpectroKit's XRayLineData.swift, in the pinned checkout .build/checkouts/SpectroKit/Sources/SpectroCore/Spectroscopy/)
 
 Everything printed is computed from the per-file JSON and the pooled spectra the harness wrote. The rules are MEASUREMENTS, not changes: nothing here
 touches the proposer. A threshold in a rule is named as illustrative: it was read off this one set of files (CLAUDE.md: a threshold is a property of
@@ -13,7 +13,7 @@ import numpy as np
 
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 out = args[0]
-table_path = args[1] if len(args) > 1 else os.path.join(os.path.dirname(__file__), "../../mac4DSTEM/Core/Spectroscopy/XRayLineData.swift")
+table_path = args[1] if len(args) > 1 else os.path.join(os.path.dirname(__file__), "../../.build/checkouts/SpectroKit/Sources/SpectroCore/Spectroscopy/XRayLineData.swift")
 LINES = defaultdict(list)          # element -> [(name, energy, weight)]
 for row in re.findall(r"^(\d+) (\w+) (\w+) ([\d.eE+-]+) ([\d.eE+-]+)$", open(table_path).read(), re.M):
     LINES[row[1]].append((row[2], float(row[3]), float(row[4])))

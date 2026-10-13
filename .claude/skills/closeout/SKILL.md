@@ -60,15 +60,11 @@ Done means the repo tells the next reader the truth. In order:
    up calling a claim unreproduced that S19 had reproduced.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
-7. Republish the owner's living board (owner request, 2026-08-26; retitled
-   2026-09-21): the artifact titled **"mac4DSTEM Board"** (was "v4.x Board", "v3.x Board", "v2 Board"; retitled 2026-10-05). Its old data block is archived at `docs/archive/v4/board-data-2026-10-04.json`. Do not hardcode its address —
-   the URL form changed on 2026-09-15 and a stale form would fork a second
-   board, which is the failure this step exists to prevent. Find it with the
-   Artifact tool's `action: "list"`, match the title, and pass that row's
-   URL as `url` on publish. Update the session rail, workstream fractions,
-   the dated test-claim table, and the what's-next queue from
-   `docs/status.md` (its table, gate table and handoff) — same honesty bar
-   as the docs: every number dated to its own run.
+7. Update this repo's row on the macEM Suite Board (CLAUDE.md "Suite board"; owner, 2026-10-13):
+   document `lanes/mac4dstem`, read it, then one `ArtifactData` `update` pinned to the version just read,
+   from `docs/status.md`'s table and handoff — same honesty bar as the docs: every number dated to its own run.
+   Write `pickup.prompt` as the exact text the owner pastes to start the next session and `pickup.provide` as
+   what he must bring or decide first. The old "mac4DSTEM Board" artifact is retired and no longer republished.
 8. One sentence on the skills themselves: did any skill misfire, get
    ignored, or fail to trigger when its moment came? Skills are repo files —
    if one needs reshaping, edit it now and it ships with this session's

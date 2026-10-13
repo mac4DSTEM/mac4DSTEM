@@ -19,6 +19,7 @@ import Foundation
 @testable import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import SpectroCore
 
 // MARK: - The dump
 

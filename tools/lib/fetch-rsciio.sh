@@ -4,7 +4,7 @@
 # rosettasciio (rsciio) is the reference reader for Velox EMD spectrum images
 # (ADR 053; docs/archive/v5/wp1-spectrum-readers-preregistration-2026-10-05.md).
 # `tools/velox-parity` reads its Velox test zips and runs its reader as truth,
-# and the inline `DEVIATION` notes in Core/Data/VeloxEMDReader.swift cite its
+# and the inline `DEVIATION` notes in SpectroKit's VeloxEMDReader.swift cite its
 # source by file, so the exact upstream state matters. The test zips are 2-9 MB,
 # over the 1 MiB tracked-file guard, so they are fetched with the pin into the
 # gitignored References/ folder, the way fetch-py4dstem.sh does for py4DSTEM.

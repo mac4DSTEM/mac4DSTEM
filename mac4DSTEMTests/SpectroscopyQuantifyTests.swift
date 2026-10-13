@@ -2,6 +2,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import SpectroCore
 
 /// v5.0 R3: the Quantify verb on the simulated tiny GMS fixture (`demo-edx-tiny.dm4` + truth): the pooled fit, its
 /// sigma as named terms, at% only with a k source, absorption refused where the geometry is unknown.
@@ -9,9 +10,8 @@ import DSTEMSession
 final class SpectroscopyQuantifyTests: XCTestCase {
 
     static let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures")
-    static let resources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .appendingPathComponent("mac4DSTEM/Resources/Spectroscopy")
-    static let tables = try! QuantificationTables(directory: resources)
+    /// The six tables as the app reads them: SpectroKit's own copy (`Bundle.module`, inside the app bundle) since S4.
+    static let tables = QuantificationTables.bundled()!
 
     static func image() throws -> LoadedSpectrumImage {
         try XCTUnwrap(try SpectrumImageOpener.openGMSEDS(path: fixtures.appendingPathComponent("demo-edx-tiny.dm4").path, fourD: nil))

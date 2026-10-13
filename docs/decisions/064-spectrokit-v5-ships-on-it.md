@@ -14,7 +14,7 @@ science; the owner chose one shared library instead.
 3. **Order (amended 2026-10-12): v5.0 ships on SpectroKit.**
    1. v5.0's features are finished in-tree: cards E1–E6 answered, E1 pooling, the 4D Quantify rows in Results, B*'s
       prerequisites. Until the freeze, **no new 4D coupling** in the standalone core — `Core/Spectroscopy/` except
-      `Registration/`, `Core/Data/VeloxEMDReader.swift`, `Core/Data/HDF5Types.swift`; a new 4D hook goes behind a seam in the
+      `Registration/`, the Velox reader, `HDF5Types`; a new 4D hook goes behind a seam in the
       4D layer. EDX fixes there are welcome and carry into SpectroKit.
    2. **Feature-complete freeze** (not the release): those paths take extraction commits only — the remaining 4D seams
       split, the API made `public`. A SpectroKit session extracts from the freeze commit with history, bootstraps the
@@ -52,11 +52,14 @@ Recorded from macTEM's consumer contract (`spectrokit-consumer-contract-2026-10-
 ## Amendment 2026-10-13 (2) — the slot plan's four decisions (owner, by option; second opinion agreed with each)
 From `docs/archive/v5/spectrokit-slot-plan-2026-10-13.md`:
 1. **SpectroCore owns `DM4Experiment` and `DM4Error`** (one GMS parser for the suite): `DM4Error` is split out of `DM4Reader.swift`;
-   `Core/Data/DM4Experiment.swift` joins the moving set; the 4D `DM4Reader` stays and imports them; macTEM drops its copies.
+   `DM4Experiment.swift` joins the moving set; the 4D `DM4Reader` stays and imports them; macTEM drops its copies.
 2. **Cancel and progress are closures with defaults** on every long call: `cancelled: @Sendable () -> Bool = { Task.isCancelled }`
    and an optional `progress` closure, as the room's compute already takes them.
-3. **`SessionSidecarFormat` stays in mac4DSTEM**, split out of `HDF5Types.swift` into its own file; the rest of `HDF5Types.swift`
+3. **`SessionSidecarFormat` stays in mac4DSTEM**, split out of `HDF5Types` into its own file; the rest of `HDF5Types`
    moves, its shared `HDF5Serial` lock public in SpectroCore and imported by the 4D readers.
 4. **The extracted history is merged into SpectroKit's existing `main`** (its three commits are on GitHub; nothing is rewritten
    or force-pushed); the `.DS_Store` is deleted in a normal commit.
 
+
+## Consequence 2026-10-13 (S4)
+mac4DSTEM builds on SpectroKit 0.1.0 (exact version); the in-tree copy is deleted; the 258 moved tests run in SpectroKit; CLAUDE.md's boundary rule is retired; Debug optimisation is recorded in ADR 067.

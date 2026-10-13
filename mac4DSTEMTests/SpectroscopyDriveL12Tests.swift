@@ -10,6 +10,7 @@
 import DSTEMCore
 import XCTest
 @testable import mac4DSTEM
+@testable import SpectroCore
 
 @MainActor
 final class SpectroscopyDriveL12Tests: XCTestCase {

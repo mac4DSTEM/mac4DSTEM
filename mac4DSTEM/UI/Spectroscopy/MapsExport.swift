@@ -2,6 +2,7 @@ import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import SpectroCore
 #endif
 
 /// The Spectroscopy room's Maps export: every element map, the ColorMix and the HAADF as PNG files exactly as shown (colour,

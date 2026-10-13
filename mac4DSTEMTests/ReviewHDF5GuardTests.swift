@@ -15,6 +15,7 @@ import MachO
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+import SpectroCore
 
 final class ReviewHDF5GuardTests: XCTestCase {
 

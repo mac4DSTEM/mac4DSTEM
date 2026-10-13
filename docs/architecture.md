@@ -192,6 +192,11 @@ arch(arm64)`, so a bare `#if` cannot ship a broken x86_64 slice
 file where ad hoc drawing geometry is expected — "none of it sizes text for
 a form," per its header.
 
+Standalone EDX (the Velox, DM4 and EDS readers, `DM4Experiment`/`DM4Error`, the fit, quantification, the HDF5 lock) is
+SpectroKit's: the `SpectroCore` module, imported at an exact tag (0.1.0). 4D × spectroscopy correlation stays here
+(`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDX science goes to
+SpectroKit and arrives by a tag bump.
+
 ## Ownership today and where it is going
 
 The `docs/archive/v4/appstate-seams-plan.md` extraction (all seven seams,
@@ -351,7 +356,7 @@ read/write and app-scoped bookmarks. Release enables Hardened Runtime; local
 Debug builds leave it off so macOS accepts the separately signed closure.
 Distribution always uses hardened Release (`releasing.md`). HDF5 access is
 serialised process-wide by a lock, not an actor: `HDF5Serial`
-(`Core/Data/HDF5Types.swift`) is acquired and released around every
+(SpectroKit's `HDF5Serial`, public in `SpectroCore`) is acquired and released around every
 `H5Reader` public method's body, recursive so a nested entry does not
 deadlock and never held across an `await`. The three redistributed dylibs came from Homebrew
 `hdf5 2.1.1` / `libaec 1.1.7` on one machine; nothing in the repo rebuilds them.

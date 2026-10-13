@@ -1,4 +1,4 @@
-# Regenerates mac4DSTEM/Core/Spectroscopy/XRayLineData.swift from exspy's xray_lines.json (verbatim values).
+# Regenerates XRayLineData.swift (SpectroKit's Sources/SpectroCore/Spectroscopy/ since S4; run it there) from exspy's xray_lines.json (verbatim values).
 #   python3 genlines.py <exspy>/exspy/material/xray_lines.json > XRayLineData.swift
 import json, sys, hashlib
 raw = open(sys.argv[1], "rb").read()

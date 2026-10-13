@@ -1,4 +1,5 @@
 import Foundation
+import SpectroCore
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))

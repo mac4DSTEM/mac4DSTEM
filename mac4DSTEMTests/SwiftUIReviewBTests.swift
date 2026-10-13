@@ -7,6 +7,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+import SpectroCore
 
 @MainActor
 final class SwiftUIReviewBTests: XCTestCase {

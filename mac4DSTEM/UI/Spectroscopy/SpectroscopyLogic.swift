@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+import SpectroCore
 #endif
 
 // The Spectroscopy room's pure half (v5.0 WP2 lane V, ADR 054/055): everything the

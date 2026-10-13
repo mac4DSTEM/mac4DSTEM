@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import SpectroCore
 
 /// Writes the detected peak grid as a py4DSTEM 0.14 / EMD 1.0 BraggVectors
 /// sidecar. The source dataset is never opened for writing. Publication is an
@@ -8,7 +9,7 @@ import Foundation
 package nonisolated enum BraggVectorEMDWriter {
     private static let rootPath = "/" + SessionSidecarFormat.rootGroupName
     // Shared with H5Reader's sidecar recognition via SessionSidecarFormat
-    // (Core/Data/HDF5Types.swift) — one constant, both sides. // v2 S4
+    // (SpectroKit's HDF5Types.swift) — one constant, both sides. // v2 S4
     private static let schemaAttribute = SessionSidecarFormat.schemaAttribute
     private static let resultNodesAttribute = "mac4dstem_result_nodes"
     private static let currentResultAttribute = "mac4dstem_current_result"

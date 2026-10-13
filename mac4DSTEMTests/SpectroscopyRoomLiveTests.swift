@@ -10,6 +10,7 @@ import SwiftUI
 @testable import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import SpectroCore
 
 // MARK: - Pure geometry
 

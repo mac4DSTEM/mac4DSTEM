@@ -13,7 +13,7 @@
 # Python for the check (S1/S2): needs rsciio + h5py + numpy; set CHECK_PYTHON=/path/to/python (skipped if unset and
 # the generator's python has no rsciio).
 #
-# Absorption needs the NIST FFAST table: mac4DSTEM/Resources/Spectroscopy/FFastMAC.csv (lane K), or MAC_CSV=/path/to/FFastMAC.csv.
+# Absorption needs the NIST FFAST table: .build/checkouts/SpectroKit/Sources/SpectroCore/Resources/Spectroscopy/FFastMAC.csv (SpectroKit, after `swift package resolve`), or MAC_CSV=/path/to/FFastMAC.csv.
 # Outputs (v2): the 4D+EDX dataset (dm4, hspy pair, single h5, truth_edx.json + _arrays.npz), the dose ladder (EDS only) and the
 # registration-mismatch dm4 (EDS binned 2x, shifted, mirrored) with their truth files.
 # Usage: run.sh [output-dir]   (default: References/demo-edx)

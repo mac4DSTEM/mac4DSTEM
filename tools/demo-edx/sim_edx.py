@@ -14,7 +14,7 @@ recipes' compositions. Written as
       the planted 2x3 affine and the per-phase masks on both grids).
 
 Usage: sim_edx.py --reflections <reflections.json> --out-dir <dir> [--tiny] [--seed 42] [--name N] [--ladder] [--regmismatch]
-       [--mac <FFastMAC.csv>]   (default: mac4DSTEM/Resources/Spectroscopy/FFastMAC.csv, else $MAC_CSV)
+       [--mac <FFastMAC.csv>]   (default: SpectroKit's copy in .build/checkouts/SpectroKit/Sources/SpectroCore/Resources/Spectroscopy, else $MAC_CSV)
 Python: the repo's py4dstem env (numpy, scipy, h5py, Pillow; make_demo imports Pillow).
 """
 import argparse
@@ -45,7 +45,7 @@ DWELL_S = 1.0e-3
 DEAD_BASE = 0.05
 AXIS_PERTURB = {"offset_eV": -10.0, "gain": 0.002, "relation": "E_file = (1 + gain) * E_true + offset"}
 LADDER_DOSES = [0.3, 1.0, 3.0, 10.0, 30.0, 100.0]
-DEFAULT_MAC = os.path.join(HERE, "..", "..", "mac4DSTEM", "Resources", "Spectroscopy", "FFastMAC.csv")
+DEFAULT_MAC = os.path.join(HERE, "..", "..", ".build", "checkouts", "SpectroKit", "Sources", "SpectroCore", "Resources", "Spectroscopy", "FFastMAC.csv")
 
 GUESSES = [
     "G1 EDS object name 'EDS SI' and Experiment label 'EDS' (4d-edx-file-structure 1b/4a: GUESS)",
@@ -880,7 +880,7 @@ def main():
     args = ap.parse_args()
     args.mac = args.mac or (DEFAULT_MAC if os.path.exists(DEFAULT_MAC) else os.environ.get("MAC_CSV"))
     if not args.mac or not os.path.exists(args.mac):
-        sys.exit("FFastMAC.csv not found: pass --mac or set MAC_CSV (mac4DSTEM/Resources/Spectroscopy/FFastMAC.csv once lane K lands)")
+        sys.exit("FFastMAC.csv not found: pass --mac or set MAC_CSV (SpectroKit's copy: run `swift package resolve` in the repo root)")
     os.makedirs(args.out_dir, exist_ok=True)
     if args.ladder:
         print("ladder:", build_ladder(args, args.out_dir), file=sys.stderr); return

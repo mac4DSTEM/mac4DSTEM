@@ -120,7 +120,7 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   `docs/archive/v5/e1-results-2026-10-12/`; E1b single objects after a mock). The 4D Quantify rows in Results landed 2026-10-13 (card P4 b). Next (ADR 066):
   the SpectroKit slot below, then the release on the SpectroKit build. No microscope validation in v5.0: EDX quantification ships
   badged unvalidated; B* (per-phase score, separability matrix) and D, and H, I, K and excess, come after v5.0.
-- [ ] **SpectroKit extraction** (owner, 2026-10-12, ADR 064, 066; S0 + S1 and the freeze done 2026-10-13) — after v5.0's features (the 4D Quantify rows), before the release: feature-complete freeze
+- [x] **SpectroKit extraction** (owner, 2026-10-12, ADR 064, 066; S4 done 2026-10-13: mac4DSTEM builds on SpectroKit 0.1.0, the in-tree copy is deleted; next is the v5.0 release on that build) — after v5.0's features (the 4D Quantify rows), before the release: feature-complete freeze
   (extraction commits only: 4D seams split, API `public`); SpectroKit extracted from the freeze commit with history, tagged 0.1.0
   only once a room can import it (ADR 064 amendment: no `unsafeFlags`, per-block HDF5 lock, cancel and progress on long calls);
   mac4DSTEM switches to the tag (258 tests move, by name: `docs/archive/v5/spectrokit-test-partition-2026-10-13.md`), app build + pre-push hook pass,

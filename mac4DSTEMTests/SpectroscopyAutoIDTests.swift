@@ -11,6 +11,7 @@ import DSTEMSession
 import SwiftUI
 import XCTest
 @testable import mac4DSTEM
+@testable import SpectroCore
 
 @MainActor
 final class SpectroscopyAutoIDTests: XCTestCase {

@@ -1,17 +1,19 @@
 #!/bin/zsh
 # NIST EPQ data lock for the v5.0 EDX quantification tables (2026-10-05).
 #
-# mac4DSTEM/Resources/Spectroscopy/*.csv listed below are byte copies of the files at the
+# The tables listed below (SpectroKit's Sources/SpectroCore/Resources/Spectroscopy since S4, 2026-10-13;
+# this checks the copy mac4DSTEM bundles: the pinned checkout in .build/checkouts) are byte copies of the files at the
 # pinned EPQ commit (public domain in the US, 17 USC 105; the notice in EPQ's LicenseFile.txt
 # must stay in NOTICE). This script re-fetches them into a scratch dir and checks every
 # sha256, so the bundled copies are reproducible, not trusted.
-# Usage: tools/lib/fetch-epq.sh [verify|update]
+# Usage: tools/lib/fetch-epq.sh [verify]
 set -euo pipefail
 
 EPQ_COMMIT="249dd3f805545bae1e1b2254fd7fd1cd4dc3d8f2"   # usnistgov/EPQ master, 2026-09-10
 EPQ_DIR="src/gov/nist/microanalysis/EPQLibrary"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-DEST="$ROOT/mac4DSTEM/Resources/Spectroscopy"
+DEST="$ROOT/.build/checkouts/SpectroKit/Sources/SpectroCore/Resources/Spectroscopy"
+[[ -d "$DEST" ]] || (cd "$ROOT" && swift package resolve)
 # upstream path (under EPQ_DIR)  |  bundled name  |  sha256
 FILES=(
   "FFastMAC.csv|FFastMAC.csv|c45cabbb451eada4ade3b64ef4d24acba45bfc08f3d93cd43412a8086a4c6409"
@@ -30,6 +32,6 @@ for entry in "${FILES[@]}"; do
   sums+=("$sum  $name")
 done
 ( cd "$tmp" && printf '%s\n' "${sums[@]}" | shasum -a 256 -c - )
-if [[ "$mode" == update ]]; then mkdir -p "$DEST"; for entry in "${FILES[@]}"; do rest="${entry#*|}"; cp "$tmp/${rest%%|*}" "$DEST/"; done; fi
+if [[ "$mode" == update ]]; then echo "fetch-epq: the tables are SpectroKit's; update them there" >&2; exit 64; fi
 ( cd "$DEST" && printf '%s\n' "${sums[@]}" | shasum -a 256 -c - )
 echo "fetch-epq: bundled copies match EPQ $EPQ_COMMIT"

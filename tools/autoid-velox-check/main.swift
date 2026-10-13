@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import SpectroCore
 
 // tools/autoid-velox-check — the room's Auto ID against the elements Velox's own session had selected (lane L10, 2026-10-07).
 //

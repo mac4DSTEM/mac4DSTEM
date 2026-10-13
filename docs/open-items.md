@@ -218,11 +218,10 @@ an EDS SI) opens as a spectrum image in the Spectroscopy room, never as a cube; 
 (Fable) passed after round 2 (the sniff now runs inside the security scope, so Recents reopen as spectrum images too). A spectrum image is not added to Recents (they carry sidecar semantics).
 
 ### Velox parity is a local diagnostic, not a CI gate (2026-10-05)
-`tools/velox-parity` checks the new `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
+`tools/velox-parity` checks SpectroKit's `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
 frame counts; since 2026-10-12 also every frame of the 27 image stacks via `images()` / `readImageFrame`) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's
 Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` once CI can install them, or once the
-truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
-Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
+truth arrays are cached as fixtures. Also: SpectroKit's `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines); a fix goes to SpectroKit.
 Allocation from file sizes (macTEM V1-3a, 2026-10-12): `readMetadataJSON` is capped at 16 MiB (0db86192); still unbounded:
 `markersPerFrame` (`FrameLocationTable` rows) and the per-column loops of `readFrameTransformations` / `readFrameDetectorTimes` (`dims[1]`).
 
@@ -297,7 +296,7 @@ Allocation from file sizes (macTEM V1-3a, 2026-10-12): `readMetadataJSON` is cap
 - **Fixed in passing:** a removed region's cached spectrum stayed under its id, and the next drawn region reuses the highest id.
 
 ### Element proposer + Auto ID (2026-10-06): unvalidated on real data
-`Core/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
+SpectroKit's `Sources/SpectroCore/Spectroscopy/Proposer/`: one joint NNLS fit over the listed set + every candidate line group, prune below L_C,
 add at ≥ L_D (Currie α = β = 0.05, σ0 from the fit's own variance). Synthetic only. Auto ID (Elements & maps) runs it
 on the selected region and the file's axis, cancellably; suggestions never touch manual picks. Open:
 - **Auto ID vs Velox (WP4 ADR 060, WP4b ADR 062):** shipped: never Z ≥ 89 (34,1 → 39,6 % precision on the owner's 78 files). WP4b refuted
@@ -314,9 +313,13 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   sums were never checked against escapes. Escape case fixed (5b696589, card A1 a, `archive/v5/sum-escape-only-results-2026-10-12/`);
   the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
   `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
-- **SpectroKit (2026-10-13, at the freeze):** the stored field `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (a rename
+- **SpectroKit (2026-10-13):** the stored field `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (a rename
   re-baselines the golden); `SpectroscopyExport`'s default title and `MAC4DSTEM_HDF5_PATH` still name the app (injectable, defaults kept);
-  public API: 438 declarations, ζ `package`. For S2: Swift 6 in SpectroKit (count unknown), `Bundle.module` for the six CSVs.
+  public API: 438 declarations, ζ `package`. Since S4 (ADR 067): 18 staying test files reach SpectroKit `package` API by
+  `@testable import SpectroCore` (memberwise inits of `ElementCandidate`, `LineWindow`, …; `EDSFit`, `VeloxEMDReader.readSpectrumImage`),
+  so they compile only against a testable (Debug) SpectroKit; a later tag could make those public. The Run configuration's
+  name `Develop` is what makes Xcode build SpectroKit optimised (an undocumented mapping; the pre-push hook checks it).
+  `tools/velox-parity`, `edx-pins`, `demo-edx`, `autoid-velox-check` still live here and read SpectroKit's pinned checkout.
 - **Stale VoiceOver values (drives 8, 9, 13, 14), fixed 2026-10-13:** `.textSelection(.enabled)` wraps a Text in an outer element
   whose value never updates (measured on a scratch app); `selectableText(_:)` gives it an explicit value (inspector value rows,
   aberration coefficients, provenance values and differences). Four dimmed buttons now give their reason. Not yet re-read on screen.

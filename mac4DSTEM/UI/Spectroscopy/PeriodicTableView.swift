@@ -1,6 +1,7 @@
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+import SpectroCore
 #endif
 
 /// The periodic table's own shape (spec 2 D-9): 18 columns, periods 1 to 6, the lanthanide slot in period 6 column 3 left empty
