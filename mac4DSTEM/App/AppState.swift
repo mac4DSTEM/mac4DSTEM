@@ -1347,7 +1347,8 @@ final class AppState {
             // Quantify: fit the selected region and record the step (ADR 054 item 8); the fit is live after this.
             if await spectroscopyRoom.quantify() {
                 let region = spectroscopy.regions.first { $0.id == spectroscopy.selectedRegionID }
-                spectroscopy.recordQuantification(in: replay, regionKind: region?.kind.rawValue ?? "wholeMap",
+                spectroscopy.recordQuantification(in: replay, registration: region.flatMap { spectroscopy.registration(of: $0) },
+                                                  regionKind: region?.kind.rawValue ?? "wholeMap",
                                                   regionName: region?.name ?? "Whole map",
                                                   extra: spectroscopyRoom.mapLinesParameters)   // the chosen map lines, a readable key
             }

@@ -172,10 +172,18 @@ struct RegionSection: View {
         InspectorRow("Tool") {
             GlassChipGroup(chips: Self.toolChips, mode: .single, selection: Self.toolSelection(model), identifier: "spectroscopy.regionTool")
         }
-        if model.regions.count > 1 {
+        if model.regions.count > 1 || !model.poolNotes.isEmpty {
             InspectorRow("Source") {
                 Picker("Source", selection: Binding(get: { model.selectedRegion ?? 0 }, set: { model.selectedRegion = $0 })) {
-                    ForEach(model.regions) { Text(Self.sourceTitle($0)).tag($0.id) }
+                    if Self.isSectioned(model) {   // Drawn · Whole map · Phases · Groups (E1, card E3 a)
+                        let drawn = model.regions.filter(\.isDrawn)
+                        if !drawn.isEmpty { Section("Drawn") { ForEach(drawn) { Text(Self.sourceTitle($0)).tag($0.id) } } }
+                        Section("Whole map") { ForEach(model.regions.filter { !$0.isDrawn && $0.pool == nil }) { Text(Self.sourceTitle($0)).tag($0.id) } }
+                        poolSection("Phases", .phases)
+                        poolSection("Groups", .groups)
+                    } else {
+                        ForEach(model.regions) { Text(Self.sourceTitle($0)).tag($0.id) }
+                    }
                 }.labelsHidden()   // compressible: a phase pool carries a CIF's name, which has no bound
             }
         } else {
@@ -183,7 +191,7 @@ struct RegionSection: View {
         }
         if let phase = r.phase {
             InspectorRow("Phase") {
-                HStack(spacing: 6) { Text(phase).foregroundStyle(.secondary); if model.unvalidated { UnvalidatedBadge() } }
+                HStack(spacing: 6) { Text(phase).foregroundStyle(.secondary); if r.phaseUnvalidated { UnvalidatedBadge() } }
             }
         }
         InspectorRow("Compare with") {
@@ -201,6 +209,25 @@ struct RegionSection: View {
                       : "Freeze a copy of this region's spectrum as a coloured overlay (up to three); the live region moves on.")
         }
         if model.image.sourceWarning, let note = model.image.sourceNote { InspectorNote(note) }
+    }
+
+    /// The picker is sectioned only when the 4D scan offers pools or says why not; otherwise it is the flat list it always was.
+    static func isSectioned(_ model: SpectroscopyRoomModel) -> Bool {
+        !model.poolNotes.isEmpty || model.regions.contains { $0.pool != nil }
+    }
+
+    /// One pool section: its pools, then its sentences as disabled lines (no phase map yet, a refusal, an empty class).
+    @ViewBuilder private func poolSection(_ title: String, _ section: PoolSection) -> some View {
+        let pools = model.regions.filter { $0.pool == section }
+        let notes = model.poolNotes.filter { $0.section == section }
+        if !pools.isEmpty || !notes.isEmpty {
+            Section(title) {
+                ForEach(pools) { Text(Self.sourceTitle($0)).tag($0.id) }
+                ForEach(Array(notes.enumerated()), id: \.offset) { i, note in
+                    Text(note.text).tag(Int.min + (section == .phases ? 0 : 1000) + i).disabled(true)
+                }
+            }
+        }
     }
 
     /// The three tools as symbol chips; the tool's name is the accessibility label.

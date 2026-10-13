@@ -214,6 +214,8 @@ frame counts; since 2026-10-12 also every frame of the 27 image stacks via `imag
 Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` once CI can install them, or once the
 truth arrays are cached as fixtures. Also: `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines).
 Widening `H5Reader`'s `HDF5Library` to `package` access would remove it.
+Allocation from file sizes (macTEM V1-3a, 2026-10-12): `readMetadataJSON` is capped at 16 MiB (0db86192); still unbounded:
+`markersPerFrame` (`FrameLocationTable` rows) and the per-column loops of `readFrameTransformations` / `readFrameDetectorTimes` (`dims[1]`).
 
 ### Spectroscopy room (ADR 056 + spec 2 / ADR 057, 2026-10-07): live gaps
 - **State:** spec 2 landed and driven by the session (`archive/v5/room-drive-3-2026-10-07.md`; gate row in `status.md`). Owner's own
@@ -300,9 +302,11 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   The refuter's "sum = another element's line" case was not reproduced (those groups are multi-line, never an identical column); a
   narrower one was: a candidate's single-line Si-escape column at an exact pile-up energy (V Kα escape 3.2125 = Tb Mα + Ir Mα) throws
   `rankDeficient` at every amplitude, reachable only when the axis tops out between ≈ 5.0 and 5.4 keV (not on the owner's 20 keV files);
-  sums are never checked against escapes, and such a pair raises no sum-peak question either. A first fix was refuted on
-  scope; the design-scoped one held (`archive/v5/sum-escape-design-scoped-preregistration-2026-10-08.md` § Result) and is HELD for card A1:
-  its line branch would fold a real Cd+Tl pile-up into La on 33.5–37.8 keV axes (escape-only is the alternative).
+  sums were never checked against escapes. Escape case fixed (5b696589, card A1 a, `archive/v5/sum-escape-only-results-2026-10-12/`);
+  the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
+  `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
+- **E1 pools (2026-10-13):** with a cube but no registration the Phases section shows the registration sentence, not the Crystal Maps
+  line; `PoolCatalogue.isUnvalidated` repeats Core's predicate; membership is ≥ ½ beside no class (moot under the identity). Undriven.
 - **Auto ID gaps:** `holeRegionNote` is not drawn; it uses the file axis, not a refined one; `suggestedRole` in Core is unused by the room.
 - **Two stabilisers measured on one generator** (threshold rule): lines < 0.45 keV untested (C, N refused); σ0 inflated
   by the flank misfit within ±0.5 keV, which can hide a real neighbour of a misfit line. Both named in the notes.

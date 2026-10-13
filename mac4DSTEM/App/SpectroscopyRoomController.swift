@@ -31,21 +31,32 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
     private var maps: [String: [Double]] = [:]
     private var refinements: [String: AxisRefinementResult] = [:]
     private var proposals: [String: ProposalResult] = [:]
+    /// Per region: how many times `forget` has run. A detached compute reads it BEFORE it starts and hands it back with what it
+    /// caches; a set from before the latest forget is refused, so a pass already past its cancel check cannot put a stale pool's
+    /// spectrum back after `poolsChanged` forgot it (E1, H8). nil: unfenced (the whole map, which is never forgotten).
+    private var epochs: [Int: Int] = [:]
+    func epoch(_ region: Int) -> Int { lock.withLock { epochs[region] ?? 0 } }
+    private func current(_ region: Int, _ epoch: Int?) -> Bool { epoch.map { $0 == (epochs[region] ?? 0) } ?? true }
 
     func spectrum(_ region: Int) -> [UInt64]? { lock.withLock { spectra[region] } }
-    func setSpectrum(_ s: [UInt64], _ region: Int) { lock.withLock { spectra[region] = s } }
+    func setSpectrum(_ s: [UInt64], _ region: Int, epoch: Int? = nil) { lock.withLock { if current(region, epoch) { spectra[region] = s } } }
     func map(_ key: String) -> [Double]? { lock.withLock { maps[key] } }
     /// The "int" mode's maps are another quantity on the same windows: keyed apart from the net ones.
     static func key(_ w: ResolvedWindow, integrated: Bool) -> String { (integrated ? "int|" : "") + key(w) }
     func setMap(_ m: [Double], _ key: String) { lock.withLock { maps[key] = m } }
     func refinement(_ key: String) -> AxisRefinementResult? { lock.withLock { refinements[key] } }
-    func setRefinement(_ r: AxisRefinementResult, _ key: String) { lock.withLock { refinements[key] = r } }
+    func setRefinement(_ r: AxisRefinementResult, _ key: String, region: Int = 0, epoch: Int? = nil) {
+        lock.withLock { if current(region, epoch) { refinements[key] = r } }
+    }
     /// The unlisted-line check's proposer runs, keyed by region, listed elements and fit settings (`unlistedKey`).
     func proposal(_ key: String) -> ProposalResult? { lock.withLock { proposals[key] } }
-    func setProposal(_ p: ProposalResult, _ key: String) { lock.withLock { proposals[key] = p } }
+    func setProposal(_ p: ProposalResult, _ key: String, region: Int = 0, epoch: Int? = nil) {
+        lock.withLock { if current(region, epoch) { proposals[key] = p } }
+    }
     /// A region that is gone takes its spectrum, its refinements and its proposer runs with it: its id may be given to a new one.
     func forget(region: Int) {
         lock.withLock {
+            epochs[region, default: 0] += 1
             spectra[region] = nil
             for k in refinements.keys where k.hasPrefix("\(region)|") { refinements[k] = nil }
             for k in proposals.keys where k.hasPrefix("\(region)|") { proposals[k] = nil }
@@ -294,11 +305,12 @@ final class SpectroscopyRoomController {
         let mask = session.mask(of: region)
         let regionID = region.id, name = region.name
         let cache = cache
+        let epoch = cache.epoch(regionID)
         autoIDTask = Task.detached(priority: .userInitiated) {
             let spectrum: [UInt64]
             if let s = cache.spectrum(regionID) { spectrum = s } else {
                 spectrum = source.sum(mask: mask)
-                cache.setSpectrum(spectrum, regionID)
+                cache.setSpectrum(spectrum, regionID, epoch: epoch)
             }
             var outcome: AutoIDOutcome?
             var failure: String?
@@ -561,7 +573,8 @@ final class SpectroscopyRoomController {
         let used = Set(m.pins.map(\.id))
         let id = (0..<SpectroscopyRoomModel.maximumPins).first { !used.contains($0) } ?? 0
         m.pins.append(PinnedRegion(id: id, label: "Pin \(id + 1)", tint: PinnedRegion.tints[id % PinnedRegion.tints.count],
-                                   shape: region.shape, pixels: region.pixelCount, spectrum: spectrum.map { Double($0) }))
+                                   shape: region.shape, pixels: region.pixelCount, spectrum: spectrum.map { Double($0) },
+                                   sourceRegion: region.kind.isPool ? region.id : nil))
     }
 
     func unpin(_ id: Int) { model.pins.removeAll { $0.id == id } }
@@ -610,13 +623,14 @@ final class SpectroscopyRoomController {
         let gen = generation
         let cache = cache
         let key = SpectrumComputeCache.unlistedKey(region: region, fit)
+        let epoch = cache.epoch(region)
         checkTask = Task.detached(priority: .utility) {
             var check: UnlistedLineCheck
             do {
                 let proposal: ProposalResult
                 if let p = cache.proposal(key) { proposal = p } else {
                     proposal = try UnlistedLineChecker.propose(counts: input.counts.map { Double($0) }, quantification: fit)
-                    cache.setProposal(proposal, key)
+                    cache.setProposal(proposal, key, region: region, epoch: epoch)
                 }
                 if Task.isCancelled { return }
                 check = UnlistedLineChecker.check(proposal: proposal, input: input, quantification: fit)
@@ -645,10 +659,29 @@ final class SpectroscopyRoomController {
         guard let session else { return }
         model.regions = session.regions.map { r in
             RegionSummary(id: r.id, name: r.name, pixels: r.pixelCount,
-                          counts: Double(regionCounts[r.id] ?? 0) / 1e6, tint: .gray, isDrawn: r.kind == .drawn)
+                          counts: Double(regionCounts[r.id] ?? 0) / 1e6, tint: .gray, isDrawn: r.kind == .drawn,
+                          pool: r.kind == .group ? .groups : r.kind.isPool ? .phases : nil)
         }
         model.selectedRegion = session.selectedRegionID
         model.regionOutline = session.regions.first { $0.id == session.selectedRegionID }?.shape
+        // E1: the Phase row and its badge follow the selected pool (a group has no phase; Not indexed shows as itself).
+        let pool = session.poolCatalogue.pools.first { $0.id == session.selectedRegionID }
+        var settings = RegionSettings()
+        if let pool, pool.kind != .group { settings = RegionSettings(phase: pool.name, phaseUnvalidated: pool.isUnvalidated) }
+        if model.regionSettings != settings { model.regionSettings = settings }
+        if model.poolNotes != session.poolCatalogue.notes { model.poolNotes = session.poolCatalogue.notes }
+    }
+
+    /// The window's 4D products changed and the session now holds a new catalogue (E1, H8): what a stale pool had cached, pinned
+    /// or concluded goes with it, and the selected pool is recomputed from the new mask (or the whole map is shown, if its
+    /// source vanished). A pool that did not change keeps everything.
+    func poolsChanged(_ change: SpectroscopySession.PoolChange) {
+        guard let session, source != nil else { return }
+        for id in change.stale { cache.forget(region: id); regionCounts[id] = nil }
+        model.pins.removeAll { $0.sourceRegion.map { change.stale.contains($0) } ?? false }
+        if let outcome = model.autoID.outcome, change.staleNames.contains(outcome.region) { model.resetAutoID() }
+        syncRegionsFromSession()
+        if change.selectionSentence != nil || session.selectedRegionID.map({ change.stale.contains($0) }) == true { refresh() }
     }
 
     // MARK: Compute
@@ -662,6 +695,8 @@ final class SpectroscopyRoomController {
         let beam: Double?
         /// Set once the Quantify verb has run: the pooled fit of this region with this method.
         let quantify: QuantifyRequest?
+        /// `SpectrumComputeCache.epoch(region)` when the request was made: what this pass caches is refused if the region was forgotten since.
+        var epoch: Int? = nil
     }
 
     struct QuantifyRequest: Sendable {
@@ -706,7 +741,7 @@ final class SpectroscopyRoomController {
         }
         let request = Request(source: source, region: region.id, mask: session.mask(of: region), picks: picks,
                               integrated: model.mapMode == .integrated,
-                              beam: source.metadata.beamEnergyKeV, quantify: quantify)
+                              beam: source.metadata.beamEnergyKeV, quantify: quantify, epoch: cache.epoch(region.id))
         let cache = cache
         // The previous recompute is about a selection that no longer stands (its answer would be dropped by the generation check):
         // cancel it so its remaining stages do not run. A cancelled task returns early and lands nothing.
@@ -740,7 +775,7 @@ final class SpectroscopyRoomController {
         let spectrum: [UInt64]
         if let s = cache.spectrum(r.region) { spectrum = s } else {
             spectrum = r.source.sum(mask: r.mask)
-            cache.setSpectrum(spectrum, r.region)
+            cache.setSpectrum(spectrum, r.region, epoch: r.epoch)
         }
         // The comparison overlay's spectrum: the whole map, summed once (region 0 is the whole map, `SpectroscopySession.open`).
         var whole: [UInt64]?
@@ -770,7 +805,7 @@ final class SpectroscopyRoomController {
                                                   regionName: q.regionName, pixelCount: q.pixelCount, refinement: cache.refinement(key))
             do {
                 let res = try PooledQuantifier.run(input, tables: Self.tables)
-                if let rr = res.refinement, input.refinement == nil { cache.setRefinement(rr, key) }
+                if let rr = res.refinement, input.refinement == nil { cache.setRefinement(rr, key, region: r.region, epoch: r.epoch) }
                 fit = res
                 fitInput = input
                 // The comparison line: the same method on the whole map (a failure there only drops the line).

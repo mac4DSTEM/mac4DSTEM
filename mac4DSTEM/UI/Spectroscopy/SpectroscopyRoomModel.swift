@@ -53,6 +53,9 @@ final class SpectroscopyRoomModel {
 
     // Regions: one live region on the active map; pins are frozen copies of it (ADR 056)
     var regions: [RegionSummary] = []
+    /// The sentences the Source picker shows as disabled lines under Phases and Groups (E1): no phase map yet, or why a
+    /// product cannot be pooled.
+    var poolNotes: [PoolNote] = []
     var selectedRegion: Int?
     var drawTool: DrawTool = .rectangle
     var pins: [PinnedRegion] = []
@@ -280,6 +283,8 @@ struct PinnedRegion: Identifiable, Equatable {
     var shape: SpectrumRegionShape?
     var pixels: Int
     var spectrum: [Double]
+    /// The pool it was taken from (E1), nil for a drawn region: a pin of a pool goes with the pool when its source changes.
+    var sourceRegion: Int?
     static let tints: [Color] = [.yellow, .pink, .teal]
 }
 
@@ -291,6 +296,8 @@ struct RegionSummary: Identifiable, Equatable {
     var tint: Color
     /// A region the user drew (removable); the whole map is not.
     var isDrawn = false
+    /// The picker section of a pool of the 4D scan (E1); nil for the whole map and a drawn region.
+    var pool: PoolSection?
 }
 
 struct RatioLine: Equatable {
@@ -312,8 +319,11 @@ struct SpectrumImageSettings {
 
 /// The Region section's observed settings: only what a view reads (the phase row). The region's pixel count and counts are the
 /// spectrum strip's (`spectrumPixels`, `spectrumSubtitle`); nothing written on a live-drag tick lives here.
-struct RegionSettings {
+struct RegionSettings: Equatable {
     var phase: String?
+    /// The selected pool's own badge (`SpectrumPool.isUnvalidated`): a phase and a Not indexed pool are unvalidated, a group is not
+    /// called validated either and carries none. Not the fit's `validation`, which reads nil as unvalidated.
+    var phaseUnvalidated = false
 }
 
 /// The file and the region a spectrum CSV is about (its header lines).
@@ -391,7 +401,7 @@ extension SpectroscopyRoomModel {
         m.spectrumTitle = "Spectrum · β″ pooled"; m.spectrumSubtitle = "matrix, norm. to Al Kα"
         m.resultsTitle = "Results · β″ pooled"
         m.image = SpectrumImageSettings(sourceWarning: true, frameLo: 1, frameHi: 24)
-        m.regionSettings = RegionSettings(phase: "β″ (Mg₅Si₆)")
+        m.regionSettings = RegionSettings(phase: "β″ (Mg₅Si₆)", phaseUnvalidated: true)
         m.quantify.absorptionNote = "4 detectors · TOA from file"
         m.quantify.thickness = 80; m.quantify.thicknessSigma = 15; m.quantify.quality = "χ²ᵣ 1.04 (Pearson)"
         m.smoothing = .none

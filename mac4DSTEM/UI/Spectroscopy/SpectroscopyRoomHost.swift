@@ -19,7 +19,7 @@ struct SpectroscopyRoomHost: View {
                 .onChange(of: controller.model.quantify) { controller.quantifySettingsChanged() }
                 .onChange(of: controller.model.mapMode) { controller.refresh() }
                 .onChange(of: controller.model.compare) { controller.refresh() }
-                .onChange(of: appState.hasDataset, initial: true) { _, present in controller.setFourDCube(present) }
+                .onChange(of: appState.hasDataset, initial: true) { _, present in controller.setFourDCube(present); appState.refreshSpectroscopyPools() }
                 .accessibilityIdentifier("spectroscopy.room")
         } else {
             ContentUnavailableView(

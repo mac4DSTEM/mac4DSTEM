@@ -67,6 +67,12 @@ package final class DiffractionGroupsProduct {
     /// `ranWith` is the settings snapshot the RUN took, passed in rather than
     /// re-read from `settings` here, so a value edited while the run was in
     /// flight cannot be recorded as the one that produced the result.
+    /// Counts every publish and every clear of a result: the Spectroscopy room's group pools (E1) are built from it, and a
+    /// pool built from an older generation is never shown (H8).
+    package private(set) var generation = 0
+    /// Called after the result changed (a publish or a clear). The window sets it; the product holds nothing of the room.
+    @ObservationIgnored package var onChange: (@MainActor () -> Void)?
+
     package func publish(
         _ newResult: DiffractionEmbedding.Result, ranWith: DiffractionEmbedding.Settings
     ) {
@@ -77,6 +83,8 @@ package final class DiffractionGroupsProduct {
         }
         result = newResult
         lastRunSettings = ranWith
+        generation += 1
+        onChange?()
     }
 
     /// The published group map's display name — the pane title, the Session
@@ -92,8 +100,10 @@ package final class DiffractionGroupsProduct {
     /// Dataset activation: the result and its reference position die with
     /// the dataset; `settings` survives (see above).
     package func clear() {
+        let hadResult = result != nil
         result = nil
         lastRunSettings = nil
         referencePosition = nil
+        if hadResult { generation += 1; onChange?() }
     }
 }

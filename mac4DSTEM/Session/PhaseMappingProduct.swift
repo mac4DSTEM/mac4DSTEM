@@ -608,11 +608,19 @@ package final class PhaseMappingProduct {
         return phases.count * steps
     }
 
+    /// Counts every publish and every clear of a map: the Spectroscopy room's pools (E1) are built from the map, and
+    /// a pool built from an older generation is never shown (H8).
+    package private(set) var generation = 0
+    /// Called after the map changed (a publish or a clear). The window sets it; the product holds nothing of the room.
+    @ObservationIgnored package var onChange: (@MainActor () -> Void)?
+
     package func publish(_ newMap: PhaseMap, ranWith record: RunRecord,
                          library: PhaseReferenceLibrary? = nil) {
         map = newMap
         lastRun = record
         lastLibrary = library
+        generation += 1
+        onChange?()
     }
 
     /// The published map's display name. The phase count is in it for the same
@@ -630,10 +638,12 @@ package final class PhaseMappingProduct {
     /// switching between cubes of the same alloy, which is the whole workflow
     /// the multi-dataset density needs.
     package func clear() {
+        let hadMap = map != nil
         map = nil
         lastRun = nil
         lastLibrary = nil
         zoneAxisFits = []
         zoneAxisRun = nil
+        if hadMap { generation += 1; onChange?() }
     }
 }

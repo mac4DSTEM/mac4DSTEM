@@ -1,0 +1,33 @@
+m01-tie-admitted: exit 65; failed-tests: 3; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStaleThroughTheMirroredRecord()' Test case 'SpectroscopyPoolsTests.testAPoolIsTheChannelWiseSumOfItsMembersDenseSparseAndMirrored()' Test case 'SpectroscopyPoolsTests.testPhasePoolsPartitionAndTheTieJoinsNone()' 
+m02-drop-last-pixel: exit 65; failed-tests: 6; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStale()' Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStaleThroughTheMirroredRecord()' Test case 'SpectroscopyPoolsTests.testAPoolIsTheChannelWiseSumOfItsMembersDenseSparseAndMirrored()' Test case 'SpectroscopyPoolsTests.testMembershipFollowsItsSourceBitForBit()' Test case 'SpectroscopyPoolsTests.testPhasePoolsPartitionAndTheTieJoinsNone()' Test case 'SpectroscopyPoolsTests.testQuantifyingAPoolIsQuantifyingItsSumAndTheStepRecordsItsProvenance()' 
+m03-verdict-dropped: exit 65; failed-tests: 4; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStale()' Test case 'SpectroscopyPoolsTests.testAPoolIsTheChannelWiseSumOfItsMembersDenseSparseAndMirrored()' Test case 'SpectroscopyPoolsTests.testMembershipFollowsItsSourceBitForBit()' Test case 'SpectroscopyPoolsTests.testTheBadgeIsThePoolsOwn()' 
+m04-group-off-by-one: exit 65; failed-tests: 1; Test case 'SpectroscopyPoolsTests.testMembershipFollowsItsSourceBitForBit()' 
+m05-mask-nil-for-pool: exit 65; failed-tests: 5; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStale()' Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStaleThroughTheMirroredRecord()' Test case 'SpectroscopyPoolsTests.testAPoolIsNeverSummedOverEveryPixel()' Test case 'SpectroscopyPoolsTests.testAPoolIsTheChannelWiseSumOfItsMembersDenseSparseAndMirrored()' Test case 'SpectroscopyPoolsTests.testQuantifyingAPoolIsQuantifyingItsSumAndTheStepRecordsItsProvenance()' 
+m06-size-check-dropped: exit 65; failed-tests: 2; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverSummedOverEveryPixel()' Test case 'SpectroscopyPoolsTests.testEveryRefusalIsASentenceAndNoPool()' 
+m07-badge-nil-unvalidated: exit 65; failed-tests: 1; Test case 'SpectroscopyPoolsTests.testTheBadgeIsThePoolsOwn()' 
+m08-pixelcount-whole: exit 65; failed-tests: 2; Test case 'SpectroscopyPoolsTests.testNoExistingNumberMovesWithAProductPresent()' Test case 'SpectroscopyPoolsTests.testQuantifyingAPoolIsQuantifyingItsSumAndTheStepRecordsItsProvenance()' 
+m09-registration-omitted: exit 65; failed-tests: 1; Test case 'SpectroscopyPoolsTests.testQuantifyingAPoolIsQuantifyingItsSumAndTheStepRecordsItsProvenance()' 
+m10-drawn-dilated: exit 65; failed-tests: 1; Test case 'SpectroscopyPoolsTests.testNoExistingNumberMovesWithAProductPresent()' 
+m11-forget-skipped: exit 65; failed-tests: 2; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStale()' Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStaleThroughTheMirroredRecord()' 
+m12-pins-kept: exit 65; failed-tests: 1; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStale()' 
+m13-mirror-ignored: exit 65; failed-tests: 3; Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStaleThroughTheMirroredRecord()' Test case 'SpectroscopyPoolsTests.testAPoolIsTheChannelWiseSumOfItsMembersDenseSparseAndMirrored()' Test case 'SpectroscopyPoolsTests.testPhasePoolsPartitionAndTheTieJoinsNone()' 
+ALLDONE
+--- B1/B3/B4 extra mutations
+m14-overlap-any: PATTERN MISSING
+m15-swap-nxny [SpectroscopyPoolsTests]: exit 0; failed: 
+m16-normalise-counts [SpectroscopyPoolsTests]: exit 65; failed: 
+m17-fence-ignored [SpectroscopyPoolsTests]: exit 65; failed: Test case 'SpectroscopyPoolsTests.testAComputePastItsCancelCheckCannotRecacheAForgottenPool()' 
+m18-threshold-strict [SpectroscopyPoolsTests]: exit 65; failed: Test case 'SpectroscopyPoolsTests.testAHalfCoveredPixelBesideNoClassJoinsTheClassAndATieJoinsNone()' 
+ALLDONE2
+--- rerun after non-square bin case
+m14-overlap-any: PATTERN MISSING
+m15-swap-nxny [SpectroscopyPoolsTests]: exit 65; failed: Test case 'SpectroscopyPoolsTests.testAPoolIsTheChannelWiseSumOfItsMembersDenseSparseAndMirrored()' 
+ALLDONE2
+--- rerun m14 m16 with fixed patterns
+m14-overlap-any [SpectroscopyPoolsTests]: exit 65; failed: Test case 'SpectroscopyPoolsTests.testAHalfCoveredPixelBesideNoClassJoinsTheClassAndATieJoinsNone()' Test case 'SpectroscopyPoolsTests.testAPoolIsNeverStaleThroughTheMirroredRecord()' Test case 'SpectroscopyPoolsTests.testAPoolIsTheChannelWiseSumOfItsMembersDenseSparseAndMirrored()' Test case 'SpectroscopyPoolsTests.testPhasePoolsPartitionAndTheTieJoinsNone()' 
+m16-normalise-counts [SpectroscopyPoolsTests]: exit 65; failed: Test case 'SpectroscopyPoolsTests.testNoExistingNumberMovesWithAProductPresent()' Test case 'SpectroscopyPoolsTests.testQuantifyingAPoolIsQuantifyingItsSumAndTheStepRecordsItsProvenance()' 
+ALLDONE2
+--- H9 and recording breakers
+m02-drop-last-pixel [SpectroscopyPoolsH9Tests]: exit 65; failed: Test case 'SpectroscopyPoolsH9Tests.testPoolsEqualTheTruthsRealisedCountsOnTheSimulatedJointFile()' 
+ALLDONE2
+recording-byte-perturbed [E1PoolRecordingTests]: exit 65; failed: Test case 'E1PoolRecordingTests.testOutputsAreByteIdenticalToTheRecording()'

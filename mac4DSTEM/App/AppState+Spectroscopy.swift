@@ -65,6 +65,46 @@ extension AppState {
         spectroscopy.open(source)
         wireSpectroscopyOperations()
         spectroscopyRoom.bind(source, session: spectroscopy, hasFourDCube: hasDataset)
+        // E1: the only registration the app states is the identity of a GMS joint attach (same Experiment ID and scan grid).
+        if hasDataset, source.metadata.sameScanAs4DCube {
+            spectroscopy.registration = PoolCatalogue.identityRegistration(width: source.nx, height: source.ny)
+            spectroscopy.registeredCubePath = descriptor?.filePath
+        }
+        wirePoolHooks()
+        refreshSpectroscopyPools()
+    }
+
+    // MARK: Pools of the 4D scan (E1)
+
+    /// The 4D products tell the window when they change (a publish or a clear): the pools are rebuilt, never stale (H8).
+    /// Set once; the products hold nothing of the room.
+    func wirePoolHooks() {
+        phaseMapping.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
+        diffractionGroups.onChange = { [weak self] in self?.refreshSpectroscopyPools() }
+    }
+
+    /// Builds the catalogue off the main actor and lands it if nothing newer was asked meanwhile (`poolRequest`). The pool
+    /// masks come from `MaskTransport` through the session's registration; no spectrum is summed here.
+    func refreshSpectroscopyPools() {
+        guard let source = spectroscopy.source else { return }
+        // The identity was stated for one cube; with another (or none) in the window the claim is gone.
+        if spectroscopy.registration != nil, !hasDataset || descriptor?.filePath != spectroscopy.registeredCubePath {
+            spectroscopy.registration = nil; spectroscopy.registeredCubePath = nil
+        }
+        spectroscopy.poolTask?.cancel()
+        spectroscopy.poolRequest += 1
+        let request = spectroscopy.poolRequest
+        let inputs = PoolCatalogue.Inputs(
+            hasFourDCube: hasDataset, registration: spectroscopy.registration, spectrumWidth: source.nx, spectrumHeight: source.ny,
+            phaseMap: phaseMapping.map, phaseGeneration: phaseMapping.generation,
+            groups: diffractionGroups.result, groupGeneration: diffractionGroups.generation)
+        spectroscopy.poolTask = Task { @MainActor [weak self] in
+            let catalogue = await Task.detached(priority: .userInitiated) { PoolCatalogue.build(inputs) }.value
+            guard let self, !Task.isCancelled, self.spectroscopy.poolRequest == request else { return }
+            let change = self.spectroscopy.applyPools(catalogue)
+            self.spectroscopyRoom.poolsChanged(change)
+            if let sentence = change.selectionSentence { self.statusText = sentence }
+        }
     }
 
     /// Quantify and Auto ID run as operations (spec 2 D-12): the room's controller holds no `AppState`, so it is handed the two
