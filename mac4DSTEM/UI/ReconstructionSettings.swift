@@ -365,17 +365,19 @@ private struct ParallaxStageSections: View {
         }
         stageSection(2, "Align bright-field stack") {
             InspectorActionRow {
+                let alignReason = ParallaxActionReason.alignNextLevel(
+                    isBusy: appState.isBusy,
+                    hasPreview: appState.phaseContrast.parallaxPreprocess != nil,
+                    isComplete: appState.phaseContrast.parallaxAlignment?.isComplete == true
+                )
                 InspectorAdaptiveButton(
                     "Align Next Level", systemImage: "align.horizontal.center",
-                    help: "Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation."
+                    help: alignReason ?? "Runs the next py4DSTEM coarse-to-fine alignment bin with factor-8 matrix-DFT subpixel correlation."
                 ) {
                     PendingEdits.run { await appState.alignParallaxNextLevel() }
                 }
-                .disabled(
-                    appState.isBusy
-                        || appState.phaseContrast.parallaxPreprocess == nil
-                        || appState.phaseContrast.parallaxAlignment?.isComplete == true
-                )
+                .disabled(alignReason != nil)
+                .accessibilityValue(alignReason ?? "")
 
                 if appState.phaseContrast.parallaxAlignment != nil {
                     InspectorAdaptiveButton(
@@ -390,16 +392,18 @@ private struct ParallaxStageSections: View {
         }
         stageSection(3, "Fit and correct phase") {
             InspectorActionRow {
+                let fitReason = ParallaxActionReason.fitAberrations(
+                    isBusy: appState.isBusy,
+                    alignmentComplete: appState.phaseContrast.parallaxAlignment?.isComplete == true
+                )
                 InspectorAdaptiveButton(
                     "Fit Aberrations", systemImage: "waveform.path",
-                    help: "Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration."
+                    help: fitReason ?? "Fits py4DSTEM's low-order polar decomposition and default recursive higher-order gradient basis without changing calibration."
                 ) {
                     appState.fitParallaxAberrations()
                 }
-                .disabled(
-                    appState.isBusy
-                        || appState.phaseContrast.parallaxAlignment?.isComplete != true
-                )
+                .disabled(fitReason != nil)
+                .accessibilityValue(fitReason ?? "")
             }
             if appState.phaseContrast.parallaxHigherOrderFit != nil {
                 InspectorRow("Low-pass") {
@@ -805,16 +809,15 @@ private struct ParallaxFitDetails: View {
                 "Higher-order RMS",
                 String(format: "%.4f Å", higher.rmsResidualAngstrom)
             )
-            Text(
-                zip(higher.terms, higher.coefficientsAngstrom)
-                    .map { term, coefficient in
-                        "C\(term.radialOrder)\(term.angularOrder)\(term.component == 0 ? "a" : "b") \(String(format: "%.1f", coefficient))"
-                    }
-                    .joined(separator: " · ")
-            )
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
-            .textSelection(.enabled)
+            let coefficients = zip(higher.terms, higher.coefficientsAngstrom)
+                .map { term, coefficient in
+                    "C\(term.radialOrder)\(term.angularOrder)\(term.component == 0 ? "a" : "b") \(String(format: "%.1f", coefficient))"
+                }
+                .joined(separator: " · ")
+            Text(coefficients)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .selectableText(coefficients)
         }
         if let correction = appState.phaseContrast.parallaxCorrection {
             InspectorValueRow(
@@ -962,5 +965,20 @@ private struct ScientificHistoryPlot: View {
     private var selectionLabel: String {
         guard let point = geometry.point(at: effectiveSelection) else { return "No finite samples" }
         return "#\(point.index)  \(String(format: "%.5g", point.value))"
+    }
+}
+
+/// Why a parallax stage button is dimmed (drive 14: Align Next Level and Fit Aberrations dimmed with no reason).
+/// `.disabled` binds to the same nil-ness, so the reason and the state cannot disagree.
+nonisolated enum ParallaxActionReason {
+    static func alignNextLevel(isBusy: Bool, hasPreview: Bool, isComplete: Bool) -> String? {
+        if isBusy { return ResultsActionReason.busy }
+        if !hasPreview { return "Prepare the parallax preview first." }
+        return isComplete ? "Every alignment level is done; Reset Alignment starts again." : nil
+    }
+
+    static func fitAberrations(isBusy: Bool, alignmentComplete: Bool) -> String? {
+        if isBusy { return ResultsActionReason.busy }
+        return alignmentComplete ? nil : "Align every level first (Align Next Level)."
     }
 }

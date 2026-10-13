@@ -952,6 +952,12 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
 struct SaveResultButton: View {
     @Environment(AppState.self) private var appState
 
+    private var saveReason: String? {
+        ResultsActionReason.saveToSession(
+            isLoading: appState.datasetSession.isLoading, hasDisplayedProduct: appState.displayedProduct != nil,
+            isBusy: appState.isBusy, sidecarRefusal: appState.gates.sidecarRewriteRefusal())
+    }
+
     var body: some View {
         if appState.hasDataset, appState.navigation.workspaceArea != .results {
             Button {
@@ -962,9 +968,10 @@ struct SaveResultButton: View {
             // C4(a): this used to gate on `appState.isBusy` only, so it
             // stayed enabled and was refused through a modal after the
             // click when the session sidecar could not be rewritten.
-            .disabled(appState.datasetSession.isLoading || appState.displayedProduct == nil
-                      || appState.isBusy || !appState.gates.mayWriteSidecar)
-            .help("Save to Session — keeps the displayed result with this dataset, in "
+            .disabled(saveReason != nil)
+            // Drive 14: it dimmed with no reason. The reason is spoken and on hover; nothing drawn changes.
+            .accessibilityValue(saveReason ?? "")
+            .help(saveReason ?? "Save to Session — keeps the displayed result with this dataset, in "
                   + "its session sidecar. It appears in Results and survives reopening.")
             .accessibilityIdentifier("workspace.saveToResults")
         }

@@ -160,6 +160,14 @@ nonisolated enum ResultsActionReason {
         if isBusy { return busy }
         return sidecarRefusal
     }
+
+    /// The toolbar's Save to Session, in the order its `.disabled` checked them (drive 14: it dimmed with no reason).
+    static func saveToSession(isLoading: Bool, hasDisplayedProduct: Bool, isBusy: Bool, sidecarRefusal: String?) -> String? {
+        if isLoading { return "Unavailable while the dataset loads." }
+        if !hasDisplayedProduct { return "No result is displayed yet: compute one first." }
+        if isBusy { return busy }
+        return sidecarRefusal
+    }
 }
 
 /// One comparison panel's already-rendered pixels and the version that
@@ -333,8 +341,9 @@ struct ProductComparisonView: View {
             if !changes.isEmpty {
                 DisclosureGroup("Provenance differences (\(changes.count))") {
                     ForEach(Array(changes.enumerated()), id: \.offset) { _, change in
-                        Text("\(change.key): \(change.left ?? "—")  ↔  \(change.right ?? "—")")
-                            .font(.caption2.monospaced()).textSelection(.enabled)
+                        let line = "\(change.key): \(change.left ?? "—")  ↔  \(change.right ?? "—")"
+                        Text(line)
+                            .font(.caption2.monospaced()).selectableText(line)
                     }
                 }
                 .font(.caption)

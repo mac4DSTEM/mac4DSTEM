@@ -168,7 +168,7 @@ private struct LineagePane: View {
                         HStack(alignment: .firstTextBaseline, spacing: LayoutPolicy.inspectorRowSpacing) {
                             Text(ProvenanceKeyLabel.text(entry.key)).foregroundStyle(.secondary)
                                 .help(entry.key)
-                            Text(ProvenanceValueText.display(entry.value)).textSelection(.enabled).help(entry.value)
+                            Text(ProvenanceValueText.display(entry.value)).selectableText(ProvenanceValueText.display(entry.value)).help(entry.value)
                                 .accessibilityValue(RoomAccessibilityText.exactValue(
                                     raw: entry.value, displayed: ProvenanceValueText.display(entry.value)) ?? "")
                             Spacer(minLength: 0)

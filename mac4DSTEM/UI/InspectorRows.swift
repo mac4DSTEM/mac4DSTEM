@@ -323,7 +323,8 @@ struct InspectorValueRow: View {
     private var valueText: some View {
         // Mono rows carry provenance: a 17-digit decimal prints rounded, the
         // exact text on hover.
-        Text(mono ? ProvenanceValueText.display(value) : value)
+        let shown = mono ? ProvenanceValueText.display(value) : value
+        return Text(shown)
             .help(mono ? value : "")
             // Identifiers and provenance values stay on one line (middle
             // truncation keeps both ends); the full text is on hover.
@@ -333,7 +334,7 @@ struct InspectorValueRow: View {
             .fontDesign(mono ? .monospaced : .default)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.trailing)
-            .textSelection(.enabled)
+            .selectableText(shown)
     }
 }
 
@@ -1172,5 +1173,14 @@ private struct AnnouncesChanges: ViewModifier {
 extension View {
     func announcing(_ message: String?, after delay: Duration = .zero) -> some View {
         modifier(AnnouncesChanges(message: message, delay: delay))
+    }
+}
+
+extension View {
+    /// Selectable text whose words can change. `.textSelection(.enabled)` wraps a Text in an outer accessibility
+    /// element whose value is captured once and never updates (drives 9, 13, 14: VoiceOver read "144 positions" while
+    /// the screen read 81; measured on a scratch app 2026-10-13); an explicit value keeps it current.
+    func selectableText(_ shown: String) -> some View {
+        textSelection(.enabled).accessibilityValue(shown)
     }
 }

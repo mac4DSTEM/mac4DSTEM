@@ -478,6 +478,11 @@ private struct DiskDetectionRows: View {
 enum DiskCentreControlReason {
     static let saveToSidecarEnabledHelp = "Labels ride with the session calibration save — this writes them to the sidecar beside the dataset, alongside calibration."
 
+    /// Export Labels… has nothing to write without a label (drive 14: it dimmed with no reason).
+    static func exportLabels(isEmpty: Bool) -> String? {
+        isEmpty ? "There are no labelled centres to export yet." : nil
+    }
+
     /// The labelling toggle needs a dataset and the Current pattern display (one scan position to label).
     static func labelling(hasDataset: Bool, onCurrentPattern: Bool) -> String? {
         if !hasDataset { return "Open a dataset to label its disk centres." }
@@ -570,13 +575,15 @@ private struct DiskCentreLabelsRows: View {
             .accessibilityValue(saveReason ?? "")
             .accessibilityIdentifier("disk.labels.save")
 
+            let exportReason = DiskCentreControlReason.exportLabels(isEmpty: labels.isEmpty)
             InspectorAdaptiveButton(
                 "Export Labels…", systemImage: "square.and.arrow.up",
-                help: "Write the current labels to a JSON file you choose, in the format tools/disk-detector/label_centres.py writes."
+                help: exportReason ?? "Write the current labels to a JSON file you choose, in the format tools/disk-detector/label_centres.py writes."
             ) {
                 _ = appState.exportDiskCentreLabels()
             }
-            .disabled(labels.isEmpty)
+            .disabled(exportReason != nil)
+            .accessibilityValue(exportReason ?? "")
             .accessibilityIdentifier("disk.labels.export")
 
             InspectorAdaptiveButton(
