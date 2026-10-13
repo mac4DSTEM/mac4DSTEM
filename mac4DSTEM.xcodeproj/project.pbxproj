@@ -114,6 +114,7 @@
 				Core/Data/DemoFourDDataSource.swift,
 				Core/Data/DiffractionPattern.swift,
 				Core/Data/DisplayedProduct.swift,
+				Core/Data/DM4Error.swift,
 				Core/Data/DM4Experiment.swift,
 				Core/Data/DM4Reader.swift,
 				Core/Data/FourDArray.swift,
