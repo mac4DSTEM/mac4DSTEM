@@ -305,6 +305,9 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   sums were never checked against escapes. Escape case fixed (5b696589, card A1 a, `archive/v5/sum-escape-only-results-2026-10-12/`);
   the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
   `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
+- **SpectroKit (2026-10-13, at the freeze):** the stored field `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (a rename
+  re-baselines the golden); `SpectroscopyExport`'s default title and `MAC4DSTEM_HDF5_PATH` still name the app (injectable, defaults kept);
+  public API: 438 declarations, ζ `package`. For S2: Swift 6 in SpectroKit (count unknown), `Bundle.module` for the six CSVs.
 - **Stale VoiceOver values (drives 8, 9, 13, 14), fixed 2026-10-13:** `.textSelection(.enabled)` wraps a Text in an outer element
   whose value never updates (measured on a scratch app); `selectableText(_:)` gives it an explicit value (inspector value rows,
   aberration coefficients, provenance values and differences). Four dimmed buttons now give their reason. Not yet re-read on screen.
