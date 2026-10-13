@@ -116,8 +116,8 @@ Ticked lines move to `archive/v4/roadmap-history.md` at each closeout (last: 202
   buttons and chips, spectrum weight and colour, zoom gestures, scale bars, Velox line families with α/β picks). Auto ID went
   through its first Gate D loop against his Velox selections (ADR 060: 34 / 45 %; one hygiene rule ships, two held for a truth
   set that tests their risk). WP4b refuted both held rules on DTSA-II's Qual set, a risk simulator and his files (ADR 062: nothing
-  ships); the eXSpy quantification pins agree (4cc5581c). V5-8 answered b (ADR 061). Next, in order: E wired into the room
-  (E1 registered 2026-10-08, `docs/archive/v5/e1-pooling-preregistration-2026-10-08.md`; built after the owner's cards E1–E6), the 4D Quantify rows in Results once the drive clears, then B*'s prerequisites (per-phase score,
+  ships); the eXSpy quantification pins agree (4cc5581c). V5-8 answered b (ADR 061). E1 pooling landed 2026-10-13 (ADR 065,
+  `docs/archive/v5/e1-results-2026-10-12/`; E1b single objects after a mock). Next, in order: the 4D Quantify rows in Results, then B*'s prerequisites (per-phase score,
   separability matrix); then the SpectroKit slot below; then validation with the owner's joint GMS run and a pure-Al foil
   from his detector (Q1–Q3, `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md`) on the app built on SpectroKit;
   then the release (ADR 064: v5.0 ships on SpectroKit).
