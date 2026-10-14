@@ -86,23 +86,23 @@ struct ResultsSettings: View {
         .accessibilityHint("Displays this saved result")
         .accessibilityIdentifier("session.savedResult")
 
-        InspectorRow("Compare") {
-            HStack(spacing: 6) {
-                Button("A") { PendingEdits.run { await appState.loadSavedSessionResult(result, into: .a) } }
-                    .help("Load into comparison A")
-                    .accessibilityLabel("Load \(result.displayName) into comparison A")
-                Button("B") { PendingEdits.run { await appState.loadSavedSessionResult(result, into: .b) } }
-                    .help("Load into comparison B")
-                    .accessibilityLabel("Load \(result.displayName) into comparison B")
+        // Two regular-size, labelled buttons (they were bare 11-pt "A" and "B"). The two fit one row at the column minimum
+        // (adaptive: the symbol alone, then stacked, before any truncation); Remove keeps its own row below.
+        InspectorActionRow {
+            InspectorAdaptiveButton("Set as A", systemImage: "a.square", help: "Load into comparison A") {
+                PendingEdits.run { await appState.loadSavedSessionResult(result, into: .a) }
             }
-            .labelsHidden()
+            .accessibilityLabel("Set \(result.displayName) as comparison A")
+            .accessibilityIdentifier("session.compareA")
+            InspectorAdaptiveButton("Set as B", systemImage: "b.square", help: "Load into comparison B") {
+                PendingEdits.run { await appState.loadSavedSessionResult(result, into: .b) }
+            }
+            .accessibilityLabel("Set \(result.displayName) as comparison B")
+            .accessibilityIdentifier("session.compareB")
         }
-        .controlSize(.small)
-        .buttonStyle(.bordered)
 
-        // Its own row: alongside A/B, "Remove" truncated to "Remo…" in the
-        // 250pt capture (2026-09-03) — three bordered controls do not fit
-        // one Compare row at the column minimum.
+        // Its own row: alongside the Set as buttons, "Remove" truncated to "Remo…" in the
+        // 250pt capture (2026-09-03) — three controls do not fit one row at the column minimum.
         InspectorActionRow {
             InspectorAdaptiveButton("Remove", systemImage: "trash", help: "Remove saved result",
                                      role: .destructive) {
