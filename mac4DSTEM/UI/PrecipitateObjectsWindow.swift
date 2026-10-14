@@ -7,6 +7,14 @@
 //        the Precipitates section, and the subtitle says when this one was
 //        made.
 //
+//  The visible rows are cached state, recomputed when the phase filter, the
+//  counted-only switch or the sort changes, not on every redraw or row
+//  selection (UI audit 2026-10-13/14). Numeric columns are right-aligned,
+//  header and cells alike. Edit > Copy copies the selected rows as
+//  tab-separated text (`.copyable`, SwiftUI's own; a context-menu Copy would
+//  need NSPasteboard, which SwiftUI's copy command makes unnecessary). A save
+//  that fails is said in an alert, not dropped.
+//
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -21,17 +29,32 @@ struct PrecipitateObjectsWindow: View {
     /// its object on the map. Optional so the window also runs without it.
     @Environment(PrecipitateTableSelection.self) private var relay: PrecipitateTableSelection?
 
-    @State private var sortOrder = [KeyPathComparator(\PrecipitateObjectReport.Row.id)]
+    @State private var sortOrder: [KeyPathComparator<PrecipitateObjectReport.Row>]
     @State private var phaseFilter: Int32 = -1          // −1 = every phase
     @State private var countedOnly = false
     @State private var selection = Set<PrecipitateObjectReport.Row.ID>()
     @State private var exportDocument: CSVTextDocument?
+    @State private var exportFailure: String?
+    /// The rows the table shows, for the filter and sort above; see `refreshRows()`.
+    @State private var rows: [PrecipitateObjectReport.Row]
 
-    private var rows: [PrecipitateObjectReport.Row] {
-        report.rows
-            .filter { phaseFilter < 0 || $0.label == phaseFilter }
-            .filter { !countedOnly || $0.isCounted }
-            .sorted(using: sortOrder)
+    init(report: PrecipitateObjectReport) {
+        self.report = report
+        let order = [KeyPathComparator(\PrecipitateObjectReport.Row.id)]
+        _sortOrder = State(initialValue: order)
+        _rows = State(initialValue: report.visibleRows(phase: nil, countedOnly: false, sortedUsing: order))
+    }
+
+    private func refreshRows() {
+        rows = report.visibleRows(phase: phaseFilter < 0 ? nil : phaseFilter, countedOnly: countedOnly,
+                                  sortedUsing: sortOrder)
+    }
+
+    /// What Edit > Copy puts on the clipboard: the selected rows in table order, nothing when none is selected
+    /// (the command is then disabled).
+    private var copyPayload: [String] {
+        let chosen = rows.filter { selection.contains($0.id) }
+        return chosen.isEmpty ? [] : [report.tabSeparatedText(of: chosen)]
     }
 
     private var unit: String { report.pixelUnit ?? "px" }
@@ -77,16 +100,25 @@ struct PrecipitateObjectsWindow: View {
         // A selected row outlines its object on the map. Only rows the reader
         // can see count, and closing the table takes its highlight with it.
         .onChange(of: selection) { pushSelection() }
-        .onChange(of: phaseFilter) { pushSelection() }
-        .onChange(of: countedOnly) { pushSelection() }
+        .onChange(of: phaseFilter) { refreshRows(); pushSelection() }
+        .onChange(of: countedOnly) { refreshRows(); pushSelection() }
+        .onChange(of: sortOrder) { refreshRows() }
         .onDisappear { relay?.clear(ifOwnedBy: report.sourceID) }
+        .copyable(copyPayload)
         .fileExporter(
             isPresented: Binding(get: { exportDocument != nil },
                                  set: { if !$0 { exportDocument = nil } }),
             document: exportDocument,
             contentType: .commaSeparatedText,
-            defaultFilename: "precipitate-objects.csv"
-        ) { _ in }
+            defaultFilename: report.csvFileName
+        ) { result in
+            exportFailure = CSVExportOutcome.failureMessage(result)
+        }
+        .alert("Could Not Export the Table", item: $exportFailure) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
     }
 
     private func pushSelection() {
@@ -148,6 +180,7 @@ struct PrecipitateObjectsWindow: View {
         Table(rows, selection: $selection, sortOrder: $sortOrder) {
             TableColumn("ID", value: \.id) { Text("\($0.id)").monospacedDigit() }
                 .width(min: 36, ideal: 44)
+                .alignment(.numeric)
             TableColumn("Phase", value: \.phaseName) { row in
                 HStack(spacing: 6) {
                     PhaseSwatch(rgb: report.color(of: row.label))
@@ -162,27 +195,33 @@ struct PrecipitateObjectsWindow: View {
                 Text(row.area.map { format($0) } ?? row.areaPx.formatted()).monospacedDigit()
             }
             .width(min: 56, ideal: 80)
+            .alignment(.numeric)
             TableColumn("Length (\(unit))", value: \.lengthPx) { row in
                 Text(format(row.length ?? row.lengthPx)).monospacedDigit()
             }
             .width(min: 56, ideal: 80)
+            .alignment(.numeric)
             TableColumn("Width (\(unit))", value: \.widthPx) { row in
                 Text(format(row.width ?? row.widthPx)).monospacedDigit()
             }
             .width(min: 56, ideal: 80)
+            .alignment(.numeric)
             TableColumn("Aspect", value: \.aspectRatio) { row in
                 Text(format(row.aspectRatio)).monospacedDigit()
             }
             .width(min: 48, ideal: 64)
+            .alignment(.numeric)
             TableColumn("Orientation", value: \.orientationDegrees) { row in
                 Text(row.orientationDegrees.formatted(.number.precision(.fractionLength(1))) + "°")
                     .monospacedDigit()
             }
             .width(min: 70, ideal: 80)
+            .alignment(.numeric)
             TableColumn("Position", value: \.centroidY) { row in
                 Text("\(Int(row.centroidX.rounded())), \(Int(row.centroidY.rounded()))").monospacedDigit()
             }
             .width(min: 64, ideal: 76)
+            .alignment(.numeric)
             TableColumn("Counted", value: \.countedSortKey) { row in
                 if let why = row.exclusion {
                     Text("no — \(why)").foregroundStyle(.secondary)
@@ -222,6 +261,15 @@ struct PrecipitateObjectsWindow: View {
     }
 
     private func format(_ value: Double) -> String { PrecipitateFormat.number(value) }
+}
+
+/// What a finished CSV save says when it failed. Cancelling the panel is not a failure.
+enum CSVExportOutcome {
+    static func failureMessage(_ result: Result<URL, Error>) -> String? {
+        guard case .failure(let error) = result else { return nil }
+        if let cocoa = error as? CocoaError, cocoa.code == .userCancelled { return nil }
+        return error.localizedDescription
+    }
 }
 
 extension PrecipitateObjectReport.Row {

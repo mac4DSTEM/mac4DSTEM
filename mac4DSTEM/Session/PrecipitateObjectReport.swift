@@ -272,22 +272,64 @@ package nonisolated struct PrecipitateObjectReport: Sendable, Codable, Hashable 
             if let areal = s.arealDensity { parts.append("density \(Self.number(areal)) per \(unit)^2") }
             lines.append("# class \(Self.csvField(s.phaseName)): " + parts.joined(separator: ", "))
         }
-        lines.append([
-            "id", "phase", "counted", "excluded_because", "area_px", "length_px", "width_px",
-            "aspect_ratio", "orientation_deg", "centroid_x_px", "centroid_y_px",
-            "area_\(unit)2", "length_\(unit)", "width_\(unit)",
-        ].joined(separator: ","))
+        lines.append(columnNames.joined(separator: ","))
         for r in rows {
-            lines.append([
-                String(r.id), Self.csvField(r.phaseName), r.isCounted ? "1" : "0",
-                r.exclusion ?? "", String(r.areaPx), Self.number(r.lengthPx), Self.number(r.widthPx),
-                Self.number(r.aspectRatio), Self.number(r.orientationDegrees),
-                Self.number(r.centroidX), Self.number(r.centroidY),
-                r.area.map(Self.number) ?? "", r.length.map(Self.number) ?? "",
-                r.width.map(Self.number) ?? "",
-            ].joined(separator: ","))
+            var f = fields(of: r)
+            f[1] = Self.csvField(f[1])
+            lines.append(f.joined(separator: ","))
         }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// The table's columns, as the CSV header names them. Physical ones carry the real-space unit.
+    private var columnNames: [String] {
+        let unit = pixelUnit ?? "unit"
+        return ["id", "phase", "counted", "excluded_because", "area_px", "length_px", "width_px",
+                "aspect_ratio", "orientation_deg", "centroid_x_px", "centroid_y_px",
+                "area_\(unit)2", "length_\(unit)", "width_\(unit)"]
+    }
+
+    /// One row's values in `columnNames` order, unquoted, in the CSV's locale-independent number format.
+    /// The CSV and Copy both read it, so what is copied is what the file would hold.
+    private func fields(of r: Row) -> [String] {
+        [String(r.id), r.phaseName, r.isCounted ? "1" : "0",
+         r.exclusion ?? "", String(r.areaPx), Self.number(r.lengthPx), Self.number(r.widthPx),
+         Self.number(r.aspectRatio), Self.number(r.orientationDegrees),
+         Self.number(r.centroidX), Self.number(r.centroidY),
+         r.area.map(Self.number) ?? "", r.length.map(Self.number) ?? "",
+         r.width.map(Self.number) ?? ""]
+    }
+
+    /// `rows` as tab-separated text under the CSV's header line, for the clipboard (Edit > Copy in the object
+    /// table): a paste into a spreadsheet lands in columns. Same columns and number format as the CSV; no
+    /// provenance comments, a phase name's tabs and line breaks become spaces.
+    package func tabSeparatedText(of rows: [Row]) -> String {
+        let clean: (String) -> String = {
+            $0.replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ")
+        }
+        var lines = [columnNames.joined(separator: "\t")]
+        for r in rows { lines.append(fields(of: r).map(clean).joined(separator: "\t")) }
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// The rows the table shows: one phase (or all, `nil`), counted ones only when asked, in the table's sort
+    /// order. Computed on a change of filter or sort, not on every redraw.
+    package func visibleRows(phase label: Int32?, countedOnly: Bool,
+                             sortedUsing order: [KeyPathComparator<Row>]) -> [Row] {
+        rows
+            .filter { label == nil || $0.label == label }
+            .filter { !countedOnly || $0.isCounted }
+            .sorted(using: order)
+    }
+
+    /// The Save panel's suggestion: "<dataset>-precipitate-objects.csv" from the report's `source_file`
+    /// provenance, "precipitate-objects.csv" when the report does not name one.
+    package var csvFileName: String {
+        guard let file = provenance.first(where: { $0.count == 2 && $0[0] == "source_file" })?[1],
+              case let base = (file as NSString).deletingPathExtension
+                  .replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-"),
+              !base.isEmpty else { return "precipitate-objects.csv" }
+        return "\(base)-precipitate-objects.csv"
     }
 
     /// Up to six significant digits, locale-independent, no exponent for
