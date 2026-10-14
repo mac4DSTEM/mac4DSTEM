@@ -630,7 +630,7 @@ extension AppState {
     /// CIF (not bundled — see `PhaseMappingProduct.applyAlMgSiPreset`), then
     /// replace the phase list and select the classifier. Calibration is not
     /// touched; it is per dataset.
-    func applyAlMgSiPreset(precipitateCIF url: URL) {
+    func applyAlMgSiPreset(precipitateCIF url: URL, undoManager: UndoManager? = nil) {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -642,12 +642,30 @@ extension AppState {
             } else {
                 acomSession.importedCrystalModels.append(model)
             }
+            let before = phaseMapping.listSnapshot
             phaseMapping.applyAlMgSiPreset(precipitate: model)
             statusText = "Al–Mg–Si preset: Al (matrix) + \"\(model.displayName)\" at [0 1 0] and [0 0 1], "
                 + "Known variants. Calibrate this dataset yourself."
+            // It replaces the whole phase list: Edit > Undo puts the old one back (UI audit 2026-10-14).
+            let product = phaseMapping
+            ReplaceUndo.register(in: undoManager, target: self, actionName: "Al–Mg–Si Preset",
+                                 before: before, after: product.listSnapshot) { snapshot in
+                product.restoreList(snapshot)
+                return true
+            }
         } catch {
             present(error)
         }
+    }
+
+    /// The phase list's minus button. The phase leaves the list at once; Edit > Undo Remove Phase puts it back where
+    /// it stood (UI audit 2026-10-14). The same matrix rule as before: removing the matrix promotes the first phase.
+    func removePhaseMappingSlot(slotID: UUID, undoManager: UndoManager? = nil) {
+        guard let removal = phaseMapping.removePhase(slotID: slotID) else { return }
+        let product = phaseMapping
+        ReplaceUndo.register(in: undoManager, target: self, actionName: "Remove Phase",
+                             undo: { product.reinsert(removal) },
+                             redo: { product.removePhase(slotID: removal.slot.slotID) != nil })
     }
 
     /// What a finished map says about itself when it found nothing, or nil.

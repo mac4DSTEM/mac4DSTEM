@@ -601,6 +601,64 @@ package final class PhaseMappingProduct {
         zoneAxisRun = nil
     }
 
+    // MARK: Undo (UI audit 2026-10-14): what the preset and the minus button take away can be put back
+
+    /// What the Al–Mg–Si preset replaces, taken before it runs: the phase list, the classifier it selects, that
+    /// rule's intensity floor and the zone-axis ranking it drops. (A map already made stays; it was made with the
+    /// list as it was, and `isStale` says so either way.)
+    package struct ListSnapshot: Equatable {
+        package let phases: [PhaseMappingSlot]
+        package let classificationRule: PhaseVectorSettings.ClassificationRule
+        package let minimumIntensityFraction: Double
+        package let zoneAxisFits: [PhaseVectorMatcher.ZoneAxisFit]
+        package let zoneAxisRun: ZoneAxisRun?
+    }
+
+    package var listSnapshot: ListSnapshot {
+        ListSnapshot(phases: phases, classificationRule: matching.classificationRule,
+                     minimumIntensityFraction: reference.minimumIntensityFraction,
+                     zoneAxisFits: zoneAxisFits, zoneAxisRun: zoneAxisRun)
+    }
+
+    package func restoreList(_ snapshot: ListSnapshot) {
+        phases = snapshot.phases
+        matching.classificationRule = snapshot.classificationRule
+        reference.minimumIntensityFraction = snapshot.minimumIntensityFraction
+        zoneAxisFits = snapshot.zoneAxisFits
+        zoneAxisRun = snapshot.zoneAxisRun
+    }
+
+    /// A phase taken out of the list, with where it stood.
+    package struct Removal {
+        package let slot: PhaseMappingSlot
+        package let index: Int
+    }
+
+    /// The minus button. Removing the matrix must not leave a list with phases and no matrix, so the first
+    /// remaining phase becomes it (as before). Nil when no phase has that slot id.
+    @discardableResult
+    package func removePhase(slotID: UUID) -> Removal? {
+        guard let index = phases.firstIndex(where: { $0.slotID == slotID }) else { return nil }
+        let slot = phases.remove(at: index)
+        if !phases.contains(where: \.isMatrix), !phases.isEmpty {
+            phases[0].isMatrix = true
+        }
+        return Removal(slot: slot, index: index)
+    }
+
+    /// Puts a removed phase back where it stood. A removed matrix is the matrix again (and the phase that was
+    /// promoted in its place stops being one: exactly one slot is the matrix). False when the slot is already
+    /// back. Other edits made since stay: this is the inverse of the removal, not a restore of the list.
+    @discardableResult
+    package func reinsert(_ removal: Removal) -> Bool {
+        guard !phases.contains(where: { $0.slotID == removal.slot.slotID }) else { return false }
+        if removal.slot.isMatrix {
+            for index in phases.indices { phases[index].isMatrix = false }
+        }
+        phases.insert(removal.slot, at: min(removal.index, phases.count))
+        return true
+    }
+
     /// The library this list and these settings would build, before building
     /// it — so the panel can show the size and the refusal without work.
     package var projectedEntryCount: Int {

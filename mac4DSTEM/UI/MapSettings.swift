@@ -517,6 +517,8 @@ enum DiskCentreControlReason {
 private struct DiskCentreLabelsRows: View {
     @Environment(AppState.self) private var appState
     @State private var importingLabels = false
+    /// The window's undo manager: an import replaces every label, and Edit > Undo Import Labels puts them back.
+    @Environment(\.undoManager) private var undoManager
 
     var body: some View {
         @Bindable var labels = appState.diskCentreLabels
@@ -587,7 +589,7 @@ private struct DiskCentreLabelsRows: View {
 
             InspectorAdaptiveButton(
                 "Import Labels…", systemImage: "square.and.arrow.down.on.square",
-                help: "Read a labels file (the JSON Export Labels… writes) and REPLACE the current labels with it. Refused, changing nothing, if the file labels another dataset or a position lies outside this scan."
+                help: "Read a labels file (the JSON Export Labels… writes) and REPLACE the current labels with it; Edit › Undo Import Labels brings them back. Refused, changing nothing, if the file labels another dataset or a position lies outside this scan."
             ) {
                 importingLabels = true
             }
@@ -601,7 +603,7 @@ private struct DiskCentreLabelsRows: View {
                 switch result {
                 case .success(let urls):
                     if let url = urls.first, let descriptor = appState.descriptor {
-                        appState.importDiskCentreLabels(from: url, descriptor: descriptor)
+                        appState.importDiskCentreLabels(from: url, descriptor: descriptor, undoManager: undoManager)
                     }
                 case .failure(let error):
                     appState.present(error)

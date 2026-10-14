@@ -164,6 +164,7 @@
 				Session/PromotionRun.swift,
 				Session/QCalibrationRun.swift,
 				Session/RecentDatasets.swift,
+				Session/ReplaceUndo.swift,
 				Session/ReplayPlan.swift,
 				Session/ReplayRun.swift,
 				Session/ResultPresentation.swift,

@@ -35,6 +35,8 @@ struct PhaseMappingSections: View {
     /// What the CIF importer is for: one phase, or the Al–Mg–Si preset's β″.
     @State private var importsAlMgSiPreset = false
     @State private var showMaterialsProjectSheet = false
+    /// The window's undo manager: the preset replaces the phase list, and Edit > Undo puts it back.
+    @Environment(\.undoManager) private var undoManager
     @SceneStorage private var showsAdvanced: Bool
 
     /// `advancedExpanded` is only the first-launch value of the remembered
@@ -432,7 +434,7 @@ struct PhaseMappingSections: View {
     /// `CrystalModelLibrary.models`. The menu offers exactly the two sources
     /// plus this session's already-imported models (CIF or Materials Project).
     private static let alMgSiPresetHelp = """
-        Replaces the phase list with Al (matrix, zone [0 0 1]) and your β″ (Mg5Si6) CIF twice, at zones \
+        Replaces the phase list (Edit › Undo brings it back) with Al (matrix, zone [0 0 1]) and your β″ (Mg5Si6) CIF twice, at zones \
         [0 1 0] (needles end-on) and [0 0 1] (in-plane), and selects the Known variants classifier. \
         "Parallel to matrix" stays empty and the tolerances stay as they are. Calibration (ellipse, Q, R) \
         is per dataset and is not set — calibrate from this scan's own lattice.
@@ -465,7 +467,7 @@ struct PhaseMappingSections: View {
                 guard let url = urls.first else { return }
                 if importsAlMgSiPreset {
                     importsAlMgSiPreset = false
-                    appState.applyAlMgSiPreset(precipitateCIF: url)
+                    appState.applyAlMgSiPreset(precipitateCIF: url, undoManager: undoManager)
                     return
                 }
                 // `importCrystalModel` stores into the shared imported-model
@@ -503,6 +505,8 @@ struct PhaseMappingSections: View {
         let slot: PhaseMappingSlot
         @State private var draft = ""
         @State private var orientationDraft = ""
+        /// The minus button registers its undo here (Edit > Undo Remove Phase).
+        @Environment(\.undoManager) private var undoManager
 
         /// The matrix picker's own label (`pickerLabels`): a name another slot
         /// shares carries its zone axis, so no two rows read the same.
@@ -512,7 +516,6 @@ struct PhaseMappingSections: View {
         }
 
         var body: some View {
-            @Bindable var product = appState.phaseMapping
             VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 2)
@@ -526,12 +529,8 @@ struct PhaseMappingSections: View {
                 }
                 Spacer(minLength: 4)
                 Button {
-                    product.phases.removeAll { $0.id == slot.id }
-                    // Removing the matrix must not leave the list without one.
-                    if !product.phases.contains(where: \.isMatrix),
-                       !product.phases.isEmpty {
-                        product.phases[0].isMatrix = true
-                    }
+                    // Out of the list at once, and back by Edit > Undo; removing the matrix promotes the first phase.
+                    appState.removePhaseMappingSlot(slotID: slot.slotID, undoManager: undoManager)
                 } label: {
                     Image(systemName: "minus.circle")
                 }

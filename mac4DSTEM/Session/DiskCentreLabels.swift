@@ -370,6 +370,33 @@ package final class DiskCentreLabelStore {
     /// A refusal decided outside the store (the file could not be read): one line, nothing changed.
     package func refuseImport(_ line: String) { importRefusal = line }
 
+    /// The labels and what rides with them, taken before "Import Labels…" replaces them so Edit > Undo can put
+    /// them back (`ReplaceUndo`, UI audit 2026-10-14).
+    package struct Snapshot: Equatable {
+        package let filePath: String?
+        package let datasetPath: String?
+        package let ingredient: String
+        package let seed: Int
+        package let positions: [Position]
+    }
+
+    package var snapshot: Snapshot {
+        Snapshot(filePath: filePath, datasetPath: datasetPath, ingredient: ingredient, seed: seed, positions: positions)
+    }
+
+    /// Puts a snapshot back, but only while the store still describes the dataset the snapshot was taken on:
+    /// labels clicked on one cube are meaningless on another (the rule `load` keeps), and a window that opened
+    /// another dataset since must not get the first one's labels back by Undo. Returns whether it applied.
+    @discardableResult
+    package func restoreSnapshot(_ snapshot: Snapshot) -> Bool {
+        guard filePath == snapshot.filePath, datasetPath == snapshot.datasetPath else { return false }
+        ingredient = snapshot.ingredient
+        seed = snapshot.seed
+        positions = snapshot.positions
+        importRefusal = nil
+        return true
+    }
+
     /// The sidecar holds disk-centre labels this view did not restore (another frame, another cube path, an
     /// unreadable labels attribute) — review 2026-10-02 a3. A save carrying the store's labels would REPLACE them
     /// (the writer keeps one labels attribute), so while this is set a sidecar save keeps the sidecar's labels and
