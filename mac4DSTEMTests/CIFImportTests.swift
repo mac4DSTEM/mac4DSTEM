@@ -348,6 +348,48 @@ final class CIFImportTests: XCTestCase {
                      expected: .unsupportedSymmetryOperation("x^2,y,z"))
     }
 
+    /// Upstream finding F5 (macTEM's CIF-import refuter, 2026-10-14): `x/2` was read as `x + 2` (the `/2` left after `x`
+    /// parsed as the number 2, a translation). A crystallographic operation has an integer matrix, so a fractional
+    /// coefficient (`x/2`, `1/2x`), a malformed fraction (`/2`, `2/`, `1//2`) or a term run into a variable (`xy`, `x2`,
+    /// `x.5`; refuter RF5) is refused and named, never read as something else; fractions and decimals still parse.
+    func testFractionalCoefficientsAndMalformedFractionsAreRefusedNotMisread() throws {
+        func cif(_ op: String) -> String {
+            """
+            data_symop
+            _cell_length_a 4.0
+            _cell_length_b 4.0
+            _cell_length_c 4.0
+            _cell_angle_alpha 90
+            _cell_angle_beta 90
+            _cell_angle_gamma 90
+            loop_
+            _symmetry_equiv_pos_as_xyz
+            x,y,z
+            \(op)
+            loop_
+            _atom_site_label
+            _atom_site_type_symbol
+            _atom_site_fract_x
+            _atom_site_fract_y
+            _atom_site_fract_z
+            Fe1 Fe 0.1 0.2 0.3
+            """
+        }
+        for bad in ["x/2,y,z", "1/2x,y,z", "x,y/5,z", "x,y,/2", "2/,y,z", "x,y,z+1//2",
+                    "xy,y,z", "x2,y,z", "x.5,y,z", "-x/2+1/2,y,z"] {
+            assertThrows(cif(bad), fileBaseName: "symop", expected: .unsupportedSymmetryOperation(bad))
+        }
+        // Valid spellings still import: a triclinic cell, so no family check asks for symmetry these lack.
+        for good in ["x+1/2,y,z", "1/2+x,1/2+y,z", "x,y,z+0.5", "-x,-y,-z", "-x+1,-y,-z+1/2"] {
+            let text = cif(good).replacingOccurrences(of: "_cell_length_b 4.0", with: "_cell_length_b 5.0")
+                .replacingOccurrences(of: "_cell_length_c 4.0", with: "_cell_length_c 6.0")
+                .replacingOccurrences(of: "_cell_angle_alpha 90", with: "_cell_angle_alpha 80")
+                .replacingOccurrences(of: "_cell_angle_beta 90", with: "_cell_angle_beta 85")
+                .replacingOccurrences(of: "_cell_angle_gamma 90", with: "_cell_angle_gamma 95")
+            XCTAssertNoThrow(try CIFImport.crystalModel(from: text, fileBaseName: "symop"), good)
+        }
+    }
+
     // MARK: - Element symbol derivation from label when type_symbol is absent
 
     func testElementDerivedFromLabelWhenTypeSymbolMissing() throws {

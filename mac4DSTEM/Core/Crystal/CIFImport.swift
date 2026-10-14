@@ -788,12 +788,20 @@ package nonisolated enum CIFImport {
             let magnitude = hasNumeric ? try parseFraction(numericString, raw: raw) : 1.0
 
             if i < chars.count, "xyz".contains(chars[i]) {
+                // A crystallographic operation's matrix is integer: `1/2x` (or `x/2`, refused by the fraction rule
+                // below) is not an operation, so it is refused rather than read (upstream finding F5, 2026-10-14).
+                guard magnitude == magnitude.rounded() else { throw CIFImportError.unsupportedSymmetryOperation(raw) }
                 switch chars[i] {
                 case "x": coefficients.x += sign * magnitude
                 case "y": coefficients.y += sign * magnitude
                 default: coefficients.z += sign * magnitude
                 }
                 i += 1
+                // A term ends at a sign or the end: `xy`, `x2` and `x.5` are refused, not read as x + y, x + 2,
+                // x + 0.5 (refuter RF5, 2026-10-15).
+                if i < chars.count, chars[i] != "+", chars[i] != "-" {
+                    throw CIFImportError.unsupportedSymmetryOperation(raw)
+                }
             } else if hasNumeric {
                 constant += sign * magnitude
             } else {
@@ -804,7 +812,8 @@ package nonisolated enum CIFImport {
     }
 
     private static func parseFraction(_ text: String, raw: String) throws -> Double {
-        let parts = text.split(separator: "/")
+        // Empty pieces are kept so `/2`, `2/` and `1//2` are malformed, not read as 2 (F5: `x/2` became `x + 2`).
+        let parts = text.split(separator: "/", omittingEmptySubsequences: false)
         if parts.count == 1, let value = Double(parts[0]) { return value }
         if parts.count == 2, let numerator = Double(parts[0]), let denominator = Double(parts[1]),
            denominator != 0 {
