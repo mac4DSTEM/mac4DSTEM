@@ -326,12 +326,14 @@ extension FigureRendering {
     /// `unitsPerOutPixel` is the sampling of the pixels being drawn into (the data's, divided by the enlargement), so the bar's label
     /// does not depend on the export scale.
     @discardableResult
-    static func drawLadderBar(in ctx: CGContext, width outW: Int, height outH: Int, unitsPerOutPixel: Double, unit unitLabel: String) -> LadderBarPlan {
+    static func drawLadderBar(in ctx: CGContext, width outW: Int, height outH: Int, unitsPerOutPixel: Double, unit unitLabel: String,
+                              deviceScale: Int = 1) -> LadderBarPlan {
         let plan = ladderBarPlan(width: outW, unitsPerOutPixel: unitsPerOutPixel, unit: unitLabel)
         let barLength = CGFloat(plan.lengthPixels)
-        let margin = CGFloat(max(10, outH / 30))
-        let barHeight = CGFloat(max(3, outH / 150))
-        let fontSize = CGFloat(max(11, outH / 28))
+        let layout = LadderPlateLayout(outHeight: outH, deviceScale: deviceScale)
+        let margin = layout.margin
+        let barHeight = layout.barHeight
+        let fontSize = layout.fontSize
 
         let text = plan.label as NSString
         let attributes: [NSAttributedString.Key: Any] = [
@@ -345,20 +347,44 @@ extension FigureRendering {
         NSGraphicsContext.current = ns
 
         // Legibility backing behind bar + label (CG origin is bottom-left).
-        let pad: CGFloat = 6
+        let pad = layout.pad
         let backing = CGRect(x: margin - pad, y: margin - pad,
                              width: max(barLength, textSize.width) + 2 * pad,
-                             height: barHeight + 4 + textSize.height + 2 * pad)
+                             height: barHeight + layout.gap + textSize.height + 2 * pad)
         ctx.setFillColor(NSColor.black.withAlphaComponent(0.45).cgColor)
         ctx.fill(backing)
 
         ctx.setFillColor(NSColor.white.cgColor)
         ctx.fill(CGRect(x: margin, y: margin, width: barLength, height: barHeight))
-        text.draw(at: NSPoint(x: margin, y: margin + barHeight + 4),
+        text.draw(at: NSPoint(x: margin, y: margin + barHeight + layout.gap),
                   withAttributes: attributes)
 
         NSGraphicsContext.restoreGraphicsState()
         return plan
+    }
+
+    /// The bar's plate and text, in the panel's own pixels. They are laid out in POINTS (1x pixels) and drawn `deviceScale` pixels per
+    /// point, so the 2x and 3x figures are the 1x figure with more pixels: the margin, the bar's thickness, the text size, the plate's
+    /// padding and the gap under the text all scale, floors included. (The padding and the gap were fixed pixel counts, so the plate
+    /// shrank relative to the bar and its text at 2x and 3x.) At 1x this is what `burnScaleBar` always drew, byte for byte.
+    struct LadderPlateLayout: Equatable {
+        var margin: CGFloat
+        var barHeight: CGFloat
+        var fontSize: CGFloat
+        var pad: CGFloat
+        var gap: CGFloat
+
+        /// `outHeight` is the drawn panel's height in pixels at `deviceScale` (the 1x height times the scale).
+        init(outHeight: Int, deviceScale: Int) {
+            let scale = max(deviceScale, 1)
+            let oneX = outHeight / scale
+            let k = CGFloat(scale)
+            margin = k * CGFloat(max(10, oneX / 30))
+            barHeight = k * CGFloat(max(3, oneX / 150))
+            fontSize = k * CGFloat(max(11, oneX / 28))
+            pad = k * 6
+            gap = k * 4
+        }
     }
 
     /// What a scale bar says and how long it is: a 1-2-5 value near a fifth of the width, in the unit ladder the on-screen bar reads.

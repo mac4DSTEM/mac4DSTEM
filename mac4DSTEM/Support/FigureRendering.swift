@@ -168,7 +168,8 @@ enum FigureRendering {
             switch bar {
             case .ladder(let unitsPerDataPixel, let unit):
                 ladder = drawLadderBar(in: ctx, width: Int(rect.width), height: Int(rect.height),
-                                       unitsPerOutPixel: (unitsPerDataPixel ?? 1) / Double(magnification * max(deviceScale, 1)), unit: unit)
+                                       unitsPerOutPixel: (unitsPerDataPixel ?? 1) / Double(magnification * max(deviceScale, 1)), unit: unit,
+                                       deviceScale: deviceScale)
             case .map(let pixelSize, let unit):
                 if let plan = MapScaleBar.tilePlan(pixelSize: pixelSize, unit: unit, pointsPerPixel: Double(magnification),
                                                    width: Double(panel.image.width * magnification),
