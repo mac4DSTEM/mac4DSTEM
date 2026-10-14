@@ -1322,6 +1322,69 @@ struct HexagonalIPFLegend: View {
     }
 }
 
+/// Which IPF key a map shows: a pure function of the symmetry so the choice is tested.
+/// `.identity` (unreduced) keeps the cubic key it always had.
+enum IPFLegendKind: Equatable {
+    case cubic, hexagonal, monoclinic
+
+    static func kind(for symmetry: ACOMCrystalSymmetry?) -> IPFLegendKind {
+        switch symmetry {
+        case .hexagonal: return .hexagonal
+        case .monoclinic: return .monoclinic
+        case .cubic, .identity, .none: return .cubic
+        }
+    }
+}
+
+/// Native 2/m key: the half-disk of the fundamental zone, b at the centre of the flat edge,
+/// polar angle from b as radius (0 to 90 degrees), azimuth about b from a (right) round the
+/// top (z) to -a (left, the same direction as a, hence the same colour). Every dot is coloured
+/// by `MonoclinicOrientationSymmetry.ipfColor`, so key and map cannot disagree.
+struct MonoclinicIPFLegend: View {
+    var body: some View {
+        VStack(spacing: 1) {
+            Canvas { context, size in
+                let centre = CGPoint(x: size.width / 2, y: size.height - 3)
+                let outer = Double(min(size.width / 2 - 4, size.height - 6))
+                let rings = 20, spokes = 72
+                for ring in 0...rings {
+                    let tilt = Double(ring) / Double(rings) * .pi / 2
+                    let count = ring == 0 ? 1 : spokes
+                    for spoke in 0..<count {
+                        // Azimuth 0 at the right, rising anticlockwise over the top.
+                        let azimuth = ring == 0 ? 0 : Double(spoke) / Double(spokes) * .pi
+                        let direction = SIMD3<Double>(sin(tilt) * cos(azimuth), cos(tilt),
+                                                      sin(tilt) * sin(azimuth))
+                        let rgb = MonoclinicOrientationSymmetry.ipfColor(direction: direction)
+                        let radius = Double(ring) / Double(rings) * outer
+                        let x = Double(centre.x) + radius * cos(azimuth)
+                        let y = Double(centre.y) - radius * sin(azimuth)
+                        let dot = max(1.6, outer / Double(rings) * 0.9)
+                        context.fill(Path(ellipseIn: CGRect(x: x - dot, y: y - dot,
+                                                            width: dot * 2, height: dot * 2)),
+                                     with: .color(Color(red: Double(rgb.x), green: Double(rgb.y),
+                                                        blue: Double(rgb.z))))
+                    }
+                }
+            }
+            .frame(width: 116, height: 62)
+            HStack {
+                Text("a")
+                Spacer()
+                Text("b")
+                Spacer()
+                Text("a")
+            }
+            .font(.caption2.monospacedDigit())
+            .frame(width: 132)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Monoclinic inverse pole figure color key: half disk, b white at the centre, "
+                            + "saturation grows with the angle from b, hue turns with the azimuth, "
+                            + "a green at both ends")
+    }
+}
+
 // MARK: - Categorical legend
 
 /// What a categorical map's colours mean, as swatch rows: the phase map (one

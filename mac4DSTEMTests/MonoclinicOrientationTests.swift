@@ -281,6 +281,16 @@ final class MonoclinicOrientationTests: XCTestCase {
         }
     }
 
+    /// Refuter RB: the map's IPF legend is a pure function of the symmetry. Mutation (monoclinic
+    /// falls back to the cubic key) goes red.
+    func testIPFLegendChoiceIsAPureFunctionOfTheSymmetry() {
+        XCTAssertEqual(IPFLegendKind.kind(for: .cubic), .cubic)
+        XCTAssertEqual(IPFLegendKind.kind(for: .hexagonal), .hexagonal)
+        XCTAssertEqual(IPFLegendKind.kind(for: .monoclinic), .monoclinic)
+        XCTAssertEqual(IPFLegendKind.kind(for: .identity), .cubic, "unreduced keeps the cubic key it always had")
+        XCTAssertEqual(IPFLegendKind.kind(for: nil), .cubic)
+    }
+
     // MARK: - CrystalModel and CIFImport
 
     func testModelValidationByCellMetric() throws {

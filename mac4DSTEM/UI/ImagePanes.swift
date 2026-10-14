@@ -1379,10 +1379,10 @@ struct RealSpacePane: View {
                     // it "001 / 111 / 101" renders in the ambient label colour
                     // over an arbitrary orientation map.
                     Group {
-                        if appState.acomSession.orientationMap?.symmetry == .hexagonal {
-                            HexagonalIPFLegend()
-                        } else {
-                            CubicIPFLegend()
+                        switch IPFLegendKind.kind(for: appState.acomSession.orientationMap?.symmetry) {
+                        case .hexagonal: HexagonalIPFLegend()
+                        case .monoclinic: MonoclinicIPFLegend()
+                        case .cubic: CubicIPFLegend()
                         }
                     }
                     .padding(7)
