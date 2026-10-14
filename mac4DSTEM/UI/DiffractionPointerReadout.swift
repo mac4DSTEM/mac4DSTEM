@@ -205,3 +205,27 @@ extension DiffractionPointerReadout.Basis {
             mradPerPixel: mradPerPixel)
     }
 }
+
+extension DiffractionPointerReadout.Basis {
+    /// What a q depends on, as an Equatable value for `onChange` (`Calibration` is not Equatable): the Q scale and unit, the
+    /// recorded beam centre, the detector ellipse, the mrad mode and its scale, and the selected position (its fitted origin).
+    /// The fitted origin MAPS are not compared (large; a refit republishes the pattern, which re-reads the pointer anyway).
+    struct Key: Equatable {
+        var qPixelSize: Double?
+        var qPixelUnits: String?
+        var recordedOrigin: [Float?]
+        var ellipse: [Double?]
+        var milliradians: Bool
+        var mradPerPixel: Float?
+        var scan: [Int]
+        var singlePosition: Bool
+    }
+
+    var key: Key {
+        Key(qPixelSize: calibration.qPixelSize, qPixelUnits: calibration.qPixelUnits,
+            recordedOrigin: [calibration.recordedOriginX, calibration.recordedOriginY],
+            ellipse: [calibration.ellipseA, calibration.ellipseB, calibration.ellipseTheta],
+            milliradians: milliradians, mradPerPixel: mradPerPixel,
+            scan: [scanX, scanY], singlePosition: singlePosition)
+    }
+}

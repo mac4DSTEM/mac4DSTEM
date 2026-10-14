@@ -501,6 +501,8 @@ struct DiffractionPane: View {
             // a new load) re-reads the same pixel; a zoom or pan under it moves the pixel the pointer is on without a hover
             // event, so the readout clears until the pointer moves.
             .onChange(of: appState.patternVersion) { refreshPointer(pattern: pattern) }
+            // A new Q scale, origin or ellipse, or the mrad mode, changes the q of the pixel the resting pointer is on.
+            .onChange(of: readoutBasis(for: pattern)?.key) { refreshPointer(pattern: pattern) }
             .onChange(of: zp.drawZoom) { cursor.clear() }
             .onChange(of: zp.effectiveOffset) { cursor.clear() }
             .accessibilityHint(ZoomPan.accessibilityHint)
@@ -542,8 +544,7 @@ struct DiffractionPane: View {
     }
 
     private func refreshPointer(pattern: DiffractionPattern) {
-        guard let pixel = cursor.pixel else { return }
-        cursor.sample = readSample(at: pixel, pattern: pattern)
+        cursor.refresh(pattern: pattern, basis: readoutBasis(for: pattern))
     }
 
     private func readSample(at pixel: DiffractionPointerReadout.Pixel,
@@ -1725,6 +1726,13 @@ final class DiffractionCursorModel {
     func clear() {
         pixel = nil
         if sample != nil { sample = nil }
+    }
+
+    /// Re-reads the resting pointer's pixel against `basis` — a new Q scale (or origin, or mrad mode) under a pointer that has not
+    /// moved must not leave the old q on screen. Nothing when no pointer is on the pattern.
+    func refresh(pattern: DiffractionPattern, basis: DiffractionPointerReadout.Basis?) {
+        guard let pixel else { return }
+        sample = basis.flatMap { DiffractionPointerReadout.sample(at: pixel, in: pattern, basis: $0) }
     }
 }
 
