@@ -26,7 +26,8 @@ print("FIT input=\(args[1]) rows=\(rows) cols=\(cols) centreRow=\(g(cRow)) centr
 for (tag, inner, outer) in annuli {
     var line = "ROW|tag=\(tag)|inner=\(g(inner))|outer=\(g(outer))"
     do {
-        let s = try EllipseCalibration.fit1D(pattern: pattern, centerQX: cRow, centerQY: cCol, innerRadius: inner, outerRadius: outer)
+        // The seed fitBestAvailable refines (EllipseCalibration.swift:417-423: residual cap max(0.4, 0.2)).
+        let s = try EllipseCalibration.fit1D(pattern: pattern, centerQX: cRow, centerQY: cCol, innerRadius: inner, outerRadius: outer, maximumResidual: 0.4)
         line += "|seed_a=\(g(s.a))|seed_b=\(g(s.b))|seed_theta=\(g(s.theta))|seed_cx=\(g(s.centerQX))|seed_cy=\(g(s.centerQY))|seed_res=\(g(s.normalizedResidual))"
     } catch { line += "|seed=THREW:\("\(error)".replacingOccurrences(of: "|", with: "/"))" }
     do {

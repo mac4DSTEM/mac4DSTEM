@@ -1,0 +1,25 @@
+au A1:5-13    R= 10.27 I1=6.8e+04 tail@R/I1=0.00589 bg/I1=0.368
+au A2:13-21   R= 17.61 I1=3.6e+04 tail@R/I1=0 bg/I1=0.3
+au A3:21-30   R= 24.77 I1=1.49e+04 tail@R/I1=0.304 bg/I1=-0.0305
+au A4:30-38   R= 37.77 I1=0 tail@R/I1=inf bg/I1=inf
+au W2:12-22   R= 16.85 I1=4.38e+04 tail@R/I1=0.0693 bg/I1=0.0606
+au W3:20-31   R= 25.57 I1=2.77e+04 tail@R/I1=0.504 bg/I1=-0.832
+au W4:29-39   R= 56.31 I1=5.83e+03 tail@R/I1=4.13e-05 bg/I1=-0.0177
+s3 s3-R1      R= 18.79 I1=6.28e-06 tail@R/I1=0.021 bg/I1=-0.141 profile inner/outer 0.35
+s3 s3-R1w     R= 18.81 I1=6.15e-06 tail@R/I1=0.000536 bg/I1=-0.0131 profile inner/outer 1.03
+s3 s3-R2      R= 32.75 I1=7.62e-06 tail@R/I1=0.163 bg/I1=-0.718 profile inner/outer 0.00
+s3 s3-R2w     R= 32.73 I1=5.46e-06 tail@R/I1=0.167 bg/I1=-0.58 profile inner/outer 0.05
+s3 s3-R3      R= 38.65 I1=9.52e-07 tail@R/I1=2.11 bg/I1=-2.55 profile inner/outer 2.70
+s3 s3-R3w     R= 37.72 I1=4.97e-07 tail@R/I1=0.316 bg/I1=-0.206 profile inner/outer 134.69
+s4 s4-R1      R= 19.00 I1=0.0356 tail@R/I1=0.893 bg/I1=-1.63 profile inner/outer 0.00
+s4 s4-R1w     R= 18.79 I1=0.0116 tail@R/I1=0 bg/I1=0.00186
+s4 s4-R2      R= 33.24 I1=0.0282 tail@R/I1=0.676 bg/I1=-1.56 profile inner/outer 0.00
+s4 s4-R2w     R= 32.85 I1=0.00635 tail@R/I1=0 bg/I1=0.00483
+s4 s4-R3      R= 37.70 I1=0.00142 tail@R/I1=1.22 bg/I1=-1.69 profile inner/outer 0.05
+s4 s4-R3w     R= 37.72 I1=0.000899 tail@R/I1=0.0659 bg/I1=-0.0662
+s4 s4-R4      R= 50.10 I1=0.000363 tail@R/I1=0 bg/I1=0.0284 profile inner/outer 0.41
+s4 s4-R4w     R= 50.11 I1=0.000512 tail@R/I1=0 bg/I1=0.00228
+s4 s4-R5      R= 56.52 I1=0.000166 tail@R/I1=0 bg/I1=0.0885 profile inner/outer 0.00
+s4 s4-R5w     R= 56.49 I1=0.000412 tail@R/I1=0.0362 bg/I1=-0.0404
+s5 S5-R3      R= 12.65 I1=0 tail@R/I1=inf bg/I1=inf profile inner/outer 3.56
+s5 S5-R3w     R= 11.61 I1=7.47e+05 tail@R/I1=0.3 bg/I1=-0.215 profile inner/outer 49.42

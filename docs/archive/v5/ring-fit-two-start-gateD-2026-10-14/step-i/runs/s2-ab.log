@@ -1,0 +1,9 @@
+FIT input=almgsi/s2_bvm.f32 rows=64 cols=64 centreRow=31.7953815 centreCol=31.80266 annuli=8 allFinite=true
+ROW|tag=s2-R1|inner=9.5|outer=13|seed=THREW:insufficientAngularCoverage(7)|status=THREW|err=insufficientAngularCoverage(7)
+ROW|tag=s2-R1w|inner=7.5|outer=15|seed=THREW:insufficientAngularCoverage(8)|status=THREW|err=insufficientAngularCoverage(8)
+ROW|tag=s2-R2|inner=16.5|outer=20.5|seed=THREW:insufficientAngularCoverage(5)|status=THREW|err=insufficientAngularCoverage(5)
+ROW|tag=s2-R2w|inner=14.5|outer=22.5|seed=THREW:insufficientAngularCoverage(5)|status=THREW|err=insufficientAngularCoverage(5)
+ROW|tag=s2-R3|inner=23.75|outer=26|seed=THREW:insufficientAngularCoverage(2)|status=THREW|err=insufficientAngularCoverage(2)
+ROW|tag=s2-R3w|inner=21.75|outer=28|seed=THREW:insufficientAngularCoverage(4)|status=THREW|err=insufficientAngularCoverage(4)
+ROW|tag=s2-R4|inner=27.25|outer=29.75|seed=THREW:insufficientAngularCoverage(2)|status=THREW|err=insufficientAngularCoverage(2)
+ROW|tag=s2-R4w|inner=25.25|outer=31.75|seed=THREW:insufficientAngularCoverage(4)|status=THREW|err=insufficientAngularCoverage(4)
