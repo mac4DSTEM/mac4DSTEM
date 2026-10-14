@@ -91,6 +91,10 @@ ceiling; `archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a new item (a
 plants) is the owner's card. Also left: a ring-less fit with live widths (`grains_12`, b/a right there); gapped low-count 1/r²
 rings 14 → 16 wrong. Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
 
+### Number density N_V with thickness — v2 registered, not built (2026-10-15)
+Item 1 closed (P1 refuted at d/t = 1, 1.058–1.074; `archive/v5/number-density-thickness-registration-2026-10-14.md`). v2 divides each
+plate by ρ(hᵢ, t) (`…-v2-registration-2026-10-15.md`); start from the archived estimator + harness patch. Deferred by the owner.
+
 ### UI audit 2026-10-14 — left after the night's lanes S and C
 List `archive/v5/mac4dstem-ui-audit-2026-10-14.md`. Landed 2026-10-14 night (unverified on screen): the Spectroscopy rows (lane S)
 and the Results comparison and leftovers (lane C); status.md's gate rows. Open: Info rows duplicate the typed aperture rows
