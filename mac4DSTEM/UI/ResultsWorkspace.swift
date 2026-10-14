@@ -64,14 +64,25 @@ struct ResultsWorkspace: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// What the visible product is, and the three ways out of the app. The
-    /// units and the kind are shown as saved — the kind's underscores are
-    /// spaced for reading and nothing else is rewritten.
+    /// What the visible product is, and the ways out of the app. The units and the kind are shown as saved — the kind's
+    /// underscores are spaced for reading and nothing else is rewritten.
+    ///
+    /// Two layouts, the first that fits wins (`ViewThatFits`): every export as its own button, or — when the window is too
+    /// narrow for them — one Export menu holding the same items, Save to Results kept visible. Nothing clips either way.
     private var currentResultSummary: some View {
+        ViewThatFits(in: .horizontal) {
+            summaryRow(exportsAsMenu: false)
+            summaryRow(exportsAsMenu: true)
+        }
+        .padding()
+    }
+
+    private func summaryRow(exportsAsMenu: Bool) -> some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(appState.currentResultDisplayName)
                     .font(.headline)
+                    .lineLimit(1)
                 HStack(spacing: 8) {
                     if let image = appState.resultPresentation.resultImage {
                         Text("\(image.width) × \(image.height)")
@@ -83,40 +94,23 @@ struct ResultsWorkspace: View {
                 }
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
-            Spacer()
-            Button {
-                appState.exportResultImage()
-            } label: {
-                Label("Export PNG…", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("result.exportPNG")
-            // Owner card S8 (b): the float map behind the view, as an EMD RealSlice .h5.
-            Button {
-                appState.exportProductData()
-            } label: {
-                Label("Export Data…", systemImage: "tablecells")
-            }
-            .buttonStyle(.bordered)
-            .disabled(exportDataReason != nil)
-            .help(appState.productIsColourImageOnly
-                  ? "This view is a colour image; export the scalar maps it is made from"
-                  : "Save the numbers behind this view as an HDF5 (EMD) file")
-            // VoiceOver hears the reason on the dimmed button; nothing is drawn.
-            .accessibilityValue(exportDataReason ?? "")
-            .accessibilityIdentifier("result.exportData")
-            // The bundle is a strain/orientation artefact: offered only when
-            // one of those maps exists, exactly as before.
-            if appState.strain.map != nil || appState.acomSession.hasOrientationMap {
-                Button {
-                    appState.exportScientificBundle()
+            Spacer(minLength: 12)
+            if exportsAsMenu {
+                Menu {
+                    exportItems
                 } label: {
-                    Label("Export Bundle…", systemImage: "square.stack.3d.up")
+                    Label("Export", systemImage: "square.and.arrow.up")
                 }
+                .menuStyle(.button)
                 .buttonStyle(.bordered)
-                .disabled(appState.isBusy)
-                .accessibilityIdentifier("result.exportBundle")
+                .fixedSize()
+                .help("Export this result")
+                .accessibilityIdentifier("result.exportMenu")
+            } else {
+                exportItems
+                    .buttonStyle(.bordered)
             }
             Button {
                 appState.saveCurrentResultToSessionSidecar()
@@ -130,7 +124,42 @@ struct ResultsWorkspace: View {
             .accessibilityValue(saveToResultsReason ?? "")
             .accessibilityIdentifier("result.saveSession")
         }
-        .padding()
+    }
+
+    /// The export actions, one name each ("Export <what> …", the File menu's too), as buttons in a row or as the items of the
+    /// Export menu.
+    @ViewBuilder
+    private var exportItems: some View {
+        Button {
+            appState.exportResultImage()
+        } label: {
+            Label("Export Result PNG…", systemImage: "photo")
+        }
+        .accessibilityIdentifier("result.exportPNG")
+        // Owner card S8 (b): the float map behind the view, as an EMD RealSlice .h5.
+        Button {
+            appState.exportProductData()
+        } label: {
+            Label("Export Data…", systemImage: "tablecells")
+        }
+        .disabled(exportDataReason != nil)
+        .help(appState.productIsColourImageOnly
+              ? "This view is a colour image; export the scalar maps it is made from"
+              : "Save the numbers behind this view as an HDF5 (EMD) file")
+        // VoiceOver hears the reason on the dimmed button; nothing is drawn.
+        .accessibilityValue(exportDataReason ?? "")
+        .accessibilityIdentifier("result.exportData")
+        // The bundle is a strain/orientation artefact: offered only when
+        // one of those maps exists, exactly as before.
+        if appState.strain.map != nil || appState.acomSession.hasOrientationMap {
+            Button {
+                appState.exportScientificBundle()
+            } label: {
+                Label("Export Bundle…", systemImage: "square.stack.3d.up")
+            }
+            .disabled(appState.isBusy)
+            .accessibilityIdentifier("result.exportBundle")
+        }
     }
 
     /// The same conditions that disable Export Data, as a reason (nil when enabled).
