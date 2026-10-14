@@ -117,6 +117,8 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
                 || !approximately(crystal.gammaDeg, 120) {
                 add("hexagonal_symmetry_mismatch", "Hexagonal 6/mmm symmetry requires a = b, α = β = 90°, and γ = 120°.")
             }
+        case .monoclinic:
+            break  // STUB
         case .identity:
             // Structurally fine. What it cannot do is stated by
             // `supportsOrientationMapping` below, NOT here: a validation issue

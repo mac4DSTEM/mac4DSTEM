@@ -505,18 +505,42 @@ package nonisolated enum HexagonalOrientationSymmetry {
     }
 }
 
+/// STUB (tests-first commit): the real 2/m group follows in the candidate commit.
+package nonisolated enum MonoclinicOrientationSymmetry {
+    package static let operators: [simd_double3x3] = [matrix_identity_double3x3]
+
+    package static func reduce(_ matrix: simd_double3x3) ->
+        (matrix: simd_double3x3, disorientationRad: Float) {
+        ACOMCrystalSymmetry.identity.reduce(matrix)
+    }
+
+    package static func reduceDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
+        simd_normalize(direction)
+    }
+
+    package static func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
+        ACOMCrystalSymmetry.identity.sampleFundamentalZone(count: count)
+    }
+
+    package static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
+        ACOMCrystalSymmetry.identity.ipfColor(direction: direction)
+    }
+}
+
 /// Explicit symmetry policy for orientation reporting. The current crystal
 /// presets and custom editor are cubic; `.identity` is the safe fallback for
 /// future non-cubic structures until their point groups are implemented.
 package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
     case cubic
     case hexagonal
+    case monoclinic
     case identity
 
     package var displayName: String {
         switch self {
         case .cubic: return "Cubic m-3m"
         case .hexagonal: return "Hexagonal 6/mmm"
+        case .monoclinic: return "Monoclinic 2/m"
         case .identity: return "Unreduced"
         }
     }
@@ -528,6 +552,8 @@ package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
             return CubicOrientationSymmetry.reduce(matrix)
         case .hexagonal:
             return HexagonalOrientationSymmetry.reduce(matrix)
+        case .monoclinic:
+            return MonoclinicOrientationSymmetry.reduce(matrix)
         case .identity:
             let rotation = simd_transpose(matrix)
             let cosine = min(1, max(-1, (simd_trace(rotation) - 1) / 2))
@@ -540,6 +566,7 @@ package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
         switch self {
         case .cubic: return CubicOrientationSymmetry.sampleFundamentalZone(count: count)
         case .hexagonal: return HexagonalOrientationSymmetry.sampleFundamentalZone(count: count)
+        case .monoclinic: return MonoclinicOrientationSymmetry.sampleFundamentalZone(count: count)
         case .identity:
             guard count > 0 else { return [] }
             let golden = Double.pi * (3 - 5.0.squareRoot())
@@ -556,6 +583,7 @@ package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
         switch self {
         case .cubic: return CubicOrientationSymmetry.ipfColor(direction: direction)
         case .hexagonal: return HexagonalOrientationSymmetry.ipfColor(direction: direction)
+        case .monoclinic: return MonoclinicOrientationSymmetry.ipfColor(direction: direction)
         case .identity:
             let value = simd_normalize(direction)
             return SIMD3(Float(abs(value.x)), Float(abs(value.y)), Float(abs(value.z)))

@@ -1085,6 +1085,8 @@ package nonisolated enum CIFImport {
                 ({ SIMD3(-$0.y, $0.x, $0.z) },
                  "4-fold axis along c (Laue class m-3, not m-3m)"),
             ]
+        case .monoclinic:
+            return  // STUB
         case .identity:
             // `classifyFamily` never proposes `.identity` — it either returns
             // cubic/hexagonal or throws. Nothing to verify: the trivial group
