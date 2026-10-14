@@ -149,4 +149,41 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertNil(MapTileView.pointerStyle(nil, dragging: false))
         XCTAssertNotNil(MapTileView.pointerStyle(.move, dragging: true))
     }
+
+    // MARK: Row 4 - the right-click choices as rows
+
+    /// A click selects the element (and flips its role as before); an element that cannot be picked is not selected, and a
+    /// selection that has become unavailable shows no rows.
+    /// Mutation: `pick` skips the `isAvailable` guard, or no longer calls `click` - red.
+    func testClickingACellSelectsItAndAnUnavailableOneIsNotSelected() {
+        let m = SpectroscopyRoomModel.fixture
+        m.elements = ElementSelection()
+        m.selectedElement = nil
+        PeriodicTableView.pick(m, 29)
+        XCTAssertEqual(m.selectedElement, 29)
+        XCTAssertEqual(m.elements.role(29), .quantify, "the click still flips the role")
+        XCTAssertEqual(SelectedElementRows.shown(m), 29)
+        PeriodicTableView.pick(m, 2)   // He: no usable line at this window
+        XCTAssertEqual(m.selectedElement, 29, "an unavailable cell does not take the selection")
+        m.selectedElement = 2
+        XCTAssertNil(SelectedElementRows.shown(m))
+        m.selectedElement = nil
+        XCTAssertNil(SelectedElementRows.shown(m))
+    }
+
+    /// The rows reach what the menu reaches: Fit only and a line family land in the same selection state; the summary names a
+    /// chosen family.
+    /// Mutation: `linesSummary` always "Default" - red.
+    func testTheRowsChooseFitOnlyAndALineFamily() {
+        let m = SpectroscopyRoomModel.fixture
+        m.elements = ElementSelection()
+        PeriodicTableView.pick(m, 29)
+        m.elements.set(29, .fitOnly)
+        XCTAssertEqual(m.elements.role(29), .fitOnly)
+        XCTAssertEqual(SelectedElementRows.linesSummary(m, 29), "Default")
+        m.elements.setFamily(29, .L)
+        XCTAssertTrue(SelectedElementRows.linesSummary(m, 29).hasPrefix("L"))
+        m.elements.resetLines(29)
+        XCTAssertEqual(SelectedElementRows.linesSummary(m, 29), "Default")
+    }
 }

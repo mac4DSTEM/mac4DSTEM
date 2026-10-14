@@ -130,7 +130,7 @@ struct PeriodicTableView: View {
         // plain style adds no padding or hover fill, so the cell looks as it did. An unavailable cell stays enabled on purpose:
         // `.disabled` would dim its own ink and could drop the hover and the right-click reason; its click is already inert in
         // `ElementSelection.click` / `.set`, and it offers no VoiceOver role actions.
-        return Button { model.elements.click(z) } label: {
+        return Button { Self.pick(model, z) } label: {
             Text(sym)
                 .font(.system(size: size, weight: .semibold))
                 .lineLimit(1).minimumScaleFactor(0.8)   // a two-letter symbol at 9 pt in the narrowest cell (11.9 pt) sits on the edge
@@ -146,36 +146,26 @@ struct PeriodicTableView: View {
         }
         .contextMenu {
             if PeriodicLayout.isAvailable(z) {
-                ForEach(ElementRole.allCases, id: \.self) { r in
-                    Toggle(r.title, isOn: Binding(get: { model.elements.role(z) == r }, set: { _ in model.elements.set(z, r) }))
-                }
+                ElementRoleItems(model: model, z: z)
                 Divider()
-                Menu("Lines") {
-                    ForEach(LineFamily.allCases, id: \.self) { f in
-                        let items = ElementLines.items(family: f, z: z)
-                        if !items.isEmpty {
-                            // The family row sets the family (the fit takes whole families either way); under it the lines the maps sum
-                            // and the spectrum marks.
-                            Toggle("\(f.rawValue) lines", isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
-                            ForEach(items, id: \.id) { item in
-                                Toggle(item.title, isOn: Binding(get: { model.elements.checkedLines(z).contains(item.id) },
-                                                                 set: { _ in model.elements.toggleLine(z, item.id) }))
-                            }
-                            Divider()
-                        }
-                    }
-                    Button("Default lines") { model.elements.resetLines(z) }.disabled(!model.elements.hasChosenLines(z))
-                }
+                ElementLinesMenu(model: model, z: z)
             } else { Text(ElementSelection.unavailableReason(z: z) ?? "") }
         }
         .help(Self.help(state, sym, proposed: model.elements.suggestions.first { $0.z == z }?.proposedRole))
         .accessibilityLabel(sym)
         .accessibilityValue(Self.describe(state))
-        // The right-click roles, as VoiceOver actions (the menu's Lines submenu stays right-click).
+        // The right-click roles, as VoiceOver actions (the same choices are the Selected element rows).
         .accessibilityActions {
             ForEach(Self.roleActions(z: z), id: \.self) { r in Button(r.title) { model.elements.set(z, r) } }
         }
         .accessibilityRotorEntry(id: z, in: rotorSpace)
+    }
+
+    /// A click on a cell: its role flips as before, and the element becomes the selected one (the rows under the table) when it can
+    /// be picked at all.
+    static func pick(_ model: SpectroscopyRoomModel, _ z: Int) {
+        model.elements.click(z)
+        if PeriodicLayout.isAvailable(z) { model.selectedElement = z }
     }
 
     /// The role actions VoiceOver offers on a cell: the context menu's role rows (none on a not-detectable element).
@@ -222,6 +212,79 @@ struct PeriodicTableView: View {
         case .off: "off"
         case .suggested(let r): "proposed, \(r)"
         case .unavailable: "not detectable"
+        }
+    }
+}
+
+/// The right-click menu's role rows (Quantify, Fit only, Off) as checkable items.
+struct ElementRoleItems: View {
+    @Bindable var model: SpectroscopyRoomModel
+    let z: Int
+    var body: some View {
+        ForEach(ElementRole.allCases, id: \.self) { r in
+            Toggle(r.title, isOn: Binding(get: { model.elements.role(z) == r }, set: { _ in model.elements.set(z, r) }))
+        }
+    }
+}
+
+/// "Lines": per line family, the family row and a checkable item per line the table has, then "Default lines". The right-click
+/// menu's submenu and the Selected element rows' menu are this one view.
+struct ElementLinesMenu: View {
+    @Bindable var model: SpectroscopyRoomModel
+    let z: Int
+    var title = "Lines"
+    var body: some View {
+        Menu(title) {
+            ForEach(LineFamily.allCases, id: \.self) { f in
+                let items = ElementLines.items(family: f, z: z)
+                if !items.isEmpty {
+                    // The family row sets the family (the fit takes whole families either way); under it the lines the maps sum
+                    // and the spectrum marks.
+                    Toggle("\(f.rawValue) lines", isOn: Binding(get: { model.elements.family(z) == f }, set: { _ in model.elements.setFamily(z, f) }))
+                    ForEach(items, id: \.id) { item in
+                        Toggle(item.title, isOn: Binding(get: { model.elements.checkedLines(z).contains(item.id) },
+                                                         set: { _ in model.elements.toggleLine(z, item.id) }))
+                    }
+                    Divider()
+                }
+            }
+            Button("Default lines") { model.elements.resetLines(z) }.disabled(!model.elements.hasChosenLines(z))
+        }
+    }
+}
+
+/// The Elements section's "selected element" rows: the right-click menu's role and lines as rows, so Fit only and the per-line
+/// choice are reachable without a secondary click (HIG, Context menus: every menu command also has a visible home).
+struct SelectedElementRows: View {
+    @Bindable var model: SpectroscopyRoomModel
+
+    /// The element the rows act on: the last clicked, while it can still be picked.
+    static func shown(_ model: SpectroscopyRoomModel) -> Int? {
+        model.selectedElement.flatMap { PeriodicLayout.isAvailable($0) ? $0 : nil }
+    }
+    /// "default" until the person chose a family or lines for this element.
+    static func linesSummary(_ model: SpectroscopyRoomModel, _ z: Int) -> String {
+        guard model.elements.hasChosenLines(z) else { return "Default" }
+        return "\(model.elements.family(z).rawValue) \u{00B7} \(model.elements.checkedLines(z).count)"
+    }
+
+    var body: some View {
+        if let z = Self.shown(model) {
+            let sym = PeriodicLayout.symbol(z)
+            InspectorRow("\(sym) role") {
+                Picker("\(sym) role", selection: Binding(get: { model.elements.role(z) }, set: { model.elements.set(z, $0) })) {
+                    ForEach(ElementRole.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .labelsHidden().fixedSize()
+                .help("Quantify: mapped and given an at%. Fit only: its lines are modelled, it gets no at%. Off: neither.")
+                .accessibilityIdentifier("spectroscopy.selectedElement.role")
+            }
+            InspectorRow("\(sym) lines") {
+                ElementLinesMenu(model: model, z: z, title: Self.linesSummary(model, z))
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .help("Which lines the maps sum and the spectrum marks; the fit takes whole families.")
+                    .accessibilityIdentifier("spectroscopy.selectedElement.lines")
+            }
         }
     }
 }

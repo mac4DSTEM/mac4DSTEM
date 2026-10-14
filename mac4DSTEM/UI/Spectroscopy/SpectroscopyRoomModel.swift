@@ -42,6 +42,9 @@ final class SpectroscopyRoomModel {
     var mixHAADF = true
     /// The element whose lines the spectrum emphasises (spec 2 D-15): set by a click or hover on its tile or table cell; nil: none.
     var highlightedZ: Int?
+    /// The element last clicked in the periodic table: the "selected element" rows of the Elements section act on it (the
+    /// right-click menu's role and lines, for a keyboard or a trackpad without a secondary click). Per window, not method state.
+    var selectedElement: Int?
     /// Scene state (spec 2 D-7): the maps block's share of the room's height, and the ColorMix's share of the maps block's width;
     /// nil = the plan's own default (`SpectroscopyRoomPlan.mapsFraction`, `MapGridLayout`). Neither is a method setting.
     var mapsFraction: CGFloat?

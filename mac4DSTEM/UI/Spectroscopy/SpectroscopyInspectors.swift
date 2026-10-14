@@ -63,6 +63,7 @@ struct ElementsSection: View {
     @State private var detailsOpen = false
     var body: some View {
         PeriodicTableView(model: model)
+        SelectedElementRows(model: model)
         InspectorRow("Maps") {
             GlassChipGroup(chips: Self.mapChips, mode: .single, selection: Self.mapSelection(model), identifier: "spectroscopy.mapMode")
         }
