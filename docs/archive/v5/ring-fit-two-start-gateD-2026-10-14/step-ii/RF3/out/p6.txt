@@ -1,0 +1,30 @@
+== s : refusals by head-class -> variant-class (reason seed/floor); right-fit refusals listed
+A {('seed', 'W', 'M'): 21, ('seed', 'W', 'W'): 3}
+B {('seed', 'W', 'M'): 20, ('seed', 'W', 'W'): 4}
+C {('seed', 'W', 'M'): 20, ('seed', 'W', 'W'): 3}
+P {('seed', 'W', 'M'): 84, ('seed', 'W', 'R'): 4, ('seed', 'W', 'THREW'): 13, ('seed', 'W', 'W'): 9}
+N {('seed', 'W', 'M'): 9, ('seed', 'W', 'R'): 47}
+T {('seed', 'W', 'M'): 6, ('seed', 'W', 'W'): 13}
+S3 {('seed', 'W', 'M'): 9, ('seed', 'W', 'W'): 3}
+== cs : refusals by head-class -> variant-class (reason seed/floor); right-fit refusals listed
+P {('seed', 'W', 'M'): 21, ('seed', 'W', 'THREW'): 9}
+T {('seed', 'W', 'W'): 11}
+S3 {('seed', 'W', 'W'): 3}
+== cbs : refusals by head-class -> variant-class (reason seed/floor); right-fit refusals listed
+P {('floor', 'W', 'M'): 6, ('seed', 'W', 'M'): 15, ('seed', 'W', 'THREW'): 9}
+N {('floor', 'R', 'M'): 4, ('floor', 'R', 'R'): 13, ('floor', 'R', 'W'): 2, ('floor', 'W', 'M'): 9, ('floor', 'W', 'R'): 23, ('seed', 'W', 'R'): 1}
+T {('floor', 'W', 'W'): 7, ('seed', 'W', 'W'): 4}
+S3 {('floor', 'W', 'W'): 3}
+== cb : refusals by head-class -> variant-class (reason seed/floor); right-fit refusals listed
+P {('floor', 'W', 'M'): 4}
+N {('floor', 'R', 'M'): 4, ('floor', 'R', 'R'): 13, ('floor', 'R', 'W'): 2, ('floor', 'W', 'M'): 9, ('floor', 'W', 'R'): 23}
+T {('floor', 'W', 'W'): 7}
+S3 {('floor', 'W', 'W'): 3}
+== b2 : refusals by head-class -> variant-class (reason seed/floor); right-fit refusals listed
+A {('floor', 'W', 'M'): 12, ('floor', 'W', 'W'): 3}
+B {('floor', 'W', 'M'): 12, ('floor', 'W', 'W'): 4}
+C {('floor', 'W', 'M'): 4, ('floor', 'W', 'W'): 3}
+P {('floor', 'W', 'M'): 36, ('floor', 'W', 'R'): 2, ('floor', 'W', 'THREW'): 1, ('floor', 'W', 'W'): 4}
+N {('floor', 'M', 'R'): 1, ('floor', 'R', 'M'): 4, ('floor', 'R', 'R'): 13, ('floor', 'R', 'W'): 2, ('floor', 'W', 'M'): 16, ('floor', 'W', 'R'): 70}
+T {('floor', 'W', 'W'): 9}
+S3 {('floor', 'W', 'M'): 12, ('floor', 'W', 'W'): 10}

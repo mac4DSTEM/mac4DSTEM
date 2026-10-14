@@ -1,0 +1,19 @@
+accepted fits "right in R" (|dR|<=1%) but with |d(b/a)| > 0.01, and ">50 % of the true ellipticity":
+var   set: R-ok&ba>.01 | R-ok&ellipticity-error>50% | R-wrong
+head {'W': 414, 'ell50': 31, 'ba': 20}
+a {'W': 135, 'ell50': 18, 'ba': 10}
+c {'W': 80, 'ell50': 18, 'ba': 9}
+b2 {'W': 251, 'ell50': 42, 'ba': 31}
+s {'W': 181, 'ell50': 60, 'ba': 42}
+cbs {'W': 50, 'ell50': 39, 'ba': 21}
+
+per set, c and cbs: R-ok but |dba|>0.01
+A ['head 0', 'c 0', 'cbs 0']
+B ['head 0', 'c 0', 'cbs 0']
+C ['head 0', 'c 0', 'cbs 0']
+P ['head 15', 'c 5', 'cbs 17']
+N ['head 1', 'c 0', 'cbs 0']
+T ['head 4', 'c 4', 'cbs 4']
+S3 ['head 0', 'c 0', 'cbs 0']
+S4 ['head 0', 'c 0', 'cbs 0']
+{('P', 'P', ''): 17, ('T', 'T', 'slope'): 4}

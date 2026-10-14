@@ -1,0 +1,60 @@
+P-a10-R80-e3-g60-r28-063 seed dR=+0.0103 seed dba=+0.0239
+    none  prof dR=-0.1066 dba=-0.1807 res=0.1300 dep=-0.116
+    a     prof dR=-0.0624 dba=-0.1981 res=0.1312 dep=-0.072
+    c     prof dR=-0.1066 dba=-0.1807 res=0.1300 dep=-0.116
+    s     THREW ringLeftSeed(0.1157318663289
+    cbs   prof dR=-0.0624 dba=-0.1981 res=0.1312 dep=-0.072
+P-a20-R140-e1-g60-exp20-107 seed dR=-0.0019 seed dba=+0.0042
+    none  prof dR=+0.2033 dba=-0.4223 res=0.1313 dep=+0.206
+    a     prof dR=-0.0749 dba=-0.1160 res=0.1326 dep=-0.073
+    c     prof dR=+0.2033 dba=-0.4223 res=0.1313 dep=+0.206
+    s     coni dR=-0.0019 dba=+0.0042 res=0.1449 dep=+0.000
+    cbs   prof dR=-0.0749 dba=-0.1160 res=0.1326 dep=-0.073
+P-a20-R140-e1-g60-r28-108 seed dR=+0.0025 seed dba=+0.0062
+    none  prof dR=-0.0022 dba=-0.0061 res=0.1342 dep=-0.005
+    a     prof dR=-0.0699 dba=-0.1079 res=0.1327 dep=-0.072
+    c     prof dR=-0.0699 dba=-0.1079 res=0.1327 dep=-0.072
+    s     prof dR=-0.0022 dba=-0.0061 res=0.1342 dep=-0.005
+    cbs   prof dR=-0.0699 dba=-0.1079 res=0.1327 dep=-0.072
+P-a20-R140-e3-g60-r28-148 seed dR=+0.0027 seed dba=+0.0150
+    none  prof dR=-0.0015 dba=-0.0033 res=0.1275 dep=-0.004
+    a     prof dR=-0.0790 dba=-0.1018 res=0.1269 dep=-0.081
+    c     prof dR=-0.0790 dba=-0.1018 res=0.1269 dep=-0.081
+    s     prof dR=-0.0015 dba=-0.0033 res=0.1275 dep=-0.004
+    cbs   prof dR=-0.0015 dba=-0.0033 res=0.1275 dep=-0.004
+P-a20-R200-e3-g60-exp20-227 seed dR=-0.0072 seed dba=+0.0203
+    none  prof dR=+0.2725 dba=-0.4488 res=0.1289 dep=+0.282
+    a     prof dR=-0.0603 dba=-0.0681 res=0.1327 dep=-0.053
+    c     prof dR=+0.2725 dba=-0.4488 res=0.1289 dep=+0.282
+    s     coni dR=-0.0072 dba=+0.0203 res=0.1144 dep=+0.000
+    cbs   prof dR=-0.0603 dba=-0.0681 res=0.1327 dep=-0.053
+P-a10-R80-e1-g60-r28-263 seed dR=+0.0104 seed dba=+0.0027
+    none  prof dR=-0.1061 dba=-0.1871 res=0.1373 dep=-0.115
+    a     prof dR=-0.0697 dba=-0.2076 res=0.1386 dep=-0.079
+    c     prof dR=-0.1061 dba=-0.1871 res=0.1373 dep=-0.115
+    s     THREW ringLeftSeed(0.1152885280047
+    cbs   prof dR=-0.0697 dba=-0.2076 res=0.1386 dep=-0.079
+P-a10-R80-e3-g60-r28-303 seed dR=+0.0115 seed dba=+0.0258
+    none  prof dR=-0.1005 dba=-0.1748 res=0.1449 dep=-0.111
+    a     prof dR=-0.0571 dba=-0.1950 res=0.1465 dep=-0.068
+    c     prof dR=-0.1005 dba=-0.1748 res=0.1449 dep=-0.111
+    s     THREW ringLeftSeed(0.1106952160435
+    cbs   prof dR=-0.0571 dba=-0.1950 res=0.1465 dep=-0.068
+P-a20-R140-e3-g60-exp20-387 seed dR=-0.0018 seed dba=+0.0186
+    none  prof dR=+0.2056 dba=-0.4193 res=0.1445 dep=+0.208
+    a     prof dR=-0.0809 dba=-0.1055 res=0.1453 dep=-0.079
+    c     prof dR=+0.2056 dba=-0.4193 res=0.1445 dep=+0.208
+    s     coni dR=-0.0018 dba=+0.0186 res=0.1554 dep=+0.000
+    cbs   prof dR=-0.0809 dba=-0.1055 res=0.1453 dep=-0.079
+P-a10-R200-e1-g60-r28-423 seed dR=+0.0018 seed dba=+0.0075
+    none  prof dR=-0.0060 dba=-0.0175 res=0.1347 dep=-0.008
+    a     prof dR=+0.2000 dba=-0.4026 res=0.1152 dep=+0.198
+    c     prof dR=+0.2000 dba=-0.4026 res=0.1152 dep=+0.198
+    s     prof dR=-0.0060 dba=-0.0175 res=0.1347 dep=-0.008
+    cbs   prof dR=-0.0060 dba=-0.0175 res=0.1347 dep=-0.008
+P-a20-R200-e1-g60-exp20-427 seed dR=-0.0056 seed dba=+0.0058
+    none  prof dR=+0.2580 dba=-0.4721 res=0.1353 dep=+0.265
+    a     prof dR=-0.0554 dba=-0.0835 res=0.1413 dep=-0.050
+    c     prof dR=+0.2580 dba=-0.4721 res=0.1353 dep=+0.265
+    s     coni dR=-0.0056 dba=+0.0058 res=0.1037 dep=+0.000
+    cbs   prof dR=-0.0554 dba=-0.0835 res=0.1413 dep=-0.050

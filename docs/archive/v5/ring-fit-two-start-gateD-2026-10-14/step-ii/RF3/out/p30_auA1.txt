@@ -1,0 +1,68 @@
+===== au: 200 annuli, bases 8
+base       n accHead accCbs | consensus b/a (n) | changed(cbs!=head by>0.005 in b/a or status) | closer/farther/equal to consensus | s-refusals of healthy head fits | b2-refusals
+A1:5-13     25  16  11 | cons 0.9712 spread(unchanged) 0.0072 (11) | changed 5 (newthrow 5) | closer 0 farther 0 eq 0 | s-refused healthy 5/16 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+A2:13-21    25  25  24 | cons 0.9827 spread(unchanged) 0.2252 (24) | changed 1 (newthrow 1) | closer 0 farther 0 eq 0 | s-refused healthy 0/16 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+A3:21-30    25  25  24 | cons 0.9839 spread(unchanged) 0.0290 (24) | changed 1 (newthrow 1) | closer 0 farther 0 eq 0 | s-refused healthy 1/24 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+A4:30-38    25  15  15 | cons 0.9548 spread(unchanged) 0.0361 (5) | changed 10 (newthrow 0) | closer 0 farther 10 eq 0 | s-refused healthy 8/11 | b2-refused healthy 5 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 6
+W1:4-14     25   8   8 | cons 0.9714 spread(unchanged) 0.0059 (8) | changed 0 (newthrow 0) | closer 0 farther 0 eq 0 | s-refused healthy 0/8 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+W2:12-22    25  22  21 | cons 0.9840 spread(unchanged) 0.0469 (21) | changed 1 (newthrow 1) | closer 0 farther 0 eq 0 | s-refused healthy 1/19 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+W3:20-31    25  25  21 | cons 0.9825 spread(unchanged) 0.0319 (21) | changed 4 (newthrow 4) | closer 0 farther 0 eq 0 | s-refused healthy 3/23 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+W4:29-39    25  20  18 | cons 0.9561 spread(unchanged) 0.0292 (6) | changed 14 (newthrow 2) | closer 0 farther 12 eq 0 | s-refused healthy 10/15 | b2-refused healthy 6 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 3
+===== s3: 224 annuli, bases 10
+base       n accHead accCbs | consensus b/a (n) | changed(cbs!=head by>0.005 in b/a or status) | closer/farther/equal to consensus | s-refusals of healthy head fits | b2-refusals
+s3-R1       25  25  25 | cons 0.9990 spread(unchanged) 0.0034 (21) | changed 1 (newthrow 0) | closer 0 farther 0 eq 1 | s-refused healthy 1/25 | b2-refused healthy 1 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s3-R1w      25  25  25 | cons 0.9991 spread(unchanged) 0.0019 (24) | changed 0 (newthrow 0) | closer 0 farther 0 eq 0 | s-refused healthy 0/25 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s3-R2       22  22  22 | cons 0.9986 spread(unchanged) 0.0024 (21) | changed 0 (newthrow 0) | closer 0 farther 0 eq 0 | s-refused healthy 0/22 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s3-R2w      25  25  25 | cons 0.9984 spread(unchanged) 0.0031 (22) | changed 0 (newthrow 0) | closer 0 farther 0 eq 0 | s-refused healthy 0/25 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s3-R3       15  15  15 | cons 0.9987 spread(unchanged) 0.0029 (15) | changed 0 (newthrow 0) | closer 0 farther 0 eq 0 | s-refused healthy 0/12 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s3-R3w      25  25  25 | cons 0.9990 spread(unchanged) 0.0048 (18) | changed 7 (newthrow 0) | closer 2 farther 1 eq 4 | s-refused healthy 2/21 | b2-refused healthy 4 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s3-R4       22 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+s3-R4w      25 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+s3-R5       15 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+s3-R5w      25 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+===== s4: 188 annuli, bases 10
+base       n accHead accCbs | consensus b/a (n) | changed(cbs!=head by>0.005 in b/a or status) | closer/farther/equal to consensus | s-refusals of healthy head fits | b2-refusals
+s4-R1       10  10  10 | cons 0.9973 spread(unchanged) 0.0033 (6) | changed 4 (newthrow 0) | closer 1 farther 0 eq 3 | s-refused healthy 0/9 | b2-refused healthy 3 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R1w      24  24  24 | cons 0.9974 spread(unchanged) 0.0040 (21) | changed 2 (newthrow 0) | closer 1 farther 0 eq 1 | s-refused healthy 0/23 | b2-refused healthy 1 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R2       15  13  13 | cons 0.9984 spread(unchanged) 0.0013 (8) | changed 5 (newthrow 0) | closer 0 farther 0 eq 5 | s-refused healthy 2/13 | b2-refused healthy 5 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R2w      25  25  25 | cons 0.9982 spread(unchanged) 0.0013 (21) | changed 3 (newthrow 0) | closer 1 farther 0 eq 2 | s-refused healthy 1/24 | b2-refused healthy 2 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R3       10   9   9 | cons 0.9977 spread(unchanged) 0.0053 (8) | changed 1 (newthrow 0) | closer 1 farther 0 eq 0 | s-refused healthy 0/9 | b2-refused healthy 1 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R3w      24  24  24 | cons 0.9977 spread(unchanged) 0.0130 (16) | changed 7 (newthrow 0) | closer 3 farther 0 eq 4 | s-refused healthy 0/21 | b2-refused healthy 6 | c moved>0.005: 1 | cbs>0.03 off where head<=0.01: 0
+s4-R4       15  15  15 | cons 0.9983 spread(unchanged) 0.0025 (11) | changed 4 (newthrow 0) | closer 0 farther 0 eq 4 | s-refused healthy 0/15 | b2-refused healthy 4 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R4w      25  25  25 | cons 0.9988 spread(unchanged) 0.0016 (25) | changed 0 (newthrow 0) | closer 0 farther 0 eq 0 | s-refused healthy 0/25 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R5       15  14  14 | cons 0.9953 spread(unchanged) 0.0048 (7) | changed 7 (newthrow 0) | closer 0 farther 1 eq 6 | s-refused healthy 0/14 | b2-refused healthy 7 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+s4-R5w      25  25  25 | cons 0.9979 spread(unchanged) 0.0048 (19) | changed 4 (newthrow 0) | closer 1 farther 0 eq 3 | s-refused healthy 1/25 | b2-refused healthy 4 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+===== s5: 114 annuli, bases 6
+base       n accHead accCbs | consensus b/a (n) | changed(cbs!=head by>0.005 in b/a or status) | closer/farther/equal to consensus | s-refusals of healthy head fits | b2-refusals
+S5-R1       15 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+S5-R1w      20 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+S5-R2       15 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+S5-R2w      25 headAcc   0 cbsAcc   0 | too few unchanged fits (0) for a consensus
+S5-R3       15   9   9 | cons 0.9785 spread(unchanged) 0.0584 (6) | changed 3 (newthrow 0) | closer 2 farther 1 eq 0 | s-refused healthy 2/4 | b2-refused healthy 1 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+S5-R3w      24   8   8 | cons 0.9721 spread(unchanged) 0.0328 (4) | changed 4 (newthrow 0) | closer 2 farther 1 eq 1 | s-refused healthy 0/3 | b2-refused healthy 0 | c moved>0.005: 0 | cbs>0.03 off where head<=0.01: 0
+{'healthy': 447, 'sref': 37, 'bref': 50, 'closer': 14, 'farther': 26, 'eq': 34, 'changed': 88, 'n': 564, 'cmove': 1, 'far': 9, 'newthrow': 14}
+A1:5-13~-2-2       head: THREW excessiveResidual(0.41783316061424797)                           | cbs: THREW excessiveResidual(0.41783316061424797)                 | no seed
+A1:5-13~-2-1       head: THREW excessiveResidual(0.42359527595174956)                           | cbs: THREW excessiveResidual(0.42359527595174956)                 | no seed
+A1:5-13~-2+0       head: THREW excessiveResidual(0.4312132956942936)                            | cbs: THREW excessiveResidual(0.4312132956942936)                  | no seed
+A1:5-13~-2+1       head: THREW excessiveResidual(0.4478025070949851)                            | cbs: THREW excessiveResidual(0.4478025070949851)                  | no seed
+A1:5-13~-2+2       head: THREW excessiveResidual(0.47897358157904196)                           | cbs: THREW excessiveResidual(0.47897358157904196)                 | no seed
+A1:5-13~-1-2     * head: prof rad= 10.385 b/a=0.9783 dep=+0.137 sig=1.54 I1=9.39e+04            | cbs: THREW ringLeftSeed(0.1366796185799093)                       | seed rad=9.136 b/a=0.9420 cres=0.387
+A1:5-13~-1-1       head: prof rad= 10.258 b/a=0.9686 dep=+0.053 sig=1.44 I1=7.84e+04            | cbs: prof rad= 10.258 b/a=0.9686 dep=+0.053 sig=1.44 I1=7.84e+04  | seed rad=9.745 b/a=0.9647 cres=0.398
+A1:5-13~-1+0       head: THREW excessiveResidual(0.4092222040200741)                            | cbs: THREW excessiveResidual(0.4092222040200741)                  | no seed
+A1:5-13~-1+1       head: THREW excessiveResidual(0.42733626730998897)                           | cbs: THREW excessiveResidual(0.42733626730998897)                 | no seed
+A1:5-13~-1+2       head: THREW excessiveResidual(0.4599975652971791)                            | cbs: THREW excessiveResidual(0.4599975652971791)                  | no seed
+A1:5-13~+0-2     * head: prof rad= 10.332 b/a=0.9752 dep=+0.122 sig=1.95 I1=1.08e+05            | cbs: THREW ringLeftSeed(0.12159233085357957)                      | seed rad=9.212 b/a=0.9405 cres=0.344
+A1:5-13~+0-1       head: prof rad= 10.239 b/a=0.9691 dep=+0.044 sig=1.66 I1=7.92e+04            | cbs: prof rad= 10.239 b/a=0.9691 dep=+0.044 sig=1.66 I1=7.92e+04  | seed rad=9.808 b/a=0.9632 cres=0.361
+A1:5-13~+0+0       head: prof rad= 10.272 b/a=0.9712 dep=+0.000 sig=1.35 I1=6.8e+04             | cbs: prof rad= 10.272 b/a=0.9712 dep=+0.000 sig=1.35 I1=6.8e+04   | seed rad=10.268 b/a=0.9900 cres=0.376
+A1:5-13~+0+1       head: prof rad= 10.352 b/a=0.9724 dep=-0.029 sig=1.18 I1=6.36e+04            | cbs: prof rad= 10.352 b/a=0.9724 dep=-0.029 sig=1.18 I1=6.36e+04  | seed rad=10.660 b/a=0.9567 cres=0.397
+A1:5-13~+0+2       head: THREW excessiveResidual(0.4326710672140827)                            | cbs: THREW excessiveResidual(0.4326710672140827)                  | no seed
+A1:5-13~+1-2     * head: prof rad= 10.312 b/a=0.9752 dep=+0.098 sig=1.96 I1=1.02e+05            | cbs: THREW ringLeftSeed(0.0978573497733819)                       | seed rad=9.393 b/a=0.9478 cres=0.275
+A1:5-13~+1-1       head: prof rad= 10.253 b/a=0.9683 dep=+0.031 sig=1.62 I1=7.83e+04            | cbs: prof rad= 10.253 b/a=0.9683 dep=+0.031 sig=1.62 I1=7.83e+04  | seed rad=9.944 b/a=0.9648 cres=0.294
+A1:5-13~+1+0       head: prof rad= 10.285 b/a=0.9715 dep=-0.009 sig=1.34 I1=6.79e+04            | cbs: prof rad= 10.285 b/a=0.9715 dep=-0.009 sig=1.34 I1=6.79e+04  | seed rad=10.379 b/a=0.9933 cres=0.314
+A1:5-13~+1+1       head: prof rad= 10.594 b/a=0.9737 dep=-0.016 sig=0.98 I1=5.89e+04            | cbs: prof rad= 10.594 b/a=0.9737 dep=-0.016 sig=0.98 I1=5.89e+04  | seed rad=10.763 b/a=0.9613 cres=0.342
+A1:5-13~+1+2       head: prof rad= 10.652 b/a=0.9742 dep=-0.066 sig=0.88 I1=5.57e+04            | cbs: prof rad= 10.652 b/a=0.9742 dep=-0.066 sig=0.88 I1=5.57e+04  | seed rad=11.401 b/a=0.9617 cres=0.388
+A1:5-13~+2-2     * head: prof rad= 10.364 b/a=0.9783 dep=+0.081 sig=1.00 I1=4.63e+04            | cbs: THREW ringLeftSeed(0.08117435082812152)                      | seed rad=9.586 b/a=0.9731 cres=0.215
+A1:5-13~+2-1       head: prof rad= 10.276 b/a=0.9676 dep=+0.019 sig=1.57 I1=7.74e+04            | cbs: prof rad= 10.276 b/a=0.9676 dep=+0.019 sig=1.57 I1=7.74e+04  | seed rad=10.088 b/a=0.9811 cres=0.238
+A1:5-13~+2+0       head: prof rad= 10.338 b/a=0.9711 dep=-0.015 sig=1.30 I1=6.74e+04            | cbs: prof rad= 10.338 b/a=0.9711 dep=-0.015 sig=1.30 I1=6.74e+04  | seed rad=10.498 b/a=0.9862 cres=0.263
+A1:5-13~+2+1       head: prof rad= 10.511 b/a=0.9747 dep=-0.034 sig=1.06 I1=6.1e+04             | cbs: prof rad= 10.511 b/a=0.9747 dep=-0.034 sig=1.06 I1=6.1e+04   | seed rad=10.877 b/a=0.9532 cres=0.297
+A1:5-13~+2+2     * head: prof rad= 10.458 b/a=0.9732 dep=-0.092 sig=1.02 I1=5.95e+04            | cbs: THREW ringLeftSeed(0.09158529118835379)                      | seed rad=11.512 b/a=0.9544 cres=0.351

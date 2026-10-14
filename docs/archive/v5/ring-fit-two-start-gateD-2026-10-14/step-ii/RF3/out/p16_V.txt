@@ -1,0 +1,14 @@
+set V {'none': 48, 'a': 48, 'c': 48, 'b2': 48, 's': 48, 'cbs': 48}
+seed THREW: 0  conic-seed |dR| p50 0.0003 p90 0.0009 p99 0.0013 max 0.0013
+none  wrong   1 right  37 threw   0 conic   0 |dba|>.01   0 median|dba| 0.0003 max|dba| 0.006
+a     wrong   0 right  38 threw   0 conic   0 |dba|>.01   0 median|dba| 0.0003 max|dba| 0.001
+c     wrong   0 right  38 threw   0 conic   0 |dba|>.01   0 median|dba| 0.0003 max|dba| 0.001
+b2    wrong   0 right  38 threw   0 conic   1 |dba|>.01   0 median|dba| 0.0003 max|dba| 0.001
+s     wrong   1 right  37 threw   0 conic   0 |dba|>.01   0 median|dba| 0.0003 max|dba| 0.006
+cbs   wrong   0 right  38 threw   0 conic   0 |dba|>.01   0 median|dba| 0.0003 max|dba| 0.001
+right-under-head lost under s: 0
+right-under-head lost under cbs: 0
+right-under-head lost under b2: 0
+none: right profile fits 37 depart p50 0.000 p90 0.001 max 0.002  >0.08: 0
+a: right profile fits 38 depart p50 0.000 p90 0.001 max 0.002  >0.08: 0
+c: right profile fits 38 depart p50 0.000 p90 0.001 max 0.002  >0.08: 0

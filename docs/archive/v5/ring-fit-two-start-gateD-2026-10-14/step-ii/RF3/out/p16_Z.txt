@@ -1,0 +1,14 @@
+set Z {'none': 384, 'a': 384, 'c': 384, 'b2': 384, 's': 384, 'cbs': 384}
+seed THREW: 96  conic-seed |dR| p50 0.0099 p90 0.0267 p99 0.0398 max 0.0415
+none  wrong  11 right 227 threw  96 conic   1 |dba|>.01  22 median|dba| 0.0006 max|dba| 0.020
+a     wrong  11 right 229 threw  96 conic   0 |dba|>.01  22 median|dba| 0.0006 max|dba| 0.020
+c     wrong  11 right 229 threw  96 conic   0 |dba|>.01  22 median|dba| 0.0006 max|dba| 0.020
+b2    wrong  11 right 227 threw  96 conic   1 |dba|>.01  22 median|dba| 0.0006 max|dba| 0.020
+s     wrong  11 right 227 threw  96 conic   1 |dba|>.01  22 median|dba| 0.0006 max|dba| 0.020
+cbs   wrong  11 right 229 threw  96 conic   0 |dba|>.01  22 median|dba| 0.0006 max|dba| 0.020
+right-under-head lost under s: 0
+right-under-head lost under cbs: 0
+right-under-head lost under b2: 0
+none: right profile fits 227 depart p50 0.009 p90 0.025 max 0.043  >0.08: 0
+a: right profile fits 229 depart p50 0.009 p90 0.025 max 0.043  >0.08: 0
+c: right profile fits 229 depart p50 0.009 p90 0.025 max 0.043  >0.08: 0

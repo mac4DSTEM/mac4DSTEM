@@ -1,0 +1,90 @@
+heavy-build.sh: slot /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/locks/heavy.1, started 16:36:00
+Fetching https://github.com/mac4DSTEM/SpectroKit from cache
+Fetched https://github.com/mac4DSTEM/SpectroKit from cache (0.02s)
+Creating working copy for https://github.com/mac4DSTEM/SpectroKit
+Working copy of https://github.com/mac4DSTEM/SpectroKit resolved at 0.1.0
+Building for debugging...
+[Pre-planning 1 / 271]
+[Planning deferred tasks]
+[55 / 94] SpectroKit_SpectroCore
+[56 / 94]
+[58 / 95] CSpectroLAPACK
+[79 / 192]
+[92 / 192]
+[96 / 192]
+[97 / 192]
+[105 / 192]
+[113 / 192]
+[118 / 192]
+[123 / 192]
+[127 / 192]
+[132 / 192]
+[134 / 192]
+[137 / 192]
+[157 / 192] SpectroCore
+[158 / 192] SpectroCore
+[163 / 192]
+[164 / 193] SpectroCore
+[166 / 193] SpectroCore
+[166 / 193] DSTEMCore
+[177 / 280]
+[178 / 280]
+[180 / 280]
+[188 / 280]
+[190 / 280]
+[191 / 280]
+[197 / 280]
+[199 / 280]
+[202 / 280]
+[207 / 280]
+[210 / 280]
+[212 / 280]
+[213 / 280]
+[226 / 280]
+[227 / 280]
+[233 / 280]
+[253 / 280] DSTEMCore
+[261 / 282] DSTEMTraining
+[268 / 385]
+[273 / 385]
+[275 / 385]
+[283 / 385]
+[285 / 385]
+[286 / 385] DSTEMCore
+[290 / 385]
+[292 / 385]
+[294 / 385]
+[295 / 385]
+[297 / 385]
+[302 / 385]
+[304 / 385]
+[307 / 385]
+[308 / 385]
+[317 / 385]
+[323 / 385]
+[325 / 385]
+[330 / 385]
+[333 / 385]
+[333 / 385] DSTEMCore
+[333 / 385]
+[334 / 385]
+[347 / 385] DSTEMTraining
+[348 / 385] DSTEMTraining
+[348 / 385] DSTEMSession
+[356 / 385] DSTEMTraining
+[357 / 385] DSTEMTraining-product
+[358 / 385] DSTEMTraining
+[360 / 385] DSTEMTraining
+[362 / 385] DSTEMTraining
+[363 / 385] DSTEMTraining
+[364 / 385] DSTEMSession
+[364 / 385] DSTEMTraining
+[373 / 385] DSTEMSession-product
+[376 / 385] AllExcludingTests
+[376 / 385] DSTEMTraining
+[376 / 385] DSTEMSession
+[377 / 385] DSTEMTraining
+[378 / 385] DSTEMCore
+Build complete! (25,80 sec)
+core: DSTEMCore + DSTEMSession built
+heavy-build.sh: exit 0 at 16:36:28

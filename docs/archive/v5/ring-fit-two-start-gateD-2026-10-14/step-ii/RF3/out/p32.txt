@@ -1,0 +1,26 @@
+--- ('A1', 'W1'): n profile 24, median rad 10.322, median b/a 0.9720
+   kept by s (19): rad 10.239-10.652  b/a 0.9676-0.9747  seed rad 9.745-11.401 seed b/a 0.9532-0.9933
+   refused by s (5): rad 10.312-10.458  b/a 0.9732-0.9783  seed rad 9.136-11.512  seed b/a 0.9405-0.9731
+      A1:5-13~-1-2     head rad=10.385 b/a=0.9783 dep=+0.137 seed cres=0.387 | s: THREW ringLeftSeed(0.1366796185799093)
+      A1:5-13~+0-2     head rad=10.332 b/a=0.9752 dep=+0.122 seed cres=0.344 | s: THREW ringLeftSeed(0.12159233085357957)
+      A1:5-13~+1-2     head rad=10.312 b/a=0.9752 dep=+0.098 seed cres=0.275 | s: THREW ringLeftSeed(0.0978573497733819)
+      A1:5-13~+2-2     head rad=10.364 b/a=0.9783 dep=+0.081 seed cres=0.215 | s: THREW ringLeftSeed(0.08117435082812152)
+      A1:5-13~+2+2     head rad=10.458 b/a=0.9732 dep=-0.092 seed cres=0.351 | s: THREW ringLeftSeed(0.09158529118835379)
+--- ('A2', 'W2'): n profile 47, median rad 17.352, median b/a 0.9838
+   kept by s (45): rad 15.237-18.391  b/a 0.7626-0.9879  seed rad 16.245-18.526 seed b/a 0.9244-0.9974
+   refused by s (2): rad 13.686-17.403  b/a 0.8384-0.9791  seed rad 15.866-15.998  seed b/a 0.9251-0.9551
+      A2:13-21~-2-2    head rad=13.686 b/a=0.8384 dep=-0.137 seed cres=0.294 | s: THREW ringLeftSeed(0.1373582946674179)
+      W2:12-22~-2-2    head rad=17.403 b/a=0.9791 dep=+0.088 seed cres=0.374 | s: THREW ringLeftSeed(0.08781667374326307)
+--- ('A3', 'W3'): n profile 50, median rad 24.868, median b/a 0.9826
+   kept by s (45): rad 22.046-25.574  b/a 0.9530-0.9908  seed rad 22.864-26.833 seed b/a 0.9609-0.9944
+   refused by s (5): rad 19.535-25.995  b/a 0.9659-0.9811  seed rad 23.156-24.273  seed b/a 0.9610-0.9861
+      A3:21-30~-2+1    head rad=19.535 b/a=0.9790 dep=-0.195 seed cres=0.277 | s: THREW ringLeftSeed(0.19518237832860885)
+      W3:20-31~-2-1    head rad=25.431 b/a=0.9811 dep=+0.098 seed cres=0.296 | s: THREW ringLeftSeed(0.09826211873132884)
+      W3:20-31~-2+0    head rad=25.279 b/a=0.9736 dep=+0.081 seed cres=0.307 | s: THREW ringLeftSeed(0.0809770752404495)
+      W3:20-31~-2+1    head rad=25.995 b/a=0.9659 dep=+0.099 seed cres=0.318 | s: THREW ringLeftSeed(0.09929837683870035)
+      W3:20-31~-1+0    head rad=19.535 b/a=0.9790 dep=-0.195 seed cres=0.277 | s: THREW ringLeftSeed(0.19518237832860885)
+--- ('s3-R3', 's3-R3w'): n profile 34, median rad 37.716, median b/a 0.9986
+   kept by s (32): rad 32.925-39.551  b/a 0.9887-1.0000  seed rad 33.818-39.186 seed b/a 0.9950-0.9994
+   refused by s (2): rad 38.445-38.614  b/a 0.9935-0.9960  seed rad 33.820-34.968  seed b/a 0.9952-0.9977
+      s3-R3w~-2+1      head rad=38.614 b/a=0.9960 dep=+0.142 seed cres=0.073 | s: conic The ring profile fit moved the ring 14.2 % from th
+      s3-R3w~-1+2      head rad=38.445 b/a=0.9935 dep=+0.099 seed cres=0.091 | s: conic The ring profile fit moved the ring 9.9 % from the

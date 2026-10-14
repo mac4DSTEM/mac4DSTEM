@@ -1,0 +1,24 @@
+cbs-wrong plants: class string over (head a c b2 s cb cs cbs); marks those where some variant is not W
+WWWWWWWW 39
+WWWWMWWW 4
+WWWWTWWW 3
+RRRWRWRW 2
+MWWMMWWW 1
+WMWWWWWW 1
+
+cbs wrong while c, b2 or s alone is not wrong (R/M/T):
+P P-a10-R80-e3-g60-r28-063 WWWWTWWW cbs dR=-0.062 dba=-0.198
+P P-a20-R140-e1-g60-exp20-107 WWWWMWWW cbs dR=-0.075 dba=-0.116
+P P-a20-R140-e1-g60-r28-108 MWWMMWWW cbs dR=-0.070 dba=-0.108
+P P-a20-R200-e3-g60-exp20-227 WWWWMWWW cbs dR=-0.060 dba=-0.068
+P P-a10-R80-e1-g60-r28-263 WWWWTWWW cbs dR=-0.070 dba=-0.208
+P P-a10-R80-e3-g60-r28-303 WWWWTWWW cbs dR=-0.057 dba=-0.195
+P P-a20-R140-e3-g60-exp20-387 WWWWMWWW cbs dR=-0.081 dba=-0.106
+P P-a20-R200-e1-g60-exp20-427 WWWWMWWW cbs dR=-0.055 dba=-0.084
+N N-g3-s0.25-R60-e1-m20-002 RRRWRWRW cbs dR=+0.010 dba=+0.002
+N N-g3-s0.25-R60-e3-m20-072 RRRWRWRW cbs dR=+0.011 dba=+0.002
+
+wrong under cbs by set and by tier:
+Counter({('T', 'T'): 29, ('P', 'P'): 13, ('S3', 'S3'): 3, ('N', 'N'): 2, ('A', 'refuse'): 1, ('B', 'refuse'): 1, ('C', 'refuse'): 1})
+size of cbs-wrong: |dR| quantiles, |dba| quantiles
+dR [0.01, 0.021, 0.063, 0.11, 0.116, 0.117] dba [0.0, 0.0, 0.005, 0.02, 0.116, 0.208]

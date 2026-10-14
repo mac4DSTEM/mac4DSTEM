@@ -124,3 +124,62 @@ is that move alone, and on Au_ref's 8 annuli it prints HEAD's numbers digit for 
 
 **Then:** a fresh refuter; and, because a landed candidate changes the owner's numbers (Au_ref, Ni65Cu35), a card before
 anything lands (ADR 068).
+
+## Step (ii) — results (2026-10-14; `step-ii/runs/` — logs, `analyse_ii.py`, `analysis-ii.txt`, `extra-ii.txt`; `step-ii/G/`; `step-ii/real/`)
+
+Every variant ran on all 2009 plant rows through one harness (80 runs, every exit 0; the rows are 1747 distinct plants, since A, B and C share their 131 non-noisy plants); the real sources with step (i)'s harness.
+`none` and `b2` equal HEAD and step 2's (b) on every row, so their logs are not repeated here.
+
+| over 2009 rows | HEAD | a | b2 | s | c | cb | cs | cbs |
+|---|---|---|---|---|---|---|---|---|
+| wrong (> 1 %, any model) | 414 | 135 | 251 | 181 | 80 | 79 | 48 | 50 |
+| right (≤ 0.1 %) | 1401 | 1773 | 1468 | 1452 | 1830 | 1814 | 1830 | 1815 |
+| right lost against HEAD | — | 62 | 6 | 0 | 5 | 11 | 5 | 11 |
+| accepted with b/a off > 0.01 | 319 | 85 | 225 | 132 | 58 | 59 | 40 | 40 |
+| refused (the Fit throws) | 19 | 19 | 20 | 32 | 19 | 19 | 28 | 28 |
+
+- **Q0 held:** `none` = HEAD and `b2` = (b), row for row on all 2009 plants and all six real sources.
+- **Q1 (c) held:** 80 wrong, 5 right lost (4 the trap set's right-by-luck fits, 1 Poisson to 0.1–1 %), 3 newly wrong; 0 wrong
+  and 0 lost on the 96 plants with a 1/r² tail ((a): 25 and 36); identical to the projection on every row of every set. On
+  the real sources only sub-pixel moves (≤ 0.13 px, ≤ 4e-4 in b/a), and it kept HEAD's fit where (a) alone moved S4 R3w.
+- **Q2 (b2) not held:** it refuses 19 right fits, all in N — rings point-sampled at σ 0.25–0.30 px, which step 2's refuter
+  had already found and this registration missed (pixel-integrated narrow rings: none). On the real sources it refuses
+  exactly Au_ref A4 and Ni65Cu35 R3, as predicted.
+- **Q3 (s) held as worded, and refuted on real data:** 0 right fits refused on any set (S3, S4 included); it changes 268 of
+  HEAD's 405 wrong profile fits (66 %); at step (i)'s annuli it refuses exactly Au_ref A4 and W4. But the refuter shifted the
+  Au_ref annuli by up to ±2 px (726 annuli, a truth-free check): the conic seed swings 9.1–11.5 px on ring A1 while the
+  profile fits agree at 10.24–10.65 px (b/a 0.968–0.978), and s refuses 14 more annuli, 9 of them on fits that agree with
+  their neighbours — final refusals, because those conics are over the 0.2 fallback cap. On a separate 50-annulus grid this
+  session saw 9 (A1 5 of 16, W3 4 of 25; `step-ii/shift/`), 8 on agreeing fits. A check gated on the conic's own residual
+  (≤ 0.2) keeps 255 of 268 synthetic catches and none of those refusals, in a re-reading of the logs only: a new idea.
+- **Q4 (cbs) partly:** 50 wrong (≤ c's 80) and refusals of exactly Au_ref A4, W4 and Ni65Cu35 R3 on the real sources, nothing
+  else beyond c's sub-pixel moves; but 11 right lost (> c's 5 + 2: the 6 N rings of Q2, the 4 trap fits, 1 Poisson) and b/a
+  off > 0.01 on 40 plants, tied with cs rather than fewer.
+- **Q5 not held for cbs:** the tool passes under cbs. On `grains_12_one_annulus` the half-maximum start ends ring-less
+  (I1 = 0, σ 3.8 / 4.5 px, a = b = 50.2 against the plant's 41.2); its σ are live and the conic seed is itself near 50, so
+  neither guard sees it, and b/a is exact on an isotropic pattern. none and c pass; b2 and s fail on that case, as predicted.
+- **Q6 held** (lane G, gate copies only): head-c 2233 / 2 / 4 and head-s 2232 / 2 / 4 (exit 65, exactly the new noisy
+  methods), a-c 2234 / 1 / 4 (exactly the new 1/r²-tail plant: (a) +2.34 %, HEAD −0.0023 %), c and cbs 2235 / 0 / 4, s
+  2234 / 0 / 4, b2 2233 / 0 / 4, none 2232 / 0 / 4; core 0 each; every total = the copy's `func test` count.
+- **New refusals:** cbs refuses 9 Poisson plants HEAD answered; all 9 HEAD fits were 10–33 % off in R and 0.17–0.57 in b/a.
+- **Cost per click:** two starts take 31 → 51 ms per annulus on the WS2 map and 43 → 48 ms on Au_ref.
+- **cb (two starts + the floor guard):** 79 wrong, 11 right lost (the 6 point-sampled N rings, the 4 trap fits, 1 Poisson),
+  b/a off on 59, no new refusal anywhere; on the real sources it refuses exactly Au_ref A4 and Ni65Cu35 R3 and moves the WS2
+  fits sub-pixel; none of the shifted Au_ref annuli is refused. Gates (gate copy, with lane G's test-c): unit **2235 / 0 / 4 = 2239** = `func test`, all three new methods green;
+  core 0; `ellipse-calibration-test` all passed (`grains_12` fits isotropic through the half-maximum start's ring-less fit)
+  (`step-ii/CB/`).
+- **cs against cbs:** cs has the fewest wrong (48) and refuses no right fit anywhere, but keeps the real Ni65Cu35 R3 dead ring
+  (b/a 0.947 against the conic's 0.989); cbs refuses it, at the cost of 6 synthetic sub-pixel point-sampled rings.
+- **Residuals no candidate catches:** a ring-less fit with live σ near its seed (`grains_12` under cbs), and a ring σ at its
+  ceiling inside the annulus (Au_ref W3, WS2 map R1/R2 — none a b/a outlier).
+- **Refuter (RF3, Sonnet, fresh; `step-ii/RF3/report.md`):** its own harness and builds reproduce every set's rows and all 36
+  real-source logs byte for byte. c UPHELD WITH CORRECTIONS (lower cost is not closer in 31 of 557 materially different
+  pairs; 3 plants HEAD had within 1 % end outside it; on gapped 1/r² tails at ≤ 20 counts c is no better than HEAD, 16 vs
+  14 wrong); b2 UPHELD WITH CORRECTIONS (the 19 point-sampled refusals, conic within 1.1 % and 0.005 in b/a; a ring-less fit
+  with σ > 0.30 escapes; its message names the 0.25 px floor for a 0.30 px test); s REFUTED as registered (above); cbs UPHELD
+  WITH CORRECTIONS only with s gated or dropped (it inherits s's refusals; in 8 Poisson plants a refused start hands the choice
+  to a worse second start; a constructed edge-clipped ring is accepted ring-less).
+
+**Outcome.** c and b2 hold their evidence with corrections; s does not survive real data as registered; cb — two starts and
+the floor guard, registered as a combination and run on every set — is the candidate that helps on the synthetic sets and on
+the owner's patterns without a refusal of a right real fit. Nothing lands before card M3.

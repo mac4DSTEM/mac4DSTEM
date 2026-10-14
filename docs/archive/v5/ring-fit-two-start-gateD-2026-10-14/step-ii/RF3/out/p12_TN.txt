@@ -1,0 +1,10 @@
+===== T: rows none=256 {'none': 256, 'a': 256, 'c': 256}
+ conic-seed |dR| : n=252 p50 0.0162 p90 0.0521 p99 0.1137 max 0.1152; |dba| p50 0.0025 p90 0.0196 max 0.0245
+ none: right profile fits 179: |depart| p50 0.0153 p99 0.0544 max 0.0544  >.05:4 >.06:0 >.08:0 | mid 26 max 0.0712 >.08:0 | wrong 44: >.08: 19, in (.05,.08]: 25
+ a   : right profile fits 193: |depart| p50 0.0118 p99 0.0544 max 0.0544  >.05:4 >.06:0 >.08:0 | mid 21 max 0.0540 >.08:0 | wrong 34: >.08: 18, in (.05,.08]: 12
+ c   : right profile fits 193: |depart| p50 0.0118 p99 0.0544 max 0.0544  >.05:4 >.06:0 >.08:0 | mid 30 max 0.0712 >.08:0 | wrong 29: >.08: 11, in (.05,.08]: 18
+===== N: rows none=280 {'none': 280, 'a': 280, 'c': 280}
+ conic-seed |dR| : n=280 p50 0.0002 p90 0.0017 p99 0.0097 max 0.0114; |dba| p50 0.0001 p90 0.0007 max 0.0047
+ none: right profile fits 169: |depart| p50 0.0002 p99 0.0101 max 0.0113  >.05:0 >.06:0 >.08:0 | mid 1 max 0.0076 >.08:0 | wrong 91: >.08: 56, in (.05,.08]: 12
+ a   : right profile fits 279: |depart| p50 0.0002 p99 0.0096 max 0.0113  >.05:0 >.06:0 >.08:0 | mid 1 max 0.0021 >.08:0 | wrong 0: >.08: 0, in (.05,.08]: 0
+ c   : right profile fits 280: |depart| p50 0.0002 p99 0.0096 max 0.0113  >.05:0 >.06:0 >.08:0 | mid 0 max nan >.08:0 | wrong 0: >.08: 0, in (.05,.08]: 0

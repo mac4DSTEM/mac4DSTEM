@@ -1,0 +1,2 @@
+s refusals (seed) by conic residual of the seed and head status (ii plants): {('cres<=0.2', 'head wrong'): 255, ('cres>0.2', 'head wrong'): 13}
+head wrong profile fits by conic residual: {'wrong profile': 405, 'cres<=0.2': 392, 'cres>0.2': 13}

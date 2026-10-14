@@ -1,0 +1,39 @@
+s    refusal=seed : fallback conic vs the refused profile fit (|dba| by 2e-3): better 230 same 13 worse 12; THREW (no fallback) 13
+      worse: P P-a10-R200-e3-g0-const3-441 refused fit dR=-0.0778 dba=-0.0056 -> conic dR=+0.0081 dba=+0.0148
+      worse: P P-a10-R200-e3-g0-const3-201 refused fit dR=-0.0752 dba=-0.0072 -> conic dR=+0.0078 dba=+0.0146
+      worse: A noisy-512x512-r80-e3-t45-g60-s10-p1 refused fit dR=-0.1191 dba=+0.0061 -> conic dR=+0.0123 dba=+0.0128
+      worse: T T-neigh-f1.155-A1.5-e1-n10-t20-018 refused fit dR=+0.7428 dba=+0.0012 -> conic dR=+0.1087 dba=+0.0064
+      worse: T T-neigh-f1.155-A1.5-e1-n3-t20-016 refused fit dR=+0.7416 dba=-0.0003 -> conic dR=+0.1104 dba=+0.0053
+      worse: S3 S3-const0.3-n30-R200-e3-t112.5-113 refused fit dR=-0.0794 dba=-0.0102 -> conic dR=+0.0071 dba=+0.0147
+b2   refusal=floor: fallback conic vs the refused profile fit (|dba| by 2e-3): better 157 same 38 worse 22; THREW (no fallback) 1
+      worse: S3 S3-none0-n30-R140-e3-t112.5-091 refused fit dR=-0.0567 dba=-0.0003 -> conic dR=+0.0129 dba=+0.0136
+      worse: S3 S3-none0-n30-R140-e3-t20-031 refused fit dR=-0.0601 dba=-0.0016 -> conic dR=+0.0125 dba=+0.0133
+      worse: S3 S3-const0.3-n30-R140-e3-t20-033 refused fit dR=-0.0609 dba=-0.0021 -> conic dR=+0.0135 dba=+0.0129
+      worse: P P-a10-R200-e3-g0-const3-441 refused fit dR=-0.0778 dba=-0.0056 -> conic dR=+0.0081 dba=+0.0148
+      worse: S3 S3-const0.3-n30-R140-e3-t112.5-093 refused fit dR=-0.0614 dba=-0.0036 -> conic dR=+0.0134 dba=+0.0125
+      worse: P P-a10-R140-e3-g0-const3-121 refused fit dR=-0.0600 dba=-0.0066 -> conic dR=+0.0152 dba=+0.0151
+cbs  refusal=seed : fallback conic vs the refused profile fit (|dba| by 2e-3): better 16 same 1 worse 3; THREW (no fallback) 9
+      worse: T T-neigh-f1.155-A1.5-e1-n3-t20-016 refused fit dR=+0.7416 dba=-0.0003 -> conic dR=+0.1104 dba=+0.0053
+      worse: T T-neigh-f1.155-A1.5-e1-n3-t112.5-017 refused fit dR=+0.6970 dba=-0.0035 -> conic dR=+0.1104 dba=+0.0065
+      worse: T T-neigh-f1.155-A1.5-e3-n3-t112.5-021 refused fit dR=+0.7593 dba=+0.0146 -> conic dR=+0.1147 dba=+0.0167
+cbs  refusal=floor: fallback conic vs the refused profile fit (|dba| by 2e-3): better 9 same 51 worse 7; THREW (no fallback) 0
+      worse: T T-neigh-f1.155-A1.5-e1-n10-t20-018 refused fit dR=+0.7428 dba=+0.0012 -> conic dR=+0.1087 dba=+0.0064
+      worse: N N-g3-s0.3-R60-e3-m20-077 refused fit dR=+0.0000 dba=+0.0000 -> conic dR=+0.0097 dba=+0.0047
+      worse: N N-g3-s0.3-R120-e3-m20-217 refused fit dR=-0.0000 dba=+0.0000 -> conic dR=+0.0029 dba=+0.0027
+      worse: T T-edge-mi3-mo37-e1-n10-t20-202 refused fit dR=-0.4266 dba=+0.0036 -> conic dR=+0.0234 dba=+0.0060
+      worse: N N-g3-s0.25-R60-e3-m20-072 refused fit dR=+0.0000 dba=-0.0000 -> conic dR=+0.0114 dba=+0.0024
+      worse: T T-neigh-f1.155-A1.5-e1-n10-t112.5-019 refused fit dR=+0.7347 dba=-0.0031 -> conic dR=+0.1087 dba=+0.0055
+cs   refusal=seed : fallback conic vs the refused profile fit (|dba| by 2e-3): better 25 same 4 worse 6; THREW (no fallback) 9
+      worse: T T-neigh-f1.155-A1.5-e1-n10-t20-018 refused fit dR=+0.7428 dba=+0.0012 -> conic dR=+0.1087 dba=+0.0064
+      worse: T T-neigh-f1.155-A1.5-e1-n3-t20-016 refused fit dR=+0.7416 dba=-0.0003 -> conic dR=+0.1104 dba=+0.0053
+      worse: T T-neigh-f1.155-A1.5-e1-n3-t112.5-017 refused fit dR=+0.6970 dba=-0.0035 -> conic dR=+0.1104 dba=+0.0065
+      worse: T T-edge-mi3-mo37-e1-n10-t20-202 refused fit dR=-0.4266 dba=+0.0036 -> conic dR=+0.0234 dba=+0.0060
+      worse: T T-neigh-f1.155-A1.5-e1-n10-t112.5-019 refused fit dR=+0.7347 dba=-0.0031 -> conic dR=+0.1087 dba=+0.0055
+      worse: T T-neigh-f1.155-A1.5-e3-n3-t112.5-021 refused fit dR=+0.7593 dba=+0.0146 -> conic dR=+0.1147 dba=+0.0167
+cb   refusal=floor: fallback conic vs the refused profile fit (|dba| by 2e-3): better 7 same 51 worse 7; THREW (no fallback) 0
+      worse: T T-neigh-f1.155-A1.5-e1-n10-t20-018 refused fit dR=+0.7428 dba=+0.0012 -> conic dR=+0.1087 dba=+0.0064
+      worse: N N-g3-s0.3-R60-e3-m20-077 refused fit dR=+0.0000 dba=+0.0000 -> conic dR=+0.0097 dba=+0.0047
+      worse: N N-g3-s0.3-R120-e3-m20-217 refused fit dR=-0.0000 dba=+0.0000 -> conic dR=+0.0029 dba=+0.0027
+      worse: T T-edge-mi3-mo37-e1-n10-t20-202 refused fit dR=-0.4266 dba=+0.0036 -> conic dR=+0.0234 dba=+0.0060
+      worse: N N-g3-s0.25-R60-e3-m20-072 refused fit dR=+0.0000 dba=-0.0000 -> conic dR=+0.0114 dba=+0.0024
+      worse: T T-neigh-f1.155-A1.5-e1-n10-t112.5-019 refused fit dR=+0.7347 dba=-0.0031 -> conic dR=+0.1087 dba=+0.0055

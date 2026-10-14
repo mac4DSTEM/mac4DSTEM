@@ -1,0 +1,6 @@
+C none vs ii head: 275 rows, mismatches (status or dR/dba/fa/fb/resid rel 1e-9): 0
+C a vs ii a: 275 rows, mismatches (status or dR/dba/fa/fb/resid rel 1e-9): 0
+C c vs ii c: 275 rows, mismatches (status or dR/dba/fa/fb/resid rel 1e-9): 0
+P none vs ii head: 480 rows, mismatches (status or dR/dba/fa/fb/resid rel 1e-9): 0
+P a vs ii a: 480 rows, mismatches (status or dR/dba/fa/fb/resid rel 1e-9): 0
+P c vs ii c: 480 rows, mismatches (status or dR/dba/fa/fb/resid rel 1e-9): 0
