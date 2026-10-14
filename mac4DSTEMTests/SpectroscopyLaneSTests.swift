@@ -102,6 +102,7 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertEqual(RegionExtent.edited(r, .height, to: 40, grid: grid), rect(10, 8, 30, 48), "kept in the grid")
         XCTAssertEqual(RegionExtent.edited(r, .width, to: 0, grid: grid), rect(10, 8, 11, 20), "at least one pixel")
         XCTAssertEqual(RegionExtent.edited(r, .height, to: -3, grid: grid), rect(10, 8, 30, 9))
+        XCTAssertEqual(RegionExtent.edited(r, .width, to: -3, grid: grid), rect(10, 8, 11, 20), "a negative width does not flip the rectangle")
         XCTAssertEqual(RegionExtent.edited(.ellipse(PixelRect(x0: 2, y0: 2, x1: 12, y1: 12)), .width, to: 4, grid: grid),
                        .ellipse(PixelRect(x0: 2, y0: 2, x1: 6, y1: 12)), "an ellipse keeps its kind")
     }
@@ -259,8 +260,8 @@ final class SpectroscopyLaneSTests: XCTestCase {
 
     /// In en_US every cell is character for character what `String(format:)` printed before, ties included; in de_DE the same
     /// digits take a comma and no period survives; the record locale keeps today's text on every Mac.
-    /// Mutation: `number` formats without the locale (de_DE keeps a period), or through a FormatStyle (a tie such as 0.35 rounds
-    /// differently from `%.1f`) - red.
+    /// Mutation: `number` formats without the locale (de_DE keeps a period), or through `String(format:locale:)` / a FormatStyle (a
+    /// tie such as 0.35 rounds differently from `%.1f`: measured) - red.
     func testResultCellsKeepTheirDigitsAndTakeTheLocalesSeparator() {
         let en = Locale(identifier: "en_US"), de = Locale(identifier: "de_DE")
         for (v, s) in [(88.1, 0.9), (0.25, 0.35), (1.005, 2.675), (97.65, 0.05), (0.0, 0.0), (100.0, 1.25), (-0.15, 12.349)] {
@@ -303,7 +304,7 @@ final class SpectroscopyLaneSTests: XCTestCase {
         let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("mac4DSTEM/UI/Spectroscopy/SpectroscopyInspectors.swift")
         let source = try String(contentsOf: file, encoding: .utf8)
-        let allowed = ["Edit\u{2026}", "Done", "Pin"]
+        let allowed = ["Edit\\u{2026}", "Done", "Pin"]
         let bare = source.split(separator: "\n").map(String.init).filter { line in
             let t = line.trimmingCharacters(in: .whitespaces)
             guard !t.hasPrefix("//"), let r = t.range(of: "Button(") else { return false }

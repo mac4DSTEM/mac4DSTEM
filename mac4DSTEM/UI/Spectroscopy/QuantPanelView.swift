@@ -10,9 +10,13 @@ enum ResultFormat {
     static func plusMinus(_ v: Double, _ s: Double, digits: Int, locale: Locale = .current) -> String {
         number(v, digits, locale) + " ± " + number(s, digits, locale)
     }
-    /// A number with `digits` decimals in `locale`'s decimal separator; same rounding as `%.<digits>f`.
+    /// A number with `digits` decimals in `locale`'s decimal separator. The digits are printf's, on purpose: `String(format:locale:)`
+    /// and `FormatStyle` round through ICU and differ on ties (0.35 reads 0.4 there, 0.3 in `%.1f`; measured 2026-10-14), and the
+    /// digits a scientist reads must not move with the region. Only the separator is the locale's.
     static func number(_ v: Double, _ digits: Int, _ locale: Locale = .current) -> String {
-        String(format: "%.\(digits)f", locale: locale, v)
+        let text = String(format: "%.\(digits)f", v)
+        guard let separator = locale.decimalSeparator, separator != "." else { return text }
+        return text.replacingOccurrences(of: ".", with: separator)
     }
     /// The locale a number written into a session record uses: the record is the same text on every Mac, so it is never the
     /// person's region (the table on screen is).
