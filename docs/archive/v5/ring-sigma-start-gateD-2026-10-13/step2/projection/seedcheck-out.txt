@@ -1,0 +1,7 @@
+head_A.log wrong 35 flagged 32 | right 186 flagged 0
+head_B.log wrong 32 flagged 29 | right 187 flagged 0
+C_head.log wrong 29 flagged 26 | right 193 flagged 0
+P_head.log wrong 148 flagged 134 | right 241 flagged 0
+N_head.log wrong 91 flagged 68 | right 169 flagged 0
+T_head.log wrong 44 flagged 44 | right 179 flagged 4
+TOTAL wrong 379 flagged 333 | right 1155 flagged 4

@@ -133,9 +133,12 @@ plants regenerate from their seeds. "Wrong" = an accepted fit off by > 1 % in (a
 - **A lead for a new registration (projection, not a measurement):** in every loss above, the worse fit has the higher
   cost. Keeping the lower-cost of HEAD's and (a)'s profile fits, from the logged rows of all 2009 plants: 80 wrong (HEAD
   414, a 135), 0 lost on the tails, 3 new wrong, 5 right lost of which 4 are the right-by-luck trap fits
-  (`projection/twostart.py`, `twostart-out.txt`).
+  (`projection/twostart.py`, `twostart-out.txt`); 8 of the 441 rings where the starts disagree go the other way
+  (`costorder.py`). The card's second opinion added a seed-consistency check: refusing a profile fit whose radius left the
+  conic seed by > 5 % flags 333 of 379 wrong HEAD fits and 4 of 1155 right ones (`seedcheck.py`, reproduced; in-sample).
 
 **Outcome.** The diagnosis holds for flat backgrounds (the start traps the fit; a start at the ring's width escapes, at a
 lower cost), but no held candidate meets its registration: (a) and (ab) fail the clean clause and lose right fits on a
 1/r² tail, and (b) catches fewer than 10 out of sample and turns the tool red. Nothing lands. The choice is the owner's,
-card M2.
+card M2 (`owner-decisions-2026-10-14-ring-sigma-m2.json`, sheet https://claude.ai/artifact/Qz9Ve9QxuzEFjQw7CTN7cQ;
+recommended d: register two starts + the floor guard + the seed check, measured on his own cubes first).

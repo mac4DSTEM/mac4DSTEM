@@ -1,0 +1,121 @@
+{
+ "date": "2026-10-14: card M2, the ring fit on noisy patterns",
+ "storageKey": "mac4dstem-decisions-2026-10-14-m2-ring-fit",
+ "lede": "One card. The Fit button's ring fit can accept a wrong ellipse on noisy patterns. Step 2 of its Gate D built and tested two fixes, and a fresh refuter checked them: neither can land as it stands. (a) failed a registered clause and harms fits on another background; (b) met its registration on the registered sets but caught little out of sample and turns a tool test red. Nothing is applied until you answer. This page replaces the old “mac4DSTEM Decisions” sheet, which was on your previous account and can no longer be opened.",
+ "cards": [
+  {
+   "id": "M2",
+   "title": "The Fit on noisy rings: land a tested fix, or register a better one first",
+   "status": "open",
+   "context": [
+    "What goes wrong. On a noisy ring the Fit button can return a wrong ellipse and accept it: off by up to 48 % in radius, 0.51 in b/a and 40 px in the centre. The app applies b/a and the angle to every Bragg vector, so b/a is the number that matters. On three test sets of 144 noisy rings (flat background, noise 3 and 10 % of the ring) 35, 32 and 29 fits were wrong. On the set measured for this, the wrong fits appeared only when the centre guess was within about 3 px of the true centre (none at 7.8 px or more); the app's guess is the measured beam centre, so a good guess is the normal case. Why the guess matters is not established. On clean rings today's Fit is right: where its profile stage gives up (25 of 84 clean test rings) it falls back to an accurate conic.",
+    "Why. The profile model starts its two ring widths at 10–17 px for a ring about 3 px wide. From there the fit either drains the ring into the background (a ring width ends at its 0.25 px floor; about half the cases) or slides off centre with healthy widths (the other half). The residual cap catches neither.",
+    "What was built and tested, held, nothing applied. (a) Start the ring widths at the ring's own measured width. (b) Refuse a fit whose ring width ended at the floor; the Fit then falls back to the conic. Fixture tests are written: red on today's code, green under the fix they belong to, and the whole unit suite green with each fix.",
+    "(a) cures every wrong fit on flat backgrounds (set C: b/a off by more than 0.01 on 25 fits today, 0 under a). It failed its registered clean-ring clause: it replaces today's accurate conic fallbacks and moves some kept fits to fits that cost less but sit farther from the plant (b/a error up to 0.003 instead of 0.0005; angle error up to 0.155 rad instead of 0.027). Out of sample, on a background that falls off as 1/r² from the beam, as a mean pattern's central beam does, with noise of 5–30 % of the ring: 25 of 96 fits end more than 1 % off in radius and 7 have b/a off by more than 0.01 (one by 0.71), where today's code has none.",
+    "(b) met its registration on the registered sets (15 of 35 and 16 of 32 wrong fits refused, no right fit refused) and refused no right fit in any test on normal, pixel-integrated rings. Out of sample it caught only 7 of 29, and it barely changes what the app applies: on set C, 22 fits keep b/a off by more than 0.01, against 25 today. It misses the off-centre kind. It also turns the ellipse tool's own test red: on a 12-spot pattern the Fit would refuse (no calibration) instead of returning a circle 64 % too small whose b/a is right.",
+    "On your Au_ref mean pattern, today's Fit has four doubtful fits on seven annuli: a ring-less fit on [30, 38] px, a ring placed outside its annulus on [29, 39], a ring width at its ceiling on [20, 31], and the central-beam term at its bounds on [13, 21]. (b) refuses the first. (a) changes nothing there: its width estimate found no half-maximum on 5 of 7 annuli. So on the one real pattern tested, neither fix is shown to help or to harm beyond that one refusal; the harm (a) does on a 1/r² background was seen on synthetic patterns.",
+    "Two leads, not measurements. First, in most losses the worse fit had the higher cost (19 of 20 on the Poisson set; of 441 test rings where the two starts disagree, 8 went the other way). Keeping the lower-cost fit of the two starts, projected from the logged rows of 2009 test rings: 80 wrong, against 414 today and 135 under (a); b/a off by more than 0.01 on 58, against 319 today and 85 under (a); 5 right fits lost, 3 newly wrong. Second, refusing a profile fit whose radius moved more than 5 % from the conic seed flags 333 of 379 wrong fits today and 4 of 1155 right ones, and would flag the two worst Au_ref fits. Both were found by reading these same runs (the sets overlap, and some are synthetic extremes), so they are not rates, and their thresholds must be measured before they are trusted: each needs its own registration.",
+    "Whatever lands here is copied into macTEM, which reported the defect."
+   ],
+   "glossary": [
+    {
+     "term": "profile fit",
+     "meaning": "the Fit button's first choice: a ring model with a background and a central beam term."
+    },
+    {
+     "term": "conic fallback",
+     "meaning": "the Fit button's second choice, used when the profile fit is refused."
+    },
+    {
+     "term": "ring width (σ)",
+     "meaning": "the fitted width of the ring's two flanks; 0.25 px is its floor."
+    },
+    {
+     "term": "start",
+     "meaning": "the values the fit begins from; a fit can stop in a wrong minimum if it starts far from the ring."
+    },
+    {
+     "term": "cost",
+     "meaning": "how far the model is from the pixels; the fit lowers it, and between two fits of the same pixels the lower one is the better fit of the model."
+    },
+    {
+     "term": "1/r² tail",
+     "meaning": "background that falls off away from the central beam; a summed or mean pattern has one."
+    },
+    {
+     "term": "wrong / right",
+     "meaning": "off by more than 1 % / within 0.1 % in the mean radius (a + b)/2."
+    }
+   ],
+   "question": "Land one of the tested fixes now, or register the two-start fit first?",
+   "options": [
+    {
+     "key": "a",
+     "label": "Land (a), the measured-width start",
+     "what": "Cures the flat-background failures. Clean fits move a little, farther from the truth in angle. Worse than today on a 1/r² background with noise.",
+     "effort": "≈ 1 session",
+     "risk": "high: turns right fits wrong on the background a mean pattern has (seen on synthetic patterns)"
+    },
+    {
+     "key": "b",
+     "label": "Land (b), the floor guard, alone",
+     "what": "The Fit refuses a ring-less fit and falls back to the conic. The off-centre kind stays an open item. The ellipse tool's 12-spot case changes from 'fit' to 'refuse'.",
+     "effort": "≈ 1 session",
+     "risk": "low: refused no right fit in any test; small effect on b/a"
+    },
+    {
+     "key": "ab",
+     "label": "Land both",
+     "what": "The fewest wrong fits on the low-count tests, but on a 1/r² background it inherits (a)'s damage and its conic fallbacks are biased too.",
+     "effort": "≈ 1 session",
+     "risk": "high: on the 1/r² backgrounds 11 of 96 fits with b/a off by more than 0.01 and one new refusal, against 0 today"
+    },
+    {
+     "key": "c",
+     "label": "Land (b) now, and register the new checks",
+     "what": "(b) as above now, then the new item of d. The tool's expectation and the same function change twice.",
+     "effort": "≈ 1 session, then 1–2",
+     "risk": "low now; the new item's numbers are leads until it is built"
+    },
+    {
+     "key": "d",
+     "label": "Register one new item; land nothing until it passes",
+     "what": "Measure 2–3 of your own cubes first (a mean pattern and a Bragg-vector map), to see which background your data has. Then fit from both starts and keep the lower cost, with (b)'s floor guard and a seed-consistency check (refuse a fit whose radius left the conic seed by more than a measured threshold), each also gated alone; tested on every set used here, Au_ref and the tool.",
+     "effort": "1–2 sessions; you name the cubes",
+     "risk": "low; today's Fit stays until it passes; two fits per click instead of one"
+    },
+    {
+     "key": "e",
+     "label": "Measure your cubes only, then decide",
+     "what": "Run today's Fit and the two fixes on 2–3 of your cubes and bring the numbers back here. Nothing is registered or landed yet.",
+     "effort": "≈ half a session; you name the cubes",
+     "risk": "none; the fix waits one more round"
+    },
+    {
+     "key": "f",
+     "label": "Land nothing; close it as a known limit",
+     "what": "Recorded in open-items and in the Fit's help text.",
+     "effort": "minutes",
+     "risk": "wrong ellipses stay possible on noisy rings with a good centre guess"
+    }
+   ],
+   "recommend": "d",
+   "recommendWhy": "Neither tested fix is both safe and useful: (a) harms fits on the 1/r² background a mean pattern has, and (b) is safe but hardly moves b/a. The two leads address both kinds of failure on these runs, and (b)'s guard belongs with them; measuring your own cubes first tells which kind your data has. v5.0 waits until everything is settled, so landing (b) first buys nothing a user would see and changes the same function and the tool's expectation twice.",
+   "advisor": "An independent second opinion (Sonnet 5.5, read-only; it did not see this recommendation) picked d and widened it: add the seed-consistency check (its own parse; reproduced here: 333 of 379 wrong fits flagged, 4 of 1155 right ones) and measure on your own cubes first, which became part of d and option e. It corrected the draft, and every correction is on this card: (b) met its registration on the registered sets and failed only out of sample; in b/a terms (a) damages 7 of 96 fits on the 1/r² backgrounds and (ab) 11 plus a refusal; not every loss had the higher cost (8 of 441 pairs did not); the two-start gain over (a) is 135 → 80 wrong, not 414 → 80; and on Au_ref (a) does nothing, so its harm there is extrapolated from synthetic patterns.",
+   "nothing": "Nothing lands; today's Fit stays, and the defect stays recorded in open-items.",
+   "sources": [
+    "docs/archive/v5/ring-sigma-start-gateD-2026-10-13.md (Results — step 2)",
+    "docs/archive/v5/ring-sigma-start-gateD-2026-10-13/step2/RF2/report.md (the refuter)",
+    "docs/archive/v5/ring-sigma-start-gateD-2026-10-13/step2/projection/ (the two leads: twostart-out.txt, seedcheck-out.txt)",
+    "docs/archive/v5/ring-sigma-start-gateD-2026-10-13/step2/{M,T,P5,F2}/ (lanes)"
+   ],
+   "images": [],
+   "answer": ""
+  }
+ ],
+ "not_carded": [
+  "Decided for you, overrule on sight: the fixture tests stay out of the app's test suite until a fix lands, because they are red on today's code. They are kept with the record and in the gate copies.",
+  "Not decided here: how often this hits your own cubes. The off-centre failures need a good centre guess and a flat background; which of your sources (a Bragg-vector map or a mean pattern) is flatter is not measured. Your Au_ref mean pattern showed the ring-less kind."
+ ],
+ "footer": "Sources: the Gate D record docs/archive/v5/ring-sigma-start-gateD-2026-10-13.md and its step2/ folder (lanes M, T, P5, F, F2, the refuter RF2, the two leads in projection/). Second opinion: Sonnet 5.5, read-only, independent of the session; it did not see the recommendation."
+}
