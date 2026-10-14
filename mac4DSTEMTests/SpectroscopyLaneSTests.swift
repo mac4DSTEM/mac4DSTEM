@@ -282,4 +282,15 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertEqual(ResultFormat.ratio(ratio, locale: en), "1.092 \u{00B1} 0.021")
         XCTAssertEqual(ResultFormat.ratio(ratio, locale: de), "1,092 \u{00B1} 0,021")
     }
+
+    // MARK: Row 7 - no work-package names in user text
+
+    /// The unregistered note speaks plainly (no "WP3"), appears only beside a 4D cube, and is one string for both places that show it.
+    /// Mutation: the old sentence restored, or the note returned without a cube - red.
+    func testTheUnregisteredNoteNamesNoWorkPackage() {
+        let note = SpectroscopyPlaceholderFormat.registrationNote(hasFourDCube: true)
+        XCTAssertEqual(note, SpectroscopyPlaceholderFormat.unregisteredNote)
+        XCTAssertFalse(note?.contains("WP") ?? true)
+        XCTAssertNil(SpectroscopyPlaceholderFormat.registrationNote(hasFourDCube: false))
+    }
 }

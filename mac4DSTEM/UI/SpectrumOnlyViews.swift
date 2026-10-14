@@ -104,8 +104,11 @@ enum SpectroscopyPlaceholderFormat {
     /// registration record (M2, ADR 053 item 4) comes with WP3, and until then
     /// no pixel of one may be read as a pixel of the other.
     static func registrationNote(hasFourDCube: Bool) -> String? {
-        hasFourDCube ? "Not registered to the 4D scan: the registration record comes with WP3." : nil
+        hasFourDCube ? unregisteredNote : nil
     }
+
+    /// The sentence a spectrum image beside a 4D cube carries until a registration exists (one place for the note and the source row).
+    static let unregisteredNote = "Not registered to the 4D scan: a pixel of one is not a pixel of the other."
 
     /// "az 45° · el 18° · 0.7 sr (as stored)": only what the file wrote.
     static func detector(_ d: SpectrumDetectorSegment) -> String {

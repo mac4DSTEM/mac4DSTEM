@@ -1096,7 +1096,7 @@ final class SpectroscopyRoomController {
         var s = SpectrumImageSettings()
         if !meta.sameScanAs4DCube && hasFourDCube {
             s.sourceWarning = true
-            s.sourceNote = meta.registrationNote ?? "Not registered to the 4D scan: the registration record comes with WP3."
+            s.sourceNote = meta.registrationNote ?? SpectroscopyPlaceholderFormat.unregisteredNote
         }
         return s
     }
