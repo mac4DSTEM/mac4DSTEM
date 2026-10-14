@@ -170,11 +170,13 @@ private struct DatasetCommands: Commands {
             }
         }
         CommandGroup(replacing: .importExport) {
-            Button("Export Result Image…") { appState?.exportResultImage() }
+            // One name per export, the toolbar's too: "Export <what> PNG…". The figure is exported from the Results inspector, where its
+            // images are ticked (SwiftUI's export panel needs a view to present from, and a menu command has none).
+            Button("Export Result PNG…") { appState?.exportResultImage() }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
                 .disabled(appState?.resultPresentation.resultImage == nil
                           && appState?.resultPresentation.resultRGBA == nil)
-            Button("Export Diffraction Pattern…") { appState?.exportDiffractionImage() }
+            Button("Export Diffraction PNG…") { appState?.exportDiffractionImage() }
                 .keyboardShortcut("e", modifiers: [.command, .option])
                 .disabled(appState?.displayedPattern == nil)
             // One sheet for a raw file and for the open dataset's current view

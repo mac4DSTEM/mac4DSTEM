@@ -563,6 +563,45 @@ enum ApertureHandleRules {
     }
 }
 
+/// Where the active virtual detector is drawn, and how its outline looks: the ONE definition the on-screen
+/// `ApertureOverlay` and the exported figures (`Support/FigureRendering.swift`) both take, so an exported detector sits
+/// where the pane draws it. Pure: view points inside `box`, no drawing.
+enum ApertureOutline {
+    struct Metrics: Equatable {
+        /// The detector centre in view points (pixel centres: `PeakOverlayGeometry`'s half-pixel convention).
+        var center: CGPoint
+        var scaleX: CGFloat, scaleY: CGFloat
+        /// View points per detector pixel along a radius (the mean of the two axis scales, as the pane draws it).
+        var radiusScale: CGFloat
+        /// Outer radius (or a square's half-extent) and inner radius, in view points.
+        var outer: CGFloat, inner: CGFloat
+    }
+
+    static func metrics(aperture: Aperture, patternWidth: Int, patternHeight: Int, box: CGSize) -> Metrics {
+        let scaleX = box.width / CGFloat(max(patternWidth, 1))
+        let scaleY = box.height / CGFloat(max(patternHeight, 1))
+        let radiusScale = (scaleX + scaleY) / 2
+        let center = PeakOverlayGeometry.center(
+            x: aperture.centerX, y: aperture.centerY,
+            patternWidth: patternWidth, patternHeight: patternHeight, box: box)
+        return Metrics(center: center, scaleX: scaleX, scaleY: scaleY, radiusScale: radiusScale,
+                       outer: CGFloat(aperture.outer) * radiusScale, inner: CGFloat(aperture.inner) * radiusScale)
+    }
+
+    /// The dark under-stroke beneath every outline (its width) and the line on top (width, opacity); the inner edge's dash.
+    static let haloWidth: CGFloat = 3.5
+    static let haloOpacity = 0.6
+    static let lineWidth: CGFloat = 1.5
+    static let lineOpacity = 0.9
+    static let innerDash: [CGFloat] = [4, 3]
+    /// The outer edge (and a square or crosshair) and the inner edge of an annulus: the SwiftUI colours the overlay strokes and the
+    /// export resolves, so a figure's outline is the pane's colour, not a near one.
+    static let outerColor = Color.yellow
+    static let innerColor = Color.cyan
+    /// A point detector's crosshair arm, in view points.
+    static let crossArm: CGFloat = 8
+}
+
 /// Interactive detector overlay on the CBED view. Renders and lets you drag the
 /// active virtual-detector geometry: an annulus (inner/outer radius), a square
 /// (half-extent = outer), or a single point. The shape matches the selected
@@ -593,20 +632,19 @@ struct ApertureOverlay: View, Equatable {
 
     var body: some View {
         GeometryReader { geometry in
-            let scaleX = geometry.size.width / CGFloat(max(patternWidth, 1))
-            let scaleY = geometry.size.height / CGFloat(max(patternHeight, 1))
-            let radiusScale = (scaleX + scaleY) / 2
             // Detector coordinates name pixel CENTRES — `VirtualDetector`'s
             // mask computes `dx = Float(x) - centerX` over integer pixel
             // indices. A bare `centerX * scaleX` draws the aperture at the
             // pixel's top-left corner, visibly off-axis on a small detector.
-            // Routed through PeakOverlayGeometry so the half-pixel convention
-            // has one definition shared with the Bragg-peak overlay.
-            let center = PeakOverlayGeometry.center(
-                x: aperture.centerX, y: aperture.centerY,
-                patternWidth: patternWidth, patternHeight: patternHeight,
-                box: geometry.size
-            )
+            // `ApertureOutline.metrics` routes it through PeakOverlayGeometry
+            // so the half-pixel convention has one definition shared with the
+            // Bragg-peak overlay AND with the exported figures.
+            let metrics = ApertureOutline.metrics(
+                aperture: aperture, patternWidth: patternWidth,
+                patternHeight: patternHeight, box: geometry.size)
+            let scaleX = metrics.scaleX, scaleY = metrics.scaleY
+            let radiusScale = metrics.radiusScale
+            let center = metrics.center
 
             ZStack {
                 switch shape {
@@ -648,8 +686,8 @@ struct ApertureOverlay: View, Equatable {
     /// vanishes over a bright disk (polish drive 2026-10-01); the halo keeps
     /// it readable on bright and dark alike. Same hue on top, so nothing about
     /// the outline's meaning changes.
-    private static let haloColor = Color.black.opacity(0.6)
-    private static let haloWidth: CGFloat = 3.5
+    private static let haloColor = Color.black.opacity(ApertureOutline.haloOpacity)
+    private static let haloWidth = ApertureOutline.haloWidth
 
     @ViewBuilder
     private func circle(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat, radiusScale: CGFloat) -> some View {
@@ -659,7 +697,7 @@ struct ApertureOverlay: View, Equatable {
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         Circle()
-            .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
+            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
@@ -677,7 +715,7 @@ struct ApertureOverlay: View, Equatable {
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         Circle()
-            .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
+            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         Circle()
@@ -686,7 +724,7 @@ struct ApertureOverlay: View, Equatable {
             .position(center)
             .opacity(aperture.inner > 0 ? 1 : 0.35)
         Circle()
-            .stroke(Color.cyan.opacity(0.9), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+            .stroke(ApertureOutline.innerColor.opacity(ApertureOutline.lineOpacity), style: StrokeStyle(lineWidth: ApertureOutline.lineWidth, dash: ApertureOutline.innerDash))
             .frame(width: inner * 2, height: inner * 2)
             .position(center)
             .opacity(aperture.inner > 0 ? 1 : 0.35)
@@ -717,7 +755,7 @@ struct ApertureOverlay: View, Equatable {
             .frame(width: half * 2, height: half * 2)
             .position(center)
         Rectangle()
-            .stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
+            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
             .frame(width: half * 2, height: half * 2)
             .position(center)
         centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
@@ -740,11 +778,11 @@ struct ApertureOverlay: View, Equatable {
     private func point(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) -> some View {
         // Crosshair marking the single detector pixel.
         let cross = Path { p in
-            p.move(to: CGPoint(x: center.x - 8, y: center.y)); p.addLine(to: CGPoint(x: center.x + 8, y: center.y))
-            p.move(to: CGPoint(x: center.x, y: center.y - 8)); p.addLine(to: CGPoint(x: center.x, y: center.y + 8))
+            p.move(to: CGPoint(x: center.x - ApertureOutline.crossArm, y: center.y)); p.addLine(to: CGPoint(x: center.x + ApertureOutline.crossArm, y: center.y))
+            p.move(to: CGPoint(x: center.x, y: center.y - ApertureOutline.crossArm)); p.addLine(to: CGPoint(x: center.x, y: center.y + ApertureOutline.crossArm))
         }
         cross.stroke(Self.haloColor, lineWidth: Self.haloWidth)
-        cross.stroke(Color.yellow.opacity(0.9), lineWidth: 1.5)
+        cross.stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
         centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
     }
 
