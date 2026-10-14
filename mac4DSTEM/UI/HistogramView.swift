@@ -155,13 +155,17 @@ struct HistogramView: View {
         }
     }
 
+    /// White on a dark halo, the aperture handles' vocabulary: the bars are the accent colour, so an accent handle disappeared into
+    /// them (UI audit 2026-10-14).
     private func handleBar(x: CGFloat, height: CGFloat) -> some View {
         Rectangle()
-            .fill(Color.accentColor)
-            .frame(width: 2, height: height)
+            .fill(Color.black.opacity(ApertureOutline.haloOpacity))
+            .frame(width: 4, height: height)
+            .overlay { Rectangle().fill(Color.white).frame(width: 2, height: height) }
             .overlay(alignment: .top) {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(Color.white)
+                    .overlay(Circle().stroke(Color.black.opacity(ApertureOutline.haloOpacity), lineWidth: 1))
                     .frame(width: 9, height: 9)
                     .offset(y: -4)
             }

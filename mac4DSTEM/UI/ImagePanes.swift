@@ -409,7 +409,7 @@ struct DiffractionPane: View {
                 }
                 .clipped()
                 .contentShape(Rectangle())
-                .border(Color.white.opacity(0.08))
+                .border(Color.primary.opacity(0.08))
                 .zoomPan(zoomModel, box: box)
 
                 // The scan navigator, for a result whose pixels cannot be clicked to choose a
@@ -1272,7 +1272,7 @@ struct RealSpacePane: View {
                 }
                 .clipped()
                 .contentShape(Rectangle())
-                .border(Color.white.opacity(0.08))
+                .border(Color.primary.opacity(0.08))
                 .zoomPan(zoomModel, box: box)
 
                 footer(dims: dims, box: box, orientation: orientation,
