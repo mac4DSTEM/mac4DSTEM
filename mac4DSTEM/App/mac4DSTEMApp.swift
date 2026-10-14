@@ -237,6 +237,19 @@ private struct DatasetCommands: Commands {
                     blocked: appState?.isBusy == true || appState?.datasetSession.isLoading == true)
                     // Row 8c (ADR 058): a 4D verb has nothing to act on in a spectrum-only window (`DatasetMenuRule`).
                     || appState.map { !DatasetMenuRule.showsPreprocessRawData(in: $0) } == true)
+            // The Spectroscopy room's exports, in the menu bar while that room is on screen (UI audit 2026-10-14, The menu bar);
+            // enabled by the inspector buttons' own rules (`SpectroscopyMenuRule`).
+            if let room = spectroscopyRoomModel {
+                Divider()
+                Button("Export Spectrum CSV\u{2026}") { SpectroscopyMenuRule.exportSpectrum(room) }
+                    .disabled(!SpectroscopyMenuRule.canExportSpectrum(room))
+                Button("Export Maps\u{2026}") { SpectroscopyMenuRule.exportMaps(room) }
+                    .disabled(!SpectroscopyMenuRule.canExportMaps(room))
+                Button("Export Results CSV\u{2026}") { SpectroscopyMenuRule.exportResults(room) }
+                    .disabled(!SpectroscopyMenuRule.canExportResults(room))
+                Button("Export Method JSON\u{2026}") { SpectroscopyMenuRule.exportMethod(room) }
+                    .disabled(!SpectroscopyMenuRule.canExportMethod(room))
+            }
         }
         CommandGroup(replacing: .sidebar) {
             // Labels follow what is on screen, and the action acts on it too
@@ -270,6 +283,11 @@ private struct DatasetCommands: Commands {
             Button("Cancel Analysis") { appState?.cancelActiveOperation() }
                 .keyboardShortcut(".", modifiers: .command)
                 .disabled(appState?.canCancelActiveOperation != true)
+            if let room = spectroscopyRoomModel {
+                Divider()
+                Button("Pin Region") { SpectroscopyMenuRule.pin(room) }
+                    .disabled(!SpectroscopyMenuRule.canPin(room))
+            }
         }
         CommandMenu("Dataset") {
             Button("Save Current Result to Session Sidecar") {
@@ -317,6 +335,13 @@ private struct DatasetCommands: Commands {
                 workspaceCommand(area, key: KeyEquivalent(area.shortcutDigit))
             }
         }
+    }
+
+    /// The Spectroscopy room's model while that room is on screen in the focused window; its commands exist only then.
+    private var spectroscopyRoomModel: SpectroscopyRoomModel? {
+        guard let appState,
+              SpectroscopyMenuRule.showsItems(area: appState.navigation.workspaceArea, hasSpectrumImage: appState.hasSpectrumImage) else { return nil }
+        return appState.spectroscopyRoom.model
     }
 
     /// Runs `action` in the focused window, or — with none — asks for it and opens a window that takes it.

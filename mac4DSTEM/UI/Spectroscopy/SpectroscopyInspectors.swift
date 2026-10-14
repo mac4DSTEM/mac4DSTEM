@@ -224,8 +224,8 @@ struct RegionSection: View {
             .help(model.selectedRegion == 0 ? "The whole map has nothing to compare with." : "The grey curve under the spectrum, scaled to this region's counts")
         }
         InspectorRow("Keep this region") {
-            Button("Pin") { model.onPin?() }
-                .disabled(model.onPin == nil || model.pins.count >= SpectroscopyRoomModel.maximumPins)
+            Button("Pin") { SpectroscopyMenuRule.pin(model) }
+                .disabled(!SpectroscopyMenuRule.canPin(model))
                 .help(model.pins.count >= SpectroscopyRoomModel.maximumPins
                       ? "Three regions are pinned: unpin one under the spectrum first."
                       : "Freeze a copy of this region's spectrum as a coloured overlay (up to three); the live region moves on.")
@@ -490,7 +490,6 @@ struct QuantificationSection: View {
 struct ExportSection: View {
     @Bindable var model: SpectroscopyRoomModel
     @Environment(AppPreferences.self) private var preferences
-    @State private var pickingFolder = false
     static let csvTitle = "Results CSV\u{2026}", jsonTitle = "Method JSON\u{2026}", spectrumTitle = "Spectrum CSV\u{2026}", mapsTitle = "Maps\u{2026}"
     /// The Maps button is on whenever there is an element map to write (no fit needed).
     static func canExportMaps(_ model: SpectroscopyRoomModel) -> Bool { !model.tiles.isEmpty }
@@ -520,12 +519,12 @@ struct ExportSection: View {
         VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
             if let elements = e.elements { InspectorValueRow("Elements", elements) }
             InspectorActionRow {
-                Button(Self.csvTitle) { model.pendingExport = Self.resultsExport(e) }
-                    .disabled(Self.resultsExport(e) == nil)
+                Button(Self.csvTitle) { SpectroscopyMenuRule.exportResults(model) }
+                    .disabled(!SpectroscopyMenuRule.canExportResults(model))
                     .help("The results table: element, line, net counts, k-free ratio, at%, each with its \u{03C3}, the flags and the estimator; the fit's provenance and the unvalidated badge in the header lines")
                     .accessibilityIdentifier("spectroscopy.export.results")
-                Button(Self.jsonTitle) { model.pendingExport = Self.methodExport(e) }
-                    .disabled(Self.methodExport(e) == nil)
+                Button(Self.jsonTitle) { SpectroscopyMenuRule.exportMethod(model) }
+                    .disabled(!SpectroscopyMenuRule.canExportMethod(model))
                     .help("The quantification method in its own sorted-keys encoding, with its SHA-256")
                     .accessibilityIdentifier("spectroscopy.export.method")
             }
@@ -551,26 +550,14 @@ struct ExportSection: View {
                 .accessibilityIdentifier("spectroscopy.export.size")
             }
             InspectorActionRow {
-                Button(Self.spectrumTitle) { model.pendingExport = Self.spectrumExport(model) }
-                    .disabled(!Self.canExportSpectrum(e))
+                Button(Self.spectrumTitle) { SpectroscopyMenuRule.exportSpectrum(model) }
+                    .disabled(!SpectroscopyMenuRule.canExportSpectrum(model))
                     .help("The shown spectrum: energy, counts, and the model and background where fitted")
                     .accessibilityIdentifier("spectroscopy.export.spectrum")
-                Button(Self.mapsTitle) { pickingFolder = true }
-                    .disabled(!Self.canExportMaps(model))
+                Button(Self.mapsTitle) { SpectroscopyMenuRule.exportMaps(model) }
+                    .disabled(!SpectroscopyMenuRule.canExportMaps(model))
                     .help("Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel (times the image size), with the scale bar and the regions when they are on, and the net-count maps as one CSV, into a new folder inside the one you pick (an earlier export is never overwritten)")
                     .accessibilityIdentifier("spectroscopy.export.maps")
-                    .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder]) { result in
-                        switch result {
-                        case .success(let folder):
-                            do {
-                                let written = try MapsExport.writeInNewFolder(try MapsExport.files(model, pixelScale: preferences.exportScale.pixelScale, scheme: FigureColors.scheme(appearance: preferences.appearance)),
-                                                                             in: folder, named: MapsExport.folderName(stem: model.export.mapsStem))
-                                model.exportNote = MapsExport.note(written: written.names, folder: written.folder)
-                                model.exportedFolder = written.folder
-                            } catch { model.exportNote = "Could not write the maps: \(error.localizedDescription)"; model.exportedFolder = nil }
-                        case .failure(let error): model.exportNote = "Could not write the maps: \(error.localizedDescription)"; model.exportedFolder = nil
-                        }
-                    }
             }
             if Self.resultsExport(e) == nil { InspectorNote("Once Quantify has run, the results table and the method can be written.") }
             if let saved = model.exportNote { InspectorNote(saved) }
@@ -581,15 +568,6 @@ struct ExportSection: View {
                     }
                     .accessibilityIdentifier("spectroscopy.export.reveal")
                 }
-            }
-        }
-        .fileExporter(isPresented: Binding(get: { model.pendingExport != nil }, set: { if !$0 { model.pendingExport = nil } }),
-                      document: SpectroscopyTextDocument(text: model.pendingExport?.text ?? ""),
-                      contentType: model.pendingExport?.isJSON == false ? .commaSeparatedText : .json,
-                      defaultFilename: model.pendingExport?.name ?? "spectroscopy") { result in
-            switch result {
-            case .success(let url): model.exportNote = "Saved \(url.lastPathComponent)"
-            case .failure(let error): model.exportNote = "Could not save: \(error.localizedDescription)"
             }
         }
     }

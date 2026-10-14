@@ -13,6 +13,7 @@ struct SpectroscopyRoomHost: View {
         if appState.hasSpectrumImage {
             let controller = appState.spectroscopyRoom
             SpectroscopyRoomContent(model: controller.model)
+                .modifier(SpectroscopyExportPresenters(model: controller.model))
                 .onChange(of: controller.model.elements) { controller.elementsChanged() }
                 .onChange(of: controller.model.smoothing) { controller.smoothingChanged() }
                 .onChange(of: controller.model.selectedRegion) { controller.regionPicked() }

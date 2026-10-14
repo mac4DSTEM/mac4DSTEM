@@ -186,4 +186,72 @@ final class SpectroscopyLaneSTests: XCTestCase {
         m.elements.resetLines(29)
         XCTAssertEqual(SelectedElementRows.linesSummary(m, 29), "Default")
     }
+
+    // MARK: Row 5 - the menu bar and the inspector share one rule
+
+    private func pinned(_ id: Int) -> PinnedRegion {
+        PinnedRegion(id: id, label: "p\(id)", tint: .pink, shape: nil, pixels: 1, spectrum: [1], sourceRegion: nil)
+    }
+
+    /// The room's menu items exist only in the Spectroscopy room, with a spectrum image behind it.
+    /// Mutation: `showsItems` ignores the area, or ignores the image - red.
+    func testTheRoomsMenuItemsShowOnlyInTheRoomWithAnImage() {
+        XCTAssertTrue(SpectroscopyMenuRule.showsItems(area: .spectroscopy, hasSpectrumImage: true))
+        XCTAssertFalse(SpectroscopyMenuRule.showsItems(area: .spectroscopy, hasSpectrumImage: false))
+        for area in WorkspaceArea.allCases where area != .spectroscopy {
+            XCTAssertFalse(SpectroscopyMenuRule.showsItems(area: area, hasSpectrumImage: true), "\(area)")
+        }
+    }
+
+    /// Each export is on exactly when its inspector button is: results and method after Quantify, the spectrum once one is shown,
+    /// the maps once a tile exists. Doing a disabled one changes nothing; an enabled one hands the panel its text, or asks for the folder.
+    /// Mutation: `canExportResults` tests `methodJSON`, `exportSpectrum` loses its guard, or `exportMaps` sets nothing - red.
+    func testEachExportIsOnWhenItsInspectorButtonIsAndDoesWhatItDoes() {
+        let m = SpectroscopyRoomModel.fixture
+        m.tiles = []; m.export = ExportSettings()
+        for on in [SpectroscopyMenuRule.canExportResults(m), SpectroscopyMenuRule.canExportMethod(m),
+                   SpectroscopyMenuRule.canExportSpectrum(m), SpectroscopyMenuRule.canExportMaps(m)] { XCTAssertFalse(on) }
+        SpectroscopyMenuRule.exportResults(m); SpectroscopyMenuRule.exportMethod(m)
+        SpectroscopyMenuRule.exportSpectrum(m); SpectroscopyMenuRule.exportMaps(m)
+        XCTAssertNil(m.pendingExport); XCTAssertFalse(m.pickingMapsFolder)
+
+        m.export.csv = "a,b"
+        XCTAssertTrue(SpectroscopyMenuRule.canExportResults(m)); XCTAssertFalse(SpectroscopyMenuRule.canExportMethod(m))
+        SpectroscopyMenuRule.exportResults(m)
+        XCTAssertEqual(m.pendingExport, ExportSection.resultsExport(m.export))
+        XCTAssertEqual(m.pendingExport?.isJSON, false)
+        m.pendingExport = nil
+        m.export.methodJSON = "{}"
+        SpectroscopyMenuRule.exportMethod(m)
+        XCTAssertEqual(m.pendingExport?.isJSON, true)
+        m.pendingExport = nil
+
+        m.export.spectrumOf = SpectrumLabel(imageName: "img", regionName: "Whole map")
+        XCTAssertEqual(SpectroscopyMenuRule.canExportSpectrum(m), ExportSection.canExportSpectrum(m.export))
+        SpectroscopyMenuRule.exportSpectrum(m)
+        XCTAssertTrue(m.pendingExport?.name.hasSuffix("-spectrum") == true)
+
+        m.tiles = [MapTile.synthetic(z: 13)]
+        XCTAssertTrue(SpectroscopyMenuRule.canExportMaps(m))
+        SpectroscopyMenuRule.exportMaps(m)
+        XCTAssertTrue(m.pickingMapsFolder)
+    }
+
+    /// Pin needs the controller's hook and fewer than three pins; the menu does what the button does.
+    /// Mutation: the limit compares `>` instead of `>=`, or `pin` calls `onPin` with no guard - red.
+    func testPinIsOnWithAHookAndRoomForAnother() {
+        let m = SpectroscopyRoomModel.fixture
+        var calls = 0
+        m.onPin = nil; m.pins = []
+        XCTAssertFalse(SpectroscopyMenuRule.canPin(m))
+        SpectroscopyMenuRule.pin(m)
+        m.onPin = { calls += 1 }
+        XCTAssertTrue(SpectroscopyMenuRule.canPin(m))
+        SpectroscopyMenuRule.pin(m)
+        XCTAssertEqual(calls, 1)
+        m.pins = (1...SpectroscopyRoomModel.maximumPins).map(pinned)
+        XCTAssertFalse(SpectroscopyMenuRule.canPin(m))
+        SpectroscopyMenuRule.pin(m)
+        XCTAssertEqual(calls, 1, "three pinned: the menu item refuses as the button does")
+    }
 }
