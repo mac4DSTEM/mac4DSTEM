@@ -62,7 +62,7 @@ final class ResultsQuantificationRowsTests: XCTestCase {
     /// The abundance cells of the room's own table, element by element, as `ResultsSection` prints them.
     private func tableLine(_ c: SpectroscopyRoomController, _ unit: AbundanceUnit) -> String {
         c.model.results.filter { $0.hasAbundance && $0.failure == nil }
-            .map { "\(PeriodicLayout.symbol($0.z)) \(ResultFormat.fitCells($0, unit: unit, hasFit: true).abundance)" }
+            .map { "\(PeriodicLayout.symbol($0.z)) \(ResultFormat.fitCells($0, unit: unit, hasFit: true, locale: ResultFormat.recordLocale).abundance)" }
             .joined(separator: " \u{00B7} ")
     }
 

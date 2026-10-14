@@ -254,4 +254,32 @@ final class SpectroscopyLaneSTests: XCTestCase {
         SpectroscopyMenuRule.pin(m)
         XCTAssertEqual(calls, 1, "three pinned: the menu item refuses as the button does")
     }
+
+    // MARK: Row 6 - locale-aware decimals in the results cells
+
+    /// In en_US every cell is character for character what `String(format:)` printed before, ties included; in de_DE the same
+    /// digits take a comma and no period survives; the record locale keeps today's text on every Mac.
+    /// Mutation: `number` formats without the locale (de_DE keeps a period), or through a FormatStyle (a tie such as 0.35 rounds
+    /// differently from `%.1f`) - red.
+    func testResultCellsKeepTheirDigitsAndTakeTheLocalesSeparator() {
+        let en = Locale(identifier: "en_US"), de = Locale(identifier: "de_DE")
+        for (v, s) in [(88.1, 0.9), (0.25, 0.35), (1.005, 2.675), (97.65, 0.05), (0.0, 0.0), (100.0, 1.25), (-0.15, 12.349)] {
+            let before = String(format: "%.1f \u{00B1} %.1f", v, s)
+            XCTAssertEqual(ResultFormat.plusMinus(v, s, digits: 1, locale: en), before)
+            XCTAssertEqual(ResultFormat.plusMinus(v, s, digits: 1, locale: de), before.replacingOccurrences(of: ".", with: ","))
+            XCTAssertEqual(ResultFormat.plusMinus(v, s, digits: 1, locale: ResultFormat.recordLocale), before)
+        }
+        var row = ResultRow(z: 12, netCounts: 27, netSigma: 10, kFreeRatio: 0.0239, kFreeSigma: 0.0003, atPercent: 5.6, atSigma: 1.1,
+                            wtPercent: 4.5, wtSigma: 0.9, sigmaTerms: "")
+        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true, locale: en).abundance, "5.6 \u{00B1} 1.1")
+        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true, locale: de).abundance, "5,6 \u{00B1} 1,1")
+        XCTAssertEqual(ResultFormat.fitCells(row, unit: .weight, hasFit: true, locale: de).abundance, "4,5 \u{00B1} 0,9")
+        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true, locale: en).kFree, "0.0239 \u{00B1} 0.0003")
+        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true, locale: de).kFree, "0,0239 \u{00B1} 0,0003")
+        row.kFreeSigma = nil
+        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true, locale: de).kFree, "1", "the reference reads 1")
+        let ratio = RatioLine(label: "Mg / Si net ratio", value: 1.092, sigma: 0.021, note: "")
+        XCTAssertEqual(ResultFormat.ratio(ratio, locale: en), "1.092 \u{00B1} 0.021")
+        XCTAssertEqual(ResultFormat.ratio(ratio, locale: de), "1,092 \u{00B1} 0,021")
+    }
 }

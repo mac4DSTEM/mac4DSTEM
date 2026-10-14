@@ -221,7 +221,7 @@ final class SpectroscopyQuantifyTests: XCTestCase {
         XCTAssertEqual(ResultFormat.fitCells(row, unit: .weight, hasFit: true).abundance, "\u{2014}")
         XCTAssertNotEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true).kFree, "\u{2014}")
         row.hasAbundance = true; row.atPercent = 5.2; row.atSigma = 1.1
-        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true).abundance, "5.2 \u{00B1} 1.1")
+        XCTAssertEqual(ResultFormat.fitCells(row, unit: .atomic, hasFit: true, locale: Locale(identifier: "en_US")).abundance, "5.2 \u{00B1} 1.1")
     }
 
     /// A removed region takes its spectrum and refinements with it (its id is reused by the next drawn region), but only

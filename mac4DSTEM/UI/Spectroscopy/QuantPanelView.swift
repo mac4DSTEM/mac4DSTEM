@@ -5,18 +5,30 @@ import DSTEMCore
 
 /// Number formatting for the table; separate so the pure part is testable.
 enum ResultFormat {
-    static func plusMinus(_ v: Double, _ s: Double, digits: Int) -> String {
-        String(format: "%.\(digits)f ± %.\(digits)f", v, s)
+    /// "88.1 ± 0.9". The digits are `String(format:)`'s (the same rounding as ever); the decimal separator is the locale's, so a
+    /// German-region Mac reads "88,1 ± 0,9" (UI audit 2026-10-14, Right to left). Never grouped.
+    static func plusMinus(_ v: Double, _ s: Double, digits: Int, locale: Locale = .current) -> String {
+        number(v, digits, locale) + " ± " + number(s, digits, locale)
     }
+    /// A number with `digits` decimals in `locale`'s decimal separator; same rounding as `%.<digits>f`.
+    static func number(_ v: Double, _ digits: Int, _ locale: Locale = .current) -> String {
+        String(format: "%.\(digits)f", locale: locale, v)
+    }
+    /// The locale a number written into a session record uses: the record is the same text on every Mac, so it is never the
+    /// person's region (the table on screen is).
+    static let recordLocale = Locale(identifier: "en_US_POSIX")
     /// The k-free ratio and abundance cells of a row. Until WP3 fits a spectrum there is neither: "—", never a number.
-    static func fitCells(_ row: ResultRow, unit: AbundanceUnit, hasFit: Bool) -> (kFree: String, abundance: String) {
+    static func fitCells(_ row: ResultRow, unit: AbundanceUnit, hasFit: Bool, locale: Locale = .current) -> (kFree: String, abundance: String) {
         guard hasFit else { return ("—", "—") }
         let abundance = row.hasAbundance
-            ? (unit == .atomic ? plusMinus(row.atPercent, row.atSigma, digits: 1) : plusMinus(row.wtPercent, row.wtSigma, digits: 1)) : "—"
+            ? (unit == .atomic ? plusMinus(row.atPercent, row.atSigma, digits: 1, locale: locale)
+                               : plusMinus(row.wtPercent, row.wtSigma, digits: 1, locale: locale)) : "—"
         guard row.hasKFree else { return ("—", abundance) }
-        return (row.kFreeSigma.map { String(format: "%.4f ± %.4f", row.kFreeRatio, $0) } ?? "1",
+        return (row.kFreeSigma.map { plusMinus(row.kFreeRatio, $0, digits: 4, locale: locale) } ?? "1",
                 abundance)
     }
+    /// The ratio line's "1.092 ± 0.021".
+    static func ratio(_ r: RatioLine, locale: Locale = .current) -> String { plusMinus(r.value, r.sigma, digits: 3, locale: locale) }
     /// The abundance column's header; at% computed without the absorption correction says so in the column itself.
     static func abundanceHeader(unit: AbundanceUnit, noAbsorption: Bool) -> String {
         "\(unit.rawValue) ± σ" + (noAbsorption ? " " + noAbsorptionLabel : "")
@@ -67,7 +79,7 @@ struct ResultsSection: View {
         if let r = model.ratioLine, model.hasFit {
             HStack(spacing: 4) {
                 Text(r.label)
-                Text(String(format: "%.3f \u{00B1} %.3f", r.value, r.sigma)).monospacedDigit()
+                Text(ResultFormat.ratio(r)).monospacedDigit()
                 Text("\u{2014} k-free").foregroundStyle(.secondary)
             }
             .font(.callout).help(r.note)

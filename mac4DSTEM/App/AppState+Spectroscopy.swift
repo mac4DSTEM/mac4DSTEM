@@ -284,7 +284,7 @@ extension SpectroscopyRoomController {
         guard model.hasFit else { return [:] }
         func line(_ unit: AbundanceUnit) -> String {
             model.results.filter { $0.hasAbundance && $0.failure == nil }
-                .map { "\(PeriodicLayout.symbol($0.z)) \(ResultFormat.fitCells($0, unit: unit, hasFit: true).abundance)" }
+                .map { "\(PeriodicLayout.symbol($0.z)) \(ResultFormat.fitCells($0, unit: unit, hasFit: true, locale: ResultFormat.recordLocale).abundance)" }
                 .joined(separator: " \u{00B7} ")
         }
         var p = ["result_at": line(.atomic), "result_wt": line(.weight),
