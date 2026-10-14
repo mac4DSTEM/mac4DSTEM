@@ -1,0 +1,15 @@
+heavy-build.sh: slot /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/locks/heavy.1, started 15:06:57
+reference.py: clean sweep, 48 rings in /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/G-s/tmp/mac4dstem-ellipse-calibration-test.YKlqnR/sweep (scipy 'jac' vs fixed scaling: ABC spread 2.6e-10, centre spread 7e-08 px at most)
+FAIL: grains_12_one_annulus was refused (ringLeftSeed(0.7015870417485846)) when it should fit — 36 of 36 bins
+PASS: non_square_rotated center/axes/theta residual 0.07542440491346436
+PASS: near_circular center/axes/theta residual 0.06809164329141111
+PASS: asymmetric_background 11-parameter asymmetric profile
+PASS: noisy_asymmetric 11-parameter asymmetric profile
+PASS: overlapping/noisy profile retains safe conic fallback
+PASS: py4DSTEM/app detector-axis correction convention
+PASS: blank annulus rejected
+PASS: angularly degenerate input rejected
+PASS: angularly degenerate input rejected anyway (below the hard floor too)
+PASS: grains_3_one_annulus refused — 3 radii, 12 of 36 bins: the fit reports a/b 1.685
+PASS: grains_6_one_annulus refused — 24 of 36 bins; a/b would be 1.000, but undecidable
+heavy-build.sh: exit 1 at 15:07:28

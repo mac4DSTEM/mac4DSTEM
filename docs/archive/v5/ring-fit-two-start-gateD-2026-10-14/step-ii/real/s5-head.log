@@ -1,0 +1,7 @@
+FIT input=nicu/s5_mean.f32 rows=32 cols=32 centreRow=15.001983 centreCol=15.162129 annuli=6 allFinite=true
+ROW|tag=S5-R1|inner=4.5|outer=7.5|seed=THREW:insufficientAngularCoverage(24)|status=THREW|err=insufficientAngularCoverage(24)
+ROW|tag=S5-R1w|inner=2.5|outer=9.5|seed=THREW:excessiveResidual(0.5109839398728496)|status=THREW|err=excessiveResidual(0.5109839398728496)
+ROW|tag=S5-R2|inner=7.25|outer=10.25|seed=THREW:insufficientAngularCoverage(12)|status=THREW|err=insufficientAngularCoverage(12)
+ROW|tag=S5-R2w|inner=5.25|outer=12.25|seed=THREW:insufficientAngularCoverage(27)|status=THREW|err=insufficientAngularCoverage(27)
+ROW|tag=S5-R3|inner=11.125|outer=14.125|seed_a=12.2761579|seed_b=12.1396018|seed_theta=0.0965528454|seed_cx=15.2787346|seed_cy=15.335105|seed_res=0.122172391|status=profile|a=12.9951618|b=12.3099294|theta=2.52329378|cx=14.9958258|cy=15.5050327|resid=0.100599348|conicres=0.122172391|bins=34|n=240|sparse=false|I0=4205683.6|I1=0|s0=7.00957537|sin=0.25|sout=5.67151622|bg=-242842.146
+ROW|tag=S5-R3w|inner=9.125|outer=15.998|seed_a=11.476746|seed_b=11.2249218|seed_theta=1.00628918|seed_cx=15.210648|seed_cy=15.6003723|seed_res=0.244984662|status=profile|a=11.7904827|b=11.4391271|theta=2.62648233|cx=15.0513578|cy=15.6292287|resid=0.0746613009|conicres=0.244984662|bins=30|n=536|sparse=false|I0=30893767.3|I1=746995.172|s0=3.6999774|sin=1.01999521|sout=2.3941912|bg=-160663.075
