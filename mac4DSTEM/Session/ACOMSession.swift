@@ -158,7 +158,7 @@ package final class ACOMSession {
     /// progress, so the cost of accepting is bounded and visible; and the
     /// estimate is only offered at all once it is grounded (a measured
     /// throughput, or the CPU baseline), never on an unmeasured GPU guess.
-    package func estimatedDuration(forPositions positions: Int) -> TimeInterval? {
+    package func estimatedDuration(forPositions positions: Int, symmetry: ACOMCrystalSymmetry = .cubic) -> TimeInterval? {
         let templates = Double(quality.templateCount)
         let throughput: Double
         if let measured = lastPositionsPerSecond,

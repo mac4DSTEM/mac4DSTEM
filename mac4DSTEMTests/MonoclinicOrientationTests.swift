@@ -377,34 +377,54 @@ final class MonoclinicOrientationTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(found, 40, "the group test needs patterns the matcher found; the rest are P2")
     }
 
-    /// P2 AS REGISTERED, REFUTED 2026-10-14: at the default 200 templates 86.5 % of 600 draws are within
-    /// the 7.7 deg band (median 3.1 deg; the registered fraction is 95 %). Gate D diagnosis
-    /// (docs/archive/v5/beta-double-prime-orientation-results-2026-10-14.md): the misses are the library
-    /// resolution and a near half-turn in-plane ambiguity, not the group (mirrored and sampled-zone
-    /// draws fail alike; at 400 / 800 / 1600 templates 96.3 / 99.0 / 99.5 % are within 7.7 deg). The
-    /// refutation is recorded here, not amended (ADR 050): `XCTExpectFailure` turns red when the
-    /// default library ever passes, which is the cue to register that as a new item.
-    func testP2RoundTripAtTheDefaultLibraryIsRefutedAsRegistered() throws {
-        let within = try roundTripFraction(templates: 200, draws: 600)
-        XCTExpectFailure("P2 refuted as registered: 86.5 % within 7.7 deg at 200 templates, registered 95 %") {
-            XCTAssertGreaterThanOrEqual(within, 0.95)
-        }
-        XCTAssertGreaterThan(within, 0.80, "and it did not get worse than the recorded measurement")
+    /// RECORD (item B, closed 2026-10-14, ADR 050): P2 as registered failed at the default library, 86.5 % of
+    /// 600 draws within 7.7 deg at 200 templates against a band of 95 % (docs/archive/v5/
+    /// beta-double-prime-orientation-results-2026-10-14.md). 200 templates is no longer a shipped path for a
+    /// monoclinic phase (`ACOMQualityPreset.templateCount(for:)`), so that case is not asserted here.
+    ///
+    /// P2' (item B2, registered before any run on these draws): at Balanced a monoclinic phase has 800
+    /// templates; on 600 FRESH draws (item B's base seed 0x2545F4914F6CDD1D plus 1_000_000) the disorientation
+    /// to truth is <= 7.7 deg for >= 97 %. Mutation (multiplier 1x): the library is 200 templates, 86 %: red.
+    func testP2PrimeFreshDrawsAtTheMonoclinicLibraryAreRecoveredWithinTheStep() throws {
+        let templates = ACOMQualityPreset.balanced.templateCount(for: .monoclinic)
+        let within = try roundTripFraction(templates: templates, draws: 600,
+                                           seed: 0x2545F4914F6CDD1D &+ 1_000_000)
+        XCTAssertGreaterThanOrEqual(within, 0.97)
     }
 
-    /// NOT a registered prediction: the post-hoc diagnostic run with a library 4x as dense (800 templates,
-    /// step about 3.9 deg), same draws. It is evidence for the diagnosis above, not a pass of P2.
-    func testPostHocRoundTripWithADenserLibraryRecoversTheOrientation() throws {
-        let within = try roundTripFraction(templates: 800, draws: 600)
-        XCTAssertGreaterThanOrEqual(within, 0.95)
+    /// P6 (reported, not gated: wall-clock is machine and load dependent): match time per pattern at 800 vs
+    /// 200 templates on the same patterns; registered band 3.5-4.5x.
+    func testP6MatchTimeScalesWithTheLibrary() throws {
+        let crystal = try betaDoublePrimeModel().crystal
+        let reflections = crystal.reflections(kMax: 1.2)
+        var rng = MonoclinicRNG(state: 0x2545F4914F6CDD1D &+ 1_000_000)
+        var patterns: [[BraggPeak]] = []
+        while patterns.count < 100 {
+            let v = SIMD3(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))
+            let length = simd_length(v)
+            guard length > 0.2 && length <= 1 else { continue }
+            patterns.append(peaks(crystal: crystal, truth: truthMatrix(axis: v / length, inPlaneDeg: rng.uniform(0, 360)),
+                                  reflections: reflections))
+        }
+        var seconds: [Int: Double] = [:]
+        for count in [200, 800] {
+            let (plan, _) = try monoclinicPlan(count: count)
+            let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
+            _ = matcher.match(peaks: patterns[0], originX: 256, originY: 256, invAngstromPerPixel: 0.008)  // warm
+            let start = Date()
+            for _ in 0..<3 { for p in patterns { _ = matcher.match(peaks: p, originX: 256, originY: 256, invAngstromPerPixel: 0.008) } }
+            seconds[count] = Date().timeIntervalSince(start) / Double(3 * patterns.count)
+        }
+        print(String(format: "MEASURE: P6 match per pattern 200 templates %.3f ms, 800 templates %.3f ms, ratio %.2f",
+                     seconds[200]! * 1000, seconds[800]! * 1000, seconds[800]! / seconds[200]!))
     }
 
     /// Fraction of random draws recovered within 7.7 deg (min over the independent 2/m list).
-    private func roundTripFraction(templates: Int, draws: Int) throws -> Double {
+    private func roundTripFraction(templates: Int, draws: Int, seed: UInt64) throws -> Double {
         let (plan, crystal) = try monoclinicPlan(count: templates)
         let reflections = crystal.reflections(kMax: 1.2)
         let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
-        var rng = MonoclinicRNG(state: 0x2545F4914F6CDD1D)
+        var rng = MonoclinicRNG(state: seed)
         var errors: [Double] = []
         while errors.count < draws {
             let v = SIMD3(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))
@@ -419,9 +439,10 @@ final class MonoclinicOrientationTests: XCTestCase {
         }
         let sorted = errors.sorted()
         let within = Double(errors.filter { $0 <= 7.7 }.count) / Double(errors.count)
-        print(String(format: "MEASURE: beta'' round trip %d templates n=%d median %.2f p90 %.2f p95 %.2f max %.2f deg; within 7.7 deg %.3f",
+        print(String(format: "MEASURE: beta'' round trip %d templates n=%d median %.2f p90 %.2f p95 %.2f max %.2f deg; within 7.7 deg %.3f; within 3.9 deg %.3f",
                      templates, errors.count, sorted[errors.count / 2], sorted[Int(Double(errors.count) * 0.9)],
-                     sorted[Int(Double(errors.count) * 0.95)], sorted.last!, within))
+                     sorted[Int(Double(errors.count) * 0.95)], sorted.last!, within,
+                     Double(errors.filter { $0 <= 3.9 }.count) / Double(errors.count)))
         return within
     }
 }

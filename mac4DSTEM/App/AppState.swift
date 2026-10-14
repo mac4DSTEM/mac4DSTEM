@@ -600,8 +600,11 @@ final class AppState {
             .positionCount(width: descriptor.rx, height: descriptor.ry)
     }
 
+    /// STUB (tests first).
+    var acomTemplateCount: Int { acomSession.quality.templateCount }
+
     var acomWorkSummary: String {
-        "\(acomWorkPositionCount.formatted()) positions × \(acomSession.quality.templateCount) templates"
+        "\(acomWorkPositionCount.formatted()) positions × \(acomTemplateCount) templates"
     }
 
     var acomEstimatedDuration: TimeInterval? {

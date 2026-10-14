@@ -38,6 +38,9 @@ package enum ACOMQualityPreset: String, CaseIterable, Identifiable {
         }
     }
 
+    /// STUB (tests first): the monoclinic multiplier follows in the candidate commit.
+    package func templateCount(for symmetry: ACOMCrystalSymmetry) -> Int { templateCount }
+
     package var detail: String {
         switch self {
         case .fast: "96 templates · rapid screening"
