@@ -1,0 +1,61 @@
+N_V synthetic foil, field 2400 nm, pixel 2.5 nm (960x960), ratio = N_V estimate / true N_V (sigma_t = 0)
+bar |mean-1| <= 0.05; P3 band |mean - table| <= 0.05; seeds >= 100 until SEM <= 0.015 (ratio and naive), cap 400
+P1 theta' cv=0.0 d= 20 t= 50 seeds=100  cnt=1215.8 edge= 21.4 rej= 4.6% invis=0.09% | pred 1.020  mean 1.021+-0.001 PASS band ok | naive 1.385+-0.001 fail | sigma/N 0.047 
+P1 theta' cv=0.0 d= 20 t=100 seeds=100  cnt=1182.1 edge= 21.4 rej= 4.6% invis=0.05% | pred 1.006  mean 1.006+-0.000 PASS band ok | naive 1.186+-0.001 fail | sigma/N 0.036 cov=1.00 
+P1 theta' cv=0.0 d= 20 t=200 seeds=100  cnt=1161.7 edge= 21.4 rej= 4.7% invis=0.02% | pred 1.002  mean 1.002+-0.001 PASS band ok | naive 1.088+-0.001 fail | sigma/N 0.032 cov=1.00 
+P2 theta' cv=0.0 d=100 t= 50 seeds=100  cnt= 260.3 edge= 20.2 rej=10.9% invis=0.00% | pred 1.144  mean 1.148+-0.003 FAIL band ok | naive 2.879+-0.006 fail | sigma/N 0.076 
+P1 theta' cv=0.0 d=100 t=100 seeds=100  cnt= 250.1 edge= 19.3 rej=10.8% invis=0.00% | pred 1.071  mean 1.074+-0.002 FAIL band ok | naive 1.921+-0.003 fail | sigma/N 0.070 P1 REFUTED
+P1 theta' cv=0.0 d=100 t=200 seeds=100  cnt= 239.0 edge= 19.8 rej=11.0% invis=0.01% | pred 1.028  mean 1.028+-0.002 PASS band ok | naive 1.436+-0.003 fail | sigma/N 0.067 
+P2 theta' cv=0.0 d=190 t= 50 seeds=103  cnt= 138.5 edge= 19.9 rej=16.4% invis=0.00% | pred 1.231  mean 1.246+-0.005 FAIL band ok | naive 4.467+-0.015 fail | sigma/N 0.112 
+   theta' cv=0.0 d=190 t=100 seeds=100  cnt= 132.9 edge= 19.9 rej=17.3% invis=0.00% | pred 1.137  mean 1.137+-0.004 FAIL band ok | naive 2.671+-0.009 fail | sigma/N 0.101 
+P1 theta' cv=0.0 d=190 t=200 seeds=100  cnt= 126.5 edge= 20.5 rej=18.1% invis=0.00% | pred 1.067  mean 1.064+-0.004 FAIL band ok | naive 1.794+-0.007 fail | sigma/N 0.095 P1 REFUTED
+   theta' cv=0.3 d= 20 t= 50 seeds=100  cnt=1193.5 edge= 21.8 rej= 4.6% invis=0.09% | pred 1.021  mean 1.020+-0.001 PASS band ok | naive 1.381+-0.001 fail | sigma/N 0.048 cov=1.00 
+   theta' cv=0.3 d= 20 t=100 seeds=100  cnt=1172.6 edge= 21.3 rej= 4.6% invis=0.06% | pred 1.007  mean 1.007+-0.001 PASS band ok | naive 1.186+-0.001 fail | sigma/N 0.036 cov=1.00 
+   theta' cv=0.3 d= 20 t=200 seeds=100  cnt=1158.2 edge= 22.6 rej= 4.6% invis=0.03% | pred 1.002  mean 1.000+-0.001 PASS band ok | naive 1.085+-0.001 fail | sigma/N 0.032 cov=1.00 
+   theta' cv=0.3 d=100 t= 50 seeds=100  cnt= 248.1 edge= 20.5 rej=11.1% invis=0.01% | pred 1.140  mean 1.135+-0.003 FAIL band ok | naive 2.842+-0.006 fail | sigma/N 0.078 
+   theta' cv=0.3 d=100 t=100 seeds=100  cnt= 240.6 edge= 20.0 rej=11.6% invis=0.01% | pred 1.070  mean 1.068+-0.002 FAIL band ok | naive 1.906+-0.004 fail | sigma/N 0.071 
+   theta' cv=0.3 d=100 t=200 seeds=100  cnt= 235.2 edge= 20.0 rej=11.4% invis=0.00% | pred 1.029  mean 1.027+-0.002 PASS band ok | naive 1.430+-0.003 fail | sigma/N 0.068 
+   theta' cv=0.3 d=190 t= 50 seeds=167  cnt= 131.2 edge= 20.4 rej=17.3% invis=0.00% | pred 1.225  mean 1.237+-0.005 FAIL band ok | naive 4.379+-0.015 fail | sigma/N 0.116 
+   theta' cv=0.3 d=190 t=100 seeds=100  cnt= 128.2 edge= 20.0 rej=17.7% invis=0.00% | pred 1.134  mean 1.135+-0.004 FAIL band ok | naive 2.649+-0.010 fail | sigma/N 0.104 
+   theta' cv=0.3 d=190 t=200 seeds=100  cnt= 123.9 edge= 19.0 rej=19.0% invis=0.00% | pred 1.066  mean 1.069+-0.005 FAIL band ok | naive 1.791+-0.008 fail | sigma/N 0.097 
+   theta' cv=0.6 d= 20 t= 50 seeds=100  cnt=1147.5 edge= 21.7 rej= 4.7% invis=0.11% | pred 1.021  mean 1.019+-0.001 PASS band ok | naive 1.375+-0.001 fail | sigma/N 0.049 cov=1.00 
+   theta' cv=0.6 d= 20 t=100 seeds=100  cnt=1154.9 edge= 21.4 rej= 4.8% invis=0.07% | pred 1.007  mean 1.007+-0.001 PASS band ok | naive 1.182+-0.001 fail | sigma/N 0.037 cov=1.00 
+   theta' cv=0.6 d= 20 t=200 seeds=100  cnt=1157.2 edge= 21.6 rej= 4.7% invis=0.04% | pred 1.002  mean 1.002+-0.000 PASS band ok | naive 1.085+-0.001 fail | sigma/N 0.032 cov=1.00 
+   theta' cv=0.6 d=100 t= 50 seeds=100  cnt= 225.4 edge= 20.0 rej=11.9% invis=0.01% | pred 1.132  mean 1.131+-0.003 FAIL band ok | naive 2.788+-0.009 fail | sigma/N 0.083 
+   theta' cv=0.6 d=100 t=100 seeds=100  cnt= 226.7 edge= 20.7 rej=11.9% invis=0.02% | pred 1.068  mean 1.065+-0.002 FAIL band ok | naive 1.870+-0.005 fail | sigma/N 0.074 
+   theta' cv=0.6 d=100 t=200 seeds=100  cnt= 229.9 edge= 20.7 rej=11.9% invis=0.01% | pred 1.029  mean 1.026+-0.002 PASS band ok | naive 1.409+-0.003 fail | sigma/N 0.069 
+   theta' cv=0.6 d=190 t= 50 seeds=175  cnt= 118.4 edge= 20.0 rej=19.7% invis=0.00% | pred 1.211  mean 1.223+-0.004 FAIL band ok | naive 4.235+-0.015 fail | sigma/N 0.124 
+   theta' cv=0.6 d=190 t=100 seeds=100  cnt= 119.2 edge= 20.6 rej=19.1% invis=0.00% | pred 1.127  mean 1.119+-0.005 FAIL band ok | naive 2.541+-0.012 fail | sigma/N 0.108 
+   theta' cv=0.6 d=190 t=200 seeds=100  cnt= 117.3 edge= 20.3 rej=19.8% invis=0.00% | pred 1.064  mean 1.059+-0.004 FAIL band ok | naive 1.743+-0.008 fail | sigma/N 0.100 
+P1 T1 cv=0.0 d= 20 t= 50 seeds=100  cnt= 316.3 edge=  8.6 rej= 2.7% invis=0.06% | pred 1.015  mean 1.006+-0.001 PASS band ok | naive 1.307+-0.001 fail | sigma/N 0.065 cov=1.00 
+P1 T1 cv=0.0 d= 20 t=100 seeds=100  cnt= 287.0 edge=  8.0 rej= 2.5% invis=0.03% | pred 1.005  mean 1.000+-0.001 PASS band ok | naive 1.145+-0.001 fail | sigma/N 0.062 cov=1.00 
+P1 T1 cv=0.0 d= 20 t=200 seeds=100  cnt= 271.7 edge=  7.6 rej= 2.6% invis=0.02% | pred 1.001  mean 1.000+-0.001 PASS band ok | naive 1.065+-0.001 fail | sigma/N 0.061 cov=1.00 
+   T1 cv=0.0 d=100 t= 50 seeds=138  cnt=  28.8 edge=  3.7 rej= 2.6% invis=0.00% | pred 1.119  mean 1.109+-0.007 FAIL band ok | naive 2.473+-0.015 fail | sigma/N 0.211 
+P1 T1 cv=0.0 d=100 t=100 seeds=100  cnt=  20.9 edge=  2.6 rej= 2.5% invis=0.04% | pred 1.055  mean 1.048+-0.008 PASS band ok | naive 1.704+-0.012 fail | sigma/N 0.231 
+P1 T1 cv=0.0 d=100 t=200 seeds=100  cnt=  16.6 edge=  2.1 rej= 3.0% invis=0.00% | pred 1.021  mean 1.030+-0.010 PASS band ok | naive 1.332+-0.013 fail | sigma/N 0.254 
+   T1 cv=0.0 d=190 t= 50 seeds=400* cnt=  12.5 edge=  2.7 rej= 3.1% invis=0.08% | pred 1.202  mean 1.201+-0.008 FAIL band ok | naive 3.717+-0.023 fail | sigma/N 0.351 
+   T1 cv=0.0 d=190 t=100 seeds=400* cnt=   8.1 edge=  2.0 rej= 2.7% invis=0.19% | pred 1.114  mean 1.102+-0.010 FAIL band ok | naive 2.279+-0.020 fail | sigma/N 0.393 
+P1 T1 cv=0.0 d=190 t=200 seeds=400* cnt=   5.8 edge=  1.5 rej= 2.9% invis=0.07% | pred 1.052  mean 1.058+-0.011 FAIL band ok | naive 1.597+-0.016 fail | sigma/N 0.445 P1 REFUTED
+   T1 cv=0.3 d= 20 t= 50 seeds=100  cnt= 297.4 edge=  7.8 rej= 2.6% invis=0.05% | pred 1.015  mean 1.007+-0.001 PASS band ok | naive 1.307+-0.001 fail | sigma/N 0.066 cov=1.00 
+   T1 cv=0.3 d= 20 t=100 seeds=100  cnt= 269.5 edge=  7.4 rej= 2.4% invis=0.03% | pred 1.005  mean 1.000+-0.001 PASS band ok | naive 1.146+-0.001 fail | sigma/N 0.063 cov=1.00 
+   T1 cv=0.3 d= 20 t=200 seeds=100  cnt= 252.9 edge=  7.7 rej= 2.4% invis=0.02% | pred 1.001  mean 0.997+-0.001 PASS band ok | naive 1.063+-0.001 fail | sigma/N 0.063 cov=1.00 
+   T1 cv=0.3 d=100 t= 50 seeds=150  cnt=  26.8 edge=  3.2 rej= 2.5% invis=0.02% | pred 1.117  mean 1.108+-0.007 FAIL band ok | naive 2.482+-0.015 fail | sigma/N 0.221 
+   T1 cv=0.3 d=100 t=100 seeds=108  cnt=  18.6 edge=  2.4 rej= 1.9% invis=0.00% | pred 1.055  mean 1.061+-0.009 FAIL band ok | naive 1.735+-0.015 fail | sigma/N 0.251 
+   T1 cv=0.3 d=100 t=200 seeds=100  cnt=  15.5 edge=  2.0 rej= 1.9% invis=0.00% | pred 1.021  mean 1.025+-0.010 PASS band ok | naive 1.328+-0.013 fail | sigma/N 0.266 
+   T1 cv=0.3 d=190 t= 50 seeds=400* cnt=  11.6 edge=  2.7 rej= 3.2% invis=0.00% | pred 1.197  mean 1.200+-0.009 FAIL band ok | naive 3.750+-0.030 fail | sigma/N 0.369 
+   T1 cv=0.3 d=190 t=100 seeds=400* cnt=   7.6 edge=  2.0 rej= 2.5% invis=0.00% | pred 1.111  mean 1.107+-0.010 FAIL band ok | naive 2.314+-0.023 fail | sigma/N 0.418 
+   T1 cv=0.3 d=190 t=200 seeds=400* cnt=   5.8 edge=  1.5 rej= 2.6% invis=0.00% | pred 1.052  mean 1.063+-0.011 FAIL band ok | naive 1.611+-0.018 fail | sigma/N 0.460 
+   T1 cv=0.6 d= 20 t= 50 seeds=100  cnt= 257.3 edge=  7.4 rej= 2.6% invis=0.05% | pred 1.016  mean 1.005+-0.001 PASS band ok | naive 1.300+-0.002 fail | sigma/N 0.071 cov=1.00 
+   T1 cv=0.6 d= 20 t=100 seeds=100  cnt= 235.2 edge=  6.9 rej= 2.5% invis=0.05% | pred 1.005  mean 0.998+-0.001 PASS band ok | naive 1.140+-0.001 fail | sigma/N 0.068 cov=1.00 
+   T1 cv=0.6 d= 20 t=200 seeds=100  cnt= 223.6 edge=  6.5 rej= 2.4% invis=0.02% | pred 1.002  mean 0.998+-0.001 PASS band ok | naive 1.062+-0.001 fail | sigma/N 0.068 cov=1.00 
+   T1 cv=0.6 d=100 t= 50 seeds=271  cnt=  22.8 edge=  3.1 rej= 2.9% invis=0.03% | pred 1.111  mean 1.104+-0.005 FAIL band ok | naive 2.460+-0.015 fail | sigma/N 0.244 
+   T1 cv=0.6 d=100 t=100 seeds=181  cnt=  16.6 edge=  2.5 rej= 2.7% invis=0.00% | pred 1.054  mean 1.041+-0.007 PASS band ok | naive 1.691+-0.015 fail | sigma/N 0.269 
+   T1 cv=0.6 d=100 t=200 seeds=100  cnt=  13.7 edge=  2.0 rej= 2.0% invis=0.00% | pred 1.022  mean 1.028+-0.011 PASS band ok | naive 1.325+-0.015 fail | sigma/N 0.290 
+   T1 cv=0.6 d=190 t= 50 seeds=400* cnt=   9.3 edge=  2.6 rej= 3.1% invis=0.00% | pred 1.185  mean 1.173+-0.010 FAIL band ok | naive 3.730+-0.039 fail | sigma/N 0.415 
+   T1 cv=0.6 d=190 t=100 seeds=400* cnt=   6.5 edge=  1.8 rej= 2.7% invis=0.00% | pred 1.106  mean 1.117+-0.012 FAIL band ok | naive 2.373+-0.034 fail | sigma/N 0.477 
+   T1 cv=0.6 d=190 t=200 seeds=400* cnt=   4.9 edge=  1.4 rej= 2.0% invis=0.00% | pred 1.050  mean 1.094+-0.014 FAIL band ok | naive 1.697+-0.030 fail | sigma/N 0.550 
+(* = hit the seed cap before SEM target)
+SUMMARY P1 refutations 3; P2 cells inside bar 0; P3 band misses (CV>0) 0; all-cell band misses 0; naive passing a d>=100 cell 0; coverage failures 0
+VERDICT registered gate: FAIL (bar applied to every cell; per-cell lines above)
+runtime 38.9 s
+exit 0

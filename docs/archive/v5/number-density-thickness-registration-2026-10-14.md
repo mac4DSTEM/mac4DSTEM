@@ -63,3 +63,18 @@ not `AppState`; confirm at build.
 a card to the owner only if a shipped number moves (the ADR 045 areal density changes if the −p edge term is adopted).
 
 Registered 2026-10-14 before any code or run.
+
+## Results (2026-10-15 night; lane NV, Sonnet; `number-density-thickness-design-2026-10-15.md`, `number-density-thickness-2026-10-15/`)
+
+The design note (committed before any run, `3d7b7e4a`) derived E[N̂]/N_V = ρ(h, t) per size and **predicted P1 refuted** at
+d/t = 1 once the edge weight is exact (the edge loss no longer cancels truncation). Lane NV built only the Core estimator
+(9 tests written first, 8 red on a stub; six mutations, each red) and the harness (point-sampled, 54 cells), no UI.
+- **P1 refuted:** θ′ d 100 t 100 = 1.074, θ′ d 190 t 200 = 1.064, T1 d 190 t 200 = 1.058 (bar 5 %).
+- **P2:** the θ′ t 50 cells read 1.148 (d 100) and 1.245 (d 190) — failing, as the note's ρ said (1.144, 1.231), not 1.08–1.10.
+- **P3** (the note's bands): 54 of 54 cells within ±0.05 of ρ̄ (mean |difference| 0.006, max 0.044 at T1 d 190, 5–13 plates).
+- **P4 held:** the naive N/(A·t) fails every d ≥ 100 cell. **P5 held.** σ_N covered truth on 100 % of the 18 cells with bias < 2 %.
+- Deviation: plates carry one pixel of thickness (a zero-thickness edge-on plate is measure-zero under point sampling); the
+  1.25 nm pixel run and `T6_RASTER=cells` were not done.
+
+**Outcome.** The item closes (ADR 050); nothing ships; areal density stays. The model is confirmed, so a truncation-corrected
+estimator is a new item: `number-density-thickness-v2-registration-2026-10-15.md` (registered before any code or run).
