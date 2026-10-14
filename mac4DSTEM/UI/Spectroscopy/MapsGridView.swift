@@ -151,6 +151,8 @@ struct MapTileView: View {
     /// The live region's outline width; a pin's is thinner (its tint says which it is).
     static let liveOutlineWidth: CGFloat = 2
     static let pinOutlineWidth: CGFloat = 1.6
+    /// The live outline's white under-stroke: this much wider than the dashes, at this opacity.
+    static let underStrokeExtra: CGFloat = 1.5, underStrokeOpacity = 0.85
 
     /// The scale bar of this map at its own points per pixel; nil without a pixel size, without a grid, or when the map is too
     /// narrow for one (`MapScaleBar.tilePlan`). Every map carries one: the ColorMix, the HAADF and each element.
@@ -340,7 +342,11 @@ struct MapTileView: View {
         }
         if let shape = model.regionOutline {
             // The outline is the exported maps' too (`RegionOutline`): one path for the screen and the PNG.
-            ctx.stroke(Path(RegionOutline.path(shape, cellWidth: cw, cellHeight: ch)), with: .color(live), style: dash)
+            // A white under-stroke, solid and wider than the dashes, keeps the outline readable on a bright map and apart from the
+            // accent-coloured tile frames (UI audit 2026-10-14, Accessibility); the exported PNG draws the dashes alone.
+            let outline = Path(RegionOutline.path(shape, cellWidth: cw, cellHeight: ch))
+            ctx.stroke(outline, with: .color(.white.opacity(Self.underStrokeOpacity)), lineWidth: Self.liveOutlineWidth + Self.underStrokeExtra)
+            ctx.stroke(outline, with: .color(live), style: dash)
             switch shape {
             case .rectangle(let r), .ellipse(let r):
                 let rr = rect(r)

@@ -439,8 +439,8 @@ struct SpectrumStripView: View {
             }
         }
         if L.spectrum { curve(data, SpectrumInteraction.curveColor(role), width: SpectrumInteraction.Width.spectrum) }
-        if L.model, s.hasModel { curve(modelCurve, .blue, width: SpectrumInteraction.Width.model, within: s.fitChannels) }
-        if L.background, s.hasBackground { curve(backgroundCurve, .orange.opacity(0.9), width: SpectrumInteraction.Width.background, dash: [2, 3], within: s.fitChannels) }
+        if L.model, s.hasModel { curve(modelCurve, CurveLayer.modelHue, width: SpectrumInteraction.Width.model, within: s.fitChannels) }
+        if L.background, s.hasBackground { curve(backgroundCurve, CurveLayer.backgroundHue.opacity(0.9), width: SpectrumInteraction.Width.background, dash: [2, 3], within: s.fitChannels) }
         // The range marker's band (selection: the accent colour).
         if let a = rangeFrom, let b = rangeTo {
             let x0 = X(min(a, b)), x1 = X(max(a, b))

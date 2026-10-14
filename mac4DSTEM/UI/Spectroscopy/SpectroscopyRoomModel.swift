@@ -139,7 +139,10 @@ final class SpectroscopyRoomModel {
     var export = ExportSettings()
     var mapLabel = "ColorMix"
     /// The live region's colour: its outline on the ColorMix, its curve in the spectrum and its capsule share it (pins keep their tints).
-    nonisolated static let liveRegionColor = Color.accentColor
+    /// A fixed hue, not the accent: the accent is the person's (it is also the fit's blue by default, and a selection's), and a
+    /// region that changed colour with a System Settings choice would collide with the model curve (UI audit 2026-10-14,
+    /// Accessibility). Distinct from the other curves' hues (`CurveLayer.fixedHues`): blue model, orange background, pink pins.
+    nonisolated static let liveRegionColor = Color.purple
 
     init(series: SpectrumSeries) {
         self.series = series

@@ -54,4 +54,28 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertEqual(ResultsSection.rowNoteKind(row), "Fit note")
         XCTAssertLessThan(ResultsSection.rowNoteKind(row).count, (row.conflictNote ?? "").count)
     }
+
+    // MARK: Row 2 - fixed, distinct hues
+
+    /// The region, the model, the background and the pins are four different fixed hues, none the accent colour (which the person
+    /// sets and which a selection also uses); the Spectrum chip is the region's colour while a region is shown.
+    /// Mutation: `liveRegionColor` = `Color.accentColor`, or `CurveLayer.modelHue` = the region colour - red.
+    func testTheCurvesAndTheRegionAreDistinctFixedHues() {
+        let region = SpectroscopyRoomModel.liveRegionColor
+        XCTAssertNotEqual(region, Color.accentColor)
+        let hues: [Color] = [region, CurveLayer.modelHue, CurveLayer.backgroundHue, CurveLayer.pins.color]
+        for (i, a) in hues.enumerated() { for b in hues[(i + 1)...] { XCTAssertNotEqual(a, b) } }
+        XCTAssertNotEqual(CurveLayer.modelHue, Color.accentColor)
+    }
+
+    /// A chip is lit in the colour its curve is drawn in.
+    /// Mutation: `CurveLayer.color(role:)` ignores the role for `.spectrum` - red.
+    func testTheSpectrumChipFollowsTheCurveColour() {
+        XCTAssertEqual(CurveLayer.spectrum.color(role: .region), SpectrumInteraction.curveColor(.region))
+        XCTAssertEqual(CurveLayer.spectrum.color(role: .wholeMap), Color.primary)
+        XCTAssertEqual(CurveLayer.model.color(role: .region), CurveLayer.modelHue)
+        let chips = SpectrumLayersSection.curveChips(role: .region)
+        XCTAssertEqual(chips.first { $0.id == .spectrum }?.symbolColor, SpectroscopyRoomModel.liveRegionColor)
+        XCTAssertEqual(chips.first { $0.id == .model }?.symbolColor, CurveLayer.modelHue)
+    }
 }

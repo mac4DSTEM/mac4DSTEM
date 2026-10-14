@@ -285,15 +285,20 @@ enum CurveLayer: CaseIterable {
         case .pins: "Pins"
         }
     }
-    var color: Color {
+    var color: Color { color(role: .wholeMap) }
+    /// The chip's colour is the curve's: the Spectrum curve is the live region's colour while a region is shown (ADR 059 §3),
+    /// the label colour for the whole map (`SpectrumInteraction.curveColor`); the others are fixed hues, none the accent.
+    func color(role: SpectrumInteraction.CurveRole) -> Color {
         switch self {
-        case .spectrum: .primary
-        case .background: .orange
-        case .model: .blue
+        case .spectrum: role == .region ? SpectroscopyRoomModel.liveRegionColor : .primary
+        case .background: Self.backgroundHue
+        case .model: Self.modelHue
         case .residual: .secondary
         case .pins: .pink
         }
     }
+    /// The model and background curves' hues, the strip's own (one place for the curve and its chip).
+    static let modelHue = Color.blue, backgroundHue = Color.orange
     var keyPath: WritableKeyPath<SpectrumLayers, Bool> {
         switch self {
         case .spectrum: \.spectrum
@@ -335,9 +340,10 @@ struct SpectrumLayersSection: View {
     static let windowsHelp = "The line and background windows the net maps use. The fit's background (orange) is the Empirical continuum \u{2014} a different model."
 
     /// The five curves as multi chips, each lit in its own colour (the legend the Show menu had).
-    static var curveChips: [GlassChip<CurveLayer>] {
+    static var curveChips: [GlassChip<CurveLayer>] { curveChips(role: .wholeMap) }
+    static func curveChips(role: SpectrumInteraction.CurveRole) -> [GlassChip<CurveLayer>] {
         CurveLayer.allCases.map {
-            GlassChip(id: $0, title: $0.title, symbol: "circle.fill", symbolColor: $0.color, tint: $0.color, help: $0.help,
+            GlassChip(id: $0, title: $0.title, symbol: "circle.fill", symbolColor: $0.color(role: role), tint: $0.color(role: role), help: $0.help,
                       accessibilityID: "spectroscopy.layers.\($0.title.lowercased())")
         }
     }
@@ -367,7 +373,8 @@ struct SpectrumLayersSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
             Text("Curves")
-            GlassChipGroup(chips: Self.curveChips, mode: .multi, selection: Self.curveSelection(model))
+            GlassChipGroup(chips: Self.curveChips(role: SpectrumInteraction.curveRole(isLive: model.isLive, selectedRegion: model.selectedRegion)),
+                           mode: .multi, selection: Self.curveSelection(model))
         }
         InspectorRow("Scale") {
             GlassChipGroup(chips: Self.scaleChips, mode: .single, selection: Self.scaleSelection(model), identifier: "spectroscopy.layers.scale")
