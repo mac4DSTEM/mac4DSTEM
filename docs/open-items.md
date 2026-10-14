@@ -84,14 +84,14 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 - **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 
-### The ellipse Fit accepts wrong profile fits on noisy rings — Gate D step 2 done, card M2 open (2026-10-14)
+### The ellipse Fit accepts wrong profile fits on noisy rings — step 2 closed as not met; ADR 068 (2026-10-14)
 `fitAmorphousRing` starts both ring sigmas at py4DSTEM's `(ro − ri)/4`; on noisy flat-background rings `fitBestAvailable`
 accepts profile fits off by up to 48 % in R, 0.51 in b/a, 40 px in the centre (35, 32, 29 of three 144-plant sets), when the
 centre guess is within ~3 px — the app's measured beam centre is. Half are a dead ring (I1 → 0, σ at 0.25 px), half drift.
 Held candidates fail their registration: (a) a half-maximum start rescues them all but moves clean fits 0.13 % and loses
 right fits on a 1/r² tail with ≥ 5 % noise; (b) a floor guard is safe but catches a quarter to a half, and turns
 `ellipse-calibration-test` red. On Au_ref, HEAD accepts a dead ring and a ring outside its annulus. Nothing has landed.
-Record: `archive/v5/ring-sigma-start-gateD-2026-10-13.md`. Next: the owner's answer on card M2.
+Record: `archive/v5/ring-sigma-start-gateD-2026-10-13.md`. Owner: d (ADR 068) — a new item, his cubes measured first.
 
 ### Other named science residuals
 One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) and `archive/v4/open-items-detail-2026-09-25.md`.

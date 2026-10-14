@@ -142,3 +142,6 @@ lower cost), but no held candidate meets its registration: (a) and (ab) fail the
 1/r² tail, and (b) catches fewer than 10 out of sample and turns the tool red. Nothing lands. The choice is the owner's,
 card M2 (`owner-decisions-2026-10-14-ring-sigma-m2.json`, sheet https://claude.ai/artifact/Qz9Ve9QxuzEFjQw7CTN7cQ;
 recommended d: register two starts + the floor guard + the seed check, measured on his own cubes first).
+
+**Owner's answer (2026-10-14, ADR 068): d.** No held diff lands; this item closes as not met. The new item (the owner's
+cubes first, then two starts + the floor guard + a seed-consistency check) gets its own registration.

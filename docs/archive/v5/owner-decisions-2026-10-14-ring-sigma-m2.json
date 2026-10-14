@@ -6,7 +6,7 @@
   {
    "id": "M2",
    "title": "The Fit on noisy rings: land a tested fix, or register a better one first",
-   "status": "open",
+   "status": "settled",
    "context": [
     "What goes wrong. On a noisy ring the Fit button can return a wrong ellipse and accept it: off by up to 48 % in radius, 0.51 in b/a and 40 px in the centre. The app applies b/a and the angle to every Bragg vector, so b/a is the number that matters. On three test sets of 144 noisy rings (flat background, noise 3 and 10 % of the ring) 35, 32 and 29 fits were wrong. On the set measured for this, the wrong fits appeared only when the centre guess was within about 3 px of the true centre (none at 7.8 px or more); the app's guess is the measured beam centre, so a good guess is the normal case. Why the guess matters is not established. On clean rings today's Fit is right: where its profile stage gives up (25 of 84 clean test rings) it falls back to an accurate conic.",
     "Why. The profile model starts its two ring widths at 10–17 px for a ring about 3 px wide. From there the fit either drains the ring into the background (a ring width ends at its 0.25 px floor; about half the cases) or slides off centre with healthy widths (the other half). The residual cap catches neither.",
@@ -110,7 +110,7 @@
     "docs/archive/v5/ring-sigma-start-gateD-2026-10-13/step2/{M,T,P5,F2}/ (lanes)"
    ],
    "images": [],
-   "answer": ""
+   "answer": "Owner 2026-10-14 (ADR 068): d, as recommended."
   }
  ],
  "not_carded": [
