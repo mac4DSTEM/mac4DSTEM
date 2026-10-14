@@ -854,14 +854,14 @@ package nonisolated enum MaterialsProjectImport {
         // docs/v3-features.md#materials-project. MP's own
         // `symmetry.crystal_system` never reaches this decision; it is
         // recorded in provenance below only.
-        let symmetry = try CIFImport.classifyFamily(
+        let proposed = try CIFImport.classifyFamily(
             a: lattice.a, b: lattice.b, c: lattice.c,
             alphaDeg: lattice.alpha, betaDeg: lattice.beta, gammaDeg: lattice.gamma
         )
         // The metric only proposes a family; the atom positions confirm it (review row 6,
         // 2026-10-01) — as the CIF importer does — so a trigonal cell in hexagonal axes is not
         // read as 6/mmm nor Pa-3 as m-3m. MP coordinates are full precision: half-step 0.
-        try CIFImport.verifyFamily(symmetry, sites: atomSites, coarsestHalfStep: 0)
+        let symmetry = try CIFImport.confirmedFamily(proposed, sites: atomSites, coarsestHalfStep: 0)
 
         let formulaLabel = doc.formulaPretty?.trimmingCharacters(in: .whitespaces)
         let displayName: String

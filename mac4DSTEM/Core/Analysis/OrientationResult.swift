@@ -505,31 +505,133 @@ package nonisolated enum HexagonalOrientationSymmetry {
     }
 }
 
-/// STUB (tests-first commit): the real 2/m group follows in the candidate commit.
+/// Monoclinic 2/m (Laue class) orientation symmetry, b unique: the reporting group of beta''
+/// (Mg5Si6, C2/m; Andersen et al., Acta Mater. 46 (1998) 3283), registered in
+/// docs/archive/v5/beta-double-prime-orientation-registration-2026-10-14.md.
+///
+/// Frame: py4DSTEM's (`Crystal.latReal`). With alpha = gamma = 90 degrees (which
+/// `CrystalModel.validationIssues` demands of a `.monoclinic` model) a lies along +x and the
+/// unique axis b along +y, so the 2-fold is a half turn about +y. Proper rotation subgroup:
+/// {E, C2(y)}, order 2. Inversion is not distinguishable in a kinematic pattern (Friedel), so
+/// directions are reported modulo the full 2/m (order 4: E, C2, inversion, mirror perpendicular
+/// to b), exactly as the cubic and hexagonal reductions do.
+///
+/// LITERATURE CONVENTION (not derived here): beta'' needles lie along Al <001> with b parallel
+/// to the needle (Andersen et al. 1998). Nothing in this type depends on it; it only fixes which
+/// Al variants share one orbit (12 = 24 / 2).
 package nonisolated enum MonoclinicOrientationSymmetry {
-    package static let operators: [simd_double3x3] = [matrix_identity_double3x3]
+    /// E and the half turn about the unique axis b = +y: diag(-1, 1, -1).
+    package static let operators: [simd_double3x3] = [
+        matrix_identity_double3x3,
+        simd_double3x3(columns: (SIMD3(-1, 0, 0), SIMD3(0, 1, 0), SIMD3(0, 0, -1))),
+    ]
 
+    /// Same rule as `CubicOrientationSymmetry.reduce`: the representative of S * matrix with the
+    /// smallest rotation angle; the canonical quaternion breaks ties.
     package static func reduce(_ matrix: simd_double3x3) ->
         (matrix: simd_double3x3, disorientationRad: Float) {
-        ACOMCrystalSymmetry.identity.reduce(matrix)
+        var bestMatrix = matrix
+        var bestKey: [Double]?
+        var bestAngle = Double.pi
+        for symmetry in operators {
+            let candidate = symmetry * matrix
+            var quaternion = simd_quatd(simd_transpose(candidate))
+            if quaternion.real < 0 { quaternion = simd_quatd(
+                real: -quaternion.real, imag: -quaternion.imag
+            ) }
+            let key = [-quaternion.real, quaternion.imag.x,
+                       quaternion.imag.y, quaternion.imag.z]
+            if bestKey == nil || key.lexicographicallyPrecedes(bestKey!) {
+                bestKey = key
+                bestMatrix = candidate
+                bestAngle = 2 * acos(min(1, max(0, quaternion.real)))
+            }
+        }
+        return (bestMatrix, Float(bestAngle))
     }
 
+    /// Fold a beam/pole direction into the 2/m zone: y >= 0 (inversion), azimuth about b,
+    /// atan2(z, x), in [0, 180 degrees) (the half turn about b adds 180 degrees).
     package static func reduceDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
-        simd_normalize(direction)
+        let length = simd_length(direction)
+        guard length.isFinite, length > 1e-15 else { return [0, 1, 0] }
+        var value = direction / length
+        if value.y < 0 { value = -value }
+        let basal = hypot(value.x, value.z)
+        var azimuth = atan2(value.z, value.x).truncatingRemainder(dividingBy: .pi)
+        if azimuth < 0 { azimuth += .pi }
+        // A rounding hair below pi is the same direction as azimuth 0.
+        if azimuth > .pi - 1e-15 { azimuth = 0 }
+        return simd_normalize(SIMD3(basal * cos(azimuth), value.y, basal * sin(azimuth)))
     }
 
+    /// Farthest-point sampling of the quarter sphere, seeded with its three corners
+    /// (b, a-direction, z-direction). Distance to a point is the smaller of the distances to it
+    /// and to its half-turn image, because the azimuth wraps at 180 degrees.
     package static func sampleFundamentalZone(count: Int) -> [SIMD3<Double>] {
-        ACOMCrystalSymmetry.identity.sampleFundamentalZone(count: count)
+        guard count > 0 else { return [] }
+        let vertices = [
+            SIMD3<Double>(0, 1, 0),
+            SIMD3<Double>(1, 0, 0),
+            SIMD3<Double>(0, 0, 1),
+        ]
+        if count <= vertices.count { return Array(vertices.prefix(count)) }
+        func chord(_ a: SIMD3<Double>, _ b: SIMD3<Double>) -> Double {
+            1 - max(simd_dot(a, b), simd_dot(a, SIMD3(-b.x, b.y, -b.z)))
+        }
+        let candidateCount = max(192, count * 16)
+        let golden = Double.pi * (3 - 5.0.squareRoot())
+        var candidates: [SIMD3<Double>] = []
+        for index in 0..<candidateCount {
+            let y = 1 - 2 * (Double(index) + 0.5) / Double(candidateCount)
+            let radius = max(0, 1 - y * y).squareRoot()
+            candidates.append(reduceDirection(SIMD3(
+                radius * cos(golden * Double(index)), y,
+                radius * sin(golden * Double(index))
+            )))
+        }
+        var selected = vertices
+        var minimumChord = candidates.map { candidate in
+            vertices.map { chord(candidate, $0) }.min() ?? 0
+        }
+        while selected.count < count {
+            guard let best = minimumChord.indices.max(by: {
+                minimumChord[$0] < minimumChord[$1]
+            }) else { break }
+            let next = candidates[best]
+            selected.append(next)
+            for index in candidates.indices {
+                minimumChord[index] = min(minimumChord[index], chord(candidates[index], next))
+            }
+            minimumChord[best] = -.infinity
+        }
+        return selected
     }
 
+    /// 2/m IPF key for the beam direction, the hexagonal pattern reused: colour from the polar
+    /// angle off b (red at [010]) and the azimuth about b (a-direction green, z-direction blue),
+    /// square-root intensity, max normalisation. The azimuth is periodic with period 180 degrees
+    /// (2/m has no fold inside it), so the green/blue weight is (1 - cos 2*phi)/2, which returns
+    /// to green at 180 degrees: no seam, unlike a linear ramp.
     package static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
-        ACOMCrystalSymmetry.identity.ipfColor(direction: direction)
+        let value = reduceDirection(direction)
+        let tilt = min(1, max(0, acos(min(1, max(0, value.y))) / (.pi / 2)))
+        let azimuth = atan2(value.z, value.x)
+        let fraction = (1 - cos(2 * azimuth)) / 2
+        var rgb = SIMD3<Double>(
+            sqrt(max(0, 1 - tilt)),
+            sqrt(max(0, tilt * (1 - fraction))),
+            sqrt(max(0, tilt * fraction))
+        )
+        let maximum = max(rgb.x, rgb.y, rgb.z)
+        if maximum > 0 { rgb /= maximum }
+        return SIMD3(Float(rgb.x), Float(rgb.y), Float(rgb.z))
     }
 }
 
-/// Explicit symmetry policy for orientation reporting. The current crystal
-/// presets and custom editor are cubic; `.identity` is the safe fallback for
-/// future non-cubic structures until their point groups are implemented.
+/// Explicit symmetry policy for orientation reporting. The built-in presets and the custom editor
+/// are cubic or hexagonal; an imported structure may also be `.monoclinic` (2/m, b unique, 2026-10-14);
+/// `.identity` is the safe fallback for every other structure until its point group is implemented.
 package nonisolated enum ACOMCrystalSymmetry: String, Sendable, Equatable {
     case cubic
     case hexagonal

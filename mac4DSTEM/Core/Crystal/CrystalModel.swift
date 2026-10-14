@@ -118,7 +118,15 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
                 add("hexagonal_symmetry_mismatch", "Hexagonal 6/mmm symmetry requires a = b, α = β = 90°, and γ = 120°.")
             }
         case .monoclinic:
-            break  // STUB
+            // b is the unique axis (+y in the py4DSTEM frame) only when alpha = gamma = 90, and the
+            // cell is monoclinic only when beta is not 90 (beta = 90 is orthorhombic: no 2/m key).
+            // Tolerance: the importer's own (`CIFImport.classifyFamily`, 0.05 degrees), so a cell the
+            // importer proposes as monoclinic is never refused here, as it would be at 1e-6.
+            if abs(crystal.alphaDeg - 90) > 0.05
+                || abs(crystal.gammaDeg - 90) > 0.05
+                || abs(crystal.betaDeg - 90) <= 0.05 {
+                add("monoclinic_symmetry_mismatch", "Monoclinic 2/m symmetry (b unique) requires α = γ = 90° and β ≠ 90°.")
+            }
         case .identity:
             // Structurally fine. What it cannot do is stated by
             // `supportsOrientationMapping` below, NOT here: a validation issue
@@ -211,7 +219,7 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     /// point: an `.identity` model is a perfectly good CRYSTAL — cell, basis and
     /// structure factors all valid, and that is everything phase
     /// IDENTIFICATION needs — but the app implements orientation reduction for
-    /// cubic and hexagonal only. Mapping one anyway would publish an unreduced
+    /// cubic, hexagonal and monoclinic only. Mapping one anyway would publish an unreduced
     /// orientation and call `ACOMCrystalSymmetry.identity.ipfColor`, which
     /// returns |x|,|y|,|z| as RGB: not a wrong IPF key, but no key at all
     /// wearing the look of one.
@@ -221,14 +229,19 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     /// refuse the structure at import and defeat the purpose.
     package var supportsOrientationMapping: Bool { symmetry != .identity }
 
+    /// A monoclinic orientation map has no beta'' truth set behind it (suite ROADMAP item 5): it
+    /// self-reports `validation: "none"`, which the inspector note, the exported caption and the
+    /// provenance already read (owner, 2026-09-18: unvalidated stays labelled).
+    package static let monoclinicValidationNote = "monoclinic orientation — no β″ truth set"
+
     /// Why orientation mapping is unavailable, or nil when it is available.
     /// `ACOMSession.modelSelectionIssue` surfaces this so ACOM refuses with a
     /// reason rather than silently offering nothing.
     package var orientationMappingIssue: String? {
         supportsOrientationMapping ? nil
             : "This phase is \(symmetry.displayName.lowercased()): its cell is neither "
-              + "cubic nor hexagonal, and orientation reduction is implemented for those "
-              + "two families only. The structure can still be used to identify the phase, "
+              + "cubic nor hexagonal, nor monoclinic with b unique and a 2-fold or mirror along it, and "
+              + "orientation reduction is implemented for those families only. The structure can still be used to identify the phase, "
               + "but it cannot produce an orientation map or an IPF colour."
     }
 
@@ -263,6 +276,10 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
         ]
         if let spaceGroupNumber {
             result["space_group_number"] = String(spaceGroupNumber)
+        }
+        if symmetry == .monoclinic {
+            result["validation"] = "none"
+            result["validation_note"] = Self.monoclinicValidationNote
         }
         for (key, value) in extraProvenance {
             result[key] = value

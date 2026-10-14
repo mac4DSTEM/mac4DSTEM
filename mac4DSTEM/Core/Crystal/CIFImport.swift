@@ -149,12 +149,12 @@ package nonisolated enum CIFImport {
         // The metric only proposes a family; the atom positions have to
         // confirm it, or a trigonal cell in the hexagonal setting would be
         // over-symmetrized into `.hexagonal`. See `verifyFamily`.
-        let symmetry = try classifyFamily(
+        let proposed = try classifyFamily(
             a: parsed.a, b: parsed.b, c: parsed.c,
             alphaDeg: parsed.alpha, betaDeg: parsed.beta, gammaDeg: parsed.gamma
         )
-        try verifyFamily(
-            symmetry, sites: parsed.sites, coarsestHalfStep: parsed.coarsestHalfStep
+        let symmetry = try confirmedFamily(
+            proposed, sites: parsed.sites, coarsestHalfStep: parsed.coarsestHalfStep
         )
         let crystal = Crystal(
             a: parsed.a, b: parsed.b, c: parsed.c,
@@ -977,10 +977,10 @@ package nonisolated enum CIFImport {
 
     // MARK: - Point-group classification
 
-    /// Determines the family from cell parameters. Only cubic and hexagonal
-    /// are accepted, matching the two symmetry reductions ACOM implements
-    /// (`ACOMCrystalSymmetry`); every other cell is rejected rather than
-    /// silently mapped onto one of these.
+    /// Determines the family from cell parameters. Cubic, hexagonal and (since
+    /// 2026-10-14) monoclinic with b unique are the reductions ACOM implements
+    /// (`ACOMCrystalSymmetry`); every other cell loads as `.identity` rather than
+    /// being silently mapped onto one of these. A proposal only: `confirmedFamily`.
     // `package` (not `private`) since 2026-09-21: `MaterialsProjectImport`
     // calls this verbatim rather than re-implementing family classification —
     // the Gate-D-relevant reuse the Materials Project importer pre-registration
@@ -1004,6 +1004,13 @@ package nonisolated enum CIFImport {
         let isHexagonal = lengthsMatch(a, b)
             && angleMatches(alphaDeg, 90) && angleMatches(betaDeg, 90) && angleMatches(gammaDeg, 120)
         if isHexagonal { return .hexagonal }
+
+        // Monoclinic, b unique: alpha = gamma = 90 and beta not 90. Only a PROPOSAL, like the other
+        // families: `confirmedFamily` demands a 2-fold along b or a mirror perpendicular to it from
+        // the atoms (a P1 or P-1 structure in a monoclinic metric is not 2/m).
+        if angleMatches(alphaDeg, 90) && angleMatches(gammaDeg, 90) && !angleMatches(betaDeg, 90) {
+            return .monoclinic
+        }
 
         // Everything else loads as `.identity` — "Unreduced" — rather than
         // being refused at the door (2026-09-11).
@@ -1086,7 +1093,9 @@ package nonisolated enum CIFImport {
                  "4-fold axis along c (Laue class m-3, not m-3m)"),
             ]
         case .monoclinic:
-            return  // STUB
+            // Never reached with a family `classifyFamily` proposed from the metric alone:
+            // `confirmedFamily` settles monoclinic first (it falls back to `.identity`, not a throw).
+            return
         case .identity:
             // `classifyFamily` never proposes `.identity` — it either returns
             // cubic/hexagonal or throws. Nothing to verify: the trivial group
@@ -1114,6 +1123,30 @@ package nonisolated enum CIFImport {
                 family: familyName, expected: generator.missing
             )
         }
+    }
+
+    /// The family the structure supports, given the one the metric proposed. Cubic and hexagonal
+    /// must be CONFIRMED or the import is refused (`verifyFamily`). A monoclinic proposal that the
+    /// atoms do not confirm (no 2-fold along b and no mirror perpendicular to b: Laue class -1 at
+    /// best) is not refused: it degrades to `.identity` ("Unreduced"), which is what every
+    /// monoclinic metric imported as before 2026-10-14, so no existing import changes except one
+    /// that is genuinely 2/m. In the C2/m beta'' structure the centring translation (1/2, 1/2, 0) is
+    /// absorbed by `isSymmetry`'s translation search.
+    package static func confirmedFamily(
+        _ proposed: ACOMCrystalSymmetry, sites: [AtomSite], coarsestHalfStep: Double
+    ) throws -> ACOMCrystalSymmetry {
+        guard proposed == .monoclinic else {
+            try verifyFamily(proposed, sites: sites, coarsestHalfStep: coarsestHalfStep)
+            return proposed
+        }
+        guard !sites.isEmpty else { return .identity }
+        let twoFoldAlongB: (SIMD3<Double>) -> SIMD3<Double> = { SIMD3(-$0.x, $0.y, -$0.z) }
+        let mirrorPerpendicularToB: (SIMD3<Double>) -> SIMD3<Double> = { SIMD3($0.x, -$0.y, $0.z) }
+        for operation in [twoFoldAlongB, mirrorPerpendicularToB]
+        where isSymmetry(operation, of: sites, positionTolerance: symmetryPositionTolerance) {
+            return .monoclinic
+        }
+        return .identity
     }
 
     /// Fractional-coordinate agreement required to call two sites the same.

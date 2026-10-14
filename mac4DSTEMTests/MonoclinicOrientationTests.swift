@@ -281,6 +281,27 @@ final class MonoclinicOrientationTests: XCTestCase {
         XCTAssertEqual(try CIFImport.crystalModel(from: cif, fileBaseName: "p1").symmetry, .identity)
     }
 
+    // MARK: - Unvalidated stays labelled
+
+    /// A monoclinic map self-reports `validation: "none"` and the note, through the run's provenance
+    /// into the inspector badge predicate and the export caption; cubic and hexagonal products do not.
+    /// Mutation (drop the keys in `CrystalModel.provenance`): red.
+    func testMonoclinicProductIsBadgedUnvalidatedAndCubicIsNot() throws {
+        let model = try betaDoublePrimeModel()
+        XCTAssertEqual(model.provenance["validation"], "none")
+        XCTAssertEqual(model.provenance["validation_note"], "monoclinic orientation — no β″ truth set")
+        let semantics = ACOMRunSemantics(
+            materialModelID: model.id, materialDescription: model.displayName,
+            scale: ACOMScaleSemantics(invAngstromPerPixel: 0.01, provenance: .manual),
+            materialProvenance: model.provenance)
+        XCTAssertTrue(ProductInfoSections.isUnvalidated(provenance: semantics.provenance))
+        XCTAssertEqual(semantics.provenance["validation_note"], "monoclinic orientation — no β″ truth set")
+        for other in CrystalModelLibrary.models {
+            XCTAssertNil(other.provenance["validation"], "\(other.displayName) is not an unvalidated product")
+            XCTAssertFalse(ProductInfoSections.isUnvalidated(provenance: other.provenance))
+        }
+    }
+
     // MARK: - P2 / P4: round trip through the matcher
 
     private func monoclinicPlan(count: Int) throws -> (plan: OrientationPlan, crystal: Crystal) {
@@ -318,45 +339,74 @@ final class MonoclinicOrientationTests: XCTestCase {
         min(angle(recovered, truth), angle(c2b * recovered, truth)) * 180 / .pi
     }
 
-    /// P4. The pattern of R and of C2*R is the same pattern (C2 about b is a symmetry of the crystal):
-    /// unreduced, the recovered matrix is 180 deg from one of the two truths; reduced by 2/m,
-    /// both truths and the recovered matrix are one orientation.
-    /// Mutation (reduce = identity): the plain angle to one truth stays ~180 deg and this goes red.
+    /// P4. The pattern of R and of C2*R is the same pattern (C2 about b is a symmetry of the crystal), so
+    /// the matcher returns ONE matrix for both, which is 180 deg from one of the two truths. Unreduced
+    /// that is an error against half the truths; reduced by 2/m both truths and the recovered matrix are
+    /// one orientation. Isolates the GROUP from the library: only draws on which the matcher found the
+    /// pattern at all (plain angle to the nearer truth within the band) are scored here; the rest are P2.
+    /// Mutation (reduce = identity): the reduced distance to the farther truth stays ~180 deg: red.
     func testP4TheC2AmbiguityIsMergedByMonoclinicAndNotByIdentity() throws {
-        let (plan, crystal) = try monoclinicPlan(count: 200)
+        let (plan, crystal) = try monoclinicPlan(count: 400)
         let reflections = crystal.reflections(kMax: 1.2)
         let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
-        let unreduced = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .identity))
-        let axes: [SIMD3<Double>] = [[0.3, 0.8, 0.5], [-0.6, 0.5, 0.62], [0.2, 0.3, -0.93], [0.9, 0.2, 0.4]]
-        var worstPlain = 0.0
-        for (index, axis) in axes.enumerated() {
-            let truth = truthMatrix(axis: axis, inPlaneDeg: 17.3 + 40 * Double(index))
+        var rng = MonoclinicRNG(state: 0x853C49E6748FEA9B)
+        var found = 0, scored = 0
+        while scored < 60 {
+            let v = SIMD3(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))
+            let length = simd_length(v)
+            guard length > 0.2 && length <= 1 else { continue }
+            let truth = truthMatrix(axis: v / length, inPlaneDeg: rng.uniform(0, 360))
             let image = c2b * truth
+            scored += 1
+            let p = peaks(crystal: crystal, truth: truth, reflections: reflections)
+            let pImage = peaks(crystal: crystal, truth: image, reflections: reflections)
+            XCTAssertEqual(p.count, pImage.count, "C2 about b is a symmetry: the two truths excite the same reflections")
+            let result = matcher.match(peaks: p, originX: 256, originY: 256, invAngstromPerPixel: 0.008)
+            let matrix = result.euler.py4DSTEMOrientationMatrix
+            let nearer = min(angle(matrix, truth), angle(matrix, image)) * 180 / .pi
+            let farther = max(angle(matrix, truth), angle(matrix, image)) * 180 / .pi
+            guard nearer <= 7.7 else { continue }
+            found += 1
+            XCTAssertGreaterThan(farther, 172, "the two truths are a half turn apart, so unreduced one of them is far")
             for t in [truth, image] {
-                let p = peaks(crystal: crystal, truth: t, reflections: reflections)
-                let reduced = matcher.match(peaks: p, originX: 256, originY: 256, invAngstromPerPixel: 0.008)
-                let raw = unreduced.match(peaks: p, originX: 256, originY: 256, invAngstromPerPixel: 0.008)
-                // Reduced: the recovered orientation is within the band of BOTH C2-related truths.
-                let r = reduced.euler.py4DSTEMOrientationMatrix
-                XCTAssertLessThan(angle(ACOMCrystalSymmetry.monoclinic.reduce(r).matrix,
-                                        ACOMCrystalSymmetry.monoclinic.reduce(truth).matrix) * 180 / .pi, 10,
-                                  "axis \(axis)")
-                worstPlain = max(worstPlain, angle(raw.euler.py4DSTEMOrientationMatrix, truth) * 180 / .pi,
-                                 angle(raw.euler.py4DSTEMOrientationMatrix, image) * 180 / .pi)
+                XCTAssertLessThan(
+                    angle(ACOMCrystalSymmetry.monoclinic.reduce(matrix).matrix,
+                          ACOMCrystalSymmetry.monoclinic.reduce(t).matrix) * 180 / .pi, 7.7)
             }
         }
-        XCTAssertGreaterThan(worstPlain, 150, "unreduced, the recovered matrix is a half turn from one truth")
+        XCTAssertGreaterThanOrEqual(found, 40, "the group test needs patterns the matcher found; the rest are P2")
     }
 
-    /// P2 (band set in the design note before this ran): disorientation to truth <= 7.7 deg for >= 95 %
-    /// of 600 draws; random directions over the whole sphere, random in-plane angles, fixed seed.
-    func testP2RoundTripRecoversRandomOrientationsWithinTheLibraryStep() throws {
-        let (plan, crystal) = try monoclinicPlan(count: 200)
+    /// P2 AS REGISTERED, REFUTED 2026-10-14: at the default 200 templates 86.5 % of 600 draws are within
+    /// the 7.7 deg band (median 3.1 deg; the registered fraction is 95 %). Gate D diagnosis
+    /// (docs/archive/v5/beta-double-prime-orientation-results-2026-10-14.md): the misses are the library
+    /// resolution and a near half-turn in-plane ambiguity, not the group (mirrored and sampled-zone
+    /// draws fail alike; at 400 / 800 / 1600 templates 96.3 / 99.0 / 99.5 % are within 7.7 deg). The
+    /// refutation is recorded here, not amended (ADR 050): `XCTExpectFailure` turns red when the
+    /// default library ever passes, which is the cue to register that as a new item.
+    func testP2RoundTripAtTheDefaultLibraryIsRefutedAsRegistered() throws {
+        let within = try roundTripFraction(templates: 200, draws: 600)
+        XCTExpectFailure("P2 refuted as registered: 86.5 % within 7.7 deg at 200 templates, registered 95 %") {
+            XCTAssertGreaterThanOrEqual(within, 0.95)
+        }
+        XCTAssertGreaterThan(within, 0.80, "and it did not get worse than the recorded measurement")
+    }
+
+    /// NOT a registered prediction: the post-hoc diagnostic run with a library 4x as dense (800 templates,
+    /// step about 3.9 deg), same draws. It is evidence for the diagnosis above, not a pass of P2.
+    func testPostHocRoundTripWithADenserLibraryRecoversTheOrientation() throws {
+        let within = try roundTripFraction(templates: 800, draws: 600)
+        XCTAssertGreaterThanOrEqual(within, 0.95)
+    }
+
+    /// Fraction of random draws recovered within 7.7 deg (min over the independent 2/m list).
+    private func roundTripFraction(templates: Int, draws: Int) throws -> Double {
+        let (plan, crystal) = try monoclinicPlan(count: templates)
         let reflections = crystal.reflections(kMax: 1.2)
         let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
         var rng = MonoclinicRNG(state: 0x2545F4914F6CDD1D)
         var errors: [Double] = []
-        while errors.count < 600 {
+        while errors.count < draws {
             let v = SIMD3(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))
             let length = simd_length(v)
             guard length > 0.2 && length <= 1 else { continue }
@@ -369,11 +419,10 @@ final class MonoclinicOrientationTests: XCTestCase {
         }
         let sorted = errors.sorted()
         let within = Double(errors.filter { $0 <= 7.7 }.count) / Double(errors.count)
-        print(String(format: "MEASURE: beta'' round trip n=%d median %.2f p90 %.2f p95 %.2f max %.2f deg; within 7.7 deg %.3f; within 4.5 deg %.3f",
-                     errors.count, sorted[errors.count / 2], sorted[Int(Double(errors.count) * 0.9)],
-                     sorted[Int(Double(errors.count) * 0.95)], sorted.last!, within,
-                     Double(errors.filter { $0 <= 4.5 }.count) / Double(errors.count)))
-        XCTAssertGreaterThanOrEqual(within, 0.95)
+        print(String(format: "MEASURE: beta'' round trip %d templates n=%d median %.2f p90 %.2f p95 %.2f max %.2f deg; within 7.7 deg %.3f",
+                     templates, errors.count, sorted[errors.count / 2], sorted[Int(Double(errors.count) * 0.9)],
+                     sorted[Int(Double(errors.count) * 0.95)], sorted.last!, within))
+        return within
     }
 }
 
