@@ -93,6 +93,15 @@ synthetic rows, refuses exactly the two ring-less real fits, gates green in a co
 its annulus, a ring-less fit with healthy widths; the 8 % seed check was refuted on real data. Nothing has landed.
 Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`. Owner: card M3.
 
+### Pane keys may be dead in the shared shell — macTEM hand-off, unverified here (2026-10-14)
+macTEM's Gate D step 1 (macTEM `5120fed`, 21 runs, 7 arms): on a click, focus is granted and withdrawn within the same click,
+even for a bare focusable control; its Fable read (`49abd7a`): the `.inspector` column's NSHostingView, a sibling of the
+NavigationSplitView's split view, takes first responder. mac4DSTEM's detail content uses the same `.focusable()` + key
+handlers (WorkspaceView.swift:115-117 scan stepping, SpectrumStripView, SpectroscopyRoomContent, MapsGridView) and no drive
+has shown them working. Evidence: macTEM `docs/archive/pane-keys-gate-d-2026-10-14/`. Next: the session's drive block checks
+the scan-stepping keys, a first-responder backtrace and the inspector hidden; if confirmed, a Gate D registration. The fix
+sits in frozen-shell files (the owner's call, asked separately) and lands here first, then macTEM copies it.
+
 ### Other named science residuals
 One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) and `archive/v4/open-items-detail-2026-09-25.md`.
 - T1 [0 -4 1]: 252 not-indexed positions are detection noise (a Friedel pair 2.5–5.2° off); levers (centroiding, tolerance, accept) are the owner's.
