@@ -140,8 +140,15 @@ extension DiffractionPointerReadout.Sample {
         CalibrationUnitConversion.displayNumber(value, digits: digits, locale: locale)
     }
 
+    /// The stored value as it is stored: every integer digit (significant-digit rounding would show a stored 12345 as 12340 and a
+    /// saturated 65535 as 65540), a fraction at the seven significant digits a Float carries. Never grouped, in the reader's
+    /// decimal separator. (Tier-1 refuter finding F1, 2026-10-14.)
     private func valueText(locale: Locale) -> String {
-        value.map { number(Double($0), digits: 4, locale: locale) } ?? "\u{2014}"
+        guard let value else { return "\u{2014}" }
+        if value == value.rounded() {
+            return Double(value == 0 ? 0 : value).formatted(.number.locale(locale).grouping(.never).precision(.fractionLength(0)))
+        }
+        return number(Double(value), digits: 7, locale: locale)
     }
 
     private func reciprocalText(locale: Locale) -> String? {
@@ -149,7 +156,8 @@ extension DiffractionPointerReadout.Sample {
     }
 
     /// The readout as the header prints it, longest first; the header shows the first that fits its gap. Every variant keeps the
-    /// number's meaning: the field names go before the unit does, and q is the last thing to leave.
+    /// field names (Qx is the detector COLUMN here, py4DSTEM's name for that axis is the other one, and a bare "(74, 64)" or "1"
+    /// can be read the wrong way round): the separators go first, then q.
     struct Lines: Equatable {
         var full: String
         var short: String
@@ -159,10 +167,10 @@ extension DiffractionPointerReadout.Sample {
     func lines(locale: Locale = .autoupdatingCurrent) -> Lines {
         let q = reciprocalText(locale: locale)
         let value = valueText(locale: locale)
-        let minimal = "(\(pixel.x), \(pixel.y)) \u{00B7} \(value)"
+        let minimal = "Qx \(pixel.x) Qy \(pixel.y) I \(value)"
         var full = "Qx \(pixel.x) \u{00B7} Qy \(pixel.y) \u{00B7} I \(value)"
         var short = minimal
-        if let q { full += " \u{00B7} " + q; short += " \u{00B7} " + q }
+        if let q { full += " \u{00B7} " + q; short += " " + q }
         return Lines(full: full, short: short, minimal: minimal)
     }
 
@@ -171,5 +179,29 @@ extension DiffractionPointerReadout.Sample {
         var text = "Detector pixel Qx \(pixel.x), Qy \(pixel.y), intensity \(valueText(locale: locale))"
         if let q = reciprocalText(locale: locale) { text += ", " + q }
         return text
+    }
+}
+
+// MARK: - The session's side of the Basis
+
+extension DiffractionPointerReadout.Basis {
+    /// What the pane reads from the session, as one pure function so its rules are tested: the per-position origin applies to the
+    /// pattern at the selected scan position only (Current, Point shape: `FitOverlayPresentation.patternShowsSelectedPosition`'s
+    /// rule), the scan extents are the descriptor's Rx × Ry (width, then height), the aperture centre is (x = column, y = row),
+    /// and the pane's mrad mode is the only thing that asks for mrad.
+    @MainActor
+    static func make(
+        calibration: Calibration, descriptor d: DatasetDescriptor, selectedScan: ScanPos,
+        patternMode: PatternDisplayMode, regionShape: RegionShape, aperture: Aperture,
+        scaleUnit: PatternScaleUnit, mradPerPixel: Float?
+    ) -> DiffractionPointerReadout.Basis {
+        DiffractionPointerReadout.Basis(
+            calibration: calibration,
+            detectorQX: d.qx, detectorQY: d.qy,
+            scanX: selectedScan.x, scanY: selectedScan.y, scanWidth: d.rx, scanHeight: d.ry,
+            singlePosition: patternMode == .current && regionShape == .point,
+            apertureCentre: (x: aperture.centerX, y: aperture.centerY),
+            milliradians: scaleUnit == .milliradians,
+            mradPerPixel: mradPerPixel)
     }
 }

@@ -117,7 +117,7 @@ final class DiffractionPointerReadoutTests: XCTestCase {
         let pattern = DiffractionPattern(qy: 2, qx: 2, pixels: pixels)
         let sample = try XCTUnwrap(Readout.sample(at: .init(x: 1, y: 1), in: pattern, basis: basis(calibration())))
         XCTAssertNil(sample.value)
-        XCTAssertEqual(sample.lines(locale: Locale(identifier: "en_US_POSIX")).minimal, "(1, 1) \u{00B7} \u{2014}")
+        XCTAssertEqual(sample.lines(locale: Locale(identifier: "en_US_POSIX")).minimal, "Qx 1 Qy 1 I \u{2014}")
     }
 
     // MARK: P3 the ellipse oracle
@@ -232,15 +232,103 @@ final class DiffractionPointerReadoutTests: XCTestCase {
         XCTAssertEqual(fallback.reciprocal?.scale.isAngle, false)
     }
 
+    // MARK: The session's side of the Basis (S1: the pane's wiring, as a pure function)
+
+    private let descriptor = DatasetDescriptor(                // Ry 3, Rx 4, Qy 5, Qx 6
+        filePath: "/x.h5", datasetPath: "/d", shape: [3, 4, 5, 6], dtypeDescription: "float32", chunkShape: nil)
+
+    private func session(
+        _ mode: PatternDisplayMode = .current, _ shape: RegionShape = .point, _ unit: PatternScaleUnit = .reciprocal,
+        mrad: Float? = nil, scan: ScanPos = ScanPos(x: 2, y: 1), calibration: Calibration = Calibration()
+    ) -> Readout.Basis {
+        .make(calibration: calibration, descriptor: descriptor, selectedScan: scan, patternMode: mode, regionShape: shape,
+              aperture: Aperture(centerX: 11, centerY: 22, inner: 0, outer: 5), scaleUnit: unit, mradPerPixel: mrad)
+    }
+
+    func testTheBasisTakesTheDescriptorsExtentsInTheirOrderAndTheAperturesCentreAsXThenY() {
+        let b = session()
+        XCTAssertEqual([b.scanWidth, b.scanHeight], [4, 3], "Rx, then Ry")
+        XCTAssertEqual([b.detectorQX, b.detectorQY], [6, 5], "Qx (columns), then Qy (rows)")
+        XCTAssertEqual([b.scanX, b.scanY], [2, 1])
+        XCTAssertEqual(b.apertureCentre?.x, 11, "the column")
+        XCTAssertEqual(b.apertureCentre?.y, 22, "the row")
+    }
+
+    func testOnlyTheCurrentPatternOfAPointSelectionIsTheSinglePosition() {
+        for mode in PatternDisplayMode.allCases {
+            for shape in RegionShape.allCases {
+                XCTAssertEqual(session(mode, shape).singlePosition, mode == .current && shape == .point, "\(mode) \(shape)")
+            }
+        }
+    }
+
+    func testOnlyTheMilliradianModeAsksForMilliradians() {
+        XCTAssertFalse(session(.current, .point, .reciprocal, mrad: 0.5).milliradians)
+        XCTAssertTrue(session(.current, .point, .milliradians, mrad: 0.5).milliradians)
+        XCTAssertEqual(session(.current, .point, .milliradians, mrad: 0.5).mradPerPixel, 0.5)
+        XCTAssertNil(session(.current, .point, .milliradians, mrad: nil).mradPerPixel)
+    }
+
+    /// The wiring through to a number: a 4 x 3 scan with a different fitted origin at each position. Swapping Rx and Ry, or
+    /// treating a mean pattern as the single position, moves q.
+    func testThePaneFeedsTheReadoutThePositionsOwnOriginAndTheMeanOtherwise() throws {
+        var c = calibration()
+        c.recordedOriginX = nil; c.recordedOriginY = nil
+        let x: [Float] = (0..<12).map { Float($0) }                 // origin x = 0 ... 11 by scan index
+        c.origin = OriginMaps(width: 4, height: 3, measuredX: nil, measuredY: nil, fittedX: x, fittedY: [Float](repeating: 2, count: 12))
+        let pattern = DiffractionPattern(qy: 5, qx: 6, pixels: [Float](repeating: 1, count: 30))
+        let pixel = Readout.Pixel(x: 5, y: 2)
+        // Scan (2, 1) is index 1 * 4 + 2 = 6: origin (6, 2), so the pixel (5, 2) is 1 px away. The mean origin is (5.5, 2): 0.5 px.
+        let own = try XCTUnwrap(Readout.sample(at: pixel, in: pattern, basis: session(calibration: c))?.reciprocal)
+        XCTAssertEqual(own.value, 1 * 0.02, accuracy: 1e-6)
+        let mean = try XCTUnwrap(Readout.sample(at: pixel, in: pattern, basis: session(.mean, calibration: c))?.reciprocal)
+        XCTAssertEqual(mean.value, 0.5 * 0.02, accuracy: 1e-6)
+        let region = try XCTUnwrap(Readout.sample(at: pixel, in: pattern, basis: session(.current, .circle, calibration: c))?.reciprocal)
+        XCTAssertEqual(region.value, 0.5 * 0.02, accuracy: 1e-6, "a summed region is not one position")
+    }
+
     // MARK: Text
+
+    /// F1 (tier-1 refuter, 2026-10-14): I is the STORED value. It was formatted at four significant digits, which rounds integer
+    /// digits too: a stored 12345 read "I 12340" and a saturated 16-bit 65535 read "I 65540". All integer digits are shown, and
+    /// a fraction at the seven significant digits a Float carries.
+    func testTheStoredValueIsShownWithAllItsDigits() throws {
+        func check(_ value: Float, _ locale: String, endsWith expected: String, _ note: String = "",
+                   file: StaticString = #filePath, line: UInt = #line) throws {
+            let pattern = DiffractionPattern(qy: 1, qx: 1, pixels: [value])
+            let sample = try XCTUnwrap(Readout.sample(at: .init(x: 0, y: 0), in: pattern, basis: basis(calibration())),
+                                       file: file, line: line)
+            let text = sample.lines(locale: Locale(identifier: locale)).minimal
+            XCTAssertTrue(text.hasSuffix(expected), "\(value) in \(locale) read '\(text)', not '...\(expected)' \(note)",
+                          file: file, line: line)
+        }
+        for locale in ["en_US_POSIX", "de_DE"] {
+            try check(12345, locale, endsWith: " 12345")
+            try check(65535, locale, endsWith: " 65535", "(a saturated 16-bit pixel)")
+            try check(123456, locale, endsWith: " 123456")
+            try check(4_213_567, locale, endsWith: " 4213567")
+            try check(-12345, locale, endsWith: " -12345")
+            try check(10000, locale, endsWith: " 10000")
+            try check(0, locale, endsWith: " 0")
+        }
+        try check(12345.5, "en_US_POSIX", endsWith: " 12345.5", "(a fraction keeps what the Float holds)")
+        try check(12345.5, "de_DE", endsWith: " 12345,5")
+        try check(1234.5678, "en_US_POSIX", endsWith: " 1234.568", "(seven significant digits)")
+        try check(0.1, "en_US_POSIX", endsWith: " 0.1", "(the Float 0.1 is not 0.10000000149)")
+        try check(0.0275, "en_US_POSIX", endsWith: " 0.0275")
+        // VoiceOver is told the same number.
+        let pattern = DiffractionPattern(qy: 1, qx: 1, pixels: [65535])
+        let sample = try XCTUnwrap(Readout.sample(at: .init(x: 0, y: 0), in: pattern, basis: basis(calibration())))
+        XCTAssertTrue(sample.spoken(locale: Locale(identifier: "en_US_POSIX")).contains("intensity 65535"))
+    }
 
     func testTheTextKeepsEachNumbersMeaningAndDropsQLast() throws {
         let posix = Locale(identifier: "en_US_POSIX")
         let sample = try XCTUnwrap(Readout.sample(at: .init(x: 74, y: 64), in: pattern128, basis: basis(calibration())))
         let lines = sample.lines(locale: posix)
         XCTAssertEqual(lines.full, "Qx 74 \u{00B7} Qy 64 \u{00B7} I 1 \u{00B7} q 0.2 nm⁻¹")
-        XCTAssertEqual(lines.short, "(74, 64) \u{00B7} 1 \u{00B7} q 0.2 nm⁻¹")
-        XCTAssertEqual(lines.minimal, "(74, 64) \u{00B7} 1")
+        XCTAssertEqual(lines.short, "Qx 74 Qy 64 I 1 q 0.2 nm⁻¹", "the separators go first: the names stay (S2)")
+        XCTAssertEqual(lines.minimal, "Qx 74 Qy 64 I 1", "then q; never a bare (74, 64)")
         XCTAssertEqual(sample.spoken(locale: posix), "Detector pixel Qx 74, Qy 64, intensity 1, q 0.2 nm⁻¹")
         let uncalibrated = try XCTUnwrap(Readout.sample(at: .init(x: 74, y: 64), in: pattern128,
                                                         basis: basis(calibration(q: nil, units: nil))))

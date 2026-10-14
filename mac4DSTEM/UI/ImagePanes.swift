@@ -525,15 +525,10 @@ struct DiffractionPane: View {
     /// What a q needs from the session (`DiffractionPointerReadout.Basis`): read at the hover tick, not in the body.
     private func readoutBasis(for pattern: DiffractionPattern) -> DiffractionPointerReadout.Basis? {
         guard let d = appState.descriptor else { return nil }
-        return DiffractionPointerReadout.Basis(
-            calibration: appState.calibrationSession.calibration,
-            detectorQX: d.qx, detectorQY: d.qy,
-            scanX: appState.selectedScan.x, scanY: appState.selectedScan.y, scanWidth: d.rx, scanHeight: d.ry,
-            // The same rule as the fit overlay's `patternShowsSelectedPosition`.
-            singlePosition: appState.patternDisplayMode == .current && appState.realSpaceShape == .point,
-            apertureCentre: (x: appState.aperture.centerX, y: appState.aperture.centerY),
-            milliradians: appState.patternScaleUnit == .milliradians,
-            mradPerPixel: appState.dpcMilliradiansPerDetectorPixel)
+        return .make(
+            calibration: appState.calibrationSession.calibration, descriptor: d, selectedScan: appState.selectedScan,
+            patternMode: appState.patternDisplayMode, regionShape: appState.realSpaceShape, aperture: appState.aperture,
+            scaleUnit: appState.patternScaleUnit, mradPerPixel: appState.dpcMilliradiansPerDetectorPixel)
     }
 
     private func readPointer(at location: CGPoint, pattern: DiffractionPattern, box: CGSize) {
