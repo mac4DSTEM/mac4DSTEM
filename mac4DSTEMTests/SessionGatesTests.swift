@@ -176,8 +176,11 @@ final class SessionGatesTests: XCTestCase {
         // The refusal is synchronous — before the operation Task is spawned.
         XCTAssertTrue(state.errorMessage?.contains("could not restore") == true,
                       "The save must refuse with the restore failure named: \(state.errorMessage ?? "nil")")
-        // Give any (wrongly) spawned write a chance to run before asserting.
-        try await Task.sleep(nanoseconds: 200_000_000)
+        // No wait: a save that got past the gate calls `beginCancellableOperation` before it spawns its write,
+        // synchronously, so "no operation began" is readable at once and does not depend on how long a
+        // wrongly spawned write would take.
+        XCTAssertNil(state.activeOperation, "A refused save must not have begun its write")
+        XCTAssertFalse(state.canCancelActiveOperation)
         XCTAssertFalse(FileManager.default.fileExists(atPath: sidecar.path),
                        "A refused save must not have rewritten the sidecar")
 
@@ -233,7 +236,9 @@ final class SessionGatesTests: XCTestCase {
         await state.removeSavedSessionResult(saved)
         XCTAssertTrue(state.errorMessage?.contains("could not restore") == true,
                       "Removal rebuilds the file and must refuse too: \(state.errorMessage ?? "nil")")
-        try await Task.sleep(nanoseconds: 200_000_000)
+        // `removeSavedSessionResult` is awaited: a removal that got past the gate had finished rewriting by now,
+        // so there is nothing left to wait for.
+        XCTAssertNil(state.activeOperation)
         let bytesNow = try XCTUnwrap(
             try FileManager.default.attributesOfItem(atPath: sidecar.path)[.size] as? Int
         )

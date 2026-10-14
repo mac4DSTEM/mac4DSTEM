@@ -134,7 +134,10 @@ final class ReviewOwnerCardsTests: XCTestCase {
         b.errorMessage = nil
         b.openFileForConfiguration(url: x)   // Open with Options…
         XCTAssertEqual(b.errorMessage, line("x.h5"))
-        try await Task.sleep(nanoseconds: 200_000_000)
+        // No wait: an open that got past the refusal claims its file in the registry, synchronously, before it
+        // spawns its Task (`beginOpening`), so the claim - not a timer - shows whether the refusal came first.
+        XCTAssertNil(OpenDatasetRegistry.otherHolder(of: x, excluding: a),
+                     "the refused window must not have claimed the other window's file")
         XCTAssertNil(b.promotionRun.pendingLoad, "no configurator opened on the other window's dataset")
         XCTAssertFalse(b.datasetSession.isLoading)
     }
