@@ -233,27 +233,34 @@ final class MonoclinicOrientationTests: XCTestCase {
         XCTAssertEqual(ACOMCrystalSymmetry.monoclinic.displayName, "Monoclinic 2/m")
     }
 
-    /// Refuter RB: (x, y, z) and (-x, y, z) are inequivalent under 2/m and must differ. Dense grid
-    /// of the zone (polar 5..90 deg step 5, azimuth 0..180 deg step 5, excluding 180): every pair
-    /// of distinct grid directions is at least epsilon apart in colour. Mutation (the old
-    /// (1 - cos 2 phi)/2 key) goes red here: phi and 180 - phi collide.
+    /// Refuter RB: (x, y, z) and (-x, y, z) are inequivalent under 2/m and must differ. Injectivity is
+    /// tested by inverting the key: on a dense grid of the zone (polar 2..90 deg, azimuth 0..180 deg,
+    /// step 2 deg, 180 excluded) the HSV colour gives back the direction's polar angle (saturation)
+    /// and azimuth (hue) to 1e-4. A pairwise colour distance cannot test this: every key converges at
+    /// the pole b, where the zone itself is one point. Mutation (the old (1 - cos 2 phi)/2 key) goes red.
     func testIPFKeyIsInjectiveOnTheFundamentalZone() {
-        var points: [(SIMD3<Double>, SIMD3<Float>)] = []
-        for tiltDeg in stride(from: 5.0, through: 90.0, by: 5.0) {
-            for azDeg in stride(from: 0.0, to: 180.0, by: 5.0) {
+        func invert(_ c: SIMD3<Float>) -> (tilt: Double, azimuth: Double) {
+            let r = Double(c.x), g = Double(c.y), b = Double(c.z)
+            let mx = max(r, g, b), mn = min(r, g, b), chroma = mx - mn
+            var hue: Double
+            if chroma < 1e-12 { hue = 0 }
+            else if mx == r { hue = ((g - b) / chroma).truncatingRemainder(dividingBy: 6) }
+            else if mx == g { hue = (b - r) / chroma + 2 }
+            else { hue = (r - g) / chroma + 4 }
+            hue *= 60; if hue < 0 { hue += 360 }
+            var azimuth = (hue - 120) / 2; if azimuth < 0 { azimuth += 180 }
+            return (chroma / max(mx, 1e-12) * 90, azimuth)
+        }
+        for tiltDeg in stride(from: 2.0, through: 90.0, by: 2.0) {
+            for azDeg in stride(from: 0.0, to: 180.0, by: 2.0) {
                 let t = tiltDeg * .pi / 180, a = azDeg * .pi / 180
                 let d = SIMD3(sin(t) * cos(a), cos(t), sin(t) * sin(a))
-                points.append((d, MonoclinicOrientationSymmetry.ipfColor(direction: d)))
+                let back = invert(MonoclinicOrientationSymmetry.ipfColor(direction: d))
+                XCTAssertEqual(back.tilt, tiltDeg, accuracy: 1e-3, "polar \(tiltDeg), azimuth \(azDeg)")
+                let dAz = abs(back.azimuth - azDeg)
+                XCTAssertLessThan(min(dAz, 180 - dAz), 1e-3, "polar \(tiltDeg), azimuth \(azDeg)")
             }
         }
-        var minimum = Float.infinity
-        for i in points.indices {
-            for j in points.indices where j > i {
-                minimum = min(minimum, simd_length(points[i].1 - points[j].1))
-            }
-        }
-        // Neighbouring grid points are 5 deg apart; the wheel gives >= ~0.08 in RGB distance.
-        XCTAssertGreaterThan(minimum, 0.05)
         let d = SIMD3<Double>(0.5, 0.6, 0.3)
         let mirrored = SIMD3<Double>(-0.5, 0.6, 0.3)
         XCTAssertGreaterThan(simd_length(MonoclinicOrientationSymmetry.ipfColor(direction: d)
