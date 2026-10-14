@@ -5,9 +5,18 @@ import SwiftUI
 /// UI deliberately drops the AppKit scroll-wheel monitor the old panes
 /// installed (`NSEvent.addLocalMonitorForEvents`, application-wide, which
 /// swallowed scrolls for the whole app whenever a pane's hover never
-/// reported `.ended`). `MagnifyGesture` covers trackpads, and macOS
-/// synthesises magnification from a mouse wheel with the modifier, so the
-/// monitor bought one input at the cost of a global event trap.
+/// reported `.ended`). What is left:
+/// - `MagnifyGesture`: a trackpad pinch. It zooms ABOUT THE POINTER, the point the pinch began at, so the pixel you are looking
+///   at stays under it.
+/// - View > Zoom In, Zoom Out, Zoom to Fit (`ZoomCommands`), with the shortcuts, for the keyboard and a mouse: about the pointer
+///   when it is over the pane, else about the pane's centre.
+/// - VoiceOver's zoom and pan actions, and a double-click, which fits the image to the pane again.
+///
+/// **A mouse wheel does not zoom.** An earlier version of this comment said macOS synthesises magnification from the wheel with
+/// a modifier. Nothing documents that: Apple describes `MagnifyGesture` as tracking a magnification event sequence, and a search of
+/// the SwiftUI documentation (2026-10-14) finds no scroll-wheel hook either. The claim is withdrawn rather than relied on, and
+/// the menu is the mouse's route. Only the old monitor bought a wheel route, at the cost of the global event trap above. (The
+/// same sentence is in `SpectrumStripView`'s header comment.)
 ///
 /// The clamp is the science-relevant part. The views scale the image about
 /// its centre (`scaleEffect(drawZoom)`) and then offset it in screen points
@@ -50,9 +59,68 @@ struct ZoomPan: Equatable {
     /// The pane's spoken hint: one brief outcome phrase (the gestures are for the pointer; VoiceOver has the actions).
     static let accessibilityHint = "Zoom with the Zoom in and Zoom out actions."
 
-    mutating func step(by factor: CGFloat, in box: CGSize) {
-        zoom = Self.clampZoom(zoom * factor)
-        offset = Self.clampedOffset(offset, zoom: zoom, in: box)
+    /// Zoom by `factor` about `anchor`, the point to keep still, in screen points from the box's centre (`.zero`: the centre).
+    mutating func step(by factor: CGFloat, in box: CGSize, anchor: CGPoint = .zero) {
+        let target = Self.clampZoom(zoom * factor)
+        offset = Self.clampedOffset(
+            Self.anchoredOffset(offset, from: zoom, to: target, anchor: anchor), zoom: target, in: box)
+        zoom = target
+    }
+
+    // MARK: Zoom about a point
+
+    /// The views scale the image about the box's centre `c` and then offset it in screen points, so a point `p` of the image
+    /// (box points) lands at `c + zoom * (p - c) + offset`. Keeping the image point under `anchor` (screen points from `c`)
+    /// where it is, while the zoom goes from `from` to `to`, gives the offset below. Zooming in from a valid state never leaves
+    /// the clamp (the overhang grows by exactly the amount the anchor can ask for); zooming out can, and the caller clamps.
+    static func anchoredOffset(_ offset: CGSize, from: CGFloat, to: CGFloat, anchor: CGPoint) -> CGSize {
+        guard from > 0 else { return offset }
+        let ratio = to / from
+        return CGSize(width: anchor.x - ratio * (anchor.x - offset.width),
+                      height: anchor.y - ratio * (anchor.y - offset.height))
+    }
+
+    /// A point of the box, as a screen-point offset from the box's centre (what `anchor` takes).
+    static func anchor(for point: CGPoint, in box: CGSize) -> CGPoint {
+        CGPoint(x: point.x - box.width / 2, y: point.y - box.height / 2)
+    }
+
+    /// A pinch in flight: the live zoom and the live offset that keep `anchor` still. The zoom is clamped as the commit will
+    /// clamp it, so the picture never shows a zoom the gesture will not keep.
+    mutating func pinch(magnification: CGFloat, anchor: CGPoint, in box: CGSize) {
+        let target = Self.clampZoom(zoom * magnification)
+        let live = zoom > 0 ? target / zoom : 1
+        let moved = Self.clampedOffset(
+            Self.anchoredOffset(offset, from: zoom, to: target, anchor: anchor), zoom: target, in: box)
+        let shift = CGSize(width: moved.width - offset.width, height: moved.height - offset.height)
+        // Skip a write that changes nothing: each one re-evaluates the pane.
+        if liveZoom != live { liveZoom = live }
+        if liveOffset != shift { liveOffset = shift }
+    }
+
+    /// A pinch's end: commit what `pinch` showed.
+    mutating func endPinch(magnification: CGFloat, anchor: CGPoint, in box: CGSize) {
+        liveZoom = 1
+        liveOffset = .zero
+        step(by: magnification, in: box, anchor: anchor)
+    }
+
+    // MARK: Badge
+
+    /// The zoom as the reader's locale writes it, three significant digits ("2", "2.5", "0.5"); nil at 1× (nothing to say).
+    static func badgeNumber(zoom: CGFloat, locale: Locale = .autoupdatingCurrent) -> String? {
+        guard abs(zoom - 1) > 0.005 else { return nil }
+        return Double(zoom).formatted(.number.locale(locale).grouping(.never).precision(.significantDigits(1...3)))
+    }
+
+    /// The pane's zoom badge: "×2.5".
+    static func badgeText(zoom: CGFloat, locale: Locale = .autoupdatingCurrent) -> String? {
+        badgeNumber(zoom: zoom, locale: locale).map { "\u{00D7}" + $0 }
+    }
+
+    /// The badge as VoiceOver and the tooltip say it.
+    static func badgeSpoken(zoom: CGFloat, locale: Locale = .autoupdatingCurrent) -> String? {
+        badgeNumber(zoom: zoom, locale: locale).map { "Zoomed to \($0) times" }
     }
 
     /// The VoiceOver pan actions: the view moves over the image in the named direction (so the image content moves the other
@@ -88,8 +156,49 @@ struct ZoomPan: Equatable {
     }
 }
 
+/// One pane's zoom, as a reference so more than the pane can reach it: the View menu's commands act on the pane that publishes
+/// it as the focused scene value (`FocusedValues.paneZoom`), and a class compares by identity there (a closure or a struct of
+/// closures would not). The pane owns it as `@State`; nothing else holds state about the zoom.
+///
+/// `box` (the drawn image's size, which the pan clamp is measured against) and `pointer` (where the pointer is over the pane, in
+/// box points from its top-leading corner, nil outside) are kept current by the pane and are not observed: nothing draws them.
+@MainActor
+@Observable
+final class PaneZoomModel {
+    var state = ZoomPan()
+    @ObservationIgnored var box: CGSize = .zero
+    @ObservationIgnored var pointer: CGPoint?
+
+    /// The zoom commands' step: the VoiceOver step (a factor of 2), about the pointer when it is over the pane (the keyboard
+    /// shortcut), else about the centre (the menu was chosen with the mouse, so the pointer is in the menu bar).
+    func zoomIn() { step(ZoomPan.accessibilityStepFactor) }
+    func zoomOut() { step(1 / ZoomPan.accessibilityStepFactor) }
+
+    /// Back to 1×, the image fitted to the pane (what a double-click does).
+    func fit() { update { $0.reset() } }
+
+    private func step(_ factor: CGFloat) {
+        let anchor = pointer.map { ZoomPan.anchor(for: $0, in: box) } ?? .zero
+        update { $0.step(by: factor, in: box, anchor: anchor) }
+    }
+
+    /// The one way the zoom changes: on a copy, assigned back. The `@Observable` setter compares an Equatable value and does not
+    /// notify when nothing changed (a gesture reports the same clamped value at every tick of an edge, and each notification
+    /// re-evaluates the pane); an in-place mutation (`change(&state)`, the `_modify` accessor) always notifies.
+    func update(_ change: (inout ZoomPan) -> Void) {
+        var next = state
+        change(&next)
+        state = next
+    }
+}
+
+extension FocusedValues {
+    /// The zoom of the pane View > Zoom acts on; nil when no pane offers one (no dataset, or a room without an image pane).
+    @Entry var paneZoom: PaneZoomModel?
+}
+
 private struct ZoomPanModifier: ViewModifier {
-    @Binding var state: ZoomPan
+    let model: PaneZoomModel
     /// The drawn image's box — the clamp is expressed against the pixels,
     /// not against whatever the container happens to be.
     let box: CGSize
@@ -100,23 +209,22 @@ private struct ZoomPanModifier: ViewModifier {
                 SimultaneousGesture(
                     MagnifyGesture()
                         .onChanged { value in
-                            // Skip a write that changes nothing: each one
-                            // re-evaluates the pane.
-                            if state.liveZoom != value.magnification {
-                                state.liveZoom = value.magnification
+                            // About the point the pinch began at, so the pixel under the pointer stays under it.
+                            model.update {
+                                $0.pinch(magnification: value.magnification,
+                                         anchor: ZoomPan.anchor(for: value.startLocation, in: box), in: box)
                             }
                         }
                         .onEnded { value in
-                            state.zoom = ZoomPan.clampZoom(state.zoom * value.magnification)
-                            state.liveZoom = 1
-                            // Zooming out while panned pulls the image back
-                            // inside the pane.
-                            state.offset = ZoomPan.clampedOffset(
-                                state.offset, zoom: state.zoom, in: box
-                            )
+                            // Zooming out while panned pulls the image back inside the pane (`step` clamps).
+                            model.update {
+                                $0.endPinch(magnification: value.magnification,
+                                            anchor: ZoomPan.anchor(for: value.startLocation, in: box), in: box)
+                            }
                         },
                     DragGesture()
                         .onChanged { value in
+                            let state = model.state
                             let proposed = CGSize(
                                 width: state.offset.width + value.translation.width,
                                 height: state.offset.height + value.translation.height
@@ -132,23 +240,30 @@ private struct ZoomPanModifier: ViewModifier {
                             )
                             // Pinned at an edge the drag keeps reporting the
                             // same clamped value; do not re-publish it.
-                            if state.liveOffset != live { state.liveOffset = live }
+                            if state.liveOffset != live { model.update { $0.liveOffset = live } }
                         }
                         .onEnded { value in
+                            let state = model.state
                             let proposed = CGSize(
                                 width: state.offset.width + value.translation.width,
                                 height: state.offset.height + value.translation.height
                             )
-                            state.offset = ZoomPan.clampedOffset(
-                                proposed, zoom: state.zoom, in: box
-                            )
-                            state.liveOffset = .zero
+                            let committed = ZoomPan.clampedOffset(proposed, zoom: state.zoom, in: box)
+                            model.update { $0.offset = committed; $0.liveOffset = .zero }
                         }
                 )
             )
             .onTapGesture(count: 2) {
-                resetZoom(state: &state, reduceMotion: reduceMotion)
+                resetZoom(model: model, reduceMotion: reduceMotion)
             }
+            // Where the zoom commands anchor: the pointer over the pane, in this view's own (unzoomed) box points.
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let location): model.pointer = location
+                case .ended: model.pointer = nil
+                }
+            }
+            .onChange(of: box, initial: true) { model.box = box }
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -156,11 +271,11 @@ private struct ZoomPanModifier: ViewModifier {
 
 /// Reset, animated only when the reader has not asked for Reduce Motion.
 @MainActor
-private func resetZoom(state: inout ZoomPan, reduceMotion: Bool) {
+private func resetZoom(model: PaneZoomModel, reduceMotion: Bool) {
     if reduceMotion {
-        state.reset()
+        model.fit()
     } else {
-        withAnimation(.snappy) { state.reset() }
+        withAnimation(.snappy) { model.fit() }
     }
 }
 
@@ -169,38 +284,43 @@ private func resetZoom(state: inout ZoomPan, reduceMotion: Bool) {
 /// reset. Applied to the pane's accessibility container, where the actions are
 /// listed (review 2026-10-07, F5). Nothing is drawn.
 private struct ZoomPanAccessibilityActions: ViewModifier {
-    @Binding var state: ZoomPan
+    let model: PaneZoomModel
     let box: CGSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .accessibilityAction(named: "Zoom in") {
-                state.step(by: ZoomPan.accessibilityStepFactor, in: box)
+                model.update { $0.step(by: ZoomPan.accessibilityStepFactor, in: box) }
             }
             .accessibilityAction(named: "Zoom out") {
-                state.step(by: 1 / ZoomPan.accessibilityStepFactor, in: box)
+                model.update { $0.step(by: 1 / ZoomPan.accessibilityStepFactor, in: box) }
             }
-            .accessibilityAction(named: "Pan left") { state.pan(.left, in: box) }
-            .accessibilityAction(named: "Pan right") { state.pan(.right, in: box) }
-            .accessibilityAction(named: "Pan up") { state.pan(.up, in: box) }
-            .accessibilityAction(named: "Pan down") { state.pan(.down, in: box) }
+            .accessibilityAction(named: "Pan left") { model.update { $0.pan(.left, in: box) } }
+            .accessibilityAction(named: "Pan right") { model.update { $0.pan(.right, in: box) } }
+            .accessibilityAction(named: "Pan up") { model.update { $0.pan(.up, in: box) } }
+            .accessibilityAction(named: "Pan down") { model.update { $0.pan(.down, in: box) } }
             .accessibilityAction(named: "Reset zoom") {
-                resetZoom(state: &state, reduceMotion: reduceMotion)
+                resetZoom(model: model, reduceMotion: reduceMotion)
             }
     }
 }
 
 extension View {
     /// "Zoom in", "Zoom out", "Pan left/right/up/down" and "Reset zoom" as accessibility actions, for the
-    /// same `state` and `box` the pane's `.zoomPan` uses.
-    func zoomPanAccessibilityActions(_ state: Binding<ZoomPan>, box: CGSize) -> some View {
-        modifier(ZoomPanAccessibilityActions(state: state, box: box))
+    /// same `model` and `box` the pane's `.zoomPan` uses.
+    func zoomPanAccessibilityActions(_ model: PaneZoomModel, box: CGSize) -> some View {
+        modifier(ZoomPanAccessibilityActions(model: model, box: box))
     }
 
-    /// Pinch to zoom, drag to pan, double-click to reset. `box` is the
-    /// drawn image's size, which is what the pan clamp is measured against.
-    func zoomPan(_ state: Binding<ZoomPan>, box: CGSize) -> some View {
-        modifier(ZoomPanModifier(state: state, box: box))
+    /// Pinch to zoom about the pointer, drag to pan, double-click to fit. `box` is the drawn image's size, which is what the pan
+    /// clamp is measured against.
+    func zoomPan(_ model: PaneZoomModel, box: CGSize) -> some View {
+        modifier(ZoomPanModifier(model: model, box: box))
+    }
+
+    /// Publishes this pane's zoom to the View menu while `isTarget`; nothing otherwise.
+    func zoomCommandTarget(_ model: PaneZoomModel, isTarget: Bool) -> some View {
+        focusedSceneValue(\.paneZoom, isTarget ? model : nil)
     }
 }

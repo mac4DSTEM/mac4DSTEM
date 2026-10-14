@@ -44,7 +44,9 @@ struct DiffractionPane: View {
     /// directly from the environment rather than through `AppState`, since
     /// nothing but this pane's own footer (and `RealSpacePane`'s) needs it.
     @Environment(AppPreferences.self) private var preferences
-    @State private var zp = ZoomPan()
+    /// The pane's zoom, a reference so View > Zoom can act on it (`ZoomCommands`); `zp` is its state.
+    @State private var zoomModel = PaneZoomModel()
+    private var zp: ZoomPan { zoomModel.state }
     /// The pointer's sample, in a reference holder this view never reads (as `RealSpacePane.cursor`): a hover tick writes it and
     /// only `DiffractionCursorReadout` and `DiffractionCursorAccessibilityValue` re-evaluate.
     @State private var cursor = DiffractionCursorModel()
@@ -77,6 +79,8 @@ struct DiffractionPane: View {
         .contentShape(Rectangle())
         .overlay { ActivePaneOutline(pane: .diffraction) }
         .selectsPaneOnClick(.diffraction)
+        // View > Zoom acts on the pane the reader last clicked (the default is this one).
+        .zoomCommandTarget(zoomModel, isTarget: appState.activePane == .diffraction && appState.displayedPattern != nil)
     }
 
     /// Everything here is single-line on purpose: a wrapping title or readout
@@ -127,6 +131,22 @@ struct DiffractionPane: View {
         }
     }
 
+    /// The pane's zoom, once it is not 1×: a zoom nobody can see is just confusing, and View > Zoom changes it without a gesture
+    /// to show it (as `RealSpacePane.zoomModeBadge`).
+    @ViewBuilder
+    private var zoomBadge: some View {
+        if let text = ZoomPan.badgeText(zoom: zp.effectiveZoom),
+           let spoken = ZoomPan.badgeSpoken(zoom: zp.effectiveZoom) {
+            Text(text)
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Color.accentColor)
+                .fixedSize()
+                .help("\(spoken). Drag to pan; double-click, or View \u{203A} Zoom to Fit, to see the whole pattern.")
+                .accessibilityLabel(spoken)
+                .accessibilityIdentifier("pattern.zoomBadge")
+        }
+    }
+
     /// The header's flexible gap, which also holds the pointer readout. The readout is an OVERLAY of the gap, so it adds nothing
     /// to the header's ideal width: which of the two header layouts fits never depends on the pointer, and moving into the pane
     /// cannot collapse the controls into the overflow menu. It takes whatever the controls leave, shortening (and finally
@@ -143,6 +163,7 @@ struct DiffractionPane: View {
         return HStack {
             title
             roiSumBadge
+            zoomBadge
             readoutSlot
             if appState.meanPattern != nil || appState.fitOverlays.isAvailable
                 || claimedDisksAvailable {
@@ -180,6 +201,7 @@ struct DiffractionPane: View {
         return HStack {
             title
             roiSumBadge
+            zoomBadge
 
             readoutSlot
 
@@ -367,7 +389,7 @@ struct DiffractionPane: View {
                 .clipped()
                 .contentShape(Rectangle())
                 .border(Color.white.opacity(0.08))
-                .zoomPan($zp, box: box)
+                .zoomPan(zoomModel, box: box)
 
                 // The scan navigator, for a result whose pixels cannot be clicked to choose a
                 // scan position (a Bragg-vector map, a reconstruction): top-trailing, beside the
@@ -460,7 +482,7 @@ struct DiffractionPane: View {
             .onChange(of: zp.drawZoom) { cursor.clear() }
             .onChange(of: zp.effectiveOffset) { cursor.clear() }
             .accessibilityHint(ZoomPan.accessibilityHint)
-            .zoomPanAccessibilityActions($zp, box: box)
+            .zoomPanAccessibilityActions(zoomModel, box: box)
             .modifier(LabelCursorAccessibilityActions(
                 cursor: $labelCursor, active: labelActive, patternWidth: qx, patternHeight: qy
             ))
@@ -721,7 +743,9 @@ struct RealSpacePane: View {
     @Environment(AppPreferences.self) private var preferences
     /// The object table's selection (nil where no app scene provides it).
     @Environment(PrecipitateTableSelection.self) private var tableSelection: PrecipitateTableSelection?
-    @State private var zp = ZoomPan()
+    /// The pane's zoom, a reference so View > Zoom can act on it (`ZoomCommands`); `zp` is its state.
+    @State private var zoomModel = PaneZoomModel()
+    private var zp: ZoomPan { zoomModel.state }
     /// The pointer's sample lives in a reference holder that THIS view never
     /// reads: a hover tick writes it, and only `CursorReadout` and
     /// `CursorAccessibilityValue` (which read it) re-evaluate. As `@State`
@@ -764,6 +788,8 @@ struct RealSpacePane: View {
         .contentShape(Rectangle())
         .overlay { ActivePaneOutline(pane: .realSpace) }
         .selectsPaneOnClick(.realSpace)
+        // View > Zoom acts on the pane the reader last clicked; in Results this is the only image pane, so it always does.
+        .zoomCommandTarget(zoomModel, isTarget: (!allowsScanSelection || appState.activePane == .realSpace) && resultSize != nil)
         // Arrow-key scan stepping is NOT here. It has exactly one owner —
         // `WorkspaceView`, on the container holding both panes, which is where
         // the old window had it and which is what lets the keys work while
@@ -993,6 +1019,16 @@ struct RealSpacePane: View {
                         + "dragging pans, and the scan position moves by its marker handle"
                 )
                 .accessibilityIdentifier("result.zoomModeBadge")
+        } else if let text = ZoomPan.badgeText(zoom: zp.effectiveZoom),
+                  let spoken = ZoomPan.badgeSpoken(zoom: zp.effectiveZoom) {
+            // Zoomed out, or a result with no scan marker to explain: only the zoom (View > Zoom changes it with no gesture).
+            Text(text)
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Color.accentColor)
+                .fixedSize()
+                .help("\(spoken). Drag to pan; double-click, or View \u{203A} Zoom to Fit, to see the whole image.")
+                .accessibilityLabel(spoken)
+                .accessibilityIdentifier("result.zoomBadge")
         }
     }
 
@@ -1216,7 +1252,7 @@ struct RealSpacePane: View {
                 .clipped()
                 .contentShape(Rectangle())
                 .border(Color.white.opacity(0.08))
-                .zoomPan($zp, box: box)
+                .zoomPan(zoomModel, box: box)
 
                 footer(dims: dims, box: box, orientation: orientation,
                        qualityField: qualityField, effZoom: effZoom, trim: trim)
@@ -1239,7 +1275,7 @@ struct RealSpacePane: View {
             .accessibilityHint(mapsScanPositions
                 ? "Use arrow keys to move the selected scan position; Shift moves ten pixels"
                 : "Scientific image; scan-position selection is unavailable")
-            .zoomPanAccessibilityActions($zp, box: box)
+            .zoomPanAccessibilityActions(zoomModel, box: box)
         } else if appState.hasDataset {
             ContentUnavailableView(
                 "No Result Yet",

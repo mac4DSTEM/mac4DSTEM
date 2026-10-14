@@ -120,7 +120,7 @@ final class FinalPolishR2Tests: XCTestCase {
         let panes = try XCTUnwrap(try uiSources().first { $0.name == "ImagePanes.swift" }, "ImagePanes.swift").text
         let diffraction = try segment(panes, from: "struct DiffractionPane: View {", to: ["struct ScanNavigatorInset: View {"])
 
-        let zoom = try XCTUnwrap(diffraction.range(of: ".zoomPan($zp, box: box)"), ".zoomPan marker")
+        let zoom = try XCTUnwrap(diffraction.range(of: ".zoomPan(zoomModel, box: box)"), ".zoomPan marker")
         let call = try XCTUnwrap(diffraction.range(of: "ScanNavigatorInset(image:"), "the navigator call")
         XCTAssertGreaterThan(call.lowerBound, zoom.upperBound, "drawn after, so outside, the zoomed and clipped layer")
 
