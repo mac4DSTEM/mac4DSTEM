@@ -424,6 +424,7 @@ struct QuantificationSection: View {
 /// (the only place that writes them).
 struct ExportSection: View {
     @Bindable var model: SpectroscopyRoomModel
+    @Environment(AppPreferences.self) private var preferences
     @State private var pickingFolder = false
     static let csvTitle = "Results CSV\u{2026}", jsonTitle = "Method JSON\u{2026}", spectrumTitle = "Spectrum CSV\u{2026}", mapsTitle = "Maps\u{2026}"
     /// The Maps button is on whenever there is an element map to write (no fit needed).
@@ -439,6 +440,7 @@ struct ExportSection: View {
         scaleBarEnabled(model) ? "Draws the scale bar into the map PNGs and adds -scalebar to their names; the CSV never has one."
             : "This file states no pixel size, so there is no scale to draw."
     }
+    static let regionsHelp = "Outlines the drawn region and the pins on the map PNGs, as the ColorMix shows them, and adds -region to their names; the CSV never has them."
     /// The Spectrum CSV button is on once a spectrum is shown (no fit needed); its text is built here, when it is pressed.
     static func canExportSpectrum(_ e: ExportSettings) -> Bool { e.spectrumOf != nil }
     static func spectrumExport(_ model: SpectroscopyRoomModel) -> PendingExport? {
@@ -448,6 +450,7 @@ struct ExportSection: View {
     }
 
     var body: some View {
+        @Bindable var preferences = preferences
         let e = model.export
         VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
             if let elements = e.elements { InspectorValueRow("Elements", elements) }
@@ -468,6 +471,20 @@ struct ExportSection: View {
                     .help(Self.scaleBarHelp(model))
                     .accessibilityIdentifier("spectroscopy.export.scalebar")
             }
+            InspectorRow("Regions") {
+                Toggle("Regions", isOn: $model.export.regions)
+                    .labelsHidden().toggleStyle(.checkbox)
+                    .help(Self.regionsHelp)
+                    .accessibilityIdentifier("spectroscopy.export.regions")
+            }
+            InspectorRow("Image size") {
+                Picker("Image size", selection: $preferences.exportScale) {
+                    ForEach(ExportImageScale.allCases) { Text($0.displayName).tag($0) }
+                }
+                .labelsHidden().fixedSize()
+                .help(FigureExportSection.sizeHelp)
+                .accessibilityIdentifier("spectroscopy.export.size")
+            }
             InspectorActionRow {
                 Button(Self.spectrumTitle) { model.pendingExport = Self.spectrumExport(model) }
                     .disabled(!Self.canExportSpectrum(e))
@@ -475,21 +492,31 @@ struct ExportSection: View {
                     .accessibilityIdentifier("spectroscopy.export.spectrum")
                 Button(Self.mapsTitle) { pickingFolder = true }
                     .disabled(!Self.canExportMaps(model))
-                    .help("Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel, with the scale bar when it is on, and the net-count maps as one CSV, into a folder you pick")
+                    .help("Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel (times the image size), with the scale bar and the regions when they are on, and the net-count maps as one CSV, into a new folder inside the one you pick (an earlier export is never overwritten)")
                     .accessibilityIdentifier("spectroscopy.export.maps")
                     .fileImporter(isPresented: $pickingFolder, allowedContentTypes: [.folder]) { result in
                         switch result {
                         case .success(let folder):
                             do {
-                                let names = try MapsExport.write(try MapsExport.files(model), to: folder)
-                                model.exportNote = MapsExport.note(written: names, folder: folder)
-                            } catch { model.exportNote = "Could not write the maps: \(error.localizedDescription)" }
-                        case .failure(let error): model.exportNote = "Could not write the maps: \(error.localizedDescription)"
+                                let written = try MapsExport.writeInNewFolder(try MapsExport.files(model, pixelScale: preferences.exportScale.pixelScale),
+                                                                             in: folder, named: MapsExport.folderName(stem: model.export.mapsStem))
+                                model.exportNote = MapsExport.note(written: written.names, folder: written.folder)
+                                model.exportedFolder = written.folder
+                            } catch { model.exportNote = "Could not write the maps: \(error.localizedDescription)"; model.exportedFolder = nil }
+                        case .failure(let error): model.exportNote = "Could not write the maps: \(error.localizedDescription)"; model.exportedFolder = nil
                         }
                     }
             }
             if Self.resultsExport(e) == nil { InspectorNote("Once Quantify has run, the results table and the method can be written.") }
             if let saved = model.exportNote { InspectorNote(saved) }
+            if let folder = model.exportedFolder {
+                InspectorActionRow {
+                    InspectorAdaptiveButton("Reveal in Finder", systemImage: "folder", help: "Show the folder the maps were written to") {
+                        DatasetLocationActions.reveal(path: folder.path)
+                    }
+                    .accessibilityIdentifier("spectroscopy.export.reveal")
+                }
+            }
         }
         .fileExporter(isPresented: Binding(get: { model.pendingExport != nil }, set: { if !$0 { model.pendingExport = nil } }),
                       document: SpectroscopyTextDocument(text: model.pendingExport?.text ?? ""),
@@ -588,4 +615,5 @@ struct SpectroscopyTextDocument: FileDocument {
 
 #Preview("Inspector") {
     ScrollView { SpectroscopyInspectorSections(model: .fixture, startOpen: true).padding() }.frame(width: 320, height: 900)
+        .environment(AppPreferences())
 }

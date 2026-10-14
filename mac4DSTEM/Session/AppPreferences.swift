@@ -2,8 +2,10 @@
 //  AppPreferences.swift
 //  Role: the Settings window's one state owner — every user-facing app
 //        preference, over an injectable `UserDefaults`. `SettingsWindow`
-//        (`UI/SettingsWindow.swift`) is the only writer; every other reader
-//        reaches it through `.environment(preferences)`.
+//        (`UI/SettingsWindow.swift`) is the writer, and the one exception is
+//        `exportScale` and `figureFormat`, which the export sections also set
+//        where the export is chosen; every other reader reaches it through
+//        `.environment(preferences)`.
 //
 //  Injectable store, same shape as `MaterialsProjectSettings`'s injectable
 //  `APIKeyStore` and `SessionSidecarLocator`'s injectable bookmark store: a
@@ -58,6 +60,41 @@ package enum IntensityDisplayDefault: String, CaseIterable, Identifiable, Sendab
     }
 
     package var isLog: Bool { self == .log }
+}
+
+/// How many pixels each exported PNG spends per point of its layout: 1x is the size the exports always had, 2x and 3x are the same
+/// picture with that many times the pixels in each direction (a talk's figure, sharp on a projector), and the file says so (144 or
+/// 216 pixels per inch) so a slide app places it at the 1x size.
+package enum ExportImageScale: String, CaseIterable, Identifiable, Sendable {
+    case one = "1x", two = "2x", three = "3x"
+
+    package var id: String { rawValue }
+
+    package var pixelScale: Int {
+        switch self {
+        case .one: return 1
+        case .two: return 2
+        case .three: return 3
+        }
+    }
+
+    package var displayName: String { "\(pixelScale)\u{00D7}" }
+}
+
+/// The file a figure is written as. PNG and TIFF are pixels (at the export scale); PDF is vector: the labels, the outlines and the
+/// scale bars stay lines and text at any zoom, and the maps are the only pixels in it.
+package enum ExportFigureFormat: String, CaseIterable, Identifiable, Sendable {
+    case png, pdf, tiff
+
+    package var id: String { rawValue }
+
+    package var displayName: String {
+        switch self {
+        case .png: return "PNG"
+        case .pdf: return "PDF (vector)"
+        case .tiff: return "TIFF"
+        }
+    }
 }
 
 /// What the primary "Open Dataset…" action does. `AppState` already exposes
@@ -116,6 +153,16 @@ package final class AppPreferences {
         didSet { persist(openBehaviour, forKey: Keys.openBehaviour) }
     }
 
+    /// The pixel density of exported PNGs (the result image, the diffraction pattern, the EDX maps and the figure).
+    package var exportScale: ExportImageScale {
+        didSet { persist(exportScale, forKey: Keys.exportScale) }
+    }
+
+    /// The file type of an exported figure. A PDF has no pixel size, so `exportScale` does not apply to it.
+    package var figureFormat: ExportFigureFormat {
+        didSet { persist(figureFormat, forKey: Keys.figureFormat) }
+    }
+
     /// `false` is today's shipped behaviour: nothing calls
     /// `ProcessInfo.beginActivity` for an interactive run today.
     package var keepAwake: Bool {
@@ -139,6 +186,8 @@ package final class AppPreferences {
         self.intensityDisplay = Self.decode(Keys.intensityDisplay, from: defaults) ?? .log
         self.showScaleBar = defaults.object(forKey: Keys.showScaleBar) as? Bool ?? true
         self.openBehaviour = Self.decode(Keys.openBehaviour, from: defaults) ?? .direct
+        self.exportScale = Self.decode(Keys.exportScale, from: defaults) ?? .one
+        self.figureFormat = Self.decode(Keys.figureFormat, from: defaults) ?? .png
         self.keepAwake = defaults.object(forKey: Keys.keepAwake) as? Bool ?? false
         self.offerLearnedDetector = defaults.object(forKey: Keys.offerLearnedDetector) as? Bool ?? true
     }
@@ -155,6 +204,8 @@ package final class AppPreferences {
         intensityDisplay = .log
         showScaleBar = true
         openBehaviour = .direct
+        exportScale = .one
+        figureFormat = .png
         keepAwake = false
         offerLearnedDetector = true
         suppressPersistence = false
@@ -183,12 +234,14 @@ package final class AppPreferences {
         static let intensityDisplay = "prefs.intensityDisplay"
         static let showScaleBar = "prefs.showScaleBar"
         static let openBehaviour = "prefs.openBehaviour"
+        static let exportScale = "prefs.exportScale"
+        static let figureFormat = "prefs.figureFormat"
         static let keepAwake = "prefs.keepAwake"
         static let offerLearnedDetector = "prefs.offerLearnedDetector"
 
         static let all = [
             appearance, mapColormap, diffractionColormap, intensityDisplay,
-            showScaleBar, openBehaviour, keepAwake,
+            showScaleBar, openBehaviour, exportScale, figureFormat, keepAwake,
             offerLearnedDetector,
         ]
     }

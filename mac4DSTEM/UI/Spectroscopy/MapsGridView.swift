@@ -339,33 +339,23 @@ struct MapTileView: View {
             ctx.fill(Path(r), with: .color(live)); ctx.stroke(Path(r), with: .color(.white), lineWidth: 1)
         }
         if let shape = model.regionOutline {
+            // The outline is the exported maps' too (`RegionOutline`): one path for the screen and the PNG.
+            ctx.stroke(Path(RegionOutline.path(shape, cellWidth: cw, cellHeight: ch)), with: .color(live), style: dash)
             switch shape {
             case .rectangle(let r), .ellipse(let r):
                 let rr = rect(r)
-                ctx.stroke(shape.isEllipse ? Path(ellipseIn: rr) : Path(rr), with: .color(live), style: dash)
                 for p in [CGPoint(x: rr.minX, y: rr.minY), CGPoint(x: rr.midX, y: rr.minY), CGPoint(x: rr.maxX, y: rr.minY),
                           CGPoint(x: rr.minX, y: rr.midY), CGPoint(x: rr.maxX, y: rr.midY),
                           CGPoint(x: rr.minX, y: rr.maxY), CGPoint(x: rr.midX, y: rr.maxY), CGPoint(x: rr.maxX, y: rr.maxY)] { handleDot(p) }
             case .polygon(let v):
-                var p = Path()
-                for (i, q) in v.enumerated() { i == 0 ? p.move(to: pt(q)) : p.addLine(to: pt(q)) }
-                p.closeSubpath()
-                ctx.stroke(p, with: .color(live), style: dash)
                 for q in v { handleDot(pt(q)) }
             }
         }
         if model.layers.pins {
             for pin in model.pins {   // a pinned region stays visible on the map, faint, in the pin's own colour
                 guard let shape = pin.shape else { continue }
-                var path = Path()
-                switch shape {
-                case .rectangle(let r): path = Path(rect(r))
-                case .ellipse(let r): path = Path(ellipseIn: rect(r))
-                case .polygon(let v):
-                    for (i, q) in v.enumerated() { i == 0 ? path.move(to: pt(q)) : path.addLine(to: pt(q)) }
-                    path.closeSubpath()
-                }
-                ctx.stroke(path, with: .color(pin.tint.opacity(SpectrumLayers.pinOpacity)), lineWidth: Self.pinOutlineWidth)
+                ctx.stroke(Path(RegionOutline.path(shape, cellWidth: cw, cellHeight: ch)),
+                           with: .color(pin.tint.opacity(SpectrumLayers.pinOpacity)), lineWidth: Self.pinOutlineWidth)
             }
         }
         if draft.count > 0 {
@@ -505,10 +495,6 @@ private struct HeaderPick: ViewModifier {
         if map == .colorMix { content }
         else { content.contentShape(Rectangle()).onTapGesture { model.pick(map) } }
     }
-}
-
-extension SpectrumRegionShape {
-    var isEllipse: Bool { if case .ellipse = self { true } else { false } }
 }
 
 // MARK: - Colour, contrast and gamma of the active map

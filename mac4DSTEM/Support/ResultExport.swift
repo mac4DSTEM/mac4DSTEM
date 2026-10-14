@@ -165,75 +165,43 @@ extension AppState {
         return url
     }
 
-    /// Export the current real-space result (virtual image / DPC / strain /
-    /// ACOM map) as a PNG, rendered as displayed, with the scale bar burned in.
-    func exportResultImage() {
-        let source: (bytes: [UInt8], width: Int, height: Int)
-        // support-export-07 (S22e): masked pixels normalize to the negative
-        // invalid-display sentinel; when any exist the burned figure carries
-        // a "no data" legend beside its colorbar.
-        var masksNoData = false
-        // v2.5 step 3 (adapter step 3, plan §9d): the pixels come from the same
-        // product the caption below describes — `displayedProduct` — never from
-        // the raw fields, so the two halves of one export cannot disagree
-        // (they could under the ACOM region reference before this).
-        guard let product = displayedProduct else {
-            present(SimpleError("No result image to export yet."))
-            return
-        }
-        switch product.payload {
-        case .rgba(let rgba):
-            source = (rgba.rgba, rgba.width, rgba.height)
-        case .scalar(let image):
-            let norm = image.normalized(symmetric: resultPresentation.resultColormap.isDiverging)
-            masksNoData = norm.contains { $0 < 0 }
-            let bytes = Self.applyColormap(norm, colormap: resultPresentation.resultColormap,
-                                           lo: resultPresentation.displayRangeLo, hi: resultPresentation.displayRangeHi,
-                                           gamma: resultPresentation.resultGamma)
-            source = (bytes, image.width, image.height)
-        }
-        // The publication figure is "as displayed", so it applies the display
-        // orientation (#17b) — and records it in the caption below, because an
-        // applied-but-unrecorded rotation is the one outcome that is not
-        // acceptable. The scientific bundle takes the opposite choice and stays
-        // in scan-index order; see `scientificBundleMaps()`.
-        let orientation = effectiveRealSpaceDisplayOrientation
-        let oriented = Self.orientedRGBA(
-            source.bytes, width: source.width, height: source.height,
-            orientation: orientation, mirrored: effectiveRealSpaceDisplayMirrored
-        )
-        let cg = Self.cgImage(
-            rgba: oriented.bytes, width: oriented.width, height: oriented.height
-        )
-        guard let cg else {
-            present(SimpleError("Could not render the result image for export."))
-            return
-        }
-        let pixel = currentResultPersistenceMetadata
-        // A quarter turn puts the other axis along the burnt-in bar, and for a
-        // non-square scan that is a different pixel size.
-        let sampling = orientation.swapsAxes
-            ? (pixel.row ?? pixel.column) : (pixel.column ?? pixel.row)
-        let withScale = Self.burnScaleBar(on: cg,
-                                      unitsPerDataPixel: sampling,
-                                      unitLabel: sampling != nil ? CalibrationUnitConversion.displayLabel(pixel.units ?? "px") : "px")
-        let final = Self.publicationFigure(
+    /// The exported result figure at `scale` pixels per point, before any panel: the product as displayed, the scale bar burned
+    /// in, the title, caption and colorbar around it. The panel-free half of `exportResultImage`, so a test reads its pixels.
+    func resultExportImage(scale: Int) throws -> (image: CGImage, product: DisplayedProduct) {
+        let raster = try resultExportRaster()
+        let withScale = Self.burnScaleBar(on: raster.image,
+                                          unitsPerDataPixel: raster.sampling,
+                                          unitLabel: raster.unit, pixelScale: scale)
+        let figure = Self.publicationFigure(
             image: withScale, title: currentResultDisplayName,
             caption: publicationCaption,
             valueRange: resultDisplayedValueRange,
             valueUnits: currentResultValueUnits, colormap: resultPresentation.resultColormap,
-            masksNoData: masksNoData, gamma: resultPresentation.resultGamma
+            masksNoData: raster.masksNoData, gamma: resultPresentation.resultGamma,
+            pixelScale: scale
         )
+        return (figure, raster.product)
+    }
+
+    /// Export the current real-space result (virtual image / DPC / strain /
+    /// ACOM map) as a PNG, rendered as displayed, with the scale bar burned in,
+    /// at the image size the preferences name (1x, 2x, 3x).
+    func exportResultImage() {
+        let scale = preferences.exportScale.pixelScale
+        let made: (image: CGImage, product: DisplayedProduct)
+        do { made = try resultExportImage(scale: scale) } catch { present(error); return }
         // The FULL provenance record travels in the PNG metadata beside the
         // burned caption (v2 S7): everything the figure renders, plus the
         // persistence provenance the caption can only excerpt.
         Self.savePNG(
-            final, suggestedName: exportBaseName + "_result.png", state: self,
+            made.image, suggestedName: exportBaseName + "_result.png", state: self,
             properties: Self.pngProperties(
                 title: currentResultDisplayName,
-                record: exportedImageProvenanceRecord()
+                record: exportedImageProvenanceRecord(),
+                pixelScale: scale
             ),
-            producing: product
+            producing: made.product,
+            message: Self.exportPanelMessage(subject: currentResultDisplayName, width: made.image.width, height: made.image.height, scale: scale)
         )
     }
 
@@ -623,27 +591,25 @@ extension AppState {
         return omitted
     }
 
+    /// The exported diffraction pattern at `scale` pixels per point: the pattern as the pane shows it, the q-space scale bar burned
+    /// in and, in the Virtual Detector task, the detector outlined as the pane draws it. The panel-free half of
+    /// `exportDiffractionImage`.
+    func diffractionExportImage(scale: Int) throws -> CGImage {
+        let raster = try patternExportRaster()
+        return Self.burnScaleBar(on: raster.image, unitsPerDataPixel: raster.sampling, unitLabel: raster.unit,
+                                 pixelScale: scale, overlays: patternExportOverlays)
+    }
+
     /// Export the currently displayed diffraction pattern as a PNG, with the
-    /// q-space scale bar burned in.
+    /// q-space scale bar burned in and, in the Virtual Detector task, the detector
+    /// outlined as the pane draws it, at the image size the preferences name.
     func exportDiffractionImage() {
-        guard let pattern = displayedPattern else {
-            present(SimpleError("No diffraction pattern to export yet."))
-            return
-        }
-        let norm = pattern.normalized(useLog: logScale)
-        let bytes = Self.applyColormap(norm, colormap: patternColormap,
-                                       lo: patternDisplayRangeLo,
-                                       hi: patternDisplayRangeHi,
-                                       gamma: patternGamma)
-        guard let cg = Self.cgImage(rgba: bytes, width: pattern.qx, height: pattern.qy) else {
-            present(SimpleError("Could not render the diffraction pattern for export."))
-            return
-        }
-        let qSize = calibrationSession.calibration.qPixelSize
-        let final = Self.burnScaleBar(on: cg,
-                                      unitsPerDataPixel: qSize,
-                                      unitLabel: qSize != nil ? CalibrationUnitConversion.displayLabel(calibrationSession.calibration.qPixelUnits ?? "1/nm") : "px")
-        Self.savePNG(final, suggestedName: exportBaseName + "_cbed.png", state: self)
+        let scale = preferences.exportScale.pixelScale
+        let final: CGImage
+        do { final = try diffractionExportImage(scale: scale) } catch { present(error); return }
+        Self.savePNG(final, suggestedName: exportBaseName + "_cbed.png", state: self,
+                     properties: Self.pngDensity(pixelScale: scale),
+                     message: Self.exportPanelMessage(subject: patternFigureLabel, width: final.width, height: final.height, scale: scale))
     }
 
     /// Panel-free construction seam: export tests exercise the exact scalar
@@ -1677,7 +1643,7 @@ extension AppState {
         return (base.row, base.column, base.units, provenance)
     }
 
-    private var exportBaseName: String {
+    var exportBaseName: String {   // internal: the figure export names its file from it too
         let file = descriptor.map { ($0.fileName as NSString).deletingPathExtension } ?? "mac4DSTEM"
         return file
     }

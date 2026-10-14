@@ -135,10 +135,11 @@ enum MapBitmap {
                        provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
     }
     /// The bitmap as PNG bytes at its own pixel grid (no resampling, no chrome); nil if the encoder refuses. The Maps export's one encoder.
-    static func pngData(_ image: CGImage) -> Data? {
+    /// `pixelScale` 2 or 3 tags the file 144 or 216 pixels per inch (`AppState.pngDensity`), so it is placed at the 1x size.
+    static func pngData(_ image: CGImage, pixelScale: Int = 1) -> Data? {
         let out = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(dest, image, nil)
+        CGImageDestinationAddImage(dest, image, AppState.pngDensity(pixelScale: pixelScale) as CFDictionary?)
         return CGImageDestinationFinalize(dest) ? out as Data : nil
     }
     static func q(_ v: Double) -> UInt8 { UInt8(max(0, min(255, (v * 255).rounded()))) }
@@ -146,30 +147,51 @@ enum MapBitmap {
     /// The bitmap with a scale bar drawn into its bottom-left corner, at the bitmap's own pixel size (the export has no points):
     /// a white bar with a dark outline, 8 px in from the left and bottom edges, its label above it in 12 px white text with a
     /// 1 px dark shadow. Every other pixel is the image's own. `plan.lengthPoints` is read as pixels. nil if the context fails.
-    static func addingScaleBar(to image: CGImage, plan: MapScaleBar.Plan) -> CGImage? {
+    /// `scale` is the export's pixels per point (an image already enlarged by it): every length above grows with it, so a 2x
+    /// export carries the same bar, twice the pixels.
+    static func addingScaleBar(to image: CGImage, plan: MapScaleBar.Plan, scale: Int = 1) -> CGImage? {
         let w = image.width, h = image.height
         guard w > 0, h > 0,
               let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                                   space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
         ctx.interpolationQuality = .none
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
-        let inset: CGFloat = 8, barHeight: CGFloat = 3
-        let length = CGFloat(max(1, plan.lengthPoints.rounded()))
+        guard drawScaleBar(in: ctx, plan: plan, scale: CGFloat(max(scale, 1))) else { return nil }
+        return ctx.makeImage()
+    }
+
+    /// The bar and its label in the bottom-left corner of whatever `ctx` is drawing into (y up, origin at that corner), the
+    /// one drawing the Maps PNGs and the exported figures share. False if the label cannot be made.
+    @discardableResult
+    static func drawScaleBar(in ctx: CGContext, plan: MapScaleBar.Plan, scale: CGFloat = 1) -> Bool {
+        let inset: CGFloat = 8 * scale, barHeight: CGFloat = 3 * scale, outline: CGFloat = scale
+        let length = CGFloat(max(1, (plan.lengthPoints * scale).rounded()))
         ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0.85))
-        ctx.fill(CGRect(x: inset - 1, y: inset - 1, width: length + 2, height: barHeight + 2))
+        ctx.fill(CGRect(x: inset - outline, y: inset - outline, width: length + 2 * outline, height: barHeight + 2 * outline))
         ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
         ctx.fill(CGRect(x: inset, y: inset, width: length, height: barHeight))
-        let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, 12, nil) ?? CTFontCreateWithName("Helvetica-Bold" as CFString, 12, nil)
+        let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, 12 * scale, nil) ?? CTFontCreateWithName("Helvetica-Bold" as CFString, 12 * scale, nil)
         let attributes: [CFString: Any] = [kCTFontAttributeName: font, kCTForegroundColorFromContextAttributeName: kCFBooleanTrue as Any]
-        guard let text = CFAttributedStringCreate(nil, plan.label as CFString, attributes as CFDictionary) else { return nil }
+        guard let text = CFAttributedStringCreate(nil, plan.label as CFString, attributes as CFDictionary) else { return false }
         let line = CTLineCreateWithAttributedString(text)
-        let base = CGPoint(x: inset, y: inset + barHeight + 4)
+        let base = CGPoint(x: inset, y: inset + barHeight + 4 * scale)
         ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0.85))
-        ctx.textPosition = CGPoint(x: base.x + 1, y: base.y - 1)
+        ctx.textPosition = CGPoint(x: base.x + scale, y: base.y - scale)
         CTLineDraw(line, ctx)
         ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
         ctx.textPosition = base
         CTLineDraw(line, ctx)
+        return true
+    }
+
+    /// The bitmap enlarged by a whole factor, each pixel a `factor` x `factor` block (nearest neighbour: no value is invented).
+    static func enlarged(_ image: CGImage, by factor: Int) -> CGImage? {
+        guard factor > 1 else { return image }
+        let w = image.width * factor, h = image.height * factor
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .none
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
         return ctx.makeImage()
     }
 }

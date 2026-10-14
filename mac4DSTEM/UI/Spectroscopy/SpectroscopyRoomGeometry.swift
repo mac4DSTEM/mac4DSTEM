@@ -320,6 +320,31 @@ nonisolated enum RegionEditing {
     }
 }
 
+// MARK: - The drawn outline of a region
+
+/// A region's outline on a map as one path, in a space of `cellWidth` x `cellHeight` per grid pixel (y down, as the map is
+/// drawn). The live region and the pins on the screen (`MapTileView`) and the regions on the exported maps and figures
+/// (`FigureRendering`) all stroke this one path.
+nonisolated enum RegionOutline {
+    static func path(_ shape: SpectrumRegionShape, cellWidth cw: CGFloat, cellHeight ch: CGFloat) -> CGPath {
+        func rect(_ r: PixelRect) -> CGRect {
+            CGRect(x: CGFloat(r.x0) * cw, y: CGFloat(r.y0) * ch, width: CGFloat(r.width) * cw, height: CGFloat(r.height) * ch)
+        }
+        switch shape {
+        case .rectangle(let r): return CGPath(rect: rect(r), transform: nil)
+        case .ellipse(let r): return CGPath(ellipseIn: rect(r), transform: nil)
+        case .polygon(let v):
+            let path = CGMutablePath()
+            for (i, q) in v.enumerated() {
+                let p = CGPoint(x: CGFloat(q.x) * cw, y: CGFloat(q.y) * ch)
+                i == 0 ? path.move(to: p) : path.addLine(to: p)
+            }
+            path.closeSubpath()
+            return path
+        }
+    }
+}
+
 // MARK: - The spectrum's opening range
 
 nonisolated enum SpectrumAutoZoom {

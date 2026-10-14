@@ -101,6 +101,8 @@ final class SpectroscopyRoomModel {
     /// What the Export… menu (the panel's header, the inspector's Export section) is writing and what it last said.
     var pendingExport: PendingExport?
     var exportNote: String?
+    /// The folder the Maps export last made (the Export section offers to reveal it); nil before one, and after a failed one.
+    var exportedFolder: URL?
     /// The unlisted-line check (WP3b F1): "checking…" until it lands, then what it found; nil before a fit. Its two buttons
     /// call the controller: the named elements become Fit only, or are dismissed (switched Off by the person).
     var unlisted: UnlistedLineNote?
@@ -349,6 +351,9 @@ struct ExportSettings {
     var mapsStem = "spectroscopy"
     /// Maps… writes the scale bar into the PNGs (the owner's choice; the CSV never has one).
     var scaleBar = true
+    /// Maps… outlines the drawn region and the pins on the PNGs, as the ColorMix shows them (a talk figure shows where the spectrum
+    /// came from); the CSV never has them.
+    var regions = true
 }
 
 // MARK: - Illustrative fixture

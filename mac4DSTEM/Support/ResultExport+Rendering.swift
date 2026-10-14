@@ -50,14 +50,20 @@ extension AppState {
         return max(17, ceil(bounds.height))
     }
 
+    /// `pixelScale` is the export's pixels per point (1x, 2x, 3x): `image` is already that many times larger than its layout
+    /// size, and the margins, text, colorbar and caption are laid out in points exactly as at 1x and drawn at that many pixels per
+    /// point, so a 2x figure is the 1x figure with twice the pixels.
     static func publicationFigure(
         image: CGImage, title: String, caption: String,
         valueRange: (low: Double, high: Double)?, valueUnits: String,
-        colormap: ColormapKind, masksNoData: Bool = false, gamma: Float = 1
+        colormap: ColormapKind, masksNoData: Bool = false, gamma: Float = 1,
+        pixelScale: Int = 1
     ) -> CGImage {
+        let pixels = CGFloat(max(pixelScale, 1))
+        let imageWidth = CGFloat(image.width) / pixels, imageHeight = CGFloat(image.height) / pixels   // points
         let margin: CGFloat = 18
         let colorbarWidth: CGFloat = valueRange == nil ? 0 : 76
-        let width = CGFloat(image.width) + margin * 2 + colorbarWidth
+        let width = imageWidth + margin * 2 + colorbarWidth
         // The caption WRAPS; the figure grows to hold it (v2 S7). It used to
         // truncate at one 17 pt line with `.byTruncatingTail` — and the
         // burned-in caption is the provenance record of the exported pixels,
@@ -67,11 +73,11 @@ extension AppState {
         let captionHeight: CGFloat = 41 + captionText
         let size = NSSize(
             width: width,
-            height: CGFloat(image.height) + margin * 2 + captionHeight
+            height: imageHeight + margin * 2 + captionHeight
         )
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil,
-            pixelsWide: Int(size.width), pixelsHigh: Int(size.height),
+            pixelsWide: Int(size.width * pixels), pixelsHigh: Int(size.height * pixels),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
             isPlanar: false, colorSpaceName: .deviceRGB,
             bytesPerRow: 0, bitsPerPixel: 0
@@ -81,11 +87,12 @@ extension AppState {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = graphics
         defer { NSGraphicsContext.restoreGraphicsState() }
+        if pixels != 1 { graphics.cgContext.scaleBy(x: pixels, y: pixels) }   // lay out in points
         NSColor.black.setFill()
         NSRect(origin: .zero, size: size).fill()
         let imageRect = NSRect(
             x: margin, y: margin + captionHeight,
-            width: CGFloat(image.width), height: CGFloat(image.height)
+            width: imageWidth, height: imageHeight
         )
         NSImage(cgImage: image, size: imageRect.size).draw(in: imageRect)
         let titleParagraph = NSMutableParagraphStyle()
@@ -188,22 +195,138 @@ extension AppState {
     /// Small maps are integer-upscaled (nearest neighbor, so data pixels stay
     /// exact) to ≥512 px wide first, keeping the bar and label legible.
     /// `unitsPerDataPixel` nil → uncalibrated, bar labelled in data px.
+    /// `pixelScale` (1x, 2x, 3x) enlarges the result by that factor again, the bar and `overlays` (the virtual detector on a
+    /// pattern) drawn at the larger size, not enlarged after: the same figure with more pixels.
     static func burnScaleBar(on base: CGImage,
                              unitsPerDataPixel: Double?,
-                             unitLabel: String) -> CGImage {
-        let scale = max(1, Int((512.0 / Double(base.width)).rounded(.up)))
-        let outW = base.width * scale
-        let outH = base.height * scale
-        guard let ctx = CGContext(data: nil, width: outW, height: outH,
-                                  bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: CGColorSpaceCreateDeviceRGB(),
-                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
-        else { return base }
-        ctx.interpolationQuality = .none   // nearest-neighbor upscale
-        ctx.draw(base, in: CGRect(x: 0, y: 0, width: outW, height: outH))
+                             unitLabel: String,
+                             pixelScale: Int = 1,
+                             overlays: [FigureOverlay] = []) -> CGImage {
+        let magnification = max(1, Int((512.0 / Double(base.width)).rounded(.up)))
+        return FigureRendering.rendered(
+            FigurePanel(label: "", image: base, overlays: overlays,
+                        bar: .ladder(unitsPerDataPixel: unitsPerDataPixel, unit: unitLabel)),
+            magnification: magnification, deviceScale: pixelScale) ?? base
+    }
 
+    static func cgImage(rgba: [UInt8], width: Int, height: Int) -> CGImage? {
+        guard width > 0, height > 0, rgba.count == width * height * 4,
+              let provider = CGDataProvider(data: Data(rgba) as CFData) else { return nil }
+        return CGImage(width: width, height: height,
+                       bitsPerComponent: 8, bitsPerPixel: 32,
+                       bytesPerRow: width * 4,
+                       space: CGColorSpaceCreateDeviceRGB(),
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+                       provider: provider, decode: nil,
+                       shouldInterpolate: false, intent: .defaultIntent)
+    }
+
+    static func savePNG(
+        _ image: CGImage, suggestedName: String, state: AppState,
+        properties: [CFString: Any]? = nil,
+        producing: DisplayedProduct? = nil,
+        message: String? = nil
+    ) {
+        saveFile(suggestedName: suggestedName, type: .png, format: "png", state: state, message: message, producing: producing) {
+            writePNG(image, to: $0, properties: properties)
+        }
+    }
+
+    /// The save panel for any exported file: `message` is the sentence under its title (what is being saved, at what size),
+    /// `write` puts the bytes at the chosen URL. The status line, the export record and the error are the same for every format.
+    ///
+    /// AppKit (`NSSavePanel`), kept on purpose: the result and the diffraction exports start from File-menu commands, which have no view
+    /// to present SwiftUI's `fileExporter` from, and the shell that hosts the views is frozen. The figure, started by a button in a view,
+    /// goes through `fileExporter` (`FigureFile`).
+    static func saveFile(
+        suggestedName: String, type: UTType, format: String, state: AppState, message: String? = nil,
+        producing: DisplayedProduct? = nil, write: (URL) -> Bool
+    ) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [type]
+        panel.nameFieldStringValue = suggestedName
+        if let message { panel.message = message }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if write(url) {
+            state.statusText = "Exported \(url.lastPathComponent)"
+            state.recordExportRun(format: format, fileName: url.lastPathComponent,
+                                  productKind: producing?.kind,
+                                  productStep: producing?.provenance["lineage_step"])   // lineage sink (ADR 047)
+        } else {
+            state.present(SimpleError("Writing the \(format.uppercased()) failed."))
+        }
+    }
+
+    /// What the save panel says about an export: the subject, then its pixel size and the image size it was drawn at, or (a vector
+    /// file, which has no pixels) its size in points.
+    nonisolated static func exportPanelMessage(subject: String, width: Int, height: Int, scale: Int?) -> String {
+        if let scale {
+            return "\(subject) \u{00B7} \(scale)\u{00D7} \u{00B7} \(width) \u{00D7} \(height) pixels"
+        }
+        return "\(subject) \u{00B7} vector \u{00B7} \(width) \u{00D7} \(height) points"
+    }
+
+    /// The panel-free write, separated so a test can pin that the metadata
+    /// actually lands in the file — a property dict that ImageIO silently
+    /// drops would otherwise look exactly like one it wrote. // v2 S7
+    nonisolated static func writePNG(
+        _ image: CGImage, to url: URL, properties: [CFString: Any]?
+    ) -> Bool {
+        writeImage(image, to: url, type: .png, properties: properties)
+    }
+
+    /// The same write for any image type ImageIO encodes (the figure's TIFF).
+    nonisolated static func writeImage(
+        _ image: CGImage, to url: URL, type: UTType, properties: [CFString: Any]?
+    ) -> Bool {
+        guard let dest = CGImageDestinationCreateWithURL(
+            url as CFURL, type.identifier as CFString, 1, nil
+        ) else { return false }
+        CGImageDestinationAddImage(dest, image, properties as CFDictionary?)
+        return CGImageDestinationFinalize(dest)
+    }
+
+    /// PNG properties carrying the FULL provenance record beside the burned
+    /// caption (v2 S7): the caption is drawn into the pixels — now unabridged
+    /// — but pixels cannot be parsed back, so the same record travels as
+    /// machine-readable metadata (a JSON `Description` text chunk). The JSON
+    /// is serialized with sorted keys so the record is byte-stable for a
+    /// given result.
+    nonisolated static func pngProperties(
+        title: String, record: [String: Any], pixelScale: Int = 1
+    ) -> [CFString: Any]? {
+        guard JSONSerialization.isValidJSONObject(record),
+              let data = try? JSONSerialization.data(
+                withJSONObject: record, options: [.sortedKeys]
+              ),
+              let json = String(data: data, encoding: .utf8) else { return nil }
+        var properties: [CFString: Any] = [
+            kCGImagePropertyPNGDictionary: [
+                kCGImagePropertyPNGTitle: title,
+                kCGImagePropertyPNGDescription: json,
+                kCGImagePropertyPNGSoftware: "mac4DSTEM",
+            ] as [CFString: Any],
+        ]
+        if let density = pngDensity(pixelScale: pixelScale) { properties.merge(density) { $1 } }
+        return properties
+    }
+
+    /// A 2x or 3x export says so in the file: 144 or 216 pixels per inch, so Keynote, Preview and Pages place it at the size
+    /// of the 1x figure and the extra pixels are sharpness, not size. 1x carries no density (the file is as it always was).
+    nonisolated static func pngDensity(pixelScale: Int) -> [CFString: Any]? {
+        guard pixelScale > 1 else { return nil }
+        return [kCGImagePropertyDPIWidth: 72.0 * Double(pixelScale), kCGImagePropertyDPIHeight: 72.0 * Double(pixelScale)]
+    }
+}
+
+extension FigureRendering {
+    /// A 1-2-5 scale bar in the bottom-left corner of a `width` x `height` pixel image, on a translucent plate. This is what
+    /// `burnScaleBar` always drew, moved here unchanged (its output is pinned byte for byte, `NSString` text and all) so a figure's
+    /// panels draw the same bar; it stays AppKit because Core Text would set the same words in a different rasterisation.
+    /// `unitsPerOutPixel` is the sampling of the pixels being drawn into (the data's, divided by the enlargement), so the bar's label
+    /// does not depend on the export scale.
+    static func drawLadderBar(in ctx: CGContext, width outW: Int, height outH: Int, unitsPerOutPixel: Double, unit unitLabel: String) {
         // Bar sized to a nice 1-2-5 value near 1/5 of the image width.
-        let unitsPerOutPixel = (unitsPerDataPixel ?? 1) / Double(scale)
         let nice = ScaleBar.nice125(unitsPerOutPixel * Double(outW) / 5)
         let barLength = CGFloat(nice / unitsPerOutPixel)
         let margin = CGFloat(max(10, outH / 30))
@@ -237,73 +360,5 @@ extension AppState {
                   withAttributes: attributes)
 
         NSGraphicsContext.restoreGraphicsState()
-        return ctx.makeImage() ?? base
-    }
-
-    static func cgImage(rgba: [UInt8], width: Int, height: Int) -> CGImage? {
-        guard width > 0, height > 0, rgba.count == width * height * 4,
-              let provider = CGDataProvider(data: Data(rgba) as CFData) else { return nil }
-        return CGImage(width: width, height: height,
-                       bitsPerComponent: 8, bitsPerPixel: 32,
-                       bytesPerRow: width * 4,
-                       space: CGColorSpaceCreateDeviceRGB(),
-                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
-                       provider: provider, decode: nil,
-                       shouldInterpolate: false, intent: .defaultIntent)
-    }
-
-    static func savePNG(
-        _ image: CGImage, suggestedName: String, state: AppState,
-        properties: [CFString: Any]? = nil,
-        producing: DisplayedProduct? = nil
-    ) {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png]
-        panel.nameFieldStringValue = suggestedName
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        if writePNG(image, to: url, properties: properties) {
-            state.statusText = "Exported \(url.lastPathComponent)"
-            state.recordExportRun(format: "png", fileName: url.lastPathComponent,
-                                  productKind: producing?.kind,
-                                  productStep: producing?.provenance["lineage_step"])   // lineage sink (ADR 047)
-        } else {
-            state.present(SimpleError("Writing the PNG failed."))
-        }
-    }
-
-    /// The panel-free write, separated so a test can pin that the metadata
-    /// actually lands in the file — a property dict that ImageIO silently
-    /// drops would otherwise look exactly like one it wrote. // v2 S7
-    nonisolated static func writePNG(
-        _ image: CGImage, to url: URL, properties: [CFString: Any]?
-    ) -> Bool {
-        guard let dest = CGImageDestinationCreateWithURL(
-            url as CFURL, UTType.png.identifier as CFString, 1, nil
-        ) else { return false }
-        CGImageDestinationAddImage(dest, image, properties as CFDictionary?)
-        return CGImageDestinationFinalize(dest)
-    }
-
-    /// PNG properties carrying the FULL provenance record beside the burned
-    /// caption (v2 S7): the caption is drawn into the pixels — now unabridged
-    /// — but pixels cannot be parsed back, so the same record travels as
-    /// machine-readable metadata (a JSON `Description` text chunk). The JSON
-    /// is serialized with sorted keys so the record is byte-stable for a
-    /// given result.
-    nonisolated static func pngProperties(
-        title: String, record: [String: Any]
-    ) -> [CFString: Any]? {
-        guard JSONSerialization.isValidJSONObject(record),
-              let data = try? JSONSerialization.data(
-                withJSONObject: record, options: [.sortedKeys]
-              ),
-              let json = String(data: data, encoding: .utf8) else { return nil }
-        return [
-            kCGImagePropertyPNGDictionary: [
-                kCGImagePropertyPNGTitle: title,
-                kCGImagePropertyPNGDescription: json,
-                kCGImagePropertyPNGSoftware: "mac4DSTEM",
-            ] as [CFString: Any],
-        ]
     }
 }

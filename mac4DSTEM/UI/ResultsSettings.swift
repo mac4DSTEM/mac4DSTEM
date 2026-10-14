@@ -45,6 +45,7 @@ struct ResultsSettings: View {
         } message: { result in
             Text("This removes \(result.displayName) from the session sidecar.")
         }
+        FigureExportSection()
     }
 
     /// The row's main tap target (select this saved result) is left as a

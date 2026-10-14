@@ -24,14 +24,20 @@ enum MapsExport {
     }
 
     /// "<stem>-<label>.png", or "<stem>-<label>-net-3x3.png" when the picture went through a display kernel: the file says what it
-    /// shows; "-scalebar" last when the scale bar is drawn into it. The CSV never carries a tag (it is raw).
+    /// shows; "-scalebar" when the scale bar is drawn into it, "-region" when the regions are, "-2x" or "-3x" when it is enlarged
+    /// (in that order, last before the extension). The CSV never carries a tag (it is raw).
     nonisolated static func pngName(stem: String, label: String, mode: MapMode = .netCounts, smoothing: MapSmoothing = .none,
-                                    scaleBar: Bool = false) -> String {
+                                    scaleBar: Bool = false, region: Bool = false, pixelScale: Int = 1) -> String {
         var name = "\(stem)-\(label)"
         if smoothing != .none { name += "-" + String(mode.rawValue.filter { $0.isLetter || $0.isNumber }) + "-" + smoothing.fileTag }
-        return name + (scaleBar ? "-scalebar" : "") + ".png"
+        if scaleBar { name += "-scalebar" }
+        if region { name += "-region" }
+        if pixelScale > 1 { name += "-\(pixelScale)x" }
+        return name + ".png"
     }
     nonisolated static func csvName(stem: String) -> String { "\(stem)-maps.csv" }
+    /// The folder the files go into: "<stem>-maps".
+    nonisolated static func folderName(stem: String) -> String { "\(stem)-maps" }
 
     /// One row per pixel (x, y, then one column per tile in tile order), written with a period and six significant digits
     /// whatever the locale. The numbers are the RAW signed counts the file gave (`MapTile.counts`, negative where the background
@@ -68,45 +74,131 @@ enum MapsExport {
             + (mode == .netCounts ? " (negative = background exceeded the window)" : "") + ", unsmoothed"
     }
 
-    /// Every file the room's maps make: the HAADF (when the file has one), each element, the ColorMix (when something is
-    /// ticked or a HAADF stands behind it), and the CSV; images are the same ones the screen draws. With `export.scaleBar` on and
-    /// a pixel size from the file, each PNG carries the scale bar drawn into its bitmap (one pixel per scan pixel, so the bar's
-    /// length in pixels is the round length over the pixel size) and its name says "-scalebar"; a map too narrow for a bar, or a
-    /// file with no pixel size, is written as it is and named so. The CSV never changes.
-    static func files(_ model: SpectroscopyRoomModel) throws -> [File] {
-        let stem = model.export.mapsStem
-        var out: [File] = []
-        let pixel = model.export.scaleBar ? model.scanPixel : nil
-        func add(_ label: String, _ source: CGImage?, tagged: Bool = true) throws {
-            guard var image = source else { return }
-            var barred = false
-            if let px = pixel, let plan = MapScaleBar.tilePlan(pixelSize: px.size, unit: px.unit, pointsPerPixel: 1, width: Double(image.width),
-                                                                    locale: Locale(identifier: "en_US_POSIX")),
-               let drawn = MapBitmap.addingScaleBar(to: image, plan: plan) { image = drawn; barred = true }
-            guard let data = MapBitmap.pngData(image) else { throw Failure("Could not encode \(label).") }
-            out.append(File(name: pngName(stem: stem, label: label, mode: tagged ? model.mapMode : .netCounts,
-                                          smoothing: tagged ? model.smoothing : .none, scaleBar: barred), data: data))
-        }
-        if model.hasHAADF {
-            try add("HAADF", ElementTileRaster.haadf(values: model.backdrop, width: model.gridWidth, height: model.gridHeight,
-                                                     colormap: model.haadfColormap, display: model.display(.haadf)), tagged: false)
+    /// One map as the screen draws it: the HAADF, an element, or the ColorMix. `tagged` is false for a map the display kernel and
+    /// the map mode do not touch (the HAADF; the ColorMix is made of elements, so it carries the tag); `label` is the on-screen title, `fileLabel` the word its file is named by.
+    struct Map {
+        var map: ActiveMap
+        var label: String
+        var fileLabel: String
+        var image: CGImage
+        var tagged: Bool
+    }
+
+    /// The maps the room shows, as images at the scan's own grid, in the order the files and the figures list them: the HAADF
+    /// (when the file has one), each element, the ColorMix (when something is ticked or a HAADF stands behind it).
+    static func maps(_ model: SpectroscopyRoomModel) -> [Map] {
+        var out: [Map] = []
+        if model.hasHAADF, let image = ElementTileRaster.haadf(values: model.backdrop, width: model.gridWidth, height: model.gridHeight,
+                                                              colormap: model.haadfColormap, display: model.display(.haadf)) {
+            out.append(Map(map: .haadf, label: "HAADF", fileLabel: "HAADF", image: image, tagged: false))
         }
         var colors: [Int: ColorMixComposite.RGB] = [:], displays: [Int: MapDisplay] = [:]
         for t in model.tiles {
             let c = MapsGridView.rgb(model.color(t.z)), d = model.display(.element(t.z))
             colors[t.z] = c; displays[t.z] = d
-            try add(PeriodicLayout.symbol(t.z), ElementTileRaster.image(tile: t, color: c, display: d))
+            if let image = ElementTileRaster.image(tile: t, color: c, display: d) {
+                out.append(Map(map: .element(t.z), label: t.lineLabel ?? PeriodicLayout.symbol(t.z), fileLabel: PeriodicLayout.symbol(t.z),
+                               image: image, tagged: true))
+            }
         }
         let g = model.gridSize
-        try add("ColorMix", ColorMixRaster.image(tiles: model.tiles, mixed: model.mixed, colors: colors,
-                                                 backdrop: model.mixHAADF ? model.backdrop : [], width: g.w, height: g.h, displays: displays))
+        if let image = ColorMixRaster.image(tiles: model.tiles, mixed: model.mixed, colors: colors,
+                                            backdrop: model.mixHAADF ? model.backdrop : [], width: g.w, height: g.h, displays: displays) {
+            out.append(Map(map: .colorMix, label: colorMixLabel(model), fileLabel: "ColorMix", image: image, tagged: true))
+        }
+        return out
+    }
+
+    /// "ColorMix · Al · Mg · Si": the title with the elements mixed in, as the ColorMix's header names them.
+    static func colorMixLabel(_ model: SpectroscopyRoomModel) -> String {
+        let mixed = model.tiles.filter { model.mixed.contains($0.z) }.map { PeriodicLayout.symbol($0.z) }
+        return mixed.isEmpty ? "ColorMix" : "ColorMix \u{00B7} " + ColorMixHeader.text(mixed: mixed)
+    }
+
+    /// The order a figure lays the maps out in: the HAADF, the ColorMix, then each element (the files list the ColorMix last).
+    static func figureOrder(_ maps: [Map]) -> [Map] {
+        func rank(_ m: Map) -> Int { switch m.map { case .haadf: 0; case .colorMix: 1; case .element: 2 } }
+        return maps.enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }.map(\.element)
+    }
+
+    /// What the room can put in a figure, listed without drawing a map, in `figureOrder`: the HAADF and the ColorMix are ticked
+    /// to begin with, an element is the person's to ask for. The ColorMix exists by `ColorMixRaster`'s rule: something ticked, or a
+    /// HAADF under it.
+    static func choices(_ model: SpectroscopyRoomModel) -> [FigureChoice] {
+        var out: [FigureChoice] = []
+        if model.hasHAADF { out.append(FigureChoice(id: FigureChoice.mapID(.haadf), label: "HAADF", isDefault: true)) }
+        let g = model.gridSize
+        let ticked = model.tiles.contains { model.mixed.contains($0.z) }
+        if g.w > 0, g.h > 0, ticked || (model.mixHAADF && model.backdrop.count == g.w * g.h) {
+            out.append(FigureChoice(id: FigureChoice.mapID(.colorMix), label: colorMixLabel(model), isDefault: true))
+        }
+        for t in model.tiles {
+            out.append(FigureChoice(id: FigureChoice.mapID(.element(t.z)), label: t.lineLabel ?? PeriodicLayout.symbol(t.z), isDefault: false))
+        }
+        return out
+    }
+
+    /// The regions as the screen draws them on the ColorMix (`MapTileView`): the live region dashed in the accent colour, each
+    /// pin in its tint at the pin opacity, the same widths and dash; none when the room shows no region.
+    static func regionOverlays(_ model: SpectroscopyRoomModel) -> [FigureOverlay] {
+        var out: [FigureOverlay] = []
+        if let shape = model.regionOutline {
+            out.append(.region(shape, RegionStroke(color: SpectroscopyRoomModel.liveRegionColor.cgColor(),
+                                                   width: MapTileView.liveOutlineWidth, dash: [4, 3])))
+        }
+        if model.layers.pins {
+            for pin in model.pins {
+                guard let shape = pin.shape else { continue }
+                out.append(.region(shape, RegionStroke(color: pin.tint.cgColor(opacity: SpectrumLayers.pinOpacity),
+                                                       width: MapTileView.pinOutlineWidth)))
+            }
+        }
+        return out
+    }
+
+    /// Every file the room's maps make: the HAADF (when the file has one), each element, the ColorMix (when something is
+    /// ticked or a HAADF stands behind it), and the CSV; images are the same ones the screen draws. With `export.scaleBar` on and
+    /// a pixel size from the file, each PNG carries the scale bar drawn into its bitmap (one pixel per scan pixel, so the bar's
+    /// length in pixels is the round length over the pixel size) and its name says "-scalebar"; a map too narrow for a bar, or a
+    /// file with no pixel size, is written as it is and named so. With `export.regions` on and a region drawn, each PNG carries
+    /// the regions as the screen outlines them and its name says "-region" (the screen draws them on the ColorMix only; a
+    /// file on its own cannot say which map "carries" them, so every map does). `pixelScale` 2 or 3 writes every PNG that many
+    /// pixels per scan pixel (each scan pixel a block, the bar and the outlines drawn at the larger size) and the name says
+    /// "-2x". The CSV never changes.
+    static func files(_ model: SpectroscopyRoomModel, pixelScale: Int = 1) throws -> [File] {
+        let stem = model.export.mapsStem
+        let scale = max(pixelScale, 1)
+        var out: [File] = []
+        let pixel = model.export.scaleBar ? model.scanPixel : nil
+        let outlines = model.export.regions ? regionOverlays(model) : []
+        for entry in maps(model) {
+            let image = entry.image
+            // The bar the person asked for, if the map has room for it (`MapScaleBar.tilePlan`'s rule).
+            let bar = pixel.flatMap { px in
+                MapScaleBar.tilePlan(pixelSize: px.size, unit: px.unit, pointsPerPixel: 1, width: Double(image.width),
+                                     locale: Locale(identifier: "en_US_POSIX")) == nil
+                    ? nil : FigureScaleBar.map(pixelSize: px.size, unit: px.unit)
+            }
+            var final = image
+            if bar != nil || !outlines.isEmpty || scale > 1 {
+                guard let drawn = FigureRendering.rendered(FigurePanel(label: entry.label, image: image, overlays: outlines, bar: bar),
+                                                           magnification: 1, deviceScale: scale) else { throw Failure("Could not draw \(entry.label).") }
+                final = drawn
+            }
+            guard let data = MapBitmap.pngData(final, pixelScale: scale) else { throw Failure("Could not encode \(entry.label).") }
+            out.append(File(name: pngName(stem: stem, label: entry.fileLabel,
+                                          mode: entry.tagged ? model.mapMode : .netCounts,
+                                          smoothing: entry.tagged ? model.smoothing : .none,
+                                          scaleBar: bar != nil, region: !outlines.isEmpty, pixelScale: scale), data: data))
+        }
         let text = try csv(stem: stem, mode: model.mapMode, tiles: model.tiles, symbol: PeriodicLayout.symbol)
         out.append(File(name: csvName(stem: stem), data: Data(text.utf8)))
         return out
     }
 
     /// Writes the files into `folder` (the person's pick, so its security scope is opened around the writes) and returns the
-    /// names written; throws on the first failure. An existing file of the same name is replaced.
+    /// names written; throws on the first failure. An existing file of the same name is replaced: the Export section never reaches
+    /// this with a folder it did not just make (`writeInNewFolder`).
     nonisolated static func write(_ files: [File], to folder: URL) throws -> [String] {
         let scoped = folder.startAccessingSecurityScopedResource()
         defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
@@ -116,6 +208,25 @@ enum MapsExport {
             names.append(f.name)
         }
         return names
+    }
+
+    /// A folder name inside `parent` that nothing uses yet: `name`, then "`name` 2", "`name` 3", ... as Finder numbers copies.
+    nonisolated static func freeFolderName(_ name: String, in parent: URL,
+                                           exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }) -> String {
+        var candidate = name, n = 2
+        while exists(parent.appendingPathComponent(candidate)) { candidate = "\(name) \(n)"; n += 1 }
+        return candidate
+    }
+
+    /// Writes the files into a NEW folder inside `parent` (the person's pick) and returns it with the names written. The folder is
+    /// `name`, or the first free "`name` 2", ...: a second export of the same scan lands beside the first, never over it, so there is
+    /// nothing to ask.
+    nonisolated static func writeInNewFolder(_ files: [File], in parent: URL, named name: String) throws -> (folder: URL, names: [String]) {
+        let scoped = parent.startAccessingSecurityScopedResource()
+        defer { if scoped { parent.stopAccessingSecurityScopedResource() } }
+        let folder = parent.appendingPathComponent(freeFolderName(name, in: parent), isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        return (folder, try write(files, to: folder))
     }
 
     /// The line the Export section shows afterwards.

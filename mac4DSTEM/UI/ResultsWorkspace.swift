@@ -86,7 +86,7 @@ struct ResultsWorkspace: View {
             Button {
                 appState.exportResultImage()
             } label: {
-                Label("Export PNG", systemImage: "square.and.arrow.up")
+                Label("Export PNG…", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(.bordered)
             .accessibilityIdentifier("result.exportPNG")
@@ -110,7 +110,7 @@ struct ResultsWorkspace: View {
                 Button {
                     appState.exportScientificBundle()
                 } label: {
-                    Label("Export Bundle", systemImage: "square.stack.3d.up")
+                    Label("Export Bundle…", systemImage: "square.stack.3d.up")
                 }
                 .buttonStyle(.bordered)
                 .disabled(appState.isBusy)

@@ -43,6 +43,8 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.intensityDisplay, .log)
         XCTAssertTrue(prefs.showScaleBar)
         XCTAssertEqual(prefs.openBehaviour, .direct)
+        XCTAssertEqual(prefs.exportScale, .one, "exported images keep their 1x size until the person asks for more")
+        XCTAssertEqual(prefs.figureFormat, .png)
         XCTAssertFalse(prefs.keepAwake)
         XCTAssertTrue(prefs.offerLearnedDetector)
     }
@@ -63,6 +65,8 @@ final class AppPreferencesTests: XCTestCase {
         writer.intensityDisplay = .linear
         writer.showScaleBar = false
         writer.openBehaviour = .options
+        writer.exportScale = .three
+        writer.figureFormat = .pdf
         writer.keepAwake = true
         writer.offerLearnedDetector = false
 
@@ -73,6 +77,8 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(reader.intensityDisplay, .linear)
         XCTAssertFalse(reader.showScaleBar)
         XCTAssertEqual(reader.openBehaviour, .options)
+        XCTAssertEqual(reader.exportScale, .three)
+        XCTAssertEqual(reader.figureFormat, .pdf)
         XCTAssertTrue(reader.keepAwake)
         XCTAssertFalse(reader.offerLearnedDetector)
     }
@@ -110,6 +116,8 @@ final class AppPreferencesTests: XCTestCase {
         prefs.intensityDisplay = .linear
         prefs.showScaleBar = false
         prefs.openBehaviour = .options
+        prefs.exportScale = .two
+        prefs.figureFormat = .tiff
         prefs.keepAwake = true
         prefs.offerLearnedDetector = false
 
@@ -121,8 +129,17 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.intensityDisplay, .log)
         XCTAssertTrue(prefs.showScaleBar)
         XCTAssertEqual(prefs.openBehaviour, .direct)
+        XCTAssertEqual(prefs.exportScale, .one)
+        XCTAssertEqual(prefs.figureFormat, .png)
         XCTAssertFalse(prefs.keepAwake)
         XCTAssertTrue(prefs.offerLearnedDetector)
+    }
+
+    /// The case names the person sees and the multiplier the export draws at. Mutation: `pixelScale` returns the case's
+    /// position (0, 1, 2) or `displayName` drops the multiplication sign - red.
+    func testExportScaleCasesNameTheirMultiplier() {
+        XCTAssertEqual(ExportImageScale.allCases.map(\.pixelScale), [1, 2, 3])
+        XCTAssertEqual(ExportImageScale.allCases.map(\.displayName), ["1\u{00D7}", "2\u{00D7}", "3\u{00D7}"])
     }
 
     // MARK: Theme → ColorScheme? (pure)

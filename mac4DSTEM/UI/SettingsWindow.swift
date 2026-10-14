@@ -116,6 +116,24 @@ private struct GeneralSettingsSection: View {
                 .accessibilityIdentifier("settings.general.keepAwake")
         }
 
+        Section("Exported images") {
+            Picker("Image size", selection: $preferences.exportScale) {
+                ForEach(ExportImageScale.allCases) { scale in
+                    Text(scale.displayName).tag(scale)
+                }
+            }
+            .accessibilityIdentifier("settings.general.exportScale")
+            .help(FigureExportSection.sizeHelp)
+
+            Picker("Figure format", selection: $preferences.figureFormat) {
+                ForEach(ExportFigureFormat.allCases) { format in
+                    Text(format.displayName).tag(format)
+                }
+            }
+            .accessibilityIdentifier("settings.general.figureFormat")
+            .help(FigureExportSection.formatHelp)
+        }
+
         Section("Recents") {
             Button("Clear Recent Datasets", role: .destructive) {
                 confirmingClearRecents = true
