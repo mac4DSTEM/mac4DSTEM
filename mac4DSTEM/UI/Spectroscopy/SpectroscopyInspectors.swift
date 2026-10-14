@@ -60,6 +60,7 @@ struct SpectroscopyInspectorSections: View {
 /// Elements: the periodic table, the maps' int / net switch, and Auto ID with what it picked.
 struct ElementsSection: View {
     @Bindable var model: SpectroscopyRoomModel
+    @State private var detailsOpen = false
     var body: some View {
         PeriodicTableView(model: model)
         InspectorRow("Maps") {
@@ -96,6 +97,18 @@ struct ElementsSection: View {
         if let o = model.autoID.outcome {
             InspectorValueRow(Self.foundTitle, Self.foundText(o))
                 .help(Self.foundHover(o))
+            // The proposer's reasons are read on the row, not behind a hover (UI audit 2026-10-14, Offering help).
+            if Self.showsDetails(o) {
+                DisclosureGroup("Details", isExpanded: $detailsOpen) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(Self.noteLines(o, o.suggestions).enumerated()), id: \.offset) { _, line in
+                            Text(line).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .textSelection(.enabled).padding(.top, 3)
+                }
+                .accessibilityIdentifier("spectroscopy.autoID.details")
+            }
             // R7 (wp3e F3.1): an excess beside a listed line is a misfit, named so, with no tile.
             let excesses = model.autoIDExcesses
             if !excesses.isEmpty {
@@ -144,23 +157,28 @@ struct ElementsSection: View {
         "net / L_D: 1 = just detectable (Currie, \u{03B1} = \u{03B2} = \(0.05.formatted(.number.locale(locale))))"
     }
 
-    /// The Found row's hover: the number's definition, then the row's help and the proposer's reasons.
+    /// The Found row's hover: the number's definition and the row's help. The proposer's reasons are the Details disclosure's.
     static func foundHover(_ o: AutoIDOutcome, locale: Locale = .current) -> String {
-        significanceLine(locale: locale) + "\n" + foundHelp + "\n" + notes(o, o.suggestions)
+        significanceLine(locale: locale) + "\n" + foundHelp
     }
+
+    /// The Details disclosure is drawn when the proposer said anything about its picks, the sum-peak questions or what it did not test.
+    static func showsDetails(_ o: AutoIDOutcome) -> Bool { !noteLines(o, o.suggestions).isEmpty }
 
     /// The proposer's own words, as the row's hover: each pick's reason, the sum-peak questions, what it did not test.
     /// The Found row's help (the row lists Auto ID's outcome, not the current picks: the person may have removed one since).
     static let foundTitle = "Found"
     static let foundHelp = "What Auto ID found and picked; remove a wrong one in the table"
 
-    static func notes(_ o: AutoIDOutcome, _ s: [ElementSuggestion]) -> String {
+    static func notes(_ o: AutoIDOutcome, _ s: [ElementSuggestion]) -> String { noteLines(o, s).joined(separator: "\n") }
+
+    static func noteLines(_ o: AutoIDOutcome, _ s: [ElementSuggestion]) -> [String] {
         var lines = s.map { "\(PeriodicLayout.symbol($0.z)): \($0.reason)" }
         lines += o.excesses.map(\.detail)
         lines += o.suspects.map { "\($0.label) \($0.question) \($0.stats)" }
         if !o.notTested.isEmpty { lines.append("Not tested: " + o.notTested.map { "\($0.element) (\($0.reason))" }.joined(separator: ", ")) }
         lines += o.notes
-        return lines.joined(separator: "\n")
+        return lines
     }
 }
 

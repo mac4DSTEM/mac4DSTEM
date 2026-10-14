@@ -48,6 +48,11 @@ struct ResultsSection: View {
     @Bindable var model: SpectroscopyRoomModel
     @State private var methodOpen = false
 
+    /// The sentence a row carries under it: its failure, else its line-conflict note; nil when it has neither.
+    static func rowNote(_ row: ResultRow) -> String? { row.failure ?? row.conflictNote }
+    /// The icon's short tip: what kind of note the line under the row is.
+    static func rowNoteKind(_ row: ResultRow) -> String { row.failure != nil ? "Fit failed" : "Fit note" }
+
     /// The badge row: a fitted result is unvalidated until a dataset with truth says otherwise (CLAUDE.md, "unvalidated stays labelled").
     static func showsBadge(_ model: SpectroscopyRoomModel) -> Bool { model.hasFit && model.unvalidated }
 
@@ -114,10 +119,11 @@ struct ResultsSection: View {
                     HStack(spacing: 4) {
                         Image(systemName: "circle.fill").font(.system(size: 8)).foregroundStyle(model.color(row.z))
                         Text(PeriodicLayout.symbol(row.z)).fontWeight(.semibold)
-                        if let note = row.failure ?? row.conflictNote {
+                        if Self.rowNote(row) != nil {
+                            // The sentence is the line under the row; the icon's tip only names its kind, so it is not a second copy.
                             Image(systemName: row.failure != nil ? "xmark.circle" : "exclamationmark.triangle")
-                                .font(.caption).foregroundStyle(.secondary).help(note)
-                                .accessibilityLabel(note)
+                                .font(.caption).foregroundStyle(.secondary).help(Self.rowNoteKind(row))
+                                .accessibilityHidden(true)
                         }
                     }
                     netCell(row)
@@ -125,6 +131,13 @@ struct ResultsSection: View {
                 }
                 .monospacedDigit()
                 .help("\(PeriodicLayout.symbol(row.z)) \u{03C3} terms: \(unit == .weight ? (row.sigmaTermsWeight ?? row.sigmaTerms) : row.sigmaTerms)")
+                // The row's failure or line-conflict sentence, read in the table and not behind the icon's hover.
+                if let note = Self.rowNote(row) {
+                    GridRow {
+                        Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .gridCellColumns(3)
+                    }
+                }
             }
         }
     }
