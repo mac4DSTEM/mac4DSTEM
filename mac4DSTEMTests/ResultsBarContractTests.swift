@@ -43,4 +43,22 @@ final class ResultsBarContractTests: XCTestCase {
         XCTAssertTrue(body.contains("Label(\"Export\", systemImage:"))
         XCTAssertTrue(body.contains("exportItems"), "the menu holds the same items as the buttons")
     }
+
+    /// Mutation: put `.lineLimit(1)` back on the value, or take `selectableText` off -> red.
+    func testLineageValuesWrapAndCanBeSelected() throws {
+        let text = try source("mac4DSTEM/UI/LineageGraphView.swift")
+        guard let start = text.range(of: "private struct LineageDetailRow") else { return XCTFail("row not found") }
+        let row = String(text[start.lowerBound...])
+        guard let valueStart = row.range(of: "Text(value)") else { return XCTFail("value text not found") }
+        let value = String(row[valueStart.lowerBound...].prefix(400))
+        XCTAssertTrue(value.contains(".selectableText(value)"))
+        XCTAssertTrue(value.contains(".fixedSize(horizontal: false, vertical: true)"))
+        XCTAssertFalse(value.contains(".lineLimit(1)"), "the value is wrapped, not cut")
+    }
+
+    /// Keyboard focus must be visible on the lineage graph and list. Mutation: restore `.focusEffectDisabled()` -> red.
+    func testTheLineageFocusRingIsNotHidden() throws {
+        let text = try source("mac4DSTEM/UI/LineageGraphView.swift")
+        XCTAssertFalse(text.contains(".focusEffectDisabled()"))
+    }
 }

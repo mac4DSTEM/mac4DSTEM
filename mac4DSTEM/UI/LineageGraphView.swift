@@ -114,7 +114,6 @@ struct LineageGraphView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .focusable()
-        .focusEffectDisabled()
         .focused($isFocused)
         .onKeyPress(phases: .down) { handleArrowKey($0, inGraph: true) }
         .onChange(of: selected?.id) { _, id in reveal(id) }
@@ -274,7 +273,6 @@ struct LineageGraphView: View {
             }
         }
         .focusable()
-        .focusEffectDisabled()
         .focused($isFocused)
         .onKeyPress(phases: .down) { handleArrowKey($0, inGraph: false) }
     }
@@ -561,8 +559,8 @@ private struct DetailSection<Content: View>: View {
     }
 }
 
-/// Label at the leading edge, value at the trailing edge (the owner's rule),
-/// one line each; a long value truncates in the middle and is the row's help.
+/// Label at the leading edge, value at the trailing edge (the owner's rule). The label is one line; the value WRAPS (a path or a
+/// hash is read whole, not cut in the middle) and can be selected and copied. The row's help repeats label and value.
 private struct LineageDetailRow: View {
     let label: String
     let value: String
@@ -578,9 +576,10 @@ private struct LineageDetailRow: View {
             Text(value)
                 .font(mono ? .caption.monospaced() : .caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
+                .selectableText(value)
         }
         .help("\(label): \(value)")
     }
