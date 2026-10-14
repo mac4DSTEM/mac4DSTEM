@@ -250,6 +250,9 @@ struct ContentView: View {
             PrimaryActionButton()
         }
         .visibilityPriority(.high)
+        // The text-labelled verb sat flush against the icon buttons beside it; a fixed gap sets it apart as the
+        // room's one verb (HIG, Toolbars: group items by function). UI audit 2026-10-14, G3.
+        ToolbarSpacer(.fixed, placement: .primaryAction)
         ToolbarItem(placement: .primaryAction) {
             SaveResultButton()
         }

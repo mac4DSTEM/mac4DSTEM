@@ -436,32 +436,24 @@ struct PrimaryActionButton: View {
 
 // MARK: - No dataset open
 
-/// The empty window: the mark, what the app is for, and the doors.
+/// The empty window: the mark and the doors.
 ///
 /// The three "Prepare / Analyze / Preserve" cards the old welcome carried are
 /// gone — brochure copy above the fold, describing the sidebar the user is
-/// already looking at. What survives is what a first run needs: a way in, and
-/// the one piece of guidance a user cannot infer (a network source costs
-/// minutes on every whole-cube pass).
+/// already looking at — and so are its tagline and subtitle (owner rule: no
+/// filler; UI audit 2026-10-14, G5). What survives is what a first run needs: a
+/// way in, and the one piece of guidance a user cannot infer (a network source
+/// costs minutes on every whole-cube pass).
 struct WelcomeWorkspace: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         ScrollView {
             VStack(spacing: 28) {
-                VStack(spacing: 12) {
-                    Image(systemName: "circle.grid.cross.fill")
-                        .font(.system(size: 54, weight: .light))
-                        .foregroundStyle(.tint)
-                        .accessibilityHidden(true)
-                    Text("Turn 4D-STEM data into answers")
-                        .font(.largeTitle.weight(.semibold))
-                    Text("A native Mac workspace for calibrated imaging, quantitative maps, and phase reconstruction.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: LayoutPolicy.readableWidth)
-                }
+                Image(systemName: "circle.grid.cross.fill")
+                    .font(.system(size: 54, weight: .light))
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
 
                 VStack(spacing: 12) {
                     entryPoints
@@ -736,6 +728,28 @@ struct StatusBar: View {
         .contentShape(Rectangle())
         .modifier(ResizePointer(axis: .row))
         .simultaneousGesture(dragGesture)
+        // The strip is the bottom pane's divider and was drag-only (UI audit 2026-10-14, G4). VoiceOver gets two
+        // actions, not an adjustable value: the strip holds buttons of its own that must stay reachable, and an
+        // adjustable element would swallow them. Keyboard: Tab to the strip, then Up/Down. Both do what the drag
+        // does, `DividerNudge.step` at a time, and only with a dataset loaded, like the drag.
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Make the bottom pane taller") { nudgeProcessArea(taller: true) }
+        .accessibilityAction(named: "Make the bottom pane shorter") { nudgeProcessArea(taller: false) }
+        .focusable(interactions: .activate)   // a keyboard-navigation stop only; see `PaneSplit.divider` for why not a click target
+        .onMoveCommand { direction in
+            switch direction {
+            case .up: nudgeProcessArea(taller: true)
+            case .down: nudgeProcessArea(taller: false)
+            default: break
+            }
+        }
+    }
+
+    private func nudgeProcessArea(taller: Bool) {
+        guard appState.hasDataset, !appState.datasetSession.isLoading else { return }
+        appState.navigation.processFraction = DividerNudge.processFraction(
+            from: appState.navigation.processFraction, taller: taller,
+            last: appState.navigation.lastProcessFraction, available: availableHeight)
     }
 
     /// Whether the strip draws the live run. `isBusy` alone was not the
@@ -938,6 +952,30 @@ struct PaneSplit<Leading: View, Trailing: View>: View {
                     .onEnded { _ in fractionAtDragStart = nil }
             )
             .accessibilityLabel("Resize the diffraction and real-space panes")
+            // A route without the mouse (UI audit 2026-10-14, G4): Tab to the divider, then Left/Right; and for
+            // VoiceOver an adjustable value, Up/Down on the rotor's adjust. Both move it `DividerNudge.step`.
+            .accessibilityValue("Diffraction pane \(Int((min(max(fraction, smallest), 1 - smallest) * 100).rounded())) percent")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: nudge(DividerNudge.step, usable: usable, smallest: smallest)
+                case .decrement: nudge(-DividerNudge.step, usable: usable, smallest: smallest)
+                @unknown default: break
+                }
+            }
+            // `.activate`: a keyboard-navigation stop only (Full Keyboard Access), never a click target, so dragging the
+            // divider leaves focus on the panes and their arrow keys keep stepping the scan position (see `content`).
+            .focusable(interactions: .activate)
+            .onMoveCommand { direction in
+                switch direction {
+                case .right: nudge(DividerNudge.step, usable: usable, smallest: smallest)
+                case .left: nudge(-DividerNudge.step, usable: usable, smallest: smallest)
+                default: break
+                }
+            }
+    }
+
+    private func nudge(_ points: CGFloat, usable: CGFloat, smallest: CGFloat) {
+        fraction = DividerNudge.paneFraction(from: fraction, by: points, usable: usable, smallest: smallest)
     }
 }
 

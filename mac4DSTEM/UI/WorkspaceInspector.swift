@@ -222,9 +222,8 @@ private struct RequirementsSection: View {
                     // use, so it stays outside `InspectorRow`'s fixed label
                     // column rather than losing its colour to it.
                     VStack(alignment: .leading, spacing: 2) {
-                        Label(item.title, systemImage: "exclamationmark.circle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(.orange)
+                        InspectorWarning(item.title, systemImage: "exclamationmark.circle.fill",
+                                         font: .subheadline)
                         // A `taskPanel` resolution is a pointer, not a
                         // destination: it names the control in this task's
                         // own settings, so it carries no action row.
@@ -408,9 +407,7 @@ struct DatasetInfoSections: View {
                     colormap: .viridis
                 )
                 if preview.isSampled {
-                    Text("Not a result — cannot be exported or saved.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    InspectorNote("Not a result — cannot be exported or saved.")
                 }
             }
         }
@@ -821,9 +818,7 @@ private struct InspectorDiagnosticsSections: View {
                         .accessibilityIdentifier("inspector.promoteRunHeadline")
                 }
                 if let halt = appState.replayRun.haltReason {
-                    Text("Halted — \(halt)")
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                    InspectorWarning("Halted — \(halt)", systemImage: "xmark.octagon.fill", tint: .red)
                         .accessibilityIdentifier("inspector.promoteRunHalt")
                 }
                 if let note = appState.replayRun.frameNote {
@@ -877,13 +872,10 @@ private struct InspectorDiagnosticsSections: View {
                 // sentence lives here in full; the status bar carries one
                 // line and points at this section.
                 if let refusal = rotation.refusalMessage {
-                    Text(refusal)
-                        .font(.caption).foregroundStyle(.orange)
-                    Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the minimum the fit found; it was not written.")
-                        .font(.caption2).foregroundStyle(.tertiary)
+                    InspectorWarning(refusal)
+                    InspectorNote("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the minimum the fit found; it was not written.")
                 } else {
-                    Text("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
-                        .font(.caption2).foregroundStyle(.tertiary)
+                    InspectorNote("Mean |curl| vs angle — solid: as-is, dashed: transposed. The marker is the chosen minimum.")
                 }
             }
         }
@@ -1019,11 +1011,9 @@ struct PromoteRunCaption: View {
             if let firstRefused = planned.firstIndex(where: {
                 if case .failure = $0.result { true } else { false }
             }), case .failure(let refusal) = planned[firstRefused].result {
-                Text(firstRefused == 0
+                InspectorWarning(firstRefused == 0
                      ? "This recipe cannot replay here — \(planned[0].title): \(refusal.reason). The button reopens at full extent and re-runs the current analysis instead."
                      : "The run will halt at step \(firstRefused + 1) (\(planned[firstRefused].title)): \(refusal.reason)")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
                     .accessibilityIdentifier("inspector.promoteReplayRefusal")
             }
         }
