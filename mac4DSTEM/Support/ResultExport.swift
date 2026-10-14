@@ -865,6 +865,13 @@ extension AppState {
         }
     }
 
+    /// Empties the comparison (both slots). The saved products stay in the session sidecar; only the side-by-side view goes.
+    func clearComparison() {
+        comparisonProductA = nil
+        comparisonProductB = nil
+        statusText = "Cleared the comparison"
+    }
+
     /// Where a saved product lives. Every product saved since before v1.0
     /// records `display_domain`; the shape-guessing fallback for older
     /// sidecars was removed 2026-09-28 (clean-up audit row 4, owner: no

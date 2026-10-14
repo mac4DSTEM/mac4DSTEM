@@ -14,6 +14,8 @@ import DSTEMSession
 /// result out of the app.
 struct ResultsWorkspace: View {
     @Environment(AppState.self) private var appState
+    /// The comparison's "Same scale", kept here so it outlives the comparison view being rebuilt for each new product.
+    @State private var comparisonSameScale = false
 
     private var hasVisibleResult: Bool {
         appState.resultPresentation.resultImage != nil || appState.resultPresentation.resultRGBA != nil
@@ -56,7 +58,7 @@ struct ResultsWorkspace: View {
 
             if let a = appState.comparisonProductA, let b = appState.comparisonProductB {
                 Divider()
-                ProductComparisonView(a: a, b: b)
+                ProductComparisonView(a: a, b: b, sameScale: $comparisonSameScale)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -214,6 +216,36 @@ nonisolated enum ResultsActionReason {
     }
 }
 
+/// The colour range of the comparison's A and B panels. Each panel windows its own minimum to its own maximum, so the same
+/// colour in A and in B can mean different values; "Same scale" gives both one window. Pure and display-only: the saved
+/// products and their numbers are never touched, only which value the colours span.
+nonisolated enum ComparisonColourScale {
+    /// The lowest and highest finite value over both products, when a shared scale means something: both are scalar maps in the
+    /// same units. nil otherwise (a colour image has no range; different units cannot share one).
+    static func sharedRange(_ a: DisplayedProduct, _ b: DisplayedProduct) -> (low: Float, high: Float)? {
+        guard case .scalar(let imageA) = a.payload, case .scalar(let imageB) = b.payload,
+              a.valueUnits == b.valueUnits else { return nil }
+        let (loA, hiA) = imageA.minMax, (loB, hiB) = imageB.minMax
+        return (min(loA, loB), max(hiA, hiB))
+    }
+
+    /// True when a shared scale is on offer and the panels' own ranges are not already the same (so the header says so).
+    static func rangesDiffer(_ a: DisplayedProduct, _ b: DisplayedProduct) -> Bool {
+        guard sharedRange(a, b) != nil,
+              case .scalar(let imageA) = a.payload, case .scalar(let imageB) = b.payload else { return false }
+        let (loA, hiA) = imageA.minMax, (loB, hiB) = imageB.minMax
+        return loA != loB || hiA != hiB
+    }
+
+    /// `FloatImage.normalized()` on a given window instead of the image's own; non-finite pixels stay "no data".
+    static func normalized(_ image: FloatImage, low: Float, high: Float) -> [Float] {
+        let invalid = FloatImage.invalidDisplayValue
+        let span = high - low
+        guard span > 0 else { return image.pixels.map { $0.isFinite ? 0 : invalid } }
+        return image.pixels.map { $0.isFinite ? ($0 - low) / span : invalid }
+    }
+}
+
 /// One comparison panel's already-rendered pixels and the version that
 /// identifies them, built ONCE per product rather than per body evaluation.
 ///
@@ -256,15 +288,27 @@ struct ComparisonPanel: Identifiable {
     /// True when the payload holds pixels the map cannot colour (no data).
     let hasMasked: Bool
 
-    init(_ product: DisplayedProduct, label: String, colormap: ColormapKind) {
+    /// `sharedRange`: when given, a scalar payload is windowed on it (lowest to highest value over BOTH A and B,
+    /// `ComparisonColourScale.sharedRange`) instead of on its own minimum and maximum. Display only: the product's
+    /// pixels are untouched, and the colorbar prints the window the colours really span.
+    init(_ product: DisplayedProduct, label: String, colormap: ColormapKind,
+         sharedRange: (low: Float, high: Float)? = nil) {
         self.id = label
         self.product = product
         self.label = label
         self.colormap = colormap
         switch product.payload {
         case .scalar(let image):
-            self.pixels = image.normalized(symmetric: colormap.isDiverging)
             self.rgba = nil
+            if let shared = sharedRange, !colormap.isDiverging {
+                self.pixels = ComparisonColourScale.normalized(image, low: shared.low, high: shared.high)
+                self.valueRange = (Double(shared.low), Double(shared.high))
+                self.hasMasked = product.validityMask.contains(false)
+                self.contentVersion = MetalImageView.contentVersion(
+                    of: pixels, rgba: rgba, width: product.width, height: product.height)
+                return
+            }
+            self.pixels = image.normalized(symmetric: colormap.isDiverging)
             let (lo, hi) = image.minMax
             if colormap.isDiverging {
                 let magnitude = Double(max(abs(lo), abs(hi)))
@@ -330,6 +374,9 @@ nonisolated enum ComparisonSampleCursor {
 struct ProductComparisonView: View {
     let a: DisplayedProduct
     let b: DisplayedProduct
+    /// "Same scale" (owned by the room, so it survives this view being rebuilt when a product changes).
+    @Binding var sameScale: Bool
+    @Environment(AppState.self) private var appState
 
     /// The one zoom and pan of all panels. View-local: it is how this comparison is looked at, not a result.
     @State private var zoomModel = PaneZoomModel()
@@ -343,12 +390,14 @@ struct ProductComparisonView: View {
 
     private let panels: [ComparisonPanel]
 
-    init(a: DisplayedProduct, b: DisplayedProduct) {
+    init(a: DisplayedProduct, b: DisplayedProduct, sameScale: Binding<Bool>) {
         self.a = a
         self.b = b
+        self._sameScale = sameScale
+        let shared = sameScale.wrappedValue ? ComparisonColourScale.sharedRange(a, b) : nil
         var built = [
-            ComparisonPanel(a, label: "A", colormap: .viridis),
-            ComparisonPanel(b, label: "B", colormap: .viridis),
+            ComparisonPanel(a, label: "A", colormap: .viridis, sharedRange: shared),
+            ComparisonPanel(b, label: "B", colormap: .viridis, sharedRange: shared),
         ]
         if let difference = ProductComparison.difference(a, b) {
             built.append(ComparisonPanel(difference, label: "A \u{2212} B", colormap: .rdbu))
@@ -366,6 +415,11 @@ struct ProductComparisonView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
+            if !sameScale, ComparisonColourScale.rangesDiffer(a, b) {
+                Text("A and B each use their own colour range, so the same colour can mean different values. Same scale gives both one range.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("result.comparison.rangeNote")
+            }
             HStack(spacing: 8) {
                 ForEach(panels) { panel($0) }
             }
@@ -400,20 +454,49 @@ struct ProductComparisonView: View {
         .accessibilityIdentifier("result.comparison")
     }
 
-    /// Title, then the shared zoom: − and + (about the centre, the VoiceOver step), the badge once it is not 1×, and Reset (fit).
+    /// Title; "Same scale" (when it means something) and the shared zoom (−, +, the badge once it is not 1×, Reset); Clear.
     /// Two rows below the width the single row needs, so nothing clips.
     private var header: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 title
                 Spacer(minLength: 12)
+                scaleToggle
                 zoomControls
+                clearButton
             }
             VStack(alignment: .leading, spacing: 6) {
-                title
-                zoomControls
+                HStack {
+                    title
+                    Spacer(minLength: 12)
+                    clearButton
+                }
+                HStack(spacing: 12) {
+                    scaleToggle
+                    zoomControls
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    private var scaleToggle: some View {
+        if ComparisonColourScale.sharedRange(a, b) != nil {
+            Toggle("Same scale", isOn: $sameScale)
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .fixedSize()
+                .help("Colour A and B with one range, from the lowest to the highest value in either")
+                .accessibilityIdentifier("result.comparison.sameScale")
+        }
+    }
+
+    private var clearButton: some View {
+        Button("Clear") { appState.clearComparison() }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Remove A and B from the comparison; the saved products stay in the session")
+            .accessibilityIdentifier("result.comparison.clear")
     }
 
     private var title: some View {
