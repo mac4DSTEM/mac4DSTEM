@@ -595,7 +595,7 @@ enum ApertureOutline {
     static let lineOpacity = 0.9
     static let innerDash: [CGFloat] = [4, 3]
     /// The outer edge (and a square or crosshair) and the inner edge of an annulus: the SwiftUI colours the overlay strokes and the
-    /// export resolves, so a figure's outline is the pane's colour, not a near one.
+    /// export resolves in the app's appearance (`FigureColors.scheme`), so a figure carries the variant the pane showed when it was made.
     static let outerColor = Color.yellow
     static let innerColor = Color.cyan
     /// A point detector's crosshair arm, in view points.

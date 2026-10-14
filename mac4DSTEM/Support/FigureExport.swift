@@ -87,6 +87,16 @@ extension ExportFigureFormat {
     }
 }
 
+/// The appearance an export resolves SwiftUI's colours in.
+enum FigureColors {
+    /// The app's own: the Settings preference when it names one, else the system's (`AppleInterfaceStyle` is "Dark" in dark mode and
+    /// absent in light). The pane draws the variant of that appearance, so a file carries the colour the pane showed when it was made.
+    static func scheme(appearance: AppAppearance,
+                       systemIsDark: Bool = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark") -> ColorScheme {
+        appearance.colorScheme ?? (systemIsDark ? .dark : .light)
+    }
+}
+
 extension AppState {
 
     // MARK: The rasters
@@ -155,9 +165,18 @@ extension AppState {
     /// The virtual detector the diffraction pane draws, as the export draws it: only in the Virtual Detector task, where the
     /// pane shows the overlay (the aperture exists in every task but means something in this one).
     var patternExportOverlays: [FigureOverlay] {
-        guard navigation.analysisMode == .virtualDetector, displayedPattern != nil else { return [] }
-        return [.detector(aperture, resultPresentation.virtualShape)]
+        navigation.analysisMode == .virtualDetector ? detectorOverlay : []
     }
+
+    /// The live virtual detector as an overlay for the displayed pattern, whatever the task (empty without a pattern), in the colours of
+    /// the app's appearance. The figure's "Detector outline" tick takes this directly.
+    var detectorOverlay: [FigureOverlay] {
+        guard displayedPattern != nil else { return [] }
+        return [.detector(aperture, resultPresentation.virtualShape, exportColorScheme)]
+    }
+
+    /// The appearance the exports resolve colours in (`FigureColors.scheme`).
+    var exportColorScheme: ColorScheme { FigureColors.scheme(appearance: preferences.appearance) }
 
     // MARK: The figure
 
@@ -189,19 +208,20 @@ extension AppState {
     /// The panels for the chosen ids, in layout order, each at data resolution with its outlines and scale bar. An id the window no
     /// longer has is skipped. The detector outline follows the pane (`patternExportOverlays`); the regions follow the Spectroscopy
     /// room's Export setting; every bar is drawn where a sampling exists.
-    func figurePanels(chosen ids: Set<String>) -> [FigurePanel] {
+    /// `detector` ticks the detector outline on the pattern; nil follows the pane (drawn in the Virtual Detector task only).
+    func figurePanels(chosen ids: Set<String>, detector: Bool? = nil) -> [FigurePanel] {
         var panels: [FigurePanel] = []
         if ids.contains(FigureChoice.resultID), let raster = try? resultExportRaster() {
             panels.append(FigurePanel(label: currentResultDisplayName, image: raster.image,
                                       bar: .ladder(unitsPerDataPixel: raster.sampling, unit: raster.unit)))
         }
         if ids.contains(FigureChoice.patternID), let raster = try? patternExportRaster() {
-            panels.append(FigurePanel(label: patternFigureLabel, image: raster.image, overlays: patternExportOverlays,
+            panels.append(FigurePanel(label: patternFigureLabel, image: raster.image, overlays: detector.map { $0 ? detectorOverlay : [] } ?? patternExportOverlays,
                                       bar: .ladder(unitsPerDataPixel: raster.sampling, unit: raster.unit)))
         }
         if hasSpectrumImage {
             let model = spectroscopyRoom.model
-            let outlines = model.export.regions ? MapsExport.regionOverlays(model) : []
+            let outlines = model.export.regions ? MapsExport.regionOverlays(model, scheme: exportColorScheme) : []
             let bar = model.scanPixel.map { FigureScaleBar.map(pixelSize: $0.size, unit: $0.unit) }
             for entry in MapsExport.figureOrder(MapsExport.maps(model)) where ids.contains(FigureChoice.mapID(entry.map)) {
                 panels.append(FigurePanel(label: entry.label, image: entry.image, overlays: outlines, bar: bar))
@@ -224,8 +244,8 @@ extension AppState {
 
     /// The figure of the chosen images at `scale` pixels per point, with the panels it holds. Throws the sentence the person is
     /// shown when nothing is chosen, when the figure would pass `FigureLayout.maximumPixels` on a side, or when it cannot be drawn.
-    func figureImage(chosen ids: Set<String>, scale: Int) throws -> (image: CGImage, panels: [FigurePanel]) {
-        let panels = figurePanels(chosen: ids)
+    func figureImage(chosen ids: Set<String>, scale: Int, detector: Bool? = nil) throws -> (image: CGImage, panels: [FigurePanel]) {
+        let panels = figurePanels(chosen: ids, detector: detector)
         guard !panels.isEmpty else { throw SimpleError("Pick at least one image for the figure.") }
         let plan = FigureLayout.plan(panels.map { ($0.label, $0.image.width, $0.image.height) })
         let size = FigureLayout.pixelSize(plan, scale: scale)
@@ -238,8 +258,8 @@ extension AppState {
 
     /// The figure of the chosen images as a one-page vector PDF, with the panels it holds and its page size in points. The same
     /// refusals as `figureImage`.
-    func figurePDF(chosen ids: Set<String>) throws -> (data: Data, panels: [FigurePanel], width: Int, height: Int) {
-        let panels = figurePanels(chosen: ids)
+    func figurePDF(chosen ids: Set<String>, detector: Bool? = nil) throws -> (data: Data, panels: [FigurePanel], width: Int, height: Int) {
+        let panels = figurePanels(chosen: ids, detector: detector)
         guard !panels.isEmpty else { throw SimpleError("Pick at least one image for the figure.") }
         let plan = FigureLayout.plan(panels.map { ($0.label, $0.image.width, $0.image.height) })
         let size = FigureLayout.pixelSize(plan, scale: 1)
@@ -273,17 +293,17 @@ extension AppState {
 
     /// The figure of the chosen images as the file to write, in the preferences' format and image size (a PDF is vector and has
     /// neither pixels nor a scale). Throws the sentence the person is shown when it cannot be made. The panel-free half of the export.
-    func figureFile(chosen ids: Set<String>) throws -> FigureFile {
+    func figureFile(chosen ids: Set<String>, detector: Bool? = nil) throws -> FigureFile {
         let scale = preferences.exportScale.pixelScale
         let format = preferences.figureFormat
         let name = exportBaseName + "_figure"
         switch format {
         case .pdf:
-            let made = try figurePDF(chosen: ids)
+            let made = try figurePDF(chosen: ids, detector: detector)
             return FigureFile(data: made.data, format: .pdf, suggestedName: name,
                               message: Self.exportPanelMessage(subject: Self.figureSubject(made.panels), width: made.width, height: made.height, scale: nil))
         case .png, .tiff:
-            let made = try figureImage(chosen: ids, scale: scale)
+            let made = try figureImage(chosen: ids, scale: scale, detector: detector)
             let properties = Self.figureProperties(format: format, title: "Figure",
                                                    record: figureProvenanceRecord(made.panels, scale: scale, format: format), pixelScale: scale)
             guard let data = Self.encodeImage(made.image, type: format.utType, properties: properties) else {
@@ -307,10 +327,13 @@ extension AppState {
     }
 
     /// The encoded bytes of an image in any type ImageIO writes.
+    /// A TIFF is tagged sRGB (the figure is drawn in device RGB, which ImageIO's PNG writer already records as sRGB; its TIFF writer
+    /// would leave the file untagged and a viewer would guess).
     nonisolated static func encodeImage(_ image: CGImage, type: UTType, properties: [CFString: Any]?) -> Data? {
         let out = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(out, type.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(dest, image, properties as CFDictionary?)
+        let tagged = type == .tiff ? (CGColorSpace(name: CGColorSpace.sRGB).flatMap { image.copy(colorSpace: $0) } ?? image) : image
+        CGImageDestinationAddImage(dest, tagged, properties as CFDictionary?)
         return CGImageDestinationFinalize(dest) ? out as Data : nil
     }
 

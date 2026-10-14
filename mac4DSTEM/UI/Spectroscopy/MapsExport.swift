@@ -140,16 +140,16 @@ enum MapsExport {
 
     /// The regions as the screen draws them on the ColorMix (`MapTileView`): the live region dashed in the accent colour, each
     /// pin in its tint at the pin opacity, the same widths and dash; none when the room shows no region.
-    static func regionOverlays(_ model: SpectroscopyRoomModel) -> [FigureOverlay] {
+    static func regionOverlays(_ model: SpectroscopyRoomModel, scheme: ColorScheme = .dark) -> [FigureOverlay] {
         var out: [FigureOverlay] = []
         if let shape = model.regionOutline {
-            out.append(.region(shape, RegionStroke(color: SpectroscopyRoomModel.liveRegionColor.cgColor(),
+            out.append(.region(shape, RegionStroke(color: SpectroscopyRoomModel.liveRegionColor.cgColor(scheme: scheme),
                                                    width: MapTileView.liveOutlineWidth, dash: [4, 3])))
         }
         if model.layers.pins {
             for pin in model.pins {
                 guard let shape = pin.shape else { continue }
-                out.append(.region(shape, RegionStroke(color: pin.tint.cgColor(opacity: SpectrumLayers.pinOpacity),
+                out.append(.region(shape, RegionStroke(color: pin.tint.cgColor(opacity: SpectrumLayers.pinOpacity, scheme: scheme),
                                                        width: MapTileView.pinOutlineWidth)))
             }
         }
@@ -164,13 +164,13 @@ enum MapsExport {
     /// the regions as the screen outlines them and its name says "-region" (the screen draws them on the ColorMix only; a
     /// file on its own cannot say which map "carries" them, so every map does). `pixelScale` 2 or 3 writes every PNG that many
     /// pixels per scan pixel (each scan pixel a block, the bar and the outlines drawn at the larger size) and the name says
-    /// "-2x". The CSV never changes.
-    static func files(_ model: SpectroscopyRoomModel, pixelScale: Int = 1) throws -> [File] {
+    /// "-2x". The outlines are coloured in `scheme` (`FigureColors.scheme`). The CSV never changes.
+    static func files(_ model: SpectroscopyRoomModel, pixelScale: Int = 1, scheme: ColorScheme = .dark) throws -> [File] {
         let stem = model.export.mapsStem
         let scale = max(pixelScale, 1)
         var out: [File] = []
         let pixel = model.export.scaleBar ? model.scanPixel : nil
-        let outlines = model.export.regions ? regionOverlays(model) : []
+        let outlines = model.export.regions ? regionOverlays(model, scheme: scheme) : []
         for entry in maps(model) {
             let image = entry.image
             // The bar the person asked for, if the map has room for it (`MapScaleBar.tilePlan`'s rule).

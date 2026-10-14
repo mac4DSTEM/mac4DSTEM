@@ -498,7 +498,7 @@ struct ExportSection: View {
                         switch result {
                         case .success(let folder):
                             do {
-                                let written = try MapsExport.writeInNewFolder(try MapsExport.files(model, pixelScale: preferences.exportScale.pixelScale),
+                                let written = try MapsExport.writeInNewFolder(try MapsExport.files(model, pixelScale: preferences.exportScale.pixelScale, scheme: FigureColors.scheme(appearance: preferences.appearance)),
                                                                              in: folder, named: MapsExport.folderName(stem: model.export.mapsStem))
                                 model.exportNote = MapsExport.note(written: written.names, folder: written.folder)
                                 model.exportedFolder = written.folder

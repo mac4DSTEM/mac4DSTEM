@@ -13,6 +13,9 @@ struct FigureExportSection: View {
     @Environment(AppPreferences.self) private var preferences
     /// The person's ticks over the defaults; an image absent here is as `FigureChoice.isDefault` says.
     @State private var ticks: [String: Bool] = [:]
+    /// The "Detector outline" tick; nil follows the pane (the outline is drawn in the Virtual Detector task, which is not a room of its own:
+    /// the last room visited would otherwise decide).
+    @State private var detector: Bool?
     /// The figure made by the button, held while SwiftUI's export panel is up.
     @State private var file: FigureFile?
     @State private var isExporting = false
@@ -41,6 +44,14 @@ struct FigureExportSection: View {
                             .labelsHidden().toggleStyle(.checkbox)
                     }
                     .accessibilityIdentifier("results.figure.\(choice.id)")
+                }
+                if choices.contains(where: { $0.id == FigureChoice.patternID }) {
+                    InspectorRow("Detector outline") {
+                        Toggle("Detector outline", isOn: Binding(get: { detector ?? appState.patternExportOverlays.isEmpty == false }, set: { detector = $0 }))
+                            .labelsHidden().toggleStyle(.checkbox)
+                            .help("Outlines the virtual detector on the diffraction pattern, as the pane draws it. Ticked to begin with in the Virtual Detector task.")
+                            .accessibilityIdentifier("results.figure.detector")
+                    }
                 }
                 InspectorRow("Format") {
                     Picker("Format", selection: $preferences.figureFormat) {
@@ -71,7 +82,7 @@ struct FigureExportSection: View {
                 InspectorActionRow {
                     InspectorAdaptiveButton(Self.exportTitle, systemImage: "square.and.arrow.up",
                                             help: chosen.isEmpty ? "Tick at least one image." : "The ticked images in one labelled file, in the format and size above") {
-                        do { file = try appState.figureFile(chosen: chosen); isExporting = true } catch { appState.present(error) }
+                        do { file = try appState.figureFile(chosen: chosen, detector: detector); isExporting = true } catch { appState.present(error) }
                     }
                     .disabled(chosen.isEmpty)
                     .accessibilityIdentifier("results.figure.export")

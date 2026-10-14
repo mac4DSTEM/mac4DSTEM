@@ -29,8 +29,9 @@ import SpectroCore
 /// What is stroked over a panel's data pixels, in the panel's own data-pixel coordinates (the image's width and height are the
 /// detector's, or the scan grid's).
 enum FigureOverlay {
-    /// The active virtual detector, outlined as the pane draws it (no drag handles: they are controls, not part of a figure).
-    case detector(Aperture, VirtualShapeMode)
+    /// The active virtual detector, outlined as the pane draws it (no drag handles: they are controls, not part of a figure), in the
+    /// colours of the given appearance (`FigureColors.scheme`).
+    case detector(Aperture, VirtualShapeMode, ColorScheme)
     /// A region on an EDX map's grid.
     case region(SpectrumRegionShape, RegionStroke)
 }
@@ -137,7 +138,11 @@ enum FigureRendering {
     /// `rect` is `image size x magnification x deviceScale` on a side, and nothing is drawn outside it.
     /// `embedFactor` > 1 enlarges the data pixels (nearest neighbour) before they are drawn: a PDF stores the image it is given and
     /// leaves the smoothing to the viewer, so a vector figure is handed the map already at the size it is laid out.
-    static func draw(_ panel: FigurePanel, in ctx: CGContext, rect: CGRect, magnification: Int, deviceScale: Int, embedFactor: Int = 1) {
+    /// Returns what the result/pattern scale bar said (its label and its length in pixels) when the panel has one, so a test can hold
+    /// the words and the pixels together.
+    @discardableResult
+    static func draw(_ panel: FigurePanel, in ctx: CGContext, rect: CGRect, magnification: Int, deviceScale: Int, embedFactor: Int = 1) -> LadderBarPlan? {
+        var ladder: LadderBarPlan?
         let device = CGFloat(max(deviceScale, 1))
         ctx.saveGState()
         ctx.clip(to: rect)
@@ -150,8 +155,8 @@ enum FigureRendering {
             let box = CGSize(width: CGFloat(panel.image.width * magnification), height: CGFloat(panel.image.height * magnification))
             for overlay in panel.overlays {
                 switch overlay {
-                case .detector(let aperture, let shape):
-                    drawDetector(aperture, shape, patternWidth: panel.image.width, patternHeight: panel.image.height, box: box, in: ctx)
+                case .detector(let aperture, let shape, let scheme):
+                    drawDetector(aperture, shape, scheme: scheme, patternWidth: panel.image.width, patternHeight: panel.image.height, box: box, in: ctx)
                 case .region(let shape, let stroke):
                     drawRegion(shape, stroke, gridWidth: panel.image.width, gridHeight: panel.image.height, box: box, in: ctx)
                 }
@@ -162,8 +167,8 @@ enum FigureRendering {
             ctx.translateBy(x: rect.minX, y: rect.minY)   // the panel's bottom-left corner, y up
             switch bar {
             case .ladder(let unitsPerDataPixel, let unit):
-                drawLadderBar(in: ctx, width: Int(rect.width), height: Int(rect.height),
-                              unitsPerOutPixel: (unitsPerDataPixel ?? 1) / Double(magnification * max(deviceScale, 1)), unit: unit)
+                ladder = drawLadderBar(in: ctx, width: Int(rect.width), height: Int(rect.height),
+                                       unitsPerOutPixel: (unitsPerDataPixel ?? 1) / Double(magnification * max(deviceScale, 1)), unit: unit)
             case .map(let pixelSize, let unit):
                 if let plan = MapScaleBar.tilePlan(pixelSize: pixelSize, unit: unit, pointsPerPixel: Double(magnification),
                                                    width: Double(panel.image.width * magnification),
@@ -173,6 +178,7 @@ enum FigureRendering {
             }
         }
         ctx.restoreGState()
+        return ladder
     }
 
     /// The panel as an image of its own: its data pixels enlarged `magnification` x `deviceScale` times without smoothing, then its
@@ -194,12 +200,12 @@ enum FigureRendering {
     /// The virtual detector the pane draws, stroked in `box` (view points, y down): the dark halo under every edge, the yellow
     /// outer edge (a square's, a point's crosshair), the dashed cyan inner edge of an annulus. `ApertureOutline` has the
     /// position and every width, opacity and dash.
-    static func drawDetector(_ aperture: Aperture, _ shape: VirtualShapeMode, patternWidth: Int, patternHeight: Int,
+    static func drawDetector(_ aperture: Aperture, _ shape: VirtualShapeMode, scheme: ColorScheme, patternWidth: Int, patternHeight: Int,
                              box: CGSize, in ctx: CGContext) {
         let m = ApertureOutline.metrics(aperture: aperture, patternWidth: patternWidth, patternHeight: patternHeight, box: box)
         let halo = CGColor(gray: 0, alpha: ApertureOutline.haloOpacity)
-        let yellow = ApertureOutline.outerColor.cgColor(opacity: ApertureOutline.lineOpacity)
-        let cyan = ApertureOutline.innerColor.cgColor(opacity: ApertureOutline.lineOpacity)
+        let yellow = ApertureOutline.outerColor.cgColor(opacity: ApertureOutline.lineOpacity, scheme: scheme)
+        let cyan = ApertureOutline.innerColor.cgColor(opacity: ApertureOutline.lineOpacity, scheme: scheme)
         func stroke(_ path: CGPath, _ color: CGColor, width: CGFloat, dash: [CGFloat] = []) {
             ctx.saveGState()
             ctx.setStrokeColor(color); ctx.setLineWidth(width); ctx.setLineDash(phase: 0, lengths: dash)
@@ -319,10 +325,14 @@ enum FigureRendering {
 }
 
 extension Color {
-    /// The colour as the Core Graphics colour the drawing contexts take, at `opacity`: what SwiftUI draws it as, resolved in the
-    /// default environment.
-    func cgColor(opacity: Double = 1) -> CGColor {
-        let resolved = resolve(in: EnvironmentValues()).cgColor
+    /// The colour as the Core Graphics colour the drawing contexts take, at `opacity`, resolved in `scheme`. SwiftUI's system colours
+    /// have a light and a dark variant (cyan most: (0, 0.75, 0.91) light, (0.24, 0.83, 1.0) dark) and the pane draws the variant of
+    /// the app's appearance, so an export is resolved in the same appearance (`FigureColors.scheme`: the Settings preference, else the
+    /// system's) and carries the colour the pane showed when it was made. The default is dark, the appearance a figure on black reads in.
+    func cgColor(opacity: Double = 1, scheme: ColorScheme = .dark) -> CGColor {
+        var environment = EnvironmentValues()
+        environment.colorScheme = scheme
+        let resolved = resolve(in: environment).cgColor
         return opacity == 1 ? resolved : (resolved.copy(alpha: CGFloat(opacity)) ?? resolved)
     }
 }

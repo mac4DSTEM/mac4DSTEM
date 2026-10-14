@@ -325,17 +325,15 @@ extension FigureRendering {
     /// panels draw the same bar; it stays AppKit because Core Text would set the same words in a different rasterisation.
     /// `unitsPerOutPixel` is the sampling of the pixels being drawn into (the data's, divided by the enlargement), so the bar's label
     /// does not depend on the export scale.
-    static func drawLadderBar(in ctx: CGContext, width outW: Int, height outH: Int, unitsPerOutPixel: Double, unit unitLabel: String) {
-        // Bar sized to a nice 1-2-5 value near 1/5 of the image width.
-        let nice = ScaleBar.nice125(unitsPerOutPixel * Double(outW) / 5)
-        let barLength = CGFloat(nice / unitsPerOutPixel)
+    @discardableResult
+    static func drawLadderBar(in ctx: CGContext, width outW: Int, height outH: Int, unitsPerOutPixel: Double, unit unitLabel: String) -> LadderBarPlan {
+        let plan = ladderBarPlan(width: outW, unitsPerOutPixel: unitsPerOutPixel, unit: unitLabel)
+        let barLength = CGFloat(plan.lengthPixels)
         let margin = CGFloat(max(10, outH / 30))
         let barHeight = CGFloat(max(3, outH / 150))
         let fontSize = CGFloat(max(11, outH / 28))
 
-        // The same unit ladder as the on-screen bar, so an export reads what the pane read.
-        let shown = ScaleBar.ladder(nice, unit: unitLabel)
-        let text = "\(ScaleBar.format(shown.value, locale: Locale(identifier: "en_US_POSIX"))) \(shown.unit)" as NSString
+        let text = plan.label as NSString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .medium),
             .foregroundColor: NSColor.white,
@@ -360,5 +358,23 @@ extension FigureRendering {
                   withAttributes: attributes)
 
         NSGraphicsContext.restoreGraphicsState()
+        return plan
+    }
+
+    /// What a scale bar says and how long it is: a 1-2-5 value near a fifth of the width, in the unit ladder the on-screen bar reads.
+    struct LadderBarPlan: Equatable {
+        var label: String
+        var lengthPixels: Double
+    }
+
+    /// The bar's words and length for a `outW`-pixel image sampled at `unitsPerOutPixel`. Pure, so the words and the pixels can be held
+    /// together: at any export scale the label is the same and the length grows with the pixels.
+    static func ladderBarPlan(width outW: Int, unitsPerOutPixel: Double, unit unitLabel: String) -> LadderBarPlan {
+        // Bar sized to a nice 1-2-5 value near 1/5 of the image width.
+        let nice = ScaleBar.nice125(unitsPerOutPixel * Double(outW) / 5)
+        // The same unit ladder as the on-screen bar, so an export reads what the pane read.
+        let shown = ScaleBar.ladder(nice, unit: unitLabel)
+        return LadderBarPlan(label: "\(ScaleBar.format(shown.value, locale: Locale(identifier: "en_US_POSIX"))) \(shown.unit)",
+                             lengthPixels: nice / unitsPerOutPixel)
     }
 }

@@ -187,7 +187,7 @@ final class FigureExportTests: XCTestCase {
     private func pattern64() -> CGImage { solid(64, 64, 100, 100, 100) }
 
     private func detectorPanel(_ aperture: Aperture, _ shape: VirtualShapeMode) -> FigurePanel {
-        FigurePanel(label: "", image: pattern64(), overlays: [.detector(aperture, shape)])
+        FigurePanel(label: "", image: pattern64(), overlays: [.detector(aperture, shape, .dark)])
     }
 
     /// The pane's geometry, in view points: pixel-centre half offset, the mean axis scale, the radii. Mutation: `center` loses the
@@ -503,7 +503,7 @@ final class FigureExportTests: XCTestCase {
     /// dropped, or the overlay carries the default aperture - red.
     func testTheDetectorIsOutlinedOnlyWhereThePaneDrawsIt() {
         let state = windowWithPatternAndResult()
-        guard case .detector(let aperture, let shape)? = state.patternExportOverlays.first else { return XCTFail("no detector overlay") }
+        guard case .detector(let aperture, let shape, _)? = state.patternExportOverlays.first else { return XCTFail("no detector overlay") }
         XCTAssertEqual(aperture, Aperture(centerX: 16, centerY: 16, inner: 0, outer: 6))
         XCTAssertEqual(shape, state.resultPresentation.virtualShape)
         XCTAssertEqual(state.patternExportOverlays.count, 1)
@@ -631,7 +631,7 @@ final class FigureExportTests: XCTestCase {
     func testTheFigureAsAVectorPDF() throws {
         let aperture = Aperture(centerX: 32, centerY: 30, inner: 0, outer: 20)
         let panels = [FigurePanel(label: "Blue panel", image: solid(32, 24, 20, 20, 200)),
-                      FigurePanel(label: "Pattern here", image: pattern64(), overlays: [.detector(aperture, .circle)])]
+                      FigurePanel(label: "Pattern here", image: pattern64(), overlays: [.detector(aperture, .circle, .dark)])]
         let plan = FigureLayout.plan(panels.map { ($0.label, $0.image.width, $0.image.height) })
         let data = try XCTUnwrap(FigureRendering.renderPDF(panels))
         XCTAssertEqual(Array(data.prefix(5)), Array("%PDF-".utf8))
@@ -750,6 +750,163 @@ final class FigureExportTests: XCTestCase {
         XCTAssertNil(state.errorMessage)
         state.figureExported(.failure(SimpleError("disk full")), file: file)
         XCTAssertEqual(state.errorMessage, "disk full")
+    }
+
+    // MARK: the scale bar means what it says
+
+    /// The longest run of pure white pixels in any row: the scale bar's fill (a label's glyphs are far shorter).
+    private func longestWhiteRun(_ r: Raster) -> Int {
+        var best = 0
+        for y in 0..<r.h {
+            var run = 0
+            for x in 0..<r.w {
+                let c = r.rgb(x, y)
+                run = (c.r == 255 && c.g == 255 && c.b == 255) ? run + 1 : 0
+                best = max(best, run)
+            }
+        }
+        return best
+    }
+
+    private func ladderPanel() -> FigurePanel {
+        FigurePanel(label: "R", image: solid(64, 48, 100, 100, 100), bar: .ladder(unitsPerDataPixel: 0.5, unit: "nm"))
+    }
+
+    /// The result and pattern bar at 1x, 2x and 3x: it SAYS the same thing ("5 nm" for 10 data pixels of 0.5 nm) and is that long in pixels
+    /// (10 data pixels x 8 x scale), drawn directly, burnt into an export and in a rendered figure; words and pixels are held together
+    /// because a bar of the right length can carry the wrong number (at 2x the broken code drew 160 px under "10 nm").
+    /// Mutation: the device scale is dropped from the bar's `unitsPerOutPixel` in `FigureRendering.draw` - red (label at 2x, length at 3x).
+    func testTheLadderBarSaysAndMeansTheSameAtEveryScale() throws {
+        for s in 1...3 {
+            let w = 64 * 8 * s, h = 48 * 8 * s
+            let ctx = try XCTUnwrap(CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+            let plan = try XCTUnwrap(FigureRendering.draw(ladderPanel(), in: ctx, rect: CGRect(x: 0, y: 0, width: w, height: h), magnification: 8, deviceScale: s))
+            XCTAssertEqual(plan.label, "5 nm", "the words do not change with the export scale (\(s)x)")
+            XCTAssertEqual(plan.lengthPixels, 80 * Double(s), accuracy: 1e-9, "5 nm is 10 data pixels, 8 x \(s) pixels each")
+            XCTAssertEqual(Double(longestWhiteRun(raster(try XCTUnwrap(ctx.makeImage())))), plan.lengthPixels, accuracy: 1, "the pixels are as long as the plan says (\(s)x)")
+
+            let burnt = AppState.burnScaleBar(on: solid(64, 48, 100, 100, 100), unitsPerDataPixel: 0.5, unitLabel: "nm", pixelScale: s)
+            XCTAssertEqual(Double(longestWhiteRun(raster(burnt))), 80 * Double(s), accuracy: 1, "burnScaleBar at \(s)x")
+            let figure = try XCTUnwrap(FigureRendering.render([ladderPanel()], scale: s))
+            XCTAssertEqual(Double(longestWhiteRun(raster(figure))), 80 * Double(s), accuracy: 1, "a figure panel at \(s)x")
+        }
+        let pdf = try raster(pdf: try XCTUnwrap(FigureRendering.renderPDF([ladderPanel()])), scale: 1)
+        XCTAssertEqual(Double(longestWhiteRun(pdf)), 80, accuracy: 1, "the PDF page")
+        // the pure plan, the words and the length from the sampling alone
+        let plan = FigureRendering.ladderBarPlan(width: 1024, unitsPerOutPixel: 0.5 / 16, unit: "nm")
+        XCTAssertEqual(plan, FigureRendering.LadderBarPlan(label: "5 nm", lengthPixels: 160))
+        XCTAssertEqual(FigureRendering.ladderBarPlan(width: 512, unitsPerOutPixel: 2, unit: "nm").label, "200 nm")
+    }
+
+    // MARK: the EDX panels of a window
+
+    private func windowWithMaps() -> AppState {
+        let state = AppState()
+        state.preferences.appearance = .dark
+        state.openSpectrumImage(DemoSpectrumImageSource.make())
+        let m = state.spectroscopyRoom.model
+        m.tiles = [tile(13, 64, 64), tile(14, 64, 64)]
+        m.mixed = [13]; m.gridWidth = 64; m.gridHeight = 64
+        m.backdrop = (0..<4096).map { Float($0 % 31) / 31 }
+        m.scanPixel = (size: 0.5, unit: "nm")
+        m.regionOutline = .rectangle(PixelRect(x0: 10, y0: 12, x1: 40, y1: 50))
+        m.export.regions = true
+        return state
+    }
+
+    /// The EDX branch of the figure: the maps in the figure's order (HAADF, ColorMix, then each element), each with the room's region
+    /// outline when `Regions` is on and none when off, each with the map bar from the file's pixel size and none without one.
+    /// Mutations: `figurePanels` hands the maps no overlays, ignores `scanPixel`, or lists them in the files' order - red.
+    func testTheEDXPanelsCarryTheirOutlinesAndBars() throws {
+        let state = windowWithMaps()
+        let m = state.spectroscopyRoom.model
+        let ids: Set<String> = ["map.haadf", "map.colormix", "map.el.13", "map.el.14", FigureChoice.resultID]
+        XCTAssertEqual(state.figureChoices.map(\.id), ["map.haadf", "map.colormix", "map.el.13", "map.el.14"])
+        let panels = state.figurePanels(chosen: ids)
+        XCTAssertEqual(panels.map(\.label), ["HAADF", MapsExport.colorMixLabel(m), PeriodicLayout.symbol(13), PeriodicLayout.symbol(14)], "the figure's order, not the files'")
+        for panel in panels {
+            XCTAssertEqual(panel.image.width, 64)
+            let stroke = try XCTUnwrap(strokes(panel.overlays).first, "\(panel.label): the region is outlined")
+            XCTAssertEqual(strokes(panel.overlays).count, 1)
+            XCTAssertEqual(stroke.width, MapTileView.liveOutlineWidth); XCTAssertEqual(stroke.dash, [4, 3])
+            guard case .map(let size, let unit)? = panel.bar else { return XCTFail("\(panel.label): the map bar from the file's pixel size") }
+            XCTAssertEqual(size, 0.5); XCTAssertEqual(unit, "nm")
+        }
+        // the outline is the live region on the map's own grid
+        guard case .region(let shape, _)? = panels[0].overlays.first else { return XCTFail("no region overlay") }
+        XCTAssertEqual(shape, .rectangle(PixelRect(x0: 10, y0: 12, x1: 40, y1: 50)))
+
+        m.export.regions = false
+        XCTAssertTrue(state.figurePanels(chosen: ids).allSatisfy { $0.overlays.isEmpty }, "Regions off: no outline")
+        m.export.regions = true; m.scanPixel = nil
+        XCTAssertTrue(state.figurePanels(chosen: ids).allSatisfy { $0.bar == nil }, "no pixel size, no bar")
+        m.scanPixel = (size: 0.5, unit: "nm")
+        XCTAssertEqual(state.figurePanels(chosen: ["map.el.14", "map.haadf"]).map(\.label), ["HAADF", PeriodicLayout.symbol(14)], "only the ticked maps")
+        // and the whole figure draws, at the layout's size
+        let made = try state.figureImage(chosen: ids, scale: 1)
+        XCTAssertEqual(made.panels.count, 4)
+    }
+
+    // MARK: colours
+
+    /// The export resolves SwiftUI's colours in the app's appearance, not in a light one: cyan differs between the two, the Settings
+    /// preference decides, and "System" follows the system. Mutations: `cgColor` ignores the scheme, or `scheme(appearance:)` ignores the
+    /// preference - red.
+    func testTheExportColoursAreTheAppsAppearance() throws {
+        let light = Color.cyan.cgColor(scheme: .light), dark = Color.cyan.cgColor(scheme: .dark)
+        func rgb(_ c: CGColor) -> [Double] { (c.converted(to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil)?.components ?? []).map { Double($0) } }
+        XCTAssertGreaterThan(rgb(dark)[0], rgb(light)[0] + 0.2, "dark cyan has red in it (0.24), light cyan none")
+        var env = EnvironmentValues(); env.colorScheme = .dark
+        XCTAssertEqual(Float(rgb(dark)[1]), Color.cyan.resolve(in: env).green, accuracy: 0.01, "it is the colour SwiftUI draws in that appearance")
+        XCTAssertEqual(Color.cyan.cgColor(opacity: 0.5, scheme: .dark).alpha, 0.5, accuracy: 1e-6)
+        XCTAssertEqual(FigureColors.scheme(appearance: .light, systemIsDark: true), .light)
+        XCTAssertEqual(FigureColors.scheme(appearance: .dark, systemIsDark: false), .dark)
+        XCTAssertEqual(FigureColors.scheme(appearance: .system, systemIsDark: true), .dark)
+        XCTAssertEqual(FigureColors.scheme(appearance: .system, systemIsDark: false), .light)
+        // the detector overlay carries the scheme the state names, and the drawing uses it
+        let state = windowWithPatternAndResult()
+        state.preferences.appearance = .light
+        guard case .detector(_, _, let scheme)? = state.patternExportOverlays.first else { return XCTFail("no detector overlay") }
+        XCTAssertEqual(scheme, .light)
+        let aperture = Aperture(centerX: 32, centerY: 30, inner: 8, outer: 20)
+        /// The red of the most cyan pixel on the inner ring (a pixel of a dash that is on).
+        func innerRed(_ scheme: ColorScheme) throws -> Int {
+            let panel = FigurePanel(label: "", image: pattern64(), overlays: [.detector(aperture, .annulus, scheme)])
+            let r = raster(try XCTUnwrap(FigureRendering.rendered(panel, magnification: 4, deviceScale: 1)))
+            let ring = (0..<120).map { a -> (r: Int, g: Int, b: Int) in
+                let t = Double(a) * 2 * .pi / 120
+                return r.rgb(Int(130 + 32 * cos(t)), Int(122 + 32 * sin(t)))
+            }
+            return ring.max { $0.b - $0.r < $1.b - $1.r }?.r ?? 0
+        }
+        XCTAssertGreaterThan(try innerRed(.dark), try innerRed(.light) + 20, "the dashed cyan ring is the appearance's variant")
+        let m = regionModel(); m.pins = []
+        XCTAssertNotEqual(strokes(MapsExport.regionOverlays(m, scheme: .dark)).first?.color, strokes(MapsExport.regionOverlays(m, scheme: .light)).first?.color,
+                          "the accent differs between the appearances too")
+    }
+
+    // MARK: the detector tick and the TIFF profile
+
+    /// "Detector outline" decides the pattern's outline; nil follows the pane. Mutation: the tick is ignored (the last room decides) - red.
+    func testTheDetectorTickDecidesTheOutline() {
+        let state = windowWithPatternAndResult()
+        let pattern: Set<String> = [FigureChoice.patternID]
+        func outlines(_ detector: Bool?) -> Int { state.figurePanels(chosen: pattern, detector: detector).first?.overlays.count ?? -1 }
+        XCTAssertEqual(outlines(nil), 1, "in the Virtual Detector task the pane draws it")
+        XCTAssertEqual(outlines(false), 0, "unticked: none, whatever the task")
+        state.navigation.analysisMode = .disks
+        XCTAssertEqual(outlines(nil), 0, "in another task the pane draws none")
+        XCTAssertEqual(outlines(true), 1, "ticked: drawn, whatever the task left behind")
+        XCTAssertEqual(AppState().detectorOverlay.count, 0, "no pattern, nothing to outline")
+    }
+
+    /// A TIFF is tagged sRGB, like the PNG. Mutation: `encodeImage` writes the TIFF with the device colour space - red.
+    func testTheTIFFIsTaggedSRGB() throws {
+        let data = try XCTUnwrap(AppState.encodeImage(solid(8, 8, 1, 2, 3), type: .tiff, properties: nil))
+        let src = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+        let props = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any])
+        XCTAssertTrue((props[kCGImagePropertyProfileName] as? String ?? "").contains("sRGB"), "profile: \(String(describing: props[kCGImagePropertyProfileName]))")
     }
 
     // MARK: the inspector section
