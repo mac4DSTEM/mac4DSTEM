@@ -86,7 +86,8 @@ struct ElementsSection: View {
             if model.autoID.running {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Button("Cancel") { model.onCancelAutoID?() }
+                    InspectorAdaptiveButton("Cancel", systemImage: "xmark.circle", help: "Stop proposing elements") { model.onCancelAutoID?() }
+                        .accessibilityIdentifier("spectroscopy.autoID.cancel")
                 }
             } else {
                 InspectorAdaptiveButton("Auto ID", systemImage: "sparkles",
@@ -519,14 +520,18 @@ struct ExportSection: View {
         VStack(alignment: .leading, spacing: LayoutPolicy.inspectorRowSpacing) {
             if let elements = e.elements { InspectorValueRow("Elements", elements) }
             InspectorActionRow {
-                Button(Self.csvTitle) { SpectroscopyMenuRule.exportResults(model) }
-                    .disabled(!SpectroscopyMenuRule.canExportResults(model))
-                    .help("The results table: element, line, net counts, k-free ratio, at%, each with its \u{03C3}, the flags and the estimator; the fit's provenance and the unvalidated badge in the header lines")
-                    .accessibilityIdentifier("spectroscopy.export.results")
-                Button(Self.jsonTitle) { SpectroscopyMenuRule.exportMethod(model) }
-                    .disabled(!SpectroscopyMenuRule.canExportMethod(model))
-                    .help("The quantification method in its own sorted-keys encoding, with its SHA-256")
-                    .accessibilityIdentifier("spectroscopy.export.method")
+                InspectorAdaptiveButton(Self.csvTitle, systemImage: "tablecells",
+                                        help: "The results table: element, line, net counts, k-free ratio, at%, each with its \u{03C3}, the flags and the estimator; the fit's provenance and the unvalidated badge in the header lines") {
+                    SpectroscopyMenuRule.exportResults(model)
+                }
+                .disabled(!SpectroscopyMenuRule.canExportResults(model))
+                .accessibilityIdentifier("spectroscopy.export.results")
+                InspectorAdaptiveButton(Self.jsonTitle, systemImage: "curlybraces",
+                                        help: "The quantification method in its own sorted-keys encoding, with its SHA-256") {
+                    SpectroscopyMenuRule.exportMethod(model)
+                }
+                .disabled(!SpectroscopyMenuRule.canExportMethod(model))
+                .accessibilityIdentifier("spectroscopy.export.method")
             }
             InspectorRow("Scale bar") {
                 Toggle("Scale bar", isOn: Binding(get: { Self.scaleBarShown(model) }, set: { model.export.scaleBar = $0 }))
@@ -550,14 +555,18 @@ struct ExportSection: View {
                 .accessibilityIdentifier("spectroscopy.export.size")
             }
             InspectorActionRow {
-                Button(Self.spectrumTitle) { SpectroscopyMenuRule.exportSpectrum(model) }
-                    .disabled(!SpectroscopyMenuRule.canExportSpectrum(model))
-                    .help("The shown spectrum: energy, counts, and the model and background where fitted")
-                    .accessibilityIdentifier("spectroscopy.export.spectrum")
-                Button(Self.mapsTitle) { SpectroscopyMenuRule.exportMaps(model) }
-                    .disabled(!SpectroscopyMenuRule.canExportMaps(model))
-                    .help("Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel (times the image size), with the scale bar and the regions when they are on, and the net-count maps as one CSV, into a new folder inside the one you pick (an earlier export is never overwritten)")
-                    .accessibilityIdentifier("spectroscopy.export.maps")
+                InspectorAdaptiveButton(Self.spectrumTitle, systemImage: "waveform",
+                                        help: "The shown spectrum: energy, counts, and the model and background where fitted") {
+                    SpectroscopyMenuRule.exportSpectrum(model)
+                }
+                .disabled(!SpectroscopyMenuRule.canExportSpectrum(model))
+                .accessibilityIdentifier("spectroscopy.export.spectrum")
+                InspectorAdaptiveButton(Self.mapsTitle, systemImage: "square.grid.2x2",
+                                        help: "Every element map, the ColorMix and the HAADF as PNG files as shown (colour, contrast, gamma), one pixel per scan pixel (times the image size), with the scale bar and the regions when they are on, and the net-count maps as one CSV, into a new folder inside the one you pick (an earlier export is never overwritten)") {
+                    SpectroscopyMenuRule.exportMaps(model)
+                }
+                .disabled(!SpectroscopyMenuRule.canExportMaps(model))
+                .accessibilityIdentifier("spectroscopy.export.maps")
             }
             if Self.resultsExport(e) == nil { InspectorNote("Once Quantify has run, the results table and the method can be written.") }
             if let saved = model.exportNote { InspectorNote(saved) }

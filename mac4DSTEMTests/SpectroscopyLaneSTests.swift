@@ -293,4 +293,24 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertFalse(note?.contains("WP") ?? true)
         XCTAssertNil(SpectroscopyPlaceholderFormat.registrationNote(hasFourDCube: false))
     }
+
+    // MARK: Row 8 - no bare Buttons beside the glass ones
+
+    /// A source contract in the manner of `run-tests.sh inventory`: in the Spectroscopy inspector file every action button is an
+    /// `InspectorAdaptiveButton` (glass); the only plain `Button(` left are the k-table's Edit… and Done, Pin in its labelled row. A new bare button must be named here on purpose.
+    /// Mutation: `InspectorAdaptiveButton(Self.csvTitle` turned back into `Button(Self.csvTitle` - red.
+    func testTheInspectorsActionButtonsAreGlass() throws {
+        let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("mac4DSTEM/UI/Spectroscopy/SpectroscopyInspectors.swift")
+        let source = try String(contentsOf: file, encoding: .utf8)
+        let allowed = ["Edit\u{2026}", "Done", "Pin"]
+        let bare = source.split(separator: "\n").map(String.init).filter { line in
+            let t = line.trimmingCharacters(in: .whitespaces)
+            guard !t.hasPrefix("//"), let r = t.range(of: "Button(") else { return false }
+            let before = t[t.startIndex..<r.lowerBound]
+            return !before.hasSuffix("Adaptive")
+        }.filter { line in !allowed.contains { line.contains("Button(\"\($0)\"") } }
+        XCTAssertEqual(bare, [], "bare Button(s) in the Spectroscopy inspector")
+        XCTAssertGreaterThanOrEqual(source.components(separatedBy: "InspectorAdaptiveButton(").count - 1, 7)
+    }
 }
