@@ -47,8 +47,13 @@ private struct DatasetWindow: View {
     let recents: RecentDatasets
     /// A File-menu action asked for while no window was focused (`MenuActionRelay`).
     let menuRelay: MenuActionRelay
-    @State private var appState: AppState
+    /// The window's `AppState`, made on the first read in `body` and never again (`LazyAppState`): this view's `init`
+    /// runs every time the scene's content is evaluated, and used to build a whole state graph each time to keep one.
+    @State private var holder: LazyAppState
+    private var appState: AppState { holder.state }
     @State private var loadedLaunchFixture = false
+    /// A file is being dragged over the window (File > drop-to-open).
+    @State private var dropTargeted = false
     @Environment(\.openWindow) private var openWindow
 
     /// `preferences` is handed in (not `AppPreferences()` as a default, the
@@ -63,7 +68,7 @@ private struct DatasetWindow: View {
         self.preferences = preferences
         self.recents = recents
         self.menuRelay = menuRelay
-        _appState = State(initialValue: AppState(preferences: preferences, recents: recents))
+        _holder = State(initialValue: LazyAppState { AppState(preferences: preferences, recents: recents) })
     }
 
     var body: some View {
@@ -72,6 +77,23 @@ private struct DatasetWindow: View {
             .environment(preferences)
             .environment(recents)
             .preferredColorScheme(preferences.appearance.colorScheme)
+            // Drop a dataset on the window to open it (UI audit 2026-10-14, F; HIG, Drag and drop). SwiftUI's own
+            // `dropDestination`: the open is `openFile`, the one funnel every other door uses, so a drop meets
+            // the same refusals (a load in flight, a sidecar save, a dataset another window holds).
+            .dropDestination(for: URL.self) { urls, _ in
+                guard let url = DropToOpen.dataset(in: urls) else { return false }
+                appState.openFile(url: url)
+                return true
+            } isTargeted: { dropTargeted = $0 }
+            .overlay {
+                if dropTargeted {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.accentColor, lineWidth: 3)
+                        .padding(2)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
             // "Ignore Session Sidecar…" / "Reopen Without This Session" ask before they act (owner card Q2 a).
             .reopenWithoutSessionDialog(appState)
         .focusedSceneValue(\.appState, appState)
@@ -137,8 +159,14 @@ private struct DatasetCommands: Commands {
     @FocusedValue(\.appState) private var appState
     @Environment(\.openWindow) private var openWindow
     let menuRelay: MenuActionRelay
+    /// The app-wide list behind File > Open Recent. Also on the focused window's state, but a menu with no window
+    /// focused (the last one closed) still has the list.
+    let recents: RecentDatasets
 
-    init(menuRelay: MenuActionRelay) { self.menuRelay = menuRelay }
+    init(menuRelay: MenuActionRelay, recents: RecentDatasets) {
+        self.menuRelay = menuRelay
+        self.recents = recents
+    }
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -163,11 +191,33 @@ private struct DatasetCommands: Commands {
                 .disabled(!MenuActionRelay.isEnabled(
                     hasFocusedWindow: appState != nil,
                     blocked: appState?.datasetSession.isLoading == true || sidecarSaveInFlight))
+            // The toolbar-only doors, in the menu where a Mac user looks for them (UI audit 2026-10-14, F).
+            Button("Open with Options…") { perform(.openWithOptions) }
+                .disabled(!MenuActionRelay.isEnabled(
+                    hasFocusedWindow: appState != nil,
+                    blocked: appState?.datasetSession.isLoading == true || sidecarSaveInFlight))
+            // Recents are on the Welcome screen only while no dataset is open; this keeps them reachable after.
+            Menu("Open Recent") {
+                ForEach(recents.entries) { recent in
+                    Button(recentMenuTitle(recent)) { perform(.openRecent(recent)) }
+                }
+                Divider()
+                Button("Clear Menu") { recents.clearAll() }
+            }
+            .disabled(recents.entries.isEmpty
+                      || !MenuActionRelay.isEnabled(
+                          hasFocusedWindow: appState != nil,
+                          blocked: appState?.datasetSession.isLoading == true || sidecarSaveInFlight))
             if let recovery = appState?.recoveryRecord {
                 Button("Reopen \(recoveryName(recovery))") { appState?.reopenLastDataset() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
                     .disabled(sidecarSaveInFlight)
             }
+            Divider()
+            Button("Show in Finder") {
+                if let path = appState?.descriptor?.filePath { DatasetLocationActions.reveal(path: path) }
+            }
+            .disabled(appState?.descriptor == nil || appState?.datasetSession.isLoading == true)
         }
         CommandGroup(replacing: .importExport) {
             // One name per export, the toolbar's too: "Export <what> PNG…". The figure is exported from the Results inspector, where its
@@ -200,7 +250,9 @@ private struct DatasetCommands: Commands {
             Button(appState?.navigation.inspectorIsVisible == true ? "Hide Inspector" : "Show Inspector") {
                 appState?.navigation.showInspectorPane.toggle()
             }
-            .keyboardShortcut("i", modifiers: [.command, .control])
+            // The one key, also the toolbar button's (`InspectorToggleButton`): Opt-Cmd-I, as Mac apps with an
+            // inspector have it (HIG, Keyboards). It was Ctrl-Cmd-I here and a hidden Opt-Cmd-0 on the button.
+            .keyboardShortcut("i", modifiers: [.command, .option])
             Button(appState?.navigation.showLogPane == true ? "Hide Bottom Pane" : "Show Bottom Pane") {
                 appState?.navigation.showLogPane.toggle()
             }
@@ -214,8 +266,9 @@ private struct DatasetCommands: Commands {
             .keyboardShortcut("r", modifiers: .command)
             // Review e6: the toolbar's own readiness, so ⌘R is never a dead key.
             .disabled(appState?.canRunPrimaryWorkspaceTask != true)
+            // Cmd-. is the Mac's cancel (HIG, Keyboards); Esc stays with the sheets and panels that own it.
             Button("Cancel Analysis") { appState?.cancelActiveOperation() }
-                .keyboardShortcut(.cancelAction)
+                .keyboardShortcut(".", modifiers: .command)
                 .disabled(appState?.canCancelActiveOperation != true)
         }
         CommandMenu("Dataset") {
@@ -281,6 +334,13 @@ private struct DatasetCommands: Commands {
         appState?.isBusy == true && SessionSidecarLocator.isSaveInFlight(appState?.activeOperation)
     }
 
+    /// The Open Recent title: the dataset's name, with where it lives only when another recent has the same name.
+    private func recentMenuTitle(_ recent: RecentDataset) -> String {
+        let sameName = recents.entries.filter { $0.displayName == recent.displayName }.count > 1
+        guard sameName, let location = recents.locationLabels[recent.id] else { return recent.displayName }
+        return "\(recent.displayName) — \(location)"
+    }
+
     private func recoveryName(_ recovery: DatasetRecoveryRecord) -> String {
         appState?.recents.entry(withID: recovery.datasetID)?.displayName
             ?? "Last Dataset"
@@ -321,7 +381,7 @@ struct mac4DSTEMApp: App {
                          height: LayoutPolicy.datasetWindowIdealSize.height)
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
-            .commands { DatasetCommands(menuRelay: menuRelay) }
+            .commands { DatasetCommands(menuRelay: menuRelay, recents: recents) }
         // The object table (`UI/PrecipitateObjectsWindow.swift`): a snapshot
         // value, so it needs no reference to the dataset window's AppState and
         // can stay open beside the map. Opened from the Precipitates section.

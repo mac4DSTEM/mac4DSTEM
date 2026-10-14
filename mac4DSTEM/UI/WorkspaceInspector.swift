@@ -146,7 +146,7 @@ struct WorkspaceInspector: View {
 }
 
 /// The inspector's toggle, declared once, in the inspector's own toolbar.
-/// ⌥⌘0 here and ⌃⌘I in the View menu reach the same intent.
+/// ⌥⌘I here and in the View menu: one visible key (UI audit 2026-10-14, G2; it was a hidden ⌥⌘0 here and ⌃⌘I there).
 struct InspectorToggleButton: View {
     @Environment(AppState.self) private var appState
 
@@ -158,7 +158,7 @@ struct InspectorToggleButton: View {
                   systemImage: "sidebar.trailing")
         }
         .help(help)
-        .keyboardShortcut("0", modifiers: [.command, .option])
+        .keyboardShortcut("i", modifiers: [.command, .option])
         .accessibilityIdentifier("toolbar.inspectorToggle")
     }
 
