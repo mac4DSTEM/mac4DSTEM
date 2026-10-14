@@ -72,7 +72,10 @@ struct ImagingSettings: View {
                     }
                     .labelsHidden()
                 }
-                InspectorNote("Drag the detector on the diffraction pane; the real-space image updates live.")
+                if let descriptor = appState.descriptor {
+                    apertureRows(shape: resultPresentation.virtualShape, descriptor: descriptor)
+                }
+                InspectorNote("Drag the detector on the diffraction pane, or type its centre and radii; the real-space image updates live.")
                 if appState.presetProbeRadius == nil {
                     InspectorNote("Presets use detector fractions — measure the beam in Prepare to fit them.")
                 }
@@ -113,6 +116,35 @@ struct ImagingSettings: View {
         }
         }
         .disabledWhileRunning(appState)
+    }
+
+    /// The detector's centre and radii as numbers, for the shape chosen: the keyboard's way to what the handles do. A typed
+    /// value or a stepper click takes the drag's own path (`ApertureEntry`: the same snap, then the same two `AppState` calls),
+    /// so 70.4 typed is 70 dragged. The field commits on Return or focus loss (`NumericField`, locale-safe entry through
+    /// `DecimalEntryFormat`), never per keystroke: a recompute of the image per digit would run on every partial number. The
+    /// stepper moves one pixel a click (a deliberate edit each, so each commits), and stops at the detector's edge.
+    @ViewBuilder
+    private func apertureRows(shape: VirtualShapeMode, descriptor: DatasetDescriptor) -> some View {
+        ForEach(ApertureEntry.fields(for: shape), id: \.self) { field in
+            let name = ApertureEntry.spokenName(for: field, shape: shape)
+            let value = Binding(
+                get: { ApertureEntry.value(of: field, in: appState.aperture) },
+                set: { ApertureEntry.apply($0, to: field, in: appState,
+                                           patternWidth: descriptor.qx, patternHeight: descriptor.qy) })
+            InspectorRow(ApertureEntry.label(for: field, shape: shape)) {
+                HStack(spacing: 4) {
+                    NumericField(name, value: value, format: .number.precision(.fractionLength(0...1)), unit: "px")
+                        .labelsHidden()
+                    // Named through its hidden title: on macOS a titled Stepper APPENDS an accessibilityLabel to it ("X, X").
+                    Stepper(name, value: value,
+                            in: ApertureEntry.range(of: field, in: appState.aperture,
+                                                    patternWidth: descriptor.qx, patternHeight: descriptor.qy),
+                            step: 1)
+                        .labelsHidden()
+                }
+            }
+            .accessibilityIdentifier("imaging.aperture.\(field)")
+        }
     }
 
     /// The glyph for each geometry. Lives here rather than on the Core types
