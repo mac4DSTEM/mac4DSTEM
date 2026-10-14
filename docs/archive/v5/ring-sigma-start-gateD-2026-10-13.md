@@ -61,7 +61,7 @@ applied. The owner chooses on card M2: (a), (b), both, or neither.
   than 1 %; the test asserts the Fit returns no profile fit that far off. One plant of the dead-ring kind (expected green
   under (a) and (b)) and, if one exists at a unit-test size, one of the drifting kind (expected green under (a) only).
 
-## Results — partial: step 1 only (2026-10-13, M5 Pro; the session ended before steps 2–5)
+## Results — step 1 (2026-10-13, M5 Pro; the session ended before steps 2–5)
 
 A Sonnet lane ran this tree's `fitBestAvailable` (HEAD `ce245821`, default arguments, macTEM's centre guess and annulus) on
 macTEM's refuter plant sets (`refuter/plants_a.py`, `plants_b.py` at macTEM `6c1f4d4`; 144 noisy plants each, 3 and 10 %
@@ -77,3 +77,65 @@ its output, `head-noisy-summary.txt`. "Wrong" = an accepted profile fit off by m
   candidate (b) alone cannot catch about half; whether (a) rescues them is P3, not yet run.
 - Clean plants (84): 59 profile, 25 conic fallbacks (residual 0.235–0.336), as lane E measured on 2026-10-12.
 - Not run: R2, P3, P4, P5 (candidates, Au_ref), the held patches, the fixture, the refuter. The next session resumes at step 2.
+
+## Results — step 2 (2026-10-14, M5 Pro; sessions `e5b5e609` and, after its usage limit, `91438f32`)
+
+Lanes M (sets A, B), T (`tools/ellipse-calibration-test`), P5 (Au_ref) and F (fixture search) ran under the first session;
+the fixture tests and per-patch gates (F2) and a fresh refuter (RF2, independent of F2; the first refuter was cut off with raw
+logs only) under the second. Every lane's report, scripts and raw logs are in `ring-sigma-start-gateD-2026-10-13/step2/`; the
+plants regenerate from their seeds. "Wrong" = an accepted fit off by > 1 % in (a + b)/2, "right" = within 0.1 %.
+
+- **R2 not refuted on the registered sets:** (a) rescues 35 of 35 (A) and 32 of 32 (B), all to within 0.1 %, and turns no
+  right fit wrong; b/a error on the noisy tier from up to 0.51 to ≤ 0.0035 (`M/logs/{head,a}_{A,B}.log`, `M/compare-out.txt`).
+  Out of sample (RF2, set C, SEED0 52817): 29 of 29, 0 right lost.
+- **P3 (a): noisy clauses held; the clean clause did not.** On the 84 clean plants 25 change model (all conic → profile,
+  none lost) and the 59 kept profile fits move up to **0.131 % of R and 0.128 rad** (registered: ≤ 0.01 %, ≤ 1e-3 rad); on the
+  48-ring sweep 5 of 32 kept fits move > 0.01 % (max 0.120 %), and HEAD's conic fallback on 16 gapped sweep rings becomes a
+  profile fit. Every mover ends at a lower cost (clean gapped plants ×0.90–0.91; sweep residual 0.1506 → 0.1356): HEAD's
+  fits there were local minima, and the registered premise — a fit kept both ways is the same fit — was false. The lower
+  optimum of a gap-less model on a gapped ring lies farther from the plant in θ (0.001–0.027 → 0.011–0.155 rad at 1 %
+  ellipticity) and centre (0.02 → 0.12 px); b/a error ≤ 0.0033. Not amended (ADR 050).
+- **P3's "no right fit outside 0.1 % after" fails out of sample (RF2):** on a 1/r² background tail (0.4–0.8 × the ring at
+  its radius) with Gaussian noise of 5–30 % of the ring, HEAD is right on 94 of 96 plants and (a) loses 36 of those 94; 25
+  of the 96 end > 1 % off (HEAD 0), b/a off up to 0.71 (`RF2/logs/S3_*.log`, `S4_*.log`; recounted by this session's own
+  parser). On the Poisson set 20 of 44 right r2 plants are lost the same way, each at a higher cost than HEAD's fit (19 of
+  20): (a) misses an optimum HEAD finds. On a steep tail the half-maximum has no crossing and (a) is inert (= HEAD); at a
+  neighbour ring 0.8× as bright at 1.1–1.155 R it ends +0.6 to +7 % off where HEAD is at the optimum.
+- **P4 (b) held on the registered sets, not out of sample:** refuses 15 of 35 and 16 of 32 wrong fits — exactly those with
+  a ring sigma ≤ 0.30 px — and 0 right; set C only 7 of 29 (< 10). 0 right fits refused on any pixel-integrated set (A, B,
+  C, Poisson, traps, one-sided edges, tails); 19 refused on point-sampled sub-pixel rings (σ 0.25–0.30; conic within 1 % on
+  17). It leaves the drifting kind (20 of 35, 16 of 32, 22 of 29) and the ceiling failures on Au_ref. On the tool it refuses
+  `grains_12_one_annulus` (HEAD there: a dead ring 63.6 % small in R), the conic is over its cap, the Fit throws, and **the
+  unmodified tool FAILs under (b)** (`F2/logs/b-harness.log`); its "fit, isotropic" expectation would have to change.
+- **P6 (ab):** 0 wrong and 0 right lost on A and B; equal to (a) on all 550 plants and 123 tool records. Out of sample it has
+  the fewest wrong Poisson fits (47; HEAD 148, a 66, b 105) but loses 18 right ones, and on the r2 tails b's conic
+  fallbacks are themselves biased (7 of 24 with b/a off > 0.01; HEAD 0). The clean clause fails as P3's.
+- **P5 held as registered, weakly informative:** same model on all 8 Au_ref annuli, worst difference 1.0e-5 px and 1.7e-6
+  rad, but (a)'s estimator fired on 2 of the 7 annuli that reached the profile stage. HEAD's real fits show the defect:
+  A4 [30, 38] is a dead ring (I1 0, σ 0.25 px) that (b) refuses; W4 puts the ring at a = 57.6 px, outside its annulus,
+  with a σ at its ceiling, and W3 a σ at its ceiling — neither candidate catches those (`P5/report.md`).
+- **The defect's condition (RF2, not registered):** HEAD's wrong fits on flat-background noisy rings depend on the caller's
+  centre guess: 12, 20, 29, 21 of 144 at 0, 0.75, 1.6 and 3 px from the true centre, 0 at 7.8 and 15.6 px; (a) is right at
+  every offset. The app's guess is the measured beam centre, an accurate one. Mechanism not established.
+- **Fixture (F2):** `EllipseNoisyRingTests`, two 192 × 192 plants found by lane F's 2568-plant search (HEAD wrong on 221,
+  all at noise 0.10; dead 87, drift 130): a dead ring (HEAD −16.7 %) and a drifting one (HEAD −41 %, 39 px off); both are
+  basins (unchanged under 1e-9 and 1e-6 px moves of the guess). Test-a (2 methods: profile, ≤ 1 % R, ≤ 0.01 b/a, ≤ 1 px)
+  for (a) and (ab); test-b (1 method: the dead ring falls back to the conic naming the floor) for (b). Gate copies named
+  mac4DSTEM, one run at a time: head-a **2232 / 2 / 4** and head-b **2232 / 1 / 4** (exit 65, red on exactly the new
+  methods), a **2234 / 0 / 4**, b **2233 / 0 / 4**, ab **2234 / 0 / 4** (exit 0), each total = the copy's `func test`
+  count (2236 + new; reconciled by name, `F2/reconcile.md`); core exit 0 for each; b's guard mutated to 0.20 px: red.
+  The tests stay here, never in `mac4DSTEMTests`: they are red on HEAD. Four skips, not the 2026-10-13 run's five:
+  `testClickingARecentOnAnUnmountedVolumeKeepsTheEntry` ran (it skips only without such an entry in the owner's recents).
+- **Refuter (RF2) verdicts:** (a), (b) and (ab) each UPHELD WITH CORRECTIONS (`RF2/report.md`). Every count in the first
+  refuter's logs reproduced by its own parser and 344 + 1472 re-run rows (0 mismatches); its corrections: the trap set's
+  "a loses 4 right" were right-by-luck at HEAD (residual 0.12 vs 0.07 at the optimum (a) reaches), and 16 of HEAD's 44 trap
+  failures (a neighbour 1.5× brighter) are unfair targets.
+- **A lead for a new registration (projection, not a measurement):** in every loss above, the worse fit has the higher
+  cost. Keeping the lower-cost of HEAD's and (a)'s profile fits, from the logged rows of all 2009 plants: 80 wrong (HEAD
+  414, a 135), 0 lost on the tails, 3 new wrong, 5 right lost of which 4 are the right-by-luck trap fits
+  (`projection/twostart.py`, `twostart-out.txt`).
+
+**Outcome.** The diagnosis holds for flat backgrounds (the start traps the fit; a start at the ring's width escapes, at a
+lower cost), but no held candidate meets its registration: (a) and (ab) fail the clean clause and lose right fits on a
+1/r² tail, and (b) catches fewer than 10 out of sample and turns the tool red. Nothing lands. The choice is the owner's,
+card M2.

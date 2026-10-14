@@ -1,0 +1,10 @@
+== logs/CG12 noisy n=144
+   head {'R': 143, 'T': 1} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0
+   a    {'R': 143, 'T': 1} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0
+   b    {'R': 143, 'T': 1} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0
+   ab   {'R': 143, 'T': 1} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0
+== logs/CG12 clean n=84
+   head {'M': 2, 'R': 82} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0
+   a    {'R': 84} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0
+   b    {'M': 2, 'R': 82} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0
+   ab   {'R': 84} | wrongAny 0 | right(HEAD) lost >=0.1%: 0, >1%: 0 | |dba|>0.01 accepted: 0

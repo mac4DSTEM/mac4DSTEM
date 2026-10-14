@@ -1,0 +1,10 @@
+group                  state counts head | a | b | ab   (R <0.1%, M 0.1-1%, W profile >1%, C0 conic <=1%, C1 conic >1%)
+T-neigh-f0.87-A0.5     head: M12 R4  | a: M16  | b: M12 R4  | ab: M16 
+T-neigh-f0.87-A1       head: W8  | a: M4 W4  | b: W8  | ab: C12 M4 W2 
+T-neigh-f0.9-A1.5      head: W8  | a: W8  | b: W8  | ab: C13 W5 
+T-neigh-f1.07-A0.8     head: R8  | a: R8  | b: R8  | ab: R8 
+T-neigh-f1.1-A0.8      head: M8  | a: M1 W7  | b: M8  | ab: M1 W7 
+T-neigh-f1.155-A0.4    head: M4 R4  | a: R8  | b: M4 R4  | ab: R8 
+T-neigh-f1.155-A0.8    head: M2 W6  | a: C14 W4  | b: M2 W6  | ab: C14 W4 
+T-neigh-f1.155-A1.5    head: W8  | a: W8  | b: C14 W4  | ab: C14 W4 
+T-neigh2-both-0.5      head: R8  | a: R8  | b: R8  | ab: R8 

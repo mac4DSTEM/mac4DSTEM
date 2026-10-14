@@ -1,0 +1,5 @@
+P head rows 480 mismatching 0
+P a rows 480 mismatching 0
+T head rows 256 mismatching 0
+T a rows 256 mismatching 0
+TOTAL rows 1472 mismatching 0

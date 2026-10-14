@@ -1,0 +1,12 @@
+replica vs logged resid (HEAD profile fits): max abs diff 0.00e+00
+replica vs logged resid (a profile fits): max abs diff 0.00e+00
+group                  n | HEAD: med|dR| med nres | a: med|dR| med nres (a status) | truth basin: med nres, med|dR| | cost order
+T-neigh-f0.87-A0.5     16 | H |dR| 0.0011 nres 0.0797 | a |dR| 0.0011 nres 0.0780 (profile) | Tbasin nres 0.0766 |dR| 0.0011 | a-cost>H-cost: 0/16  H-cost>Tbasin*1.05: 4  a-cost>Tbasin*1.05: 0
+T-neigh-f0.87-A1       8 | H |dR| 0.0190 nres 0.1781 | a |dR| 0.0632 nres 0.1600 (profile) | Tbasin nres 0.1294 |dR| 0.0013 | a-cost>H-cost: 4/8  H-cost>Tbasin*1.05: 8  a-cost>Tbasin*1.05: 4
+T-neigh-f0.9-A1.5      8 | H |dR| 0.1163 nres 0.1247 | a |dR| 0.1165 nres 0.1349 (profile) | Tbasin nres 0.1656 |dR| 0.0008 | a-cost>H-cost: 3/8  H-cost>Tbasin*1.05: 0  a-cost>Tbasin*1.05: 3
+T-neigh-f1.07-A0.8     8 | H |dR| 0.0004 nres 0.0734 | a |dR| 0.0004 nres 0.0734 (profile) | Tbasin nres 0.0734 |dR| 0.0004 | a-cost>H-cost: 0/8  H-cost>Tbasin*1.05: 0  a-cost>Tbasin*1.05: 0
+T-neigh-f1.1-A0.8      8 | H |dR| 0.0084 nres 0.1298 | a |dR| 0.0146 nres 0.1327 (profile) | Tbasin nres 0.1298 |dR| 0.0083 | a-cost>H-cost: 7/8  H-cost>Tbasin*1.05: 0  a-cost>Tbasin*1.05: 0
+T-neigh-f1.155-A0.4    8 | H |dR| 0.0006 nres 0.0960 | a |dR| 0.0001 nres 0.0956 (profile) | Tbasin nres 0.0955 |dR| 0.0001 | a-cost>H-cost: 0/8  H-cost>Tbasin*1.05: 0  a-cost>Tbasin*1.05: 0
+T-neigh-f1.155-A0.8    8 | H |dR| 0.0117 nres 0.1885 | a |dR| 0.0715 nres 0.2043 (conic,profile) | Tbasin nres 0.1706 |dR| 0.0002 | a-cost>H-cost: 4/4  H-cost>Tbasin*1.05: 8  a-cost>Tbasin*1.05: 4
+T-neigh-f1.155-A1.5    8 | H |dR| 0.7511 nres 0.1911 | a |dR| 0.7511 nres 0.1911 (profile) | Tbasin nres 0.2102 |dR| 0.0178 | a-cost>H-cost: 0/8  H-cost>Tbasin*1.05: 0  a-cost>Tbasin*1.05: 0
+T-neigh2-both-0.5      8 | H |dR| 0.0003 nres 0.1190 | a |dR| 0.0003 nres 0.1190 (profile) | Tbasin nres 0.1175 |dR| 0.0002 | a-cost>H-cost: 2/8  H-cost>Tbasin*1.05: 0  a-cost>Tbasin*1.05: 0

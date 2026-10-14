@@ -1,0 +1,32 @@
+P set by background kind (all amplitudes):  states R(<0.1%) M W(>1%) C0 C1 T
+ const  n=96
+    head {'C0': 8, 'M': 5, 'R': 49, 'W': 34}
+    a    {'M': 5, 'R': 91}
+    b    {'C0': 17, 'C1': 4, 'M': 5, 'R': 49, 'W': 21}
+    ab   {'M': 5, 'R': 91}
+ exp    n=96
+    head {'C0': 3, 'M': 10, 'R': 41, 'W': 42}
+    a    {'M': 5, 'R': 63, 'W': 28}
+    b    {'C0': 12, 'M': 10, 'R': 41, 'T': 1, 'W': 32}
+    ab   {'C0': 4, 'M': 5, 'R': 63, 'W': 24}
+ none   n=96
+    head {'C0': 6, 'M': 6, 'R': 43, 'W': 41}
+    a    {'M': 3, 'R': 93}
+    b    {'C0': 24, 'M': 6, 'R': 43, 'W': 23}
+    ab   {'M': 3, 'R': 93}
+ r2     n=96
+    head {'M': 17, 'R': 64, 'W': 15}
+    a    {'C0': 3, 'M': 6, 'R': 49, 'W': 38}
+    b    {'C0': 1, 'M': 17, 'R': 64, 'W': 14}
+    ab   {'C0': 18, 'M': 6, 'R': 49, 'W': 23}
+ tilt   n=96
+    head {'C0': 23, 'C1': 5, 'M': 8, 'R': 44, 'W': 16}
+    a    {'M': 11, 'R': 85}
+    b    {'C0': 24, 'C1': 5, 'M': 8, 'R': 44, 'W': 15}
+    ab   {'M': 11, 'R': 85}
+
+right-at-HEAD plants lost under a, by (amplitude tier, background): lost/right
+  P-a10   none 0/8  const 0/5  exp 0/7  r2 7/12  tilt 1/6
+  P-a20   none 0/5  const 0/12  exp 0/9  r2 8/12  tilt 0/8
+  P-a50   none 0/14  const 0/15  exp 0/8  r2 5/20  tilt 0/13
+  P-a200  none 0/20  const 0/20  exp 0/19  r2 0/20  tilt 0/19

@@ -1,0 +1,6 @@
+noisy-512x512-r200-e0-tNA-g60-s3-p2
+noisy-512x512-r80-e3-t67.5-g60-s10-p2
+noisy-512x512-r200-e3-t160-g0-s10-p2
+clean-384x512-r160-e1-t20-g60-s0
+clean-512x512-r140-e1-t0-g60-s0
+clean-512x512-r140-e1-t20-g60-s0

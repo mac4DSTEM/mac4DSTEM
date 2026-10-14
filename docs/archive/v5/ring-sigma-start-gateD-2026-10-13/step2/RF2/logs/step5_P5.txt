@@ -1,0 +1,22 @@
+annulus | head model | a model | b model | ab model | |da| |db| |dtheta| |dcentre| (a vs head)
+A1:5-13  | profile | profile | profile | profile | 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+A2:13-21 | profile | profile | profile | profile | 1.0e-05 9.4e-06 1.7e-06 7.3e-07
+A3:21-30 | profile | profile | profile | profile | 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+A4:30-38 | profile | profile | conic   | conic   | 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+W1:4-14  | THREW   | THREW   | THREW   | THREW   | (threw: THREW excessiveResidual(0.42733626730998897))
+W2:12-22 | profile | profile | profile | profile | 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+W3:20-31 | profile | profile | profile | profile | 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+W4:29-39 | profile | profile | profile | profile | 0.0e+00 0.0e+00 0.0e+00 0.0e+00
+same model head vs a: 8/8 ; worst |da| or |db| = 1.01e-05 px
+
+HEAD profile fits: ring/central sigma and bounds (floor 0.25, ceiling = max(2, 2*outer))
+  A1:5-13  a=10.42 b=10.12 b/a=0.9712 I1=68021.155 sig0=2.80453329 sin=1.70240704 sout=1.35486524
+  A2:13-21 a=17.86 b=17.36 b/a=0.9717 I1=35990.6504 sig0=0.25 sin=4.30395321 sout=2.04792739
+  A3:21-30 a=24.97 b=24.56 b/a=0.9834 I1=14874.0666 sig0=7.7570018 sin=1.06791854 sout=4.88847117
+  A4:30-38 a=39.02 b=36.52 b/a=0.9359 I1=0 sig0=19.192679 sin=0.25 sout=5.09830126
+  W2:12-22 a=16.98 b=16.72 b/a=0.9846 I1=43804.0055 sig0=5.08407342 sin=1.63255178 sout=3.25700438
+  W3:20-31 a=25.80 b=25.35 b/a=0.9824 I1=27661.472 sig0=10.0355322 sin=1.78631812 sout=62
+  W4:29-39 a=57.62 b=55.00 b/a=0.9545 I1=5830.57059 sig0=10.8846873 sin=78 sout=1.75500026
+b {'A1:5-13': 'profile', 'A2:13-21': 'profile', 'A3:21-30': 'profile', 'A4:30-38': 'conic', 'W1:4-14': 'THREW', 'W2:12-22': 'profile', 'W3:20-31': 'profile', 'W4:29-39': 'profile'}
+ab {'A1:5-13': 'profile', 'A2:13-21': 'profile', 'A3:21-30': 'profile', 'A4:30-38': 'conic', 'W1:4-14': 'THREW', 'W2:12-22': 'profile', 'W3:20-31': 'profile', 'W4:29-39': 'profile'}
+estimator nil on 5 of 7 (W1 never reached: conic stage threw)

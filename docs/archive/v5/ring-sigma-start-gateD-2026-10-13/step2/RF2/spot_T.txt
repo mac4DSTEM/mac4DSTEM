@@ -1,0 +1,13 @@
+T-neigh-f0.87-A0.5-e1-n3-t20-040
+T-neigh-f0.87-A0.5-e1-n3-t112.5-041
+T-neigh-f0.87-A0.5-e1-n3-t20-064
+T-neigh-f0.87-A0.5-e1-n3-t112.5-065
+T-neigh-f1.155-A0.8-e3-n10-t20-014
+T-neigh-f1.155-A0.8-e3-n10-t112.5-015
+T-neigh-f1.1-A0.8-e1-n3-t112.5-025
+T-neigh-f1.1-A0.8-e1-n10-t20-026
+T-neigh-f1.1-A0.8-e1-n10-t112.5-027
+T-neigh-f1.1-A0.8-e3-n3-t20-028
+T-neigh-f1.1-A0.8-e3-n3-t112.5-029
+T-neigh-f1.1-A0.8-e3-n10-t20-030
+T-neigh-f1.1-A0.8-e3-n10-t112.5-031

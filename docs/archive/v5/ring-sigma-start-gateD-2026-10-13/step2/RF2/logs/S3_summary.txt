@@ -1,0 +1,10 @@
+group (bg, noise%%): n | head | a | b | ab states ; right(HEAD any model) lost under a (>=0.1%%) / count
+ S3-const0.3  n15  12 | H{'M': 1, 'R': 9, 'W': 2} | a{'M': 1, 'R': 11} | b{'C0': 1, 'M': 1, 'R': 9, 'W': 1} | ab{'M': 1, 'R': 11} | a lost 0/9, b lost 0/9
+ S3-const0.3  n30  12 | H{'R': 4, 'W': 8} | a{'R': 12} | b{'C0': 4, 'C1': 4, 'R': 4} | ab{'R': 12} | a lost 0/4, b lost 0/4
+ S3-exp250.8  n15  12 | H{'R': 11, 'W': 1} | a{'R': 11, 'W': 1} | b{'C1': 1, 'R': 11} | ab{'C1': 1, 'R': 11} | a lost 0/11, b lost 0/11
+ S3-exp250.8  n30  12 | H{'M': 3, 'R': 7, 'W': 2} | a{'M': 3, 'R': 7, 'W': 2} | b{'C1': 2, 'M': 3, 'R': 7} | ab{'C1': 2, 'M': 3, 'R': 7} | a lost 0/7, b lost 0/7
+ S3-none0     none0 24 | H{'C1': 1, 'M': 1, 'R': 9, 'W': 13} | a{'M': 1, 'R': 23} | b{'C0': 7, 'C1': 4, 'M': 1, 'R': 9, 'W': 3} | ab{'M': 1, 'R': 23} | a lost 0/9, b lost 0/9
+ S3-r20.4     n15  12 | H{'R': 12} | a{'M': 4, 'R': 3, 'W': 5} | b{'R': 12} | ab{'C0': 4, 'M': 4, 'R': 3, 'W': 1} | a lost 9/12, b lost 0/12
+ S3-r20.4     n30  12 | H{'M': 1, 'R': 11} | a{'M': 1, 'R': 3, 'W': 8} | b{'M': 1, 'R': 11} | ab{'C0': 8, 'M': 1, 'R': 3} | a lost 8/11, b lost 0/11
+ S3-r20.8     n15  12 | H{'R': 12} | a{'R': 10, 'W': 2} | b{'R': 12} | ab{'C0': 2, 'R': 10} | a lost 2/12, b lost 0/12
+ S3-r20.8     n30  12 | H{'M': 1, 'R': 11} | a{'R': 6, 'W': 6} | b{'M': 1, 'R': 11} | ab{'C0': 4, 'R': 6, 'T': 1, 'W': 1} | a lost 5/11, b lost 0/11

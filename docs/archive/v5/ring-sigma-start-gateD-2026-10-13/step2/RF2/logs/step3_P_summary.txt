@@ -1,0 +1,58 @@
+n=480 plants
+
+(1) HEAD right (<0.1%) and a not right: 21 plants
+     3  HEAD >2%% above truth-basin cost
+    17  HEAD within 2%% of truth-basin cost
+    19  a cost > HEAD cost (a worse optimum)
+    19  a cost >2%% above truth-basin
+     1  a not profile
+     1  a within 2%% of truth-basin cost
+     1  costs equal(+-0.01%)
+    19  truth-basin |dR| < 0.1%%
+     1  truth-basin |dR| >= 0.1%% (the model's own optimum is off truth)
+   |dR| of lost: HEAD median 1.6e-04 max 8.5e-04 ; a median 5.7e-02 p75 1.0e-01 max 6.4e-01
+   |d(b/a)| of lost: HEAD median 1.5e-04 max 4.6e-03 ; a median 7.1e-03 p75 1.8e-02 max 4.1e-01
+   truth-basin |dR| of lost: median 1.8e-04 max 1.1e-03 ; |dba| median 1.4e-04 max 4.8e-03
+
+   per-plant (lost): name | H dR dba nres | a dR dba nres | Tbasin nres dR dba
+   P-a10-R140-e1-g0-r28-083                 | +0.0002 +0.0002 0.0982 | +0.0339 +0.0008 0.1330 | 0.0982 -0.0000 +0.0001
+   P-a10-R140-e1-g0-r28-323                 | -0.0001 -0.0001 0.0931 | +0.0372 +0.0070 0.1261 | 0.0931 -0.0001 -0.0000
+   P-a10-R200-e1-g0-r28-163                 | -0.0003 +0.0000 0.0929 | +0.0302 +0.0063 0.1235 | 0.0929 -0.0003 +0.0001
+   P-a10-R200-e1-g0-r28-403                 | +0.0002 -0.0005 0.0927 | +0.0310 +0.0027 0.1236 | 0.0927 +0.0001 -0.0004
+   P-a10-R200-e3-g0-r28-203                 | +0.0003 -0.0001 0.0980 | +0.0018 -0.0004 0.1023 | 0.0980 +0.0003 -0.0002
+   P-a10-R200-e3-g0-r28-443                 | +0.0002 +0.0004 0.0899 | +0.6357 +0.0177 0.1185 | 0.0899 +0.0002 +0.0003
+   P-a10-R80-e1-g60-tilt8-264               | -0.0008 -0.0046 0.1345 | -0.0012 -0.0051 0.1345 | 0.1345 -0.0011 -0.0048
+   P-a10-R80-e3-g0-r28-043                  | +0.0001 +0.0030 0.0929 | +0.0239 +0.0042 0.1041 | 0.0929 -0.0001 +0.0028
+   P-a20-R140-e1-g0-r28-088                 | -0.0004 +0.0001 0.0768 | +0.0974 -0.1157 0.1392 | 0.0768 -0.0006 +0.0001
+   P-a20-R140-e3-g0-r28-368                 | -0.0001 -0.0002 0.0735 | +0.0023 +0.0144 nan | 0.0735 -0.0002 -0.0002
+   P-a20-R200-e1-g0-r28-168                 | +0.0001 -0.0001 0.0696 | +0.0590 -0.0002 0.1348 | 0.0696 +0.0001 -0.0001
+   P-a20-R200-e1-g0-r28-408                 | +0.0001 +0.0001 0.0723 | +0.0572 +0.0011 0.1401 | 0.0723 +0.0001 +0.0001
+   P-a20-R200-e1-g60-r28-188                | -0.0005 -0.0008 0.1319 | +0.2254 -0.4124 0.1363 | 0.1277 -0.0005 -0.0009
+   P-a20-R200-e3-g0-r28-208                 | +0.0001 -0.0000 0.0748 | +0.0446 +0.0141 0.1426 | 0.0748 +0.0001 -0.0000
+   P-a20-R200-e3-g0-r28-448                 | -0.0000 +0.0000 0.0688 | -0.0823 -0.1185 0.1303 | 0.0688 -0.0000 +0.0000
+   P-a20-R80-e1-g0-r28-248                  | -0.0008 +0.0005 0.0745 | +0.0045 +0.0004 0.0894 | 0.0745 -0.0008 +0.0006
+   P-a50-R140-e1-g0-r28-093                 | +0.0002 -0.0000 0.0521 | +0.0723 -0.0091 0.2053 | 0.0521 +0.0002 -0.0001
+   P-a50-R140-e1-g0-r28-333                 | +0.0001 -0.0000 0.0504 | +0.2815 +0.0071 0.1958 | 0.0504 +0.0002 +0.0000
+   P-a50-R140-e3-g60-r28-153                | -0.0003 +0.0014 0.1187 | +0.4173 -0.2409 0.1792 | 0.1125 -0.0006 +0.0019
+   P-a50-R200-e1-g60-r28-193                | -0.0001 +0.0007 0.1184 | +0.1491 -0.3404 0.1736 | 0.1121 -0.0002 +0.0010
+   P-a50-R200-e3-g0-r28-213                 | +0.0001 -0.0000 0.0498 | -0.1003 +0.0185 0.1909 | 0.0498 +0.0000 -0.0001
+
+(2) HEAD wrong profile fits: 148
+     6      a-wrong: a cost >5%% above truth-basin
+    35      a-wrong: a cost within 5%% of truth-basin
+     6      a-wrong: truth basin cost < a cost by >5%% => truth fairly better
+    35      a-wrong: truth basin cost not lower by 5%% (ambiguous/unfair truth)
+   116    a fit cost < HEAD cost
+    31    a fit cost >= HEAD cost
+   107    a fixed (<=1%)
+    41    a still wrong
+     2  HEAD cost >5%% BELOW truth-basin (truth is not the model's optimum)
+   105  HEAD cost >5%% above truth-basin
+    41  HEAD cost within 5%% of truth-basin
+
+(3) both profile: 432 ; a cost < HEAD cost: 199 ; a cost > HEAD cost*1.01: 32 ; equal: 178
+    a at a worse cost than HEAD AND |dR| worse than HEAD by >0.5%: 23
+  P-a10   n=120 bothprofile=108: a cost<H 43, a cost>1.01*H 8 ; truth-basin cost lower than HEAD's by >5%: 29, than a's: 10 ; lost-right 8 (of which a cost<H cost: 0)
+  P-a20   n=120 bothprofile=112: a cost<H 46, a cost>1.01*H 15 ; truth-basin cost lower than HEAD's by >5%: 42, than a's: 14 ; lost-right 8 (of which a cost<H cost: 0)
+  P-a200  n=120 bothprofile=100: a cost<H 62, a cost>1.01*H 0 ; truth-basin cost lower than HEAD's by >5%: 26, than a's: 9 ; lost-right 0 (of which a cost<H cost: 0)
+  P-a50   n=120 bothprofile=112: a cost<H 48, a cost>1.01*H 9 ; truth-basin cost lower than HEAD's by >5%: 53, than a's: 29 ; lost-right 5 (of which a cost<H cost: 0)
