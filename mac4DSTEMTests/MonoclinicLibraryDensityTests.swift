@@ -38,12 +38,17 @@ final class MonoclinicLibraryDensityTests: XCTestCase {
     }
 
     /// The Work row and the count the plan is built with come from one property.
-    func testWorkRowAndPlanCountShowTheMultipliedLibrary() throws {
+    func testWorkRowAndPlanCountShowTheMultipliedLibrary() async throws {
         let state = AppState()
+        state.descriptor = DatasetDescriptor(
+            filePath: "/tmp/b2.h5", datasetPath: "/data",
+            shape: [32, 32, 16, 16], dtypeDescription: "float32", chunkShape: nil)
         state.acomSession.quality = .balanced
         state.acomSession.modelSelection = .library("au_fcc")
         XCTAssertEqual(state.acomTemplateCount, 200)
         XCTAssertTrue(state.acomWorkSummary.hasSuffix("× 200 templates"), state.acomWorkSummary)
+        let cubicEstimate = try XCTUnwrap(state.acomEstimatedDuration)
+        XCTAssertGreaterThan(cubicEstimate, 0)
 
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("b2-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -55,6 +60,12 @@ final class MonoclinicLibraryDensityTests: XCTestCase {
         state.acomSession.modelSelection = .imported(model.id)
         XCTAssertEqual(state.acomTemplateCount, 800)
         XCTAssertTrue(state.acomWorkSummary.hasSuffix("× 800 templates"), state.acomWorkSummary)
+        XCTAssertEqual(try XCTUnwrap(state.acomEstimatedDuration), 4 * cubicEstimate, accuracy: 1e-9,
+                       "the Work row's estimate shows the multiplied library")
+        // The plan itself is built at the multiplied count (the same property feeds generateOrientationPlan).
+        await state.generateOrientationPlan()
+        XCTAssertEqual(state.acomSession.orientationPlan?.count, 800)
+        XCTAssertEqual(state.acomSession.orientationPlan?.symmetry, .monoclinic)
         state.acomSession.quality = .best
         XCTAssertEqual(state.acomTemplateCount, 1600)
         XCTAssertTrue(state.acomWorkSummary.hasSuffix("× 1600 templates"), state.acomWorkSummary)
