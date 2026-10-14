@@ -51,6 +51,7 @@ This skill only makes sure you enter them correctly.
    what the app draws is unverified on screen until a drive has seen it (the
    owner's, or a session's on a scratch build, pid-pinned, every shot reviewed —
    `CLAUDE.md`); do NOT set `ResidencyAdmission.measuredWorkingSetFraction`.
+   Run gates as `tools/gate.sh <unit|core|scientific|inventory>` (machine-wide lock, log, exit line, green stamp; exits 75 instead of waiting).
 5. One target per conversation, unless a plan file names the night's list
    (then log each item in it as it lands). When the work lands, invoke
    `/closeout`. Commit freely on `main` (no branches); pushing is the owner's.

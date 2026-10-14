@@ -7,7 +7,7 @@ description: Close a mac4DSTEM development session with the repo's end-of-sessio
 
 Done means the repo tells the next reader the truth. In order:
 
-1. `tools/run-tests.sh unit` — exit 0. If the session touched `Core/`, run
+1. `tools/gate.sh unit` — exit 0 (it takes the machine-wide lock, logs, prints the exit line and stamps green; blocked, it exits 75 instead of waiting). If the session touched `Core/`, run
    the relevant `scientific` harnesses too. **A session that changed nothing
    under `mac4DSTEM/` owes no gate** — say so and name the last run that
    covers this tree, with its date and commit; running one for form proves
@@ -48,7 +48,7 @@ Done means the repo tells the next reader the truth. In order:
    format rule adopted 2026-08-28: what is wrong, the evidence, the trap, the
    owner, the live residual; ≤ 12 lines (the file's own rule, and CLAUDE.md's). Refuted hypotheses and the story of
    how the diagnosis converged go to the dated archive with a pointer.
-   **Run `tools/run-tests.sh inventory` and paste its output into the
+   **Run `tools/gate.sh inventory` and paste its output into the
    closeout message.** It must exit 0 (every `tools/` runner classified, no
    live doc claiming uncommitted work). Compare its numbers with the previous
    closeout: the cold-start set and live-markdown lines must not go up; if
