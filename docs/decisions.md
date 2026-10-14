@@ -76,6 +76,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 066 | v5.0 ships without a microscope validation (no joint GMS run, no pure-Al foil; EDX quantification stays badged unvalidated); B* (and D) after v5.0; H, I, K, excess not built for v5.0; order: 4D Quantify rows → freeze → SpectroKit → release | 10-13 | accepted (owner) |
 | 067 | SpectroKit builds optimised in the owner's Run: the scheme runs a "Develop" configuration (a Debug copy whose name Xcode maps to the package's Release mode; measured, undocumented, guarded by the pre-push hook); the unit gate passes `SWIFT_OPTIMIZATION_LEVEL=-O`; 936 MB Velox read 20.3 s → 1.03 s | 10-13 | decided in S4 (delegated; overrule on sight) |
 | 068 | Card M2 (the ring fit on noisy rings), owner **d**: no held diff lands (a, b, ab failed their registration); one new Gate D item — the owner's cubes measured first, then two starts keeping the lower cost, the floor guard and a seed-consistency check with a measured threshold, each also alone; the Fit stays as it is until it passes | 10-14 | live |
+| 069 | Card M3 (the ring fit), owner **b**: two starts (py4DSTEM's and the half-maximum width, the lower cost kept) and the floor guard land; one failed registered clause and a worse gapped-tail niche accepted; the seed check does not land; a threshold-free annulus guard is registered next | 10-14 | live |
 ## Superseded or history (verbatim in the archive log)
 
 27 of 97 entries are superseded/history (Table 3 of
