@@ -133,8 +133,12 @@ struct MaterialsProjectImportSheet: View {
             // to say once a fetch has actually run and confirmed it.
             EmptyView()
         case .failure(let message):
-            Label(message, systemImage: "xmark.octagon")
-                .foregroundStyle(.red)
+            // Colour on the symbol only (HIG, Color); body size, this is a sheet.
+            Label {
+                Text(message)
+            } icon: {
+                Image(systemName: "xmark.octagon.fill").foregroundStyle(.red)
+            }
                 .accessibilityIdentifier("materialsProject.sheet.failure")
         case .fetched(let document, let model, let verdict, let fetchedAt):
             VStack(alignment: .leading, spacing: 4) {
@@ -182,8 +186,11 @@ struct MaterialsProjectImportSheet: View {
     private func verdictView(_ verdict: PhaseExpectationVerdict) -> some View {
         switch verdict {
         case .matches:
-            Label("Matches the expected phase", systemImage: "checkmark.circle")
-                .foregroundStyle(.green)
+            Label {
+                Text("Matches the expected phase")
+            } icon: {
+                Image(systemName: "checkmark.circle").foregroundStyle(.green)
+            }
                 .accessibilityIdentifier("materialsProject.sheet.verdict")
         case .unchecked:
             Text("Not checked — no expectation stated")
@@ -191,8 +198,11 @@ struct MaterialsProjectImportSheet: View {
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("materialsProject.sheet.verdict")
         case .mismatch(let reason):
-            Text("⚠ \(reason)")
-                .foregroundStyle(.orange)
+            Label {
+                Text(reason)
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
                 .accessibilityIdentifier("materialsProject.sheet.verdict")
         }
     }

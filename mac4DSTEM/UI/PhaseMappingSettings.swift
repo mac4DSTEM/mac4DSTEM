@@ -121,10 +121,11 @@ struct PhaseMappingSections: View {
                                         100 * fit.explainedFraction, fit.meanDistance))
                                 .monospacedDigit()
                                 .foregroundStyle(rank == 0 ? .primary : .secondary)
+                            // The caveat's colour sits on its symbol; the words stay primary text (HIG, Color).
                             if !aboveChance {
-                                Text("at chance").foregroundStyle(.orange)
+                                caveatWord("at chance")
                             } else if !fit.isAboveSweep {
-                                Text("no better than a wrong axis").foregroundStyle(.orange)
+                                caveatWord("no better than a wrong axis")
                             }
                         }
                         .labelsHidden()
@@ -133,21 +134,17 @@ struct PhaseMappingSections: View {
                 if staleRanking == nil, let top = product.zoneAxisFits.first,
                    !top.isAboveChance(
                        multiple: appState.phaseMapping.matching.chanceMatchMultiple) {
-                    Text(String(format: "No axis beats chance here. A reference set "
+                    InspectorWarning(String(format: "No axis beats chance here. A reference set "
                                 + "this dense could match up to about %.1f %% of vectors "
                                 + "pointing nowhere in particular, and the best axis "
                                 + "explains %.1f %%. Treat the ranking as undecided.",
                                 100 * top.chanceFraction, 100 * top.explainedFraction))
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
                 } else if staleRanking == nil, let top = product.zoneAxisFits.first, !top.isAboveSweep {
-                    Text(String(format: "No axis stands out here. The best explains "
+                    InspectorWarning(String(format: "No axis stands out here. The best explains "
                                 + "%.0f %% and the median axis %.0f %%; on a real crystal "
                                 + "a wrong axis explains that much through shared "
                                 + "reflections. Treat the ranking as undecided.",
                                 100 * top.explainedFraction, 100 * top.sweepMedianFraction))
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
                 }
             }
             InspectorActionRow {
@@ -261,7 +258,7 @@ struct PhaseMappingSections: View {
                                 resolution.matrixRemovalPixels,
                                 resolution.notIndexedAbovePixels))
                         .monospacedDigit()
-                        .foregroundStyle(resolution.advice == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.orange))
+                        .foregroundStyle(.secondary)   // the advice below carries the warning, on its symbol
                         .labelsHidden()
                 }
                 if let advice = resolution.advice {
@@ -397,12 +394,18 @@ struct PhaseMappingSections: View {
                                           run.matrixInPlaneDegrees))
             }
             if !run.qScaleIsPhysical {
-                Label("The Å⁻¹ scale is exploratory, not calibrated — every "
-                      + "distance above is only as good as it.",
-                      systemImage: "exclamationmark.triangle")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
+                InspectorWarning("The Å⁻¹ scale is exploratory, not calibrated — every "
+                                 + "distance above is only as good as it.")
             }
+        }
+    }
+
+    /// A short caveat beside a value: the orange triangle carries the colour, the words stay primary text.
+    private func caveatWord(_ text: String) -> some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
         }
     }
 
@@ -541,8 +544,7 @@ struct PhaseMappingSections: View {
                     draft: draft, parses: PhaseMappingSlot.parseZoneAxis(draft) != nil,
                     caption: RoomAccessibilityText.zoneAxisMalformed), after: .seconds(1.5))
             if !draft.isEmpty, PhaseMappingSlot.parseZoneAxis(draft) == nil {
-                Text(RoomAccessibilityText.zoneAxisMalformed)
-                    .font(.caption2).foregroundStyle(.orange)
+                InspectorWarning(RoomAccessibilityText.zoneAxisMalformed)
             }
             if !slot.isMatrix {
                 orientationRelationshipField
@@ -553,8 +555,7 @@ struct PhaseMappingSections: View {
                 excitationSlabField
                 if !orientationDraft.isEmpty,
                    PhaseMappingSlot.parseOrientationRelationships(orientationDraft) == nil {
-                    Text(RoomAccessibilityText.relationshipMalformed)
-                        .font(.caption2).foregroundStyle(.orange)
+                    InspectorWarning(RoomAccessibilityText.relationshipMalformed)
                 }
             }
             }

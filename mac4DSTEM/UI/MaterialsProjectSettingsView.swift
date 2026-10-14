@@ -57,9 +57,7 @@ struct MaterialsProjectSettingsView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("materialsProject.settings.status")
             if let actionError {
-                Text(actionError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                InspectorWarning(actionError, systemImage: "xmark.octagon.fill", tint: .red)
             }
             Text("Sent only to api.materialsproject.org, and only when you fetch a material.")
                 .font(.caption)

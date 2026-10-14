@@ -431,13 +431,12 @@ private struct DiskDetectionRows: View {
         ForEach(
             Array(appState.diskDetectionValidationIssues.enumerated()), id: \.offset
         ) { i, issue in
-            Label(
+            InspectorWarning(
                 issue.message,
                 systemImage: issue.severity == .error
-                    ? "xmark.octagon.fill" : "exclamationmark.triangle.fill"
+                    ? "xmark.octagon.fill" : "exclamationmark.triangle.fill",
+                tint: issue.severity == .error ? .red : .orange
             )
-            .font(.caption)
-            .foregroundStyle(issue.severity == .error ? Color.red : Color.orange)
             // Keyed by text too: a row kept by place kept a stale accessibility value (seen on the Method warnings, drive 8).
             .id("\(i)\u{1F}\(issue.message)")
         }
@@ -972,12 +971,10 @@ private struct StrainSection: View {
         switch appState.strain.failureCause {
         case .starvedInput(let medianPeaks, let emptyPercent):
             Group {
-                Label(
+                InspectorWarning(
                     String(format: "Too few peaks: median %.1f per pattern, %d%% empty",
-                           medianPeaks, emptyPercent),
-                    systemImage: "exclamationmark.triangle.fill"
+                           medianPeaks, emptyPercent)
                 )
-                .foregroundStyle(.orange)
                 InspectorNote("Indexing needs the direct beam plus two more reflections. "
                      + "Lower the detection thresholds, not the reference.")
                 InspectorActionRow {
@@ -992,9 +989,7 @@ private struct StrainSection: View {
 
         case .illConditionedBasis:
             Group {
-                Label("No single lattice fits the whole reference",
-                      systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                InspectorWarning("No single lattice fits the whole reference")
                 if appState.strain.referenceMode == .wholeScan {
                     InspectorNote("The peak population is healthy. Averaging the whole scan "
                          + "mixes regions with different lattices — pick an "
@@ -1369,8 +1364,14 @@ private struct ACOMSections: View {
         @Bindable var session = appState.acomSession
         let semantics = appState.acomScaleSemantics
         InspectorRow("Interpretation") {
-            Text(appState.acomInterpretationLabel)
-                .foregroundStyle(semantics.provenance.isPhysical ? Color.green : Color.orange)
+            // Colour on the symbol only (HIG, Color): the word says the same in text.
+            Label {
+                Text(appState.acomInterpretationLabel)
+            } icon: {
+                Image(systemName: semantics.provenance.isPhysical
+                      ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(semantics.provenance.isPhysical ? Color.green : Color.orange)
+            }
         }
         InspectorValueRow(
             "Q scale",
@@ -1400,9 +1401,7 @@ private struct ACOMSections: View {
                 format: .number.precision(.fractionLength(4)),
                 unit: "Å⁻¹/px"
             )
-            Text("This can help inspect correlation, but it is not physical calibration and every result remains Exploratory.")
-                .font(.caption)
-                .foregroundStyle(.orange)
+            InspectorWarning("This can help inspect correlation, but it is not physical calibration and every result remains Exploratory.")
         }
 
         if appState.acomSession.hasOrientationPlan, let plan = appState.acomSession.orientationPlan {
@@ -1421,15 +1420,14 @@ private struct ACOMSections: View {
     private var resultControls: some View {
         if appState.acomSession.hasOrientationMap {
             if let semantics = appState.acomSession.lastRunSemantics {
-                Label(
-                    semantics.scale.provenance.isPhysical
-                        ? "Physical ACOM result" : "Exploratory ACOM result",
-                    systemImage: semantics.scale.provenance.isPhysical
-                        ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
-                )
-                .foregroundStyle(
-                    semantics.scale.provenance.isPhysical ? Color.green : Color.orange
-                )
+                Label {
+                    Text(semantics.scale.provenance.isPhysical
+                         ? "Physical ACOM result" : "Exploratory ACOM result")
+                } icon: {
+                    Image(systemName: semantics.scale.provenance.isPhysical
+                          ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(semantics.scale.provenance.isPhysical ? Color.green : Color.orange)
+                }
             }
             // Routed through `selectACOMDisplay` rather than bound directly, so
             // an explicit choice here is recorded and a later completed map
@@ -1481,9 +1479,8 @@ private struct DetectionSettingsStaleWarning: View {
     let reason: String
 
     var body: some View {
-        Text("Detection settings changed — rerun Detect All Disks \(reason).")
-            .font(.caption)
-            .foregroundStyle(.orange)
+        InspectorWarning("Detection settings changed — rerun Detect All Disks \(reason).",
+                         systemImage: "clock.arrow.circlepath")
     }
 }
 

@@ -329,9 +329,13 @@ private struct PreprocessReadinessSection: View {
                 }
                 // The same verdict the dataset card shows.
                 let verdict = appState.calibrationSession.verdict
-                Label(verdict.summary,
-                      systemImage: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle")
-                    .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+                // Colour on the symbol only; the sentence stays primary text (Prepare's verdict does the same).
+                Label {
+                    Text(verdict.summary)
+                } icon: {
+                    Image(systemName: verdict.quantitative ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(verdict.quantitative ? Color.green : Color.orange)
+                }
                     .accessibilityIdentifier(verdict.quantitative ? "calibration.ready" : "calibration.notQuantitative")
             }
             .accessibilityElement(children: .contain)

@@ -72,17 +72,13 @@ private struct DPCSettingsSection: View {
                 // refuses, listing requirements that are all satisfied would
                 // misdirect the remedy. // v2 S7
                 if let refusal = appState.idpcOriginFitRefusal {
-                    Text("Qualitative iDPC — " + refusal)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    InspectorWarning("Qualitative iDPC — " + refusal)
                 } else {
                     // Status, not a requirements list — the readiness panel
                     // is the single owner of the full enumeration (#21);
                     // restating it here is the drift the ownership rule
                     // exists to prevent.
-                    Text("Qualitative iDPC — relative units. The Requirements section at the top of this inspector lists what quantitative iDPC needs.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    InspectorWarning("Qualitative iDPC — relative units. The Requirements section at the top of this inspector lists what quantitative iDPC needs.")
                 }
             }
             // The remedy lives in Prepare; take the user there instead of
@@ -116,9 +112,7 @@ private struct DPCSettingsSection: View {
                         String(format: "%.5g mrad / detector px", scale)
                     )
                 } else {
-                    Text("mrad needs accelerating voltage and Q pixel calibration.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    InspectorWarning("mrad needs accelerating voltage and Q pixel calibration.")
                 }
             }
             if dpc.dpcDisplay == .idpc {
@@ -729,9 +723,7 @@ private struct ParallaxRunDetailsSection: View {
                     // top of this same column (#21, one owner). What is NOT
                     // said there, and is the scientific point, is that the
                     // missing values are refused rather than assumed.
-                    Text("Missing values are rejected rather than guessed — see Requirements above.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    InspectorNote("Missing values are rejected rather than guessed — see Requirements above.")
                 }
             }
         }

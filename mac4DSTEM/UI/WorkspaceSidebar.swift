@@ -353,9 +353,13 @@ struct SessionSection: View {
         _ headline: String, detail: String, fullDetail: String, identifier: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Label(headline, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-                .lineLimit(nil)
+            // Colour on the symbol only (HIG, Color); the headline stays primary text.
+            Label {
+                Text(headline)
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
+            .lineLimit(nil)
             Text(detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)

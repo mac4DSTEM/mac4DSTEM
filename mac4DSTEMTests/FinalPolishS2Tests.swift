@@ -317,7 +317,8 @@ final class FinalPolishS2Tests: XCTestCase {
         let sidebar = try source("mac4DSTEM/UI/WorkspaceSidebar.swift")
         let start = try XCTUnwrap(sidebar.range(of: "private func warning("), "the warning helper")
         let tail = sidebar[start.lowerBound...]
-        let label = try XCTUnwrap(tail.range(of: "Label(headline"), "the headline")
+        // The headline is the `Text(headline)` inside the Label whose glyph carries the colour (UI audit 2026-10-14, B).
+        let label = try XCTUnwrap(tail.range(of: "Text(headline)"), "the headline")
         let detail = try XCTUnwrap(tail.range(of: "Text(detail)"), "the detail")
         let headlineCode = String(tail[label.lowerBound..<detail.lowerBound])
         XCTAssertTrue(headlineCode.contains(".lineLimit(nil)"), "the headline is uncapped: \(headlineCode)")

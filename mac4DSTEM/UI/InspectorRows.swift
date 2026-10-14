@@ -38,6 +38,14 @@ private enum InspectorSectionMetrics {
     static let sectionPadding: CGFloat = 8
 }
 
+/// How a section opens and closes: a short ease, or none while Reduce Motion is on (HIG, Motion: honour the
+/// setting wherever motion is not the point; here it is only a courtesy). A pure function so a test can hold it.
+enum InspectorSectionMotion {
+    static func animation(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.15)
+    }
+}
+
 extension EnvironmentValues {
     var inspectorScope: String {
         get { self[InspectorScopeKey.self] }
@@ -143,6 +151,7 @@ private struct InspectorSectionBody<Content: View>: View {
     let status: String?
     let isExpanded: Binding<Bool>
     let content: Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -160,7 +169,7 @@ private struct InspectorSectionBody<Content: View>: View {
 
     private var header: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(InspectorSectionMotion.animation(reduceMotion: reduceMotion)) {
                 isExpanded.wrappedValue.toggle()
             }
         } label: {
@@ -576,24 +585,34 @@ struct InspectorAdaptiveMenu<Content: View>: View {
     }
 }
 
-/// A warning note: the caption-size orange `Label` every room hand-rolled
-/// (`Label(text, systemImage:).font(.caption).foregroundStyle(.orange)`),
-/// named once. Wraps like any `Label`; the symbol defaults to the filled
-/// triangle and a note whose meaning is not "beware" (a refusal, a stale
-/// result) passes its own.
+/// A warning note: a caption-size `Label` whose SYMBOL carries the colour and whose sentence stays in the primary
+/// label colour, as Prepare's calibration verdict does (HIG, Color and Labels: colour is never the sole carrier of meaning, and a whole orange sentence
+/// reads poorly in either appearance and under an accent colour; the owner's rule since 2026-09-22). Named once so
+/// no room hand-rolls it. Wraps like any `Label`; the symbol defaults to the filled triangle and a note whose
+/// meaning is not "beware" (a refusal, a stale result) passes its own. A failure passes `tint: .red` and its own
+/// symbol.
 struct InspectorWarning: View {
     private let text: String
     private let systemImage: String
+    private let tint: Color
+    private let font: Font
 
-    init(_ text: String, systemImage: String = "exclamationmark.triangle.fill") {
+    /// `font` is `.caption` for a note under a row; a requirement's own title row passes `.subheadline`.
+    init(_ text: String, systemImage: String = "exclamationmark.triangle.fill", tint: Color = .orange,
+         font: Font = .caption) {
         self.text = text
         self.systemImage = systemImage
+        self.tint = tint
+        self.font = font
     }
 
     var body: some View {
-        Label(text, systemImage: systemImage)
-            .font(.caption)
-            .foregroundStyle(.orange)
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: systemImage).foregroundStyle(tint)
+        }
+        .font(font)
     }
 }
 

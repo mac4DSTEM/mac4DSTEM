@@ -174,9 +174,7 @@ struct LoadConfigurator: View {
                 // Its own row, not squeezed between Reset and Cancel: these are
                 // whole sentences naming detector rows and columns, and a
                 // refusal the user cannot read is not a refusal.
-                Text(refusal)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                InspectorWarning(refusal)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("configurator.refusal")
