@@ -600,6 +600,24 @@ enum ApertureOutline {
     static let innerColor = Color.cyan
     /// A point detector's crosshair arm, in view points.
     static let crossArm: CGFloat = 8
+    /// A handle's diameter, in view points.
+    static let handleDiameter: CGFloat = 12
+
+    /// The outline's view-space sizes in the pane's zoomed layer. The overlay sits inside the pane's `scaleEffect`, so a width
+    /// drawn there is multiplied by the zoom on screen; dividing by it keeps the outline, its dash and its handles the same size on
+    /// screen at any zoom (drive 15, 2026-10-14: at ×4 the 1.5 pt line drew 6 pt), as `EllipseFitAnnulusOverlay` already does.
+    /// Exports draw at zoom 1 and use the constants above.
+    struct Strokes: Equatable {
+        let halo: CGFloat, line: CGFloat, dash: [CGFloat], handle: CGFloat, crossArm: CGFloat
+        init(zoom: CGFloat) {
+            let z = zoom.isFinite && zoom > 0 ? zoom : 1
+            halo = ApertureOutline.haloWidth / z
+            line = ApertureOutline.lineWidth / z
+            dash = ApertureOutline.innerDash.map { $0 / z }
+            handle = ApertureOutline.handleDiameter / z
+            crossArm = ApertureOutline.crossArm / z
+        }
+    }
 }
 
 /// Interactive detector overlay on the CBED view. Renders and lets you drag the
@@ -611,8 +629,12 @@ struct ApertureOverlay: View, Equatable {
     let shape: VirtualShapeMode
     let patternWidth: Int
     let patternHeight: Int
+    /// The pane's draw zoom: the outline divides its view-space widths by it (`ApertureOutline.Strokes`).
+    var zoom: CGFloat = 1
     var onEdited: (Aperture) -> Void
     var onCommit: () -> Void
+
+    private var strokes: ApertureOutline.Strokes { ApertureOutline.Strokes(zoom: zoom) }
 
     /// Value inputs only, so `.equatable()` skips the body while the aperture,
     /// shape and detector size are unchanged (every zoom tick re-evaluates the
@@ -628,6 +650,7 @@ struct ApertureOverlay: View, Equatable {
     static func == (lhs: ApertureOverlay, rhs: ApertureOverlay) -> Bool {
         lhs.aperture == rhs.aperture && lhs.shape == rhs.shape
             && lhs.patternWidth == rhs.patternWidth && lhs.patternHeight == rhs.patternHeight
+            && lhs.zoom == rhs.zoom
     }
 
     var body: some View {
@@ -687,17 +710,16 @@ struct ApertureOverlay: View, Equatable {
     /// it readable on bright and dark alike. Same hue on top, so nothing about
     /// the outline's meaning changes.
     private static let haloColor = Color.black.opacity(ApertureOutline.haloOpacity)
-    private static let haloWidth = ApertureOutline.haloWidth
 
     @ViewBuilder
     private func circle(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat, radiusScale: CGFloat) -> some View {
         let outer = CGFloat(aperture.outer) * radiusScale
         Circle()
-            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .stroke(Self.haloColor, lineWidth: strokes.halo)
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         Circle()
-            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
+            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: strokes.line)
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
@@ -711,20 +733,20 @@ struct ApertureOverlay: View, Equatable {
         let inner = CGFloat(aperture.inner) * radiusScale
         let outer = CGFloat(aperture.outer) * radiusScale
         Circle()
-            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .stroke(Self.haloColor, lineWidth: strokes.halo)
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         Circle()
-            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
+            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: strokes.line)
             .frame(width: outer * 2, height: outer * 2)
             .position(center)
         Circle()
-            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .stroke(Self.haloColor, lineWidth: strokes.halo)
             .frame(width: inner * 2, height: inner * 2)
             .position(center)
             .opacity(aperture.inner > 0 ? 1 : 0.35)
         Circle()
-            .stroke(ApertureOutline.innerColor.opacity(ApertureOutline.lineOpacity), style: StrokeStyle(lineWidth: ApertureOutline.lineWidth, dash: ApertureOutline.innerDash))
+            .stroke(ApertureOutline.innerColor.opacity(ApertureOutline.lineOpacity), style: StrokeStyle(lineWidth: strokes.line, dash: strokes.dash))
             .frame(width: inner * 2, height: inner * 2)
             .position(center)
             .opacity(aperture.inner > 0 ? 1 : 0.35)
@@ -739,7 +761,7 @@ struct ApertureOverlay: View, Equatable {
         let parked = CGFloat(ApertureHandleRules.innerHandleOffset(
             inner: aperture.inner,
             minimum: ApertureHandleRules.parkedMinimum(
-                handleDiameter: Self.handleDiameter, radiusScale: radiusScale))) * radiusScale
+                handleDiameter: strokes.handle, radiusScale: radiusScale))) * radiusScale
         handle(color: .cyan)
             .position(x: center.x + parked, y: center.y)
             .gesture(radiusDrag(center: center, scale: radiusScale, isInner: true))
@@ -751,11 +773,11 @@ struct ApertureOverlay: View, Equatable {
         // The mask kernel uses `outer` as the half-extent of a square detector.
         let half = CGFloat(aperture.outer) * radiusScale
         Rectangle()
-            .stroke(Self.haloColor, lineWidth: Self.haloWidth)
+            .stroke(Self.haloColor, lineWidth: strokes.halo)
             .frame(width: half * 2, height: half * 2)
             .position(center)
         Rectangle()
-            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
+            .stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: strokes.line)
             .frame(width: half * 2, height: half * 2)
             .position(center)
         centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
@@ -777,12 +799,13 @@ struct ApertureOverlay: View, Equatable {
     @ViewBuilder
     private func point(center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) -> some View {
         // Crosshair marking the single detector pixel.
+        let arm = strokes.crossArm
         let cross = Path { p in
-            p.move(to: CGPoint(x: center.x - ApertureOutline.crossArm, y: center.y)); p.addLine(to: CGPoint(x: center.x + ApertureOutline.crossArm, y: center.y))
-            p.move(to: CGPoint(x: center.x, y: center.y - ApertureOutline.crossArm)); p.addLine(to: CGPoint(x: center.x, y: center.y + ApertureOutline.crossArm))
+            p.move(to: CGPoint(x: center.x - arm, y: center.y)); p.addLine(to: CGPoint(x: center.x + arm, y: center.y))
+            p.move(to: CGPoint(x: center.x, y: center.y - arm)); p.addLine(to: CGPoint(x: center.x, y: center.y + arm))
         }
-        cross.stroke(Self.haloColor, lineWidth: Self.haloWidth)
-        cross.stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: ApertureOutline.lineWidth)
+        cross.stroke(Self.haloColor, lineWidth: strokes.halo)
+        cross.stroke(ApertureOutline.outerColor.opacity(ApertureOutline.lineOpacity), lineWidth: strokes.line)
         centerHandle(center: center, scaleX: scaleX, scaleY: scaleY)
     }
 
@@ -826,14 +849,12 @@ struct ApertureOverlay: View, Equatable {
                                patternWidth: patternWidth, patternHeight: patternHeight))
     }
 
-    private static let handleDiameter: CGFloat = 12
-
     private func handle(color: Color) -> some View {
         Circle()
             .fill(color)
-            .frame(width: Self.handleDiameter, height: Self.handleDiameter)
-            .overlay(Circle().stroke(Color.black.opacity(0.6), lineWidth: 1))
-            .shadow(radius: 1)
+            .frame(width: strokes.handle, height: strokes.handle)
+            .overlay(Circle().stroke(Color.black.opacity(0.6), lineWidth: strokes.line / ApertureOutline.lineWidth))
+            .shadow(radius: strokes.line / ApertureOutline.lineWidth)
     }
 
     private func accessibleSlider(

@@ -281,6 +281,7 @@ struct DiffractionPane: View {
                             aperture: appState.aperture,
                             shape: appState.resultPresentation.virtualShape,
                             patternWidth: qx, patternHeight: qy,
+                            zoom: zp.drawZoom,
                             onEdited: { appState.updateAperture($0) },
                             onCommit: { appState.commitApertureChange() }
                         )

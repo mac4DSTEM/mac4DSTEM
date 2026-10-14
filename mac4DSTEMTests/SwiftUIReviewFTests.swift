@@ -139,6 +139,23 @@ final class SwiftUIReviewFTests: XCTestCase {
         XCTAssertEqual(sink, 0)
     }
 
+    // Drive 15 (2026-10-14): the outline sits inside the pane's zoom, so a zoom change must redraw it (else `.equatable()` keeps
+    // the old widths) and its view-space sizes are divided by the zoom, so it stays the same size on screen.
+    func testTheApertureOutlineKeepsItsScreenSizeAtAnyZoom() {
+        var zoomed = overlay(); zoomed.zoom = 4
+        XCTAssertNotEqual(overlay(), zoomed, "a zoom change must redraw the outline")
+        let one = ApertureOutline.Strokes(zoom: 1), four = ApertureOutline.Strokes(zoom: 4)
+        XCTAssertEqual(one.line, ApertureOutline.lineWidth)
+        XCTAssertEqual(one.halo, ApertureOutline.haloWidth)
+        XCTAssertEqual(four.line * 4, ApertureOutline.lineWidth, accuracy: 1e-9)
+        XCTAssertEqual(four.halo * 4, ApertureOutline.haloWidth, accuracy: 1e-9)
+        XCTAssertEqual(four.handle * 4, ApertureOutline.handleDiameter, accuracy: 1e-9)
+        XCTAssertEqual(four.crossArm * 4, ApertureOutline.crossArm, accuracy: 1e-9)
+        XCTAssertEqual(four.dash.map { $0 * 4 }, ApertureOutline.innerDash)
+        XCTAssertEqual(ApertureOutline.Strokes(zoom: 0), one, "a degenerate zoom draws at 1")
+        XCTAssertEqual(ApertureOutline.Strokes(zoom: .nan), one)
+    }
+
     // MARK: F3 - the region reference and the result never share a version
 
     func testTheRegionReferenceAndTheResultNeverShareAVersion() {
