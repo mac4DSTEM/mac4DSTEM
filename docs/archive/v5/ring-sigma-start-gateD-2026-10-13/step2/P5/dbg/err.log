@@ -1,0 +1,7 @@
+DBG inner=5.0 outer=13.0 halfMaxSigma=1.351173551543708 fallbackStart=2.0
+DBG inner=13.0 outer=21.0 halfMaxSigma=1.8707472790539394 fallbackStart=2.0
+DBG inner=21.0 outer=30.0 halfMaxSigma=nil fallbackStart=2.25
+DBG inner=30.0 outer=38.0 halfMaxSigma=nil fallbackStart=2.0
+DBG inner=12.0 outer=22.0 halfMaxSigma=nil fallbackStart=2.5
+DBG inner=20.0 outer=31.0 halfMaxSigma=nil fallbackStart=2.75
+DBG inner=29.0 outer=39.0 halfMaxSigma=nil fallbackStart=2.5

@@ -1,0 +1,15 @@
+Ignoring --strip-bitcode because --sign was not passed
+Ignoring --strip-bitcode because --sign was not passed
+Test Case '-[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingFallsBackToTheConicNamingTheFloor]' started.
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-b/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:103: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingFallsBackToTheConicNamingTheFloor] : XCTAssertLessThanOrEqual failed: ("0.16669633556751706") is greater than ("0.01") - dead ring n192-R70-e10-t0.0-g60-s100-k3: profile fit accepted with mean radius 58.3312565102738 against 70.0 (I1 0.0, sigmas 1.0264023118228807, 0.25)
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-b/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:106: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingFallsBackToTheConicNamingTheFloor] : XCTAssertNil failed: "EllipseProfileParameters(centralIntensity: 0.0, ringIntensity: 0.0, centralSigma: 53.496336271476906, innerSigma: 1.0264023118228807, outerSigma: 0.25, background: 0.05963646214435265)" - dead ring n192-R70-e10-t0.0-g60-s100-k3: a profile fit was returned
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-b/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:107: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingFallsBackToTheConicNamingTheFloor] : XCTAssertEqual failed: ("asymmetricGaussian") is not equal to ("conic") - dead ring n192-R70-e10-t0.0-g60-s100-k3
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-b/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:108: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingFallsBackToTheConicNamingTheFloor] : XCTAssertTrue failed - dead ring n192-R70-e10-t0.0-g60-s100-k3: fallback reason was nil
+Test Case '-[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingFallsBackToTheConicNamingTheFloor]' failed (1.546 seconds).
+Test Suite 'EllipseNoisyRingTests' failed at 2026-10-14 13:37:10.786.
+	 Executed 1 test, with 4 failures (0 unexpected) in 1.546 (1.546) seconds
+Test Suite 'mac4DSTEMTests.xctest' failed at 2026-10-14 13:37:10.787.
+	 Executed 1 test, with 4 failures (0 unexpected) in 1.546 (1.546) seconds
+Test Suite 'Selected tests' failed at 2026-10-14 13:37:10.787.
+	 Executed 1 test, with 4 failures (0 unexpected) in 1.546 (1.547) seconds
+** TEST FAILED **

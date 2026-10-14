@@ -1,0 +1,4 @@
+DiffractionEmbeddingTwoPassTests.testProfileSingleVersusTwoPass
+SpectroGoldenTests.testRecordBaseline
+SpectroscopyViewModelTests.testRenderRoom
+TB1StallProbeTests.testOpeningWS2BesideItsSidecarCompletes

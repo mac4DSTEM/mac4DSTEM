@@ -1,0 +1,2 @@
+plants: 275 cases (clean 84, noisy 144, width-px 2, bg-const-0.3 2, bg-r2-0.3 2, bg-r2-1.0 2, bg-r3-1.0 2, bg-exp25-1.0 2, lorentz 2, skew 2, neighbour-1.155 2, annulus-10 2, annulus-20 2, annulus-30 2, annulus-40 2, radius-40 2, radius-60 2, radius-250 2, sigma-1.5 2, sigma-5 2, sigma-8 2, refusal 9) in /private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/e5b5e609-d603-479e-b3a9-880e88dcbf88/scratchpad/lanes/RF/data/plantsC
+/Users/paullobpreis/miniconda3/envs/py4dstem/bin/python plants_c.py   9.28s user 3.80s system 98% cpu 13.244 total

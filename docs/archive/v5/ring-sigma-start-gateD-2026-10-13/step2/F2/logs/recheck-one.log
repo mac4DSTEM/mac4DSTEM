@@ -1,0 +1,16 @@
+== head one 192 70 0.01 0.0 60 0.1 3
+ROW|id=n192-R70-e10-t0.0-g60-s100-k3|size=192|R=70|eps=0.01|theta=0.0|gap=60|noise=0.1|seed=3|status=profile|dR=-0.166696|dba=-0.12115|cerr=5.26656|resid=0.195324|conicres=0.113423|I1=0|sin=1.0264|sout=0.25|ms=498.94
+== head one 192 70 0.01 112.5 0 0.1 2
+ROW|id=n192-R70-e10-t112.5-g0-s100-k2|size=192|R=70|eps=0.01|theta=112.5|gap=0|noise=0.1|seed=2|status=profile|dR=-0.411401|dba=-0.435648|cerr=39.0762|resid=0.177394|conicres=0.10799|I1=0.66197|sin=2.88556|sout=3.90779|ms=524.787
+== a one 192 70 0.01 0.0 60 0.1 3
+ROW|id=n192-R70-e10-t0.0-g60-s100-k3|size=192|R=70|eps=0.01|theta=0.0|gap=60|noise=0.1|seed=3|status=profile|dR=-0.000908563|dba=0.00258774|cerr=0.074774|resid=0.106719|conicres=0.113423|I1=1.01056|sin=2.79059|sout=2.84153|ms=530.557
+== a one 192 70 0.01 112.5 0 0.1 2
+ROW|id=n192-R70-e10-t112.5-g0-s100-k2|size=192|R=70|eps=0.01|theta=112.5|gap=0|noise=0.1|seed=2|status=profile|dR=-0.000328231|dba=-1.02218e-05|cerr=0.0102076|resid=0.0571832|conicres=0.10799|I1=1.00682|sin=2.96529|sout=3.01349|ms=547.96
+== b one 192 70 0.01 0.0 60 0.1 3
+ROW|id=n192-R70-e10-t0.0-g60-s100-k3|size=192|R=70|eps=0.01|theta=0.0|gap=60|noise=0.1|seed=3|status=conic|dR=0.0130788|dba=-0.00774412|cerr=0.309883|resid=0.113423|conicres=0.113423|reason=The ring profile fit lost the ring: its fitted width fell to the 0.25 px floor.|ms=503.107
+== b one 192 70 0.01 112.5 0 0.1 2
+ROW|id=n192-R70-e10-t112.5-g0-s100-k2|size=192|R=70|eps=0.01|theta=112.5|gap=0|noise=0.1|seed=2|status=profile|dR=-0.411401|dba=-0.435648|cerr=39.0762|resid=0.177394|conicres=0.10799|I1=0.66197|sin=2.88556|sout=3.90779|ms=545.243
+== ab one 192 70 0.01 0.0 60 0.1 3
+ROW|id=n192-R70-e10-t0.0-g60-s100-k3|size=192|R=70|eps=0.01|theta=0.0|gap=60|noise=0.1|seed=3|status=profile|dR=-0.000908563|dba=0.00258774|cerr=0.074774|resid=0.106719|conicres=0.113423|I1=1.01056|sin=2.79059|sout=2.84153|ms=552.232
+== ab one 192 70 0.01 112.5 0 0.1 2
+ROW|id=n192-R70-e10-t112.5-g0-s100-k2|size=192|R=70|eps=0.01|theta=112.5|gap=0|noise=0.1|seed=2|status=profile|dR=-0.000328231|dba=-1.02218e-05|cerr=0.0102076|resid=0.0571832|conicres=0.10799|I1=1.00682|sin=2.96529|sout=3.01349|ms=559.683

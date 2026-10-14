@@ -1,0 +1,19 @@
+Ignoring --strip-bitcode because --sign was not passed
+Ignoring --strip-bitcode because --sign was not passed
+Test Case '-[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingIsNotDrainedIntoTheBackground]' started.
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-a/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:100: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingIsNotDrainedIntoTheBackground] : XCTAssertLessThanOrEqual failed: ("0.16669633556751706") is greater than ("0.01") - dead ring n192-R70-e10-t0.0-g60-s100-k3: mean radius 58.3312565102738 against 70.0
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-a/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:102: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingIsNotDrainedIntoTheBackground] : XCTAssertLessThanOrEqual failed: ("0.1211500615657205") is greater than ("0.01") - dead ring n192-R70-e10-t0.0-g60-s100-k3: b / a 0.8689489483352696 against 0.9900990099009901
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-a/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:104: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingIsNotDrainedIntoTheBackground] : XCTAssertLessThanOrEqual failed: ("5.266558131211763") is greater than ("1.0") - dead ring n192-R70-e10-t0.0-g60-s100-k3: centre (89.12220951107143, 98.89443290005651) against (94.32430722233897, 98.07296229689548)
+Test Case '-[mac4DSTEMTests.EllipseNoisyRingTests testNoisyGappedRingIsNotDrainedIntoTheBackground]' failed (1.598 seconds).
+Test Case '-[mac4DSTEMTests.EllipseNoisyRingTests testNoisyRingDoesNotDriftOffCentre]' started.
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-a/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:100: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyRingDoesNotDriftOffCentre] : XCTAssertLessThanOrEqual failed: ("0.4114006036617438") is greater than ("0.01") - drifting ring n192-R70-e10-t112.5-g0-s100-k2: mean radius 41.20195774367793 against 70.0
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-a/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:102: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyRingDoesNotDriftOffCentre] : XCTAssertLessThanOrEqual failed: ("0.43564782998704066") is greater than ("0.01") - drifting ring n192-R70-e10-t112.5-g0-s100-k2: b / a 0.5544511799139494 against 0.9900990099009901
+/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/gates/head-a/mac4DSTEM/mac4DSTEMTests/EllipseNoisyRingTests.swift:104: error: -[mac4DSTEMTests.EllipseNoisyRingTests testNoisyRingDoesNotDriftOffCentre] : XCTAssertLessThanOrEqual failed: ("39.07616690717495") is greater than ("1.0") - drifting ring n192-R70-e10-t112.5-g0-s100-k2: centre (77.14744307148224, 61.52881713519043) against (97.20747037538976, 95.06301050142305)
+Test Case '-[mac4DSTEMTests.EllipseNoisyRingTests testNoisyRingDoesNotDriftOffCentre]' failed (0.722 seconds).
+Test Suite 'EllipseNoisyRingTests' failed at 2026-10-14 13:36:08.135.
+	 Executed 2 tests, with 6 failures (0 unexpected) in 2.320 (2.321) seconds
+Test Suite 'mac4DSTEMTests.xctest' failed at 2026-10-14 13:36:08.135.
+	 Executed 2 tests, with 6 failures (0 unexpected) in 2.320 (2.321) seconds
+Test Suite 'Selected tests' failed at 2026-10-14 13:36:08.136.
+	 Executed 2 tests, with 6 failures (0 unexpected) in 2.320 (2.322) seconds
+** TEST FAILED **

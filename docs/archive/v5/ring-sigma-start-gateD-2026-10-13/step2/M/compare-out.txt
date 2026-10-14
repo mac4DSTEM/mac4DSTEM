@@ -1,0 +1,573 @@
+==============================================================================================================
+SET A   (275 plants per variant; head 275, a 275, b 275, ab 275 rows)
+==============================================================================================================
+
+--- 0. Reproduction of step 1 (head, noisy tier) ---
+  head accepted profile fits off by >1% in (a+b)/2: 35   (step 1: A 35, B 32)
+    |dR| > 10%: 22
+    |dR| > 1%: 35
+    |dR| > 0.1%: 36
+
+--- (a) Noisy tier, per variant ---
+  head  noisy 144: accepted profile 128 | conic fallback 16 | threw 0
+        profile: right (<=0.1%) 92, mid (0.1-1%) 1, wrong (>1%) 35
+        wrong: max|dR| 48.42%, max|d(b/a)| 0.5076, max dtheta(eps>0) 1.564 rad, max centre err 34.83 px
+        conic fallbacks: |dR|>1%: 0, max|dR| 0.8373%, max|d(b/a)| 0.003831, max dtheta(eps>0) 0.02962 rad, max centre err 0.2341 px
+        conic fallback reasons: Detector ellipse fitting produced a non-physical conic. 4, residual over cap 12
+  a     noisy 144: accepted profile 144 | conic fallback 0 | threw 0
+        profile: right (<=0.1%) 143, mid (0.1-1%) 1, wrong (>1%) 0
+        wrong: none
+  b     noisy 144: accepted profile 113 | conic fallback 31 | threw 0
+        profile: right (<=0.1%) 92, mid (0.1-1%) 1, wrong (>1%) 20
+        wrong: max|dR| 22.75%, max|d(b/a)| 0.5076, max dtheta(eps>0) 1.48 rad, max centre err 34.83 px
+        conic fallbacks: |dR|>1%: 3, max|dR| 1.234%, max|d(b/a)| 0.01284, max dtheta(eps>0) 0.2054 rad, max centre err 0.7431 px
+        conic fallback reasons: Detector ellipse fitting produced a non-physical conic. 4, residual over cap 12, ring-width floor (b) 15
+  ab    noisy 144: accepted profile 144 | conic fallback 0 | threw 0
+        profile: right (<=0.1%) 143, mid (0.1-1%) 1, wrong (>1%) 0
+        wrong: none
+  head->a status transitions (noisy): conic->profile 16, profile->profile 128
+  head->b status transitions (noisy): conic->conic 16, profile->conic 15, profile->profile 113
+  head->ab status transitions (noisy): conic->profile 16, profile->profile 128
+  errors of what the app applies (every returned noisy fit, profile or conic): median | max
+    head |dR| 0.0137% | 48.4230%   |d(b/a)| 0.00030 | 0.50764   dtheta(eps>0) 0.0083 | 1.5639 rad   centre 0.0367 | 34.8294 px
+    a    |dR| 0.0062% | 0.1070%   |d(b/a)| 0.00017 | 0.00331   dtheta(eps>0) 0.0041 | 0.1128 rad   centre 0.0197 | 0.1305 px
+    b    |dR| 0.0137% | 22.7497%   |d(b/a)| 0.00031 | 0.50764   dtheta(eps>0) 0.0062 | 1.4802 rad   centre 0.0367 | 34.8294 px
+    ab   |dR| 0.0062% | 0.1070%   |d(b/a)| 0.00017 | 0.00331   dtheta(eps>0) 0.0041 | 0.1128 rad   centre 0.0197 | 0.1305 px
+  noisy plants head returned as conic and a returns as profile: 16. Against truth (head conic | a profile): mean|dR| 0.1873% | 0.0070%; max|d(b/a)| 0.00383 | 0.00080; max dtheta(eps>0) 0.0296 | 0.0238 rad; max centre 0.2341 | 0.0524 px
+
+--- (b) P3, candidate a ---
+  P3 wrong count on a (noisy), predicted 0: 0
+  head accepted-profile fits within 0.1% (noisy): 92; not accepted-profile-within-0.1% on a (predicted none): 0
+  registered wording, any status (profile or conic) within 0.1% on head (noisy) = 97; outside 0.1% (or threw) on a = 0
+  noisy profile fits within 0.1% on both head and a (92): max |change in (a+b)/2| 0.01461% of R; max |change in b/a| 9.081e-05; max |change in theta| eps>0 0.001659 rad; max centre change 0.003862 px
+  (tiers not listed above have no head-within-0.1% fit outside 0.1% on a)
+
+--- (c) R2 (rescued = accepted profile within 1%) ---
+  [a] head wrong fits: 35. On a they become:
+      right (profile <=0.1%)      35
+      mid (profile 0.1-1%)         0
+      conic within 1%              0
+      conic >1%                    0
+      threw                        0
+      still wrong (profile >1%)    0
+      rescued (accepted profile within 1%) 35 of 35 = 100.0%
+  right (<=0.1%) head fits turned wrong (>1%) on a: 0; head profile fits within 1% turned wrong: 0
+  R2 refuting observations: rescued<90% -> no; a right fit turned wrong -> no   => R2 NOT refuted
+  for reference, the same table for b and ab:
+  [b] head wrong fits: 35. On b they become:
+      right (profile <=0.1%)       0
+      mid (profile 0.1-1%)         0
+      conic within 1%             12
+      conic >1%                    3
+      threw                        0
+      still wrong (profile >1%)   20
+      rescued (accepted profile within 1%) 0 of 35 = 0.0%
+  [ab] head wrong fits: 35. On ab they become:
+      right (profile <=0.1%)      35
+      mid (profile 0.1-1%)         0
+      conic within 1%              0
+      conic >1%                    0
+      threw                        0
+      still wrong (profile >1%)    0
+      rescued (accepted profile within 1%) 35 of 35 = 100.0%
+
+--- (d) P4, candidate b ---
+  head wrong fits (35): b refuses 15 (pred >= 10): to conic within 1% 12, to conic >1% 3, threw 0; refusals carrying the ring-width reason: 15
+  head wrong fits b leaves accepted as profile: 20 (b leaves them bit-identical to head: yes)
+     noisy-384x512-r120-e0-tNA-g60-s10-p1         dR   -7.3443%  d(b/a) -0.1140  dtheta  0.364(eps0)  cerr  13.816  sin  2.996 sout  3.379  I1/dyn  0.382  I1    0.6787  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-384x512-r120-e0-tNA-g60-s10-p2         dR  -13.4340%  d(b/a) -0.1640  dtheta  1.322(eps0)  cerr  23.725  sin  2.672 sout  3.441  I1/dyn  0.442  I1    0.7471  cost/truthfit  1.60  noise 0.1 gap 60
+     noisy-384x512-r120-e1-t20-g60-s10-p1         dR   -7.8297%  d(b/a) -0.1101  dtheta  0.609  cerr  14.529  sin  2.803 sout  3.351  I1/dyn  0.399  I1    0.6841  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t112.5-g60-s10-p1      dR  +17.7459%  d(b/a) -0.4594  dtheta  0.527  cerr  22.028  sin  6.628 sout  6.103  I1/dyn  0.083  I1    0.1363  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t112.5-g60-s3-p1       dR  -12.4712%  d(b/a) -0.1043  dtheta  1.412  cerr  22.389  sin  2.755 sout  3.172  I1/dyn  0.572  I1    0.7002  cost/truthfit  1.85  noise 0.03 gap 60
+     noisy-384x512-r120-e3-t135-g60-s10-p2        dR  -13.7057%  d(b/a) -0.5076  dtheta  0.206  cerr  34.520  sin  2.777 sout  2.309  I1/dyn  0.061  I1    0.1038  cost/truthfit  1.87  noise 0.1 gap 60
+     noisy-384x512-r160-e0-tNA-g60-s3-p2          dR   -1.2793%  d(b/a) -0.0033  dtheta  0.777(eps0)  cerr   0.577  sin  3.664 sout 23.897  I1/dyn  0.595  I1     0.726  cost/truthfit  1.50  noise 0.03 gap 60
+     noisy-384x512-r80-e3-t45-g60-s10-p1          dR   -3.6737%  d(b/a) -0.0051  dtheta  0.083  cerr   0.198  sin  2.226 sout  6.535  I1/dyn  0.218  I1    0.3607  cost/truthfit  1.41  noise 0.1 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s10-p1         dR  -20.6811%  d(b/a) -0.3939  dtheta  1.347(eps0)  cerr  26.416  sin  2.127 sout  2.862  I1/dyn  0.145  I1    0.2524  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s10-p2         dR  -10.4805%  d(b/a) -0.1303  dtheta  0.566(eps0)  cerr  21.797  sin  2.726 sout  3.424  I1/dyn  0.428  I1    0.7523  cost/truthfit  1.59  noise 0.1 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s3-p1          dR   -6.1158%  d(b/a) -0.0936  dtheta  0.359(eps0)  cerr  13.004  sin  2.599 sout  3.281  I1/dyn  0.570  I1    0.6842  cost/truthfit  1.77  noise 0.03 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s3-p2          dR   -4.9735%  d(b/a) -0.0841  dtheta  0.907(eps0)  cerr  10.876  sin  2.681 sout  3.159  I1/dyn  0.573  I1    0.6836  cost/truthfit  1.74  noise 0.03 gap 60
+     noisy-512x512-r140-e1-t20-g60-s10-p1         dR   -6.5916%  d(b/a) -0.0788  dtheta  1.480  cerr  14.288  sin  2.844 sout  3.349  I1/dyn  0.389  I1    0.7251  cost/truthfit  1.55  noise 0.1 gap 60
+     noisy-512x512-r140-e3-t112.5-g60-s10-p1      dR  -22.7497%  d(b/a) -0.4042  dtheta  0.037  cerr  34.829  sin  2.254 sout  2.467  I1/dyn  0.124  I1    0.2111  cost/truthfit  1.87  noise 0.1 gap 60
+     noisy-512x512-r140-e3-t135-g60-s10-p2        dR  -16.5265%  d(b/a) -0.3198  dtheta  0.358  cerr  19.498  sin  2.233 sout  2.979  I1/dyn  0.131  I1    0.2288  cost/truthfit  1.85  noise 0.1 gap 60
+     noisy-512x512-r200-e0-tNA-g60-s3-p2          dR   -6.5820%  d(b/a) -0.0851  dtheta  1.260(eps0)  cerr  19.723  sin  2.671 sout  3.251  I1/dyn  0.582  I1    0.7141  cost/truthfit  1.81  noise 0.03 gap 60
+     noisy-512x512-r200-e3-t0-g60-s10-p2          dR  -13.1211%  d(b/a) -0.2379  dtheta  0.376  cerr  24.479  sin  2.685 sout  3.876  I1/dyn  0.120  I1    0.2118  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-512x512-r200-e3-t179-g60-s10-p1        dR  -15.1476%  d(b/a) -0.2706  dtheta  0.415  cerr  29.217  sin  2.640 sout  3.380  I1/dyn  0.120  I1    0.2117  cost/truthfit  1.85  noise 0.1 gap 60
+     noisy-512x512-r80-e1-t179-g60-s10-p2         dR   -3.6315%  d(b/a) +0.0048  dtheta  0.155  cerr   0.194  sin  2.162 sout  6.530  I1/dyn  0.211  I1    0.3659  cost/truthfit  1.40  noise 0.1 gap 60
+     noisy-512x512-r80-e3-t0-g0-s10-p1            dR  -18.7134%  d(b/a) -0.1911  dtheta  0.927  cerr  19.440  sin  2.491 sout  5.956  I1/dyn  0.173  I1    0.2884  cost/truthfit  3.06  noise 0.1 gap 0
+  head accepted-profile fits within 0.1% (noisy): 92; b refuses (pred 0): 0
+  head mid fits (0.1-1%) that b refuses: 0
+  integrity: b refusals (all tiers, head profile -> b not profile) = 15; head profile fits with min(sin,sout) <= 0.30 = 15; sets equal: yes
+  b changes any plant that was conic/THREW on head: 0
+  b noisy wrong count after refusal: 20 (of head 35)
+
+--- (e) P6, candidate ab ---
+  ab wrong count (noisy), pred 0: 0
+  head accepted-profile fits within 0.1% (noisy): 92; refused or outside 0.1% on ab (pred 0): 0
+  registered wording, any status within 0.1% on head (noisy), outside 0.1% (or threw) on ab: 0
+  (the R2-style table for ab is in (c))
+
+--- (f) Clean tier (84 plants), each variant against head ---
+  a   model choice changed (profile<->conic/threw): 25 (pred none); profile fits kept both ways: 59; head profile 59, a profile 84
+       CHANGED clean-384x512-r120-e0-tNA-g60-s0             head conic +0.1143% -> a profile -0.0277%
+       CHANGED clean-384x512-r120-e1-t0-g60-s0              head conic +0.1151% -> a profile -0.0269%
+       CHANGED clean-384x512-r120-e1-t20-g60-s0             head conic +0.1152% -> a profile -0.0245%
+       CHANGED clean-384x512-r120-e1-t45-g60-s0             head conic +0.1139% -> a profile -0.0298%
+       CHANGED clean-384x512-r160-e0-tNA-g60-s0             head conic +0.0649% -> a profile -0.0133%
+       CHANGED clean-384x512-r160-e1-t0-g60-s0              head conic +0.0642% -> a profile -0.0161%
+       CHANGED clean-384x512-r160-e1-t20-g60-s0             head conic +0.0645% -> a profile -0.0153%
+       CHANGED clean-384x512-r160-e1-t45-g60-s0             head conic +0.0646% -> a profile -0.0150%
+       CHANGED clean-384x512-r160-e3-t135-g60-s0            head conic +0.0638% -> a profile -0.0144%
+       CHANGED clean-384x512-r160-e3-t160-g60-s0            head conic +0.0643% -> a profile -0.0146%
+       CHANGED clean-384x512-r160-e3-t179-g60-s0            head conic +0.0649% -> a profile -0.0147%
+       CHANGED clean-512x512-r140-e0-tNA-g60-s0             head conic +0.0841% -> a profile -0.0202%
+       CHANGED clean-512x512-r140-e1-t0-g60-s0              head conic +0.0844% -> a profile -0.0188%
+       CHANGED clean-512x512-r140-e1-t20-g60-s0             head conic +0.0840% -> a profile -0.0207%
+       CHANGED clean-512x512-r140-e1-t45-g60-s0             head conic +0.0828% -> a profile -0.0238%
+       CHANGED clean-512x512-r140-e3-t112.5-g0-s0           head conic +0.0803% -> a profile +0.0000%
+       CHANGED clean-512x512-r140-e3-t135-g60-s0            head conic +0.0834% -> a profile -0.0257%
+       CHANGED clean-512x512-r140-e3-t160-g60-s0            head conic +0.0848% -> a profile -0.0219%
+       CHANGED clean-512x512-r140-e3-t179-g60-s0            head conic +0.0847% -> a profile -0.0183%
+       CHANGED clean-512x512-r200-e1-t0-g60-s0              head conic +0.0415% -> a profile -0.0087%
+       CHANGED clean-512x512-r200-e1-t20-g60-s0             head conic +0.0414% -> a profile -0.0099%
+       CHANGED clean-512x512-r200-e1-t45-g60-s0             head conic +0.0416% -> a profile -0.0095%
+       CHANGED clean-512x512-r200-e3-t135-g60-s0            head conic +0.0414% -> a profile -0.0082%
+       CHANGED clean-512x512-r200-e3-t160-g60-s0            head conic +0.0411% -> a profile -0.0104%
+       CHANGED clean-512x512-r200-e3-t179-g60-s0            head conic +0.0411% -> a profile -0.0116%
+       max |change in (a+b)/2| = 0.13054% of R (pred <= 0.01%); max |d theta| eps>0 = 0.128 rad, all = 0.828 rad (pred <= 1e-3, eps>0); max |d(b/a)| = 0.00284; max centre change = 0.1103 px
+       plants over 0.01% of R: 10; plants over 1e-3 rad (eps>0): 7
+         dR  clean-384x512-r80-e1-t20-g60-s0              head +0.0573% a -0.0688%
+         dR  clean-384x512-r80-e1-t45-g60-s0              head +0.0663% a -0.0643%
+         dR  clean-384x512-r80-e3-t112.5-g0-s0            head -0.0191% a -0.0000%
+         dR  clean-384x512-r80-e3-t160-g60-s0             head +0.0501% a -0.0526%
+         dR  clean-384x512-r80-e3-t179-g60-s0             head +0.0585% a -0.0542%
+         dR  clean-512x512-r200-e0-tNA-g60-s0             head -0.0229% a -0.0095%
+         dR  clean-512x512-r80-e1-t20-g60-s0              head +0.0536% a -0.0570%
+         dR  clean-512x512-r80-e3-t112.5-g0-s0            head -0.0192% a -0.0000%
+         dR  clean-512x512-r80-e3-t135-g60-s0             head +0.0429% a -0.0534%
+         dR  clean-512x512-r80-e3-t160-g60-s0             head +0.0673% a -0.0539%
+         dth clean-384x512-r80-e1-t20-g60-s0              head 0.36307 a 0.42162
+         dth clean-384x512-r80-e1-t45-g60-s0              head 0.81253 a 0.94069
+         dth clean-384x512-r80-e3-t160-g60-s0             head 2.78703 a 2.75613
+         dth clean-384x512-r80-e3-t179-g60-s0             head 3.12550 a 3.13470
+         dth clean-512x512-r80-e1-t20-g60-s0              head 0.36596 a 0.44438
+         dth clean-512x512-r80-e3-t135-g60-s0             head 2.34873 a 2.30199
+         dth clean-512x512-r80-e3-t160-g60-s0             head 2.78838 a 2.76596
+       clean accepted profile wrong (>1%) on a: 0 (head: 0)
+       of the 25 changed: conic->profile 25, profile->conic/threw 0
+       the 25 conic->profile plants against truth (head conic | a profile): mean|dR| 0.0731% | 0.0168%; max|dR| 0.1152% | 0.0298%; max|d(b/a)| 0.0001701 | 0.001595; max dtheta(eps>0) 0.00976 | 0.0782 rad; max centre err 0.0254 | 0.0864 px; variant closer in |dR| for 25 of 25
+       head residual over cap on those (head fallback text): Detector ellipse fit residual is too large (0.235)., Detector ellipse fit residual is too large (0.238)., Detector ellipse fit residual is too large (0.241)., Detector ellipse fit residual is too large (0.245)., Detector ellipse fit residual is too large (0.249)., Detector ellipse fit residual is to
+       kept-both-ways plants that moved more than the prediction allows: 10. Against truth (head | a), and fit cost on the pixels (variant/head, < 1 = variant found the lower cost):
+         clean-384x512-r80-e1-t45-g60-s0              |dR| 0.0663% | 0.0643%   dtheta 0.027 | 0.155   |d(b/a)| 0.0002 | 0.0014   cerr 0.025 | 0.129   cost x0.900198
+         clean-384x512-r80-e1-t20-g60-s0              |dR| 0.0573% | 0.0688%   dtheta 0.014 | 0.073   |d(b/a)| 0.0005 | 0.0033   cerr 0.024 | 0.134   cost x0.900608
+         clean-512x512-r80-e3-t160-g60-s0             |dR| 0.0673% | 0.0539%   dtheta 0.004 | 0.027   |d(b/a)| 0.0004 | 0.0029   cerr 0.022 | 0.118   cost x0.898603
+         clean-384x512-r80-e3-t179-g60-s0             |dR| 0.0585% | 0.0542%   dtheta 0.001 | 0.011   |d(b/a)| 0.0004 | 0.0033   cerr 0.021 | 0.122   cost x0.899718
+         clean-512x512-r80-e1-t20-g60-s0              |dR| 0.0536% | 0.0570%   dtheta 0.017 | 0.095   |d(b/a)| 0.0004 | 0.0027   cerr 0.022 | 0.125   cost x0.898835
+         clean-384x512-r80-e3-t160-g60-s0             |dR| 0.0501% | 0.0526%   dtheta 0.006 | 0.036   |d(b/a)| 0.0003 | 0.0025   cerr 0.020 | 0.120   cost x0.898855
+         clean-512x512-r80-e3-t135-g60-s0             |dR| 0.0429% | 0.0534%   dtheta 0.007 | 0.054   |d(b/a)| 0.0001 | 0.0010   cerr 0.020 | 0.122   cost x0.896081
+         clean-512x512-r80-e3-t112.5-g0-s0            |dR| 0.0192% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-384x512-r80-e3-t112.5-g0-s0            |dR| 0.0191% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-512x512-r200-e0-tNA-g60-s0             |dR| 0.0229% | 0.0095%   dtheta 0.755 | 0.749(eps0)   |d(b/a)| 0.0001 | 0.0006   cerr 0.014 | 0.050   cost x0.909796
+       movers: variant closer to truth in |dR| for 6 of 10; in dtheta (eps>0) for 2 of 9; lower or equal fit cost for 10 of 10; every mover is gap-0/60
+  b   model choice changed (profile<->conic/threw): 0 (pred none); profile fits kept both ways: 59; head profile 59, b profile 59
+       max |change in (a+b)/2| = 0.00000% of R (pred <= 0.01%); max |d theta| eps>0 = 0 rad, all = 0 rad (pred <= 1e-3, eps>0); max |d(b/a)| = 0; max centre change = 0 px
+       plants over 0.01% of R: 0; plants over 1e-3 rad (eps>0): 0
+       clean accepted profile wrong (>1%) on b: 0 (head: 0)
+  ab  model choice changed (profile<->conic/threw): 25 (pred none); profile fits kept both ways: 59; head profile 59, ab profile 84
+       CHANGED clean-384x512-r120-e0-tNA-g60-s0             head conic +0.1143% -> ab profile -0.0277%
+       CHANGED clean-384x512-r120-e1-t0-g60-s0              head conic +0.1151% -> ab profile -0.0269%
+       CHANGED clean-384x512-r120-e1-t20-g60-s0             head conic +0.1152% -> ab profile -0.0245%
+       CHANGED clean-384x512-r120-e1-t45-g60-s0             head conic +0.1139% -> ab profile -0.0298%
+       CHANGED clean-384x512-r160-e0-tNA-g60-s0             head conic +0.0649% -> ab profile -0.0133%
+       CHANGED clean-384x512-r160-e1-t0-g60-s0              head conic +0.0642% -> ab profile -0.0161%
+       CHANGED clean-384x512-r160-e1-t20-g60-s0             head conic +0.0645% -> ab profile -0.0153%
+       CHANGED clean-384x512-r160-e1-t45-g60-s0             head conic +0.0646% -> ab profile -0.0150%
+       CHANGED clean-384x512-r160-e3-t135-g60-s0            head conic +0.0638% -> ab profile -0.0144%
+       CHANGED clean-384x512-r160-e3-t160-g60-s0            head conic +0.0643% -> ab profile -0.0146%
+       CHANGED clean-384x512-r160-e3-t179-g60-s0            head conic +0.0649% -> ab profile -0.0147%
+       CHANGED clean-512x512-r140-e0-tNA-g60-s0             head conic +0.0841% -> ab profile -0.0202%
+       CHANGED clean-512x512-r140-e1-t0-g60-s0              head conic +0.0844% -> ab profile -0.0188%
+       CHANGED clean-512x512-r140-e1-t20-g60-s0             head conic +0.0840% -> ab profile -0.0207%
+       CHANGED clean-512x512-r140-e1-t45-g60-s0             head conic +0.0828% -> ab profile -0.0238%
+       CHANGED clean-512x512-r140-e3-t112.5-g0-s0           head conic +0.0803% -> ab profile +0.0000%
+       CHANGED clean-512x512-r140-e3-t135-g60-s0            head conic +0.0834% -> ab profile -0.0257%
+       CHANGED clean-512x512-r140-e3-t160-g60-s0            head conic +0.0848% -> ab profile -0.0219%
+       CHANGED clean-512x512-r140-e3-t179-g60-s0            head conic +0.0847% -> ab profile -0.0183%
+       CHANGED clean-512x512-r200-e1-t0-g60-s0              head conic +0.0415% -> ab profile -0.0087%
+       CHANGED clean-512x512-r200-e1-t20-g60-s0             head conic +0.0414% -> ab profile -0.0099%
+       CHANGED clean-512x512-r200-e1-t45-g60-s0             head conic +0.0416% -> ab profile -0.0095%
+       CHANGED clean-512x512-r200-e3-t135-g60-s0            head conic +0.0414% -> ab profile -0.0082%
+       CHANGED clean-512x512-r200-e3-t160-g60-s0            head conic +0.0411% -> ab profile -0.0104%
+       CHANGED clean-512x512-r200-e3-t179-g60-s0            head conic +0.0411% -> ab profile -0.0116%
+       max |change in (a+b)/2| = 0.13054% of R (pred <= 0.01%); max |d theta| eps>0 = 0.128 rad, all = 0.828 rad (pred <= 1e-3, eps>0); max |d(b/a)| = 0.00284; max centre change = 0.1103 px
+       plants over 0.01% of R: 10; plants over 1e-3 rad (eps>0): 7
+         dR  clean-384x512-r80-e1-t20-g60-s0              head +0.0573% ab -0.0688%
+         dR  clean-384x512-r80-e1-t45-g60-s0              head +0.0663% ab -0.0643%
+         dR  clean-384x512-r80-e3-t112.5-g0-s0            head -0.0191% ab -0.0000%
+         dR  clean-384x512-r80-e3-t160-g60-s0             head +0.0501% ab -0.0526%
+         dR  clean-384x512-r80-e3-t179-g60-s0             head +0.0585% ab -0.0542%
+         dR  clean-512x512-r200-e0-tNA-g60-s0             head -0.0229% ab -0.0095%
+         dR  clean-512x512-r80-e1-t20-g60-s0              head +0.0536% ab -0.0570%
+         dR  clean-512x512-r80-e3-t112.5-g0-s0            head -0.0192% ab -0.0000%
+         dR  clean-512x512-r80-e3-t135-g60-s0             head +0.0429% ab -0.0534%
+         dR  clean-512x512-r80-e3-t160-g60-s0             head +0.0673% ab -0.0539%
+         dth clean-384x512-r80-e1-t20-g60-s0              head 0.36307 ab 0.42162
+         dth clean-384x512-r80-e1-t45-g60-s0              head 0.81253 ab 0.94069
+         dth clean-384x512-r80-e3-t160-g60-s0             head 2.78703 ab 2.75613
+         dth clean-384x512-r80-e3-t179-g60-s0             head 3.12550 ab 3.13470
+         dth clean-512x512-r80-e1-t20-g60-s0              head 0.36596 ab 0.44438
+         dth clean-512x512-r80-e3-t135-g60-s0             head 2.34873 ab 2.30199
+         dth clean-512x512-r80-e3-t160-g60-s0             head 2.78838 ab 2.76596
+       clean accepted profile wrong (>1%) on ab: 0 (head: 0)
+       of the 25 changed: conic->profile 25, profile->conic/threw 0
+       the 25 conic->profile plants against truth (head conic | ab profile): mean|dR| 0.0731% | 0.0168%; max|dR| 0.1152% | 0.0298%; max|d(b/a)| 0.0001701 | 0.001595; max dtheta(eps>0) 0.00976 | 0.0782 rad; max centre err 0.0254 | 0.0864 px; variant closer in |dR| for 25 of 25
+       head residual over cap on those (head fallback text): Detector ellipse fit residual is too large (0.235)., Detector ellipse fit residual is too large (0.238)., Detector ellipse fit residual is too large (0.241)., Detector ellipse fit residual is too large (0.245)., Detector ellipse fit residual is too large (0.249)., Detector ellipse fit residual is to
+       kept-both-ways plants that moved more than the prediction allows: 10. Against truth (head | ab), and fit cost on the pixels (variant/head, < 1 = variant found the lower cost):
+         clean-384x512-r80-e1-t45-g60-s0              |dR| 0.0663% | 0.0643%   dtheta 0.027 | 0.155   |d(b/a)| 0.0002 | 0.0014   cerr 0.025 | 0.129   cost x0.900198
+         clean-384x512-r80-e1-t20-g60-s0              |dR| 0.0573% | 0.0688%   dtheta 0.014 | 0.073   |d(b/a)| 0.0005 | 0.0033   cerr 0.024 | 0.134   cost x0.900608
+         clean-512x512-r80-e3-t160-g60-s0             |dR| 0.0673% | 0.0539%   dtheta 0.004 | 0.027   |d(b/a)| 0.0004 | 0.0029   cerr 0.022 | 0.118   cost x0.898603
+         clean-384x512-r80-e3-t179-g60-s0             |dR| 0.0585% | 0.0542%   dtheta 0.001 | 0.011   |d(b/a)| 0.0004 | 0.0033   cerr 0.021 | 0.122   cost x0.899718
+         clean-512x512-r80-e1-t20-g60-s0              |dR| 0.0536% | 0.0570%   dtheta 0.017 | 0.095   |d(b/a)| 0.0004 | 0.0027   cerr 0.022 | 0.125   cost x0.898835
+         clean-384x512-r80-e3-t160-g60-s0             |dR| 0.0501% | 0.0526%   dtheta 0.006 | 0.036   |d(b/a)| 0.0003 | 0.0025   cerr 0.020 | 0.120   cost x0.898855
+         clean-512x512-r80-e3-t135-g60-s0             |dR| 0.0429% | 0.0534%   dtheta 0.007 | 0.054   |d(b/a)| 0.0001 | 0.0010   cerr 0.020 | 0.122   cost x0.896081
+         clean-512x512-r80-e3-t112.5-g0-s0            |dR| 0.0192% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-384x512-r80-e3-t112.5-g0-s0            |dR| 0.0191% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-512x512-r200-e0-tNA-g60-s0             |dR| 0.0229% | 0.0095%   dtheta 0.755 | 0.749(eps0)   |d(b/a)| 0.0001 | 0.0006   cerr 0.014 | 0.050   cost x0.909796
+       movers: variant closer to truth in |dR| for 6 of 10; in dtheta (eps>0) for 2 of 9; lower or equal fit cost for 10 of 10; every mover is gap-0/60
+
+--- (g) Printed and refusal tiers: plants whose status differs, or dR by > 0.01% of R, between head and a variant ---
+  a: 7 of 47 plants differ
+     annulus-20     annulus-20-512x512-r120-e1-t20-g0-s0         head conic +0.1093%         a   profile -0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t112.5-g0-s0      head profile +0.1419%       a   profile +0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t20-g0-s0         head profile +0.0177%       a   profile +0.0000%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t112.5-g0-s0 head profile -0.2769%       a   profile +0.0497%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t20-g0-s0    head profile -0.2587%       a   profile +0.0238%      
+     radius-40      radius-40-256x256-r40-e1-t112.5-g0-s0        head profile -0.0446%       a   profile +0.0000%      
+     radius-40      radius-40-256x256-r40-e1-t20-g0-s0           head profile -0.0505%       a   profile +0.0000%      
+  b: 0 of 47 plants differ
+  ab: 7 of 47 plants differ
+     annulus-20     annulus-20-512x512-r120-e1-t20-g0-s0         head conic +0.1093%         ab  profile -0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t112.5-g0-s0      head profile +0.1419%       ab  profile +0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t20-g0-s0         head profile +0.0177%       ab  profile +0.0000%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t112.5-g0-s0 head profile -0.2769%       ab  profile +0.0497%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t20-g0-s0    head profile -0.2587%       ab  profile +0.0238%      
+     radius-40      radius-40-256x256-r40-e1-t112.5-g0-s0        head profile -0.0446%       ab  profile +0.0000%      
+     radius-40      radius-40-256x256-r40-e1-t20-g0-s0           head profile -0.0505%       ab  profile +0.0000%      
+
+--- integrity ---
+  refusal tier on head: insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal tier on a   : insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal tier on b   : insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal tier on ab  : insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal-tier plants whose result differs between head and any variant: 0 of 9
+  plants (all tiers) where ab differs from a in status, dR or dtheta: 0 of 275
+
+--- (h) Wrong fits that remain (noisy), with ring sigmas, I1 and centre error ---
+  a: 0
+  b: 20
+     noisy-512x512-r140-e3-t112.5-g60-s10-p1      dR  -22.7497%  d(b/a) -0.4042  dtheta  0.037  cerr  34.829  sin  2.254 sout  2.467  I1/dyn  0.124  I1    0.2111  cost/truthfit  1.87  noise 0.1 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s10-p1         dR  -20.6811%  d(b/a) -0.3939  dtheta  1.347(eps0)  cerr  26.416  sin  2.127 sout  2.862  I1/dyn  0.145  I1    0.2524  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-512x512-r80-e3-t0-g0-s10-p1            dR  -18.7134%  d(b/a) -0.1911  dtheta  0.927  cerr  19.440  sin  2.491 sout  5.956  I1/dyn  0.173  I1    0.2884  cost/truthfit  3.06  noise 0.1 gap 0
+     noisy-384x512-r120-e3-t112.5-g60-s10-p1      dR  +17.7459%  d(b/a) -0.4594  dtheta  0.527  cerr  22.028  sin  6.628 sout  6.103  I1/dyn  0.083  I1    0.1363  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-512x512-r140-e3-t135-g60-s10-p2        dR  -16.5265%  d(b/a) -0.3198  dtheta  0.358  cerr  19.498  sin  2.233 sout  2.979  I1/dyn  0.131  I1    0.2288  cost/truthfit  1.85  noise 0.1 gap 60
+     noisy-512x512-r200-e3-t179-g60-s10-p1        dR  -15.1476%  d(b/a) -0.2706  dtheta  0.415  cerr  29.217  sin  2.640 sout  3.380  I1/dyn  0.120  I1    0.2117  cost/truthfit  1.85  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t135-g60-s10-p2        dR  -13.7057%  d(b/a) -0.5076  dtheta  0.206  cerr  34.520  sin  2.777 sout  2.309  I1/dyn  0.061  I1    0.1038  cost/truthfit  1.87  noise 0.1 gap 60
+     noisy-384x512-r120-e0-tNA-g60-s10-p2         dR  -13.4340%  d(b/a) -0.1640  dtheta  1.322(eps0)  cerr  23.725  sin  2.672 sout  3.441  I1/dyn  0.442  I1    0.7471  cost/truthfit  1.60  noise 0.1 gap 60
+     noisy-512x512-r200-e3-t0-g60-s10-p2          dR  -13.1211%  d(b/a) -0.2379  dtheta  0.376  cerr  24.479  sin  2.685 sout  3.876  I1/dyn  0.120  I1    0.2118  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t112.5-g60-s3-p1       dR  -12.4712%  d(b/a) -0.1043  dtheta  1.412  cerr  22.389  sin  2.755 sout  3.172  I1/dyn  0.572  I1    0.7002  cost/truthfit  1.85  noise 0.03 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s10-p2         dR  -10.4805%  d(b/a) -0.1303  dtheta  0.566(eps0)  cerr  21.797  sin  2.726 sout  3.424  I1/dyn  0.428  I1    0.7523  cost/truthfit  1.59  noise 0.1 gap 60
+     noisy-384x512-r120-e1-t20-g60-s10-p1         dR   -7.8297%  d(b/a) -0.1101  dtheta  0.609  cerr  14.529  sin  2.803 sout  3.351  I1/dyn  0.399  I1    0.6841  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-384x512-r120-e0-tNA-g60-s10-p1         dR   -7.3443%  d(b/a) -0.1140  dtheta  0.364(eps0)  cerr  13.816  sin  2.996 sout  3.379  I1/dyn  0.382  I1    0.6787  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-512x512-r140-e1-t20-g60-s10-p1         dR   -6.5916%  d(b/a) -0.0788  dtheta  1.480  cerr  14.288  sin  2.844 sout  3.349  I1/dyn  0.389  I1    0.7251  cost/truthfit  1.55  noise 0.1 gap 60
+     noisy-512x512-r200-e0-tNA-g60-s3-p2          dR   -6.5820%  d(b/a) -0.0851  dtheta  1.260(eps0)  cerr  19.723  sin  2.671 sout  3.251  I1/dyn  0.582  I1    0.7141  cost/truthfit  1.81  noise 0.03 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s3-p1          dR   -6.1158%  d(b/a) -0.0936  dtheta  0.359(eps0)  cerr  13.004  sin  2.599 sout  3.281  I1/dyn  0.570  I1    0.6842  cost/truthfit  1.77  noise 0.03 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s3-p2          dR   -4.9735%  d(b/a) -0.0841  dtheta  0.907(eps0)  cerr  10.876  sin  2.681 sout  3.159  I1/dyn  0.573  I1    0.6836  cost/truthfit  1.74  noise 0.03 gap 60
+     noisy-384x512-r80-e3-t45-g60-s10-p1          dR   -3.6737%  d(b/a) -0.0051  dtheta  0.083  cerr   0.198  sin  2.226 sout  6.535  I1/dyn  0.218  I1    0.3607  cost/truthfit  1.41  noise 0.1 gap 60
+     noisy-512x512-r80-e1-t179-g60-s10-p2         dR   -3.6315%  d(b/a) +0.0048  dtheta  0.155  cerr   0.194  sin  2.162 sout  6.530  I1/dyn  0.211  I1    0.3659  cost/truthfit  1.40  noise 0.1 gap 60
+     noisy-384x512-r160-e0-tNA-g60-s3-p2          dR   -1.2793%  d(b/a) -0.0033  dtheta  0.777(eps0)  cerr   0.577  sin  3.664 sout 23.897  I1/dyn  0.595  I1     0.726  cost/truthfit  1.50  noise 0.03 gap 60
+  ab: 0
+
+==============================================================================================================
+SET B   (275 plants per variant; head 275, a 275, b 275, ab 275 rows)
+==============================================================================================================
+
+--- 0. Reproduction of step 1 (head, noisy tier) ---
+  head accepted profile fits off by >1% in (a+b)/2: 32   (step 1: A 35, B 32)
+    |dR| > 10%: 20
+    |dR| > 1%: 32
+    |dR| > 0.1%: 32
+
+--- (a) Noisy tier, per variant ---
+  head  noisy 144: accepted profile 125 | conic fallback 19 | threw 0
+        profile: right (<=0.1%) 93, mid (0.1-1%) 0, wrong (>1%) 32
+        wrong: max|dR| 42.81%, max|d(b/a)| 0.4682, max dtheta(eps>0) 1.46 rad, max centre err 40.29 px
+        conic fallbacks: |dR|>1%: 0, max|dR| 0.8416%, max|d(b/a)| 0.004081, max dtheta(eps>0) 0.02888 rad, max centre err 0.1346 px
+        conic fallback reasons: Detector ellipse fitting produced a non-physical conic. 2, residual over cap 17
+  a     noisy 144: accepted profile 144 | conic fallback 0 | threw 0
+        profile: right (<=0.1%) 144, mid (0.1-1%) 0, wrong (>1%) 0
+        wrong: none
+  b     noisy 144: accepted profile 109 | conic fallback 35 | threw 0
+        profile: right (<=0.1%) 93, mid (0.1-1%) 0, wrong (>1%) 16
+        wrong: max|dR| 25.82%, max|d(b/a)| 0.4682, max dtheta(eps>0) 1.372 rad, max centre err 40.29 px
+        conic fallbacks: |dR|>1%: 4, max|dR| 1.222%, max|d(b/a)| 0.01234, max dtheta(eps>0) 0.2148 rad, max centre err 0.7226 px
+        conic fallback reasons: Detector ellipse fitting produced a non-physical conic. 2, residual over cap 17, ring-width floor (b) 16
+  ab    noisy 144: accepted profile 144 | conic fallback 0 | threw 0
+        profile: right (<=0.1%) 144, mid (0.1-1%) 0, wrong (>1%) 0
+        wrong: none
+  head->a status transitions (noisy): conic->profile 19, profile->profile 125
+  head->b status transitions (noisy): conic->conic 19, profile->conic 16, profile->profile 109
+  head->ab status transitions (noisy): conic->profile 19, profile->profile 125
+  errors of what the app applies (every returned noisy fit, profile or conic): median | max
+    head |dR| 0.0127% | 42.8090%   |d(b/a)| 0.00023 | 0.46819   dtheta(eps>0) 0.0076 | 1.4599 rad   centre 0.0277 | 40.2917 px
+    a    |dR| 0.0057% | 0.0990%   |d(b/a)| 0.00019 | 0.00348   dtheta(eps>0) 0.0035 | 0.1540 rad   centre 0.0208 | 0.1594 px
+    b    |dR| 0.0127% | 25.8159%   |d(b/a)| 0.00023 | 0.46819   dtheta(eps>0) 0.0058 | 1.3716 rad   centre 0.0277 | 40.2917 px
+    ab   |dR| 0.0057% | 0.0990%   |d(b/a)| 0.00019 | 0.00348   dtheta(eps>0) 0.0035 | 0.1540 rad   centre 0.0208 | 0.1594 px
+  noisy plants head returned as conic and a returns as profile: 19. Against truth (head conic | a profile): mean|dR| 0.1497% | 0.0025%; max|d(b/a)| 0.00408 | 0.00057; max dtheta(eps>0) 0.0289 | 0.0285 rad; max centre 0.1346 | 0.0459 px
+
+--- (b) P3, candidate a ---
+  P3 wrong count on a (noisy), predicted 0: 0
+  head accepted-profile fits within 0.1% (noisy): 93; not accepted-profile-within-0.1% on a (predicted none): 0
+  registered wording, any status (profile or conic) within 0.1% on head (noisy) = 101; outside 0.1% (or threw) on a = 0
+  noisy profile fits within 0.1% on both head and a (93): max |change in (a+b)/2| 0.01386% of R; max |change in b/a| 3.139e-05; max |change in theta| eps>0 0.001922 rad; max centre change 0.001732 px
+  (tiers not listed above have no head-within-0.1% fit outside 0.1% on a)
+
+--- (c) R2 (rescued = accepted profile within 1%) ---
+  [a] head wrong fits: 32. On a they become:
+      right (profile <=0.1%)      32
+      mid (profile 0.1-1%)         0
+      conic within 1%              0
+      conic >1%                    0
+      threw                        0
+      still wrong (profile >1%)    0
+      rescued (accepted profile within 1%) 32 of 32 = 100.0%
+  right (<=0.1%) head fits turned wrong (>1%) on a: 0; head profile fits within 1% turned wrong: 0
+  R2 refuting observations: rescued<90% -> no; a right fit turned wrong -> no   => R2 NOT refuted
+  for reference, the same table for b and ab:
+  [b] head wrong fits: 32. On b they become:
+      right (profile <=0.1%)       0
+      mid (profile 0.1-1%)         0
+      conic within 1%             12
+      conic >1%                    4
+      threw                        0
+      still wrong (profile >1%)   16
+      rescued (accepted profile within 1%) 0 of 32 = 0.0%
+  [ab] head wrong fits: 32. On ab they become:
+      right (profile <=0.1%)      32
+      mid (profile 0.1-1%)         0
+      conic within 1%              0
+      conic >1%                    0
+      threw                        0
+      still wrong (profile >1%)    0
+      rescued (accepted profile within 1%) 32 of 32 = 100.0%
+
+--- (d) P4, candidate b ---
+  head wrong fits (32): b refuses 16 (pred >= 10): to conic within 1% 12, to conic >1% 4, threw 0; refusals carrying the ring-width reason: 16
+  head wrong fits b leaves accepted as profile: 16 (b leaves them bit-identical to head: yes)
+     noisy-384x512-r120-e0-tNA-g60-s10-p1         dR   -7.1061%  d(b/a) -0.1129  dtheta  1.072(eps0)  cerr  13.564  sin  3.057 sout  3.327  I1/dyn  0.382  I1      0.67  cost/truthfit  1.56  noise 0.1 gap 60
+     noisy-384x512-r120-e0-tNA-g60-s10-p2         dR   -7.2624%  d(b/a) -0.1116  dtheta  1.244(eps0)  cerr  13.516  sin  2.846 sout  3.396  I1/dyn  0.385  I1    0.6884  cost/truthfit  1.55  noise 0.1 gap 60
+     noisy-384x512-r120-e1-t20-g60-s10-p1         dR   -7.8804%  d(b/a) -0.1102  dtheta  0.637  cerr  14.544  sin  2.763 sout  3.429  I1/dyn  0.400  I1    0.6743  cost/truthfit  1.55  noise 0.1 gap 60
+     noisy-384x512-r120-e1-t45-g60-s10-p2         dR   -9.0913%  d(b/a) -0.1156  dtheta  0.912  cerr  16.644  sin  2.788 sout  3.408  I1/dyn  0.416  I1    0.7047  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t112.5-g60-s10-p1      dR   -7.2406%  d(b/a) -0.1011  dtheta  0.407  cerr  13.602  sin  2.969 sout  3.379  I1/dyn  0.372  I1    0.6547  cost/truthfit  1.56  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t135-g60-s10-p2        dR  -14.7439%  d(b/a) -0.1707  dtheta  0.212  cerr  25.834  sin  2.691 sout  3.366  I1/dyn  0.410  I1    0.7295  cost/truthfit  1.64  noise 0.1 gap 60
+     noisy-384x512-r160-e3-t179-g60-s10-p1        dR   -7.3560%  d(b/a) -0.0684  dtheta  0.820  cerr  15.722  sin  2.833 sout  6.233  I1/dyn  0.147  I1    0.2566  cost/truthfit  1.68  noise 0.1 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s10-p2         dR  -14.0735%  d(b/a) -0.3078  dtheta  0.992(eps0)  cerr  16.103  sin  3.105 sout  2.454  I1/dyn  0.079  I1    0.1381  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-512x512-r140-e1-t45-g60-s10-p2         dR   -8.7800%  d(b/a) -0.0982  dtheta  1.372  cerr  18.522  sin  2.744 sout  3.418  I1/dyn  0.437  I1    0.7436  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-512x512-r140-e1-t45-g60-s3-p2          dR   -5.6714%  d(b/a) -0.0853  dtheta  0.455  cerr  12.240  sin  2.660 sout  3.184  I1/dyn  0.571  I1    0.6861  cost/truthfit  1.77  noise 0.03 gap 60
+     noisy-512x512-r140-e3-t112.5-g60-s10-p1      dR  -16.5177%  d(b/a) -0.4682  dtheta  0.019  cerr  30.055  sin  2.562 sout  2.131  I1/dyn  0.056  I1   0.09797  cost/truthfit  1.88  noise 0.1 gap 60
+     noisy-512x512-r140-e3-t135-g60-s10-p2        dR  -15.6867%  d(b/a) -0.3073  dtheta  0.373  cerr  18.262  sin  2.484 sout  3.087  I1/dyn  0.130  I1    0.2187  cost/truthfit  1.85  noise 0.1 gap 60
+     noisy-512x512-r200-e3-t160-g0-s10-p2         dR  -25.8159%  d(b/a) -0.1633  dtheta  0.026  cerr  40.292  sin  2.580 sout  3.829  I1/dyn  0.130  I1    0.2215  cost/truthfit  3.25  noise 0.1 gap 0
+     noisy-512x512-r200-e3-t179-g60-s10-p1        dR   -4.6900%  d(b/a) -0.0604  dtheta  0.353  cerr  14.610  sin  2.871 sout  3.297  I1/dyn  0.389  I1    0.6842  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-512x512-r80-e1-t160-g60-s10-p1         dR   -3.6609%  d(b/a) +0.0030  dtheta  0.509  cerr   0.345  sin  2.240 sout  6.368  I1/dyn  0.208  I1    0.3624  cost/truthfit  1.40  noise 0.1 gap 60
+     noisy-512x512-r80-e1-t179-g60-s10-p2         dR   -3.4810%  d(b/a) +0.0034  dtheta  0.135  cerr   0.135  sin  2.261 sout  6.222  I1/dyn  0.214  I1    0.3732  cost/truthfit  1.38  noise 0.1 gap 60
+  head accepted-profile fits within 0.1% (noisy): 93; b refuses (pred 0): 0
+  head mid fits (0.1-1%) that b refuses: 0
+  integrity: b refusals (all tiers, head profile -> b not profile) = 16; head profile fits with min(sin,sout) <= 0.30 = 16; sets equal: yes
+  b changes any plant that was conic/THREW on head: 0
+  b noisy wrong count after refusal: 16 (of head 32)
+
+--- (e) P6, candidate ab ---
+  ab wrong count (noisy), pred 0: 0
+  head accepted-profile fits within 0.1% (noisy): 93; refused or outside 0.1% on ab (pred 0): 0
+  registered wording, any status within 0.1% on head (noisy), outside 0.1% (or threw) on ab: 0
+  (the R2-style table for ab is in (c))
+
+--- (f) Clean tier (84 plants), each variant against head ---
+  a   model choice changed (profile<->conic/threw): 25 (pred none); profile fits kept both ways: 59; head profile 59, a profile 84
+       CHANGED clean-384x512-r120-e0-tNA-g60-s0             head conic +0.1143% -> a profile -0.0277%
+       CHANGED clean-384x512-r120-e1-t0-g60-s0              head conic +0.1151% -> a profile -0.0269%
+       CHANGED clean-384x512-r120-e1-t20-g60-s0             head conic +0.1152% -> a profile -0.0245%
+       CHANGED clean-384x512-r120-e1-t45-g60-s0             head conic +0.1139% -> a profile -0.0298%
+       CHANGED clean-384x512-r160-e0-tNA-g60-s0             head conic +0.0649% -> a profile -0.0133%
+       CHANGED clean-384x512-r160-e1-t0-g60-s0              head conic +0.0642% -> a profile -0.0161%
+       CHANGED clean-384x512-r160-e1-t20-g60-s0             head conic +0.0645% -> a profile -0.0153%
+       CHANGED clean-384x512-r160-e1-t45-g60-s0             head conic +0.0646% -> a profile -0.0150%
+       CHANGED clean-384x512-r160-e3-t135-g60-s0            head conic +0.0638% -> a profile -0.0144%
+       CHANGED clean-384x512-r160-e3-t160-g60-s0            head conic +0.0643% -> a profile -0.0146%
+       CHANGED clean-384x512-r160-e3-t179-g60-s0            head conic +0.0649% -> a profile -0.0147%
+       CHANGED clean-512x512-r140-e0-tNA-g60-s0             head conic +0.0841% -> a profile -0.0202%
+       CHANGED clean-512x512-r140-e1-t0-g60-s0              head conic +0.0844% -> a profile -0.0188%
+       CHANGED clean-512x512-r140-e1-t20-g60-s0             head conic +0.0840% -> a profile -0.0207%
+       CHANGED clean-512x512-r140-e1-t45-g60-s0             head conic +0.0828% -> a profile -0.0238%
+       CHANGED clean-512x512-r140-e3-t112.5-g0-s0           head conic +0.0803% -> a profile +0.0000%
+       CHANGED clean-512x512-r140-e3-t135-g60-s0            head conic +0.0834% -> a profile -0.0257%
+       CHANGED clean-512x512-r140-e3-t160-g60-s0            head conic +0.0848% -> a profile -0.0219%
+       CHANGED clean-512x512-r140-e3-t179-g60-s0            head conic +0.0847% -> a profile -0.0183%
+       CHANGED clean-512x512-r200-e1-t0-g60-s0              head conic +0.0415% -> a profile -0.0087%
+       CHANGED clean-512x512-r200-e1-t20-g60-s0             head conic +0.0414% -> a profile -0.0099%
+       CHANGED clean-512x512-r200-e1-t45-g60-s0             head conic +0.0416% -> a profile -0.0095%
+       CHANGED clean-512x512-r200-e3-t135-g60-s0            head conic +0.0414% -> a profile -0.0082%
+       CHANGED clean-512x512-r200-e3-t160-g60-s0            head conic +0.0411% -> a profile -0.0104%
+       CHANGED clean-512x512-r200-e3-t179-g60-s0            head conic +0.0411% -> a profile -0.0116%
+       max |change in (a+b)/2| = 0.13054% of R (pred <= 0.01%); max |d theta| eps>0 = 0.128 rad, all = 0.828 rad (pred <= 1e-3, eps>0); max |d(b/a)| = 0.00284; max centre change = 0.1103 px
+       plants over 0.01% of R: 10; plants over 1e-3 rad (eps>0): 7
+         dR  clean-384x512-r80-e1-t20-g60-s0              head +0.0573% a -0.0688%
+         dR  clean-384x512-r80-e1-t45-g60-s0              head +0.0663% a -0.0643%
+         dR  clean-384x512-r80-e3-t112.5-g0-s0            head -0.0191% a -0.0000%
+         dR  clean-384x512-r80-e3-t160-g60-s0             head +0.0501% a -0.0526%
+         dR  clean-384x512-r80-e3-t179-g60-s0             head +0.0585% a -0.0542%
+         dR  clean-512x512-r200-e0-tNA-g60-s0             head -0.0229% a -0.0095%
+         dR  clean-512x512-r80-e1-t20-g60-s0              head +0.0536% a -0.0570%
+         dR  clean-512x512-r80-e3-t112.5-g0-s0            head -0.0192% a -0.0000%
+         dR  clean-512x512-r80-e3-t135-g60-s0             head +0.0429% a -0.0534%
+         dR  clean-512x512-r80-e3-t160-g60-s0             head +0.0673% a -0.0539%
+         dth clean-384x512-r80-e1-t20-g60-s0              head 0.36307 a 0.42162
+         dth clean-384x512-r80-e1-t45-g60-s0              head 0.81253 a 0.94069
+         dth clean-384x512-r80-e3-t160-g60-s0             head 2.78703 a 2.75613
+         dth clean-384x512-r80-e3-t179-g60-s0             head 3.12550 a 3.13470
+         dth clean-512x512-r80-e1-t20-g60-s0              head 0.36596 a 0.44438
+         dth clean-512x512-r80-e3-t135-g60-s0             head 2.34873 a 2.30199
+         dth clean-512x512-r80-e3-t160-g60-s0             head 2.78838 a 2.76596
+       clean accepted profile wrong (>1%) on a: 0 (head: 0)
+       of the 25 changed: conic->profile 25, profile->conic/threw 0
+       the 25 conic->profile plants against truth (head conic | a profile): mean|dR| 0.0731% | 0.0168%; max|dR| 0.1152% | 0.0298%; max|d(b/a)| 0.0001701 | 0.001595; max dtheta(eps>0) 0.00976 | 0.0782 rad; max centre err 0.0254 | 0.0864 px; variant closer in |dR| for 25 of 25
+       head residual over cap on those (head fallback text): Detector ellipse fit residual is too large (0.235)., Detector ellipse fit residual is too large (0.238)., Detector ellipse fit residual is too large (0.241)., Detector ellipse fit residual is too large (0.245)., Detector ellipse fit residual is too large (0.249)., Detector ellipse fit residual is to
+       kept-both-ways plants that moved more than the prediction allows: 10. Against truth (head | a), and fit cost on the pixels (variant/head, < 1 = variant found the lower cost):
+         clean-384x512-r80-e1-t45-g60-s0              |dR| 0.0663% | 0.0643%   dtheta 0.027 | 0.155   |d(b/a)| 0.0002 | 0.0014   cerr 0.025 | 0.129   cost x0.900198
+         clean-384x512-r80-e1-t20-g60-s0              |dR| 0.0573% | 0.0688%   dtheta 0.014 | 0.073   |d(b/a)| 0.0005 | 0.0033   cerr 0.024 | 0.134   cost x0.900608
+         clean-512x512-r80-e3-t160-g60-s0             |dR| 0.0673% | 0.0539%   dtheta 0.004 | 0.027   |d(b/a)| 0.0004 | 0.0029   cerr 0.022 | 0.118   cost x0.898603
+         clean-384x512-r80-e3-t179-g60-s0             |dR| 0.0585% | 0.0542%   dtheta 0.001 | 0.011   |d(b/a)| 0.0004 | 0.0033   cerr 0.021 | 0.122   cost x0.899718
+         clean-512x512-r80-e1-t20-g60-s0              |dR| 0.0536% | 0.0570%   dtheta 0.017 | 0.095   |d(b/a)| 0.0004 | 0.0027   cerr 0.022 | 0.125   cost x0.898835
+         clean-384x512-r80-e3-t160-g60-s0             |dR| 0.0501% | 0.0526%   dtheta 0.006 | 0.036   |d(b/a)| 0.0003 | 0.0025   cerr 0.020 | 0.120   cost x0.898855
+         clean-512x512-r80-e3-t135-g60-s0             |dR| 0.0429% | 0.0534%   dtheta 0.007 | 0.054   |d(b/a)| 0.0001 | 0.0010   cerr 0.020 | 0.122   cost x0.896081
+         clean-512x512-r80-e3-t112.5-g0-s0            |dR| 0.0192% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-384x512-r80-e3-t112.5-g0-s0            |dR| 0.0191% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-512x512-r200-e0-tNA-g60-s0             |dR| 0.0229% | 0.0095%   dtheta 0.755 | 0.749(eps0)   |d(b/a)| 0.0001 | 0.0006   cerr 0.014 | 0.050   cost x0.909796
+       movers: variant closer to truth in |dR| for 6 of 10; in dtheta (eps>0) for 2 of 9; lower or equal fit cost for 10 of 10; every mover is gap-0/60
+  b   model choice changed (profile<->conic/threw): 0 (pred none); profile fits kept both ways: 59; head profile 59, b profile 59
+       max |change in (a+b)/2| = 0.00000% of R (pred <= 0.01%); max |d theta| eps>0 = 0 rad, all = 0 rad (pred <= 1e-3, eps>0); max |d(b/a)| = 0; max centre change = 0 px
+       plants over 0.01% of R: 0; plants over 1e-3 rad (eps>0): 0
+       clean accepted profile wrong (>1%) on b: 0 (head: 0)
+  ab  model choice changed (profile<->conic/threw): 25 (pred none); profile fits kept both ways: 59; head profile 59, ab profile 84
+       CHANGED clean-384x512-r120-e0-tNA-g60-s0             head conic +0.1143% -> ab profile -0.0277%
+       CHANGED clean-384x512-r120-e1-t0-g60-s0              head conic +0.1151% -> ab profile -0.0269%
+       CHANGED clean-384x512-r120-e1-t20-g60-s0             head conic +0.1152% -> ab profile -0.0245%
+       CHANGED clean-384x512-r120-e1-t45-g60-s0             head conic +0.1139% -> ab profile -0.0298%
+       CHANGED clean-384x512-r160-e0-tNA-g60-s0             head conic +0.0649% -> ab profile -0.0133%
+       CHANGED clean-384x512-r160-e1-t0-g60-s0              head conic +0.0642% -> ab profile -0.0161%
+       CHANGED clean-384x512-r160-e1-t20-g60-s0             head conic +0.0645% -> ab profile -0.0153%
+       CHANGED clean-384x512-r160-e1-t45-g60-s0             head conic +0.0646% -> ab profile -0.0150%
+       CHANGED clean-384x512-r160-e3-t135-g60-s0            head conic +0.0638% -> ab profile -0.0144%
+       CHANGED clean-384x512-r160-e3-t160-g60-s0            head conic +0.0643% -> ab profile -0.0146%
+       CHANGED clean-384x512-r160-e3-t179-g60-s0            head conic +0.0649% -> ab profile -0.0147%
+       CHANGED clean-512x512-r140-e0-tNA-g60-s0             head conic +0.0841% -> ab profile -0.0202%
+       CHANGED clean-512x512-r140-e1-t0-g60-s0              head conic +0.0844% -> ab profile -0.0188%
+       CHANGED clean-512x512-r140-e1-t20-g60-s0             head conic +0.0840% -> ab profile -0.0207%
+       CHANGED clean-512x512-r140-e1-t45-g60-s0             head conic +0.0828% -> ab profile -0.0238%
+       CHANGED clean-512x512-r140-e3-t112.5-g0-s0           head conic +0.0803% -> ab profile +0.0000%
+       CHANGED clean-512x512-r140-e3-t135-g60-s0            head conic +0.0834% -> ab profile -0.0257%
+       CHANGED clean-512x512-r140-e3-t160-g60-s0            head conic +0.0848% -> ab profile -0.0219%
+       CHANGED clean-512x512-r140-e3-t179-g60-s0            head conic +0.0847% -> ab profile -0.0183%
+       CHANGED clean-512x512-r200-e1-t0-g60-s0              head conic +0.0415% -> ab profile -0.0087%
+       CHANGED clean-512x512-r200-e1-t20-g60-s0             head conic +0.0414% -> ab profile -0.0099%
+       CHANGED clean-512x512-r200-e1-t45-g60-s0             head conic +0.0416% -> ab profile -0.0095%
+       CHANGED clean-512x512-r200-e3-t135-g60-s0            head conic +0.0414% -> ab profile -0.0082%
+       CHANGED clean-512x512-r200-e3-t160-g60-s0            head conic +0.0411% -> ab profile -0.0104%
+       CHANGED clean-512x512-r200-e3-t179-g60-s0            head conic +0.0411% -> ab profile -0.0116%
+       max |change in (a+b)/2| = 0.13054% of R (pred <= 0.01%); max |d theta| eps>0 = 0.128 rad, all = 0.828 rad (pred <= 1e-3, eps>0); max |d(b/a)| = 0.00284; max centre change = 0.1103 px
+       plants over 0.01% of R: 10; plants over 1e-3 rad (eps>0): 7
+         dR  clean-384x512-r80-e1-t20-g60-s0              head +0.0573% ab -0.0688%
+         dR  clean-384x512-r80-e1-t45-g60-s0              head +0.0663% ab -0.0643%
+         dR  clean-384x512-r80-e3-t112.5-g0-s0            head -0.0191% ab -0.0000%
+         dR  clean-384x512-r80-e3-t160-g60-s0             head +0.0501% ab -0.0526%
+         dR  clean-384x512-r80-e3-t179-g60-s0             head +0.0585% ab -0.0542%
+         dR  clean-512x512-r200-e0-tNA-g60-s0             head -0.0229% ab -0.0095%
+         dR  clean-512x512-r80-e1-t20-g60-s0              head +0.0536% ab -0.0570%
+         dR  clean-512x512-r80-e3-t112.5-g0-s0            head -0.0192% ab -0.0000%
+         dR  clean-512x512-r80-e3-t135-g60-s0             head +0.0429% ab -0.0534%
+         dR  clean-512x512-r80-e3-t160-g60-s0             head +0.0673% ab -0.0539%
+         dth clean-384x512-r80-e1-t20-g60-s0              head 0.36307 ab 0.42162
+         dth clean-384x512-r80-e1-t45-g60-s0              head 0.81253 ab 0.94069
+         dth clean-384x512-r80-e3-t160-g60-s0             head 2.78703 ab 2.75613
+         dth clean-384x512-r80-e3-t179-g60-s0             head 3.12550 ab 3.13470
+         dth clean-512x512-r80-e1-t20-g60-s0              head 0.36596 ab 0.44438
+         dth clean-512x512-r80-e3-t135-g60-s0             head 2.34873 ab 2.30199
+         dth clean-512x512-r80-e3-t160-g60-s0             head 2.78838 ab 2.76596
+       clean accepted profile wrong (>1%) on ab: 0 (head: 0)
+       of the 25 changed: conic->profile 25, profile->conic/threw 0
+       the 25 conic->profile plants against truth (head conic | ab profile): mean|dR| 0.0731% | 0.0168%; max|dR| 0.1152% | 0.0298%; max|d(b/a)| 0.0001701 | 0.001595; max dtheta(eps>0) 0.00976 | 0.0782 rad; max centre err 0.0254 | 0.0864 px; variant closer in |dR| for 25 of 25
+       head residual over cap on those (head fallback text): Detector ellipse fit residual is too large (0.235)., Detector ellipse fit residual is too large (0.238)., Detector ellipse fit residual is too large (0.241)., Detector ellipse fit residual is too large (0.245)., Detector ellipse fit residual is too large (0.249)., Detector ellipse fit residual is to
+       kept-both-ways plants that moved more than the prediction allows: 10. Against truth (head | ab), and fit cost on the pixels (variant/head, < 1 = variant found the lower cost):
+         clean-384x512-r80-e1-t45-g60-s0              |dR| 0.0663% | 0.0643%   dtheta 0.027 | 0.155   |d(b/a)| 0.0002 | 0.0014   cerr 0.025 | 0.129   cost x0.900198
+         clean-384x512-r80-e1-t20-g60-s0              |dR| 0.0573% | 0.0688%   dtheta 0.014 | 0.073   |d(b/a)| 0.0005 | 0.0033   cerr 0.024 | 0.134   cost x0.900608
+         clean-512x512-r80-e3-t160-g60-s0             |dR| 0.0673% | 0.0539%   dtheta 0.004 | 0.027   |d(b/a)| 0.0004 | 0.0029   cerr 0.022 | 0.118   cost x0.898603
+         clean-384x512-r80-e3-t179-g60-s0             |dR| 0.0585% | 0.0542%   dtheta 0.001 | 0.011   |d(b/a)| 0.0004 | 0.0033   cerr 0.021 | 0.122   cost x0.899718
+         clean-512x512-r80-e1-t20-g60-s0              |dR| 0.0536% | 0.0570%   dtheta 0.017 | 0.095   |d(b/a)| 0.0004 | 0.0027   cerr 0.022 | 0.125   cost x0.898835
+         clean-384x512-r80-e3-t160-g60-s0             |dR| 0.0501% | 0.0526%   dtheta 0.006 | 0.036   |d(b/a)| 0.0003 | 0.0025   cerr 0.020 | 0.120   cost x0.898855
+         clean-512x512-r80-e3-t135-g60-s0             |dR| 0.0429% | 0.0534%   dtheta 0.007 | 0.054   |d(b/a)| 0.0001 | 0.0010   cerr 0.020 | 0.122   cost x0.896081
+         clean-512x512-r80-e3-t112.5-g0-s0            |dR| 0.0192% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-384x512-r80-e3-t112.5-g0-s0            |dR| 0.0191% | 0.0000%   dtheta 0.000 | 0.000   |d(b/a)| 0.0001 | 0.0000   cerr 0.003 | 0.000   cost x0.000000
+         clean-512x512-r200-e0-tNA-g60-s0             |dR| 0.0229% | 0.0095%   dtheta 0.755 | 0.749(eps0)   |d(b/a)| 0.0001 | 0.0006   cerr 0.014 | 0.050   cost x0.909796
+       movers: variant closer to truth in |dR| for 6 of 10; in dtheta (eps>0) for 2 of 9; lower or equal fit cost for 10 of 10; every mover is gap-0/60
+
+--- (g) Printed and refusal tiers: plants whose status differs, or dR by > 0.01% of R, between head and a variant ---
+  a: 7 of 47 plants differ
+     annulus-20     annulus-20-512x512-r120-e1-t20-g0-s0         head conic +0.1093%         a   profile -0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t112.5-g0-s0      head profile +0.1419%       a   profile +0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t20-g0-s0         head profile +0.0177%       a   profile +0.0000%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t112.5-g0-s0 head profile -0.2769%       a   profile +0.0497%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t20-g0-s0    head profile -0.2587%       a   profile +0.0238%      
+     radius-40      radius-40-256x256-r40-e1-t112.5-g0-s0        head profile -0.0446%       a   profile +0.0000%      
+     radius-40      radius-40-256x256-r40-e1-t20-g0-s0           head profile -0.0505%       a   profile +0.0000%      
+  b: 0 of 47 plants differ
+  ab: 7 of 47 plants differ
+     annulus-20     annulus-20-512x512-r120-e1-t20-g0-s0         head conic +0.1093%         ab  profile -0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t112.5-g0-s0      head profile +0.1419%       ab  profile +0.0000%      
+     annulus-40     annulus-40-512x512-r120-e1-t20-g0-s0         head profile +0.0177%       ab  profile +0.0000%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t112.5-g0-s0 head profile -0.2769%       ab  profile +0.0497%      
+     neighbour-1.155 neighbour-1.155-512x512-r120-e1-t20-g0-s0    head profile -0.2587%       ab  profile +0.0238%      
+     radius-40      radius-40-256x256-r40-e1-t112.5-g0-s0        head profile -0.0446%       ab  profile +0.0000%      
+     radius-40      radius-40-256x256-r40-e1-t20-g0-s0           head profile -0.0505%       ab  profile +0.0000%      
+
+--- integrity ---
+  refusal tier on head: insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal tier on a   : insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal tier on b   : insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal tier on ab  : insufficientAngularCoverage(13), insufficientAngularCoverage(7), profile, conic, profile, insufficientSignal, insufficientAngularCoverage(25), insufficientAngularCoverage(29), profile
+  refusal-tier plants whose result differs between head and any variant: 0 of 9
+  plants (all tiers) where ab differs from a in status, dR or dtheta: 0 of 275
+
+--- (h) Wrong fits that remain (noisy), with ring sigmas, I1 and centre error ---
+  a: 0
+  b: 16
+     noisy-512x512-r200-e3-t160-g0-s10-p2         dR  -25.8159%  d(b/a) -0.1633  dtheta  0.026  cerr  40.292  sin  2.580 sout  3.829  I1/dyn  0.130  I1    0.2215  cost/truthfit  3.25  noise 0.1 gap 0
+     noisy-512x512-r140-e3-t112.5-g60-s10-p1      dR  -16.5177%  d(b/a) -0.4682  dtheta  0.019  cerr  30.055  sin  2.562 sout  2.131  I1/dyn  0.056  I1   0.09797  cost/truthfit  1.88  noise 0.1 gap 60
+     noisy-512x512-r140-e3-t135-g60-s10-p2        dR  -15.6867%  d(b/a) -0.3073  dtheta  0.373  cerr  18.262  sin  2.484 sout  3.087  I1/dyn  0.130  I1    0.2187  cost/truthfit  1.85  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t135-g60-s10-p2        dR  -14.7439%  d(b/a) -0.1707  dtheta  0.212  cerr  25.834  sin  2.691 sout  3.366  I1/dyn  0.410  I1    0.7295  cost/truthfit  1.64  noise 0.1 gap 60
+     noisy-512x512-r140-e0-tNA-g60-s10-p2         dR  -14.0735%  d(b/a) -0.3078  dtheta  0.992(eps0)  cerr  16.103  sin  3.105 sout  2.454  I1/dyn  0.079  I1    0.1381  cost/truthfit  1.84  noise 0.1 gap 60
+     noisy-384x512-r120-e1-t45-g60-s10-p2         dR   -9.0913%  d(b/a) -0.1156  dtheta  0.912  cerr  16.644  sin  2.788 sout  3.408  I1/dyn  0.416  I1    0.7047  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-512x512-r140-e1-t45-g60-s10-p2         dR   -8.7800%  d(b/a) -0.0982  dtheta  1.372  cerr  18.522  sin  2.744 sout  3.418  I1/dyn  0.437  I1    0.7436  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-384x512-r120-e1-t20-g60-s10-p1         dR   -7.8804%  d(b/a) -0.1102  dtheta  0.637  cerr  14.544  sin  2.763 sout  3.429  I1/dyn  0.400  I1    0.6743  cost/truthfit  1.55  noise 0.1 gap 60
+     noisy-384x512-r160-e3-t179-g60-s10-p1        dR   -7.3560%  d(b/a) -0.0684  dtheta  0.820  cerr  15.722  sin  2.833 sout  6.233  I1/dyn  0.147  I1    0.2566  cost/truthfit  1.68  noise 0.1 gap 60
+     noisy-384x512-r120-e0-tNA-g60-s10-p2         dR   -7.2624%  d(b/a) -0.1116  dtheta  1.244(eps0)  cerr  13.516  sin  2.846 sout  3.396  I1/dyn  0.385  I1    0.6884  cost/truthfit  1.55  noise 0.1 gap 60
+     noisy-384x512-r120-e3-t112.5-g60-s10-p1      dR   -7.2406%  d(b/a) -0.1011  dtheta  0.407  cerr  13.602  sin  2.969 sout  3.379  I1/dyn  0.372  I1    0.6547  cost/truthfit  1.56  noise 0.1 gap 60
+     noisy-384x512-r120-e0-tNA-g60-s10-p1         dR   -7.1061%  d(b/a) -0.1129  dtheta  1.072(eps0)  cerr  13.564  sin  3.057 sout  3.327  I1/dyn  0.382  I1      0.67  cost/truthfit  1.56  noise 0.1 gap 60
+     noisy-512x512-r140-e1-t45-g60-s3-p2          dR   -5.6714%  d(b/a) -0.0853  dtheta  0.455  cerr  12.240  sin  2.660 sout  3.184  I1/dyn  0.571  I1    0.6861  cost/truthfit  1.77  noise 0.03 gap 60
+     noisy-512x512-r200-e3-t179-g60-s10-p1        dR   -4.6900%  d(b/a) -0.0604  dtheta  0.353  cerr  14.610  sin  2.871 sout  3.297  I1/dyn  0.389  I1    0.6842  cost/truthfit  1.57  noise 0.1 gap 60
+     noisy-512x512-r80-e1-t160-g60-s10-p1         dR   -3.6609%  d(b/a) +0.0030  dtheta  0.509  cerr   0.345  sin  2.240 sout  6.368  I1/dyn  0.208  I1    0.3624  cost/truthfit  1.40  noise 0.1 gap 60
+     noisy-512x512-r80-e1-t179-g60-s10-p2         dR   -3.4810%  d(b/a) +0.0034  dtheta  0.135  cerr   0.135  sin  2.261 sout  6.222  I1/dyn  0.214  I1    0.3732  cost/truthfit  1.38  noise 0.1 gap 60
+  ab: 0
+
+==============================================================================================================
+CROSS-SET SUMMARY (noisy tier)
+==============================================================================================================
+  set A: head wrong 35 | a: wrong 0, rescued 35/35, head-wrong not accepted 0, head-right lost 0/92 | b: wrong 20, rescued 0/35, head-wrong not accepted 15, head-right lost 0/92 | ab: wrong 0, rescued 35/35, head-wrong not accepted 0, head-right lost 0/92
+  set B: head wrong 32 | a: wrong 0, rescued 32/32, head-wrong not accepted 0, head-right lost 0/93 | b: wrong 16, rescued 0/32, head-wrong not accepted 16, head-right lost 0/93 | ab: wrong 0, rescued 32/32, head-wrong not accepted 0, head-right lost 0/93
