@@ -1,0 +1,29 @@
+cb rows byte-identical to committed: 1944 of 2009
+cb {'n': 2009, 'wrong': 79, 'right': 1814, 'lost': 11, 'ba': 59, 'throw': 19}
+cbg {'n': 2009, 'wrong': 68, 'right': 1815, 'lost': 11, 'ba': 52, 'throw': 20}
+DIFF P P-a10-R140-e1-g60-exp20-102 cb: profile 0.28094409369429907 -0.50214166019789075 | cbg: conic -0.0030919974410892337 0.0073414778496746491  The ring profile fit left the annulus: its mean ra | class W M head W
+DIFF P P-a10-R140-e1-g60-r28-103 cb: profile 0.26481675181434361 -0.52087534030117044 | cbg: profile -0.08814948190035865 -0.16300004912231525   | class W W head W
+DIFF P P-a20-R140-e1-g60-exp20-107 cb: profile 0.20332511762100336 -0.42231808190362374 | cbg: profile -0.074934903245905682 -0.11602204143026196   | class W W head W
+DIFF P P-a10-R140-e3-g60-r28-143 cb: profile 0.28229659487032333 -0.4939591267840755 | cbg: profile -0.078366246736454981 -0.12503037195229849   | class W W head W
+DIFF P P-a10-R200-e1-g60-exp20-182 cb: profile 0.27706748653819346 -0.4491080761223506 | cbg: conic -0.0068976980177845038 0.0089296250801503829  The ring profile fit left the annulus: its mean ra | class W M head W
+DIFF P P-a10-R200-e1-g60-r28-183 cb: profile 0.27482771218675905 -0.45181073045006082 | cbg: profile -0.092403635137579654 -0.16863776557119992   | class W W head W
+DIFF P P-a10-R200-e3-g60-exp20-222 cb: profile 0.2577269919061469 -0.46656635169309457 | cbg: conic -0.0081599572188091329 0.025598977433844872  The ring profile fit left the annulus: its mean ra | class W M head W
+DIFF P P-a10-R200-e3-g60-r28-223 cb: profile 0.21076716887545022 -0.39333409152319221 | cbg: profile -0.098345624088241879 -0.17519128824768626   | class W W head W
+DIFF P P-a20-R200-e3-g60-exp20-227 cb: profile 0.2725428291081291 -0.4488458334901051 | cbg: profile -0.060289494096398943 -0.068133226719075513   | class W W head W
+DIFF P P-a10-R80-e1-g60-exp20-262 cb: profile 0.33464556395052059 -0.57212076950955515 | cbg: THREW None None ringOutsideAnnulus  | class W T head W
+DIFF P P-a10-R140-e1-g60-exp20-342 cb: profile 0.28070417538767867 -0.50242035167976073 | cbg: conic -0.0022129373523962492 0.0070439726048732165  The ring profile fit left the annulus: its mean ra | class W M head W
+DIFF P P-a10-R140-e1-g60-r28-343 cb: profile 0.2883782795763985 -0.49350603622586697 | cbg: profile -0.080445001763380986 -0.13022375991480151   | class W W head W
+DIFF P P-a10-R140-e3-g60-exp20-382 cb: profile 0.2938169901751011 -0.48069024595077137 | cbg: conic -0.0027004739623598395 0.026537568324818017  The ring profile fit left the annulus: its mean ra | class W M head W
+DIFF P P-a10-R140-e3-g60-r28-383 cb: profile 0.27954339919710813 -0.49713018336088527 | cbg: profile -0.080401203898809559 -0.12458497101957888   | class W W head W
+DIFF P P-a20-R140-e3-g60-exp20-387 cb: profile 0.20557806916438048 -0.41925830066783054 | cbg: profile -0.080938769975732905 -0.10554619027963241   | class W W head W
+DIFF P P-a10-R200-e1-g60-exp20-422 cb: profile 0.27336651948321244 -0.45357389859301656 | cbg: conic -0.0069379367796476021 0.0087155322973534455  The ring profile fit left the annulus: its mean ra | class W M head W
+DIFF P P-a10-R200-e1-g60-r28-423 cb: profile 0.19996120022773378 -0.40263085311764957 | cbg: profile -0.0060402863501840542 -0.017467600418883289   | class W M head M
+DIFF P P-a20-R200-e1-g60-exp20-427 cb: profile 0.25803118381710366 -0.47207849093213028 | cbg: profile -0.055398522925047988 -0.083535187455382021   | class W W head W
+DIFF P P-a20-R200-e1-g60-r28-428 cb: profile 0.27628703371430152 -0.45004982018720008 | cbg: conic 0.0014311538934432821 0.0048869061962691918  The ring profile fit lost the ring: its fitted wid | class W M head W
+DIFF P P-a10-R200-e3-g60-exp20-462 cb: profile 0.26251955246487246 -0.46083419795368497 | cbg: conic -0.0084761864744468118 0.025846017564396195  The ring profile fit left the annulus: its mean ra | class W M head W
+DIFF P P-a10-R200-e3-g60-r28-463 cb: profile 0.25206343679750742 -0.45366284920462541 | cbg: profile -0.10461434233280098 -0.18147356049070884   | class W W head W
+DIFF N N-g1-s0.25-R60-e3-m8-106 cb: profile 0.28569117406509958 -0.18162872082745085 | cbg: conic 0.00020018826109313714 0.00041575315653452627  The ring profile fit left the annulus: its mean ra | class W R head W
+DIFF T T-neigh-f1.155-A1.5-e1-n3-t20-016 cb: profile 0.74156838031759476 -0.00027269221361969631 | cbg: conic 0.11044253170814966 0.0052807563317910367  The ring profile fit left the annulus: its mean ra | class W W head W
+DIFF T T-neigh-f1.155-A1.5-e1-n3-t112.5-017 cb: profile 0.69701568992529506 -0.0035406466347766008 | cbg: conic 0.11038050713910397 0.006467731362034268  The ring profile fit left the annulus: its mean ra | class W W head W
+DIFF T T-neigh-f1.155-A1.5-e3-n3-t20-020 cb: profile 0.7619851530898587 0.017634822777729986 | cbg: conic 0.1151636439514756 0.014790750879776993  The ring profile fit left the annulus: its mean ra | class W W head W
+DIFF T T-neigh-f1.155-A1.5-e3-n3-t112.5-021 cb: profile 0.75930514040033814 0.014610263634031839 | cbg: conic 0.1147203642794854 0.016720380449246619  The ring profile fit left the annulus: its mean ra | class W W head W

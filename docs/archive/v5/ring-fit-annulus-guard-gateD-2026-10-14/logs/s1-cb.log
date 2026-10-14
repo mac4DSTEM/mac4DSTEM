@@ -1,0 +1,3 @@
+FIT input=real/s1.f32 rows=64 cols=64 centreRow=31.7953815 centreCol=31.80266 annuli=2 allFinite=true
+ROW|tag=s1-R1|inner=16.5|outer=25|seed=THREW:insufficientAngularCoverage(10)|status=THREW|err=insufficientAngularCoverage(10)
+ROW|tag=s1-R1w|inner=14.5|outer=27|seed=THREW:insufficientAngularCoverage(11)|status=THREW|err=insufficientAngularCoverage(11)

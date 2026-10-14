@@ -1,0 +1,31 @@
+--- copies/cb/mac4DSTEM/mac4DSTEM/Core/Analysis/EllipseCalibration.swift	2026-10-14 20:31:47
++++ copies/cbg/mac4DSTEM/mac4DSTEM/Core/Analysis/EllipseCalibration.swift	2026-10-14 20:32:57
+@@ -89,6 +89,7 @@
+         case invalidEllipse
+         case excessiveResidual(Double)
+         case ringWidthAtFloor
++        case ringOutsideAnnulus
+ 
+         package var errorDescription: String? {
+             switch self {
+@@ -114,6 +115,8 @@
+                 return String(format: "Detector ellipse fit residual is too large (%.3f).", residual)
+             case .ringWidthAtFloor:
+                 return "The ring profile fit lost the ring: its fitted width ended within 0.05 px of the 0.25 px floor."
++            case .ringOutsideAnnulus:
++                return "The ring profile fit left the annulus: its mean radius lies outside the selected radii."
+             }
+         }
+     }
+@@ -690,6 +693,11 @@
+             // carry no ring information (`archive/v5/ring-fit-two-start-gateD-2026-10-14.md`).
+             guard min(parameters[3], parameters[4]) > 0.25 + 0.05 else {
+                 throw FitError.ringWidthAtFloor
++            }
++            // A ring fitted outside the annulus it was given says nothing about the ring inside it.
++            let meanRadius = (parameters[8] + parameters[9]) / 2
++            guard meanRadius >= innerRadius, meanRadius <= outerRadius else {
++                throw FitError.ringOutsideAnnulus
+             }
+             return EllipseCalibrationFit(
+                 centerQX: parameters[6], centerQY: parameters[7],
