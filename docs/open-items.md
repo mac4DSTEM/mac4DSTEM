@@ -85,21 +85,22 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 
 ### The ellipse Fit: what two starts and the floor guard leave (landed 2026-10-14, ADR 069)
-Landed: the profile fit refines from two starts and refuses a ring σ at its floor (414 → 79 wrong of 2009 synthetic rows; the
-owner's two ring-less real fits now fall back to the conic). Left: a ring fitted outside its annulus (Au_ref [29, 39], b/a 0.955
-vs 0.971–0.985 elsewhere) — the annulus guard is registered (`archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a ring-less
-fit with live widths (the tool's `grains_12`, b/a right there); gapped rings over a steep 1/r² background at 10–20 counts, 14 →
-16 wrong; 19 point-sampled sub-pixel synthetic rings now fall back to a near-identical conic (accepted, ADR 069).
-Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
+Left: a ring fitted outside its annulus (Au_ref [29, 39], b/a 0.955 vs 0.971–0.985 elsewhere; the annulus guard is registered,
+`archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a ring-less fit with live widths (`grains_12`, b/a right there); gapped
+low-count 1/r² rings 14 → 16 wrong. Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
+
+### UI audit 2026-10-14 — what the three lanes did not land
+List `archive/v5/mac4dstem-ui-audit-2026-10-14.md`; lanes `archive/v5/ui-lanes-2026-10-14/`. Open: the Spectroscopy room items; the
+Results comparison (same scale, pan, reset, clear); Info rows duplicate the typed aperture rows (frozen); the readout's q is from
+the global mean origin on ROI/mean/max patterns and goes stale after a Q-scale change until the pointer moves; its `f0d25bc1`
+basis tests are not mutation-checked; figure plates pad in pixels at 2×/3×, no colourbar. Decided, overrule on sight: ⌘. cancels
+(not Esc); region outlines on every exported map; a new folder per Maps export.
 
 ### Pane keys may be dead in the shared shell — macTEM hand-off, unverified here (2026-10-14)
-macTEM's Gate D step 1 (macTEM `5120fed`, 21 runs, 7 arms): on a click, focus is granted and withdrawn within the same click,
-even for a bare focusable control; its Fable read (`49abd7a`): the `.inspector` column's NSHostingView, a sibling of the
-NavigationSplitView's split view, takes first responder. mac4DSTEM's detail content uses the same `.focusable()` + key
-handlers (WorkspaceView.swift:115-117 scan stepping, SpectrumStripView, SpectroscopyRoomContent, MapsGridView) and no drive
-has shown them working. Evidence: macTEM's repo, its pane-keys Gate D archive folder of 2026-10-14. Next: the drive block checks
-the scan-stepping keys, a first-responder backtrace and the inspector hidden; if confirmed, a Gate D registration. The fix
-sits in frozen-shell files (the owner's call, asked separately) and lands here first, then macTEM copies it.
+macTEM's Gate D (`5120fed`, Fable `49abd7a`): a click grants and withdraws focus; the `.inspector` column's hosting view takes first
+responder. mac4DSTEM has the same `.focusable()` + `onKeyPress` (WorkspaceView.swift:115-117, three Spectroscopy views). Next: the
+drive checks scan stepping, a first-responder backtrace and `--inspector-hidden`; if confirmed, Gate D and the frozen-shell fix
+(owner-accepted 2026-10-14 on that condition), here first, then macTEM copies it.
 
 ### Other named science residuals
 One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) and `archive/v4/open-items-detail-2026-09-25.md`.
