@@ -761,7 +761,8 @@ private struct ParallaxAlignmentDetails: View {
         ScientificHistoryPlot(
             title: "Alignment mismatch",
             values: alignment.errorHistory,
-            scale: .logarithmic
+            scale: .logarithmic,
+            xName: "alignment step"
         )
         InspectorNote(alignment.isComplete
              ? "Coarse-to-fine alignment schedule complete; aberration fitting and correction remain pending."
@@ -836,7 +837,8 @@ private struct ParallaxFitDetails: View {
             if !subpixel.positionCorrectionScores.isEmpty {
                 ScientificHistoryPlot(
                     title: "Position correction score",
-                    values: subpixel.positionCorrectionScores
+                    values: subpixel.positionCorrectionScores,
+                    xName: "position iteration"
                 )
             }
         }
@@ -857,6 +859,8 @@ private struct ScientificHistoryPlot: View {
     let title: String
     let values: [Float]
     var scale: ScientificSeriesScale = .linear
+    /// What one sample is (the x axis): "iteration", "alignment iteration".
+    var xName = "iteration"
     @State private var selectedIndex: Int?
 
     private var geometry: ScientificSeriesGeometry {
@@ -933,13 +937,19 @@ private struct ScientificHistoryPlot: View {
                 @unknown default: break
                 }
             }
-            HStack {
-                Text(scale == .logarithmic ? "log₁₀ scale" : "linear scale")
-                Spacer()
-                Text("\(geometry.points.count) samples")
+            // The axes in words, under the plot: the y range of the finite samples (the plot's bottom and top) and the x name.
+            HStack(spacing: 8) {
+                Text(HistoryAxisText.yRange(geometry, scale: scale) ?? "No finite samples")
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Spacer(minLength: 4)
+                Text(HistoryAxisText.xCount(geometry.points.count, name: xName))
+                    .lineLimit(1)
+                    .fixedSize()
             }
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
+            .font(.caption2.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("history.axes")
         }
         .onChange(of: values) { selectedIndex = nil }
     }
@@ -957,6 +967,23 @@ private struct ScientificHistoryPlot: View {
     private var selectionLabel: String {
         guard let point = geometry.point(at: effectiveSelection) else { return "No finite samples" }
         return "#\(point.index)  \(String(format: "%.5g", point.value))"
+    }
+}
+
+/// The history plot's axes as words: the y range (the plot spans the finite samples' minimum to maximum, on a log scale of their
+/// log) and what the x axis counts. Pure, so a test pins the numbers; the plot only prints them.
+nonisolated enum HistoryAxisText {
+    /// "0.0021 – 0.84 · log scale", or nil when no sample is finite (and positive, on a log scale).
+    static func yRange(_ geometry: ScientificSeriesGeometry, scale: ScientificSeriesScale) -> String? {
+        let values = geometry.points.map(\.value)
+        guard let low = values.min(), let high = values.max() else { return nil }
+        let range = "\(String(format: "%.3g", low)) – \(String(format: "%.3g", high))"
+        return scale == .logarithmic ? "\(range) · log scale" : "\(range) · linear"
+    }
+
+    /// "42 iterations", "1 iteration" (the samples plotted, gaps not counted).
+    static func xCount(_ count: Int, name: String) -> String {
+        "\(count) \(name)\(count == 1 ? "" : "s")"
     }
 }
 
