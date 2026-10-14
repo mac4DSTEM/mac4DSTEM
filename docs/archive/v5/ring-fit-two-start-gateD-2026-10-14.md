@@ -74,3 +74,53 @@ synthetic sets but the dead ring (Au_ref A4, Ni65Cu35 R3; the floor guard catche
 annulus (Au_ref W4; only the seed check catches it). The two-start fit changed nothing on these sources beyond sub-pixel
 moves and S4 R3w. Real patterns therefore stay in step (ii)'s sets as the cases that decide whether a guard refuses right
 fits; the noisy synthetic sets decide the two-start fit.
+
+## Step (ii) — registration (written and committed before any run of the candidates)
+
+**Diagnosis carried** (the step-2 record and step (i)): (1) py4DSTEM's ring-σ start, (ro − ri)/4, ends in a ring-less or
+off-centre minimum on noisy flat-background rings, at a higher cost than the true ring (step 1); (2) a start at the ring's
+half-maximum width escapes those at a lower cost, but ends in a worse minimum than HEAD's on a 1/r² tail with noise (step 2,
+RF2: a's cost above HEAD's in 19 of 20); (3) a fit whose ring σ ends at its 0.25 px floor carries no ring (half of HEAD's
+synthetic failures; on real data Au_ref A4 and Ni65Cu35 R3); (4) a fit can leave the ring the conic found (Au_ref W4, +72 %;
+the trap set's neighbours).
+
+**The candidates as built** (`step-ii/candidates/`: one `master.swift` with marked blocks, `gen.py` writes each variant;
+`core-<v>.diff` against `EllipseCalibration.swift` at `8526d396`, unchanged since `5ddec30d`). Every variant moves
+`fitAmorphousRing`'s refinement, robust refit and acceptance checks into one `refine(start)`; `none` (no candidate block)
+is that move alone, and on Au_ref's 8 annuli it prints HEAD's numbers digit for digit.
+- **c, two starts:** refine from py4DSTEM's start and, when the half-maximum estimator of step 2's (a) returns a width that
+  differs, from that width too; each through every acceptance check; keep the passing fit with the lower cost on the same
+  pixels (the normalised residual); when neither passes, the first start's error.
+- **b2, the floor guard:** step 2's (b) inside `refine`: a ring σ ≤ 0.30 px is refused (`ringWidthAtFloor`).
+- **s, the seed check:** a fit whose mean radius left the conic seed's by more than **8 %** is refused (`ringLeftSeed`).
+  The threshold was set from step 2's logged rows before any run (`step-ii/seeddist-out.txt`): right fits move at most
+  5.4 % (p99.9 5.4 %), and at 8 % 0 of 2806 right and 319 of 479 wrong fits are flagged — in-sample, so S3, S4 and the real
+  sources are its out-of-sample test.
+- **cb, cs, cbs:** the combinations; the guards act per start, before the cost comparison.
+
+**Sets** (as step 2, same plants): A, B, C (275 each: noisy, clean, printed, refusal tiers), P (Poisson, 480), N (narrow,
+280), T (traps, 256), S3 (tails × noise, 120), S4 (tails, 48); one harness for all (step 2 RF2's `rf2`, default-argument
+`fitBestAvailable`, the manifest's guess and annulus), variants head, a, b, none, c, b2, s, cb, cs, cbs. Real sources: step
+(i)'s five plus Au_ref with the step (i) harness. `tools/ellipse-calibration-test` per variant. "Wrong" > 1 % in (a + b)/2,
+"right" ≤ 0.1 %, "right lost" = right under HEAD and not under the variant; b/a error > 0.01 is what the app applies.
+
+**Predictions** (any one failing is recorded, not amended; ADR 050):
+- Q0 (the refactor): `none` equals HEAD, and `b2` equals step 2's (b), row for row on every set.
+- Q1 (c): over the 2009 plants, wrong ≤ 90 (projection 80; HEAD 414, a 135), right lost ≤ 10 (projection 5, of which 4
+  right-by-luck trap fits), newly wrong ≤ 5; on the S3 and S4 1/r² tiers wrong ≤ 3 (a: 25) and right lost ≤ 2; every set's
+  wrong count within 5 of the projection's. On the real sources c changes no model and moves no fit by more than 0.02 in b/a.
+- Q2 (b2): refuses no right fit on any set; on the real sources it refuses exactly Au_ref A4 and Ni65Cu35 R3.
+- Q3 (s): refuses no right fit on any set (0 of the in-sample 2806; ≤ 2 on S3 + S4); flags ≥ 60 % of HEAD's wrong fits; on the
+  real sources it refuses Au_ref W4 and A4 and no annulus whose HEAD fit is unflagged.
+- Q4 (cbs): wrong ≤ c's; right lost ≤ c's + 2; b/a > 0.01 on fewer plants than any other variant; on the real sources it
+  refuses Au_ref A4, W4 and Ni65Cu35 R3 and changes no other annulus by more than 0.02 in b/a.
+- Q5 (the tool): `ellipse-calibration-test` passes under none and c; under b2, s and cbs it fails `grains_12_one_annulus`
+  (both starts end ring-less or far from the seed, the conic is over its cap, the Fit refuses) — the expectation that ADR
+  068 returns to the owner.
+- Q6 (fixture, gate copies only, red on HEAD where stated): a test for c (the step-2 dead and drift plants within 1 %, plus a
+  plant with a 1/r² tail on which HEAD is right and (a) is not — red under (a) only), red on HEAD on exactly the two noisy
+  methods; a test for s (both noisy plants fall back to the conic naming the seed); b2 keeps step 2's test-b. unit + core
+  green for none, c, b2, s and cbs, each total = the copy's `func test` count.
+
+**Then:** a fresh refuter; and, because a landed candidate changes the owner's numbers (Au_ref, Ni65Cu35), a card before
+anything lands (ADR 068).

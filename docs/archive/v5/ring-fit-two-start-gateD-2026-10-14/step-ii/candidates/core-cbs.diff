@@ -1,0 +1,236 @@
+--- a/mac4DSTEM/Core/Analysis/EllipseCalibration.swift	2026-10-14 10:23:18
++++ b/mac4DSTEM/Core/Analysis/EllipseCalibration.swift	2026-10-14 14:49:07
+@@ -88,6 +88,8 @@
+         case didNotConverge
+         case invalidEllipse
+         case excessiveResidual(Double)
++        case ringWidthAtFloor
++        case ringLeftSeed(Double)
+ 
+         package var errorDescription: String? {
+             switch self {
+@@ -111,6 +113,10 @@
+                 return "Detector ellipse fitting produced a non-physical conic."
+             case .excessiveResidual(let residual):
+                 return String(format: "Detector ellipse fit residual is too large (%.3f).", residual)
++            case .ringWidthAtFloor:
++                return "The ring profile fit lost the ring: its fitted width fell to the 0.25 px floor."
++            case .ringLeftSeed(let departure):
++                return String(format: "The ring profile fit moved the ring %.1f %% from the conic fit.", departure * 100)
+             }
+         }
+     }
+@@ -514,7 +520,7 @@
+         // I1=annularMax-annularMin, c=annularMin. Same model and residual, only
+         // the LM start point differs; the effect on convergence is unmeasured.
+         // [I0,I1,sigma0,sigma1,sigma2,c,x0,y0,a,b,theta]
+-        var parameters = [
++        let parameters = [
+             max(0, globalMaximum - minimum), dynamicRange,
+             max(1, innerRadius / 2), max(1, ringWidth / 4), max(1, ringWidth / 4),
+             minimum, initial.centerQX, initial.centerQY,
+@@ -648,54 +654,163 @@
+         }
+ 
+         let allIndices = Array(samples.indices)
+-        parameters = try optimize(parameters, indices: allIndices)
+ 
+-        // One robust refit mirrors py4DSTEM's optional outlier refinement while
+-        // keeping the final acceptance residual defined over every selected pixel.
+-        let firstPrediction = predictions(parameters, indices: allIndices)
+-        let firstResiduals = zip(firstPrediction, samples).map { value, sample in
+-            value - sample.value
+-        }
+-        let centerResidual = median(firstResiduals) ?? 0
+-        let mad = median(firstResiduals.map { abs($0 - centerResidual) }) ?? 0
+-        if mad > 0 {
+-            let threshold = 4 * 1.4826 * mad
+-            let inliers = allIndices.filter { abs(firstResiduals[$0] - centerResidual) <= threshold }
+-            if inliers.count * 10 >= samples.count * 7, inliers.count < samples.count {
+-                parameters = try optimize(parameters, indices: inliers)
++        /// One refinement from `start`: the fit, py4DSTEM's optional robust refit, and the acceptance checks.
++        func refine(_ start: [Double]) throws -> EllipseCalibrationFit {
++            var parameters = try optimize(start, indices: allIndices)
++
++            // One robust refit mirrors py4DSTEM's optional outlier refinement while
++            // keeping the final acceptance residual defined over every selected pixel.
++            let firstPrediction = predictions(parameters, indices: allIndices)
++            let firstResiduals = zip(firstPrediction, samples).map { value, sample in
++                value - sample.value
+             }
+-        }
++            let centerResidual = median(firstResiduals) ?? 0
++            let mad = median(firstResiduals.map { abs($0 - centerResidual) }) ?? 0
++            if mad > 0 {
++                let threshold = 4 * 1.4826 * mad
++                let inliers = allIndices.filter { abs(firstResiduals[$0] - centerResidual) <= threshold }
++                if inliers.count * 10 >= samples.count * 7, inliers.count < samples.count {
++                    parameters = try optimize(parameters, indices: inliers)
++                }
++            }
+ 
+-        let finalPrediction = predictions(parameters, indices: allIndices)
+-        let finalCost = zip(finalPrediction, samples).reduce(0.0) { partial, pair in
+-            let error = pair.0 - pair.1.value
+-            return partial + error * error
+-        }
+-        let residual = sqrt(finalCost / Double(samples.count)) / dynamicRange
+-        guard residual.isFinite, residual <= maximumResidual else {
+-            throw FitError.excessiveResidual(residual)
++            let finalPrediction = predictions(parameters, indices: allIndices)
++            let finalCost = zip(finalPrediction, samples).reduce(0.0) { partial, pair in
++                let error = pair.0 - pair.1.value
++                return partial + error * error
++            }
++            let residual = sqrt(finalCost / Double(samples.count)) / dynamicRange
++            guard residual.isFinite, residual <= maximumResidual else {
++                throw FitError.excessiveResidual(residual)
++            }
++            guard hypot(parameters[6] - centerQX, parameters[7] - centerQY) <= centerLimit,
++                  parameters[8] / parameters[9] <= 5 else {
++                throw FitError.invalidEllipse
++            }
++            // A ring sigma at its 0.25 px floor is a fit that drained the ring into
++            // the background and the central Gaussian: a, b and the centre then
++            // carry no ring information (`archive/v5/ring-fit-two-start-gateD-2026-10-14.md`).
++            guard min(parameters[3], parameters[4]) > 0.25 + 0.05 else {
++                throw FitError.ringWidthAtFloor
++            }
++            // DEVIATION: py4DSTEM accepts the profile fit wherever it lands. A ring
++            // that moved this far from the conic fit it started from is another
++            // feature (a neighbour, the central beam's tail), not the calibration
++            // ring (`archive/v5/ring-fit-two-start-gateD-2026-10-14.md`).
++            let seedRadius = (initial.a + initial.b) / 2
++            let departure = abs((parameters[8] + parameters[9]) / 2 / seedRadius - 1)
++            guard departure <= maximumSeedDeparture else {
++                throw FitError.ringLeftSeed(departure)
++            }
++            return EllipseCalibrationFit(
++                centerQX: parameters[6], centerQY: parameters[7],
++                a: parameters[8], b: parameters[9], theta: parameters[10],
++                normalizedResidual: residual, conicResidual: initial.conicResidual,
++                sampleCount: samples.count,
++                occupiedAngularBins: initial.occupiedAngularBins,
++                model: .asymmetricGaussian,
++                profile: EllipseProfileParameters(
++                    centralIntensity: parameters[0], ringIntensity: parameters[1],
++                    centralSigma: parameters[2], innerSigma: parameters[3],
++                    outerSigma: parameters[4], background: parameters[5]
++                ),
++                profileFallbackReason: nil,
++                sparseCoverage: initial.sparseCoverage
++            )
+         }
+-        guard hypot(parameters[6] - centerQX, parameters[7] - centerQY) <= centerLimit,
+-              parameters[8] / parameters[9] <= 5 else {
+-            throw FitError.invalidEllipse
++
++        var starts = [parameters]
++        // DEVIATION: py4DSTEM refines from one start, both ring sigmas at
++        // (ro - ri)/4. On a noisy ring that start (10-17 px for a 3 px ring)
++        // can end in a minimum with no ring information, and a start at the
++        // ring's own half-maximum width can end worse on a sloping background
++        // (`archive/v5/ring-fit-two-start-gateD-2026-10-14.md`). Both are
++        // refined and the fit with the lower cost on the same pixels is kept.
++        if let ringSigma = halfMaximumRingSigma(
++            values: samples.map(\.value), xs: samples.map(\.x), ys: samples.map(\.y),
++            seed: initial, innerRadius: innerRadius, outerRadius: outerRadius
++        ), abs(ringSigma - parameters[3]) > 1e-9 {
++            var second = parameters
++            second[3] = ringSigma
++            second[4] = ringSigma
++            starts.append(second)
+         }
+-        return EllipseCalibrationFit(
+-            centerQX: parameters[6], centerQY: parameters[7],
+-            a: parameters[8], b: parameters[9], theta: parameters[10],
+-            normalizedResidual: residual, conicResidual: initial.conicResidual,
+-            sampleCount: samples.count,
+-            occupiedAngularBins: initial.occupiedAngularBins,
+-            model: .asymmetricGaussian,
+-            profile: EllipseProfileParameters(
+-                centralIntensity: parameters[0], ringIntensity: parameters[1],
+-                centralSigma: parameters[2], innerSigma: parameters[3],
+-                outerSigma: parameters[4], background: parameters[5]
+-            ),
+-            profileFallbackReason: nil,
+-            sparseCoverage: initial.sparseCoverage
+-        )
++        var best: EllipseCalibrationFit?
++        var firstError: Error?
++        for start in starts {
++            do {
++                let fit = try refine(start)
++                if fit.normalizedResidual < best?.normalizedResidual ?? .infinity { best = fit }
++            } catch {
++                if firstError == nil { firstError = error }
++            }
++        }
++        guard let best else { throw firstError ?? FitError.didNotConverge }
++        return best
+     }
+ 
++    /// The largest move of the profile fit's mean radius from the conic fit's
++    /// that is still the same ring: above every right fit's move on the step-2
++    /// sets (at most 5.4 %), below most wrong fits' (`archive/v5/ring-fit-two-start-gateD-2026-10-14.md`).
++    private static let maximumSeedDeparture = 0.08
++
++    /// The ring sigma whose Gaussian has the half-maximum width of the
++    /// annulus's radial profile: 1 px bins of the seed ellipse's elliptical
++    /// radius (scaled to (a + b)/2, as the profile model measures it), a
++    /// 3-bin mean, the half maximum between the profile's minimum and its
++    /// peak, crossings interpolated linearly, FWHM / 2.3548, at least 1 px.
++    /// Nil when the peak has no crossing on both sides inside the annulus
++    /// (a ring wider than the annulus, or no ring), or fewer than 5 bins.
++    private static func halfMaximumRingSigma(
++        values: [Double], xs: [Double], ys: [Double],
++        seed: EllipseCalibrationFit, innerRadius: Double, outerRadius: Double
++    ) -> Double? {
++        let a = seed.a, b = seed.b
++        let binCount = Int((outerRadius - innerRadius).rounded(.up))
++        guard a > 0, b > 0, binCount >= 5,
++              values.count == xs.count, values.count == ys.count else { return nil }
++        let sinTheta = sin(seed.theta), cosTheta = cos(seed.theta)
++        let a2 = a * a, b2 = b * b
++        let radius2 = (a + b) * (a + b) / 4
++        let A = (sinTheta * sinTheta / b2 + cosTheta * cosTheta / a2) * radius2
++        let B = 2 * (b2 - a2) * sinTheta * cosTheta / (a2 * b2) * radius2
++        let C = (cosTheta * cosTheta / b2 + sinTheta * sinTheta / a2) * radius2
++        var sums = [Double](repeating: 0, count: binCount)
++        var counts = [Double](repeating: 0, count: binCount)
++        for index in values.indices {
++            let dx = xs[index] - seed.centerQX, dy = ys[index] - seed.centerQY
++            let radius = max(0, A * dx * dx + B * dx * dy + C * dy * dy).squareRoot()
++            let bin = Int((radius - innerRadius).rounded(.down))
++            guard bin >= 0, bin < binCount else { continue }
++            sums[bin] += values[index]
++            counts[bin] += 1
++        }
++        let profile = (0..<binCount).map { counts[$0] > 0 ? sums[$0] / counts[$0] : Double.nan }
++        let smooth: [Double] = (0..<binCount).map { bin in
++            let window = (max(0, bin - 1)...min(binCount - 1, bin + 1)).map { profile[$0] }.filter(\.isFinite)
++            return window.isEmpty ? Double.nan : window.reduce(0, +) / Double(window.count)
++        }
++        let finite = smooth.indices.filter { smooth[$0].isFinite }
++        guard let peak = finite.max(by: { smooth[$0] < smooth[$1] }),
++              let floor = finite.map({ smooth[$0] }).min(),
++              smooth[peak] > floor else { return nil }
++        let half = floor + (smooth[peak] - floor) / 2
++        var left = peak
++        while left > 0, smooth[left - 1].isFinite, smooth[left - 1] >= half { left -= 1 }
++        var right = peak
++        while right < binCount - 1, smooth[right + 1].isFinite, smooth[right + 1] >= half { right += 1 }
++        guard left > 0, smooth[left - 1].isFinite,
++              right < binCount - 1, smooth[right + 1].isFinite else { return nil }
++        let leftCrossing = Double(left - 1)
++            + (half - smooth[left - 1]) / (smooth[left] - smooth[left - 1])
++        let rightCrossing = Double(right)
++            + (smooth[right] - half) / (smooth[right] - smooth[right + 1])
++        let width = rightCrossing - leftCrossing
++        guard width.isFinite, width > 0 else { return nil }
++        return max(1, width / (2 * (2 * log(2.0)).squareRoot()))
++    }
++
+     private static func median(_ values: [Double]) -> Double? {
+         guard !values.isEmpty else { return nil }
+         let sorted = values.sorted()
