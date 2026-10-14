@@ -608,23 +608,38 @@ package nonisolated enum MonoclinicOrientationSymmetry {
         return selected
     }
 
-    /// 2/m IPF key for the beam direction, the hexagonal pattern reused: colour from the polar
-    /// angle off b (red at [010]) and the azimuth about b (a-direction green, z-direction blue),
-    /// square-root intensity, max normalisation. The azimuth is periodic with period 180 degrees
-    /// (2/m has no fold inside it), so the green/blue weight is (1 - cos 2*phi)/2, which returns
-    /// to green at 180 degrees: no seam, unlike a linear ramp.
+    /// 2/m IPF key for the beam direction. The zone is the quarter sphere: polar angle from b in
+    /// [0, 90 degrees], azimuth phi about b in [0, 180 degrees), with phi and phi + 180 degrees
+    /// the same direction. A key must be injective on that zone and seamless across phi = 0 = 180,
+    /// so it is the HSV disk: hue = 120 degrees + 2*phi (one full turn of the wheel over the
+    /// period, so phi = 0 and 180 meet; the a-direction is green as before, phi = 60 degrees is
+    /// blue), saturation = polar angle / 90 degrees (the pole b is the single achromatic colour,
+    /// white), value fixed at 1. The earlier (1 - cos 2*phi)/2 weight was symmetric under
+    /// phi -> 180 - phi, so (x, y, z) and (-x, y, z), which are inequivalent under 2/m, shared a
+    /// colour (refuter RB). Unlike the cubic and hexagonal keys (three primaries, sqrt
+    /// intensity) this one is a wheel, because the zone is a disk with no corner structure to
+    /// carry three primaries; the cost is the usual one of hue keys: red-green and blue-yellow
+    /// pairs a colour-blind reader cannot separate are told apart by saturation and by the
+    /// legend's position on the disk, not by hue alone. No fraction or threshold is tuned.
     package static func ipfColor(direction: SIMD3<Double>) -> SIMD3<Float> {
         let value = reduceDirection(direction)
         let tilt = min(1, max(0, acos(min(1, max(0, value.y))) / (.pi / 2)))
-        let azimuth = atan2(value.z, value.x)
-        let fraction = (1 - cos(2 * azimuth)) / 2
-        var rgb = SIMD3<Double>(
-            sqrt(max(0, 1 - tilt)),
-            sqrt(max(0, tilt * (1 - fraction))),
-            sqrt(max(0, tilt * fraction))
-        )
-        let maximum = max(rgb.x, rgb.y, rgb.z)
-        if maximum > 0 { rgb /= maximum }
+        var azimuth = atan2(value.z, value.x)
+        if azimuth < 0 { azimuth += .pi }
+        let hue = (120 + 2 * azimuth * 180 / .pi).truncatingRemainder(dividingBy: 360) / 60
+        let sector = Int(hue) % 6
+        let f = hue - Double(Int(hue))
+        // HSV -> RGB with value 1 and saturation tilt.
+        let p = 1 - tilt, q = 1 - tilt * f, t = 1 - tilt * (1 - f)
+        let rgb: SIMD3<Double>
+        switch sector {
+        case 0: rgb = SIMD3(1, t, p)
+        case 1: rgb = SIMD3(q, 1, p)
+        case 2: rgb = SIMD3(p, 1, t)
+        case 3: rgb = SIMD3(p, q, 1)
+        case 4: rgb = SIMD3(t, p, 1)
+        default: rgb = SIMD3(1, p, q)
+        }
         return SIMD3(Float(rgb.x), Float(rgb.y), Float(rgb.z))
     }
 }

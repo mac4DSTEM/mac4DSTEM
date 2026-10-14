@@ -219,18 +219,66 @@ final class MonoclinicOrientationTests: XCTestCase {
         }
     }
 
-    /// IPF key: b red, +x (a) green, +z blue; invariant under the group; no seam at 0 / 180.
+    /// IPF key (HSV disk: hue 120 deg + 2 phi, saturation = polar angle / 90 deg, value 1): b is
+    /// white, +x (a) green, phi = 60 deg blue; invariant under the group; no seam at 0 / 180.
     func testIPFKeyCornersInvarianceAndNoSeam() {
         let key = MonoclinicOrientationSymmetry.ipfColor(direction:)
-        XCTAssertLessThan(simd_length(key([0, 1, 0]) - SIMD3(1, 0, 0)), 1e-6)
+        XCTAssertLessThan(simd_length(key([0, 1, 0]) - SIMD3(1, 1, 1)), 1e-6)
         XCTAssertLessThan(simd_length(key([1, 0, 0]) - SIMD3(0, 1, 0)), 1e-6)
-        XCTAssertLessThan(simd_length(key([0, 0, 1]) - SIMD3(0, 0, 1)), 1e-6)
         XCTAssertLessThan(simd_length(key([-1, 0, 0]) - key([1, 0, 0])), 1e-6, "no seam across the 180 deg azimuth")
         let tilted = SIMD3<Double>(0.5, 0.6, 0.3)
         XCTAssertLessThan(simd_length(key(tilted) - key(c2b * tilted)), 1e-6)
         XCTAssertLessThan(simd_length(key(tilted) - key(-tilted)), 1e-6)
         XCTAssertLessThan(simd_length(key(SIMD3(0.7, 0.3, -0.2)) - key(SIMD3(-0.7, 0.3, 0.2))), 1e-6)
         XCTAssertEqual(ACOMCrystalSymmetry.monoclinic.displayName, "Monoclinic 2/m")
+    }
+
+    /// Refuter RB: (x, y, z) and (-x, y, z) are inequivalent under 2/m and must differ. Dense grid
+    /// of the zone (polar 5..90 deg step 5, azimuth 0..180 deg step 5, excluding 180): every pair
+    /// of distinct grid directions is at least epsilon apart in colour. Mutation (the old
+    /// (1 - cos 2 phi)/2 key) goes red here: phi and 180 - phi collide.
+    func testIPFKeyIsInjectiveOnTheFundamentalZone() {
+        var points: [(SIMD3<Double>, SIMD3<Float>)] = []
+        for tiltDeg in stride(from: 5.0, through: 90.0, by: 5.0) {
+            for azDeg in stride(from: 0.0, to: 180.0, by: 5.0) {
+                let t = tiltDeg * .pi / 180, a = azDeg * .pi / 180
+                let d = SIMD3(sin(t) * cos(a), cos(t), sin(t) * sin(a))
+                points.append((d, MonoclinicOrientationSymmetry.ipfColor(direction: d)))
+            }
+        }
+        var minimum = Float.infinity
+        for i in points.indices {
+            for j in points.indices where j > i {
+                minimum = min(minimum, simd_length(points[i].1 - points[j].1))
+            }
+        }
+        // Neighbouring grid points are 5 deg apart; the wheel gives >= ~0.08 in RGB distance.
+        XCTAssertGreaterThan(minimum, 0.05)
+        let d = SIMD3<Double>(0.5, 0.6, 0.3)
+        let mirrored = SIMD3<Double>(-0.5, 0.6, 0.3)
+        XCTAssertGreaterThan(simd_length(MonoclinicOrientationSymmetry.ipfColor(direction: d)
+            - MonoclinicOrientationSymmetry.ipfColor(direction: mirrored)), 0.2)
+    }
+
+    /// No seam: colour is continuous in azimuth across phi = 0 = 180 deg, and every group image
+    /// of a dense sample gets the same colour.
+    func testIPFKeyIsContinuousAtTheSeamAndInvariantOverADenseSample() {
+        let key = MonoclinicOrientationSymmetry.ipfColor(direction:)
+        let t = 60.0 * .pi / 180
+        func at(_ azDeg: Double) -> SIMD3<Float> {
+            let a = azDeg * .pi / 180
+            return key(SIMD3(sin(t) * cos(a), cos(t), sin(t) * sin(a)))
+        }
+        XCTAssertLessThan(simd_length(at(179.9) - at(0.1)), 0.02)
+        XCTAssertLessThan(simd_length(at(0.1) - at(0)), 0.02)
+        var rng = MonoclinicRNG(state: 0x1F2E3D4C5B6A7988)
+        let mirror = simd_double3x3(rows: [[1, 0, 0], [0, -1, 0], [0, 0, 1]])
+        for _ in 0..<300 {
+            let n = simd_normalize(SIMD3(rng.gauss(), rng.gauss(), rng.gauss()))
+            for image in [-n, c2b * n, mirror * n] {
+                XCTAssertLessThan(simd_length(key(image) - key(n)), 1e-5)
+            }
+        }
     }
 
     // MARK: - CrystalModel and CIFImport
