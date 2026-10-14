@@ -381,7 +381,10 @@ struct mac4DSTEMApp: App {
                          height: LayoutPolicy.datasetWindowIdealSize.height)
             .windowStyle(.titleBar)
             .windowToolbarStyle(.unified)
-            .commands { DatasetCommands(menuRelay: menuRelay, recents: recents) }
+            .commands {
+                DatasetCommands(menuRelay: menuRelay, recents: recents)
+                ZoomCommands()   // View > Zoom In / Zoom Out / Zoom to Fit (lane H1, UI/ZoomCommands.swift)
+            }
         // The object table (`UI/PrecipitateObjectsWindow.swift`): a snapshot
         // value, so it needs no reference to the dataset window's AppState and
         // can stay open beside the map. Opened from the Precipitates section.
