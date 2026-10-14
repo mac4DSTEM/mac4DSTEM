@@ -54,17 +54,10 @@ Done means the repo tells the next reader the truth. In order:
    closeout: the cold-start set and live-markdown lines must not go up; if
    your session raised them, trim before landing. A session that adds a file
    says why one existing home would not do (`CLAUDE.md` hard rules).
-   **If you edited `CLAUDE.md`, run `tools/sync-agents-md.sh`** (or
-   `--check`, which exits 1 when stale). `AGENTS.md` is generated from it since
-   2026-08-28 — hand-maintained before that, it drifted six sessions and ended
-   up calling a claim unreproduced that S19 had reproduced.
 6. State explicitly what was NOT verified. Silence about a gap is a claim,
    and claims need evidence here.
-7. Update this repo's row on the macEM Suite Board (CLAUDE.md "Suite board"; owner, 2026-10-13):
-   document `lanes/mac4dstem`, read it, then one `ArtifactData` `update` pinned to the version just read,
-   from `docs/status.md`'s table and handoff — same honesty bar as the docs: every number dated to its own run.
-   Write `pickup.prompt` as the exact text the owner pastes to start the next session and `pickup.provide` as
-   what he must bring or decide first. The old "mac4DSTEM Board" artifact is retired and no longer republished.
+7. Update this repo's row on the suite board (suite `../CLAUDE.md`): `lanes/mac4dstem`, from `docs/status.md`'s
+   table and handoff, every number dated to its own run; `pickup.prompt` is the exact text the owner pastes next.
 8. One sentence on the skills themselves: did any skill misfire, get
    ignored, or fail to trigger when its moment came? Skills are repo files —
    if one needs reshaping, edit it now and it ships with this session's

@@ -23,7 +23,7 @@ Originals are superseded by this file; their content lives on here and in
 the archive/decision links each section cites.
 
 Non-negotiables carried from `CLAUDE.md`, governing every section below:
-break every new test before trusting it; a change to what the app draws is
+break every new tier-1 test before trusting it (tier 2 samples); a change to what the app draws is
 unverified on screen until the owner has seen it; port deviations from
 py4DSTEM get an inline `DEVIATION` note; this repo does not set
 `ResidencyAdmission.measuredWorkingSetFraction`; docs land in the same

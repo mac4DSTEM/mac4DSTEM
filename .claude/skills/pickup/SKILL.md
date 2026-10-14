@@ -41,12 +41,13 @@ This skill only makes sure you enter them correctly.
    (unit / unit+scientific / Gate D / Gate B), what it deletes, which release
    it lands in (a driven bug cuts v4.5.1, a landed science number v4.6.0, the EDX suite v5.0.0 —
    `docs/releasing.md`), and any decision the user makes in-step. A feature
-   is pre-registered first (`ROADMAP.md`'s "How a v3 feature is done" section).
+   whose numbers can move (tier 1, suite `../CLAUDE.md` "Rigour follows risk") is pre-registered first
+   (`ROADMAP.md`'s "How a v3 feature is done" section); name the tier.
 4. Non-negotiables (each has burned this repo): Gate D before any fix
    (`/diagnose`); an independent refuter for anything that changes a number
    in Core (`/adversarial-review`); a session touching `AppState` moves one
    responsibility out where that makes the app better (never a move for its own
-   sake — `CLAUDE.md` "Rules serve the app"); break every new test before trusting it; a change to
+   sake — `CLAUDE.md` "Rules serve the app"); break every new tier-1 test before trusting it (tier 2 samples); a change to
    what the app draws is unverified on screen until a drive has seen it (the
    owner's, or a session's on a scratch build, pid-pinned, every shot reviewed —
    `CLAUDE.md`); do NOT set `ResidencyAdmission.measuredWorkingSetFraction`.

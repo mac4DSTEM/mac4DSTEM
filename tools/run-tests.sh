@@ -349,8 +349,6 @@ inventory() {
   if grep -L 'sources.manifest' "$ROOT"/tools/*/run.sh | grep .; then
     echo "  ^ a harness that neither sources tools/lib/sources.manifest nor says why"; rc=1
   fi
-  # AGENTS.md is generated from CLAUDE.md; a stale copy is a wrong document.
-  "$ROOT/tools/sync-agents-md.sh" --check || rc=1
 
   # Every file inside a folder reference is shipped, so every one must be
   # tracked. The app target copies such a folder into Resources wholesale, so

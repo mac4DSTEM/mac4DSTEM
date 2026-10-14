@@ -146,7 +146,7 @@ angles); (3) PtyRAD on the same simulated cube.
 
 ## How a v3 feature is done
 
-Each feature is pre-registered the way the train's steps were (plan §9–§11 of
+Each feature whose numbers can move (tier 1, suite `../CLAUDE.md`) is pre-registered the way the train's steps were (plan §9–§11 of
 the archived v2.5 plan are the models): what it touches and which owner holds
 its state, the tests written before, the decisions owed to the owner. Built on
 the packages and sessions, one Gate B campaign at a time, `/pickup` with the
