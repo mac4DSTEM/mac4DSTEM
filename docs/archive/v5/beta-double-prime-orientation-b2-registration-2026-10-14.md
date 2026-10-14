@@ -43,3 +43,21 @@ reviewer that did not write the code) on the diagnosis, the multiplier and the f
 (monoclinic phases were refused for maps before), so no card unless the refuter finds one.
 
 Registered 2026-10-14 before any run on the fresh draws.
+
+## Results (2026-10-14 night; lane B, Sonnet; refuter RB, Sonnet, fresh; fix lane BF)
+
+- **P2′ held:** 600 fresh draws (base + 1 000 000) at 800 monoclinic templates: 98.5 % within 7.7° (median 1.79°, p90 2.74°,
+  max 179.0°), 98.3 % within 3.9°. The refuter's own third stream (base + 2 000 000, 1000 draws, 0 skipped for < 3 peaks):
+  **99.0 %** within 7.7° (median 1.76°, p95 2.93°); the B and B2 streams share 0 outputs in 200 k.
+- **P1, P3, P4, P7 held** (cubic and hexagonal paths untouched; the scientific gate green). **P6 missed as worded:** 3.33× at
+  800 against 200 templates (band 3.5–4.5; one run on a loaded machine) — cheaper than predicted; reported, not a refuter.
+- **Refuting observations:** none met. The 1× multiplier mutation goes red (three density tests and P2′); two estimate and plan
+  mutations were not caught at first and a test was added (`cfe0f634`).
+- **Refuter RB:** physics UPHELD (`Crystal.swift`: b along +y for α = γ = 90°, so C₂ = diag(−1, 1, −1); a c-unique cell loads
+  Unreduced, not mis-reduced; `confirmedFamily` needs an atom-verified 2-fold or mirror); the fold UPHELD; the 4× rule UPHELD
+  (plan, Work row, estimate, export `template_count`); no existing number moves. **Corrections, both made before landing:** the
+  2/m colour key was not injective ((1 − cos 2φ)/2 gives φ and π − φ one colour) → an HSV key, hue 120° + 2φ, saturation the
+  polar angle from b, tested by inverting it; the IPF legend was the cubic one over a monoclinic map → `IPFLegendKind` and a 2/m
+  half-disk legend drawn from the same colour function. Mutations: old key → two tests red; cubic legend → the legend test red.
+- **Gates** (lane clone, at the fixes): unit 2396 / 0 / 4 = 2400 = `func test`, warm and cold; core, inventory exit 0. Landing gate
+  on `main`: status.md's row. Unverified on screen (no β″ dataset was driven).

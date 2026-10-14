@@ -85,22 +85,19 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 
 ### The ellipse Fit: what two starts and the floor guard leave (landed 2026-10-14, ADR 069)
-Left: a ring fitted outside its annulus (Au_ref [29, 39], b/a 0.955 vs 0.971–0.985 elsewhere; the annulus guard is registered,
-`archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a ring-less fit with live widths (`grains_12`, b/a right there); gapped
-low-count 1/r² rings 14 → 16 wrong. Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
+Left: a ring fitted outside its annulus (Au_ref [29, 39], b/a 0.955 vs 0.971–0.985 elsewhere). The annulus guard g was refuted as
+registered on 2026-10-14 night (R2: three WS2 annuli whose fit sits 0.7–1.2 px past the outer radius with its width at the 64 px
+ceiling; `archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a new item (a margin, or the width-at-ceiling flag, on fresh
+plants) is the owner's card. Also left: a ring-less fit with live widths (`grains_12`, b/a right there); gapped low-count 1/r²
+rings 14 → 16 wrong. Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
 
-### UI audit 2026-10-14 — what the three lanes did not land
-List `archive/v5/mac4dstem-ui-audit-2026-10-14.md`; lanes `archive/v5/ui-lanes-2026-10-14/`. Open: the Spectroscopy room items; the
-Results comparison (same scale, pan, reset, clear); Info rows duplicate the typed aperture rows (frozen); the readout's q is from
-the global mean origin on ROI/mean/max patterns and goes stale after a Q-scale change until the pointer moves; its `f0d25bc1`
-basis tests are not mutation-checked; figure plates pad in pixels at 2×/3×, no colourbar. Decided, overrule on sight: ⌘. cancels
-(not Esc); region outlines on every exported map; a new folder per Maps export.
-
-### Pane keys may be dead in the shared shell — macTEM hand-off, unverified here (2026-10-14)
-macTEM's Gate D (`5120fed`, Fable `49abd7a`): a click grants and withdraws focus; the `.inspector` column's hosting view takes first
-responder. mac4DSTEM has the same `.focusable()` + `onKeyPress` (WorkspaceView.swift:115-117, three Spectroscopy views). Next: the
-drive checks scan stepping, a first-responder backtrace and `--inspector-hidden`; if confirmed, Gate D and the frozen-shell fix
-(owner-accepted 2026-10-14 on that condition), here first, then macTEM copies it.
+### UI audit 2026-10-14 — left after the night's lanes S and C
+List `archive/v5/mac4dstem-ui-audit-2026-10-14.md`. Landed 2026-10-14 night (unverified on screen): the Spectroscopy rows (lane S)
+and the Results comparison and leftovers (lane C); status.md's gate rows. Open: Info rows duplicate the typed aperture rows
+(frozen); the readout's q comes from the global mean origin on ROI/mean/max patterns; no colourbar in figures; the colormap
+popover's system glass shows the pattern through the histogram (drive 15); `RoomAccessibilityText.steppedZoom` is used only by its
+test. Decided, overrule on sight: ⌘. cancels (not Esc); region outlines on every exported map; a new folder per Maps export; lane
+S's region purple (not the accent); the 2/m colour key (hue 2φ, saturation from b).
 
 ### Other named science residuals
 One line each; full wording in `archive/closed-items-2026-09.md` (2026-09-30) and `archive/v4/open-items-detail-2026-09-25.md`.
@@ -423,3 +420,6 @@ constants file is deliberately NOT taken (a bad line there kills every gate). `.
 is inserted once per pinch, not per tick; never seen to abort. Unverified on screen; the rule stays a review item.
 Colour (2026-10-12, from macTEM): exports sample the LUT as the shader does (291fe352); the on-screen `Colorbar`
 (`PaneOverlays.swift:226`, 128 entries) and categorical legend (`:1245`) still take the nearest entry (cosmetic).
+Tooling (2026-10-14 night): `tools/velox-parity/run.sh` needs a venv with rsciio and sparse (its header line; none of the conda
+envs has both) — run through the data link with one in the scratchpad: 20 cases, 27 stacks, 0 failures. Dependabot #1 (torch
+2.13.0) is blocked by `coreai-opt 0.2.1`'s `torch<=2.11.0`; the pin stays 2.11.0 (`tools/disk-detector/README.md`).
