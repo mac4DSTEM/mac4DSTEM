@@ -78,4 +78,75 @@ final class SpectroscopyLaneSTests: XCTestCase {
         XCTAssertEqual(chips.first { $0.id == .spectrum }?.symbolColor, SpectroscopyRoomModel.liveRegionColor)
         XCTAssertEqual(chips.first { $0.id == .model }?.symbolColor, CurveLayer.modelHue)
     }
+
+    // MARK: Row 3 - the region typed, and the pointer
+
+    private let grid = (w: 64, h: 48)
+    private func rect(_ x0: Int, _ y0: Int, _ x1: Int, _ y1: Int) -> SpectrumRegionShape { .rectangle(PixelRect(x0: x0, y0: y0, x1: x1, y1: y1)) }
+
+    /// x and y move the region by whole pixels and keep its size; at the grid's edge it stops.
+    /// Mutation: `.x` resizes instead of moving (uses the `.right` handle), or the `moved` clamp is dropped - red.
+    func testTypingXOrYMovesTheRegionAndStopsAtTheEdge() {
+        let r = rect(10, 8, 30, 20)
+        XCTAssertEqual(RegionExtent.edited(r, .x, to: 15, grid: grid), rect(15, 8, 35, 20))
+        XCTAssertEqual(RegionExtent.edited(r, .y, to: 0, grid: grid), rect(10, 0, 30, 12))
+        XCTAssertEqual(RegionExtent.edited(r, .x, to: 500, grid: grid), rect(44, 8, 64, 20), "stops at the right edge, size kept")
+        XCTAssertEqual(RegionExtent.edited(r, .y, to: -9, grid: grid), rect(10, 0, 30, 12))
+    }
+
+    /// Width and height move the far edge, at least one pixel, inside the grid; the origin stays.
+    /// Mutation: the `max(value, 1)` floor removed (0 flips the rectangle) or width moves the left edge - red.
+    func testTypingWidthOrHeightResizesWithTheDragsRules() {
+        let r = rect(10, 8, 30, 20)
+        XCTAssertEqual(RegionExtent.edited(r, .width, to: 5, grid: grid), rect(10, 8, 15, 20))
+        XCTAssertEqual(RegionExtent.edited(r, .height, to: 40, grid: grid), rect(10, 8, 30, 48), "kept in the grid")
+        XCTAssertEqual(RegionExtent.edited(r, .width, to: 0, grid: grid), rect(10, 8, 11, 20), "at least one pixel")
+        XCTAssertEqual(RegionExtent.edited(r, .height, to: -3, grid: grid), rect(10, 8, 30, 9))
+        XCTAssertEqual(RegionExtent.edited(.ellipse(PixelRect(x0: 2, y0: 2, x1: 12, y1: 12)), .width, to: 4, grid: grid),
+                       .ellipse(PixelRect(x0: 2, y0: 2, x1: 6, y1: 12)), "an ellipse keeps its kind")
+    }
+
+    /// A polygon is read, not typed; a value that changes nothing is no edit.
+    /// Mutation: `isEditable` true for `.polygon`, or the `out == shape` check removed - red.
+    func testAPolygonIsReadOnlyAndAnUnchangedValueIsNoEdit() {
+        let poly = SpectrumRegionShape.polygon([PixelPoint(x: 3, y: 4), PixelPoint(x: 13, y: 4), PixelPoint(x: 8, y: 14)])
+        XCTAssertFalse(RegionExtent.isEditable(poly))
+        XCTAssertNil(RegionExtent.edited(poly, .x, to: 9, grid: grid))
+        XCTAssertEqual(RegionExtent.values(poly).width, 10)
+        XCTAssertEqual(RegionSection.extentText(poly), "x 3 \u{00B7} y 4 \u{00B7} 10 \u{00D7} 10 px")
+        XCTAssertNil(RegionExtent.edited(rect(10, 8, 30, 20), .width, to: 20, grid: grid))
+    }
+
+    /// A typed value reaches the controller as a final edit, exactly once; with no region nothing is sent.
+    /// Mutation: `commit` sends `final: false`, or sends without the `edited` check - red.
+    func testACommittedValueIsAFinalRegionEdit() {
+        let m = SpectroscopyRoomModel.fixture
+        var seen: [(SpectrumRegionShape, Bool)] = []
+        m.onRegionEdit = { seen.append(($0, $1)) }
+        m.regionOutline = nil
+        RegionSection.commit(m, .width, 7)
+        XCTAssertTrue(seen.isEmpty, "no live region, no edit")
+        let g = m.gridSize
+        m.regionOutline = .rectangle(PixelRect(x0: 1, y0: 1, x1: min(g.w, 9), y1: min(g.h, 9)))
+        RegionSection.commit(m, .width, 3)
+        XCTAssertEqual(seen.count, 1)
+        XCTAssertEqual(seen.first?.0, .rectangle(PixelRect(x0: 1, y0: 1, x1: 4, y1: min(g.h, 9))))
+        XCTAssertEqual(seen.first?.1, true)
+    }
+
+    /// The cursor comes from the hit the drag uses: a handle resizes, the inside moves, outside is the arrow; a handle's side is the
+    /// frame-resize position of that side.
+    /// Mutation: `.inside` maps to nil, or two sides swapped in `framePosition` - red.
+    func testThePointerFollowsTheHitTest() {
+        XCTAssertEqual(RegionExtent.pointer(for: .inside), .move)
+        XCTAssertNil(RegionExtent.pointer(for: .outside))
+        XCTAssertEqual(RegionExtent.pointer(for: .handle(.topLeft)), .resize(.topLeft))
+        let sides: [(RegionHandle, FrameResizePosition)] = [
+            (.topLeft, .topLeading), (.top, .top), (.topRight, .topTrailing), (.right, .trailing),
+            (.bottomRight, .bottomTrailing), (.bottom, .bottom), (.bottomLeft, .bottomLeading), (.left, .leading)]
+        for (h, p) in sides { XCTAssertEqual(MapTileView.framePosition(h), p) }
+        XCTAssertNil(MapTileView.framePosition(.vertex(2)))
+        XCTAssertNil(MapTileView.pointerStyle(nil, dragging: false))
+        XCTAssertNotNil(MapTileView.pointerStyle(.move, dragging: true))
+    }
 }

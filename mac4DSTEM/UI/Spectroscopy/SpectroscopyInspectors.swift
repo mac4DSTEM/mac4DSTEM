@@ -214,6 +214,7 @@ struct RegionSection: View {
                 HStack(spacing: 6) { Text(phase).foregroundStyle(.secondary); if r.phaseUnvalidated { UnvalidatedBadge() } }
             }
         }
+        if let shape = model.regionOutline { extentRows(shape) }
         InspectorRow("Compare with") {
             Picker("Compare with", selection: $model.compare) {
                 ForEach(CompareBasis.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -229,6 +230,44 @@ struct RegionSection: View {
                       : "Freeze a copy of this region's spectrum as a coloured overlay (up to three); the live region moves on.")
         }
         if model.image.sourceWarning, let note = model.image.sourceNote { InspectorNote(note) }
+    }
+
+    /// The live region's extent as numbers (the pointer's alternative, HIG Pointing devices / Accessibility): a rectangle or an
+    /// ellipse is typed, a polygon is read. Typed values obey the drag's rules (`RegionExtent`).
+    @ViewBuilder private func extentRows(_ shape: SpectrumRegionShape) -> some View {
+        if RegionExtent.isEditable(shape) {
+            InspectorRow("Origin (px)") {
+                HStack(spacing: 6) { extentField(.x, shape); extentField(.y, shape) }
+            }
+            InspectorRow("Size (px)") {
+                HStack(spacing: 6) { extentField(.width, shape); extentField(.height, shape) }
+            }
+        } else {
+            InspectorValueRow("Extent", Self.extentText(shape))
+        }
+    }
+
+    private func extentField(_ field: RegionExtent.Field, _ shape: SpectrumRegionShape) -> some View {
+        OptionalNumericField(title: Self.extentTitle(field), value: RegionExtent.value(shape, field),
+                             format: IntegerFormatStyle<Int>.number.grouping(.never)) { Self.commit(model, field, $0) }
+            .accessibilityIdentifier("spectroscopy.region." + Self.extentTitle(field).lowercased())
+    }
+
+    static func extentTitle(_ f: RegionExtent.Field) -> String {
+        switch f { case .x: "x"; case .y: "y"; case .width: "Width"; case .height: "Height" }
+    }
+
+    /// A polygon's bounding rectangle, "x 12 · y 8 · 40 × 30 px".
+    static func extentText(_ shape: SpectrumRegionShape) -> String {
+        let v = RegionExtent.values(shape)
+        return "x \(v.x) \u{00B7} y \(v.y) \u{00B7} \(v.width) \u{00D7} \(v.height) px"
+    }
+
+    /// A typed extent value becomes the region edit a drag's end would make (final: the numbers follow).
+    static func commit(_ model: SpectroscopyRoomModel, _ field: RegionExtent.Field, _ value: Int) {
+        guard let shape = model.regionOutline,
+              let edited = RegionExtent.edited(shape, field, to: value, grid: model.gridSize) else { return }
+        model.onRegionEdit?(edited, true)
     }
 
     /// The picker is sectioned only when the 4D scan offers pools or says why not; otherwise it is the flat list it always was.

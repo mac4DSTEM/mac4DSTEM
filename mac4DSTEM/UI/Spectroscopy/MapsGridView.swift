@@ -140,6 +140,8 @@ struct MapTileView: View {
     @State private var edit: Edit?
     @State private var draft: [PixelPoint] = []
     @State private var closedAt = Date.distantPast
+    /// What the pointer is over on the live region (the hit test the drag uses); nil off the region and off the ColorMix.
+    @State private var hovering: RegionExtent.Pointer?
     @FocusState private var focused: Bool
 
     private enum Edit {
@@ -215,6 +217,16 @@ struct MapTileView: View {
         let c = Canvas { ctx, sz in draw(ctx, sz) }.contentShape(Rectangle())
         if carriesRegion {
             c.gesture(drag(size))
+                // The cursor says what a drag would do, from the same hit test the drag starts with (HIG, Pointing devices).
+                .onContinuousHover { phase in
+                    let next: RegionExtent.Pointer?
+                    switch phase {
+                    case .active(let p): next = pointer(at: p, size)
+                    case .ended: next = nil
+                    }
+                    if hovering != next { hovering = next }
+                }
+                .pointerStyle(Self.pointerStyle(dragPointer ?? hovering, dragging: edit != nil))
                 .accessibilityLabel("ColorMix")
                 .simultaneousGesture(TapGesture(count: 2).onEnded { closePolygon(size) })
                 .accessibilityValue(Self.regionValue(hasOutline: model.regionOutline != nil,
@@ -386,6 +398,53 @@ struct MapTileView: View {
         }
         // The capsule is about 120 x 20 pt; `position` takes its centre.
         return CGPoint(x: min(max(top.x + 60, 64), max(size.width - 64, 64)), y: max(top.y - 8, 28))
+    }
+
+    // MARK: pointer
+
+    /// What the drag in progress is doing to the region (the cursor holds it while the pointer moves off the handle).
+    private var dragPointer: RegionExtent.Pointer? {
+        switch edit {
+        case .move?: .move
+        case .handle(let h, _)?: .resize(h)
+        case .draw?, nil: nil
+        }
+    }
+
+    /// The hit under the pointer, as `drag` would find it when a press started there.
+    private func pointer(at p: CGPoint, _ size: CGSize) -> RegionExtent.Pointer? {
+        let g = model.gridSize
+        guard g.w > 0, g.h > 0, size.width > 0, size.height > 0, let shape = model.regionOutline else { return nil }
+        let at = PixelPoint(x: Double(min(max(p.x / size.width, 0), 1)) * Double(g.w), y: Double(min(max(p.y / size.height, 0), 1)) * Double(g.h))
+        let tol = Double(TileMetrics.reach / (size.width / CGFloat(g.w)))
+        return RegionExtent.pointer(for: RegionEditing.hit(shape, at: at, tolerance: tol))
+    }
+
+    /// The cursor for a pointer state: the arrow off the region, an open hand over it (a closed one while it is dragged), the
+    /// frame-resize cursor of the handle's side on a handle (a polygon's corner is a hand).
+    static func pointerStyle(_ p: RegionExtent.Pointer?, dragging: Bool) -> PointerStyle? {
+        switch p {
+        case nil: return nil
+        case .move?: return dragging ? .grabActive : .grabIdle
+        case .resize(let h)?:
+            guard let position = framePosition(h) else { return dragging ? .grabActive : .grabIdle }
+            return .frameResize(position: position)
+        }
+    }
+
+    /// The resize cursor's side for a handle; a polygon vertex has none.
+    static func framePosition(_ h: RegionHandle) -> FrameResizePosition? {
+        switch h {
+        case .topLeft: .topLeading
+        case .top: .top
+        case .topRight: .topTrailing
+        case .right: .trailing
+        case .bottomRight: .bottomTrailing
+        case .bottom: .bottom
+        case .bottomLeft: .bottomLeading
+        case .left: .leading
+        case .vertex: nil
+        }
     }
 
     // MARK: gestures

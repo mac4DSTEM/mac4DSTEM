@@ -320,6 +320,59 @@ nonisolated enum RegionEditing {
     }
 }
 
+// MARK: - The live region typed
+
+/// The live region's extent as numbers (x, y, width, height in scan pixels), and a typed value as an edit. A rectangle or an
+/// ellipse is typed; a polygon is read only (its corners are the drag's). Every edit goes through `RegionEditing`, so a typed
+/// value obeys the drag's rules: whole pixel borders, kept in the grid, at least one pixel across, a move stops at the edge.
+nonisolated enum RegionExtent {
+    enum Field: CaseIterable, Sendable { case x, y, width, height }
+
+    /// The extent shown: the shape's bounding rectangle.
+    static func values(_ shape: SpectrumRegionShape) -> (x: Int, y: Int, width: Int, height: Int) {
+        let b = shape.bounds
+        return (b.x0, b.y0, b.width, b.height)
+    }
+
+    static func value(_ shape: SpectrumRegionShape, _ field: Field) -> Int {
+        let v = values(shape)
+        switch field { case .x: return v.x; case .y: return v.y; case .width: return v.width; case .height: return v.height }
+    }
+
+    /// Only a rectangle and an ellipse have a typed extent.
+    static func isEditable(_ shape: SpectrumRegionShape) -> Bool {
+        switch shape { case .rectangle, .ellipse: true; case .polygon: false }
+    }
+
+    /// The shape after `field` is typed as `value`; nil when the field is not editable or the typed value changes nothing.
+    /// x and y move the region (its size stays; it stops at the grid's edge), width and height move the right and bottom edges.
+    static func edited(_ shape: SpectrumRegionShape, _ field: Field, to value: Int, grid: (w: Int, h: Int)) -> SpectrumRegionShape? {
+        guard isEditable(shape), grid.w > 0, grid.h > 0 else { return nil }
+        let b = shape.bounds
+        let out: SpectrumRegionShape
+        switch field {
+        case .x: out = RegionEditing.moved(shape, dx: value - b.x0, dy: 0, grid: grid)
+        case .y: out = RegionEditing.moved(shape, dx: 0, dy: value - b.y0, grid: grid)
+        case .width:
+            out = RegionEditing.edited(shape, handle: .right, to: PixelPoint(x: Double(b.x0 + max(value, 1)), y: 0), grid: grid)
+        case .height:
+            out = RegionEditing.edited(shape, handle: .bottom, to: PixelPoint(x: 0, y: Double(b.y0 + max(value, 1))), grid: grid)
+        }
+        return out == shape ? nil : out
+    }
+
+    /// The mouse pointer over the live region's tile: the hit under it decides the cursor (`pointerStyle`). Nil is the arrow.
+    enum Pointer: Equatable, Sendable { case resize(RegionHandle), move }
+
+    static func pointer(for hit: RegionHit) -> Pointer? {
+        switch hit {
+        case .handle(let h): .resize(h)
+        case .inside: .move
+        case .outside: nil
+        }
+    }
+}
+
 // MARK: - The drawn outline of a region
 
 /// A region's outline on a map as one path, in a space of `cellWidth` x `cellHeight` per grid pixel (y down, as the map is
