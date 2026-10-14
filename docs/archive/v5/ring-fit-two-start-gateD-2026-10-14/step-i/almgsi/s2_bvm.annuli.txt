@@ -1,0 +1,14 @@
+# S2 Al-Mg-Si 060 Bragg-vector map from the saved vectors (64x64) | centre guess (row, col) = (31.7953815, 31.8026600) | cap (farthest detector-edge distance) = 31.80266, last bin centre 31.75
+# read from s2_bvm.profile.txt: [1,2,1]/4-smoothed profile, peak and minima = extremes within +-3 bins (+-1.5 px); ring needs peak >= 1.5 x its larger neighbouring minimum; peak radius -/+ half the distance to the neighbouring minimum; a side with no interior minimum uses the cap bin; wN = widened 2 px both sides (inner >= 1, outer <= cap)
+# ring R1: smoothed peak r=11.75 (1.32e+04); inner min r=7.25 (0); outer min r=14.25 (577.9)
+# ring R2: smoothed peak r=18.75 (4.702e+06); inner min r=14.25 (577.9); outer min r=22.25 (12.68)
+# ring R3: smoothed peak r=25.25 (3.228e+05); inner min r=22.25 (12.68); outer min r=26.75 (1.335e+05)
+# ring R4: smoothed peak r=27.75 (2.13e+05); inner min r=26.75 (1.335e+05); outer min r=31.75 [cap bin, no interior minimum] (3.57)
+s2-R1 9.5 13
+s2-R1w 7.5 15
+s2-R2 16.5 20.5
+s2-R2w 14.5 22.5
+s2-R3 23.75 26
+s2-R3w 21.75 28
+s2-R4 27.25 29.75
+s2-R4w 25.25 31.75

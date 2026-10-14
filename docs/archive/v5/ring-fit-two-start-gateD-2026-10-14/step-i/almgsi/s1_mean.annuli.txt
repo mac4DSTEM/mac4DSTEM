@@ -1,0 +1,5 @@
+# S1 Al-Mg-Si 060 mean pattern (64x64) | centre guess (row, col) = (31.7953815, 31.8026600) | cap (farthest detector-edge distance) = 31.80266, last bin centre 31.75
+# read from s1_mean.profile.txt: [1,2,1]/4-smoothed profile, peak and minima = extremes within +-3 bins (+-1.5 px); ring needs peak >= 1.5 x its larger neighbouring minimum; peak radius -/+ half the distance to the neighbouring minimum; a side with no interior minimum uses the cap bin; wN = widened 2 px both sides (inner >= 1, outer <= cap)
+# ring R1: smoothed peak r=18.25 (8506); inner min r=14.75 (4441); outer min r=31.75 [cap bin, no interior minimum] (800.9)
+s1-R1 16.5 25
+s1-R1w 14.5 27
