@@ -45,6 +45,9 @@ struct DiffractionPane: View {
     /// nothing but this pane's own footer (and `RealSpacePane`'s) needs it.
     @Environment(AppPreferences.self) private var preferences
     @State private var zp = ZoomPan()
+    /// The pointer's sample, in a reference holder this view never reads (as `RealSpacePane.cursor`): a hover tick writes it and
+    /// only `DiffractionCursorReadout` and `DiffractionCursorAccessibilityValue` re-evaluate.
+    @State private var cursor = DiffractionCursorModel()
     /// The VoiceOver label cursor (audit 3.1): VoiceOver-only state, drawn nowhere. nil until first used (starts at the centre).
     @State private var labelCursor: DiskLabelCursor.Pixel?
     /// "Show claimed disks" (phase-mapping task): a per-viewer display
@@ -124,12 +127,23 @@ struct DiffractionPane: View {
         }
     }
 
+    /// The header's flexible gap, which also holds the pointer readout. The readout is an OVERLAY of the gap, so it adds nothing
+    /// to the header's ideal width: which of the two header layouts fits never depends on the pointer, and moving into the pane
+    /// cannot collapse the controls into the overflow menu. It takes whatever the controls leave, shortening (and finally
+    /// disappearing) rather than truncating a number.
+    private var readoutSlot: some View {
+        Color.clear
+            .frame(minWidth: 8, idealWidth: 8, maxWidth: .infinity)
+            .overlay(alignment: .trailing) { DiffractionCursorReadout(model: cursor) }
+            .allowsHitTesting(false)
+    }
+
     private var compactHeader: some View {
         @Bindable var appState = appState
         return HStack {
             title
             roiSumBadge
-            Spacer(minLength: 8)
+            readoutSlot
             if appState.meanPattern != nil || appState.fitOverlays.isAvailable
                 || claimedDisksAvailable {
                 Menu {
@@ -167,7 +181,7 @@ struct DiffractionPane: View {
             title
             roiSumBadge
 
-            Spacer(minLength: 8)
+            readoutSlot
 
             // Mean/max become meaningful once calibration computes them.
             if appState.meanPattern != nil {
@@ -319,6 +333,15 @@ struct DiffractionPane: View {
                     }
                 }
                 .frame(width: box.width, height: box.height)
+                // The pointer's pixel, read in the UNZOOMED container (SwiftUI maps the hover through the zoom and pan below,
+                // as it maps the aperture handles' drags), so the same pixel is named at any zoom.
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location): readPointer(at: location, pattern: pattern, box: box)
+                    case .ended: cursor.clear()
+                    }
+                }
                 .scaleEffect(zp.drawZoom)
                 .offset(zp.effectiveOffset)
                 .frame(width: box.width, height: box.height)
@@ -424,12 +447,18 @@ struct DiffractionPane: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Diffraction pattern")
-            .accessibilityValue(
-                "Scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(qx) by \(qy) detector pixels"
-                + (labelActive
-                    ? "; " + DiskLabelCursor.spokenValue(DiskLabelCursor.resolved(labelCursor, patternWidth: qx, patternHeight: qy))
-                    : "")
-            )
+            .modifier(DiffractionCursorAccessibilityValue(
+                model: cursor,
+                fallback: "Scan X \(appState.selectedScan.x), Y \(appState.selectedScan.y); \(qx) by \(qy) detector pixels"
+                    + (labelActive
+                        ? "; " + DiskLabelCursor.spokenValue(DiskLabelCursor.resolved(labelCursor, patternWidth: qx, patternHeight: qy))
+                        : "")))
+            // A readout never outlives its basis. A new pattern under a resting pointer (arrow-key scan stepping, mean or max,
+            // a new load) re-reads the same pixel; a zoom or pan under it moves the pixel the pointer is on without a hover
+            // event, so the readout clears until the pointer moves.
+            .onChange(of: appState.patternVersion) { refreshPointer(pattern: pattern) }
+            .onChange(of: zp.drawZoom) { cursor.clear() }
+            .onChange(of: zp.effectiveOffset) { cursor.clear() }
             .accessibilityHint(ZoomPan.accessibilityHint)
             .zoomPanAccessibilityActions($zp, box: box)
             .modifier(LabelCursorAccessibilityActions(
@@ -446,6 +475,42 @@ struct DiffractionPane: View {
 
     private var logScaleLabel: String {
         appState.logScale ? "intensity · log display" : "intensity"
+    }
+
+    // MARK: Pointer readout
+
+    /// What a q needs from the session (`DiffractionPointerReadout.Basis`): read at the hover tick, not in the body.
+    private func readoutBasis(for pattern: DiffractionPattern) -> DiffractionPointerReadout.Basis? {
+        guard let d = appState.descriptor else { return nil }
+        return DiffractionPointerReadout.Basis(
+            calibration: appState.calibrationSession.calibration,
+            detectorQX: d.qx, detectorQY: d.qy,
+            scanX: appState.selectedScan.x, scanY: appState.selectedScan.y, scanWidth: d.rx, scanHeight: d.ry,
+            // The same rule as the fit overlay's `patternShowsSelectedPosition`.
+            singlePosition: appState.patternDisplayMode == .current && appState.realSpaceShape == .point,
+            apertureCentre: (x: appState.aperture.centerX, y: appState.aperture.centerY),
+            milliradians: appState.patternScaleUnit == .milliradians,
+            mradPerPixel: appState.dpcMilliradiansPerDetectorPixel)
+    }
+
+    private func readPointer(at location: CGPoint, pattern: DiffractionPattern, box: CGSize) {
+        let pixel = DiffractionPointerReadout.pixel(
+            at: location, patternWidth: pattern.qx, patternHeight: pattern.qy, box: box)
+        // The same pixel as the last tick, same pattern: nothing to recompute (the origin work is O(scan)).
+        if pixel == cursor.pixel, cursor.sample != nil { return }
+        cursor.pixel = pixel
+        cursor.sample = pixel.flatMap { readSample(at: $0, pattern: pattern) }
+    }
+
+    private func refreshPointer(pattern: DiffractionPattern) {
+        guard let pixel = cursor.pixel else { return }
+        cursor.sample = readSample(at: pixel, pattern: pattern)
+    }
+
+    private func readSample(at pixel: DiffractionPointerReadout.Pixel,
+                            pattern: DiffractionPattern) -> DiffractionPointerReadout.Sample? {
+        guard let basis = readoutBasis(for: pattern) else { return nil }
+        return DiffractionPointerReadout.sample(at: pixel, in: pattern, basis: basis)
     }
 }
 
@@ -1591,5 +1656,61 @@ private struct CursorAccessibilityValue: ViewModifier {
 
     func body(content: Content) -> some View {
         content.accessibilityValue(model.sample?.accessibilityText ?? fallback)
+    }
+}
+
+// MARK: - Diffraction cursor readout
+
+/// The diffraction pointer's current sample: a reference, so the pane can hold it without reading it (as `CursorSampleModel`
+/// for the real-space pane). `pixel` is the pointer's last pixel, kept so a new pattern under a resting pointer can be re-read;
+/// it is not observed.
+@Observable
+final class DiffractionCursorModel {
+    var sample: DiffractionPointerReadout.Sample?
+    @ObservationIgnored var pixel: DiffractionPointerReadout.Pixel?
+
+    func clear() {
+        pixel = nil
+        if sample != nil { sample = nil }
+    }
+}
+
+/// The header's pointer readout: the longest of its variants that fits the gap it is laid over, nothing when none does. The only
+/// view (besides the accessibility value) that re-evaluates when the pointer moves.
+private struct DiffractionCursorReadout: View {
+    let model: DiffractionCursorModel
+
+    var body: some View {
+        if let sample = model.sample {
+            let lines = sample.lines()
+            ViewThatFits(in: .horizontal) {
+                chip(lines.full)
+                chip(lines.short)
+                chip(lines.minimal)
+                EmptyView()
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .accessibilityLabel(sample.spoken())
+            .accessibilityIdentifier("pattern.cursorReadout")
+        }
+    }
+
+    private func chip(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize()
+    }
+}
+
+/// VoiceOver value of the diffraction pane: the pixel under the pointer, else the pane's static description. A modifier so the
+/// read happens here, not in the pane's body.
+private struct DiffractionCursorAccessibilityValue: ViewModifier {
+    let model: DiffractionCursorModel
+    let fallback: String
+
+    func body(content: Content) -> some View {
+        content.accessibilityValue(model.sample?.spoken() ?? fallback)
     }
 }

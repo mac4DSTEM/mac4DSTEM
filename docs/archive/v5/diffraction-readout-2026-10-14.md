@@ -67,3 +67,27 @@ in an isolated copy. A Gate B refuter is the session's.
 On-screen behaviour (the header slot at narrow widths, the hover mapping while zoomed, the refresh under a resting pointer) is
 unverified until a drive: the readout sits in the header's flexible gap and shortens, then disappears, rather than ever changing
 which header layout is chosen.
+
+## Result (2026-10-14, lane H1)
+
+P1 to P7 held on the first run: the 15 tests of `DiffractionPointerReadoutTests` passed in an isolated copy of HEAD (`h1a-class.log`), and in the
+full unit gate of the committed state (2274 passed, 0 failed, 4 skipped = 2278 `func test`, `h1d-unit.log`; `core` exit 0). P4 is the independent
+oracle: for a peak at a raw pixel, `BraggVectors.calibrated(with:referenceOrigin:)` gives the same distance as the readout to Float precision, with an
+ellipse (a = 1.1, b = 1, θ = 0.7) and per-position origins on a 2 × 1 scan, at both positions.
+
+Every test went red on its mutation, and only on tests the mutation should reach (`mut-*.log`, one `heavy.sh` run each):
+
+| Mutation | Red |
+|---|---|
+| M1 `floor` to `round` in the pixel map | `testEveryCellCentre…`, `testAPeakDrawnAtItsPixelCentre…`, `testSameFloorAsTheRealSpaceReadout` |
+| M2 row and column transposed in the pixel index | `testTheValueIsTheStoredPixel…` |
+| M3 ellipse correction skipped | `testAgreesWithBraggVectorsCalibrated…`, `testPixelsOnTheEllipseAllReadTheMinorSemiAxis` |
+| M4 per-position origin replaced by the mean | `testAgreesWithBraggVectorsCalibrated…`, `testTheSinglePositionPatternUsesItsOwnOrigin…` |
+| M5 origin gate removed | `testNoQFromAStandInOrigin`, `testNoQWhenTheOriginFitExceedsTheProbeRadius` |
+| M6 non-finite value not withheld, M7 physical-unit test dropped, M8 mrad flagged as a distance | `testANonFinitePixel…`, `testNoQWithoutAPhysicalQScale…`, `testInMilliradianModeQIsTheAngle…` |
+
+The bounds, plain-Euclid, field-name and θ-versus-q tests have theirs in one further run (far edge `<` to `<=`; the square root dropped; the field values swapped; the angle symbol made a q): red `testOutsideTheBoxAndTheFarEdge…`, `testWithoutAnEllipseTheDistanceIsPlainEuclidean` (with the ellipse and Bragg tests, which the dropped root also moves), `testTheTextKeepsEachNumbersMeaning…`, `testInMilliradianModeQIsTheAngleInMrad`.
+
+Not settled by this registration, and not claimed: how the readout sits in the header at every pane width, the hover mapping under a live
+pinch, and the refresh under a resting pointer. All three are drive items. The refresh keys on `patternVersion`: a pattern replaced
+without a version bump would leave the previous pixel's reading until the pointer moves.
