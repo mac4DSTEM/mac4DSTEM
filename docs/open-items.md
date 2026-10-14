@@ -84,21 +84,20 @@ Detail: `archive/v3/open-items-detail-2026-09-16.md`.
 - **Reference-shell pick has no l-filter**: 2H-WS₂ selects (0002), invisible on a [0001] zone — predicted mis-scale 2.26×, silent;
   score-based rescue fails (score halves, reliability rises). Owner: its own design pass.
 
-### The ellipse Fit accepts wrong profile fits on noisy rings — ADR 068 item run, card M3 open (2026-10-14)
-`fitAmorphousRing` starts both ring sigmas at py4DSTEM's `(ro − ri)/4`; on noisy flat-background rings with a good centre guess
-`fitBestAvailable` accepts profile fits off by up to 48 % in R and 0.51 in b/a (29–35 of 144 per set). On the owner's data it
-accepts ring-less fits (Ni65Cu35 [11, 14], Au_ref [30, 38]; b/a off 0.04–0.06 from the conic) and a ring outside its annulus
-(Au_ref [29, 39]); Al-Mg-Si 060 is refused on every annulus. Held: two starts + a floor guard (cb) — 414 → 79 wrong of 2009
-synthetic rows, refuses exactly the two ring-less real fits, gates green in a copy. Not caught by any candidate: a ring outside
-its annulus, a ring-less fit with healthy widths; the 8 % seed check was refuted on real data. Nothing has landed.
-Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`. Owner: card M3.
+### The ellipse Fit: what two starts and the floor guard leave (landed 2026-10-14, ADR 069)
+Landed: the profile fit refines from two starts and refuses a ring σ at its floor (414 → 79 wrong of 2009 synthetic rows; the
+owner's two ring-less real fits now fall back to the conic). Left: a ring fitted outside its annulus (Au_ref [29, 39], b/a 0.955
+vs 0.971–0.985 elsewhere) — the annulus guard is registered (`archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a ring-less
+fit with live widths (the tool's `grains_12`, b/a right there); gapped rings over a steep 1/r² background at 10–20 counts, 14 →
+16 wrong; 19 point-sampled sub-pixel synthetic rings now fall back to a near-identical conic (accepted, ADR 069).
+Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
 
 ### Pane keys may be dead in the shared shell — macTEM hand-off, unverified here (2026-10-14)
 macTEM's Gate D step 1 (macTEM `5120fed`, 21 runs, 7 arms): on a click, focus is granted and withdrawn within the same click,
 even for a bare focusable control; its Fable read (`49abd7a`): the `.inspector` column's NSHostingView, a sibling of the
 NavigationSplitView's split view, takes first responder. mac4DSTEM's detail content uses the same `.focusable()` + key
 handlers (WorkspaceView.swift:115-117 scan stepping, SpectrumStripView, SpectroscopyRoomContent, MapsGridView) and no drive
-has shown them working. Evidence: macTEM `docs/archive/pane-keys-gate-d-2026-10-14/`. Next: the session's drive block checks
+has shown them working. Evidence: macTEM's repo, its pane-keys Gate D archive folder of 2026-10-14. Next: the drive block checks
 the scan-stepping keys, a first-responder backtrace and the inspector hidden; if confirmed, a Gate D registration. The fix
 sits in frozen-shell files (the owner's call, asked separately) and lands here first, then macTEM copies it.
 
