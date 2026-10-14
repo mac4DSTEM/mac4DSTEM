@@ -38,6 +38,29 @@ normalised residual of any model (a ring-less constant scores 0.17–0.26 agains
 **What would be built.** Candidates (a) and (b) as held patches with a fixture (a noisy plant red on HEAD), gated, not
 applied. The owner chooses on card M2: (a), (b), both, or neither.
 
+## Step 2 amendment (2026-10-14, written and committed before any step-2 run)
+
+- **The candidates as built**, held in `ring-sigma-start-gateD-2026-10-13/` (`core-a.diff`, `core-b.diff`, `core-ab.diff`,
+  each against `EllipseCalibration.swift` at `5ddec30d`; none applied). (a): both ring sigmas start at the half-maximum width
+  of the annulus's radial profile about the conic seed: 1 px bins of the seed's elliptical radius scaled to (a + b)/2, a
+  3-bin mean, the half maximum between the profile's minimum and peak, crossings interpolated linearly, σ = FWHM / 2.3548,
+  at least 1 px; py4DSTEM's (ro − ri)/4 stands when the peak has no crossing on both sides inside the annulus. The sigma
+  step scales stay (ro − ri)/4. macTEM's tested estimator measured the circular radius about the seed centre in whole bins,
+  so its 16 of 16 is not evidence for this one; P3 is. (b): a profile fit whose smaller ring sigma ends ≤ 0.30 px throws
+  `ringWidthAtFloor` after the existing checks, and `fitBestAvailable` falls back to the conic (or throws when the conic's
+  residual is over 0.2). Lower bound only.
+- **P6, both (a + b):** 0 accepted profile fits off by > 1 % on either noisy set; no fit within 0.1 % before is refused
+  or outside it after; on the clean sets and the 48-ring sweep, as P3.
+- **Sets:** set A = macTEM `refuter/plants_a.py`, set B = `plants_b.py` (SEED0 77031, the "fresh set"), macTEM `6c1f4d4`,
+  all 275 cases each: noisy and clean decide P3, P4 and P6 as registered; the printed and refusal tiers are printed, not
+  decided. "Wrong" = off by > 1 % in (a + b)/2 (step 1); "right" = within 0.1 %.
+- **P5's annuli**, read off the mean pattern's radial profile before any fit (64 × 64, a beam stop and its wire; rings near
+  9.5, 16.5, 25 and 33.5 px about the centre guess (28.47, 34.43), the centroid of the brightest 1 % of pixels): [5, 13],
+  [13, 21], [21, 30], [30, 38], and each widened by 1 px on both sides.
+- **The fixture:** seeded noisy plants rendered in the test (no data file) on which HEAD accepts a profile fit off by more
+  than 1 %; the test asserts the Fit returns no profile fit that far off. One plant of the dead-ring kind (expected green
+  under (a) and (b)) and, if one exists at a unit-test size, one of the drifting kind (expected green under (a) only).
+
 ## Results — partial: step 1 only (2026-10-13, M5 Pro; the session ended before steps 2–5)
 
 A Sonnet lane ran this tree's `fitBestAvailable` (HEAD `ce245821`, default arguments, macTEM's centre guess and annulus) on

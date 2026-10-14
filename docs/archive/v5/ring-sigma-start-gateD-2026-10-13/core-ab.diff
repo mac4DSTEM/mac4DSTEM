@@ -1,0 +1,120 @@
+--- a/mac4DSTEM/Core/Analysis/EllipseCalibration.swift
++++ b/mac4DSTEM/Core/Analysis/EllipseCalibration.swift
+@@ -88,6 +88,7 @@
+         case didNotConverge
+         case invalidEllipse
+         case excessiveResidual(Double)
++        case ringWidthAtFloor
+ 
+         package var errorDescription: String? {
+             switch self {
+@@ -111,6 +112,8 @@
+                 return "Detector ellipse fitting produced a non-physical conic."
+             case .excessiveResidual(let residual):
+                 return String(format: "Detector ellipse fit residual is too large (%.3f).", residual)
++            case .ringWidthAtFloor:
++                return "The ring profile fit lost the ring: its fitted width fell to the 0.25 px floor."
+             }
+         }
+     }
+@@ -513,10 +516,22 @@
+         // annulus-restricted amplitudes: I0=globalMax-annularMin,
+         // I1=annularMax-annularMin, c=annularMin. Same model and residual, only
+         // the LM start point differs; the effect on convergence is unmeasured.
++        // DEVIATION: py4DSTEM starts both ring sigmas at (ro - ri)/4. On a
++        // noisy ring that start (10-17 px for a 3 px ring in a +-20 px annulus)
++        // lets the fit drain the ring into the background and the central
++        // Gaussian and return a ring-less or off-centre ellipse that the
++        // residual cap does not refuse (`archive/v5/ring-sigma-start-gateD-2026-10-13.md`).
++        // Here both start at the half-maximum width of the annulus's radial
++        // profile about the seed ellipse; py4DSTEM's start stands when that
++        // profile has no such width.
+         // [I0,I1,sigma0,sigma1,sigma2,c,x0,y0,a,b,theta]
++        let ringSigmaStart = halfMaximumRingSigma(
++            values: samples.map(\.value), xs: samples.map(\.x), ys: samples.map(\.y),
++            seed: initial, innerRadius: innerRadius, outerRadius: outerRadius
++        ) ?? max(1, ringWidth / 4)
+         var parameters = [
+             max(0, globalMaximum - minimum), dynamicRange,
+-            max(1, innerRadius / 2), max(1, ringWidth / 4), max(1, ringWidth / 4),
++            max(1, innerRadius / 2), ringSigmaStart, ringSigmaStart,
+             minimum, initial.centerQX, initial.centerQY,
+             initial.a, initial.b, initial.theta,
+         ]
+@@ -678,6 +693,13 @@
+         guard hypot(parameters[6] - centerQX, parameters[7] - centerQY) <= centerLimit,
+               parameters[8] / parameters[9] <= 5 else {
+             throw FitError.invalidEllipse
++        }
++        // A ring sigma at its 0.25 px floor is a fit that drained the ring into
++        // the background and the central Gaussian: a, b and the centre then
++        // carry no ring information (`archive/v5/ring-sigma-start-gateD-2026-10-13.md`).
++        // The caller falls back to the conic.
++        guard min(parameters[3], parameters[4]) > 0.25 + 0.05 else {
++            throw FitError.ringWidthAtFloor
+         }
+         return EllipseCalibrationFit(
+             centerQX: parameters[6], centerQY: parameters[7],
+@@ -694,6 +716,62 @@
+             profileFallbackReason: nil,
+             sparseCoverage: initial.sparseCoverage
+         )
++    }
++
++    /// The ring sigma whose Gaussian has the half-maximum width of the
++    /// annulus's radial profile: 1 px bins of the seed ellipse's elliptical
++    /// radius (scaled to (a + b)/2, as the profile model measures it), a
++    /// 3-bin mean, the half maximum between the profile's minimum and its
++    /// peak, crossings interpolated linearly, FWHM / 2.3548, at least 1 px.
++    /// Nil when the peak has no crossing on both sides inside the annulus
++    /// (a ring wider than the annulus, or no ring), or fewer than 5 bins.
++    private static func halfMaximumRingSigma(
++        values: [Double], xs: [Double], ys: [Double],
++        seed: EllipseCalibrationFit, innerRadius: Double, outerRadius: Double
++    ) -> Double? {
++        let a = seed.a, b = seed.b
++        let binCount = Int((outerRadius - innerRadius).rounded(.up))
++        guard a > 0, b > 0, binCount >= 5,
++              values.count == xs.count, values.count == ys.count else { return nil }
++        let sinTheta = sin(seed.theta), cosTheta = cos(seed.theta)
++        let a2 = a * a, b2 = b * b
++        let radius2 = (a + b) * (a + b) / 4
++        let A = (sinTheta * sinTheta / b2 + cosTheta * cosTheta / a2) * radius2
++        let B = 2 * (b2 - a2) * sinTheta * cosTheta / (a2 * b2) * radius2
++        let C = (cosTheta * cosTheta / b2 + sinTheta * sinTheta / a2) * radius2
++        var sums = [Double](repeating: 0, count: binCount)
++        var counts = [Double](repeating: 0, count: binCount)
++        for index in values.indices {
++            let dx = xs[index] - seed.centerQX, dy = ys[index] - seed.centerQY
++            let radius = max(0, A * dx * dx + B * dx * dy + C * dy * dy).squareRoot()
++            let bin = Int((radius - innerRadius).rounded(.down))
++            guard bin >= 0, bin < binCount else { continue }
++            sums[bin] += values[index]
++            counts[bin] += 1
++        }
++        let profile = (0..<binCount).map { counts[$0] > 0 ? sums[$0] / counts[$0] : Double.nan }
++        let smooth: [Double] = (0..<binCount).map { bin in
++            let window = (max(0, bin - 1)...min(binCount - 1, bin + 1)).map { profile[$0] }.filter(\.isFinite)
++            return window.isEmpty ? Double.nan : window.reduce(0, +) / Double(window.count)
++        }
++        let finite = smooth.indices.filter { smooth[$0].isFinite }
++        guard let peak = finite.max(by: { smooth[$0] < smooth[$1] }),
++              let floor = finite.map({ smooth[$0] }).min(),
++              smooth[peak] > floor else { return nil }
++        let half = floor + (smooth[peak] - floor) / 2
++        var left = peak
++        while left > 0, smooth[left - 1].isFinite, smooth[left - 1] >= half { left -= 1 }
++        var right = peak
++        while right < binCount - 1, smooth[right + 1].isFinite, smooth[right + 1] >= half { right += 1 }
++        guard left > 0, smooth[left - 1].isFinite,
++              right < binCount - 1, smooth[right + 1].isFinite else { return nil }
++        let leftCrossing = Double(left - 1)
++            + (half - smooth[left - 1]) / (smooth[left] - smooth[left - 1])
++        let rightCrossing = Double(right)
++            + (smooth[right] - half) / (smooth[right] - smooth[right + 1])
++        let width = rightCrossing - leftCrossing
++        guard width.isFinite, width > 0 else { return nil }
++        return max(1, width / (2 * (2 * log(2.0)).squareRoot()))
+     }
+ 
+     private static func median(_ values: [Double]) -> Double? {
