@@ -1,8 +1,8 @@
 # Canonical py4DSTEM Analysis Pipelines
 
 **Purpose.** This document reconstructs the *standard* 4D-STEM analysis
-workflows as taught by the py4DSTEM authors, straight from the tutorial
-notebooks in `References/py4DSTEM_tutorials-main/notebooks/` (current /
+workflows as taught by the py4DSTEM authors, straight from the tutorial notebooks in
+the notebooks/ folder of <https://github.com/py4dstem/py4DSTEM_tutorials> (current /
 top-level versions, v0.14.8–0.14.19). It is deliberately written from the
 science down — **not** reverse-engineered from mac4DSTEM's UI — so it can
 serve two jobs:
@@ -225,6 +225,6 @@ The playthrough they ran on was retired 2026-08-17; nothing there runs today.
 `basics_02_diskdetection`, `basics_03_calibration`, `basics_04_strain`,
 `dpc_01`, `parallax_01`, `parallax_02`, `ptychography_01`,
 `orientation_01_AuAgPd_wire`, `orient_strain_01_WS2`, `strain_01_Si_SiGe`
-(all under `References/py4DSTEM_tutorials-main/notebooks/`, current versions
+(all under the notebooks/ folder of <https://github.com/py4dstem/py4DSTEM_tutorials>, current versions
 v0.14.8–0.14.19). The `_00` notebooks in the DPC/parallax series are data
 *simulation* only, not analysis.

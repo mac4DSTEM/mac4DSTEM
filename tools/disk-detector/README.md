@@ -18,6 +18,8 @@ nothing here touches `UI/` or `AppState`.
 | `$HOME/miniconda3/envs/py4dstem` (python 3.12.4) with the LOCK `References/py4DSTEM-dev` (py4DSTEM 0.14.19, `tools/lib/fetch-py4dstem.sh`) on `PYTHONPATH` | the reference detector in `verify_fixture.py` and `evaluate.py` — only to call py4DSTEM. The environment's own py4DSTEM (0.14.17) is not the reference (`decisions.md`, 2026-09-07); `run.sh` puts the lock first and both scripts do so themselves when run directly | `tools/lib/python.sh` resolves it |
 | `$HOME/miniconda3/envs/disk-detector` (python 3.12) | `train.py`, `export.py`, `check_export.py` | `requirements.txt` (2026-09-06: torch 2.11.0 — coreai-opt 0.2.1 pins it — numpy 2.3.5, coremltools 9.0, coreai-torch 0.4.2 + coreai-core 1.0.0b2 + coreai-opt 0.2.1, tensorboard 2.21.0) |
 
+Dependabot proposed torch 2.13.0 (2026-10-14) and was not applied: `coreai-opt 0.2.1` pins `torch<=2.11.0`, so 2.13.0 would make `pip install -r requirements.txt` unresolvable. The shipped model's export record is `env-freeze.txt` in its training run (run1 trained under 2.13.0, exported under 2.11.0); nothing was retrained or re-exported.
+
 `simulate.py` imports in both (numpy + scipy only). Run `tools/free-space.sh`
 before installing anything; the machine runs near its disk floor.
 
