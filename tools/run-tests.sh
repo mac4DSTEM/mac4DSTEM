@@ -69,9 +69,16 @@ unit_tests() (
   # its normal DerivedData directory. HDF5 is loaded lazily, so overwriting a
   # running app can otherwise give the process and bundled dylib different code
   # identities and make macOS reject the library.
-  local work
+  local work dd
   work="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-unit-tests.XXXXXX")"
   trap 'rm -rf "$work"' EXIT
+  # Warm builds (2026-10-14): a lane's repeated runs may reuse one DerivedData by setting MAC4DSTEM_UNIT_DERIVED_DATA to a
+  # directory of its own (kept between runs); unset, the build is cold in a throwaway folder — the landing gate stays cold.
+  dd="${MAC4DSTEM_UNIT_DERIVED_DATA:-$work/DerivedData}"
+  # The scheme runs the suite in parallel (`parallelizable`); the workers are capped at 8, the suite's limit for heavy CPU
+  # jobs (load 22-25 on 18 cores through 2026-10-14). MAC4DSTEM_UNIT_PARALLEL=NO runs it serially (the comparison run).
+  local -a par=(-parallel-testing-enabled "${MAC4DSTEM_UNIT_PARALLEL:-YES}")
+  [[ "${MAC4DSTEM_UNIT_PARALLEL:-YES}" == YES ]] && par+=(-parallel-testing-worker-count "${MAC4DSTEM_UNIT_WORKERS:-8}")
 
   # -only-testing scopes this to the fast unit-test target (the retired
   # UI-test target was deleted 2026-09-02; the flag stays so a future test
@@ -84,7 +91,7 @@ unit_tests() (
   LLVM_PROFILE_FILE="$work/default-%p.profraw" \
     xcodebuild test -project "$ROOT/mac4DSTEM.xcodeproj" -scheme mac4DSTEM \
       -configuration Debug -destination 'platform=macOS' \
-      -derivedDataPath "$work/DerivedData" \
+      -derivedDataPath "$dd" "${par[@]}" \
       -only-testing:mac4DSTEMTests \
       SWIFT_OPTIMIZATION_LEVEL=-O CODE_SIGNING_ALLOWED=NO -quiet
 )
