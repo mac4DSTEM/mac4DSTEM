@@ -40,7 +40,8 @@ struct PrepareSettings: View {
     // @SceneStorage key, so these two keys (unchanged since before this
     // conversion) keep whatever a returning window already remembered.
     @SceneStorage("prepare.settings.advancedCorrection.isExpanded") private var showsDiagnostics = false
-    @SceneStorage("prepare.settings.ellipseCorrection.isExpanded") private var showsEllipse = false
+    // The key is `EllipseFitAnnulus`'s too: the diffraction pane draws the fit annulus while this section is open.
+    @SceneStorage(EllipseFitAnnulus.sectionStorageKey) private var showsEllipse = false
     /// Destructive, so it asks first — the same pattern as "Reset Recommended
     /// Settings" and "Reset Alignment". Plain `@State`: a half-open dialog is
     /// not worth remembering across a window.

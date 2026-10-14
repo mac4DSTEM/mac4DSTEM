@@ -55,6 +55,9 @@ struct DiffractionPane: View {
     /// "Show claimed disks" (phase-mapping task): a per-viewer display
     /// preference, so it lives with the view and not in `AppState`.
     @AppStorage("phaseMapping.showClaimedDisks") private var showClaimedDisks = true
+    /// Whether Prepare's "Ellipse correction" section is open: the same remembered state that section stores
+    /// (`EllipseFitAnnulus.sectionStorageKey`), so the pane draws the fit annulus exactly while the section is on screen.
+    @SceneStorage(EllipseFitAnnulus.sectionStorageKey) private var ellipseSectionIsOpen = false
 
     /// The claimed-disks overlay exists once a phase map has run.
     private var claimedDisksAvailable: Bool {
@@ -335,6 +338,24 @@ struct DiffractionPane: View {
                     // Phase mapping: which phase claimed each detected disk here.
                     if claimedDisksAvailable, showClaimedDisks {
                         PhaseClaimLayer(patternWidth: qx, patternHeight: qy, box: box, part: .rings)
+                    }
+
+                    // The annulus Fit Ellipse samples, around the centre the fit takes (the aperture's), while its section is open.
+                    if EllipseFitAnnulus.isShown(
+                        workspace: appState.navigation.workspaceArea, sectionIsOpen: ellipseSectionIsOpen,
+                        inspectorIsVisible: appState.navigation.inspectorIsVisible),
+                       let annulus = EllipseFitAnnulus.metrics(
+                        centerX: appState.aperture.centerX, centerY: appState.aperture.centerY,
+                        inner: appState.calibrationSession.ellipseFitInnerRadius,
+                        outer: appState.calibrationSession.ellipseFitOuterRadius,
+                        patternWidth: qx, patternHeight: qy, box: box) {
+                        EllipseFitAnnulusOverlay(
+                            metrics: annulus, zoom: zp.drawZoom,
+                            spoken: EllipseFitAnnulus.spoken(
+                                centerX: appState.aperture.centerX, centerY: appState.aperture.centerY,
+                                inner: appState.calibrationSession.ellipseFitInnerRadius,
+                                outer: appState.calibrationSession.ellipseFitOuterRadius))
+                            .frame(width: box.width, height: box.height)
                     }
 
                     // Fit verification: measured peaks against the fitted model
