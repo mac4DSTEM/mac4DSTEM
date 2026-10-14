@@ -38,8 +38,15 @@ package enum ACOMQualityPreset: String, CaseIterable, Identifiable {
         }
     }
 
-    /// STUB (tests first): the monoclinic multiplier follows in the candidate commit.
-    package func templateCount(for symmetry: ACOMCrystalSymmetry) -> Int { templateCount }
+    /// A monoclinic phase's library is 4x the preset's (item B2, 2026-10-14): at 200 templates the
+    /// quarter-sphere zone of a 15 A cell is sampled every 7.7 deg and only 86.5 % of synthetic beta''
+    /// draws came back within that step (item B, P2); 4x halves the spacing. Cubic, hexagonal and
+    /// Unreduced libraries are the preset's count.
+    package static let monoclinicLibraryMultiplier = 4
+
+    package func templateCount(for symmetry: ACOMCrystalSymmetry) -> Int {
+        symmetry == .monoclinic ? templateCount * Self.monoclinicLibraryMultiplier : templateCount
+    }
 
     package var detail: String {
         switch self {

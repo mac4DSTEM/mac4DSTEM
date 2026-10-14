@@ -153,7 +153,7 @@ extension AppState {
     /// Build the orientation-plan template library for the selected crystal.
     func generateOrientationPlan() async {
         guard descriptor != nil else { return }
-        let templateCount = acomSession.quality.templateCount
+        let templateCount = acomTemplateCount
         let cancellation = beginCancellableOperation(
             "Orientation plan", status: "Generating orientation plan…",
             totalUnits: templateCount

@@ -600,15 +600,19 @@ final class AppState {
             .positionCount(width: descriptor.rx, height: descriptor.ry)
     }
 
-    /// STUB (tests first).
-    var acomTemplateCount: Int { acomSession.quality.templateCount }
+    /// The library size for the selected phase: the preset's count, 4x for a monoclinic phase. One
+    /// source for the Work row, the estimate and the plan.
+    var acomTemplateCount: Int {
+        acomSession.quality.templateCount(for: resolvedACOMModel?.symmetry ?? .cubic)
+    }
 
     var acomWorkSummary: String {
         "\(acomWorkPositionCount.formatted()) positions × \(acomTemplateCount) templates"
     }
 
     var acomEstimatedDuration: TimeInterval? {
-        acomSession.estimatedDuration(forPositions: acomWorkPositionCount)
+        acomSession.estimatedDuration(
+            forPositions: acomWorkPositionCount, symmetry: resolvedACOMModel?.symmetry ?? .cubic)
     }
 
     /// What a full-scan run would cost, using the same throughput the panel
