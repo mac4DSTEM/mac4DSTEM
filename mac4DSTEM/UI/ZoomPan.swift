@@ -202,6 +202,9 @@ private struct ZoomPanModifier: ViewModifier {
     /// The drawn image's box — the clamp is expressed against the pixels,
     /// not against whatever the container happens to be.
     let box: CGSize
+    /// The pointer over the pane, in this view's own box points, for a pane that reads a value under it (the comparison panels).
+    /// One hover handler serves both, so the pane needs no second `onContinuousHover` on the same view.
+    var onHover: ((HoverPhase) -> Void)?
 
     func body(content: Content) -> some View {
         content
@@ -262,6 +265,7 @@ private struct ZoomPanModifier: ViewModifier {
                 case .active(let location): model.pointer = location
                 case .ended: model.pointer = nil
                 }
+                onHover?(phase)
             }
             .onChange(of: box, initial: true) { model.box = box }
     }
@@ -315,8 +319,8 @@ extension View {
 
     /// Pinch to zoom about the pointer, drag to pan, double-click to fit. `box` is the drawn image's size, which is what the pan
     /// clamp is measured against.
-    func zoomPan(_ model: PaneZoomModel, box: CGSize) -> some View {
-        modifier(ZoomPanModifier(model: model, box: box))
+    func zoomPan(_ model: PaneZoomModel, box: CGSize, onHover: ((HoverPhase) -> Void)? = nil) -> some View {
+        modifier(ZoomPanModifier(model: model, box: box, onHover: onHover))
     }
 
     /// Publishes this pane's zoom to the View menu while `isTarget`; nothing otherwise.

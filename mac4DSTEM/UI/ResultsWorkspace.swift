@@ -322,17 +322,20 @@ nonisolated enum ComparisonSampleCursor {
 /// A and B side by side, with A − B beside them when the two products are
 /// numerically comparable at all.
 ///
-/// The zoom is shared and magnification-only. UI's `ZoomPan` is
-/// deliberately NOT used here: it adds a pan offset, and
-/// `ComparisonHoverMapping.sourcePixel` inverts a centre-anchored fit plus
-/// zoom and nothing else, so a panned pane would report the value of a pixel
-/// the pointer is not over. A wrong number is worse than a missing gesture.
+/// The zoom and the pan are shared: one `PaneZoomModel` drives every panel, so the same pixel sits under the same place in A, B
+/// and A − B. It is the model the image panes use (pinch about the pointer, drag to pan, double-click to fit, the same clamp
+/// and badge), and the hover readout inverts the whole chain, offset included (`ComparisonHoverMapping.sourcePixel`), so a
+/// panned panel still names the pixel the pointer is over. The pinch and the drag act on the fitted image's own rectangle, not
+/// on the letterbox around it.
 struct ProductComparisonView: View {
     let a: DisplayedProduct
     let b: DisplayedProduct
 
-    @State private var zoom: CGFloat = 1
-    @State private var liveZoom: CGFloat = 1
+    /// The one zoom and pan of all panels. View-local: it is how this comparison is looked at, not a result.
+    @State private var zoomModel = PaneZoomModel()
+    /// The fitted image box last laid out (the panels share a size, bar products of other shapes, which have no readout), for the
+    /// accessibility pan step: the actions sit outside the `GeometryReader` that measures it.
+    @State private var fittedBox: CGSize = .zero
     @State private var cursor: (x: Int, y: Int)?
     /// VoiceOver's sample cursor per panel, keyed by the panel's label. Absent
     /// until first moved, when it sits at the panel centre.
@@ -362,12 +365,7 @@ struct ProductComparisonView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Compare saved products").font(.headline)
-                Spacer()
-                Text("Shared zoom ×\(zoom * liveZoom, specifier: "%.1f")")
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            }
+            header
             HStack(spacing: 8) {
                 ForEach(panels) { panel($0) }
             }
@@ -402,6 +400,60 @@ struct ProductComparisonView: View {
         .accessibilityIdentifier("result.comparison")
     }
 
+    /// Title, then the shared zoom: − and + (about the centre, the VoiceOver step), the badge once it is not 1×, and Reset (fit).
+    /// Two rows below the width the single row needs, so nothing clips.
+    private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                title
+                Spacer(minLength: 12)
+                zoomControls
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                title
+                zoomControls
+            }
+        }
+    }
+
+    private var title: some View {
+        Text("Compare saved products").font(.headline).lineLimit(1)
+    }
+
+    private var zoomControls: some View {
+        let state = zoomModel.state
+        return HStack(spacing: 6) {
+            if let text = ZoomPan.badgeText(zoom: state.effectiveZoom),
+               let spoken = ZoomPan.badgeSpoken(zoom: state.effectiveZoom) {
+                Text(text)
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(Color.accentColor)
+                    .fixedSize()
+                    .help("\(spoken), all panels together. Drag to pan; double-click, or Reset, to see the whole image.")
+                    .accessibilityLabel(spoken)
+                    .accessibilityIdentifier("result.comparison.zoomBadge")
+            }
+            Button { zoomModel.zoomOut() } label: {
+                Label("Zoom Out", systemImage: "minus.magnifyingglass")
+            }
+            .help("Zoom out all panels")
+            .accessibilityIdentifier("result.comparison.zoomOut")
+            Button { zoomModel.zoomIn() } label: {
+                Label("Zoom In", systemImage: "plus.magnifyingglass")
+            }
+            .help("Zoom in all panels")
+            .accessibilityIdentifier("result.comparison.zoomIn")
+            Button("Reset") { zoomModel.fit() }
+                .disabled(state.zoom == 1 && state.offset == .zero)
+                .help("Fit the whole image in every panel again")
+                .accessibilityIdentifier("result.comparison.zoomReset")
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .fixedSize()
+    }
+
     /// The panel's static caption, shown when no sample is under the pointer.
     private func staticCaption(_ product: DisplayedProduct) -> String {
         "\(product.domain.rawValue) · \(product.valueUnits)"
@@ -423,6 +475,8 @@ struct ProductComparisonView: View {
             current, direction, width: product.width, height: product.height)
     }
 
+    private var zp: ZoomPan { zoomModel.state }
+
     private func panel(_ rendered: ComparisonPanel) -> some View {
         let product = rendered.product
         return VStack(alignment: .leading, spacing: 4) {
@@ -430,6 +484,8 @@ struct ProductComparisonView: View {
                 .font(.caption.weight(.semibold)).lineLimit(1)
             GeometryReader { geometry in
                 let size = geometry.size
+                let fitted = ComparisonHoverMapping.fittedSize(
+                    paneSize: size, imageWidth: product.width, imageHeight: product.height)
                 MetalImageView(
                     pixels: rendered.pixels,
                     width: product.width, height: product.height,
@@ -446,40 +502,34 @@ struct ProductComparisonView: View {
                 // by the shader (`MetalDisplayTransform`), not by a SwiftUI
                 // `scaleEffect`: that would grow the drawable with the zoom.
                 .displayTransform(MetalDisplayTransform(
-                    paneSize: size,
-                    imageBox: ComparisonHoverMapping.fittedSize(
-                        paneSize: size, imageWidth: product.width, imageHeight: product.height),
-                    zoom: max(1, zoom * liveZoom)))
+                    paneSize: size, imageBox: fitted,
+                    zoom: zp.drawZoom, offset: zp.effectiveOffset))
                 .frame(width: size.width, height: size.height)
                 .clipped()
-                .contentShape(Rectangle())
-                .gesture(
-                    MagnifyGesture()
-                        .onChanged { liveZoom = $0.magnification }
-                        .onEnded { value in
-                            zoom = min(
-                                ZoomPan.maximumZoom,
-                                max(1, zoom * value.magnification)
-                            )
-                            liveZoom = 1
+                .onChange(of: fitted, initial: true) { fittedBox = fitted }
+                // The pinch, the drag and the double-click live on the fitted image's own rectangle (centred, so its
+                // centre is the pane's centre, where the shader zooms), which is the box `ZoomPan` measures its clamp
+                // and its anchors against. The hover is read there too, once, through `zoomPan`'s `onHover`.
+                .overlay {
+                    Color.clear
+                        .frame(width: fitted.width, height: fitted.height)
+                        .contentShape(Rectangle())
+                        .zoomPan(zoomModel, box: fitted) { phase in
+                            switch phase {
+                            case .active(let location):
+                                if coordinatesCompatible {
+                                    // Invert the letterbox, zoom and pan the pane actually draws with; over letterbox
+                                    // the readout goes quiet instead of clamping to a wrong edge pixel.
+                                    let pointer = CGPoint(x: location.x + (size.width - fitted.width) / 2,
+                                                          y: location.y + (size.height - fitted.height) / 2)
+                                    cursor = ComparisonHoverMapping.sourcePixel(
+                                        pointer: pointer, paneSize: size,
+                                        imageWidth: product.width, imageHeight: product.height,
+                                        zoom: zp.effectiveZoom, offset: zp.effectiveOffset)
+                                }
+                            case .ended: cursor = nil
+                            }
                         }
-                )
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let point):
-                        if coordinatesCompatible {
-                            // Invert the letterbox + zoom the pane actually
-                            // draws with; over letterbox the readout goes
-                            // quiet instead of clamping to a wrong edge pixel.
-                            cursor = ComparisonHoverMapping.sourcePixel(
-                                pointer: point, paneSize: size,
-                                imageWidth: product.width,
-                                imageHeight: product.height,
-                                zoom: zoom * liveZoom
-                            )
-                        }
-                    case .ended: cursor = nil
-                    }
                 }
                 // The legend the main pane's footer carries, on the same
                 // plate: value range, units, a zero mark on a diverging map.
@@ -503,16 +553,17 @@ struct ProductComparisonView: View {
             // the colorbar's range and units are spoken content, so it stays reachable beneath.
             .accessibilityElement(children: .contain)
             .accessibilityLabel("\(rendered.label) · \(product.displayName)")
-            // The pinch has no keyboard or VoiceOver twin otherwise; the zoom is shared by all panels.
+            // The pinch has no keyboard or VoiceOver twin otherwise: the same zoom, pan and reset actions as the image
+            // panes, acting on the one shared model. (`zoomPanAccessibilityActions` lists "Zoom in", "Zoom out", the four
+            // "Pan" actions and "Reset zoom".) The system zoom action maps onto the same step.
+            .zoomPanAccessibilityActions(zoomModel, box: fittedBox)
             .accessibilityZoomAction { action in
                 switch action.direction {
-                case .zoomIn, .zoomOut:
-                    zoom = CGFloat(RoomAccessibilityText.steppedZoom(
-                        Double(zoom), zoomIn: action.direction == .zoomIn, maximum: Double(ZoomPan.maximumZoom)))
+                case .zoomIn: zoomModel.zoomIn()
+                case .zoomOut: zoomModel.zoomOut()
                 @unknown default: break
                 }
             }
-            .accessibilityAction(named: "Reset zoom") { zoom = 1 }
             // The pointer's readout, for VoiceOver too: the sample at the VO-only
             // cursor, through the same `product.sample` the hover readout uses.
             .accessibilityValue(voSampleText(rendered))
