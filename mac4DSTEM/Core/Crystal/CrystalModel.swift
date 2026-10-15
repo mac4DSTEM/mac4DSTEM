@@ -44,6 +44,10 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
     /// every model that doesn't need it.
     package let extraProvenance: [String: String]
 
+    /// How far (degrees) beta may sit from 90 before a b-unique 2/m cell counts as monoclinic, and how far alpha and gamma
+    /// may sit from 90: the model's check below and the importers' mapping (`ACOMCrystalSymmetry.reduction(for:)`) share it.
+    package nonisolated static let monoclinicAngleToleranceDeg = 0.05
+
     package var validationIssues: [CrystalModelValidationIssue] {
         var issues: [CrystalModelValidationIssue] = []
         func add(_ code: String, _ message: String) {
@@ -85,11 +89,12 @@ package nonisolated struct CrystalModel: Identifiable, Sendable {
         case .monoclinic:
             // b is the unique axis (+y in the py4DSTEM frame) only when alpha = gamma = 90, and the
             // cell is monoclinic only when beta is not 90 (beta = 90 is orthorhombic: no 2/m key).
-            // Tolerance 0.05 degrees (the app's old importer tolerance), looser than the kit's metric test (1e-9),
-            // so a cell the kit maps to `.monoclinic` is never refused here, as it could be at 1e-6.
-            if abs(cell.alphaDeg - 90) > 0.05
-                || abs(cell.gammaDeg - 90) > 0.05
-                || abs(cell.betaDeg - 90) <= 0.05 {
+            // `monoclinicAngleToleranceDeg` (0.05 degrees, the app's old importer tolerance) is the one threshold; the
+            // importer's mapping (`ACOMCrystalSymmetry.reduction(for:)`) uses the same constant, so a cell it maps to
+            // `.monoclinic` is never refused here, and a cell with beta within it of 90 imports Unreduced instead.
+            if abs(cell.alphaDeg - 90) > Self.monoclinicAngleToleranceDeg
+                || abs(cell.gammaDeg - 90) > Self.monoclinicAngleToleranceDeg
+                || abs(cell.betaDeg - 90) <= Self.monoclinicAngleToleranceDeg {
                 add("monoclinic_symmetry_mismatch", "Monoclinic 2/m symmetry (b unique) requires α = γ = 90° and β ≠ 90°.")
             }
         case .identity:
@@ -318,7 +323,12 @@ extension ACOMCrystalSymmetry {
         case .sixOverMmm?:
             return metric == .hexagonal ? .hexagonal : .identity
         case .twoOverM?:
-            return metric == .monoclinic(uniqueAxis: .b) ? .monoclinic : .identity
+            // The kit's metric test is 1e-9 degrees; the model's own check (`CrystalModel.validationIssues`) is
+            // `monoclinicAngleToleranceDeg`. A b-unique cell with beta inside that band of 90 degrees is orthorhombic
+            // to the model, so it is `.identity` here (imports Unreduced) rather than `.monoclinic` and then refused.
+            guard metric == .monoclinic(uniqueAxis: .b),
+                  abs(structure.cell.betaDeg - 90) > CrystalModel.monoclinicAngleToleranceDeg else { return .identity }
+            return .monoclinic
         default:
             return .identity
         }
