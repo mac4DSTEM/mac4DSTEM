@@ -470,6 +470,21 @@ package enum ReplayStepPlan: Equatable {
         /// matching at a different scale gets every orientation wrong with no
         /// shape check to catch it (the Gate B-lite F3 lesson).
         package var scaleInvAngstromPerPixel: Double
+
+        /// How far (relative) the scale in force may sit from the recorded one before replay and rewind refuse. The recorded
+        /// scale is DERIVED from the Q the user entered (mrad/px goes through the electron wavelength), so a formula-level
+        /// change in that derivation moves it with no recalibration: commit 2e46e215 moved the DPC wavelength by +2.72e-5
+        /// (80 to 300 kV: 2.64e-5 to 2.84e-5), and 1e-6 refused every mrad-calibrated recipe recorded before it. 1e-4 admits
+        /// that (a spot at 1.2 Å⁻¹ moves 1.2e-4 Å⁻¹, 0.3 % of one 0.0375 Å⁻¹ radial bin of the plan) and refuses any real
+        /// recalibration (Q is measured to 1e-3 at best; one pixel on a 100 px ring is 1e-2). Lane F, 2026-10-15.
+        package nonisolated static let scaleRelativeTolerance = 1e-4
+
+        /// Whether `scale` (Å⁻¹ per pixel, the one in force) is the scale this run matched at, within
+        /// `scaleRelativeTolerance`. The one comparison replay and rewind both use; a non-finite scale never agrees.
+        package nonisolated func agrees(withScaleInForce scale: Double) -> Bool {
+            abs(scale - scaleInvAngstromPerPixel) <= max(1e-12, abs(scaleInvAngstromPerPixel) * Self.scaleRelativeTolerance)
+        }
+
         package var scope: ACOMRunScope
         package var quality: ACOMQualityPreset
 

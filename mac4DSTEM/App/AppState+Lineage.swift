@@ -381,7 +381,7 @@ extension AppState {
         }
         for case .acom(let acomPlan) in restores {
             let recorded = acomPlan.scaleInvAngstromPerPixel
-            guard abs(expectedScale - recorded) <= max(1e-12, abs(recorded) * 1e-6) else {
+            guard acomPlan.agrees(withScaleInForce: expectedScale) else {
                 return refuse(String(
                     format: "the recorded ACOM run matched at %.6g Å⁻¹/px but the scale in force would be %.6g Å⁻¹/px — matching at another scale gets orientations wrong with nothing to catch it, so recalibrate Q to the recorded value, then rewind.",
                     recorded, expectedScale))

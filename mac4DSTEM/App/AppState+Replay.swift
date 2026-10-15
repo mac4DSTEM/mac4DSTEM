@@ -179,6 +179,16 @@ extension AppState {
             customZ: acomSession.customZ)
     }
 
+    /// Why the recorded ACOM scale cannot be honoured by this session's scale, nil when they agree within
+    /// `ACOMReplayPlan.scaleRelativeTolerance`. Writes nothing.
+    func replayScaleRefusal(_ acomPlan: ReplayStepPlan.ACOMReplayPlan) -> String? {
+        let sessionScale = acomScaleSemantics.invAngstromPerPixel
+        guard !acomPlan.agrees(withScaleInForce: sessionScale) else { return nil }
+        return String(
+            format: "the recipe matched at %.6g Å⁻¹/px but this session's scale is %.6g Å⁻¹/px — matching at a different scale gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand",
+            acomPlan.scaleInvAngstromPerPixel, sessionScale)
+    }
+
     /// Select the recorded phase model by id (never a fallback crystal), or
     /// return why it cannot be. Shared by the replay executor and the rewind.
     func selectReplayMaterial(_ acomPlan: ReplayStepPlan.ACOMReplayPlan) -> String? {
@@ -236,13 +246,7 @@ extension AppState {
             guard resolvedACOMModel?.id == acomPlan.materialID else {
                 return .refused("the recipe's phase model '\(acomPlan.materialID)' is not available in this session — select or import the phase model it names, then run ACOM by hand")
             }
-            let sessionScale = acomScaleSemantics.invAngstromPerPixel
-            let recordedScale = acomPlan.scaleInvAngstromPerPixel
-            guard abs(sessionScale - recordedScale) <= max(1e-12, abs(recordedScale) * 1e-6) else {
-                return .refused(String(
-                    format: "the recipe matched at %.6g Å⁻¹/px but this session's scale is %.6g Å⁻¹/px — matching at a different scale gets orientations wrong with nothing to catch it, so recalibrate Q or run ACOM by hand",
-                    recordedScale, sessionScale))
-            }
+            if let reason = replayScaleRefusal(acomPlan) { return .refused(reason) }
             acomSession.scope = acomPlan.scope
             acomSession.quality = acomPlan.quality
             if let reason = replayRefusal(for: .acom) { return .refused(reason) }
