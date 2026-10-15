@@ -581,7 +581,7 @@ private struct DiskCentreLabelsRows: View {
             let exportReason = DiskCentreControlReason.exportLabels(isEmpty: labels.isEmpty)
             InspectorAdaptiveButton(
                 "Export Labels…", systemImage: "square.and.arrow.up",
-                help: exportReason ?? "Write the current labels to a JSON file you choose, in the format tools/disk-detector/label_centres.py writes."
+                help: exportReason ?? "Write the current labels to a JSON file you choose, in the label JSON format (label_centres.py)."
             ) {
                 _ = appState.exportDiskCentreLabels()
             }

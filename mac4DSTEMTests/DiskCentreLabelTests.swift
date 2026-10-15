@@ -2,7 +2,7 @@
 //  DiskCentreLabelTests.swift
 //  C7 session 4: `DiskCentreLabelStore` (`Session/DiskCentreLabels.swift`) —
 //  the hand-clicked disk-centre label store, its wire schema (the same JSON
-//  `tools/disk-detector/label_centres.py` writes), the sidecar round trip
+//  `../_archive/mac4DSTEM/tools/disk-detector/label_centres.py` writes), the sidecar round trip
 //  (`BraggVectorEMDWriter`'s `mac4dstem_disk_centre_labels` attribute), and
 //  `AppState.toggleDiskCentre`'s refusal order.
 //

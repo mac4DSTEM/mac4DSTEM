@@ -313,7 +313,7 @@ extension LearnedDiskDetector {
 
     /// The pinned asset shipped verbatim in the app bundle
     /// (Contents/Resources/DiskDetector/disk-detector-heatmap-256.mlpackage), or nil.
-    /// Its record is the JSON beside it in `Models/DiskDetector/`.
+    /// Its record is the JSON beside it in `mac4DSTEM/Resources/DiskDetector/`.
     package static let bundledAssetName = "disk-detector-heatmap-256"
     package static func bundledAssetURL(in bundle: Bundle = .main) -> URL? {
         bundle.url(forResource: bundledAssetName, withExtension: "mlpackage", subdirectory: "DiskDetector")

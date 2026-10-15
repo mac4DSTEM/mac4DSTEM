@@ -39,7 +39,7 @@ ELIGIBLE_MIN = 0.10
 PORT_TOL = 1e-9    # relative to the correlation maximum
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--fixture", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixture"))
+ap.add_argument("--fixture", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "mac4DSTEMTests", "Fixtures", "DiskDetector", "fixture"))
 ap.add_argument("--break", dest="break_mode", choices=["shifted-truth", "swapped-axes", "dropped-disk", "wrong-probe"])
 a = ap.parse_args()
 

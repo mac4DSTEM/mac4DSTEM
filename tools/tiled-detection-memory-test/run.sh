@@ -40,5 +40,5 @@ cd "$WORK"
 if [[ -n "${CI:-}" ]]; then
   echo "    learned half: SKIPPED on CI (no Neural Engine on the runner; the app refuses the learned detector without one — runs locally before every release)"
 else
-  ./harness learned "$REPO/Models/DiskDetector/disk-detector-heatmap-256.mlpackage"
+  ./harness learned "$REPO/mac4DSTEM/Resources/DiskDetector/disk-detector-heatmap-256.mlpackage"
 fi

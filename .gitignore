@@ -33,14 +33,14 @@
 *.mlmodel
 *.aimodel
 # the one exception (C7, 2026-09-08): the shipping learned disk detector, own weights, pinned by
-# its record JSON beside it and hashed into provenance (Models/DiskDetector/README in the record).
+# its record JSON beside it and hashed into provenance.
 # The `/**` is load-bearing: re-including the .mlpackage directory lets git descend into it, but
 # every file beneath is still matched on its own, so `*.mlmodel` swallowed the model spec and it
 # was never committed. A clone hashed 62b0215f where the record says 0f53d270, the unit gate went
 # red on that number, and the app bundled a package with weights and no graph (found 2026-09-09).
-!Models/DiskDetector/disk-detector-heatmap-256.mlpackage
-!Models/DiskDetector/disk-detector-heatmap-256.mlpackage/**
-# tools/disk-detector/labels/ is committed on purpose (ROADMAP A2, 2026-09-28): truth is never ignored —
+!mac4DSTEM/Resources/DiskDetector/disk-detector-heatmap-256.mlpackage
+!mac4DSTEM/Resources/DiskDetector/disk-detector-heatmap-256.mlpackage/**
+# mac4DSTEMTests/Fixtures/DiskDetector/labels/ is committed on purpose (ROADMAP A2, 2026-09-28): truth is never ignored —
 # the owner's 306 hand labels were lost there while this file ignored them.
 
 # Session evidence: retained logs referenced by docs, never committed

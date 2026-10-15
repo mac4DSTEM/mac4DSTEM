@@ -17,7 +17,7 @@
  "macos": "27.0",
  "threshold_shipped": 0.7,
  "threshold_evidence": "the knee on the frozen hand-labelled bullseye set (40 positions, 306 centres, 2 px): 0.9 recall 0.667 / precision 0.840, 0.7 0.768 / 0.712, 0.5 0.79 / 0.59; classical 0.487 / 0.485 on the same truth (decisions.md 2026-09-08; archive/v3/learned-detector-2026-09-06.md, C6 — the table)",
- "fixture": "tools/disk-detector/fixture/swift at 256 px from this package through coremltools (compute units all): 354 picks, 295 accepted at 0.7 on the 16 fixture patterns; the run's own evaluation at 0.7: 355 candidates, 295 accepted, recall 0.773 / precision 0.807 refined",
+ "fixture": "mac4DSTEMTests/Fixtures/DiskDetector/fixture/swift at 256 px from this package through coremltools (compute units all): 354 picks, 295 accepted at 0.7 on the 16 fixture patterns; the run's own evaluation at 0.7: 355 candidates, 295 accepted, recall 0.773 / precision 0.807 refined",
  "several_shape_attempt": "disk-detector-heatmap-shapes.mlpackage (enumerated 256 and 512) converted on 2026-09-08; not shipped — the app uses this fixed-size package with windows above 256 (decisions.md 2026-09-08)",
  "licence": "own weights, trained on the repo simulator with the owner's probes and backgrounds; no third-party weights"
 }

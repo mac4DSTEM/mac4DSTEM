@@ -39,7 +39,7 @@ scored per disk.
 
 ## Governs
 
-`mac4DSTEM/Core/ML/LearnedDiskDetector.swift`, `Models/DiskDetector/`
+`mac4DSTEM/Core/ML/LearnedDiskDetector.swift`, `mac4DSTEM/Resources/DiskDetector/`
 (gitignored except this path), `DiskCentreLabelStore`, the `detector_class` /
 `learned_threshold` / `learned_model_sha256` provenance keys.
 
@@ -51,4 +51,4 @@ scored per disk.
 - 2026-09-08 "C6 verdict: ... 256-px model; ... default threshold 0.7", log line 561
 - 2026-09-08 "Labels in the sidecar: centres, as one attribute", log line 663
 
-Evidence: `../_archive/mac4DSTEM/docs/archive/v3/learned-detector-2026-09-06.md`, `tools/disk-detector/README.md` (verified present).
+Evidence: `../_archive/mac4DSTEM/docs/archive/v3/learned-detector-2026-09-06.md`, `../_archive/mac4DSTEM/tools/disk-detector/README.md` (verified present).

@@ -623,7 +623,7 @@ if __name__ == "__main__":
     import argparse, os
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["fixture", "ingredients"])
-    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "fixture"),
+    ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "mac4DSTEMTests", "Fixtures", "DiskDetector", "fixture"),
                     help="fixture: the directory; ingredients: the .npz path train.py's --ingredients takes")
     ap.add_argument("--bullseye"); ap.add_argument("--ws2"); ap.add_argument("--n-each", type=int, default=96)
     ap.add_argument("--size", type=int, default=S, help="ingredients: the model size probes/backgrounds are fitted to (default 128, S)")

@@ -1266,7 +1266,7 @@ extension AppState {
     }
 
     /// Export the current labels through a save panel (owner card S4, 2026-10-02) as a standalone file —
-    /// `label_centres.py`'s own JSON, for moving into `tools/disk-detector/labels/`. Distinct from "Save to
+    /// `label_centres.py`'s own JSON, for moving into `mac4DSTEMTests/Fixtures/DiskDetector/labels/`. Distinct from "Save to
     /// Sidecar", which keeps the labels beside the dataset. The panel opens with today's file name and no
     /// directory (the macOS default); Cancel writes nothing.
     func exportDiskCentreLabels() -> AnalysisRunOutcome {
@@ -1282,7 +1282,7 @@ extension AppState {
         let suggestedName = DiskCentreLabelStore.exportFileName(datasetName: datasetName)
         let panel = NSSavePanel()
         panel.title = "Export Disk-Centre Labels"
-        panel.message = "Writes the labels as the JSON tools/disk-detector/label_centres.py uses."
+        panel.message = "Writes the labels as label-format JSON (the format of label_centres.py)."
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = suggestedName
         guard panel.runModal() == .OK, let url = panel.url else {

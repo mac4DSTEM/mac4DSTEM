@@ -27,7 +27,7 @@ enum TrainingTestSupport {
 
     /// The fixture's drawn centres of pattern `index`, (row, col), mapped from the native 128 frame into the 256 model frame.
     static func fixtureCentres(_ index: Int, fixture: LearnedSwiftFixture) throws -> [ScorePoint] {
-        let url = LearnedSwiftFixture.repo.appendingPathComponent("tools/disk-detector/fixture/expected.json")
+        let url = LearnedSwiftFixture.repo.appendingPathComponent("mac4DSTEMTests/Fixtures/DiskDetector/fixture/expected.json")
         let file = try JSONDecoder().decode(TruthFile.self, from: Data(contentsOf: url))
         let r0 = Double(fixture.expected.fit_offset[0]), c0 = Double(fixture.expected.fit_offset[1])
         return file.truth[index].centres.map { ScorePoint(row: $0[0] - r0, col: $0[1] - c0) }

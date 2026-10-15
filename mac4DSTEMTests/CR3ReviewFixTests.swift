@@ -34,7 +34,7 @@ final class CR3ReviewFixTests: XCTestCase {
     /// Mutation: compare the raw strings -> red.
     func testTheCommittedToolFileImportsAgainstTheAppsSlashedDatasetPath() throws {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("tools/disk-detector/labels/bullseye-2026-09-28.json")
+            .appendingPathComponent("mac4DSTEMTests/Fixtures/DiskDetector/labels/bullseye-2026-09-28.json")
         let data = try Data(contentsOf: url)
         let header = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let cube = try XCTUnwrap(header["cube"] as? String)

@@ -2,7 +2,7 @@
 //  LearnedDiskDetectorTests.swift
 //  The learned disk-candidate stage against its Python reference (v3-plan §3a step 4; C7 2026-09-08).
 //
-//  The fixture is tools/disk-detector/fixture/swift/, written by fixture/write_swift_fixture.py
+//  The fixture is mac4DSTEMTests/Fixtures/DiskDetector/fixture/swift/, written by ../_archive/mac4DSTEM/tools/disk-detector/write_swift_fixture.py
 //  from the committed synthetic fixture (native 128 px) and the committed Core ML package (256 px):
 //  the 16 native patterns, the native probe, Python's model inputs for two patterns in the FITTED
 //  frame, and per pattern the raw peak picks and the accepted refined peaks (evaluate.pick / refine /
@@ -18,13 +18,13 @@ import DSTEMCore
 /// The Swift fixture, shared by the three learned-detector test files.
 struct LearnedSwiftFixture {
     static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-    static let dir = repo.appendingPathComponent("tools/disk-detector/fixture/swift")
-    static let assetMeta = repo.appendingPathComponent("Models/DiskDetector/\(LearnedDiskDetector.bundledAssetName).json")
+    static let dir = repo.appendingPathComponent("mac4DSTEMTests/Fixtures/DiskDetector/fixture/swift")
+    static let assetMeta = repo.appendingPathComponent("mac4DSTEM/Resources/DiskDetector/\(LearnedDiskDetector.bundledAssetName).json")
     /// The bundled copy first (the test host is the app), the repo copy otherwise. Same bytes
     /// either way: the hash test proves it.
     static var assetURL: URL {
         LearnedDiskDetector.bundledAssetURL()
-            ?? repo.appendingPathComponent("Models/DiskDetector/\(LearnedDiskDetector.bundledAssetName).mlpackage")
+            ?? repo.appendingPathComponent("mac4DSTEM/Resources/DiskDetector/\(LearnedDiskDetector.bundledAssetName).mlpackage")
     }
 
     struct Expected: Decodable {

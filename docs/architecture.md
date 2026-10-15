@@ -168,7 +168,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Metal engine, FFTs, multicorr, cancellation | `mac4DSTEM/Core/Compute/` |
 | Analysis algorithms (virtual detector, solvers, disks, strain, DPC, parallax, ptycho) | `mac4DSTEM/Core/Analysis/` |
 | Crystal models, scattering factors, ACOM matching, CIF import | `mac4DSTEM/Core/Crystal/` |
-| Learned stages: the Core ML inference class and its scan orchestration (C7) | `mac4DSTEM/Core/ML/`; the pinned asset and its record JSON in `Models/DiskDetector/` (a folder resource, compiled at load); its session owner `Session/LearnedDetection.swift` |
+| Learned stages: the Core ML inference class and its scan orchestration (C7) | `mac4DSTEM/Core/ML/`; the pinned asset and its record JSON in `mac4DSTEM/Resources/DiskDetector/` (a folder resource, compiled at load); its session owner `Session/LearnedDetection.swift` |
 | Operation lifecycle | `mac4DSTEM/Core/Workflow/` |
 | Metal kernels | `mac4DSTEM/Shaders/` |
 | SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
@@ -341,8 +341,7 @@ refuses to start `unit`/`scientific` below 4 GB free and
 `all`/`campaign` below 8 GB (exit 69), reporting (or, with `--clear`,
 deleting) known regenerable build debris only, never `References/`. Not
 every harness is Swift: `tools/disk-detector/` is a Python
-training/export/evaluation pipeline with its own frozen, gitignored
-hand-labelled test set; `tools/comparator-test/` mutation-tests
+fixture check (the training pipeline left, to `../_archive/mac4DSTEM/tools/disk-detector/`; the frozen hand-labelled test set is `mac4DSTEMTests/Fixtures/DiskDetector/labels/`); `tools/comparator-test/` mutation-tests
 `tools/real-data-acceptance/compare.py` itself, since a comparator that
 quietly stopped checking something looks like a passing gate.
 

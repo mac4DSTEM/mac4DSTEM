@@ -429,4 +429,4 @@ Colour (2026-10-12, from macTEM): exports sample the LUT as the shader does (291
 (`PaneOverlays.swift:226`, 128 entries) and categorical legend (`:1245`) still take the nearest entry (cosmetic).
 Tooling (2026-10-14 night): `../_archive/mac4DSTEM/tools/velox-parity/run.sh` needs a venv with rsciio and sparse (its header line; none of the conda
 envs has both) — run through the data link with one in the scratchpad: 20 cases, 27 stacks, 0 failures. Dependabot #1 (torch
-2.13.0) is blocked by `coreai-opt 0.2.1`'s `torch<=2.11.0`; the pin stays 2.11.0 (`tools/disk-detector/README.md`).
+2.13.0) is blocked by `coreai-opt 0.2.1`'s `torch<=2.11.0`; the pin stays 2.11.0 (`../_archive/mac4DSTEM/tools/disk-detector/README.md`).

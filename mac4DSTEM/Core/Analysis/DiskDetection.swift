@@ -908,7 +908,7 @@ package nonisolated final class DiskDetector {
     /// the edge boundary on the refined position, non-maximum suppression at
     /// `minPeakSpacing` by NET score, and the `maxNumPeaks` cap. No correlation-relative
     /// intensity cut: that is the cut that drops the faint disks the net is for. Mirrors
-    /// `evaluate.refine` + `evaluate.accept` in tools/disk-detector (the Python reference the
+    /// `evaluate.refine` + `evaluate.accept` in ../_archive/mac4DSTEM/tools/disk-detector/evaluate.py (the Python reference the
     /// Swift fixture test compares against; Python has no cap).
     ///
     /// DEVIATION from py4DSTEM `get_maxima_2D` (preprocess/utils.py), on purpose — the
