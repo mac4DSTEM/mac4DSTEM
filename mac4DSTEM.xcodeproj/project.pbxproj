@@ -17,6 +17,7 @@
 		300000000000000000000017 /* CuboCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000016 /* CuboCore */; };
 		300000000000000000000019 /* CuboVirtual in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000018 /* CuboVirtual */; };
 		30000000000000000000001B /* CuboPhase in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001A /* CuboPhase */; };
+		300000000000000000000031 /* ImagoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000030 /* ImagoCore */; };
 		30000000000000000000001D /* SpectroEDX in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001C /* SpectroEDX */; };
 		30000000000000000000001F /* FormatoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001E /* FormatoCore */; };
 		300000000000000000000021 /* FormatoDM in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000020 /* FormatoDM */; };
@@ -83,7 +84,6 @@
 				Core/Analysis/VirtualDetector.swift,
 				Core/Compute/AnalysisCancellationToken.swift,
 				Core/Compute/FFT1D.swift,
-				Core/Compute/FFT2D.swift,
 				Core/Compute/MatrixDFTCorrelation.swift,
 				Core/Compute/MetalEngine.swift,
 				"Core/Compute/MTLTexture+Float.swift",
@@ -212,6 +212,7 @@
 				300000000000000000000017 /* CuboCore in Frameworks */,
 				300000000000000000000019 /* CuboVirtual in Frameworks */,
 				30000000000000000000001B /* CuboPhase in Frameworks */,
+				300000000000000000000031 /* ImagoCore in Frameworks */,
 				30000000000000000000001D /* SpectroEDX in Frameworks */,
 				30000000000000000000001F /* FormatoCore in Frameworks */,
 				300000000000000000000021 /* FormatoDM in Frameworks */,
@@ -278,6 +279,7 @@
 				300000000000000000000016 /* CuboCore */,
 				300000000000000000000018 /* CuboVirtual */,
 				30000000000000000000001A /* CuboPhase */,
+				300000000000000000000030 /* ImagoCore */,
 				30000000000000000000001C /* SpectroEDX */,
 				30000000000000000000001E /* FormatoCore */,
 				300000000000000000000020 /* FormatoDM */,
@@ -343,6 +345,7 @@
 				30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */,
 				30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */,
 				30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */,
+				30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -879,6 +882,14 @@
 				version = 0.0.3;
 			};
 		};
+		30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/ImagoKit";
+			requirement = {
+				kind = exactVersion;
+				version = 0.0.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -953,6 +964,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 30000000000000000000002E /* XCRemoteSwiftPackageReference "FormatoKit" */;
 			productName = FormatoHDF5;
+		};
+		300000000000000000000030 /* ImagoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000002F /* XCRemoteSwiftPackageReference "ImagoKit" */;
+			productName = ImagoCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

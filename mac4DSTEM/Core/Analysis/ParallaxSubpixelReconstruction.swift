@@ -5,6 +5,7 @@
 //
 
 import Foundation
+import ImagoCore
 
 package nonisolated struct ParallaxSubpixelOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b

@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import XCTest
 import DSTEMCore
+import ImagoCore
 import DSTEMSession
 @testable import mac4DSTEM
 

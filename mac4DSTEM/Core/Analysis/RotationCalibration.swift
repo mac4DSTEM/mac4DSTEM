@@ -36,6 +36,7 @@
 import CuboCore
 import CuboPhase
 import Foundation
+import ImagoCore
 
 package enum RotationCalibration {
 

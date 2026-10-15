@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import ImagoCore
 
 package nonisolated enum FriedelOrigin {
 

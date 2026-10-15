@@ -5,6 +5,7 @@
 //
 
 import Foundation
+import ImagoCore
 
 package nonisolated struct PtychographyPosition: Equatable, Sendable {
     package let row: Float

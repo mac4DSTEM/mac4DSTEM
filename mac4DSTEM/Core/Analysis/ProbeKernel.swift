@@ -28,6 +28,7 @@
 //
 
 import Foundation
+import ImagoCore
 
 package nonisolated enum ProbeKernelSource: String, Sendable {
     case synthetic = "Synthetic"

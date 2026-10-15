@@ -27,6 +27,7 @@
 import Foundation
 import Accelerate
 import Metal
+import ImagoCore
 
 // MARK: - Types
 

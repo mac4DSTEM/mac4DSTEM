@@ -22,6 +22,7 @@ import CuboCore
 import CuboPhase
 import enum DiffractoGeometry.ElectronWavelength   // the one electron wavelength of the suite (2026-10-15)
 import Foundation
+import ImagoCore
 
 package nonisolated enum IDPCBoundaryCondition: String, Sendable {
     /// Treat opposite scan edges as adjacent. Best for explicitly periodic

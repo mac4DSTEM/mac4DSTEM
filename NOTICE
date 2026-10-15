@@ -109,6 +109,17 @@ carried here as a recorded risk. The element table in
 comes from eXSpy's elements data (GPL-3.0-or-later; see the eXSpy section above).
 
 ================================================================================
+ImagoKit (the exact-length 2D FFT)
+================================================================================
+
+Since 2026-10-15 the 2D FFT of the 4D-STEM analysis (`FFT2D`: radix-2, 3, 5 and general lengths on vDSP, with an exact
+Bluestein path for every other length) is ImagoKit's `ImagoCore.FFT2D`
+(https://github.com/mac4DSTEM/ImagoKit, tag 0.0.2, BSD-3-Clause; the app links ImagoCore). The kit's copy is this
+application's former `Core/Compute/FFT2D.swift`, the same arithmetic, written by the same copyright holder; the kit
+carries its own LICENSE and NOTICE. BSD-3-Clause is compatible with this application's GPL-3.0; the combined work stays
+GPL-3.0.
+
+================================================================================
 
 Bundled third-party libraries
 ================================================================================

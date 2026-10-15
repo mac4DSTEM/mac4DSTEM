@@ -1,4 +1,5 @@
 import Foundation
+import ImagoCore
 
 struct Fixture: Decodable {
     let dimensions: [Int]

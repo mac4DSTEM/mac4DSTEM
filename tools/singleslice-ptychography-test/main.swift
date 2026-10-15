@@ -1,4 +1,5 @@
 import Foundation
+import ImagoCore
 
 /// D002 (Gate D, 2026-09-09): one scan-position case and the wrong
 /// conventions it must NOT match.

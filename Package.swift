@@ -29,6 +29,9 @@ let package = Package(
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.1.0"),
         .package(url: "https://github.com/mac4DSTEM/CuboKit", exact: "0.2.0"),
+        // The exact-length 2D FFT (FFT2D) is ImagoKit's ImagoCore since 2026-10-15 (BSD-3-Clause; the app's copy was its origin,
+        // the same arithmetic); an exact tag, bumped on purpose. Only DSTEMCore uses it.
+        .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.0.2"),
     ],
     targets: [
         .target(
@@ -44,7 +47,8 @@ let package = Package(
                            .product(name: "DiffractoGeometry", package: "DiffractoKit"),
                            .product(name: "CuboCore", package: "CuboKit"),
                            .product(name: "CuboVirtual", package: "CuboKit"),
-                           .product(name: "CuboPhase", package: "CuboKit")],
+                           .product(name: "CuboPhase", package: "CuboKit"),
+                           .product(name: "ImagoCore", package: "ImagoKit")],
             path: "mac4DSTEM/Core",
             swiftSettings: [
                 // Accelerate's CURRENT LAPACK interface, which is what

@@ -10,6 +10,7 @@
 
 import XCTest
 import DSTEMCore
+import ImagoCore
 @testable import mac4DSTEM
 
 final class MatrixDFTCorrelationRow9Tests: XCTestCase {

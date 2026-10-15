@@ -6,6 +6,7 @@
 
 import Accelerate
 import Foundation
+import ImagoCore
 
 package nonisolated struct ParallaxScanShift: Equatable, Sendable {
     /// Shift along the first / scan-row axis.

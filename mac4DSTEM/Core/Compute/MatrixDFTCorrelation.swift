@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import ImagoCore
 
 package nonisolated struct CorrelationPeak: Equatable, Sendable {
     package let row: Float

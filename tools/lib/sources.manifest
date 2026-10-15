@@ -249,10 +249,11 @@ mac4dstem_sources() {
         )
         ;;
       analysis)
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" cube
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
-          "$core/Compute/FFT2D.swift"
           "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
@@ -264,18 +265,21 @@ mac4dstem_sources() {
         # DPC scalar/vector displays and iDPC integration. Kept separate from
         # `analysis` because that group owns the Metal-backed detector chain.
         # applyRotation is CuboKit's (C2, 2026-10-15).
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" CuboKit CuboVirtual CuboPhase
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
-          "$core/Compute/FFT2D.swift"
           "$core/Analysis/DPC.swift"
         )
         ;;
       acom)
         # Production Bragg types and ACOM; no harness-side type replicas.
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" DiffractoKit DiffractoGeometry
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
@@ -284,7 +288,6 @@ mac4dstem_sources() {
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/MetalEngine.swift"
           "$core/Compute/FFT1D.swift"
-          "$core/Compute/FFT2D.swift"
           "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
@@ -322,11 +325,12 @@ mac4dstem_sources() {
         # matrix-DFT correlation and the detector. Strain, export and the
         # parallax chain build on it. Added in C2 (2026-09-07) when the
         # remaining 46 harnesses adopted this file.
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/FFT2D.swift"
           "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
@@ -356,11 +360,12 @@ mac4dstem_sources() {
         # existed (checked 2026-09-17: RotationCalibration.swift was in
         # neither this file nor any group it composes). The objective is
         # CuboKit's RotationSolver (C2, 2026-10-15).
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" CuboKit CuboVirtual CuboPhase
         want+=("${KIT_FLAGS[@]}")
         want+=(
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/FFT2D.swift"
           "$core/Analysis/RotationCalibration.swift"
           "$core/Data/RQRotationConvention.swift"
         )
@@ -370,20 +375,22 @@ mac4dstem_sources() {
         # (tools/friedel-origin-test). FriedelOrigin needs FFT2D (which links
         # against AnalysisCancellationToken, same as the rotation group above);
         # BeamstopMask is pure array morphology, no extra dependency.
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         want+=(
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/FFT2D.swift"
           "$core/Analysis/FriedelOrigin.swift"
           "$core/Analysis/BeamstopMask.swift"
         )
         ;;
       parallax)
         # The whole parallax chain; each parallax-*-test compiles all of it.
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/FFT2D.swift"
           "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ParallaxPreprocessing.swift"
           "$core/Analysis/ParallaxAlignment.swift"
@@ -401,11 +408,12 @@ mac4dstem_sources() {
         # R-Q rotation lived. ParallaxPreprocessing carries
         # ParallaxPhysicalCalibration; DemoFourDDataSource is the cube the
         # position cases crop.
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Compute/FFT2D.swift"
           "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Data/DemoFourDDataSource.swift"
           "$core/Analysis/ParallaxPreprocessing.swift"
@@ -462,6 +470,8 @@ mac4dstem_sources() {
         kit_module "$repo" DiffractoKit DiffractoGeometry
         want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" CuboKit CuboVirtual CuboPhase
+        want+=("${KIT_FLAGS[@]}")
+        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
         want+=("${KIT_FLAGS[@]}")
         want+=("$core"/**/*.swift(N))
         ;;
