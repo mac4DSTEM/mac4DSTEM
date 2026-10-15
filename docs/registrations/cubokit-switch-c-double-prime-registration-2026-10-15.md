@@ -34,3 +34,13 @@ the f64 curve's INTEGER argmin (0.10–0.40° apart: a grid difference, not a cu
 C‴: the app's own refinement (`RotationCalibration`, ±1° at 0.1°) run on the f64 curve and on the façade's Float curve
 chooses the same angle and transpose on all five cubes. Refuting: any cube where the two choices differ. C″1, C″2, C″4
 and C″3's curve and flag claims stand as measured above; the switch lands if C‴ holds.
+
+## C‴ result (2026-10-15) and the decision
+**Refuted on one cube**: the app's refinement chooses the same angle and transpose on simau, py4DSTEM's small cube,
+particle and Au_ref, and −82.7° (Float curve) against −82.6° (f64 curve) on Al–Mg–Si, where the two objectives differ by
+1.05e-8 (3e-8 relative) and read equal in Float32, so the strict `<` keeps the first. Kept, by CLAUDE.md "Rules serve the
+app", not by amending: the switch makes every measured number equal Float(py4DSTEM float64) (images, mean, max, CoM to
+½ ulp, probe size to 3.3e-6 px), where the old core was further off (CoM to 7e-3 px, mean 1.07e-5, the Al–Mg–Si angle 0.5°
+from f64); reverting would ship the less correct core over a 0.1° tie below Float32's resolution. The owner decides on a
+card before the push (keep, recommended; or revert the four switch commits). The proper fix is its own registered item:
+`RotationCalibration` in Double on CuboKit 0.2.0's `RotationSolver.curve()`.
