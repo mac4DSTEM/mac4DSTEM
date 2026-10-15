@@ -1,4 +1,5 @@
 import XCTest
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -16,20 +17,20 @@ final class CrystalMathTests: XCTestCase {
     /// not 0.98 apart by raw subtraction. Mutation this catches: deleting or
     /// inverting the `d > 0.5` wraparound correction.
     func testAxisDeltaWrapsAcrossTheCellBoundary() {
-        XCTAssertEqual(axisDelta(0.99, 0.01), 0.02, accuracy: 1e-9)
-        XCTAssertEqual(axisDelta(0.01, 0.99), 0.02, accuracy: 1e-9,
+        XCTAssertEqual(fractionalAxisDelta(0.99, 0.01), 0.02, accuracy: 1e-9)
+        XCTAssertEqual(fractionalAxisDelta(0.01, 0.99), 0.02, accuracy: 1e-9,
                        "must be symmetric in its two arguments")
-        XCTAssertEqual(axisDelta(0.5, 0.0), 0.5, accuracy: 1e-9,
+        XCTAssertEqual(fractionalAxisDelta(0.5, 0.0), 0.5, accuracy: 1e-9,
                        "exactly half a cell apart is the boundary case, not a wrap")
-        XCTAssertEqual(axisDelta(0.3, 0.7), 0.4, accuracy: 1e-9,
+        XCTAssertEqual(fractionalAxisDelta(0.3, 0.7), 0.4, accuracy: 1e-9,
                        "an ordinary same-image separation is untouched by the wrap")
     }
 
     /// Integration check through the real caller: `CrystalModel.shortestCloseContact`
-    /// prefilters pairs with `axisDelta` before the expensive 27-image search
+    /// prefilters pairs with `fractionalAxisDelta` before the expensive 27-image search
     /// (`CrystalModel.swift`). Two sites at x=0.99 and x=0.01 in a 5 Å cubic cell are
     /// 0.1 Å apart by minimum image — well inside `closeContactLimit` (0.5 Å) — but a
-    /// broken (non-wrapping) `axisDelta` computes a raw prefilter distance of 0.98,
+    /// broken (non-wrapping) `fractionalAxisDelta` computes a raw prefilter distance of 0.98,
     /// which exceeds the axis's own filter bound (0.1 Å for this cell), so the pair is
     /// dropped before the search ever runs and the contact goes undetected. This is the
     /// mutation `testAxisDeltaWrapsAcrossTheCellBoundary` alone would not reach if the
@@ -39,9 +40,9 @@ final class CrystalMathTests: XCTestCase {
             AtomSite(z: 14, fractional: SIMD3(0.99, 0.5, 0.5)),
             AtomSite(z: 14, fractional: SIMD3(0.01, 0.5, 0.5)),
         ]
-        let crystal = Crystal(a: 5, b: 5, c: 5, sites: sites)
+        let crystal = Crystal.structure(a: 5, b: 5, c: 5, sites: sites)
         let model = CrystalModel(
-            id: "wrap-test", displayName: "wraparound test", crystal: crystal,
+            id: "wrap-test", displayName: "wraparound test", structure: crystal,
             symmetry: .cubic, source: .builtIn)
         let contact = try XCTUnwrap(model.shortestCloseContact,
                                     "a real 0.1 A contact across the cell boundary was missed")

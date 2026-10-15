@@ -1,187 +1,36 @@
 //
 //  Crystal.swift
-//  Role: A crystal-structure model and kinematic diffraction generator — the
-//        foundation for ACOM (automated crystal orientation mapping). Port of
-//        the lattice + structure-factor math in py4DSTEM's Crystal class
-//        (process/diffraction/crystal.py).
+//  Role: The app's phase presets and cell constructors, as `CrystalStructure`s. The lattice algebra, the kinematic
+//        reflection list and the scattering factors are DiffractoKit's (`UnitCell`, `CrystalStructure
+//        .kinematicReflections`, `ElectronScatteringFactors`; 2026-10-15), so this file keeps only what the kit has no
+//        counterpart for: the preset lattice constants and hand-written site lists (kit item 9: the β″ list stays
+//        the hand list so its sums stay bit identical), and the cubic-structure editor's cells.
 //
-//  This is the first ACOM building block. It computes:
-//   • the real-space lattice matrix from cell parameters (a,b,c,α,β,γ)
-//   • the reciprocal lattice via the metric tensor (lat_inv = M⁻¹·lat_real)
-//   • all hkl reflections within a scattering-vector cutoff k_max (1/Å)
-//   • kinematic structure factors F_hkl = (1/V) Σ f_e(Z,|g|²) e^{2πi g·r}
-//     and their intensities |F|²
-//
-//  Next ACOM steps (separate files): an orientation plan (zone-axis sampling
-//  → polar templates) and orientation matching (polar correlation, in-plane
-//  angle via 1D FFT). See the architecture notes.
-//
-//  Units: distances in Å, scattering vectors |g| in Å⁻¹ (no 2π factor, matching
-//  py4DSTEM). Structure factors in Å (py4DSTEM "A" convention).
+//  Units: distances in Å, scattering vectors |g| in Å⁻¹ (no 2π factor, matching py4DSTEM). Structure factors are in
+//  Å⁻² (f_e in Å over V in Å³); py4DSTEM's "A" names f_e's unit, not F's.
 //
 
 import Foundation
 import simd
+import DiffractoCore
+import DiffractoScattering
 
-/// Minimum-image separation along one fractional axis, in [0, 0.5]. Shared by
-/// `CrystalModel.shortestCloseContact` and `CIFImport`'s symmetry-operator
-/// deduplication — identical bodies until 2026-09-17 (audit
-/// `docs/archive/audit-2026-09-16/REPORT.md` §3.2 row 8), consolidated here.
-package nonisolated func axisDelta(_ x: Double, _ y: Double) -> Double {
-    var d = abs(x - y).truncatingRemainder(dividingBy: 1)
-    if d > 0.5 { d = 1 - d }
-    return d
-}
+/// The preset crystals and cell constructors. A namespace: every member returns a `CrystalStructure`.
+package nonisolated enum Crystal {
 
-/// One atom in the unit cell.
-package nonisolated struct AtomSite: Sendable {
-    package var z: Int                       // atomic number
-    package var fractional: SIMD3<Double>    // (x, y, z) fractional coordinates
-    package var occupancy: Double = 1
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(z: Int, fractional: SIMD3<Double>, occupancy: Double = 1) {
-        self.z = z
-        self.fractional = fractional
-        self.occupancy = occupancy
+    /// A cell and its atoms, with the space-group operations DETECTED from the atoms (the kit's holohedry test), as a
+    /// CIF without an operation loop is read. Replaces the app's old `Crystal(a:b:c:...:sites:)`.
+    package static func structure(a: Double, b: Double, c: Double,
+                                  alphaDeg: Double = 90, betaDeg: Double = 90, gammaDeg: Double = 90,
+                                  sites: [AtomSite]) -> CrystalStructure {
+        CrystalStructure.detectingSymmetry(
+            cell: UnitCell(a: a, b: b, c: c, alphaDeg: alphaDeg, betaDeg: betaDeg, gammaDeg: gammaDeg),
+            sites: sites)
     }
-}
-
-/// One kinematically-allowed reflection.
-package nonisolated struct Reflection: Sendable {
-    package let h: Int, k: Int, l: Int
-    package let g: SIMD3<Double>             // reciprocal-space vector (Å⁻¹), Cartesian
-    package let gLength: Double              // |g| (Å⁻¹)
-    package let structureFactorRe: Double
-    package let structureFactorIm: Double
-    package var intensity: Double           // |F|²
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(h: Int, k: Int, l: Int, g: SIMD3<Double>, gLength: Double, structureFactorRe: Double, structureFactorIm: Double, intensity: Double) {
-        self.h = h
-        self.k = k
-        self.l = l
-        self.g = g
-        self.gLength = gLength
-        self.structureFactorRe = structureFactorRe
-        self.structureFactorIm = structureFactorIm
-        self.intensity = intensity
-    }
-}
-
-package nonisolated struct Crystal: Sendable {
-
-    // Cell parameters.
-    package let a: Double, b: Double, c: Double
-    package let alphaDeg: Double, betaDeg: Double, gammaDeg: Double
-    package let sites: [AtomSite]
-
-    // Derived lattice matrices (rows are lattice vectors).
-    package let latReal: [SIMD3<Double>]     // real lattice vectors (Å)
-    package let latInv: [SIMD3<Double>]      // reciprocal lattice vectors (Å⁻¹)
-    package let volume: Double               // unit-cell volume (Å³)
-
-    // MARK: Construction
-
-    package init(a: Double, b: Double, c: Double,
-         alphaDeg: Double = 90, betaDeg: Double = 90, gammaDeg: Double = 90,
-         sites: [AtomSite]) {
-        self.a = a; self.b = b; self.c = c
-        self.alphaDeg = alphaDeg; self.betaDeg = betaDeg; self.gammaDeg = gammaDeg
-        self.sites = sites
-
-        let alpha = alphaDeg * .pi / 180
-        let beta  = betaDeg * .pi / 180
-        let gamma = gammaDeg * .pi / 180
-        let f = cos(beta) * cos(gamma) - cos(alpha)
-        let vol = a * b * c * (1
-            + 2 * cos(alpha) * cos(beta) * cos(gamma)
-            - cos(alpha) * cos(alpha)
-            - cos(beta) * cos(beta)
-            - cos(gamma) * cos(gamma)).squareRoot()
-
-        // Real lattice matrix (py4DSTEM convention).
-        let real = [
-            SIMD3<Double>(a, 0, 0),
-            SIMD3<Double>(b * cos(gamma), b * sin(gamma), 0),
-            SIMD3<Double>(c * cos(beta), -c * f / sin(gamma), vol / (a * b * sin(gamma))),
-        ]
-        self.latReal = real
-        self.volume = abs(Crystal.determinant(real))
-
-        // Reciprocal lattice: metric = real·realᵀ, lat_inv = metric⁻¹·real.
-        let metric = Crystal.gram(real)
-        let metricInv = Crystal.invert3x3(metric) ?? Crystal.identity3
-        self.latInv = Crystal.matMul(metricInv, real)
-    }
-
-    // MARK: Reflections + structure factors
-
-    /// All reflections with |g| ≤ kMax and |F| above `tolerance`, sorted by
-    /// increasing |g|. Mirrors calculate_structure_factors.
-    package func reflections(kMax: Double, tolerance: Double = 1e-4) -> [Reflection] {
-        // DEVIATION (2026-09-14, Gate D): py4DSTEM bounds every index by
-        // ceil(k_max / k_leng_min), the shortest of ten reciprocal test
-        // directions. The exact bound is per index — h = g·a₁ because
-        // aᵢ·bⱼ* = δᵢⱼ, so |h| ≤ kMax·|a₁| — and for an oblique cell the
-        // shortest reciprocal direction can be LONGER than 1/|a₁| (b-unique
-        // monoclinic: a* = 1/(a sin β)), so py4DSTEM's tile falls short and
-        // reflections go missing with no signal. Measured on the β″-shaped
-        // cell at kMax 1.6: 0 lost at β = 105.3°, 6 at 110°, 48 at 115°, 198
-        // at 125°. The per-axis bound is complete for every cell and returns
-        // the identical set wherever the old one was complete; the filter on
-        // |g| below is what actually decides membership.
-        let tile = latReal.map { max(0, Int((kMax * length($0)).rounded(.up))) }
-
-        var out: [Reflection] = []
-        for h in -tile[0]...tile[0] {
-            for k in -tile[1]...tile[1] {
-                for l in -tile[2]...tile[2] {
-                    if h == 0 && k == 0 && l == 0 { continue }
-                    // g = h·a* + k·b* + l·c*
-                    let g = Double(h) * latInv[0] + Double(k) * latInv[1] + Double(l) * latInv[2]
-                    let gLen = length(g)
-                    if gLen > kMax { continue }
-
-                    // F_hkl = (1/V) Σ f_e(Z, |g|²) · occ · exp(2πi (h·x+k·y+l·z))
-                    let gSq = gLen * gLen
-                    var re = 0.0, im = 0.0
-                    for site in sites {
-                        // Unsupported elements are caught up front by
-                        // `unsupportedElements`; 0 here is unreachable in practice.
-                        let fe = ScatteringFactors.electronScatteringFactor(z: site.z, gSquared: gSq) ?? 0
-                        let phase = 2 * Double.pi * (Double(h) * site.fractional.x
-                                                   + Double(k) * site.fractional.y
-                                                   + Double(l) * site.fractional.z)
-                        re += fe * site.occupancy * cos(phase)
-                        im += fe * site.occupancy * sin(phase)
-                    }
-                    re /= volume; im /= volume
-                    let intensity = re * re + im * im
-                    if intensity.squareRoot() <= tolerance { continue }
-
-                    out.append(Reflection(h: h, k: k, l: l, g: g, gLength: gLen,
-                                          structureFactorRe: re, structureFactorIm: im,
-                                          intensity: intensity))
-                }
-            }
-        }
-        out.sort { $0.gLength < $1.gLength }
-        return out
-    }
-
-    /// Atomic numbers in this crystal missing from the scattering-factor
-    /// table. Non-empty → structure factors would be silently wrong; callers
-    /// must check and fail loudly before generating templates.
-    package var unsupportedElements: [Int] {
-        Array(Set(sites.map(\.z).filter { !ScatteringFactors.isSupported(z: $0) })).sorted()
-    }
-
-    // MARK: Presets
 
     /// Face-centered cubic (4 atoms).
-    package static func fcc(a: Double, z: Int) -> Crystal {
-        Crystal(a: a, b: a, c: a, sites: [
+    package static func fcc(a: Double, z: Int) -> CrystalStructure {
+        structure(a: a, b: a, c: a, sites: [
             AtomSite(z: z, fractional: [0, 0, 0]),
             AtomSite(z: z, fractional: [0.5, 0.5, 0]),
             AtomSite(z: z, fractional: [0.5, 0, 0.5]),
@@ -190,29 +39,29 @@ package nonisolated struct Crystal: Sendable {
     }
 
     /// Body-centered cubic (2 atoms).
-    package static func bcc(a: Double, z: Int) -> Crystal {
-        Crystal(a: a, b: a, c: a, sites: [
+    package static func bcc(a: Double, z: Int) -> CrystalStructure {
+        structure(a: a, b: a, c: a, sites: [
             AtomSite(z: z, fractional: [0, 0, 0]),
             AtomSite(z: z, fractional: [0.5, 0.5, 0.5]),
         ])
     }
 
     /// Simple cubic (1 atom).
-    package static func sc(a: Double, z: Int) -> Crystal {
-        Crystal(a: a, b: a, c: a, sites: [AtomSite(z: z, fractional: [0, 0, 0])])
+    package static func sc(a: Double, z: Int) -> CrystalStructure {
+        structure(a: a, b: a, c: a, sites: [AtomSite(z: z, fractional: [0, 0, 0])])
     }
 
     /// Diamond cubic (8 atoms) — FCC plus a (¼,¼,¼) shifted sublattice.
-    package static func diamond(a: Double, z: Int) -> Crystal {
+    package static func diamond(a: Double, z: Int) -> CrystalStructure {
         let base: [SIMD3<Double>] = [[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]]
         let shift = SIMD3<Double>(0.25, 0.25, 0.25)
-        return Crystal(a: a, b: a, c: a,
+        return structure(a: a, b: a, c: a,
                        sites: (base + base.map { $0 + shift }).map { AtomSite(z: z, fractional: $0) })
     }
 
     /// Hexagonal close-packed primitive cell in the conventional 120° basis.
-    package static func hcp(a: Double, c: Double, z: Int) -> Crystal {
-        Crystal(
+    package static func hcp(a: Double, c: Double, z: Int) -> CrystalStructure {
+        structure(
             a: a, b: a, c: c,
             alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
             sites: [
@@ -241,7 +90,7 @@ package nonisolated struct Crystal: Sendable {
     }
 
     /// Build a single-element cubic crystal for the custom-crystal UI.
-    package static func cubic(_ structure: CubicStructure, a: Double, z: Int) -> Crystal {
+    package static func cubic(_ structure: CubicStructure, a: Double, z: Int) -> CrystalStructure {
         switch structure {
         case .fcc:     return fcc(a: a, z: z)
         case .bcc:     return bcc(a: a, z: z)
@@ -256,13 +105,13 @@ package nonisolated struct Crystal: Sendable {
     // 29 241 positions (1.81 → 1.83 %), because the {220} ring straddles kMax = 0.70 Å⁻¹
     // (√8/a = 0.6985 vs 0.7001 Å⁻¹). A CIF import carries its own a. Revisit only if a
     // second dataset disagrees.
-    package static var aluminum: Crystal { fcc(a: 4.0495, z: 13) }
-    package static var gold: Crystal     { fcc(a: 4.0782, z: 79) }
-    package static var nickel: Crystal   { fcc(a: 3.5240, z: 28) }
-    package static var copper: Crystal   { fcc(a: 3.6149, z: 29) }
-    package static var iron: Crystal     { bcc(a: 2.8665, z: 26) }
-    package static var silicon: Crystal  { diamond(a: 5.4309, z: 14) }
-    package static var magnesium: Crystal { hcp(a: 3.2094, c: 5.2108, z: 12) }
+    package static var aluminum: CrystalStructure { fcc(a: 4.0495, z: 13) }
+    package static var gold: CrystalStructure     { fcc(a: 4.0782, z: 79) }
+    package static var nickel: CrystalStructure   { fcc(a: 3.5240, z: 28) }
+    package static var copper: CrystalStructure   { fcc(a: 3.6149, z: 29) }
+    package static var iron: CrystalStructure     { bcc(a: 2.8665, z: 26) }
+    package static var silicon: CrystalStructure  { diamond(a: 5.4309, z: 14) }
+    package static var magnesium: CrystalStructure { hcp(a: 3.2094, c: 5.2108, z: 12) }
 
     /// β″ (Mg₅Si₆), the hardening precipitate of Al-Mg-Si alloys — the
     /// canonical experimental refinement:
@@ -292,7 +141,7 @@ package nonisolated struct Crystal: Sendable {
     /// vector matching leans on: β″ is coherent along its NEEDLE direction —
     /// its b-axis — with a ⟨100⟩ Al direction, and b = 4.05 Å is Al's own
     /// lattice parameter. So [010] is the zone axis to sample on ⟨100⟩Al data.
-    package static var betaDoublePrime: Crystal {
+    package static var betaDoublePrime: CrystalStructure {
         // Wyckoff 4i (x, 0, z) under C2/m: (x,0,z), (−x,0,−z) and the
         // C-centred pair. The 2a site at the origin collapses to two.
         func fourI(_ z: Int, _ x: Double, _ zc: Double) -> [AtomSite] {
@@ -310,7 +159,7 @@ package nonisolated struct Crystal: Sendable {
         sites += fourI(si, 0.0565, 0.649)                    // Si1
         sites += fourI(si, 0.1885, 0.224)                    // Si2
         sites += fourI(si, 0.2171, 0.617)                    // Si3
-        return Crystal(a: 15.16, b: 4.05, c: 6.74,
+        return structure(a: 15.16, b: 4.05, c: 6.74,
                        alphaDeg: 90, betaDeg: 105.3, gammaDeg: 90,
                        sites: sites)
     }
@@ -336,9 +185,9 @@ package nonisolated struct Crystal: Sendable {
     /// is the matching reference. z(S) = 0.614 (Kalikhman 1983) is the
     /// earlier powder value this refinement explicitly corrects — do not
     /// "fix" the coordinate back; tools/ws2-crystal-test pins the difference.
-    package static var tungstenDisulfide: Crystal {
+    package static var tungstenDisulfide: CrystalStructure {
         let zS = 0.6225
-        return Crystal(
+        return structure(
             a: 3.1532, b: 3.1532, c: 12.323,
             alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
             sites: [
@@ -351,50 +200,28 @@ package nonisolated struct Crystal: Sendable {
             ]
         )
     }
+}
 
-    // MARK: - Small linear-algebra helpers (row-vector matrices)
+// MARK: - Thin conveniences over the kit's types (the app's old `Reflection` and `Crystal` spellings)
 
-    private static let identity3: [SIMD3<Double>] =
-        [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+extension KinematicReflection {
+    // The app's old `Reflection` field names, so the template, library and matcher code that reads reflections is
+    // unchanged by the switch. Read-only views of the kit's fields; nothing is computed.
+    package nonisolated var h: Int { reflection.hkl.h }
+    package nonisolated var k: Int { reflection.hkl.k }
+    package nonisolated var l: Int { reflection.hkl.l }
+    package nonisolated var g: SIMD3<Double> { reflection.g }
+    package nonisolated var gLength: Double { reflection.gLength }
+    package nonisolated var structureFactorRe: Double { structureFactor.real }
+    package nonisolated var structureFactorIm: Double { structureFactor.imaginary }
+    package nonisolated var intensity: Double { structureFactor.intensity }
+}
 
-    /// Gram matrix M·Mᵀ for row-vector matrix M.
-    private static func gram(_ m: [SIMD3<Double>]) -> [SIMD3<Double>] {
-        [
-            SIMD3(dot(m[0], m[0]), dot(m[0], m[1]), dot(m[0], m[2])),
-            SIMD3(dot(m[1], m[0]), dot(m[1], m[1]), dot(m[1], m[2])),
-            SIMD3(dot(m[2], m[0]), dot(m[2], m[1]), dot(m[2], m[2])),
-        ]
-    }
-
-    /// A·B for row-vector matrices (rows of the result are rows of A times B).
-    private static func matMul(_ aM: [SIMD3<Double>], _ bM: [SIMD3<Double>]) -> [SIMD3<Double>] {
-        func row(_ r: SIMD3<Double>) -> SIMD3<Double> {
-            r.x * bM[0] + r.y * bM[1] + r.z * bM[2]
-        }
-        return [row(aM[0]), row(aM[1]), row(aM[2])]
-    }
-
-    private static func determinant(_ m: [SIMD3<Double>]) -> Double {
-        m[0].x * (m[1].y * m[2].z - m[1].z * m[2].y)
-      - m[0].y * (m[1].x * m[2].z - m[1].z * m[2].x)
-      + m[0].z * (m[1].x * m[2].y - m[1].y * m[2].x)
-    }
-
-    private static func invert3x3(_ m: [SIMD3<Double>]) -> [SIMD3<Double>]? {
-        let det = determinant(m)
-        guard abs(det) > 1e-15 else { return nil }
-        let inv = 1 / det
-        // Adjugate (transpose of cofactor matrix), scaled by 1/det.
-        return [
-            SIMD3((m[1].y * m[2].z - m[1].z * m[2].y) * inv,
-                  (m[0].z * m[2].y - m[0].y * m[2].z) * inv,
-                  (m[0].y * m[1].z - m[0].z * m[1].y) * inv),
-            SIMD3((m[1].z * m[2].x - m[1].x * m[2].z) * inv,
-                  (m[0].x * m[2].z - m[0].z * m[2].x) * inv,
-                  (m[0].z * m[1].x - m[0].x * m[1].z) * inv),
-            SIMD3((m[1].x * m[2].y - m[1].y * m[2].x) * inv,
-                  (m[0].y * m[2].x - m[0].x * m[2].y) * inv,
-                  (m[0].x * m[1].y - m[0].y * m[1].x) * inv),
-        ]
+extension CrystalStructure {
+    /// Atomic numbers of this structure's sites that have no electron scattering factor (the table covers Z = 1 to 103,
+    /// the kit's element list 1 to 118). `kinematicReflections` throws `KinematicError.unsupportedElements` for the
+    /// same elements; this is the pre-flight the callers that must name a phase or refuse before a long job use.
+    package nonisolated var unsupportedElements: [Int] {
+        Array(Set(sites.map(\.z).filter { !ElectronScatteringFactors.isSupported(z: $0) })).sorted()
     }
 }

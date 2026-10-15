@@ -53,12 +53,12 @@ final class PhaseReferenceLibrarySlabTests: XCTestCase {
     }
 
     private func slabMatrixPhase() -> PhaseDefinition {
-        PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: .sc(a: 10, z: 13),
+        PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: Crystal.sc(a: 10, z: 13),
                         role: .matrix, zoneAxes: [SIMD3(0, 0, 1)])
     }
 
     private func slabCandidatePhase(excitationSlabInvAngstrom: Double? = nil) -> PhaseDefinition {
-        PhaseDefinition(id: "candidate", displayName: "Candidate", crystal: .sc(a: 10, z: 13),
+        PhaseDefinition(id: "candidate", displayName: "Candidate", crystal: Crystal.sc(a: 10, z: 13),
                         role: .candidate, zoneAxes: [SIMD3(0, 0, 1)],
                         excitationSlabInvAngstrom: excitationSlabInvAngstrom)
     }
@@ -133,7 +133,12 @@ final class PhaseReferenceLibrarySlabTests: XCTestCase {
             phases: [slabMatrixPhase(), slabCandidatePhase()], settings: settings)
         // Pinned 2026-09-21 from this exact fixture (session log
         // slab-checksum-discover-20260921.log): 0x675b3e13f7e44cea.
-        XCTAssertEqual(stableChecksum(of: library.entries), 0x675b3e13f7e44cea as UInt64,
+        // RE-PINNED 2026-10-15 (DiffractoKit 0.0.3, kit item 8; registration P5): 0x3b64f63e0cd65b72. The checksum mixes
+        // each entry's vectors IN ORDER, and the vectors of one ring (equal |q|, here (±1,0), (0,±1) ...) now arrive in the
+        // kit's defined order (descending h, k, l) instead of the old unstable-sort order (ascending). The SET of
+        // vectors is unchanged: with the old tie order restored in `projectedVectors` (a temporary experiment, not
+        // committed) this test passes against the old constant, and the count test above is untouched.
+        XCTAssertEqual(stableChecksum(of: library.entries), 0x3b64f63e0cd65b72 as UInt64,
                        "nil override must reproduce byte-identical entries to the pre-existing code path")
     }
 }

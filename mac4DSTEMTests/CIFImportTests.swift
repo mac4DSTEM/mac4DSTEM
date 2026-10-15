@@ -1,4 +1,6 @@
 import XCTest
+import DiffractoCore
+import DiffractoScattering
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -20,14 +22,23 @@ final class CIFImportTests: XCTestCase {
         sites.map(siteKey).sorted()
     }
 
+    /// The kit's reader refused the file (its `CIFImportError`, wrapped by the app as `.cif`).
     private func assertThrows(
         _ cif: String, fileBaseName: String = "test", expected: CIFImportError,
         file: StaticString = #filePath, line: UInt = #line
     ) {
+        assertThrows(cif, fileBaseName: fileBaseName, expected: CIFModelImportError.cif(expected), file: file, line: line)
+    }
+
+    /// The app's own refusal (`CIFModelImportError`: an element outside the scattering table, a failed model contract).
+    private func assertThrows(
+        _ cif: String, fileBaseName: String = "test", expected: CIFModelImportError,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
         XCTAssertThrowsError(
-            try CIFImport.crystalModel(from: cif, fileBaseName: fileBaseName), file: file, line: line
+            try CIFModelImport.crystalModel(from: cif, fileBaseName: fileBaseName), file: file, line: line
         ) { error in
-            XCTAssertEqual(error as? CIFImportError, expected, file: file, line: line)
+            XCTAssertEqual(error as? CIFModelImportError, expected, file: file, line: line)
         }
     }
 
@@ -68,17 +79,17 @@ final class CIFImportTests: XCTestCase {
     }
 
     func testGoldP1ReproducesBuiltInGoldCellAndSites() throws {
-        let model = try CIFImport.crystalModel(from: goldP1CIF, fileBaseName: "gold")
+        let model = try CIFModelImport.crystalModel(from: goldP1CIF, fileBaseName: "gold")
         XCTAssertEqual(model.source, .imported)
         XCTAssertEqual(model.symmetry, .cubic)
-        XCTAssertEqual(model.crystal.a, Crystal.gold.a, accuracy: 1e-9)
-        XCTAssertEqual(model.crystal.b, Crystal.gold.b, accuracy: 1e-9)
-        XCTAssertEqual(model.crystal.c, Crystal.gold.c, accuracy: 1e-9)
-        XCTAssertEqual(model.crystal.alphaDeg, Crystal.gold.alphaDeg, accuracy: 1e-9)
-        XCTAssertEqual(model.crystal.betaDeg, Crystal.gold.betaDeg, accuracy: 1e-9)
-        XCTAssertEqual(model.crystal.gammaDeg, Crystal.gold.gammaDeg, accuracy: 1e-9)
-        XCTAssertEqual(model.crystal.sites.count, 4)
-        XCTAssertEqual(sortedKeys(model.crystal.sites), sortedKeys(Crystal.gold.sites))
+        XCTAssertEqual(model.structure.cell.a, Crystal.gold.cell.a, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.b, Crystal.gold.cell.b, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.c, Crystal.gold.cell.c, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.alphaDeg, Crystal.gold.cell.alphaDeg, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.betaDeg, Crystal.gold.cell.betaDeg, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.gammaDeg, Crystal.gold.cell.gammaDeg, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.sites.count, 4)
+        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(Crystal.gold.sites))
         XCTAssertTrue(model.isUsable, "\(model.validationIssues)")
     }
 
@@ -108,9 +119,9 @@ final class CIFImportTests: XCTestCase {
     """
 
     func testSymmetryLoopExpandsSingleAtomToFullFCCBasisAndDedupes() throws {
-        let model = try CIFImport.crystalModel(from: goldSymmetryCIF, fileBaseName: "gold_symm")
-        XCTAssertEqual(model.crystal.sites.count, 4, "expected face-centering to produce exactly 4 distinct sites")
-        XCTAssertEqual(sortedKeys(model.crystal.sites), sortedKeys(Crystal.gold.sites))
+        let model = try CIFModelImport.crystalModel(from: goldSymmetryCIF, fileBaseName: "gold_symm")
+        XCTAssertEqual(model.structure.sites.count, 4, "expected face-centering to produce exactly 4 distinct sites")
+        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(Crystal.gold.sites))
     }
 
     // MARK: - Silicon diamond: 8 sites
@@ -140,9 +151,9 @@ final class CIFImportTests: XCTestCase {
     """
 
     func testSiliconDiamondGivesEightSites() throws {
-        let model = try CIFImport.crystalModel(from: siliconCIF, fileBaseName: "silicon")
-        XCTAssertEqual(model.crystal.sites.count, 8)
-        XCTAssertEqual(sortedKeys(model.crystal.sites), sortedKeys(Crystal.silicon.sites))
+        let model = try CIFModelImport.crystalModel(from: siliconCIF, fileBaseName: "silicon")
+        XCTAssertEqual(model.structure.sites.count, 8)
+        XCTAssertEqual(sortedKeys(model.structure.sites), sortedKeys(Crystal.silicon.sites))
         XCTAssertTrue(model.isUsable, "\(model.validationIssues)")
     }
 
@@ -165,9 +176,9 @@ final class CIFImportTests: XCTestCase {
         _atom_site_fract_z
         Au1 Au 0.0 0.0 0.0
         """
-        let model = try CIFImport.crystalModel(from: cif, fileBaseName: "gold_su")
-        XCTAssertEqual(model.crystal.a, 4.0782, accuracy: 1e-9)
-        XCTAssertEqual(model.crystal.alphaDeg, 90.0, accuracy: 1e-9)
+        let model = try CIFModelImport.crystalModel(from: cif, fileBaseName: "gold_su")
+        XCTAssertEqual(model.structure.cell.a, 4.0782, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.alphaDeg, 90.0, accuracy: 1e-9)
     }
 
     // MARK: - Rejected point group
@@ -199,14 +210,14 @@ final class CIFImportTests: XCTestCase {
         // Both halves are asserted, because admitting the model without the
         // refusal below would let `identity.ipfColor` draw |x|,|y|,|z| as RGB —
         // not a wrong IPF key, but no key at all wearing the look of one.
-        let model = try CIFImport.crystalModel(from: cif, fileBaseName: "ortho")
+        let model = try CIFModelImport.crystalModel(from: cif, fileBaseName: "ortho")
         XCTAssertEqual(model.symmetry, .identity, "an orthorhombic cell imports as Unreduced")
-        XCTAssertEqual(model.crystal.a, 5.0, accuracy: 1e-9, "the cell is read, not coerced")
-        XCTAssertEqual(model.crystal.c, 7.0, accuracy: 1e-9)
+        XCTAssertEqual(model.structure.cell.a, 5.0, accuracy: 1e-9, "the cell is read, not coerced")
+        XCTAssertEqual(model.structure.cell.c, 7.0, accuracy: 1e-9)
 
         // The crystal is VALID. What it cannot do is orientation mapping, and
         // those are deliberately different properties: a first attempt recorded
-        // this as a validation issue, which made `CIFImport.crystalModel` throw
+        // this as a validation issue, which made `CIFModelImport.crystalModel` throw
         // `.invalidModel` — so the structure never loaded at all and the change
         // achieved nothing. Caught by probe before it shipped.
         XCTAssertTrue(model.isUsable, "the cell, basis and structure factors are all fine")
@@ -221,7 +232,7 @@ final class CIFImportTests: XCTestCase {
         )
         // And the half that makes admitting it worthwhile at all: phase
         // identification needs reflections, and gets them.
-        XCTAssertFalse(model.crystal.reflections(kMax: 1.6).isEmpty)
+        XCTAssertFalse(try model.structure.kinematicReflections(kMax: 1.6).kept.isEmpty)
     }
 
     // MARK: - Element with no scattering factor
@@ -386,7 +397,7 @@ final class CIFImportTests: XCTestCase {
                 .replacingOccurrences(of: "_cell_angle_alpha 90", with: "_cell_angle_alpha 80")
                 .replacingOccurrences(of: "_cell_angle_beta 90", with: "_cell_angle_beta 85")
                 .replacingOccurrences(of: "_cell_angle_gamma 90", with: "_cell_angle_gamma 95")
-            XCTAssertNoThrow(try CIFImport.crystalModel(from: text, fileBaseName: "symop"), good)
+            XCTAssertNoThrow(try CIFModelImport.crystalModel(from: text, fileBaseName: "symop"), good)
         }
     }
 
@@ -415,8 +426,8 @@ final class CIFImportTests: XCTestCase {
         // that a cubic *metric* is backed by a real ⟨111⟩ 3-fold, and a
         // half-populated cell has no such axis. The point of this test is
         // still element-symbol derivation from the label ("Ni2+" → Ni).
-        let model = try CIFImport.crystalModel(from: cif, fileBaseName: "nickel")
-        XCTAssertEqual(model.crystal.sites.map(\.z), [28, 28, 28, 28])
+        let model = try CIFModelImport.crystalModel(from: cif, fileBaseName: "nickel")
+        XCTAssertEqual(model.structure.sites.map(\.z), [28, 28, 28, 28])
     }
 
     // MARK: - The metric proposes a family; the structure has to confirm it
@@ -427,7 +438,15 @@ final class CIFImportTests: XCTestCase {
     /// as `.hexagonal`, giving them a 12-operator fundamental zone and an IPF
     /// key they do not have. `tools/cif-symmetry-test/` covers the full matrix
     /// of accept/reject structures; this pins the user-visible contract.
-    func testTrigonalCellInHexagonalSettingIsRejectedNotOverSymmetrized() {
+    ///
+    /// CHANGED 2026-10-15 (DiffractoKit 0.0.3, kit item 3; registration P4). This test was
+    /// `testTrigonalCellInHexagonalSettingIsRejectedNotOverSymmetrized` and asserted a refusal
+    /// (`symmetryNotSupportedByStructure`). The kit reads the Laue class from the atoms and admits every
+    /// class, so the file now IMPORTS, as `.identity` ("Unreduced"): the over-symmetrisation it guarded
+    /// against (a 12-operator fundamental zone and an IPF key the structure does not have) is still
+    /// impossible, which is what is asserted. Kit plant: DiffractoCoreTests `CIFImportTests`
+    /// `testTrigonalInHexagonalAxesIsThreeBarM` (quartz with its operation loop).
+    func testTrigonalCellInHexagonalSettingImportsUnreducedNeverHexagonal() throws {
         // α-quartz, P3₂21 — point group 32, 3-fold only.
         let cif = """
         data_alpha_quartz
@@ -446,17 +465,22 @@ final class CIFImportTests: XCTestCase {
         Si1 Si 0.4697 0.0000 0.0000
         O1 O 0.4135 0.2669 0.1191
         """
-        XCTAssertThrowsError(try CIFImport.crystalModel(from: cif, fileBaseName: "quartz")) { error in
-            guard case .symmetryNotSupportedByStructure = error as? CIFImportError else {
-                return XCTFail("expected symmetryNotSupportedByStructure, got \(error)")
-            }
-        }
+        let model = try CIFModelImport.crystalModel(from: cif, fileBaseName: "quartz")
+        XCTAssertEqual(model.symmetry, .identity, "a hexagonal metric with 3-fold contents is Unreduced, not 6/mmm")
+        XCTAssertNotEqual(model.structure.laueClass, .sixOverMmm)
+        XCTAssertFalse(model.supportsOrientationMapping, "no fundamental zone and no IPF key for it")
+        XCTAssertTrue(model.isUsable, "the structure still identifies a phase")
     }
 
     /// The mirror case: a cubic *metric* by coincidence. Tetragonal contents
     /// (4-fold about c, no ⟨111⟩ 3-fold) in a cell whose axes happen to be
     /// equal must not be admitted as `.cubic`.
-    func testAccidentallyCubicMetricWithoutA111ThreeFoldIsRejected() {
+    ///
+    /// CHANGED 2026-10-15 (kit item 3; registration P4): was
+    /// `testAccidentallyCubicMetricWithoutA111ThreeFoldIsRejected` and asserted a refusal. It now imports as
+    /// `.identity`; never `.cubic` is what is asserted. Kit plant: DiffractoCoreTests `SymmetryDetectionTests`
+    /// `testTetragonalAtomsInACubicMetricAre4OverMmm`.
+    func testAccidentallyCubicMetricWithoutA111ThreeFoldImportsUnreducedNeverCubic() throws {
         let cif = """
         data_tetragonal_a_equals_c
         _cell_length_a 4.0
@@ -474,11 +498,10 @@ final class CIFImportTests: XCTestCase {
         Ti1 Ti 0.0 0.0 0.0
         O1 O 0.3 0.3 0.0
         """
-        XCTAssertThrowsError(try CIFImport.crystalModel(from: cif, fileBaseName: "tetra")) { error in
-            guard case .symmetryNotSupportedByStructure = error as? CIFImportError else {
-                return XCTFail("expected symmetryNotSupportedByStructure, got \(error)")
-            }
-        }
+        let model = try CIFModelImport.crystalModel(from: cif, fileBaseName: "tetra")
+        XCTAssertEqual(model.symmetry, .identity, "a cubic metric without the ⟨111⟩ 3-fold is Unreduced, not m-3m")
+        XCTAssertNotEqual(model.structure.laueClass, .mThreeBarM)
+        XCTAssertFalse(model.supportsOrientationMapping)
     }
 
     /// The check must allow the rotation to carry a translation, or it would
@@ -502,7 +525,7 @@ final class CIFImportTests: XCTestCase {
         Mg1 Mg 0.3333333 0.6666667 0.25
         Mg2 Mg 0.6666667 0.3333333 0.75
         """
-        let model = try CIFImport.crystalModel(from: cif, fileBaseName: "magnesium")
+        let model = try CIFModelImport.crystalModel(from: cif, fileBaseName: "magnesium")
         XCTAssertEqual(model.symmetry, .hexagonal)
     }
 
@@ -542,8 +565,8 @@ final class CIFImportTests: XCTestCase {
     func testP1DeclarationWithoutOperationsIsStillAdmitted() throws {
         let declaredP1 = "data_gold\n_symmetry_space_group_name_H-M 'P 1'\n_space_group_IT_number 1\n"
             + goldP1CIF.split(separator: "\n").dropFirst().joined(separator: "\n")
-        let model = try CIFImport.crystalModel(from: declaredP1, fileBaseName: "gold")
-        XCTAssertEqual(model.crystal.sites.count, 4)
+        let model = try CIFModelImport.crystalModel(from: declaredP1, fileBaseName: "gold")
+        XCTAssertEqual(model.structure.sites.count, 4)
     }
 
     /// `?` and `.` are CIF null placeholders — a nulled-out space-group tag
@@ -551,8 +574,8 @@ final class CIFImportTests: XCTestCase {
     func testNullSpaceGroupPlaceholderDoesNotRefuse() throws {
         let nulled = "data_gold\n_symmetry_space_group_name_H-M ?\n"
             + goldP1CIF.split(separator: "\n").dropFirst().joined(separator: "\n")
-        let model = try CIFImport.crystalModel(from: nulled, fileBaseName: "gold")
-        XCTAssertEqual(model.crystal.sites.count, 4)
+        let model = try CIFModelImport.crystalModel(from: nulled, fileBaseName: "gold")
+        XCTAssertEqual(model.structure.sites.count, 4)
     }
 
     /// An operator loop holding only the identity expands nothing — the same
@@ -597,13 +620,13 @@ final class CIFImportTests: XCTestCase {
     /// replay (open item "CIF import can silently accept a wrong crystal" (b),
     /// closed 2026-09-05).
     func testSameFilenameDifferentCellHaveOneIDAndTwoFingerprints() throws {
-        let gold = try CIFImport.crystalModel(from: goldP1CIF, fileBaseName: "phase")
-        let again = try CIFImport.crystalModel(from: goldP1CIF, fileBaseName: "phase")
+        let gold = try CIFModelImport.crystalModel(from: goldP1CIF, fileBaseName: "phase")
+        let again = try CIFModelImport.crystalModel(from: goldP1CIF, fileBaseName: "phase")
         // A multi-line literal strips its common indentation, so the edits
         // below target the runtime text; each is checked to have taken.
         let stretchedText = goldP1CIF.replacingOccurrences(of: "4.0782", with: "4.2000")
         XCTAssertNotEqual(stretchedText, goldP1CIF, "the fixture edit must take, or the test compares a CIF to itself")
-        let stretched = try CIFImport.crystalModel(from: stretchedText, fileBaseName: "phase")
+        let stretched = try CIFModelImport.crystalModel(from: stretchedText, fileBaseName: "phase")
         XCTAssertEqual(gold.id, stretched.id, "the id is the file stem; that is the collision")
         XCTAssertEqual(gold.contentFingerprint, again.contentFingerprint)
         XCTAssertNotEqual(gold.contentFingerprint, stretched.contentFingerprint)
@@ -612,8 +635,8 @@ final class CIFImportTests: XCTestCase {
         // A basis change with the same cell is a different crystal too.
         let threeSitesText = goldP1CIF.replacingOccurrences(of: "Au4 Au 0.0 0.5 0.5", with: "")
         XCTAssertNotEqual(threeSitesText, goldP1CIF, "the fixture edit must take")
-        let threeSites = try CIFImport.crystalModel(from: threeSitesText, fileBaseName: "phase")
-        XCTAssertEqual(threeSites.crystal.sites.count, 3)
+        let threeSites = try CIFModelImport.crystalModel(from: threeSitesText, fileBaseName: "phase")
+        XCTAssertEqual(threeSites.structure.sites.count, 3)
         XCTAssertNotEqual(gold.contentFingerprint, threeSites.contentFingerprint)
     }
 }

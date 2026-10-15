@@ -1,5 +1,7 @@
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DiffractoCore
+import DiffractoScattering
 import DSTEMCore
 import DSTEMSession
 import DSTEMTraining
@@ -1325,8 +1327,8 @@ private struct ACOMSections: View {
         @Bindable var session = appState.acomSession
         InspectorRow("Element") {
             Picker("Element", selection: $session.customZ) {
-                ForEach(ScatteringFactors.supportedElements, id: \.self) { z in
-                    Text("\(ScatteringFactors.symbols[z] ?? "?")  (Z=\(z))").tag(z)
+                ForEach(Array(1...ElectronScatteringFactors.maximumAtomicNumber), id: \.self) { z in
+                    Text("\(Element.symbol(forAtomicNumber: z) ?? "?")  (Z=\(z))").tag(z)
                 }
             }
             .labelsHidden()

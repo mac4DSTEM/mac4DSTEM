@@ -32,6 +32,7 @@
 
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DiffractoCore
 import DSTEMCore
 #endif
 
@@ -505,7 +506,7 @@ package enum ReplayStepPlan: Equatable {
                 "scope": String(describing: scope),
                 "quality": String(describing: quality),
             ]
-            if model.source == .custom { p["lattice_a"] = String(model.crystal.a) }
+            if model.source == .custom { p["lattice_a"] = String(model.structure.cell.a) }
             if model.source == .imported { p["material_fingerprint"] = model.contentFingerprint }
             return p
         }

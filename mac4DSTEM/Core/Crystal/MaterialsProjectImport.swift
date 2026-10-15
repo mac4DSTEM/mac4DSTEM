@@ -10,25 +10,24 @@
 //  2026-09-21 (docs/v3-features.md#materials-project): the response is
 //  `{"data":[SummaryDoc…],"errors":[{"code":int,"message":str}],"meta":{…}}`.
 //  Unknown JSON keys are ignored — `Decodable` does this for free by simply
-//  not declaring them, matching what `CIFImport` does for CIF tags it does
-//  not model.
+//  not declaring them, matching what DiffractoKit's `CIFImport` does for CIF
+//  tags it does not model.
 //
-//  Symmetry classification is NOT re-implemented here. `classifyFamily`
-//  (`package`-visible on `CIFImport`) is called
-//  verbatim, per the pre-registration's Gate D reasoning: the one
-//  symmetry-relevant step in this importer reuses the CIF importer's
-//  already-tested classifier rather than writing new science. MP's own
+//  Symmetry classification is NOT re-implemented here. The structure's Laue
+//  class is DETECTED from its atoms by DiffractoKit
+//  (`CrystalStructure.detectingSymmetry`) and mapped to the orientation
+//  reduction ACOM implements by `ACOMCrystalSymmetry.reduction(for:)`, the
+//  same function the CIF importer uses (since 2026-10-15; before it was the
+//  CIF importer's `classifyFamily` + `confirmedFamily`). MP's own
 //  `symmetry.crystal_system` and `symmetry.symbol` are recorded in
 //  provenance only — never used to choose `ACOMCrystalSymmetry` — for the
-//  same reason `CIFImport` never trusts a file's stated symmetry either
-//  (`CIFImport.swift`, `verifyFamily`).
+//  same reason the CIF importer never trusts a file's stated symmetry either.
 //
-//  Element lookup reuses `CIFImport.elementSymbolToZ` / `.elementSymbol(from:)`
-//  (both `package`-visible) rather than a second
-//  symbol table.
+//  Element lookup is the kit's: `Element.normalizedSymbol(fromCIF:)` and
+//  `Element.atomicNumber(forSymbol:)`, rather than a second symbol table.
 //
-//  Occupancy rule for a site with several species: the same one `CIFImport`
-//  effectively applies. `CIFImport` has no special-cased "disordered site"
+//  Occupancy rule for a site with several species: the same one the CIF
+//  reader effectively applies. It has no special-cased "disordered site"
 //  handling — each `_atom_site_*` loop row becomes its own `AtomSite` with
 //  its own element and occupancy, and it is `CrystalModel.validationIssues`
 //  (invalid occupancy, too-close sites) that catches a chemically impossible
@@ -42,6 +41,7 @@
 
 import Foundation
 import simd
+import DiffractoCore
 
 // MARK: - Wire types
 
@@ -127,7 +127,7 @@ package nonisolated struct MaterialsProjectLattice: Decodable, Sendable {
     /// includes it — real `structure.lattice` payloads normally do. Session
     /// S4b's `standardise(_:symmetry:)` uses this directly when present, and
     /// falls back to rebuilding it from `a,b,c,alpha,beta,gamma` (the same
-    /// construction `Crystal.init` does) only when it is absent, so a fixture
+    /// construction `UnitCell.init` does) only when it is absent, so a fixture
     /// or a trimmed `_fields` response that omits it still works.
     package let matrix: [[Double]]?
 
@@ -256,12 +256,11 @@ package nonisolated enum CellStandardisation: Equatable, Sendable {
 }
 
 /// Row-major 3×3 helpers for the fixed integer centring-transformation
-/// matrices below. Deliberately separate from `Crystal`'s private metric-
-/// tensor helpers (`Crystal.swift`, `gram`/`matMul`/`invert3x3` ~ lines
-/// 350-390) — those compute the real/reciprocal metric tensor, a different
-/// piece of math from an integer change-of-basis between two real-space
-/// settings, and they are `private` to that file, so this is a second small
-/// implementation by necessity, not a duplicate of the same science.
+/// matrices below. Deliberately separate from the kit's metric-tensor helpers
+/// (`UnitCell`'s `gram`/`matMul`/`invert3x3`) — those compute the real/reciprocal
+/// metric tensor, a different piece of math from an integer change-of-basis
+/// between two real-space settings, and they are internal to the kit, so this is
+/// a second small implementation by necessity, not a duplicate of the same science.
 package nonisolated enum Matrix3 {
     static func determinant(_ m: [[Double]]) -> Double {
         m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
@@ -413,9 +412,8 @@ private nonisolated func centringTransform(for letter: Character) -> CentringTra
 
 /// Reduce one fractional coordinate into `[0, 1)`, snapping values within
 /// 1e-9 of an integer to exactly 0 — the same "don't leave a 0.999999999998
-/// where a 0 belongs" precaution `CIFImport`'s own axis-wrapping applies
-/// (`CIFImport.swift`, `wrapAxis`, a `private` sibling of this one; not
-/// reused verbatim for the same file-boundary reason as `Matrix3` above).
+/// where a 0 belongs" precaution the kit's `wrapFractional` applies (not
+/// reused verbatim: this one keeps the app's own `>= 1 - 1e-9` snap).
 private nonisolated func wrap01(_ x: Double) -> Double {
     var m = x.truncatingRemainder(dividingBy: 1)
     if m < 0 { m += 1 }
@@ -578,19 +576,17 @@ package nonisolated enum MaterialsProjectImport {
         }
 
         // Served lattice as Cartesian row vectors — from the wire `matrix`
-        // when present, else rebuilt from a,b,c,α,β,γ the way `Crystal.init`
-        // does (`Crystal.swift` ~86-108), reused via `Crystal.init` itself
-        // (with an empty site list, purely to read `.latReal` back out)
-        // rather than a second copy of that trig.
+        // when present, else rebuilt from a,b,c,α,β,γ the way `UnitCell.init`
+        // does, reused via `UnitCell` itself (`realLattice`) rather than a
+        // second copy of that trig.
         let servedRows: [SIMD3<Double>]
         if let rawMatrix = lattice.matrix, rawMatrix.count == 3, rawMatrix.allSatisfy({ $0.count == 3 }) {
             servedRows = rawMatrix.map { SIMD3($0[0], $0[1], $0[2]) }
         } else {
-            servedRows = Crystal(
+            servedRows = UnitCell(
                 a: lattice.a, b: lattice.b, c: lattice.c,
-                alphaDeg: lattice.alpha, betaDeg: lattice.beta, gammaDeg: lattice.gamma,
-                sites: []
-            ).latReal
+                alphaDeg: lattice.alpha, betaDeg: lattice.beta, gammaDeg: lattice.gamma
+            ).realLattice
         }
 
         let matrixDeterminant = Matrix3.determinant(transform.matrix)
@@ -674,7 +670,7 @@ package nonisolated enum MaterialsProjectImport {
             var counts: [String: Int] = [:]
             for site in list {
                 for species in site.species ?? [] {
-                    counts[CIFImport.elementSymbol(from: species.element), default: 0] += 1
+                    counts[Element.normalizedSymbol(fromCIF: species.element), default: 0] += 1
                 }
             }
             return counts
@@ -693,18 +689,18 @@ package nonisolated enum MaterialsProjectImport {
 
         for i in 0..<newSites.count {
             guard let abcI = newSites[i].abc, abcI.count == 3 else { continue }
-            let elementsI = Set((newSites[i].species ?? []).map { CIFImport.elementSymbol(from: $0.element) })
+            let elementsI = Set((newSites[i].species ?? []).map { Element.normalizedSymbol(fromCIF: $0.element) })
             guard !elementsI.isEmpty else { continue }
             let posI = SIMD3(abcI[0], abcI[1], abcI[2])
             for j in (i + 1)..<newSites.count {
                 guard let abcJ = newSites[j].abc, abcJ.count == 3 else { continue }
-                let elementsJ = Set((newSites[j].species ?? []).map { CIFImport.elementSymbol(from: $0.element) })
+                let elementsJ = Set((newSites[j].species ?? []).map { Element.normalizedSymbol(fromCIF: $0.element) })
                 guard !elementsI.isDisjoint(with: elementsJ) else { continue }
                 let posJ = SIMD3(abcJ[0], abcJ[1], abcJ[2])
                 let distance = (
-                    axisDelta(posI.x, posJ.x) * axisDelta(posI.x, posJ.x)
-                        + axisDelta(posI.y, posJ.y) * axisDelta(posI.y, posJ.y)
-                        + axisDelta(posI.z, posJ.z) * axisDelta(posI.z, posJ.z)
+                    fractionalAxisDelta(posI.x, posJ.x) * fractionalAxisDelta(posI.x, posJ.x)
+                        + fractionalAxisDelta(posI.y, posJ.y) * fractionalAxisDelta(posI.y, posJ.y)
+                        + fractionalAxisDelta(posI.z, posJ.z) * fractionalAxisDelta(posI.z, posJ.z)
                 ).squareRoot()
                 guard distance >= 1e-3 else {
                     let shared = elementsI.intersection(elementsJ).sorted().joined(separator: ",")
@@ -834,8 +830,8 @@ package nonisolated enum MaterialsProjectImport {
             }
             let fractional = SIMD3(abc[0], abc[1], abc[2])
             for sp in species {
-                let symbol = CIFImport.elementSymbol(from: sp.element)
-                guard let z = CIFImport.elementSymbolToZ[symbol] else {
+                let symbol = Element.normalizedSymbol(fromCIF: sp.element)
+                guard let z = Element.atomicNumber(forSymbol: symbol) else {
                     throw Failure.malformed(
                         "Site \(index) of \(doc.materialID) has an unrecognized element symbol \"\(sp.element)\"."
                     )
@@ -844,24 +840,16 @@ package nonisolated enum MaterialsProjectImport {
             }
         }
 
-        let crystal = Crystal(
+        // The kit detects the Laue class from the atoms (MP coordinates are full precision: half-step 0), so a
+        // trigonal cell in hexagonal axes is not read as 6/mmm nor Pa-3 as m-3m (review row 6, 2026-10-01); such a
+        // structure now imports as `.identity` instead of being refused. MP's own `symmetry.crystal_system` never
+        // reaches this decision; it is recorded in provenance below only.
+        let crystalStructure = Crystal.structure(
             a: lattice.a, b: lattice.b, c: lattice.c,
             alphaDeg: lattice.alpha, betaDeg: lattice.beta, gammaDeg: lattice.gamma,
             sites: atomSites
         )
-
-        // Verbatim reuse, not a re-implementation — see the file header and
-        // docs/v3-features.md#materials-project. MP's own
-        // `symmetry.crystal_system` never reaches this decision; it is
-        // recorded in provenance below only.
-        let proposed = try CIFImport.classifyFamily(
-            a: lattice.a, b: lattice.b, c: lattice.c,
-            alphaDeg: lattice.alpha, betaDeg: lattice.beta, gammaDeg: lattice.gamma
-        )
-        // The metric only proposes a family; the atom positions confirm it (review row 6,
-        // 2026-10-01) — as the CIF importer does — so a trigonal cell in hexagonal axes is not
-        // read as 6/mmm nor Pa-3 as m-3m. MP coordinates are full precision: half-step 0.
-        let symmetry = try CIFImport.confirmedFamily(proposed, sites: atomSites, coarsestHalfStep: 0)
+        let symmetry = ACOMCrystalSymmetry.reduction(for: crystalStructure)
 
         let formulaLabel = doc.formulaPretty?.trimmingCharacters(in: .whitespaces)
         let displayName: String
@@ -896,7 +884,7 @@ package nonisolated enum MaterialsProjectImport {
         let model = CrystalModel(
             id: doc.materialID,
             displayName: displayName,
-            crystal: crystal,
+            structure: crystalStructure,
             symmetry: symmetry,
             source: .materialsProject,
             spaceGroupNumber: doc.symmetry?.number,

@@ -19,6 +19,9 @@
 
 import Foundation
 import simd
+import DiffractoCore
+import DiffractoGeometry
+import DiffractoScattering
 
 /// Shared polar-image geometry.
 package nonisolated struct PolarGeometry {
@@ -97,7 +100,7 @@ package nonisolated struct OrientationPlan {
     /// Build a plan for `crystal`. `zoneAxisCount` sets the sampling density
     /// (≈ hemisphere points); `sgWidth`/`sgMax` are the excitation-error
     /// tolerances (Å⁻¹) selecting which reflections are "excited" at a zone axis.
-    package static func generate(crystal: Crystal,
+    package static func generate(crystal: CrystalStructure,
                          kMax: Double,
                          nRadial: Int = 32,
                          nAzimuthal: Int = 128,
@@ -116,10 +119,12 @@ package nonisolated struct OrientationPlan {
         guard let fft = FFT1D(n: nAzimuthal) else { return nil }
         let geo = PolarGeometry(nRadial: nRadial, nAzimuthal: nAzimuthal,
                                 radialScale: kMax / Double(nRadial))
-        let reflections = crystal.reflections(kMax: kMax)
-        guard !reflections.isEmpty else { return nil }
+        // A structure the kit refuses (an element outside the scattering table, an invalid or too large cell) has no
+        // plan: nil, as an empty reflection list always was.
+        guard let reflections = (try? crystal.kinematicReflections(kMax: kMax))?.kept, !reflections.isEmpty
+        else { return nil }
         let axes = symmetry.sampleFundamentalZone(count: zoneAxisCount)
-        let bases = axes.map(ACOMOrientation.detectorBasis)
+        let bases = axes.map(ZoneAxis.detectorBasis)
 
         var templates: [[Float]] = []
         var allSpots: [[TemplateSpot]] = []
@@ -184,7 +189,7 @@ package nonisolated struct OrientationPlan {
     /// The curvature alone is not enough: with raw (power 1) intensities the
     /// brightest ring dominates the correlation and swamps the asymmetry. See
     /// `intensityPower`, which is what makes it visible.
-    package static func project(reflections: [Reflection], zoneAxis n: SIMD3<Double>,
+    package static func project(reflections: [KinematicReflection], zoneAxis n: SIMD3<Double>,
                         sgWidth: Double, sgMax: Double,
                         wavelengthAngstrom: Double? = nil,
                         intensityPower: Double = 0.25,
@@ -192,7 +197,7 @@ package nonisolated struct OrientationPlan {
         -> [(r: Double, azim: Double, weight: Double)] {
         // In-plane basis is shared with the stored orientation matrix so the
         // Euler result cannot reconstruct a subtly different reference axis.
-        let basis = ACOMOrientation.detectorBasis(zoneAxis: n)
+        let basis = ZoneAxis.detectorBasis(n)
         let e1 = basis.columns.0
         let e2 = basis.columns.1
 

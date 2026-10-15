@@ -7,6 +7,7 @@
 //
 
 import XCTest
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -417,7 +418,7 @@ final class ReplayPlanTests: XCTestCase {
     func testRecordSiteWritesTheFingerprintOnlyForImportedModelsAndItRoundTrips() throws {
         let imported = CrystalModel(
             id: "imported_ws2", displayName: "WS2",
-            crystal: CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 3.2, atomicNumber: 74).crystal,
+            structure: CrystalModelLibrary.customCubic(structure: .fcc, latticeA: 3.2, atomicNumber: 74).structure,
             symmetry: .cubic, source: .imported)
         let written = ReplayStepPlan.ACOMReplayPlan.recordedParameters(
             model: imported, scale: 0.0125, backend: "CPU", scope: .fullScan, quality: .balanced)

@@ -11,6 +11,8 @@
 //
 
 import XCTest
+import DiffractoCore
+import DiffractoScattering
 import DSTEMCore
 import DSTEMSession
 import simd
@@ -58,7 +60,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     """
 
     private func betaDoublePrimeModel() throws -> CrystalModel {
-        try CIFImport.crystalModel(from: Self.betaDoublePrimeCIF, fileBaseName: "bdp")
+        try CIFModelImport.crystalModel(from: Self.betaDoublePrimeCIF, fileBaseName: "bdp")
     }
 
     /// The operator list is written HERE: C2 about the unique axis b = +y, E.
@@ -82,7 +84,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     func testP1GroupHasTwoProperOperatorsClosedAboutTheLatticeB() throws {
         let ops = MonoclinicOrientationSymmetry.operators
         XCTAssertEqual(ops.count, 2)
-        let b = simd_normalize(try betaDoublePrimeModel().crystal.latReal[1])
+        let b = simd_normalize(try betaDoublePrimeModel().structure.cell.realLattice[1])
         XCTAssertEqual(simd_length(b - SIMD3(0, 1, 0)), 0, accuracy: 1e-12,
                        "the unique axis of an alpha = gamma = 90 cell is +y in this frame")
         var identityCount = 0
@@ -303,7 +305,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     func testModelValidationByCellMetric() throws {
         func model(alpha: Double, beta: Double, gamma: Double) -> CrystalModel {
             CrystalModel(id: "t", displayName: "t",
-                         crystal: Crystal(a: 15.16, b: 4.05, c: 6.74, alphaDeg: alpha, betaDeg: beta, gammaDeg: gamma,
+                         structure: Crystal.structure(a: 15.16, b: 4.05, c: 6.74, alphaDeg: alpha, betaDeg: beta, gammaDeg: gamma,
                                           sites: [AtomSite(z: 12, fractional: SIMD3(0, 0, 0))]),
                          symmetry: .monoclinic, source: .imported)
         }
@@ -343,7 +345,7 @@ final class MonoclinicOrientationTests: XCTestCase {
         Al1 Al 0.0 0.0 0.0
         O1 O 0.3 0.2 0.4
         """
-        XCTAssertEqual(try CIFImport.crystalModel(from: cif, fileBaseName: "p1").symmetry, .identity)
+        XCTAssertEqual(try CIFModelImport.crystalModel(from: cif, fileBaseName: "p1").symmetry, .identity)
     }
 
     // MARK: - Unvalidated stays labelled
@@ -369,8 +371,8 @@ final class MonoclinicOrientationTests: XCTestCase {
 
     // MARK: - P2 / P4: round trip through the matcher
 
-    private func monoclinicPlan(count: Int) throws -> (plan: OrientationPlan, crystal: Crystal) {
-        let crystal = try betaDoublePrimeModel().crystal
+    private func monoclinicPlan(count: Int) throws -> (plan: OrientationPlan, crystal: CrystalStructure) {
+        let crystal = try betaDoublePrimeModel().structure
         let plan = try XCTUnwrap(OrientationPlan.generate(
             crystal: crystal, kMax: 1.2, zoneAxisCount: count, symmetry: .monoclinic, wavelengthAngstrom: 0.02508))
         return (plan, crystal)
@@ -378,7 +380,7 @@ final class MonoclinicOrientationTests: XCTestCase {
 
     /// Peaks of a kinematic pattern for the lab frame (f1, f2, n) in crystal coordinates, built here
     /// (never with production `project`), as in tools/acom-mirror-test.
-    private func peaks(crystal: Crystal, truth: simd_double3x3, reflections: [Reflection]) -> [BraggPeak] {
+    private func peaks(crystal: CrystalStructure, truth: simd_double3x3, reflections: [KinematicReflection]) -> [BraggPeak] {
         let f1 = truth.columns.0, f2 = truth.columns.1, n = truth.columns.2
         let scale = 0.008, origin = 256.0, curvature = 0.02508 / 2
         return reflections.compactMap { r in
@@ -412,7 +414,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     /// Mutation (reduce = identity): the reduced distance to the farther truth stays ~180 deg: red.
     func testP4TheC2AmbiguityIsMergedByMonoclinicAndNotByIdentity() throws {
         let (plan, crystal) = try monoclinicPlan(count: 400)
-        let reflections = crystal.reflections(kMax: 1.2)
+        let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
         let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
         var rng = MonoclinicRNG(state: 0x853C49E6748FEA9B)
         var found = 0, scored = 0
@@ -460,8 +462,8 @@ final class MonoclinicOrientationTests: XCTestCase {
     /// P6 (reported, not gated: wall-clock is machine and load dependent): match time per pattern at 800 vs
     /// 200 templates on the same patterns; registered band 3.5-4.5x.
     func testP6MatchTimeScalesWithTheLibrary() throws {
-        let crystal = try betaDoublePrimeModel().crystal
-        let reflections = crystal.reflections(kMax: 1.2)
+        let crystal = try betaDoublePrimeModel().structure
+        let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
         var rng = MonoclinicRNG(state: 0x2545F4914F6CDD1D &+ 1_000_000)
         var patterns: [[BraggPeak]] = []
         while patterns.count < 100 {
@@ -487,7 +489,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     /// Fraction of random draws recovered within 7.7 deg (min over the independent 2/m list).
     private func roundTripFraction(templates: Int, draws: Int, seed: UInt64) throws -> Double {
         let (plan, crystal) = try monoclinicPlan(count: templates)
-        let reflections = crystal.reflections(kMax: 1.2)
+        let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
         let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
         var rng = MonoclinicRNG(state: seed)
         var errors: [Double] = []

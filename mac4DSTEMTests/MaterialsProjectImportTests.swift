@@ -1,6 +1,7 @@
 import XCTest
 import Security
 import simd
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -74,7 +75,7 @@ final class MaterialsProjectImportTests: XCTestCase {
 
         XCTAssertEqual(model.symmetry, .cubic)
         XCTAssertEqual(model.spaceGroupNumber, 227)
-        XCTAssertEqual(model.crystal.sites.count, 8)
+        XCTAssertEqual(model.structure.sites.count, 8)
         XCTAssertEqual(model.source, .materialsProject)
         XCTAssertEqual(model.id, "mp-149")
         XCTAssertEqual(model.displayName, "Si (mp-149)")
@@ -349,9 +350,11 @@ final class MaterialsProjectImportTests: XCTestCase {
         }
     }
 
-    // MARK: - (i) classifyFamily reuse: same function, not parallel code
+    // MARK: - (i) one mapping from structure to symmetry: same function, not parallel code
 
-    func testClassifyFamilyReuseMatchesCIFImporterAcrossCells() throws {
+    /// (Was `testClassifyFamilyReuseMatchesCIFImporterAcrossCells`: `classifyFamily` went to DiffractoKit's Laue
+    /// class on 2026-10-15; both importers now call `ACOMCrystalSymmetry.reduction(for:)`.)
+    func testMaterialsProjectAndCIFImportersMapTheSameCellsToTheSameSymmetry() throws {
         struct Cell { let a, b, c, alpha, beta, gamma: Double }
         let cells: [Cell] = [
             Cell(a: 3.209, b: 3.209, c: 5.211, alpha: 90, beta: 90, gamma: 120),  // hexagonal metric
@@ -360,7 +363,7 @@ final class MaterialsProjectImportTests: XCTestCase {
         ]
         for cell in cells {
             let cif = cifText(a: cell.a, b: cell.b, c: cell.c, alpha: cell.alpha, beta: cell.beta, gamma: cell.gamma)
-            let cifModel = try CIFImport.crystalModel(from: cif, fileBaseName: "probe")
+            let cifModel = try CIFModelImport.crystalModel(from: cif, fileBaseName: "probe")
 
             let doc = MaterialsProjectDocument(
                 materialID: "mp-probe", formulaPretty: "Fe",
@@ -646,14 +649,14 @@ final class MaterialsProjectImportTests: XCTestCase {
     """
 
     func testCIFSpaceGroupNumberParsedWhenPresent() throws {
-        let model = try CIFImport.crystalModel(from: goldSpaceGroupCIF, fileBaseName: "gold_sg")
+        let model = try CIFModelImport.crystalModel(from: goldSpaceGroupCIF, fileBaseName: "gold_sg")
         XCTAssertEqual(model.spaceGroupNumber, 225)
         XCTAssertEqual(model.provenance["space_group_number"], "225")
-        XCTAssertEqual(model.crystal.sites.count, 4)
+        XCTAssertEqual(model.structure.sites.count, 4)
     }
 
     func testCIFSpaceGroupNumberNilWhenAbsent() throws {
-        let model = try CIFImport.crystalModel(from: goldNoSpaceGroupCIF, fileBaseName: "gold_no_sg")
+        let model = try CIFModelImport.crystalModel(from: goldNoSpaceGroupCIF, fileBaseName: "gold_no_sg")
         XCTAssertNil(model.spaceGroupNumber)
         XCTAssertNil(model.provenance["space_group_number"])
     }
@@ -685,9 +688,9 @@ final class MaterialsProjectImportTests: XCTestCase {
     ) {
         let found = sites.contains { site in
             site.z == z
-                && axisDelta(site.fractional.x, expected.x) < 1e-6
-                && axisDelta(site.fractional.y, expected.y) < 1e-6
-                && axisDelta(site.fractional.z, expected.z) < 1e-6
+                && fractionalAxisDelta(site.fractional.x, expected.x) < 1e-6
+                && fractionalAxisDelta(site.fractional.y, expected.y) < 1e-6
+                && fractionalAxisDelta(site.fractional.z, expected.z) < 1e-6
         }
         XCTAssertTrue(
             found,
@@ -732,13 +735,13 @@ final class MaterialsProjectImportTests: XCTestCase {
 
         let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
         XCTAssertEqual(model.symmetry, .cubic)
-        XCTAssertEqual(model.crystal.sites.count, 8)
-        XCTAssertEqual(model.crystal.a, 5.431, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.b, 5.431, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.c, 5.431, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.alphaDeg, 90, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.betaDeg, 90, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.gammaDeg, 90, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.sites.count, 8)
+        XCTAssertEqual(model.structure.cell.a, 5.431, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.b, 5.431, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.c, 5.431, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.alphaDeg, 90, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.betaDeg, 90, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.gammaDeg, 90, accuracy: 1e-6)
         XCTAssertEqual(model.provenance["materials_project_cell"], "conventional from F-centred primitive")
         XCTAssertTrue(model.isUsable, "\(model.validationIssues)")
 
@@ -750,7 +753,7 @@ final class MaterialsProjectImportTests: XCTestCase {
             SIMD3(0.0, 0.0, 0.0), SIMD3(0.0, 0.5, 0.5), SIMD3(0.5, 0.0, 0.5), SIMD3(0.5, 0.5, 0.0),
             SIMD3(0.25, 0.25, 0.25), SIMD3(0.25, 0.75, 0.75), SIMD3(0.75, 0.25, 0.75), SIMD3(0.75, 0.75, 0.25),
         ] {
-            assertFractionalSite(model.crystal.sites, contains: p, z: CIFImport.elementSymbolToZ["Si"]!)
+            assertFractionalSite(model.structure.sites, contains: p, z: Element.atomicNumber(forSymbol: "Si")!)
         }
     }
 
@@ -789,8 +792,8 @@ final class MaterialsProjectImportTests: XCTestCase {
 
         let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
         XCTAssertEqual(model.symmetry, .cubic)
-        XCTAssertEqual(model.crystal.sites.count, 16)
-        XCTAssertEqual(model.crystal.a, 5.98, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.sites.count, 16)
+        XCTAssertEqual(model.structure.cell.a, 5.98, accuracy: 1e-6)
         XCTAssertEqual(model.provenance["materials_project_cell"], "conventional from F-centred primitive")
         XCTAssertTrue(model.isUsable, "\(model.validationIssues)")
 
@@ -825,11 +828,11 @@ final class MaterialsProjectImportTests: XCTestCase {
 
         let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
         XCTAssertEqual(model.symmetry, .cubic)
-        XCTAssertEqual(model.crystal.sites.count, 2)
-        XCTAssertEqual(model.crystal.a, 2.8713, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.sites.count, 2)
+        XCTAssertEqual(model.structure.cell.a, 2.8713, accuracy: 1e-6)
         XCTAssertEqual(model.provenance["materials_project_cell"], "conventional from I-centred primitive")
         for p in [SIMD3(0.0, 0.0, 0.0), SIMD3(0.5, 0.5, 0.5)] {
-            assertFractionalSite(model.crystal.sites, contains: p, z: CIFImport.elementSymbolToZ["Fe"]!)
+            assertFractionalSite(model.structure.sites, contains: p, z: Element.atomicNumber(forSymbol: "Fe")!)
         }
     }
 
@@ -863,13 +866,13 @@ final class MaterialsProjectImportTests: XCTestCase {
 
         let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
         XCTAssertEqual(model.symmetry, .identity)
-        XCTAssertEqual(model.crystal.sites.count, 6)
-        XCTAssertEqual(model.crystal.a, 4.04, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.b, 4.04, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.c, 5.80, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.alphaDeg, 90, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.betaDeg, 90, accuracy: 1e-6)
-        XCTAssertEqual(model.crystal.gammaDeg, 90, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.sites.count, 6)
+        XCTAssertEqual(model.structure.cell.a, 4.04, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.b, 4.04, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.c, 5.80, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.alphaDeg, 90, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.betaDeg, 90, accuracy: 1e-6)
+        XCTAssertEqual(model.structure.cell.gammaDeg, 90, accuracy: 1e-6)
         XCTAssertTrue(model.isUsable, "\(model.validationIssues)")
         XCTAssertFalse(model.supportsOrientationMapping)
         XCTAssertEqual(model.provenance["materials_project_cell"], "conventional from I-centred primitive")
@@ -877,7 +880,7 @@ final class MaterialsProjectImportTests: XCTestCase {
             (SIMD3(0.0, 0.0, 0.0), "Al"), (SIMD3(0.0, 0.0, 0.5), "Al"), (SIMD3(0.5, 0.5, 0.5), "Al"),
             (SIMD3(0.5, 0.5, 0.0), "Al"), (SIMD3(0.0, 0.5, 0.25), "Cu"), (SIMD3(0.5, 0.0, 0.75), "Cu"),
         ] {
-            assertFractionalSite(model.crystal.sites, contains: p, z: CIFImport.elementSymbolToZ[symbol]!)
+            assertFractionalSite(model.structure.sites, contains: p, z: Element.atomicNumber(forSymbol: symbol)!)
         }
     }
 
@@ -889,7 +892,7 @@ final class MaterialsProjectImportTests: XCTestCase {
         let doc = try MaterialsProjectImport.firstDocument(in: response)
         let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
         XCTAssertEqual(model.provenance["materials_project_cell"], "as served")
-        XCTAssertEqual(model.crystal.sites.count, 2)
+        XCTAssertEqual(model.structure.sites.count, 2)
     }
 
     // (f) NEGATIVE, strengthened from the original brief. The brief's literal
@@ -1018,16 +1021,18 @@ final class MaterialsProjectImportTests: XCTestCase {
 
         // RE-PINNED 2026-10-01 (lane F-B row 6, review 2026-09-30): this test
         // pinned `.hexagonal` for R-3m No. 166 — the wrong answer. R-3m is
-        // trigonal (-3m); a hexagonal cell metric does not make it 6/mmm. The
-        // CIF importer's `verifyFamily` refuses it (no 6-fold about c), and the
-        // MP importer now runs the same check (MaterialsProjectImportRow6Tests).
-        XCTAssertThrowsError(try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())) { error in
-            guard case CIFImportError.symmetryNotSupportedByStructure(let family, _)? =
-                error as? CIFImportError else {
-                return XCTFail("expected symmetryNotSupportedByStructure, got \(error)")
-            }
-            XCTAssertEqual(family, "hexagonal")
-        }
+        // trigonal (-3m); a hexagonal cell metric does not make it 6/mmm.
+        // CHANGED 2026-10-15 (DiffractoKit 0.0.3, kit item 3; registration P4): the
+        // importer then REFUSED it (`symmetryNotSupportedByStructure`); the kit reads
+        // its class from the atoms (-3m) and admits it, so it now imports as
+        // `.identity`, never `.hexagonal`, with the standardised three sites. Kit
+        // plants: DiffractoCoreTests `CIFImportTests` `testTrigonalInHexagonalAxesIsThreeBarM`
+        // and `testOneAtomInRhombohedralAxesIsRThreeBarM`.
+        let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
+        XCTAssertEqual(model.symmetry, .identity, "R-3m is -3m: Unreduced, never .hexagonal")
+        XCTAssertEqual(model.structure.laueClass, .threeBarM)
+        XCTAssertEqual(model.structure.sites.count, 3)
+        XCTAssertFalse(model.supportsOrientationMapping)
     }
 
     /// The live API omits `errors` (and `meta`) on success — the owner's first

@@ -17,7 +17,7 @@ import DSTEMSession
 final class ACOMRow4Row5PlanInvalidationTests: XCTestCase {
 
     private func imported(_ id: String, a: Double) -> CrystalModel {
-        CrystalModel(id: id, displayName: id, crystal: Crystal.cubic(.fcc, a: a, z: 13),
+        CrystalModel(id: id, displayName: id, structure: Crystal.cubic(.fcc, a: a, z: 13),
                      symmetry: .cubic, source: .imported)
     }
 

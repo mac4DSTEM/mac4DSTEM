@@ -124,13 +124,13 @@ extension AppState {
     }
     /// Reads and parses a local CIF file, adding the result to this run's
     /// imported-phase-model list and selecting it. Reading/parsing is Core's
-    /// job even though it is triggered from a picker — `CIFImport` does the
+    /// job even though it is triggered from a picker — `CIFModelImport` does the
     /// parsing, this just owns the file access and the resulting state.
     /// Failure here is routed like opening a dataset (`present`, the
     /// window-modal path), not `presentComputeFailure`: a bad CIF is a fresh
     /// file that never entered analysis state, so there is nothing mid-step
     /// to keep usable — same category as a corrupt or unreadable dataset
-    /// file. `CIFImportError.errorDescription` names the offending tag,
+    /// file. `CIFModelImportError.errorDescription` names the offending tag,
     /// value, symbol, or point group, so the modal shows a specific reason.
     /// Returns the model it parsed (nil on a refusal) so a caller adds exactly
     /// that model — never `importedCrystalModels.last`, which is another
@@ -142,7 +142,7 @@ extension AppState {
         do {
             let text = try String(contentsOf: url, encoding: .utf8)
             let baseName = url.deletingPathExtension().lastPathComponent
-            let model = try CIFImport.crystalModel(from: text, fileBaseName: baseName)
+            let model = try CIFModelImport.crystalModel(from: text, fileBaseName: baseName)
             if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
                 acomSession.importedCrystalModels[index] = model
             } else {

@@ -80,7 +80,7 @@ final class InspectorWidthBudgetTests: XCTestCase {
         let state = AppState()
         state.phaseMapping.matching.classificationRule = .knownVariants
         let base = CrystalModelLibrary.models[0]
-        let long = CrystalModel(id: "long", displayName: Self.longName, crystal: base.crystal,
+        let long = CrystalModel(id: "long", displayName: Self.longName, structure: base.structure,
                                 symmetry: base.symmetry, source: .builtIn)
         state.addPhaseMappingSlot(base)
         state.addPhaseMappingSlot(CrystalModelLibrary.models[1])

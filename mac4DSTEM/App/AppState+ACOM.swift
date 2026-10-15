@@ -15,6 +15,7 @@
 
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DiffractoScattering
 import DSTEMCore
 import DSTEMSession
 #endif
@@ -77,14 +78,14 @@ extension AppState {
         let epoch = datasetSession.epoch
         let probeRadiusPixels = calibrationSession.calibration.probeRadius.map(Double.init)
         let estimate = await Task.detached(priority: .userInitiated) {
-            // DISTINCT shell lengths. `Crystal.reflections` returns every
+            // DISTINCT shell lengths. The reflection list returns every
             // symmetry equivalent separately, all at the same |g|, so the
             // "second shell" is the first length that DIFFERS — not
             // `reflections[1]`, which is another equivalent of the first.
             // Getting this wrong makes the self-check read 1.020 on healthy
             // sim_Au against an expected 1.155 and fire on good data
             // (measured, S13 E1).
-            let lengths = model.crystal.reflections(kMax: 2.5).map(\.gLength)
+            let lengths = (try? model.structure.kinematicReflections(kMax: 2.5))?.kept.map(\.gLength) ?? []
             var shells: [Double] = []
             for length in lengths where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
                 shells.append(length)
@@ -166,7 +167,7 @@ extension AppState {
             return
         }
         let modelRevision = model.revisionID
-        let missing = model.crystal.unsupportedElements
+        let missing = model.structure.unsupportedElements
         guard missing.isEmpty else {
             presentComputeFailure(SimpleError("No scattering factors for element(s) Z = "
                 + missing.map(String.init).joined(separator: ", ")
@@ -182,7 +183,7 @@ extension AppState {
             DPC.electronWavelengthAngstrom(voltageKV: $0)
         }
         let plan = await Task.detached(priority: .userInitiated) {
-            OrientationPlan.generate(crystal: model.crystal, kMax: 1.2,
+            OrientationPlan.generate(crystal: model.structure, kMax: 1.2,
                                      zoneAxisCount: templateCount,
                                      symmetry: model.symmetry,
                                      wavelengthAngstrom: planWavelength,

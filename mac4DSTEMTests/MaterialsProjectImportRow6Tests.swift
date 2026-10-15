@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import DiffractoCore
 import DSTEMCore
 @testable import mac4DSTEM
 
@@ -31,7 +32,12 @@ final class MaterialsProjectImportRow6Tests: XCTestCase {
     }
 
     /// Pa-3 (pyrite-type, Laue m-3): a cubic metric whose 4-fold axis is missing.
-    func testRow6PyriteTypeCubicMetricButNoFourFoldIsRefused() {
+    ///
+    /// CHANGED 2026-10-15 (DiffractoKit 0.0.3, kit item 3; registration P4): was
+    /// `testRow6PyriteTypeCubicMetricButNoFourFoldIsRefused` and asserted a refusal
+    /// (`symmetryNotSupportedByStructure`). The structure now imports, as `.identity`, never `.cubic`; the
+    /// kit reads its class as m-3. Kit plant: DiffractoCoreTests `CIFImportTests` `testPyriteIsMThreeBar`.
+    func testRow6PyriteTypeCubicMetricButNoFourFoldImportsUnreducedNeverCubic() throws {
         let u = 0.385
         let sites: [[Double]] = [
             [0, 0, 0], [0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0],
@@ -39,13 +45,10 @@ final class MaterialsProjectImportRow6Tests: XCTestCase {
             [-u, -u, -u], [u + 0.5, u, -u + 0.5], [u, -u + 0.5, u + 0.5], [-u + 0.5, u + 0.5, u],
         ].map { $0.map { $0 - floor($0) } }
         let doc = document(lattice: 5.42, c: 5.42, gamma: 90, sites: sites, symbol: "Pa-3", number: 205)
-        XCTAssertThrowsError(try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())) { error in
-            guard case CIFImportError.symmetryNotSupportedByStructure(let family, _)? =
-                error as? CIFImportError else {
-                return XCTFail("expected symmetryNotSupportedByStructure, got \(error)")
-            }
-            XCTAssertEqual(family, "cubic")
-        }
+        let model = try MaterialsProjectImport.crystalModel(from: doc, fetchedAt: Date())
+        XCTAssertEqual(model.symmetry, .identity, "Pa-3 is not m-3m: Unreduced, never .cubic")
+        XCTAssertEqual(model.structure.laueClass, .mThreeBar)
+        XCTAssertFalse(model.supportsOrientationMapping)
     }
 
     /// Control: genuine HCP (P6_3/mmc, Mg) still imports as hexagonal.

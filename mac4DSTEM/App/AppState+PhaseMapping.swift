@@ -20,6 +20,7 @@
 
 import Foundation
 #if canImport(DSTEMCore)
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 #endif
@@ -45,7 +46,7 @@ extension AppState {
             return PhaseDefinition(
                 id: sharedID ? "\(slot.model.id)@\(slot.u),\(slot.v),\(slot.w)" : slot.model.id,
                 displayName: shared ? "\(slot.model.displayName) \(slot.zoneAxisText)" : slot.model.displayName,
-                crystal: slot.model.crystal,
+                crystal: slot.model.structure,
                 role: slot.isMatrix ? .matrix : .candidate,
                 zoneAxes: [slot.zoneAxis],
                 orientationRelationships: slot.isMatrix ? [] : slot.orientationRelationships,
@@ -60,9 +61,11 @@ extension AppState {
     static func phaseLibraryFailureMessage(_ failure: PhaseReferenceLibrary.Failure) -> String {
         switch failure {
         case .unsupportedElements(let phase, let z):
-            let symbols = z.map { ScatteringFactors.symbols[$0] ?? "Z\($0)" }
+            let symbols = z.map { Element.symbol(forAtomicNumber: $0) ?? "Z\($0)" }
             return "\(phase) contains \(symbols.joined(separator: ", ")), "
                 + "for which this app has no electron scattering factors."
+        case .invalidStructure(let phase, let reason):
+            return "\(phase) cannot be used: \(reason)"
         case .degenerateZoneAxis(let phase):
             return "\(phase)'s zone axis is [0 0 0], which names no direction."
         case .noVisibleReflections(let phase):
@@ -564,7 +567,7 @@ extension AppState {
         let invAngstromPerPixel = scale.invAngstromPerPixel
         let reference = phaseMapping.reference
         let matching = phaseMapping.matching
-        let crystal = slot.model.crystal
+        let crystal = slot.model.structure
         let vectors = calibrated.vectors
 
         let cancellation = beginCancellableOperation(
@@ -635,7 +638,7 @@ extension AppState {
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
         do {
             let text = try String(contentsOf: url, encoding: .utf8)
-            let model = try CIFImport.crystalModel(
+            let model = try CIFModelImport.crystalModel(
                 from: text, fileBaseName: url.deletingPathExtension().lastPathComponent)
             if let index = acomSession.importedCrystalModels.firstIndex(where: { $0.id == model.id }) {
                 acomSession.importedCrystalModels[index] = model

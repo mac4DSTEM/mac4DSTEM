@@ -4,6 +4,7 @@
 //
 
 import XCTest
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -337,7 +338,7 @@ final class ImportedModelNamedLikeABuiltInTests: XCTestCase {
     /// Mutation it catches: `CIFImport` dropping the `imported_` prefix (the import then
     /// takes the built-in's id and the library-first resolver returns the built-in).
     func testAnImportedCIFWithABuiltInsStemKeepsItsOwnIdAndResolvesAsImported() throws {
-        let imported = try CIFImport.crystalModel(from: cif, fileBaseName: "al_fcc")
+        let imported = try CIFModelImport.crystalModel(from: cif, fileBaseName: "al_fcc")
         XCTAssertNotNil(CrystalModelLibrary.model(id: "al_fcc"), "precondition: the built-in exists")
         XCTAssertNotEqual(imported.id, "al_fcc", "an import never takes a built-in's id")
         let session = ReplayStepPlan.ACOMReplayPlan.SessionMaterials(

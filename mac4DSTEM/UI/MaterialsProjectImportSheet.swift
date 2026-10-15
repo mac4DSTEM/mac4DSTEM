@@ -18,6 +18,7 @@
 
 import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 #endif
@@ -145,7 +146,7 @@ struct MaterialsProjectImportSheet: View {
                 LabeledContent("Formula", value: "\(document.formulaPretty ?? "—") (\(document.materialID))")
                 LabeledContent("Space group", value: spaceGroupText(document))
                 LabeledContent("Cell", value: cellText(model))
-                LabeledContent("Sites", value: "\(model.crystal.sites.count)")
+                LabeledContent("Sites", value: "\(model.structure.sites.count)")
                 Text(provenanceText(document, fetchedAt: fetchedAt, model: model))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -164,7 +165,7 @@ struct MaterialsProjectImportSheet: View {
     }
 
     private func cellText(_ model: CrystalModel) -> String {
-        let crystal = model.crystal
+        let crystal = model.structure.cell
         func length(_ value: Double) -> String { String(format: "%.4g", value) }
         func angle(_ value: Double) -> String { String(format: "%.2f", value) }
         return "a=\(length(crystal.a)) b=\(length(crystal.b)) c=\(length(crystal.c)) Å · "

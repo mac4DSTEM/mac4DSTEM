@@ -87,14 +87,10 @@ package nonisolated struct EulerAngles: Equatable, Hashable {
 /// Orientation-matrix construction shared by the plan, matcher, and harness.
 /// Columns are detector x, detector y, and beam z expressed in crystal axes,
 /// matching py4DSTEM's `Orientation.matrix` convention.
+///
+/// The detector basis of a beam direction is the kit's `ZoneAxis.detectorBasis` (DiffractoGeometry; the same formula,
+/// moved there on 2026-10-15).
 package nonisolated enum ACOMOrientation {
-    package static func detectorBasis(zoneAxis n: SIMD3<Double>) -> simd_double3x3 {
-        let reference: SIMD3<Double> = abs(n.x) < 0.9 ? [1, 0, 0] : [0, 1, 0]
-        let e1 = simd_normalize(simd_cross(n, reference))
-        let e2 = simd_cross(n, e1)
-        return simd_double3x3(columns: (e1, e2, n))
-    }
-
     /// py4DSTEM applies this in-plane matrix on the right of the zone basis.
     package static func matrix(detectorBasis basis: simd_double3x3,
                        inPlaneAngle angle: Float) -> simd_double3x3 {
@@ -475,7 +471,7 @@ package nonisolated enum HexagonalOrientationSymmetry {
     }
 
     /// The key's three corners: the legend and the test read this table.
-    /// The frame is py4DSTEM's (`Crystal.latReal`: a along +x), so azimuth 0
+    /// The frame is py4DSTEM's (`UnitCell.realLattice`: a along +x), so azimuth 0
     /// is the a-axis [2-1-10] and azimuth 30 deg is [10-10]. The pre-2026-09-30
     /// labels had the two prismatic corners swapped (Gate D, open-items
     /// 2026-09-11); the colours were never changed, only what they are called.
@@ -509,7 +505,7 @@ package nonisolated enum HexagonalOrientationSymmetry {
 /// (Mg5Si6, C2/m; Andersen et al., Acta Mater. 46 (1998) 3283), registered in
 /// docs/archive/v5/beta-double-prime-orientation-registration-2026-10-14.md.
 ///
-/// Frame: py4DSTEM's (`Crystal.latReal`). With alpha = gamma = 90 degrees (which
+/// Frame: py4DSTEM's (`UnitCell.realLattice`). With alpha = gamma = 90 degrees (which
 /// `CrystalModel.validationIssues` demands of a `.monoclinic` model) a lies along +x and the
 /// unique axis b along +y, so the 2-fold is a half turn about +y. Proper rotation subgroup:
 /// {E, C2(y)}, order 2. Inversion is not distinguishable in a kinematic pattern (Friedel), so

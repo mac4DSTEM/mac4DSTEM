@@ -12,7 +12,7 @@
 //  from the published description, and every parameter default below is derived
 //  here rather than taken from their notebooks (decisions.md, 2026-09-11).
 //
-//  Why this is composition and not new mathematics: `Crystal.reflections(kMax:)`
+//  Why this is composition and not new mathematics: `CrystalStructure.kinematicReflections(kMax:)`
 //  already builds the reciprocal lattice of an arbitrary cell with kinematic
 //  structure factors, and `OrientationPlan.project` already selects the
 //  reflections excited at a beam direction and drops them into the plane
@@ -30,11 +30,14 @@
 //  is the guard, and `tools/phase-vector-matching` carries a negative control
 //  that fails if a deliberately over-dense library can win.
 //
-//  Units: |g| in Å⁻¹ with no 2π factor, matching `Crystal` and py4DSTEM.
+//  Units: |g| in Å⁻¹ with no 2π factor, matching `UnitCell` and py4DSTEM.
 //
 
 import Foundation
 import simd
+import DiffractoCore
+import DiffractoGeometry
+import DiffractoScattering
 
 // MARK: - One reference vector
 
@@ -132,8 +135,8 @@ package nonisolated struct PhaseOrientationReference: Sendable {
 /// A lattice vector named the way a crystallographer names it: a plane
 /// "(hkl)" — a reciprocal vector, `h·a* + k·b* + l·c*` — or a direction
 /// "[uvw]" — a real one, `u·a + v·b + w·c`. Both come out as Cartesian
-/// vectors in the crystal's own frame (`Crystal.latInv` rows for a plane,
-/// `Crystal.latReal` rows for a direction), which is all the projection
+/// vectors in the crystal's own frame (`UnitCell.reciprocalLattice` rows for a plane,
+/// `UnitCell.realLattice` rows for a direction), which is all the projection
 /// (`PhaseVectorMatcher.projectedAzimuth`) needs — it never sees `hkl` or
 /// `uvw` again.
 package nonisolated enum LatticeVector: Sendable, Equatable {
@@ -143,16 +146,17 @@ package nonisolated enum LatticeVector: Sendable, Equatable {
     /// This vector's Cartesian form in `crystal`'s own frame. Not normalised
     /// — `projectedAzimuth` only needs its direction, and the caller never
     /// reads its length.
-    package func cartesian(in crystal: Crystal) -> SIMD3<Double> {
+    package func cartesian(in crystal: CrystalStructure) -> SIMD3<Double> {
+        let cell = crystal.cell
         switch self {
         case .plane(let hkl):
-            return Double(hkl.x) * crystal.latInv[0]
-                + Double(hkl.y) * crystal.latInv[1]
-                + Double(hkl.z) * crystal.latInv[2]
+            return Double(hkl.x) * cell.reciprocalLattice[0]
+                + Double(hkl.y) * cell.reciprocalLattice[1]
+                + Double(hkl.z) * cell.reciprocalLattice[2]
         case .direction(let uvw):
-            return Double(uvw.x) * crystal.latReal[0]
-                + Double(uvw.y) * crystal.latReal[1]
-                + Double(uvw.z) * crystal.latReal[2]
+            return Double(uvw.x) * cell.realLattice[0]
+                + Double(uvw.y) * cell.realLattice[1]
+                + Double(uvw.z) * cell.realLattice[2]
         }
     }
 }
@@ -190,7 +194,7 @@ package nonisolated struct PhaseDefinition: Sendable {
 
     package let id: String
     package let displayName: String
-    package let crystal: Crystal
+    package let crystal: CrystalStructure
     package let role: Role
     /// Beam directions to sample, as lattice indices. Empty means the caller
     /// wants `PhaseReferenceLibrary.lowIndexZoneAxes` for this phase.
@@ -203,7 +207,7 @@ package nonisolated struct PhaseDefinition: Sendable {
     ///
     /// DERIVED, PER ENTRY (2026-09-15, replacing a library-frame degree
     /// list): each pair's candidate and matrix vectors are projected into
-    /// their OWN entry's detector frame (`ACOMOrientation.detectorBasis` of
+    /// their OWN entry's detector frame (`ZoneAxis.detectorBasis` of
     /// that entry's zone axis, then that entry's own in-plane rotation) and
     /// compared as azimuths — so the same statement is checked against
     /// every zone axis and rotation a phase samples, rather than one library
@@ -225,7 +229,7 @@ package nonisolated struct PhaseDefinition: Sendable {
     /// job of whoever calls `PhaseReferenceLibrary.build`, not of this file.
     package let excitationSlabInvAngstrom: Double?
 
-    package nonisolated init(id: String, displayName: String, crystal: Crystal,
+    package nonisolated init(id: String, displayName: String, crystal: CrystalStructure,
                              role: Role, zoneAxes: [SIMD3<Int>],
                              orientationRelationships: [OrientationRelationship] = [],
                              excitationSlabInvAngstrom: Double? = nil) {
@@ -289,6 +293,9 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
     package enum Failure: Error, Equatable {
         /// A phase's structure has elements with no scattering factors.
         case unsupportedElements(phase: String, z: [Int])
+        /// The kit refused a phase's structure (an invalid or too large cell, a close contact) before any reflection:
+        /// `reason` is its message.
+        case invalidStructure(phase: String, reason: String)
         /// A zone axis of [0 0 0], which names no direction.
         case degenerateZoneAxis(phase: String)
         /// A phase produced no visible reflection at any sampled orientation.
@@ -336,43 +343,12 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
     /// Low-index beam directions, one per ±pair, |u|,|v|,|w| ≤ 2 and coprime.
     /// Deliberately NOT reduced by crystal symmetry: `.identity` ("Unreduced")
     /// is exactly the symmetry a monoclinic precipitate imports as
-    /// (`CIFImport`, 2026-09-11), so a symmetry reduction would be a no-op
+    /// (the CIF importer, 2026-09-11), so a symmetry reduction would be a no-op
     /// where it matters most and an inconsistency everywhere else.
-    package static let lowIndexZoneAxes: [SIMD3<Int>] = {
-        var seen = Set<SIMD3<Int>>()
-        var out: [SIMD3<Int>] = []
-        for u in -2...2 {
-            for v in -2...2 {
-                for w in -2...2 {
-                    if u == 0 && v == 0 && w == 0 { continue }
-                    // max(1, …) at the END, not inside `gcd`: a `gcd`
-                    // that floors itself at 1 returns gcd(0, 0) = 1, so
-                    // [0 0 2] never reduced and the list held it beside
-                    // [0 0 1] — 50 entries for 49 directions, and 180
-                    // redundant library entries per phase at the default
-                    // step (Gate B finding 9, 2026-09-12).
-                    let g = max(1, gcd(gcd(abs(u), abs(v)), abs(w)))
-                    let r = SIMD3(u / g, v / g, w / g)
-                    // One of each ±pair: [uvw] and [-u-v-w] are the same axis
-                    // viewed from opposite sides, and the projected vector set
-                    // of one is the other's reflected through the origin —
-                    // which a set containing both ±g cannot tell apart.
-                    let neg = SIMD3(-r.x, -r.y, -r.z)
-                    if seen.contains(r) || seen.contains(neg) { continue }
-                    seen.insert(r)
-                    out.append(r)
-                }
-            }
-        }
-        return out
-    }()
-
-    /// A true gcd: `gcd(0, 0)` is 0, not 1. Callers floor the RESULT.
-    private static func gcd(_ a: Int, _ b: Int) -> Int {
-        var a = a, b = b
-        while b != 0 { (a, b) = (b, a % b) }
-        return a
-    }
+    ///
+    /// The kit's `ZoneAxis.lowIndex` (the same 49 axes, by value and in order), as the integer triples the library
+    /// and the phase panel use. The gcd that floors only the result (Gate B finding 9) moved with the generator.
+    package static let lowIndexZoneAxes: [SIMD3<Int>] = ZoneAxis.lowIndex.map { SIMD3($0.u, $0.v, $0.w) }
 
     // MARK: Build
 
@@ -414,7 +390,15 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
 
         for (phaseIndex, phase) in phases.enumerated() {
             if cancellation?.isCancelled == true { break }
-            let reflections = phase.crystal.reflections(kMax: settings.kMaxInvAngstrom)
+            let reflections: [KinematicReflection]
+            do {
+                reflections = try phase.crystal.kinematicReflections(kMax: settings.kMaxInvAngstrom).kept
+            } catch {
+                if case .unsupportedElements(let z) = error {
+                    throw Failure.unsupportedElements(phase: phase.displayName, z: z)
+                }
+                throw Failure.invalidStructure(phase: phase.displayName, reason: error.description)
+            }
             let axes = phase.zoneAxes.isEmpty ? lowIndexZoneAxes : phase.zoneAxes
             var phaseHasAny = false
             // This phase's own slab, or the library's global one — applied to
@@ -462,28 +446,26 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
     /// The beam direction [u v w] as a Cartesian unit vector.
     ///
     /// A zone axis is a REAL-space direction, so it is `u·a₁ + v·a₂ + w·a₃`
-    /// over `latReal`, not the Cartesian triple (u, v, w). For a cubic cell the
+    /// over `UnitCell.realLattice`, not the Cartesian triple (u, v, w). For a cubic cell the
     /// two agree, which is exactly why getting it wrong stays invisible until
     /// the first monoclinic phase — the case this whole feature exists for.
-    package static func cartesianZoneAxis(_ uvw: SIMD3<Int>, crystal: Crystal)
+    ///
+    /// The kit's `ZoneAxis.cartesian(in:)` (same formula, same 1e-12 guard); kept as a one-line wrapper so the
+    /// callers and the tests that name this function read as before.
+    package static func cartesianZoneAxis(_ uvw: SIMD3<Int>, crystal: CrystalStructure)
         -> SIMD3<Double>? {
-        let v = Double(uvw.x) * crystal.latReal[0]
-            + Double(uvw.y) * crystal.latReal[1]
-            + Double(uvw.z) * crystal.latReal[2]
-        let n = simd_length(v)
-        guard n.isFinite, n > 1e-12 else { return nil }
-        return v / n
+        ZoneAxis(uvw.x, uvw.y, uvw.z).cartesian(in: crystal.cell)
     }
 
     /// Reflections excited at `zoneAxis`, projected into the detector plane at
     /// in-plane rotation 0 and cut to the visible ones. Sorted by |q|.
-    package static func projectedVectors(reflections: [Reflection],
-                                         crystal: Crystal,
+    package static func projectedVectors(reflections: [KinematicReflection],
+                                         crystal: CrystalStructure,
                                          zoneAxis uvw: SIMD3<Int>,
                                          settings: PhaseReferenceSettings)
         -> [ReferenceVector] {
         guard let n = cartesianZoneAxis(uvw, crystal: crystal) else { return [] }
-        let basis = ACOMOrientation.detectorBasis(zoneAxis: n)
+        let basis = ZoneAxis.detectorBasis(n)
         let e1 = basis.columns.0, e2 = basis.columns.1
         let sgMax = settings.excitationSlabInvAngstrom
         let sgWidth = max(settings.excitationWidthInvAngstrom, 1e-9)

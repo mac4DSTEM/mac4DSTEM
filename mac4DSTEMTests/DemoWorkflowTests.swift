@@ -26,7 +26,7 @@ final class DemoWorkflowTests: XCTestCase {
         )
 
         let plan = try XCTUnwrap(OrientationPlan.generate(
-            crystal: .gold, kMax: 1.2, zoneAxisCount: 96
+            crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 96
         ))
         let map = try XCTUnwrap(OrientationMatching.matchAll(
             bragg: vectors, plan: plan,

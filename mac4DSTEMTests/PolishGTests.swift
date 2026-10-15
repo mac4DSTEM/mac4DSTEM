@@ -12,7 +12,7 @@ import DSTEMSession
 @MainActor
 final class PolishGTests: XCTestCase {
     private func model() -> CrystalModel {
-        CrystalModel(id: "al", displayName: "Al", crystal: Crystal.cubic(.fcc, a: 4.05, z: 13),
+        CrystalModel(id: "al", displayName: "Al", structure: Crystal.cubic(.fcc, a: 4.05, z: 13),
                      symmetry: .cubic, source: .imported)
     }
 

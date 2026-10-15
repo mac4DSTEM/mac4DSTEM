@@ -159,7 +159,7 @@ final class PhaseClaimGuardTests: XCTestCase {
     // MARK: - 3. The library lives with the run
 
     private func library(entries: Int) -> PhaseReferenceLibrary {
-        let phases = [PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: .aluminum,
+        let phases = [PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: Crystal.aluminum,
                                       role: .matrix, zoneAxes: [SIMD3(0, 0, 1)])]
         let vectors = [ReferenceVector(h: 1, k: 0, l: 0, q: SIMD2(0.5, 0), length: 0.5, relativeIntensity: 1)]
         return PhaseReferenceLibrary(
@@ -270,7 +270,7 @@ final class PhaseClaimGuardTests: XCTestCase {
         product.phases[1].isMatrix = false
         XCTAssertEqual(staleness(), "The matrix phase changed since this ranking — fit again", "no phase is the matrix")
         product.phases[0].isMatrix = true
-        product.phases[0].model = CrystalModel(id: al.id, displayName: al.displayName, crystal: other.crystal,
+        product.phases[0].model = CrystalModel(id: al.id, displayName: al.displayName, structure: other.structure,
                                                symmetry: other.symmetry, source: .builtIn)
         XCTAssertEqual(staleness(), "The matrix phase changed since this ranking — fit again",
                        "a different crystal under the same id")

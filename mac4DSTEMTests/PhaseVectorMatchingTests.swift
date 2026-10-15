@@ -11,6 +11,9 @@
 
 import XCTest
 import simd
+import DiffractoCore
+import DiffractoScattering
+import DiffractoGeometry
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -50,7 +53,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
     func testPhasesSharingANameAreNamedByZoneAxis() throws {
         let base = CrystalModelLibrary.models[1]
         func twin(_ id: String) -> CrystalModel {
-            CrystalModel(id: id, displayName: "Twin", crystal: base.crystal,
+            CrystalModel(id: id, displayName: "Twin", structure: base.structure,
                          symmetry: base.symmetry, source: .imported)
         }
         let appState = AppState()
@@ -72,12 +75,12 @@ final class PhaseVectorMatchingTests: XCTestCase {
     /// one-atom P1 cell has no extinction and `f_e > 0`, so every one of these
     /// must be returned; an fcc cell must return exactly the all-even /
     /// all-odd subset.
-    private func latticePoints(_ crystal: Crystal, kMax: Double, tile: Int = 48) -> Set<SIMD3<Int>> {
+    private func latticePoints(_ crystal: CrystalStructure, kMax: Double, tile: Int = 48) throws -> Set<SIMD3<Int>> {
         var out = Set<SIMD3<Int>>()
         for h in -tile...tile { for k in -tile...tile { for l in -tile...tile {
             if h == 0 && k == 0 && l == 0 { continue }
-            let g = Double(h) * crystal.latInv[0] + Double(k) * crystal.latInv[1]
-                + Double(l) * crystal.latInv[2]
+            let g = Double(h) * crystal.cell.reciprocalLattice[0] + Double(k) * crystal.cell.reciprocalLattice[1]
+                + Double(l) * crystal.cell.reciprocalLattice[2]
             if simd_length(g) <= kMax { out.insert(SIMD3(h, k, l)) }
         } } }
         return out
@@ -92,13 +95,13 @@ final class PhaseVectorMatchingTests: XCTestCase {
     /// 2026-09-12); this pins the 125° case against the lattice and the
     /// shipped cells against their own extinction rules, so a bound that
     /// over-tiles is not caught here — only one that under-tiles.
-    func testReflectionsCoverEveryLatticePointInsideKMaxOnObliqueCells() {
+    func testReflectionsCoverEveryLatticePointInsideKMaxOnObliqueCells() throws {
         let kMax = 1.6
         for betaDeg in [105.3, 115.0, 125.0] {
-            let cell = Crystal(a: 15.16, b: 4.05, c: 6.74, betaDeg: betaDeg,
+            let cell = Crystal.structure(a: 15.16, b: 4.05, c: 6.74, betaDeg: betaDeg,
                                sites: [AtomSite(z: 13, fractional: SIMD3(0, 0, 0))])
-            let expected = latticePoints(cell, kMax: kMax)
-            let got = Set(cell.reflections(kMax: kMax).map { SIMD3($0.h, $0.k, $0.l) })
+            let expected = try latticePoints(cell, kMax: kMax)
+            let got = Set(try cell.kinematicReflections(kMax: kMax).kept.map { SIMD3($0.h, $0.k, $0.l) })
             XCTAssertEqual(got.count, expected.count,
                            "β = \(betaDeg)°: \(expected.subtracting(got).count) lattice points "
                            + "inside kMax are missing, e.g. \(expected.subtracting(got).prefix(3))")
@@ -107,17 +110,17 @@ final class PhaseVectorMatchingTests: XCTestCase {
         // The shipped cells, against their space groups: fcc keeps hkl of one
         // parity; β″ (C2/m) keeps h + k even. Both must be complete AND exact.
         let al = Crystal.fcc(a: 4.05, z: 13)
-        let alExpected = latticePoints(al, kMax: kMax).filter {
+        let alExpected = try latticePoints(al, kMax: kMax).filter {
             ($0.x & 1) == ($0.y & 1) && ($0.y & 1) == ($0.z & 1)
         }
-        let alGot = Set(al.reflections(kMax: kMax).map { SIMD3($0.h, $0.k, $0.l) })
+        let alGot = Set(try al.kinematicReflections(kMax: kMax).kept.map { SIMD3($0.h, $0.k, $0.l) })
         XCTAssertEqual(alGot, alExpected)
         // Tolerance 1e-9, not the default 1e-4: 38 allowed β″ reflections are
         // accidentally weak enough to fall under the default (measured
         // 2026-09-14), and this asserts the LATTICE, not the intensity cut.
         let beta = Crystal.betaDoublePrime
-        let betaExpected = latticePoints(beta, kMax: kMax).filter { ($0.x + $0.y) & 1 == 0 }
-        let betaGot = Set(beta.reflections(kMax: kMax, tolerance: 1e-9).map { SIMD3($0.h, $0.k, $0.l) })
+        let betaExpected = try latticePoints(beta, kMax: kMax).filter { ($0.x + $0.y) & 1 == 0 }
+        let betaGot = Set(try beta.kinematicReflections(kMax: kMax, cut: 1e-9).kept.map { SIMD3($0.h, $0.k, $0.l) })
         XCTAssertEqual(betaGot, betaExpected)
     }
 
@@ -131,7 +134,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
         let beta = Crystal.betaDoublePrime
         let n = PhaseReferenceLibrary.cartesianZoneAxis(SIMD3(0, 0, 1), crystal: beta)
         let axis = try! XCTUnwrap(n)
-        let betaRad = beta.betaDeg * .pi / 180
+        let betaRad = beta.cell.betaDeg * .pi / 180
         XCTAssertEqual(axis.x, cos(betaRad), accuracy: 1e-12)
         XCTAssertEqual(axis.y, 0, accuracy: 1e-12)
         XCTAssertEqual(axis.z, sin(betaRad), accuracy: 1e-12)
@@ -141,7 +144,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
     }
 
     /// Mutation: dropping the `guard n > 1e-12` in `cartesianZoneAxis`.
-    func testZeroZoneAxisYieldsNoDirection() {
+    func testZeroZoneAxisYieldsNoDirection() throws {
         XCTAssertNil(PhaseReferenceLibrary.cartesianZoneAxis(
             SIMD3(0, 0, 0), crystal: Crystal.aluminum))
     }
@@ -150,11 +153,11 @@ final class PhaseVectorMatchingTests: XCTestCase {
     /// removed. Without exactly one matrix there is no "by exclusion" answer,
     /// and silently picking the first would make the verdict depend on the
     /// order the user added phases.
-    func testLibraryRefusesUnlessExactlyOneMatrixPhase() {
+    func testLibraryRefusesUnlessExactlyOneMatrixPhase() throws {
         func build(_ roles: [PhaseDefinition.Role]) throws -> PhaseReferenceLibrary {
             try PhaseReferenceLibrary.build(phases: roles.enumerated().map {
                 PhaseDefinition(id: "p\($0.offset)", displayName: "P\($0.offset)",
-                                crystal: .aluminum, role: $0.element,
+                                crystal: Crystal.aluminum, role: $0.element,
                                 zoneAxes: [SIMD3(0, 0, 1)])
             }, settings: coarseSettings())
         }
@@ -199,9 +202,9 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertGreaterThan(expected, 20000)
         let started = Date()
         XCTAssertThrowsError(try PhaseReferenceLibrary.build(phases: [
-            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+            PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                             role: .matrix, zoneAxes: []),
-            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+            PhaseDefinition(id: "beta", displayName: "β″", crystal: Crystal.betaDoublePrime,
                             role: .candidate, zoneAxes: []),
         ], settings: settings)) { error in
             guard case .libraryTooLarge(let requested, let limit)? =
@@ -218,17 +221,17 @@ final class PhaseVectorMatchingTests: XCTestCase {
 
     /// Mutation: the cap applied before the strongest-first sort, or the tie
     /// break dropped so the kept set depends on enumeration order.
-    func testDensityCapKeepsTheStrongestAndIsDeterministic() {
+    func testDensityCapKeepsTheStrongestAndIsDeterministic() throws {
         var settings = coarseSettings()
         settings.minimumIntensityFraction = 0
         settings.maximumVectorsPerEntry = 0
         let beta = Crystal.betaDoublePrime
         let uncapped = PhaseReferenceLibrary.projectedVectors(
-            reflections: beta.reflections(kMax: settings.kMaxInvAngstrom), crystal: beta,
+            reflections: try beta.kinematicReflections(kMax: settings.kMaxInvAngstrom).kept, crystal: beta,
             zoneAxis: SIMD3(0, 1, 0), settings: settings)
         settings.maximumVectorsPerEntry = 12
         let capped = PhaseReferenceLibrary.projectedVectors(
-            reflections: beta.reflections(kMax: settings.kMaxInvAngstrom), crystal: beta,
+            reflections: try beta.kinematicReflections(kMax: settings.kMaxInvAngstrom).kept, crystal: beta,
             zoneAxis: SIMD3(0, 1, 0), settings: settings)
         XCTAssertGreaterThan(uncapped.count, 12)
         XCTAssertEqual(capped.count, 12)
@@ -240,7 +243,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
                                     "the cap dropped a reflection stronger than one it kept")
         // Determinism: the same inputs give the same set, every time.
         let again = PhaseReferenceLibrary.projectedVectors(
-            reflections: beta.reflections(kMax: settings.kMaxInvAngstrom), crystal: beta,
+            reflections: try beta.kinematicReflections(kMax: settings.kMaxInvAngstrom).kept, crystal: beta,
             zoneAxis: SIMD3(0, 1, 0), settings: settings)
         XCTAssertEqual(capped.map(\.length), again.map(\.length))
     }
@@ -249,11 +252,11 @@ final class PhaseVectorMatchingTests: XCTestCase {
     /// `length` from the rotated components and letting rounding reorder the
     /// array. The matcher's binary search assumes the sort, so a reordering is
     /// a wrong answer, not a slow one.
-    func testRotationPreservesLengthsAndSortOrder() {
+    func testRotationPreservesLengthsAndSortOrder() throws {
         let al = Crystal.aluminum
         let settings = coarseSettings()
         let base = PhaseReferenceLibrary.projectedVectors(
-            reflections: al.reflections(kMax: settings.kMaxInvAngstrom), crystal: al,
+            reflections: try al.kinematicReflections(kMax: settings.kMaxInvAngstrom).kept, crystal: al,
             zoneAxis: SIMD3(0, 0, 1), settings: settings)
         let turned = PhaseReferenceLibrary.rotate(base, by: 37.2 * .pi / 180)
         XCTAssertEqual(base.count, turned.count)
@@ -640,10 +643,10 @@ final class PhaseVectorMatchingTests: XCTestCase {
         XCTAssertEqual(beta.sites.count, 22)
         XCTAssertEqual(beta.sites.filter { $0.z == 12 }.count, 10)   // Mg
         XCTAssertEqual(beta.sites.filter { $0.z == 14 }.count, 12)   // Si
-        XCTAssertEqual(beta.a, 15.16, accuracy: 1e-12)
-        XCTAssertEqual(beta.b, 4.05, accuracy: 1e-12)
-        XCTAssertEqual(beta.c, 6.74, accuracy: 1e-12)
-        XCTAssertEqual(beta.betaDeg, 105.3, accuracy: 1e-12)
+        XCTAssertEqual(beta.cell.a, 15.16, accuracy: 1e-12)
+        XCTAssertEqual(beta.cell.b, 4.05, accuracy: 1e-12)
+        XCTAssertEqual(beta.cell.c, 6.74, accuracy: 1e-12)
+        XCTAssertEqual(beta.cell.betaDeg, 105.3, accuracy: 1e-12)
         // No two sites coincide — a collapsed expansion would double an atom
         // and multiply straight into every structure factor.
         for i in beta.sites.indices {
@@ -690,8 +693,8 @@ final class PhaseVectorMatchingTests: XCTestCase {
                     for dz in -1...1 {
                         var d = beta.sites[i].fractional - beta.sites[j].fractional
                         d.x += Double(dx); d.z += Double(dz)
-                        let cart = d.x * beta.latReal[0] + d.y * beta.latReal[1]
-                            + d.z * beta.latReal[2]
+                        let cart = d.x * beta.cell.realLattice[0] + d.y * beta.cell.realLattice[1]
+                            + d.z * beta.cell.realLattice[2]
                         shortest = min(shortest, simd_length(cart))
                     }
                 }
@@ -749,17 +752,17 @@ final class PhaseVectorMatchingTests: XCTestCase {
         // --- 1. `LatticeVector.cartesian` ---------------------------------
         let al = Crystal.aluminum
         let g200 = LatticeVector.plane(SIMD3(2, 0, 0)).cartesian(in: al)
-        XCTAssertEqual(simd_length(g200), 2 / al.a, accuracy: 1e-9,
+        XCTAssertEqual(simd_length(g200), 2 / al.cell.a, accuracy: 1e-9,
                        "(200)Al should have |g| = 2/a")
         let d100 = LatticeVector.direction(SIMD3(1, 0, 0)).cartesian(in: al)
-        XCTAssertEqual(simd_length(d100 - SIMD3(al.a, 0, 0)), 0, accuracy: 1e-9,
+        XCTAssertEqual(simd_length(d100 - SIMD3(al.cell.a, 0, 0)), 0, accuracy: 1e-9,
                        "[100]Al should be a·x̂")
 
         // --- 2. `projectedAzimuth` -----------------------------------------
         let zoneAxis001 = try XCTUnwrap(
             PhaseReferenceLibrary.cartesianZoneAxis(SIMD3(0, 0, 1), crystal: al),
             "Al [001] should not be degenerate")
-        let basis = ACOMOrientation.detectorBasis(zoneAxis: zoneAxis001)
+        let basis = ZoneAxis.detectorBasis(zoneAxis001)
         let expectedAzimuth200 = atan2(simd_dot(g200, basis.columns.1),
                                        simd_dot(g200, basis.columns.0))
         let azimuth200 = try XCTUnwrap(PhaseVectorMatcher.projectedAzimuth(
@@ -871,7 +874,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
         // throughout and so never caught the matrix azimuth being ignored).
         // This is an INTEGRATION check that the pieces compose through
         // `map`; the mutations above are what part 3 independently catches.
-        let thetaPrime = Crystal(a: 4.04, b: 4.04, c: 5.80, sites: [
+        let thetaPrime = Crystal.structure(a: 4.04, b: 4.04, c: 5.80, sites: [
             AtomSite(z: 13, fractional: [0.000000, 0.000000, 0.000000]),
             AtomSite(z: 13, fractional: [0.500000, 0.500000, 0.500000]),
             AtomSite(z: 13, fractional: [0.000000, 0.000000, 0.500000]),
@@ -998,7 +1001,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
         // other; the swap flips its sign. (The exact-tolerance boundary is
         // real-valued after atan2 and is not pinned: `<` vs `<=` differ only
         // at equality, which no fixture reaches exactly.)
-        let hexagonal = Crystal(a: 4.94775, b: 4.94775, c: 14.14499,
+        let hexagonal = Crystal.structure(a: 4.94775, b: 4.94775, c: 14.14499,
                                 alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
                                 sites: [AtomSite(z: 13, fractional: SIMD3(0, 0, 0))])
         let cubic = Crystal.aluminum
@@ -1040,12 +1043,12 @@ final class PhaseVectorMatchingTests: XCTestCase {
     }
 
     private func matrixAluminium() -> PhaseDefinition {
-        PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+        PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                         role: .matrix, zoneAxes: [SIMD3(0, 0, 1)])
     }
 
     private func candidateBeta() -> PhaseDefinition {
-        PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+        PhaseDefinition(id: "beta", displayName: "β″", crystal: Crystal.betaDoublePrime,
                         role: .candidate, zoneAxes: [SIMD3(0, 1, 0)])
     }
 
@@ -1122,13 +1125,13 @@ final class PhaseVectorMatchingTests: XCTestCase {
         matrixPhaseIndex: Int = 0
     ) -> PhaseReferenceLibrary {
         var phases: [PhaseDefinition] = [
-            PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: .aluminum,
+            PhaseDefinition(id: "matrix", displayName: "Matrix", crystal: Crystal.aluminum,
                             role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
         ]
         var entries: [PhaseOrientationReference] = []
         for (offset, candidate) in candidateEntries.enumerated() {
             phases.append(PhaseDefinition(id: "c\(offset)", displayName: "C\(offset)",
-                                          crystal: .aluminum, role: .candidate,
+                                          crystal: Crystal.aluminum, role: .candidate,
                                           zoneAxes: [SIMD3(0, 0, 1)]))
             entries.append(PhaseOrientationReference(
                 phaseIndex: candidate.phaseIndex, zoneAxis: SIMD3(0, 0, 1),
@@ -1821,9 +1824,9 @@ final class PhaseVectorGateBTests: XCTestCase {
     /// Mutation: `accessibleRadius` put back to the running maximum.
     func testOneDistantSpuriousPeakDoesNotWeakenTheChanceGuard() throws {
         let library = try PhaseReferenceLibrary.build(phases: [
-            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+            PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                             role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
-            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+            PhaseDefinition(id: "beta", displayName: "β″", crystal: Crystal.betaDoublePrime,
                             role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
         ], settings: {
             var s = PhaseReferenceSettings()
@@ -2022,7 +2025,7 @@ final class ZoneAxisFitTests: XCTestCase {
         let rotation = 37.2 * Double.pi / 180
 
         let base = PhaseReferenceLibrary.projectedVectors(
-            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            reflections: try al.kinematicReflections(kMax: reference.kMaxInvAngstrom).kept, crystal: al,
             zoneAxis: planted, settings: reference)
         XCTAssertGreaterThan(base.count, 4)
         let turned = PhaseReferenceLibrary.rotate(base, by: rotation)
@@ -2088,7 +2091,7 @@ final class ZoneAxisFitTests: XCTestCase {
         // Half one: aluminium's own ⟨110⟩ projection, as the recovery test
         // plants it. This must read as information.
         let base = PhaseReferenceLibrary.projectedVectors(
-            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            reflections: try al.kinematicReflections(kMax: reference.kMaxInvAngstrom).kept, crystal: al,
             zoneAxis: SIMD3(1, 1, 0), settings: reference)
         let turned = PhaseReferenceLibrary.rotate(base, by: 37.2 * .pi / 180)
         let plantedPeaks: [[BraggPeak]] = (0..<64).map { _ in
@@ -2210,7 +2213,7 @@ final class ZoneAxisFitTests: XCTestCase {
             sqrt(-2 * log(max(1e-12, next()))) * cos(2 * .pi * next())
         }
         let base = PhaseReferenceLibrary.projectedVectors(
-            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            reflections: try al.kinematicReflections(kMax: reference.kMaxInvAngstrom).kept, crystal: al,
             zoneAxis: SIMD3(1, 1, 0), settings: reference)
         let turned = PhaseReferenceLibrary.rotate(base, by: 37.2 * .pi / 180)
         let reach = turned.map { simd_length($0.q) }.max() ?? 0.8
@@ -2272,7 +2275,7 @@ final class ZoneAxisFitTests: XCTestCase {
         reference.kMaxInvAngstrom = 1.2
         let scale = 0.008
         let base = PhaseReferenceLibrary.projectedVectors(
-            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            reflections: try al.kinematicReflections(kMax: reference.kMaxInvAngstrom).kept, crystal: al,
             zoneAxis: SIMD3(1, 1, 0), settings: reference)
         let peaks: [[BraggPeak]] = (0..<16).map { _ in
             [BraggPeak(x: 128, y: 128, intensity: 10)] + base.map {
@@ -2372,12 +2375,12 @@ final class ZoneAxisFitTests: XCTestCase {
     /// identically. Mutation: `fitZoneAxis` back on its own count-then-
     /// distance closure (red wherever the family ties exactly, since the
     /// stable sort then keeps each input order).
-    func testTheSweepOrderDoesNotDependOnTheCandidateOrder() {
+    func testTheSweepOrderDoesNotDependOnTheCandidateOrder() throws {
         let al = Crystal.aluminum
         var reference = PhaseReferenceSettings()
         reference.kMaxInvAngstrom = 1.2
         let base = PhaseReferenceLibrary.projectedVectors(
-            reflections: al.reflections(kMax: reference.kMaxInvAngstrom), crystal: al,
+            reflections: try al.kinematicReflections(kMax: reference.kMaxInvAngstrom).kept, crystal: al,
             zoneAxis: SIMD3(1, 1, 0), settings: reference)
         let turned = PhaseReferenceLibrary.rotate(base, by: 37.2 * .pi / 180)
         let scale = 0.008
@@ -2429,7 +2432,7 @@ final class MatrixChallengeTests: XCTestCase {
     /// distance rather than the verdict.
     func testAMatrixGrainOnAnotherZoneAxisIsNotLabelledAsACandidate() throws {
         let library = try challengeLibrary()
-        let planted = matrixVectorsOnAnotherAxis(library, degrees: 37.3)
+        let planted = try matrixVectorsOnAnotherAxis(library, degrees: 37.3)
         XCTAssertGreaterThanOrEqual(planted.count, 4,
                                     "the fixture planted too few vectors to decide anything")
         let settings = PhaseVectorSettings()
@@ -2505,7 +2508,7 @@ final class MatrixChallengeTests: XCTestCase {
     /// explain a corner of it more precisely.
     func testAMatrixOrientationExplainingLessDoesNotWin() throws {
         let library = try challengeLibrary()
-        let planted = matrixVectorsOnAnotherAxis(library, degrees: 37.3)
+        let planted = try matrixVectorsOnAnotherAxis(library, degrees: 37.3)
         let bases = PhaseVectorMatcher.matrixChallengeBases(library: library)
         let settings = PhaseVectorSettings()
         let scratch = PhaseVectorMatcher.Scratch(capacity: 256)
@@ -2616,9 +2619,9 @@ final class MatrixChallengeTests: XCTestCase {
         settings.kMaxInvAngstrom = 0.8
         settings.inPlaneStepDeg = 2
         return try PhaseReferenceLibrary.build(phases: [
-            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+            PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                             role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
-            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+            PhaseDefinition(id: "beta", displayName: "β″", crystal: Crystal.betaDoublePrime,
                             role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
         ], settings: settings)
     }
@@ -2626,9 +2629,9 @@ final class MatrixChallengeTests: XCTestCase {
     /// The matrix crystal's [011] net — a second aluminium grain, the case the
     /// library has no entry for because the user named one zone axis.
     private func matrixVectorsOnAnotherAxis(_ library: PhaseReferenceLibrary,
-                                            degrees: Double) -> [SIMD2<Double>] {
+                                            degrees: Double) throws -> [SIMD2<Double>] {
         let crystal = library.phases[library.matrixPhaseIndex].crystal
-        let reflections = crystal.reflections(kMax: library.settings.kMaxInvAngstrom)
+        let reflections = try crystal.kinematicReflections(kMax: library.settings.kMaxInvAngstrom).kept
         let base = PhaseReferenceLibrary.projectedVectors(
             reflections: reflections, crystal: crystal,
             zoneAxis: SIMD3(0, 1, 1), settings: library.settings)

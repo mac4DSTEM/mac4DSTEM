@@ -1,4 +1,5 @@
 import XCTest
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -75,9 +76,9 @@ final class CIFSpaceGroupOrderTests: XCTestCase {
         file: StaticString = #filePath, line: UInt = #line
     ) {
         XCTAssertThrowsError(
-            try CIFImport.crystalModel(from: cif, fileBaseName: "t"), file: file, line: line
+            try CIFModelImport.crystalModel(from: cif, fileBaseName: "t"), file: file, line: line
         ) { error in
-            XCTAssertEqual(error as? CIFImportError, expected, file: file, line: line)
+            XCTAssertEqual(error as? CIFModelImportError, .cif(expected), file: file, line: line)
         }
     }
 
@@ -150,7 +151,7 @@ final class CIFSpaceGroupOrderTests: XCTestCase {
         let cif = mgo(ops: Self.pointOps, itNumber: 225)
         assertThrows(cif, expected: .incompleteSymmetryOperations(
             spaceGroupNumber: 225, declaredName: "F m -3 m", listed: 48, required: 192))
-        XCTAssertThrowsError(try CIFImport.crystalModel(from: cif, fileBaseName: "t")) { error in
+        XCTAssertThrowsError(try CIFModelImport.crystalModel(from: cif, fileBaseName: "t")) { error in
             let text = (error as? LocalizedError)?.errorDescription ?? ""
             XCTAssertTrue(text.contains("48"), text)
             XCTAssertTrue(text.contains("192"), text)
@@ -161,17 +162,17 @@ final class CIFSpaceGroupOrderTests: XCTestCase {
 
     /// The complete list is untouched: 192 operations expand Mg + O to rock salt (8 atoms).
     func testCompleteFm3mListStillImportsAsRockSalt() throws {
-        let model = try CIFImport.crystalModel(
+        let model = try CIFModelImport.crystalModel(
             from: mgo(ops: Self.fm3mFull, itNumber: 225), fileBaseName: "t")
-        XCTAssertEqual(model.crystal.sites.count, 8)
+        XCTAssertEqual(model.structure.sites.count, 8)
         XCTAssertEqual(model.spaceGroupNumber, 225)
     }
 
     /// More rows than the group has (a duplicated block) is unchanged behaviour.
     func testDuplicatedRowsAboveTheOrderAreNotRefused() throws {
-        let model = try CIFImport.crystalModel(
+        let model = try CIFModelImport.crystalModel(
             from: mgo(ops: Self.fm3mFull + Self.fm3mFull, itNumber: 225), fileBaseName: "t")
-        XCTAssertEqual(model.crystal.sites.count, 8)
+        XCTAssertEqual(model.structure.sites.count, 8)
     }
 
     /// Padding a 48-operation list to 192 ROWS by repeating it does not make it complete:
@@ -186,26 +187,32 @@ final class CIFSpaceGroupOrderTests: XCTestCase {
     /// A file that names no IT number is unchanged behaviour: no table lookup, no refusal
     /// (the same 48 operations import, as they did before this change).
     func testAListWithNoNamedGroupNumberIsUnchanged() throws {
-        let model = try CIFImport.crystalModel(
+        let model = try CIFModelImport.crystalModel(
             from: mgo(ops: Self.pointOps, itNumber: nil), fileBaseName: "t")
-        XCTAssertEqual(model.crystal.sites.count, 2)
+        XCTAssertEqual(model.structure.sites.count, 2)
         XCTAssertNil(model.spaceGroupNumber)
     }
 
     /// A primitive (60°) cell of Fm-3m legitimately lists the 48 centring-free operations:
     /// the check must not refuse it (it imports as an unreduced 2-atom cell).
     func testPrimitiveCellOfACentredGroupIsNotRefusedForLackingTheCentring() throws {
-        let model = try CIFImport.crystalModel(
+        let model = try CIFModelImport.crystalModel(
             from: mgo(ops: Self.pointOps, itNumber: 225, angle: 60), fileBaseName: "t")
-        XCTAssertEqual(model.crystal.sites.count, 2)
+        XCTAssertEqual(model.structure.sites.count, 2)
+        // The kit reads this cell's Laue class as m-3m, but its frame is rhombohedral (α = β = γ = 60°), not the cubic
+        // axes: `.cubic` would draw a wrong fundamental zone, so it stays Unreduced, as before the kit
+        // (`ACOMCrystalSymmetry.reduction(for:)` tests the cell as well as the class; registration P4).
+        XCTAssertEqual(model.structure.laueClass, .mThreeBarM)
+        XCTAssertEqual(model.symmetry, .identity)
     }
 
     /// An operation coefficient too large for an Int (and NaN-adjacent garbage) must be
-    /// counted, not trapped on: the file is refused as incomplete, the app does not crash.
+    /// refused, not trapped on, and the app does not crash. CHANGED 2026-10-15 (DiffractoKit 0.0.3, kit item 4;
+    /// registration P4's "new refusals"): this file was refused as an INCOMPLETE operation list (3 of 192); the kit
+    /// refuses the coefficient itself (over 1000 or non-finite) at the parser, naming the operation, before any count.
     func testAGarbledHugeCoefficientIsRefusedNotTrapped() {
         let cif = mgo(ops: ["x,y,z", "1000000000000000000000x,y,z", "-x,-y,-z"], itNumber: 225)
-        assertThrows(cif, expected: .incompleteSymmetryOperations(
-            spaceGroupNumber: 225, declaredName: "F m -3 m", listed: 3, required: 192))
+        assertThrows(cif, expected: .unsupportedSymmetryOperation("1000000000000000000000x,y,z"))
     }
 
     // MARK: - A second block holding only a symmetry loop (D006 residual)
@@ -245,18 +252,18 @@ final class CIFSpaceGroupOrderTests: XCTestCase {
     /// The structure block alone still imports, and a second block without a symmetry loop
     /// (a journal-only global block) still does not count.
     func testStructureBlockAloneAndAJournalBlockAreUnchanged() throws {
-        let alone = try CIFImport.crystalModel(from: structureBlock, fileBaseName: "t")
-        XCTAssertEqual(alone.crystal.sites.count, 2)
-        let withJournal = try CIFImport.crystalModel(
+        let alone = try CIFModelImport.crystalModel(from: structureBlock, fileBaseName: "t")
+        XCTAssertEqual(alone.structure.sites.count, 2)
+        let withJournal = try CIFModelImport.crystalModel(
             from: "data_global\n_publ_section_title 'x'\n\n" + structureBlock, fileBaseName: "t")
-        XCTAssertEqual(withJournal.crystal.sites.count, 2)
+        XCTAssertEqual(withJournal.structure.sites.count, 2)
     }
 
     /// The symmetry loop inside the structure block itself is of course fine.
     func testSymmetryLoopInsideTheStructureBlockIsUnchanged() throws {
-        let model = try CIFImport.crystalModel(
+        let model = try CIFModelImport.crystalModel(
             from: mgo(ops: Self.fm3mFull, itNumber: 225), fileBaseName: "t")
-        XCTAssertEqual(model.crystal.sites.count, 8)
+        XCTAssertEqual(model.structure.sites.count, 8)
     }
 }
 
@@ -292,14 +299,22 @@ final class CIFSymmetryBijectionTests: XCTestCase {
     Au6 Au 0.0000 0.0040 0.0000
     """
 
+    /// CHANGED 2026-10-15 (DiffractoKit 0.0.3; registration P4, whose prediction for this test FAILED). The test
+    /// asserted `symmetryNotSupportedByStructure` (the symmetry map was not a bijection). The kit reads the class from
+    /// the atoms, not from a map, so that refusal has no counterpart; but the file is still REFUSED, now by the
+    /// structure's close-contact check (the split atoms are 0.0163 Å apart, which the kit reader raises before the
+    /// symmetry is looked at), not imported as `.identity`. What matters is asserted: the structure is never admitted
+    /// as cubic. Kit plant of the symmetry half: DiffractoCoreTests `SymmetryDetectionTests`
+    /// `testSplitSiteGoldIsNotCubic` (the same split-atom gold).
     func testTwoSitesCannotShareOneTargetInTheSymmetryMap() {
         XCTAssertThrowsError(
-            try CIFImport.crystalModel(from: splitAtomFCC, fileBaseName: "t")
+            try CIFModelImport.crystalModel(from: splitAtomFCC, fileBaseName: "t")
         ) { error in
-            XCTAssertEqual(
-                error as? CIFImportError,
-                .symmetryNotSupportedByStructure(
-                    family: "cubic", expected: "3-fold axis along ⟨111⟩"))
+            guard case .cif(.invalidStructure(let issues))? = error as? CIFModelImportError else {
+                return XCTFail("expected the close-contact refusal, got \(error)")
+            }
+            XCTAssertTrue(issues.contains { $0.contains("0.0163") },
+                          "the refusal must name the measured contact: \(issues)")
         }
     }
 }

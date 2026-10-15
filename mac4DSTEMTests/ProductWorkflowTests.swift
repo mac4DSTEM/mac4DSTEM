@@ -1,4 +1,6 @@
 import AppKit
+import DiffractoCore
+import DiffractoScattering
 import DSTEMCore
 import DSTEMSession
 import XCTest
@@ -990,8 +992,8 @@ final class ProductWorkflowTests: XCTestCase {
         XCTAssertFalse(models.isEmpty)
         for model in models {
             XCTAssertTrue(model.isUsable, "\(model.displayName): \(model.validationIssues)")
-            XCTAssertFalse(model.crystal.sites.isEmpty)
-            XCTAssertFalse(model.crystal.reflections(kMax: 1.2).isEmpty)
+            XCTAssertFalse(model.structure.sites.isEmpty)
+            XCTAssertFalse(try model.structure.kinematicReflections(kMax: 1.2).kept.isEmpty)
             XCTAssertEqual(model.provenance["crystal_model_id"], model.id)
             XCTAssertEqual(model.provenance["crystal_symmetry"], model.symmetry.rawValue)
         }

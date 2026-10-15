@@ -1,4 +1,5 @@
 import XCTest
+import DiffractoCore
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
@@ -59,26 +60,26 @@ final class CIFMultiBlockTests: XCTestCase {
 
     func testTwoStructureBlocksAreRefusedByName() {
         let cif = goldBlock + "\n" + siliconBlock
-        XCTAssertThrowsError(try CIFImport.crystalModel(from: cif, fileBaseName: "two")) { error in
-            XCTAssertEqual(error as? CIFImportError,
-                           .multipleStructures(blockNames: ["gold", "silicon"]))
-            let text = (error as? CIFImportError)?.errorDescription ?? ""
+        XCTAssertThrowsError(try CIFModelImport.crystalModel(from: cif, fileBaseName: "two")) { error in
+            XCTAssertEqual(error as? CIFModelImportError,
+                           .cif(.multipleStructures(blockNames: ["gold", "silicon"])))
+            let text = (error as? CIFModelImportError)?.errorDescription ?? ""
             XCTAssertTrue(text.contains("This CIF holds 2 structures (gold, silicon); import one at a time"), text)
         }
     }
 
     func testASingleBlockStillImportsUnchanged() throws {
-        let model = try CIFImport.crystalModel(from: goldBlock, fileBaseName: "gold")
-        XCTAssertEqual(model.crystal.sites.count, 4)
-        XCTAssertEqual(model.crystal.a, 4.0782, accuracy: 1e-9)
+        let model = try CIFModelImport.crystalModel(from: goldBlock, fileBaseName: "gold")
+        XCTAssertEqual(model.structure.sites.count, 4)
+        XCTAssertEqual(model.structure.cell.a, 4.0782, accuracy: 1e-9)
     }
 
     /// A journal-only block (`data_global`, as Acta Cryst. CIFs carry) defines
     /// no structure; refusing it would refuse files that hold one crystal.
     func testAJournalOnlyGlobalBlockDoesNotCount() throws {
         let cif = "data_global\n_journal_name_full 'Some Journal'\n_publ_section_title 'A title'\n\n" + goldBlock
-        let model = try CIFImport.crystalModel(from: cif, fileBaseName: "gold")
-        XCTAssertEqual(model.crystal.sites.count, 4)
+        let model = try CIFModelImport.crystalModel(from: cif, fileBaseName: "gold")
+        XCTAssertEqual(model.structure.sites.count, 4)
     }
 
     /// Every reference CIF the repo ships with (gitignored `References/`, so
@@ -95,9 +96,9 @@ final class CIFMultiBlockTests: XCTestCase {
         for file in files {
             let text = try String(contentsOf: file, encoding: .utf8)
             do {
-                _ = try CIFImport.crystalModel(from: text, fileBaseName: file.deletingPathExtension().lastPathComponent)
-            } catch let error as CIFImportError {
-                if case .multipleStructures = error {
+                _ = try CIFModelImport.crystalModel(from: text, fileBaseName: file.deletingPathExtension().lastPathComponent)
+            } catch let error as CIFModelImportError {
+                if case .cif(.multipleStructures) = error {
                     XCTFail("\(file.lastPathComponent) refused as multi-block: \(error)")
                 }
             }

@@ -1,5 +1,6 @@
 import XCTest
 import simd
+import DiffractoScattering
 import DSTEMCore
 
 /// Review 2026-09-30 row 1. The ACOM bank samples the mirror-reduced direction
@@ -44,7 +45,7 @@ final class ACOMRow1MirrorZoneTests: XCTestCase {
 
     /// Independent pattern for beam `axis` rotated in-plane by `angleDeg`.
     nonisolated private static func pattern(axis: SIMD3<Double>, angleDeg: Double,
-                                            reflections: [Reflection])
+                                            reflections: [KinematicReflection])
         -> (truth: simd_double3x3, peaks: [BraggPeak]) {
         let n = simd_normalize(axis)
         let seed: SIMD3<Double> = abs(n.z) < 0.8 ? [0, 0, 1] : [1, 0, 0]
@@ -75,7 +76,7 @@ final class ACOMRow1MirrorZoneTests: XCTestCase {
             crystal: crystal, kMax: 1.2, zoneAxisCount: 600, symmetry: .cubic,
             wavelengthAngstrom: Self.wavelength))
         let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .cubic))
-        let reflections = crystal.reflections(kMax: 1.2)
+        let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
         let ops = Self.properCubicOperators()
         XCTAssertEqual(ops.count, 24)
         // Not (1,2,3) / (2,1,3): at 17.3° that pair is in the known in-plane

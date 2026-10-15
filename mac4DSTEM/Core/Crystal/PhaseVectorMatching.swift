@@ -38,6 +38,9 @@
 
 import Foundation
 import simd
+import DiffractoCore
+import DiffractoGeometry
+import DiffractoScattering
 
 // MARK: - Settings
 
@@ -702,7 +705,7 @@ package nonisolated enum PhaseVectorMatcher {
     /// is not: an axis explaining one vector at 0.001 Å⁻¹ would beat one
     /// explaining nine at 0.01.
     package static func fitZoneAxis(bragg: BraggVectors,
-                                    crystal: Crystal,
+                                    crystal: CrystalStructure,
                                     referenceSettings: PhaseReferenceSettings,
                                     settings: PhaseVectorSettings,
                                     originX: Float, originY: Float,
@@ -749,7 +752,9 @@ package nonisolated enum PhaseVectorMatcher {
 
         var reference = referenceSettings
         reference.inPlaneStepDeg = inPlaneStepDeg
-        let reflections = crystal.reflections(kMax: reference.kMaxInvAngstrom)
+        // A structure the kit refuses has no reflections to fit: no fit, as an empty list always meant.
+        guard let reflections = (try? crystal.kinematicReflections(kMax: reference.kMaxInvAngstrom))?.kept
+        else { return [] }
         let rotations = PhaseReferenceLibrary.inPlaneSteps(reference)
         let scratch = Scratch(capacity: max(1, reference.maximumVectorsPerEntry))
 
@@ -1321,8 +1326,8 @@ package nonisolated enum PhaseVectorMatcher {
     ) -> [PhaseOrientationReference] {
         guard library.phases.indices.contains(library.matrixPhaseIndex) else { return [] }
         let crystal = library.phases[library.matrixPhaseIndex].crystal
-        let reflections = crystal.reflections(kMax: library.settings.kMaxInvAngstrom)
-        guard !reflections.isEmpty else { return [] }
+        guard let reflections = (try? crystal.kinematicReflections(kMax: library.settings.kMaxInvAngstrom))?.kept,
+              !reflections.isEmpty else { return [] }
         var out: [PhaseOrientationReference] = []
         out.reserveCapacity(PhaseReferenceLibrary.lowIndexZoneAxes.count)
         for axis in PhaseReferenceLibrary.lowIndexZoneAxes {
@@ -1441,7 +1446,7 @@ package nonisolated enum PhaseVectorMatcher {
     // MARK: The orientation relationship
 
     /// The in-plane azimuth, radians, of a Cartesian vector projected into
-    /// an entry's detector frame (`ACOMOrientation.detectorBasis` of its
+    /// an entry's detector frame (`ZoneAxis.detectorBasis` of its
     /// zone axis, then the entry's own in-plane rotation) — nil when the
     /// vector is not in the zone (|v·n̂| > 1e-6·|v|, `n̂` the unit zone axis)
     /// or is zero.
@@ -1454,7 +1459,7 @@ package nonisolated enum PhaseVectorMatcher {
         let nHat = n / nLen
         guard abs(simd_dot(v, nHat)) <= 1e-6 * vLen else { return nil }
 
-        let basis = ACOMOrientation.detectorBasis(zoneAxis: nHat)
+        let basis = ZoneAxis.detectorBasis(nHat)
         let x0 = simd_dot(v, basis.columns.0)
         let y0 = simd_dot(v, basis.columns.1)
         let c = cos(inPlaneRotationRad), s = sin(inPlaneRotationRad)
@@ -1477,9 +1482,9 @@ package nonisolated enum PhaseVectorMatcher {
     /// does not apply to this (candidate, matrix) pair of entries; if no
     /// listed pair applies, the entry is free (true). An empty list is free.
     package static func orientationConsistent(candidate: PhaseOrientationReference,
-                                               candidateCrystal: Crystal,
+                                               candidateCrystal: CrystalStructure,
                                                matrix: PhaseOrientationReference,
-                                               matrixCrystal: Crystal,
+                                               matrixCrystal: CrystalStructure,
                                                relationships: [OrientationRelationship],
                                                toleranceDeg: Double) -> Bool {
         guard !relationships.isEmpty else { return true }
