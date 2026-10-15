@@ -22,11 +22,21 @@ let package = Package(
     // Exact: v5.0 ships on this tag; a new tag is a deliberate bump, gated like any other change.
     dependencies: [
         .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.1.0"),
+        // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
+        // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
+        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.0.3"),
+        .package(url: "https://github.com/mac4DSTEM/CuboKit", exact: "0.0.3"),
     ],
     targets: [
         .target(
             name: "DSTEMCore",
-            dependencies: [.product(name: "SpectroCore", package: "SpectroKit")],
+            dependencies: [.product(name: "SpectroCore", package: "SpectroKit"),
+                           .product(name: "DiffractoCore", package: "DiffractoKit"),
+                           .product(name: "DiffractoScattering", package: "DiffractoKit"),
+                           .product(name: "DiffractoGeometry", package: "DiffractoKit"),
+                           .product(name: "CuboCore", package: "CuboKit"),
+                           .product(name: "CuboVirtual", package: "CuboKit"),
+                           .product(name: "CuboPhase", package: "CuboKit")],
             path: "mac4DSTEM/Core",
             swiftSettings: [
                 // Accelerate's CURRENT LAPACK interface, which is what
@@ -63,7 +73,13 @@ let package = Package(
         // replay, sidecar location, recovery, residency — no SwiftUI, no AppState.
         .target(
             name: "DSTEMSession",
-            dependencies: ["DSTEMCore", .product(name: "SpectroCore", package: "SpectroKit")],
+            dependencies: ["DSTEMCore", .product(name: "SpectroCore", package: "SpectroKit"),
+                           .product(name: "DiffractoCore", package: "DiffractoKit"),
+                           .product(name: "DiffractoScattering", package: "DiffractoKit"),
+                           .product(name: "DiffractoGeometry", package: "DiffractoKit"),
+                           .product(name: "CuboCore", package: "CuboKit"),
+                           .product(name: "CuboVirtual", package: "CuboKit"),
+                           .product(name: "CuboPhase", package: "CuboKit")],
             path: "mac4DSTEM/Session",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore

@@ -1,6 +1,24 @@
 {
-  "originHash" : "650c330dfa90c55c7d24081b2b3b3779586822f92d56b71798a596be1f7be3ef",
+  "originHash" : "5641b3a1b3016a10104dbf56c8f68fed4104a64bde33b5f58381f251cfe1d16b",
   "pins" : [
+    {
+      "identity" : "cubokit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mac4DSTEM/CuboKit",
+      "state" : {
+        "revision" : "8a337cc78edb96c1c5577f14789ee8997e597ee6",
+        "version" : "0.0.3"
+      }
+    },
+    {
+      "identity" : "diffractokit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mac4DSTEM/DiffractoKit",
+      "state" : {
+        "revision" : "0156172bbf8d4c12cfd0720c897f7dd5353c681f",
+        "version" : "0.0.3"
+      }
+    },
     {
       "identity" : "spectrokit",
       "kind" : "remoteSourceControl",

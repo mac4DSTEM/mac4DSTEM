@@ -14,6 +14,12 @@
 		300000000000000000000006 /* DSTEMSession in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000005 /* DSTEMSession */; };
 		300000000000000000000008 /* DSTEMTraining in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000007 /* DSTEMTraining */; };
 		30000000000000000000000B /* SpectroCore in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000000A /* SpectroCore */; };
+		300000000000000000000011 /* DiffractoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000010 /* DiffractoCore */; };
+		300000000000000000000013 /* DiffractoScattering in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000012 /* DiffractoScattering */; };
+		300000000000000000000015 /* DiffractoGeometry in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000014 /* DiffractoGeometry */; };
+		300000000000000000000017 /* CuboCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000016 /* CuboCore */; };
+		300000000000000000000019 /* CuboVirtual in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000018 /* CuboVirtual */; };
+		30000000000000000000001B /* CuboPhase in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001A /* CuboPhase */; };
 		F68E4EE62FF9C43F00135C51 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = F68E4EE52FF9C43F00135C51 /* README.md */; };
 		F6A1D0DE0001000000000002 /* DiskDetector in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000001 /* DiskDetector */; };
 		F6A1D0DE0001000000000004 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = F6A1D0DE0001000000000003 /* Licenses */; };
@@ -216,6 +222,12 @@
 				300000000000000000000006 /* DSTEMSession in Frameworks */,
 				300000000000000000000008 /* DSTEMTraining in Frameworks */,
 				30000000000000000000000B /* SpectroCore in Frameworks */,
+				300000000000000000000011 /* DiffractoCore in Frameworks */,
+				300000000000000000000013 /* DiffractoScattering in Frameworks */,
+				300000000000000000000015 /* DiffractoGeometry in Frameworks */,
+				300000000000000000000017 /* CuboCore in Frameworks */,
+				300000000000000000000019 /* CuboVirtual in Frameworks */,
+				30000000000000000000001B /* CuboPhase in Frameworks */,
 			);
 		};
 		100000000000000130000000 /* Frameworks */ = {
@@ -283,6 +295,12 @@
 				300000000000000000000005 /* DSTEMSession */,
 				300000000000000000000007 /* DSTEMTraining */,
 				30000000000000000000000A /* SpectroCore */,
+				300000000000000000000010 /* DiffractoCore */,
+				300000000000000000000012 /* DiffractoScattering */,
+				300000000000000000000014 /* DiffractoGeometry */,
+				300000000000000000000016 /* CuboCore */,
+				300000000000000000000018 /* CuboVirtual */,
+				30000000000000000000001A /* CuboPhase */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* mac4DSTEM.app */;
@@ -340,6 +358,8 @@
 			packageReferences = (
 				300000000000000000000002 /* XCLocalSwiftPackageReference "." */,
 				300000000000000000000009 /* XCRemoteSwiftPackageReference "SpectroKit" */,
+				30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */,
+				30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -852,6 +872,22 @@
 				version = 0.1.0;
 			};
 		};
+		30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/DiffractoKit";
+			requirement = {
+				kind = exactVersion;
+				version = 0.0.3;
+			};
+		};
+		30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mac4DSTEM/CuboKit";
+			requirement = {
+				kind = exactVersion;
+				version = 0.0.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -871,6 +907,36 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 300000000000000000000009 /* XCRemoteSwiftPackageReference "SpectroKit" */;
 			productName = SpectroCore;
+		};
+		300000000000000000000010 /* DiffractoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
+			productName = DiffractoCore;
+		};
+		300000000000000000000012 /* DiffractoScattering */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
+			productName = DiffractoScattering;
+		};
+		300000000000000000000014 /* DiffractoGeometry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
+			productName = DiffractoGeometry;
+		};
+		300000000000000000000016 /* CuboCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
+			productName = CuboCore;
+		};
+		300000000000000000000018 /* CuboVirtual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
+			productName = CuboVirtual;
+		};
+		30000000000000000000001A /* CuboPhase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */;
+			productName = CuboPhase;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

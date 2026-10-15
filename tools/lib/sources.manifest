@@ -127,6 +127,34 @@ spectrokit_module() {
   SPECTROKIT_BUNDLE="$prod/SpectroKit_SpectroCore.bundle"
 }
 
+# kit_module <repo-root> <Kit> <target>... (2026-10-15): DiffractoKit and CuboKit as SpectroKit above, for any kit
+# without C targets or resources. Builds the pinned checkout's named targets (and what they depend on) once in
+# release into .build/<kit>-tools; KIT_FLAGS (-I and the prelinked objects of every target built) ride in
+# MAC4DSTEM_SOURCES. Exit 65 on a missing pin, a checkout off the pin, or a failed build.
+kit_module() {
+  local repo=$1 kit=$2; shift 2
+  local id=${kit:l}
+  local ck="$repo/.build/checkouts/$kit" scratch="$repo/.build/$id-tools"
+  local pin
+  pin=$(awk -v id="\"$id\"," '$0 ~ "\"identity\" : " id {f=1} f && /"revision"/ {gsub(/[",]/, "", $3); print $3; exit}' "$repo/Package.resolved")
+  if [[ -z "$pin" ]]; then echo "sources.manifest: no $kit pin in $repo/Package.resolved" >&2; exit 65; fi
+  if [[ "$(git -C "$ck" rev-parse HEAD 2>/dev/null)" != "$pin" ]]; then
+    (cd "$repo" && swift package resolve) >&2 || { echo "sources.manifest: swift package resolve failed" >&2; exit 65; }
+  fi
+  if [[ "$(git -C "$ck" rev-parse HEAD 2>/dev/null)" != "$pin" ]]; then
+    echo "sources.manifest: $ck is not at the pinned $kit $pin" >&2; exit 65
+  fi
+  local prod="$scratch/out/Products/Release" t
+  if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $*" ]]; then
+    for t in "$@"; do
+      swift build -c release --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
+        || { echo "sources.manifest: building $kit $pin ($t) failed" >&2; exit 65; }
+    done
+    echo "$pin $*" > "$scratch/.pin"
+  fi
+  KIT_FLAGS=("-I$prod" "$prod"/*.o(N))   # -I joined: mac4dstem_sources dedups its tokens
+}
+
 # mac4dstem_sources <repo-root> <group>...
 #
 # Fills MAC4DSTEM_SOURCES with absolute paths, deduplicated, in dependency
