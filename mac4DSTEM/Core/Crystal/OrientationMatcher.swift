@@ -592,7 +592,28 @@ package nonisolated final class MetalACOMMatcher {
         return cancellation?.isCancelled == true ? nil : map
     }
 
+    /// One Metal batch inside its own autorelease pool. `matchAll` is a long
+    /// synchronous loop, so no pool drains inside it; without one the
+    /// autoreleased references to each batch's buffers, command buffer and
+    /// encoders survive until `matchAll` returns and device memory grows by
+    /// about one batch's shared buffers per batch (Gate D, 2026-10-15,
+    /// `ACOMMetalMemoryTests`: 0.125 MB per batch, 25 MB over 200
+    /// batches, flat with the pool). The results leave as Swift arrays, so
+    /// nothing returned depends on the pool. Same remedy as
+    /// `DiskDetection.detectAll(data:)` per tile.
     private func runBatch(
+        experimentalReal: [Float], experimentalImaginary: [Float], positionCount: Int
+    ) -> (scores: [Float], bins: [UInt32])? {
+        autoreleasepool {
+            runBatchUnpooled(
+                experimentalReal: experimentalReal,
+                experimentalImaginary: experimentalImaginary,
+                positionCount: positionCount
+            )
+        }
+    }
+
+    private func runBatchUnpooled(
         experimentalReal: [Float], experimentalImaginary: [Float], positionCount: Int
     ) -> (scores: [Float], bins: [UInt32])? {
         let spectrumCount = positionCount * plan.count * plan.geometry.nAzimuthal
