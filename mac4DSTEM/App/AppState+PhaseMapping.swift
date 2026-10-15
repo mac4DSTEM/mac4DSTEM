@@ -25,6 +25,7 @@ import DSTEMCore
 import DSTEMSession
 #endif
 import simd
+import DiffractoOrientation
 
 extension AppState {
 
@@ -64,7 +65,7 @@ extension AppState {
             let symbols = z.map { Element.symbol(forAtomicNumber: $0) ?? "Z\($0)" }
             return "\(phase) contains \(symbols.joined(separator: ", ")), "
                 + "for which this app has no electron scattering factors."
-        case .invalidStructure(let phase, let reason):
+        case .structureRefused(let phase, let reason):
             return "\(phase) cannot be used: \(reason)"
         case .degenerateZoneAxis(let phase):
             return "\(phase)'s zone axis is [0 0 0], which names no direction."
@@ -111,6 +112,8 @@ extension AppState {
         do {
             library = try PhaseReferenceLibrary.build(phases: definitions,
                                                       settings: referenceSettings)
+        } catch is CancellationError {
+            return .cancelled
         } catch let failure as PhaseReferenceLibrary.Failure {
             return .failed(Self.phaseLibraryFailureMessage(failure))
         } catch {
@@ -153,13 +156,15 @@ extension AppState {
         // Detached for the same reason `runDiffractionGroups` is: the matcher
         // is `nonisolated` but not `async`, and calling it inline would run a
         // whole-scan nearest-neighbour search on the main actor.
-        let vectors = calibrated.vectors
+        let scan = calibrated.vectors.phaseScan
+        let scanWidth = calibrated.vectors.scanWidth, scanHeight = calibrated.vectors.scanHeight
         let result = await Task.detached(priority: .userInitiated) {
             PhaseVectorMatcher.map(
-                bragg: vectors, library: library, settings: matchSettings,
+                scan: scan, scanWidth: scanWidth, scanHeight: scanHeight,
+                library: library, settings: matchSettings,
                 originX: origin.x, originY: origin.y,
                 invAngstromPerPixel: invAngstromPerPixel,
-                cancellation: cancellation, progress: progress
+                progress: progress, isCancelled: { cancellation.isCancelled }
             )
         }.value
 
@@ -568,7 +573,8 @@ extension AppState {
         let reference = phaseMapping.reference
         let matching = phaseMapping.matching
         let crystal = slot.model.structure
-        let vectors = calibrated.vectors
+        let scan = calibrated.vectors.phaseScan
+        let scanWidth = calibrated.vectors.scanWidth, scanHeight = calibrated.vectors.scanHeight
 
         let cancellation = beginCancellableOperation(
             "Matrix zone axis",
@@ -576,14 +582,24 @@ extension AppState {
         defer { finishCancellableOperation(cancellation) }
         let epoch = datasetSession.epoch
 
-        let fits = await Task.detached(priority: .userInitiated) {
-            PhaseVectorMatcher.fitZoneAxis(
-                bragg: vectors, crystal: crystal,
-                referenceSettings: reference, settings: matching,
-                originX: origin.x, originY: origin.y,
-                invAngstromPerPixel: invAngstromPerPixel,
-                cancellation: cancellation)
-        }.value
+        let fitted: Result<[PhaseVectorMatcher.ZoneAxisFit], PhaseReferenceLibrary.Failure> =
+            await Task.detached(priority: .userInitiated) {
+                do throws(PhaseReferenceLibrary.Failure) {
+                    return .success(try PhaseVectorMatcher.fitZoneAxis(
+                        scan: scan, scanWidth: scanWidth, scanHeight: scanHeight, crystal: crystal,
+                        referenceSettings: reference, settings: matching,
+                        originX: origin.x, originY: origin.y,
+                        invAngstromPerPixel: invAngstromPerPixel,
+                        isCancelled: { cancellation.isCancelled }))
+                } catch {
+                    return .failure(error)
+                }
+            }.value
+        let fits: [PhaseVectorMatcher.ZoneAxisFit]
+        switch fitted {
+        case .success(let value): fits = value
+        case .failure(let failure): return .failed(Self.phaseLibraryFailureMessage(failure))
+        }
 
         guard !cancellation.isCancelled else { return .cancelled }
         // The same two guards `runPhaseMapping` has: a fit against the peaks

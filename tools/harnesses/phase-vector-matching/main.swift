@@ -57,6 +57,7 @@ import Foundation
 import DiffractoCore
 import DiffractoScattering
 import DiffractoGeometry
+import DiffractoOrientation
 import simd
 
 // MARK: - Reporting
@@ -371,7 +372,8 @@ enum Harness {
             }
         }
     }
-    let bragg = BraggVectors(scanWidth: scanW, scanHeight: scanH, peaks: patterns)
+    // The kit takes positions as SIMD2<Double> (0.3.0 Migration); the Float values convert exactly.
+    let scan = patterns.map { $0.map { SIMD2<Double>(Double($0.x), Double($0.y)) } }
 
     func buildLibrary(minimumIntensityFraction: Double,
                       maximumVectorsPerEntry: Int) throws -> PhaseReferenceLibrary {
@@ -435,7 +437,7 @@ enum Harness {
 
     let started = Date()
     guard let map = PhaseVectorMatcher.map(
-        bragg: bragg, library: library, settings: matchSettings,
+        scan: scan, scanWidth: scanW, scanHeight: scanH, library: library, settings: matchSettings,
         originX: originX, originY: originY, invAngstromPerPixel: invAngstromPerPixel
     ) else { print("[FAIL] the matcher returned nil"); exit(1) }
     let elapsed = Date().timeIntervalSince(started)
@@ -546,7 +548,7 @@ enum Harness {
         for _ in 0..<repeats {
             let p = peaks(from: alOnly, noiseSigmaPixels: noise, includeDirectBeam: true, rng: &r)
             let v = PhaseVectorMatcher.experimentalVectors(
-                peaks: p, originX: originX, originY: originY,
+                peaks: p.map { SIMD2<Double>(Double($0.x), Double($0.y)) }, originX: originX, originY: originY,
                 invAngstromPerPixel: invAngstromPerPixel,
                 directBeamRadiusInvAngstrom: s.directBeamRadiusInvAngstrom,
                 maximumVectorInvAngstrom: s.maximumVectorInvAngstrom)
@@ -610,7 +612,7 @@ enum Harness {
             + "→ \(dense.entries[dense.candidateEntryIndices[0]].vectors.count), "
             + String(format: "chance-match %.1f %% → %.1f %%", 100 * chanceCandidate, 100 * denseChance))
     if let denseMap = PhaseVectorMatcher.map(
-        bragg: bragg, library: dense, settings: matchSettings,
+        scan: scan, scanWidth: scanW, scanHeight: scanH, library: dense, settings: matchSettings,
         originX: originX, originY: originY, invAngstromPerPixel: invAngstromPerPixel) {
         let d = accuracy(denseMap)
         print(String(format: "         matrix %.1f %% (was %.1f), β″ %.1f %% (was %.1f), "
@@ -637,7 +639,7 @@ enum Harness {
     ] {
         var relaxed = matchSettings
         mutate(&relaxed)
-        guard let m = PhaseVectorMatcher.map(bragg: bragg, library: library, settings: relaxed,
+        guard let m = PhaseVectorMatcher.map(scan: scan, scanWidth: scanW, scanHeight: scanH, library: library, settings: relaxed,
                                              originX: originX, originY: originY,
                                              invAngstromPerPixel: invAngstromPerPixel)
         else { continue }
@@ -662,7 +664,7 @@ enum Harness {
     // forced into a phase; if it is not, the threshold is not what refuses them.
     var noRefusal = matchSettings
     noRefusal.notIndexedAboveInvAngstrom = .greatestFiniteMagnitude
-    if let m = PhaseVectorMatcher.map(bragg: bragg, library: library, settings: noRefusal,
+    if let m = PhaseVectorMatcher.map(scan: scan, scanWidth: scanW, scanHeight: scanH, library: library, settings: noRefusal,
                                       originX: originX, originY: originY,
                                       invAngstromPerPixel: invAngstromPerPixel) {
         let d = accuracy(m)

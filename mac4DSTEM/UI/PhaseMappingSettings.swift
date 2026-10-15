@@ -28,6 +28,7 @@ import DSTEMCore
 import DSTEMSession
 #endif
 import simd
+import DiffractoOrientation
 
 struct PhaseMappingSections: View {
     @Environment(AppState.self) private var appState

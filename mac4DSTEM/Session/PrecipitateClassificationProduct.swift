@@ -14,6 +14,7 @@ import Foundation
 import DSTEMCore
 #endif
 import Observation
+import DiffractoOrientation
 
 /// The Session boundary for `../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification` §3.
 ///

@@ -14,6 +14,7 @@
 		300000000000000000000011 /* DiffractoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000010 /* DiffractoCore */; };
 		300000000000000000000013 /* DiffractoScattering in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000012 /* DiffractoScattering */; };
 		300000000000000000000015 /* DiffractoGeometry in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000014 /* DiffractoGeometry */; };
+		300000000000000000000101 /* DiffractoOrientation in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000100 /* DiffractoOrientation */; };
 		300000000000000000000017 /* CuboCore in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000016 /* CuboCore */; };
 		300000000000000000000019 /* CuboVirtual in Frameworks */ = {isa = PBXBuildFile; productRef = 300000000000000000000018 /* CuboVirtual */; };
 		30000000000000000000001B /* CuboPhase in Frameworks */ = {isa = PBXBuildFile; productRef = 30000000000000000000001A /* CuboPhase */; };
@@ -94,8 +95,7 @@
 				Core/Crystal/OrientationMatcher.swift,
 				Core/Crystal/OrientationPlan.swift,
 				Core/Crystal/PhaseMapPresentation.swift,
-				Core/Crystal/PhaseReferenceLibrary.swift,
-				Core/Crystal/PhaseVectorMatching.swift,
+				Core/Crystal/PhaseMappingScan.swift,
 				Core/Data/BraggVectorEMDTypes.swift,
 				Core/Data/BraggVectorEMDWriter.swift,
 				Core/Data/Calibration.swift,
@@ -227,6 +227,7 @@
 				300000000000000000000011 /* DiffractoCore in Frameworks */,
 				300000000000000000000013 /* DiffractoScattering in Frameworks */,
 				300000000000000000000015 /* DiffractoGeometry in Frameworks */,
+				300000000000000000000101 /* DiffractoOrientation in Frameworks */,
 				300000000000000000000017 /* CuboCore in Frameworks */,
 				300000000000000000000019 /* CuboVirtual in Frameworks */,
 				30000000000000000000001B /* CuboPhase in Frameworks */,
@@ -294,6 +295,7 @@
 				300000000000000000000010 /* DiffractoCore */,
 				300000000000000000000012 /* DiffractoScattering */,
 				300000000000000000000014 /* DiffractoGeometry */,
+				300000000000000000000100 /* DiffractoOrientation */,
 				300000000000000000000016 /* CuboCore */,
 				300000000000000000000018 /* CuboVirtual */,
 				30000000000000000000001A /* CuboPhase */,
@@ -881,7 +883,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/DiffractoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.1.0;
+				version = 0.3.1;
 			};
 		};
 		30000000000000000000000D /* XCRemoteSwiftPackageReference "CuboKit" */ = {
@@ -942,6 +944,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
 			productName = DiffractoGeometry;
+		};
+		300000000000000000000100 /* DiffractoOrientation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 30000000000000000000000C /* XCRemoteSwiftPackageReference "DiffractoKit" */;
+			productName = DiffractoOrientation;
 		};
 		300000000000000000000016 /* CuboCore */ = {
 			isa = XCSwiftPackageProductDependency;

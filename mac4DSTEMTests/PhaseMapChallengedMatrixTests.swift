@@ -8,6 +8,7 @@
 
 import XCTest
 import DSTEMCore
+import DiffractoOrientation
 @testable import mac4DSTEM
 
 final class PhaseMapChallengedMatrixTests: XCTestCase {

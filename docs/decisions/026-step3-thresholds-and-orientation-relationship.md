@@ -35,9 +35,9 @@ indefinite knob-turning.
 
 ## Governs
 
-`mac4DSTEM/Core/Crystal/PhaseVectorMatching.swift`'s
+DiffractoKit 0.3.1, `Sources/DiffractoOrientation/PhaseVectorMatching.swift`'s
 `maximumVectorInvAngstrom`, `relativeReferenceMinimumRadiusPx`,
-`notIndexedAboveInvAngstrom`; `mac4DSTEM/Core/Crystal/PhaseReferenceLibrary.swift`'s
+`notIndexedAboveInvAngstrom`; DiffractoKit 0.3.1, `Sources/DiffractoOrientation/PhaseReferenceLibrary.swift`'s
 `OrientationRelationship`; `../_archive/mac4DSTEM/tools/phase-map-probe`, `../_archive/mac4DSTEM/tools/thronsen-dataset`.
 
 ## Sources

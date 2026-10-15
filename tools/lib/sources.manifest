@@ -443,13 +443,14 @@ mac4dstem_sources() {
         )
         ;;
       phasevectors)
-        # Vector-matched phase mapping: the reference library and the matcher,
-        # on top of the ACOM stack they compose (phase-vector-matching).
+        # Vector-matched phase mapping: the reference library and the matcher are DiffractoKit's DiffractoOrientation
+        # (0.3.0; the app's copies are deleted), linked on top of the ACOM stack they compose (phase-vector-matching).
         mac4dstem_sources "$repo" acom
+        kit_module "$repo" DiffractoKit DiffractoGeometry DiffractoOrientation
+        want+=("${KIT_FLAGS[@]}")
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
-          "$core/Crystal/PhaseReferenceLibrary.swift"
-          "$core/Crystal/PhaseVectorMatching.swift"
+          "$core/Crystal/PhaseMappingScan.swift"
           "$core/Crystal/PhaseMapPresentation.swift"
         )
         ;;

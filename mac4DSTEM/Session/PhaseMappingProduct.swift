@@ -8,7 +8,7 @@
 //
 //  Method: Thronsen et al., Ultramicroscopy 255 (2024) 113861, CC BY 4.0 —
 //  implemented from the published description; their repository has no licence
-//  and is not used. See `Core/Crystal/PhaseVectorMatching.swift`.
+//  and is not used. The matcher is DiffractoKit's `DiffractoOrientation/PhaseVectorMatching.swift`.
 //
 //  UNVALIDATED, and the UI says so. Step 3 of `../_archive/mac4DSTEM/docs/v3-features.md#vector-matching`
 //  — scoring this against their published ground truth — has not run, so
@@ -24,6 +24,7 @@ import DSTEMCore
 #endif
 import Observation
 import simd
+import DiffractoOrientation
 
 /// One phase the user put in the list: a structure model, its role, and the
 /// beam direction to sample it along.

@@ -2,6 +2,7 @@ import XCTest
 import DiffractoCore
 import DiffractoScattering
 import DSTEMCore
+import DiffractoOrientation
 @testable import mac4DSTEM
 
 /// Tier 1 consumer test of the switch to DiffractoKit 0.0.3 (../_archive/mac4DSTEM/docs/registrations/diffractokit-switch-registration-2026-10-15.md,
@@ -161,12 +162,12 @@ final class KitSwitchMappingTests: XCTestCase {
             XCTAssertEqual(error as? PhaseReferenceLibrary.Failure, .unsupportedElements(phase: "Candidate", z: [104]))
         }
         XCTAssertThrowsError(try library(tooClose)) { error in
-            guard case .invalidStructure(let phase, let reason)? = error as? PhaseReferenceLibrary.Failure else {
-                return XCTFail("expected invalidStructure, got \(error)")
+            guard case .structureRefused(let phase, let reason)? = error as? PhaseReferenceLibrary.Failure else {
+                return XCTFail("expected structureRefused, got \(error)")
             }
             XCTAssertEqual(phase, "Candidate")
             XCTAssertTrue(reason.contains("0.0400"), reason)
-            XCTAssertTrue(AppState.phaseLibraryFailureMessage(.invalidStructure(phase: phase, reason: reason)).contains("Candidate"))
+            XCTAssertTrue(AppState.phaseLibraryFailureMessage(.structureRefused(phase: phase, reason: reason)).contains("Candidate"))
         }
     }
 }

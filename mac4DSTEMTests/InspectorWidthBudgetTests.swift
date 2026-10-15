@@ -15,6 +15,7 @@ import DSTEMCore
 import DSTEMSession
 import SwiftUI
 import XCTest
+import DiffractoOrientation
 @testable import mac4DSTEM
 
 @MainActor

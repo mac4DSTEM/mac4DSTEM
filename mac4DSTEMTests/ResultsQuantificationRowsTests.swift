@@ -7,6 +7,7 @@
 import XCTest
 @testable import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 @testable import mac4DSTEM
 
 @MainActor

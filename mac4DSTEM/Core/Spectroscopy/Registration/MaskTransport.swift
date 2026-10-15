@@ -25,6 +25,7 @@
 
 import Foundation
 import SpectroCore
+import DiffractoOrientation
 
 package nonisolated struct MaskTransportError: Error, Equatable, CustomStringConvertible {
     package let description: String

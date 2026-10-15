@@ -23,6 +23,7 @@ import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import SpectroCore
+import DiffractoOrientation
 #endif
 
 /// The picker's two pool sections (Not indexed belongs to Phases).

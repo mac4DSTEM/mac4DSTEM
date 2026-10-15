@@ -10,6 +10,7 @@ import XCTest
 import simd
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 @testable import mac4DSTEM
 
 final class PhaseMappingReproductionTests: XCTestCase {

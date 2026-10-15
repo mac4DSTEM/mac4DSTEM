@@ -22,6 +22,7 @@ import Foundation
 #if canImport(DSTEMCore)
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 #endif
 
 extension AppState {

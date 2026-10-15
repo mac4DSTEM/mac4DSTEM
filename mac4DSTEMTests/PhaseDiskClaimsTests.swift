@@ -19,6 +19,7 @@ import XCTest
 import simd
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 @testable import mac4DSTEM
 
 final class PhaseDiskClaimsTests: XCTestCase {
@@ -73,14 +74,14 @@ final class PhaseDiskClaimsTests: XCTestCase {
                         result: PhaseVectorResult,
                         settings: PhaseVectorSettings = PhaseVectorSettings()) -> [PhaseDiskClaim] {
         PhaseVectorMatcher.claims(
-            peaks: peaks, originX: origin, originY: origin, invAngstromPerPixel: scale,
+            peaks: peaks.map(\.phaseScanPosition), originX: origin, originY: origin, invAngstromPerPixel: scale,
             settings: settings, matrixEntry: library.entries[0], result: result, library: library)
     }
 
     private func classify(_ peaks: [BraggPeak], library: PhaseReferenceLibrary,
                           settings: PhaseVectorSettings = PhaseVectorSettings()) -> PhaseVectorResult {
         let vectors = PhaseVectorMatcher.experimentalVectors(
-            peaks: peaks, originX: origin, originY: origin, invAngstromPerPixel: scale,
+            peaks: peaks.map(\.phaseScanPosition), originX: origin, originY: origin, invAngstromPerPixel: scale,
             directBeamRadiusInvAngstrom: settings.directBeamRadiusInvAngstrom,
             maximumVectorInvAngstrom: settings.maximumVectorInvAngstrom)
         return PhaseVectorMatcher.classify(
@@ -197,11 +198,11 @@ final class PhaseDiskClaimsTests: XCTestCase {
     func testExperimentalVectorsIsExactlyTheSinglePeakRule() {
         let peaks = mixedPeaks()
         let many = PhaseVectorMatcher.experimentalVectors(
-            peaks: peaks, originX: origin, originY: origin, invAngstromPerPixel: scale,
+            peaks: peaks.map(\.phaseScanPosition), originX: origin, originY: origin, invAngstromPerPixel: scale,
             directBeamRadiusInvAngstrom: 0.15)
         let one = peaks.compactMap {
             PhaseVectorMatcher.experimentalVector(
-                peak: $0, originX: origin, originY: origin, invAngstromPerPixel: scale,
+                peak: $0.phaseScanPosition, originX: origin, originY: origin, invAngstromPerPixel: scale,
                 directBeamRadiusInvAngstrom: 0.15)
         }
         XCTAssertEqual(many, one)
@@ -230,7 +231,8 @@ final class PhaseDiskClaimsTests: XCTestCase {
         let bragg = BraggVectors(scanWidth: positions.count, scanHeight: 1, peaks: positions)
         let settings = PhaseVectorSettings()
         let map = try XCTUnwrap(PhaseVectorMatcher.map(
-            bragg: bragg, library: library, settings: settings,
+            scan: bragg.phaseScan, scanWidth: bragg.scanWidth, scanHeight: bragg.scanHeight,
+            library: library, settings: settings,
             originX: origin, originY: origin, invAngstromPerPixel: scale,
             matrixEntryIndex: 0))
 
@@ -240,7 +242,7 @@ final class PhaseDiskClaimsTests: XCTestCase {
         for (i, peaks) in positions.enumerated() {
             let result = map.results[i]
             let c = PhaseVectorMatcher.claims(
-                peaks: peaks, originX: origin, originY: origin, invAngstromPerPixel: scale,
+                peaks: peaks.map(\.phaseScanPosition), originX: origin, originY: origin, invAngstromPerPixel: scale,
                 settings: settings, matrixEntry: library.entries[Int(map.matrixEntryIndex)],
                 result: result, library: library)
             XCTAssertEqual(c.count, peaks.count, "position \(i)")

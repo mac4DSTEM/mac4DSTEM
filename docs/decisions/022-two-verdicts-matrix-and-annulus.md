@@ -26,7 +26,7 @@ that position is, whether or not matrix removal ran there.
 
 ## Governs
 
-The phase-map `.matrix` label assignment in `mac4DSTEM/Core/Crystal/PhaseVectorMatching.swift`.
+The phase-map `.matrix` label assignment in DiffractoKit 0.3.1 (`Sources/DiffractoOrientation/PhaseVectorMatching.swift`).
 
 ## Sources
 

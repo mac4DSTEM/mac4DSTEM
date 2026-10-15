@@ -29,6 +29,7 @@ import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 #endif
 
 // MARK: - Style
@@ -338,7 +339,7 @@ struct PhaseClaimLayer: View {
         let matrixEntry: PhaseOrientationReference? =
             run.matrixEntryIndex >= 0 && run.matrixEntryIndex < library.entries.count
             ? library.entries[run.matrixEntryIndex] : nil
-        let peaks = calibrated.vectors.peaks[scan]
+        let peaks = calibrated.vectors.peaks[scan].map(\.phaseScanPosition)
         claims = PhaseVectorMatcher.claims(
             peaks: peaks, originX: origin.x, originY: origin.y,
             invAngstromPerPixel: run.invAngstromPerPixel, settings: run.matching,
