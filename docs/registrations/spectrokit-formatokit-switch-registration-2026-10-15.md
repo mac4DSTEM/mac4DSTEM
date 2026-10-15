@@ -34,3 +34,30 @@ libhdf5 is the race the lock exists to prevent). Products: SpectroEDX, FormatoCo
 ## Checks
 The unit, core, scientific and inventory gates on the lane's tree; counts by name. Mutations (tier 2 sample): the lock path and a
 moved import's behaviour, each seen red and restored; the new test broken once. A failed prediction is reported, not amended.
+
+## Results (2026-10-15, lane R2; the tree is `main` at `7a0f727f` plus the switch)
+Scope change after registration (owner, 14:44): the three root dylibs and the "Embed Libraries" phase are removed in the same change, so R6 reads
+"the one libhdf5 is FormatoKit's bundle copy" (same sha256 `c374776d…`, `166a8041…`, `6ebc2e1c…` as the removed files).
+- **R1 held.** BEFORE 2436 names (2432 passed, 4 skipped, by log lines); AFTER 2437 names by the xcresult (2433 passed, 4 skipped, 0 failed):
+  the same names with the same outcomes plus `HDF5SingleLibraryTests`. (The after log lost one `passed` line to parallel output interleaving,
+  `SessionLineageTests.testReEncodingIsByteIdenticalAndTheKeysAreTheADRs`; the xcresult lists it Passed.) Gate: unit exit 0.
+- **R2 held.** Six golden files byte-identical; `velox-tiny.txt` gained exactly 13 nil lines (five `detectors[i].exposureTimeSeconds`, the six
+  metadata fields `nominalMagnification`, `stemMagnification`, `cameraLengthMeters`, `operatingMode`, `projectorMode`, `exposureTimeSeconds`,
+  two `streams[i].segments[0].exposureTimeSeconds`) and lost none; re-recorded.
+- **R3 held.** `velox-parity`: 20 cases, 27 stacks (80 frames), 0 failures, every result line equal to BEFORE.
+- **R4 held in substance, one check mis-worded.** `dm4-robustness-test` and `hdf5-exit-race-test` (order PASS, 200 of 200) lines equal BEFORE;
+  `dm4-parity-probe`: the synthetic DM4 sha256 equal, VERIFY 484 of 484 bit-identical. The subsample file's sha256 is NOT equal, and is not equal
+  between two runs of the same code either: the writer stamps a random `UUID` attribute; every dataset and attribute but `/@UUID` is equal.
+- **R5 held.** `autoid-velox-check` on the owner's Velox file: same picks (hits 4 of 7), `00.json`, `00.spectrum.u64`, `summary.json` byte-identical.
+- **R6 held** (`HDF5SingleLibraryTests`): after the app's writer and the Velox reader ran, one libhdf5, one libsz, one libaec are mapped, all in
+  `mac4DSTEM.app/Contents/Resources/FormatoKit_FormatoHDF5.bundle/Contents/Resources/hdf5/`. Broken once: a second copy first in the writer's list
+  maps two of each and the test fails with the paths.
+- **R7 held.** scientific 53 harnesses, exit 0, every PASS line equal to BEFORE except timings, temp paths and three load-dependent measures
+  (cancel_mid_run rows 17 → 14, tiled-detection memory slope +1.6 → +4.4 MB per tile, virtual-detector growth 0-2 → 1-10 MB; limits 64 MB).
+  core, inventory exit 0; `package-test` (Release, ad-hoc) all passed.
+- **Mutations.** Without `installExitBarrier` in `H5Reader`: `hdf5-exit-race-test` order FAIL and race 20 of 20 abnormal. `error is DM4Error` dropped from
+  `SessionGates.isDataSourceFailure`: `FinalPolishDTests.testTheRefusalReachesTheModalAlertAsTheOwnersSentence` red. A mutation of `DM4Reader`
+  line 212 (`noDatacube` to `truncated`) stayed green on `dm4-robustness-test` (that line is not reached by it): not counted.
+- **Open, the owner's.** A hardened-runtime process cannot `dlopen` the bundle's ad-hoc-signed dylibs (library validation: "mapping process and mapped
+  file (non-platform) have different Team IDs"), measured on a stand-in. The old embed signed them with the app identity. Until a signing choice
+  lands, a Release app with Hardened Runtime cannot read HDF5; Debug (no hardened runtime) works.
