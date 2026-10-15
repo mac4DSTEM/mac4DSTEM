@@ -247,6 +247,9 @@ mac4dstem_sources() {
         ;;
       acom)
         # Production Bragg types and ACOM; no harness-side type replicas.
+        # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
+        kit_module "$repo" DiffractoKit DiffractoGeometry
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -258,7 +261,6 @@ mac4dstem_sources() {
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
           "$core/Analysis/OrientationResult.swift"
-          "$core/Crystal/ScatteringFactors.swift"
           "$core/Crystal/Crystal.swift"
           "$core/Crystal/CrystalModel.swift"
           "$core/Crystal/OrientationPlan.swift"
@@ -271,6 +273,9 @@ mac4dstem_sources() {
         # `readers` + `analysis` + the origin/Q estimators + the crystal side
         # that supplies the reference shell. OrientationPlan/OrientationMatcher
         # are deliberately absent — nothing here indexes.
+        # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
+        kit_module "$repo" DiffractoKit DiffractoGeometry
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" readers analysis calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -280,7 +285,6 @@ mac4dstem_sources() {
           "$core/Analysis/BeamstopMask.swift"
           "$core/Analysis/QCalibration.swift"
           "$core/Analysis/OrientationResult.swift"
-          "$core/Crystal/ScatteringFactors.swift"
           "$core/Crystal/Crystal.swift"
           "$core/Crystal/CrystalModel.swift"
         )
@@ -387,14 +391,16 @@ mac4dstem_sources() {
       crystal)
         # Crystal models and CIF import, no indexing (cif-symmetry-test,
         # acom-orientation-test).
+        # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
+        kit_module "$repo" DiffractoKit DiffractoGeometry
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" data
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Analysis/OrientationResult.swift"
-          "$core/Crystal/ScatteringFactors.swift"
           "$core/Crystal/Crystal.swift"
           "$core/Crystal/CrystalModel.swift"
-          "$core/Crystal/CIFImport.swift"
+          "$core/Crystal/CIFModelImport.swift"
         )
         ;;
       phasevectors)
@@ -420,7 +426,8 @@ mac4dstem_sources() {
         # Every Core/ source — what `swift build` compiles as DSTEMCore. For
         # the two diagnostics that touch most of it (bragg-spacing-probe,
         # training-dataset-campaign); a gated harness names its groups.
-        # Calibration.swift is in the glob, and it imports DiffractoGeometry (as the `calibration` group).
+        # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes,
+        # and Calibration.swift's ellipse transform).
         kit_module "$repo" DiffractoKit DiffractoGeometry
         want+=("${KIT_FLAGS[@]}")
         want+=("$core"/**/*.swift(N))

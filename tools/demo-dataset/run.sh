@@ -23,7 +23,7 @@
 # something `scientific`/`all` can run on every commit.
 #
 # Sources: NOT through tools/lib/sources.manifest. export_reflections.swift
-# takes only Crystal.swift + ScatteringFactors.swift, both self-contained
+# takes only Crystal.swift (the presets) and DiffractoKit, via `kit_module`
 # (no other Core dependents) — not a group sources.manifest defines, and the
 # brief's own compile line already names the two files explicitly. (The
 # verification pass that checked this dataset against the app's own reader,
@@ -52,9 +52,10 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/mac4dstem-demo-dataset.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "== building export_reflections =="
-xcrun swiftc -O -package-name mac4DSTEM -o "$WORK/export" export_reflections.swift \
-  "$REPO/mac4DSTEM/Core/Crystal/Crystal.swift" \
-  "$REPO/mac4DSTEM/Core/Crystal/ScatteringFactors.swift"
+. "$REPO/tools/lib/sources.manifest"
+kit_module "$REPO" DiffractoKit DiffractoGeometry
+xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -o "$WORK/export" export_reflections.swift \
+  "$REPO/mac4DSTEM/Core/Crystal/Crystal.swift" "${KIT_FLAGS[@]}"
 codesign -f -s - "$WORK/export" 2>/dev/null || true
 
 echo "== computing reflection geometry (Al x3 zone axes, beta\" x2 zone axes) =="

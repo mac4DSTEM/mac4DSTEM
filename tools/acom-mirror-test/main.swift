@@ -11,6 +11,7 @@
 // independent proper-group operator list. Reports CPU time per pattern and
 // CPU/Metal agreement so the second pass is measured, not assumed.
 import Foundation
+import DiffractoScattering
 import simd
 
 func require(_ condition: Bool, _ message: String) {
@@ -101,7 +102,7 @@ struct Trial {
     let sampled: Bool
 }
 
-func makeTrial(label: String, axis: SIMD3<Double>, angleDeg: Double, reflections: [Reflection],
+func makeTrial(label: String, axis: SIMD3<Double>, angleDeg: Double, reflections: [KinematicReflection],
                wavelength: Double?, scale: Double, origin: Double, ops: [simd_double3x3],
                hexagonal: Bool) -> Trial {
     let n = simd_normalize(axis)
@@ -136,7 +137,7 @@ func run(hexagonal: Bool, wavelength: Double?) -> Bool {
                                               symmetry: symmetry, wavelengthAngstrom: wavelength),
           let matcher = OrientationMatcher(plan: plan, symmetry: symmetry)
     else { require(false, "\(tag) plan and matcher"); return false }
-    let reflections = crystal.reflections(kMax: kMax)
+    let reflections = (try! crystal.kinematicReflections(kMax: kMax).kept)
 
     // Named axes: five in the sampled zone, their five mirror images.
     var named: [Trial] = []

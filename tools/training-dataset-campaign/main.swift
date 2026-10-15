@@ -1,5 +1,7 @@
 import Foundation
+import DiffractoCore
 import DiffractoGeometry
+import DiffractoScattering
 
 // `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
 // the local mirror this file carried is gone.
@@ -108,9 +110,9 @@ struct DatasetCampaignReport: Codable {
 /// Distinct |g| shells. `Crystal.reflections` returns every symmetry equivalent
 /// separately at the same length, so `[1]` is another equivalent of the FIRST
 /// shell, not the second one. // v2 S13
-private func distinctShellLengths(_ crystal: Crystal) -> [Double] {
+private func distinctShellLengths(_ crystal: CrystalStructure) -> [Double] {
     var shells: [Double] = []
-    for length in crystal.reflections(kMax: 2.5).map(\.gLength)
+    for length in (try! crystal.kinematicReflections(kMax: 2.5).kept).map(\.gLength)
     where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
         shells.append(length)
     }
@@ -764,11 +766,11 @@ private func evaluate(
     if let phaseModel,
        calibration.originFitIsSane,
        phaseModel.isUsable,
-       let firstShell = distinctShellLengths(phaseModel.crystal).first,
+       let firstShell = distinctShellLengths(phaseModel.structure).first,
        let qEstimate = KnownCrystalQCalibration.estimate(
             bragg: vectors, origin: meanOrigin,
             referenceRadiusInvAngstrom: firstShell,
-            secondShellRadiusInvAngstrom: distinctShellLengths(phaseModel.crystal).dropFirst().first,
+            secondShellRadiusInvAngstrom: distinctShellLengths(phaseModel.structure).dropFirst().first,
             probeRadiusPixels: Double(originFit.probeRadius)
        ) {
         // DIAGNOSTIC ONLY (W4b, 2026-08-31): run the MATCHING stage at a
@@ -817,7 +819,7 @@ private func evaluate(
         // without it the in-plane angle is only determined modulo 180°
         // (see OrientationPlan.project).
         let plan = OrientationPlan.generate(
-            crystal: phaseModel.crystal, kMax: 1.2, zoneAxisCount: 96,
+            crystal: phaseModel.structure, kMax: 1.2, zoneAxisCount: 96,
             symmetry: phaseModel.symmetry,
             wavelengthAngstrom: DPC.electronWavelengthAngstrom(voltageKV: voltageKV)
         )
@@ -843,11 +845,11 @@ private func evaluate(
         ) {
             parityACOM = ParityACOMExport(
                 crystalID: phaseModel.id,
-                cellAAngstrom: phaseModel.crystal.a,
-                siteFractional: phaseModel.crystal.sites.map {
+                cellAAngstrom: phaseModel.structure.a,
+                siteFractional: phaseModel.structure.sites.map {
                     [$0.fractional.x, $0.fractional.y, $0.fractional.z]
                 },
-                siteAtomicNumbers: phaseModel.crystal.sites.map(\.z),
+                siteAtomicNumbers: phaseModel.structure.sites.map(\.z),
                 symmetry: phaseModel.symmetry.rawValue,
                 kMaxInvAngstrom: 1.2, zoneAxisCount: 96,
                 invAngstromPerPixel: matchScale,

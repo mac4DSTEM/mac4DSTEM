@@ -23,6 +23,8 @@
 //
 
 import Foundation
+import DiffractoCore
+import DiffractoScattering
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
@@ -56,7 +58,7 @@ struct QShellProbe {
         let truthQ = value("--truth-q").flatMap(Double.init)
         let tileRows = value("--tile-rows").flatMap(Int.init)
         let minRelative = value("--min-relative").flatMap(Float.init)
-        let crystal: Crystal
+        let crystal: CrystalStructure
         switch value("--crystal") ?? "al" {
         case "al": crystal = .aluminum
         case "au": crystal = .gold
@@ -116,7 +118,7 @@ struct QShellProbe {
         // DISTINCT shell lengths, exactly as AppState+ACOM builds them, plus
         // the first reflection's hkl so a ring can be named.
         var shells: [Shell] = []
-        for r in crystal.reflections(kMax: 2.5)
+        for r in (try! crystal.kinematicReflections(kMax: 2.5).kept)
         where shells.last.map({ r.gLength > $0.g * (1 + 1e-6) }) ?? true {
             shells.append(Shell(g: r.gLength, hkl: "(\(r.h) \(r.k) \(r.l))"))
         }

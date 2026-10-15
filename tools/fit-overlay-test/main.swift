@@ -181,7 +181,7 @@ print("PASS: strain overlay maps local fit back onto the raw pattern")
 // MARK: - 5. ACOM template overlay lands on the constructed pattern
 
 guard let plan = OrientationPlan.generate(
-    crystal: .gold, kMax: 1.2, zoneAxisCount: 96
+    crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 96
 ) else { fail("orientation plan generation") }
 guard plan.templateSpots.count == plan.count else {
     fail("plan must retain spots for every template")

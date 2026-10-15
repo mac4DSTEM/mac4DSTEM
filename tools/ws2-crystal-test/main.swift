@@ -1,4 +1,6 @@
 import Foundation
+import DiffractoCore
+import DiffractoScattering
 
 // W4a (S14+S15 merged, 2026-08-31): the WS₂ crystal-model fixture.
 //
@@ -53,9 +55,9 @@ enum WS2CrystalTest {
         guard model.symmetry == .hexagonal else {
             fail("ws2_2h symmetry is .\(model.symmetry.rawValue), not .hexagonal")
         }
-        let ws2 = model.crystal
-        guard approx(ws2.a, a, rel: 1e-12), approx(ws2.c, c, rel: 1e-12) else {
-            fail("ws2_2h cell is a=\(ws2.a), c=\(ws2.c); the Schutte 1987 cell is a=\(a), c=\(c)")
+        let ws2 = model.structure
+        guard approx(ws2.cell.a, a, rel: 1e-12), approx(ws2.cell.c, c, rel: 1e-12) else {
+            fail("ws2_2h cell is a=\(ws2.cell.a), c=\(ws2.cell.c); the Schutte 1987 cell is a=\(a), c=\(c)")
         }
         let wSites = ws2.sites.filter { $0.z == 74 }
         let sSites = ws2.sites.filter { $0.z == 16 }
@@ -64,11 +66,11 @@ enum WS2CrystalTest {
         }
         print("PASS: ws2_2h in the catalog — cited cell, 2 W + 4 S, hexagonal")
 
-        let reflections = ws2.reflections(kMax: 2.5)
+        let reflections = (try! ws2.kinematicReflections(kMax: 2.5).kept)
         guard !reflections.isEmpty else { fail("ws2_2h generated no reflections") }
-        var byHKL: [String: Reflection] = [:]
+        var byHKL: [String: KinematicReflection] = [:]
         for r in reflections { byHKL["\(r.h),\(r.k),\(r.l)"] = r }
-        func refl(_ h: Int, _ k: Int, _ l: Int) -> Reflection? { byHKL["\(h),\(k),\(l)"] }
+        func refl(_ h: Int, _ k: Int, _ l: Int) -> KinematicReflection? { byHKL["\(h),\(k),\(l)"] }
 
         // ── 2. |g| against the closed-form hexagonal metric ──
         for (h, k, l) in [(0, 0, 2), (1, 0, 0), (1, 0, 1), (1, 1, 0), (1, 0, 3), (2, 0, 2)] {
@@ -99,8 +101,8 @@ enum WS2CrystalTest {
         // for WS₂ (c/a 3.91) it is (0002), then (0004), and only then (10-10).
         // A fixture with only near-ideal hcp would be blind to this order —
         // the S8 symmetric-constant lesson, applied to c/a.
-        func distinctShells(_ crystal: Crystal, kMax: Double) -> [Double] {
-            let lengths = crystal.reflections(kMax: kMax).map(\.gLength)
+        func distinctShells(_ crystal: CrystalStructure, kMax: Double) -> [Double] {
+            let lengths = (try! crystal.kinematicReflections(kMax: kMax).kept).map(\.gLength)
             var shells: [Double] = []
             for length in lengths where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
                 shells.append(length)
@@ -148,7 +150,7 @@ enum WS2CrystalTest {
             guard let r = refl(h, k, l) else { fail("(\(h)\(k)\(l)) missing for the F cross-check") }
             var re = 0.0, im = 0.0
             for site in ws2.sites {
-                let fe = ScatteringFactors.electronScatteringFactor(
+                let fe = ElectronScatteringFactors.f(
                     z: site.z, gSquared: r.gLength * r.gLength) ?? 0
                 let phase = 2 * Double.pi * (Double(h) * site.fractional.x
                                            + Double(k) * site.fractional.y
@@ -156,7 +158,7 @@ enum WS2CrystalTest {
                 re += fe * site.occupancy * cos(phase)
                 im += fe * site.occupancy * sin(phase)
             }
-            re /= ws2.volume; im /= ws2.volume
+            re /= ws2.cell.volume; im /= ws2.cell.volume
             guard approx(re, r.structureFactorRe, rel: 1e-9, abs: 1e-12),
                   approx(im, r.structureFactorIm, rel: 1e-9, abs: 1e-12) else {
                 fail("(\(h)\(k)\(l)) F mismatch: independent sum (\(re), \(im)) vs code " +
@@ -179,9 +181,9 @@ enum WS2CrystalTest {
         // Anti-vacuity: a control that cannot fail is not a control. Each one
         // names the model line it would break.
         func variant(zS: Double = 0.6225, a va: Double = 3.1532, c vc: Double = 12.323,
-                     swapSpecies: Bool = false, sOccupancy: Double = 1.0) -> Crystal {
+                     swapSpecies: Bool = false, sOccupancy: Double = 1.0) -> CrystalStructure {
             let (zW, zChalc) = swapSpecies ? (16, 74) : (74, 16)
-            return Crystal(
+            return Crystal.structure(
                 a: va, b: va, c: vc, alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
                 sites: [
                     AtomSite(z: zW, fractional: [1.0 / 3.0, 2.0 / 3.0, 0.25]),
@@ -193,8 +195,8 @@ enum WS2CrystalTest {
                 ]
             )
         }
-        func intensity(_ crystal: Crystal, _ h: Int, _ k: Int, _ l: Int) -> Double {
-            crystal.reflections(kMax: 1.0)
+        func intensity(_ crystal: CrystalStructure, _ h: Int, _ k: Int, _ l: Int) -> Double {
+            (try! crystal.kinematicReflections(kMax: 1.0).kept)
                 .first { $0.h == h && $0.k == k && $0.l == l }?.intensity ?? 0
         }
 
@@ -226,7 +228,7 @@ enum WS2CrystalTest {
 
         // Control B — the staged mp-224 DFT c = 14.2024. Breaks: the c constant.
         let mp224 = variant(c: 14.2024)
-        let g002mp = mp224.reflections(kMax: 0.5).first { $0.h == 0 && $0.k == 0 && $0.l == 2 }?.gLength ?? 0
+        let g002mp = (try! mp224.kinematicReflections(kMax: 0.5).kept).first { $0.h == 0 && $0.k == 0 && $0.l == 2 }?.gLength ?? 0
         guard Swift.abs(g002mp - 2.0 / c) / (2.0 / c) > 0.10 else {
             fail("control B cannot see c 12.323→14.2024 on (0002): \(g002mp) — vacuous control")
         }

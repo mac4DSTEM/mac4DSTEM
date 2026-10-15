@@ -1,4 +1,5 @@
 import Foundation
+import DiffractoScattering
 
 // S13 E1 — the shell-consistency threshold (docs/q-calibration-design.md §3.1),
 // measured rather than invented. Pre-registration in
@@ -61,7 +62,7 @@ struct ShellCheck {
         guard let model = CrystalModelLibrary.model(id: modelID), model.isUsable else {
             print("FAIL: no usable crystal model '\(modelID)'"); exit(1)
         }
-        let shells = distinctShells(model.crystal.reflections(kMax: 2.5).map(\.gLength))
+        let shells = distinctShells((try! model.structure.kinematicReflections(kMax: 2.5).kept).map(\.gLength))
         guard let g1 = shells.first else { print("FAIL: no allowed shell"); exit(1) }
         let g2 = shells.count > 1 ? shells[1] : Double.nan
 

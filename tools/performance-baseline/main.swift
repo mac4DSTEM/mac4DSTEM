@@ -1,4 +1,6 @@
 import Foundation
+import DiffractoCore
+import DiffractoScattering
 import Darwin
 import Metal
 
@@ -616,7 +618,7 @@ func acomPlanBenchmark(repeats: Int, warmups: Int) -> BenchmarkReport {
         warmups: warmups
     ) {
         guard let plan = OrientationPlan.generate(
-            crystal: .gold, kMax: 1.2, zoneAxisCount: 400
+            crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 400
         ) else { fatalError("ACOM plan generation failed") }
         return Double(plan.count)
             + plan.zoneAxes.prefix(8).reduce(0) { $0 + $1.x + $1.y + $1.z }
@@ -624,12 +626,12 @@ func acomPlanBenchmark(repeats: Int, warmups: Int) -> BenchmarkReport {
 }
 
 func syntheticACOMVectors(
-    plan: OrientationPlan, crystal: Crystal,
+    plan: OrientationPlan, crystal: CrystalStructure,
     width: Int, height: Int,
     originX: Float = 64, originY: Float = 64,
     invAngstromPerPixel: Double = 0.01
 ) -> BraggVectors {
-    let reflections = crystal.reflections(kMax: 1.2)
+    let reflections = (try! crystal.kinematicReflections(kMax: 1.2).kept)
     let peaks = (0..<(width * height)).map { index -> [BraggPeak] in
         let templateIndex = (index * 37 + index / max(1, width)) % plan.count
         let angle = Double((index * 11) % 64) / 64 * Double.pi
@@ -718,13 +720,13 @@ struct Baseline {
             positionStep: 5
         )
         guard let acomPlan = OrientationPlan.generate(
-            crystal: .gold, kMax: 1.2, zoneAxisCount: 400
+            crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 400
         ) else { fatalError("ACOM benchmark plan failed") }
         let acomSmall = syntheticACOMVectors(
-            plan: acomPlan, crystal: .gold, width: 4, height: 3
+            plan: acomPlan, crystal: Crystal.gold, width: 4, height: 3
         )
         let acomMedium = syntheticACOMVectors(
-            plan: acomPlan, crystal: .gold, width: 8, height: 6
+            plan: acomPlan, crystal: Crystal.gold, width: 8, height: 6
         )
 
         let reports: [(String, BenchmarkReport)] = [

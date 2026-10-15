@@ -8,16 +8,10 @@
 //  spot positions and intensities cannot drift from what the app itself
 //  would compute for the same structures.
 //
-//  `detectorBasis` below is copied from
-//  mac4DSTEM/Core/Analysis/OrientationResult.swift:91-96 (as of 2026-09-14),
-//  not linked from it: this is a generator, not a gate, and pulling in
-//  OrientationResult.swift's own dependency chain here would be unrelated
-//  weight for six lines of pure geometry (brief's own allowance).
+//  Since 2026-10-15 the lattice, the reflection list and the detector basis are DiffractoKit's (`Crystal.swift` keeps
+//  only the presets); run.sh builds the kit with `kit_module` and links it.
 //
-//  Build (no app target, no signing):
-//    xcrun swiftc -O -package-name mac4DSTEM -o export export_reflections.swift \
-//      <repo>/mac4DSTEM/Core/Crystal/Crystal.swift \
-//      <repo>/mac4DSTEM/Core/Crystal/ScatteringFactors.swift
+//  Build (no app target, no signing): see run.sh.
 //
 //  Output: one JSON object on stdout, keyed by "<phase>_<uvw>", each an array
 //  of {h,k,l,qx,qy,intensity} — qx,qy in Å⁻¹ at in-plane rotation 0 (grain and
@@ -28,28 +22,9 @@
 
 import Foundation
 import simd
-
-// MARK: - detectorBasis (copied, see header)
-
-enum CopiedACOMOrientation {
-    static func detectorBasis(zoneAxis n: SIMD3<Double>) -> simd_double3x3 {
-        let reference: SIMD3<Double> = abs(n.x) < 0.9 ? [1, 0, 0] : [0, 1, 0]
-        let e1 = simd_normalize(simd_cross(n, reference))
-        let e2 = simd_cross(n, e1)
-        return simd_double3x3(columns: (e1, e2, n))
-    }
-}
-
-// MARK: - Zone-axis direction (real-space, normalised over latReal)
-
-func cartesianZoneAxis(_ uvw: SIMD3<Int>, crystal: Crystal) -> SIMD3<Double>? {
-    let v = Double(uvw.x) * crystal.latReal[0]
-        + Double(uvw.y) * crystal.latReal[1]
-        + Double(uvw.z) * crystal.latReal[2]
-    let n = simd_length(v)
-    guard n.isFinite, n > 1e-12 else { return nil }
-    return v / n
-}
+import DiffractoCore
+import DiffractoGeometry
+import DiffractoScattering
 
 // MARK: - One (crystal, zone axis) entry
 
@@ -59,13 +34,13 @@ struct OutReflection: Codable {
     let intensity: Double
 }
 
-func reflectionsFor(crystal: Crystal, uvw: SIMD3<Int>, kMax: Double,
+func reflectionsFor(crystal: CrystalStructure, uvw: SIMD3<Int>, kMax: Double,
                      zolzTolerance: Double, minIntensityFraction: Double) -> [OutReflection] {
-    guard let n = cartesianZoneAxis(uvw, crystal: crystal) else { return [] }
-    let basis = CopiedACOMOrientation.detectorBasis(zoneAxis: n)
+    guard let n = ZoneAxis(uvw.x, uvw.y, uvw.z).cartesian(in: crystal.cell) else { return [] }
+    let basis = ZoneAxis.detectorBasis(n)
     let e1 = basis.columns.0, e2 = basis.columns.1
 
-    let all = crystal.reflections(kMax: kMax)
+    let all = try! crystal.kinematicReflections(kMax: kMax).kept
     var kept: [(OutReflection, Double)] = []
     var strongest = 0.0
     for r in all {
@@ -95,12 +70,12 @@ enum ExportReflections {
         let zolzTolerance = 0.02   // Å⁻¹, per demo-dataset-brief.md §Reflections
         let minIntensityFraction = 0.02
 
-        let jobs: [(name: String, crystal: Crystal, uvw: SIMD3<Int>)] = [
-            ("Al_001", .aluminum, SIMD3(0, 0, 1)),
-            ("Al_011", .aluminum, SIMD3(0, 1, 1)),
-            ("Al_111", .aluminum, SIMD3(1, 1, 1)),
-            ("betaDoublePrime_010", .betaDoublePrime, SIMD3(0, 1, 0)),
-            ("betaDoublePrime_001", .betaDoublePrime, SIMD3(0, 0, 1)),
+        let jobs: [(name: String, crystal: CrystalStructure, uvw: SIMD3<Int>)] = [
+            ("Al_001", Crystal.aluminum, SIMD3(0, 0, 1)),
+            ("Al_011", Crystal.aluminum, SIMD3(0, 1, 1)),
+            ("Al_111", Crystal.aluminum, SIMD3(1, 1, 1)),
+            ("betaDoublePrime_010", Crystal.betaDoublePrime, SIMD3(0, 1, 0)),
+            ("betaDoublePrime_001", Crystal.betaDoublePrime, SIMD3(0, 0, 1)),
         ]
 
         var out: [String: [OutReflection]] = [:]

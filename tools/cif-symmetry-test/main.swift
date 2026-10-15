@@ -31,22 +31,29 @@
 //  rejection, but the opposite claim about the user's structure), or be
 //  refused by the model contract after passing every symmetry test.
 //
+//  SINCE 2026-10-15 (DiffractoKit 0.0.3) the classification this file was written to pin is the kit's: it detects the
+//  Laue class from the atoms and the app maps it with `ACOMCrystalSymmetry.reduction(for:)` (m-3m in a cubic cell, 6/mmm
+//  in a hexagonal one, 2/m with b unique). The "must be rejected" structures below (`classifyFamily` / `verifyFamily` in
+//  the comments) are now "must be admitted as .identity, never cubic or hexagonal"; the named kit plants are in
+//  DiffractoKit's DiffractoCoreTests (`CIFImportTests`, `SymmetryDetectionTests`). The file-level refusals (missing
+//  operations, truncated loops, close contacts) are the kit reader's and are asserted through the app's importer.
+//
 //  Run via tools/run-tests.sh scientific.
 //
 
 import Foundation
+import DiffractoCore
 
 // MARK: - Cases
 
+//  CHANGED 2026-10-15 (DiffractoKit 0.0.3; registration P4). The kit READS the Laue class from the atoms and admits every
+//  class, so the two refusals that guarded against over-symmetrisation (`.symmetry`: right metric, wrong symmetry;
+//  `.precision`: coordinates too coarse to tell a break from rounding) are gone: those structures are now ADMITTED, as
+//  `.identity` ("Unreduced"), and what each case asserts is the same thing it always guarded: never `.cubic` or
+//  `.hexagonal`. The model contract and the file-level refusals below are unchanged.
 private enum Rejection {
-    /// Right metric, wrong symmetry — `verifyFamily` must catch it.
-    case symmetry
-    /// Right metric, coordinates too coarse to tell a symmetry break from
-    /// their own rounding. Still a rejection; a *different* claim about the
-    /// user's structure, and the only true one at that precision.
-    case precision
-    /// Admitted by the symmetry checks, then refused by the model contract.
-    /// `code` is the `CrystalModelValidationIssue` code that must appear.
+    /// Refused by the structure's own checks (`CrystalStructure.validationIssues`, raised by the kit reader before
+    /// any symmetry is looked at). `code` is a fragment of the issue text that must appear.
     case invalidModel(code: String)
     /// Refused before any symmetry check: a non-P1 declaration with no
     /// expanding operations (core-crystal-02). `names` must appear in the
@@ -1005,12 +1012,11 @@ Au1 Au 0.00000 0.00000 0.00000
 private let atomLoopCutLeavingOneStray = goldP1Declared + "\nAu5"
 
 private let cases: [Case] = [
-    Case(name: "alpha_quartz_P3221", cif: quartz, rejection: .symmetry,
+    Case(name: "alpha_quartz_P3221", cif: quartz, expectedSymmetry: .identity,
          why: "trigonal (3-fold only) in the hexagonal setting"),
-    Case(name: "calcite_R-3c", cif: calcite, rejection: .symmetry,
+    Case(name: "calcite_R-3c", cif: calcite, expectedSymmetry: .identity,
          why: "trigonal (-3m) in the hexagonal setting"),
-    Case(name: "tetragonal_accidental_cubic_metric", cif: accidentallyCubicMetric,
-         rejection: .symmetry,
+    Case(name: "tetragonal_accidental_cubic_metric", cif: accidentallyCubicMetric, expectedSymmetry: .identity,
          why: "cubic metric by coincidence, no 3-fold along <111>"),
     Case(name: "gold_fcc_P1", cif: goldP1, expectedSymmetry: .cubic, expectedSiteCount: 4,
          why: "genuinely cubic, no symmetry loop supplied"),
@@ -1035,14 +1041,13 @@ private let cases: [Case] = [
          expectedSymmetry: .hexagonal, expectedSiteCount: 6,
          why: "hexagonal 6-3 screw over a TWO-species basis (W 2c + S 4f)"),
     // Laue class within the family: one generator is not the group.
-    Case(name: "fluorapatite_P63m_laue_6overm", cif: fluorapatite, rejection: .symmetry,
+    Case(name: "fluorapatite_P63m_laue_6overm", cif: fluorapatite, expectedSymmetry: .identity,
          why: "Laue 6/m — 6-fold along c but no 2-fold along a"),
-    Case(name: "pyrite_Pa-3_laue_m-3", cif: pyrite, rejection: .symmetry,
+    Case(name: "pyrite_Pa-3_laue_m-3", cif: pyrite, expectedSymmetry: .identity,
          why: "Laue m-3 — <111> 3-fold but no 4-fold along c"),
-    Case(name: "cdi2_P-3m1_trigonal", cif: cadmiumIodide, rejection: .symmetry,
+    Case(name: "cdi2_P-3m1_trigonal", cif: cadmiumIodide, expectedSymmetry: .identity,
          why: "trigonal — 6-fold would swap columns at different z"),
-    Case(name: "gold_shifted_site_0p05_real_break", cif: goldShiftedSite(shift: 0.05),
-         rejection: .symmetry,
+    Case(name: "gold_shifted_site_0p05_real_break", cif: goldShiftedSite(shift: 0.05), expectedSymmetry: .identity,
          why: "0.05 fractional (0.20 A) displacement of a face-centre site — a real break"),
     Case(name: "gold_shifted_site_0p0009_below_tolerance", cif: goldShiftedSite(shift: 0.0009),
          expectedSymmetry: .cubic, expectedSiteCount: 4,
@@ -1052,7 +1057,7 @@ private let cases: [Case] = [
          rejection: .invalidModel(code: "atomic_sites_too_close"),
          why: "cubic to every symmetry test, but two Au 0.0037 A apart is not a structure"),
     Case(name: "magnesium_symop_loop_2dp", cif: magnesiumSymopLoop(decimals: 2),
-         rejection: .precision,
+         expectedSymmetry: .identity,
          why: "2 decimals cannot resolve the 6-fold from its own rounding — refuse, "
               + "do not widen the gate"),
     Case(name: "magnesium_symop_loop_3dp", cif: magnesiumSymopLoop(decimals: 3),
@@ -1078,10 +1083,10 @@ private let cases: [Case] = [
          expectedSymmetry: .hexagonal, expectedSiteCount: 2,
          why: "truncated to 6 decimals — precise data, and it must not be erratic"),
     Case(name: "gold_coarse_shift_0p163A_unresolvable", cif: goldCoarseShifted("0.54"),
-         rejection: .precision,
+         expectedSymmetry: .identity,
          why: "0.163 A break written at 2 decimals — must NOT be admitted as m-3m cubic"),
     Case(name: "gold_coarse_shift_0p041A_unresolvable", cif: goldCoarseShifted("0.51"),
-         rejection: .precision,
+         expectedSymmetry: .identity,
          why: "0.041 A break at 2 decimals — same verdict at the small end of the band"),
     Case(name: "two_close_sites_2dp", cif: twoCloseSites("0.11", "0.12"),
          rejection: .invalidModel(code: "atomic_sites_too_close"),
@@ -1161,24 +1166,23 @@ enum CIFSymmetryTest {
 
         for testCase in cases {
             let result = Result {
-                try CIFImport.crystalModel(from: testCase.cif, fileBaseName: testCase.name)
+                try CIFModelImport.crystalModel(from: testCase.cif, fileBaseName: testCase.name)
             }
             switch (result, testCase.expectedSymmetry) {
             case (.success(let model), .none):
                 failures.append(
                     "\(testCase.name): expected REJECT (\(testCase.why)) but was admitted "
-                    + "as .\(model.symmetry.rawValue) with \(model.crystal.sites.count) sites"
+                    + "as .\(model.symmetry.rawValue) with \(model.structure.sites.count) sites"
                 )
 
             case (.failure(let error), .none):
-                let expected = testCase.rejection ?? .symmetry
+                guard let expected = testCase.rejection else {
+                    failures.append("\(testCase.name): expected ADMIT (\(testCase.why)) but was rejected — \(error)")
+                    continue
+                }
                 let described = (error as? LocalizedError)?.errorDescription ?? "\(error)"
                 switch (expected, error) {
-                case (.symmetry, CIFImportError.symmetryNotSupportedByStructure):
-                    print("PASS: rejected \(testCase.name) — \(testCase.why)")
-                case (.precision, CIFImportError.symmetryUnresolvableAtWrittenPrecision):
-                    print("PASS: rejected \(testCase.name) as unresolvable — \(testCase.why)")
-                case (.invalidModel(let code), CIFImportError.invalidModel(let issues)):
+                case (.invalidModel(let code), CIFModelImportError.cif(.invalidStructure(let issues))):
                     // The message is the user-facing half of this contract, so
                     // match on it rather than only on the case: an issue that
                     // stops naming its cause has regressed even if it fires.
@@ -1191,7 +1195,7 @@ enum CIFSymmetryTest {
                         continue
                     }
                     print("PASS: rejected \(testCase.name) by the model contract — \(testCase.why)")
-                case (.missingOperations(let names), CIFImportError.missingSymmetryOperations):
+                case (.missingOperations(let names), CIFModelImportError.cif(.missingSymmetryOperations)):
                     guard described.contains(names) else {
                         failures.append(
                             "\(testCase.name): refused for missing operations, but the "
@@ -1200,7 +1204,7 @@ enum CIFSymmetryTest {
                         continue
                     }
                     print("PASS: rejected \(testCase.name) for missing operations — \(testCase.why)")
-                case (.truncatedLoop(let tag), CIFImportError.truncatedLoop):
+                case (.truncatedLoop(let tag), CIFModelImportError.cif(.truncatedLoop)):
                     guard described.contains(tag) else {
                         failures.append(
                             "\(testCase.name): refused as truncated, but the message "
@@ -1224,10 +1228,10 @@ enum CIFSymmetryTest {
                     continue
                 }
                 if let expectedSiteCount = testCase.expectedSiteCount,
-                   model.crystal.sites.count != expectedSiteCount {
+                   model.structure.sites.count != expectedSiteCount {
                     failures.append(
                         "\(testCase.name): admitted as .\(model.symmetry.rawValue) but the cell "
-                        + "holds \(model.crystal.sites.count) atoms, expected \(expectedSiteCount)"
+                        + "holds \(model.structure.sites.count) atoms, expected \(expectedSiteCount)"
                         + " — site multiplicity goes straight into the structure factors"
                     )
                     continue
@@ -1235,7 +1239,7 @@ enum CIFSymmetryTest {
                 // Universal invariant, not a per-case expectation: an admitted
                 // model's sites live in the unit cell. Raw out-of-range
                 // coordinates are invisible to any neighbour-cell search.
-                let outside = model.crystal.sites.filter {
+                let outside = model.structure.sites.filter {
                     let f = [$0.fractional.x, $0.fractional.y, $0.fractional.z]
                     return f.contains { $0 < 0 || $0 >= 1 }
                 }

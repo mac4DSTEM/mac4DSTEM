@@ -28,7 +28,7 @@ CORE="$REPO/mac4DSTEM/Core"
 SPECTRO=("$CORE"/Spectroscopy/**/*.swift(N))
 SPECTRO=(${SPECTRO:#*/Registration/(MaskTransport|PoolBuilder).swift})
 xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
-  "${MAC4DSTEM_SOURCES[@]}" "$CORE/Crystal/ScatteringFactors.swift" "${SPECTRO[@]}" \
+  "${MAC4DSTEM_SOURCES[@]}" "${SPECTRO[@]}" \
   "$REPO/mac4DSTEM/UI/Spectroscopy/SpectroscopyLogic.swift" "$REPO/mac4DSTEM/UI/Spectroscopy/AutoIDPresentation.swift" \
   main.swift "${MAC4DSTEM_ISOLATION_FLAGS[@]}" -Xcc -DACCELERATE_NEW_LAPACK -framework Accelerate
 codesign -f -s - "$WORK/harness" 2>/dev/null

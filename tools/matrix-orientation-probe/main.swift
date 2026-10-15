@@ -30,6 +30,7 @@
 
 import Foundation
 import DiffractoGeometry
+import DiffractoScattering
 import Metal
 import simd
 
@@ -557,7 +558,7 @@ enum MatrixOrientationProbe {
         // ---- Reproduction: the drive's zone axis, matrix entry and map ------
         let refSettings = PhaseReferenceSettings()
         let axes = PhaseVectorMatcher.fitZoneAxis(
-            bragg: bragg, crystal: .aluminum, referenceSettings: refSettings, settings: settings,
+            bragg: bragg, crystal: Crystal.aluminum, referenceSettings: refSettings, settings: settings,
             originX: origin.x, originY: origin.y, invAngstromPerPixel: qPerPixel)
         guard let top = axes.first else { fail("no zone axis fitted") }
         print("\n== Reproduction (drive B1: ⟨110⟩, 43 % of vectors once scaled) ==")
@@ -568,9 +569,9 @@ enum MatrixOrientationProbe {
         }
         let axis = top.zoneAxis
         let phases = [
-            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum, role: .matrix, zoneAxes: [axis]),
-            PhaseDefinition(id: "b010", displayName: "β″[010]", crystal: .betaDoublePrime, role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
-            PhaseDefinition(id: "b001", displayName: "β″[001]", crystal: .betaDoublePrime, role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
+            PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum, role: .matrix, zoneAxes: [axis]),
+            PhaseDefinition(id: "b010", displayName: "β″[010]", crystal: Crystal.betaDoublePrime, role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
+            PhaseDefinition(id: "b001", displayName: "β″[001]", crystal: Crystal.betaDoublePrime, role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
         ]
         let library = try PhaseReferenceLibrary.build(phases: phases, settings: refSettings)
         guard let global = PhaseVectorMatcher.fitMatrixOrientation(
@@ -604,14 +605,14 @@ enum MatrixOrientationProbe {
         }
 
         // ---- Per-position fits ---------------------------------------------
-        let reflections = Crystal.aluminum.reflections(kMax: refSettings.kMaxInvAngstrom)
+        let reflections = (try! Crystal.aluminum.kinematicReflections(kMax: refSettings.kMaxInvAngstrom).kept)
         let base = PhaseReferenceLibrary.projectedVectors(
-            reflections: reflections, crystal: .aluminum, zoneAxis: axis, settings: refSettings)
+            reflections: reflections, crystal: Crystal.aluminum, zoneAxis: axis, settings: refSettings)
         var floor0Settings = refSettings
         floor0Settings.minimumIntensityFraction = 0
         floor0Settings.maximumVectorsPerEntry = 1000
         let baseFloor0 = PhaseReferenceLibrary.projectedVectors(
-            reflections: reflections, crystal: .aluminum, zoneAxis: axis, settings: floor0Settings)
+            reflections: reflections, crystal: Crystal.aluminum, zoneAxis: axis, settings: floor0Settings)
         print(String(format: "\n⟨%d %d %d⟩Al reference: %d vectors at the shipped 5 %% floor, %d at floor 0",
                      axis.x, axis.y, axis.z, base.count, baseFloor0.count))
 
@@ -624,7 +625,7 @@ enum MatrixOrientationProbe {
         var coarse: [(axis: SIMD3<Int>, theta: Double, refs: [ReferenceVector])] = []
         for a in PhaseReferenceLibrary.lowIndexZoneAxes {
             let b = PhaseReferenceLibrary.projectedVectors(
-                reflections: reflections, crystal: .aluminum, zoneAxis: a, settings: refSettings)
+                reflections: reflections, crystal: Crystal.aluminum, zoneAxis: a, settings: refSettings)
             guard !b.isEmpty else { continue }
             for t in PhaseReferenceLibrary.inPlaneSteps(coarseSettings) {
                 coarse.append((a, t, PhaseReferenceLibrary.rotate(b, by: t)))

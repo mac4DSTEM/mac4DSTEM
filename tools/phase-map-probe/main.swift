@@ -31,6 +31,7 @@
 //
 
 import Foundation
+import DiffractoCore
 import simd
 
 /// `truth.json` as written by `tools/demo-dataset/run.sh`: which grain, which
@@ -92,7 +93,7 @@ enum Probe {
     // cubic and hexagonal cells (θ′ is tetragonal)". `--cif-check <Al.cif>
     // <thetaPrime.cif> <T1.cif>` loads the paper's own CIFs
     // (`References/crystal-structures/`) through the app's real
-    // `CIFImport.crystalModel(from:fileBaseName:)` and compares the result
+    // `CIFModelImport.crystalModel(from:fileBaseName:)` and compares the result
     // against the hand-typed crystals at both levels the brief asks for:
     // the expanded atom-site list, and the kinematic reference-vector list
     // `PhaseReferenceLibrary` builds for it at the same zone axes the probe
@@ -105,12 +106,12 @@ enum Probe {
             print("  \(name): could not read \(path)"); return nil
         }
         do {
-            let model = try CIFImport.crystalModel(from: text, fileBaseName: name)
+            let model = try CIFModelImport.crystalModel(from: text, fileBaseName: name)
             let sgLine = model.spaceGroupNumber.map(String.init) ?? "nil"
-            let siteCount = model.crystal.sites.count
+            let siteCount = model.structure.sites.count
             print("  \(name): CIFImport OK, symmetry=\(model.symmetry), "
                   + "spaceGroupNumber=\(sgLine), \(siteCount) expanded sites")
-            return model.crystal
+            return model.structure
         } catch {
             print("  \(name): CIFImport THREW — \(error)")
             return nil
@@ -129,7 +130,7 @@ enum Probe {
         let cifTheta = loadCIF(thetaPath, name: "theta-prime")
         let cifT1 = loadCIF(t1Path, name: "T1")
         guard let cifAl, let cifTheta, let cifT1 else { return nil }
-        let swap: [String: Crystal] = ["al": cifAl, "theta-edge": cifTheta, "theta-face": cifTheta, "t1": cifT1]
+        let swap: [String: CrystalStructure] = ["al": cifAl, "theta-edge": cifTheta, "theta-face": cifTheta, "t1": cifT1]
         return basePhases.map { phase in
             guard let replacement = swap[phase.id] else { return phase }
             return PhaseDefinition(
@@ -197,7 +198,7 @@ enum Probe {
         guard let cifAl, let cifTheta, let cifT1 else {
             print("\n  one or more CIFs failed to load; skipping level 2"); return
         }
-        let swap: [String: Crystal] = ["al": cifAl, "theta-edge": cifTheta, "theta-face": cifTheta, "t1": cifT1]
+        let swap: [String: CrystalStructure] = ["al": cifAl, "theta-edge": cifTheta, "theta-face": cifTheta, "t1": cifT1]
         let cifPhases: [PhaseDefinition] = handPhases.map { phase in
             guard let replacement = swap[phase.id] else { return phase }
             return PhaseDefinition(
@@ -674,19 +675,19 @@ enum Probe {
         // competition depends on it.
         var phases = thronsen != nil ? Thronsen.phases(constrained: orientationRelationship) : truth != nil
             ? [
-                PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                                 role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
                 PhaseDefinition(id: "beta010", displayName: "β″[010]",
-                                crystal: .betaDoublePrime,
+                                crystal: Crystal.betaDoublePrime,
                                 role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
                 PhaseDefinition(id: "beta001", displayName: "β″[001]",
-                                crystal: .betaDoublePrime,
+                                crystal: Crystal.betaDoublePrime,
                                 role: .candidate, zoneAxes: [SIMD3(0, 0, 1)]),
             ]
             : [
-                PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+                PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                                 role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
-                PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+                PhaseDefinition(id: "beta", displayName: "β″", crystal: Crystal.betaDoublePrime,
                                 role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
             ]
         if let cifCrystalPaths {
@@ -767,7 +768,7 @@ enum Probe {
                     let dumpCrystal = phases[entry.phaseIndex].crystal
                     let dumpN = PhaseReferenceLibrary.cartesianZoneAxis(entry.zoneAxis, crystal: dumpCrystal)
                     for v in entry.vectors {
-                        let g = Double(v.h) * dumpCrystal.latInv[0] + Double(v.k) * dumpCrystal.latInv[1] + Double(v.l) * dumpCrystal.latInv[2]
+                        let g = Double(v.h) * dumpCrystal.cell.reciprocalLattice[0] + Double(v.k) * dumpCrystal.cell.reciprocalLattice[1] + Double(v.l) * dumpCrystal.cell.reciprocalLattice[2]
                         print(String(format: "    |q| %.4f  rel.intensity %.4f  (%d %d %d)  s_g %+.4f",
                                      v.length, v.relativeIntensity, v.h, v.k, v.l,
                                      dumpN.map { simd_dot(g, $0) } ?? .nan))
@@ -889,9 +890,9 @@ enum Probe {
         sweepSettings.inPlaneStepDeg = 5
         sweepSettings.maximumEntries = 60000
         if let sweep = try? PhaseReferenceLibrary.build(phases: [
-            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+            PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                             role: .matrix, zoneAxes: []),
-            PhaseDefinition(id: "beta", displayName: "β″", crystal: .betaDoublePrime,
+            PhaseDefinition(id: "beta", displayName: "β″", crystal: Crystal.betaDoublePrime,
                             role: .candidate, zoneAxes: [SIMD3(0, 1, 0)]),
         ], settings: sweepSettings) {
             var byAxis: [SIMD3<Int>: (matched: Int, mean: Double, deg: Double)] = [:]
@@ -1542,7 +1543,7 @@ enum Probe {
                 func excitationError(_ v: ReferenceVector, _ entry: PhaseOrientationReference) -> Double {
                     let crystal = phases[entry.phaseIndex].crystal
                     guard let n = PhaseReferenceLibrary.cartesianZoneAxis(entry.zoneAxis, crystal: crystal) else { return .nan }
-                    let g = Double(v.h) * crystal.latInv[0] + Double(v.k) * crystal.latInv[1] + Double(v.l) * crystal.latInv[2]
+                    let g = Double(v.h) * crystal.cell.reciprocalLattice[0] + Double(v.k) * crystal.cell.reciprocalLattice[1] + Double(v.l) * crystal.cell.reciprocalLattice[2]
                     return simd_dot(g, n)
                 }
                 func evidence(_ index: Int, pattern: [Float]? = nil) -> Evidence {
@@ -1877,7 +1878,7 @@ enum Probe {
                             guard let n = PhaseReferenceLibrary.cartesianZoneAxis(entry.zoneAxis, crystal: crystal)
                             else { return false }
                             let v = entry.vectors[hitIndex]
-                            let g = Double(v.h) * crystal.latInv[0] + Double(v.k) * crystal.latInv[1] + Double(v.l) * crystal.latInv[2]
+                            let g = Double(v.h) * crystal.cell.reciprocalLattice[0] + Double(v.k) * crystal.cell.reciprocalLattice[1] + Double(v.l) * crystal.cell.reciprocalLattice[2]
                             if abs(simd_dot(g, n)) > evidenceSlab { return false }
                         }
                         return !matrixEntry.vectors.contains {

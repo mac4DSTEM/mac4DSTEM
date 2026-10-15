@@ -26,10 +26,11 @@
 //
 
 import Foundation
+import DiffractoCore
 
 enum Thronsen {
     /// T1, Al₂CuLi: P6/mmm, a = 4.94775 Å, c = 14.14499 Å (their Table 2).
-    static let t1 = Crystal(
+    static let t1 = Crystal.structure(
         a: 4.94775, b: 4.94775, c: 14.14499, alphaDeg: 90, betaDeg: 90, gammaDeg: 120,
         sites: [
             AtomSite(z: 13, fractional: [0.333333, 0.000000, 0.000000]),
@@ -57,7 +58,7 @@ enum Thronsen {
         ])
 
     /// θ′, Al₂Cu: I-4m2, a = 4.04 Å, c = 5.80 Å (their Table 2).
-    static let thetaPrime = Crystal(
+    static let thetaPrime = Crystal.structure(
         a: 4.04, b: 4.04, c: 5.80,
         sites: [
             AtomSite(z: 13, fractional: [0.000000, 0.000000, 0.000000]),
@@ -95,7 +96,7 @@ enum Thronsen {
             OrientationRelationship(candidate: .direction(SIMD3(2, 1, 0)), matrix: .direction(SIMD3(1, 1, 0))),
         ] : []
         return [
-            PhaseDefinition(id: "al", displayName: "Al", crystal: .aluminum,
+            PhaseDefinition(id: "al", displayName: "Al", crystal: Crystal.aluminum,
                             role: .matrix, zoneAxes: [SIMD3(0, 0, 1)]),
             // Per-phase slab (`theta-prime-slab-2026-09-21.md`): θ′ is the flat
             // plate the paper's own 0.300 Å⁻¹ describes; T1 and Al stay `nil`

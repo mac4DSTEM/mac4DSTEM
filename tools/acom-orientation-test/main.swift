@@ -1,4 +1,5 @@
 import Foundation
+import DiffractoGeometry
 import simd
 
 struct Fixture: Decodable {
@@ -65,7 +66,7 @@ for test in fixture.cases {
     if let zone = test.zoneAxis, let angle = test.inPlaneAngle {
         guard zone.count == 3 else { fail("\(test.name) zoneAxis must have 3 values") }
         let n = simd_normalize(SIMD3(zone[0], zone[1], zone[2]))
-        let basis = ACOMOrientation.detectorBasis(zoneAxis: n)
+        let basis = ZoneAxis.detectorBasis(n)
         let composed = ACOMOrientation.matrix(detectorBasis: basis, inPlaneAngle: angle)
         let compositionError = maximumError(composed, expectedMatrix)
         guard compositionError <= 2e-7 else {

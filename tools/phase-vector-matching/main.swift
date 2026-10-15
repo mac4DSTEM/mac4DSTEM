@@ -54,6 +54,9 @@
 //
 
 import Foundation
+import DiffractoCore
+import DiffractoScattering
+import DiffractoGeometry
 import simd
 
 // MARK: - Reporting
@@ -99,10 +102,10 @@ struct Rng {
 /// plane ⊥ n — `harnessFrame`'s pair, built here and NOT the production
 /// `detectorBasis`, so the two frames agree only up to a rotation about n
 /// and only if both have the same handedness (file header).
-func harnessBeam(_ crystal: Crystal, zone uvw: SIMD3<Int>) -> SIMD3<Double> {
-    let r = Double(uvw.x) * crystal.latReal[0]
-        + Double(uvw.y) * crystal.latReal[1]
-        + Double(uvw.z) * crystal.latReal[2]
+func harnessBeam(_ crystal: CrystalStructure, zone uvw: SIMD3<Int>) -> SIMD3<Double> {
+    let r = Double(uvw.x) * crystal.cell.realLattice[0]
+        + Double(uvw.y) * crystal.cell.realLattice[1]
+        + Double(uvw.z) * crystal.cell.realLattice[2]
     return r / simd_length(r)
 }
 
@@ -118,17 +121,17 @@ func harnessFrame(_ n: SIMD3<Double>) -> (f1: SIMD3<Double>, f2: SIMD3<Double>) 
 /// it, degrees. A plant at θ in the harness frame is θ − this in production's,
 /// which is what a fitted in-plane rotation must be compared against.
 func frameOffsetDeg(_ n: SIMD3<Double>) -> Double {
-    let e = ACOMOrientation.detectorBasis(zoneAxis: n)
+    let e = ZoneAxis.detectorBasis(n)
     let f1 = harnessFrame(n).f1
     return atan2(simd_dot(f1, e.columns.1), simd_dot(f1, e.columns.0)) * 180 / .pi
 }
 
-func harnessProject(_ crystal: Crystal, zone uvw: SIMD3<Int>, kMax: Double,
+func harnessProject(_ crystal: CrystalStructure, zone uvw: SIMD3<Int>, kMax: Double,
                     sgMax: Double) -> [(h: Int, k: Int, l: Int, q: SIMD2<Double>, weight: Double)] {
     let n = harnessBeam(crystal, zone: uvw)
     let frame = harnessFrame(n)
     var out: [(h: Int, k: Int, l: Int, q: SIMD2<Double>, weight: Double)] = []
-    for refl in crystal.reflections(kMax: kMax) {
+    for refl in (try! crystal.kinematicReflections(kMax: kMax).kept) {
         let sg = simd_dot(refl.g, n)
         if abs(sg) > sgMax { continue }
         let q = SIMD2(simd_dot(refl.g, frame.f1), simd_dot(refl.g, frame.f2))
@@ -191,9 +194,9 @@ enum Harness {
     // forbidden 100/110 must be absent: fcc extinguishes mixed-parity hkl.
     let al = Crystal.aluminum
     let alVectors = PhaseReferenceLibrary.projectedVectors(
-        reflections: al.reflections(kMax: kMax), crystal: al,
+        reflections: (try! al.kinematicReflections(kMax: kMax).kept), crystal: al,
         zoneAxis: SIMD3(0, 0, 1), settings: settings)
-    let a0 = al.a
+    let a0 = al.cell.a
     let expected200 = 2 / a0, expected220 = 2 * 2.0.squareRoot() / a0
     let lengths = alVectors.map(\.length).sorted()
     let shortest = lengths.first ?? .nan
@@ -230,13 +233,13 @@ enum Harness {
     // h + k even to h + k + l even, which is a different lattice and half of
     // β″'s reference vectors. Nothing pinned it, because every other check
     // reads the CELL and this reads where the atoms sit in it.
-    let betaAll = beta.reflections(kMax: kMax)
+    let betaAll = (try! beta.kinematicReflections(kMax: kMax).kept)
     check("A2c β″ obeys the C-centring condition h + k even",
           !betaAll.isEmpty && betaAll.allSatisfy { ($0.h + $0.k) % 2 == 0 },
           "\(betaAll.count) reflections, "
           + "\(betaAll.filter { ($0.h + $0.k) % 2 != 0 }.count) with h + k odd "
           + "(C2/m, No. 12); an I- or A-centred cell would fail here")
-    let alAll = al.reflections(kMax: kMax)
+    let alAll = (try! al.kinematicReflections(kMax: kMax).kept)
     check("A1e fcc obeys h, k, l all even or all odd",
           !alAll.isEmpty && alAll.allSatisfy {
               let parity = [$0.h % 2 != 0, $0.k % 2 != 0, $0.l % 2 != 0]
@@ -244,9 +247,9 @@ enum Harness {
           },
           "\(alAll.count) reflections, none of mixed parity")
 
-    let betaRad = beta.betaDeg * .pi / 180
-    let aStar = 1 / (beta.a * sin(betaRad))
-    let cStar = 1 / (beta.c * sin(betaRad))
+    let betaRad = beta.cell.betaDeg * .pi / 180
+    let aStar = 1 / (beta.cell.a * sin(betaRad))
+    let cStar = 1 / (beta.cell.c * sin(betaRad))
     let cosBetaStar = -cos(betaRad)
     func monoclinicLength(_ h: Int, _ l: Int) -> Double {
         let hh = Double(h), ll = Double(l)
@@ -254,7 +257,7 @@ enum Harness {
                 + 2 * hh * ll * aStar * cStar * cosBetaStar).squareRoot()
     }
     let betaVectors = PhaseReferenceLibrary.projectedVectors(
-        reflections: beta.reflections(kMax: kMax), crystal: beta,
+        reflections: (try! beta.kinematicReflections(kMax: kMax).kept), crystal: beta,
         zoneAxis: SIMD3(0, 1, 0), settings: settings)
     check("A2a β″ [010] is the k = 0 zone",
           !betaVectors.isEmpty && betaVectors.allSatisfy { $0.k == 0 },
@@ -293,7 +296,7 @@ enum Harness {
     for (crystal, zone) in [(al, SIMD3(0, 0, 1)), (beta, SIMD3(0, 1, 0)), (beta, SIMD3(0, 0, 1))] {
         let mine = harnessProject(crystal, zone: zone, kMax: kMax, sgMax: sgMax)
         let theirs = PhaseReferenceLibrary.projectedVectors(
-            reflections: crystal.reflections(kMax: kMax), crystal: crystal,
+            reflections: (try! crystal.kinematicReflections(kMax: kMax).kept), crystal: crystal,
             zoneAxis: zone, settings: settings)
         var pairs: [(SIMD2<Double>, SIMD2<Double>)] = []
         for t in theirs {
@@ -524,7 +527,7 @@ enum Harness {
     }
     let metals = try metalLibrary(settings)
     let alOnly = harnessProject(al, zone: SIMD3(0, 0, 1), kMax: kMax, sgMax: sgMax).map(\.q)
-    let gAl = 2 / al.a, gAu = 2 / au.a
+    let gAl = 2 / al.cell.a, gAu = 2 / au.cell.a
     measure("Al vs Au geometry",
             String(format: "|g(200)| %.5f vs %.5f Å⁻¹, separation %.5f Å⁻¹ "
                    + "(%.1f %% of the %.3f Å⁻¹ pair radius)",

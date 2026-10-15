@@ -1,6 +1,8 @@
 // Independent orientation-coordinate regression. See README for the oracle's
 // scope: analytic peak positions, shared structure factors, frozen external data.
 import Foundation
+import DiffractoCore
+import DiffractoScattering
 import simd
 
 func require(_ condition: Bool, _ message: String) {
@@ -71,7 +73,7 @@ func analytic(hexagonal: Bool) {
     let label = hexagonal ? "WS2" : "Au"
     let ops = operators(hexagonal: hexagonal)
     checkOracle(ops, count: hexagonal ? 12 : 24)
-    let crystal = hexagonal ? Crystal.tungstenDisulfide : Crystal(
+    let crystal = hexagonal ? Crystal.tungstenDisulfide : Crystal.structure(
         a: 4.08, b: 4.08, c: 4.08,
         sites: [SIMD3<Double>(0,0,0), SIMD3(0,0.5,0.5), SIMD3(0.5,0,0.5), SIMD3(0.5,0.5,0)]
             .map { AtomSite(z: 79, fractional: $0) })
@@ -81,7 +83,7 @@ func analytic(hexagonal: Bool) {
         zoneAxisCount: 600, symmetry: symmetry, wavelengthAngstrom: wavelength),
         let matcher = OrientationMatcher(plan: plan, symmetry: symmetry)
     else { require(false, "\(label) plan and matcher"); return }
-    let reflections = crystal.reflections(kMax: kMax)
+    let reflections = (try! crystal.kinematicReflections(kMax: kMax).kept)
     var special: [SIMD3<Double>] = [[0,0,1]]
     if hexagonal {
         special += (0..<12).map { i in
@@ -193,7 +195,7 @@ func frozenReference(_ path: String) throws {
     let sites = zip(x.siteFractional, x.siteAtomicNumbers).map {
         AtomSite(z: $1, fractional: SIMD3($0[0], $0[1], $0[2]))
     }
-    let crystal = Crystal(a: x.cellAAngstrom, b: x.cellAAngstrom, c: x.cellAAngstrom, sites: sites)
+    let crystal = Crystal.structure(a: x.cellAAngstrom, b: x.cellAAngstrom, c: x.cellAAngstrom, sites: sites)
     guard let plan = OrientationPlan.generate(crystal: crystal, kMax: x.kMaxInvAngstrom,
         zoneAxisCount: x.zoneAxisCount, symmetry: .cubic, wavelengthAngstrom: x.wavelengthAngstrom,
         intensityPower: x.intensityPower, radialKernelInvAngstrom: x.radialKernelInvAngstrom,

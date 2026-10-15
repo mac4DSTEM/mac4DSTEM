@@ -1,4 +1,5 @@
 import Foundation
+import DiffractoScattering
 
 // `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
 // the local mirror this file carried is gone.
@@ -81,7 +82,7 @@ struct RealACOMBenchmark {
         let crystal = Crystal.aluminum
         // Distinct shell lengths — every symmetry equivalent of one |g| is
         // returned separately, so shells[1] is the second SHELL. // v2 S13
-        let lengths = crystal.reflections(kMax: 2.5).map(\.gLength)
+        let lengths = (try! crystal.kinematicReflections(kMax: 2.5).kept).map(\.gLength)
         var shells: [Double] = []
         for length in lengths where shells.last.map({ length > $0 * (1 + 1e-6) }) ?? true {
             shells.append(length)

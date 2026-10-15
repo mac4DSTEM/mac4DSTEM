@@ -1,4 +1,6 @@
 import Foundation
+import DiffractoCore
+import DiffractoScattering
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
@@ -14,11 +16,11 @@ for model in catalog {
     guard model.isUsable else {
         fail("crystal-model \(model.id) failed validation: \(model.validationIssues.map(\.code))")
     }
-    guard !model.crystal.reflections(kMax: 1.2).isEmpty else {
+    guard !(try! model.structure.kinematicReflections(kMax: 1.2).kept).isEmpty else {
         fail("crystal-model \(model.id) generated no reflections")
     }
     guard let catalogPlan = OrientationPlan.generate(
-        crystal: model.crystal, kMax: 1.2, zoneAxisCount: 12,
+        crystal: model.structure, kMax: 1.2, zoneAxisCount: 12,
         symmetry: model.symmetry
     ), catalogPlan.symmetry == model.symmetry, catalogPlan.count == 12 else {
         fail("crystal-model \(model.id) could not generate its declared symmetry plan")
@@ -43,8 +45,8 @@ func generatingInPlaneAngle(index: Int) -> Double {
     Double((index * 7) % 64) / 64 * Double.pi
 }
 
-func vectors(plan: OrientationPlan, crystal: Crystal, width: Int, height: Int) -> BraggVectors {
-    let reflections = crystal.reflections(kMax: 1.2)
+func vectors(plan: OrientationPlan, crystal: CrystalStructure, width: Int, height: Int) -> BraggVectors {
+    let reflections = (try! crystal.kinematicReflections(kMax: 1.2).kept)
     let scale = 0.01
     let peaks = (0..<(width * height)).map { index -> [BraggPeak] in
         let template = generatingTemplate(index: index, width: width, templateCount: plan.count)
@@ -192,7 +194,7 @@ guard let hexPlan = OrientationPlan.generate(
     crystal: magnesium, kMax: 1.2, zoneAxisCount: 48, symmetry: .hexagonal
 ) else { fail("hexagonal magnesium plan generation") }
 guard hexPlan.symmetry == .hexagonal, hexPlan.count == 48,
-      magnesium.a != magnesium.b || magnesium.b != magnesium.c else {
+      magnesium.cell.a != magnesium.cell.b || magnesium.cell.b != magnesium.cell.c else {
     fail("magnesium plan did not retain non-cubic crystal/symmetry metadata")
 }
 let hexFixture = vectors(plan: hexPlan, crystal: magnesium, width: 4, height: 2)
@@ -254,14 +256,14 @@ guard let ws2Model = CrystalModelLibrary.model(id: "ws2_2h") else {
     fail("crystal-model library does not carry ws2_2h")
 }
 guard let ws2Plan = OrientationPlan.generate(
-    crystal: ws2Model.crystal, kMax: 1.2, zoneAxisCount: 48,
+    crystal: ws2Model.structure, kMax: 1.2, zoneAxisCount: 48,
     symmetry: ws2Model.symmetry
 ) else { fail("WS₂ plan generation") }
 guard ws2Plan.symmetry == .hexagonal, ws2Plan.count == 48 else {
     fail("WS₂ plan was symmetry=\(ws2Plan.symmetry.rawValue), templates=\(ws2Plan.count)")
 }
 let ws2Width = 4, ws2Height = 2
-let ws2Fixture = vectors(plan: ws2Plan, crystal: ws2Model.crystal,
+let ws2Fixture = vectors(plan: ws2Plan, crystal: ws2Model.structure,
                          width: ws2Width, height: ws2Height)
 guard let ws2True = OrientationMatching.matchAll(
     bragg: ws2Fixture, plan: ws2Plan, originX: 64, originY: 64,
