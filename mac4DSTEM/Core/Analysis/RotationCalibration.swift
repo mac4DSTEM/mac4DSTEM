@@ -13,6 +13,13 @@
 //  maximizing mean |divergence|, which is more robust for thick samples
 //  where the curl-free assumption weakens.
 //
+//  C2 (2026-10-15): every evaluation of the objective — the grid, the refinement and the null's surrogates — is CuboKit's
+//  `RotationSolver` (py4DSTEM's selection rule, Double). The kit speaks py4DSTEM's convention, where the field's first
+//  component is the one along the detector ROWS and the angle is the negative of this app's (`RQRotationConvention`:
+//  a reflection of both spaces; the transpose flag is the same). So the field goes in as (row: cy, column: cx) and
+//  the kit's angle is the app's negated; the curves come back aligned with this app's angle list. The refinement, the
+//  null and the verdict below are the app's own and stay.
+//
 //  DEVIATION from py4DSTEM: after the same 1° grid search (−89°…90°), we add
 //  a 0.1° refinement pass around the winning angle. py4DSTEM stops at 1°.
 //
@@ -26,6 +33,8 @@
 //  differences on the interior of the scan grid.
 //
 
+import CuboCore
+import CuboPhase
 import Foundation
 
 package enum RotationCalibration {
@@ -120,52 +129,8 @@ package enum RotationCalibration {
         }
     }
 
-    // Output slots for the concurrent grid search and null, written at
-    // disjoint indices from `concurrentPerform` workers. // v3.1 speed
-    private struct CurveSlots: @unchecked Sendable {
-        let curve: UnsafeMutablePointer<Float>
-        let curveT: UnsafeMutablePointer<Float>
-    }
     private struct DepthSlots: @unchecked Sendable {
         let depths: UnsafeMutablePointer<Float>
-    }
-
-    /// Mean |curl| (or |divergence|, when `maximizeDivergence`) of the field
-    /// rotated by θ — one point on an objective curve. Rotating (a, b) by θ:
-    /// x' = cosθ·a − sinθ·b, y' = sinθ·a + cosθ·b, where (a, b) is (cx, cy),
-    /// or (cy, cx) for the transposed detector. Free-standing and reading
-    /// immutable inputs so the grid search and the null can evaluate it on all
-    /// cores; the arithmetic is exactly the former inline objective. // v3.1 speed
-    private nonisolated static func objective(cx: [Float], cy: [Float], width: Int, height: Int,
-                                              thetaRad: Float, maximizeDivergence: Bool,
-                                              transpose: Bool) -> Float {
-        let a = transpose ? cy : cx
-        let b = transpose ? cx : cy
-        let c = cos(thetaRad), s = sin(thetaRad)
-
-        var acc: Float = 0
-        for y in 1..<(height - 1) {
-            for x in 1..<(width - 1) {
-                let i = y * width + x
-                if maximizeDivergence {
-                    // div = ∂x'/∂x + ∂y'/∂y  (central differences, ×½ dropped
-                    // — constant scale doesn't move the argmin/argmax)
-                    let dxdx = (c * a[i + 1] - s * b[i + 1])
-                             - (c * a[i - 1] - s * b[i - 1])
-                    let dydy = (s * a[i + width] + c * b[i + width])
-                             - (s * a[i - width] + c * b[i - width])
-                    acc += abs(dxdx + dydy)
-                } else {
-                    // curl_z = ∂y'/∂x − ∂x'/∂y
-                    let dydx = (s * a[i + 1] + c * b[i + 1])
-                             - (s * a[i - 1] + c * b[i - 1])
-                    let dxdy = (c * a[i + width] - s * b[i + width])
-                             - (c * a[i - width] - s * b[i - width])
-                    acc += abs(dydx - dxdy)
-                }
-            }
-        }
-        return acc / Float((width - 2) * (height - 2))
     }
 
     /// Solve for rotation + transpose from an interleaved CoM field
@@ -185,56 +150,46 @@ package enum RotationCalibration {
             cxM[i] = com[2 * i]
             cyM[i] = com[2 * i + 1]
         }
-        let cx = cxM, cy = cyM   // immutable: the grid search and the null read them concurrently
+        let cx = cxM, cy = cyM   // immutable: the null reads them concurrently
 
-        // The objective bound to this field, for the serial refinement pass.
-        func obj(_ thetaRad: Float, _ transpose: Bool) -> Float {
-            Self.objective(cx: cx, cy: cy, width: width, height: height,
-                           thetaRad: thetaRad, maximizeDivergence: maximizeDivergence, transpose: transpose)
-        }
-
-        // Grid search, both transposes (py4DSTEM: −89°…90° in 1° steps). The
-        // 180 angles are independent, so evaluate them on all cores — each
-        // writes its own slot and the per-angle arithmetic is unchanged. // v3.1 speed
+        // Grid search, both transposes (py4DSTEM: −89°…90° in 1° steps; here 90° is included). The kit's angle is the
+        // app's negated, index for index.
         let anglesDeg = stride(from: Float(-89), through: 90, by: 1).map { $0 }
-        let angleCount = anglesDeg.count
-        var curve = [Float](repeating: 0, count: angleCount)
-        var curveT = [Float](repeating: 0, count: angleCount)
-        curve.withUnsafeMutableBufferPointer { cp in
-            curveT.withUnsafeMutableBufferPointer { ctp in
-                let out = CurveSlots(curve: cp.baseAddress!, curveT: ctp.baseAddress!)
-                DispatchQueue.concurrentPerform(iterations: angleCount) { idx in
-                    if cancellation?.isCancelled == true { return }
-                    let rad = anglesDeg[idx] * .pi / 180
-                    out.curve[idx]  = Self.objective(cx: cx, cy: cy, width: width, height: height,
-                                                     thetaRad: rad, maximizeDivergence: maximizeDivergence, transpose: false)
-                    out.curveT[idx] = Self.objective(cx: cx, cy: cy, width: width, height: height,
-                                                     thetaRad: rad, maximizeDivergence: maximizeDivergence, transpose: true)
-                }
-            }
+        let kitAngles = anglesDeg.map { -Double($0) }
+        let criterion: RotationCriterion = maximizeDivergence ? .maximizeDivergence : .minimizeCurl
+        /// The kit's field for two app channels: the kit's row component is the app's y (cy), its column the app's x.
+        @Sendable func kitField(_ x: [Float], _ y: [Float]) -> ScanVectorField? {
+            try? ScanVectorField(scanRows: height, scanColumns: width, row: y.map { Double($0) }, column: x.map { Double($0) })
+        }
+        guard let field = kitField(cx, cy),
+              let grid = try? RotationSolver.solve(field, anglesDegrees: kitAngles, criterion: criterion) else {
+            // The kit refuses a field that is not finite. The Metal-era code returned NaN curves for it, which carry no
+            // rotation; so does this: no depth, no null, `carriesRotation` false.
+            let nans = [Float](repeating: .nan, count: anglesDeg.count)
+            return Result(rotationRad: 0, transpose: false, objective: .nan, anglesDeg: anglesDeg,
+                          objectiveCurve: nans, objectiveCurveTransposed: nans)
         }
         if cancellation?.isCancelled == true { return nil }
+        let curve = grid.curve.map { Float($0) }
+        let curveT = grid.curveTransposed.map { Float($0) }
+        let transpose = grid.transposed
+        var bestDeg = Float(-grid.degrees)
+        var bestVal = (transpose ? curveT : curve)[anglesDeg.firstIndex(of: bestDeg) ?? 0]
 
-        func best(_ c: [Float]) -> (idx: Int, val: Float) {
-            var bi = 0
-            for i in 1..<c.count {
-                if maximizeDivergence ? c[i] > c[bi] : c[i] < c[bi] { bi = i }
-            }
-            return (bi, c[bi])
+        // The objective at one app angle: the kit scoring a single angle at a fixed transpose.
+        func obj(_ deg: Float, _ transposed: Bool) -> Float? {
+            guard let r = try? RotationSolver.solve(field, anglesDegrees: [-Double(deg)], criterion: criterion,
+                                                    forceTranspose: transposed) else { return nil }
+            return Float((transposed ? r.curveTransposed : r.curve)[0])
         }
-        let b0 = best(curve)
-        let bT = best(curveT)
-        let transpose = maximizeDivergence ? bT.val > b0.val : bT.val < b0.val
-        var bestDeg = anglesDeg[transpose ? bT.idx : b0.idx]
-        var bestVal = transpose ? bT.val : b0.val
 
         // Refinement: 0.1° steps within ±1° of the grid winner.
         for deg in stride(from: bestDeg - 1, through: bestDeg + 1, by: 0.1) {
             if cancellation?.isCancelled == true { return nil }
-            let v = obj(Float(deg) * .pi / 180, transpose)
+            guard let v = obj(deg, transpose) else { continue }
             if maximizeDivergence ? v > bestVal : v < bestVal {
                 bestVal = v
-                bestDeg = Float(deg)
+                bestDeg = deg
             }
         }
 
@@ -283,12 +238,12 @@ package enum RotationCalibration {
         // from the shuffle null of 2026-09-15 morning onwards is this port's
         // own, because the owner was handed "Measured −67.5°" from shot
         // noise and no downstream consumer could tell.
-        func depth(_ c: [Float]) -> Float {
+        func depth(_ c: [Double]) -> Float {
             guard let lo = c.min(), let hi = c.max(), !c.isEmpty else { return .nan }
-            let mean = c.reduce(0, +) / Float(c.count)
-            return mean != 0 ? (hi - lo) / abs(mean) : .nan
+            let mean = c.reduce(0, +) / Double(c.count)
+            return mean != 0 ? Float((hi - lo) / abs(mean)) : .nan
         }
-        let winningDepth = depth(transpose ? curveT : curve)
+        let winningDepth = depth(transpose ? grid.curveTransposed : grid.curve)
         var rng: UInt64 = 0x9E3779B97F4A7C15
         func nextUnit() -> Float {
             rng ^= rng >> 12; rng ^= rng << 25; rng ^= rng >> 27
@@ -332,18 +287,10 @@ package enum RotationCalibration {
                 let out = DepthSlots(depths: dp.baseAddress!)
                 DispatchQueue.concurrentPerform(iterations: shuffleCount) { k in
                     if cancellation?.isCancelled == true { return }
-                    let sCX = surCX[k], sCY = surCY[k]
-                    let shuffledCurve = anglesDeg.map {
-                        Self.objective(cx: sCX, cy: sCY, width: width, height: height,
-                                       thetaRad: $0 * .pi / 180, maximizeDivergence: maximizeDivergence, transpose: false)
-                    }
-                    let shuffledCurveT = anglesDeg.map {
-                        Self.objective(cx: sCX, cy: sCY, width: width, height: height,
-                                       thetaRad: $0 * .pi / 180, maximizeDivergence: maximizeDivergence, transpose: true)
-                    }
-                    let s0 = best(shuffledCurve), sT = best(shuffledCurveT)
-                    let takeTransposed = maximizeDivergence ? sT.val > s0.val : sT.val < s0.val
-                    out.depths[k] = depth(takeTransposed ? shuffledCurveT : shuffledCurve)
+                    guard let surrogateField = kitField(surCX[k], surCY[k]),
+                          let r = try? RotationSolver.solve(surrogateField, anglesDegrees: kitAngles, criterion: criterion)
+                    else { out.depths[k] = .nan; return }   // NaN never certifies (`depth > NaN` is false)
+                    out.depths[k] = depth(r.transposed ? r.curveTransposed : r.curve)
                 }
             }
             if cancellation?.isCancelled == true { return nil }

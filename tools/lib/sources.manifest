@@ -225,10 +225,15 @@ mac4dstem_sources() {
         )
         ;;
       cube)
+        # CuboCubeSource is the app's cube seen by CuboKit (C1, 2026-10-15), and VirtualDetector reads it: the kit rides
+        # in with the group, as SpectroKit rides in with `readers`.
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" data
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/FourDArray.swift"
+          "$core/Data/CuboCubeSource.swift"
           "$core/Data/ResidentCube.swift"
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/MetalEngine.swift"
@@ -258,6 +263,9 @@ mac4dstem_sources() {
       dpc)
         # DPC scalar/vector displays and iDPC integration. Kept separate from
         # `analysis` because that group owns the Metal-backed detector chain.
+        # applyRotation is CuboKit's (C2, 2026-10-15).
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -346,7 +354,10 @@ mac4dstem_sources() {
         # takes no Calibration.swift type. Mirrors the ad hoc source list
         # ../_archive/mac4DSTEM/tools/rotation-null-probe/run.sh added by hand before this group
         # existed (checked 2026-09-17: RotationCalibration.swift was in
-        # neither this file nor any group it composes).
+        # neither this file nor any group it composes). The objective is
+        # CuboKit's RotationSolver (C2, 2026-10-15).
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase
+        want+=("${KIT_FLAGS[@]}")
         want+=(
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/FFT2D.swift"
@@ -447,14 +458,18 @@ mac4dstem_sources() {
         # the two diagnostics that touch most of it (bragg-spacing-probe,
         # training-dataset-campaign); a gated harness names its groups.
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes,
-        # and Calibration.swift's ellipse transform).
+        # and Calibration.swift's ellipse transform); the cube, virtual detectors and rotation are CuboKit's (C1, C2).
         kit_module "$repo" DiffractoKit DiffractoGeometry
+        want+=("${KIT_FLAGS[@]}")
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase
         want+=("${KIT_FLAGS[@]}")
         want+=("$core"/**/*.swift(N))
         ;;
       strain)
         # The strain solver is CPU-only, on the detection chain, plus the
         # S8 presentation-frame rotation.
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase   # DPC.applyRotation (C2)
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" detection
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"

@@ -11,6 +11,7 @@
 //  deviations are marked DEVIATION with a reason.
 //
 
+import CuboVirtual
 import Foundation
 import Metal
 
@@ -106,84 +107,38 @@ package nonisolated enum OriginCalibration {
     // MARK: - Probe size (py4DSTEM get_probe_size)
 
     /// Estimate the central-disk radius and position from one diffraction
-    /// pattern (ideally the max or mean pattern). Port of get_probe_size:
-    /// threshold the pattern at N levels, convert each mask area to an
-    /// equivalent circle radius, keep the threshold range where r(thresh) is
-    /// stable (derivative near zero), and take the CoM at that threshold.
+    /// pattern (ideally the max or mean pattern): py4DSTEM's get_probe_size,
+    /// which is CuboKit's `ProbeSize.estimate` (a step-for-step float64 port,
+    /// bit for bit with py4DSTEM on the same pattern; C2, 2026-10-15). This
+    /// function keeps the app's inputs and refusals around it:
     ///
     /// nil when nothing can be measured: no finite pixel above zero, or no
-    /// mass above the chosen threshold. Until 2026-09-05 both cases returned
-    /// `(1, qx/2, qy/2)` — a number indistinguishable from a measurement,
-    /// which the Gate D of 2026-09-03 named as the estimator's one reachable
-    /// silent path (`docs/open-items.md`, "Origin-fit gate", hole (a)).
+    /// mass above the chosen threshold (the kit's `probeNotFound`). Until
+    /// 2026-09-05 both cases returned `(1, qx/2, qy/2)` — a number
+    /// indistinguishable from a measurement (`docs/open-items.md`, "Origin-fit
+    /// gate", hole (a)).
     ///
     /// DEVIATION from py4DSTEM: `np.max` propagates a NaN, so one bad pixel
     /// empties every threshold mask there and the result is r = 0 with a NaN
-    /// centre (probe.py:46-60 with get_CoM, utils.py:184-187). Here every
-    /// step — the maximum, the threshold counts and the centre of mass — sees
-    /// FINITE pixels only: a NaN or an infinity is one dead pixel, neither a
-    /// refusal nor a contribution. (The 2026-09-05 first cut filtered only
-    /// the maximum; the Gate B refuter showed a +inf pixel then passed every
-    /// threshold and made the centre NaN.)
+    /// centre. Here a NaN or an infinity is one dead pixel, neither a refusal
+    /// nor a contribution: it enters the kit as 0, which is below every
+    /// threshold (all are at least 1 % of a positive maximum) and adds nothing
+    /// to the centre of mass, the same as leaving it out. A pattern with no
+    /// positive finite pixel is refused here, where the kit would estimate
+    /// from a non-positive maximum. The result is Float, as every caller has
+    /// it; the estimate itself is Double.
     package nonisolated static func probeSize(dp: [Float], qy: Int, qx: Int,
-                          threshLower: Float = 0.01, threshUpper: Float = 0.99,
+                          threshLower: Double = 0.01, threshUpper: Double = 0.99,
                           n: Int = 100) -> (r: Float, x0: Float, y0: Float)? {
+        guard dp.count == qy * qx, qy > 0, qx > 0 else { return nil }
         var dpMax: Float = 0
         for v in dp where v.isFinite && v > dpMax { dpMax = v }
         guard dpMax > 0 else { return nil }
-
-        let threshVals = (0..<n).map { i in
-            threshLower + (threshUpper - threshLower) * Float(i) / Float(n - 1)
-        }
-        let rVals: [Float] = threshVals.map { t in
-            let level = dpMax * t
-            let area = dp.reduce(into: 0) { c, v in if v.isFinite && v > level { c += 1 } }
-            return (Float(area) / .pi).squareRoot()
-        }
-
-        // Central-difference gradient, one-sided at the ends (np.gradient).
-        var dr = [Float](repeating: 0, count: n)
-        for i in 0..<n {
-            if i == 0 { dr[i] = rVals[1] - rVals[0] }
-            else if i == n - 1 { dr[i] = rVals[n - 1] - rVals[n - 2] }
-            else { dr[i] = (rVals[i + 1] - rVals[i - 1]) / 2 }
-        }
-        // np.median: for even n the mean of the two middle values. The port
-        // took `sorted[n/2]` alone until 2026-09-05 (Gate B refuter).
-        let sorted = dr.sorted()
-        let median = n % 2 == 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[n / 2]
-
-        // Trustworthy where the (negative) slope is between 2*median and 0.
-        var trusted: [Int] = []
-        for i in 0..<n where dr[i] <= 0 && dr[i] >= 2 * median {
-            trusted.append(i)
-        }
-        // Gate D 2026-09-03 (refuter stood it): this branch is UNREACHABLE for
-        // finite input. r(thresh) is non-increasing, so every dr ≤ 0, the
-        // median is ≤ 0, and max(dr) — an element of dr — satisfies both
-        // conditions. py4DSTEM's mask cannot be empty either; the "NaN" its
-        // docstring implies never happens. Kept as a guard, not a fallback.
-        // The REACHABLE silent path WAS the `dpMax > 0` guard above; since
-        // 2026-09-05 it returns nil and the callers refuse with a sentence.
-        if trusted.isEmpty { trusted = [n / 2] }
-
-        let r = trusted.reduce(Float(0)) { $0 + rVals[$1] } / Float(trusted.count)
-        let thresh = trusted.reduce(Float(0)) { $0 + threshVals[$1] } / Float(trusted.count)
-
-        // CoM of the pattern masked at that threshold.
-        var sumI: Float = 0, sumIX: Float = 0, sumIY: Float = 0
-        for y in 0..<qy {
-            for x in 0..<qx {
-                let v = dp[y * qx + x]
-                if v.isFinite && v > dpMax * thresh {
-                    sumI += v
-                    sumIX += v * Float(x)
-                    sumIY += v * Float(y)
-                }
-            }
-        }
-        guard sumI > 0 else { return nil }
-        return (r, sumIX / sumI, sumIY / sumI)
+        let pattern = DetectorImage(detectorRows: qy, detectorColumns: qx,
+                                    values: dp.map { $0.isFinite ? Double($0) : 0 }, path: .cpu)
+        guard let estimate = try? ProbeSize.estimate(pattern, lowerThreshold: threshLower,
+                                                     upperThreshold: threshUpper, count: n) else { return nil }
+        return (Float(estimate.radius), Float(estimate.centerColumn), Float(estimate.centerRow))
     }
 
     // MARK: - Origin fit (py4DSTEM fit_origin)

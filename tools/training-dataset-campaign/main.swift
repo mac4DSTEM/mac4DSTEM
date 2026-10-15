@@ -528,7 +528,8 @@ private func evaluate(
 
     let dpcStart = Date()
     let rotatedCOM = DPC.applyRotation(
-        com: com, rotationRad: rotation?.rotationRad ?? 0,
+        com: com, width: descriptor.rx, height: descriptor.ry,
+        rotationRad: rotation?.rotationRad ?? 0,
         transpose: rotation?.transpose ?? false
     )
     let magnitude = DPC.magnitudeImage(

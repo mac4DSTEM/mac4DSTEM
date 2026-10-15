@@ -243,14 +243,23 @@ do {
 }
 
 // 4. The four tiled reducers, resident vs streaming, on the cropped view.
+// C1/C2 (2026-10-15): the statistics and the centre of mass are CuboKit's and read through `CuboCubeSource`, which copies
+// each tile out of the resident buffer once (ceil(ry / 2) tiles each); the selected-area diffraction and the measured origins
+// still bind the buffer and make no copy. The equality claims are unchanged.
+let tileCount = (d.ry + 1) / 2
 let copiesBefore = await residentData.residentTileCopies
 let rs = try await VirtualDetector.tiledDPStatistics(data: residentData, descriptor: d,
                                                      maximumTileRows: 2)
+let copiesAfterStatistics = await residentData.residentTileCopies
+guard copiesAfterStatistics - copiesBefore == tileCount else {
+    fail("the cropped resident statistics copied \(copiesAfterStatistics - copiesBefore) tile(s), expected \(tileCount)")
+}
 let ss = try await VirtualDetector.tiledDPStatistics(data: streamData, descriptor: d,
                                                      maximumTileRows: 2)
 expectIdentical(rs.maxDP, ss.maxDP, "cropped DP statistics [max]")
 expectIdentical(rs.meanDP, ss.meanDP, "cropped DP statistics [mean]")
 
+let copiesBeforeBound = await residentData.residentTileCopies
 let region = DetectorShape.rectangle(xMin: 0, xMax: 2, yMin: 1, yMax: 4)
 let rd = try await VirtualDetector.tiledDiffraction(data: residentData, descriptor: d,
                                                     region: region, maximumTileRows: 2)
@@ -263,18 +272,21 @@ let ro = try await VirtualDetector.tiledMeasuredOrigins(data: residentData, desc
 let so = try await VirtualDetector.tiledMeasuredOrigins(data: streamData, descriptor: d,
                                                         probeRadius: 1.5, maximumTileRows: 2)
 expectIdentical(ro, so, "cropped measured origins")
+let copiesAfterBound = await residentData.residentTileCopies
+guard copiesAfterBound == copiesBeforeBound else {
+    fail("the cropped resident diffraction and origins copied \(copiesAfterBound - copiesBeforeBound) tile(s)")
+}
+pass("cropped resident diffraction and origins made zero staging copies; the statistics one copy per tile (\(tileCount))")
 
+let copiesBeforeCoM = await residentData.residentTileCopies
 let rc = try await VirtualDetector.tiledCenterOfMass(data: residentData, descriptor: d,
                                                      center: (1, 2), maximumTileRows: 2)
+guard await residentData.residentTileCopies - copiesBeforeCoM == tileCount else {
+    fail("the cropped resident centre of mass did not copy one tile per tile (\(tileCount))")
+}
 let sc = try await VirtualDetector.tiledCenterOfMass(data: streamData, descriptor: d,
                                                      center: (1, 2), maximumTileRows: 2)
 expectIdentical(rc, sc, "cropped centre of mass")
-
-let copiesAfter = await residentData.residentTileCopies
-guard copiesAfter == copiesBefore else {
-    fail("the cropped resident reducers copied \(copiesAfter - copiesBefore) tile(s)")
-}
-pass("cropped resident reducers made zero staging copies")
 
 // 5. The whole-cube fast path on the cropped view.
 for (name, shape) in [

@@ -105,8 +105,9 @@ final class ReviewTileBudgetSiblingsTests: XCTestCase {
     /// Every virtual-detector geometry the app runs, through the production tile rows (the whole
     /// 12-row scan in one tile on this cube) against 1-row tiles and uneven 5-row tiles (5, 5, 2):
     /// bit-identical at bin 1, 2 and 4.
-    /// Mutation: a per-tile cross-position reducer in `VirtualDetector.tiled` (each tile's image
-    /// divided by that tile's maximum before it is copied out) — a grouping-dependent number.
+    /// C1 (2026-10-15): the images are CuboKit's CPU path, whose per-position sums do not depend on the tiling; the
+    /// per-tile mutation this test named (in the retired `VirtualDetector.tiled`) no longer has a home, and
+    /// `CuboSwitchTests` pins that the adapter serves the right rows in any read order.
     func testVirtualImageIsBitIdenticalForAnyTileGrouping() async throws {
         for bin in [1, 2, 4] {
             let v = try demoView(bin: bin)

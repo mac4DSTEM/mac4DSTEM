@@ -248,48 +248,34 @@ for (name, shape) in shapes {
     expectIdentical(resident.pixels, tiled.pixels, "virtual image [\(name)]")
 }
 
-// MARK: - Proof that the fast path actually ran
+// MARK: - The single-dispatch fast path is RETIRED (C1, 2026-10-15)
 //
-// WITHOUT THIS THE HARNESS IS WORTHLESS, and that is not a guess — it was
-// verified. Making FourDArray.resident() return nil (residency silently never
-// engaging, the exact failure docs/load-pipeline-plan.md L2.3 warns about) left
-// every comparison above GREEN, because a resident array still serves its TILES
-// out of the buffer, so the tiled fallback produced identical numbers without
-// hitting the reader. Equality and read counts both prove residency is holding
-// data; only the dispatch COUNT proves the single-dispatch branch was taken.
-//
-// The shape of the evidence: the resident branch reports progress exactly once,
-// at 1.0. The tiled path reports once per tile, and `maximumTileRows: 1` forces
-// one tile per scan row. So asking the resident array for one-row tiles and
-// getting a single callback is only possible if the fast path pre-empted them.
+// The images no longer take a resident fast path: `tiledImage` and `tiledRun` go through CuboKit's
+// `VirtualImaging.image`, which reads its pixels through `CuboCubeSource`, so a resident array walks exactly the tiles a
+// streaming one does and `FourDArray.scanTile` copies each tile out of the cube's buffer (the one place a CubeSource's
+// `[Float]` can come from; the reader is still untouched). The old claim here, one progress tick at 1.0 from one
+// whole-cube dispatch, therefore no longer holds, and the equality above is what is left of the L2 claim: resident ==
+// tiled, bit for bit. What replaces the tick claim: with `maximumTileRows: 1` BOTH arrays report one tick per scan row,
+// so the comparison above is still resident-vs-streaming over the same grouping.
 do {
     nonisolated(unsafe) var residentTicks: [Double] = []
     _ = try await VirtualDetector.tiledImage(
         data: residentData, descriptor: d, shape: shapes[0].1,
         maximumTileRows: 1, progress: { residentTicks.append($0) }
     )
-    guard residentTicks == [1.0] else {
-        fail("""
-             the resident fast path did not run: progress reported \
-             \(residentTicks.count) times (\(residentTicks)), expected exactly one \
-             tick at 1.0. A resident array asked for one-row tiles still dispatched \
-             per tile, so this stage is holding the cube in memory and not using it.
-             """)
-    }
-
     nonisolated(unsafe) var streamTicks: [Double] = []
     _ = try await VirtualDetector.tiledImage(
         data: streamData, descriptor: d, shape: shapes[0].1,
         maximumTileRows: 1, progress: { streamTicks.append($0) }
     )
-    guard streamTicks.count == d.ry else {
+    guard residentTicks.count == d.ry, streamTicks.count == d.ry else {
         fail("""
-             the streaming control did not tile as forced: \(streamTicks.count) \
-             progress ticks for \(d.ry) one-row tiles. If this drifts, the comparison \
-             above stops being resident-vs-tiled and becomes resident-vs-resident.
+             the forced one-row tiling did not hold: resident \(residentTicks.count) ticks, streaming \
+             \(streamTicks.count), expected \(d.ry) each. If this drifts, the comparison above stops being \
+             resident-vs-tiled.
              """)
     }
-    pass("fast path engaged — 1 dispatch resident vs \(d.ry) tiles streaming")
+    pass("resident and streaming images walk the same \(d.ry) one-row tiles")
 
     nonisolated(unsafe) var apertureTicks: [Double] = []
     _ = try await VirtualDetector.tiledRun(
@@ -297,10 +283,10 @@ do {
         aperture: Aperture(centerX: 5.5, centerY: 4.5, inner: 1.5, outer: 3.75),
         maximumTileRows: 1, progress: { apertureTicks.append($0) }
     )
-    guard apertureTicks == [1.0] else {
-        fail("the analytic aperture path did not take the resident branch: \(apertureTicks)")
+    guard apertureTicks.count == d.ry else {
+        fail("the aperture image did not walk one-row tiles on a resident array: \(apertureTicks)")
     }
-    pass("fast path engaged — analytic aperture")
+    pass("resident and streaming apertures walk the same one-row tiles")
 }
 
 for (name, aperture) in [
@@ -399,10 +385,22 @@ do {
 }
 
 // Re-baselined AFTER the positive control's deliberate copy.
-let copiesBeforeReducers = await residentData.residentTileCopies
+let copiesBeforeStatistics = await residentData.residentTileCopies
 let residentStatistics = try await VirtualDetector.tiledDPStatistics(
     data: residentData, descriptor: d, maximumTileRows: 2
 )
+// C1 (2026-10-15): the statistics are CuboKit's and read through `CuboCubeSource`, which copies each tile out of the
+// resident buffer, once: ry = 7 in 2-row tiles is four tiles, four copies. The zero-copy claim below is for the three
+// reducers that still bind the cube's buffer.
+let copiesAfterStatistics = await residentData.residentTileCopies
+guard copiesAfterStatistics - copiesBeforeStatistics == 4 else {
+    fail("""
+         the CuboKit statistics copied \(copiesAfterStatistics - copiesBeforeStatistics) tile(s) out of the \
+         resident cube, expected one per tile (4). More means a tile is read twice.
+         """)
+}
+pass("resident statistics: one tile copy per tile (4)")
+let copiesBeforeReducers = await residentData.residentTileCopies
 let streamStatistics = try await VirtualDetector.tiledDPStatistics(
     data: streamData, descriptor: d, maximumTileRows: 2
 )
@@ -427,9 +425,15 @@ let streamOrigins = try await VirtualDetector.tiledMeasuredOrigins(
 )
 expectIdentical(residentOrigins, streamOrigins, "measured origins")
 
+// C2 (2026-10-15): the centre of mass is CuboKit's too, so it copies one tile per tile like the statistics.
+let copiesAfterOthers = await residentData.residentTileCopies
 let residentCoM = try await VirtualDetector.tiledCenterOfMass(
     data: residentData, descriptor: d, center: (5, 4), maximumTileRows: 2
 )
+guard await residentData.residentTileCopies - copiesAfterOthers == 4 else {
+    fail("the CuboKit centre of mass did not copy exactly one tile per tile (4) out of the resident cube")
+}
+pass("resident centre of mass: one tile copy per tile (4)")
 let streamCoM = try await VirtualDetector.tiledCenterOfMass(
     data: streamData, descriptor: d, center: (5, 4), maximumTileRows: 2
 )
@@ -441,16 +445,16 @@ expectIdentical(residentCoM, streamCoM, "centre of mass")
 // "bound the cube in place" from "copied every tile out and back again" — a
 // silently reintroduced staging copy passes every comparison in this file.
 // This is the assertion that fails when the copy comes back.
-let copiesAfterReducers = await residentData.residentTileCopies
+let copiesAfterReducers = copiesAfterOthers
 guard copiesAfterReducers == copiesBeforeReducers else {
     fail("""
-         the four tiled reducers copied \(copiesAfterReducers - copiesBeforeReducers) \
+         the tiled reducers that bind the buffer (diffraction, origins) copied \(copiesAfterReducers - copiesBeforeReducers) \
          tile(s) out of the resident cube. They must bind the cube's buffer at \
          each tile's byte offset instead — that copy is ~0.375 x working set of \
          pure staging waste and v2 S18 removed it.
          """)
 }
-pass("resident reducers made zero staging copies (\(copiesBeforeReducers) before, \(copiesAfterReducers) after)")
+pass("resident Metal reducers (diffraction, origins) made zero staging copies (\(copiesBeforeReducers) before, \(copiesAfterReducers) after)")
 
 // MARK: - Browsing patterns comes out of the resident cube too (v2 S18)
 

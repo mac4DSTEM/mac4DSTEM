@@ -2,19 +2,23 @@
 //  VirtualDetector.swift
 //  Role: The Analysis-layer wrapper for virtual-detector imaging. It turns a
 //        high-level intent (a preset, a dragged annulus, or any py4DSTEM
-//        detector geometry) into a GPU dispatch and hands back a `FloatImage`.
+//        detector geometry) into a CuboKit reduction (C1/C2, 2026-10-15:
+//        virtual images, mean and max patterns, centre of mass) and hands back
+//        a `FloatImage`. What stays here is the app's: the real-space region
+//        and selected-area diffraction, the per-position origin measurement
+//        (C3), the presets and the Metal one-shot dispatches the harnesses use.
 //
-//  Two compute paths, same convention as py4DSTEM make_detector:
+//  Detector convention, py4DSTEM make_detector (the kit's DetectorMask):
 //  circle r² < rOut²; annulus rIn² < r² < rOut².
-//   • analytic annulus kernel — used while dragging, no mask rebuild
-//   • mask kernel — one detector-space weight image covers every geometry
-//     (py4DSTEM get_virtual_image modes: circle, annulus, rectangle, point)
 //
 //  THREADING: `run(...)`/`image(...)` are synchronous and call into Metal
 //  with waitUntilCompleted. Call them from a background task (AppState wraps
 //  them in `Task.detached`), never directly on the main actor.
 //
 
+import CuboCore
+import CuboPhase
+import CuboVirtual
 import Foundation
 import Metal
 
@@ -311,14 +315,13 @@ package nonisolated struct TileGPUSource {
 
 package nonisolated enum VirtualDetector {
 
-    private enum TileOperation {
-        case shape(DetectorShape)
-        case aperture(Aperture)
-    }
+    // MARK: Virtual images, mean and maximum patterns: CuboKit's (C1, 2026-10-15)
 
-    /// Bounded-memory virtual imaging. Scan rows are read as contiguous tiles;
-    /// each tile uses the existing production Metal kernels and is copied into
-    /// its stable output rows only after the dispatch completes.
+    /// Bounded-memory virtual imaging through `VirtualImaging.image`. Scan rows are read as contiguous tiles (the
+    /// caller's `maximumTileRows`, else the smaller of the app's memory budget and the kit's 64 MiB), each position is
+    /// summed in Double, and the result is converted to the app's Float image here, at the display edge. The CPU path:
+    /// the reference definition, the same bits at every tiling and on every Mac, measured faster than the Metal
+    /// dispatch it replaced on the owner's cubes (docs/archive/v5/cubokit-switch-results-2026-10-15.md).
     package static func tiledImage(
         data: FourDArray,
         descriptor: DatasetDescriptor,
@@ -327,11 +330,12 @@ package nonisolated enum VirtualDetector {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> FloatImage {
-        try await tiled(data: data, descriptor: descriptor, operation: .shape(shape),
-                        maximumTileRows: maximumTileRows,
-                        cancellation: cancellation, progress: progress)
+        try await kitImage(data: data, descriptor: descriptor,
+                           geometry: kitGeometry(for: shape, qy: descriptor.qy, qx: descriptor.qx),
+                           maximumTileRows: maximumTileRows, cancellation: cancellation, progress: progress)
     }
 
+    /// The dragged annulus: `Aperture` is the annulus `rIn² < r² < rOut²`, the kit's `.annulus`.
     package static func tiledRun(
         data: FourDArray,
         descriptor: DatasetDescriptor,
@@ -340,85 +344,71 @@ package nonisolated enum VirtualDetector {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> FloatImage {
-        try await tiled(data: data, descriptor: descriptor, operation: .aperture(aperture),
-                        maximumTileRows: maximumTileRows,
-                        cancellation: cancellation, progress: progress)
+        try await kitImage(data: data, descriptor: descriptor, geometry: kitGeometry(for: aperture),
+                           maximumTileRows: maximumTileRows, cancellation: cancellation, progress: progress)
     }
 
-    private static func tiled(
-        data: FourDArray,
-        descriptor d: DatasetDescriptor,
-        operation: TileOperation,
-        maximumTileRows: Int?,
-        cancellation: AnalysisCancellationToken?,
-        progress: (@Sendable (Double) -> Void)?
+    /// The kit's geometry for an app detector shape, or nil when the shape selects no detector pixel. The kit refuses a
+    /// point off the detector, a rectangle bound below zero, a negative radius and an annulus that is not outer > inner;
+    /// the app answers each with an empty mask (a zero image), so those shapes never reach the kit. The rectangle is
+    /// clamped to the detector first, as `makeMask` clamps it. Row first: the app's y is the kit's row.
+    package nonisolated static func kitGeometry(for shape: DetectorShape, qy: Int, qx: Int) -> DetectorGeometry? {
+        switch shape {
+        case .circle(let cx, let cy, let radius):
+            guard cx.isFinite, cy.isFinite, radius.isFinite, radius > 0 else { return nil }
+            return .circle(centerRow: Double(cy), centerColumn: Double(cx), radius: Double(radius))
+        case .annulus(let cx, let cy, let inner, let outer):
+            return annulusGeometry(cx: cx, cy: cy, inner: inner, outer: outer)
+        case .rectangle(let xMin, let xMax, let yMin, let yMax):
+            let x0 = max(0, xMin), x1 = min(qx, xMax), y0 = max(0, yMin), y1 = min(qy, yMax)
+            guard x0 < x1, y0 < y1 else { return nil }
+            return .rectangle(rowMin: Double(y0), rowMax: Double(y1), columnMin: Double(x0), columnMax: Double(x1))
+        case .point(let x, let y):
+            guard (0..<qx).contains(x), (0..<qy).contains(y) else { return nil }
+            return .point(row: y, column: x)
+        }
+    }
+
+    package nonisolated static func kitGeometry(for aperture: Aperture) -> DetectorGeometry? {
+        annulusGeometry(cx: aperture.centerX, cy: aperture.centerY, inner: aperture.inner, outer: aperture.outer)
+    }
+
+    private nonisolated static func annulusGeometry(cx: Float, cy: Float, inner: Float, outer: Float) -> DetectorGeometry? {
+        guard cx.isFinite, cy.isFinite, inner.isFinite, outer.isFinite, inner >= 0, outer > inner else { return nil }
+        return .annulus(centerRow: Double(cy), centerColumn: Double(cx), inner: Double(inner), outer: Double(outer))
+    }
+
+    /// Scan rows per tile. The caller's number when it gives one; otherwise the smaller of the app's budget, which
+    /// sizes from the READ extent of a binned or cropped view (`FourDArray.scanTileRows`), and the kit's `.automatic`
+    /// 64 MiB, a function of the shape alone.
+    private static func kitTiling(data: FourDArray, descriptor d: DatasetDescriptor, maximumRows: Int?) async throws -> ScanTiling {
+        let budget = await data.scanTileRows(maximumRows: maximumRows)
+        guard maximumRows == nil else { return .rows(budget) }
+        let shape = try CubeShape(scanRows: d.ry, scanColumns: d.rx, detectorRows: d.qy, detectorColumns: d.qx)
+        return .rows(max(1, min(budget, try ScanTiling.automatic.rowsPerTile(for: shape))))
+    }
+
+    private static func kitImage(
+        data: FourDArray, descriptor d: DatasetDescriptor, geometry: DetectorGeometry?,
+        maximumTileRows: Int?, cancellation: AnalysisCancellationToken?, progress: (@Sendable (Double) -> Void)?
     ) async throws -> FloatImage {
-        // Resident fast path: one dispatch over the whole cube instead of one
-        // per tile. Exact, not approximate — virtualMaskSum and virtualAperture
-        // run one thread per SCAN position over a mask built from qy/qx only,
-        // and tiles partition the scan axis, so no tile boundary ever splits a
-        // per-output-pixel reduction. The two images are bit-identical and
-        // tools/virtual-detector-residency asserts `==`. See ResidentCube.swift.
-        if let cube = await data.resident(for: d) {
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
-            let produced: FloatImage
-            switch operation {
-            case .shape(let shape):
-                produced = try image(cube: cube.buffer, descriptor: d, shape: shape)
-            case .aperture(let aperture):
-                produced = try run(cube: cube.buffer, descriptor: d, aperture: aperture)
-            }
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        guard let geometry else {
             progress?(1)
-            return produced
+            return FloatImage(width: d.rx, height: d.ry, pixels: [Float](repeating: 0, count: d.ry * d.rx))
         }
-        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
-        var output = [Float](repeating: 0, count: d.ry * d.rx)
-        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
-            $0..<min(d.ry, $0 + rowsPerTile)
-        }
-        var prefetcher = TilePrefetcher(data: data)
-        for (index, range) in ranges.enumerated() {
-            guard cancellation?.isCancelled != true else {
-                prefetcher.cancel(); throw CancellationError()
-            }
-            let tile = try await prefetcher.tile(
-                for: range,
-                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil
-            )
-            guard cancellation?.isCancelled != true else {
-                prefetcher.cancel(); throw CancellationError()
-            }
-            guard let buffer = MetalEngine.shared.device.makeBuffer(
-                bytes: tile.pixels,
-                length: tile.pixels.count * MemoryLayout<Float>.stride,
-                options: .storageModeShared
-            ) else { prefetcher.cancel(); throw FourDError.allocationFailed }
-            buffer.label = "4D scan tile rows \(range.lowerBound)..<\(range.upperBound)"
-            let tileDescriptor = DatasetDescriptor(
-                filePath: d.filePath, datasetPath: d.datasetPath,
-                shape: [range.count, d.rx, d.qy, d.qx],
-                dtypeDescription: d.dtypeDescription, chunkShape: nil
-            )
-            let tileImage: FloatImage
-            switch operation {
-            case .shape(let shape):
-                tileImage = try image(cube: buffer, descriptor: tileDescriptor, shape: shape)
-            case .aperture(let aperture):
-                tileImage = try run(cube: buffer, descriptor: tileDescriptor, aperture: aperture)
-            }
-            output.replaceSubrange(range.lowerBound * d.rx..<range.upperBound * d.rx,
-                                   with: tileImage.pixels)
-            progress?(Double(range.upperBound) / Double(d.ry))
-        }
-        guard cancellation?.isCancelled != true else {
-            prefetcher.cancel(); throw CancellationError()
-        }
-        return FloatImage(width: d.rx, height: d.ry, pixels: output)
+        let source = try CuboCubeSource(data, descriptor: d, cancellation: cancellation)
+        let image = try await VirtualImaging.image(
+            of: source, geometry: geometry, path: .cpu,
+            tiling: try await kitTiling(data: data, descriptor: d, maximumRows: maximumTileRows), progress: progress)
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        return FloatImage(width: d.rx, height: d.ry, pixels: image.values.map { Float($0) })
     }
 
-    /// Tiled max/mean diffraction patterns. Per-tile statistics stay on Metal;
-    /// a weighted reduction combines them without retaining any prior tile.
+    /// Tiled max and mean diffraction patterns through `VirtualDiffraction.meanAndMax`. The Metal path: its kernels are
+    /// compensated and agree with the CPU reference to 2.4e-13, and on the study cube it is within 1.5 x the time of the
+    /// kernel it replaced where the CPU path is not (docs/archive/v5/cubokit-switch-results-2026-10-15.md, P4). A
+    /// machine without a Metal device runs the CPU path.
     package static func tiledDPStatistics(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
@@ -426,45 +416,17 @@ package nonisolated enum VirtualDetector {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> (maxDP: [Float], meanDP: [Float]) {
-        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
-        let detectorCount = d.qy * d.qx
-        var maximum = [Float](repeating: -.greatestFiniteMagnitude, count: detectorCount)
-        var weightedMean = [Double](repeating: 0, count: detectorCount)
-        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
-            $0..<min(d.ry, $0 + rowsPerTile)
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        let source = try CuboCubeSource(data, descriptor: d, cancellation: cancellation)
+        let tiling = try await kitTiling(data: data, descriptor: d, maximumRows: maximumTileRows)
+        let both: (mean: DetectorImage, max: DetectorImage)
+        do {
+            both = try await VirtualDiffraction.meanAndMax(of: source, path: .metal, tiling: tiling, progress: progress)
+        } catch CuboVirtualError.noMetalDevice {
+            both = try await VirtualDiffraction.meanAndMax(of: source, path: .cpu, tiling: tiling, progress: progress)
         }
-        var source = TileGPUSource(data: data, descriptor: d,
-                                   cube: await data.resident(for: d))
-        for (index, range) in ranges.enumerated() {
-            guard cancellation?.isCancelled != true else {
-                source.cancel(); throw CancellationError()
-            }
-            let bound = try await source.binding(
-                for: range,
-                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil,
-                label: "dpStatistics tile rows \(range.lowerBound)..<\(range.upperBound)"
-            )
-            let tileDescriptor = DatasetDescriptor(
-                filePath: d.filePath, datasetPath: d.datasetPath,
-                shape: [range.count, d.rx, d.qy, d.qx],
-                dtypeDescription: d.dtypeDescription, chunkShape: nil
-            )
-            let stats = try MetalEngine.shared.dpStatistics(
-                cube: bound.buffer, cubeOffset: bound.offset,
-                dims: CubeDims(tileDescriptor)
-            )
-            let scanCount = Double(range.count * d.rx)
-            for index in 0..<detectorCount {
-                maximum[index] = max(maximum[index], stats.maxDP[index])
-                weightedMean[index] += Double(stats.meanDP[index]) * scanCount
-            }
-            progress?(Double(range.upperBound) / Double(d.ry))
-        }
-        guard cancellation?.isCancelled != true else {
-            source.cancel(); throw CancellationError()
-        }
-        let total = Double(d.ry * d.rx)
-        return (maximum, weightedMean.map { Float($0 / total) })
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        return (both.max.values.map { Float($0) }, both.mean.values.map { Float($0) })
     }
 
     /// Bounded selected-area diffraction. Each tile contributes one partial
@@ -549,7 +511,12 @@ package nonisolated enum VirtualDetector {
         return output
     }
 
-    /// Bounded center-of-mass measurement with optional per-position origins.
+    /// Bounded centre-of-mass SHIFT: `CenterOfMass.measure` (py4DSTEM's definition in Double: negative intensities count,
+    /// a zero sum is NaN) and `CenterOfMassReference.normalize` against the reference, NaN to 0 as py4DSTEM's
+    /// preprocessing does. The reference is the per-position `origins` when given (interleaved [x, y], x the detector
+    /// column), else the one `center`; the shift is `measured - reference` in both. CPU path: the kit advises it for
+    /// dark-subtracted cubes, whose small sums the Metal kernel does not resolve. Returns interleaved [x, y], as before.
+    /// C2 (2026-10-15): the Metal kernel clamped each pixel at 0 and answered a non-positive sum with the reference.
     package static func tiledCenterOfMass(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
@@ -560,37 +527,30 @@ package nonisolated enum VirtualDetector {
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> [Float] {
         precondition(origins == nil || origins?.count == d.ry * d.rx * 2)
-        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
-        var output = [Float](repeating: 0, count: d.ry * d.rx * 2)
-        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
-            $0..<min(d.ry, $0 + rowsPerTile)
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        let count = d.ry * d.rx
+        let source = try CuboCubeSource(data, descriptor: d, cancellation: cancellation)
+        let maps = try await CenterOfMass.measure(
+            of: source, mask: nil, path: .cpu,
+            tiling: try await kitTiling(data: data, descriptor: d, maximumRows: maximumTileRows), progress: progress)
+        let measured = try ScanVectorField(scanRows: d.ry, scanColumns: d.rx,
+                                           row: maps.row.values, column: maps.column.values)
+        let reference: ScanVectorField
+        if let origins {
+            reference = try ScanVectorField(scanRows: d.ry, scanColumns: d.rx,
+                                            row: (0..<count).map { Double(origins[2 * $0 + 1]) },
+                                            column: (0..<count).map { Double(origins[2 * $0]) })
+        } else {
+            reference = try ScanVectorField(scanRows: d.ry, scanColumns: d.rx,
+                                            row: [Double](repeating: Double(center.y), count: count),
+                                            column: [Double](repeating: Double(center.x), count: count))
         }
-        var source = TileGPUSource(data: data, descriptor: d,
-                                   cube: await data.resident(for: d))
-        for (index, range) in ranges.enumerated() {
-            guard cancellation?.isCancelled != true else {
-                source.cancel(); throw CancellationError()
-            }
-            let bound = try await source.binding(
-                for: range,
-                prefetching: index + 1 < ranges.count ? ranges[index + 1] : nil,
-                label: "centerOfMass tile rows \(range.lowerBound)..<\(range.upperBound)"
-            )
-            let tileOrigins = origins.map {
-                Array($0[range.lowerBound * d.rx * 2..<range.upperBound * d.rx * 2])
-            }
-            let params = CoMParams(
-                ry: UInt32(range.count), rx: UInt32(d.rx),
-                qy: UInt32(d.qy), qx: UInt32(d.qx),
-                cx: center.x, cy: center.y, useOrigins: 0
-            )
-            let measured = try MetalEngine.shared.centerOfMass(
-                cube: bound.buffer, cubeOffset: bound.offset,
-                params: params, origins: tileOrigins
-            )
-            output.replaceSubrange(range.lowerBound * d.rx * 2..<range.upperBound * d.rx * 2,
-                                   with: measured)
-            progress?(Double(range.upperBound) / Double(d.ry))
+        let shift = try CenterOfMassReference.normalize(measured, reference: .given(reference)).normalized
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        var output = [Float](repeating: 0, count: count * 2)
+        for i in 0..<count {
+            output[2 * i] = Float(shift.column[i])
+            output[2 * i + 1] = Float(shift.row[i])
         }
         return output
     }

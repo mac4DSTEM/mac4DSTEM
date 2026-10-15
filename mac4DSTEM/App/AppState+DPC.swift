@@ -130,7 +130,7 @@ extension AppState {
     func applyDPCDisplay() -> String? {
         guard var com = comField, let d = descriptor, navigation.analysisMode == .dpc else { return nil }
         if let rotation = calibrationSession.calibration.rotationRad {
-            com = DPC.applyRotation(com: com, rotationRad: rotation,
+            com = DPC.applyRotation(com: com, width: d.rx, height: d.ry, rotationRad: rotation,
                                     transpose: calibrationSession.calibration.transposeQR ?? false)
         }
         let payload: ProductPayload

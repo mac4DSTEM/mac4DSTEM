@@ -17,9 +17,11 @@
 //  means the true rotation is θ + 180°.
 //
 
-import Foundation
-import enum DiffractoGeometry.ElectronWavelength   // the one electron wavelength of the suite (2026-10-15)
 import Accelerate
+import CuboCore
+import CuboPhase
+import enum DiffractoGeometry.ElectronWavelength   // the one electron wavelength of the suite (2026-10-15)
+import Foundation
 
 package nonisolated enum IDPCBoundaryCondition: String, Sendable {
     /// Treat opposite scan edges as adjacent. Best for explicitly periodic
@@ -50,11 +52,34 @@ package enum DPC {
 
     /// Express the CoM field in the scan frame: optionally swap the detector
     /// components (transpose), then rotate by the calibrated R–Q angle.
-    /// `com` is interleaved [cx0,cy0,...]; returns the same layout.
-    package nonisolated static func applyRotation(com: [Float], rotationRad: Float, transpose: Bool) -> [Float] {
+    /// `com` is interleaved [cx0,cy0,...] of a `width` x `height` scan; returns the same layout.
+    ///
+    /// C2 (2026-10-15): the rotation is CuboKit's `RotationSolution.corrected` (x' = cos·a − sin·b,
+    /// y' = sin·a + cos·b, in Double), asked for at a forced angle and transpose. The kit speaks py4DSTEM's
+    /// convention — its first component is the detector-ROW one (this app's y) and its angle the negative of this
+    /// app's (`RQRotationConvention`, transpose flag unchanged) — so the field goes in as (row: cy, column: cx) at −θ
+    /// and comes back as (column → x', row → y'). A field the kit refuses (fewer than 3 x 3 positions, a non-finite
+    /// value) is rotated by the plain formula, as before: showing such a field is the app's to do, not the kit's to
+    /// refuse.
+    package nonisolated static func applyRotation(com: [Float], width: Int, height: Int,
+                                                  rotationRad: Float, transpose: Bool) -> [Float] {
+        let count = com.count / 2
+        if count == width * height,
+           let field = try? ScanVectorField(
+               scanRows: height, scanColumns: width,
+               row: (0..<count).map { Double(com[2 * $0 + 1]) }, column: (0..<count).map { Double(com[2 * $0]) }),
+           let solution = try? RotationSolver.solve(
+               field, forceRotationDegrees: -Double(rotationRad) * 180 / .pi, forceTranspose: transpose) {
+            var out = [Float](repeating: 0, count: com.count)
+            for i in 0..<count {
+                out[2 * i] = Float(solution.corrected.column[i])
+                out[2 * i + 1] = Float(solution.corrected.row[i])
+            }
+            return out
+        }
         let c = cos(rotationRad), s = sin(rotationRad)
         var out = [Float](repeating: 0, count: com.count)
-        for i in 0..<(com.count / 2) {
+        for i in 0..<count {
             let a = transpose ? com[2 * i + 1] : com[2 * i]
             let b = transpose ? com[2 * i]     : com[2 * i + 1]
             out[2 * i]     = c * a - s * b
