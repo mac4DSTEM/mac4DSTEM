@@ -24,7 +24,7 @@ let package = Package(
         .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.1.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
-        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.0.3"),
+        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.1.0"),
         .package(url: "https://github.com/mac4DSTEM/CuboKit", exact: "0.0.3"),
     ],
     targets: [
