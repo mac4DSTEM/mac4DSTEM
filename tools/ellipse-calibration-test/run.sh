@@ -3,7 +3,7 @@ set -euo pipefail
 # reference.py source-locks py4DSTEM's ellipse/profile fit conventions in
 # process/calibration/ellipse.py and process/utils/elliptical_coords.py and
 # emits synthetic ring, profile, overlap, and spotty-ring fixtures; the Swift
-# harness runs Core/Analysis/EllipseCalibration.swift's fit1D/fitBestAvailable
+# harness runs DiffractoKit's (DiffractoGeometry) EllipseCalibration fit1D/fitBestAvailable
 # against them, checking fitted parameters, insufficient-signal/coverage
 # refusals, and the sparse-coverage "fit anyway" path. Since 2026-10-12 it also
 # plants a clean sweep of 48 single rings (512x512 and 384x512, R 80-200 px,
