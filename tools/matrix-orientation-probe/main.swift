@@ -29,6 +29,7 @@
 //
 
 import Foundation
+import DiffractoGeometry
 import Metal
 import simd
 
@@ -317,12 +318,13 @@ enum MatrixOrientationProbe {
             let parts = ring.split(separator: ",").compactMap { Double($0) }
             if parts.count == 2 {
                 let bvm = calibrated.map(qy: d.qy, qx: d.qx)
-                let pattern = DiffractionPattern(qy: d.qy, qx: d.qx, pixels: bvm.pixels)
                 print(String(format: "\n== Ring ellipse baseline: annulus %.1f–%.1f px on the Bragg-vector map ==", parts[0], parts[1]))
                 for sparse in [false, true] {
                     do {
                         let f = try EllipseCalibration.fitBestAvailable(
-                            pattern: pattern, centerQX: Double(origin.y), centerQY: Double(origin.x),
+                            // The kit's three-field pattern (width = columns = qx, height = rows = qy), inferred: the app's
+                            // display `DiffractionPattern` shadows the kit's name in this one-module harness.
+                            pattern: .init(width: d.qx, height: d.qy, pixels: bvm.pixels), centerQX: Double(origin.y), centerQY: Double(origin.x),
                             innerRadius: parts[0], outerRadius: parts[1], acceptSparseCoverage: sparse)
                         print(String(format: "  acceptSparseCoverage %@: a %.3f b %.3f θ %.4f rad (%.1f°), axis ratio %.4f, residual %.3f, %d/36 sectors, model %@",
                                      sparse ? "true " : "false", f.a, f.b, f.theta, f.theta * 180 / .pi,

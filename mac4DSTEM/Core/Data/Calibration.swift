@@ -1,4 +1,5 @@
 import Foundation
+import DiffractoGeometry   // EllipseTransform: the ellipse correction is the kit's (2026-10-15)
 
 /// Where the detector origin currently shown by the aperture came from.
 /// This is deliberately separate from `hasFittedOrigin`: a py4DSTEM file can
@@ -923,9 +924,7 @@ package nonisolated struct Calibration: Sendable {
     package nonisolated static func acceptedEllipse(
         a: Double?, b: Double?, theta: Double?
     ) -> (a: Double, b: Double, theta: Double)? {
-        guard let a, let b, let theta,
-              a.isFinite, b.isFinite, theta.isFinite, a > 0, b > 0 else { return nil }
-        return (a, b, theta)
+        EllipseTransform.accepted(a: a, b: b, theta: theta)
     }
 
     /// Mean fitted origin, suitable as a default detector center.
@@ -951,20 +950,11 @@ package nonisolated struct Calibration: Sendable {
     }
 
     /// py4DSTEM `_transform` ellipse matrix in the native (qx=row, qy=column)
-    /// frame — the single construction shared by the forward and inverse
-    /// offset corrections so the two paths cannot drift.
-    private nonisolated func ellipseTransform()
-        -> (t00: Double, t01: Double, t11: Double)? {
-        guard hasEllipse, let a = ellipseA, let b = ellipseB,
-              let theta = ellipseTheta else { return nil }
-        let e = b / a
-        let sine = sin(theta - .pi / 2)
-        let cosine = cos(theta - .pi / 2)
-        return (
-            t00: e * sine * sine + cosine * cosine,
-            t01: sine * cosine * (1 - e),
-            t11: sine * sine + e * cosine * cosine
-        )
+    /// frame — DiffractoKit's `EllipseTransform` (the former local construction,
+    /// moved verbatim), shared by the forward and inverse offset corrections so
+    /// the two paths cannot drift. nil unless `hasEllipse`.
+    private nonisolated func ellipseTransform() -> EllipseTransform? {
+        EllipseTransform(a: ellipseA, b: ellipseB, theta: ellipseTheta)
     }
 
     /// Apply py4DSTEM `BraggVectors.cal._transform(..., ellipse=True)` to a
@@ -972,9 +962,7 @@ package nonisolated struct Calibration: Sendable {
     /// app's [dy,dx], and theta stays in that native py4DSTEM frame.
     package nonisolated func ellipseCorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
         guard let t = ellipseTransform() else { return (dx, dy) }
-        let qx = t.t00 * Double(dy) + t.t01 * Double(dx)
-        let qy = t.t01 * Double(dy) + t.t11 * Double(dx)
-        return (Float(qy), Float(qx))
+        return t.correctedOffset(dx: dx, dy: dy)
     }
 
     /// Exact inverse of `ellipseCorrectedOffset`: maps a calibrated detector
@@ -983,14 +971,7 @@ package nonisolated struct Calibration: Sendable {
     /// pattern. Identity when no ellipse is set, matching the forward path.
     package nonisolated func ellipseUncorrectedOffset(dx: Float, dy: Float) -> (x: Float, y: Float) {
         guard let t = ellipseTransform() else { return (dx, dy) }
-        let det = t.t00 * t.t11 - t.t01 * t.t01
-        guard abs(det) > .leastNormalMagnitude else { return (dx, dy) }
-        // Forward returned (x: qy, y: qx); undo the same axis bookkeeping.
-        let qx = Double(dy)
-        let qy = Double(dx)
-        let rawDY = ( t.t11 * qx - t.t01 * qy) / det
-        let rawDX = (-t.t01 * qx + t.t00 * qy) / det
-        return (Float(rawDX), Float(rawDY))
+        return t.uncorrectedOffset(dx: dx, dy: dy)
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

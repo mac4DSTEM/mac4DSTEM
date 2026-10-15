@@ -9,6 +9,7 @@
 
 import Foundation
 import Observation
+import DiffractoGeometry   // EllipseCalibrationFit / EllipseCalibration: DiffractoKit's (2026-10-15)
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 #endif

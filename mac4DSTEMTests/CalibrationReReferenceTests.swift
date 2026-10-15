@@ -12,6 +12,7 @@
 
 import XCTest
 import DSTEMCore
+import DiffractoGeometry
 import DSTEMSession
 @testable import mac4DSTEM
 

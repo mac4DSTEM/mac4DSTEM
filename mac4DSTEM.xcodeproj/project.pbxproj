@@ -73,7 +73,6 @@
 				Core/Analysis/DiffractionEmbedding.swift,
 				Core/Analysis/DiskDetection.swift,
 				Core/Analysis/DPC.swift,
-				Core/Analysis/EllipseCalibration.swift,
 				Core/Analysis/FitOverlays.swift,
 				Core/Analysis/FriedelOrigin.swift,
 				Core/Analysis/OrientationResult.swift,

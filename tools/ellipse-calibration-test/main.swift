@@ -1,4 +1,29 @@
 import Foundation
+import DiffractoGeometry
+
+// The fit is DiffractoKit's (2026-10-15) and reads the kit's three-field pattern (width = columns, height = rows).
+// This harness compiles the app's Core files into ONE module, where the app's display `DiffractionPattern(qy:qx:pixels:)`
+// shadows the kit's type of the same name and cannot be unshadowed, so these two overloads take the display type and
+// convert at the boundary, exactly as the app does at AppState.calibrateEllipse: the cases below stay as written.
+extension EllipseCalibration {
+    static func fit1D(
+        pattern: DiffractionPattern, centerQX: Double, centerQY: Double, innerRadius: Double, outerRadius: Double,
+        maximumResidual: Double = 0.2, acceptSparseCoverage: Bool = false
+    ) throws -> EllipseCalibrationFit {
+        try fit1D(pattern: .init(width: pattern.qx, height: pattern.qy, pixels: pattern.pixels),
+                  centerQX: centerQX, centerQY: centerQY, innerRadius: innerRadius, outerRadius: outerRadius,
+                  maximumResidual: maximumResidual, acceptSparseCoverage: acceptSparseCoverage)
+    }
+    static func fitBestAvailable(
+        pattern: DiffractionPattern, centerQX: Double, centerQY: Double, innerRadius: Double, outerRadius: Double,
+        maximumConicResidual: Double = 0.2, maximumProfileResidual: Double = 0.22, acceptSparseCoverage: Bool = false
+    ) throws -> EllipseCalibrationFit {
+        try fitBestAvailable(pattern: .init(width: pattern.qx, height: pattern.qy, pixels: pattern.pixels),
+                             centerQX: centerQX, centerQY: centerQY, innerRadius: innerRadius, outerRadius: outerRadius,
+                             maximumConicResidual: maximumConicResidual, maximumProfileResidual: maximumProfileResidual,
+                             acceptSparseCoverage: acceptSparseCoverage)
+    }
+}
 
 struct Fixture: Decodable {
     let cases: [RingCase]

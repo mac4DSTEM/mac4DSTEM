@@ -1,5 +1,7 @@
 import XCTest
 import DSTEMCore
+import DiffractoGeometry
+import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
 @testable import mac4DSTEM
 
 /// The profile ring fit (`EllipseCalibration.fitAmorphousRing`, behind the Fit
@@ -100,7 +102,7 @@ final class EllipseNoisyRingTests: XCTestCase {
                     pixels[qx * size + qy] = Float(value)
                 }
             }
-            return DiffractionPattern(qy: size, qx: size, pixels: pixels)
+            return DiffractionPattern(width: size, height: size, pixels: pixels)
         }
     }
 
@@ -161,7 +163,7 @@ final class EllipseNoisyRingTests: XCTestCase {
         let pixels = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
         XCTAssertEqual(pixels.count, 32 * 32)
         let fit = try EllipseCalibration.fitBestAvailable(
-            pattern: DiffractionPattern(qy: 32, qx: 32, pixels: pixels),
+            pattern: DiffractionPattern(width: 32, height: 32, pixels: pixels),
             centerQX: 15.001983, centerQY: 15.162129, innerRadius: 11.125, outerRadius: 14.125)
         XCTAssertEqual(fit.model, .conic, "a ring-less profile fit was accepted")
         XCTAssertNil(fit.profile)

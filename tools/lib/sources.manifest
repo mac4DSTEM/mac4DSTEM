@@ -178,6 +178,10 @@ mac4dstem_sources() {
         )
         ;;
       calibration)
+        # Calibration.swift's ellipse transform is DiffractoKit's EllipseTransform (2026-10-15): every harness that
+        # composes this group links DiffractoGeometry (kit_module, above); KIT_FLAGS ride in MAC4DSTEM_SOURCES.
+        kit_module "$repo" DiffractoKit DiffractoGeometry
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" data
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -307,11 +311,9 @@ mac4dstem_sources() {
         )
         ;;
       ellipse)
+        # The fit itself is DiffractoKit's (linked by `calibration`, above); nothing else to compile.
         mac4dstem_sources "$repo" calibration
-        want+=(
-          "${MAC4DSTEM_SOURCES[@]}"
-          "$core/Analysis/EllipseCalibration.swift"
-        )
+        want+=("${MAC4DSTEM_SOURCES[@]}")
         ;;
       rotation)
         # The R-Q rotation solve alone (tools/rotation-parity-test): its
@@ -418,6 +420,9 @@ mac4dstem_sources() {
         # Every Core/ source — what `swift build` compiles as DSTEMCore. For
         # the two diagnostics that touch most of it (bragg-spacing-probe,
         # training-dataset-campaign); a gated harness names its groups.
+        # Calibration.swift is in the glob, and it imports DiffractoGeometry (as the `calibration` group).
+        kit_module "$repo" DiffractoKit DiffractoGeometry
+        want+=("${KIT_FLAGS[@]}")
         want+=("$core"/**/*.swift(N))
         ;;
       strain)

@@ -1,5 +1,7 @@
 import XCTest
 import DSTEMCore
+import DiffractoGeometry
+import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
 @testable import mac4DSTEM
 
 /// `EllipseCalibration.fit1D`'s Levenberg-Marquardt loop (2026-10-12) once
@@ -38,7 +40,7 @@ final class EllipseStopRuleTests: XCTestCase {
                 pixels[qx * size + qy] = Float(exp(-(distance * distance) / (2 * sigma * sigma)))
             }
         }
-        return DiffractionPattern(qy: size, qx: size, pixels: pixels)
+        return DiffractionPattern(width: size, height: size, pixels: pixels)
     }
 
     func testCleanRingsTheOldStopRuleRefusedAreFittedAtTheirOptimum() {

@@ -1,4 +1,5 @@
 import Foundation
+import DiffractoGeometry
 
 // `Aperture` now lives in Core/Analysis/VirtualDetector.swift (2026-09-02);
 // the local mirror this file carried is gone.
@@ -573,10 +574,9 @@ private func evaluate(
     let ellipseStart = Date()
     do {
         let fit = try EllipseCalibration.fitBestAvailable(
-            pattern: DiffractionPattern(
-                qy: descriptor.qy, qx: descriptor.qx,
-                pixels: originFit.meanDP
-            ),
+            // The kit's three-field pattern (width = columns = qx, height = rows = qy), inferred: the app's display
+            // `DiffractionPattern` shadows the kit's name in this one-module harness.
+            pattern: .init(width: descriptor.qx, height: descriptor.qy, pixels: originFit.meanDP),
             centerQX: Double(meanOrigin.y), centerQY: Double(meanOrigin.x),
             innerRadius: Double(maximumRadius) * 0.35,
             outerRadius: Double(maximumRadius) * 0.90

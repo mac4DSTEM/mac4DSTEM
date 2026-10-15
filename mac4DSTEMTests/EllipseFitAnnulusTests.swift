@@ -7,6 +7,8 @@
 
 import XCTest
 import DSTEMCore
+import DiffractoGeometry
+import struct DiffractoGeometry.DiffractionPattern   // the fit's three-field pattern, over DSTEMCore's display type
 import DSTEMSession
 @testable import mac4DSTEM
 
@@ -47,7 +49,7 @@ final class EllipseFitAnnulusTests: XCTestCase {
                 pixels[row * width + col] = Float(exp(-pow((r - 20) / 1.5, 2)))
             }
         }
-        let pattern = DiffractionPattern(qy: height, qx: width, pixels: pixels)
+        let pattern = DiffractionPattern(width: width, height: height, pixels: pixels)
         let aperture = Aperture(centerX: 30, centerY: 34, inner: 0, outer: 10)
         let fit = try EllipseCalibration.fit1D(
             pattern: pattern,

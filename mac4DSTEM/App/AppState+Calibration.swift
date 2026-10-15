@@ -7,9 +7,11 @@
 //
 
 import Foundation
+import DiffractoGeometry   // EllipseCalibration: the ellipse fit is DiffractoKit's (2026-10-15)
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import struct DSTEMCore.DiffractionPattern   // the app's display type, over DiffractoGeometry's of the same name
 #endif
 
 extension AppState {
@@ -188,7 +190,8 @@ extension AppState {
         do {
             let fit = try await Task.detached(priority: .userInitiated) {
                 try EllipseCalibration.fitBestAvailable(
-                    pattern: detectorPattern,
+                    // The kit's three-field pattern: width = the column count (qx), height = the rows (qy).
+                    pattern: .init(width: detectorPattern.qx, height: detectorPattern.qy, pixels: detectorPattern.pixels),
                     centerQX: centerQX, centerQY: centerQY,
                     innerRadius: inner, outerRadius: outer, acceptSparseCoverage: acceptSparseCoverage
                 )
