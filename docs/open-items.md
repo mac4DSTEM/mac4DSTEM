@@ -10,6 +10,25 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 
 ## Science & parity
 
+### The kit switches (2026-10-15) — what they leave
+- **CuboKit, kept under "Rules serve the app"** after C‴ failed (`../_archive/mac4DSTEM/docs/registrations/cubokit-switch-c-double-prime-registration-2026-10-15.md`):
+  `RotationCalibration` works in Float, so a 3e-8 objective tie chose −82.7° for −82.6° on Al–Mg–Si. Next: the refinement in
+  Double on CuboKit 0.2.0's `RotationSolver.curve()` (registered first). C3 (per-position origins, `get_origin`) registered,
+  not built. The app's FriedelOrigin, BeamstopMask and ProbeKernel shadow the kit's same-named types; adopting the kit's moves
+  disk detection (register first). A negative radius now gives an empty image (was a |r| mask). A resident-cube image costs
+  0.08 s (was ≤ 0.02 s) until CuboKit 0.2.1's zero-copy source.
+- **HDF5 signing (release blocker)**: the three dylibs now ship inside FormatoKit's resource bundle, ad-hoc signed; a
+  Hardened Runtime build (Release) cannot load them (measured on a stand-in), Develop and Debug can. Owner's choice.
+- **DiffractoKit 0.1.0**: `requireRingEvidence` stays off on the detector ellipse (owner's card with the annulus guard). The
+  kit holds the full pre-cut list: a 30 Å cell at kMax 2.5 peaks ~800 MB (kit ask). The polar ±c of a 6mm structure is
+  invisible to the kinematic map: never claimed.
+- **Replay scale guard** is one constant, 1e-4 relative (`ACOMReplayPlan.scaleRelativeTolerance`; was 1e-6): a recipe
+  recorded before the DPC wavelength moved (+2.72e-5, `2e46e215`) replays and rewinds; its ACOM product still reads stale
+  (the staleness signature compares the scale string; honest, one re-run clears it).
+- **Owed**: the DiffractoKit 0.3.0 re-pin (deletes the app's PhaseVectorMatching and PhaseReferenceLibrary); ParallaxAlignment and FFT1D onto ImagoKit 0.1.0; the dead-code pass; the drive block; lane G's gate work (scoped gates, nightly split, parallel harnesses, oracle cache). From 2026-10-15 evening the suite's process is a focused commit with tests
+  and one review (suite CLAUDE.md); the registrations above are the record of the day, not a pattern to repeat.
+
+
 ### Phase mapping under the T4 object bar (ADR 040) — one metric short
 Raw speckle, not cleaned counts, certifies a classifier (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`); the truth's cuts
 (782 / 10 / 4 px) are that dataset's, never an app default. First scored run: FAIL on θ′ edge-on raw spurious 7 > 5.
