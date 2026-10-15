@@ -174,21 +174,17 @@ package enum RotationCalibration {
         let curve = grid.curve.map { Float($0) }
         let curveT = grid.curveTransposed.map { Float($0) }
         let transpose = grid.transposed
-        var bestDeg = Float(-grid.degrees)
-        var bestVal = (transpose ? curveT : curve)[anglesDeg.firstIndex(of: bestDeg) ?? 0]
+        var bestDeg = -grid.degrees            // Double: the refinement compares in Double, as py4DSTEM does
+        var bestVal = (transpose ? grid.curveTransposed : grid.curve)[kitAngles.firstIndex(of: grid.degrees) ?? 0]
 
-        // The objective at one app angle: the kit scoring a single angle at a fixed transpose.
-        func obj(_ deg: Float, _ transposed: Bool) -> Float? {
-            guard let r = try? RotationSolver.solve(field, anglesDegrees: [-Double(deg)], criterion: criterion,
-                                                    forceTranspose: transposed) else { return nil }
-            return Float((transposed ? r.curveTransposed : r.curve)[0])
-        }
-
-        // Refinement: 0.1° steps within ±1° of the grid winner.
-        for deg in stride(from: bestDeg - 1, through: bestDeg + 1, by: 0.1) {
-            if cancellation?.isCancelled == true { return nil }
-            guard let v = obj(deg, transpose) else { continue }
-            if maximizeDivergence ? v > bestVal : v < bestVal {
+        // Refinement: 0.1° steps within ±1° of the grid winner, scored by the kit's `curve` in Double (a Float
+        // objective let a 3e-8 tie pick −82.7° for −82.6° on Al–Mg–Si). The first strictly better angle wins.
+        let center = bestDeg
+        let fine = (0...20).map { center - 1 + Double($0) * 0.1 }
+        if cancellation?.isCancelled == true { return nil }
+        if let fineCurve = try? RotationSolver.curve(field, anglesDegrees: fine.map { -$0 }, criterion: criterion,
+                                                     transpose: transpose) {
+            for (deg, v) in zip(fine, fineCurve) where (maximizeDivergence ? v > bestVal : v < bestVal) {
                 bestVal = v
                 bestDeg = deg
             }
@@ -298,9 +294,9 @@ package enum RotationCalibration {
             shuffledDepths = depths
         }
 
-        return Result(rotationRad: bestDeg * .pi / 180,
+        return Result(rotationRad: Float(bestDeg * (.pi / 180)),
                       transpose: transpose,
-                      objective: bestVal,
+                      objective: Float(bestVal),
                       anglesDeg: anglesDeg,
                       objectiveCurve: curve,
                       objectiveCurveTransposed: curveT,
