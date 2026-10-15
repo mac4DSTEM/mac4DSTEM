@@ -12,8 +12,8 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 
 ### The kit switches (2026-10-15) — what they leave
 - **CuboKit, kept under "Rules serve the app"** after C‴ failed (`../_archive/mac4DSTEM/docs/registrations/cubokit-switch-c-double-prime-registration-2026-10-15.md`):
-  `RotationCalibration` works in Float, so a 3e-8 objective tie chose −82.7° for −82.6° on Al–Mg–Si. Next: the refinement in
-  Double on CuboKit 0.2.0's `RotationSolver.curve()` (registered first). C3 (per-position origins, `get_origin`) registered,
+  `RotationCalibration`'s refinement is in Double on CuboKit's `curve()` since `8d23dba5`; owed: a test that fails on the old
+  Float refinement, and the Al–Mg–Si angle measured against py4DSTEM's float64 −82.6° (the field is not in the repo). C3 (per-position origins, `get_origin`) registered,
   not built. The app's FriedelOrigin, BeamstopMask and ProbeKernel shadow the kit's same-named types; adopting the kit's moves
   disk detection (register first). A negative radius now gives an empty image (was a |r| mask). A resident-cube image costs
   0.08 s (was ≤ 0.02 s) until CuboKit 0.2.1's zero-copy source.
@@ -25,7 +25,14 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 - **Replay scale guard** is one constant, 1e-4 relative (`ACOMReplayPlan.scaleRelativeTolerance`; was 1e-6): a recipe
   recorded before the DPC wavelength moved (+2.72e-5, `2e46e215`) replays and rewinds; its ACOM product still reads stale
   (the staleness signature compares the scale string; honest, one re-run clears it).
-- **Owed**: the DiffractoKit 0.3.0 re-pin (deletes the app's PhaseVectorMatching and PhaseReferenceLibrary); ParallaxAlignment and FFT1D onto ImagoKit 0.1.0; the dead-code pass; the drive block; lane G's gate work (scoped gates, nightly split, parallel harnesses, oracle cache). From 2026-10-15 evening the suite's process is a focused commit with tests
+- **ParallaxAlignment is a CuboKit ask, not an ImagoKit switch** (2026-10-15 night): it correlates a running-average reference
+  spectrum with the raw cross-power and py4DSTEM's subpixel DFT, and shifts in Float; ImagoAlignment is scikit-image's
+  normalised image-pair registration in Double. FFT1D stays (no kit has a 1D FFT; OrientationMatcher uses it).
+- **Test-run traps** (2026-10-15 night): `KitSwitchFreezeTests`' preset digests pass in the full parallel suite and fail when the
+  class runs alone, even at DiffractoKit 0.1.0 (per-reflection values are identical: a run-context dependence, cause open);
+  `sources.manifest`'s `kit_module` links every `*.o` in `.build/<kit>-tools`, so objects left by another pin break the link
+  (delete that folder after a pin change, or make kit_module clear it).
+- **Owed**: the dead-code pass; the drive block; lane G's gate work (scoped gates, nightly split, parallel harnesses, oracle cache). From 2026-10-15 evening the suite's process is a focused commit with tests
   and one review (suite CLAUDE.md); the registrations above are the record of the day, not a pattern to repeat.
 
 
