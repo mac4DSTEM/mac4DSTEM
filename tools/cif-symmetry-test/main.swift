@@ -1058,8 +1058,8 @@ private let cases: [Case] = [
          why: "cubic to every symmetry test, but two Au 0.0037 A apart is not a structure"),
     Case(name: "magnesium_symop_loop_2dp", cif: magnesiumSymopLoop(decimals: 2),
          expectedSymmetry: .identity,
-         why: "2 decimals cannot resolve the 6-fold from its own rounding — refuse, "
-              + "do not widen the gate"),
+         why: "2 decimals cannot resolve the 6-fold from its own rounding — the kit reads a lower class "
+              + "(Unreduced), never .hexagonal on a guess"),
     Case(name: "magnesium_symop_loop_3dp", cif: magnesiumSymopLoop(decimals: 3),
          expectedSymmetry: .hexagonal, expectedSiteCount: 2,
          why: "24 operators on one 2c site, coordinates at 3 decimals — the #14 case"),
