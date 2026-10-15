@@ -6,8 +6,10 @@
 //        return a phase label, a distance, and an explicit "not indexed".
 //
 //  Method: Thronsen et al., Ultramicroscopy 255 (2024) 113861, CC BY 4.0 —
-//  the published description only. Their repository carries no licence and is
-//  not used (`decisions.md`, 2026-09-11). Three deviations from what the paper
+//  the published description. Their repository carries no licence: no code from
+//  it is copied (`decisions.md`, 2026-09-11). The known-variants rule below and
+//  its two constants follow the paper; its notebook was read only to confirm
+//  them (cells named where they occur). Three deviations from what the paper
 //  describes are deliberate and are named where they occur: the matrix mask is
 //  applied in VECTOR space rather than to the image, the matrix orientation is
 //  fitted ONCE for the scan rather than per pattern, and the verdict carries a
@@ -206,12 +208,12 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// Shipped. Adding `.knownVariants` changes nothing about this rule.
     package var classificationRule: ClassificationRule = .search
     /// `.knownVariants` only: survivors at or below this many → the matrix,
-    /// by exclusion. Cell 6: `direct_Al = 1`; cell 16:
-    /// `if len(xy) <= direct_Al: … phase.append('Al')`.
+    /// by exclusion: the paper's decision rule and value (1), as its notebook
+    /// also reads (cells 6 and 16); no code copied.
     package var directMatrixMaximumVectors: Int = 1
     /// `.knownVariants` only: the winning entry's residual mean above this →
-    /// "not indexed". Å⁻¹. Cell 6: `score_cutoff = 0.07`; cell 19:
-    /// `score_phase_mask = score_phase > score_cutoff`. The paper's value on
+    /// "not indexed". Å⁻¹. The paper's cutoff (0.07), as its notebook also
+    /// reads (cells 6 and 19); no code copied. The paper's value on
     /// the paper's dataset — shipped as a setting, not retuned on this app's
     /// truth (`docs/v3-features.md#precipitates-mp-plan` §2).
     package var residualCutoffInvAngstrom: Double = 0.07

@@ -184,6 +184,18 @@ ships is trained on its own data with its own weights.
 
 
 ================================================================================
+Third-party method
+================================================================================
+
+The phase-mapping matcher (Core/Crystal/PhaseVectorMatching.swift) implements the vector-matching
+method and, as `.knownVariants`, the per-position decision rule with its two constants
+(at most one surviving vector → the matrix; a residual cutoff of 0.07 Å⁻¹) described in
+Thronsen et al., "Scanning precession electron diffraction data analysis approaches for phase
+mapping of precipitates in aluminium alloys", Ultramicroscopy 255 (2024) 113861, licensed
+CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). No code from the authors' repository
+(which carries no licence) is copied.
+
+================================================================================
 Third-party ground truth
 ================================================================================
 
