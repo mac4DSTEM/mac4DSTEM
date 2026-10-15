@@ -34,7 +34,7 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 - Metal parameter structs in `MetalEngine.swift` stay byte-identical to the matching `.metal` structs (all 4-byte fields).
 - Port deviations from py4DSTEM get an inline `DEVIATION` note.
 - Don't add `CODE_SIGNING_ALLOWED=NO` to a build you intend to launch; use `tools/run-tests.sh unit` for unsigned XCTest work.
-- On-screen verification may be claimed only when it actually drove the app and is sure — name the build, say what was clicked, what was seen; otherwise it is stated as unverified on screen.
+- On-screen verification may be claimed only when it actually drove the app and is sure — name the build, say what was clicked, what was seen; otherwise it is stated as unverified on screen. A drive never writes or clears the owner's clipboard: a Copy step is checked by `NSPasteboard.changeCount` (the hook refuses `pbcopy`).
 - Docs are part of done: update `docs/status.md` and `docs/open-items.md` in the same commit as the code, net negative markdown lines or say why.
 - Commit freely: land work as coherent commits with the gate numbers in the message. Pushing stays the owner's — ask before any push.
 - **`main` only** (owner directive 2026-09-17): no feature or worktree branches, local or remote; every change lands as a commit on `main`. The one-time cleanup back to a single branch is `docs/archive/git-cleanup-2026-09-17.md`.

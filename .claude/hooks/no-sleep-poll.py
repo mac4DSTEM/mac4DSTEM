@@ -11,7 +11,8 @@ import sys
 MSG = ("Refused by .claude/hooks/no-sleep-poll.py (owner rule 2026-10-14: wait on events, "
        "not loops): do not sleep or poll. Run the job with run_in_background and wait for "
        "its completion notification, or use the Monitor tool for a stream of events. "
-       "(Owner rule 2026-10-15: pkill/killall only with a session-specific pattern; else kill <pid>.)")
+       "(Owner rule 2026-10-15: pkill/killall only with a session-specific pattern; else kill <pid>. "
+       "No pbcopy: a drive never writes the owner's clipboard.)")
 
 # `sleep` as a command word: not part of a path or a longer word (/tmp/sleepy, asleep).
 SLEEP = re.compile(r"(?<![\w/.\-])sleep(?=\s)([^;&|\n)]*)")
@@ -21,6 +22,9 @@ WATCH = re.compile(r"(?<![\w/.\-])watch\s+(?:\S+\s+)*?-n\b")
 # Owner rule 2026-10-15 (two machine-wide kills on 2026-10-14 night): pkill and killall only with a session-specific
 # pattern (a scratchpad path under /claude-501/ or a session UUID); otherwise kill a pid.
 KILL = re.compile(r"(?:^|[;&|\n`]|\$\(|\bsudo|\bxargs)\s*(?:/usr/bin/)?(pkill|killall)\s(?![^;&|\n]*(/claude-501/|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-))")
+# 2026-10-15 (macTEM's probe emptied the owner's clipboard on Copy steps): a drive never writes the clipboard; a Copy step
+# is checked by NSPasteboard.changeCount.
+CLIP = re.compile(r"(?:^|[;&|\n`]|\$\(|\bxargs)\s*(?:/usr/bin/)?pbcopy\b")
 
 
 def seconds(args):
@@ -33,7 +37,7 @@ def seconds(args):
 
 
 def refuse(cmd):
-    if LOOP.search(cmd) or WATCH.search(cmd) or KILL.search(cmd):
+    if LOOP.search(cmd) or WATCH.search(cmd) or KILL.search(cmd) or CLIP.search(cmd):
         return True
     return any(seconds(m.group(1)) >= 30 for m in SLEEP.finditer(cmd))
 
