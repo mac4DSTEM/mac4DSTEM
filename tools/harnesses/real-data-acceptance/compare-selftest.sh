@@ -241,14 +241,14 @@ print -r -- '#!/bin/sh'$'\n''echo "Filesystem 1G-blocks Used Available Capacity 
 # A stub for every harness the arrays NAME (not only the directories that exist
 # today: a harness being added mid-session must not turn a routing test red).
 stub_names=(real-data-acceptance package-test)
-for rs in "$ROOT"/tools/*/run.sh; do stub_names+=("${rs:h:t}"); done
+for rs in "$ROOT"/tools/harnesses/*/run.sh; do stub_names+=("${rs:h:t}"); done
 stub_names+=($(awk '/^(scientific|campaign)=\(/{f=1; sub(/^[a-z]+=\(/, "")} f{ if ($0 ~ /^\)/) {f=0} else print }' "$ROOT/tools/run-tests.sh" | tr -d '()'))
 for d in ${(u)stub_names}; do
-  mkdir -p "$FAKE/tools/$d"
-  print -r -- '#!/bin/sh'$'\n''echo "STUB '"$d"'"' > "$FAKE/tools/$d/run.sh"
+  mkdir -p "$FAKE/tools/harnesses/$d"
+  print -r -- '#!/bin/sh'$'\n''echo "STUB '"$d"'"' > "$FAKE/tools/harnesses/$d/run.sh"
 done
 print -r -- '#!/bin/sh'$'\n''echo "STUB compare-selftest"' > "$FAKE/tools/harnesses/real-data-acceptance/compare-selftest.sh"
-chmod +x "$FAKE"/tools/*/run.sh "$FAKE/tools/harnesses/real-data-acceptance/compare-selftest.sh" \
+chmod +x "$FAKE"/tools/harnesses/*/run.sh "$FAKE/tools/harnesses/real-data-acceptance/compare-selftest.sh" \
          "$FAKE/tools/lib/fetch-py4dstem.sh" "$FAKE/bin/xcodebuild" "$FAKE/bin/df" "$FAKE/tools/run-tests.sh"
 routes() {
   env -u CI -u MAC4DSTEM_NO_REAL_DATA "$@" HOME="$FAKE/home" PATH="$FAKE/bin:$PATH" \

@@ -128,7 +128,8 @@
 				Core/Spectroscopy/Registration/RegistrationRecordM2.swift,
 				Core/Workflow/AnalysisOperationController.swift,
 				Info.plist,
-				Resources/DiskDetector,
+				Resources/DiskDetector/disk-detector-heatmap-256.json,
+				Resources/DiskDetector/disk-detector-heatmap-256.mlpackage,
 				Session/ACOMSession.swift,
 				Session/ACOMWorkflow.swift,
 				Session/AppPreferences.swift,
@@ -181,6 +182,19 @@
 			);
 			target = 000000000000000100000000 /* mac4DSTEM */;
 		};
+		3000000000000000000000E1 /* Exceptions for "mac4DSTEMTests" folder in "mac4DSTEMTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Fixtures/DiskDetector/fixture/expected.json,
+				Fixtures/DiskDetector/fixture/fixture.npz,
+				Fixtures/DiskDetector/fixture/swift/expected.json,
+				Fixtures/DiskDetector/fixture/swift/inputs-ref.f16,
+				Fixtures/DiskDetector/fixture/swift/patterns.u16,
+				Fixtures/DiskDetector/fixture/swift/probe.f32,
+				Fixtures/DiskDetector/labels/bullseye-2026-09-28.json,
+			);
+			target = 100000000000000100000000 /* mac4DSTEMTests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -194,6 +208,9 @@
 		};
 		100000000000000000000010 /* mac4DSTEMTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3000000000000000000000E1 /* Exceptions for "mac4DSTEMTests" folder in "mac4DSTEMTests" target */,
+			);
 			path = mac4DSTEMTests;
 			sourceTree = "<group>";
 		};
