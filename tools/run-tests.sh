@@ -362,9 +362,12 @@ inventory() {
   # library under the same notice, and until 2026-09-09 NOTICE also promised
   # licence texts that were in no bundle and in no clone.
   echo "== redistributed binaries (NOTICE names and hashes each)"
-  local dl sum
-  for dl in "$ROOT"/*.dylib(N); do
-    dl="${dl:t}"; sum="$(shasum -a 256 "$ROOT/$dl" | cut -d' ' -f1)"
+  # Since 2026-10-15 the app embeds none of its own: libhdf5, libsz and libaec are FormatoKit's, in FormatoHDF5's resource bundle,
+  # so the files checked are the pinned checkout's (`swift package resolve` puts it in .build/checkouts).
+  local dl sum hd="$ROOT/.build/checkouts/FormatoKit/Sources/FormatoHDF5/Resources/hdf5"
+  [[ -d "$hd" ]] || { echo "  NOT CHECKED  no FormatoKit checkout ($hd); run swift package resolve"; rc=1; }
+  for dl in "$hd"/*.dylib(N); do
+    dl="${dl:t}"; sum="$(shasum -a 256 "$hd/$dl" | cut -d' ' -f1)"
     if ! grep -q "$dl" "$ROOT/NOTICE"; then
       echo "  UNNAMED   $dl is redistributed and NOTICE does not name it"; rc=1
     elif ! grep -q "$sum" "$ROOT/NOTICE"; then
@@ -376,7 +379,7 @@ inventory() {
     # bundle. `docs/releasing.md` claimed these were "free of Homebrew paths";
     # they are free of them HERE, and nowhere else — libhdf5 still carries the
     # Homebrew build stamp as a string (2026-09-09).
-    if otool -L "$ROOT/$dl" | tail -n +2 | grep -qE '^\s+/(opt|usr/local|Users)/'; then
+    if otool -L "$hd/$dl" | tail -n +2 | grep -qE '^\s+/(opt|usr/local|Users)/'; then
       echo "  ABSPATH   $dl links against an absolute path; a relocated bundle will not load it"; rc=1
     fi
   done

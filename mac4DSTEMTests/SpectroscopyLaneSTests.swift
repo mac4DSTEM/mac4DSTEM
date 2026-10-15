@@ -3,6 +3,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import SpectroCore
+import SpectroEDX
 @testable import mac4DSTEM
 
 /// Lane S (UI audit 2026-10-14, Spectroscopy rows): every test names the mutation that turns it red.

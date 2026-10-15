@@ -192,8 +192,8 @@ arch(arm64)`, so a bare `#if` cannot ship a broken x86_64 slice
 file where ad hoc drawing geometry is expected — "none of it sizes text for
 a form," per its header.
 
-Standalone EDX (the Velox, DM4 and EDS readers, `DM4Experiment`/`DM4Error`, the fit, quantification, the HDF5 lock) is
-SpectroKit's: the `SpectroCore` module, imported at an exact tag (0.1.0). 4D × spectroscopy correlation stays here
+Standalone EDX (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`) and the file readers with the HDF5 lock
+(`DM4Experiment`/`DM4Error`, `VeloxEMDReader`, `HDF5Serial`) are FormatoKit's, both imported at exact tags (0.4.0, 0.0.3). 4D × spectroscopy correlation stays here
 (`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDX science goes to
 SpectroKit and arrives by a tag bump.
 
@@ -329,8 +329,8 @@ only under `all`; `inventory` fails on any directory not classified.
 Most harnesses are zsh `run.sh` scripts that compile a handful of production
 `Core/` sources with `xcrun swiftc`, sourcing `tools/lib/sources.manifest`
 first for a dependency-closed file list per named group (see "Project
-structure", above). One needing the bundled HDF5 dylibs copies and
-ad-hoc-codesigns them first, since the repo's signed copies won't validate
+structure", above). One needing the HDF5 dylibs (FormatoKit's, in its pinned checkout, found by `tools/lib/hdf5-dir.sh`) copies and
+ad-hoc-codesigns them first, since the shipped copies won't validate
 for an unsigned tool; one needing GPU kernels compiles `Shaders/*.metal` to a
 `default.metallib` by hand. `tools/package-test/run.sh` runs a full
 `xcodebuild -configuration Release` at the release archive's own
@@ -349,14 +349,14 @@ quietly stopped checking something looks like a passing gate.
 ## HDF5 notes
 
 `H5Reader` and the session writer `dlopen` `libhdf5.dylib` and bind every
-symbol via `dlsym`, searching `MAC4DSTEM_HDF5_PATH` (harnesses), the bundle's
-`Contents/Frameworks/`, then dyld's bare-name lookup. The target embeds and
-signs `libhdf5`, `libsz.2`, `libaec.0`; App Sandbox with user-selected
+symbol via `dlsym`, searching `MAC4DSTEM_HDF5_PATH` (harnesses), FormatoKit's copy in the app's
+`Contents/Resources/FormatoKit_FormatoHDF5.bundle` (`FormatoHDF5Library.bundledLibraryPath`), then dyld's bare-name lookup. The libraries
+are FormatoKit's, not the app's own. The app runs in the App Sandbox with user-selected
 read/write and app-scoped bookmarks. Release enables Hardened Runtime; local
 Debug builds leave it off so macOS accepts the separately signed closure.
 Distribution always uses hardened Release (`releasing.md`). HDF5 access is
 serialised process-wide by a lock, not an actor: `HDF5Serial`
-(SpectroKit's `HDF5Serial`, public in `SpectroCore`) is acquired and released around every
+(FormatoKit's `HDF5Serial`, public in `FormatoHDF5`; one lock per process, `HDF5SingleLibraryTests`) is acquired and released around every
 `H5Reader` public method's body, recursive so a nested entry does not
 deadlock and never held across an `await`. The three redistributed dylibs came from Homebrew
 `hdf5 2.1.1` / `libaec 1.1.7` on one machine; nothing in the repo rebuilds them.

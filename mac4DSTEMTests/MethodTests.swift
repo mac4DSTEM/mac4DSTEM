@@ -10,6 +10,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 @testable import SpectroCore
+@testable import SpectroEDX
 
 @MainActor
 final class QuantificationMethodTests: XCTestCase {

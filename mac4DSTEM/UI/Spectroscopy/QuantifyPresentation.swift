@@ -2,6 +2,7 @@ import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import SpectroCore
+import SpectroEDX
 #endif
 
 // The Quantify step's pure half (v5.0 R3, ADR 054): the inspector's settings <-> the session's

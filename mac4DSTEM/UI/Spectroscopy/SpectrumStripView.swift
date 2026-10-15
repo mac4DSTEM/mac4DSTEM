@@ -2,6 +2,7 @@ import SwiftUI
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import SpectroCore
+import SpectroEDX
 #endif
 
 /// The spectrum strip (ADR 056): a header (title, the pins), the Canvas plot on a log axis opening on the listed lines'

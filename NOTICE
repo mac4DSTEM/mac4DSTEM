@@ -43,10 +43,13 @@ eXSpy and HyperSpy (EDX spectroscopy)
 ================================================================================
 
 Since v5.0 this EDX code is SpectroKit's (https://github.com/mac4DSTEM/SpectroKit, tag
-0.1.0, GPL-3.0; the app links it and bundles its tables), whose own NOTICE carries the same
-credits; the paths below are in that repository.
+0.4.0, GPL-3.0; the app links it and bundles its tables), whose own NOTICE carries the same
+credits; the paths below are in that repository. The DM4 and Velox EMD readers and the HDF5
+lock that SpectroKit 0.1.0 to 0.3.0 carried are FormatoKit's since SpectroKit 0.4.0
+(https://github.com/mac4DSTEM/FormatoKit, tag 0.0.3, GPL-3.0; the app links it), whose NOTICE
+carries their credits (eXSpy and RosettaSciIO) and the libhdf5 files' hashes.
 
-The X-ray line table (`Sources/SpectroCore/Spectroscopy/XRayLineData.swift`: line
+The X-ray line table (`Sources/SpectroEDX/Spectroscopy/XRayLineData.swift`: line
 energies from Chantler 2005, relative line weights from the EPQ library, both as
 eXSpy ships them), the detector line-width law, and the integration and
 background window rules are ported from eXSpy, with HyperSpy's channel rounding
@@ -63,7 +66,7 @@ where this implementation departs.
 NIST EPQ data (EDX quantification)
 ================================================================================
 
-`Sources/SpectroCore/Resources/Spectroscopy/FFastMAC.csv` (mass absorption coefficients) and
+`Sources/SpectroEDX/Resources/Spectroscopy/FFastMAC.csv` (mass absorption coefficients) and
 `LineWeights.csv` (X-ray line weights) are copied verbatim from the NIST EPQ library,
 https://github.com/usnistgov/EPQ, commit 249dd3f8 (`../_archive/mac4DSTEM/tools/lib/fetch-epq.sh` re-fetches
 and verifies them). The EPQ licence (LicenseFile.txt, sha256 2e749d6d…c16) reads:
@@ -102,7 +105,7 @@ The mass absorption coefficients inside EPQ are the FFAST tabulation (NIST Stand
 Reference Database 66, Chantler et al.); their own terms were flagged as unclear by the
 v5.0 research (../_archive/mac4DSTEM/docs/archive/v5/edx-research-2026-10-05/reports/validation.md §2) and are
 carried here as a recorded risk. The element table in
-`Sources/SpectroCore/Spectroscopy/Quant/QuantElementData.swift` (atomic weights and densities)
+`Sources/SpectroEDX/Spectroscopy/Quant/QuantElementData.swift` (atomic weights and densities)
 comes from eXSpy's elements data (GPL-3.0-or-later; see the eXSpy section above).
 
 ================================================================================
@@ -132,7 +135,8 @@ The full license text for each ships in the application bundle at
 `Contents/Resources/Licenses/`, from the `Licenses/` directory in this
 repository. Verified in a built bundle on 2026-09-09, not assumed.
 
-Identity of the three committed binaries, so that what is redistributed is
+Identity of the three binaries (FormatoKit's FormatoHDF5 resource since 2026-10-15; the repo no longer commits them, and
+`tools/run-tests.sh inventory` checks the pinned checkout's copies against these hashes), so that what is redistributed is
 stated rather than described. SHA-256, byte size, and the `LC_ID_DYLIB` current
 version each binary declares:
 
@@ -145,7 +149,7 @@ version each binary declares:
     libsz.2.dylib   6ebc2e1c15e432564acdb33875ab14d977c63589402929f5c274de1b46d4774b
                     53 280 B, current version 3.1.0; built with libaec above
 
-They were built by Homebrew on the maintainer's machine and committed on
+They were built by Homebrew on the maintainer's machine and committed here on
 2026-08-25; `libhdf5.dylib` still carries its build stamp
 `Installation point: /opt/homebrew/Cellar/hdf5/2.1.1` and HDF5's compiled-in
 default plugin search path under the same prefix, which is how the version is

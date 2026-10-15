@@ -10,6 +10,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 import SpectroCore
+import SpectroEDX
 
 /// Counts how often the compute polls for cancellation (the stages that ask).
 private final class PollCounter: @unchecked Sendable {

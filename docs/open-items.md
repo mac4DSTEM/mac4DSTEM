@@ -230,10 +230,10 @@ an EDS SI) opens as a spectrum image in the Spectroscopy room, never as a cube; 
 (Fable) passed after round 2 (the sniff now runs inside the security scope, so Recents reopen as spectrum images too). A spectrum image is not added to Recents (they carry sidecar semantics).
 
 ### Velox parity is a local diagnostic, not a CI gate (2026-10-05)
-`../_archive/mac4DSTEM/tools/velox-parity` checks SpectroKit's `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
+`../_archive/mac4DSTEM/tools/velox-parity` checks FormatoKit's `VeloxEMDReader` count for count against rosettasciio `049e7d70` (20 cases, plus
 frame counts; since 2026-10-12 also every frame of the 27 image stacks via `images()` / `readImageFrame`) and passed on every run. It needs rsciio, `sparse` and h5py (set `VELOX_PARITY_PYTHON`), which CI's
 Python lacks, so it is listed under `diagnostic`. Promote it to `scientific` once CI can install them, or once the
-truth arrays are cached as fixtures. Also: SpectroKit's `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines); a fix goes to SpectroKit.
+truth arrays are cached as fixtures. Also: FormatoKit's `VeloxEMDReader` carries a third private libhdf5 binding (about 120 lines); a fix goes to FormatoKit.
 Allocation from file sizes (macTEM V1-3a, 2026-10-12): `readMetadataJSON` is capped at 16 MiB (0db86192); still unbounded:
 `markersPerFrame` (`FrameLocationTable` rows) and the per-column loops of `readFrameTransformations` / `readFrameDetectorTimes` (`dims[1]`).
 
@@ -328,10 +328,11 @@ on the selected region and the file's axis, cancellably; suggestions never touch
 - **SpectroKit (2026-10-13):** the stored field `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (a rename
   re-baselines the golden); `SpectroscopyExport`'s default title and `MAC4DSTEM_HDF5_PATH` still name the app (injectable, defaults kept);
   public API: 438 declarations, ζ `package`. Since S4 (ADR 067): 18 staying test files reach SpectroKit `package` API by
-  `@testable import SpectroCore` (memberwise inits of `ElementCandidate`, `LineWindow`, …; `EDSFit`, `VeloxEMDReader.readSpectrumImage`),
+  `@testable import SpectroCore` / `SpectroEDX` (memberwise inits of `ElementCandidate`, `LineWindow`, …; `EDSFit`),
   so they compile only against a testable (Debug) SpectroKit; a later tag could make those public. The Run configuration's
-  name `Develop` is what makes Xcode build SpectroKit optimised (an undocumented mapping; the pre-push hook checks it).
-  `../_archive/mac4DSTEM/tools/velox-parity`, `edx-pins`, `demo-edx`, `autoid-velox-check` still live here and read SpectroKit's pinned checkout.
+  name `Develop` is what makes Xcode build the kits optimised (an undocumented mapping; the pre-push hook checks SpectroCore and FormatoEMD).
+  `../_archive/mac4DSTEM/tools/velox-parity`, `edx-pins`, `demo-edx`, `autoid-velox-check` read the pinned checkouts (SpectroKit 0.4.0 + FormatoKit 0.0.3, 2026-10-15; `autoid-velox-check --replay` is off there: `LineConflict.init` is internal in SpectroEDX, a public initialiser is SpectroKit's to add).
+  The app's own root dylibs are removed (owner, 2026-10-15 14:44): FormatoKit's `FormatoKit_FormatoHDF5.bundle` (three ad-hoc-signed dylibs in `Resources/`) is the only libhdf5, and a hardened-runtime app cannot dlopen it unsigned (library validation, measured on a stand-in): how to sign it for shipping is the owner's open decision.
 - **Stale VoiceOver values (drives 8, 9, 13, 14), fixed 2026-10-13:** `.textSelection(.enabled)` wraps a Text in an outer element
   whose value never updates (measured on a scratch app); `selectableText(_:)` gives it an explicit value (inspector value rows,
   aberration coefficients, provenance values and differences). Four dimmed buttons now give their reason. Not yet re-read on screen.

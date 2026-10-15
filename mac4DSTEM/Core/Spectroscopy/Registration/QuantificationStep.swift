@@ -16,6 +16,7 @@
 
 import Foundation
 import SpectroCore
+import SpectroEDX
 
 package nonisolated struct QuantificationStep: Equatable, Sendable {
     package static let kind = "quantification"

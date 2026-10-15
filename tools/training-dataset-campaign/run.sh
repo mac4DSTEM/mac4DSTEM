@@ -18,7 +18,7 @@ trap 'rm -rf "$WORK"' EXIT
 resolve_mac4dstem_developer_dir
 
 for lib in libhdf5 libsz.2 libaec.0; do
-  cp "$ROOT/$lib.dylib" "$WORK/"
+  cp "$("$ROOT/tools/lib/hdf5-dir.sh")/$lib.dylib" "$WORK/"
   codesign -f -s - "$WORK/$lib.dylib" 2>/dev/null
 done
 for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do

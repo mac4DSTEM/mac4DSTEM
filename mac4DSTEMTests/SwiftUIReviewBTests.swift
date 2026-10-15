@@ -7,6 +7,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+import FormatoHDF5
 import SpectroCore
 
 @MainActor

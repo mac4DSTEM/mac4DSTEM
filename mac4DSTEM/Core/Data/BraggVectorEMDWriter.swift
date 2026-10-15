@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import FormatoHDF5
 import SpectroCore
 
 /// Writes the detected peak grid as a py4DSTEM 0.14 / EMD 1.0 BraggVectors
@@ -3149,9 +3150,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     private static func candidateLibraryPaths() -> [String] {
         [
             ProcessInfo.processInfo.environment["MAC4DSTEM_HDF5_PATH"],
-            Bundle.main.privateFrameworksURL?.appendingPathComponent("libhdf5.dylib").path,
-            Bundle.main.executableURL?.deletingLastPathComponent()
-                .appendingPathComponent("../Frameworks/libhdf5.dylib").standardized.path,
+            FormatoHDF5Library.bundledLibraryPath,   // FormatoKit's copy, the one the app ships (see H5Reader)
             "libhdf5.dylib"
         ].compactMap { $0 }
     }

@@ -11,6 +11,7 @@ import XCTest
 import DSTEMSession
 @testable import mac4DSTEM
 @testable import SpectroCore
+@testable import SpectroEDX
 
 /// A spectrum image that remembers how it was summed: a pool must never be summed with `mask: nil` (every pixel).
 final class PoolSpyImage: SpectrumImageSource, @unchecked Sendable {

@@ -12,6 +12,7 @@
 //
 
 import Foundation
+import FormatoDM
 import SpectroCore
 
 /// Whether the disk a memory-mapped file came from is still there (Slot 4⅞,

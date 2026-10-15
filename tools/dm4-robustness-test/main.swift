@@ -1,4 +1,5 @@
 import Foundation
+import FormatoDM
 import SpectroCore
 
 func fail(_ message: String) -> Never {

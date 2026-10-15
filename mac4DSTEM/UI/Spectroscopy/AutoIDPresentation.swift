@@ -1,7 +1,8 @@
 import Foundation
+import SpectroCore   // the kit's modules are imported outside the #if: a harness compiling this file links them too
+import SpectroEDX
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
-import SpectroCore
 #endif
 
 // Auto ID's pure half (v5.0 WP3 lane W, ADR 054 §6): the element proposer's `ProposalResult` (Core) -> what the

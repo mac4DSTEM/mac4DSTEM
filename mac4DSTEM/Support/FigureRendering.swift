@@ -24,6 +24,7 @@ import SwiftUI
 import DSTEMCore
 import DSTEMSession
 import SpectroCore
+import SpectroEDX
 #endif
 
 /// What is stroked over a panel's data pixels, in the panel's own data-pixel coordinates (the image's width and height are the

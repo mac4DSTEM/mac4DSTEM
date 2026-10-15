@@ -8,6 +8,7 @@
 
 import XCTest
 import DSTEMCore
+import FormatoDM
 import SpectroCore
 
 final class RegistrationTests: XCTestCase {

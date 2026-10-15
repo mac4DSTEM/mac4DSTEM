@@ -6,6 +6,7 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 import SpectroCore
+import SpectroEDX
 @testable import mac4DSTEM
 
 /// Talk-quality figure export (tier 2, 2026-10-14): the detector outlined on the diffraction pattern, the regions on the EDX maps,

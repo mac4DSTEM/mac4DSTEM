@@ -3,7 +3,10 @@ import XCTest
 @testable import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import FormatoDM
+@testable import FormatoEMD
 @testable import SpectroCore
+@testable import SpectroEDX
 
 /// v5.0 WP2 lane R2: from a file to a spectrum image in the room. Fixtures: `demo-edx-tiny.dm4` (6 x 4 scan, 512 channels,
 /// truth beside it) and `velox-tiny.emd` (3 rows x 2 columns, 8 channels, 2 frames: the main file of

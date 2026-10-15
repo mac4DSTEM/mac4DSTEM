@@ -18,10 +18,13 @@ let package = Package(
         .library(name: "DSTEMSession", targets: ["DSTEMSession"]),
         .library(name: "DSTEMTraining", targets: ["DSTEMTraining"]),
     ],
-    // Standalone EDX (readers, fit, quantification, the HDF5 lock) lives in SpectroKit since S4 (ADR 064).
-    // Exact: v5.0 ships on this tag; a new tag is a deliberate bump, gated like any other change.
+    // Standalone EDX (fit, quantification, the spectrum image) lives in SpectroKit since S4 (ADR 064); the file readers
+    // (DM4, Velox EMD) and the one HDF5 lock are FormatoKit's since SpectroKit 0.4.0 (2026-10-15). The two pins move
+    // TOGETHER and never apart: a process that linked an older SpectroKit's HDF5Serial beside FormatoKit's would have
+    // two locks around one libhdf5 that is not thread-safe. Exact: a new tag is a deliberate bump, gated like any other change.
     dependencies: [
-        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.1.0"),
+        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.4.0"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.0.3"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.1.0"),
@@ -31,6 +34,11 @@ let package = Package(
         .target(
             name: "DSTEMCore",
             dependencies: [.product(name: "SpectroCore", package: "SpectroKit"),
+                           .product(name: "SpectroEDX", package: "SpectroKit"),
+                           .product(name: "FormatoCore", package: "FormatoKit"),
+                           .product(name: "FormatoDM", package: "FormatoKit"),
+                           .product(name: "FormatoEMD", package: "FormatoKit"),
+                           .product(name: "FormatoHDF5", package: "FormatoKit"),
                            .product(name: "DiffractoCore", package: "DiffractoKit"),
                            .product(name: "DiffractoScattering", package: "DiffractoKit"),
                            .product(name: "DiffractoGeometry", package: "DiffractoKit"),
@@ -74,6 +82,11 @@ let package = Package(
         .target(
             name: "DSTEMSession",
             dependencies: ["DSTEMCore", .product(name: "SpectroCore", package: "SpectroKit"),
+                           .product(name: "SpectroEDX", package: "SpectroKit"),
+                           .product(name: "FormatoCore", package: "FormatoKit"),
+                           .product(name: "FormatoDM", package: "FormatoKit"),
+                           .product(name: "FormatoEMD", package: "FormatoKit"),
+                           .product(name: "FormatoHDF5", package: "FormatoKit"),
                            .product(name: "DiffractoCore", package: "DiffractoKit"),
                            .product(name: "DiffractoScattering", package: "DiffractoKit"),
                            .product(name: "DiffractoGeometry", package: "DiffractoKit"),

@@ -13,7 +13,7 @@ trap 'rm -rf "$WORK"' EXIT
 # The bundled dylibs' signatures don't validate for ad-hoc-built tools; use
 # ad-hoc-signed copies in the temp dir instead of touching the repo files.
 for l in libhdf5 libsz.2 libaec.0; do
-  cp "$REPO/$l.dylib" "$WORK/"
+  cp "$("$REPO/tools/lib/hdf5-dir.sh")/$l.dylib" "$WORK/"
   codesign -f -s - "$WORK/$l.dylib" 2>/dev/null
 done
 

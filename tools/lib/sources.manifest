@@ -94,37 +94,57 @@ MAC4DSTEM_ISOLATION_FLAGS=(
   -enable-upcoming-feature MemberImportVisibility
 )
 
-# SpectroKit (S4, 2026-10-13; ADR 064). The standalone EDX core and the shared HDF5 lock (HDF5Types, DM4Error,
-# DM4Experiment, VeloxEMDReader, SpectroCancellation, SpectroFileName, ...) left Core/ for SpectroKit, which
-# mac4DSTEM imports at the exact version in Package.resolved. A harness cannot compile those sources into its own
-# module any more: DM4Reader, H5Reader and BraggVectorEMDWriter `import SpectroCore`. So `readers` and `export`
-# link the library as a module: this builds the PINNED checkout (`swift package resolve` puts it in
-# .build/checkouts) once in release, into .build/spectrokit-tools, and SPECTROKIT_FLAGS (-I, the C module map,
-# the two prelinked objects) ride in MAC4DSTEM_SOURCES, which swiftc takes as inputs like any source. A wrong
-# revision rebuilds; a failed build exits 65, loudly. SPECTROKIT_BUNDLE is the tables' resource bundle: a harness
-# that reads QuantificationTables copies it beside its binary (Bundle.module looks there and traps otherwise).
+# SpectroKit and FormatoKit (S4, 2026-10-13, ADR 064; 2026-10-15 SpectroKit 0.4.0 + FormatoKit 0.0.3). The standalone EDX
+# core (SpectroCore, SpectroEDX) is SpectroKit's; the file readers (DM4Experiment, VeloxEMDReader) and the one HDF5 lock
+# (HDF5Serial) are FormatoKit's (FormatoCore, FormatoDM, FormatoEMD, FormatoHDF5). mac4DSTEM imports them at the exact
+# versions in Package.resolved. A harness cannot compile those sources into its own module: DM4Reader, H5Reader and
+# BraggVectorEMDWriter `import` them. So `readers` and `export` link the libraries as modules: this builds the PINNED
+# SpectroKit checkout (`swift package resolve` puts it in .build/checkouts) once in release, into .build/spectrokit-tools,
+# with the targets SpectroCore and SpectroEDX; SwiftPM builds FormatoKit's four targets beside them from the tag
+# SpectroKit's own manifest names, and that clone must be the FormatoKit revision pinned here (checked, exit 65 otherwise).
+# SPECTROKIT_FLAGS (-I, the C module map, the seven prelinked objects) ride in MAC4DSTEM_SOURCES, which swiftc takes as
+# inputs like any source. A wrong revision rebuilds; a failed build exits 65, loudly.
+# SPECTROKIT_BUNDLE is the EDX tables' resource bundle (SpectroKit_SpectroEDX.bundle): a harness that reads
+# QuantificationTables copies it beside its binary (Bundle.module looks there and traps otherwise).
+# FORMATOKIT_BUNDLE is FormatoHDF5's (FormatoKit_FormatoHDF5.bundle, with its three libhdf5 dylibs); the reader harnesses
+# keep MAC4DSTEM_HDF5_PATH on their own ad-hoc-signed copies of the repo's dylibs, which the lookup tries first.
 spectrokit_module() {
   local repo=$1
-  local ck="$repo/.build/checkouts/SpectroKit" scratch="$repo/.build/spectrokit-tools"
-  local pin
+  local ck="$repo/.build/checkouts/SpectroKit" fck="$repo/.build/checkouts/FormatoKit" scratch="$repo/.build/spectrokit-tools"
+  local pin fpin
   pin=$(awk '/"identity" : "spectrokit"/ {f=1} f && /"revision"/ {gsub(/[",]/, "", $3); print $3; exit}' "$repo/Package.resolved")
+  fpin=$(awk '/"identity" : "formatokit"/ {f=1} f && /"revision"/ {gsub(/[",]/, "", $3); print $3; exit}' "$repo/Package.resolved")
   if [[ -z "$pin" ]]; then echo "sources.manifest: no SpectroKit pin in $repo/Package.resolved" >&2; exit 65; fi
-  if [[ "$(git -C "$ck" rev-parse HEAD 2>/dev/null)" != "$pin" ]]; then
+  if [[ -z "$fpin" ]]; then echo "sources.manifest: no FormatoKit pin in $repo/Package.resolved" >&2; exit 65; fi
+  if [[ "$(git -C "$ck" rev-parse HEAD 2>/dev/null)" != "$pin" || "$(git -C "$fck" rev-parse HEAD 2>/dev/null)" != "$fpin" ]]; then
     (cd "$repo" && swift package resolve) >&2 || { echo "sources.manifest: swift package resolve failed" >&2; exit 65; }
   fi
   if [[ "$(git -C "$ck" rev-parse HEAD 2>/dev/null)" != "$pin" ]]; then
     echo "sources.manifest: $ck is not at the pinned SpectroKit $pin" >&2; exit 65
   fi
-  local prod="$scratch/out/Products/Release"
-  if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin" || ! -f "$prod/SpectroCore.o" ]]; then
-    swift build -c release --package-path "$ck" --scratch-path "$scratch" --target SpectroCore >&2 \
-      || { echo "sources.manifest: building SpectroKit $pin failed" >&2; exit 65; }
-    echo "$pin" > "$scratch/.pin"
+  if [[ "$(git -C "$fck" rev-parse HEAD 2>/dev/null)" != "$fpin" ]]; then
+    echo "sources.manifest: $fck is not at the pinned FormatoKit $fpin" >&2; exit 65
+  fi
+  local prod="$scratch/out/Products/Release" t
+  if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $fpin" || ! -f "$prod/SpectroEDX.o" || ! -f "$prod/FormatoHDF5.o" ]]; then
+    for t in SpectroCore SpectroEDX; do
+      swift build -c release --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
+        || { echo "sources.manifest: building SpectroKit $pin ($t) failed" >&2; exit 65; }
+    done
+    # The Formato objects came from the clone SpectroKit's manifest fetched into the scratch: it must be the pinned one,
+    # or the harness would test a FormatoKit the app does not ship (the exact pins agree today; this keeps it so).
+    if [[ "$(git -C "$scratch/checkouts/FormatoKit" rev-parse HEAD 2>/dev/null)" != "$fpin" ]]; then
+      echo "sources.manifest: SpectroKit $pin built FormatoKit $(git -C "$scratch/checkouts/FormatoKit" rev-parse HEAD 2>/dev/null), not the pinned $fpin" >&2
+      exit 65
+    fi
+    echo "$pin $fpin" > "$scratch/.pin"
   fi
   SPECTROKIT_FLAGS=(-I "$prod"
     -Xcc "-fmodule-map-file=$scratch/out/Intermediates.noindex/GeneratedModuleMaps/CSpectroLAPACK.modulemap"
-    "$prod/SpectroCore.o" "$prod/CSpectroLAPACK.o")
-  SPECTROKIT_BUNDLE="$prod/SpectroKit_SpectroCore.bundle"
+    "$prod/SpectroCore.o" "$prod/SpectroEDX.o" "$prod/CSpectroLAPACK.o"
+    "$prod/FormatoCore.o" "$prod/FormatoDM.o" "$prod/FormatoEMD.o" "$prod/FormatoHDF5.o")
+  SPECTROKIT_BUNDLE="$prod/SpectroKit_SpectroEDX.bundle"
+  FORMATOKIT_BUNDLE="$prod/FormatoKit_FormatoHDF5.bundle"
 }
 
 # kit_module <repo-root> <Kit> <target>... (2026-10-15): DiffractoKit and CuboKit as SpectroKit above, for any kit

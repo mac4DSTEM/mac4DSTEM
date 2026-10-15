@@ -3,11 +3,11 @@
 # The one place the release architecture is spelled (2026-09-11).
 #
 # mac4DSTEM is Apple-Silicon-only by design, and two independent things in the
-# tree enforce it: the three embedded HDF5 libraries are arm64-only Mach-Os,
+# tree enforce it: the three HDF5 libraries (FormatoKit's, in its FormatoHDF5 resource bundle) are arm64-only Mach-Os,
 # and Core/ML/LearnedDiskDetector.swift uses Float16, which does not exist on
 # x86_64 macOS. An x86_64 slice therefore cannot be built, and if it could be
 # it would launch and then fail every dataset open, because H5Reader dlopens
-# libhdf5 from Contents/Frameworks at runtime rather than linking it.
+# libhdf5 from the FormatoHDF5 resource bundle at runtime rather than linking it.
 #
 # WHY THIS FILE EXISTS, measured 2026-09-11 and not inferred:
 # `ARCHS = arm64` is set at PROJECT level in both configurations and does NOT
@@ -98,12 +98,12 @@ assert_mac4dstem_bundle_arm64_only() {
   arch_failures=0
   assert_mac4dstem_arm64_only "$app/Contents/MacOS/mac4DSTEM" || arch_failures=1
   for library in libhdf5.dylib libsz.2.dylib libaec.0.dylib; do
-    if [ ! -f "$app/Contents/Frameworks/$library" ]; then
+    if [ ! -f "$app/Contents/Resources/FormatoKit_FormatoHDF5.bundle/Contents/Resources/hdf5/$library" ]; then
       echo "FAIL: $app is missing embedded $library." >&2
       arch_failures=1
       continue
     fi
-    assert_mac4dstem_arm64_only "$app/Contents/Frameworks/$library" || arch_failures=1
+    assert_mac4dstem_arm64_only "$app/Contents/Resources/FormatoKit_FormatoHDF5.bundle/Contents/Resources/hdf5/$library" || arch_failures=1
   done
   return "$arch_failures"
 }

@@ -24,8 +24,8 @@ Earlier gate rows — the 2026-10-14 day rows (S4, ring fit, FIG, H1, H2) are at
 
 | Item | State | Next step, owner |
 |---|---|---|
-| **Now** | v4.5.0 / 8 released; v5.0 (EDX) on `main` on SpectroKit 0.1.0. `origin/main` = `7d6fdbd1` (the owner pushed 2026-10-15 night); this closeout commit is local. Xcode's Run configuration is `Develop` (ADR 067). | Owner: push this closeout. |
-| **v5.0 science** | E1 landed; E1b (single objects) waits on a mock. ADR 066: no microscope validation in v5.0 (quantification ships badged unvalidated); B*, D, H, I, K and excess after v5.0. SpectroKit S0–S4 done (ADR 064). | The v5.0 release waits until everything is settled and functional (owner, 2026-10-13); no date. An EDX fix goes to SpectroKit and arrives by a tag bump. |
+| **Now** | v4.5.0 / 8 released; v5.0 (EDX) on `main` on SpectroKit 0.4.0 + FormatoKit 0.0.3. `origin/main` = `7d6fdbd1` (the owner pushed 2026-10-15 night); this closeout commit is local. Xcode's Run configuration is `Develop` (ADR 067). | Owner: push this closeout. |
+| **v5.0 science** | E1 landed; E1b (single objects) waits on a mock. ADR 066: no microscope validation in v5.0 (quantification ships badged unvalidated); B*, D, H, I, K and excess after v5.0. SpectroKit S0–S4 done (ADR 064). | The v5.0 release waits until everything is settled and functional (owner, 2026-10-13); no date. An EDX fix goes to SpectroKit (a reader fix to FormatoKit) and arrives by a tag bump. |
 | **The study (suite ROADMAP)** | β″ maps landed (B2, unvalidated). N_V item closed (P1 refuted); v2 registered, not built (`open-items.md`). | N_V v2 first, then the study, then the DiffractoKit and CuboKit imports once tagged. |
 | **Ring fit (Gate D, macTEM)** | Landed (ADR 069); the annulus guard was refuted (`c9efee8a`). | Card: a new item or leave it. |
 | **UI audit (2026-10-14)** | FIG, H1, H2, S, C landed; left: `open-items.md`'s entry. | One drive for lanes S, C and B2 (plans in the lanes' reports). |

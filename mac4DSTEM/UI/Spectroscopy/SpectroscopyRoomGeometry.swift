@@ -3,6 +3,7 @@ import CoreGraphics
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import SpectroCore
+import SpectroEDX
 #endif
 
 // The Spectroscopy room's pure geometry (ADR 056): where the map tiles go for the data's own aspect, how a live region is

@@ -49,9 +49,13 @@ fi
 # "Development" -> -Onone; "Develop", "Profile", "Release" -> -O). The Run action uses "Develop"; this refuses a push
 # the day an Xcode maps it differently. SpectroCore is compiled on the first build in this DerivedData and after
 # every Xcode update; an incremental build that does not recompile it has nothing to check.
-sk=$(grep -m1 -E 'builtin-SwiftDriver .* -module-name SpectroCore ' "$LOG")
-if [[ -n "$sk" && "$sk" != *" -O "* ]]; then
-  echo "pre-push: REFUSED — the Run configuration built SpectroKit without -O (Xcode's package mapping changed?); see $LOG"; exit 1
-fi
-echo "pre-push: OK (inventory exit 0, app target builds, ${${sk:+SpectroKit compiled -O}:-SpectroKit not recompiled})"
+sk=""
+for module in SpectroCore FormatoEMD; do   # the Velox reader is FormatoKit's since SpectroKit 0.4.0 (2026-10-15)
+  line=$(grep -m1 -E "builtin-SwiftDriver .* -module-name $module " "$LOG")
+  if [[ -n "$line" && "$line" != *" -O "* ]]; then
+    echo "pre-push: REFUSED — the Run configuration built $module without -O (Xcode's package mapping changed?); see $LOG"; exit 1
+  fi
+  [[ -n "$line" ]] && sk="$sk $module"
+done
+echo "pre-push: OK (inventory exit 0, app target builds, ${${sk:+kit modules compiled -O:$sk}:-the kits not recompiled})"
 exit 0

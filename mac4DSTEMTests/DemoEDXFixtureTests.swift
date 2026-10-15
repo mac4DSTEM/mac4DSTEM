@@ -1,6 +1,7 @@
 import XCTest
 import CryptoKit
 import DSTEMCore
+import FormatoDM
 @testable import SpectroCore
 
 /// v5.0 WP2 lane S: the simulated 4D-STEM + EDX dataset (`../_archive/mac4DSTEM/tools/demo-edx/`). The fixture is the TINY variant
@@ -59,13 +60,12 @@ final class DemoEDXFixtureTests: XCTestCase {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: path), "References/demo-edx not generated")
         let objects = try DM4Experiment.list(path: path)
         XCTAssertEqual(objects.map(\.role), [.thumbnail, .survey, .scanSignal, .diffraction, .eds])
-        XCTAssertEqual(DM4Experiment.experimentIDs(in: objects).count, 1)
         XCTAssertEqual(try object(objects, .scanSignal).dimensions, [64, 48])
         XCTAssertEqual(try object(objects, .diffraction).dimensions, [128, 128, 64, 48])
         XCTAssertEqual(try object(objects, .eds).dimensions, [64, 48, 4096])
-        let rect = try XCTUnwrap(try object(objects, .eds).spectrumImageRect)
-        XCTAssertEqual(rect.width / rect.height, 64.0 / 48.0, accuracy: 1e-12)
-        XCTAssertEqual(rect.width, 320); XCTAssertEqual(rect.height, 240)
+        // The experiment id and the SI rect (`package` API of FormatoDM since the readers left SpectroKit, 2026-10-15) are asserted
+        // on the tiny fixture by FormatoKit's own Tests/FormatoDMTests/DemoEDXFixtureTests+Spectro.swift (experimentIDs, spectrumImageRect);
+        // a consumer cannot name them, so this default-file test keeps what the public API lists: roles, dimensions and the cube read.
         let reader = try await DM4Reader(path: path)
         let descriptor = try await reader.discoverPrimaryDataset()
         XCTAssertEqual(descriptor.shape, [48, 64, 128, 128])

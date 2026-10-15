@@ -12,7 +12,7 @@ trap 'chmod -R u+rwX "$WORK" 2>/dev/null; rm -rf "$WORK"' EXIT
 resolve_mac4dstem_developer_dir
 
 for library in libhdf5 libsz.2 libaec.0; do
-  cp "$REPO/$library.dylib" "$WORK/"
+  cp "$("$REPO/tools/lib/hdf5-dir.sh")/$library.dylib" "$WORK/"
   codesign -f -s - "$WORK/$library.dylib" 2>/dev/null
 done
 

@@ -1,5 +1,6 @@
 import XCTest
 import DSTEMCore
+import FormatoDM
 @testable import SpectroCore
 
 /// v5.0 WP1 lane B: `DM4Experiment` lists every image object of a GMS `.dm4`

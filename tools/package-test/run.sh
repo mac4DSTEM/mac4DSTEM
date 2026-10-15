@@ -34,7 +34,8 @@ xcodebuild \
   build -quiet
 
 APP="$WORK/DerivedData/Build/Products/Release/mac4DSTEM.app"
-FRAMEWORKS="$APP/Contents/Frameworks"
+# The app embeds none of its own HDF5 libraries since 2026-10-15: they are FormatoKit's, in FormatoHDF5's resource bundle.
+FRAMEWORKS="$APP/Contents/Resources/FormatoKit_FormatoHDF5.bundle/Contents/Resources/hdf5"
 EXECUTABLE="$APP/Contents/MacOS/mac4DSTEM"
 INFO="$APP/Contents/Info.plist"
 

@@ -1,4 +1,4 @@
-/* Builds two tiny py4DSTEM-style EMD fixtures using the repo's libhdf5.dylib.
+/* Builds two tiny py4DSTEM-style EMD fixtures using FormatoKit's libhdf5.dylib (tools/lib/hdf5-dir.sh).
  * attrs.h5:    calibration values as HDF5 attributes (emdfile Metadata.to_h5
  *              layout), QR_flip as an int8-based enum {FALSE,TRUE} — exactly
  *              the type h5py writes for a Python bool.

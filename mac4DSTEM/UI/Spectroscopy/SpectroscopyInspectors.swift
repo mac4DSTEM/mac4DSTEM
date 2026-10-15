@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import DSTEMCore
 import DSTEMSession
 import SpectroCore
+import SpectroEDX
 #endif
 
 // The room's inspector (ADR 056, spec 2 D-5): one flat stack of sections, label left / control right (the app's `InspectorRow`

@@ -151,8 +151,8 @@ timestamp, notarization, and ticket stapling; `altool` is no longer supported.
 *(merged from `distribution.md`, 2026-09-02)*
 
 The project now produces a self-contained, hardened, sandboxed macOS app. The
-target embeds `libhdf5.dylib`, `libsz.2.dylib`, and `libaec.0.dylib` in
-`Contents/Frameworks`; Xcode signs each nested library with the app identity.
+target carries `libhdf5.dylib`, `libsz.2.dylib`, and `libaec.0.dylib` in
+FormatoKit's resource bundle (`Contents/Resources/FormatoKit_FormatoHDF5.bundle/Contents/Resources/hdf5`; the repo and the project embed none of their own since 2026-10-15); the signing of that bundle is the owner's pending decision (`docs/open-items.md`).
 
 Run the credential-free release audit before archiving:
 

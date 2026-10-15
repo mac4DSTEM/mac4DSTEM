@@ -3,7 +3,9 @@ import XCTest
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+@testable import FormatoDM
 @testable import SpectroCore
+@testable import SpectroEDX
 
 /// v5.0 lane U: the first drive's wiring, text and presentation findings (../_archive/mac4DSTEM/docs/archive/v5/room-drive-2026-10-06.md, 3-13).
 /// Each test names the mutation that must turn it red.

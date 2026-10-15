@@ -3,7 +3,7 @@
 //  Quitting while HDF5 is busy (Slot 4¾ review, 2026-10-02).
 //
 //  The bundled libhdf5 is built Threadsafety OFF; every app entry runs under
-//  `HDF5Serial` (SpectroKit, Sources/SpectroCore/Data/HDF5Types.swift). `exit()` — what a Quit ends in —
+//  `HDF5Serial` (FormatoKit, Sources/FormatoHDF5/HDF5Types.swift). `exit()` — what a Quit ends in —
 //  runs HDF5's own atexit handler, H5_term_library, which takes no app lock:
 //  before the quit barrier, a Task still inside H5Dread on another thread
 //  raced the teardown and the process died at quit. The barrier is one atexit
@@ -23,6 +23,7 @@
 //
 
 import Foundation
+import FormatoHDF5
 import SpectroCore
 
 nonisolated(unsafe) private var keepAlive: [Any] = []

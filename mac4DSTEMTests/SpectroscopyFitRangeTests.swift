@@ -3,6 +3,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 @testable import SpectroCore
+@testable import SpectroEDX
 
 /// WP3c, "the default fit range, not the continuum" (docs/registrations/wp3c-fit-range-preregistration-2026-10-06.md, P1-P6).
 /// The default upper fit limit is min(axis end, beam, 20 keV), decided on the file's axis; a typed limit is Expert

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import FormatoDM
 import SpectroCore
 
 /// The 4D cube a GMS file's EDS object may be registered to.

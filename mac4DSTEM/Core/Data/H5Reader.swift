@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import FormatoHDF5
 import SpectroCore
 
 nonisolated private let h5ReadOnly: UInt32 = 0x0000
@@ -244,12 +245,12 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     }
 
     private static func candidateLibraryPaths() -> [String] {
-        // The app is self-contained. The environment override and bare-name
-        // fallback exist only for standalone source harnesses.
+        // The app is self-contained: libhdf5 is FormatoKit's, shipped in the resource bundle of FormatoHDF5 (the app no
+        // longer embeds its own copies; 2026-10-15), so the reader, the sidecar writer and FormatoKit's Velox reader all
+        // map the same single file. The environment override and bare-name fallback exist only for standalone source harnesses.
         [
             ProcessInfo.processInfo.environment["MAC4DSTEM_HDF5_PATH"],
-            Bundle.main.privateFrameworksURL?.appendingPathComponent("libhdf5.dylib").path,
-            Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("../Frameworks/libhdf5.dylib").standardized.path,
+            FormatoHDF5Library.bundledLibraryPath,
             "libhdf5.dylib"
         ].compactMap { $0 }
     }

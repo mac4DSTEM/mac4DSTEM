@@ -3,6 +3,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 @testable import SpectroCore
+@testable import SpectroEDX
 
 /// v5.0 R3: the Quantify verb on the simulated tiny GMS fixture (`demo-edx-tiny.dm4` + truth): the pooled fit, its
 /// sigma as named terms, at% only with a k source, absorption refused where the geometry is unknown.

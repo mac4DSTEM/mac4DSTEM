@@ -3,6 +3,7 @@ import SwiftUI
 import DSTEMCore
 import DSTEMSession
 import SpectroCore
+import SpectroEDX
 #endif
 
 /// One entry of the grid beside the ColorMix.

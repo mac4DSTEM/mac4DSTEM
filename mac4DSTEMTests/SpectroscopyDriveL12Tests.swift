@@ -11,6 +11,7 @@ import DSTEMCore
 import XCTest
 @testable import mac4DSTEM
 @testable import SpectroCore
+@testable import SpectroEDX
 
 @MainActor
 final class SpectroscopyDriveL12Tests: XCTestCase {

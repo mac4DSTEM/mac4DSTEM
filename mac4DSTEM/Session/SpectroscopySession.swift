@@ -22,6 +22,7 @@ import DSTEMCore
 #endif
 import Observation
 import SpectroCore
+import SpectroEDX
 
 // MARK: - The spectrum image, as the room sees it
 

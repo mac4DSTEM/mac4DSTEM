@@ -4,6 +4,7 @@ import Observation
 import DSTEMCore
 import DSTEMSession
 import SpectroCore
+import SpectroEDX
 #endif
 
 /// The room's view-model: what every Spectroscopy view reads and edits. It holds NO

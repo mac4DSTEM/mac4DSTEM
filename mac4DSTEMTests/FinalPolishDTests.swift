@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import FormatoDM
 import SpectroCore
 
 /// Slot 4⅞ lane D (owner card Q1 = a, 2026-10-04): a DM4 whose disk has been

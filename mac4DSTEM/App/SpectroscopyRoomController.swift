@@ -23,6 +23,7 @@ import SwiftUI
 import DSTEMCore
 import DSTEMSession
 import SpectroCore
+import SpectroEDX
 #endif
 
 /// Spectra by region and maps by line window. Locked: written by detached tasks, read by the next one.

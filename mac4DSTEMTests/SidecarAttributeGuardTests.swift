@@ -18,6 +18,7 @@ import MachO
 import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
+import FormatoHDF5
 import SpectroCore
 
 final class SidecarAttributeGuardTests: XCTestCase {

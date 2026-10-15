@@ -9,6 +9,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 import SpectroCore
+import SpectroEDX
 
 @MainActor
 final class SpectroscopySpec2KTests: XCTestCase {
