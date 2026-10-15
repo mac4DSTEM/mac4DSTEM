@@ -20,7 +20,7 @@ notary-service credentials. Those secrets do not belong in the repository.
   level does **not** reach the SwiftPM package targets where every `Core/` and
   `Session/` source is compiled, so the pin travels on the xcodebuild command
   line — spelled once in `tools/lib/release-arch.sh`, which both
-  `build-developer-id.sh` and `tools/package-test/run.sh` source. Both assert
+  `build-developer-id.sh` and `tools/harnesses/package-test/run.sh` source. Both assert
   `lipo -archs` = `arm64` on the built executable and every embedded dylib,
   because a setting can be dropped and a product cannot argue. v2.5.1 shipped
   universal against arm64-only HDF5 and is broken on Intel (`docs/open-items.md`)
@@ -157,7 +157,7 @@ FormatoKit's resource bundle (`Contents/Resources/FormatoKit_FormatoHDF5.bundle/
 Run the credential-free release audit before archiving:
 
 ```sh
-tools/package-test/run.sh
+tools/harnesses/package-test/run.sh
 ```
 
 This clean-builds an ad-hoc Release app, verifies the nested code signatures,

@@ -263,7 +263,7 @@ package nonisolated enum ParallaxAberrationFitter {
 
     /// Default recursive higher-order fit from py4DSTEM `aberration_fit`.
     ///
-    /// DEVIATION (lane R4, 2026-10-01; graphene cube, `tools/parallax-aberration-test` linear-field case): py4DSTEM's (2,1) coma pair
+    /// DEVIATION (lane R4, 2026-10-01; graphene cube, `tools/harnesses/parallax-aberration-test` linear-field case): py4DSTEM's (2,1) coma pair
     /// reads 619 / 599 Å there and ours reads 0. Both implementations hand this fit an EXACTLY linear shift field (the alignment
     /// projects its shifts onto k with no intercept, parallax.py:1380-1384; here `fitDefaultShiftBasis`), so no coma or trefoil is
     /// observable. py4DSTEM's non-zero value is an artefact of its own origins: it evaluates the gradient basis on the ROI fft grid

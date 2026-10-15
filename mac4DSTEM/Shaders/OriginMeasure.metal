@@ -121,7 +121,7 @@ kernel void measureOrigin(const device float  *data   [[buffer(0)]],
     // anything wider read within 0.009 px on both). A margin in PIXELS, not
     // in r, because the edge is a detector property: large disks keep the
     // tight py4DSTEM window, tiny ones get the whole beam. Pinned by
-    // tools/virtual-detector-test (origin_measurement_truth, three
+    // tools/harnesses/virtual-detector-test (origin_measurement_truth, three
     // sub-pixel centres within 0.05 px). Pixels ON the window boundary are
     // admitted (<=); py4DSTEM's mask is strict (hypot < r * rscale,
     // process/calibration/origin.py get_origin_single_dp). Both are one

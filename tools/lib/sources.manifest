@@ -1,13 +1,13 @@
 #!/bin/zsh
 # tools/lib/sources.manifest — the ONE place a harness's app-source list is
-# written. Created in v2 S2; since C2 (2026-09-07) every tools/*/run.sh sources
+# written. Created in v2 S2; since C2 (2026-09-07) every tools/harnesses/*/run.sh sources
 # it or says in one line why it has nothing to take, and `run-tests.sh
 # inventory` fails when one does neither.
 #
 # WHY THIS FILE EXISTS. On 2026-08-17 adding one file (Core/Data/ResidentCube.swift)
 # silently broke 5 of 8 standalone harnesses, and the grep that went looking for
 # them found 3 — because the same list is spelled three different ways across
-# tools/*/run.sh:
+# tools/harnesses/*/run.sh:
 #
 #     "$REPO/mac4DSTEM/Core/Data/FourDArray.swift"     # REPO=<repo root>
 #     "$SRC/Data/FourDArray.swift"                     # SRC=<repo>/mac4DSTEM/Core
@@ -30,8 +30,8 @@
 # verified 2026-08-19 — so `$(mac4dstem_sources ...)` would appear to work right
 # up until someone clones into "~/My Projects".)
 #
-# STATUS, STATED PLAINLY: tools/two-spec-analysis-test and
-# tools/strain-frame-test (v2 S8) source this file today. The hand-listing
+# STATUS, STATED PLAINLY: tools/harnesses/two-spec-analysis-test and
+# tools/harnesses/strain-frame-test (v2 S8) source this file today. The hand-listing
 # runners are exactly as exposed to the 2026-08-17 failure as they were before
 # it existed. This file does not fix that breakage until they migrate
 # (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §1: when next touched), and saying otherwise
@@ -78,7 +78,7 @@
 #    the app build compiles App/ and UI/. The app build remains the only real
 #    gate for isolation.
 #
-# What it does buy, concretely: building tools/two-spec-analysis-test with these
+# What it does buy, concretely: building tools/harnesses/two-spec-analysis-test with these
 # flags surfaces one Swift 6 diagnostic that the same sources compiled bare do
 # not produce at all (FourDArray.swift:213, ResidencyAdmission.shouldAdmit).
 # Verified three ways on 2026-08-19 — bare: 0 warnings; these flags: 1; all five
@@ -338,7 +338,7 @@ mac4dstem_sources() {
         ;;
       replay)
         # A load specification and its calibration round-tripped through the
-        # session replay record (tools/load-spec-roundtrip).
+        # session replay record (tools/harnesses/load-spec-roundtrip).
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
@@ -352,7 +352,7 @@ mac4dstem_sources() {
         want+=("${MAC4DSTEM_SOURCES[@]}")
         ;;
       rotation)
-        # The R-Q rotation solve alone (tools/rotation-parity-test): its
+        # The R-Q rotation solve alone (tools/harnesses/rotation-parity-test): its
         # cancellation-token parameter and the FFT2D the surrogate null
         # links against, no `calibration` composition — RotationCalibration
         # takes no Calibration.swift type. Mirrors the ad hoc source list
@@ -372,7 +372,7 @@ mac4dstem_sources() {
         ;;
       friedel)
         # The Friedel-symmetry origin finder and its beamstop-mask generator
-        # (tools/friedel-origin-test). FriedelOrigin needs FFT2D (which links
+        # (tools/harnesses/friedel-origin-test). FriedelOrigin needs FFT2D (which links
         # against AnalysisCancellationToken, same as the rotation group above);
         # BeamstopMask is pure array morphology, no extra dependency.
         kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
@@ -423,7 +423,7 @@ mac4dstem_sources() {
         ;;
       presentation)
         # ResultPresentation on the calibration group: its sampling label reads CalibrationUnitConversion
-        # (Calibration.swift, since 9925598) (tools/result-presentation-test).
+        # (Calibration.swift, since 9925598) (tools/harnesses/result-presentation-test).
         mac4dstem_sources "$repo" calibration
         want+=("${MAC4DSTEM_SOURCES[@]}" "$core/Data/ResultPresentation.swift")
         ;;

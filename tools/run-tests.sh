@@ -100,7 +100,7 @@ run_harnesses() {
   for name in "$@"; do
     local started=$(date +%s)
     echo "==> $name"
-    "$ROOT/tools/$name/run.sh"
+    "$ROOT/tools/harnesses/$name/run.sh"
     local finished=$(date +%s)
     echo "<== $name ($((finished - started)) s)"
   done
@@ -117,7 +117,7 @@ run_harnesses() {
 real_data() {
   if [[ -n "${MAC4DSTEM_NO_REAL_DATA:-}" || -n "${CI:-}" ]]; then
     echo "==> real-data-acceptance: NOT RUN (MAC4DSTEM_NO_REAL_DATA or CI is set: no real data on this machine)"
-    "$ROOT/tools/real-data-acceptance/compare-selftest.sh"
+    "$ROOT/tools/harnesses/real-data-acceptance/compare-selftest.sh"
     return
   fi
   run_harnesses real-data-acceptance
@@ -155,28 +155,37 @@ campaign=(
 )
 
 # Inventory — the repo's own review, run at every closeout (ROADMAP.md, formerly docs/v3-plan.md
-# §2 numbers). Every tools/ directory must be in exactly one list below; the
+# §2 numbers). Every tools/harnesses/ directory (and every other tools/ directory) must be in exactly one list below; the
 # gated ones are `scientific` plus the two `all` extras. Diagnostic runners
 # never gate: they need machine-local data. Exits 1 on an unclassified or
 # missing runner, or on a live doc claiming work is uncommitted on a clean tree.
 diagnostic=()
 owner_only=()
 retired=()
-# release and package-test: the release
-# procedure (tools/release/README.md). A folder here that nothing gated runs belongs in ../_archive/mac4DSTEM/tools/ (suite rule 2026-10-15).
+# Every harness folder lives in tools/harnesses/ and is named in an array above; `support` names the folders that stay
+# directly in tools/ (lib, release procedure tools/release/README.md, hooks). A folder here that nothing gated runs
+# belongs in ../_archive/mac4DSTEM/tools/ (suite rule 2026-10-15).
 support=(lib release hooks)
 
 inventory() {
   local rc=0 name f
   local -a gated=("${scientific[@]}" real-data-acceptance package-test)
-  local -a all=("${gated[@]}" "${diagnostic[@]}" "${owner_only[@]}" "${retired[@]}" "${support[@]}")
+  local -a harness_names=("${gated[@]}" "${diagnostic[@]}" "${owner_only[@]}" "${retired[@]}")
   echo "== tools/: gated ${#gated[@]}, diagnostic ${#diagnostic[@]}, owner-only ${#owner_only[@]}, retired ${#retired[@]}, support ${#support[@]}"
-  for name in "${all[@]}"; do
+  for name in "${harness_names[@]}"; do
+    [[ -d "$ROOT/tools/harnesses/$name" ]] || { echo "  MISSING      harnesses/$name"; rc=1; }
+  done
+  for name in "${support[@]}"; do
     [[ -d "$ROOT/tools/$name" ]] || { echo "  MISSING      $name"; rc=1; }
+  done
+  for f in "$ROOT"/tools/harnesses/*/; do
+    name="$(basename "$f")"
+    (( ${harness_names[(Ie)$name]} )) || { echo "  UNCLASSIFIED harnesses/$name"; rc=1; }
   done
   for f in "$ROOT"/tools/*/; do
     name="$(basename "$f")"
-    (( ${all[(Ie)$name]} )) || { echo "  UNCLASSIFIED $name"; rc=1; }
+    [[ "$name" == harnesses ]] && continue
+    (( ${support[(Ie)$name]} )) || { echo "  UNCLASSIFIED $name"; rc=1; }
   done
 
   # Large tracked files (added 2026-09-18): history already carries a removed
@@ -346,7 +355,7 @@ inventory() {
   # Every harness compiles Core/ through tools/lib/sources.manifest or says
   # in one comment line why it has nothing to take from it (C2, 2026-09-07).
   # This is the drift class that broke five harnesses on 2026-08-17.
-  if grep -L 'sources.manifest' "$ROOT"/tools/*/run.sh | grep .; then
+  if grep -L 'sources.manifest' "$ROOT"/tools/harnesses/*/run.sh | grep .; then
     echo "  ^ a harness that neither sources tools/lib/sources.manifest nor says why"; rc=1
   fi
 

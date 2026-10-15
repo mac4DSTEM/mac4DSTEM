@@ -386,7 +386,7 @@ package nonisolated enum ParallaxPreprocessor {
         // (angleRow/angleColumn, :189-190) and ParallaxAberrationFitting.swift
         // (rowAngle/columnAngle :154-155, initialU/initialV :387-388). The parity
         // fixture matches with the same × 1e3
-        // (tools/parallax-preprocessing-test/reference.py:68).
+        // (tools/harnesses/parallax-preprocessing-test/reference.py:68).
         let probeAngles = reciprocalVectors.map {
             ParallaxVector(
                 qx: $0.qx * Float(calibration.wavelengthAngstrom * 1_000),

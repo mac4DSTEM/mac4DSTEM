@@ -12,7 +12,7 @@
 #     upstream commit), with the numerical stack pinned by
 #     tools/lib/py4dstem-ci-constraints.txt. The runner is a VM with no Neural
 #     Engine and the app refuses the learned detector without one, so
-#     tools/tiled-detection-memory-test prints "learned half: SKIPPED on CI"
+#     tools/harnesses/tiled-detection-memory-test prints "learned half: SKIPPED on CI"
 #     and gates its classical half only — the learned half runs locally
 #     before every release. No other roster harness loads the learned model.
 #   * `tools/run-tests.sh inventory`   — the repo's own review (below).

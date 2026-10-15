@@ -17,7 +17,7 @@ import DSTEMSession
 /// was dropped (v2 S3). The development machine is an 8 GB M3 MacBook Air whose
 /// Metal working set cannot hold either real cube, so an admission-gated test
 /// would assert nothing while appearing to pass. Same seam, same reason, as
-/// `tools/virtual-detector-residency`.
+/// `tools/harnesses/virtual-detector-residency`.
 @MainActor
 final class DatasetResidencyTests: XCTestCase {
 

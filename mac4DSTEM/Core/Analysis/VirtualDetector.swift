@@ -251,7 +251,7 @@ package nonisolated struct TilePrefetcher {
 /// same `scanTileRows` ranges and still combines the same per-tile partials in
 /// the same order — so a resident pass returns bit-identical floats to the
 /// streaming pass it replaces. That equality is what
-/// `tools/virtual-detector-residency` asserts.
+/// `tools/harnesses/virtual-detector-residency` asserts.
 // BEHAVIOUR CHANGE, undocumented until the Gate B second read named it
 // (2026-08-28): this captures the `ResidentCube` ONCE, at construction, and
 // holds it for the whole pass. Before v2 S18, `scanTile` re-checked residency

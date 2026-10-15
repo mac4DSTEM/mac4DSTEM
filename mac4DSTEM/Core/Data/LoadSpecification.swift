@@ -35,7 +35,7 @@ import Foundation
 // boundary — `FourDScanTile`, `ResidentCube`, `CalibratedDataCubeExportOptions`
 // — are all explicitly `nonisolated` for the same reason.
 //
-// It is invisible to `tools/load-spec-test`, which compiles this file with bare
+// It is invisible to `tools/harnesses/load-spec-test`, which compiles this file with bare
 // `swiftc` (default *nonisolated*) and therefore validates different isolation
 // semantics from the app. Found by adversarial review 2026-08-18; the app build
 // is the only place it shows.
@@ -412,7 +412,7 @@ package nonisolated struct LoadView: Sendable {
     /// ulp — measured 2026-08-18 on a 256x256 diffraction pattern binned by 8:
     /// 797 of 1024 output pixels differed, by at most 4.7e-7 relative. That is
     /// scientifically irrelevant and it is not zero, so the exactness claimed in
-    /// `tools/preprocess-crop-bin-test` holds because that fixture uses small
+    /// `tools/harnesses/preprocess-crop-bin-test` holds because that fixture uses small
     /// integers, whose partial sums are exact in float32 in ANY order — not
     /// because the two implementations agree bit-for-bit in general.
     package func binned(_ pixels: [Float], patternCount: Int) -> [Float] {

@@ -31,7 +31,7 @@ import DSTEMSession
 /// band, because nothing here has established what it should be.
 ///
 /// The judgement itself — every origin state, and that Prepare's badge and this
-/// refusal are one predicate — is covered by `tools/calibration-readiness-test`.
+/// refusal are one predicate — is covered by `tools/harnesses/calibration-readiness-test`.
 @MainActor
 final class QCalibrationOriginGateTests: XCTestCase {
 
@@ -265,7 +265,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
     /// Asserted at the gate rather than end to end, deliberately: the demo's
     /// shells do not match `au_fcc` (see above), so an end-to-end assertion
     /// here would be measuring that unrelated defect. The end-to-end value case
-    /// is `tools/q-calibration-gate-test`.
+    /// is `tools/harnesses/q-calibration-gate-test`.
     func testRecordedMeanOriginIsAcceptedAsAMeasuredBeamCentre() async throws {
         let state = try await stateReadyToCalibrateQ()
         let descriptor = try XCTUnwrap(state.descriptor)

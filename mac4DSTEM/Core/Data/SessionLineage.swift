@@ -681,7 +681,7 @@ package nonisolated struct SessionLineage: Codable, Equatable, Sendable {
     // MARK: - Serialization (R5)
 
     /// Deterministic JSON — sorted keys, dates in seconds — so re-encoding a
-    /// decoded lineage is byte-stable, the property `tools/load-spec-roundtrip`
+    /// decoded lineage is byte-stable, the property `tools/harnesses/load-spec-roundtrip`
     /// pins for the specification and the record.
     package var jsonString: String? {
         let encoder = JSONEncoder()

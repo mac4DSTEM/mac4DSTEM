@@ -14,7 +14,7 @@
 //  partition the SCAN axis, so a tile boundary never splits a per-output-pixel
 //  reduction and every tile sees the identical mask. The resident and tiled
 //  virtual images are therefore BIT-IDENTICAL, which is why
-//  tools/virtual-detector-residency asserts exact `==` rather than a tolerance.
+//  tools/harnesses/virtual-detector-residency asserts exact `==` rather than a tolerance.
 //
 //  That argument does NOT cover reductions that combine tiles:
 //  `tiledDPStatistics` (weighted mean) and `tiledDiffraction` (running sum) are
@@ -95,7 +95,7 @@ package nonisolated struct ResidentCube: @unchecked Sendable {
     /// different specification means a reopen, which means a different array
     /// holding a different buffer. This comparison is defence in depth against a
     /// future stage that makes the view mutable, and it stays pinned as a unit
-    /// by `tools/virtual-detector-residency`. Saying so rather than letting the
+    /// by `tools/harnesses/virtual-detector-residency`. Saying so rather than letting the
     /// paragraph above read as a running guard — adversarial review 2026-08-18.
     package func matches(_ other: DatasetDescriptor,
                  specification otherSpecification: LoadSpecification) -> Bool {

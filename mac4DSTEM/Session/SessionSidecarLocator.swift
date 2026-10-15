@@ -39,7 +39,7 @@
 //  treats "the file is there" as "I can read it" is wrong for that reason.
 //
 //  **EPERM is not by itself proof of the sandbox**, and saying so would be
-//  affirming the consequent: `tools/sidecar-error-detail-test` establishes
+//  affirming the consequent: `tools/harnesses/sidecar-error-detail-test` establishes
 //  "sandbox denial implies EPERM", not the converse. EPERM is a kernel
 //  MAC-policy refusal; on this path SIP, TCC, quarantine, ACLs and file flags
 //  were each excluded individually (Gate D — including the decisive one, that
@@ -312,7 +312,7 @@ package enum SessionSidecarReadFailure: Equatable {
     /// localised by `strerror`, the number is not. The distinction that makes
     /// this worth classifying at all is measured: a sandbox denial is EPERM
     /// (1) while an ordinary POSIX permission problem is EACCES (13) —
-    /// established by `tools/sidecar-error-detail-test`.
+    /// established by `tools/harnesses/sidecar-error-detail-test`.
     package static func classify(_ error: Error) -> SessionSidecarReadFailure {
         let text = "\(error)" + " " + error.localizedDescription
         return text.contains("errno = 1,") ? .notPermitted : .unreadable

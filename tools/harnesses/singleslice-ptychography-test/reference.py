@@ -1,0 +1,364 @@
+#!/usr/bin/env python3
+"""Source-lock the first py4DSTEM single-slice GD operator slice."""
+
+import json
+import pathlib
+import sys
+
+import numpy as np
+
+repo = pathlib.Path(__file__).resolve().parents[3]
+methods = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/ptychographic_methods.py").read_text()
+base = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/phase_base_class.py").read_text()
+single = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/singleslice_ptychography.py").read_text()
+constraints = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/ptychographic_constraints.py").read_text()
+for contract in (
+    "fourier_modified_overlap = amplitudes * xp.exp(",
+    "fourier_modified_overlap = fourier_modified_overlap - fourier_overlap",
+    "exit_waves = xp.fft.ifft2(fourier_modified_overlap)",
+    "xp.conj(shifted_probes) * exit_waves",
+    "xp.conj(object_patches) * exit_waves",
+    "((1 - normalization_min) * probe_normalization) ** 2",
+):
+    if contract not in methods:
+        raise SystemExit(f"py4DSTEM GD contract changed: {contract}")
+for contract in (
+    "x0 = xp_storage.round(positions_px[:, 0]).astype(\"int\")",
+    "x_ind = xp_storage.fft.fftfreq(roi_shape[0], d=1 / roi_shape[0]).astype(\"int\")",
+    "counts = xp.bincount(",
+):
+    if contract not in base:
+        raise SystemExit(f"py4DSTEM patch contract changed: {contract}")
+if "error /= self._mean_diffraction_intensity * self._num_diffraction_patterns" not in single:
+    raise SystemExit("py4DSTEM error normalization changed")
+for contract in (
+    "amplitude = xp.minimum(xp.abs(current_object), 1.0)",
+    "get_CoM(\n            probe_intensity, device=self._device, corner_centered=True",
+    "sigma = np.sqrt(np.pi) / relative_width",
+    "tophat_mask = 0.5 * (1 - erf(sigma * r / (1 - r**2)))",
+    "normalization = xp.sqrt(current_probe_sum / updated_probe_sum)",
+):
+    if contract not in constraints:
+        raise SystemExit(f"py4DSTEM constraint contract changed: {contract}")
+
+rng = np.random.default_rng(17)
+probe_shape = (4, 6)
+object_shape = (9, 11)
+positions = np.array([[2.25, 3.5], [2.75, 7.1], [6.2, 3.2], [6.6, 7.35]], dtype=np.float32)
+y, x = np.mgrid[: object_shape[0], : object_shape[1]]
+true_object = np.exp(1j * (0.18 * np.sin(0.5 * y) + 0.12 * np.cos(0.37 * x))).astype(np.complex64)
+py, px = np.mgrid[: probe_shape[0], : probe_shape[1]]
+probe_true = (np.exp(-((py - 1.3) ** 2 / 2.2 + (px - 2.4) ** 2 / 3.7))
+              * np.exp(1j * (0.08 * py - 0.05 * px))).astype(np.complex64)
+probe_initial = (probe_true * np.exp(1j * 0.12) * 0.92).astype(np.complex64)
+object_initial = np.ones(object_shape, dtype=np.complex64)
+
+
+def offsets(n):
+    return np.fft.fftfreq(n, d=1 / n).astype(int)
+
+
+def shifted_probe(probe, position):
+    fractional = position - np.round(position)
+    ky = np.fft.fftfreq(probe_shape[0])[:, None]
+    kx = np.fft.fftfreq(probe_shape[1])[None, :]
+    return np.fft.ifft2(np.fft.fft2(probe)
+        * np.exp(-2j * np.pi * (ky * fractional[0] + kx * fractional[1])))
+
+
+def patches(obj, probe, position):
+    center = np.round(position).astype(int)
+    rows = (center[0] + offsets(probe_shape[0])) % object_shape[0]
+    cols = (center[1] + offsets(probe_shape[1])) % object_shape[1]
+    patch = obj[rows[:, None], cols[None, :]]
+    return patch, rows, cols
+
+
+amplitudes = []
+for position in positions:
+    shifted = shifted_probe(probe_true, position)
+    patch, _, _ = patches(true_object, shifted, position)
+    amplitudes.append(np.abs(np.fft.fft2(shifted * patch)))
+amplitudes = np.asarray(amplitudes, dtype=np.float32)
+
+
+def constrain_probe_com(probe):
+    rows = np.fft.fftfreq(probe.shape[0], 1 / probe.shape[0])[:, None]
+    columns = np.fft.fftfreq(probe.shape[1], 1 / probe.shape[1])[None, :]
+    intensity = np.abs(probe) ** 2
+    com = np.array([
+        np.sum(rows * intensity) / np.sum(intensity),
+        np.sum(columns * intensity) / np.sum(intensity),
+    ])
+    ky = np.fft.fftfreq(probe.shape[0])[:, None]
+    kx = np.fft.fftfreq(probe.shape[1])[None, :]
+    return np.fft.ifft2(np.fft.fft2(probe)
+        * np.exp(-2j * np.pi * (ky * -com[0] + kx * -com[1])))
+
+
+def constrain_probe_amplitude(probe, relative_radius=0.42, relative_width=0.09):
+    from scipy.special import erf
+    original_sum = np.sum(np.abs(probe) ** 2)
+    rows = np.fft.fftfreq(probe.shape[0])[:, None]
+    columns = np.fft.fftfreq(probe.shape[1])[None, :]
+    radius = np.hypot(rows, columns) - relative_radius
+    sigma = np.sqrt(np.pi) / relative_width
+    mask = 0.5 * (1 - erf(sigma * radius / (1 - radius**2)))
+    updated = probe * mask
+    return updated * np.sqrt(original_sum / np.sum(np.abs(updated) ** 2))
+
+
+def reconstruct(iterations=3, step_size=0.5, normalization_min=0.7,
+                constrained=False):
+    obj = object_initial.copy()
+    probe = probe_initial.copy()
+    errors = []
+    total_intensity = np.sum(amplitudes.astype(np.float64) ** 2)
+    for iteration in range(iterations):
+        obj_num = np.zeros(object_shape, dtype=np.complex64)
+        probe_norm = np.zeros(object_shape, dtype=np.float32)
+        probe_num = np.zeros(probe_shape, dtype=np.complex64)
+        obj_norm = np.zeros(probe_shape, dtype=np.float32)
+        error = 0.0
+        for index, position in enumerate(positions):
+            shifted = shifted_probe(probe, position)
+            patch, rows, cols = patches(obj, shifted, position)
+            overlap = shifted * patch
+            fourier = np.fft.fft2(overlap)
+            farfield = np.abs(fourier)
+            error += np.sum(np.abs(amplitudes[index] - farfield) ** 2)
+            projected = np.fft.ifft2(
+                amplitudes[index] * np.exp(1j * np.angle(fourier))
+            )
+            exit_wave = projected - overlap
+            for r, object_row in enumerate(rows):
+                for c, object_col in enumerate(cols):
+                    obj_num[object_row, object_col] += np.conj(shifted[r, c]) * exit_wave[r, c]
+                    probe_norm[object_row, object_col] += np.abs(shifted[r, c]) ** 2
+            probe_num += np.conj(patch) * exit_wave
+            obj_norm += np.abs(patch) ** 2
+        probe_inv = 1 / np.sqrt(1e-16
+            + ((1 - normalization_min) * probe_norm) ** 2
+            + (normalization_min * np.max(probe_norm)) ** 2)
+        object_inv = 1 / np.sqrt(1e-16
+            + ((1 - normalization_min) * obj_norm) ** 2
+            + (normalization_min * np.max(obj_norm)) ** 2)
+        obj += step_size * obj_num * probe_inv
+        probe += step_size * probe_num * object_inv
+        if constrained:
+            amplitude = np.minimum(np.abs(obj), 1.0)
+            obj = amplitude * np.exp(1j * np.angle(obj))
+            probe = constrain_probe_com(probe)
+            probe = constrain_probe_amplitude(probe)
+        errors.append(float(error / total_intensity))
+    row0, column0 = np.floor(positions.min(0)).astype(int)
+    row1, column1 = np.ceil(positions.max(0)).astype(int)
+    crop = obj[row0:row1, column0:column1]
+    return obj, probe, np.array(errors, dtype=np.float32), crop
+
+
+obj, probe, errors, crop = reconstruct()
+constrained_obj, constrained_probe, constrained_errors, _ = reconstruct(constrained=True)
+
+# ---- D002: scan positions in pixels (Gate D, 2026-09-09) --------------------
+# `PtychographyPreparer.prepare` accepted `rotationRad`/`transpose` and never
+# read them, so a 0 deg and a 30 deg calibration produced bit-identical
+# positions. Source-lock the five steps of py4DSTEM's
+# `_calculate_scan_positions_in_pixels` so a change upstream fails loudly here.
+for contract in (
+    "tf = AffineTransform(angle=rotation_angle)",
+    "positions = tf(positions, positions.mean(0))",
+    "positions = np.flip(positions, 1)",
+    "sampling = sampling[::-1]",
+    "positions -= np.min(positions, axis=0).clip(-np.inf, 0)",
+    "positions[:, 0] /= sampling[0]",
+    "positions[:, 1] /= sampling[1]",
+):
+    if contract not in base:
+        raise SystemExit(f"py4DSTEM scan-position contract changed: {contract}")
+# and the row-vector form of the rotation it uses
+utils = (repo / "References/py4DSTEM-dev/py4DSTEM/process/phase/utils.py").read_text()
+for contract in (
+    "return ((x - origin) @ tf_matrix) + tf_translation",
+    "[+cosx, -sinx],",
+    "[+sinx, +cosx],",
+):
+    if contract not in utils:
+        raise SystemExit(f"py4DSTEM AffineTransform contract changed: {contract}")
+
+
+def scan_positions(ry, rx, qy, qx, scan_sampling, q_sampling, rotation_rad,
+                   transpose, variant="reference"):
+    """py4DSTEM's convention in this app's axis order.
+
+    This app's `cx` (COLUMN) is py4DSTEM's x / axis 0 — its rotation solver
+    rotates `_com_normalized_x/_y` with the same expressions
+    RotationCalibration.objective uses for cx/cy. So column is axis 0.
+
+    `variant` plants one wrong convention each, for the negative controls.
+    """
+    row_sampling = 1.0 / (q_sampling * qy)
+    column_sampling = 1.0 / (q_sampling * qx)
+    r, c = np.meshgrid(np.arange(ry) * scan_sampling,
+                       np.arange(rx) * scan_sampling, indexing="ij")
+    # axis 0 = column, axis 1 = row
+    p = np.stack((c.ravel(), r.ravel()), axis=-1).astype(np.float64)
+
+    if variant != "no_rotation":
+        angle = -rotation_rad if variant == "wrong_sign" else rotation_rad
+        m = p.mean(0)
+        cos, sin = np.cos(angle), np.sin(angle)
+        # row-vector: (p - m) @ [[cos, -sin], [sin, cos]] + m
+        p = (p - m) @ np.array([[cos, -sin], [sin, cos]]) + m
+
+    s0, s1 = column_sampling, row_sampling
+    if transpose:
+        p = np.flip(p, 1)
+        if variant != "transpose_keeps_sampling":
+            s0, s1 = s1, s0
+
+    if variant != "no_clip":
+        p = p - np.min(p, axis=0).clip(-np.inf, 0)
+
+    p[:, 0] /= s0
+    p[:, 1] /= s1
+    # This app pads each axis by its own half-extent; py4DSTEM pads both by
+    # axis 0's (documented DEVIATION in PtychographyPreparation.swift).
+    p[:, 0] += qx / 2.0
+    p[:, 1] += qy / 2.0
+    # emit as (row, column) pairs, this app's order
+    return np.stack((p[:, 1], p[:, 0]), axis=-1).ravel().tolist()
+
+
+# The demo cube is 12x12x64x64 — SQUARE, with equal row/column object
+# sampling, which makes transpose a no-op by geometry and hides a wrong
+# convention. Every case below that matters is therefore NON-square, taken as
+# a crop of the demo cube. Case 0 is the square one, kept only as a control.
+POSITION_CASES = [
+    dict(ry=12, rx=12, qy=64, qx=64, rotationDeg=0.0, transpose=False),
+    dict(ry=12, rx=12, qy=64, qx=64, rotationDeg=30.0, transpose=False),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=0.0, transpose=False),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=30.0, transpose=False),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=30.0, transpose=True),
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=-17.5, transpose=True),
+    dict(ry=7, rx=3, qy=48, qx=16, rotationDeg=73.25, transpose=False),
+    # Gate B, 2026-09-11. The seven cases above all ran at scan 1.0 and q 0.05,
+    # and positions scale LINEARLY in both — so any transformation that is the
+    # identity at those values was invisible. Three mutations proved it: the
+    # scan step hard-coded to 1.0, the scan step SQUARED, and the reciprocal
+    # sampling hard-coded to 0.05 each deleted a calibrated input from the
+    # port and the gate stayed green over all seven cases and 17 controls.
+    # This case is the one that discriminates: both samplings differ from
+    # every other case, on a non-square scan, at a sign-discriminating angle
+    # that is not a multiple of 45 deg, with transpose on.
+    dict(ry=5, rx=9, qy=32, qx=48, rotationDeg=37.2, transpose=True,
+         scanSamplingAngstrom=0.37, qSamplingInvAngstrom=0.0213),
+]
+# Defaults, not constants: a case may override either, and case 7 does.
+SCAN_SAMPLING = 1.0
+Q_SAMPLING = 0.05
+position_cases = []
+for case in POSITION_CASES:
+    scan_sampling = case.get("scanSamplingAngstrom", SCAN_SAMPLING)
+    q_sampling = case.get("qSamplingInvAngstrom", Q_SAMPLING)
+    args = (case["ry"], case["rx"], case["qy"], case["qx"], scan_sampling,
+            q_sampling, np.deg2rad(case["rotationDeg"]), case["transpose"])
+    entry = dict(case)
+    entry["scanSamplingAngstrom"] = scan_sampling
+    entry["qSamplingInvAngstrom"] = q_sampling
+    entry["expected"] = scan_positions(*args)
+    # Negative controls: each is a specific wrong convention. The harness
+    # demands the real code MISMATCH every one that is distinguishable here.
+    entry["controls"] = {
+        name: scan_positions(*args, variant=name)
+        for name in ("no_rotation", "wrong_sign", "transpose_keeps_sampling", "no_clip")
+    }
+    position_cases.append(entry)
+
+# ---- R1 (2026-09-30): the initial probe, from py4DSTEM's own ComplexProbe -------------------
+# `PtychographyProbe.build` must equal `ComplexProbe(...).build()._array` (process/phase/utils.py), which is what
+# `_initialize_probe` (ptychographic_methods.py:1099-1112) builds before scaling it to the mean diffraction intensity.
+# The aberrations are given to py4DSTEM in POLAR form (C, phi) and to the app in CARTESIAN form through py4DSTEM's own
+# `polar_aberrations_to_cartesian` (utils.py:2691), so the C12a/C12b <-> C12/phi12 mapping is py4DSTEM's, not ours.
+# `defocus` is py4DSTEM's argument (C10 = -defocus); the app's `defocusAngstrom` is the same number.
+for contract in (
+    'self._parameters[polar_aliases[symbol]] = -value',
+    'cartesian[Ca_name] = polar[modulus_name] * np.cos(',
+    'phi = xp.arctan2(y[None, :], x[:, None])',
+    'array = xp.fft.ifft2(self._evaluate_ctf())',
+    'array = array / xp.sqrt((xp.abs(array) ** 2).sum())',
+    'array = 2 * xp.pi / self._wavelength * array + self._phase_shift',
+):
+    if contract not in utils:
+        raise SystemExit(f"py4DSTEM ComplexProbe contract changed: {contract}")
+
+for _name, _value in [("float_", np.float64), ("int_", np.int64), ("bool_", np.bool_),
+                      ("object_", np.object_), ("str_", np.str_), ("complex_", np.complex128)]:
+    if not hasattr(np, _name):      # numpy 2 removed the aliases the vendored py4DSTEM still imports
+        setattr(np, _name, _value)
+sys.path.insert(0, str(repo / "References/py4DSTEM-dev"))
+from py4DSTEM.process.phase.utils import ComplexProbe, polar_aberrations_to_cartesian  # noqa: E402
+
+PROBE_ENERGY = 80e3
+PROBE_GPTS = (32, 24)           # NON-square, with different samplings: a row/column swap cannot hide
+PROBE_SAMPLING = (0.4, 0.55)
+PROBE_SEMIANGLE_MRAD = 28.0
+PROBE_ROLLOFF_MRAD = 2.0
+PROBE_CASES = [
+    ("in-focus", {}),
+    ("defocus only", {"defocus": 200.0}),
+    ("negative defocus", {"defocus": -350.0}),
+    ("defocus and astigmatism", {"defocus": 200.0, "C12": 80.0, "phi12": 0.3}),
+    ("coma and three-fold", {"defocus": 150.0, "C12": 60.0, "phi12": -0.4,
+                              "C21": 3000.0, "phi21": 0.7, "C23": 2500.0, "phi23": 0.2}),
+    ("every term to fifth order", {
+        "defocus": 120.0, "C12": 50.0, "phi12": 0.25, "C21": 2000.0, "phi21": 0.6, "C23": 1500.0, "phi23": 0.15,
+        "C30": 8.0e4, "C32": 6.0e4, "phi32": 0.4, "C34": 5.0e4, "phi34": 0.12,
+        "C41": 2.0e6, "phi41": 0.5, "C43": 1.5e6, "phi43": 0.3, "C45": 1.0e6, "phi45": 0.1,
+        "C50": 1.5e8, "C52": 1.0e8, "phi52": 0.45, "C54": 8.0e7, "phi54": 0.2, "C56": 6.0e7, "phi56": 0.05}),
+]
+probe_cases = []
+for case_name, case_polar in PROBE_CASES:
+    # (names prefixed: `probe`, `obj`, ... above are the GD reconstruction's and feed the json below)
+    complex_probe = ComplexProbe(energy=PROBE_ENERGY, gpts=PROBE_GPTS, sampling=PROBE_SAMPLING,
+                                 semiangle_cutoff=PROBE_SEMIANGLE_MRAD, rolloff=PROBE_ROLLOFF_MRAD,
+                                 parameters=dict(case_polar))
+    case_cartesian = polar_aberrations_to_cartesian(complex_probe._parameters)   # C10 = -defocus is already in it
+    case_array = complex_probe.build()._array
+    probe_cases.append({
+        "name": case_name, "gptsRow": PROBE_GPTS[0], "gptsColumn": PROBE_GPTS[1],
+        "samplingRow": PROBE_SAMPLING[0], "samplingColumn": PROBE_SAMPLING[1],
+        "energyEV": PROBE_ENERGY, "semiangleMrad": PROBE_SEMIANGLE_MRAD, "rolloffMrad": PROBE_ROLLOFF_MRAD,
+        "polar": {k: float(v) for k, v in case_polar.items()},
+        # py4DSTEM's cartesian terms ("C10", "C12a", "C12b", "C21a", ..., "C30", ...), zeros dropped
+        "cartesian": {k: float(v) for k, v in case_cartesian.items() if v != 0.0},
+        "real": case_array.real.astype(np.float64).ravel().tolist(),
+        "imag": case_array.imag.astype(np.float64).ravel().tolist(),
+    })
+assert probe_cases[-1]["cartesian"]["C56a"] != 0.0
+
+json.dump({
+    "probeCases": probe_cases,
+    "scanShape": [2, 2], "probeShape": list(probe_shape),
+    "objectShape": list(object_shape), "positions": positions.ravel().tolist(),
+    "amplitudes": amplitudes.ravel().tolist(),
+    "initialObjectReal": object_initial.real.ravel().tolist(),
+    "initialObjectImag": object_initial.imag.ravel().tolist(),
+    "initialProbeReal": probe_initial.real.ravel().tolist(),
+    "initialProbeImag": probe_initial.imag.ravel().tolist(),
+    "iterations": 3, "stepSize": 0.5, "normalizationMinimum": 0.7,
+    "errors": errors.tolist(), "objectReal": obj.real.ravel().tolist(),
+    "objectImag": obj.imag.ravel().tolist(), "probeReal": probe.real.ravel().tolist(),
+    "probeImag": probe.imag.ravel().tolist(), "cropShape": list(crop.shape),
+    "cropPhase": np.angle(crop).astype(np.float32).ravel().tolist(),
+    "cropAmplitude": np.abs(crop).astype(np.float32).ravel().tolist(),
+    "constrainedErrors": constrained_errors.tolist(),
+    "constrainedObjectReal": constrained_obj.real.astype(np.float32).ravel().tolist(),
+    "constrainedObjectImag": constrained_obj.imag.astype(np.float32).ravel().tolist(),
+    "constrainedProbeReal": constrained_probe.real.astype(np.float32).ravel().tolist(),
+    "constrainedProbeImag": constrained_probe.imag.astype(np.float32).ravel().tolist(),
+    "centeredProbePhase": np.angle(np.fft.fftshift(constrained_probe)).astype(np.float32).ravel().tolist(),
+    "centeredProbeAmplitude": np.abs(np.fft.fftshift(constrained_probe)).astype(np.float32).ravel().tolist(),
+    "positionCases": position_cases,
+}, sys.stdout, separators=(",", ":"))
+print()

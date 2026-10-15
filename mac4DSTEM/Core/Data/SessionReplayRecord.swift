@@ -98,7 +98,7 @@ package nonisolated struct SessionReplayRecord: Codable, Equatable, Sendable {
     // MARK: - Serialization (same conventions as LoadSpecification)
 
     /// Deterministic JSON: sorted keys and fixed-format dates, so re-encoding
-    /// a decoded record is byte-stable — the property `tools/load-spec-roundtrip`
+    /// a decoded record is byte-stable — the property `tools/harnesses/load-spec-roundtrip`
     /// pins for the specification, extended to this record by the same harness.
     package var jsonString: String? {
         let encoder = JSONEncoder()

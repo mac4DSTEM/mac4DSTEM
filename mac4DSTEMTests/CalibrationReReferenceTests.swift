@@ -7,7 +7,7 @@
 //  which is the point of `CalibrationReReference` being pure. The end-to-end
 //  claim ("the re-referenced origin lands on the same physical feature as an
 //  origin measured on the cropped data") is a different test and lives in
-//  tools/load-spec-calibration/, because it needs real patterns and the GPU.
+//  tools/harnesses/load-spec-calibration/, because it needs real patterns and the GPU.
 //
 
 import XCTest

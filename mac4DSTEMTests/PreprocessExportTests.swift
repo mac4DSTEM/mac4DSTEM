@@ -2,7 +2,7 @@
 //  PreprocessExportTests.swift
 //  X2 — scan stride, detector crop and py4DSTEM's hot-pixel filter in the
 //  preprocessing export. The arbiter for the numbers is py4DSTEM itself
-//  (tools/preprocessing-export-test, gated); these tests pin the pieces a
+//  (tools/harnesses/preprocessing-export-test, gated); these tests pin the pieces a
 //  host-less run can: the filter's mask rules and median, the stride's floor
 //  semantics, and the provenance fields' presence rule.
 //

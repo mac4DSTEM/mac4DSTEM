@@ -174,7 +174,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | SwiftUI views, viewers, controls, inspectors | `mac4DSTEM/UI/` |
 | Export, bridging header | `mac4DSTEM/Support/` |
 | Fast unit and workflow-contract tests | `mac4DSTEMTests/` |
-| Standalone parity, diagnostic and packaging harnesses | `tools/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
+| Standalone parity, diagnostic and packaging harnesses | `tools/harnesses/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
 | Docs | `docs/` (live set in `CLAUDE.md`); dated or superseded → `../_archive/mac4DSTEM/docs/archive/` |
 | CI | `.github/workflows/` |
 | Machine-local data and the fetched py4DSTEM lock | `References/` (gitignored; `tools/lib/fetch-py4dstem.sh` pins the lock commit) |
@@ -331,15 +331,15 @@ first for a dependency-closed file list per named group (see "Project
 structure", above). One needing the HDF5 dylibs (FormatoKit's, in its pinned checkout, found by `tools/lib/hdf5-dir.sh`) copies and
 ad-hoc-codesigns them first, since the shipped copies won't validate
 for an unsigned tool; one needing GPU kernels compiles `Shaders/*.metal` to a
-`default.metallib` by hand. `tools/package-test/run.sh` runs a full
+`default.metallib` by hand. `tools/harnesses/package-test/run.sh` runs a full
 `xcodebuild -configuration Release` at the release archive's own
 destination/architecture pin, because a prior gate on a generic destination
 once stayed green an hour before an archive build failed.
 `run-tests.sh` refuses to start `unit`/`scientific` below 4 GB free and
 `all`/`campaign` below 8 GB (exit 69); the remedy is clearing regenerable build debris (DerivedData, `.build`), never `References/`. Not
-every harness is Swift: `tools/disk-detector/` is a Python
-fixture check (the training pipeline left, to `../_archive/mac4DSTEM/tools/disk-detector/`; the frozen hand-labelled test set is `mac4DSTEMTests/Fixtures/DiskDetector/labels/`); `tools/comparator-test/` mutation-tests
-`tools/real-data-acceptance/compare.py` itself, since a comparator that
+every harness is Swift: `tools/harnesses/disk-detector/` is a Python
+fixture check (the training pipeline left, to `../_archive/mac4DSTEM/tools/disk-detector/`; the frozen hand-labelled test set is `mac4DSTEMTests/Fixtures/DiskDetector/labels/`); `tools/harnesses/comparator-test/` mutation-tests
+`tools/harnesses/real-data-acceptance/compare.py` itself, since a comparator that
 quietly stopped checking something looks like a passing gate.
 
 ## HDF5 notes

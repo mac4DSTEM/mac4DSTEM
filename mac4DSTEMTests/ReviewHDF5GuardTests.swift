@@ -7,7 +7,7 @@
 //  A real sidecar is written by the app's writer, one calibration dataset is
 //  then replaced with the same bundled libhdf5, and `loadSession` must refuse
 //  it by name. The quit barrier (HDF5Types.swift) cannot be an XCTest — exit
-//  ends the host — and is gated by tools/hdf5-exit-race-test.
+//  ends the host — and is gated by tools/harnesses/hdf5-exit-race-test.
 //
 
 import XCTest

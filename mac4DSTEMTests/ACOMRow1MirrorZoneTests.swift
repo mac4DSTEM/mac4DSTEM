@@ -14,8 +14,8 @@ import DSTEMCore
 ///
 /// Truth is independent of the production projection: peak positions are dot
 /// products onto a right-handed basis built here, and the returned matrix is
-/// compared under an independent operator list (as tools/acom-convention-test).
-/// The harness `tools/acom-mirror-test` runs the same check over 200 random
+/// compared under an independent operator list (as tools/harnesses/acom-convention-test).
+/// The harness `tools/harnesses/acom-mirror-test` runs the same check over 200 random
 /// directions, WS2, and measures the cost.
 final class ACOMRow1MirrorZoneTests: XCTestCase {
 

@@ -157,7 +157,7 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// this margin, else "not indexed". 0 disables the requirement. This is
     /// the contrast margin the 2026-09-11 refutation asked for; it is off by
     /// default because a margin that is not measured on the data at hand is a
-    /// guess, and `tools/phase-vector-matching` is where it gets measured.
+    /// guess, and `tools/harnesses/phase-vector-matching` is where it gets measured.
     package var minimumPhaseContrastInvAngstrom: Double = 0
     /// A candidate entry whose phase lists an orientation relationship
     /// (`PhaseDefinition.orientationRelationships`) is scored only when its

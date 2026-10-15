@@ -20,8 +20,8 @@ S10 (2026-09-30): candidate A refuted at step 0; B (noise hit) refuted at the ba
 30 first-order-Laue-zone reflections (`../_archive/mac4DSTEM/docs/archive/v4/s10-s11-gateD-2026-09-30.md`).
 
 ### Tiled GPU memory — gated flat; residuals
-Detect All (classical and learned) and the six virtual-detector paths are gated flat (`tools/tiled-detection-memory-test`,
-`tools/virtual-detector-memory-test`). Open: resident-cube paths unmeasured; on Thronsen A 662.7 MB of "Malloc Large (empty)" (two 331 MB
+Detect All (classical and learned) and the six virtual-detector paths are gated flat (`tools/harnesses/tiled-detection-memory-test`,
+`tools/harnesses/virtual-detector-memory-test`). Open: resident-cube paths unmeasured; on Thronsen A 662.7 MB of "Malloc Large (empty)" (two 331 MB
 tiles) stays between passes — an observation, no mechanism.
 
 ### The 2026-09-09 register — residuals (every reachable candidate fixed 2026-09-30; `../_archive/mac4DSTEM/docs/archive/2026-09-09-review/triage-2026-09-29.md`)

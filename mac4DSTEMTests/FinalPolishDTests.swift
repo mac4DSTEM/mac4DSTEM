@@ -18,7 +18,7 @@ import SpectroCore
 /// through what a healthy disk can still do (a rename, an unlink).
 final class FinalPolishDTests: XCTestCase {
 
-    // MARK: Fixture: the 2 x 2 x 2 x 3 int16 cube of `tools/dm4-robustness-test`'s testValid
+    // MARK: Fixture: the 2 x 2 x 2 x 3 int16 cube of `tools/harnesses/dm4-robustness-test`'s testValid
 
     private struct Writer {
         var bytes: [UInt8] = []
@@ -118,7 +118,7 @@ final class FinalPolishDTests: XCTestCase {
 
     /// The default check is the real one (a held descriptor): an ordinary file
     /// on the internal volume must read, bit for bit, what the unguarded reader
-    /// read — `tools/dm4-robustness-test`'s testValid numbers.
+    /// read — `tools/harnesses/dm4-robustness-test`'s testValid numbers.
     func testAHealthyFileReadsUnchanged() async throws {
         let reader = try await DM4Reader(path: try writeCube())
         let ds = try await reader.discoverPrimaryDataset()

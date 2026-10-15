@@ -7,7 +7,7 @@
 //  this app's sidecar writer names the channel axis `RGBA` and stamps `rgba8`.
 //  The reader reads those into a `DatacubeCandidate`; the rule itself needs
 //  no HDF5, so it is pinned here. Which node wins on a real file is
-//  `tools/datacube-discovery-test`.
+//  `tools/harnesses/datacube-discovery-test`.
 //
 
 import XCTest

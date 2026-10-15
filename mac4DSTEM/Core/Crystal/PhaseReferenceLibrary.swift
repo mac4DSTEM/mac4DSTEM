@@ -27,7 +27,7 @@
 //  nearest-neighbour score saturates — which is the same saturation that
 //  refuted the template-matched route on 2026-09-11
 //  (`archive/v3/phase-discrimination-2026-09-11.md`). `minimumIntensityFraction`
-//  is the guard, and `tools/phase-vector-matching` carries a negative control
+//  is the guard, and `tools/harnesses/phase-vector-matching` carries a negative control
 //  that fails if a deliberately over-dense library can win.
 //
 //  Units: |g| in Å⁻¹ with no 2π factor, matching `UnitCell` and py4DSTEM.

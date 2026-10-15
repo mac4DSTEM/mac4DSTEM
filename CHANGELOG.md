@@ -411,7 +411,7 @@ section rather than left for a user to discover.
   Legacy py4DSTEM v0.12 slice stacks are refused too, by the string-typed
   label vector that format keeps. A file whose best node is an unlabelled
   rank-3 array still opens as one scan row, as before, and the v2.5.1 sidecar
-  location guard stays. Gated by the new `tools/datacube-discovery-test`
+  location guard stays. Gated by the new `tools/harnesses/datacube-discovery-test`
   harness (27 fixtures) and five unit tests. The unit gate passed with
   463/0/1 and the scientific gate passed all 43 harnesses on 2026-09-05;
   the closed item is recorded in `../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`.
@@ -585,14 +585,14 @@ full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was named
   retained log) and **exited 1**: unit and 42 scientific harnesses green, then
   a failure in `real-data-acceptance` on a session-sidecar file — a defect that
   predates this release and is recorded, undiagnosed, in `docs/open-items.md`.
-  `tools/package-test/run.sh` is sequenced after that step and did not run in
+  `tools/harnesses/package-test/run.sh` is sequenced after that step and did not run in
   that pass.
 - **What this release IS gated on**, both re-run on the final tree and each
   exit code read on its own line: `tools/run-tests.sh unit` — **457 passed /
   0 failed / 0 skipped, exit 0** across 63 suites (counted by `Suite.method`;
   one log line was chopped mid-name by an interleaved xcodebuild timestamp and
   was reconciled against the source file's 8 test methods, not assumed) — and
-  `tools/package-test/run.sh` — **exit 0**, which clean-builds a hardened
+  `tools/harnesses/package-test/run.sh` — **exit 0**, which clean-builds a hardened
   Release and audits the artefact itself: nested signatures, sandbox and
   bookmark entitlements, no `get-task-allow`, no Homebrew dylib paths, the
   embedded HDF5 2.1.1 opening a checked-in fixture, and identity/version

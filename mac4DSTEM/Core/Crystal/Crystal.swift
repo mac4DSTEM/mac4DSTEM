@@ -132,7 +132,7 @@ package nonisolated enum Crystal {
     /// The six published sites are expanded here under C2/m (No. 12, unique
     /// axis b) rather than stored pre-expanded, so the expansion can be read.
     /// It MUST give Mg₁₀Si₁₂ = 2 × Mg₅Si₆ = 22 atoms, the cell content the
-    /// paper states; `tools/phase-vector-matching` asserts the count, because
+    /// paper states; `tools/harnesses/phase-vector-matching` asserts the count, because
     /// sources disagree on the axis setting (some publish a = 15.16,
     /// b = 6.74, c = 4.05 with γ = 105.3° instead) and a misread coordinate
     /// would otherwise show up only as a wrong phase map.
@@ -184,7 +184,7 @@ package nonisolated enum Crystal {
     /// Owner decision 2026-08-31 (docs/v2-release.md §9): the measured cell
     /// is the matching reference. z(S) = 0.614 (Kalikhman 1983) is the
     /// earlier powder value this refinement explicitly corrects — do not
-    /// "fix" the coordinate back; tools/ws2-crystal-test pins the difference.
+    /// "fix" the coordinate back; tools/harnesses/ws2-crystal-test pins the difference.
     package static var tungstenDisulfide: CrystalStructure {
         let zS = 0.6225
         return structure(

@@ -415,7 +415,7 @@ private nonisolated func makeOrientationResult(
     // (−h·c1, h·c2) with h's own weight — the x-mirror of the rotated
     // template, T(π − a − φ). An extra half turn makes it T(−a − φ).
     // Measured, not assumed: without the π the mirror-zone trials of
-    // tools/acom-mirror-test came back right in template and flag but
+    // tools/harnesses/acom-mirror-test came back right in template and flag but
     // 26–35° off in orientation (mirror-fixed.log, 2026-10-01).
     let bin = (azimuthalCount - bestBin) % azimuthalCount
     var angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)

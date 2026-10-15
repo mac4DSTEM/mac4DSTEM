@@ -90,7 +90,7 @@ assert_mac4dstem_arm64_only() {
 # file is /bin/sh but every caller is zsh, and zsh does not word-split an
 # unquoted scalar, so `for library in $VAR` would iterate once over the whole
 # string and find no such file. Caught by the positive control, which is what
-# positive controls are for. tools/package-test/run.sh keeps its own list for
+# positive controls are for. tools/harnesses/package-test/run.sh keeps its own list for
 # codesign and otool — a different assertion; a library that goes missing now
 # fails both.
 assert_mac4dstem_bundle_arm64_only() {

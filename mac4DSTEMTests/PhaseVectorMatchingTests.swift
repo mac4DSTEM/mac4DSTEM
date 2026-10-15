@@ -1,7 +1,7 @@
 //
 //  PhaseVectorMatchingTests.swift
 //  The unit-level invariants of vector-matched phase mapping. The SCIENCE is
-//  gated by `tools/phase-vector-matching`, against arithmetic and planted
+//  gated by `tools/harnesses/phase-vector-matching`, against arithmetic and planted
 //  truth; what is here is the behaviour a caller can rely on — the refusals,
 //  the frames, and the two optimisations that must not change an answer.
 //

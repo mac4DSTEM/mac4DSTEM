@@ -33,7 +33,7 @@ assumed.
 ## Governs
 
 `mac4DSTEM.xcodeproj` build settings, `Package.swift`,
-`mac4DSTEM/Core/ML/LearnedDiskDetector.swift`'s arch guard, `tools/package-test`.
+`mac4DSTEM/Core/ML/LearnedDiskDetector.swift`'s arch guard, `tools/harnesses/package-test`.
 
 ## Sources
 

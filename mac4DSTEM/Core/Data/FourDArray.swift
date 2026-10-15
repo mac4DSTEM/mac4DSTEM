@@ -184,7 +184,7 @@ package actor FourDArray {
     /// while this counter reads 0 before and 0 after, because that copy never
     /// routes through `tile(yRange:from:)` where the counter lives. What
     /// actually catches it is the `bound.buffer === cube.buffer` identity
-    /// assertion in `tools/virtual-detector-residency`, which fires
+    /// assertion in `tools/harnesses/virtual-detector-residency`, which fires
     /// "TileGPUSource staged a COPY". This counter catches the narrower case:
     /// a reducer going back through `tile(yRange:from:)`.
     ///

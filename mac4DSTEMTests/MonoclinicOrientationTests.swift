@@ -379,7 +379,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     }
 
     /// Peaks of a kinematic pattern for the lab frame (f1, f2, n) in crystal coordinates, built here
-    /// (never with production `project`), as in tools/acom-mirror-test.
+    /// (never with production `project`), as in tools/harnesses/acom-mirror-test.
     private func peaks(crystal: CrystalStructure, truth: simd_double3x3, reflections: [KinematicReflection]) -> [BraggPeak] {
         let f1 = truth.columns.0, f2 = truth.columns.1, n = truth.columns.2
         let scale = 0.008, origin = 256.0, curvature = 0.02508 / 2

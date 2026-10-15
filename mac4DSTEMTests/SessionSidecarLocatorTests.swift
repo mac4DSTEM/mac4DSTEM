@@ -9,7 +9,7 @@
 //
 //  What these tests deliberately do NOT cover: the sandbox denial itself. EPERM
 //  on a sibling file needs a real sandboxed process, and XCTest here is not one
-//  — `tools/sidecar-error-detail-test` runs that case under `sandbox-exec`.
+//  — `tools/harnesses/sidecar-error-detail-test` runs that case under `sandbox-exec`.
 //  What is covered here is everything the app decides AROUND the denial: which
 //  file it asks for, and whether it can tell a refusal from an absence.
 //
@@ -115,7 +115,7 @@ final class SessionSidecarLocatorTests: XCTestCase {
 
     /// Breaking the marker in `SessionSidecarLocator.swift` (`"errno = 1,"` →
     /// `"errno = 13,"`) fails this and passes the EACCES test below — which is
-    /// precisely the mistake `tools/sidecar-error-detail-test` shipped in its
+    /// precisely the mistake `tools/harnesses/sidecar-error-detail-test` shipped in its
     /// first version and Gate B caught: EPERM is the sandbox, EACCES is an
     /// ordinary POSIX permission problem, and swapping them sends the diagnosis
     /// the other way.

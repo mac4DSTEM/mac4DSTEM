@@ -96,7 +96,7 @@ final class ProbeSizeTests: XCTestCase {
     /// over that set can then move in either direction.
     ///
     /// Nothing pinned this rule below the `all` gate until 2026-09-09, and
-    /// `all` reaches `tools/real-data-acceptance/` alone: the corrected radius
+    /// `all` reaches `tools/harnesses/real-data-acceptance/` alone: the corrected radius
     /// sat unnoticed against a stale golden for three days
     /// (`../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`). This is that pin.
     ///

@@ -12,7 +12,7 @@ two fixes as held diffs, and neither met its registration:
   fits move 0.131 % of R and 0.128 rad), and out of sample, on a 1/r² background tail with 5–30 % noise, put 25 of 96 fits
   more than 1 % off where HEAD had none;
 - (b), refusing a ring sigma at its 0.25 px floor, refused no right pixel-integrated fit but barely moved b/a (set C: 25 → 22
-  fits off by more than 0.01), and turned `tools/ellipse-calibration-test` red (`grains_12_one_annulus`);
+  fits off by more than 0.01), and turned `tools/harnesses/ellipse-calibration-test` red (`grains_12_one_annulus`);
 - (ab) equals (a) where (a) works, and its conic fallbacks are biased on the tails.
 Two leads came out of the runs, both read off the same logs (in-sample, thresholds unmeasured): keeping the lower-cost fit of
 the two starts (80 wrong of 2009 logged rings, against HEAD 414 and (a) 135; 8 of 441 disagreeing pairs violate the cost
@@ -27,7 +27,7 @@ order), and refusing a profile fit whose radius left the conic seed by more than
       the P5 harness), to learn which background his data has: flat (HEAD's failure) or tailed ((a)'s failure).
    2. **Register before any run:** fit from both starts and keep the lower cost; the floor guard; a seed-consistency check
       whose threshold is measured before it is set; each also gated alone. Sets A, B, C, P, N, T, S3, S4 (regenerated from
-      the record's `step2/` generators), Au_ref, the owner's cubes and `tools/ellipse-calibration-test`; the fixture plants
+      the record's `step2/` generators), Au_ref, the owner's cubes and `tools/harnesses/ellipse-calibration-test`; the fixture plants
       from `step2/F2/`; a fresh refuter.
    3. **A card** if the result changes a number the owner sees.
 3. **Until it passes, the Fit stays as it is.** v5.0 is not released before this is settled (owner, 2026-10-13).

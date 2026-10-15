@@ -320,7 +320,7 @@ package nonisolated struct SessionControlRehydration: Equatable, Sendable {
 }
 
 /// The probe a single-slice run started from, as provenance keys (export, sidecar) and back (saved-control rehydration).
-/// Plain numbers on purpose: this file is compiled alone into `tools/result-presentation-test`, so it cannot name the Analysis
+/// Plain numbers on purpose: this file is compiled alone into `tools/harnesses/result-presentation-test`, so it cannot name the Analysis
 /// type; `PtychographyProbeAberrations` converts at the app seam (`PtychographySettings`, `ResultExport`).
 package nonisolated struct RecordedPtychographyProbe: Equatable, Sendable {
     package struct Term: Equatable, Sendable {

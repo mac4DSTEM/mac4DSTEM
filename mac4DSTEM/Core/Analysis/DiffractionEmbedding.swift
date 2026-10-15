@@ -518,7 +518,7 @@ package nonisolated enum DiffractionEmbedding {
     /// `binnedSize²`-length vector.
     /// `package` rather than `private` for the same reason `symmetricEigenTop`
     /// and `kMeans` are: the py4DSTEM parity harness
-    /// (`tools/embedding-pca-parity`) must feed BOTH sides the identical
+    /// (`tools/harnesses/embedding-pca-parity`) must feed BOTH sides the identical
     /// feature matrix. Reimplementing this binning in Python would let the two
     /// drift while every PCA check still passed — the quiet-failure class this
     /// repo keeps hitting — and publishing the matrix on `Result` instead would

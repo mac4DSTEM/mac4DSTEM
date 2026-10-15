@@ -348,7 +348,7 @@ package actor H5Reader: FourDDataSource {
         // the whole file is session content. The
         // rank-3 contract stands: a file whose best node is an unlabelled
         // rank-3 array opens as one scan row (`load-spec-test`). Every case is
-        // pinned by `tools/datacube-discovery-test`; the Gate D/B record is
+        // pinned by `tools/harnesses/datacube-discovery-test`; the Gate D/B record is
         // still owed in the live documentation until the full gate completes.
         //
         // A SIDECAR'S OWN ROOT HOLDS SAVED PRODUCTS, NEVER A DATACUBE — a

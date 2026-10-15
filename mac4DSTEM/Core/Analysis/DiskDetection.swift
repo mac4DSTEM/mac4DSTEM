@@ -1168,7 +1168,7 @@ package nonisolated final class DiskDetector {
         // whole-scan result retains one array per position. It bites when the
         // spacing filter is off (`minPeakSpacing` 0; the filter rebuilds the
         // array): ~14 MB per 512 positions in the memory harness (2026-09-29,
-        // tools/tiled-detection-memory-test). Same elements, same order.
+        // tools/harnesses/tiled-detection-memory-test). Same elements, same order.
         var kept: [BraggPeak] = []
         kept.reserveCapacity(min(found.count, p.maxNumPeaks))
         kept.append(contentsOf: found.prefix(p.maxNumPeaks))
