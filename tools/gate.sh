@@ -39,12 +39,15 @@ refuse() {
   exit 75
 }
 
+# The test lock is per repo (suite rule, owner 2026-10-15 13:10): this repo's test hosts exclude each other
+# (unit-mac4dstem*, and unit-lane* that this repo's lanes take by hand); another repo's unit-* lock does not block, it
+# halves the workers so the machine stays at 8 jobs. Only `drive` blocks every test run.
 if [[ "$mode" == unit || "$mode" == scientific ]]; then
-  b=("$L"/unit-*(N))
+  b=("$L"/unit-mac4dstem*(N) "$L"/unit-lane*(N))
   [[ -e "$L/drive" || ${#b} -gt 0 ]] && refuse "${b[@]}"
   mkdir "$L/unit-mac4dstem.$$" 2>/dev/null || refuse "$L/unit-mac4dstem.$$"
   mine="$L/unit-mac4dstem.$$"
-  b=("$L"/unit-*(N)); b=("${b[@]:#$mine}")
+  b=("$L"/unit-mac4dstem*(N) "$L"/unit-lane*(N)); b=("${b[@]:#$mine}")
   if [[ -e "$L/drive" || ${#b} -gt 0 ]]; then
     rmdir "$mine" 2>/dev/null; mine=""
     refuse "${b[@]}"
@@ -56,6 +59,9 @@ else
   else refuse "$L/heavy.1" "$L/heavy.2"; fi
   if [[ -e "$L/drive" ]]; then rmdir "$mine" 2>/dev/null; mine=""; refuse; fi
 fi
+
+foreign=("$L"/unit-*(N)); foreign=("${foreign[@]:#$L/unit-mac4dstem*}"); foreign=("${foreign[@]:#$L/unit-lane*}")
+export MAC4DSTEM_UNIT_WORKERS="${MAC4DSTEM_UNIT_WORKERS:-$(( ${#foreign} > 0 ? 4 : 8 ))}"
 
 sha="$(git -C "$ROOT" rev-parse --short HEAD)"
 log="${2:-/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/gate-logs/$mode-$(date +%Y%m%d-%H%M%S)-$sha.log}"
