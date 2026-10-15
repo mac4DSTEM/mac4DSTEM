@@ -3,7 +3,7 @@ against pymatgen or py4DSTEM, never the Swift against itself).
 
 Run from the repo root with the pinned py4DSTEM (References/py4DSTEM-dev at f050d207, tools/lib/fetch-py4dstem.sh):
 
-    ../tools/memcap.sh -- ~/miniconda3/envs/py4dstem/bin/python -I tools/crystal-structures/py4dstem_preset_reflections.py
+    ../tools/memcap.sh -- ~/miniconda3/envs/py4dstem/bin/python -I mac4DSTEMTests/Fixtures/py4dstem_preset_reflections.py
 
 (the suite's memory watchdog, 8 GB, owner's rule 2026-10-15; a process cannot cap itself on macOS 27).
 

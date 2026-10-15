@@ -2,7 +2,7 @@
 # No Swift is compiled here, so tools/lib/sources.manifest has nothing to supply.
 # Gate the ACOM parity metric itself.
 #
-# The campaign (tools/training-dataset-campaign/run.sh) is deliberately not in
+# The campaign (../_archive/mac4DSTEM/tools/training-dataset-campaign/run.sh) is deliberately not in
 # tools/run-tests.sh — it needs the real multi-GB datasets. But the metric its
 # records are computed with is pure algebra with no data dependency, and it is
 # exactly what silently broke before: a misplaced symmetry operator made the
@@ -13,4 +13,4 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/tools/lib/python.sh"
 resolve_mac4dstem_python "$ROOT"
-exec "$PYTHON_BIN" "$ROOT/tools/training-dataset-campaign/test_parity_metric.py"
+exec "$PYTHON_BIN" "$ROOT/tools/parity-metric-test/test_parity_metric.py"

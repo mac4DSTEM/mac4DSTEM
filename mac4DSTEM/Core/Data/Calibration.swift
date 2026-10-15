@@ -639,7 +639,7 @@ package nonisolated struct Calibration: Sendable {
     ///
     /// **This is the single owner of that decision** (backlog #46) — the
     /// Prepare readiness row, `AppState.calibrateQFromCrystal()`, and
-    /// `tools/training-dataset-campaign` all read it. The badge the user sees,
+    /// `../_archive/mac4DSTEM/tools/training-dataset-campaign` all read it. The badge the user sees,
     /// the calibration the app is willing to perform, and the parity records
     /// therefore cannot disagree; the defect was exactly that disagreement,
     /// with the Origin row saying *"exceeds probe radius; recalibrate before

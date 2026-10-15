@@ -70,7 +70,7 @@ from scipy.spatial.transform import Rotation
 from scipy.stats import spearmanr
 
 SCHEMA = 1
-GENERATOR = "tools/training-dataset-campaign/parity_py4dstem.py"
+GENERATOR = "../_archive/mac4DSTEM/tools/training-dataset-campaign/parity_py4dstem.py"
 
 # First-proposal tolerances. Basis strings are embedded in the records so a
 # reader never has to trust a bare number.
@@ -308,7 +308,7 @@ def misorientation_deg(a_mats, b_mats, sym_ops):
 
     This previously inserted the operator between A and B.T, which minimises
     over LAB-side operators instead. That is not symmetry-invariant — see
-    tools/training-dataset-campaign/test_parity_metric.py, where relabelling
+    tools/parity-metric-test/test_parity_metric.py, where relabelling
     the crystal axes moved the old metric by up to 51 deg while a genuine
     lab-frame change left it untouched, i.e. it absorbed exactly what it should
     have measured and measured exactly what it should have absorbed.
@@ -535,7 +535,7 @@ def compare_acom(stem, spec, bragg, stride):
             " the same boundary convention as the peak export); misorientation"
             " is min over the 24 proper cubic rotations applied on the crystal"
             " side. Both are checked by"
-            " tools/training-dataset-campaign/test_parity_metric.py",
+            " tools/parity-metric-test/test_parity_metric.py",
             "the confident subset is chosen by py4DSTEM's correlation, not by"
             " the app's own reliability, so the app cannot select the answers"
             " it is graded on; app_reliability_* scores that metric separately",

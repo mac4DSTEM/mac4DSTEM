@@ -54,6 +54,5 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 ```sh
 xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build   # the scheme's Run config, Develop
 tools/run-tests.sh unit | scientific | all | inventory | core | campaign   # inventory = the repo's own review
-tools/free-space.sh                                     # exit-69 remedy
 git config core.hooksPath tools/hooks                   # once per clone: pre-push runs inventory + an app build
 ```

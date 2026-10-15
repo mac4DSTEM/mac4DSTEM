@@ -16,7 +16,7 @@ import Foundation
 // Deliberately self-contained: the input is generated from a fixed seed rather
 // than read from References/training_dataset, so the loop is seconds long and
 // runs anywhere. Real-data behaviour is covered separately by
-// tools/training-dataset-campaign and the QC playthrough.
+// ../_archive/mac4DSTEM/tools/training-dataset-campaign and the QC playthrough.
 
 // MARK: - Deterministic input
 

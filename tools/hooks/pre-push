@@ -30,7 +30,7 @@ LOGDIR="$ROOT/build/prepush"; mkdir -p "$LOGDIR"
 LOG="$LOGDIR/prepush-$(date +%Y%m%d-%H%M%S).log"
 free_gb=$(df -Pg "$ROOT" | awk 'NR==2 {print $4}')
 if (( free_gb < 4 )); then
-  echo "pre-push: REFUSED — ${free_gb} GB free, the app build needs 4. Run tools/free-space.sh, or touch .git/skip-prepush to push once without the gate."
+  echo "pre-push: REFUSED — ${free_gb} GB free, the app build needs 4. Free disk space (build debris: DerivedData, .build), or touch .git/skip-prepush to push once without the gate."
   exit 1
 fi
 echo "pre-push: inventory + app build → $LOG"

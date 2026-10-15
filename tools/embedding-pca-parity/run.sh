@@ -12,7 +12,7 @@
 #
 # It is also the first GATED harness to compile Core/ with
 # -Xcc -DACCELERATE_NEW_LAPACK. The only other users of that flag
-# (bragg-spacing-probe, training-dataset-campaign) are `diagnostic`, so nothing
+# (bragg-spacing-probe, training-dataset-campaign: both archived) are `diagnostic`, so nothing
 # reported it if Package.swift and the harnesses ever drifted apart. Now
 # something does.
 #

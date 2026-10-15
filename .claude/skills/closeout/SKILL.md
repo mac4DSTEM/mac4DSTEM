@@ -21,7 +21,7 @@ Done means the repo tells the next reader the truth. In order:
    harness count the same way — retain the full log, grep it after).
    Two non-zero exits are RECORDABLE outcomes, not gates to force green:
    **exit 69** is the S0 free-space preflight refusing (run
-   `tools/free-space.sh` — report first, `--clear` deletes the known debris —
+   freeing disk space (build debris: DerivedData, `.build`) —
    before recording an owner re-run owed; never touch the floor — the MCP
    `test_macos` route is the warm fallback for the app suite, or the script's
    own `xcodebuild test` line run directly into a retained log), and **exit 65 with exactly the S17

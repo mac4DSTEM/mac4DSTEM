@@ -111,7 +111,7 @@ meaningless.
 Generated from a fixed seed, not read from `References/training_dataset`: the
 loop stays seconds long and runs anywhere. Each pattern uses a differently
 rotated lattice so an implementation cannot cache its way to a false speedup.
-Real-data behaviour is covered separately by `tools/training-dataset-campaign`
+Real-data behaviour is covered separately by `../_archive/mac4DSTEM/tools/training-dataset-campaign`
 and the QC playthrough.
 
 ---

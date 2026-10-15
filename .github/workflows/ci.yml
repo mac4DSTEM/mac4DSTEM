@@ -32,7 +32,7 @@
 #     `unit` + `scientific` gate S21 names; the aggregate `all` claim is
 #     restated by S19, not by this file.
 #   * `../_archive/mac4DSTEM/tools/bragg-spacing-probe`, `../_archive/mac4DSTEM/tools/residency-sweep`,
-#     `../_archive/mac4DSTEM/tools/real-acom-benchmark`, `tools/training-dataset-campaign`,
+#     `../_archive/mac4DSTEM/tools/real-acom-benchmark`, `../_archive/mac4DSTEM/tools/training-dataset-campaign`,
 #     `tools/acom-groundtruth` — diagnostics that gate nothing and need
 #     gitignored data or hand-supplied input.
 #   * On-screen verification — the owner drives the app and reports bugs

@@ -9,7 +9,7 @@ relabelling it was supposed to absorb — and it was "verified" on a dataset
 be tested at all. These assertions are the properties that fact-check the
 metric without reference to any dataset.
 
-Run: python tools/training-dataset-campaign/test_parity_metric.py
+Run: python tools/parity-metric-test/test_parity_metric.py
 Also runs as part of tools/run-tests.sh scientific.
 """
 import sys

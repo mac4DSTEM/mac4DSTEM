@@ -420,7 +420,7 @@ cold build) — a session with Gate B support; row 12 (the >1 000-line harness m
 bodies in Core stay separate until a Gate D shows they should agree (ADR 015). Detail: `../_archive/mac4DSTEM/docs/archive/open-items-detail-2026-09-18.md`.
 
 ### Minor tooling/hygiene residuals
-`tools/free-space.sh`: the temp prefix is spelled by producer and reaper separately and the MCP root is hardcoded — a `tools/lib/`
+`../_archive/mac4DSTEM/tools/free-space.sh` (archived): the temp prefix is spelled by producer and reaper separately and the MCP root is hardcoded — a `tools/lib/`
 constants file is deliberately NOT taken (a bad line there kills every gate). `.fixedSize()` in `UI/` (20 call sites counted
 2026-09-29) against the constraint-loop rule: the one suspect, the zoom badge (`ImagePanes.swift:662`, in the header's
 `ViewThatFits`), is not armed by reading — monospaced digits, so its width changes only when the digit count does, and it

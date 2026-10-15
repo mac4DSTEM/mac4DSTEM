@@ -6,7 +6,7 @@ import DSTEMCore
 
 /// The family check against an external oracle (2026-10-15, macTEM's refuter finding: compare against py4DSTEM or
 /// pymatgen, never the Swift against itself). `Fixtures/py4dstem-preset-reflections.json` is written by
-/// `tools/crystal-structures/py4dstem_preset_reflections.py` from the pinned py4DSTEM (f050d207): for nine presets, the
+/// `mac4DSTEMTests/Fixtures/py4dstem_preset_reflections.py` from the pinned py4DSTEM (f050d207): for nine presets, the
 /// kept reflections of `Crystal.calculate_structure_factors(k_max, tol_structure_factor = 1e-4)` at |g| ≤ 1.2 Å⁻¹, with
 /// the sites typed from `Crystal.swift`, not computed by any Swift. The app's preset lists (through DiffractoKit) must
 /// hold the same hkl sets, the same |g| and the same F.

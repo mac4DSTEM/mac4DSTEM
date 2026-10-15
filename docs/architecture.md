@@ -323,8 +323,7 @@ again and no flag selects it. Six rules, the first three enforced by
 is the one discoverable entry point over ~70 directories. Every directory
 must appear in exactly one of five arrays at the top of that script —
 `scientific` (CI-gated), `diagnostic` (needs gitignored/machine-local data,
-never gated), `owner_only`, `retired`, `support` (`lib`, `release`,
-`crystal-structures`) — plus `real-data-acceptance`/`package-test`, gated
+never gated), `owner_only`, `retired`, `support` (`lib`, `release`, `hooks`) — plus `real-data-acceptance`/`package-test`, gated
 only under `all`; `inventory` fails on any directory not classified.
 Most harnesses are zsh `run.sh` scripts that compile a handful of production
 `Core/` sources with `xcrun swiftc`, sourcing `tools/lib/sources.manifest`
@@ -336,10 +335,8 @@ for an unsigned tool; one needing GPU kernels compiles `Shaders/*.metal` to a
 `xcodebuild -configuration Release` at the release archive's own
 destination/architecture pin, because a prior gate on a generic destination
 once stayed green an hour before an archive build failed.
-`tools/free-space.sh` is the disk-space preflight remedy: `run-tests.sh`
-refuses to start `unit`/`scientific` below 4 GB free and
-`all`/`campaign` below 8 GB (exit 69), reporting (or, with `--clear`,
-deleting) known regenerable build debris only, never `References/`. Not
+`run-tests.sh` refuses to start `unit`/`scientific` below 4 GB free and
+`all`/`campaign` below 8 GB (exit 69); the remedy is clearing regenerable build debris (DerivedData, `.build`), never `References/`. Not
 every harness is Swift: `tools/disk-detector/` is a Python
 fixture check (the training pipeline left, to `../_archive/mac4DSTEM/tools/disk-detector/`; the frozen hand-labelled test set is `mac4DSTEMTests/Fixtures/DiskDetector/labels/`); `tools/comparator-test/` mutation-tests
 `tools/real-data-acceptance/compare.py` itself, since a comparator that
