@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import enum DiffractoGeometry.ElectronWavelength   // the one electron wavelength of the suite (2026-10-15)
 import Accelerate
 
 package nonisolated enum IDPCBoundaryCondition: String, Sendable {
@@ -74,12 +75,13 @@ package enum DPC {
         return FloatImage(width: width, height: height, pixels: out)
     }
 
-    /// Relativistic electron wavelength for accelerating voltage in kV.
-    /// λ[Å] = 12.2639 / sqrt(V[eV] · (1 + 0.97845e-6 V[eV])).
+    /// Relativistic electron wavelength for accelerating voltage in kV: DiffractoKit's `ElectronWavelength` (CODATA 2018),
+    /// 2.6e-5 to 2.8e-5 above the rounded-constant form (12.2639 / sqrt(V (1 + 0.97845e-6 V))) this replaced
+    /// (registration `docs/archive/v5/diffractokit-wavelength-registration-2026-10-15.md`). nil unless the voltage is
+    /// positive and finite (the kit returns NaN there).
     package nonisolated static func electronWavelengthAngstrom(voltageKV: Double) -> Double? {
         guard voltageKV.isFinite, voltageKV > 0 else { return nil }
-        let volts = voltageKV * 1_000
-        return 12.2639 / sqrt(volts * (1 + 0.97845e-6 * volts))
+        return ElectronWavelength.angstroms(volts: voltageKV * 1_000)
     }
 
     /// Small-angle scattering conversion: θ ≈ λ·q. Returns milliradians per
