@@ -263,7 +263,7 @@ final class DiffractoP4RefuterTests: XCTestCase {
         let hcp60 = cif(name: "hcp60", a: 3.2094, b: 3.2094, c: 5.2108, gamma: 60,
                         atoms: [("Mg", 0, 0, 0, 1), ("Mg", 1.0 / 3, 1.0 / 3, 0.5, 1)])
         let m = try CIFModelImport.crystalModel(from: hcp60, fileBaseName: "hcp60")
-        XCTAssertEqual(m.structure.laueClass, .twoOverM)
+        XCTAssertEqual(m.structure.laueClass, .sixOverMmm)  // DiffractoKit 0.3.1: gamma = 60 with this plant IS hcp (0.1.0 read 2/m)
         XCTAssertNotEqual(m.symmetry, .hexagonal)
     }
 }
