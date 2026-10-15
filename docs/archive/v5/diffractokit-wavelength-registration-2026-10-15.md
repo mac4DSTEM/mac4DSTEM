@@ -26,3 +26,21 @@ kV × 1000)`, keeping its `nil` for a non-positive or non-finite voltage; `Paral
 ## Refuting observations
 Any best-match index change in W3; a W2 quantity that moves by other than the λ ratio; a harness outside its tolerance.
 One refuter shared with the switch's refuter (the same frozen tree). Not claimed: any microscope's true voltage.
+
+## Results (2026-10-15, lane W; nothing landed)
+W1 held (the kit's λ at 80/120/200/300 kV to 1e-15 Å; old DPC offsets −2.8377e-5 / −2.7952e-5 / −2.7186e-5 / −2.6358e-5;
+Parallax −1.23e-7 at 200 kV; 3 mutations red). W2 held (only the λ ratio moved; the aberration-free probe goldens moved
+with the Parallax λ). W3 held, but the `acom-*` harnesses pass a literal λ: a direct run with the old and the new value
+gave identical outputs (210 / 210). **W4 failed**: `parallax-preprocessing-test` pins the Parallax λ to py4DSTEM's own
+rounded-constant value at 1e-12 and the kit's sits 3.1e-9 Å (1.23e-7) away. The item closes (ADR 050); patches in the lane
+only. The Parallax code is a port whose test is parity with py4DSTEM, so its λ stays py4DSTEM's: W′ below.
+
+## W′ — the DPC form only (a new registration, before its code)
+`DPC.electronWavelengthAngstrom(voltageKV:)` → `ElectronWavelength.angstroms(volts: kV × 1000)` with its nil guard;
+`ParallaxPreprocessor.electronWavelengthAngstrom(energyEV:)` unchanged (py4DSTEM's constants, a parity port).
+- **W′1.** DPC returns the kit's λ at 80/120/200/300 kV to 1e-15 Å; the Parallax function returns py4DSTEM's rounded-form
+  values (0.04175715620292005, 0.03349214889517896, 0.025079337357037376, 0.019687486388201916 Å) to 1e-15 Å.
+- **W′2.** The mrad-per-pixel readout moves by the DPC ratio only (0.2507865865 → 0.2507934045 at 200 kV, dq 0.01).
+  `parallax-preprocessing-test`, the ptychography probe goldens and `singleslice-ptychography-test` are unchanged.
+- **W′3.** Unit, core, scientific and inventory green with no other golden re-recorded.
+Refuting: any W′ line; any other test or harness that moves.
