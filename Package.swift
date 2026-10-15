@@ -31,7 +31,7 @@ let package = Package(
         .package(url: "https://github.com/mac4DSTEM/CuboKit", exact: "0.2.0"),
         // The exact-length 2D FFT (FFT2D) is ImagoKit's ImagoCore since 2026-10-15 (BSD-3-Clause; the app's copy was its origin,
         // the same arithmetic); an exact tag, bumped on purpose. Only DSTEMCore uses it.
-        .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.0.2"),
+        .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.1.0"),
     ],
     targets: [
         .target(

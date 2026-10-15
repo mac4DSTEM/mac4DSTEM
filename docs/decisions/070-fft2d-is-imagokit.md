@@ -1,4 +1,4 @@
-# 070 — The exact-length 2D FFT is ImagoKit's `ImagoCore.FFT2D`, pinned at 0.0.2
+# 070 — The exact-length 2D FFT is ImagoKit's `ImagoCore.FFT2D`, pinned at 0.1.0
 
 **Date:** 2026-10-15 · **Status:** draft, for mac4DSTEM's session (prepared in a side clone; nothing here has run through this repo's gates) · **Follows:** 064 (the kit pattern)
 
@@ -13,7 +13,7 @@ probe kernels, ptychography preparation, single-slice ptychography, rotation cal
 
 ## Decisions
 1. `Core/Compute/FFT2D.swift` is deleted; the thirteen files `import ImagoCore`.
-2. ImagoKit is pinned at the exact tag 0.0.2 (commit 2cc5f07) in `Package.swift`, the Xcode project and both
+2. ImagoKit is pinned at the exact tag 0.1.0 (commit a4f488b; 0.0.2 had the same FFT2D) in `Package.swift`, the Xcode project and both
    `Package.resolved`; only the `ImagoCore` product is linked (DSTEMCore and the app target). ImagoFFT, ImagoFilters and
    ImagoAlignment are not used here. A new tag is a deliberate bump, gated like any other change.
 3. `tools/lib/sources.manifest` links ImagoCore (`kit_module`) to every group that compiled `FFT2D.swift`, and to `core`.

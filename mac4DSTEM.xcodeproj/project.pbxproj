@@ -887,7 +887,7 @@
 			repositoryURL = "https://github.com/mac4DSTEM/ImagoKit";
 			requirement = {
 				kind = exactVersion;
-				version = 0.0.2;
+				version = 0.1.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
