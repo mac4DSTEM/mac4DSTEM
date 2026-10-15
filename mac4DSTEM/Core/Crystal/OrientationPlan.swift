@@ -164,6 +164,30 @@ package nonisolated struct OrientationPlan {
                                    distinctOrientationDeg * .pi / 180)
     }
 
+    /// Why `generate` has no plan for `crystal` at `kMax`, in words the Generate button's failure can show: the kit's
+    /// refusal of the reflection list (a cell too large for the k range, an invalid cell or structure, an element outside
+    /// the scattering table) named by its cause, or an empty list. nil when the list builds, which makes a nil plan a
+    /// cancellation. The cost is the same list `generate` builds, so call it only on the failure path.
+    package nonisolated static func refusalReason(crystal: CrystalStructure, kMax: Double) -> String? {
+        do {
+            let list = try crystal.kinematicReflections(kMax: kMax)
+            return list.kept.isEmpty
+                ? "No reflection of this structure lies within the plan's k range (up to \(kMax) Å⁻¹), so there are no templates."
+                : nil
+        } catch {
+            switch error {
+            case .reflectionList(.cellTooLargeOrInvalid(let estimate)) where estimate.isFinite:
+                return String(format: "This cell is too large for the plan's k range (up to %g Å⁻¹): it holds about %.3g reflections, "
+                              + "more than the %d a plan is built from. The range is fixed, so use a smaller cell for this phase.",
+                              kMax, estimate, ReflectionList.maximumReflections)
+            case .reflectionList(.cellTooLargeOrInvalid):
+                return "This phase's cell is not a valid finite lattice, so no reflections and no plan can be built from it."
+            default:
+                return error.description
+            }
+        }
+    }
+
     // MARK: Projection (zone axis → polar spots)
 
     /// Project a crystal's reflections for beam direction `zoneAxis` (unit

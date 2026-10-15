@@ -182,12 +182,17 @@ extension AppState {
         let planWavelength = calibrationSession.acceleratingVoltage.flatMap {
             DPC.electronWavelengthAngstrom(voltageKV: $0)
         }
-        let plan = await Task.detached(priority: .userInitiated) {
-            OrientationPlan.generate(crystal: model.structure, kMax: 1.2,
-                                     zoneAxisCount: templateCount,
-                                     symmetry: model.symmetry,
-                                     wavelengthAngstrom: planWavelength,
-                                     cancellation: cancellation)
+        let planKMax = 1.2
+        let (plan, refusal) = await Task.detached(priority: .userInitiated) {
+            let plan = OrientationPlan.generate(crystal: model.structure, kMax: planKMax,
+                                                zoneAxisCount: templateCount,
+                                                symmetry: model.symmetry,
+                                                wavelengthAngstrom: planWavelength,
+                                                cancellation: cancellation)
+            // A nil plan is a cancellation or a refusal of the reflection list; the cause is named below.
+            let refusal = plan == nil && !cancellation.isCancelled
+                ? OrientationPlan.refusalReason(crystal: model.structure, kMax: planKMax) : nil
+            return (plan, refusal)
         }.value
         guard epoch == datasetSession.epoch,
               modelRevision == resolvedACOMModel?.revisionID else { return }
@@ -196,7 +201,8 @@ extension AppState {
             return
         }
         guard let plan else {
-            presentComputeFailure(SimpleError("Could not generate an orientation plan."))
+            presentComputeFailure(SimpleError(refusal.map { "Could not generate an orientation plan. \($0)" }
+                ?? "Could not generate an orientation plan."))
             return
         }
         acomSession.orientationPlan = plan
