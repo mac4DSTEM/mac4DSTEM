@@ -11,7 +11,7 @@
 //  deviations are marked DEVIATION with a reason.
 //
 
-import CuboVirtual
+import CuboVirtual   // CuboKit 0.1.0 also exports FriedelOrigin, BeamstopMask and ProbeKernel: in this module the app's own types of those names win (a module's declarations shadow its imports), so nothing here reads the kit's; adopting them moves the disk-detection numbers and is a separate registered item
 import Foundation
 import Metal
 

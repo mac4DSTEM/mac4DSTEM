@@ -1,13 +1,13 @@
 {
-  "originHash" : "e1df4c1029f7d9688d79f88dbf108cb6463a076cdf131f196e9e4acb483b773e",
+  "originHash" : "f511e639518cb3113a4d6aeea846ab82738b1ce7fbba730cec737b9311032d40",
   "pins" : [
     {
       "identity" : "cubokit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/CuboKit",
       "state" : {
-        "revision" : "8a337cc78edb96c1c5577f14789ee8997e597ee6",
-        "version" : "0.0.3"
+        "revision" : "bb0a02e791203de8f7a1ca82ef2c11864cc99f8a",
+        "version" : "0.1.0"
       }
     },
     {
