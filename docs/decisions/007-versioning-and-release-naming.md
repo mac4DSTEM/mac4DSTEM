@@ -38,7 +38,7 @@ science number 4.6.0, and the EDX suite — a feature — is **5.0.0**.
 
 ## Governs
 
-`CHANGELOG.md` version headers, `CITATION.cff`, `docs/releasing.md`.
+`CHANGELOG.md` version headers, `CITATION.cff`, `tools/release/README.md`.
 
 ## Sources
 

@@ -72,7 +72,7 @@ and reopening. Where a measurement is not quantitatively supported, it says so.
 
 Every number behind a release — gate exit status and counts, DMG hash,
 notarization and staple details — is quoted from the run that produced it in
-[`docs/releasing.md`](docs/releasing.md) § Releases, with the full history in
+[`tools/release/README.md`](tools/release/README.md) § Releases, with the full history in
 [`CHANGELOG.md`](CHANGELOG.md).
 
 The badge covers three jobs on every push: `scientific` (the science harnesses;
@@ -106,8 +106,7 @@ especially useful.
 Open `mac4DSTEM.xcodeproj` and build the `mac4DSTEM` scheme.
 
 Architecture and supported formats: [`docs/architecture.md`](docs/architecture.md).
-What is live now: [`docs/status.md`](docs/status.md). The pipelines and their
-correspondence to py4DSTEM: [`docs/py4dstem-pipelines.md`](docs/py4dstem-pipelines.md).
+What is live now: [`docs/status.md`](docs/status.md).
 
 ## Contributing
 

@@ -47,7 +47,7 @@ notary-service credentials. Those secrets do not belong in the repository.
 | v2.5.1 | released 2026-09-04, version/build 2.5.1 / 5 — macOS floor down to 14 and the sidecar-reader fix. Artefact built from `a9a0437`; app notarization `fb693c50`, DMG `f3d05e79`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `30282206…31af`, 6 157 051 bytes; the app inside the image declares `LSMinimumSystemVersion 14.0`, verified by mounting it. First release able to claim `run-tests.sh all` exit 0 (458/0/0, 44 harnesses). v2.5.0's artefact cannot launch below macOS 26, so this is the build that reaches older systems | `CHANGELOG.md` |
 | v2.5.0 | released 2026-09-04, version/build 2.5 / 4 — the first shipped build of the SwiftUI rebuild. Gated on `unit` (457/0/0) + `package-test`, both exit 0; **`run-tests.sh all` was attempted and exited 1** on a pre-existing sidecar defect (`open-items.md`), and the notes say so. Artefact: built from `3c0a3eb`, app notarization `af7cc0f4`, DMG notarization `f4aa1d12`, both Accepted and stapled, `spctl` accepted; DMG SHA-256 `d55821a1…4c75`, 6 074 038 bytes. Build 3 (`df80e8e`) is superseded, kept as `mac4DSTEM-2.5-build3-superseded.dmg` | `CHANGELOG.md` |
 
-The release night of 2026-09-04 (plan, two self-corrections, artefact provenance) is [`../_archive/mac4DSTEM/docs/archive/v2/release-2026-09-04.md`](../../_archive/mac4DSTEM/docs/archive/v2/release-2026-09-04.md).
+The release night of 2026-09-04 (plan, two self-corrections, artefact provenance) is [`../_archive/mac4DSTEM/docs/archive/v2/release-2026-09-04.md`](../../../_archive/mac4DSTEM/docs/archive/v2/release-2026-09-04.md).
 
 ## Before using credentials
 
@@ -65,7 +65,7 @@ run, which is why CI does not.
 Dated readiness narratives before v4.0.0 (the v3.1.0 readiness investigation,
 the archive-vs-`package-test` destination mismatch, the no-certificate archive
 rehearsal) are archived verbatim at
-[`../_archive/mac4DSTEM/docs/archive/v4/releasing-history.md`](../../_archive/mac4DSTEM/docs/archive/v4/releasing-history.md); the
+[`../_archive/mac4DSTEM/docs/archive/v4/releasing-history.md`](../../../_archive/mac4DSTEM/docs/archive/v4/releasing-history.md); the
 rehearsal recipe there is still the right way to fail the archive step early,
 without a certificate.
 

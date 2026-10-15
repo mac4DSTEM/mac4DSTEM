@@ -21,5 +21,5 @@ Three sheets: `../_archive/mac4DSTEM/docs/archive/v5/owner-decisions-2026-10-08-
    depends on the radius. The background effect on the conic fallback stays unmeasured and is not registered.
 
 ## Consequences
-E1 is built to `docs/registrations/e1-pooling-preregistration-2026-10-08.md`, which already assumed these answers (nothing to fold in).
+E1 is built to `../_archive/mac4DSTEM/docs/registrations/e1-pooling-preregistration-2026-10-08.md`, which already assumed these answers (nothing to fold in).
 A1 is registered in `../_archive/mac4DSTEM/docs/archive/v5/sum-escape-only-preregistration-2026-10-12.md`. macTEM is told: calibrate a camera length with the profile fit.

@@ -1,7 +1,7 @@
 //
 //  MaterialsProjectKeyStore.swift
 //  Where the Materials Project API key lives between launches. Keychain,
-//  not `UserDefaults` (docs/v3-features.md#materials-project). A protocol
+//  not `UserDefaults` (../_archive/mac4DSTEM/docs/v3-features.md#materials-project). A protocol
 //  in front of it so the search UI and its tests can swap in an in-memory
 //  store without touching the Keychain.
 //

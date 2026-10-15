@@ -503,7 +503,7 @@ package nonisolated enum HexagonalOrientationSymmetry {
 
 /// Monoclinic 2/m (Laue class) orientation symmetry, b unique: the reporting group of beta''
 /// (Mg5Si6, C2/m; Andersen et al., Acta Mater. 46 (1998) 3283), registered in
-/// docs/registrations/beta-double-prime-orientation-registration-2026-10-14.md.
+/// ../_archive/mac4DSTEM/docs/registrations/beta-double-prime-orientation-registration-2026-10-14.md.
 ///
 /// Frame: py4DSTEM's (`UnitCell.realLattice`). With alpha = gamma = 90 degrees (which
 /// `CrystalModel.validationIssues` demands of a `.monoclinic` model) a lies along +x and the

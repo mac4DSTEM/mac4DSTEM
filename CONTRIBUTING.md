@@ -25,7 +25,7 @@ one.
 ## Building
 
 Xcode with the macOS 27 SDK (development is on Xcode-beta 27.0; the project's
-`MACOSX_DEPLOYMENT_TARGET` is 27.0, `docs/releasing.md` § Release contract) on
+`MACOSX_DEPLOYMENT_TARGET` is 27.0, `tools/release/README.md` § Release contract) on
 Apple Silicon, and a **full Xcode** — the Command Line Tools alone cannot
 build this project. GitHub CI's `macos-26` runner cannot build the app at all
 since the macOS 27 floor landed (`docs/open-items.md`); a macOS 27 runner

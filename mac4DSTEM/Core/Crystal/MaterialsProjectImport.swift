@@ -1,13 +1,13 @@
 //
 //  MaterialsProjectImport.swift
 //  Role: Core plumbing for the Materials Project (MP) importer — session S4a
-//        of docs/v3-features.md#precipitates-mp-plan. Decodes a
+//        of ../_archive/mac4DSTEM/docs/v3-features.md#precipitates-mp-plan. Decodes a
 //        `GET /materials/summary/` response, turns one `SummaryDoc` into a
 //        validated `CrystalModel`, and checks a fetched document against the
 //        phase the user expected before it is trusted.
 //
 //  Wire shape verified live against the Materials Project openapi.json,
-//  2026-09-21 (docs/v3-features.md#materials-project): the response is
+//  2026-09-21 (../_archive/mac4DSTEM/docs/v3-features.md#materials-project): the response is
 //  `{"data":[SummaryDoc…],"errors":[{"code":int,"message":str}],"meta":{…}}`.
 //  Unknown JSON keys are ignored — `Decodable` does this for free by simply
 //  not declaring them, matching what DiffractoKit's `CIFImport` does for CIF

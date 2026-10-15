@@ -25,7 +25,7 @@ import Foundation
 /// single-shell assumption is at its least safe — thin or weakly-scattering
 /// samples are exactly the case where the first shell goes missing and the
 /// second is read as the first — so the state is reported rather than folded
-/// into "fine" (`docs/q-calibration-design.md` §3.2).
+/// into "fine" (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §3.2).
 package nonisolated enum QCalibrationShellCheck: Sendable, Equatable {
     /// The two innermost distinct shells, as measured, beside what the crystal
     /// predicts. `positions` is how many scan positions contributed an r₂ —
@@ -183,7 +183,7 @@ package nonisolated enum KnownCrystalQCalibration {
         let separation = expectedRatio.map { ($0 - 1) / 2 }
 
         // THE SAME-SHELL CLUSTER, not the minimum (Gate D 2026-09-05,
-        // docs/q-calibration-design.md §8). The innermost shell is excited as
+        // ../_archive/mac4DSTEM/docs/q-calibration-design.md §8). The innermost shell is excited as
         // k symmetry equivalents at once, each measured with radial noise σ;
         // the smallest of k is biased low by c_k·σ (c_6 = 1.27), and the
         // median across positions kept that bias, so the scale read HIGH by

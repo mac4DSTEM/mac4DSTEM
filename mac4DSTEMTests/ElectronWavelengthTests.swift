@@ -6,7 +6,7 @@ import DSTEMSession
 /// The DPC electron wavelength is DiffractoKit's `ElectronWavelength.angstroms(volts:)` (CODATA 2018), through
 /// `DPC.electronWavelengthAngstrom(voltageKV:)`; `ParallaxPreprocessor.electronWavelengthAngstrom(energyEV:)` stays py4DSTEM's
 /// rounded-constant form, because the Parallax code is a parity port (registration
-/// `docs/registrations/diffractokit-wavelength-registration-2026-10-15.md`, W′1; item W closed on W4; kit item 12 of
+/// `../_archive/mac4DSTEM/docs/registrations/diffractokit-wavelength-registration-2026-10-15.md`, W′1; item W closed on W4; kit item 12 of
 /// `DiffractoKit/docs/consumers-0.0.3.md`). Tier 1: every literal below is the documented value, not read back from the Swift.
 ///
 /// The documented BEFORE, for the record. DPC's form 12.2639 / sqrt(V (1 + 0.97845e-6 V)) gave 0.02507865865 A at 200 kV

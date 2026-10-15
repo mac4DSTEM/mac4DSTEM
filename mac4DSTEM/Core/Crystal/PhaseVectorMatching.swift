@@ -215,7 +215,7 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// "not indexed". Å⁻¹. The paper's cutoff (0.07), as its notebook also
     /// reads (cells 6 and 19); no code copied. The paper's value on
     /// the paper's dataset — shipped as a setting, not retuned on this app's
-    /// truth (`docs/v3-features.md#precipitates-mp-plan` §2).
+    /// truth (`../_archive/mac4DSTEM/docs/v3-features.md#precipitates-mp-plan` §2).
     package var residualCutoffInvAngstrom: Double = 0.07
     /// `.knownVariants` only: an `.indexed` winner must match at least this
     /// many PHASE-SPECIFIC reference reflections, or the position falls back

@@ -1,6 +1,6 @@
 //
 //  LearnedDetection.swift
-//  Role: this file's seam (docs/registrations/learned-detector-preregistration-2026-09-07.md,
+//  Role: this file's seam (../_archive/mac4DSTEM/docs/registrations/learned-detector-preregistration-2026-09-07.md,
 //        ../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7) — the one owner
 //        of the learned-vs-classical detector option, the learned pick
 //        threshold, the probe image the learned path needs, the loaded

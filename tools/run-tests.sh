@@ -163,7 +163,7 @@ diagnostic=()
 owner_only=()
 retired=()
 # training-dataset-campaign: parity-metric-test (gated) runs its test_parity_metric.py. release and package-test: the release
-# procedure (docs/releasing.md). A folder here that nothing gated runs belongs in ../_archive/mac4DSTEM/tools/ (suite rule 2026-10-15).
+# procedure (tools/release/README.md). A folder here that nothing gated runs belongs in ../_archive/mac4DSTEM/tools/ (suite rule 2026-10-15).
 support=(lib release crystal-structures hooks training-dataset-campaign)
 
 inventory() {
@@ -376,7 +376,7 @@ inventory() {
       printf "  %-36s %s\n" "$dl" "${sum[1,16]}…"
     fi
     # An absolute path in a load command is what breaks a relocated, signed
-    # bundle. `docs/releasing.md` claimed these were "free of Homebrew paths";
+    # bundle. `tools/release/README.md` claimed these were "free of Homebrew paths";
     # they are free of them HERE, and nowhere else — libhdf5 still carries the
     # Homebrew build stamp as a string (2026-09-09).
     if otool -L "$hd/$dl" | tail -n +2 | grep -qE '^\s+/(opt|usr/local|Users)/'; then

@@ -5,7 +5,7 @@
 //        and serves CBED patterns / scan rows converted to Float32 — the same
 //        interface H5Reader provides (see FourDDataSource).
 //
-//  Implements docs/dm4-format.md (verified against openNCEM ncempy.io.dm).
+//  Implements ../_archive/mac4DSTEM/docs/dm4-format.md (verified against openNCEM ncempy.io.dm).
 //  Structure fields are big-endian; primitive values are little-endian
 //  (byteord == 1, required). The data blob is never copied into RAM — patterns
 //  are sliced from the mapping on demand.
@@ -731,7 +731,7 @@ package actor DM4Reader: FourDDataSource {
                 // It is unported because no TitanX file has been available to
                 // measure it on, and rolling every 3D file by −2 px on the
                 // strength of a comment would silently corrupt the ones that
-                // do not need it. `docs/dm4-format.md` §3.3 carries the
+                // do not need it. `../_archive/mac4DSTEM/docs/dm4-format.md` §3.3 carries the
                 // record; the note is here because CLAUDE.md requires a
                 // deviation to be readable at the code, not only in a doc
                 // (added 2026-09-16 — the note was missing, the doc was not).

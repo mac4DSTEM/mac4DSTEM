@@ -2,7 +2,7 @@
 //  SpectroscopyDriveL12Tests.swift
 //  Lane L12 (WP4): the three registered Auto ID rules (`ProposalRules`, Core) on hand-built `ProposalResult`s, and how
 //  `AutoIDPresentation.outcome(rules:)` shows them. No compute, no app driving. Every test names the mutation it catches.
-//  Registration: docs/registrations/wp4-autoid-velox-preregistration-2026-10-07.md (H1 never Z >= 89 and drop an L/M pick within
+//  Registration: ../_archive/mac4DSTEM/docs/registrations/wp4-autoid-velox-preregistration-2026-10-07.md (H1 never Z >= 89 and drop an L/M pick within
 //  1.5 FWHM of another proposed candidate's K alpha; H2 an L/M pick needs net / L_D >= 3; H3 a held sum-peak candidate at
 //  net / L_D >= 10 is released).
 //

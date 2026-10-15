@@ -40,7 +40,7 @@ package final class QCalibrationRun {
     /// What the shell-ratio self-check said about the accepted estimate.
     /// `.notSelfChecked` is deliberately surfaced rather than folded into a
     /// pass: it is the state in which the single-shell assumption is least
-    /// safe (docs/q-calibration-design.md §3.2).
+    /// safe (../_archive/mac4DSTEM/docs/q-calibration-design.md §3.2).
     package var shellCheck: QCalibrationShellCheck? { estimate?.shellCheck }
 
     /// One line for the calibration panel, or nil when there is nothing to say.

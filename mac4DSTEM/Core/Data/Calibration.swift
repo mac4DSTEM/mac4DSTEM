@@ -513,7 +513,7 @@ package nonisolated struct OriginMaps: Sendable {
     /// ADMITTED and this number is carried *on the product*, because accuracy
     /// of the fitted origin outranks coverage of the input measurements and the
     /// fraction is disclosure rather than an apology
-    /// (`docs/q-calibration-design.md` §6a).
+    /// (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §6a).
     package var excludedFraction: Float?
 
     /// RMS(measured − fitted) over the positions the robust fit KEPT.

@@ -12,7 +12,7 @@ the dated gate table), `ROADMAP.md` (the feature plan, absorbing `v3-plan.md`),
 `docs/open-items.md` (defects and debts, ≤ 12 lines each), and
 `docs/decisions/` — one file per decision with `docs/decisions.md` as its
 index — replacing the append-only `decisions.md` log. `docs/architecture.md`
-and `docs/releasing.md` keep their paths and roles. Every record that left a
+and `tools/release/README.md` keep their paths and roles. Every record that left a
 live doc went to `../_archive/mac4DSTEM/docs/archive/` verbatim, with one header line, diff-proven
 against `git show HEAD:`.
 

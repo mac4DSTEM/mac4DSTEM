@@ -311,7 +311,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
                       "Expected the pre-existing prerequisite message: \(state.statusText)")
     }
 
-    /// Gate D 2026-09-05 (`docs/q-calibration-design.md` §8): the innermost
+    /// Gate D 2026-09-05 (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §8): the innermost
     /// shell is k noisy equivalents of one radius; their minimum is biased low
     /// by c_k·σ and the scale read 2.1 % high on WS₂, 2.4 % on sim_Au. The
     /// estimator averages the same-shell cluster. The minimum, computed here

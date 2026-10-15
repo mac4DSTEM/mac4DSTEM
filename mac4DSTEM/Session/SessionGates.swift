@@ -60,7 +60,7 @@ package final class SessionGates {
     }
 
     /// May a *reciprocal* measurement be derived in this frame? — the
-    /// stricter question (`docs/q-calibration-design.md` §2). Q calibration
+    /// stricter question (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §2). Q calibration
     /// asks this one; everything that needs only a centred frame keeps
     /// asking the looser one above.
     ///

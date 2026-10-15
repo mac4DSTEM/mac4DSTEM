@@ -252,7 +252,7 @@ package nonisolated enum OriginCalibration {
     /// sentence said "three rounds" flatly; a Gate B mutation showed
     /// `rounds: 3 → 2` changes nothing on any case measured (2026-08-28).
     /// Those constants are **not chosen here** — they are the ones S12 measured the design's numbers with
-    /// (`docs/q-calibration-design.md` §1.2), so the app and the diagnostics
+    /// (`../_archive/mac4DSTEM/docs/q-calibration-design.md` §1.2), so the app and the diagnostics
     /// that justified it trim identically. 1.4826 is the MAD→σ consistency
     /// factor for a normal distribution.
     ///

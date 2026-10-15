@@ -5,7 +5,7 @@
 ## Context
 The owner: "Auto ID doesn't really work, why can't we do it like Velox?" No Velox algorithm exists to copy; his files carry Velox's
 selections. Lane L10 measured today's proposer against them (78 files: precision 34,1 %, recall 45,5 %); the registration
-`docs/registrations/wp4-autoid-velox-preregistration-2026-10-07.md` named three rules with predictions and refuting observations; lane
+`../_archive/mac4DSTEM/docs/registrations/wp4-autoid-velox-preregistration-2026-10-07.md` named three rules with predictions and refuting observations; lane
 L12 built them exactly as registered as a post-selection step and measured (`../_archive/mac4DSTEM/docs/archive/v5/wp4-autoid-results-2026-10-07.md`).
 
 ## Decisions

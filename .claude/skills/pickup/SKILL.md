@@ -40,7 +40,7 @@ This skill only makes sure you enter them correctly.
 3. Before any work, restate in one short block: the target's scope, its gate
    (unit / unit+scientific / Gate D / Gate B), what it deletes, which release
    it lands in (a driven bug cuts v4.5.1, a landed science number v4.6.0, the EDX suite v5.0.0 —
-   `docs/releasing.md`), and any decision the user makes in-step. A feature
+   `tools/release/README.md`), and any decision the user makes in-step. A feature
    whose numbers can move (tier 1, suite `../CLAUDE.md` "Rigour follows risk") is pre-registered first
    (`ROADMAP.md`'s "How a v3 feature is done" section); name the tier.
 4. Non-negotiables (each has burned this repo): Gate D before any fix

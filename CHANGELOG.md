@@ -336,7 +336,7 @@ section rather than left for a user to discover.
   63.74, which every radius, Q scale and strain number then carried). The
   window now recentres on its own estimate and is never smaller than the
   probe radius plus 1.5 px, so the beam's soft edge is inside it (Gate D
-  and Gate B, `docs/q-calibration-design.md` §9). How far an origin moves
+  and Gate B, `../_archive/mac4DSTEM/docs/q-calibration-design.md` §9). How far an origin moves
   depends on where the beam sat in the coarse block grid, not on the disk
   size: across ten training cubes the mean origin shifts between 0.001 px
   and 0.77 px, single patterns by up to 1.3 px, and the new values track an
@@ -355,7 +355,7 @@ section rather than left for a user to discover.
   ring read short — so the pixel size came out 2.1 % high on the WS₂ training
   set; the cluster mean cancels the offset for a symmetric set and agrees
   with the file's second shell to 0.001 px (Gate D and B,
-  `docs/q-calibration-design.md` §8). The estimate reports how many peaks it
+  `../_archive/mac4DSTEM/docs/q-calibration-design.md` §8). The estimate reports how many peaks it
   averaged. Known limit: on a single crystal whose Friedel pairs differ in
   radius the band can truncate the cluster (recorded).
 - **A recipe cannot replay against the wrong CIF.** Imported phase models are

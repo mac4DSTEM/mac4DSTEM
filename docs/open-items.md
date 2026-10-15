@@ -76,7 +76,7 @@ Detail: `../_archive/mac4DSTEM/docs/archive/v3/open-items-detail-2026-09-16.md`.
 ### Origin-fit and Q-calibration open holes
 - **Origin gate** (2026-09-05): which statistic gates `originFitIsSane` (full-scan RMS can't see bias; the robust residual of
   2026-08-28 passes a 15 px-displaced fit); the trimmed fit is blind to clustered contamination ≥ 50 % (a 40 px-off quarter →
-  100 % kept, 20.6 px error). Owner: a design pass, `docs/q-calibration-design.md`.
+  100 % kept, 20.6 px error). Owner: a design pass, `../_archive/mac4DSTEM/docs/q-calibration-design.md`.
 - **Coarse block seed lands on the wrong blob on noisy cubes** (Gate B refuter, §9; S14/S14-D, `../_archive/mac4DSTEM/docs/archive/v4/s14*`): 0.5–2.8 px off on
   Si_SiGe_exp, both bullseye cubes and Au_ref; no fixed refine window ships (the demo fixture moves 1.70 px at k = 2).
   `tiledRun.windowSensitivityPixels` measures it (compact ≤ 0.07 px, bullseye 3.8, Au_ref 5.3) but is not surfaced; the demo fixture
@@ -282,7 +282,7 @@ Allocation from file sizes (macTEM V1-3a, 2026-10-12): `readMetadataJSON` is cap
 - **The fit is fragile on real spectra (diagnosed, refuted, pre-registered as WP3b):** unlisted strong lines (Ge, Cu, Ga) are
   absorbed by the continuum and hold Ti at 0; the order-5 upper segment is too stiff to 80 keV; the segments are uncoupled
   at a fixed Al-edge split (a collapse at 1.557 keV); σ is counting only (~±20 % model spread). Fixes F1–F3:
-  `docs/registrations/wp3b-fit-robustness-preregistration-2026-10-06.md`. F2/F3 refuted 2026-10-06 (addendum there): the
+  `../_archive/mac4DSTEM/docs/registrations/wp3b-fit-robustness-preregistration-2026-10-06.md`. F2/F3 refuted 2026-10-06 (addendum there): the
   continuum fix needs a new registration; F1 continues. F1 landed: after each fit the proposer names unlisted lines
   (incl. sum-peak questions) and at% waits for it; at% is withheld when a refit with them moves a listed net by > σ
   (margins: 26.7–33 σ when missing; 0.3–0.9 σ for a chance or real harmless extra — the planted Ca case sits at 0.9 σ).

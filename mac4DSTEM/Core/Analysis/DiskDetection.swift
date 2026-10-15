@@ -176,7 +176,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
 /// vocabularies name six keys differently (`sigma_dp_px` / `sigma_dp`, …), so
 /// this table is the one place that says which is which. Used to decide
 /// whether peaks restored from a sidecar are the peaks the recorded step made
-/// (docs/registrations/bragg-restore-registration-2026-09-28.md).
+/// (../_archive/mac4DSTEM/docs/registrations/bragg-restore-registration-2026-09-28.md).
 package nonisolated enum DiskDetectionRecordMatch {
     /// (provenance key, step key). Every pair is REQUIRED: a step or a
     /// provenance that lacks one cannot be verified, and unverified peaks are

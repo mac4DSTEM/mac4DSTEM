@@ -1,6 +1,6 @@
 //
 //  SpectroscopyPoolsH9Tests.swift
-//  E1 H9 (docs/registrations/e1-pooling-preregistration-2026-10-08.md): truth on the simulated joint file
+//  E1 H9 (../_archive/mac4DSTEM/docs/registrations/e1-pooling-preregistration-2026-10-08.md): truth on the simulated joint file
 //  References/demo-edx/AlMgSi_4D_EDX.dm4 (../_archive/mac4DSTEM/tools/demo-edx/run.sh; machine-local, ~254 MB, skipped when absent).
 //  (a) GATED: the pool of each phase, through the real chain (GMS joint attach by identity -> phase map published -> catalogue
 //      -> mask), equals the sum of `realised_total_eds_counts` of the truth regions with that phase, as integers.

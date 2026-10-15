@@ -1,6 +1,6 @@
 //
 //  E1PoolRecording.swift
-//  E1 (docs/registrations/e1-pooling-preregistration-2026-10-08.md), H7: "no existing number moves". This file is the RECORDING
+//  E1 (../_archive/mac4DSTEM/docs/registrations/e1-pooling-preregistration-2026-10-08.md), H7: "no existing number moves". This file is the RECORDING
 //  COMMAND. Run on the build BEFORE the E1 code, it writes the Spectroscopy room's outputs for the two registered images
 //  (`--demo-spectrum-fixture`'s `DemoSpectrumImageSource` and `demo-edx-tiny.dm4`) for the whole map and for one drawn rectangle:
 //  the spectrum, the maps' counts, the fit's results CSV and method JSON, the footers, the lineage step's parameters and the

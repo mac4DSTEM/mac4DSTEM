@@ -155,7 +155,7 @@ enum AnalysisMode: String, CaseIterable, Identifiable {
     /// method, from the paper). Sits beside grouping rather than replacing it:
     /// grouping finds structure without being told what to look for, this
     /// answers a question the user asks with a CIF. UNVALIDATED, and the panel
-    /// says so — `docs/v3-features.md#vector-matching` step 3.
+    /// says so — `../_archive/mac4DSTEM/docs/v3-features.md#vector-matching` step 3.
     case phaseMapping = "Phase mapping"
 
     var id: String { rawValue }

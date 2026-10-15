@@ -1,6 +1,6 @@
 //
 //  SpectroscopyPoolsTests.swift
-//  E1 (docs/registrations/e1-pooling-preregistration-2026-10-08.md): pooled spectra by phase, diffraction group and "Not indexed"
+//  E1 (../_archive/mac4DSTEM/docs/registrations/e1-pooling-preregistration-2026-10-08.md): pooled spectra by phase, diffraction group and "Not indexed"
 //  in the Spectroscopy room. H1-H8 here; H9 is a separate run on the simulated joint file. The chain tests run twice: through
 //  an INJECTED non-identity record (the 4 x 4 -> 2 x 2 mirrored bin of RegistrationTests, which the app cannot create) and
 //  through the identity on a non-square 5 x 3 image. Each test names the mutation it catches; each was broken once (the lane report).

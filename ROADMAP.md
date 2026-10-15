@@ -6,7 +6,7 @@ findings, 45 high-value gaps, 77 absent, 54 partial, 7 absent by recorded
 decision; the ranking is a recommendation, sizes are rough). The first v3
 feature to land bumped the version to v3.0.0, released 2026-09-11; v4.0.0
 (2026-09-23) carries the v3.1 calibration foundation and a rebuilt interface
-on the macOS 27 floor (`docs/releasing.md` § Releases). What is live now is
+on the macOS 27 floor (`tools/release/README.md` § Releases). What is live now is
 `docs/status.md`; this file is the forward plan.
 
 ## Decided 2026-08-28
@@ -32,7 +32,7 @@ Ranked by value to a working microscopist.
 
 | # | Theme | Absent today | Size · depends on |
 |---|---|---|---|
-| 1 | **Calibration foundation** — everything else stands on it | **Landed 2026-09-17 as v3.1, shipped in v4.0.0** (`docs/v3-features.md#calibration-v31`): vacuum probe from a separate scan, beamstop-tolerant origin (`get_origin_friedel` + beamstop mask), origin validity mask (count on screen; the spatial overlay is still owed). The CoM beam centre in `probeSize` is parked (Gate D: marginal). The origin-method picker and the Friedel demo have been driven by the owner; the spatial overlay stays owed. | done |
+| 1 | **Calibration foundation** — everything else stands on it | **Landed 2026-09-17 as v3.1, shipped in v4.0.0** (`../_archive/mac4DSTEM/docs/v3-features.md#calibration-v31`): vacuum probe from a separate scan, beamstop-tolerant origin (`get_origin_friedel` + beamstop mask), origin validity mask (count on screen; the spatial overlay is still owed). The CoM beam centre in `probeSize` is parked (Gate D: marginal). The origin-method picker and the Friedel demo have been driven by the owner; the spatial overlay stays owed. | done |
 | 2 | **Amorphous and nanocrystalline** — a modality the app lacks | polar / polar-elliptical transform (gates the rest); radial profile I(q); pair distribution function (scattering factors already ported); radial variance / fluctuation microscopy | large · polar transform first |
 | 3 | **Strain where disk detection fails** — the peak-finding path finds no basis on three of four training datasets (`../_archive/mac4DSTEM/docs/archive/qc-run-findings-2026-08.md` §9.2/§10.3) | whole-pattern fitting; user-supplied reference lattice (absolute strain); strain from the ACOM solution | medium–large · — |
 | 4 | **From maps to the numbers a paper reports** | grain segmentation (size distribution, boundary misorientation, twin fraction); multi-phase identification (which phase is where); full point-group coverage | medium · point-group coverage first |
@@ -52,7 +52,7 @@ built-in plotting is cubic-only too — full coverage there needs the
 external `orix` library, which Swift has no equivalent of). **The Materials
 Project importer landed 2026-09-21** (decode/standardise/refuse a cell,
 classify via the CIF importer's own function, Keychain key, mp-id sheet, 39
-tests; `docs/v3-features.md#materials-project`) — shipped in v4.0.0;
+tests; `../_archive/mac4DSTEM/docs/v3-features.md#materials-project`) — shipped in v4.0.0;
 the owner live-tested a fetch 2026-09-23 (it worked); S6's comparisons owed. Point-group coverage beyond
 cubic and hexagonal remains unclaimed.
 
@@ -64,7 +64,7 @@ is its own product").
 - **Needle-shaped precipitate pipeline** (2026-08-06, re-requested
   2026-08-26) — classifying each scan position by its full diffraction
   pattern, superseded from real-space segmentation 2026-09-11
-  (`docs/v3-features.md#precipitate-classification`,
+  (`../_archive/mac4DSTEM/docs/v3-features.md#precipitate-classification`,
   `docs/decisions/019-precipitates-by-classification.md`). Ships unvalidated
   (`validation:"none"`, `docs/status.md` § Handoff). **2026-09-23 overnight
   Gate D:** an Al → precipitate false-call guard (`specific ≥ 1`) measured
@@ -85,7 +85,7 @@ is its own product").
   later products stale); ships in v4.5.0.
 - **Learned disk candidates** (owner, 2026-09-05; Core ML on the Neural
   Engine, 2026-09-07) — the first ML feature, **shipped in v3.0.0**
-  (2026-09-11, `docs/releasing.md` § Releases). Pre-registration and the
+  (2026-09-11, `tools/release/README.md` § Releases). Pre-registration and the
   passing step-3 verdict:
   [`../_archive/mac4DSTEM/docs/archive/v4/roadmap-history.md`](../_archive/mac4DSTEM/docs/archive/v4/roadmap-history.md).
 

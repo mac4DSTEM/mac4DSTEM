@@ -5,7 +5,7 @@ import DSTEMSession
 @testable import SpectroCore
 @testable import SpectroEDX
 
-/// WP3c, "the default fit range, not the continuum" (docs/registrations/wp3c-fit-range-preregistration-2026-10-06.md, P1-P6).
+/// WP3c, "the default fit range, not the continuum" (../_archive/mac4DSTEM/docs/registrations/wp3c-fit-range-preregistration-2026-10-06.md, P1-P6).
 /// The default upper fit limit is min(axis end, beam, 20 keV), decided on the file's axis; a typed limit is Expert
 /// (`QuantificationMethod.fitToKeV`, nil = default, absent from the JSON); the at% row falls back from an unsupported K-alpha
 /// to the highest supported group, named; a range-sensitivity statement (one fit to the axis end, not a sigma term) runs
