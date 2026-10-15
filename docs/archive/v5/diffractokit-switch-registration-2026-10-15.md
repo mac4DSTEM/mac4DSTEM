@@ -50,3 +50,20 @@ Unit, core, scientific and inventory gates on `main` after each lane lands; a te
 named with the kit test that holds the same plant); every new tier-1 test broken once. One fresh Sonnet refuter on the
 frozen switch, given this file, the kit's consumer note and the diff, never the lane's report. A failed prediction closes
 this item and opens a new registration (ADR 050).
+
+## Results (2026-10-15, lanes E and X; landed `5742a496`, `46759af6`, `319fc192`)
+- **P1 held.** Every ellipse and ring-fit output byte equal (`tools/ellipse-calibration-test` and four more harnesses; a
+  bit-pattern dump of 44 fits and 12 × 7 transforms); no test or tolerance changed. Lane E unit 2420 / 0 / 4.
+- **P2 held.** 482,002 kept reflections of 221 models (presets and 131 CIF files) and 515,444 of the unit suite's models:
+  bit-equal |g|, Re F, Im F, |F|², equal sets by hkl. Frozen by `KitSwitchFreezeTests` (values from before the switch).
+- **P3 held.** revisionID, contentFingerprint and every provenance string byte equal.
+- **P4 failed as worded, in two places.** (a) `testTwoSitesCannotShareOneTargetInTheSymmetryMap`'s split-atom gold is
+  still refused, now by the kit's close-contact check (0.0163 Å), not imported as `.identity`. (b) Not listed:
+  `SiGe_mp-978534` (P6₃mc) was refused and now imports as `.hexagonal` (the kit reads its Laue class 6/mmm). The other four
+  listed tests import as `.identity`; the 1e21 coefficient is now `unsupportedSymmetryOperation` (kit item 4). The mapping
+  also tests the cell (a primitive 60° MgO with Laue m-3m stays `.identity`, as before), which the scope's literal mapping
+  did not say. By ADR 050 these are not amended here: `diffractokit-switch-p4-registration-2026-10-15.md` registers them.
+- **P5 held.** The `acom-*` and parity harnesses byte equal; `phase-vector-matching` 32 of 32 gated checks, its [meas] lines
+  and one 1e-16 line differ by the tie order (kit item 8): restoring the old order reproduces the old output exactly.
+  `PhaseReferenceLibrarySlabTests`' order-mixing checksum re-pinned 0x675b3e13f7e44cea → 0x3b64f63e0cd65b72 for the
+  same reason (the old order restored passes the old constant).
