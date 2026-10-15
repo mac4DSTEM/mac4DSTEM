@@ -1,6 +1,6 @@
 # 070 — The exact-length 2D FFT is ImagoKit's `ImagoCore.FFT2D`, pinned at 0.1.0
 
-**Date:** 2026-10-15 · **Status:** draft, for mac4DSTEM's session (prepared in a side clone; nothing here has run through this repo's gates) · **Follows:** 064 (the kit pattern)
+**Date:** 2026-10-15 · **Status:** decided 2026-10-15 (prepared by ImagoKit's session; applied here with the unit and scientific suites through the kit and one review) · **Follows:** 064 (the kit pattern)
 
 ## Context
 `FFT2D` (exact N-point 2D DFT for every size: radix-2, 3, 5 and a general path on vDSP, with an exact Bluestein transform for
@@ -12,7 +12,7 @@ every planted case. Thirteen analysis files (DPC, disk detection, Friedel origin
 probe kernels, ptychography preparation, single-slice ptychography, rotation calibration, the matrix-DFT correlation) call it.
 
 ## Decisions
-1. `Core/Compute/FFT2D.swift` is deleted; the thirteen files `import ImagoCore`.
+1. The app's FFT2D source (Core/Compute) is deleted; the thirteen files `import ImagoCore`.
 2. ImagoKit is pinned at the exact tag 0.1.0 (commit a4f488b; 0.0.2 had the same FFT2D) in `Package.swift`, the Xcode project and both
    `Package.resolved`; only the `ImagoCore` product is linked (DSTEMCore and the app target). ImagoFFT, ImagoFilters and
    ImagoAlignment are not used here. A new tag is a deliberate bump, gated like any other change.
