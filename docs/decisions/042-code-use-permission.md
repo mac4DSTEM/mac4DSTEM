@@ -2,7 +2,7 @@
 
 Dates: 2026-09-28
 
-Status: live. This supersedes the "may not copy" line of `archive/v3/sped-phase-mapping-reference-2026-09-11.md`
+Status: live. This supersedes the "may not copy" line of `../_archive/mac4DSTEM/docs/archive/v3/sped-phase-mapping-reference-2026-09-11.md`
 §6 and the "no licence" notes that follow from it.
 
 ## Decision
@@ -26,7 +26,7 @@ From now on:
 
 - **The permission is verbal and not yet written.** The repository still has no `LICENSE` file. This
   repo is public, so a reader cannot yet check it. **Owed:** file the author's written confirmation
-  (an email, or a `LICENSE` added upstream) under `docs/archive/`. The drafted request is in the
+  (an email, or a `LICENSE` added upstream) under `../_archive/mac4DSTEM/docs/archive/`. The drafted request is in the
   session record of 2026-09-28.
 - **The repository lists six code contributors** (Christiansen, Bergh, Frafjord, Thorsen, Thronsen).
   The first author's word covers the owner's use in good faith. A written licence upstream would

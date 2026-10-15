@@ -3,7 +3,7 @@
 An ADR here distils a settled question: what was decided, why, what it
 governs. To add one: take the next number, write one file in
 `docs/decisions/`, add one row below. The pre-2026-09-16 log (97 entries) is
-archived verbatim at `docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`;
+archived verbatim at `../_archive/mac4DSTEM/docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`;
 an ADR's "log line N" means that file's line N (original line + 2, its header).
 
 | ADR | Title | Dates | Status |
@@ -17,7 +17,7 @@ an ADR's "log line N" means that file's line N (original line + 2, its header).
 | 007 | Versioning and release naming; a raised system requirement is a major; the v4.1 train ships as 4.5.0, EDX is 5.0.0 | 09-02, 09-03, 09-11, 09-22, 10-05 | live |
 | 008 | macOS floor and arm64-only | 09-04, 09-11, 09-22 | live (floor raised 14→27 09-22; v3.0.0 stays for older systems) |
 | 009 | UI contract | 09-03, 09-04, 09-07 | live (09-03 AppKit superseded) |
-| 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `docs/archive/v4/window-design.md` §6) |
+| 010 | System presentation and run action | 09-03, 09-04 | live (toolbar placement superseded 09-22, `../_archive/mac4DSTEM/docs/archive/v4/window-design.md` §6) |
 | 011 | Status strip readouts | 09-04, 09-12 | live (09-04 narrowed; throughput and the Performance rows moved to the Run tab by 034, 09-21) |
 | 012 | Refusals not defaults | 09-04, 09-05 | live |
 | 013 | Residency `.automatic` dropped | 08-18 | live |
@@ -93,6 +93,6 @@ C1 docs made true · 09-07 C2 hygiene · 09-07 C5 AppState rule is a number
 C7) · 09-08 C7 sessions 1–4 and its Gate B campaign (implementation log) ·
 09-08 C8 engines stay on branch (reversed 09-11) · 09-08 C4(c) drive
 delegated · 09-09 3.0.0 ships a UI looked at (shipped) · 09-11 (2nd round)
-unattended port behaviour · 09-11 `docs/ai-ml/` brief ported (one-off) ·
+unattended port behaviour · 09-11 `../_archive/mac4DSTEM/docs/ai-ml/` brief ported (one-off) ·
 09-11 class ID template-matched, recommended (superseded same day, see 019)
 · 09-15 orientation relationship lands inert (superseded same day, see 026).

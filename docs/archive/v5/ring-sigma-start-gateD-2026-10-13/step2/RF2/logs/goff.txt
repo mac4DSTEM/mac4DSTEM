@@ -1,7 +1,0 @@
-Set C noisy (144) and clean (84): HEAD / a states by caller's centre-guess offset (px from the true centre)
- offset 0.0            noisy head {'C0': 21, 'R': 111, 'W': 12} | noisy a {'M': 2, 'R': 142} | clean head {'C0': 21, 'R': 63} | clean a {'R': 84}
- offset 0.75           noisy head {'C0': 18, 'R': 106, 'W': 20} | noisy a {'M': 2, 'R': 142} | clean head {'C0': 28, 'R': 56} | clean a {'R': 84}
- offset 1.6 (RF base)  noisy head {'C0': 15, 'M': 1, 'R': 99, 'W': 29} | noisy a {'M': 2, 'R': 142} | clean head {'C0': 25, 'R': 59} | clean a {'R': 84}
- offset 3.0            noisy head {'C0': 18, 'C1': 1, 'R': 104, 'W': 21} | noisy a {'M': 2, 'R': 142} | clean head {'C0': 8, 'R': 76} | clean a {'R': 84}
- offset 7.8            noisy head {'M': 2, 'R': 142} | noisy a {'M': 2, 'R': 142} | clean head {'R': 84} | clean a {'R': 84}
- offset 15.6           noisy head {'R': 143, 'T': 1} | noisy a {'R': 143, 'T': 1} | clean head {'M': 2, 'R': 82} | clean a {'R': 84}

@@ -4,7 +4,7 @@ import DSTEMCore
 import DSTEMSession
 #endif
 
-/// The navigation/selection seam (S22c; `docs/archive/development-process-2026-08-31.md` §7).
+/// The navigation/selection seam (S22c; `../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md` §7).
 /// Owns which workspace and task the user is in and which panes are
 /// visible: pure view-state, no science. `AppState` holds it as
 /// `navigation` without forwarding properties — the same contract
@@ -24,7 +24,7 @@ final class WorkspaceNavigation {
         didSet { if analysisMode != oldValue { onModeChange?() } }
     }
 
-    /// The process area's share of the centre column (docs/archive/v4/window-design.md §4,
+    /// The process area's share of the centre column (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4,
     /// phase 1): 0 hides it, 1 hides the canvas instead — the infobar's two
     /// extremes. `didSet` remembers the last NON-ZERO fraction it saw, so
     /// hiding the area never forgets the height the user dragged it to —

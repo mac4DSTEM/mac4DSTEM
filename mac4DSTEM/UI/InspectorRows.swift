@@ -1074,7 +1074,7 @@ private struct ResetActionModifier: ViewModifier {
 }
 
 /// What VoiceOver says for values the screen shows as symbols, abbreviations or a prompt — pure strings, so a test can hold them
-/// (docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md, group Y2). Nothing here is drawn.
+/// (../_archive/mac4DSTEM/docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md, group Y2). Nothing here is drawn.
 nonisolated enum RoomAccessibilityText {
     /// The longest hint left as it is: Apple asks for "a brief phrase" ("Purchases the item").
     static let briefHintLimit = 100

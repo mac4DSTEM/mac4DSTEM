@@ -106,8 +106,9 @@ survey "$HOME/Library/Developer/Xcode/CodingAssistant" "editor cache"
 survey "$HOME/Library/Developer/CoreSimulator/Caches" "simulator caches (this project is macOS-only)"
 survey "$REPO_ROOT/.build" "SwiftPM build products"
 echo ""
-echo "  PROTECTED, never regenerable: $REPO_ROOT/build/release"
-echo "            notarized and stapled disk images (docs/releasing.md: preserve them)"
+echo "  PROTECTED, never regenerable: the past releases' notarized and stapled disk images, in"
+echo "            $REPO_ROOT/../_archive/mac4DSTEM/build/release (docs/releasing.md: preserve them)."
+echo "            $REPO_ROOT/build/release is where a NEW release is written: keep that too until it is moved there."
 
 if [[ ! -d "$MCP_ROOT" ]]; then
   echo "note: $MCP_ROOT does not exist — XcodeBuildMCP may have moved its" \

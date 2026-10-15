@@ -4,7 +4,7 @@ import DSTEMSession
 @testable import mac4DSTEM
 
 /// Lane Y of the 2026-10-07 SwiftUI review fixes: the pure helpers behind the room audit's no-new-surface accessibility
-/// fixes (docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md). The modifiers themselves are checked by a drive.
+/// fixes (../_archive/mac4DSTEM/docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md). The modifiers themselves are checked by a drive.
 @MainActor
 final class AccessibilityRoomsTests: XCTestCase {
 

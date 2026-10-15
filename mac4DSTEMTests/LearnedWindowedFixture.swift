@@ -2,7 +2,7 @@
 //  LearnedWindowedFixture.swift
 //  A synthetic float diffraction pattern above the model's 256-px frame, with a known lattice of disks,
 //  and the recall / precision score of a learned detection against it (D098 dose scale, D004 seam bands;
-//  docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md). Deterministic: SplitMix64, no system randomness.
+//  ../_archive/mac4DSTEM/docs/archive/v4/learned-windows-D098-D004-gateD-2026-09-30.md). Deterministic: SplitMix64, no system randomness.
 //
 //  A float pattern whose maximum is <= 1 is a fraction of a 20 000-count beam (`simulate.to_counts`), so the
 //  fixture is a float32 pattern with the direct beam at 0.9: exactly the case D098 concerns.

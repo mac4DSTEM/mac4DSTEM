@@ -574,7 +574,7 @@ final class RotationSignificanceTests: XCTestCase {
     /// THE FAILURE GATE B FOUND, pinned (2026-09-15 night). A rotation-free
     /// field with spatial structure — white noise smoothed by a 7 × 7 box,
     /// longer than probe overlap produces — was certified 65 % of the time by
-    /// the shuffle null (`tools/rotation-null-probe`, box 7). The
+    /// the shuffle null (`../_archive/mac4DSTEM/tools/rotation-null-probe`, box 7). The
     /// phase-randomised surrogate null keeps the field's correlation length,
     /// so structure alone no longer beats it. Six fixed seeds, each a
     /// deterministic refusal under the new null (seed 16 was certified — the

@@ -2,7 +2,7 @@
 //  RegistrationTests.swift
 //  v5.0 WP3 lane M (prediction M1, second half): the registration record M2, mask transport by area overlap,
 //  pooling, and the simulator's planted transform (`truth_edx_regmismatch.json`, committed as
-//  Fixtures/edx-regmismatch-m1.json by tools/demo-edx/dump_m1_fixture.py). Each test names the mutation it
+//  Fixtures/edx-regmismatch-m1.json by ../_archive/mac4DSTEM/tools/demo-edx/dump_m1_fixture.py). Each test names the mutation it
 //  catches; each was broken once.
 //
 

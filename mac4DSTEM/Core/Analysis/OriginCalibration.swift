@@ -301,7 +301,7 @@ package nonisolated enum OriginCalibration {
     /// factor for a normal distribution.
     ///
     /// **Where these numbers come from, stated because a reader cannot rerun
-    /// them here:** every figure above is from `tools/origin-fit-diagnostics`,
+    /// them here:** every figure above is from `../_archive/mac4DSTEM/tools/origin-fit-diagnostics`,
     /// which needs the gitignored training data and is deliberately not in the
     /// `scientific` array. They are the justification for deviating from
     /// py4DSTEM and they are not reproducible from a clean checkout — a real
@@ -571,7 +571,7 @@ package nonisolated enum OriginCalibration {
         // feeds get_probe_size the MAX pattern): the mean is fed instead, which is
         // what py4DSTEM's own get_probe_size docstring recommends ("a position
         // averaged ... DP works best"). Measured 2026-09-01 on real data
-        // (tools/origin-fit-diagnostics probe-size): the max-union counts every
+        // (../_archive/mac4DSTEM/tools/origin-fit-diagnostics probe-size): the max-union counts every
         // Bragg disk seen anywhere in the scan as probe area — SPED_MgO reads
         // 14.1 px from the max against 5.4 from the mean and ~3 from
         // substrate-only patterns, and the SAME specimen over a 4x larger scan
@@ -646,7 +646,7 @@ package nonisolated enum OriginCalibration {
 
     /// The refine window's two readings, in probe radii: the shipped one and a
     /// wide one. 2.5 is the S14-D registration's far end
-    /// (`docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`): wide enough to
+    /// (`../_archive/mac4DSTEM/docs/archive/v4/s14d-origin-refine-gateD-2026-09-30.md`): wide enough to
     /// clear a ring outside the core (k ≈ 2 already does on the ringed fixtures),
     /// not so wide that a compact cube's scatter enters.
     package nonisolated static let shippedWindowScale: Float = 1.2

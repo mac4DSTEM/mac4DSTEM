@@ -6,7 +6,7 @@ Python, py4DSTEM install or Metal device is needed for the normal gate.
 `tools/run-tests.sh scientific` includes it, so CI will run it after a push.
 
 The experiment was registered in
-[`review-recovery.md`](../../docs/archive/v2-session-records/review-recovery.md)
+[`review-recovery.md`](../../../_archive/mac4DSTEM/docs/archive/v2-session-records/review-recovery.md)
 before the first run. This tests projection conventions and returned orientation
 matrices; it does not certify general indexing accuracy or scientific exports.
 

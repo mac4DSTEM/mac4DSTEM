@@ -3,7 +3,7 @@
 One entry per live v3 feature: status, who owns the state, what is
 pre-registered against work not yet built, decisions still owed to the
 owner, and where the evidence lives. History already recorded verbatim under
-`docs/archive/v3/` or `docs/decisions/` is linked here, not repeated; a
+`../_archive/mac4DSTEM/docs/archive/v3/` or `docs/decisions/` is linked here, not repeated; a
 number is quoted only with the dated log or archive file that measured it.
 No product here is called validated while it self-reports `validation:
 "none"` — precipitate/phase-mapping outputs stay badged unvalidated in every
@@ -20,7 +20,7 @@ Consolidates, 2026-09-21: `v3-materials-project-preregistration.md`,
 `v3-vector-matching-plan.md`, `v3.1-calibration-preregistration.md` — each
 written before its code, per `ROADMAP.md` §6 ("How a v3 feature is done").
 Originals are superseded by this file; their content lives on here and in
-the archive/decision links each section cites.
+the ../_archive/mac4DSTEM/docs/archive/decision links each section cites.
 
 Non-negotiables carried from `CLAUDE.md`, governing every section below:
 break every new tier-1 test before trusting it (tier 2 samples); a change to what the app draws is
@@ -91,7 +91,7 @@ and when to persist the mask) and D4 (the on-screen overlay design) are
 undecided, owner's call.
 
 **Records.** `docs/decisions/033-v3.1-origin-validity-mask.md`;
-`docs/archive/v3/status-handoff-2026-09-18.md` (full landed narrative:
+`../_archive/mac4DSTEM/docs/archive/v3/status-handoff-2026-09-18.md` (full landed narrative:
 Friedel/beamstop parity numbers, break-first mutations M1–M4/Mf1/Mf2/Mv1,
 the step-3 trim-sweep table across four cubes).
 
@@ -104,7 +104,7 @@ Step 3 — validation against Thronsen et al.'s published ground truth
 (Ultramicroscopy 255 (2024) 113861, CC BY 4.0) — ran on a stride-3
 subsample and remains open: the sequence improved 26 % → 13.24 % → 6.64 %,
 then **4.21 %** at a 0.1 % detection threshold, no default moved
-(`docs/archive/v3/step3-2026-09-16.md`); the known-variants rule (see
+(`../_archive/mac4DSTEM/docs/archive/v3/step3-2026-09-16.md`); the known-variants rule (see
 [Precipitates + Materials Project — plan of record](#precipitates-mp-plan))
 later reached **1.81 %**, still 0.06 points above their 0.96–1.75 % band.
 Every phase output stays explicitly `validation:"none"`.
@@ -153,10 +153,10 @@ by step 3's failure, addressed in practice (not yet closed) by the
 known-variants rule below.
 
 **Records.** `docs/decisions/021-phase-mapping-decisions.md` (method
-choice); `docs/archive/v3/step3-2026-09-16.md` (the 2026-09-15 decisions and
+choice); `../_archive/mac4DSTEM/docs/archive/v3/step3-2026-09-16.md` (the 2026-09-15 decisions and
 the full threshold record, 98.26 % → 26.4 % → 13.24 % → 8.75 % → 7.96 % →
-6.64 %); `docs/archive/v3/phase-mapping-2026-09-12.md` (steps 1/2/4/5);
-`docs/archive/v3/status-steps-2026-09-16.md` (orientation-relationship form
+6.64 %); `../_archive/mac4DSTEM/docs/archive/v3/phase-mapping-2026-09-12.md` (steps 1/2/4/5);
+`../_archive/mac4DSTEM/docs/archive/v3/status-steps-2026-09-16.md` (orientation-relationship form
 landed, measured 6.64 %); `docs/decisions/026-step3-thresholds-and-orientation-relationship.md`
 (Friedel floor, reach, cliff, OR form, and the >3 %-after-three-levers
 stopping rule the next plan revisits).
@@ -195,7 +195,7 @@ named by outcome, not moved into an `AI/` folder.
 - Density reported here is areal, a way-station, never the goal: must
   "report areal and say so," never be read as settling the volumetric
   question. Volumetric number density via PACBED-based foil-thickness
-  estimation is designed (`docs/ai-ml/README.md` §5) and unbuilt — its own
+  estimation is designed (`../_archive/mac4DSTEM/docs/ai-ml/README.md` §5) and unbuilt — its own
   future pre-registration.
 - Multi-dataset density (total count ÷ total area across cubes, never the
   mean of per-cube densities) is out of scope, named so it is not lost.
@@ -216,11 +216,11 @@ when to build multi-dataset and volumetric density.
 
 **Records.** `docs/decisions/018-ai-pipeline-on-main.md` (PCA over NMF;
 ridge filter parked then retired with the image `segment` path, 2026-09-30); `docs/decisions/019-precipitates-by-classification.md`
-(the route decision and ship gate); `docs/archive/v3/precipitate-baseline-2026-09-11.md`,
-`docs/archive/v3/precipitate-handcount-2026-09-11.md` (the measured failures
-that killed the image route); `docs/archive/v3/precipitates-real-space-route-2026-09-07.md`
-(the superseded route, history); `docs/archive/v3/phase-discrimination-2026-09-11.md`
-(per-position template matching measured and refuted); `docs/archive/v3/phase-map-objects-gateD-2026-09-21.md`
+(the route decision and ship gate); `../_archive/mac4DSTEM/docs/archive/v3/precipitate-baseline-2026-09-11.md`,
+`../_archive/mac4DSTEM/docs/archive/v3/precipitate-handcount-2026-09-11.md` (the measured failures
+that killed the image route); `../_archive/mac4DSTEM/docs/archive/v3/precipitates-real-space-route-2026-09-07.md`
+(the superseded route, history); `../_archive/mac4DSTEM/docs/archive/v3/phase-discrimination-2026-09-11.md`
+(per-position template matching measured and refuted); `../_archive/mac4DSTEM/docs/archive/v3/phase-map-objects-gateD-2026-09-21.md`
 (the class-map → objects bridge, Gate D/B reviewed, deliberately unwired).
 
 <a id="materials-project"></a>
@@ -307,7 +307,7 @@ Materials Project importer — state ownership as in
   8 px image-space one. The rule is material-general: variants come from the
   phase list's own orientation relationships, nothing Al-specific.
 - Feature A ship gate: ≤ 3 % mislabelled on the Thronsen truth (decision
-  026's bar) with the confusion table recorded under `docs/archive/v3/`, or
+  026's bar) with the confusion table recorded under `../_archive/mac4DSTEM/docs/archive/v3/`, or
   the rule ships only as an experimental option badged unvalidated, with the
   record saying why. **Outcome 2026-09-21:** refuted as predicted
   (18.11 %), explained (the T1 reference lacked {014}/{214} under a 5 %
@@ -351,9 +351,9 @@ Materials Project importer — state ownership as in
 2026-09-18 rule: it may not); the T1 recall lever, parked pending S1's
 outcome, now reported and still open.
 
-**Records.** `docs/archive/v3/known-variants-rule-2026-09-21.md` (S1);
-`docs/archive/v3/t1-relationship-2026-09-21.md` (S2);
-`docs/archive/v3/theta-prime-slab-2026-09-21.md` (per-phase slab, 1.81 %);
-`docs/archive/v3/phase-map-residual-detail-2026-09-21.md` (residual
+**Records.** `../_archive/mac4DSTEM/docs/archive/v3/known-variants-rule-2026-09-21.md` (S1);
+`../_archive/mac4DSTEM/docs/archive/v3/t1-relationship-2026-09-21.md` (S2);
+`../_archive/mac4DSTEM/docs/archive/v3/theta-prime-slab-2026-09-21.md` (per-phase slab, 1.81 %);
+`../_archive/mac4DSTEM/docs/archive/v3/phase-map-residual-detail-2026-09-21.md` (residual
 detail); `docs/decisions/026-step3-thresholds-and-orientation-relationship.md`
 (the >3 %-after-three-levers stopping rule this plan revisits).

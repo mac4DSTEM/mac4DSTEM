@@ -5,7 +5,7 @@ import DSTEMSession
 #endif
 
 /// The detail column: the science, and the infobar + process area along its
-/// bottom edge (docs/archive/v4/window-design.md §4) — the room actions and
+/// bottom edge (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4) — the room actions and
 /// the file name live in the toolbar, not here.
 ///
 /// **There is no workspace header.** The old `ProductWorkspaceHeader`
@@ -583,7 +583,7 @@ struct WelcomeWorkspace: View {
 /// live operational detail lives in the process area's Run tab, so this
 /// strip only glances).
 ///
-/// **Phase 1 (docs/archive/v4/window-design.md §4–§6): this IS the centre column's
+/// **Phase 1 (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4–§6): this IS the centre column's
 /// divider.** A `DragGesture` over the whole bar — every pixel of its
 /// width, via `.contentShape(Rectangle())` — reads `availableHeight` (the
 /// same denominator `WorkspaceView`'s `ProcessAreaLayout.heights` uses) and
@@ -1019,7 +1019,7 @@ struct SaveResultButton: View {
 /// The resize cursor over a divider. `.column` is the pane split's
 /// left–right pair; `.row` is the infobar's up–down pair — the bar is
 /// draggable over its whole width and needs a cursor that says so
-/// (docs/archive/v4/window-design.md §1).
+/// (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §1).
 private struct ResizePointer: ViewModifier {
     enum Axis { case column, row }
     let axis: Axis

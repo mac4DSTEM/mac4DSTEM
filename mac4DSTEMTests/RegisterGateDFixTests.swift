@@ -1,9 +1,9 @@
 //
 //  RegisterGateDFixTests.swift
 //  Session queue S7–S9 (2026-09-30): three items of the 2026-09-09 register
-//  (`docs/archive/2026-09-09-review/triage-2026-09-29.md`), each diagnosed by
+//  (`../_archive/mac4DSTEM/docs/archive/2026-09-09-review/triage-2026-09-29.md`), each diagnosed by
 //  one agent with a byte copy of the code, refuted by another, then fixed.
-//  Record: `docs/archive/v4/register-D019-D023-D025-gateD-2026-09-30.md`.
+//  Record: `docs/registrations/register-D019-D023-D025-gateD-2026-09-30.md`.
 //
 
 import XCTest

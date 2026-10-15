@@ -55,7 +55,7 @@
 ### Found by the pre-release review (2026-10-02)
 
 A whole-app review before this release (six independent reviewers, each finding checked by a second model;
-`docs/archive/v4/prerelease-review-2026-10-02/`) found these, all fixed with a test that fails without the fix:
+`../_archive/mac4DSTEM/docs/archive/v4/prerelease-review-2026-10-02/`) found these, all fixed with a test that fails without the fix:
 
 - **Your data.** The dataset itself could be chosen as the destination of a first session save, Change Session
   Sidecar… or Export Bundle and be replaced; it is now refused. A session file that HDF5 could not open (for example
@@ -81,7 +81,7 @@ A whole-app review before this release (six independent reviewers, each finding 
 ### Polish before release (2026-10-04)
 
 Rough edges left after the review, each fixed with a test that fails without it and checked by a second model
-(`docs/archive/v4/polish-plan-2026-10-02/`):
+(`../_archive/mac4DSTEM/docs/archive/v4/polish-plan-2026-10-02/`):
 
 - The status strip shows the app's memory (Activity Monitor's Memory column), not the pages of a memory-mapped cube
   (it read 23.1 GB for a 15.8 GiB cube). Open Dataset… and Preprocess Raw Data… work with no dataset window open — they
@@ -190,10 +190,10 @@ gates; "unverified on screen" means exactly that.
 - **AppState seams 1–4.** Phase contrast, ACOM, disk detection and DPC state
   moved to feature owners; their cross-owner orchestration moved to focused
   extensions. AppState.swift 4699 → 3676; details and gates are retained in
-  `docs/archive/v4/appstate-seams-plan.md`. All four were later owner-driven with seam 5.
+  `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md`. All four were later owner-driven with seam 5.
 - **AppState seam 5: `ResultPresentation`.** Shared product/display state moved to one owner and cross-owner orchestration to `AppState+ResultPresentation.swift`; AppState.swift 3676 → 3240. Seven tests pin version bumps; unit 727/0/2 and rotation/strain-frame parity passed; the owner drove `sim_Au` normally.
 - **AppState seam 6: `DatasetSession`.** Reader/array, datasets, preview, loading state and stale-publish epoch moved to one owner and lifecycle orchestration to `AppState+DatasetSession.swift`; AppState.swift 3240 → 3054. Five tests pin ownership/epoch; unit 732/0/2 passed; the owner drove open → switch dataset → reopen ignoring sidecar normally.
-- **AppState seam 7: the load pipeline, and the seams plan is complete.** Configured-open split into `AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; the pending-load owner is `Session/PromotionRun`. AppState.swift 3054 → 1474 — no longer the repo's largest file. Caught and fixed a regression before commit: the moved `commitPendingLoad` cleared its owner before finishing the refusal guard, so a beam-excluding crop silently dropped the configurator's pending load; a new test (`PromotionCommitTests`) pins the correct behaviour. Unit 741/0/2=743 passed. All seven seams of `docs/archive/v4/appstate-seams-plan.md` are now landed; not yet driven on screen.
+- **AppState seam 7: the load pipeline, and the seams plan is complete.** Configured-open split into `AppState+Open.swift`/`+Promote.swift`/`+Replay.swift`; the pending-load owner is `Session/PromotionRun`. AppState.swift 3054 → 1474 — no longer the repo's largest file. Caught and fixed a regression before commit: the moved `commitPendingLoad` cleared its owner before finishing the refusal guard, so a beam-excluding crop silently dropped the configurator's pending load; a new test (`PromotionCommitTests`) pins the correct behaviour. Unit 741/0/2=743 passed. All seven seams of `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md` are now landed; not yet driven on screen.
 
 ### Known limitations
 
@@ -226,7 +226,7 @@ section rather than left for a user to discover.
   **0.667 / 0.840** — and the whole sweep is in the evidence. Speed on the same
   cube is **1.44–1.64x** the classical path. Pre-registered before it was built,
   verdict recorded in `docs/decisions.md`; the evidence is
-  `docs/archive/v3/learned-detector-2026-09-06.md`.
+  `../_archive/mac4DSTEM/docs/archive/v3/learned-detector-2026-09-06.md`.
 - **No third-party model weights are distributed.** The model spec ships in the
   repository and its asset tree is hashed by the `unit` gate
   (`LearnedDiskDetectorTests.testCommittedAssetHashMatchesItsRecordAndTheFixture`),
@@ -328,7 +328,7 @@ section rather than left for a user to discover.
   moving the reference to the brightest disk floods noise (WS₂ 1 → 45 peaks
   per position where ~13 are disks; sim_Au and MgO saturate the 70-peak cap),
   so the remedy stays a lower threshold per dataset
-  (`docs/archive/closed-items-2026-09.md`).
+  (`../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`).
 - **The diffraction origin is measured where the beam is.** The per-pattern
   centre of mass took one pass in a window of 1.2 × the probe radius around a
   coarse block centre; on a small beam the window could not reach it and
@@ -414,7 +414,7 @@ section rather than left for a user to discover.
   location guard stays. Gated by the new `tools/datacube-discovery-test`
   harness (27 fixtures) and five unit tests. The unit gate passed with
   463/0/1 and the scientific gate passed all 43 harnesses on 2026-09-05;
-  the closed item is recorded in `docs/archive/closed-items-2026-09.md`.
+  the closed item is recorded in `../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md`.
 - **A rank-3 EMD file's pixel sizes were read from the wrong axes.** For a
   file stored as (N, Qy, Qx) the reader took the detector spacing as the
   real-space pixel size and found no Q size; it now reads the scan axis and the
@@ -449,7 +449,7 @@ Stated here because a user should not have to find them.
   relying on the badge. A fix was written for 3.0.0 and **rejected by the
   project's own adversarial review** — it changed no behaviour — so it was
   reverted rather than shipped looking like a fix
-  (`docs/archive/2026-09-11-drive/quantitative-badge-gate-b.md`).
+  (`../_archive/mac4DSTEM/docs/archive/2026-09-11-drive/quantitative-badge-gate-b.md`).
 - **macOS 14–25 is compile-verified, never executed.** Every machine here runs
   26. The first report from an older system is the test.
 - **Opening a dataset by double-click is new and has not been driven on screen.**
@@ -613,7 +613,7 @@ full cube unattended. Validated against py4DSTEM 0.14.19. (v2.0.0 was named
   SHA-256 `d55821a11dde44b6fc2d1337f43b5eb3ec2342fe6374d0dcc3f72d13ee234c75`.
 - Superseded and never released: builds from `df80e8e`, `b026cd7` and `749dbb2`
   (2026-09-03). The first was notarized but carried the AppKit UI retired the
-  next day in `d5786e2`. Their provenance is in `docs/archive/v2/`.
+  next day in `d5786e2`. Their provenance is in `../_archive/mac4DSTEM/docs/archive/v2/`.
   Known issues ship listed in `docs/open-items.md`.
 
 ## v1.0.0 — 2026-08-06
@@ -693,7 +693,7 @@ deferred rather than faked, and it is the first entry in
   predicate the Prepare readiness row uses, so the badge, the app's behaviour
   and the parity records cannot disagree. The underlying estimator is *not*
   fixed and is fragile to origin error well below that threshold — recorded in
-  [`docs/archive/v2/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md) as a deliberate scope
+  [`../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md`](../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md) as a deliberate scope
   decision, not an oversight.
 - **The Result colormap was unreachable from the Results workspace**, the one
   screen built for looking at results.
@@ -711,7 +711,7 @@ remain release-owner actions.
 ### Deliberately out of scope
 
 Cropping and partial/binned loading, multi-slice ptychography, and a WS₂ crystal
-model. See [`docs/archive/v2/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md).
+model. See [`../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md`](../_archive/mac4DSTEM/docs/archive/v2/post-v1-ideas.md).
 
 ---
 
@@ -719,6 +719,6 @@ model. See [`docs/archive/v2/post-v1-ideas.md`](docs/archive/v2/post-v1-ideas.md
 
 The v1.0 development phase's item-level record — 46 numbered findings, the
 design passes, and the QC-evaluation prompts — is archived under
-[`docs/archive/v1.0/`](docs/archive/v1.0/). It is history, not guidance; nothing
+[`../_archive/mac4DSTEM/docs/archive/v1.0/`](../_archive/mac4DSTEM/docs/archive/v1.0/). It is history, not guidance; nothing
 in the current docs points into it. `docs/open-items.md` carries forward only
 what is still live.

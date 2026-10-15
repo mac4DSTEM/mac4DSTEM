@@ -186,7 +186,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
     /// what makes the refusal meaningful for a library that WOULD be expensive;
     /// this test pins the refusal and its numbers, which is what it can see.
     /// Saying so beats keeping an assertion that cannot fail — this repo has
-    /// shipped one of those before (`docs/archive/development-process-2026-08-31.md`, the L4
+    /// shipped one of those before (`../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md`, the L4
     /// control that everyone believed had teeth).
     func testOversizedLibraryIsRefusedWithTheNumbersThatExplainIt() throws {
         var settings = coarseSettings()
@@ -1431,7 +1431,7 @@ final class PhaseVectorMatchingTests: XCTestCase {
     /// (5) Partial explanation loses: an entry explaining 2 of 12 survivors
     /// at 0.003 Å⁻¹ and leaving the other 10 far away must lose to an entry
     /// explaining all 12 at 0.008 Å⁻¹ -- the measured θ′ edge-on -> T1
-    /// mechanism (`docs/archive/v3/phase-map-residual-detail-2026-09-21.md`:
+    /// mechanism (`../_archive/mac4DSTEM/docs/archive/v3/phase-map-residual-detail-2026-09-21.md`:
     /// a Friedel-pair floor lets a 2-of-12 partial match win under `.search`;
     /// `.knownVariants` has no such floor, and summing every survivor is what
     /// makes leaving ten unexplained costly instead of merely absent from the

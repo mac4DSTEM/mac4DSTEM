@@ -1,5 +1,0 @@
-Q3: s changes 268 of HEAD's 405 wrong profile fits (66 %)
-cbs right lost by (set, class, status): {('P', 'M', 'profile'): 1, ('N', 'W', 'conic'): 2, ('N', 'M', 'conic'): 4, ('T', 'M', 'profile'): 4}
-cs right lost by (set, class, status): {('P', 'M', 'profile'): 1, ('T', 'M', 'profile'): 4}
-cb right lost by (set, class, status): {('P', 'M', 'profile'): 1, ('N', 'W', 'conic'): 2, ('N', 'M', 'conic'): 4, ('T', 'M', 'profile'): 4}
-c right lost by (set, class, status): {('P', 'M', 'profile'): 1, ('T', 'M', 'profile'): 4}

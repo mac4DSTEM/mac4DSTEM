@@ -1,6 +1,6 @@
 //
 //  MonoclinicLibraryDensityTests.swift
-//  Item B2 (registration docs/archive/v5/beta-double-prime-orientation-b2-registration-2026-10-14.md):
+//  Item B2 (registration docs/registrations/beta-double-prime-orientation-b2-registration-2026-10-14.md):
 //  a monoclinic phase's template library has 4x the quality preset's count; the Work row, the plan and
 //  the duration estimate show it; every other symmetry is unchanged.
 //

@@ -1,9 +1,0 @@
-clean-512x512-r200-e0-tNA-g60-s0
-clean-512x512-r200-e1-t135-g0-s0
-clean-512x512-r200-e1-t160-g0-s0
-clean-512x512-r200-e1-t179-g0-s0
-clean-512x512-r200-e1-t0-g60-s0
-clean-512x512-r200-e1-t20-g60-s0
-clean-512x512-r200-e1-t45-g60-s0
-clean-512x512-r200-e3-t67.5-g0-s0
-clean-512x512-r200-e3-t90-g0-s0

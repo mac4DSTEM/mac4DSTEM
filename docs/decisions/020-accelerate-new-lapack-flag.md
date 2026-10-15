@@ -11,7 +11,7 @@ Status: live
 exists behind Apple's new Accelerate LAPACK interface — verified empirically,
 since `dsyevd_` alone compiles without the macro but `__LAPACK_int` is a hard
 error. Two harnesses that compile `Core/**` themselves with a bare `swiftc`
-(`tools/bragg-spacing-probe`, `tools/training-dataset-campaign`) needed the
+(`../_archive/mac4DSTEM/tools/bragg-spacing-probe`, `tools/training-dataset-campaign`) needed the
 flag added to their own `swiftc` lines in the same commit, since no gate
 would otherwise report the break.
 
@@ -27,7 +27,7 @@ that way today.
 ## Governs
 
 `Package.swift`'s `unsafeFlags`, `mac4DSTEM/Core/Analysis/DiffractionEmbedding.swift`,
-`tools/bragg-spacing-probe/run.sh`, `tools/training-dataset-campaign/run.sh`.
+`../_archive/mac4DSTEM/tools/bragg-spacing-probe/run.sh`, `tools/training-dataset-campaign/run.sh`.
 
 ## Sources
 

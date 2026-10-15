@@ -3,7 +3,7 @@
 Dates: 2026-09-30
 
 Status: decided by the owner; the workspace change was built in Session queue S2 and driven 2026-09-30
-(scratch build, 915 and 1470 pt, `archive/v4/s2-workspaces-2026-09-30-shots/`).
+(scratch build, 915 and 1470 pt, `../_archive/mac4DSTEM/docs/archive/v4/s2-workspaces-2026-09-30-shots/`).
 
 ## Decision
 

@@ -4,7 +4,7 @@
 
 ## Context
 The owner asked for card V5-8 and the spec-2 §4 picture items with context first. The sheet (context, options with effort and risk, a
-recommendation and an independent second opinion per card) is `docs/archive/v5/owner-decisions-2026-10-07-v5-8-and-pictures.json`.
+recommendation and an independent second opinion per card) is `../_archive/mac4DSTEM/docs/archive/v5/owner-decisions-2026-10-07-v5-8-and-pictures.json`.
 He answered every card with its recommendation.
 
 ## Decisions

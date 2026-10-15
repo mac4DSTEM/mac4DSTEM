@@ -1,7 +1,7 @@
 //
 //  DetectorTrainer.swift
 //  Role: on-device fine-tuning of the learned disk detector on the GPU (C3 pre-registration §2, §3 steps
-//        3-4; ADR 048: MPSGraph, not MLX). A port of `tools/mpsgraph-training-spike`'s `trainMode`, which
+//        3-4; ADR 048: MPSGraph, not MLX). A port of `../_archive/mac4DSTEM/tools/mpsgraph-training-spike`'s `trainMode`, which
 //        matched C2.5's MLX loss curve (4.96 -> 2.54 x1e-3 over 50 steps at lr 1e-4) and fitted the 2 GB bar
 //        (bf16: 1068 MB lifetime-max footprint, 0.109 s/step, 2026-09-30).
 //
@@ -348,7 +348,7 @@ package nonisolated final class DetectorTrainer: @unchecked Sendable {
             // One autorelease pool per step. MPSGraph hands back autoreleased objects (the result dictionary, its
             // MPSGraphTensorData and the buffers behind them, the bridged NSData of every feed); `@concurrent` `train` runs this whole
             // loop as ONE job, so without the pool none of it is released until training returns — 10.9 MB of physical
-            // footprint per step (5.7 GB at 500 steps), measured 2026-09-29; with it the slope is ~0 (tools/training-run-probe, TR_PROBE_TRAIN_ONLY=1).
+            // footprint per step (5.7 GB at 500 steps), measured 2026-09-29; with it the slope is ~0 (../_archive/mac4DSTEM/tools/training-run-probe, TR_PROBE_TRAIN_ONLY=1).
             let stepLoss: Double = try autoreleasepool {
                 var acc = zeros; var lossSum: Float = 0
                 for _ in 0 ..< r.accumulation {

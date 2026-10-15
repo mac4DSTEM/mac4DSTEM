@@ -8,7 +8,7 @@ recommendations". Each decision below is the card's recommendation, word for wor
 ## Decisions
 
 1. **The object-level pass bar is the T4 draft**
-   (`docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`, now marked adopted).
+   (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`, now marked adopted).
    - Raw spurious objects and split/merge/vanished counts come first; cleaned counts come second.
    - A null map must fail.
    - The published four methods' range is the reference (the draft's decision 3).
@@ -25,7 +25,7 @@ recommendations". Each decision below is the card's recommendation, word for wor
    `DEVIATION` note naming the paper CIF's 4.04 Å (`Crystal.swift`). The 1.81 → 1.83 % difference
    on Thronsen (5 of 29 241 positions) comes from the {220} ring straddling `kMax` = 0.70 Å⁻¹
    (√8/a = 0.6985 Å⁻¹ at 4.0495 Å, 0.7001 Å⁻¹ at 4.04 Å). It is not an excitation-slab effect: that
-   corrects Finding 4 (`archive/v3/precipitate-overnight-2026-09-23.md`). Revisit only if a second
+   corrects Finding 4 (`../_archive/mac4DSTEM/docs/archive/v3/precipitate-overnight-2026-09-23.md`). Revisit only if a second
    dataset disagrees.
 4. **CI's unit job is paused** (`if: false`, with a note in `.github/workflows/ci.yml`) until GitHub
    offers a macOS 27 runner image. The `macos-26` image cannot build a macOS 27 app. The other jobs

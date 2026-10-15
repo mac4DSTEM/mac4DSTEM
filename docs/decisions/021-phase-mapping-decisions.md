@@ -4,7 +4,7 @@ Dates: 2026-09-11, 2026-09-12
 Status: live
 
 ## Decision
-**Method choice** (from `docs/archive/v3/phase-mapping-method-choice-2026-09-11.md`, not the
+**Method choice** (from `../_archive/mac4DSTEM/docs/archive/v3/phase-mapping-method-choice-2026-09-11.md`, not the
 log — see Sources). Vector matching is chosen over template matching, ANN and
 NMF-only: its hardest dependency, accurate Bragg peak positions, is this
 app's largest existing investment (`DiskDetection`, `TiledDiskDetection`, the
@@ -41,6 +41,6 @@ test completeness replaced.
 2026-09-12 log lines 1151 (unvalidated), 1168 (β″ built-in), 1184 (matrix by
 user), 1194 (angle mod symmetry), 1205 (chance guard), 1220 (completeness).
 Method-choice reasoning is found ONLY in
-`docs/archive/v3/phase-mapping-method-choice-2026-09-11.md` — the log has no
+`../_archive/mac4DSTEM/docs/archive/v3/phase-mapping-method-choice-2026-09-11.md` — the log has no
 entry choosing between the four methods, only entries assuming vector
 matching already chosen.

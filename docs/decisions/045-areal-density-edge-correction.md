@@ -2,7 +2,7 @@
 
 Dates: 2026-09-28
 
-Status: live. Owner's go ("Fix it, Gate D"); record `archive/v4/areal-edge-correction-gateD-2026-09-28.md`.
+Status: live. Owner's go ("Fix it, Gate D"); record `../_archive/mac4DSTEM/docs/archive/v4/areal-edge-correction-gateD-2026-09-28.md`.
 
 ## Decision
 
@@ -21,5 +21,5 @@ position count, the run order or the seven re-derived test values.
 ## Governs
 
 `PrecipitateStatistics.density` / `edgeWeight` (the frame is required, no default); the Object Table's density and
-CSV; T6's areal mode (`tools/volumetric-density-test`, `T6_MODE=areal`). Assumed: the frame is the whole scan;
+CSV; T6's areal mode (`../_archive/mac4DSTEM/tools/volumetric-density-test`, `T6_MODE=areal`). Assumed: the frame is the whole scan;
 not-indexed pixels inside it are not edges. A near-scan-sized object can carry a large weight; nothing flags it.

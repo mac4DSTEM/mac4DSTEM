@@ -39,7 +39,7 @@ import Metal
 /// top out at ratio 0.19, where residency still pays 106x, so no knee exists
 /// in the data). It was dropped for v2 (owner decision 2026-08-18) rather than
 /// tuned: behaviour is unchanged, since it always streamed. It can return when
-/// a second-machine sweep (`tools/residency-sweep`) makes a threshold
+/// a second-machine sweep (`../_archive/mac4DSTEM/tools/residency-sweep`) makes a threshold
 /// defensible — the mechanism it needs, `ResidencyAdmission.admits` and
 /// `measuredWorkingSetFraction`, stays below. // v2 S3
 /// No `String` raw value and no `CaseIterable`, deliberately: nothing
@@ -130,7 +130,7 @@ package nonisolated enum ResidencyAdmission {
     /// *slower than tiled while appearing to succeed*, which is the worst
     /// regression class this app produces. `docs/load-pipeline-plan.md` L2.3
     /// requires the knee to be **measured** by the residency sweep in
-    /// `tools/performance-baseline/`, on two real cubes either side of it,
+    /// `../_archive/mac4DSTEM/tools/performance-baseline/`, on two real cubes either side of it,
     /// before this becomes non-nil.
     ///
     /// It is a fraction of the machine's own working set, never a fixed byte

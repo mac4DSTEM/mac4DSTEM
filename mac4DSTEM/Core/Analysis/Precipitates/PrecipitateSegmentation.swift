@@ -1,11 +1,11 @@
 //
 //  PrecipitateSegmentation.swift
-//  Role: Step 3 of the precipitate chain (docs/ai-ml/precipitates.md §2) —
+//  Role: Step 3 of the precipitate chain (../_archive/mac4DSTEM/docs/ai-ml/precipitates.md §2) —
 //        splits a classified scan map into 8-connected precipitate objects
 //        per class and measures each from its pixel-coordinate covariance
 //        (`classObjects`). The image-domain segmenter (background flatten,
 //        Hessian ridge filter, robust threshold) was retired 2026-09-30:
-//        unwired, four open defects (docs/archive/closed-items-2026-09.md,
+//        unwired, four open defects (../_archive/mac4DSTEM/docs/archive/closed-items-2026-09.md,
 //        "Precipitate segmentation defects").
 //
 //  Coordinates: scan-domain (ry x rx), row-major, matching every other
@@ -50,7 +50,7 @@ package nonisolated enum PrecipitateSegmentation {
         /// `PrecipitateReflections.Candidate.rowIdentity`. The two `Int` id
         /// spaces overlap, so a shared `ForEach(id: \.id)` inside one
         /// `Section` let the reflection rows claim ids 1…23 and hide the
-        /// objects with those ids (`docs/archive/v3/ai-gateD-2026-09-06/gateD-P6.md`).
+        /// objects with those ids (`../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-P6.md`).
         package nonisolated var rowIdentity: String { "precipitate.object.\(id)" }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

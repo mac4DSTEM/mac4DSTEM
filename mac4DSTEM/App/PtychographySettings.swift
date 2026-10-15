@@ -4,7 +4,7 @@ import DSTEMCore
 #endif
 
 /// The single-slice ptychography input-settings seam (audit 3.2 row 5;
-/// `docs/archive/development-process-2026-08-31.md` §7). Owns the
+/// `../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md` §7). Owns the
 /// reconstruction's input controls only — pure view-state driving
 /// `SingleslicePtychographyOptions`, no science and no result. `AppState`
 /// holds it as `ptychography` without forwarding properties, the same

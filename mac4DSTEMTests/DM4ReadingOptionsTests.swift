@@ -5,8 +5,8 @@ import DSTEMCore
 /// volumes": `.mappedIfSafe` read the owner's 28 GB raw DM4 into anonymous
 /// memory off an external SSD and panicked an 8 GB Mac (2026-09-24). The
 /// reader now maps on every `MNT_LOCAL` volume. The footprint proof on an
-/// exFAT disk image is `tools/dm4-parity-probe` (record:
-/// `docs/archive/v4/almgsi-gateD-2026-09-24.md` part 8); these pin the
+/// exFAT disk image is `../_archive/mac4DSTEM/tools/dm4-parity-probe` (record:
+/// `../_archive/mac4DSTEM/docs/archive/v4/almgsi-gateD-2026-09-24.md` part 8); these pin the
 /// choice, and `run-tests.sh inventory` pins that `init` uses it.
 final class DM4ReadingOptionsTests: XCTestCase {
 

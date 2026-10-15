@@ -1,6 +1,0 @@
-X0 none vs head (exact): 2009 rows, numeric mismatches 0, text-only differences 0 []
-X0 b2 vs b (exact): 2009 rows, numeric mismatches 0, text-only differences 0 []
-X1 c: rows equal to none of ['head', 'a']: 0 of 2009 []
-X1 cb: rows equal to none of ['head', 'a', 'b']: 0 of 2009 []
-X1 cs: rows equal to none of ['head', 'a', 's']: 0 of 2009 []
-X1 cbs: rows equal to none of ['head', 'a', 'b', 's', 'c']: 0 of 2009 []

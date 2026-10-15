@@ -3,7 +3,7 @@ import DSTEMCore
 import DSTEMSession
 @testable import mac4DSTEM
 
-/// ADR 040 decision 2, Gate D `docs/archive/v4/rq-sign-gateD-2026-09-28.md`:
+/// ADR 040 decision 2, Gate D `../_archive/mac4DSTEM/docs/archive/v4/rq-sign-gateD-2026-09-28.md`:
 /// the app's internal R–Q angle is the negative of py4DSTEM's on the same
 /// file. Every boundary converts through `RQRotationConvention`; internals
 /// keep the app's angle. 0.6 rad (34.4°) is asymmetric on purpose: at 0°,

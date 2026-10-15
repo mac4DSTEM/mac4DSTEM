@@ -50,7 +50,7 @@ Recorded from macTEM's consumer contract (`spectrokit-consumer-contract-2026-10-
   `Bundle.main` tables; the rsciio `049e7d70` pin, missing from SpectroKit's CLAUDE.md.
 
 ## Amendment 2026-10-13 (2) — the slot plan's four decisions (owner, by option; second opinion agreed with each)
-From `docs/archive/v5/spectrokit-slot-plan-2026-10-13.md`:
+From `../_archive/mac4DSTEM/docs/archive/v5/spectrokit-slot-plan-2026-10-13.md`:
 1. **SpectroCore owns `DM4Experiment` and `DM4Error`** (one GMS parser for the suite): `DM4Error` is split out of `DM4Reader.swift`;
    `DM4Experiment.swift` joins the moving set; the 4D `DM4Reader` stays and imports them; macTEM drops its copies.
 2. **Cancel and progress are closures with defaults** on every long call: `cancelled: @Sendable () -> Bool = { Task.isCancelled }`

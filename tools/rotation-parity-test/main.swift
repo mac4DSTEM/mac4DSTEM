@@ -4,7 +4,7 @@
 //  The gated parity harness `Core/Analysis/RotationCalibration.swift` has
 //  lacked since v3.0.0 (docs/open-items.md, "Verification debt": no
 //  `sources.manifest` group named it, so the only coverage was the unit
-//  suite and the diagnostic `tools/rotation-null-probe`). Four legs:
+//  suite and the diagnostic `../_archive/mac4DSTEM/tools/rotation-null-probe`). Four legs:
 //
 //  (a) ANALYTIC RECOVERY (floor, must pass): decodes reference.py's two
 //      fixture fields (a phase-object gradient rotated by a planted 37.2 deg,
@@ -20,9 +20,9 @@
 //      converted by `RQRotationConvention` must match it and the transpose;
 //      the unconverted angle must NOT (anti-vacuity). Until 2026-09-28 this
 //      leg was informational: the frame-class difference it exposed is now
-//      handled at the boundary (docs/archive/v4/rq-sign-gateD-2026-09-28.md).
+//      handled at the boundary (../_archive/mac4DSTEM/docs/archive/v4/rq-sign-gateD-2026-09-28.md).
 //
-//  (c) NULL / ADR 024 (must pass): reuses `tools/rotation-null-probe`'s exact
+//  (c) NULL / ADR 024 (must pass): reuses `../_archive/mac4DSTEM/tools/rotation-null-probe`'s exact
 //      generator functions and seed formulas (XorshiftRNG, whiteNoiseField,
 //      plantedRotationField — copied verbatim, not reinvented) on seeds this
 //      session verified once, deterministically, before pinning them here:
@@ -126,7 +126,7 @@ print("PASS: analytic recovery, transpose=true, planted \(fixture.plantedDeg)deg
       + "recovered as \(transposedDeg)deg (error \(transposedError)deg)")
 
 // Leg (b): file-faithful py4DSTEM parity, GATING since 2026-09-28 (ADR 040,
-// docs/archive/v4/rq-sign-gateD-2026-09-28.md). reference.py calls py4DSTEM's
+// ../_archive/mac4DSTEM/docs/archive/v4/rq-sign-gateD-2026-09-28.md). reference.py calls py4DSTEM's
 // frozen curl search the way py4DSTEM reads the same file; the app's angle,
 // converted by RQRotationConvention (the one conversion every display and
 // file uses), must agree with it within py4DSTEM's 1° grid (0.75°) and with
@@ -159,7 +159,7 @@ for (name, result, py) in [("direct 40x40", direct, fixture.py4dstemFileFaithful
           + "vs py4DSTEM \(py.angleDeg)deg/transpose=\(py.transpose) (error \(error)deg; unconverted off by \(unconverted)deg)")
 }
 
-// MARK: - Leg (c): NULL / ADR 024, reusing tools/rotation-null-probe's exact
+// MARK: - Leg (c): NULL / ADR 024, reusing ../_archive/mac4DSTEM/tools/rotation-null-probe's exact
 // generators and seed formulas verbatim.
 
 struct XorshiftRNG {

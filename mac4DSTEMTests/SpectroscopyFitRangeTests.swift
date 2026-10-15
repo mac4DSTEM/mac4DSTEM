@@ -4,12 +4,12 @@ import DSTEMSession
 @testable import mac4DSTEM
 @testable import SpectroCore
 
-/// WP3c, "the default fit range, not the continuum" (docs/archive/v5/wp3c-fit-range-preregistration-2026-10-06.md, P1-P6).
+/// WP3c, "the default fit range, not the continuum" (docs/registrations/wp3c-fit-range-preregistration-2026-10-06.md, P1-P6).
 /// The default upper fit limit is min(axis end, beam, 20 keV), decided on the file's axis; a typed limit is Expert
 /// (`QuantificationMethod.fitToKeV`, nil = default, absent from the JSON); the at% row falls back from an unsupported K-alpha
 /// to the highest supported group, named; a range-sensitivity statement (one fit to the axis end, not a sigma term) runs
 /// with the unlisted-line check when the axis runs past the default.
-/// Fixture: `Fixtures/eds-realistic-l-sim.json` (generator `tools/edx-pins/realistic_l_sim.py`, 80 keV axis, Ti planted 3000,
+/// Fixture: `Fixtures/eds-realistic-l-sim.json` (generator `../_archive/mac4DSTEM/tools/edx-pins/realistic_l_sim.py`, 80 keV axis, Ti planted 3000,
 /// `plantSn` for P6); lines added with the app's own shapes, Poisson counts from SplitMix64 per seed (platform independent).
 /// The pinned numbers were measured by the lane's harness on the pristine and the new Core (lane C report, logs P1-P6).
 @MainActor

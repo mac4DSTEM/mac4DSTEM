@@ -22,7 +22,7 @@ resolve_mac4dstem_developer_dir
 # was refusing it. The floor was blocking work it did not need to block.
 #
 # `unit` is therefore 4 GB: 3.2x the measured peak, and the same value
-# `scientific` and `benchmark` already use, so this aligns the floors rather
+# `scientific` already uses, so this aligns the floors rather
 # than inventing a weaker one. It still protects the failure mode above, which
 # needs the disk to actually fill mid-run.
 #
@@ -159,18 +159,12 @@ campaign=(
 # gated ones are `scientific` plus the two `all` extras. Diagnostic runners
 # never gate: they need machine-local data. Exits 1 on an unclassified or
 # missing runner, or on a live doc claiming work is uncommitted on a clean tree.
-diagnostic=(bragg-spacing-probe origin-fit-diagnostics
-  real-acom-benchmark residency-sweep volume-mmap-probe performance-baseline
-  training-dataset-campaign precipitate-handcount
-  phase-map-probe demo-dataset rotation-null-probe
-  hdf5-race-probe thronsen-dataset cloud-analysis matrix-orientation-probe
-  lattice-calibration-probe dm4-parity-probe embedding-profile mlx-training-spike mpsgraph-training-spike
-  training-run-probe q-shell-probe
-  volumetric-density-test parallax-ptycho-real-probe
-  velox-parity edx-pins demo-edx autoid-velox-check)
+diagnostic=()
 owner_only=()
 retired=()
-support=(lib release crystal-structures hooks)
+# training-dataset-campaign: parity-metric-test (gated) runs its test_parity_metric.py. release and package-test: the release
+# procedure (docs/releasing.md). A folder here that nothing gated runs belongs in ../_archive/mac4DSTEM/tools/ (suite rule 2026-10-15).
+support=(lib release crystal-structures hooks training-dataset-campaign)
 
 inventory() {
   local rc=0 name f
@@ -196,7 +190,7 @@ inventory() {
   local handoff_words
   handoff_words=$(awk '/^## Handoff/{f=1; next} /^## /{f=0} f' "$ROOT/docs/status.md" | wc -w | tr -d ' ')
   if (( handoff_words > 450 )); then
-    printf "  %-36s %7s  OVER the 450-word cap — move narrative to docs/archive/\n" "handoff words" "$handoff_words"; rc=1
+    printf "  %-36s %7s  OVER the 450-word cap — move narrative to ../_archive/mac4DSTEM/docs/archive/\n" "handoff words" "$handoff_words"; rc=1
   else
     printf "  %-36s %7s  (cap 450)\n" "handoff words" "$handoff_words"
   fi
@@ -302,7 +296,6 @@ inventory() {
   # the pre-consolidation log is verbatim in the archive). A folder outside
   # this glob would be growth the gate cannot see.
   printf "  %-36s %7s\n" "live markdown lines" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/README.md "$ROOT"/CHANGELOG.md "$ROOT"/ROADMAP.md "$ROOT"/docs/*.md "$ROOT"/docs/decisions/*.md)"
-  printf "  %-36s %7s\n" "archive markdown lines" "$(find "$ROOT/docs/archive" -name '*.md' -exec cat {} + | wc -l | tr -d ' ')"
   printf "  %-36s %7s\n" "cold-start set (CLAUDE+status+ROADMAP+open-items)" "$(md_lines "$ROOT"/CLAUDE.md "$ROOT"/docs/status.md "$ROOT"/ROADMAP.md "$ROOT"/docs/open-items.md)"
   echo "== app files over 800 lines"
   find "$ROOT/mac4DSTEM" -name '*.swift' -exec wc -l {} + | awk -v r="$ROOT/" '$1 > 800 && $2 != "total" { sub(r, "", $2); printf "  %6d %s\n", $1, $2 }' | sort -rn
@@ -432,6 +425,19 @@ inventory() {
     [[ -e "$ROOT/mac4DSTEM/${dp%/}" ]] && continue
     echo "  DEAD PATH mac4DSTEM/$dp   cited by $(cd "$ROOT" && grep -l -- "$dp" "${truth_docs[@]#$ROOT/}" | tr '\n' ' ')"; rc=1
   done
+  # Citations into the archive (suite rule "Repos stay light", 2026-10-15): `../_archive/mac4DSTEM/<path>` is a repo path with
+  # the archive folder in front. The archive sits outside the repo and is untracked, so a fresh clone and CI do not have it:
+  # when the folder is there every such citation must resolve in it (the same rule as above, never weaker); when it is not,
+  # they are counted and said not to be judged.
+  local arch="$ROOT/../_archive/mac4DSTEM" ap n_arch=0
+  for ap in $(grep -ohE '`\.\./_archive/mac4DSTEM/(docs|tools|mac4DSTEM|mac4DSTEMTests|Models|Licenses|\.github)/[A-Za-z0-9_./-]+`' "${truth_docs[@]}" | tr -d '`' | sort -u); do
+    [[ "$ap" == */ || "$ap" == *.* ]] || continue
+    n_arch=$(( n_arch + 1 ))
+    [[ -d "$arch" ]] || continue
+    [[ -e "$arch/${ap#../_archive/mac4DSTEM/}" ]] && continue
+    echo "  DEAD ARCHIVE PATH $ap   cited by $(cd "$ROOT" && grep -l -- "$ap" "${truth_docs[@]#$ROOT/}" | tr '\n' ' ')"; rc=1
+  done
+  if [[ -d "$arch" ]]; then echo "  archive citations checked: $n_arch"; else echo "  archive citations NOT checked (no $arch here): $n_arch"; fi
   if [[ -z "$(git -C "$ROOT" status --porcelain)" ]]; then
     # Status claims only ("held uncommitted", "still uncommitted"), not the
     # word in general — the process doc uses it generically.
@@ -468,9 +474,8 @@ case "${1:-unit}" in
   inventory) inventory ;;
   core) core_build ;;
   unit) require_free_space 4 "the xcodebuild unit suite"; unit_tests ;;
-  benchmark) require_free_space 4 "the performance baseline"; "$ROOT/tools/performance-baseline/run.sh" ;;
   campaign) require_free_space 8 "the campaign suite"; unit_tests; run_harnesses "${campaign[@]}" ;;
   scientific) require_free_space 4 "the science harnesses"; "$ROOT/tools/lib/fetch-py4dstem.sh"; run_harnesses "${scientific[@]}"; real_data ;;
   all) require_free_space 8 "the full suite"; "$ROOT/tools/lib/fetch-py4dstem.sh"; unit_tests; run_harnesses "${scientific[@]}" real-data-acceptance package-test ;;
-  *) echo "Usage: tools/run-tests.sh [unit|benchmark|campaign|scientific|all|inventory|core]" >&2; exit 64 ;;
+  *) echo "Usage: tools/run-tests.sh [unit|campaign|scientific|all|inventory|core]" >&2; exit 64 ;;
 esac

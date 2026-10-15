@@ -1,6 +1,6 @@
 //
 //  AppState+Training.swift
-//  Role: the on-device training flow's orchestration (Phase C4b, ADR 048, docs/archive/v4/
+//  Role: the on-device training flow's orchestration (Phase C4b, ADR 048, ../_archive/mac4DSTEM/docs/archive/v4/
 //        c3-training-preregistration-2026-09-30.md §3): whether "Train Model…" is allowed, the cancellable
 //        run, the review of its result, adopting the fine-tuned model, and choosing the active model.
 //        Placement only for the compute: the run itself is `DSTEMTraining`'s `DetectorFineTuning`, the

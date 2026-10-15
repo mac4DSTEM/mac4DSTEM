@@ -88,7 +88,7 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// pair radius — which IS knowing which two: one lattice row, and the
     /// matrix removal has already said it is not the matrix's. Two, then.
     /// MEASURED on Thronsen et al.'s dataset A (step 3, 2026-09-15,
-    /// `tools/thronsen-dataset`): along [001]Al a T1 variant leaves exactly
+    /// `../_archive/mac4DSTEM/tools/thronsen-dataset`): along [001]Al a T1 variant leaves exactly
     /// that pair and nothing else inside their mask; with a floor of three
     /// T1 recall was 6 %, with two 59 %, and the Al class paid 28 positions
     /// of 21 494 (0.13 %). Two limits, both from Gate B (2026-09-15): the
@@ -179,7 +179,7 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// 0.004 Å⁻¹ beating a ten-vector match of another phase at 0.012 Å⁻¹
     /// is the observed case (Gate B, 2026-09-15) this exists to close, but
     /// it moves a per-position verdict and has not cleared Gate D + a
-    /// refuter on real data. Measure on `tools/phase-map-probe --truth`
+    /// refuter on real data. Measure on `../_archive/mac4DSTEM/tools/phase-map-probe --truth`
     /// before flipping it (the demo cube; Thronsen is confounded by the
     /// unfixed T1 reference, `docs/open-items.md`).
     package var completenessAwareCrossPhaseRanking = false
@@ -236,8 +236,8 @@ package nonisolated struct PhaseVectorSettings: Sendable, Equatable {
     /// Held out on spatial halves, k = 1 was chosen 170 of 200 times. It is
     /// NOT parameter-free: with k fixed, the result moves with the pair
     /// radius (2.18 % at 0.010 Å⁻¹, 1.35 % at 0.015). One dataset.
-    /// Records: `docs/archive/v3/precipitate-overnight-2026-09-23.md`,
-    /// `docs/archive/v4/known-variants-guard-gateD-2026-09-23.md`.
+    /// Records: `../_archive/mac4DSTEM/docs/archive/v3/precipitate-overnight-2026-09-23.md`,
+    /// `../_archive/mac4DSTEM/docs/archive/v4/known-variants-guard-gateD-2026-09-23.md`.
     /// Shipped on at 1 by owner decision, 2026-09-23.
     package var knownVariantsMinimumSpecificReflections: Int = 1
 
@@ -656,7 +656,7 @@ package nonisolated enum PhaseVectorMatcher {
         /// tied family's order was set by rounding: deterministic for one build
         /// and peak set, but not a property of the data. Hardening, not the
         /// fix of the recorded "run-dependent tie order": that came from
-        /// `tools/phase-map-probe` ranking through a Dictionary (hash order
+        /// `../_archive/mac4DSTEM/tools/phase-map-probe` ranking through a Dictionary (hash order
         /// per process), fixed there (S4 refuter). The bar is far under
         /// anything a detector resolves: float32 peaks carry ~1e-7 Å⁻¹.
         package static let meanDistanceTieResolution = 1e-9
@@ -694,7 +694,7 @@ package nonisolated enum PhaseVectorMatcher {
     /// back "not indexed" — which on screen is indistinguishable from a method
     /// that does not work. The owner hit exactly that on 2026-09-12: Al set to
     /// [001], matrix verdict count **zero** across 108 900 positions. Measured
-    /// afterwards by `tools/phase-map-probe`, his specimen is on **⟨110⟩**, and
+    /// afterwards by `../_archive/mac4DSTEM/tools/phase-map-probe`, his specimen is on **⟨110⟩**, and
     /// all five sampled ⟨110⟩ equivalents tied at 39.0 % — an exact tie across
     /// the family being what cubic symmetry requires, and therefore a check
     /// that the sweep is behaving rather than merely returning something.
@@ -1273,7 +1273,7 @@ package nonisolated enum PhaseVectorMatcher {
     /// `pairRadiusInvAngstrom`, whose own `q` is not within
     /// `matrixToleranceInvAngstrom` of any matrix reference. With no matrix
     /// entry every hit counts. Transcribes the probe's inline guard
-    /// (`tools/phase-map-probe/main.swift`, `--al-precipitate-detail` /
+    /// (`../_archive/mac4DSTEM/tools/phase-map-probe/main.swift`, `--al-precipitate-detail` /
     /// `--object-table`) so the Core rule reproduces its measured numbers.
     package static func specificReflectionCount(surviving: [SIMD2<Double>],
                                                 entry: PhaseOrientationReference,

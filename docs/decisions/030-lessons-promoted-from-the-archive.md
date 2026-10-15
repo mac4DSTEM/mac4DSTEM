@@ -44,14 +44,14 @@ missing rule those docs entirely lack — reasons given inline above.
 ## Governs
 `Core/` numerical routines (rule 5); cross-file `extension`s under
 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (rule 6); Gate D mutation
-testing; `docs/archive/` moves; `tools/run-tests.sh all`/`campaign`.
+testing; `../_archive/mac4DSTEM/docs/archive/` moves; `tools/run-tests.sh all`/`campaign`.
 
 ## Sources
-`docs/archive/v2/development-process-v2.md` §2,§7 (1,2,4); `v2/v2-scope.md`
+`../_archive/mac4DSTEM/docs/archive/v2/development-process-v2.md` §2,§7 (1,2,4); `v2/v2-scope.md`
 §4 (3); `v3/ai-gateD-2026-09-06/gateD-C1.md` §1 (5); `gateD-A2.md` §1,§5 (6);
 `v3/phase-mapping-2026-09-12.md` §"A trap paid here" (7);
 `v3/step3-2026-09-16.md` §"The matrix explained fraction is reported…" (8);
 `v2-onramp.md` §"Methods that earned their keep" (9);
 `2026-08-31-comparator-gate-b.md` §"The second red harness…" (10);
 `tidy-session-plan.md` §"Refusals standing for this session" (11). All
-under `docs/archive/`.
+under `../_archive/mac4DSTEM/docs/archive/`.

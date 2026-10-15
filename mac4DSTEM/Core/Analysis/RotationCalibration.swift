@@ -245,7 +245,7 @@ package enum RotationCalibration {
         // exchangeable samples: it destroys the spatial arrangement, so a
         // rotation-free field with any spatial correlation — which probe
         // overlap alone produces — beat it far more often than its 1-in-16
-        // design rate. Measured with `tools/rotation-null-probe` before this
+        // design rate. Measured with `../_archive/mac4DSTEM/tools/rotation-null-probe` before this
         // change: box-smoothed noise certified 15 % (box 1, white), 32 %
         // (box 3), 52 % (box 5), 65 % (box 7) — the rate rising with the
         // correlation length is the diagnosis's own prediction, met.

@@ -3,8 +3,8 @@
 Dates: 2026-09-30
 
 Status: **accepted by delegation** (owner, 2026-09-30: "clear the board by yourself, no further input from my side") —
-every item is overrule-on-sight. Evidence: `archive/v4/c25-training-memory-2026-09-30.md`, the C3 pre-registration
-(`archive/v4/c3-training-preregistration-2026-09-30.md`), `archive/v4/s10-s11-gateD-2026-09-30.md`.
+every item is overrule-on-sight. Evidence: `../_archive/mac4DSTEM/docs/archive/v4/c25-training-memory-2026-09-30.md`, the C3 pre-registration
+(`../_archive/mac4DSTEM/docs/archive/v4/c3-training-preregistration-2026-09-30.md`), `../_archive/mac4DSTEM/docs/archive/v4/s10-s11-gateD-2026-09-30.md`.
 
 ## Decision
 
@@ -41,9 +41,9 @@ and unvalidated rules) and is reversible.
 
 - **Hardware (owner, 2026-09-30 night): parallax and ptychography stay, and their memory limits scale with the Mac.** The
   fixed 1 GiB ceilings were the 8 GB Mac's number; on the M5 Pro they refused what the machine holds with room to spare
-  (cost measured, `archive/v4/parallax-ptycho-cost-2026-09-30.md`). `PhaseContrastMemoryBudget` = half the physical memory,
+  (cost measured, `../_archive/mac4DSTEM/docs/archive/v4/parallax-ptycho-cost-2026-09-30.md`). `PhaseContrastMemoryBudget` = half the physical memory,
   never below 1 GiB; every stage's default reads it; the refusal still names the number. The first suitable test data is
-  py4DSTEM's simulated twisted-bilayer-graphene cube on the owner's SSD (`archive/v4/parallax-ptycho-graphene-2026-09-30/record.md`):
+  py4DSTEM's simulated twisted-bilayer-graphene cube on the owner's SSD (`../_archive/mac4DSTEM/docs/archive/v4/parallax-ptycho-graphene-2026-09-30/record.md`):
   parallax agrees with py4DSTEM (defocus to 0.007 %, interior bright field to 1.000); ptychography cannot take the probe's
   defocus and its difference map diverges — finish (defocus from the parallax fit) or remove is the owner's next card.
 - **Materials Project comparison:** θ′ (Al₂Cu, I-4m2) and T1 (Al₂CuLi, P6/mmm) have no Materials Project entry (only θ,

@@ -126,7 +126,7 @@ package nonisolated enum KnownCrystalQCalibration {
     //    probe area and over-measures 2.15× on the app's own demo
     //    (docs/open-items.md, owed a Gate D session).
     // 5. **Measured again, on the app's own path, and still no line (lane Q,
-    //    2026-09-30, `tools/q-shell-probe`; run it to reproduce).** The decided
+    //    2026-09-30, `../_archive/mac4DSTEM/tools/q-shell-probe`; run it to reproduce).** The decided
     //    rule: a "disagrees" line sits at 2H only if 2H < M/2, H = the largest
     //    |observed/expected − 1| among cubes whose Q is within 3 % of truth
     //    (taking the recorded 4.07 % of `sim_Au` at a 1 px displacement), M =

@@ -13,7 +13,7 @@ lands as a build guard first — the app target keeps compiling the same
 sources directly while `Package.swift` also compiles them as `DSTEMCore` from
 the shell — so the compiler catches an upward dependency before the access
 pass. Package split first, then `ScientificProduct`, then owners, then the
-registry, then the Phase split (`docs/archive/v2/v2.5-plan.md` §4).
+registry, then the Phase split (`../_archive/mac4DSTEM/docs/archive/v2/v2.5-plan.md` §4).
 
 ## Why
 
@@ -35,4 +35,4 @@ dependency (`Aperture`) that grep had missed.
 - 2026-09-03 "`package` access, not `public`, at the Core boundary", log line 66
 
 Evidence: `Package.swift` (verified: defines `DSTEMCore`/`DSTEMSession`
-targets); `docs/archive/v2/v2.5-plan.md` (verified present).
+targets); `../_archive/mac4DSTEM/docs/archive/v2/v2.5-plan.md` (verified present).

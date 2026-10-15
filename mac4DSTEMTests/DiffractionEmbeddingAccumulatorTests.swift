@@ -1,7 +1,7 @@
 import XCTest
 import DSTEMCore
 
-/// Gate D, 2026-09-28 (`docs/archive/v4/embedding-accumulate-gateD-2026-09-28.md`):
+/// Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-accumulate-gateD-2026-09-28.md`):
 /// the covariance sums moved from a scalar loop to `cblas_dsyrk`. The old loop
 /// is kept here VERBATIM (from `DiffractionEmbedding.swift` at 80401b1) as the
 /// reference; the new accumulator must agree with it up to summation order

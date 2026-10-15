@@ -139,7 +139,7 @@ struct ContentView: View {
                 // it is not — and the toggle stays reachable either way.
                 .toolbar { windowToolbarContent }
         }
-        // Phase 1 (docs/archive/v4/window-design.md §4–§6): `.inspector`
+        // Phase 1 (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4–§6): `.inspector`
         // moved here, off the detail view, so the column runs from the
         // toolbar to the window's bottom edge exactly the way the sidebar
         // already does.
@@ -218,7 +218,7 @@ struct ContentView: View {
     /// Only window-level controls live here. The split view supplies the
     /// leading navigator toggle; this trailing toggle survives closing the
     /// inspector. ⌥⌘I, on the button and in the View menu, reaches the same state.
-    /// The arrangement (ADR 036, docs/archive/v4/window-design.md §8.1): the
+    /// The arrangement (ADR 036, ../_archive/mac4DSTEM/docs/archive/v4/window-design.md §8.1): the
     /// file, the room and the live run as a DISPLAY in the centre, never a
     /// button (the 2026-09-04 "C…" trap); over the room at the trailing
     /// edge, the run button — Stop while it runs — then Save to Session,

@@ -175,7 +175,7 @@ package nonisolated enum DiskDetectionParameterID: String, CaseIterable, Sendabl
 /// vocabularies name six keys differently (`sigma_dp_px` / `sigma_dp`, …), so
 /// this table is the one place that says which is which. Used to decide
 /// whether peaks restored from a sidecar are the peaks the recorded step made
-/// (docs/archive/v4/bragg-restore-registration-2026-09-28.md).
+/// (docs/registrations/bragg-restore-registration-2026-09-28.md).
 package nonisolated enum DiskDetectionRecordMatch {
     /// (provenance key, step key). Every pair is REQUIRED: a step or a
     /// provenance that lacks one cannot be verified, and unverified peaks are
@@ -468,7 +468,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     package var upsampleFactor: Int = 16
     package var minAbsoluteIntensity: Float = 0
     // DEVIATION (ADR 041, Gate D 2026-09-28,
-    // docs/archive/v4/default-floor-gateD-2026-09-28.md): py4DSTEM's
+    // ../_archive/mac4DSTEM/docs/archive/v4/default-floor-gateD-2026-09-28.md): py4DSTEM's
     // find_Bragg_disks defaults to 0.005 (diskdetection.py:34). The app's
     // default is 0.15 %: at 0.5 % the weak θ′/T1 reflections phase mapping
     // needs are cut — on Thronsen dataset A, 11.42 % per-position error and
@@ -505,7 +505,7 @@ package nonisolated struct DiskDetectionParams: Equatable, Sendable {
     /// a 512 px detector) is wrong in principle and measurably wrong in
     /// practice. Bragg spacing is set by camera length, accelerating voltage
     /// and d-spacing — it does not scale with the detector. Measured on the
-    /// training set with `tools/bragg-spacing-probe/` (40 patterns each,
+    /// training set with `../_archive/mac4DSTEM/tools/bragg-spacing-probe/` (40 patterns each,
     /// peaks detected under each rule):
     ///
     /// | dataset | probe r | true nearest-neighbour | qMin/8 | 1.0·r |

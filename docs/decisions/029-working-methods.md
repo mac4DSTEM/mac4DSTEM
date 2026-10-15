@@ -46,7 +46,7 @@ inline above, not a hygiene preference.
 `CLAUDE.md`'s hard rules; `.claude/skills/diagnose`, `.claude/skills/adversarial-review`; `tools/run-tests.sh`.
 
 ## Sources
-`docs/archive/development-process-2026-08-31.md` lines 175/186/193 (three
+`../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md` lines 175/186/193 (three
 named methods); 170–174 (eight numbered methods); 66–90 (threshold rule +
 corollary); 91–108 (five evidence levels). Corroborating decisions-log
 entries: 2026-09-01 "v2 endgame scope" (token conservation is a standing

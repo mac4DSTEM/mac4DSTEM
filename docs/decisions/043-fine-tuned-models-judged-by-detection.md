@@ -3,8 +3,8 @@
 Dates: 2026-09-28
 
 Status: live. Owner's choice (option 1 of three) after C2 failed as registered
-(`archive/v4/c2-mlx-spike-2026-09-28.md`). Supersedes criteria 1 and 3's heatmap bars (max |Δ| ≤ 1e-2) in
-`archive/v4/ondevice-training-research-2026-09-28.md` for every step after C2; C2's own verdict stands as recorded.
+(`../_archive/mac4DSTEM/docs/archive/v4/c2-mlx-spike-2026-09-28.md`). Supersedes criteria 1 and 3's heatmap bars (max |Δ| ≤ 1e-2) in
+`../_archive/mac4DSTEM/docs/archive/v4/ondevice-training-research-2026-09-28.md` for every step after C2; C2's own verdict stands as recorded.
 
 ## Decision
 
@@ -37,4 +37,4 @@ The rule C3–C5 build to (details are the C3 design session's; overrule on sigh
 
 ## Governs
 
-ROADMAP track C (C3–C5); `tools/mlx-training-spike`; every parity fixture for a fine-tuned model.
+ROADMAP track C (C3–C5); `../_archive/mac4DSTEM/tools/mlx-training-spike`; every parity fixture for a fine-tuned model.

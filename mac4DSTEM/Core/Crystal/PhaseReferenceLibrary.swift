@@ -484,7 +484,7 @@ package nonisolated struct PhaseReferenceLibrary: Sendable {
         // for a long-axis cell, where 1/|r_uvw| falls below the slab.
         //
         // NOT true for every axis in use (Gate D S10, 2026-09-30,
-        // `docs/archive/v4/s10-s11-gateD-2026-09-30.md`): T1's [0 -4 1] entry
+        // `../_archive/mac4DSTEM/docs/archive/v4/s10-s11-gateD-2026-09-30.md`): T1's [0 -4 1] entry
         // (c = 14.145 Å cell) holds 48 vectors, 30 of them first-order-Laue-
         // zone reflections at |s_g| = 0.0411 Å⁻¹ — below the 0.05 slab, so
         // admitted, at Gaussian weight e^-1.9 at the default 0.03 width

@@ -1,6 +1,6 @@
 //
 //  PrecipitateReflections.swift
-//  Role: Step 1 of the precipitate chain (docs/ai-ml/precipitates.md §2) —
+//  Role: Step 1 of the precipitate chain (../_archive/mac4DSTEM/docs/ai-ml/precipitates.md §2) —
 //        propose the scan's MAX-pattern local maxima outside the beam and
 //        classify each as on- or off- the matrix lattice. Nothing here picks
 //        "the precipitate reflections" on its own: both classes are returned
@@ -9,7 +9,7 @@
 //
 //  Coordinates: (row, col) into `maxPattern`, matching py4DSTEM's (qx, qy)
 //  detector convention already used elsewhere in the app
-//  (docs/architecture.md; docs/ai-ml/precipitates.md §5).
+//  (docs/architecture.md; ../_archive/mac4DSTEM/docs/ai-ml/precipitates.md §5).
 //
 
 import Foundation
@@ -37,7 +37,7 @@ package nonisolated enum PrecipitateReflections {
         /// the bare `Int` id the two overlapped — candidates 0…23, objects
         /// 1…44 — and the objects table drew the reflection rows for 1…23,
         /// hiding objects #1…#23 (owner's drive 2026-09-06,
-        /// `drive-precipitates` defect 6; `docs/archive/v3/ai-gateD-2026-09-06/gateD-P6.md`).
+        /// `drive-precipitates` defect 6; `../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-P6.md`).
         package nonisolated var rowIdentity: String { "precipitate.reflection.\(id)" }
 
         // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
@@ -95,7 +95,7 @@ package nonisolated enum PrecipitateReflections {
     /// Integer combination search bound for the lattice test: h, k in
     /// [-12, 12] reaches a 25x25 grid of candidate lattice points, far beyond
     /// any basis vector length seen near the beam in practice
-    /// (docs/ai-ml/precipitates.md §2 step 1: matrix disks at ~18 px on a
+    /// (../_archive/mac4DSTEM/docs/ai-ml/precipitates.md §2 step 1: matrix disks at ~18 px on a
     /// 64-px detector).
     private static let latticeSearchBound = 12
 

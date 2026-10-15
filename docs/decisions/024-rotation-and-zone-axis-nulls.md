@@ -22,7 +22,7 @@ as the comparison, at a measured 2× bar.
 ## Why
 
 The morning's permutation null (shuffling scan positions) tested spatial
-whiteness, not rotation structure; `tools/rotation-null-probe` reproduced why
+whiteness, not rotation structure; `../_archive/mac4DSTEM/tools/rotation-null-probe` reproduced why
 it was wrong: a rotation-free field's certification rate rose with its
 correlation length. For zone axis: the disc-chance rule alone could not
 catch an owner-observed ⟨112⟩ false positive at 8%, because the true
@@ -30,7 +30,7 @@ comparison is against a wrong-axis sweep, not against noise.
 
 ## Governs
 
-`RotationCalibration.solve`, `tools/rotation-null-probe`, `ZoneAxisFit`.
+`RotationCalibration.solve`, `../_archive/mac4DSTEM/tools/rotation-null-probe`, `ZoneAxisFit`.
 
 ## Sources
 

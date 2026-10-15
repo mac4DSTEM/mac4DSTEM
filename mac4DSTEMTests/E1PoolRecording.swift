@@ -1,11 +1,11 @@
 //
 //  E1PoolRecording.swift
-//  E1 (docs/archive/v5/e1-pooling-preregistration-2026-10-08.md), H7: "no existing number moves". This file is the RECORDING
+//  E1 (docs/registrations/e1-pooling-preregistration-2026-10-08.md), H7: "no existing number moves". This file is the RECORDING
 //  COMMAND. Run on the build BEFORE the E1 code, it writes the Spectroscopy room's outputs for the two registered images
 //  (`--demo-spectrum-fixture`'s `DemoSpectrumImageSource` and `demo-edx-tiny.dm4`) for the whole map and for one drawn rectangle:
 //  the spectrum, the maps' counts, the fit's results CSV and method JSON, the footers, the lineage step's parameters and the
 //  Spectrum CSV. Run on the E1 build, `testOutputsAreByteIdenticalToTheRecording` compares every byte against
-//  docs/archive/v5/e1-results-2026-10-12/ (the recorded files); `SpectroscopyPoolsTests` runs the same recorder with a 4D
+//  mac4DSTEMTests/Fixtures/e1-results-2026-10-12/ (the recorded files); `SpectroscopyPoolsTests` runs the same recorder with a 4D
 //  product present and a pool in the picker.
 //
 //  Record (from a copy of the pre-E1 commit 0a1a8106 with only this file added):
@@ -92,7 +92,7 @@ enum E1Recording {
 
     static var recordedDirectory: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("docs/archive/v5/e1-results-2026-10-12")
+            .appendingPathComponent("mac4DSTEMTests/Fixtures/e1-results-2026-10-12")
     }
 }
 

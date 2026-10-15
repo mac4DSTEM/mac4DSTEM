@@ -2,7 +2,7 @@
 
 Dates: 2026-10-05
 
-Status: **accepted** (owner, 2026-10-05, answering the v5.0 cards of `docs/archive/v5/owner-decisions-2026-10-05-v5.json`).
+Status: **accepted** (owner, 2026-10-05, answering the v5.0 cards of `../_archive/mac4DSTEM/docs/archive/v5/owner-decisions-2026-10-05-v5.json`).
 Builds on ADR 052. Nothing here is implemented yet.
 
 ## Decision
@@ -37,7 +37,7 @@ Builds on ADR 052. Nothing here is implemented yet.
    - "No k source" was too narrow. Velox computes k from a choice of three cross-section models.
 
    The dossier's resolution "one science default, provenance names the estimator, no mode switch" (§5.1 "Modes") is
-   therefore **reopened**, not adopted. The brief is `docs/archive/v5/quant-design-brief-2026-10-05.md`.
+   therefore **reopened**, not adopted. The brief is `../_archive/mac4DSTEM/docs/archive/v5/quant-design-brief-2026-10-05.md`.
 
 ## Consequences
 
@@ -54,7 +54,7 @@ Builds on ADR 052. Nothing here is implemented yet.
 
 - **The fit (V5-7, part):** option 3. One fit method is the default and is named on every result; the estimator
   choice (least squares, Poisson maximum likelihood) sits behind an expert disclosure. This follows the vendors, none
-  of which exposes an estimator (`docs/archive/v5/quant-design-2026-10-05/columns.md`), while keeping the method
+  of which exposes an estimator (`../_archive/mac4DSTEM/docs/archive/v5/quant-design-2026-10-05/columns.md`), while keeping the method
   inspectable. The rest of V5-5/V5-7 (k source, background, errors, settings) stays with the design session.
 - **WP1's three decisions, as recommended:** the rsciio fixtures are fetched by script into `References/`; Velox's own
   element maps are ignored (the app computes its own from the stream); frames are summed at decode over a chosen range.

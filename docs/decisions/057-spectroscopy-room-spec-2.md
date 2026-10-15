@@ -3,7 +3,7 @@
 **Date:** 2026-10-06/07 · **Status:** accepted by delegation (owner's list of 2026-10-06; decisions D-1…D-16 "overrule on sight") · **Amends:** 056 §4, §6, §7
 
 ## Context
-After driving the room rebuilt to ADR 056 the owner wrote 28 bullets (spec: `docs/archive/v5/ux-spec-2-2026-10-06.md` §1 lists the
+After driving the room rebuilt to ADR 056 the owner wrote 28 bullets (spec: `../_archive/mac4DSTEM/docs/archive/v5/ux-spec-2-2026-10-06.md` §1 lists the
 decisions taken for him). The structure stays (ADR 056: one window, maps own the content, static sidebar); what changes is where the
 controls live and how the maps, the table and Auto ID behave.
 
@@ -31,6 +31,6 @@ controls live and how the maps, the table and Auto ID behave.
 
 ## Consequences
 Built overnight by six Sonnet lanes on disjoint files, merged and gated as one landing, driven by the session on the synthetic
-4D-EDX cube and the owner's Velox SI 1339 (`docs/archive/v5/room-drive-3-2026-10-07.md`). Dead code the amendments retired
+4D-EDX cube and the owner's Velox SI 1339 (`../_archive/mac4DSTEM/docs/archive/v5/room-drive-3-2026-10-07.md`). Dead code the amendments retired
 (`active`, the proposed-tile pipeline, the suspect and proposed marker kinds, the two-band layout, the Auto ID switch) was removed in
 the same session's clean-up commit (−283 lines).

@@ -1,7 +1,7 @@
 # 068 — Card M2: no held ring-fit fix lands; one new Gate D item, measured on the owner's cubes first
 
 **Date:** 2026-10-14 · **Status:** decided by the owner (card M2, option **d**, as recommended) · **Follows:** the ring-fit
-Gate D record `archive/v5/ring-sigma-start-gateD-2026-10-13.md` (registered `ce245821`, step 2 `5594d2db`), ADR 050
+Gate D record `../_archive/mac4DSTEM/docs/archive/v5/ring-sigma-start-gateD-2026-10-13.md` (registered `ce245821`, step 2 `5594d2db`), ADR 050
 (a failed reproduction gate closes an item; a new registration is a new item), ADR 065 (M1)
 
 ## Context
@@ -17,7 +17,7 @@ two fixes as held diffs, and neither met its registration:
 Two leads came out of the runs, both read off the same logs (in-sample, thresholds unmeasured): keeping the lower-cost fit of
 the two starts (80 wrong of 2009 logged rings, against HEAD 414 and (a) 135; 8 of 441 disagreeing pairs violate the cost
 order), and refusing a profile fit whose radius left the conic seed by more than 5 % (333 of 379 wrong HEAD fits flagged,
-4 of 1155 right ones). Card: `archive/v5/owner-decisions-2026-10-14-ring-sigma-m2.json`.
+4 of 1155 right ones). Card: `../_archive/mac4DSTEM/docs/archive/v5/owner-decisions-2026-10-14-ring-sigma-m2.json`.
 
 ## Decisions
 1. **None of the held diffs lands.** `core-{a,b,ab}.diff` and the fixture tests stay in the record as evidence; the

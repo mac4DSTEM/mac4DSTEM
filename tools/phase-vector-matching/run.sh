@@ -5,7 +5,7 @@
 #
 # `scientific` deliberately: unlike the one-off per-position template-matching
 # probe that decided whether that route was viable at all (retired; answer in
-# docs/archive/v4/tools-retired-2026-09-23.md), everything gated here is an
+# ../_archive/mac4DSTEM/docs/archive/v4/tools-retired-2026-09-23.md), everything gated here is an
 # invariant of shipped Core code.
 set -euo pipefail
 

@@ -1,6 +1,6 @@
 //
 //  PhaseReferenceLibrarySlabTests.swift
-//  Gate D slice, `docs/archive/v3/theta-prime-slab-2026-09-21.md` (last
+//  Gate D slice, `../_archive/mac4DSTEM/docs/archive/v3/theta-prime-slab-2026-09-21.md` (last
 //  paragraph): the excitation slab is a property of a phase's shape (a thin
 //  plate streaks its reciprocal-lattice points along the plate normal), so
 //  `PhaseDefinition` carries an optional per-phase override of

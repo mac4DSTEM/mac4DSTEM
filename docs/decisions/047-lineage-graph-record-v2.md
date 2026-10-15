@@ -2,7 +2,7 @@
 
 Dates: 2026-09-30
 
-Status: **accepted by delegation** (owner, 2026-09-30: "clear the board by yourself, no further input") — every R-item is overrule-on-sight; the alternative is named. Mock: `docs/archive/v4/lineage-graph-mock-2026-09-30.html`.
+Status: **accepted by delegation** (owner, 2026-09-30: "clear the board by yourself, no further input") — every R-item is overrule-on-sight; the alternative is named. Mock: `../_archive/mac4DSTEM/docs/archive/v4/lineage-graph-mock-2026-09-30.html`.
 
 ## Context
 

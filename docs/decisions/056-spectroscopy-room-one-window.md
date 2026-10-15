@@ -7,7 +7,7 @@ The owner drove the first build and called it "horrible… not intuitive at all,
 mappings" (2026-10-06). The fault was structural, not cosmetic. The room was a five-step wizard (Spectrum image ·
 Elements & maps · Regions · Quantify · Export) in the left sidebar, the map was a small square, the periodic table had
 8–13 pt cells, and the spectrum spent most of its width on an empty 2–20 keV range. Velox, his reference, is one
-processing window. The accepted mock v2.1 is in `docs/archive/v5/spectroscopy-mock-v2.1-2026-10-06/`.
+processing window. The accepted mock v2.1 is in `../_archive/mac4DSTEM/docs/archive/v5/spectroscopy-mock-v2.1-2026-10-06/`.
 
 ## Decision (owner's answers, 2026-10-06)
 1. **Maps own the content.** A grid of HAADF, ColorMix and one large tile per element, with the int / net / wt% / at%
@@ -35,7 +35,7 @@ processing window. The accepted mock v2.1 is in `docs/archive/v5/spectroscopy-mo
 - A drive of the rebuilt room is owed before any more Spectroscopy surface lands.
 
 ## Addendum 2026-10-06: the accepted picture
-The owner accepted mock v2.1 (`docs/archive/v5/spectroscopy-mock-v2.1-2026-10-06/`) with these words: "Yes, build it… stay true
+The owner accepted mock v2.1 (`../_archive/mac4DSTEM/docs/archive/v5/spectroscopy-mock-v2.1-2026-10-06/`) with these words: "Yes, build it… stay true
 to the style and categories/menu logic of the app so far, keep it clean… simple, robust, pure macOS/SwiftUI, a good UI/UX
 just like Velox". **Pin** freezes a copy of the live region: the copy keeps its spectrum overlaid in its own colour while
 the live rectangle moves on, up to about three pins.

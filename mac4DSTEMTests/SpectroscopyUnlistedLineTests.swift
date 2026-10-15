@@ -4,10 +4,10 @@ import DSTEMSession
 @testable import mac4DSTEM
 @testable import SpectroCore
 
-/// WP3b F1 (docs/archive/v5/wp3b-fit-robustness-preregistration-2026-10-06.md, P4 and P5): after a Quantify fit the
+/// WP3b F1 (docs/registrations/wp3b-fit-robustness-preregistration-2026-10-06.md, P4 and P5): after a Quantify fit the
 /// proposer names every unlisted line at or above L_D (sum-peak questions included), and at% is withheld only when fitting
 /// them moves a quantified net by more than its reported sigma. Synthetic pool: `Fixtures/eds-unlisted-sim.json`
-/// (generator `tools/edx-pins/unlisted_sim.py`, the refuter's S2c recipe), seeded Poisson noise here. The assertions are
+/// (generator `../_archive/mac4DSTEM/tools/edx-pins/unlisted_sim.py`, the refuter's S2c recipe), seeded Poisson noise here. The assertions are
 /// the DECISIONS (named, withheld), not exact nets, so a continuum change (lane F23) does not re-band them.
 @MainActor
 final class SpectroscopyUnlistedLineTests: XCTestCase {

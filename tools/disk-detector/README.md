@@ -5,7 +5,7 @@ On `main` since 2026-09-08: the Python tooling, the 128-px fixture (C6) and, sin
 `Core/ML/LearnedDiskDetector` behind it, and `scan-bench/` on Core ML (C7 session 3; the Core AI
 version stays on `ml/disk-detector`).
 
-`docs/archive/v3/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a). Python that never ships: a simulator with known disk
+`docs/registrations/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a). Python that never ships: a simulator with known disk
 centres, a plain-conv U-Net trainer, exports to Core ML (`.mlpackage`, the
 shipping route since C7) and Core AI (`.aimodel`), the export checks, and a
 committed synthetic fixture. The app gets one asset and one inference class;
@@ -101,7 +101,7 @@ hand-labelled test set is committed under `labels/` (A2, 2026-09-28: the gitigno
 classical detector against it, so the comparison is against truth.
 
 **Numbers at the shipped 0.9, exported asset, one truth rule (2026-09-07
-night; `main`'s `docs/archive/v3/learned-detector-2026-09-06.md`, "C6 — the
+night; `main`'s `../_archive/mac4DSTEM/docs/archive/v3/learned-detector-2026-09-06.md`, "C6 — the
 table"):** fixture net 0.939 / 0.896 refined vs classical 0.900 / 0.866 on the
 same 230 visible disks; validation 0.679 / 0.939 (2 808 visible disks); bullseye
 416 vs 442 peaks, median difference 0; WS₂ counts-scaled 6 566 vs 256 — the
@@ -192,7 +192,7 @@ matches to the drawn centres (fixture) and to `find_Bragg_disks` at the
 2026-09-05 settings (real cubes), and saves PNGs of disagreeing patterns.
 
 **Numbers (2026-09-07, `References/training_runs/disk-detector-2026-09-06/`,
-the full account is `docs/archive/v3/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a) "Step 3 — evidence").** run1: 9 500
+the full account is `docs/registrations/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a) "Step 3 — evidence").** run1: 9 500
 steps in 80 min, best validation loss 0.0526, validation recall@2 px 0.80,
 fixture recall 1.000; run2 (a 55-min anneal from run1, the checkpoint of
 record, asset `0df112f4f593…`): validation loss 0.0473, recall 0.82, ANE
@@ -202,7 +202,7 @@ in-graph; CPU-only 14.4 ms, GPU-preferred 1.45 ms (and half the peaks — a
 GPU-delegate top-k defect); the probe-as-state asset segfaults on load; a
 top-k graph failed the ANE program load once inside a torch-importing process
 (hence the subprocess check). Classical stand-in 0.602 ms per pattern
-(`tools/performance-baseline/bench.json`, 2026-08-27): the net alone is 0.57×,
+(`../_archive/mac4DSTEM/tools/performance-baseline/bench.json`, 2026-08-27): the net alone is 0.57×,
 the whole learned path ≤ 1.57× at 128 px — but 2.81× at the cube's native 250 px with 3×3 tiling on Core AI, so the owner accepted a missed 2× ceiling on 2026-09-07 with a 256-px retrain owed (`docs/decisions.md`, C0); **the 256-px Core ML build meets it: 1.44–1.64× on the same 525 patterns, one frame, no tiling (2026-09-08, below).** On the real bullseye
 crop, read by eye from PNGs (no hand-labelled truth existed), the net at
 threshold 0.3 marked the disks the classical path finds plus ~65 background
@@ -305,7 +305,7 @@ disks at ~3.7 px, below the trained range: widen `zoom` and retrain, don't
 extrapolate); a new probe family (`load_ingredients`'s three-probe mix gets
 a fourth); a larger input (256 px, about four times the pixels, so roughly four times the Neural Engine cost (an estimate, not a measurement) — a new `S`, a new net,
 new assets, not a drop-in); or the owner's confirmed/rejected patterns from
-the app (step 5, `docs/archive/v3/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a)) — fine-tune with `--resume`.
+the app (step 5, `docs/registrations/learned-detector-preregistration-2026-09-07.md` (was `docs/v3-plan.md` §3a)) — fine-tune with `--resume`.
 
 ### Recipe
 

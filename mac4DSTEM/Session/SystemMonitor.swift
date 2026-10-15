@@ -18,7 +18,7 @@ package enum SystemMonitor {
     /// `resident_size`: that counts the memory-mapped cube's clean file pages,
     /// which the kernel may drop at any time and which belong to the page
     /// cache, so a streamed 28 GB cube read "27 GB" for a process whose
-    /// footprint was 10-22 MB (`docs/archive/v4/parity-28gb-2026-09-30.md`).
+    /// footprint was 10-22 MB (`../_archive/mac4DSTEM/docs/archive/v4/parity-28gb-2026-09-30.md`).
     /// The name is the frozen call site's (`WorkspaceView.systemGlance`); it
     /// is renamed when that shell is next open. 0 when the kernel call fails.
     // The same 8 lines as `DetectorTraining.footprintMB`, copied rather than

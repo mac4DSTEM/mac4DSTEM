@@ -136,7 +136,7 @@ enum LayoutPolicy {
     /// The header row of each process pane (Output · Lineage).
     static let bottomTabBarHeight: CGFloat = 26
 
-    /// The permanent status strip — the infobar. Phase 1 (docs/archive/v4/window-design.md
+    /// The permanent status strip — the infobar. Phase 1 (../_archive/mac4DSTEM/docs/archive/v4/window-design.md
     /// §4–§6) made this row the centre column's own divider. 34 pt is what
     /// it takes to hold the Run tab's live numbers at 12-pt text with a
     /// Stop button.
@@ -171,7 +171,7 @@ enum LayoutPolicy {
 
     /// The process area's share of the centre column the infobar's toggle
     /// (and ⌃⌘L) restores when nothing has ever been dragged — the owner's
-    /// "default ideal" (docs/archive/v4/window-design.md §6).
+    /// "default ideal" (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §6).
     static let processAreaIdealFraction: Double = 0.3
 
     /// The least an OPEN process area is ever drawn at (owner card Q6 a,
@@ -207,7 +207,7 @@ enum LayoutPolicy {
     static let inspectorSectionSpacing: CGFloat = 12
 
     /// The inspector's header row — the Settings · Info segmented control in
-    /// a row of its own (docs/archive/v4/window-design.md §6.3).
+    /// a row of its own (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §6.3).
     static let inspectorHeaderVerticalPadding: CGFloat = 8
     /// The inspector's tab capsule (Xcode's inspector tab bar, with words):
     /// the inset of the segments inside the glass capsule, and a segment's
@@ -269,7 +269,7 @@ enum LayoutPolicy {
     }
 }
 
-/// Pure layout math for the centre column's process area (docs/archive/v4/window-design.md
+/// Pure layout math for the centre column's process area (../_archive/mac4DSTEM/docs/archive/v4/window-design.md
 /// §4–§6, phase 1): the infobar is the column's own
 /// divider, draggable anywhere along its whole width from the column's
 /// bottom edge (process area hidden) to its top edge (canvas hidden) —

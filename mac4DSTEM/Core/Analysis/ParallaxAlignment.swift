@@ -160,7 +160,7 @@ package nonisolated enum ParallaxAligner {
     /// (`parallax.py:1274-1281`; `num_iter_at_min_bin` defaults to 2 at :1141),
     /// e.g. [4, 2, 1, 1]. Until 2026-09-28 the repeat was missing, so every
     /// "complete" alignment ran one refinement pass short
-    /// (`docs/archive/v4/parallax-bin-schedule-gateD-2026-09-28.md`).
+    /// (`../_archive/mac4DSTEM/docs/archive/v4/parallax-bin-schedule-gateD-2026-09-28.md`).
     /// DEVIATION: when no binning is possible (min ≥ max) py4DSTEM's
     /// `bin_vals[-1]` raises IndexError on the empty list; this returns
     /// `[minimum]` once, as before.

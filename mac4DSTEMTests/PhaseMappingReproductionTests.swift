@@ -1,7 +1,7 @@
 //
 //  PhaseMappingReproductionTests.swift
 //  The app's phase list must be able to state the probe's Thronsen configuration
-//  (`tools/phase-map-probe/thronsen.swift`, `Thronsen.phases(constrained: true)`):
+//  (`../_archive/mac4DSTEM/tools/phase-map-probe/thronsen.swift`, `Thronsen.phases(constrained: true)`):
 //  θ′ twice (edge-on [100], face-on [001]), a per-phase excitation slab, and the
 //  orientation relationships typed as text. B1 reproduction, 2026-09-28.
 //

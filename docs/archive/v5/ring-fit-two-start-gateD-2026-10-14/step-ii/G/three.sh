@@ -1,8 +1,0 @@
-#!/bin/zsh
-B=/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/91438f32-5c41-4f54-be46-379a85bee9b3/scratchpad/lanes/G/bin
-for v in head a c cbs s b2 none; do
-  echo "== $v"
-  $B/search-$v one 192 70 0.01 0 60 0.10 3
-  $B/search-$v one 192 70 0.01 112.5 0 0.10 2
-  $B/search-$v one 192 65 0.01 112.5 0 0.10 5 0.8
-done

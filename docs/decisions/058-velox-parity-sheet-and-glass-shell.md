@@ -3,10 +3,10 @@
 **Date:** 2026-10-07 · **Status:** accepted (owner: "go ahead… go with the recommendations… where is the liquid glass?") · **Amends:** 035 (shell materials only), 054 §6 (Auto ID roles), 057 §10
 
 ## Context
-The morning drive of the spec-2 room on the owner's SI 1339 (`docs/archive/v5/room-drive-4-2026-10-07.md`) and the Velox 3.15
-manual carved from his installer gave the 14-row sheet `docs/archive/v5/velox-parity-sheet-2026-10-07.md` (options, effort, gate,
+The morning drive of the spec-2 room on the owner's SI 1339 (`../_archive/mac4DSTEM/docs/archive/v5/room-drive-4-2026-10-07.md`) and the Velox 3.15
+manual carved from his installer gave the 14-row sheet `../_archive/mac4DSTEM/docs/archive/v5/velox-parity-sheet-2026-10-07.md` (options, effort, gate,
 a recommendation and an independent second opinion per row). The owner took the recommendations as a whole and asked for the
-glass shell; mock A (`docs/archive/v5/shell-mocks-2026-10-07/`) was the recommended picture.
+glass shell; mock A (`../_archive/mac4DSTEM/docs/archive/v5/shell-mocks-2026-10-07/`) was the recommended picture.
 
 ## Decisions
 1. **Maps get a display kernel** (row 1a): none · 3 × 3 · 5 × 5 · σ 1 px · σ 2 px, a count-conserving box/Gaussian applied to the

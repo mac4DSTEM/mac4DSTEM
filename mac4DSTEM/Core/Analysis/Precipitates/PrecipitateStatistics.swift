@@ -1,6 +1,6 @@
 //
 //  PrecipitateStatistics.swift
-//  Role: Step 5 of the precipitate chain (docs/ai-ml/precipitates.md §2) —
+//  Role: Step 5 of the precipitate chain (../_archive/mac4DSTEM/docs/ai-ml/precipitates.md §2) —
 //        areal number density from an accepted object set. The refusal rule
 //        (§5): no calibration, no density — `arealDensity` is nil whenever
 //        `pixelSize` is nil or non-positive, never a value computed against
@@ -13,7 +13,7 @@
 //  reason, so the UI can say why the count is smaller than the accepted set.
 //
 //  The density does not inherit that loss (Gate D 2026-09-28,
-//  `docs/archive/v4/areal-edge-correction-gateD-2026-09-28.md`): each counted
+//  `../_archive/mac4DSTEM/docs/archive/v4/areal-edge-correction-gateD-2026-09-28.md`): each counted
 //  object is weighted by Miles–Lantuéjoul's W·H / ((W − bx − 1)(H − by − 1)),
 //  the inverse fraction of positions at which a bx × by pixel bounding box
 //  lies clear of the forbidden border row. Unweighted, the density read

@@ -201,20 +201,20 @@ coherence), `PtychographicTomography` (tilt series).
 ## 7. UI observations & gaps
 
 Moved verbatim on 2026-09-16 (docs consolidation) to
-[`docs/archive/py4dstem-pipelines-dated-sections-2026-09-16.md`](archive/py4dstem-pipelines-dated-sections-2026-09-16.md):
+[`../_archive/mac4DSTEM/docs/archive/py4dstem-pipelines-dated-sections-2026-09-16.md`](../../_archive/mac4DSTEM/docs/archive/py4dstem-pipelines-dated-sections-2026-09-16.md):
 first-pass hypotheses comparing the canonical py4DSTEM workflow to the app's
 structure, from before the current UI observations were acted on.
 
 ## 8. How this feeds the app — scope, disruption, and roadmap
 
 Moved verbatim on 2026-09-16 (docs consolidation) to
-[`docs/archive/py4dstem-pipelines-dated-sections-2026-09-16.md`](archive/py4dstem-pipelines-dated-sections-2026-09-16.md):
+[`../_archive/mac4DSTEM/docs/archive/py4dstem-pipelines-dated-sections-2026-09-16.md`](../../_archive/mac4DSTEM/docs/archive/py4dstem-pipelines-dated-sections-2026-09-16.md):
 the scope/disruption assessment and roadmap that followed §7's findings.
 
 ## 9–10. QC-run findings (2026-07-21 → 2026-08-04) — archived
 
 Moved verbatim on 2026-09-07 (C1) to
-[`docs/archive/qc-run-findings-2026-08.md`](archive/qc-run-findings-2026-08.md):
+[`../_archive/mac4DSTEM/docs/archive/qc-run-findings-2026-08.md`](../../_archive/mac4DSTEM/docs/archive/qc-run-findings-2026-08.md):
 the first clean ACOM pipeline, the strain and phase-contrast fan-out, the
 comparator that was wrong along with the app, and the disk-spacing default.
 The playthrough they ran on was retired 2026-08-17; nothing there runs today.

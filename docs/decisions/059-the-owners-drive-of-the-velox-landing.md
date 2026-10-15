@@ -1,12 +1,12 @@
 # 059 — The owner's drive of the Velox landing: Compute Image returns, the glass goes to the buttons, the spectrum gets weight and colour, lines follow Velox's table, Auto ID is measured against Velox
 
-**Date:** 2026-10-07 · **Status:** accepted (owner's findings of 12:30, verbatim in `docs/archive/v5/owner-drive-findings-2026-10-07.md`) · **Amends:** 058 §4–5, 054 §6 (line families), ADR 035 (shell materials only)
+**Date:** 2026-10-07 · **Status:** accepted (owner's findings of 12:30, verbatim in `../_archive/mac4DSTEM/docs/archive/v5/owner-drive-findings-2026-10-07.md`) · **Amends:** 058 §4–5, 054 §6 (line families), ADR 035 (shell materials only)
 
 ## Context
 The owner drove the ADR 058 landing on SI 1339, SI 1438 and the synthetic cube at midday and gave eight findings. Two reversed this
 morning's choices (Compute Image, which his own 4 October card had removed; the glass panes, which he found worse than flat columns),
 the rest were gaps Velox fills. Two facts were found for the answers: the owner's EMD files carry Velox's own element table and his
-selections (`Operations/ImageQuantificationOperation`, 41 of 112 files; fixture `docs/archive/v5/velox-family-table-200kV-2026-10-07.json`),
+selections (`Operations/ImageQuantificationOperation`, 41 of 112 files; fixture `mac4DSTEMTests/Fixtures/velox-family-table-200kV-2026-10-07.json`),
 and the VeloxLite 3.22 guide, carved from his second installer, states that line choices affect maps and markers only, never the fit.
 
 ## Decisions

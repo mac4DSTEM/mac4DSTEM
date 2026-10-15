@@ -1,7 +1,0 @@
-theta: accepted fits with ellipticity >= 1 % (ba_true<=0.99) and dth > 0.1 rad / > 0.3 rad; median dth (rad)
-head  n=1810 dth>0.1: 317 dth>0.3: 198 median 0.0036 p90 0.361
-a     n=1810 dth>0.1: 150 dth>0.3: 58 median 0.0027 p90 0.068
-c     n=1810 dth>0.1: 111 dth>0.3: 31 median 0.0025 p90 0.051
-b2    n=1809 dth>0.1: 210 dth>0.3: 129 median 0.0029 p90 0.148
-s     n=1797 dth>0.1: 155 dth>0.3: 67 median 0.0028 p90 0.077
-cbs   n=1801 dth>0.1: 92 dth>0.3: 27 median 0.0027 p90 0.048

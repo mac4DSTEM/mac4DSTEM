@@ -1,6 +1,6 @@
 //
 //  DiffractionEmbedding.swift
-//  Role: the classical v1 baseline docs/ai-ml/README.md §6 calls for before
+//  Role: the classical v1 baseline ../_archive/mac4DSTEM/docs/ai-ml/README.md §6 calls for before
 //        any learned encoder — PCA on box-binned diffraction patterns, then
 //        k-means on the resulting coordinates. Streams the cube exactly like
 //        VirtualDetector/TiledDiskDetection: bounded scan-row tiles via
@@ -17,7 +17,7 @@
 //  every input. Everything past the dominant direction was an unconverged
 //  Ritz pair, and the reported explained variance for those components ran
 //  20-36 % low. Diagnosis, refutation and the discriminating fixture:
-//  docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md.
+//  ../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md.
 //
 //  `dsyevd_` computes the FULL spectrum of the d×d covariance (d = binnedSize²,
 //  ≤ 1024) exactly and deterministically; `symmetricEigenTop` keeps the top
@@ -421,7 +421,7 @@ package nonisolated enum DiffractionEmbedding {
     /// One binned vector's coordinates on the principal components:
     /// out[c] = Σᵢ (vector[i] − mean[i]) · basis[c·dims + i]. Shared by the
     /// cached and the two-pass projection. Gate D, 2026-09-28
-    /// (`docs/archive/v4/embedding-projection-gateD-2026-09-28.md`): the scalar
+    /// (`../_archive/mac4DSTEM/docs/archive/v4/embedding-projection-gateD-2026-09-28.md`): the scalar
     /// loop this replaces was 0.69 s per 1 000 patterns at 32 × 32 in an
     /// `-Onone` build. `vDSP_vsub` centres exactly as before; `vDSP_dotpr`
     /// reorders the sum (`DiffractionEmbeddingProjectionTests`).
@@ -526,7 +526,7 @@ package nonisolated enum DiffractionEmbedding {
     package static func embed(
         pixels: [Float], base: Int, qy: Int, qx: Int, geometry: BinGeometry, binnedSize: Int
     ) -> [Float] {
-        // Gate D, 2026-09-28 (`docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
+        // Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
         // the three per-pixel scalar loops below were 5.1 of 6.3 s per 1 000
         // patterns in an `-Onone` build (the owner's Debug build). A pattern
         // with only finite values takes the Accelerate path; one with NaN or
@@ -627,7 +627,7 @@ package nonisolated enum DiffractionEmbedding {
     /// upper triangle with one `cblas_dsyrk`; `finish` mirrors it into the
     /// lower triangle once.
     ///
-    /// Gate D, 2026-09-28 (`docs/archive/v4/embedding-accumulate-gateD-2026-09-28.md`).
+    /// Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-accumulate-gateD-2026-09-28.md`).
     /// The scalar loop this replaces took 84.8 of 90.7 s for 1 000 patterns at
     /// 32 × 32 in an `-Onone` build (the owner's Debug build), against about
     /// 0.4 s at `-O`. BLAS runs optimised in every configuration. The sums
@@ -722,7 +722,7 @@ package nonisolated enum DiffractionEmbedding {
     /// (row-major), largest eigenvalue first, via LAPACK's divide-and-conquer
     /// driver `dsyevd_`. Exact and deterministic — there is no iteration, no
     /// tolerance and no random start. See the file header for why this
-    /// replaced a hand-written subspace iteration, and `docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md`
+    /// replaced a hand-written subspace iteration, and `../_archive/mac4DSTEM/docs/archive/v3/ai-gateD-2026-09-06/gateD-C1.md`
     /// for the defect that iteration carried.
     ///
     /// Returns `([], [])` when LAPACK reports failure (`info != 0`) or when

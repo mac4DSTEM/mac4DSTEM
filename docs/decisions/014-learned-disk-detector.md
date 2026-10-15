@@ -51,4 +51,4 @@ scored per disk.
 - 2026-09-08 "C6 verdict: ... 256-px model; ... default threshold 0.7", log line 561
 - 2026-09-08 "Labels in the sidecar: centres, as one attribute", log line 663
 
-Evidence: `docs/archive/v3/learned-detector-2026-09-06.md`, `tools/disk-detector/README.md` (verified present).
+Evidence: `../_archive/mac4DSTEM/docs/archive/v3/learned-detector-2026-09-06.md`, `tools/disk-detector/README.md` (verified present).

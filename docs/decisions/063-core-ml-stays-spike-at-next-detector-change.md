@@ -3,7 +3,7 @@
 **Date:** 2026-10-08 · **Status:** accepted (owner, by option on the decision sheet) · **Amends:** 014 (the runtime revisit), 048 (closes it)
 
 ## Context
-The owner parked "Core ML vs Core AI" on 2026-09-23. The sheet `docs/archive/v5/coreml-vs-coreai-2026-10-08.md` (a draft, the supervisor's
+The owner parked "Core ML vs Core AI" on 2026-09-23. The sheet `../_archive/mac4DSTEM/docs/archive/v5/coreml-vs-coreai-2026-10-08.md` (a draft, the supervisor's
 check against Apple's documentation, and an independent second opinion) recommended staying on Core ML. He answered **a**.
 
 ## Decisions

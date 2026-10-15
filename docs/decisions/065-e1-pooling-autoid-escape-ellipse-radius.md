@@ -3,7 +3,7 @@
 **Date:** 2026-10-12 · **Status:** accepted (owner, by option on the decision sheet) · **Amends:** 061 (E's order), 064 §3.1 (cards E1–E6 answered)
 
 ## Context
-Three sheets: `docs/archive/v5/owner-decisions-2026-10-08-e-pooling.json` (cards E1–E6, A1), `owner-decisions-2026-10-12-ellipse-radius.json`
+Three sheets: `../_archive/mac4DSTEM/docs/archive/v5/owner-decisions-2026-10-08-e-pooling.json` (cards E1–E6, A1), `owner-decisions-2026-10-12-ellipse-radius.json`
 (card M1). Each card had a recommendation and an independent second opinion. He answered **a** on every card, the recommendation each time.
 
 ## Decisions
@@ -21,5 +21,5 @@ Three sheets: `docs/archive/v5/owner-decisions-2026-10-08-e-pooling.json` (cards
    depends on the radius. The background effect on the conic fallback stays unmeasured and is not registered.
 
 ## Consequences
-E1 is built to `archive/v5/e1-pooling-preregistration-2026-10-08.md`, which already assumed these answers (nothing to fold in).
-A1 is registered in `archive/v5/sum-escape-only-preregistration-2026-10-12.md`. macTEM is told: calibrate a camera length with the profile fit.
+E1 is built to `docs/registrations/e1-pooling-preregistration-2026-10-08.md`, which already assumed these answers (nothing to fold in).
+A1 is registered in `../_archive/mac4DSTEM/docs/archive/v5/sum-escape-only-preregistration-2026-10-12.md`. macTEM is told: calibrate a camera length with the profile fit.

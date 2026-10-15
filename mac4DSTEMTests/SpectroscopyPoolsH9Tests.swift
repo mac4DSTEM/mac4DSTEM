@@ -1,7 +1,7 @@
 //
 //  SpectroscopyPoolsH9Tests.swift
-//  E1 H9 (docs/archive/v5/e1-pooling-preregistration-2026-10-08.md): truth on the simulated joint file
-//  References/demo-edx/AlMgSi_4D_EDX.dm4 (tools/demo-edx/run.sh; machine-local, ~254 MB, skipped when absent).
+//  E1 H9 (docs/registrations/e1-pooling-preregistration-2026-10-08.md): truth on the simulated joint file
+//  References/demo-edx/AlMgSi_4D_EDX.dm4 (../_archive/mac4DSTEM/tools/demo-edx/run.sh; machine-local, ~254 MB, skipped when absent).
 //  (a) GATED: the pool of each phase, through the real chain (GMS joint attach by identity -> phase map published -> catalogue
 //      -> mask), equals the sum of `realised_total_eds_counts` of the truth regions with that phase, as integers.
 //  (b) REPORTED, no bar: the beta'' pool's fitted Mg and Si nets and their ratio with a Garwood interval, beside the truth's
@@ -29,7 +29,7 @@ final class SpectroscopyPoolsH9Tests: XCTestCase {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("References/demo-edx")
         let dm4 = root.appendingPathComponent("AlMgSi_4D_EDX.dm4"), truthURL = root.appendingPathComponent("truth_edx.json")
         guard FileManager.default.fileExists(atPath: dm4.path), FileManager.default.fileExists(atPath: truthURL.path) else {
-            throw XCTSkip("References/demo-edx is not generated on this machine (tools/demo-edx/run.sh)")
+            throw XCTSkip("References/demo-edx is not generated on this machine (../_archive/mac4DSTEM/tools/demo-edx/run.sh)")
         }
         let truth = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: truthURL)) as? [String: Any])
         let recipes = try XCTUnwrap(truth["recipes"] as? [String: [String: Any]])

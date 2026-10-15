@@ -8,16 +8,16 @@ unchanged since: `Core/Data/Calibration.swift`, `Core/Analysis/QCalibration.swif
 (`sameShellPeaksPerPosition`), `Session/SessionGates.swift`,
 `Session/QCalibrationRun.swift`. Section numbers §1–4, §6, §8, §9 are cited
 by number from that code, from `mac4DSTEMTests/QCalibrationOriginGateTests.swift`,
-from `tools/origin-fit-diagnostics/*.swift`, and from `CHANGELOG.md`'s
+from `../_archive/mac4DSTEM/tools/origin-fit-diagnostics/*.swift`, and from `CHANGELOG.md`'s
 v4.0.0 entry — they are not renumbered here. What shipped downstream of
 this design (the origin validity mask, the Friedel origin method, the
 vacuum probe) is tracked as "Calibration foundation (v3.1)" in
 `docs/v3-features.md`, not duplicated in this file. §5 (S13's build order)
 and §7 (S12's own unverified-items list) are fully superseded — every item
 shipped or was answered by §§1–4/§8/§9 below — and moved to
-[`docs/archive/v4/q-calibration-design-history.md`](archive/v4/q-calibration-design-history.md).
+[`../_archive/mac4DSTEM/docs/archive/v4/q-calibration-design-history.md`](../../_archive/mac4DSTEM/docs/archive/v4/q-calibration-design-history.md).
 
-**Written 2026-08-28.** S12 is a **Plan** session (`docs/archive/v2/v2-release.md` §8): it
+**Written 2026-08-28.** S12 is a **Plan** session (`../_archive/mac4DSTEM/docs/archive/v2/v2-release.md` §8): it
 runs experiments and produces a design; it changes no app code. Its output is
 this file, and the release owner reviews it before S13 implements anything.
 
@@ -28,7 +28,7 @@ this file, and the release owner reviews it before S13 implements anything.
 > specified **fires on healthy data**. Both are corrected in place below, marked
 > **REFUTED**, with the measurement and the repair. §6(b) is also now answered.
 > The implementation and its evidence are
-> [`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md).
+> [`../_archive/mac4DSTEM/docs/archive/v2-session-records/s13.md`](../../_archive/mac4DSTEM/docs/archive/v2-session-records/s13.md).
 
 What the brief asked for, and where each answer is:
 
@@ -43,7 +43,7 @@ What the brief asked for, and where each answer is:
 
 Everything below is reproducible today. The RMS table comes from the existing
 `tools/training-dataset-campaign`; the distribution and cost numbers come from
-`tools/origin-fit-diagnostics`, added by this session, which does not gate and
+`../_archive/mac4DSTEM/tools/origin-fit-diagnostics`, added by this session, which does not gate and
 says why in its own header.
 
 ---
@@ -113,7 +113,7 @@ is **refuted** — on all four the plane→parabola drop is ≤ 6%.
 ### 1.2 The distribution — where #29's binary breaks down
 
 RMS is one number over a vector the code already has. Reading the vector
-(`tools/origin-fit-diagnostics/run.sh residuals`) shows the two blocked
+(`../_archive/mac4DSTEM/tools/origin-fit-diagnostics/run.sh residuals`) shows the two blocked
 datasets fail by **two different mechanisms**, which is why one threshold on
 one statistic cannot serve both.
 
@@ -276,7 +276,7 @@ computes.
 > (above the radius check's band, with no origin gate above it because a nil
 > origin has no residual to judge). That is why S13 closed it structurally in
 > `Calibration.referenceOrigin` instead of watching for it.
-> Full numbers: [`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md) §1.
+> Full numbers: [`../_archive/mac4DSTEM/docs/archive/v2-session-records/s13.md`](../../_archive/mac4DSTEM/docs/archive/v2-session-records/s13.md) §1.
 
 **The threshold must be measured, not invented.** sim_Au is the only training
 dataset where Q calibration currently runs, so it gives one point, not a
@@ -350,7 +350,7 @@ instead of by `bin` — two tokens, `OriginMeasure.metal:47,49` — takes the
 translation-equivariance error from **0.6094 px to 9.54e-07 px**, and leaves the
 **absolute** error unchanged at 0.337 px.
 
-**Cost, measured 2026-08-28** (`tools/origin-fit-diagnostics/run.sh
+**Cost, measured 2026-08-28** (`../_archive/mac4DSTEM/tools/origin-fit-diagnostics/run.sh
 coarse-cost`; both kernels derived from the shipped shader at run time, so
 neither can drift from it; median of 15 dispatches).
 
@@ -419,7 +419,7 @@ convention with a one-line comment, and do not dignify it as a defect.
 ## 5. What S13 should build, in order
 
 Moved verbatim to
-[`docs/archive/v4/q-calibration-design-history.md`](archive/v4/q-calibration-design-history.md)
+[`../_archive/mac4DSTEM/docs/archive/v4/q-calibration-design-history.md`](../../_archive/mac4DSTEM/docs/archive/v4/q-calibration-design-history.md)
 — S13's build order, now fully shipped (§§1–4 above and §6 below record the
 design each item implemented).
 
@@ -459,7 +459,7 @@ report the fraction, which is the branch this section permits — and it is a
 recommendation the owner can overrule. The stated limit: bootstrap SD measures
 the fit's *precision*, not its *bias*, so a ceiling justified by
 representativeness is neither supported nor refuted.
-[`docs/archive/v2-session-records/s13.md`](archive/v2-session-records/s13.md)
+[`../_archive/mac4DSTEM/docs/archive/v2-session-records/s13.md`](../../_archive/mac4DSTEM/docs/archive/v2-session-records/s13.md)
 §2 has the sweep. The question as posed:
 
 **Not answered with
@@ -479,7 +479,7 @@ ceiling, S13 measures where to put it rather than picking a round number.
 ## 7. What S12 did **not** verify
 
 Moved verbatim to
-[`docs/archive/v4/q-calibration-design-history.md`](archive/v4/q-calibration-design-history.md)
+[`../_archive/mac4DSTEM/docs/archive/v4/q-calibration-design-history.md`](../../_archive/mac4DSTEM/docs/archive/v4/q-calibration-design-history.md)
 — S12's own list of what its design left unverified; §§1–4 and §§8–9 (S13's
 and later Gate D's measurements) answered all of it.
 

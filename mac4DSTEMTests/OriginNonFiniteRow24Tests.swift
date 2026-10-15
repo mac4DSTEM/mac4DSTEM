@@ -1,6 +1,6 @@
 //
 //  OriginNonFiniteRow24Tests.swift
-//  Lane F-B row 24 (docs/archive/v4/review-2026-09-30-findings.md): neither origin path
+//  Lane F-B row 24 (../_archive/mac4DSTEM/docs/archive/v4/review-2026-09-30-findings.md): neither origin path
 //  sanitised non-finite pixels (detection does since D019, DiskDetector.fillNonFinite).
 //  Fixture: a flat disk, one NaN inside it; the origin must equal the clean run's.
 //

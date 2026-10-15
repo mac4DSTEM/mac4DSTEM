@@ -1,6 +1,6 @@
 //
 //  MaterialsProjectImportRow6Tests.swift
-//  Lane F-B row 6 (docs/archive/v4/review-2026-09-30-findings.md): the Materials Project
+//  Lane F-B row 6 (../_archive/mac4DSTEM/docs/archive/v4/review-2026-09-30-findings.md): the Materials Project
 //  importer classified the family from the cell metric alone; the CIF importer's
 //  `verifyFamily` (the atom-position check) never ran on MP data.
 //

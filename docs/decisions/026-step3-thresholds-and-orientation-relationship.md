@@ -38,7 +38,7 @@ indefinite knob-turning.
 `mac4DSTEM/Core/Crystal/PhaseVectorMatching.swift`'s
 `maximumVectorInvAngstrom`, `relativeReferenceMinimumRadiusPx`,
 `notIndexedAboveInvAngstrom`; `mac4DSTEM/Core/Crystal/PhaseReferenceLibrary.swift`'s
-`OrientationRelationship`; `tools/phase-map-probe`, `tools/thronsen-dataset`.
+`OrientationRelationship`; `../_archive/mac4DSTEM/tools/phase-map-probe`, `../_archive/mac4DSTEM/tools/thronsen-dataset`.
 
 ## Sources
 

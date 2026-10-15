@@ -27,5 +27,5 @@ dormant, not a half-finished feature.
 
 - 2026-08-18 "The v2 contract and the three gates" (`.automatic` residency
   dropped, not tuned), log line 17
-- Evidence: `docs/archive/v2-session-records/s3.md` (2026-08-19, the fuller
+- Evidence: `../_archive/mac4DSTEM/docs/archive/v2-session-records/s3.md` (2026-08-19, the fuller
   original statement; verified present)

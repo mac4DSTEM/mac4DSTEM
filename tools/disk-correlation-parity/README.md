@@ -32,7 +32,7 @@ Part of `tools/run-tests.sh scientific`.
 
 Timing is deliberately **not** recorded in `baseline.json` — it is machine- and
 thermal-dependent. Compare a before/after on the same machine and power mode,
-as `tools/performance-baseline` does.
+as `../_archive/mac4DSTEM/tools/performance-baseline` does.
 
 ## The 250-px case (FFT speedup session, 2026-09-01)
 
@@ -41,7 +41,7 @@ as `tools/performance-baseline` does.
 exact radix-3/5 plan, so it is the path `calibrationData_circularProbe.h5`
 takes — until this session an O(N²) scalar loop with a per-element `sin`/`cos`
 (**256 ms per pattern, single thread, `-O`**; the whole story behind the
-14-minute Detect All Disks in `docs/archive/v2/s22-ux-design.md` §5.5 P1). It is now an
+14-minute Detect All Disks in `../_archive/mac4DSTEM/docs/archive/v2/s22-ux-design.md` §5.5 P1). It is now an
 exact Bluestein (chirp-z) transform in `FFT2D`.
 
 **How the baseline was pinned, so the parity claim is auditable.** The 250
@@ -79,7 +79,7 @@ re/im swap (a ky-axis flip of the forward transform), because any bug that
 commutes with `FFT⁻¹(P · conj(K))` cancels in cross-correlation. Correctness of
 the transform itself rests on `mac4DSTEMTests/FFT2DArbitraryLengthTests`
 (which that mutation turns red) and the numpy `fft.fft2` comparison recorded
-in `docs/archive/v2/s22-ux-design.md` §6 — not on this file.
+in `../_archive/mac4DSTEM/docs/archive/v2/s22-ux-design.md` §6 — not on this file.
 
 **Measured cost at 250×250 (Apple M3, `-O`):**
 

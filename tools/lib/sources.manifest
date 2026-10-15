@@ -34,7 +34,7 @@
 # tools/strain-frame-test (v2 S8) source this file today. The hand-listing
 # runners are exactly as exposed to the 2026-08-17 failure as they were before
 # it existed. This file does not fix that breakage until they migrate
-# (docs/archive/development-process-2026-08-31.md §1: when next touched), and saying otherwise
+# (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §1: when next touched), and saying otherwise
 # would be a claim a reader cannot reproduce.
 #
 # GROUPS ARE DEPENDENCY-CLOSED. Asking for `analysis` gets the readers and the
@@ -324,7 +324,7 @@ mac4dstem_sources() {
         # cancellation-token parameter and the FFT2D the surrogate null
         # links against, no `calibration` composition — RotationCalibration
         # takes no Calibration.swift type. Mirrors the ad hoc source list
-        # tools/rotation-null-probe/run.sh added by hand before this group
+        # ../_archive/mac4DSTEM/tools/rotation-null-probe/run.sh added by hand before this group
         # existed (checked 2026-09-17: RotationCalibration.swift was in
         # neither this file nor any group it composes).
         want+=(

@@ -40,7 +40,7 @@ final class SpectroscopyDriveL9Tests: XCTestCase {
     private struct VeloxTable: Decodable { let elements: [VeloxElement] }
     private func veloxTable() throws -> [VeloxElement] {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("docs/archive/v5/velox-family-table-200kV-2026-10-07.json")
+            .appendingPathComponent("mac4DSTEMTests/Fixtures/velox-family-table-200kV-2026-10-07.json")
         return try JSONDecoder().decode(VeloxTable.self, from: Data(contentsOf: url)).elements
     }
 

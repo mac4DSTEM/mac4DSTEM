@@ -170,7 +170,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
         // collapsing as the 2026-08-28 entry predicted. The demo stays
         // wrong-by-construction, and MORE visibly so (shell ratio 1.433 vs
         // 1.155, previously 1.373) — see
-        // docs/archive/v2-session-records/probe-radius.md.
+        // ../_archive/mac4DSTEM/docs/archive/v2-session-records/probe-radius.md.
         XCTAssertEqual(scale, 0.024472, accuracy: 0.0006,
                        "the known-wrong demo scale moved: \(state.statusText)")
 
@@ -197,7 +197,7 @@ final class QCalibrationOriginGateTests: XCTestCase {
     /// probe radius was over-measured 2.15× on this fixture and a constant
     /// kernel bias moves the ratio by almost nothing. The radius half was
     /// fixed 2026-09-01 (meanDP; demo kernel now 6.93 px — see
-    /// docs/archive/v2-session-records/probe-radius.md); whether the −8.5%
+    /// ../_archive/mac4DSTEM/docs/archive/v2-session-records/probe-radius.md); whether the −8.5%
     /// figure still holds for a repaired fixture is unmeasured, so the
     /// fixture stays as-is and this pin stays load-bearing.
     func testTheDemoShellsDoNotMatchTheGoldModelItIsPairedWith() async throws {

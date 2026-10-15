@@ -1,2 +1,0 @@
-EllipseNoisyRingTests.testNoisyGappedRingIsNotDrainedIntoTheBackground
-EllipseNoisyRingTests.testNoisyRingDoesNotDriftOffCentre

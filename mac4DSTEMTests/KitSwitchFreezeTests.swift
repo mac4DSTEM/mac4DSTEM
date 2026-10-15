@@ -4,7 +4,7 @@ import DiffractoScattering
 import DSTEMCore
 @testable import mac4DSTEM
 
-/// Tier 1 consumer test of the switch to DiffractoKit 0.0.3 (docs/archive/v5/diffractokit-switch-registration-2026-10-15.md,
+/// Tier 1 consumer test of the switch to DiffractoKit 0.0.3 (docs/registrations/diffractokit-switch-registration-2026-10-15.md,
 /// predictions P2 and P3). The values are RECORDED from 7f192da9 + the pin seam (c86733b2), BEFORE any switch code, with
 /// the app's own `Crystal.reflections(kMax:tolerance: 1e-4)` and `CrystalModel`: for every preset the kept reflections
 /// after the 1e-4 cut at kMax 1.2, 1.6 and 2.0 Å⁻¹ (h, k, l and the bit patterns of |g|, Re F, Im F and |F|², sorted by

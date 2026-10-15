@@ -12,7 +12,7 @@ made inline under that brief, for the owner to overrule on sight.
 1. **The guard.** `PhaseVectorSettings.knownVariantsMinimumSpecificReflections = 1`, on by
    default for `.knownVariants`. The detection-floor default stays at 0.5 % (superseded 2026-09-28: 0.15 %, ADR 041). The Core guard
    reproduces the probe's measured inline guard byte for byte (Gate D:
-   `archive/v4/known-variants-guard-gateD-2026-09-23.md`). It is shown in the known-variants
+   `../_archive/mac4DSTEM/docs/archive/v4/known-variants-guard-gateD-2026-09-23.md`). It is shown in the known-variants
    settings as "Phase-specific reflections, at least"; 0 turns it off. Its value is recorded in
    the sidecar provenance.
 2. **Objects stay in the phase-mapping room**, as a "Precipitates" section under Result
@@ -28,7 +28,7 @@ made inline under that brief, for the owner to overrule on sight.
 4. **Minimum object size is a reader setting, default 1 px (off)**, kept across datasets. Small
    objects stay listed and drawn (dimmed) but are not counted. Never a shipped cut: the
    published truth's cuts (4 / 782 / 10 px) belong to its dataset
-   (`docs/cloud/2026-09-23/T2-direction-check.md`). **(assistant)**
+   (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`). **(assistant)**
 5. **The calibration is read when the table is built**, not when the objects are segmented, so
    a scan scale changed after a run can never leave a stale density. This closes the gap the
    2026-09-23 map found in `setManualRPixelSize`.
@@ -49,6 +49,6 @@ made inline under that brief, for the owner to overrule on sight.
 
 - The `lengthPx` definition: centre to centre + 1, not the end-to-end extent (PR #2's
   cross-check). An owner decision.
-- An object-level pass bar: `docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.
+- An object-level pass bar: `../_archive/mac4DSTEM/docs/cloud/2026-09-23/T4-object-preregistration-DRAFT.md`.
 - ~~Selecting a table row does not yet highlight the object in the pane~~ — done 2026-09-29 night: an app-scoped
   selection relay keyed by the classification run's `sourceID`; an outline overlay, never a published product.

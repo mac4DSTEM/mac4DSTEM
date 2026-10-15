@@ -9,7 +9,7 @@ Status: live
 The window shell — `UI/ContentView.swift`, `UI/WorkspaceView.swift`,
 `UI/WorkspaceInspector.swift`, `UI/LayoutPolicy.swift` and
 `App/WorkspaceNavigation.swift` — is frozen (owner, 2026-09-22, approving
-item 1 of [`archive/v3/ui-review-2026-09-22.md`](../archive/v3/ui-review-2026-09-22.md)):
+item 1 of [`../_archive/mac4DSTEM/docs/archive/v3/ui-review-2026-09-22.md`](../../../_archive/mac4DSTEM/docs/archive/v3/ui-review-2026-09-22.md)):
 it changes only against a picture the owner has accepted, and every other
 UI session is a room, Prepare first. Three corrections landed with the
 freeze, all from the first on-screen look at phase 1:
@@ -66,5 +66,5 @@ The five files above; `LayoutPolicy.datasetWindowMinimumSize`
 
 ## Sources
 
-- `docs/archive/v3/ui-review-2026-09-22.md` §2, §4, §5
-- `docs/archive/v4/window-design.md` §1, §5 (phase 1)
+- `../_archive/mac4DSTEM/docs/archive/v3/ui-review-2026-09-22.md` §2, §4, §5
+- `../_archive/mac4DSTEM/docs/archive/v4/window-design.md` §1, §5 (phase 1)

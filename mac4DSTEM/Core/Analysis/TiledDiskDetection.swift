@@ -135,7 +135,7 @@ extension DiskDetection {
             // grows by about one tile per tile (the resident detector itself
             // is CPU-only) (Gate D, 2026-09-29: 1087 -> 2093 MB over four tiles of
             // the Thronsen stride-3 cube, flat with a pool per tile —
-            // docs/archive/v4/tiled-detection-memory-gateD-2026-09-29.md).
+            // ../_archive/mac4DSTEM/docs/archive/v4/tiled-detection-memory-gateD-2026-09-29.md).
             // The `await` above stays outside the pool; nothing inside
             // suspends. Arithmetic is untouched: peaks are bit-identical.
             enum TileOutcome {

@@ -42,7 +42,7 @@ Done means the repo tells the next reader the truth. In order:
    and the dated gate table. A new file in `docs/decisions/` and a row in
    `docs/decisions.md` if a decision was made.
 5. Update `docs/open-items.md` — add, amend, or delete. Closed items move
-   to `docs/archive/` immediately (§1 discipline); the file is loaded by
+   to `../_archive/mac4DSTEM/docs/archive/` immediately (§1 discipline); the file is loaded by
    every session, so its length taxes all of them.
    **Write findings, not narratives** — the file's own header carries the
    format rule adopted 2026-08-28: what is wrong, the evidence, the trap, the

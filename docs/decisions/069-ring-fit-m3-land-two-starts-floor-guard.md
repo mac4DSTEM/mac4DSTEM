@@ -1,7 +1,7 @@
 # 069 — Card M3: the ring fit lands two starts and the floor guard; an annulus guard is registered next
 
 **Date:** 2026-10-14 · **Status:** decided by the owner (card M3, option **b**, as recommended; relayed by the suite
-coordinator and confirmed in the session's chat) · **Follows:** 068, the record `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`
+coordinator and confirmed in the session's chat) · **Follows:** 068, the record `../_archive/mac4DSTEM/docs/archive/v5/ring-fit-two-start-gateD-2026-10-14.md`
 
 ## Context
 The Fit's profile model (`fitAmorphousRing`) accepts wrong ellipses on noisy rings with a good centre guess, and on the
@@ -9,7 +9,7 @@ owner's patterns it accepts ring-less fits (Ni65Cu35 [11, 14] px, Au_ref [30, 38
 [29, 39] px). The ADR 068 item measured his cubes, then built and refuted two starts (c), a floor guard (b2) and an 8 % seed
 check (s) with their combinations. On 2009 synthetic rows, wrong / right lost / b/a off > 0.01: HEAD 414 / – / 319, cb (two
 starts + floor guard) 79 / 11 / 59. The seed check was refuted on real data (it refuses agreeing fits on shifted Au_ref
-annuli, with no fallback). Card: `archive/v5/owner-decisions-2026-10-14-ring-fit-m3.json`.
+annuli, with no fallback). Card: `../_archive/mac4DSTEM/docs/archive/v5/owner-decisions-2026-10-14-ring-fit-m3.json`.
 
 ## Decisions
 1. **cb lands:** `fitAmorphousRing` refines from py4DSTEM's ring-σ start and from the ring's half-maximum width, each through

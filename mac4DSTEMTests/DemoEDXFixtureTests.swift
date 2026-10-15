@@ -3,9 +3,9 @@ import CryptoKit
 import DSTEMCore
 @testable import SpectroCore
 
-/// v5.0 WP2 lane S: the simulated 4D-STEM + EDX dataset (`tools/demo-edx/`). The fixture is the TINY variant
+/// v5.0 WP2 lane S: the simulated 4D-STEM + EDX dataset (`../_archive/mac4DSTEM/tools/demo-edx/`). The fixture is the TINY variant
 /// (6 x 4 scan, 16 x 16 detector, 512 channels at 20 eV, a perturbed energy axis, two 30 %-dead rows; 123 kB) written by `sim_edx.py --tiny` in the GMS
-/// multi-object layout of `docs/archive/v5/4d-edx-file-structure-2026-10-05.md` §4a, next to its truth file.
+/// multi-object layout of `../_archive/mac4DSTEM/docs/archive/v5/4d-edx-file-structure-2026-10-05.md` §4a, next to its truth file.
 /// The truth carries the SHA-256 of every array as WRITTEN (C order of the logical shape), so these tests compare
 /// what our readers return to what the generator wrote, and the scan is not square (6 != 4) so an axis swap shows.
 /// Every layout detail the file asserts is a GUESS until a real GMS 4D + EDS file exists (truth `guesses`).
@@ -52,7 +52,7 @@ final class DemoEDXFixtureTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(calibration.rSize), 5, accuracy: 1e-6)
     }
 
-    /// The full default dataset (`tools/demo-edx/run.sh`, 254 MB) when it is on this machine: same checks at scale.
+    /// The full default dataset (`../_archive/mac4DSTEM/tools/demo-edx/run.sh`, 254 MB) when it is on this machine: same checks at scale.
     func testTheDefaultSimulatedFileWhenPresent() async throws {
         let path = Self.dir.deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("References/demo-edx/AlMgSi_4D_EDX.dm4").path

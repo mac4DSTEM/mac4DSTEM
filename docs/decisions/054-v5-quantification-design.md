@@ -2,8 +2,8 @@
 
 Dates: 2026-10-05
 
-Status: **accepted** (owner, 2026-10-05, the sheet V5-Q1…Q9 in `docs/archive/v5/owner-decisions-2026-10-05-v5.json`).
-It follows the design session of ADR 053 (record: `docs/archive/v5/quant-design-2026-10-05/`).
+Status: **accepted** (owner, 2026-10-05, the sheet V5-Q1…Q9 in `../_archive/mac4DSTEM/docs/archive/v5/owner-decisions-2026-10-05-v5.json`).
+It follows the design session of ADR 053 (record: `../_archive/mac4DSTEM/docs/archive/v5/quant-design-2026-10-05/`).
 
 The evidence and the independent second opinion are in `columns.md` and `second-opinion.md` of that folder. Every card
 was answered as recommended.
@@ -63,7 +63,7 @@ was answered as recommended.
 
 ## The mock's first review (owner, same evening)
 
-On the first mock (`docs/archive/v5/spectroscopy-mock-2026-10-05/`):
+On the first mock (`../_archive/mac4DSTEM/docs/archive/v5/spectroscopy-mock-2026-10-05/`):
 
 - Element roles are set in a **periodic table** in the Elements & maps inspector, as in Velox's Periodic Table panel.
   Click toggles Quantify; right-click gives Quantify · Fit only · Off · Lines. Proposer suggestions show as marked cells.
@@ -90,7 +90,7 @@ The revised mock follows. The room is built only once the owner accepts it (ADR 
 - **Least squares is unweighted** (hyperspy `ls`), and every result's footer says so.
 - **Garwood intervals are used at every count.** The "~20 counts" switch was a threshold, and it is dropped.
 
-Record: `docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md` § Flags.
+Record: `../_archive/mac4DSTEM/docs/archive/v5/wp3-quantification-preregistration-2026-10-05.md` § Flags.
 
 ## Brown-Powell has no licence-clean source; computed k uses Bote-Salvat (session, 2026-10-05; owner overrules on sight)
 

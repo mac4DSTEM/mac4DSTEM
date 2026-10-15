@@ -1,7 +1,7 @@
 # CLAUDE.md — start here
 
 mac4DSTEM: native macOS (Swift / SwiftUI / Metal) 4D-STEM analysis on Apple Silicon, validated against py4DSTEM at one pinned upstream commit (`tools/lib/fetch-py4dstem.sh` fetches it into the gitignored `References/`).
-**v4.5.0 was released 2026-10-05**, version/build 4.5.0 / 8 (macOS 27+; v3.0.0 stays for older systems). The consolidation plan **exited 2026-09-11** (`docs/archive/consolidation-plan.md`, §7 checked line by line) and the feature freeze it carried lapsed with it. Rules only here; status and history elsewhere.
+**v4.5.0 was released 2026-10-05**, version/build 4.5.0 / 8 (macOS 27+; v3.0.0 stays for older systems). The consolidation plan **exited 2026-09-11** (`../_archive/mac4DSTEM/docs/archive/consolidation-plan.md`, §7 checked line by line) and the feature freeze it carried lapsed with it. Rules only here; status and history elsewhere.
 
 ## Read, in this order
 
@@ -24,7 +24,7 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 - **What does NOT need Gate D**: placement/presentation changes, renames, docs, tooling, and defects whose mechanism a reproducing observation already proves. State which trigger applies, or that neither does.
 - Tests by tier (owner 2026-10-14; full rule in the suite `../CLAUDE.md` "Rigour follows risk"): tier 1 = a number a scientist reads can move, and any doubt means tier 1; tier 2 = behaviour without numbers; tier 3 = wording, docs, test-only changes, byte-identical refactors. Break every new tier-1 test before trusting it — confirm it goes red on the mutation it claims to catch; tier 2 samples two or three; do not drive the app during the unit gate. Without `../CLAUDE.md` every change is tier 1.
 - Never widen a gate that fails silently. Cost a UI change (rows/pt) before designing it, and open the app periodically — minutes of driving have found defects a green suite could not, which can be green about the wrong thing.
-- Quote test numbers only from a dated run named by its log, not a path (session logs are gitignored, not retained); evidence a reader must open is committed under `docs/archive/`.
+- Quote test numbers only from a dated run named by its log, not a path (session logs are gitignored, not retained); evidence a reader must open is committed: a registration a test implements lives in `docs/registrations/`, a fixture under `mac4DSTEMTests/Fixtures/`; everything else is in git history.
 - Parallel sessions on this Mac share `/private/tmp/claude-501/-Users-paullobpreis-GitHub-mac4DSTEM-Organization-mac4DSTEM/locks/`: while a file `drive` exists a session is driving the app — start no test run (a test host steals focus); `mkdir heavy.1` / `heavy.2` is a build slot, removed after. Commit by explicit paths; another session's uncommitted edits stay theirs.
 - Never read a gate's exit code through a pipe or backgrounded wrapper — redirect to a log, `echo $?` on its own line, grep the log's own exit line; count tests by method name and reconcile against the expected delta.
 - A lost session resumes from its own scratchpad, never from memory.
@@ -37,21 +37,22 @@ Skills: `/pickup` takes the next step from `docs/status.md`'s handoff;
 - On-screen verification may be claimed only when it actually drove the app and is sure — name the build, say what was clicked, what was seen; otherwise it is stated as unverified on screen. A drive never writes or clears the owner's clipboard: a Copy step is checked by `NSPasteboard.changeCount` (the hook refuses `pbcopy`).
 - Docs are part of done: update `docs/status.md` and `docs/open-items.md` in the same commit as the code, net negative markdown lines or say why.
 - Commit freely: land work as coherent commits with the gate numbers in the message. Pushing stays the owner's — ask before any push.
-- **`main` only** (owner directive 2026-09-17): no feature or worktree branches, local or remote; every change lands as a commit on `main`. The one-time cleanup back to a single branch is `docs/archive/git-cleanup-2026-09-17.md`.
+- **`main` only** (owner directive 2026-09-17): no feature or worktree branches, local or remote; every change lands as a commit on `main`. The one-time cleanup back to a single branch is `../_archive/mac4DSTEM/docs/archive/git-cleanup-2026-09-17.md`.
+- **Repos stay light** (owner, suite `../CLAUDE.md`, 2026-10-15): the repo holds what builds, tests and explains the app. The old docs archive, drive records, reports and diagnostic probes moved to `../_archive/mac4DSTEM/` (outside the repo, untracked; git history keeps them too). A path written `../_archive/mac4DSTEM/<repo path>` is an archive citation, relative to this repo's root; `inventory` checks each one when the archive folder is there. Closed items and old status rows go to that folder, not into the tree. `tools/` holds only what the gates, the hooks, CI or the release procedure run.
 - **Frozen shell** (owner, 2026-09-22): `UI/ContentView.swift`, `UI/WorkspaceView.swift`, `UI/WorkspaceInspector.swift`, `UI/LayoutPolicy.swift` and `App/WorkspaceNavigation.swift` change only against a picture the owner has accepted (ADR 035); every other UI session is a room, Prepare first. Wording that corrects a false claim may change in a frozen file; structure and width may not (owner, ADR 050).
 - **A failed reproduction gate closes an item** (owner, ADR 050): a new registration is a new item — never amend-and-continue.
 - **Decisions are put to the owner as a sheet** (owner, ADR 050): each problem in plain words, the options with effort and risk, a recommendation and an independent second opinion; he answers by option. The Board's cards are that sheet's source.
 - **Unvalidated stays labelled** (owner, 2026-09-18): phase mapping, and any product that self-reports `validation:"none"`, ships badged unvalidated and is never called validated in a release note or doc until it passes on one dataset with truth; `inventory` greps the badge and the key.
 - **SpectroKit** (ADR 064, 067): standalone EDX (readers, fit, quantification, the HDF5 lock, `DM4Experiment`/`DM4Error`) is SpectroKit's, imported at an exact tag (`Package.swift`, 0.1.0); a fix to it lands there and arrives by a tag bump, gated here. 4D × spectroscopy stays here. The Run configuration is `Develop` so SpectroKit builds optimised; keep its name.
 - **Suite board**: at closeout update only this repo's row, `lanes/mac4dstem`, as the suite `../CLAUDE.md` says (URL, fields, pinning, the routine).
-- Decisions are a file in `docs/decisions/` plus a row in `docs/decisions.md`; the pre-2026-09-16 log is verbatim in `docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`.
+- Decisions are a file in `docs/decisions/` plus a row in `docs/decisions.md`; the pre-2026-09-16 log is verbatim in `../_archive/mac4DSTEM/docs/archive/decisions-log-2026-08-17-to-2026-09-16.md`.
 - What code already enforces: `run-tests.sh core` holds the layering; `run-tests.sh inventory` holds the UI contract greps, harness manifest, tools classification, NOTICE hashes and the size report.
 
 ## Build / test
 
 ```sh
 xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build   # the scheme's Run config, Develop
-tools/run-tests.sh unit | scientific | all | inventory | core | benchmark | campaign   # inventory = the repo's own review
+tools/run-tests.sh unit | scientific | all | inventory | core | campaign   # inventory = the repo's own review
 tools/free-space.sh                                     # exit-69 remedy
 git config core.hooksPath tools/hooks                   # once per clone: pre-push runs inventory + an app build
 ```

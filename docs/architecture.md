@@ -3,7 +3,7 @@
 What the app is made of, how the layers depend on each other, where a new
 file goes, and where the consolidation is taking the ownership model. Product
 scope is `README.md` and `CHANGELOG.md`; live status is `status.md`; the
-sequence of the consolidation is `archive/v2/v2.5-plan.md`; the feature plan is `ROADMAP.md`.
+sequence of the consolidation is `../_archive/mac4DSTEM/docs/archive/v2/v2.5-plan.md`; the feature plan is `ROADMAP.md`.
 
 ## Layers and the dependency rule
 
@@ -136,7 +136,7 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
    `ProductDomain`, a `ProductQuantitativeStatus`, sampling, a flat
    `provenance: [String:String]` and overlays, so UI never infers semantics
    from a display title. `Session/ResultPresentation.swift` (AppState seam 5,
-   `docs/archive/v4/appstate-seams-plan.md`) owns the live one;
+   `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md`) owns the live one;
    `AppState.publishProduct(...)` (`App/AppState.swift`) is the one choke
    point that writes it, and `appState.displayedProduct` is the one read
    site every viewer, comparison and export path uses.
@@ -175,7 +175,7 @@ and `.metal` files route to the Metal compile phase. Placement is wiring.
 | Export, bridging header | `mac4DSTEM/Support/` |
 | Fast unit and workflow-contract tests | `mac4DSTEMTests/` |
 | Standalone parity, diagnostic and packaging harnesses | `tools/<name>/` — classify it in `tools/run-tests.sh` (gated / diagnostic / owner-only) |
-| Docs | `docs/` (live set in `CLAUDE.md`); dated or superseded → `docs/archive/` |
+| Docs | `docs/` (live set in `CLAUDE.md`); dated or superseded → `../_archive/mac4DSTEM/docs/archive/` |
 | CI | `.github/workflows/` |
 | Machine-local data and the fetched py4DSTEM lock | `References/` (gitignored; `tools/lib/fetch-py4dstem.sh` pins the lock commit) |
 
@@ -199,7 +199,7 @@ SpectroKit and arrives by a tag bump.
 
 ## Ownership today and where it is going
 
-The `docs/archive/v4/appstate-seams-plan.md` extraction (all seven seams,
+The `../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md` extraction (all seven seams,
 complete 2026-09-18) moved every feature's state into one `@Observable`
 owner in `Session/` plus one orchestration extension in `App/`; `AppState`
 (`App/AppState.swift`, 1603 lines at HEAD) now composes those owners plus
@@ -220,7 +220,7 @@ orchestration file where cross-owner logic needs one (`+ACOM`,
 `+Calibration`, `+DatasetSession`, `+DiffractionGroups`, `+DiskDetection`,
 `+DPC`, `+MaterialsProject`, `+Open`, `+PhaseContrast`, `+PhaseMapping`,
 `+Promote`, `+Replay`, `+ResultPresentation`).
-The target the seams plan cited (`archive/v2/v2.5-plan.md` §4) goes further
+The target the seams plan cited (`../_archive/mac4DSTEM/docs/archive/v2/v2.5-plan.md` §4) goes further
 than what shipped: one immutable `ScientificProduct` value type (pixels,
 axes, units, frame, calibration snapshot, validity, provenance) with
 `ProductPresentation` separate, and a typed task registry shared by live
@@ -262,7 +262,7 @@ again and no flag selects it. Six rules, the first three enforced by
 5. **No new state on `AppState`.** UI's selection is derived from
    `WorkspaceNavigation`, never stored beside it (`WorkspaceRoute`).
 6. **The window is three full-height columns, one job each** (ADR 035/036;
-   `docs/archive/v4/window-design.md`; shipped and driven-accepted in
+   `../_archive/mac4DSTEM/docs/archive/v4/window-design.md`; shipped and driven-accepted in
    v4.0.0, 2026-09-23). Left is `WorkspaceSidebar`; right is
    `WorkspaceInspector`'s Settings · Info tabs, in one glass capsule row,
    presented as `.inspector` on the `NavigationSplitView` itself (not on the
@@ -311,7 +311,7 @@ again and no flag selects it. Six rules, the first three enforced by
   `xcodebuild -project mac4DSTEM.xcodeproj -scheme mac4DSTEM -destination 'platform=macOS' build`.
   Tools resolve their own toolchain via `tools/lib/developer-dir.sh`
   (`DEVELOPER_DIR` wins; the Command Line Tools directory is rejected).
-- Test: `tools/run-tests.sh unit | scientific | all | inventory | core | benchmark | campaign` (seven lanes; the script is the roster).
+- Test: `tools/run-tests.sh unit | scientific | all | inventory | core | campaign` (six lanes; the script is the roster).
   The `scientific` array in that script is the harness roster; no count is
   stated anywhere else. On-screen verification is the owner driving the app
   and reporting through `/diagnose` (the checklist was retired 2026-09-03).
@@ -319,7 +319,7 @@ again and no flag selects it. Six rules, the first three enforced by
 
 ## Tools and harnesses
 
-`tools/run-tests.sh {unit|scientific|core|inventory|benchmark|campaign|all}`
+`tools/run-tests.sh {unit|scientific|core|inventory|campaign|all}`
 is the one discoverable entry point over ~70 directories. Every directory
 must appear in exactly one of five arrays at the top of that script —
 `scientific` (CI-gated), `diagnostic` (needs gitignored/machine-local data,
@@ -337,7 +337,7 @@ for an unsigned tool; one needing GPU kernels compiles `Shaders/*.metal` to a
 destination/architecture pin, because a prior gate on a generic destination
 once stayed green an hour before an archive build failed.
 `tools/free-space.sh` is the disk-space preflight remedy: `run-tests.sh`
-refuses to start `unit`/`scientific`/`benchmark` below 4 GB free and
+refuses to start `unit`/`scientific` below 4 GB free and
 `all`/`campaign` below 8 GB (exit 69), reporting (or, with `--clear`,
 deleting) known regenerable build debris only, never `References/`. Not
 every harness is Swift: `tools/disk-detector/` is a Python

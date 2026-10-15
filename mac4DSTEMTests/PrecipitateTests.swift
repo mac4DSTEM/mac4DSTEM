@@ -1,7 +1,7 @@
 //
 //  PrecipitateTests.swift
 //  Fixture-based tests for the precipitate chain's classical algorithms
-//  (ml/disk-detector:docs/ai-ml/precipitates.md): reflection finding and
+//  (ml/disk-detector:../_archive/mac4DSTEM/docs/ai-ml/precipitates.md): reflection finding and
 //  density. The class-map object measurement is in
 //  `PrecipitateSegmentationAnalyticTests`. Everything is synthetic and
 //  deterministic — a seeded linear congruential generator drives the tiny

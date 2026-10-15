@@ -1,7 +1,7 @@
 import XCTest
 import DSTEMCore
 
-/// Gate D, 2026-09-28 (`docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
+/// Gate D, 2026-09-28 (`../_archive/mac4DSTEM/docs/archive/v4/embedding-embed-gateD-2026-09-28.md`):
 /// `embed` moved to Accelerate for finite patterns. The old `embed` is kept
 /// here VERBATIM (from `DiffractionEmbedding.swift` at f940fb7) as the
 /// reference. P1: finite patterns agree to ≤ 1e-6 relative per binned value,

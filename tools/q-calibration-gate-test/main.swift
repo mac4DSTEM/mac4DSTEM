@@ -6,7 +6,7 @@
 //  THIS FILE'S HEADER USED TO SAY "read the negative controls at the bottom".
 //  There are none at the bottom, and there never were — the controls are
 //  mutations applied to `Core/` and recorded in
-//  docs/archive/v2-session-records/s13.md §4, not code in this file. A Gate B
+//  ../_archive/mac4DSTEM/docs/archive/v2-session-records/s13.md §4, not code in this file. A Gate B
 //  reviewer caught the sentence pointing readers at empty space, 2026-08-28.
 //
 //  READ THAT SECTION BEFORE TRUSTING ANY PASS HERE, AND READ ITS SECOND TABLE

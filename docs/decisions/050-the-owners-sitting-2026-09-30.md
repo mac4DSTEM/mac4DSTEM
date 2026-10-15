@@ -31,7 +31,7 @@ finished rather than removed or badged:
 
 | Card | Answer | Where it goes |
 |---|---|---|
-| Start the cloud review | now | Owner fires it (brief `archive/v4/polish-and-review-session-plan.md`). |
+| Start the cloud review | now | Owner fires it (brief `../_archive/mac4DSTEM/docs/archive/v4/polish-and-review-session-plan.md`). |
 | Phase-match tolerance | keep R0 | Closed. |
 | Aperture drag | keep, and park the file's recorded centre too | Polish room (Prepare). |
 | "In memory" wording (frozen file) | ratify, allow the empty-circle predicate fix | Polish room; CLAUDE.md gains the precedent: wording that corrects a false claim may change in a frozen file, structure and width may not. |

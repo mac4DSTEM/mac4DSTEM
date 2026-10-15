@@ -8,7 +8,7 @@
 import Foundation
 
 /// The one place the R–Q rotation changes sign (ADR 040 decision 2, Gate D
-/// `docs/archive/v4/rq-sign-gateD-2026-09-28.md`).
+/// `../_archive/mac4DSTEM/docs/archive/v4/rq-sign-gateD-2026-09-28.md`).
 ///
 /// DEVIATION (convention, not physics): this app reads a file's axes as
 /// (Ry, Rx, Qy, Qx) (`DatasetDescriptor.swift`), py4DSTEM as (Rx, Ry, Qx, Qy).
@@ -20,7 +20,7 @@ import Foundation
 /// Everything a user reads or a file carries uses py4DSTEM's
 /// (`QR_rotation`), converted here and nowhere else. Measured: the real cube
 /// `Particle_1_Stack_1…bin8.h5` gives py4DSTEM +80.0° T and app −80.1° T
-/// (`docs/archive/v3/rq-frame-class-2026-09-23.md`).
+/// (`../_archive/mac4DSTEM/docs/archive/v3/rq-frame-class-2026-09-23.md`).
 package enum RQRotationConvention {
     /// The value written beside `QR_rotation` in files this app writes, so a
     /// reader can tell them from sidecars written before 2026-09-28 in the
@@ -32,7 +32,7 @@ package enum RQRotationConvention {
     /// sign of the value: before the conversion the app imported a py4DSTEM
     /// `QR_rotation` raw and exported it raw, so such a file holds the app's sign
     /// if the rotation was measured here and py4DSTEM's if it was imported.
-    /// Hence a label, never a conversion (`docs/archive/v4/s15-rq-legacy-exports-2026-09-30.md`).
+    /// Hence a label, never a conversion (`../_archive/mac4DSTEM/docs/archive/v4/s15-rq-legacy-exports-2026-09-30.md`).
     package nonisolated static func isUnmarkedExportOfThisApp(authoringProgram: String?,
                                                               convention: String?) -> Bool {
         convention != marker && authoringProgram == "mac4DSTEM"

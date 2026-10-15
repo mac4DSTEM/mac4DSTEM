@@ -6,7 +6,7 @@ import DSTEMCore
 
 /// What the Diffraction pane's header says about the pixel under the pointer: the pixel, the stored value, and the calibrated
 /// distance from the beam centre. Pure, so the rules are unit-tested without a window. Registered before it was written:
-/// `docs/archive/v5/diffraction-readout-2026-10-14.md` (definitions, sources, predictions).
+/// `../_archive/mac4DSTEM/docs/archive/v5/diffraction-readout-2026-10-14.md` (definitions, sources, predictions).
 ///
 /// Nothing here is a new conversion. The pixel map is the floor `RealSpacePane`'s readout and
 /// `RealSpacePointerPolicy.scanPosition` use (and the inverse of `PeakOverlayGeometry.center`); q is the distance

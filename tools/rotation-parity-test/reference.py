@@ -174,7 +174,7 @@ def main() -> None:
     transposed_cx, transposed_cy = rotate(gy, gx, planted_deg)
 
     # Leg (b), file-faithful (ADR 040, Gate D 2026-09-28,
-    # docs/archive/v4/rq-sign-gateD-2026-09-28.md): the field's array axis 0
+    # ../_archive/mac4DSTEM/docs/archive/v4/rq-sign-gateD-2026-09-28.md): the field's array axis 0
     # is the file's axis 0, which py4DSTEM calls Rx, so it is kept; the
     # app's detector channels (cx along file axis 3, cy along file axis 2)
     # are py4DSTEM's (com_y, com_x). This is how py4DSTEM would read the same

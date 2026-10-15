@@ -571,7 +571,7 @@ package final class PhaseMappingProduct {
     }
 
     /// Al–Mg–Si preset: the DATASET-INDEPENDENT phase setup only (owner
-    /// decision 2026-09-30, from `docs/archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`
+    /// decision 2026-09-30, from `../_archive/mac4DSTEM/docs/archive/v4/almgsi-raw-stride3-registration-2026-09-29.md`
     /// "The app recipe for this cube"). Replaces the phase list with
     /// Al (matrix, zone [0 0 1]) and the given β″ (Mg5Si6) structure twice —
     /// zone [0 1 0] (needles end-on) and [0 0 1] (in-plane) — with
@@ -582,7 +582,7 @@ package final class PhaseMappingProduct {
     /// the calibration (ellipse, Q, R). A calibration is a property of its
     /// dataset and is never a default (CLAUDE.md, the threshold rule).
     /// The β″ structure is passed in because the repo does not redistribute
-    /// its CIF (`tools/crystal-structures/make_beta_double_prime.py`).
+    /// its CIF (`../_archive/mac4DSTEM/tools/crystal-structures/make_beta_double_prime.py`).
     /// Stale zone-axis fits belonged to the old list and are dropped.
     package func applyAlMgSiPreset(precipitate: CrystalModel,
                                    matrix: CrystalModel? = CrystalModelLibrary.model(id: "al_fcc")) {
