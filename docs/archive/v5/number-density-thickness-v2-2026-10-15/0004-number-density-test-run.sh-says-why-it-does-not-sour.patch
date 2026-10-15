@@ -1,0 +1,28 @@
+From 71b134dfc3e4b4d0aff04e5fccee9f224370b479 Mon Sep 17 00:00:00 2001
+From: Paullo9 <paullobpreis@icloud.com>
+Date: Thu, 15 Oct 2026 11:17:36 +0200
+Subject: [PATCH 4/4] number-density-test/run.sh says why it does not source
+ sources.manifest (inventory's harness rule; tier 3, comment)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ tools/number-density-test/run.sh | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/tools/number-density-test/run.sh b/tools/number-density-test/run.sh
+index f74ca5fd..94b4f10c 100755
+--- a/tools/number-density-test/run.sh
++++ b/tools/number-density-test/run.sh
+@@ -14,7 +14,8 @@ trap 'rm -rf "$WORK"' EXIT
+ . "$REPO/tools/lib/developer-dir.sh"
+ resolve_mac4dstem_developer_dir
+ 
+-# Foundation only: the three precipitate files plus FloatImage's file (as tools/volumetric-density-test).
++# Does not source tools/lib/sources.manifest: it takes four named files, not a group. Foundation only: the three
++# precipitate files plus FloatImage's file (as tools/volumetric-density-test).
+ xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -swift-version 5 \
+   -o "$WORK/nv" \
+   main.swift \
+-- 
+2.54.0 (Apple Git-157)
+

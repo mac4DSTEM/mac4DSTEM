@@ -91,9 +91,11 @@ ceiling; `archive/v5/ring-fit-annulus-guard-gateD-2026-10-14.md`); a new item (a
 plants) is the owner's card. Also left: a ring-less fit with live widths (`grains_12`, b/a right there); gapped low-count 1/r²
 rings 14 → 16 wrong. Record: `archive/v5/ring-fit-two-start-gateD-2026-10-14.md`.
 
-### Number density N_V with thickness — v2 registered, not built (2026-10-15)
-Item 1 closed (P1 refuted at d/t = 1, 1.058–1.074; `archive/v5/number-density-thickness-registration-2026-10-14.md`). v2 divides each
-plate by ρ(hᵢ, t) (`…-v2-registration-2026-10-15.md`); start from the archived estimator + harness patch. Deferred by the owner.
+### Number density N_V with thickness — v2 refuted as registered (2026-10-15)
+v2 (each plate / ρ(hᵢ, t); `archive/v5/number-density-thickness-v2-registration-2026-10-15.md`) built in a lane, tests first, 14 of 14
+mutations red, run on the fresh seeds: 53 of 54 cells inside 5 %, 54 of 54 in their ±0.05 bands, P2', P3', P5' held; P1' failed by one
+cell (θ′ CV 0.3 d 190 t 50: 1.050069 ± 0.0043, bar 1.05) and P4' (T1 d 190 σ_P/N 0.31–0.51, two below 0.35). Nothing lands (ADR 050);
+patches and logs in `archive/v5/number-density-thickness-v2-2026-10-15/`. The oracle refuter (true chords) was not run. Card for the owner.
 
 ### UI audit 2026-10-14 — left after the night's lanes S and C
 List `archive/v5/mac4dstem-ui-audit-2026-10-14.md`. Landed 2026-10-14 night (unverified on screen): the Spectroscopy rows (lane S)

@@ -1,0 +1,17 @@
+N_V v2 (c = w/((t+h) rho)), synthetic foil, field 2400 nm, pixel 2.5 nm (960x960), ratio = N_V estimate / true N_V (sigma_t = 0)
+P1' bar |mean-1| <= 0.05 in all 54 cells; band |mean - registered table| <= 0.05 (CV 0.3: midpoint of the CV 0 and CV 0.6 rows); seeds >= 100 until SEM <= 0.015 (ratio and naive), cap 400
+columns: cnt = counted plates per seed, rej = overlap-rejected share, invis = sliver (no pixel centre) share, v2 sd/v1 sd = across-seed sd of the ratio of this estimator / of the closed item's w/(t+h) on the same plants
+theta' cv=0.0 d=190 t= 50 seeds=118  cnt= 138.2 edge= 19.9 rej=17.0% invis=0.00% | pred 1.041  mean 1.045757+-0.004318 sd 0.047 PASS band ok | naive 4.431+-0.015 fail | v1 1.234 sd 0.052 | sigma/N 0.097 sigmaP/N 0.095 
+theta' cv=0.3 d=190 t= 50 seeds=126  cnt= 131.8 edge= 19.8 rej=18.2% invis=0.00% | pred 1.038  mean 1.050069+-0.004309 sd 0.048 FAIL band ok | naive 4.383+-0.015 fail | v1 1.233 sd 0.053 | sigma/N 0.101 sigmaP/N 0.099 P1' REFUTED
+theta' cv=0.6 d=190 t= 50 seeds=182  cnt= 118.3 edge= 20.1 rej=19.8% invis=0.00% | pred 1.036  mean 1.044002+-0.004018 sd 0.054 PASS band ok | naive 4.190+-0.015 fail | v1 1.213 sd 0.059 | sigma/N 0.109 sigmaP/N 0.107 
+(* = hit the seed cap before SEM target)
+SUMMARY cells 3; P1' cells outside 5 %: 1; cells outside their +-0.05 band: 0; naive passing a d>=100 cell: 0; P3' band misses (CV 0.3): 0/1; coverage failures (<60 % on bias<2 % cells): 0
+INFO cells with < 10 counted plates: 0; sliver >1 %: 0; overlap rejection >20 %: 0; CV 0.3 literally between CV 0 and CV 0.6 (+-1 SEM): 0/1; relative sd of v2 above v1 in 3/3 cells with d>=100
+VERDICT P1' FAIL (all 3 cells within 5 %)
+VERDICT P2' PASS (naive N/(A t) fails every d>=100 cell)
+VERDICT P3' PASS (CV 0.3 cells within +-0.05 of the midpoint of the CV 0 and CV 0.6 table rows)
+VERDICT P4' PASS (sigma_P/N in 0.35-0.57 in the 0 T1 d 190 cells; per-cell sigma/N, sigma_P/N, counted and v1/v2 sd printed above)
+VERDICT band PASS (every cell within +-0.05 of its registered table value)
+VERDICT coverage PASS (sigma_N covers truth in >= 60 % of seeds on every cell with bias < 2 %)
+VERDICT registered gate: FAIL (P5' is the unit test)
+runtime 2.4 s
