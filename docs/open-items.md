@@ -178,10 +178,7 @@ One line each; full wording in `../_archive/mac4DSTEM/docs/archive/closed-items-
 - Lane F-B (2026-10-01, review rows 9/29/24; `../_archive/mac4DSTEM/docs/archive/v4/slot2-fb-refuter-2026-10-01.md`): (a) a file ellipse with a non-positive semi-axis is now
   dropped silently by the importers ("No detector-distortion correction"), not refused by name — owner: make it a named refusal
   (recommended yes; py4DSTEM's `_transform` and `set_ellipse` validate nothing, so a refusal is stricter than py4DSTEM). (b) The
-  count of non-finite pixels filled in both origin paths is not written into provenance (recommended: leave). (c) NEW:
-  `Core/Analysis/ProbeKernel.swift:207,209` (`y < py / 2 ? y : y - py`, same for x) has the odd-N wrap alias row 9 fixed in
-  `MatrixDFTCorrelation` — on odd N the middle row/column reads distance (N+1)/2, not (N-1)/2 (the refuter: "the same odd-N alias
-  slip"; py4DSTEM builds that kernel on a centred meshgrid, so not the same formula). Gate D first; `:274,276` are already right.
+  count of non-finite pixels filled in both origin paths is not written into provenance (recommended: leave). (c) closed 2026-10-16: the odd-N wrap alias in `ProbeKernel` went with the arithmetic to CuboKit's `ProbeKernel` (symmetric wrap).
 
 ### Other named presentation and trust residuals
 One line each; full wording as above.
@@ -484,3 +481,4 @@ Colour (2026-10-12, from macTEM): exports sample the LUT as the shader does (291
 Tooling (2026-10-14 night): `../_archive/mac4DSTEM/tools/velox-parity/run.sh` needs a venv with rsciio and sparse (its header line; none of the conda
 envs has both) — run through the data link with one in the scratchpad: 20 cases, 27 stacks, 0 failures. Dependabot #1 (torch
 2.13.0) is blocked by `coreai-opt 0.2.1`'s `torch<=2.11.0`; the pin stays 2.11.0 (`../_archive/mac4DSTEM/tools/disk-detector/README.md`).
+- **CuboKit gaps kept in the app (2026-10-16).** `OriginCalibration.fitOriginTrimmed` keeps its trim (median + 3 x 1.4826 MAD of the position residuals, up to three rounds, the S12 constants): `OriginFit`'s robust loop cuts squared residuals at a multiple of their mean, not the same rule; only the least squares under it is the kit's (`fit2D`). The measurement stays on the Metal tiled path (`VirtualDetector.tiledMeasuredOrigins`; `OriginMeasurement.measure` is CPU Double). Ask for the kit: `SyntheticProbe.make` with a centre parameter (the app's probe is pixel-centred; the kit's is half-pixel for odd sides), a mask hook for the measured sigmoid kernel, and fit `kept` / residual outputs.

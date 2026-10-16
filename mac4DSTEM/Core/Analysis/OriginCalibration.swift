@@ -160,20 +160,8 @@ package nonisolated enum OriginCalibration {
                           width: Int, height: Int,
                           fitFunction: OriginFitFunction = .plane)
         -> (fittedX: [Float], fittedY: [Float]) {
-        switch fitFunction {
-        case .constant:
-            let n = Float(measuredX.count)
-            let mx = measuredX.reduce(0, +) / n
-            let my = measuredY.reduce(0, +) / n
-            return ([Float](repeating: mx, count: measuredX.count),
-                    [Float](repeating: my, count: measuredY.count))
-        case .plane:
-            return (fit2D(measuredX, width: width, height: height, terms: 3),
-                    fit2D(measuredY, width: width, height: height, terms: 3))
-        case .parabola:
-            return (fit2D(measuredX, width: width, height: height, terms: 6),
-                    fit2D(measuredY, width: width, height: height, terms: 6))
-        }
+        (fit2D(measuredX, width: width, height: height, function: fitFunction),
+         fit2D(measuredY, width: width, height: height, function: fitFunction))
     }
 
     /// `fitOrigin` restricted to a subset of scan positions, evaluated
@@ -187,20 +175,8 @@ package nonisolated enum OriginCalibration {
         fitFunction: OriginFitFunction = .plane,
         included: [Bool]
     ) -> (fittedX: [Float], fittedY: [Float]) {
-        switch fitFunction {
-        case .constant:
-            let indices = measuredX.indices.filter { included[$0] }
-            let source = indices.isEmpty ? Array(measuredX.indices) : indices
-            let n = Float(source.count)
-            let mx = source.reduce(Float(0)) { $0 + measuredX[$1] } / n
-            let my = source.reduce(Float(0)) { $0 + measuredY[$1] } / n
-            return ([Float](repeating: mx, count: measuredX.count),
-                    [Float](repeating: my, count: measuredY.count))
-        case .plane, .parabola:
-            let terms = fitFunction == .plane ? 3 : 6
-            return (fit2D(measuredX, width: width, height: height, terms: terms, included: included),
-                    fit2D(measuredY, width: width, height: height, terms: terms, included: included))
-        }
+        (fit2D(measuredX, width: width, height: height, function: fitFunction, included: included),
+         fit2D(measuredY, width: width, height: height, function: fitFunction, included: included))
     }
 
     // MARK: - Robust origin fit (v2 S13)
@@ -324,22 +300,9 @@ package nonisolated enum OriginCalibration {
         // produced the surface.
         for _ in 0..<max(rounds, 1) {
             let mask = kept
-            switch fitFunction {
-            case .constant:
-                // The masked analogue of the constant branch: the mean over the
-                // kept positions, not over all of them.
-                let indices = (0..<count).filter { mask[$0] }
-                let source = indices.isEmpty ? Array(0..<count) : indices
-                let n = Float(source.count)
-                let mx = source.reduce(Float(0)) { $0 + measuredX[$1] } / n
-                let my = source.reduce(Float(0)) { $0 + measuredY[$1] } / n
-                fittedX = [Float](repeating: mx, count: count)
-                fittedY = [Float](repeating: my, count: count)
-            case .plane, .parabola:
-                let terms = fitFunction == .plane ? 3 : 6
-                fittedX = fit2D(measuredX, width: width, height: height, terms: terms, included: mask)
-                fittedY = fit2D(measuredY, width: width, height: height, terms: terms, included: mask)
-            }
+            // The masked fit: the kept positions only, evaluated everywhere (a constant is the kept mean).
+            fittedX = fit2D(measuredX, width: width, height: height, function: fitFunction, included: mask)
+            fittedY = fit2D(measuredY, width: width, height: height, function: fitFunction, included: mask)
             let residual = residuals(fittedX, fittedY)
             let centre = median(residual)
             let deviation = 1.4826 * median(residual.map { abs($0 - centre) })
@@ -396,108 +359,42 @@ package nonisolated enum OriginCalibration {
             : sorted[middle]
     }
 
-    /// Least-squares fit of z(x, y) with polynomial basis
-    ///   terms == 3: [1, x, y]                       (plane)
-    ///   terms == 6: [1, x, y, x², xy, y²]           (parabola)
-    /// solved via the normal equations; the systems are tiny (≤ 6×6).
+    /// The least-squares surface of one measured map (constant, plane or parabola over the scan), evaluated at every
+    /// position: CuboKit's `OriginFit.fit` (Householder QR in Double on [0, 1] coordinates, py4DSTEM's `fit_2D`).
     ///
-    /// `included`, when given, restricts the ACCUMULATION to the marked scan
-    /// positions; the fitted surface is still evaluated everywhere, which is
-    /// what makes a trimmed refit usable — the excluded positions get a fitted
-    /// origin derived from the positions that measured well. // v2 S13
-    private nonisolated static func fit2D(_ z: [Float], width: Int, height: Int, terms: Int,
+    /// `included`, when given, restricts the fit to the marked scan positions; the surface is still evaluated
+    /// everywhere, which is what makes a trimmed refit usable — the excluded positions get a fitted origin derived from
+    /// the positions that measured well. // v2 S13
+    ///
+    /// Kept in the app, because the kit does not do it: a degenerate fit (a scan one position wide, or fewer included
+    /// positions than the model has terms) falls back to the mean OF THE INCLUDED positions, where the kit would
+    /// project onto the design's column space. Averaging positions the trim just excluded would silently undo the trim
+    /// on exactly the scans where the system is worst conditioned. // v2 S13
+    ///
+    /// Differences from the app's former normal-equation solver, which the kit makes: a non-finite included measurement
+    /// is left out of the fit instead of making every fitted value NaN, and a rank-deficient but sufficiently large
+    /// included set (three collinear positions for a plane) is projected where the app averaged.
+    private nonisolated static func fit2D(_ z: [Float], width: Int, height: Int, function: OriginFitFunction,
                                           included: [Bool]? = nil) -> [Float] {
-        var ata = [Double](repeating: 0, count: terms * terms)
-        var atb = [Double](repeating: 0, count: terms)
-        var basis = [Double](repeating: 0, count: terms)
-
-        func fillBasis(_ x: Double, _ y: Double) {
-            basis[0] = 1; basis[1] = x; basis[2] = y
-            if terms == 6 {
-                basis[3] = x * x; basis[4] = x * y; basis[5] = y * y
-            }
+        let used = z.indices.filter { included?[$0] ?? true }
+        let source = used.isEmpty ? Array(z.indices) : used
+        func meanSurface() -> [Float] {
+            guard let m = try? OriginFit.fit(source.map { Double(z[$0]) }, rows: source.count, columns: 1, model: .constant),
+                  let value = m.first else { return [Float](repeating: .nan, count: z.count) }
+            return [Float](repeating: Float(value), count: z.count)
         }
-
-        let sx = width > 1 ? 1.0 / Double(width - 1) : 0
-        let sy = height > 1 ? 1.0 / Double(height - 1) : 0
-
-        for ry in 0..<height {
-            let y = Double(ry) * sy
-            for rx in 0..<width {
-                if let included, !included[ry * width + rx] { continue }
-                let x = Double(rx) * sx
-                fillBasis(x, y)
-                let v = Double(z[ry * width + rx])
-                for i in 0..<terms {
-                    atb[i] += basis[i] * v
-                    for j in i..<terms {
-                        ata[i * terms + j] += basis[i] * basis[j]
-                    }
-                }
-            }
+        let model: OriginFitModel
+        let terms: Int
+        switch function {
+        case .constant: return meanSurface()
+        case .plane: model = .plane; terms = 3
+        case .parabola: model = .parabola; terms = 6
         }
-        // Mirror the upper triangle.
-        for i in 0..<terms {
-            for j in 0..<i { ata[i * terms + j] = ata[j * terms + i] }
-        }
-
-        guard let coef = solve(ata, atb, n: terms) else {
-            // Degenerate fit (e.g. 1×1 scan) — fall back to the mean OF THE
-            // INCLUDED positions. Averaging positions the trim just excluded
-            // would silently undo the trim on exactly the scans where the
-            // system is worst conditioned. // v2 S13
-            let contributing = included.map { mask in
-                z.indices.filter { mask[$0] }.map { z[$0] }
-            } ?? z
-            let source = contributing.isEmpty ? z : contributing
-            let mean = source.reduce(0, +) / Float(source.count)
-            return [Float](repeating: mean, count: z.count)
-        }
-
-        var out = [Float](repeating: 0, count: z.count)
-        for ry in 0..<height {
-            let y = Double(ry) * sy
-            for rx in 0..<width {
-                let x = Double(rx) * sx
-                fillBasis(x, y)
-                var v = 0.0
-                for i in 0..<terms { v += coef[i] * basis[i] }
-                out[ry * width + rx] = Float(v)
-            }
-        }
-        return out
-    }
-
-    /// Gaussian elimination with partial pivoting for the (tiny) n×n system.
-    private nonisolated static func solve(_ aIn: [Double], _ bIn: [Double], n: Int) -> [Double]? {
-        var a = aIn, b = bIn
-        for col in 0..<n {
-            // Pivot
-            var pivot = col
-            for row in (col + 1)..<n where abs(a[row * n + col]) > abs(a[pivot * n + col]) {
-                pivot = row
-            }
-            if abs(a[pivot * n + col]) < 1e-12 { return nil }
-            if pivot != col {
-                for k in 0..<n { a.swapAt(col * n + k, pivot * n + k) }
-                b.swapAt(col, pivot)
-            }
-            // Eliminate below
-            for row in (col + 1)..<n {
-                let f = a[row * n + col] / a[col * n + col]
-                if f == 0 { continue }
-                for k in col..<n { a[row * n + k] -= f * a[col * n + k] }
-                b[row] -= f * b[col]
-            }
-        }
-        // Back-substitute
-        var x = [Double](repeating: 0, count: n)
-        for row in stride(from: n - 1, through: 0, by: -1) {
-            var v = b[row]
-            for k in (row + 1)..<n { v -= a[row * n + k] * x[k] }
-            x[row] = v / a[row * n + row]
-        }
-        return x
+        guard width > 1, height > 1, used.count >= terms else { return meanSurface() }
+        var values = [Double](repeating: .nan, count: z.count)
+        for index in used { values[index] = Double(z[index]) }
+        guard let surface = try? OriginFit.fit(values, rows: height, columns: width, model: model) else { return meanSurface() }
+        return surface.map { Float($0) }
     }
 
     // MARK: - Workflow
