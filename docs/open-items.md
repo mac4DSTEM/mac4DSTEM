@@ -36,6 +36,34 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
   and one review (suite CLAUDE.md); the registrations above are the record of the day, not a pattern to repeat.
 
 
+### Phase 2: the rest of Core/ onto the kits (plan 2026-10-16; per file, from `../_archive/mac4DSTEM/inventory-Core-2026-10-16.md`)
+
+Waits on the tags CuboKit 0.3.x, FormatoKit 0.3.x, DiffractoKit 0.4.x, SpectroKit 0.5.x. Each is a focused commit with its
+test; where a kit has both the reference behaviour and a named app option, the app option is used so no pinned number moves
+unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
+- **CuboKit:** Parallax x6 + MatrixDFTCorrelation -> CuboParallax; SingleslicePtychography + PtychographyPreparation's
+  `PtychographyProbe` -> CuboPtycho (the `PtychographyPreparer` bridge stays); StrainMapping -> CuboStrain; DPC remainder (iDPC,
+  physical calibration) -> CuboPhase; `HotPixelFilter` -> `CuboCore.HotPixelFilter` (in the kit's main, not in 0.2.0; use the named
+  app option); `CalibrationReReference` (origin re-reference under crop and bin) with C3, below; `DiskDetection`'s numeric core
+  + `ProbeRingHint`; `DiffractionEmbedding` (PCA, k-means). Stays: UI controls, provenance, tiling, settings.
+- **FormatoKit:** `H5Reader` onto FormatoHDF5 (drops the private dlsym wrapper); `DM4Reader` lazy 4D gather; `VendorRawReaders`
+  (EMPAD, MIB); `BraggVectorEMDWriter`: split first, only the peak-grid write and the atomic publish move, the `mac4dstem_*`
+  attributes, lineage and replay stamping stay.
+- **DiffractoKit:** `OrientationResult` symmetry (cubic, hexagonal, monoclinic, `ACOMCrystalSymmetry`, `OrientationMap`),
+  `OrientationMatcher`/`OrientationPlan` (Metal dispatch and service stay), `MaterialsProjectImport` (JSON fetch glue stays).
+- **SpectroKit:** `MaskTransport`, `PoolBuilder` (grouping and edge counts).
+- **Per-position origins (C3), located 2026-10-16:** measurement is `OriginCalibration.tiledRun` (CoM per position through
+  `VirtualDetector.tiledMeasuredOrigins` / `MetalEngine`, Friedel per position at `OriginCalibration.swift` ~L692-760);
+  fits are `fitOrigin` and `fitOriginTrimmed`; storage is `OriginMaps` (`Data/Calibration.swift` L494, measured and fitted
+  qx0/qy0 maps, `originValidity`), `Calibration.originProvenance` and `ReferenceOrigin` (L762-781); py4DSTEM-file maps are
+  `PixelOriginMaps` (`FourDDataSource.swift`, read by `H5Reader` L850, written by `BraggVectorEMDWriter` L2201+ as `qx0_shift`);
+  re-reference under crop/bin is `Data/CalibrationReReference.swift`.
+- **QCalibration vs `RingCalibration+Q` (compared 2026-10-16): not the same computation, not switched.** The app's
+  `KnownCrystalQCalibration.estimate` returns a linear scale in Å⁻¹/px (reference q / median observed radius, shell check
+  from a second ring); the kit's `RingCalibration.q(radius:cameraLengthPixels:wavelengthAngstroms:)` is the exact flat-detector
+  q = 2 sin(½ atan(R/L))/λ and needs the camera length L, which the app does not have at this point. The two agree to
+  O((R/L)²) only where L is known. Ask for a kit: a linear-scale-from-reference-ring helper, or the app supplies L.
+
 ### Phase mapping under the T4 object bar (ADR 040) — one metric short
 Raw speckle, not cleaned counts, certifies a classifier (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`); the truth's cuts
 (782 / 10 / 4 px) are that dataset's, never an app default. First scored run: FAIL on θ′ edge-on raw spurious 7 > 5.
