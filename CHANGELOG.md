@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Friedel origins and the beamstop mask are CuboKit 0.2.0's `FriedelOrigin` and `BeamstopMask` (the app's copies deleted), computed in Double instead of Float32. Measured on the friedel-origin-test fixture: clean origin (15.28615, 17.62265) -> (15.286150, 17.622649), masked (15.278842, 17.603392) -> (15.278841, 17.603392); the distance to py4DSTEM's origin fell from 1e-6 px to 2e-15 px; the beamstop mask stays pixel-identical (453 of 1024). No test tolerance changed. The kit refuses a beamstop mask with no pattern pixel (the app used to return an origin from noise). The app still fills non-finite pixels by their neighbour median before the kit sees them.
 - ACOM's 1D FFT is ImagoKit 0.1.1's `ImagoFFT.FFT1D` (the app's copy deleted); ImagoKit re-pinned 0.1.0 -> 0.1.1 (now GPL-3.0). No number moves.
 
 ## v4.5.0 — 2026-10-05
