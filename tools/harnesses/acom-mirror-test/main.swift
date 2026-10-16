@@ -11,6 +11,7 @@
 // independent proper-group operator list. Reports CPU time per pattern and
 // CPU/Metal agreement so the second pass is measured, not assumed.
 import Foundation
+import ImagoFFT
 import DiffractoScattering
 import simd
 

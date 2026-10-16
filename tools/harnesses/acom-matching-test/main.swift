@@ -1,4 +1,5 @@
 import Foundation
+import ImagoFFT
 import DiffractoCore
 import DiffractoScattering
 

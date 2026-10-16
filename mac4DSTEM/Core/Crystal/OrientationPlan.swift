@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import ImagoFFT
 import simd
 import DiffractoCore
 import DiffractoGeometry

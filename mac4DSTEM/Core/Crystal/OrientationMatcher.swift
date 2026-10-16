@@ -23,6 +23,7 @@
 //
 
 import Foundation
+import ImagoFFT
 import Accelerate
 import Metal
 import simd

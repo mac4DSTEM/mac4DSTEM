@@ -278,7 +278,7 @@ mac4dstem_sources() {
       acom)
         # Production Bragg types and ACOM; no harness-side type replicas.
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
-        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        kit_module "$repo" ImagoKit ImagoCore ImagoFFT   # FFT2D is ImagoKit's ImagoCore (2026-10-15); FFT1D is ImagoFFT's (0.1.1)
         want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" DiffractoKit DiffractoGeometry
         want+=("${KIT_FLAGS[@]}")
@@ -287,7 +287,6 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Compute/AnalysisCancellationToken.swift"
           "$core/Compute/MetalEngine.swift"
-          "$core/Compute/FFT1D.swift"
           "$core/Compute/MatrixDFTCorrelation.swift"
           "$core/Analysis/ProbeKernel.swift"
           "$core/Analysis/DiskDetection.swift"
@@ -305,12 +304,13 @@ mac4dstem_sources() {
         # that supplies the reference shell. OrientationPlan/OrientationMatcher
         # are deliberately absent — nothing here indexes.
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
+        kit_module "$repo" ImagoKit ImagoCore ImagoFFT   # FFT1D is ImagoFFT's (0.1.1)
+        want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" DiffractoKit DiffractoGeometry
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" readers analysis calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
-          "$core/Compute/FFT1D.swift"
           "$core/Analysis/OriginCalibration.swift"
           "$core/Analysis/FriedelOrigin.swift"
           "$core/Analysis/BeamstopMask.swift"

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- ACOM's 1D FFT is ImagoKit 0.1.1's `ImagoFFT.FFT1D` (the app's copy deleted); ImagoKit re-pinned 0.1.0 -> 0.1.1 (now GPL-3.0). No number moves.
+
 ## v4.5.0 — 2026-10-05
 
 **Requires macOS 27 on Apple Silicon**, as v4.0.0. Cut 2026-10-02 as 4.1.0 and never published; released as v4.5.0 as it stands (owner, 2026-10-05, ADR 052). This release finishes and removes more than it adds: the workspaces follow the data, the loose ends of v4.0.0 are closed, and several numbers moved (see "Science changes"). Every item passed the unit, core and inventory gates; "unverified on screen" means exactly that. Anything labelled unvalidated has not passed on a dataset with truth.
