@@ -8,10 +8,11 @@
 //
 //  NATIVE-GRID CONVENTION: detection runs on the detector's exact Q shape so
 //  its circular correlation matches NumPy/py4DSTEM for non-radix-2 data. The
-//  kernel is built directly on that grid using *wrapped* coordinates — i.e. it
-//  is corner-centered from birth, exactly the layout circular correlation
-//  needs — which sidesteps py4DSTEM's Fourier-shift step entirely. Patterns
-//  and correlation peaks land at the disk's original detector coordinates.
+//  kernel is corner-centered, exactly the layout circular correlation needs;
+//  the arithmetic (probe, shift, trench) is CuboKit's CuboVirtual, in Double,
+//  and this file keeps the Float container, the provenance and the FFT.
+//  Patterns and correlation peaks land at the disk's original detector
+//  coordinates.
 //
 //  Supports a synthetic logistic disk, a measured vacuum pattern selected
 //  with the app's real-space ROI, and a probe image carried by the file. A
@@ -27,6 +28,7 @@
 //  (open-items.md; the Gate B refuter corrected the mechanism).
 //
 
+import CuboVirtual
 import Foundation
 import ImagoCore
 
@@ -86,6 +88,10 @@ package nonisolated struct ProbeKernel: Sendable {
     package let ftIm: [Float]
 
     // MARK: Construction
+    //
+    // The kernel arithmetic is CuboKit's (`CuboVirtual.ProbeKernel`, `SyntheticProbe`; CuboKit 0.2.0, Double, step for step
+    // py4DSTEM's probe.py). This type stays the app's container: the provenance, the Float kernel the detector reads and
+    // its conjugated FFT on the native grid. Module-qualified because the kit's `ProbeKernel` enum has this struct's name.
 
     /// Synthetic probe kernel from the calibrated probe radius.
     /// - Parameters:
@@ -94,57 +100,38 @@ package nonisolated struct ProbeKernel: Sendable {
     ///     typically use ~1–2 px for sharp disks.
     ///   - trenchRadii: sigmoid trench inner/outer radii; nil → (r, 2r),
     ///     the standard choice.
+    ///
+    /// The probe is py4DSTEM's generate_synthetic_probe, the shift to the corner, the normalisation and the sine² trench
+    /// are the kit's.
+    ///
+    /// DEVIATION (kept in the app, "delete at CuboKit with a centre parameter"): the kit's `SyntheticProbe.make` centres
+    /// the disk on (rows/2, columns/2), a half pixel for an odd detector side, and the shift then blurs it bilinearly.
+    /// The app's kernel has always centred the disk on the pixel (rows/2, columns/2) with integer division, so the
+    /// shift is exact. For an even side the two probes are the same numbers; for an odd side (125 × 125 on
+    /// sim_Au_data_all_binned) the kit's probe would change the detected-candidate counts, so the logistic disk is
+    /// built here on the pixel centre.
     package nonisolated static func synthetic(radius: Float, width: Float = 2,
                           qy: Int, qx: Int,
                           trenchRadii: (Float, Float)? = nil) -> ProbeKernel? {
         let px = qx
         let py = qy
         guard let fft = FFT2D(nx: px, ny: py), radius > 0 else { return nil }
-
         let (ri, ro) = trenchRadii ?? (radius, 2 * radius)
-
-        // Both the probe and the trench are radial functions of the wrapped
-        // (corner-centered) radius on the native grid.
-        var probe = [Float](repeating: 0, count: py * px)
-        var trench = [Float](repeating: 0, count: py * px)
-        var probeSum: Float = 0
-        var trenchSum: Float = 0
+        let centreRow = py / 2, centreColumn = px / 2
+        var disk = [Double](repeating: 0, count: py * px)
         for y in 0..<py {
-            let wy = Float(y < py / 2 ? y : y - py)          // wrapped row coord
             for x in 0..<px {
-                let wx = Float(x < px / 2 ? x : x - px)      // wrapped col coord
-                let qr = (wx * wx + wy * wy).squareRoot()
-
-                // Logistic-edge disk (generate_synthetic_probe).
-                let p = 1 / (1 + exp(4 * (qr - radius) / width))
-                probe[y * px + x] = p
-                probeSum += p
-
-                // sine² sigmoid: 1 inside ri, 0 outside ro
-                // (get_probe_kernel_edge_sigmoid, type "sine_squared").
-                let t = min(max((qr - ri) / (ro - ri), 0), 1)
-                let s = cos(.pi / 2 * t) * cos(.pi / 2 * t)
-                trench[y * px + x] = s
-                trenchSum += s
+                let r = Double(y - centreRow), c = Double(x - centreColumn)
+                disk[y * px + x] = 1 / (1 + exp(4 * ((r * r + c * c).squareRoot() - Double(radius)) / Double(width)))
             }
         }
-        guard probeSum > 0, trenchSum > 0 else { return nil }
-
-        var kernel = [Float](repeating: 0, count: py * px)
-        for i in 0..<kernel.count {
-            kernel[i] = probe[i] / probeSum - trench[i] / trenchSum
-        }
-
-        // Precompute conj(FFT(kernel)).
-        var re = kernel
-        var im = [Float](repeating: 0, count: py * px)
-        fft.transform(re: &re, im: &im, forward: true)
-        for i in 0..<im.count { im[i] = -im[i] }
-
-        return ProbeKernel(px: px, py: py, qx: qx, qy: qy,
-                           probeRadius: radius, trenchRadii: (ri, ro),
-                           source: .synthetic, mode: .sigmoidTrench, probePath: nil,
-                           kernel: kernel, ftRe: re, ftIm: im)
+        guard let built = try? CuboVirtual.ProbeKernel.sigmoid(
+                DetectorImage(detectorRows: py, detectorColumns: px, values: disk, path: .cpu),
+                innerRadius: Double(ri), outerRadius: Double(ro),
+                origin: (row: Double(centreRow), column: Double(centreColumn)), bilinear: true)
+        else { return nil }
+        return finish(built, px: px, py: py, probeRadius: radius, trenchRadii: (ri, ro),
+                      source: .synthetic, mode: .sigmoidTrench, probePath: nil, fft: fft)
     }
 
     /// Vacuum-probe kernel following py4DSTEM's measured-probe sigmoid route:
@@ -175,14 +162,10 @@ package nonisolated struct ProbeKernel: Sendable {
         // masking here is a cosine shoulder from r to 2r centered on the
         // supplied origin, not from_vacuum_data's intensity threshold +
         // binary expansion + binary opening mask. A cosine shoulder from r to
-        // 2r is the native lightweight analogue of that mask.
-        var centered = [Float](repeating: 0, count: py * px)
-        let rowFloor = Int(floor(-originY))
-        let colFloor = Int(floor(-originX))
-        let rowFraction = -originY - Float(rowFloor)
-        let colFraction = -originX - Float(colFloor)
-        var probeSum: Float = 0
-        func wrapped(_ value: Int, _ count: Int) -> Int { (value % count + count) % count }
+        // 2r is the native lightweight analogue of that mask. The bilinear
+        // shift, the normalisation and the trench are the kit's.
+        var masked = [Double](repeating: 0, count: py * px)
+        var probeSum: Double = 0
         for y in 0..<qy {
             for x in 0..<qx {
                 let dx = Float(x) - originX, dy = Float(y) - originY
@@ -191,54 +174,26 @@ package nonisolated struct ProbeKernel: Sendable {
                 let mask = cos(.pi / 2 * shoulder) * cos(.pi / 2 * shoulder)
                 let value = max(pattern.pixels[y * qx + x], 0) * mask
                 guard value > 0 else { continue }
-                probeSum += value
-                let y0 = wrapped(y + rowFloor, py), y1 = wrapped(y + rowFloor + 1, py)
-                let x0 = wrapped(x + colFloor, px), x1 = wrapped(x + colFloor + 1, px)
-                centered[y0 * px + x0] += value * (1 - rowFraction) * (1 - colFraction)
-                centered[y1 * px + x0] += value * rowFraction * (1 - colFraction)
-                centered[y0 * px + x1] += value * (1 - rowFraction) * colFraction
-                centered[y1 * px + x1] += value * rowFraction * colFraction
+                masked[y * qx + x] = Double(value)
+                probeSum += Double(value)
             }
         }
-        guard probeSum > 0 else { return nil }
-
-        var trench = [Float](repeating: 0, count: py * px)
-        var trenchSum: Float = 0
-        for y in 0..<py {
-            let wy = Float(y < py / 2 ? y : y - py)
-            for x in 0..<px {
-                let wx = Float(x < px / 2 ? x : x - px)
-                let distance = (wx * wx + wy * wy).squareRoot()
-                let t = min(max((distance - ri) / (ro - ri), 0), 1)
-                let value = cos(.pi / 2 * t) * cos(.pi / 2 * t)
-                trench[y * px + x] = value
-                trenchSum += value
-            }
-        }
-        guard trenchSum > 0 else { return nil }
-        var kernel = [Float](repeating: 0, count: py * px)
-        for index in kernel.indices {
-            kernel[index] = centered[index] / probeSum - trench[index] / trenchSum
-        }
-        var re = kernel
-        var im = [Float](repeating: 0, count: kernel.count)
-        fft.transform(re: &re, im: &im, forward: true)
-        for index in im.indices { im[index] = -im[index] }
-        return ProbeKernel(
-            px: px, py: py, qx: qx, qy: qy,
-            probeRadius: radius, trenchRadii: (ri, ro), source: source,
-            mode: .sigmoidTrench, probePath: probePath,
-            kernel: kernel, ftRe: re, ftIm: im
-        )
+        guard probeSum > 0,
+              let built = try? CuboVirtual.ProbeKernel.sigmoid(
+                DetectorImage(detectorRows: py, detectorColumns: px, values: masked, path: .cpu),
+                innerRadius: Double(ri), outerRadius: Double(ro),
+                origin: (row: Double(originY), column: Double(originX)), bilinear: true)
+        else { return nil }
+        return finish(built, px: px, py: py, probeRadius: radius, trenchRadii: (ri, ro),
+                      source: source, mode: .sigmoidTrench, probePath: probePath, fft: fft)
     }
 
     /// py4DSTEM `Probe.get_probe_kernel_flat` (probe.py): the probe divided by
     /// its sum, then shifted so its centre lands on the array corner by the
-    /// Fourier shift theorem (`get_shifted_ar`, preprocess/utils.py:
-    /// `w = exp(-2πi (yshift·qy + xshift·qx))`, the real part of the inverse
-    /// transform). Nothing is masked and nothing is subtracted: the kernel
-    /// integrates to one, so the correlation responds to the probe's whole
-    /// structure — rings included — instead of to a disk edge.
+    /// Fourier shift theorem. The kit's `ProbeKernel.flat`. Nothing is masked and
+    /// nothing is subtracted: the kernel integrates to one, so the correlation
+    /// responds to the probe's whole structure — rings included — instead of to
+    /// a disk edge.
     ///
     /// DEVIATION: py4DSTEM feeds the array as stored; here a non-finite pixel
     /// counts as zero, because one NaN would otherwise poison the transform
@@ -257,45 +212,30 @@ package nonisolated struct ProbeKernel: Sendable {
         guard let fft = FFT2D(nx: px, ny: py), radius > 0,
               pattern.pixels.count == qx * qy,
               originX.isFinite, originY.isFinite else { return nil }
-        var re = [Float](repeating: 0, count: py * px)
-        var total: Float = 0
-        for index in re.indices where pattern.pixels[index].isFinite {
-            re[index] = pattern.pixels[index]
-            total += pattern.pixels[index]
-        }
-        guard total > 0 else { return nil }
-        for index in re.indices { re[index] /= total }
+        let values = pattern.pixels.map { $0.isFinite ? Double($0) : 0 }
+        guard values.reduce(0, +) > 0,
+              let built = try? CuboVirtual.ProbeKernel.flat(
+                DetectorImage(detectorRows: py, detectorColumns: px, values: values, path: .cpu),
+                origin: (row: Double(originY), column: Double(originX)), bilinear: false)
+        else { return nil }
+        return finish(built, px: px, py: py, probeRadius: radius, trenchRadii: (0, 0),
+                      source: source, mode: .flat, probePath: probePath, fft: fft)
+    }
 
-        // Fourier shift by (−originX, −originY): F(k) · exp(−2πi (dy·ky/py + dx·kx/px))
-        // with the frequency index in its wrapped (fftfreq) form.
-        var im = [Float](repeating: 0, count: py * px)
+    /// The kit's Double kernel as the app's Float container, with conj(FFT2(kernel)) precomputed on the native grid.
+    private nonisolated static func finish(
+        _ built: DetectorImage, px: Int, py: Int, probeRadius: Float, trenchRadii: (Float, Float),
+        source: ProbeKernelSource, mode: ProbeKernelMode, probePath: String?, fft: FFT2D
+    ) -> ProbeKernel {
+        let kernel = built.values.map { Float($0) }
+        var re = kernel
+        var im = [Float](repeating: 0, count: kernel.count)
         fft.transform(re: &re, im: &im, forward: true)
-        let dx = -originX, dy = -originY
-        for y in 0..<py {
-            let ky = Float(y < (py + 1) / 2 ? y : y - py)
-            for x in 0..<px {
-                let kx = Float(x < (px + 1) / 2 ? x : x - px)
-                let phase = -2 * Float.pi * (dy * ky / Float(py) + dx * kx / Float(px))
-                let c = cos(phase), s = sin(phase)
-                let index = y * px + x
-                let r0 = re[index], i0 = im[index]
-                re[index] = r0 * c - i0 * s
-                im[index] = r0 * s + i0 * c
-            }
-        }
-        fft.transform(re: &re, im: &im, forward: false)
-        let kernel = re                                   // real part of the shifted probe
-
-        var ftRe = kernel
-        var ftIm = [Float](repeating: 0, count: kernel.count)
-        fft.transform(re: &ftRe, im: &ftIm, forward: true)
-        for index in ftIm.indices { ftIm[index] = -ftIm[index] }
-        return ProbeKernel(
-            px: px, py: py, qx: qx, qy: qy,
-            probeRadius: radius, trenchRadii: (0, 0), source: source,
-            mode: .flat, probePath: probePath,
-            kernel: kernel, ftRe: ftRe, ftIm: ftIm
-        )
+        for index in im.indices { im[index] = -im[index] }
+        return ProbeKernel(px: px, py: py, qx: px, qy: py,
+                           probeRadius: probeRadius, trenchRadii: trenchRadii,
+                           source: source, mode: mode, probePath: probePath,
+                           kernel: kernel, ftRe: re, ftIm: im)
     }
 
     // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b

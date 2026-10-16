@@ -328,6 +328,20 @@ final class ProbeSizeTests: XCTestCase {
         XCTAssertEqual(fits[1].1, fits[0].1, accuracy: 0.05)
     }
 
+    /// The beamstop mask the Friedel path makes from the mean pattern is true UNDER the beamstop, and the origin finder
+    /// wants true IN the pattern: `tiledRun` inverts it. A bar beamstop breaks the pattern's centrosymmetry on one side,
+    /// so with the mask the right way round the fit lands on the true origin, and with it dropped or doubled it does not.
+    /// Mutation: remove the `!` in `tiledRun`'s `BeamstopMask.make(...).map { !$0 }`; the fit is then far off.
+    func testFriedelOriginWithABeamstopUsesTheMaskTheRightWayRound() async throws {
+        let source = FriedelCentrosymmetricSource(beamstop: true)
+        let d = try await source.discoverPrimaryDataset()
+        let run = try await OriginCalibration.tiledRun(
+            data: FourDArray(reader: source, descriptor: d), descriptor: d, fitFunction: .plane, originMethod: .friedel)
+        let fit = try XCTUnwrap(run)
+        XCTAssertEqual(fit.origin.fittedX[0], FriedelCentrosymmetricSource.originCol, accuracy: 0.6)
+        XCTAssertEqual(fit.origin.fittedY[0], FriedelCentrosymmetricSource.originRow, accuracy: 0.6)
+    }
+
     /// Friedel walks the cube in kit tiles of about a sixteenth of the scan, inside the app's tile. Progress must
     /// nevertheless move within one app tile: otherwise a 60-row production tile leaves the UI bar and its ETA frozen
     /// for minutes. Mutation: pass `tiling: .rows(rows)` the app tile (`appTileRows`) instead; then this sees only the
@@ -539,7 +553,9 @@ private actor FriedelCentrosymmetricSource: FourDDataSource {
     )
     private let cube: [Float]
 
-    init(nanPixel: Int? = nil) {
+    /// `beamstop`: a bar from beside the beam to the right edge (rows originRow ± 3, columns originCol + 2 ...), zero,
+    /// which breaks the centrosymmetry on one side only.
+    init(nanPixel: Int? = nil, beamstop: Bool = false) {
         let d = Self.descriptor
         let q = d.qx
         func gaussian(into dp: inout [Float], col: Double, row: Double, amp: Float, sigma: Double) {
@@ -556,6 +572,11 @@ private actor FriedelCentrosymmetricSource: FourDDataSource {
         for (u, v, a) in [(6.0, 3.0, 400.0), (-2.0, 8.0, 260.0), (9.0, -5.0, 180.0)] {
             gaussian(into: &pat, col: c + u, row: r + v, amp: Float(a), sigma: 1.8)   // Friedel pair
             gaussian(into: &pat, col: c - u, row: r - v, amp: Float(a), sigma: 1.8)
+        }
+        if beamstop {
+            for y in (Int(Self.originRow) - 3)...(Int(Self.originRow) + 3) {
+                for x in (Int(Self.originCol) + 2)..<q { pat[y * q + x] = 0 }
+            }
         }
         if let nanPixel { pat[nanPixel] = .nan }
         var all: [Float] = []
