@@ -53,23 +53,4 @@ final class OriginNonFiniteRow24Tests: XCTestCase {
         XCTAssertEqual(inf.x, clean.x, accuracy: 1e-4)
         XCTAssertEqual(inf.y, clean.y, accuracy: 1e-4)
     }
-
-    func testRow24FriedelOriginIgnoresANonFinitePixelInTheBeam() throws {
-        // Even-sized pattern, disk centred on a pixel-symmetric point.
-        let n = 32
-        var pattern = [Float](repeating: 0, count: n * n)
-        for y in 0..<n {
-            for x in 0..<n where hypot(Double(x) - 15.5, Double(y) - 15.5) <= 6 {
-                pattern[y * n + x] = 100
-            }
-        }
-        let clean = try XCTUnwrap(FriedelOrigin.origin(pattern: pattern, height: n, width: n))
-        XCTAssertEqual(Double(clean.col), 15.5, accuracy: 0.2)
-        XCTAssertEqual(Double(clean.row), 15.5, accuracy: 0.2)
-        var bad = pattern
-        bad[16 * n + 15] = .nan
-        let dirty = try XCTUnwrap(FriedelOrigin.origin(pattern: bad, height: n, width: n))
-        XCTAssertEqual(dirty.col, clean.col, accuracy: 1e-4)
-        XCTAssertEqual(dirty.row, clean.row, accuracy: 1e-4)
-    }
 }

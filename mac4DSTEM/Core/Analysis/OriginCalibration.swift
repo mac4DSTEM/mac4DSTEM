@@ -11,10 +11,10 @@
 //  deviations are marked DEVIATION with a reason.
 //
 
-import CuboVirtual   // CuboKit 0.1.0 also exports FriedelOrigin, BeamstopMask and ProbeKernel: in this module the app's own types of those names win (a module's declarations shadow its imports), so nothing here reads the kit's; adopting them moves the disk-detection numbers and is a separate registered item
+import CuboCore
+import CuboVirtual   // FriedelOrigin and BeamstopMask are the kit's (CuboKit 0.2.0, 2026-10-16); CuboKit also exports ProbeKernel, which the app's own type of that name still shadows here
 import Foundation
 import Metal
-import ImagoCore
 
 package enum OriginFitFunction: String, CaseIterable, Identifiable {
     case constant = "Constant"
@@ -76,30 +76,39 @@ package nonisolated enum OriginMethod: String, Sendable, CaseIterable, Codable {
     }
 }
 
-/// Base pointers into the output origin field and the tile's pixels, wrapped so
-/// the `concurrentPerform` closure can capture them; each worker writes disjoint
-/// output indices and only reads the pixels. // v3.1 Friedel speed
-private struct FriedelSlots: @unchecked Sendable {
-    let out: UnsafeMutablePointer<Float>
-    let px: UnsafePointer<Float>
-}
+/// The cube seen by `FriedelOrigin.measure`, with the two things the kit does not do: the app fills a non-finite pixel
+/// by the median of its finite 8-neighbours (`DiskDetector.fillNonFinite`, D019; review row 24; DEVIATION from
+/// py4DSTEM, whose FFT is NaN-poisoned, and the kit refuses nothing here but would propagate NaN), and it reports the
+/// fraction of rows read so far, so a tile-wise pass moves the progress bar.
+private actor FriedelFilledSource: CubeSource {
+    private let base: CuboCubeSource
+    nonisolated let shape: CubeShape
+    private let progress: (@Sendable (Double) -> Void)?
 
-/// Counts completed Friedel scan rows across a concurrent tile.  The FFT work
-/// remains unchanged; this only lets the caller distinguish a long tile from a
-/// stalled operation.
-nonisolated private final class FriedelRowProgress: @unchecked Sendable {
-    private let lock = NSLock()
-    private var completedRows: Int
-
-    init(completedRows: Int) {
-        self.completedRows = completedRows
+    init(_ base: CuboCubeSource, progress: (@Sendable (Double) -> Void)?) {
+        self.base = base
+        self.shape = base.shape
+        self.progress = progress
     }
 
-    func completeRow() -> Int {
-        lock.withLock {
-            completedRows += 1
-            return completedRows
+    func readPattern(row: Int, column: Int) async throws -> CuboCore.DiffractionPattern {
+        try await base.readPattern(row: row, column: column)
+    }
+
+    func readScanTile(rows: Range<Int>) async throws -> ScanTile {
+        progress?(Double(rows.lowerBound) / Double(shape.scanRows))
+        let tile = try await base.readScanTile(rows: rows)
+        var values = tile.values
+        if values.contains(where: { !$0.isFinite }) {
+            let h = shape.detectorRows, w = shape.detectorColumns
+            values.withUnsafeMutableBufferPointer { buf in
+                for k in 0..<tile.positionCount {
+                    _ = DiskDetector.fillNonFinite(buf.baseAddress! + k * h * w, width: w, height: h, rowStride: w)
+                }
+            }
+            return try ScanTile(shape: shape, rows: rows, values: values)
         }
+        return tile
     }
 }
 
@@ -554,9 +563,16 @@ package nonisolated enum OriginCalibration {
         case .friedel:
             // Auto-generate the beamstop mask from the mean DP (py4DSTEM
             // get_beamstop_mask; true = beamstop) and invert it for
-            // get_origin_friedel (which wants true in the pattern).
-            let patternMask = BeamstopMask.mask(meanDP: statistics.meanDP, height: d.qy, width: d.qx)
-                .map { !$0 }
+            // get_origin_friedel (which wants true in the pattern). The kit refuses a NaN mean pattern; the
+            // app's neighbour-median fill is applied first, as it is to every pattern.
+            var meanDP = statistics.meanDP
+            if meanDP.contains(where: { !$0.isFinite }) {
+                meanDP.withUnsafeMutableBufferPointer {
+                    _ = DiskDetector.fillNonFinite($0.baseAddress!, width: d.qx, height: d.qy, rowStride: d.qx)
+                }
+            }
+            let patternMask = try BeamstopMask.make(from: DetectorImage(
+                detectorRows: d.qy, detectorColumns: d.qx, values: meanDP.map(Double.init), path: .cpu)).map { !$0 }
             measured = try await friedelMeasuredOrigins(
                 data: data, descriptor: d, mask: patternMask,
                 maximumTileRows: maximumTileRows, cancellation: cancellation,
@@ -689,12 +705,13 @@ package nonisolated enum OriginCalibration {
     }
 
     /// Per-position origins by Friedel self-correlation (py4DSTEM
-    /// `get_origin_friedel`), the CPU analogue of `VirtualDetector.tiledMeasuredOrigins`.
-    /// Returns interleaved `[x0, y0, …]` in the SAME convention that path does —
-    /// `x0` is the detector column, `y0` the detector row — so it feeds
-    /// `fitOriginTrimmed` identically. `mask` is `true` in the pattern (already
-    /// inverted from `BeamstopMask`). One FFT set per pattern, so this is slower
-    /// than the GPU path; it is opt-in for beamstop data.
+    /// `get_origin_friedel`) through CuboVirtual's `FriedelOrigin.measure`, the CPU analogue of
+    /// `VirtualDetector.tiledMeasuredOrigins`. Returns interleaved `[x0, y0, …]` in the SAME convention that path
+    /// does (`x0` the detector column, `y0` the detector row; the kit's row is py4DSTEM's qx0 = app y), so it feeds
+    /// `fitOriginTrimmed` identically. `mask` is `true` in the pattern (already inverted from `BeamstopMask`). Slower
+    /// than the GPU path; opt-in for beamstop data. The pass walks the cube in tiles of at most the app's tile and of
+    /// about a sixteenth of the scan, so the bar moves within a long tile; the kit runs each tile across the cores
+    /// and checks cancellation between tiles.
     private nonisolated static func friedelMeasuredOrigins(
         data: FourDArray,
         descriptor d: DatasetDescriptor,
@@ -703,54 +720,18 @@ package nonisolated enum OriginCalibration {
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) async throws -> [Float] {
-        // The beamstop mask is identical for every pattern, so precompute its
-        // transforms ONCE and share one FFT plan (safe across concurrent workers
-        // — each transform owns its buffers); then run each tile's patterns in
-        // parallel across the cores. Before this, a full scan did ~8 FFTs per
-        // pattern on ONE core, two of them rebuilding the same mask. // v3.1 speed
-        guard let fft = FFT2D(nx: 2 * d.qx, ny: 2 * d.qy) else {
-            throw OriginCalibrationError.probeNotMeasurable
-        }
-        let prepared = FriedelOrigin.prepareBeamstop(mask: mask, height: d.qy, width: d.qx, fft: fft)
-        let rowsPerTile = await data.scanTileRows(maximumRows: maximumTileRows)
-        let patternSize = d.qy * d.qx, rx = d.rx, qy = d.qy, qx = d.qx
-        var output = [Float](repeating: 0, count: d.ry * rx * 2)
-        let ranges: [Range<Int>] = stride(from: 0, to: d.ry, by: rowsPerTile).map {
-            $0..<min(d.ry, $0 + rowsPerTile)
-        }
-        let cores = max(1, ProcessInfo.processInfo.activeProcessorCount)
-        for range in ranges {
-            guard cancellation?.isCancelled != true else { throw CancellationError() }
-            let tile = try await data.scanTile(yRange: range)
-            let scanWidth = tile.scanWidth
-            let localRows = range.count
-            let rowBase = range.lowerBound * rx
-            let workers = max(1, min(cores, localRows))
-            let rowProgress = FriedelRowProgress(completedRows: range.lowerBound)
-            output.withUnsafeMutableBufferPointer { outBuf in
-                tile.pixels.withUnsafeBufferPointer { pxBuf in
-                    let slots = FriedelSlots(out: outBuf.baseAddress!, px: pxBuf.baseAddress!)
-                    DispatchQueue.concurrentPerform(iterations: workers) { w in
-                        for localRow in stride(from: w, to: localRows, by: workers) {
-                            if cancellation?.isCancelled == true { break }
-                            for rxIdx in 0..<rx {
-                                let src = (localRow * scanWidth + rxIdx) * patternSize
-                                let pattern = Array(UnsafeBufferPointer(start: slots.px + src,
-                                                                        count: patternSize))
-                                if let origin = FriedelOrigin.origin(pattern: pattern, height: qy,
-                                                                     width: qx, prepared: prepared, fft: fft) {
-                                    let gi = (rowBase + localRow * rx + rxIdx) * 2
-                                    slots.out[gi] = origin.col       // measured X = detector column
-                                    slots.out[gi + 1] = origin.row   // measured Y = detector row
-                                }
-                            }
-                            guard cancellation?.isCancelled != true else { break }
-                            let completedRows = rowProgress.completeRow()
-                            progress?(Double(completedRows) / Double(d.ry))
-                        }
-                    }
-                }
-            }
+        let appTileRows = await data.scanTileRows(maximumRows: maximumTileRows)
+        let rows = max(1, min(appTileRows, (d.ry + 15) / 16))
+        let base = try CuboCubeSource(data, descriptor: d, cancellation: cancellation)
+        let source = FriedelFilledSource(base, progress: progress)
+        let map = try await FriedelOrigin.measure(of: source, mask: mask, tiling: .rows(rows))
+        guard cancellation?.isCancelled != true else { throw CancellationError() }
+        progress?(1)
+        let count = d.ry * d.rx
+        var output = [Float](repeating: 0, count: count * 2)
+        for i in 0..<count {
+            output[2 * i] = Float(map.column.values[i])       // measured X = detector column
+            output[2 * i + 1] = Float(map.row.values[i])      // measured Y = detector row
         }
         return output
     }

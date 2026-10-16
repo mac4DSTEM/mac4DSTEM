@@ -309,11 +309,29 @@ final class ProbeSizeTests: XCTestCase {
         XCTAssertEqual(fit.origin.fittedY[0], com.origin.fittedY[0], accuracy: 1.0)
     }
 
-    /// Friedel executes each tile's rows concurrently. Progress must nevertheless
-    /// describe completed rows, not wait for the entire tile: otherwise a 60-row
-    /// production tile leaves the UI bar and its ETA frozen for minutes.
-    /// Mutation: move the progress call back below `concurrentPerform`; then this
-    /// sees only the tile-end 0.90 fraction and fails.
+    /// Review row 24 for the Friedel path: a non-finite pixel in the beam (in every pattern and so in the mean
+    /// pattern the beamstop mask is made from) must not move the fitted origin. The kit's FFT is NaN-poisoned, so the
+    /// app's neighbour-median fill (`FriedelFilledSource`, and the fill of the mean pattern) is what this pins.
+    /// Mutation: drop the fill in `FriedelFilledSource.readScanTile`; the fit is then NaN.
+    func testFriedelOriginIgnoresANonFinitePixelInTheBeam() async throws {
+        let nanIndex = Int(FriedelCentrosymmetricSource.originRow) * 64 + Int(FriedelCentrosymmetricSource.originCol)
+        var fits: [(Float, Float)] = []
+        for pixel in [nil, nanIndex] as [Int?] {
+            let source = FriedelCentrosymmetricSource(nanPixel: pixel)
+            let d = try await source.discoverPrimaryDataset()
+            let fit = try await OriginCalibration.tiledRun(
+                data: FourDArray(reader: source, descriptor: d), descriptor: d, fitFunction: .plane, originMethod: .friedel)
+            let f = try XCTUnwrap(fit)
+            fits.append((f.origin.fittedX[0], f.origin.fittedY[0]))
+        }
+        XCTAssertEqual(fits[1].0, fits[0].0, accuracy: 0.05)
+        XCTAssertEqual(fits[1].1, fits[0].1, accuracy: 0.05)
+    }
+
+    /// Friedel walks the cube in kit tiles of about a sixteenth of the scan, inside the app's tile. Progress must
+    /// nevertheless move within one app tile: otherwise a 60-row production tile leaves the UI bar and its ETA frozen
+    /// for minutes. Mutation: pass `tiling: .rows(rows)` the app tile (`appTileRows`) instead; then this sees only the
+    /// tile-end 0.90 fraction and fails.
     func testFriedelOriginReportsProgressWithinATile() async throws {
         let source = FriedelCentrosymmetricSource()
         let d = try await source.discoverPrimaryDataset()
@@ -521,7 +539,7 @@ private actor FriedelCentrosymmetricSource: FourDDataSource {
     )
     private let cube: [Float]
 
-    init() {
+    init(nanPixel: Int? = nil) {
         let d = Self.descriptor
         let q = d.qx
         func gaussian(into dp: inout [Float], col: Double, row: Double, amp: Float, sigma: Double) {
@@ -539,6 +557,7 @@ private actor FriedelCentrosymmetricSource: FourDDataSource {
             gaussian(into: &pat, col: c + u, row: r + v, amp: Float(a), sigma: 1.8)   // Friedel pair
             gaussian(into: &pat, col: c - u, row: r - v, amp: Float(a), sigma: 1.8)
         }
+        if let nanPixel { pat[nanPixel] = .nan }
         var all: [Float] = []
         all.reserveCapacity(d.ry * d.rx * q * q)
         for _ in 0..<(d.ry * d.rx) { all.append(contentsOf: pat) }

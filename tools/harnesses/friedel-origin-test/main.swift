@@ -1,7 +1,7 @@
 //
 //  main.swift — friedel-origin-test
 //
-//  Gated parity harness for Core/Analysis/FriedelOrigin.swift, the port of
+//  Gated consumer parity harness for CuboVirtual's FriedelOrigin and BeamstopMask (the app uses the kit's since 2026-10-16), the port of
 //  py4DSTEM's `get_origin_friedel`. reference.py's `assert_source_contract`
 //  has already gated the pinned source text before this binary runs (a nonzero
 //  Python exit stops run.sh via `set -e`). This binary asserts, on a
@@ -17,6 +17,8 @@
 //   would all exceed (each moves the origin by pixels, not thousandths).
 //
 
+import CuboCore
+import CuboVirtual
 import Foundation
 
 func fail(_ message: String) -> Never {
@@ -58,15 +60,17 @@ let recoveryTolerance = 0.5
 // complex square, a dropped masked term) moves the origin by whole pixels.
 let parityTolerance = 0.1
 
-func distance(_ a: (row: Float, col: Float), _ r: Double, _ c: Double) -> Double {
-    hypot(Double(a.row) - r, Double(a.col) - c)
+func distance(_ a: (row: Double, col: Double), _ r: Double, _ c: Double) -> Double {
+    hypot(a.row - r, a.col - c)
 }
 
 // MARK: - Clean (no beamstop)
 
-guard let clean = FriedelOrigin.origin(
-    pattern: fixture.cleanPattern, height: fixture.height, width: fixture.width
-) else { fail("origin() returned nil on the clean pattern") }
+func image(_ values: [Float]) -> DetectorImage {
+    DetectorImage(detectorRows: fixture.height, detectorColumns: fixture.width, values: values.map(Double.init), path: .cpu)
+}
+let cleanRaw = try FriedelOrigin.origin(of: image(fixture.cleanPattern))
+let clean = (row: cleanRaw.row, col: cleanRaw.column)
 
 let cleanRecovery = distance(clean, fixture.plantedRow, fixture.plantedCol)
 guard cleanRecovery < recoveryTolerance else {
@@ -83,9 +87,8 @@ print("PASS: clean Friedel origin (\(clean.row), \(clean.col)) — recovery \(cl
 
 // MARK: - Beamstop (masked)
 
-guard let masked = FriedelOrigin.origin(
-    pattern: fixture.maskedPattern, height: fixture.height, width: fixture.width, mask: fixture.mask
-) else { fail("origin() returned nil on the masked pattern") }
+let maskedRaw = try FriedelOrigin.origin(of: image(fixture.maskedPattern), mask: fixture.mask)
+let masked = (row: maskedRaw.row, col: maskedRaw.column)
 
 let maskedRecovery = distance(masked, fixture.plantedRow, fixture.plantedCol)
 guard maskedRecovery < recoveryTolerance else {
@@ -103,7 +106,7 @@ print("PASS: masked (beamstop) Friedel origin (\(masked.row), \(masked.col)) —
 
 // MARK: - Beamstop mask parity (BeamstopMask vs py4DSTEM/scipy get_beamstop_mask)
 
-let swiftMask = BeamstopMask.mask(meanDP: fixture.beamstopDP, height: fixture.height, width: fixture.width)
+let swiftMask = try BeamstopMask.make(from: image(fixture.beamstopDP))
 guard swiftMask.count == fixture.beamstopMask.count else {
     fail("beamstop mask length \(swiftMask.count) != \(fixture.beamstopMask.count)")
 }

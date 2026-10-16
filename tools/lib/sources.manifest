@@ -312,8 +312,6 @@ mac4dstem_sources() {
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Analysis/OriginCalibration.swift"
-          "$core/Analysis/FriedelOrigin.swift"
-          "$core/Analysis/BeamstopMask.swift"
           "$core/Analysis/QCalibration.swift"
           "$core/Analysis/OrientationResult.swift"
           "$core/Crystal/Crystal.swift"
@@ -371,17 +369,10 @@ mac4dstem_sources() {
         )
         ;;
       friedel)
-        # The Friedel-symmetry origin finder and its beamstop-mask generator
-        # (tools/harnesses/friedel-origin-test). FriedelOrigin needs FFT2D (which links
-        # against AnalysisCancellationToken, same as the rotation group above);
-        # BeamstopMask is pure array morphology, no extra dependency.
-        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        # The Friedel origin finder and beamstop-mask generator are CuboVirtual's since 2026-10-16
+        # (tools/harnesses/friedel-origin-test is a consumer parity check against py4DSTEM's fixture).
+        kit_module "$repo" CuboKit CuboVirtual
         want+=("${KIT_FLAGS[@]}")
-        want+=(
-          "$core/Compute/AnalysisCancellationToken.swift"
-          "$core/Analysis/FriedelOrigin.swift"
-          "$core/Analysis/BeamstopMask.swift"
-        )
         ;;
       parallax)
         # The whole parallax chain; each parallax-*-test compiles all of it.

@@ -14,8 +14,8 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 - **CuboKit, kept under "Rules serve the app"** after C‴ failed (`../_archive/mac4DSTEM/docs/registrations/cubokit-switch-c-double-prime-registration-2026-10-15.md`):
   `RotationCalibration`'s refinement is in Double on CuboKit's `curve()` since `8d23dba5`; owed: a test that fails on the old
   Float refinement, and the Al–Mg–Si angle measured against py4DSTEM's float64 −82.6° (the field is not in the repo). C3 (per-position origins, `get_origin`) registered,
-  not built. The app's FriedelOrigin, BeamstopMask and ProbeKernel shadow the kit's same-named types; adopting the kit's moves
-  disk detection (register first). A negative radius now gives an empty image (was a |r| mask). A resident-cube image costs
+  not built. FriedelOrigin and BeamstopMask are the kit's since 2026-10-16; the app's ProbeKernel still shadows the kit's, and adopting that moves
+  disk detection. A negative radius now gives an empty image (was a |r| mask). A resident-cube image costs
   0.08 s (was ≤ 0.02 s) until CuboKit 0.2.1's zero-copy source.
 - **HDF5 signing (release blocker)**: the three dylibs now ship inside FormatoKit's resource bundle, ad-hoc signed; a
   Hardened Runtime build (Release) cannot load them (measured on a stand-in), Develop and Debug can. Owner's choice.
