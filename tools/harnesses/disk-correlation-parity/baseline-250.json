@@ -5,8 +5,8 @@
     250
   ],
   "measurement" : {
-    "correlationMaximumChecksum" : 8.75485235452652,
-    "intensityChecksum" : 22.070654947310686,
+    "correlationMaximumChecksum" : 8.75484350323677,
+    "intensityChecksum" : 22.070630181580782,
     "patternCount" : 32,
     "peakCountTotal" : 288,
     "perPatternPeakCounts" : [
@@ -43,7 +43,7 @@
       9,
       9
     ],
-    "positionChecksum" : 144000.3197709527
+    "positionChecksum" : 144000.31993879913
   },
   "patternCount" : 32,
   "probeRadius" : 6.1
