@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Gated parity harness for Core/Analysis/FriedelOrigin.swift (the port of
+# Gated parity harness for CuboVirtual FriedelOrigin (the port of
 # py4DSTEM's get_origin_friedel) — see main.swift for the recovery/parity legs
 # and reference.py's module docstring for the source contract that gates first.
 set -euo pipefail

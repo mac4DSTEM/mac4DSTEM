@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Source-locked parity fixture for Core/Analysis/FriedelOrigin.swift.
+"""Source-locked parity fixture for CuboVirtual FriedelOrigin.
 
 FriedelOrigin ports py4DSTEM's `get_origin_friedel`
 (References/py4DSTEM-dev/py4DSTEM/process/calibration/origin.py). This file:
 
 1. `assert_source_contract()` — the hard gate. It raises if the exact
-   expressions FriedelOrigin.swift transcribes have drifted from the pinned
+   expressions CuboVirtual FriedelOrigin transcribes have drifted from the pinned
    source, so a py4DSTEM update cannot silently invalidate the port.
 2. `friedel_origin()` — a frozen, single-pattern transcription of that
    function (both the no-beamstop `cc = Re(ifft2(fft2(im)**2))` form and the
@@ -39,7 +39,7 @@ PY4DSTEM_DATACUBE = ROOT / "References/py4DSTEM-dev/py4DSTEM/datacube/datacube.p
 def assert_source_contract() -> None:
     datacube = PY4DSTEM_DATACUBE.read_text()
     for expression in [
-        # DataCube.get_beamstop_mask — the exact steps BeamstopMask.swift ports.
+        # DataCube.get_beamstop_mask — the exact steps CuboVirtual BeamstopMask ports.
         "int_sort = np.sort(im.ravel())",
         "intensity_threshold = int_sort[ind]",
         "mask_beamstop = im >= intensity_threshold",
@@ -51,7 +51,7 @@ def assert_source_contract() -> None:
             raise RuntimeError(
                 f"py4DSTEM get_beamstop_mask contract changed: {expression!r} "
                 "no longer found in datacube.py — re-read the current source "
-                "before trusting BeamstopMask.swift"
+                "before trusting CuboVirtual BeamstopMask"
             )
     source = PY4DSTEM_ORIGIN.read_text()
     required = [
@@ -162,7 +162,7 @@ def synthetic_mean_dp(H: int, W: int) -> np.ndarray:
     fill-holes (step 3), or to the distance-transform dilation disagrees with
     scipy here. The fourth step — the dim-region fill-holes (step 2) — does not
     isolate on a small synthetic (its effect is swallowed by the 2 px dilation),
-    but it IS exercised: BeamstopMask.swift is verified pixel-identical to scipy
+    but it IS exercised: CuboVirtual BeamstopMask is verified pixel-identical to scipy
     on the real Au_ref beamstop cube (1453 px), where step 2 moves 3 px and step
     3 moves 157 (this session's diagnostic, not a committed cube)."""
     yy, xx = np.meshgrid(np.arange(H, dtype=np.float64), np.arange(W, dtype=np.float64), indexing="ij")
