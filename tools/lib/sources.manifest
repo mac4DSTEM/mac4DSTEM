@@ -522,9 +522,14 @@ mac4dstem_sources() {
   local -A seen=()
   local -a out=()
   local path
+  # A kit's objects are keyed by file name: DiffractoKit's and CuboKit's builds each compile the ImagoKit modules they
+  # depend on (same pinned revision), and the linker rejects the second ImagoCore.o as 682 duplicate symbols.
+  local key
   for path in "${want[@]}"; do
-    if (( ! ${+seen[$path]} )); then
-      seen[$path]=1
+    key=$path
+    [[ $path == *.o ]] && key="obj:${path:t}"
+    if (( ! ${+seen[$key]} )); then
+      seen[$key]=1
       out+=("$path")
     fi
   done
