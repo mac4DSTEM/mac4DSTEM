@@ -128,7 +128,7 @@ spectrokit_module() {
   local prod="$scratch/out/Products/Release" t
   if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $fpin" || ! -f "$prod/SpectroEDX.o" || ! -f "$prod/FormatoHDF5.o" ]]; then
     for t in SpectroCore SpectroEDX; do
-      swift build -c release --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
+      swift build -c release --build-system swiftbuild --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
         || { echo "sources.manifest: building SpectroKit $pin ($t) failed" >&2; exit 65; }
     done
     # The Formato objects came from the clone SpectroKit's manifest fetched into the scratch: it must be the pinned one,
@@ -167,7 +167,7 @@ kit_module() {
   local prod="$scratch/out/Products/Release" t
   if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $*" ]]; then
     for t in "$@"; do
-      swift build -c release --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
+      swift build -c release --build-system swiftbuild --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
         || { echo "sources.manifest: building $kit $pin ($t) failed" >&2; exit 65; }
     done
     echo "$pin $*" > "$scratch/.pin"

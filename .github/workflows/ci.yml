@@ -156,6 +156,9 @@ jobs:
           # of 1 does not have it, and the read used to fall through to zero,
           # so this job could never pass (found 2026-09-09).
           fetch-depth: 2
+      - name: Resolve the kit pins
+        # The redistributed-binaries check reads FormatoKit's libhdf5 from the pinned checkout.
+        run: swift package resolve
       - name: Run the inventory
         run: tools/run-tests.sh inventory
 
