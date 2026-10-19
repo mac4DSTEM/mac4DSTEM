@@ -94,7 +94,7 @@ MAC4DSTEM_ISOLATION_FLAGS=(
   -enable-upcoming-feature MemberImportVisibility
 )
 
-# SpectroKit and FormatoKit (S4, 2026-10-13, ADR 064; 2026-10-15 SpectroKit 0.4.0 + FormatoKit 0.0.3). The standalone EDX
+# SpectroKit and FormatoKit (S4, 2026-10-13, ADR 064; 2026-10-19 SpectroKit 0.6.0 + FormatoKit 0.3.0). The standalone EDX
 # core (SpectroCore, SpectroEDX) is SpectroKit's; the file readers (DM4Experiment, VeloxEMDReader) and the one HDF5 lock
 # (HDF5Serial) are FormatoKit's (FormatoCore, FormatoDM, FormatoEMD, FormatoHDF5). mac4DSTEM imports them at the exact
 # versions in Package.resolved. A harness cannot compile those sources into its own module: DM4Reader, H5Reader and

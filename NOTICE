@@ -46,7 +46,7 @@ Since v5.0 this EDX code is SpectroKit's (https://github.com/mac4DSTEM/SpectroKi
 0.4.0, GPL-3.0; the app links it and bundles its tables), whose own NOTICE carries the same
 credits; the paths below are in that repository. The DM4 and Velox EMD readers and the HDF5
 lock that SpectroKit 0.1.0 to 0.3.0 carried are FormatoKit's since SpectroKit 0.4.0
-(https://github.com/mac4DSTEM/FormatoKit, tag 0.0.3, GPL-3.0; the app links it), whose NOTICE
+(https://github.com/mac4DSTEM/FormatoKit, tag 0.3.0, GPL-3.0; the app links it), whose NOTICE
 carries their credits (eXSpy and RosettaSciIO) and the libhdf5 files' hashes.
 
 The X-ray line table (`Sources/SpectroEDX/Spectroscopy/XRayLineData.swift`: line
@@ -150,24 +150,19 @@ Identity of the three binaries (FormatoKit's FormatoHDF5 resource since 2026-10-
 stated rather than described. SHA-256, byte size, and the `LC_ID_DYLIB` current
 version each binary declares:
 
-    libhdf5.dylib   c374776deeb3e4b12874ca8d5e7aad1837a70d9363885cc742302f9d98283c64
-                    4 285 968 B, current version 320.1.1; the binary's own
+    libhdf5.dylib   d3789c224e6664cd487016a7ef5e71005984f8a04f69a7f643fcdf0332a33491
+                    4 413 552 B, current version 320.1.1; the binary's own
                     version string reads "HDF5 library version: 2.1.1"
-    libaec.0.dylib  166a8041fb067358993cd456f1d189631e2fd7931371e46a22d191bcc461b8a5
-                    52 848 B, current version 2.7.0; the binary retains the
+    libaec.0.dylib  e939c1331d1e8b2dfbfb18c1a5e849e6a60fc7aa748bef4c3ddb5d9ab55451c9
+                    52 784 B, current version 2.7.0; the binary retains the
                     build path `libaec-v1.1.7`
-    libsz.2.dylib   6ebc2e1c15e432564acdb33875ab14d977c63589402929f5c274de1b46d4774b
-                    53 280 B, current version 3.1.0; built with libaec above
+    libsz.2.dylib   2621662e6a3550c5d5f0349146baaa8b85964a25d573a0a2d4b571b14ae8a521
+                    53 088 B, current version 3.1.0; built with libaec above
 
-They were built by Homebrew on the maintainer's machine and committed here on
-2026-08-25; `libhdf5.dylib` still carries its build stamp
-`Installation point: /opt/homebrew/Cellar/hdf5/2.1.1` and HDF5's compiled-in
-default plugin search path under the same prefix, which is how the version is
-established from the binary rather than from a note. No load command in any of
-the three names an absolute path. The license texts here were taken
-from those two Homebrew installations. There is no automated rebuild path: the
-binaries are what the hashes above name, and nothing in the repository can
-reproduce them from source (`docs/open-items.md`).
+These are FormatoKit 0.2.1's rebuild (arm64, minos 15.0; HDF5 2.1.1 with libaec 1.1.7), pinned from FormatoKit 0.3.0; the recipe and
+sources are in FormatoKit's NOTICE ("HDF5, libaec and libsz (shipped)"). Until the pin moved to FormatoKit 0.3.0 they were Homebrew
+builds of 2026-08-25 (hashes in git history). No load command in any of the three names an absolute path. The license texts here
+were taken from those two Homebrew installations.
 
 
 ================================================================================

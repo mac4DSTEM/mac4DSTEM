@@ -159,7 +159,7 @@ final class RegistrationTests: XCTestCase {
         var scan = [Bool](repeating: false, count: 16)
         for (x, y) in [(0, 0), (1, 0), (0, 1), (1, 1), (2, 2), (3, 2), (2, 3)] { scan[y * 4 + x] = true }
         let pool = try PoolBuilder.pool(image: image, scanMask: scan, registration: mirror, name: "Q",
-                                        kind: "phase", validation: PoolBuilder.phaseMapValidation)
+                                        kind: "phase", validation: DSTEMCore.PoolBuilder.phaseMapValidation)
         // Included pixels p = v*2+u: (u=1,v=0) is p = 1 and (u=0,v=1) is p = 2, so (20 + c) + (30 + c).
         XCTAssertEqual(pool.mask, [false, true, true, false])
         XCTAssertEqual(pool.counts, [UInt64(20 + 30), UInt64(21 + 31), UInt64(22 + 32)])
@@ -323,7 +323,7 @@ final class RegistrationTests: XCTestCase {
 
         let t = try MaskTransport.transport(labels: f.labels4D, classCount: f.names.count, registration: f.registration)
         let pools = try PoolBuilder.pools(image: image, transported: t, names: f.names, kind: "phase",
-                                          validation: PoolBuilder.phaseMapValidation)
+                                          validation: DSTEMCore.PoolBuilder.phaseMapValidation)
         XCTAssertEqual(pools.reduce(0) { $0 + $1.pixelCount }, 768 - 55 - t.tiedExcluded,
                        "every pixel but the 55 wholly outside and the tied ones is in one pool")
         for (g, pool) in pools.enumerated() {

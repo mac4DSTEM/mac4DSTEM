@@ -193,7 +193,7 @@ file where ad hoc drawing geometry is expected — "none of it sizes text for
 a form," per its header.
 
 Standalone EDX (the fit, quantification) is SpectroKit's (`SpectroCore`, `SpectroEDX`) and the file readers with the HDF5 lock
-(`DM4Experiment`/`DM4Error`, `VeloxEMDReader`, `HDF5Serial`) are FormatoKit's, both imported at exact tags (0.4.0, 0.0.3). 4D × spectroscopy correlation stays here
+(`DM4Experiment`/`DM4Error`, `VeloxEMDReader`, `HDF5Serial`) are FormatoKit's, both imported at exact tags (0.6.0, 0.3.0). 4D × spectroscopy correlation stays here
 (`Core/Spectroscopy/Registration/`, `Session/Spectroscopy*`, the App/UI Spectroscopy room). A fix to EDX science goes to
 SpectroKit and arrives by a tag bump.
 

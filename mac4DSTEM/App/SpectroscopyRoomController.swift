@@ -81,6 +81,9 @@ nonisolated final class SpectrumComputeCache: @unchecked Sendable {
 
 @MainActor @Observable
 final class SpectroscopyRoomController {
+    /// The first `#` line of the CSV export names this app; SpectroKit 0.5.0's own default is the neutral "Spectroscopy quantification".
+    nonisolated static let csvTitle = "mac4DSTEM Spectroscopy quantification"
+
     let model: SpectroscopyRoomModel
 
     @ObservationIgnored private weak var session: SpectroscopySession?
@@ -959,7 +962,7 @@ final class SpectroscopyRoomController {
         m.resultsFooter = fit.footerLines.joined(separator: "\n")
         m.fitFooter = QuantifyPresentation.plotFooter(fit)
         let regionName = session?.regions.first { $0.id == region }?.name ?? "Whole map"
-        m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName), methodJSON: SpectroscopyExport.methodJSON(fit.method),
+        m.export = ExportSettings(csv: SpectroscopyExport.csv(fit, regionName: regionName, title: Self.csvTitle), methodJSON: SpectroscopyExport.methodJSON(fit.method),
                                   elements: SpectroscopyExport.elementsLine(fit),
                                   fileStem: SpectroscopyExport.fileStem(imageName: source.metadata.fileName, regionName: regionName))
         updateSpectrumStems(regionName: regionName)

@@ -23,8 +23,8 @@ let package = Package(
     // TOGETHER and never apart: a process that linked an older SpectroKit's HDF5Serial beside FormatoKit's would have
     // two locks around one libhdf5 that is not thread-safe. Exact: a new tag is a deliberate bump, gated like any other change.
     dependencies: [
-        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.4.0"),
-        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.0.3"),
+        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.6.0"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.3.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.4.0"),
