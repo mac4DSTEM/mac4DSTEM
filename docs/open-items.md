@@ -71,6 +71,7 @@ in `OriginCalibration.tiledRun`); CuboKit's `OriginMeasurement.measure` is CPU D
 question. Why the app deviates (measured 2026-09-01, `OriginCalibration.tiledRun` comment): the max pattern counts every Bragg disk seen anywhere in the scan as
 probe area (SPED_MgO: 14.1 px from the max, 5.4 from the mean, ~3 from substrate-only patterns; the same specimen over a 4x larger scan reads 19.1),
 and py4DSTEM's own `get_probe_size` docstring recommends a position-averaged pattern; its origin path nevertheless feeds it the max.
+Owner note 2026-10-19: intensity thresholds are user-adjustable in the UI, so they may deviate from py4DSTEM; the probe radius is not user-adjustable (check: no UI control found yet), so its default needs the proven comparison. Parked, not blocking.
 Owner direction 2026-10-19: this should match py4DSTEM unless the deviation is proven and named; decide with the comparison below.
 Before any switch: measure both on the same datasets (radius, origins, detected disks, time), then decide GPU/CPU and
 mean/max, and say what a kit option would need. Until then `OriginCalibration` measurement stays in the app.
