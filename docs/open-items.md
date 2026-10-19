@@ -64,6 +64,17 @@ unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
   q = 2 sin(½ atan(R/L))/λ and needs the camera length L, which the app does not have at this point. The two agree to
   O((R/L)²) only where L is known. Ask for a kit: a linear-scale-from-reference-ring helper, or the app supplies L.
 
+### Decision owed (owner, 2026-10-19): GPU or CPU origin measurement, and how the probe radius is measured
+The app measures per-pattern origins on the GPU (`MetalEngine.measureOrigins`) with the radius from the **mean** pattern (a DEVIATION
+in `OriginCalibration.tiledRun`); CuboKit's `OriginMeasurement.measure` is CPU Double and takes the radius from the **max** pattern
+(py4DSTEM's `dp_max` default). The radius feeds Bragg disk detection (ProbeRingHint, kernels), so this is not an origins-only
+question. Why the app deviates (measured 2026-09-01, `OriginCalibration.tiledRun` comment): the max pattern counts every Bragg disk seen anywhere in the scan as
+probe area (SPED_MgO: 14.1 px from the max, 5.4 from the mean, ~3 from substrate-only patterns; the same specimen over a 4x larger scan reads 19.1),
+and py4DSTEM's own `get_probe_size` docstring recommends a position-averaged pattern; its origin path nevertheless feeds it the max.
+Owner direction 2026-10-19: this should match py4DSTEM unless the deviation is proven and named; decide with the comparison below.
+Before any switch: measure both on the same datasets (radius, origins, detected disks, time), then decide GPU/CPU and
+mean/max, and say what a kit option would need. Until then `OriginCalibration` measurement stays in the app.
+
 ### Phase mapping under the T4 object bar (ADR 040) — one metric short
 Raw speckle, not cleaned counts, certifies a classifier (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`); the truth's cuts
 (782 / 10 / 4 px) are that dataset's, never an app default. First scored run: FAIL on θ′ edge-on raw spurious 7 > 5.
