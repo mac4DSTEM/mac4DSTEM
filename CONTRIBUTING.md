@@ -40,7 +40,7 @@ harnesses also need a Python with NumPy and py4DSTEM installed; set
 
 ## Pushing
 
-All work lands directly on `main`; there are no feature branches . Install the pre-push hook once per clone so a push
+All work lands directly on `main`; there are no feature branches. Install the pre-push hook once per clone so a push
 that CI would reject never leaves the Mac — it runs the inventory check and an
 app-target build into `build/prepush/`, never into the bundle you may be
 running:
