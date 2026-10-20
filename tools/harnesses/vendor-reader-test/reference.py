@@ -18,9 +18,15 @@ with raw.open("wb") as f:
     '<scan_resolution_y>2</scan_resolution_y></scan_parameters></root>'
 )
 
+# The same frames under the XML FormatoEMPAD recognises (RosettaSciIO's legacy pix_x/pix_y): 3 x 2, and 6 x 1 (a scan axis of size 1).
+(root / "empad_kit.xml").write_text('<root><raw_file filename="empad.raw"/><pix_x>3</pix_x><pix_y>2</pix_y></root>')
+(root / "empad_row.xml").write_text('<root><raw_file filename="empad.raw"/><pix_x>6</pix_x><pix_y>1</pix_y></root>')
+
 mib = root / "merlin.mib"
-fields = ["MQ1", "1", "384", "1", "0", "0", "U16", "1x1", "0",
-          "2026-07-14 00:00:00", "0.001", "0", "0", "0", "0", "0", "0", "0", "12"]
+# A real Merlin header (the layout of FormatoKit's MIB fixtures): frame, offset, chips, width, height, pixel code, assembly, then
+# ... timestamp, exposure in ns, a trailing field. FormatoMIB reads width and height from the header.
+fields = ["MQ1", "000000", "00384", "1", "256", "256", "U16", "1x1", "12", " " * 40,
+          "2026-07-14T00:00:00.000000Z", "1250000ns", "0", ""]
 header = (",".join(fields).encode("ascii") + b"\0").ljust(384, b"\0")
 with mib.open("wb") as f:
     for frame in range(2):

@@ -303,7 +303,7 @@ package actor H5Reader: FourDDataSource {
         }
         let buffer: [Float]
         do {
-            guard let floats = Self.floats(try reader.readDataset(candidate.path, maximumBytes: Int.max)) else {
+            guard let floats = try reader.readDataset(candidate.path, maximumBytes: Int.max).float32Values() else {
                 throw H5Error.readFailed("probe image \(candidate.path)")
             }
             buffer = floats
@@ -467,7 +467,7 @@ package actor H5Reader: FourDDataSource {
         let buffer: [Float]
         do {
             let array = try reader.readDataset(path, start: slab.start, count: slab.count, maximumBytes: Int.max)
-            guard let floats = Self.floats(array) else { throw H5Error.readFailed(label) }
+            guard let floats = array.float32Values() else { throw H5Error.readFailed(label) }
             buffer = floats
         } catch {
             throw H5Error.readFailed(label)
@@ -476,68 +476,6 @@ package actor H5Reader: FourDDataSource {
             / max(1, (view.readDetectorCrop?.height ?? view.source.qy)
                      * (view.readDetectorCrop?.width ?? view.source.qx))
         return view.binned(buffer, patternCount: patternCount)
-    }
-
-    /// The array as Float, each element converted the way `H5Dread` into `H5T_NATIVE_FLOAT` converts it (a C cast, rounding to
-    /// nearest even; float32 is copied as stored). Nil for a colour type, which no HDF5 dataset holds.
-    private static func floats(_ array: FormatoArray) -> [Float]? {
-        let n = array.count
-        return array.bytes.withUnsafeBytes { p -> [Float]? in
-            switch array.dataType {
-            case .float32:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(bitPattern: UInt32(littleEndian: p.loadUnaligned(fromByteOffset: 4 * i, as: UInt32.self))) }
-                    count = n
-                }
-            case .float64:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(Double(bitPattern: UInt64(littleEndian: p.loadUnaligned(fromByteOffset: 8 * i, as: UInt64.self)))) }
-                    count = n
-                }
-            case .uint8:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(p.loadUnaligned(fromByteOffset: i, as: UInt8.self)) }
-                    count = n
-                }
-            case .int8:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(p.loadUnaligned(fromByteOffset: i, as: Int8.self)) }
-                    count = n
-                }
-            case .uint16:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(UInt16(littleEndian: p.loadUnaligned(fromByteOffset: 2 * i, as: UInt16.self))) }
-                    count = n
-                }
-            case .int16:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(Int16(littleEndian: p.loadUnaligned(fromByteOffset: 2 * i, as: Int16.self))) }
-                    count = n
-                }
-            case .uint32:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(UInt32(littleEndian: p.loadUnaligned(fromByteOffset: 4 * i, as: UInt32.self))) }
-                    count = n
-                }
-            case .int32:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(Int32(littleEndian: p.loadUnaligned(fromByteOffset: 4 * i, as: Int32.self))) }
-                    count = n
-                }
-            case .uint64:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(UInt64(littleEndian: p.loadUnaligned(fromByteOffset: 8 * i, as: UInt64.self))) }
-                    count = n
-                }
-            case .int64:
-                return [Float](unsafeUninitializedCapacity: n) { out, count in
-                    for i in 0..<n { out[i] = Float(Int64(littleEndian: p.loadUnaligned(fromByteOffset: 8 * i, as: Int64.self))) }
-                    count = n
-                }
-            case .rgb8, .rgba8, .rgb16, .rgba16:
-                return nil
-            }
-        }
     }
 
     package func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {

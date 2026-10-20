@@ -24,6 +24,32 @@ func fail(_ message: String) -> Never {
         }
         print("PASS: EMPAD XML shape, little-endian frames, footer crop, and tile order")
 
+        // The XML FormatoEMPAD recognises: its frames equal the app-read ones, whole and cropped, and a scan axis of size 1 is squeezed by the kit
+        // and still served as [1, 6, 128, 128].
+        let kitXML = try EMPADReader(path: root.appendingPathComponent("empad_kit.xml").path)
+        let kd = try await kitXML.discoverPrimaryDataset()
+        guard kd.shape == [2, 3, 128, 128] else { fail("EMPAD kit XML descriptor \(kd.shape)") }
+        let kitView = LoadView(fullExtentOf: kd)
+        let kitTile = try await kitXML.readScanTile(kitView, yRange: 0..<2)
+        guard kitTile.pixels == et.pixels else { fail("EMPAD kit XML tile differs from the app-read tile") }
+        let kitRow = try await kitXML.readScanRow(kitView, ry: 1)
+        guard kitRow == Array(et.pixels[(3 * 128 * 128)...]) else { fail("EMPAD kit XML row") }
+        let cropView = try LoadView(source: kd, specification: LoadSpecification(
+            scanCrop: AxisCrop(yOffset: 1, xOffset: 1, height: 1, width: 2),
+            detectorCrop: AxisCrop(yOffset: 2, xOffset: 4, height: 4, width: 8)))
+        let appCropView = try LoadView(source: ed, specification: LoadSpecification(
+            scanCrop: AxisCrop(yOffset: 1, xOffset: 1, height: 1, width: 2),
+            detectorCrop: AxisCrop(yOffset: 2, xOffset: 4, height: 4, width: 8)))
+        let kitCrop = try await kitXML.readScanRow(cropView, ry: 0)
+        let appCrop = try await empad.readScanRow(appCropView, ry: 0)
+        guard kitCrop == appCrop, kitCrop.count == 2 * 4 * 8 else { fail("EMPAD kit XML cropped row differs") }
+        let rowXML = try EMPADReader(path: root.appendingPathComponent("empad_row.xml").path)
+        let rd = try await rowXML.discoverPrimaryDataset()
+        guard rd.shape == [1, 6, 128, 128] else { fail("EMPAD single-row descriptor \(rd.shape)") }
+        let rp = try await rowXML.readPattern(LoadView(fullExtentOf: rd), ry: 0, rx: 4)
+        guard rp[0] == 400_000, rp.last == 416_383 else { fail("EMPAD single-row pattern") }
+        print("PASS: EMPAD pix_x/pix_y XML is read by the kit: frames, crop and a squeezed scan axis agree with the app-read ones")
+
         do {
             _ = try EMPADReader(path: root.appendingPathComponent("ambiguous.raw").path)
             fail("ambiguous raw-only EMPAD was accepted")

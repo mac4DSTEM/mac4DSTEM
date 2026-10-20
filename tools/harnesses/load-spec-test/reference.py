@@ -102,8 +102,9 @@ with (root / "empad.raw").open("wb") as f:
 
 # ---- MIB --------------------------------------------------------------------
 MIB_SCAN = (2, 3)
-fields = ["MQ1", "1", "384", "1", "0", "0", "U16", "1x1", "0",
-          "2026-08-18 00:00:00", "0.001", "0", "0", "0", "0", "0", "0", "0", "12"]
+# A real Merlin header (the layout of FormatoKit's MIB fixtures); FormatoMIB reads the width and height from it.
+fields = ["MQ1", "000000", "00384", "1", "256", "256", "U16", "1x1", "12", " " * 40,
+          "2026-08-18T00:00:00.000000Z", "1250000ns", "0", ""]
 header = (",".join(fields).encode("ascii") + b"\0").ljust(384, b"\0")
 with (root / "merlin.mib").open("wb") as f:
     for frame in range(MIB_SCAN[0] * MIB_SCAN[1]):

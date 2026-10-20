@@ -246,10 +246,14 @@ mac4dstem_sources() {
         # The DM4 / Velox / HDF5-lock part is SpectroKit's (spectrokit_module, above).
         spectrokit_module "$repo"
         want+=("${SPECTROKIT_FLAGS[@]}")
+        # VendorRawReaders reads EMPAD and Merlin MIB through FormatoKit's FormatoEMPAD and FormatoMIB (2026-10-20).
+        kit_module "$repo" FormatoKit FormatoEMPAD FormatoMIB
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/SessionSidecarFormat.swift"
+          "$core/Data/FormatoArrayFloat32.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/DM4Reader.swift"
           "$core/Data/VendorRawReaders.swift"
@@ -537,6 +541,7 @@ mac4dstem_sources() {
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/SessionSidecarFormat.swift"
+          "$core/Data/FormatoArrayFloat32.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
