@@ -1,10 +1,11 @@
 //
 //  ParallaxAberrationCorrection.swift
-//  py4DSTEM-compatible parallax CTF phase correction.
+//  py4DSTEM-compatible parallax CTF phase correction: the app's options, result and memory/cancellation wrapper around
+//  CuboKit 0.4.0's CuboParallax.ParallaxAberrationCorrection.
 //
 
+import CuboParallax
 import Foundation
-import ImagoCore
 
 package nonisolated struct ParallaxAberrationCorrectionOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
@@ -52,7 +53,6 @@ package nonisolated enum ParallaxAberrationCorrector {
     package enum CorrectionError: LocalizedError, Equatable {
         case invalidInput(String)
         case memoryLimit(bytes: Int, limit: Int)
-        case fftUnavailable
         case cancelled
 
         package var errorDescription: String? {
@@ -61,14 +61,16 @@ package nonisolated enum ParallaxAberrationCorrector {
                 return "Cannot correct the parallax phase: \(detail)."
             case .memoryLimit(let bytes, let limit):
                 return "Parallax phase correction needs about \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)), above its \(ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file)) limit."
-            case .fftUnavailable:
-                return "Could not create the exact-shape FFT used for phase correction."
             case .cancelled:
                 return "Parallax phase correction was cancelled."
             }
         }
     }
 
+    /// CuboParallax's `ParallaxAberrationCorrection.correct` with `highpass: .apply` (this app's behaviour: the Butterworth high-pass
+    /// envelope is applied, where the pinned py4DSTEM accepts and ignores it). The kit works in Double on the whole padded image;
+    /// the app keeps the memory refusal and the cancellation checks around the call (the kit has no cancellation hook, so a cancel
+    /// lands before the kit call or after it, not inside it: delete at a CuboKit with a cancellation token).
     package static func correct(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
@@ -93,113 +95,66 @@ package nonisolated enum ParallaxAberrationCorrector {
               options.maxWorkingBytes > 0 else {
             throw CorrectionError.invalidInput("sampling, filters, or memory limit are invalid")
         }
-        let workingBytes = count * MemoryLayout<Float>.stride * 10
+        // The kit holds about twelve Double planes (image, both phase surfaces, frequencies, the transfer pair, the spectrum and its
+        // scratch); the Float results (padded phase, both phases, the transfer pair) come on top.
+        let (planeBytes, overflow) = count.multipliedReportingOverflow(
+            by: 12 * MemoryLayout<Double>.stride + 5 * MemoryLayout<Float>.stride)
+        guard !overflow else { throw CorrectionError.invalidInput("padded dimensions overflow") }
+        let workingBytes = planeBytes
         guard workingBytes <= options.maxWorkingBytes else {
             throw CorrectionError.memoryLimit(
                 bytes: workingBytes, limit: options.maxWorkingBytes
             )
         }
-        guard let fft = FFT2D(nx: width, ny: height) else {
-            throw CorrectionError.fftUnavailable
+        let wavelength = preprocessing.calibration.wavelengthAngstrom
+        let kit: CuboParallax.ParallaxCorrectionResult
+        do {
+            kit = try CuboParallax.ParallaxAberrationCorrection.correct(
+                alignment.alignedBF.map(Double.init), rows: height, columns: width,
+                sampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
+                wavelength: wavelength,
+                terms: fit.terms.map {
+                    CuboParallax.ParallaxAberrationTerm(
+                        radialOrder: $0.radialOrder, angularOrder: $0.angularOrder, component: $0.component)
+                },
+                coefficients: fit.coefficientsAngstrom,
+                defocusOnly: options.useFullFit ? nil : fit.lowOrder.c1Angstrom,
+                lowpass: options.qLowpassInvAngstrom, highpass: options.qHighpassInvAngstrom,
+                butterworthOrder: options.butterworthOrder, highpassBehavior: .apply
+            )
+        } catch {
+            throw CorrectionError.invalidInput(parallaxKitReason(error))
         }
+        try checkCancellation(cancellation)
 
-        var chiEven = [Float](repeating: 0, count: count)
-        var chiOdd = [Float](repeating: 0, count: count)
-        for row in 0..<height {
-            try checkCancellation(cancellation)
-            let kRow = Double(FFT2D.fftfreq(row, height)) / sampling
-            for column in 0..<width {
-                let kColumn = Double(FFT2D.fftfreq(column, width)) / sampling
-                let frequency = hypot(kRow, kColumn)
-                let alpha = frequency * preprocessing.calibration.wavelengthAngstrom
-                let theta = atan2(kColumn, kRow)
-                let index = row * width + column
-                if options.useFullFit {
-                    var even: Double = 0, odd: Double = 0
-                    for (term, coefficient) in zip(
-                        fit.terms, fit.coefficientsAngstrom
-                    ) {
-                        let radial = pow(alpha, Double(term.radialOrder + 1))
-                            / Double(term.radialOrder + 1)
-                        let basis: Double
-                        if term.angularOrder == 0 {
-                            basis = radial
-                        } else if term.component == 0 {
-                            basis = radial * cos(Double(term.angularOrder) * theta)
-                        } else {
-                            basis = radial * sin(Double(term.angularOrder) * theta)
-                        }
-                        if term.radialOrder.isMultiple(of: 2) {
-                            odd += basis * coefficient
-                        } else {
-                            even += basis * coefficient
-                        }
-                    }
-                    let scale = 2 * Double.pi
-                        / preprocessing.calibration.wavelengthAngstrom
-                    chiEven[index] = Float(even * scale)
-                    chiOdd[index] = Float(odd * scale)
-                } else {
-                    chiEven[index] = Float(
-                        Double.pi * preprocessing.calibration.wavelengthAngstrom
-                            * fit.lowOrder.c1Angstrom * frequency * frequency
-                    )
-                }
-            }
-        }
-        if options.useFullFit && !chiEven.contains(where: { $0 != 0 }) {
-            chiEven = [Float](repeating: 1, count: count)
-        }
-
+        // The transfer function the kit applied, from its phase surfaces: sign(sin chi_even) * exp(-i chi_odd) * the Butterworth
+        // envelope, DC removed. The kit returns the corrected image and the two phase surfaces but not the transfer pair that the
+        // product stores and the harness pins (delete at a CuboKit that returns the transfer function).
         var transferReal = [Float](repeating: 0, count: count)
         var transferImaginary = [Float](repeating: 0, count: count)
         for row in 0..<height {
-            let kRow = Double(FFT2D.fftfreq(row, height)) / sampling
+            let kRow = frequency(row, height) / sampling
             for column in 0..<width {
-                let kColumn = Double(FFT2D.fftfreq(column, width)) / sampling
-                let frequency = hypot(kRow, kColumn)
+                let kColumn = frequency(column, width) / sampling
+                let q = hypot(kRow, kColumn)
                 let index = row * width + column
-                let sign: Double = sin(Double(chiEven[index])) > 0 ? 1
-                    : (sin(Double(chiEven[index])) < 0 ? -1 : 0)
+                let sine = sin(kit.chiEven[index])
+                let sign: Double = sine > 0 ? 1 : (sine < 0 ? -1 : 0)
                 var envelope: Double = 1
                 if let lowpass = options.qLowpassInvAngstrom {
-                    envelope /= 1 + pow(
-                        frequency / lowpass,
-                        Double(2 * options.butterworthOrder)
-                    )
+                    envelope /= 1 + pow(q / lowpass, Double(2 * options.butterworthOrder))
                 }
                 if let highpass = options.qHighpassInvAngstrom {
-                    envelope *= 1 - 1 / (1 + pow(
-                        frequency / highpass,
-                        Double(2 * options.butterworthOrder)
-                    ))
+                    envelope *= 1 - 1 / (1 + pow(q / highpass, Double(2 * options.butterworthOrder)))
                 }
-                transferReal[index] = Float(
-                    sign * cos(Double(chiOdd[index])) * envelope
-                )
-                transferImaginary[index] = Float(
-                    -sign * sin(Double(chiOdd[index])) * envelope
-                )
+                transferReal[index] = Float(sign * cos(kit.chiOdd[index]) * envelope)
+                transferImaginary[index] = Float(-sign * sin(kit.chiOdd[index]) * envelope)
             }
         }
         transferReal[0] = 0
         transferImaginary[0] = 0
 
-        var real = alignment.alignedBF
-        var imaginary = [Float](repeating: 0, count: count)
-        fft.transform(re: &real, im: &imaginary, forward: true)
-        for index in 0..<count {
-            let oldReal = real[index], oldImaginary = imaginary[index]
-            real[index] = oldReal * transferReal[index]
-                - oldImaginary * transferImaginary[index]
-            imaginary[index] = oldReal * transferImaginary[index]
-                + oldImaginary * transferReal[index]
-        }
-        try checkCancellation(cancellation)
-        fft.transform(re: &real, im: &imaginary, forward: false,
-                      scaleInverse: true)
-        try checkCancellation(cancellation)
-
+        let real = kit.image.map(Float.init)
         let top = (height - preprocessing.scanHeight) / 2
         let left = (width - preprocessing.scanWidth) / 2
         var cropped = [Float](repeating: 0,
@@ -218,13 +173,17 @@ package nonisolated enum ParallaxAberrationCorrector {
                 height: preprocessing.scanHeight,
                 pixels: cropped
             ),
-            chiEven: chiEven, chiOdd: chiOdd,
+            chiEven: kit.chiEven.map(Float.init), chiOdd: kit.chiOdd.map(Float.init),
             transferReal: transferReal, transferImaginary: transferImaginary,
             samplingAngstrom: sampling, usedFullFit: options.useFullFit,
             qLowpassInvAngstrom: options.qLowpassInvAngstrom,
             qHighpassInvAngstrom: options.qHighpassInvAngstrom,
             butterworthOrder: options.butterworthOrder
         )
+    }
+
+    private static func frequency(_ index: Int, _ count: Int) -> Double {
+        Double(index < (count + 1) / 2 ? index : index - count) / Double(count)
     }
 
     private static func validCutoff(_ value: Double?) -> Bool {

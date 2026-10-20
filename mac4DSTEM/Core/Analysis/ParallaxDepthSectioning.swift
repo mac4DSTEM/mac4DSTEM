@@ -1,10 +1,11 @@
 //
 //  ParallaxDepthSectioning.swift
-//  Source-locked py4DSTEM Parallax.depth_section implementation.
+//  py4DSTEM Parallax.depth_section: the app's options, result and memory/cancellation wrapper around CuboKit 0.4.0's
+//  CuboParallax.ParallaxDepthSectioning.
 //
 
+import CuboParallax
 import Foundation
-import ImagoCore
 
 package nonisolated struct ParallaxDepthOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
@@ -68,7 +69,6 @@ package nonisolated enum ParallaxDepthSectioner {
     package enum DepthError: LocalizedError, Equatable {
         case invalidInput(String)
         case memoryLimit(bytes: Int, limit: Int)
-        case fftUnavailable
         case cancelled
 
         package var errorDescription: String? {
@@ -76,15 +76,16 @@ package nonisolated enum ParallaxDepthSectioner {
             case .invalidInput(let detail):
                 return "Cannot depth-section the parallax result: \(detail)."
             case .memoryLimit(let bytes, let limit):
-                return "Parallax depth sectioning needs about \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)), above its \(ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file)) limit. Reduce the depth count or crop/bin first."
-            case .fftUnavailable:
-                return "Could not create the exact-shape FFT used for depth sectioning."
+                return "Parallax depth sectioning needs about \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)), above its \(ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file)) limit. Crop/bin first, or reduce the depth count."
             case .cancelled:
                 return "Parallax depth sectioning was cancelled."
             }
         }
     }
 
+    /// CuboParallax's `ParallaxDepthSectioning.section` (`.fullFit` or `.defocusOnly` as `useFullFit` says) on the aligned stack, in Double.
+    /// The kit takes the whole stack as Double images; the app calls it once per depth plane (cancellation and progress between planes)
+    /// and keeps the memory refusal.
     package static func section(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
@@ -118,100 +119,58 @@ package nonisolated enum ParallaxDepthSectioner {
             throw DepthError.invalidInput("depth-stack dimensions overflow")
         }
         let outputCount = options.depthsAngstrom.count * count
-        guard outputCount <= Int.max / MemoryLayout<Float>.stride else {
+        guard outputCount <= Int.max / MemoryLayout<Double>.stride,
+              bfCount <= Int.max / count / (3 * MemoryLayout<Double>.stride) else {
             throw DepthError.invalidInput("depth-stack byte size overflows")
         }
-        let outputBytes = outputCount * MemoryLayout<Float>.stride
-        let scratchBytes = count * MemoryLayout<Float>.stride * 5
-        let workingBytes = outputBytes + scratchBytes
+        // The kit's peak per call, beside the Float stack the alignment already holds: the stack as Double images (converted once,
+        // held for every plane), its complex spectra (two Double planes each, rebuilt per call), one Double plane returned, and the
+        // sign / envelope / accumulation scratch; then the whole Float output.
+        let doubleBytes = MemoryLayout<Double>.stride
+        let workingBytes = bfCount * count * 3 * doubleBytes          // images + spectra
+            + outputCount * MemoryLayout<Float>.stride                // the Float stack
+            + count * 7 * doubleBytes                                 // returned plane, sign, envelope, mean, transform scratch
         guard workingBytes <= options.maxWorkingBytes else {
             throw DepthError.memoryLimit(bytes: workingBytes, limit: options.maxWorkingBytes)
         }
-        guard let fft = FFT2D(nx: width, ny: height) else {
-            throw DepthError.fftUnavailable
-        }
 
         let sampling = preprocessing.calibration.scanSamplingAngstrom
-        let wavelength = preprocessing.calibration.wavelengthAngstrom
-        var ctf = [Float](repeating: 0, count: count)
-        var envelope = [Float](repeating: 1, count: count)
-        for row in 0..<height {
-            let kRow = Double(FFT2D.fftfreq(row, height)) / sampling
-            for column in 0..<width {
-                let kColumn = Double(FFT2D.fftfreq(column, width)) / sampling
-                let frequency2 = kRow * kRow + kColumn * kColumn
-                let chi: Double
-                if options.useFullFit {
-                    let alpha = sqrt(frequency2) * wavelength
-                    let theta = atan2(kColumn, kRow)
-                    var value: Double = 0
-                    for (term, coefficient) in zip(
-                        fit.terms, fit.coefficientsAngstrom
-                    ) {
-                        let radial = pow(alpha, Double(term.radialOrder + 1))
-                            / Double(term.radialOrder + 1)
-                        if term.angularOrder == 0 {
-                            value += radial * coefficient
-                        } else if term.component == 0 {
-                            value += radial
-                                * cos(Double(term.angularOrder) * theta) * coefficient
-                        } else {
-                            value += radial
-                                * sin(Double(term.angularOrder) * theta) * coefficient
-                        }
-                    }
-                    chi = value * 2 * .pi / wavelength
-                } else {
-                    chi = .pi * wavelength * fit.lowOrder.c1Angstrom * frequency2
-                }
-                let sine = sin(chi)
-                let index = row * width + column
-                ctf[index] = sine > 0 ? 1 : (sine < 0 ? -1 : 0)
-                if let limit = options.informationLimitInvAngstrom {
-                    envelope[index] = Float(1 / (
-                        1 + pow(frequency2, options.informationPower)
-                            / pow(limit, 2 * options.informationPower)
-                    ))
-                }
-            }
+        let ctf: CuboParallax.ParallaxDepthCTF = options.useFullFit
+            ? .fullFit(
+                terms: fit.terms.map {
+                    CuboParallax.ParallaxAberrationTerm(
+                        radialOrder: $0.radialOrder, angularOrder: $0.angularOrder, component: $0.component)
+                },
+                coefficientsAngstrom: fit.coefficientsAngstrom)
+            : .defocusOnly(c1Angstrom: fit.lowOrder.c1Angstrom)
+        let images: [[Double]] = (0..<bfCount).map { bf in
+            alignment.shiftedStack[(bf * count)..<((bf + 1) * count)].map(Double.init)
         }
-        ctf[0] = 0
-
+        let angles = preprocessing.probeAnglesMrad.map {
+            CuboParallax.ParallaxShift(row: Double($0.qx) / 1_000, column: Double($0.qy) / 1_000)
+        }
+        // One kit call per depth plane, so a cancel lands between planes as before. The kit transforms every image forward on each
+        // call (a plane's own work is one shift and one inverse FFT per image), so this costs one extra forward FFT per image per plane:
+        // about 1.5x the FFT work of a single multi-depth call, measured nowhere on real data (delete at a CuboKit that takes the
+        // depth list with a per-plane callback).
         var stack = [Float](repeating: 0, count: outputCount)
         for (depthIndex, depth) in options.depthsAngstrom.enumerated() {
             try checkCancellation(cancellation)
-            var accumulated = [Float](repeating: 0, count: count)
-            for bf in 0..<bfCount {
-                if bf & 3 == 0 { try checkCancellation(cancellation) }
-                let plane = bf * count
-                var real = Array(alignment.shiftedStack[plane..<(plane + count)])
-                var imaginary = [Float](repeating: 0, count: count)
-                fft.transform(re: &real, im: &imaginary, forward: true)
-                let angleRow = Double(preprocessing.probeAnglesMrad[bf].qx) / 1_000
-                let angleColumn = Double(preprocessing.probeAnglesMrad[bf].qy) / 1_000
-                let shiftRows = -angleRow * depth / sampling
-                let shiftColumns = -angleColumn * depth / sampling
-                for row in 0..<height {
-                    let frequencyRow = Double(FFT2D.fftfreq(row, height))
-                    for column in 0..<width {
-                        let frequencyColumn = Double(FFT2D.fftfreq(column, width))
-                        let phase = -2 * Double.pi * (
-                            frequencyRow * shiftRows + frequencyColumn * shiftColumns
-                        )
-                        let cosine = Float(cos(phase)), sine = Float(sin(phase))
-                        let index = row * width + column
-                        let multiplier = ctf[index] * envelope[index]
-                        let oldReal = real[index], oldImaginary = imaginary[index]
-                        real[index] = (oldReal * cosine - oldImaginary * sine) * multiplier
-                        imaginary[index] = (oldReal * sine + oldImaginary * cosine) * multiplier
-                    }
-                }
-                fft.transform(re: &real, im: &imaginary, forward: false)
-                for index in 0..<count { accumulated[index] += real[index] }
+            let planes: [[Double]]
+            do {
+                planes = try CuboParallax.ParallaxDepthSectioning.section(
+                    stack: images, rows: height, columns: width, probeAngles: angles,
+                    sampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
+                    wavelength: preprocessing.calibration.wavelengthAngstrom, ctf: ctf,
+                    depthsAngstrom: [depth],
+                    informationLimit: options.informationLimitInvAngstrom,
+                    informationPower: options.informationPower
+                )
+            } catch {
+                throw DepthError.invalidInput(parallaxKitReason(error))
             }
-            let scale = 1 / Float(bfCount)
             let destination = depthIndex * count
-            for index in 0..<count { stack[destination + index] = accumulated[index] * scale }
+            for index in 0..<count { stack[destination + index] = Float(planes[0][index]) }
             progress?(Double(depthIndex + 1) / Double(options.depthsAngstrom.count))
         }
         try checkCancellation(cancellation)
