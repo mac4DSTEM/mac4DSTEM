@@ -233,193 +233,16 @@ package nonisolated enum PhaseExpectationVerdict: Equatable, Sendable {
 }
 
 // MARK: - Cell standardisation (session S4b)
-
-/// Whether `MaterialsProjectImport.standardise` had to convert the served
-/// cell. The MP API's `structure` is the relaxed cell as stored — normally a
-/// *primitive* cell for a centred lattice, converted to conventional
-/// CLIENT-side by the mp-api Python client with pymatgen's
-/// `SpacegroupAnalyzer` (verified 2026-09-21 from `mprester.py`). mac4DSTEM
-/// talks to the REST API directly and gets the served cell as-is, so this
-/// importer has to do that conversion itself — or refuse when it cannot
-/// verify one — rather than silently classifying the primitive cell's metric
-/// (an FCC primitive is a=b=c, α=β=γ=60°, which reads as `.identity`, not
-/// `.cubic`; a zone axis typed in conventional indices is then wrong).
-package nonisolated enum CellStandardisation: Equatable, Sendable {
-    /// The served cell already was the conventional cell (`P`-centred, or a
-    /// centred cell metrically conventional already), or there was no
-    /// reported symmetry to standardise against.
-    case asServed
-    /// The served cell was a primitive cell for the named centring, and was
-    /// transformed to the conventional cell by the fixed ITA basis change
-    /// for that centring.
-    case conventional(centring: Character)
-}
-
-/// Row-major 3×3 helpers for the fixed integer centring-transformation
-/// matrices below. Deliberately separate from the kit's metric-tensor helpers
-/// (`UnitCell`'s `gram`/`matMul`/`invert3x3`) — those compute the real/reciprocal
-/// metric tensor, a different piece of math from an integer change-of-basis
-/// between two real-space settings, and they are internal to the kit, so this is
-/// a second small implementation by necessity, not a duplicate of the same science.
-package nonisolated enum Matrix3 {
-    static func determinant(_ m: [[Double]]) -> Double {
-        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
-            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
-    }
-
-    static func determinant(_ rows: [SIMD3<Double>]) -> Double {
-        determinant([
-            [rows[0].x, rows[0].y, rows[0].z],
-            [rows[1].x, rows[1].y, rows[1].z],
-            [rows[2].x, rows[2].y, rows[2].z],
-        ])
-    }
-
-    static func inverse(_ m: [[Double]]) -> [[Double]]? {
-        let det = determinant(m)
-        guard abs(det) > 1e-12 else { return nil }
-        // Cofactor matrix; the inverse is its transpose (the adjugate) over
-        // the determinant.
-        let cof: [[Double]] = [
-            [
-                m[1][1] * m[2][2] - m[1][2] * m[2][1],
-                -(m[1][0] * m[2][2] - m[1][2] * m[2][0]),
-                m[1][0] * m[2][1] - m[1][1] * m[2][0],
-            ],
-            [
-                -(m[0][1] * m[2][2] - m[0][2] * m[2][1]),
-                m[0][0] * m[2][2] - m[0][2] * m[2][0],
-                -(m[0][0] * m[2][1] - m[0][1] * m[2][0]),
-            ],
-            [
-                m[0][1] * m[1][2] - m[0][2] * m[1][1],
-                -(m[0][0] * m[1][2] - m[0][2] * m[1][0]),
-                m[0][0] * m[1][1] - m[0][1] * m[1][0],
-            ],
-        ]
-        var inv = [[Double]](repeating: [Double](repeating: 0, count: 3), count: 3)
-        for i in 0..<3 {
-            for j in 0..<3 {
-                inv[i][j] = cof[j][i] / det
-            }
-        }
-        return inv
-    }
-
-    /// New lattice row *i* = Σⱼ `m[i][j]` · `oldRows[j]` — the convention the
-    /// pre-registration's centring matrices are written in ("rows are the
-    /// new basis vectors in terms of the old"). Verified 2026-09-21 on the
-    /// Si case: applying the F matrix this way to the F-centred primitive's
-    /// `a/2·(0,1,1), a/2·(1,0,1), a/2·(1,1,0)` reproduces the conventional
-    /// cubic `(a,0,0), (0,a,0), (0,0,a)` exactly.
-    ///
-    /// Written as explicit typed per-term sums, `(t0 + t1) + t2` — exactly the
-    /// left-to-right association the former one-line
-    /// `m[i][0]*r0 + m[i][1]*r1 + m[i][2]*r2` had, so every result is
-    /// bit-identical (pinned by `ReviewCIHonestTests`). That one expression
-    /// made the Xcode 26 type-checker give up ("unable to type-check this
-    /// expression in reasonable time"), which turned the CI `core` job red.
-    package static func transformRows(_ oldRows: [SIMD3<Double>], by m: [[Double]]) -> [SIMD3<Double>] {
-        var newRows: [SIMD3<Double>] = []
-        newRows.reserveCapacity(3)
-        for i in 0..<3 {
-            let row: [Double] = m[i]
-            let term0: SIMD3<Double> = row[0] * oldRows[0]
-            let term1: SIMD3<Double> = row[1] * oldRows[1]
-            let term2: SIMD3<Double> = row[2] * oldRows[2]
-            let partial: SIMD3<Double> = term0 + term1
-            newRows.append(partial + term2)
-        }
-        return newRows
-    }
-
-    /// Row-vector-times-matrix: result_j = Σᵢ `v[i]` · `m[i][j]`. Fractional
-    /// coordinates transform with the matrix that carries the LATTICE from
-    /// conventional back to primitive, i.e. the inverse of the matrix used
-    /// in `transformRows` above (derivation: r = xₚᵀ·Aₚ = xᵀ·(M·Aₚ) requires
-    /// xₚᵀ = xᵀ·M, so x = xₚ·M⁻¹ as row vectors) — verified on Si: with
-    /// `Minv` for the F matrix, (0,0,0)↦(0,0,0) and
-    /// (0.25,0.25,0.25)↦(0.25,0.25,0.25), and adding the four F-centring
-    /// translations to each reproduces exactly the eight conventional
-    /// diamond-cubic sites.
-    static func applyToRowVector(_ v: SIMD3<Double>, _ m: [[Double]]) -> SIMD3<Double> {
-        SIMD3(
-            v.x * m[0][0] + v.y * m[1][0] + v.z * m[2][0],
-            v.x * m[0][1] + v.y * m[1][1] + v.z * m[2][1],
-            v.x * m[0][2] + v.y * m[1][2] + v.z * m[2][2]
-        )
-    }
-}
-
-/// One centred-lattice standardisation: the fixed ITA change-of-basis matrix
-/// (rows = conventional basis vectors in terms of the primitive ones), the
-/// centring multiplicity (= its determinant), and the centring translations
-/// added to every transformed fractional position.
-private nonisolated struct CentringTransform {
-    let matrix: [[Double]]
-    let multiplicity: Int
-    let translations: [SIMD3<Double>]
-}
-
-private nonisolated func centringTransform(for letter: Character) -> CentringTransform? {
-    switch letter {
-    case "F":
-        return CentringTransform(
-            matrix: [[-1, 1, 1], [1, -1, 1], [1, 1, -1]],
-            multiplicity: 4,
-            translations: [
-                SIMD3(0, 0, 0), SIMD3(0, 0.5, 0.5), SIMD3(0.5, 0, 0.5), SIMD3(0.5, 0.5, 0),
-            ]
-        )
-    case "I":
-        return CentringTransform(
-            matrix: [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
-            multiplicity: 2,
-            translations: [SIMD3(0, 0, 0), SIMD3(0.5, 0.5, 0.5)]
-        )
-    case "C":
-        return CentringTransform(
-            matrix: [[1, -1, 0], [1, 1, 0], [0, 0, 1]],
-            multiplicity: 2,
-            translations: [SIMD3(0, 0, 0), SIMD3(0.5, 0.5, 0)]
-        )
-    case "A":
-        return CentringTransform(
-            matrix: [[1, 0, 0], [0, 1, -1], [0, 1, 1]],
-            multiplicity: 2,
-            translations: [SIMD3(0, 0, 0), SIMD3(0, 0.5, 0.5)]
-        )
-    case "B":
-        return CentringTransform(
-            matrix: [[1, 0, -1], [0, 1, 0], [1, 0, 1]],
-            multiplicity: 2,
-            translations: [SIMD3(0, 0, 0), SIMD3(0.5, 0, 0.5)]
-        )
-    case "R":
-        // Obverse hexagonal setting.
-        return CentringTransform(
-            matrix: [[1, -1, 0], [0, 1, -1], [1, 1, 1]],
-            multiplicity: 3,
-            translations: [
-                SIMD3(0, 0, 0), SIMD3(2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0), SIMD3(1.0 / 3.0, 2.0 / 3.0, 2.0 / 3.0),
-            ]
-        )
-    default:
-        return nil
-    }
-}
-
-/// Reduce one fractional coordinate into `[0, 1)`, snapping values within
-/// 1e-9 of an integer to exactly 0 — the same "don't leave a 0.999999999998
-/// where a 0 belongs" precaution the kit's `wrapFractional` applies (not
-/// reused verbatim: this one keeps the app's own `>= 1 - 1e-9` snap).
-private nonisolated func wrap01(_ x: Double) -> Double {
-    var m = x.truncatingRemainder(dividingBy: 1)
-    if m < 0 { m += 1 }
-    if m >= 1 - 1e-9 || abs(m) < 1e-9 { m = 0 }
-    return m
-}
+//
+// The MP API's `structure` is the relaxed cell as stored: normally a *primitive* cell for a centred lattice,
+// converted to conventional CLIENT-side by the mp-api Python client with pymatgen's `SpacegroupAnalyzer`
+// (verified 2026-09-21 from `mprester.py`). mac4DSTEM talks to the REST API directly and gets the served cell
+// as-is, so this importer converts it itself, or refuses when it cannot verify the conversion, rather than
+// silently classifying the primitive cell's metric (an FCC primitive is a=b=c, α=β=γ=60°, which reads as
+// `.identity`, not `.cubic`; a zone axis typed in conventional indices is then wrong). The conversion (the fixed
+// ITA change of basis per centring letter, and its guards) is DiffractoCore's `CellStandardisation`, the app's
+// route pinned to this importer's former output (P20); `MaterialsProjectImport.standardise` adapts the JSON
+// models to it.
 
 /// Angle between two Cartesian vectors, in degrees, clamping the cosine to
 /// `[-1, 1]` before `acos` so float rounding on a near-parallel/antiparallel
@@ -427,47 +250,6 @@ private nonisolated func wrap01(_ x: Double) -> Double {
 private nonisolated func angleDeg(between u: SIMD3<Double>, and v: SIMD3<Double>) -> Double {
     let cosTheta = dot(u, v) / (length(u) * length(v))
     return acos(min(1, max(-1, cosTheta))) * 180 / .pi
-}
-
-/// Does this cell metric already look like the conventional cell for
-/// `system` (MP's lowercased `symmetry.crystal_system`)? Tolerances per the
-/// pre-registration: 1e-3 relative on lengths, 1e-2° on angles. Used both to
-/// decide whether a served cell needs standardising at all, and — on the
-/// transformed cell — as guard (a) that the transform actually produced a
-/// conventional cell for the stated system (never a silently-wrong one for a
-/// system that doesn't match, e.g. a cubic result reported as "hexagonal").
-private nonisolated func isAlreadyConventionalCell(
-    system: String, a: Double, b: Double, c: Double, alphaDeg: Double, betaDeg: Double, gammaDeg: Double
-) -> Bool {
-    func lengthsMatch(_ x: Double, _ y: Double) -> Bool {
-        abs(x - y) <= 1e-3 * max(1, max(abs(x), abs(y)))
-    }
-    func angleMatches(_ angle: Double, _ target: Double) -> Bool {
-        abs(angle - target) <= 1e-2
-    }
-    switch system {
-    case "cubic":
-        return lengthsMatch(a, b) && lengthsMatch(a, c)
-            && angleMatches(alphaDeg, 90) && angleMatches(betaDeg, 90) && angleMatches(gammaDeg, 90)
-    case "tetragonal":
-        return lengthsMatch(a, b)
-            && angleMatches(alphaDeg, 90) && angleMatches(betaDeg, 90) && angleMatches(gammaDeg, 90)
-    case "orthorhombic":
-        return angleMatches(alphaDeg, 90) && angleMatches(betaDeg, 90) && angleMatches(gammaDeg, 90)
-    case "hexagonal", "trigonal":
-        return lengthsMatch(a, b)
-            && angleMatches(alphaDeg, 90) && angleMatches(betaDeg, 90) && angleMatches(gammaDeg, 120)
-    case "monoclinic":
-        // b-unique setting.
-        return angleMatches(alphaDeg, 90) && angleMatches(gammaDeg, 90)
-    case "triclinic":
-        return true
-    default:
-        // An unrecognized/absent crystal-system string means there is no
-        // formula to check a standardisation against — never treated as
-        // "already fine" (see the `.nonStandardCell` guard this feeds).
-        return false
-    }
 }
 
 // MARK: - Importer
@@ -517,68 +299,36 @@ package nonisolated enum MaterialsProjectImport {
     }
 
     /// Standardises a served MP structure to the conventional cell when it is
-    /// a primitive cell for a centred lattice, per the session S4b
-    /// pre-registration. Called from `crystalModel(from:fetchedAt:)` BEFORE
-    /// family classification — see `CellStandardisation`'s header for why.
+    /// a primitive cell for a centred lattice. Called from
+    /// `crystalModel(from:fetchedAt:)` BEFORE family classification.
     ///
     /// Centring letter = first character of `symmetry.symbol`. No symmetry,
-    /// no symbol, or a `P` centring → `.asServed` (nothing to standardise
-    /// against, or already primitive-is-conventional). Otherwise the served
-    /// cell metric is checked against the conventional-cell test for the
-    /// reported `symmetry.crystal_system`; if it already passes, `.asServed`
-    /// (some MP entries already carry the conventional cell despite a
-    /// centred symbol). Otherwise the fixed ITA transformation for that
-    /// centring is applied, and the result must pass every one of:
-    ///  (a) the transformed cell itself passes the conventional-cell test
-    ///      for the stated system,
-    ///  (b) the transformation matrix's determinant is the centring's
-    ///      multiplicity, and the transformed cell's volume is that same
-    ///      multiple of the served cell's volume (1e-6 relative),
-    ///  (c) the transformed site list has exactly `multiplicity × served
-    ///      count` sites, no two same-element sites closer than 1e-3 in
-    ///      fractional distance (mod 1), and each element's site count
-    ///      scales by exactly `multiplicity`.
-    /// Any failure throws `.nonStandardCell` — this importer never guesses.
+    /// no symbol, or a `P` centring → `.asServed`. Otherwise
+    /// DiffractoCore's `CellStandardisation.standardise` does the conversion and
+    /// its guards (the cell reads conventional for the reported crystal system,
+    /// the volume is the centring's multiplicity times the served one, site
+    /// counts scale, no two same-element sites coincide); any refusal throws
+    /// `.nonStandardCell`. A disordered site becomes one kit site per species
+    /// (same position, so the element-wise checks are the importer's former
+    /// ones). A site with no species or an unknown element is left for
+    /// `crystalModel`'s per-site refusal: the structure is returned as served.
+    // delete at DiffractoKit 0.6.0: CellStandardisation taking species lists and disorder natively (this adapter expands them).
     package static func standardise(
         _ structure: MaterialsProjectStructure, symmetry: MaterialsProjectSymmetry?
-    ) throws -> (structure: MaterialsProjectStructure, how: CellStandardisation) {
+    ) throws -> (structure: MaterialsProjectStructure, how: CellStandardisation.Outcome) {
         guard let lattice = structure.lattice else {
             throw Failure.malformed("structure has no lattice to standardise.")
         }
         guard let sites = structure.sites, !sites.isEmpty else {
             throw Failure.malformed("structure lists no atomic sites to standardise.")
         }
-
-        guard let symbol = symmetry?.symbol, let centring = symbol.first else {
+        guard let symbol = symmetry?.symbol, let centring = symbol.first, centring != "P" else {
             return (structure, .asServed)
-        }
-        if centring == "P" {
-            return (structure, .asServed)
-        }
-
-        guard let crystalSystemRaw = symmetry?.crystalSystem else {
-            throw Failure.nonStandardCell(
-                "no crystal_system was reported to verify a \(centring)-centred cell's "
-                    + "standardisation against."
-            )
-        }
-        let system = crystalSystemRaw.lowercased()
-
-        if isAlreadyConventionalCell(
-            system: system, a: lattice.a, b: lattice.b, c: lattice.c,
-            alphaDeg: lattice.alpha, betaDeg: lattice.beta, gammaDeg: lattice.gamma
-        ) {
-            return (structure, .asServed)
-        }
-
-        guard let transform = centringTransform(for: centring) else {
-            throw Failure.nonStandardCell("unrecognized centring letter '\(centring)' in symbol \"\(symbol)\".")
         }
 
         // Served lattice as Cartesian row vectors — from the wire `matrix`
         // when present, else rebuilt from a,b,c,α,β,γ the way `UnitCell.init`
-        // does, reused via `UnitCell` itself (`realLattice`) rather than a
-        // second copy of that trig.
+        // does, reused via `UnitCell` itself (`realLattice`).
         let servedRows: [SIMD3<Double>]
         if let rawMatrix = lattice.matrix, rawMatrix.count == 3, rawMatrix.allSatisfy({ $0.count == 3 }) {
             servedRows = rawMatrix.map { SIMD3($0[0], $0[1], $0[2]) }
@@ -589,134 +339,50 @@ package nonisolated enum MaterialsProjectImport {
             ).realLattice
         }
 
-        let matrixDeterminant = Matrix3.determinant(transform.matrix)
-        guard abs(matrixDeterminant - Double(transform.multiplicity)) < 1e-9 else {
-            throw Failure.nonStandardCell(
-                "the \(centring)-centring transformation matrix's determinant (\(matrixDeterminant)) "
-                    + "does not match its expected multiplicity \(transform.multiplicity)."
-            )
-        }
-        guard let inverseMatrix = Matrix3.inverse(transform.matrix) else {
-            throw Failure.nonStandardCell("the \(centring)-centring transformation matrix is not invertible.")
-        }
-
-        let newRows = Matrix3.transformRows(servedRows, by: transform.matrix)
-        let newA = length(newRows[0]), newB = length(newRows[1]), newC = length(newRows[2])
-        let newAlpha = angleDeg(between: newRows[1], and: newRows[2])
-        let newBeta = angleDeg(between: newRows[0], and: newRows[2])
-        let newGamma = angleDeg(between: newRows[0], and: newRows[1])
-
-        // GUARD (a): the transformed cell must itself read as conventional
-        // for the *stated* system — catches both a wrong transform and
-        // inconsistent MP metadata (a cubic-symbol cell reported as a
-        // different crystal system).
-        guard isAlreadyConventionalCell(
-            system: system, a: newA, b: newB, c: newC,
-            alphaDeg: newAlpha, betaDeg: newBeta, gammaDeg: newGamma
-        ) else {
-            throw Failure.nonStandardCell(
-                "standardising as a \(centring)-centred primitive did not produce a conventional "
-                    + "\(system) cell (got a=\(newA), b=\(newB), c=\(newC), "
-                    + "α=\(newAlpha)°, β=\(newBeta)°, γ=\(newGamma)°)."
-            )
-        }
-
-        // GUARD (b): the transformed cell's volume must be exactly the
-        // centring's multiplicity times the served cell's.
-        let servedVolume = abs(Matrix3.determinant(servedRows))
-        guard servedVolume > 0, servedVolume.isFinite else {
-            throw Failure.nonStandardCell("the served primitive cell has no finite positive volume.")
-        }
-        let newVolume = abs(Matrix3.determinant(newRows))
-        let volumeRatio = newVolume / servedVolume
-        guard abs(volumeRatio - Double(transform.multiplicity)) <= 1e-6 * Double(transform.multiplicity) else {
-            throw Failure.nonStandardCell(
-                "the standardised cell's volume is \(volumeRatio)× the served cell's, not the "
-                    + "expected \(transform.multiplicity)× for \(centring)-centring."
-            )
-        }
-
-        // Transform every fractional site position, then add the centring
-        // translations.
-        var newSites: [MaterialsProjectSite] = []
-        newSites.reserveCapacity(sites.count * transform.translations.count)
+        var atoms: [AtomSite] = []
+        var firstAtom: [Int] = []
         for site in sites {
             guard let abc = site.abc, abc.count == 3 else {
                 throw Failure.malformed("a site has no usable fractional coordinates to standardise.")
             }
-            let servedFractional = SIMD3(abc[0], abc[1], abc[2])
-            let base = Matrix3.applyToRowVector(servedFractional, inverseMatrix)
-            for translation in transform.translations {
-                let combined = base + translation
-                let wrapped = SIMD3(wrap01(combined.x), wrap01(combined.y), wrap01(combined.z))
-                newSites.append(
-                    MaterialsProjectSite(label: site.label, species: site.species, abc: [wrapped.x, wrapped.y, wrapped.z])
-                )
-            }
-        }
-
-        // GUARD (c): the arithmetic invariant (never actually false unless
-        // the loop above has a bug), the composition ratio, and — the guard
-        // that actually screens bad served data — no two same-element sites
-        // landing on top of each other.
-        let expectedCount = sites.count * transform.translations.count
-        guard newSites.count == expectedCount else {
-            throw Failure.nonStandardCell(
-                "standardisation produced \(newSites.count) sites, expected \(expectedCount)."
-            )
-        }
-
-        func elementCounts(_ list: [MaterialsProjectSite]) -> [String: Int] {
-            var counts: [String: Int] = [:]
-            for site in list {
-                for species in site.species ?? [] {
-                    counts[Element.normalizedSymbol(fromCIF: species.element), default: 0] += 1
+            guard let species = site.species, !species.isEmpty else { return (structure, .asServed) }
+            firstAtom.append(atoms.count)
+            for sp in species {
+                guard let z = Element.atomicNumber(forSymbol: Element.normalizedSymbol(fromCIF: sp.element)) else {
+                    return (structure, .asServed)
                 }
-            }
-            return counts
-        }
-        let servedCounts = elementCounts(sites)
-        let newCounts = elementCounts(newSites)
-        for (element, servedCount) in servedCounts {
-            let expected = servedCount * transform.multiplicity
-            guard newCounts[element] == expected else {
-                throw Failure.nonStandardCell(
-                    "standardisation changed \(element)'s site count (\(servedCount) -> "
-                        + "\(newCounts[element] ?? 0)), expected ×\(transform.multiplicity) = \(expected)."
-                )
+                atoms.append(AtomSite(z: z, fractional: SIMD3(abc[0], abc[1], abc[2]), occupancy: sp.occu))
             }
         }
 
-        for i in 0..<newSites.count {
-            guard let abcI = newSites[i].abc, abcI.count == 3 else { continue }
-            let elementsI = Set((newSites[i].species ?? []).map { Element.normalizedSymbol(fromCIF: $0.element) })
-            guard !elementsI.isEmpty else { continue }
-            let posI = SIMD3(abcI[0], abcI[1], abcI[2])
-            for j in (i + 1)..<newSites.count {
-                guard let abcJ = newSites[j].abc, abcJ.count == 3 else { continue }
-                let elementsJ = Set((newSites[j].species ?? []).map { Element.normalizedSymbol(fromCIF: $0.element) })
-                guard !elementsI.isDisjoint(with: elementsJ) else { continue }
-                let posJ = SIMD3(abcJ[0], abcJ[1], abcJ[2])
-                let distance = (
-                    fractionalAxisDelta(posI.x, posJ.x) * fractionalAxisDelta(posI.x, posJ.x)
-                        + fractionalAxisDelta(posI.y, posJ.y) * fractionalAxisDelta(posI.y, posJ.y)
-                        + fractionalAxisDelta(posI.z, posJ.z) * fractionalAxisDelta(posI.z, posJ.z)
-                ).squareRoot()
-                guard distance >= 1e-3 else {
-                    let shared = elementsI.intersection(elementsJ).sorted().joined(separator: ",")
-                    throw Failure.nonStandardCell(
-                        "standardisation produced two \(shared) sites \(distance) apart in fractional "
-                            + "distance — the served site list is not this centring's true asymmetric unit."
-                    )
-                }
+        let result: CellStandardisation.Result
+        do {
+            result = try CellStandardisation.standardise(
+                latticeRows: servedRows, sites: atoms, symbol: symbol, crystalSystem: symmetry?.crystalSystem)
+        } catch let failure as CellStandardisation.Failure {
+            throw Failure.nonStandardCell(failure.message)
+        }
+        guard case .conventional = result.outcome else { return (structure, .asServed) }
+
+        // The kit emits, for each input atom in order, one site per centring translation.
+        let translations = result.sites.count / atoms.count
+        var newSites: [MaterialsProjectSite] = []
+        newSites.reserveCapacity(sites.count * translations)
+        for (index, site) in sites.enumerated() {
+            for t in 0..<translations {
+                let p = result.sites[firstAtom[index] * translations + t].fractional
+                newSites.append(MaterialsProjectSite(label: site.label, species: site.species, abc: [p.x, p.y, p.z]))
             }
         }
-
+        let rows = result.latticeRows
         let newLattice = MaterialsProjectLattice(
-            a: newA, b: newB, c: newC, alpha: newAlpha, beta: newBeta, gamma: newGamma,
-            matrix: newRows.map { [$0.x, $0.y, $0.z] }
+            a: length(rows[0]), b: length(rows[1]), c: length(rows[2]),
+            alpha: angleDeg(between: rows[1], and: rows[2]),
+            beta: angleDeg(between: rows[0], and: rows[2]),
+            gamma: angleDeg(between: rows[0], and: rows[1]),
+            matrix: rows.map { [$0.x, $0.y, $0.z] }
         )
-        return (MaterialsProjectStructure(lattice: newLattice, sites: newSites), .conventional(centring: centring))
+        return (MaterialsProjectStructure(lattice: newLattice, sites: newSites), result.outcome)
     }
 
     /// Build the `GET /materials/summary/` request for one material id.
@@ -799,9 +465,9 @@ package nonisolated enum MaterialsProjectImport {
         // the served cell is normally the relaxed PRIMITIVE cell for a
         // centred lattice, and classifying that metric directly mis-scores
         // the family (an FCC primitive is a=b=c, α=β=γ=60° — `.identity`,
-        // not `.cubic`). See `CellStandardisation`'s header and `standardise`.
+        // not `.cubic`). See `standardise`.
         let structure: MaterialsProjectStructure
-        let cellHow: CellStandardisation
+        let cellHow: CellStandardisation.Outcome
         do {
             (structure, cellHow) = try standardise(originalStructure, symmetry: doc.symmetry)
         } catch Failure.nonStandardCell(let reason) {

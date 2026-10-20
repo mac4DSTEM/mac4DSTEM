@@ -11,6 +11,7 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 ## Science & parity
 
 ### The kit switches (2026-10-15) — what they leave
+- **Kit asks from the 2026-10-20 calibration/embedding/MP switches** (shims marked `// delete at <Kit> <version>`): CuboEmbedding 0.5.0: a covariance -> top-eigenpairs (PCA) entry (the app streams the covariance; `symmetricEigenTop` stays), a vDSP path in `DiffractionFeatures.binnedVector` (then `embed`'s fast path and `BinGeometry` go), a cancellation hook on `KMeans.fitSeeded`. DiffractoKit 0.6.0: `CellStandardisation` taking species lists and disorder natively (the MP adapter expands disordered sites). The embedding harness (`embedding-pca-parity`) needs `kit_module` to build CuboEmbedding's C target.
 - **CuboKit, kept under "Rules serve the app"** after C‴ failed (`../_archive/mac4DSTEM/docs/registrations/cubokit-switch-c-double-prime-registration-2026-10-15.md`):
   `RotationCalibration`'s refinement is in Double on CuboKit's `curve()` since `8d23dba5`; owed: a test that fails on the old
   Float refinement, and the Al–Mg–Si angle measured against py4DSTEM's float64 −82.6° (the field is not in the repo). C3 (per-position origins, `get_origin`) registered,

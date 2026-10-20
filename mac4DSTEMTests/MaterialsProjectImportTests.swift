@@ -699,6 +699,46 @@ final class MaterialsProjectImportTests: XCTestCase {
         )
     }
 
+    // A centred cell with one 50/50 disordered site: every output site keeps its label and its
+    // species list, and lands at the right position (the site-major, then centring-translation order).
+    func testDisorderedSiteKeepsLabelSpeciesAndPositionThroughFCentringStandardisation() throws {
+        let half = 5.431 / 2
+        let matrix: [[Double]] = [[0, half, half], [half, 0, half], [half, half, 0]]
+        let rows = matrix.map { SIMD3($0[0], $0[1], $0[2]) }
+        let (pa, pb, pc, palpha, pbeta, pgamma) = latticeParams(rows)
+        let mixed = [MaterialsProjectSpecies(element: "Si", occu: 0.5), MaterialsProjectSpecies(element: "Ge", occu: 0.5)]
+        let pure = [MaterialsProjectSpecies(element: "Si", occu: 1.0)]
+        let structure = MaterialsProjectStructure(
+            lattice: MaterialsProjectLattice(
+                a: pa, b: pb, c: pc, alpha: palpha, beta: pbeta, gamma: pgamma, matrix: matrix),
+            sites: [
+                MaterialsProjectSite(label: "mixed", species: mixed, abc: [0, 0, 0]),
+                MaterialsProjectSite(label: "pure", species: pure, abc: [0.25, 0.25, 0.25]),
+            ])
+        let out = try MaterialsProjectImport.standardise(
+            structure, symmetry: MaterialsProjectSymmetry(crystalSystem: "cubic", symbol: "Fd-3m", number: 227))
+        XCTAssertEqual(out.how, .conventional(centring: "F"))
+        let sites = try XCTUnwrap(out.structure.sites)
+        let expected: [(String, Int, SIMD3<Double>)] = [
+            ("mixed", 2, SIMD3(0, 0, 0)), ("mixed", 2, SIMD3(0, 0.5, 0.5)),
+            ("mixed", 2, SIMD3(0.5, 0, 0.5)), ("mixed", 2, SIMD3(0.5, 0.5, 0)),
+            ("pure", 1, SIMD3(0.25, 0.25, 0.25)), ("pure", 1, SIMD3(0.25, 0.75, 0.75)),
+            ("pure", 1, SIMD3(0.75, 0.25, 0.75)), ("pure", 1, SIMD3(0.75, 0.75, 0.25)),
+        ]
+        XCTAssertEqual(sites.count, expected.count)
+        for (site, want) in zip(sites, expected) {
+            XCTAssertEqual(site.label, want.0)
+            XCTAssertEqual(site.species?.count, want.1)
+            XCTAssertEqual(site.species?.map(\.element), want.1 == 2 ? ["Si", "Ge"] : ["Si"])
+            XCTAssertEqual(site.species?.map(\.occu), want.1 == 2 ? [0.5, 0.5] : [1.0])
+            let abc = try XCTUnwrap(site.abc)
+            XCTAssertEqual(abc[0], want.2.x, accuracy: 1e-9, want.0)
+            XCTAssertEqual(abc[1], want.2.y, accuracy: 1e-9, want.0)
+            XCTAssertEqual(abc[2], want.2.z, accuracy: 1e-9, want.0)
+        }
+    }
+
+
     // (a) Cubic Si mp-149 as MP actually serves it: the F-centred primitive
     // cell (a=b=c=3.8404, α=β=γ=60°), not the already-conventional fixture
     // `siliconJSON` above uses.
@@ -747,8 +787,8 @@ final class MaterialsProjectImportTests: XCTestCase {
 
         // The row-vector convention x_c = x_p·M⁻¹, plus the four F-centring
         // translations, must reproduce exactly the eight diamond-cubic sites
-        // (verified by hand, 2026-09-21, before writing `Matrix3` — see its
-        // doc comments in MaterialsProjectImport.swift).
+        // (verified by hand, 2026-09-21, before writing the importer's matrix code,
+        // now DiffractoCore's CellStandardisation).
         for p in [
             SIMD3(0.0, 0.0, 0.0), SIMD3(0.0, 0.5, 0.5), SIMD3(0.5, 0.0, 0.5), SIMD3(0.5, 0.5, 0.0),
             SIMD3(0.25, 0.25, 0.25), SIMD3(0.25, 0.75, 0.75), SIMD3(0.75, 0.25, 0.75), SIMD3(0.75, 0.75, 0.25),
