@@ -39,11 +39,13 @@ extension AppState {
 
     /// The origin fit just landed in `calibrationSession`.
     func recordOriginCalibrationRun(fitFunction: OriginFitFunction, method: OriginMethod,
+                                    probeSource: OriginCalibration.ProbeRadiusSource = .maxPattern,
                                     probeRadius: Float, rmsResidual: Float?) {
         var parameters = [
             "fit_function": fitFunction.rawValue,
             "method": method.rawValue,
             "probe_radius_px": String(probeRadius),
+            OriginCalibration.ProbeRadiusSource.lineageKey: probeSource.lineageValue,
         ]
         if let origin = calibrationSession.calibration.meanOrigin {
             parameters["origin_x_px"] = String(origin.x)
@@ -58,7 +60,7 @@ extension AppState {
     /// fit's, so a strain, ACOM, phase map or DPC that stood on the fit reads
     /// stale (D068). A node of the kind the fit recorded, `method` "manual".
     func recordOriginSetAsideRun() {
-        recordLineageRun(kind: "calibration_origin", parameters: ["method": "manual"])
+        recordLineageRun(kind: "calibration_origin", parameters: ["method": "manual", OriginCalibration.ProbeRadiusSource.lineageKey: "unknown"])
     }
 
     /// `restoreFittedOrigin` put the fitted maps back. The lineage's active origin
@@ -76,7 +78,7 @@ extension AppState {
         let captured = fitParameters.flatMap { $0["method"] == "manual" ? nil : $0 }
         var parameters = captured ?? replay.lineage.nodes
             .last { $0.kind == "calibration_origin" && $0.parameters["method"] != "manual" }?
-            .parameters ?? ["method": "restored"]
+            .parameters ?? ["method": "restored", OriginCalibration.ProbeRadiusSource.lineageKey: "unknown"]
         if let origin = calibrationSession.calibration.meanOrigin {
             parameters["origin_x_px"] = String(origin.x)
             parameters["origin_y_px"] = String(origin.y)

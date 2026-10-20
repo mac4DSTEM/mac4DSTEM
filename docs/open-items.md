@@ -79,14 +79,22 @@ unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
   q = 2 sin(½ atan(R/L))/λ and needs the camera length L, which the app does not have at this point. The two agree to
   O((R/L)²) only where L is known. Ask for a kit: a linear-scale-from-reference-ring helper, or the app supplies L.
 
-### Decided (owner, 2026-10-19): the probe radius follows py4DSTEM; the GPU code stays
-The radius for origin measurement and detection is measured from the **max** pattern, py4DSTEM's `dp_max` default (CuboKit's
-`OriginMeasurement`). The mean-pattern radius (SPED_MgO: 14.1 px from the max, 5.4 from the mean; the max grows with scan area and
-diffraction strength) stays as a named option with its DEVIATION note, and the GPU measurement (`MetalEngine.measureOrigins`,
-`VirtualDetector.tiledMeasuredOrigins`) stays in the app: it may be needed later. Not yet implemented. It moves the pinned
-disk-detection and origin fixtures, so it goes in its own tier 1 commit with the fixtures updated on purpose and the reason in the
-message and CHANGELOG. Intensity thresholds are user-adjustable in the UI; the probe radius is not (no UI control found).
-After it, OriginCalibration measurement can move onto CuboKit as an option beside the GPU path.
+### Probe radius from the max pattern (owner, 2026-10-19; done 2026-10-20)
+The radius for origin measurement and detection is measured from the **max** pattern, py4DSTEM's `dp_max` default
+(`OriginCalibration.ProbeRadiusSource.maxPattern`). The mean-pattern radius is `.meanPattern` (`CalibrationSession.probeRadiusSource`; **no UI**), a named option with its DEVIATION note
+(SPED_MgO: 14.1 px from the max, 5.4 from the mean; the max grows with scan area and diffraction strength). The GPU measurement
+(`MetalEngine.measureOrigins`, `VirtualDetector.tiledMeasuredOrigins`) stays. Open: OriginCalibration's CPU origin measurement is
+not yet CuboKit's `OriginMeasurement` (the centre-of-mass path is GPU-only today; a CPU option beside it is unwritten).
+
+### Disk detection onto CuboBragg: waits on a Float32 path (measured 2026-10-20)
+Done on a side branch and dropped: `DiskDetector` calling `CuboBragg.BraggDetector` (`BraggDiskOptions.mac4DSTEM`) passes every affected unit class and harness
+(positions within the written 2e-4 px of py4DSTEM) but is **2.2x slower serial and 2.3x slower parallel in the default poly mode**
+(256x256 patterns, 4096 positions, 18 workers: old 0.24-0.27 ms per pattern wall, kit 0.58-0.62; serial 2.05 vs 4.6 ms). Multicorr is no slower
+(MatrixDFT dominates; about 21 ms per pattern wall both). The cause is the Double FFT and filters plus the Float/Double conversions against the old
+Float Accelerate path. Ask for CuboKit (0.5.0): a Float32/vDSP path in `CuboBragg`, or a plan-reusing Float entry on `BraggDetector`; also a public
+`fillNonFinite` (the app's static copy stays, used by `OriginCalibration`'s Friedel path) and per-stage funnel counts from `BraggMaxima` (the app's
+diagnostics need them). The bench is untracked in the detect lane's scratchpad (`lanes/detect/bench/main.swift`, `build.sh`, `res.log`); the commit is
+kept on the lane's branch `keep-bragg-switch`. Interim: the app keeps its own detector; `// delete at CuboKit 0.5.0:` marks nothing yet.
 
 ### Phase mapping under the T4 object bar (ADR 040) — one metric short
 Raw speckle, not cleaned counts, certifies a classifier (`../_archive/mac4DSTEM/docs/cloud/2026-09-23/T2-direction-check.md`); the truth's cuts

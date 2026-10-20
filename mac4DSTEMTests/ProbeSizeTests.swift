@@ -5,11 +5,10 @@ import Metal
 @testable import mac4DSTEM
 
 /// Coverage for `OriginCalibration.probeSize` and — the load-bearing pin —
-/// WHICH statistic `tiledRun` feeds it. Until 2026-09-01 the estimator had no
-/// unit coverage at all, and the app fed the pixel-wise MAX pattern: every
-/// Bragg disk seen anywhere in the scan was counted as probe area (SPED_MgO
-/// read 14.1 px against a ~3 px disk, and the same specimen over a 4x larger
-/// scan read 19.1 — a per-pattern property cannot grow with scan area).
+/// WHICH statistic `tiledRun` feeds it. Owner decision 2026-10-19: the default
+/// is py4DSTEM's, the MAX pattern (`ProbeRadiusSource.maxPattern`); the mean
+/// pattern, which the app fed from 2026-09-01 (SPED_MgO read 14.1 px from the
+/// max against 5.4 from the mean), stays as `.meanPattern`, a named DEVIATION.
 /// Record: the probeSize entry in docs/open-items.md;
 /// `../_archive/mac4DSTEM/tools/origin-fit-diagnostics/run.sh probe-size` re-runs it on real data.
 final class ProbeSizeTests: XCTestCase {
@@ -162,15 +161,11 @@ final class ProbeSizeTests: XCTestCase {
         )
     }
 
-    /// The 2026-09-01 fix itself: `tiledRun` measures the probe on the MEAN
-    /// pattern, not the max. The cube puts bright satellite disks in exactly
-    /// one scan position of sixteen, so the max carries them at full strength
-    /// (above threshold, inflated) while the mean carries them at 1/16 —
-    /// above only the lowest few thresholds, so the trusted plateau reads
-    /// near the beam radius (measured 4.27 vs 4.03 beam-only; the Gate B
-    /// refuter's nit, kept honest here). Reverting the call site to the
-    /// max makes this fail with the inflated figure.
-    func testTiledRunMeasuresTheProbeOnTheMeanPattern() async throws {
+    /// `tiledRun` measures the probe on the MAX pattern by default (py4DSTEM's `dp_max`), and on the mean when asked.
+    /// The cube puts bright satellite disks in exactly one scan position of sixteen, so the max carries them at full
+    /// strength (inflated radius) while the mean carries them at 1/16 (near the beam radius: 4.27 vs 4.03 beam-only).
+    /// Mutation: swap the two cases in `ProbeRadiusSource.pattern(max:mean:)`; both assertions fail.
+    func testTiledRunMeasuresTheProbeOnTheMaxPatternByDefaultAndTheMeanOnRequest() async throws {
         let source = SatelliteFourDDataSource()
         let d = try await source.discoverPrimaryDataset()
         let data = FourDArray(reader: source, descriptor: d)
@@ -183,21 +178,16 @@ final class ProbeSizeTests: XCTestCase {
             rMax, rMean * 1.5,
             "fixture broken: max and mean no longer discriminate (max \(rMax), mean \(rMean))"
         )
-        XCTAssertEqual(
-            fit.probeRadius, rMean, accuracy: 0.01,
-            "tiledRun's radius must come from the MEAN pattern"
-        )
+        XCTAssertEqual(fit.probeRadius, rMax, accuracy: 0.01, "tiledRun's default radius must come from the MAX pattern")
+        guard let meanFit = try await OriginCalibration.tiledRun(
+            data: data, descriptor: d, fitFunction: .plane, probeSource: .meanPattern
+        ) else { return XCTFail("tiledRun(.meanPattern) returned nil") }
+        XCTAssertEqual(meanFit.probeRadius, rMean, accuracy: 0.01, ".meanPattern must come from the MEAN pattern")
     }
 
-    /// Gate B refuter, 2026-09-01: the resident-cube variant
-    /// `OriginCalibration.run(cube:)` has NO callers anywhere in the repo, so a
-    /// mutation reverting ONLY its call site back to maxDP survived every
-    /// existing gate (verified by running it: tiledRun's pin stayed green while
-    /// `run(cube:)` returned the inflated 8.44 px against the mean's 4.27).
-    /// This pins the variant itself, so a future caller resurrects the
-    /// mean-pattern measurement rather than whichever statistic the then-dead
-    /// code happened to feed.
-    func testResidentCubeRunMeasuresTheProbeOnTheMeanPattern() async throws {
+    /// The resident-cube variant `OriginCalibration.run(cube:)` has no callers in the repo; this pins its source too,
+    /// so a future caller gets the same default as `tiledRun`.
+    func testResidentCubeRunMeasuresTheProbeOnTheMaxPatternByDefaultAndTheMeanOnRequest() async throws {
         let source = SatelliteFourDDataSource()
         let d = try await source.discoverPrimaryDataset()
         let cube = await source.fullCube()
@@ -216,10 +206,52 @@ final class ProbeSizeTests: XCTestCase {
             rMax, rMean * 1.5,
             "fixture broken: max and mean no longer discriminate (max \(rMax), mean \(rMean))"
         )
-        XCTAssertEqual(
-            fit.probeRadius, rMean, accuracy: 0.01,
-            "run(cube:)'s radius must come from the MEAN pattern"
-        )
+        XCTAssertEqual(fit.probeRadius, rMax, accuracy: 0.01, "run(cube:)'s default radius must come from the MAX pattern")
+        guard let meanFit = try OriginCalibration.run(cube: buffer, descriptor: d, probeSource: .meanPattern) else {
+            return XCTFail("run(cube:, .meanPattern) returned nil")
+        }
+        XCTAssertEqual(meanFit.probeRadius, rMean, accuracy: 0.01, ".meanPattern must come from the MEAN pattern")
+    }
+
+    // MARK: - The recorded probe-radius source (lineage key `probe_radius_source`)
+
+    private func originNode(_ state: AppState) -> SessionLineage.Node? {
+        state.replay.lineage.nodes.last { $0.kind == "calibration_origin" }
+    }
+
+    /// The Calibration action records the session's source: "max" by default, "mean" when the session says
+    /// `.meanPattern`. Mutation: write a constant instead of `probeSource.lineageValue`, or ignore the session's setting
+    /// in `calibrateOrigin`; one of the two assertions goes red.
+    func testTheCalibrationActionRecordsTheSessionsProbeRadiusSource() async throws {
+        XCTAssertEqual(OriginCalibration.ProbeRadiusSource.lineageKey, "probe_radius_source")
+        var radii: [Float] = []
+        for source in [OriginCalibration.ProbeRadiusSource.maxPattern, .meanPattern] {
+            let state = AppState()
+            await state.openDemoFixture(calibrated: false)
+            state.calibrationSession.probeRadiusSource = source
+            await state.calibrateOrigin()
+            let node = try XCTUnwrap(originNode(state), "calibrateOrigin recorded no origin node")
+            XCTAssertEqual(node.parameters["probe_radius_source"], source == .maxPattern ? "max" : "mean")
+            radii.append(try XCTUnwrap(state.calibrationSession.calibration.probeRadius))
+        }
+        XCTAssertGreaterThan(radii[0], radii[1], "the demo's max radius exceeds its mean radius: the setting reached tiledRun")
+    }
+
+    /// A manual centre and a restored fit with no fit node behind it did not measure a radius: they record "unknown".
+    func testManualAndRestoredOriginNodesRecordAnUnknownSource() throws {
+        let state = AppState()
+        state.recordOriginSetAsideRun()
+        XCTAssertEqual(originNode(state)?.parameters["probe_radius_source"], "unknown")
+        let restored = AppState()
+        restored.recordOriginRestoredRun()
+        XCTAssertEqual(originNode(restored)?.parameters["method"], "restored")
+        XCTAssertEqual(originNode(restored)?.parameters["probe_radius_source"], "unknown")
+        // A restored fit with a fit node behind it carries that node's source, not "unknown".
+        let fitted = AppState()
+        fitted.recordOriginCalibrationRun(fitFunction: .plane, method: .centreOfMass, probeSource: .meanPattern,
+                                          probeRadius: 5, rmsResidual: nil)
+        fitted.recordOriginRestoredRun()
+        XCTAssertEqual(originNode(fitted)?.parameters["probe_radius_source"], "mean")
     }
 
     // MARK: - Origin validity mask carried by the production path (v3.1, ADR 033)

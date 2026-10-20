@@ -67,6 +67,7 @@ extension AppState {
 
         let fitFn = calibrationSession.originFitFunction
         let method = calibrationSession.originMethod
+        let probeSource = calibrationSession.probeRadiusSource
         let d = descriptor
         do {
             let epoch = datasetSession.epoch
@@ -91,6 +92,7 @@ extension AppState {
             // `tiledRun` is `@concurrent`: it runs off the main actor by its own declaration.
             let result = try await OriginCalibration.tiledRun(
                 data: data, descriptor: d, fitFunction: fitFn, originMethod: method,
+                probeSource: probeSource,
                 cancellation: cancellation, progress: progress
             )
             guard epoch == datasetSession.epoch else { return }
@@ -122,7 +124,7 @@ extension AppState {
                                 result.probeRadius, rms, fitFn.rawValue)
             // The lineage node (ADR 047): what the next disk detection, DPC and
             // strain run will name as their calibration input.
-            recordOriginCalibrationRun(fitFunction: fitFn, method: method,
+            recordOriginCalibrationRun(fitFunction: fitFn, method: method, probeSource: probeSource,
                                        probeRadius: result.probeRadius,
                                        rmsResidual: result.origin.rmsResidual)
 

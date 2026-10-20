@@ -90,9 +90,10 @@ final class OriginWindowSensitivityTests: XCTestCase {
         let data = FourDArray(reader: source, descriptor: d)
         let run = try await OriginCalibration.tiledRun(data: data, descriptor: d)
         let fit = try XCTUnwrap(run, "tiledRun returned nil")
-        // The mechanism needs the radius the app would measure: the ringed
-        // fixture's r lies inside the ring's inner flank (S14-D: 6.55 px).
-        XCTAssertEqual(fit.probeRadius, ring ? 6.5 : 3.0, accuracy: ring ? 1.0 : 0.6,
+        // The mechanism needs the radius the app would measure. Since 2026-10-20 (owner decision 2026-10-19) that is
+        // the MAX pattern's (py4DSTEM's `dp_max`): this fixture's sub-pixel scatter of centres widens the max-union,
+        // so 8.141 px (ringed) and 3.785 px (compact) where the mean read 6.5 (S14-D: 6.55 px) and 3.0. Moved on purpose.
+        XCTAssertEqual(fit.probeRadius, ring ? 8.141 : 3.785, accuracy: 0.01,
                        "fixture off-shape: probe radius \(fit.probeRadius)")
         let measured = try await OriginCalibration.windowSensitivityPixels(
             data: data, descriptor: d, probeRadius: fit.probeRadius)

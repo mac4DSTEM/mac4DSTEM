@@ -114,6 +114,33 @@ private actor FriedelFilledSource: CubeSource {
 
 package nonisolated enum OriginCalibration {
 
+    // MARK: - Probe radius source
+
+    /// Which pattern the probe radius of an origin calibration (and so of the disk detection that follows) is measured on.
+    ///
+    /// `.maxPattern` is py4DSTEM's `dp_max` default (process/calibration/origin.py: `get_origin` feeds `get_probe_size` the
+    /// maximum pattern) and CuboKit's `OriginMeasurement`; owner decision 2026-10-19 (`docs/open-items.md`).
+    ///
+    /// `.meanPattern` is the app's former default, kept as a named option. DEVIATION from py4DSTEM: measured 2026-09-01 on
+    /// real data, the max-union counts every Bragg disk seen anywhere in the scan as probe area (SPED_MgO reads 14.1 px from
+    /// the max against 5.4 from the mean and ~3 from substrate-only patterns, and the same specimen over a 4x larger scan
+    /// reads 19.1, which a per-pattern property cannot do); the mean's own failure mode is bounded (descan blur plus
+    /// amorphous background). A single low-sum pattern is not a safe input: Particle_1's minimum-sum position returns 31.8 px.
+    package enum ProbeRadiusSource: Sendable, Hashable {
+        case maxPattern
+        case meanPattern
+
+        func pattern(max: [Float], mean: [Float]) -> [Float] { self == .maxPattern ? max : mean }
+
+        /// The lineage key an origin run records its source under (`calibration_origin` parameters).
+        package static let lineageKey = "probe_radius_source"
+
+        /// "max" or "mean": the value recorded under `lineageKey`. A node written without a measurement (a manual
+        /// centre, a restored fit) records "unknown"; a recording without the key predates the max default (2026-10-20)
+        /// and was measured on the mean.
+        package var lineageValue: String { self == .maxPattern ? "max" : "mean" }
+    }
+
     // MARK: - Probe size (py4DSTEM get_probe_size)
 
     /// Estimate the central-disk radius and position from one diffraction
@@ -414,6 +441,7 @@ package nonisolated enum OriginCalibration {
         fitFunction: OriginFitFunction = .plane,
         originMethod: OriginMethod = .centreOfMass,
         rscale: Float = 1.2,
+        probeSource: ProbeRadiusSource = .maxPattern,
         maximumTileRows: Int? = nil,
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
@@ -429,20 +457,8 @@ package nonisolated enum OriginCalibration {
             cancellation: cancellation, progress: statsProgress
         )
         guard cancellation?.isCancelled != true else { return nil }
-        // DEVIATION from py4DSTEM's origin path (process/calibration/origin.py:268
-        // feeds get_probe_size the MAX pattern): the mean is fed instead, which is
-        // what py4DSTEM's own get_probe_size docstring recommends ("a position
-        // averaged ... DP works best"). Measured 2026-09-01 on real data
-        // (../_archive/mac4DSTEM/tools/origin-fit-diagnostics probe-size): the max-union counts every
-        // Bragg disk seen anywhere in the scan as probe area — SPED_MgO reads
-        // 14.1 px from the max against 5.4 from the mean and ~3 from
-        // substrate-only patterns, and the SAME specimen over a 4x larger scan
-        // reads 19.1, which a per-pattern property cannot do. The mean's own
-        // failure mode is bounded (descan blur + amorphous background, recorded
-        // in docs/open-items.md); the max's grows with scan area and
-        // diffraction strength. A single low-sum pattern is NOT a safe input:
-        // Particle_1's minimum-sum position returns 31.8 px.
-        guard let probe = probeSize(dp: statistics.meanDP, qy: d.qy, qx: d.qx) else {
+        guard let probe = probeSize(dp: probeSource.pattern(max: statistics.maxDP, mean: statistics.meanDP),
+                                    qy: d.qy, qx: d.qx) else {
             throw OriginCalibrationError.probeNotMeasurable
         }
         let radius = probe.r
@@ -666,16 +682,15 @@ package nonisolated enum OriginCalibration {
     }
 
     /// Full origin calibration on a resident cube:
-    /// mean DP → probe size → per-pattern measurement → smooth fit.
+    /// probe size (`probeSource`) → per-pattern measurement → smooth fit.
     /// Returns the calibration pieces plus the max/mean patterns (useful as
     /// display modes, and the mean DP documents what the fit was based on).
-    /// NOTE (Gate B, 2026-09-01): this variant has no callers in the repo —
-    /// `ProbeSizeTests` pins its mean-pattern measurement anyway, so a future
-    /// caller resurrects the honest statistic rather than whatever the dead
-    /// code happened to feed. Deleting it instead is an owner option.
+    /// NOTE: this variant has no callers in the repo; `ProbeSizeTests` pins its
+    /// probe-radius source. Deleting it instead is an owner option.
     package nonisolated static func run(cube: MTLBuffer, descriptor d: DatasetDescriptor,
                     fitFunction: OriginFitFunction = .plane,
                     rscale: Float = 1.2,
+                    probeSource: ProbeRadiusSource = .maxPattern,
                     cancellation: AnalysisCancellationToken? = nil) throws
         -> (probeRadius: Float, origin: OriginMaps, maxDP: [Float], meanDP: [Float])? {
         guard cancellation?.isCancelled != true else { return nil }
@@ -684,9 +699,7 @@ package nonisolated enum OriginCalibration {
 
         let (maxDP, meanDP) = try engine.dpStatistics(cube: cube, dims: dims)
         guard cancellation?.isCancelled != true else { return nil }
-        // Same DEVIATION as tiledRun above: the mean, not the max — see the
-        // measurement note there.
-        guard let probe = probeSize(dp: meanDP, qy: d.qy, qx: d.qx) else {
+        guard let probe = probeSize(dp: probeSource.pattern(max: maxDP, mean: meanDP), qy: d.qy, qx: d.qx) else {
             throw OriginCalibrationError.probeNotMeasurable
         }
         let r = probe.r
