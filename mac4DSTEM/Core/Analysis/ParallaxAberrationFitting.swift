@@ -1,8 +1,14 @@
 //
 //  ParallaxAberrationFitting.swift
-//  Low-order py4DSTEM parallax aberration interpretation.
+//  The app's result and option types for the py4DSTEM parallax aberration fit, and the bridge to CuboKit 0.4.0's
+//  CuboParallax.ParallaxAberrationFitter (the arithmetic: polar-decomposition low-order fit, Cartesian higher-order fit, gradient basis).
+//
+//  The value types below stay the app's own: DSTEMSession, the app target and the tests do not link CuboParallax, and under
+//  MemberImportVisibility they could not read a kit type's members. delete at CuboKit with CuboParallax in the Session/app targets: the
+//  duplicates of ParallaxPhysicalShift ... ParallaxHigherOrderAberrationFitResult (needs a Package.swift / pbxproj change).
 //
 
+import CuboParallax
 import Foundation
 
 package nonisolated struct ParallaxPhysicalShift: Equatable, Sendable {
@@ -125,109 +131,29 @@ package nonisolated enum ParallaxAberrationFitter {
         }
     }
 
-    /// Port of py4DSTEM `_aberration_fit_polar_decomposition`.
+    /// Port of py4DSTEM `_aberration_fit_polar_decomposition` (CuboParallax's `fitLowOrder`).
+    ///
+    /// The probe angles are the preprocessing's stored `probeAnglesMrad` / 1000, which are already on CuboParallax's
+    /// `ParallaxBasisConvention.selectedCentroid` origin (the centroid of the selected bright-field pixels); the kit's
+    /// `basisAngles(... convention: .selectedCentroid)` would recompute the same values.
     package static func fitLowOrder(
         preprocessing: ParallaxPreprocessResult,
         alignment: ParallaxAlignmentResult,
         options: ParallaxLowOrderAberrationOptions = .init()
     ) throws -> ParallaxAberrationFitResult {
         guard alignment.isComplete else { throw FitError.alignmentIncomplete }
-        let count = preprocessing.probeAnglesMrad.count
-        guard count >= 2, alignment.totalShifts.count == count else {
-            throw FitError.invalidInput("the probe-angle and shift fields differ")
-        }
         let sampling = preprocessing.calibration.scanSamplingAngstrom
-        guard sampling.isFinite, sampling > 0 else {
-            throw FitError.invalidInput("scan sampling is not positive and finite")
-        }
-        if let forced = options.forceRotationAngleDegrees, !forced.isFinite {
-            throw FitError.invalidInput("the forced rotation is not finite")
-        }
-
-        var angles = [(Double, Double)]()
-        var measured = [ParallaxPhysicalShift]()
-        angles.reserveCapacity(count)
-        measured.reserveCapacity(count)
-        for (angle, pixelShift) in zip(
-            preprocessing.probeAnglesMrad, alignment.totalShifts
-        ) {
-            let rowAngle = Double(angle.qx) / 1_000
-            let columnAngle = Double(angle.qy) / 1_000
-            var rowShift = Double(pixelShift.row) * sampling
-            var columnShift = Double(pixelShift.column) * sampling
-            if options.forceTranspose { swap(&rowShift, &columnShift) }
-            guard rowAngle.isFinite, columnAngle.isFinite,
-                  rowShift.isFinite, columnShift.isFinite else {
-                throw FitError.invalidInput("the angle or shift field is non-finite")
-            }
-            angles.append((rowAngle, columnAngle))
-            measured.append(ParallaxPhysicalShift(
-                rowAngstrom: rowShift, columnAngstrom: columnShift
-            ))
-        }
-
-        let transform = try leastSquaresTransform(
-            angles: angles, shifts: measured
-        )
-        let rotation: Matrix2
-        var aberration: Matrix2
-        let rotationRad: Double
-        if let forcedDegrees = options.forceRotationAngleDegrees {
-            rotationRad = forcedDegrees * .pi / 180
-            let cosine = cos(rotationRad), sine = sin(rotationRad)
-            var forcedRotation = Matrix2(
-                m00: cosine, m01: -sine,
-                m10: sine, m11: cosine
+        let result = try bridged {
+            try CuboParallax.ParallaxAberrationFitter.fitLowOrder(
+                probeAngles: radians(preprocessing.probeAnglesMrad),
+                pixelShifts: alignment.totalShifts.map {
+                    CuboParallax.ParallaxShift(row: Double($0.row), column: Double($0.column))
+                },
+                scanSampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
+                options: kitOptions(options)
             )
-            if options.forceTranspose { forcedRotation = forcedRotation.transposed }
-            rotation = forcedRotation
-            // This multiplication order deliberately follows py4DSTEM.
-            aberration = rotation * transform
-        } else {
-            let decomposition = try rightPolarDecomposition(transform)
-            rotation = options.forceTranspose
-                ? decomposition.rotation.transposed
-                : decomposition.rotation
-            aberration = decomposition.symmetric
-            var recovered = -atan2(rotation.m10, rotation.m00)
-            if 2 * abs(positiveModulo(recovered + .pi, 2 * .pi) - .pi) > .pi {
-                recovered = positiveModulo(recovered, 2 * .pi) - .pi
-                aberration = aberration.scaled(by: -1)
-            }
-            rotationRad = recovered
         }
-
-        let c1 = (aberration.m00 + aberration.m11) / 2
-        let c12a = options.forceTranspose
-            ? -(aberration.m00 - aberration.m11) / 2
-            : (aberration.m00 - aberration.m11) / 2
-        let c12b = (aberration.m10 + aberration.m01) / 2
-        guard rotationRad.isFinite, c1.isFinite, c12a.isFinite,
-              c12b.isFinite else {
-            throw FitError.singularPolarDecomposition
-        }
-
-        var fitted = [ParallaxPhysicalShift]()
-        fitted.reserveCapacity(count)
-        var squaredResidual: Double = 0
-        for (angle, observed) in zip(angles, measured) {
-            let row = angle.0 * transform.m00 + angle.1 * transform.m10
-            let column = angle.0 * transform.m01 + angle.1 * transform.m11
-            fitted.append(ParallaxPhysicalShift(
-                rowAngstrom: row, columnAngstrom: column
-            ))
-            squaredResidual += pow(observed.rowAngstrom - row, 2)
-                + pow(observed.columnAngstrom - column, 2)
-        }
-        let rms = sqrt(squaredResidual / Double(count))
-        return ParallaxAberrationFitResult(
-            measuredShifts: measured, fittedShifts: fitted,
-            rotationRad: rotationRad,
-            c1Angstrom: c1, c12aAngstrom: c12a, c12bAngstrom: c12b,
-            rmsResidualAngstrom: rms,
-            forceTranspose: options.forceTranspose,
-            forcedRotationAngleDegrees: options.forceRotationAngleDegrees
-        )
+        return appResult(result)
     }
 
     package static func defaultTerms(
@@ -236,39 +162,23 @@ package nonisolated enum ParallaxAberrationFitter {
         minRadialOrder: Int = 2,
         minAngularOrder: Int = 0
     ) throws -> [ParallaxAberrationTerm] {
-        guard minRadialOrder >= 2, maxRadialOrder >= minRadialOrder,
-              minAngularOrder >= 0, maxAngularOrder >= minAngularOrder else {
-            throw FitError.invalidInput("the requested aberration orders are invalid")
-        }
-        var terms = [ParallaxAberrationTerm]()
-        for m in (minRadialOrder - 1)..<maxRadialOrder {
-            let maximumN = min(maxAngularOrder, m + 1)
-            guard minAngularOrder <= maximumN else { continue }
-            for n in minAngularOrder...maximumN where (m + n).isMultiple(of: 2) == false {
-                terms.append(ParallaxAberrationTerm(
-                    radialOrder: m, angularOrder: n, component: 0
-                ))
-                if n > 0 {
-                    terms.append(ParallaxAberrationTerm(
-                        radialOrder: m, angularOrder: n, component: 1
-                    ))
-                }
-            }
-        }
-        guard !terms.isEmpty else {
-            throw FitError.invalidInput("the requested aberration range contains no terms")
-        }
-        return terms
+        try bridged {
+            try CuboParallax.ParallaxAberrationFitter.defaultTerms(
+                maxRadialOrder: maxRadialOrder, maxAngularOrder: maxAngularOrder,
+                minRadialOrder: minRadialOrder, minAngularOrder: minAngularOrder
+            )
+        }.map(appTerm)
     }
 
-    /// Default recursive higher-order fit from py4DSTEM `aberration_fit`.
+    /// Default recursive higher-order fit from py4DSTEM `aberration_fit` (CuboParallax's `fitHigherOrder`), with the gradient basis
+    /// evaluated at the angles the affine fit used (`.selectedCentroid`).
     ///
     /// DEVIATION (lane R4, 2026-10-01; graphene cube, `tools/harnesses/parallax-aberration-test` linear-field case): py4DSTEM's (2,1) coma pair
     /// reads 619 / 599 Å there and ours reads 0. Both implementations hand this fit an EXACTLY linear shift field (the alignment
     /// projects its shifts onto k with no intercept, parallax.py:1380-1384; here `fitDefaultShiftBasis`), so no coma or trefoil is
     /// observable. py4DSTEM's non-zero value is an artefact of its own origins: it evaluates the gradient basis on the ROI fft grid
     /// (origin ROI//2, utils.py:1551-1556) but regresses on angles centred on mean(xy_inds) (parallax.py:473-478), 0.325 px = 0.34 mrad
-    /// apart on graphene; the pair is exactly linear in that offset (0 → 0, 0.325 px → 619 / 599 Å) and py4DSTEM's fitter run on OUR
+    /// apart on graphene; the pair is exactly linear in that offset (0 -> 0, 0.325 px -> 619 / 599 Å) and py4DSTEM's fitter run on OUR
     /// shifts returns the same 619 / 599 Å. We evaluate the basis at the angles the affine fit used, so a linear field returns 0 and a zero
     /// residual. That 0 means UNOBSERVABLE, not measured zero: the higher-order terms are only as good as the field's non-linearity, which
     /// the default alignment (regularize_shifts False; py4DSTEM's True keeps an intercept) removes.
@@ -277,337 +187,125 @@ package nonisolated enum ParallaxAberrationFitter {
         alignment: ParallaxAlignmentResult,
         options: ParallaxHigherOrderAberrationOptions = .init()
     ) throws -> ParallaxHigherOrderAberrationFitResult {
-        let lowOrder = try fitLowOrder(
-            preprocessing: preprocessing, alignment: alignment,
-            options: options.lowOrder
-        )
-        let terms = try defaultTerms(
-            maxRadialOrder: options.maxRadialOrder,
-            maxAngularOrder: options.maxAngularOrder,
-            minRadialOrder: options.minRadialOrder,
-            minAngularOrder: options.minAngularOrder
-        )
-        let gradients = try gradientSamples(
-            probeAnglesMrad: preprocessing.probeAnglesMrad,
-            rotationRad: lowOrder.rotationRad,
-            terms: terms
-        )
-        let count = lowOrder.measuredShifts.count
-        var coefficients = [Double](repeating: 0, count: terms.count)
-        var fitted = [ParallaxPhysicalShift](
-            repeating: ParallaxPhysicalShift(rowAngstrom: 0, columnAngstrom: 0),
-            count: count
-        )
-
-        if options.initializeWithLowOrder {
-            for (index, term) in terms.enumerated() {
-                switch (term.radialOrder, term.angularOrder, term.component) {
-                case (1, 0, 0): coefficients[index] = lowOrder.c1Angstrom
-                case (1, 2, 0): coefficients[index] = lowOrder.c12aAngstrom
-                case (1, 2, 1): coefficients[index] = lowOrder.c12bAngstrom
-                default: continue
-                }
-            }
-            fitted = fittedShifts(
-                gradients: gradients, coefficients: coefficients,
-                count: count, termCount: terms.count
-            )
-        }
-
-        let groups = radialGroups(terms)
-        let fitPasses: [[Int]]
+        guard alignment.isComplete else { throw FitError.alignmentIncomplete }
+        let sampling = preprocessing.calibration.scanSamplingAngstrom
+        let angles = radians(preprocessing.probeAnglesMrad)
+        var kit = CuboParallax.ParallaxHigherOrderAberrationOptions()
+        kit.maxRadialOrder = options.maxRadialOrder
+        kit.maxAngularOrder = options.maxAngularOrder
+        kit.minRadialOrder = options.minRadialOrder
+        kit.minAngularOrder = options.minAngularOrder
         switch options.fitMethod {
-        case .recursiveExclusive:
-            fitPasses = groups
-        case .recursive:
-            fitPasses = groups.indices.map { groupIndex in
-                Array(groups[0...groupIndex].joined())
-            }
-        case .global:
-            fitPasses = [Array(terms.indices)]
+        case .recursive: kit.fitMethod = .recursive
+        case .recursiveExclusive: kit.fitMethod = .recursiveExclusive
+        case .global: kit.fitMethod = .global
         }
-
-        for indices in fitPasses {
-            var matrix = [[Double]](
-                repeating: [Double](repeating: 0, count: indices.count),
-                count: count * 2
+        kit.initializeWithLowOrder = options.initializeWithLowOrder
+        kit.basisConvention = .selectedCentroid
+        kit.lowOrder = kitOptions(options.lowOrder)
+        let result = try bridged {
+            try CuboParallax.ParallaxAberrationFitter.fitHigherOrder(
+                probeAngles: angles,
+                pixelShifts: alignment.totalShifts.map {
+                    CuboParallax.ParallaxShift(row: Double($0.row), column: Double($0.column))
+                },
+                scanSampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
+                basisAngles: angles, options: kit
             )
-            var residual = [Double](repeating: 0, count: count * 2)
-            for sample in 0..<count {
-                residual[sample] = lowOrder.measuredShifts[sample].rowAngstrom
-                    - fitted[sample].rowAngstrom
-                residual[count + sample] = lowOrder.measuredShifts[sample].columnAngstrom
-                    - fitted[sample].columnAngstrom
-                for (local, term) in indices.enumerated() {
-                    matrix[sample][local] = gradients[sample * terms.count + term].0
-                    matrix[count + sample][local]
-                        = gradients[sample * terms.count + term].1
-                }
-            }
-            let increment = try leastSquares(matrix: matrix, values: residual)
-            for (local, term) in indices.enumerated() {
-                coefficients[term] += increment[local]
-            }
-            for sample in 0..<count {
-                var row = fitted[sample].rowAngstrom
-                var column = fitted[sample].columnAngstrom
-                for (local, term) in indices.enumerated() {
-                    row += gradients[sample * terms.count + term].0 * increment[local]
-                    column += gradients[sample * terms.count + term].1 * increment[local]
-                }
-                fitted[sample] = ParallaxPhysicalShift(
-                    rowAngstrom: row, columnAngstrom: column
-                )
-            }
-        }
-
-        if options.lowOrder.forceTranspose {
-            for index in terms.indices
-            where terms[index].angularOrder > 0 && terms[index].component == 0 {
-                coefficients[index] *= -1
-            }
-        }
-        var squaredResidual: Double = 0
-        for (observed, estimate) in zip(lowOrder.measuredShifts, fitted) {
-            squaredResidual += pow(observed.rowAngstrom - estimate.rowAngstrom, 2)
-                + pow(observed.columnAngstrom - estimate.columnAngstrom, 2)
         }
         return ParallaxHigherOrderAberrationFitResult(
-            lowOrder: lowOrder, terms: terms,
-            coefficientsAngstrom: coefficients, fittedShifts: fitted,
-            rmsResidualAngstrom: sqrt(squaredResidual / Double(count)),
+            lowOrder: appResult(result.lowOrder), terms: result.terms.map(appTerm),
+            coefficientsAngstrom: result.coefficientsAngstrom,
+            fittedShifts: result.fittedShifts.map(appShift),
+            rmsResidualAngstrom: result.rmsResidualAngstrom,
             fitMethod: options.fitMethod
         )
     }
 
-    /// Row-major `[sample, term]` pairs of (dχ/du, dχ/dv). The derivatives
+    /// Row-major `[sample, term]` pairs of (dchi/du, dchi/dv). The derivatives
     /// intentionally omit the phase-only global scale, matching py4DSTEM.
     package static func gradientSamples(
         probeAnglesMrad: [ParallaxVector],
         rotationRad: Double,
         terms: [ParallaxAberrationTerm]
     ) throws -> [(Double, Double)] {
-        guard rotationRad.isFinite, !terms.isEmpty else {
-            throw FitError.invalidInput("the gradient basis is empty or non-finite")
-        }
-        let cosine = cos(-rotationRad), sine = sin(-rotationRad)
-        var output = [(Double, Double)]()
-        output.reserveCapacity(probeAnglesMrad.count * terms.count)
-        for angle in probeAnglesMrad {
-            let initialU = Double(angle.qx) / 1_000
-            let initialV = Double(angle.qy) / 1_000
-            let u = initialU * cosine + initialV * sine
-            let v = -initialU * sine + initialV * cosine
-            let alpha = hypot(u, v)
-            let theta = atan2(v, u)
-            guard u.isFinite, v.isFinite else {
-                throw FitError.invalidInput("the probe-angle field is non-finite")
-            }
-            for term in terms {
-                let m = term.radialOrder
-                let n = term.angularOrder
-                let radial = pow(alpha, Double(m - 1))
-                if n == 0 {
-                    output.append((u * radial, v * radial))
-                } else if term.component == 0 {
-                    let cosN = cos(Double(n) * theta)
-                    let sinN = sin(Double(n) * theta)
-                    output.append((
-                        radial * (Double(m + 1) * u * cosN
-                                  + Double(n) * v * sinN) / Double(m + 1),
-                        radial * (Double(m + 1) * v * cosN
-                                  - Double(n) * u * sinN) / Double(m + 1)
-                    ))
-                } else {
-                    let cosN = cos(Double(n) * theta)
-                    let sinN = sin(Double(n) * theta)
-                    output.append((
-                        radial * (Double(m + 1) * u * sinN
-                                  - Double(n) * v * cosN) / Double(m + 1),
-                        radial * (Double(m + 1) * v * sinN
-                                  + Double(n) * u * cosN) / Double(m + 1)
-                    ))
-                }
-            }
-        }
-        return output
-    }
-
-    private static func radialGroups(
-        _ terms: [ParallaxAberrationTerm]
-    ) -> [[Int]] {
-        var groups = [[Int]]()
-        for index in terms.indices {
-            if groups.last?.first.map({ terms[$0].radialOrder })
-                != terms[index].radialOrder {
-                groups.append([])
-            }
-            groups[groups.count - 1].append(index)
-        }
-        return groups
-    }
-
-    private static func fittedShifts(
-        gradients: [(Double, Double)], coefficients: [Double],
-        count: Int, termCount: Int
-    ) -> [ParallaxPhysicalShift] {
-        (0..<count).map { sample in
-            var row: Double = 0, column: Double = 0
-            for term in 0..<termCount {
-                row += gradients[sample * termCount + term].0 * coefficients[term]
-                column += gradients[sample * termCount + term].1 * coefficients[term]
-            }
-            return ParallaxPhysicalShift(
-                rowAngstrom: row, columnAngstrom: column
+        try bridged {
+            try CuboParallax.ParallaxAberrationFitter.gradientSamples(
+                probeAngles: radians(probeAnglesMrad), rotationRad: rotationRad,
+                terms: terms.map(kitTerm)
             )
         }
     }
 
-    private static func leastSquares(
-        matrix: [[Double]], values: [Double]
-    ) throws -> [Double] {
-        guard let columnCount = matrix.first?.count, columnCount > 0,
-              matrix.count == values.count,
-              matrix.allSatisfy({ $0.count == columnCount }) else {
-            throw FitError.invalidInput("the aberration least-squares matrix is inconsistent")
-        }
-        var normal = [[Double]](
-            repeating: [Double](repeating: 0, count: columnCount),
-            count: columnCount
-        )
-        var right = [Double](repeating: 0, count: columnCount)
-        for row in matrix.indices {
-            for column in 0..<columnCount {
-                right[column] += matrix[row][column] * values[row]
-                for other in 0..<columnCount {
-                    normal[column][other]
-                        += matrix[row][column] * matrix[row][other]
-                }
-            }
-        }
-        let scale = normal.flatMap { $0 }.map(abs).max() ?? 0
-        guard scale.isFinite, scale > 0 else { throw FitError.singularAngleGeometry }
-        for pivot in 0..<columnCount {
-            let selected = (pivot..<columnCount).max {
-                abs(normal[$0][pivot]) < abs(normal[$1][pivot])
-            }!
-            guard abs(normal[selected][pivot]) > scale * 1e-12 else {
-                throw FitError.singularAngleGeometry
-            }
-            if selected != pivot {
-                normal.swapAt(selected, pivot)
-                right.swapAt(selected, pivot)
-            }
-            let divisor = normal[pivot][pivot]
-            for column in pivot..<columnCount { normal[pivot][column] /= divisor }
-            right[pivot] /= divisor
-            for row in 0..<columnCount where row != pivot {
-                let factor = normal[row][pivot]
-                for column in pivot..<columnCount {
-                    normal[row][column] -= factor * normal[pivot][column]
-                }
-                right[row] -= factor * right[pivot]
-            }
-        }
-        return right
-    }
+    // MARK: Conversions between the app's types and CuboParallax's
 
-    private struct Matrix2 {
-        package let m00: Double
-        package let m01: Double
-        package let m10: Double
-        package let m11: Double
-
-        package var determinant: Double { m00 * m11 - m01 * m10 }
-
-        package var transposed: Matrix2 {
-            Matrix2(m00: m00, m01: m10, m10: m01, m11: m11)
-        }
-
-        package func scaled(by scale: Double) -> Matrix2 {
-            Matrix2(
-                m00: m00 * scale, m01: m01 * scale,
-                m10: m10 * scale, m11: m11 * scale
-            )
-        }
-
-        package static func * (lhs: Matrix2, rhs: Matrix2) -> Matrix2 {
-            Matrix2(
-                m00: lhs.m00 * rhs.m00 + lhs.m01 * rhs.m10,
-                m01: lhs.m00 * rhs.m01 + lhs.m01 * rhs.m11,
-                m10: lhs.m10 * rhs.m00 + lhs.m11 * rhs.m10,
-                m11: lhs.m10 * rhs.m01 + lhs.m11 * rhs.m11
-            )
+    private static func radians(_ mrad: [ParallaxVector]) -> [CuboParallax.ParallaxShift] {
+        mrad.map {
+            CuboParallax.ParallaxShift(row: Double($0.qx) / 1_000, column: Double($0.qy) / 1_000)
         }
     }
 
-    private static func leastSquaresTransform(
-        angles: [(Double, Double)], shifts: [ParallaxPhysicalShift]
-    ) throws -> Matrix2 {
-        var xx: Double = 0, xy: Double = 0, yy: Double = 0
-        var xRow: Double = 0, yRow: Double = 0
-        var xColumn: Double = 0, yColumn: Double = 0
-        for (angle, shift) in zip(angles, shifts) {
-            xx += angle.0 * angle.0
-            xy += angle.0 * angle.1
-            yy += angle.1 * angle.1
-            xRow += angle.0 * shift.rowAngstrom
-            yRow += angle.1 * shift.rowAngstrom
-            xColumn += angle.0 * shift.columnAngstrom
-            yColumn += angle.1 * shift.columnAngstrom
+    private static func bridged<T>(_ body: () throws -> T) throws -> T {
+        do { return try body() } catch let error as CuboParallax.ParallaxAberrationFitter.FitError {
+            switch error {
+            case .invalidInput(let detail): throw FitError.invalidInput(detail)
+            case .singularAngleGeometry: throw FitError.singularAngleGeometry
+            case .singularPolarDecomposition: throw FitError.singularPolarDecomposition
+            }
+        } catch {
+            throw FitError.invalidInput(parallaxKitReason(error))
         }
-        let determinant = xx * yy - xy * xy
-        guard determinant.isFinite,
-              abs(determinant) > max(1e-30, (xx + yy) * 1e-12) else {
-            throw FitError.singularAngleGeometry
-        }
-        return Matrix2(
-            m00: (yy * xRow - xy * yRow) / determinant,
-            m01: (yy * xColumn - xy * yColumn) / determinant,
-            m10: (-xy * xRow + xx * yRow) / determinant,
-            m11: (-xy * xColumn + xx * yColumn) / determinant
+    }
+
+    private static func kitOptions(_ options: ParallaxLowOrderAberrationOptions) -> CuboParallax.ParallaxLowOrderAberrationOptions {
+        var kit = CuboParallax.ParallaxLowOrderAberrationOptions()
+        kit.forceTranspose = options.forceTranspose
+        kit.forceRotationAngleDegrees = options.forceRotationAngleDegrees
+        return kit
+    }
+
+    private static func appShift(_ shift: CuboParallax.ParallaxPhysicalShift) -> ParallaxPhysicalShift {
+        ParallaxPhysicalShift(rowAngstrom: shift.rowAngstrom, columnAngstrom: shift.columnAngstrom)
+    }
+
+    private static func appTerm(_ term: CuboParallax.ParallaxAberrationTerm) -> ParallaxAberrationTerm {
+        ParallaxAberrationTerm(radialOrder: term.radialOrder, angularOrder: term.angularOrder, component: term.component)
+    }
+
+    private static func kitTerm(_ term: ParallaxAberrationTerm) -> CuboParallax.ParallaxAberrationTerm {
+        CuboParallax.ParallaxAberrationTerm(radialOrder: term.radialOrder, angularOrder: term.angularOrder, component: term.component)
+    }
+
+    private static func appResult(_ result: CuboParallax.ParallaxAberrationFitResult) -> ParallaxAberrationFitResult {
+        ParallaxAberrationFitResult(
+            measuredShifts: result.measuredShifts.map(appShift), fittedShifts: result.fittedShifts.map(appShift),
+            rotationRad: result.rotationRad,
+            c1Angstrom: result.c1Angstrom, c12aAngstrom: result.c12aAngstrom, c12bAngstrom: result.c12bAngstrom,
+            rmsResidualAngstrom: result.rmsResidualAngstrom,
+            forceTranspose: result.forceTranspose,
+            forcedRotationAngleDegrees: result.forcedRotationAngleDegrees
         )
     }
+}
 
-    /// For M = QP, P = sqrt(MᵀM) and Q = MP⁻¹. The closed-form square root
-    /// is exact for a positive-definite 2×2 symmetric matrix and also retains
-    /// the reflection branch used by SciPy when det(M) < 0.
-    private static func rightPolarDecomposition(
-        _ matrix: Matrix2
-    ) throws -> (rotation: Matrix2, symmetric: Matrix2) {
-        let x = matrix.m00 * matrix.m00 + matrix.m10 * matrix.m10
-        let z = matrix.m00 * matrix.m01 + matrix.m10 * matrix.m11
-        let y = matrix.m01 * matrix.m01 + matrix.m11 * matrix.m11
-        let determinant = x * y - z * z
-        guard determinant.isFinite, determinant > 1e-30 else {
-            throw FitError.singularPolarDecomposition
+/// Plain-language reason for an error the CuboParallax kit raised (its `ParallaxError`, `ParallaxAlignmentError`), so no kit type
+/// reaches a status line or a stage's own error enum.
+package nonisolated func parallaxKitReason(_ error: Error) -> String {
+    if let error = error as? CuboParallax.ParallaxError {
+        switch error {
+        case .invalidInput: return "the dimensions, orders or sampling are inconsistent"
+        case .degenerateData: return "an image has no positive weight, or the geometry is singular"
+        case .nonfiniteValues: return "an input or a result is NaN or infinite"
         }
-        let rootDeterminant = sqrt(determinant)
-        let denominator = sqrt(x + y + 2 * rootDeterminant)
-        guard denominator.isFinite, denominator > 0 else {
-            throw FitError.singularPolarDecomposition
-        }
-        let symmetric = Matrix2(
-            m00: (x + rootDeterminant) / denominator,
-            m01: z / denominator,
-            m10: z / denominator,
-            m11: (y + rootDeterminant) / denominator
-        )
-        let inverseDeterminant = symmetric.determinant
-        guard inverseDeterminant.isFinite, abs(inverseDeterminant) > 1e-15 else {
-            throw FitError.singularPolarDecomposition
-        }
-        let inverse = Matrix2(
-            m00: symmetric.m11 / inverseDeterminant,
-            m01: -symmetric.m01 / inverseDeterminant,
-            m10: -symmetric.m10 / inverseDeterminant,
-            m11: symmetric.m00 / inverseDeterminant
-        )
-        return (matrix * inverse, symmetric)
     }
-
-    private static func positiveModulo(_ value: Double, _ modulus: Double) -> Double {
-        let remainder = value.truncatingRemainder(dividingBy: modulus)
-        return remainder >= 0 ? remainder : remainder + modulus
+    if let error = error as? CuboParallax.ParallaxAlignmentError {
+        switch error {
+        case .invalidDimensions: return "the image dimensions are invalid"
+        case .inconsistentShape: return "the image lengths differ from the dimensions"
+        case .invalidUpsampleFactor: return "the upsample factor is outside 3...64"
+        case .nonfiniteValues: return "an input or a result is NaN or infinite"
+        case .degenerateCorrelation: return "a constant image has no identifiable shift"
+        }
     }
+    return error.localizedDescription
 }

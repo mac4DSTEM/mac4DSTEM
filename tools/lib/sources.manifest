@@ -397,6 +397,9 @@ mac4dstem_sources() {
         # The whole parallax chain; each parallax-*-test compiles all of it.
         kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
         want+=("${KIT_FLAGS[@]}")
+        # The aberration fit, CTF correction, depth sectioning, KDE deposition and the Fourier shift are CuboKit's CuboParallax (0.4.0, 2026-10-20).
+        kit_module "$repo" CuboKit CuboParallax
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"

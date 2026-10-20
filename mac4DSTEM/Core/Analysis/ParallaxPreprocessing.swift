@@ -383,8 +383,9 @@ package nonisolated enum ParallaxPreprocessor {
         // (× wavelengthAngstrom × 1_000) so `maximumProbeAngleMrad` (:170) and the
         // preprocessing summary read straight in mrad. Every science consumer
         // divides by 1_000 back to radians first — ParallaxDepthSectioning.swift
-        // (angleRow/angleColumn, :189-190) and ParallaxAberrationFitting.swift
-        // (rowAngle/columnAngle :154-155, initialU/initialV :387-388). The parity
+        // (the `angles` handed to the kit's section), ParallaxAberrationFitting.swift
+        // (`radians`, for the fit and the gradient basis) and the alignment-free
+        // consumers of `maximumProbeAngleMrad`. The parity
         // fixture matches with the same × 1e3
         // (tools/harnesses/parallax-preprocessing-test/reference.py:68).
         let probeAngles = reciprocalVectors.map {
