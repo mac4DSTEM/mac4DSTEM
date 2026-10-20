@@ -233,22 +233,15 @@ final class DiffractionEmbeddingTests: XCTestCase {
     /// `total <= 0` does not catch an infinite total, and
     /// `Double.random(in: 0..<.infinity)` traps — exit 133, silent under `-O`.
     ///
-    /// Mutation that must break this: revert the guard to `if total <= 0 {`.
-    /// The test process then dies rather than failing, which is the point.
-    func testKMeansNeverTrapsOnNonFiniteCoordinates() {
+    /// The guard itself is now CuboEmbedding's (`KMeans.fitSeeded` throws `nonFinite`).
+    func testKMeansRefusesNonFiniteCoordinatesWithoutTrapping() {
         for sentinel in [Float.nan, .infinity, -.infinity] {
             let coordinates = [Float](repeating: sentinel, count: 12 * 2)
-            let (assignment, _) = DiffractionEmbedding.kMeans(
-                coordinates: coordinates, positions: 12, dimension: 2,
-                requestedGroups: 3, seed: 7, cancellation: nil
-            )
-            XCTAssertEqual(
-                assignment.count, 12,
-                "kMeans must return an assignment for every position on \(sentinel) input"
-            )
-            XCTAssertTrue(
-                assignment.allSatisfy { (0..<3).contains($0) },
-                "every assignment must name a real group on \(sentinel) input"
+            XCTAssertThrowsError(
+                try DiffractionEmbedding.kMeans(
+                    coordinates: coordinates, positions: 12, dimension: 2,
+                    requestedGroups: 3, seed: 7, cancellation: nil),
+                "kMeans must refuse \(sentinel) input with an error, not trap"
             )
         }
     }

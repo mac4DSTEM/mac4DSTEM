@@ -251,6 +251,10 @@ mac4dstem_sources() {
         )
         ;;
       embedding)
+        # k-means and the non-finite feature path are CuboEmbedding's (KMeans.fitSeeded, DiffractionFeatures.binnedVector).
+        # Needs kit_module to build CuboEmbedding's C target (the strain lane extends it, 2026-10-20).
+        kit_module "$repo" CuboKit CuboEmbedding
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" analysis
         want+=("${MAC4DSTEM_SOURCES[@]}")
         mac4dstem_sources "$repo" calibration

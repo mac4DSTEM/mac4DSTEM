@@ -55,6 +55,7 @@
 //
 
 import Accelerate
+import CuboEmbedding
 import Foundation
 
 package nonisolated enum DiffractionEmbedding {
@@ -404,7 +405,7 @@ package nonisolated enum DiffractionEmbedding {
         }
 
         guard cancellation?.isCancelled != true else { return nil }
-        let (groupOf, centroids) = kMeans(
+        let (groupOf, centroids) = try kMeans(
             coordinates: coordinates, positions: totalPositions, dimension: actualComponents,
             requestedGroups: groupCount, seed: settings.seed, cancellation: cancellation
         )
@@ -699,23 +700,6 @@ package nonisolated enum DiffractionEmbedding {
         }
     }
 
-    // MARK: - Deterministic RNG
-
-    /// splitmix64 — deterministic given `seed`, independent of any system
-    /// entropy source, so a run's k-means++ seeding is exactly reproducible.
-    /// (The PCA has no random start since 2026-09-06.)
-    private struct SplitMix64: RandomNumberGenerator {
-        private var state: UInt64
-        init(seed: UInt64) { state = seed }
-        mutating func next() -> UInt64 {
-            state &+= 0x9E37_79B9_7F4A_7C15
-            var z = state
-            z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
-            z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
-            return z ^ (z >> 31)
-        }
-    }
-
     // MARK: - Symmetric eigendecomposition (Accelerate LAPACK dsyevd_)
 
     /// Top-`count` eigenpairs of a symmetric `dimension × dimension` matrix
@@ -799,123 +783,28 @@ package nonisolated enum DiffractionEmbedding {
 
     // MARK: - k-means
 
-    /// k-means++ seeded Lloyd's algorithm, deterministic given `seed`:
-    /// iterates positions in index order, and re-seeds any cluster that ends
-    /// an iteration with no assigned point at the point currently farthest
-    /// from its own (pre-update) centroid, rather than letting it vanish.
-    /// `package` rather than `private` for the same reason
-    /// `symmetricEigenTop` is: a Gate D fixture must be able to hand it the
-    /// input that used to trap. `compute` now refuses non-finite data upstream,
-    /// so the guard inside is unreachable through the public path — and an
-    /// unreachable guard with no fixture is a guard nobody can prove works.
+    /// k-means++ seeded Lloyd's algorithm, deterministic given `seed`: CuboEmbedding's
+    /// `KMeans.fitSeeded`, pinned to this app's former implementation (splitmix64 seeding
+    /// from `seed + 0x5A17`, at most 50 passes, an empty cluster re-seeded at the point
+    /// farthest from its own pre-update centroid).
+    /// `package` so a Gate D fixture can hand it non-finite input: that now throws
+    /// `invalidDataset` (it used to be answered with a deterministic fill). `compute`
+    /// refuses non-finite data upstream, so this is unreachable through the public path.
+    /// Cancellation is honoured before the fit only; the kit's fit has no hook, and it runs
+    /// over the few PCA coordinates, not the cube.
     package static func kMeans(
         coordinates: [Float], positions: Int, dimension: Int, requestedGroups: Int,
         seed: UInt64, cancellation: AnalysisCancellationToken?
-    ) -> (assignment: [Int], centroids: [Float]) {
+    ) throws -> (assignment: [Int], centroids: [Float]) {
         guard positions > 0, dimension > 0 else { return ([], []) }
-        let k = max(1, min(requestedGroups, positions))
-        var generator = SplitMix64(seed: seed &+ 0x5A17)
-
-        func pointAsDouble(_ i: Int) -> [Double] {
-            let base = i * dimension
-            return (0..<dimension).map { Double(coordinates[base + $0]) }
+        guard cancellation?.isCancelled != true else { return ([Int](repeating: 0, count: positions), []) }
+        do {
+            let fit = try KMeans.fitSeeded(
+                coordinates.map(Double.init), rows: positions, columns: dimension,
+                groups: requestedGroups, seed: seed)
+            return (fit.labels, fit.centroids.map(Float.init))
+        } catch {
+            throw EmbeddingError.invalidDataset("The embedding coordinates are not finite, so they cannot be clustered.")
         }
-        func squaredDistance(_ i: Int, _ target: [Double]) -> Double {
-            var sum = 0.0
-            let base = i * dimension
-            for j in 0..<dimension {
-                let diff = Double(coordinates[base + j]) - target[j]
-                sum += diff * diff
-            }
-            return sum
-        }
-
-        // k-means++ seeding.
-        var centroidIndices: [Int] = [Int.random(in: 0..<positions, using: &generator)]
-        var minDistances = [Double](repeating: .infinity, count: positions)
-        while centroidIndices.count < k {
-            let lastPoint = pointAsDouble(centroidIndices[centroidIndices.count - 1])
-            for i in 0..<positions {
-                let dist = squaredDistance(i, lastPoint)
-                if dist < minDistances[i] { minDistances[i] = dist }
-            }
-            let total = minDistances.reduce(0, +)
-            // `!total.isFinite` is load-bearing, not defensive tidiness: a NaN
-            // distance leaves `minDistances[i]` at its initial `.infinity`
-            // (because `dist < .infinity` is FALSE for NaN), so `total` becomes
-            // infinite, `total <= 0` does not catch it, and the
-            // `Double.random(in: 0..<total)` below traps — exit 133, silently
-            // under -O. `compute` now refuses such data upstream, but `kMeans`
-            // is `package` and must not trap on any input it is handed.
-            if !total.isFinite || total <= 0 {
-                // Every remaining point coincides with a chosen centroid:
-                // fill deterministically by index rather than loop forever.
-                for i in 0..<positions where !centroidIndices.contains(i) {
-                    centroidIndices.append(i)
-                    if centroidIndices.count == k { break }
-                }
-                continue
-            }
-            let target = Double.random(in: 0..<total, using: &generator)
-            var cumulative = 0.0
-            var chosen = positions - 1
-            for i in 0..<positions {
-                cumulative += minDistances[i]
-                if cumulative >= target { chosen = i; break }
-            }
-            centroidIndices.append(chosen)
-        }
-        var centroids = centroidIndices.flatMap(pointAsDouble)
-
-        var assignment = [Int](repeating: 0, count: positions)
-        for _ in 0..<50 {
-            guard cancellation?.isCancelled != true else { break }
-            var changed = false
-            for i in 0..<positions {
-                var bestCluster = 0
-                var bestDistance = Double.infinity
-                let base = i * dimension
-                for c in 0..<k {
-                    var sum = 0.0
-                    let cbase = c * dimension
-                    for j in 0..<dimension {
-                        let diff = Double(coordinates[base + j]) - centroids[cbase + j]
-                        sum += diff * diff
-                    }
-                    if sum < bestDistance { bestDistance = sum; bestCluster = c }
-                }
-                if assignment[i] != bestCluster { changed = true }
-                assignment[i] = bestCluster
-            }
-
-            var sums = [Double](repeating: 0, count: k * dimension)
-            var counts = [Int](repeating: 0, count: k)
-            for i in 0..<positions {
-                let c = assignment[i]
-                counts[c] += 1
-                let base = i * dimension
-                for j in 0..<dimension { sums[c * dimension + j] += Double(coordinates[base + j]) }
-            }
-            let oldCentroids = centroids
-            for c in 0..<k where counts[c] > 0 {
-                for j in 0..<dimension { centroids[c * dimension + j] = sums[c * dimension + j] / Double(counts[c]) }
-            }
-            for c in 0..<k where counts[c] == 0 {
-                var farthestIndex = 0
-                var farthestDistance = -1.0
-                for i in 0..<positions {
-                    let ownCluster = assignment[i]
-                    let ownCentroid = Array(oldCentroids[(ownCluster * dimension)..<(ownCluster * dimension + dimension)])
-                    let d2 = squaredDistance(i, ownCentroid)
-                    if d2 > farthestDistance { farthestDistance = d2; farthestIndex = i }
-                }
-                assignment[farthestIndex] = c
-                centroids.replaceSubrange(c * dimension..<(c + 1) * dimension, with: pointAsDouble(farthestIndex))
-                changed = true
-            }
-            if !changed { break }
-        }
-
-        return (assignment, centroids.map(Float.init))
     }
 }
