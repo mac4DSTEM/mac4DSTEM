@@ -23,7 +23,7 @@ detector geometry, calibration and reconstruction parameters change against a
 live view, so you see what a choice does while you make it.
 
 Algorithms are ported from [py4DSTEM](https://github.com/py4dstem/py4DSTEM) and
-gated against it, so results trace back to the reference implementation.
+tested against it, so results trace back to the reference implementation.
 
 ## New in v4.5.0 (2026-10-05)
 
@@ -70,22 +70,22 @@ and reopening. Where a measurement is not quantitatively supported, it says so.
 
 ## Verification
 
-Every number behind a release — gate exit status and counts, DMG hash,
+Every number behind a release — test results and counts, DMG hash,
 notarization and staple details — is quoted from the run that produced it in
 [`tools/release/README.md`](tools/release/README.md) § Releases, with the full history in
 [`CHANGELOG.md`](CHANGELOG.md).
 
 The badge covers three jobs on every push: `scientific` (the science harnesses;
-the learned detector's half of one memory gate is skipped there, as the CI runner
+the learned detector's half of one memory test is skipped there, as the CI runner
 has no Neural Engine), the repository's own `inventory` review, and `core`, which
 fails the moment `Core/` reaches up into the app. The `unit` job is paused
 ([ADR 040](docs/decisions/040-four-owner-decisions-2026-09-28.md): the macos-26
-image cannot build a macOS 27 app). Every gate, `unit` included, runs locally
+image cannot build a macOS 27 app). Every suite, `unit` included, runs locally
 before each release.
 
 All of that is numerical — the app is tested against known-correct values, not
 against what it draws. What it draws is checked by a person driving it, because
-the numerical gate has stayed green through real on-screen defects.
+the numerical tests have stayed green through real on-screen defects.
 
 Merlin MIB and EMPAD RAW readers are preview-grade. Current limitations:
 [`docs/open-items.md`](docs/open-items.md).

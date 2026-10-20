@@ -29,7 +29,7 @@ Xcode with the macOS 27 SDK (development is on Xcode-beta 27.0; the project's
 Apple Silicon, and a **full Xcode** — the Command Line Tools alone cannot
 build this project. GitHub CI's `macos-26` runner cannot build the app at all
 since the macOS 27 floor landed (`docs/open-items.md`); a macOS 27 runner
-image is an owner decision owed (`docs/status.md` § Handoff). Build and test
+image is awaited (`docs/status.md` § Handoff). Build and test
 commands: `CLAUDE.md` § Build / test.
 
 Everything under `tools/` resolves its own toolchain via
@@ -40,9 +40,8 @@ harnesses also need a Python with NumPy and py4DSTEM installed; set
 
 ## Pushing
 
-All work lands directly on `main`; there are no feature branches (owner
-directive, 2026-09-17). Install the pre-push hook once per clone so a push
-that CI would reject never leaves the Mac — it runs the inventory gate and an
+All work lands directly on `main`; there are no feature branches . Install the pre-push hook once per clone so a push
+that CI would reject never leaves the Mac — it runs the inventory check and an
 app-target build into `build/prepush/`, never into the bundle you may be
 running:
 
@@ -58,13 +57,19 @@ The Xcode project uses synchronized folder groups, so **placement is
 wiring** — a file added under `mac4DSTEM/` joins the app target
 automatically. Layering, ownership and where a new file goes: `docs/architecture.md`.
 
-## The rules that actually matter
+## The rules that matter
 
-The full set is `CLAUDE.md` § Hard rules — Gate D (diagnosis before a fix,
-independent refuter after), Gate B for anything science-affecting, inline
-`DEVIATION` notes against the pinned py4DSTEM source, Metal struct
-byte-identity, and never widening a gate that fails silently. Read it before
-touching `Core/`.
+- **Tests move with the code.** A change comes with tests that fail before it and pass after it.
+- **Numbers are checked against the Python reference.** A number a scientist reads is compared with the pinned py4DSTEM
+  result within a tolerance written per function (about 1e-7 relative for float64, 1e-5 for float32), never widened to
+  hide a bug. Readers, I/O, indices and metadata are tested exact. A change that moves a pinned number updates the
+  fixture on purpose, in its own commit, with the reason.
+- **One focused change per commit**, with a clear message.
+- **CI must be green.** Run `tools/run-tests.sh unit` before you push.
+- Mark every deviation from py4DSTEM with an inline `DEVIATION` note, keep Metal parameter structs byte-identical to
+  their `.metal` counterparts, and never loosen a check that fails silently.
+
+The full list is in `CLAUDE.md` § Hard rules. Read it before touching `Core/`.
 
 ## Scope
 
