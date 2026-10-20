@@ -181,6 +181,27 @@ kit_module() {
     echo "$pin $*" > "$scratch/.pin"
   fi
   KIT_FLAGS=("-I$prod" "$prod"/*.o(N))   # -I joined: mac4dstem_sources dedups its tokens
+  # C targets (2026-10-20: CuboKit's CStrainLAPACK, CEmbeddingLAPACK): a Swift module that imports one needs its generated
+  # C module map, as spectrokit_module passes for CSpectroLAPACK. Only the C targets the REQUESTED targets depend on
+  # (transitively, read from the checkout's Package.swift) are added, and only a map that names a C header (not a Swift
+  # target's "<Module>-Swift.h"): objects of earlier calls stay in $prod and are never a reason to add a flag. Two tokens
+  # (-Xcc, then the argument) per map; mac4dstem_sources deduplicates them as a pair. Callers that request no kit with a C
+  # dependency get exactly the flags they had before. The C targets link Accelerate; a harness passes -framework Accelerate.
+  local -a todo=("$@") seen_t=()
+  local dep line maps
+  while (( ${#todo} )); do
+    t=${todo[1]}; todo=("${(@)todo[2,-1]}")
+    (( ${seen_t[(Ie)$t]} )) && continue
+    seen_t+=("$t")
+    line=$(grep -F "name: \"$t\"" "$ck/Package.swift" | grep -m1 'dependencies:' || true)
+    for dep in ${(f)"$(print -r -- "$line" | sed -n 's/.*dependencies: *\[\([^]]*\)\].*/\1/p' | tr -d '" ' | tr ',' '\n')"}; do
+      todo+=("$dep")
+    done
+    maps="$scratch/out/Intermediates.noindex/GeneratedModuleMaps/$t.modulemap"
+    if [[ -f "$maps" ]] && grep -Eq '^(umbrella )?header "' "$maps" && ! grep -q -- '-Swift\.h"' "$maps"; then
+      KIT_FLAGS+=(-Xcc "-fmodule-map-file=$maps")
+    fi
+  done
 }
 
 # mac4dstem_sources <repo-root> <group>...
@@ -543,13 +564,26 @@ mac4dstem_sources() {
   # A kit's objects are keyed by file name: DiffractoKit's and CuboKit's builds each compile the ImagoKit modules they
   # depend on (same pinned revision), and the linker rejects the second ImagoCore.o as 682 duplicate symbols.
   local key
-  for path in "${want[@]}"; do
+  # A two-token flag (-Xcc <arg>, the C targets' module maps) is deduplicated as a pair: dropping a repeated "-Xcc" alone
+  # would leave its argument a stray token.
+  local i=1 n=${#want[@]}
+  while (( i <= n )); do
+    path=${want[i]}
     key=$path
     [[ $path == *.o ]] && key="obj:${path:t}"
+    if [[ $path == -Xcc && i -lt n ]]; then
+      key="xcc:${want[i+1]}"
+      if (( ! ${+seen[$key]} )); then
+        seen[$key]=1
+        out+=("$path" "${want[i+1]}")
+      fi
+      (( i += 2 )); continue
+    fi
     if (( ! ${+seen[$key]} )); then
       seen[$key]=1
       out+=("$path")
     fi
+    (( i++ ))
   done
 
   # Every path must exist. A renamed or deleted source silently dropping out of
