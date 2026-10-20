@@ -1,11 +1,12 @@
 //
 //  ParallaxSubpixelReconstruction.swift
-//  Source-locked KDE and position-correction paths from py4DSTEM
-//  Parallax.subpixel_alignment.
+//  py4DSTEM Parallax.subpixel_alignment. The kernel-density deposition and the factor heuristic are CuboKit 0.4.0's
+//  CuboParallax.ParallaxSubpixel; the position-correction loop (the app's Float variant, cancellation and progress) stays here:
+//  delete at a CuboKit whose correctPositions offers the app's variant.
 //
 
+import CuboParallax
 import Foundation
-import ImagoCore
 
 package nonisolated struct ParallaxSubpixelOptions: Equatable, Sendable {
     // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
@@ -68,7 +69,6 @@ package nonisolated enum ParallaxSubpixelReconstructor {
         case invalidInput(String)
         case invalidOptions(String)
         case memoryLimit(bytes: Int, limit: Int)
-        case fftUnavailable
         case cancelled
 
         package var errorDescription: String? {
@@ -79,8 +79,6 @@ package nonisolated enum ParallaxSubpixelReconstructor {
                 return "Invalid parallax KDE options: \(detail)."
             case .memoryLimit(let bytes, let limit):
                 return "Parallax KDE needs about \(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)), above the \(ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file)) working limit. Reduce the factor or crop/bin the dataset first."
-            case .fftUnavailable:
-                return "Could not create the exact-shape FFT used by the KDE low-pass filter."
             case .cancelled:
                 return "Parallax KDE reconstruction was cancelled."
             }
@@ -141,27 +139,20 @@ package nonisolated enum ParallaxSubpixelReconstructor {
             )
         }
         let scanSampling = preprocessing.calibration.scanSamplingAngstrom
-        let bfSampling = 1 / maximumK / 2
-        let dfSampling = 1 / (
-            preprocessing.calibration.reciprocalSamplingInvAngstrom
-                * Double(preprocessing.detectorHeight)
-        )
-        let bfLimit = scanSampling / bfSampling
-        let rawDFLimit = scanSampling / dfSampling
-        let dfLimit = max(rawDFLimit, 1)
-        let factor: Double
-        if let requested = options.upsampleFactor {
-            factor = requested
-        } else if bfLimit * 1.5 > dfLimit {
-            factor = dfLimit
-        } else if bfLimit * 1.5 > 1 {
-            factor = bfLimit * 1.5
-        } else {
-            factor = max(dfLimit * 2 / 3, 1)
-        }
-        guard factor.isFinite, factor >= 1 else {
+        // The factor heuristic is CuboParallax's (py4DSTEM `subpixel_alignment`): bright-field limit, dark-field limit, requested factor.
+        let limits: CuboParallax.ParallaxUpsampleLimits
+        do {
+            limits = try CuboParallax.ParallaxSubpixel.upsampleLimits(
+                scanSampling: scanSampling, maxReciprocalVector: maximumK,
+                reciprocalSampling: preprocessing.calibration.reciprocalSamplingInvAngstrom,
+                detectorRows: preprocessing.detectorHeight, requested: options.upsampleFactor
+            )
+        } catch {
             throw ReconstructionError.invalidOptions("upsample factor must be at least 1")
         }
+        let bfLimit = limits.brightField
+        let dfLimit = limits.darkField
+        let factor = limits.factor
 
         let outputHeight = Int(
             (Double(preprocessing.stackHeight) * factor).rounded(.toNearestOrEven)
@@ -174,19 +165,22 @@ package nonisolated enum ParallaxSubpixelReconstructor {
             throw ReconstructionError.invalidOptions("upsampled dimensions overflow")
         }
         let outputCount = outputHeight * outputWidth
-        // Accumulators plus separable blur/FFT scratch. This is deliberately
-        // conservative and excludes the already-resident preprocessing data.
-        let outputArrayCount = options.lowpassFilter ? 6 : 4
-        guard outputCount <= Int.max / MemoryLayout<Float>.stride / outputArrayCount else {
+        // The kit's deposition works in Double: the density and sum accumulators, their blur copies (and the spectrum pair when the
+        // low-pass is on), plus the Float output the position-correction scoring reads and the unshifted stack as Double images.
+        // Deliberately conservative; it excludes the already-resident Float preprocessing data.
+        let doubleArrayCount = options.lowpassFilter ? 8 : 6
+        guard outputCount <= Int.max / (MemoryLayout<Double>.stride * doubleArrayCount + MemoryLayout<Float>.stride),
+              preprocessing.brightFieldPixelCount <= Int.max / planeCount / MemoryLayout<Double>.stride else {
             throw ReconstructionError.invalidOptions("working dimensions overflow")
         }
-        var workingBytes = outputCount * MemoryLayout<Float>.stride * outputArrayCount
+        var workingBytes = outputCount * (MemoryLayout<Double>.stride * doubleArrayCount + MemoryLayout<Float>.stride)
+            + preprocessing.brightFieldPixelCount * planeCount * MemoryLayout<Double>.stride
         if options.positionCorrectionIterations != nil {
-            // dx, dy, step, scores, four trial score maps, and fixed-step scores.
-            guard planeCount <= Int.max / MemoryLayout<Float>.stride / 9 else {
+            // dx, dy, step, scores, four trial score maps, and fixed-step scores (Float), and the Double probe offsets handed to the kit.
+            guard planeCount <= Int.max / (MemoryLayout<Float>.stride * 9 + MemoryLayout<Double>.stride * 2) else {
                 throw ReconstructionError.invalidOptions("position work dimensions overflow")
             }
-            workingBytes += planeCount * MemoryLayout<Float>.stride * 9
+            workingBytes += planeCount * (MemoryLayout<Float>.stride * 9 + MemoryLayout<Double>.stride * 2)
         }
         guard workingBytes <= options.maxWorkingBytes else {
             throw ReconstructionError.memoryLimit(
@@ -196,14 +190,22 @@ package nonisolated enum ParallaxSubpixelReconstructor {
 
         var probeRows = [Float](repeating: 0, count: planeCount)
         var probeColumns = [Float](repeating: 0, count: planeCount)
-        var pixelOutput = try kernelDensity(
-            preprocessing: preprocessing, alignment: alignment,
-            probeRows: probeRows, probeColumns: probeColumns,
-            factor: Float(factor), outputWidth: outputWidth,
-            outputHeight: outputHeight, sigma: Float(options.kdeSigmaPixels * factor),
-            lanczosOrder: options.lanczosOrder, lowpass: options.lowpassFilter,
-            cancellation: cancellation
-        )
+        // The unshifted stack and the shifts as the kit's Double inputs, converted once for every deposition below.
+        let images: [[Double]] = (0..<preprocessing.brightFieldPixelCount).map { bf in
+            preprocessing.unshiftedStack[(bf * planeCount)..<((bf + 1) * planeCount)].map(Double.init)
+        }
+        let shifts = alignment.totalShifts.map {
+            CuboParallax.ParallaxShift(row: Double($0.row), column: Double($0.column))
+        }
+        func deposit() throws -> [Float] {
+            try checkCancellation(cancellation)
+            return try kernelDensity(
+                images: images, shifts: shifts, rows: preprocessing.stackHeight, columns: preprocessing.stackWidth,
+                probeRows: probeRows, probeColumns: probeColumns, factor: factor,
+                sigmaPixels: options.kdeSigmaPixels, lanczosOrder: options.lanczosOrder, lowpass: options.lowpassFilter
+            )
+        }
+        var pixelOutput = try deposit()
         progress?(options.positionCorrectionIterations == nil ? 0.9 : 0.2)
 
         var correctionScores = [Float]()
@@ -288,15 +290,7 @@ package nonisolated enum ParallaxSubpixelReconstructor {
                         options.positionCorrectionMinimumStep
                     )
                 }
-                pixelOutput = try kernelDensity(
-                    preprocessing: preprocessing, alignment: alignment,
-                    probeRows: probeRows, probeColumns: probeColumns,
-                    factor: Float(factor), outputWidth: outputWidth,
-                    outputHeight: outputHeight,
-                    sigma: Float(options.kdeSigmaPixels * factor),
-                    lanczosOrder: options.lanczosOrder,
-                    lowpass: options.lowpassFilter, cancellation: cancellation
-                )
+                pixelOutput = try deposit()
                 scores = try scoreMap(
                     image: pixelOutput, outputWidth: outputWidth,
                     outputHeight: outputHeight, preprocessing: preprocessing,
@@ -332,110 +326,24 @@ package nonisolated enum ParallaxSubpixelReconstructor {
         )
     }
 
+    /// CuboParallax's `ParallaxSubpixel.kernelDensity` (bilinear or Lanczos deposition, Gaussian blur, density division, optional
+    /// pixel-sinc low-pass) with the current probe-position offsets, back to the Float image the scoring reads.
     private static func kernelDensity(
-        preprocessing: ParallaxPreprocessResult,
-        alignment: ParallaxAlignmentResult,
-        probeRows: [Float], probeColumns: [Float], factor: Float,
-        outputWidth: Int, outputHeight: Int, sigma: Float,
-        lanczosOrder: Int?, lowpass: Bool,
-        cancellation: AnalysisCancellationToken?
+        images: [[Double]], shifts: [CuboParallax.ParallaxShift], rows: Int, columns: Int,
+        probeRows: [Float], probeColumns: [Float], factor: Double,
+        sigmaPixels: Double, lanczosOrder: Int?, lowpass: Bool
     ) throws -> [Float] {
-        let planeCount = preprocessing.stackHeight * preprocessing.stackWidth
-        let outputCount = outputHeight * outputWidth
-        var pixelCount = [Float](repeating: 0, count: outputCount)
-        var pixelOutput = [Float](repeating: 0, count: outputCount)
-        for bf in 0..<preprocessing.brightFieldPixelCount {
-            try checkCancellation(cancellation)
-            let shift = alignment.totalShifts[bf]
-            let plane = bf * planeCount
-            for row in 0..<preprocessing.stackHeight {
-                if row & 15 == 0 { try checkCancellation(cancellation) }
-                for column in 0..<preprocessing.stackWidth {
-                    let position = row * preprocessing.stackWidth + column
-                    let shiftedRow = (Float(row) + probeRows[position] + shift.row) * factor
-                    let shiftedColumn = (
-                        Float(column) + probeColumns[position] + shift.column
-                    ) * factor
-                    let rowFloor = Int(floor(shiftedRow))
-                    let columnFloor = Int(floor(shiftedColumn))
-                    let rowFraction = shiftedRow - Float(rowFloor)
-                    let columnFraction = shiftedColumn - Float(columnFloor)
-                    let intensity = preprocessing.unshiftedStack[plane + position]
-                    if let order = lanczosOrder {
-                        for i in (-order + 1)...order {
-                            let rowWeight = sinc(Float(i) - rowFraction)
-                                * sinc((Float(i) - rowFraction) / Float(order))
-                            let targetRow = wrapped(rowFloor + i, count: outputHeight)
-                            for j in (-order + 1)...order {
-                                // Preserve the checked-in py4DSTEM helper's
-                                // second-axis window expression (`i - dy`).
-                                let columnWeight = sinc(Float(j) - columnFraction)
-                                    * sinc((Float(i) - columnFraction) / Float(order))
-                                let weight = rowWeight * columnWeight
-                                let targetColumn = wrapped(
-                                    columnFloor + j, count: outputWidth
-                                )
-                                let target = targetRow * outputWidth + targetColumn
-                                pixelCount[target] += weight
-                                pixelOutput[target] += weight * intensity
-                            }
-                        }
-                    } else {
-                        let row0 = wrapped(rowFloor, count: outputHeight)
-                        let row1 = wrapped(rowFloor + 1, count: outputHeight)
-                        let column0 = wrapped(columnFloor, count: outputWidth)
-                        let column1 = wrapped(columnFloor + 1, count: outputWidth)
-                        let weights = [
-                            (1 - rowFraction) * (1 - columnFraction),
-                            rowFraction * (1 - columnFraction),
-                            (1 - rowFraction) * columnFraction,
-                            rowFraction * columnFraction,
-                        ]
-                        let indices = [
-                            row0 * outputWidth + column0,
-                            row1 * outputWidth + column0,
-                            row0 * outputWidth + column1,
-                            row1 * outputWidth + column1,
-                        ]
-                        for basis in 0..<4 {
-                            pixelCount[indices[basis]] += weights[basis]
-                            pixelOutput[indices[basis]] += weights[basis] * intensity
-                        }
-                    }
-                }
-            }
+        do {
+            let result = try CuboParallax.ParallaxSubpixel.kernelDensity(
+                images: images, rows: rows, columns: columns, shifts: shifts, factor: factor,
+                sigmaPixels: sigmaPixels, lanczosOrder: lanczosOrder, lowpass: lowpass,
+                probeOffsets: CuboParallax.ParallaxProbeOffsets(
+                    rows: probeRows.map(Double.init), columns: probeColumns.map(Double.init))
+            )
+            return result.image.map(Float.init)
+        } catch {
+            throw ReconstructionError.invalidInput(parallaxKitReason(error))
         }
-        pixelCount = try gaussianFilter(
-            pixelCount, width: outputWidth, height: outputHeight,
-            sigma: sigma, cancellation: cancellation
-        )
-        pixelOutput = try gaussianFilter(
-            pixelOutput, width: outputWidth, height: outputHeight,
-            sigma: sigma, cancellation: cancellation
-        )
-        for index in 0..<outputCount {
-            pixelOutput[index] = pixelCount[index] > 1e-3
-                ? pixelOutput[index] / pixelCount[index] : 1
-        }
-        if lowpass {
-            guard let fft = FFT2D(nx: outputWidth, ny: outputHeight) else {
-                throw ReconstructionError.fftUnavailable
-            }
-            var imaginary = [Float](repeating: 0, count: outputCount)
-            fft.transform(re: &pixelOutput, im: &imaginary, forward: true)
-            for row in 0..<outputHeight {
-                try checkCancellation(cancellation)
-                let rowSinc = sinc(FFT2D.fftfreq(row, outputHeight))
-                for column in 0..<outputWidth {
-                    let denominator = rowSinc * sinc(FFT2D.fftfreq(column, outputWidth))
-                    let index = row * outputWidth + column
-                    pixelOutput[index] /= denominator
-                    imaginary[index] /= denominator
-                }
-            }
-            fft.transform(re: &pixelOutput, im: &imaginary, forward: false)
-        }
-        return pixelOutput
     }
 
     private static func scoreMap(
@@ -514,48 +422,6 @@ package nonisolated enum ParallaxSubpixelReconstructor {
         values.reduce(0, +) / Float(values.count)
     }
 
-    private static func gaussianFilter(
-        _ source: [Float], width: Int, height: Int, sigma: Float,
-        cancellation: AnalysisCancellationToken?
-    ) throws -> [Float] {
-        guard sigma > 0 else { return source }
-        let radius = Int(4 * sigma + 0.5)
-        guard radius > 0 else { return source }
-        var taps = [Float](repeating: 0, count: radius * 2 + 1)
-        var sum: Float = 0
-        for offset in -radius...radius {
-            let value = exp(-Float(offset * offset) / (2 * sigma * sigma))
-            taps[offset + radius] = value
-            sum += value
-        }
-        for index in taps.indices { taps[index] /= sum }
-        var temporary = [Float](repeating: 0, count: source.count)
-        var output = [Float](repeating: 0, count: source.count)
-        for row in 0..<height {
-            if row & 15 == 0 { try checkCancellation(cancellation) }
-            for column in 0..<width {
-                var value: Float = 0
-                for offset in -radius...radius {
-                    let sample = reflected(column + offset, count: width)
-                    value += source[row * width + sample] * taps[offset + radius]
-                }
-                temporary[row * width + column] = value
-            }
-        }
-        for row in 0..<height {
-            if row & 15 == 0 { try checkCancellation(cancellation) }
-            for column in 0..<width {
-                var value: Float = 0
-                for offset in -radius...radius {
-                    let sample = reflected(row + offset, count: height)
-                    value += temporary[sample * width + column] * taps[offset + radius]
-                }
-                output[row * width + column] = value
-            }
-        }
-        return output
-    }
-
     private static func crop(
         _ pixels: [Float], width: Int, height: Int,
         paddingY: Int, paddingX: Int, factor: Double
@@ -580,21 +446,6 @@ package nonisolated enum ParallaxSubpixelReconstructor {
     private static func wrapped(_ value: Int, count: Int) -> Int {
         let remainder = value % count
         return remainder >= 0 ? remainder : remainder + count
-    }
-
-    private static func reflected(_ value: Int, count: Int) -> Int {
-        guard count > 1 else { return 0 }
-        var index = value
-        while index < 0 || index >= count {
-            index = index < 0 ? -index - 1 : 2 * count - index - 1
-        }
-        return index
-    }
-
-    private static func sinc(_ value: Float) -> Float {
-        if value == 0 { return 1 }
-        let argument = Float.pi * value
-        return sin(argument) / argument
     }
 
     private static func checkCancellation(
