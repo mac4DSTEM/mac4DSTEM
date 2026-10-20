@@ -21,16 +21,16 @@ let package = Package(
     // Standalone EDX (fit, quantification, the spectrum image) lives in SpectroKit since S4 (ADR 064); the file readers
     // (DM4, Velox EMD) and the one HDF5 lock are FormatoKit's since SpectroKit 0.4.0 (2026-10-15). The two pins move
     // TOGETHER and never apart: a process that linked an older SpectroKit's HDF5Serial beside FormatoKit's would have
-    // two locks around one libhdf5 that is not thread-safe. SpectroKit 0.6.1 is the first whose range (FormatoKit 0.3.0..<0.5.0) takes
-    // FormatoKit 0.4.0, which ships libhdf5 as three dynamic-framework XCFrameworks (FormatoLibHDF5, FormatoLibSZ, FormatoLibAEC) that Xcode
+    // two locks around one libhdf5 that is not thread-safe. SpectroKit 0.7.0 takes FormatoKit 0.4.0..<0.6.0;
+    // since 0.4.0 FormatoKit ships libhdf5 as three dynamic-framework XCFrameworks (FormatoLibHDF5, FormatoLibSZ, FormatoLibAEC) that Xcode
     // embeds in Contents/Frameworks and signs with the app's identity. Exact: a new tag is a deliberate bump, gated like any other change.
     dependencies: [
-        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.6.1"),
-        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.4.0"),
+        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.7.0"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.5.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
-        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.4.0"),
-        .package(url: "https://github.com/mac4DSTEM/CuboKit", exact: "0.3.0"),
+        .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.5.0"),
+        .package(url: "https://github.com/mac4DSTEM/CuboKit", exact: "0.4.0"),
         // The exact-length 2D FFT (FFT2D) is ImagoKit's ImagoCore since 2026-10-15 (GPL-3.0 from 0.1.1; the app's copy was its origin,
         // the same arithmetic) and FFT1D (ACOM) is ImagoFFT's since 0.1.1; an exact tag, bumped on purpose. Only DSTEMCore uses it.
         .package(url: "https://github.com/mac4DSTEM/ImagoKit", exact: "0.2.0"),
@@ -44,6 +44,8 @@ let package = Package(
                            .product(name: "FormatoDM", package: "FormatoKit"),
                            .product(name: "FormatoEMD", package: "FormatoKit"),
                            .product(name: "FormatoHDF5", package: "FormatoKit"),
+                           .product(name: "FormatoEMPAD", package: "FormatoKit"),
+                           .product(name: "FormatoMIB", package: "FormatoKit"),
                            .product(name: "DiffractoCore", package: "DiffractoKit"),
                            .product(name: "DiffractoScattering", package: "DiffractoKit"),
                            .product(name: "DiffractoGeometry", package: "DiffractoKit"),
@@ -51,6 +53,11 @@ let package = Package(
                            .product(name: "CuboCore", package: "CuboKit"),
                            .product(name: "CuboVirtual", package: "CuboKit"),
                            .product(name: "CuboPhase", package: "CuboKit"),
+                           .product(name: "CuboParallax", package: "CuboKit"),
+                           .product(name: "CuboPtycho", package: "CuboKit"),
+                           .product(name: "CuboStrain", package: "CuboKit"),
+                           .product(name: "CuboBragg", package: "CuboKit"),
+                           .product(name: "CuboEmbedding", package: "CuboKit"),
                            .product(name: "ImagoCore", package: "ImagoKit"),
                            .product(name: "ImagoFFT", package: "ImagoKit")],
             path: "mac4DSTEM/Core",

@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/CuboKit",
       "state" : {
-        "revision" : "368fccea816d9b85b26d24d7f532f697bdb59417",
-        "version" : "0.3.0"
+        "revision" : "fd02bff548c107915ebb3cb8b3bf4cb127f528b9",
+        "version" : "0.4.0"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/DiffractoKit",
       "state" : {
-        "revision" : "d817610b6f5fe300113ea7f781930bd910bee65c",
-        "version" : "0.4.0"
+        "revision" : "290657a9778b689d3863d5cdb9ed122ec2415244",
+        "version" : "0.5.0"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/FormatoKit",
       "state" : {
-        "revision" : "0d0a200d066bf8b5f1d69b36a8fc96f56a6b0d10",
-        "version" : "0.4.0"
+        "revision" : "018abf59bc6609e77e6ca620bf46d3ea64e266e8",
+        "version" : "0.5.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/SpectroKit",
       "state" : {
-        "revision" : "7afed6796a9a8b29f43337b08dec0f1459bfc7f9",
-        "version" : "0.6.1"
+        "revision" : "1669bf13cfbcad459978ac4501ec937ef54f75e6",
+        "version" : "0.7.0"
       }
     }
   ],
