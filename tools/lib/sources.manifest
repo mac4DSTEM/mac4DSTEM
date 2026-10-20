@@ -502,11 +502,12 @@ mac4dstem_sources() {
         # training-dataset-campaign); a gated harness names its groups.
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes,
         # and Calibration.swift's ellipse transform); the cube, virtual detectors and rotation are CuboKit's (C1, C2).
-        kit_module "$repo" DiffractoKit DiffractoGeometry
+        # Every kit module DSTEMCore links (Package.swift), so a switch that adds an import builds here too (2026-10-20).
+        kit_module "$repo" DiffractoKit DiffractoCore DiffractoScattering DiffractoGeometry DiffractoOrientation
         want+=("${KIT_FLAGS[@]}")
-        kit_module "$repo" CuboKit CuboVirtual CuboPhase CuboStrain
+        kit_module "$repo" CuboKit CuboCore CuboVirtual CuboPhase CuboParallax CuboPtycho CuboStrain CuboBragg CuboEmbedding
         want+=("${KIT_FLAGS[@]}")
-        kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
+        kit_module "$repo" ImagoKit ImagoCore ImagoFFT
         want+=("${KIT_FLAGS[@]}")
         want+=("$core"/**/*.swift(N))
         ;;
