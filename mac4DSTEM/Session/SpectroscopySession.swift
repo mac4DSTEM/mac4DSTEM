@@ -54,10 +54,8 @@ package enum SpectroscopyTool: String, CaseIterable, Identifiable, Sendable {
 
 // MARK: - Elements
 
-/// An element's role in the fit (ADR 054 item 6) and the element row itself: the types live with the
-/// method (`QuantificationMethod`, Core), because the element states are part of what a replay step
-/// records. These names are the room's.
-package typealias SpectroscopyElementRole = QuantificationMethod.ElementRole
+/// The element row: the type lives with the method (`QuantificationMethod`, Core), because the element
+/// states are part of what a replay step records. This name is the room's.
 package typealias SpectroscopyElement = QuantificationMethod.ElementState
 
 // MARK: - Regions

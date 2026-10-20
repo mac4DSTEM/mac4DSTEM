@@ -69,7 +69,6 @@ package nonisolated struct PoolCatalogue: Equatable, Sendable {
     package static let phaseIDBase = 1000
     package static let notIndexedID = 1900
     package static let groupIDBase = 2000
-    package static func isPoolID(_ id: Int) -> Bool { id >= phaseIDBase }
 
     package static let phaseMapValidation = "none"
     package static func isUnvalidated(validation: String?) -> Bool { validation == phaseMapValidation }

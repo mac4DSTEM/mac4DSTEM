@@ -152,19 +152,6 @@ package final class ResultPresentation {
         virtualDiffractionPattern = pattern
     }
 
-    package func resetViewControls() {
-        displayRangeLo = 0
-        displayRangeHi = 1
-        resultGamma = 1
-    }
-
-    package func resetForDatasetActivation() {
-        product = nil
-        inspectQualityField = false
-        clearBraggVectors()
-        virtualDiffractionPattern = nil
-    }
-
     package func qualityField(for displayedProduct: DisplayedProduct?) -> ProductQualityField? {
         guard inspectQualityField else { return nil }
         return displayedProduct?.qualityFields.first
