@@ -150,7 +150,8 @@ CSV, py4DSTEM `BraggVectors`, calibrated reduced `DataCube` with the recipe.
    SwiftUI↔Metal bridge, `UI/MetalImageView.swift`; a `contentVersion` gates re-upload.
 9. **Export / persist.** `Support/ResultExport.swift` writes PNG, CSV of
    Bragg peaks, and py4DSTEM/EMD-compatible HDF5
-   (`Core/Data/BraggVectorEMDWriter.swift`). Sidecar-rewriting entry points
+   (`Core/Data/BraggVectorEMDWriter.swift`: the API, the publish and the attribute names; `SessionSidecarReading`, `SessionSidecarWriting`,
+   `CalibratedDataCubeWriter`, `HDF5WritePrimitives` and `HDF5WriteLibrary` beside it). Sidecar-rewriting entry points
    call `gates.sidecarRewriteRefusal()` first (`Session/SessionGates.swift`);
    provenance is composed once per fact, snapshotted at compute time, not
    read live off current calibration.

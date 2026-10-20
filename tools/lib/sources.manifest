@@ -545,6 +545,11 @@ mac4dstem_sources() {
           "$core/Data/H5Reader.swift"
           "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
+          "$core/Data/SessionSidecarReading.swift"
+          "$core/Data/SessionSidecarWriting.swift"
+          "$core/Data/CalibratedDataCubeWriter.swift"
+          "$core/Data/HDF5WritePrimitives.swift"
+          "$core/Data/HDF5WriteLibrary.swift"
         )
         ;;
       *)
