@@ -5,7 +5,7 @@
 //        one-click probe radius. Pure; nothing here sets a default (owner,
 //        2026-10-01, card "Kernel", option c).
 //
-//  The logic is S21's (../_archive/mac4DSTEM/docs/archive/v4/s21-detection-defaults-proposal-
+//  The rules are S21's (../_archive/mac4DSTEM/docs/archive/v4/s21-detection-defaults-proposal-
 //  2026-09-30.patch, results ...-results-2026-09-30.md), returned with the dip
 //  value it already computed. `probeSize` reads such a probe at its first
 //  shoulder (bullseye: 6.84 px where the ring ends at 11); the trench kernel
@@ -15,6 +15,8 @@
 //  default.
 //
 
+import CuboBragg
+import CuboVirtual
 import Foundation
 
 package nonisolated enum ProbeRingHint {
@@ -27,44 +29,22 @@ package nonisolated enum ProbeRingHint {
     }
 
     /// The hint is worth showing only when the radius in use is not already
-    /// within half a pixel of the edge.
+    /// within half a pixel of the edge. Since 2026-10-20 the radius in use is measured on the MAX pattern
+    /// (`OriginCalibration.ProbeRadiusSource.maxPattern`), usually larger than the mean pattern's, so the offer
+    /// threshold compares against a max-based radius and appears less often than it did.
     package nonisolated static func isWorthOffering(_ hint: Result, current: Float) -> Bool {
         abs(hint.outerRadius - current) >= 0.5
     }
 
-    /// The azimuthal mean about `probeSize`'s centre (integer-radius bins) is
-    /// read outside in: the outer edge is the largest radius still >= 20 % of
-    /// the profile maximum. The probe counts as ring-structured when, out to
-    /// 2 x the `probeSize` radius, the profile has a local maximum >= 20 % of
-    /// its maximum after a dip below 25 % of it. Returned only when the edge
-    /// is beyond the `probeSize` radius and no larger than min(qx, qy) / 8
-    /// (S21's guard, chosen after Au_ref's ring at 26 px on a 64 px detector).
+    /// The outer edge of a ring-structured probe, read from the scan's mean pattern: CuboKit's
+    /// `CuboBragg.ProbeRingHint.outerEdge(of:)` (the app's code of 2026-10-01, moved into the kit unchanged in its
+    /// rules: the 20 % edge, the 0.25 dip, the `min(qx, qy) / 8` guard, a probe size on the pattern with non-finite
+    /// pixels as 0). The kit returns the radius as an `Int` bin and the dip in Double; the app's `Result` is Float,
+    /// converted exactly (an integer below 2^24, a dip narrowed to Float).
     package nonisolated static func outerEdge(meanDP dp: [Float], qy: Int, qx: Int) -> Result? {
-        guard dp.count == qy * qx, let probe = OriginCalibration.probeSize(dp: dp, qy: qy, qx: qx) else { return nil }
-        let bins = Int(Double(qx * qx + qy * qy).squareRoot()) + 2
-        var sum = [Double](repeating: 0, count: bins)
-        var count = [Double](repeating: 0, count: bins)
-        for y in 0..<qy {
-            for x in 0..<qx {
-                let v = dp[y * qx + x]
-                guard v.isFinite else { continue }
-                let r = Int(hypot(Double(y) - Double(probe.y0), Double(x) - Double(probe.x0)))
-                sum[r] += Double(v); count[r] += 1
-            }
-        }
-        let profile = (0..<bins).map { count[$0] > 0 ? sum[$0] / count[$0] : 0 }
-        guard let peak = profile.max(), peak > 0 else { return nil }
-        var outer = 0
-        for i in 0..<bins where profile[i] >= 0.2 * peak { outer = i + 1 }
-        var ring = 0
-        let upper = min(Int(2 * probe.r) + 1, bins - 1)
-        guard upper > 1 else { return nil }
-        for i in 1..<upper
-        where profile[i] > profile[i - 1] && profile[i] >= profile[i + 1] && profile[i] >= 0.2 * peak {
-            ring = i
-        }
-        guard ring > 1, let dip = profile[1..<ring].min(), dip / peak < 0.25 else { return nil }
-        guard Float(outer) > probe.r, Float(outer) <= Float(min(qx, qy)) / 8 else { return nil }
-        return Result(outerRadius: Float(outer), dip: Float(dip / peak))
+        guard dp.count == qy * qx, qy > 0, qx > 0 else { return nil }
+        let pattern = DetectorImage(detectorRows: qy, detectorColumns: qx, values: dp.map(Double.init), path: .cpu)
+        guard let hint = CuboBragg.ProbeRingHint.outerEdge(of: pattern) else { return nil }
+        return Result(outerRadius: Float(hint.outerRadius), dip: Float(hint.dip))
     }
 }

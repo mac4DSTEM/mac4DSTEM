@@ -40,12 +40,25 @@ final class ProbeRingHintTests: XCTestCase {
     /// return `probe.r`) -> red.
     func testBullseyeReturnsItsOuterEdge() throws {
         let hint = try XCTUnwrap(ProbeRingHint.outerEdge(meanDP: bullseye, qy: q, qx: q))
-        XCTAssertEqual(hint.outerRadius, 12, accuracy: 1)
+        XCTAssertEqual(hint.outerRadius, 12)   // an integer bin, exact through the kit's Int -> Float
         XCTAssertLessThan(hint.dip, 0.25)
         let probe = try XCTUnwrap(OriginCalibration.probeSize(dp: bullseye, qy: q, qx: q))
         XCTAssertLessThan(probe.r, hint.outerRadius - 2, "the estimator the defaults use reads the shoulder, untouched by the hint")
         XCTAssertTrue(ProbeRingHint.isWorthOffering(hint, current: probe.r))
         XCTAssertFalse(ProbeRingHint.isWorthOffering(hint, current: hint.outerRadius))
+    }
+
+    /// Non-finite pixels in the core, the dark gap, the ring and far outside count as 0 for the probe size and are left out of the
+    /// profile. The expected hint (outer edge 12, dip 0) is what dc203ece's app code (before the kit's) returned for this same
+    /// pattern, computed 2026-10-20 with `tools/lib/sources.manifest`'s `qcalibration` group at that commit.
+    func testNonFinitePixelsGiveTheHintTheAppCodeGave() throws {
+        var px = bullseye
+        for (y, x) in [(64, 64), (64, 69), (64, 73), (60, 60), (10, 10)] { px[y * q + x] = .nan }
+        px[64 * q + 74] = .infinity
+        px[70 * q + 64] = -.infinity
+        let hint = try XCTUnwrap(ProbeRingHint.outerEdge(meanDP: px, qy: q, qx: q))
+        XCTAssertEqual(hint.outerRadius, 12)
+        XCTAssertEqual(hint.dip, 0, accuracy: 1e-6)
     }
 
     /// Mutation: remove the min(qx, qy)/8 guard -> a 64 px detector with the

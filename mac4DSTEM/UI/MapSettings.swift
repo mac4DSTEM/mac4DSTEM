@@ -260,7 +260,7 @@ private struct DiskDetectionRows: View {
             InspectorWarning(
                 String(format: "Ring-shaped probe: its outer edge is at %.0f px (now %.1f px)", hint.outerRadius, now),
                 systemImage: "circle.dashed")
-                .help("The probe-size estimate stops at the first ring. A trench kernel built at the outer edge finds the beam on a ring-structured probe; Train Model uses the same radius.")
+                .help("The probe-size estimate, taken from the scan's max pattern as py4DSTEM does, stops at the first ring. A trench kernel built at the outer edge finds the beam on a ring-structured probe; Train Model uses the same radius.")
             InspectorActionRow {
                 InspectorAdaptiveButton(
                     String(format: "Use %.0f px", hint.outerRadius), systemImage: "circle.dashed",
