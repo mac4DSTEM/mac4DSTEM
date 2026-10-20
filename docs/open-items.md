@@ -26,9 +26,20 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 - **Replay scale guard** is one constant, 1e-4 relative (`ACOMReplayPlan.scaleRelativeTolerance`; was 1e-6): a recipe
   recorded before the DPC wavelength moved (+2.72e-5, `2e46e215`) replays and rewinds; its ACOM product still reads stale
   (the staleness signature compares the scale string; honest, one re-run clears it).
-- **ParallaxAlignment is a CuboKit ask, not an ImagoKit switch** (2026-10-15 night): it correlates a running-average reference
-  spectrum with the raw cross-power and py4DSTEM's subpixel DFT, and shifts in Float; ImagoAlignment is scikit-image's
-  normalised image-pair registration in Double. FFT1D stays (no kit has a 1D FFT; OrientationMatcher uses it).
+- **Parallax on CuboParallax 0.4.0 (2026-10-20): what stays and the kit asks.** The aberration fit, CTF correction, depth sectioning,
+  the KDE deposition and the Fourier shift are the kit's; the app keeps (each marked `delete at CuboKit ...` in the code): the
+  result/option value types (DSTEMSession, the app and the tests do not link CuboParallax, and MemberImportVisibility hides a kit
+  type's members: needs the product on those targets); the transfer function the correction stores (the kit returns the image and
+  the two phase surfaces only); a cancellation hook and per-plane/per-iteration progress (the kit has none: cancel lands before or
+  after a kit call); `ParallaxAlignment.correlationShift` and the running-average reference (spectrum-level estimate; the kit's
+  `shift` takes real-space images); the position-correction loop (the app's Float variant with its own scoring window). The
+  stages are Double inside the kit, so their memory estimates count Double planes.
+  Also asks: a **plan-reusing batch shift API** (`ParallaxAlignment.shifted` builds a new FFT2D per call, twice per bright-field
+  image per level where the app reuses one plan, so `fourierShift` stays on the app's Float path); depth sectioning with a per-plane
+  callback (the app calls the kit once per plane to keep between-plane cancellation, which re-runs the forward FFT of every image
+  per plane: about 1.5x the FFT work, not measured on real data). Kit error text: kit errors reach the user as the stage's own
+  `invalidInput(...)` with a plain-language reason (`parallaxKitReason`), not the kit's wording; the memory refusals keep the app's
+  text.
 - **Test-run traps** (2026-10-15 night): `KitSwitchFreezeTests`' preset digests pass in the full parallel suite and fail when the
   class runs alone, even at DiffractoKit 0.1.0 (per-reflection values are identical: a run-context dependence, cause open);
   `sources.manifest`'s `kit_module` links every `*.o` in `.build/<kit>-tools`, so objects left by another pin break the link
