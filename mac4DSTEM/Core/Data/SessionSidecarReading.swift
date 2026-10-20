@@ -1,18 +1,153 @@
-import Darwin
-import Foundation
-import FormatoHDF5
-import SpectroCore
-
 //
 //  SessionSidecarReading.swift
 //  Role: read a session sidecar (`<source>.mac4dstem.h5`) back: the minimum-reader gate, the inventory, the calibration, the result
-//        maps, the peak grid, the replay record, the lineage and the labels. Split out of BraggVectorEMDWriter.swift (2026-10-20),
-//        which keeps the writers, the atomic publish and the `mac4dstem_*` attribute names.
+//        maps, the peak grid, the replay record, the lineage and the labels. Every read is FormatoKit's `HDF5Reader` (0.5.0) or,
+//        for the peak grid, `BraggVectorsEMD.read`; what the file's nodes MEAN, and the refusals worded for them, are the app's.
+//        Split out of BraggVectorEMDWriter.swift (2026-10-20), which keeps the writers, the atomic publish and the
+//        `mac4dstem_*` attribute names.
 //
 
+import Foundation
+import FormatoCore
+import FormatoHDF5
+import SpectroCore
+
 nonisolated extension BraggVectorEMDWriter {
-    /// Load the complete supported session inventory and the map recorded as
-    /// current. Legacy one-slot sidecars are treated as a one-map inventory.
+
+    /// A sidecar (or bundle) file open for reading through `HDF5Reader`: each call opens the file, reads and closes it, under the one
+    /// HDF5 lock. The guards of the former handle-based readers are kept, with their wording: a dataset read as a scalar holds
+    /// exactly one value, a unit string is one variable-length string, an attribute is one string.
+    struct SidecarFile {
+        let url: URL
+        let reader: HDF5Reader
+
+        /// Opens `url`. A refusal says WHY (libhdf5's reason, or the system's for a denied read), not only that it failed: the
+        /// release owner's restore failure (S1, 2026-08-18) read "HDF5 export failed while opening the session sidecar" and
+        /// nothing else. `operation` names what was being done.
+        init(opening url: URL, operation: String = "opening the session sidecar") throws {
+            self.url = url
+            do {
+                reader = try HDF5Reader(url: url)
+            } catch HDF5FileError.library(let detail) {
+                throw WriterError.libraryUnavailable(detail)
+            } catch HDF5FileError.cannotOpen(let detail), HDF5FileError.notPermitted(let detail) {
+                throw WriterError.hdf5("\(operation) — HDF5 reported: \(detail)")
+            } catch {
+                throw WriterError.hdf5("\(operation) — HDF5 reported: \(error.localizedDescription)")
+            }
+        }
+
+        /// A kit refusal as the app's `.hdf5` error for `operation`.
+        static func failure(_ operation: String, _ error: Error) -> WriterError {
+            if case HDF5FileError.library(let detail) = error { return .libraryUnavailable(detail) }
+            return .hdf5("\(operation) — HDF5 reported: \(error.localizedDescription)")
+        }
+
+        func exists(_ path: String) -> Bool { (try? reader.exists(path)) == true }
+        func isGroup(_ path: String) -> Bool { (try? reader.kind(of: path)) == .group }
+        func isDataset(_ path: String) -> Bool { (try? reader.kind(of: path)) == .dataset }
+
+        /// The names of the links of the group at `path`.
+        func children(of path: String) -> [String] { (try? reader.children(of: path)) ?? [] }
+
+        /// A string attribute: nil when absent; exactly one string, else `malformedAttribute` (an array, a number written by another
+        /// tool, an enum, text that is not UTF-8 or is over 4 MiB).
+        func stringAttribute(_ name: String, at path: String) throws -> String? {
+            let value: HDF5AttributeValue
+            do {
+                value = try reader.attribute(name, of: path)
+            } catch HDF5FileError.notFound {
+                return nil
+            } catch HDF5FileError.unsupportedType, HDF5FileError.stringTooLong, HDF5FileError.invalidUTF8,
+                    HDF5FileError.limitExceeded {
+                throw WriterError.malformedAttribute(name: name)
+            } catch {
+                throw Self.failure("reading attribute \(name)", error)
+            }
+            switch value {
+            case .text(let text): return text
+            case .texts(let texts) where texts.count == 1: return texts[0]
+            default: throw WriterError.malformedAttribute(name: name)
+            }
+        }
+
+        /// The scalar dataset `name` of `group`, checked for exactly one value: a foreign or hand-edited sidecar with a 3-element `a`
+        /// would otherwise read as one of them (review 2026-10-02, the twin of the Qshape overrun); an empty dataset, or a NULL
+        /// dataspace (h5py.Empty), would read as 0.
+        private func scalarDataset(_ name: String, in group: String) throws -> (path: String, info: HDF5DatasetInfo)? {
+            let path = group + "/" + name
+            guard isDataset(path) else { return nil }
+            let info: HDF5DatasetInfo
+            do {
+                info = try reader.datasetInfo(path)
+            } catch HDF5FileError.unsupportedType {
+                throw WriterError.hdf5("reading dataset \(name), which does not hold exactly one value")
+            } catch {
+                throw Self.failure("reading the shape of dataset \(name)", error)
+            }
+            guard (try? FormatoArray.elementCount(info.shape)) == 1 else {
+                throw WriterError.hdf5("reading dataset \(name), which does not hold exactly one value")
+            }
+            return (path, info)
+        }
+
+        func doubleDataset(_ name: String, in group: String) throws -> Double? {
+            guard let (path, info) = try scalarDataset(name, in: group) else { return nil }
+            guard case .numeric = info.type else { throw WriterError.hdf5("reading dataset \(name)") }
+            let value: Double
+            do { value = try reader.readDataset(path).doubles()[0] } catch {
+                throw Self.failure("reading dataset \(name)", error)
+            }
+            return value.isFinite ? value : nil
+        }
+
+        /// A Python bool: the app writes one byte; h5py writes an int8-based enum, which only libhdf5's own int conversion reads.
+        func boolDataset(_ name: String, in group: String) throws -> Bool? {
+            guard let (path, info) = try scalarDataset(name, in: group) else { return nil }
+            switch info.type {
+            case .numeric:
+                do { return try reader.readDataset(path).doubles()[0] != 0 } catch {
+                    throw Self.failure("reading dataset \(name)", error)
+                }
+            case .unsupported(let kind) where kind == "enum":
+                // delete at FormatoKit 0.6: an enum/bool read in HDF5Reader (the shim is H5Reader.swift's HDF5LegacyProbe)
+                guard let value = HDF5LegacyProbe.integerScalar(filePath: url.path, path: path, attribute: nil) else {
+                    throw WriterError.hdf5("reading dataset \(name)")
+                }
+                return value != 0
+            default:
+                throw WriterError.hdf5("reading dataset \(name)")
+            }
+        }
+
+        /// One variable-length string (what the writer writes); a fixed-length string or a number is refused by name.
+        func stringDataset(_ name: String, in group: String) throws -> String? {
+            guard let (path, info) = try scalarDataset(name, in: group) else { return nil }
+            guard case .string(variableLength: true) = info.type else {
+                throw WriterError.hdf5("reading dataset \(name), which is not one variable-length string")
+            }
+            let strings: [String]
+            do { strings = try reader.readStrings(path) } catch { throw Self.failure("reading dataset \(name)", error) }
+            return strings.first ?? ""
+        }
+
+        /// A finite rank-2 dataset, as it is stored; nil when it is not rank 2, has an empty extent or holds a non-finite value.
+        func doubleMatrix(_ name: String, in group: String) throws -> (shape: [Int], values: [Double])? {
+            let path = group + "/" + name
+            guard isDataset(path) else { return nil }
+            let info: HDF5DatasetInfo
+            do { info = try reader.datasetInfo(path) } catch HDF5FileError.unsupportedType { return nil } catch HDF5FileError.limitExceeded {
+                return nil
+            } catch { throw Self.failure("opening dataset \(name)", error) }
+            guard info.shape.count == 2, info.shape.allSatisfy({ $0 > 0 }), info.shape[0] <= Int.max / info.shape[1] else { return nil }
+            guard case .numeric = info.type else { throw WriterError.hdf5("reading dataset \(name)") }
+            let values: [Double]
+            do { values = try reader.readDataset(path).doubles() } catch { throw Self.failure("reading dataset \(name)", error) }
+            guard values.allSatisfy(\.isFinite) else { return nil }
+            return (info.shape, values)
+        }
+    }
+
     /// The one minimum-reader check, shared by EVERY reader that hands back
     /// session content — `loadSession` and the two direct result readers
     /// (`loadResultMap(id:)`, `loadRGBAResultMap(id:)`) — both would otherwise
@@ -22,15 +157,13 @@ nonisolated extension BraggVectorEMDWriter {
     /// treated the same, because refusing on garbage would brick every
     /// sidecar a bit-flip touches while a newer-format file always writes a
     /// clean integer.
-    static func enforceMinimumReader(
-        on root: hid_t, hdf5 h5: HDF5WriteLibrary, supportedSchema: Int
-    ) throws {
+    static func enforceMinimumReader(_ file: SidecarFile, supportedSchema: Int) throws {
         // A marker of the wrong shape or type is garbage like any other
         // unparseable value, so it reads as absent (the rule above), not as
         // the reader's `malformedAttribute` refusal. // S5
         let markerText: String?
         do {
-            markerText = try readStringAttribute(minimumReaderAttribute, on: root, hdf5: h5)
+            markerText = try file.stringAttribute(minimumReaderAttribute, at: rootPath)
         } catch WriterError.malformedAttribute {
             markerText = nil
         }
@@ -43,6 +176,18 @@ nonisolated extension BraggVectorEMDWriter {
         }
     }
 
+    /// Opens the sidecar and its root group, or the file `loadSession` and the direct readers all start from.
+    private static func openSidecar(_ url: URL) throws -> SidecarFile {
+        let file = try SidecarFile(opening: url)
+        guard file.isGroup(rootPath) else {
+            throw WriterError.hdf5("opening the session root — HDF5 reported: there is no group \(rootPath)")
+        }
+        return file
+    }
+
+    /// Load the complete supported session inventory and the map recorded as
+    /// current. Legacy one-slot sidecars are treated as a one-map inventory.
+    ///
     /// `supportedSchema` exists so the minimum-reader refusal is testable
     /// against a REAL file through the REAL gate: a test reads a genuinely
     /// cropped sidecar as a schema-5 reader and watches the refusal fire.
@@ -58,26 +203,17 @@ nonisolated extension BraggVectorEMDWriter {
                 currentRGBAResult: nil
             )
         }
-        let h5 = try HDF5WriteLibrary.load()
-        let fileID = url.path.withCString {
-            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
-        }
-        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
-        defer { _ = h5.h5fclose(fileID) }
-
-        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
-        defer { _ = h5.h5gclose(root) }
+        let file = try openSidecar(url)
 
         // THE MINIMUM-READER GATE (v2 S5), checked before anything is
         // restored. A file demanding a newer reader is refused whole, with
         // both numbers named — a partial restore is exactly the "right
         // numbers at wrong positions, no warning" failure the marker exists
         // to prevent.
-        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
+        try enforceMinimumReader(file, supportedSchema: supportedSchema)
 
-        let results = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
-        let recordedCurrent = try readStringAttribute(currentResultAttribute, on: root, hdf5: h5)
+        let results = try readResultDescriptors(file)
+        let recordedCurrent = try file.stringAttribute(currentResultAttribute, at: rootPath)
         let currentID = recordedCurrent.flatMap { id in
             results.contains(where: { $0.id == id }) ? id : nil
         } ?? results.last?.id
@@ -86,23 +222,22 @@ nonisolated extension BraggVectorEMDWriter {
         }
         let currentResult = try currentDescriptor.flatMap { descriptor in
             descriptor.storage == .scalarFloat32
-                ? try readResultMap(nodeName: descriptor.id, from: root, hdf5: h5)
+                ? try readResultMap(file, nodeName: descriptor.id, in: rootPath)
                 : nil
         }
         let currentRGBAResult = try currentDescriptor.flatMap { descriptor in
             descriptor.storage == .rgba8
-                ? try readRGBAResultMap(nodeName: descriptor.id, from: root, hdf5: h5)
+                ? try readRGBAResultMap(file, nodeName: descriptor.id, in: rootPath)
                 : nil
         }
-        let calibration = try readCalibration(from: root, hdf5: h5)
+        let calibration = try readCalibration(file)
         // Absent attribute ⇒ nil — nothing was recorded. Present-but-
         // undecodable ⇒ REFUSE by name (v2 S7): `.flatMap(decoded)` used to
         // collapse the two, so a mangled specification attribute read as "no
         // crop recorded" and the cropped session reopened silently at full
         // extent — the misread the attribute exists to prevent.
         let specification: LoadSpecification?
-        if let json = try readStringAttribute(loadSpecificationAttribute,
-                                              on: root, hdf5: h5) {
+        if let json = try file.stringAttribute(loadSpecificationAttribute, at: rootPath) {
             guard let decoded = LoadSpecification.decoded(from: json) else {
                 throw WriterError.malformedAttribute(name: loadSpecificationAttribute)
             }
@@ -114,7 +249,7 @@ nonisolated extension BraggVectorEMDWriter {
         // snapshot says so rather than asserting an empty one. // v2 S5
         // Present-but-undecodable refuses, as above. // v2 S7
         let replay: SessionReplayRecord?
-        if let json = try readStringAttribute(replayRecordAttribute, on: root, hdf5: h5) {
+        if let json = try file.stringAttribute(replayRecordAttribute, at: rootPath) {
             guard let parsed = SessionReplayRecord.parse(json) else {
                 throw WriterError.malformedAttribute(name: replayRecordAttribute)
             }
@@ -133,7 +268,7 @@ nonisolated extension BraggVectorEMDWriter {
         var lineage: SessionLineage?
         var lineageNote: String?
         if supportedSchema >= 7,
-           let json = try readStringAttribute(lineageAttribute, on: root, hdf5: h5) {
+           let json = try file.stringAttribute(lineageAttribute, at: rootPath) {
             // The 4 MiB cap is checked on the string after it is read: for a
             // variable-length string HDF5 stores only a 16-byte heap id in the
             // attribute (`H5Aget_storage_size` reports 16 for a 5 MiB string,
@@ -162,13 +297,13 @@ nonisolated extension BraggVectorEMDWriter {
         }
         let inventory = SessionSidecarInventory(
             hasSidecar: true,
-            hasBraggVectors: linkExists("\(rootPath)/braggvectors", in: fileID, hdf5: h5),
+            hasBraggVectors: file.exists("\(rootPath)/braggvectors"),
             hasCalibration: calibration != nil,
             results: results,
             currentResultID: currentID
         )
         // The stamp is read like the minimum-reader marker: garbage is absent.
-        let schemaText: String? = (try? readStringAttribute(schemaAttribute, on: root, hdf5: h5)) ?? nil
+        let schemaText: String? = (try? file.stringAttribute(schemaAttribute, at: rootPath)) ?? nil
         let schemaStamp = schemaText.flatMap { Int($0) }
         return SessionSidecarSnapshot(
             inventory: inventory, calibration: calibration,
@@ -201,136 +336,77 @@ nonisolated extension BraggVectorEMDWriter {
     /// peak grid (or no `_braggvectors_shape`, which the detector shape comes
     /// from). Throws on an HDF5 failure or a non-finite peak — never a partial
     /// grid. py4DSTEM's qx is the detector ROW and qy the COLUMN; the app's
-    /// `BraggPeak` is x = column, y = row, so the writer's swap is undone here.
+    /// `BraggPeak` is x = column, y = row, so the writer's swap is undone here
+    /// (`BraggVectorsEMD.read(convention: .appImageXY)` does it).
     /// float64 → Float32 is exact for values the writer produced from Float32.
+    ///
+    /// STRICTER than the former reader (FormatoKit's `BraggVectorsEMD.read` does the reading): the scan shape (`Rshape`) must be
+    /// present and equal the grid's dimensions, and every entry of the calibration bundle beside it must be a scalar of the kind the
+    /// kit expects (a 3-element `a` refuses the GRID, where it used to be ignored — `loadSession` refuses such a file by name
+    /// anyway, and the app restores through it first). A file this app wrote always satisfies both.
     package static func loadPeakGrid(
         from url: URL,
         supportedSchema: Int = SessionSidecarFormat.currentSchema
     ) throws -> StoredPeakGrid? {
         HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        let h5 = try HDF5WriteLibrary.load()
-        let fileID = url.path.withCString {
-            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
-        }
-        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
-        defer { _ = h5.h5fclose(fileID) }
-        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
-        defer { _ = h5.h5gclose(root) }
-        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
+        let file = try openSidecar(url)
+        try enforceMinimumReader(file, supportedSchema: supportedSchema)
 
-        guard linkExists("braggvectors/_v_uncal/data", in: root, hdf5: h5) else { return nil }
-        let bragg = "braggvectors".withCString { h5.h5gopen2(root, $0, h5DefaultProperty) }
-        guard bragg >= 0 else { return nil }
-        defer { _ = h5.h5gclose(bragg) }
-        let provenance = decodeProvenance(try readStringAttribute(
-            "mac4dstem_detection_provenance", on: bragg, hdf5: h5
-        ))
-        guard let qShape = try readInt64Vector(
-            "metadatabundle/_braggvectors_shape/Qshape", from: bragg, count: 2, hdf5: h5
-        ), qShape.allSatisfy({ $0 > 0 }) else { return nil }
-
-        let group = "_v_uncal".withCString { h5.h5gopen2(bragg, $0, h5DefaultProperty) }
-        guard group >= 0 else { return nil }
-        defer { _ = h5.h5gclose(group) }
-        let dataset = "data".withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        let space = h5.h5dgetSpace(dataset)
-        guard space >= 0 else { throw WriterError.hdf5("opening the peak-grid dataspace") }
-        defer { _ = h5.h5sclose(space) }
-        guard h5.h5sgetSimpleExtentNdims(space) == 2 else { return nil }
-        var rawShape = [hsize_t](repeating: 0, count: 2)
-        guard rawShape.withUnsafeMutableBufferPointer({
-            h5.h5sgetSimpleExtentDims(space, $0.baseAddress, nil)
-        }) == 2,
-        rawShape.allSatisfy({ $0 > 0 && $0 <= hsize_t(Int32.max) }) else { return nil }
-        let scanHeight = Int(rawShape[0]), scanWidth = Int(rawShape[1])
-        let positions = scanHeight * scanWidth
-
-        // The memory type is the writer's own: vlen of {qx, qy, intensity}
-        // float64. HDF5 converts by member NAME, so a file that orders the
-        // fields differently (py4DSTEM's own) reads the same.
-        let compound = h5.h5tcreate(h5CompoundClass, MemoryLayout<EMDPeakRecord>.stride)
-        guard compound >= 0 else { throw WriterError.hdf5("creating the peak compound type") }
-        defer { _ = h5.h5tclose(compound) }
-        guard "qx".withCString({ h5.h5tinsert(compound, $0, 0, h5.nativeDouble) }) >= 0,
-              "qy".withCString({ h5.h5tinsert(compound, $0, 8, h5.nativeDouble) }) >= 0,
-              "intensity".withCString({ h5.h5tinsert(compound, $0, 16, h5.nativeDouble) }) >= 0 else {
-            throw WriterError.hdf5("defining the peak compound fields")
-        }
-        let variable = h5.h5tvlenCreate(compound)
-        guard variable >= 0 else { throw WriterError.hdf5("creating the variable-length peak type") }
-        defer { _ = h5.h5tclose(variable) }
-
-        var cells = [H5VariableLength](
-            repeating: H5VariableLength(length: 0, pointer: nil), count: positions
-        )
-        guard cells.withUnsafeMutableBytes({
-            h5.h5dread(dataset, variable, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, $0.baseAddress)
-        }) >= 0 else { throw WriterError.hdf5("reading the peak grid") }
-
-        // Every cell's buffer belongs to the library's allocator and is freed
-        // exactly once below, on the success path and the throwing one alike
-        // (a compound of doubles holds no nested variable-length data, so
-        // freeing each cell is the whole of `H5Dvlen_reclaim`).
-        defer {
-            for cell in cells { if let pointer = cell.pointer { _ = h5.h5freeMemory(pointer) } }
-        }
-        var peaks = [[BraggPeak]](repeating: [], count: positions)
-        for index in 0..<positions {
-            let cell = cells[index]
-            guard cell.length > 0 else { continue }
-            guard let pointer = cell.pointer, cell.length <= Int(Int32.max) else {
-                throw WriterError.hdf5("the peak grid holds a malformed cell")
+        let braggPath = "\(rootPath)/braggvectors"
+        let dataPath = "\(braggPath)/_v_uncal/data"
+        guard file.isDataset(dataPath), file.isGroup(braggPath) else { return nil }
+        let provenance = decodeProvenance(try file.stringAttribute("mac4dstem_detection_provenance", at: braggPath))
+        let shapePath = "\(braggPath)/metadatabundle/_braggvectors_shape/Qshape"
+        guard file.isDataset(shapePath) else { return nil }
+        let qShape: [Int]
+        do {
+            let info = try file.reader.datasetInfo(shapePath)
+            // A foreign sidecar may hold more elements than two.
+            guard (try? FormatoArray.elementCount(info.shape)) == 2 else {
+                throw WriterError.hdf5("dataset \(shapePath) does not hold exactly 2 values")
             }
-            let records = pointer.assumingMemoryBound(to: EMDPeakRecord.self)
-            var cellPeaks = [BraggPeak]()
-            cellPeaks.reserveCapacity(cell.length)
-            for item in 0..<cell.length {
-                let record = records[item]
-                // AXIS CONVERSION (inverse of writePeakGrid): qx = row = y, qy = column = x.
-                let peak = BraggPeak(
-                    x: Float(record.qy), y: Float(record.qx), intensity: Float(record.intensity)
-                )
+            // A hostile file can hold NaN, infinity or a number no Int holds: refused, never trapped on.
+            let values = try file.reader.readDataset(shapePath).doubles()
+            let whole = values.compactMap { Int(exactly: $0) }
+            guard whole.count == values.count else {
+                throw WriterError.hdf5("dataset \(shapePath) holds a value that is not a whole number")
+            }
+            qShape = whole
+        } catch let error as WriterError {
+            throw error
+        } catch {
+            throw SidecarFile.failure("reading dataset \(shapePath)", error)
+        }
+        guard qShape.allSatisfy({ $0 > 0 }) else { return nil }
+        let dataInfo: HDF5DatasetInfo
+        do { dataInfo = try file.reader.datasetInfo(dataPath) } catch { return nil }
+        guard dataInfo.shape.count == 2, dataInfo.shape.allSatisfy({ $0 > 0 && $0 <= Int(Int32.max) }) else { return nil }
+
+        let stored: BraggVectorsEMD
+        do {
+            stored = try BraggVectorsEMD.read(path: url.path, groupPath: braggPath, convention: .appImageXY)
+        } catch {
+            throw WriterError.hdf5("reading the peak grid — \(error)")
+        }
+        var peaks = [[BraggPeak]](repeating: [], count: stored.peaks.count)
+        for (index, cell) in stored.peaks.enumerated() where !cell.isEmpty {
+            // appImageXY: the kit's `qx` is the column (x) and `qy` the row (y), as the app's peak.
+            peaks[index] = try cell.map { record in
+                let peak = BraggPeak(x: Float(record.qx), y: Float(record.qy), intensity: Float(record.intensity))
                 guard peak.x.isFinite, peak.y.isFinite, peak.intensity.isFinite else {
                     throw WriterError.hdf5("the peak grid holds a non-finite peak")
                 }
-                cellPeaks.append(peak)
+                return peak
             }
-            peaks[index] = cellPeaks
         }
         return StoredPeakGrid(
             vectors: BraggVectors(
-                scanWidth: scanWidth, scanHeight: scanHeight, peaks: peaks,
+                scanWidth: stored.scan.columns, scanHeight: stored.scan.rows, peaks: peaks,
                 detectionProvenance: provenance
             ),
             detectorHeight: qShape[0], detectorWidth: qShape[1]
         )
-    }
-
-    static func readInt64Vector(
-        _ path: String, from parent: hid_t, count: Int, hdf5 h5: HDF5WriteLibrary
-    ) throws -> [Int]? {
-        guard linkExists(path, in: parent, hdf5: h5) else { return nil }
-        let dataset = path.withCString { h5.h5dopen2(parent, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        // A foreign sidecar may hold more elements than `count`; H5Dread fills the whole dataspace, so check first.
-        let space = h5.h5dgetSpace(dataset)
-        guard space >= 0 else { throw WriterError.hdf5("reading the shape of dataset \(path)") }
-        defer { _ = h5.h5sclose(space) }
-        guard elementCount(spaceID: space, hdf5: h5) == count else {
-            throw WriterError.hdf5("dataset \(path) does not hold exactly \(count) values")
-        }
-        var values = [Int64](repeating: 0, count: count)
-        guard values.withUnsafeMutableBytes({
-            h5.h5dread(dataset, h5.nativeLongLong, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, $0.baseAddress)
-        }) >= 0 else { throw WriterError.hdf5("reading dataset \(path)") }
-        return values.map { Int($0) }
     }
 
     package static func loadInventory(from url: URL) throws -> SessionSidecarInventory {
@@ -349,21 +425,13 @@ nonisolated extension BraggVectorEMDWriter {
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
-        let h5 = try HDF5WriteLibrary.load()
-        let fileID = url.path.withCString {
-            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
-        }
-        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
-        defer { _ = h5.h5fclose(fileID) }
-        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
-        defer { _ = h5.h5gclose(root) }
-        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
-        let descriptors = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
+        let file = try openSidecar(url)
+        try enforceMinimumReader(file, supportedSchema: supportedSchema)
+        let descriptors = try readResultDescriptors(file)
         guard descriptors.contains(where: {
             $0.id == id && $0.storage == .scalarFloat32
         }) else { return nil }
-        return try readResultMap(nodeName: id, from: root, hdf5: h5)
+        return try readResultMap(file, nodeName: id, in: rootPath)
     }
 
     package static func loadRGBAResultMap(
@@ -374,21 +442,13 @@ nonisolated extension BraggVectorEMDWriter {
         guard isSafeNodeName(id), FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
-        let h5 = try HDF5WriteLibrary.load()
-        let fileID = url.path.withCString {
-            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
-        }
-        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
-        defer { _ = h5.h5fclose(fileID) }
-        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
-        defer { _ = h5.h5gclose(root) }
-        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: supportedSchema)
-        let descriptors = try readResultDescriptors(from: root, file: fileID, hdf5: h5)
+        let file = try openSidecar(url)
+        try enforceMinimumReader(file, supportedSchema: supportedSchema)
+        let descriptors = try readResultDescriptors(file)
         guard descriptors.contains(where: { $0.id == id && $0.storage == .rgba8 }) else {
             return nil
         }
-        return try readRGBAResultMap(nodeName: id, from: root, hdf5: h5)
+        return try readRGBAResultMap(file, nodeName: id, in: rootPath)
     }
 
     /// Read one field back from a file `writeScientificBundle` wrote (the per-product data export
@@ -399,14 +459,11 @@ nonisolated extension BraggVectorEMDWriter {
     ) throws -> ScalarResultMap? {
         HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        let h5 = try HDF5WriteLibrary.load()
-        let fileID = url.path.withCString { h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty) }
-        guard fileID >= 0 else { throw hdf5Failure("opening the bundle file", h5) }
-        defer { _ = h5.h5fclose(fileID) }
-        let root = "scientific_bundle_root".withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw hdf5Failure("opening the bundle root", h5) }
-        defer { _ = h5.h5gclose(root) }
-        return try readResultMap(nodeName: resultNodeName(forKind: kind), from: root, hdf5: h5)
+        let file = try SidecarFile(opening: url, operation: "opening the bundle file")
+        guard file.isGroup("/scientific_bundle_root") else {
+            throw WriterError.hdf5("opening the bundle root — HDF5 reported: there is no group /scientific_bundle_root")
+        }
+        return try readResultMap(file, nodeName: resultNodeName(forKind: kind), in: "/scientific_bundle_root")
     }
 
     /// The hand-clicked disk-centre labels JSON (C7 session 4), or nil when
@@ -419,27 +476,16 @@ nonisolated extension BraggVectorEMDWriter {
     package static func loadDiskCentreLabelsJSON(from url: URL) throws -> String? {
         HDF5Serial.acquire(); defer { HDF5Serial.release() }
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        let h5 = try HDF5WriteLibrary.load()
-        let fileID = url.path.withCString {
-            h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
-        }
-        guard fileID >= 0 else { throw hdf5Failure("opening the session sidecar", h5) }
-        defer { _ = h5.h5fclose(fileID) }
-        let root = rootPath.withCString { h5.h5gopen2(fileID, $0, h5DefaultProperty) }
-        guard root >= 0 else { throw hdf5Failure("opening the session root", h5) }
-        defer { _ = h5.h5gclose(root) }
-        try enforceMinimumReader(on: root, hdf5: h5, supportedSchema: SessionSidecarFormat.currentSchema)
-        return try readStringAttribute(diskCentreLabelsAttribute, on: root, hdf5: h5)
+        let file = try openSidecar(url)
+        try enforceMinimumReader(file, supportedSchema: SessionSidecarFormat.currentSchema)
+        return try file.stringAttribute(diskCentreLabelsAttribute, at: rootPath)
     }
 
-    static func readResultDescriptors(
-        from root: hid_t, file: hid_t, hdf5 h5: HDF5WriteLibrary
-    ) throws -> [SessionResultDescriptor] {
+    static func readResultDescriptors(_ file: SidecarFile) throws -> [SessionResultDescriptor] {
         var nodeNames: [String]
-        if let manifest = try readStringAttribute(resultNodesAttribute, on: root, hdf5: h5) {
+        if let manifest = try file.stringAttribute(resultNodesAttribute, at: rootPath) {
             nodeNames = manifest.split(separator: "\n").map(String.init)
-        } else if linkExists("\(rootPath)/\(ScalarResultMap.legacyEMDName)",
-                             in: file, hdf5: h5) {
+        } else if file.exists("\(rootPath)/\(ScalarResultMap.legacyEMDName)") {
             nodeNames = [ScalarResultMap.legacyEMDName]
         } else {
             nodeNames = []
@@ -448,56 +494,44 @@ nonisolated extension BraggVectorEMDWriter {
         var seen = Set<String>()
         var results: [SessionResultDescriptor] = []
         for nodeName in nodeNames where isSafeNodeName(nodeName) && seen.insert(nodeName).inserted {
-            guard linkExists("\(rootPath)/\(nodeName)", in: file, hdf5: h5),
-                  let descriptor = try readResultDescriptor(
-                    nodeName: nodeName, from: root, hdf5: h5
-                  ) else { continue }
+            guard file.exists("\(rootPath)/\(nodeName)"),
+                  let descriptor = try readResultDescriptor(file, nodeName: nodeName, in: rootPath)
+            else { continue }
             results.append(descriptor)
         }
         return results
     }
 
-    static func readCalibration(
-        from root: hid_t, hdf5 h5: HDF5WriteLibrary
-    ) throws -> PixelCalibration? {
-        let group = "metadatabundle/calibration".withCString {
-            h5.h5gopen2(root, $0, h5DefaultProperty)
-        }
-        guard group >= 0 else { return nil }
-        defer { _ = h5.h5gclose(group) }
+    static func readCalibration(_ file: SidecarFile) throws -> PixelCalibration? {
+        let group = "\(rootPath)/metadatabundle/calibration"
+        guard file.isGroup(group) else { return nil }
 
         var calibration = PixelCalibration(
-            rSize: try readDoubleDataset("R_pixel_size", from: group, hdf5: h5),
-            rUnits: try readStringDataset("R_pixel_units", from: group, hdf5: h5),
-            qSize: try readDoubleDataset("Q_pixel_size", from: group, hdf5: h5),
-            qUnits: try readStringDataset("Q_pixel_units", from: group, hdf5: h5),
-            qrFlip: try readBoolDataset("QR_flip", from: group, hdf5: h5)
+            rSize: try file.doubleDataset("R_pixel_size", in: group),
+            rUnits: try file.stringDataset("R_pixel_units", in: group),
+            qSize: try file.doubleDataset("Q_pixel_size", in: group),
+            qUnits: try file.stringDataset("Q_pixel_units", in: group),
+            qrFlip: try file.boolDataset("QR_flip", in: group)
         )
-        calibration.qx0Mean = try readDoubleDataset("qx0_mean", from: group, hdf5: h5)
-        calibration.qy0Mean = try readDoubleDataset("qy0_mean", from: group, hdf5: h5)
+        calibration.qx0Mean = try file.doubleDataset("qx0_mean", in: group)
+        calibration.qy0Mean = try file.doubleDataset("qy0_mean", in: group)
         // Row 29: a file ellipse with a non-positive semi-axis is refused whole.
         if let ellipse = Calibration.acceptedEllipse(
-            a: try readDoubleDataset("a", from: group, hdf5: h5),
-            b: try readDoubleDataset("b", from: group, hdf5: h5),
-            theta: try readDoubleDataset("theta", from: group, hdf5: h5)) {
+            a: try file.doubleDataset("a", in: group),
+            b: try file.doubleDataset("b", in: group),
+            theta: try file.doubleDataset("theta", in: group)) {
             calibration.ellipseA = ellipse.a
             calibration.ellipseB = ellipse.b
             calibration.ellipseTheta = ellipse.theta
         }
-        calibration.qrRotationRad = try readDoubleDataset(
-            "QR_rotation", from: group, hdf5: h5
-        )
-        calibration.qrRotationConvention = try readStringDataset(
-            "QR_rotation_convention", from: group, hdf5: h5
-        )
-        calibration.probeSemiangle = try readDoubleDataset(
-            "probe_semiangle", from: group, hdf5: h5
-        )
-        if let qx0 = try readDoubleMatrix("qx0", from: group, hdf5: h5),
-           let qy0 = try readDoubleMatrix("qy0", from: group, hdf5: h5),
+        calibration.qrRotationRad = try file.doubleDataset("QR_rotation", in: group)
+        calibration.qrRotationConvention = try file.stringDataset("QR_rotation_convention", in: group)
+        calibration.probeSemiangle = try file.doubleDataset("probe_semiangle", in: group)
+        if let qx0 = try file.doubleMatrix("qx0", in: group),
+           let qy0 = try file.doubleMatrix("qy0", in: group),
            qx0.shape == qy0.shape {
-            let measuredQX = try readDoubleMatrix("qx0_meas", from: group, hdf5: h5)
-            let measuredQY = try readDoubleMatrix("qy0_meas", from: group, hdf5: h5)
+            let measuredQX = try file.doubleMatrix("qx0_meas", in: group)
+            let measuredQY = try file.doubleMatrix("qy0_meas", in: group)
             let measuredPair = measuredQX?.shape == qx0.shape
                 && measuredQY?.shape == qx0.shape
             calibration.originMaps = PixelOriginMaps(
@@ -518,152 +552,37 @@ nonisolated extension BraggVectorEMDWriter {
         return hasValue ? calibration : nil
     }
 
-    /// The three readers below hand `H5Dread` ONE value on the stack, and it writes the WHOLE dataset there: a
-    /// foreign or hand-edited sidecar with a 3-element `a` overran it (review 2026-10-02, the stack twin of the
-    /// Qshape overrun `readInt64Vector` refuses). Refused by name; an empty dataset too, never read as 0.
-    static func requireOneElement(
-        _ dataset: hid_t, _ name: String, hdf5 h5: HDF5WriteLibrary
-    ) throws {
-        let space = h5.h5dgetSpace(dataset)
-        guard space >= 0 else { throw WriterError.hdf5("reading the shape of dataset \(name)") }
-        defer { _ = h5.h5sclose(space) }
-        // HDF5's own count: 1 for a scalar or shape (1,), 0 for a NULL dataspace (h5py.Empty), which also has rank 0
-        // and so counts as one value in elementCount — and H5Dread then transfers nothing.
-        guard h5.h5sgetSimpleExtentNpoints(space) == 1 else {
-            throw WriterError.hdf5("reading dataset \(name), which does not hold exactly one value")
-        }
-    }
-
-    static func readDoubleDataset(
-        _ name: String, from group: hid_t, hdf5 h5: HDF5WriteLibrary
-    ) throws -> Double? {
-        guard linkExists(name, in: group, hdf5: h5) else { return nil }
-        let dataset = name.withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        try requireOneElement(dataset, name, hdf5: h5)
-        var value = 0.0
-        guard withUnsafeMutablePointer(to: &value, {
-            h5.h5dread(dataset, h5.nativeDouble, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, UnsafeMutableRawPointer($0))
-        }) >= 0 else { throw WriterError.hdf5("reading dataset \(name)") }
-        return value.isFinite ? value : nil
-    }
-
-    static func readBoolDataset(
-        _ name: String, from group: hid_t, hdf5 h5: HDF5WriteLibrary
-    ) throws -> Bool? {
-        guard linkExists(name, in: group, hdf5: h5) else { return nil }
-        let dataset = name.withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        try requireOneElement(dataset, name, hdf5: h5)
-        var value = false
-        guard withUnsafeMutablePointer(to: &value, {
-            h5.h5dread(dataset, h5.nativeHBool, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, UnsafeMutableRawPointer($0))
-        }) >= 0 else { throw WriterError.hdf5("reading dataset \(name)") }
-        return value
-    }
-
-    static func readStringDataset(
-        _ name: String, from group: hid_t, hdf5 h5: HDF5WriteLibrary
-    ) throws -> String? {
-        guard linkExists(name, in: group, hdf5: h5) else { return nil }
-        let dataset = name.withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        let type = h5.h5dgetType(dataset)
-        guard type >= 0 else { throw WriterError.hdf5("opening dataset type \(name)") }
-        defer { _ = h5.h5tclose(type) }
-        // Read in the file's OWN type into one pointer: only what the writer writes — one variable-length
-        // string — fits it; a fixed-length string or a number would overrun it or land in it as an address.
-        // (H5Tis_variable_str is false for every non-string type, so it is the whole type check.)
-        try requireOneElement(dataset, name, hdf5: h5)
-        guard h5.h5tisVariableStr(type) > 0 else {
-            throw WriterError.hdf5("reading dataset \(name), which is not one variable-length string")
-        }
-        var pointer: UnsafeMutablePointer<CChar>?
-        guard withUnsafeMutablePointer(to: &pointer, {
-            h5.h5dread(dataset, type, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, UnsafeMutableRawPointer($0))
-        }) >= 0 else { throw WriterError.hdf5("reading dataset \(name)") }
-        guard let pointer else { return "" }
-        defer { _ = h5.h5freeMemory(pointer) }
-        return String(cString: pointer)
-    }
-
-    static func readDoubleMatrix(
-        _ name: String, from group: hid_t, hdf5 h5: HDF5WriteLibrary
-    ) throws -> (shape: [Int], values: [Double])? {
-        guard linkExists(name, in: group, hdf5: h5) else { return nil }
-        let dataset = name.withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        let space = h5.h5dgetSpace(dataset)
-        guard space >= 0 else { throw WriterError.hdf5("opening dataset \(name)") }
-        defer { _ = h5.h5sclose(space) }
-        guard h5.h5sgetSimpleExtentNdims(space) == 2 else { return nil }
-        var rawShape = [hsize_t](repeating: 0, count: 2)
-        guard rawShape.withUnsafeMutableBufferPointer({
-            h5.h5sgetSimpleExtentDims(space, $0.baseAddress, nil)
-        }) == 2,
-        rawShape.allSatisfy({ $0 > 0 && $0 <= hsize_t(Int.max) }) else { return nil }
-        let shape = rawShape.map(Int.init)
-        guard shape[0] <= Int.max / shape[1] else { return nil }
-        var values = [Double](repeating: 0, count: shape[0] * shape[1])
-        guard values.withUnsafeMutableBytes({
-            h5.h5dread(dataset, h5.nativeDouble, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, $0.baseAddress)
-        }) >= 0 else { throw WriterError.hdf5("reading dataset \(name)") }
-        guard values.allSatisfy(\.isFinite) else { return nil }
-        return (shape, values)
-    }
-
-    static func readResultDescriptor(
-        nodeName: String, from root: hid_t, hdf5 h5: HDF5WriteLibrary
+    private static func readResultDescriptor(
+        _ file: SidecarFile, nodeName: String, in parent: String
     ) throws -> SessionResultDescriptor? {
-        let group = nodeName.withCString { h5.h5gopen2(root, $0, h5DefaultProperty) }
-        guard group >= 0 else { return nil }
-        defer { _ = h5.h5gclose(group) }
-        let storage = try readStringAttribute("mac4dstem_storage", on: group, hdf5: h5)
+        let group = "\(parent)/\(nodeName)"
+        guard file.isGroup(group) else { return nil }
+        let storage = try file.stringAttribute("mac4dstem_storage", at: group)
             .flatMap(SessionResultStorage.init(rawValue:)) ?? .scalarFloat32
-        guard let (width, height) = try readResultShape(
-            from: group, storage: storage, hdf5: h5
-        ) else {
+        guard let (width, height) = try readResultShape(file, group: group, storage: storage) else {
             return nil
         }
-        let kind = try readStringAttribute("mac4dstem_kind", on: group, hdf5: h5)
+        let kind = try file.stringAttribute("mac4dstem_kind", at: group)
             ?? "unknown"
-        let valueUnits = try readStringAttribute(
-            "mac4dstem_value_units", on: group, hdf5: h5
-        ) ?? "intensity"
+        let valueUnits = try file.stringAttribute("mac4dstem_value_units", at: group)
+            ?? "intensity"
         let provenance = try dpcAngleReadState(
             kind: kind,
             valueUnits: valueUnits,
-            provenance: decodeProvenance(try readStringAttribute(
-                "mac4dstem_provenance", on: group, hdf5: h5
-            ))
+            provenance: decodeProvenance(try file.stringAttribute("mac4dstem_provenance", at: group))
         ).provenance
         return SessionResultDescriptor(
             id: nodeName,
             kind: kind,
-            displayName: try readStringAttribute(
-                "mac4dstem_display_name", on: group, hdf5: h5
-            ) ?? "Saved result",
+            displayName: try file.stringAttribute("mac4dstem_display_name", at: group)
+                ?? "Saved result",
             valueUnits: valueUnits,
             width: width,
             height: height,
             storage: storage,
-            pixelSizeRow: try readStringAttribute(
-                "mac4dstem_pixel_size_row", on: group, hdf5: h5
-            ).flatMap(Double.init),
-            pixelSizeColumn: try readStringAttribute(
-                "mac4dstem_pixel_size_column", on: group, hdf5: h5
-            ).flatMap(Double.init),
-            pixelUnits: try readStringAttribute(
-                "mac4dstem_pixel_units", on: group, hdf5: h5
-            ),
+            pixelSizeRow: try file.stringAttribute("mac4dstem_pixel_size_row", at: group).flatMap(Double.init),
+            pixelSizeColumn: try file.stringAttribute("mac4dstem_pixel_size_column", at: group).flatMap(Double.init),
+            pixelUnits: try file.stringAttribute("mac4dstem_pixel_units", at: group),
             provenance: provenance
         )
     }
@@ -694,35 +613,33 @@ nonisolated extension BraggVectorEMDWriter {
     }
 
     static func readResultMap(
-        nodeName: String, from root: hid_t, hdf5 h5: HDF5WriteLibrary
+        _ file: SidecarFile, nodeName: String, in parent: String
     ) throws -> ScalarResultMap? {
-        let group = nodeName.withCString { h5.h5gopen2(root, $0, h5DefaultProperty) }
-        guard group >= 0 else { return nil }
-        defer { _ = h5.h5gclose(group) }
-        guard let (width, height) = try readResultShape(
-            from: group, storage: .scalarFloat32, hdf5: h5
-        ) else {
+        let group = "\(parent)/\(nodeName)"
+        guard file.isGroup(group) else { return nil }
+        guard let (width, height) = try readResultShape(file, group: group, storage: .scalarFloat32) else {
             return nil
         }
-        let dataset = "data".withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        var pixels = [Float](repeating: 0, count: width * height)
-        guard pixels.withUnsafeMutableBytes({
-            h5.h5dread(dataset, h5.nativeFloat, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, $0.baseAddress)
-        }) >= 0 else { throw WriterError.hdf5("reading the scalar result pixels") }
-        let kind = try readStringAttribute("mac4dstem_kind", on: group, hdf5: h5)
+        var pixels: [Float]
+        do {
+            guard let values = try file.reader.readDataset("\(group)/data").float32Values() else {
+                throw WriterError.hdf5("reading the scalar result pixels")
+            }
+            pixels = values
+        } catch let error as WriterError {
+            throw error
+        } catch {
+            throw SidecarFile.failure("reading the scalar result pixels", error)
+        }
+        guard pixels.count == width * height else { throw WriterError.hdf5("reading the scalar result pixels") }
+        let kind = try file.stringAttribute("mac4dstem_kind", at: group)
             ?? "unknown"
-        let valueUnits = try readStringAttribute(
-            "mac4dstem_value_units", on: group, hdf5: h5
-        ) ?? "intensity"
+        let valueUnits = try file.stringAttribute("mac4dstem_value_units", at: group)
+            ?? "intensity"
         let readState = try dpcAngleReadState(
             kind: kind,
             valueUnits: valueUnits,
-            provenance: decodeProvenance(try readStringAttribute(
-                "mac4dstem_provenance", on: group, hdf5: h5
-            ))
+            provenance: decodeProvenance(try file.stringAttribute("mac4dstem_provenance", at: group))
         )
         if readState.needsTurnToRadianScale {
             pixels = pixels.map { $0 * (2 * .pi) }
@@ -732,86 +649,69 @@ nonisolated extension BraggVectorEMDWriter {
             height: height,
             pixels: pixels,
             kind: kind,
-            displayName: try readStringAttribute(
-                "mac4dstem_display_name", on: group, hdf5: h5
-            ) ?? "Restored result",
+            displayName: try file.stringAttribute("mac4dstem_display_name", at: group)
+                ?? "Restored result",
             valueUnits: valueUnits,
-            pixelSizeRow: try readStringAttribute(
-                "mac4dstem_pixel_size_row", on: group, hdf5: h5
-            ).flatMap(Double.init),
-            pixelSizeColumn: try readStringAttribute(
-                "mac4dstem_pixel_size_column", on: group, hdf5: h5
-            ).flatMap(Double.init),
-            pixelUnits: try readStringAttribute(
-                "mac4dstem_pixel_units", on: group, hdf5: h5
-            ),
+            pixelSizeRow: try file.stringAttribute("mac4dstem_pixel_size_row", at: group).flatMap(Double.init),
+            pixelSizeColumn: try file.stringAttribute("mac4dstem_pixel_size_column", at: group).flatMap(Double.init),
+            pixelUnits: try file.stringAttribute("mac4dstem_pixel_units", at: group),
             provenance: readState.provenance
         )
     }
 
     static func readRGBAResultMap(
-        nodeName: String, from root: hid_t, hdf5 h5: HDF5WriteLibrary
+        _ file: SidecarFile, nodeName: String, in parent: String
     ) throws -> RGBAResultMap? {
-        let group = nodeName.withCString { h5.h5gopen2(root, $0, h5DefaultProperty) }
-        guard group >= 0 else { return nil }
-        defer { _ = h5.h5gclose(group) }
-        guard let (width, height) = try readResultShape(
-            from: group, storage: .rgba8, hdf5: h5
-        ) else { return nil }
-        let dataset = "data".withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        var rgba = [UInt8](repeating: 0, count: width * height * 4)
-        guard rgba.withUnsafeMutableBytes({
-            h5.h5dread(dataset, h5.nativeUChar, h5EntireDataspace, h5EntireDataspace,
-                       h5DefaultProperty, $0.baseAddress)
-        }) >= 0 else { throw WriterError.hdf5("reading the RGBA result pixels") }
+        let group = "\(parent)/\(nodeName)"
+        guard file.isGroup(group) else { return nil }
+        guard let (width, height) = try readResultShape(file, group: group, storage: .rgba8) else { return nil }
+        let rgba: [UInt8]
+        do {
+            let array = try file.reader.readDataset("\(group)/data")
+            if array.dataType == .uint8 {
+                rgba = [UInt8](array.bytes)
+            } else {
+                // libhdf5 converted any stored number to a byte, clipping; the same here.
+                rgba = array.doubles().map { UInt8(max(0, min(255, $0.rounded(.towardZero)))) }
+            }
+        } catch {
+            throw SidecarFile.failure("reading the RGBA result pixels", error)
+        }
+        guard rgba.count == width * height * 4 else { throw WriterError.hdf5("reading the RGBA result pixels") }
         return RGBAResultMap(
             width: width, height: height, rgba: rgba,
-            kind: try readStringAttribute("mac4dstem_kind", on: group, hdf5: h5)
+            kind: try file.stringAttribute("mac4dstem_kind", at: group)
                 ?? "unknown",
-            displayName: try readStringAttribute(
-                "mac4dstem_display_name", on: group, hdf5: h5
-            ) ?? "Restored RGBA result",
-            valueUnits: try readStringAttribute(
-                "mac4dstem_value_units", on: group, hdf5: h5
-            ) ?? "rgba",
-            pixelSizeRow: try readStringAttribute(
-                "mac4dstem_pixel_size_row", on: group, hdf5: h5
-            ).flatMap(Double.init),
-            pixelSizeColumn: try readStringAttribute(
-                "mac4dstem_pixel_size_column", on: group, hdf5: h5
-            ).flatMap(Double.init),
-            pixelUnits: try readStringAttribute(
-                "mac4dstem_pixel_units", on: group, hdf5: h5
-            ),
-            provenance: decodeProvenance(try readStringAttribute(
-                "mac4dstem_provenance", on: group, hdf5: h5
-            ))
+            displayName: try file.stringAttribute("mac4dstem_display_name", at: group)
+                ?? "Restored RGBA result",
+            valueUnits: try file.stringAttribute("mac4dstem_value_units", at: group)
+                ?? "rgba",
+            pixelSizeRow: try file.stringAttribute("mac4dstem_pixel_size_row", at: group).flatMap(Double.init),
+            pixelSizeColumn: try file.stringAttribute("mac4dstem_pixel_size_column", at: group).flatMap(Double.init),
+            pixelUnits: try file.stringAttribute("mac4dstem_pixel_units", at: group),
+            provenance: decodeProvenance(try file.stringAttribute("mac4dstem_provenance", at: group))
         )
     }
 
-    static func readResultShape(
-        from group: hid_t, storage: SessionResultStorage,
-        hdf5 h5: HDF5WriteLibrary
+    private static func readResultShape(
+        _ file: SidecarFile, group: String, storage: SessionResultStorage
     ) throws -> (width: Int, height: Int)? {
-        let dataset = "data".withCString { h5.h5dopen2(group, $0, h5DefaultProperty) }
-        guard dataset >= 0 else { return nil }
-        defer { _ = h5.h5dclose(dataset) }
-        let space = h5.h5dgetSpace(dataset)
-        guard space >= 0 else { throw WriterError.hdf5("opening the scalar result dataspace") }
-        defer { _ = h5.h5sclose(space) }
-        let rank = storage == .rgba8 ? 3 : 2
-        guard h5.h5sgetSimpleExtentNdims(space) == rank else { return nil }
-        var dimensions = [hsize_t](repeating: 0, count: rank)
-        guard dimensions.withUnsafeMutableBufferPointer({
-            h5.h5sgetSimpleExtentDims(space, $0.baseAddress, nil)
-        }) == rank else { throw WriterError.hdf5("reading the result shape") }
-        if storage == .rgba8, dimensions[2] != 4 { return nil }
-        guard dimensions[0] <= hsize_t(Int.max), dimensions[1] <= hsize_t(Int.max) else {
+        let path = "\(group)/data"
+        guard file.isDataset(path) else { return nil }
+        let info: HDF5DatasetInfo
+        do {
+            info = try file.reader.datasetInfo(path)
+        } catch HDF5FileError.unsupportedType {
             return nil
+        } catch HDF5FileError.limitExceeded {
+            return nil
+        } catch {
+            throw SidecarFile.failure("opening the scalar result dataspace", error)
         }
-        let height = Int(dimensions[0]), width = Int(dimensions[1])
+        let rank = storage == .rgba8 ? 3 : 2
+        guard info.shape.count == rank else { return nil }
+        if storage == .rgba8, info.shape[2] != 4 { return nil }
+        let height = info.shape[0], width = info.shape[1]
         guard width > 0, height > 0, width <= Int.max / height else { return nil }
         return (width, height)
     }

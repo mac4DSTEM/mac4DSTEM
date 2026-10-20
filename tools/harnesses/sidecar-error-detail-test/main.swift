@@ -90,8 +90,9 @@ if mode == .posix {
 precondition(FileManager.default.fileExists(atPath: denied.path),
              "the shape under test requires fileExists to still pass")
 
-// The marker each case must name in its own right — not merely "differs".
-let deniedMarker = mode == .posix ? "errno = 13" : "errno = 1,"
+// The marker each case must name in its own right — not merely "differs". Since the reads moved onto FormatoKit's HDF5Reader
+// (2026-10-20) the system's own words tell a denied read (it probes `open(2)` first and reports `strerror`), where the raw HDF5 stack's
+// "errno = N" line used to; the two denial shapes still differ by those words, EACCES from EPERM.
 let deniedWord = mode == .posix ? "permission denied" : "operation not permitted"
 
 func check(round: String, reversed: Bool) {
@@ -110,12 +111,12 @@ func check(round: String, reversed: Bool) {
             failures.append("[\(label)] \(name): lost the operation name")
         }
         if !text.contains("HDF5 reported:") {
-            failures.append("[\(label)] \(name): no captured reason — currentErrorStack() returned nil")
+            failures.append("[\(label)] \(name): no captured reason")
         }
     }
     // Each case names its own marker, in either order.
     if let text = seen["denied"] {
-        if !text.contains(deniedMarker) || !text.lowercased().contains(deniedWord) {
+        if !text.lowercased().contains(deniedWord) {
             failures.append("[\(label)] denied case did not report \(mode == .posix ? "EACCES" : "EPERM"): \(text)")
         }
     }

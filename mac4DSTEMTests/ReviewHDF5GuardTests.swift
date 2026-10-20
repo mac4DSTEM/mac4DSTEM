@@ -60,6 +60,35 @@ final class ReviewHDF5GuardTests: XCTestCase {
         XCTAssertNotNil(calibration.ellipseA)
     }
 
+    /// h5py/py4DSTEM write `QR_flip` as an int8 enum, which `HDF5Reader` refuses by name: the sidecar reader takes it through the
+    /// libhdf5 integer conversion (`HDF5LegacyProbe`). Mutation it catches: the enum branch of `boolDataset` removed (a throw).
+    func testAnH5pyBoolEnumQRFlipReadsThroughTheShim() throws {
+        for flag in [true, false] {
+            try CalibrationDatasetPatcher.replace("QR_flip", with: .boolEnum(flag), in: sidecar)
+            let calibration = try XCTUnwrap(try BraggVectorEMDWriter.loadSession(from: sidecar).calibration)
+            XCTAssertEqual(calibration.qrFlip, flag)
+        }
+    }
+
+    /// A hostile Qshape (NaN, infinity, a number no Int holds) is refused by name; `Int(Double)` used to trap on it.
+    /// Mutation it catches: `Int($0)` in place of `Int(exactly: $0)` in `loadPeakGrid`.
+    func testAHostileQshapeIsRefusedNotTrappedOn() throws {
+        let vectors = BraggVectors(scanWidth: 2, scanHeight: 1,
+                                   peaks: [[BraggPeak(x: 1, y: 2, intensity: 3)], []], detectionProvenance: [:])
+        try BraggVectorEMDWriter.write(vectors: vectors, qWidth: 8, qHeight: 8, calibration: PixelCalibration(), to: sidecar)
+        XCTAssertNotNil(try BraggVectorEMDWriter.loadPeakGrid(from: sidecar), "the untouched grid reads")
+        for hostile in [[Double.nan, 8], [.infinity, 8], [1e300, 8], [-1e300, 8]] {
+            try CalibrationDatasetPatcher.replace("Qshape", with: .doubles(hostile), in: sidecar,
+                                                  group: "braggvectors/metadatabundle/_braggvectors_shape")
+            XCTAssertThrowsError(try BraggVectorEMDWriter.loadPeakGrid(from: sidecar), "\(hostile)") { error in
+                guard case BraggVectorEMDWriter.WriterError.hdf5(let detail) = error else {
+                    return XCTFail("expected WriterError.hdf5, got \(error)")
+                }
+                XCTAssertTrue(detail.contains("Qshape") && detail.contains("whole number"), detail)
+            }
+        }
+    }
+
     /// The reviewer's case: a 3-element `a` (24 bytes into one 8-byte Double).
     /// Mutation it catches: `requireOneElement` removed / returning early.
     func testAThreeElementDoubleIsRefusedByName() throws {
@@ -115,6 +144,7 @@ private enum CalibrationDatasetPatcher {
         case doubles([Double])                       // rank 1 unless exactly one value (then scalar)
         case fixedStrings([String], size: Int)       // rank 1 unless exactly one string (then scalar)
         case nullDataspace                           // a double dataset with an H5S_NULL dataspace, nothing written
+        case boolEnum(Bool)                          // h5py's bool: an int8 enum {FALSE = 0, TRUE = 1}, scalar
     }
 
     private typealias Open = @convention(c) () -> Int32
@@ -127,11 +157,14 @@ private enum CalibrationDatasetPatcher {
     private typealias SCreate = @convention(c) (Int32) -> Int64
     private typealias SCreateSimple = @convention(c) (Int32, UnsafePointer<UInt64>?, UnsafePointer<UInt64>?) -> Int64
     private typealias DCreate = @convention(c) (Int64, UnsafePointer<CChar>?, Int64, Int64, Int64, Int64, Int64) -> Int64
+    private typealias EnumCreate = @convention(c) (Int64) -> Int64
+    private typealias EnumInsert = @convention(c) (Int64, UnsafePointer<CChar>?, UnsafeRawPointer?) -> Int32
     private typealias DWrite = @convention(c) (Int64, Int64, Int64, Int64, Int64, UnsafeRawPointer?) -> Int32
 
     struct Failure: Error, CustomStringConvertible { let description: String }
 
-    static func replace(_ name: String, with value: Value, in url: URL) throws {
+    static func replace(_ name: String, with value: Value, in url: URL,
+                        group groupPath: String = "metadatabundle/calibration") throws {
         HDF5Serial.acquire(); defer { HDF5Serial.release() }
         let handle = try loadedLibrary()
         func symbol<T>(_ symbolName: String, _ type: T.Type) throws -> T {
@@ -156,7 +189,7 @@ private enum CalibrationDatasetPatcher {
         let file = url.path.withCString { fOpen($0, 0x0001, 0) }   // H5F_ACC_RDWR
         guard file >= 0 else { throw Failure(description: "H5Fopen") }
         defer { _ = fClose(file) }
-        let group = "/\(SessionSidecarFormat.rootGroupName)/metadatabundle/calibration".withCString { gOpen(file, $0, 0) }
+        let group = "/\(SessionSidecarFormat.rootGroupName)/\(groupPath)".withCString { gOpen(file, $0, 0) }
         guard group >= 0 else { throw Failure(description: "H5Gopen2") }
         defer { _ = gClose(group) }
         guard name.withCString({ lDelete(group, $0, 0) }) >= 0 else { throw Failure(description: "H5Ldelete \(name)") }
@@ -171,6 +204,14 @@ private enum CalibrationDatasetPatcher {
             bytes = []
             count = 0
             null = true
+        case .boolEnum(let flag):
+            let enumCreate = try symbol("H5Tenum_create", EnumCreate.self), enumInsert = try symbol("H5Tenum_insert", EnumInsert.self)
+            type = enumCreate(try global("H5T_NATIVE_INT8_g"))
+            var no: Int8 = 0, yes: Int8 = 1
+            _ = "FALSE".withCString { enumInsert(type, $0, &no) }
+            _ = "TRUE".withCString { enumInsert(type, $0, &yes) }
+            bytes = [flag ? 1 : 0]
+            count = 1
         case .doubles(let numbers):
             type = tCopy(try global("H5T_NATIVE_DOUBLE_g"))
             bytes = numbers.withUnsafeBytes { Array($0) }

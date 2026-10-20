@@ -683,7 +683,7 @@ package actor H5Reader: FourDDataSource {
 /// inspector shows it and `loadPushdown` judges a crop by it), and a scalar dataset or attribute converted to a native int (h5py's
 /// bool enum, which `HDF5Reader` refuses as `enum`).
 // delete at FormatoKit 0.6: HDF5DatasetInfo.chunkShape and an enum/bool read in HDF5Reader (kit asks)
-private nonisolated enum HDF5LegacyProbe {
+nonisolated enum HDF5LegacyProbe {
     private typealias Open = @convention(c) () -> herr_t
     private typealias SetAuto = @convention(c) (hid_t, UnsafeRawPointer?, UnsafeMutableRawPointer?) -> herr_t
     private typealias FileOpen = @convention(c) (UnsafePointer<CChar>?, UInt32, hid_t) -> hid_t

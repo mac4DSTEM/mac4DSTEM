@@ -39,8 +39,11 @@ nonisolated extension BraggVectorEMDWriter {
         // An existing sidecar that cannot be opened (locked by a read/write reader such as HDFView, damaged,
         // unreadable) is an ERROR, never "no file": treating it as absent built a fresh file and renamed it over
         // every saved result, the vectors, the labels and the recipe (review 2026-10-02 a4).
+        // It is read through `HDF5Reader` (`existingFile`) and opened as a handle for the object copies below.
+        var existingFile: SidecarFile?
         var existingID: hid_t?
         if let source = existing {
+            existingFile = try SidecarFile(opening: source, operation: "opening the existing session sidecar")
             let id = source.path.withCString {
                 h5.h5fopen($0, h5FileReadOnly, h5DefaultProperty)
             }
@@ -66,27 +69,16 @@ nonisolated extension BraggVectorEMDWriter {
         try writeNodeAttributes(groupType: "root", pythonClass: "Root", on: root, hdf5: h5)
 
         var existingResults: [SessionResultDescriptor] = []
-        if let existingID {
-            let existingRoot = rootPath.withCString {
-                h5.h5gopen2(existingID, $0, h5DefaultProperty)
-            }
-            if existingRoot >= 0 {
-                existingResults = try {
-                    defer { _ = h5.h5gclose(existingRoot) }
-                    // A rewrite is a read followed by a write: a file whose
-                    // marker demands a newer reader must be REFUSED here too,
-                    // or a save would silently drop the newer content this
-                    // build cannot see and then stamp the marker back DOWN —
-                    // a mangled file claiming to be safely readable
-                    // (Gate B-lite F6). The publish is atomic, so a refusal
-                    // leaves the original untouched. // v2 S5
-                    try enforceMinimumReader(on: existingRoot, hdf5: h5,
-                                             supportedSchema: supportedSchema)
-                    return try readResultDescriptors(
-                        from: existingRoot, file: existingID, hdf5: h5
-                    )
-                }()
-            }
+        if let existingFile, existingFile.isGroup(rootPath) {
+            // A rewrite is a read followed by a write: a file whose
+            // marker demands a newer reader must be REFUSED here too,
+            // or a save would silently drop the newer content this
+            // build cannot see and then stamp the marker back DOWN —
+            // a mangled file claiming to be safely readable
+            // (Gate B-lite F6). The publish is atomic, so a refusal
+            // leaves the original untouched. // v2 S5
+            try enforceMinimumReader(existingFile, supportedSchema: supportedSchema)
+            existingResults = try readResultDescriptors(existingFile)
         }
         // Preserve an existing replay record when this save carries none —
         // same rule as the result nodes above. Without this, a save from a
@@ -103,25 +95,16 @@ nonisolated extension BraggVectorEMDWriter {
         // against the record it now holds.
         var preservedReplayJSON: String?
         var preservedLineageJSON: String?
-        if replayRecord?.isEmpty ?? true, let existingID {
-            let existingRoot = rootPath.withCString {
-                h5.h5gopen2(existingID, $0, h5DefaultProperty)
-            }
-            if existingRoot >= 0 {
-                defer { _ = h5.h5gclose(existingRoot) }
-                preservedReplayJSON = try readStringAttribute(
-                    replayRecordAttribute, on: existingRoot, hdf5: h5
-                )
-                if replayRecord == nil {
-                    do {
-                        preservedLineageJSON = try readStringAttribute(
-                            lineageAttribute, on: existingRoot, hdf5: h5)
-                    } catch WriterError.malformedAttribute {
-                        // An unreadable lineage cannot be carried forward and
-                        // must not block an unrelated save; the reader refuses
-                        // such a file by name, so it was never being used.
-                        preservedLineageJSON = nil
-                    }
+        if replayRecord?.isEmpty ?? true, let existingFile, existingFile.isGroup(rootPath) {
+            preservedReplayJSON = try existingFile.stringAttribute(replayRecordAttribute, at: rootPath)
+            if replayRecord == nil {
+                do {
+                    preservedLineageJSON = try existingFile.stringAttribute(lineageAttribute, at: rootPath)
+                } catch WriterError.malformedAttribute {
+                    // An unreadable lineage cannot be carried forward and
+                    // must not block an unrelated save; the reader refuses
+                    // such a file by name, so it was never being used.
+                    preservedLineageJSON = nil
                 }
             }
         }
@@ -130,16 +113,8 @@ nonisolated extension BraggVectorEMDWriter {
         // session, and a caller that passes nil here is saying nothing about
         // labels, not "there are none."
         var preservedLabelsJSON: String?
-        if diskCentreLabelsJSON == nil, let existingID {
-            let existingRoot = rootPath.withCString {
-                h5.h5gopen2(existingID, $0, h5DefaultProperty)
-            }
-            if existingRoot >= 0 {
-                defer { _ = h5.h5gclose(existingRoot) }
-                preservedLabelsJSON = try readStringAttribute(
-                    diskCentreLabelsAttribute, on: existingRoot, hdf5: h5
-                )
-            }
+        if diskCentreLabelsJSON == nil, let existingFile, existingFile.isGroup(rootPath) {
+            preservedLabelsJSON = try existingFile.stringAttribute(diskCentreLabelsAttribute, at: rootPath)
         }
 
         let canCopyBragg = vectors == nil && existingID.map {
