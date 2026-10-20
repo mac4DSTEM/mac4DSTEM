@@ -504,7 +504,7 @@ mac4dstem_sources() {
         # and Calibration.swift's ellipse transform); the cube, virtual detectors and rotation are CuboKit's (C1, C2).
         kit_module "$repo" DiffractoKit DiffractoGeometry
         want+=("${KIT_FLAGS[@]}")
-        kit_module "$repo" CuboKit CuboVirtual CuboPhase
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase CuboStrain
         want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" ImagoKit ImagoCore   # FFT2D is ImagoKit's ImagoCore (2026-10-15)
         want+=("${KIT_FLAGS[@]}")
@@ -513,7 +513,7 @@ mac4dstem_sources() {
       strain)
         # The strain solver is CPU-only, on the detection chain, plus the
         # S8 presentation-frame rotation.
-        kit_module "$repo" CuboKit CuboVirtual CuboPhase   # DPC.applyRotation (C2)
+        kit_module "$repo" CuboKit CuboVirtual CuboPhase CuboStrain   # DPC.applyRotation (C2); the lattice helpers are CuboStrain's (2026-10-20)
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" detection
         want+=(

@@ -69,11 +69,6 @@
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "MAC4DSTEM_STRAIN_DEBUG"
-            value = "1"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
             key = ""
             value = ""
             isEnabled = "YES">

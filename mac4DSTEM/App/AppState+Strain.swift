@@ -48,12 +48,15 @@ extension AppState {
             ? realSpaceRegionMask(descriptor) : nil
         let initialBasis = strain.manualInitialBasis
         let epoch = datasetSession.epoch
-        let map = await Task.detached(priority: .userInitiated) {
-            StrainMapping.compute(bragg: calibrated.vectors,
-                                  originX: origin.x, originY: origin.y,
-                                  referenceMask: referenceMask,
-                                  initialBasis: initialBasis,
-                                  cancellation: cancellation)
+        let (map, kitRefusal) = await Task.detached(priority: .userInitiated) { () -> (StrainMap?, String?) in
+            var refusal: String?
+            let map = StrainMapping.compute(bragg: calibrated.vectors,
+                                            originX: origin.x, originY: origin.y,
+                                            referenceMask: referenceMask,
+                                            initialBasis: initialBasis,
+                                            cancellation: cancellation,
+                                            onRefusal: { refusal = $0 })
+            return (map, refusal)
         }.value
         guard epoch == datasetSession.epoch else { return .failed("The dataset changed during the run") }
         if cancellation.isCancelled {
@@ -105,6 +108,7 @@ extension AppState {
                     )
                 }
             }
+            if let kitRefusal { detail += " (CuboStrain refused: \(kitRefusal).)" }
             if let warning = completedDiskSummary?.warnings.first {
                 detail += " " + warning
             }
