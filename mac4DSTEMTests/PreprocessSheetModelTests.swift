@@ -15,7 +15,7 @@ import DSTEMSession
 
 /// Integer-valued, deterministic patterns, generated at SOURCE coordinates and
 /// cut through the view like a real reader: small integers sum exactly in
-/// float32 in any order, so two ways of binning them must agree bit for bit.
+/// float32 in any order, so two ways of binning them must agree exactly.
 /// One planted hot pixel (source detector row 6, column 6) is in every pattern.
 actor PreprocessFixtureSource: FourDDataSource {
     static let descriptor = DatasetDescriptor(

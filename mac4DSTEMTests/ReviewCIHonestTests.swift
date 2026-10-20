@@ -2,8 +2,8 @@
 //  ReviewCIHonestTests.swift
 //  Lane R (pre-release review, 2026-10-02, owner card R3 a): the CI `core` job failed on the runner's Xcode 26 with
 //  "unable to type-check this expression in reasonable time" at the one-line closure in `Matrix3.transformRows`
-//  (MaterialsProjectImport.swift). The fix splits that expression into explicit per-term sums; it must stay
-//  BIT-IDENTICAL, so the three cases below are compared by bit pattern against values recorded from the code as it
+//  (MaterialsProjectImport.swift). The fix splits that expression into explicit per-term sums; nothing may
+//  move, so (a quick check under D12) the three cases below are compared by bit pattern against values recorded from the code as it
 //  stood before the split (scratch compile of the verbatim old expression, then this test run against it: green).
 //  Each case is built so that the order of the three additions changes the result — a reordered sum goes red.
 //

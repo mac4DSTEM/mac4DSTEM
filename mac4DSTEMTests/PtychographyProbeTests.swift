@@ -10,7 +10,7 @@ import DSTEMSession
 ///
 /// The fixture that pins the probe to py4DSTEM's `ComplexProbe` (planted wrong conventions included) is
 /// `tools/harnesses/singleslice-ptychography-test` - it needs py4DSTEM, so it lives in the scientific gate. What this class pins without
-/// Python: the conventions as plain arithmetic on the Fourier side of the probe, the bit-for-bit promise for "no aberrations",
+/// Python: the conventions as plain arithmetic on the Fourier side of the probe, the nothing-moved check for "no aberrations" (bitwise, a quick check under D12),
 /// the seeding rule (defocus is MINUS the parallax fit's C1), and that the published product names the defocus it started from.
 /// Every test names the mutation it catches.
 @MainActor

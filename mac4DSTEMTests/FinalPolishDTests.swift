@@ -117,7 +117,7 @@ final class FinalPolishDTests: XCTestCase {
     // MARK: A healthy disk reads exactly what it read before
 
     /// The default check is the real one (a held descriptor): an ordinary file
-    /// on the internal volume must read, bit for bit, what the unguarded reader
+    /// on the internal volume must read exactly what the unguarded reader
     /// read — `tools/harnesses/dm4-robustness-test`'s testValid numbers.
     func testAHealthyFileReadsUnchanged() async throws {
         let reader = try await DM4Reader(path: try writeCube())

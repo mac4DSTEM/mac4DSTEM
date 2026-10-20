@@ -3,7 +3,8 @@
 //  SpectroKit slot S0, gate G-golden (../_archive/mac4DSTEM/docs/archive/v5/spectrokit-slot-plan-2026-10-13.md §9): "no number moves". A baseline of
 //  the Spectroscopy core's outputs, recorded at 71929a01 BEFORE the Velox reader's per-block HDF5 lock and the cancel/progress
 //  contract, and compared byte for byte afterwards. Every Double is its exact bit pattern (hex of `bitPattern`) with a readable
-//  %.17g beside it; large arrays are listed by count, a bit-exact sum and an FNV-1a hash of every element's bits. No tolerance anywhere.
+//  %.17g beside it; large arrays are listed by count, a bit-exact sum and an FNV-1a hash of every element's bits. No tolerance anywhere (today's
+//  assertion; D12 allows a written tolerance for the numerics, and converting is a later change).
 //
 //  Inputs are the committed fixtures only (velox-tiny.emd, demo-edx-tiny.dm4, the eds-*.json pools, the demo spectrum image
 //  of `--demo-spectrum-fixture`), so CI runs it. The dump is a reflection walk (Mirror) of the result values, so a field added to

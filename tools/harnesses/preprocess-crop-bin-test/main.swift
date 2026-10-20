@@ -22,9 +22,10 @@
 //  remainder rule and sum-not-average against the source of truth instead of
 //  transitively through a file somebody else produced.
 //
-//  A tolerance is deliberately NOT used in its place: on this fixture the two
-//  implementations must agree bit-for-bit, and a tolerance would hide a real
-//  disagreement rather than expose it.
+//  A tolerance is deliberately NOT used in its place: this fixture is small
+//  integers, so every sum is exact and the two implementations agree exactly
+//  (D12: exact by construction here; real-valued data would be compared
+//  within a written tolerance, never one wide enough to hide a disagreement).
 //
 
 import Foundation
