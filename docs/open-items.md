@@ -18,9 +18,9 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
   not built. FriedelOrigin and BeamstopMask are the kit's since 2026-10-16; the app's ProbeKernel still shadows the kit's, and adopting that moves
   disk detection. A negative radius now gives an empty image (was a |r| mask). A resident-cube image costs
   0.08 s (was ≤ 0.02 s) until CuboKit 0.2.1's zero-copy source.
-- **HDF5 signing**: answered by FormatoKit 0.4.0 (pinned 2026-10-20): the three libraries are frameworks Xcode embeds in
+- **HDF5 signing**: answered by FormatoKit 0.4.0 (pinned since 2026-10-20; now 0.5.0): the three libraries are frameworks Xcode embeds in
   Contents/Frameworks and signs with the app's identity. Open: the Developer ID archive proof (Hardened Runtime load, notarisation).
-- **DiffractoKit 0.1.0**: `requireRingEvidence` stays off on the detector ellipse (owner's card with the annulus guard). The
+- **DiffractoKit (pinned 0.5.0)**: `requireRingEvidence` stays off on the detector ellipse (owner's card with the annulus guard). The
   kit holds the full pre-cut list: a 30 Å cell at kMax 2.5 peaks ~800 MB (kit ask). The polar ±c of a 6mm structure is
   invisible to the kinematic map: never claimed.
 - **Replay scale guard** is one constant, 1e-4 relative (`ACOMReplayPlan.scaleRelativeTolerance`; was 1e-6): a recipe
@@ -62,7 +62,7 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 
 ### Phase 2: the rest of Core/ onto the kits (plan 2026-10-16; per file, from `../_archive/mac4DSTEM/inventory-Core-2026-10-16.md`)
 
-Waits on the tags CuboKit 0.3.x, FormatoKit 0.3.x, DiffractoKit 0.4.x, SpectroKit 0.5.x. Each is a focused commit with its
+Runs on the pinned tags (SpectroKit 0.7.0, FormatoKit 0.5.0, DiffractoKit 0.5.0, CuboKit 0.4.0). Each is a focused commit with its
 test; where a kit has both the reference behaviour and a named app option, the app option is used so no pinned number moves
 unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
 - **CuboKit:** Parallax x6 + MatrixDFTCorrelation -> CuboParallax; SingleslicePtychography + PtychographyPreparation's

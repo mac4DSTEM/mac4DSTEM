@@ -31,12 +31,10 @@
 #   * `package-test` (the rest of `run-tests.sh all`) — outside the
 #     `unit` + `scientific` gate S21 names; the aggregate `all` claim is
 #     restated by S19, not by this file.
-#   * `../_archive/mac4DSTEM/tools/bragg-spacing-probe`, `../_archive/mac4DSTEM/tools/residency-sweep`,
-#     `../_archive/mac4DSTEM/tools/real-acom-benchmark`, `../_archive/mac4DSTEM/tools/training-dataset-campaign`,
-#     `tools/acom-groundtruth` — diagnostics that gate nothing and need
-#     gitignored data or hand-supplied input.
-#   * On-screen verification — the owner drives the app and reports bugs
-#     through /diagnose (CLAUDE.md). No runner can stand in for it; the
+#   * Diagnostic probes (bragg-spacing-probe, residency-sweep, real-acom-benchmark,
+#     training-dataset-campaign, acom-groundtruth) — no longer in the repo; they
+#     gated nothing and needed gitignored data or hand-supplied input.
+#   * On-screen verification — done by hand with the built app. No runner can stand in for it; the
 #     scripted checklist this line used to name was retired 2026-09-03 and is
 #     archived at ../_archive/mac4DSTEM/docs/archive/v2/visual-acceptance-checklist-2026-09-03.md.
 #
