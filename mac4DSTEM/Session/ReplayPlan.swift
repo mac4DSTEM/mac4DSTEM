@@ -30,6 +30,7 @@
 //  the `SessionReplay` seam whose record it reads.
 //
 
+import CuboCore
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DiffractoCore
@@ -153,18 +154,18 @@ package enum ReplayFrameTransform: Equatable {
     package func positionX(_ value: Float) -> Float {
         switch self {
         case .viewToSource(let bin, let xOffset, _):
-            CalibrationReReference.sourceCoordinate(value, bin: bin) + Float(xOffset)
+            FrameTransform.sourceCoordinate(value, bin: bin) + Float(xOffset)
         case .viewToExport(let bin):
-            CalibrationReReference.binnedCoordinate(value, bin: bin)
+            FrameTransform.binnedCoordinate(value, bin: bin)
         }
     }
 
     package func positionY(_ value: Float) -> Float {
         switch self {
         case .viewToSource(let bin, _, let yOffset):
-            CalibrationReReference.sourceCoordinate(value, bin: bin) + Float(yOffset)
+            FrameTransform.sourceCoordinate(value, bin: bin) + Float(yOffset)
         case .viewToExport(let bin):
-            CalibrationReReference.binnedCoordinate(value, bin: bin)
+            FrameTransform.binnedCoordinate(value, bin: bin)
         }
     }
 

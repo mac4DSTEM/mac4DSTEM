@@ -7,6 +7,7 @@
 //
 
 import XCTest
+import CuboCore
 import DiffractoCore
 import DSTEMCore
 import DSTEMSession
@@ -688,8 +689,8 @@ final class ReplayPlanTests: XCTestCase {
     func testRoundTripThroughBinnedCoordinateIsExact() {
         for bin in [1, 2, 4, 8] {
             for value: Float in [-0.5, 0, 17.25, 31.5, 255.5] {
-                let there = CalibrationReReference.binnedCoordinate(value, bin: bin)
-                XCTAssertEqual(CalibrationReReference.sourceCoordinate(there, bin: bin),
+                let there = FrameTransform.binnedCoordinate(value, bin: bin)
+                XCTAssertEqual(FrameTransform.sourceCoordinate(there, bin: bin),
                                value, accuracy: 1e-4,
                                "sourceCoordinate must be the exact inverse at bin \(bin)")
             }

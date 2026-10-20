@@ -19,7 +19,7 @@
 //  A crop is a PURE TRANSLATION of the detector frame and a PURE SELECTION of
 //  scan positions. A bin is a PURE RESCALING of the detector frame. So:
 //    * a POSITION      -> subtract the crop offset, then rescale about the
-//                         pixel grid (see `binnedCoordinate`);
+//                         pixel grid (see `FrameTransform.binnedCoordinate`);
 //    * a LENGTH/RADIUS -> unchanged by a crop, divided by the bin factor;
 //    * an ANGLE        -> unchanged by both;
 //    * a SAMPLING
@@ -47,6 +47,7 @@
 //  `fittedX` and its `yOffset` off `fittedY` — not the other way round.
 //
 
+import CuboCore
 import Foundation
 
 /// A calibration value that could not be carried into the loaded view, with the
@@ -179,44 +180,33 @@ package nonisolated enum CalibrationReReference {
         // let a beam excursion in a corner of the scan the user just cropped
         // away invalidate the whole calibration.
         if let scanCrop = specification.scanCrop, let origin = calibration.origin {
-            if origin.width == view.source.rx, origin.height == view.source.ry {
-                calibration.origin = cropped(origin, to: scanCrop)
+            let describesScan = origin.width == view.source.rx && origin.height == view.source.ry
+            if describesScan, let cut = cropped(origin, to: scanCrop) {
+                calibration.origin = cut
             } else {
-                // The map does not describe this scan, so there is no honest way
-                // to take a sub-rectangle of it.
+                // The map does not describe this scan, or its arrays do not fit its stated
+                // size and the crop, so there is no honest way to take a sub-rectangle of it.
                 calibration.origin = nil
                 calibration.originProvenance = .geometricDefault
+                let why = describesScan
+                    ? "its stored values do not match its \(origin.width) x \(origin.height) size, so the loaded region cannot be cut from it"
+                    : "The origin map is \(origin.width) x \(origin.height) but the source scan is \(view.source.rx) x \(view.source.ry), so it cannot be cropped to the loaded region"
                 invalidated.append(.init(
                     field: .origin,
-                    reason: "The origin map is \(origin.width) x \(origin.height) but the source scan is \(view.source.rx) x \(view.source.ry), so it cannot be cropped to the loaded region. Re-fit the origin on this view."
+                    reason: (describesScan ? "The origin map is dropped: " : "") + why + ". Re-fit the origin on this view."
                 ))
             }
         }
 
         if let detectorCrop = view.readDetectorCrop {
             // A position moves with the frame, then rescales with the grid.
-            if let origin = calibration.origin {
-                let shifted = rescaled(
-                    shifted(origin, byX: -detectorCrop.xOffset, y: -detectorCrop.yOffset),
-                    bin: bin
-                )
-                // Judged on the FITTED origins, because those are what every
-                // analysis uses; the measured arrays are a fit-quality record
-                // and are allowed to scatter outside without condemning the fit.
-                // Bounds are checked in the final, binned frame. **This is a
-                // free choice, not a load-bearing one.** `binnedCoordinate` is affine
-                // and maps -0.5 to -0.5 and W-0.5 to W/b-0.5, so "inside the
-                // pre-bin rectangle" and "inside the binned rectangle" are the
-                // SAME predicate — checking either side of the bin gives an
-                // identical answer at every position. Adversarial review
-                // 2026-08-18 implemented the pre-bin form and every test stayed
-                // green, which is the correct outcome and not a gap.
-                //
-                // What CAN invalidate an origin is the edge-remainder trim, not
-                // the bin: the trim removes detector rows, and a beam sitting in
-                // them is genuinely no longer loaded.
-                if let outside = firstOutside(shifted, width: view.descriptor.qx,
-                                              height: view.descriptor.qy) {
+            if let origin = calibration.origin,
+               let result = moved(origin, cropX: detectorCrop.xOffset, cropY: detectorCrop.yOffset, bin: bin,
+                                  width: view.descriptor.qx, height: view.descriptor.qy) {
+                // Judged on the FITTED origins, because those are what every analysis
+                // uses. Bounds are checked in the final, binned frame; what can
+                // invalidate an origin is the edge-remainder trim, not the bin.
+                if let outside = result.outside {
                     calibration.origin = nil
                     calibration.originProvenance = .geometricDefault
                     invalidated.append(.init(
@@ -224,8 +214,15 @@ package nonisolated enum CalibrationReReference {
                         reason: "The fitted beam origin at scan position \(outside.position) lands at (\(format(outside.x)), \(format(outside.y))) in the loaded detector, which is outside its \(view.descriptor.qx) x \(view.descriptor.qy) extent — the direct beam is not inside this diffraction crop. Widen the crop or re-fit the origin on this view."
                     ))
                 } else {
-                    calibration.origin = shifted
+                    calibration.origin = result.origin
                 }
+            } else if calibration.origin != nil {
+                calibration.origin = nil
+                calibration.originProvenance = .geometricDefault
+                invalidated.append(.init(
+                    field: .origin,
+                    reason: "The fitted beam origin maps (x and y) differ in length, so they cannot be moved into the loaded detector. Re-fit the origin on this view."
+                ))
             }
 
             // The aperture centre is the origin's representation in the UI, and
@@ -235,12 +232,11 @@ package nonisolated enum CalibrationReReference {
             // app has, so forgetting it here would leave the whole app pointed
             // at a detector pixel that is no longer loaded.
             if var center = apertureCenter {
-                center.x = binnedCoordinate(center.x - Float(detectorCrop.xOffset), bin: bin)
-                center.y = binnedCoordinate(center.y - Float(detectorCrop.yOffset), bin: bin)
+                center.x = FrameTransform.binnedCoordinate(center.x - Float(detectorCrop.xOffset), bin: bin)
+                center.y = FrameTransform.binnedCoordinate(center.y - Float(detectorCrop.yOffset), bin: bin)
                 // Same physical extent as `firstOutside`, for the same reason.
-                let inside = center.x.isFinite && center.y.isFinite
-                    && center.x >= -0.5 && center.x < Float(view.descriptor.qx) - 0.5
-                    && center.y >= -0.5 && center.y < Float(view.descriptor.qy) - 0.5
+                let inside = FrameTransform.isInside(column: center.x, row: center.y,
+                                                     width: view.descriptor.qx, height: view.descriptor.qy)
                 if inside {
                     apertureCenter = center
                 } else {
@@ -275,11 +271,10 @@ package nonisolated enum CalibrationReReference {
             // about whether the beam is inside the crop, and a stale recorded
             // origin must not be rescued by maps that happened to survive.
             if let x = calibration.recordedOriginX, let y = calibration.recordedOriginY {
-                let movedX = binnedCoordinate(x - Float(detectorCrop.xOffset), bin: bin)
-                let movedY = binnedCoordinate(y - Float(detectorCrop.yOffset), bin: bin)
-                let inside = movedX.isFinite && movedY.isFinite
-                    && movedX >= -0.5 && movedX < Float(view.descriptor.qx) - 0.5
-                    && movedY >= -0.5 && movedY < Float(view.descriptor.qy) - 0.5
+                let movedX = FrameTransform.binnedCoordinate(x - Float(detectorCrop.xOffset), bin: bin)
+                let movedY = FrameTransform.binnedCoordinate(y - Float(detectorCrop.yOffset), bin: bin)
+                let inside = FrameTransform.isInside(column: movedX, row: movedY,
+                                                     width: view.descriptor.qx, height: view.descriptor.qy)
                 if inside {
                     calibration.recordedOriginX = movedX
                     calibration.recordedOriginY = movedY
@@ -310,7 +305,7 @@ package nonisolated enum CalibrationReReference {
             // Lengths in detector pixels. The detector pixel just got `bin`
             // times bigger, so every length measured in them gets that many
             // times smaller. py4DSTEM rescales NONE of these.
-            calibration.probeRadius = calibration.probeRadius.map { $0 / Float(bin) }
+            calibration.probeRadius = calibration.probeRadius.map { FrameTransform.binnedLength($0, bin: bin) }
             // The ellipse semi-axes are lengths too. Rescaling both leaves
             // `ellipseTransform`'s `e = b / a` — and therefore every corrected
             // offset — bit-identical, so this changes no computed result; it
@@ -323,7 +318,7 @@ package nonisolated enum CalibrationReReference {
             // `bin` of the original, so it covers `bin` times as much reciprocal
             // space. This is the ONE rescaling py4DSTEM does perform
             // (preprocess.py:208), and the app matches it exactly.
-            calibration.qPixelSize = calibration.qPixelSize.map { $0 * Double(bin) }
+            calibration.qPixelSize = calibration.qPixelSize.map { FrameTransform.binnedPixelSize($0, bin: bin) }
             // `rPixelSize` is real-space sampling and diffraction binning does
             // not touch it. Real-space binning is not offered (docs/v2-scope.md §3).
         }
@@ -359,124 +354,55 @@ package nonisolated enum CalibrationReReference {
     }
 
     // MARK: - Geometry
+    //
+    // The frame rules (crop offset, pixel-centre bin transform, physical-extent test)
+    // live in CuboCore's `FrameTransform`, pinned to this file's former implementation.
 
-    /// Take the scan sub-rectangle. Exact: it selects stored values.
-    private static func cropped(_ origin: OriginMaps, to crop: AxisCrop) -> OriginMaps {
-        func select(_ values: [Float]) -> [Float] {
-            var output = [Float]()
-            output.reserveCapacity(crop.height * crop.width)
-            for y in 0..<crop.height {
-                let row = (crop.yOffset + y) * origin.width + crop.xOffset
-                output.append(contentsOf: values[row..<(row + crop.width)])
-            }
-            return output
+    /// Take the scan sub-rectangle. Exact: it selects stored values. Nil when the crop
+    /// does not fit the map.
+    private static func cropped(_ origin: OriginMaps, to crop: AxisCrop) -> OriginMaps? {
+        func select(_ values: [Float]) -> [Float]? {
+            FrameTransform.cropMap(values, mapWidth: origin.width, mapHeight: origin.height,
+                                   columnOffset: crop.xOffset, rowOffset: crop.yOffset,
+                                   width: crop.width, height: crop.height)
+        }
+        guard let fittedX = select(origin.fittedX), let fittedY = select(origin.fittedY) else { return nil }
+        var measuredX: [Float]?, measuredY: [Float]?
+        if let values = origin.measuredX {
+            guard let cut = select(values) else { return nil }
+            measuredX = cut
+        }
+        if let values = origin.measuredY {
+            guard let cut = select(values) else { return nil }
+            measuredY = cut
         }
         return OriginMaps(
             width: crop.width, height: crop.height,
-            measuredX: origin.measuredX.map(select),
-            measuredY: origin.measuredY.map(select),
-            fittedX: select(origin.fittedX),
-            fittedY: select(origin.fittedY)
+            measuredX: measuredX, measuredY: measuredY,
+            fittedX: fittedX, fittedY: fittedY
         )
     }
 
-    /// Map one detector coordinate from the cropped frame into the binned one.
-    ///
-    /// **The half-pixel matters, and the naive `x / bin` is wrong.** Binned
-    /// pixel `j` sums source pixels `j*b … j*b + b - 1`, so its CENTRE sits at
-    /// source coordinate `j*b + (b-1)/2`, not at `j*b`. The inverse of that is
-    /// `(x + 0.5) / b - 0.5`, which sends the centre of a bin to the centre of
-    /// the binned pixel and keeps a position at the middle of the detector at
-    /// the middle of the binned detector. `x / b` would displace every origin by
-    /// `(b-1) / 2b` px — approaching half a binned pixel, and biased in one
-    /// direction, so it would look like a small systematic descan error rather
-    /// than like a bug.
-    ///
-    /// This is the same transform `BraggVectorEMDWriter.transformedCalibration`
-    /// already applies on export, and deliberately so: two conventions for the
-    /// same operation in one codebase is how they drift apart.
-    package static func binnedCoordinate(_ value: Float, bin: Int) -> Float {
-        bin > 1 ? (value + 0.5) / Float(bin) - 0.5 : value
-    }
-
-    /// The exact inverse of `binnedCoordinate`: map one detector coordinate
-    /// from the binned frame back into the unbinned one. A binned position
-    /// lands at the CENTRE of its b-pixel block — `(x + 0.5) · b - 0.5` — which
-    /// is the only faithful statement of a position that was chosen at binned
-    /// precision. Affine and exact: `sourceCoordinate(binnedCoordinate(x)) == x`
-    /// up to float rounding, with no clamping and no bias. Added for S10's
-    /// recipe re-referencing (view frame → source frame); positions
-    /// additionally add the detector-crop offset at the call site, exactly as
-    /// `apply` subtracts it. // v2 S10
-    package static func sourceCoordinate(_ value: Float, bin: Int) -> Float {
-        bin > 1 ? (value + 0.5) * Float(bin) - 0.5 : value
-    }
-
-    /// Apply `binnedCoordinate` to every position in a map.
-    private static func rescaled(_ origin: OriginMaps, bin: Int) -> OriginMaps {
-        guard bin > 1 else { return origin }
-        func scale(_ values: [Float]) -> [Float] {
-            values.map { binnedCoordinate($0, bin: bin) }
+    /// Translate by the detector-crop offset, then bin. The fitted maps are judged
+    /// (every position must be inside `width` x `height`, the loaded binned detector);
+    /// the measured maps are a fit-quality record and may scatter outside.
+    private static func moved(
+        _ origin: OriginMaps, cropX dx: Int, cropY dy: Int, bin: Int, width: Int, height: Int
+    ) -> (origin: OriginMaps, outside: (position: Int, x: Float, y: Float)?)? {
+        guard let fitted = FrameTransform.moveOriginMap(
+            columns: origin.fittedX, rows: origin.fittedY, columnOffset: dx, rowOffset: dy,
+            bin: bin, width: width, height: height) else { return nil }
+        func shift(_ values: [Float]?, by offset: Int) -> [Float]? {
+            values.map { $0.map { FrameTransform.binnedCoordinate($0 - Float(offset), bin: bin) } }
         }
-        return OriginMaps(
+        let result = OriginMaps(
             width: origin.width, height: origin.height,
-            measuredX: origin.measuredX.map(scale),
-            measuredY: origin.measuredY.map(scale),
-            fittedX: scale(origin.fittedX),
-            fittedY: scale(origin.fittedY)
+            measuredX: shift(origin.measuredX, by: dx),
+            measuredY: shift(origin.measuredY, by: dy),
+            fittedX: fitted.columns, fittedY: fitted.rows
         )
-    }
-
-    /// Translate detector positions into the cropped frame.
-    private static func shifted(_ origin: OriginMaps, byX dx: Int, y dy: Int) -> OriginMaps {
-        let x = Float(dx), y = Float(dy)
-        return OriginMaps(
-            width: origin.width, height: origin.height,
-            measuredX: origin.measuredX.map { $0.map { $0 + x } },
-            measuredY: origin.measuredY.map { $0.map { $0 + y } },
-            fittedX: origin.fittedX.map { $0 + x },
-            fittedY: origin.fittedY.map { $0 + y }
-        )
-    }
-
-    /// The first fitted origin that is not inside the cropped detector, if any.
-    ///
-    /// A half-open test against the detector's PHYSICAL extent in pixel-centre
-    /// coordinates: `[-0.5, width - 0.5) x [-0.5, height - 0.5)`.
-    ///
-    /// **Not `[0, width)`, and the difference is not pedantry.** Pixel *centres*
-    /// run 0 … width-1, so the surface the pixels cover starts half a pixel
-    /// before the first centre. Testing against `[0, width)` treats a continuous
-    /// position as if it were an index, and after binning that is reachable by
-    /// ordinary data: `binnedCoordinate` maps source 0 to `0.5/b - 0.5`, which
-    /// is *negative* for every b > 1. An origin sitting in the first half of the
-    /// first source pixel would then be declared off-detector and the whole
-    /// calibration invalidated — a refusal that looks principled and is simply
-    /// an off-by-half. Found 2026-08-18 by a bin test written to assert
-    /// something else.
-    ///
-    /// **Written in the positive on purpose.** A NaN origin must never pass a
-    /// bounds check by being unorderable, and which way round the test is
-    /// written decides whether it does. Every comparison against NaN is false,
-    /// so the positive form below rejects it — while the equally natural
-    /// negated form, `!(x < 0 || x >= width || …)`, *admits* it, because none of
-    /// those disjuncts fire. Verified 2026-08-18: writing it that way fails
-    /// `testANonFiniteOriginCountsAsOutsideRatherThanPassingTheBoundsCheck`.
-    /// The explicit `isFinite` is then belt-and-braces rather than load-bearing;
-    /// it is kept because it says the intent out loud.
-    private static func firstOutside(
-        _ origin: OriginMaps, width: Int, height: Int
-    ) -> (position: Int, x: Float, y: Float)? {
-        for index in 0..<origin.fittedX.count {
-            let x = origin.fittedX[index]
-            let y = origin.fittedY[index]
-            guard x.isFinite, y.isFinite,
-                  x >= -0.5, x < Float(width) - 0.5,
-                  y >= -0.5, y < Float(height) - 0.5 else {
-                return (index, x, y)
-            }
-        }
-        return nil
+        let outside = fitted.firstOutside.map { ($0, fitted.columns[$0], fitted.rows[$0]) }
+        return (result, outside)
     }
 
     private static func format(_ value: Float) -> String {

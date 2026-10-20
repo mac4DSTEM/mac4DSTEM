@@ -210,6 +210,9 @@ mac4dstem_sources() {
         # composes this group links DiffractoGeometry (kit_module, above); KIT_FLAGS ride in MAC4DSTEM_SOURCES.
         kit_module "$repo" DiffractoKit DiffractoGeometry
         want+=("${KIT_FLAGS[@]}")
+        # CalibrationReReference's frame rules are CuboCore's FrameTransform (2026-10-20).
+        kit_module "$repo" CuboKit CuboCore
+        want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" data
         want+=(
           "${MAC4DSTEM_SOURCES[@]}"

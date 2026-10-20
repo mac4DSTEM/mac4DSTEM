@@ -11,6 +11,7 @@
 //
 
 import XCTest
+import CuboCore
 import DSTEMCore
 import DiffractoGeometry
 import DSTEMSession
@@ -177,6 +178,36 @@ final class CalibrationReReferenceTests: XCTestCase {
         XCTAssertTrue(outcome.invalidated.contains { $0.field == .origin })
     }
 
+    func testAScanCropThatOverrunsTheStoredMapValuesInvalidatesTheOrigin() throws {
+        var calibration = self.calibration()
+        // Stated 3 x 4 like the source scan, but the stored arrays are one row short.
+        var origin = maps()
+        origin.fittedX.removeLast(3)
+        origin.fittedY.removeLast(3)
+        calibration.origin = origin
+        let outcome = try apply(
+            LoadSpecification(scanCrop: AxisCrop(yOffset: 2, xOffset: 0, height: 2, width: 2)),
+            calibration: calibration
+        )
+        XCTAssertNil(outcome.calibration.origin)
+        XCTAssertEqual(outcome.calibration.originProvenance, .geometricDefault)
+        XCTAssertTrue(outcome.invalidated.contains { $0.field == .origin && $0.reason.contains("stored values") })
+    }
+
+    func testFittedMapsOfDifferentLengthsInvalidateTheOriginInsteadOfStayingStale() throws {
+        var calibration = self.calibration()
+        var origin = maps()
+        origin.fittedY.removeLast()
+        calibration.origin = origin
+        let outcome = try apply(
+            LoadSpecification(detectorCrop: AxisCrop(yOffset: 0, xOffset: 1, height: 10, width: 6)),
+            calibration: calibration
+        )
+        XCTAssertNil(outcome.calibration.origin)
+        XCTAssertEqual(outcome.calibration.originProvenance, .geometricDefault)
+        XCTAssertTrue(outcome.invalidated.contains { $0.field == .origin })
+    }
+
     // MARK: - The refusals
 
     func testAnOriginOutsideTheDetectorCropIsInvalidatedRatherThanClamped() throws {
@@ -267,8 +298,8 @@ final class CalibrationReReferenceTests: XCTestCase {
         // Source y of 5.25 -> (5.25 + 0.5)/2 - 0.5 = 2.375.
         XCTAssertEqual(origin.fittedY[0], 2.375)
         // The centre of the detector must stay the centre of the binned one.
-        XCTAssertEqual(CalibrationReReference.binnedCoordinate(4.5, bin: 2), 2.0)
-        XCTAssertEqual(CalibrationReReference.binnedCoordinate(7.5, bin: 8), 0.5)
+        XCTAssertEqual(FrameTransform.binnedCoordinate(4.5, bin: 2), 2.0)
+        XCTAssertEqual(FrameTransform.binnedCoordinate(7.5, bin: 8), 0.5)
     }
 
     func testTheBinnedOriginConventionMatchesTheExportWriter() throws {
@@ -278,7 +309,7 @@ final class CalibrationReReferenceTests: XCTestCase {
         // apart, so this pins them together rather than trusting a comment.
         for bin in [2, 4, 8] {
             for value in [Float(0), 3.5, 7, 12.25, 63] {
-                let reReference = CalibrationReReference.binnedCoordinate(value, bin: bin)
+                let reReference = FrameTransform.binnedCoordinate(value, bin: bin)
                 let writer = Float((Double(value) + 0.5) / Double(bin) - 0.5)
                 XCTAssertEqual(reReference, writer, accuracy: 1e-6,
                                "bin \(bin), value \(value)")
@@ -494,7 +525,7 @@ final class CalibrationReReferenceTests: XCTestCase {
         XCTAssertEqual(outcome.calibration.recordedOriginY, 1.25)
         // And it agrees with the shared convention the maps and the writer use.
         XCTAssertEqual(outcome.calibration.recordedOriginX,
-                       CalibrationReReference.binnedCoordinate(5.5 - 2, bin: 2))
+                       FrameTransform.binnedCoordinate(5.5 - 2, bin: 2))
     }
 
     func testARecordedOriginOutsideTheCropIsDroppedAndNamedNotClamped() throws {

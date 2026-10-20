@@ -7,11 +7,11 @@
 #
 # NEGATIVE CONTROLS, each verified live during S10 (2026-08-26) and reverted —
 # each names the line it breaks and why the failure follows:
-#   NC1  CalibrationReReference.swift `shifted(origin, byX: -detectorCrop…)`
+#   NC1  CalibrationReReference.swift `moved(origin, cropX: …)` / the offset in CuboCore FrameTransform.moveOriginMap
 #        (apply's detector-crop translation): dropping the shift leaves the
 #        origin in source coordinates → the centroid check fails on `crop`
 #        by ~the 8/4 px offsets.
-#   NC2  CalibrationReReference.binnedCoordinate → naive `x / b`: every
+#   NC2  CuboCore FrameTransform.binnedCoordinate → naive `x / b`: every
 #        origin biased by (b−1)/2b px → the centroid check fails on
 #        `cropbin` by 0.25 px against the 0.02 px gate.
 #   NC3  BraggVectorEMDWriter.transformedCalibration `qSize * bin` dropped:
