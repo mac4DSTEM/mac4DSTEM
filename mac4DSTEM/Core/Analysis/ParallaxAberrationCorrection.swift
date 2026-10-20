@@ -113,10 +113,7 @@ package nonisolated enum ParallaxAberrationCorrector {
                 alignment.alignedBF.map(Double.init), rows: height, columns: width,
                 sampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
                 wavelength: wavelength,
-                terms: fit.terms.map {
-                    CuboParallax.ParallaxAberrationTerm(
-                        radialOrder: $0.radialOrder, angularOrder: $0.angularOrder, component: $0.component)
-                },
+                terms: fit.terms,
                 coefficients: fit.coefficientsAngstrom,
                 defocusOnly: options.useFullFit ? nil : fit.lowOrder.c1Angstrom,
                 lowpass: options.qLowpassInvAngstrom, highpass: options.qHighpassInvAngstrom,

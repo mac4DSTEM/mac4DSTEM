@@ -1,114 +1,15 @@
 //
 //  ParallaxAberrationFitting.swift
-//  The app's result and option types for the py4DSTEM parallax aberration fit, and the bridge to CuboKit 0.4.0's
+//  The app's bridge to CuboKit 0.4.0's
 //  CuboParallax.ParallaxAberrationFitter (the arithmetic: polar-decomposition low-order fit, Cartesian higher-order fit, gradient basis).
 //
-//  The value types below stay the app's own: DSTEMSession, the app target and the tests do not link CuboParallax, and under
-//  MemberImportVisibility they could not read a kit type's members. delete at CuboKit with CuboParallax in the Session/app targets: the
-//  duplicates of ParallaxPhysicalShift ... ParallaxHigherOrderAberrationFitResult (needs a Package.swift / pbxproj change).
+//  The fit's option and result value types (ParallaxPhysicalShift, ParallaxAberrationTerm, ParallaxAberrationFitMethod, the low-order and
+//  higher-order options and results) are CuboParallax's own, used directly. The enum below keeps the app's stage error and
+//  the preprocessing/alignment-result bridge.
 //
 
 import CuboParallax
 import Foundation
-
-package nonisolated struct ParallaxPhysicalShift: Equatable, Sendable {
-    package let rowAngstrom: Double
-    package let columnAngstrom: Double
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(rowAngstrom: Double, columnAngstrom: Double) {
-        self.rowAngstrom = rowAngstrom
-        self.columnAngstrom = columnAngstrom
-    }
-}
-
-package nonisolated struct ParallaxLowOrderAberrationOptions: Equatable, Sendable {
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init() {}
-
-    package var forceTranspose = false
-    package var forceRotationAngleDegrees: Double? = nil
-}
-
-package nonisolated struct ParallaxAberrationFitResult: Equatable, Sendable {
-    package let measuredShifts: [ParallaxPhysicalShift]
-    package let fittedShifts: [ParallaxPhysicalShift]
-    /// py4DSTEM's fitted Q-to-R rotation convention.
-    package let rotationRad: Double
-    /// Defocus and two-fold astigmatism coefficients, in Å.
-    package let c1Angstrom: Double
-    package let c12aAngstrom: Double
-    package let c12bAngstrom: Double
-    package let rmsResidualAngstrom: Double
-    package let forceTranspose: Bool
-    package let forcedRotationAngleDegrees: Double?
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(measuredShifts: [ParallaxPhysicalShift], fittedShifts: [ParallaxPhysicalShift], rotationRad: Double, c1Angstrom: Double, c12aAngstrom: Double, c12bAngstrom: Double, rmsResidualAngstrom: Double, forceTranspose: Bool, forcedRotationAngleDegrees: Double?) {
-        self.measuredShifts = measuredShifts
-        self.fittedShifts = fittedShifts
-        self.rotationRad = rotationRad
-        self.c1Angstrom = c1Angstrom
-        self.c12aAngstrom = c12aAngstrom
-        self.c12bAngstrom = c12bAngstrom
-        self.rmsResidualAngstrom = rmsResidualAngstrom
-        self.forceTranspose = forceTranspose
-        self.forcedRotationAngleDegrees = forcedRotationAngleDegrees
-    }
-}
-
-package nonisolated struct ParallaxAberrationTerm: Equatable, Hashable, Sendable {
-    package let radialOrder: Int
-    package let angularOrder: Int
-    /// 0 is the cosine/radial component; 1 is the sine component.
-    package let component: Int
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(radialOrder: Int, angularOrder: Int, component: Int) {
-        self.radialOrder = radialOrder
-        self.angularOrder = angularOrder
-        self.component = component
-    }
-}
-
-package nonisolated enum ParallaxAberrationFitMethod: String, CaseIterable, Sendable {
-    case recursive
-    case recursiveExclusive
-    case global
-}
-
-package nonisolated struct ParallaxHigherOrderAberrationOptions: Equatable, Sendable {
-    // Explicit so the default initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init() {}
-
-    package var maxRadialOrder = 3
-    package var maxAngularOrder = 4
-    package var minRadialOrder = 2
-    package var minAngularOrder = 0
-    package var fitMethod: ParallaxAberrationFitMethod = .recursive
-    package var initializeWithLowOrder = true
-    package var lowOrder = ParallaxLowOrderAberrationOptions()
-}
-
-package nonisolated struct ParallaxHigherOrderAberrationFitResult: Equatable, Sendable {
-    package let lowOrder: ParallaxAberrationFitResult
-    package let terms: [ParallaxAberrationTerm]
-    /// Cartesian coefficient for each term, in Å.
-    package let coefficientsAngstrom: [Double]
-    package let fittedShifts: [ParallaxPhysicalShift]
-    package let rmsResidualAngstrom: Double
-    package let fitMethod: ParallaxAberrationFitMethod
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(lowOrder: ParallaxAberrationFitResult, terms: [ParallaxAberrationTerm], coefficientsAngstrom: [Double], fittedShifts: [ParallaxPhysicalShift], rmsResidualAngstrom: Double, fitMethod: ParallaxAberrationFitMethod) {
-        self.lowOrder = lowOrder
-        self.terms = terms
-        self.coefficientsAngstrom = coefficientsAngstrom
-        self.fittedShifts = fittedShifts
-        self.rmsResidualAngstrom = rmsResidualAngstrom
-        self.fitMethod = fitMethod
-    }
-}
 
 package nonisolated enum ParallaxAberrationFitter {
     package enum FitError: LocalizedError, Equatable {
@@ -143,17 +44,16 @@ package nonisolated enum ParallaxAberrationFitter {
     ) throws -> ParallaxAberrationFitResult {
         guard alignment.isComplete else { throw FitError.alignmentIncomplete }
         let sampling = preprocessing.calibration.scanSamplingAngstrom
-        let result = try bridged {
+        return try bridged {
             try CuboParallax.ParallaxAberrationFitter.fitLowOrder(
                 probeAngles: radians(preprocessing.probeAnglesMrad),
                 pixelShifts: alignment.totalShifts.map {
                     CuboParallax.ParallaxShift(row: Double($0.row), column: Double($0.column))
                 },
                 scanSampling: CuboParallax.ParallaxShift(row: sampling, column: sampling),
-                options: kitOptions(options)
+                options: options
             )
         }
-        return appResult(result)
     }
 
     package static func defaultTerms(
@@ -167,7 +67,7 @@ package nonisolated enum ParallaxAberrationFitter {
                 maxRadialOrder: maxRadialOrder, maxAngularOrder: maxAngularOrder,
                 minRadialOrder: minRadialOrder, minAngularOrder: minAngularOrder
             )
-        }.map(appTerm)
+        }
     }
 
     /// Default recursive higher-order fit from py4DSTEM `aberration_fit` (CuboParallax's `fitHigherOrder`), with the gradient basis
@@ -190,20 +90,9 @@ package nonisolated enum ParallaxAberrationFitter {
         guard alignment.isComplete else { throw FitError.alignmentIncomplete }
         let sampling = preprocessing.calibration.scanSamplingAngstrom
         let angles = radians(preprocessing.probeAnglesMrad)
-        var kit = CuboParallax.ParallaxHigherOrderAberrationOptions()
-        kit.maxRadialOrder = options.maxRadialOrder
-        kit.maxAngularOrder = options.maxAngularOrder
-        kit.minRadialOrder = options.minRadialOrder
-        kit.minAngularOrder = options.minAngularOrder
-        switch options.fitMethod {
-        case .recursive: kit.fitMethod = .recursive
-        case .recursiveExclusive: kit.fitMethod = .recursiveExclusive
-        case .global: kit.fitMethod = .global
-        }
-        kit.initializeWithLowOrder = options.initializeWithLowOrder
+        var kit = options
         kit.basisConvention = .selectedCentroid
-        kit.lowOrder = kitOptions(options.lowOrder)
-        let result = try bridged {
+        return try bridged {
             try CuboParallax.ParallaxAberrationFitter.fitHigherOrder(
                 probeAngles: angles,
                 pixelShifts: alignment.totalShifts.map {
@@ -213,13 +102,6 @@ package nonisolated enum ParallaxAberrationFitter {
                 basisAngles: angles, options: kit
             )
         }
-        return ParallaxHigherOrderAberrationFitResult(
-            lowOrder: appResult(result.lowOrder), terms: result.terms.map(appTerm),
-            coefficientsAngstrom: result.coefficientsAngstrom,
-            fittedShifts: result.fittedShifts.map(appShift),
-            rmsResidualAngstrom: result.rmsResidualAngstrom,
-            fitMethod: options.fitMethod
-        )
     }
 
     /// Row-major `[sample, term]` pairs of (dchi/du, dchi/dv). The derivatives
@@ -232,7 +114,7 @@ package nonisolated enum ParallaxAberrationFitter {
         try bridged {
             try CuboParallax.ParallaxAberrationFitter.gradientSamples(
                 probeAngles: radians(probeAnglesMrad), rotationRad: rotationRad,
-                terms: terms.map(kitTerm)
+                terms: terms
             )
         }
     }
@@ -255,36 +137,6 @@ package nonisolated enum ParallaxAberrationFitter {
         } catch {
             throw FitError.invalidInput(parallaxKitReason(error))
         }
-    }
-
-    private static func kitOptions(_ options: ParallaxLowOrderAberrationOptions) -> CuboParallax.ParallaxLowOrderAberrationOptions {
-        var kit = CuboParallax.ParallaxLowOrderAberrationOptions()
-        kit.forceTranspose = options.forceTranspose
-        kit.forceRotationAngleDegrees = options.forceRotationAngleDegrees
-        return kit
-    }
-
-    private static func appShift(_ shift: CuboParallax.ParallaxPhysicalShift) -> ParallaxPhysicalShift {
-        ParallaxPhysicalShift(rowAngstrom: shift.rowAngstrom, columnAngstrom: shift.columnAngstrom)
-    }
-
-    private static func appTerm(_ term: CuboParallax.ParallaxAberrationTerm) -> ParallaxAberrationTerm {
-        ParallaxAberrationTerm(radialOrder: term.radialOrder, angularOrder: term.angularOrder, component: term.component)
-    }
-
-    private static func kitTerm(_ term: ParallaxAberrationTerm) -> CuboParallax.ParallaxAberrationTerm {
-        CuboParallax.ParallaxAberrationTerm(radialOrder: term.radialOrder, angularOrder: term.angularOrder, component: term.component)
-    }
-
-    private static func appResult(_ result: CuboParallax.ParallaxAberrationFitResult) -> ParallaxAberrationFitResult {
-        ParallaxAberrationFitResult(
-            measuredShifts: result.measuredShifts.map(appShift), fittedShifts: result.fittedShifts.map(appShift),
-            rotationRad: result.rotationRad,
-            c1Angstrom: result.c1Angstrom, c12aAngstrom: result.c12aAngstrom, c12bAngstrom: result.c12bAngstrom,
-            rmsResidualAngstrom: result.rmsResidualAngstrom,
-            forceTranspose: result.forceTranspose,
-            forcedRotationAngleDegrees: result.forcedRotationAngleDegrees
-        )
     }
 }
 

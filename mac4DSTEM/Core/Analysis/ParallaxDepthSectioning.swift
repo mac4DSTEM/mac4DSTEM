@@ -137,10 +137,7 @@ package nonisolated enum ParallaxDepthSectioner {
         let sampling = preprocessing.calibration.scanSamplingAngstrom
         let ctf: CuboParallax.ParallaxDepthCTF = options.useFullFit
             ? .fullFit(
-                terms: fit.terms.map {
-                    CuboParallax.ParallaxAberrationTerm(
-                        radialOrder: $0.radialOrder, angularOrder: $0.angularOrder, component: $0.component)
-                },
+                terms: fit.terms,
                 coefficientsAngstrom: fit.coefficientsAngstrom)
             : .defocusOnly(c1Angstrom: fit.lowOrder.c1Angstrom)
         let images: [[Double]] = (0..<bfCount).map { bf in

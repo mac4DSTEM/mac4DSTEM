@@ -108,7 +108,8 @@ let package = Package(
                            .product(name: "DiffractoOrientation", package: "DiffractoKit"),
                            .product(name: "CuboCore", package: "CuboKit"),
                            .product(name: "CuboVirtual", package: "CuboKit"),
-                           .product(name: "CuboPhase", package: "CuboKit")],
+                           .product(name: "CuboPhase", package: "CuboKit"),
+                           .product(name: "CuboParallax", package: "CuboKit")],
             path: "mac4DSTEM/Session",
             swiftSettings: [
                 .unsafeFlags(["-O"], .when(configuration: .debug)),   // as DSTEMCore

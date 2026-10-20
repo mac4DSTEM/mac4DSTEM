@@ -1,6 +1,10 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import struct CuboParallax.ParallaxPhysicalShift
+import struct CuboParallax.ParallaxAberrationFitResult
+import struct CuboParallax.ParallaxHigherOrderAberrationFitResult
+import struct CuboParallax.ParallaxAberrationTerm
 @testable import mac4DSTEM
 
 /// Seam 1 (`Session/PhaseContrastProduct.swift`, ../_archive/mac4DSTEM/docs/archive/v4/appstate-seams-plan.md):

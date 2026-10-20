@@ -1,6 +1,7 @@
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
+import struct CuboParallax.ParallaxAberrationFitResult
 #endif
 
 /// The single-slice ptychography input-settings seam (audit 3.2 row 5;

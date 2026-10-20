@@ -27,9 +27,9 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
   recorded before the DPC wavelength moved (+2.72e-5, `2e46e215`) replays and rewinds; its ACOM product still reads stale
   (the staleness signature compares the scale string; honest, one re-run clears it).
 - **Parallax on CuboParallax 0.4.0 (2026-10-20): what stays and the kit asks.** The aberration fit, CTF correction, depth sectioning,
-  the KDE deposition and the Fourier shift are the kit's; the app keeps (each marked `delete at CuboKit ...` in the code): the
-  result/option value types (DSTEMSession, the app and the tests do not link CuboParallax, and MemberImportVisibility hides a kit
-  type's members: needs the product on those targets); the transfer function the correction stores (the kit returns the image and
+  the KDE deposition and the Fourier shift are the kit's; the app keeps: (the fit's option and result value types are the kit's: DSTEMSession and the app link CuboParallax, and files
+  that read their members import them by name, `import struct CuboParallax.X`, because the kit's `ParallaxAlignmentResult` and
+  `ParallaxSubpixelResult` share names with the app's); the transfer function the correction stores (the kit returns the image and
   the two phase surfaces only); a cancellation hook and per-plane/per-iteration progress (the kit has none: cancel lands before or
   after a kit call); `ParallaxAlignment.correlationShift` and the running-average reference (spectrum-level estimate; the kit's
   `shift` takes real-space images); the position-correction loop (the app's Float variant with its own scoring window). The

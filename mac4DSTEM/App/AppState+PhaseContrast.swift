@@ -11,6 +11,13 @@ import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
 import DSTEMCore
 import DSTEMSession
+import struct CuboParallax.ParallaxPhysicalShift
+import struct CuboParallax.ParallaxAberrationFitResult
+import struct CuboParallax.ParallaxHigherOrderAberrationFitResult
+import struct CuboParallax.ParallaxHigherOrderAberrationOptions
+import struct CuboParallax.ParallaxLowOrderAberrationOptions
+import struct CuboParallax.ParallaxAberrationTerm
+import enum CuboParallax.ParallaxAberrationFitMethod
 #endif
 
 

@@ -4,6 +4,10 @@ import XCTest
 import DSTEMCore
 import ImagoCore
 import DSTEMSession
+import struct CuboParallax.ParallaxPhysicalShift
+import struct CuboParallax.ParallaxAberrationFitResult
+import struct CuboParallax.ParallaxHigherOrderAberrationFitResult
+import struct CuboParallax.ParallaxAberrationTerm
 @testable import mac4DSTEM
 
 /// Lane R1 (2026-09-30): the ptychography probe takes a defocus and the fitted aberrations.

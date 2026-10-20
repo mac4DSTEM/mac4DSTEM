@@ -1,6 +1,10 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import struct CuboParallax.ParallaxPhysicalShift
+import struct CuboParallax.ParallaxAberrationFitResult
+import struct CuboParallax.ParallaxHigherOrderAberrationFitResult
+import struct CuboParallax.ParallaxAberrationTerm
 @testable import mac4DSTEM
 
 /// `UI/ReconstructionSettings.swift`'s `ParallaxStageSections.stageIsComplete(4)` used

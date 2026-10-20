@@ -1,3 +1,4 @@
+import CuboParallax
 import Foundation
 
 struct Expected: Decodable {

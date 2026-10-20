@@ -3,6 +3,13 @@ import SwiftUI
 import CuboPhase
 import DSTEMCore
 import DSTEMSession
+import struct CuboParallax.ParallaxPhysicalShift
+import struct CuboParallax.ParallaxAberrationFitResult
+import struct CuboParallax.ParallaxHigherOrderAberrationFitResult
+import struct CuboParallax.ParallaxHigherOrderAberrationOptions
+import struct CuboParallax.ParallaxLowOrderAberrationOptions
+import struct CuboParallax.ParallaxAberrationTerm
+import enum CuboParallax.ParallaxAberrationFitMethod
 #endif
 
 /// The Reconstruct workspace's controls, as the inspector's **Settings** tab

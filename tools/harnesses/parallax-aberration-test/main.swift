@@ -1,3 +1,4 @@
+import CuboParallax
 import Foundation
 
 struct CaseFixture: Decodable {
