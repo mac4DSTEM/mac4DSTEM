@@ -58,6 +58,9 @@ import Accelerate
 import CuboEmbedding
 import Foundation
 
+/// CuboEmbedding's error, named apart from `DiffractionEmbedding.EmbeddingError` inside the enum.
+private typealias KitEmbeddingError = EmbeddingError
+
 package nonisolated enum DiffractionEmbedding {
 
     package struct Settings: Sendable, Equatable {
@@ -531,8 +534,8 @@ package nonisolated enum DiffractionEmbedding {
         // the three per-pixel scalar loops below were 5.1 of 6.3 s per 1 000
         // patterns in an `-Onone` build (the owner's Debug build). A pattern
         // with only finite values takes the Accelerate path; one with NaN or
-        // ±Inf (its float sum is not finite) takes the old scalar path
-        // unchanged, because `vDSP_vthr` would turn NaN into 0, where Swift's
+        // ±Inf (its float sum is not finite) takes CuboEmbedding's scalar
+        // `binnedVector` (Float32 rounding from the old loop: row-wise cell sums), because `vDSP_vthr` would turn NaN into 0, where Swift's
         // `max(x, 0)` keeps it and lets the covariance guard refuse the
         // dataset. The two paths agree to ≤ 1e-6 relative (`vvlog1pf` vs
         // `log1pf`, summation order): `DiffractionEmbeddingEmbedTests`.
@@ -583,41 +586,23 @@ package nonisolated enum DiffractionEmbedding {
         return out
     }
 
-    /// The scalar `embed` as it was before 2026-09-28, unchanged: the path
-    /// for a pattern holding NaN or ±Inf, whose exact semantics (NaN kept,
-    /// −Inf clamped to 0) the refusal downstream depends on.
+    /// The path for a pattern holding NaN or ±Inf, whose exact semantics (NaN kept,
+    /// −Inf clamped to 0) the refusal downstream depends on: CuboEmbedding's
+    /// `DiffractionFeatures.binnedVector`, pinned to this app's former scalar loop.
+    /// (It sums each cell row by row, so it agrees with the former loop to Float32
+    /// rounding on finite values; non-finite patterns are refused downstream.)
+    // delete at CuboEmbedding 0.5.0: a vDSP path inside DiffractionFeatures.binnedVector (then embed, its fast path and BinGeometry go).
     private static func embedScalar(
         pixels: [Float], base: Int, qy: Int, qx: Int, geometry: BinGeometry, binnedSize: Int
     ) -> [Float] {
-        let count = qy * qx
-        var scaled = [Float](repeating: 0, count: count)
-        var maxVal: Float = 0
-        pixels.withUnsafeBufferPointer { buf in
-            for i in 0..<count {
-                let v = log1p(max(buf[base + i], 0))
-                scaled[i] = v
-                if v > maxVal { maxVal = v }
-            }
+        let pattern = Array(pixels[base..<(base + qy * qx)])
+        do {
+            return try DiffractionFeatures.binnedVector(pattern: pattern, rows: qy, columns: qx,
+                                                        binnedSize: binnedSize)
+        } catch {
+            // Only a non-positive size or a pattern of the wrong length throws; `compute` validated both.
+            preconditionFailure("DiffractionEmbedding.embed: \(error)")
         }
-        if maxVal > 0 {
-            let inv = 1 / maxVal
-            for i in 0..<count { scaled[i] *= inv }
-        }
-        var out = [Float](repeating: 0, count: binnedSize * binnedSize)
-        guard geometry.binnedH > 0, geometry.binnedW > 0 else { return out }
-        for by in 0..<geometry.binnedH {
-            let y0 = geometry.offsetY + by * geometry.boxY
-            for bx in 0..<geometry.binnedW {
-                let x0 = geometry.offsetX + bx * geometry.boxX
-                var sum: Float = 0
-                for dy in 0..<geometry.boxY {
-                    let rowBase = (y0 + dy) * qx
-                    for dx in 0..<geometry.boxX { sum += scaled[rowBase + x0 + dx] }
-                }
-                out[by * binnedSize + bx] = sum
-            }
-        }
-        return out
     }
 
     /// The running (double precision) sum and sum of outer products that
@@ -727,6 +712,7 @@ package nonisolated enum DiffractionEmbedding {
     /// (`DiffractionEmbeddingTests.testSymmetricEigenTopReturnsTrueEigenpairs`)
     /// can plant a KNOWN spectrum and check the returned pairs directly,
     /// instead of inferring the solver's health from a downstream aggregate.
+    // delete at CuboEmbedding 0.5.0: a covariance -> top-eigenpairs (PCA) entry; the app streams the covariance.
     package static func symmetricEigenTop(
         matrix: [Double], dimension: Int, count: Int,
         cancellation: AnalysisCancellationToken?
@@ -792,6 +778,7 @@ package nonisolated enum DiffractionEmbedding {
     /// refuses non-finite data upstream, so this is unreachable through the public path.
     /// Cancellation is honoured before the fit only; the kit's fit has no hook, and it runs
     /// over the few PCA coordinates, not the cube.
+    // delete at CuboEmbedding 0.5.0: a cancellation hook on KMeans.fitSeeded (cancellation is checked before the fit only).
     package static func kMeans(
         coordinates: [Float], positions: Int, dimension: Int, requestedGroups: Int,
         seed: UInt64, cancellation: AnalysisCancellationToken?
@@ -803,7 +790,7 @@ package nonisolated enum DiffractionEmbedding {
                 coordinates.map(Double.init), rows: positions, columns: dimension,
                 groups: requestedGroups, seed: seed)
             return (fit.labels, fit.centroids.map(Float.init))
-        } catch {
+        } catch KitEmbeddingError.nonFinite {
             throw EmbeddingError.invalidDataset("The embedding coordinates are not finite, so they cannot be clustered.")
         }
     }

@@ -7,7 +7,7 @@ import DSTEMCore
 /// reference. P1: finite patterns agree to ≤ 1e-6 relative per binned value,
 /// AND at least one value differs in its last bits (anti-vacuity: proves the
 /// Accelerate path ran — a build that always fell back would agree
-/// exactly). P2: patterns with NaN / ±Inf are bit-identical (the fallback).
+/// exactly). P2: patterns with NaN / ±Inf take CuboEmbedding's `binnedVector` and agree with the old loop to 1e-5 relative (NaN cells exactly).
 final class DiffractionEmbeddingEmbedTests: XCTestCase {
 
     /// The pre-2026-09-28 `DiffractionEmbedding.embed`, unchanged.
@@ -133,7 +133,10 @@ final class DiffractionEmbeddingEmbedTests: XCTestCase {
         XCTAssertLessThanOrEqual(worst, 5e-6)
     }
 
-    func testNonFinitePatternsAreBitIdenticalToTheOldEmbed() {
+    /// The non-finite path is CuboEmbedding's `DiffractionFeatures.binnedVector`. It sums each cell row by
+    /// row where the old loop summed element by element, so finite cells agree to Float32 rounding (1e-5
+    /// relative), not bit for bit; NaN cells and zero cells agree exactly.
+    func testNonFinitePatternsAgreeWithTheOldEmbedToFloat32Rounding() {
         let base = finiteCases()[0].pattern
         let variants: [(String, (inout [Float]) -> Void)] = [
             ("NaN", { $0[40 * 128 + 40] = .nan }),
@@ -147,7 +150,11 @@ final class DiffractionEmbeddingEmbedTests: XCTestCase {
             apply(&p)
             for binned in [16, 32] {
                 let (new, old) = run(Case(qy: 128, qx: 128, binned: binned, pattern: p))
-                XCTAssertEqual(new.map(\.bitPattern), old.map(\.bitPattern), "\(name), binned \(binned)")
+                XCTAssertEqual(new.count, old.count, "\(name), binned \(binned)")
+                for (a, b) in zip(new, old) {
+                    if b.isNaN { XCTAssertTrue(a.isNaN, "\(name), binned \(binned)") }
+                    else { XCTAssertEqual(a, b, accuracy: 1e-5 * abs(b), "\(name), binned \(binned)") }
+                }
             }
         }
     }
