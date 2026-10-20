@@ -1,380 +1,62 @@
 //
 //  OrientationMatcher.swift
-//  Role: ACOM orientation matching. Turn a pattern's detected Bragg peaks into
-//        a polar image, then correlate it against every template in an
-//        OrientationPlan — recovering the best zone axis AND its in-plane
-//        rotation in one shot via azimuthal FFT correlation:
-//
-//          corr(Δφ) = IFFT_φ( Σ_ring conj(FFT(exp_ring)) · FFT(template_ring) )
-//
-//        The peak of corr over Δφ is the in-plane angle; its height is the
-//        match score. Best template → orientation; best/second → reliability.
-//        A second pass on conj(FFT(exp_ring)) — the azimuth-reversed image —
-//        covers the mirror half of the proper-rotation zone the bank does not
-//        sample (py4DSTEM `inversion_symmetry`; `OrientationResult.mirrored`).
-//
-//  CALIBRATION: peak radii are in detector pixels; the plan is in Å⁻¹. Pass
-//  `invAngstromPerPixel` (the Q pixel size) to convert. Without a Q
-//  calibration this is qualitative — the radial scale must roughly match the
-//  crystal for the correlation to lock on.
-//
-//  ISOLATION: `nonisolated` per-worker object (owns an FFT + scratch); create
-//  one per concurrent worker in matchAll.
+//  Role: ACOM orientation matching in the app. The CPU matcher (a pattern's peaks to a polar image, the azimuthal FFT
+//        correlation against every template, the forward and the mirrored pass, the distinct runner-up, the symmetry
+//        reduction) and the scan loop with its selection, workers, progress and cancellation are DiffractoKit's since
+//        0.5.0 (`ACOMMatcher`, `ACOMMatcher.matchAll`, `ACOMScanSelection`, `ACOMScanResults`). What stays here is what the
+//        kit does not offer: the Metal backend (`MetalACOMMatcher`: the batched correlation on the GPU, reading the kit
+//        library's template FFTs), the choice of backend, and the adapters from the app's `BraggPeak` / `BraggVectors`
+//        and `OrientationMap`.
 //
 
 import Foundation
-import DiffractoOrientation
-import ImagoFFT
 import Accelerate
+import DiffractoOrientation
 import Metal
 import simd
 
-/// Spatial work requested by the product-facing ACOM workflow. Preview keeps
-/// the full scan geometry but matches one representative position per coarse
-/// block, then expands that result across the block. A selected region leaves
-/// positions outside the square explicitly unmatched.
-package nonisolated enum ACOMScanSelection: Sendable, Equatable {
-    case full
-    case preview(maxDimension: Int)
-    case square(centerX: Int, centerY: Int, radius: Int)
+// MARK: - Adapters from the app's peak type
 
-    package func sourceIndices(width: Int, height: Int) -> [Int] {
-        guard width > 0, height > 0 else { return [] }
-        switch self {
-        case .full:
-            return Array(0..<(width * height))
-        case .preview(let maxDimension):
-            let step = previewStep(width: width, height: height, maxDimension: maxDimension)
-            var indices: [Int] = []
-            indices.reserveCapacity(
-                ((width + step - 1) / step) * ((height + step - 1) / step)
-            )
-            for y in stride(from: 0, to: height, by: step) {
-                for x in stride(from: 0, to: width, by: step) {
-                    indices.append(y * width + x)
-                }
-            }
-            return indices
-        case .square(let centerX, let centerY, let radius):
-            let r = max(0, radius)
-            let x0 = max(0, centerX - r), x1 = min(width - 1, centerX + r)
-            let y0 = max(0, centerY - r), y1 = min(height - 1, centerY + r)
-            guard x0 <= x1, y0 <= y1 else { return [] }
-            var indices: [Int] = []
-            indices.reserveCapacity((x1 - x0 + 1) * (y1 - y0 + 1))
-            for y in y0...y1 {
-                for x in x0...x1 { indices.append(y * width + x) }
-            }
-            return indices
-        }
-    }
-
-    package func positionCount(width: Int, height: Int) -> Int {
-        sourceIndices(width: width, height: height).count
-    }
-
-    package func expandedPreview(_ map: OrientationMap) -> OrientationMap {
-        guard case .preview(let maxDimension) = self else { return map }
-        let step = previewStep(width: map.width, height: map.height,
-                               maxDimension: maxDimension)
-        var expanded = map
-        for y in 0..<map.height {
-            let sourceY = (y / step) * step
-            for x in 0..<map.width {
-                let sourceX = (x / step) * step
-                expanded[x, y] = map[sourceX, sourceY]
-            }
-        }
-        return expanded
-    }
-
-    private func previewStep(width: Int, height: Int, maxDimension: Int) -> Int {
-        let target = max(1, maxDimension)
-        return max(1, (max(width, height) + target - 1) / target)
+extension ACOMPeak {
+    package nonisolated init(_ peak: BraggPeak) {
+        self.init(x: peak.x, y: peak.y, intensity: peak.intensity)
     }
 }
 
-package nonisolated final class OrientationMatcher {
-
-    private let plan: OrientationPlan
-    private let symmetry: ACOMCrystalSymmetry
-    private let geo: PolarGeometry
-    private let fft: FFT1D
-
-    // Scratch (per-ring FFT of the experimental pattern + correlation buffers).
-    private var expRe: [Float]
-    private var expIm: [Float]
-    private var corrRe: [Float]
-    private var corrIm: [Float]
-    private var productRe: [Float]
-    private var productIm: [Float]
-
-    package init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry = .cubic) {
-        guard let fft = FFT1D(n: plan.geometry.nAzimuthal) else { return nil }
-        self.plan = plan
-        self.symmetry = symmetry
-        self.geo = plan.geometry
-        self.fft = fft
-        let n = geo.nRadial * geo.nAzimuthal
-        expRe = [Float](repeating: 0, count: n)
-        expIm = [Float](repeating: 0, count: n)
-        corrRe = [Float](repeating: 0, count: geo.nAzimuthal)
-        corrIm = [Float](repeating: 0, count: geo.nAzimuthal)
-        productRe = [Float](repeating: 0, count: n)
-        productIm = [Float](repeating: 0, count: n)
+extension ACOMMatcher {
+    /// The app's `BraggPeak` spellings of the kit matcher's per-pattern calls (same peaks, same numbers).
+    package nonisolated func match(peaks: [BraggPeak], originX: Float, originY: Float,
+                                   invAngstromPerPixel: Double = 1) -> OrientationResult {
+        match(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
+              invAngstromPerPixel: invAngstromPerPixel)
     }
 
-    /// Match one pattern's peaks against the plan.
-    package func match(peaks: [BraggPeak], originX: Float, originY: Float,
-               invAngstromPerPixel: Double = 1) -> OrientationResult {
-        guard prepareExperimentalFFT(
-            peaks: peaks, originX: originX, originY: originY,
-            invAngstromPerPixel: invAngstromPerPixel
-        ) else { return .empty }
-
-        let na = geo.nAzimuthal, nr = geo.nRadial
-        let invScale = 1 / Float(na)     // undo vDSP's unnormalized inverse FFT
-        // Every template's score is retained rather than reduced on the fly:
-        // the runner-up can only be chosen once the winner is known, because
-        // it has to be a template far enough from the winner to count as a
-        // different orientation (see selectOrientation).
-        var templateScores = [Float](repeating: 0, count: plan.count)
-        var templateBins = [UInt32](repeating: 0, count: plan.count)
-        var templateMirrored = [Bool](repeating: false, count: plan.count)
-
-        // Two passes, as py4DSTEM's `match_orientations` (crystal_ACOM.py:
-        // 1233-1240 the forward correlogram, :1272-1323 `corr_full_inv` on
-        // `np.conj(im_polar_fft)`, :1364-1370 the larger wins per zone axis,
-        // strictly). The bank samples the mirror-reduced triangle, half of the
-        // proper-rotation zone; a beam in the other half produces the 2-D
-        // MIRROR of a template's pattern, which no in-plane rotation reaches.
-        // Conjugating the experimental ring FFTs reverses its azimuth, so the
-        // second pass correlates against the mirrored pattern; the winning
-        // basis is then flipped to the proper rotation that produces that
-        // mirror (makeOrientationResult). Review 2026-09-30 row 1: before this
-        // pass ~half of generic orientations came back 5–60° wrong.
-        for pass in 0..<2 {
-            // vDSP_zvmul's last argument: −1 conjugates the first operand
-            // (conj(E)·T, the forward correlation), +1 leaves it (E·T, the
-            // correlation of the azimuth-reversed image).
-            let conjugateFlag: Int32 = pass == 0 ? -1 : 1
-            for t in 0..<plan.count {
-                let templateOffset = t * nr * na
-                // Vectorized full-grid complex multiply:
-                // Template * conj(Experimental) == conj(Experimental) * Template.
-                expRe.withUnsafeMutableBufferPointer { experimentalReal in
-                    expIm.withUnsafeMutableBufferPointer { experimentalImaginary in
-                        plan.templateFFTRe.withUnsafeBufferPointer { templateReal in
-                            plan.templateFFTIm.withUnsafeBufferPointer { templateImaginary in
-                                productRe.withUnsafeMutableBufferPointer { outputReal in
-                                    productIm.withUnsafeMutableBufferPointer { outputImaginary in
-                                        var experimental = DSPSplitComplex(
-                                            realp: experimentalReal.baseAddress!,
-                                            imagp: experimentalImaginary.baseAddress!
-                                        )
-                                        var template = DSPSplitComplex(
-                                            realp: UnsafeMutablePointer(
-                                                mutating: templateReal.baseAddress! + templateOffset
-                                            ),
-                                            imagp: UnsafeMutablePointer(
-                                                mutating: templateImaginary.baseAddress! + templateOffset
-                                            )
-                                        )
-                                        var output = DSPSplitComplex(
-                                            realp: outputReal.baseAddress!,
-                                            imagp: outputImaginary.baseAddress!
-                                        )
-                                        vDSP_zvmul(
-                                            &experimental, 1, &template, 1, &output, 1,
-                                            vDSP_Length(nr * na), conjugateFlag
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                // Ring sum, ascending in r: contiguous row accumulation via vDSP
-                // instead of a strided column-sum. Per output element the adds
-                // occur in the same r-ascending order as the scalar loop.
-                corrRe.withUnsafeMutableBufferPointer { corrReBuf in
-                    corrIm.withUnsafeMutableBufferPointer { corrImBuf in
-                        productRe.withUnsafeBufferPointer { productReBuf in
-                            productIm.withUnsafeBufferPointer { productImBuf in
-                                vDSP_vclr(corrReBuf.baseAddress!, 1, vDSP_Length(na))
-                                vDSP_vclr(corrImBuf.baseAddress!, 1, vDSP_Length(na))
-                                for r in 0..<nr {
-                                    vDSP_vadd(
-                                        corrReBuf.baseAddress!, 1,
-                                        productReBuf.baseAddress! + r * na, 1,
-                                        corrReBuf.baseAddress!, 1, vDSP_Length(na)
-                                    )
-                                    vDSP_vadd(
-                                        corrImBuf.baseAddress!, 1,
-                                        productImBuf.baseAddress! + r * na, 1,
-                                        corrImBuf.baseAddress!, 1, vDSP_Length(na)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                fft.transform(re: &corrRe, im: &corrIm, forward: false)
-                var localBest: Float = -.greatestFiniteMagnitude
-                var localBin = 0
-                for a in 0..<na where corrRe[a] > localBest { localBest = corrRe[a]; localBin = a }
-                localBest *= invScale
-                if pass == 0 || localBest > templateScores[t] {
-                    templateScores[t] = localBest
-                    templateBins[t] = UInt32(localBin)
-                    templateMirrored[t] = pass == 1
-                }
-            }
-        }
-        let selected = selectOrientation(
-            zoneAxes: plan.zoneAxes, scores: templateScores, bins: templateBins,
-            distinctOrientationRad: plan.distinctOrientationRad
-        )
-        return makeOrientationResult(
-            plan: plan, symmetry: symmetry,
-            bestTemplate: selected.template, bestBin: selected.bin,
-            bestScore: selected.score, secondScore: selected.secondScore,
-            mirrored: selected.template >= 0 && templateMirrored[selected.template]
-        )
+    package nonisolated func templateScores(peaks: [BraggPeak], originX: Float, originY: Float,
+                                            invAngstromPerPixel: Double = 1) -> [Float] {
+        templateScores(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
+                       invAngstromPerPixel: invAngstromPerPixel)
     }
 
-    /// The experimental polar image for one pattern, after exactly the
-    /// deposition, blur, per-ring mean subtraction and normalisation the
-    /// matcher uses. DIAGNOSTIC: the score is an inner product over this
-    /// picture and a template's, and until 2026-09-15 nothing could look at
-    /// either, which is why nine hypotheses about the score were guesses.
-    package func experimentalPolarImage(peaks: [BraggPeak], originX: Float,
-                                        originY: Float,
-                                        invAngstromPerPixel: Double) -> [Float]? {
-        var spots: [(r: Double, azim: Double, weight: Double)] = []
-        let power = plan.intensityPower
-        for p in peaks {
-            let dx = Double(p.x - originX), dy = Double(p.y - originY)
-            let r = (dx * dx + dy * dy).squareRoot() * invAngstromPerPixel
-            let intensity = Double(max(p.intensity, 0))
-            spots.append((r: r, azim: atan2(dy, dx),
-                          weight: power == 1 ? intensity : pow(intensity, power)))
-        }
-        guard !spots.isEmpty else { return nil }
-        var polar = OrientationPlan.buildPolar(
-            spots: spots, geometry: geo, azimBlurBins: 1.5,
-            radialKernelInvAngstrom: plan.radialKernelInvAngstrom)
-        OrientationPlan.normalizeUnit(&polar)
-        return polar
+    package nonisolated func experimentalPolarImage(peaks: [BraggPeak], originX: Float, originY: Float,
+                                                    invAngstromPerPixel: Double = 1) -> [Float]? {
+        experimentalPolarImage(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
+                               invAngstromPerPixel: invAngstromPerPixel)
     }
 
-    /// Every template's score for one pattern, in bank order. DIAGNOSTIC:
-    /// `match` reduces these to a winner and a runner-up, which is all the app
-    /// needs, and all a caller could see until 2026-09-15 — so seven
-    /// hypotheses about why the winner is sometimes the wrong zone axis were
-    /// tested without anyone measuring how far apart the candidates are.
-    package func templateScores(peaks: [BraggPeak], originX: Float, originY: Float,
-                                invAngstromPerPixel: Double) -> [Float] {
-        guard prepareExperimentalFFT(
-            peaks: peaks, originX: originX, originY: originY,
-            invAngstromPerPixel: invAngstromPerPixel
-        ) else { return [] }
-        let na = geo.nAzimuthal, nr = geo.nRadial
-        let invScale = 1 / Float(na)
-        var out = [Float](repeating: -.greatestFiniteMagnitude, count: plan.count)
-        // Both passes, as `match`: the larger of the forward and the
-        // mirrored (conjugated-experimental) correlation per template.
-        for pass in 0..<2 {
-            let sign: Float = pass == 0 ? 1 : -1
-            for t in 0..<plan.count {
-                let templateOffset = t * nr * na
-                var corr = [Float](repeating: 0, count: na)
-                var corrI = [Float](repeating: 0, count: na)
-                for r in 0..<nr {
-                    for a in 0..<na {
-                        let i = templateOffset + r * na + a
-                        let er = expRe[r * na + a], ei = sign * expIm[r * na + a]
-                        let tr = plan.templateFFTRe[i], ti = plan.templateFFTIm[i]
-                        corr[a] += er * tr + ei * ti
-                        corrI[a] += er * ti - ei * tr
-                    }
-                }
-                fft.transform(re: &corr, im: &corrI, forward: false)
-                var localBest: Float = -.greatestFiniteMagnitude
-                for a in 0..<na where corr[a] > localBest { localBest = corr[a] }
-                out[t] = max(out[t], localBest * invScale)
-            }
-        }
-        return out
-    }
-
-    /// Prepare a copy for a Metal batch. The CPU and GPU paths therefore share
-    /// exactly the same polar deposition, normalization, and forward FFT.
-    package func experimentalFFT(peaks: [BraggPeak], originX: Float, originY: Float,
-                         invAngstromPerPixel: Double) -> (real: [Float], imaginary: [Float])? {
-        guard prepareExperimentalFFT(
-            peaks: peaks, originX: originX, originY: originY,
-            invAngstromPerPixel: invAngstromPerPixel
-        ) else { return nil }
-        return (expRe, expIm)
-    }
-
-    private func prepareExperimentalFFT(
-        peaks: [BraggPeak], originX: Float, originY: Float,
-        invAngstromPerPixel: Double
-    ) -> Bool {
-        guard peaks.count >= 2 else { return false }
-        var spots: [(r: Double, azim: Double, weight: Double)] = []
-        spots.reserveCapacity(peaks.count)
-        let power = plan.intensityPower
-        for p in peaks {
-            let dx = Double(p.x - originX), dy = Double(p.y - originY)
-            let r = (dx * dx + dy * dy).squareRoot() * invAngstromPerPixel
-            let intensity = Double(max(p.intensity, 0))
-            spots.append((r: r, azim: atan2(dy, dx),
-                          weight: power == 1 ? intensity : pow(intensity, power)))
-        }
-        var polar = OrientationPlan.buildPolar(
-            spots: spots, geometry: geo, azimBlurBins: 1.5,
-            radialKernelInvAngstrom: plan.radialKernelInvAngstrom
-        )
-        OrientationPlan.normalizeUnit(&polar)
-        writeRingFFTs(polar)
-        return true
-    }
-
-    private func writeRingFFTs(_ polar: [Float]) {
-        let na = geo.nAzimuthal
-        var re = [Float](repeating: 0, count: na)
-        var im = [Float](repeating: 0, count: na)
-        for r in 0..<geo.nRadial {
-            let base = r * na
-            for a in 0..<na { re[a] = polar[base + a]; im[a] = 0 }
-            fft.transform(re: &re, im: &im, forward: true)
-            for a in 0..<na { expRe[base + a] = re[a]; expIm[base + a] = im[a] }
-        }
+    package nonisolated func experimentalFFT(peaks: [BraggPeak], originX: Float, originY: Float,
+                                             invAngstromPerPixel: Double = 1) -> (re: [Float], im: [Float])? {
+        experimentalFFT(peaks: peaks.map(ACOMPeak.init), originX: originX, originY: originY,
+                        invAngstromPerPixel: invAngstromPerPixel)
     }
 }
 
-/// Pick the winning template and the best *distinct* runner-up.
-///
-/// `1 − second/best` is only a confidence measure if "second" is a genuinely
-/// different orientation. Taken over all templates it is not: on any
-/// reasonably dense bank the runner-up is the neighbouring zone axis two or
-/// three degrees away, whose polar image is near-identical to the winner's by
-/// construction, so the ratio collapses to ~0 for a perfect match and a
-/// hopeless one alike and cannot rank anything. Measured before this change:
-/// median 0.010 on clean synthetic patterns, and still only ~0.03 with the
-/// bank thinned to 8.5° spacing — so it is not merely a density artefact.
-///
-/// DEVIATION from py4DSTEM: `match_single_pattern` (`crystal_ACOM.py`, the
-/// `min_angle_between_matches_deg` block) handles this by zeroing the
-/// correlation within `min_angle_between_matches_deg` of an already-taken
-/// match before searching for the next candidate, each time it picks one.
-/// This applies the same distinctness rule once, to the runner-up alone
-/// (single-pass over the already-computed scores, filtering by angle rather
-/// than re-correlating) — cheaper because this caller only ever wants a
-/// winner and one runner-up, never py4DSTEM's full ranked list.
+// MARK: - Winner and result of a GPU batch
+
+/// Pick the winning template and the best *distinct* runner-up from the scores a Metal batch produced: the rule of the
+/// kit's CPU matcher (templates within the distinct angle of the winner are not an alternative), applied to the GPU's scores.
+// delete at DiffractoKit 0.6: `ACOMMatcher.selectOrientation` is `package` there; the Metal backend needs a public
+// result-from-scores entry (winner, runner-up, orientation matrix, symmetry reduction) so this and `makeOrientationResult`
+// can go.
 package nonisolated func selectOrientation(
     zoneAxes: [SIMD3<Double>], scores: [Float], bins: [UInt32],
     distinctOrientationRad: Double
@@ -390,8 +72,6 @@ package nonisolated func selectOrientation(
     let cosLimit = cos(distinctOrientationRad)
     var second: Float = -.greatestFiniteMagnitude
     for t in 0..<scores.count where t != bestTemplate {
-        // Templates closer than the limit describe the same orientation to
-        // within the bank's own resolution; they are not an alternative.
         if simd_dot(zoneAxes[t], winner) > cosLimit { continue }
         if scores[t] > second { second = scores[t] }
     }
@@ -400,41 +80,24 @@ package nonisolated func selectOrientation(
     return (bestTemplate, Int(bins[bestTemplate]), best, second)
 }
 
+/// The result for a GPU-selected winner, as the kit's CPU matcher builds it: the correlation peaks at -theta, so the
+/// pattern rotation is the negated bin; a mirrored win carries py4DSTEM's extra half turn and the beam flip (both inside
+/// `ACOMTemplateLibrary.orientationMatrix`); then the symmetry reduction.
 private nonisolated func makeOrientationResult(
-    plan: OrientationPlan, symmetry: ACOMCrystalSymmetry,
+    plan: OrientationPlan,
     bestTemplate: Int, bestBin: Int, bestScore: Float, secondScore: Float,
     mirrored: Bool = false
 ) -> OrientationResult {
     guard bestTemplate >= 0 else { return .empty }
     let azimuthalCount = plan.geometry.nAzimuthal
-    // The correlation peaks at −θ; negate to report the pattern rotation.
-    // The mirrored pass peaks at the same −φ for E(a) = T(−a − φ), the
-    // azimuth-reversed (y-mirrored) template rotated by φ; the proper
-    // rotation that PRODUCES that pattern is built below with φ + π, as
-    // py4DSTEM does (crystal_ACOM.py:1374-1383 `+ np.pi`), because the beam
-    // flip it uses is an x-mirror: beam −n sees g at (g·c1, −g·c2) with the
-    // excitation of −g under +n (Friedel), and substituting h = −g that is
-    // (−h·c1, h·c2) with h's own weight — the x-mirror of the rotated
-    // template, T(π − a − φ). An extra half turn makes it T(−a − φ).
-    // Measured, not assumed: without the π the mirror-zone trials of
-    // tools/harnesses/acom-mirror-test came back right in template and flag but
-    // 26–35° off in orientation (mirror-fixed.log, 2026-10-01).
     let bin = (azimuthalCount - bestBin) % azimuthalCount
     var angle = Float(Double(bin) / Double(azimuthalCount) * 2 * Double.pi)
     if mirrored {
         angle = (angle + .pi).truncatingRemainder(dividingBy: 2 * .pi)
     }
-    var orientationMatrix = ZoneAxisFrame.matrix(
-        detectorBasis: plan.detectorBases[bestTemplate], inPlaneAngle: angle
-    )
-    if mirrored {
-        // py4DSTEM crystal_ACOM.py:1548-1550, "Rotate 180 degrees around x
-        // axis for projected x-mirroring operation": negate the detector-y
-        // and beam columns — still a proper rotation.
-        orientationMatrix.columns.1 = -orientationMatrix.columns.1
-        orientationMatrix.columns.2 = -orientationMatrix.columns.2
-    }
-    let reduced = symmetry.reduce(orientationMatrix)
+    let orientationMatrix = plan.library.orientationMatrix(
+        templateIndex: bestTemplate, inPlaneAngle: angle, mirrored: mirrored)
+    let reduced = plan.symmetry.reduce(orientationMatrix)
     return OrientationResult(
         templateIndex: bestTemplate,
         euler: EulerAngles(py4DSTEMOrientationMatrix: reduced.matrix),
@@ -458,7 +121,7 @@ private nonisolated struct ACOMMetalParams {
 /// best/second selection and symmetry reporting.
 package nonisolated final class MetalACOMMatcher {
     private let plan: OrientationPlan
-    private let symmetry: ACOMCrystalSymmetry
+    private let preparer: ACOMMatcher
     private let device: MTLDevice
     private let queue: MTLCommandQueue
     private let spectrumPipeline: MTLComputePipelineState
@@ -467,7 +130,7 @@ package nonisolated final class MetalACOMMatcher {
     private let templateImaginary: MTLBuffer
     private let batchSize: Int
 
-    package init?(plan: OrientationPlan, symmetry: ACOMCrystalSymmetry) {
+    package init?(plan: OrientationPlan) {
         // try? OK (v2 S7 audit): this is a failable init whose nil contract
         // is "the GPU matcher is unavailable" — the two pipeline-state
         // creations are just two of the seven ways the guard can refuse.
@@ -477,6 +140,7 @@ package nonisolated final class MetalACOMMatcher {
         // Converting the init to throwing would rename the same refusal,
         // not sharpen it.
         let engine = MetalEngine.shared
+        guard let preparer = ACOMMatcher(library: plan.library) else { return nil }
         let azimuthal = plan.geometry.nAzimuthal
         guard azimuthal > 0, azimuthal & (azimuthal - 1) == 0,
               azimuthal <= 1024,
@@ -497,7 +161,7 @@ package nonisolated final class MetalACOMMatcher {
                 options: .storageModeShared
               ) else { return nil }
         self.plan = plan
-        self.symmetry = symmetry
+        self.preparer = preparer
         self.device = engine.device
         self.queue = engine.queue
         self.spectrumPipeline = spectrum
@@ -518,12 +182,11 @@ package nonisolated final class MetalACOMMatcher {
         cancellation: AnalysisCancellationToken?,
         progress: (@Sendable (Double) -> Void)?
     ) -> OrientationMap? {
-        guard cancellation?.isCancelled != true,
-              let preparer = OrientationMatcher(plan: plan, symmetry: symmetry) else { return nil }
+        guard cancellation?.isCancelled != true else { return nil }
         let total = bragg.scanWidth * bragg.scanHeight
         var map = OrientationMap(
             width: bragg.scanWidth, height: bragg.scanHeight,
-            matchingBackend: .metal, symmetry: symmetry, templateCount: plan.count
+            matchingBackend: .metal, symmetry: plan.symmetry, templateCount: plan.count
         )
         let gridCount = plan.geometry.nRadial * plan.geometry.nAzimuthal
         for lower in stride(from: 0, to: total, by: batchSize) {
@@ -542,8 +205,8 @@ package nonisolated final class MetalACOMMatcher {
                     originX: originX, originY: originY,
                     invAngstromPerPixel: invAngstromPerPixel
                 ) {
-                    experimentalReal.append(contentsOf: prepared.real)
-                    experimentalImaginary.append(contentsOf: prepared.imaginary)
+                    experimentalReal.append(contentsOf: prepared.re)
+                    experimentalImaginary.append(contentsOf: prepared.im)
                     valid[local] = true
                 } else {
                     experimentalReal.append(contentsOf: repeatElement(0, count: gridCount))
@@ -555,7 +218,7 @@ package nonisolated final class MetalACOMMatcher {
                 experimentalImaginary: experimentalImaginary,
                 positionCount: count
             ) else { return nil }
-            // The mirrored pass (see OrientationMatcher.match): the kernel
+            // The mirrored pass (see DiffractoKit's ACOMMatcher.match): the kernel
             // computes conj(E)·T, so a negated imaginary part gives E·T —
             // the correlation of the azimuth-reversed image — unchanged.
             var conjugatedImaginary = experimentalImaginary
@@ -583,7 +246,7 @@ package nonisolated final class MetalACOMMatcher {
                     distinctOrientationRad: plan.distinctOrientationRad
                 )
                 map.results[lower + local] = makeOrientationResult(
-                    plan: plan, symmetry: symmetry,
+                    plan: plan,
                     bestTemplate: selected.template, bestBin: selected.bin,
                     bestScore: selected.score, secondScore: selected.secondScore,
                     mirrored: selected.template >= 0 && mirrored[selected.template]
@@ -704,10 +367,12 @@ package nonisolated final class MetalACOMMatcher {
 
 package enum OrientationMatching {
 
-    /// Match the requested scan positions against the plan. Full scans retain
-    /// the row-parallel fast path; preview and region work only touch their
-    /// selected source positions. Progress is the requested work, not the full
-    /// dataset size.
+    /// Positions per chunk of the CPU path: the peaks of one chunk are converted to the kit's peak type at a time, so the
+    /// copy never holds a whole large scan twice.
+    private static let cpuChunk = 8192
+
+    /// Match the requested scan positions against the plan. Full scans, preview and region work only touch their
+    /// selected source positions. Progress is the requested work, not the full dataset size.
     package nonisolated static func matchAll(bragg: BraggVectors, plan: OrientationPlan,
                                      originX: Float, originY: Float,
                                      invAngstromPerPixel: Double = 1,
@@ -722,7 +387,7 @@ package enum OrientationMatching {
         guard !selectedIndices.isEmpty else { return nil }
         // The exact Metal backend is retained for parity/performance testing,
         // but the current direct inverse-DFT kernel is slower than the
-        // vectorized vDSP path on the v1 benchmark. Automatic therefore means
+        // vectorized CPU path on the v1 benchmark. Automatic therefore means
         // the measured production CPU backend until a batched FFT wins.
         if backend == .metal {
             let input: BraggVectors
@@ -734,7 +399,7 @@ package enum OrientationMatching {
                     peaks: selectedIndices.map { bragg.peaks[$0] }
                 )
             }
-            if let matcher = MetalACOMMatcher(plan: plan, symmetry: plan.symmetry),
+            if let matcher = MetalACOMMatcher(plan: plan),
                let matched = matcher.matchAll(
                     bragg: input,
                     originX: originX, originY: originY,
@@ -750,69 +415,45 @@ package enum OrientationMatching {
                 for (compact, source) in selectedIndices.enumerated() {
                     result.results[source] = matched.results[compact]
                 }
-                return selection.expandedPreview(result)
+                return expanded(result, selection: selection)
             }
             return nil
         }
+        guard let matcher = ACOMMatcher(library: plan.library) else { return nil }
         var map = OrientationMap(
             width: bragg.scanWidth, height: bragg.scanHeight,
             matchingBackend: .cpu, symmetry: plan.symmetry, templateCount: plan.count
         )
-        let lock = NSLock()
-        var done = 0
-
-        map.results.withUnsafeMutableBufferPointer { out in
-            let ptr = SendableBox(out.baseAddress!)
-            // Flattened round-robin work avoids the long-tail imbalance of
-            // assigning whole scan rows when peak counts vary spatially. Each
-            // worker still owns one FFT/scratch object. Progress is aggregated
-            // in batches so a full map does not take a lock per position.
-            let workers = max(
-                1, min(ProcessInfo.processInfo.activeProcessorCount,
-                       selectedIndices.count)
-            )
-            let progressBatch = max(1, selectedIndices.count / (workers * 100))
-            DispatchQueue.concurrentPerform(iterations: workers) { worker in
-                guard cancellation?.isCancelled != true else { return }
-                guard let matcher = OrientationMatcher(
-                    plan: plan, symmetry: plan.symmetry
-                ) else { return }
-                var pendingProgress = 0
-                for selected in stride(
-                    from: worker, to: selectedIndices.count, by: workers
-                ) {
-                    if cancellation?.isCancelled == true { break }
-                    let source = selectedIndices[selected]
-                    ptr.value[source] = matcher.match(
-                        peaks: bragg.peaks[source], originX: originX,
-                        originY: originY,
-                        invAngstromPerPixel: invAngstromPerPixel
-                    )
-                    pendingProgress += 1
-                    if progress != nil && pendingProgress >= progressBatch {
-                        lock.lock()
-                        done += pendingProgress
-                        let completed = done
-                        lock.unlock()
-                        pendingProgress = 0
-                        progress?(Double(completed) / Double(selectedIndices.count))
+        let isCancelled: @Sendable () -> Bool = { cancellation?.isCancelled == true }
+        let total = selectedIndices.count
+        for lower in stride(from: 0, to: total, by: cpuChunk) {
+            if isCancelled() { return nil }
+            let chunk = selectedIndices[lower..<min(total, lower + cpuChunk)]
+            let peaks = chunk.map { bragg.peaks[$0].map(ACOMPeak.init) }
+            // The kit's scan loop over the chunk as a one-row scan: every selected position, workers dealt round-robin,
+            // progress in 1 % batches (rescaled here to the whole selection), cancellation polled before each position.
+            guard let part = matcher.matchAll(
+                peaks: peaks, width: chunk.count, height: 1,
+                originX: originX, originY: originY, invAngstromPerPixel: invAngstromPerPixel,
+                selection: .full, maxWorkers: nil, isCancelled: isCancelled,
+                progress: progress.map { report in
+                    { @Sendable fraction in
+                        report((Double(lower) + fraction * Double(chunk.count)) / Double(total))
                     }
                 }
-                if progress != nil && pendingProgress > 0 {
-                    lock.lock()
-                    done += pendingProgress
-                    let completed = done
-                    lock.unlock()
-                    progress?(Double(completed) / Double(selectedIndices.count))
-                }
-            }
+            ) else { return nil }
+            for (k, source) in chunk.enumerated() { map.results[source] = part.results[k] }
         }
-        return cancellation?.isCancelled == true ? nil : selection.expandedPreview(map)
+        return isCancelled() ? nil : expanded(map, selection: selection)
     }
 
-    /// Minimal wrapper to pass a mutable pointer into the concurrent closure.
-    private nonisolated struct SendableBox: @unchecked Sendable {
-        package let value: UnsafeMutablePointer<OrientationResult>
-        package init(_ v: UnsafeMutablePointer<OrientationResult>) { value = v }
+    /// `preview` copies each matched block's top-left result over the block (the kit's rule); other selections unchanged.
+    private nonisolated static func expanded(_ map: OrientationMap, selection: ACOMScanSelection) -> OrientationMap {
+        guard case .preview = selection else { return map }
+        var scan = ACOMScanResults(width: map.width, height: map.height, templateCount: map.templateCount)
+        scan.results = map.results
+        var out = map
+        out.results = scan.expandedPreview(selection: selection).results
+        return out
     }
 }

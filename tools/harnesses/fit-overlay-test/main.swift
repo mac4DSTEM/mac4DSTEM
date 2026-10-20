@@ -5,6 +5,7 @@
 // (including the in-plane-angle composition), and ellipse polyline axes.
 
 import Foundation
+import DiffractoOrientation
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
@@ -201,8 +202,8 @@ func acomCase(
         scanIndex: 0, scanWidth: 1, scanHeight: 1
     )
     let rawPeaks = spots.map { spot -> BraggPeak in
-        let radius = Float(Double(spot.r) / scale)
-        let azimuth = spot.azim + inPlane
+        let radius = Float(Double(spot.radius) / scale)
+        let azimuth = spot.azimuth + inPlane
         let raw = calibration.ellipseUncorrectedOffset(
             dx: radius * cos(azimuth), dy: radius * sin(azimuth)
         )
@@ -218,7 +219,7 @@ func acomCase(
     }
     let vectors = BraggVectors(scanWidth: 1, scanHeight: 1, peaks: [rawPeaks])
     let calibrated = vectors.calibrated(with: calibration, referenceOrigin: reference)
-    guard let matcher = OrientationMatcher(plan: plan) else { fail("matcher init") }
+    guard let matcher = ACOMMatcher(library: plan.library) else { fail("matcher init") }
     let result = matcher.match(
         peaks: calibrated.peaks[0],
         originX: reference.x, originY: reference.y,

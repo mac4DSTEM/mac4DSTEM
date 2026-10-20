@@ -142,7 +142,7 @@ one thread on this 8-core M3. Against the real opponent the GPU **lost by 1.6×*
 
 This is the same trap the ACOM Metal backend fell into — likewise written,
 likewise correct, likewise disabled for being slower
-(`Core/Crystal/OrientationMatcher.swift:510`). **Always benchmark against
+(`MetalACOMMatcher` in `Core/Crystal/OrientationMatcher.swift`). **Always benchmark against
 `--backend cpu-parallel`.** That backend exists in this harness for exactly that
 reason.
 

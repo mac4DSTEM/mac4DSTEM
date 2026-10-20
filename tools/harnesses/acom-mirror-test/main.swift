@@ -137,7 +137,7 @@ func run(hexagonal: Bool, wavelength: Double?) -> Bool {
     let kMax = hexagonal ? 1.6 : 1.2, scale = 0.008, origin = 256.0
     guard let plan = OrientationPlan.generate(crystal: crystal, kMax: kMax, zoneAxisCount: 600,
                                               symmetry: symmetry, wavelengthAngstrom: wavelength),
-          let matcher = OrientationMatcher(plan: plan, symmetry: symmetry)
+          let matcher = ACOMMatcher(library: plan.library)
     else { require(false, "\(tag) plan and matcher"); return false }
     let reflections = (try! crystal.kinematicReflections(kMax: kMax).kept)
 
@@ -223,7 +223,7 @@ func run(hexagonal: Bool, wavelength: Double?) -> Bool {
             for sign in [Float(1), Float(-1)] {
                 var re = [Float](repeating: 0, count: na), im = re
                 for r in 0..<nr { for a in 0..<na {
-                    let i = r * na + a, er = e.real[i], ei = sign * e.imaginary[i]
+                    let i = r * na + a, er = e.re[i], ei = sign * e.im[i]
                     let tr = plan.templateFFTRe[off + i], ti = plan.templateFFTIm[off + i]
                     re[a] += er * tr + ei * ti; im[a] += er * ti - ei * tr
                 } }

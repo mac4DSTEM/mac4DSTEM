@@ -40,6 +40,9 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
   per plane: about 1.5x the FFT work, not measured on real data). Kit error text: kit errors reach the user as the stage's own
   `invalidInput(...)` with a plain-language reason (`parallaxKitReason`), not the kit's wording; the memory refusals keep the app's
   text.
+- **ParallaxAlignment is a CuboKit ask, not an ImagoKit switch** (2026-10-15 night): it correlates a running-average reference
+  spectrum with the raw cross-power and py4DSTEM's subpixel DFT, and shifts in Float; ImagoAlignment is scikit-image's
+  normalised image-pair registration in Double. FFT1D is `ImagoFFT.FFT1D` (ACOM's ring FFTs, now inside DiffractoKit's `ACOMTemplateLibrary`/`ACOMMatcher`).
 - **Test-run traps** (2026-10-15 night): `KitSwitchFreezeTests`' preset digests pass in the full parallel suite and fail when the
   class runs alone, even at DiffractoKit 0.1.0 (per-reflection values are identical: a run-context dependence, cause open);
   `sources.manifest`'s `kit_module` links every `*.o` in `.build/<kit>-tools`, so objects left by another pin break the link
@@ -61,8 +64,8 @@ unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
 - **FormatoKit:** `H5Reader` onto FormatoHDF5 (drops the private dlsym wrapper); `DM4Reader` lazy 4D gather; `VendorRawReaders`
   (EMPAD, MIB); `BraggVectorEMDWriter`: split first, only the peak-grid write and the atomic publish move, the `mac4dstem_*`
   attributes, lineage and replay stamping stay.
-- **DiffractoKit:** `OrientationResult` symmetry (cubic, hexagonal, monoclinic, `ACOMCrystalSymmetry`, `OrientationMap`),
-  `OrientationMatcher`/`OrientationPlan` (Metal dispatch and service stay), `MaterialsProjectImport` (JSON fetch glue stays).
+- **DiffractoKit:** `OrientationResult` symmetry and `OrientationMatcher`/`OrientationPlan` are DONE (2026-10-20, DiffractoKit 0.5.0; the facade `ACOMCrystalSymmetry`, `OrientationMap`, `OrientationPlan` as the kit library plus symmetry, and the Metal dispatch stay). Open: `MaterialsProjectImport` (JSON fetch glue stays).
+  Kit asks from that switch (delete the interim at the kit version): (1) `ACOMTemplateLibrary.generate` takes no cancellation, so a token is honoured only before and after the build (`OrientationPlan.generate`, delete at 0.6); (2) no public result-from-scores entry, so the Metal path keeps `selectOrientation` and `makeOrientationResult` (`OrientationMatcher.swift`, delete at 0.6); (3) `ACOMMatcher.experimentalPolarImage` is nil for fewer than 2 peaks where the app's diagnostic accepted 1; (4) `ACOMMatcher.matchAll` takes `[[ACOMPeak]]`, so the app converts from `BraggPeak` per 8192-position chunk (a borrowed or generic bulk input would remove the copy).
 - **SpectroKit:** `MaskTransport`, `PoolBuilder` (grouping and edge counts).
 - **Per-position origins (C3), located 2026-10-16:** measurement is `OriginCalibration.tiledRun` (CoM per position through
   `VirtualDetector.tiledMeasuredOrigins` / `MetalEngine`, Friedel per position at `OriginCalibration.swift` ~L692-760);
@@ -128,11 +131,11 @@ has no mask (no wash, by design); pinch-zoom tracking unverified (rotation seen)
   sub-bin deposit as a parity step, predicted neutral ±1 on paired seeded sets (`../_archive/mac4DSTEM/docs/archive/v4/slot2-sb-subbin-deposit-2026-10-01.patch`);
   (iii) the experiment-side py4DSTEM port (shell grid, arc-length kernel, ring mean in) vs an independent truth; (iv)
   `ACOMSession.estimatedDuration` ≈ 2× optimistic under the ×2 CPU pass. Predictions quote counts as distributions over angle sets.
-  (v) code review 2026-10-01: for a mirrored win `inPlaneAngle` is "angle + π relative to the mirrored template" (`OrientationMatcher.swift:420-424`, `OrientationResult.swift:676-679`); the `acom_in_plane` map and its export publish it raw with no
+  (v) code review 2026-10-01: for a mirrored win `inPlaneAngle` is "angle + π relative to the mirrored template" (DiffractoKit 0.5.0 `ACOMMatcher.makeResult`, and `makeOrientationResult` in `OrientationMatcher.swift` for the Metal path); the `acom_in_plane` map and its export publish it raw with no
   per-pixel mirrored flag, so pixels across a mirror boundary are not comparable (Euler, IPF and FitOverlays handle the flag) — a
   convention to settle (map the mirrored win to its proper-rotation equivalent, or export the flag), Gate D before any number moves — labelled 2026-10-02 (owner S2 a: Info › Mirrored and the in-plane note name py4DSTEM's +π); the convention waits for after v4.1.
   (vi) code review round 3: `selectOrientation` compares forward and mirrored in-plane bins in the runner-up "distinct orientation" test
-  (`OrientationMatcher.swift` ~168, Metal ~310) — can shift `secondScore`/reliability only, never the winner.
+  (DiffractoKit `ACOMMatcher.selectOrientation`; the Metal path's copy in `OrientationMatcher.swift`) — can shift `secondScore`/reliability only, never the winner.
 - **Known-crystal Q reads the (200) ring as (111) on an Al [001] majority** — confirmed on the app's own path (lane Q, 2026-09-30
   night): the owner's raw and binned 060 cubes, the demo cube and Thronsen A read Q 12.5–13.5 % low, shell ratio 1.37–1.43 vs 1.155
   (the 09-29 "0.006577 / 1.0846" row was the Python lattice fit and an ellipse axis ratio, not this estimator). Shipped: the one-shell

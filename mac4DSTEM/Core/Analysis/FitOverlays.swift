@@ -221,16 +221,16 @@ package nonisolated enum FitOverlays {
         var predicted: [Marker] = []
         predicted.reserveCapacity(spots.count)
         for spot in spots {
-            let radiusPx = Float(Double(spot.r) / invAngstromPerPixel)
+            let radiusPx = Float(Double(spot.radius) / invAngstromPerPixel)
             // The direct beam is the origin marker, not a template spot.
             guard radiusPx > 0.5 else { continue }
             // A mirrored win matched the azimuth-reversed template: the stored
-            // angle is phi0 + pi (OrientationMatcher.makeOrientationResult) and
+            // angle is phi0 + pi (DiffractoKit ACOMMatcher.makeResult; MetalACOMMatcher's makeOrientationResult) and
             // the pattern satisfies E(a) = T(-a - phi0), so a spot at template
             // azimuth t sits at -t - phi0 = pi - (t + stored angle).
             let azimuth = result.mirrored
-                ? Float.pi - (spot.azim + result.inPlaneAngle)
-                : spot.azim + result.inPlaneAngle
+                ? Float.pi - (spot.azimuth + result.inPlaneAngle)
+                : spot.azimuth + result.inPlaneAngle
             let point = rawPoint(
                 calibratedOffsetX: radiusPx * cos(azimuth),
                 calibratedOffsetY: radiusPx * sin(azimuth),

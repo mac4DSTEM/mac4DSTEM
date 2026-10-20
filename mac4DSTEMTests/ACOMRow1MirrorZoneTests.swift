@@ -76,7 +76,7 @@ final class ACOMRow1MirrorZoneTests: XCTestCase {
         let plan = try XCTUnwrap(OrientationPlan.generate(
             crystal: crystal, kMax: 1.2, zoneAxisCount: 600, symmetry: .cubic,
             wavelengthAngstrom: Self.wavelength))
-        let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .cubic))
+        let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
         let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
         let ops = Self.properCubicOperators()
         XCTAssertEqual(ops.count, 24)

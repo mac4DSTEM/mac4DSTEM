@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 import simd
 @testable import mac4DSTEM
 
@@ -12,7 +13,7 @@ final class ACOMScanSelectionTests: XCTestCase {
             [0, 3, 6, 9, 30, 33, 36, 39]
         )
 
-        var map = OrientationMap(width: 10, height: 6)
+        var map = ACOMScanResults(width: 10, height: 6, templateCount: 0)
         for source in selection.sourceIndices(width: 10, height: 6) {
             map.results[source] = OrientationResult(
                 templateIndex: source,
@@ -22,7 +23,7 @@ final class ACOMScanSelectionTests: XCTestCase {
                 phaseID: 0
             )
         }
-        let expanded = selection.expandedPreview(map)
+        let expanded = map.expandedPreview(selection: selection)
         XCTAssertEqual(expanded[2, 2].templateIndex, 0)
         XCTAssertEqual(expanded[5, 1].templateIndex, 3)
         XCTAssertEqual(expanded[9, 5].templateIndex, 39)
@@ -113,19 +114,19 @@ final class ACOMScanSelectionTests: XCTestCase {
         let plan = try XCTUnwrap(OrientationPlan.generate(
             crystal: Crystal.gold, kMax: 1.2, zoneAxisCount: 96
         ))
-        let matcher = try XCTUnwrap(OrientationMatcher(plan: plan))
+        let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
         let templateIndex = 23
         let invAngstromPerPixel = 0.01
         let origin: Float = 128
 
         func match(radialScaleError: Double) -> OrientationResult {
             let peaks = plan.templateSpots[templateIndex].map { spot -> BraggPeak in
-                let radius = Double(spot.r) / invAngstromPerPixel
+                let radius = Double(spot.radius) / invAngstromPerPixel
                     * (1 + radialScaleError)
                 let intensity = pow(Double(spot.weight), 1 / plan.intensityPower)
                 return BraggPeak(
-                    x: origin + Float(radius * cos(Double(spot.azim))),
-                    y: origin + Float(radius * sin(Double(spot.azim))),
+                    x: origin + Float(radius * cos(Double(spot.azimuth))),
+                    y: origin + Float(radius * sin(Double(spot.azimuth))),
                     intensity: Float(intensity)
                 )
             }

@@ -2,6 +2,7 @@
 // scope: analytic peak positions, shared structure factors, frozen external data.
 import Foundation
 import DiffractoCore
+import DiffractoOrientation
 import DiffractoScattering
 import simd
 
@@ -81,7 +82,7 @@ func analytic(hexagonal: Bool) {
     let kMax = hexagonal ? 1.6 : 1.2, wavelength = 0.0251, scale = 0.008
     guard let plan = OrientationPlan.generate(crystal: crystal, kMax: kMax,
         zoneAxisCount: 600, symmetry: symmetry, wavelengthAngstrom: wavelength),
-        let matcher = OrientationMatcher(plan: plan, symmetry: symmetry)
+        let matcher = ACOMMatcher(library: plan.library)
     else { require(false, "\(label) plan and matcher"); return }
     let reflections = (try! crystal.kinematicReflections(kMax: kMax).kept)
     var special: [SIMD3<Double>] = [[0,0,1]]
@@ -200,7 +201,7 @@ func frozenReference(_ path: String) throws {
         zoneAxisCount: x.zoneAxisCount, symmetry: .cubic, wavelengthAngstrom: x.wavelengthAngstrom,
         intensityPower: x.intensityPower, radialKernelInvAngstrom: x.radialKernelInvAngstrom,
         distinctOrientationDeg: x.distinctOrientationDeg),
-        let matcher = OrientationMatcher(plan: plan, symmetry: .cubic)
+        let matcher = ACOMMatcher(library: plan.library)
     else { require(false, "external reference plan and matcher"); return }
     // py4DSTEM lab=(row,column,upstream); app=(column,row,downstream).
     // A proper rotation, not permission to absorb an arbitrary mirror/sign.

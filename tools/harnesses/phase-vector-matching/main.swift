@@ -18,7 +18,7 @@
 //     2026-09-14 — the in-plane frame: `harnessFrame` builds its own
 //     right-handed pair about the beam from a seed, the way
 //     `tools/harnesses/acom-convention-test` does, and Part B's peaks never pass
-//     through `ACOMOrientation.detectorBasis`. Until then both sides shared
+//     through `ZoneAxisFrame.detectorBasis`. Until then both sides shared
 //     that call, so a handedness flip there (e2 = cross(e1, n) for
 //     cross(n, e1)) mirrored both together and all 27 checks stayed green —
 //     the L3 trap, measured by Gate B 2026-09-12. Now the harness frame is

@@ -340,7 +340,7 @@ mac4dstem_sources() {
         # disks, and estimate a reciprocal scale against a known crystal. It is
         # `readers` + `analysis` + the origin/Q estimators + the crystal side
         # that supplies the reference shell. OrientationPlan/OrientationMatcher
-        # are deliberately absent — nothing here indexes.
+        # (and the ACOM kit module) are deliberately absent — nothing here indexes.
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
         kit_module "$repo" ImagoKit ImagoCore ImagoFFT   # FFT1D is ImagoFFT's (0.1.1)
         want+=("${KIT_FLAGS[@]}")

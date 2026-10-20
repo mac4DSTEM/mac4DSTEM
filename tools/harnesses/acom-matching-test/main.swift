@@ -1,7 +1,21 @@
 import Foundation
 import ImagoFFT
 import DiffractoCore
+import DiffractoOrientation
 import DiffractoScattering
+
+/// The projection the templates are built from is DiffractoKit's (`ACOMTemplateLibrary.project`); the fixture's spots
+/// come from it with `(r, azim, weight)` names.
+extension OrientationPlan {
+    static func project(reflections: [KinematicReflection], zoneAxis n: SIMD3<Double>,
+                        sgWidth: Double, sgMax: Double, intensityPower: Double) -> [(r: Double, azim: Double, weight: Double)] {
+        ACOMTemplateLibrary.project(
+            reflections: reflections.map { ACOMReflection(g: $0.g, intensity: $0.intensity) },
+            zoneAxis: n,
+            settings: ACOMTemplateSettings(sgWidth: sgWidth, sgMax: sgMax, intensityPower: intensityPower)
+        ).map { (r: $0.r, azim: $0.azimuth, weight: $0.weight) }
+    }
+}
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
@@ -73,25 +87,13 @@ func scalarMatch(peaks: [BraggPeak], plan: OrientationPlan)
     -> (template: Int, reportedBin: Int, score: Float, second: Float) {
     let geo = plan.geometry
     guard let fft = FFT1D(n: geo.nAzimuthal) else { fail("FFT setup") }
-    // Mirrors OrientationMatcher.prepareExperimentalFFT, including the plan's
-    // intensity power — the experimental image must be weighted exactly like
-    // the templates it is correlated against.
-    let spots = peaks.map { peak in
-        let dx = Double(peak.x - 64), dy = Double(peak.y - 64)
-        let intensity = Double(max(0, peak.intensity))
-        return (r: hypot(dx, dy) * 0.01, azim: atan2(dy, dx),
-                weight: plan.intensityPower == 1
-                    ? intensity : pow(intensity, plan.intensityPower))
-    }
-    // ...and the plan's radial kernel, for the same reason.
-    var polar = OrientationPlan.buildPolar(
-        spots: spots, geometry: geo, azimBlurBins: 1.5,
-        radialKernelInvAngstrom: plan.radialKernelInvAngstrom
-    )
-    OrientationPlan.normalizeUnit(&polar)
-    let (experimentalReal, experimentalImaginary) = OrientationPlan.ringFFTs(
-        polar, geo: geo, fft: fft
-    )
+    // The measured pattern's ring FFTs are the kit matcher's (`ACOMMatcher.experimentalFFT`: the plan's intensity power and
+    // radial kernel, the templates' grid): the polar deposition is DiffractoKit's since 0.5.0 and not public as a function.
+    // What this reference does NOT share with production is the correlation and the argmax below.
+    guard let kitMatcher = ACOMMatcher(library: plan.library),
+          let experimental = kitMatcher.experimentalFFT(peaks: peaks, originX: 64, originY: 64, invAngstromPerPixel: 0.01)
+    else { fail("experimental FFT") }
+    let (experimentalReal, experimentalImaginary) = experimental
     let na = geo.nAzimuthal, nr = geo.nRadial
     var correlationReal = [Float](repeating: 0, count: na)
     var correlationImaginary = [Float](repeating: 0, count: na)
@@ -306,14 +308,14 @@ guard ws2TrueMedian > 0.999 else {
 }
 
 // Pins that the matcher REPORTS the rotation it was given. Verified to have
-// teeth: dropping the in-plane negation at `OrientationMatcher.swift:314`
+// teeth: dropping the in-plane negation at `ACOMMatcher.makeResult` (DiffractoKit)
 // fails here at index 1, unaided, with the gold scalar arm disabled. (Index 0
 // is generated at angle 0, where a sign error is invisible — this loop covers
 // every position for that reason.)
 //
 // **What it does NOT close, measured, not assumed.** Gate B's most severe
 // finding is that a transpose or handedness flip inside
-// `OrientationPlan.project` is invisible to EVERY gated ACOM harness. The
+// the template projection (`ACOMTemplateLibrary.project`) is invisible to EVERY gated ACOM harness. The
 // review proposed exactly this assertion as the one-line fix. It is not:
 // the fixture builds its experimental pattern with the same `project` that
 // builds the templates, so a defect applied to both sides preserves the
