@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Spectro golden `velox-tiny.txt` gains four lines (`stageXMeters`, `stageYMeters`, `stageZMeters`, `instrumentClass = nil`): FormatoKit 0.3.1 and later add four optional `VeloxMetadata` fields, additive; no number moves. Updated on purpose.
 - SpectroKit 0.4.0 -> 0.6.0 and FormatoKit 0.0.3 -> 0.3.0, re-pinned together (exact). Nothing in either kit moves a number the app reads; SpectroCore 0.5.3+ now exports `MaskTransport`, `PoolBuilder` and `TransportedLabels`, so the two files that import both modules name the app's own (`DSTEMCore.`), to be deleted at the registration switch. SpectroKit 0.5.0 changed the CSV export's default title to the neutral "Spectroscopy quantification"; the app passes its own ("mac4DSTEM Spectroscopy quantification"), so exports and the golden hashes are unchanged. NOTICE: the redistributed libhdf5, libaec and libsz are FormatoKit's 0.2.1 rebuild (minos 15.0; new hashes and sizes), not the 2026-08-25 Homebrew builds.
 - CI: the kit-module builds in `tools/lib/sources.manifest` use the swiftbuild backend explicitly (the runner's Swift 6.3.3 defaulted to the native one, which has no `out/Products/Release`), and the inventory job resolves the pins so the libhdf5 hash check runs.
 - Kits re-pinned: CuboKit 0.3.0, DiffractoKit 0.4.0, ImagoKit 0.2.0 (the phase-2 switches follow). No number moves (unit 2404 / 0, scientific 0, inventory 0). `tools/lib/sources.manifest` keys kit objects by file name so two kit builds of the same ImagoKit modules do not link twice.
