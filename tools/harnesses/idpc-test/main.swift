@@ -1,3 +1,4 @@
+import CuboPhase
 import Foundation
 
 struct Fixture: Decodable {
@@ -66,15 +67,15 @@ guard colorError <= 1 else {
 }
 print("PASS: display color-wheel hue remains independently normalized")
 
-let calibration = IDPCPhysicalCalibration(
-    rowSamplingAngstrom: fixture.rowSamplingAngstrom,
-    columnSamplingAngstrom: fixture.columnSamplingAngstrom,
-    reciprocalAngstromPerDetectorPixel: fixture.reciprocalAngstromPerDetectorPixel
+let calibration = try IDPCPhysicalCalibration(
+    rowSamplingAngstrom: Double(fixture.rowSamplingAngstrom),
+    columnSamplingAngstrom: Double(fixture.columnSamplingAngstrom),
+    reciprocalAngstromPerDetectorPixel: Double(fixture.reciprocalAngstromPerDetectorPixel)
 )
 let periodic = try DPC.integratePhysicalIDPC(
     com: fixture.com, width: fixture.width, height: fixture.height,
     calibration: calibration, regularization: 0,
-    boundary: .periodic, paddingFactor: 1
+    boundary: .periodic
 )
 let periodicError = maximumError(periodic.pixels, fixture.periodic)
 guard periodicError < 3e-5,
@@ -85,7 +86,7 @@ print("PASS: non-square anisotropic quantitative phase in radians")
 
 let padded = try DPC.integratePhysicalIDPC(
     com: fixture.com, width: fixture.width, height: fixture.height,
-    calibration: calibration, boundary: .zeroPadded, paddingFactor: 2
+    calibration: calibration, boundary: .zeroPadded(factor: 2)
 )
 let paddedError = maximumError(padded.pixels, fixture.zeroPadded)
 guard paddedError < 3e-5 else {
@@ -101,7 +102,7 @@ print("PASS: explicit periodic versus symmetric 2x zero-padded boundary")
 
 let qualitative = try DPC.integrateIDPC(
     com: fixture.com, width: fixture.width, height: fixture.height,
-    boundary: .zeroPadded, paddingFactor: 2
+    boundary: .zeroPadded(factor: 2)
 )
 guard maximumError(qualitative.pixels, fixture.qualitative) < 3e-5 else {
     fail("qualitative fallback changed unexpectedly")
@@ -122,8 +123,8 @@ guard let angstrom = DPC.physicalIDPCCalibration(
     voltageKV: nil
 ) else { fail("physical calibration conversion returned nil") }
 guard angstrom == nanometer, angstrom == unicodeUnits,
-      abs(angstrom.rowSamplingAngstrom - 2) < 1e-7,
-      abs(angstrom.reciprocalAngstromPerDetectorPixel - 0.025) < 1e-7 else {
+      abs(angstrom.rowSamplingAngstrom - 2) < 1e-12,
+      abs(angstrom.reciprocalAngstromPerDetectorPixel - 0.025) < 1e-12 else {
     fail("Å/nm physical calibration conversions differ")
 }
 guard let angular = DPC.physicalIDPCCalibration(
@@ -131,8 +132,8 @@ guard let angular = DPC.physicalIDPCCalibration(
     reciprocalPixelSize: 0.5, reciprocalPixelUnits: "mrad",
     voltageKV: 200
 ), let wavelength = DPC.electronWavelengthAngstrom(voltageKV: 200),
-      abs(Double(angular.reciprocalAngstromPerDetectorPixel)
-          - 0.5 / (1_000 * wavelength)) < 1e-7 else {
+      abs(angular.reciprocalAngstromPerDetectorPixel
+          - 0.5 / (1_000 * wavelength)) < 1e-12 else {
     fail("mrad reciprocal calibration conversion differs")
 }
 guard DPC.physicalIDPCCalibration(

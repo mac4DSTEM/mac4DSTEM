@@ -17,37 +17,10 @@
 //  means the true rotation is θ + 180°.
 //
 
-import Accelerate
 import CuboCore
 import CuboPhase
 import enum DiffractoGeometry.ElectronWavelength   // the one electron wavelength of the suite (2026-10-15)
 import Foundation
-import ImagoCore
-
-package nonisolated enum IDPCBoundaryCondition: String, Sendable {
-    /// Treat opposite scan edges as adjacent. Best for explicitly periodic
-    /// synthetic fields; real specimens can show wrap-around seams.
-    case periodic
-    /// Center the measured field in a larger zero-valued domain before the
-    /// Fourier solve, reducing opposite-edge coupling at additional cost.
-    case zeroPadded
-}
-
-/// Physical inputs needed to turn detector-pixel CoM shifts into a projected
-/// phase gradient. Scan sampling is in Å/pixel and reciprocal sampling is in
-/// Å⁻¹/detector-pixel, matching py4DSTEM's calibrated CoM convention.
-package nonisolated struct IDPCPhysicalCalibration: Equatable, Sendable {
-    package let rowSamplingAngstrom: Float
-    package let columnSamplingAngstrom: Float
-    package let reciprocalAngstromPerDetectorPixel: Float
-
-    // Explicit so the memberwise initializer is `package` (synthesized ones are internal). // v2.5 step 2b
-    package nonisolated init(rowSamplingAngstrom: Float, columnSamplingAngstrom: Float, reciprocalAngstromPerDetectorPixel: Float) {
-        self.rowSamplingAngstrom = rowSamplingAngstrom
-        self.columnSamplingAngstrom = columnSamplingAngstrom
-        self.reciprocalAngstromPerDetectorPixel = reciprocalAngstromPerDetectorPixel
-    }
-}
 
 package enum DPC {
 
@@ -148,10 +121,11 @@ package enum DPC {
                 ) else { return nil }
         guard scanAngstrom.isFinite, reciprocalAngstrom.isFinite,
               scanAngstrom > 0, reciprocalAngstrom > 0 else { return nil }
-        return IDPCPhysicalCalibration(
-            rowSamplingAngstrom: Float(scanAngstrom),
-            columnSamplingAngstrom: Float(scanAngstrom),
-            reciprocalAngstromPerDetectorPixel: Float(reciprocalAngstrom)
+        // CuboPhase's calibration (Double; its init refuses non-positive or non-finite sampling, already excluded above).
+        return try? IDPCPhysicalCalibration(
+            rowSamplingAngstrom: scanAngstrom,
+            columnSamplingAngstrom: scanAngstrom,
+            reciprocalAngstromPerDetectorPixel: reciprocalAngstrom
         )
     }
 
@@ -235,50 +209,36 @@ package enum DPC {
     /// map that LOOKS like a computed projected phase is a fabricated result,
     /// exactly what the refusal rule bans. A caller that cannot integrate
     /// must say so, not draw zeros. // v2 S7
+    /// Since 2026-10-20 the integration is CuboPhase's (`IDPC`); every refusal, the kit's included, arrives as this error.
     package enum IDPCError: Error, Equatable, CustomStringConvertible, LocalizedError {
         /// An input precondition failed; the reason names which.
         case invalidInput(String)
-        /// Padding the scan grid would overflow `Int`.
-        case dimensionOverflow(width: Int, height: Int, factor: Int)
-        /// No FFT plan exists for the padded grid size.
-        case fftUnavailable(nx: Int, ny: Int)
 
         package var description: String {
             switch self {
             case .invalidInput(let reason):
                 return "iDPC integration refused its input: \(reason)"
-            case .dimensionOverflow(let width, let height, let factor):
-                return "iDPC integration refused: padding a \(width)×\(height) "
-                    + "scan by \(factor)× overflows the addressable grid."
-            case .fftUnavailable(let nx, let ny):
-                return "iDPC integration failed: no FFT plan is available for "
-                    + "a \(nx)×\(ny) padded grid."
             }
         }
 
         package var errorDescription: String? { description }
     }
 
-    /// Integrate the CoM vector field into a scalar potential-like map:
-    ///     φ̂(q) = (qx·ĈoMx + qy·ĈoMy) / (i·2π·(|q|² + ε·|q|²max))
-    /// i.e. the least-squares solution of ∇φ = CoM. The regularization ε damps
-    /// the 1/|q|² amplification of low-frequency noise (ε = 0 → pure inverse).
-    ///
-    /// The field is mean-subtracted (removes residual descan → the undefined
-    /// q=0 term). `periodic` solves on the exact native scan grid;
-    /// `zeroPadded` centers it in an exact `paddingFactor`-larger grid. Both
-    /// choices are explicit because they encode different edge assumptions.
+    /// Integrate the interleaved CoM field `[cx0, cy0, ...]` (scan frame, detector-pixel shifts) into a scalar
+    /// potential-like map: the least-squares solution of ∇φ = CoM, by CuboPhase's `IDPC.integrate` (Fourier solve in
+    /// Double; ε·|q|²max regularization, field mean-subtracted, phase gauged to zero mean). The app's x component is the
+    /// kit's `column` and its y the kit's `row`. Both boundary choices are explicit (`IDPCBoundary`): `.periodic` solves on
+    /// the native grid, `.zeroPadded(factor:)` centres the field in an exact factor-larger grid.
     ///
     /// For qualitative use, leave sampling and `comToGradientScale` at one.
     /// For quantitative projected phase, use scan sampling in Å and convert
     /// detector-pixel shifts to rad/Å with 2π·Q_pixel_size.
     package nonisolated static func integrateIDPC(com: [Float], width: Int, height: Int,
-                              regularization: Float = 1e-4,
-                              rowSampling: Float = 1,
-                              columnSampling: Float = 1,
-                              comToGradientScale: Float = 1,
-                              boundary: IDPCBoundaryCondition = .zeroPadded,
-                              paddingFactor: Int = 2) throws -> FloatImage {
+                              regularization: Double = 1e-4,
+                              rowSampling: Double = 1,
+                              columnSampling: Double = 1,
+                              comToGradientScale: Double = 1,
+                              boundary: IDPCBoundary = .zeroPadded(factor: 2)) throws -> FloatImage {
         // Each precondition throws by name — a refusal the caller can act on,
         // never a zero image that reads as a computed result. // v2 S7
         guard width > 1, height > 1 else {
@@ -293,116 +253,24 @@ package enum DPC {
                     + "\(width)×\(height) scan; \(n * 2) are required."
             )
         }
-        guard regularization.isFinite, regularization >= 0 else {
-            throw IDPCError.invalidInput(
-                "regularization \(regularization) is not a finite value ≥ 0."
-            )
+        do {
+            let field = try ScanVectorField(
+                scanRows: height, scanColumns: width,
+                row: (0..<n).map { Double(com[2 * $0 + 1]) }, column: (0..<n).map { Double(com[2 * $0]) })
+            let phase = try IDPC.integrate(
+                field, rowSampling: rowSampling, columnSampling: columnSampling,
+                gradientScale: comToGradientScale, regularization: regularization, boundary: boundary)
+            return FloatImage(width: width, height: height, pixels: phase.map { Float($0) })
+        } catch {
+            throw IDPCError.invalidInput(error.localizedDescription)
         }
-        guard rowSampling.isFinite, rowSampling > 0,
-              columnSampling.isFinite, columnSampling > 0 else {
-            throw IDPCError.invalidInput(
-                "sampling steps (\(rowSampling), \(columnSampling)) must be "
-                    + "finite and > 0."
-            )
-        }
-        guard comToGradientScale.isFinite else {
-            throw IDPCError.invalidInput(
-                "the CoM→gradient scale \(comToGradientScale) is not finite."
-            )
-        }
-        guard paddingFactor > 0 else {
-            throw IDPCError.invalidInput(
-                "padding factor \(paddingFactor) must be > 0."
-            )
-        }
-
-        // Split + mean-subtract the field.
-        var cx = [Float](repeating: 0, count: n)
-        var cy = [Float](repeating: 0, count: n)
-        for i in 0..<n {
-            cx[i] = com[2 * i] * comToGradientScale
-            cy[i] = com[2 * i + 1] * comToGradientScale
-        }
-        var mean: Float = 0
-        vDSP_meanv(cx, 1, &mean, vDSP_Length(n)); vDSP_vsadd(cx, 1, [-mean], &cx, 1, vDSP_Length(n))
-        vDSP_meanv(cy, 1, &mean, vDSP_Length(n)); vDSP_vsadd(cy, 1, [-mean], &cy, 1, vDSP_Length(n))
-
-        let factor = boundary == .periodic ? 1 : max(1, paddingFactor)
-        guard width <= Int.max / factor, height <= Int.max / factor else {
-            throw IDPCError.dimensionOverflow(
-                width: width, height: height, factor: factor
-            )
-        }
-        let nx = width * factor
-        let ny = height * factor
-        guard let fft = FFT2D(nx: nx, ny: ny) else {
-            // Never disguise an integration failure as a scientifically
-            // different magnitude image — and never as a zero one either.
-            throw IDPCError.fftUnavailable(nx: nx, ny: ny)
-        }
-
-        let xOffset = (nx - width) / 2
-        let yOffset = (ny - height) / 2
-
-        func pad(_ src: [Float]) -> [Float] {
-            var out = [Float](repeating: 0, count: nx * ny)
-            for y in 0..<height {
-                let destination = (y + yOffset) * nx + xOffset
-                out.replaceSubrange(destination ..< destination + width,
-                                    with: src[y * width ..< (y + 1) * width])
-            }
-            return out
-        }
-
-        var xRe = pad(cx), xIm = [Float](repeating: 0, count: nx * ny)
-        var yRe = pad(cy), yIm = [Float](repeating: 0, count: nx * ny)
-        fft.transform(re: &xRe, im: &xIm, forward: true)
-        fft.transform(re: &yRe, im: &yIm, forward: true)
-
-        // φ̂ = (qx·X̂ + qy·Ŷ) / (i·2π·(q² + ε·q²max));  1/i → (re,im) = (im,-re)
-        var pRe = [Float](repeating: 0, count: nx * ny)
-        var pIm = [Float](repeating: 0, count: nx * ny)
-        let qxMax: Float = 0.5 / columnSampling
-        let qyMax: Float = 0.5 / rowSampling
-        let q2max = qxMax * qxMax + qyMax * qyMax
-        let eps = regularization * q2max
-        for ky in 0..<ny {
-            let qy = FFT2D.fftfreq(ky, ny) / rowSampling
-            for kx in 0..<nx {
-                let qx = FFT2D.fftfreq(kx, nx) / columnSampling
-                let q2 = qx * qx + qy * qy
-                if q2 == 0 { continue }
-                let idx = ky * nx + kx
-                let numRe = qx * xRe[idx] + qy * yRe[idx]
-                let numIm = qx * xIm[idx] + qy * yIm[idx]
-                let d = 1 / (2 * Float.pi * (q2 + eps))
-                pRe[idx] =  numIm * d
-                pIm[idx] = -numRe * d
-            }
-        }
-
-        fft.transform(re: &pRe, im: &pIm, forward: false)
-
-        // Crop back to the scan size.
-        var out = [Float](repeating: 0, count: n)
-        for y in 0..<height {
-            let source = (y + yOffset) * nx + xOffset
-            out.replaceSubrange(y * width ..< (y + 1) * width,
-                                with: pRe[source ..< source + width])
-        }
-        // Phase has an arbitrary additive constant. Make that gauge explicit
-        // and deterministic for display, persistence, and numeric comparison.
-        vDSP_meanv(out, 1, &mean, vDSP_Length(n))
-        vDSP_vsadd(out, 1, [-mean], &out, 1, vDSP_Length(n))
-        return FloatImage(width: width, height: height, pixels: out)
     }
 
     package nonisolated static func integratePhysicalIDPC(
         com: [Float], width: Int, height: Int,
         calibration: IDPCPhysicalCalibration,
-        regularization: Float = 1e-4,
-        boundary: IDPCBoundaryCondition = .zeroPadded,
-        paddingFactor: Int = 2
+        regularization: Double = 1e-4,
+        boundary: IDPCBoundary = .zeroPadded(factor: 2)
     ) throws -> FloatImage {
         try integrateIDPC(
             com: com, width: width, height: height,
@@ -411,7 +279,7 @@ package enum DPC {
             columnSampling: calibration.columnSamplingAngstrom,
             comToGradientScale: 2 * .pi
                 * calibration.reciprocalAngstromPerDetectorPixel,
-            boundary: boundary, paddingFactor: paddingFactor
+            boundary: boundary
         )
     }
 

@@ -11,6 +11,7 @@
 
 import Foundation
 #if canImport(DSTEMCore)   // absent when a tools/ harness compiles this file into one module
+import CuboPhase
 import DSTEMCore
 import DSTEMSession
 #endif
@@ -168,12 +169,12 @@ extension AppState {
                 if let physical = idpcPhysicalCalibration {
                     payload = .scalar(try DPC.integratePhysicalIDPC(
                         com: com, width: d.rx, height: d.ry,
-                        calibration: physical, boundary: .zeroPadded, paddingFactor: 2))
+                        calibration: physical, boundary: .zeroPadded(factor: 2)))
                     (kind, name, units) = ("idpc_phase", "iDPC projected phase", "rad")
                 } else {
                     payload = .scalar(try DPC.integrateIDPC(
                         com: com, width: d.rx, height: d.ry,
-                        boundary: .zeroPadded, paddingFactor: 2))
+                        boundary: .zeroPadded(factor: 2)))
                     (kind, name, units) = ("idpc_qualitative", "iDPC (qualitative)", "detector_px_scan_px")
                 }
             } catch {
