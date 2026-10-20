@@ -1294,7 +1294,7 @@ struct CubicIPFLegend: View {
             leftLabel: "001",
             topLabel: "111",
             rightLabel: "101",
-            colorFunction: CubicOrientationSymmetry.ipfColor(direction:),
+            colorFunction: ACOMCrystalSymmetry.cubic.ipfColor(direction:),
             labelRowWidth: 132,
             accessibilityLabelText: "Cubic inverse pole figure color key: 001 red, 101 green, 111 blue"
         )
@@ -1302,10 +1302,10 @@ struct CubicIPFLegend: View {
 }
 
 /// Native 6/mmm key sharing the production hexagonal color function. Corner
-/// directions, labels and colours come from `HexagonalOrientationSymmetry.keyCorners`.
+/// directions, labels and colours come from `ACOMCrystalSymmetry.hexagonalKeyCorners`.
 struct HexagonalIPFLegend: View {
     var body: some View {
-        let corners = HexagonalOrientationSymmetry.keyCorners
+        let corners = ACOMCrystalSymmetry.hexagonalKeyCorners
         IPFTriangleLegend(
             leftDirection: corners[0].direction,
             rightDirection: corners[1].direction,
@@ -1313,7 +1313,7 @@ struct HexagonalIPFLegend: View {
             leftLabel: corners[0].label,
             topLabel: corners[2].label,
             rightLabel: corners[1].label,
-            colorFunction: HexagonalOrientationSymmetry.ipfColor(direction:),
+            colorFunction: ACOMCrystalSymmetry.hexagonal.ipfColor(direction:),
             // Wider than the cubic key because the hexagonal indices are four
             // characters.
             labelRowWidth: 142,
@@ -1340,7 +1340,7 @@ enum IPFLegendKind: Equatable {
 /// Native 2/m key: the half-disk of the fundamental zone, b at the centre of the flat edge,
 /// polar angle from b as radius (0 to 90 degrees), azimuth about b from a (right) round the
 /// top (z) to -a (left, the same direction as a, hence the same colour). Every dot is coloured
-/// by `MonoclinicOrientationSymmetry.ipfColor`, so key and map cannot disagree.
+/// by `ACOMCrystalSymmetry.monoclinic.ipfColor`, so key and map cannot disagree.
 struct MonoclinicIPFLegend: View {
     var body: some View {
         VStack(spacing: 1) {
@@ -1356,7 +1356,7 @@ struct MonoclinicIPFLegend: View {
                         let azimuth = ring == 0 ? 0 : Double(spoke) / Double(spokes) * .pi
                         let direction = SIMD3<Double>(sin(tilt) * cos(azimuth), cos(tilt),
                                                       sin(tilt) * sin(azimuth))
-                        let rgb = MonoclinicOrientationSymmetry.ipfColor(direction: direction)
+                        let rgb = ACOMCrystalSymmetry.monoclinic.ipfColor(direction: direction)
                         let radius = Double(ring) / Double(rings) * outer
                         let x = Double(centre.x) + radius * cos(azimuth)
                         let y = Double(centre.y) - radius * sin(azimuth)

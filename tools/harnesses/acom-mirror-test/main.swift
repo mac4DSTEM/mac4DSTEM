@@ -13,6 +13,7 @@
 import Foundation
 import ImagoFFT
 import DiffractoScattering
+import DiffractoOrientation
 import simd
 
 func require(_ condition: Bool, _ message: String) {

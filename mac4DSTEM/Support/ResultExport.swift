@@ -12,6 +12,7 @@ import CuboPhase
 import DSTEMCore
 import DSTEMSession
 #endif
+import DiffractoOrientation
 import ImageIO
 import UniformTypeIdentifiers
 

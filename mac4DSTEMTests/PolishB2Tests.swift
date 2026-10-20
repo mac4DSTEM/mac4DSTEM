@@ -1,6 +1,7 @@
 import XCTest
 import DSTEMCore
 import DSTEMSession
+import DiffractoOrientation
 @testable import mac4DSTEM
 
 /// Slot 4½ lane B2: Crystal Maps / Bragg Disks wording and the Mirrored readout.

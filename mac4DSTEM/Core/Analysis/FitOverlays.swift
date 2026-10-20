@@ -14,6 +14,7 @@
 //
 
 import Foundation
+import DiffractoOrientation
 
 package nonisolated enum FitOverlays {
 

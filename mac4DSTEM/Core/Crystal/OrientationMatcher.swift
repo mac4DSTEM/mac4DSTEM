@@ -23,6 +23,7 @@
 //
 
 import Foundation
+import DiffractoOrientation
 import ImagoFFT
 import Accelerate
 import Metal
@@ -423,7 +424,7 @@ private nonisolated func makeOrientationResult(
     if mirrored {
         angle = (angle + .pi).truncatingRemainder(dividingBy: 2 * .pi)
     }
-    var orientationMatrix = ACOMOrientation.matrix(
+    var orientationMatrix = ZoneAxisFrame.matrix(
         detectorBasis: plan.detectorBases[bestTemplate], inPlaneAngle: angle
     )
     if mirrored {

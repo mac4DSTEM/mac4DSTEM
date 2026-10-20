@@ -22,6 +22,7 @@ import ImagoFFT
 import simd
 import DiffractoCore
 import DiffractoGeometry
+import DiffractoOrientation
 import DiffractoScattering
 
 /// Shared polar-image geometry.

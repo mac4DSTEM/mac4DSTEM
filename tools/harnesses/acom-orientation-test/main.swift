@@ -1,6 +1,13 @@
 import Foundation
+import DiffractoCore
 import DiffractoGeometry
+import DiffractoOrientation
 import simd
+
+// The group tables, the reduction, the samplers and the native keys are DiffractoKit's (CrystalOrientationSymmetry, 0.5.0);
+// this harness checks them through the app's call site (ACOMCrystalSymmetry) against the orix / py4DSTEM fixture.
+let cubicKit = CrystalOrientationSymmetry(laueClass: .mThreeBarM)
+let hexagonalKit = CrystalOrientationSymmetry(laueClass: .sixOverMmm)
 
 struct Fixture: Decodable {
     let cases: [OrientationCase]
@@ -67,7 +74,7 @@ for test in fixture.cases {
         guard zone.count == 3 else { fail("\(test.name) zoneAxis must have 3 values") }
         let n = simd_normalize(SIMD3(zone[0], zone[1], zone[2]))
         let basis = ZoneAxis.detectorBasis(n)
-        let composed = ACOMOrientation.matrix(detectorBasis: basis, inPlaneAngle: angle)
+        let composed = ZoneAxisFrame.matrix(detectorBasis: basis, inPlaneAngle: angle)
         let compositionError = maximumError(composed, expectedMatrix)
         guard compositionError <= 2e-7 else {
             fail("\(test.name) basis/in-plane composition error \(compositionError)")
@@ -79,10 +86,10 @@ for test in fixture.cases {
     print("PASS: \(test.name) Euler error \(eulerError), round-trip \(roundTripError)")
 }
 
-guard CubicOrientationSymmetry.operators.count == 24 else {
-    fail("cubic group has \(CubicOrientationSymmetry.operators.count) operators, expected 24")
+guard cubicKit.operators.count == 24 else {
+    fail("cubic group has \(cubicKit.operators.count) operators, expected 24")
 }
-for (index, symmetry) in CubicOrientationSymmetry.operators.enumerated() {
+for (index, symmetry) in cubicKit.operators.enumerated() {
     let determinantError = abs(simd_determinant(symmetry) - 1)
     let orthogonalityError = maximumError(simd_transpose(symmetry) * symmetry, matrix([
         [1, 0, 0], [0, 1, 0], [0, 0, 1],
@@ -94,12 +101,12 @@ for (index, symmetry) in CubicOrientationSymmetry.operators.enumerated() {
 print("PASS: 24 proper cubic symmetry operators")
 
 let orbitSeed = matrix(fixture.cases[1].matrix)
-let representative = CubicOrientationSymmetry.reduce(orbitSeed)
+let representative = ACOMCrystalSymmetry.cubic.reduce(orbitSeed)
 guard representative.disorientationRad <= Float(62.9 * Double.pi / 180) else {
     fail("cubic representative exceeds the fundamental-zone angular bound")
 }
-for (index, symmetry) in CubicOrientationSymmetry.operators.enumerated() {
-    let equivalent = CubicOrientationSymmetry.reduce(symmetry * orbitSeed)
+for (index, symmetry) in cubicKit.operators.enumerated() {
+    let equivalent = ACOMCrystalSymmetry.cubic.reduce(symmetry * orbitSeed)
     guard maximumError(equivalent.matrix, representative.matrix) <= 2e-12,
           abs(equivalent.disorientationRad - representative.disorientationRad) <= 2e-7 else {
         fail("symmetry-equivalent orientation \(index) reduced differently")
@@ -107,7 +114,7 @@ for (index, symmetry) in CubicOrientationSymmetry.operators.enumerated() {
 }
 print("PASS: cubic reduction is deterministic over a full symmetry orbit")
 
-let sampledAxes = CubicOrientationSymmetry.sampleFundamentalZone(count: 96)
+let sampledAxes = ACOMCrystalSymmetry.cubic.sampleFundamentalZone(count: 96)
 guard sampledAxes.count == 96 else {
     fail("cubic fundamental-zone sampler returned \(sampledAxes.count), expected 96")
 }
@@ -136,13 +143,13 @@ for test in fixture.ipfCases {
         fail("\(test.name) must contain three direction and RGB components")
     }
     let direction = SIMD3(test.direction[0], test.direction[1], test.direction[2])
-    let actual = CubicOrientationSymmetry.ipfColor(direction: direction)
+    let actual = ACOMCrystalSymmetry.cubic.ipfColor(direction: direction)
     let values = [Double(actual.x), Double(actual.y), Double(actual.z)]
     let error = zip(values, test.rgb).map { abs($0 - $1) }.max() ?? 0
     guard error <= 2e-3 else {
         fail("\(test.name) RGB \(values), expected \(test.rgb), error \(error)")
     }
-    let equivalent = CubicOrientationSymmetry.ipfColor(
+    let equivalent = ACOMCrystalSymmetry.cubic.ipfColor(
         direction: SIMD3(-direction.z, direction.x, -direction.y)
     )
     let symmetryError = simd_length(actual - equivalent)
@@ -152,15 +159,15 @@ for test in fixture.ipfCases {
     print("PASS: \(test.name) orix RGB error \(error)")
 }
 
-let nearA = CubicOrientationSymmetry.ipfColor(direction: SIMD3(0.2, 0.1, 0.97))
-let nearB = CubicOrientationSymmetry.ipfColor(direction: SIMD3(0.20001, 0.1, 0.97))
+let nearA = ACOMCrystalSymmetry.cubic.ipfColor(direction: SIMD3(0.2, 0.1, 0.97))
+let nearB = ACOMCrystalSymmetry.cubic.ipfColor(direction: SIMD3(0.20001, 0.1, 0.97))
 guard simd_length(nearA - nearB) < 0.001 else { fail("IPF color is not locally continuous") }
 print("PASS: IPF color is locally continuous")
 
-guard HexagonalOrientationSymmetry.operators.count == 12 else {
-    fail("hexagonal group has \(HexagonalOrientationSymmetry.operators.count) operators, expected 12")
+guard hexagonalKit.operators.count == 12 else {
+    fail("hexagonal group has \(hexagonalKit.operators.count) operators, expected 12")
 }
-for (index, symmetry) in HexagonalOrientationSymmetry.operators.enumerated() {
+for (index, symmetry) in hexagonalKit.operators.enumerated() {
     let determinantError = abs(simd_determinant(symmetry) - 1)
     let orthogonalityError = maximumError(simd_transpose(symmetry) * symmetry, matrix([
         [1, 0, 0], [0, 1, 0], [0, 0, 1],
@@ -168,15 +175,15 @@ for (index, symmetry) in HexagonalOrientationSymmetry.operators.enumerated() {
     guard determinantError <= 1e-12, orthogonalityError <= 1e-12 else {
         fail("hexagonal operator \(index) is not a proper rotation")
     }
-    for prior in 0..<index where maximumError(symmetry, HexagonalOrientationSymmetry.operators[prior]) < 1e-12 {
+    for prior in 0..<index where maximumError(symmetry, hexagonalKit.operators[prior]) < 1e-12 {
         fail("hexagonal operators \(prior) and \(index) are duplicates")
     }
 }
 print("PASS: 12 unique proper hexagonal symmetry operators")
 
-let hexRepresentative = HexagonalOrientationSymmetry.reduce(orbitSeed)
-for (index, symmetry) in HexagonalOrientationSymmetry.operators.enumerated() {
-    let equivalent = HexagonalOrientationSymmetry.reduce(symmetry * orbitSeed)
+let hexRepresentative = ACOMCrystalSymmetry.hexagonal.reduce(orbitSeed)
+for (index, symmetry) in hexagonalKit.operators.enumerated() {
+    let equivalent = ACOMCrystalSymmetry.hexagonal.reduce(symmetry * orbitSeed)
     guard maximumError(equivalent.matrix, hexRepresentative.matrix) <= 2e-12,
           abs(equivalent.disorientationRad - hexRepresentative.disorientationRad) <= 2e-7 else {
         fail("hexagonal-equivalent orientation \(index) reduced differently")
@@ -184,7 +191,7 @@ for (index, symmetry) in HexagonalOrientationSymmetry.operators.enumerated() {
 }
 print("PASS: hexagonal reduction is deterministic over a full symmetry orbit")
 
-let hexAxes = HexagonalOrientationSymmetry.sampleFundamentalZone(count: 96)
+let hexAxes = ACOMCrystalSymmetry.hexagonal.sampleFundamentalZone(count: 96)
 guard hexAxes.count == 96 else { fail("hexagonal sampler returned \(hexAxes.count), expected 96") }
 let hexVertices = [
     SIMD3<Double>(0, 0, 1),
@@ -212,12 +219,12 @@ let hexKeyDirections = [SIMD3<Double>(0, 0, 1), SIMD3<Double>(1, 0, 0),
 let hexKeyColors = [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)]
 for index in hexKeyDirections.indices {
     let expected = hexKeyColors[index]
-    let actual = HexagonalOrientationSymmetry.ipfColor(direction: hexKeyDirections[index])
+    let actual = ACOMCrystalSymmetry.hexagonal.ipfColor(direction: hexKeyDirections[index])
     guard simd_length(actual - expected) < 1e-6 else {
         fail("hexagonal IPF key vertex \(index) was \(actual), expected \(expected)")
     }
-    for symmetry in HexagonalOrientationSymmetry.operators {
-        let equivalent = HexagonalOrientationSymmetry.ipfColor(direction: symmetry * hexKeyDirections[index])
+    for symmetry in hexagonalKit.operators {
+        let equivalent = ACOMCrystalSymmetry.hexagonal.ipfColor(direction: symmetry * hexKeyDirections[index])
         guard simd_length(actual - equivalent) < 1e-6 else {
             fail("hexagonal IPF color changed under symmetry at vertex \(index)")
         }

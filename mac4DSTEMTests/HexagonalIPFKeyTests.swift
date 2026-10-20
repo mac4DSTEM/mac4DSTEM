@@ -61,16 +61,16 @@ final class HexagonalIPFKeyTests: XCTestCase {
     /// (the pre-2026-09-30 state) - the second corner's label then resolves to
     /// azimuth 30 while its direction is azimuth 0, and this goes red.
     func testEachKeyCornerCarriesTheLabelOfItsOwnDirection() throws {
-        let corners = HexagonalOrientationSymmetry.keyCorners
+        let corners = ACOMCrystalSymmetry.hexagonalKeyCorners
         XCTAssertEqual(corners.count, 3)
         for corner in corners {
             let labelled = try cartesian(fourIndex: corner.label)
-            let folded = HexagonalOrientationSymmetry.reduceDirection(labelled)
+            let folded = try CrystalOrientationSymmetry(laueClass: .sixOverMmm).reduceDirection(labelled)
             let cornerDirection = simd_normalize(corner.direction)
             XCTAssertLessThan(
                 simd_length(folded - cornerDirection), 1e-9,
                 "corner \(corner.label) sits at \(cornerDirection) but the label is direction \(folded)")
-            let colour = HexagonalOrientationSymmetry.ipfColor(direction: labelled)
+            let colour = ACOMCrystalSymmetry.hexagonal.ipfColor(direction: labelled)
             XCTAssertLessThan(
                 simd_length(colour - corner.color), 1e-6,
                 "corner \(corner.label): ipfColor of its own direction is \(colour), the key prints \(corner.color)")
@@ -84,7 +84,7 @@ final class HexagonalIPFKeyTests: XCTestCase {
     /// different colours (green vs blue) - guards a test that resolves both
     /// through the fold and would pass a key with a repeated label.
     func testThePrismaticCornersHaveDistinctLabelsAndColours() {
-        let corners = HexagonalOrientationSymmetry.keyCorners
+        let corners = ACOMCrystalSymmetry.hexagonalKeyCorners
         XCTAssertEqual(Set(corners.map(\.label)).count, 3)
         XCTAssertEqual(Set(corners.map { "\($0.color)" }).count, 3)
     }

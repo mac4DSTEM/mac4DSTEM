@@ -2,6 +2,7 @@ import XCTest
 import simd
 import DiffractoScattering
 import DSTEMCore
+import DiffractoOrientation
 
 /// Review 2026-09-30 row 1. The ACOM bank samples the mirror-reduced direction
 /// triangle (cubic z ≥ x ≥ y ≥ 0), but orientation equivalence is the proper

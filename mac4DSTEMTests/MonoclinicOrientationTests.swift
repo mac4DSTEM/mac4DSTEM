@@ -13,12 +13,16 @@
 import XCTest
 import DiffractoCore
 import DiffractoScattering
+import DiffractoOrientation
 import DSTEMCore
 import DSTEMSession
 import simd
 @testable import mac4DSTEM
 
 final class MonoclinicOrientationTests: XCTestCase {
+
+    /// The kit's 2/m symmetry: the group, the fold and (through `ACOMCrystalSymmetry.monoclinic`) the sampler and key.
+    private let monoclinicKit = CrystalOrientationSymmetry(laueClass: .twoOverM)
 
     // MARK: - Fixtures
 
@@ -82,7 +86,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     /// Mutation (drop an operator): `operators` of count 1 goes red. Mutation (wrong axis, C2 about x):
     /// the lattice-derived b is no longer fixed and this goes red.
     func testP1GroupHasTwoProperOperatorsClosedAboutTheLatticeB() throws {
-        let ops = MonoclinicOrientationSymmetry.operators
+        let ops = monoclinicKit.operators
         XCTAssertEqual(ops.count, 2)
         let b = simd_normalize(try betaDoublePrimeModel().structure.cell.realLattice[1])
         XCTAssertEqual(simd_length(b - SIMD3(0, 1, 0)), 0, accuracy: 1e-12,
@@ -201,22 +205,22 @@ final class MonoclinicOrientationTests: XCTestCase {
         let mirror = simd_double3x3(rows: [[1, 0, 0], [0, -1, 0], [0, 0, 1]])
         for _ in 0..<300 {
             let n = simd_normalize(SIMD3(rng.gauss(), rng.gauss(), rng.gauss()))
-            let folded = MonoclinicOrientationSymmetry.reduceDirection(n)
+            let folded = try! monoclinicKit.reduceDirection(n)
             XCTAssertGreaterThanOrEqual(folded.y, -1e-12)
             let azimuth = atan2(folded.z, folded.x)
             XCTAssertGreaterThanOrEqual(azimuth, -1e-12)
             XCTAssertLessThan(azimuth, Double.pi + 1e-12)
             for image in [-n, c2b * n, mirror * n, -(c2b * n)] {
-                XCTAssertLessThan(simd_length(MonoclinicOrientationSymmetry.reduceDirection(image) - folded), 1e-9)
+                XCTAssertLessThan(simd_length(try! monoclinicKit.reduceDirection(image) - folded), 1e-9)
             }
         }
         // The zone sampler returns exactly `count` points, all inside the zone and distinct.
         for count in [3, 12, 96, 200] {
-            let zone = MonoclinicOrientationSymmetry.sampleFundamentalZone(count: count)
+            let zone = ACOMCrystalSymmetry.monoclinic.sampleFundamentalZone(count: count)
             XCTAssertEqual(zone.count, count)
             for p in zone {
                 XCTAssertEqual(simd_length(p), 1, accuracy: 1e-12)
-                XCTAssertLessThan(simd_length(MonoclinicOrientationSymmetry.reduceDirection(p) - p), 1e-9, "inside the zone")
+                XCTAssertLessThan(simd_length(try! monoclinicKit.reduceDirection(p) - p), 1e-9, "inside the zone")
             }
         }
     }
@@ -224,7 +228,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     /// IPF key (HSV disk: hue 120 deg + 2 phi, saturation = polar angle / 90 deg, value 1): b is
     /// white, +x (a) green, phi = 60 deg blue; invariant under the group; no seam at 0 / 180.
     func testIPFKeyCornersInvarianceAndNoSeam() {
-        let key = MonoclinicOrientationSymmetry.ipfColor(direction:)
+        let key = ACOMCrystalSymmetry.monoclinic.ipfColor(direction:)
         XCTAssertLessThan(simd_length(key([0, 1, 0]) - SIMD3(1, 1, 1)), 1e-6)
         XCTAssertLessThan(simd_length(key([1, 0, 0]) - SIMD3(0, 1, 0)), 1e-6)
         XCTAssertLessThan(simd_length(key([-1, 0, 0]) - key([1, 0, 0])), 1e-6, "no seam across the 180 deg azimuth")
@@ -257,7 +261,7 @@ final class MonoclinicOrientationTests: XCTestCase {
             for azDeg in stride(from: 0.0, to: 180.0, by: 2.0) {
                 let t = tiltDeg * .pi / 180, a = azDeg * .pi / 180
                 let d = SIMD3(sin(t) * cos(a), cos(t), sin(t) * sin(a))
-                let back = invert(MonoclinicOrientationSymmetry.ipfColor(direction: d))
+                let back = invert(ACOMCrystalSymmetry.monoclinic.ipfColor(direction: d))
                 XCTAssertEqual(back.tilt, tiltDeg, accuracy: 1e-3, "polar \(tiltDeg), azimuth \(azDeg)")
                 let dAz = abs(back.azimuth - azDeg)
                 XCTAssertLessThan(min(dAz, 180 - dAz), 1e-3, "polar \(tiltDeg), azimuth \(azDeg)")
@@ -265,14 +269,14 @@ final class MonoclinicOrientationTests: XCTestCase {
         }
         let d = SIMD3<Double>(0.5, 0.6, 0.3)
         let mirrored = SIMD3<Double>(-0.5, 0.6, 0.3)
-        XCTAssertGreaterThan(simd_length(MonoclinicOrientationSymmetry.ipfColor(direction: d)
-            - MonoclinicOrientationSymmetry.ipfColor(direction: mirrored)), 0.2)
+        XCTAssertGreaterThan(simd_length(ACOMCrystalSymmetry.monoclinic.ipfColor(direction: d)
+            - ACOMCrystalSymmetry.monoclinic.ipfColor(direction: mirrored)), 0.2)
     }
 
     /// No seam: colour is continuous in azimuth across phi = 0 = 180 deg, and every group image
     /// of a dense sample gets the same colour.
     func testIPFKeyIsContinuousAtTheSeamAndInvariantOverADenseSample() {
-        let key = MonoclinicOrientationSymmetry.ipfColor(direction:)
+        let key = ACOMCrystalSymmetry.monoclinic.ipfColor(direction:)
         let t = 60.0 * .pi / 180
         func at(_ azDeg: Double) -> SIMD3<Float> {
             let a = azDeg * .pi / 180
@@ -415,7 +419,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     func testP4TheC2AmbiguityIsMergedByMonoclinicAndNotByIdentity() throws {
         let (plan, crystal) = try monoclinicPlan(count: 400)
         let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
-        let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
+        let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
         var rng = MonoclinicRNG(state: 0x853C49E6748FEA9B)
         var found = 0, scored = 0
         while scored < 60 {
@@ -476,7 +480,7 @@ final class MonoclinicOrientationTests: XCTestCase {
         var seconds: [Int: Double] = [:]
         for count in [200, 800] {
             let (plan, _) = try monoclinicPlan(count: count)
-            let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
+            let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
             _ = matcher.match(peaks: patterns[0], originX: 256, originY: 256, invAngstromPerPixel: 0.008)  // warm
             let start = Date()
             for _ in 0..<3 { for p in patterns { _ = matcher.match(peaks: p, originX: 256, originY: 256, invAngstromPerPixel: 0.008) } }
@@ -490,7 +494,7 @@ final class MonoclinicOrientationTests: XCTestCase {
     private func roundTripFraction(templates: Int, draws: Int, seed: UInt64) throws -> Double {
         let (plan, crystal) = try monoclinicPlan(count: templates)
         let reflections = try crystal.kinematicReflections(kMax: 1.2).kept
-        let matcher = try XCTUnwrap(OrientationMatcher(plan: plan, symmetry: .monoclinic))
+        let matcher = try XCTUnwrap(ACOMMatcher(library: plan.library))
         var rng = MonoclinicRNG(state: seed)
         var errors: [Double] = []
         while errors.count < draws {

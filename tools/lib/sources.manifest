@@ -229,7 +229,7 @@ mac4dstem_sources() {
       calibration)
         # Calibration.swift's ellipse transform is DiffractoKit's EllipseTransform (2026-10-15): every harness that
         # composes this group links DiffractoGeometry (kit_module, above); KIT_FLAGS ride in MAC4DSTEM_SOURCES.
-        kit_module "$repo" DiffractoKit DiffractoGeometry
+        kit_module "$repo" DiffractoKit DiffractoGeometry DiffractoOrientation
         want+=("${KIT_FLAGS[@]}")
         # CalibrationReReference's frame rules are CuboCore's FrameTransform (2026-10-20).
         kit_module "$repo" CuboKit CuboCore
@@ -318,7 +318,7 @@ mac4dstem_sources() {
         want+=("${KIT_FLAGS[@]}")
         kit_module "$repo" ImagoKit ImagoCore ImagoFFT   # FFT2D is ImagoKit's ImagoCore (2026-10-15); FFT1D is ImagoFFT's (0.1.1)
         want+=("${KIT_FLAGS[@]}")
-        kit_module "$repo" DiffractoKit DiffractoGeometry
+        kit_module "$repo" DiffractoKit DiffractoGeometry DiffractoOrientation
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" calibration
         want+=(
@@ -344,7 +344,7 @@ mac4dstem_sources() {
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
         kit_module "$repo" ImagoKit ImagoCore ImagoFFT   # FFT1D is ImagoFFT's (0.1.1)
         want+=("${KIT_FLAGS[@]}")
-        kit_module "$repo" DiffractoKit DiffractoGeometry
+        kit_module "$repo" DiffractoKit DiffractoGeometry DiffractoOrientation
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" readers analysis calibration
         want+=(
@@ -465,7 +465,7 @@ mac4dstem_sources() {
         # Crystal models and CIF import, no indexing (cif-symmetry-test,
         # acom-orientation-test).
         # The crystal side is DiffractoKit's since 2026-10-15 (cells, CIF, structure factors, zone axes).
-        kit_module "$repo" DiffractoKit DiffractoGeometry
+        kit_module "$repo" DiffractoKit DiffractoGeometry DiffractoOrientation
         want+=("${KIT_FLAGS[@]}")
         mac4dstem_sources "$repo" data
         want+=(
