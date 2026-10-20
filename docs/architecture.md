@@ -328,9 +328,8 @@ only under `all`; `inventory` fails on any directory not classified.
 Most harnesses are zsh `run.sh` scripts that compile a handful of production
 `Core/` sources with `xcrun swiftc`, sourcing `tools/lib/sources.manifest`
 first for a dependency-closed file list per named group (see "Project
-structure", above). One needing the HDF5 dylibs (FormatoKit's, in its pinned checkout, found by `tools/lib/hdf5-dir.sh`) copies and
-ad-hoc-codesigns them first, since the shipped copies won't validate
-for an unsigned tool; one needing GPU kernels compiles `Shaders/*.metal` to a
+structure", above). One needing libhdf5 (FormatoKit's three frameworks, assembled side by side from the SwiftPM artifacts by `tools/lib/hdf5-dir.sh`, ad-hoc
+signed already) points `MAC4DSTEM_HDF5_PATH` at `FormatoLibHDF5.framework/FormatoLibHDF5` there; one needing GPU kernels compiles `Shaders/*.metal` to a
 `default.metallib` by hand. `tools/harnesses/package-test/run.sh` runs a full
 `xcodebuild -configuration Release` at the release archive's own
 destination/architecture pin, because a prior gate on a generic destination
@@ -346,7 +345,8 @@ quietly stopped checking something looks like a passing gate.
 
 `H5Reader` and the session writer `dlopen` `libhdf5.dylib` and bind every
 symbol via `dlsym`, searching `MAC4DSTEM_HDF5_PATH` (harnesses), FormatoKit's copy in the app's
-`Contents/Resources/FormatoKit_FormatoHDF5.bundle` (`FormatoHDF5Library.bundledLibraryPath`), then dyld's bare-name lookup. The libraries
+`Contents/Frameworks/FormatoLibHDF5.framework` (`FormatoHDF5Library.bundledLibraryPath`; with FormatoLibSZ and FormatoLibAEC, embedded and signed
+with the app's identity by Xcode since FormatoKit 0.4.0), then dyld's bare-name lookup. The libraries
 are FormatoKit's, not the app's own. The app runs in the App Sandbox with user-selected
 read/write and app-scoped bookmarks. Release enables Hardened Runtime; local
 Debug builds leave it off so macOS accepts the separately signed closure.

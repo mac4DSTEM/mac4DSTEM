@@ -43,10 +43,9 @@ trap 'rm -rf "$WORK"' EXIT
 . "$(dirname "$0")/../../lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
-for lib in libhdf5 libsz.2 libaec.0; do
-  cp "$("$ROOT/tools/lib/hdf5-dir.sh")/$lib.dylib" "$WORK/"
-  codesign -f -s - "$WORK/$lib.dylib" 2>/dev/null
-done
+HDF5_FRAMEWORKS="$("$ROOT/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
+HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
 for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
   xcrun -sdk macosx metal -c "$source" -o "$WORK/${source:t:r}.air"
 done
@@ -60,7 +59,7 @@ xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
 cd "$WORK"
-MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" ./harness "${files[@]}" > report.json
+MAC4DSTEM_HDF5_PATH="$HDF5_LIB" ./harness "${files[@]}" > report.json
 if [[ -n "${MAC4DSTEM_REAL_REPORT_OUTPUT:-}" ]]; then
   cp report.json "$MAC4DSTEM_REAL_REPORT_OUTPUT"
 fi

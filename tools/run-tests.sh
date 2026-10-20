@@ -371,9 +371,10 @@ inventory() {
   # library under the same notice, and until 2026-09-09 NOTICE also promised
   # licence texts that were in no bundle and in no clone.
   echo "== redistributed binaries (NOTICE names and hashes each)"
-  # Since 2026-10-15 the app embeds none of its own: libhdf5, libsz and libaec are FormatoKit's, in FormatoHDF5's resource bundle,
-  # so the files checked are the pinned checkout's (`swift package resolve` puts it in .build/checkouts).
-  local dl sum hd="$ROOT/.build/checkouts/FormatoKit/Sources/FormatoHDF5/Resources/hdf5"
+  # Since 2026-10-15 the app embeds none of its own: libhdf5, libsz and libaec are FormatoKit's. Since FormatoKit 0.4.0 they ship as
+  # the frameworks FormatoLibHDF5, FormatoLibSZ and FormatoLibAEC (the same three files with install names and load commands rewritten),
+  # so the files whose hashes NOTICE states are the pinned checkout's vendored originals (`swift package resolve` puts it in .build/checkouts).
+  local dl sum hd="$ROOT/.build/checkouts/FormatoKit/tools/xcframework/vendored"
   [[ -d "$hd" ]] || { echo "  NOT CHECKED  no FormatoKit checkout ($hd); run swift package resolve"; rc=1; }
   for dl in "$hd"/*.dylib(N); do
     dl="${dl:t}"; sum="$(shasum -a 256 "$hd/$dl" | cut -d' ' -f1)"

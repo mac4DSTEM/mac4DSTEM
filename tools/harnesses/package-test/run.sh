@@ -34,8 +34,9 @@ xcodebuild \
   build -quiet
 
 APP="$WORK/DerivedData/Build/Products/Release/mac4DSTEM.app"
-# The app embeds none of its own HDF5 libraries since 2026-10-15: they are FormatoKit's, in FormatoHDF5's resource bundle.
-FRAMEWORKS="$APP/Contents/Resources/FormatoKit_FormatoHDF5.bundle/Contents/Resources/hdf5"
+# The app embeds none of its own HDF5 libraries since 2026-10-15: they are FormatoKit's (0.4.0) three frameworks, which Xcode embeds in
+# Contents/Frameworks and signs with the app's identity (the resource bundle FormatoKit_FormatoHDF5.bundle of 0.3.0 is gone).
+FRAMEWORKS="$APP/Contents/Frameworks"
 EXECUTABLE="$APP/Contents/MacOS/mac4DSTEM"
 INFO="$APP/Contents/Info.plist"
 
@@ -78,16 +79,20 @@ for document in LICENSE NOTICE; do
 done
 grep -q 'GNU GENERAL PUBLIC LICENSE' "$APP/Contents/Resources/LICENSE"
 
-for library in libhdf5.dylib libsz.2.dylib libaec.0.dylib; do
-  test -f "$FRAMEWORKS/$library"
-  codesign --verify --strict "$FRAMEWORKS/$library"
-  if otool -L "$FRAMEWORKS/$library" | grep -Eq '/opt/homebrew|/usr/local'; then
+for library in FormatoLibHDF5 FormatoLibSZ FormatoLibAEC; do
+  test -f "$FRAMEWORKS/$library.framework/$library"
+  codesign --verify --strict "$FRAMEWORKS/$library.framework"
+  if otool -L "$FRAMEWORKS/$library.framework/$library" | grep -Eq '/opt/homebrew|/usr/local'; then
     echo "FAIL: $library retains a machine-local dependency" >&2
     exit 1
   fi
 done
-otool -L "$FRAMEWORKS/libhdf5.dylib" | grep -q '@loader_path/libsz.2.dylib'
-otool -L "$FRAMEWORKS/libhdf5.dylib" | grep -q '@loader_path/libaec.0.dylib'
+# libhdf5 finds libsz and libaec by @rpath, and its rpath (@loader_path/../../..) is the Frameworks folder holding all three.
+otool -L "$FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5" | grep -q '@rpath/FormatoLibSZ.framework/Versions/A/FormatoLibSZ'
+otool -L "$FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5" | grep -q '@rpath/FormatoLibAEC.framework/Versions/A/FormatoLibAEC'
+otool -l "$FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5" | grep -q '@loader_path/../../..'
+# The 0.3.0 resource bundle must not come back.
+test ! -e "$APP/Contents/Resources/FormatoKit_FormatoHDF5.bundle"
 if otool -L "$EXECUTABLE" | grep -Eq '/opt/homebrew|/usr/local'; then
   echo "FAIL: app executable retains a machine-local dependency" >&2
   exit 1
@@ -114,7 +119,7 @@ fi
 cc -Wall -Wextra -Werror hdf5_smoke.c -o "$WORK/hdf5_smoke"
 env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH \
   "$WORK/hdf5_smoke" \
-  "$FRAMEWORKS/libhdf5.dylib" \
+  "$FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5" \
   "$REPO/tools/harnesses/calibration-test/real_py4dstem.h5"
 
 echo "PASS: hardened sandbox entitlements and nested signatures"

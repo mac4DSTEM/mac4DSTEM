@@ -3150,7 +3150,7 @@ nonisolated private struct HDF5WriteLibrary: @unchecked Sendable {
     private static func candidateLibraryPaths() -> [String] {
         [
             ProcessInfo.processInfo.environment["MAC4DSTEM_HDF5_PATH"],
-            FormatoHDF5Library.bundledLibraryPath,   // FormatoKit's copy, the one the app ships (see H5Reader)
+            FormatoHDF5Library.bundledLibraryPath,   // FormatoKit's FormatoLibHDF5.framework, the one the app embeds (see H5Reader)
             "libhdf5.dylib"
         ].compactMap { $0 }
     }

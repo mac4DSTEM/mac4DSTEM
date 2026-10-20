@@ -106,8 +106,9 @@ MAC4DSTEM_ISOLATION_FLAGS=(
 # inputs like any source. A wrong revision rebuilds; a failed build exits 65, loudly.
 # SPECTROKIT_BUNDLE is the EDX tables' resource bundle (SpectroKit_SpectroEDX.bundle): a harness that reads
 # QuantificationTables copies it beside its binary (Bundle.module looks there and traps otherwise).
-# FORMATOKIT_BUNDLE is FormatoHDF5's (FormatoKit_FormatoHDF5.bundle, with its three libhdf5 dylibs); the reader harnesses
-# keep MAC4DSTEM_HDF5_PATH on their own ad-hoc-signed copies of the repo's dylibs, which the lookup tries first.
+# libhdf5 is not in the prelinked objects (FormatoKit 0.4.0 ships it as three framework binary targets, which an object build does not link):
+# the reader harnesses point both MAC4DSTEM_HDF5_PATH (read by the app's H5Reader and BraggVectorEMDWriter) and FORMATO_HDF5_PATH (read by FormatoKit's
+# own loaders: FormatoHDF5's shared lookup and the Velox reader) at FormatoLibHDF5.framework from tools/lib/hdf5-dir.sh; each lookup tries its variable first.
 spectrokit_module() {
   local repo=$1
   local ck="$repo/.build/checkouts/SpectroKit" fck="$repo/.build/checkouts/FormatoKit" scratch="$repo/.build/spectrokit-tools"
@@ -127,8 +128,16 @@ spectrokit_module() {
   fi
   local prod="$scratch/out/Products/Release" t
   if [[ "$(cat "$scratch/.pin" 2>/dev/null)" != "$pin $fpin" || ! -f "$prod/SpectroEDX.o" || ! -f "$prod/FormatoHDF5.o" ]]; then
+    # SpectroKit's own Package.resolved names the FormatoKit it was released with (0.6.1: 0.3.0), but its manifest accepts 0.3.0..<0.5.0.
+    # The harnesses must test the FormatoKit the app ships (the pin here, 0.4.0), so SpectroKit is built from a writable copy of the
+    # pinned checkout whose Package.resolved is moved to that revision (the checkout itself is read-only and stays as SwiftPM left it).
+    local src="$repo/.build/spectrokit-tools-src"
+    rm -rf "$src"; ditto "$ck" "$src"; chmod -R u+w "$src"
+    swift package --package-path "$src" --scratch-path "$scratch" resolve >&2 \
+      && swift package --package-path "$src" --scratch-path "$scratch" resolve FormatoKit --revision "$fpin" >&2 \
+      || { echo "sources.manifest: resolving FormatoKit $fpin for SpectroKit $pin failed" >&2; exit 65; }
     for t in SpectroCore SpectroEDX; do
-      swift build -c release --build-system swiftbuild --package-path "$ck" --scratch-path "$scratch" --target "$t" >&2 \
+      swift build -c release --build-system swiftbuild --package-path "$src" --scratch-path "$scratch" --target "$t" >&2 \
         || { echo "sources.manifest: building SpectroKit $pin ($t) failed" >&2; exit 65; }
     done
     # The Formato objects came from the clone SpectroKit's manifest fetched into the scratch: it must be the pinned one,
@@ -144,7 +153,6 @@ spectrokit_module() {
     "$prod/SpectroCore.o" "$prod/SpectroEDX.o" "$prod/CSpectroLAPACK.o"
     "$prod/FormatoCore.o" "$prod/FormatoDM.o" "$prod/FormatoEMD.o" "$prod/FormatoHDF5.o")
   SPECTROKIT_BUNDLE="$prod/SpectroKit_SpectroEDX.bundle"
-  FORMATOKIT_BUNDLE="$prod/FormatoKit_FormatoHDF5.bundle"
 }
 
 # kit_module <repo-root> <Kit> <target>... (2026-10-15): DiffractoKit and CuboKit as SpectroKit above, for any kit

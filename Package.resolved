@@ -1,5 +1,5 @@
 {
-  "originHash" : "115372b30be358a2633dc7a92d1306fe220b5bf8294ca2bb14825ec15d430170",
+  "originHash" : "f55d77922dbfde4c20768e26cd925abe437618a262c98d376659aa005d88dc87",
   "pins" : [
     {
       "identity" : "cubokit",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/FormatoKit",
       "state" : {
-        "revision" : "8332b0332580aa0541a9bc8c13805326779f88db",
-        "version" : "0.3.0"
+        "revision" : "0d0a200d066bf8b5f1d69b36a8fc96f56a6b0d10",
+        "version" : "0.4.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mac4DSTEM/SpectroKit",
       "state" : {
-        "revision" : "71aa96a7fe2b6c4660babccf46650e83032e8914",
-        "version" : "0.6.0"
+        "revision" : "7afed6796a9a8b29f43337b08dec0f1459bfc7f9",
+        "version" : "0.6.1"
       }
     }
   ],

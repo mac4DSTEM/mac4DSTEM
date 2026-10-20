@@ -145,9 +145,11 @@ The full license text for each ships in the application bundle at
 `Contents/Resources/Licenses/`, from the `Licenses/` directory in this
 repository. Verified in a built bundle on 2026-09-09, not assumed.
 
-Identity of the three binaries (FormatoKit's FormatoHDF5 resource since 2026-10-15; the repo no longer commits them, and
-`tools/run-tests.sh inventory` checks the pinned checkout's copies against these hashes), so that what is redistributed is
-stated rather than described. SHA-256, byte size, and the `LC_ID_DYLIB` current
+Identity of the three binaries (FormatoKit's since 2026-10-15; the repo does not commit them, and
+`tools/run-tests.sh inventory` checks the vendored originals in the pinned FormatoKit checkout against these hashes), so that
+what is redistributed is stated rather than described. Since FormatoKit 0.4.0 the app ships the same code as the dynamic frameworks
+FormatoLibHDF5, FormatoLibSZ and FormatoLibAEC in `Contents/Frameworks` (only the install names and the load commands between them are
+rewritten, so the framework files hash differently), signed with the app's identity at build time. SHA-256, byte size, and the `LC_ID_DYLIB` current
 version each binary declares:
 
     libhdf5.dylib   d3789c224e6664cd487016a7ef5e71005984f8a04f69a7f643fcdf0332a33491
@@ -159,7 +161,7 @@ version each binary declares:
     libsz.2.dylib   2621662e6a3550c5d5f0349146baaa8b85964a25d573a0a2d4b571b14ae8a521
                     53 088 B, current version 3.1.0; built with libaec above
 
-These are FormatoKit 0.2.1's rebuild (arm64, minos 15.0; HDF5 2.1.1 with libaec 1.1.7), pinned from FormatoKit 0.3.0; the recipe and
+These are FormatoKit 0.2.1's rebuild (arm64, minos 15.0; HDF5 2.1.1 with libaec 1.1.7), pinned from FormatoKit 0.3.0 and, repackaged as frameworks, from 0.4.0; the recipe and
 sources are in FormatoKit's NOTICE ("HDF5, libaec and libsz (shipped)"). Until the pin moved to FormatoKit 0.3.0 they were Homebrew
 builds of 2026-08-25 (hashes in git history). No load command in any of the three names an absolute path. The license texts here
 were taken from those two Homebrew installations.

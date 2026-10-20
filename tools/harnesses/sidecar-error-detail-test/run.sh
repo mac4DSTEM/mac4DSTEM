@@ -11,10 +11,9 @@ trap 'chmod -R u+rwX "$WORK" 2>/dev/null; rm -rf "$WORK"' EXIT
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
-for library in libhdf5 libsz.2 libaec.0; do
-  cp "$("$REPO/tools/lib/hdf5-dir.sh")/$library.dylib" "$WORK/"
-  codesign -f -s - "$WORK/$library.dylib" 2>/dev/null
-done
+HDF5_FRAMEWORKS="$("$REPO/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
+HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
 
 . "$REPO/tools/lib/sources.manifest"
 mac4dstem_sources "$REPO" export
@@ -23,7 +22,7 @@ xcrun swiftc -package-name mac4DSTEM -o "$WORK/harness" main.swift \
   -framework Accelerate -framework Metal
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
-export MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib"
+export MAC4DSTEM_HDF5_PATH="$HDF5_LIB"
 
 # Case A — a POSIX-unreadable file (EACCES).
 "$WORK/harness" "$WORK" posix

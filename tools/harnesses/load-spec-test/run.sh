@@ -15,13 +15,11 @@ resolve_mac4dstem_python "$REPO"
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
-# The bundled dylibs' signatures don't validate for ad-hoc-built tools; use
-# ad-hoc-signed copies in the temp dir instead of touching the repo files.
+# libhdf5 is FormatoKit's framework (already ad-hoc signed), loaded in place: nothing is copied or re-signed.
 # (Same reason as tools/harnesses/calibration-test.)
-for l in libhdf5 libsz.2 libaec.0; do
-  cp "$("$REPO/tools/lib/hdf5-dir.sh")/$l.dylib" "$WORK/"
-  codesign -f -s - "$WORK/$l.dylib" 2>/dev/null
-done
+HDF5_FRAMEWORKS="$("$REPO/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
+HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
 
 "$PYTHON_BIN" reference.py "$WORK"
 
@@ -41,7 +39,7 @@ xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
-# H5Reader's last dlopen fallback is the plain name "libhdf5.dylib"; run from
-# the temp dir so it resolves to the signed copy.
+# H5Reader finds libhdf5 through MAC4DSTEM_HDF5_PATH (FormatoKit's framework, see tools/lib/hdf5-dir.sh).
+export MAC4DSTEM_HDF5_PATH="$HDF5_LIB"
 cd "$WORK"
 ./harness "$WORK"

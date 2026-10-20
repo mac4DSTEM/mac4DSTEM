@@ -221,9 +221,10 @@ enum SidecarPatcher {
         for index in 0..<_dyld_image_count() {
             guard let cName = _dyld_get_image_name(index) else { continue }
             let path = String(cString: cName)
-            // `libhdf5_hl` shares the prefix; the H5Fopen probe skips it.
-            guard (path as NSString).lastPathComponent.hasPrefix("libhdf5"),
-                  path.hasSuffix(".dylib"),
+            // FormatoKit 0.4.0 ships libhdf5 as the framework binary FormatoLibHDF5; `libhdf5_hl` (a .dylib) shares the
+            // old prefix, and the H5Fopen probe skips it.
+            let name = (path as NSString).lastPathComponent
+            guard name == "FormatoLibHDF5" || (name.hasPrefix("libhdf5") && path.hasSuffix(".dylib")),
                   let handle = dlopen(path, RTLD_NOW | RTLD_NOLOAD),
                   dlsym(handle, "H5Fopen") != nil else { continue }
             return handle

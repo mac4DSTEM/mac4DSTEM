@@ -34,10 +34,9 @@ resolve_mac4dstem_developer_dir
 # HDF5Types (the lock); `readers` adds DemoFourDDataSource, the cube's source.
 mac4dstem_sources "$REPO" readers export
 
-for lib in libhdf5 libsz.2 libaec.0; do
-  cp "$("$REPO/tools/lib/hdf5-dir.sh")/$lib.dylib" "$WORK/"
-  codesign -f -s - "$WORK/$lib.dylib" 2>/dev/null
-done
+HDF5_FRAMEWORKS="$("$REPO/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
+HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
 
 xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -o "$WORK/probe" \
   main.swift \
@@ -47,7 +46,7 @@ xcrun swiftc -O -package-name mac4DSTEM -parse-as-library -o "$WORK/probe" \
   -Xcc -DACCELERATE_NEW_LAPACK
 codesign -f -s - "$WORK/probe" 2>/dev/null
 
-export MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib"
+export MAC4DSTEM_HDF5_PATH="$HDF5_LIB"
 CUBE="$WORK/cube.h5"
 "$WORK/probe" make "$CUBE"
 

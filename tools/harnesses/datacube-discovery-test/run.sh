@@ -13,11 +13,10 @@ resolve_mac4dstem_python "$REPO"
 . "$REPO/tools/lib/developer-dir.sh"
 resolve_mac4dstem_developer_dir
 
-# Ad-hoc-signed copies of the bundled dylibs, as every reader harness does.
-for l in libhdf5 libsz.2 libaec.0; do
-  cp "$("$REPO/tools/lib/hdf5-dir.sh")/$l.dylib" "$WORK/"
-  codesign -f -s - "$WORK/$l.dylib" 2>/dev/null
-done
+# libhdf5 is FormatoKit's framework (already ad-hoc signed), loaded in place, as in every reader harness.
+HDF5_FRAMEWORKS="$("$REPO/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
+HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
 
 "$PYTHON_BIN" reference.py "$WORK/fixtures"
 
@@ -28,4 +27,4 @@ xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
   -framework Accelerate -framework Metal -framework MetalKit
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
-MAC4DSTEM_HDF5_PATH="$WORK/libhdf5.dylib" "$WORK/harness" "$WORK/fixtures"
+MAC4DSTEM_HDF5_PATH="$HDF5_LIB" "$WORK/harness" "$WORK/fixtures"

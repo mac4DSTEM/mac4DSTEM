@@ -245,9 +245,9 @@ nonisolated private struct HDF5Library: @unchecked Sendable {
     }
 
     private static func candidateLibraryPaths() -> [String] {
-        // The app is self-contained: libhdf5 is FormatoKit's, shipped in the resource bundle of FormatoHDF5 (the app no
-        // longer embeds its own copies; 2026-10-15), so the reader, the sidecar writer and FormatoKit's Velox reader all
-        // map the same single file. The environment override and bare-name fallback exist only for standalone source harnesses.
+        // The app is self-contained: libhdf5 is FormatoKit's, the FormatoLibHDF5 framework (with FormatoLibSZ and FormatoLibAEC) that Xcode
+        // embeds in Contents/Frameworks and signs with the app's identity (FormatoKit 0.4.0; the app embeds no copies of its own), so the
+        // reader, the sidecar writer and FormatoKit's Velox reader all map the same single file. The environment override and bare-name fallback exist only for standalone source harnesses.
         [
             ProcessInfo.processInfo.environment["MAC4DSTEM_HDF5_PATH"],
             FormatoHDF5Library.bundledLibraryPath,

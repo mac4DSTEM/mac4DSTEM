@@ -21,10 +21,12 @@ let package = Package(
     // Standalone EDX (fit, quantification, the spectrum image) lives in SpectroKit since S4 (ADR 064); the file readers
     // (DM4, Velox EMD) and the one HDF5 lock are FormatoKit's since SpectroKit 0.4.0 (2026-10-15). The two pins move
     // TOGETHER and never apart: a process that linked an older SpectroKit's HDF5Serial beside FormatoKit's would have
-    // two locks around one libhdf5 that is not thread-safe. Exact: a new tag is a deliberate bump, gated like any other change.
+    // two locks around one libhdf5 that is not thread-safe. SpectroKit 0.6.1 is the first whose range (FormatoKit 0.3.0..<0.5.0) takes
+    // FormatoKit 0.4.0, which ships libhdf5 as three dynamic-framework XCFrameworks (FormatoLibHDF5, FormatoLibSZ, FormatoLibAEC) that Xcode
+    // embeds in Contents/Frameworks and signs with the app's identity. Exact: a new tag is a deliberate bump, gated like any other change.
     dependencies: [
-        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.6.0"),
-        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.3.0"),
+        .package(url: "https://github.com/mac4DSTEM/SpectroKit", exact: "0.6.1"),
+        .package(url: "https://github.com/mac4DSTEM/FormatoKit", exact: "0.4.0"),
         // The crystallography (cells, CIF, structure factors, the ring and ellipse fit) is DiffractoKit's and the 4D core
         // (virtual imaging, mean and max, centre of mass, origins) CuboKit's since 2026-10-15; exact tags, bumped on purpose.
         .package(url: "https://github.com/mac4DSTEM/DiffractoKit", exact: "0.4.0"),

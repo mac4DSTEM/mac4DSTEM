@@ -17,8 +17,8 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
   not built. FriedelOrigin and BeamstopMask are the kit's since 2026-10-16; the app's ProbeKernel still shadows the kit's, and adopting that moves
   disk detection. A negative radius now gives an empty image (was a |r| mask). A resident-cube image costs
   0.08 s (was ≤ 0.02 s) until CuboKit 0.2.1's zero-copy source.
-- **HDF5 signing (release blocker)**: the three dylibs now ship inside FormatoKit's resource bundle, ad-hoc signed; a
-  Hardened Runtime build (Release) cannot load them (measured on a stand-in), Develop and Debug can. Owner's choice.
+- **HDF5 signing**: answered by FormatoKit 0.4.0 (pinned 2026-10-20): the three libraries are frameworks Xcode embeds in
+  Contents/Frameworks and signs with the app's identity. Open: the Developer ID archive proof (Hardened Runtime load, notarisation).
 - **DiffractoKit 0.1.0**: `requireRingEvidence` stays off on the detector ellipse (owner's card with the annulus guard). The
   kit holds the full pre-cut list: a 30 Å cell at kMax 2.5 peaks ~800 MB (kit ask). The polar ±c of a 6mm structure is
   invisible to the kinematic map: never claimed.
@@ -392,7 +392,7 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   so they compile only against a testable (Debug) SpectroKit; a later tag could make those public. The Run configuration's
   name `Develop` is what makes Xcode build the kits optimised (an undocumented mapping; the pre-push hook checks SpectroCore and FormatoEMD).
   `../_archive/mac4DSTEM/tools/velox-parity`, `edx-pins`, `demo-edx`, `autoid-velox-check` read the pinned checkouts (SpectroKit 0.4.0 + FormatoKit 0.0.3, 2026-10-15; `autoid-velox-check --replay` is off there: `LineConflict.init` is internal in SpectroEDX, a public initialiser is SpectroKit's to add).
-  The app's own root dylibs are removed (owner, 2026-10-15 14:44): FormatoKit's `FormatoKit_FormatoHDF5.bundle` (three ad-hoc-signed dylibs in `Resources/`) is the only libhdf5, and a hardened-runtime app cannot dlopen it unsigned (library validation, measured on a stand-in): how to sign it for shipping is the owner's open decision.
+  The app's own root dylibs are removed (owner, 2026-10-15 14:44): FormatoKit's libhdf5 is the only one. Answered by FormatoKit 0.4.0 (2026-10-20): it ships as the frameworks FormatoLibHDF5, FormatoLibSZ and FormatoLibAEC, which Xcode embeds in `Contents/Frameworks` and signs with the app's identity, so a hardened-runtime app loads them (no owner decision left; the Developer ID archive is still to be run).
 - **Stale VoiceOver values (drives 8, 9, 13, 14), fixed 2026-10-13:** `.textSelection(.enabled)` wraps a Text in an outer element
   whose value never updates (measured on a scratch app); `selectableText(_:)` gives it an explicit value (inspector value rows,
   aberration coefficients, provenance values and differences). Four dimmed buttons now give their reason. Not yet re-read on screen.
