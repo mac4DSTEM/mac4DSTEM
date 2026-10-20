@@ -43,6 +43,7 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
 - **ParallaxAlignment is a CuboKit ask, not an ImagoKit switch** (2026-10-15 night): it correlates a running-average reference
   spectrum with the raw cross-power and py4DSTEM's subpixel DFT, and shifts in Float; ImagoAlignment is scikit-image's
   normalised image-pair registration in Double. FFT1D is `ImagoFFT.FFT1D` (ACOM's ring FFTs, now inside DiffractoKit's `ACOMTemplateLibrary`/`ACOMMatcher`).
+- **`hdf5-exit-race-test` flake** (2026-10-20): in the batch-2 scientific gate (heavy load: nine lanes and two gates on 16 jobs) 1 of 200 race runs ended with status 70, which none of the probe's own exits (0, 2, 3) produce; 1200 reruns the same evening (600 on batch 2, 600 on `dc203ece`) were clean. Not caused by that batch (no HDF5 change). Cause open; rerun the harness alone before treating a single abnormal run as a regression.
 - **Test-run traps** (2026-10-15 night): `KitSwitchFreezeTests`' preset digests pass in the full parallel suite and fail when the
   class runs alone, even at DiffractoKit 0.1.0 (per-reflection values are identical: a run-context dependence, cause open);
   `sources.manifest`'s `kit_module` links every `*.o` in `.build/<kit>-tools`, so objects left by another pin break the link
