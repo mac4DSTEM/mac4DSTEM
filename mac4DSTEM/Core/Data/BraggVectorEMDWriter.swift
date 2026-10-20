@@ -66,6 +66,8 @@ package nonisolated enum BraggVectorEMDWriter {
     package enum WriterError: LocalizedError {
         case cancelled
         case invalidDimensions(String)
+        /// The hot-pixel filter met a NaN or infinite pixel (or threshold); CuboCore's filter refuses them.
+        case hotPixelFilterNeedsFinitePixels
         case libraryUnavailable(String)
         case symbolMissing(String)
         case hdf5(String)
@@ -88,6 +90,9 @@ package nonisolated enum BraggVectorEMDWriter {
             switch self {
             case .cancelled:
                 return "The sidecar operation was cancelled."
+            case .hotPixelFilterNeedsFinitePixels:
+                return "The hot-pixel filter cannot run: the exported pixels include a value that is not finite (NaN or infinity). "
+                    + "Switch the hot-pixel filter off or crop away non-finite pixels."
             case .invalidDimensions(let detail):
                 return "Cannot write or load the sidecar: \(detail)"
             case .libraryUnavailable(let detail):

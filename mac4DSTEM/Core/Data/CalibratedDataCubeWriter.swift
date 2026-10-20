@@ -107,7 +107,7 @@ nonisolated extension BraggVectorEMDWriter {
             do {
                 flags = try HotPixelFilter.mask(mean: mean, rows: outQY, columns: outQX, threshold: threshold)
             } catch {
-                throw WriterError.invalidDimensions("the hot-pixel mask needs a finite threshold and finite pixels")
+                throw WriterError.hotPixelFilterNeedsFinitePixels
             }
             hotPixels = flags.indices.filter { flags[$0] }.map { [$0 / outQX, $0 % outQX] }
         }
@@ -498,7 +498,7 @@ nonisolated extension BraggVectorEMDWriter {
         do {
             cleaned = try HotPixelFilter.replacing(Array(pixels[range]), rows: rows, columns: columns, mask: mask)
         } catch {
-            throw WriterError.invalidDimensions("the hot-pixel filter needs finite pixels")
+            throw WriterError.hotPixelFilterNeedsFinitePixels
         }
         pixels.replaceSubrange(range, with: cleaned)
     }

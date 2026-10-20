@@ -244,5 +244,69 @@ func fail(_ message: String) -> Never {
             expect(e1.shape == [1, 50, 200, 4] && e1.storedRank == 3, "e1 \(e1.shape)")
             print("PASS: rank-4, canonical rank-3, non-canonical rank-3 (with its own R/Q dims) and unlabelled rank-3 files open as before")
         }
+
+        // f1 — a float16 cube still reads: the kit's reader refuses the type, the shim converts it (values are exact small integers).
+        do {
+            let (reader, d) = await discover("f1_float16.h5")
+            expect(d.shape == [3, 4, 6, 5] && d.dtypeDescription == "float16", "f1 \(d.shape) \(d.dtypeDescription)")
+            expect(await firstPixel(reader, d, ry: 1, rx: 2) == 180, "f1 pixels")
+            let tile = try! await reader.readScanTile(LoadView(fullExtentOf: d), yRange: 1..<3)
+            expect(tile.pixels.count == 2 * 4 * 30 && tile.pixels[0] == 120 && tile.pixels.last == 359, "f1 tile")
+            print("PASS: a float16 datacube reads through libhdf5's conversion (kit ask recorded)")
+        }
+
+        // f2 — float16 scalars and an origin map are read (the kit refuses float16), not silently dropped.
+        do {
+            let (reader, _) = await discover("f2_float16_calibration.h5")
+            let calibration = await reader.pixelCalibration()
+            expect(calibration?.qSize == 0.25 && calibration?.rSize == 2.0, "f2 scalars \(String(describing: calibration))")
+            expect(calibration?.originMaps?.fittedQX == [Double](repeating: 1.5, count: 6)
+                   && calibration?.originMaps?.fittedQY == [Double](repeating: 2.5, count: 6), "f2 origin maps")
+            print("PASS: float16 calibration scalars and origin maps are read through libhdf5's conversion")
+        }
+
+        // g1 — every stored type reads as the numpy float32 cast of it, bit for bit (signed and unsigned widths, 64-bit beyond float
+        // precision, float64, big-endian).
+        do {
+            let reader = open("g1_dtypes.h5")
+            for name in ["int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float32", "float64", "uint16_be", "float64_be"] {
+                let d: DatasetDescriptor
+                do { d = try await reader.describe(path: "/" + name) } catch { fail("g1 \(name): \(error)") }
+                let tile: FourDScanTile
+                do { tile = try await reader.readScanTile(LoadView(fullExtentOf: d), yRange: 0..<d.ry) } catch { fail("g1 \(name): read \(error)") }
+                guard let expected = FileManager.default.contents(atPath: root.appendingPathComponent("g1_" + name + ".f32").path) else {
+                    fail("g1 \(name): no expected file")
+                }
+                let got = tile.pixels.withUnsafeBytes { Data($0) }
+                expect(got == expected, "g1 \(name): pixels differ from numpy's float32 cast (\(d.dtypeDescription))")
+            }
+            print("PASS: int8 .. uint64, float32, float64 and big-endian datasets read as numpy's float32 cast, bit for bit")
+        }
+
+        // h1 — soft links that loop back up the tree do not trap the link walk.
+        do {
+            let (_, d) = await discover("h1_soft_link_cycle.h5")
+            expect(d.datasetPath == "/lab/scan/cube/data" && d.shape == [3, 4, 6, 5], "h1 chose \(d.datasetPath) \(d.shape)")
+            print("PASS: a soft-link cycle ends the link walk and the cube is still found")
+        }
+
+        // f3 — float16 attributes are read too.
+        do {
+            let (reader, _) = await discover("f3_float16_attributes.h5")
+            let calibration = await reader.pixelCalibration()
+            expect(calibration?.qSize == 0.25 && calibration?.rSize == 2.0, "f3 \(String(describing: calibration))")
+            print("PASS: float16 calibration attributes are read")
+        }
+
+        // i1..i3 — the link walk follows H5Lvisit2: object identity, not names.
+        do {
+            let (_, a) = await discover("i1_repeated_names.h5")
+            expect(a.datasetPath == "/a/data/data/data/data" && a.shape == [3, 4, 6, 5], "i1 chose \(a.datasetPath)")
+            let (_, b) = await discover("i2_hard_link_cycle.h5")
+            expect(b.datasetPath == "/lab/scan/cube/data" && b.shape == [3, 4, 6, 5], "i2 chose \(b.datasetPath)")
+            let (_, c) = await discover("i3_hard_link_alias.h5")
+            expect(c.datasetPath == "/0a/cube/data", "i3 chose \(c.datasetPath), H5Lvisit2 would enter the group at /0a first")
+            print("PASS: repeated group names are walked; a hard-link cycle ends; an aliased group is listed at its first path")
+        }
     }
 }

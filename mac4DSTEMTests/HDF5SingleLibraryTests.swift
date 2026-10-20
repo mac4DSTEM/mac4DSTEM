@@ -4,8 +4,9 @@
 //  libhdf5 / libsz / libaec of its own (owner 2026-10-15): the only copies are FormatoKit's three dynamic frameworks FormatoLibHDF5,
 //  FormatoLibSZ and FormatoLibAEC, which Xcode embeds in `Contents/Frameworks` and signs with the app's identity. libhdf5 is built Threadsafety OFF, so a process that mapped two copies
 //  would have two libraries (and two sets of global state) behind the one `HDF5Serial` lock. The app's own `H5Reader` /
-//  `BraggVectorEMDWriter` and FormatoKit's Velox reader each `dlopen` by their own lookup list; this runs both and lists what
-//  dyld mapped.
+//  `BraggVectorEMDWriter`, `H5Reader`'s `HDF5LegacyProbe` (the chunk shape of a dataset; it dlopens by itself) and FormatoKit's HDF5Reader and
+//  Velox reader all use ONE candidate list (`HDF5LibraryCandidates`, FormatoKit's `SharedHDF5.loadStandard` order); this runs each of them
+//  and lists what dyld mapped.
 //
 //  The test host IS the app (mac4DSTEM.app, hosted XCTest), so the running app's bundle is the one checked.
 //
@@ -34,9 +35,9 @@ final class HDF5SingleLibraryTests: XCTestCase {
 
     /// After the app's writer AND FormatoKit's Velox reader have both entered libhdf5, exactly one copy of each of the three
     /// libraries is mapped, and it is the one in the app's `Contents/Frameworks` (FormatoLibHDF5, FormatoLibSZ, FormatoLibAEC).
-    /// Mutation it catches: either reader resolving to another copy (a stray libhdf5 on the loader path, or `MAC4DSTEM_HDF5_PATH`
-    /// pointing one reader at a copy outside the app's frameworks after the other loaded theirs: two libhdf5 images, and this fails).
-    func testOnlyTheFormatoFrameworksCopyOfLibhdf5IsMappedAfterBothReadersRan() throws {
+    /// Mutation it catches: either reader resolving to another copy (a stray libhdf5 on the loader path, or a lookup that resolves differently
+    /// from FormatoKit's, e.g. the shim or the writer ignoring `FORMATO_HDF5_PATH`, after the other loaded theirs: two libhdf5 images, and this fails).
+    func testOnlyTheFormatoFrameworksCopyOfLibhdf5IsMappedAfterBothReadersRan() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("hdf5-single-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -47,6 +48,22 @@ final class HDF5SingleLibraryTests: XCTestCase {
                                            ellipseA: 1.01, ellipseB: 0.99, ellipseTheta: 0.2)
         try BraggVectorEMDWriter.mergeCalibration(calibration, qWidth: 64, qHeight: 64, to: sidecar)
         XCTAssertNotNil(try BraggVectorEMDWriter.loadSession(from: sidecar).calibration, "the writer's file reads back through the same library")
+
+        // 1b. The app's reader on a CHUNKED file: H5Reader.describe reads the chunk shape through HDF5LegacyProbe, which loads libhdf5 by
+        // itself. The export below writes a chunked cube (one pattern per chunk).
+        let cube = directory.appendingPathComponent("chunked.h5")
+        let demo = DemoFourDDataSource()
+        let demoDescriptor = try await demo.discoverPrimaryDataset()
+        _ = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+            source: demo, view: LoadView(fullExtentOf: demoDescriptor), calibration: PixelCalibration(),
+            options: CalibratedDataCubeExportOptions(scanY: 0..<4, scanX: 0..<4), to: cube)
+        let chunkedReader = try H5Reader(path: cube.path)
+        let described = try await chunkedReader.discoverPrimaryDataset()
+        XCTAssertEqual(described.chunkShape, [1, 1, 64, 64], "the shim read the chunk shape")
+        // ... and a pattern read, which holds its own file handle (HDF5SlabFile) on the same library.
+        let pattern = try await chunkedReader.readPattern(LoadView(fullExtentOf: described), ry: 1, rx: 2)
+        XCTAssertEqual(pattern.count, 64 * 64)
+        XCTAssertTrue(pattern.allSatisfy(\.isFinite))
 
         // 2. FormatoKit's entry: the Velox reader opens the committed fixture through its own lookup.
         let velox = Self.fixtures.appendingPathComponent("velox-tiny.emd").path

@@ -76,10 +76,61 @@ final class PreprocessExportTests: XCTestCase {
         XCTAssertEqual(two[4], 0)
     }
 
+    /// A source with a NaN in every tile: the hot-pixel filter refuses it with its own error and a remedy, before anything is
+    /// published; the same export with the filter off writes it.
+    func testANaNSourceRefusesTheHotPixelFilterWithARemedy() async throws {
+        actor NaNSource: FourDDataSource {
+            func discoverPrimaryDataset() throws -> DatasetDescriptor { PreprocessFixtureSource.descriptor }
+            nonisolated func loadPushdown(for view: LoadView) -> LoadPushdown { .none }
+            private func pattern(_ view: LoadView, y: Int, x: Int) -> [Float] {
+                let d = PreprocessFixtureSource.descriptor
+                var pixels = (0..<(d.qy * d.qx)).map { Float(($0 + y * 7 + x * 3) % 11) }
+                pixels[0] = .nan
+                return view.detectorView(of: pixels)
+            }
+            func readPattern(_ view: LoadView, ry: Int, rx: Int) throws -> [Float] {
+                pattern(view, y: view.sourceScanY(ry), x: view.sourceScanX(rx))
+            }
+            func readScanRow(_ view: LoadView, ry: Int) throws -> [Float] {
+                (0..<view.descriptor.rx).flatMap { pattern(view, y: view.sourceScanY(ry), x: view.sourceScanX($0)) }
+            }
+            func readScanTile(_ view: LoadView, yRange: Range<Int>) throws -> FourDScanTile {
+                let pixels = try yRange.flatMap { try readScanRow(view, ry: $0) }
+                return FourDScanTile(yRange: yRange, scanWidth: view.descriptor.rx, detectorHeight: view.descriptor.qy,
+                                     detectorWidth: view.descriptor.qx, pixels: pixels)
+            }
+            func readDoubleAttribute(_ name: String, onObjectPath path: String) -> Double? { nil }
+            func pixelCalibration() -> PixelCalibration? { nil }
+        }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("nan-hot-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let descriptor = PreprocessFixtureSource.descriptor
+        let view = LoadView(fullExtentOf: descriptor)
+        let target = directory.appendingPathComponent("hot.h5")
+        do {
+            _ = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+                source: NaNSource(), view: view, calibration: PixelCalibration(),
+                options: CalibratedDataCubeExportOptions(scanY: 0..<descriptor.ry, scanX: 0..<descriptor.rx, hotPixelThreshold: 20),
+                to: target)
+            XCTFail("a NaN pixel must refuse the hot-pixel filter")
+        } catch BraggVectorEMDWriter.WriterError.hotPixelFilterNeedsFinitePixels {
+            XCTAssertTrue(BraggVectorEMDWriter.WriterError.hotPixelFilterNeedsFinitePixels.localizedDescription
+                .contains("Switch the hot-pixel filter off or crop away non-finite pixels"))
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.path), "nothing was published")
+        _ = try await BraggVectorEMDWriter.writeCalibratedDataCube(
+            source: NaNSource(), view: view, calibration: PixelCalibration(),
+            options: CalibratedDataCubeExportOptions(scanY: 0..<descriptor.ry, scanX: 0..<descriptor.rx), to: target)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: target.path))
+    }
+
     func testANonFinitePixelIsRefusedNotMedianed() {
         var pixels: [Float] = [1, .nan, 3]
         XCTAssertThrowsError(try BraggVectorEMDWriter.replaceHotPixels(
-            in: &pixels, base: 0, rows: 1, columns: 3, mask: [false, true, false]))
+            in: &pixels, base: 0, rows: 1, columns: 3, mask: [false, true, false])) { error in
+            guard case BraggVectorEMDWriter.WriterError.hotPixelFilterNeedsFinitePixels = error else { return XCTFail("\(error)") }
+        }
     }
 
     func testStrideKeepsFloorOfTheCropFromTheCropsFirstPosition() {

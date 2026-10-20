@@ -1,6 +1,6 @@
 #!/bin/zsh
 # tools/lib/hdf5-dir.sh — prints the folder holding the three HDF5 frameworks (FormatoLibHDF5, FormatoLibSZ, FormatoLibAEC) that every
-# reader harness points MAC4DSTEM_HDF5_PATH into: "$(tools/lib/hdf5-dir.sh)/FormatoLibHDF5.framework/FormatoLibHDF5". They are FormatoKit's
+# reader harness points FORMATO_HDF5_PATH (the one variable the app and FormatoKit read) into: "$(tools/lib/hdf5-dir.sh)/FormatoLibHDF5.framework/FormatoLibHDF5". They are FormatoKit's
 # binary targets (0.4.0), the same files Xcode embeds in the app's Contents/Frameworks. SwiftPM unpacks each XCFramework into
 # .build/artifacts/formatokit/<Name>/, apart from the others; libhdf5's load commands are @rpath/FormatoLibSZ.framework/... and
 # @rpath/FormatoLibAEC.framework/... with the rpath @loader_path/../../.. (the folder holding the framework), so a harness needs the three

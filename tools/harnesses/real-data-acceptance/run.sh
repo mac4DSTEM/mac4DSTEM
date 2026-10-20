@@ -45,7 +45,7 @@ resolve_mac4dstem_developer_dir
 
 HDF5_FRAMEWORKS="$("$ROOT/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
 HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
-export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader, writer and shims read it too (FormatoKit's lookup order)
 for source in "$ROOT"/mac4DSTEM/Shaders/*.metal; do
   xcrun -sdk macosx metal -c "$source" -o "$WORK/${source:t:r}.air"
 done

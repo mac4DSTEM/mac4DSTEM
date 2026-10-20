@@ -51,6 +51,13 @@ pre-S1 body is verbatim there): [`../_archive/mac4DSTEM/docs/archive/closed-item
   and one review (suite CLAUDE.md); the registrations above are the record of the day, not a pattern to repeat.
 
 
+### Kit asks from the reader switches (2026-10-20; every shim is marked `// delete at FormatoKit 0.6.0:` in the code)
+- **DM4Reader stays the app's** (not switched). `DM4Datacube(.appCalibratedAxes)` is bit-identical to it on `AlMgSi_4D_EDX.dm4` (float32 48x64x128x128) and `small_datacube.dm4` (uint16 20x20x512x512), but a whole-scan float32 tile took 0.76 s against 0.10 s (uint16 0.16 s against 0.23 s). Asks: a contiguous fast path (the gather is per element); expose the storage layout it chose (the unit-domain rule is otherwise repeated); DM3 (`.dm3` opens today); a declared data length of 0 (tolerated today); a read-into-memory mode for non-local volumes (the app keeps `.mappedIfSafe` there; the kit always maps).
+- **HDF5Reader / HDF5DatasetInfo:** chunk shape (inspector, `loadPushdown`); an enum/bool read (py4DSTEM's `QR_flip`); float16 datasets, scalars and dim vectors included (the shim reads them, so calibration is not dropped); a slab read that holds the file open and reads straight into Float (the per-call open measured 1.5-6x slower per pattern on Au_sim.h5, 1.45x peak memory); a recursive link listing with link types and object identity (discovery costs one open per group and link). Shims: `HDF5LegacyProbe` and `HDF5SlabFile` in `H5Reader.swift`.
+- **FormatoMIB:** header sizes other than 384/768 and headers without width and height (the former reader took them; the app keeps its frame reads as a fallback); return the stored pixel code (the app reads the first header for the dtype text).
+- **FormatoEMPAD:** `scan_parameters mode="acquire"` with `scan_resolution_x/y` under any raw file name; raw-only EMPAD; expose the resolved raw path. Pixel calibration from the XML is a separate change.
+- **Writers (not switched):** `HDF5AppendWriter` 0.5.0 writes numeric datasets and fixed-length attributes only; the sidecar needs string and bool datasets, variable-length strings (0.6.0 adds the first two), object copy, a vlen peak grid, and space reclamation (a replaced result leaves its space in the file). `BraggCalibration` needs `QR_rotation_convention`, origin maps and UTF-8 units; `BraggVectorsEMD.write` builds beside the destination, which the sandbox refuses (the app uses the item-replacement directory). `write(vectors:)` has no production caller, so it and the merges stay.
+
 ### Phase 2: the rest of Core/ onto the kits (plan 2026-10-16; per file, from `../_archive/mac4DSTEM/inventory-Core-2026-10-16.md`)
 
 Waits on the tags CuboKit 0.3.x, FormatoKit 0.3.x, DiffractoKit 0.4.x, SpectroKit 0.5.x. Each is a focused commit with its
@@ -66,6 +73,9 @@ unless the commit says so. Order: CuboKit, FormatoKit, DiffractoKit, SpectroKit.
   attributes, lineage and replay stamping stay.
 - **DiffractoKit:** `OrientationResult` symmetry and `OrientationMatcher`/`OrientationPlan` are DONE (2026-10-20, DiffractoKit 0.5.0; the facade `ACOMCrystalSymmetry`, `OrientationMap`, `OrientationPlan` as the kit library plus symmetry, and the Metal dispatch stay). Open: `MaterialsProjectImport` (JSON fetch glue stays).
   Kit asks from that switch (delete the interim at the kit version): (1) `ACOMTemplateLibrary.generate` takes no cancellation, so a token is honoured only before and after the build (`OrientationPlan.generate`, delete at 0.6); (2) no public result-from-scores entry, so the Metal path keeps `selectOrientation` and `makeOrientationResult` (`OrientationMatcher.swift`, delete at 0.6); (3) `ACOMMatcher.experimentalPolarImage` is nil for fewer than 2 peaks where the app's diagnostic accepted 1; (4) `ACOMMatcher.matchAll` takes `[[ACOMPeak]]`, so the app converts from `BraggPeak` per 8192-position chunk (a borrowed or generic bulk input would remove the copy).
+- **FormatoKit:** done 2026-10-20: `H5Reader` onto HDF5Reader (shims for what the kit lacks), `VendorRawReaders` (MIB, EMPAD with fallbacks), the sidecar READS, the writer file split. Not done: `DM4Reader` (kit asks below), the sidecar writes and `write(vectors:)` (0.5.0's append writer is too narrow).
+- **DiffractoKit:** `OrientationResult` symmetry (cubic, hexagonal, monoclinic, `ACOMCrystalSymmetry`, `OrientationMap`),
+  `OrientationMatcher`/`OrientationPlan` (Metal dispatch and service stay), `MaterialsProjectImport` (JSON fetch glue stays).
 - **SpectroKit:** `MaskTransport`, `PoolBuilder` (grouping and edge counts).
 - **Per-position origins (C3), located 2026-10-16:** measurement is `OriginCalibration.tiledRun` (CoM per position through
   `VirtualDetector.tiledMeasuredOrigins` / `MetalEngine`, Friedel per position at `OriginCalibration.swift` ~L692-760);
@@ -409,7 +419,7 @@ on the selected region and the file's axis, cancellably; suggestions never touch
   the line case (La Kα = Cd Kα + Tl Lα, 33.5–37.8 keV axes, 120–200 counts) still throws `rankDeficient` by the owner's choice. Open: the
   `escapes.count == 1` guard is reached by no mutation; P4/P5 not re-run (harness and data not on this Mac).
 - **SpectroKit (2026-10-13):** the stored field `SpectrumImageMetadata.sameScanAs4DCube` keeps its 4D name (a rename
-  re-baselines the golden); `SpectroscopyExport`'s default title and `MAC4DSTEM_HDF5_PATH` still name the app (injectable, defaults kept);
+  re-baselines the golden); `SpectroscopyExport`'s default title still names the app (injectable, default kept); `MAC4DSTEM_HDF5_PATH` is no longer read by the app (2026-10-20: `FORMATO_HDF5_PATH`, FormatoKit's list);
   public API: 438 declarations, ζ `package`. Since S4 (ADR 067): 18 staying test files reach SpectroKit `package` API by
   `@testable import SpectroCore` / `SpectroEDX` (memberwise inits of `ElementCandidate`, `LineWindow`, …; `EDSFit`),
   so they compile only against a testable (Debug) SpectroKit; a later tag could make those public. The Run configuration's

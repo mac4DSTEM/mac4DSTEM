@@ -13,7 +13,7 @@ trap 'rm -rf "$WORK"' EXIT
 # libhdf5 is FormatoKit's framework (already ad-hoc signed), loaded in place: nothing is copied or re-signed.
 HDF5_FRAMEWORKS="$("$REPO/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
 HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
-export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader, writer and shims read it too (FormatoKit's lookup order)
 
 cc make_fixture.c "$HDF5_LIB" -Wl,-rpath,"$HDF5_FRAMEWORKS" -o "$WORK/make_fixture"
 codesign -f -s - "$WORK/make_fixture" 2>/dev/null
@@ -26,7 +26,7 @@ xcrun swiftc -package-name mac4DSTEM -o "$WORK/harness" main.swift \
   -framework Accelerate
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
-# H5Reader finds libhdf5 through MAC4DSTEM_HDF5_PATH (FormatoKit's framework, see tools/lib/hdf5-dir.sh).
+# H5Reader finds libhdf5 through FORMATO_HDF5_PATH above (FormatoKit's framework, see tools/lib/hdf5-dir.sh); MAC4DSTEM_HDF5_PATH is no longer read by the app.
 export MAC4DSTEM_HDF5_PATH="$HDF5_LIB"
 # 2>/dev/null hides HDF5's
 # expected error-stack chatter from the dataset-form probes on attrs.h5.

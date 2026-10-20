@@ -110,6 +110,7 @@
 				Core/Data/FourDDataSource.swift,
 				Core/Data/GMSFourDRegistration.swift,
 				Core/Data/H5Reader.swift,
+				Core/Data/HDF5LibraryCandidates.swift,
 				Core/Data/HDF5WriteLibrary.swift,
 				Core/Data/HDF5WritePrimitives.swift,
 				Core/Data/LoadConfiguration.swift,

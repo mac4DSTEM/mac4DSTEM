@@ -556,6 +556,10 @@ extension AppState {
         if let dm4 = reader as? DM4Reader, let note = await dm4.calibrationNote {
             statusText = note
         }
+        // A MIB the kit refused but the app's own frame reads took: say why (the kit's reason would otherwise be lost).
+        if let mib = reader as? MIBReader, let why = await mib.kitRefusal {
+            activityLog.record("FormatoMIB did not take this file (\(why)); it was read by the app's own frame reads.")
+        }
         // The aperture centre the FILE recorded, in SOURCE detector pixels — the only
         // aperture position `CalibrationReReference` may move. The default above is a
         // VIEW-frame value (already binned / cropped); re-referencing it a second time

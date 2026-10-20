@@ -43,6 +43,11 @@ func fail(_ message: String) -> Never {
         let kitCrop = try await kitXML.readScanRow(cropView, ry: 0)
         let appCrop = try await empad.readScanRow(appCropView, ry: 0)
         guard kitCrop == appCrop, kitCrop.count == 2 * 4 * 8 else { fail("EMPAD kit XML cropped row differs") }
+        let both = try EMPADReader(path: root.appendingPathComponent("empad_both.xml").path)
+        let bd = try await both.discoverPrimaryDataset()
+        guard bd.shape == [2, 3, 128, 128] else { fail("EMPAD with both spellings: \(bd.shape), the app's scan_resolution must win") }
+        let bt = try await both.readScanTile(LoadView(fullExtentOf: bd), yRange: 0..<2)
+        guard bt.pixels == et.pixels else { fail("EMPAD with both spellings: frames differ from the app-read ones") }
         let rowXML = try EMPADReader(path: root.appendingPathComponent("empad_row.xml").path)
         let rd = try await rowXML.discoverPrimaryDataset()
         guard rd.shape == [1, 6, 128, 128] else { fail("EMPAD single-row descriptor \(rd.shape)") }
@@ -75,6 +80,14 @@ func fail(_ message: String) -> Never {
             fail("MIB scan ordering")
         }
         print("PASS: MIB companion shape, repeated headers, big-endian U16, and tile order")
+
+        // A header size the kit refuses (512) and no width/height in it: read by the app's own frame reads, as before.
+        let legacy = try MIBReader(path: root.appendingPathComponent("legacy.mib").path)
+        let ld = try await legacy.discoverPrimaryDataset()
+        guard ld.shape == [1, 2, 256, 256], ld.dtypeDescription.contains("U16") else { fail("legacy MIB descriptor \(ld.shape)") }
+        let lp = try await legacy.readPattern(LoadView(fullExtentOf: ld), ry: 0, rx: 1)
+        guard lp[0] == 1000, lp[1] == 1001, lp[65534] == Float((1000 + 65534) % 65535) else { fail("legacy MIB pixels") }
+        print("PASS: a MIB with a 512-byte header and no width/height in it still opens (the app's fallback)")
         print("vendor-reader-test: all passed")
     }
 }

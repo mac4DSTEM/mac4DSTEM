@@ -360,3 +360,62 @@ with h5py.File(root / "d1_multielement_attributes.h5", "w") as f:
     cal.attrs.create("Q_pixel_units", np.array([b"1/A", b"1/nm"], dtype="S8"))  # 2 strings
     cal.attrs.create("R_pixel_size", np.float64(3.0))                           # scalar, must read
     cal.attrs.create("R_pixel_units", "nm")                                     # scalar, must read
+
+# f1 — a float16 cube: HDF5Reader refuses float16, so the app reads it through libhdf5's own conversion (H5Reader's HDF5LegacyProbe).
+with h5py.File(root / "f1_float16.h5", "w") as f:
+    f.create_group("lab/session/scan_07/cube").create_dataset("data", data=cube((3, 4, 6, 5), np.float16))
+
+# f2 — float16 calibration scalars and a float16 origin map: read through libhdf5's conversion, not dropped.
+with h5py.File(root / "f2_float16_calibration.h5", "w") as f:
+    f.create_group("datacube_root/datacube").create_dataset("data", data=cube((2, 3, 4, 4), np.float32))
+    cal = f.create_group("datacube_root/metadatabundle/calibration")
+    cal.create_dataset("Q_pixel_size", data=np.float16(0.25))
+    cal.create_dataset("R_pixel_size", data=np.float16(2.0))
+    cal.create_dataset("qx0", data=np.full((2, 3), 1.5, dtype=np.float16))
+    cal.create_dataset("qy0", data=np.full((2, 3), 2.5, dtype=np.float16))
+
+# g1 — the stored-type matrix: every integer width and sign, float64, and a big-endian type, one rank-4 dataset each, with the float32
+# the numpy cast gives written beside it (the app must read the same bits).
+with h5py.File(root / "g1_dtypes.h5", "w") as f:
+    shape = (2, 3, 4, 5)
+    n = int(np.prod(shape))
+    base = np.arange(n, dtype=np.int64) - n // 2
+    cases = {
+        "int8": (base % 100).astype(np.int8), "uint8": (np.arange(n) % 256).astype(np.uint8),
+        "int16": (base * 300).astype(np.int16), "uint16": (np.arange(n) * 500 % 65536).astype(np.uint16),
+        "int32": (base * 70001).astype(np.int32), "uint32": (np.arange(n, dtype=np.uint64) * 40000001 % 4294967296).astype(np.uint32),
+        "int64": base * (2 ** 40 + 3), "uint64": np.arange(n, dtype=np.uint64) * np.uint64(2 ** 55 + 5) + np.uint64(2 ** 63),
+        "float32": (base * 0.1).astype(np.float32), "float64": base * 1.0000000123e-7 + 1e-30,
+        "uint16_be": (np.arange(n) * 509 % 65536).astype(">u2"), "float64_be": (base * 3.3).astype(">f8"),
+    }
+    for name, values in cases.items():
+        f.create_dataset(name, data=values.reshape(shape))
+        (root / ("g1_" + name + ".f32")).write_bytes(values.astype(np.float32).tobytes())
+
+# h1 — a soft link back up the tree (a cycle): the link walk must end and still find the cube.
+with h5py.File(root / "h1_soft_link_cycle.h5", "w") as f:
+    f.create_group("lab/scan/cube").create_dataset("data", data=cube((3, 4, 6, 5)))
+    f["lab/scan/loop"] = h5py.SoftLink("/lab")
+    f["lab/back"] = h5py.SoftLink("/lab/scan")
+
+# f3 — float16 ATTRIBUTES on the calibration group (emdfile writes scalars as attributes): read, not dropped.
+with h5py.File(root / "f3_float16_attributes.h5", "w") as f:
+    f.create_group("datacube_root/datacube").create_dataset("data", data=cube((2, 3, 4, 4), np.float32))
+    cal = f.create_group("datacube_root/metadatabundle/calibration")
+    cal.attrs["Q_pixel_size"] = np.float16(0.25)
+    cal.attrs["R_pixel_size"] = np.float16(2.0)
+
+# i1 — the same name four deep: the cube is /a/data/data/data/data (no name-repeat rule may cut the walk).
+with h5py.File(root / "i1_repeated_names.h5", "w") as f:
+    f.create_group("a/data/data/data").create_dataset("data", data=cube((3, 4, 6, 5)))
+
+# i2 — a HARD link back up the tree (a cycle): the walk ends, the cube is found at its first path.
+with h5py.File(root / "i2_hard_link_cycle.h5", "w") as f:
+    f.create_group("lab/scan/cube").create_dataset("data", data=cube((3, 4, 6, 5)))
+    f["lab/scan/loop"] = f["lab"]
+
+# i3 — an alias: a hard link to the same group that sorts BEFORE it. H5Lvisit2 enters a group the first time it meets it, so the
+# listed path is /0a/cube/data, and /lab/scan is listed but not entered.
+with h5py.File(root / "i3_hard_link_alias.h5", "w") as f:
+    f.create_group("lab/scan/cube").create_dataset("data", data=cube((3, 4, 6, 5)))
+    f["0a"] = f["lab/scan"]

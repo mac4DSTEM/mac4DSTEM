@@ -107,8 +107,8 @@ MAC4DSTEM_ISOLATION_FLAGS=(
 # SPECTROKIT_BUNDLE is the EDX tables' resource bundle (SpectroKit_SpectroEDX.bundle): a harness that reads
 # QuantificationTables copies it beside its binary (Bundle.module looks there and traps otherwise).
 # libhdf5 is not in the prelinked objects (FormatoKit 0.4.0 ships it as three framework binary targets, which an object build does not link):
-# the reader harnesses point both MAC4DSTEM_HDF5_PATH (read by the app's H5Reader and BraggVectorEMDWriter) and FORMATO_HDF5_PATH (read by FormatoKit's
-# own loaders: FormatoHDF5's shared lookup and the Velox reader) at FormatoLibHDF5.framework from tools/lib/hdf5-dir.sh; each lookup tries its variable first.
+# the reader harnesses point FORMATO_HDF5_PATH (read by FormatoKit's own loaders and, since 2026-10-20, by the app's H5Reader, BraggVectorEMDWriter and shims through the same
+# candidate list, HDF5LibraryCandidates) at FormatoLibHDF5.framework from tools/lib/hdf5-dir.sh; MAC4DSTEM_HDF5_PATH is no longer read by the app (two harness mains read it themselves).
 spectrokit_module() {
   local repo=$1
   local ck="$repo/.build/checkouts/SpectroKit" fck="$repo/.build/checkouts/FormatoKit" scratch="$repo/.build/spectrokit-tools"
@@ -254,6 +254,7 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/SessionSidecarFormat.swift"
           "$core/Data/FormatoArrayFloat32.swift"
+          "$core/Data/HDF5LibraryCandidates.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/DM4Reader.swift"
           "$core/Data/VendorRawReaders.swift"
@@ -542,6 +543,7 @@ mac4dstem_sources() {
           "${MAC4DSTEM_SOURCES[@]}"
           "$core/Data/SessionSidecarFormat.swift"
           "$core/Data/FormatoArrayFloat32.swift"
+          "$core/Data/HDF5LibraryCandidates.swift"
           "$core/Data/H5Reader.swift"
           "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"

@@ -19,7 +19,7 @@ resolve_mac4dstem_developer_dir
 # libhdf5 is FormatoKit's framework (already ad-hoc signed), loaded in place: nothing is copied or re-signed.
 HDF5_FRAMEWORKS="$("$REPO/tools/lib/hdf5-dir.sh")"   # FormatoKit's three frameworks, side by side
 HDF5_LIB="$HDF5_FRAMEWORKS/FormatoLibHDF5.framework/FormatoLibHDF5"
-export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader and writer read MAC4DSTEM_HDF5_PATH
+export FORMATO_HDF5_PATH="$HDF5_LIB"   # FormatoKit's own loaders (Velox reader, FormatoHDF5) read this; the app's H5Reader, writer and shims read it too (FormatoKit's lookup order)
 
 PYTHONPATH="$REPO/References/py4DSTEM-dev" "$PYTHON_BIN" reference.py "$WORK"
 
@@ -31,7 +31,7 @@ xcrun swiftc -package-name mac4DSTEM -O -parse-as-library -o "$WORK/harness" \
 
 codesign -f -s - "$WORK/harness" 2>/dev/null
 
-# H5Reader finds libhdf5 through MAC4DSTEM_HDF5_PATH (FormatoKit's framework, see tools/lib/hdf5-dir.sh).
+# H5Reader finds libhdf5 through FORMATO_HDF5_PATH above (FormatoKit's framework, see tools/lib/hdf5-dir.sh); MAC4DSTEM_HDF5_PATH is no longer read by the app.
 export MAC4DSTEM_HDF5_PATH="$HDF5_LIB"
 cd "$WORK"
 ./harness "$WORK"
