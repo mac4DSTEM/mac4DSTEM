@@ -15,6 +15,8 @@
 //
 
 import Foundation
+import SpectroCore
+import DiffractoOrientation
 
 package nonisolated struct RegistrationRecordM2: Codable, Equatable, Sendable {
 
@@ -140,5 +142,46 @@ package nonisolated struct RegistrationRecordM2: Codable, Equatable, Sendable {
         guard let r = try? JSONDecoder().decode(RegistrationRecordM2.self, from: Data(json.utf8)),
               r.matrix.count == 6, r.matrix.allSatisfy(\.isFinite) else { return nil }
         return r
+    }
+}
+
+// MARK: - SpectroKit's registration types (2026-10-20)
+// The transport and pooling arithmetic is SpectroCore's (`GridRegistration`, `MaskTransport`, `TransportedLabels`,
+// `MaskTransportReport`, `PoolBuilder`, `PooledSpectrum`). This record stays the app's persisted form; the adapters below
+// hand its affine and grid sizes to the kit. The kit throws where the app trapped (a label outside 0..<classCount, a mask
+// on the wrong grid, an unknown class), so the pooling calls are `try`.
+
+extension RegistrationRecordM2 {
+    /// The kit's registration: refuses a malformed or singular matrix and non-positive or overflowing grids by name.
+    package nonisolated func gridRegistration() throws -> GridRegistration {
+        try GridRegistration(matrix: matrix, scanWidth: scanWidth, scanHeight: scanHeight,
+                             spectrumWidth: spectrumWidth, spectrumHeight: spectrumHeight)
+    }
+}
+
+extension MaskTransport {
+    /// `transport(labels:classCount:registration:)` for the app's record.
+    package nonisolated static func transport(labels: [Int], classCount: Int, registration: RegistrationRecordM2) throws -> TransportedLabels {
+        try transport(labels: labels, classCount: classCount, registration: registration.gridRegistration())
+    }
+
+    /// `transport(mask:registration:)` for the app's record.
+    package nonisolated static func transport(mask: [Bool], registration: RegistrationRecordM2) throws -> TransportedLabels {
+        try transport(mask: mask, registration: registration.gridRegistration())
+    }
+
+    /// Positions of a phase map labelled `phase` (indexed or matrix verdicts, as `PhaseMap.phaseCounts`): the 4D side of a
+    /// phase pool, which names the app's `PhaseMap` and so stays here.
+    package nonisolated static func mask(phase: Int, in map: PhaseMap) -> [Bool] {
+        map.results.map { ($0.verdict == .indexed || $0.verdict == .matrix) && Int($0.phaseIndex) == phase }
+    }
+}
+
+extension PoolBuilder {
+    /// `pool(image:scanMask:registration:name:kind:validation:)` for the app's record.
+    package nonisolated static func pool(image: some SpectrumImage, scanMask: [Bool], registration: RegistrationRecordM2,
+                             name: String, kind: String, validation: String? = nil) throws -> PooledSpectrum {
+        try pool(image: image, scanMask: scanMask, registration: registration.gridRegistration(),
+                 name: name, kind: kind, validation: validation)
     }
 }

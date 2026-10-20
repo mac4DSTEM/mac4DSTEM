@@ -120,8 +120,6 @@
 				Core/Data/VendorRawReaders.swift,
 				Core/ML/LearnedDiskDetection.swift,
 				Core/ML/LearnedDiskDetector.swift,
-				Core/Spectroscopy/Registration/MaskTransport.swift,
-				Core/Spectroscopy/Registration/PoolBuilder.swift,
 				Core/Spectroscopy/Registration/QuantificationStep.swift,
 				Core/Spectroscopy/Registration/RegistrationRecordM2.swift,
 				Core/Workflow/AnalysisOperationController.swift,

@@ -172,7 +172,7 @@ package nonisolated struct PoolCatalogue: Equatable, Sendable {
 
     private mutating func append(labels: [Int], classes: [(id: Int, kind: SpectrumPool.Kind, name: String)], section: PoolSection,
                                  generation: Int, registration: RegistrationRecordM2, validation: String?, product: String) {
-        let t: DSTEMCore.TransportedLabels  // the app's own; SpectroCore 0.5.3+ exports the same name (delete at the SpectroKit registration switch)
+        let t: TransportedLabels
         do { t = try MaskTransport.transport(labels: labels, classCount: classes.count, registration: registration) }
         catch { notes.append(PoolNote(section: section, text: "\(error)")); return }
         let membership = t.labels

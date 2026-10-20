@@ -32,7 +32,7 @@ final class RegistrationTests: XCTestCase {
         var scan = [Bool](repeating: false, count: 16)
         for (x, y) in [(0, 0), (1, 0), (0, 1), (1, 1), (2, 2), (3, 2), (2, 3)] { scan[y * 4 + x] = true }
         let t = try MaskTransport.transport(mask: scan, registration: mirror)
-        let (mask, report) = MaskTransport.region(t)
+        let (mask, report) = try MaskTransport.region(t)
         XCTAssertEqual(mask, [false, true, true, false])
         XCTAssertEqual(t.overlap[0][1], 1, accuracy: 1e-12)
         XCTAssertEqual(t.overlap[0][2], 0.75, accuracy: 1e-12)
@@ -51,7 +51,7 @@ final class RegistrationTests: XCTestCase {
         var scan = [Bool](repeating: false, count: 16)
         scan[2 * 4 + 2] = true                                     // (2,2): 1/4 of spectrum pixel (0,1)
         let t = try MaskTransport.transport(mask: scan, registration: mirror)
-        let (mask, report) = MaskTransport.region(t)
+        let (mask, report) = try MaskTransport.region(t)
         XCTAssertEqual(mask, [false, false, false, false])
         XCTAssertEqual(report.touchedExcluded, 1)
         XCTAssertEqual(t.overlap[0][2], 0.25, accuracy: 1e-12)
@@ -65,7 +65,7 @@ final class RegistrationTests: XCTestCase {
                                          scanWidth: 4, scanHeight: 1, spectrumWidth: 5, spectrumHeight: 1)
         let t = try MaskTransport.transport(mask: [false, true, false, false], registration: shift)
         XCTAssertEqual(t.overlap[0].map { ($0 * 100).rounded() / 100 }, [0, 0.5, 0.5, 0, 0])
-        XCTAssertEqual(MaskTransport.region(t).mask, [false, true, true, false, false])
+        XCTAssertEqual(try MaskTransport.region(t).mask, [false, true, true, false, false])
     }
 
     /// P4. The identity changes nothing: the mask, no partial pixels, no edge, nothing outside.
@@ -76,7 +76,7 @@ final class RegistrationTests: XCTestCase {
         var scan = [Bool](repeating: false, count: 35)
         for i in [0, 3, 4, 8, 13, 20, 21, 34] { scan[i] = true }
         let t = try MaskTransport.transport(mask: scan, registration: identity)
-        let (mask, report) = MaskTransport.region(t)
+        let (mask, report) = try MaskTransport.region(t)
         XCTAssertEqual(mask, scan)
         XCTAssertEqual(report.partialIncluded, 0)
         XCTAssertEqual(report.edgeIncluded, 0)
@@ -94,7 +94,7 @@ final class RegistrationTests: XCTestCase {
                                        scanWidth: 4, scanHeight: 3, spectrumWidth: 3, spectrumHeight: 4)
         var scan = [Bool](repeating: false, count: 12)
         scan[1 * 4 + 3] = true                                      // (x=3, y=1) -> (u=1, v=0)
-        let mask = MaskTransport.region(try MaskTransport.transport(mask: scan, registration: rot)).mask
+        let mask = try MaskTransport.region(try MaskTransport.transport(mask: scan, registration: rot)).mask
         XCTAssertEqual(mask.firstIndex(of: true), 0 * 3 + 1)
         XCTAssertEqual(mask.filter { $0 }.count, 1)
     }
@@ -159,7 +159,7 @@ final class RegistrationTests: XCTestCase {
         var scan = [Bool](repeating: false, count: 16)
         for (x, y) in [(0, 0), (1, 0), (0, 1), (1, 1), (2, 2), (3, 2), (2, 3)] { scan[y * 4 + x] = true }
         let pool = try PoolBuilder.pool(image: image, scanMask: scan, registration: mirror, name: "Q",
-                                        kind: "phase", validation: DSTEMCore.PoolBuilder.phaseMapValidation)
+                                        kind: "phase", validation: PoolBuilder.phaseMapValidation)
         // Included pixels p = v*2+u: (u=1,v=0) is p = 1 and (u=0,v=1) is p = 2, so (20 + c) + (30 + c).
         XCTAssertEqual(pool.mask, [false, true, true, false])
         XCTAssertEqual(pool.counts, [UInt64(20 + 30), UInt64(21 + 31), UInt64(22 + 32)])
@@ -276,7 +276,7 @@ final class RegistrationTests: XCTestCase {
         XCTAssertThrowsError(try MaskTransport.transport(mask: [true, true, true, true], registration: huge))
         let far = RegistrationRecordM2(matrix: [1, 0, 1e8, 0, 1, 0], source: .typed,
                                        scanWidth: 2, scanHeight: 2, spectrumWidth: 2, spectrumHeight: 2)
-        XCTAssertEqual(MaskTransport.region(try MaskTransport.transport(mask: [true, true, true, true], registration: far)).mask,
+        XCTAssertEqual(try MaskTransport.region(try MaskTransport.transport(mask: [true, true, true, true], registration: far)).mask,
                        [false, false, false, false])
     }
 
@@ -323,7 +323,7 @@ final class RegistrationTests: XCTestCase {
 
         let t = try MaskTransport.transport(labels: f.labels4D, classCount: f.names.count, registration: f.registration)
         let pools = try PoolBuilder.pools(image: image, transported: t, names: f.names, kind: "phase",
-                                          validation: DSTEMCore.PoolBuilder.phaseMapValidation)
+                                          validation: PoolBuilder.phaseMapValidation)
         XCTAssertEqual(pools.reduce(0) { $0 + $1.pixelCount }, 768 - 55 - t.tiedExcluded,
                        "every pixel but the 55 wholly outside and the tied ones is in one pool")
         for (g, pool) in pools.enumerated() {

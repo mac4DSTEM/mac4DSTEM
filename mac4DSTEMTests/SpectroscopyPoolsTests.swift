@@ -9,6 +9,7 @@
 import XCTest
 @testable import DSTEMCore
 import DSTEMSession
+import SpectroCore
 import DiffractoOrientation
 @testable import mac4DSTEM
 @testable import SpectroCore
