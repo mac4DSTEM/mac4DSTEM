@@ -545,7 +545,6 @@ mac4dstem_sources() {
           "$core/Data/H5Reader.swift"
           "$core/Data/BraggVectorEMDTypes.swift"
           "$core/Data/BraggVectorEMDWriter.swift"
-          "$core/Data/HotPixelFilter.swift"
         )
         ;;
       *)

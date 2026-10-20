@@ -1,3 +1,4 @@
+import CuboCore
 import Darwin
 import Foundation
 import FormatoHDF5
@@ -321,9 +322,15 @@ package nonisolated enum BraggVectorEMDWriter {
             let mean = try await meanPattern(source: source, view: view, options: options,
                                              outputShape: outputShape,
                                              cancellation: cancellation, progress: progress)
-            hotPixels = HotPixelFilter.maskIndices(
-                mean: mean, height: outQY, width: outQX, threshold: threshold
-            ).map { [$0 / outQX, $0 % outQX] }
+            // CuboCore's classification of the mean (py4DSTEM's footprint and Float32 comparison); the mean itself is this
+            // file's, accumulated in Double (`meanPattern`).
+            let flags: [Bool]
+            do {
+                flags = try HotPixelFilter.mask(mean: mean, rows: outQY, columns: outQX, threshold: threshold)
+            } catch {
+                throw WriterError.invalidDimensions("the hot-pixel mask needs a finite threshold and finite pixels")
+            }
+            hotPixels = flags.indices.filter { flags[$0] }.map { [$0 / outQX, $0 % outQX] }
         }
         let summary = CalibratedDataCubeExportSummary(
             shape: outputShape,
@@ -1716,7 +1723,7 @@ package nonisolated enum BraggVectorEMDWriter {
             let sourceY = yPositions[outRow]
             let sourceTile = try await source.readScanTile(view, yRange: sourceY..<(sourceY + rowsInTile))
             try checkCancellation(cancellation)
-            let output = reducedTile(sourceTile, localRows: rowsInTile, view: view,
+            let output = try reducedTile(sourceTile, localRows: rowsInTile, view: view,
                                      options: options, outQY: outQY, outQX: outQX,
                                      hotPixelMask: hotPixelMask)
             let endY = outRow + rowsInTile
@@ -1764,7 +1771,7 @@ package nonisolated enum BraggVectorEMDWriter {
         _ tile: FourDScanTile, localRows: Int, view: LoadView,
         options: CalibratedDataCubeExportOptions, outQY: Int, outQX: Int,
         hotPixelMask: [Int]
-    ) -> [Float] {
+    ) throws -> [Float] {
         let descriptor = view.descriptor
         let xPositions = options.scanXPositions
         let cropY0 = options.qCropY?.lowerBound ?? 0
@@ -1773,6 +1780,8 @@ package nonisolated enum BraggVectorEMDWriter {
         let sourcePatternCount = descriptor.qy * descriptor.qx
         let patternSize = outQY * outQX
         var output = [Float](repeating: 0, count: localRows * xPositions.count * patternSize)
+        var flags = [Bool](repeating: false, count: hotPixelMask.isEmpty ? 0 : patternSize)
+        for flat in hotPixelMask where flags.indices.contains(flat) { flags[flat] = true }
         for localY in 0..<localRows {
             for (outX, sourceX) in xPositions.enumerated() {
                 let inputBase = (localY * descriptor.rx + sourceX) * sourcePatternCount
@@ -1790,17 +1799,42 @@ package nonisolated enum BraggVectorEMDWriter {
                     }
                 }
                 if !hotPixelMask.isEmpty {
-                    HotPixelFilter.replace(mask: hotPixelMask, in: &output, base: outputBase,
-                                           height: outQY, width: outQX)
+                    try replaceHotPixels(in: &output, base: outputBase, rows: outQY, columns: outQX, mask: flags)
                 }
             }
         }
         return output
     }
 
-    /// Mean of the exported (cropped, thinned, binned) patterns, accumulated in
-    /// Double: the first of the filter's two passes over the source. See the
-    /// DEVIATION note in `HotPixelFilter`.
+    /// The masked pixels of the pattern at `pixels[base ..< base + rows * columns]` replaced by CuboCore's clipped 3x3 median, in place
+    /// (the other patterns are not touched). A non-finite pixel is refused, as the kit refuses it.
+    package static func replaceHotPixels(in pixels: inout [Float], base: Int, rows: Int, columns: Int,
+                                         mask: [Bool]) throws {
+        let range = base..<(base + rows * columns)
+        let cleaned: [Float]
+        do {
+            cleaned = try HotPixelFilter.replacing(Array(pixels[range]), rows: rows, columns: columns, mask: mask)
+        } catch {
+            throw WriterError.invalidDimensions("the hot-pixel filter needs finite pixels")
+        }
+        pixels.replaceSubrange(range, with: cleaned)
+    }
+
+    /// Mean of the exported (cropped, thinned, binned) patterns: the first of the
+    /// filter's two passes over the source (py4DSTEM's `filter_hot_pixels`,
+    /// preprocess/preprocess.py:349-460, pinned commit f050d207; the
+    /// classification and the replacement are CuboCore's `HotPixelFilter`).
+    ///
+    /// DEVIATION: the mean is accumulated in Double and rounded once to Float;
+    /// numpy accumulates a float32 axis=(0,1) mean sequentially in float32 (which
+    /// is what CuboCore's own `HotPixelFilter.filter` does, so it is not used). A
+    /// pixel is classified differently only when its excess lies within the
+    /// float32 accumulation error of `thresh`. That error was measured on the
+    /// raw 060 cube (108 900 patterns, numpy 2.5.0; Gate B refuter 2026-10-01):
+    /// ~1e-5 relative at pixel values 1e3-1e4, but ~1e-3 relative (45-230
+    /// counts) at 2e5 against thresh 8 — so inside a bright direct disk
+    /// py4DSTEM's own mask is partly an accumulation artefact, and mask identity
+    /// with py4DSTEM holds only where |excess - thresh| exceeds that error.
     private static func meanPattern(
         source: any FourDDataSource, view: LoadView,
         options: CalibratedDataCubeExportOptions, outputShape: [Int],
@@ -1814,7 +1848,7 @@ package nonisolated enum BraggVectorEMDWriter {
         for (index, sourceY) in yPositions.enumerated() {
             try checkCancellation(cancellation)
             let tile = try await source.readScanTile(view, yRange: sourceY..<(sourceY + 1))
-            let reduced = reducedTile(tile, localRows: 1, view: view, options: options,
+            let reduced = try reducedTile(tile, localRows: 1, view: view, options: options,
                                       outQY: outQY, outQX: outQX, hotPixelMask: [])
             for pattern in 0..<outputShape[1] {
                 let base = pattern * patternSize

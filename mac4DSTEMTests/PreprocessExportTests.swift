@@ -8,6 +8,7 @@
 //
 
 import XCTest
+import CuboCore
 import DSTEMCore
 
 final class PreprocessExportTests: XCTestCase {
@@ -25,43 +26,60 @@ final class PreprocessExportTests: XCTestCase {
         return mean
     }
 
-    func testMaskComparesWithSecondBrightestAndWrapsAtTheEdge() {
+    /// The flat row-major indices CuboCore's mask marks, as the export's summary lists them.
+    private func maskedIndices(_ mean: [Float], rows: Int, columns: Int, threshold: Double) throws -> [Int] {
+        let flags = try HotPixelFilter.mask(mean: mean, rows: rows, columns: columns, threshold: threshold)
+        return flags.indices.filter { flags[$0] }
+    }
+
+    func testMaskComparesWithSecondBrightestAndWrapsAtTheEdge() throws {
         // Hot pixel: beats its neighbour (3004) by 2000. Dimmer neighbour: not
         // flagged (it is the second brightest of its own window). The edge
         // pair: np.roll puts each in the other's window, 10 apart < 20.
         // Corner: flagged. A clamped (non-wrapping) window would also flag
         // (3,0); comparing with the brightest would flag nothing.
-        let mask = HotPixelFilter.maskIndices(mean: plantedMean(), height: 8, width: 9, threshold: 20)
+        // (A consumer test of CuboCore.HotPixelFilter.mask; the kit pins the rule itself.)
+        let mask = try maskedIndices(plantedMean(), rows: 8, columns: 9, threshold: 20)
         XCTAssertEqual(mask, [2 * 9 + 3, 7 * 9 + 8])
     }
 
-    func testThresholdIsStrictlyGreaterThan() {
+    func testThresholdIsStrictlyGreaterThan() throws {
         var mean = [Float](repeating: 0, count: 6 * 6)
         mean[2 * 6 + 2] = 8
-        XCTAssertEqual(HotPixelFilter.maskIndices(mean: mean, height: 6, width: 6, threshold: 8), [],
+        XCTAssertEqual(try maskedIndices(mean, rows: 6, columns: 6, threshold: 8), [],
                        "py4DSTEM: mean - compare > thresh")
-        XCTAssertEqual(HotPixelFilter.maskIndices(mean: mean, height: 6, width: 6, threshold: 7.5), [2 * 6 + 2])
+        XCTAssertEqual(try maskedIndices(mean, rows: 6, columns: 6, threshold: 7.5), [2 * 6 + 2])
     }
 
-    func testReplacementIsTheClipped3x3MedianInPlace() {
+    func testReplacementIsTheClippedMedianAndTouchesOnlyItsOwnPattern() throws {
+        // The export replaces in the pattern at `base` of a tile and leaves the others alone.
         // Corner pixel: the window is the clipped 2 x 2 (even count), so the
         // median is the mean of the two middle values.
         var pixels: [Float] = [9, 1, 7,
                                3, 5, 2,
                                4, 6, 1000]       // (2,2) is the masked corner
-        HotPixelFilter.replace(mask: [8], in: &pixels, base: 0, height: 3, width: 3)
+        var corner = [Bool](repeating: false, count: 9); corner[8] = true
+        try BraggVectorEMDWriter.replaceHotPixels(in: &pixels, base: 0, rows: 3, columns: 3, mask: corner)
         XCTAssertEqual(pixels[8], (5 + 6) / 2, "median of {5, 2, 6, 1000} is (5 + 6) / 2")
         // Interior pixel: a full 3 x 3, odd count.
         var interior: [Float] = [1, 2, 3,
                                  4, 900, 6,
                                  7, 8, 9]
-        HotPixelFilter.replace(mask: [4], in: &interior, base: 0, height: 3, width: 3)
+        var middle = [Bool](repeating: false, count: 9); middle[4] = true
+        try BraggVectorEMDWriter.replaceHotPixels(in: &interior, base: 0, rows: 3, columns: 3, mask: middle)
         XCTAssertEqual(interior[4], 6)           // sorted 1,2,3,4,6,7,8,9,900
         // A second pattern after the first is untouched (the base offset).
         var two: [Float] = [0, 100, 0, 0, 100, 0]
-        HotPixelFilter.replace(mask: [1], in: &two, base: 3, height: 1, width: 3)
+        try BraggVectorEMDWriter.replaceHotPixels(in: &two, base: 3, rows: 1, columns: 3,
+                                                  mask: [false, true, false])
         XCTAssertEqual(two[1], 100, "pattern 0 must not be written")
         XCTAssertEqual(two[4], 0)
+    }
+
+    func testANonFinitePixelIsRefusedNotMedianed() {
+        var pixels: [Float] = [1, .nan, 3]
+        XCTAssertThrowsError(try BraggVectorEMDWriter.replaceHotPixels(
+            in: &pixels, base: 0, rows: 1, columns: 3, mask: [false, true, false]))
     }
 
     func testStrideKeepsFloorOfTheCropFromTheCropsFirstPosition() {
