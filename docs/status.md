@@ -1,5 +1,7 @@
 # Status
 
+**Hand-off 2026-10-20:** done: D12 wording in CLAUDE.md and test comments (c014e4b5); next: re-pin FormatoKit 0.4.0 and SpectroKit 0.6.1 at the next kit switch, and convert the tests that assert numerics exactly against a Python reference to written per-function tolerances (a code change, one per release).
+
 The one live status table. Updated in the same commit as the work it describes; anything older than the current step moves to `../_archive/mac4DSTEM/docs/archive/`. Numbers are quoted only from dated runs. Releases: `tools/release/README.md` § Releases.
 
 **What a log name in these rows is** (settled 2026-09-09): a log name like `unit-c7s2-20260908.log` identifies the run a number came from, not a path a reader can open — session logs live in the gitignored session scratchpad and are not retained past the session. What a reader reproduces is the gate, not the log — `tools/run-tests.sh` is the only thing that knows the harness count. Evidence a reader must be able to open is committed under `../_archive/mac4DSTEM/docs/archive/`, and the inventory gate fails on a repo-rooted path a truth doc cites and does not have.
