@@ -2,6 +2,8 @@
 
 ## Unreleased (kit switches since v4.5.0, 2026-10-15 to 2026-10-21; not yet tagged)
 
+- 2026-10-21 Re-calibrate Origin no longer overwrites a file's probe radius (the demo's 4.5 px was replaced by 9.56 px, the max pattern's estimate). The stored probe radius is now measured on the MEAN pattern, as py4DSTEM's `DataCube.get_probe_size` does, and only when no file, session or typed value (or vacuum-probe kernel) stands; the origin window keeps py4DSTEM's max-pattern radius (`get_origin`). A radius measured by Re-calibrate Origin on a file without one therefore moves from the max pattern's to the mean pattern's value (demo: 9.56 to 6.93 px). The lineage node records `origin_window_radius_px` and `probe_radius_mean_px`.
+
 - 2026-10-21 Spectroscopy: wt% and at% map modes (offered after Quantify, typed k) from `EDXQuantification.quantifyMaps`; per-pixel, no σ, a failed pixel (e.g. negative net) drawn 0 and counted on the tile, badge `validation: none`. Runs without absorption correction and refuses computed k with a sentence until the kit exposes them. Not on screen yet (unverified).
 
 - 2026-10-21 Patch re-pin: SpectroKit 0.8.1, FormatoKit 0.9.1, DiffractoKit 0.9.1, CuboKit 0.8.1, ImagoKit 0.6.1 (no source change, no public API change). Visible: `peak_local_max` accepts ±inf; CIF import is faster with identical results; kit test pins loosened to the Python tolerances. No migration.

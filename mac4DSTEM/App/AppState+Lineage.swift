@@ -40,7 +40,7 @@ extension AppState {
     /// The origin fit just landed in `calibrationSession`.
     func recordOriginCalibrationRun(fitFunction: OriginFitFunction, method: OriginMethod,
                                     probeSource: OriginCalibration.ProbeRadiusSource = .maxPattern,
-                                    probeRadius: Float, rmsResidual: Float?) {
+                                    probeRadius: Float, meanProbeRadius: Float? = nil, rmsResidual: Float?) {
         var parameters = [
             "fit_function": fitFunction.rawValue,
             "method": method.rawValue,
@@ -51,6 +51,9 @@ extension AppState {
             parameters["origin_x_px"] = String(origin.x)
             parameters["origin_y_px"] = String(origin.y)
         }
+        // `probe_radius_px` is the origin window's radius (source above); the calibration's own radius is the mean pattern's.
+        parameters["origin_window_radius_px"] = String(probeRadius)
+        if let meanProbeRadius { parameters["probe_radius_mean_px"] = String(meanProbeRadius) }
         if let rmsResidual { parameters["fit_rms_px"] = String(rmsResidual) }
         recordLineageRun(kind: "calibration_origin", parameters: parameters)
     }

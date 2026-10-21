@@ -146,3 +146,5 @@ Ordered as the ROADMAP takes them.
 - Swift 6 cost lanes, Apple-docs checks (liquid glass, deprecation sweep, Core ML vs CoreAI), `.fixedSize()` audit: decided or measured; the schedule is App work 16.
 - Minor tooling (free-space.sh constants, velox-parity venv, Dependabot torch 2.13 block): the tools are archived; the torch pin stays 2.11.0.
 - Process items (registrations, Gate B/D wording, lane G gate work, drive block, dead-code pass): retired 2026-10-15 or done 2026-10-21.
+
+- Probe radius (2026-10-21, supersedes the 2026-10-19 max-pattern decision for the STORED radius): the calibration radius is measured on the mean pattern (py4DSTEM `DataCube.get_probe_size`) and never replaces a file, session or typed value; the origin window keeps the max-pattern radius (`get_origin`). `ProbeRadiusSource` now names the window source only. The ellipse-fit residual refusal on the demo (no ring in the annulus) is correct.

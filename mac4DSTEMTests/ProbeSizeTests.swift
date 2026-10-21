@@ -176,6 +176,33 @@ final class ProbeSizeTests: XCTestCase {
             data: data, descriptor: d, fitFunction: .plane, probeSource: .meanPattern
         ) else { return XCTFail("tiledRun(.meanPattern) returned nil") }
         XCTAssertEqual(meanFit.probeRadius, rMean, accuracy: 0.01, ".meanPattern must come from the MEAN pattern")
+        // The calibration's radius is py4DSTEM's `get_probe_size` on the mean pattern whatever the window's source is.
+        XCTAssertEqual(try XCTUnwrap(fit.meanProbeRadius), rMean, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(meanFit.meanProbeRadius), rMean, accuracy: 0.01)
+        XCTAssertLessThan(try XCTUnwrap(fit.meanProbeRadius), rMax)
+    }
+
+    /// Re-calibrate Origin on a file with a probe radius leaves it, and its provenance, alone (it used to write the max-pattern
+    /// estimate, 9.56 px on the demo against the file's 4.5). A radius nothing stands behind is measured on the mean pattern.
+    func testRecalibrateOriginKeepsAFilesProbeRadius() async throws {
+        let state = AppState()
+        await state.openDemoFixture(calibrated: true)
+        let before = try XCTUnwrap(state.calibrationSession.calibration.probeRadius)
+        XCTAssertEqual(state.calibrationSession.provenance.probe, .importedFile)
+        await state.calibrateOrigin()
+        XCTAssertEqual(state.calibrationSession.calibration.probeRadius, before)
+        XCTAssertEqual(state.calibrationSession.provenance.probe, .importedFile)
+        let node = try XCTUnwrap(originNode(state))
+        XCTAssertNotNil(node.parameters["origin_window_radius_px"])
+
+        let bare = AppState()
+        await bare.openDemoFixture(calibrated: false)
+        bare.calibrationSession.provenance.probe = nil
+        await bare.calibrateOrigin()
+        XCTAssertEqual(bare.calibrationSession.provenance.probe, .measuredInApp)
+        let mean = try XCTUnwrap(originNode(bare)?.parameters["probe_radius_mean_px"].flatMap(Float.init))
+        XCTAssertEqual(try XCTUnwrap(bare.calibrationSession.calibration.probeRadius), mean)
+        XCTAssertLessThan(mean, try XCTUnwrap(originNode(bare)?.parameters["origin_window_radius_px"].flatMap(Float.init)))
     }
 
     // MARK: - The recorded probe-radius source (lineage key `probe_radius_source`)
@@ -197,9 +224,9 @@ final class ProbeSizeTests: XCTestCase {
             await state.calibrateOrigin()
             let node = try XCTUnwrap(originNode(state), "calibrateOrigin recorded no origin node")
             XCTAssertEqual(node.parameters["probe_radius_source"], source == .maxPattern ? "max" : "mean")
-            radii.append(try XCTUnwrap(state.calibrationSession.calibration.probeRadius))
+            radii.append(try XCTUnwrap(node.parameters["origin_window_radius_px"].flatMap(Float.init)))
         }
-        XCTAssertGreaterThan(radii[0], radii[1], "the demo's max radius exceeds its mean radius: the setting reached tiledRun")
+        XCTAssertGreaterThan(radii[0], radii[1], "the demo's max-pattern window radius exceeds its mean-pattern one: the setting reached tiledRun")
     }
 
     /// A manual centre and a restored fit with no fit node behind it did not measure a radius: they record "unknown".

@@ -119,7 +119,9 @@ package nonisolated enum OriginCalibration {
 
     // MARK: - Probe radius source
 
-    /// Which pattern the probe radius of an origin calibration (and so of the disk detection that follows) is measured on.
+    /// Which pattern the ORIGIN WINDOW's radius of an origin calibration is measured on (`tiledRun`'s `probeRadius`). The probe radius
+    /// stored in the calibration is a separate number, measured on the mean pattern as py4DSTEM's `DataCube.get_probe_size` does
+    /// (`tiledRun`'s `meanProbeRadius`), and only when no file, session or manual value stands (`AppState.calibrateOrigin`).
     ///
     /// `.maxPattern` is py4DSTEM's `dp_max` default (process/calibration/origin.py: `get_origin` feeds `get_probe_size` the
     /// maximum pattern) and CuboKit's `OriginMeasurement`; owner decision 2026-10-19 (`docs/open-items.md`).
@@ -317,7 +319,7 @@ package nonisolated enum OriginCalibration {
         cancellation: AnalysisCancellationToken? = nil,
         progress: (@Sendable (Double) -> Void)? = nil
     ) async throws ->
-        (probeRadius: Float, origin: OriginMaps, maxDP: [Float], meanDP: [Float],
+        (probeRadius: Float, meanProbeRadius: Float?, origin: OriginMaps, maxDP: [Float], meanDP: [Float],
          windowSensitivityPixels: Float?)? {
         guard cancellation?.isCancelled != true else { return nil }
         let statsProgress: (@Sendable (Double) -> Void) = { fraction in
@@ -383,8 +385,12 @@ package nonisolated enum OriginCalibration {
         }
         guard cancellation?.isCancelled != true else { return nil }
         progress?(1)
+        // The calibration's probe radius: py4DSTEM's `DataCube.get_probe_size` default is the MEAN pattern (`radius` above is
+        // `get_origin`'s working radius, the origin window's). nil when the mean pattern has no measurable probe.
+        let meanRadius = probeSize(dp: statistics.meanDP, qy: d.qy, qx: d.qx)?.r
         return (
             radius,
+            meanRadius,
             OriginMaps(width: d.rx, height: d.ry,
                        measuredX: measuredX, measuredY: measuredY,
                        fittedX: fitted.fittedX, fittedY: fitted.fittedY,

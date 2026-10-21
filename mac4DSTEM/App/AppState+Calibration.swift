@@ -102,9 +102,15 @@ extension AppState {
             }
             guard let result else { return }
 
-            calibrationSession.calibration.probeRadius = result.probeRadius
-            calibrationSession.provenance.probe = .measuredInApp
-            refreshDiskDefaultsForMeasuredProbe()
+            // The stored probe radius is py4DSTEM's `get_probe_size` (mean pattern), never the origin window's max-pattern radius, and it
+            // never replaces a file's, a session's or a typed value, nor the radius a vacuum-probe kernel supplies.
+            let provenance = calibrationSession.provenance.probe
+            let standing = provenance == .importedFile || provenance == .sessionSidecar || provenance == .manual || probeKernel != nil
+            if !standing, let measured = result.meanProbeRadius {
+                calibrationSession.calibration.probeRadius = measured
+                calibrationSession.provenance.probe = .measuredInApp
+                refreshDiskDefaultsForMeasuredProbe()
+            }
             calibrationSession.calibration.origin = result.origin
             clearSupersededFittedOrigin()
             phaseContrast.parallaxPreprocess = nil
@@ -121,11 +127,12 @@ extension AppState {
             }
             let rms = result.origin.rmsResidual ?? 0
             statusText = String(format: "Origin ✓  r ≈ %.1f px, fit RMS %.3f px (%@)",
-                                result.probeRadius, rms, fitFn.rawValue)
+                                calibrationSession.calibration.probeRadius ?? result.probeRadius, rms, fitFn.rawValue)
             // The lineage node (ADR 047): what the next disk detection, DPC and
             // strain run will name as their calibration input.
             recordOriginCalibrationRun(fitFunction: fitFn, method: method, probeSource: probeSource,
                                        probeRadius: result.probeRadius,
+                                       meanProbeRadius: result.meanProbeRadius,
                                        rmsResidual: result.origin.rmsResidual)
 
             // Not in DPC: that would recompute the whole cube, unasked; the map
